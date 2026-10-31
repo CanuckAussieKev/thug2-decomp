@@ -6,9 +6,9 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/park_editor.h"
 

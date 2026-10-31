@@ -7,15 +7,15 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/dbg.h"
-#include "game/net/net_app.h"
-#include "game/net/net_client.h"
-#include "game/net/net_conn.h"
-#include "game/net/net_dispatcher.h"
-#include "game/net/player_info.h"
+#include "engine/core/dbg.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_client.h"
+#include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
+#include "engine/net/player_info.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/score_internal.h"
-#include "game/skater/trick_component.h"
+#include "game/rider/trick_component.h"
 #include "game/skate/skate_module.h"
 
 namespace GameModules {

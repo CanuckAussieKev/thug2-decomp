@@ -4,21 +4,21 @@
 
 #include <cstdint>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/obj/cutscene.h"
-#include "game/obj/model_component.h"
-#include "game/obj/entity_hub.h"
-#include "game/skater/rider.h"
-#include "game/skater/trick_component.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/objects/cutscene.h"
+#include "engine/objects/model_component.h"
+#include "engine/objects/entity_hub.h"
+#include "game/rider/rider.h"
+#include "game/rider/trick_component.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/gfx/face_texture.h"
-#include "game/gfx/model_appearance.h"
+#include "engine/gfx/face_texture.h"
+#include "engine/gfx/model_appearance.h"
 #include "game/skate/cas_options.h"
-#include "game/obj/compositemgr.h"
+#include "engine/objects/compositemgr.h"
 
 namespace ScriptCommands {
 

@@ -6,15 +6,15 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/arena_alloc.h"
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
 #include "game/park_editing/park.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 
 namespace ParkEditing {
 

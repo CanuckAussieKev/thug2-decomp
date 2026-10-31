@@ -3,9 +3,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/arena_alloc.h"
-#include "game/core/text_store.h"
-#include "game/maths/vec4.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/text_store.h"
+#include "engine/maths/vec4.h"
 
 // The gap checklist (0x00578680-0x00579820): each level's list of the gaps it has (every EndGap the level's node
 // scripts can reach), sorted by score then name, with how often each was landed. The career keeps one per level

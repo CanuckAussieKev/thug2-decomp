@@ -13,7 +13,7 @@
 
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_rails.h"
-#include "game/maths/vec4.h"
+#include "engine/maths/vec4.h"
 
 namespace Scripts {
 class CArray;

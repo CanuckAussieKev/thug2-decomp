@@ -1,0 +1,1478 @@
+// The time-of-day manager and its script commands. See tod_manager.h.
+
+#include "engine/gfx/tod_manager.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <new>
+
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "game/park_editing/park_editor.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_effects.h"
+#include "engine/gfx/engine_scene_list.h"
+#include "engine/gfx/flexible_particle_manager.h"
+#include "engine/gfx/lens_flare.h"
+#include "engine/gfx/light_manager.h"
+#include "engine/gfx/particle_sets.h"
+#include "engine/gfx/screen_effects.h"
+#include "engine/lists/key_map.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/model_component.h"
+#include "engine/script/cscript.h"
+#include "engine/script/game_cfuncs.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/skate_module.h"
+#include "engine/script/node_prefixes.h"
+#include "engine/script/param_struct.h"
+#include "platform/stopwatch.h"
+#include "engine/gfx/cag_cfuncs.h"
+#include "engine/objects/anim_movies.h"
+#include "engine/gfx/movie.h"
+#include "engine/objects/particle_component.h"
+#include "engine/gfx/engine_glue.h"
+#include "frontend/front_end.h"
+
+namespace Gfx2D {
+
+uint32_t g_todReferences;
+
+float g_twoTo32{4294967300.0f};
+float g_half{0.5f};
+float g_thousand{1000.0f};
+float g_oneOver255{0.003921569f};
+float g_hundred{100.0f};
+
+namespace {
+
+// Names.
+constexpr uint32_t kName = 0xA1DC81F9;                    // name
+constexpr uint32_t kPrefix = 0x6C4E7971;                  // prefix
+constexpr uint32_t kNoPrefixWarning = 0x80804991;         // NoPrefixWarning
+constexpr uint32_t kSystem = 0x36B2EE74;                  // system
+constexpr uint32_t kSystemIndex = 0x2B430364;             // system_index
+constexpr uint32_t kCurrentState = 0xF8725A00;            // current_state
+constexpr uint32_t kOverwriteCurrentState = 0x6136E863;   // overwrite_current_state
+constexpr uint32_t kStateLength = 0xF746BEE2;             // state_length
+constexpr uint32_t kTransitionLength = 0x37BC278D;        // transition_length
+constexpr uint32_t kSky = 0xF9D98B10;                     // sky
+constexpr uint32_t kGroups = 0x0F92C68F;                  // groups
+constexpr uint32_t kParts = 0x96BF5801;                   // parts
+constexpr uint32_t kWaitFrames = 0x3FAF7F7F;              // wait_frames
+constexpr uint32_t kLightGroup = 0x9655CFF7;              // light_group
+constexpr uint32_t kResetLightGroup = 0xEC50037D;         // reset_light_group
+constexpr uint32_t kNumDaysPassed = 0x49EF4348;           // num_days_passed
+constexpr uint32_t kTimeMultiplierName = 0x1868AFB2;      // TOD_Time_Multiplier
+constexpr uint32_t kActive = 0xB4E103FD;                  // active
+constexpr uint32_t kCurrentStateName = 0xEA84C14D;        // current_state_name
+constexpr uint32_t kTodParams = 0xDF3D6451;               // tod_params
+constexpr uint32_t kStateName = 0x353F083F;               // state_name
+constexpr uint32_t kTempTODChanged = 0x4AF50A5B;          // todmanager_temp_tod_changed (a script global)
+constexpr uint32_t kInactive = 0xAAE2353A;                // tod_manager_inactive (a script global)
+constexpr uint32_t kCareer = 0x4DA4937B;                  // career
+constexpr uint32_t kCurrentTod = 0xF200CB7E;              // current_tod
+constexpr uint32_t kNextTod = 0x053D35AF;                 // next_tod
+constexpr uint32_t kTodStateParams = 0x48F1380F;          // tod_state_params
+constexpr uint32_t kTransitionScript = 0x37D7E331;        // level_specific_transition_script
+constexpr uint32_t kStateTransition = 0xD99EE043;         // tod_manager_state_transition (a script)
+constexpr uint32_t kInstantChange = 0x43633E05;           // instant_change
+constexpr uint32_t kTempState = 0xCACC8C05;               // temp_state
+constexpr uint32_t kBloomParams = 0x19C45D14;             // bloom_params
+constexpr uint32_t kOn = 0xF649D637;                      // on
+constexpr uint32_t kBloom1 = 0xF68014D9;                  // bloom1
+constexpr uint32_t kBloom2 = 0x6F894563;                  // bloom2
+constexpr uint32_t kStrength = 0x29461E27;                // strength
+constexpr uint32_t kColor = 0x99A9B716;                   // color
+constexpr uint32_t kOutdoor = 0xE3714DC1;                 // outdoor (the light group of everything outside)
+constexpr uint32_t kModel = 0x286A8D26;                   // model (the component type)
+// SetSceneColor's other parameters (names not recovered).
+constexpr uint32_t kSceneColorFlag = 0xE5B6C568;          // the sectors only (not the scenes' own colour, the models)
+constexpr uint32_t kSceneColorStart = 0xDF1A695F;         // the first percent of the sectors
+constexpr uint32_t kSceneColorEnd = 0x8F639F94;           // the last percent
+
+// The parameters' names, in the order of TODParams from +0x28 (fog_on, +0x40, isn't read from a script).
+constexpr uint32_t kLevRed = 0x966014FF, kLevGreen = 0x5F727131, kLevBlue = 0x1C5D554E;
+constexpr uint32_t kSkyRed = 0xBFAC0E79, kSkyGreen = 0xCFC99E4A, kSkyBlue = 0x18AFBF41;
+constexpr uint32_t kFogOn = 0x028CCF87, kFogRed = 0xCE0BD6E5, kFogGreen = 0x9A35701D, kFogBlue = 0xE167C7F6;
+constexpr uint32_t kFogAlpha = 0x9A4FA756, kFogDist = 0xFE2DDDB5;
+constexpr uint32_t kAmbientRed = 0xED664897, kAmbientGreen = 0x908BF647, kAmbientBlue = 0x5F4FBA78;
+constexpr uint32_t kAmbientModLo = 0xB3B5E2EF, kAmbientModHi = 0x3EBA82DE;
+constexpr uint32_t kHeading0 = 0xC15B55B1, kPitch0 = 0xD9FF5B75;
+constexpr uint32_t kRed0 = 0xE213AEB7, kGreen0 = 0x6EF19631, kBlue0 = 0x5EC44213;
+constexpr uint32_t kModLo0 = 0x05999531, kModHi0 = 0x8896F500;
+constexpr uint32_t kHeading1 = 0xB65C6527, kPitch1 = 0xAEF86BE3;
+constexpr uint32_t kRed1 = 0x95149E21, kGreen1 = 0x19F6A6A7, kBlue1 = 0x29C37285;
+constexpr uint32_t kModLo1 = 0xBD25F254, kModHi1 = 0x302A9265;
+constexpr uint32_t kSunTheta = 0xDF037B3B, kSunPhi = 0x9C2BF09E;
+constexpr uint32_t kSunRed = 0x54B02600, kSunGreen = 0x04811F13, kSunBlue = 0x319D6AF1;
+constexpr uint32_t kBloomOn = 0x400681B6, kBloomStrength = 0x743D0048, kBloomColor = 0x6AC75185;
+
+// A sector's colour set back to neutral (r, g, b 0x80, alpha 0x81).
+constexpr uint32_t kNeutralColor = 0x81808080;
+
+// The exe's constants.
+float DegreeToRadianConv() { return ScriptCommands::g_degreeToRadianRatio; } // 0.017453292
+float Zero() { return GameObjects::g_floatZero; }             // 0.0
+float OnePercent() { return Engine3D::g_onePercent; }       // 0.01
+float OneOver255() { return g_oneOver255; }       // 1 / 255
+float TwoTo32() { return g_twoTo32; }          // 4294967296: unsigned integers' correction
+float One() { return GameObjects::g_animMoviesOne; }              // 1.0
+float Half() { return g_half; }             // 0.5
+float Hundred() { return g_hundred; }          // 100.0
+float Thousand() { return g_thousand; }         // 1000.0
+
+// The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
+int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+
+// The x87's own FSIN / FCOS, which the original uses (the C runtime's sin and cos round differently).
+double X87Sin(double angle)
+{
+    double result;
+    __asm {
+        fld angle
+        fsin
+        fstp result
+    }
+    return result;
+}
+double X87Cos(double angle)
+{
+    double result;
+    __asm {
+        fld angle
+        fcos
+        fstp result
+    }
+    return result;
+}
+// The same, stored straight to a float (rounded once).
+float X87SinFloat(double angle)
+{
+    float result;
+    __asm {
+        fld angle
+        fsin
+        fstp result
+    }
+    return result;
+}
+float X87CosFloat(double angle)
+{
+    float result;
+    __asm {
+        fld angle
+        fcos
+        fstp result
+    }
+    return result;
+}
+
+// An unsigned millisecond count over an int length, as the original divides (FILD, + 2^32 if negative, FIDIV).
+double Fraction(int time, int length)
+{
+    double value = static_cast<double>(time);
+    if (time < 0)
+        value += TwoTo32();
+    return value / static_cast<double>(length);
+}
+
+// A colour from three bytes (and the fourth).
+uint32_t Rgba(int r, int g, int b, uint8_t a)
+{
+    return static_cast<uint8_t>(r) | static_cast<uint8_t>(g) << 8 | static_cast<uint8_t>(b) << 16 |
+           static_cast<uint32_t>(a) << 24;
+}
+// A colour from a script array [r g b] (elements truncated to bytes; the fourth byte 0).
+uint32_t ColorFromArray(Scripts::CArray* array)
+{
+    uint8_t r = static_cast<uint8_t>(array->FetchPart(0));
+    uint8_t g = static_cast<uint8_t>(array->FetchPart(1));
+    uint8_t b = static_cast<uint8_t>(array->FetchPart(2));
+    return Rgba(r, g, b, 0);
+}
+
+Scripts::CStruct* SpawnParamTable()
+{
+    Scripts::CStruct* memory = Scripts::SpawnParamBag();
+    return memory ? memory->PrepareAll() : nullptr;
+}
+void DeleteStructure(Scripts::CStruct* structure)
+{
+    if (structure) {
+        structure->Clear();
+        Scripts::DeleteStruct(structure);
+    }
+}
+
+// The engine (not rewritten yet).
+void ChangeFog(bool on) { Engine3D::Engine::EnableFog(on); }
+void SetFogColor(uint32_t color) { Engine3D::Engine::SetFogColor(color); }
+void SetFogDistance(float distance) { Engine3D::Engine::SetFogDistance(distance); }
+void ChangeAmbientTint(uint32_t color) { Engine3D::SetLightAmbientColor(color); }
+void ChangeLightTint(int index, uint32_t color) { Engine3D::SetLightDiffuseColor(index, color); }
+void SetAmbientModulation(float lo, float hi) { Engine3D::ChangeAmbientScale(lo, hi); }
+void SetLightModulation(int index, float lo, float hi)
+{
+    Engine3D::ChangeDiffuseScale(index, lo, hi);
+}
+void SetLightDirectionVector(int index, const float* direction)
+{
+    Engine3D::SetLightDirection(index, reinterpret_cast<const Maths::Vec4*>(direction));
+}
+// The sun: its parameters (theta +0x00, phi +0x04, colour +0x18 as r g b 128, shown +0x40) by mask.
+struct SunParams {
+    float theta;
+    float phi;
+    uint32_t unknown08[4];
+    float color[4];
+    uint32_t unknown28[6];
+    bool shown;
+    uint8_t pad41[0xF];
+};
+static_assert(offsetof(SunParams, color) == 0x18 && offsetof(SunParams, shown) == 0x40, "0x004426D0's layout");
+constexpr int kSunAngles = 0x01 | 0x02, kSunColor = 0x10, kSunShown = 0x80;
+void SetSun(const SunParams* sun, int mask)
+{
+    static_assert(offsetof(SunParams, shown) == offsetof(Sun::Settings, shown), "the sun's settings (SetSun reads 0x44 bytes)");
+    Sun::SetSun(reinterpret_cast<const Sun::Settings*>(sun), static_cast<uint32_t>(mask));
+}
+// The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
+void SetLevelColor(const float* color)
+{
+    static_cast<Engine3D::CEffectsDirector*>(reinterpret_cast<void*>(GameObjects::g_particleHub))->ChangeColour(color);
+    static_cast<Engine3D::CFlexibleParticleManager*>(Engine3D::g_flexibleParticleManager)->SetColourScale(color);
+    Engine3D::Engine::SetLevelColor(color);
+}
+void SetBloomStructure(Scripts::CStruct* params)
+{
+    static_cast<Engine3D::CScreenEffects*>(Engine3D::g_screenEffects)->SetBloomParams(params, 0);
+}
+// Whether this is a multiplayer game (a network game, or more than one local player): the lights stay as set.
+bool IsMultiplayer() { return GameModules::Skate::IsMultiplayer() & 1; }
+// The game mode's name (GameModules::Skate's game mode 0x007CE470).
+uint32_t ActiveRulesetLabel()
+{
+    return static_cast<GoalSystem::CMatchRules*>(reinterpret_cast<void*>(GoalSystem::g_gameMode))->GetNameKey();
+}
+// The front end (0x007CE464): +0x30 paused.
+bool IsGameHalted() { return reinterpret_cast<uint8_t*&>(GameModules::g_frontEndInstance)[0x30] != 0; }
+// Obj's CreateFromNode (0x005A32A0): the object of node `name` made.
+void CreateFromNode(uint32_t name) { ScriptCommands::CreateFromNodeName(name); }
+
+// The scenes (Engine3D::CEngine's list 0x006FA7EC): nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1.
+struct SceneNode {
+    uint32_t unknown0;
+    uint8_t* scene;
+    uint32_t unknown8;
+    SceneNode* next;
+};
+bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
+SceneNode* FirstScene() { return reinterpret_cast<SceneNode*>(Engine3D::FirstSceneNode()); }
+uint8_t* SkyScene() { return reinterpret_cast<uint8_t*>(Engine3D::GetSkyScene()); }
+// The scene of the level being played (the park editor's shell checksum, looked up by 0x0048C700).
+uint8_t* LevelScene()
+{
+    uint32_t name = ParkEditing::CParkBuilderMode::GetShellChecksum();
+    return reinterpret_cast<uint8_t*>(Engine3D::Engine::FindScene(name));
+}
+// A scene's own colour (vtable +0x20).
+void SetSceneColorOf(uint8_t* scene, uint32_t color)
+{
+    auto** vtable = *reinterpret_cast<void***>(scene);
+    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(vtable[8])(scene, color);
+}
+// The sector named `name` in any scene (0x0048C510): +0x0C its light group.
+uint8_t* LookUpSector(uint32_t name) { return static_cast<uint8_t*>(Engine3D::Engine::LookUpSector(name)); }
+// A model component's colour (0x00420700).
+void SetModelColor(GameObjects::CObjectModule* model, uint32_t color)
+{
+    static_cast<GameObjects::CMeshInstanceModule*>(model)->ChangeTint(color);
+}
+
+TODSystem& SystemAt(CTODManager* manager, int index)
+{
+    // (no bounds check: index 2 is past the end, as in the original)
+    return *reinterpret_cast<TODSystem*>(reinterpret_cast<uint8_t*>(manager->m_systems) + index * sizeof(TODSystem));
+}
+
+BloomParams BloomOf(const TODParams& params)
+{
+    return {params.bloomOn, params.bloom1, params.bloom2, params.bloomStrength, params.bloomColor};
+}
+
+// NOT ORIGINAL - SetTODParamsFilter's (null: none).
+TODParamsFilter g_paramsFilter = nullptr;
+bool Filter(TODParams* params) { return g_paramsFilter && g_paramsFilter(params); }
+
+// NOT ORIGINAL - SetMultiplayerUnlock's (null: none).
+MultiplayerUnlock g_multiplayerUnlock = nullptr;
+// What the original tests (IsMultiplayer), then the unlock (THUGPRO's network games): the lights left alone.
+bool LightsLocked() { return IsMultiplayer() && !(g_multiplayerUnlock && g_multiplayerUnlock()); }
+
+} // namespace
+
+void SetTODParamsFilter(TODParamsFilter filter) { g_paramsFilter = filter; }
+void SetMultiplayerUnlock(MultiplayerUnlock unlock) { g_multiplayerUnlock = unlock; }
+MultiplayerUnlock GetMultiplayerUnlock() { return g_multiplayerUnlock; }
+bool TODLightsLocked() { return LightsLocked(); }
+
+uint32_t NextTODState(uint32_t state)
+{
+    switch (state) {
+    case kMorning:
+        return kAfternoon;
+    case kAfternoon:
+        return kEvening;
+    case kEvening:
+        return kNight;
+    case kNight:
+        return kMorning;
+    default:
+        return 0;
+    }
+}
+
+uint32_t PreviousTODState(uint32_t state)
+{
+    switch (state) {
+    case kMorning:
+        return kNight;
+    case kAfternoon:
+        return kMorning;
+    case kEvening:
+        return kAfternoon;
+    case kNight:
+        return kEvening;
+    default:
+        return 0;
+    }
+}
+
+int CTODManager::CurrentSystem() const
+{
+    int index = 0;
+    while (index < kSystems && m_systems[index].sky)
+        ++index;
+    return index;
+}
+
+// 0x00571140
+void CTODManager::GetLevelColor(uint32_t* out)
+{
+    TODSystem& system = SystemAt(this, CurrentSystem());
+    if (!system.transitioning) {
+        const TODParams& p = system.current;
+        *out = (((p.levBlue << 8) + p.levGreen) << 8) + p.levRed;
+        return;
+    }
+    double t = 1.0;
+    if (system.transitionLength) {
+        t = Fraction(system.time, system.transitionLength);
+        if (!(t <= One()))
+            t = One();
+    }
+    const TODParams& a = system.current;
+    const TODParams& b = system.next;
+    int blue = Ftol(static_cast<double>(b.levBlue - a.levBlue) * t + a.levBlue);
+    int green = Ftol(static_cast<double>(b.levGreen - a.levGreen) * t + a.levGreen);
+    int red = Ftol(static_cast<double>(b.levRed - a.levRed) * t + a.levRed);
+    *out = (((blue << 8) + green) << 8) + red;
+}
+
+// 0x00571290
+void CTODManager::ReadGroup(int index)
+{
+    TODSystem& system = SystemAt(this, index);
+    Scripts::CArray* groups;
+    system.params->FetchList(kGroups, &groups, 1);
+    system.groupCount = static_cast<int>(groups->m_extent);
+    auto* group = reinterpret_cast<Scripts::CStruct*>(groups->FetchPart(static_cast<uint32_t>(system.group)));
+    group->FetchIntValue(kParts, &system.parts, 1);
+    group->FetchIntValue(kWaitFrames, &system.waitFrames, 1);
+    group->ReadHashValue(kLightGroup, &system.lightGroup, 1);
+    if (!group->ReadHashValue(kResetLightGroup, &system.resetLightGroup, 0))
+        system.resetLightGroup = 0;
+}
+
+// 0x00571340
+TODParams CTODManager::Lerp(TODParams a, TODParams b, float t)
+{
+    auto integer = [t](int from, int to) { return Ftol(static_cast<double>(to - from) * t + from); };
+    auto real = [t](float from, float to) {
+        return static_cast<float>((static_cast<double>(to) - from) * t + from);
+    };
+    auto byte = [&](uint32_t from, uint32_t to, int shift) {
+        int f = static_cast<int>(from >> shift & 0xFF);
+        int g = static_cast<int>(to >> shift & 0xFF);
+        return static_cast<uint32_t>(static_cast<uint8_t>(integer(f, g))) << shift;
+    };
+    TODParams r = a; // (+0x14..+0x24 and fog_on: not set by the original - stack garbage)
+    r.levRed = integer(a.levRed, b.levRed);
+    r.levGreen = integer(a.levGreen, b.levGreen);
+    r.levBlue = integer(a.levBlue, b.levBlue);
+    r.skyRed = integer(a.skyRed, b.skyRed);
+    r.skyGreen = integer(a.skyGreen, b.skyGreen);
+    r.skyBlue = integer(a.skyBlue, b.skyBlue);
+    r.fogRed = integer(a.fogRed, b.fogRed);
+    r.fogGreen = integer(a.fogGreen, b.fogGreen);
+    r.fogBlue = integer(a.fogBlue, b.fogBlue);
+    r.fogAlpha = integer(a.fogAlpha, b.fogAlpha);
+    r.fogDist = integer(a.fogDist, b.fogDist);
+    r.ambientRed = integer(a.ambientRed, b.ambientRed);
+    r.ambientGreen = integer(a.ambientGreen, b.ambientGreen);
+    r.ambientBlue = integer(a.ambientBlue, b.ambientBlue);
+    r.ambientModLo = real(a.ambientModLo, b.ambientModLo);
+    r.ambientModHi = real(a.ambientModHi, b.ambientModHi);
+    r.heading0 = real(a.heading0, b.heading0);
+    r.pitch0 = real(a.pitch0, b.pitch0);
+    r.red0 = integer(a.red0, b.red0);
+    r.green0 = integer(a.green0, b.green0);
+    r.blue0 = integer(a.blue0, b.blue0);
+    r.modLo0 = real(a.modLo0, b.modLo0);
+    r.modHi0 = real(a.modHi0, b.modHi0);
+    r.headingA = real(a.headingA, b.headingA);
+    r.pitch1 = real(a.pitch1, b.pitch1);
+    r.red1 = integer(a.red1, b.red1);
+    r.green1 = integer(a.green1, b.green1);
+    r.blue1 = integer(a.blue1, b.blue1);
+    r.modLo1 = real(a.modLo1, b.modLo1);
+    r.modHi1 = real(a.modHi1, b.modHi1);
+    r.bloomOn = a.bloomOn;
+    r.bloom1 = integer(a.bloom1, b.bloom1);
+    r.bloom2 = integer(a.bloom2, b.bloom2);
+    // The bloom colours byte by byte; their fourth byte is 0x80.
+    r.bloomStrength = byte(a.bloomStrength, b.bloomStrength, 0) | byte(a.bloomStrength, b.bloomStrength, 8) |
+                      byte(a.bloomStrength, b.bloomStrength, 16) | 0x80000000u;
+    r.bloomColor = byte(a.bloomColor, b.bloomColor, 0) | byte(a.bloomColor, b.bloomColor, 8) |
+                   byte(a.bloomColor, b.bloomColor, 16) | 0x80000000u;
+    return r;
+}
+
+// 0x00571A00
+void CTODManager::ParseParams(Scripts::CStruct* structure, TODParams* out)
+{
+    structure->FetchIntValue(kLevRed, &out->levRed, 0);
+    structure->FetchIntValue(kLevGreen, &out->levGreen, 0);
+    structure->FetchIntValue(kLevBlue, &out->levBlue, 0);
+    structure->FetchIntValue(kSkyRed, &out->skyRed, 0);
+    structure->FetchIntValue(kSkyGreen, &out->skyGreen, 0);
+    structure->FetchIntValue(kSkyBlue, &out->skyBlue, 0);
+    structure->FetchIntValue(kFogRed, &out->fogRed, 0);
+    structure->FetchIntValue(kFogGreen, &out->fogGreen, 0);
+    structure->FetchIntValue(kFogBlue, &out->fogBlue, 0);
+    structure->FetchIntValue(kFogAlpha, &out->fogAlpha, 0);
+    structure->FetchIntValue(kFogDist, &out->fogDist, 0);
+    structure->FetchIntValue(kAmbientRed, &out->ambientRed, 0);
+    structure->FetchIntValue(kAmbientGreen, &out->ambientGreen, 0);
+    structure->FetchIntValue(kAmbientBlue, &out->ambientBlue, 0);
+    structure->FetchFloat(kAmbientModLo, &out->ambientModLo, 0);
+    structure->FetchFloat(kAmbientModHi, &out->ambientModHi, 0);
+    structure->FetchFloat(kHeading0, &out->heading0, 0);
+    structure->FetchFloat(kPitch0, &out->pitch0, 0);
+    structure->FetchIntValue(kRed0, &out->red0, 0);
+    structure->FetchIntValue(kGreen0, &out->green0, 0);
+    structure->FetchIntValue(kBlue0, &out->blue0, 0);
+    structure->FetchFloat(kModLo0, &out->modLo0, 0);
+    structure->FetchFloat(kModHi0, &out->modHi0, 0);
+    structure->FetchFloat(kHeading1, &out->headingA, 0);
+    structure->FetchFloat(kPitch1, &out->pitch1, 0);
+    structure->FetchIntValue(kRed1, &out->red1, 0);
+    structure->FetchIntValue(kGreen1, &out->green1, 0);
+    structure->FetchIntValue(kBlue1, &out->blue1, 0);
+    structure->FetchFloat(kModLo1, &out->modLo1, 0);
+    structure->FetchFloat(kModHi1, &out->modHi1, 0);
+
+    float value = 0.0f;
+    if (structure->FetchFloat(kSunTheta, &value, 0))
+        out->sunTheta = static_cast<float>(static_cast<double>(value) * DegreeToRadianConv());
+    if (structure->FetchFloat(kSunPhi, &value, 0))
+        out->sunPhi = static_cast<float>(static_cast<double>(value) * DegreeToRadianConv());
+    out->sunRed = 255.0f;
+    out->sunGreen = 255.0f;
+    out->sunBlue = 255.0f;
+    if (structure->FetchFloat(kSunRed, &value, 0))
+        out->sunRed = value;
+    if (structure->FetchFloat(kSunGreen, &value, 0))
+        out->sunGreen = value;
+    if (structure->FetchFloat(kSunBlue, &value, 0))
+        out->sunBlue = value;
+
+    structure->FetchIntValue(kBloomOn, &out->bloomOn, 0);
+    if (!out->bloomOn)
+        return;
+    structure->FetchIntValue(kBloom1, &out->bloom1, 0);
+    structure->FetchIntValue(kBloom2, &out->bloom2, 0);
+    Scripts::CArray* array = nullptr;
+    if (structure->FetchList(kBloomStrength, &array, 0))
+        out->bloomStrength = ColorFromArray(array);
+    array = nullptr;
+    if (structure->FetchList(kBloomColor, &array, 0))
+        out->bloomColor = ColorFromArray(array);
+}
+
+// 0x00571E00
+TODParams CTODManager::GetTODParams(int index)
+{
+    if (index == -1)
+        index = CurrentSystem();
+    TODSystem& system = SystemAt(this, index);
+    if (!system.transitioning)
+        return system.current;
+    float t = 1.0f;
+    if (system.transitionLength) {
+        double fraction = Fraction(system.time, system.transitionLength);
+        t = static_cast<float>(fraction);
+        if (!(fraction <= One()))
+            t = 1.0f;
+    }
+    return Lerp(system.current, system.next, t);
+}
+
+// 0x00571EF0
+void CTODManager::BuildTodObjects(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    uint32_t name = 0;
+    if (params->ReadHashValue(kName, &name, 0)) {
+        if (!m_deadObjects->FetchEntry(name, true))
+            CreateFromNode(name);
+        return;
+    }
+    uint32_t prefix;
+    if (!params->HashFromNameOrText(kPrefix, &prefix, 0))
+        return;
+    // (NoPrefixWarning: passed on as the third argument of 0x0045BF90, which doesn't use it)
+    params->HasBareFlag(kNoPrefixWarning);
+    uint16_t count;
+    uint32_t* nodes = LevelNodes::CollectNodesByPrefix(prefix, &count);
+    for (int i = 0; i < count; ++i) {
+        if (!m_deadObjects->FetchEntry(nodes[i]))
+            CreateFromNode(nodes[i]);
+    }
+}
+
+// 0x00572130
+void CTODManager::ChangeArgs(Scripts::CStruct* params)
+{
+    m_paramsSet = true;
+    int number;
+    params->FetchIntValue(kSystem, &number, 1);
+    TODSystem& system = SystemAt(this, number - 1);
+    system.params->Clear();
+    system.params->AppendStructureIfAny(params);
+    params->ReadHashValue(kCurrentState, &system.state, 0);
+    system.nextState = NextTODState(system.state);
+    Scripts::CStruct* state;
+    if (params->ReadSubStruct(kOverwriteCurrentState, &state, 0)) {
+        ParseParams(state, &system.current);
+    } else if (params->ReadSubStruct(system.state, &state, 0)) {
+        ParseParams(state, &system.current);
+        state->FetchIntValue(kStateLength, &system.stateLength, 1);
+    }
+    if (params->ReadSubStruct(system.nextState, &state, 0))
+        ParseParams(state, &system.next);
+    params->FetchIntValue(kTransitionLength, &system.transitionLength, 0);
+    system.sky = params->HasBareFlag(kSky);
+}
+
+// 0x00572320
+void CTODManager::SetFogActive(bool on)
+{
+    bool was = m_fogActive;
+    m_fogActive = on;
+    if (was) {
+        if (!on)
+            ChangeFog(false);
+        return;
+    }
+    if (!on)
+        return;
+    ChangeFog(true);
+    TODParams params = GetTODParams(-1);
+    Filter(&params); // (NOT ORIGINAL: an edited level's own fog - SetTODParamsFilter)
+    SetFogColor(Rgba(params.fogRed, params.fogGreen, params.fogBlue, static_cast<uint8_t>(params.fogAlpha)));
+    SetFogDistance(static_cast<float>(params.fogDist));
+}
+
+// 0x005723C0
+void CTODManager::NextState(int index)
+{
+    TODSystem& system = SystemAt(this, index);
+    if (system.state == kNight)
+        ++system.daysPassed;
+    system.state = system.nextState;
+    system.nextState = NextTODState(system.state);
+    Scripts::CStruct* state;
+    system.params->ReadSubStruct(system.state, &state, 1);
+    ParseParams(state, &system.current);
+    state->FetchIntValue(kStateLength, &system.stateLength, 1);
+    system.params->ReadSubStruct(system.nextState, &state, 1);
+    ParseParams(state, &system.next);
+    system.scriptRun = false;
+    system.time = 0;
+    system.part = 0;
+    system.group = 0;
+    system.frame = 0;
+    system.transitioning = false;
+}
+
+// 0x005724D0
+void CTODManager::UpdateSun()
+{
+    TODSystem& system = m_systems[0];
+    double t;
+    if (system.transitioning)
+        t = Fraction(system.time + system.stateLength, system.transitionLength + system.stateLength);
+    else
+        t = Fraction(system.time, system.stateLength + system.transitionLength);
+    auto blend = [t](float from, float to) {
+        return static_cast<float>((static_cast<double>(to) - from) * t + from);
+    };
+    const TODParams& a = system.current;
+    const TODParams& b = system.next;
+    SunParams sun = {};
+    sun.theta = blend(a.sunTheta, b.sunTheta);
+    sun.phi = blend(a.sunPhi, b.sunPhi);
+    sun.color[0] = blend(a.sunRed, b.sunRed);
+    sun.color[1] = blend(a.sunGreen, b.sunGreen);
+    sun.color[2] = blend(a.sunBlue, b.sunBlue);
+    sun.color[3] = 128.0f;
+    sun.shown = system.state != kNight;
+    SetSun(&sun, kSunAngles | kSunColor | kSunShown);
+}
+
+// 0x005725F0
+void ApplyColorToScene(uint8_t* scene, uint32_t color, uint32_t lightGroup, uint32_t resetLightGroup, int startPercent,
+                       int endPercent)
+{
+    // The scene's sectors: +0x0C the light group, +0x14 the geometry (vtable +0x18: its colour).
+    auto* table = *reinterpret_cast<ListKit::KeyMap**>(scene + 0xD0);
+    if (!table)
+        return;
+    auto colour = [](uint8_t* sector, uint32_t value) {
+        void* geometry = *reinterpret_cast<void**>(sector + 0x14);
+        if (geometry) {
+            auto** vtable = *reinterpret_cast<void***>(geometry);
+            reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(vtable[6])(geometry, value);
+        }
+    };
+    auto next = [table]() -> uint8_t* {
+        if (!table->StepIterator() || !table->m_iterItem)
+            return nullptr;
+        return static_cast<uint8_t*>(table->m_iterItem->value);
+    };
+    table->m_iterBucket = -1;
+    table->m_iterItem = nullptr;
+    uint8_t* sector = nullptr;
+    if (table->StepIterator() && table->m_iterItem)
+        sector = static_cast<uint8_t*>(table->m_iterItem->value);
+    int count = table->m_extent;
+    int remaining = count;
+    if (startPercent >= 0) {
+        int skip = Ftol(static_cast<double>(startPercent) * count * OnePercent());
+        if (startPercent < endPercent) {
+            int last = Ftol(static_cast<double>(endPercent) * count * OnePercent());
+            if (count < last)
+                last = count;
+            remaining = last - skip;
+        }
+        for (int i = skip; i != 0; --i)
+            sector = next();
+    }
+    if (!sector)
+        return;
+    if (!lightGroup) {
+        do {
+            if (remaining-- == 0)
+                return;
+            colour(sector, color);
+        } while ((sector = next()) != nullptr);
+    } else if (!resetLightGroup) {
+        do {
+            if (remaining-- == 0)
+                return;
+            if (*reinterpret_cast<uint32_t*>(sector + 0xC) == lightGroup)
+                colour(sector, color);
+        } while ((sector = next()) != nullptr);
+    } else {
+        do {
+            if (remaining-- == 0)
+                return;
+            uint32_t group = *reinterpret_cast<uint32_t*>(sector + 0xC);
+            if (group == lightGroup)
+                colour(sector, color);
+            else if (group == resetLightGroup)
+                colour(sector, kNeutralColor);
+        } while ((sector = next()) != nullptr);
+    }
+}
+
+// 0x005727F0 (and 0x00572821)
+void CTODManager::ApplyColor(uint32_t color, uint32_t skyColor, bool sky, uint32_t lightGroup, uint32_t resetLightGroup,
+                             bool partOnly, int startPercent, int endPercent)
+{
+    if (sky) {
+        uint8_t* scene = SkyScene();
+        if (scene)
+            ApplyColorToScene(scene, skyColor, lightGroup, 0, -1, -1);
+        return;
+    }
+    bool wholeLevel = lightGroup == kOutdoor || lightGroup == 0;
+    for (SceneNode* node = FirstScene(); node;) {
+        SceneNode* next = IsEnd(node->next) ? nullptr : node->next;
+        uint8_t* scene = node->scene;
+        if (!scene[0x8D]) { // (skies: +0x8D)
+            ApplyColorToScene(scene, color, lightGroup, resetLightGroup, startPercent, endPercent);
+            if (wholeLevel && !partOnly)
+                SetSceneColorOf(scene, color);
+        }
+        node = next;
+    }
+    uint8_t* level = LevelScene();
+    if (level) {
+        ApplyColorToScene(level, color, lightGroup, resetLightGroup, startPercent, endPercent);
+        if (wholeLevel && !partOnly)
+            SetSceneColorOf(level, color);
+    }
+    if ((wholeLevel || resetLightGroup) && !partOnly) {
+        // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
+        for (GameObjects::CObjectModule* model = GameObjects::ObjectHubSlot()->FindFirstModuleOfKind(kModel); model;
+             model = *reinterpret_cast<GameObjects::CObjectModule**>(reinterpret_cast<uint8_t*>(model) + 0x14)) {
+            uint8_t* object = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0xC);
+            uint8_t* sector = LookUpSector(*reinterpret_cast<uint32_t*>(object + 0x14));
+            if (!sector || *reinterpret_cast<uint32_t*>(sector + 0xC) == kOutdoor)
+                SetModelColor(model, color);
+            if (resetLightGroup && sector && *reinterpret_cast<uint32_t*>(sector + 0xC) == resetLightGroup)
+                SetModelColor(model, kNeutralColor);
+        }
+    }
+}
+
+// 0x00572980
+void SetLightDirection(int index, float heading, float pitch)
+{
+    double p = static_cast<double>(pitch) * DegreeToRadianConv();
+    double sinPitch = X87Sin(p);
+    double cosPitch = X87Cos(p);
+    float direction[4];
+    direction[3] = 0.0f;
+    direction[1] = static_cast<float>(static_cast<double>(Zero()) * cosPitch - sinPitch);
+    double horizontal = cosPitch + sinPitch * Zero();
+    double h = static_cast<double>(heading) * DegreeToRadianConv();
+    float sinHeading = X87SinFloat(h);
+    double cosHeading = X87Cos(h);
+    float cosHeadingFloat = X87CosFloat(h);
+    direction[2] = static_cast<float>(cosHeading * horizontal + static_cast<double>(sinHeading) * Zero());
+    direction[0] = static_cast<float>(horizontal * sinHeading + static_cast<double>(cosHeadingFloat) * Zero());
+    SetLightDirectionVector(index, direction);
+}
+
+// 0x00572A10
+void CTODManager::ApplyTODParams(TODParams params)
+{
+    // (NOT ORIGINAL: an edited level's own ambient light and fog put over the state's - SetTODParamsFilter; its fog
+    // shown even when the manager's is off)
+    bool fogForced = Filter(&params);
+    ChangeAmbientTint(Rgba(params.ambientRed, params.ambientGreen, params.ambientBlue, 0x80));
+    SetLightDirection(0, params.heading0, params.pitch0);
+    SetLightDirection(1, params.headingA, params.pitch1);
+    ChangeLightTint(0, Rgba(params.red0, params.green0, params.blue0, 0x80));
+    ChangeLightTint(1, Rgba(params.red1, params.green1, params.blue1, 0x80));
+    SetAmbientModulation(params.ambientModLo, params.ambientModHi);
+    SetLightModulation(0, params.modLo0, params.modHi0);
+    SetLightModulation(1, params.modLo1, params.modHi1);
+    if (m_fogActive || fogForced) {
+        ChangeFog(true);
+        SetFogColor(Rgba(params.fogRed, params.fogGreen, params.fogBlue, static_cast<uint8_t>(params.fogAlpha)));
+        SetFogDistance(static_cast<float>(params.fogDist));
+    }
+    // The level colour, 0..255 as 0..2.
+    auto channel = [](int value) {
+        double scaled = static_cast<double>(value) * OneOver255();
+        return static_cast<float>(scaled + scaled);
+    };
+    float color[4] = {channel(params.levRed), channel(params.levGreen), channel(params.levBlue), 1.0f};
+    SetLevelColor(color);
+}
+
+// 0x00572BD0
+void CTODManager::ClearDeadObjects() { m_deadObjects->EmptyTable(); }
+
+// 0x005730E0
+void CTODManager::Reset()
+{
+    m_paramsSet = false;
+    m_fullLength = 0;
+    m_timeMultiplier = 1.0f;
+    m_transitionScript = 0;
+    for (TODSystem& system : m_systems) {
+        system.time = 0;
+        system.stateLength = 60000;
+        system.transitionLength = 30000;
+        system.state = kAfternoon;
+        system.frame = 0;
+        system.daysPassed = 0;
+        system.transitioning = false;
+        system.scriptRun = false;
+        system.params->Clear();
+    }
+    m_tempTOD = false;
+    m_active = true;
+    m_fogActive = true;
+    m_levelLightsReset = false;
+    m_unknown4->Clear();
+    m_deadObjects->EmptyTable();
+}
+
+// 0x00573180
+void AddBloomParams(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color, Scripts::CStruct* out)
+{
+    out->PutInt(kOn, on);
+    out->PutInt(kBloom1, bloom1);
+    out->PutInt(kBloom2, bloom2);
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
+    Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
+    array->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
+    array->SetElement(0, strength & 0xFF);
+    array->SetElement(1, strength >> 8 & 0xFF);
+    array->SetElement(2, strength >> 16 & 0xFF);
+    out->AppendArrayValue(kStrength, array);
+    array->SetElement(0, color & 0xFF);
+    array->SetElement(1, color >> 8 & 0xFF);
+    array->SetElement(2, color >> 16 & 0xFF);
+    out->AppendArrayValue(kColor, array);
+    if (array) {
+        array->Clear();
+        Scripts::DeleteArray(array);
+    }
+}
+
+// 0x005732D0
+void CTODManager::SetSceneColor(Scripts::CStruct* params)
+{
+    uint32_t lightGroup = 0;
+    params->ReadHashValue(kLightGroup, &lightGroup, 0);
+    uint32_t resetLightGroup = 0;
+    params->ReadHashValue(kResetLightGroup, &resetLightGroup, 0);
+    bool sceneOnly = params->HasBareFlag(kSceneColorFlag);
+    int value;
+    params->FetchIntValue(kColor, &value, 1);
+    // (the colour's fourth byte isn't set by the original - stack garbage; nor the sky colour's, the top byte of the
+    // parameters' pointer whose argument slot it's kept in)
+    uint32_t color = static_cast<uint32_t>(value) & 0xFFFFFF;
+    uint32_t skyColor = 0;
+    int sky = value;
+    bool isSky = false;
+    if (params->FetchIntValue(kSky, &sky, 0)) {
+        isSky = true;
+        skyColor = static_cast<uint32_t>(sky) & 0xFFFFFF;
+    }
+    int start = -1;
+    int end = -1;
+    params->FetchIntValue(kSceneColorStart, &start, 0);
+    params->FetchIntValue(kSceneColorEnd, &end, 0);
+    ApplyColor(color, skyColor, isSky, lightGroup, resetLightGroup, sceneOnly, start, end);
+}
+
+// 0x00573400
+void CTODManager::MarkPermanentlyDead(Scripts::CStruct* params)
+{
+    uint32_t name;
+    if (params->ReadHashValue(kName, &name, 0)) {
+        if (!m_deadObjects->FetchEntry(name, true))
+            m_deadObjects->StoreEntry(name, this);
+        return;
+    }
+    uint32_t prefix;
+    if (!params->HashFromNameOrText(kPrefix, &prefix, 0))
+        return;
+    params->HasBareFlag(kNoPrefixWarning); // (see BuildTodObjects)
+    uint16_t count = 0;
+    uint32_t* nodes = LevelNodes::CollectNodesByPrefix(prefix, &count);
+    for (int i = 0; i < count; ++i) {
+        if (!m_deadObjects->FetchEntry(nodes[i]))
+            m_deadObjects->StoreEntry(nodes[i], this);
+    }
+}
+
+// 0x00573500
+void CTODManager::SetBloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color)
+{
+    Scripts::CStruct* params = SpawnParamTable();
+    if (on)
+        AddBloomParams(on, bloom1, bloom2, strength, color, params);
+    else
+        params->PutInt(kOn, 0);
+    SetBloomStructure(params);
+    DeleteStructure(params);
+}
+
+// 0x00573620
+CTODManager* CTODManager::MakeNew()
+{
+    m_unknown4 = SpawnParamTable();
+    void* table = MemSys::Alloc(sizeof(ListKit::KeyMap));
+    m_deadObjects = table ? new (table) ListKit::KeyMap(8) : nullptr;
+    for (TODSystem& system : m_systems)
+        system.params = SpawnParamTable();
+    Reset();
+    return this;
+}
+
+// 0x00573770
+void CTODManager::Destruct()
+{
+    for (TODSystem& system : m_systems) {
+        DeleteStructure(system.params);
+        system.params = nullptr;
+    }
+    DeleteStructure(m_unknown4);
+    m_deadObjects->EmptyTable();
+    if (m_deadObjects) {
+        m_deadObjects->~KeyMap();
+        MemSys::Hub::Pull()->Dealloc(m_deadObjects);
+    }
+}
+
+// 0x00573810
+void CTODManager::UpdateSystem(int index)
+{
+    TODSystem& system = SystemAt(this, index);
+    int part = system.part;
+    ++system.frame;
+    if (part != 0 && system.frame <= system.waitFrames)
+        return;
+
+    // This part's share of the sectors.
+    double step = Hundred() / static_cast<double>(system.parts);
+    int start = Ftol(part * step);
+    int end = Ftol((part + 1) * step);
+    float t = 1.0f;
+    if (system.transitionLength) {
+        double fraction = Fraction(system.time, system.transitionLength);
+        t = static_cast<float>(fraction);
+        if (!(fraction <= One()))
+            t = 1.0f;
+    }
+    TODParams params = Lerp(system.current, system.next, t);
+    uint32_t levelColor = Rgba(params.levRed, params.levGreen, params.levBlue, 0x80);
+    uint32_t skyColor = Rgba(params.skyRed, params.skyGreen, params.skyBlue, 0x80);
+    bool sky = system.sky;
+    ApplyColor(levelColor, skyColor, sky, system.lightGroup, system.resetLightGroup, part > 0, start, end);
+    if (!sky && !m_levelLightsReset)
+        ApplyTODParams(params);
+
+    // The next part (or the next group, after the last part).
+    system.frame = 0;
+    if (++system.part >= system.parts) {
+        system.part = 0;
+        if (system.group < system.groupCount - 1)
+            ++system.group;
+        else
+            system.group = 0;
+        ReadGroup(index);
+    }
+    if (!sky && !m_tempBloom.on)
+        SetBloom(params.bloomOn, params.bloom1, params.bloom2, params.bloomStrength, params.bloomColor);
+
+    // The transition script: half-way through (evening's at once).
+    float threshold = system.state == kEvening ? Zero() : Half();
+    if (!system.scriptRun && t > threshold) {
+        system.scriptRun = true;
+        Scripts::CStruct* scriptParams = SpawnParamTable();
+        scriptParams->PutNameKey(kCurrentTod, system.state);
+        scriptParams->PutNameKey(kNextTod, system.nextState);
+        scriptParams->PutSubStruct(kTodStateParams, system.params);
+        if (!sky) {
+            if (m_transitionScript)
+                scriptParams->PutNameKey(kTransitionScript, m_transitionScript);
+            Scripts::SpawnScript(kStateTransition, scriptParams, 0, nullptr, 0, 0, false, false, false, false);
+        }
+        DeleteStructure(scriptParams);
+    }
+
+    if (system.time > system.transitionLength) {
+        NextState(index);
+        if (!system.sky && !m_tempBloom.on) {
+            const TODParams& current = system.current;
+            SetBloom(current.bloomOn, current.bloom1, current.bloom2, current.bloomStrength, current.bloomColor);
+        }
+    }
+}
+
+// 0x00573BE0
+void CTODManager::ResetLevelLights(uint32_t stateName)
+{
+    if (LightsLocked()) // (the unlock: NOT ORIGINAL - SetMultiplayerUnlock)
+        return;
+    TODParams params;
+    if (!stateName) {
+        params = GetTODParams(-1);
+        ApplyTODParams(params);
+        m_levelLightsReset = false;
+    } else {
+        std::memset(&params, 0, sizeof(params)); // (the original's are uninitialised: what the state doesn't give)
+        Scripts::CStruct* state;
+        SystemAt(this, CurrentSystem()).params->ReadSubStruct(stateName, &state, 1);
+        ParseParams(state, &params);
+        ApplyTODParams(params);
+        m_levelLightsReset = true;
+    }
+    SetBloom(params.bloomOn, params.bloom1, params.bloom2, params.bloomStrength, params.bloomColor);
+}
+
+// 0x00573CE0
+void CTODManager::RefreshAll(bool tempState)
+{
+    bool wasActive = m_active;
+    m_active = true;
+    for (TODSystem& system : m_systems) {
+        const TODParams& current = system.current;
+        uint32_t levelColor = Rgba(current.levRed, current.levGreen, current.levBlue, 0x80);
+        uint32_t skyColor = Rgba(current.skyRed, current.skyGreen, current.skyBlue, 0x80);
+        bool sky = system.sky;
+        Scripts::CArray* groups;
+        system.params->FetchList(kGroups, &groups, 1);
+        for (int g = 0; g < system.groupCount; ++g) {
+            auto* group = reinterpret_cast<Scripts::CStruct*>(groups->FetchPart(static_cast<uint32_t>(g)));
+            uint32_t lightGroup;
+            group->ReadHashValue(kLightGroup, &lightGroup, 1);
+            uint32_t resetLightGroup = 0;
+            group->ReadHashValue(kResetLightGroup, &resetLightGroup, 0);
+            float step = static_cast<float>(Hundred() / static_cast<double>(system.parts));
+            for (int part = 0; part < system.parts; ++part) {
+                int start = Ftol(static_cast<double>(part) * step);
+                int end = Ftol(static_cast<double>(part + 1) * step);
+                ApplyColor(levelColor, skyColor, sky, lightGroup, resetLightGroup, part > 0, start, end);
+            }
+            if (!sky && !m_levelLightsReset)
+                ApplyTODParams(system.current);
+        }
+        if (sky)
+            continue;
+        Scripts::CStruct* params = SpawnParamTable();
+        params->PutNameKey(kCurrentTod, PreviousTODState(system.state));
+        params->PutNameKey(kNextTod, system.state);
+        params->PutSubStruct(kTodStateParams, system.params);
+        if (m_transitionScript)
+            params->PutNameKey(kTransitionScript, m_transitionScript);
+        params->PutNameKey(0u, kInstantChange);
+        if (tempState)
+            params->PutNameKey(0u, kTempState);
+        Scripts::CStruct* bloom = SpawnParamTable();
+        AddBloomParams(current.bloomOn, current.bloom1, current.bloom2, current.bloomStrength, current.bloomColor, bloom);
+        params->PutSubStruct(kBloomParams, bloom);
+        DeleteStructure(bloom);
+        Scripts::SpawnScript(kStateTransition, params, 0, nullptr, 0, 0, false, false, false, false);
+        DeleteStructure(params);
+    }
+    m_active = wasActive;
+    const TODParams& current = SystemAt(this, CurrentSystem()).current;
+    SetBloom(current.bloomOn, current.bloom1, current.bloom2, current.bloomStrength, current.bloomColor);
+    UpdateSun();
+}
+
+// 0x005741B0
+void CTODManager::SetTempTOD(Scripts::CStruct* params)
+{
+    m_tempTOD = true;
+    Scripts::FindSymbol(kTempTODChanged)->integer = 1;
+    for (TODSystem& system : m_systems)
+        ParseParams(params, &system.current);
+    RefreshAll(true);
+}
+
+// 0x00574210
+void CTODManager::RestoreCurrentTOD()
+{
+    for (TODSystem& system : m_systems) {
+        Scripts::CStruct* state;
+        system.params->ReadSubStruct(system.state, &state, 1);
+        ParseParams(state, &system.current);
+    }
+    RefreshAll(false);
+    m_tempTOD = false;
+}
+
+// 0x00574270
+void CTODManager::SetTempBloomParams(Scripts::CStruct* params)
+{
+    params->FetchIntValue(kOn, &m_tempBloom.on, 0);
+    params->FetchIntValue(kBloom1, &m_tempBloom.bloom1, 0);
+    params->FetchIntValue(kBloom2, &m_tempBloom.bloom2, 0);
+    Scripts::CArray* array = nullptr;
+    if (params->FetchList(kStrength, &array, 0))
+        m_tempBloom.strength = ColorFromArray(array);
+    array = nullptr;
+    if (params->FetchList(kColor, &array, 0))
+        m_tempBloom.color = ColorFromArray(array);
+    // Off: back to the state's bloom (in a single player game).
+    if (!m_tempBloom.on && !IsMultiplayer()) {
+        BloomParams bloom = BloomOf(SystemAt(this, CurrentSystem()).current);
+        SetBloom(bloom.on, bloom.bloom1, bloom.bloom2, bloom.strength, bloom.color);
+        return;
+    }
+    SetBloom(m_tempBloom.on, m_tempBloom.bloom1, m_tempBloom.bloom2, m_tempBloom.strength, m_tempBloom.color);
+}
+
+// 0x00574400
+void CTODManager::EnableBloom(int on)
+{
+    if (LightsLocked()) // (the unlock: NOT ORIGINAL - SetMultiplayerUnlock)
+        return;
+    TODParams& current = SystemAt(this, CurrentSystem()).current;
+    if (on == current.bloomOn)
+        return;
+    current.bloomOn = on;
+    SetBloom(current.bloomOn, current.bloom1, current.bloom2, current.bloomStrength, current.bloomColor);
+}
+
+// 0x00574590
+void CTODManager::TickFrame()
+{
+    if (ActiveRulesetLabel() != kCareer || Scripts::FetchIntValue(kInactive) == 1 || m_tempTOD || !m_active || IsGameHalted())
+        return;
+    int elapsed = Ftol(FrameClock::GetSlomoFrameSeconds() * m_timeMultiplier * Thousand());
+    m_fullLength += elapsed;
+    UpdateSun();
+    for (int index = 0; index < kSystems; ++index) {
+        TODSystem& system = m_systems[index];
+        system.time += elapsed;
+        if (!system.transitioning && system.time > system.stateLength) {
+            system.time = 0;
+            system.transitioning = true;
+            ReadGroup(index);
+        }
+        if (system.transitioning)
+            UpdateSystem(index);
+    }
+}
+
+// 0x00574670 (a state that never comes - not one of the four - loops forever, as in the original)
+void CTODManager::SetTODInstant(uint32_t state)
+{
+    if (LightsLocked()) // (the unlock: NOT ORIGINAL - SetMultiplayerUnlock)
+        return;
+    // How long until `state`, from the first non-sky system.
+    TODSystem& current = SystemAt(this, CurrentSystem());
+    int remaining = current.transitioning ? current.transitionLength - current.time
+                                          : current.stateLength - current.time + current.transitionLength;
+    for (uint32_t s = NextTODState(current.state); s != state; s = NextTODState(s)) {
+        Scripts::CStruct* structure;
+        current.params->ReadSubStruct(s, &structure, 1);
+        int length;
+        structure->FetchIntValue(kStateLength, &length, 1);
+        remaining += current.transitionLength + length;
+    }
+    // Every system moved on by that long.
+    for (int index = 0; index < kSystems; ++index) {
+        TODSystem& system = m_systems[index];
+        int left = remaining;
+        while (left > 0) {
+            if (system.transitioning) {
+                if (left < system.transitionLength - system.time) {
+                    system.time += left;
+                    break;
+                }
+                left += system.time - system.transitionLength;
+                NextState(index);
+                ReadGroup(index);
+            } else {
+                if (left < system.stateLength - system.time) {
+                    system.time += left;
+                    break;
+                }
+                left += system.time - system.stateLength;
+                system.transitioning = true;
+                system.time = 0;
+            }
+        }
+    }
+    RefreshAll(false);
+}
+
+// NOT ORIGINAL (engine/net/thugpro_peer.h)
+uint32_t CTODManager::CurrentState() const
+{
+    int index = CurrentSystem();
+    return index < kSystems ? m_systems[index].state : 0;
+}
+
+// NOT ORIGINAL (engine/net/thugpro_peer.h): SetTODInstant's walk, without moving - at most once round the four states:
+// `state` is reached (an unknown current state or target never is) and every state on the way has its structure.
+bool CTODManager::CanSetTODInstant(uint32_t state) const
+{
+    int index = CurrentSystem();
+    if (index >= kSystems)
+        return false;
+    const TODSystem& current = m_systems[index];
+    if (!current.params)
+        return false;
+    uint32_t s = NextTODState(current.state);
+    for (int step = 0; step < 4 && s; ++step, s = NextTODState(s)) {
+        if (s == state)
+            return true;
+        Scripts::CStruct* structure = nullptr;
+        if (!current.params->ReadSubStruct(s, &structure, 0) || !structure)
+            return false;
+    }
+    return false;
+}
+
+CTODManager*& TODManager() { return ScriptCommands::g_todManager; }
+namespace {
+uint32_t& RefTally() { return g_todReferences; }
+} // namespace
+
+// 0x00574540
+CTODManager* CreateTODManager(bool create)
+{
+    CTODManager*& manager = TODManager();
+    if (!manager && create) {
+        void* memory = MemSys::AllocZeroed(sizeof(CTODManager), nullptr, 1);
+        manager = memory ? static_cast<CTODManager*>(memory)->MakeNew() : nullptr;
+    }
+    ++RefTally();
+    return manager;
+}
+
+// 0x00574910
+void ReleaseTODManager()
+{
+    if (RefTally() > 1) {
+        --RefTally();
+        return;
+    }
+    CTODManager* manager = TODManager();
+    if (manager) {
+        manager->Destruct();
+        MemSys::Hub::Pull()->Dealloc(manager);
+    }
+    TODManager() = nullptr;
+    RefTally() = 0;
+}
+
+// --- the script commands ------------------------------------------------------------------------------------
+
+// 0x00571FE0: TODManager_SetActive <0|1>
+bool __cdecl CFunc_TODManager_SetActive(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    CTODManager* manager = TODManager();
+    int active;
+    params->FetchIntValue(0u, &active, 1);
+    manager->m_active = active != 0;
+    return true;
+}
+
+// 0x00572010: TODManager_GetNumberOfDaysPassed [system_index=n] -> num_days_passed
+bool __cdecl CFunc_TODManager_GetNumberOfDaysPassed(Scripts::CStruct* params, Scripts::CScript* script)
+{
+    CTODManager* manager = TODManager();
+    int index = 0;
+    params->FetchIntValue(kSystemIndex, &index, 0);
+    script->m_args->PutInt(kNumDaysPassed, SystemAt(manager, index).daysPassed);
+    return true;
+}
+
+// 0x00572060: TODManager_SetTimeMultiplier <multiplier> (default 1)
+bool __cdecl CFunc_TODManager_SetTimeMultiplier(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    float multiplier = 1.0f;
+    params->FetchFloat(0u, &multiplier, 0);
+    if (!TODManager())
+        return false;
+    TODManager()->m_timeMultiplier = multiplier;
+    return true;
+}
+
+// 0x005720A0: TODManager_GetTimeMultiplier -> TOD_Time_Multiplier
+bool __cdecl CFunc_TODManager_GetTimeMultiplier(Scripts::CStruct* /*params*/, Scripts::CScript* script)
+{
+    if (!TODManager())
+        return false;
+    script->m_args->PushFloat(kTimeMultiplierName, TODManager()->m_timeMultiplier);
+    return true;
+}
+
+// 0x005720D0: TODManager_SetTODScript <script>
+bool __cdecl CFunc_TODManager_SetTODScript(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    CTODManager* manager = TODManager();
+    uint32_t name = 0;
+    params->ReadHashValue(0u, &name, 0);
+    manager->m_transitionScript = name;
+    return true;
+}
+
+// 0x00572110: TODManager_Create name= | prefix=
+bool __cdecl CFunc_TODManager_Create(Scripts::CStruct* params, Scripts::CScript* script)
+{
+    TODManager()->BuildTodObjects(params, script);
+    return true;
+}
+
+// 0x00572BE0: TODManager_SetParams
+bool __cdecl CFunc_TODManager_SetParams(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    TODManager()->ChangeArgs(params);
+    return true;
+}
+
+// 0x00572C00: TODManager_GetCurrentTODParams [system_index=n] -> tod_params={active current_state_name lev_red ...}
+bool __cdecl CFunc_TODManager_GetCurrentTODParams(Scripts::CStruct* params, Scripts::CScript* script)
+{
+    int index = -1;
+    params->FetchIntValue(kSystemIndex, &index, 0);
+    CTODManager* manager = TODManager();
+    TODParams p = manager->GetTODParams(index);
+    Scripts::CStruct* out = SpawnParamTable();
+    out->PutInt(kActive, manager->m_active);
+    int current = 0;
+    while (current < CTODManager::kSystems && manager->m_systems[current].sky)
+        ++current;
+    out->PutNameKey(kCurrentStateName, SystemAt(manager, current).state);
+    out->PutInt(kLevRed, p.levRed);
+    out->PutInt(kLevGreen, p.levGreen);
+    out->PutInt(kLevBlue, p.levBlue);
+    out->PutInt(kSkyRed, p.skyRed);
+    out->PutInt(kSkyGreen, p.skyGreen);
+    out->PutInt(kSkyBlue, p.skyBlue);
+    out->PutInt(kFogOn, p.fogOn);
+    out->PutInt(kFogRed, p.fogRed);
+    out->PutInt(kFogGreen, p.fogGreen);
+    out->PutInt(kFogBlue, p.fogBlue);
+    out->PutInt(kFogAlpha, p.fogAlpha);
+    out->PutInt(kFogDist, p.fogDist);
+    out->PutInt(kAmbientRed, p.ambientRed);
+    out->PutInt(kAmbientGreen, p.ambientGreen);
+    out->PutInt(kAmbientBlue, p.ambientBlue);
+    out->PushFloat(kAmbientModLo, p.ambientModLo);
+    out->PushFloat(kAmbientModHi, p.ambientModHi);
+    out->PushFloat(kHeading0, p.heading0);
+    out->PushFloat(kPitch0, p.pitch0);
+    out->PutInt(kRed0, p.red0);
+    out->PutInt(kGreen0, p.green0);
+    out->PutInt(kBlue0, p.blue0);
+    out->PushFloat(kModLo0, p.modLo0);
+    out->PushFloat(kModHi0, p.modHi0);
+    out->PushFloat(kHeading1, p.headingA);
+    out->PushFloat(kPitch1, p.pitch1);
+    out->PutInt(kRed1, p.red1);
+    out->PutInt(kGreen1, p.green1);
+    out->PutInt(kBlue1, p.blue1);
+    out->PushFloat(kModLo1, p.modLo1);
+    out->PushFloat(kModHi1, p.modHi1);
+    out->PutInt(kBloomOn, p.bloomOn);
+    out->PutInt(kBloom1, p.bloom1);
+    out->PutInt(kBloom2, p.bloom2);
+    Scripts::CArray* memory = Scripts::AllocScriptArray();
+    Scripts::CArray* array = memory ? memory->PrepareAll() : nullptr;
+    array->ConfigureSizeKind(3, Scripts::QBVAL_INTEGER);
+    array->SetElement(0, p.bloomStrength & 0xFF);
+    array->SetElement(1, p.bloomStrength >> 8 & 0xFF);
+    array->SetElement(2, p.bloomStrength >> 16 & 0xFF);
+    out->AppendArrayValue(kBloomStrength, array);
+    array->SetElement(0, p.bloomColor & 0xFF);
+    array->SetElement(1, p.bloomColor >> 8 & 0xFF);
+    array->SetElement(2, p.bloomColor >> 16 & 0xFF);
+    out->AppendArrayValue(kBloomColor, array);
+    Scripts::ReleaseArrayStorage(array);
+    if (array) {
+        array->Clear();
+        Scripts::DeleteArray(array);
+    }
+    script->m_args->AppendStructRef(kTodParams, out);
+    return true;
+}
+
+// 0x005730A0: TODManager_SetFogActive [0|1] (default 1)
+bool __cdecl CFunc_TODManager_SetFogActive(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    CTODManager* manager = TODManager();
+    int on = 1;
+    params->FetchIntValue(0u, &on, 0);
+    manager->SetFogActive(on != 0);
+    return true;
+}
+
+// 0x005735F0: TODManager_MarkPermanentlyDead name= | prefix=
+bool __cdecl CFunc_TODManager_MarkPermanentlyDead(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    TODManager()->MarkPermanentlyDead(params);
+    return true;
+}
+
+// 0x00573610: TODManager_Reset
+bool __cdecl CFunc_TODManager_Reset(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+{
+    TODManager()->Reset();
+    return true;
+}
+
+// 0x00574480: TODManager_ResetLevelLights [state_name=]
+bool __cdecl CFunc_TODManager_ResetLevelLights(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    CTODManager* manager = TODManager();
+    uint32_t name = 0;
+    params->ReadHashValue(kStateName, &name, 0);
+    manager->ResetLevelLights(name);
+    return true;
+}
+
+// 0x005744C0: TODManager_SetTempTOD <params>
+bool __cdecl CFunc_TODManager_SetTempTOD(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    TODManager()->SetTempTOD(params);
+    return true;
+}
+
+// 0x005744E0: TODManager_RestoreCurrentTOD
+bool __cdecl CFunc_TODManager_RestoreCurrentTOD(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+{
+    TODManager()->RestoreCurrentTOD();
+    return true;
+}
+
+// 0x005744F0: TODManager_SetTempBloomParams on= bloom1= bloom2= strength=[] color=[]
+bool __cdecl CFunc_TODManager_SetTempBloomParams(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    TODManager()->SetTempBloomParams(params);
+    return true;
+}
+
+// 0x00574510: TODManager_EnableBloom <0|1>
+bool __cdecl CFunc_TODManager_EnableBloom(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    CTODManager* manager = TODManager();
+    int on;
+    params->FetchIntValue(0u, &on, 1);
+    manager->EnableBloom(on);
+    return true;
+}
+
+// 0x00574840: TODManager_SetTODInstant <state>
+bool __cdecl CFunc_TODManager_SetTODInstant(Scripts::CStruct* params, Scripts::CScript* /*script*/)
+{
+    uint32_t state;
+    params->ReadHashValue(0u, &state, 1);
+    if (!TODManager())
+        return false;
+    TODManager()->SetTODInstant(state);
+    return true;
+}
+
+// 0x00574870: TODManager_AdvanceTODState: straight to the next state.
+bool __cdecl CFunc_TODManager_AdvanceTODState(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+{
+    CTODManager* manager = TODManager();
+    if (!manager)
+        return false;
+    int current = 0;
+    while (current < CTODManager::kSystems && manager->m_systems[current].sky)
+        ++current;
+    manager->SetTODInstant(NextTODState(SystemAt(manager, current).state));
+    return true;
+}
+
+} // namespace Gfx

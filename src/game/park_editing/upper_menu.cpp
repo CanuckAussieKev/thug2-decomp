@@ -4,9 +4,9 @@
 
 #include "game/park_editing/piece_menu.h"
 
-#include "game/core/mem.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/core/mem.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 
 namespace ParkEditing {
 

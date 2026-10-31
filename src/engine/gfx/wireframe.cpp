@@ -1,0 +1,34 @@
+// The wireframe render mode (engine/gfx/wireframe.h).
+
+#include "engine/gfx/wireframe.h"
+
+#include <d3d9.h>
+
+#include "engine/gfx/device.h"
+#include "engine/gfx/engine.h"
+
+namespace Engine3D::Wireframe {
+
+namespace {
+
+bool s_wire; // the fill set to wireframe for this frame's 3D
+
+} // namespace
+
+int RenderMode() { return g_renderMode; }
+
+void BeginWorld()
+{
+    s_wire = RenderMode() != 0;
+    if (s_wire)
+        SetRenderState(D3DRS_FILLMODE, D3DFILL_WIREFRAME);
+}
+
+void EndWorld()
+{
+    if (s_wire)
+        SetRenderState(D3DRS_FILLMODE, D3DFILL_SOLID);
+    s_wire = false;
+}
+
+} // namespace Engine3D::Wireframe

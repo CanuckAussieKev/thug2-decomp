@@ -8,18 +8,18 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/str.h"
-#include "game/front/screen_element.h"
-#include "game/front/screen_element_manager.h"
-#include "game/front/text_element.h"
+#include "engine/core/str.h"
+#include "frontend/screen_element.h"
+#include "frontend/screen_element_manager.h"
+#include "frontend/text_element.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
-#include "game/net/gamenet_manager.h"
-#include "game/script/cscript.h"
-#include "game/script/game_cfuncs.h"
-#include "game/script/param_struct.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/script/cscript.h"
+#include "engine/script/game_cfuncs.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/trick_goals.h"
 
 namespace GoalSystem {

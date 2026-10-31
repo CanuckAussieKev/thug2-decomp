@@ -4,20 +4,20 @@
 
 #include <cstdint>
 
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/net/gamenet_manager.h"
-#include "game/net/player_info.h"
-#include "game/script/param_struct.h"
-#include "game/skater/rider.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/net/player_info.h"
+#include "engine/script/param_struct.h"
+#include "game/rider/rider.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/objective.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
-#include "game/core/stubs.h"
-#include "game/core/code_address.h"
+#include "engine/core/stubs.h"
+#include "engine/core/code_address.h"
 
 namespace GoalSystem {
 

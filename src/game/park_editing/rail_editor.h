@@ -15,8 +15,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/maths/vec4.h"
-#include "game/obj/entity.h"
+#include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
 
 namespace Scripts {
 class CArray;

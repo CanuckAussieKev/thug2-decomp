@@ -6,17 +6,17 @@
 
 #include "game/park_editing/park_scene.h"
 
-#include "game/assets/resource_entry.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/assets/resource_entry.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_nx.h"
 #include "game/park_editing/rail_editor.h"
-#include "game/gfx/engine_geom.h"
-#include "game/lists/key_map.h"
-#include "game/engine3d/coll_tri.h"
+#include "engine/gfx/engine_geom.h"
+#include "engine/lists/key_map.h"
+#include "engine/render/coll_tri.h"
 #include "game/park/park_memory.h"
-#include "game/script/nodes.h"
+#include "engine/script/nodes.h"
 #include "game/park_editing/park_editor.h"
 
 namespace ParkEditing {

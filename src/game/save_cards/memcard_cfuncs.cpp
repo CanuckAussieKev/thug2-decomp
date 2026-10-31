@@ -8,20 +8,20 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
-#include "game/core/stubs.h"
+#include "engine/core/dbg.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
+#include "engine/core/stubs.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard.h"
 #include "game/save_cards/save_contents.h"
 #include "game/save_cards/save_types.h"
-#include "game/audio/music_player.h"
-#include "game/audio/stream_commands.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/script/struct_buffer.h"
-#include "game/sys/game_config.h"
+#include "engine/audio/music_player.h"
+#include "engine/audio/stream_commands.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/struct_buffer.h"
+#include "engine/sys/game_config.h"
 
 namespace MemCard {
 

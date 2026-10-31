@@ -5,16 +5,16 @@
 
 #include <cstdint>
 
-#include "game/front/screen_element.h"
-#include "game/front/screen_element_manager.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/trick_objects.h"
+#include "frontend/screen_element.h"
+#include "frontend/screen_element_manager.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/objects/trick_objects.h"
 #include "game/skate/game_mode.h"
-#include "game/script/param_struct.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/rider.h"
+#include "game/rider/rider.h"
 
 namespace GameModules {
 namespace ScoreInternal {

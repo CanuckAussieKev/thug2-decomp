@@ -7,14 +7,14 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/assets/resource_entry.h"
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
+#include "engine/assets/resource_entry.h"
+#include "engine/core/dbg.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/park_nx.h"
 #include "game/park_editing/park_scene.h"
-#include "game/maths/shape_tests.h"
+#include "engine/maths/shape_tests.h"
 #include "game/park/park_memory.h"
-#include "game/script/param_struct.h"
+#include "engine/script/param_struct.h"
 #include "game/park_editing/park_editor.h"
 
 namespace ParkEditing {

@@ -7,7 +7,7 @@
 
 #include <cstdint>
 
-#include "game/core/text_store.h"
+#include "engine/core/text_store.h"
 
 namespace Scripts {
 class CStruct;

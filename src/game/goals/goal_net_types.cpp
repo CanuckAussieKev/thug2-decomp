@@ -5,23 +5,23 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/mem.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_names.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/entity.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
-#include "game/skater/end_run.h"
-#include "game/skater/rider.h"
-#include "game/core/stubs.h"
-#include "game/gfx/weather.h"
-#include "game/core/code_address.h"
+#include "game/rider/end_run.h"
+#include "game/rider/rider.h"
+#include "engine/core/stubs.h"
+#include "engine/gfx/weather.h"
+#include "engine/core/code_address.h"
 
 namespace GoalSystem {
 

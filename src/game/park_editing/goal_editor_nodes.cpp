@@ -3,14 +3,14 @@
 
 #include <cstdint>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/script/node_manager.h"
-#include "game/script/nodes.h"
-#include "game/script/param_struct.h"
-#include "game/sys/crt.h"
+#include "engine/script/node_manager.h"
+#include "engine/script/nodes.h"
+#include "engine/script/param_struct.h"
+#include "platform/crt.h"
 
 namespace ParkEditing {
 

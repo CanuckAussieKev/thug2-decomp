@@ -6,12 +6,12 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/park.h"
-#include "game/obj/entity.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skate/gap_checklist.h"
 #include "game/park_editing/goal_editor.h"

@@ -1,0 +1,74 @@
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+
+#include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
+
+namespace Scripts {
+class CScript;
+class CStruct;
+} // namespace Script
+
+namespace GameObjects {
+
+struct EmitterNode;
+struct ProximNode;
+
+// The stream component (type 0x0F1641E3, "stream"; vtable 0x00646594, 0x2C bytes; made by 0x00433D90): the music /
+// speech streams its object plays (three at most, AudioStream::PlayStreamAtObject keeping their ids here), heard from its
+// emitter's nearest point (else the object) within its proxim node. Its script member functions (the table at
+// 0x00684E70, filled by 0x00644820): Obj_PlayStream, Obj_AddStream, Obj_RemoveStream, Obj_StopStream.
+//
+// Vtable: 0 the scalar deleting destructor; 1 Update 0x0051B970 (shared, empty); 2 ConfigureFromData; 3 / 4 / 9 the
+// empty 0x005480A0; 5 the shared 0x004E3F90; 6 0x0048DCD0; 7 the base's Suspend; 8 / 10 the empty 0x005BAB90; 11
+// 0x0042BB20 (shared); 12 InvokeMethodByName 0x0051ADC0 (none by name).
+class CAudioStreamModule : public CObjectModule {
+public:
+    static constexpr uint32_t kType = 0x0F1641E3;
+
+    // 0x00433D90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
+    static CObjectModule* __cdecl Fabricate();
+    // 0x00433870 (not a Ghidra function; registered with Create): its script member functions registered.
+    static void __cdecl PublishMethodTable();
+    // 0x00433C10: the base's constructor, its vtable and type; no emitter or proxim node. Returns this.
+    CAudioStreamModule* MakeNew();
+    // 0x00433890: its streams stopped (AudioStream::HaltStream); the base's body.
+    void DestroyBody();
+    // 0x00433C40 (vtable slot 0)
+    CAudioStreamModule* Teardown(unsigned int flags);
+    // 0x00433900 (vtable slot 2): ProximNode= (the proxim node heard from).
+    void ConfigureFromData(Scripts::CStruct* params);
+    // 0x00433CD0: where its streams are heard from by `camera`: the emitter's nearest point (with an emitter and a
+    // camera), else the object's position.
+    Maths::Vec4* GetStreamPosition(Maths::Vec4* out, void* camera);
+    // 0x00433D30: the nearest point of the proxim node to `camera` (false without one or without a camera).
+    bool GetStreamExtent(void* camera, Maths::Vec4* out);
+    // 0x00433970: a stream played (Obj_PlayStream's body), if one of the three places is free and the unnamed
+    // checksum is given: vol / pitch (100), priority (50), num_loops, id, dropoff (feet), dropoff_function, emitter
+    // and use_pos_info (1), through AudioStream::PlayStreamAtObject. Whether it played.
+    bool PlayStream(Scripts::CStruct* params, Scripts::CScript* script);
+    // 0x00433B30 / 0x00433BA0: AudioStream::AddStream / AudioStream::RemoveStream of the unnamed stream with Add= / remove=, as this
+    // component's. False without both.
+    bool AddStream(Scripts::CStruct* params, Scripts::CScript* script);
+    bool RemoveStream(Scripts::CStruct* params, Scripts::CScript* script);
+
+    // --- script member functions (the table at 0x00684E70) ---
+    // 0x00433C70 / 0x00433C90 / 0x00433CB0 (not Ghidra functions) Obj_PlayStream / Obj_AddStream / Obj_RemoveStream:
+    // the above. True.
+    bool Obj_PlayStream(Scripts::CStruct* params, Scripts::CScript* script);
+    bool Obj_AddStream(Scripts::CStruct* params, Scripts::CScript* script);
+    bool Obj_RemoveStream(Scripts::CStruct* params, Scripts::CScript* script);
+    // 0x00433930 (not a Ghidra function) Obj_StopStream: every stream it plays stopped. True.
+    bool Obj_StopStream(Scripts::CStruct* params, Scripts::CScript* script);
+
+    uint32_t m_streams[3];    // +0x18 the ids of the streams it plays (0: free)
+    EmitterNode* m_spewer;  // +0x24
+    ProximNode* m_proxim;    // +0x28
+};
+static_assert(offsetof(CAudioStreamModule, m_streams) == 0x18 && offsetof(CAudioStreamModule, m_spewer) == 0x24 &&
+                  offsetof(CAudioStreamModule, m_proxim) == 0x28 && sizeof(CAudioStreamModule) == 0x2C,
+              "layout must match the original");
+
+} // namespace Obj

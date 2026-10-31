@@ -3,16 +3,16 @@
 #include <cstdint>
 #include <initializer_list>
 
-#include "game/core/manager.h"
-#include "game/core/stubs.h"
-#include "game/obj/entity.h"
-#include "game/script/param_struct.h"
-#include "game/script/struct_buffer.h"
+#include "engine/core/manager.h"
+#include "engine/core/stubs.h"
+#include "engine/objects/entity.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/struct_buffer.h"
 #include "game/skate/appearance_guard.h"
 #include "game/skate/profile_manager.h"
-#include "game/skater/trick_component.h"
-#include "game/gfx/face_texture.h"
-#include "game/gfx/model_appearance.h"
+#include "game/rider/trick_component.h"
+#include "engine/gfx/face_texture.h"
+#include "engine/gfx/model_appearance.h"
 #include "game/skate/skate_module.h"
 
 namespace GameObjects {

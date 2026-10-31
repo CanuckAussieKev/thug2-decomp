@@ -8,12 +8,12 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/file/file_load.h"
-#include "game/script/param_struct.h"
-#include "game/script/struct_buffer.h"
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/file/file_load.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/struct_buffer.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 

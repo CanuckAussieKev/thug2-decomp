@@ -4,13 +4,13 @@
 
 #include "game/park_editing/piece_menu.h"
 
-#include "game/core/mem.h"
-#include "game/front/screen_element.h"
-#include "game/front/screen_element_manager.h"
-#include "game/front/text_element.h"
-#include "game/obj/tracker.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/core/mem.h"
+#include "frontend/screen_element.h"
+#include "frontend/screen_element_manager.h"
+#include "frontend/text_element.h"
+#include "engine/objects/tracker.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 
 namespace ParkEditing {
 

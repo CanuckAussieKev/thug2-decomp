@@ -8,21 +8,21 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/assets/resource_entry.h"
-#include "game/core/checksums.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/assets/resource_entry.h"
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/park_editing/park.h"
 #include "game/park/park_memory.h"
-#include "game/script/cscript.h"
-#include "game/script/node_manager.h"
-#include "game/script/nodes.h"
-#include "game/script/qb.h"
-#include "game/script/param_struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/node_manager.h"
+#include "engine/script/nodes.h"
+#include "engine/script/qb.h"
+#include "engine/script/param_struct.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/script/game_cfuncs.h"
+#include "engine/script/game_cfuncs.h"
 
 namespace ParkEditing {
 

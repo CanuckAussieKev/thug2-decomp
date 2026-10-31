@@ -5,17 +5,17 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/front/level_editor_career.h"
-#include "game/maths/vec4.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "editor/level_editor_career.h"
+#include "engine/maths/vec4.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/gap_checklist.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
-#include "game/core/code_address.h"
-#include "game/net/gamenet_manager.h"
+#include "engine/core/code_address.h"
+#include "engine/net/gamenet_manager.h"
 
 namespace GameObjects {
 

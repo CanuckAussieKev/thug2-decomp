@@ -5,19 +5,19 @@
 
 #include "game/park_editing/park_editor.h"
 
-#include "game/core/mem.h"
-#include "game/core/stubs.h"
-#include "game/core/task_list.h"
+#include "engine/core/mem.h"
+#include "engine/core/stubs.h"
+#include "engine/core/task_list.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/piece_menu.h"
 #include "game/park/park_memory.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/sys/stopwatch.h"
-#include "game/core/code_address.h"
-#include "game/net/task_vtable.h"
-#include "game/core/stubs.h"
-#include "game/sys/model_viewer.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "platform/stopwatch.h"
+#include "engine/core/code_address.h"
+#include "engine/net/task_vtable.h"
+#include "engine/core/stubs.h"
+#include "engine/sys/model_viewer.h"
 
 namespace GameCode {
 

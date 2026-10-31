@@ -1,31 +1,31 @@
 // The save file types and the memory card commands' helpers (see save_types.h).
 
 #include "game/save_cards/save_types.h"
-#include "game/core/code_address.h"
+#include "engine/core/code_address.h"
 
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/arena_alloc.h"
-#include "game/core/checksums.h"
-#include "game/core/manager.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard_cfuncs.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/tracker.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/objects/tracker.h"
 #include "game/skate/career.h"
-#include "game/obj/entity.h"
-#include "game/script/param_struct.h"
-#include "game/script/struct_buffer.h"
+#include "engine/objects/entity.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/struct_buffer.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/rider.h"
-#include "game/sys/game_config.h"
-#include "game/core/game_vtables.h"
+#include "game/rider/rider.h"
+#include "engine/sys/game_config.h"
+#include "engine/core/game_vtables.h"
 #include "game/goals/objective.h"
-#include "game/gfx/rig.h"
+#include "engine/gfx/rig.h"
 
 namespace MemCard {
 

@@ -1,0 +1,348 @@
+// The engine's loaded scenes: see engine_scene_list.h.
+
+#include "engine/gfx/device.h"
+#include "engine/gfx/engine_scene_list.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_glue.h"
+#include "engine/gfx/engine_scene.h"
+#include "engine/gfx/scene_load.h"
+#include "engine/gfx/texture_dict.h"
+#include "engine/maths/shape_tests.h"
+#include "engine/maths/vec4.h"
+#include "engine/render/coll_grid.h"
+#include "engine/script/param_struct.h"
+#include "platform/stopwatch.h"
+#include "engine/core/code_address.h"
+
+namespace Engine3D {
+
+namespace {
+
+extern void** const kHeadVtable;
+
+// The list's first node (the head's next, 0x006FA7EC; the head itself when the list is empty).
+MemSys::ListNode* HeadOfSceneList() { return g_sceneList.next; }
+bool IsHead(const MemSys::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+// The node after `node` (null at the end).
+MemSys::ListNode* NextNode(const MemSys::ListNode* node)
+{
+    MemSys::ListNode* next = node->next;
+    return IsHead(next) ? nullptr : next;
+}
+CWorldScene* SceneOf(const MemSys::ListNode* node) { return static_cast<CWorldScene*>(node->data); }
+
+// The first scene whose m_isSky is `sky` (the original's walk: the first node's data checked before the node).
+CWorldScene* FirstScene(bool sky)
+{
+    MemSys::ListNode* node = HeadOfSceneList();
+    if (IsHead(node) || !node)
+        return nullptr;
+    for (;;) {
+        MemSys::ListNode* next = NextNode(node);
+        if (SceneOf(node)->m_isSky == sky)
+            return SceneOf(node);
+        if (!next)
+            return nullptr;
+        node = next;
+    }
+}
+
+// The rest of the engine's scene calls (0x0048C560-0x0048C74F, not rewritten yet; cdecl): a scene registered (its
+// name's checksum, its textures, PostLoad unless `skipPostLoad`, a node at the end of the list; the sixth argument
+// isn't read), a scene unloaded (with `flag` its collision too), the scene of a checksum, every scene's added scene
+// shown or hidden.
+void RegisterScene(CWorldScene* scene, const char* name, CTextureSet* textures, int skipPostLoad, void* arena, int unused)
+{
+    (void)unused;
+    Engine::AddScene(scene, name, textures, skipPostLoad != 0, arena);
+}
+void UnloadEngineScene(CWorldScene* scene, int flag) { Engine::UnloadScene(scene, flag); }
+CWorldScene* LookUpScene(uint32_t checksum) { return Engine::FindScene(checksum); }
+void ToggleAddScenes() { Engine::ToggleAddScenes(); }
+
+// The scene list's node's destructor body (0x0048C4B0: unlinked, its own vtable).
+void DestroyNodeBody(MemSys::ListNode* node) { static_cast<CSceneNode*>(node)->DestroyBody(); }
+
+// Compiled out (0x005B9E50, false): the platform's own load of an added scene's geometry.
+bool PlatLoadAddScene(CWorldScene* /*scene*/, const char* /*fileName*/) { return false; }
+// "levels\<name>\<name>.scn.<the platform's extension>" (the original's sprintf; no length limit there).
+void BuildSceneFilePath(char* out, size_t size, const char* name)
+{
+    std::snprintf(out, size, "levels\\%s\\%s%s.scn.%s", name, name, "", PlatformSuffix());
+}
+
+} // namespace
+
+// 0x0048CC30
+CSceneListHead* CSceneListHead::MakeNew()
+{
+    data = reinterpret_cast<void*>(-1);
+    priority = 0;
+    next = this;
+    prev = this;
+    vtable = reinterpret_cast<void**>(kHeadVtable);
+    return this;
+}
+
+// 0x0048CC50
+CSceneListHead* CSceneListHead::Teardown(unsigned int flags)
+{
+    DestroyNodeBody(this);
+    if (flags & 1)
+        MemSys::Hub::Pull()->Dealloc(this);
+    return this;
+}
+
+// 0x0048C7F0
+MemSys::ListNode* __cdecl FirstSceneNode()
+{
+    MemSys::ListNode* node = HeadOfSceneList();
+    return IsHead(node) ? nullptr : node;
+}
+
+// 0x0048C750
+CWorldScene* __cdecl GetSceneByName(const char* name)
+{
+    return LookUpScene(Checksums::HashFromText(name));
+}
+
+// 0x0048C770
+CWorldScene* __cdecl GetMainScene()
+{
+    return FirstScene(false);
+}
+
+// 0x0048C7B0
+CWorldScene* __cdecl GetSkyScene()
+{
+    return FirstScene(true);
+}
+
+// 0x0048C810
+bool __cdecl UnloadAllScenes()
+{
+    MemSys::ListNode* node = HeadOfSceneList();
+    if (!IsHead(node) && node) {
+        do {
+            MemSys::ListNode* next = NextNode(node);
+            CWorldScene* scene = SceneOf(node);
+            CTextureSet* textures = scene->m_textureSet;
+            UnloadEngineScene(scene, 1);
+            if (textures)
+                UnloadTexDict(textures);
+            node = next;
+        } while (node);
+    }
+    ClearDebugLines(); // (the original pushes a 0 it doesn't read)
+    return true;
+}
+
+// 0x0048C870
+void __cdecl AddShadowCaster(const uint8_t* texture, void* model, CWorldScene* scene)
+{
+    if (!scene)
+        scene = GetMainScene();
+    AddTextureShadowCaster(texture, model, reinterpret_cast<uint32_t>(scene));
+}
+
+// 0x0048C8F0
+void __cdecl PrintCollStatics()
+{
+    FrameClock::GetTime();
+    MemSys::ListNode* node = HeadOfSceneList();
+    if (!IsHead(node) && node) {
+        do {
+            MemSys::ListNode* next = NextNode(node);
+            CWorldScene* scene = SceneOf(node);
+            if (!scene->m_isSky)
+                scene->PrintCollStatics();
+            node = next;
+        } while (node);
+    }
+    FrameClock::GetTime();
+}
+
+// 0x0048C940
+CCollGrid* __cdecl GetFirstCollGrid()
+{
+    MemSys::ListNode* node = HeadOfSceneList();
+    if (IsHead(node) || !node)
+        return nullptr;
+    do {
+        MemSys::ListNode* next = NextNode(node);
+        if (CCollGrid* grid = SceneOf(node)->m_collGrid)
+            return grid;
+        node = next;
+    } while (node);
+    return nullptr;
+}
+
+uint32_t g_nextSectorName{1};
+CCollGrid* g_collisionGrids[16];
+CWorldScene* g_collisionScenes[16];
+
+// 0x0048C980
+CCollGrid** __cdecl GetCollGridsOnLine(const Maths::Seg* line)
+{
+    auto* scenes = g_collisionScenes;
+    auto* grids = g_collisionGrids;
+    Maths::BBox box(line->start);
+    box.AppendSpot(line->end);
+    uint32_t count = 0;
+    MemSys::ListNode* node = HeadOfSceneList();
+    if (IsHead(node) || !node)
+        return nullptr;
+    do {
+        MemSys::ListNode* next = NextNode(node);
+        CWorldScene* scene = SceneOf(node);
+        CCollGrid* grid = scene->m_collGrid;
+        // (each "past" test as the original: NaN doesn't rule a grid out)
+        if (grid && !(grid->m_box.min.x > box.max.x) && !(box.min.x > grid->m_box.max.x) &&
+            !(grid->m_box.min.z > box.max.z) && !(box.min.z > grid->m_box.max.z) &&
+            !(grid->m_box.min.y > box.max.y) && !(box.min.y > grid->m_box.max.y)) {
+            scenes[count] = scene;
+            grids[count] = grid;
+            if (++count >= 15)
+                break;
+        }
+        node = next;
+    } while (node);
+    if (count == 0)
+        return nullptr;
+    grids[count] = nullptr;
+    scenes[count] = nullptr;
+    return grids;
+}
+
+// 0x0048CA80
+uint32_t __cdecl NewSectorName()
+{
+    uint32_t& counter = g_nextSectorName;
+    for (;;) {
+        uint32_t name = counter;
+        bool used = false;
+        MemSys::ListNode* node = HeadOfSceneList();
+        if (!IsHead(node) && node) {
+            do {
+                MemSys::ListNode* next = NextNode(node);
+                if (SceneOf(node)->LookUpSector(name)) {
+                    used = true;
+                    break;
+                }
+                node = next;
+            } while (node);
+        }
+        if (!used)
+            return counter++;
+        ++counter;
+    }
+}
+
+// 0x0048CAF0
+bool __cdecl CFunc_ToggleAddScenes(Scripts::CStruct* /*params*/, Scripts::CScript* /*script*/)
+{
+    ToggleAddScenes();
+    return true;
+}
+
+// 0x0048CB00
+void __cdecl GetSceneDebugInfo(Scripts::CStruct* info)
+{
+    if (GetMainScene()) {
+        Scripts::CStruct* main = Scripts::SpawnParamBag();
+        if (main)
+            main->PrepareAll();
+        GetMainScene()->FetchDiagnostics(main);
+        info->AppendStructRef(0x9B10525Cu, main);
+    }
+    if (GetSkyScene()) {
+        Scripts::CStruct* sky = Scripts::SpawnParamBag();
+        if (sky)
+            sky->PrepareAll();
+        GetSkyScene()->FetchDiagnostics(sky);
+        info->AppendStructRef(0x02C5EA34u, sky);
+    }
+}
+
+// 0x0048CC80
+CWorldScene* __cdecl BuildWorldScene(const char* name, CTextureSet* textures, bool withSuperSectors)
+{
+    auto* scene = static_cast<CWorldScene*>(Engine3D::MakeEmptyScene(name, textures, withSuperSectors));
+    RegisterScene(scene, name, textures, 1, nullptr, 0);
+    return scene;
+}
+
+// 0x0048CCB0
+CWorldScene* __cdecl LoadScene(const char* name, CTextureSet* textures, bool withSuperSectors, bool isSky, bool meshFlag,
+                          int unused)
+{
+    char file[0x80];
+    BuildSceneFilePath(file, sizeof(file), name);
+    MemSys::PushMemProfile(file);
+    uint32_t vertexArena[4] = {0, 0, 0, 0};
+    void* arena = g_streamOffsetSupported ? vertexArena : nullptr;
+    auto* scene = static_cast<CWorldScene*>(LoadSceneFromFile(file, textures, withSuperSectors, isSky, meshFlag,
+                                                         reinterpret_cast<int>(arena)));
+    MemSys::PopMemProfile();
+    RegisterScene(scene, name, textures, 0, arena, unused);
+    return scene;
+}
+
+// 0x0048CD80
+CWorldScene* __cdecl LoadNamedSceneFromMemory(const char* name, const uint8_t* data, CTextureSet* textures, bool withSuperSectors,
+                                    bool isSky, bool meshFlag, int unused)
+{
+    MemSys::PushMemProfile("Scene Processing");
+    auto* scene = static_cast<CWorldScene*>(Engine3D::LoadSceneFromMemory(data, textures, withSuperSectors, isSky, meshFlag));
+    MemSys::PopMemProfile();
+    RegisterScene(scene, name, textures, 0, nullptr, unused);
+    return scene;
+}
+
+// 0x0048CDD0
+CWorldScene* __cdecl AddScene(const char* sceneName, const char* addName)
+{
+    char file[0x80];
+    char texFile[0x80];
+    BuildSceneFilePath(file, sizeof(file), addName);
+    std::snprintf(texFile, sizeof(texFile), "levels\\%s\\%s.tex", addName, addName);
+    CWorldScene* scene = LookUpScene(Checksums::HashFromText(sceneName));
+    if (std::strcmp(scene->m_addName, file) == 0) {
+        scene->UnloadAddedScene();
+        if (CTextureSet* old = FindTexDict(Checksums::HashFromText(texFile)))
+            UnloadTexDict(old);
+    }
+    CTextureSet* textures = LoadTexDict(texFile, 1, 0, 0, 0);
+    PlatLoadAddScene(scene, file);
+    scene->FinishAdd(file, reinterpret_cast<uint32_t>(textures));
+    return scene;
+}
+
+// 0x0048CEF0
+bool __cdecl ReloadScene(const char* name)
+{
+    CWorldScene* scene = LookUpScene(Checksums::HashFromText(name));
+    if (!scene)
+        return false;
+    bool isSky = scene->m_isSky;
+    CTextureSet* textures = scene->m_textureSet;
+    UnloadEngineScene(scene, 1);
+    LoadScene(name, textures, !isSky, isSky, false, 0);
+    return true;
+}
+
+namespace {
+static VtableSlot kHeadVtable_slots[] = {&Engine3D::CSceneListHead::Teardown};
+void** const kHeadVtable = reinterpret_cast<void**>(kHeadVtable_slots);
+} // namespace
+
+} // namespace Nx

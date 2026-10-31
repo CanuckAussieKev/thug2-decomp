@@ -5,9 +5,9 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/code_address.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/code_address.h"
 #include "game/save_cards/save_types.h"
 
 namespace MemCard {

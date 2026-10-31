@@ -1,32 +1,32 @@
 // What a save holds and how it is put back (see save_contents.h).
 
 #include "game/save_cards/save_contents.h"
-#include "game/core/code_address.h"
+#include "engine/core/code_address.h"
 
 #include <cstdint>
 
-#include "game/core/dbg.h"
+#include "engine/core/dbg.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"
 #include "game/goals/goal_manager.h"
 #include "game/save_cards/memcard_cfuncs.h"
 #include "game/save_cards/save_types.h"
-#include "game/net/gamenet_manager.h"
-#include "game/obj/entity.h"
-#include "game/obj/tracker.h"
-#include "game/audio/music_player.h"
-#include "game/script/cscript.h"
-#include "game/script/preferences.h"
-#include "game/script/param_struct.h"
-#include "game/sound/sfx.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/tracker.h"
+#include "engine/audio/music_player.h"
+#include "engine/script/cscript.h"
+#include "engine/script/preferences.h"
+#include "engine/script/param_struct.h"
+#include "engine/sound/sfx.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/highscores.h"
 #include "game/skate/skate_module.h"
-#include "game/skater/rider.h"
-#include "game/sys/game_config.h"
+#include "game/rider/rider.h"
+#include "engine/sys/game_config.h"
 #include "game/goals/objective.h"
-#include "game/gfx/rig.h"
+#include "engine/gfx/rig.h"
 
 namespace MemCard {
 

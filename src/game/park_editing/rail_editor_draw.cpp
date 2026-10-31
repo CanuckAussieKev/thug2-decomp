@@ -8,19 +8,19 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/mem.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor_internal.h"
-#include "game/maths/mat4.h"
-#include "game/maths/x87_math.h"
-#include "game/engine3d/coll_tri.h"
-#include "game/engine3d/probe_ray.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/x87_math.h"
+#include "engine/render/coll_tri.h"
+#include "engine/render/probe_ray.h"
 #include "game/park/park_memory.h"
-#include "game/script/param_struct.h"
-#include "game/gfx/engine.h"
-#include "game/gfx/sector.h"
-#include "game/gfx/engine_geom.h"
+#include "engine/script/param_struct.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/sector.h"
+#include "engine/gfx/engine_geom.h"
 
 namespace ParkEditing {
 

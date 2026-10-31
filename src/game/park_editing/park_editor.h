@@ -16,8 +16,8 @@
 #include <cstdint>
 
 #include "game/park_editing/park.h"
-#include "game/obj/signal.h"
-#include "game/sys/game_module.h"
+#include "engine/objects/signal.h"
+#include "engine/sys/game_module.h"
 
 namespace PadInput {
 struct Payload;

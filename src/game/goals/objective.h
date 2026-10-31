@@ -14,7 +14,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/arena_alloc.h"
+#include "engine/core/arena_alloc.h"
 
 namespace Scripts {
 class CArray;

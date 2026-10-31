@@ -6,13 +6,13 @@
 #include <cstdint>
 
 #include "game/park_editing/park.h"
-#include "game/gfx/d3dx.h"
+#include "engine/gfx/d3dx.h"
 
-#include "game/core/mem.h"
+#include "engine/core/mem.h"
 #include "game/park_editing/park_nx.h"
-#include "game/maths/mat4.h"
-#include "game/script/param_struct.h"
-#include "game/core/code_address.h"
+#include "engine/maths/mat4.h"
+#include "engine/script/param_struct.h"
+#include "engine/core/code_address.h"
 
 namespace ParkEditing {
 

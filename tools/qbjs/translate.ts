@@ -1,5 +1,5 @@
 // NOT ORIGINAL - offline QB -> typed IR -> JavaScript generator translator.
-// Format/behavior references: src/game/script/qb.* and docs/script-runtime.md.
+// Format/behavior references: src/engine/script/qb.* and docs/script-runtime.md.
 import { readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 

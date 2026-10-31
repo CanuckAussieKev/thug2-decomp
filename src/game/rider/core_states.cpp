@@ -1,0 +1,160 @@
+// The skater's core physics component: the lip state's update, and getting back on the board.
+
+#include <cstdint>
+
+#include "engine/core/manager.h"
+#include "engine/gfx/d3dx.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
+#include "engine/objects/movable_contact.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/rail_manager.h"
+#include "engine/objects/ride_tracker.h"
+#include "engine/objects/smtptr.h"
+#include "engine/objects/walk_hang.h"
+#include "engine/script/nodes.h"
+#include "engine/script/param_struct.h"
+#include "game/skate/career.h"
+#include "game/rider/core_fields.h"
+#include "game/rider/core_physics.h"
+#include "game/rider/manual_balance.h"
+#include "game/rider/rider.h"
+#include "game/rider/trick_component.h"
+#include "game/skate/skate_module.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/objects/trigger_events.h"
+
+namespace Skater {
+
+using namespace CoreFields;
+
+namespace {
+
+constexpr uint32_t kLipKind = 0xA549B57B;        // Lip (the balance trick's kind)
+constexpr uint32_t kPerfectRail = 0xCD09E062;    // CHEAT_PERFECT_RAIL
+constexpr uint32_t kName = 0xA1DC81F9;
+
+void ChangeState(void* component, int state) { static_cast<SkaterPhysicsModule*>(component)->SetPhysicsState(state); }
+
+} // namespace
+
+// 0x0050BF50
+void SkaterPhysicsModule::StepCopingMove()
+{
+    SetFlag(this, 0x78, 0);
+    SetFlag(this, 0xA8, 0);
+    SetFlag(this, 0x80, 0);
+    At<uint8_t>(this, 0x2E4) = 0;
+    // Carried by what the skater rides on: the position, and the start of the lip (+0x258) - 0x00427A00 works it out.
+    if (GameObjects::CRideTracker* tracker = Tracker(this)) {
+        if (!tracker->m_entity.m_ownerObject || !tracker->TickFrame(&VectorAt(ObjectOf(this), kPosition))) {
+            StopRiding(this);
+        } else {
+            // (0x00427A00 returns `where`; ours is void: the point is read from `where`)
+            auto* contact = At<GameObjects::CMovingSurfaceModule*>(this, kRide);
+            Maths::Vec4 where;
+            void* object = ObjectOf(this);
+            contact->GetContactPoint(&where);
+            VectorAt(object, kPosition) = where;
+            At<GameObjects::CMovingSurfaceModule*>(this, kRide)->GetContactPoint(&where);
+            VectorAt(this, 0x258) = where;
+            if (Tracker(this)->m_turned) {
+                auto multiply =
+                    D3dx::MatrixMultiply;
+                Maths::Mat4& matrix = MatrixAt(ObjectOf(this), kMatrix);
+                multiply(&matrix, &matrix, &Tracker(this)->m_turn);
+                multiply(&MatrixAt(this, kDisplayMatrix), &MatrixAt(this, kDisplayMatrix), &Tracker(this)->m_turn);
+            }
+        }
+    }
+    // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
+    if (At<uint32_t>(At<void*>(this, kBalanceTrick), 0x18) == kLipKind) {
+        auto career = [] { return At<GameObjects::CRiderStoryProgress*>(reinterpret_cast<uint8_t*>(GameModules::g_skateModule), 0x20); };
+        if (career()->IsCodeOn(kPerfectRail)) {
+            career()->SetGlobalFlag(Scripts::FetchIntValue(kPerfectRail));
+            At<uint32_t>(At<void*>(this, kBalanceTrick), 0x104) = 0;
+            At<uint32_t>(At<void*>(this, kBalanceTrick), 0x108) = 0;
+            reinterpret_cast<uint8_t&>(OnlinePlay::g_cheatFlag) = 1;
+        }
+        reinterpret_cast<GameObjects::CBalance*>(At<uint8_t*>(this, kBalanceTrick) + 0xD4)->TickFrame();
+    }
+    if (!BitMark(this, 0x20) && InputOf(this)[0x1C0])
+        SetFlag(this, 0x20, 1);
+    // Off the lip (0x004FFB10): the rail's TriggerScript, twice.
+    if (JumpReleased()) {
+        SetFlag(this, 0xD8, 1);
+        TriggerRailScript(g_lipOffEvents);
+        TriggerRailScript(g_offLipEvents);
+    }
+    auto* node = At<GameObjects::CGrindPoint*>(this, kRailNode);
+    if (node && At<GameObjects::CGrindRailHub*>(this, kRailManager)->m_nodeArray) {
+        Scripts::CStruct* script = LevelNodes::FetchVertex(node->m_label, true);
+        script->ReadHashValue(kName, &At<uint32_t>(this, kRailScriptNode), 1);
+        static_cast<GameObjects::CMoveExecutor*>(At<void*>(this, kSkaterComponent))
+            ->PassToTrickObjects(At<uint32_t>(this, kRailScriptNode));
+    }
+    At<int>(this, 0x238) = Now();
+}
+
+// 0x0050C670
+void SkaterPhysicsModule::ResumeSkating(bool onGround, const uint8_t* grind, void* acidDrop)
+{
+    ClearFlags();
+    if (onGround) {
+        ChangeState(this, kGround);
+        At<int>(this, 0x94) = kGround;
+    } else {
+        ChangeState(this, kAir);
+        At<int>(this, 0x94) = kAir;
+        SetFlag(this, 0xC0, 1);
+        if (At<uint8_t>(At<void*>(this, 0x1534), 0x9B))
+            SetFlag(this, 0xB0, 1);
+    }
+    At<int>(this, 0x90) = Now();
+    MatrixAt(this, kDisplayMatrix) = MatrixAt(ObjectOf(this), kMatrix);
+    // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
+    VectorAt(this, kFloorUpVector) = VectorAt(ObjectOf(this), kUp);
+    VectorAt(this, 0x78) = VectorAt(this, kFloorUpVector);
+    VectorAt(this, 0x58) = VectorAt(this, 0x78);
+    VectorAt(this, 0x98) = VectorAt(ObjectOf(this), kPosition);
+    VectorAt(ObjectOf(this), kOldPosition) = VectorAt(this, 0x98);
+    // The jump / trick state cleared.
+    At<uint8_t>(this, 0x1C5) = 0;
+    At<int>(this, 0x2C0) = 0;
+    At<int>(this, kJumpChargeMs) = 0;
+    At<int>(this, 0x39C) = 0;
+    At<int>(this, 0x3A0) = 0;
+    At<uint8_t>(this, 0x370) = 0;
+    At<uint8_t>(this, 0x310) = 0;
+    At<uint8_t>(this, 0x311) = 1;
+    At<uint8_t>(FlagsOf(this), 0xF4) = 0; // (without its time)
+    if (At<uint32_t>(this, 0x350) != 0xC0000000)
+        At<uint32_t>(this, 0x350) = 0;
+    At<float>(this, 0x3AC) = 1.0f;
+    At<int>(this, 0x4E0) = 0;
+    At<int>(this, 0x4E4) = 0;
+    At<int>(this, kLeapDuration) = 0;
+    At<uint8_t>(this, 0x4E8) = 0;
+    if (grind) {
+        auto* rail = const_cast<uint8_t*>(grind);
+        // Onto a rail: the old ride let go (its object kept at +0x6C), the rail's object ridden.
+        void* ride = At<void*>(this, kRide);
+        if (GameObjects::CRideTracker* tracker = At<GameObjects::CRideTracker*>(ride, 0x18)) {
+            At<void*>(ride, 0x6C) = tracker->m_entity.m_ownerObject;
+            reinterpret_cast<GameObjects::CSharedRef<GameObjects::CSharedBase>*>(&tracker->m_entity)->Release();
+            MemSys::Hub::Pull()->Dealloc(tracker);
+            At<GameObjects::CRideTracker*>(ride, 0x18) = nullptr;
+            At<int>(ride, 0x70) = Now();
+        }
+        if (void* object = At<void*>(rail, 0x18))
+            At<Walk::MovableContact*>(this, kRide)->StartRiding(static_cast<GameObjects::CGameEntity*>(object));
+        StartGrind(reinterpret_cast<const Maths::Vec4*>(grind), At<GameObjects::CGrindPoint*>(rail, 0x14),
+                   At<GameObjects::CGrindRailHub*>(rail, 0x10), true, true);
+        VectorAt(this, 0x98) = VectorAt(ObjectOf(this), kPosition);
+        VectorAt(ObjectOf(this), kOldPosition) = VectorAt(this, 0x98);
+    } else if (acidDrop) {
+        StartAcidDrop(static_cast<const AcidDrop*>(acidDrop));
+    }
+}
+
+} // namespace Skater

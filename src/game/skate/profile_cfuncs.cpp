@@ -6,17 +6,17 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/manager.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/core/manager.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/gfx/engine.h"
-#include "game/gfx/engine_glue.h"
-#include "game/gfx/model.h"
-#include "game/gfx/model_appearance.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_glue.h"
+#include "engine/gfx/model.h"
+#include "engine/gfx/model_appearance.h"
 
 namespace ScriptCommands {
 

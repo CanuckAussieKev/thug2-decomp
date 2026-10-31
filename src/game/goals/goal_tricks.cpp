@@ -7,13 +7,13 @@
 #include "game/goals/objective.h"
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
-#include "game/maths/random.h"
-#include "game/obj/trick_objects.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/maths/random.h"
+#include "engine/objects/trick_objects.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/rider.h"
+#include "game/rider/rider.h"
 
 namespace GoalSystem {
 

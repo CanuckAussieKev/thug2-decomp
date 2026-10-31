@@ -3,32 +3,32 @@
 // events, the camera and the controls (Update), the state, and the logic task's work.
 
 #include "game/park_editing/park_editor.h"
-#include "game/gfx/d3dx.h"
+#include "engine/gfx/d3dx.h"
 
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/manager.h"
-#include "game/core/task_list.h"
+#include "engine/core/manager.h"
+#include "engine/core/task_list.h"
 #include "game/park_editing/piece_menu.h"
-#include "game/front/front_end.h"
-#include "game/maths/mat4.h"
-#include "game/obj/entity.h"
-#include "game/obj/entity_hub.h"
-#include "game/obj/tracker.h"
+#include "frontend/front_end.h"
+#include "engine/maths/mat4.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/entity_hub.h"
+#include "engine/objects/tracker.h"
 #include "game/park/park_memory.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/pad_input/input_hub.h"
-#include "game/sys/stopwatch.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/pad_input/input_hub.h"
+#include "platform/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/script/game_cfuncs.h"
-#include "game/script/world_cfuncs.h"
+#include "engine/script/game_cfuncs.h"
+#include "engine/script/world_cfuncs.h"
 #include "game/skate/skate_module.h"
-#include "game/assets/resource_registry.h"
-#include "game/obj/compositemgr.h"
-#include "game/core/code_address.h"
+#include "engine/assets/resource_registry.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/core/code_address.h"
 
 namespace ParkEditing {
 

@@ -10,7 +10,7 @@
 // checksum); a concrete metapiece is one placed in the park (or under the cursor), made from an abstract one. Both
 // are kept in singly linked lists of CMapListNode, and every cell has a list of the metapieces over it.
 //
-// One set of types for the three parts written separately (src/game/ed: the park manager's and the cursor's
+// One set of types for the three parts written separately (src/game/park_editing: the park manager's and the cursor's
 // 0x00595030-0x0059C900; src/game/park: 0x0059C900-0x0059E0F7, which still reaches some fields through the
 // offset accessors Bytes() / At<T>()).
 
@@ -18,8 +18,8 @@
 #include <cstdint>
 
 #include "game/park_editing/park_rails.h"
-#include "game/maths/vec4.h"
-#include "game/core/slab_bank.h"
+#include "engine/maths/vec4.h"
+#include "engine/core/slab_bank.h"
 
 namespace Scripts {
 class CArray;

@@ -138,7 +138,7 @@ in career / story, classic, the park editor or network games).
 
 - **Learning it:** F1 lists every key; **Ctrl+Space** (or F3) searches every action; the status bar shows what the
   mouse and keys do at that moment. Every key is rebindable (Preferences > Keys, saved in `[editor_keys]` of the ini).
-  The full list of controls and the editor's modules is at the top of `src/game/front/level_editor.h`.
+  The full list of controls and the editor's modules is at the top of `src/editor/level_editor.h`.
 - **Edited copies:** edits never change a shipped level. Saving (Ctrl+S) writes the level's layout,
   `Game\thug2-decomp-layouts\<scene>.txt` (plain text, one record per line), and the level select then has a separate
   entry, **EDITED LEVELS (OFFLINE)** > "<LEVEL> (EDITED)". Layouts are never applied online. Unsaved work is autosaved
@@ -277,7 +277,7 @@ The ini sits in the game folder. Every key is optional; the default applies when
 | `pad` | 0 | Controller mode |
 | `tips_seen` | 0 | The first-run tips have been shown |
 
-**`[memory]`** - the script pools' sizes (bigger than THUG2's so big converted levels fit - `src/game/core/memory_sizes.h`)
+**`[memory]`** - the script pools' sizes (bigger than THUG2's so big converted levels fit - `src/engine/core/memory_sizes.h`)
 
 | Key | Default | THUG2's |
 |---|---|---|

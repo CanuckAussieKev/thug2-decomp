@@ -2,25 +2,25 @@
 // The sectors drawn for them: rail_editor_draw.cpp; the script side: rail_editor_script.cpp.
 
 #include "game/park_editing/rail_editor.h"
-#include "game/core/code_address.h"
-#include "game/skater/vehicle_sound.h"
-#include "game/obj/camera_lookaround.h"
-#include "game/core/stubs.h"
+#include "engine/core/code_address.h"
+#include "game/rider/vehicle_sound.h"
+#include "engine/objects/camera_lookaround.h"
+#include "engine/core/stubs.h"
 
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <new>
 
-#include "game/core/checksums.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/rail_editor_internal.h"
-#include "game/obj/entity_hub.h"
+#include "engine/objects/entity_hub.h"
 #include "game/park/park_memory.h"
-#include "game/obj/compositemgr.h"
+#include "engine/objects/compositemgr.h"
 
 namespace ParkEditing {
 

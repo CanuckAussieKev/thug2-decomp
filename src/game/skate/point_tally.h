@@ -14,9 +14,9 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/lists/dynamic_table.h"
-#include "game/lists/lookup_table.h"
-#include "game/script/param_struct.h"
+#include "engine/lists/dynamic_table.h"
+#include "engine/lists/lookup_table.h"
+#include "engine/script/param_struct.h"
 
 namespace Scripts {
 class CStruct;

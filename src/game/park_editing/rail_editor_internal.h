@@ -4,9 +4,9 @@
 
 #include <cstdint>
 
-#include "game/core/slab_bank.h"
-#include "game/gfx/sector.h"
-#include "game/script/param_struct.h"
+#include "engine/core/slab_bank.h"
+#include "engine/gfx/sector.h"
+#include "engine/script/param_struct.h"
 
 namespace ParkEditing {
 namespace RailEditorInternal {

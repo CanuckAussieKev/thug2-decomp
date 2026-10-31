@@ -7,15 +7,15 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
-#include "game/core/stubs.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
+#include "engine/core/stubs.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park/park_memory.h"
-#include "game/script/param_struct.h"
+#include "engine/script/param_struct.h"
 
 namespace ParkEditing {
 

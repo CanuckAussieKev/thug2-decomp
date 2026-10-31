@@ -7,9 +7,9 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
 

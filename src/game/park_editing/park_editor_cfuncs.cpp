@@ -10,15 +10,15 @@
 #include <cstring>
 
 #include "game/park_editing/park_editor.h"
-#include "game/obj/compositemgr.h"
-#include "game/obj/entity_hub.h"
-#include "game/obj/tracker.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/entity_hub.h"
+#include "engine/objects/tracker.h"
 #include "game/park/park_memory.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "game/script/game_cfuncs.h"
+#include "engine/script/game_cfuncs.h"
 
 namespace ParkEditing {
 

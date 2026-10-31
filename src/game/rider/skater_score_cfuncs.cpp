@@ -1,0 +1,165 @@
+// Script commands (CFunctions) 0x005B5770-0x005B5BE0: skater set-up, scores, the nearest skater (see
+// skater_score_cfuncs.h).
+
+#include "game/rider/skater_score_cfuncs.h"
+
+#include <cstdint>
+
+#include "engine/core/manager.h"
+#include "frontend/screen_element_manager.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/net/player_info.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "game/skate/skate_module.h"
+#include "game/rider/rider.h"
+#include "game/skate/game_mode.h"
+#include "game/skate/point_tally.h"
+
+namespace ScriptCommands {
+
+namespace {
+
+constexpr uint32_t kResetAll = 0x81740BB6;      // "reset_all"
+constexpr uint32_t kNetKing = 0x6EF8FDA0;       // "netking"
+constexpr uint32_t kKing = 0x5D32129C;          // "king"
+constexpr uint32_t kUseBailStyle = 0x929EB4D5;  // "UseBailStyle"
+constexpr uint32_t kSkipTeam = 0x6C2A140F;   // "exclude_team"
+constexpr uint32_t kRadius = 0xC48391A5;        // "radius"
+constexpr uint32_t kTeam = 0x3B1F59E0;          // "team"
+constexpr uint32_t kPlayer = 0x67E6859A;        // "player"
+
+GameModules::Skate* Skate() { return GameModules::Skate::Sole(); }
+GameObjects::CRider* SkaterAt(int index) { return static_cast<GameObjects::CRider*>(Skate()->GetRiderAt(index)); }
+bool IsHostLocal(GameObjects::CRider* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
+
+// The skater's score (the SkaterScore component's object): 0x00564A10 resets it, 0x00561B40 / 0x00561A80 get and set
+// its total, 0x00564860 resets its pot (bail style or not). None has source yet.
+void* ScoreOf(GameObjects::CRider* skater) { return skater->GetPointsTotal(); }
+
+// The game mode's name (0x005532A0, no source yet).
+uint32_t ActiveRulesetLabel()
+{
+    return static_cast<GoalSystem::CMatchRules*>(static_cast<void*>(GoalSystem::g_gameMode))->GetNameKey();
+}
+
+} // namespace
+
+// 0x005B5770: InitializeSkaters: each skater - a local one's input reset first (vtable slot 14, ResetInput) - taken
+// out of the world (the skate module's 0x00564C60 with false). Always true.
+bool __cdecl CFunc_InitializeSkaters(Scripts::CStruct*, Scripts::CScript*)
+{
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        if (IsHostLocal(skater)) {
+            auto** vtable = *reinterpret_cast<void***>(skater);
+            reinterpret_cast<void(__thiscall*)(GameObjects::CRider*)>(vtable[14])(skater);
+        }
+        Skate()->ConcealSkater(skater, false);
+    }
+    return true;
+}
+
+// 0x005B57E0: ReinsertSkaters: each skater shown again, in its own skater heap. Always true.
+bool __cdecl CFunc_ReinsertSkaters(Scripts::CStruct*, Scripts::CScript*)
+{
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        MemSys::Hub* manager = MemSys::Hub::Pull();
+        manager->EnterHeapScope(manager->m_skaterHeaps[skater->GetSkaterNumber()]);
+        skater->ShowSkater();
+        MemSys::Hub::Pull()->LeaveHeapScope();
+    }
+    return true;
+}
+
+// 0x005B5860: ResetScore [reset_all]: the local skaters' scores (with reset_all, every skater's) reset and their
+// score text shown as "0" - "0:00" in king of the hill. Always true.
+bool __cdecl CFunc_ResetScore(Scripts::CStruct* params, Scripts::CScript*)
+{
+    bool all = params->HasEntryNamed(kResetAll);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        if (!IsHostLocal(skater) && !all)
+            continue;
+        static_cast<GameModules::PointTally*>(ScoreOf(skater))->Reset();
+        if (ActiveRulesetLabel() == kNetKing || ActiveRulesetLabel() == kKing)
+            MenuSystem::SetScoreText("0:00", skater->GetSkaterNumber()); // "0:00"
+        else
+            MenuSystem::SetScoreText("0", skater->GetSkaterNumber()); // "0"
+    }
+    return true;
+}
+
+// 0x005B5950: UpdateScore: each local skater's score total set again to itself (so it's shown). Always true.
+bool __cdecl CFunc_UpdateScore(Scripts::CStruct*, Scripts::CScript*)
+{
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        if (!IsHostLocal(skater))
+            continue;
+        void* score = ScoreOf(skater);
+        static_cast<GameModules::PointTally*>(score)->SetGrandTotal(static_cast<GameModules::PointTally*>(score)->GetTotalScore());
+    }
+    return true;
+}
+
+// 0x005B59C0: ResetScorePot [UseBailStyle]: each local skater's score pot reset (0x00564860 with true unless
+// UseBailStyle). Always true.
+bool __cdecl CFunc_ResetScorePot(Scripts::CStruct* params, Scripts::CScript*)
+{
+    bool bailStyle = params->HasBareFlag(kUseBailStyle);
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        if (IsHostLocal(skater))
+            static_cast<GameModules::PointTally*>(ScoreOf(skater))->Bail(!bailStyle);
+    }
+    return true;
+}
+
+// 0x005B5A40: GetCollidingPlayerAndTeam exclude_team=t radius=feet: player, the skater nearest the script's object
+// within the radius (in inches: * 12) that is in another team without the flag or in team t with it, and team, its
+// team (-1 for both if none). Always true.
+bool __cdecl CFunc_GetCollidingPlayerAndTeam(Scripts::CStruct* params, Scripts::CScript* script)
+{
+    Scripts::CStruct* results = script->m_args;
+    auto* object = static_cast<GameObjects::CGameEntity*>(script->m_entity.m_ownerObject);
+    int team = -1;
+    uint32_t player = 0xFFFFFFFF;
+    float nearest = 1000000.0f;
+    int excludeTeam;
+    params->FetchIntValue(kSkipTeam, &excludeTeam, 1);
+    float radius;
+    params->FetchFloat(kRadius, &radius, 1);
+    double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
+    float radiusSquared = static_cast<float>(inches * inches);
+    OnlinePlay::Hub* net = OnlinePlay::g_onlineHub;
+    for (int i = 0; i < Skate()->CountRiders(); ++i) {
+        GameObjects::CRider* skater = SkaterAt(i);
+        if (!skater)
+            continue;
+        auto* info = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->FindPlayerSlotByObj(static_cast<uint16_t>(skater->m_ident)));
+        if (!info)
+            continue;
+        if (info->m_team == excludeTeam && !info->IsCarryingFlag())
+            continue;
+        if (info->m_team != excludeTeam && info->IsCarryingFlag())
+            continue;
+        double dx = static_cast<double>(skater->m_atPoint.x) - object->m_atPoint.x;
+        double dy = static_cast<double>(skater->m_atPoint.y) - object->m_atPoint.y;
+        double dz = static_cast<double>(skater->m_atPoint.z) - object->m_atPoint.z;
+        double distanceSquared = dz * dz + dx * dx + dy * dy;
+        if (distanceSquared < radiusSquared && distanceSquared < nearest) {
+            nearest = static_cast<float>(distanceSquared);
+            player = skater->m_ident;
+        }
+    }
+    if (static_cast<int>(player) > -1)
+        team = reinterpret_cast<OnlinePlay::PlayerRecord*>(net->FindPlayerSlotByObj(static_cast<uint16_t>(player)))->m_team;
+    results->PutInt(kTeam, team);
+    results->PutInt(kPlayer, static_cast<int>(player));
+    return true;
+}
+
+} // namespace ScriptCommands

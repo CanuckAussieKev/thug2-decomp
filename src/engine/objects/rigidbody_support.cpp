@@ -1,0 +1,402 @@
+// The rigid body component's code before its life and physics (engine/objects/rigidbody_component.h): the debug switch,
+// the member function table and three of its members, the pushers' reach, Finalize, Sleep, the world points, the
+// damping and the check for sleep; and the components' shared vtable slot 11 (DispatchScriptMethod).
+//
+// The original's arithmetic is x87 code at 53-bit precision: what it keeps on the FPU stack is a double here, what
+// it stores to memory a float - each value rounded where the original rounds it, and sums keep its grouping.
+
+#include <cmath>
+#include <cstdint>
+
+#include "engine/core/checksums.h"
+#include "engine/gfx/engine_scene.h"
+#include "engine/gfx/engine_scene_list.h"
+#include "engine/gfx/sector.h"
+#include "engine/maths/random.h"
+#include "engine/maths/vec4.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/rigidbody_component.h"
+#include "engine/objects/smtptr.h"
+#include "engine/objects/sound_component.h"
+#include "engine/script/cscript.h"
+#include "engine/script/names.h"
+#include "engine/script/param_struct.h"
+#include "platform/stopwatch.h"
+
+namespace GameObjects {
+
+uint32_t g_rigidBodyMemberFunctions[78]{
+            0xCC12CF87, 0xFFB39248, 0, 0, 0, 0,
+            0x9599C10F, 0xFFB39248, 0, 0, 0, 0,
+            0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
+            0xAE24DF9F, 0xFFB39248, 0, 0, 0, 0,
+            0xE8B73AB3, 0xFFB39248, 0, 0, 0, 0,
+            0x8A3A6B5F, 0xFFB39248, 0, 0, 0, 0,
+            0x39D708AC, 0xFFB39248, 0, 0, 0, 0,
+            0x92F5DB9A, 0xFFB39248, 0, 0, 0, 0,
+            0x0A2BBB3A, 0xFFB39248, 0, 0, 0, 0,
+            0x49F44585, 0xFFB39248, 0, 0, 0, 0,
+            0xD4A0946B, 0xFFB39248, 0, 0, 0, 0,
+            0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
+            0, 0xFFB39248, 0, 0, 0, 0};
+int g_nextCollideSoundTime;
+
+namespace {
+
+constexpr uint32_t kSound = 0x07713C7B;          // the sound component
+constexpr uint32_t kFrames = 0x019176C5;         // frames
+constexpr uint32_t kFrame = 0x4A07C332;          // frame
+constexpr float kFrameSeconds = 1.0f / 60;       // 0x006463B8
+constexpr float kSettledDistanceSqr = 2304.0f;   // 0x006463DC (48 squared)
+constexpr float kDieAfterSettling = 1.5f;        // (an immediate)
+
+double Wide(float value) { return value; }
+float Narrow(double value) { return static_cast<float>(value); }
+
+// The debug drawing switches (rigidbody_physics.cpp reads them): the shapes, the details.
+bool& DrawShape() { return g_rigidBodyDrawShape; }
+bool& DrawDetails() { return g_rigidBodyDrawDetails; }
+
+// The 8 objects rigid bodies feel (smart pointers, 0x00695150) and each one's extra reach (0x006939B0).
+CSharedRef<CGameEntity>* Pushers() { return g_rigidBodyPushers; }
+float* PusherReach() { return g_rigidBodyPusherReach; }
+
+// The matrix's element at byte offset `offset` from its start.
+double M(const Maths::Mat4& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
+
+} // namespace
+
+// 0x0042BAC0
+bool __cdecl CFunc_ToggleRigidBodyDebug(Scripts::CStruct*, Scripts::CScript*)
+{
+    if (!DrawShape()) {
+        DrawShape() = true;
+    } else if (!DrawDetails()) {
+        DrawDetails() = true;
+    } else {
+        DrawDetails() = false;
+        DrawShape() = false;
+    }
+    return true;
+}
+
+// 0x0042BB00
+void __cdecl CBodyDynamicsModule::PublishMethodTable()
+{
+    Scripts::RegisterMemberFunctionTable(reinterpret_cast<void*>(kType), g_rigidBodyMemberFunctions, 0x18);
+}
+
+// 0x0042BB20
+int CObjectModule::DispatchScriptMethod(Scripts::CMemberFunctionEntry* entry, Scripts::CStruct* params,
+                                      Scripts::CScript* script)
+{
+    if (entry->m_methodCode) {
+        void* self = reinterpret_cast<uint8_t*>(this) + entry->m_thisAdjustment;
+        return reinterpret_cast<int(__thiscall*)(void*, Scripts::CStruct*, Scripts::CScript*)>(entry->m_methodCode)(self, params,
+                                                                                                         script);
+    }
+    return InvokeMethodByName(entry->m_callsign, params, script);
+}
+
+// 0x0042BB60
+bool CBodyDynamicsModule::RigidBody_IgnoreSkater(Scripts::CStruct* params, Scripts::CScript*)
+{
+    params->FetchFloat(0u, &m_pushCooldown, 1);
+    if (params->HasBareFlag(kFrames) || params->HasBareFlag(kFrame))
+        m_pushCooldown = Narrow(Wide(m_pushCooldown) * kFrameSeconds);
+    return true;
+}
+
+// 0x0042BBB0
+bool CBodyDynamicsModule::RigidBody_Disable(Scripts::CStruct*, Scripts::CScript*)
+{
+    m_curPhase = STATE_DISABLED;
+    return true;
+}
+
+// 0x0042BBD0
+bool CBodyDynamicsModule::RigidBody_Reset(Scripts::CStruct* params, Scripts::CScript*)
+{
+    CObjectModule::ConfigureFromData(params);
+    return true;
+}
+
+// 0x0042BD60
+void __cdecl SetRigidBodyPusherReach(CGameEntity* object, float reach)
+{
+    for (int i = 7; i >= 0; --i) {
+        if (Pushers()[i].m_ownerObject == object) {
+            PusherReach()[i] = reach;
+            return;
+        }
+    }
+}
+
+// 0x0042BD90
+void CBodyDynamicsModule::Seal()
+{
+    m_audioModule = static_cast<CAudioEmitterModule*>(m_entity->FetchModule(kSound));
+    const Maths::Mat4& m = m_basisFrame;
+    for (int i = 0; i < m_springCount; ++i) {
+        Spring& spring = m_springs[i];
+        const Maths::Vec4& p = spring.point;
+        double x = (Wide(p.y) * M(m, 0x10) + Wide(p.x) * M(m, 0x00)) + Wide(p.z) * M(m, 0x20);
+        float y = Narrow((Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14));
+        float z = Narrow((Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18));
+        spring.anchor.z = Narrow(Wide(z) + m_atPoint.z);
+        spring.anchor.w = Narrow(Wide(p.w) + m_atPoint.w);
+        spring.anchor.x = Narrow(x + m_atPoint.x);
+        spring.anchor.y = Narrow(Wide(y) + m_atPoint.y);
+    }
+}
+
+// 0x0042BE90
+void CBodyDynamicsModule::Sleep()
+{
+    if (m_settleScript)
+        m_entity->SpawnScript(m_settleScript, m_callbackParamsPtr, 0, false)->TickFrame();
+    m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_rotVel = {0.0f, 0.0f, 0.0f, 1.0f};
+    m_curPhase = STATE_ASLEEP;
+}
+
+// 0x0042BF00 (each array from its last element back)
+void CBodyDynamicsModule::UpdateWorldPoints()
+{
+    const Maths::Mat4& m = m_basisFrame;
+    for (int i = m_contactCount - 1; i >= 0; --i) {
+        const Maths::Vec4& p = m_contacts[i];
+        Maths::Vec4& out = WorldContactPoints()[i];
+        double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
+        double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
+        double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
+        out = {Narrow(x), Narrow(y), Narrow(z), p.w};
+    }
+    for (int i = m_sphereCount - 1; i >= 0; --i) {
+        const Maths::Vec4& p = m_spheres[i].center;
+        Maths::Vec4& out = WorldSphereCenters()[i];
+        double x = (Wide(p.y) * M(m, 0x10) + Wide(p.z) * M(m, 0x20)) + Wide(p.x) * M(m, 0x00);
+        double y = (Wide(p.x) * M(m, 0x04) + Wide(p.z) * M(m, 0x24)) + Wide(p.y) * M(m, 0x14);
+        double z = (Wide(p.x) * M(m, 0x08) + Wide(p.z) * M(m, 0x28)) + Wide(p.y) * M(m, 0x18);
+        out = {Narrow(x), Narrow(y), Narrow(z), p.w};
+    }
+    for (int i = m_springCount - 1; i >= 0; --i) {
+        const Spring& spring = m_springs[i];
+        if (!spring.active)
+            continue;
+        const Maths::Vec4& p = spring.point;
+        Maths::Vec4& out = WorldSpringPoints()[i];
+        double x = (Wide(p.z) * M(m, 0x20) + Wide(p.y) * M(m, 0x10)) + Wide(p.x) * M(m, 0x00);
+        double y = (Wide(p.z) * M(m, 0x24) + Wide(p.y) * M(m, 0x14)) + Wide(p.x) * M(m, 0x04);
+        double z = (Wide(p.z) * M(m, 0x28) + Wide(p.y) * M(m, 0x18)) + Wide(p.x) * M(m, 0x08);
+        out = {Narrow(x), Narrow(y), Narrow(z), p.w};
+    }
+}
+
+namespace {
+
+// A velocity slowed by `drag` (a speed; 0: left alone): stopped (w 1) at or below it, else each component, w too,
+// less its share (a not-a-number speed or drag: that).
+void Slow(Maths::Vec4& v, float drag)
+{
+    if (drag == 0.0f)
+        return;
+    double speed = std::sqrt((Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z);
+    if (speed <= drag) {
+        v = {0.0f, 0.0f, 0.0f, 1.0f};
+        return;
+    }
+    double f = -(drag / speed);
+    double dx = f * v.x;
+    float dy = Narrow(f * v.y);
+    float dz = Narrow(f * v.z);
+    float dw = Narrow(f * v.w);
+    v.x = Narrow(dx + v.x);
+    v.y = Narrow(Wide(dy) + v.y);
+    v.z = Narrow(Wide(dz) + v.z);
+    v.w = Narrow(Wide(dw) + v.w);
+}
+
+// x * x + y * y + z * z, as the original sums it.
+double MagnitudeSquared(const Maths::Vec4& v) { return (Wide(v.x) * v.x + Wide(v.y) * v.y) + Wide(v.z) * v.z; }
+
+} // namespace
+
+// 0x0042C6D0
+void CBodyDynamicsModule::Damp()
+{
+    Slow(m_vel, m_unknown38);
+    Slow(m_rotVel, m_unknown3C);
+}
+
+// 0x0042C890 (the comparisons let a not-a-number speed through)
+void CBodyDynamicsModule::CheckSleep()
+{
+    if (m_unknown191 < 3)
+        return;
+    if (MagnitudeSquared(m_vel) > m_linearSleepSquared)
+        return;
+    if (MagnitudeSquared(m_rotVel) > m_angularSleepSquared)
+        return;
+    Sleep();
+    if ((m_flagBits & FLAG_DIE_UPON_SETTLING) && !(Maths::DistanceSquared(m_atPoint, m_wakePos) < kSettledDistanceSqr))
+        m_dieTimer = kDieAfterSettling;
+}
+
+namespace {
+
+constexpr float kSlow = 0.01f;            // 0x0064544C: a relative speed this small (each axis) is none
+constexpr float kUpShare = 1.0f / 3;      // 0x006463D8: the vertical speed's share of the push
+constexpr float kHardPush = 100.0f;       // 0x006463D4
+constexpr float kHardPushAdd = 51.0f;     // 0x006463D0
+constexpr float kMidPush = 50.0f;         // 0x006463CC
+constexpr float kBelowFeet = -12.0f;      // 0x006463C8: where a push from below lands (y, from the centre)
+constexpr float kTurnShare = 0.6f;        // 0x006463C4
+constexpr float kSoundScale = 0.1f;       // 0x00645D74: the push's size to the collide sound's percent
+constexpr uint32_t kPercent = 0x9E497FC6; // percent
+
+// The pushers' height (0x006939D0: 77, set by ConfigureFromData) and the time the next collide sound of any rigid
+// body may play (0x006939D8).
+float PusherHeight() { return g_rigidBodyPusherHeight; }
+int& NextCollideSoundTime() { return g_nextCollideSoundTime; }
+
+// The scene's sector named `checksum` hidden (0x0048C770 the first scene - the name pushed as its argument slot,
+// which 0x0049CB00 then takes as its own; neither rewritten yet).
+void HideSector(uint32_t checksum)
+{
+    Engine3D::CWorldScene* scene = Engine3D::GetMainScene();
+    void* sector = scene->LookUpSector(checksum);
+    if (sector)
+        static_cast<Engine3D::CWorldCell*>(sector)->ChangeLive(false);
+}
+
+// A mute delay: 50-149 % of `delay` milliseconds from now (the product divided unsigned).
+int MuteUntil(int delay)
+{
+    uint32_t scaled = static_cast<uint32_t>((Maths::Rnd(100) + 50) * delay) / 100u;
+    return static_cast<int>(scaled + FrameClock::GetTime());
+}
+
+} // namespace
+
+// 0x0042C140: the first pusher (from the last place back) inside the skater collision radius - plus its reach - and
+// within the band from (its height + the application radius + reach) below to (the application radius + reach)
+// above, moving at it (the horizontal approach plus a third of the vertical speed, boosted), pushes it: an impulse
+// up and away at the assent angle, applied at the application radius from the centre (y: the pusher's height, or
+// its feet, or 12 below); then it wakes, ignores pushers for a while, runs CollideScript, hides its shadow sector
+// and plays the collide sound (mute delays allowing). A pusher not moving relative to it (0.01 on each axis) ends
+// the look at once - the pushers after it aren't felt.
+void CBodyDynamicsModule::FeelPushers()
+{
+    for (int i = 7; i >= 0; --i) {
+        CGameEntity* pusher = Pushers()[i].m_ownerObject;
+        if (!pusher)
+            continue;
+        const float reach = PusherReach()[i];
+        const Maths::Vec4& at = pusher->m_atPoint;
+        double outer = Wide(reach) + m_skaterRadius;
+        double dz = Wide(m_atPoint.z) - at.z;
+        double dx = Wide(m_atPoint.x) - at.x;
+        if (outer * outer < dx * dx + dz * dz)
+            continue;
+        float dy = Narrow(Wide(at.y) - m_atPoint.y);
+        if (Wide(reach) + m_skaterApplicationRadius < dy)
+            continue;
+        if (-((Wide(PusherHeight()) + m_skaterApplicationRadius) + reach) > dy)
+            continue;
+
+        // Away from the pusher (horizontally), and how they move relative to each other.
+        float ex = Narrow(Wide(m_atPoint.x) - at.x);
+        double ez = Wide(m_atPoint.z) - at.z;
+        double inverse = 1.0 / std::sqrt(ez * ez + Wide(ex) * ex);
+        float nx = Narrow(Wide(ex) * inverse);
+        float nz = Narrow(ez * inverse);
+        float rx = Narrow(Wide(pusher->m_vel.x) - m_vel.x);
+        double ry = Wide(pusher->m_vel.y) - m_vel.y;
+        float rz = Narrow(Wide(pusher->m_vel.z) - m_vel.z);
+        if (std::fabs(rx) <= kSlow && std::fabs(ry) <= kSlow && std::fabs(rz) <= kSlow)
+            return;
+        double approach = (std::fabs(ry * kUpShare) + Wide(rx) * nx) + Wide(rz) * nz;
+        if (approach <= 0.0)
+            continue;
+        double push;
+        if (approach > kHardPush)
+            push = approach + kHardPushAdd;
+        else if (approach > kMidPush)
+            push = (approach + (approach - kMidPush)) + kMidPush;
+        else
+            push = approach + approach;
+
+        // The direction: the relative motion's (horizontal, unit) plus the normal, made unit, tilted up.
+        double h = std::sqrt(Wide(rx) * rx + Wide(rz) * rz);
+        if (h == 0.0)
+            h = kSlow;
+        double ih = 1.0 / h;
+        float ax = Narrow(Wide(rx) * ih + nx);
+        double az = Wide(rz) * ih + nz;
+        double g = std::sqrt(Wide(ax) * ax + az * az);
+        if (g == 0.0)
+            g = kSlow;
+        double ig = 1.0 / g;
+        float jz = Narrow(az * ig);
+        float jx = Narrow(Wide(ax) * ig * m_skaterAssentCos);
+        jz = Narrow(Wide(jz) * m_skaterAssentCos);
+        double size = push * m_skaterImpulseFactor;
+        Maths::Vec4 impulse = {Narrow(Wide(jx) * size), Narrow(Wide(m_skaterAssentSin) * size),
+                               Narrow(Wide(jz) * size), 0.0f};
+
+        // Where it's applied (from the centre).
+        double px = Wide(at.x) - m_atPoint.x;
+        float pz = Narrow(Wide(at.z) - m_atPoint.z);
+        double across = std::sqrt(px * px + Wide(pz) * pz);
+        if (across > 0.0) {
+            double scale = m_skaterApplicationRadius / across;
+            px = px * scale;
+            pz = Narrow(Wide(pz) * scale);
+        }
+        double py;
+        if (dy > 0.0f)
+            py = Wide(at.y) - m_atPoint.y;
+        else if (-PusherHeight() > dy)
+            py = (Wide(PusherHeight()) + at.y) - m_atPoint.y;
+        else
+            py = kBelowFeet;
+
+        m_vel.x = Narrow(Wide(impulse.x) + m_vel.x);
+        m_vel.y = Narrow(Wide(impulse.y) + m_vel.y);
+        m_vel.z = Narrow(Wide(impulse.z) + m_vel.z);
+        m_vel.w = Narrow(size + m_vel.w);
+        float tx = Narrow(Wide(impulse.z) * py - Wide(pz) * impulse.y);
+        float ty = Narrow(Wide(pz) * impulse.x - Wide(impulse.z) * px);
+        double tz = Wide(impulse.y) * px - py * impulse.x;
+        double turn = (Wide(m_skaterRotationFactor) * m_massOverMoment) * kTurnShare;
+        float wx = Narrow(Wide(tx) * turn);
+        float wy = Narrow(Wide(ty) * turn);
+        float wz = Narrow(tz * turn);
+        m_rotVel.x = Narrow(Wide(wx) + m_rotVel.x);
+        m_rotVel.y = Narrow(Wide(wy) + m_rotVel.y);
+        m_rotVel.z = Narrow(Wide(wz) + m_rotVel.z);
+        m_rotVel.w = Narrow(turn * 0.0f + m_rotVel.w);
+
+        Wake();
+        m_pushCooldown = m_pushCooldownTime;
+        if (m_collideScript)
+            m_entity->SpawnScript(m_collideScript, m_callbackParamsPtr, 0, false)->TickFrame();
+        HideSector(Checksums::FoldTextIntoChecksum(m_entity->m_ident, "_Shadow"));
+        int now = static_cast<int>(FrameClock::GetTime());
+        if (now - static_cast<int>(m_unknownF0) > 0 && now - NextCollideSoundTime() > 0 && m_audioModule &&
+            m_collideSoundPtr) {
+            double length = std::sqrt((Wide(impulse.x) * impulse.x + Wide(impulse.z) * impulse.z) +
+                                      Wide(impulse.y) * impulse.y);
+            m_collideSoundPtr->PushFloat(kPercent, Narrow(length * kSoundScale));
+            m_audioModule->EmitSound(m_collideSoundPtr);
+            m_unknownF0 = static_cast<uint32_t>(MuteUntil(m_impactQuietMs));
+            NextCollideSoundTime() = MuteUntil(m_globalCollideMuteDelay);
+        }
+        return;
+    }
+}
+
+} // namespace Obj
+
+using GameObjects::CBodyDynamicsModule;

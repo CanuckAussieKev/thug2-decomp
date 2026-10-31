@@ -9,23 +9,23 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/front/sprite_element.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "frontend/sprite_element.h"
 #include "game/goals/goal_manager.h"
-#include "game/maths/x87_math.h"
-#include "game/net/net_app.h"
-#include "game/net/net_client.h"
-#include "game/obj/anim_blender.h"
-#include "game/script/cscript.h"
+#include "engine/maths/x87_math.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_client.h"
+#include "engine/objects/anim_blender.h"
+#include "engine/script/cscript.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
-#include "game/skater/run_timer.h"
-#include "game/skater/stats_manager.h"
-#include "game/skater/trick_component.h"
-#include "game/sys/stopwatch.h"
+#include "game/rider/run_timer.h"
+#include "game/rider/stats_manager.h"
+#include "game/rider/trick_component.h"
+#include "platform/stopwatch.h"
 
 namespace GameModules {
 

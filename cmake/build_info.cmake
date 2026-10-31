@@ -1,5 +1,5 @@
 # Writes build_info.h: the source's git commit (and whether the tree had changes), for the screenshot sidecar
-# (src/game/sys/screenshot.cpp). Run at every build (the build_info target); the header is rewritten only when its
+# (src/platform/screenshot.cpp). Run at every build (the build_info target); the header is rewritten only when its
 # text changes, so nothing recompiles otherwise.
 #   cmake -DSOURCE_DIR=<repo> -DOUTPUT=<header> -P build_info.cmake
 execute_process(COMMAND git rev-parse --short=10 HEAD WORKING_DIRECTORY "${SOURCE_DIR}"

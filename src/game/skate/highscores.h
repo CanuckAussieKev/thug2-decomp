@@ -116,7 +116,7 @@ static_assert(sizeof(CBestResults) == 0xC, "layout must match the original");
 // runs): the skate module's 0x00566F40 - the current level's records from the run just ended (its high score and best
 // combo tables, longest combo / grind / lip trick / manual; the skate module's +0x384 says whether any was new). True.
 // NOT ORIGINAL (the user's rule, 2026-10-21): while the level is the level editor's edited copy
-// (game/front/level_editor_layout.h) nothing is recorded - +0x384 cleared as the original does first, so no new
+// (editor/level_editor_layout.h) nothing is recorded - +0x384 cleared as the original does first, so no new
 // record is announced - and logged. `editedCopy`: Layout::EditingCopy() (a parameter, for the self-test).
 bool UpdateRecords(bool editedCopy);
 bool __cdecl CFunc_UpdateRecords(Scripts::CStruct* params, Scripts::CScript* script);

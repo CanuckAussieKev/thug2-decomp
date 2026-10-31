@@ -7,13 +7,13 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
 #include "game/park/park_memory.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/park_editor.h"

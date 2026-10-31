@@ -6,18 +6,18 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
-#include "game/core/str.h"
-#include "game/front/text_block.h"
-#include "game/front/text_element.h"
-#include "game/script/cscript.h"
-#include "game/script/game_cfuncs.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/mem.h"
+#include "engine/core/str.h"
+#include "frontend/text_block.h"
+#include "frontend/text_element.h"
+#include "engine/script/cscript.h"
+#include "engine/script/game_cfuncs.h"
 #include "game/skate/career.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/score_internal.h"
-#include "game/gfx/viewport_list.h"
+#include "engine/gfx/viewport_list.h"
 
 namespace ListKit {
 

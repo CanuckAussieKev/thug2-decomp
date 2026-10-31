@@ -7,12 +7,12 @@ control flow and random values; the native bridge remains scalar-only.
 The supported and deferred subsets are stated below.
 
 The proposal is synchronized with source commit `a1fbb35`. Behavior references are
-[param_struct.h](../src/game/script/param_struct.h),
-[param_struct.cpp](../src/game/script/param_struct.cpp),
-[token_reader.cpp](../src/game/script/token_reader.cpp),
-[expression.h](../src/game/script/expression.h),
-[expression.cpp](../src/game/script/expression.cpp),
-[load.cpp](../src/game/script/load.cpp) and
+[param_struct.h](../src/engine/script/param_struct.h),
+[param_struct.cpp](../src/engine/script/param_struct.cpp),
+[token_reader.cpp](../src/engine/script/token_reader.cpp),
+[expression.h](../src/engine/script/expression.h),
+[expression.cpp](../src/engine/script/expression.cpp),
+[load.cpp](../src/engine/script/load.cpp) and
 [script-runtime.md](script-runtime.md). This is a selected port interface, not
 an official Neversoft specification or a declaration of complete compatibility.
 

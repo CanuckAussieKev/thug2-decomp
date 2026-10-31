@@ -10,11 +10,11 @@
 #include "game/goals/goal_net_types.h"
 #include "game/goals/goal_manager_cfuncs.h"
 #include "game/goals/goal_names.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/trick_goals.h"
-#include "game/skater/rider.h"
+#include "game/rider/rider.h"
 #include "game/skate/point_tally.h"
 
 namespace GoalSystem {

@@ -12,9 +12,9 @@
 
 #include <cstring>
 
-#include "game/sys/run_log.h"
-#include "game/sys/startup_init.h"
-#include "game/sys/winmain.h"
+#include "platform/run_log.h"
+#include "engine/sys/startup_init.h"
+#include "platform/winmain.h"
 
 namespace {
 

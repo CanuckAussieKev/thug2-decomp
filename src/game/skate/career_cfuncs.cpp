@@ -4,13 +4,13 @@
 
 #include <cstdint>
 
-#include "game/net/gamenet_manager.h"
-#include "game/obj/entity.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/objects/entity.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/rider.h"
+#include "game/rider/rider.h"
 
 namespace ScriptCommands {
 

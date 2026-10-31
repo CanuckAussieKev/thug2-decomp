@@ -4,14 +4,14 @@
 
 #include "game/goals/goal_skate_line.h"
 
-#include "game/core/dbg.h"
-#include "game/core/mem.h"
+#include "engine/core/dbg.h"
+#include "engine/core/mem.h"
 #include "game/goals/goal_manager.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/core/stubs.h"
-#include "game/gfx/weather.h"
-#include "game/core/code_address.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/core/stubs.h"
+#include "engine/gfx/weather.h"
+#include "engine/core/code_address.h"
 
 namespace GoalSystem {
 

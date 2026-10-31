@@ -8,9 +8,9 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/checksums.h"
-#include "game/engine3d/probe_ray.h"
-#include "game/obj/smtptr.h"
+#include "engine/core/checksums.h"
+#include "engine/render/probe_ray.h"
+#include "engine/objects/smtptr.h"
 
 namespace ParkEditing {
 

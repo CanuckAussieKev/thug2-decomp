@@ -1,0 +1,64 @@
+// The game clock: real time scaled by the game's speed (stopped while paused).
+
+#include "platform/game_clock.h"
+
+#include <cstdint>
+
+#include "platform/stopwatch.h"
+#include "engine/objects/control_pad.h"
+
+namespace FrameClock {
+
+namespace {
+
+// The game time up to the last change of speed (callers add GameClockElapsed to it), the real time of that
+// change, and the speed since.
+int& Offset() { return GameObjects::g_clockOffset; }
+
+float g_speed{1.0f};
+uint32_t g_lastChange;
+
+uint32_t& LastChange() { return g_lastChange; }
+float& Pace() { return g_speed; }
+
+// The original's x87 code: the unsigned difference times the speed, truncated (_ftol: through 64 bits).
+int Elapsed()
+{
+    int difference = static_cast<int>(GetTime() - LastChange());
+    double scaled = static_cast<double>(difference);
+    if (difference < 0)
+        scaled += 4294967296.0; // (0x006453B4)
+    scaled *= Pace();
+    return static_cast<int>(static_cast<int64_t>(scaled));
+}
+
+void CatchUp()
+{
+    Offset() += Elapsed();
+    LastChange() = GetTime();
+}
+
+} // namespace
+
+// 0x0044ECE0
+int GameClockElapsed() { return Elapsed(); }
+
+// 0x0041C200
+int GameClockTime() { return GameClockElapsed() + Offset(); }
+
+// 0x0044ED10
+void PauseGameClock(bool pause)
+{
+    CatchUp();
+    Pace() = pause ? 0.0f : GetTimeScale();
+}
+
+// 0x0044ED70
+void SetGameClockSpeed(float speed)
+{
+    CatchUp();
+    Pace() = speed;
+    SetSlomo(speed);
+}
+
+} // namespace Tmr

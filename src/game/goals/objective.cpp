@@ -8,10 +8,10 @@
 
 #include "game/goals/goal_calls.h"
 #include "game/goals/goal_names.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/sys/stopwatch.h"
-#include "game/gfx/tod_manager.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "platform/stopwatch.h"
+#include "engine/gfx/tod_manager.h"
 
 namespace GoalSystem {
 

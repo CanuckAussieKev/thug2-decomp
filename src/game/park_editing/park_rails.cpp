@@ -9,8 +9,8 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 
 namespace ParkEditing {
 

@@ -279,7 +279,7 @@ and VC's SJ kill zone (trp_death_SJ) kills, sending you to TRG_Restart_SJ.
 - Skitching, ladders (ClimbingNode) and Casino's EmitterObjects missing.
 - Santa Monica's ferris wheel (2026-10-21): as THAW - the wheel turns at THAW's 15
   degrees a second (its SM_FerrisWheelRotation), the 12 cars are THAW's own model (converted, PC-THAW-14) locked to it
-  with THAW's `no_rotate` (THUG2's lock always took the target's orientation: src/game/obj/lock_obj.cpp adds the flag),
+  with THAW's `no_rotate` (THUG2's lock always took the target's orientation: src/engine/objects/lock_obj.cpp adds the flag),
   so they hang upright, and each carries THAW's two lip-able grind rails (its model's node array, moved by the car's
   rail manager). Left out: the rails' TriggerScript (SM_FerrisCarBalanceReset, a goal helper easing lip balance) and
   the wheel's loop sound. **Network games keep THUGPRO's frozen wheel**: THAW itself doesn't turn the wheel in a

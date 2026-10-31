@@ -6,20 +6,20 @@
 #include <cstdint>
 #include <new>
 
-#include "game/core/manager.h"
-#include "game/core/text_store.h"
-#include "game/obj/entity.h"
-#include "game/obj/trick_objects.h"
-#include "game/script/cscript.h"
-#include "game/script/preferences.h"
-#include "game/script/param_struct.h"
+#include "engine/core/manager.h"
+#include "engine/core/text_store.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/trick_objects.h"
+#include "engine/script/cscript.h"
+#include "engine/script/preferences.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/contest.h"
 #include "game/skate/skate_module_calls.h"
-#include "game/skater/rider.h"
+#include "game/rider/rider.h"
 #include "game/skate/letter_match.h"
 #include "game/skate/point_tally.h"
 #include "game/skate/game_mode.h"
-#include "game/sys/game_config.h"
+#include "engine/sys/game_config.h"
 
 namespace ScriptCommands {
 

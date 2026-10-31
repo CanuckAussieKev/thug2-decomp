@@ -6,17 +6,17 @@
 
 #include "game/skate/game_mode.h"
 
-#include "game/core/checksums.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/core/checksums.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/goals/objective.h"
-#include "game/net/gamenet_manager.h"
-#include "game/script/cscript.h"
-#include "game/script/preferences.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/script/cscript.h"
+#include "engine/script/preferences.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/victory_conditions.h"
 #include "game/goals/goal_manager.h"
-#include "game/core/code_address.h"
+#include "engine/core/code_address.h"
 
 namespace GoalSystem {
 

@@ -1,0 +1,353 @@
+// The engine's platform calls: see engine_glue.h.
+
+#include "engine/gfx/engine.h"
+#include "engine/gfx/d3dx.h"
+#include "engine/gfx/pc_gamma.h"
+#include "engine/gfx/engine_glue.h"
+
+#include <windows.h>
+
+#include <d3d9.h>
+
+#include <share.h>
+
+#include <cstdint>
+#include <cstdio>
+
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/gfx/view_cam.h"
+#include "engine/gfx/device.h"
+#include "engine/gfx/engine_sprite.h"
+#include "engine/gfx/geom.h"
+#include "engine/gfx/particle_sets.h"
+#include "engine/gfx/pc_model.h"
+#include "engine/gfx/pc_scene.h"
+#include "engine/gfx/pc_sprite.h"
+#include "engine/gfx/pc_texture.h"
+#include "engine/gfx/pc_weather.h"
+#include "engine/gfx/draw_frame.h"
+#include "engine/gfx/render_state.h"
+#include "engine/gfx/mesh_list.h"
+#include "engine/gfx/occlusion.h"
+#include "engine/gfx/settings.h"
+#include "engine/gfx/shadow_base.h"
+#include "engine/gfx/bitmap_texture.h"
+#include "engine/maths/vec4.h"
+#include "engine/core/code_address.h"
+#include "engine/gfx/pc_particles.h"
+#include "engine/objects/particle_component.h"
+
+namespace Engine3D {
+
+namespace {
+extern void** const kCPcParticleManagerVtable;
+} // namespace
+
+bool g_loadingScreenUp; // the loading screen is up: it draws and presents on its own
+void* g_weather;
+
+void* g_screenEffects;
+uint32_t g_fogColour;
+uint32_t g_screenBlurFrames;
+uint32_t g_screenBlur;
+bool g_screenShotNameExact;
+char g_pendingScreenShot[128]; // the screenshot asked for by name
+namespace {
+
+IDirect3DDevice9* InputPort() { return g_d3dDevice; }
+uint32_t g_memViewToggle;
+
+// The loading screen is up (0x00786D04, ShowLoadingScreen): it draws and presents on its own.
+bool LoadingScreenUp() { return g_loadingScreenUp; }
+// Rendering skipped (frames not drawn or shown).
+bool OmitFromDraw() { return g_suppressDraw; }
+
+// The screenshot asked for by name, taken once the frame is shown (0x00786D94, 0x80 characters), and whether that
+// name is used as it is (0x00786E14) rather than numbered.
+char* PendingScreenShot() { return g_pendingScreenShot; }
+bool& ScreenShotNameExact() { return g_screenShotNameExact; }
+
+// The clear colour: the fog's with fog and distance clipping on, else the background's.
+uint32_t BackBufferFill()
+{
+    if (g_fogSetting && g_distanceClipping)
+        return g_fogColour;
+    return g_camera.backgroundColour;
+}
+
+// D3DX (linked library code): a surface written to an image file (format 1: JPEG).
+long SaveSurfaceToFile(const char* file, IDirect3DSurface9* surface)
+{
+    return D3dx::SaveSurfaceToJpg(file, surface);
+}
+
+// A shadow caster's key: the texture's (+0x10, through one more pointer with flag 1 of +0x08).
+uint8_t* CasterKey(const uint8_t* texture)
+{
+    uint8_t* key = *reinterpret_cast<uint8_t* const*>(texture + 0x10);
+    if (texture[8] & 1)
+        key = *reinterpret_cast<uint8_t**>(key);
+    return key;
+}
+
+} // namespace
+
+// 0x004B2270
+void __cdecl ToggleMemView()
+{
+    g_memViewToggle ^= 1;
+}
+
+// 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
+void __cdecl BeginFrameDraw()
+{
+    if (g_loadingScreenUp)
+        return;
+    void* device = g_d3dDevice;
+    reinterpret_cast<long(__stdcall*)(void*)>((*static_cast<void***>(device))[41])(device);
+}
+
+// 0x004B22A0
+void __cdecl DeleteObject(void* object)
+{
+    if (object)
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(object))[0])(object, 1);
+}
+
+// 0x004B22B0
+void __cdecl SetScreenClip(const void* rect)
+{
+    SetSkinScaling(static_cast<const uint32_t*>(rect));
+}
+
+// 0x004B22C0
+void __cdecl AddDebugShape(int type, const Maths::Vec4* points, uint32_t colour)
+{
+    if (type == 4)
+        InsertOccluderPoly(points, points + 1, points + 2, points + 3, colour);
+}
+
+// 0x004B22F0
+void __cdecl FlagDebugLines(uint32_t id, bool flag)
+{
+    ActivateOccluderPoly(id, flag);
+}
+
+// 0x004B2300
+void __cdecl ClearDebugLines()
+{
+    ClearOccluderPolys();
+}
+
+// 0x004B2310
+int __cdecl SphereVisible(const Maths::Vec4* centre, float radius)
+{
+    return SphereOutsideView(centre, radius);
+}
+
+// 0x004B2320
+const char* __cdecl PlatformSuffix()
+{
+    return "Xbx";
+}
+
+// 0x004B24C0
+void __cdecl SetGamma(float red, float green, float blue)
+{
+    SetDeviceGamma(red, green, blue);
+}
+
+// 0x004B24D0
+void __cdecl GetGamma(float* red, float* green, float* blue)
+{
+    GetDeviceGamma(red, green, blue);
+}
+
+// 0x004B24E0
+void __cdecl ScreenShot(const char* name, int /*unused*/)
+{
+    // (the original sprintfs into these 32 bytes; ours truncates a longer name)
+    char file[32];
+    if (ScreenShotNameExact()) {
+        std::snprintf(file, sizeof(file), "%s.jpg", name);
+    } else {
+        // the first numbered name with no file yet
+        int number = 0;
+        std::snprintf(file, sizeof(file), "%s%03d.jpg", name, number);
+        while (FILE* existing = _fsopen(file, "rb", _SH_DENYNO)) { // (fopen)
+            std::fclose(existing);
+            ++number;
+            std::snprintf(file, sizeof(file), "%s%03d.jpg", name, number);
+        }
+    }
+    D3DDISPLAYMODE mode;
+    InputPort()->GetDisplayMode(0, &mode);
+    IDirect3DSurface9* surface = nullptr;
+    InputPort()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface, nullptr);
+    InputPort()->GetFrontBufferData(0, surface);
+    SaveSurfaceToFile(file, surface);
+    surface->Release();
+}
+
+// 0x004B25F0
+void __cdecl StartEngine()
+{
+    InitDirect3D();
+    void* memory = MemSys::Alloc(0x1C);
+    void* particles = nullptr;
+    if (memory) {
+        particles = static_cast<CEffectsDirector*>(memory)->MakeNew();
+        *static_cast<void**>(particles) = reinterpret_cast<void*>(kCPcParticleManagerVtable);
+    }
+    reinterpret_cast<void*&>(GameObjects::g_particleHub) = particles;
+    memory = MemSys::Alloc(0x12AC);
+    g_weather = memory ? static_cast<CPcWeather*>(memory)->MakeNew() : nullptr;
+    memory = MemSys::Alloc(8);
+    g_screenEffects = memory ? static_cast<CPcScreenEffects*>(memory)->MakeNew() : nullptr;
+}
+
+// 0x004B2710
+CPcParticleManager* CPcParticleManager::Teardown(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        MemSys::Hub::Pull()->Dealloc(this);
+    return this;
+}
+
+// 0x004B2740
+void CPcParticleManager::DestroyBody()
+{
+    reinterpret_cast<CEffectsDirector*>(this)->DestroyBody();
+}
+
+// 0x004B2750
+void __cdecl FinishRendering()
+{
+    if (LoadingScreenUp())
+        return;
+    InputPort()->EndScene();
+    if (OmitFromDraw())
+        return;
+    InputPort()->Present(nullptr, nullptr, nullptr, nullptr);
+    g_drawCalls = 0; // the frame's draw counts
+    g_drawnTriangles = 0;
+    if (PendingScreenShot()[0]) {
+        ScreenShot(PendingScreenShot(), 0);
+        PendingScreenShot()[0] = 0;
+        ScreenShotNameExact() = false;
+    }
+    // The next frame's clear: with the screen blur on, colour and depth (and the blur's frames counted, from 0
+    // again once it's off); letterboxed, to black; with 0x00786CBD set, colour and depth; else the depth alone.
+    if (g_screenBlur != 0) {
+        if (!OmitFromDraw())
+            InputPort()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, BackBufferFill(), 1.0f, 0);
+        ++g_screenBlurFrames;
+        return;
+    }
+    if (g_camera.letterboxActive) {
+        if (!OmitFromDraw())
+            ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, 0, 1.0f, 0);
+    } else if (g_camera.clearColourAndDepth) {
+        if (!OmitFromDraw())
+            ClearDevice(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, BackBufferFill(), 1.0f, 0);
+    } else if (!OmitFromDraw()) {
+        ClearDevice(0, nullptr, D3DCLEAR_ZBUFFER, g_camera.backgroundColour, 1.0f, 0);
+    }
+    g_screenBlurFrames = 0;
+}
+
+// 0x004B28C0
+void* __cdecl MakeEmptyScene(const char* /*name*/, void* /*textures*/, bool withSuperSectors)
+{
+    void* memory = MemSys::Alloc(0x284);
+    uint8_t* scene = memory ? reinterpret_cast<uint8_t*>(static_cast<CPcScene*>(memory)->MakeNew(10)) : nullptr;
+    // (no check: a failed allocation writes through null, as the original)
+    scene[0x8C] = withSuperSectors;
+    scene[0x8D] = 0;
+    memory = MemSys::Alloc(sizeof(sceneRef));
+    *reinterpret_cast<sceneRef**>(scene + 0x280) = memory ? static_cast<sceneRef*>(memory)->MakeNew() : nullptr;
+    return scene;
+}
+
+// 0x004B2990
+bool __cdecl UnloadScene(void* scene)
+{
+    auto* bytes = static_cast<uint8_t*>(scene);
+    static_cast<CPcScene*>(scene)->UnloadSectors();
+    DiscardScene(*reinterpret_cast<sceneRef**>(bytes + 0x280));
+    *reinterpret_cast<sceneRef**>(bytes + 0x280) = nullptr;
+    return true;
+}
+
+// 0x004B29C0
+void* __cdecl SpawnModel()
+{
+    void* memory = MemSys::AllocZeroed(0x50);
+    return memory ? static_cast<CPcModel*>(memory)->MakeNew() : nullptr;
+}
+
+// 0x004B2A20
+void* __cdecl CreateGeom()
+{
+    void* memory = MemSys::AllocZeroed(0x64);
+    return memory ? static_cast<CPcGeom*>(memory)->MakeNew() : nullptr;
+}
+
+// 0x004B2A80
+void* __cdecl BuildSpriteQuad()
+{
+    void* memory = MemSys::Alloc(0x48);
+    return memory ? static_cast<CPcSprite*>(memory)->MakeNew() : nullptr;
+}
+
+// 0x004B2AF0
+void* __cdecl CreateTexturedQuad()
+{
+    void* memory = MemSys::Alloc(0x20);
+    return memory ? static_cast<CTexturedQuad*>(memory)->MakeNew(nullptr) : nullptr;
+}
+
+// 0x004B2B60
+void* __cdecl CreateRenderTarget(int width, int height, uint8_t depth, int unused)
+{
+    void* memory = MemSys::Alloc(0x14);
+    CPcTexture* target = memory ? static_cast<CPcTexture*>(memory)->MakeNew() : nullptr;
+    memory = MemSys::Alloc(sizeof(textureRef));
+    textureRef* texture = memory ? static_cast<textureRef*>(memory)->MakeNew() : nullptr;
+    target->SetTexture(texture);
+    // (no check: a failed allocation calls through null, as the original)
+    texture->CreateRenderTarget(width, height, depth, unused);
+    return target;
+}
+
+// 0x004B2C30
+void __cdecl AddTextureShadowCaster(const uint8_t* texture, void* model, uint32_t /*unused*/)
+{
+    AddShadowCaster(CasterKey(texture), model, 0);
+}
+
+// 0x004B2C50
+void __cdecl AimTextureShadowCaster(const uint8_t* texture, Gfx2D::ViewCam* camera)
+{
+    const Maths::Vec4& pos = *camera->FetchLocation();
+    float position[3] = {pos.x, pos.y, pos.z};
+    const Maths::Mat4& m = *camera->FetchMat();
+    // the point it looks at: the position plus the matrix's third row
+    float target[3] = {m.row[2].x + position[0], m.row[2].y + position[1], m.row[2].z + position[2]};
+    AimShadowCaster(reinterpret_cast<uint32_t>(CasterKey(texture)), position, target);
+}
+
+// 0x004B2D10
+void __cdecl RemoveTextureShadowCaster(const uint8_t* texture)
+{
+    RemoveShadowCaster(reinterpret_cast<uint32_t>(CasterKey(texture)));
+}
+
+namespace {
+static VtableSlot kCPcParticleManagerVtable_slots[] = {&Engine3D::CPcParticleManager::Teardown, Engine3D::CPcParticleSystem::Fabricate};
+void** const kCPcParticleManagerVtable = reinterpret_cast<void**>(kCPcParticleManagerVtable_slots);
+} // namespace
+
+} // namespace Nx

@@ -10,10 +10,10 @@
 #include <cstdio>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
 #include "game/park_editing/park.h"
-#include "game/script/param_struct.h"
+#include "engine/script/param_struct.h"
 
 namespace ParkEditing {
 

@@ -14,15 +14,15 @@
 #include <string>
 #include <vector>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/file/file_load.h"
-#include "game/file/archive.h"
-#include "game/front/data_overlay.h"
-#include "game/script/token_reader.h"
-#include "game/script/qb.h"
-#include "game/script/param_struct.h"
-#include "game/sys/run_log.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/file/file_load.h"
+#include "engine/file/archive.h"
+#include "frontend/data_overlay.h"
+#include "engine/script/token_reader.h"
+#include "engine/script/qb.h"
+#include "engine/script/param_struct.h"
+#include "platform/run_log.h"
 
 namespace GameObjects::ThugproCas {
 
@@ -230,7 +230,7 @@ bool ReadArchive(const std::vector<uint8_t>& archive, const std::vector<std::str
                  std::vector<std::pair<std::string, std::vector<uint8_t>>>* out)
 {
     // {total size, version, file count}, then each file: {size, compressed size (0: stored), name size (int16), use
-    // count, checksum}, its name, its data padded to 4 bytes (src/game/file/packs.cpp NextRawEntry).
+    // count, checksum}, its name, its data padded to 4 bytes (src/engine/file/packs.cpp NextRawEntry).
     if (archive.size() < 12)
         return false;
     auto u32 = [&archive](size_t at) {

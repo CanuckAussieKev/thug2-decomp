@@ -1,0 +1,357 @@
+// An animation's frames (see boned_anim_frame_data.h): from the disassembly of 0x00484EB0-0x004859E8.
+
+#include "engine/gfx/boned_anim_frame_data.h"
+
+#include <cstdint>
+#include <cstring>
+
+#include "engine/gfx/anim_blend.h"
+#include "engine/gfx/anim_cache.h"
+#include "engine/maths/quat_rotation.h"
+#include "engine/maths/vec4.h"
+#include "engine/maths/x87_math.h"
+#include "engine/objects/walk_hang.h"
+#include "platform/stopwatch.h"
+
+namespace Gfx2D {
+
+namespace {
+
+constexpr uint32_t kTwiceTranslation = 0x4000;
+constexpr uint32_t kCacheOnLoad = 0x800;
+constexpr uint32_t kNoAutoCache = 0x1000;
+constexpr uint32_t kTranslationKeys = 0x20000;
+constexpr uint32_t kBoneBits = 0x80000;
+constexpr uint32_t kShortCounts = 0x400000;
+constexpr uint32_t kCompressed = 0x800000;
+constexpr uint32_t kOtherInterpolation = 0x9000000;
+constexpr uint32_t kCompressedB = 0x10000000;
+constexpr float kKeyScale = 1.0f / 32.0f; // 0x006487CC: a compressed translation's units
+constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
+constexpr int kCachesPerFrame = 10;
+
+// The animation cache (the manager 0x006F92B0 through its getter) and its entries' calls (none rewritten yet).
+void* CacheManager() { return CClipStore::Pull(); }
+int CacheFormat(void* manager) { return static_cast<CClipStore*>(manager)->FetchKind(); }
+
+// The compressed keys' decoders: the next rotation key (0x00482C20) / translation key (0x00482E70) into `key`,
+// returning where the next one starts; a rotation key as a quaternion (0x00482A70, 0x00483D00 - the quaternion at +4
+// of its output).
+uint8_t* DecodeRotation(uint8_t* cursor, void* key, uint32_t flags, uint8_t* table)
+{
+    return const_cast<uint8_t*>(DecompressQuatKey(cursor, static_cast<CShortKey*>(key), flags, table));
+}
+uint8_t* DecodeTranslation(uint8_t* cursor, void* key, uint32_t)
+{
+    return const_cast<uint8_t*>(DecompressTransKey(cursor, static_cast<CShortKey*>(key)));
+}
+void RotationToQuatA(void* out, const void* key)
+{
+    ExpandQuatKey(static_cast<CFloatKey*>(out), static_cast<const CShortKey*>(key));
+}
+void RotationToQuatB(void* out, const void* key)
+{
+    ExpandQuatKeyWithW(static_cast<CFloatKey*>(out), static_cast<const CShortKey*>(key));
+}
+
+uint32_t g_cachesBuilt;
+uint64_t g_lastCacheVblank;
+
+// The vblank count when caches were last built (0x006FA2E0) and how many have been since (0x006FA2D8).
+uint64_t& LastCacheVblank() { return g_lastCacheVblank; }
+uint32_t& CachesBuilt() { return g_cachesBuilt; }
+
+// A plain key's time: its first short (rotation keys: 15 bits, signed).
+int RotationKeyTime(const uint8_t* key)
+{
+    return static_cast<int16_t>(static_cast<int16_t>(*reinterpret_cast<const uint16_t*>(key) << 1) >> 1);
+}
+int TranslationKeyTime(const uint8_t* key) { return *reinterpret_cast<const int16_t*>(key); }
+
+// The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
+// Without one, `from` / `to` / `fraction` stay as they were.
+void FindKeys(uint8_t* keys, int count, float time, int (*keyframeTime)(const uint8_t*), uint8_t*& from, uint8_t*& to,
+              float& fraction)
+{
+    for (int i = 0; i < count; ++i) {
+        uint8_t* key = keys + i * 8;
+        if (i == count - 1) {
+            from = key;
+            to = key;
+            fraction = 0.0f;
+            return;
+        }
+        double t0 = keyframeTime(key);
+        if (!(t0 <= time))
+            continue;
+        double t1 = keyframeTime(key + 8);
+        if (!(t1 >= time))
+            continue;
+        from = key;
+        to = key + 8;
+        fraction = static_cast<float>(X87::Divide(time - t0, t1 - t0));
+        return;
+    }
+}
+
+} // namespace
+
+// 0x00484EB0
+bool CJointClipFrames::ApplyAdditive(Maths::QuatRotation* rotations, Maths::Vec4* translations, void*, float weight,
+                                        uint8_t* mask)
+{
+    uint8_t* rotKeys = m_quatKeys;
+    uint8_t* transKeys = m_transKeys;
+    uint16_t* rotSizes = m_quatSizes;
+    uint16_t* transSizes = m_transSizes;
+    uint32_t maskBit = mask && mask[0x208] ? 1u << (*reinterpret_cast<uint32_t*>(mask + 0x210) & 31) : 0u;
+    for (int i = 0; i < m_boneCount; ++i) {
+        bool skip = maskBit ? ((*reinterpret_cast<uint32_t**>(mask + 0x20C))[i] & maskBit) != 0 : false;
+        if (m_flagBits & kBoneBits)
+            skip = !(m_partialBones[1 + i / 32] & (1u << (i % 32)));
+        if (!skip) {
+            Maths::QuatRotation& rotation = rotations[i];
+            if (*rotSizes) {
+                uint8_t key[8];
+                uint8_t decoded[20];
+                DecodeRotation(rotKeys, key, m_flagBits, m_keyTable);
+                RotationToQuatB(decoded, key);
+                Maths::QuatRotation added = rotation;
+                added *= *reinterpret_cast<Maths::QuatRotation*>(decoded + 4);
+                Maths::QuatRotation to = added;
+                float blended[4];
+                float* result = InterpolateRotation(blended, &rotation.x, &to.x, weight);
+                rotation = {result[0], result[1], result[2], result[3]};
+            }
+            uint32_t flags = m_flagBits;
+            if (!(flags & kTranslationKeys) || *transSizes) {
+                Maths::Vec4& translation = translations[i];
+                uint8_t key[8];
+                DecodeTranslation(transKeys, key, flags);
+                const auto* values = reinterpret_cast<const int16_t*>(key + 2);
+                double x = values[0] * static_cast<double>(kKeyScale);
+                float y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
+                float z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
+                Maths::Vec4 target;
+                if ((m_flagBits & kTwiceTranslation) && (m_flagBits & kTranslationKeys)) {
+                    float zSum = static_cast<float>(static_cast<double>(z) + translation.z);
+                    float wSum = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
+                    target.x = static_cast<float>((x + translation.x) + translation.x);
+                    target.y = static_cast<float>((static_cast<double>(y) + translation.y) + translation.y);
+                    target.z = static_cast<float>(static_cast<double>(zSum) + translation.z);
+                    target.w = static_cast<float>(static_cast<double>(wSum) + translation.w);
+                } else {
+                    target.x = static_cast<float>(x + translation.x);
+                    target.y = static_cast<float>(static_cast<double>(y) + translation.y);
+                    target.z = static_cast<float>(static_cast<double>(z) + translation.z);
+                    target.w = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
+                }
+                Maths::Vec4 moved;
+                translation = *Walk::Lerp(&moved, &translation, &target, weight);
+            }
+        }
+        rotKeys += *rotSizes++;
+        transKeys += *transSizes++;
+    }
+    return true;
+}
+
+// 0x00485250
+bool CJointClipFrames::ApplyAdditiveIfCompressed(Maths::QuatRotation* rotations, Maths::Vec4* translations, void* unused,
+                                                    float weight, uint8_t* mask)
+{
+    if (!(m_flagBits & kCompressed))
+        return false;
+    return ApplyAdditive(rotations, translations, unused, weight, mask);
+}
+
+// 0x00485270
+void CJointClipFrames::BuildCache(int format)
+{
+    if (CachesBuilt() >= kCachesPerFrame) {
+        if (FrameClock::FetchRetraceCount() == LastCacheVblank())
+            return;
+        CachesBuilt() = 0;
+        LastCacheVblank() = FrameClock::FetchRetraceCount();
+    } else if (FrameClock::FetchRetraceCount() != LastCacheVblank()) {
+        CachesBuilt() = 0;
+        LastCacheVblank() = FrameClock::FetchRetraceCount();
+    }
+    CClipStore* manager = CClipStore::Pull();
+    uint32_t size = manager->FetchRecordBytes(m_boneCount, static_cast<int>(m_quatKeyCount),
+                                          static_cast<int>(m_transKeyCount), format);
+    int priority = static_cast<int16_t>(static_cast<int16_t>(m_bits << 7) >> 8);
+    if (*reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||
+        CClipStore::HeapAvailable() < size) {
+        if (manager->FreeOldest(priority, size))
+            m_cacheSlot = nullptr;
+    }
+    CAnimCacheEntry* entry = manager->AddRow(reinterpret_cast<uint32_t>(this), static_cast<int16_t>(m_boneCount),
+                                               static_cast<int>(m_quatKeyCount), static_cast<int>(m_transKeyCount), format);
+    uint8_t* cache = reinterpret_cast<uint8_t*>(entry);
+    if (!cache)
+        return;
+    auto* rotOffsets = entry->GetRotationOffsets();
+    auto* transOffsets = entry->GetTranslationOffsets();
+    uint32_t rotSize = entry->GetRotationKeySize();
+    uint32_t transSize = entry->GetTranslationKeySize();
+    int bones = m_boneCount;
+    uint8_t* rotData = entry->GetRotationKeys(0);
+    uint8_t* transData = entry->GetTranslationKeys(0);
+    // (one buffer for a rotation key and a converted translation: the latter's bytes 2-3 are the former's)
+    alignas(4) uint8_t key[16];
+    alignas(4) uint8_t quatA[16];
+    alignas(4) uint8_t quatB[20];
+    alignas(4) uint8_t translation[8];
+
+    // The rotations: each bone's keys one after another, the bones' starts in rotOffsets
+    uint16_t* sizes = m_quatSizes;
+    uint8_t* cursor = m_quatKeys;
+    uint8_t* end = cursor + *sizes;
+    uint32_t offset = 0;
+    uint32_t bone = 0;
+    rotOffsets[0] = 0;
+    transOffsets[0] = 0;
+    for (;;) {
+        if (*sizes == 0) {
+            do {
+                end = cursor + sizes[1];
+                ++sizes;
+                ++bone;
+                rotOffsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
+            } while (static_cast<uint16_t>(bone) != static_cast<uint32_t>(bones) && *sizes == 0);
+            if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+                break;
+        }
+        cursor = DecodeRotation(cursor, key, m_flagBits, m_keyTable);
+        const uint8_t* source = key;
+        if (format == 3) {
+            RotationToQuatA(quatA, key);
+            source = quatA;
+        } else if (format == 4) {
+            RotationToQuatB(quatB, key);
+            source = quatB;
+        }
+        std::memcpy(rotData + static_cast<uint16_t>(offset), source, rotSize);
+        offset += rotSize;
+        if (cursor != end)
+            continue;
+        end = cursor + sizes[1];
+        ++sizes;
+        ++bone;
+        rotOffsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
+        if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+            break;
+    }
+
+    // The translations
+    sizes = m_transSizes;
+    cursor = m_transKeys;
+    end = cursor + *sizes;
+    offset = 0;
+    bone = 0;
+    for (;;) {
+        if (*sizes == 0) {
+            do {
+                end = cursor + sizes[1];
+                ++sizes;
+                ++bone;
+                transOffsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
+            } while (static_cast<uint16_t>(bone) != static_cast<uint32_t>(bones) && *sizes == 0);
+            if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+                break;
+        }
+        cursor = DecodeTranslation(cursor, translation, m_flagBits);
+        const uint8_t* source = translation;
+        if (format >= 3 && format <= 4) {
+            const auto* values = reinterpret_cast<const int16_t*>(translation + 2);
+            std::memcpy(key, translation, 2);
+            for (int i = 0; i < 3; ++i) {
+                float value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
+                std::memcpy(key + 4 + i * 4, &value, 4);
+            }
+            source = key;
+        }
+        std::memcpy(transData + static_cast<uint16_t>(offset), source, transSize);
+        offset += transSize;
+        if (cursor != end)
+            continue;
+        end = cursor + sizes[1];
+        ++sizes;
+        ++bone;
+        transOffsets[static_cast<uint16_t>(bone)] = static_cast<uint16_t>(offset);
+        if (static_cast<uint16_t>(bone) == static_cast<uint32_t>(bones))
+            break;
+    }
+
+    m_cacheSlot = cache;
+    entry->SetReleaseCallback(reinterpret_cast<void(__cdecl*)(void*)>(&CJointClipFrames::ForgetCacheEntry),
+                              this); // (the entry's owner and its release callback)
+    uint16_t& cacheFlags = *reinterpret_cast<uint16_t*>(m_cacheSlot + 0x164);
+    cacheFlags = static_cast<uint16_t>(((m_flagBits >> 11) & 1) << 13 | (cacheFlags & 0xDFFF));
+    ++CachesBuilt();
+    LastCacheVblank() = FrameClock::FetchRetraceCount();
+}
+
+// 0x004856C0
+bool CJointClipFrames::ReadIn(const uint8_t* data, uint32_t, bool)
+{
+    auto* header = reinterpret_cast<const uint32_t*>(data);
+    m_unknown00 = header[2];
+    m_flagBits = header[1];
+    bool loaded = false;
+    const uint8_t* keys = data + 0xC;
+    if (header[1] & kCompressedB)
+        loaded = SetUpFloatKeys(const_cast<uint8_t*>(keys));
+    else if (header[1] & kCompressed)
+        loaded = SetUpCompressed(const_cast<uint8_t*>(keys));
+    if (m_flagBits & kCacheOnLoad)
+        BuildCache(CacheFormat(CacheManager()));
+    return loaded;
+}
+
+// 0x00485730
+bool CJointClipFrames::GetFrames(Maths::QuatRotation* rotations, Maths::Vec4* translations, uint8_t* arg2, float time,
+                                    int arg4, void* arg5)
+{
+    uint32_t flags = m_flagBits;
+    if (flags & kCompressed) {
+        if (!(flags & kNoAutoCache) && !m_cacheSlot)
+            BuildCache(CacheFormat(CacheManager()));
+        return FetchPose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
+                       static_cast<CFrameSource*>(arg5));
+    }
+    float frame = time * kFramesPerSecond;
+    uint8_t* rotKeys = m_quatKeys;
+    uint8_t* transKeys = m_transKeys;
+    uint8_t* rotFrom = rotKeys;
+    uint8_t* rotTo = rotKeys;
+    uint8_t* transFrom = transKeys;
+    uint8_t* transTo = transKeys;
+    float rotFraction = 0.0f;
+    float transFraction = 0.0f;
+    for (int i = 0; i < m_boneCount; ++i) {
+        int rotCount;
+        int transCount;
+        if (m_flagBits & kShortCounts) {
+            rotCount = reinterpret_cast<int16_t*>(m_keyCounts)[i * 2];
+            transCount = reinterpret_cast<int16_t*>(m_keyCounts)[i * 2 + 1];
+        } else {
+            rotCount = m_keyCounts[i * 2];
+            transCount = m_keyCounts[i * 2 + 1];
+        }
+        FindKeys(rotKeys, rotCount, frame, RotationKeyTime, rotFrom, rotTo, rotFraction);
+        InterpolateQuat(reinterpret_cast<float*>(rotations), rotFrom, rotTo, rotFraction,
+                        (m_flagBits & kOtherInterpolation) != 0);
+        FindKeys(transKeys, transCount, frame, TranslationKeyTime, transFrom, transTo, transFraction);
+        InterpolateTrans(reinterpret_cast<float*>(translations), transFrom, transTo, transFraction,
+                         (m_flagBits & kOtherInterpolation) != 0);
+        rotKeys += rotCount * 8;
+        rotations++;
+        transKeys += transCount * 8;
+        translations++;
+    }
+    return true;
+}
+
+} // namespace Gfx

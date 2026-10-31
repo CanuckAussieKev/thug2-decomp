@@ -4,7 +4,7 @@
 //     node tools/symbolize.ts [--pdb-dir out/build/verify] [log or offsets...]
 //
 // With a log file: symbolizes every "thug2-decomp.exe+0x..." in its last crash report (EXCEPTION, RUN-TIME CHECK
-// FAILURE, ... - src/game/sys/crash.h; also tools/pipeline/game/read_dump.ts's output saved to a file). With hex
+// FAILURE, ... - src/platform/crash.h; also tools/pipeline/game/read_dump.ts's output saved to a file). With hex
 // offsets (or "thug2-decomp.exe+0x..."): those.
 // The PDB must come from the same build as the exe that crashed (compare the deployed exe's timestamp).
 // Uses Windows' dbghelp.dll - through Windows PowerShell's Add-Type (C# P/Invoke), as Node has no FFI.
@@ -24,13 +24,13 @@ const EXE = "thug2-decomp.exe";
 const MODULE_OFFSET = /(?:thug2-decomp|thug2_standalone)\.exe\+0x([0-9A-Fa-f]+)/gi;
 
 // A report's first line: EXCEPTION, RUN-TIME CHECK FAILURE, DEBUG CRT REPORT, INVALID PARAMETER, PURE VIRTUAL CALL,
-// ABORT, BUFFER OVERRUN DETECTED, GAME CRT MESSAGE (src/game/sys/crash.h).
+// ABORT, BUFFER OVERRUN DETECTED, GAME CRT MESSAGE (src/platform/crash.h).
 export const REPORT_START =
     /^(?:EXCEPTION |RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|INVALID PARAMETER|PURE VIRTUAL CALL|ABORT|BUFFER OVERRUN|GAME CRT MESSAGE)/gm;
 
 export function offsetsFromLog(file: string): number[] {
     const text = readTextPy(file, "replace");
-    // (the last report of any kind - src/game/sys/crash.h; read_dump.ts's output too)
+    // (the last report of any kind - src/platform/crash.h; read_dump.ts's output too)
     const starts = [...text.matchAll(REPORT_START)];
     const start = starts.length ? starts[starts.length - 1]!.index! : -1;
     if (start < 0) pyExit(`no EXCEPTION (or other crash) report in ${file}`);

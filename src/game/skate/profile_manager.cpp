@@ -4,15 +4,15 @@
 
 #include <cstdint>
 
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/text_store.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/gfx/face_texture.h"
-#include "game/gfx/model_appearance.h"
-#include "game/lists/lookup_table.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/text_store.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/gfx/face_texture.h"
+#include "engine/gfx/model_appearance.h"
+#include "engine/lists/lookup_table.h"
 
 namespace GameObjects {
 

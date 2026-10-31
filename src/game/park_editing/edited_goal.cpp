@@ -5,16 +5,16 @@
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
 #include "game/park_editing/goal_editor.h"
 #include "game/park_editing/goal_editor_util.h"
 #include "game/park_editing/park_editor.h"
-#include "game/script/cscript.h"
-#include "game/script/nodes.h"
-#include "game/script/param_struct.h"
+#include "engine/script/cscript.h"
+#include "engine/script/nodes.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
-#include "game/sys/crt.h"
+#include "platform/crt.h"
 
 #pragma warning(disable : 4996) // (strcpy: the original's inline copies of the texts)
 

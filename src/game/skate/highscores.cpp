@@ -6,13 +6,13 @@
 #include <cstdint>
 #include <initializer_list>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/front/level_editor_layout.h"
-#include "game/script/param_struct.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "editor/level_editor_layout.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/skate_module_calls.h"
 #include "game/skate/skate_module.h"
-#include "game/sys/run_log.h"
+#include "platform/run_log.h"
 
 namespace Highscores {
 

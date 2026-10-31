@@ -6,17 +6,17 @@
 #include <cstring>
 #include <new>
 
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/str.h"
-#include "game/script/cscript.h"
-#include "game/script/nodes.h"
-#include "game/script/param_struct.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/str.h"
+#include "engine/script/cscript.h"
+#include "engine/script/nodes.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/career.h"
 #include "game/goals/goal_manager.h"
 #include "game/skate/skate_module.h"
-#include "game/core/code_address.h"
+#include "engine/core/code_address.h"
 
 namespace GoalSystem {
 

@@ -4,12 +4,12 @@
 
 #include <cstdint>
 
-#include "game/core/mem.h"
-#include "game/core/slab_bank.h"
+#include "engine/core/mem.h"
+#include "engine/core/slab_bank.h"
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor.h"
-#include "game/maths/x87_math.h"
+#include "engine/maths/x87_math.h"
 
 namespace ParkEditing {
 

@@ -7,8 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "game/core/arena_alloc.h"
-#include "game/script/param_struct.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/script/param_struct.h"
 
 namespace Scripts {
 class CScript;

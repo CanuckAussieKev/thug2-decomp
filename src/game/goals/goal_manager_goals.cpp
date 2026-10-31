@@ -3,18 +3,18 @@
 
 #include <cstdint>
 
-#include "game/core/mem.h"
+#include "engine/core/mem.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_skate_line.h"
 #include "game/goals/goal_net_types.h"
 #include "game/goals/goal_names.h"
 #include "game/goals/goal_types.h"
-#include "game/net/gamenet_commands.h"
-#include "game/net/gamenet_manager.h"
-#include "game/script/cscript.h"
-#include "game/script/game_cfuncs.h"
-#include "game/script/param_struct.h"
+#include "engine/net/gamenet_commands.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/script/cscript.h"
+#include "engine/script/game_cfuncs.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/trick_goals.h"
 

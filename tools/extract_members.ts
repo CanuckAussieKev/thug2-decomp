@@ -9,7 +9,7 @@
 // the output's comments; the data itself comes from the exe alone.)
 //
 // A script calls a member function by name; the name is a QBVAL_NATIVE_METHOD symbol registered in one of two
-// ways (src/game/script/names.cpp):
+// ways (src/engine/script/names.cpp):
 //   - a table (RegisterMemberFunctionTable 0x0046F060, called with `push 0x18; push <table>; push <component type>`
 //     by each component's register function and the composite object manager): 0x18-byte entries {name, component
 //     type, member function pointer} up to a zero name. The script runs the entry on that component of the object
@@ -321,7 +321,7 @@ export interface Members {
 
 export function extract(exe: Exe, names: ReadonlyMap<number, string>): Members {
     const starts = functionStarts(exe);
-    // (names no THUG2 script uses, checked by their checksums: src/game/obj/component_types.cpp's)
+    // (names no THUG2 script uses, checked by their checksums: src/engine/objects/component_types.cpp's)
     const known = new Map(OTHER_NAMES.map((n) => [checksum(n), n]));
     const label = (type: number): string => (known.get(type) ?? names.get(type) ?? hex8(type)).toLowerCase();
     const comps = components(exe);

@@ -2,11 +2,11 @@
 
 #include <cstdint>
 
-#include "game/gfx/engine.h"
-#include "game/gfx/engine_scene.h"
-#include "game/gfx/engine_scene_list.h"
-#include "game/gfx/sector.h"
-#include "game/maths/vec4.h"
+#include "engine/gfx/engine.h"
+#include "engine/gfx/engine_scene.h"
+#include "engine/gfx/engine_scene_list.h"
+#include "engine/gfx/sector.h"
+#include "engine/maths/vec4.h"
 
 // The engine's scene calls the park editor's pieces and generator make (Nx). Sectors are looked
 // up by name; the park's pieces are clones of the park editor's own sectors.

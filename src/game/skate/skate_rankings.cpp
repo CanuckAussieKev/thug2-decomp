@@ -8,16 +8,16 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "game/core/manager.h"
-#include "game/core/mem.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
 #include "game/goals/goal_manager.h"
-#include "game/net/gamenet_manager.h"
-#include "game/net/player_info.h"
-#include "game/net/score_list.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/net/player_info.h"
+#include "engine/net/score_list.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
 #include "game/skate/game_mode.h"
-#include "game/skater/rider.h"
+#include "game/rider/rider.h"
 
 namespace GameModules {
 

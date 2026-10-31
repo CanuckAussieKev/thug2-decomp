@@ -1,7 +1,7 @@
 // The skate module's network handlers and their registration (0x0056C920-0x0056F090). See skate_net.h.
 
 #include "game/skate/skate_net.h"
-#include "game/net/task_vtable.h"
+#include "engine/net/task_vtable.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -9,40 +9,40 @@
 #include <cstring>
 #include <initializer_list>
 
-#include "game/core/checksums.h"
-#include "game/core/dbg.h"
-#include "game/core/manager.h"
-#include "game/core/mem.h"
-#include "game/core/task_list.h"
-#include "game/maths/mat4.h"
-#include "game/maths/vec4.h"
-#include "game/net/gamenet_manager.h"
-#include "game/net/net_app.h"
-#include "game/net/net_conn.h"
-#include "game/net/net_dispatcher.h"
-#include "game/net/player_info.h"
-#include "game/net/thugpro_compat.h"
-#include "game/net/thugpro_peer.h"
-#include "game/obj/entity.h"
-#include "game/obj/entity_hub.h"
-#include "game/obj/trick_objects.h"
-#include "game/script/cscript.h"
-#include "game/script/param_struct.h"
-#include "game/script/struct_buffer.h"
-#include "game/skater/local_net_logic.h"
-#include "game/skater/rider.h"
-#include "game/skater/state_history.h"
-#include "game/util/bitstream.h"
+#include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
+#include "engine/core/manager.h"
+#include "engine/core/mem.h"
+#include "engine/core/task_list.h"
+#include "engine/maths/mat4.h"
+#include "engine/maths/vec4.h"
+#include "engine/net/gamenet_manager.h"
+#include "engine/net/net_app.h"
+#include "engine/net/net_conn.h"
+#include "engine/net/net_dispatcher.h"
+#include "engine/net/player_info.h"
+#include "engine/net/thugpro_compat.h"
+#include "engine/net/thugpro_peer.h"
+#include "engine/objects/entity.h"
+#include "engine/objects/entity_hub.h"
+#include "engine/objects/trick_objects.h"
+#include "engine/script/cscript.h"
+#include "engine/script/param_struct.h"
+#include "engine/script/struct_buffer.h"
+#include "game/rider/local_net_logic.h"
+#include "game/rider/rider.h"
+#include "game/rider/state_history.h"
+#include "engine/util/bitstream.h"
 #include "game/goals/goal_manager.h"
-#include "game/script/game_cfuncs.h"
+#include "engine/script/game_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
-#include "game/core/code_address.h"
+#include "engine/core/code_address.h"
 #include "game/skate/skate_module.h"
-#include "game/assets/resource_registry.h"
-#include "game/obj/compositemgr.h"
-#include "game/obj/movie_manager.h"
-#include "game/sys/game_config.h"
+#include "engine/assets/resource_registry.h"
+#include "engine/objects/compositemgr.h"
+#include "engine/objects/movie_manager.h"
+#include "engine/sys/game_config.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -372,7 +372,7 @@ void SkateNet::AddClientHandlers(NetLink::AppHost* client, int index)
         for (int id : {0x91, 0x92, 0x94})
             AppendListener(client, id, HandleScavengerHunt, 0, this);
     }
-    // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (game/net/thugpro_peer.h)
+    // NOT ORIGINAL - the THUGPRO peer mode's messages, 155-159 (engine/net/thugpro_peer.h)
     if (OnlinePlay::Thugpro::PeerMode())
         OnlinePlay::Thugpro::AddClientHandlers(client, this);
 }
