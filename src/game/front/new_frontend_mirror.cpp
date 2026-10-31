@@ -255,7 +255,7 @@ View Build(const MenuRead& read, const Policy& policy)
                 char number[24];
                 bool show = true;
                 if (item.sliderKind == 1)
-                    std::snprintf(number, sizeof(number), "%dÂ°", static_cast<int>(item.sliderAt * 360.0f + 0.5f));
+                    std::snprintf(number, sizeof(number), "%d", static_cast<int>(item.sliderAt * 360.0f + 0.5f));
                 else if (item.sliderKind == 2)
                     std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.sliderAt * kSatMax + 0.5f));
                 else if (item.sliderKind == 3) {
@@ -267,7 +267,7 @@ View Build(const MenuRead& read, const Policy& policy)
                     std::snprintf(number, sizeof(number), "%d%%", static_cast<int>(item.sliderAt * 100.0f + 0.5f));
                 }
                 if (show)
-                    row.value += (row.value.empty() ? "" : " Â· ") + std::string(number);
+                    row.value += (row.value.empty() ? "" : "  ") + std::string(number);
             }
             row.focusable = item.focusable;
             row.index = static_cast<int>(i);

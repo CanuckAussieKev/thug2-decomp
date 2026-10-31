@@ -1319,9 +1319,11 @@ void ListOfItems(Ctx& c, const Mirror::Tracker& t, float windowWidth, float wind
                 Text(c.dl, value, c.f, valueX, base, r.value.c_str());
         }
         if (r.track > 0 && r.focusable) {
-            // (between the label and the number: from past the widest label to a fixed width, at most)
+            // (between the label and the number: from past the widest label to a fixed width, at most; a selected row's
+            // label sits in its cut, shifted right by Row's 24 px - the track starts past the cut's end)
             float valueW = r.value.empty() ? 0.0f : Measure(value, c.f, r.value.c_str()) / c.f.S(1.0f) + 14.0f;
-            float labelEnd = rs.textX + Measure(rs.name, c.f, r.label.c_str()) / c.f.S(1.0f) + 16.0f;
+            float labelEnd = rs.textX + Measure(rs.name, c.f, r.label.c_str()) / c.f.S(1.0f) + 16.0f +
+                             t.RowAmount(i) * (rs.cutRightPad + 24.0f + 4.0f);
             float x1 = kColumnInner - valueW, x0 = std::max(labelEnd, x1 - 190.0f);
             if (x1 - x0 > 40.0f)
                 ColourTrack(c, v, r, i == v.selected, x0, x1, top + rowH * 0.5f);
