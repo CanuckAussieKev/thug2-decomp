@@ -75,9 +75,18 @@ LevelLamp* find_scene_light(uint32_t name)
 }
 
 Geom* geom_of(const WorldCell* sector) { return static_cast<Geom*>(sector->geom_handle_); }
-uint32_t get_vertex_count(Geom* geom) { return reinterpret_cast<uint32_t(__thiscall*)(Geom*)>(geom->vtable_[36])(geom); }
-void get_vertices(Geom* geom, maths::Vec4* out) { reinterpret_cast<void(__thiscall*)(Geom*, maths::Vec4*)>(geom->vtable_[37])(geom, out); }
-void set_colours(Geom* geom, const uint32_t* in) { reinterpret_cast<void(__thiscall*)(Geom*, const uint32_t*)>(geom->vtable_[40])(geom, in); }
+uint32_t get_vertex_count(Geom* geom)
+{
+    return reinterpret_cast<uint32_t(__thiscall*)(Geom*)>(geom->vtable_[36])(geom);
+}
+void get_vertices(Geom* geom, maths::Vec4* out)
+{
+    reinterpret_cast<void(__thiscall*)(Geom*, maths::Vec4*)>(geom->vtable_[37])(geom, out);
+}
+void set_colours(Geom* geom, const uint32_t* in)
+{
+    reinterpret_cast<void(__thiscall*)(Geom*, const uint32_t*)>(geom->vtable_[40])(geom, in);
+}
 
 // What a light adds at a vertex: (radius - distance) / radius x its intensity - when the vertex is within its radius
 // (the squared distance rounded to a float first); its colour's bytes times that summed into r, g, b.
@@ -116,12 +125,14 @@ struct Sums {
 // A position's offset from a light, squared: the original's two orders of summing.
 double offset_squared_zxy(const float* p, const maths::Vec4& l)
 {
-    double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y, dz = static_cast<double>(p[2]) - l.z;
+    double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y,
+           dz = static_cast<double>(p[2]) - l.z;
     return dz * dz + dx * dx + dy * dy;
 }
 double offset_squared_zyx(const float* p, const maths::Vec4& l)
 {
-    double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y, dz = static_cast<double>(p[2]) - l.z;
+    double dx = static_cast<double>(p[0]) - l.x, dy = static_cast<double>(p[1]) - l.y,
+           dz = static_cast<double>(p[2]) - l.z;
     return dz * dz + dy * dy + dx * dx;
 }
 
@@ -161,10 +172,7 @@ bool LevelLamp::touches_sector(const WorldCell* sector)
 }
 
 // 0x0048FFD0
-void LevelLamp::clear_sectors()
-{
-    sectors_->empty_table();
-}
+void LevelLamp::clear_sectors() { sectors_->empty_table(); }
 
 // 0x0048FFE0
 void LevelLamp::find_sectors(script::Array* excluded)
@@ -186,8 +194,10 @@ void LevelLamp::find_sectors(script::Array* excluded)
         auto cx = static_cast<float>((static_cast<double>(box->max.x) + box->min.x) * 0.5);
         auto cy = static_cast<float>((static_cast<double>(box->max.y) + box->min.y) * 0.5);
         double cz = (static_cast<double>(box->max.z) + box->min.z) * 0.5;
-        double hx = static_cast<double>(box->max.x) - cx, hy = static_cast<double>(box->max.y) - cy, hz = box->max.z - cz;
-        double dx = static_cast<double>(cx) - at_point_.x, dy = static_cast<double>(cy) - at_point_.y, dz = cz - at_point_.z;
+        double hx = static_cast<double>(box->max.x) - cx, hy = static_cast<double>(box->max.y) - cy,
+               hz = box->max.z - cz;
+        double dx = static_cast<double>(cx) - at_point_.x, dy = static_cast<double>(cy) - at_point_.y,
+               dz = cz - at_point_.z;
         auto distance = static_cast<float>(std::sqrt(dz * static_cast<float>(dz) + dy * dy + dx * dx));
         double half = std::sqrt(hz * hz + hy * hy + hx * hx);
         if (!(half + radius_ > distance))
@@ -253,7 +263,7 @@ void __cdecl apply_scene_lights_to_sector(WorldCell* sector)
 
 // 0x0048F620
 void __cdecl light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions,
-                                const maths::Vec4* normal, uint32_t count)
+                                  const maths::Vec4* normal, uint32_t count)
 {
     int lights[3];
     int found = 0;
@@ -441,7 +451,7 @@ void __cdecl update_scene_light(uint32_t name, script::Struct* params)
 
 // 0x00490400
 LevelLamp* __cdecl register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour,
-                                   float radius, script::Array* excluded)
+                                        float radius, script::Array* excluded)
 {
     if (scene_light_count() >= kMaxSceneLights)
         return nullptr;
@@ -508,7 +518,7 @@ void __cdecl create_light_from_node(script::Struct* node)
     }
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
@@ -519,4 +529,4 @@ void construct_scene_lights()
         light.make_new();
 }
 
-} // namespace Nx
+} // namespace render

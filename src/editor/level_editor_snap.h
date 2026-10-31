@@ -24,7 +24,7 @@ namespace frontend::level_editor::snap {
 int get_nearest(const std::vector<V3>& points, V3 to);
 // The index of the point whose projection is nearest (x, y) in pixels (-1: none in front).
 int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3, float*, float*)>& project, float x,
-                    float y);
+                      float y);
 // An object's rows (right, up, at - their lengths kept) stood square to a surface's `normal`: up along it, at keeping
 // its heading as nearly as it can (false: the normal is no direction, or at lies along it - unchanged).
 bool align_rows(V3 rows[3], V3 normal);
@@ -44,4 +44,4 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
 // The vertices of a sector's drawn meshes where it is now (at most `limit`; none for an unknown sector).
 std::vector<V3> sector_vertices(uint32_t checksum, size_t limit);
 
-} // namespace MenuSystem::level_editor::Snap
+} // namespace frontend::level_editor::snap

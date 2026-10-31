@@ -3,7 +3,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) 0x005A5360-0x005A595F: light groups and IsAlive (through the node command
 // dispatcher), pausing and unpausing the skaters, SkatersAreReady, the viewer, AddSkaterEarly, the weather (rain,
@@ -32,30 +32,30 @@ bool __cdecl cfunc_launch_viewer(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_add_skater_early(script::Struct* params, script::Script* script);
 
 // The weather (render::WeatherSystem, 0x006FA7C8) - each setter is the weather's own method on (params, script).
-bool __cdecl cfunc_weather_update_grid(script::Struct* params, script::Script* script);      // 0x005A5680
-bool __cdecl cfunc_weather_set_rain_height(script::Struct* params, script::Script* script);   // 0x005A5690
-bool __cdecl cfunc_weather_set_rain_frames(script::Struct* params, script::Script* script);   // 0x005A56B0
-bool __cdecl cfunc_weather_set_rain_length(script::Struct* params, script::Script* script);   // 0x005A56D0
-bool __cdecl cfunc_weather_set_rain_blend_mode(script::Struct* params, script::Script* script); // 0x005A56F0
-bool __cdecl cfunc_weather_set_rain_rate(script::Struct* params, script::Script* script);     // 0x005A5710
-bool __cdecl cfunc_weather_set_rain_color(script::Struct* params, script::Script* script);    // 0x005A5730
-bool __cdecl cfunc_weather_set_splash_rate(script::Struct* params, script::Script* script);   // 0x005A5750
-bool __cdecl cfunc_weather_set_splash_life(script::Struct* params, script::Script* script);   // 0x005A5770
-bool __cdecl cfunc_weather_set_splash_size(script::Struct* params, script::Script* script);   // 0x005A5790
-bool __cdecl cfunc_weather_set_splash_color(script::Struct* params, script::Script* script);  // 0x005A57B0
+bool __cdecl cfunc_weather_update_grid(script::Struct* params, script::Script* script);           // 0x005A5680
+bool __cdecl cfunc_weather_set_rain_height(script::Struct* params, script::Script* script);       // 0x005A5690
+bool __cdecl cfunc_weather_set_rain_frames(script::Struct* params, script::Script* script);       // 0x005A56B0
+bool __cdecl cfunc_weather_set_rain_length(script::Struct* params, script::Script* script);       // 0x005A56D0
+bool __cdecl cfunc_weather_set_rain_blend_mode(script::Struct* params, script::Script* script);   // 0x005A56F0
+bool __cdecl cfunc_weather_set_rain_rate(script::Struct* params, script::Script* script);         // 0x005A5710
+bool __cdecl cfunc_weather_set_rain_color(script::Struct* params, script::Script* script);        // 0x005A5730
+bool __cdecl cfunc_weather_set_splash_rate(script::Struct* params, script::Script* script);       // 0x005A5750
+bool __cdecl cfunc_weather_set_splash_life(script::Struct* params, script::Script* script);       // 0x005A5770
+bool __cdecl cfunc_weather_set_splash_size(script::Struct* params, script::Script* script);       // 0x005A5790
+bool __cdecl cfunc_weather_set_splash_color(script::Struct* params, script::Script* script);      // 0x005A57B0
 bool __cdecl cfunc_weather_set_splash_blend_mode(script::Struct* params, script::Script* script); // 0x005A57D0
-bool __cdecl cfunc_weather_set_snow_height(script::Struct* params, script::Script* script);   // 0x005A57F0
-bool __cdecl cfunc_weather_set_snow_frames(script::Struct* params, script::Script* script);   // 0x005A5810
-bool __cdecl cfunc_weather_set_snow_size(script::Struct* params, script::Script* script);     // 0x005A5830
-bool __cdecl cfunc_weather_set_snow_blend_mode(script::Struct* params, script::Script* script); // 0x005A5850
-bool __cdecl cfunc_weather_set_snow_rate(script::Struct* params, script::Script* script);     // 0x005A5870
-bool __cdecl cfunc_weather_set_snow_color(script::Struct* params, script::Script* script);    // 0x005A5890
-bool __cdecl cfunc_weather_set_snow_active(script::Struct* params, script::Script* script);   // 0x005A58B0
-bool __cdecl cfunc_weather_set_rain_active(script::Struct* params, script::Script* script);   // 0x005A58D0
+bool __cdecl cfunc_weather_set_snow_height(script::Struct* params, script::Script* script);       // 0x005A57F0
+bool __cdecl cfunc_weather_set_snow_frames(script::Struct* params, script::Script* script);       // 0x005A5810
+bool __cdecl cfunc_weather_set_snow_size(script::Struct* params, script::Script* script);         // 0x005A5830
+bool __cdecl cfunc_weather_set_snow_blend_mode(script::Struct* params, script::Script* script);   // 0x005A5850
+bool __cdecl cfunc_weather_set_snow_rate(script::Struct* params, script::Script* script);         // 0x005A5870
+bool __cdecl cfunc_weather_set_snow_color(script::Struct* params, script::Script* script);        // 0x005A5890
+bool __cdecl cfunc_weather_set_snow_active(script::Struct* params, script::Script* script);       // 0x005A58B0
+bool __cdecl cfunc_weather_set_rain_active(script::Struct* params, script::Script* script);       // 0x005A58D0
 
 // The screen effects (0x006FA7CC).
-bool __cdecl cfunc_set_screen_effects_on(script::Struct* params, script::Script* script);        // 0x005A58F0
-bool __cdecl cfunc_set_screen_effects_off(script::Struct* params, script::Script* script);       // 0x005A5910
+bool __cdecl cfunc_set_screen_effects_on(script::Struct* params, script::Script* script);         // 0x005A58F0
+bool __cdecl cfunc_set_screen_effects_off(script::Struct* params, script::Script* script);        // 0x005A5910
 bool __cdecl cfunc_set_screen_effects_dof_params(script::Struct* params, script::Script* script); // 0x005A5930
 
 // 0x005A5950: IsPal: whether the game's region / language setting (0x007CEFA0) isn't 2.

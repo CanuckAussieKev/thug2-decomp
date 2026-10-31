@@ -20,4 +20,4 @@ bool& is_switched_on();
 // Once a frame from the front end's input logic (mouse_menus::tick_frame).
 void tick_frame(modules::FrontEnd* front_end);
 
-} // namespace MenuSystem::restart_tester
+} // namespace frontend::restart_tester

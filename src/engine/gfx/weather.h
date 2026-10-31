@@ -6,7 +6,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The engine's weather (Nx; the PC's PcWeather - pc_weather.h - derives from it): the rain's, splashes' and snow's
 // settings the Weather* script commands set; the drawing is the PC's.
@@ -34,47 +34,47 @@ public:
 
     // The script commands' setters (thiscall with the command's parameters; true, except the blend modes without a
     // mode's name): each value's default when it isn't given; the frames kept within 0-254.
-    bool script_set_rain_height(script::Struct* params, script::Script* script);      // 0x004A10B0
-    bool script_set_rain_frames(script::Struct* params, script::Script* script);      // 0x004A10D0
-    bool script_set_rain_length(script::Struct* params, script::Script* script);      // 0x004A1110
+    bool script_set_rain_height(script::Struct* params, script::Script* script);       // 0x004A10B0
+    bool script_set_rain_frames(script::Struct* params, script::Script* script);       // 0x004A10D0
+    bool script_set_rain_length(script::Struct* params, script::Script* script);       // 0x004A1110
     bool script_set_rain_blend_mode(script::Struct* params, script::Script* script);   // 0x004A1130
-    bool script_set_rain_rate(script::Struct* params, script::Script* script);        // 0x004A1190
-    bool script_set_rain_color(script::Struct* params, script::Script* script);       // 0x004A11B0: top=, bottom=
-    bool script_set_splash_rate(script::Struct* params, script::Script* script);      // 0x004A1240
-    bool script_set_splash_life(script::Struct* params, script::Script* script);      // 0x004A1260
-    bool script_set_splash_size(script::Struct* params, script::Script* script);      // 0x004A1280
-    bool script_set_splash_color(script::Struct* params, script::Script* script);     // 0x004A12A0
+    bool script_set_rain_rate(script::Struct* params, script::Script* script);         // 0x004A1190
+    bool script_set_rain_color(script::Struct* params, script::Script* script);        // 0x004A11B0: top=, bottom=
+    bool script_set_splash_rate(script::Struct* params, script::Script* script);       // 0x004A1240
+    bool script_set_splash_life(script::Struct* params, script::Script* script);       // 0x004A1260
+    bool script_set_splash_size(script::Struct* params, script::Script* script);       // 0x004A1280
+    bool script_set_splash_color(script::Struct* params, script::Script* script);      // 0x004A12A0
     bool script_set_splash_blend_mode(script::Struct* params, script::Script* script); // 0x004A12F0
-    bool script_set_snow_height(script::Struct* params, script::Script* script);      // 0x004A1350
-    bool script_set_snow_frames(script::Struct* params, script::Script* script);      // 0x004A1370
-    bool script_set_snow_size(script::Struct* params, script::Script* script);        // 0x004A13B0
+    bool script_set_snow_height(script::Struct* params, script::Script* script);       // 0x004A1350
+    bool script_set_snow_frames(script::Struct* params, script::Script* script);       // 0x004A1370
+    bool script_set_snow_size(script::Struct* params, script::Script* script);         // 0x004A13B0
     bool script_set_snow_blend_mode(script::Struct* params, script::Script* script);   // 0x004A13D0
-    bool script_set_snow_rate(script::Struct* params, script::Script* script);        // 0x004A1430
-    bool script_set_snow_color(script::Struct* params, script::Script* script);       // 0x004A1450
-    bool script_set_snow_active(script::Struct* params, script::Script* script);      // 0x004A14A0: rain off
-    bool script_set_rain_active(script::Struct* params, script::Script* script);      // 0x004A14B0
+    bool script_set_snow_rate(script::Struct* params, script::Script* script);         // 0x004A1430
+    bool script_set_snow_color(script::Struct* params, script::Script* script);        // 0x004A1450
+    bool script_set_snow_active(script::Struct* params, script::Script* script);       // 0x004A14A0: rain off
+    bool script_set_rain_active(script::Struct* params, script::Script* script);       // 0x004A14B0
 
     void** vtable_;
-    float rain_height_;          // +0x04
-    int rain_frames_;            // +0x08
-    float rain_length_;          // +0x0C
-    float rain_rate_;            // +0x10
-    uint8_t rain_top_[4];        // +0x14 RGBA
-    uint8_t rain_bottom_[4];     // +0x18
-    float splash_rate_;          // +0x1C
-    int splash_life_;            // +0x20
-    float splash_size_;          // +0x24
-    uint8_t splash_colour_[4];   // +0x28
-    int drops_;                 // +0x2C (the PC's)
-    bool active_;               // +0x30
+    float rain_height_;        // +0x04
+    int rain_frames_;          // +0x08
+    float rain_length_;        // +0x0C
+    float rain_rate_;          // +0x10
+    uint8_t rain_top_[4];      // +0x14 RGBA
+    uint8_t rain_bottom_[4];   // +0x18
+    float splash_rate_;        // +0x1C
+    int splash_life_;          // +0x20
+    float splash_size_;        // +0x24
+    uint8_t splash_colour_[4]; // +0x28
+    int drops_;                // +0x2C (the PC's)
+    bool active_;              // +0x30
     uint8_t pad31_[3];
-    float snow_height_;          // +0x34
-    int snow_frames_;            // +0x38
-    float snow_size_;            // +0x3C
-    float snow_rate_;            // +0x40
-    uint8_t snow_colour_[4];     // +0x44
-    uint8_t platform48_[0x10];  // +0x48 (the PC's)
-    bool rain_on_;              // +0x58
+    float snow_height_;        // +0x34
+    int snow_frames_;          // +0x38
+    float snow_size_;          // +0x3C
+    float snow_rate_;          // +0x40
+    uint8_t snow_colour_[4];   // +0x44
+    uint8_t platform48_[0x10]; // +0x48 (the PC's)
+    bool rain_on_;             // +0x58
 };
 static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem, snow_colour_) == 0x44 &&
                   offsetof(WeatherSystem, rain_on_) == 0x58,
@@ -86,4 +86,4 @@ static_assert(offsetof(WeatherSystem, active_) == 0x30 && offsetof(WeatherSystem
 void virtual_slot1_jump();
 void virtual_slot3_jump();
 
-} // namespace Nx
+} // namespace render

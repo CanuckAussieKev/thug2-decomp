@@ -78,4 +78,4 @@ void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Are
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
-} // namespace Ed
+} // namespace park_editing

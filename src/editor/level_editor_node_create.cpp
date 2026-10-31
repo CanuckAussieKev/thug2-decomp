@@ -98,13 +98,20 @@ float wrapped(float yaw)
 const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::kSpawn: return "Multiplayer spawn";
-    case Kind::kTeamSpawn: return "Team spawn";
-    case Kind::kCrown: return "Crown";
-    case Kind::kFlagSet: return "CTF flag set";
-    case Kind::kLight: return "Level light";
-    case Kind::kSound: return "Sound emitter";
-    case Kind::kProximityNode: return "Proximity node (sphere)";
+    case Kind::kSpawn:
+        return "Multiplayer spawn";
+    case Kind::kTeamSpawn:
+        return "Team spawn";
+    case Kind::kCrown:
+        return "Crown";
+    case Kind::kFlagSet:
+        return "CTF flag set";
+    case Kind::kLight:
+        return "Level light";
+    case Kind::kSound:
+        return "Sound emitter";
+    case Kind::kProximityNode:
+        return "Proximity node (sphere)";
     }
     return "?";
 }
@@ -223,12 +230,18 @@ const char* name_stem(Kind kind)
 {
     switch (kind) {
     case Kind::kSpawn:
-    case Kind::kTeamSpawn: return "ed_restart";
-    case Kind::kCrown: return "ed_crown";
-    case Kind::kFlagSet: return "ed_flag";
-    case Kind::kLight: return "ed_light";
-    case Kind::kSound: return "ed_sound";
-    case Kind::kProximityNode: return "ed_proxim";
+    case Kind::kTeamSpawn:
+        return "ed_restart";
+    case Kind::kCrown:
+        return "ed_crown";
+    case Kind::kFlagSet:
+        return "ed_flag";
+    case Kind::kLight:
+        return "ed_light";
+    case Kind::kSound:
+        return "ed_sound";
+    case Kind::kProximityNode:
+        return "ed_proxim";
     }
     return "ed_node";
 }
@@ -370,11 +383,9 @@ const char* limit_message(Kind kind, const Counts& counts)
     switch (kind) {
     case Kind::kSpawn:
     case Kind::kTeamSpawn:
-        return counts.restarts >= kMaxRestarts ? "Restart limit reached (256)"
-                                               : nullptr;
+        return counts.restarts >= kMaxRestarts ? "Restart limit reached (256)" : nullptr;
     case Kind::kCrown:
-        return counts.crowns >= kMaxCrowns ? "Crown limit reached (10)"
-                                           : nullptr;
+        return counts.crowns >= kMaxCrowns ? "Crown limit reached (10)" : nullptr;
     case Kind::kLight:
         if (counts.dynamic_lights_ >= kMaxDynamicLights)
             return "The game's 256 dynamic lights are all in use";
@@ -490,7 +501,6 @@ void apply_crown_order(LinkChain* list, const std::vector<std::string>& order)
 
 uint32_t name_hash(const std::string& name) { return checksums::hash_from_text(name.c_str()); }
 
-
 namespace {
 
 constexpr uint32_t kClass = 0x12B4E660;  // class
@@ -534,7 +544,7 @@ void on_array_removed(uint32_t name)
     if (name == nodes::overlay_array() || !g_registered || name != g_level_array)
         return;
     get_log("level editor: the level's node array left - its %u added nodes go with it",
-        static_cast<unsigned>(g_structs.size()));
+            static_cast<unsigned>(g_structs.size()));
     get_forget();
 }
 
@@ -817,8 +827,7 @@ const char* get_why_not(Kind kind, Team team)
         return limit;
     std::string fixed = pinned_node_name(kind, team);
     if (!fixed.empty() && (name_taken(fixed) || (kind == Kind::kFlagSet && name_taken(fixed + "_Base"))))
-        return kind == Kind::kFlagSet ? "This team flag already exists"
-                                     : "This team spawn already exists";
+        return kind == Kind::kFlagSet ? "This team flag already exists" : "This team spawn already exists";
     return nullptr;
 }
 
@@ -860,8 +869,8 @@ bool fabricate(const Spec& spec, int index, std::string* message)
         return false;
     }
     make_live(spec, node);
-    get_log("level editor: added %s (%s %s) at (%.1f, %.1f, %.1f)", spec.name.c_str(), spec.cls.c_str(), spec.type.c_str(),
-        spec.pos.x, spec.pos.y, spec.pos.z);
+    get_log("level editor: added %s (%s %s) at (%.1f, %.1f, %.1f)", spec.name.c_str(), spec.cls.c_str(),
+            spec.type.c_str(), spec.pos.x, spec.pos.y, spec.pos.z);
     return true;
 }
 
@@ -975,8 +984,7 @@ bool move_crown(uint32_t name, int delta, std::string* message)
             continue;
         LinkChain list = g_list;
         if (!node_create::move_crown(&list, spec.name, delta)) {
-            *message = delta < 0 ? "Already the first added crown"
-                                 : "Already the last crown";
+            *message = delta < 0 ? "Already the first added crown" : "Already the last crown";
             return false;
         }
         std::vector<std::string> order;
@@ -1151,4 +1159,4 @@ void forget_level()
     get_forget();
 }
 
-} // namespace MenuSystem::level_editor::node_create
+} // namespace frontend::level_editor::node_create

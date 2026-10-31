@@ -36,25 +36,25 @@ namespace {
 using skater::physics::get_at;
 using skater::physics::vector_at;
 
-constexpr uint32_t kCamera = 0xC4E311FA;            // Camera (a component)
-constexpr uint32_t kCorePhysics = 0x5BD63B29;       // SkaterCorePhysics (a component)
-constexpr uint32_t kBalanceTrick = 0x589E5FB3;      // SkaterBalanceTrick (a component)
-constexpr uint32_t kHideFlagBit = 0x16B8E4CB;       // (a script value: the skater's script flag hidden by a lip view)
+constexpr uint32_t kCamera = 0xC4E311FA;       // Camera (a component)
+constexpr uint32_t kCorePhysics = 0x5BD63B29;  // SkaterCorePhysics (a component)
+constexpr uint32_t kBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick (a component)
+constexpr uint32_t kHideFlagBit = 0x16B8E4CB;  // (a script value: the skater's script flag hidden by a lip view)
 
 // The game's constants (and tunable globals).
-constexpr float kTwoPi = 6.2831854820251465f;       // 0x0064545C
-constexpr float kTurnedAngle = 0.02f;               // 0x006492BC
-constexpr float kSlowHorizontal = 0.1f;             // 0x00645D74
-constexpr float kAirLookDown = 0.7f;                // 0x0064B2C8
-constexpr float kGroundLookDown = 0.8f;             // 0x0064BB44
-constexpr float kFramesPerSecond = 60.0f;           // 0x00645EA0
-constexpr uint32_t kAirTiltMax = 0x3EB2B94E;        // (float bits: about 0.349, 20 degrees)
+constexpr float kTwoPi = 6.2831854820251465f; // 0x0064545C
+constexpr float kTurnedAngle = 0.02f;         // 0x006492BC
+constexpr float kSlowHorizontal = 0.1f;       // 0x00645D74
+constexpr float kAirLookDown = 0.7f;          // 0x0064B2C8
+constexpr float kGroundLookDown = 0.8f;       // 0x0064BB44
+constexpr float kFramesPerSecond = 60.0f;     // 0x00645EA0
+constexpr uint32_t kAirTiltMax = 0x3EB2B94E;  // (float bits: about 0.349, 20 degrees)
 constexpr float kAirTiltMaxValue = 0.3490700125694275f;
-constexpr float kAligned = 0.9999f;                 // 0x0064B7F4
-constexpr float kCosineDecay = 0.9998f;             // 0x0064BB40
-constexpr float kLipBack = 3.0f;                    // 0x006467A8
-constexpr float kLipReach = 72.0f;                  // 0x00646244
-constexpr float kHalfPi = 1.5707963705062866f;      // 0x3FC90FDB
+constexpr float kAligned = 0.9999f;            // 0x0064B7F4
+constexpr float kCosineDecay = 0.9998f;        // 0x0064BB40
+constexpr float kLipBack = 3.0f;               // 0x006467A8
+constexpr float kLipReach = 72.0f;             // 0x00646244
+constexpr float kHalfPi = 1.5707963705062866f; // 0x3FC90FDB
 float& balance_roll_scale() { return g_balance_roll_scale; }
 float& air_tilt_rate() { return g_air_tilt_rate; }
 float& tilt_recovery() { return g_tilt_recovery; }
@@ -64,10 +64,7 @@ bool vert_air(const uint8_t* state) { return state[0x30] && !state[0x48] && !sta
 
 maths::Mat4* skater_display_matrix(GameEntity* skater) { return static_cast<Rider*>(skater)->get_draw_matrix(); }
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // a x b (the original's cross product, inlined: each component a difference of two products) into `out`; w 0.
 void perpendicular(maths::Vec4& out, const maths::Vec4& a, const maths::Vec4& b)
@@ -137,7 +134,8 @@ void RiderChaseView::tick_frame()
         orient = skater_matrix_;
         if (physics_state == 2) {
             skater = rider_ref_;
-            const maths::Vec4& facing = skater->unknownbc_ ? skater_display_matrix(skater)->row[2] : skater->display_matrix_.row[2];
+            const maths::Vec4& facing =
+                skater->unknownbc_ ? skater_display_matrix(skater)->row[2] : skater->display_matrix_.row[2];
             if (wall_ride_frames_ == 0) {
                 maths::Vec4& wall = wall_facing_;
                 wall = facing;
@@ -183,7 +181,8 @@ void RiderChaseView::tick_frame()
     float velocity_x = skater->vel_.x;
     bool look_down = get_look_down();
     if (!(control && control[0x18])) {
-        double horizontal = std::sqrt(static_cast<double>(velocity_x) * velocity_x + static_cast<double>(velocity_z) * velocity_z);
+        double horizontal =
+            std::sqrt(static_cast<double>(velocity_x) * velocity_x + static_cast<double>(velocity_z) * velocity_z);
         bool along;
         if (horizontal > kSlowHorizontal)
             along = !look_down;
@@ -209,9 +208,9 @@ void RiderChaseView::tick_frame()
                 if (physics_state == 1) {
                     ux = 0.0, uy = 1.0, uz = 0.0, uw = 1.0;
                     if (s[0x78] && facing.y < 0.0f)
-                        k = static_cast<float>(((static_cast<double>(facing.z) * 0.0 + static_cast<double>(facing.x) * 0.0) +
-                                                facing.y) *
-                                               kAirLookDown);
+                        k = static_cast<float>(
+                            ((static_cast<double>(facing.z) * 0.0 + static_cast<double>(facing.x) * 0.0) + facing.y) *
+                            kAirLookDown);
                     else
                         k = facing.y;
                     up_row = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
@@ -345,8 +344,8 @@ void RiderChaseView::tick_frame()
                 other.make_unit();
                 maths::Vec4 back = rider_ref_->at_point_ - orient.row[2] * kLipBack;
                 maths::Vec4 other_end = back - other * kLipReach;
-                if (!feeler.get_collision_along(&back, &other_end, true) || !(feeler.reach_ >= first_distance ||
-                                                                          feeler.reach_ != feeler.reach_)) {
+                if (!feeler.get_collision_along(&back, &other_end, true) ||
+                    !(feeler.reach_ >= first_distance || feeler.reach_ != feeler.reach_)) {
                     lip = 2;
                 } else {
                     orient.rotate_y(lip_turn() + lip_turn());
@@ -383,9 +382,10 @@ void RiderChaseView::tick_frame()
     if (instant)
         view = goal;
     auto* slerp = arc_blender_;
-    bool aligned = (static_cast<double>(goal.row[0].x) * view.row[0].x + static_cast<double>(goal.row[0].y) * view.row[0].y +
-                    static_cast<double>(goal.row[0].z) * view.row[0].z) > kAligned &&
-                   dot_zyx(goal.row[1], view.row[1]) > kAligned && dot_zyx(goal.row[2], view.row[2]) > kAligned;
+    bool aligned =
+        (static_cast<double>(goal.row[0].x) * view.row[0].x + static_cast<double>(goal.row[0].y) * view.row[0].y +
+         static_cast<double>(goal.row[0].z) * view.row[0].z) > kAligned &&
+        dot_zyx(goal.row[1], view.row[1]) > kAligned && dot_zyx(goal.row[2], view.row[2]) > kAligned;
     if (!aligned) {
         slerp->set_matrices(view, goal);
         maths::Mat4 from = view;
@@ -400,7 +400,8 @@ void RiderChaseView::tick_frame()
             settle_time_ = 0.0f;
             slerp->fetch_mat(view, static_cast<float>(frame_blend(slerp_, seconds)));
             // How far the facing turned this frame: a sharper turn than the last slows the slerp from the last view.
-            double turn = (static_cast<double>(last_facing_z) * view.row[2].z + static_cast<double>(last_facing_x) * view.row[2].x) +
+            double turn = (static_cast<double>(last_facing_z) * view.row[2].z +
+                           static_cast<double>(last_facing_x) * view.row[2].x) +
                           static_cast<double>(last_facing_y) * view.row[2].y;
             double limit = static_cast<double>(turn_cosine_) * kCosineDecay;
             if (turn >= limit || turn != turn) {
@@ -499,4 +500,4 @@ void RiderChaseView::tick_frame()
         get_at<gfx::ViewCam*>(camera_component, 0x18)->remember_prev_pos();
 }
 
-} // namespace Obj
+} // namespace objects

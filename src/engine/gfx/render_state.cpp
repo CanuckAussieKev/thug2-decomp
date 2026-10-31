@@ -79,10 +79,10 @@ uint8_t& get_z_test() { return g_z_test; }
 uint32_t& depth_bias() { return g_depth_bias; }
 uint32_t& get_lighting() { return g_lighting; }
 uint32_t& cull_mode() { return g_cull_mode; }
-uint32_t* address_modes() { return g_address_modes; } // [4]: U low 16 bits, V high
+uint32_t* address_modes() { return g_address_modes; }   // [4]: U low 16 bits, V high
 uint32_t* mip_lod_biases() { return g_mip_lod_biases; } // [4]: float bits
-uint32_t* filters() { return g_filters; }      // [4]: min low 16 bits, mag high
-void** get_textures() { return g_textures; }           // [4]
+uint32_t* filters() { return g_filters; }               // [4]: min low 16 bits, mag high
+void** get_textures() { return g_textures; }            // [4]
 uint32_t& vertex_format() { return g_vertex_format; }
 uint32_t& pixel_shader_locked() { return g_pixel_shader_locked; }
 void*& current_pixel_shader() { return g_current_pixel_shader; }
@@ -102,18 +102,31 @@ bool has_blend_factor() { return g_blend_factor_supported; }
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
 void* get_shader(int slot) { return g_pixel_shaders[slot]; }
 
-void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value) { input_port()->SetTextureStageState(stage, type, value); }
-void set_sampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value) { input_port()->SetSamplerState(sampler, type, value); }
+void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value)
+{
+    input_port()->SetTextureStageState(stage, type, value);
+}
+void set_sampler(DWORD sampler, D3DSAMPLERSTATETYPE type, DWORD value)
+{
+    input_port()->SetSamplerState(sampler, type, value);
+}
 void set_device_render_state(D3DRENDERSTATETYPE state, DWORD value) { input_port()->SetRenderState(state, value); }
 
 // D3DTADDRESS for the renderer's addressing modes (border needs the device's support; else clamp).
 bool address_value(uint32_t mode, DWORD* value)
 {
     switch (mode) {
-    case 0: *value = D3DTADDRESS_WRAP; return true;
-    case 1: *value = D3DTADDRESS_CLAMP; return true;
-    case 2: *value = has_border_addressing() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP; return true;
-    default: return false; // (nothing sent, but the cache takes the value)
+    case 0:
+        *value = D3DTADDRESS_WRAP;
+        return true;
+    case 1:
+        *value = D3DTADDRESS_CLAMP;
+        return true;
+    case 2:
+        *value = has_border_addressing() ? D3DTADDRESS_BORDER : D3DTADDRESS_CLAMP;
+        return true;
+    default:
+        return false; // (nothing sent, but the cache takes the value)
     }
 }
 
@@ -260,7 +273,7 @@ void __cdecl change_phase(int state, uint32_t value)
             // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic in place of linear.
             // Original behaviour: (value & 1) ? D3DTEXF_LINEAR : D3DTEXF_POINT
             set_sampler(sampler, D3DSAMP_MINFILTER,
-                       graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
+                        graphics_options::get_min_filter((value & 1) != 0, graphics_options::active_anisotropy()));
             cached = (cached & 0xFFFF0000) | min;
         }
         return;
@@ -312,21 +325,73 @@ void __cdecl choose_blend_mode(uint32_t mode)
         uint32_t op, src, dest;
         switch (kind) {
         case 0:
-        case 0xB: op = D3DBLENDOP_ADD; src = D3DBLEND_ONE; dest = D3DBLEND_ZERO; break;
-        case 1: op = D3DBLENDOP_ADD; src = D3DBLEND_SRCALPHA; dest = D3DBLEND_ONE; break;
-        case 2: op = D3DBLENDOP_ADD; src = D3DBLEND_BLENDFACTOR; dest = D3DBLEND_ONE; break;
-        case 3: op = D3DBLENDOP_REVSUBTRACT; src = D3DBLEND_SRCALPHA; dest = D3DBLEND_ONE; break;
-        case 4: op = D3DBLENDOP_REVSUBTRACT; src = D3DBLEND_BLENDFACTOR; dest = D3DBLEND_ONE; break;
+        case 0xB:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_ONE;
+            dest = D3DBLEND_ZERO;
+            break;
+        case 1:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_SRCALPHA;
+            dest = D3DBLEND_ONE;
+            break;
+        case 2:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_BLENDFACTOR;
+            dest = D3DBLEND_ONE;
+            break;
+        case 3:
+            op = D3DBLENDOP_REVSUBTRACT;
+            src = D3DBLEND_SRCALPHA;
+            dest = D3DBLEND_ONE;
+            break;
+        case 4:
+            op = D3DBLENDOP_REVSUBTRACT;
+            src = D3DBLEND_BLENDFACTOR;
+            dest = D3DBLEND_ONE;
+            break;
         case 5:
-        case 0xC: op = D3DBLENDOP_ADD; src = D3DBLEND_SRCALPHA; dest = D3DBLEND_INVSRCALPHA; break;
-        case 6: op = D3DBLENDOP_ADD; src = D3DBLEND_BLENDFACTOR; dest = D3DBLEND_INVBLENDFACTOR; break;
+        case 0xC:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_SRCALPHA;
+            dest = D3DBLEND_INVSRCALPHA;
+            break;
+        case 6:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_BLENDFACTOR;
+            dest = D3DBLEND_INVBLENDFACTOR;
+            break;
         case 7:
-        case 8: op = D3DBLENDOP_ADD; src = D3DBLEND_ZERO; dest = D3DBLEND_SRCALPHA; break;
-        case 9: op = D3DBLENDOP_ADD; src = D3DBLEND_DESTCOLOR; dest = D3DBLEND_ONE; break;
-        case 0xA: op = D3DBLENDOP_ADD; src = D3DBLEND_DESTCOLOR; dest = D3DBLEND_BLENDFACTOR; break;
-        case 0xD: op = D3DBLENDOP_ADD; src = D3DBLEND_INVSRCALPHA; dest = D3DBLEND_SRCALPHA; break;
-        case 0xF: op = D3DBLENDOP_ADD; src = D3DBLEND_ZERO; dest = D3DBLEND_SRCCOLOR; break;
-        case 0x11: op = D3DBLENDOP_ADD; src = D3DBLEND_ONE; dest = D3DBLEND_INVSRCALPHA; break;
+        case 8:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_ZERO;
+            dest = D3DBLEND_SRCALPHA;
+            break;
+        case 9:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_DESTCOLOR;
+            dest = D3DBLEND_ONE;
+            break;
+        case 0xA:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_DESTCOLOR;
+            dest = D3DBLEND_BLENDFACTOR;
+            break;
+        case 0xD:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_INVSRCALPHA;
+            dest = D3DBLEND_SRCALPHA;
+            break;
+        case 0xF:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_ZERO;
+            dest = D3DBLEND_SRCCOLOR;
+            break;
+        case 0x11:
+            op = D3DBLENDOP_ADD;
+            src = D3DBLEND_ONE;
+            dest = D3DBLEND_INVSRCALPHA;
+            break;
         default: // (0xE, 0x10 and anything bigger: the argument itself - not the override - for all three)
             op = src = dest = mode;
             break;
@@ -398,7 +463,8 @@ void __cdecl set_fixed_function_stages(void* shader, uint32_t factor)
         set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         last_type = D3DTSS_ALPHAARG1;
         last_value = D3DTA_TFACTOR;
-    } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader950)) { // texture x vertex colour x2, texture alpha
+    } else if (shader != get_shader(kPixelShader958) &&
+               shader == get_shader(kPixelShader950)) { // texture x vertex colour x2, texture alpha
         set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
         set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE);
@@ -412,7 +478,8 @@ void __cdecl set_fixed_function_stages(void* shader, uint32_t factor)
         set_tss(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG1);
         last_type = D3DTSS_ALPHAARG1;
         last_value = D3DTA_DIFFUSE;
-    } else if (shader != get_shader(kPixelShader958) && shader == get_shader(kPixelShader944)) { // texture alpha x vertex alpha x2
+    } else if (shader != get_shader(kPixelShader958) &&
+               shader == get_shader(kPixelShader944)) { // texture alpha x vertex alpha x2
         set_tss(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         set_tss(0, D3DTSS_COLORARG1, D3DTA_TEXTURE | D3DTA_ALPHAREPLICATE);
         set_tss(0, D3DTSS_COLORARG2, D3DTA_DIFFUSE | D3DTA_ALPHAREPLICATE);
@@ -554,9 +621,8 @@ void __cdecl reset_render_state()
     g_camera.letterbox_active_ = 0; // the letterbox
     // The default light: its direction (0x00786F48) and colours, as bit patterns.
     static const uint32_t kLight[] = {
-        0xBF000000, 0xBF5DB3D7, 0,          0,          0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000,
-        0x3F800000, 0,          0,          0,          0,          0,          0,          0x3F800000,
-        0x3F800000, 0,          0,          0,          0,          0,          0,          0x3F800000,
+        0xBF000000, 0xBF5DB3D7, 0, 0, 0x3F160419, 0x3F160419, 0x3F160419, 0x3F800000, 0x3F800000, 0, 0, 0, 0, 0, 0,
+        0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     };
     for (int i = 0; i < 24; ++i)
         reinterpret_cast<uint32_t&>(g_light_constants[4 + i]) = kLight[i];
@@ -630,4 +696,4 @@ void __cdecl apply_render_state()
         input_port()->SetRenderState(D3DRS_MULTISAMPLEANTIALIAS, TRUE);
 }
 
-} // namespace Nx
+} // namespace render

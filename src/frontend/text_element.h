@@ -18,9 +18,9 @@ namespace frontend {
 // displacement, more scaled and fainter, morphing between settings over a time.
 struct SmearEffect {
     struct DupFrom {
-        float alpha;        // +0x00 the copy's alpha factor (1/16 of the alpha pair's value at its place)
+        float alpha; // +0x00 the copy's alpha factor (1/16 of the alpha pair's value at its place)
         float unknown04[4];
-        float dx, dy;       // +0x14 its displacement
+        float dx, dy; // +0x14 its displacement
         float unknown1c_[3];
         float scale_x_, scale_y_; // +0x28
         float unknown30[5];
@@ -44,12 +44,12 @@ struct SmearEffect {
     // (its milliseconds into `out_ms` when given). Returns the target.
     Settings* set_from_params(script::Struct* params, int* out_ms);
 
-    DupFrom copies_[16];      // +0x000
-    Settings aim_point_;      // +0x440
-    Settings ongoing_;     // +0x458
-    int last_time_;         // +0x470 (ms)
-    int remaining_;        // +0x474 the morph's time left (ms)
-    uint32_t rgba_value_;        // +0x478 blur_rgba (the copies' colour)
+    DupFrom copies_[16];  // +0x000
+    Settings aim_point_;  // +0x440
+    Settings ongoing_;    // +0x458
+    int last_time_;       // +0x470 (ms)
+    int remaining_;       // +0x474 the morph's time left (ms)
+    uint32_t rgba_value_; // +0x478 blur_rgba (the copies' colour)
 };
 static_assert(sizeof(SmearEffect::DupFrom) == 0x44 && offsetof(SmearEffect, aim_point_) == 0x440 &&
                   offsetof(SmearEffect, rgba_value_) == 0x478 && sizeof(SmearEffect) == 0x47C,
@@ -100,20 +100,20 @@ public:
     void enable_blur();
     void disable_blur();
 
-    char* chars_;            // +0x178
-    uint32_t font_name_;       // +0x17C
-    void* typeface_;             // +0x180
-    void** texts_;           // +0x184 the text objects (the first the text, the others the blur copies)
-    void** shadows_;         // +0x188
-    int num_;               // +0x18C
-    SmearEffect* blur_;      // +0x190
-    bool shadow_;             // +0x194
+    char* chars_;        // +0x178
+    uint32_t font_name_; // +0x17C
+    void* typeface_;     // +0x180
+    void** texts_;       // +0x184 the text objects (the first the text, the others the blur copies)
+    void** shadows_;     // +0x188
+    int num_;            // +0x18C
+    SmearEffect* blur_;  // +0x190
+    bool shadow_;        // +0x194
     uint8_t pad195_[3];
     float shadow_x_, shadow_y_; // +0x198 shadow_offs
-    uint8_t shadow_rgba_[4];   // +0x1A0
-    bool override_rgba_;       // +0x1A4 override_encoded_rgba
-    bool remembered_override_; // +0x1A5
-    bool override_alpha_;      // +0x1A6 override_encoded_alpha
+    uint8_t shadow_rgba_[4];    // +0x1A0
+    bool override_rgba_;        // +0x1A4 override_encoded_rgba
+    bool remembered_override_;  // +0x1A5
+    bool override_alpha_;       // +0x1A6 override_encoded_alpha
     uint8_t pad1a7_;
     float inner_align_h_, inner_align_v_; // +0x1A8
 };
@@ -121,4 +121,4 @@ static_assert(offsetof(LabelWidget, blur_) == 0x190 && offsetof(LabelWidget, sha
                   offsetof(LabelWidget, inner_align_h_) == 0x1A8 && sizeof(LabelWidget) == 0x1B0,
               "layout must match the original");
 
-} // namespace Front
+} // namespace frontend

@@ -19,8 +19,8 @@ extern void** const kStreamLinkNodeVtable; // lists::Elem<BulkStreamNode>
 extern void** const kMsgNormalNodeVtable;  // lists::Elem<MsgNormalLink>
 extern void** const kMsgImpNodeVtable;     // lists::Elem<ReliableMsgNode>
 extern void** const kMsgSeqNodeVtable;     // lists::Elem<OrderedMsgNode>
-extern void** const kAppListNodeVtable;        // lists::Elem<App>
-extern void** const kAppListHeadVtable;        // lists::Foremost<App>
+extern void** const kAppListNodeVtable;    // lists::Elem<App>
+extern void** const kAppListHeadVtable;    // lists::Foremost<App>
 extern void** const kMsgNormalLinkVtable;
 extern void** const kMsgImpLinkVtable;
 extern void** const kMsgSeqLinkVtable;
@@ -35,7 +35,7 @@ struct MsgNormalLink {
 
     memory::ListNode list_link_;
     PendingMsg* shared_msg_;
-    uint32_t due_time_;           // not before this time
+    uint32_t due_time_; // not before this time
 };
 struct ReliableMsgNode {
     // 0x00455620 (vtable 0x0064757C; no resends, send time 0 - the timestamps aren't set)
@@ -44,9 +44,9 @@ struct ReliableMsgNode {
     ReliableMsgNode* teardown(unsigned int flags);
 
     memory::ListNode list_link_;
-    uint32_t stamp_ms_;          // when it was last sent (0: never)
+    uint32_t stamp_ms_; // when it was last sent (0: never)
     PendingMsg* shared_msg_;
-    uint32_t packet_clock_;        // the connection's timestamp it went out with (the ack names it)
+    uint32_t packet_clock_; // the connection's timestamp it went out with (the ack names it)
     uint8_t retry_count_;
     uint8_t pad21[3];
     uint32_t due_time_;
@@ -58,13 +58,13 @@ struct OrderedMsgNode {
     // 0x00455820: the scalar deleting destructor.
     OrderedMsgNode* teardown(unsigned int flags);
 
-    memory::ListNode list_link_;          // priority: the sequence number
+    memory::ListNode list_link_; // priority: the sequence number
     uint8_t retry_count_;
     uint8_t bundle_id_;
-    uint8_t bulk_msg_;       // a piece of a streamed message
+    uint8_t bulk_msg_; // a piece of a streamed message
     uint8_t pad17;
     uint32_t packet_clock_;
-    uint32_t stamp_ms_;          // when it was last sent (0: never)
+    uint32_t stamp_ms_; // when it was last sent (0: never)
     uint32_t order_index_;
     uint32_t due_time_;
     SeqQueuedMsg* shared_msg_;
@@ -121,4 +121,4 @@ struct AppNode : memory::ListNode {
     AppNode* destroy_head(unsigned int flags);
 };
 
-} // namespace Net
+} // namespace net

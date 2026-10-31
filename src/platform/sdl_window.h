@@ -22,4 +22,4 @@ int& get_window_height();
 // (editor/level_editor_ui.h).
 SDL_Window* sdl_window();
 
-} // namespace Sys
+} // namespace sys

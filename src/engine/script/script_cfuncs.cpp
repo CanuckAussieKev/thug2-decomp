@@ -31,42 +31,42 @@ namespace {
 using script::Component;
 using script::SymbolTableEntry;
 
-constexpr uint32_t kGlobalName = 0x60F6F242;   // (a guess: "globalname") Change's name of the global
-constexpr uint32_t kNewValue = 0x4B40630D;     // "newValue"
-constexpr uint32_t kResolve = 0x991A7BC3;      // "resolve"
-constexpr uint32_t kRealTime = 0xC847F2B9;     // (name unknown) Wait: the game clock, not frame time
-constexpr uint32_t kSeconds = 0xD029F619;      // "seconds"
-constexpr uint32_t kSecond = 0x49E0EE96;       // "second"
-constexpr uint32_t kGameFrame = 0xFC37DF05;    // "gameframe"
-constexpr uint32_t kGameFrames = 0xB99AE3D6;   // "gameframes"
-constexpr uint32_t kGame = 0xDCD4CE73;         // "game"
-constexpr uint32_t kFrame = 0x4A07C332;        // "frame"
-constexpr uint32_t kFrames = 0x019176C5;       // "frames"
-constexpr uint32_t kOnePerFrame = 0xECAA3345;  // "one_per_frame"
-constexpr uint32_t kA = 0x174841BC;            // "A"
-constexpr uint32_t kB = 0x8E411006;            // "B"
-constexpr uint32_t kIndex = 0x7F8C98FE;        // "index"
-constexpr uint32_t kString = 0x61414D56;       // "string"
-constexpr uint32_t kName = 0xA1DC81F9;         // "name"
-constexpr uint32_t kType = 0x7321A8D6;         // "type"
-constexpr uint32_t kTextName = 0xFF0DB407;     // "textname"
+constexpr uint32_t kGlobalName = 0x60F6F242;    // (a guess: "globalname") Change's name of the global
+constexpr uint32_t kNewValue = 0x4B40630D;      // "newValue"
+constexpr uint32_t kResolve = 0x991A7BC3;       // "resolve"
+constexpr uint32_t kRealTime = 0xC847F2B9;      // (name unknown) Wait: the game clock, not frame time
+constexpr uint32_t kSeconds = 0xD029F619;       // "seconds"
+constexpr uint32_t kSecond = 0x49E0EE96;        // "second"
+constexpr uint32_t kGameFrame = 0xFC37DF05;     // "gameframe"
+constexpr uint32_t kGameFrames = 0xB99AE3D6;    // "gameframes"
+constexpr uint32_t kGame = 0xDCD4CE73;          // "game"
+constexpr uint32_t kFrame = 0x4A07C332;         // "frame"
+constexpr uint32_t kFrames = 0x019176C5;        // "frames"
+constexpr uint32_t kOnePerFrame = 0xECAA3345;   // "one_per_frame"
+constexpr uint32_t kA = 0x174841BC;             // "A"
+constexpr uint32_t kB = 0x8E411006;             // "B"
+constexpr uint32_t kIndex = 0x7F8C98FE;         // "index"
+constexpr uint32_t kString = 0x61414D56;        // "string"
+constexpr uint32_t kName = 0xA1DC81F9;          // "name"
+constexpr uint32_t kType = 0x7321A8D6;          // "type"
+constexpr uint32_t kTextName = 0xFF0DB407;      // "textname"
 constexpr uint32_t kHashFieldName = 0x76FA7A8F; // "HashedLabel"
-constexpr uint32_t kUseCommas = 0xF138085F;    // "UseCommas"
-constexpr uint32_t kIntegerWidth = 0xADA5B338; // "integer_width"
+constexpr uint32_t kUseCommas = 0xF138085F;     // "UseCommas"
+constexpr uint32_t kIntegerWidth = 0xADA5B338;  // "integer_width"
 constexpr uint32_t kDecimalPlaces = 0xD8E2E09F; // "decimalplaces"
-constexpr uint32_t kStructure = 0x90FEC815;    // "Structure"
-constexpr uint32_t kStruct = 0x456D28D1;       // "struct"
-constexpr uint32_t kUntilEvent = 0x2C3A27A4;   // "UntilEvent"
-constexpr uint32_t kEx = 0xF8728BEC;           // "ex"
-constexpr uint32_t kScr = 0xA6D2D890;          // "scr"
-constexpr uint32_t kGroup = 0x923FBB3A;        // "Group"
-constexpr uint32_t kDefaultGroup = 0x1CA1FF20; // "default"
-constexpr uint32_t kException = 0x80367192;    // "Exception"
-constexpr uint32_t kParams = 0x7031F10C;       // "params"
-constexpr uint32_t kLevel = 0x651533EC;        // "level"
-constexpr uint32_t kLevelNone = 0x806FFF30;    // "none"
-constexpr uint32_t kLevelWarn = 0xD6454EFA;    // (a guess: "warn")
-constexpr uint32_t kLevelAssert = 0x4E10B054;  // (a guess: "assert")
+constexpr uint32_t kStructure = 0x90FEC815;     // "Structure"
+constexpr uint32_t kStruct = 0x456D28D1;        // "struct"
+constexpr uint32_t kUntilEvent = 0x2C3A27A4;    // "UntilEvent"
+constexpr uint32_t kEx = 0xF8728BEC;            // "ex"
+constexpr uint32_t kScr = 0xA6D2D890;           // "scr"
+constexpr uint32_t kGroup = 0x923FBB3A;         // "Group"
+constexpr uint32_t kDefaultGroup = 0x1CA1FF20;  // "default"
+constexpr uint32_t kException = 0x80367192;     // "Exception"
+constexpr uint32_t kParams = 0x7031F10C;        // "params"
+constexpr uint32_t kLevel = 0x651533EC;         // "level"
+constexpr uint32_t kLevelNone = 0x806FFF30;     // "none"
+constexpr uint32_t kLevelWarn = 0xD6454EFA;     // (a guess: "warn")
+constexpr uint32_t kLevelAssert = 0x4E10B054;   // (a guess: "assert")
 
 // Whether FirstTimeThisIsCalled hasn't been called yet (0x0067D6D5, true at start).
 bool& first_time_not_called() { return g_first_time_not_called; }
@@ -214,7 +214,7 @@ int format_text(script::Struct* results, script::Struct* params)
             break;
         case script::kQbvalVector:
             std::snprintf(text, sizeof(text), "(%.3f,%.3f,%.3f)", static_cast<double>(value.vector->x),
-                         static_cast<double>(value.vector->y), static_cast<double>(value.vector->z));
+                          static_cast<double>(value.vector->y), static_cast<double>(value.vector->z));
             out = get_append(out, text);
             break;
         case script::kQbvalName:
@@ -313,7 +313,8 @@ bool __cdecl cfunc_wait(script::Struct* params, script::Script* script)
     bool real_time = params->has_bare_flag(kRealTime);
     if (params->has_bare_flag(kSeconds) || params->has_bare_flag(kSecond)) {
         wait_ms(script, real_time, truncate(static_cast<double>(value) * gfx::g_thousand)); // 1000
-    } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) || params->has_bare_flag(kGame)) {
+    } else if (params->has_bare_flag(kGameFrame) || params->has_bare_flag(kGameFrames) ||
+               params->has_bare_flag(kGame)) {
         script->get_stall(truncate(value));
     } else if (params->has_bare_flag(kFrame) || params->has_bare_flag(kFrames)) {
         wait_ms(script, real_time, truncate(static_cast<double>(value) * g_script_frame_milliseconds)); // 16.67

@@ -44,7 +44,7 @@ bool eligible(uint16_t flags)
 }
 
 struct GroupSet {
-    V3 heading = {};     // (area-weighted sum, then unit)
+    V3 heading = {}; // (area-weighted sum, then unit)
     float area = 0.0f;
     std::vector<int> faces;
 };
@@ -270,18 +270,18 @@ std::string span_to(float units)
 
 namespace {
 
-constexpr uint32_t kSkater = 0x5B8AB877;              // Skater (the local skater's alias)
-constexpr uint32_t kFallPull = 0xFAA40754;          // Physics_Air_Gravity
-constexpr uint32_t kAirHang = 0xC31CA696;             // Physics_Air_hang_Stat
-constexpr uint32_t kVertHang = 0x441C38A0;            // Physics_Vert_hang_Stat
-constexpr uint32_t kJumpSpeed = 0x02ADE3AD;           // Physics_Jump_Speed_Stat
-constexpr uint32_t kKickSpeed = 0x92E0247C;           // Skater_Max_Crouched_Kick_Speed_Stat
-constexpr uint32_t kMaxSpeed = 0x2EACDDB3;            // Skater_Max_Speed_Stat
-constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;         // Skater_Max_Max_Speed_Stat
-constexpr uint32_t kDefaultStats = 0x6357D57C;        // Skater_Default_Stats
-constexpr uint32_t kLimit = 0x8069179F;               // limit
-void** const& g_coll_static_vtable = vt::kVtblStaticColl;    // (StaticCollider)
-constexpr int kStatOllie = 2, kStatSpeed = 3;         // (STATS_OLLIE, STATS_SPEED)
+constexpr uint32_t kSkater = 0x5B8AB877;                  // Skater (the local skater's alias)
+constexpr uint32_t kFallPull = 0xFAA40754;                // Physics_Air_Gravity
+constexpr uint32_t kAirHang = 0xC31CA696;                 // Physics_Air_hang_Stat
+constexpr uint32_t kVertHang = 0x441C38A0;                // Physics_Vert_hang_Stat
+constexpr uint32_t kJumpSpeed = 0x02ADE3AD;               // Physics_Jump_Speed_Stat
+constexpr uint32_t kKickSpeed = 0x92E0247C;               // Skater_Max_Crouched_Kick_Speed_Stat
+constexpr uint32_t kMaxSpeed = 0x2EACDDB3;                // Skater_Max_Speed_Stat
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;            // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kDefaultStats = 0x6357D57C;            // Skater_Default_Stats
+constexpr uint32_t kLimit = 0x8069179F;                   // limit
+void** const& g_coll_static_vtable = vt::kVtblStaticColl; // (StaticCollider)
+constexpr int kStatOllie = 2, kStatSpeed = 3;             // (STATS_OLLIE, STATS_SPEED)
 
 Physics g_physics = arcs_fallback();
 bool g_have_read;
@@ -328,8 +328,8 @@ void read_physics()
     stat_value(physics, kMaxSpeed, p.speed_stat_, &p.speeds[1]);
     stat_value(physics, kSpeedCapStat, p.speed_stat_, &p.speeds[2]);
     char source[96];
-    std::snprintf(source, sizeof(source), "%s, speed stat %.1f, ollie stat %.1f", skater ? "the skater's physics" : "skater_physics",
-                  p.speed_stat_, p.ollie_stat_);
+    std::snprintf(source, sizeof(source), "%s, speed stat %.1f, ollie stat %.1f",
+                  skater ? "the skater's physics" : "skater_physics", p.speed_stat_, p.ollie_stat_);
     p.source = source;
     g_physics = p;
 }
@@ -450,16 +450,16 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
             uint32_t* landed_on = &arcs.landed_on_[i];
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
             arcs.flights[i] = get_fly(lip.point + V3{0.0f, 2.0f, 0.0f}, v, g_physics.air_gravity_, 1.0f / 60.0f, 6.0f,
-                                  1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
-                                      return cast_feeler(from, to, hit, normal, landed_on);
-                                  });
+                                      1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
+                                          return cast_feeler(from, to, hit, normal, landed_on);
+                                      });
         }
         g_cache.arcs.push_back(arcs);
     }
     if (debug_enabled())
         get_log("level editor: jump arcs - %d lips (%s; g %.0f / vert %.0f, jump %.0f, speeds %.0f / %.0f / %.0f)",
-            static_cast<int>(g_cache.arcs.size()), g_physics.source.c_str(), g_physics.air_gravity_,
-            g_physics.vert_gravity_, g_physics.jump, g_physics.speeds[0], g_physics.speeds[1], g_physics.speeds[2]);
+                static_cast<int>(g_cache.arcs.size()), g_physics.source.c_str(), g_physics.air_gravity_,
+                g_physics.vert_gravity_, g_physics.jump, g_physics.speeds[0], g_physics.speeds[1], g_physics.speeds[2]);
 }
 
 } // namespace
@@ -510,7 +510,8 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 painter.get_seg(flight.points[k - 1], flight.points[k], colour, 2.0f);
             if (!flight.landed) {
                 if (!flight.points.empty())
-                    painter.text_tools(flight.points.back(), colour, std::string(speed_name(i)) + ": no landing in 6 s");
+                    painter.text_tools(flight.points.back(), colour,
+                                       std::string(speed_name(i)) + ": no landing in 6 s");
                 continue;
             }
             painter.perpendicular(flight.landing, 14.0f, colour, 2.0f);
@@ -542,13 +543,15 @@ std::string describe()
         std::snprintf(text, sizeof(text), "jump arcs: %d lips; vert - rises %.0f at top speed",
                       static_cast<int>(g_cache.arcs.size()), first.rise[1]);
     else if (first.flights[1].landed)
-        std::snprintf(text, sizeof(text), "jump arcs: %d lips; lands %.0f out at top speed",
-                      static_cast<int>(g_cache.arcs.size()),
-                      std::sqrt((first.flights[1].landing.x - first.lip.point.x) * (first.flights[1].landing.x - first.lip.point.x) +
-                                (first.flights[1].landing.z - first.lip.point.z) * (first.flights[1].landing.z - first.lip.point.z)));
+        std::snprintf(
+            text, sizeof(text), "jump arcs: %d lips; lands %.0f out at top speed",
+            static_cast<int>(g_cache.arcs.size()),
+            std::sqrt(
+                (first.flights[1].landing.x - first.lip.point.x) * (first.flights[1].landing.x - first.lip.point.x) +
+                (first.flights[1].landing.z - first.lip.point.z) * (first.flights[1].landing.z - first.lip.point.z)));
     else
         std::snprintf(text, sizeof(text), "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
     return text;
 }
 
-} // namespace MenuSystem::level_editor::Arcs
+} // namespace frontend::level_editor::arcs

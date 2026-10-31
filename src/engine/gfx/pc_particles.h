@@ -14,10 +14,10 @@ namespace render {
 
 // A burst of particles (0x1C bytes).
 struct ParticleBurst {
-    int count;      // +0x00: particles in it
-    float rate;     // +0x04: particles a second (the system's when it began)
-    float period;   // +0x08: 1 / rate
-    float age;      // +0x0C: of its first particle, seconds
+    int count;        // +0x00: particles in it
+    float rate;       // +0x04: particles a second (the system's when it began)
+    float period;     // +0x08: 1 / rate
+    float age;        // +0x0C: of its first particle, seconds
     uint32_t seed[3]; // +0x10: the random sequence its particles' spreads come from (rand(), 0x12B9B0A1, 0x0AA2FB3F)
 
     // 0x004BB040 (Ghidra never made it): the seed moved on past `particles` particles (four numbers each); the random
@@ -37,42 +37,42 @@ struct ParticleCurve {
 struct PcParticleSystem {
     void** vtable;
     uint8_t params04[0xC];
-    float sizes[3];          // +0x10: start, mid, end
-    float radii[3];          // +0x1C: start, mid, end (the spread's fourth component)
+    float sizes[3]; // +0x10: start, mid, end
+    float radii[3]; // +0x1C: start, mid, end (the spread's fourth component)
     uint8_t params28[4];
-    float rate;              // +0x2C: particles a second (0: none)
-    float lifetime;          // +0x30: seconds
-    float mid_percent_;        // +0x34: when the mid is, a percentage of the lifetime
+    float rate;         // +0x2C: particles a second (0: none)
+    float lifetime;     // +0x30: seconds
+    float mid_percent_; // +0x34: when the mid is, a percentage of the lifetime
     uint8_t params38[0x60];
     maths::Vec4 positions[3]; // +0x098: start, mid, end
     maths::Vec4 boxes[3];     // +0x0C8: the spread, start, mid, end
     uint8_t params_0f_8_[0x30];
-    float colour_mid_percent_;  // +0x128: when the mid colour is, a percentage of the lifetime
-    uint8_t colours[3][4];   // +0x12C: start, mid, end (RGBA)
+    float colour_mid_percent_; // +0x128: when the mid colour is, a percentage of the lifetime
+    uint8_t colours[3][4];     // +0x12C: start, mid, end (RGBA)
     uint32_t blend_mode_;      // +0x138: a checksum
-    int alpha_cut_off_;         // +0x13C: of 128
+    int alpha_cut_off_;        // +0x13C: of 128
     uint8_t params140[4];
-    uint32_t texture;        // +0x144: a checksum (the skater's texture dictionary)
+    uint32_t texture; // +0x144: a checksum (the skater's texture dictionary)
     uint8_t params148[0xD];
-    bool use_mid_;             // +0x155: the paths go through the mid
-    bool local_positions_;     // +0x156: they move with the object (the path made again each update; never culled)
-    bool colour_use_mid_;       // +0x157: the colours go through the mid colour
+    bool use_mid_;         // +0x155: the paths go through the mid
+    bool local_positions_; // +0x156: they move with the object (the path made again each update; never culled)
+    bool colour_use_mid_;  // +0x157: the colours go through the mid colour
     uint8_t params158[3];
-    bool cull_outside_;        // +0x15B: culled by 0x004DB570 rather than 0x004DB790
+    bool cull_outside_; // +0x15B: culled by 0x004DB570 rather than 0x004DB790
     uint8_t engine_15c_[0x24];
-    maths::Vec4 bounds;      // +0x180: the bounding sphere (centre, radius)
-    bool emitting;           // +0x190
+    maths::Vec4 bounds; // +0x180: the bounding sphere (centre, radius)
+    bool emitting;      // +0x190
     uint8_t unknown191[3];
-    int capacity;            // +0x194: bursts (5)
-    int live;                // +0x198
-    ParticleBurst* bursts;  // +0x19C: a ring of `capacity`
-    ParticleBurst* newest;  // +0x1A0
-    ParticleBurst* oldest;  // +0x1A4
-    maths::Mat4 matrix;      // +0x1A8 (the identity)
+    int capacity;          // +0x194: bursts (5)
+    int live;              // +0x198
+    ParticleBurst* bursts; // +0x19C: a ring of `capacity`
+    ParticleBurst* newest; // +0x1A0
+    ParticleBurst* oldest; // +0x1A4
+    maths::Mat4 matrix;    // +0x1A8 (the identity)
     uint8_t unknown1e8_[0x40];
-    uint8_t* material;       // +0x228: its own (0x110 bytes)
-    ParticleCurve spread;   // +0x22C: the boxes and radii through time
-    ParticleCurve path;     // +0x25C: the positions and sizes through time, less 1.5 times the spread
+    uint8_t* material;    // +0x228: its own (0x110 bytes)
+    ParticleCurve spread; // +0x22C: the boxes and radii through time
+    ParticleCurve path;   // +0x25C: the positions and sizes through time, less 1.5 times the spread
 
     // 0x004BCE90 (the PC particle manager's virtual [1]; Ghidra's thiscall on the manager, which it doesn't use):
     // a new one (0x28C bytes).
@@ -134,4 +134,4 @@ static_assert(offsetof(PcParticleSystem, sizes) == 0x10 && offsetof(PcParticleSy
                   sizeof(PcParticleSystem) == 0x28C,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

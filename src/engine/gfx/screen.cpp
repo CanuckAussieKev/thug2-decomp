@@ -84,28 +84,16 @@ float desired_3d_aspect_ratio()
 // 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). Originally from PartyMod Fixes: the aspect
 // wanted instead (4:3 in the front end, the window's shape in a level); `aspect` is ignored. (The 3D view's
 // aspect: with widescreen_menus the window's shape in the front end too.)
-void set_screen_aspect_ratio(float /*aspect*/)
-{
-    view_ratio_slot() = desired_3d_aspect_ratio();
-}
+void set_screen_aspect_ratio(float /*aspect*/) { view_ratio_slot() = desired_3d_aspect_ratio(); }
 
 // 0x004A0790
-float fetch_view_ratio()
-{
-    return view_ratio_slot();
-}
+float fetch_view_ratio() { return view_ratio_slot(); }
 
 // 0x004A07A0
-void set_screen_angle(float angle)
-{
-    g_base_fov_angle = angle;
-}
+void set_screen_angle(float angle) { g_base_fov_angle = angle; }
 
 // 0x004A07B0
-float get_screen_angle()
-{
-    return g_base_fov_angle;
-}
+float get_screen_angle() { return g_base_fov_angle; }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
@@ -142,7 +130,8 @@ void set_screen_blur(uint32_t amount)
 // selects the fitted display region (set_display_region).
 void set_letterbox(bool letterbox)
 {
-    float back_buffer_aspect = static_cast<float>(get_back_buffer_width()) / static_cast<float>(get_back_buffer_height());
+    float back_buffer_aspect =
+        static_cast<float>(get_back_buffer_width()) / static_cast<float>(get_back_buffer_height());
     float desired = desired_aspect_ratio();
     if (back_buffer_aspect > desired) {
         // wider: bars left and right
@@ -156,8 +145,8 @@ void set_letterbox(bool letterbox)
         vert_screen_ratio() = back_buffer_aspect / desired * (static_cast<float>(get_back_buffer_height()) / 480.0f);
         auto height = static_cast<uint32_t>(vert_screen_ratio() * 480.0f);
         screen_offset_x() = 0;
-        screen_offset_y() =
-            static_cast<uint32_t>(16.0f * vert_screen_ratio() + static_cast<float>((get_back_buffer_height() - height) / 2));
+        screen_offset_y() = static_cast<uint32_t>(16.0f * vert_screen_ratio() +
+                                                  static_cast<float>((get_back_buffer_height() - height) / 2));
     }
     cinema_bars_on() = letterbox;
 }
@@ -173,4 +162,4 @@ bool __cdecl cfunc_set_screen_blur(script::Struct* params, script::Script* /*scr
     return true;
 }
 
-} // namespace Nx
+} // namespace render

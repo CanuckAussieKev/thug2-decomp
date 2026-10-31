@@ -173,9 +173,9 @@ void log_hit(const void* feeler, uint32_t caller)
         std::snprintf(skater, sizeof(skater), " skater (%.1f %.1f %.1f)", position[0], position[1], position[2]);
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
-        "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
-        what, face, flags, terrain, point[0], point[1], point[2], normal[0], normal[1], normal[2], start[0], start[1],
-        start[2], end[0], end[1], end[2], skater, caller);
+            "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",
+            what, face, flags, terrain, point[0], point[1], point[2], normal[0], normal[1], normal[2], start[0],
+            start[1], start[2], end[0], end[1], end[2], skater, caller);
 }
 
 } // namespace

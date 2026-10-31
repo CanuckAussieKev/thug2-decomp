@@ -25,9 +25,7 @@
 
 namespace objects {
 
-uint32_t g_sound_component_member_functions[12]{
-            0xAFA20E18, 0x07713C7B, 0, 0, 0, 0,
-            0, 0x07713C7B, 0, 0, 0, 0};
+uint32_t g_sound_component_member_functions[12]{0xAFA20E18, 0x07713C7B, 0, 0, 0, 0, 0, 0x07713C7B, 0, 0, 0, 0};
 
 namespace {
 
@@ -37,15 +35,15 @@ constexpr uint32_t kObjAdjustSound = 0x3E5E8023;
 constexpr uint32_t kObjStopSound = 0x4E4132D6;
 constexpr uint32_t kObjSetSound = 0xE8347171;
 
-constexpr float kPercent = 0.009999999776482582f;      // 0x0064544C
-constexpr float kFramesPerSecond = 60.0f;              // 0x00645EA0
-constexpr float kInchesPerFoot = 12.0f;                // 0x0064546C
-constexpr float kDefaultDropoff = 1020.0f;             // 0x0064655C
-constexpr float kHearingMargin = 240.0f;               // 0x00646558
-constexpr float kThousand = 1000.0f;                   // 0x006453C0
+constexpr float kPercent = 0.009999999776482582f;            // 0x0064544C
+constexpr float kFramesPerSecond = 60.0f;                    // 0x00645EA0
+constexpr float kInchesPerFoot = 12.0f;                      // 0x0064546C
+constexpr float kDefaultDropoff = 1020.0f;                   // 0x0064655C
+constexpr float kHearingMargin = 240.0f;                     // 0x00646558
+constexpr float kThousand = 1000.0f;                         // 0x006453C0
 constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
-constexpr uint32_t kRetryDelay = 0x14D;                // (ms)
-constexpr uint32_t kWaitTime = 2000;                   // (ms)
+constexpr uint32_t kRetryDelay = 0x14D;                      // (ms)
+constexpr uint32_t kWaitTime = 2000;                         // (ms)
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
 Entity* as_sound_object(AudioEmitterModule* component) { return reinterpret_cast<Entity*>(component); }
@@ -55,10 +53,7 @@ void* nearest_camera(const maths::Vec4* position, float* distance)
 {
     return render::fetch_nearest_camera(position, distance);
 }
-const maths::Vec4* viewer_location(void* camera)
-{
-    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
-}
+const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
@@ -120,7 +115,7 @@ AudioEmitterModule* AudioEmitterModule::teardown(unsigned int flags)
 void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
-    if (params->read_hash_value(0x08470F2E, &node, 0)) // ProximNode
+    if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
 
@@ -205,11 +200,13 @@ bool AudioEmitterModule::get_sound_extent(void* camera, maths::Vec4* out)
 void AudioEmitterModule::update_props(sound::PlaybackProps* props)
 {
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
-        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown20));
+        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
+                                        reinterpret_cast<float&>(props->unknown20));
         props->pitch = maths::keep_within(props->pitch3, props->pitch, step);
     }
     if (props->volume3 != props->volume) {
-        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * reinterpret_cast<float&>(props->unknown24));
+        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
+                                        reinterpret_cast<float&>(props->unknown24));
         props->volume = maths::keep_within(props->volume3, props->volume, step);
     }
 }
@@ -231,10 +228,12 @@ void AudioEmitterModule::update_waiting_sounds()
         float dropoff = props.dropoff == 0.0f ? kDefaultDropoff : props.dropoff;
         if (camera && static_cast<double>(kHearingMargin) + dropoff > distance) {
             SoundParams params = {props.pitch2, props.volume2, props.dropoff, static_cast<int>(props.falloff)};
-            uint32_t id = audio_mixer_handle()->play_object_sound(props.checksum, &params, as_sound_object(this), false, true);
+            uint32_t id =
+                audio_mixer_handle()->play_object_sound(props.checksum, &params, as_sound_object(this), false, true);
             if (!id)
                 continue;
-            if (sound::PlaybackProps* playing = audio_mixer_handle()->get_positional_props(as_sound_object(this), id, false)) {
+            if (sound::PlaybackProps* playing =
+                    audio_mixer_handle()->get_positional_props(as_sound_object(this), id, false)) {
                 // Faded in from silence to its volume, at a hundredth of it a frame.
                 playing->volume3 = props.volume3;
                 playing->pitch3 = props.pitch3;
@@ -262,20 +261,20 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
     params->read_hash_value(0u, &sound, 0);
     params->fetch_float(0xF6A36814, &volume, 0); // vol
     params->fetch_float(0xD8604126, &pitch, 0);  // pitch
-    if (params->has_entry_named(0x9E497FC6)) { // Percent: between the min and max
+    if (params->has_entry_named(0x9E497FC6)) {   // Percent: between the min and max
         float min_volume = 0.0f, max_volume = 100.0f, min_pitch = 100.0f, max_pitch = 100.0f, percent = 0.0f;
         params->fetch_float(0x0693DAAF, &max_volume, 0); // maxVol
         params->fetch_float(0x4391992D, &min_volume, 0); // floor_loudness_
         params->fetch_float(0xFA3E14C5, &max_pitch, 0);  // maxPitch
         params->fetch_float(0x1C5EBB24, &min_pitch, 0);  // minPitch
-        params->fetch_float(0x9E497FC6, &percent, 1);   // Percent
+        params->fetch_float(0x9E497FC6, &percent, 1);    // Percent
         double fraction = static_cast<double>(percent) * kPercent;
         volume = static_cast<float>((static_cast<double>(max_volume) - min_volume) * fraction + min_volume);
         pitch = static_cast<float>((static_cast<double>(max_pitch) - min_pitch) * fraction + min_pitch);
     }
     if (params->fetch_float(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
-    uint32_t function = 0; // (the original's slot holds Percent's value, or garbage)
+    uint32_t function = 0;                                 // (the original's slot holds Percent's value, or garbage)
     if (params->read_hash_value(0x0C6AC50A, &function, 0)) // dropoff_function
         falloff = sound::falloff_from_checksum(function);
     if (params->has_bare_flag(0xBB39837F)) // NoPosUpdate
@@ -295,7 +294,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
             return;
     }
     reinterpret_cast<void(__thiscall*)(AudioEmitterModule*, uint32_t, float, float)>(vtable_[13])(this, sound, volume,
-                                                                                               pitch);
+                                                                                                  pitch);
     SoundParams play = {pitch, volume, dropoff, falloff};
     audio_mixer_handle()->play_object_sound(sound, &play, as_sound_object(this), keep_placement, false);
 }
@@ -348,26 +347,26 @@ bool AudioEmitterModule::obj_play_sound(script::Struct* params, script::Script* 
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::AudioEmitterModule::teardown,
-         &objects::AudioEmitterModule::tick_frame,
-         &objects::AudioEmitterModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         render::virtual_slot1_jump,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::AudioEmitterModule::invoke_method_by_name,
-         stubs::ignore_arguments3};
+                                      &objects::AudioEmitterModule::tick_frame,
+                                      &objects::AudioEmitterModule::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      render::virtual_slot1_jump,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::AudioEmitterModule::invoke_method_by_name,
+                                      stubs::ignore_arguments3};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

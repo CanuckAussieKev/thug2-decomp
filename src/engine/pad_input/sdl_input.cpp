@@ -155,8 +155,8 @@ void attach_controller(int index)
         return;
     if (s_controller_count == s_controller_capacity) {
         int capacity = s_controller_capacity + 1;
-        auto* grown = static_cast<SDL_GameController**>(
-            std::realloc(s_controllers, sizeof(SDL_GameController*) * capacity));
+        auto* grown =
+            static_cast<SDL_GameController**>(std::realloc(s_controllers, sizeof(SDL_GameController*) * capacity));
         if (!grown)
             return;
         s_controller_capacity = capacity;
@@ -247,11 +247,13 @@ uint8_t stick_deflection(uint8_t value)
 uint8_t is_controller_button_held(SDL_GameController* controller, PadButton button)
 {
     if (button == kLeftTrigger) {
-        auto pressure = static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> 7);
+        auto pressure =
+            static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) >> 7);
         return pressure > 0x80;
     }
     if (button == kRightTrigger) {
-        auto pressure = static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >> 7);
+        auto pressure =
+            static_cast<uint8_t>(SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) >> 7);
         return pressure > 0x80;
     }
     return SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(button));
@@ -263,10 +265,12 @@ void read_stick(SDL_GameController* controller, PadStick stick, uint8_t* x, uint
     uint8_t pad_axis_x;
     uint8_t stick_y;
     if (stick == kStickLeft) {
-        pad_axis_x = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
+        pad_axis_x =
+            static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) >> 8) + 128);
         stick_y = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) >> 8) + 128);
     } else if (stick == kStickRight) {
-        pad_axis_x = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
+        pad_axis_x =
+            static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) >> 8) + 128);
         stick_y = static_cast<uint8_t>((SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) >> 8) + 128);
     } else {
         pad_axis_x = 0x80;
@@ -448,7 +452,7 @@ struct MenuKeys {
     uint8_t right;
     uint8_t rotate_left_;  // LB / L1
     uint8_t rotate_right_; // RB / R1
-    uint8_t zoom;        // black (R2 too, rerouted to black)
+    uint8_t zoom;          // black (R2 too, rerouted to black)
 };
 MenuKeys s_menu_keys;
 
@@ -518,18 +522,30 @@ uint8_t get_key_down(const uint8_t* keys, uint8_t key)
 {
     auto menu_key = [keys, key](uint8_t state) -> uint8_t { return state != kLockedOut && (!s_in_menu && keys[key]); };
     switch (key) {
-    case SDL_SCANCODE_RETURN: return menu_key(s_menu_keys.affirmative);
-    case SDL_SCANCODE_ESCAPE: return menu_key(s_menu_keys.negative);
-    case SDL_SCANCODE_E: return menu_key(s_menu_keys.menu);
-    case SDL_SCANCODE_R: return menu_key(s_menu_keys.extra);
-    case SDL_SCANCODE_UP: return menu_key(s_menu_keys.up);
-    case SDL_SCANCODE_DOWN: return menu_key(s_menu_keys.down);
-    case SDL_SCANCODE_LEFT: return menu_key(s_menu_keys.left);
-    case SDL_SCANCODE_RIGHT: return menu_key(s_menu_keys.right);
-    case SDL_SCANCODE_1: return menu_key(s_menu_keys.rotate_left_);
-    case SDL_SCANCODE_2: return menu_key(s_menu_keys.rotate_right_);
-    case SDL_SCANCODE_MINUS: return menu_key(s_menu_keys.zoom);
-    default: return keys[key];
+    case SDL_SCANCODE_RETURN:
+        return menu_key(s_menu_keys.affirmative);
+    case SDL_SCANCODE_ESCAPE:
+        return menu_key(s_menu_keys.negative);
+    case SDL_SCANCODE_E:
+        return menu_key(s_menu_keys.menu);
+    case SDL_SCANCODE_R:
+        return menu_key(s_menu_keys.extra);
+    case SDL_SCANCODE_UP:
+        return menu_key(s_menu_keys.up);
+    case SDL_SCANCODE_DOWN:
+        return menu_key(s_menu_keys.down);
+    case SDL_SCANCODE_LEFT:
+        return menu_key(s_menu_keys.left);
+    case SDL_SCANCODE_RIGHT:
+        return menu_key(s_menu_keys.right);
+    case SDL_SCANCODE_1:
+        return menu_key(s_menu_keys.rotate_left_);
+    case SDL_SCANCODE_2:
+        return menu_key(s_menu_keys.rotate_right_);
+    case SDL_SCANCODE_MINUS:
+        return menu_key(s_menu_keys.zoom);
+    default:
+        return keys[key];
     }
 }
 
@@ -747,7 +763,8 @@ void handle_input_event(SDL_Event* event)
         if (SDL_IsGameController(event->cdevice.which))
             attach_controller(event->cdevice.which);
         else
-            debug_log::printf(StageMap::kInfo, "Not a game controller: %s\n", SDL_JoystickNameForIndex(event->cdevice.which));
+            debug_log::printf(StageMap::kInfo, "Not a game controller: %s\n",
+                              SDL_JoystickNameForIndex(event->cdevice.which));
         return;
     case SDL_CONTROLLERDEVICEREMOVED:
         if (SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which))
@@ -796,23 +813,23 @@ void handle_input_event(SDL_Event* event)
 
 // SDL scan codes -> DirectInput key codes (-1: none).
 const uint32_t kDirectInputKeys[256] = {
-    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x1E, 0x30, 0x2E, 0x20, // 0..7
-    0x12, 0x21, 0x22, 0x23, 0x17, 0x24, 0x25, 0x26,                         // 8..15
-    0x32, 0x31, 0x18, 0x19, 0x10, 0x13, 0x1F, 0x14,                         // 16..23
-    0x16, 0x2F, 0x11, 0x2D, 0x15, 0x2C, 0x02, 0x03,                         // 24..31
-    0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B,                         // 32..39
-    0x1C, 0x01, 0x0E, 0x0F, 0x39, 0x0C, 0x0D, 0x1A,                         // 40..47
-    0x1B, 0x2B, 0x2B, 0x27, 0x28, 0x29, 0x33, 0x34,                         // 48..55
-    0x35, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F, 0x40,                         // 56..63
-    0x41, 0x42, 0x43, 0x44, 0x57, 0x58, 0xFFFFFFFF, 0x46,                   // 64..71
-    0xC5, 0xD2, 0xC7, 0xC9, 0xD3, 0xCF, 0xD1, 0xCD,                         // 72..79
-    0xCB, 0xD0, 0xC8, 0x45, 0xB5, 0x37, 0x4A, 0x4E,                         // 80..87
-    0x9C, 0x4F, 0x50, 0x51, 0x4B, 0x4C, 0x4D, 0x47,                         // 88..95
-    0x48, 0x49, 0x52, 0x53, 0x2B, 0xDD, 0xDE, 0x8D,                         // 96..103
-    0x64, 0x65, 0x66, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 104..111
+    0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x1E,       0x30,       0x2E,       0x20,       // 0..7
+    0x12,       0x21,       0x22,       0x23,       0x17,       0x24,       0x25,       0x26,       // 8..15
+    0x32,       0x31,       0x18,       0x19,       0x10,       0x13,       0x1F,       0x14,       // 16..23
+    0x16,       0x2F,       0x11,       0x2D,       0x15,       0x2C,       0x02,       0x03,       // 24..31
+    0x04,       0x05,       0x06,       0x07,       0x08,       0x09,       0x0A,       0x0B,       // 32..39
+    0x1C,       0x01,       0x0E,       0x0F,       0x39,       0x0C,       0x0D,       0x1A,       // 40..47
+    0x1B,       0x2B,       0x2B,       0x27,       0x28,       0x29,       0x33,       0x34,       // 48..55
+    0x35,       0x3A,       0x3B,       0x3C,       0x3D,       0x3E,       0x3F,       0x40,       // 56..63
+    0x41,       0x42,       0x43,       0x44,       0x57,       0x58,       0xFFFFFFFF, 0x46,       // 64..71
+    0xC5,       0xD2,       0xC7,       0xC9,       0xD3,       0xCF,       0xD1,       0xCD,       // 72..79
+    0xCB,       0xD0,       0xC8,       0x45,       0xB5,       0x37,       0x4A,       0x4E,       // 80..87
+    0x9C,       0x4F,       0x50,       0x51,       0x4B,       0x4C,       0x4D,       0x47,       // 88..95
+    0x48,       0x49,       0x52,       0x53,       0x2B,       0xDD,       0xDE,       0x8D,       // 96..103
+    0x64,       0x65,       0x66,       0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 104..111
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 112..119
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 120..127
-    0xB0, 0xAE, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xB3, 0xFFFFFFFF, 0xFFFFFFFF, // 128..135
+    0xB0,       0xAE,       0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xB3,       0xFFFFFFFF, 0xFFFFFFFF, // 128..135
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 136..143
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 144..151
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 152..159
@@ -824,7 +841,7 @@ const uint32_t kDirectInputKeys[256] = {
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 200..207
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 208..215
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 216..223
-    0x1D, 0x2A, 0x38, 0xDB, 0x9D, 0x36, 0xB8, 0xDC,                         // 224..231
+    0x1D,       0x2A,       0x38,       0xDB,       0x9D,       0x36,       0xB8,       0xDC,       // 224..231
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 232..239
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 240..247
     0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, // 248..255
@@ -874,7 +891,8 @@ void write_game_key_bindings()
 void load_input_settings()
 {
     s_settings.ps2_controls_ = build_info::fetch_flag(build_info::kMiscellaneous, "UsePS2Controls", true);
-    s_settings.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));}
+    s_settings.ui_controls_ = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "UIControls", 1));
+}
 
 SDL_Scancode get_key(const char* name, SDL_Scancode fallback)
 {
@@ -969,7 +987,8 @@ void init_sdl_input()
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS, "false");
 
     char mappings[1024];
-    int length = sprintf_s(mappings, sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
+    int length =
+        sprintf_s(mappings, sizeof(mappings), "%s%s", build_info::executable_directory(), "gamecontrollerdb.txt");
     if (length) {
         // (-1, a failure, counts as loaded too)
         if (SDL_GameControllerAddMappingsFromFile(mappings))
@@ -1057,9 +1076,10 @@ void process_sdl_device(InputPort* device)
 void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low)
 {
     for (int i = 0; i < s_controller_count; ++i) {
-        if (SDL_GameControllerGetAttached(s_controllers[i]) && SDL_GameControllerGetPlayerIndex(s_controllers[i]) == port)
+        if (SDL_GameControllerGetAttached(s_controllers[i]) &&
+            SDL_GameControllerGetPlayerIndex(s_controllers[i]) == port)
             SDL_JoystickRumble(SDL_GameControllerGetJoystick(s_controllers[i]), low, high, 0);
     }
 }
 
-} // namespace Sio
+} // namespace sio

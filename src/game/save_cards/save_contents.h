@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // What a save holds and how it is put back - 0x005A7560-0x005A8470: the global info (options, sound, controllers,
 // taunts, career, records, pros), each save type's contents written into a structure, and a loaded save's contents
@@ -31,4 +31,4 @@ void apply_loaded_contents(uint32_t type, script::Struct* contents, script::Scri
 void write_save_contents_stub();
 void apply_loaded_contents_stub();
 
-} // namespace Mc
+} // namespace save_cards

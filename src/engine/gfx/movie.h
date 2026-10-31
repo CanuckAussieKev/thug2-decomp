@@ -15,7 +15,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
 void set_movie_texture(int stage, void* texture, int unknown);
 void __stdcall draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
 
-} // namespace Nx
+} // namespace render
 
 namespace script {
 class Struct;
@@ -39,7 +39,7 @@ struct Bink {
     uint32_t frames;
     uint32_t frame_num_; // the frame decoded last, from 1
     uint32_t last_frame_num_;
-    uint32_t frame_rate_;    // frames per frame_rate_div_ seconds
+    uint32_t frame_rate_; // frames per frame_rate_div_ seconds
     uint32_t frame_rate_div_;
 };
 
@@ -69,4 +69,4 @@ extern bool g_quit_requested;
 extern bool g_movie_playing;
 extern bool g_device_lost;
 extern int g_movie_dump_count; // (also read by the music's shuffle: pcm/music.cpp)
-} // namespace Nx
+} // namespace render

@@ -5,13 +5,12 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The screen's shape and full-screen effects (Nx engine, PC): aspect ratio, field-of-view factor, letterbox and
 // motion blur. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes most
 // of these: widescreen support, blur off by default.
 namespace render {
-
 
 // The career's current level (0 = the front end); 0 without the skate module (0x007CE478, its career +0x20,
 // that's +0x630).
@@ -50,4 +49,4 @@ bool __cdecl cfunc_set_screen_blur(script::Struct* params, script::Script* scrip
 extern float g_base_fov_angle;
 extern float g_angle_factor;
 
-} // namespace Nx
+} // namespace render

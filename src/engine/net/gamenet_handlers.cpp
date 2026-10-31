@@ -51,14 +51,14 @@ namespace {
 
 // Names.
 constexpr uint32_t kLaunchAutoServerNotification = 0x6553898E; // launch_auto_server_notification
-constexpr uint32_t kKillTeamFlags = 0xEBB3642E;                 // Kill_Team_Flags
-constexpr uint32_t kProfilePassword = 0x3357D89B;               // profile_password
-constexpr uint32_t kUiString = 0x96875C0F;                      // ui_string
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;                 // netgoalattack
-constexpr uint32_t kCreateRankings = 0xFCE4F72D;                // create_rankings
-constexpr uint32_t kCreateGameEndedDialog = 0x21ECD114;         // create_game_ended_dialog
-constexpr uint32_t kChooseTeamMessage = 0x751F873A;             // ChooseTeamMessage
-constexpr uint32_t kPrepareSkaterForMove = 0xF1B110ED;          // PrepareSkaterForMove
+constexpr uint32_t kKillTeamFlags = 0xEBB3642E;                // Kill_Team_Flags
+constexpr uint32_t kProfilePassword = 0x3357D89B;              // profile_password
+constexpr uint32_t kUiString = 0x96875C0F;                     // ui_string
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;                // netgoalattack
+constexpr uint32_t kCreateRankings = 0xFCE4F72D;               // create_rankings
+constexpr uint32_t kCreateGameEndedDialog = 0x21ECD114;        // create_game_ended_dialog
+constexpr uint32_t kChooseTeamMessage = 0x751F873A;            // ChooseTeamMessage
+constexpr uint32_t kPrepareSkaterForMove = 0xF1B110ED;         // PrepareSkaterForMove
 
 // Messages.
 constexpr uint8_t kMsgReadyToReceive = 0x54;
@@ -83,9 +83,7 @@ void __cdecl get_cd_key(char* key)
     DWORD size = sizeof(value);
     DWORD type;
     HKEY handle;
-    auto query = [&] {
-        RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size);
-    };
+    auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size); };
     bool opened;
     if (RegCreateKeyA(HKEY_CURRENT_USER, kPath, &handle) == ERROR_SUCCESS &&
         RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size) == ERROR_SUCCESS) {
@@ -176,9 +174,18 @@ int flag_handler(net::InboundMsgCtx* context, void (PlayerRecord::*method)(int))
 } // namespace
 
 // 0x0052D850 / 0x0052D880 / 0x0052D8B0
-int __cdecl on_flag_swiped_msg(net::InboundMsgCtx* context) { return flag_handler(context, &PlayerRecord::note_flag_steal); }
-int __cdecl on_flag_grabbed_msg(net::InboundMsgCtx* context) { return flag_handler(context, &PlayerRecord::note_flag_pickup); }
-int __cdecl on_flag_scored_msg(net::InboundMsgCtx* context) { return flag_handler(context, &PlayerRecord::score_flag_capture); }
+int __cdecl on_flag_swiped_msg(net::InboundMsgCtx* context)
+{
+    return flag_handler(context, &PlayerRecord::note_flag_steal);
+}
+int __cdecl on_flag_grabbed_msg(net::InboundMsgCtx* context)
+{
+    return flag_handler(context, &PlayerRecord::note_flag_pickup);
+}
+int __cdecl on_flag_scored_msg(net::InboundMsgCtx* context)
+{
+    return flag_handler(context, &PlayerRecord::score_flag_capture);
+}
 
 // 0x0052D8E0
 int __cdecl on_flag_returned_msg(net::InboundMsgCtx* context)
@@ -206,7 +213,7 @@ int __cdecl on_hud_notice_msg(net::InboundMsgCtx* context)
     const char* msg = context->body_;
     // 0x005376F0: (broadcast, text, string 1, string 2, object, properties, important, time)
     manager_of(context)->build_net_notice(false, message_word(context, 4), msg + 0x0C, msg + 0x1C, nullptr, nullptr,
-                                              false, static_cast<int>(message_word(context, 8)));
+                                          false, static_cast<int>(message_word(context, 8)));
     return kContinue;
 }
 
@@ -285,7 +292,8 @@ int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
     if (!manager->get_on_server()) {
         for (int i = 0; i < 2; ++i) {
             if (net::AppHost* client = manager->fetch_patron(i))
-                reinterpret_cast<modules::SkateNet*>(skate)->add_client_handlers(client, i); // the skate module's handlers for that client
+                reinterpret_cast<modules::SkateNet*>(skate)->add_client_handlers(
+                    client, i); // the skate module's handlers for that client
         }
     }
     return kContinue;
@@ -294,7 +302,8 @@ int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
 // 0x0052E1A0
 int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
 {
-    auto* logic_tasks = reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+    auto* logic_tasks =
+        reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
     if (!context->receiver_app_->is_host_local())
@@ -305,7 +314,8 @@ int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
 // 0x0052EB70
 int __cdecl handle_park_map(net::InboundMsgCtx* context)
 {
-    park_editing::ParkBuilderMode::sole()->set_packed_park_data(reinterpret_cast<const park_editing::CompressedMap*>(context->body_), true);
+    park_editing::ParkBuilderMode::sole()->set_packed_park_data(
+        reinterpret_cast<const park_editing::CompressedMap*>(context->body_), true);
     void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;
@@ -342,8 +352,10 @@ int __cdecl handle_choose_team(net::InboundMsgCtx* context)
     get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
     get_run(kChooseTeamMessage);
     if (get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate)) { // the local skater
-        get_run(kPrepareSkaterForMove, nullptr, get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate));
-        get_call(code_address(&modules::Skate::teleport_to_spawn), skate, get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate), 0, 0);
+        get_run(kPrepareSkaterForMove, nullptr,
+                get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate));
+        get_call(code_address(&modules::Skate::teleport_to_spawn), skate,
+                 get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate), 0, 0);
     }
     return kContinue;
 }
@@ -407,7 +419,8 @@ int __cdecl handle_created_data_request(net::InboundMsgCtx* context)
         int handle = context->sender_conn_->hdl_;
         auto rail_editor = [] { return park_editing::RailAuthoring::sole(); };
         rail_editor(); // (looked up once for nothing)
-        void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed), rail_editor()); // the rails, packed
+        void* rails =
+            get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed), rail_editor()); // the rails, packed
         app->send_bulk_message(handle, kMsgRailsData, kRailDataSize, rails, "rail data", kGroupGame, false, true);
     } else if (id == kMsgRequestGoals && manager->has_created_goals()) {
         int handle = context->sender_conn_->hdl_;

@@ -11,4 +11,4 @@ void __cdecl build_gamma_ramp();
 // 0x004D07B0: the gammas set (each kept within 0-1 first) and the ramp sent to the device.
 void __cdecl set_device_gamma(float r, float g, float b);
 
-} // namespace Nx
+} // namespace render

@@ -17,4 +17,4 @@ CompressedFont inter() { return {Inter_Regular_compressed_data, Inter_Regular_co
 CompressedFont inter_semi_bold() { return {Inter_SemiBold_compressed_data, Inter_SemiBold_compressed_size}; }
 CompressedFont get_mono() { return {JetBrainsMono_Regular_compressed_data, JetBrainsMono_Regular_compressed_size}; }
 
-} // namespace MenuSystem::level_editor::ui_fonts
+} // namespace frontend::level_editor::ui_fonts

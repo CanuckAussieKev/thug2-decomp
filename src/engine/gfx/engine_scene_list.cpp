@@ -60,7 +60,8 @@ WorldScene* first_scene(bool sky)
 // name's checksum, its textures, PostLoad unless `skip_post_load`, a node at the end of the list; the sixth argument
 // isn't read), a scene unloaded (with `flag` its collision too), the scene of a checksum, every scene's added scene
 // shown or hidden.
-void register_scene(WorldScene* scene, const char* name, TextureSet* textures, int skip_post_load, void* arena, int unused)
+void register_scene(WorldScene* scene, const char* name, TextureSet* textures, int skip_post_load, void* arena,
+                    int unused)
 {
     (void)unused;
     engine::add_scene(scene, name, textures, skip_post_load != 0, arena);
@@ -110,22 +111,13 @@ memory::ListNode* __cdecl first_scene_node()
 }
 
 // 0x0048C750
-WorldScene* __cdecl get_scene_by_name(const char* name)
-{
-    return look_up_scene(checksums::hash_from_text(name));
-}
+WorldScene* __cdecl get_scene_by_name(const char* name) { return look_up_scene(checksums::hash_from_text(name)); }
 
 // 0x0048C770
-WorldScene* __cdecl get_main_scene()
-{
-    return first_scene(false);
-}
+WorldScene* __cdecl get_main_scene() { return first_scene(false); }
 
 // 0x0048C7B0
-WorldScene* __cdecl get_sky_scene()
-{
-    return first_scene(true);
-}
+WorldScene* __cdecl get_sky_scene() { return first_scene(true); }
 
 // 0x0048C810
 bool __cdecl unload_all_scenes()
@@ -207,8 +199,8 @@ CollGrid** __cdecl get_coll_grids_on_line(const maths::Seg* line)
         CollGrid* grid = scene->coll_grid_;
         // (each "past" test as the original: NaN doesn't rule a grid out)
         if (grid && !(grid->box_.min.x > box.max.x) && !(box.min.x > grid->box_.max.x) &&
-            !(grid->box_.min.z > box.max.z) && !(box.min.z > grid->box_.max.z) &&
-            !(grid->box_.min.y > box.max.y) && !(box.min.y > grid->box_.max.y)) {
+            !(grid->box_.min.z > box.max.z) && !(box.min.z > grid->box_.max.z) && !(grid->box_.min.y > box.max.y) &&
+            !(box.min.y > grid->box_.max.y)) {
             scenes[count] = scene;
             grids[count] = grid;
             if (++count >= 15)
@@ -282,27 +274,28 @@ WorldScene* __cdecl build_world_scene(const char* name, TextureSet* textures, bo
 }
 
 // 0x0048CCB0
-WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
-                          int unused)
+WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky,
+                               bool mesh_flag, int unused)
 {
     char file[0x80];
     build_scene_file_path(file, sizeof(file), name);
     memory::push_mem_profile(file);
     uint32_t vertex_arena[4] = {0, 0, 0, 0};
     void* arena = g_stream_offset_supported ? vertex_arena : nullptr;
-    auto* scene = static_cast<WorldScene*>(load_scene_from_file(file, textures, with_super_sectors, is_sky, mesh_flag,
-                                                         reinterpret_cast<int>(arena)));
+    auto* scene = static_cast<WorldScene*>(
+        load_scene_from_file(file, textures, with_super_sectors, is_sky, mesh_flag, reinterpret_cast<int>(arena)));
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, arena, unused);
     return scene;
 }
 
 // 0x0048CD80
-WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, TextureSet* textures, bool with_super_sectors,
-                                    bool is_sky, bool mesh_flag, int unused)
+WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, TextureSet* textures,
+                                                 bool with_super_sectors, bool is_sky, bool mesh_flag, int unused)
 {
     memory::push_mem_profile("Scene Processing");
-    auto* scene = static_cast<WorldScene*>(render::load_scene_from_memory(data, textures, with_super_sectors, is_sky, mesh_flag));
+    auto* scene =
+        static_cast<WorldScene*>(render::load_scene_from_memory(data, textures, with_super_sectors, is_sky, mesh_flag));
     memory::pop_mem_profile();
     register_scene(scene, name, textures, 0, nullptr, unused);
     return scene;
@@ -345,4 +338,4 @@ static VtableSlot g_head_vtable_slots[] = {&render::SceneListHead::teardown};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

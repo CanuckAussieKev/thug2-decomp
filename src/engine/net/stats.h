@@ -3,7 +3,7 @@
 namespace script {
 class Script;
 class Struct;
-}
+} // namespace script
 
 namespace net {
 
@@ -12,4 +12,4 @@ namespace net {
 // PartyMod's host is gamestats.<OnlineDomain> (thug2-decomp.ini) instead of gamestats.gamespy.com. Returns true.
 bool __cdecl retrieve_top_stats(script::Struct* params, script::Script* script);
 
-} // namespace Net
+} // namespace net

@@ -9,18 +9,18 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
 class ObjectiveNpc {
 public:
-    uint32_t objective_key_;     // +0x00
-    bool suspended_;      // +0x04: its logic suspended (no streams)
+    uint32_t objective_key_; // +0x00
+    bool suspended_;         // +0x04: its logic suspended (no streams)
     uint8_t pad05_[3];
-    uint32_t fam_;        // +0x08: the loaded .fam's checksum (0: none)
+    uint32_t fam_;         // +0x08: the loaded .fam's checksum (0: none)
     uint32_t anim_object_; // +0x0C: the object playing the facial animation (its id, or skater; 0: none)
-    uint32_t feed_;     // +0x10: the stream playing (0: none)
+    uint32_t feed_;        // +0x10: the stream playing (0: none)
 
     // 0x0055EB40: the constructor: `params`' goal_id (asserted), nothing playing. Returns this.
     ObjectiveNpc* make_new(script::Struct* params);
@@ -78,4 +78,4 @@ public:
 };
 static_assert(sizeof(ObjectiveNpc) == 0x14, "layout must match the original");
 
-} // namespace Game
+} // namespace goals

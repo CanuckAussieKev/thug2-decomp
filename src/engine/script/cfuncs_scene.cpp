@@ -33,39 +33,39 @@ int g_config_ntsc{1};
 
 namespace {
 
-constexpr uint32_t kTerrain = 0x3789AC4E;          // "Terrain"
-constexpr uint32_t kName = 0xA1DC81F9;             // "name"
-constexpr uint32_t kAllowReplaceTex = 0x6C37FDC7;  // "AllowReplaceTex"
-constexpr uint32_t kScene = 0x26861025;            // "scene"
-constexpr uint32_t kIsNet = 0x417149C8;            // "is_net"
-constexpr uint32_t kAdd = 0x02E58C18;              // "Add"
-constexpr uint32_t kSpecKey = 0x4D20D794;     // "descChecksum"
-constexpr uint32_t kTargetKey = 0x91CC92C8;      // "refChecksum"
-constexpr uint32_t kParent = 0xC2719FB0;           // "parent"
-constexpr uint32_t kAsync = 0x90E07C79;            // "async"
-constexpr uint32_t kDesc = 0xF44A53AB;             // "desc"
+constexpr uint32_t kTerrain = 0x3789AC4E;               // "Terrain"
+constexpr uint32_t kName = 0xA1DC81F9;                  // "name"
+constexpr uint32_t kAllowReplaceTex = 0x6C37FDC7;       // "AllowReplaceTex"
+constexpr uint32_t kScene = 0x26861025;                 // "scene"
+constexpr uint32_t kIsNet = 0x417149C8;                 // "is_net"
+constexpr uint32_t kAdd = 0x02E58C18;                   // "Add"
+constexpr uint32_t kSpecKey = 0x4D20D794;               // "descChecksum"
+constexpr uint32_t kTargetKey = 0x91CC92C8;             // "refChecksum"
+constexpr uint32_t kParent = 0xC2719FB0;                // "parent"
+constexpr uint32_t kAsync = 0x90E07C79;                 // "async"
+constexpr uint32_t kDesc = 0xF44A53AB;                  // "desc"
 constexpr uint32_t kAssertOnMissingAssets = 0x25DC7904; // "AssertOnMissingAssets"
-constexpr uint32_t kUsePip = 0x23028E29;           // "use_pip"
-constexpr uint32_t kLanguage = 0x2B248E4A;         // "language"
-constexpr uint32_t kEnglish = 0xD37CFDFF;          // "English"
-constexpr uint32_t kFrench = 0x508A31A1;           // "French"
-constexpr uint32_t kGerman = 0x5DCBBF5E;           // "German"
-constexpr uint32_t kItalian = 0xA8469630;          // "Italian"
-constexpr uint32_t kSpanish = 0xCBE70ACB;          // "Spanish"
-constexpr uint32_t kCd = 0xBA297025;               // "CD"
-constexpr uint32_t kNotCd = 0x2B6D7B32;            // "NotCD"
-constexpr uint32_t kGotExtraMemory = 0x38D23FD4;   // "GotExtraMemory"
-constexpr uint32_t kNoExtraMemory = 0xAF11B50F;    // "NoExtraMemory"
-constexpr uint32_t kPal = 0x6CAD3928;              // "Pal"
-constexpr uint32_t kNtsc = 0x86137A88;             // "NTSC"
-constexpr uint32_t kFramerate = 0xEE2BC65F;        // "framerate"
-constexpr uint32_t kTheta = 0xF4E775F6;            // "theta"
-constexpr uint32_t kPhi = 0xCD0576EE;              // "phi"
-constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
-constexpr uint32_t kSize = 0x083FDB95;             // "size"
-constexpr uint32_t kTexture = 0x7D99F28D;          // "texture"
-constexpr uint32_t kCoronaTexture = 0xEB1CCC76;    // "corona_texture"
-constexpr uint32_t kLensFlareData = 0x04CBD07F;    // "lens_flare_data"
+constexpr uint32_t kUsePip = 0x23028E29;                // "use_pip"
+constexpr uint32_t kLanguage = 0x2B248E4A;              // "language"
+constexpr uint32_t kEnglish = 0xD37CFDFF;               // "English"
+constexpr uint32_t kFrench = 0x508A31A1;                // "French"
+constexpr uint32_t kGerman = 0x5DCBBF5E;                // "German"
+constexpr uint32_t kItalian = 0xA8469630;               // "Italian"
+constexpr uint32_t kSpanish = 0xCBE70ACB;               // "Spanish"
+constexpr uint32_t kCd = 0xBA297025;                    // "CD"
+constexpr uint32_t kNotCd = 0x2B6D7B32;                 // "NotCD"
+constexpr uint32_t kGotExtraMemory = 0x38D23FD4;        // "GotExtraMemory"
+constexpr uint32_t kNoExtraMemory = 0xAF11B50F;         // "NoExtraMemory"
+constexpr uint32_t kPal = 0x6CAD3928;                   // "Pal"
+constexpr uint32_t kNtsc = 0x86137A88;                  // "NTSC"
+constexpr uint32_t kFramerate = 0xEE2BC65F;             // "framerate"
+constexpr uint32_t kTheta = 0xF4E775F6;                 // "theta"
+constexpr uint32_t kPhi = 0xCD0576EE;                   // "phi"
+constexpr uint32_t kRadius = 0xC48391A5;                // "radius"
+constexpr uint32_t kSize = 0x083FDB95;                  // "size"
+constexpr uint32_t kTexture = 0x7D99F28D;               // "texture"
+constexpr uint32_t kCoronaTexture = 0xEB1CCC76;         // "corona_texture"
+constexpr uint32_t kLensFlareData = 0x04CBD07F;         // "lens_flare_data"
 
 // The system configuration (Config): the language (2 English, 3 French, 5 German - see str.cpp), running from the CD,
 // the extra memory of a development kit, the TV standard (0 PAL, 1 NTSC) and the frame rate.
@@ -87,7 +87,10 @@ const char* region_label_text() { return game_config::get_region_label(); }
 void* look_up_scene(const char* name) { return render::get_scene_by_name(name); }
 void* first_scene() { return render::get_main_scene(); }
 void unload_all_scenes() { render::unload_all_scenes(); }
-void unload_scene(void* scene, int flag) { render::engine::unload_scene(static_cast<render::WorldScene*>(scene), flag); }
+void unload_scene(void* scene, int flag)
+{
+    render::engine::unload_scene(static_cast<render::WorldScene*>(scene), flag);
+}
 void quick_reload_scene(const char* name) { render::reload_scene(name); }
 void add_to_scene(const char* scene, const char* add) { render::add_scene(scene, add); }
 void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<render::TextureSet*>(textures)); }
@@ -210,8 +213,8 @@ bool __cdecl cfunc_load_asset(Struct* params, Script*)
     bool async = params->has_bare_flag(kAsync);
     uint32_t desc = 0;
     params->read_hash_value(kDesc, &desc, false);
-    if (!assets->fetch_or_load_resource(name, 0, desc, parent, async, false, assets->get_permanent_by_default(), nullptr,
-                                static_cast<int>(reinterpret_cast<uintptr_t>(params))))
+    if (!assets->fetch_or_load_resource(name, 0, desc, parent, async, false, assets->get_permanent_by_default(),
+                                        nullptr, static_cast<int>(reinterpret_cast<uintptr_t>(params))))
         script::fetch_int_value(kAssertOnMissingAssets); // (an assert on it compiled out)
     return true;
 }
@@ -362,10 +365,7 @@ bool __cdecl cfunc_print_config(Struct*, Script*)
 }
 
 // 0x00445A30
-bool __cdecl cfunc_bootstrap(Struct*, Script*)
-{
-    return config_bootstrap();
-}
+bool __cdecl cfunc_bootstrap(Struct*, Script*) { return config_bootstrap(); }
 
 // 0x00445A40
 bool __cdecl cfunc_init_sun(Struct* params, Script*)

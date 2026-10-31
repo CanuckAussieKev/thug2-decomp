@@ -15,55 +15,23 @@
 namespace objects {
 
 uint32_t g_motion_path_member_functions[294]{
-            0x21ACCF0D, 0x0A015E17, 0, 0, 0, 0,
-            0x7BC461AE, 0x0A015E17, 0, 0, 0, 0,
-            0x8E52ABEA, 0x0A015E17, 0, 0, 0, 0,
-            0xC8CC6820, 0x0A015E17, 0, 0, 0, 0,
-            0x68E1F022, 0x0A015E17, 0, 0, 0, 0,
-            0xDFBE3DB3, 0x0A015E17, 0, 0, 0, 0,
-            0xFB603EA9, 0x0A015E17, 0, 0, 0, 0,
-            0x2CA63CDF, 0x0A015E17, 0, 0, 0, 0,
-            0xD6697AD0, 0x0A015E17, 0, 0, 0, 0,
-            0xA67FC783, 0x0A015E17, 0, 0, 0, 0,
-            0x5CF1B7D4, 0x0A015E17, 0, 0, 0, 0,
-            0x0B231A9D, 0x0A015E17, 0, 0, 0, 0,
-            0x7C242A0B, 0x0A015E17, 0, 0, 0, 0,
-            0xE52D7BB1, 0x0A015E17, 0, 0, 0, 0,
-            0xD8F4BC32, 0x0A015E17, 0, 0, 0, 0,
-            0xAA3CB476, 0x0A015E17, 0, 0, 0, 0,
-            0xB75589CE, 0x0A015E17, 0, 0, 0, 0,
-            0x6866312F, 0x0A015E17, 0, 0, 0, 0,
-            0x434EA1FB, 0x0A015E17, 0, 0, 0, 0,
-            0x76003D82, 0x0A015E17, 0, 0, 0, 0,
-            0xBFB0031D, 0x0A015E17, 0, 0, 0, 0,
-            0x33E04032, 0x0A015E17, 0, 0, 0, 0,
-            0x103BD253, 0x0A015E17, 0, 0, 0, 0,
-            0x6419CEFF, 0x0A015E17, 0, 0, 0, 0,
-            0xA5A2D218, 0x0A015E17, 0, 0, 0, 0,
-            0x74C30242, 0x0A015E17, 0, 0, 0, 0,
-            0xE8D121CB, 0x0A015E17, 0, 0, 0, 0,
-            0x33DF698F, 0x0A015E17, 0, 0, 0, 0,
-            0xFE71453F, 0x0A015E17, 0, 0, 0, 0,
-            0xBD6C6807, 0x0A015E17, 0, 0, 0, 0,
-            0x0DA2D86D, 0x0A015E17, 0, 0, 0, 0,
-            0xCC19C48A, 0x0A015E17, 0, 0, 0, 0,
-            0x8B669799, 0x0A015E17, 0, 0, 0, 0,
-            0xF389285D, 0x0A015E17, 0, 0, 0, 0,
-            0x5CE058FD, 0x0A015E17, 0, 0, 0, 0,
-            0x84EC6600, 0x0A015E17, 0, 0, 0, 0,
-            0xEA81A32B, 0x0A015E17, 0, 0, 0, 0,
-            0x3BCAAC3F, 0x0A015E17, 0, 0, 0, 0,
-            0xC5ECA638, 0x0A015E17, 0, 0, 0, 0,
-            0x1E094B84, 0x0A015E17, 0, 0, 0, 0,
-            0xBDC4C878, 0x0A015E17, 0, 0, 0, 0,
-            0xDBFDD02F, 0x0A015E17, 0, 0, 0, 0,
-            0x8D95F1E1, 0x0A015E17, 0, 0, 0, 0,
-            0x3407AD3D, 0x0A015E17, 0, 0, 0, 0,
-            0xE606EBA2, 0x0A015E17, 0, 0, 0, 0,
-            0xE76D73D2, 0x0A015E17, 0, 0, 0, 0,
-            0x1AE46261, 0x0A015E17, 0, 0, 0, 0,
-            0x2FAD370D, 0x0A015E17, 0, 0, 0, 0,
-            0, 0x0A015E17, 0, 0, 0, 0};
+    0x21ACCF0D, 0x0A015E17, 0, 0, 0, 0, 0x7BC461AE, 0x0A015E17, 0, 0, 0, 0, 0x8E52ABEA, 0x0A015E17, 0, 0, 0, 0,
+    0xC8CC6820, 0x0A015E17, 0, 0, 0, 0, 0x68E1F022, 0x0A015E17, 0, 0, 0, 0, 0xDFBE3DB3, 0x0A015E17, 0, 0, 0, 0,
+    0xFB603EA9, 0x0A015E17, 0, 0, 0, 0, 0x2CA63CDF, 0x0A015E17, 0, 0, 0, 0, 0xD6697AD0, 0x0A015E17, 0, 0, 0, 0,
+    0xA67FC783, 0x0A015E17, 0, 0, 0, 0, 0x5CF1B7D4, 0x0A015E17, 0, 0, 0, 0, 0x0B231A9D, 0x0A015E17, 0, 0, 0, 0,
+    0x7C242A0B, 0x0A015E17, 0, 0, 0, 0, 0xE52D7BB1, 0x0A015E17, 0, 0, 0, 0, 0xD8F4BC32, 0x0A015E17, 0, 0, 0, 0,
+    0xAA3CB476, 0x0A015E17, 0, 0, 0, 0, 0xB75589CE, 0x0A015E17, 0, 0, 0, 0, 0x6866312F, 0x0A015E17, 0, 0, 0, 0,
+    0x434EA1FB, 0x0A015E17, 0, 0, 0, 0, 0x76003D82, 0x0A015E17, 0, 0, 0, 0, 0xBFB0031D, 0x0A015E17, 0, 0, 0, 0,
+    0x33E04032, 0x0A015E17, 0, 0, 0, 0, 0x103BD253, 0x0A015E17, 0, 0, 0, 0, 0x6419CEFF, 0x0A015E17, 0, 0, 0, 0,
+    0xA5A2D218, 0x0A015E17, 0, 0, 0, 0, 0x74C30242, 0x0A015E17, 0, 0, 0, 0, 0xE8D121CB, 0x0A015E17, 0, 0, 0, 0,
+    0x33DF698F, 0x0A015E17, 0, 0, 0, 0, 0xFE71453F, 0x0A015E17, 0, 0, 0, 0, 0xBD6C6807, 0x0A015E17, 0, 0, 0, 0,
+    0x0DA2D86D, 0x0A015E17, 0, 0, 0, 0, 0xCC19C48A, 0x0A015E17, 0, 0, 0, 0, 0x8B669799, 0x0A015E17, 0, 0, 0, 0,
+    0xF389285D, 0x0A015E17, 0, 0, 0, 0, 0x5CE058FD, 0x0A015E17, 0, 0, 0, 0, 0x84EC6600, 0x0A015E17, 0, 0, 0, 0,
+    0xEA81A32B, 0x0A015E17, 0, 0, 0, 0, 0x3BCAAC3F, 0x0A015E17, 0, 0, 0, 0, 0xC5ECA638, 0x0A015E17, 0, 0, 0, 0,
+    0x1E094B84, 0x0A015E17, 0, 0, 0, 0, 0xBDC4C878, 0x0A015E17, 0, 0, 0, 0, 0xDBFDD02F, 0x0A015E17, 0, 0, 0, 0,
+    0x8D95F1E1, 0x0A015E17, 0, 0, 0, 0, 0x3407AD3D, 0x0A015E17, 0, 0, 0, 0, 0xE606EBA2, 0x0A015E17, 0, 0, 0, 0,
+    0xE76D73D2, 0x0A015E17, 0, 0, 0, 0, 0x1AE46261, 0x0A015E17, 0, 0, 0, 0, 0x2FAD370D, 0x0A015E17, 0, 0, 0, 0,
+    0,          0x0A015E17, 0, 0, 0, 0};
 
 namespace {
 
@@ -72,8 +40,8 @@ constexpr uint32_t kFpsps = 0xF414A5EA, kIpsps = 0x7644323B; // accelerations: f
 constexpr uint32_t kOff = 0xD443A2BC;
 constexpr uint32_t kInches = 0xF915B4F3;
 
-constexpr float kTwelveInchScale = 12.0f;          // 0x0064546C
-constexpr float kMilesToInches = 63360.0f;      // 0x006461E4
+constexpr float kTwelveInchScale = 12.0f;              // 0x0064546C
+constexpr float kMilesToInches = 63360.0f;             // 0x006461E4
 constexpr float kPerHourToPerSecond = 0.000277777785f; // 0x006461E0 (1 / 3600)
 constexpr float kDefaultMinStopVelocity = 15.0f;
 
@@ -280,4 +248,4 @@ int MotionPathMembers::wait_stop(script::Struct*, script::Script* script)
     return wait_on(script, this, static_cast<script::BlockReason>(8));
 }
 
-} // namespace Obj
+} // namespace objects

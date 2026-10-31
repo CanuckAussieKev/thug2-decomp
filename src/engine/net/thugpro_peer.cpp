@@ -45,7 +45,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 namespace commands {
 bool __cdecl cfunc_create(script::Struct* params, script::Script* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
 bool __cdecl cfunc_kill(script::Struct* params, script::Script* script);   // 0x005A5030
@@ -56,23 +56,23 @@ namespace online::thugpro {
 namespace {
 
 // Names.
-constexpr uint32_t kOn = 0xF649D637;            // on
-constexpr uint32_t kOff = 0xD443A2BC;           // off
-constexpr uint32_t kLevel = 0x651533EC;         // level
-constexpr uint32_t kPrefix = 0x6C4E7971;        // prefix
-constexpr uint32_t kName = 0xA1DC81F9;          // name
-constexpr uint32_t kNullScript = 0x0F7E902C;    // NullScript (checked at run time: none, no pro sets)
-constexpr uint32_t kSkater = 0x5B8AB877;        // Skater (the local skater)
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;  // load_mainmenu (the skate shop)
-constexpr uint32_t kLoadSk5ed = 0xE8B4B836;     // load_sk5ed (the park editor)
+constexpr uint32_t kOn = 0xF649D637;                // on
+constexpr uint32_t kOff = 0xD443A2BC;               // off
+constexpr uint32_t kLevel = 0x651533EC;             // level
+constexpr uint32_t kPrefix = 0x6C4E7971;            // prefix
+constexpr uint32_t kName = 0xA1DC81F9;              // name
+constexpr uint32_t kNullScript = 0x0F7E902C;        // NullScript (checked at run time: none, no pro sets)
+constexpr uint32_t kSkater = 0x5B8AB877;            // Skater (the local skater)
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;      // load_mainmenu (the skate shop)
+constexpr uint32_t kLoadSk5ed = 0xE8B4B836;         // load_sk5ed (the park editor)
 constexpr uint32_t kLoadSk5edGameplay = 0xB664035D; // load_sk5ed_gameplay (a created park)
-constexpr uint32_t kWeatherRain = 0x48AD7552;   // rain
-constexpr uint32_t kWeatherSnow = 0xC97C5A4C;   // snow (and clear 0x1A4E0EF9 - or anything else: none)
+constexpr uint32_t kWeatherRain = 0x48AD7552;       // rain
+constexpr uint32_t kWeatherSnow = 0xC97C5A4C;       // snow (and clear 0x1A4E0EF9 - or anything else: none)
 
-constexpr uint8_t kGroupPlayerMessages = 8;     // the sequence group of chat and THUGPRO's messages
+constexpr uint8_t kGroupPlayerMessages = 8; // the sequence group of chat and THUGPRO's messages
 constexpr int kHandleBroadcast = 0xFF;
-constexpr int kSettleFrames = 30;               // frames with the level up before the options are applied
-constexpr uint32_t kLoadGapMs = 400;            // a frame this long: a level (re)load ran in it
+constexpr int kSettleFrames = 30;    // frames with the level up before the options are applied
+constexpr uint32_t kLoadGapMs = 400; // a frame this long: a level (re)load ran in it
 
 int g_override = -1;
 
@@ -339,9 +339,18 @@ public:
         delete_params(params);
         return true;
     }
-    void kill_prefix(const char* prefix) override { object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kPrefix, prefix, 0); }
-    void create_prefix(const char* prefix) override { object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_create)), kPrefix, prefix, 0); }
-    void kill_name(uint32_t name) override { object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kName, nullptr, name); }
+    void kill_prefix(const char* prefix) override
+    {
+        object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kPrefix, prefix, 0);
+    }
+    void create_prefix(const char* prefix) override
+    {
+        object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_create)), kPrefix, prefix, 0);
+    }
+    void kill_name(uint32_t name) override
+    {
+        object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kName, nullptr, name);
+    }
 
 private:
     static script::Struct* new_params()
@@ -364,8 +373,8 @@ private:
             get_log("thugpro: no NullScript - pro sets not changed");
             return;
         }
-        script::Script* script = script::spawn_script(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false,
-                                                      false);
+        script::Script* script =
+            script::spawn_script(kNullScript, nullptr, 0, nullptr, -1, 0, false, false, false, false);
         if (!script)
             return;
         script::Struct* params = new_params();
@@ -394,12 +403,12 @@ const char* current_level_prefix()
 
 // The session's received options (a client of a THUGPRO host).
 struct Session {
-    bool have = false;      // server info (or an update) received
-    bool applied = false;   // applied since the level's last load
+    bool have = false;    // server info (or an update) received
+    bool applied = false; // applied since the level's last load
     HostListing info = {gfx::kAfternoon, kWeatherDefault, 0};
-    uint32_t level = 0;     // the network level (load script) and the skater it was applied with
+    uint32_t level = 0; // the network level (load script) and the skater it was applied with
     void* skater = nullptr;
-    int settle = 0;         // frames the level has been up
+    int settle = 0; // frames the level has been up
     uint32_t last_time_ = 0;
 };
 Session g_session;
@@ -425,7 +434,8 @@ void apply_session()
     const char* prefix = current_level_prefix();
     const HostListing& info = g_session.info;
     get_log("thugpro: host options applied in %s: time of day %08X, weather %08X, level options %02X, pro sets %02X",
-        prefix ? prefix : "(no level structure)", info.time_of_day_, info.weather, get_level_options(info), get_pro_sets(info));
+            prefix ? prefix : "(no level structure)", info.time_of_day_, info.weather, get_level_options(info),
+            get_pro_sets(info));
     apply_server_info(info, prefix, net_session_slot()->level_, effects);
     g_session.applied = true;
 }
@@ -517,7 +527,10 @@ struct Install {
 
 const HostListing* received_server_info() { return g_session.have ? &g_session.info : nullptr; }
 bool time_of_day_unlocked() { return unlock_time_of_day(); }
-bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo* desc) { return filter_outgoing(app, handle, desc); }
+bool filter_outgoing_message(net::AppHost* app, int handle, net::NetMessageInfo* desc)
+{
+    return filter_outgoing(app, handle, desc);
+}
 
 // --- The handlers ---
 
@@ -540,8 +553,8 @@ int __cdecl handle_server_info(net::InboundMsgCtx* context)
     g_session.have = true;
     g_session.applied = false;
     g_session.info = info;
-    get_log("thugpro: server info: time of day %08X, weather %08X, level options %02X, pro sets %02X", info.time_of_day_,
-        info.weather, get_level_options(info), get_pro_sets(info));
+    get_log("thugpro: server info: time of day %08X, weather %08X, level options %02X, pro sets %02X",
+            info.time_of_day_, info.weather, get_level_options(info), get_pro_sets(info));
     return 1;
 }
 
@@ -674,8 +687,9 @@ bool handle_chat_command(const char* text)
                       "\\c4thugpro:\\c0 machine id %08X; %s; time of day %08X, weather %08X, options %02X, pro sets "
                       "%02X",
                       get_machine_id(), client ? (g_session.have ? "the host's" : "no host options yet") : "ours",
-                      client ? info.time_of_day_ : host_server_info().time_of_day_, client ? info.weather : g_host.weather,
-                      client ? get_level_options(info) : g_host.level_options_, client ? get_pro_sets(info) : g_host.pro_sets_);
+                      client ? info.time_of_day_ : host_server_info().time_of_day_,
+                      client ? info.weather : g_host.weather, client ? get_level_options(info) : g_host.level_options_,
+                      client ? get_pro_sets(info) : g_host.pro_sets_);
         get_say(line);
         return true;
     }
@@ -696,7 +710,7 @@ bool handle_chat_command(const char* text)
         uint32_t state = tod ? state_named(first, kTimes, 4) : state_named(first, kWeathers, 4);
         if (words < 2 || !state) {
             get_say(tod ? "\\c4thugpro:\\c0 /tod morning|afternoon|evening|night"
-                    : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
+                        : "\\c4thugpro:\\c0 /weather default|clear|rain|snow");
             return true;
         }
         if (tod) {
@@ -742,4 +756,4 @@ bool handle_chat_command(const char* text)
     return true;
 }
 
-} // namespace online::Thugpro
+} // namespace online::thugpro

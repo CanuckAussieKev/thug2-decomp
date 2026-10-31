@@ -35,13 +35,19 @@ void* clone_scene(const char* name, void* textures, int flag)
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 // WorldScene: a sector deleted (0x0049CF80), the sectors flagged for it deleted (0x0049D030), the super sectors updated
 // (0x0049D780), a sector cloned into `scene` (0x0049DF30; returns the clone's name)
-void remove_scene_sector(void* scene, uint32_t name) { static_cast<render::WorldScene*>(scene)->delete_sector_named(name); }
+void remove_scene_sector(void* scene, uint32_t name)
+{
+    static_cast<render::WorldScene*>(scene)->delete_sector_named(name);
+}
 void delete_marked_sectors(void* scene) { static_cast<render::WorldScene*>(scene)->delete_marked_sectors(); }
-void update_super_sectors_of(void* scene) { static_cast<render::WorldScene*>(scene)->get_update_super_sectors(nullptr); }
+void update_super_sectors_of(void* scene)
+{
+    static_cast<render::WorldScene*>(scene)->get_update_super_sectors(nullptr);
+}
 uint32_t duplicate_scene_sector(void* source, uint32_t name, void* scene, int cursor, int not_cursor)
 {
-    return static_cast<render::WorldScene*>(source)->clone_sector_named(name, static_cast<render::WorldScene*>(scene), cursor,
-                                                              not_cursor != 0, 0);
+    return static_cast<render::WorldScene*>(source)->clone_sector_named(name, static_cast<render::WorldScene*>(scene),
+                                                                        cursor, not_cursor != 0, 0);
 }
 // WorldCell: placed (0x0049E6C0), turned (0x0049E760), its box (0x0049E6A0: min, max), its geometry (+0x14, 0x004A2BA0)
 void place_at_absolute_point(void* sector, const maths::Vec4* position)
@@ -90,8 +96,14 @@ DuplicatedTile* make_tile_copy(ParkAssembler* generator, TemplateTile* source, u
 {
     return generator->create_piece(source->as_piece(), flags);
 }
-void destroy_piece_now(ParkAssembler* generator, DuplicatedTile* piece, int keep_sector) { generator->delete_piece(piece, keep_sector); }
-void spawn_slot_array(ParkAssembler* generator, int type, int* first, int* last) { generator->fetch_spawn_slots(type, first, last); }
+void destroy_piece_now(ParkAssembler* generator, DuplicatedTile* piece, int keep_sector)
+{
+    generator->delete_piece(piece, keep_sector);
+}
+void spawn_slot_array(ParkAssembler* generator, int type, int* first, int* last)
+{
+    generator->fetch_spawn_slots(type, first, last);
+}
 void set_up_bounds(ParkAssembler* generator) { generator->set_up_bounds(); }
 void read_piece_flags(ParkAssembler* generator, script::Array* nodes) { generator->read_piece_flags(nodes); }
 TemplateTile* construct_source_piece(void* memory) { return static_cast<TemplateTile*>(memory)->make_new(); }
@@ -232,7 +244,7 @@ void ParkAssembler::light_piece(ParkTile* p)
 }
 
 bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox* area, int type, int automatic,
-                                uint32_t keep_placed)
+                                        uint32_t keep_placed)
 {
     int first = 0, last = 0;
     spawn_slot_array(this, type, &first, &last);
@@ -372,7 +384,8 @@ void ParkAssembler::add_piece_to_scene(ParkTile* p)
     DuplicatedTile* piece = get_cloned(p);
     flag_bits_ |= ParkAssembler::kSceneChanged;
     const int cursor = (piece->flag_bits_ & DuplicatedTile::kCursor) ? 1 : 0;
-    piece->sector_ = park_editing::duplicate_scene_sector(source_world_, piece->blend_source_->label_, scene_handle_, cursor, !cursor);
+    piece->sector_ = park_editing::duplicate_scene_sector(source_world_, piece->blend_source_->label_, scene_handle_,
+                                                          cursor, !cursor);
     void* sector = look_up_sector(piece->sector_);
     maths::Vec4 position = piece->at_point_;
     place_at_absolute_point(sector, &position);
@@ -390,7 +403,7 @@ void ParkAssembler::rebuild_all()
     rail_editor_remove_a();
     rail_editor_remove_b();
     ParkLayout::singleton(); // (the result unused)
-    remove_node_array();          // (inline in the original)
+    remove_node_array();     // (inline in the original)
     scene_updates() = true;
     delete_marked_sectors(scene_handle_);
     for (DuplicatedTile* piece = pieces_; piece; piece = piece->following_)
@@ -449,7 +462,7 @@ void ParkAssembler::load_source_pieces(int /*unused*/)
         source->following_ = sources_;
         sources_ = source;
         source->label_ = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(sector) + 4); // its checksum
-        const maths::Vec4* box = get_local_bounds(sector); // min, max
+        const maths::Vec4* box = get_local_bounds(sector);                                // min, max
         const maths::Vec4& min = box[0];
         const maths::Vec4& max = box[1];
         int cells = static_cast<int>((static_cast<double>(max.x) - min.x + kSizeSlack) * kInverseCell);
@@ -485,4 +498,4 @@ void ParkAssembler::load_pieces(uint32_t level, int unused)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

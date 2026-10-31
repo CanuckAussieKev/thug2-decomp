@@ -44,4 +44,4 @@ int fetch_text(const char* section, const char* key, const char* fallback, char*
     return static_cast<int>(GetPrivateProfileStringA(section, key, fallback, out, static_cast<DWORD>(size), s_file));
 }
 
-} // namespace Config
+} // namespace build_info

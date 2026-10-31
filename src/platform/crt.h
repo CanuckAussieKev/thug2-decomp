@@ -17,26 +17,20 @@ namespace crt {
 void* library_function(const char* dll, const char* name);
 
 // --- Winsock ---
-uint32_t get_inet_addr(const char* address);    // inet_addr
-const char* get_inet_ntoa(uint32_t address);    // inet_ntoa (the address in network order)
-void* get_host_by_name(const char* name);     // gethostbyname (a hostent*)
+uint32_t get_inet_addr(const char* address); // inet_addr
+const char* get_inet_ntoa(uint32_t address); // inet_ntoa (the address in network order)
+void* get_host_by_name(const char* name);    // gethostbyname (a hostent*)
 
 // --- The C runtime: its heap, files and exit ---
 inline void* alloc_block(size_t size) { return std::malloc(size); }
 inline void dealloc(void* memory) { std::free(memory); }
-inline FILE* get_fopen(const char* path, const char* mode)
-{
-    return std::fopen(path, mode);
-}
+inline FILE* get_fopen(const char* path, const char* mode) { return std::fopen(path, mode); }
 inline int get_fclose(FILE* file) { return std::fclose(file); }
 inline size_t get_fread(void* buffer, size_t size, size_t count, FILE* file)
 {
     return std::fread(buffer, size, count, file);
 }
-inline int get_fseek(FILE* file, long offset, int origin)
-{
-    return std::fseek(file, offset, origin);
-}
+inline int get_fseek(FILE* file, long offset, int origin) { return std::fseek(file, offset, origin); }
 inline long get_ftell(FILE* file) { return std::ftell(file); }
 // exit(): the atexit functions, the streams flushed, the process ended.
 [[noreturn]] inline void get_exit(int code)
@@ -92,14 +86,11 @@ inline void get_qsort(void* base, size_t count, size_t width, Weigh compare)
 {
     game_qsort(base, count, width, compare);
 }
-inline int stricmp(const char* a, const char* b)
-{
-    return game_stricmp(a, b);
-}
+inline int stricmp(const char* a, const char* b) { return game_stricmp(a, b); }
 inline void get_srand(unsigned seed) { game_srand(seed); }
 inline int get_rand() { return game_rand(); }
 // The addresses x87 code calls (fld value; call [function]).
 inline void* asin_x87() { return reinterpret_cast<void*>(game_asin_x87); }
 inline void* acos_x87() { return reinterpret_cast<void*>(game_acos_x87); }
 
-} // namespace Crt
+} // namespace crt

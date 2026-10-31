@@ -22,7 +22,7 @@ namespace {
 constexpr uint32_t kRiserBelow = 0x4A0D22DB; // riser_below
 constexpr uint32_t kRiserFloor = 0xB0A98147; // riser_floor
 constexpr int kNoHeight = -1000;
-constexpr float kQuarterTurnDegrees = 90.0f; // 0x00645EB0
+constexpr float kQuarterTurnDegrees = 90.0f;      // 0x00645EB0
 constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
 
 // The clipboard entries' pool pair (CPoolable, 0x18-byte items).
@@ -378,8 +378,9 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
     PieceGroup* source = ParkLayout::singleton()->fetch_meta_template(meta->name_key_, nullptr);
     // (Already in it: done.)
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
-        if (entry->piece_group_ == source && entry->pos_x_ == area.x && entry->y_ == y && entry->depth_cell_ == area.z &&
-            entry->w_ == area.w && entry->l_ == area.l && entry->quarter_turns_ == meta->quarter_turns_)
+        if (entry->piece_group_ == source && entry->pos_x_ == area.x && entry->y_ == y &&
+            entry->depth_cell_ == area.z && entry->w_ == area.w && entry->l_ == area.l &&
+            entry->quarter_turns_ == meta->quarter_turns_)
             return true;
     }
     memory::PoolPair& pools = entry_pools();
@@ -476,8 +477,7 @@ bool Clipboard::copy_picked_to_clipboard(CellBox area)
         for (int z = area.z; z < area.z + area.l; ++z) {
             for (MapListNode* node = manager->get_cell_chain(x, z); node; node = node->following_) {
                 PieceGroup* meta = node->get_piece_group()->get_cast();
-                if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) ||
-                    meta->name_key_ == kRiserBelow)
+                if (meta->is_spawn_marker() || !meta->fits_inside_region(&area) || meta->name_key_ == kRiserBelow)
                     continue;
                 if (!add_row(meta, dy)) {
                     teardown();
@@ -527,7 +527,8 @@ bool Clipboard::show_at(BuildPointer* cursor)
     for (void* rail = rail_groups_; rail; rail = follow_rail_link(rail)) {
         void* copy = get_new_rail(get_rail_editor());
         duplicate_rail_path(copy, rail);
-        place_rail(copy, &centre, &at, static_cast<float>(cursor->quarter_turns_ * static_cast<double>(kQuarterTurnDegrees)));
+        place_rail(copy, &centre, &at,
+                   static_cast<float>(cursor->quarter_turns_ * static_cast<double>(kQuarterTurnDegrees)));
         transform_rail1(copy, rail_origin(), rail_origin(), 0.0f);
         transform_rail2(copy, rail_origin(), rail_origin(), 0.0f);
     }
@@ -535,4 +536,4 @@ bool Clipboard::show_at(BuildPointer* cursor)
     return true;
 }
 
-} // namespace Ed
+} // namespace park_editing

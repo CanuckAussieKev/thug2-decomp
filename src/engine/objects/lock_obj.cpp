@@ -53,10 +53,7 @@ double x87_sin(double angle)
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The rotation of `angles` (radians) as a matrix (0x0041A730: the identity times RotationX, RotationY, RotationZ).
-void angles_to_matrix(maths::Mat4* matrix, const maths::Vec4* angles)
-{
-    matrix->init_from_angles(*angles);
-}
+void angles_to_matrix(maths::Mat4* matrix, const maths::Vec4* angles) { matrix->init_from_angles(*angles); }
 
 } // namespace
 
@@ -104,10 +101,10 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
     double time = static_cast<double>(t);
     double step = static_cast<double>(wobble_step());
-    double wobble = x87_sin(time * static_cast<double>(wobble_[1]) * step) *
-                    x87_sin(time * static_cast<double>(wobble_[0]) * step);
+    double wobble =
+        x87_sin(time * static_cast<double>(wobble_[1]) * step) * x87_sin(time * static_cast<double>(wobble_[0]) * step);
     lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * 0.5 +
-                               static_cast<double>(lag_min_));
+                              static_cast<double>(lag_min_));
     if (params->has_entry_named(kAngles))
         lock_flags_ |= kLockFlagAngles;
     else
@@ -148,4 +145,4 @@ int PinnedObjectModule::invoke_method_by_name(uint32_t name, script::Struct* par
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects

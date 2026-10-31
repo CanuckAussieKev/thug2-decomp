@@ -3,7 +3,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // NOT ORIGINAL - GAME OPTIONS' "CREATE 100% CAS" (ours, added at the user's request; not the game's and not
 // PartyMod's): a Story Mode and Classic Mode career as a player who finished both completely (every goal, every gap)
@@ -44,4 +44,4 @@ bool __cdecl cfunc_apply(script::Struct* params, script::Script* script);     //
 // Our script commands, registered after the game's own table (sys::Main, after 0x005A5E70).
 void register_script_functions();
 
-} // namespace MenuSystem::career_complete
+} // namespace frontend::career_complete

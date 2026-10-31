@@ -90,11 +90,22 @@ namespace frontend::level_editor::goal_edit {
 // --- the pure parts -------------------------------------------------------------------------------------------------
 
 // Create-a-Goal's goal types, in its SELECT GOAL TYPE order (goal_editor_menu.qb's goals_menu_info).
-enum class KindTag : uint8_t { kSkate, kCombo, kHighScore, kHighCombo, kSkatetris, kComboSkatetris, kTrickTris, kTrickBeat, kRace, kGap };
+enum class KindTag : uint8_t {
+    kSkate,
+    kCombo,
+    kHighScore,
+    kHighCombo,
+    kSkatetris,
+    kComboSkatetris,
+    kTrickTris,
+    kTrickBeat,
+    kRace,
+    kGap
+};
 constexpr int kTypes = 10;
-const char* current_type_name(KindTag type);    // the record's word: the type's checksum name ("Skate"...)
-const char* type_title(KindTag type);   // Create-a-Goal's menu name ("SKATE letters"...)
-uint32_t get_kind_hash(KindTag type);   // 0x54166ACD...
+const char* current_type_name(KindTag type); // the record's word: the type's checksum name ("Skate"...)
+const char* type_title(KindTag type);        // Create-a-Goal's menu name ("SKATE letters"...)
+uint32_t get_kind_hash(KindTag type);        // 0x54166ACD...
 bool type_of(const std::string& name, KindTag* type);
 bool kind_of_key(uint32_t checksum, KindTag* type);
 // Whether the type is one of the trick goals (key combo sets, spin...): Skatetris, ComboSkatetris, TrickTris, TrickBeat.
@@ -126,24 +137,24 @@ struct Point {
 struct Goal {
     std::string id; // ed_goalNN: its points' nodes are <id>_<suffix>
     KindTag type = KindTag::kSkate;
-    std::string name, ped, text, win; // view_goals_text, ped_name, goal_description, win_message
-    int time = 120;                   // time_limit (15..3600)
-    int score = 100;                  // score (HighScore / HighCombo: 1000..10000000)
-    bool walk = false;                // control_type Walk (else Skate)
+    std::string name, ped, text, win;   // view_goals_text, ped_name, goal_description, win_message
+    int time = 120;                     // time_limit (15..3600)
+    int score = 100;                    // score (HighScore / HighCombo: 1000..10000000)
+    bool walk = false;                  // control_type Walk (else Skate)
     int laps = 1, checkpoint_time_ = 0; // Race: race_total_laps (1..10), race_per_checkpoint_time (0..60, 0 off)
-    std::vector<std::string> gaps;    // Gap: the gaps (names - their numbers are the gap list's order when played)
-    std::string trick;                // Gap: required_trick_name
+    std::vector<std::string> gaps;      // Gap: the gaps (names - their numbers are the gap list's order when played)
+    std::string trick;                  // Gap: required_trick_name
     // The trick goals (init_edited_goal's defaults):
     uint32_t sets = 0;                // key combo sets chosen (bit per cag_key_combos entry)
     int spin = 360;                   // 0..900 (Trick to the Beat: 0)
-    int accel_interval_ = 5;            // 1..10
-    float accel_percent_ = 0.1f;        // 0.01..1
-    int combo_time_ = 3000;             // 5..3000
-    int stop_at_ = 5;                   // time_to_stop_adding_tricks
-    int max_tricks_ = 11;               // 1..15
-    bool single_combo_ = false;         // Combo Skate-Tricks
-    int combo_size_ = 2;                // 1..15
-    int block_size_ = 3, to_win_ = 8;     // Tricktris: 1..15, 1..1000
+    int accel_interval_ = 5;          // 1..10
+    float accel_percent_ = 0.1f;      // 0.01..1
+    int combo_time_ = 3000;           // 5..3000
+    int stop_at_ = 5;                 // time_to_stop_adding_tricks
+    int max_tricks_ = 11;             // 1..15
+    bool single_combo_ = false;       // Combo Skate-Tricks
+    int combo_size_ = 2;              // 1..15
+    int block_size_ = 3, to_win_ = 8; // Tricktris: 1..15, 1..1000
     std::vector<Point> points;        // min_points..max_points of them
 };
 bool get_same(const Goal& a, const Goal& b);
@@ -168,7 +179,8 @@ constexpr size_t kTexelEdge = 0x338;
 struct GoalImage {
     alignas(4) uint8_t bytes[kTexelEdge];
 };
-void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers, GoalImage* out);
+void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const std::vector<int>& gap_numbers,
+                GoalImage* out);
 // The angle the record keeps for a point (the cursor's heading: its node gets angle - pi) and back.
 float get_image_angle(float heading);
 float get_heading_of(float image_angle);
@@ -213,7 +225,7 @@ void halt();
 void tick_frame();
 // Labels and lines over the view (the goal of `selected` - a node name, 0 none - brighter).
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                 uint32_t selected, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
 // The Inspector: the selected point's goal (`node`: its name, 0 none), and the Goals section (the list, new goals).
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font);
 void list_section(ImFont* mono, ImFont* small_font);
@@ -234,4 +246,4 @@ void choose_one(const std::string& id, int point);
 bool in_play();
 std::vector<std::string> get_level_gaps();
 
-} // namespace MenuSystem::level_editor::Goals
+} // namespace frontend::level_editor::goal_edit

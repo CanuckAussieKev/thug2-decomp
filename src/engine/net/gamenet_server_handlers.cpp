@@ -39,19 +39,19 @@ using namespace detail;
 namespace {
 
 // Names.
-constexpr uint32_t kNetLobby = 0x1C471C60;             // netlobby
-constexpr uint32_t kNetCtf = 0x6C5FF266;               // netctf
-constexpr uint32_t kNetKing = 0x6EF8FDA0;              // netking
-constexpr uint32_t kKing = 0x5D32129C;                 // king
-constexpr uint32_t kTeam = 0x3B1F59E0;                 // Team
-constexpr uint32_t kString0 = 0xA4B08520;              // String0
-constexpr uint32_t kFlagReturned = 0x3B1F2478;         // flag_returned
+constexpr uint32_t kNetLobby = 0x1C471C60;               // netlobby
+constexpr uint32_t kNetCtf = 0x6C5FF266;                 // netctf
+constexpr uint32_t kNetKing = 0x6EF8FDA0;                // netking
+constexpr uint32_t kKing = 0x5D32129C;                   // king
+constexpr uint32_t kTeam = 0x3B1F59E0;                   // Team
+constexpr uint32_t kString0 = 0xA4B08520;                // String0
+constexpr uint32_t kFlagReturned = 0x3B1F2478;           // flag_returned
 constexpr uint32_t kDestroyCtfPanelMessage = 0x514A53A6; // destroy_ctf_panel_message
-constexpr uint32_t kHideCtfArrow = 0x1C318F8C;         // hide_ctf_arrow
-constexpr uint32_t kNotifyClientCheating = 0x62DDBE0A; // notify_client_cheating
+constexpr uint32_t kHideCtfArrow = 0x1C318F8C;           // hide_ctf_arrow
+constexpr uint32_t kNotifyClientCheating = 0x62DDBE0A;   // notify_client_cheating
 
 // Messages.
-constexpr uint8_t kMsgAckQuery = 0x25;       // (the ready query)
+constexpr uint8_t kMsgAckQuery = 0x25; // (the ready query)
 constexpr uint8_t kMsgLevelSwitch = 0x46;
 constexpr uint8_t kMsgObserve = 0x4D;
 constexpr uint8_t kMsgObserversFull = 0x4E;
@@ -68,7 +68,7 @@ constexpr uint8_t kMsgRailsData = 0x88;
 constexpr int kParkMapSize = 15000;
 constexpr uint16_t kRailDataSize = 0x1132;
 
-constexpr uint32_t kFlagReady = 0x100;       // a player's: its game has ended (message 0x59)
+constexpr uint32_t kFlagReady = 0x100; // a player's: its game has ended (message 0x59)
 constexpr uint32_t kFlag8000 = 0x8000;
 
 // A goal's virtuals: +0x50 has the skater `id` done it, +0x6C done by `id`.
@@ -110,9 +110,9 @@ int __cdecl handle_observe_request(net::InboundMsgCtx* context)
     desc.make_new();
     if (!is_own_player(player)) {
         objects::Entity* skater = player_skater(player);
-        manager->evict_player(player, 2);         // the player out of the game (2: to observe)
-        get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater);        // its skater gone
-        prop<uint32_t>(player, 0x1D0) |= 4;    // an observer now
+        manager->evict_player(player, 2); // the player out of the game (2: to observe)
+        get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater); // its skater gone
+        prop<uint32_t>(player, 0x1D0) |= 4;                                              // an observer now
         prop<objects::Entity*>(player, 0x14) = nullptr;
         if (as_player(player)->is_host_player()) {
             as_player(player)->clear_server_player();
@@ -187,7 +187,8 @@ int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
     if ((prop<uint32_t>(player, 0x1D0) & kFlagReady) || game != manager->get_game_id())
         return kDone;
     prop<uint32_t>(player, 0x1D0) |= kFlagReady;
-    for (uint8_t* other = start_roster_sweep(manager, &search, false); other; other = step_roster_sweep(manager, &search, false)) {
+    for (uint8_t* other = start_roster_sweep(manager, &search, false); other;
+         other = step_roster_sweep(manager, &search, false)) {
         if (!(prop<uint32_t>(other, 0x1D0) & kFlagReady))
             return kContinue; // someone is still playing
     }
@@ -198,7 +199,8 @@ int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
     desc.ident_ = kMsgGameOver;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    for (uint8_t* other = start_roster_sweep(manager, &search, true); other; other = step_roster_sweep(manager, &search, true))
+    for (uint8_t* other = start_roster_sweep(manager, &search, true); other;
+         other = step_roster_sweep(manager, &search, true))
         server->put_on_outbox(player_handle(other), &desc);
     return kContinue;
 }
@@ -223,7 +225,8 @@ int __cdecl on_switch_squad_msg(net::InboundMsgCtx* context)
     desc.ident_ = kMsgJoinedTeam;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
-    for (uint8_t* other = start_roster_sweep(manager, &search, true); other; other = step_roster_sweep(manager, &search, true))
+    for (uint8_t* other = start_roster_sweep(manager, &search, true); other;
+         other = step_roster_sweep(manager, &search, true))
         server->put_on_outbox(player_handle(other), &desc);
     return kContinue;
 }
@@ -256,12 +259,14 @@ int __cdecl handle_goal_completed_report(net::InboundMsgCtx* context)
     };
     if (is_squad_match()) {
         // Already done by the sender's team: nothing.
-        for (uint8_t* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
+        for (uint8_t* p = start_roster_sweep(manager, &search, false); p;
+             p = step_roster_sweep(manager, &search, false)) {
             if (player_team(sender) == player_team(p) && goal_done_by(goal, get_skater_id(player_skater(p))))
                 return kContinue;
         }
         mark_goal_done_by(goal, get_skater_id(player_skater(sender)));
-        for (uint8_t* p = start_roster_sweep(manager, &search, false); p; p = step_roster_sweep(manager, &search, false)) {
+        for (uint8_t* p = start_roster_sweep(manager, &search, false); p;
+             p = step_roster_sweep(manager, &search, false)) {
             desc.make_new();
             prepare();
             context->receiver_app_->put_on_outbox(player_handle(p), &desc);
@@ -375,7 +380,8 @@ int __cdecl handle_drop_carried(net::InboundMsgCtx* context)
         desc.ident_ = kMsgFlagReturned;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;
-        for (uint8_t* p = start_roster_sweep(manager, &search, true); p; p = step_roster_sweep(manager, &search, true)) {
+        for (uint8_t* p = start_roster_sweep(manager, &search, true); p;
+             p = step_roster_sweep(manager, &search, true)) {
             if (!is_own_player(p))
                 context->receiver_app_->put_on_outbox(player_handle(p), &desc);
         }

@@ -92,7 +92,10 @@ void Primitive::change_colour(uint32_t) { debug::printf("STUB: plat_set_base_col
 void Primitive::prepare_all(uint32_t, int, int) { debug::printf("STUB: plat_begin\n"); }
 void Primitive::get_end() { debug::printf("STUB: plat_end\n"); }
 void Primitive::render() { debug::printf("STUB: plat_draw\n"); }
-void Primitive::blit(const float*, const uint32_t*, const float*, const float*) { debug::printf("STUB: plat_render\n"); }
+void Primitive::blit(const float*, const uint32_t*, const float*, const float*)
+{
+    debug::printf("STUB: plat_render\n");
+}
 void Primitive::change_place(int, float, float, float) { debug::printf("STUB: plat_set_pos\n"); }
 void Primitive::set_x(int, float) { debug::printf("STUB: plat_set_pos_x\n"); }
 void Primitive::set_y(int, float) { debug::printf("STUB: plat_set_pos_y\n"); }
@@ -245,18 +248,25 @@ void __cdecl set_primitive_state(int state, int value)
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&render::Primitive::teardown, &render::Primitive::set_texture, &render::Primitive::change_colour,
-                &render::Primitive::prepare_all, &render::Primitive::get_end, &render::Primitive::render, &render::Primitive::blit,
-                &render::Primitive::change_place, &render::Primitive::set_x, &render::Primitive::set_y, &render::Primitive::set_z,
-                &render::Primitive::set_normal, &render::Primitive::set_normal_x, &render::Primitive::set_normal_y,
-                &render::Primitive::set_normal_z, &render::Primitive::set_vertex_colour, &render::Primitive::set_uv,
-                &render::Primitive::choose_u, &render::Primitive::choose_v, &render::Primitive::fetch_pos_x, &render::Primitive::fetch_pos_y,
-                &render::Primitive::fetch_pos_z, &render::Primitive::get_normal_x, &render::Primitive::get_normal_y,
-                &render::Primitive::get_normal_z, &render::Primitive::get_vertex_colour, &render::Primitive::get_u,
-                &render::Primitive::get_v, &render::Primitive::get_slide, &render::Primitive::translate_x,
-                &render::Primitive::translate_y, &render::Primitive::translate_z, &render::Primitive::scroll_uv,
-                &render::Primitive::scroll_u, &render::Primitive::scroll_v, &render::Primitive::weigh};
+static VtableSlot g_vtable_slots[] = {&render::Primitive::teardown,      &render::Primitive::set_texture,
+                                      &render::Primitive::change_colour, &render::Primitive::prepare_all,
+                                      &render::Primitive::get_end,       &render::Primitive::render,
+                                      &render::Primitive::blit,          &render::Primitive::change_place,
+                                      &render::Primitive::set_x,         &render::Primitive::set_y,
+                                      &render::Primitive::set_z,         &render::Primitive::set_normal,
+                                      &render::Primitive::set_normal_x,  &render::Primitive::set_normal_y,
+                                      &render::Primitive::set_normal_z,  &render::Primitive::set_vertex_colour,
+                                      &render::Primitive::set_uv,        &render::Primitive::choose_u,
+                                      &render::Primitive::choose_v,      &render::Primitive::fetch_pos_x,
+                                      &render::Primitive::fetch_pos_y,   &render::Primitive::fetch_pos_z,
+                                      &render::Primitive::get_normal_x,  &render::Primitive::get_normal_y,
+                                      &render::Primitive::get_normal_z,  &render::Primitive::get_vertex_colour,
+                                      &render::Primitive::get_u,         &render::Primitive::get_v,
+                                      &render::Primitive::get_slide,     &render::Primitive::translate_x,
+                                      &render::Primitive::translate_y,   &render::Primitive::translate_z,
+                                      &render::Primitive::scroll_uv,     &render::Primitive::scroll_u,
+                                      &render::Primitive::scroll_v,      &render::Primitive::weigh};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

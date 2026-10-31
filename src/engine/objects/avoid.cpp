@@ -32,15 +32,9 @@
 namespace objects {
 
 uint32_t g_avoid_member_functions[54]{
-            0x6157CBC0, 0x6EB050ED, 0, 0, 0, 0,
-            0xD2AA4D2D, 0x6EB050ED, 0, 0, 0, 0,
-            0x41226942, 0x6EB050ED, 0, 0, 0, 0,
-            0x3C7F8F3E, 0x6EB050ED, 0, 0, 0, 0,
-            0x6A4BCA91, 0x6EB050ED, 0, 0, 0, 0,
-            0x3FB422E8, 0x6EB050ED, 0, 0, 0, 0,
-            0x539A32DC, 0x6EB050ED, 0, 0, 0, 0,
-            0x53BC3B4E, 0x6EB050ED, 0, 0, 0, 0,
-            0, 0x6EB050ED, 0, 0, 0, 0};
+    0x6157CBC0, 0x6EB050ED, 0, 0, 0, 0, 0xD2AA4D2D, 0x6EB050ED, 0, 0, 0, 0, 0x41226942, 0x6EB050ED, 0, 0, 0, 0,
+    0x3C7F8F3E, 0x6EB050ED, 0, 0, 0, 0, 0x6A4BCA91, 0x6EB050ED, 0, 0, 0, 0, 0x3FB422E8, 0x6EB050ED, 0, 0, 0, 0,
+    0x539A32DC, 0x6EB050ED, 0, 0, 0, 0, 0x53BC3B4E, 0x6EB050ED, 0, 0, 0, 0, 0,          0x6EB050ED, 0, 0, 0, 0};
 
 namespace {
 
@@ -48,8 +42,7 @@ extern void** const kVtable;
 constexpr uint32_t kAvoid = 0x6EB050ED;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr uint32_t kMotion = 0x0A015E17;
-constexpr uint32_t kJumpLeft = 0x733DA756, kJumpRight = 0xA7A0DD72, kJumpBack = 0x64948109,
-                   kJumpForward = 0x4DE2C9E8;
+constexpr uint32_t kJumpLeft = 0x733DA756, kJumpRight = 0xA7A0DD72, kJumpBack = 0x64948109, kJumpForward = 0x4DE2C9E8;
 
 constexpr float kQuarterTurn = 0.7853981852531433f; // 0x006453F8 (pi / 4)
 constexpr float kFullTurn = 6.2831854820251465f;    // 0x0064545C
@@ -72,10 +65,7 @@ int get_quarter(float angle)
 }
 
 // The local skater (modules::Skate 0x007CE478's 0x00566520; not rewritten yet).
-GameEntity* local_skater()
-{
-    return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
-}
+GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider()); }
 
 // The animation blender's (component 0x7149B753).
 AnimBlenderComponent* get_blender(ObjectModule* blender) { return static_cast<AnimBlenderComponent*>(blender); }
@@ -95,7 +85,10 @@ uint8_t* motion_path(ObjectModule* motion)
 {
     return static_cast<uint8_t*>(reinterpret_cast<MotionPathMembers*>(motion)->get_path_follower());
 }
-uint32_t& motion_flags(ObjectModule* motion) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(motion) + 0x1C); }
+uint32_t& motion_flags(ObjectModule* motion)
+{
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(motion) + 0x1C);
+}
 
 // `out` = `in` (all four) times `m`, summed as 0x0040AF60 does.
 void xform(const maths::Mat4& m, maths::Vec4& out, const maths::Vec4& in) { m.xform(out, in); }
@@ -115,7 +108,10 @@ public:
     Feeler& operator=(const Feeler&) = delete;
     maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
     maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
-    bool get_hit_shape(int a, int b) { return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a != 0, b != 0) != 0; }
+    bool get_hit_shape(int a, int b)
+    {
+        return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a != 0, b != 0) != 0;
+    }
 
 private:
     alignas(16) uint8_t bytes_[0xB0];
@@ -131,10 +127,18 @@ float avoid_distance(float angle, script::Struct* params)
 {
     float distance = 0.0f;
     switch (get_quarter(angle)) {
-    case 1: params->fetch_float("distLeft", &distance, 1); break;
-    case 2: params->fetch_float("distBack", &distance, 1); break;
-    case 3: params->fetch_float("distRight", &distance, 1); break;
-    default: params->fetch_float("distForward", &distance, 1); break;
+    case 1:
+        params->fetch_float("distLeft", &distance, 1);
+        break;
+    case 2:
+        params->fetch_float("distBack", &distance, 1);
+        break;
+    case 3:
+        params->fetch_float("distRight", &distance, 1);
+        break;
+    default:
+        params->fetch_float("distForward", &distance, 1);
+        break;
     }
     return distance;
 }
@@ -216,7 +220,8 @@ float ObstacleDodgeModule::side_away_from_skater()
     float d1x = static_cast<float>(s.x - a_x);
     double d1y = s.y - a_y;
     double d1z = static_cast<double>(s.z) - a_z;
-    double d2x = static_cast<double>(s.x) - b_x, d2y = static_cast<double>(s.y) - b_y, d2z = static_cast<double>(s.z) - b_z;
+    double d2x = static_cast<double>(s.x) - b_x, d2y = static_cast<double>(s.y) - b_y,
+           d2z = static_cast<double>(s.z) - b_z;
     double first = (d1z * d1z + d1y * d1y) + static_cast<double>(d1x) * d1x;
     double second = (d2z * d2z + d2y * d2y) + d2x * d2x;
     if (first < second) {
@@ -228,7 +233,7 @@ float ObstacleDodgeModule::side_away_from_skater()
 
 // 0x004E3A40
 bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, float angle, float distance,
-                              float max_distance)
+                                   float max_distance)
 {
     out = start;
     maths::Mat4 turn;
@@ -310,8 +315,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     if (!found) {
         // Away from the herd point (this angle in radians, as the original passes it).
         const maths::Vec4& pos = start.row[3];
-        maths::Vec4 away = {herd_point_.x - pos.x, herd_point_.y - pos.y, herd_point_.z - pos.z,
-                            herd_point_.w - pos.w};
+        maths::Vec4 away = {herd_point_.x - pos.x, herd_point_.y - pos.y, herd_point_.z - pos.z, herd_point_.w - pos.w};
         float angle = angle_in_plane(entity_->basis_frame_, away);
         found = try_jump(start, end, angle, avoid_distance(angle, params), max_distance);
     }
@@ -342,7 +346,7 @@ bool ObstacleDodgeModule::debug_box(script::Struct* params, script::Script* /*sc
 bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* /*script*/)
 {
     progress_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() * 60.0f * lasts_for_ * 0.01666666753590107f +
-                                    progress_);
+                                   progress_);
     maths::Mat4 now;
     slerp_.fetch_mat(now, progress_);
     entity_->at_point_ = now.row[3];
@@ -427,25 +431,25 @@ __declspec(naked) void line_collides_stub()
 
 } // namespace
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::ObstacleDodgeModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

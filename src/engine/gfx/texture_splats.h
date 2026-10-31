@@ -12,16 +12,16 @@ namespace render {
 
 // A splat set (laid out as the original: arrays of 256).
 struct TextureSplats {
-    uint32_t alive[0x100];      // +0x0000: 0 once a triangle is killed
-    int correction_steps_[0x100]; // +0x0400 (the depth correction's, see draw_texture_splats)
-    float correction_a_[0x100];   // +0x0800
-    float correction_b_[0x100];   // +0x0C00
+    uint32_t alive[0x100];           // +0x0000: 0 once a triangle is killed
+    int correction_steps_[0x100];    // +0x0400 (the depth correction's, see draw_texture_splats)
+    float correction_a_[0x100];      // +0x0800
+    float correction_b_[0x100];      // +0x0C00
     uint32_t base_colors_[0x100][3]; // +0x1000: each triangle's vertex colours before lighting (RGBA)
-    int last;                   // +0x1C00: the last vertex / triangle in use (-1: none)
-    uint32_t texture;           // +0x1C04: the texture's checksum (set by the engine's splat maker)
+    int last;                        // +0x1C00: the last vertex / triangle in use (-1: none)
+    uint32_t texture;                // +0x1C04: the texture's checksum (set by the engine's splat maker)
     uint8_t unknown1c08_[4];
-    uint8_t* material;          // +0x1C0C
-    float uvs[0x300][2];        // +0x1C10: each vertex's texture coordinates before the correction
+    uint8_t* material;                // +0x1C0C
+    float uvs[0x300][2];              // +0x1C10: each vertex's texture coordinates before the correction
     uint8_t vertices[0x100][3][0x18]; // +0x3410: position, ARGB colour, u, v
 };
 static_assert(offsetof(TextureSplats, last) == 0x1C00 && offsetof(TextureSplats, material) == 0x1C0C &&
@@ -54,7 +54,7 @@ struct SplitFormat {
     uint8_t unknown0[0x1C];
     uint8_t color_offset_; // +0x1C
     uint8_t unknown1d_;
-    uint8_t uv_offset_;    // +0x1E
+    uint8_t uv_offset_; // +0x1E
 };
 // 0x004B8220 (with its body Ghidra split off, 0x004B8232): the next triangle off the vertex stack - split into four
 // (pushed back) when the cross product of its edges, squared, is above the limit (0x0067DDF0: 82944 as loaded; the
@@ -71,7 +71,7 @@ struct SplatParams {
     float size;        // +0x20
     float depth;       // +0x24 (each triangle's correction A)
     float angle;       // +0x28: the texture's turn about the ray (0: a random one) when the ray is steep
-    float cone_angle_;   // +0x2C
+    float cone_angle_; // +0x2C
     float lifetime;    // +0x30
     uint8_t* texture;  // +0x34
     uint32_t unknown38;
@@ -98,4 +98,4 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int unused, SplatPar
 
 extern float g_split_area_limit;
 
-} // namespace Nx
+} // namespace render

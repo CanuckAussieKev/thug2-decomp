@@ -89,4 +89,4 @@ extern uint32_t g_screen_blur_frames;
 extern bool g_screen_shot_name_exact;
 extern char g_pending_screen_shot[128];
 extern void* g_screen_effects;
-} // namespace Nx
+} // namespace render

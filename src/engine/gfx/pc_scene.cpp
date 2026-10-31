@@ -56,7 +56,10 @@ uint32_t g_screen_effect_unknown994{0x80808080};
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-PcGeom* geometry_of(void* sector) { return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom); } // (+0x14: the getter 0x004A2BA0, folded with others)
+PcGeom* geometry_of(void* sector)
+{
+    return static_cast<PcGeom*>(static_cast<PcSector*>(sector)->geom);
+} // (+0x14: the getter 0x004A2BA0, folded with others)
 
 // The first sector of a fresh iteration of the table (null if none).
 void* first_sector(lists::KeyMap* table)
@@ -170,7 +173,7 @@ void PcScene::post_load(VertexArena* arena)
     void* sector = first_sector(table);
     if (arena) {
         input_port()->CreateVertexBuffer(arena->size, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                     reinterpret_cast<IDirect3DVertexBuffer9**>(&arena->buffer), nullptr);
+                                         reinterpret_cast<IDirect3DVertexBuffer9**>(&arena->buffer), nullptr);
         static_cast<IDirect3DVertexBuffer9*>(arena->buffer)->Lock(0, 0, &arena->data, 0);
         arena->used = 0;
         meshes->com_object_ = arena->buffer;
@@ -252,15 +255,15 @@ MeshRef* new_mesh()
     void* memory = memory::alloc(sizeof(MeshRef));
     return memory ? static_cast<MeshRef*>(memory)->make_new() : nullptr; // (its constructor)
 }
-void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius, const maths::Vec4* min, const maths::Vec4* max)
+void set_mesh_sphere_and_box(MeshRef* mesh, const float* centre, float radius, const maths::Vec4* min,
+                             const maths::Vec4* max)
 {
     mesh->change_bound_sphere(centre, radius, static_cast<int>(reinterpret_cast<intptr_t>(min)),
-                            static_cast<int>(reinterpret_cast<intptr_t>(max)));
+                              static_cast<int>(reinterpret_cast<intptr_t>(max)));
 }
 // The rest of a mesh's set-up, the same for both loaders: the scene's box grown, a billboard made, the mesh added.
-void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type,
-                const maths::Vec4* pivot, const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max,
-                uint8_t light_group)
+void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboard_type, const maths::Vec4* pivot,
+                 const maths::Vec4* axis, const maths::Vec4* min, const maths::Vec4* max, uint8_t light_group)
 {
     auto* bounds = reinterpret_cast<maths::BBox*>(*reinterpret_cast<uint8_t**>(geom->scene + 0x280) + 0x44);
     bounds->append_spot(*min);
@@ -279,7 +282,8 @@ void finish_mesh(PcSector* sector, PcGeom* geom, MeshRef* mesh, uint32_t billboa
 uint32_t count_loaded_meshes(const PcGeom* geom)
 {
     uint32_t count = 0;
-    for (memory::ListNode* node = geom->load_list_->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (memory::ListNode* node = geom->load_list_->next; node->data != reinterpret_cast<void*>(-1) && node;
+         node = node->next)
         ++count;
     return count;
 }
@@ -347,11 +351,10 @@ bool PcSector::read_from_ram_block(uint8_t** cursor)
         mesh->load_index_ = static_cast<uint16_t>(i);
         auto* at = reinterpret_cast<uint8_t*>(const_cast<uint32_t*>(p));
         mesh->read_from_ram_block(&at, material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280),
-                             nullptr); // (the vertices)
+                                  nullptr); // (the vertices)
         p = reinterpret_cast<const uint32_t*>(at);
         set_mesh_sphere_and_box(mesh, centre, radius, &min, &max);
-        finish_mesh(this, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
-                   static_cast<uint8_t>(light_group));
+        finish_mesh(this, geometry, mesh, billboard_type, &pivot, &axis, &min, &max, static_cast<uint8_t>(light_group));
         for (uint16_t* list : indices)
             memory::Hub::get_pull()->dealloc(list);
     }
@@ -422,11 +425,10 @@ bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
         }
         mesh->load_index_ = static_cast<uint16_t>(i);
         mesh->ingest_from_file(file, material, *reinterpret_cast<SceneRef**>(geometry->scene + 0x280),
-                           reinterpret_cast<VertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown)),
-                           ((flags >> 23) & 1) != 0); // (the vertices; read as a byte: bit 23)
+                               reinterpret_cast<VertexArena*>(static_cast<uintptr_t>(flags & 0x800000 ? 0 : unknown)),
+                               ((flags >> 23) & 1) != 0); // (the vertices; read as a byte: bit 23)
         set_mesh_sphere_and_box(mesh, centre, radius, &min, &max);
-        finish_mesh(this, geometry, mesh, billboard_type, &pivot, &axis, &min, &max,
-                   static_cast<uint8_t>(light_group));
+        finish_mesh(this, geometry, mesh, billboard_type, &pivot, &axis, &min, &max, static_cast<uint8_t>(light_group));
         for (uint16_t* list : indices)
             memory::Hub::get_pull()->dealloc(list);
     }
@@ -435,23 +437,39 @@ bool PcSector::ingest_from_file(file::Hdl file, uint32_t unknown)
 }
 
 namespace {
-static VtableSlot g_c_pc_scene_vtable_slots[] = {&render::PcScene::teardown, &render::PcScene::post_load, &render::WorldScene::post_add,
-                &save_cards::SaveCard::always_true, &save_cards::SaveCard::always_true, &render::WorldScene::add_collision, stubs::return_false,
-                &render::PcScene::spawn_sector, stubs::ignore_argument, &render::WorldScene::get_default_colour,
-                &render::WorldScene::set_rendered};
+static VtableSlot g_c_pc_scene_vtable_slots[] = {&render::PcScene::teardown,
+                                                 &render::PcScene::post_load,
+                                                 &render::WorldScene::post_add,
+                                                 &save_cards::SaveCard::always_true,
+                                                 &save_cards::SaveCard::always_true,
+                                                 &render::WorldScene::add_collision,
+                                                 stubs::return_false,
+                                                 &render::PcScene::spawn_sector,
+                                                 stubs::ignore_argument,
+                                                 &render::WorldScene::get_default_colour,
+                                                 &render::WorldScene::set_rendered};
 void** const kCPcSceneVtable = reinterpret_cast<void**>(g_c_pc_scene_vtable_slots);
-static VtableSlot g_c_pc_screen_effects_vtable_slots[] = {&render::PcScreenEffects::teardown, stubs::do_nothing,
-                &render::PcScreenEffects::set_bloom, &render::PcScreenEffects::set_bloom_cut_off,
-                &render::PcScreenEffects::set_bloom_alphas, &render::PcScreenEffects::set_unknown990,
-                &render::PcScreenEffects::set_unknown5724, stubs::ignore_argument, &render::PcScreenEffects::set_unknown994,
-                stubs::ignore_argument, &render::PcScreenEffects::set_unknown984, &render::PcScreenEffects::set_unknown988,
-                &render::PcScreenEffects::set_unknown5728};
+static VtableSlot g_c_pc_screen_effects_vtable_slots[] = {
+    &render::PcScreenEffects::teardown,         stubs::do_nothing,
+    &render::PcScreenEffects::set_bloom,        &render::PcScreenEffects::set_bloom_cut_off,
+    &render::PcScreenEffects::set_bloom_alphas, &render::PcScreenEffects::set_unknown990,
+    &render::PcScreenEffects::set_unknown5724,  stubs::ignore_argument,
+    &render::PcScreenEffects::set_unknown994,   stubs::ignore_argument,
+    &render::PcScreenEffects::set_unknown984,   &render::PcScreenEffects::set_unknown988,
+    &render::PcScreenEffects::set_unknown5728};
 void** const kCPcScreenEffectsVtable = reinterpret_cast<void**>(g_c_pc_screen_effects_vtable_slots);
-static VtableSlot g_c_pc_sector_vtable_slots[] = {&render::PcSector::teardown, &render::PcSector::change_live,
-                &render::WorldCell::plat_get_shatter, &render::PcSector::replicate, stubs::ignore_argument, stubs::do_nothing,
-                stubs::ignore_argument, stubs::ignore_argument, stubs::ignore_argument, &render::PcSector::fetch_bounds,
-                &render::HitMovingMesh::fetch_facing};
+static VtableSlot g_c_pc_sector_vtable_slots[] = {&render::PcSector::teardown,
+                                                  &render::PcSector::change_live,
+                                                  &render::WorldCell::plat_get_shatter,
+                                                  &render::PcSector::replicate,
+                                                  stubs::ignore_argument,
+                                                  stubs::do_nothing,
+                                                  stubs::ignore_argument,
+                                                  stubs::ignore_argument,
+                                                  stubs::ignore_argument,
+                                                  &render::PcSector::fetch_bounds,
+                                                  &render::HitMovingMesh::fetch_facing};
 void** const kCPcSectorVtable = reinterpret_cast<void**>(g_c_pc_sector_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

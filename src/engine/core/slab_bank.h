@@ -29,7 +29,7 @@ public:
     int peak_used_;
 };
 
-} // namespace Mem
+} // namespace memory
 
 namespace memory {
 
@@ -48,7 +48,7 @@ SlabBank* get_pool(int index);
 
 } // namespace slot_pool_setup
 
-} // namespace Mem
+} // namespace memory
 
 namespace memory {
 
@@ -63,4 +63,4 @@ struct PoolPair {
     void dealloc(void* item);
 };
 
-} // namespace Mem
+} // namespace memory

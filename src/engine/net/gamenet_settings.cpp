@@ -47,67 +47,71 @@ using namespace detail;
 
 namespace {
 
-constexpr uint32_t kMasterHostTable = 0x9954;  // char[10][16]: the master servers' names
+constexpr uint32_t kMasterHostTable = 0x9954; // char[10][16]: the master servers' names
 constexpr int kMasterServerCount = 10;
-constexpr uint32_t kConnectTask = 0xD8;      // tasks::SchedulerTask* (the online state's)
-constexpr uint32_t kOnlineState = 0x1A8;     // int (-1: starting)
-constexpr uint32_t kOnlineScript = 0x1C4;    // uint32_t: run once online
-constexpr uint32_t kOfflineScript = 0x1C8;   // uint32_t: run when connecting fails / after disconnecting
+constexpr uint32_t kConnectTask = 0xD8;    // tasks::SchedulerTask* (the online state's)
+constexpr uint32_t kOnlineState = 0x1A8;   // int (-1: starting)
+constexpr uint32_t kOnlineScript = 0x1C4;  // uint32_t: run once online
+constexpr uint32_t kOfflineScript = 0x1C8; // uint32_t: run when connecting fails / after disconnecting
 constexpr uint8_t kMsgServerQuery = 0x11;
-constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
+constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
 // Checksums.
-constexpr uint32_t kChecksum = 0x21902065;            // checksum
-constexpr uint32_t kUiString = 0x96875C0F;            // ui_string
-constexpr uint32_t kName = 0xA1DC81F9;                // name
-constexpr uint32_t kBooleanTrue = 0xF81BC89B;         // boolean_true
-constexpr uint32_t kDefaultMasterServers = 0xE8DA8722; // default_master_servers
-constexpr uint32_t kUseDefaultMasterServers = 0xE7A3CB08; // use_default_master_servers
-constexpr uint32_t kMasterServer1 = 0xF480C7DC;       // master_server1
-constexpr uint32_t kMasterServer2 = 0x6D899666;       // master_server2
-constexpr uint32_t kBroadbandType = 0xBB2EB924;       // broadband_type
-constexpr uint32_t kIpDhcp = 0x2189CFF8;              // ip_dhcp
-constexpr uint32_t kIpAddress = 0xDD002A73;           // ip_address
-constexpr uint32_t kGateway = 0xEB012280;             // gateway
-constexpr uint32_t kSubnetMask = 0xF9794735;          // subnet_mask
-constexpr uint32_t kDnsServer = 0x4C3512CD;           // dns_server
-constexpr uint32_t kDnsServer2 = 0x2D4EDA9F;          // dns_server2
-constexpr uint32_t kHostName = 0x7F91069B;            // host_name
-constexpr uint32_t kDomainName = 0x0C00AC9E;          // domain_name
-constexpr uint32_t kAutoDns = 0x5DDFCAD3;             // auto_dns
+constexpr uint32_t kChecksum = 0x21902065;                                  // checksum
+constexpr uint32_t kUiString = 0x96875C0F;                                  // ui_string
+constexpr uint32_t kName = 0xA1DC81F9;                                      // name
+constexpr uint32_t kBooleanTrue = 0xF81BC89B;                               // boolean_true
+constexpr uint32_t kDefaultMasterServers = 0xE8DA8722;                      // default_master_servers
+constexpr uint32_t kUseDefaultMasterServers = 0xE7A3CB08;                   // use_default_master_servers
+constexpr uint32_t kMasterServer1 = 0xF480C7DC;                             // master_server1
+constexpr uint32_t kMasterServer2 = 0x6D899666;                             // master_server2
+constexpr uint32_t kBroadbandType = 0xBB2EB924;                             // broadband_type
+constexpr uint32_t kIpDhcp = 0x2189CFF8;                                    // ip_dhcp
+constexpr uint32_t kIpAddress = 0xDD002A73;                                 // ip_address
+constexpr uint32_t kGateway = 0xEB012280;                                   // gateway
+constexpr uint32_t kSubnetMask = 0xF9794735;                                // subnet_mask
+constexpr uint32_t kDnsServer = 0x4C3512CD;                                 // dns_server
+constexpr uint32_t kDnsServer2 = 0x2D4EDA9F;                                // dns_server2
+constexpr uint32_t kHostName = 0x7F91069B;                                  // host_name
+constexpr uint32_t kDomainName = 0x0C00AC9E;                                // domain_name
+constexpr uint32_t kAutoDns = 0x5DDFCAD3;                                   // auto_dns
 constexpr uint32_t kDialupNumber[3] = {0x3510C289, 0x5C867AC6, 0x2B814A50}; // dialup_number, 2, 3
-constexpr uint32_t kDialupUsername = 0x7573A233;      // dialup_username
-constexpr uint32_t kDialupPassword = 0xB8EFE291;      // dialup_password
-constexpr uint32_t kDeviceType = 0xFA187DEC;          // device_type
-constexpr uint32_t kDialupAuthentication = 0xE5ADE642; // dialup_authentication
-constexpr uint32_t kDeviceBroadbandPc = 0x7A8EAB6D;   // device_broadband_pc
-constexpr uint32_t kDeviceBroadbandUsb = 0xDCCC4380;  // device_broadband_usb
-constexpr uint32_t kDeviceBroadbandUsbPppoe = 0x5D92DB35; // device_broadband_usb_pppoe
-constexpr uint32_t kDeviceUsbModem = 0x3DBCBD95;      // device_usb_modem
-constexpr uint32_t kDeviceSonyModem = 0x221B8CA0;     // device_sony_modem
-constexpr uint32_t kDeviceBroadbandPcPppoe = 0x0304EE13; // device_broadband_pc_pppoe
-constexpr uint32_t kSpoofPcmciaAdaptorSetup = 0x9ADC64AF; // spoof_pcmcia_adaptor_setup
-constexpr uint32_t kSpoofUsbAdaptorSetup = 0x5D423821;    // spoof_usb_adaptor_setup
-constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;    // team_graffiti_mode
-constexpr uint32_t kGraffitiIndividualScoring = 0xC8059823; // graffiti_individual_scoring
-constexpr uint32_t kGoals = 0x38DBE1D0;               // goals
-constexpr uint32_t kGameType = 0x9834C4FA;            // game_type
-constexpr uint32_t kModeInfo = 0xCA5F7FFB;            // mode_info
+constexpr uint32_t kDialupUsername = 0x7573A233;                            // dialup_username
+constexpr uint32_t kDialupPassword = 0xB8EFE291;                            // dialup_password
+constexpr uint32_t kDeviceType = 0xFA187DEC;                                // device_type
+constexpr uint32_t kDialupAuthentication = 0xE5ADE642;                      // dialup_authentication
+constexpr uint32_t kDeviceBroadbandPc = 0x7A8EAB6D;                         // device_broadband_pc
+constexpr uint32_t kDeviceBroadbandUsb = 0xDCCC4380;                        // device_broadband_usb
+constexpr uint32_t kDeviceBroadbandUsbPppoe = 0x5D92DB35;                   // device_broadband_usb_pppoe
+constexpr uint32_t kDeviceUsbModem = 0x3DBCBD95;                            // device_usb_modem
+constexpr uint32_t kDeviceSonyModem = 0x221B8CA0;                           // device_sony_modem
+constexpr uint32_t kDeviceBroadbandPcPppoe = 0x0304EE13;                    // device_broadband_pc_pppoe
+constexpr uint32_t kSpoofPcmciaAdaptorSetup = 0x9ADC64AF;                   // spoof_pcmcia_adaptor_setup
+constexpr uint32_t kSpoofUsbAdaptorSetup = 0x5D423821;                      // spoof_usb_adaptor_setup
+constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;                          // team_graffiti_mode
+constexpr uint32_t kGraffitiIndividualScoring = 0xC8059823;                 // graffiti_individual_scoring
+constexpr uint32_t kGoals = 0x38DBE1D0;                                     // goals
+constexpr uint32_t kGameType = 0x9834C4FA;                                  // game_type
+constexpr uint32_t kModeInfo = 0xCA5F7FFB;                                  // mode_info
 // Global strings overriding the preferences (their names aren't known).
 constexpr uint32_t kIpAddressOverride = 0x5F6FDED5;
 constexpr uint32_t kGatewayOverride = 0x3E683519;
 constexpr uint32_t kSubnetMaskOverride = 0x676BC0CB;
 constexpr uint32_t kDnsServerOverride = 0x93CF2232;
-constexpr uint32_t kForceBroadbandPc = 0x504ACA1F;    // (non-empty: the PCMCIA adaptor's settings)
-constexpr uint32_t kForcePcmcia = 0xF3780073;         // (non-empty: the PCMCIA adaptor, a dial-up type 4)
+constexpr uint32_t kForceBroadbandPc = 0x504ACA1F; // (non-empty: the PCMCIA adaptor's settings)
+constexpr uint32_t kForcePcmcia = 0xF3780073;      // (non-empty: the PCMCIA adaptor, a dial-up type 4)
 
-const char* const kNoAddress = "0.0.0.0";   // "0.0.0.0"
+const char* const kNoAddress = "0.0.0.0";         // "0.0.0.0"
 const char* const kDefaultDns1 = "205.147.0.100"; // "205.147.0.100"
 const char* const kDefaultDns2 = "205.147.0.102"; // "205.147.0.102"
-const char* const kEmpty = "";       // ""
-const char* const kHashFieldName = "checksum"; // "checksum"
+const char* const kEmpty = "";                    // ""
+const char* const kHashFieldName = "checksum";    // "checksum"
 
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4 /* the main loop's task stacks (+4: the logic tasks) */); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) +
+                                            4 /* the main loop's task stacks (+4: the logic tasks) */);
+}
 
 bool get_filled(const char* text) { return text && *text; }
 
@@ -126,7 +130,7 @@ void set_preference_text(prefs::Preferences* preferences, uint32_t name, const c
 void Hub::use_network_preferences()
 {
     net::Hub* net = net::Hub::sole();
-    char(*servers)[16] = reinterpret_cast<char(*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterHostTable);
+    char (*servers)[16] = reinterpret_cast<char (*)[16]>(reinterpret_cast<uint8_t*>(this) + kMasterHostTable);
     for (int i = 0; i < kMasterServerCount; ++i)
         servers[i][0] = 0;
     prefs::Preferences* preferences = get_online_settings();
@@ -398,8 +402,7 @@ void Hub::find_server_at(uint32_t ip)
 void __cdecl Hub::service_game_spy()
 {
     game_spy::cd_key_think();
-    if (g_online_active && g_online_hub->in_net_game() &&
-        g_query_reporting)
+    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting)
         game_spy::get_qr2_think(nullptr);
 }
 
@@ -432,8 +435,7 @@ void Hub::change_arena(uint32_t level)
         game_spy::peer_state_changed(peer); // (the peer's state changed: the GameSpy SDK)
     // (cleared just before it's tested: the reporting's state-changed call below never happens)
     g_open_waiting = false;
-    if (g_online_active && g_online_hub->in_net_game() &&
-        g_query_reporting && g_open_waiting)
+    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting && g_open_waiting)
         game_spy::qr2_send_state_changed(nullptr);
 }
 

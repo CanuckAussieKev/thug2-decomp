@@ -46,4 +46,4 @@ const uint8_t* decode_from_bytes(Struct* structure, const uint8_t* buffer);
 // 0x0047A440: the array emptied and filled from the buffer; returns the end.
 const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer);
 
-} // namespace Script
+} // namespace script

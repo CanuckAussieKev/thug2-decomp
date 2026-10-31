@@ -56,10 +56,10 @@ constexpr uint32_t kGeom = 0xE7308C1F;
 constexpr uint32_t kGeoms = 0x44E31DFF;
 constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kModelName = 0xB974F2FC;
-constexpr uint32_t kAsset = 0x354BA8E9;        // (an asset by checksum; its name isn't in THUG2's scripts)
+constexpr uint32_t kAsset = 0x354BA8E9; // (an asset by checksum; its name isn't in THUG2's scripts)
 constexpr uint32_t kSkeletonName = 0x09794932;
 constexpr uint32_t kAllowReplaceTex = 0x6C37FDC7;
-constexpr uint32_t kNoModel = 0x806FFF30;      // (a model name meaning none)
+constexpr uint32_t kNoModel = 0x806FFF30; // (a model name meaning none)
 constexpr uint32_t kDefaultBuildScript = 0x91C1EC93;
 constexpr uint32_t kBoneVolumesOn = 0x74FF5CB4; // (a script global integer: bone volumes made for models)
 constexpr uint32_t kBoneVolumeHeap = 0xA432DC41;
@@ -69,7 +69,10 @@ void* skeleton_of(ObjectModule* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
 }
-uint32_t get_skeleton_name(void* skeleton) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14); }
+uint32_t get_skeleton_name(void* skeleton)
+{
+    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14);
+}
 void* rig_definition(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
 
 // Nx (not rewritten yet): a new model (0x0048BFA0) and its deletion (0x0048C3C0); the model's geoms cleared
@@ -79,26 +82,32 @@ void* rig_definition(void* skeleton) { return *reinterpret_cast<void**>(static_c
 // skeleton (0x00492DD0), shadow volume (0x00492E90), bounding sphere (0x00492F30), lights (+0x2C) made (0x00493BD0) or
 // taken away (0x00493C10), bone volumes (0x00492FC0 / 0x00492F90), placed (0x00493090) and its skinning updated
 // (0x00493410).
-render::RenderModel* spawn_render_model(int arg) { return (void)arg, static_cast<render::RenderModel*>(render::spawn_model()); }
+render::RenderModel* spawn_render_model(int arg)
+{
+    return (void)arg, static_cast<render::RenderModel*>(render::spawn_model());
+}
 void delete_model(render::RenderModel* model) { render::engine::delete_geom_object(model); }
-void* model_lights(render::RenderModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
-void* clone_model_geom(void* geom, render::RenderModel* to) { return static_cast<render::Geom*>(geom)->clone_for_model(1, to); }
+void* model_lights(render::RenderModel* model)
+{
+    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
+}
+void* clone_model_geom(void* geom, render::RenderModel* to)
+{
+    return static_cast<render::Geom*>(geom)->clone_for_model(1, to);
+}
 void* clone_sector_geom(void* geom) { return static_cast<render::Geom*>(geom)->replicate(1, nullptr); }
-void activate_geom(void* geom) { reinterpret_cast<void(__thiscall*)(void*, int)>(&render::virtual_slot13_jump)(geom, 1); }
+void activate_geom(void* geom)
+{
+    reinterpret_cast<void(__thiscall*)(void*, int)>(&render::virtual_slot13_jump)(geom, 1);
+}
 void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->add_geom(geom, name, true); }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any).
-bool fetch_magnification(maths::Vec4* scale, script::Struct* params)
-{
-    return gfx::scale_from_args(scale, params);
-}
+bool fetch_magnification(maths::Vec4* scale, script::Struct* params) { return gfx::scale_from_args(scale, params); }
 // A level sector by name in any scene (0x0048C510) and its geometry (0x004A2BA0: its +0x14).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 void* sector_geom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
-void model_path_for(const char* name, const char* ext, char* out)
-{
-    gfx::make_model_file_name(name, ext, out);
-}
+void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 // The model's lights' brightness (0x0048E660).
 void update_lights_brightness(void* lights) { static_cast<render::ModelLights*>(lights)->get_update_brightness(); }
 
@@ -239,7 +248,7 @@ void MeshInstanceModule::change_mesh(render::RenderModel* model)
 
 // 0x00421230
 void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resource_store, int tex_dict_offset,
-                                           uint32_t build_script)
+                                                  uint32_t build_script)
 {
     render::RenderModel* model = mesh_instance_;
     void* skeleton = nullptr;
@@ -247,7 +256,9 @@ void MeshInstanceModule::set_up_mesh_from_profile(void* profile, bool via_resour
         skeleton = skeleton_of(component);
     ModelAssembler builder;
     reinterpret_cast<gfx::ModelAssembler*>(&builder)->make_new(via_resource_store, tex_dict_offset);
-    reinterpret_cast<gfx::ModelAssembler*>(&builder)->get_build(static_cast<gfx::ModelLook*>(profile), model, static_cast<gfx::Rig*>(skeleton), build_script ? build_script : kDefaultBuildScript);
+    reinterpret_cast<gfx::ModelAssembler*>(&builder)->get_build(static_cast<gfx::ModelLook*>(profile), model,
+                                                                static_cast<gfx::Rig*>(skeleton),
+                                                                build_script ? build_script : kDefaultBuildScript);
     if (entity_->composite_flags_ & kCompositeFlagFinalized) {
         ObjectModule::tick_frame();
         if (mesh_instance_ && model_lights(mesh_instance_))
@@ -380,7 +391,8 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                         model_path_for(file, ".mdl", path);
                     text::to_lower_text(path);
                     bool allow_replace = params->has_bare_flag(kAllowReplaceTex);
-                    mesh_instance_->add_file_geom(static_cast<const char*>(path), 0, via_resource_store != 0, tex_dict_offset, allow_replace, 0, 1, 0);
+                    mesh_instance_->add_file_geom(static_cast<const char*>(path), 0, via_resource_store != 0,
+                                                  tex_dict_offset, allow_replace, 0, 1, 0);
                 }
             } else if (params->read_hash_value(kAsset, &name, 0)) {
                 mesh_instance_->add_asset_geom(name, 0, 0, 1);
@@ -403,27 +415,29 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
         init_bone_volumes();
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::MeshInstanceModule::teardown,
-         &objects::MeshInstanceModule::tick_frame,
-         &objects::MeshInstanceModule::configure_from_data,
-         &objects::MeshInstanceModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         &objects::MeshInstanceModule::conceal,
-         &objects::MeshInstanceModule::jump_to,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::MeshInstanceModule::invoke_method_by_name,
-         &objects::MeshInstanceModule::set_up_mesh_from_profile,
-         &objects::MeshInstanceModule::change_mesh};
+static VtableSlot g_vtable_slots[] = {
+    &objects::MeshInstanceModule::teardown,
+    &objects::MeshInstanceModule::tick_frame,
+    &objects::MeshInstanceModule::configure_from_data,
+    &objects::MeshInstanceModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    &objects::MeshInstanceModule::conceal,
+    &objects::MeshInstanceModule::jump_to,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::MeshInstanceModule::invoke_method_by_name,
+    &objects::MeshInstanceModule::set_up_mesh_from_profile,
+    &objects::MeshInstanceModule::change_mesh};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

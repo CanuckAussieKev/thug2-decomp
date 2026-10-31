@@ -27,13 +27,13 @@ int check_received_message(net::InboundMsgCtx* context);
 
 // What the checks look things up with (the self-tests swap them).
 struct Lookups {
-    bool (*animation_loaded_)(uint32_t animation); // the skater animation set's (THPS6_human) animation is cached
-    bool (*structure_exists_)(uint32_t name);      // a global structure
-    bool (*game_mode_exists_)(uint32_t mode);       // in mode_info
-    bool (*script_exists_)(uint32_t name);         // a global script
+    bool (*animation_loaded_)(uint32_t animation);     // the skater animation set's (THPS6_human) animation is cached
+    bool (*structure_exists_)(uint32_t name);          // a global structure
+    bool (*game_mode_exists_)(uint32_t mode);          // in mode_info
+    bool (*script_exists_)(uint32_t name);             // a global script
     int (*leave_server_)(net::InboundMsgCtx* context); // the "server moved on" path; its handler result
 };
 const Lookups& game_lookups();
 void set_lookups(const Lookups& lookups);
 
-} // namespace online::Guards
+} // namespace online::guards

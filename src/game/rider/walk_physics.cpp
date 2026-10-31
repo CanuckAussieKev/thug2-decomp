@@ -36,25 +36,13 @@
 namespace objects {
 
 uint32_t g_walk_member_functions[114]{
-    0x893213E5, 0x726E85AA, 0, 0, 0, 0,
-    0x5012082E, 0x726E85AA, 0, 0, 0, 0,
-    0x9A3CA853, 0x726E85AA, 0, 0, 0, 0,
-    0x19702CA8, 0x726E85AA, 0, 0, 0, 0,
-    0x8FE2B013, 0x726E85AA, 0, 0, 0, 0,
-    0xCE64576C, 0x726E85AA, 0, 0, 0, 0,
-    0x83E4BD70, 0x726E85AA, 0, 0, 0, 0,
-    0xAF04B983, 0x726E85AA, 0, 0, 0, 0,
-    0x56112C03, 0x726E85AA, 0, 0, 0, 0,
-    0x9D3EEBE8, 0x726E85AA, 0, 0, 0, 0,
-    0xC6CD659E, 0x726E85AA, 0, 0, 0, 0,
-    0x55BF1CD6, 0x726E85AA, 0, 0, 0, 0,
-    0xE9B1CDE8, 0x726E85AA, 0, 0, 0, 0,
-    0xAC7B36C8, 0x726E85AA, 0, 0, 0, 0,
-    0x7E01B923, 0x726E85AA, 0, 0, 0, 0,
-    0x492EBA50, 0x726E85AA, 0, 0, 0, 0,
-    0xF8F754EF, 0x726E85AA, 0, 0, 0, 0,
-    0x8BC2C0EC, 0x726E85AA, 0, 0, 0, 0,
-    0, 0x726E85AA, 0, 0, 0, 0};
+    0x893213E5, 0x726E85AA, 0, 0, 0, 0, 0x5012082E, 0x726E85AA, 0, 0, 0, 0, 0x9A3CA853, 0x726E85AA, 0, 0, 0, 0,
+    0x19702CA8, 0x726E85AA, 0, 0, 0, 0, 0x8FE2B013, 0x726E85AA, 0, 0, 0, 0, 0xCE64576C, 0x726E85AA, 0, 0, 0, 0,
+    0x83E4BD70, 0x726E85AA, 0, 0, 0, 0, 0xAF04B983, 0x726E85AA, 0, 0, 0, 0, 0x56112C03, 0x726E85AA, 0, 0, 0, 0,
+    0x9D3EEBE8, 0x726E85AA, 0, 0, 0, 0, 0xC6CD659E, 0x726E85AA, 0, 0, 0, 0, 0x55BF1CD6, 0x726E85AA, 0, 0, 0, 0,
+    0xE9B1CDE8, 0x726E85AA, 0, 0, 0, 0, 0xAC7B36C8, 0x726E85AA, 0, 0, 0, 0, 0x7E01B923, 0x726E85AA, 0, 0, 0, 0,
+    0x492EBA50, 0x726E85AA, 0, 0, 0, 0, 0xF8F754EF, 0x726E85AA, 0, 0, 0, 0, 0x8BC2C0EC, 0x726E85AA, 0, 0, 0, 0,
+    0,          0x726E85AA, 0, 0, 0, 0};
 
 namespace {
 
@@ -63,10 +51,10 @@ using namespace walk_fields;
 extern void** const kVtable;
 
 // Script names.
-constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B,
-                   kProbeElevation = 0x6DA7F696, kStandPosSearchDepth = 0xAEBFA9CD, kRunAdjustRate = 0x3FB31DFC,
-                   kGravity = 0xA5E2DA58, kCheatMoon = 0x9C8C6DF1, kMaxSlowWalkSpeed = 0xF3649996,
-                   kMaxFastWalkSpeed = 0x6A5805D8, kMaxSlowRunSpeed = 0x1C94CC9C;
+constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B, kProbeElevation = 0x6DA7F696,
+                   kStandPosSearchDepth = 0xAEBFA9CD, kRunAdjustRate = 0x3FB31DFC, kGravity = 0xA5E2DA58,
+                   kCheatMoon = 0x9C8C6DF1, kMaxSlowWalkSpeed = 0xF3649996, kMaxFastWalkSpeed = 0x6A5805D8,
+                   kMaxSlowRunSpeed = 0x1C94CC9C;
 constexpr uint32_t kOff = 0xD443A2BC, kRun = 0xAF895B3F, kLedgeMoveFlag = 0x6384F1DA, kLadderMove = 0xA2BFE505,
                    kStandardSpeedName = 0xB2D59BAF, kCamIdKey = 0xC4E311FA, kWalkCameraType = 0xC7D37EC2,
                    kStateTimeName = 0x5AB23CC9, kSpeedScale = 0x092C388F, kWalkSlow = 0x1150CABB,
@@ -75,18 +63,21 @@ constexpr uint32_t kOff = 0xD443A2BC, kRun = 0xAF895B3F, kLedgeMoveFlag = 0x6384
                    kStateName = 0x5C6C2D04, kHangAngle = 0xEAD7D286, kOn = 0xF649D637, kSkid = 0x1D537EFF,
                    kStand = 0x9B46E749, kSkaterScore = 0xD262802F;
 
-constexpr float kHangDebounceScale = -1000.0f; // 0x0064604C
+constexpr float kHangDebounceScale = -1000.0f;      // 0x0064604C
 constexpr float kSeventhTurn = 0.8975979089736938f; // 0x00646968 (2 pi / 7)
-constexpr float kDegrees = 57.2957763671875f;  // 0x00645468
-constexpr float kMs = 0.001f;                  // 0x006461D8 (0.0010000000474974513f)
-constexpr float kHalf = 0.5f;                  // 0x006453BC
+constexpr float kDegrees = 57.2957763671875f;       // 0x00645468
+constexpr float kMs = 0.001f;                       // 0x006461D8 (0.0010000000474974513f)
+constexpr float kHalf = 0.5f;                       // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
 const uint32_t kWalkStateNames[5]{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637};
 uint32_t get_state_name(int state) { return kWalkStateNames[state]; }
 
 // The skate module's career (0x007CE478's +0x20).
-RiderStoryProgress* get_career() { return get_at<RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20); }
+RiderStoryProgress* get_career()
+{
+    return get_at<RiderStoryProgress*>(static_cast<void*>(modules::g_skate_module), 0x20);
+}
 
 // asin (the game's C runtime) of `value` in degrees (x 57.29578), negated when `negate` - the result kept in the
 // register until it is rounded to float, as the original.
@@ -117,16 +108,16 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
         fld st(0)
         fcos
         fstp cosine
-        fsin                // sin
+        fsin // sin
         fld cosine
-        fmul x              // c*x, sin
+        fmul x // c*x, sin
         fld st(1)
-        fmul z              // sin*z, c*x, sin
-        fsubp st(1), st     // c*x - sin*z, sin
-        fstp rx             // sin
-        fmul x              // sin*x
+        fmul z // sin*z, c*x, sin
+        fsubp st(1), st // c*x - sin*z, sin
+        fstp rx // sin
+        fmul x // sin*x
         fld cosine
-        fmul z              // c*z, sin*x
+        fmul z // c*z, sin*x
         faddp st(1), st
         fstp rz
     }
@@ -139,8 +130,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 // 0x00525E40
 void __cdecl FootMovement::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kWalk), g_walk_member_functions,
-                                        0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kWalk), g_walk_member_functions, 0x18);
 }
 
 // 0x00528880
@@ -258,7 +248,8 @@ maths::Vec4* FootMovement::get_camera_offset(maths::Vec4* out)
     bool offset;
     if (state == 1) {
         int previous = get_at<int>(this, kPreviousState);
-        offset = (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(get_at<int>(this, kStateTime))) < 150;
+        offset =
+            (previous == 2 || previous == 3) && static_cast<uint32_t>(clock_since(get_at<int>(this, kStateTime))) < 150;
     } else {
         offset = state > 1 && state <= 4;
     }
@@ -336,7 +327,8 @@ double __cdecl FootMovement::get_gravity()
 }
 
 // 0x00528280
-bool __stdcall FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler)
+bool __stdcall FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out,
+                                                 render::ProbeRay* feeler)
 {
     float height = walk_parameter(kProbeElevation);
     feeler->line_.start = *position;
@@ -474,25 +466,25 @@ bool FootMovement::walk_set_forward_control_lock(script::Struct* params, script:
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&FootMovement::teardown,
-         &FootMovement::tick_frame,
-         &objects::FootMovement::configure_from_data,
-         &objects::FootMovement::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &FootMovement::tick_frame,
+                                      &objects::FootMovement::configure_from_data,
+                                      &objects::FootMovement::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

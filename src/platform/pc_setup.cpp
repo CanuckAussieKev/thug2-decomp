@@ -48,9 +48,6 @@ void init_pc_setup()
     render::load_graphics_settings();
 }
 
-void fast_exit()
-{
-    ExitProcess(0);
-}
+void fast_exit() { ExitProcess(0); }
 
-} // namespace Sys
+} // namespace sys

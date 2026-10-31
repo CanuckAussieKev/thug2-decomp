@@ -100,7 +100,7 @@ void get_msleep(unsigned milliseconds) { game_spy::get_msleep(milliseconds); }
 // own clean-up.
 unsigned get_instant() { return crt::get_instant(); }
 void get_srand(unsigned seed) { crt::get_srand(seed); }
-void c_exit() { crt::c_exit(); } // _cexit: atexit functions, streams flushed
+void c_exit() { crt::c_exit(); }                              // _cexit: atexit functions, streams flushed
 [[noreturn]] void exit_now(int code) { crt::exit_now(code); } // _exit
 
 // The platform layer's parts without source yet.
@@ -121,7 +121,7 @@ const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Se
 // End, Delete, Page Down), gp0_0..gp0_23 (the first pad) and gp1_0..gp1_23 (the second).
 const char* const kBindingPrefixes[3] = {"k0_", "gp0_", "gp1_"};
 const uint32_t kDefaultBindings[3][24] = {
-    {0x11, 0x1F, 0x1E, 0x20, 0x2C, 0x2D, 0x2E, 0x2F, 0x50, 0x4D, 0x4B, 0x48,
+    {0x11,       0x1F, 0x1E, 0x20, 0x2C, 0x2D, 0x2E, 0x2F, 0x50, 0x4D, 0x4B, 0x48,
      0x0FFFFFFF, 0x0F, 0x4F, 0x51, 0x47, 0x49, 0x52, 0x53, 0xC7, 0xCF, 0xD3, 0xD1},
     {2, 2, 1, 1, 0x0B, 0x0C, 0x0D, 0x0E},
     {},
@@ -178,10 +178,7 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
 }
 
 // 0x004E1220
-void __cdecl parse_network_params(const char* command_line)
-{
-    read_network_params(command_line);
-}
+void __cdecl parse_network_params(const char* command_line) { read_network_params(command_line); }
 
 void read_network_params(const char* command_line)
 {
@@ -332,7 +329,8 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // The keys' names: the character each scan code types in the keyboard layout (an acute accent shown as an
     // apostrophe, a semicolon as a colon); the function keys by name.
     for (unsigned scan_code = 0; scan_code < 256; ++scan_code) {
-        char name[2] = {static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)), 0};
+        char name[2] = {static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)),
+                        0};
         if (static_cast<uint8_t>(name[0]) == 0xB4)
             name[0] = '\'';
         else if (name[0] == ';')
@@ -365,7 +363,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     release_direct_sound();
     // Originally from PartyMod Fixes: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
     gfx::loading_console::screen_hidden(); // (not original: the loading console's timer stopped)
-    render::remove_loading_screen(); // (the renderer's clean-up)
+    render::remove_loading_screen();       // (the renderer's clean-up)
     release_direct_3d();
     InvalidateRect(nullptr, nullptr, TRUE);
     ShowWindow(game_window(), SW_SHOWMINIMIZED);
@@ -374,4 +372,4 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     exit_now(0);
 }
 
-} // namespace Sys
+} // namespace sys

@@ -48,49 +48,49 @@ float g_hundred{100.0f};
 namespace {
 
 // Names.
-constexpr uint32_t kName = 0xA1DC81F9;                    // name
-constexpr uint32_t kPrefix = 0x6C4E7971;                  // prefix
-constexpr uint32_t kNoPrefixWarning = 0x80804991;         // NoPrefixWarning
-constexpr uint32_t kSystem = 0x36B2EE74;                  // system
-constexpr uint32_t kSystemIndex = 0x2B430364;             // system_index
-constexpr uint32_t kCurrentState = 0xF8725A00;            // current_state
-constexpr uint32_t kOverwriteCurrentState = 0x6136E863;   // overwrite_current_state
-constexpr uint32_t kStateLength = 0xF746BEE2;             // state_length
-constexpr uint32_t kTransitionLength = 0x37BC278D;        // transition_length
-constexpr uint32_t kSky = 0xF9D98B10;                     // sky
-constexpr uint32_t kGroups = 0x0F92C68F;                  // groups
-constexpr uint32_t kParts = 0x96BF5801;                   // parts
-constexpr uint32_t kWaitFrames = 0x3FAF7F7F;              // wait_frames
-constexpr uint32_t kLightGroup = 0x9655CFF7;              // light_group
-constexpr uint32_t kResetLightGroup = 0xEC50037D;         // reset_light_group
-constexpr uint32_t kNumDaysPassed = 0x49EF4348;           // num_days_passed
-constexpr uint32_t kTimeMultiplierName = 0x1868AFB2;      // TOD_Time_Multiplier
-constexpr uint32_t kActive = 0xB4E103FD;                  // active
-constexpr uint32_t kCurrentStateName = 0xEA84C14D;        // current_state_name
-constexpr uint32_t kTodParams = 0xDF3D6451;               // tod_params
-constexpr uint32_t kStateName = 0x353F083F;               // state_name
-constexpr uint32_t kTempTodChanged = 0x4AF50A5B;          // todmanager_temp_tod_changed (a script global)
-constexpr uint32_t kInactive = 0xAAE2353A;                // tod_manager_inactive (a script global)
-constexpr uint32_t kCareer = 0x4DA4937B;                  // career
-constexpr uint32_t kCurrentTod = 0xF200CB7E;              // current_tod
-constexpr uint32_t kNextTod = 0x053D35AF;                 // next_tod
-constexpr uint32_t kTodStateParams = 0x48F1380F;          // tod_state_params
-constexpr uint32_t kTransitionScript = 0x37D7E331;        // level_specific_transition_script
-constexpr uint32_t kStateTransition = 0xD99EE043;         // tod_manager_state_transition (a script)
-constexpr uint32_t kInstantChange = 0x43633E05;           // instant_change
-constexpr uint32_t kTempState = 0xCACC8C05;               // temp_state
-constexpr uint32_t kBloomParams = 0x19C45D14;             // bloom_params
-constexpr uint32_t kOn = 0xF649D637;                      // on
-constexpr uint32_t kBloom1 = 0xF68014D9;                  // bloom1
-constexpr uint32_t kBloom2 = 0x6F894563;                  // bloom2
-constexpr uint32_t kStrength = 0x29461E27;                // strength
-constexpr uint32_t kColor = 0x99A9B716;                   // color
-constexpr uint32_t kOutdoor = 0xE3714DC1;                 // outdoor (the light group of everything outside)
-constexpr uint32_t kModel = 0x286A8D26;                   // model (the component type)
+constexpr uint32_t kName = 0xA1DC81F9;                  // name
+constexpr uint32_t kPrefix = 0x6C4E7971;                // prefix
+constexpr uint32_t kNoPrefixWarning = 0x80804991;       // NoPrefixWarning
+constexpr uint32_t kSystem = 0x36B2EE74;                // system
+constexpr uint32_t kSystemIndex = 0x2B430364;           // system_index
+constexpr uint32_t kCurrentState = 0xF8725A00;          // current_state
+constexpr uint32_t kOverwriteCurrentState = 0x6136E863; // overwrite_current_state
+constexpr uint32_t kStateLength = 0xF746BEE2;           // state_length
+constexpr uint32_t kTransitionLength = 0x37BC278D;      // transition_length
+constexpr uint32_t kSky = 0xF9D98B10;                   // sky
+constexpr uint32_t kGroups = 0x0F92C68F;                // groups
+constexpr uint32_t kParts = 0x96BF5801;                 // parts
+constexpr uint32_t kWaitFrames = 0x3FAF7F7F;            // wait_frames
+constexpr uint32_t kLightGroup = 0x9655CFF7;            // light_group
+constexpr uint32_t kResetLightGroup = 0xEC50037D;       // reset_light_group
+constexpr uint32_t kNumDaysPassed = 0x49EF4348;         // num_days_passed
+constexpr uint32_t kTimeMultiplierName = 0x1868AFB2;    // TOD_Time_Multiplier
+constexpr uint32_t kActive = 0xB4E103FD;                // active
+constexpr uint32_t kCurrentStateName = 0xEA84C14D;      // current_state_name
+constexpr uint32_t kTodParams = 0xDF3D6451;             // tod_params
+constexpr uint32_t kStateName = 0x353F083F;             // state_name
+constexpr uint32_t kTempTodChanged = 0x4AF50A5B;        // todmanager_temp_tod_changed (a script global)
+constexpr uint32_t kInactive = 0xAAE2353A;              // tod_manager_inactive (a script global)
+constexpr uint32_t kCareer = 0x4DA4937B;                // career
+constexpr uint32_t kCurrentTod = 0xF200CB7E;            // current_tod
+constexpr uint32_t kNextTod = 0x053D35AF;               // next_tod
+constexpr uint32_t kTodStateParams = 0x48F1380F;        // tod_state_params
+constexpr uint32_t kTransitionScript = 0x37D7E331;      // level_specific_transition_script
+constexpr uint32_t kStateTransition = 0xD99EE043;       // tod_manager_state_transition (a script)
+constexpr uint32_t kInstantChange = 0x43633E05;         // instant_change
+constexpr uint32_t kTempState = 0xCACC8C05;             // temp_state
+constexpr uint32_t kBloomParams = 0x19C45D14;           // bloom_params
+constexpr uint32_t kOn = 0xF649D637;                    // on
+constexpr uint32_t kBloom1 = 0xF68014D9;                // bloom1
+constexpr uint32_t kBloom2 = 0x6F894563;                // bloom2
+constexpr uint32_t kStrength = 0x29461E27;              // strength
+constexpr uint32_t kColor = 0x99A9B716;                 // color
+constexpr uint32_t kOutdoor = 0xE3714DC1;               // outdoor (the light group of everything outside)
+constexpr uint32_t kModel = 0x286A8D26;                 // model (the component type)
 // SetSceneColor's other parameters (names not recovered).
-constexpr uint32_t kSceneColorFlag = 0xE5B6C568;          // the sectors only (not the scenes' own colour, the models)
-constexpr uint32_t kSceneColorStart = 0xDF1A695F;         // the first percent of the sectors
-constexpr uint32_t kSceneColorEnd = 0x8F639F94;           // the last percent
+constexpr uint32_t kSceneColorFlag = 0xE5B6C568;  // the sectors only (not the scenes' own colour, the models)
+constexpr uint32_t kSceneColorStart = 0xDF1A695F; // the first percent of the sectors
+constexpr uint32_t kSceneColorEnd = 0x8F639F94;   // the last percent
 
 // The parameters' names, in the order of TODParams from +0x28 (fog_on, +0x40, isn't read from a script).
 constexpr uint32_t kLevRed = 0x966014FF, kLevGreen = 0x5F727131, kLevBlue = 0x1C5D554E;
@@ -114,14 +114,14 @@ constexpr uint32_t kNeutralColor = 0x81808080;
 
 // The exe's constants.
 float degree_to_radian_conv() { return commands::g_degree_to_radian_ratio; } // 0.017453292
-float get_zero() { return objects::g_float_zero; }             // 0.0
-float one_percent() { return render::g_one_percent; }       // 0.01
-float one_over255() { return g_one_over255; }       // 1 / 255
-float two_to32() { return g_two_to32; }          // 4294967296: unsigned integers' correction
-float get_one() { return objects::g_anim_movies_one; }              // 1.0
-float get_half() { return g_half; }             // 0.5
-float hundred() { return g_hundred; }          // 100.0
-float thousand() { return g_thousand; }         // 1000.0
+float get_zero() { return objects::g_float_zero; }                           // 0.0
+float one_percent() { return render::g_one_percent; }                        // 0.01
+float one_over255() { return g_one_over255; }                                // 1 / 255
+float two_to32() { return g_two_to32; }                // 4294967296: unsigned integers' correction
+float get_one() { return objects::g_anim_movies_one; } // 1.0
+float get_half() { return g_half; }                    // 0.5
+float hundred() { return g_hundred; }                  // 100.0
+float thousand() { return g_thousand; }                // 1000.0
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -213,10 +213,7 @@ void set_fog_distance(float distance) { render::engine::set_fog_distance(distanc
 void change_ambient_tint(uint32_t color) { render::set_light_ambient_color(color); }
 void change_light_tint(int index, uint32_t color) { render::set_light_diffuse_color(index, color); }
 void set_ambient_modulation(float lo, float hi) { render::change_ambient_scale(lo, hi); }
-void set_light_modulation(int index, float lo, float hi)
-{
-    render::change_diffuse_scale(index, lo, hi);
-}
+void set_light_modulation(int index, float lo, float hi) { render::change_diffuse_scale(index, lo, hi); }
 void set_light_direction_vector(int index, const float* direction)
 {
     render::set_light_direction(index, reinterpret_cast<const maths::Vec4*>(direction));
@@ -235,7 +232,8 @@ static_assert(offsetof(SunParams, color) == 0x18 && offsetof(SunParams, shown) =
 constexpr int kSunAngles = 0x01 | 0x02, kSunColor = 0x10, kSunShown = 0x80;
 void set_sun(const SunParams* sun, int mask)
 {
-    static_assert(offsetof(SunParams, shown) == offsetof(sun::Settings, shown), "the sun's settings (SetSun reads 0x44 bytes)");
+    static_assert(offsetof(SunParams, shown) == offsetof(sun::Settings, shown),
+                  "the sun's settings (SetSun reads 0x44 bytes)");
     sun::set_sun(reinterpret_cast<const sun::Settings*>(sun), static_cast<uint32_t>(mask));
 }
 // The level colour as the renderer's material colour (0x006FA7C4's, 0x006FA7C0's, and a global copy).
@@ -400,9 +398,7 @@ void CtodManager::read_group(int index)
 TodParams CtodManager::get_lerp(TodParams a, TodParams b, float t)
 {
     auto integer = [t](int from, int to) { return ftol(static_cast<double>(to - from) * t + from); };
-    auto real = [t](float from, float to) {
-        return static_cast<float>((static_cast<double>(to) - from) * t + from);
-    };
+    auto real = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
     auto byte = [&](uint32_t from, uint32_t to, int shift) {
         int f = static_cast<int>(from >> shift & 0xFF);
         int g = static_cast<int>(to >> shift & 0xFF);
@@ -444,9 +440,9 @@ TodParams CtodManager::get_lerp(TodParams a, TodParams b, float t)
     r.bloom2 = integer(a.bloom2, b.bloom2);
     // The bloom colours byte by byte; their fourth byte is 0x80.
     r.bloom_strength_ = byte(a.bloom_strength_, b.bloom_strength_, 0) | byte(a.bloom_strength_, b.bloom_strength_, 8) |
-                      byte(a.bloom_strength_, b.bloom_strength_, 16) | 0x80000000u;
+                        byte(a.bloom_strength_, b.bloom_strength_, 16) | 0x80000000u;
     r.bloom_color_ = byte(a.bloom_color_, b.bloom_color_, 0) | byte(a.bloom_color_, b.bloom_color_, 8) |
-                   byte(a.bloom_color_, b.bloom_color_, 16) | 0x80000000u;
+                     byte(a.bloom_color_, b.bloom_color_, 16) | 0x80000000u;
     return r;
 }
 
@@ -591,7 +587,8 @@ void CtodManager::set_fog_active(bool on)
     change_fog(true);
     TodParams params = get_tod_params(-1);
     get_filter(&params); // (NOT ORIGINAL: an edited level's own fog - set_tod_params_filter)
-    set_fog_color(get_rgba(params.fog_red_, params.fog_green_, params.fog_blue_, static_cast<uint8_t>(params.fog_alpha_)));
+    set_fog_color(
+        get_rgba(params.fog_red_, params.fog_green_, params.fog_blue_, static_cast<uint8_t>(params.fog_alpha_)));
     set_fog_distance(static_cast<float>(params.fog_dist_));
 }
 
@@ -626,9 +623,7 @@ void CtodManager::update_sun()
         t = get_fraction(system.time + system.state_length_, system.transition_length_ + system.state_length_);
     else
         t = get_fraction(system.time, system.state_length_ + system.transition_length_);
-    auto blend = [t](float from, float to) {
-        return static_cast<float>((static_cast<double>(to) - from) * t + from);
-    };
+    auto blend = [t](float from, float to) { return static_cast<float>((static_cast<double>(to) - from) * t + from); };
     const TodParams& a = system.current;
     const TodParams& b = system.next;
     SunParams sun = {};
@@ -643,8 +638,8 @@ void CtodManager::update_sun()
 }
 
 // 0x005725F0
-void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group, int start_percent,
-                       int end_percent)
+void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
+                          int start_percent, int end_percent)
 {
     // The scene's sectors: +0x0C the light group, +0x14 the geometry (vtable +0x18: its colour).
     auto* table = *reinterpret_cast<lists::KeyMap**>(scene + 0xD0);
@@ -709,8 +704,8 @@ void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, 
 }
 
 // 0x005727F0 (and 0x00572821)
-void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint32_t light_group, uint32_t reset_light_group,
-                             bool part_only, int start_percent, int end_percent)
+void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint32_t light_group,
+                              uint32_t reset_light_group, bool part_only, int start_percent, int end_percent)
 {
     if (sky) {
         uint8_t* scene = sky_scene();
@@ -784,7 +779,8 @@ void CtodManager::apply_tod_params(TodParams params)
     set_light_modulation(1, params.mod_lo1_, params.mod_hi1_);
     if (fog_active_ || fog_forced) {
         change_fog(true);
-        set_fog_color(get_rgba(params.fog_red_, params.fog_green_, params.fog_blue_, static_cast<uint8_t>(params.fog_alpha_)));
+        set_fog_color(
+            get_rgba(params.fog_red_, params.fog_green_, params.fog_blue_, static_cast<uint8_t>(params.fog_alpha_)));
         set_fog_distance(static_cast<float>(params.fog_dist_));
     }
     // The level colour, 0..255 as 0..2.
@@ -1061,7 +1057,8 @@ void CtodManager::refresh_all(bool temp_state)
         if (temp_state)
             params->put_name_key(0u, kTempState);
         script::Struct* bloom = spawn_param_table();
-        add_bloom_params(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_, current.bloom_color_, bloom);
+        add_bloom_params(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_,
+                         current.bloom_color_, bloom);
         params->put_sub_struct(kBloomParams, bloom);
         delete_structure(bloom);
         script::spawn_script(kStateTransition, params, 0, nullptr, 0, 0, false, false, false, false);
@@ -1131,7 +1128,8 @@ void CtodManager::enable_bloom(int on)
 // 0x00574590
 void CtodManager::tick_frame()
 {
-    if (active_ruleset_label() != kCareer || script::fetch_int_value(kInactive) == 1 || temp_tod_ || !active_ || is_game_halted())
+    if (active_ruleset_label() != kCareer || script::fetch_int_value(kInactive) == 1 || temp_tod_ || !active_ ||
+        is_game_halted())
         return;
     int elapsed = ftol(frame_clock::get_slomo_frame_seconds() * time_multiplier_ * thousand());
     full_length_ += elapsed;
@@ -1475,4 +1473,4 @@ bool __cdecl cfunc_tod_manager_advance_tod_state(script::Struct* /*params*/, scr
     return true;
 }
 
-} // namespace Gfx
+} // namespace gfx

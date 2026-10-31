@@ -189,8 +189,10 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             float number = std::strtof(value.c_str(), &end);
             if (value.empty() || *end != '\0' || !std::isfinite(number))
                 return false;
-            (key == "brightness" ? spec->brightness : key == "inner" ? spec->inner : key == "outer" ? spec->outer
-                                                                                                    : spec->radius) = number;
+            (key == "brightness" ? spec->brightness
+             : key == "inner"    ? spec->inner
+             : key == "outer"    ? spec->outer
+                                 : spec->radius) = number;
         }
     }
     return std::find(seen.begin(), seen.end(), "pos") != seen.end();
@@ -460,7 +462,7 @@ bool get_take_in(const std::string& text, FileLoad* file, int* line_number)
             std::string rest;
             std::getline(in, rest);
             ok = triggers::read_record(rest.substr(std::min(rest.size(), rest.find_first_not_of(' '))),
-                                      &file->triggers.emplace_back());
+                                       &file->triggers.emplace_back());
         } else if (kind == "proxim") {
             std::string rest;
             std::getline(in, rest);
@@ -586,7 +588,10 @@ bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
     uint32_t value = 0;
     for (int i = 0; i < 8; ++i) {
         char c = file_name[i];
-        int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'A' && c <= 'F' ? c - 'A' + 10 : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1;
+        int digit = c >= '0' && c <= '9'   ? c - '0'
+                    : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                    : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                                           : -1;
         if (digit < 0)
             return false;
         value = value << 4 | static_cast<uint32_t>(digit);
@@ -776,7 +781,8 @@ bool get_capture(FileLoad* file)
         objects::GameEntity* object = live_object(copy.name);
         if (!object)
             continue;
-        CopyRecord record = {copy.name, copy.source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
+        CopyRecord record = {
+            copy.name, copy.source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
         rows_of(object->basis_frame_, record.rows);
         record.scale = scale_tool::get_object_scale(object);
         file->copies.push_back(record);
@@ -808,7 +814,8 @@ bool get_capture(FileLoad* file)
         if (node_create::is_added(node.name))
             continue; // (its node record has its place)
         const node_edit::Values& v = node.values;
-        file->nodes.push_back({node.name, true, true, {v.pos.x, v.pos.y, v.pos.z}, {v.angles.x, v.angles.y, v.angles.z}});
+        file->nodes.push_back(
+            {node.name, true, true, {v.pos.x, v.pos.y, v.pos.z}, {v.angles.x, v.angles.y, v.angles.z}});
     }
     // (phase 6) the Inspector's field edits: on the node's set record (one made for a node not moved)
     for (const fields::NodeEdits& node : fields::get_changed()) {
@@ -883,7 +890,8 @@ std::string get_apply(const FileLoad& file)
     }
     for (const CopyRecord& record : file.copies) {
         bool there = object_edit::is_copy(record.name) && live_object(record.name);
-        if ((there || object_edit::make_copy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name)) &&
+        if ((there ||
+             object_edit::make_copy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name)) &&
             object_edit::get_restore(state_of(record.name, record.pos, record.rows, record.scale)))
             ++copies;
     }
@@ -940,8 +948,8 @@ std::string get_apply(const FileLoad& file)
     if (!message.empty())
         get_log("level editor: %s", message.c_str());
     if (!file.proxims.empty())
-        get_log("level editor: %d of the layout's %u proximity node edits in place", triggers::apply_proxims(file.proxims),
-            static_cast<unsigned>(file.proxims.size()));
+        get_log("level editor: %d of the layout's %u proximity node edits in place",
+                triggers::apply_proxims(file.proxims), static_cast<unsigned>(file.proxims.size()));
     // (map3) collision faces' flags - after the sectors (a moved piece's shared collision took its faces along: theirs
     // are set there), scenery clusters (after the level's own registration), camera nodes.
     int faces = faces::get_apply(file.faces);
@@ -952,8 +960,8 @@ std::string get_apply(const FileLoad& file)
         get_log("level editor: the layout's %d linked-copy groups in place", links);
     apply_extensions(file.extra); // (other modules' records: level_editor_organize.h)
     if (faces || clusters || cameras)
-        get_log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place", faces,
-            clusters, cameras);
+        get_log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place",
+                faces, clusters, cameras);
     if (int notes = notes::get_apply(file.notes)) // (UX5: note pins)
         get_log("level editor: the layout's %d notes put in place", notes);
     checks::note_layout_applied(file); // (UX5: records that don't resolve - logged, listed, kept)
@@ -1009,7 +1017,7 @@ void reset_to_level(const FileLoad& keep)
             object_edit::remove_copy(copy.name);
     }
     node_edit::reset_all();
-    triggers::reset_all();   // (the editor's trigger volumes and their nodes removed, the level's turned on again)
+    triggers::reset_all();    // (the editor's trigger volumes and their nodes removed, the level's turned on again)
     node_create::reset_all(); // (added nodes removed, hidden ones shown: Apply makes the layout's again)
     fields::reset_all();
     level_props::assign_value(level_props::Props{});
@@ -1020,9 +1028,9 @@ void reset_to_level(const FileLoad& keep)
     clusters::reset_all();
     cameras::reset_all();
     goal_edit::reset_all(); // (out of play, their points' nodes removed - Apply makes the layout's again)
-    links::reset_all(); // (UX7)
+    links::reset_all();     // (UX7)
     reset_extensions();
-    notes::reset_all();             // (UX5)
+    notes::reset_all();              // (UX5)
     checks::forget_layout_records(); // (UX5: Apply notes the next layout's again)
 }
 
@@ -1058,14 +1066,15 @@ bool store_away(std::string* message)
         return false;
     }
     char text[256];
-    std::snprintf(text, sizeof(text),
-                  "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden, "
-                  "%u triggers",
-                  static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
-                  static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
-                  static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()),
-                  static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()),
-                  static_cast<unsigned>(file.triggers.size()));
+    std::snprintf(
+        text, sizeof(text),
+        "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden, "
+        "%u triggers",
+        static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
+        static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
+        static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()),
+        static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()),
+        static_cast<unsigned>(file.triggers.size()));
     *message = text;
     get_log("level editor: %s - %s", text, path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)
@@ -1139,8 +1148,8 @@ void write_autosave_from_crash()
         return;
     write_snapshot_guarded();
     get_log(g_snapshot_written ? "level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)"
-                          : "level editor: the unsaved changes couldn't be autosaved - %s",
-        g_snapshot_path);
+                               : "level editor: the unsaved changes couldn't be autosaved - %s",
+            g_snapshot_path);
     busy = 0;
 }
 
@@ -1156,7 +1165,7 @@ bool autosave_offered()
     g_offer_pending = autosave_newer(have_autosave, autosave_time, have_saved, saved_time);
     if (g_offer_pending)
         get_log("level editor: an autosave newer than the saved layout - %s (Ctrl+R restores, Ctrl+Shift+R discards)",
-            autosave_path_for(name).c_str());
+                autosave_path_for(name).c_str());
     return g_offer_pending;
 }
 
@@ -1243,7 +1252,7 @@ struct LevelInfo {
     uint32_t scene;
     std::string title;
     script::Struct* structure = nullptr; // (phase 6: its level properties go in here - level_editor_level_props.h)
-    uint32_t node_array_ = 0;               // (its qb='s node array: level_nodes::node_array_checksum)
+    uint32_t node_array_ = 0;            // (its qb='s node array: level_nodes::node_array_checksum)
 };
 std::unordered_map<uint32_t, LevelInfo> levels_by_load()
 {
@@ -1301,9 +1310,9 @@ void on_scene_loaded(const char* name, bool is_net)
     clusters::forget_level();
     cameras::forget_level();
     goal_edit::forget_level(); // (a goal of ours still in the goal manager taken out: its nodes went with the level)
-    links::forget_level(); // (UX7)
-    notes::forget_level();  // (UX5)
-    checks::forget_level(); // (UX5: the issues, the ignored list, the unresolved records)
+    links::forget_level();     // (UX7)
+    notes::forget_level();     // (UX5)
+    checks::forget_level();    // (UX5: the issues, the ignored list, the unresolved records)
     chains::forget_level(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     node_create::forget_level();
     entities::forget_level();
@@ -1343,8 +1352,8 @@ void tick()
             career::get_edited_copy(false); // (the career's gap list put back as before)
             forget_session();
             get_log("level editor: the game mode is now %s - the edited copy put back as the level as shipped (edited "
-                "levels are free skate / single session only)",
-                mode);
+                    "levels are free skate / single session only)",
+                    mode);
             return;
         }
     }
@@ -1368,7 +1377,7 @@ void tick()
     if (!apply) {
         if (has_saved_layout())
             get_log("level editor: %s loaded as shipped%s - its edited copy is the level select's (EDITED) entry",
-                level_title().c_str(), refused ? (" (" + why + ")").c_str() : "");
+                    level_title().c_str(), refused ? (" (" + why + ")").c_str() : "");
         return;
     }
     g_edited_copy = true;
@@ -1399,7 +1408,8 @@ void on_node_array_added(uint32_t array)
     if (edits.empty())
         return;
     int applied = fields::apply_early(array, edits);
-    get_log("level editor: the edited copy's node array %s loaded - %d field edits written into its nodes before they're "
+    get_log(
+        "level editor: the edited copy's node array %s loaded - %d field edits written into its nodes before they're "
         "made",
         object_edit::caption(array).c_str(), applied);
 }
@@ -1439,9 +1449,7 @@ ModeFlags current_mode()
     if (!mode)
         return flags;
     // (0x00553220: the mode's structure's integer `property`, non-zero)
-    auto is = [mode](uint32_t property) {
-        return static_cast<goals::MatchRules*>(mode)->is_true(property);
-    };
+    auto is = [mode](uint32_t property) { return static_cast<goals::MatchRules*>(mode)->is_true(property); };
     flags.known = true;
     flags.freeskate = is(kIsFreeskate);
     flags.single_session_ = is(kIsSingleSession);
@@ -1523,8 +1531,7 @@ bool enter_edited_copy(std::string* message)
         return false;
     }
     if (const char* mode = career_mode_active()) {
-        *message = std::string("The level editor isn't offered in ") + mode +
-                   " (free skate and single session only)";
+        *message = std::string("The level editor isn't offered in ") + mode + " (free skate and single session only)";
         return false;
     }
     g_switch = 0;
@@ -1535,7 +1542,7 @@ bool enter_edited_copy(std::string* message)
     }
     g_edited_copy = true;
     career::get_edited_copy(true); // (the career's gap list kept as it is first - level_editor_career.h)
-    g_pending = false; // (put in place here, not again by Tick)
+    g_pending = false;             // (put in place here, not again by Tick)
     std::string loaded;
     if (has_saved_layout() && read_in(&loaded))
         *message = "Editing " + level_title() + " (Edited)";
@@ -1585,7 +1592,8 @@ bool put_back(const std::string& before, std::string* message)
     FileLoad file;
     int line = 0;
     uint8_t* scene = scenery::main_scene();
-    if (render::current_level() == 0 || !scene || !get_take_in(before, &file, &line) || file.scene != scenery::world_scene_key(scene)) {
+    if (render::current_level() == 0 || !scene || !get_take_in(before, &file, &line) ||
+        file.scene != scenery::world_scene_key(scene)) {
         *message = "Couldn't restore the changes";
         return false;
     }
@@ -1628,7 +1636,7 @@ bool __cdecl cfunc_pick_level(script::Struct* params, script::Script*)
         g_switch_wait = 0;
     }
     get_log("level editor: level picked - %s%s", object_edit::caption(load).c_str(),
-        g_request ? " (its edited copy)" : " (as shipped)");
+            g_request ? " (its edited copy)" : " (as shipped)");
     return true;
 }
 
@@ -1642,10 +1650,9 @@ bool __cdecl cfunc_edited_levels(script::Struct*, script::Script* script)
     static const uint32_t kLevel = checksums::hash_from_text("level"), kText = checksums::hash_from_text("text"),
                           kEditedLayout = checksums::hash_from_text("edited_layout"),
                           kSignLabel = checksums::hash_from_text("sign_label");
-    static const char* const kLists[] = {"level_select_menu_level_info", "level_select_menu_thug1_level_info",
+    static const char* const kLists[] = {"level_select_menu_level_info",       "level_select_menu_thug1_level_info",
                                          "level_select_menu_thps4_level_info", "level_select_menu_thps3_level_info",
-                                         "level_select_menu_thaw_level_info",
-                                         "level_select_menu_misc_level_info"};
+                                         "level_select_menu_thaw_level_info",  "level_select_menu_misc_level_info"};
     static const char* const kDropped[] = {"new_vmenu", "hold_vmenu"}; // (columns of the level's own section)
     std::unordered_map<uint32_t, LevelInfo> levels = levels_by_load();
     std::vector<script::Struct*> entries;
@@ -1693,4 +1700,4 @@ bool __cdecl cfunc_edited_levels(script::Struct*, script::Script* script)
     return true;
 }
 
-} // namespace MenuSystem::level_editor::Layout
+} // namespace frontend::level_editor::layout

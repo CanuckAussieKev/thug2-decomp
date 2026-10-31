@@ -7,7 +7,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace render {
 class ProbeRay;
@@ -49,9 +49,9 @@ public:
     // the trigger component (event 14) - any that does rests them for ten frames.
     void check_triggers();
 
-    uint8_t* rider_ref_;           // +0x18 the local skater (its projectile slots at +0x1C0, 0x18 bytes each)
-    int seat_;                   // +0x1C its slot (-1: none)
-    int rest_;                   // +0x20 frames left before the feelers run again
+    uint8_t* rider_ref_;                // +0x18 the local skater (its projectile slots at +0x1C0, 0x18 bytes each)
+    int seat_;                          // +0x1C its slot (-1: none)
+    int rest_;                          // +0x20 frames left before the feelers run again
     ActivationZoneModule* trigger_ptr_; // +0x24 the local skater's trigger component
 };
 static_assert(offsetof(ProjectileComponent, rider_ref_) == 0x18 && offsetof(ProjectileComponent, seat_) == 0x1C &&
@@ -59,4 +59,4 @@ static_assert(offsetof(ProjectileComponent, rider_ref_) == 0x18 && offsetof(Proj
                   sizeof(ProjectileComponent) == 0x28,
               "layout must match the original (0x004F3890 allocates 0x28 bytes)");
 
-} // namespace Obj
+} // namespace objects

@@ -20,21 +20,37 @@
 
 namespace render {
 
-maths::Vec4 g_shared_origin;        // the origin and orientation every static object reports
+maths::Vec4 g_shared_origin; // the origin and orientation every static object reports
 maths::Mat4 g_shared_orientation;
 
 namespace {
 
-static VtableSlot g_instance_vtable_slots[] = {&render::CollStaticInstance::scalar_delete, stubs::return_true,
-        &render::CollFaceAccess::get_triangle_attrs, &render::CollFaceAccess::get_face_terrain, &render::HitMesh::assign_shape_data,
-        &render::CollStaticInstance::place_at_absolute_point, &render::CollStaticInstance::change_facing,
-        &render::CollScaled::get_absolute_point, &render::HitMovingMesh::fetch_facing, &render::CollScaled::read_vertex_point,
-        stubs::return_zero, stubs::ignore_argument, &render::CollStaticInstance::replicate, &render::CollStaticInstance::inside_bounds,
-        &render::CollStaticInstance::collide_with_line, &render::CollStaticInstance::collide_with_rect,
-        &render::StaticCollider::collide_with_sphere, &render::StaticCollider::collide_with_capsule,
-        &render::CollGeometryForwarders::is_point_behind_faces, &render::CollStaticInstance::draw_diagnostic, stubs::return_zero,
-        &render::CollStaticInstance::get_world_bounds, stubs::ignore_arguments2, &render::CollStaticInstance::rescale_if_at,
-        &render::CollStaticInstance::change_scale, &render::HitMovingMesh::get_absolute_point};
+static VtableSlot g_instance_vtable_slots[] = {&render::CollStaticInstance::scalar_delete,
+                                               stubs::return_true,
+                                               &render::CollFaceAccess::get_triangle_attrs,
+                                               &render::CollFaceAccess::get_face_terrain,
+                                               &render::HitMesh::assign_shape_data,
+                                               &render::CollStaticInstance::place_at_absolute_point,
+                                               &render::CollStaticInstance::change_facing,
+                                               &render::CollScaled::get_absolute_point,
+                                               &render::HitMovingMesh::fetch_facing,
+                                               &render::CollScaled::read_vertex_point,
+                                               stubs::return_zero,
+                                               stubs::ignore_argument,
+                                               &render::CollStaticInstance::replicate,
+                                               &render::CollStaticInstance::inside_bounds,
+                                               &render::CollStaticInstance::collide_with_line,
+                                               &render::CollStaticInstance::collide_with_rect,
+                                               &render::StaticCollider::collide_with_sphere,
+                                               &render::StaticCollider::collide_with_capsule,
+                                               &render::CollGeometryForwarders::is_point_behind_faces,
+                                               &render::CollStaticInstance::draw_diagnostic,
+                                               stubs::return_zero,
+                                               &render::CollStaticInstance::get_world_bounds,
+                                               stubs::ignore_arguments2,
+                                               &render::CollStaticInstance::rescale_if_at,
+                                               &render::CollStaticInstance::change_scale,
+                                               &render::HitMovingMesh::get_absolute_point};
 void** const kInstanceVtable = reinterpret_cast<void**>(g_instance_vtable_slots);
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
@@ -146,16 +162,10 @@ void StaticCollider::place_at_absolute_point(const maths::Vec4* position)
 }
 
 // 0x004123A0
-const maths::Vec4* StaticCollider::get_absolute_point() const
-{
-    return &g_shared_origin;
-}
+const maths::Vec4* StaticCollider::get_absolute_point() const { return &g_shared_origin; }
 
 // 0x004123B0
-const maths::Mat4* StaticCollider::fetch_facing() const
-{
-    return &g_shared_orientation;
-}
+const maths::Mat4* StaticCollider::fetch_facing() const { return &g_shared_orientation; }
 
 // 0x00410980
 maths::Vec4 StaticCollider::read_vertex_point(int index) const
@@ -269,7 +279,8 @@ void CollStaticInstance::recompute_world_bounds()
     for (int i = 0; i < count; ++i) {
         maths::Vec4 raw;
         geometry_->read_stored_vertex(i, &raw);
-        maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, raw.w * size_factor_.w};
+        maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z,
+                           raw.w * size_factor_.w};
         maths::Vec4 placed;
         basis_frame_.carry_point_through(placed, scaled);
         world_box_.append_spot(placed);
@@ -277,16 +288,10 @@ void CollStaticInstance::recompute_world_bounds()
 }
 
 // 0x00411460
-bool CollStaticInstance::inside_bounds(const maths::BBox* box) const
-{
-    return box->intersects(world_box_);
-}
+bool CollStaticInstance::inside_bounds(const maths::BBox* box) const { return box->intersects(world_box_); }
 
 // 0x00412830
-maths::BBox* CollStaticInstance::get_world_bounds()
-{
-    return &world_box_;
-}
+maths::BBox* CollStaticInstance::get_world_bounds() { return &world_box_; }
 
 // 0x00411330 (the position compared exactly; NaN is unequal)
 void CollStaticInstance::rescale_if_at(const maths::Vec4* position, const maths::Vec4* scale)
@@ -294,7 +299,8 @@ void CollStaticInstance::rescale_if_at(const maths::Vec4* position, const maths:
     const maths::Vec4& at = basis_frame_.row[3];
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
-    maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z, scale->w * size_factor_.w};
+    maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z,
+                       scale->w * size_factor_.w};
     get_call<void>(24, &scaled); // change_scale
 }
 
@@ -418,9 +424,7 @@ void HitMovingTriangles::draw_diagnostic(int a, int b)
 }
 
 // 0x00414D60
-void CollGeometryStubs::draw_diagnostic(const maths::Mat4* /*transform*/, int /*a*/, int /*b*/, int /*c*/)
-{
-}
+void CollGeometryStubs::draw_diagnostic(const maths::Mat4* /*transform*/, int /*a*/, int /*b*/, int /*c*/) {}
 
 // 0x0040AE80
 void CollGeometryForwarders::rotate_y(const maths::Vec4* centre, int quarter_turns)
@@ -435,16 +439,10 @@ void CollGeometryForwarders::scale_tool(const maths::Vec4* centre, const maths::
 }
 
 // 0x0040AEA0
-void CollGeometryForwarders::draw_diagnostic(int a, int b)
-{
-    stubs::ignore_arguments2(a, b);
-}
+void CollGeometryForwarders::draw_diagnostic(int a, int b) { stubs::ignore_arguments2(a, b); }
 
 // 0x0040AEB0
-void CollGeometryForwarders::add_occlusion_polys()
-{
-    geometry_->add_occlusion_polys();
-}
+void CollGeometryForwarders::add_occlusion_polys() { geometry_->add_occlusion_polys(); }
 
 // 0x0040AEC0
 bool CollGeometryForwarders::is_point_behind_faces(const maths::Vec4* point, int unused)
@@ -493,11 +491,11 @@ HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, 
     return made;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640860 (a static initialiser): the shared orientation starts as the rotation of no angles.
 void construct_shared_orientation() { g_shared_orientation.set_from_euler_angles(0.0f, 0.0f, 0.0f); }
 
-} // namespace Nx
+} // namespace render

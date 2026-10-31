@@ -12,7 +12,7 @@
 namespace script {
 class Struct;
 class Script;
-}
+} // namespace script
 
 namespace objects {
 
@@ -55,10 +55,10 @@ public:
     // 0x00469960: `groups` groups of `group_size` slots and an extra group of `extraSize` (bottom-up heap).
     void carve(int groups, int group_size, int extra_size);
 
-    ObjectGroup* groups_;     // +0x00 (new[]: the count before it)
-    ObjectGroup* extra_;      // +0x04
-    int path_count_;            // +0x08
-    int group_count_;           // +0x0C
+    ObjectGroup* groups_; // +0x00 (new[]: the count before it)
+    ObjectGroup* extra_;  // +0x04
+    int path_count_;      // +0x08
+    int group_count_;     // +0x0C
 };
 static_assert(sizeof(PathManager) == 0x10, "layout must match the original");
 
@@ -66,4 +66,4 @@ static_assert(sizeof(PathManager) == 0x10, "layout must match the original");
 // default 20; 0x13AFFFF9 extra slots, default 200). True.
 bool __cdecl cfunc_allocate_path_man_memory(script::Struct* params, script::Script* script);
 
-} // namespace Obj
+} // namespace objects

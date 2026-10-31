@@ -28,11 +28,11 @@ enum Operator : int {
     kOperatorNone = 0,
     kOperatorArrayElement = 5, // a[i]
     kOperatorEquals = 7,
-    kOperatorDot = 8,           // dot product, or a structure's member
+    kOperatorDot = 8, // dot product, or a structure's member
     kOperatorMinus = 10,
     kOperatorAdd = 11,
     kOperatorDivide = 12,
-    kOperatorMultiply = 13,     // also the cross product of vectors
+    kOperatorMultiply = 13, // also the cross product of vectors
     kOperatorLessThan = 18,
     kOperatorGreaterThan = 20,
     kOperatorOr = 50,
@@ -78,4 +78,4 @@ public:
 };
 static_assert(sizeof(Component) * 20 == 0x140, "layout must match the original");
 
-} // namespace Script
+} // namespace script

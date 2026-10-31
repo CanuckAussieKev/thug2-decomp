@@ -30,7 +30,10 @@ unsigned int& ref_tally() { return g_module_references; }
 void free_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 
 // A list node's or task's scalar deleting destructor (vtable slot 0 / slot 2), deleting it.
-void unlink_list_node(memory::ListNode* node) { reinterpret_cast<void(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1); }
+void unlink_list_node(memory::ListNode* node)
+{
+    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>(node->vtable[0])(node, 1);
+}
 void delete_task(void* task)
 {
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(task))[2])(task, 1);
@@ -83,8 +86,8 @@ Hub* Hub::make_new()
     modules_.vtable = kHeadVtable;
     auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
     if (task) {
-        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(-1000);             // tasks::SchedulerTask
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);                                                // tasks::Task<Manager>
+        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(-1000); // tasks::SchedulerTask
+        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);   // tasks::Task<Manager>
         task[6] = reinterpret_cast<uint32_t>(&tick_modules);
         task[7] = reinterpret_cast<uint32_t>(this);
     }
@@ -245,8 +248,7 @@ ModuleListDestructors* ModuleListDestructors::search_destroy(unsigned int flags)
 }
 
 namespace {
-static VtableSlot g_module_vtable_slots[] = {&modules::PartUnit::teardown, &_purecall,
-                &_purecall};
+static VtableSlot g_module_vtable_slots[] = {&modules::PartUnit::teardown, &_purecall, &_purecall};
 void** const kModuleVtable = reinterpret_cast<void**>(g_module_vtable_slots);
 static VtableSlot g_node_vtable_slots[] = {&modules::ModuleListDestructors::node_destroy};
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
@@ -256,4 +258,4 @@ static VtableSlot g_search_vtable_slots[] = {&modules::ModuleListDestructors::se
 void** const kSearchVtable = reinterpret_cast<void**>(g_search_vtable_slots);
 } // namespace
 
-} // namespace Mdl
+} // namespace modules

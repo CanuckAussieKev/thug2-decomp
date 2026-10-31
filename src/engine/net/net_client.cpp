@@ -20,8 +20,9 @@ namespace net {
 
 namespace {
 
-static VtableSlot g_client_vtable_slots[] = {&net::Guest::teardown, &net::AppHost::handle_incoming, &net::Guest::pull_inbound,
-        &net::Guest::transmit, &net::Guest::prepare_all, &net::Guest::tear_down_state};
+static VtableSlot g_client_vtable_slots[] = {&net::Guest::teardown,     &net::AppHost::handle_incoming,
+                                             &net::Guest::pull_inbound, &net::Guest::transmit,
+                                             &net::Guest::prepare_all,  &net::Guest::tear_down_state};
 void** const kClientVtable = reinterpret_cast<void**>(g_client_vtable_slots);
 constexpr int kAppTaskPriority = -2000;
 constexpr uint32_t kTaskSize = 0x20;
@@ -62,10 +63,7 @@ Guest* Guest::make_new(int flags)
 }
 
 // 0x0045B910
-void Guest::destroy_body()
-{
-    AppHost::destroy_body();
-}
+void Guest::destroy_body() { AppHost::destroy_body(); }
 
 // 0x0045B8E0
 Guest* Guest::teardown(unsigned int flags)
@@ -77,10 +75,7 @@ Guest* Guest::teardown(unsigned int flags)
 }
 
 // 0x0045B820
-void Guest::tear_down_state()
-{
-    AppHost::tear_down_state();
-}
+void Guest::tear_down_state() { AppHost::tear_down_state(); }
 
 // 0x00459EC0
 bool Guest::prepare_all()
@@ -106,8 +101,7 @@ bool Guest::dial_server(uint32_t ip, uint16_t port)
     address.sin_port = htons(port);
     address.sin_addr.s_addr = ip;
     std::memset(address.sin_zero, 0, sizeof(address.sin_zero));
-    while (connect(sock_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) ==
-           SOCKET_ERROR) {
+    while (connect(sock_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR) {
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             report_socket_error(this);
             return false;
@@ -119,7 +113,7 @@ bool Guest::dial_server(uint32_t ip, uint16_t port)
 
 // 0x00459DC0
 void Guest::send_bulk_to_host(uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
-                                   bool queue_all_pieces, bool borrow_caller_buffer)
+                              bool queue_all_pieces, bool borrow_caller_buffer)
 {
     if (Conn* server = server_connection(this))
         send_bulk_to_conn(server, msg_id, size, data, desc, group_id, queue_all_pieces, borrow_caller_buffer);
@@ -144,7 +138,8 @@ void Guest::pull_inbound()
         char* buffer = receive_buffer_;
         SOCKET socket = sock_;
         if (!linked_up_)
-            received = recvfrom(socket, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);
+            received =
+                recvfrom(socket, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);
         else
             received = recv(socket, buffer, kReceiveBufferSize, 0);
         if (received < 0) {
@@ -160,8 +155,7 @@ void Guest::pull_inbound()
                 uint32_t time = frame_clock::get_time();
                 if (pull_datagram(this, buffer, read_ptr, received)) {
                     read_ptr += size;
-                    add_packet_metric(&conn->receive_metrics_, received + 0x1C,
-                                    get_timestamp(this));
+                    add_packet_metric(&conn->receive_metrics_, received + 0x1C, get_timestamp(this));
                     if (time > conn->last_heard_from_)
                         conn->last_heard_from_ = time;
                 } else if (auto handler = unknown_packet_sink_) {
@@ -215,7 +209,9 @@ void Guest::transmit(Conn* conn)
             if (sent == 0 || now - sent > max_latency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
                 if (sent > conn->ping_probe_.echo_seen_at_) {
-                    uint32_t latency = (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_)) + 100;
+                    uint32_t latency =
+                        (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_)) +
+                        100;
                     if (latency > max_latency())
                         latency = max_latency();
                     add_latency(conn, latency);
@@ -241,10 +237,8 @@ void Guest::transmit(Conn* conn)
         int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
         if (size > 0 && is_off_machine(conn)) {
             char* packet = conn->outgoing_bytes_;
-            bool sent = linked_up_
-                            ? net::post_out(this, packet, size, 0)
-                            : net::transmit_to(this, conn->remote_ip_, conn->port_no_,
-                                     packet, size, 0);
+            bool sent = linked_up_ ? net::post_out(this, packet, size, 0)
+                                   : net::transmit_to(this, conn->remote_ip_, conn->port_no_, packet, size, 0);
             if (!sent) {
                 mark_messages_for_retry(conn, conn->timestamp_out_);
                 write_ptr = conn->outgoing_bytes_;
@@ -317,4 +311,4 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
     return kResultPassOn;
 }
 
-} // namespace Net
+} // namespace net

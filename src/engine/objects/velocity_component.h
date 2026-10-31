@@ -7,7 +7,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The Velocity component (GameObjects::VelocityTrackerModule, type 0x41272956 "Velocity", vtable 0x00646830, 0x1C bytes; made by
 // 0x0043D430): moves its object by its velocity each frame - the object's position plus half its velocity times the
@@ -40,4 +40,4 @@ public:
 static_assert(offsetof(VelocityTrackerModule, suspend_) == 0x18 && sizeof(VelocityTrackerModule) == 0x1C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

@@ -12,12 +12,12 @@
 
 namespace script {
 class Script;
-} // namespace Script
+} // namespace script
 
 // The virtual table of the player lists' search objects (lists::Hunt<PlayerRecord>, 0x0064C1A8; defined in skate_module_state.cpp).
 namespace modules {
 extern void** const kPlayerSearchVtable;
-} // namespace Mdl
+} // namespace modules
 // (lists::Hunt<JoinerRecord>, 0x0064C82C; defined in gamenet_handlers.cpp.)
 namespace online {
 extern void** const kNewPlayerSearchVtable;
@@ -30,11 +30,11 @@ class WinRule;
 // The game flow (0x10 bytes, vtable 0x0064DD50): a script started anew when one is requested.
 class MatchFlow {
 public:
-    void** vtable_;          // +0x00
+    void** vtable_;              // +0x00
     script::Script* own_script_; // +0x04
-    bool pending_;           // +0x08: label_ to be started
+    bool pending_;               // +0x08: label_ to be started
     uint8_t pad09_[3];
-    uint32_t label_;          // +0x0C
+    uint32_t label_; // +0x0C
 
     // 0x00552E10: the constructor (no script). Returns this.
     MatchFlow* make_new();
@@ -64,8 +64,8 @@ public:
         ConditionNode* destroy_head(uint8_t flags);
     };
 
-    void** vtable_;          // +0x00 (0x0064DD58)
-    script::Struct args_; // +0x04: the mode's definition (Name, the options)
+    void** vtable_;            // +0x00 (0x0064DD58)
+    script::Struct args_;      // +0x04: the mode's definition (Name, the options)
     ConditionNode conditions_; // +0x0C
 
     // 0x00553DB0 (cdecl): the singleton (made with `create`, counted); 0x00552F70: one reference let go (the last
@@ -96,30 +96,30 @@ public:
     int get_first_condition_value();
 
     // The definition's options.
-    bool keeps_running_total();      // 0x00552FB0 accumulate_score
-    bool keeps_best_chain();       // 0x00552FD0 track_best_combo (none: false)
-    void set_score_accumulation(bool on); // 0x00553000
-    void hold_points(bool on);       // 0x00553020
-    void set_score_degradation(bool on);  // 0x00553040
-    void set_trick_score_tracking(bool on); // 0x00553060
+    bool keeps_running_total();                 // 0x00552FB0 accumulate_score
+    bool keeps_best_chain();                    // 0x00552FD0 track_best_combo (none: false)
+    void set_score_accumulation(bool on);       // 0x00553000
+    void hold_points(bool on);                  // 0x00553020
+    void set_score_degradation(bool on);        // 0x00553040
+    void set_trick_score_tracking(bool on);     // 0x00553060
     void set_team_graffiti_mode(uint32_t mode); // 0x00553080
-    void set_goals_mode(uint32_t mode);   // 0x005530A0
-    int is_scoring_paused();                // 0x005530C0 score_frozen (0 / 1 in EAX)
-    bool keeps_move_points();       // 0x005530F0 track_trick_score
-    bool repeats_lose_points();          // 0x00553110 degrade_score
-    int current_num_teams();                     // 0x00553130 num_teams
-    bool clock_beeps_near_end();             // 0x00553150 timer_beeps
-    int get_time_limit();                 // 0x00553170 default_time_limit
-    int get_starting_rider_count();    // 0x00553190 initial_players
-    void set_rider_ceiling(int players); // 0x005531B0
-    int get_rider_ceiling();    // 0x005531D0 max_players
-    int get_fireball_level();             // 0x005531F0 fireball_level (3)
-    bool is_true(uint32_t name);         // 0x00553220 the integer `name` is non-zero
-    void set_round(int round);           // 0x00553250
-    int get_round();                     // 0x00553270
-    uint32_t get_name_key();         // 0x005532A0 Name
-    uint32_t get_goals_mode();            // 0x005532D0 goals
-    uint32_t get_team_graffiti_mode();     // 0x00553300 team_graffiti_mode
+    void set_goals_mode(uint32_t mode);         // 0x005530A0
+    int is_scoring_paused();                    // 0x005530C0 score_frozen (0 / 1 in EAX)
+    bool keeps_move_points();                   // 0x005530F0 track_trick_score
+    bool repeats_lose_points();                 // 0x00553110 degrade_score
+    int current_num_teams();                    // 0x00553130 num_teams
+    bool clock_beeps_near_end();                // 0x00553150 timer_beeps
+    int get_time_limit();                       // 0x00553170 default_time_limit
+    int get_starting_rider_count();             // 0x00553190 initial_players
+    void set_rider_ceiling(int players);        // 0x005531B0
+    int get_rider_ceiling();                    // 0x005531D0 max_players
+    int get_fireball_level();                   // 0x005531F0 fireball_level (3)
+    bool is_true(uint32_t name);                // 0x00553220 the integer `name` is non-zero
+    void set_round(int round);                  // 0x00553250
+    int get_round();                            // 0x00553270
+    uint32_t get_name_key();                    // 0x005532A0 Name
+    uint32_t get_goals_mode();                  // 0x005532D0 goals
+    uint32_t get_team_graffiti_mode();          // 0x00553300 team_graffiti_mode
     // 0x00553330: a net mode's name as its single player one (nettrickattack -> trickattack...).
     uint32_t remap_online_name_key(uint32_t name);
     // 0x005533B0 / 0x00553400: the mode's goal's time left (ms; none: 0) / set (seconds).
@@ -146,4 +146,4 @@ bool __cdecl cfunc_override_game_mode_options(script::Struct* params, script::Sc
 
 extern goals::MatchRules* g_game_mode;
 
-} // namespace Game
+} // namespace goals

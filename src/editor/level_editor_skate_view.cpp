@@ -57,28 +57,44 @@ Kind get_classify(uint16_t flags, float normal_y, float threshold, int trigger)
 uint32_t get_colour(Kind kind)
 {
     switch (kind) {
-    case Kind::kFloor: return 0x6840D850;
-    case Kind::kBank: return 0x7040C8C0;
-    case Kind::kVert: return 0x88FF8A20;
-    case Kind::kWallride: return 0x78FFD830;
-    case Kind::kNotSkatable: return 0x70E03838;
-    case Kind::kKill: return 0x90FF1050;
-    case Kind::kWater: return 0x903070FF;
-    default: return 0;
+    case Kind::kFloor:
+        return 0x6840D850;
+    case Kind::kBank:
+        return 0x7040C8C0;
+    case Kind::kVert:
+        return 0x88FF8A20;
+    case Kind::kWallride:
+        return 0x78FFD830;
+    case Kind::kNotSkatable:
+        return 0x70E03838;
+    case Kind::kKill:
+        return 0x90FF1050;
+    case Kind::kWater:
+        return 0x903070FF;
+    default:
+        return 0;
     }
 }
 
 const char* get_name(Kind kind)
 {
     switch (kind) {
-    case Kind::kFloor: return "Skatable floor";
-    case Kind::kBank: return "Bank / ramp (skatable slope)";
-    case Kind::kVert: return "Vert";
-    case Kind::kWallride: return "Wallride wall";
-    case Kind::kNotSkatable: return "Not skatable (bail / wall)";
-    case Kind::kKill: return "Kill zone";
-    case Kind::kWater: return "Water (kill zone)";
-    default: return "";
+    case Kind::kFloor:
+        return "Skatable floor";
+    case Kind::kBank:
+        return "Bank / ramp (skatable slope)";
+    case Kind::kVert:
+        return "Vert";
+    case Kind::kWallride:
+        return "Wallride wall";
+    case Kind::kNotSkatable:
+        return "Not skatable (bail / wall)";
+    case Kind::kKill:
+        return "Kill zone";
+    case Kind::kWater:
+        return "Water (kill zone)";
+    default:
+        return "";
     }
 }
 
@@ -227,7 +243,8 @@ void add_overlay(const overlays::Painter& painter)
                 break;
             }
             V3 clipped[4];
-            int count = view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &c.points[f * 3], clipped);
+            int count =
+                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &c.points[f * 3], clipped);
             if (!count)
                 continue;
             Polygon poly = {};
@@ -267,7 +284,8 @@ void add_overlay(const overlays::Painter& painter)
         OrientedBox box = triggers::box_of(a.pos, a.yaw, a.spec.size);
         V3 corner[8];
         box_corners(box.origin, box.axes, box.min, box.max, corner);
-        const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+        const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
+                                  {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
         uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
             painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);
@@ -279,10 +297,11 @@ void add_overlay(const overlays::Painter& painter)
         int drawn = 0;
         for (int i = 0; i < rails->num_; ++i) {
             const objects::GrindPoint& node = rails->nodes_[i];
-            if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) || !(node.flag_bits_ & objects::kRailFlagActive))
+            if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
+                !(node.flag_bits_ & objects::kRailFlagActive))
                 continue;
-            V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z}, b = {node.succ_->at_point_.x, node.succ_->at_point_.y,
-                                                                   node.succ_->at_point_.z};
+            V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z},
+               b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
             if (painter.span_to(a) > kRadius && painter.span_to(b) > kRadius)
                 continue;
             if (painter.get_seg(a, b, kRail, 3.0f))
@@ -328,4 +347,4 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
     ImGui::End();
 }
 
-} // namespace MenuSystem::level_editor::skate_view
+} // namespace frontend::level_editor::skate_view

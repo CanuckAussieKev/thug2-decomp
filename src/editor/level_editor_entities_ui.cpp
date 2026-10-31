@@ -44,7 +44,7 @@ const char* const kPhysics[] = {"coeff_restitution",
                                 "SoundType"};
 
 void field_request(std::vector<ui::Request>* requests, uint32_t node, uint32_t key, fields::Kind kind,
-                  const std::string& text)
+                   const std::string& text)
 {
     ui::Request r = {ui::Request::kFieldSet};
     r.node = node;
@@ -112,8 +112,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
             std::snprintf(buffer, sizeof(buffer), "%s", text.c_str());
             ImGui::PushID(field);
             ImGui::SetNextItemWidth(-1.0f);
-            if (ImGui::InputText("##v", buffer, sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) &&
-                text != buffer)
+            if (ImGui::InputText("##v", buffer, sizeof(buffer), ImGuiInputTextFlags_EnterReturnsTrue) && text != buffer)
                 field_request(requests, name, key, row->value.kind, buffer);
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("Applies on reload");
@@ -129,7 +128,6 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
         }
         ImGui::EndTable();
     }
-    
 }
 
 void moving_section(uint32_t id)
@@ -163,8 +161,8 @@ void moving_section(uint32_t id)
         ImGui::SameLine();
         if (ImGui::Button("Stop"))
             get_queue([] { stop_preview(); });
-        ImGui::TextDisabled("%.0f of %.0f along the path at %.1f mph", detail::preview_distance(), detail::preview_length(),
-                            detail::default_mph(id));
+        ImGui::TextDisabled("%.0f of %.0f along the path at %.1f mph", detail::preview_distance(),
+                            detail::preview_length(), detail::default_mph(id));
     } else {
         ImGui::TextDisabled("Preview along the path");
     }
@@ -274,4 +272,4 @@ void view_options()
         ImGui::SetTooltip("Show objects created later by scripts");
 }
 
-} // namespace MenuSystem::level_editor::entities
+} // namespace frontend::level_editor::entities

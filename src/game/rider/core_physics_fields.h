@@ -23,40 +23,40 @@ T& get_at(void* object, uint32_t offset)
 }
 
 // --- the component's fields ---
-constexpr uint32_t kObject = 0x0C;            // the skater (a composite object: its fields below)
-constexpr uint32_t kDisplayMatrix = 0x18;     // the matrix it's drawn with
-constexpr uint32_t kFloorUpVector = 0x68;      // (and +0x58, +0x78: copies of the ground's normal)
-constexpr uint32_t kFrameLength = 0x8C;       // the frame's length (seconds)
-constexpr uint32_t kFirstTick = 0x90;        // (the clock when the physics was reset)
-constexpr uint32_t kSafePosition = 0x98;      // (the object's position when reset)
-constexpr uint32_t kFeeler = 0xA8;            // a collision feeler (render::ProbeRay, 0xB0 bytes)
-constexpr uint32_t kHitFlags = 0xF8;          // the feeler's hit face's flags (16 bits)
-constexpr uint32_t kHitPoint = 0x120;         // the feeler's hit: point, then normal
+constexpr uint32_t kObject = 0x0C;        // the skater (a composite object: its fields below)
+constexpr uint32_t kDisplayMatrix = 0x18; // the matrix it's drawn with
+constexpr uint32_t kFloorUpVector = 0x68; // (and +0x58, +0x78: copies of the ground's normal)
+constexpr uint32_t kFrameLength = 0x8C;   // the frame's length (seconds)
+constexpr uint32_t kFirstTick = 0x90;     // (the clock when the physics was reset)
+constexpr uint32_t kSafePosition = 0x98;  // (the object's position when reset)
+constexpr uint32_t kFeeler = 0xA8;        // a collision feeler (render::ProbeRay, 0xB0 bytes)
+constexpr uint32_t kHitFlags = 0xF8;      // the feeler's hit face's flags (16 bits)
+constexpr uint32_t kHitPoint = 0x120;     // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
 constexpr uint32_t kLastFloorProbe = 0x158; // a copy of the last ground hit's feeler
-constexpr uint32_t kProbeOrigin = 0x208;      // the feeler's line
+constexpr uint32_t kProbeOrigin = 0x208;    // the feeler's line
 constexpr uint32_t kProbeTip = 0x218;
-constexpr uint32_t kHitSkatable = 0x228;      // (set by the feeler check 0x005003A0)
+constexpr uint32_t kHitSkatable = 0x228; // (set by the feeler check 0x005003A0)
 constexpr uint32_t kHitVert = 0x229;
 constexpr uint32_t kHitWall = 0x22A;
-constexpr uint32_t kInput = 0x150C;           // the pad: a button every 0x20 bytes (down, then times)
+constexpr uint32_t kInput = 0x150C; // the pad: a button every 0x20 bytes (down, then times)
 constexpr uint32_t kActivationZoneSlot = 0x1510;
-constexpr uint32_t kOtherComponent = 0x1514;  // (+0x1C, +0x1D, +0x1E: bytes it's told)
+constexpr uint32_t kOtherComponent = 0x1514; // (+0x1C, +0x1D, +0x1E: bytes it's told)
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kTimedFlags = 0x1528;      // bools, each followed by the time it last changed (+0x18: the state)
 constexpr uint32_t kRide = 0x152C;            // +0x18: a smart pointer to what the skater rides on
-constexpr uint32_t kStateModuleSlot = 0x1530;  // (+0x24, +0x26: bools; +0x2C: the walking component)
+constexpr uint32_t kStateModuleSlot = 0x1530; // (+0x24, +0x26: bools; +0x2C: the walking component)
 
 // --- the skater object's fields ---
 constexpr uint32_t kPosition = 0x4C;
 constexpr uint32_t kOldPosition = 0x5C;
-constexpr uint32_t kMatrix = 0x6C;            // rows: +0x6C, up +0x7C, forward +0x8C, position +0x9C
+constexpr uint32_t kMatrix = 0x6C; // rows: +0x6C, up +0x7C, forward +0x8C, position +0x9C
 constexpr uint32_t kUp = 0x7C;
 constexpr uint32_t kForward = 0x8C;
 constexpr uint32_t kVelocity = 0xAC;
 
 // --- the timed flags (offsets into the flags block) ---
-constexpr uint32_t kState = 0x18;             // an int: 0 on the ground, 1 in the air, ...
+constexpr uint32_t kState = 0x18; // an int: 0 on the ground, 1 in the air, ...
 
 inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 inline void* object_of(void* component) { return get_at<void*>(component, kObject); }
@@ -100,7 +100,10 @@ inline double stat_value(void* object, uint32_t name)
 }
 // 0x004FF470: the gravity (a physics value over a script one; in some states times another). It may come back
 // unrounded (a product left on the x87 stack).
-inline double current_gravity(void* component) { return static_cast<skater::SkaterPhysicsModule*>(component)->get_gravity(); }
+inline double current_gravity(void* component)
+{
+    return static_cast<skater::SkaterPhysicsModule*>(component)->get_gravity();
+}
 // 0x004FDED0: the physics state (+0x18 of the flags) changed to `state`, with what goes with it.
 inline void change_phase(void* component, int state)
 {
@@ -112,7 +115,10 @@ inline void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 
 // A button's times: since it was last pressed (0x0046B920) / released (0x0046B900); its press this frame taken
 // (0x0046B7E0).
-inline int time_since_press(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis(); }
+inline int time_since_press(uint8_t* button)
+{
+    return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis();
+}
 inline int time_since_release(uint8_t* button)
 {
     return reinterpret_cast<objects::ControlButton*>(button)->read_let_go_time();
@@ -153,4 +159,4 @@ inline double length_unrounded(const maths::Vec4& v) { return std::sqrt(length_s
 // The C runtime's _ftol2 (0x006236FC): truncated to a 64-bit integer, the low half kept.
 inline uint32_t ftol(double value) { return static_cast<uint32_t>(static_cast<int64_t>(value)); }
 
-} // namespace Skater::Physics
+} // namespace skater::physics

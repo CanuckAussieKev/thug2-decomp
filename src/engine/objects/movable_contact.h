@@ -57,16 +57,15 @@ public:
     // less the object's, through the object's inverted orientation.
     void update_contact_point();
 
-    RideTracker* ride_;            // +0x18
-    maths::Vec4 contact_point_;       // +0x1C in the object's frame
-    uint8_t unknown2c_[0x40];        // +0x2C
-    GameEntity* last_object_;  // +0x6C the object last ridden
-    int stop_time_;                   // +0x70 the game clock when it stopped riding
+    RideTracker* ride_;         // +0x18
+    maths::Vec4 contact_point_; // +0x1C in the object's frame
+    uint8_t unknown2c_[0x40];   // +0x2C
+    GameEntity* last_object_;   // +0x6C the object last ridden
+    int stop_time_;             // +0x70 the game clock when it stopped riding
 };
-static_assert(offsetof(MovingSurfaceModule, ride_) == 0x18 &&
-                  offsetof(MovingSurfaceModule, contact_point_) == 0x1C &&
+static_assert(offsetof(MovingSurfaceModule, ride_) == 0x18 && offsetof(MovingSurfaceModule, contact_point_) == 0x1C &&
                   offsetof(MovingSurfaceModule, last_object_) == 0x6C &&
                   offsetof(MovingSurfaceModule, stop_time_) == 0x70 && sizeof(MovingSurfaceModule) == 0x74,
               "layout must match the original (0x00427AB0 allocates 0x74 bytes)");
 
-} // namespace Obj
+} // namespace objects

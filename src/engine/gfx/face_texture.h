@@ -6,7 +6,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 namespace render {
 class BitmapTexture;
@@ -21,17 +21,17 @@ namespace gfx {
 // Where a face's features are on its image (0x38 bytes; script structures hold them as left_eye / right_eye / nose /
 // lips = [x y], h / s / v (all three or none), width / height).
 struct FaceAnchors {
-    int left_eye_[2];  // +0x00
-    int right_eye_[2]; // +0x08
-    int nose_slot_[2];     // +0x10
-    int mouth_part_[2];     // +0x18
-    bool has_hsv_;     // +0x20: h, s and v were all given
+    int left_eye_[2];   // +0x00
+    int right_eye_[2];  // +0x08
+    int nose_slot_[2];  // +0x10
+    int mouth_part_[2]; // +0x18
+    bool has_hsv_;      // +0x20: h, s and v were all given
     uint8_t pad21[3];
-    float h_;      // +0x24
-    float s_;      // +0x28
-    float v_;      // +0x2C
+    float h_;     // +0x24
+    float s_;     // +0x28
+    float v_;     // +0x2C
     int span_;    // +0x30 (0x80 by default)
-    int level_y_;   // +0x34
+    int level_y_; // +0x34
 };
 static_assert(offsetof(FaceAnchors, h_) == 0x24 && sizeof(FaceAnchors) == 0x38, "layout must match the original");
 
@@ -54,13 +54,14 @@ bool __cdecl write_face_points(const FaceAnchors* points, script::Struct* params
 // noses' difference (Offset - texture slot 18 - with no colour), then pushed out or in along x on both sides of the
 // nose and along y above and below it (slot 22 with `use_colour` / `colour` when pushing out, slot 21 when pulling
 // in). The eyes' x are put in order and the eyes / lips kept off the nose's y first. True.
-bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour, uint32_t colour);
+bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour,
+                              uint32_t colour);
 // 0x00486F70: the whole massage - the texture's image opened for editing (slot 8, on the bottom-up heap), fitted,
 // recoloured with the points' h / s / v when there are some (slot 24), the overlay drawn over it (slot 41 with
 // `generate_palette`) and closed again (slot 9). True. (`generate_palette` is a byte: replace_face_texture passes a
 // parameter byte as it is, not made 0 / 1; the PC texture's slots ignore it.)
-bool __cdecl massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette, bool use_colour,
-                                uint32_t colour);
+bool __cdecl massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette,
+                                  bool use_colour, uint32_t colour);
 
 // The face texture a skater profile keeps (0x449C bytes; made by memory::alloc_zeroed + Construct): a 128 x 128 8-bit image
 // in the image file's layout (a 0x20-byte header, the 256-colour palette, the pixels), where its features are, and
@@ -103,17 +104,17 @@ public:
     // 0x00487680: the same written to a structure (the image as an array of 0x1108 checksums).
     void save_to_structure(script::Struct* params);
 
-    bool is_usable_;          // +0x00
+    bool is_usable_; // +0x00
     uint8_t pad1[3];
-    FaceAnchors path_vertices_;  // +0x04
+    FaceAnchors path_vertices_; // +0x04
     uint8_t image_[kTexelEdge]; // +0x3C
-    char overlay_name_[0x40];    // +0x445C
+    char overlay_name_[0x40];   // +0x445C
 };
 static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
                   sizeof(FaceSkin) == 0x449C,
               "layout must match the original");
 
-} // namespace Gfx
+} // namespace gfx
 
 // Script commands (CFunctions) of the face massage. cdecl (params, script); all return true.
 namespace commands {

@@ -18,7 +18,7 @@ struct RibbonParticles : EmitterInstance {
 
     // 0x0049B0D0. Returns this.
     RibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                int segments, float unknown, int history);
+                              int segments, float unknown, int history);
     // 0x0049B070: the vtables, the base's body.
     void destroy_body();
     // 0x0049B0A0 (vtable slot 0) / 0x0049B090 (through the node)
@@ -31,7 +31,7 @@ struct RibbonTrailParticles : EmitterInstance {
 
     // 0x0049B380. Returns this.
     RibbonTrailParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                     int fixed_alpha, int segments, float unknown, int history);
+                                   int fixed_alpha, int segments, float unknown, int history);
     // 0x0049B320
     void destroy_body();
     // 0x0049B350 (vtable slot 0) / 0x0049B340 (through the node)
@@ -42,7 +42,7 @@ struct RibbonTrailParticles : EmitterInstance {
 struct ShadedParticles : EmitterInstance {
     // 0x0049B660. Returns this.
     ShadedParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                int segments, float unknown, int history);
+                              int segments, float unknown, int history);
     // 0x0049B600
     void destroy_body();
     // 0x0049B630 (vtable slot 0) / 0x0049B620 (through the node)
@@ -53,7 +53,7 @@ struct ShadedParticles : EmitterInstance {
 struct SmoothParticles : EmitterInstance {
     // 0x0049B910. Returns this.
     SmoothParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                int segments, float unknown, int history);
+                              int segments, float unknown, int history);
     // 0x0049B8A0
     void destroy_body();
     // 0x0049B8E0 (vtable slot 0) / 0x0049B8D0 (through the node)
@@ -66,7 +66,7 @@ struct SmoothRibbonParticles : EmitterInstance {
 
     // 0x0049BBD0. Returns this.
     SmoothRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                      int fixed_alpha, int segments, float unknown, int history);
+                                    int fixed_alpha, int segments, float unknown, int history);
     // 0x0049BB50
     void destroy_body();
     // 0x0049BBA0 (vtable slot 0) / 0x0049BB90 (through the node)
@@ -75,12 +75,12 @@ struct SmoothRibbonParticles : EmitterInstance {
 
 // "smoothstar" (vtables 0x00649540 and 0x0064953C): a position each, three colours; the star's points and size.
 struct SmoothStarParticles : EmitterInstance {
-    int segments_;  // +0x134: the star's points
-    float extent_;    // +0x138
+    int segments_; // +0x134: the star's points
+    float extent_; // +0x138
 
     // 0x0049BE80. Returns this.
     SmoothStarParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                    int fixed_alpha, int segments, float size, int history);
+                                  int fixed_alpha, int segments, float size, int history);
     // 0x0049BE20
     void destroy_body();
     // 0x0049BE50 (vtable slot 0) / 0x0049BE40 (through the node)
@@ -90,11 +90,11 @@ struct SmoothStarParticles : EmitterInstance {
 // "star" (vtables 0x00649554 and 0x00649550): as smoothstar.
 struct StarParticles : EmitterInstance {
     int segments_; // +0x134
-    float extent_;   // +0x138
+    float extent_; // +0x138
 
     // 0x0049C140. Returns this.
     StarParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                              int segments, float size, int history);
+                            int segments, float size, int history);
     // 0x0049C0D0
     void destroy_body();
     // 0x0049C110 (vtable slot 0) / 0x0049C100 (through the node)
@@ -115,4 +115,4 @@ struct ParticleCounts {
     int field134();
 };
 
-} // namespace Nx
+} // namespace render

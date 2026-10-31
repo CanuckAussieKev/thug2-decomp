@@ -86,4 +86,4 @@ public:
 // 0x00576810: a new condition from `params`' type= (null for an unknown type or out of memory).
 WinRule* create_victory_condition(script::Struct* params);
 
-} // namespace Game
+} // namespace goals

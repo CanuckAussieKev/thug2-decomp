@@ -47,7 +47,10 @@ const char* save_folder() { return game_config::get_path_prefix(); }
 bool delete_card_file(SaveCard* card, const char* name) { return card->always_true(reinterpret_cast<int>(name)); }
 
 // A save file's handle deleted (its vtable's scalar deleting destructor).
-void DeleteFile(FileLoad* file) { reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->list_link_.vtable[0])(file, 1); }
+void DeleteFile(FileLoad* file)
+{
+    reinterpret_cast<void(__thiscall*)(FileLoad*, int)>(file->list_link_.vtable[0])(file, 1);
+}
 
 // The pool pairs the temporary pools belong to: components, structures, vectors.
 memory::PoolPair& component_pools() { return script::g_component_pools; }
@@ -133,13 +136,26 @@ bool delete_mem_card_file(Struct* params, Script*)
             deleted = false;
         const char* icon_file = nullptr;
         switch (file_type) {
-        case kSaveCreatedGoals: icon_file = "%s/goals.ico"; break;
-        case kSaveCat: icon_file = "%s/tricks.ico"; break;
-        case kSavePark: icon_file = "%s/parked.ico"; break;
-        case kSaveCreatedGraphic: icon_file = "%s/grafitti.ico"; break;
-        case kSaveNetworkSettings: icon_file = "%s/network.ico"; break;
-        case kSaveOptionsAndPros: icon_file = "%s/thps5.ico"; break;
-        default: break; // (icon.sys a second time)
+        case kSaveCreatedGoals:
+            icon_file = "%s/goals.ico";
+            break;
+        case kSaveCat:
+            icon_file = "%s/tricks.ico";
+            break;
+        case kSavePark:
+            icon_file = "%s/parked.ico";
+            break;
+        case kSaveCreatedGraphic:
+            icon_file = "%s/grafitti.ico";
+            break;
+        case kSaveNetworkSettings:
+            icon_file = "%s/network.ico";
+            break;
+        case kSaveOptionsAndPros:
+            icon_file = "%s/thps5.ico";
+            break;
+        default:
+            break; // (icon.sys a second time)
         }
         if (icon_file)
             std::snprintf(icon, sizeof(icon), icon_file, directory);
@@ -302,13 +318,13 @@ bool get_save_info(Struct* params, Script* script)
     write_summary(contents, summary, type);
     int summary_size = static_cast<int>(script::measure_buffer_bytes(summary, 100000));
     Struct* results = result_params(script);
-    results->put_int(0x172C1344u, main_size);                         // MainStructureSize
-    results->put_int(0x96635475u, summary_size);                      // SummaryInfoSize
-    results->put_int(0x6AFD2F7Fu, 100);                              // MaxSummaryInfoSize
-    results->put_int(0xECBB8262u, main_size + summary_size + 0x14);    // TotalSize
-    results->put_int(0xB35EB1D1u, type_file_size(type));               // MaxTotalSize
-    results->append_struct_ref(0x703E60CAu, summary);                 // SummaryInfo
-    results->append_struct_ref(0x671C9C00u, contents);                // MainStructure
+    results->put_int(0x172C1344u, main_size);                       // MainStructureSize
+    results->put_int(0x96635475u, summary_size);                    // SummaryInfoSize
+    results->put_int(0x6AFD2F7Fu, 100);                             // MaxSummaryInfoSize
+    results->put_int(0xECBB8262u, main_size + summary_size + 0x14); // TotalSize
+    results->put_int(0xB35EB1D1u, type_file_size(type));            // MaxTotalSize
+    results->append_struct_ref(0x703E60CAu, summary);               // SummaryInfo
+    results->append_struct_ref(0x671C9C00u, contents);              // MainStructure
     return true;
 }
 
@@ -322,10 +338,10 @@ constexpr uint32_t kFileName = 0xC3F4169A; // "FileName"
 
 // A save file's header (0x14 bytes, then the summary and the contents).
 struct SaveFileHeader {
-    uint32_t checksum;    // of the whole file, this field 0
-    uint32_t summary_crc_;  // of the summary
+    uint32_t checksum;     // of the whole file, this field 0
+    uint32_t summary_crc_; // of the summary
     int summary_size_;
-    int size;             // the header, the summary and the contents
+    int size; // the header, the summary and the contents
     int version;
 };
 static_assert(sizeof(SaveFileHeader) == 0x14, "the summary follows at +0x14");
@@ -430,7 +446,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     int file_count = 0;
     for (memory::ListNode* node = head.next; reinterpret_cast<intptr_t>(node->data) != -1 && node; node = node->next)
         ++file_count;
-    debug::printf("ScriptGetMemCardDirectoryListing: DirList Start\n"); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
+    debug::printf(
+        "ScriptGetMemCardDirectoryListing: DirList Start\n"); // "ScriptGetMemCardDirectoryListing: DirList Start\n"
     int game_files = 0;
     for (int i = 0; i < file_count; ++i) {
         FileLoad* file = list_entry(&head, i);
@@ -445,8 +462,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         Struct* entry = script::spawn_param_bag();
         if (entry)
             entry = entry->prepare_all();
-        entry->put_name_key(0xFADDC0B8u, type); // file_type
-        entry->put_int(0x7F8C98FEu, listed); // index
+        entry->put_name_key(0xFADDC0B8u, type);     // file_type
+        entry->put_int(0x7F8C98FEu, listed);        // index
         entry->put_int(0x447D8CC8u, file->year_);   // year
         entry->put_int(0x7149EFF9u, file->month_);  // month
         entry->put_int(0x1A5FD66Fu, file->day_);    // day
@@ -467,8 +484,8 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             opened->seek_to(0, 0);
             opened->get_take_in(&g_listed_file, 0x78);
             int summary_size = listed_header().summary_size_;
-            bool bad = summary_size > 100 ||
-                       checksums::generate_crc_from_buffer(listed_summary(), summary_size) != listed_header().summary_crc_;
+            bool bad = summary_size > 100 || checksums::generate_crc_from_buffer(listed_summary(), summary_size) !=
+                                                 listed_header().summary_crc_;
             int size = static_cast<int>(opened->seek_to(0, 2));
             entry->put_int(0x3D1BCFEDu, save_blocks(type, size)); // total_file_size
             if (bad || listed_header().version != type_version(type)) {
@@ -693,4 +710,4 @@ bool save_to_memory_card(Struct* params, Script*)
     return saved;
 }
 
-} // namespace Mc
+} // namespace save_cards

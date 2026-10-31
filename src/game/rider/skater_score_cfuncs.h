@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) 0x005B5770-0x005B5BE0: the skaters' set-up between levels (input reset and taken out
 // of the world, shown again in their heaps), their scores (reset, refreshed, the score pot), and the nearest

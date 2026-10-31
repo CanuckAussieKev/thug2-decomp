@@ -9,13 +9,13 @@ namespace render {
 
 // A shadow caster (the table's values).
 struct ShadowCaster {
-    uint8_t* target;         // the render target: +0x10 its texture, +0x18 its surface
-    void* model;             // what casts the shadow
+    uint8_t* target; // the render target: +0x10 its texture, +0x18 its surface
+    void* model;     // what casts the shadow
     uint32_t unknown8;
-    float view[16];          // from the light
-    float projection[16];    // the shadow texture's (near 5)
+    float view[16];             // from the light
+    float projection[16];       // the shadow texture's (near 5)
     float near_projection_[16]; // the receivers' (near 80)
-    float texture_matrix_[16]; // world -> shadow texture coordinates
+    float texture_matrix_[16];  // world -> shadow texture coordinates
 };
 static_assert(sizeof(ShadowCaster) == 0x10C, "layout must match the original");
 
@@ -48,4 +48,4 @@ void __cdecl aim_shadow_caster(uint32_t key, const float* position, const float*
 using ShadowCompanionFn = void* (*)(void* caster_model);
 void set_shadow_companion(ShadowCompanionFn fn);
 
-} // namespace Nx
+} // namespace render

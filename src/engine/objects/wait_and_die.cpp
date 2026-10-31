@@ -74,29 +74,29 @@ void WaitAndDieComponent::tick_frame()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
-namespace {
-
-} // namespace
-} // namespace Obj
+namespace {} // namespace
+} // namespace objects
 
 namespace objects {
 
-static VtableSlot g_wait_and_die_vtable_slots[] = {&objects::WaitAndDieComponent::teardown,
-         &objects::WaitAndDieComponent::tick_frame,
-         &objects::WaitAndDieComponent::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_wait_and_die_vtable_slots[] = {
+    &objects::WaitAndDieComponent::teardown,
+    &objects::WaitAndDieComponent::tick_frame,
+    &objects::WaitAndDieComponent::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kWaitAndDieVtable = reinterpret_cast<void**>(g_wait_and_die_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

@@ -55,8 +55,8 @@ struct HitClusterLog {
 // A trick object (0x18 bytes, vtable 0x0064F0D8): a node in its cluster's list (data itself) with the name of its
 // level sector, which graffiti colours.
 struct TrickSpot {
-    memory::ListNode list_link_;  // +0x00
-    uint32_t label_;       // +0x14 (its sector's)
+    memory::ListNode list_link_; // +0x00
+    uint32_t label_;             // +0x14 (its sector's)
 
     // 0x00588BB0: the destructor's body - out of its list (the node's vtable 0x0064F0D0 put back first).
     void destroy_body();
@@ -89,14 +89,14 @@ struct TrickObjectHead : memory::ListNode {
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct TrickObjectCluster {
-    memory::ListNode list_link_;     // +0x00 (data itself; its vtable 0x0064F10C is the cluster's)
-    uint32_t label_;          // +0x14
+    memory::ListNode list_link_; // +0x00 (data itself; its vtable 0x0064F10C is the cluster's)
+    uint32_t label_;             // +0x14
     uint32_t record_points_;     // +0x18
-    uint32_t scores_[8];     // +0x1C
-    int owner_;              // +0x3C (an object id)
-    bool owned_;             // +0x40
+    uint32_t scores_[8];         // +0x1C
+    int owner_;                  // +0x3C (an object id)
+    bool owned_;                 // +0x40
     uint8_t pad41_[3];
-    memory::ListNode entities_;  // +0x44 its CTrickObjects (the head: a sentinel)
+    memory::ListNode entities_; // +0x44 its CTrickObjects (the head: a sentinel)
 
     // 0x00588630: a trick object for sector `name` made (0x18 bytes) and put last in the list; its sector's colour
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).
@@ -126,10 +126,10 @@ struct TrickSpotHub {
     static constexpr uint32_t kMaxLoggedClusters = 2048;
 
     void** vtable_;
-    int cluster_count_;               // +0x04
+    int cluster_count_;             // +0x04
     lists::KeyMap clusters_;        // +0x08 CTrickObjectClusters by name
-    lists::KeyMap object_clusters_;  // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
-    script::Struct* args_;        // +0x38 (the graffiti colours' - TrickParamSet::change_args)
+    lists::KeyMap object_clusters_; // +0x20 each trick object's cluster, by the object's name (a cluster's own too)
+    script::Struct* args_;          // +0x38 (the graffiti colours' - TrickParamSet::change_args)
 
     // 0x00588DC0: the constructor (vtable 0x0064F110): both tables of 256 buckets, the parameters' structure made on
     // the script heap. (The cluster count isn't set.) Returns this.
@@ -185,8 +185,7 @@ struct TrickSpotHub {
     // id) set. `objects` is compacted to those whose cluster changed (or was first taken); returns how many.
     uint32_t log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score);
 };
-static_assert(offsetof(TrickSpotHub, clusters_) == 0x08 &&
-                  offsetof(TrickSpotHub, object_clusters_) == 0x20 &&
+static_assert(offsetof(TrickSpotHub, clusters_) == 0x08 && offsetof(TrickSpotHub, object_clusters_) == 0x20 &&
                   offsetof(TrickSpotHub, args_) == 0x38,
               "layout must match the original");
 
@@ -272,4 +271,4 @@ void __cdecl write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter
 
 extern objects::TrickSpotHub* g_trick_spot_hub;
 
-} // namespace Obj
+} // namespace objects

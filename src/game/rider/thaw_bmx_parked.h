@@ -61,4 +61,4 @@ void register_parked_functions();
 // missing and the skater is off the bike.
 void update_parked(modules::FrontEnd* front_end);
 
-} // namespace Skater::ThawBmx
+} // namespace skater::thaw_bmx

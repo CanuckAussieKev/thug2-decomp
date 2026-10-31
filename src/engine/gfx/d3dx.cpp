@@ -1,7 +1,6 @@
 // The D3DX9 calls the game makes (see d3dx.h): Microsoft's D3DX9 through its standard API.
 #include "engine/gfx/d3dx.h"
 
-
 #include <windows.h>
 
 #include <d3d9.h>
@@ -22,7 +21,10 @@ static D3DXVECTOR4* v4(float* p) { return reinterpret_cast<D3DXVECTOR4*>(p); }
 static const D3DXVECTOR4* v4(const float* p) { return reinterpret_cast<const D3DXVECTOR4*>(p); }
 
 void vec3_normalize(float* out, const float* v) { D3DXVec3Normalize(v3(out), v3(v)); }
-void vec3_transform(float* out, const float* v, const void* matrix) { D3DXVec3Transform(v4(out), v3(v), get_m(matrix)); }
+void vec3_transform(float* out, const float* v, const void* matrix)
+{
+    D3DXVec3Transform(v4(out), v3(v), get_m(matrix));
+}
 void vec3_transform_coord(float* out, const float* v, const void* matrix)
 {
     D3DXVec3TransformCoord(v3(out), v3(v), get_m(matrix));
@@ -31,10 +33,16 @@ void vec3_transform_normal(float* out, const float* v, const void* matrix)
 {
     D3DXVec3TransformNormal(v3(out), v3(v), get_m(matrix));
 }
-void vec4_transform(float* out, const float* v, const void* matrix) { D3DXVec4Transform(v4(out), v4(v), get_m(matrix)); }
+void vec4_transform(float* out, const float* v, const void* matrix)
+{
+    D3DXVec4Transform(v4(out), v4(v), get_m(matrix));
+}
 void matrix_multiply(void* out, const void* a, const void* b) { D3DXMatrixMultiply(get_m(out), get_m(a), get_m(b)); }
 void matrix_transpose(void* out, const void* m) { D3DXMatrixTranspose(get_m(out), get_m(m)); }
-void matrix_inverse(void* out, float* determinant, const void* m) { D3DXMatrixInverse(get_m(out), determinant, get_m(m)); }
+void matrix_inverse(void* out, float* determinant, const void* m)
+{
+    D3DXMatrixInverse(get_m(out), determinant, get_m(m));
+}
 void matrix_scaling(void* out, float x, float y, float z) { D3DXMatrixScaling(get_m(out), x, y, z); }
 void matrix_rotation_y(void* out, float angle) { D3DXMatrixRotationY(get_m(out), angle); }
 void matrix_look_at_rh(void* out, const float* eye, const float* at, const float* up)
@@ -62,5 +70,4 @@ long assemble_shader(const char* source, uint32_t length, void** shader, void** 
                               reinterpret_cast<LPD3DXBUFFER*>(errors));
 }
 
-} // namespace D3dx
-
+} // namespace d3dx

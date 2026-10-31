@@ -12,7 +12,7 @@ class ViewCam;
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The engine's viewports (Nx): ten of them (0x00701350, made at start-up), each a rectangle of the screen in
 // fractions and the camera it shows. A screen mode (one_camera, split_vertical, split_horizontal, split_quarters,
@@ -45,10 +45,10 @@ public:
     // 0x004A0D70: a camera marked for deletion is deleted (its virtual [0]) and let go.
     void remove_flagged_camera();
 
-    void** vtable_;                     // +0x00
-    float pos_x_, y_, span_, level_y_;   // +0x04 fractions of the screen
-    uint32_t flag_bits_;                    // +0x14 1: the camera is to be deleted
-    objects::SharedRef<gfx::ViewCam> viewer_;  // +0x18
+    void** vtable_;                           // +0x00
+    float pos_x_, y_, span_, level_y_;        // +0x04 fractions of the screen
+    uint32_t flag_bits_;                      // +0x14 1: the camera is to be deleted
+    objects::SharedRef<gfx::ViewCam> viewer_; // +0x18
 };
 static_assert(offsetof(ViewRegion, flag_bits_) == 0x14 && offsetof(ViewRegion, viewer_) == 0x18 &&
                   sizeof(ViewRegion) == 0x24,
@@ -105,4 +105,4 @@ extern int g_screen_mode;
 extern ViewRegion* g_viewports[10];
 extern const int* g_mode_map;
 
-} // namespace Nx
+} // namespace render

@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -34,7 +34,7 @@ public:
     // A looping sound waiting to be heard: its play parameters and when to look again (frame_clock::GetTime).
     struct WaitingSound {
         sound::PlaybackProps props; // +0x00 (props.checksum 0: none)
-        uint32_t time;            // +0x2C
+        uint32_t time;              // +0x2C
     };
 
     // 0x00433100 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
@@ -86,12 +86,12 @@ public:
     // 0x00433630 (not a Ghidra function) Obj_PlaySound: emit_sound. True.
     bool obj_play_sound(script::Struct* params, script::Script* script);
 
-    uint32_t sound_cues_[8];          // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
-    WaitingSound waiting_[2];     // +0x38
-    maths::Vec4 at_point_;             // +0x98 where it is
-    maths::Vec4 last_pos_;         // +0xA8 where it was a frame ago
-    EmitterNode* spewer_;       // +0xB8 heard from its nearest point
-    ProximNode* proxim_;         // +0xBC
+    uint32_t sound_cues_[8];  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
+    WaitingSound waiting_[2]; // +0x38
+    maths::Vec4 at_point_;    // +0x98 where it is
+    maths::Vec4 last_pos_;    // +0xA8 where it was a frame ago
+    EmitterNode* spewer_;     // +0xB8 heard from its nearest point
+    ProximNode* proxim_;      // +0xBC
 };
 static_assert(sizeof(AudioEmitterModule::WaitingSound) == 0x30, "layout must match the original");
 static_assert(offsetof(AudioEmitterModule, sound_cues_) == 0x18 && offsetof(AudioEmitterModule, waiting_) == 0x38 &&
@@ -100,4 +100,4 @@ static_assert(offsetof(AudioEmitterModule, sound_cues_) == 0x18 && offsetof(Audi
                   sizeof(AudioEmitterModule) == 0xC0,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

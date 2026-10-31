@@ -85,9 +85,9 @@ bool uncouple(State* state, uint32_t id)
         return false;
     GroupSet& group = (*state)[index];
     if (!is_source) {
-        group.members.erase(std::remove_if(group.members.begin(), group.members.end(),
-                                           [&](const Member& m) { return m.id == id; }),
-                            group.members.end());
+        group.members.erase(
+            std::remove_if(group.members.begin(), group.members.end(), [&](const Member& m) { return m.id == id; }),
+            group.members.end());
     }
     if (is_source || group.members.empty())
         state->erase(state->begin() + index);
@@ -300,7 +300,8 @@ void propagate_scenery(const GroupSet& group)
     else
         scenery::set_selection(saved);
     if (done)
-        get_log("level editor: linked copies of %s scaled with it (%d)", object_edit::caption(group.source).c_str(), done);
+        get_log("level editor: linked copies of %s scaled with it (%d)", object_edit::caption(group.source).c_str(),
+                done);
 }
 
 void propagate_objects(const GroupSet& group)
@@ -333,7 +334,8 @@ void propagate_objects(const GroupSet& group)
             g_remakes.push_back({m.id, group.source, object_edit::store_away(copy)});
             object_edit::remove_copy(m.id);
         }
-        get_log("level editor: the fields of %s changed - its linked copies made again", object_edit::caption(group.source).c_str());
+        get_log("level editor: the fields of %s changed - its linked copies made again",
+                object_edit::caption(group.source).c_str());
     }
 }
 
@@ -392,8 +394,7 @@ bool linked_duplicate()
         get_join(&g_state, scenery, pair.first, {{pair.second, q}});
     }
     adjust::get_note(adjust::ActStep{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
-    hud::get_message(std::string("Linked copy created"),
-                 5.0);
+    hud::get_message(std::string("Linked copy created"), 5.0);
     get_log("level editor: %u linked cop%s made", static_cast<unsigned>(pairs.size()), pairs.size() == 1 ? "y" : "ies");
     return true;
 }
@@ -528,4 +529,4 @@ void reset_all()
 
 void forget_level() { reset_all(); }
 
-} // namespace MenuSystem::level_editor::Links
+} // namespace frontend::level_editor::links

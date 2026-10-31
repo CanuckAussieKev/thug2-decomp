@@ -42,10 +42,7 @@ extern void** const kViewportVtable;
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool radeon8500() { return g_radeon8500; }
 
-void xform(float* out, const float* v, const void* matrix)
-{
-    d3dx::vec4_transform(out, v, matrix);
-}
+void xform(float* out, const float* v, const void* matrix) { d3dx::vec4_transform(out, v, matrix); }
 
 // The queries' states: colour writes off, no z writes, no texture, the vertex colour's shader.
 void begin_query_draw(uint32_t fvf)
@@ -75,8 +72,9 @@ PcViewport* __cdecl create_viewport(uint32_t a1, uint32_t a2)
 // 0x004CB8E0
 PcViewport* PcViewport::make_new(uint32_t a1, uint32_t a2)
 {
-    reinterpret_cast<ViewRegion*>(this)->ViewRegion::make_new(reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
-                                                              reinterpret_cast<gfx::ViewCam*>(static_cast<uintptr_t>(a2)));
+    reinterpret_cast<ViewRegion*>(this)->ViewRegion::make_new(
+        reinterpret_cast<const float*>(static_cast<uintptr_t>(a1)),
+        reinterpret_cast<gfx::ViewCam*>(static_cast<uintptr_t>(a2)));
     vtable = reinterpret_cast<void**>(kViewportVtable);
     return this;
 }
@@ -185,8 +183,9 @@ uint32_t __cdecl occlusion_pixels()
 
 namespace {
 static VtableSlot g_viewport_vtable_slots[] = {&render::PcViewport::teardown, &render::PcViewport::project_to_screen,
-                &render::PcViewport::query_point, &render::PcViewport::query_rect, stubs::return_zero1};
+                                               &render::PcViewport::query_point, &render::PcViewport::query_rect,
+                                               stubs::return_zero1};
 void** const kViewportVtable = reinterpret_cast<void**>(g_viewport_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

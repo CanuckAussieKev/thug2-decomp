@@ -18,4 +18,4 @@ Vec4& Vec4::multiply_by(const Mat4& matrix)
     return *this;
 }
 
-} // namespace Mth
+} // namespace maths

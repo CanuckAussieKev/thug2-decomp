@@ -50,4 +50,4 @@ Arena* bottom_up_heap();
 void enter_heap_scope(Arena* heap);
 void leave_heap_scope();
 
-} // namespace Mem
+} // namespace memory

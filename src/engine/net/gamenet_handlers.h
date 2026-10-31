@@ -11,7 +11,7 @@
 
 namespace net {
 struct InboundMsgCtx;
-} // namespace Net
+} // namespace net
 
 namespace online {
 
@@ -25,13 +25,13 @@ void __cdecl get_cd_key(char* key);
 struct PlayerSearchDestructors {
     void** vtable_;
     void* list_link_;
-    void destroy_body();                                // 0x0052DB60
+    void destroy_body();                                   // 0x0052DB60
     PlayerSearchDestructors* teardown(unsigned int flags); // 0x0052F730
 };
 struct NewPlayerSearchDestructors {
     void** vtable_;
     void* list_link_;
-    void destroy_body();                                // 0x0052DB70
+    void destroy_body();                                      // 0x0052DB70
     NewPlayerSearchDestructors* teardown(unsigned int flags); // 0x0052F760
 };
 

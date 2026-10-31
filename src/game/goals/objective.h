@@ -20,7 +20,7 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
@@ -31,9 +31,9 @@ class ObjectiveNpc;
 // A link to another goal by id (0xC bytes): the children (+0x28) and the parents (+0x2C) are singly linked lists of
 // these; a child's link is marked when that child is won (Win, 0x005576D0).
 struct GoalEdge {
-    uint32_t objective_key_;  // +0x00 (0: the list's first link, not yet used)
-    GoalEdge* succ_;   // +0x04
-    bool won_;         // +0x08
+    uint32_t objective_key_; // +0x00 (0: the list's first link, not yet used)
+    GoalEdge* succ_;         // +0x04
+    bool won_;               // +0x08
     uint8_t pad09_[3];
 };
 static_assert(sizeof(GoalEdge) == 0xC, "layout must match the original");
@@ -42,83 +42,83 @@ class Objective {
 public:
     // The vtable slots (Objective's own entries at 0x0064DDD0).
     enum Bay : uint32_t {
-        kVtDestroy = 0x00,         // 0x005566A0 (flags; bit 0: free) - returns this
-        kVtShouldExpire = 0x04,    // 0x00556230
-        kVtIsExpired = 0x08,       // 0x00554CD0
-        kVtIsActive = 0x0C,        // 0x00553F90
-        kVtIsActive2 = 0x10,       // 0x004A10A0 (a jump to is_operative's slot: not in this range)
-        kVtExpire = 0x14,          // 0x00554F40
-        kVtLoadSaveData = 0x18,    // 0x00554610
-        kVtGetSaveData = 0x1C,     // 0x00554770
-        kVtHasTimeLimit = 0x20,    // 0x005545A0
-        kVtTimerBeeps = 0x24,      // 0x005B9760 (stubs::return_true)
-        kVtSlot28 = 0x28,          // 0x005545F0
-        kVtActivate = 0x2C,        // 0x00557360
-        kVtSetActive = 0x30,       // 0x00553F50
-        kVtDeactivate = 0x34,      // 0x00557560 (force, affectTree)
-        kVtSetInactive = 0x38,     // 0x00553F60
-        kVtWin = 0x3C,             // 0x005576D0
-        kVtLose = 0x40,            // 0x00554C70
-        kVtUpdate = 0x44,          // 0x00554DD0
-        kVtIsPaused = 0x48,        // 0x00554560
-        kVtSetFlag = 0x4C,         // 0x00556330 (flag, value, sub-structure)
-        kVtStageFlagSet = 0x50,    // 0x00555690 (bit)
-        kVtHasWon = 0x54,          // 0x00555590
-        kVtNetStageFlagSet = 0x58, // 0x005556B0 (bit)
+        kVtDestroy = 0x00,           // 0x005566A0 (flags; bit 0: free) - returns this
+        kVtShouldExpire = 0x04,      // 0x00556230
+        kVtIsExpired = 0x08,         // 0x00554CD0
+        kVtIsActive = 0x0C,          // 0x00553F90
+        kVtIsActive2 = 0x10,         // 0x004A10A0 (a jump to is_operative's slot: not in this range)
+        kVtExpire = 0x14,            // 0x00554F40
+        kVtLoadSaveData = 0x18,      // 0x00554610
+        kVtGetSaveData = 0x1C,       // 0x00554770
+        kVtHasTimeLimit = 0x20,      // 0x005545A0
+        kVtTimerBeeps = 0x24,        // 0x005B9760 (stubs::return_true)
+        kVtSlot28 = 0x28,            // 0x005545F0
+        kVtActivate = 0x2C,          // 0x00557360
+        kVtSetActive = 0x30,         // 0x00553F50
+        kVtDeactivate = 0x34,        // 0x00557560 (force, affectTree)
+        kVtSetInactive = 0x38,       // 0x00553F60
+        kVtWin = 0x3C,               // 0x005576D0
+        kVtLose = 0x40,              // 0x00554C70
+        kVtUpdate = 0x44,            // 0x00554DD0
+        kVtIsPaused = 0x48,          // 0x00554560
+        kVtSetFlag = 0x4C,           // 0x00556330 (flag, value, sub-structure)
+        kVtStageFlagSet = 0x50,      // 0x00555690 (bit)
+        kVtHasWon = 0x54,            // 0x00555590
+        kVtNetStageFlagSet = 0x58,   // 0x005556B0 (bit)
         kVtHasWonGoalOrChild = 0x5C, // 0x005542C0
-        kVtIsInitialized = 0x60,   // 0x005519F0
-        kVtCanRetry = 0x64,        // 0x00554460
-        kVtMarkWon = 0x68,         // 0x005555E0
-        kVtSetStageFlag = 0x6C,    // 0x00555650 (bit)
-        kVtSetNetStageFlag = 0x70, // 0x00555670 (bit)
-        kVtUnBeat = 0x74,          // 0x00555930
+        kVtIsInitialized = 0x60,     // 0x005519F0
+        kVtCanRetry = 0x64,          // 0x00554460
+        kVtMarkWon = 0x68,           // 0x005555E0
+        kVtSetStageFlag = 0x6C,      // 0x00555650 (bit)
+        kVtSetNetStageFlag = 0x70,   // 0x00555670 (bit)
+        kVtUnBeat = 0x74,            // 0x00555930
     };
 
     // +0x6C (flag_bits_)
     enum Flags : uint8_t {
-        kFlagInitialized = 0x01,       // Init / Uninitialize
-        kFlagSeen = 0x02,              // the player has started it (hasSeen)
-        kFlagWon = 0x04,               // beaten (out of the goal attack / lobby net games)
-        kFlagWonInNetGame = 0x08,      // beaten in a goal attack / net lobby game
-        kFlagSelected = 0x10,          // chosen for a net game
-        kFlagLocked = 0x20,            // locked until another goal unlocks it (unlocked_by_another, pro_goal)
+        kFlagInitialized = 0x01,  // Init / Uninitialize
+        kFlagSeen = 0x02,         // the player has started it (hasSeen)
+        kFlagWon = 0x04,          // beaten (out of the goal attack / lobby net games)
+        kFlagWonInNetGame = 0x08, // beaten in a goal attack / net lobby game
+        kFlagSelected = 0x10,     // chosen for a net game
+        kFlagLocked = 0x20,       // locked until another goal unlocks it (unlocked_by_another, pro_goal)
         kFlagDeactivateOnExpire = 0x40,
-        kFlagEndOfRunStarted = 0x80,   // the skater's end of run started by the goal (has_run_out)
+        kFlagEndOfRunStarted = 0x80, // the skater's end of run started by the goal (has_run_out)
     };
     // +0x6D (cur_phase_)
     enum State : uint8_t {
         kStateActive = 0x01,
-        kState02 = 0x02,           // (read by 0x005543E0, never set in this range)
+        kState02 = 0x02, // (read by 0x005543E0, never set in this range)
         kStatePaused = 0x04,
         kStateNoTimeLimit = 0x10,
     };
 
-    memory::ListNode list_link_;          // +0x00: the vtable, then a list node (data this, priority 0, linked to itself
-                                   // while not in a list; Deactivate unlinks it)
-    ObjectiveNpc* ped_;               // +0x14: the goal's pro (0x14 bytes)
-    uint32_t inherited_;          // +0x18: passed to the children (2: single_timer, 4: retry_stage)
-    script::Struct* args_;     // +0x1C
-    script::Struct* goal_flags_;  // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
-    int run_ending_;              // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
-    GoalEdge* sub_nodes_;          // +0x28
-    GoalEdge* parents_;           // +0x2C
-    uint32_t skater_;             // +0x30: skater (none 0x806FFF30)
-    int level_;                   // +0x34: the career's level when made
-    int bundle_;                   // +0x38: group_number (-1: none) - locked while the manager's group is
-    uint32_t stage_flags_;         // +0x3C: bits by number (set_stage_flag)
-    uint32_t net_stage_flags_;      // +0x40
-    int times_started_;            // +0x44
-    int best_time_;                // +0x48: ms (record_type time; 0x7FFFFFFF none)
-    int record_points_;               // +0x4C (record_type score)
-    int seconds_remaining_;                // +0x50: ms
+    memory::ListNode list_link_; // +0x00: the vtable, then a list node (data this, priority 0, linked to itself
+                                 // while not in a list; Deactivate unlinks it)
+    ObjectiveNpc* ped_;          // +0x14: the goal's pro (0x14 bytes)
+    uint32_t inherited_;         // +0x18: passed to the children (2: single_timer, 4: retry_stage)
+    script::Struct* args_;       // +0x1C
+    script::Struct* goal_flags_; // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
+    int run_ending_;             // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
+    GoalEdge* sub_nodes_;        // +0x28
+    GoalEdge* parents_;          // +0x2C
+    uint32_t skater_;            // +0x30: skater (none 0x806FFF30)
+    int level_;                  // +0x34: the career's level when made
+    int bundle_;                 // +0x38: group_number (-1: none) - locked while the manager's group is
+    uint32_t stage_flags_;       // +0x3C: bits by number (set_stage_flag)
+    uint32_t net_stage_flags_;   // +0x40
+    int times_started_;          // +0x44
+    int best_time_;              // +0x48: ms (record_type time; 0x7FFFFFFF none)
+    int record_points_;          // +0x4C (record_type score)
+    int seconds_remaining_;      // +0x50: ms
     uint32_t unknown54_;
-    int num_flags_;                // +0x58
-    int num_flags_set_;             // +0x5C (also the number collected without number_collected)
-    int elapsed_;                 // +0x60: ms since activated
-    int unknown64_;               // +0x64 (-1)
-    int unknown68_;               // +0x68 (-1)
-    uint8_t flag_bits_;               // +0x6C (Flags)
-    uint8_t cur_phase_;               // +0x6D (State)
+    int num_flags_;     // +0x58
+    int num_flags_set_; // +0x5C (also the number collected without number_collected)
+    int elapsed_;       // +0x60: ms since activated
+    int unknown64_;     // +0x64 (-1)
+    int unknown68_;     // +0x68 (-1)
+    uint8_t flag_bits_; // +0x6C (Flags)
+    uint8_t cur_phase_; // +0x6D (State)
     uint8_t pad6e_[2];
 
     void** get_vtable() const { return list_link_.vtable; }
@@ -216,7 +216,7 @@ public:
     // 0x00554890 (cdecl): `text` copied to `out` with \t<n> / \k<n> (one or two digits, from 1) replaced by trick
     // `n`'s / key combo `n`'s text. (`size` isn't used: no bounds checks, as the original.)
     static void replace_trick_tokens(const char* text, char* out, script::Array* key_combos, script::Array* tricks,
-                                   int size);
+                                     int size);
     // 0x005549A0: number_collected, else the flags set.
     int count_picked_up();
     // 0x005549D0: num_flags_to_win, else the number of flags (0: -1).
@@ -354,7 +354,7 @@ public:
     // mapping: a special slot's trick, a premade create-a-trick, or the trick's own) into the two arrays. False if a
     // key combo has no trick.
     static bool build_trick_texts(script::Array* key_combos, script::Array* key_texts, script::Array* trick_texts,
-                                int premade_cat);
+                                  int premade_cat);
     // 0x00556A00: the texts' \t / \k tokens replaced by the key combos' tricks (the originals kept as original_*).
     // False without key_combos or a trick for one.
     bool swap_move_caption();
@@ -371,7 +371,8 @@ static_assert(offsetof(Objective, ped_) == 0x14 && offsetof(Objective, args_) ==
                   offsetof(Objective, skater_) == 0x30 && offsetof(Objective, bundle_) == 0x38 &&
                   offsetof(Objective, times_started_) == 0x44 && offsetof(Objective, seconds_remaining_) == 0x50 &&
                   offsetof(Objective, num_flags_) == 0x58 && offsetof(Objective, elapsed_) == 0x60 &&
-                  offsetof(Objective, flag_bits_) == 0x6C && offsetof(Objective, cur_phase_) == 0x6D && sizeof(Objective) == 0x70,
+                  offsetof(Objective, flag_bits_) == 0x6C && offsetof(Objective, cur_phase_) == 0x6D &&
+                  sizeof(Objective) == 0x70,
               "layout must match the original");
 
 // A goal's virtual function at vtable offset `slot` (the game's table).
@@ -383,4 +384,4 @@ R Virtual(Objective* goal, uint32_t slot, A... args)
 
 extern float g_goal_life_seconds_per_millisecond;
 
-} // namespace Game
+} // namespace goals

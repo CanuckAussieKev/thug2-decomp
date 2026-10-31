@@ -14,10 +14,10 @@ struct ResolveMap {
         void* item;
         Elem* next;
     };
-    int num_;       // +0x00
-    Elem* first_;     // +0x04
-    Elem* last_;      // +0x08
-    Elem* cursor_;    // +0x0C: the node at cursor_index_ (null: start again from the first)
+    int num_;          // +0x00
+    Elem* first_;      // +0x04
+    Elem* last_;       // +0x08
+    Elem* cursor_;     // +0x0C: the node at cursor_index_ (null: start again from the first)
     int cursor_index_; // +0x10
 
     // 0x00557F10: the item at `*index`, walking on from the cursor (or from the first node when the cursor is past
@@ -50,4 +50,4 @@ struct TableItemEraser {
     void free_table_contents();
 };
 
-} // namespace Lst
+} // namespace lists

@@ -28,10 +28,10 @@ using script::Struct;
 
 namespace {
 
-constexpr uint32_t kOff = 0xD443A2BC;          // "off"
-constexpr uint32_t kName = 0xA1DC81F9;         // "name"
-constexpr uint32_t kSize = 0x083FDB95;         // "size"
-constexpr uint32_t kBottomUpHeap = 0x0C7800B0; // "BottomUpHeap"
+constexpr uint32_t kOff = 0xD443A2BC;            // "off"
+constexpr uint32_t kName = 0xA1DC81F9;           // "name"
+constexpr uint32_t kSize = 0x083FDB95;           // "size"
+constexpr uint32_t kBottomUpHeap = 0x0C7800B0;   // "BottomUpHeap"
 constexpr uint32_t kDumpHeapsBytes = 0xD65B9AC7; // (name unknown) DumpHeaps: sizes in bytes rather than K
 
 // Compiled out of this build (calls of the empty function 0x005480A0).
@@ -172,7 +172,8 @@ bool __cdecl cfunc_print_mem_info(Struct* params, Script*)
         params->read_hash_value(0u, &name, 0);
     hub()->get_memory_pool(name);
     char heap_name[64];
-    std::snprintf(heap_name, sizeof(heap_name), "%s", hub()->get_zone_label(name)); // (the original's copy is unbounded)
+    std::snprintf(heap_name, sizeof(heap_name), "%s",
+                  hub()->get_zone_label(name)); // (the original's copy is unbounded)
     print_mem_info(heap_name);
     return true;
 }
@@ -201,22 +202,25 @@ void __cdecl dump_pool_usage(bool to_dump_file, bool print)
     auto current = [](const memory::PoolPair& pools) {
         return pools.pools[pools.current]; // (not checked: the pools are set up by then)
     };
-    text("\nScript pool usage:\n");                               // "\nScript pool usage:\n"
-    pool("CStruct:           %5d of %5d, max %5d\n", current(script::g_struct_pools));          // " | CStruct:           %5d of %5d, max %5d\n"
-    pool("CComponent:        %5d of %5d, max %5d\n", current(script::g_component_pools));          // CComponent
+    text("\nScript pool usage:\n"); // "\nScript pool usage:\n"
+    pool("CStruct:           %5d of %5d, max %5d\n",
+         current(script::g_struct_pools)); // " | CStruct:           %5d of %5d, max %5d\n"
+    pool("CComponent:        %5d of %5d, max %5d\n", current(script::g_component_pools));       // CComponent
     pool("CSymbolTableEntry: %5d of %5d, max %5d\n", current(script::g_symbol_pools));          // CSymbolTableEntry
     pool("CVector:           %5d of %5d, max %5d\n", current(script::g_vector_pools));          // CVector
-    pool("CPair:             %5d of %5d, max %5d\n", current(script::g_pair_pools));          // CPair
-    pool("CArray:            %5d of %5d, max %5d\n", current(script::g_array_pools));          // CArray
+    pool("CPair:             %5d of %5d, max %5d\n", current(script::g_pair_pools));            // CPair
+    pool("CArray:            %5d of %5d, max %5d\n", current(script::g_array_pools));           // CArray
     pool("CScript:           %5d of %5d, max %5d\n", current(script::g_script_pools));          // CScript
-    pool("CHashItem:\t%5d of %5d, max %5d\n", memory::slot_pool_setup::get_pool(0)); // CHashItem
-    pool("CAnimCachePredictor:\t%5d of %5d, max %5d\n", current(gfx::g_anim_slot_pools));          // CAnimCachePredictor
-    pool("CBlendChannel:\t%5d of %5d, max %5d\n", current(gfx::g_anim_track_pools));          // CBlendChannel
-    pool("CBonedAnimController:\t%5d of %5d, max %5d\n", current(gfx::g_standard_pools));          // CBonedAnimController
-    pool("CAnimLookup:\t%5d of %5d, max %5d\n", current(render::g_frame_source_pools));          // CAnimLookup
-    pool("sSpawnedPolyDetails:\t%5d of %5d, max %5d\n", current(render::g_spawned_poly_pools));          // sSpawnedPolyDetails
-    pool("Obj::CEventReceiverList:\t%5d of %5d, max %5d\n", current(objects::g_script_list_pools));          // GameObjects::CEventReceiverList
-    text("\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"); // "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"
+    pool("CHashItem:\t%5d of %5d, max %5d\n", memory::slot_pool_setup::get_pool(0));            // CHashItem
+    pool("CAnimCachePredictor:\t%5d of %5d, max %5d\n", current(gfx::g_anim_slot_pools));       // CAnimCachePredictor
+    pool("CBlendChannel:\t%5d of %5d, max %5d\n", current(gfx::g_anim_track_pools));            // CBlendChannel
+    pool("CBonedAnimController:\t%5d of %5d, max %5d\n", current(gfx::g_standard_pools));       // CBonedAnimController
+    pool("CAnimLookup:\t%5d of %5d, max %5d\n", current(render::g_frame_source_pools));         // CAnimLookup
+    pool("sSpawnedPolyDetails:\t%5d of %5d, max %5d\n", current(render::g_spawned_poly_pools)); // sSpawnedPolyDetails
+    pool("Obj::CEventReceiverList:\t%5d of %5d, max %5d\n",
+         current(objects::g_script_list_pools)); // GameObjects::CEventReceiverList
+    text(
+        "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"); // "\n(HashItems are init in main.cpp, others are in init.cpp)\n\n\n"
 }
 
 // 0x00448840: DumpHeaps [<flag>]: the current heap, then each heap's used / fragmented / free / minimum free sizes and
@@ -229,22 +233,30 @@ bool __cdecl cfunc_dump_heaps(Struct* params, Script*)
     memory::Hub* manager = hub();
     debug::printf(format("Current Heap: %s\n\n"), manager->current_heap_name()); // "Current Heap: %s\n"
     bool bytes = params && params->has_bare_flag(kDumpHeapsBytes);
-    debug::printf(format(bytes ? "Name                       Used    Frag    Free    Min Blocks\n" : "Name                       Used  Frag  Free   Min  Blocks\n")); // "Name                       Used ..." (two layouts)
-    debug::printf(format(bytes ? "------------------------- ------ ------- ------- ------ ------\n" : "------------------------- ----- ----- ---- ------ ------\n")); // "------------------------- -----..."
+    debug::printf(format(
+        bytes
+            ? "Name                       Used    Frag    Free    Min Blocks\n"
+            : "Name                       Used  Frag  Free   Min  Blocks\n")); // "Name                       Used ..." (two layouts)
+    debug::printf(format(
+        bytes ? "------------------------- ------ ------- ------- ------ ------\n"
+              : "------------------------- ----- ----- ---- ------ ------\n")); // "------------------------- -----..."
     for (memory::MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
         memory::Zone* region = heap->region_;
         int minimum = region->min_available_; // (read before free_byte_count)
         int blocks = heap->used_blocks_;
         int available = region->free_byte_count();
         if (bytes)
-            debug::printf(format("%23s: %8d %7d %7d %7d  %5d \n"), heap->label_, heap->used_size_, heap->free_size_, available, minimum,
-                        blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
+            debug::printf(format("%23s: %8d %7d %7d %7d  %5d \n"), heap->label_, heap->used_size_, heap->free_size_,
+                          available, minimum,
+                          blocks); // "%23s: %8d %7d %7d %7d  %5d \n"
         else
-            debug::printf(format("%23s: %5dK %4dK %4dK %4dK  %5d \n"), heap->label_, heap->used_size_ / 1024, heap->free_size_ / 1024,
-                        available / 1024, minimum / 1024, blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
+            debug::printf(format("%23s: %5dK %4dK %4dK %4dK  %5d \n"), heap->label_, heap->used_size_ / 1024,
+                          heap->free_size_ / 1024, available / 1024, minimum / 1024,
+                          blocks); // "%23s: %5dK %4dK %4dK %4dK  %5d \n"
     }
     int sound_free = free_sound_memory();
-    debug::printf(format("\nSound mem free %d K  (%d bytes)\n"), free_sound_memory() / 1024, sound_free); // "\nSound mem free %d K  (%d bytes)\n"
+    debug::printf(format("\nSound mem free %d K  (%d bytes)\n"), free_sound_memory() / 1024,
+                  sound_free); // "\nSound mem free %d K  (%d bytes)\n"
     dump_pool_usage(false, true);
     return true;
 }

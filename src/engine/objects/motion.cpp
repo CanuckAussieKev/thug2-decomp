@@ -48,4 +48,4 @@ void KinematicsModule::rotate_to(script::Struct* params)
     }
 }
 
-} // namespace Obj
+} // namespace objects

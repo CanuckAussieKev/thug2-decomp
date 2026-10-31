@@ -33,35 +33,35 @@ float g_competition_max_points{99.9f};
 namespace {
 
 constexpr uint32_t kNoName = 0;                    // (an unnamed component: a flag)
-constexpr uint32_t kLeaderBoardNames = 0x1CC6F48D;  // leader_board_names
-constexpr uint32_t kFirstPlaceName = 0xFAF19012;    // first_place_name
-constexpr uint32_t kName = 0xA1DC81F9;              // Name
-constexpr uint32_t kScore = 0xCD66C8AE;             // score
-constexpr uint32_t kPlayer = 0x67E6859A;            // player
-constexpr uint32_t kTopJudge = 0x7B1B959F;          // top_judge
-constexpr uint32_t kRankingList = 0x370B9420;       // leader_board
-constexpr uint32_t kAddLeaderBoard = 0xCE76F8C1;    // goal_comp_add_leader_board
+constexpr uint32_t kLeaderBoardNames = 0x1CC6F48D; // leader_board_names
+constexpr uint32_t kFirstPlaceName = 0xFAF19012;   // first_place_name
+constexpr uint32_t kName = 0xA1DC81F9;             // Name
+constexpr uint32_t kScore = 0xCD66C8AE;            // score
+constexpr uint32_t kPlayer = 0x67E6859A;           // player
+constexpr uint32_t kTopJudge = 0x7B1B959F;         // top_judge
+constexpr uint32_t kRankingList = 0x370B9420;      // leader_board
+constexpr uint32_t kAddLeaderBoard = 0xCE76F8C1;   // goal_comp_add_leader_board
 constexpr uint32_t kJudgeNames[Contest::kJudges] = {
     0x84F93830, 0x1DF0698A, 0x6AF7591C, 0xF493CCBF, 0x8394FC29, // comp_str_Judge1..5
 };
 
 // The constants, as the original reads them.
-float tenth() { return script::g_parse_nudge; }        // 0.1
-float eighth() { return g_competition_eighth; }       // 0.125
-float two() { return g_competition_two; }          // 2.0
-float nearly_half() { return g_competition_nearly_half; }   // 0.4999990 (rounding to the nearest)
-float hundred() { return gfx::g_hundred; }      // 100
-float max_points() { return g_competition_max_points; }    // 99.9
-float get_half() { return gfx::g_half; }         // 0.5
-float get_zero() { return objects::g_float_zero; }         // 0
+float tenth() { return script::g_parse_nudge; }           // 0.1
+float eighth() { return g_competition_eighth; }           // 0.125
+float two() { return g_competition_two; }                 // 2.0
+float nearly_half() { return g_competition_nearly_half; } // 0.4999990 (rounding to the nearest)
+float hundred() { return gfx::g_hundred; }                // 100
+float max_points() { return g_competition_max_points; }   // 99.9
+float get_half() { return gfx::g_half; }                  // 0.5
+float get_zero() { return objects::g_float_zero; }        // 0
 float max_judge() { return g_competition_max_judge; }     // 99.85
-float three() { return g_competition_three; }        // 3
-float ten() { return render::g_float_ten; }          // 10
-float tiny() { return g_competition_tiny; }         // 0.0001
+float three() { return g_competition_three; }             // 3
+float ten() { return render::g_float_ten; }               // 10
+float tiny() { return g_competition_tiny; }               // 0.0001
 float over_half() { return g_competition_over_half; }     // 0.500099
-float ninety_nine() { return g_competition_ninety_nine; }   // 99
-float get_third() { return g_competition_third; }        // 1/3
-constexpr float kScoreSpread = 1.9f;                             // (0x3FF33333, pushed as an immediate)
+float ninety_nine() { return g_competition_ninety_nine; } // 99
+float get_third() { return g_competition_third; }         // 1/3
+constexpr float kScoreSpread = 1.9f;                      // (0x3FF33333, pushed as an immediate)
 
 // The x87 code's conversions: truncation toward zero (_ftol).
 int truncate(double value) { return static_cast<int>(value); }
@@ -73,14 +73,12 @@ objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
 objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
     // (0x00557FB0 is the lookup table's by-index code, shared with the goal manager's: its first member is the table too)
-    return reinterpret_cast<objects::RiderIdentity*>(reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(index));
+    return reinterpret_cast<objects::RiderIdentity*>(
+        reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(index));
 }
 
 // The goal manager (0x005591B0) and its active competition goal (0x00558D90; null: none).
-bool competition_goal_active()
-{
-    return goals::get_objective_board()->get_active_competition() != nullptr;
-}
+bool competition_goal_active() { return goals::get_objective_board()->get_active_competition() != nullptr; }
 
 script::Struct* spawn_param_table()
 {
@@ -243,8 +241,8 @@ Contest* Contest::make_new(int)
 }
 
 // 0x00550560
-void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score,
-                         float gold_score, float bail_penalty)
+void Contest::kickoff(float bronze, float silver, float gold, float bronze_score, float silver_score, float gold_score,
+                      float bail_penalty)
 {
     third_mark_ = bronze;
     second_mark_ = silver;
@@ -341,8 +339,8 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     debug::printf("\n\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = leaders_[i];
-        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(), leader.get_word(0),
-                    leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
+        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
+                      leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     sort_leaders();
     const char* first_place;
@@ -351,8 +349,8 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     debug::printf("\nSorted\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = leaders_[i];
-        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(), leader.get_word(0),
-                    leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
+        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
+                      leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < kJudges; ++i)
         judge_names_[i] = script::fetch_text(kJudgeNames[i]);
@@ -370,8 +368,8 @@ void Contest::show_leader_board()
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
         Leader& leader = leaders_[i];
-        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(), leader.get_word(0),
-                    leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
+        debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
+                      leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < 5; ++i) {
         Leader& leader = leaders_[i];
@@ -396,7 +394,7 @@ void Contest::end_run(int score)
         return;
     debug::printf("Ending Competition with score of %d\n", score);
     debug::printf("Bronze %f, silver %f, gold %f\n", static_cast<double>(bronze_score_),
-                static_cast<double>(silver_score_), static_cast<double>(gold_score_));
+                  static_cast<double>(silver_score_), static_cast<double>(gold_score_));
 
     // The points: linear between the medal scores (above gold: towards 100 at twice the gold score).
     double x = score;
@@ -418,16 +416,16 @@ void Contest::end_run(int score)
     debug::printf("points calculated at %f\n", static_cast<double>(points));
     points = points - crash_penalty_;
     debug::printf("points decremented by %f bail points to %f\n", static_cast<double>(crash_penalty_),
-                static_cast<double>(points));
+                  static_cast<double>(points));
 
     float max = max_points();
     path_vertices_ = points;
     if (!(points <= max))
         path_vertices_ = max;
     float spread = static_cast<float>((static_cast<double>(max) - path_vertices_) * tenth());
-    path_vertices_ = static_cast<float>(
-        maths::plus_or_minus_exact(static_cast<float>((static_cast<double>(max) - path_vertices_) * tenth() * get_half())) +
-        path_vertices_);
+    path_vertices_ = static_cast<float>(maths::plus_or_minus_exact(static_cast<float>(
+                                            (static_cast<double>(max) - path_vertices_) * tenth() * get_half())) +
+                                        path_vertices_);
     if (!(path_vertices_ <= max))
         path_vertices_ = max;
     if (path_vertices_ < get_zero())
@@ -449,13 +447,13 @@ void Contest::end_run(int score)
     if (!(judges[2] <= max_judge()))
         judges[2] = max;
     // Each to a tenth (the third with a nudge up), then to a whole score.
-    judges[2] = static_cast<float>(truncate(static_cast<double>(judges[2]) * ten()) * static_cast<double>(tenth()) +
-                                   tiny());
+    judges[2] =
+        static_cast<float>(truncate(static_cast<double>(judges[2]) * ten()) * static_cast<double>(tenth()) + tiny());
     judges[0] = static_cast<float>(
         truncate(truncate(static_cast<double>(judges[0]) * ten()) * static_cast<double>(tenth()) + over_half()));
     float first = judges[0];
-    double second = truncate(truncate(static_cast<double>(judges[1]) * ten()) * static_cast<double>(tenth()) +
-                             over_half());
+    double second =
+        truncate(truncate(static_cast<double>(judges[1]) * ten()) * static_cast<double>(tenth()) + over_half());
     judges[1] = static_cast<float>(second);
     judges[2] = static_cast<float>(truncate(static_cast<double>(judges[2]) + nearly_half()));
     float limit = ninety_nine();
@@ -465,13 +463,13 @@ void Contest::end_run(int score)
         judges[1] = limit;
     if (!(judges[2] <= limit))
         judges[2] = limit;
-    path_vertices_ = static_cast<float>(truncate(
-        (static_cast<double>(judges[1]) + judges[2] + judges[0]) * get_third() + nearly_half()));
+    path_vertices_ = static_cast<float>(
+        truncate((static_cast<double>(judges[1]) + judges[2] + judges[0]) * get_third() + nearly_half()));
     if (!(path_vertices_ <= limit))
         path_vertices_ = limit;
     run_totals_[runs_] = truncate(path_vertices_);
     debug::printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
-                static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(path_vertices_));
+                  static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(path_vertices_));
 
     // The player's score of the run, the standings, the place.
     for (Leader& leader : leaders_) {
@@ -521,15 +519,14 @@ void Contest::end_run(int score)
         if (is_leading_scorer(i))
             entry->put_name_key(kNoName, kTopJudge);
         scores->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entry));
-        debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]),
-                    static_cast<int>(is_leading_scorer(i)));
+        debug::printf("%d: %f Top=%d\n", i, static_cast<double>(judges[i]), static_cast<int>(is_leading_scorer(i)));
     }
-    params->append_array_value("scores", scores);              // "scores"
-    params->put_int("total_score", current_round(path_vertices_));  // "total_score"
+    params->append_array_value("scores", scores);                  // "scores"
+    params->put_int("total_score", current_round(path_vertices_)); // "total_score"
     free_array(scores);
     script::spawn_script("goal_comp_show_run_scores", params, 0, nullptr, 0, 0, false, false, false,
-                        false); // goal_comp_show_run_scores
+                         false); // goal_comp_show_run_scores
     delete_structure(params);
 }
 
-} // namespace Mdl
+} // namespace modules

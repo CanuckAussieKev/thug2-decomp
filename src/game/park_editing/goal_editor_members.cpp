@@ -381,4 +381,4 @@ bool ObjectiveAuthoring::get_created_goals(script::Struct* /*params*/, script::S
     return true;
 }
 
-} // namespace Ed
+} // namespace park_editing

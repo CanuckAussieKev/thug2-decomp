@@ -10,4 +10,4 @@ namespace render {
 
 extern const maths::Mat4* g_last_bones; // the bone matrices last set up
 
-} // namespace Nx
+} // namespace render

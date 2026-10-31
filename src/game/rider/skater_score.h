@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's score component (SkaterScore, type 0xD262802F, vtable 0x0064C090, 0x1C bytes): owns the skater's
 // score (modules::PointTally, 0x1550 bytes; not rewritten yet), updates it for a local skater (always special with
@@ -45,4 +45,4 @@ public:
 static_assert(offsetof(RiderPointKeeper, points_held_) == 0x18 && sizeof(RiderPointKeeper) == 0x1C,
               "layout must match the original (0x00518B60 allocates 0x1C bytes)");
 
-} // namespace Obj
+} // namespace objects

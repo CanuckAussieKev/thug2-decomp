@@ -21,10 +21,10 @@ namespace park_editing {
 
 namespace {
 
-constexpr uint32_t kTopDownLevel = 0xCD3682C1;  // the level whose park lives in the top-down heap
+constexpr uint32_t kTopDownLevel = 0xCD3682C1; // the level whose park lives in the top-down heap
 constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
 constexpr uint32_t kHoldsClipboards = 0x45C6C158; // a piece set's flag: its entries are the clipboards
-constexpr uint32_t kMetaHasGap = 0x1000;       // a meta piece's flag
+constexpr uint32_t kMetaHasGap = 0x1000;          // a meta piece's flag
 
 uint32_t& get_meta_flags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0xC); }
 uint32_t meta_type(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0x38); }
@@ -43,7 +43,10 @@ Clipboard* as_clipboard(uint8_t* clipboard) { return reinterpret_cast<Clipboard*
 ParkAssembler* as_generator(void* generator) { return static_cast<ParkAssembler*>(generator); }
 uint8_t* next_clipboard(uint8_t* clipboard) { return *reinterpret_cast<uint8_t**>(clipboard + 0x14); }
 // A clipboard's area where the cursor would paste it.
-void clipboard_area(uint8_t* clipboard, BuildPointer* cursor, CellBox* area) { as_clipboard(clipboard)->fetch_extent(cursor, area); }
+void clipboard_area(uint8_t* clipboard, BuildPointer* cursor, CellBox* area)
+{
+    as_clipboard(clipboard)->fetch_extent(cursor, area);
+}
 // The gap with a half at `area` (and which half), or null.
 GapRecord* gap_at(ParkLayout* manager, CellBox* area, int* half) { return manager->get_gap_info(area, half); }
 void drop_gap_entry(ParkLayout* manager, GapRecord* gap) { manager->drop_gap_entry(gap); }
@@ -108,7 +111,8 @@ bool BuildPointer::commit_tile_placement()
     for (int slot = 1; slot < 9; ++slot) {
         if (type == manager->get_at<uint32_t>(0x177A4 + (slot - 1) * 4)) {
             if (!as_generator(manager->get_generator())->has_free_restart_slot(slot)) {
-                debug::printf("No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
+                debug::printf(
+                    "No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
                 return false;
             }
             break;
@@ -226,7 +230,8 @@ bool BuildPointer::change_gap(int turn, int left, int right)
         return false;
     // A gap being made: only its own first half.
     if (current_gap().halves_placed_ == 1 &&
-        (gap->at_point_[0].x != current_gap().at_point_[0].x || gap->at_point_[0].y != current_gap().at_point_[0].y || gap->at_point_[0].z != current_gap().at_point_[0].z))
+        (gap->at_point_[0].x != current_gap().at_point_[0].x || gap->at_point_[0].y != current_gap().at_point_[0].y ||
+         gap->at_point_[0].z != current_gap().at_point_[0].z))
         return false;
     GapRecord copy = *gap;
     bool changed = false;
@@ -454,7 +459,7 @@ void ParkLayout::commission(uint32_t level)
                 auto* piece_description =
                     reinterpret_cast<script::Struct*>(standard->fetch_part(static_cast<uint32_t>(piece)));
                 if (!piece_description->fetch_text("text_name", // "text_name"
-                                                 &set.entries_[entry].name, 0))
+                                                   &set.entries_[entry].name, 0))
                     set.entries_[entry].name = nullptr;
             }
         }
@@ -474,4 +479,4 @@ void ParkLayout::commission(uint32_t level)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

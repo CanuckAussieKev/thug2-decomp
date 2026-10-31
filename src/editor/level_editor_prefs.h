@@ -66,4 +66,4 @@ void pane(float scale, ImFont* heading, ImFont* small);
 void show_tips();
 void tips_window(float scale, ImFont* heading, ImFont* mono);
 
-} // namespace MenuSystem::level_editor::prefs
+} // namespace frontend::level_editor::prefs

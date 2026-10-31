@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -27,21 +27,21 @@ static_assert(sizeof(GroundTriangle) == 0x30, "layout must match the original");
 
 // PedestrianBrainModule::flag_bits_ (+0x20)
 constexpr uint32_t kPedFlagBoardHideable = 0x1;   // its profile's board has a desc_id: hide_boardgeom hides it
-constexpr uint32_t kPedFlagMoving = 0x2;           // following its path (Ped_StartMoving / Ped_StopMoving)
-constexpr uint32_t kPedFlagGrinding = 0x4;         // Ped_SetIsGrinding
+constexpr uint32_t kPedFlagMoving = 0x2;          // following its path (Ped_StartMoving / Ped_StopMoving)
+constexpr uint32_t kPedFlagGrinding = 0x4;        // Ped_SetIsGrinding
 constexpr uint32_t kPedFlagVertNext = 0x8;        // the node it's heading for has a vert SkateAction
 constexpr uint32_t kPedFlagVertLast = 0x10;       // the node it came from had one
 constexpr uint32_t kPedFlagVertAfter = 0x20;      // the node after next has one
-constexpr uint32_t kPedFlagBailing = 0x40;         // Ped_SetIsBailing
+constexpr uint32_t kPedFlagBailing = 0x40;        // Ped_SetIsBailing
 constexpr uint32_t kPedFlagGrindBailing = 0x80;   // Ped_SetIsBailing Grind (bailing off a grind)
-constexpr uint32_t kPedFlagCrouch = 0x100;         // a jump at the next node: crouch when near (STATE_jumpcrouch)
-constexpr uint32_t kPedFlagSpinning = 0x200;       // a jump's spin (spin_angle_) in progress
+constexpr uint32_t kPedFlagCrouch = 0x100;        // a jump at the next node: crouch when near (STATE_jumpcrouch)
+constexpr uint32_t kPedFlagSpinning = 0x200;      // a jump's spin (spin_angle_) in progress
 constexpr uint32_t kPedFlagVertRotating = 0x400;  // a jump's turn over a spine in progress
 constexpr uint32_t kPedFlagJumpingToNode = 0x800; // JumpToNextNode
-constexpr uint32_t kPedFlagStopping = 0x1000;      // the stop state: ped_skater_start_moving runs when it moves
-constexpr uint32_t kPedFlagSoundState3 = 0x2000; // (not set here) the sounds' state 3 when not moving
+constexpr uint32_t kPedFlagStopping = 0x1000;     // the stop state: ped_skater_start_moving runs when it moves
+constexpr uint32_t kPedFlagSoundState3 = 0x2000;  // (not set here) the sounds' state 3 when not moving
 constexpr uint32_t kPedFlagVertLip = 0x8000;      // the node it's heading for has a Vert_Lip action
-constexpr uint32_t kPedFlagBoardHidden = 0x20000;  // its board is hidden
+constexpr uint32_t kPedFlagBoardHidden = 0x20000; // its board is hidden
 
 // The PedLogic component (type 0x6EFDDFB8 "pedlogic", vtable 0x0064B7A8, 0x1CC bytes; made by 0x004F0B10): a ped's
 // brain - walkers and the skating peds. It runs a logic state from a state table (Ped_StateLogic_Table, the object's
@@ -134,16 +134,16 @@ public:
     // 0x004F2340: the state a skating ped's node's SkateAction starts (none while bailing).
     void do_skate_action(script::Struct* node);
     // The states do_skate_action starts (SkaterPed_StateTable's), with StateParams / leap_node_params of the node:
-    void start_grind(script::Struct* node);              // 0x004F1A90 STATE_grind (the node's TerrainType's sound)
-    void end_grind(script::Struct* node);                // 0x004F1B10 STATE_grindoff, if grinding
-    void get_jump(script::Struct* node, bool vert);         // 0x004F1B40 STATE_jump / STATE_jumpvert
-    void get_lip_trick(script::Struct* node);                // 0x004F1BF0 STATE_tricklip (upright: lip_trick_update)
-    void get_manual(script::Struct* node);                  // 0x004F1C40 STATE_manual
-    void manual_down(script::Struct* node);              // 0x004F1C90 STATE_manualdown
-    void grab_trick(script::Struct* node, bool vert);    // 0x004F1CE0 STATE_trickgrab (is_vert, jump_time, is_jumping)
-    void halt(script::Struct* node);                    // 0x004F1DC0 STATE_stop
-    void roll_off(script::Struct* node);                 // 0x004F1F30 STATE_rolloff (no parameters)
-    void flip_trick(script::Struct* node, bool vert);    // 0x004F1F50 STATE_trickflip
+    void start_grind(script::Struct* node);           // 0x004F1A90 STATE_grind (the node's TerrainType's sound)
+    void end_grind(script::Struct* node);             // 0x004F1B10 STATE_grindoff, if grinding
+    void get_jump(script::Struct* node, bool vert);   // 0x004F1B40 STATE_jump / STATE_jumpvert
+    void get_lip_trick(script::Struct* node);         // 0x004F1BF0 STATE_tricklip (upright: lip_trick_update)
+    void get_manual(script::Struct* node);            // 0x004F1C40 STATE_manual
+    void manual_down(script::Struct* node);           // 0x004F1C90 STATE_manualdown
+    void grab_trick(script::Struct* node, bool vert); // 0x004F1CE0 STATE_trickgrab (is_vert, jump_time, is_jumping)
+    void halt(script::Struct* node);                  // 0x004F1DC0 STATE_stop
+    void roll_off(script::Struct* node);              // 0x004F1F30 STATE_rolloff (no parameters)
+    void flip_trick(script::Struct* node, bool vert); // 0x004F1F50 STATE_trickflip
     // 0x004F1E80 (not a Ghidra function): a bail off the grind it's on (STATE_bailgrind; the node after next becomes
     // the next node's stop link). False if it isn't grinding.
     bool bail_from_grind();
@@ -210,87 +210,96 @@ public:
     // 0x004F2AD0 (slot 14, skater_move_update; not a Ghidra function): a skating ped along its path, its waypoints,
     // grind bails, crouches, spins and sounds.
     void skater_move_update();
-    void virtual_generic_move_update() { reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[13])(this); }
-    void virtual_skater_move_update() { reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[14])(this); }
+    void virtual_generic_move_update()
+    {
+        reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[13])(this);
+    }
+    void virtual_skater_move_update()
+    {
+        reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[14])(this);
+    }
     void virtual_no_move_update() { reinterpret_cast<void(__thiscall*)(PedestrianBrainModule*)>(vtable_[15])(this); }
     // 0x004ED4A0 (slot 15, no_move_update): the display matrix kept if the motion component is rotating, else put back.
     void no_move_update();
 
     // --- script member functions (the table at 0x00683730) ---
-    bool ped_set_logic_state(script::Struct* params, script::Script* script);      // 0x004F2040
-    bool ped_get_logic_state(script::Struct* params, script::Script* script);      // 0x004EDD80
-    bool ped_start_moving(script::Struct* params, script::Script* script);        // 0x004F24B0
-    bool ped_stop_moving(script::Struct* params, script::Script* script);         // 0x004ED150
-    bool ped_is_moving(script::Struct* params, script::Script* script);           // 0x004ED160 [0x68D298B0]
-    bool ped_set_stick_distances(script::Struct* params, script::Script* script);  // 0x004ED170 [0x2CC086DD]
-    bool ped_set_is_grinding(script::Struct* params, script::Script* script);      // 0x004ED1D0
-    bool ped_get_current_velocity(script::Struct* params, script::Script* script); // 0x004EDDA0
-    bool ped_store_max_velocity(script::Struct* params, script::Script* script);   // 0x004EDDD0
+    bool ped_set_logic_state(script::Struct* params, script::Script* script);           // 0x004F2040
+    bool ped_get_logic_state(script::Struct* params, script::Script* script);           // 0x004EDD80
+    bool ped_start_moving(script::Struct* params, script::Script* script);              // 0x004F24B0
+    bool ped_stop_moving(script::Struct* params, script::Script* script);               // 0x004ED150
+    bool ped_is_moving(script::Struct* params, script::Script* script);                 // 0x004ED160 [0x68D298B0]
+    bool ped_set_stick_distances(script::Struct* params, script::Script* script);       // 0x004ED170 [0x2CC086DD]
+    bool ped_set_is_grinding(script::Struct* params, script::Script* script);           // 0x004ED1D0
+    bool ped_get_current_velocity(script::Struct* params, script::Script* script);      // 0x004EDDA0
+    bool ped_store_max_velocity(script::Struct* params, script::Script* script);        // 0x004EDDD0
     bool ped_get_original_max_velocity(script::Struct* params, script::Script* script); // 0x004EDE00
-    bool ped_apply_speed_boost(script::Struct* params, script::Script* script);    // 0x004EDE20
-    bool ped_remove_speed_boost(script::Struct* params, script::Script* script);   // 0x004EDEA0
-    bool ped_set_is_bailing(script::Struct* params, script::Script* script);       // 0x004ED220
-    bool ped_near_vert_node(script::Struct* params, script::Script* script);       // 0x004ED2A0
-    bool ped_set_is_skater(script::Struct* params, script::Script* script);        // 0x004EE100
-    bool ped_play_jump_sound(script::Struct* params, script::Script* script);      // 0x004EE180
-    bool ped_play_land_sound(script::Struct* params, script::Script* script);      // 0x004EE1B0
-    bool ped_get_current_node_names(script::Struct* params, script::Script* script); // 0x004EE1E0
-    bool ped_get_gender(script::Struct* params, script::Script* script);          // 0x004EE230
-    bool ped_activate_aux_script(script::Struct* params, script::Script* script);  // 0x004F24E0
-    bool ped_deactivate_aux_script(script::Struct* params, script::Script* script); // 0x004F20F0
-    bool ped_hide_board(script::Struct* params, script::Script* script);          // 0x004EE280
-    bool ped_get_voice_prefix(script::Struct* params, script::Script* script);     // 0x004EE3A0
-    bool ped_bail(script::Struct* params, script::Script* script);               // 0x004F20E0 [0xEE24A410]
-    bool ped_init_path(script::Struct* params, script::Script* script);           // 0x004F0740
-    bool ped_hit_waypoint(script::Struct* params, script::Script* script);        // 0x004F2770
+    bool ped_apply_speed_boost(script::Struct* params, script::Script* script);         // 0x004EDE20
+    bool ped_remove_speed_boost(script::Struct* params, script::Script* script);        // 0x004EDEA0
+    bool ped_set_is_bailing(script::Struct* params, script::Script* script);            // 0x004ED220
+    bool ped_near_vert_node(script::Struct* params, script::Script* script);            // 0x004ED2A0
+    bool ped_set_is_skater(script::Struct* params, script::Script* script);             // 0x004EE100
+    bool ped_play_jump_sound(script::Struct* params, script::Script* script);           // 0x004EE180
+    bool ped_play_land_sound(script::Struct* params, script::Script* script);           // 0x004EE1B0
+    bool ped_get_current_node_names(script::Struct* params, script::Script* script);    // 0x004EE1E0
+    bool ped_get_gender(script::Struct* params, script::Script* script);                // 0x004EE230
+    bool ped_activate_aux_script(script::Struct* params, script::Script* script);       // 0x004F24E0
+    bool ped_deactivate_aux_script(script::Struct* params, script::Script* script);     // 0x004F20F0
+    bool ped_hide_board(script::Struct* params, script::Script* script);                // 0x004EE280
+    bool ped_get_voice_prefix(script::Struct* params, script::Script* script);          // 0x004EE3A0
+    bool ped_bail(script::Struct* params, script::Script* script);                      // 0x004F20E0 [0xEE24A410]
+    bool ped_init_path(script::Struct* params, script::Script* script);                 // 0x004F0740
+    bool ped_hit_waypoint(script::Struct* params, script::Script* script);              // 0x004F2770
     // 0x004EDEC0 [0xDA7BE9E2]: heading / jumpSpeed / jump_time of a jump of `height` under `gravity` to the next node.
     bool ped_get_jump_to_next_node(script::Struct* params, script::Script* script);
     // 0x004F0950: the motion component looks at 48 ahead along the current node's angles.
     bool ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script* script);
 
-    uint32_t kind_;               // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
-    uint32_t female_;             // +0x1C 1: SkeletonName is Ped_Female
-    uint32_t flag_bits_;              // +0x20 PED_FLAG_*
-    uint32_t cur_phase_;              // +0x24 the logic state (LogicState)
-    uint32_t state_table_;         // +0x28 its table
-    uint32_t update_type_;         // +0x2C ped_update_type (the move update run each frame)
+    uint32_t kind_;              // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
+    uint32_t female_;            // +0x1C 1: SkeletonName is Ped_Female
+    uint32_t flag_bits_;         // +0x20 PED_FLAG_*
+    uint32_t cur_phase_;         // +0x24 the logic state (LogicState)
+    uint32_t state_table_;       // +0x28 its table
+    uint32_t update_type_;       // +0x2C ped_update_type (the move update run each frame)
     script::Script* aux_script_; // +0x30
-    float avoid_[4];              // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
-    float bias_[4];               // +0x44 the lasting steering bias, per quarter turn
-    uint32_t list_link_;               // +0x54 the node it came from (a name)
-    uint32_t next_node_;           // +0x58 the node it's heading for
-    uint32_t node_after_;          // +0x5C the node after that (chosen ahead)
-    maths::Vec4 node_pos_;         // +0x60 list_link_'s position
-    maths::Vec4 next_node_pos_;     // +0x70
-    maths::Vec4 node_after_pos_;    // +0x80
-    int turn_frame_;               // +0x90 frames into the turn towards the node after
-    int turn_frames_;              // +0x94 the turn's length (0: not turning)
-    ObjectGroup* peds_;         // +0x98 the path manager's extra group (the other peds to avoid)
-    float step_seconds_;             // +0x9C this frame's (seconds)
-    maths::Vec4 up_dir_;              // +0xA0 the up it blends from
-    maths::Vec4 up_target_;        // +0xB0 the up it blends to
-    maths::Vec4 up_shown_;         // +0xC0 the up it has
-    float up_blend_;               // +0xD0 1 .. 0 along the blend
-    float stick_above_;            // +0xD4 DistAbove (ped_skater_stick_dist_above)
-    float stick_below_;            // +0xD8 DistBelow (ped_skater_stick_dist_below)
-    float stored_max_velocity_;     // +0xDC Ped_StoreMaxVelocity
-    float speed_ratio_;         // +0xE0 the motion component's speed over its max speed (the looping sound's)
-    int spin_angle_;               // +0xE4 the jump's spin (degrees, signed)
-    float twist_rate_;                  // +0xE8 how far it has spun (degrees)
-    float spin_time_;              // +0xEC the jump's length (seconds)
-    float spin_elapsed_;           // +0xF0
-    maths::Mat4 jump_matrix_;      // +0xF4 the display matrix at the take-off
-    float vert_rotation_;          // +0x134 how far it has turned over the spine (degrees)
-    float vert_rotation_target_;    // +0x138
-    maths::Mat4 saved_matrix_;     // +0x13C the display matrix kept
-    maths::Vec4 past_frames_[5];      // +0x17C its last positions (the newest last)
+    float avoid_[4];             // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
+    float bias_[4];              // +0x44 the lasting steering bias, per quarter turn
+    uint32_t list_link_;         // +0x54 the node it came from (a name)
+    uint32_t next_node_;         // +0x58 the node it's heading for
+    uint32_t node_after_;        // +0x5C the node after that (chosen ahead)
+    maths::Vec4 node_pos_;       // +0x60 list_link_'s position
+    maths::Vec4 next_node_pos_;  // +0x70
+    maths::Vec4 node_after_pos_; // +0x80
+    int turn_frame_;             // +0x90 frames into the turn towards the node after
+    int turn_frames_;            // +0x94 the turn's length (0: not turning)
+    ObjectGroup* peds_;          // +0x98 the path manager's extra group (the other peds to avoid)
+    float step_seconds_;         // +0x9C this frame's (seconds)
+    maths::Vec4 up_dir_;         // +0xA0 the up it blends from
+    maths::Vec4 up_target_;      // +0xB0 the up it blends to
+    maths::Vec4 up_shown_;       // +0xC0 the up it has
+    float up_blend_;             // +0xD0 1 .. 0 along the blend
+    float stick_above_;          // +0xD4 DistAbove (ped_skater_stick_dist_above)
+    float stick_below_;          // +0xD8 DistBelow (ped_skater_stick_dist_below)
+    float stored_max_velocity_;  // +0xDC Ped_StoreMaxVelocity
+    float speed_ratio_;          // +0xE0 the motion component's speed over its max speed (the looping sound's)
+    int spin_angle_;             // +0xE4 the jump's spin (degrees, signed)
+    float twist_rate_;           // +0xE8 how far it has spun (degrees)
+    float spin_time_;            // +0xEC the jump's length (seconds)
+    float spin_elapsed_;         // +0xF0
+    maths::Mat4 jump_matrix_;    // +0xF4 the display matrix at the take-off
+    float vert_rotation_;        // +0x134 how far it has turned over the spine (degrees)
+    float vert_rotation_target_; // +0x138
+    maths::Mat4 saved_matrix_;   // +0x13C the display matrix kept
+    maths::Vec4 past_frames_[5]; // +0x17C its last positions (the newest last)
 };
 static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(PedestrianBrainModule, flag_bits_) == 0x20 &&
-                  offsetof(PedestrianBrainModule, aux_script_) == 0x30 && offsetof(PedestrianBrainModule, avoid_) == 0x34 &&
-                  offsetof(PedestrianBrainModule, bias_) == 0x44 && offsetof(PedestrianBrainModule, list_link_) == 0x54 &&
-                  offsetof(PedestrianBrainModule, node_pos_) == 0x60 && offsetof(PedestrianBrainModule, turn_frame_) == 0x90 &&
+                  offsetof(PedestrianBrainModule, aux_script_) == 0x30 &&
+                  offsetof(PedestrianBrainModule, avoid_) == 0x34 && offsetof(PedestrianBrainModule, bias_) == 0x44 &&
+                  offsetof(PedestrianBrainModule, list_link_) == 0x54 &&
+                  offsetof(PedestrianBrainModule, node_pos_) == 0x60 &&
+                  offsetof(PedestrianBrainModule, turn_frame_) == 0x90 &&
                   offsetof(PedestrianBrainModule, peds_) == 0x98 && offsetof(PedestrianBrainModule, up_dir_) == 0xA0 &&
-                  offsetof(PedestrianBrainModule, up_blend_) == 0xD0 && offsetof(PedestrianBrainModule, spin_angle_) == 0xE4 &&
+                  offsetof(PedestrianBrainModule, up_blend_) == 0xD0 &&
+                  offsetof(PedestrianBrainModule, spin_angle_) == 0xE4 &&
                   offsetof(PedestrianBrainModule, jump_matrix_) == 0xF4 &&
                   offsetof(PedestrianBrainModule, vert_rotation_) == 0x134 &&
                   offsetof(PedestrianBrainModule, saved_matrix_) == 0x13C &&
@@ -301,4 +310,4 @@ static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(Pedestr
 // null if none), else Male1 / Female1 by is_male.
 const char* profile_voice();
 
-} // namespace Obj
+} // namespace objects

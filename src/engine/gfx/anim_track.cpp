@@ -46,7 +46,9 @@ constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr int kLoopWobble = 3;
 enum : int { kNotMine = 2 };
 
-void** const& g_event_vtable = vt::kVtblAnimCue; void** const& g_event_base_vtable = vt::kAnimEventBase; void** const& g_track_vtable = vt::kAnimTrack;
+void** const& g_event_vtable = vt::kVtblAnimCue;
+void** const& g_event_base_vtable = vt::kAnimEventBase;
+void** const& g_track_vtable = vt::kAnimTrack;
 
 template <typename R, typename... A>
 R Virtual(void* object, int slot, A... args)
@@ -349,9 +351,9 @@ AnimDriver* AnimTrack::attach_controller(Struct* params)
         break;
     case kTumbleController:
         memory = memory::alloc_zeroed(sizeof(objects::FlipRotateComponent));
-        controller = memory ? reinterpret_cast<AnimDriver*>(
-                                  static_cast<objects::FlipRotateComponent*>(memory)->make_new(this))
-                            : nullptr;
+        controller =
+            memory ? reinterpret_cast<AnimDriver*>(static_cast<objects::FlipRotateComponent*>(memory)->make_new(this))
+                   : nullptr;
         priority = 100;
         break;
     default:
@@ -465,17 +467,18 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     delete_params(settings);
 }
 
-} // namespace Gfx
+} // namespace gfx
 
 namespace vt {
-static VtableSlot g_anim_track_slots[] = {&gfx::AnimTrack::teardown, &gfx::AnimTrack::get_reset, &gfx::AnimTrack::tick_frame,
-                &gfx::AnimTimeline::play_anim, stubs::ignore_argument, &gfx::AnimTrack::invoke_method_by_name,
-                &gfx::AnimTrack::play_anim};
+static VtableSlot g_anim_track_slots[] = {&gfx::AnimTrack::teardown,   &gfx::AnimTrack::get_reset,
+                                          &gfx::AnimTrack::tick_frame, &gfx::AnimTimeline::play_anim,
+                                          stubs::ignore_argument,      &gfx::AnimTrack::invoke_method_by_name,
+                                          &gfx::AnimTrack::play_anim};
 void** const kAnimTrack = reinterpret_cast<void**>(g_anim_track_slots);
 static VtableSlot g_anim_event_base_slots[] = {&gfx::AnimEventBase::teardown, &gfx::UserClipKey::inside_range,
-                &_purecall};
+                                               &_purecall};
 void** const kAnimEventBase = reinterpret_cast<void**>(g_anim_event_base_slots);
 static VtableSlot g_anim_event_slots[] = {&gfx::TimedClipEvent::teardown, &gfx::UserClipKey::inside_range,
-                &gfx::AnimScriptKey::work_on};
+                                          &gfx::AnimScriptKey::work_on};
 void** const kVtblAnimCue = reinterpret_cast<void**>(g_anim_event_slots);
-} // namespace Vt
+} // namespace vt

@@ -94,13 +94,26 @@ char* make_file_name(const char* name, char* buffer, uint32_t type)
         value /= 26;
     }
     switch (type) {
-    case kSaveCreatedGoals: buffer[7] = 'g'; break;
-    case kSaveCat: buffer[7] = 'f'; break;
-    case kSavePark: buffer[7] = 'c'; break;
-    case kSaveCreatedGraphic: buffer[7] = 'h'; break;
-    case kSaveNetworkSettings: buffer[7] = 'e'; break;
-    case kSaveOptionsAndPros: buffer[7] = 'a'; break;
-    default: break;
+    case kSaveCreatedGoals:
+        buffer[7] = 'g';
+        break;
+    case kSaveCat:
+        buffer[7] = 'f';
+        break;
+    case kSavePark:
+        buffer[7] = 'c';
+        break;
+    case kSaveCreatedGraphic:
+        buffer[7] = 'h';
+        break;
+    case kSaveNetworkSettings:
+        buffer[7] = 'e';
+        break;
+    case kSaveOptionsAndPros:
+        buffer[7] = 'a';
+        break;
+    default:
+        break;
     }
     buffer[8] = '\0';
     return buffer;
@@ -110,14 +123,22 @@ char* make_file_name(const char* name, char* buffer, uint32_t type)
 uint32_t type_from_letter(char letter)
 {
     switch (letter) {
-    case 'a': return kSaveOptionsAndPros;
-    case 'b': return kSaveCas;
-    case 'c': return kSavePark;
-    case 'e': return kSaveNetworkSettings;
-    case 'f': return kSaveCat;
-    case 'g': return kSaveCreatedGoals;
-    case 'h': return kSaveCreatedGraphic;
-    default: return 0;
+    case 'a':
+        return kSaveOptionsAndPros;
+    case 'b':
+        return kSaveCas;
+    case 'c':
+        return kSavePark;
+    case 'e':
+        return kSaveNetworkSettings;
+    case 'f':
+        return kSaveCat;
+    case 'g':
+        return kSaveCreatedGoals;
+    case 'h':
+        return kSaveCreatedGraphic;
+    default:
+        return 0;
     }
 }
 
@@ -125,13 +146,20 @@ uint32_t type_from_letter(char letter)
 int icon_space_required(uint32_t type)
 {
     switch (type) {
-    case kSaveCreatedGoals: return script::fetch_int_value(0x3205BC07u);    // CreatedGoalsIconSpaceRequired
-    case kSaveCat: return script::fetch_int_value(0x46B0EF40u);             // CATIconSpaceRequired
-    case kSavePark: return script::fetch_int_value(0x82AAF8DCu);            // ParkIconSpaceRequired
-    case kSaveCreatedGraphic: return script::fetch_int_value(0xD85D78F9u);  // CreatedGraphicIconSpaceRequired
-    case kSaveNetworkSettings: return script::fetch_int_value(0xF3431F63u); // NetworkSettingsIconSpaceRequired
-    case kSaveOptionsAndPros: return script::fetch_int_value(0x4925ED9Eu);  // OptionsProsIconSpaceRequired
-    default: return 0;
+    case kSaveCreatedGoals:
+        return script::fetch_int_value(0x3205BC07u); // CreatedGoalsIconSpaceRequired
+    case kSaveCat:
+        return script::fetch_int_value(0x46B0EF40u); // CATIconSpaceRequired
+    case kSavePark:
+        return script::fetch_int_value(0x82AAF8DCu); // ParkIconSpaceRequired
+    case kSaveCreatedGraphic:
+        return script::fetch_int_value(0xD85D78F9u); // CreatedGraphicIconSpaceRequired
+    case kSaveNetworkSettings:
+        return script::fetch_int_value(0xF3431F63u); // NetworkSettingsIconSpaceRequired
+    case kSaveOptionsAndPros:
+        return script::fetch_int_value(0x4925ED9Eu); // OptionsProsIconSpaceRequired
+    default:
+        return 0;
     }
 }
 
@@ -139,13 +167,20 @@ int icon_space_required(uint32_t type)
 int type_version(uint32_t type)
 {
     switch (type) {
-    case kSaveCreatedGoals: return script::fetch_int_value("VERSION_CREATEDGOALS");
-    case kSaveCat: return script::fetch_int_value("VERSION_CAT");
-    case kSavePark: return script::fetch_int_value("VERSION_PARK");
-    case kSaveCreatedGraphic: return script::fetch_int_value("VERSION_CREATEDGRAPHIC");
-    case kSaveNetworkSettings: return script::fetch_int_value("VERSION_NETWORKSETTINGS");
-    case kSaveOptionsAndPros: return script::fetch_int_value("VERSION_OPTIONSANDPROS");
-    default: return -1;
+    case kSaveCreatedGoals:
+        return script::fetch_int_value("VERSION_CREATEDGOALS");
+    case kSaveCat:
+        return script::fetch_int_value("VERSION_CAT");
+    case kSavePark:
+        return script::fetch_int_value("VERSION_PARK");
+    case kSaveCreatedGraphic:
+        return script::fetch_int_value("VERSION_CREATEDGRAPHIC");
+    case kSaveNetworkSettings:
+        return script::fetch_int_value("VERSION_NETWORKSETTINGS");
+    case kSaveOptionsAndPros:
+        return script::fetch_int_value("VERSION_OPTIONSANDPROS");
+    default:
+        return -1;
     }
 }
 
@@ -157,17 +192,33 @@ const char* get_type_file_name(uint32_t type, const char* name)
     char* buffer = g_save_file_name;
     const char* pattern = nullptr;
     switch (type) {
-    case kSaveCat: pattern = "Save/%s.CAT"; break;
-    case kSavePark: pattern = "Save/%s.PRK"; break;
-    case kSaveReplay: pattern = "Save/%s.REP"; break;
-    case kSaveCreatedGoals: pattern = "Save/%s.GOA"; break;
-    case kSaveNetworkSettings: pattern = "Save/%s.NWS"; break;
-    case kSaveOptionsAndPros: pattern = "Save/%s.SKA"; break;
-    case kSaveCreatedGraphic: pattern = "Save/%s.GRF"; break;
-    default: break;
+    case kSaveCat:
+        pattern = "Save/%s.CAT";
+        break;
+    case kSavePark:
+        pattern = "Save/%s.PRK";
+        break;
+    case kSaveReplay:
+        pattern = "Save/%s.REP";
+        break;
+    case kSaveCreatedGoals:
+        pattern = "Save/%s.GOA";
+        break;
+    case kSaveNetworkSettings:
+        pattern = "Save/%s.NWS";
+        break;
+    case kSaveOptionsAndPros:
+        pattern = "Save/%s.SKA";
+        break;
+    case kSaveCreatedGraphic:
+        pattern = "Save/%s.GRF";
+        break;
+    default:
+        break;
     }
     if (pattern)
-        std::snprintf(buffer, 0x68, pattern, name); // (no limit in the original: a longer name ran on into other globals)
+        std::snprintf(buffer, 0x68, pattern,
+                      name); // (no limit in the original: a longer name ran on into other globals)
     return buffer;
 }
 
@@ -206,13 +257,26 @@ int type_file_size(uint32_t type)
 {
     int size = 0;
     switch (type) {
-    case kSaveCreatedGoals: size = script::fetch_int_value(0x3308EFC0u); break;    // SaveSize_CreatedGoals
-    case kSaveCat: size = script::fetch_int_value(0x9EECDEC9u); break;             // SaveSize_Cat
-    case kSavePark: size = script::fetch_int_value(0x2CB071EDu); break;            // SaveSize_Park
-    case kSaveCreatedGraphic: size = script::fetch_int_value(0x2E3F4E50u); break;  // SaveSize_CreatedGraphic
-    case kSaveNetworkSettings: size = script::fetch_int_value(0x651C978Du); break; // SaveSize_NetworkSettings
-    case kSaveOptionsAndPros: size = script::fetch_int_value(0xE7F51FFEu); break;  // SaveSize_OptionsAndPros
-    default: break;
+    case kSaveCreatedGoals:
+        size = script::fetch_int_value(0x3308EFC0u);
+        break; // SaveSize_CreatedGoals
+    case kSaveCat:
+        size = script::fetch_int_value(0x9EECDEC9u);
+        break; // SaveSize_Cat
+    case kSavePark:
+        size = script::fetch_int_value(0x2CB071EDu);
+        break; // SaveSize_Park
+    case kSaveCreatedGraphic:
+        size = script::fetch_int_value(0x2E3F4E50u);
+        break; // SaveSize_CreatedGraphic
+    case kSaveNetworkSettings:
+        size = script::fetch_int_value(0x651C978Du);
+        break; // SaveSize_NetworkSettings
+    case kSaveOptionsAndPros:
+        size = script::fetch_int_value(0xE7F51FFEu);
+        break; // SaveSize_OptionsAndPros
+    default:
+        break;
     }
     return round_up_to_card_block(size + 0x14);
 }
@@ -241,8 +305,8 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     constexpr uint32_t kName = 0xA1DC81F9;           // "name"
     constexpr uint32_t kTotalGoalsComplete = 0x959DCF6E, kTotalGoalsPossible = 0xA95F9E73;
     constexpr uint32_t kTotalScore = 0x0E145E9C, kTotalScorePotential = 0x851B0904;
-    constexpr uint32_t kIsMale = 0x3F813177;         // "is_male"
-    const char* const empty = ""; // ""
+    constexpr uint32_t kIsMale = 0x3F813177; // "is_male"
+    const char* const empty = "";            // ""
     park_editing::ParkBuilderMode* editor = park_editing::ParkBuilderMode::sole();
     // The park map's numbers, in get_map_info's order: num_gaps, num_pieces, theme (16 bits), tod_script, width,
     // length.
@@ -254,12 +318,12 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         int width = 0;
         int length = 0;
         editor->get_map_info(map, &gaps, &pieces, &theme, &tod_script, &width, &length);
-        summary->put_int(0xE6121ED0u, gaps);   // num_gaps
-        summary->put_int(0xFFF3DC35u, pieces); // num_pieces
-        summary->put_int(0x688A18F7u, theme);  // theme
+        summary->put_int(0xE6121ED0u, gaps);            // num_gaps
+        summary->put_int(0xFFF3DC35u, pieces);          // num_pieces
+        summary->put_int(0x688A18F7u, theme);           // theme
         summary->put_name_key(0x4C72ED98u, tod_script); // tod_script
-        summary->put_int(0x73E5BAD0u, width);  // width
-        summary->put_int(0xFE82614Du, length); // length
+        summary->put_int(0x73E5BAD0u, width);           // width
+        summary->put_int(0xFE82614Du, length);          // length
     };
 
     if (saved) {
@@ -302,7 +366,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
             saved->read_sub_struct(0x14A9FBC7u, &story, 1); // Story
             Struct* goal_manager = nullptr;
             story->read_sub_struct(kGoalManagerParams, &goal_manager, 1);
-            Struct* goal_manager_params = nullptr; // (read, not used)
+            Struct* goal_manager_params = nullptr;                               // (read, not used)
             goal_manager->read_sub_struct(0x23D4170Au, &goal_manager_params, 1); // GoalManager_Params
             Struct* global = nullptr;
             saved->read_sub_struct(0xF55CBD13u, &global, 0); // GlobalInfo
@@ -369,8 +433,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveNetworkSettings: {
-        auto* preferences = reinterpret_cast<uint8_t*>(
-            online::g_online_hub->get_online_settings());
+        auto* preferences = reinterpret_cast<uint8_t*>(online::g_online_hub->get_online_settings());
         auto* settings = reinterpret_cast<Struct*>(preferences + 4);
         Struct* network_id = nullptr;
         settings->read_sub_struct(0xCBED746Eu, &network_id, 0); // network_id
@@ -380,11 +443,12 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveOptionsAndPros: {
-        auto* own = reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(objective_board());
+        auto* own =
+            reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(objective_board());
         Struct* goal_manager_params = nullptr; // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
-        objects::RiderStoryProgress* career = *reinterpret_cast<objects::RiderStoryProgress**>(
-            reinterpret_cast<uint8_t*>(modules::Skate::sole()) + 0x20);
+        objects::RiderStoryProgress* career =
+            *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::Skate::sole()) + 0x20);
         summary->put_int(kTotalScore, career->lifetime_funds_);
         summary->put_int(kTotalScorePotential, career->total_amount_);
         summary->put_int(kTotalGoalsComplete, career->total_counter_);
@@ -482,7 +546,10 @@ int __cdecl make_folder_file_name_registers(uint32_t type, const char* name, cha
 {
     return make_folder_file_name(type, name, buffer);
 }
-void __cdecl write_summary_registers(Struct* saved, Struct* summary, uint32_t type) { write_summary(saved, summary, type); }
+void __cdecl write_summary_registers(Struct* saved, Struct* summary, uint32_t type)
+{
+    write_summary(saved, summary, type);
+}
 bool __cdecl apply_cat_registers(Struct* loaded, Struct* custom_skater)
 {
     return apply_cat_and_custom_skater(loaded, custom_skater);
@@ -625,4 +692,4 @@ __declspec(naked) void apply_cat_and_custom_skater_stub()
     }
 }
 
-} // namespace Mc
+} // namespace save_cards

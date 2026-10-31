@@ -15,8 +15,9 @@ namespace save_cards {
 static VtableSlot g_file_vtable_slots[] = {&save_cards::ListDestructors::other_destroy};
 void** const kFileVtable = reinterpret_cast<void**>(g_file_vtable_slots);
 
-static_assert(offsetof(FileLoad, label_) == 0x14 && offsetof(FileLoad, second_) == 0x3C && offsetof(FileLoad, year_) == 0x42 &&
-                  offsetof(FileLoad, extent_) == 0x44 && offsetof(FileLoad, hdl_) == 0x8C && sizeof(FileLoad) == 0x94,
+static_assert(offsetof(FileLoad, label_) == 0x14 && offsetof(FileLoad, second_) == 0x3C &&
+                  offsetof(FileLoad, year_) == 0x42 && offsetof(FileLoad, extent_) == 0x44 &&
+                  offsetof(FileLoad, hdl_) == 0x8C && sizeof(FileLoad) == 0x94,
               "layout must match the original");
 
 Hub* g_the_card;
@@ -81,10 +82,7 @@ int FileLoad::get_take_in(void* buffer, int size)
 }
 
 // 0x005BC8B0
-bool FileLoad::shut()
-{
-    return CloseHandle(hdl_) != 0;
-}
+bool FileLoad::shut() { return CloseHandle(hdl_) != 0; }
 
 // 0x005BC9B0
 FileLoad* SaveCard::unseal(const char* name, int mode, int)
@@ -99,12 +97,28 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
     }
     DWORD access, disposition;
     switch (mode) {
-    case 1: access = GENERIC_READ; disposition = OPEN_EXISTING; break;
-    case 2: access = GENERIC_WRITE; disposition = OPEN_EXISTING; break;
-    case 3: access = GENERIC_READ | GENERIC_WRITE; disposition = OPEN_EXISTING; break;
-    case 4: access = GENERIC_WRITE; disposition = CREATE_NEW; break;
-    case 6: access = GENERIC_WRITE; disposition = OPEN_ALWAYS; break;
-    default: return nullptr;
+    case 1:
+        access = GENERIC_READ;
+        disposition = OPEN_EXISTING;
+        break;
+    case 2:
+        access = GENERIC_WRITE;
+        disposition = OPEN_EXISTING;
+        break;
+    case 3:
+        access = GENERIC_READ | GENERIC_WRITE;
+        disposition = OPEN_EXISTING;
+        break;
+    case 4:
+        access = GENERIC_WRITE;
+        disposition = CREATE_NEW;
+        break;
+    case 6:
+        access = GENERIC_WRITE;
+        disposition = OPEN_ALWAYS;
+        break;
+    default:
+        return nullptr;
     }
     HANDLE handle = CreateFileA(path, access, 0, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (handle == INVALID_HANDLE_VALUE) {
@@ -120,10 +134,7 @@ FileLoad* SaveCard::unseal(const char* name, int mode, int)
 }
 
 // 0x005BC770
-bool SaveCard::remove_file(const char* name)
-{
-    return DeleteFileA(name) != 0;
-}
+bool SaveCard::remove_file(const char* name) { return DeleteFileA(name) != 0; }
 
 // 0x005BC740
 const char* SaveCard::convert_filename(const char* name)
@@ -181,10 +192,7 @@ bool SaveCard::list_save_files(const char* pattern, FileLoad* list)
 }
 
 // 0x005BC7F0
-bool SaveCard::always_true(int)
-{
-    return true;
-}
+bool SaveCard::always_true(int) { return true; }
 
 // 0x005BC8D0
 Hub* Hub::prepare_all()
@@ -200,10 +208,7 @@ Hub* Hub::prepare_all()
 }
 
 // 0x005BC730 (one card, whichever port and slot)
-SaveCard* Hub::get_storage_slot(int, int)
-{
-    return &save_device_;
-}
+SaveCard* Hub::get_storage_slot(int, int) { return &save_device_; }
 
 // 0x005BC900
 Hub* create_manager(bool create)
@@ -234,4 +239,4 @@ void release_manager()
     ref_tally() = 0;
 }
 
-} // namespace Mc
+} // namespace save_cards

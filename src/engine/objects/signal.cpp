@@ -33,13 +33,16 @@ constexpr uint32_t kExceptionFlag = 0x80367192;
 // event log.
 void tracker_add_listener(uint32_t type, Script* script) { get_tracker()->add_listener(type, script); }
 void tracker_remove_listener(uint32_t type, Script* script) { get_tracker()->remove_listener(type, script); }
-void tracker_register_listener(SignalReceiver* listener)
-{
-    get_tracker()->subscribe_receiver(listener);
-}
+void tracker_register_listener(SignalReceiver* listener) { get_tracker()->subscribe_receiver(listener); }
 void tracker_unregister_listener(SignalReceiver* listener) { get_tracker()->remove_event_listener(listener); }
-void tracker_log_event_handled(Signal* event, uint32_t how, uint32_t script) { get_tracker()->log_handled(event, how, script); }
-void tracker_log_event_read(Signal* event, uint32_t how, uint32_t script) { get_tracker()->log_read(event, how, script); }
+void tracker_log_event_handled(Signal* event, uint32_t how, uint32_t script)
+{
+    get_tracker()->log_handled(event, how, script);
+}
+void tracker_log_event_read(Signal* event, uint32_t how, uint32_t script)
+{
+    get_tracker()->log_read(event, how, script);
+}
 
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
 Struct* new_empty_struct()
@@ -223,7 +226,7 @@ void SignalRouteTable::unregister_with_tracker(Script* script)
 
 // 0x0045FBC0
 void SignalRouteTable::append_listener(Script* script, uint32_t type, uint32_t script_name, uint32_t group,
-                                    bool exception, Struct* params)
+                                       bool exception, Struct* params)
 {
     bool tell_tracker = true;
     TableRow* entry = nullptr;
@@ -441,7 +444,8 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                 // unnamed checksum 1 (the exception bit); then the handler replaces what the script runs.
                 if (script->get_on_exception_script()) {
                     Struct* exception_params = new_empty_struct();
-                    exception_params->add_component_of_type(0, script::kQbvalName, entry->flags & TableRow::kFlagReplacesRunning);
+                    exception_params->add_component_of_type(0, script::kQbvalName,
+                                                            entry->flags & TableRow::kFlagReplacesRunning);
                     uint32_t on_exception = script->get_on_exception_script();
                     script->set_on_exception_script(0);
                     script->preempt(on_exception, exception_params);
@@ -457,8 +461,8 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
                        object && (object->object_flags_ & objects::kObjectFlagSpawnHandlers)) {
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).
-                Script* spawned = script::spawn_script(entry->script, params, 0, nullptr, 0, 0, false, false, false,
-                                                       false);
+                Script* spawned =
+                    script::spawn_script(entry->script, params, 0, nullptr, 0, 0, false, false, false, false);
                 spawned->entity_.assign_value(script->entity_.get_pull());
                 spawned->tick_frame();
             } else {
@@ -487,14 +491,13 @@ void SignalRouteTable::forward_trigger(Signal* event, Script* script)
     --in_use_;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_event_listener_vtable_slots[] = {&objects::SignalReceiver::deleting_destructor,
-         &_purecall};
+static VtableSlot g_event_listener_vtable_slots[] = {&objects::SignalReceiver::deleting_destructor, &_purecall};
 void** const kEventListenerVtable = reinterpret_cast<void**>(g_event_listener_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -82,16 +82,10 @@ Struct* Struct::prepare_all()
 }
 
 // 0x00476420
-bool Struct::is_vacant()
-{
-    return head_ == nullptr;
-}
+bool Struct::is_vacant() { return head_ == nullptr; }
 
 // 0x00476490
-Component* Struct::step_to_entry(Component* component)
-{
-    return component ? component->next : head_;
-}
+Component* Struct::step_to_entry(Component* component) { return component ? component->next : head_; }
 
 // 0x00476430
 Component* Struct::find_last_component(uint32_t name)
@@ -166,16 +160,10 @@ bool Struct::get_hunt(uint32_t name, uint32_t type, void* out)
 }
 
 // 0x00476AF0
-bool Struct::has_entry_named(uint32_t name)
-{
-    return find_component(name) != nullptr;
-}
+bool Struct::has_entry_named(uint32_t name) { return find_component(name) != nullptr; }
 
 // 0x00476B10
-bool Struct::has_entry_named(const char* name)
-{
-    return find_component(checksums::hash_from_text(name)) != nullptr;
-}
+bool Struct::has_entry_named(const char* name) { return find_component(checksums::hash_from_text(name)) != nullptr; }
 
 // 0x00476B40
 bool Struct::has_bare_flag(uint32_t flag)
@@ -193,10 +181,7 @@ bool Struct::has_bare_flag(uint32_t flag)
 }
 
 // 0x00476BA0
-bool Struct::has_bare_flag(const char* flag)
-{
-    return has_bare_flag(checksums::hash_from_text(flag));
-}
+bool Struct::has_bare_flag(const char* flag) { return has_bare_flag(checksums::hash_from_text(flag)); }
 
 // 0x00476BC0
 bool Struct::ref_tally(Struct* other)
@@ -372,8 +357,7 @@ bool Struct::read_hash_value(uint32_t name, uint32_t* out, int assert)
         if (component->name == name) {
             if (component->kind_tag() == kQbvalName) {
                 SymbolTableEntry* symbol = nullptr;
-                if (name != 0 || !(symbol = resolve_symbol(component->checksum)) ||
-                    symbol->type != kQbvalStruct) {
+                if (name != 0 || !(symbol = resolve_symbol(component->checksum)) || symbol->type != kQbvalStruct) {
                     *out = component->checksum;
                     found = true;
                 }
@@ -428,7 +412,7 @@ bool Struct::fetch_vec(const char* name, VectorValue* out, int assert)
     return fetch_vec(checksums::hash_from_text(name), out, assert);
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 
@@ -440,18 +424,45 @@ using script::VectorValue;
 struct BoolAssertGetters {
     Struct* get_self() { return reinterpret_cast<Struct*>(this); }
     bool fetch_text(uint32_t name, const char** out, bool assert) { return get_self()->fetch_text(name, out, assert); }
-    bool get_string_named(const char* name, const char** out, bool assert) { return get_self()->fetch_text(name, out, assert); }
-    bool fetch_int_value(uint32_t name, int* out, bool assert) { return get_self()->fetch_int_value(name, out, assert); }
-    bool get_integer_named(const char* name, int* out, bool assert) { return get_self()->fetch_int_value(name, out, assert); }
+    bool get_string_named(const char* name, const char** out, bool assert)
+    {
+        return get_self()->fetch_text(name, out, assert);
+    }
+    bool fetch_int_value(uint32_t name, int* out, bool assert)
+    {
+        return get_self()->fetch_int_value(name, out, assert);
+    }
+    bool get_integer_named(const char* name, int* out, bool assert)
+    {
+        return get_self()->fetch_int_value(name, out, assert);
+    }
     bool fetch_float(uint32_t name, float* out, bool assert) { return get_self()->fetch_float(name, out, assert); }
-    bool get_float_named(const char* name, float* out, bool assert) { return get_self()->fetch_float(name, out, assert); }
-    bool read_sub_struct(uint32_t name, Struct** out, bool assert) { return get_self()->read_sub_struct(name, out, assert); }
-    bool read_hash_value(uint32_t name, uint32_t* out, bool assert) { return get_self()->read_hash_value(name, out, assert); }
-    bool get_checksum_named(const char* name, uint32_t* out, bool assert) { return get_self()->read_hash_value(name, out, assert); }
+    bool get_float_named(const char* name, float* out, bool assert)
+    {
+        return get_self()->fetch_float(name, out, assert);
+    }
+    bool read_sub_struct(uint32_t name, Struct** out, bool assert)
+    {
+        return get_self()->read_sub_struct(name, out, assert);
+    }
+    bool read_hash_value(uint32_t name, uint32_t* out, bool assert)
+    {
+        return get_self()->read_hash_value(name, out, assert);
+    }
+    bool get_checksum_named(const char* name, uint32_t* out, bool assert)
+    {
+        return get_self()->read_hash_value(name, out, assert);
+    }
     bool fetch_list(uint32_t name, Array** out, bool assert) { return get_self()->fetch_list(name, out, assert); }
-    bool get_array_named(const char* name, Array** out, bool assert) { return get_self()->fetch_list(name, out, assert); }
+    bool get_array_named(const char* name, Array** out, bool assert)
+    {
+        return get_self()->fetch_list(name, out, assert);
+    }
     bool fetch_vec(uint32_t name, VectorValue* out, bool assert) { return get_self()->fetch_vec(name, out, assert); }
-    bool get_vector_named(const char* name, VectorValue* out, bool assert) { return get_self()->fetch_vec(name, out, assert); }
+    bool get_vector_named(const char* name, VectorValue* out, bool assert)
+    {
+        return get_self()->fetch_vec(name, out, assert);
+    }
 };
 
 template <typename R, typename... A>
@@ -542,7 +553,7 @@ void end_permanent_strings()
 
 namespace {
 char g_script_strings[128]; // (the strings SetScriptString / GetScriptString use, 128 bytes each, indexed from here)
-char (&script_string_slot(int index))[128] { return reinterpret_cast<char(*)[128]>(&g_script_strings)[index]; }
+char (&script_string_slot(int index))[128] { return reinterpret_cast<char (*)[128]>(&g_script_strings)[index]; }
 } // namespace
 
 // 0x00476370
@@ -605,10 +616,7 @@ void Array::get_clear()
 void Array::change_species(QbValueKind type) { kind_tag_ = type; }
 
 // 0x0046CB00
-uint32_t* Array::find_array_value()
-{
-    return extent_ == 1 ? &single_ : elements_;
-}
+uint32_t* Array::find_array_value() { return extent_ == 1 ? &single_ : elements_; }
 
 // 0x00477140
 void release_array_storage(Array* array)
@@ -821,10 +829,7 @@ void Struct::erase_module(uint32_t name)
 }
 
 // 0x00477770
-void Struct::erase_module(const char* name)
-{
-    erase_module(checksums::hash_from_text(name));
-}
+void Struct::erase_module(const char* name) { erase_module(checksums::hash_from_text(name)); }
 
 // 0x00477790
 void Struct::remove_component_of_type(uint32_t name, uint8_t type)
@@ -847,7 +852,7 @@ void Struct::remove_component_of_type(uint32_t name, uint8_t type)
     }
 }
 
-} // namespace Script
+} // namespace script
 
 // --- adding components ---------------------------------------------------------------------------------------
 
@@ -950,10 +955,7 @@ void Struct::append_word(uint32_t name, const char* value)
 }
 
 // 0x00477A90
-void Struct::append_word(const char* name, const char* value)
-{
-    append_word(checksums::hash_from_text(name), value);
-}
+void Struct::append_word(const char* name, const char* value) { append_word(checksums::hash_from_text(name), value); }
 
 // 0x00477AC0
 void Struct::append_inline_text(uint32_t name, const char* value)
@@ -981,10 +983,7 @@ void Struct::put_int(uint32_t name, int value)
 }
 
 // 0x00477C30
-void Struct::put_int(const char* name, int value)
-{
-    put_int(checksums::hash_from_text(name), value);
-}
+void Struct::put_int(const char* name, int value) { put_int(checksums::hash_from_text(name), value); }
 
 // 0x00477C60
 void Struct::push_float(uint32_t name, float value)
@@ -995,10 +994,7 @@ void Struct::push_float(uint32_t name, float value)
 }
 
 // 0x00477D10
-void Struct::push_float(const char* name, float value)
-{
-    push_float(checksums::hash_from_text(name), value);
-}
+void Struct::push_float(const char* name, float value) { push_float(checksums::hash_from_text(name), value); }
 
 // 0x00477D40
 void Struct::put_name_key(uint32_t name, uint32_t value)
@@ -1009,10 +1005,7 @@ void Struct::put_name_key(uint32_t name, uint32_t value)
 }
 
 // 0x00477DF0
-void Struct::put_name_key(const char* name, uint32_t value)
-{
-    put_name_key(checksums::hash_from_text(name), value);
-}
+void Struct::put_name_key(const char* name, uint32_t value) { put_name_key(checksums::hash_from_text(name), value); }
 
 // 0x00477E20
 void Struct::put_vec3(uint32_t name, float x, float y, float z)
@@ -1039,10 +1032,7 @@ void Struct::put_vec3(const char* name, float x, float y, float z)
 }
 
 // 0x00477F70
-void Struct::put_vec3(uint32_t name, VectorValue value)
-{
-    put_vec3(name, value.x, value.y, value.z);
-}
+void Struct::put_vec3(uint32_t name, VectorValue value) { put_vec3(name, value.x, value.y, value.z); }
 
 // 0x00477F90
 void Struct::put_vec3(const char* name, VectorValue value)
@@ -1110,10 +1100,7 @@ void Struct::put_sub_struct(uint32_t name, Struct* value)
 }
 
 // 0x00478770
-void Struct::put_sub_struct(const char* name, Struct* value)
-{
-    put_sub_struct(checksums::hash_from_text(name), value);
-}
+void Struct::put_sub_struct(const char* name, Struct* value) { put_sub_struct(checksums::hash_from_text(name), value); }
 
 // 0x00478290
 void Struct::append_script(uint32_t name, const uint8_t* code, uint32_t size)
@@ -1198,7 +1185,7 @@ void Struct::inline_into(Struct* dest, int depth)
     }
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 
@@ -1241,10 +1228,7 @@ int& struct_copy_peak() { return g_struct_copy_peak; }
 
 // 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
 Pair* new_pair() { return static_cast<Pair*>(g_pair_pools.carve(sizeof(Pair))); }
-Vector* alloc_script_vector()
-{
-    return static_cast<Vector*>(g_vector_pools.carve(sizeof(Vector)));
-}
+Vector* alloc_script_vector() { return static_cast<Vector*>(g_vector_pools.carve(sizeof(Vector))); }
 
 // 0x0047AC00
 Pair* Pair::prepare_all()
@@ -1326,22 +1310,13 @@ void Array::change_float(uint32_t index, float value)
 }
 
 // 0x0046CC30
-uint32_t Array::fetch_part(uint32_t index)
-{
-    return extent_ == 1 ? single_ : elements_[index];
-}
+uint32_t Array::fetch_part(uint32_t index) { return extent_ == 1 ? single_ : elements_[index]; }
 
 // 0x0046CBB0
-const char* Array::fetch_text(uint32_t index)
-{
-    return reinterpret_cast<const char*>(fetch_part(index));
-}
+const char* Array::fetch_text(uint32_t index) { return reinterpret_cast<const char*>(fetch_part(index)); }
 
 // 0x0046CB70
-const char* Array::find_inline_text(uint32_t index)
-{
-    return reinterpret_cast<const char*>(fetch_part(index));
-}
+const char* Array::find_inline_text(uint32_t index) { return reinterpret_cast<const char*>(fetch_part(index)); }
 
 // 0x0046CBF0
 float Array::fetch_float(uint32_t index)
@@ -1446,7 +1421,7 @@ Struct* Struct::init_copy(Struct* source)
     return this;
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 
@@ -1692,7 +1667,7 @@ void Struct::append_array_value(const char* name, Array* value)
     append_array_value(checksums::hash_from_text(name), value);
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 

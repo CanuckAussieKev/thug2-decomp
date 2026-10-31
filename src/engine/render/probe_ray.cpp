@@ -107,10 +107,10 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     entity_.get_release();
     entity_key_ = 0;
     bool hit_static = farthest ? collide_with_statics_farthest(&line, &hit_, callback, cache)
-                              : collide_with_statics(&line, &hit_, callback, cache);
+                               : collide_with_statics(&line, &hit_, callback, cache);
     if (movables) {
         entity_.assign_value(farthest ? collide_with_movables_farthest(&line, &hit_, callback, cache)
-                              : collide_with_movables(&line, &hit_, callback, cache));
+                                      : collide_with_movables(&line, &hit_, callback, cache));
         if (entity_)
             entity_key_ = entity_->ident_;
     }
@@ -120,7 +120,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     int result = hit_static || entity_ ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h).
     collision_overlay::note_feeler_query(this, result,
-                                    static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress())));
+                                         static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress())));
     return result;
 }
 
@@ -173,7 +173,8 @@ double ProbeRay::get_hit_vertex_value() const
         uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
         maths::Vec4 position;
         object->get_call<maths::Vec4*>(9, &position, static_cast<int>(vertex)); // (slot 9 returns it through a pointer)
-        corner[k] = {get_difference(position.x, at.x), get_difference(position.y, at.y), get_difference(position.z, at.z), 1.0f};
+        corner[k] = {get_difference(position.x, at.x), get_difference(position.y, at.y),
+                     get_difference(position.z, at.z), 1.0f};
         value[k] = static_cast<float>(geometry->vertex_bytes_[vertex]) * kByteScale;
     }
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
@@ -195,8 +196,8 @@ double ProbeRay::get_hit_vertex_value() const
     minus(on_line, corner[0], &x, &y, &z);
     const double to_edge = std::sqrt(get_length_squared(x, y, z));
     const double to_hit = std::sqrt(get_length_squared(corner[0].x, corner[0].y, corner[0].z));
-    const double fraction = std::sqrt(static_cast<double>(along_edge_squared)) /
-                            std::sqrt(static_cast<double>(edge_squared));
+    const double fraction =
+        std::sqrt(static_cast<double>(along_edge_squared)) / std::sqrt(static_cast<double>(edge_squared));
     const double on_edge_value = (static_cast<double>(value[2]) - value[1]) * fraction + value[1];
     return (on_edge_value - value[0]) * (to_hit / to_edge) + value[0];
 }
@@ -243,4 +244,4 @@ ProbeRay* ProbeRay::get_assign(const ProbeRay& other)
     return this;
 }
 
-} // namespace Nx
+} // namespace render

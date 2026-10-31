@@ -9,10 +9,10 @@
 namespace lists {
 
 struct GrowableMap {
-    void** items_;  // +0x00
-    int capacity_;  // +0x04
-    int num_;     // +0x08
-    int grow_;      // +0x0C
+    void** items_; // +0x00
+    int capacity_; // +0x04
+    int num_;      // +0x08
+    int grow_;     // +0x0C
 
     // 0x00561470: `capacity` slots, all null; none used. Returns this.
     GrowableMap* make_new(int capacity, int grow);
@@ -29,4 +29,4 @@ struct TableReleaser {
     void empty_table_items();
 };
 
-} // namespace Lst
+} // namespace lists

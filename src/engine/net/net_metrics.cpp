@@ -48,4 +48,4 @@ void Gauges::calculate_usage(int time)
     throughput_ = total;
 }
 
-} // namespace Net
+} // namespace net

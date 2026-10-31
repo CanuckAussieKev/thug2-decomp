@@ -32,68 +32,92 @@ namespace {
 using namespace goal_calls;
 using namespace goal_names;
 
-constexpr uint32_t kGroupNumber = 0xBAE9387B;          // group_number
-constexpr uint32_t kSingleTimer = 0x04AB5F14;          // single_timer
-constexpr uint32_t kRetryStage = 0xC6B4258F;           // retry_stage
-constexpr uint32_t kSkater = 0x5B8AB877;               // skater
-constexpr uint32_t kNone = 0x806FFF30;                 // none
-constexpr uint32_t kUnlockedByAnother = 0x8A3A324E;    // unlocked_by_another
-constexpr uint32_t kDestroy = 0x83B57984;              // destroy
-constexpr uint32_t kDifficultyLevelParams = 0x85104AB3; // difficulty_level_params
-constexpr uint32_t kInit = 0x398B1B8B;                 // init
-constexpr uint32_t kDontDeactivateOnExpiry = 0x79BBFFCB; // dont_deactivate_upon_expiration
-constexpr uint32_t kResetScore = 0x4599B58C;           // reset_score
-constexpr uint32_t kActivate = 0x4999FB52;             // activate
-constexpr uint32_t kButtonSequences = 0x79704516;            // key_combos
-constexpr uint32_t kDeactivate = 0x01C92CAC;           // deactivate
-constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;          // testing_goal
-constexpr uint32_t kJustWonGoal = 0xC309CAD1;          // just_won_goal
-constexpr uint32_t kReadySkaterForEarlyEnd = 0x719AE783; // ready_skater_for_early_end_current_goal
-constexpr uint32_t kCustomScoreRecord = 0xFC9630AB;    // custom_score_record
-constexpr uint32_t kHighCombo = 0xC63432A7;            // high_combo
-constexpr uint32_t kNewRecord = 0xE7B8254F;            // (name unknown: a new record set)
-constexpr uint32_t kRewardParams = 0x128B3088;         // reward_params
-constexpr uint32_t kSuccess = 0x90FF204D;              // success
-constexpr uint32_t kIsCareer = 0x1DED1EA4;             // is_career
-constexpr uint32_t kIsClassic = 0x5A2C589A;            // is_classic
-constexpr uint32_t kRewardPointsName = 0x35A1C616;     // RewardPoints
+constexpr uint32_t kGroupNumber = 0xBAE9387B;             // group_number
+constexpr uint32_t kSingleTimer = 0x04AB5F14;             // single_timer
+constexpr uint32_t kRetryStage = 0xC6B4258F;              // retry_stage
+constexpr uint32_t kSkater = 0x5B8AB877;                  // skater
+constexpr uint32_t kNone = 0x806FFF30;                    // none
+constexpr uint32_t kUnlockedByAnother = 0x8A3A324E;       // unlocked_by_another
+constexpr uint32_t kDestroy = 0x83B57984;                 // destroy
+constexpr uint32_t kDifficultyLevelParams = 0x85104AB3;   // difficulty_level_params
+constexpr uint32_t kInit = 0x398B1B8B;                    // init
+constexpr uint32_t kDontDeactivateOnExpiry = 0x79BBFFCB;  // dont_deactivate_upon_expiration
+constexpr uint32_t kResetScore = 0x4599B58C;              // reset_score
+constexpr uint32_t kActivate = 0x4999FB52;                // activate
+constexpr uint32_t kButtonSequences = 0x79704516;         // key_combos
+constexpr uint32_t kDeactivate = 0x01C92CAC;              // deactivate
+constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;            // testing_goal
+constexpr uint32_t kJustWonGoal = 0xC309CAD1;             // just_won_goal
+constexpr uint32_t kReadySkaterForEarlyEnd = 0x719AE783;  // ready_skater_for_early_end_current_goal
+constexpr uint32_t kCustomScoreRecord = 0xFC9630AB;       // custom_score_record
+constexpr uint32_t kHighCombo = 0xC63432A7;               // high_combo
+constexpr uint32_t kNewRecord = 0xE7B8254F;               // (name unknown: a new record set)
+constexpr uint32_t kRewardParams = 0x128B3088;            // reward_params
+constexpr uint32_t kSuccess = 0x90FF204D;                 // success
+constexpr uint32_t kIsCareer = 0x1DED1EA4;                // is_career
+constexpr uint32_t kIsClassic = 0x5A2C589A;               // is_classic
+constexpr uint32_t kRewardPointsName = 0x35A1C616;        // RewardPoints
 constexpr uint32_t kCheckChapterAdvancement = 0x7CF09270; // CheckChapterAdvancementStatus
-constexpr uint32_t kAlwaysInitializeGoal = 0x4E863E93; // always_initialize_goal
-constexpr uint32_t kUnlockScript = 0x951B4F10;         // unlock
-constexpr uint32_t kRewardsGiven = 0xC7FEF529;         // (name unknown: the rewards structure's flag)
-constexpr uint32_t kRewardTrickslot = 0xB6432D23;      // reward_trickslot
-constexpr uint32_t kMaxTrickslots = 0x20297D6F;        // max_number_of_special_trickslots
-constexpr uint32_t kShouldRemoveTrick = 0xBC678826;    // should_remove_trick
-constexpr uint32_t kAlreadyAddedTrickslot = 0x65CA5FFC; // already_added_trickslot
-constexpr uint32_t kJustAddedTrickslot = 0xB45FD352;   // just_added_trickslot
-constexpr uint32_t kGoalRewards = 0x67F6E334;          // goal_rewards
-constexpr uint32_t kRewardStat = 0xDE569045;           // reward_stat
-constexpr uint32_t kRewardGoal = 0x0232844A;           // Reward_Goal
-constexpr uint32_t kRewardPoints = 0xBAFFB052;         // reward_points
-constexpr uint32_t kSilentActivation = 0x2D4C5829;     // silent_activation
-constexpr uint32_t kNoFlagSound = 0x524566E3;          // (name unknown: no flag sound)
-constexpr uint32_t kGoalGotFlagSound = 0x5ED34DEB;     // goal_got_flag_sound
-constexpr uint32_t kTrickObjects = 0xEFC35592;         // TrickObjects
-constexpr uint32_t kGaps = 0xD76C173E;                 // Gaps
-constexpr uint32_t kNoGapMessages = 0x5BC07EAA;        // No_Gap_Messages
-constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;       // goal_gaps_got_gap
+constexpr uint32_t kAlwaysInitializeGoal = 0x4E863E93;    // always_initialize_goal
+constexpr uint32_t kUnlockScript = 0x951B4F10;            // unlock
+constexpr uint32_t kRewardsGiven = 0xC7FEF529;            // (name unknown: the rewards structure's flag)
+constexpr uint32_t kRewardTrickslot = 0xB6432D23;         // reward_trickslot
+constexpr uint32_t kMaxTrickslots = 0x20297D6F;           // max_number_of_special_trickslots
+constexpr uint32_t kShouldRemoveTrick = 0xBC678826;       // should_remove_trick
+constexpr uint32_t kAlreadyAddedTrickslot = 0x65CA5FFC;   // already_added_trickslot
+constexpr uint32_t kJustAddedTrickslot = 0xB45FD352;      // just_added_trickslot
+constexpr uint32_t kGoalRewards = 0x67F6E334;             // goal_rewards
+constexpr uint32_t kRewardStat = 0xDE569045;              // reward_stat
+constexpr uint32_t kRewardGoal = 0x0232844A;              // Reward_Goal
+constexpr uint32_t kRewardPoints = 0xBAFFB052;            // reward_points
+constexpr uint32_t kSilentActivation = 0x2D4C5829;        // silent_activation
+constexpr uint32_t kNoFlagSound = 0x524566E3;             // (name unknown: no flag sound)
+constexpr uint32_t kGoalGotFlagSound = 0x5ED34DEB;        // goal_got_flag_sound
+constexpr uint32_t kTrickObjects = 0xEFC35592;            // TrickObjects
+constexpr uint32_t kGaps = 0xD76C173E;                    // Gaps
+constexpr uint32_t kNoGapMessages = 0x5BC07EAA;           // No_Gap_Messages
+constexpr uint32_t kGoalGapsGotGap = 0x96DE9A0C;          // goal_gaps_got_gap
 
-static VtableSlot g_goal_vtable_slots[] = {&goals::Objective::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out, &goals::Objective::is_operative,
-                 render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block, &goals::Objective::capture_save_block,
-                 &goals::Objective::has_time_limit, stubs::return_true, &goals::Objective::has_component_a_302d_7c_d,
-                 &goals::Objective::activate, &goals::Objective::change_live, &goals::Objective::disengage, &goals::Objective::clear_engaged_bit,
-                 &goals::Objective::get_win, &goals::Objective::lose, &goals::Objective::tick_frame, &goals::Objective::is_frozen,
-                 &goals::Objective::set_flag, &goals::Objective::stage_flag_set, &goals::Objective::has_won,
-                 &goals::Objective::net_stage_flag_set, &goals::Objective::has_won_goal_or_child, &goals::Objective::is_prepared,
-                 &goals::Objective::may_try_again, &goals::Objective::mark_won, &goals::Objective::set_stage_flag,
-                 &goals::Objective::set_net_stage_flag, &goals::Objective::un_beat};
+static VtableSlot g_goal_vtable_slots[] = {&goals::Objective::teardown,
+                                           &goals::Objective::wants_to_end,
+                                           &goals::Objective::has_run_out,
+                                           &goals::Objective::is_operative,
+                                           render::virtual_slot3_jump,
+                                           &goals::Objective::expire,
+                                           &goals::Objective::restore_save_block,
+                                           &goals::Objective::capture_save_block,
+                                           &goals::Objective::has_time_limit,
+                                           stubs::return_true,
+                                           &goals::Objective::has_component_a_302d_7c_d,
+                                           &goals::Objective::activate,
+                                           &goals::Objective::change_live,
+                                           &goals::Objective::disengage,
+                                           &goals::Objective::clear_engaged_bit,
+                                           &goals::Objective::get_win,
+                                           &goals::Objective::lose,
+                                           &goals::Objective::tick_frame,
+                                           &goals::Objective::is_frozen,
+                                           &goals::Objective::set_flag,
+                                           &goals::Objective::stage_flag_set,
+                                           &goals::Objective::has_won,
+                                           &goals::Objective::net_stage_flag_set,
+                                           &goals::Objective::has_won_goal_or_child,
+                                           &goals::Objective::is_prepared,
+                                           &goals::Objective::may_try_again,
+                                           &goals::Objective::mark_won,
+                                           &goals::Objective::set_stage_flag,
+                                           &goals::Objective::set_net_stage_flag,
+                                           &goals::Objective::un_beat};
 void** const kGoalVtable = reinterpret_cast<void**>(g_goal_vtable_slots);
 
 // The x87 code's float to int conversion (_ftol): truncation.
 int truncate(double value) { return static_cast<int>(value); }
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
-uint32_t active_ruleset_label() { return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key(); }
+uint32_t active_ruleset_label()
+{
+    return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key();
+}
 
 script::Struct* spawn_param_table()
 {
@@ -309,14 +333,16 @@ bool Objective::activate()
     online::Hub* net = net_session_slot();
     PlayerSearch search;
     if (args_->has_bare_flag(kResetScore)) {
-        for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false))
+        for (void* player = net->begin_player_walk(&search, false); player;
+             player = net->step_player_walk(&search, false))
             reset_score(get_score_of(player_skater(player)));
     }
     // A child goal: the timer passed down (single_timer: its root's, in whole seconds), the root's state for it.
     Objective* root = parents_->objective_key_ ? root_of(manager, parents_) : nullptr;
     if (root) {
         if (inherited_ & 2)
-            seconds_remaining_ = truncate(root->seconds_remaining_ * static_cast<double>(g_goal_life_seconds_per_millisecond)) * 1000;
+            seconds_remaining_ =
+                truncate(root->seconds_remaining_ * static_cast<double>(g_goal_life_seconds_per_millisecond)) * 1000;
         else
             reset_timer();
         if (Virtual<bool>(root, kVtIsInitialized)) {
@@ -404,7 +430,7 @@ bool Objective::get_win()
             } else {
                 void* score = get_score_of(skate_calls::get_home_rider());
                 record = args_->has_bare_flag(kHighCombo) ? *reinterpret_cast<int*>(static_cast<uint8_t*>(score) + 0x20)
-                                                            : total_score(score);
+                                                          : total_score(score);
                 better = record > record_points_;
             }
             if (better)
@@ -471,8 +497,8 @@ void Objective::get_unlock()
     flag_bits_ &= ~kFlagLocked;
     if (net_session_slot()->in_net_game())
         return;
-    if (!Virtual<bool>(this, kVtHasWon) || active_ruleset_label() == kClassic || args_->has_bare_flag(kAlwaysInitializeGoal) ||
-        args_->has_bare_flag(kEditedGoal))
+    if (!Virtual<bool>(this, kVtHasWon) || active_ruleset_label() == kClassic ||
+        args_->has_bare_flag(kAlwaysInitializeGoal) || args_->has_bare_flag(kEditedGoal))
         prepare_all();
     invoke_hook_script(kUnlockScript);
 }
@@ -654,12 +680,14 @@ bool Objective::all_skaters_run_done()
 {
     online::Hub* net = net_session_slot();
     PlayerSearch search;
-    for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+    for (void* player = net->begin_player_walk(&search, false); player;
+         player = net->step_player_walk(&search, false)) {
         objects::GameEntity* skater = player_skater(player);
         auto* end_run = static_cast<objects::RiderSessionEnd*>(skater->fetch_module(kSkaterEndRun));
         // (in horse, a skater not taking the turn doesn't count)
-        if (active_ruleset_label() == kHorse && (reinterpret_cast<uint8_t*>(skater)[0x320] ||
-                                         (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x104) >> 2) & 1))
+        if (active_ruleset_label() == kHorse &&
+            (reinterpret_cast<uint8_t*>(skater)[0x320] ||
+             (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x104) >> 2) & 1))
             continue;
         bool done;
         if (run_ending_ == 0)
@@ -674,4 +702,4 @@ bool Objective::all_skaters_run_done()
     return true;
 }
 
-} // namespace Game
+} // namespace goals

@@ -23,13 +23,10 @@ constexpr float kMinWeight = 9.99999975e-06f; // (0x006453B8)
 void lerp_vector(float* out, const float* a, const float* b, float t)
 {
     walk::get_lerp(reinterpret_cast<maths::Vec4*>(out), reinterpret_cast<const maths::Vec4*>(a),
-               reinterpret_cast<const maths::Vec4*>(b), t);
+                   reinterpret_cast<const maths::Vec4*>(b), t);
 }
 
-void copy4(float* to, const float* from)
-{
-    std::memcpy(to, from, 16);
-}
+void copy4(float* to, const float* from) { std::memcpy(to, from, 16); }
 
 // One pose (`to`) taking in a higher one (`from`) by `t`, bone by bone: where both have the bone, blended; where
 // only `from` has it, copied (and marked valid in `to`, when `mark_copied`).
@@ -113,7 +110,7 @@ void __cdecl mix_poses(Stance* poses, float* weights, int bones, Stance* out, in
 
 // 0x0047D8F0
 void __cdecl blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
-                            uint32_t id)
+                               uint32_t id)
 {
     double others = 0.0;
     for (int k = 1; k < count; ++k) {
@@ -162,10 +159,7 @@ void __stdcall add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 }
 
 // 0x0047D420
-void BlendChannel::set_flag_4c(bool value)
-{
-    flag_4c_ = value;
-}
+void BlendChannel::set_flag_4c(bool value) { flag_4c_ = value; }
 
 // 0x0047D430
 void BlendChannel::blend_to(uint32_t target, float period)
@@ -188,10 +182,7 @@ float BlendChannel::fetch_value(uint32_t offset)
 }
 
 // 0x0047D640
-bool BlendChannel::has_value(uint32_t offset)
-{
-    return render::get_anim_data(lookup_key_ + offset, 0) != nullptr;
-}
+bool BlendChannel::has_value(uint32_t offset) { return render::get_anim_data(lookup_key_ + offset, 0) != nullptr; }
 
 // 0x0047D660
 void BlendChannel::clear_flag()
@@ -200,4 +191,4 @@ void BlendChannel::clear_flag()
         params->erase_module(0x5DB4115F);
 }
 
-} // namespace Gfx
+} // namespace gfx

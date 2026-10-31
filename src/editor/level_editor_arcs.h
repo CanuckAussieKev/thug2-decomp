@@ -56,11 +56,11 @@ struct Lip {
 // back wall faces away from its slope and isn't taken for a vert lip. Each group's lip is at its highest vertices; its
 // tangent the top faces' (by area). At most `max_lips`, the largest groups (by area) first; groups rising less than
 // kMinLipHeight aren't lips.
-constexpr float kFlatNormalY = 0.996f;      // (flatter than ~5 degrees: ground, a deck)
-constexpr float kSteepNormalY = 0.1f;       // (steeper than ~84 degrees: near vertical)
-constexpr float kHeadingTolerance = 0.94f;  // (cosine: within ~20 degrees)
+constexpr float kFlatNormalY = 0.996f;     // (flatter than ~5 degrees: ground, a deck)
+constexpr float kSteepNormalY = 0.1f;      // (steeper than ~84 degrees: near vertical)
+constexpr float kHeadingTolerance = 0.94f; // (cosine: within ~20 degrees)
 constexpr float kMinLipHeight = 6.0f;
-constexpr float kVertTangentY = 0.97f;      // (a tangent this steep launches straight up)
+constexpr float kVertTangentY = 0.97f; // (a tangent this steep launches straight up)
 std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips);
 
 // A stat-scaled physics value: (low, high) by `stat` (0..10) as get_scaled_value scales it - low + (high - low) stat / 10
@@ -68,9 +68,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips);
 float scaled_stat(float low, float high, float stat, bool has_limit, float limit);
 
 struct Physics {
-    float air_gravity_ = -1350.0f;  // (Physics_Air_Gravity / Physics_Air_hang_Stat)
-    float vert_gravity_ = -1227.3f; // (/ Physics_Vert_hang_Stat)
-    float jump = 432.0f;          // (Physics_Jump_Speed_Stat at the ollie stat)
+    float air_gravity_ = -1350.0f;               // (Physics_Air_Gravity / Physics_Air_hang_Stat)
+    float vert_gravity_ = -1227.3f;              // (/ Physics_Vert_hang_Stat)
+    float jump = 432.0f;                         // (Physics_Jump_Speed_Stat at the ollie stat)
     float speeds[3] = {603.5f, 828.5f, 1028.5f}; // push, top, max
     float speed_stat_ = 5.0f, ollie_stat_ = 5.0f;
     std::string source = "the defaults (no level)";
@@ -111,4 +111,4 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
 // For the status bar / help: what the arcs show now ("2 lips, lands 812 (67.7 ft) at top speed").
 std::string describe();
 
-} // namespace MenuSystem::level_editor::Arcs
+} // namespace frontend::level_editor::arcs

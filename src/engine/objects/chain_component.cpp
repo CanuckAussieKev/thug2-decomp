@@ -43,18 +43,18 @@ constexpr uint32_t kSegments = 0xD93124D6; // segments
 constexpr uint32_t kLength = 0xFE82614D;   // length
 constexpr uint32_t kChainId = 0x62BF8E3F;  // chainid
 constexpr uint32_t kMoveWithObject = 0xC96BA2C1;
-constexpr uint32_t kBoneStart = 0xF2D1C4CA;  // bone_start
-constexpr uint32_t kStartOffset = 0x6C3AA2BF; // start_offset
-constexpr uint32_t kBoneEnd = 0x7A12D81C;    // bone_end
-constexpr uint32_t kObjEnd = 0xE5002867;     // obj_end
+constexpr uint32_t kBoneStart = 0xF2D1C4CA;    // bone_start
+constexpr uint32_t kStartOffset = 0x6C3AA2BF;  // start_offset
+constexpr uint32_t kBoneEnd = 0x7A12D81C;      // bone_end
+constexpr uint32_t kObjEnd = 0xE5002867;       // obj_end
 constexpr uint32_t kGravityForce = 0x2CCF354D; // gravity_force
-constexpr uint32_t kDampForce = 0x84750D32;  // damp_force
+constexpr uint32_t kDampForce = 0x84750D32;    // damp_force
 constexpr uint32_t kIterations = 0x41E56E7B;
 constexpr uint32_t kCollideBelow = 0x4BFBDC28;
 constexpr uint32_t kPlaneOffset = 0x5F8314B3;
 constexpr uint32_t kCollideFirst = 0x07EBDE63;
 constexpr uint32_t kCollideEnd = 0xB721AB4A;
-constexpr uint32_t kLineBlend = 0x54628ED7;  // Blend
+constexpr uint32_t kLineBlend = 0x54628ED7; // Blend
 constexpr uint32_t kLineGrey = 0x80808080;
 constexpr uint32_t kLineBlack = 0xFF000000;
 
@@ -62,7 +62,7 @@ constexpr uint32_t kLineBlack = 0xFF000000;
 constexpr uint32_t kSetCollision = 0x286BA49C;
 constexpr uint32_t kSetLink = 0x317A113A;
 constexpr uint32_t kSetHidden = 0x982C70E5;
-constexpr uint32_t kDist = 0x7E832F08;      // dist
+constexpr uint32_t kDist = 0x7E832F08; // dist
 constexpr uint32_t kCollisionFirst = 0xE4D4B316;
 constexpr uint32_t kCollisionEnd = 0x98382F87;
 constexpr uint32_t kLinkPos = 0xEC13B28C;
@@ -86,7 +86,10 @@ void line_call(void* line, int slot, A... args)
     reinterpret_cast<void(__thiscall*)(void*, A...)>((*reinterpret_cast<void***>(line))[slot])(line, args...);
 }
 void set_line_colour(void* line, int vertex, uint32_t colour) { line_call(line, 15, vertex, colour); }
-void set_line_vertex(void* line, int vertex, const maths::Vec4& pos) { line_call(line, 7, vertex, pos.x, pos.y, pos.z); }
+void set_line_vertex(void* line, int vertex, const maths::Vec4& pos)
+{
+    line_call(line, 7, vertex, pos.x, pos.y, pos.z);
+}
 
 // The skeleton component's bone positions (no source yet): in the world (0x00432050), in the object (0x00431C60).
 void joint_world_point(ObjectModule* skeleton, uint32_t bone, maths::Vec4* out)
@@ -109,8 +112,8 @@ void erase_nodes(ChainComponent::ChainList* list, ChainComponent::Elem* first, C
 {
     ChainComponent::Elem* result;
     reinterpret_cast<objects::PointerList*>(list)->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
-                                                     reinterpret_cast<objects::PointerListNode*>(first),
-                                                     reinterpret_cast<objects::PointerListNode*>(last));
+                                                             reinterpret_cast<objects::PointerListNode*>(first),
+                                                             reinterpret_cast<objects::PointerListNode*>(last));
 }
 ChainComponent::Elem* get_first(ChainComponent::Elem* head) { return head ? head->next : nullptr; }
 
@@ -134,7 +137,8 @@ ChainLink* ChainLink::make_new()
 void ChainLink::destroy_body()
 {
     if (line_ptr_) {
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(line_ptr_))[0])(line_ptr_, 1);
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(line_ptr_))[0])(line_ptr_,
+                                                                                                              1);
         line_ptr_ = nullptr;
     }
 }
@@ -461,7 +465,7 @@ void ChainComponent::tick_frame()
             link.next_pos_.z = get_rounded(static_cast<double>(step_z) + link.at_point_.z);
             link.next_pos_.w = get_rounded(step_w + link.at_point_.w);
             link.next_pos_.y = get_rounded(static_cast<double>(link.next_pos_.y) -
-                                       static_cast<double>(frame) * chain->sag_force_ * frame);
+                                           static_cast<double>(frame) * chain->sag_force_ * frame);
         }
 
         // The start: bone_start's position plus start_offset turned by the bone, into the world.
@@ -471,8 +475,9 @@ void ChainComponent::tick_frame()
         skin_matrix_ptr(bone_rig_, chain->bone_start_, &bone);
         bone.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
         maths::Vec4 turned = chain->start_offset_ * bone;
-        start = {get_rounded(static_cast<double>(start.x) + turned.x), get_rounded(static_cast<double>(start.y) + turned.y),
-                 get_rounded(static_cast<double>(start.z) + turned.z), get_rounded(static_cast<double>(start.w) + turned.w)};
+        start = {
+            get_rounded(static_cast<double>(start.x) + turned.x), get_rounded(static_cast<double>(start.y) + turned.y),
+            get_rounded(static_cast<double>(start.z) + turned.z), get_rounded(static_cast<double>(start.w) + turned.w)};
         {
             const maths::Mat4& m = entity_->display_matrix_;
             const maths::Vec4& at = entity_->at_point_;
@@ -480,8 +485,9 @@ void ChainComponent::tick_frame()
                        static_cast<double>(start.x) * m.row[0].x;
             double y = (static_cast<double>(start.z) * m.row[2].y + static_cast<double>(start.y) * m.row[1].y) +
                        static_cast<double>(start.x) * m.row[0].y;
-            float z = get_rounded((static_cast<double>(start.z) * m.row[2].z + static_cast<double>(start.y) * m.row[1].z) +
-                              static_cast<double>(start.x) * m.row[0].z);
+            float z =
+                get_rounded((static_cast<double>(start.z) * m.row[2].z + static_cast<double>(start.y) * m.row[1].z) +
+                            static_cast<double>(start.x) * m.row[0].z);
             start.x = get_rounded(x + at.x);
             start.y = get_rounded(y + at.y);
             start.z = get_rounded(static_cast<double>(z) + at.z);
@@ -499,7 +505,7 @@ void ChainComponent::tick_frame()
             double y = (static_cast<double>(end.y) * m.row[1].y + static_cast<double>(end.z) * m.row[2].y) +
                        static_cast<double>(end.x) * m.row[0].y;
             float z = get_rounded((static_cast<double>(end.y) * m.row[1].z + static_cast<double>(end.z) * m.row[2].z) +
-                              static_cast<double>(end.x) * m.row[0].z);
+                                  static_cast<double>(end.x) * m.row[0].z);
             end.x = get_rounded(x + at.x);
             end.y = get_rounded(y + at.y);
             end.z = get_rounded(static_cast<double>(z) + at.z);
@@ -647,7 +653,7 @@ void ChainComponent::tick_frame()
     final_frame_ = frame;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::Chain;
 using objects::ChainComponent;
@@ -656,20 +662,22 @@ using objects::ChainLink;
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&ChainComponent::teardown,
-         &ChainComponent::tick_frame,
-         &ChainComponent::configure_from_data,
-         &ChainComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &ChainComponent::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &ChainComponent::teardown,
+    &ChainComponent::tick_frame,
+    &ChainComponent::configure_from_data,
+    &ChainComponent::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &ChainComponent::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -269,9 +269,7 @@ void VideoHub::end_movie(Movie* movie)
 // 0x0057A7E0
 bool VideoHub::end_movies(bool skippable)
 {
-    auto first = [this]() -> Movie* {
-        return total_of() ? movie_at(&movies_, 0) : nullptr;
-    };
+    auto first = [this]() -> Movie* { return total_of() ? movie_at(&movies_, 0) : nullptr; };
     bool ended = false;
     if (!skippable) {
         if (Movie* movie = first()) {
@@ -388,8 +386,8 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     auto new_object_camera = [](CameraContext* context) -> Movie* {
         void* memory = memory::alloc_zeroed(100);
         // (CinematicEntry::make_new reads the context as its three settings' words)
-        return memory ? reinterpret_cast<Movie*>(static_cast<CinematicEntry*>(memory)->make_new(
-                            reinterpret_cast<const uint32_t*>(context)))
+        return memory ? reinterpret_cast<Movie*>(
+                            static_cast<CinematicEntry*>(memory)->make_new(reinterpret_cast<const uint32_t*>(context)))
                       : nullptr;
     };
     if (type == kSkaterCameraAsset || type == kObjectCameraAsset) {
@@ -412,8 +410,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
     } else if (type == kSkaterCamera) {
         if (total_of()) {
             for (int i = 0; i < total_of(); ++i) {
-                Movie* each = total_of() ? movie_at(&movies_, i)
-                                       : nullptr;
+                Movie* each = total_of() ? movie_at(&movies_, i) : nullptr;
                 get_name_of(each); // (its name read: compiled-out debug output)
             }
             clear_movies();
@@ -526,9 +523,12 @@ VideoHub* VideoHub::teardown(unsigned int flags)
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
-uint32_t __fastcall movie_key_from_params(const void* movie) { return reinterpret_cast<const VideoEntry*>(movie)->value20_; }
+uint32_t __fastcall movie_key_from_params(const void* movie)
+{
+    return reinterpret_cast<const VideoEntry*>(movie)->value20_;
+}
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -537,16 +537,18 @@ static VtableSlot g_movie_node_vtable_slots[] = {&objects::VideoEntry::destroy_n
 void** const kMovieNodeVtable = reinterpret_cast<void**>(g_movie_node_vtable_slots);
 static VtableSlot g_queue_vtable_slots[] = {&objects::MovieListNode::teardown};
 void** const kQueueVtable = reinterpret_cast<void**>(g_queue_vtable_slots);
-static VtableSlot g_vtable_slots[] = {&objects::VideoHub::teardown,
-         &objects::Entity::change_traits,
-         static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-         &objects::VideoHub::invoke_method_by_name,
-         stubs::ignore_argument,
-         &objects::Entity::pass_event_to_script,
-         &objects::Entity::flag_as_dead,
-         stubs::return_true,
-         &objects::VideoHub::tick_frame};
+static VtableSlot g_vtable_slots[] = {
+    &objects::VideoHub::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &objects::VideoHub::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &objects::VideoHub::tick_frame};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

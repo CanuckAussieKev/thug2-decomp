@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -16,23 +16,23 @@ struct RiderIdentity;
 
 // A button event (0x18 bytes, 100 of them from +0x38; the newest at event_head_).
 struct TrickEvent {
-    uint32_t time;      // +0x00 frame_clock::GetTime() when it happened
-    int type;           // +0x04 1 pressed, 2 released
-    uint32_t button;    // +0x08 the button's checksum
+    uint32_t time;   // +0x00 frame_clock::GetTime() when it happened
+    int type;        // +0x04 1 pressed, 2 released
+    uint32_t button; // +0x08 the button's checksum
     uint32_t unknown0c_;
-    bool used;          // +0x10 used by the trick being checked (cleared or turned into `flags` after)
+    bool used; // +0x10 used by the trick being checked (cleared or turned into `flags` after)
     uint8_t pad11[3];
-    uint32_t flags;     // +0x14 used by a trick of these kinds (the checks' masks)
+    uint32_t flags; // +0x14 used by a trick of these kinds (the checks' masks)
 };
 static_assert(sizeof(TrickEvent) == 0x18 && offsetof(TrickEvent, used) == 0x10 && offsetof(TrickEvent, flags) == 0x14,
               "layout must match the original");
 
 // A queued trick (0x14 bytes, 100 of them from +0xA34): which list and which of its tricks.
 struct QueuedTrick {
-    uint32_t list;      // +0x00 the trick list's name (0: removed)
-    int index;          // +0x04 its index in the list
+    uint32_t list; // +0x00 the trick list's name (0: removed)
+    int index;     // +0x04 its index in the list
     uint32_t unknown08[2];
-    bool flag;          // +0x10
+    bool flag; // +0x10
     uint8_t pad11[3];
 };
 static_assert(sizeof(QueuedTrick) == 0x14, "layout must match the original");
@@ -235,41 +235,39 @@ public:
     // params. True.
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
-    uint32_t unknown18_;          // +0x18
-    uint8_t* balance_1c_;          // +0x1C (+0x74: manuals checked)
-    uint8_t* input_;              // +0x20 (+0x498 / +0x499: no tricks)
-    ObjectModule* balance_trick_;  // +0x24
+    uint32_t unknown18_;             // +0x18
+    uint8_t* balance_1c_;            // +0x1C (+0x74: manuals checked)
+    uint8_t* input_;                 // +0x20 (+0x498 / +0x499: no tricks)
+    ObjectModule* balance_trick_;    // +0x24
     uint8_t* core_physics_;          // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
-    ObjectModule* flip_rotate_;    // +0x2C
-    ObjectModule* skater_state_;   // +0x30
-    ObjectModule* stats_manager_;  // +0x34
-    TrickEvent events_[kEvents];    // +0x38
+    ObjectModule* flip_rotate_;      // +0x2C
+    ObjectModule* skater_state_;     // +0x30
+    ObjectModule* stats_manager_;    // +0x34
+    TrickEvent events_[kEvents];     // +0x38
     uint16_t event_count_;           // +0x998
     uint16_t event_head_;            // +0x99A
     uint32_t button_map_[3];         // +0x99C what the generic button names stand for
-    float held_off_until_[kButtons];  // +0x9A8
-    bool btn_down_[kButtons];           // +0xA00
+    float held_off_until_[kButtons]; // +0x9A8
+    bool btn_down_[kButtons];        // +0xA00
     uint8_t pada16_[2];
-    int ignored_count_;              // +0xA18
-    uint32_t ignored_[2];           // +0xA1C
-    bool unknowna24_;               // +0xA24
+    int ignored_count_;   // +0xA18
+    uint32_t ignored_[2]; // +0xA1C
+    bool unknowna24_;     // +0xA24
     uint8_t pada25_[3];
-    script::Struct* trick_lists_;   // +0xA28
-    int queue_first_;                // +0xA2C
-    int queue_last_;                 // +0xA30
-    QueuedTrick queue_[100];        // +0xA34
-    int extra_list_count_;            // +0x1204
-    uint32_t extra_lists_[10];       // +0x1208
-    uint32_t manual_list_;           // +0x1230
-    uint32_t list_used_;             // +0x1234
+    script::Struct* trick_lists_; // +0xA28
+    int queue_first_;             // +0xA2C
+    int queue_last_;              // +0xA30
+    QueuedTrick queue_[100];      // +0xA34
+    int extra_list_count_;        // +0x1204
+    uint32_t extra_lists_[10];    // +0x1208
+    uint32_t manual_list_;        // +0x1230
+    uint32_t list_used_;          // +0x1234
 };
 static_assert(offsetof(MoveExecutor, input_) == 0x20 && offsetof(MoveExecutor, events_) == 0x38 &&
-                  offsetof(MoveExecutor, event_count_) == 0x998 &&
-                  offsetof(MoveExecutor, button_map_) == 0x99C &&
+                  offsetof(MoveExecutor, event_count_) == 0x998 && offsetof(MoveExecutor, button_map_) == 0x99C &&
                   offsetof(MoveExecutor, held_off_until_) == 0x9A8 && offsetof(MoveExecutor, btn_down_) == 0xA00 &&
-                  offsetof(MoveExecutor, ignored_count_) == 0xA18 &&
-                  offsetof(MoveExecutor, trick_lists_) == 0xA28 && offsetof(MoveExecutor, queue_) == 0xA34 &&
-                  offsetof(MoveExecutor, extra_list_count_) == 0x1204 &&
+                  offsetof(MoveExecutor, ignored_count_) == 0xA18 && offsetof(MoveExecutor, trick_lists_) == 0xA28 &&
+                  offsetof(MoveExecutor, queue_) == 0xA34 && offsetof(MoveExecutor, extra_list_count_) == 0x1204 &&
                   offsetof(MoveExecutor, manual_list_) == 0x1230,
               "layout must match the original");
 
@@ -284,4 +282,4 @@ void mark_used_stub();
 // copy of TrickParams. True.
 bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script);
 
-} // namespace Obj
+} // namespace objects

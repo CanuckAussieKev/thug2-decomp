@@ -29,7 +29,7 @@ extern void** const kObjectVtable;
 extern void** const kObjectRefVtable;
 
 // Names (checksums) the object uses.
-constexpr uint32_t kUnnamed = 0;                 // an unnamed component
+constexpr uint32_t kUnnamed = 0;                  // an unnamed component
 constexpr uint32_t kSetProps = 0x6C63C7C5;        // SetProps
 constexpr uint32_t kDie = 0xC6870028;             // Die
 constexpr uint32_t kEmptyScript = 0x3F5CDB8A;     // empty_script
@@ -40,7 +40,7 @@ constexpr uint32_t kObjId = 0x0830ECAF;           // ObjId
 constexpr uint32_t kStructure = 0x90FEC815;       // structure
 constexpr uint32_t kTags = 0x90436BD9;            // tags
 constexpr uint32_t kRemoveTags = 0x8225D629;      // remove_tags
-constexpr uint32_t kReactionList = 0x475BF03C;   // event_handlers
+constexpr uint32_t kReactionList = 0x475BF03C;    // event_handlers
 constexpr uint32_t kReplaceHandlers = 0x3F93A1EF; // replace_handlers
 constexpr uint32_t kParams = 0x7031F10C;          // params
 constexpr uint32_t kPauseWithObject = 0x8757D0BB; // PauseWithObject
@@ -404,7 +404,10 @@ void Entity::remove_tag_flag(uint32_t flag)
 }
 
 // 0x004607C0
-bool Entity::read_int_tag(uint32_t name, int* value) { return tag_table_ ? tag_table_->fetch_int_value(name, value, 0) : false; }
+bool Entity::read_int_tag(uint32_t name, int* value)
+{
+    return tag_table_ ? tag_table_->fetch_int_value(name, value, 0) : false;
+}
 
 // 0x004607E0
 bool Entity::read_hash_tag(uint32_t name, uint32_t* value)
@@ -619,29 +622,32 @@ void dispose_when_free(Entity* object, void* /*data*/)
         object->virtual_destroy(1);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_object_ref_vtable_slots[] = {&objects::ObjectRef::teardown};
 void** const kObjectRefVtable = reinterpret_cast<void**>(g_object_ref_vtable_slots);
-static VtableSlot g_object_vtable_slots[] = {&objects::Entity::teardown,
-         &objects::Entity::change_traits,
-         static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-         static_cast<bool (objects::Entity::*)(uint32_t, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-         stubs::ignore_argument,
-         &objects::Entity::pass_event_to_script,
-         &objects::Entity::flag_as_dead,
-         stubs::return_true};
+static VtableSlot g_object_vtable_slots[] = {
+    &objects::Entity::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    static_cast<bool (objects::Entity::*)(uint32_t, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true};
 void** const kObjectVtable = reinterpret_cast<void**>(g_object_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
 static VtableSlot g_object_node_vtable_slots[] = {&objects::EntityListEntry::teardown};
 void** const kObjectNodeVtable = reinterpret_cast<void**>(g_object_node_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

@@ -53,7 +53,10 @@ SceneRef* scene_meshes(uint8_t* node)
     return scene ? *reinterpret_cast<SceneRef**>(scene + 0x280) : nullptr;
 }
 
-IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes) { return reinterpret_cast<IDirect3DVertexBuffer9*&>(meshes->com_object_); }
+IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)
+{
+    return reinterpret_cast<IDirect3DVertexBuffer9*&>(meshes->com_object_);
+}
 
 } // namespace
 
@@ -266,8 +269,8 @@ void __cdecl recreate_buffers()
         SceneRef* meshes = scene_meshes(node);
         if (meshes && arena_buffer(meshes)) {
             IDirect3DVertexBuffer9* old = arena_buffer(meshes);
-            input_port()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT, &arena_buffer(meshes),
-                                         nullptr);
+            input_port()->CreateVertexBuffer(meshes->unknown80, D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
+                                             &arena_buffer(meshes), nullptr);
             for (BufferNode* vb_node = vertex_buffer_list(); vb_node; vb_node = vb_node->next) {
                 auto* vb = static_cast<VertexBuffer*>(vb_node->buffer);
                 if (vb && vb->buffer == old)
@@ -284,7 +287,8 @@ void __cdecl recreate_buffers()
         if (!ib)
             continue;
         input_port()->CreateIndexBuffer(ib->size, ib->usage | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(ib->format),
-                                    D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&ib->buffer), nullptr);
+                                        D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&ib->buffer),
+                                        nullptr);
         void* card = nullptr;
         if (static_cast<IDirect3DIndexBuffer9*>(ib->buffer)->Lock(0, 0, &card, 0) >= 0) {
             std::memcpy(card, ib->indices, ib->size);
@@ -350,4 +354,4 @@ void MeshRef::destroy_body()
     std::memset(this, 0, sizeof(*this));
 }
 
-} // namespace Nx
+} // namespace render

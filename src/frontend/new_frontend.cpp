@@ -81,11 +81,11 @@ using game_screens::Anchor;
 
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;       // load_mainmenu (the skate module's level in the front end)
-constexpr uint32_t kSkater = 0x5B8AB877;             // Skater (the local skater's alias)
-constexpr uint32_t kSkaterState = 0x43686585;        // SkaterState
-constexpr uint32_t kSkaterScore = 0xD262802F;        // SkaterScore
-constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;  // SkaterCorePhysics
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;      // load_mainmenu (the skate module's level in the front end)
+constexpr uint32_t kSkater = 0x5B8AB877;            // Skater (the local skater's alias)
+constexpr uint32_t kSkaterState = 0x43686585;       // SkaterState
+constexpr uint32_t kSkaterScore = 0xD262802F;       // SkaterScore
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29; // SkaterCorePhysics
 
 // --- the game's state ---
 
@@ -120,7 +120,6 @@ int script_integer(const std::string& name)
     script::SymbolTableEntry* symbol = script::resolve_symbol(name_hash(name.c_str()));
     return symbol && symbol->type == script::kQbvalInteger ? symbol->integer : -1;
 }
-
 
 // --- the setting and the files ---
 
@@ -180,11 +179,13 @@ paint::FontFiles resolve_fonts()
     for (char& ch : lower)
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     bool bahnschrift = lower.find("bahnschrift") != std::string::npos;
-    files.condense = static_cast<float>(std::atoi(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0f;
+    files.condense =
+        static_cast<float>(std::atoi(ini_string("display_condense", bahnschrift ? "84" : "100").c_str())) / 100.0f;
     files.bold = std::atoi(ini_string("display_bold", bahnschrift ? "1" : "0").c_str()) ? 0.022f : 0.0f;
     get_log("new front end: fonts - display %s (condensed %.0f%%%s), mono %s, body %s",
-        files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0f, files.bold > 0 ? ", heavier" : "",
-        files.mono.empty() ? "(none)" : files.mono.c_str(), files.body.empty() ? "(none)" : files.body.c_str());
+            files.display.empty() ? "(none)" : files.display.c_str(), files.condense * 100.0f,
+            files.bold > 0 ? ", heavier" : "", files.mono.empty() ? "(none)" : files.mono.c_str(),
+            files.body.empty() ? "(none)" : files.body.c_str());
     return files;
 }
 
@@ -233,27 +234,31 @@ enum class State {
 const char* get_state_name(State state)
 {
     switch (state) {
-    case State::kIdle: return "idle";
-    case State::kShown: return "shown";
-    case State::kAway: return "away";
-    case State::kLaunching: return "launching";
+    case State::kIdle:
+        return "idle";
+    case State::kShown:
+        return "shown";
+    case State::kAway:
+        return "away";
+    case State::kLaunching:
+        return "launching";
     }
     return "?";
 }
 State s_state = State::kIdle;
 float s_state_time = 0.0f;
-Anchor s_anchor = Anchor::kNone;       // the game's menu up when ours came up (the log, the status)
+Anchor s_anchor = Anchor::kNone; // the game's menu up when ours came up (the log, the status)
 // Our screen a menu's item asked for (NewFrontend_Open: the overlay's CHANGE LEVEL / OPTIONS / LEVEL EDITOR items, the
 // skate shop's Play Level) - shown once, over whatever is up, on our root (Main in the front end, Pause in a level);
 // back at the root, ours goes aside again (the restyled menu it came from under it, or `s_open_back` spawned when that
 // menu went - the skate shop's).
 Screen s_open_screen = Screen::kMain; // (Main: none asked for)
 LevelsFor s_open_levels = LevelsFor::kFreeSkate;
-uint32_t s_open_back = 0;           // (a script spawned when it is closed with Back; 0: none)
-uint32_t s_shown_back = 0;          // (the one of the screen shown now)
+uint32_t s_open_back = 0;  // (a script spawned when it is closed with Back; 0: none)
+uint32_t s_shown_back = 0; // (the one of the screen shown now)
 Screen s_open_root = Screen::kMain;
-bool s_root_hidden = false;            // the original's screen elements hidden under our pause menu
-uint32_t s_launch_level = 0;           // the level up when a launch started (in a level: done when it changes)
+bool s_root_hidden = false;  // the original's screen elements hidden under our pause menu
+uint32_t s_launch_level = 0; // the level up when a launch started (in a level: done when it changes)
 
 Catalogue s_catalogue;
 bool s_catalogue_tried = false, s_catalogue_ok = false;
@@ -305,7 +310,8 @@ struct SessionState {
 };
 SessionState s_session;
 
-template <typename T> T get_at(const void* base, uint32_t offset)
+template <typename T>
+T get_at(const void* base, uint32_t offset)
 {
     return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(base) + offset);
 }
@@ -340,13 +346,17 @@ void update_session(float dt)
     // The gaps (the skate module's checklist: the level's).
     std::vector<level_editor::play_test::GapRead> read;
     uint8_t* skate = skate_module();
-    if (goals::GapTally* list = skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr) {
+    if (goals::GapTally* list =
+            skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list())
+                  : nullptr) {
         int guard = 0;
-        for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096; node = node->next) {
+        for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096;
+             node = node->next) {
             if (node->data == reinterpret_cast<void*>(-1))
                 break;
             auto* gap = reinterpret_cast<goals::GapEntry*>(node);
-            read.push_back({gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
+            read.push_back(
+                {gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
         }
     }
     s_session.gaps_total_ = static_cast<int>(read.size());
@@ -402,12 +412,13 @@ paint::Art load_image_file(const std::string& name)
     art.height = static_cast<float>(height);
     // (a loading screen's rows are stored bottom first: render::draw_loading_screen_picture puts v 1 at the screen's top)
     art.bottom_up_ = true;
-    if (format == render::hd_ui::kFormatDxt1 && render::hd_ui::image_scale(marker) != 1 && width % 4 == 0 && height % 4 == 0) {
+    if (format == render::hd_ui::kFormatDxt1 && render::hd_ui::image_scale(marker) != 1 && width % 4 == 0 &&
+        height % 4 == 0) {
         int row_bytes = static_cast<int>(width / 4 * 8), rows = static_cast<int>(height / 4);
         if (left < static_cast<size_t>(row_bytes) * rows)
             return {};
         art.texture = ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height),
-                                               ui_backend::PixelLayout::kDxt1, texels, row_bytes, rows);
+                                                 ui_backend::PixelLayout::kDxt1, texels, row_bytes, rows);
         return art;
     }
     uint32_t bits = format == 0 ? 32 : format == 2 ? 16 : format == 0x13 ? 8 : format;
@@ -443,9 +454,9 @@ paint::Art load_image_file(const std::string& name)
         bgra[i * 4 + 2] = px[2];
         bgra[i * 4 + 3] = 0xFF; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
     }
-    art.texture = ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height),
-                                           ui_backend::PixelLayout::kBgra32, bgra.data(), static_cast<int>(width * 4),
-                                           static_cast<int>(height));
+    art.texture =
+        ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height), ui_backend::PixelLayout::kBgra32,
+                                   bgra.data(), static_cast<int>(width * 4), static_cast<int>(height));
     return art;
 }
 
@@ -499,10 +510,7 @@ paint::Highscores records_for(const StageMap& level)
 
 // [frontend] respect_locks (0, the default: every level open in Free Skate - the user's wish; 1: the game's level
 // select's rules).
-bool respect_locks()
-{
-    return GetPrivateProfileIntA("frontend", "respect_locks", 0, ini_path().c_str()) != 0;
-}
+bool respect_locks() { return GetPrivateProfileIntA("frontend", "respect_locks", 0, ini_path().c_str()) != 0; }
 
 // Whether a level is unlocked, as the game's level select decides it outside a career (level_select_menu_add_item,
 // gamemenu_levelselect.qb): every level when all_levels_unlocked is 1 (the cheat); else its seen_flag when it has one
@@ -546,7 +554,7 @@ void load_catalogue()
     std::string error;
     if (text.empty()) {
         get_log("new front end: no %s (make_menu_level.ts makes it) - Free Skate goes to the original level select",
-            path.c_str());
+                path.c_str());
     } else if (!parse_catalogue(text, &s_catalogue, &error)) {
         get_log("new front end: %s - %s; Free Skate goes to the original level select", path.c_str(), error.c_str());
         s_catalogue = Catalogue{};
@@ -571,10 +579,7 @@ bool cycle_level_art(int step)
     return true;
 }
 
-void save_state()
-{
-    write_atomically(state_path(), format_state(s_saved));
-}
+void save_state() { write_atomically(state_path(), format_state(s_saved)); }
 
 // The last level played: whichever menu started it, once it's the level loaded.
 void note_level_loaded()
@@ -701,7 +706,8 @@ void change_phase(State state)
     if (s_state == state)
         return;
     get_log("new front end: %s -> %s%s%s", get_state_name(s_state), get_state_name(state),
-        state == State::kShown ? " over the " : "", state == State::kShown ? game_screens::anchor_name(s_anchor) : "");
+            state == State::kShown ? " over the " : "",
+            state == State::kShown ? game_screens::anchor_name(s_anchor) : "");
     bool was_up = s_state == State::kShown || s_state == State::kLaunching;
     bool up = state == State::kShown || state == State::kLaunching;
     if (was_up && !up) {
@@ -745,7 +751,8 @@ void keep_root_hidden()
     static int s_logged = 0;
     if (s_logged < 20) {
         ++s_logged;
-        get_log("new front end: the original's elements were shown again under ours (a script scaled root_window) - hidden");
+        get_log("new front end: the original's elements were shown again under ours (a script scaled root_window) - "
+                "hidden");
     }
     hide_root(true, true);
 }
@@ -825,7 +832,7 @@ UiWidget* active_menu(bool* in_dialog = nullptr, bool coming = false)
 
 // The strings of the text elements in `element` (itself included), in tree order; `skip`: subtrees left out.
 void collect_texts(const UiWidget* element, std::vector<std::string>* out, const std::vector<const UiWidget*>& skip,
-                  int* budget, bool visible_only)
+                   int* budget, bool visible_only)
 {
     if (!element || --*budget <= 0)
         return;
@@ -854,7 +861,7 @@ float absolute_y(const UiWidget* element)
 
 // The visible texts in `element` (itself included) with their heights, in tree order; `skip`: subtrees left out.
 void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string, float>>* out,
-                    const std::vector<const UiWidget*>& skip, int* budget)
+                      const std::vector<const UiWidget*>& skip, int* budget)
 {
     if (!element || --*budget <= 0 || !get_visible(element))
         return;
@@ -874,7 +881,8 @@ bool has_visible_sprite(const UiWidget* element, int* budget)
 {
     if (!element || --*budget <= 0 || element_hidden(element) || element->aim_point_.alpha <= 0.02f)
         return false;
-    if (type_of(element) == sprite_type() && element->aim_point_.rgba[3] > 2 && std::fabs(element->aim_point_.scale_x_) > 0.001f)
+    if (type_of(element) == sprite_type() && element->aim_point_.rgba[3] > 2 &&
+        std::fabs(element->aim_point_.scale_x_) > 0.001f)
         return true;
     for (UiWidget* child = first_child(element); child; child = get_next(child))
         if (has_visible_sprite(child, budget))
@@ -915,8 +923,11 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->adjustable = true;
                 item->slider_at_ = std::clamp((e->aim_point_.x - left) / (right - left), 0.0f, 1.0f);
                 item->slider_hue_ = id == kHueArrow;
-                item->slider_kind_ = id == kColourArrows[0] ? 1 : id == kColourArrows[1] ? 2 : id == kColourArrows[2] ? 3
-                                   : id == kColourArrows[3] ? 4 : 0;
+                item->slider_kind_ = id == kColourArrows[0]   ? 1
+                                     : id == kColourArrows[1] ? 2
+                                     : id == kColourArrows[2] ? 3
+                                     : id == kColourArrows[3] ? 4
+                                                              : 0;
             }
             if (texture == kCheckbox && get_visible(e)) {
                 item->checkbox = 0;
@@ -1078,9 +1089,9 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
 // the reader would have to understand to restyle it (each element: type, id, text, texture, position, hidden).
 const char* current_type_name(uint32_t type)
 {
-    static const char* const kTypes[] = {"TextElement",     "SpriteElement", "ContainerElement", "VMenu",
-                                         "HMenu",           "VScrollingMenu", "HScrollingMenu",  "TextBlockElement",
-                                         "Element3d",       "WindowElement", "Menu"};
+    static const char* const kTypes[] = {
+        "TextElement",    "SpriteElement",    "ContainerElement", "VMenu",         "HMenu", "VScrollingMenu",
+        "HScrollingMenu", "TextBlockElement", "Element3d",        "WindowElement", "Menu"};
     for (const char* name : kTypes)
         if (name_hash(name) == type)
             return name;
@@ -1130,11 +1141,12 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
         screen = parent;
     }
     get_log("new front end: debug_restyle - the menu %08X (%s), its screen %08X:", id_of_element(menu), why.c_str(),
-        id_of_element(screen));
+            id_of_element(screen));
     int budget = 600;
     const UiWidget* one = screen;
     char line[160];
-    std::snprintf(line, sizeof(line), "%s %08X", current_type_name(type_of(one)) ? current_type_name(type_of(one)) : "?", id_of_element(one));
+    std::snprintf(line, sizeof(line), "%s %08X",
+                  current_type_name(type_of(one)) ? current_type_name(type_of(one)) : "?", id_of_element(one));
     get_log("new front end: debug_restyle %s", line);
     dump_tree(first_child(screen), 1, &budget);
 }
@@ -1236,15 +1248,25 @@ std::string pad_button_label_for(char tag, char digit)
         button = static_cast<int>(render::button_for_tag(&d));
     }
     switch (button) {
-    case 4: return text_tools::kKeyDown;
-    case 5: return text_tools::kKeyRight;
-    case 6: return text_tools::kKeyLeft;
-    case 7: return text_tools::kKeyUp;
-    case 10: return text_tools::kKeyDownRight; // (the grab tricks' order: Down, Down-Left \bc, Down-Right \ba, ... Up-Left \bb,
-    case 11: return text_tools::kKeyUpLeft;    // Up-Right \bd)
-    case 12: return text_tools::kKeyDownLeft;
-    case 13: return text_tools::kKeyUpRight;
-    default: break;
+    case 4:
+        return text_tools::kKeyDown;
+    case 5:
+        return text_tools::kKeyRight;
+    case 6:
+        return text_tools::kKeyLeft;
+    case 7:
+        return text_tools::kKeyUp;
+    case 10:
+        return text_tools::
+            kKeyDownRight; // (the grab tricks' order: Down, Down-Left \bc, Down-Right \ba, ... Up-Left \bb,
+    case 11:
+        return text_tools::kKeyUpLeft; // Up-Right \bd)
+    case 12:
+        return text_tools::kKeyDownLeft;
+    case 13:
+        return text_tools::kKeyUpRight;
+    default:
+        break;
     }
     const char* name = sio::get_button_key_name(button);
     return name ? name : "";
@@ -1291,7 +1313,8 @@ mirror::View mirror_now()
         mirror::set_button_namer(pad_button_label_for);
     }
     // (online: restyled too unless [frontend] restyle_online=0 - tested by the user by hand, never by a tool)
-    if (!current_load_state() || loading_screen_up() || (game_screens::net_session() && !policy.online) || level_editor::live_now())
+    if (!current_load_state() || loading_screen_up() || (game_screens::net_session() && !policy.online) ||
+        level_editor::live_now())
         return {};
     bool in_dialog = false;
     UiWidget* menu = active_menu(&in_dialog);
@@ -1347,10 +1370,10 @@ mirror::View mirror_now()
         s_mirror_logged = key;
         if (view.kind != mirror::Kind::kNone)
             get_log("new front end: restyled - the original's %s (%08X) \"%s\", %zu rows", mirror::kind_name(view.kind),
-                id_of_element(menu), view.title.c_str(), view.rows.size());
+                    id_of_element(menu), view.title.c_str(), view.rows.size());
         else
             get_log("new front end: the original's menu %08X left as it is: %s", id_of_element(menu),
-                view.why.empty() ? "not restyled" : view.why.c_str());
+                    view.why.empty() ? "not restyled" : view.why.c_str());
     }
     if (view.kind == mirror::Kind::kNone)
         dump_left_menu(menu, view.why);
@@ -1383,8 +1406,8 @@ bool step_to(modules::FrontEnd* front_end, int row)
         return false;
     int target = v.rows[row].index;
     StepContext context{front_end, v.horizontal};
-    mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection, send_step,
-                              &context);
+    mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection,
+                                send_step, &context);
     return read_selection(nullptr) == target;
 }
 
@@ -1398,11 +1421,13 @@ void choose_key(modules::FrontEnd* front_end, int row, int col)
             return;
         mirror::MenuRead now = read_keyboard(keys, active);
         if (now.key_row_ != row) {
-            mouse_menus::send_menu_pad_event(front_end, now.key_row_ < row ? modules::FrontEnd::kPadDown : modules::FrontEnd::kPadUp);
+            mouse_menus::send_menu_pad_event(front_end, now.key_row_ < row ? modules::FrontEnd::kPadDown
+                                                                           : modules::FrontEnd::kPadUp);
             continue;
         }
         if (now.key_col_ != col) {
-            mouse_menus::send_menu_pad_event(front_end, now.key_col_ < col ? modules::FrontEnd::kPadRight : modules::FrontEnd::kPadLeft);
+            mouse_menus::send_menu_pad_event(front_end, now.key_col_ < col ? modules::FrontEnd::kPadRight
+                                                                           : modules::FrontEnd::kPadLeft);
             continue;
         }
         mouse_menus::send_menu_pad_event(front_end, modules::FrontEnd::kPadChoose);
@@ -1463,8 +1488,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
                             hit->index < static_cast<int>(shown.rows.size()) && shown.rows[hit->index].adjustable)
                             side = click_x < hit->x0 + width * 0.3f ? -1 : click_x >= hit->x1 - width * 0.3f ? 1 : 0;
                         mouse_menus::send_menu_pad_event(front_end, side < 0   ? modules::FrontEnd::kPadLeft
-                                                               : side > 0 ? modules::FrontEnd::kPadRight
-                                                                          : modules::FrontEnd::kPadChoose);
+                                                                    : side > 0 ? modules::FrontEnd::kPadRight
+                                                                               : modules::FrontEnd::kPadChoose);
                     }
                 }
                 return; // (the screen may be another now)
@@ -1490,7 +1515,8 @@ void mirror_mouse(modules::FrontEnd* front_end)
                 return;
             }
             break;
-        default: break;
+        default:
+            break;
         }
     }
 }
@@ -1518,7 +1544,7 @@ void start_cover(Cover::Over over, const char* why)
     if (s_cover.get_on() && s_cover.get_drawn() == over)
         return;
     get_log("new front end: covering - %s (%s drawn until the next screen is ready)", why,
-        over == Cover::Over::kOurs ? "ours" : "the restyled screen");
+            over == Cover::Over::kOurs ? "ours" : "the restyled screen");
     s_cover.kickoff(over);
     hide_root(true);
 }
@@ -1570,7 +1596,8 @@ void update_cover(float dt)
     UiWidget* active = active_menu(&in_dialog);
     Cover::Now now;
     now.target_ready_ = s_mirror.get_up();
-    now.gameplay = !current_load_state() || loading_screen_up() || level_editor::live_now() || (!in_front_end() && !get_paused() && !active);
+    now.gameplay = !current_load_state() || loading_screen_up() || level_editor::live_now() ||
+                   (!in_front_end() && !get_paused() && !active);
     now.screen = reinterpret_cast<uintptr_t>(active);
     now.left_original_ = active && !s_mirror_would_restyle;
     const char* why = nullptr;
@@ -1617,10 +1644,17 @@ void Do(modules::FrontEnd* front_end, const ActStep& action)
 {
     (void)front_end;
     switch (action.kind) {
-    case ActionKind::kNone: return;
-    case ActionKind::kMoveSound: get_sound("generic_menu_up_or_down_sound", "up"); return;
-    case ActionKind::kChooseSound: get_sound("generic_menu_pad_choose_sound"); return;
-    case ActionKind::kBackSound: get_sound("generic_menu_pad_back_sound"); return;
+    case ActionKind::kNone:
+        return;
+    case ActionKind::kMoveSound:
+        get_sound("generic_menu_up_or_down_sound", "up");
+        return;
+    case ActionKind::kChooseSound:
+        get_sound("generic_menu_pad_choose_sound");
+        return;
+    case ActionKind::kBackSound:
+        get_sound("generic_menu_pad_back_sound");
+        return;
     case ActionKind::kGameOptions: {
         get_sound("generic_menu_pad_choose_sound");
         {
@@ -1634,7 +1668,10 @@ void Do(modules::FrontEnd* front_end, const ActStep& action)
             return;
         }
     }
-    case ActionKind::kOption: apply_option(action.option, action.value); get_sound("generic_menu_up_or_down_sound", "up"); return;
+    case ActionKind::kOption:
+        apply_option(action.option, action.value);
+        get_sound("generic_menu_up_or_down_sound", "up");
+        return;
     case ActionKind::kSkate: {
         std::string why;
         if (action.levels == LevelsFor::kFreeze) {
@@ -1643,7 +1680,8 @@ void Do(modules::FrontEnd* front_end, const ActStep& action)
             hide_root(false);
             script::Struct* params = script::spawn_param_bag()->prepare_all();
             params->put_name_key(name_hash("level"), name_hash(action.load.c_str()));
-            script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
+            script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false,
+                                 false);
             params->get_clear();
             script::delete_struct(params);
             s_launch_level = current_load_state();
@@ -1695,15 +1733,30 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         bool repeat = e.key.repeat != 0;
         bool shift = (e.key.keysym.mod & KMOD_SHIFT) != 0;
         switch (e.key.keysym.scancode) {
-        case SDL_SCANCODE_UP: case SDL_SCANCODE_W: press_direction(front_end, Intake::kUp); break;
-        case SDL_SCANCODE_DOWN: case SDL_SCANCODE_S: press_direction(front_end, Intake::kDown); break;
-        case SDL_SCANCODE_LEFT: case SDL_SCANCODE_A: press_direction(front_end, Intake::kLeft); break;
-        case SDL_SCANCODE_RIGHT: case SDL_SCANCODE_D: press_direction(front_end, Intake::kRight); break;
-        case SDL_SCANCODE_RETURN: case SDL_SCANCODE_KP_ENTER: case SDL_SCANCODE_SPACE:
+        case SDL_SCANCODE_UP:
+        case SDL_SCANCODE_W:
+            press_direction(front_end, Intake::kUp);
+            break;
+        case SDL_SCANCODE_DOWN:
+        case SDL_SCANCODE_S:
+            press_direction(front_end, Intake::kDown);
+            break;
+        case SDL_SCANCODE_LEFT:
+        case SDL_SCANCODE_A:
+            press_direction(front_end, Intake::kLeft);
+            break;
+        case SDL_SCANCODE_RIGHT:
+        case SDL_SCANCODE_D:
+            press_direction(front_end, Intake::kRight);
+            break;
+        case SDL_SCANCODE_RETURN:
+        case SDL_SCANCODE_KP_ENTER:
+        case SDL_SCANCODE_SPACE:
             if (!repeat)
                 Do(front_end, s_menu.get_press(Intake::kConfirm));
             break;
-        case SDL_SCANCODE_ESCAPE: case SDL_SCANCODE_BACKSPACE:
+        case SDL_SCANCODE_ESCAPE:
+        case SDL_SCANCODE_BACKSPACE:
             if (!repeat)
                 Do(front_end, s_menu.get_press(Intake::kBack));
             break;
@@ -1714,7 +1767,8 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             else
                 Do(front_end, s_menu.get_press(Intake::kPrevTab));
             break;
-        case SDL_SCANCODE_PAGEUP: case SDL_SCANCODE_1:
+        case SDL_SCANCODE_PAGEUP:
+        case SDL_SCANCODE_1:
             Do(front_end, s_menu.get_press(Intake::kPrevTab));
             break;
         case SDL_SCANCODE_E:
@@ -1723,29 +1777,56 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             else
                 Do(front_end, s_menu.get_press(Intake::kNextTab));
             break;
-        case SDL_SCANCODE_PAGEDOWN: case SDL_SCANCODE_2:
+        case SDL_SCANCODE_PAGEDOWN:
+        case SDL_SCANCODE_2:
             Do(front_end, s_menu.get_press(Intake::kNextTab));
             break;
-        case SDL_SCANCODE_TAB: Do(front_end, s_menu.get_press(shift ? Intake::kPrevTab : Intake::kNextTab)); break;
-        default: break;
+        case SDL_SCANCODE_TAB:
+            Do(front_end, s_menu.get_press(shift ? Intake::kPrevTab : Intake::kNextTab));
+            break;
+        default:
+            break;
         }
         return;
     }
     case SDL_CONTROLLERBUTTONDOWN:
         switch (e.cbutton.button) {
-        case SDL_CONTROLLER_BUTTON_DPAD_UP: press_direction(front_end, Intake::kUp); s_repeat = {static_cast<int>(Intake::kUp), kRepeatDelay}; break;
-        case SDL_CONTROLLER_BUTTON_DPAD_DOWN: press_direction(front_end, Intake::kDown); s_repeat = {static_cast<int>(Intake::kDown), kRepeatDelay}; break;
-        case SDL_CONTROLLER_BUTTON_DPAD_LEFT: press_direction(front_end, Intake::kLeft); s_repeat = {static_cast<int>(Intake::kLeft), kRepeatDelay}; break;
-        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT: press_direction(front_end, Intake::kRight); s_repeat = {static_cast<int>(Intake::kRight), kRepeatDelay}; break;
-        case SDL_CONTROLLER_BUTTON_A: Do(front_end, s_menu.get_press(Intake::kConfirm)); break;
+        case SDL_CONTROLLER_BUTTON_DPAD_UP:
+            press_direction(front_end, Intake::kUp);
+            s_repeat = {static_cast<int>(Intake::kUp), kRepeatDelay};
+            break;
+        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+            press_direction(front_end, Intake::kDown);
+            s_repeat = {static_cast<int>(Intake::kDown), kRepeatDelay};
+            break;
+        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+            press_direction(front_end, Intake::kLeft);
+            s_repeat = {static_cast<int>(Intake::kLeft), kRepeatDelay};
+            break;
+        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+            press_direction(front_end, Intake::kRight);
+            s_repeat = {static_cast<int>(Intake::kRight), kRepeatDelay};
+            break;
+        case SDL_CONTROLLER_BUTTON_A:
+            Do(front_end, s_menu.get_press(Intake::kConfirm));
+            break;
         case SDL_CONTROLLER_BUTTON_START:
             // (Start on the pause menu resumes, as the original's; elsewhere it chooses)
-            Do(front_end, s_menu.get_press(s_menu.get_shown() == Screen::kFreeze && s_menu.deepness() <= 1 ? Intake::kBack : Intake::kConfirm));
+            Do(front_end,
+               s_menu.get_press(s_menu.get_shown() == Screen::kFreeze && s_menu.deepness() <= 1 ? Intake::kBack
+                                                                                                : Intake::kConfirm));
             break;
-        case SDL_CONTROLLER_BUTTON_B: Do(front_end, s_menu.get_press(Intake::kBack)); break;
-        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER: Do(front_end, s_menu.get_press(Intake::kPrevTab)); break;
-        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER: Do(front_end, s_menu.get_press(Intake::kNextTab)); break;
-        default: break;
+        case SDL_CONTROLLER_BUTTON_B:
+            Do(front_end, s_menu.get_press(Intake::kBack));
+            break;
+        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+            Do(front_end, s_menu.get_press(Intake::kPrevTab));
+            break;
+        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+            Do(front_end, s_menu.get_press(Intake::kNextTab));
+            break;
+        default:
+            break;
         }
         return;
     case SDL_CONTROLLERBUTTONUP:
@@ -1754,7 +1835,9 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         return;
     case SDL_CONTROLLERAXISMOTION: {
         // The left stick as a d-pad: past half way (back inside a third: let go).
-        int* axis = e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX ? &s_stick_x : e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY ? &s_stick_y : nullptr;
+        int* axis = e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTX   ? &s_stick_x
+                    : e.caxis.axis == SDL_CONTROLLER_AXIS_LEFTY ? &s_stick_y
+                                                                : nullptr;
         if (!axis)
             return;
         int value = e.caxis.value;
@@ -1766,7 +1849,8 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
             s_repeat = {};
             return;
         }
-        Intake input = axis == &s_stick_x ? (now > 0 ? Intake::kRight : Intake::kLeft) : (now > 0 ? Intake::kDown : Intake::kUp);
+        Intake input =
+            axis == &s_stick_x ? (now > 0 ? Intake::kRight : Intake::kLeft) : (now > 0 ? Intake::kDown : Intake::kUp);
         press_direction(front_end, input);
         s_repeat = {static_cast<int>(input), kRepeatDelay};
         return;
@@ -1789,15 +1873,27 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         if (const paint::Hit* hit = hit_at(static_cast<float>(e.button.x), static_cast<float>(e.button.y))) {
             paint::Hit clicked = *hit;
             switch (clicked.kind) {
-            case paint::Hit::kItem: Do(front_end, s_menu.click_item(clicked.index)); break;
-            case paint::Hit::kStageMap: Do(front_end, s_menu.click_level(clicked.index)); break;
-            case paint::Hit::kTab: Do(front_end, s_menu.click_tab(clicked.index)); break;
-            case paint::Hit::kBack: Do(front_end, s_menu.click_back()); break;
-            case paint::Hit::kSkate:
-                Do(front_end, s_menu.get_shown() == Screen::kOptions ? s_menu.get_press(Intake::kConfirm) : s_menu.click_skate());
+            case paint::Hit::kItem:
+                Do(front_end, s_menu.click_item(clicked.index));
                 break;
-            case paint::Hit::kContinue: break; // (the restyled main menu's - mirror_mouse)
-            case paint::Hit::kChoice: Do(front_end, s_menu.click_choice(clicked.index / 16, clicked.index % 16)); break;
+            case paint::Hit::kStageMap:
+                Do(front_end, s_menu.click_level(clicked.index));
+                break;
+            case paint::Hit::kTab:
+                Do(front_end, s_menu.click_tab(clicked.index));
+                break;
+            case paint::Hit::kBack:
+                Do(front_end, s_menu.click_back());
+                break;
+            case paint::Hit::kSkate:
+                Do(front_end,
+                   s_menu.get_shown() == Screen::kOptions ? s_menu.get_press(Intake::kConfirm) : s_menu.click_skate());
+                break;
+            case paint::Hit::kContinue:
+                break; // (the restyled main menu's - mirror_mouse)
+            case paint::Hit::kChoice:
+                Do(front_end, s_menu.click_choice(clicked.index / 16, clicked.index % 16));
+                break;
             }
         }
         return;
@@ -1805,7 +1901,8 @@ void handle_queued(modules::FrontEnd* front_end, const SDL_Event& e)
         if (e.wheel.y)
             Do(front_end, s_menu.get_wheel(e.wheel.y));
         return;
-    default: return;
+    default:
+        return;
     }
 }
 
@@ -1814,9 +1911,14 @@ void handle_event(SDL_Event* event)
     if (!is_switched_on())
         return;
     switch (event->type) {
-    case SDL_CONTROLLERBUTTONDOWN: ++s_buttons_down; break;
-    case SDL_CONTROLLERBUTTONUP: s_buttons_down = std::max(0, s_buttons_down - 1); break;
-    default: break;
+    case SDL_CONTROLLERBUTTONDOWN:
+        ++s_buttons_down;
+        break;
+    case SDL_CONTROLLERBUTTONUP:
+        s_buttons_down = std::max(0, s_buttons_down - 1);
+        break;
+    default:
+        break;
     }
     if (s_state != State::kShown) {
         // (a restyled original screen: the mouse is ours - its keys and buttons go on to the original menu)
@@ -1837,7 +1939,8 @@ void handle_event(SDL_Event* event)
         if (s_events.size() < 256)
             s_events.push_back(*event);
         break;
-    default: break;
+    default:
+        break;
     }
 }
 
@@ -1946,7 +2049,10 @@ struct Awaiting {
 };
 Awaiting s_pending;
 
-bool shown_and_idle(Screen screen) { return s_state == State::kShown && !s_menu.occupied() && s_menu.get_shown() == screen; }
+bool shown_and_idle(Screen screen)
+{
+    return s_state == State::kShown && !s_menu.occupied() && s_menu.get_shown() == screen;
+}
 
 // The things the channel never does through ours: anything online (none of ours goes online now - the game's ONLINE
 // item is the game's; kept for the commands' shape).
@@ -1995,8 +2101,9 @@ void tick_frame(modules::FrontEnd* front_end)
 
     if (s_guard) {
         s_guard_time += dt;
-        bool held = get_key_down(SDL_SCANCODE_RETURN) || get_key_down(SDL_SCANCODE_KP_ENTER) || get_key_down(SDL_SCANCODE_SPACE) ||
-                    get_key_down(SDL_SCANCODE_ESCAPE) || get_key_down(SDL_SCANCODE_BACKSPACE) || s_buttons_down > 0 ||
+        bool held = get_key_down(SDL_SCANCODE_RETURN) || get_key_down(SDL_SCANCODE_KP_ENTER) ||
+                    get_key_down(SDL_SCANCODE_SPACE) || get_key_down(SDL_SCANCODE_ESCAPE) ||
+                    get_key_down(SDL_SCANCODE_BACKSPACE) || s_buttons_down > 0 ||
                     (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_LMASK);
         if (!held || s_guard_time > 2.0f)
             s_guard = false;
@@ -2040,7 +2147,8 @@ void tick_frame(modules::FrontEnd* front_end)
     switch (s_state) {
     case State::kIdle:
     case State::kAway:
-        if (!current_load_state() || (!in_front_end() && anchor == Anchor::kNone && s_state == State::kAway && !get_paused())) {
+        if (!current_load_state() ||
+            (!in_front_end() && anchor == Anchor::kNone && s_state == State::kAway && !get_paused())) {
             if (s_state != State::kIdle) {
                 change_phase(State::kIdle);
                 free_device_objects();
@@ -2060,7 +2168,8 @@ void tick_frame(modules::FrontEnd* front_end)
         return;
     case State::kLaunching:
         s_menu.tick(dt);
-        if ((s_launch_level == kLoadMainMenu && !in_front_end()) || (s_launch_level != kLoadMainMenu && current_load_state() != s_launch_level) ||
+        if ((s_launch_level == kLoadMainMenu && !in_front_end()) ||
+            (s_launch_level != kLoadMainMenu && current_load_state() != s_launch_level) ||
             (s_launch_level != kLoadMainMenu && loading_screen_up())) {
             change_phase(State::kIdle);
             free_device_objects();
@@ -2118,7 +2227,7 @@ void tick_frame(modules::FrontEnd* front_end)
         s_pending.active = false;
         if (s_menu.select_id(s_pending.item)) {
             get_log("new front end: automation - %s/%s %s", get_screen_name(s_pending.screen), s_pending.item.c_str(),
-                s_pending.confirm ? "chosen" : "selected");
+                    s_pending.confirm ? "chosen" : "selected");
             s_pending.result = "ok";
             if (s_pending.confirm)
                 Do(front_end, s_menu.get_press(Intake::kConfirm));
@@ -2161,13 +2270,16 @@ void before_screen_layout()
         bool left_original = active_menu() && !s_mirror_would_restyle && s_hold_frames == 0;
         if (!front_end || s_mirror.get_up() || showing() || left_original || s_await_time > kAwaitAtMost) {
             get_log("new front end: the front end's first screen is up after %.2f s (%s)", s_await_time,
-                s_mirror.get_up() || showing() ? "ours" : left_original ? "an original screen" : "none");
+                    s_mirror.get_up() || showing() ? "ours"
+                    : left_original                ? "an original screen"
+                                                   : "none");
             s_awaiting_front_end = false;
         }
     }
     // Decided here, before the screen elements are laid out for this frame's drawing: whatever the scripts made since
     // the last frame (the pause menu, a dialog, the main menu) is hidden before it is ever drawn.
-    if (s_state == State::kShown || s_mirror.get_up() || s_cover.get_on() || s_hold_frames > 0 || s_awaiting_front_end) {
+    if (s_state == State::kShown || s_mirror.get_up() || s_cover.get_on() || s_hold_frames > 0 ||
+        s_awaiting_front_end) {
         hide_root(true);
         keep_root_hidden(); // (a script that scaled root_window back since - create_pause_menu's unhide_root_window)
     } else if (s_root_hidden) {
@@ -2296,7 +2408,8 @@ void register_script_functions()
 void blit()
 {
     // (never over a tool's own UI: the level editor - Update steps ours aside)
-    if (!is_switched_on() || level_editor::live_now() || (!showing() && !s_mirror.get_up() && !s_cover.get_on() && !s_awaiting_front_end))
+    if (!is_switched_on() || level_editor::live_now() ||
+        (!showing() && !s_mirror.get_up() && !s_cover.get_on() && !s_awaiting_front_end))
         return;
     ImGuiContext* previous = nullptr;
     if (!begin_context(&previous))
@@ -2337,12 +2450,12 @@ void blit()
             // (an original screen restyled - phase 3; or, under a cover, the one last up)
             paint::Extras pause = restyle_extras();
             if (s_mirror.get_up())
-                paint::restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirror_hits, &s_mirror_scroll,
-                                &pause);
+                paint::restyled(s_mirror, frame, static_cast<float>(w), static_cast<float>(h), &s_mirror_hits,
+                                &s_mirror_scroll, &pause);
             else {
                 std::vector<paint::Hit> unused;
-                paint::restyled(s_cover_tracker, frame, static_cast<float>(w), static_cast<float>(h), &unused, &s_cover_scroll,
-                                &pause);
+                paint::restyled(s_cover_tracker, frame, static_cast<float>(w), static_cast<float>(h), &unused,
+                                &s_cover_scroll, &pause);
             }
             ImGui::Render();
             ui_backend::render();
@@ -2431,7 +2544,7 @@ std::string automation_command(const std::string& line, bool* done)
     }
     if (verb == "press") {
         static const std::pair<const char*, Intake> kInputs[] = {
-            {"up", Intake::kUp},           {"down", Intake::kDown},     {"left", Intake::kLeft},
+            {"up", Intake::kUp},           {"down", Intake::kDown},       {"left", Intake::kLeft},
             {"right", Intake::kRight},     {"confirm", Intake::kConfirm}, {"back", Intake::kBack},
             {"prevtab", Intake::kPrevTab}, {"nexttab", Intake::kNextTab}};
         if (words.size() < 2)
@@ -2462,7 +2575,8 @@ void automation_cancel() { s_pending.active = false; }
 bool automation_screen_up(const std::string& name)
 {
     // (the restyled original screens: dialog, skaters, list)
-    if (is_switched_on() && !showing() && s_mirror.get_up() && _stricmp(name.c_str(), mirror::kind_name(s_mirror.get_shown().kind)) == 0)
+    if (is_switched_on() && !showing() && s_mirror.get_up() &&
+        _stricmp(name.c_str(), mirror::kind_name(s_mirror.get_shown().kind)) == 0)
         return true;
     Screen screen;
     return is_switched_on() && screen_from_name(name, &screen) && shown_and_idle(screen);
@@ -2490,4 +2604,4 @@ std::string automation_status()
     return text;
 }
 
-} // namespace MenuSystem::NewFrontend
+} // namespace frontend::new_frontend

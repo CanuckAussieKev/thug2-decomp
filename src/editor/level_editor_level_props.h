@@ -66,10 +66,10 @@ const char* tod_name(int tod);
 bool tod_from_name(const std::string& name, int* tod);
 
 struct Props {
-    std::string name;  // the level select's text ("": the level's own)
+    std::string name;   // the level select's text ("": the level's own)
     uint32_t start = 0; // a restart (0: the level's own first)
-    int tod = -1;      // 0..3 (-1: the level's)
-    int time = -1;     // time passes: 0 / 1 (-1: the level's)
+    int tod = -1;       // 0..3 (-1: the level's)
+    int time = -1;      // time passes: 0 / 1 (-1: the level's)
     bool has_ambient_ = false;
     int ambient[3] = {};
     bool has_fog_ = false;
@@ -125,4 +125,4 @@ void on_edited_copy_up(const Props& props);
 // (case doesn't matter), sorted - made once a level.
 const std::vector<std::string>& skies();
 
-} // namespace MenuSystem::level_editor::level_props
+} // namespace frontend::level_editor::level_props

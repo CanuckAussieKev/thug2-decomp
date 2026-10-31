@@ -19,7 +19,10 @@ R Virtual(void* group, int slot)
 {
     return reinterpret_cast<R(__thiscall*)(void*)>((*static_cast<void***>(group))[slot])(group);
 }
-float span_to(void* group) { return reinterpret_cast<float(__thiscall*)(void*)>((*static_cast<void***>(group))[5])(group); }
+float span_to(void* group)
+{
+    return reinterpret_cast<float(__thiscall*)(void*)>((*static_cast<void***>(group))[5])(group);
+}
 float& imposter_near_range(void* group) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(group) + 4); }
 int& frame_count(void* group) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(group) + 0x58); }
 bool has_imposter(void* group) { return *(static_cast<uint8_t*>(group) + 0x5C) != 0; }
@@ -93,4 +96,4 @@ void ImposterManager::render()
     reset_primitive_states();
 }
 
-} // namespace Nx
+} // namespace render

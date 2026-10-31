@@ -27,10 +27,7 @@ constexpr float kFarthestStart = -0.01f;
 
 // The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
 // same order (0x0048C980 / 0x0048C0B0).
-CollGrid** grids_along(const maths::Seg* line)
-{
-    return get_coll_grids_on_line(line);
-}
+CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 uint32_t* grid_scenes() { return render::engine::get_collision_scenes(); }
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
@@ -60,11 +57,14 @@ struct LineQuery {
 };
 
 // A cache entry's box (what the cache keeps for each object).
-const maths::BBox* entry_box(const HitMeshCache::TableRow& entry) { return static_cast<const maths::BBox*>(entry.geometry); }
+const maths::BBox* entry_box(const HitMeshCache::TableRow& entry)
+{
+    return static_cast<const maths::BBox*>(entry.geometry);
+}
 
 bool may_touch(HitMesh* object, const maths::BBox* box) { return object->get_call<bool>(13, box); }
 bool collide_with_line(HitMesh* object, const maths::Seg* line, maths::Vec4* direction, CollisionHit* hit,
-                     maths::BBox* box)
+                       maths::BBox* box)
 {
     return object->get_call<bool>(14, line, direction, hit, box);
 }
@@ -72,7 +72,7 @@ objects::GameEntity* get_owner(HitMesh* object) { return object->get_call<object
 
 // A movable object tested: its owner noted on the hit while it is; the owner if it was hit, else `owner`.
 objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQuery& query, CollisionHit* hit,
-                                   objects::GameEntity* owner)
+                                  objects::GameEntity* owner)
 {
     hit->owner = reinterpret_cast<uint32_t>(get_owner(object));
     if (collide_with_line(object, line, &query.direction, hit, &query.box))
@@ -151,7 +151,7 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
 
 // 0x00410930
 bool collide_with_statics_farthest(const maths::Seg* line, CollisionHit* hit, CollisionHitCallback callback,
-                                HitMeshCache* cache)
+                                   HitMeshCache* cache)
 {
     g_want_farthest = true;
     bool any = collide_with_statics(line, hit, callback, cache);
@@ -176,7 +176,8 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         }
         return owner;
     }
-    for (memory::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+    for (memory::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node;
+         node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (object && !(object->flag_bits_ & 6) && may_touch(object, &query.box))
             owner = test_movable(object, line, query, hit, owner);
@@ -186,7 +187,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
 
 // 0x00411AE0
 objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, CollisionHit* hit,
-                                                   CollisionHitCallback callback, HitMeshCache* cache)
+                                                    CollisionHitCallback callback, HitMeshCache* cache)
 {
     g_want_farthest = true;
     objects::GameEntity* owner = collide_with_movables(line, hit, callback, cache);
@@ -194,11 +195,11 @@ objects::GameEntity* collide_with_movables_farthest(const maths::Seg* line, Coll
     return owner;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640880 (a static initialiser): the movables' list, an empty head.
 void construct_movables() { reinterpret_cast<CollObjListNodes*>(&g_movables)->construct_head(); }
 
-} // namespace Nx
+} // namespace render

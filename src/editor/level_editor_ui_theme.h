@@ -18,4 +18,4 @@ Fonts build_fonts(float scale);
 // The current context's style: dark, the accent (RGB 0..1), every size scaled.
 void apply_style(float scale, const float accent_rgb[3]);
 
-} // namespace MenuSystem::level_editor::ui_theme
+} // namespace frontend::level_editor::ui_theme

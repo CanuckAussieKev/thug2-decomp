@@ -19,10 +19,10 @@ inline constexpr const char* kTitleFreeSkate = "Free skate";
 inline constexpr const char* kTitleChangeLevel = "Change level";
 inline constexpr const char* kTitleEditLevel = "Level editor";
 inline constexpr const char* kTitlePaused = "Paused";
-inline constexpr const char* kTitleMenu = "Menu";     // (a restyled list without a title)
+inline constexpr const char* kTitleMenu = "Menu"; // (a restyled list without a title)
 inline constexpr const char* kTitleSkaters = "Select skater";
 inline constexpr const char* kTitleKeyboard = "Enter text"; // (the on-screen keyboard without a title)
-inline constexpr const char* kBack = "Back";          // (the header's back arrow)
+inline constexpr const char* kBack = "Back";                // (the header's back arrow)
 
 // --- the main menu: label, helper line, the art's kicker -----------------------------------------------------------
 inline constexpr const char* kCareer = "Career";
@@ -185,4 +185,4 @@ inline constexpr const char* kDialogConfirm = "Confirm";
 inline constexpr const char* kDialogNotice = "Notice";
 inline constexpr const char* kSkater = "Skater";
 
-} // namespace MenuSystem::NewFrontend::Text
+} // namespace frontend::new_frontend::text_tools

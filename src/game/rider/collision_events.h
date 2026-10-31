@@ -102,8 +102,8 @@ const char* choose_reason(bool uber_frig, const char* path, float ground_min_y);
 
 struct Face {
     bool hit = false;
-    bool object = false;    // a movable object's collision (else level geometry)
-    uint32_t checksum = 0;  // the collision object's (the sector's) / the object's id
+    bool object = false;   // a movable object's collision (else level geometry)
+    uint32_t checksum = 0; // the collision object's (the sector's) / the object's id
     int index = -1;
     uint16_t flags = 0;
     uint8_t terrain = 0;
@@ -117,42 +117,42 @@ struct Occurrence {
     std::string level;
     uint32_t frame = 0;
     const char* reason = "";
-    std::string paths;       // the paths that ran, comma-separated ("-": none)
-    float spot[3] = {};      // where to look: the face's hit point, or the skater
+    std::string paths;  // the paths that ran, comma-separated ("-": none)
+    float spot[3] = {}; // where to look: the face's hit point, or the skater
     float pos_before_[3] = {}, pos[3] = {};
     float vel_before_[3] = {}, vel_after_[3] = {};
     float heading_before_ = 0, heading = 0;
     float ground_normal_[3] = {};
-    float ground_min_y_ = 1;    // the ground normal's lowest y between the two frames
+    float ground_min_y_ = 1; // the ground normal's lowest y between the two frames
     int frames = 0;          // frames between the two
     Face face;
-    Face probes[6];          // down at the hit, down beyond, ahead - each as the skater sees, then every face
-    float probe_dir_[3] = {};  // the direction of the beyond / ahead probes: the travel before the reversal
-    std::string flipped;     // the checkpoints the velocity turned round between ("-": not seen)
-    int repeats = 0;         // events left out at this spot since the last line (the rate limit)
-    std::string screenshot;  // "-", "requested" or "busy"
+    Face probes[6];           // down at the hit, down beyond, ahead - each as the skater sees, then every face
+    float probe_dir_[3] = {}; // the direction of the beyond / ahead probes: the travel before the reversal
+    std::string flipped;      // the checkpoints the velocity turned round between ("-": not seen)
+    int repeats = 0;          // events left out at this spot since the last line (the rate limit)
+    std::string screenshot;   // "-", "requested" or "busy"
 };
 
 struct Detail {
     int number = 0;
-    const char* state = "-";      // ground / air / wallride / lip / rail / wallplant
-    const char* physics = "-";    // skating / walking
+    const char* state = "-";   // ground / air / wallride / lip / rail / wallplant
+    const char* physics = "-"; // skating / walking
     float speed = 0;
     bool trick = false;
-    const char* balance = "-";    // manual / nose_manual / skitch
-    std::string input = "-";      // the buttons held at the event ('+'-joined)
+    const char* balance = "-";       // manual / nose_manual / skitch
+    std::string input = "-";         // the buttons held at the event ('+'-joined)
     std::string input_window_ = "-"; // ... at any frame of the window
     float stick[2] = {};
-    bool ray = false;             // the feeler that decided it
+    bool ray = false; // the feeler that decided it
     float probe_origin_[3] = {}, ray_end_[3] = {};
-    bool geometry = false;        // the face's corners and object
+    bool geometry = false; // the face's corners and object
     float corners[3][3] = {};
     float bounds_low_[3] = {}, bounds_high_[3] = {};
-    int edge = -1;                // the face's edge nearest the spot (corner k to k+1)
+    int edge = -1; // the face's edge nearest the spot (corner k to k+1)
     float edge_distance_ = 0;
-    int edge_open_ = -1;            // 1 open, 0 a face across it, -1 not known
+    int edge_open_ = -1;                          // 1 open, 0 a face across it, -1 not known
     std::string col_file_ = "-", scn_file_ = "-"; // "<size>@<time>"
-    std::string approach = "-";   // positions over the last second: "x,y,z,<state letter>;..."
+    std::string approach = "-";                   // positions over the last second: "x,y,z,<state letter>;..."
     bool camera = false;
     float camera_pos_[3] = {}, camera_dir_[3] = {};
 };
@@ -169,4 +169,4 @@ std::string format_detail(const Detail& detail);
 // The pad's buttons held in `mask` (bit i: the PadSnapshot's i-th button), '+'-joined ("-" for none).
 std::string pad_button_labels(uint16_t mask);
 
-} // namespace Skater::collision_events
+} // namespace skater::collision_events

@@ -22,4 +22,4 @@ bool __cdecl make_animated_grass(PcGeom* geom, MeshRef* mesh);
 // positions, added to the geom; the mesh then flagged 0x80. False without a material or layers.
 bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh);
 
-} // namespace Nx
+} // namespace render

@@ -8,13 +8,13 @@
 
 namespace render {
 class ProbeRay;
-} // namespace Nx
+} // namespace render
 
 namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The trigger component (type 0xE594F0A2, vtable 0x00646648, 0x2C bytes; made by 0x00434B90): what runs a node's
 // TriggerScript when the object passes through a trigger face (a face flagged 0x40 - a gap's geometry, a kill zone)
@@ -69,10 +69,10 @@ public:
     static bool __cdecl feeler_hit(render::ProbeRay* feeler);
 
     maths::Vec4 last_pos_; // +0x18 where the object was at the last update
-    uint32_t events_;     // +0x28 the last trigger's events (a bit for each)
+    uint32_t events_;      // +0x28 the last trigger's events (a bit for each)
 };
 static_assert(offsetof(ActivationZoneModule, last_pos_) == 0x18 && offsetof(ActivationZoneModule, events_) == 0x28 &&
                   sizeof(ActivationZoneModule) == 0x2C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

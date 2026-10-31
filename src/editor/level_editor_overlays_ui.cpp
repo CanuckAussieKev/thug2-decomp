@@ -98,4 +98,4 @@ const std::vector<HelpRow>& help_rows()
     return kRows;
 }
 
-} // namespace MenuSystem::level_editor::Overlays
+} // namespace frontend::level_editor::overlays

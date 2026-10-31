@@ -19,11 +19,11 @@ char g_cutscene_name_buffer[256];
 
 namespace {
 
-constexpr uint32_t kSubtitleScript = 0x625985F9;  // run with each subtitle's structure (name unknown)
-constexpr uint32_t kTime = 0x906B67BA;            // a subtitle's start (name unknown)
-constexpr uint32_t kDuration = 0x79A07F3F;        // and how long it shows (name unknown)
-constexpr uint32_t kNoSkipping = 0xA2107A0E;      // a global integer: cutscenes can't be skipped (name unknown)
-constexpr uint32_t kSlot12Global = 0xA2A4F02F;    // CinematicEntry::update_slot12's global (name unknown)
+constexpr uint32_t kSubtitleScript = 0x625985F9; // run with each subtitle's structure (name unknown)
+constexpr uint32_t kTime = 0x906B67BA;           // a subtitle's start (name unknown)
+constexpr uint32_t kDuration = 0x79A07F3F;       // and how long it shows (name unknown)
+constexpr uint32_t kNoSkipping = 0xA2107A0E;     // a global integer: cutscenes can't be skipped (name unknown)
+constexpr uint32_t kSlot12Global = 0xA2A4F02F;   // CinematicEntry::update_slot12's global (name unknown)
 
 // The skip buttons (the controller's makes).
 constexpr uint32_t kButtonX = 0x40;
@@ -74,10 +74,7 @@ uint32_t CinematicTable::hash_of_name(const char* suffix, int number)
 }
 
 // 0x004639A0
-int CinematicTable::is_finished()
-{
-    return clock_ >= end_time_ ? 1 : 0;
-}
+int CinematicTable::is_finished() { return clock_ >= end_time_ ? 1 : 0; }
 
 // 0x004639C0
 void CinematicTable::update_vblanks()
@@ -154,9 +151,6 @@ void CinematicEntry::update_slot12()
 }
 
 // 0x00464580
-bool CinematicEntry::can_be_skipped()
-{
-    return content_ ? content_->can_skip_ : false;
-}
+bool CinematicEntry::can_be_skipped() { return content_ ? content_->can_skip_ : false; }
 
-} // namespace Obj
+} // namespace objects

@@ -28,15 +28,15 @@ namespace {
 
 using namespace goal_names;
 
-constexpr uint32_t kTheTime = 0xA6343CD4;          // the_time
-constexpr uint32_t kShowGoalPoints = 0x888EF05E;   // GoalManager_ShowGoalPoints
-constexpr uint32_t kViewGoalsOrder = 0x09B048FC;   // (name unknown: the goal's place in the view goals list, from 1)
-constexpr uint32_t kText = 0xC4745838;             // text
-constexpr uint32_t kRecordText = 0xBB48AF8B;       // (name unknown: the record's text)
-constexpr uint32_t kNoRecord = 0x0C80E196;         // (name unknown: the unnamed checksum without a record type)
+constexpr uint32_t kTheTime = 0xA6343CD4;        // the_time
+constexpr uint32_t kShowGoalPoints = 0x888EF05E; // GoalManager_ShowGoalPoints
+constexpr uint32_t kViewGoalsOrder = 0x09B048FC; // (name unknown: the goal's place in the view goals list, from 1)
+constexpr uint32_t kText = 0xC4745838;           // text
+constexpr uint32_t kRecordText = 0xBB48AF8B;     // (name unknown: the record's text)
+constexpr uint32_t kNoRecord = 0x0C80E196;       // (name unknown: the unnamed checksum without a record type)
 constexpr uint32_t kViewGoalsMenuAddItem = 0x380AEA65; // view_goals_menu_add_item
-constexpr uint32_t kCountAll = 0xA21884B5;         // count_all
-constexpr uint32_t kTrickBeat = 0xD0DD047B;        // TrickBeat
+constexpr uint32_t kCountAll = 0xA21884B5;             // count_all
+constexpr uint32_t kTrickBeat = 0xD0DD047B;            // TrickBeat
 
 online::Hub* net_session_slot() { return online::g_online_hub; }
 
@@ -193,9 +193,9 @@ void GoalManager::append_objective_list_entries()
             if (goal->is_contest_objective()) {
                 params->fetch_int_value(kWinRecord, &value, 0);
                 std::snprintf(record, sizeof(record), "%i", value); // "%i"
-                const char* suffix = value == 1   ? "st place"  // "st place"
-                                     : value == 2 ? "nd place"  // "nd place"
-                                     : value == 3 ? "rd place"  // "rd place"
+                const char* suffix = value == 1   ? "st place"      // "st place"
+                                     : value == 2 ? "nd place"      // "nd place"
+                                     : value == 3 ? "rd place"      // "rd place"
                                                   : "";
                 std::size_t length = std::strlen(record);
                 std::snprintf(record + length, sizeof(record) - length, "%s", suffix);
@@ -329,4 +329,4 @@ bool __cdecl cfunc_goal_manager_get_unlimited_time_in_net_game(script::Struct*, 
     return goal ? goal->has_no_time_limit() : true;
 }
 
-} // namespace Game
+} // namespace goals

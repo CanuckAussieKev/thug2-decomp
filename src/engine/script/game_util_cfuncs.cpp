@@ -37,41 +37,41 @@ using script::Array;
 using script::Component;
 using script::Struct;
 
-constexpr uint32_t kA = 0x174841BC;           // "A"
-constexpr uint32_t kB = 0x8E411006;           // "B"
-constexpr uint32_t kFraction = 0x404E690D;    // (name unknown) InterpolateParameters: how far from A to B
-constexpr uint32_t kIgnore = 0xF277291D;      // "ignore"
-constexpr uint32_t kAngles = 0x9D2D0915;      // "Angles"
-constexpr uint32_t kInterpolated = 0xFF6F3872; // (name unknown) InterpolateParameters: the result
-constexpr uint32_t kPath = 0xF4AB74F0;        // "path"
-constexpr uint32_t kTexture = 0x7D99F28D;     // "texture"
-constexpr uint32_t kSkaterState = 0x43686585; // "SkaterState"
-constexpr uint32_t kPos = 0x7F261953;         // "pos"
-constexpr uint32_t kRailDistance = 0x213395F1; // (name unknown) FindNearestRailPoint: how far to look (150)
-constexpr uint32_t kIgnoreRailId = 0x288A6EFE; // "IgnoreRailId"
+constexpr uint32_t kA = 0x174841BC;                    // "A"
+constexpr uint32_t kB = 0x8E411006;                    // "B"
+constexpr uint32_t kFraction = 0x404E690D;             // (name unknown) InterpolateParameters: how far from A to B
+constexpr uint32_t kIgnore = 0xF277291D;               // "ignore"
+constexpr uint32_t kAngles = 0x9D2D0915;               // "Angles"
+constexpr uint32_t kInterpolated = 0xFF6F3872;         // (name unknown) InterpolateParameters: the result
+constexpr uint32_t kPath = 0xF4AB74F0;                 // "path"
+constexpr uint32_t kTexture = 0x7D99F28D;              // "texture"
+constexpr uint32_t kSkaterState = 0x43686585;          // "SkaterState"
+constexpr uint32_t kPos = 0x7F261953;                  // "pos"
+constexpr uint32_t kRailDistance = 0x213395F1;         // (name unknown) FindNearestRailPoint: how far to look (150)
+constexpr uint32_t kIgnoreRailId = 0x288A6EFE;         // "IgnoreRailId"
 constexpr uint32_t kIgnoreRailPointIndex = 0xE4D305A7; // "IgnoreRailPointIndex"
-constexpr uint32_t kCheckLevelGeometry = 0x9C247A94; // "CheckLevelGeometry"
-constexpr uint32_t kRailId = 0xA61E7CD9;      // "rail_id"
-constexpr uint32_t kRailPointIndex = 0x00AB3C14; // "rail_point_index"
-constexpr uint32_t kNearestPos = 0xDF970A05;  // "NearestPos"
-constexpr uint32_t kParkName = 0xCC23BDDB;    // (name unknown) GetParkName: the park's name
-constexpr uint32_t kSkater = 0x5B8AB877;      // "Skater"
-constexpr uint32_t kString = 0x61414D56;      // "string"
-constexpr uint32_t kLevel = 0x651533EC;       // "level"
-constexpr uint32_t kMasterSkaterList = 0xF31E8FF8; // "master_skater_list"
-constexpr uint32_t kName = 0xA1DC81F9;        // "name"
-constexpr uint32_t kLastName = 0x37F745A5;    // "last_name"
-constexpr uint32_t kHeading = 0xFD4BC03E;     // "heading"
-constexpr uint32_t kPitch = 0xD8604126;       // "pitch"
-constexpr uint32_t kR = 0x93F60062;           // "r"
-constexpr uint32_t kG = 0xFE2BE489;           // "g"
-constexpr uint32_t kBlue = 0x8E411006;        // "b" (the same checksum as "B")
-constexpr uint32_t kNetSlap = 0xF9D5D933;     // "netslap"
-constexpr uint32_t kSlap = 0xCA1F360F;        // "slap"
-constexpr uint32_t kUiString = 0x96875C0F;    // "ui_string"
-constexpr uint32_t kChecksum = 0x21902065;    // "checksum"
-constexpr uint32_t kTime = 0x906B67BA;        // "time"
-constexpr uint32_t kScore = 0xCD66C8AE;       // "score"
+constexpr uint32_t kCheckLevelGeometry = 0x9C247A94;   // "CheckLevelGeometry"
+constexpr uint32_t kRailId = 0xA61E7CD9;               // "rail_id"
+constexpr uint32_t kRailPointIndex = 0x00AB3C14;       // "rail_point_index"
+constexpr uint32_t kNearestPos = 0xDF970A05;           // "NearestPos"
+constexpr uint32_t kParkName = 0xCC23BDDB;             // (name unknown) GetParkName: the park's name
+constexpr uint32_t kSkater = 0x5B8AB877;               // "Skater"
+constexpr uint32_t kString = 0x61414D56;               // "string"
+constexpr uint32_t kLevel = 0x651533EC;                // "level"
+constexpr uint32_t kMasterSkaterList = 0xF31E8FF8;     // "master_skater_list"
+constexpr uint32_t kName = 0xA1DC81F9;                 // "name"
+constexpr uint32_t kLastName = 0x37F745A5;             // "last_name"
+constexpr uint32_t kHeading = 0xFD4BC03E;              // "heading"
+constexpr uint32_t kPitch = 0xD8604126;                // "pitch"
+constexpr uint32_t kR = 0x93F60062;                    // "r"
+constexpr uint32_t kG = 0xFE2BE489;                    // "g"
+constexpr uint32_t kBlue = 0x8E411006;                 // "b" (the same checksum as "B")
+constexpr uint32_t kNetSlap = 0xF9D5D933;              // "netslap"
+constexpr uint32_t kSlap = 0xCA1F360F;                 // "slap"
+constexpr uint32_t kUiString = 0x96875C0F;             // "ui_string"
+constexpr uint32_t kChecksum = 0x21902065;             // "checksum"
+constexpr uint32_t kTime = 0x906B67BA;                 // "time"
+constexpr uint32_t kScore = 0xCD66C8AE;                // "score"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 // The game mode (0x007CE470): its name (0x005532A0) and fireball level (0x005531F0) - neither has source yet.
@@ -224,7 +224,8 @@ bool __cdecl cfunc_find_nearest_rail_point(script::Struct* params, script::Scrip
     uint32_t rail = 0;
     int rail_index = 0;
     maths::Vec4 rail_point;
-    get_rail_editor()->find_nearest_point(&pos, &rail_point, &rail_distance_squared, &rail, &rail_index, ignore_rail, ignore_index);
+    get_rail_editor()->find_nearest_point(&pos, &rail_point, &rail_distance_squared, &rail, &rail_index, ignore_rail,
+                                          ignore_index);
     float geometry_distance_squared = 1.0e8f;
     maths::Vec4 geometry_point;
     if (params->has_bare_flag(kCheckLevelGeometry))
@@ -320,7 +321,7 @@ bool __cdecl cfunc_draw_directional_light_lines(script::Struct* params, script::
     float pitch;
     params->fetch_float(kPitch, &pitch, 1);
     pitch = static_cast<float>(pitch * static_cast<double>(g_game_util_minus_degrees_to_radians)); // -pi / 180
-    heading = static_cast<float>((90.0 - heading) * g_degree_to_radian_ratio);          // pi / 180
+    heading = static_cast<float>((90.0 - heading) * g_degree_to_radian_ratio);                     // pi / 180
     int r;
     params->fetch_int_value(kR, &r, 1);
     int g;

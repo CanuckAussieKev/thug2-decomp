@@ -35,4 +35,4 @@ void write_default_setting(const char* name, uint32_t value)
     RegCloseKey(key);
 }
 
-} // namespace Sys
+} // namespace sys

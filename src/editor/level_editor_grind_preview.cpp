@@ -252,8 +252,9 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     if (g_terrain_for != name) {
         g_terrain_for = name;
         chains::View view = chains::view_of(name);
-        g_terrain = view.terrain >= 0 && view.terrain < static_cast<int>(view.terrains.size()) ? view.terrains[view.terrain]
-                                                                                                 : std::string("terrain ?");
+        g_terrain = view.terrain >= 0 && view.terrain < static_cast<int>(view.terrains.size())
+                        ? view.terrains[view.terrain]
+                        : std::string("terrain ?");
     }
     char text[256];
     std::snprintf(text, sizeof(text), "%s: %d points, %d segments, %.0f long, %s%s%s%s", nodes::caption(name).c_str(),
@@ -272,4 +273,4 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
 
 std::string describe() { return g_describe; }
 
-} // namespace MenuSystem::level_editor::grind_preview
+} // namespace frontend::level_editor::grind_preview

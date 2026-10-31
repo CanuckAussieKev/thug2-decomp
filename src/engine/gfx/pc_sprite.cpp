@@ -88,9 +88,10 @@ void PcSprite::update_priority()
 }
 
 namespace {
-static VtableSlot g_sprite_vtable_slots[] = {&render::PcSprite::teardown, &render::PcText::tick_frame, &render::PcSprite::update_hidden,
-                &render::PcSprite::tick_frame, &render::PcSprite::update_priority, stubs::do_nothing};
+static VtableSlot g_sprite_vtable_slots[] = {&render::PcSprite::teardown,        &render::PcText::tick_frame,
+                                             &render::PcSprite::update_hidden,   &render::PcSprite::tick_frame,
+                                             &render::PcSprite::update_priority, stubs::do_nothing};
 void** const kSpriteVtable = reinterpret_cast<void**>(g_sprite_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

@@ -11,7 +11,7 @@ class KeyMap;
 namespace script {
 class Array;
 class Struct;
-}
+} // namespace script
 
 // The engine's scene lights (Nx; light manager statics, cdecl): point lights placed by level nodes that colour the
 // vertices of the sectors they reach (150 at 0x006FAF80, 0x006FAEF4 in use), each with a dynamic light of its name
@@ -23,12 +23,12 @@ struct WorldScene;
 class WorldCell;
 
 struct LevelLamp {
-    maths::Vec4 at_point_;            // +0x00
-    float strength_;            // +0x10 (0-1)
-    float radius_;               // +0x14
-    uint32_t label_;              // +0x18: the node's (its dynamic light's owner)
-    uint32_t shade_;            // +0x1C: RGBA
-    lists::KeyMap* sectors_;   // +0x20: the sectors it reaches (keyed by their address)
+    maths::Vec4 at_point_;   // +0x00
+    float strength_;         // +0x10 (0-1)
+    float radius_;           // +0x14
+    uint32_t label_;         // +0x18: the node's (its dynamic light's owner)
+    uint32_t shade_;         // +0x1C: RGBA
+    lists::KeyMap* sectors_; // +0x20: the sectors it reaches (keyed by their address)
 
     // 0x0048FF40 (the array's static constructor's callback): an empty table of 2^4 buckets, grey, nothing else
     // set. Returns this.
@@ -53,7 +53,7 @@ void __cdecl apply_scene_lights_to_sector(WorldCell* sector);
 // 0x0048F620: `count` vertex colours from `in` to `out`, lit by up to 3 lights that reach the first position (and,
 // with a `normal`, face it); unlit vertices left as they are in `out`, all copied when no light does.
 void __cdecl light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions,
-                                const maths::Vec4* normal, uint32_t count);
+                                  const maths::Vec4* normal, uint32_t count);
 // 0x0048FC00: the sectors the light `name` reaches coloured again (`scene` isn't used).
 void __cdecl apply_scene_light(WorldScene* scene, uint32_t name);
 // 0x0048FCA0: the dynamic light and the scene light of `name` deleted (the last ones moved into their slots).
@@ -74,7 +74,7 @@ void __cdecl update_scene_light(uint32_t name, script::Struct* params);
 // 0x00490400: a new scene light (null past 150) - its dynamic light's brightness and colour set too -, its sectors
 // found and, when it's on, coloured.
 LevelLamp* __cdecl register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour,
-                                   float radius, script::Array* excluded);
+                                        float radius, script::Array* excluded);
 // 0x00490570: a level node's light: a dynamic light (unless 0xE1509E4F) and a scene light (unless 0x6F050E18) from
 // its brightness (0x2689291C, 100), radius (0x833950CC, 300), colour array (0x99A9B716, white) and excluded sectors
 // (0xAF3F7288).
@@ -82,4 +82,4 @@ void __cdecl create_light_from_node(script::Struct* node);
 
 extern int g_scene_light_count;
 extern LevelLamp g_level_lamps[150];
-} // namespace Nx
+} // namespace render

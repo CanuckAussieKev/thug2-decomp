@@ -40,10 +40,25 @@ public:
 
     // The virtual methods, by vtable slot.
     enum Bay {
-        kDestroy = 0, kSlotNotify = 1, kSlotInit = 2, kSlotOpen = 3, kSlotClose = 4, kSlotFinished = 5,
-        kSlotBusy = 6, kSlotAtEnd = 7, kSlotPriority = 8, kSlotStreamMode = 9, kSlotTarget = 10,
-        kSlotBufSize = 11, kSlotBlockMode = 12, kSlotLoadAll = 13, kSlotRead = 14, kSlotWrite = 15,
-        kSlotReadLine = 16, kSlotSeek = 17, kPlatCancel = 18,
+        kDestroy = 0,
+        kSlotNotify = 1,
+        kSlotInit = 2,
+        kSlotOpen = 3,
+        kSlotClose = 4,
+        kSlotFinished = 5,
+        kSlotBusy = 6,
+        kSlotAtEnd = 7,
+        kSlotPriority = 8,
+        kSlotStreamMode = 9,
+        kSlotTarget = 10,
+        kSlotBufSize = 11,
+        kSlotBlockMode = 12,
+        kSlotLoadAll = 13,
+        kSlotRead = 14,
+        kSlotWrite = 15,
+        kSlotReadLine = 16,
+        kSlotSeek = 17,
+        kPlatCancel = 18,
     };
     template <typename R, typename... A>
     R Virtual(int slot, A... args)
@@ -53,12 +68,12 @@ public:
     }
 
     void** vtable_;
-    int outcome_val_;            // result of the last operation (size read, error, ...)
+    int outcome_val_; // result of the last operation (size read, error, ...)
     IoCompletionHook callback_;
     void* arg0_;
     void* arg1_;
     uint32_t callback_mask_; // bit N set: operation N calls back (all, by default)
-    int operation_;         // the operation in progress (AsyncOperation)
+    int operation_;          // the operation in progress (AsyncOperation)
     int unknown1c_;
     bool feed_;
     bool is_blocking_;
@@ -66,7 +81,7 @@ public:
     int rank_;
     volatile int payload_bytes_; // -1 until the platform knows it
     int anchor_point_;
-    void* pre_file_;         // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
+    void* pre_file_; // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
     volatile int in_flight_ops_;
 };
 
@@ -131,4 +146,4 @@ inline bool load_cached_file(const char*, void*) { return false; }
 // The old name, for existing callers.
 using AsyncFileRef = AsyncFileHandle;
 
-} // namespace File
+} // namespace file

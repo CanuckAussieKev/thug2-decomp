@@ -14,4 +14,4 @@ NativeCommand* find_c_function(const char* name);
 // Point an entry at another function (the debug mode's CD / NotCD, the platform's IsPS2).
 void bind_native_command(NativeCommand& entry, void* function);
 
-} // namespace Script
+} // namespace script

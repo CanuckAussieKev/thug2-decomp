@@ -41,7 +41,10 @@ uint32_t editor_value78()
 }
 uint8_t generator_max_players(void* generator) { return *(static_cast<uint8_t*>(generator) + 0x20); }
 
-void* piece_source(void* generator, uint32_t name) { return static_cast<ParkAssembler*>(generator)->get_piece_source(name); }
+void* piece_source(void* generator, uint32_t name)
+{
+    return static_cast<ParkAssembler*>(generator)->get_piece_source(name);
+}
 void get_footprint_size(void* piece, CellBox* dims) { static_cast<ParkTile*>(piece)->get_footprint_size(dims); }
 // A new palette metapiece on the park heap.
 PieceGroup* new_abstract_meta()
@@ -93,7 +96,7 @@ void ParkLayout::set_up_abstract_metas()
             piece_names[num_piece_names++] = name;
             meta->flag_bits_ |= PieceGroup::kSector;
             meta->name_key_ = name;
-            uint32_t special; // (left unset if there's none, as in the original)
+            uint32_t special;                                     // (left unset if there's none, as in the original)
             if (desc->read_hash_value(0xF176A9FD, &special, 0)) { // special_type
                 switch (special) {
                 case 0x2813AB8A: // gap_placement
@@ -181,8 +184,7 @@ void ParkLayout::set_up_abstract_metas()
                 pos.y = static_cast<int8_t>(y);
                 pos.z = z;
                 int rot = at->extent_ > 3 ? static_cast<int>(at->fetch_part(3)) : 0;
-                static_cast<PieceBlueprint*>(meta)->add_meta_piece(part, &pos, rot,
-                                                                     entry->has_bare_flag(0x0CD75A3Fu));
+                static_cast<PieceBlueprint*>(meta)->add_meta_piece(part, &pos, rot, entry->has_bare_flag(0x0CD75A3Fu));
             }
         }
         if (desc->read_hash_value("name", &meta->name_key_, 0))
@@ -352,9 +354,9 @@ void ParkLayout::set_up_lights()
     info->fetch_float("cursor_ambience", &cursor_ambience, 1);
     info->fetch_list("pos", &positions, 1);
     // The generator's lights and their positions
-    builder_->configure_lighting(static_cast<int>(positions->extent_), ambient.x * ambient_const, ambient.y * ambient_const,
-                            ambient.z * ambient_const, falloff.x * falloff_const, falloff.y * falloff_const,
-                            falloff.z * falloff_const, cursor_ambience);
+    builder_->configure_lighting(static_cast<int>(positions->extent_), ambient.x * ambient_const,
+                                 ambient.y * ambient_const, ambient.z * ambient_const, falloff.x * falloff_const,
+                                 falloff.y * falloff_const, falloff.z * falloff_const, cursor_ambience);
     for (int i = 0; i < static_cast<int>(positions->extent_); ++i) {
         auto* v = reinterpret_cast<float*>(positions->fetch_part(static_cast<uint32_t>(i))); // a CVector (x at +4)
         maths::Vec4 pos;
@@ -380,8 +382,8 @@ void ParkLayout::update_percent_bar()
         percent = 1.0f;
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* params = memory ? memory->prepare_all() : nullptr;
-    params->push_float(0x6D6C056Du, percent); // park_percent (out of memory crashes, as in the original)
-    if (get_attributes().max_usage_ >= 1.0f) // (0x007CE644: the park memory stats' largest usage)
+    params->push_float(0x6D6C056Du, percent);  // park_percent (out of memory crashes, as in the original)
+    if (get_attributes().max_usage_ >= 1.0f)   // (0x007CE644: the park memory stats' largest usage)
         params->put_name_key(0u, 0x97A8E59Cu); // park_full
     script::launch_script(0xE2508960, params, nullptr, false, nullptr); // parked_update_percent_bar
     if (params) {
@@ -552,6 +554,6 @@ void ParkLayout::print_map_list(const MapListNode* list)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::ParkLayout;

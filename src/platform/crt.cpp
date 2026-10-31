@@ -4,7 +4,6 @@
 
 #include "platform/crt.h"
 
-
 #include <climits>
 #include <cstdarg>
 #include <cstring>
@@ -36,10 +35,7 @@ unsigned __cdecl linked_time(unsigned* out)
 
 } // namespace
 
-uint32_t get_inet_addr(const char* address)
-{
-    return static_cast<uint32_t>(inet_addr(address));
-}
+uint32_t get_inet_addr(const char* address) { return static_cast<uint32_t>(inet_addr(address)); }
 const char* get_inet_ntoa(uint32_t address)
 {
     in_addr in;
@@ -260,7 +256,7 @@ __declspec(naked) void arc_sine_cosine()
     __asm {
         sub esp, 16
         mov [esp + 12], ecx
-        fst qword ptr [esp]              // [esp + 4]: the high word
+        fst qword ptr [esp] // [esp + 4]: the high word
         fstcw word ptr [esp + 8]
         mov eax, [esp + 4]
         and eax, 0x7FF00000
@@ -269,7 +265,7 @@ __declspec(naked) void arc_sine_cosine()
         movzx ecx, word ptr [esp + 8]
         cmp ecx, 0x27F
         je classify
-        and ecx, 0x300                   // the precision kept, rounding to nearest, exceptions masked
+        and ecx, 0x300 // the precision kept, rounding to nearest, exceptions masked
         or ecx, 0x7F
         mov [esp + 10], cx
         fldcw word ptr [esp + 10]
@@ -332,7 +328,7 @@ __declspec(naked) void arc_sine_cosine()
         mov eax, [esp + 4]
         and eax, 0x000FFFFF
         or eax, [esp]
-        jnz to_double                    // a NaN: itself
+        jnz to_double // a NaN: itself
         fstp st(0)
         fld tbyte ptr kCrtIndefinite
     to_double:
@@ -363,4 +359,4 @@ __declspec(naked) void game_acos_x87()
     }
 }
 
-} // namespace Crt
+} // namespace crt

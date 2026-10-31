@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -60,22 +60,20 @@ public:
     void apply_to_camera();
 
     GameEntity* subject_;          // +0x18 the vehicle
-    uint8_t* vehicle_;                   // +0x1C its Vehicle component (+0xA4 its velocity, +0x114 wheels down)
-    maths::Vec4 direction_;              // +0x20 where the camera looks (flat, normalised)
-    maths::Vec4 target_direction_;        // +0x30
-    maths::Vec4 anchor_point_;               // +0x40
-    maths::Mat4 orientation_;            // +0x50
-    float level_y_;                       // +0x90 (0x14849B6D)
-    float reach_;                     // +0x94 (0xBD3D3CA9)
-    float angle_;                        // +0x98 degrees (angle)
-    float lerp_;                         // +0x9C (0x9213625F) a second
-    FreeLookModule* free_look_; // +0xA0
+    uint8_t* vehicle_;             // +0x1C its Vehicle component (+0xA4 its velocity, +0x114 wheels down)
+    maths::Vec4 direction_;        // +0x20 where the camera looks (flat, normalised)
+    maths::Vec4 target_direction_; // +0x30
+    maths::Vec4 anchor_point_;     // +0x40
+    maths::Mat4 orientation_;      // +0x50
+    float level_y_;                // +0x90 (0x14849B6D)
+    float reach_;                  // +0x94 (0xBD3D3CA9)
+    float angle_;                  // +0x98 degrees (angle)
+    float lerp_;                   // +0x9C (0x9213625F) a second
+    FreeLookModule* free_look_;    // +0xA0
 };
-static_assert(offsetof(CarView, subject_) == 0x18 &&
-                  offsetof(CarView, direction_) == 0x20 &&
-                  offsetof(CarView, orientation_) == 0x50 &&
-                  offsetof(CarView, lerp_) == 0x9C &&
+static_assert(offsetof(CarView, subject_) == 0x18 && offsetof(CarView, direction_) == 0x20 &&
+                  offsetof(CarView, orientation_) == 0x50 && offsetof(CarView, lerp_) == 0x9C &&
                   sizeof(CarView) == 0xA4,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

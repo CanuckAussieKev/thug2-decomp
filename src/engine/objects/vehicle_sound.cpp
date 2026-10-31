@@ -35,10 +35,10 @@ constexpr uint32_t kRates = 0x38EC37AC;       // PlayerVehicleSoundGlobalParamet
 constexpr uint32_t kAllSettings = 0x3C2DA7F5; // PlayerVehicleSounds
 constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 
-const float kNoWheel = std::bit_cast<float>(0x60AD78ECu);     // 0x0064682C: 1e20
-const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);       // 0x00646828: 1 / 17.6
-const float kPercent = 100.0f;                                // 0x006463D4
-const double kTwoTo32 = 4294967296.0;                         // 0x006453B4 (an unsigned clock difference)
+const float kNoWheel = std::bit_cast<float>(0x60AD78ECu); // 0x0064682C: 1e20
+const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);   // 0x00646828: 1 / 17.6
+const float kPercent = 100.0f;                            // 0x006463D4
+const double kTwoTo32 = 4294967296.0;                     // 0x006453B4 (an unsigned clock difference)
 
 sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
 uint32_t clock_offset() { return static_cast<uint32_t>(g_clock_offset); }
@@ -58,7 +58,10 @@ float get_setting(script::Struct* settings, uint32_t name)
 }
 
 // The clock now (with its offset) less `then`, wrapping as the original's 32-bit sums do.
-uint32_t get_since(int clock, int then) { return static_cast<uint32_t>(clock) + (clock_offset() - static_cast<uint32_t>(then)); }
+uint32_t get_since(int clock, int then)
+{
+    return static_cast<uint32_t>(clock) + (clock_offset() - static_cast<uint32_t>(then));
+}
 int get_now(int clock) { return static_cast<int>(static_cast<uint32_t>(clock) + clock_offset()); }
 // An unsigned millisecond difference as a double (the original's FILD and its 2^32 fix for negatives).
 double Unsigned(uint32_t difference)
@@ -139,7 +142,8 @@ EngineAudioModule* EngineAudioModule::teardown(unsigned int flags)
 // 0x0043C670
 void EngineAudioModule::configure_from_data(script::Struct*)
 {
-    park_editor_level_ = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) != kParkEditorOff;
+    park_editor_level_ =
+        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) != kParkEditorOff;
 }
 
 // 0x0043D050
@@ -257,8 +261,9 @@ void EngineAudioModule::tick_engine()
     int gear = gear_;
     double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
     double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
-    float target = static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
-                                      gear_steps_[gear].low_rpm_);
+    float target =
+        static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
+                           gear_steps_[gear].low_rpm_);
     double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
     rpm_ = static_cast<float>((static_cast<double>(target) - rpm_) * ease + rpm_);
     float high_rpm = get_setting(settings_, 0x95DF9449);
@@ -268,11 +273,11 @@ void EngineAudioModule::tick_engine()
     sound::VolumeRef volume;
     volume.prepare_all();
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
+                        nullptr);
     float loudest = get_setting(settings_, 0x288B029D);
     float quiet = get_setting(settings_, 0xB8F81277);
-    volume.percent_tweak(
-        static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
+    volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
     float high_pitch = get_setting(settings_, 0x9F46344A);
     float low_pitch = get_setting(settings_, 0x2660AF3B);
     float pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
@@ -293,11 +298,10 @@ void EngineAudioModule::update_skid()
         for (int i = 3; i >= 0; --i) {
             const DrivableModule::Wheel& wheel = vehicle->wheels_[i];
             int state = wheel.state;
-            bool sliding = state == DrivableModule::kWheelStaticToDynamic ||
-                           state == DrivableModule::kWheelDynamic ||
-                           ((state == DrivableModule::kWheelHandbrakeLocked ||
-                             state == DrivableModule::kWheelHandbrakeThrottle) &&
-                            wheel.slip > wheel.max_static_grip_vel_);
+            bool sliding =
+                state == DrivableModule::kWheelStaticToDynamic || state == DrivableModule::kWheelDynamic ||
+                ((state == DrivableModule::kWheelHandbrakeLocked || state == DrivableModule::kWheelHandbrakeThrottle) &&
+                 wheel.slip > wheel.max_static_grip_vel_);
             if (sliding && !(slip > wheel.slip))
                 slip = wheel.slip;
         }
@@ -358,25 +362,27 @@ void EngineAudioModule::update_collide_sound()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::EngineAudioModule::teardown,
-         &objects::EngineAudioModule::tick_frame,
-         &objects::EngineAudioModule::configure_from_data,
-         &objects::EngineAudioModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         &objects::EngineAudioModule::fetch_diagnostics,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::EngineAudioModule::teardown,
+    &objects::EngineAudioModule::tick_frame,
+    &objects::EngineAudioModule::configure_from_data,
+    &objects::EngineAudioModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    &objects::EngineAudioModule::fetch_diagnostics,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

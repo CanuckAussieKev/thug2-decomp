@@ -13,17 +13,17 @@ namespace render {
 
 // The camera's state (globals, 0x00786CA8).
 struct RenderCamera {
-    float near_z_;      // 0x00786CA8
-    float far_z_;       // 0x00786CAC
-    float angle;      // 0x00786CB0: horizontal field of view, degrees
-    float near_width_;  // 0x00786CB4: the view's size at the near plane
-    float near_height_; // 0x00786CB8
-    uint8_t custom_transforms_; // 0x00786CBC: the view / projection set by hand, not the camera's (shadow_base.cpp)
-    bool clear_colour_and_depth_;  // 0x00786CBD (a global the camera's lie around)
-    uint8_t letterbox_active_; // 0x00786CBE
+    float near_z_;                // 0x00786CA8
+    float far_z_;                 // 0x00786CAC
+    float angle;                  // 0x00786CB0: horizontal field of view, degrees
+    float near_width_;            // 0x00786CB4: the view's size at the near plane
+    float near_height_;           // 0x00786CB8
+    uint8_t custom_transforms_;   // 0x00786CBC: the view / projection set by hand, not the camera's (shadow_base.cpp)
+    bool clear_colour_and_depth_; // 0x00786CBD (a global the camera's lie around)
+    uint8_t letterbox_active_;    // 0x00786CBE
     uint8_t unknown17;
     uint32_t background_colour_; // 0x00786CC0 (another)
-    float position[3]; // 0x00786CC4
+    float position[3];           // 0x00786CC4
     uint8_t unknown28[0x0C];
     float backward[3]; // 0x00786CDC: the orientation's row 2
     float up[3];       // 0x00786CE8: row 1
@@ -33,9 +33,9 @@ static_assert(offsetof(RenderCamera, backward) == 0x34, "0x00786CDC");
 
 // The view's half-angle shape, for culling (0x00786E18).
 struct ViewShape {
-    float tan_x_;  // tan(half the horizontal angle)
-    float tan_y_;  // -tanX / (aspect / 1.1): the vertical one, negated
-    float sin_x_;  // sin and cos of the two half-angles
+    float tan_x_; // tan(half the horizontal angle)
+    float tan_y_; // -tanX / (aspect / 1.1): the vertical one, negated
+    float sin_x_; // sin and cos of the two half-angles
     float sin_y_;
     float cos_x_;
     float cos_y_;
@@ -58,7 +58,7 @@ void draw_2d_with_black_bars();
 // directions; `angle` is the horizontal field of view in degrees; `zoom` scales the projection (1 = none);
 // `infinite` pushes the far plane to infinity.
 void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,
-               bool infinite);
+                   bool infinite);
 
 // 0x004DF390: the motion blur pass - blends the previous frame (one of two textures) over the screen.
 void draw_screen_blur();
@@ -86,4 +86,4 @@ extern DeviceViewport g_device_viewport;
 extern RenderCamera g_camera;
 extern ViewShape g_view_shape;
 
-} // namespace Nx
+} // namespace render

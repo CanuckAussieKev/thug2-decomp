@@ -108,8 +108,8 @@ void create_sdl_window()
     if (s_client_height < 480)
         s_client_height = 480;
 
-    s_window = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, s_client_width, s_client_height,
-                                flags);
+    s_window = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, s_client_width,
+                                s_client_height, flags);
     if (!s_window)
         debug_log::printf(debug_log::StageMap::kError, "Failed to create window! Error: %s\n", SDL_GetError());
 
@@ -122,4 +122,4 @@ void create_sdl_window()
     SDL_ShowCursor(0);
 }
 
-} // namespace Sys
+} // namespace sys

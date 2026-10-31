@@ -44,18 +44,18 @@ constexpr uint32_t kGameTag2 = 0x5D32129C;
 constexpr uint32_t kGameTeamTag = 0x6C5FF266;
 
 // Network messages.
-constexpr uint8_t kMsgRanInto = 0x43;  // to the player run into: 0x14 bytes (the other's id | driving, the push)
+constexpr uint8_t kMsgRanInto = 0x43;    // to the player run into: 0x14 bytes (the other's id | driving, the push)
 constexpr uint8_t kMsgRanIntoAck = 0x44; // to the one running into it: 1 byte (the other's id | driving)
 constexpr uint8_t kMsgHit = 0x84;
 constexpr uint8_t kMsgHitAck = 0x85;
-constexpr uint8_t kMsgTagged = 0x55;     // a game of tag: who was tagged (1 byte), to every other player
-constexpr uint8_t kMsgTeamTagged = 0x73; // team tag, the same team: who (and the team), 2 bytes
+constexpr uint8_t kMsgTagged = 0x55;        // a game of tag: who was tagged (1 byte), to every other player
+constexpr uint8_t kMsgTeamTagged = 0x73;    // team tag, the same team: who (and the team), 2 bytes
 constexpr uint8_t kMsgTeamConverted = 0x74; // team tag, another team
 
 // The default name in the events: "Someone" (0x0064C1C4); the names the code looks up.
 const char* const kSomeone = "Someone";
 const char* const kUnbindFireballTricks = "unbind_fireball_tricks"; // "unbind_fireball_tricks"
-const char* const kDrivingRadiusBoost = "driving_radius_boost";   // "driving_radius_boost"
+const char* const kDrivingRadiusBoost = "driving_radius_boost";     // "driving_radius_boost"
 
 // a - b as the original's x87 code rounds it when it stores it.
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
@@ -71,7 +71,10 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
 void* skater_manager() { return static_cast<void*>(modules::g_skate_module); }
 
-uint8_t* find_player_slot_by_obj(int id) { return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
+uint8_t* find_player_slot_by_obj(int id)
+{
+    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+}
 uint8_t* start_roster_sweep(PlayerSearchDestructors* search)
 {
     return static_cast<uint8_t*>(net_session_slot()->begin_player_walk(search, true));
@@ -110,10 +113,7 @@ bool is_squad_play() { return static_cast<goals::MatchRules*>(get_game_mode())->
 bool tag_game_over() { return static_cast<goals::MatchRules*>(get_game_mode())->finish_rules_reached(); }
 bool in_slap_game() { return commands::cfunc_in_slap_game(nullptr, nullptr); }
 
-GameEntity* skater_by_index(int index)
-{
-    return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index);
-}
+GameEntity* skater_by_index(int index) { return static_cast<modules::Skate*>(skater_manager())->get_rider_at(index); }
 const char* get_skater_name(GameEntity* skater) { return static_cast<Rider*>(skater)->fetch_shown_name(); }
 // A skater's score (its +0x278's +0x18).
 void* skater_score(GameEntity* skater) { return prop<void*>(prop<void*>(skater, 0x278), 0x18); }
@@ -138,10 +138,10 @@ double length_of(const maths::Vec4& v)
 
 // The knock-back velocity both handlers give: the unit direction away from the other times 300, then 1.5, each
 // component rounded to a float after each (except where noted), and 200 up.
-constexpr float kKnockBack = 300.0f;  // 0x0064675C
-constexpr float kKnockScale = 1.5f;   // 0x00646744
+constexpr float kKnockBack = 300.0f; // 0x0064675C
+constexpr float kKnockScale = 1.5f;  // 0x00646744
 constexpr float kKnockUp = 200.0f;
-constexpr float kTooClose = 0.0001f;  // 0x006453D4
+constexpr float kTooClose = 0.0001f; // 0x006453D4
 
 // strncpy(name, from, 0x20) (the game's C runtime's 0x006239E0): up to 0x20 characters, the rest zeroed.
 void copy_name(char (&name)[0x20], const char* from)
@@ -155,7 +155,7 @@ void copy_name(char (&name)[0x20], const char* from)
 
 // Both handlers' event: the other's name (and what the caller adds) to the skater.
 void send_event(GameEntity* skater, uint32_t type, const char* name, uint32_t flag, bool with_flag,
-               const script::VectorValue* push)
+                const script::VectorValue* push)
 {
     script::Struct params;
     params.prepare_all();
@@ -548,8 +548,8 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
             double dw = static_cast<double>(skater->at_point_.w) - other->at_point_.w;
             double dz = static_cast<double>(skater->at_point_.z) - other->at_point_.z;
             double dy = static_cast<double>(skater->at_point_.y) - other->at_point_.y;
-            float away[4] = {get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy), static_cast<float>(dz),
-                             static_cast<float>(dw)};
+            float away[4] = {get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
+                             static_cast<float>(dz), static_cast<float>(dw)};
             double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
             double w, z;
             if (!(length < kTooClose)) {
@@ -588,7 +588,7 @@ int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context
     return net::kResultPassOn;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
@@ -606,4 +606,4 @@ StateHistoryMessage* RiderFrameLog::get_latest_message()
     return reinterpret_cast<StateHistoryMessage*>(reinterpret_cast<uint8_t*>(this) + 0xA70 + (count % kEntries) * 0x54);
 }
 
-} // namespace Obj
+} // namespace objects

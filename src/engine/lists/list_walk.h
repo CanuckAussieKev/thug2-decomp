@@ -37,4 +37,4 @@ struct SearchDestructors {
     SearchDestructors* teardown(unsigned int flags);
 };
 
-} // namespace Lst
+} // namespace lists

@@ -20,4 +20,4 @@ int printf(const char* format, ...)
     return -1;
 }
 
-} // namespace Dbg
+} // namespace debug

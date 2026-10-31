@@ -50,28 +50,44 @@ Surface get_classify(uint32_t face_flags, bool collision_only)
 uint32_t surface_colour(Surface surface)
 {
     switch (surface) {
-    case Surface::kInvisibleWall: return 0xB0FF20E0;
-    case Surface::kTrigger: return 0x782080FF;
-    case Surface::kNoCollide: return 0x40A0A0A0;
-    case Surface::kWallride: return 0x78FFD020;
-    case Surface::kVert: return 0x78FF8020;
-    case Surface::kNotSkatable: return 0x78FF3030;
-    case Surface::kSkatable: return 0x7840E040;
-    default: return 0x58D0E8FF;
+    case Surface::kInvisibleWall:
+        return 0xB0FF20E0;
+    case Surface::kTrigger:
+        return 0x782080FF;
+    case Surface::kNoCollide:
+        return 0x40A0A0A0;
+    case Surface::kWallride:
+        return 0x78FFD020;
+    case Surface::kVert:
+        return 0x78FF8020;
+    case Surface::kNotSkatable:
+        return 0x78FF3030;
+    case Surface::kSkatable:
+        return 0x7840E040;
+    default:
+        return 0x58D0E8FF;
     }
 }
 
 const char* surface_name(Surface surface)
 {
     switch (surface) {
-    case Surface::kInvisibleWall: return "Invisible wall";
-    case Surface::kTrigger: return "Trigger";
-    case Surface::kNoCollide: return "Not collidable (0x10)";
-    case Surface::kWallride: return "Wallride (0x04)";
-    case Surface::kVert: return "Vert (0x08)";
-    case Surface::kNotSkatable: return "Not skatable (0x02)";
-    case Surface::kSkatable: return "Skatable (0x01, any slope)";
-    default: return "Plain";
+    case Surface::kInvisibleWall:
+        return "Invisible wall";
+    case Surface::kTrigger:
+        return "Trigger";
+    case Surface::kNoCollide:
+        return "Not collidable (0x10)";
+    case Surface::kWallride:
+        return "Wallride (0x04)";
+    case Surface::kVert:
+        return "Vert (0x08)";
+    case Surface::kNotSkatable:
+        return "Not skatable (0x02)";
+    case Surface::kSkatable:
+        return "Skatable (0x01, any slope)";
+    default:
+        return "Plain";
     }
 }
 
@@ -244,7 +260,8 @@ const Cached* cache_of(uint32_t checksum, uint8_t* sector, const render::TriMesh
     Cached& c = g_cache[checksum];
     uint32_t generation = shared_collision::get_generation();
     if (c.sector == sector && c.tri == tri && c.faces == tri->tri_count_ && c.collision_only_ == collision_only &&
-        c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) && same(c.last, last))
+        c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) &&
+        same(c.last, last))
         return &c;
     c = Cached{};
     c.generation = generation;
@@ -311,10 +328,7 @@ std::vector<HiddenSectorRec> g_hidden_sectors;
 std::vector<HiddenObjectRec> g_concealed_records;
 
 // WorldCell::toggle_shown (0x0049E680, thiscall, RET 4) / fetch_shown (0x0049E690): the viewports it shows in.
-void toggle_shown(uint8_t* sector, uint32_t mask)
-{
-    reinterpret_cast<render::WorldCell*>(sector)->toggle_shown(mask);
-}
+void toggle_shown(uint8_t* sector, uint32_t mask) { reinterpret_cast<render::WorldCell*>(sector)->toggle_shown(mask); }
 uint32_t fetch_shown(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->fetch_shown(); }
 
 // A geometry's change_live (vfunc +0x34) / is_operative (vfunc +0x38).
@@ -426,7 +440,7 @@ void set_show_collision(bool on)
 }
 
 void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                  std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
+                   std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines)
 {
     g_drawn.clear();
     g_stats = {};
@@ -575,7 +589,8 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         [](void* context, uint32_t checksum, const shared_collision::Companion& companion) {
             auto* w = static_cast<CompanionWalk*>(context);
             const render::TriMeshSource& tri = companion.get_geometry();
-            if (distance_to_box(w->camera, to_v3(tri.lower_limit_), to_v3(tri.upper_limit_)) <= kRadius && !hidden_sector(checksum))
+            if (distance_to_box(w->camera, to_v3(tri.lower_limit_), to_v3(tri.upper_limit_)) <= kRadius &&
+                !hidden_sector(checksum))
                 w->near.push_back({checksum, &companion});
         },
         &companions);
@@ -675,12 +690,13 @@ std::string describe_wall(uint32_t checksum)
             ++it->second;
     }
     char text[256];
-    std::snprintf(text, sizeof(text),
-                  "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
-                  "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
-                  tri->tri_count_, tri->num_vertices_, tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z, tri->upper_limit_.x,
-                  tri->upper_limit_.y, tri->upper_limit_.z, tri->upper_limit_.x - tri->lower_limit_.x, tri->upper_limit_.y - tri->lower_limit_.y,
-                  tri->upper_limit_.z - tri->lower_limit_.z);
+    std::snprintf(
+        text, sizeof(text),
+        "Collision only: nothing is drawn for it.\n%d faces, %d vertices\nbox (%.0f, %.0f, %.0f) to (%.0f, %.0f, "
+        "%.0f)\nsize %.0f x %.0f x %.0f\nface flags:",
+        tri->tri_count_, tri->num_vertices_, tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z,
+        tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z, tri->upper_limit_.x - tri->lower_limit_.x,
+        tri->upper_limit_.y - tri->lower_limit_.y, tri->upper_limit_.z - tri->lower_limit_.z);
     std::string out = text;
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
         std::snprintf(text, sizeof(text), " 0x%04X x%d", counts[i].first, counts[i].second);
@@ -712,7 +728,7 @@ int conceal(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
         hidden += hide_object(id) ? 1 : 0;
     if (debug_enabled())
         get_log("level editor: view - hid %d (%d sectors, %d objects hidden in all)", hidden,
-            static_cast<int>(g_hidden_sectors.size()), static_cast<int>(g_concealed_records.size()));
+                static_cast<int>(g_hidden_sectors.size()), static_cast<int>(g_concealed_records.size()));
     return hidden;
 }
 
@@ -800,4 +816,4 @@ std::vector<uint32_t> hidden_ids()
     return ids;
 }
 
-} // namespace MenuSystem::level_editor::View
+} // namespace frontend::level_editor::view

@@ -27,17 +27,14 @@ HitMeshCache* g_rect_cache;
 HitMeshCache*& s_rect_cache = g_rect_cache;
 
 // Hit ends this close on every axis are the same point; normals and directions this close are parallel.
-constexpr float kSamePoint = 0.1f;   // 0x00645D74
-constexpr float kParallel = 0.99f;   // 0x00645450
+constexpr float kSamePoint = 0.1f; // 0x00645D74
+constexpr float kParallel = 0.99f; // 0x00645450
 
 float get_difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
 // The scene grid holding the rect (0x0048C940; null: none) and the grids along a line (0x0048C980).
 CollGrid* grid_of(const CollRect*) { return get_first_coll_grid(); }
-CollGrid** grids_along(const maths::Seg* line)
-{
-    return get_coll_grids_on_line(line);
-}
+CollGrid** grids_along(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 
 bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits)
 {
@@ -48,8 +45,8 @@ bool collide_with_rect(HitMesh* object, const CollRect* rect, const maths::BBox*
 // (v2 - v0) normalised (an entry is only counted when it has one), its flag 0x40 and the object's checksum, and each
 // end's triangle edge. For an instance (`placed`) the points are scaled and placed, the normals turned back.
 void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                const maths::Vec4* points, const int* kinds, uint16_t face_flags, uint32_t checksum,
-                const CollScaled* placed)
+                  const maths::Vec4* points, const int* kinds, uint16_t face_flags, uint32_t checksum,
+                  const CollScaled* placed)
 {
     RectHit& hit = hits->hits[hits->count];
     double e2x = static_cast<double>(v2.x) - v0.x;
@@ -61,9 +58,9 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
     maths::Vec4 normal{static_cast<float>(e1y * e2z - e1z * e2y), static_cast<float>(e1z * e2x - e2z * e1x),
                        static_cast<float>(e2y * e1x - e1y * e2x), 0.0f};
     hit.normal = normal.make_unit();
-    double length_squared = (static_cast<double>(hit.normal.x) * hit.normal.x +
-                            static_cast<double>(hit.normal.y) * hit.normal.y) +
-                           static_cast<double>(hit.normal.z) * hit.normal.z;
+    double length_squared =
+        (static_cast<double>(hit.normal.x) * hit.normal.x + static_cast<double>(hit.normal.y) * hit.normal.y) +
+        static_cast<double>(hit.normal.z) * hit.normal.z;
     if (length_squared <= 0.0)
         return;
     hit.face_flag40_ = static_cast<uint8_t>(face_flags & 0x40);
@@ -89,10 +86,12 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
             edge = {e1x, e1y, static_cast<float>(e1z), get_difference(v1.w, v0.w)};
             break;
         case 2:
-            edge = {get_difference(v2.x, v1.x), get_difference(v2.y, v1.y), get_difference(v2.z, v1.z), get_difference(v2.w, v1.w)};
+            edge = {get_difference(v2.x, v1.x), get_difference(v2.y, v1.y), get_difference(v2.z, v1.z),
+                    get_difference(v2.w, v1.w)};
             break;
         case 3:
-            edge = {get_difference(v0.x, v2.x), get_difference(v0.y, v2.y), get_difference(v0.z, v2.z), get_difference(v0.w, v2.w)};
+            edge = {get_difference(v0.x, v2.x), get_difference(v0.y, v2.y), get_difference(v0.z, v2.z),
+                    get_difference(v0.w, v2.w)};
             break;
         default:
             continue;
@@ -110,7 +109,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
 // A sector's (or an instance's, in its space) faces against the rect: each crossing a hit. True as soon as one is
 // found with the list full.
 bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths::BBox* box, RectHits* hits,
-                      const CollScaled* placed)
+                        const CollScaled* placed)
 {
     int count;
     uint16_t buffer[0x800];
@@ -118,7 +117,8 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         const TriMeshSource* geometry = object->geometry_;
         uint32_t face = faces[i];
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
+        uint16_t flags =
+            *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
         maths::Vec4 v0, v1, v2;
@@ -148,7 +148,10 @@ struct VectorTurn : maths::Vec4 {
 };
 
 bool get_near(float a, float b) { return std::fabs(static_cast<double>(a) - b) <= kSamePoint; }
-bool same_point(const maths::Vec4& a, const maths::Vec4& b) { return get_near(a.x, b.x) && get_near(a.y, b.y) && get_near(a.z, b.z); }
+bool same_point(const maths::Vec4& a, const maths::Vec4& b)
+{
+    return get_near(a.x, b.x) && get_near(a.y, b.y) && get_near(a.z, b.z);
+}
 
 double dot3(float ax, float ay, float az, float bx, float by, float bz)
 {
@@ -184,7 +187,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     box.append_spot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
     box.append_spot({o.x + b.x, b.y + o.y, b.z + o.z, b.w + o.w});
     box.append_spot({static_cast<float>((static_cast<double>(o.x) + a.x) + b.x),
-                  static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
+                     static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
     bool use_cache = cache && cache->box_.get_holds(box);
     if (!use_cache) {
         CollGrid* grid = grid_of(rect);
@@ -240,7 +243,7 @@ bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BB
     box.append_spot({a.x + o.x, a.y + o.y, a.z + o.z, a.w + o.w});
     box.append_spot({b.x + o.x, b.y + o.y, b.z + o.z, b.w + o.w});
     box.append_spot({static_cast<float>(b.x + (static_cast<double>(a.x) + o.x)),
-                  static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
+                     static_cast<float>((static_cast<double>(a.y) + o.y) + b.y), (a.z + o.z) + b.z, (a.w + o.w) + b.w});
     return rect_against_faces(this, &local, &box, hits, this);
 }
 
@@ -250,14 +253,14 @@ void CollScaled::rect_to_local(const CollRect* rect, CollRect* out) const
     inverse_.carry_point_through(out->origin, rect->origin);
     maths::Vec4 corner;
     const maths::Vec4& o = rect->origin;
-    inverse_.carry_point_through(corner, {o.x + rect->side_a_.x, rect->side_a_.y + o.y, rect->side_a_.z + o.z,
-                                      rect->side_a_.w + o.w});
+    inverse_.carry_point_through(
+        corner, {o.x + rect->side_a_.x, rect->side_a_.y + o.y, rect->side_a_.z + o.z, rect->side_a_.w + o.w});
     out->side_a_ = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
-                  corner.w - out->origin.w};
-    inverse_.carry_point_through(corner, {rect->side_b_.x + o.x, rect->side_b_.y + o.y, rect->side_b_.z + o.z,
-                                      rect->side_b_.w + o.w});
+                    corner.w - out->origin.w};
+    inverse_.carry_point_through(
+        corner, {rect->side_b_.x + o.x, rect->side_b_.y + o.y, rect->side_b_.z + o.z, rect->side_b_.w + o.w});
     out->side_b_ = {corner.x - out->origin.x, corner.y - out->origin.y, corner.z - out->origin.z,
-                  corner.w - out->origin.w};
+                    corner.w - out->origin.w};
 }
 
 // 0x0040FEC0
@@ -308,7 +311,8 @@ void BoxProbe::join_hits()
         const maths::Vec4& p0 = hits[i].ends[0].point;
         const maths::Vec4& p1 = hits[i].ends[1].point;
         maths::Vec4& d = direction[i];
-        d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z), get_difference(p1.w, p0.w)};
+        d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z),
+             get_difference(p1.w, p0.w)};
         double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
                                   static_cast<double>(d.z) * d.z);
         if (length > 0.0) {
@@ -397,4 +401,4 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
     }
 }
 
-} // namespace Nx
+} // namespace render

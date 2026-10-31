@@ -12,9 +12,9 @@ namespace objects::appearance_guard {
 
 namespace {
 
-constexpr uint32_t kDescId = 0x4BB2084E;          // desc_id
-constexpr uint32_t kNone = 0x806FFF30;            // None
-constexpr uint32_t kBody = 0x2457F44D;            // body
+constexpr uint32_t kDescId = 0x4BB2084E;            // desc_id
+constexpr uint32_t kNone = 0x806FFF30;              // None
+constexpr uint32_t kBody = 0x2457F44D;              // body
 constexpr uint32_t kDefaultAppearance = 0x33D0ACDE; // appearance_custom_skater_male
 
 // (an appearance read from a buffer owns its slots' structures: a structure pointer - one it doesn't own - is left
@@ -103,7 +103,7 @@ int sanitise(script::Struct* appearance)
         uint32_t to = get_fallback(c->name, list);
         if (!to) {
             get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours, nothing fits: taken out",
-                c->name, desc);
+                    c->name, desc);
             remove.push_back(c->name);
             continue;
         }
@@ -117,7 +117,7 @@ int sanitise(script::Struct* appearance)
     }
     for (const Change& change : changes) {
         get_log("appearance guard (TP-R9): slot 0x%08X's part 0x%08X isn't one of ours: 0x%08X instead", change.slot,
-            change.from, change.to);
+                change.from, change.to);
         change.part->put_name_key(kDescId, change.to);
     }
     for (uint32_t slot : remove)
@@ -125,4 +125,4 @@ int sanitise(script::Struct* appearance)
     return static_cast<int>(changes.size() + remove.size());
 }
 
-} // namespace GameObjects::appearance_guard
+} // namespace objects::appearance_guard

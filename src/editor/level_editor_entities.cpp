@@ -319,7 +319,8 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
             if (!parse_number(value, &e.volume) || e.volume < kMinVolume || e.volume > kLoudest)
                 return false;
         } else if (key == "radius") {
-            if (!parse_number(value, &e.radius) || (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
+            if (!parse_number(value, &e.radius) ||
+                (e.radius != 0.0f && (e.radius < kMinRadius || e.radius > kRadiusCeiling)))
                 return false;
         } // (other keys: a later version's - skipped)
     }
@@ -329,7 +330,6 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-
 namespace {
 
 uint32_t get_key(const char* name) { return checksums::hash_from_text(name); }
@@ -337,23 +337,68 @@ const uint32_t kClass = 0x12B4E660, kName = 0xA1DC81F9, kPos = 0x7F261953;
 const uint32_t kLevelObject = 0xB7B3BD86, kGameObject = 0xEF59C100, kPedestrian = 0xA0DFAC98, kVehicle = 0xE47F1B79,
                kParticleObject = 0x9E7D469E;
 
-uint32_t k_type() { static const uint32_t kK = get_key("Type"); return kK; }
-uint32_t k_profile() { static const uint32_t kK = get_key("profile"); return kK; }
-uint32_t k_model() { static const uint32_t kK = get_key("model"); return kK; }
-uint32_t k_bouncy() { static const uint32_t kK = get_key("bouncy"); return kK; }
-uint32_t k_texture() { static const uint32_t kK = get_key("Texture"); return kK; }
-uint32_t k_waypoint() { static const uint32_t kK = get_key("Waypoint"); return kK; }
-uint32_t k_radius() { static const uint32_t kK = get_key("Radius"); return kK; }
-uint32_t k_ed_sound() { static const uint32_t kK = get_key("ed_sound"); return kK; }
-uint32_t k_ed_volume() { static const uint32_t kK = get_key("ed_volume"); return kK; }
-uint32_t k_ed_path_speed() { static const uint32_t kK = get_key("ed_path_speed"); return kK; }
-uint32_t k_set_path_velocity() { static const uint32_t kK = get_key("Obj_SetPathVelocity"); return kK; }
-uint32_t k_mph() { static const uint32_t kK = get_key("mph"); return kK; }
-
-double get_now()
+uint32_t k_type()
 {
-    return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
+    static const uint32_t kK = get_key("Type");
+    return kK;
 }
+uint32_t k_profile()
+{
+    static const uint32_t kK = get_key("profile");
+    return kK;
+}
+uint32_t k_model()
+{
+    static const uint32_t kK = get_key("model");
+    return kK;
+}
+uint32_t k_bouncy()
+{
+    static const uint32_t kK = get_key("bouncy");
+    return kK;
+}
+uint32_t k_texture()
+{
+    static const uint32_t kK = get_key("Texture");
+    return kK;
+}
+uint32_t k_waypoint()
+{
+    static const uint32_t kK = get_key("Waypoint");
+    return kK;
+}
+uint32_t k_radius()
+{
+    static const uint32_t kK = get_key("Radius");
+    return kK;
+}
+uint32_t k_ed_sound()
+{
+    static const uint32_t kK = get_key("ed_sound");
+    return kK;
+}
+uint32_t k_ed_volume()
+{
+    static const uint32_t kK = get_key("ed_volume");
+    return kK;
+}
+uint32_t k_ed_path_speed()
+{
+    static const uint32_t kK = get_key("ed_path_speed");
+    return kK;
+}
+uint32_t k_set_path_velocity()
+{
+    static const uint32_t kK = get_key("Obj_SetPathVelocity");
+    return kK;
+}
+uint32_t k_mph()
+{
+    static const uint32_t kK = get_key("mph");
+    return kK;
+}
+
+double get_now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
 script::Struct* look_up_node_params(uint32_t name)
 {
@@ -531,10 +576,7 @@ void* nearest_camera(const maths::Vec4* position, float* distance)
 {
     return render::fetch_nearest_camera(position, distance);
 }
-const maths::Vec4* viewer_location(void* camera)
-{
-    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
-}
+const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 objects::EmitterNode* get_emitter(uint32_t name)
 {
     return objects::g_emitter_table ? objects::emitter_get_node(name) : nullptr;
@@ -561,7 +603,8 @@ void update_sounds()
     bool off = !m || sound::no_sound() || !in_level() || layout::network_active();
     // (those no longer wanted, or of another sound now: stopped)
     for (auto it = g_playing.begin(); it != g_playing.end();) {
-        auto e = std::find_if(emitters.begin(), emitters.end(), [&](const EmitterSound& x) { return x.name == it->name; });
+        auto e =
+            std::find_if(emitters.begin(), emitters.end(), [&](const EmitterSound& x) { return x.name == it->name; });
         if (off || e == emitters.end() || e->sound != it->sound) {
             stop_playing(&*it);
             it = g_playing.erase(it);
@@ -618,8 +661,8 @@ void apply_radius(const EmitterSound& e)
 {
     if (e.radius <= 0.0f)
         return;
-    if (objects::EmitterNode* emitter = get_emitter(e.name); emitter && emitter->form_ == objects::kEmitterShapeSphere &&
-                                                     emitter->radius_ != e.radius) {
+    if (objects::EmitterNode* emitter = get_emitter(e.name);
+        emitter && emitter->form_ == objects::kEmitterShapeSphere && emitter->radius_ != e.radius) {
         emitter->radius_ = e.radius;
         emitter->reach_sq_ = e.radius * e.radius;
     }
@@ -725,7 +768,7 @@ void scan_baked()
     }
     if (!vacant(g_baked))
         get_log("level editor: the level's baked fields: %u emitter sounds, %u path speeds",
-            static_cast<unsigned>(g_baked.emitters.size()), static_cast<unsigned>(g_baked.speeds.size()));
+                static_cast<unsigned>(g_baked.emitters.size()), static_cast<unsigned>(g_baked.speeds.size()));
 }
 
 // --- the preview ---
@@ -867,7 +910,8 @@ void build_palette()
             s->read_hash_value(k_texture(), &texture, 0);
             if (!types.insert(type_key(cls, type, texture, "")).second)
                 continue;
-            std::string label = "Particles: " + nodes::caption(texture ? texture : type) + "  like " + nodes::caption(n.name);
+            std::string label =
+                "Particles: " + nodes::caption(texture ? texture : type) + "  like " + nodes::caption(n.name);
             particles.push_back({label, Source{SourceKind::kDupFrom, {n.name}}});
         }
     }
@@ -921,9 +965,8 @@ void build_models()
         if (!model.empty() && seen.insert(key).second)
             g_models.push_back(model);
     }
-    std::sort(g_models.begin(), g_models.end(), [](const std::string& a, const std::string& b) {
-        return std::strcmp(Short(a), Short(b)) < 0;
-    });
+    std::sort(g_models.begin(), g_models.end(),
+              [](const std::string& a, const std::string& b) { return std::strcmp(Short(a), Short(b)) < 0; });
 }
 
 } // namespace
@@ -1147,9 +1190,7 @@ Placed get_place(int index, V3 at, float yaw)
             object_edit::turn_about(copy, at, yaw - current_heading(copy)); // (facing the way the camera looks)
         placed.copies.push_back(copy->ident_);
         placed.message = "Placed a copy of " + nodes::caption(source.names.front()) +
-                         (cls == kPedestrian || cls == kVehicle
-                              ? ""
-                              : "");
+                         (cls == kPedestrian || cls == kVehicle ? "" : "");
         return placed;
     }
     // A bouncy set: each member copied, about the anchor as the level placed them.
@@ -1183,7 +1224,7 @@ void attach_sound(uint32_t emitter, uint32_t sound)
 bool& show_uncreated() { return g_show_uncreated; }
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
 {
     auto to_pixel = [&](V3 p, float* x, float* y) {
         float nx, ny;
@@ -1273,7 +1314,7 @@ void watch_model(uint32_t id, const std::string& made)
     if (!g_made_with.count(id))
         g_made_with[id] = made;
 }
-} // namespace Detail
+} // namespace detail
 
 void model_edited(uint32_t id)
 {
@@ -1359,6 +1400,6 @@ void preview_step(uint32_t id)
 }
 float preview_distance() { return g_preview.distance; }
 float preview_length() { return path_length(g_preview.points, g_preview.closed); }
-} // namespace Detail
+} // namespace detail
 
-} // namespace MenuSystem::level_editor::entities
+} // namespace frontend::level_editor::entities

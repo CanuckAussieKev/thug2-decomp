@@ -62,9 +62,9 @@ public:
 // A race (vtable 0x0064E1C8, 0x7C bytes): laps of race_waypoints.
 class RaceObjective : public Objective {
 public:
-    int laps_;        // +0x70 (race_total_laps; 1)
-    int lap_;         // +0x74 (from 1)
-    bool add_time_;    // +0x78 (the 0xA4038EC9 component: each waypoint's time added)
+    int laps_;      // +0x70 (race_total_laps; 1)
+    int lap_;       // +0x74 (from 1)
+    bool add_time_; // +0x78 (the 0xA4038EC9 component: each waypoint's time added)
     uint8_t pad79_[3];
 
     // 0x00560E60: the constructor. Returns this. 0x00560EE0 / 0x00560F60: the destructor body / the scalar deleting
@@ -86,4 +86,4 @@ public:
     bool advance_race_gate(uint32_t id);
 };
 
-} // namespace Game
+} // namespace goals

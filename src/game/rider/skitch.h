@@ -11,7 +11,7 @@ class Vec4;
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skitch component (Skitch, type 0x3506CE64, vtable 0x0064C218, 0x20 bytes; made by 0x0051BA10): on a car the
 // skater can hold on to - whether skitching is allowed (Obj_AllowSkitching), and the car's hook points (its object
@@ -46,9 +46,9 @@ public:
     // manager, an object or a node list; true otherwise - also when there's no such point (`out` untouched).
     bool get_hook_point(maths::Vec4* out, int index);
 
-    bool allowed_;            // +0x18
+    bool allowed_; // +0x18
     uint8_t pad19[3];
-    ObjectModule* hooks_;   // +0x1C the object's hook manager (0x27443708)
+    ObjectModule* hooks_; // +0x1C the object's hook manager (0x27443708)
 };
 static_assert(offsetof(TowRideHandler, allowed_) == 0x18 && offsetof(TowRideHandler, hooks_) == 0x1C &&
                   sizeof(TowRideHandler) == 0x20,
@@ -60,4 +60,4 @@ struct ComponentWithoutUpdate : ObjectModule {
     void tick_frame();
 };
 
-} // namespace Obj
+} // namespace objects

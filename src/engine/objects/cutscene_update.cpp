@@ -47,14 +47,14 @@ constexpr uint32_t kSkeleton = 0x09794932;
 constexpr uint32_t kAnim = 0x6C2BFB7F;
 constexpr uint32_t kIsSkaterMarker = 0x723CDA8F;
 constexpr uint32_t kSkaterFlag2 = 0x6914D9D2;
-constexpr uint32_t kFixedTime = 0x0C00425A;      // a global integer: the time from the frame counter 0x006F115C
-constexpr uint32_t kEndScript = 0x4C0FD1D7;      // run when a looping cutscene reaches its end
+constexpr uint32_t kFixedTime = 0x0C00425A; // a global integer: the time from the frame counter 0x006F115C
+constexpr uint32_t kEndScript = 0x4C0FD1D7; // run when a looping cutscene reaches its end
 constexpr uint32_t kEndScript2 = 0xDEFF69FF;
 constexpr uint32_t kDebugBoxes = 0x5ECC0073;     // a global integer: draw the objects' boxes (compiled out)
 constexpr uint32_t kAttachBone = 0x5A0E0860;     // the bone a child hangs from
 constexpr float kFrame = 0.03333333507180214f;   // (0x00646430: a 30th of a second)
-constexpr float kStep = 0.01666666753590107f;     // (0x006463B8: a 60th)
-constexpr float kPartEnd = 0.03343333676457405f;  // (0x0064791C)
+constexpr float kStep = 0.01666666753590107f;    // (0x006463B8: a 60th)
+constexpr float kPartEnd = 0.03343333676457405f; // (0x0064791C)
 
 // The vblank count since the cutscene started, minus the time it was paused, in seconds (x87: the count as an
 // unsigned 64-bit number - the low 63 bits plus 2^63 - over the rate, as the original).
@@ -94,10 +94,7 @@ void fade_model(void* model, float target)
     void* fader = fader_of(model);
     static_cast<render::ModelLights*>(fader)->move_brightness(target, 0.02f);
 }
-uint8_t* get_bytes(void* object)
-{
-    return static_cast<uint8_t*>(object);
-}
+uint8_t* get_bytes(void* object) { return static_cast<uint8_t*>(object); }
 // An object's two matrices (+0x6C and +0xC0) set to `matrix`.
 void set_matrices(GameEntity* object, const float* matrix)
 {
@@ -231,21 +228,21 @@ void CinematicTable::update_stand_in(GameEntity* object)
             float matrix[16];
             *reinterpret_cast<maths::Mat4*>(matrix) = *reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0);
             std::memcpy(matrix + 12, get_bytes(object) + 0x4C, 16);
-            static_cast<render::RenderModel*>(level_model)->render(
-                reinterpret_cast<maths::Mat4*>(matrix), false,
-                reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18()));
+            static_cast<render::RenderModel*>(level_model)
+                ->render(reinterpret_cast<maths::Mat4*>(matrix), false,
+                         reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word18()));
             std::memcpy(get_bytes(level) + 0x4C, get_bytes(object) + 0x4C, 16);
         } else {
             if (fader_of(model)) {
                 fade_model(model_of(component), 1.0f);
                 static_cast<MeshInstanceModule*>(component)->get_update_brightness();
             }
-            reinterpret_cast<void(__thiscall*)(ObjectModule*)>((*reinterpret_cast<void***>(component))[1])(
-                component);
+            reinterpret_cast<void(__thiscall*)(ObjectModule*)>((*reinterpret_cast<void***>(component))[1])(component);
         }
     }
     if (ObjectModule* matrix = object->fetch_module(kMatrixComponent))
-        static_cast<MatrixComponent*>(matrix)->change_mat(reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0));
+        static_cast<MatrixComponent*>(matrix)->change_mat(
+            reinterpret_cast<const maths::Mat4*>(get_bytes(object) + 0xC0));
 }
 
 // 0x00465C00
@@ -253,10 +250,10 @@ void CinematicTable::update_object_transforms()
 {
     if (!object_source_)
         return;
-    static_cast<gfx::JointClipFrames*>(anim_list_)->get_float_key_pose(
-        get_rotations(), get_translations(), g_cutscene_camera_slot,
-        static_cast<float>(clock_ - static_cast<double>(camera_start_)),
-        static_cast<int>(reinterpret_cast<uint32_t>(object_source_)));
+    static_cast<gfx::JointClipFrames*>(anim_list_)
+        ->get_float_key_pose(get_rotations(), get_translations(), g_cutscene_camera_slot,
+                             static_cast<float>(clock_ - static_cast<double>(camera_start_)),
+                             static_cast<int>(reinterpret_cast<uint32_t>(object_source_)));
     // the animated objects of the level (not the cutscene's own)
     for (int j = 0; j < *reinterpret_cast<int*>(get_bytes(anim_list_) + 8); ++j) {
         uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
@@ -285,8 +282,8 @@ void CinematicTable::update_object_transforms()
                 reinterpret_cast<online::FoldedGetters*>(parent->fetch_module(kSkeletonModuleName))->word18());
             float bone[4], turned[4];
             static_cast<gfx::Rig*>(skeleton)->get_bone_position(kAttachBone, reinterpret_cast<maths::Vec4*>(bone));
-            *reinterpret_cast<maths::Vec4*>(turned) =
-                *reinterpret_cast<const maths::Vec4*>(bone) * *reinterpret_cast<const maths::Mat4*>(get_bytes(parent) + 0xC0);
+            *reinterpret_cast<maths::Vec4*>(turned) = *reinterpret_cast<const maths::Vec4*>(bone) *
+                                                      *reinterpret_cast<const maths::Mat4*>(get_bytes(parent) + 0xC0);
             const float* offset = turned;
             const float* at = reinterpret_cast<const float*>(get_bytes(parent) + 0x4C);
             auto* position = reinterpret_cast<float*>(get_bytes(object) + 0x4C);
@@ -303,8 +300,7 @@ void CinematicTable::update_object_transforms()
             owner_mat[3] = 0.0f;
             owner_mat[7] = 0.0f;
             owner_mat[11] = 0.0f;
-            d3dx::matrix_multiply(joint_mat, joint_mat,
-                                                                                         owner_mat);
+            d3dx::matrix_multiply(joint_mat, joint_mat, owner_mat);
             float matrix[16];
             std::memcpy(matrix, joint_mat, 48);
             matrix[12] = 0.0f;
@@ -377,26 +373,26 @@ void CinematicEntry::destroy_body()
     reinterpret_cast<VideoEntry*>(this)->destroy_body();
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_cutscene_details_vtable_slots[] = {&objects::CinematicEntry::teardown,
-         &objects::CinematicEntry::configure_from_data,
-         &objects::CinematicEntry::tick_frame,
-         stubs::return_true,
-         &render::ViewRegion::query_point,
-         &objects::CinematicEntry::is_finished,
-         stubs::return_false,
-         &objects::CinematicEntry::is_ready,
-         &objects::CinematicEntry::get_end,
-         &objects::CinematicEntry::can_be_skipped,
-         stubs::return_false,
-         &objects::CinematicEntry::call_slot12_with_not_flag_5d,
-         stubs::ignore_argument,
-         &objects::CinematicEntry::update_slot12};
+                                                       &objects::CinematicEntry::configure_from_data,
+                                                       &objects::CinematicEntry::tick_frame,
+                                                       stubs::return_true,
+                                                       &render::ViewRegion::query_point,
+                                                       &objects::CinematicEntry::is_finished,
+                                                       stubs::return_false,
+                                                       &objects::CinematicEntry::is_ready,
+                                                       &objects::CinematicEntry::get_end,
+                                                       &objects::CinematicEntry::can_be_skipped,
+                                                       stubs::return_false,
+                                                       &objects::CinematicEntry::call_slot12_with_not_flag_5d,
+                                                       stubs::ignore_argument,
+                                                       &objects::CinematicEntry::update_slot12};
 void** const kCutsceneDetailsVtable = reinterpret_cast<void**>(g_cutscene_details_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -163,7 +163,8 @@ bool read_float(const std::string& text, float* out)
     return true;
 }
 
-template <typename T> void sort_by_name(std::vector<T>* list)
+template <typename T>
+void sort_by_name(std::vector<T>* list)
 {
     std::sort(list->begin(), list->end(), [](const T& a, const T& b) { return a.name < b.name; });
 }
@@ -180,8 +181,8 @@ bool same_point(const Point& a, const Point& b)
 bool same_state(const State& a, const State& b)
 {
     if (a.points.size() != b.points.size() || a.links.size() != b.links.size() || a.dropped != b.dropped ||
-        a.terrains.size() != b.terrains.size() || a.facings.size() != b.facings.size() || a.grind_flat_ != b.grind_flat_ ||
-        a.speeds.size() != b.speeds.size())
+        a.terrains.size() != b.terrains.size() || a.facings.size() != b.facings.size() ||
+        a.grind_flat_ != b.grind_flat_ || a.speeds.size() != b.speeds.size())
         return false;
     for (size_t i = 0; i < a.speeds.size(); ++i) {
         if (a.speeds[i].name != b.speeds[i].name || a.speeds[i].rate != b.speeds[i].rate)
@@ -462,40 +463,36 @@ const std::vector<uint8_t>& rail_speed_qb()
 {
     // (NeverScript's output for the source in level_editor_chains.h - the self-test walks it token by token)
     static const std::vector<uint8_t> kQb = {
-        0x23, 0x16, 0x7D, 0x9E, 0xC1, 0xF6, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x1A, 0xCD, 0xCC, 0x4C,
-        0x3D, 0x01, 0x47, 0x4C, 0x00, 0x16, 0x82, 0x73, 0x71, 0x3A, 0x05, 0x17, 0x03, 0x00, 0x00, 0x00,
-        0x09, 0x17, 0x0D, 0x00, 0x00, 0x00, 0x09, 0x17, 0xFF, 0xFF, 0xFF, 0xFF, 0x06, 0x01, 0x16, 0x2D,
-        0xC0, 0x0D, 0xCD, 0x16, 0xF9, 0x81, 0xDC, 0xA1, 0x07, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x01, 0x16,
-        0xC2, 0xE5, 0xA4, 0x23, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x16, 0x0C, 0xF1, 0x31, 0x70, 0x07, 0x03,
-        0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x2D, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x04, 0x01, 0x28, 0x01,
-        0x24, 0x01, 0x23, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x1A, 0xCD,
-        0xCC, 0x4C, 0x3D, 0x01, 0x16, 0x75, 0x26, 0x81, 0x20, 0x07, 0x17, 0x00, 0x00, 0x00, 0x00, 0x01,
-        0x20, 0x01, 0x47, 0x83, 0x00, 0x16, 0x62, 0x1E, 0x85, 0xE9, 0x01, 0x16, 0x2D, 0xAD, 0x0A, 0xE9,
-        0x01, 0x16, 0xD0, 0x6F, 0x61, 0xA4, 0x07, 0x0E, 0x2D, 0x16, 0x53, 0x19, 0x26, 0x7F, 0x08, 0x1E,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x01, 0x47, 0x36,
-        0x00, 0x0E, 0x2D, 0x16, 0xD0, 0x6F, 0x61, 0xA4, 0x14, 0x2D, 0x16, 0x75, 0x26, 0x81, 0x20, 0x0F,
-        0x01, 0x16, 0x4A, 0xAC, 0xCA, 0xC0, 0x01, 0x16, 0x9B, 0x93, 0x3B, 0x38, 0x0E, 0x2D, 0x16, 0x09,
-        0x01, 0xD9, 0xF0, 0x0D, 0x0E, 0x1A, 0x00, 0x00, 0x80, 0x3F, 0x0B, 0x2D, 0x16, 0xC6, 0xC0, 0x13,
-        0x20, 0x0F, 0x0F, 0x01, 0x28, 0x01, 0x16, 0x75, 0x26, 0x81, 0x20, 0x07, 0x2D, 0x16, 0xD0, 0x6F,
-        0x61, 0xA4, 0x01, 0x16, 0x1A, 0x7C, 0x11, 0x82, 0x17, 0x01, 0x00, 0x00, 0x00, 0x16, 0x05, 0xDF,
-        0x37, 0xFC, 0x01, 0x48, 0x06, 0x00, 0x01, 0x22, 0x01, 0x28, 0x01, 0x21, 0x01, 0x24, 0x01, 0x2B,
-        0x7D, 0x9E, 0xC1, 0xF6, 0x65, 0x64, 0x5F, 0x52, 0x61, 0x69, 0x6C, 0x53, 0x70, 0x65, 0x65, 0x64,
-        0x00, 0x2B, 0xF9, 0x81, 0xDC, 0xA1, 0x6E, 0x61, 0x6D, 0x65, 0x00, 0x2B, 0xC2, 0xE5, 0xA4, 0x23,
-        0x4F, 0x62, 0x6A, 0x5F, 0x53, 0x70, 0x61, 0x77, 0x6E, 0x53, 0x63, 0x72, 0x69, 0x70, 0x74, 0x00,
-        0x2B, 0x9B, 0x93, 0x3B, 0x38, 0x53, 0x65, 0x74, 0x53, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B, 0x09,
-        0x01, 0xD9, 0xF0, 0x73, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B, 0x75, 0x26, 0x81, 0x20, 0x4F, 0x6C,
-        0x64, 0x50, 0x6F, 0x73, 0x00, 0x2B, 0x62, 0x1E, 0x85, 0xE9, 0x4F, 0x6E, 0x52, 0x61, 0x69, 0x6C,
-        0x00, 0x2B, 0x4A, 0xAC, 0xCA, 0xC0, 0x47, 0x65, 0x74, 0x53, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B,
-        0xC6, 0xC0, 0x13, 0x20, 0x72, 0x61, 0x74, 0x65, 0x00, 0x2B, 0x2D, 0xC0, 0x0D, 0xCD, 0x4B, 0x69,
-        0x6C, 0x6C, 0x53, 0x70, 0x61, 0x77, 0x6E, 0x65, 0x64, 0x53, 0x63, 0x72, 0x69, 0x70, 0x74, 0x00,
-        0x2B, 0x6F, 0x9E, 0xFC, 0x68, 0x65, 0x64, 0x5F, 0x52, 0x61, 0x69, 0x6C, 0x53, 0x70, 0x65, 0x65,
-        0x64, 0x4C, 0x6F, 0x6F, 0x70, 0x00, 0x2B, 0xD0, 0x6F, 0x61, 0xA4, 0x4E, 0x65, 0x77, 0x50, 0x6F,
-        0x73, 0x00, 0x2B, 0x82, 0x73, 0x71, 0x3A, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x54, 0x79,
-        0x70, 0x65, 0x00, 0x2B, 0x0C, 0xF1, 0x31, 0x70, 0x70, 0x61, 0x72, 0x61, 0x6D, 0x73, 0x00, 0x2B,
-        0x2D, 0xAD, 0x0A, 0xE9, 0x4F, 0x62, 0x6A, 0x5F, 0x47, 0x65, 0x74, 0x50, 0x6F, 0x73, 0x69, 0x74,
-        0x69, 0x6F, 0x6E, 0x00, 0x2B, 0x53, 0x19, 0x26, 0x7F, 0x50, 0x6F, 0x73, 0x00, 0x2B, 0x1A, 0x7C,
-        0x11, 0x82, 0x77, 0x61, 0x69, 0x74, 0x00, 0x2B, 0x05, 0xDF, 0x37, 0xFC, 0x67, 0x61, 0x6D, 0x65,
-        0x66, 0x72, 0x61, 0x6D, 0x65, 0x00, 0x00,
+        0x23, 0x16, 0x7D, 0x9E, 0xC1, 0xF6, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x1A, 0xCD, 0xCC, 0x4C, 0x3D, 0x01,
+        0x47, 0x4C, 0x00, 0x16, 0x82, 0x73, 0x71, 0x3A, 0x05, 0x17, 0x03, 0x00, 0x00, 0x00, 0x09, 0x17, 0x0D, 0x00,
+        0x00, 0x00, 0x09, 0x17, 0xFF, 0xFF, 0xFF, 0xFF, 0x06, 0x01, 0x16, 0x2D, 0xC0, 0x0D, 0xCD, 0x16, 0xF9, 0x81,
+        0xDC, 0xA1, 0x07, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x01, 0x16, 0xC2, 0xE5, 0xA4, 0x23, 0x16, 0x6F, 0x9E, 0xFC,
+        0x68, 0x16, 0x0C, 0xF1, 0x31, 0x70, 0x07, 0x03, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x07, 0x2D, 0x16, 0xC6, 0xC0,
+        0x13, 0x20, 0x04, 0x01, 0x28, 0x01, 0x24, 0x01, 0x23, 0x16, 0x6F, 0x9E, 0xFC, 0x68, 0x16, 0xC6, 0xC0, 0x13,
+        0x20, 0x07, 0x1A, 0xCD, 0xCC, 0x4C, 0x3D, 0x01, 0x16, 0x75, 0x26, 0x81, 0x20, 0x07, 0x17, 0x00, 0x00, 0x00,
+        0x00, 0x01, 0x20, 0x01, 0x47, 0x83, 0x00, 0x16, 0x62, 0x1E, 0x85, 0xE9, 0x01, 0x16, 0x2D, 0xAD, 0x0A, 0xE9,
+        0x01, 0x16, 0xD0, 0x6F, 0x61, 0xA4, 0x07, 0x0E, 0x2D, 0x16, 0x53, 0x19, 0x26, 0x7F, 0x08, 0x1E, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x80, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x0F, 0x01, 0x47, 0x36, 0x00, 0x0E, 0x2D, 0x16,
+        0xD0, 0x6F, 0x61, 0xA4, 0x14, 0x2D, 0x16, 0x75, 0x26, 0x81, 0x20, 0x0F, 0x01, 0x16, 0x4A, 0xAC, 0xCA, 0xC0,
+        0x01, 0x16, 0x9B, 0x93, 0x3B, 0x38, 0x0E, 0x2D, 0x16, 0x09, 0x01, 0xD9, 0xF0, 0x0D, 0x0E, 0x1A, 0x00, 0x00,
+        0x80, 0x3F, 0x0B, 0x2D, 0x16, 0xC6, 0xC0, 0x13, 0x20, 0x0F, 0x0F, 0x01, 0x28, 0x01, 0x16, 0x75, 0x26, 0x81,
+        0x20, 0x07, 0x2D, 0x16, 0xD0, 0x6F, 0x61, 0xA4, 0x01, 0x16, 0x1A, 0x7C, 0x11, 0x82, 0x17, 0x01, 0x00, 0x00,
+        0x00, 0x16, 0x05, 0xDF, 0x37, 0xFC, 0x01, 0x48, 0x06, 0x00, 0x01, 0x22, 0x01, 0x28, 0x01, 0x21, 0x01, 0x24,
+        0x01, 0x2B, 0x7D, 0x9E, 0xC1, 0xF6, 0x65, 0x64, 0x5F, 0x52, 0x61, 0x69, 0x6C, 0x53, 0x70, 0x65, 0x65, 0x64,
+        0x00, 0x2B, 0xF9, 0x81, 0xDC, 0xA1, 0x6E, 0x61, 0x6D, 0x65, 0x00, 0x2B, 0xC2, 0xE5, 0xA4, 0x23, 0x4F, 0x62,
+        0x6A, 0x5F, 0x53, 0x70, 0x61, 0x77, 0x6E, 0x53, 0x63, 0x72, 0x69, 0x70, 0x74, 0x00, 0x2B, 0x9B, 0x93, 0x3B,
+        0x38, 0x53, 0x65, 0x74, 0x53, 0x70, 0x65, 0x65, 0x64, 0x00, 0x2B, 0x09, 0x01, 0xD9, 0xF0, 0x73, 0x70, 0x65,
+        0x65, 0x64, 0x00, 0x2B, 0x75, 0x26, 0x81, 0x20, 0x4F, 0x6C, 0x64, 0x50, 0x6F, 0x73, 0x00, 0x2B, 0x62, 0x1E,
+        0x85, 0xE9, 0x4F, 0x6E, 0x52, 0x61, 0x69, 0x6C, 0x00, 0x2B, 0x4A, 0xAC, 0xCA, 0xC0, 0x47, 0x65, 0x74, 0x53,
+        0x70, 0x65, 0x65, 0x64, 0x00, 0x2B, 0xC6, 0xC0, 0x13, 0x20, 0x72, 0x61, 0x74, 0x65, 0x00, 0x2B, 0x2D, 0xC0,
+        0x0D, 0xCD, 0x4B, 0x69, 0x6C, 0x6C, 0x53, 0x70, 0x61, 0x77, 0x6E, 0x65, 0x64, 0x53, 0x63, 0x72, 0x69, 0x70,
+        0x74, 0x00, 0x2B, 0x6F, 0x9E, 0xFC, 0x68, 0x65, 0x64, 0x5F, 0x52, 0x61, 0x69, 0x6C, 0x53, 0x70, 0x65, 0x65,
+        0x64, 0x4C, 0x6F, 0x6F, 0x70, 0x00, 0x2B, 0xD0, 0x6F, 0x61, 0xA4, 0x4E, 0x65, 0x77, 0x50, 0x6F, 0x73, 0x00,
+        0x2B, 0x82, 0x73, 0x71, 0x3A, 0x54, 0x72, 0x69, 0x67, 0x67, 0x65, 0x72, 0x54, 0x79, 0x70, 0x65, 0x00, 0x2B,
+        0x0C, 0xF1, 0x31, 0x70, 0x70, 0x61, 0x72, 0x61, 0x6D, 0x73, 0x00, 0x2B, 0x2D, 0xAD, 0x0A, 0xE9, 0x4F, 0x62,
+        0x6A, 0x5F, 0x47, 0x65, 0x74, 0x50, 0x6F, 0x73, 0x69, 0x74, 0x69, 0x6F, 0x6E, 0x00, 0x2B, 0x53, 0x19, 0x26,
+        0x7F, 0x50, 0x6F, 0x73, 0x00, 0x2B, 0x1A, 0x7C, 0x11, 0x82, 0x77, 0x61, 0x69, 0x74, 0x00, 0x2B, 0x05, 0xDF,
+        0x37, 0xFC, 0x67, 0x61, 0x6D, 0x65, 0x66, 0x72, 0x61, 0x6D, 0x65, 0x00, 0x00,
     };
     return kQb;
 }
@@ -674,7 +671,7 @@ std::vector<uint32_t> get_connected(const Graph& graph, uint32_t name)
 }
 
 V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from, float* ground_y)>& ground_at,
-              bool* snapped)
+                bool* snapped)
 {
     *snapped = false;
     if (normal.y < 0.7f)
@@ -683,8 +680,8 @@ V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from
     float best = reach + 1.0f;
     V3 best_at = hit;
     constexpr float kHalf = 0.70710678f;
-    static const V3 kDirections[8] = {{0.0f, 0.0f, 1.0f},    {kHalf, 0.0f, kHalf},   {1.0f, 0.0f, 0.0f},
-                                      {kHalf, 0.0f, -kHalf}, {0.0f, 0.0f, -1.0f},    {-kHalf, 0.0f, -kHalf},
+    static const V3 kDirections[8] = {{0.0f, 0.0f, 1.0f},    {kHalf, 0.0f, kHalf}, {1.0f, 0.0f, 0.0f},
+                                      {kHalf, 0.0f, -kHalf}, {0.0f, 0.0f, -1.0f},  {-kHalf, 0.0f, -kHalf},
                                       {-1.0f, 0.0f, 0.0f},   {-kHalf, 0.0f, kHalf}};
     for (const V3& dir : kDirections) {
         for (float t = kStep; t <= reach; t += kStep) {
@@ -712,13 +709,13 @@ const std::vector<std::string>& grind_terrain_names()
     // (scripts\game\terrain.qb's Terrain_Types, the TERRAIN_GRIND... entries in its order - the names only: the game
     // checks them against its own table before one is used, TerrainChecksums)
     static const std::vector<std::string> kNames = {
-        "TERRAIN_GRINDTRAIN",        "TERRAIN_GRINDROPE",          "TERRAIN_GRINDWIRE",
-        "TERRAIN_GRINDCONC",         "TERRAIN_GRINDROUNDMETALPOLE", "TERRAIN_GRINDCHAINLINK",
-        "TERRAIN_GRINDMETAL",        "TERRAIN_GRINDWOODRAILING",   "TERRAIN_GRINDWOODLOG",
-        "TERRAIN_GRINDWOOD",         "TERRAIN_GRINDPLASTIC",       "TERRAIN_GRINDELECTRICWIRE",
-        "TERRAIN_GRINDCABLE",        "TERRAIN_GRINDCHAIN",         "TERRAIN_GRINDPLASTICBARRIER",
-        "TERRAIN_GRINDNEONLIGHT",    "TERRAIN_GRINDGLASSMONSTER",  "TERRAIN_GRINDBANYONTREE",
-        "TERRAIN_GRINDBRASSRAIL",    "TERRAIN_GRINDCATWALK",       "TERRAIN_GRINDTANKTURRET",
+        "TERRAIN_GRINDTRAIN",     "TERRAIN_GRINDROPE",           "TERRAIN_GRINDWIRE",
+        "TERRAIN_GRINDCONC",      "TERRAIN_GRINDROUNDMETALPOLE", "TERRAIN_GRINDCHAINLINK",
+        "TERRAIN_GRINDMETAL",     "TERRAIN_GRINDWOODRAILING",    "TERRAIN_GRINDWOODLOG",
+        "TERRAIN_GRINDWOOD",      "TERRAIN_GRINDPLASTIC",        "TERRAIN_GRINDELECTRICWIRE",
+        "TERRAIN_GRINDCABLE",     "TERRAIN_GRINDCHAIN",          "TERRAIN_GRINDPLASTICBARRIER",
+        "TERRAIN_GRINDNEONLIGHT", "TERRAIN_GRINDGLASSMONSTER",   "TERRAIN_GRINDBANYONTREE",
+        "TERRAIN_GRINDBRASSRAIL", "TERRAIN_GRINDCATWALK",        "TERRAIN_GRINDTANKTURRET",
     };
     return kNames;
 }
@@ -776,9 +773,9 @@ bool same_segment(V3 a, V3 b, V3 p, V3 q, float tolerance)
 
 namespace {
 
-constexpr uint32_t kClass = 0x12B4E660;   // class
-constexpr uint32_t kLinks = 0x2E7D5EE7;   // links
-constexpr uint32_t kPos = 0x7F261953;     // pos
+constexpr uint32_t kClass = 0x12B4E660;          // class
+constexpr uint32_t kLinks = 0x2E7D5EE7;          // links
+constexpr uint32_t kPos = 0x7F261953;            // pos
 constexpr uint32_t kSurfaceKindKey = 0x54CF8532; // TerrainType
 
 uint32_t name_hash(const std::string& text) { return checksums::hash_from_text(text.c_str()); }
@@ -817,8 +814,8 @@ std::vector<uint32_t> own_links(script::Struct* node)
     if (!node)
         return links;
     for (script::Component* c = node->head_; c; c = c->next) {
-        if (c->name == kLinks && (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) &&
-            c->array) {
+        if (c->name == kLinks &&
+            (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->array) {
             links.clear();
             for (uint32_t i = 0; i < c->array->extent_; ++i)
                 links.push_back(c->array->fetch_part(i));
@@ -832,8 +829,8 @@ void set_own_links(script::Struct* node, const std::vector<uint32_t>& links)
 {
     script::Component* own = nullptr;
     for (script::Component* c = node->head_; c; c = c->next) {
-        if (c->name == kLinks && (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) &&
-            c->array)
+        if (c->name == kLinks &&
+            (c->kind_tag() == script::kQbvalArray || c->kind_tag() == script::kEsymboltypeArraypointer) && c->array)
             own = c;
     }
     if (links.empty()) {
@@ -900,11 +897,31 @@ uint32_t class_of(script::Struct* node)
     return cls;
 }
 
-uint32_t rail_node_class() { static const uint32_t kC = name_hash("RailNode"); return kC; }
-uint32_t climbing_node_class() { static const uint32_t kC = name_hash("ClimbingNode"); return kC; }
-uint32_t waypoint_class() { static const uint32_t kC = name_hash("Waypoint"); return kC; }
-uint32_t pedestrian_class() { static const uint32_t kC = name_hash("Pedestrian"); return kC; }
-uint32_t vehicle_class() { static const uint32_t kC = name_hash("Vehicle"); return kC; }
+uint32_t rail_node_class()
+{
+    static const uint32_t kC = name_hash("RailNode");
+    return kC;
+}
+uint32_t climbing_node_class()
+{
+    static const uint32_t kC = name_hash("ClimbingNode");
+    return kC;
+}
+uint32_t waypoint_class()
+{
+    static const uint32_t kC = name_hash("Waypoint");
+    return kC;
+}
+uint32_t pedestrian_class()
+{
+    static const uint32_t kC = name_hash("Pedestrian");
+    return kC;
+}
+uint32_t vehicle_class()
+{
+    static const uint32_t kC = name_hash("Vehicle");
+    return kC;
+}
 
 // The terrain checksums the game knows (Terrain_Types' checksum=): only those are looked up (0x004442C0 reads through
 // a null entry for an unknown one).
@@ -1160,7 +1177,8 @@ void register_trick_objects()
     for (const node_create::Spec& spec : node_create::at_hand()) {
         uint32_t name = name_hash(spec.name);
         auto extras = g_extras.find(name);
-        if (same_text(spec.cls, "RailNode") && extras != g_extras.end() && extras->second.cluster && rail_node_named(name))
+        if (same_text(spec.cls, "RailNode") && extras != g_extras.end() && extras->second.cluster &&
+            rail_node_named(name))
             want[name] = extras->second.cluster;
     }
     auto* objects = reinterpret_cast<lists::KeyMap*>(manager + 0x20);
@@ -1245,13 +1263,16 @@ void rebuild_rails()
                 g_drop_active[node->label_] = (node->flag_bits_ & objects::kRailFlagActive) != 0;
             node->flag_bits_ &= ~objects::kRailFlagActive;
         } else if (was != g_drop_active.end()) {
-            node->flag_bits_ = was->second ? node->flag_bits_ | objects::kRailFlagActive : node->flag_bits_ & ~objects::kRailFlagActive;
+            node->flag_bits_ = was->second ? node->flag_bits_ | objects::kRailFlagActive
+                                           : node->flag_bits_ & ~objects::kRailFlagActive;
             g_drop_active.erase(was);
         }
     }
     // The links, as add_from_node_array makes them: a node's next is its first link (or a DefaultLine one), the linked
     // node's previous likewise. Dropped points take no part.
-    auto is_dropped = [&](uint32_t name) { return std::find(g_dropped.begin(), g_dropped.end(), name) != g_dropped.end(); };
+    auto is_dropped = [&](uint32_t name) {
+        return std::find(g_dropped.begin(), g_dropped.end(), name) != g_dropped.end();
+    };
     for (int i = 0; i < count; ++i) {
         objects::GrindPoint* node = &nodes[i];
         if (is_dropped(node->label_))
@@ -1275,8 +1296,8 @@ void rebuild_rails()
         objects::GrindPoint* node = &nodes[i];
         uint32_t terrain = 0;
         script::Struct* params = node_create::is_added(node->label_) ? look_up_node_params(node->label_) : nullptr;
-        if (params && !(node->flag_bits_ & objects::kRailFlagClimbing) && params->read_hash_value(kSurfaceKindKey, &terrain, 0) &&
-            known_terrain(terrain))
+        if (params && !(node->flag_bits_ & objects::kRailFlagClimbing) &&
+            params->read_hash_value(kSurfaceKindKey, &terrain, 0) && known_terrain(terrain))
             node->surface_type_ = surface_kind::get_terrain_index(terrain);
     }
     for (const auto& entry : g_terrains) {
@@ -1308,7 +1329,7 @@ void rebuild_rails()
     nodes::mark_stale();
     if (debug_enabled())
         get_log("level editor: rail manager built again - %d nodes (%u kept, %u new)", count,
-            static_cast<unsigned>(kept.size()), static_cast<unsigned>(added.size()));
+                static_cast<unsigned>(kept.size()), static_cast<unsigned>(added.size()));
 }
 
 State at_hand()
@@ -1555,10 +1576,14 @@ void refresh_flat(objects::GrindRailHub* rails)
             g_flat_cache.marked.push_back(node);
     }
     if (debug_enabled() && !g_flat_cache.marked.empty())
-        get_log("level editor: %u rail segments grindable on flat ground", static_cast<unsigned>(g_flat_cache.marked.size()));
+        get_log("level editor: %u rail segments grindable on flat ground",
+                static_cast<unsigned>(g_flat_cache.marked.size()));
 }
 
-bool flat_hook(const maths::Vec4* a, const maths::Vec4* b) { return flat_grindable({a->x, a->y, a->z}, {b->x, b->y, b->z}); }
+bool flat_hook(const maths::Vec4* a, const maths::Vec4* b)
+{
+    return flat_grindable({a->x, a->y, a->z}, {b->x, b->y, b->z});
+}
 
 } // namespace
 
@@ -1571,7 +1596,8 @@ bool is_ledge_node(uint32_t name)
 
 void apply_speeds()
 {
-    if (!level_nodes::node_manager_instance() || (g_speed_applied.empty() && g_extras.empty() && g_level_speeds.empty()))
+    if (!level_nodes::node_manager_instance() ||
+        (g_speed_applied.empty() && g_extras.empty() && g_level_speeds.empty()))
         return;
     // What's wanted (none in a network session: the edited level's changes are offline only).
     std::map<uint32_t, float> want;
@@ -1684,7 +1710,9 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
     for (const auto& entry : g_speed_applied) {
         auto extras = g_extras.find(entry.first);
         auto level = g_level_speeds.find(entry.first);
-        float rate = extras != g_extras.end() ? extras->second.speed : level != g_level_speeds.end() ? level->second : 0.0f;
+        float rate = extras != g_extras.end()        ? extras->second.speed
+                     : level != g_level_speeds.end() ? level->second
+                                                     : 0.0f;
         if (rate > 0.0f)
             add(rail_node_named(entry.first), rate, false);
     }
@@ -1704,7 +1732,7 @@ bool flat_grindable(V3 a, V3 b)
     for (const objects::GrindPoint* node : g_flat_cache.marked) {
         const objects::GrindPoint* next = node->succ_;
         if (next && same_segment(a, b, {node->at_point_.x, node->at_point_.y, node->at_point_.z},
-                                {next->at_point_.x, next->at_point_.y, next->at_point_.z}, 0.01f))
+                                 {next->at_point_.x, next->at_point_.y, next->at_point_.z}, 0.01f))
             return true;
     }
     return false;
@@ -1814,7 +1842,8 @@ Graph graph_of(nodes::Family family)
             continue;
         std::vector<uint32_t> links;
         for (int link : node.links) {
-            if (link >= 0 && link < static_cast<int>(nodes.size()) && nodes[link].family == family && !nodes[link].hidden)
+            if (link >= 0 && link < static_cast<int>(nodes.size()) && nodes[link].family == family &&
+                !nodes[link].hidden)
                 links.push_back(nodes[link].name);
         }
         graph[node.name] = links;
@@ -1880,10 +1909,10 @@ void put_graph(State* state, const Graph& graph)
 // A new point's name: ed_rail01 / ed_path01... free in the level and in the state.
 std::string fresh_point_name(nodes::Family family, const State& state, bool ledge = false)
 {
-    const char* stem = family == nodes::Family::kRouteWay     ? "ed_path"
-                       : ledge                           ? "ed_ledge"
+    const char* stem = family == nodes::Family::kRouteWay ? "ed_path"
+                       : ledge                            ? "ed_ledge"
                        : family == nodes::Family::kLadder ? "ed_ladder"
-                                                         : "ed_rail";
+                                                          : "ed_rail";
     return node_create::fresh_name(stem, [&](const std::string& name) {
         for (const Point& p : state.points) {
             if (same_text(p.name, name.c_str()))
@@ -1900,7 +1929,9 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
     bool ledge = family == nodes::Family::kLadder && (g_draw == Blit::kLedge || (from && is_ledge_node(from)));
     Point p;
     p.name = fresh_point_name(family, state, ledge);
-    p.cls = family == nodes::Family::kRouteWay ? "Waypoint" : family == nodes::Family::kLadder ? "ClimbingNode" : "RailNode";
+    p.cls = family == nodes::Family::kRouteWay ? "Waypoint"
+            : family == nodes::Family::kLadder ? "ClimbingNode"
+                                               : "RailNode";
     p.pos = pos;
     if (ledge)
         p.type = "Ledge";
@@ -1927,7 +1958,8 @@ Point append_rail_vertex(nodes::Family family, uint32_t from, V3 pos, const Stat
                 p.cluster = from;
                 node->read_hash_value(kCluster, &p.cluster, 0);
             }
-            p.grind_flat_ = std::find(state.grind_flat_.begin(), state.grind_flat_.end(), from) != state.grind_flat_.end();
+            p.grind_flat_ =
+                std::find(state.grind_flat_.begin(), state.grind_flat_.end(), from) != state.grind_flat_.end();
         }
     } else if (family == nodes::Family::kRail) {
         // (a new rail: a trick object of the scenery piece the click hit, as the levels name their rails' clusters -
@@ -1957,8 +1989,8 @@ void set_facing(State* state, uint32_t name, float facing)
             return;
         }
     }
-    auto it = std::find_if(state->facings.begin(), state->facings.end(),
-                           [&](const FacingEdit& f) { return f.name == name; });
+    auto it =
+        std::find_if(state->facings.begin(), state->facings.end(), [&](const FacingEdit& f) { return f.name == name; });
     if (same_facing(facing, facing_original(name))) {
         if (it != state->facings.end())
             state->facings.erase(it);
@@ -2013,7 +2045,8 @@ bool ladder_op(Op op, uint32_t name, const nodes::Elem& node, uint32_t arg, std:
     }
     case kOpTurn: {
         int notches = static_cast<int>(arg);
-        float facing = node_edit::wrap_angle(facing_now(name) + static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f));
+        float facing =
+            node_edit::wrap_angle(facing_now(name) + static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f));
         for (uint32_t point : points)
             set_facing(&state, point, facing);
         *select = name;
@@ -2227,8 +2260,7 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
             return false;
         }
         *select = name;
-        return get_apply(state, message, arg ? "Trick object on"
-                                         : "Trick object off");
+        return get_apply(state, message, arg ? "Trick object on" : "Trick object off");
     }
     case kOpGrindFlat: {
         if (family != nodes::Family::kRail) {
@@ -2255,10 +2287,10 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         *select = name;
         if (arg)
             get_log("level editor: %s's rail grindable on flat ground - RailClear (0x0057C600) passes it as the park "
-                "editor's level passes every rail; the game itself has no node flag for this",
-                object_edit::caption(name).c_str());
-        return get_apply(state, message, arg ? "Grind on flat ground on"
-                                         : "Ground beside it checked again, as the game does");
+                    "editor's level passes every rail; the game itself has no node flag for this",
+                    object_edit::caption(name).c_str());
+        return get_apply(state, message,
+                         arg ? "Grind on flat ground on" : "Ground beside it checked again, as the game does");
     }
     case kOpSpeed:
     case kOpSpeedRail: {
@@ -2296,8 +2328,8 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         *select = name;
         char text[160];
         if (rate > 0.0f)
-            std::snprintf(text, sizeof(text), "Speed-up on %d segment%s: %.1f%% per frame",
-                          changed, changed == 1 ? "" : "s", rate * 100.0f);
+            std::snprintf(text, sizeof(text), "Speed-up on %d segment%s: %.1f%% per frame", changed,
+                          changed == 1 ? "" : "s", rate * 100.0f);
         else
             std::snprintf(text, sizeof(text), "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
         return get_apply(state, message, text);
@@ -2311,8 +2343,9 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         for (uint32_t point : chain_of(name)) {
             for (Point& p : state.points) {
                 if (name_hash(p.name) == point) {
-                    p.hang = static_cast<int>(arg) == kHangLeft || static_cast<int>(arg) == kHangRight ? static_cast<int>(arg)
-                                                                                                    : 0;
+                    p.hang = static_cast<int>(arg) == kHangLeft || static_cast<int>(arg) == kHangRight
+                                 ? static_cast<int>(arg)
+                                 : 0;
                     any = true;
                 }
             }
@@ -2322,9 +2355,10 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
             return false;
         }
         *select = name;
-        return get_apply(state, message, arg == static_cast<uint32_t>(kHangLeft)    ? "The ledge is hung from its left side"
-                                     : arg == static_cast<uint32_t>(kHangRight) ? "The ledge is hung from its right side"
-                                                                                 : "The game decides the ledge's side");
+        return get_apply(state, message,
+                         arg == static_cast<uint32_t>(kHangLeft)    ? "The ledge is hung from its left side"
+                         : arg == static_cast<uint32_t>(kHangRight) ? "The ledge is hung from its right side"
+                                                                    : "The game decides the ledge's side");
     }
     case kOpLinkArm: {
         if (!is_last(graph, name) && !is_first(graph, name)) {
@@ -2368,9 +2402,9 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
         *message = "Click the next point";
         return false;
     }
-    nodes::Family family = g_draw == Blit::kRouteWay    ? nodes::Family::kRouteWay
-                           : g_draw == Blit::kLedge ? nodes::Family::kLadder
-                                                   : nodes::Family::kRail;
+    nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
+                           : g_draw == Blit::kLedge  ? nodes::Family::kLadder
+                                                     : nodes::Family::kRail;
     State state = at_hand();
     Graph graph = graph_of(family);
     if (g_draw_last && !graph.count(g_draw_last))
@@ -2403,9 +2437,9 @@ bool draw_at(V3 at, uint32_t end, std::string* message, uint32_t* select)
     g_draw_last = made;
     *select = made;
     if (message->empty())
-        *message = first ? (family == nodes::Family::kRouteWay     ? "Path started (Enter: finish)"
+        *message = first ? (family == nodes::Family::kRouteWay ? "Path started (Enter: finish)"
                             : family == nodes::Family::kLadder ? "Ledge started (Enter: finish)"
-                                                              : "Rail started (Enter: finish)")
+                                                               : "Rail started (Enter: finish)")
                          : "Point added - Enter or a right click finishes";
     return true;
 }
@@ -2463,7 +2497,8 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
     *normal = {n[0], n[1], n[2]};
     *hit = {p[0], p[1], p[2]};
     if (sector)
-        *sector = *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58) : 0;
+        *sector =
+            *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58) : 0;
     return true;
 }
 
@@ -2522,11 +2557,10 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     stop_drawing();
     *select = name_hash(foot.name);
     char text[128];
-    std::snprintf(text, sizeof(text), "Ladder added (%.0f high)",
-                  static_cast<double>(top.y - g_ladder_foot.y));
+    std::snprintf(text, sizeof(text), "Ladder added (%.0f high)", static_cast<double>(top.y - g_ladder_foot.y));
     *message = text;
     get_log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
-        static_cast<double>(node_edit::get_heading_degrees({0.0f, g_ladder_facing, 0.0f})));
+            static_cast<double>(node_edit::get_heading_degrees({0.0f, g_ladder_facing, 0.0f})));
     return true;
 }
 
@@ -2539,21 +2573,22 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
     *point = hit;
     if (!free) {
         bool snapped = false;
-        *point = snap_to_edge(hit, normal, 32.0f,
-                            [](V3 at, float* ground_y) {
-                                V3 h, n;
-                                if (!cast_ray(at, {at.x, at.y - 60.0f, at.z}, &h, &n))
-                                    return false;
-                                *ground_y = h.y;
-                                return true;
-                            },
-                            &snapped);
+        *point = snap_to_edge(
+            hit, normal, 32.0f,
+            [](V3 at, float* ground_y) {
+                V3 h, n;
+                if (!cast_ray(at, {at.x, at.y - 60.0f, at.z}, &h, &n))
+                    return false;
+                *ground_y = h.y;
+                return true;
+            },
+            &snapped);
     }
     // A free end of a chain of the kind drawn, within 24: taken as it is.
     if (g_draw != Blit::kNone) {
-        nodes::Family family = g_draw == Blit::kRouteWay    ? nodes::Family::kRouteWay
-                               : g_draw == Blit::kLedge ? nodes::Family::kLadder
-                                                       : nodes::Family::kRail;
+        nodes::Family family = g_draw == Blit::kRouteWay ? nodes::Family::kRouteWay
+                               : g_draw == Blit::kLedge  ? nodes::Family::kLadder
+                                                         : nodes::Family::kRail;
         Graph graph = graph_of(family);
         float best = 24.0f * 24.0f;
         for (const auto& entry : graph) {
@@ -2623,17 +2658,13 @@ const char* get_waiting()
     if (g_pick == kOpAssignArm)
         return "Click the first waypoint (Esc: cancel)";
     if (g_draw == Blit::kRail)
-        return g_draw_last ? "Rail: click the next point (Enter: finish)"
-                          : "Rail: click the first point";
+        return g_draw_last ? "Rail: click the next point (Enter: finish)" : "Rail: click the first point";
     if (g_draw == Blit::kRouteWay)
-        return g_draw_last ? "Path: click the next waypoint (Enter: finish)"
-                          : "Path: click the first waypoint";
+        return g_draw_last ? "Path: click the next waypoint (Enter: finish)" : "Path: click the first waypoint";
     if (g_draw == Blit::kLedge)
-        return g_draw_last ? "Ledge: click the next point (Enter: finish)"
-                          : "Ledge: click the first point on an edge";
+        return g_draw_last ? "Ledge: click the next point (Enter: finish)" : "Ledge: click the first point on an edge";
     if (g_draw == Blit::kLadder)
-        return g_ladder_have_foot ? "Ladder: click to place the top"
-                                : "Ladder: click a wall to place the foot";
+        return g_ladder_have_foot ? "Ladder: click to place the top" : "Ladder: click a wall to place the foot";
     return nullptr;
 }
 
@@ -2699,9 +2730,9 @@ View view_of(uint32_t name)
     if (view.rail) {
         auto speed = g_extras.find(name);
         auto level_speed = g_level_speeds.find(name);
-        view.speed = speed != g_extras.end() ? speed->second.speed
+        view.speed = speed != g_extras.end()               ? speed->second.speed
                      : level_speed != g_level_speeds.end() ? level_speed->second
-                                                         : 0.0f;
+                                                           : 0.0f;
         script::Struct* own = look_up_node_params(name);
         uint32_t script = 0;
         auto applied = g_speed_applied.find(name);
@@ -2731,7 +2762,7 @@ View view_of(uint32_t name)
             if (view.trick_object_)
                 view.cluster = object_edit::caption(cluster);
             view.grind_flat_ = std::find(g_level_flat.begin(), g_level_flat.end(), name) != g_level_flat.end() ||
-                             (params && params->has_bare_flag(kFlag));
+                               (params && params->has_bare_flag(kFlag));
         }
         if (const objects::GrindPoint* rail = rail_node_named(name)) {
             for (size_t i = 0; i < view.terrains.size(); ++i) {
@@ -2746,4 +2777,4 @@ View view_of(uint32_t name)
     return view;
 }
 
-} // namespace MenuSystem::level_editor::Chains
+} // namespace frontend::level_editor::chains

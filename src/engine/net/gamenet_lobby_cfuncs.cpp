@@ -59,7 +59,8 @@ Hub* net_session_slot() { return g_online_hub; }
 RoomManager* current_lobby() { return static_cast<RoomManager*>(net_session_slot()->lobby_service_); }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    return reinterpret_cast<tasks::PileUp*>(
+        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
 }
 void push_internet_heap()
 {
@@ -88,11 +89,12 @@ bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*
     params->fetch_int_value(0u, &port, 0);
     params->read_hash_value(kCookie, reinterpret_cast<uint32_t*>(&lobby->nat_cookie_), 0);
     net::AppHost* client = manager->start_client_session(false, false, true, 0);
-    game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port, lobby->nat_cookie_); // the cookie to the host
-    int error = game_spy::nat_begin_with_socket(client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
-                                            code_address(stubs::do_nothing) /* no progress callback */,
-                                            &RoomManager::nat_negotiation_completed,
-                                            reinterpret_cast<void*>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
+    game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port,
+                                             lobby->nat_cookie_); // the cookie to the host
+    int error = game_spy::nat_begin_with_socket(
+        client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
+        code_address(stubs::do_nothing) /* no progress callback */, &RoomManager::nat_negotiation_completed,
+        reinterpret_cast<void*>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
     if (error) {
         nat_free_negotiations();
         pop_heap();
@@ -132,7 +134,8 @@ bool __cdecl cfunc_leave_lobby(script::Struct* params, script::Script*)
     if (prop<bool>(buddy, 0x10) && !params->has_entry_named(kPreserveStatus)) {
         const char* text = script::fetch_text(kHomieStatusLoggingIn);
         const char* status = script::fetch_text(kHomieStatusOnline);
-        static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status, text); // the presence's status (its text, location)
+        static_cast<FriendsManager*>(buddy)->change_standing(kStatusOnline, status,
+                                                             text); // the presence's status (its text, location)
     }
     game_spy::peer_set_group_id(lobby->remote_, lobby->group_id_);
     pop_heap();

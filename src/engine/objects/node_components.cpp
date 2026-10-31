@@ -207,60 +207,66 @@ maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
     return out;
 }
 
-} // namespace Obj
+} // namespace objects
 
-using objects::WaypointListModule;
-using objects::HookPointRegistryModule;
 using objects::GrindPathLinkModule;
+using objects::HookPointRegistryModule;
+using objects::WaypointListModule;
 
 namespace objects {
 namespace {
 
-static VtableSlot g_node_array_vtable_slots[] = {&WaypointListModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &WaypointListModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         &WaypointListModule::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-         &online::FoldedGetters::word18};
+static VtableSlot g_node_array_vtable_slots[] = {
+    &WaypointListModule::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    &WaypointListModule::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    &WaypointListModule::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+    &online::FoldedGetters::word18};
 void** const kNodeArrayVtable = reinterpret_cast<void**>(g_node_array_vtable_slots);
-static VtableSlot g_hook_manager_vtable_slots[] = {&HookPointRegistryModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &HookPointRegistryModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-         &online::FoldedGetters::word18};
+static VtableSlot g_hook_manager_vtable_slots[] = {
+    &HookPointRegistryModule::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    &HookPointRegistryModule::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+    &online::FoldedGetters::word18};
 void** const kHookManagerVtable = reinterpret_cast<void**>(g_hook_manager_vtable_slots);
-static VtableSlot g_rail_manager_vtable_slots[] = {&GrindPathLinkModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &GrindPathLinkModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-         &online::FoldedGetters::word18};
+static VtableSlot g_rail_manager_vtable_slots[] = {
+    &GrindPathLinkModule::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    &GrindPathLinkModule::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+    &online::FoldedGetters::word18};
 void** const kRailManagerVtable = reinterpret_cast<void**>(g_rail_manager_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

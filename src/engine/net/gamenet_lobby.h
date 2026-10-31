@@ -13,7 +13,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace tasks {
 class SchedulerTask;
 }
@@ -75,7 +75,7 @@ public:
     static void __cdecl disconnected_callback(void* peer, const char* reason, void* param);
     // 0x0053FEE0 (nick error): the nick in use - retried as "a<time>_<network_id>"; invalid - retried fixed.
     static void __cdecl get_nick_error_callback(void* peer, int type, const char* nick, int suggestions,
-                                          const char** suggested, void* param);
+                                                const char** suggested, void* param);
     // 0x0053FFC0 (connected): success - the local address from the peer, StartLobbyList, the connection time; else
     // create_gamespy_connection_failure_dialog.
     static void __cdecl get_connect_callback(void* peer, int success, int failure, void* param);
@@ -116,13 +116,14 @@ public:
     void add_player_list_item(LobbyPlayer* player);
     // 0x00540B60 (the peer's room message callback): "<nick>: <message>" to the console (create_console_message).
     static void __cdecl room_message_callback(void* peer, int room_type, const char* nick, const char* message,
-                                            int message_type, void* param);
+                                              int message_type, void* param);
     // 0x00541690 (the peer's group room list callback): each room (a LobbyRoom: its name, players / most - full when
     // the waiting reach the most -, rating range, "neversoft") added to the list `param` by group (highest first); the
     // end of the list (group 0) or a failure sets the lobby state (0x005453E0: 15, or 16 on failure / when the lobby
     // asked for wasn't found).
     static void __cdecl group_room_callback(void* peer, int success, int group_id, void* server, const char* name,
-                                          int num_waiting, int max_waiting, int num_games, int num_playing, void* param);
+                                            int num_waiting, int max_waiting, int num_games, int num_playing,
+                                            void* param);
     // 0x00540D50: the destructor body: the three tasks deleted, the node at +0x14 and its own node unlinked.
     void destroy_body();
 
@@ -166,55 +167,55 @@ public:
     // 0x005420C0 (playerLeft): a known player taken off the menu (destroy_lobby_user, user_id = the nick's
     // checksum) and deleted; "<nick> <lobby_status_left>" to the console (with left) either way.
     static void __cdecl player_left_callback(void* peer, int room_type, const char* nick, const char* reason,
-                                           RoomManager* lobby);
+                                             RoomManager* lobby);
     // 0x00541FD0 (playerInfo): a known player's profile (if it had none) and listed; nothing for a null nick.
     static void __cdecl player_info_callback(void* peer, int room_type, const char* nick, uint32_t ip, int profile_id,
-                                           RoomManager* lobby);
+                                             RoomManager* lobby);
     // 0x00542B70 (newPlayerList): request_player_list.
     static void __cdecl new_player_list_callback(void* peer, int room_type, RoomManager* lobby);
     // 0x00542650 (roomKeyChanged): a known player's rating (atol of `value`; whatever the key) and its rank
     // (player_list_update_rank: id, rank = rating * 0.000286 * 10, at most 10).
     static void __cdecl room_key_changed_callback(void* peer, int room_type, const char* nick, const char* key,
-                                               const char* value, RoomManager* lobby);
+                                                  const char* value, RoomManager* lobby);
     // 0x00542330 (the room keys asked for when joining): for a first key b_rating, each player named `nick` gets
     // the rating and rank, as room_key_changed_callback.
     static void __cdecl room_keys_callback(void* peer, int success, int room_type, const char* nick, int count,
-                                         char** keys, char** values, RoomManager* lobby);
+                                           char** keys, char** values, RoomManager* lobby);
     // 0x005424F0 (EnumPlayers): each player not known yet added (as player_joined_callback, without the menu).
     static void __cdecl enum_players_callback(void* peer, int success, int room_type, int index, const char* nick,
-                                            int flags, RoomManager* lobby);
+                                              int flags, RoomManager* lobby);
     // 0x00542B80 (joining the group room): failed - CreateJoinLobbyFailedDialog; else dialog_box_exit,
     // create_network_select_games_menu, in the lobby, the players asked for, and when logged in to GameSpy
     // presence the status "chatting" in the lobby (0x00548320), our room key b_rating set from the stats and every
     // player's asked for (room_keys_callback).
     static void __cdecl join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby);
 
-
     memory::ListNode rooms_;        // +0x00 lists::Foremost<LobbyRoom> (vtable 0x0064CBFC; its base's 0x0064CBE0)
-    memory::ListNode participants_;      // +0x14 lists::Foremost<LobbyPlayer> (vtable 0x0064CBF8; its base's 0x0064CBDC)
-    int group_id_;                // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
-    int unknown2c_;              // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
-    int unknown30_;              // +0x30 the chosen room's players
-    char room_name_[0x80];        // +0x34
-    char server_name_[0x80];      // +0xB4
-    bool in_group_room_;           // +0x134
-    bool restricted_hosting_;     // +0x135 only a few GameSpy profiles may host (CanHostGame)
-    bool drop_is_expected_;   // +0x136
-    bool lost_connection_;        // +0x137
-    bool connecting_;            // +0x138
-    bool hosting_;               // +0x139
+    memory::ListNode participants_; // +0x14 lists::Foremost<LobbyPlayer> (vtable 0x0064CBF8; its base's 0x0064CBDC)
+    int group_id_;                  // +0x28 the chosen room's group room (0: none; LeaveLobby passes it to 0x005FC9B0)
+    int unknown2c_;                 // +0x2C the chosen room's most players (CanHostGame: +0x30 must be below it)
+    int unknown30_;                 // +0x30 the chosen room's players
+    char room_name_[0x80];          // +0x34
+    char server_name_[0x80];        // +0xB4
+    bool in_group_room_;            // +0x134
+    bool restricted_hosting_;       // +0x135 only a few GameSpy profiles may host (CanHostGame)
+    bool drop_is_expected_;         // +0x136
+    bool lost_connection_;          // +0x137
+    bool connecting_;               // +0x138
+    bool hosting_;                  // +0x139
     uint8_t unknown13a_[2];
-    int negotiations_;           // +0x13C NAT negotiations going on (the server's)
-    void* remote_;                 // +0x140
-    int nat_cookie_;              // +0x144 (a client's)
+    int negotiations_;                   // +0x13C NAT negotiations going on (the server's)
+    void* remote_;                       // +0x140
+    int nat_cookie_;                     // +0x144 (a client's)
     tasks::SchedulerTask* think_task_;   // +0x148 think_task
     tasks::SchedulerTask* nat_task_;     // +0x14C nat_negotiation_task
     tasks::SchedulerTask* hosting_task_; // +0x150 query_task
 };
-static_assert(offsetof(RoomManager, group_id_) == 0x28 && offsetof(RoomManager, participants_) == 0x14 && offsetof(RoomManager, room_name_) == 0x34 &&
-                  offsetof(RoomManager, server_name_) == 0xB4 && offsetof(RoomManager, in_group_room_) == 0x134 &&
-                  offsetof(RoomManager, hosting_) == 0x139 && offsetof(RoomManager, negotiations_) == 0x13C &&
-                  offsetof(RoomManager, remote_) == 0x140 && offsetof(RoomManager, hosting_task_) == 0x150,
+static_assert(offsetof(RoomManager, group_id_) == 0x28 && offsetof(RoomManager, participants_) == 0x14 &&
+                  offsetof(RoomManager, room_name_) == 0x34 && offsetof(RoomManager, server_name_) == 0xB4 &&
+                  offsetof(RoomManager, in_group_room_) == 0x134 && offsetof(RoomManager, hosting_) == 0x139 &&
+                  offsetof(RoomManager, negotiations_) == 0x13C && offsetof(RoomManager, remote_) == 0x140 &&
+                  offsetof(RoomManager, hosting_task_) == 0x150,
               "layout must match the original");
 
 // A group room the peer's room list found (0x6C bytes, constructor 0x00545860; a list node, priority -group).
@@ -224,27 +225,28 @@ struct LobbyRoom {
     LobbyRoom* make_new();
 
     memory::ListNode list_link_;
-    char label_[0x40];       // +0x14 (63 characters)
-    int group_id_;           // +0x54
-    int num_players_;        // +0x58 (the room list's "num_games")
-    int max_players_;        // +0x5C (its "maxWaiting"; at least num_players_)
-    int min_rating_;         // +0x60
-    int max_rating_;         // +0x64
-    bool full_;             // +0x68
-    bool out_of_range_;       // +0x69 the player's rating outside the room's
-    bool neversoft_;        // +0x6A
+    char label_[0x40];  // +0x14 (63 characters)
+    int group_id_;      // +0x54
+    int num_players_;   // +0x58 (the room list's "num_games")
+    int max_players_;   // +0x5C (its "maxWaiting"; at least num_players_)
+    int min_rating_;    // +0x60
+    int max_rating_;    // +0x64
+    bool full_;         // +0x68
+    bool out_of_range_; // +0x69 the player's rating outside the room's
+    bool neversoft_;    // +0x6A
     uint8_t pad6b_;
 };
-static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, group_id_) == 0x54 && offsetof(LobbyRoom, full_) == 0x68);
+static_assert(sizeof(LobbyRoom) == 0x6C && offsetof(LobbyRoom, group_id_) == 0x54 &&
+              offsetof(LobbyRoom, full_) == 0x68);
 
 // A player in the lobby's room (the lobby's player list).
 // (0x60 bytes, vtable 0x0064CBF8; made by rooms.cpp's callbacks)
 struct LobbyPlayer {
     memory::ListNode list_link_;
-    char nick_[0x40];       // +0x14
-    int account_;           // +0x54 the GameSpy profile
-    int skill_points_;            // +0x58 (the room key b_rating)
-    bool listed_;           // +0x5C seen in the room (shown in the player list)
+    char nick_[0x40];  // +0x14
+    int account_;      // +0x54 the GameSpy profile
+    int skill_points_; // +0x58 (the room key b_rating)
+    bool listed_;      // +0x5C seen in the room (shown in the player list)
     uint8_t pad5d_[3];
 };
 static_assert(offsetof(LobbyPlayer, account_) == 0x54 && offsetof(LobbyPlayer, skill_points_) == 0x58 &&
@@ -252,20 +254,20 @@ static_assert(offsetof(LobbyPlayer, account_) == 0x54 && offsetof(LobbyPlayer, s
 
 // The lobby's script commands from 0x00541870 on (rooms.cpp).
 bool __cdecl cfunc_num_players_in_lobby(script::Struct* params, script::Script* script);              // 0x00541A70
-bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* script);                // 0x005429C0
-bool __cdecl cfunc_fill_player_list(script::Struct* params, script::Script* script);                 // 0x00542AA0
-bool __cdecl cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Script* script);  // 0x00542B00
-bool __cdecl cfunc_rejoin_lobby(script::Struct* params, script::Script* script);                    // 0x00542CE0
-bool __cdecl cfunc_choose_lobby(script::Struct* params, script::Script* script);                    // 0x00542D30
-bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script);                   // 0x00542EE0
+bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* script);                  // 0x005429C0
+bool __cdecl cfunc_fill_player_list(script::Struct* params, script::Script* script);                  // 0x00542AA0
+bool __cdecl cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Script* script); // 0x00542B00
+bool __cdecl cfunc_rejoin_lobby(script::Struct* params, script::Script* script);                      // 0x00542CE0
+bool __cdecl cfunc_choose_lobby(script::Struct* params, script::Script* script);                      // 0x00542D30
+bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script);                     // 0x00542EE0
 
 // The lobby's two list node types (memory::ListNode's layout): its own base (vtable 0x0064CBE0) and the node at its +0x14
 // (vtable 0x0064CBDC). The destructor bodies unlink them (0x00540840 / 0x00540860); the scalar deleting destructors
 // (each vtable's only slot) also free them (0x00540880 / 0x005408C0); 0x00540F80 is another scalar deleting destructor
 // over the first body.
 struct LobbyNode : memory::ListNode {
-    void destroy_body();                         // 0x00540840
-    LobbyNode* teardown(unsigned int flags);     // 0x00540880
+    void destroy_body();                          // 0x00540840
+    LobbyNode* teardown(unsigned int flags);      // 0x00540880
     LobbyNode* destroy_other(unsigned int flags); // 0x00540F80
 };
 struct LobbyListNode : memory::ListNode {
@@ -284,10 +286,10 @@ bool __cdecl cfunc_send_message(script::Struct* params, script::Script* script);
 
 // The packets queued by RoomManager::queue_packet (0x007CCE50, 199 of 0x1C bytes; the count 0x007CE438).
 struct QueuedPacket {
-    int type;          // 1 a qr2 query, 2 NAT negotiation
-    char* data;        // a copy (the game's C runtime malloc), NUL-terminated
+    int type;   // 1 a qr2 query, 2 NAT negotiation
+    char* data; // a copy (the game's C runtime malloc), NUL-terminated
     int length;
-    uint8_t from[16];  // the sender's sockaddr
+    uint8_t from[16]; // the sender's sockaddr
 };
 static_assert(sizeof(QueuedPacket) == 0x1C);
 

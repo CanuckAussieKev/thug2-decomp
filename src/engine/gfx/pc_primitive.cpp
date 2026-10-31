@@ -132,12 +132,23 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
     if (owns_vertices_ == 1) {
         int size = 0;
         switch (vertex_format_) {
-        case 0x2: size = 0xC; break;
-        case 0x42: size = 0x10; break;
-        case 0x102: size = 0x14; break;
-        case 0x142: size = 0x18; break;
-        case 0x152: size = 0x24; break;
-        default: break;
+        case 0x2:
+            size = 0xC;
+            break;
+        case 0x42:
+            size = 0x10;
+            break;
+        case 0x102:
+            size = 0x14;
+            break;
+        case 0x142:
+            size = 0x18;
+            break;
+        case 0x152:
+            size = 0x24;
+            break;
+        default:
+            break;
         }
         if (size) {
             // (the 0x102 layout's allocation is memory::alloc's inline; the others through it)
@@ -184,7 +195,7 @@ void PcPrimitive::render()
         input_port()->SetIndices(quad_indices());
         primitives = vertex_count_ / 2;
         input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertex_count_, 0,
-                                       primitives);
+                                           primitives);
     }
     ++draw_calls();
     drawn_triangles() += primitives;
@@ -195,12 +206,23 @@ void PcPrimitive::blit(const float* positions, const uint32_t* colours, const fl
 {
     int size = 0;
     switch (vertex_format_) {
-    case 0x2: size = 0xC; break;
-    case 0x42: size = 0x10; break;
-    case 0x102: size = 0x14; break;
-    case 0x142: size = 0x18; break;
-    case 0x152: size = 0x24; break;
-    default: break;
+    case 0x2:
+        size = 0xC;
+        break;
+    case 0x42:
+        size = 0x10;
+        break;
+    case 0x102:
+        size = 0x14;
+        break;
+    case 0x142:
+        size = 0x18;
+        break;
+    case 0x152:
+        size = 0x24;
+        break;
+    default:
+        break;
     }
     if (size) {
         stride = size;
@@ -213,7 +235,7 @@ void PcPrimitive::blit(const float* positions, const uint32_t* colours, const fl
             reinterpret_cast<void(__thiscall*)(PcPrimitive*, int, uint32_t)>(vtable[15])(this, i, colours[i]);
         if (uvs)
             reinterpret_cast<void(__thiscall*)(PcPrimitive*, int, float, float)>(vtable[16])(this, i, uvs[2 * i],
-                                                                                            uvs[2 * i + 1]);
+                                                                                             uvs[2 * i + 1]);
         if (normals)
             reinterpret_cast<Vec3>(vtable[11])(this, i, normals[3 * i], normals[3 * i + 1], normals[3 * i + 2]);
     }
@@ -407,30 +429,45 @@ void __cdecl set_primitive_depth_test(int state, int value)
     DWORD function = D3DCMP_LESSEQUAL;
     if (state == 1) {
         switch (value) {
-        case 1: function = D3DCMP_NEVER; break;
-        case 2: function = D3DCMP_ALWAYS; break;
-        case 3: function = D3DCMP_LESSEQUAL; break;
-        case 4: function = D3DCMP_LESS; break;
-        default: break;
+        case 1:
+            function = D3DCMP_NEVER;
+            break;
+        case 2:
+            function = D3DCMP_ALWAYS;
+            break;
+        case 3:
+            function = D3DCMP_LESSEQUAL;
+            break;
+        case 4:
+            function = D3DCMP_LESS;
+            break;
+        default:
+            break;
         }
     }
     input_port()->SetRenderState(D3DRS_ZFUNC, function);
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&render::PcPrimitive::teardown, &render::PcPrimitive::set_texture,
-                &render::PcPrimitive::change_colour, &render::PcPrimitive::prepare_all, &render::PcPrimitive::get_ready,
-                &render::PcPrimitive::render, &render::PcPrimitive::blit, &render::PcPrimitive::change_place,
-                &render::PcPrimitive::set_x, &render::PcPrimitive::set_y, &render::PcPrimitive::set_z, &render::PcPrimitive::set_normal,
-                &render::PcPrimitive::set_normal_x, &render::PcPrimitive::set_normal_y, &render::PcPrimitive::set_normal_z,
-                &render::PcPrimitive::set_vertex_colour, &render::PcPrimitive::set_uv, &render::PcPrimitive::choose_u,
-                &render::PcPrimitive::choose_v, &render::PcPrimitive::fetch_pos_x, &render::PcPrimitive::fetch_pos_y, &render::PcPrimitive::fetch_pos_z,
-                &render::PcPrimitive::get_normal_x, &render::PcPrimitive::get_normal_y, &render::PcPrimitive::get_normal_z,
-                &render::PcPrimitive::get_vertex_colour, &render::PcPrimitive::get_u, &render::PcPrimitive::get_v,
-                &render::PcPrimitive::get_slide, &render::PcPrimitive::translate_x, &render::PcPrimitive::translate_y,
-                &render::PcPrimitive::translate_z, &render::PcPrimitive::scroll_uv, &render::PcPrimitive::scroll_u,
-                &render::PcPrimitive::scroll_v, &render::PcPrimitive::weigh};
+static VtableSlot g_vtable_slots[] = {&render::PcPrimitive::teardown,      &render::PcPrimitive::set_texture,
+                                      &render::PcPrimitive::change_colour, &render::PcPrimitive::prepare_all,
+                                      &render::PcPrimitive::get_ready,     &render::PcPrimitive::render,
+                                      &render::PcPrimitive::blit,          &render::PcPrimitive::change_place,
+                                      &render::PcPrimitive::set_x,         &render::PcPrimitive::set_y,
+                                      &render::PcPrimitive::set_z,         &render::PcPrimitive::set_normal,
+                                      &render::PcPrimitive::set_normal_x,  &render::PcPrimitive::set_normal_y,
+                                      &render::PcPrimitive::set_normal_z,  &render::PcPrimitive::set_vertex_colour,
+                                      &render::PcPrimitive::set_uv,        &render::PcPrimitive::choose_u,
+                                      &render::PcPrimitive::choose_v,      &render::PcPrimitive::fetch_pos_x,
+                                      &render::PcPrimitive::fetch_pos_y,   &render::PcPrimitive::fetch_pos_z,
+                                      &render::PcPrimitive::get_normal_x,  &render::PcPrimitive::get_normal_y,
+                                      &render::PcPrimitive::get_normal_z,  &render::PcPrimitive::get_vertex_colour,
+                                      &render::PcPrimitive::get_u,         &render::PcPrimitive::get_v,
+                                      &render::PcPrimitive::get_slide,     &render::PcPrimitive::translate_x,
+                                      &render::PcPrimitive::translate_y,   &render::PcPrimitive::translate_z,
+                                      &render::PcPrimitive::scroll_uv,     &render::PcPrimitive::scroll_u,
+                                      &render::PcPrimitive::scroll_v,      &render::PcPrimitive::weigh};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

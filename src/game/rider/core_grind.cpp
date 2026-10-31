@@ -50,28 +50,28 @@ constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // (a component)
 constexpr uint32_t kSkaterGap = 0x11B4C67F;           // (a component)
 constexpr uint32_t kTriggerScript = 0x2CA8A299;
 constexpr uint32_t kName = 0xA1DC81F9;
-constexpr uint32_t kNatasDelay = 0x0A477668;          // Physics_Natas_Delay (seconds)
-constexpr uint32_t kKickUpwardAngle = 0xBB357ECB;     // Physics_Point_Rail_Kick_Upward_Angle
-constexpr uint32_t kPointRailSpeedBoost = 0xA3EF4833; // Point_Rail_Speed_Boost
-constexpr uint32_t kRailSpeedBoost = 0x457BB395;      // Rail_Speed_Boost
-constexpr uint32_t kRailRegrabDelay = 0x2B4645AD;          // Rail_minimum_rerail_time
-constexpr uint32_t kJumpAdjustSpeed = 0x896C8888;     // jump_adjust_speed
-constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;         // Skater_Max_Max_Speed_Stat
-constexpr uint32_t kLipAllowAngle = 0x8157C5D9;       // LipAllowAngle
+constexpr uint32_t kNatasDelay = 0x0A477668;            // Physics_Natas_Delay (seconds)
+constexpr uint32_t kKickUpwardAngle = 0xBB357ECB;       // Physics_Point_Rail_Kick_Upward_Angle
+constexpr uint32_t kPointRailSpeedBoost = 0xA3EF4833;   // Point_Rail_Speed_Boost
+constexpr uint32_t kRailSpeedBoost = 0x457BB395;        // Rail_Speed_Boost
+constexpr uint32_t kRailRegrabDelay = 0x2B4645AD;       // Rail_minimum_rerail_time
+constexpr uint32_t kJumpAdjustSpeed = 0x896C8888;       // jump_adjust_speed
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;          // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kLipAllowAngle = 0x8157C5D9;         // LipAllowAngle
 constexpr uint32_t kLipAllowAngleOverride = 0xF3B6F95E; // LipAllowAngle_Override
-constexpr uint32_t kLipHorizontalAngle = 0xE2A85FBB;  // LipPlayerHorizontalAngle
-constexpr uint32_t kLipRampVertAngle = 0x61079462;    // LipRampVertAngle
-constexpr uint32_t kLipTrick = 0x1647CF96;            // LipTrick (a script)
-constexpr uint32_t kGroundSnapUp = 0xE4D79235;        // Physics_Ground_Snap_Up
-constexpr uint32_t kBadLedgeDropDown = 0x9CD7ED5C;    // Rail_Bad_Ledge_Drop_Down_Dist
-constexpr uint32_t kBadLedgeSide = 0x31669752;        // Rail_Bad_Ledge_Side_Dist
-constexpr uint32_t kRailTolerance = 0xD0688D4E;       // Rail_Tolerance
-constexpr uint32_t kPointRail = 0xB8048F1D;           // PointRail (event)
-constexpr uint32_t kPointRailSpin = 0xDA82D6D6;       // PointRailSpin (event)
-constexpr uint32_t kDisallowGrind = 0x96DCA7DC;       // Physics_Wallplant_Disallow_Grind_Duration
-constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15;    // Rail_Corner_Leave_Angle
-constexpr uint32_t kRailManagerType = 0x1CDFB2A3;     // RailManager (a component)
-constexpr uint32_t kParkEditorLevel = 0xD443A2BC;     // (the park editor's level)
+constexpr uint32_t kLipHorizontalAngle = 0xE2A85FBB;    // LipPlayerHorizontalAngle
+constexpr uint32_t kLipRampVertAngle = 0x61079462;      // LipRampVertAngle
+constexpr uint32_t kLipTrick = 0x1647CF96;              // LipTrick (a script)
+constexpr uint32_t kGroundSnapUp = 0xE4D79235;          // Physics_Ground_Snap_Up
+constexpr uint32_t kBadLedgeDropDown = 0x9CD7ED5C;      // Rail_Bad_Ledge_Drop_Down_Dist
+constexpr uint32_t kBadLedgeSide = 0x31669752;          // Rail_Bad_Ledge_Side_Dist
+constexpr uint32_t kRailTolerance = 0xD0688D4E;         // Rail_Tolerance
+constexpr uint32_t kPointRail = 0xB8048F1D;             // PointRail (event)
+constexpr uint32_t kPointRailSpin = 0xDA82D6D6;         // PointRailSpin (event)
+constexpr uint32_t kDisallowGrind = 0x96DCA7DC;         // Physics_Wallplant_Disallow_Grind_Duration
+constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15;      // Rail_Corner_Leave_Angle
+constexpr uint32_t kRailManagerType = 0x1CDFB2A3;       // RailManager (a component)
+constexpr uint32_t kParkEditorLevel = 0xD443A2BC;       // (the park editor's level)
 
 // The trigger events (const int[3]).
 
@@ -83,7 +83,10 @@ maths::Vec4& acid_hold() { return g_acid_hold; }
 
 const maths::Vec4 kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
-void change_phase(void* component, int state) { static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state); }
+void change_phase(void* component, int state)
+{
+    static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
+}
 void* get_component(void* component, uint32_t offset) { return get_at<void*>(component, offset); }
 
 // The rail's terrain (the node being ground) told to the flags (0x005196A0) and the sound component.
@@ -116,8 +119,7 @@ void trigger_rail_node(void* component, const int* events)
             static_cast<objects::MovingSurfaceModule*>(ride)->stop_riding();
     }
     static_cast<objects::ActivationZoneModule*>(get_component(component, kActivationZoneSlot))
-        ->get_trigger_node(events, get_at<uint32_t>(component, kRailScriptNode), nullptr,
-                      ride_object);
+        ->get_trigger_node(events, get_at<uint32_t>(component, kRailScriptNode), nullptr, ride_object);
 }
 
 // A feeler from the skater to the point: false when it hits something more than 6 from the point. The distance
@@ -217,7 +219,8 @@ void kick_off_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool 
 
     script::Struct* script = level_nodes::fetch_vertex(get_at<objects::GrindPoint*>(c, kRailNode)->label_, true);
     script->read_hash_value(kName, &get_at<uint32_t>(c, kRailScriptNode), 1);
-    static_cast<objects::MoveExecutor*>(get_component(c, kSkaterComponent))->pass_to_trick_objects(get_at<uint32_t>(c, kRailScriptNode));
+    static_cast<objects::MoveExecutor*>(get_component(c, kSkaterComponent))
+        ->pass_to_trick_objects(get_at<uint32_t>(c, kRailScriptNode));
     uint32_t trigger_script = 0;
     if (script->read_hash_value(kTriggerScript, &trigger_script, 0))
         trigger_rail_node(c, kGrindEvents);
@@ -232,7 +235,8 @@ void kick_off_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool 
     if (from_object && moving_against_facing(object_of(c))) {
         float adjust = static_cast<float>(jump_adjust_speed() * 1.1f);
         const maths::Vec4& w = vector_at(object_of(c), kVelocity);
-        double speed = (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
+        double speed =
+            (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
         if (static_cast<double>(adjust) * adjust > speed) {
             vector_at(object_of(c), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
             along = vector_at(object_of(c), kFacing);
@@ -309,7 +313,8 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
     right.x = -u.z;
     right.z = u.x;
     matrix_at(c, kDisplayMatrix) = matrix_at(object_of(c), kMatrix);
-    auto* gap = static_cast<objects::RiderGapTracker*>(static_cast<objects::GameEntity*>(object_of(c))->fetch_module(kSkaterGap));
+    auto* gap = static_cast<objects::RiderGapTracker*>(
+        static_cast<objects::GameEntity*>(object_of(c))->fetch_module(kSkaterGap));
     gap->scan_for_gaps(0, 0x100000);
     c->trigger_rail_script(kLipEvents);
     get_at<uint8_t>(get_component(c, kSkaterComponent), 0xA24) = 0;
@@ -319,7 +324,8 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
         static_cast<objects::Entity*>(object_of(c))->own_script_ =
             memory ? static_cast<script::Script*>(memory)->make_new() : nullptr;
     }
-    static_cast<objects::Entity*>(object_of(c))->own_script_->bind_script(kLipTrick, nullptr, static_cast<objects::Entity*>(object_of(c)));
+    static_cast<objects::Entity*>(object_of(c))
+        ->own_script_->bind_script(kLipTrick, nullptr, static_cast<objects::Entity*>(object_of(c)));
     static_cast<objects::Entity*>(object_of(c))->own_script_->tick_frame();
     get_at<uint8_t>(flags_of(c), 0xE0) = 1; // (without its time)
     set_rail_terrain(c);
@@ -345,10 +351,10 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
     if (bit_mark(c, 0xA8)) {
         // (From an acid drop: its hold velocity added.)
         debug::printf("M:%s:%i: %s\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9116,
-                    "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
+                      "GRINDING FROM ACID DROP"); // "M:%s:%i: %s" ... "GRINDING FROM ACID DROP"
         const maths::Vec4& hold = acid_hold();
         debug::printf("D:%s:%i: acid_hold = %g, %g, %g\n", "mponents\\SkaterCorePhysicsComponent.cpp", 9117,
-                    static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
+                      static_cast<double>(hold.x), static_cast<double>(hold.y), static_cast<double>(hold.z));
         maths::Vec4& v = vector_at(object_of(c), kVelocity);
         v.x = acid_hold().x + v.x;
         v.y = acid_hold().y + v.y;
@@ -370,7 +376,8 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
             return;
     } else {
         sign = -1.0f;
-        if (!node->last_value_ && *get_at<objects::GrindRailHub*>(c, kRailManager)->get_absolute_pos(&end, node) == *point)
+        if (!node->last_value_ &&
+            *get_at<objects::GrindRailHub*>(c, kRailManager)->get_absolute_pos(&end, node) == *point)
             return;
     }
     c->trigger_rail_script(kGrindEvents);
@@ -387,13 +394,14 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
     if (from_object && moving_against_facing(object)) {
         double adjust = static_cast<double>(jump_adjust_speed()) * 1.1f;
         const maths::Vec4& w = vector_at(object, kVelocity);
-        double speed = (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x) + static_cast<double>(w.y) * w.y;
+        double speed =
+            (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x) + static_cast<double>(w.y) * w.y;
         if (adjust * adjust > speed) {
             vector_at(object_of(c), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
             const maths::Vec4& f = vector_at(object_of(c), kFacing);
-            sign = maths::get_sign(static_cast<float>((static_cast<double>(direction.z) * f.z +
-                                                 static_cast<double>(direction.y) * f.y) +
-                                                static_cast<double>(direction.x) * f.x));
+            sign = maths::get_sign(
+                static_cast<float>((static_cast<double>(direction.z) * f.z + static_cast<double>(direction.y) * f.y) +
+                                   static_cast<double>(direction.x) * f.x));
         }
     }
     vector_at(object_of(c), kVelocity).y = kept_y;
@@ -444,19 +452,20 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
     bool right_hit = get_feel(c, 0x10, 0);
     get_at<uint8_t>(c, 0x249) = (left_hit && !left_side) || (right_hit && left_side);
     get_at<uint8_t>(c, 0x248) = left_hit || right_hit;
-    if (thaw_bmx::live_now(c)) // (not original: THAW 0x005E27F5 - on the bike, a bad ledge on that side: the other side)
+    if (thaw_bmx::live_now(
+            c)) // (not original: THAW 0x005E27F5 - on the bike, a bad ledge on that side: the other side)
         left_side = thaw_bmx::grind_side(c, left_side, get_at<uint8_t>(c, 0x249) != 0);
 
     // Grinding sideways (across the skater's right) or which way round.
     void* o = object_of(c);
     const maths::Vec4& right = vector_at(o, kRight);
     const maths::Vec4& facing = vector_at(o, kFacing);
-    float across_right = static_cast<float>((static_cast<double>(direction.z) * right.z +
-                                            static_cast<double>(direction.y) * right.y) +
-                                           static_cast<double>(direction.x) * right.x);
-    float along_facing = static_cast<float>((static_cast<double>(direction.z) * facing.z +
-                                            static_cast<double>(direction.y) * facing.y) +
-                                           static_cast<double>(direction.x) * facing.x);
+    float across_right =
+        static_cast<float>((static_cast<double>(direction.z) * right.z + static_cast<double>(direction.y) * right.y) +
+                           static_cast<double>(direction.x) * right.x);
+    float along_facing =
+        static_cast<float>((static_cast<double>(direction.z) * facing.z + static_cast<double>(direction.y) * facing.y) +
+                           static_cast<double>(direction.x) * facing.x);
     float across_amount = std::fabs(across_right);
     bool sideways = false;
     if (script::fetch_float(kRailTolerance) > across_amount) {
@@ -471,13 +480,14 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
     void* skater = get_component(c, kSkaterComponent);
     get_at<uint8_t>(skater, 0xA24) = 0;
     // The grind trick: the skater component's (0x00522E80), else the physics' pick by the d-pad (0x005004B0).
-    if (!static_cast<objects::MoveExecutor*>(skater)->do_extra_grind_trick(left_side, sideways, get_at<uint8_t>(c, 0x34C) != 0,
-                                                                        bit_mark(c, 0x28) != 0)) {
+    if (!static_cast<objects::MoveExecutor*>(skater)->do_extra_grind_trick(
+            left_side, sideways, get_at<uint8_t>(c, 0x34C) != 0, bit_mark(c, 0x28) != 0)) {
         if (bike) // (not original: THAW 0x005E2935 - on the bike R1 held: the stall)
             thaw_bmx::grind_stall(c, start_velocity, direction);
         const uint8_t* input = input_of(c);
         int pad = objects::d_pad_direction(input[0x20], input[0x40], input[0x60], input[0x80]);
-        c->start_grind_trick(static_cast<uint32_t>(pad), left_side, sideways, get_at<uint8_t>(c, 0x34C) != 0, bit_mark(c, 0x28) != 0);
+        c->start_grind_trick(static_cast<uint32_t>(pad), left_side, sideways, get_at<uint8_t>(c, 0x34C) != 0,
+                             bit_mark(c, 0x28) != 0);
     }
     get_at<int>(c, 0x234) = get_now();
 }
@@ -485,8 +495,8 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
 } // namespace
 
 // 0x0050A770
-void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPoint* node, objects::GrindRailHub* manager,
-                                      bool no_lip_trick, bool from_object)
+void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPoint* node,
+                                      objects::GrindRailHub* manager, bool no_lip_trick, bool from_object)
 {
     const uint8_t* input = input_of(this);
     auto* flip_and_rotate = static_cast<objects::RiderSpinAndFlip*>(
@@ -494,10 +504,12 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     flip_and_rotate->do_after_anim();
     if (get_at<objects::GrindPoint*>(this, kRailNode) != node) {
         // (A new rail: its node's index to 0x005627B0 of +0x1520's +0x18.)
-        uint32_t index = static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) -
-                                               reinterpret_cast<uint8_t*>(get_at<objects::GrindPoint*>(manager, 0x40))) /
-                         sizeof(objects::GrindPoint);
-        static_cast<modules::PointTally*>(get_at<void*>(get_component(this, 0x1520), 0x18))->refresh_bot_check(static_cast<int>(index));
+        uint32_t index =
+            static_cast<uint32_t>(reinterpret_cast<uint8_t*>(node) -
+                                  reinterpret_cast<uint8_t*>(get_at<objects::GrindPoint*>(manager, 0x40))) /
+            sizeof(objects::GrindPoint);
+        static_cast<modules::PointTally*>(get_at<void*>(get_component(this, 0x1520), 0x18))
+            ->refresh_bot_check(static_cast<int>(index));
     }
     get_at<objects::GrindRailHub*>(this, kRailManager) = manager;
     get_at<objects::GrindPoint*>(this, kRailNode) = node;
@@ -519,9 +531,12 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     // skater's right near level (the allow angle - its override for nodes flagged 1).
     float allow = static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngle)) * kDegrees));
     if (node->flag_bits_ & 1)
-        allow = static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngleOverride)) * kDegrees));
-    float horizontal = static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipHorizontalAngle)) * kDegrees));
-    float ramp_vert = static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kLipRampVertAngle)) * kDegrees));
+        allow =
+            static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngleOverride)) * kDegrees));
+    float horizontal =
+        static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipHorizontalAngle)) * kDegrees));
+    float ramp_vert =
+        static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kLipRampVertAngle)) * kDegrees));
     bool lip = true;
     if (!get_at<uint8_t>(this, 0x375)) {
         void* object = object_of(this);
@@ -561,8 +576,10 @@ void SkaterPhysicsModule::try_grind(bool always)
     // Soon after leaving a rail (within +0x23C of +0x234; not in the park editor), only a rail lining up.
     float min_alignment = 1.0f;
     if (get_at<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) != kParkEditorLevel &&
-        static_cast<uint32_t>(frame_clock::game_clock_time_since(get_at<int>(this, 0x234))) < get_at<uint32_t>(this, 0x23C))
-        min_alignment = static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
+        static_cast<uint32_t>(frame_clock::game_clock_time_since(get_at<int>(this, 0x234))) <
+            get_at<uint32_t>(this, 0x23C))
+        min_alignment =
+            static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees));
     auto* manager = get_at<objects::GrindRailHub*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24);
     maths::Vec4 point;
     objects::GrindPoint* node;
@@ -604,4 +621,4 @@ void SkaterPhysicsModule::try_grind(bool always)
     }
 }
 
-} // namespace Skater
+} // namespace skater

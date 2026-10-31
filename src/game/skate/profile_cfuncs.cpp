@@ -149,7 +149,7 @@ bool __cdecl cfunc_get_goals_completed(Struct* params, Script* script)
     int goals = get_career()->count_goals(level);
     char text[100];
     std::snprintf(text, sizeof(text), "%d/9", goals);
-    result_params(script)->append_word(0xC661FE79u, script::kQbvalString, text);  // (name unknown)
+    result_params(script)->append_word(0xC661FE79u, script::kQbvalString, text);    // (name unknown)
     result_params(script)->append_word(0xA43DC969u, script::kQbvalString, kNoText); // (name unknown)
     return true;
 }
@@ -172,11 +172,13 @@ bool __cdecl cfunc_get_next_level_requirements(Struct*, Script* script)
         if (step->has_bare_flag(0x56907F8Bu) || step->has_bare_flag(0x23BBA846u)) // (names unknown) medals
             step->fetch_int_value(0u, &medals_needed, 0);
         if (goals < goals_needed) {
-            std::snprintf(text, sizeof(text), script::fetch_text(0x407BFD24u), goals_needed - goals); // cfuncs_str_goalsfornextlevel
+            std::snprintf(text, sizeof(text), script::fetch_text(0x407BFD24u),
+                          goals_needed - goals); // cfuncs_str_goalsfornextlevel
             break;
         }
         if (medals < medals_needed) {
-            std::snprintf(text, sizeof(text), script::fetch_text(0x4F3E243Eu), medals_needed - medals); // cfuncs_str_medalsfornextlevel
+            std::snprintf(text, sizeof(text), script::fetch_text(0x4F3E243Eu),
+                          medals_needed - medals); // cfuncs_str_medalsfornextlevel
             break;
         }
     }
@@ -219,7 +221,7 @@ bool __cdecl cfunc_remember_temporary_appearance(Struct* params, Script*)
         reinterpret_cast<gfx::ModelLook*>(appearance)->read_in(structure, true);
         source = appearance;
     } else {
-        int player; // (asserted: used as it is)
+        int player;                                       // (asserted: used as it is)
         params->fetch_int_value(0x67E6859Au, &player, 1); // player
         source = reinterpret_cast<uint8_t*>(profiles->fetch_account(player));
     }

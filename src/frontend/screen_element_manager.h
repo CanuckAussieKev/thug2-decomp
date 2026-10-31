@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The screen element manager (MenuSystem::UiTree, 0x6A4 bytes, the singleton 0x00701440 with its use
 // count 0x00701444): the manager of every screen element object, the root of the tree (laid out each frame), the
@@ -26,20 +26,20 @@ class UiTree : public objects::ObjectHubBase {
 public:
     // A focused element of one controller's list (0x18 bytes).
     struct FocusEntry {
-        ElementPtr element;   // +0x00 (null: a free entry)
-        uint32_t id;          // +0x0C the element's id
-        FocusEntry* next;     // +0x10
-        bool tried;           // +0x14 already offered the current pad event
-        bool marked;          // +0x15 its focus is being dropped (an ancestor lost its focus flag)
+        ElementPtr element; // +0x00 (null: a free entry)
+        uint32_t id;        // +0x0C the element's id
+        FocusEntry* next;   // +0x10
+        bool tried;         // +0x14 already offered the current pad event
+        bool marked;        // +0x15 its focus is being dropped (an ancestor lost its focus flag)
         uint8_t pad16[2];
     };
     static_assert(sizeof(FocusEntry) == 0x18, "layout must match the original");
     // An element with a pad-event priority (0x18 bytes).
     struct PriorityEntry {
-        ElementPtr element;   // +0x00
-        uint32_t id;          // +0x0C
-        uint32_t priority;    // +0x10
-        bool active;          // +0x14
+        ElementPtr element; // +0x00
+        uint32_t id;        // +0x0C
+        uint32_t priority;  // +0x10
+        bool active;        // +0x14
         uint8_t pad15[3];
     };
     static_assert(sizeof(PriorityEntry) == 0x18, "layout must match the original");
@@ -124,18 +124,18 @@ public:
     // 0x004AB5D0: elements gone leave their slots; the top one is shown.
     void update_priorities();
 
-    objects::SignalReceiver listener_;                  // +0x28
-    ElementPtr tree_root_;                              // +0x44
-    ElementPtr resolving_;                         // +0x50 resolve_id's element so far
-    FocusEntry focus_entries_[kFocusEntries];        // +0x5C
-    FocusEntry* focus_lists_[2];                    // +0x4DC one per controller
-    bool focus_dirty_[2];                      // +0x4E4
+    objects::SignalReceiver listener_;        // +0x28
+    ElementPtr tree_root_;                    // +0x44
+    ElementPtr resolving_;                    // +0x50 resolve_id's element so far
+    FocusEntry focus_entries_[kFocusEntries]; // +0x5C
+    FocusEntry* focus_lists_[2];              // +0x4DC one per controller
+    bool focus_dirty_[2];                     // +0x4E4
     uint8_t pad4e6_[2];
-    int num_priorities_;                             // +0x4E8
-    PriorityEntry priorities_[kPriorities];         // +0x4EC
-    uint32_t pad_event_types_[kPadEventSlots];     // +0x5DC (from the script array 0x0064A10C)
-    int pad_event_kind_count_;                          // +0x69C
-    bool check_device_;                              // +0x6A0 (pad events of other devices ignored)
+    int num_priorities_;                       // +0x4E8
+    PriorityEntry priorities_[kPriorities];    // +0x4EC
+    uint32_t pad_event_types_[kPadEventSlots]; // +0x5DC (from the script array 0x0064A10C)
+    int pad_event_kind_count_;                 // +0x69C
+    bool check_device_;                        // +0x6A0 (pad events of other devices ignored)
     uint8_t pad6a1_[3];
 };
 
@@ -147,4 +147,4 @@ void delete_screen_element_manager();
 // 0x004AB910 (cdecl): the score text element of `player` (id the_score + player) shows `text`.
 void set_score_text(const char* text, int player);
 
-} // namespace Front
+} // namespace frontend

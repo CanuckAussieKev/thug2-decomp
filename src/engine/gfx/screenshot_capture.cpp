@@ -24,12 +24,17 @@ sys::screenshot::PixelFormat get_map(D3DFORMAT format)
 {
     using sys::screenshot::PixelFormat;
     switch (format) {
-    case D3DFMT_X8R8G8B8: return PixelFormat::kX8r8g8b8;
-    case D3DFMT_A8R8G8B8: return PixelFormat::kA8r8g8b8;
-    case D3DFMT_R5G6B5: return PixelFormat::kR5g6b5;
+    case D3DFMT_X8R8G8B8:
+        return PixelFormat::kX8r8g8b8;
+    case D3DFMT_A8R8G8B8:
+        return PixelFormat::kA8r8g8b8;
+    case D3DFMT_R5G6B5:
+        return PixelFormat::kR5g6b5;
     case D3DFMT_X1R5G5B5:
-    case D3DFMT_A1R5G5B5: return PixelFormat::kX1r5g5b5;
-    default: return PixelFormat::kUnknown;
+    case D3DFMT_A1R5G5B5:
+        return PixelFormat::kX1r5g5b5;
+    default:
+        return PixelFormat::kUnknown;
     }
 }
 

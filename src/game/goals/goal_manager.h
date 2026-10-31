@@ -14,7 +14,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
@@ -38,22 +38,22 @@ public:
     static constexpr int kLevels = 21;
 
     lists::TypedLookupTable<Objective> goals_; // +0x00
-    script::Struct* goal_data_;          // +0x14: each goal's saved state (a structure by goal id), and the
-                                          // GoalManager_Params component (the manager's difficulty_levels)
-    GoalListHead active_goals_;           // +0x18: the active goals
-    uint32_t previous_objective_;                  // +0x2C: the last goal started that can be retried (0: none)
-    uint32_t unknown30_;                 // +0x30 (not set by the constructor)
-    int tagging_style_;                   // +0x34 (GoalManager_SetGraffitiMode)
-    int objective_score_;                     // +0x38: counted up with each goal points shown
-    int total_goal_points_;                // +0x3C
-    int goals_beaten_;                    // +0x40: the goals beaten (the last of a chain, not edited goals)
-    bool all_unlocked_;                   // +0x44: every goal seen / every pro goal unlocked (the cheats)
-    bool start_allowed_;                  // +0x45 (true; GoalManager_SetCanStartGoal)
+    script::Struct* goal_data_;                // +0x14: each goal's saved state (a structure by goal id), and the
+                                               // GoalManager_Params component (the manager's difficulty_levels)
+    GoalListHead active_goals_;                // +0x18: the active goals
+    uint32_t previous_objective_;              // +0x2C: the last goal started that can be retried (0: none)
+    uint32_t unknown30_;                       // +0x30 (not set by the constructor)
+    int tagging_style_;                        // +0x34 (GoalManager_SetGraffitiMode)
+    int objective_score_;                      // +0x38: counted up with each goal points shown
+    int total_goal_points_;                    // +0x3C
+    int goals_beaten_;                         // +0x40: the goals beaten (the last of a chain, not edited goals)
+    bool all_unlocked_;                        // +0x44: every goal seen / every pro goal unlocked (the cheats)
+    bool start_allowed_;                       // +0x45 (true; GoalManager_SetCanStartGoal)
     uint8_t pad46_[2];
-    uint32_t backer_;                   // +0x48 (GoalManager_SetSponsor)
-    script::Struct* team_;              // +0x4C: the team (a component per member: 1 if used)
+    uint32_t backer_;                               // +0x48 (GoalManager_SetSponsor)
+    script::Struct* team_;                          // +0x4C: the team (a component per member: 1 if used)
     int group_unlocked_[kLevels * kGroupsPerLevel]; // +0x50: level * 10 + group - 1 (groups are numbered from 1)
-    script::Struct* args_;            // +0x398: the difficulty level by game mode name
+    script::Struct* args_;                          // +0x398: the difficulty level by game mode name
 
     // 0x0055D9C0: the constructor: empty tables and list, three new structures, every group locked. Returns this.
     GoalManager* make_new();
@@ -237,13 +237,13 @@ public:
     int count_live_goals(bool all);
 };
 static_assert(offsetof(GoalManager, goal_data_) == 0x14 && offsetof(GoalManager, active_goals_) == 0x18 &&
-                  offsetof(GoalManager, previous_objective_) == 0x2C && offsetof(GoalManager, objective_score_) == 0x38 &&
-                  offsetof(GoalManager, all_unlocked_) == 0x44 && offsetof(GoalManager, team_) == 0x4C &&
-                  offsetof(GoalManager, group_unlocked_) == 0x50 && offsetof(GoalManager, args_) == 0x398 &&
-                  sizeof(GoalManager) == 0x39C,
+                  offsetof(GoalManager, previous_objective_) == 0x2C &&
+                  offsetof(GoalManager, objective_score_) == 0x38 && offsetof(GoalManager, all_unlocked_) == 0x44 &&
+                  offsetof(GoalManager, team_) == 0x4C && offsetof(GoalManager, group_unlocked_) == 0x50 &&
+                  offsetof(GoalManager, args_) == 0x398 && sizeof(GoalManager) == 0x39C,
               "layout must match the original");
 
 // 0x005591B0: the skate module's goal manager.
 GoalManager* get_objective_board();
 
-} // namespace Game
+} // namespace goals

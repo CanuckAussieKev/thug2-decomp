@@ -32,52 +32,52 @@ using namespace physics;
 namespace {
 
 constexpr uint32_t kTrickKeyName = 0x7323E97C;           // x (the trick button's name)
-constexpr uint32_t kWallRideWindow = 0x5D241B00;        // Wall_Ride_Triangle_Window (seconds)
-constexpr uint32_t kGroundSnapUp = 0xE4D79235;          // Physics_Ground_Snap_Up
-constexpr uint32_t kWallplantDistance = 0xDC2C15AD;     // Physics_vert_wallplant_distance
+constexpr uint32_t kWallRideWindow = 0x5D241B00;         // Wall_Ride_Triangle_Window (seconds)
+constexpr uint32_t kGroundSnapUp = 0xE4D79235;           // Physics_Ground_Snap_Up
+constexpr uint32_t kWallplantDistance = 0xDC2C15AD;      // Physics_vert_wallplant_distance
 constexpr uint32_t kWallplantVelocityLimit = 0x273C9920; // Physics_vert_wallplant_vertical_velocity_limit
-constexpr uint32_t kWallplantBoost = 0x751DBCB4;        // Physics_vert_wallplant_boost
-constexpr uint32_t kVertWallPlant = 0x3722E9BF;         // Vert_WallPlant (an event)
-constexpr uint32_t kMinLeanPushSpeed = 0xBC33D268;      // Skate_min_wall_lean_push_speed
-constexpr uint32_t kLeanPushTime = 0x435F0653;          // Skate_wall_lean_push_time
-constexpr uint32_t kLeanPushLength = 0x4B8BAB12;        // Skate_wall_lean_push_length
-constexpr uint32_t kLeanPushHeight = 0xBFBBD0AF;        // Skate_wall_lean_push_height
-constexpr uint32_t kEyeLevelStat = 0x542CF0C7;            // Skater_default_head_height
-constexpr uint32_t kIgnoreCeilings = 0x2757ED2C;        // Physics_Ignore_Ceilings_After_Wallplant_Duration (ms)
-constexpr uint32_t kForwardHeight = 0xD4205C9B;         // Skater_First_Forward_Collision_Height
-constexpr uint32_t kForwardLength = 0x20102726;         // Skater_First_Forward_Collision_Length
-constexpr uint32_t kDontSlowAngle = 0x1483FD01;         // Wall_Bounce_Dont_Slow_Angle (degrees)
-constexpr uint32_t kDontFlailSpeed = 0xBE0A58A0;        // Wall_Bounce_Dont_Flail_Speed
-constexpr uint32_t kFlailLeft = 0xB4101D70;             // FlailLeft (an event)
-constexpr uint32_t kFlailRight = 0x756A7535;            // FlailRight (an event)
-constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;       // Skater_Max_Max_Speed_Stat
-constexpr uint32_t kVehicleLandSound = 0xD478C96D;      // vehicle_play_land_sound (a script)
+constexpr uint32_t kWallplantBoost = 0x751DBCB4;         // Physics_vert_wallplant_boost
+constexpr uint32_t kVertWallPlant = 0x3722E9BF;          // Vert_WallPlant (an event)
+constexpr uint32_t kMinLeanPushSpeed = 0xBC33D268;       // Skate_min_wall_lean_push_speed
+constexpr uint32_t kLeanPushTime = 0x435F0653;           // Skate_wall_lean_push_time
+constexpr uint32_t kLeanPushLength = 0x4B8BAB12;         // Skate_wall_lean_push_length
+constexpr uint32_t kLeanPushHeight = 0xBFBBD0AF;         // Skate_wall_lean_push_height
+constexpr uint32_t kEyeLevelStat = 0x542CF0C7;           // Skater_default_head_height
+constexpr uint32_t kIgnoreCeilings = 0x2757ED2C;         // Physics_Ignore_Ceilings_After_Wallplant_Duration (ms)
+constexpr uint32_t kForwardHeight = 0xD4205C9B;          // Skater_First_Forward_Collision_Height
+constexpr uint32_t kForwardLength = 0x20102726;          // Skater_First_Forward_Collision_Length
+constexpr uint32_t kDontSlowAngle = 0x1483FD01;          // Wall_Bounce_Dont_Slow_Angle (degrees)
+constexpr uint32_t kDontFlailSpeed = 0xBE0A58A0;         // Wall_Bounce_Dont_Flail_Speed
+constexpr uint32_t kFlailLeft = 0xB4101D70;              // FlailLeft (an event)
+constexpr uint32_t kFlailRight = 0x756A7535;             // FlailRight (an event)
+constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;        // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kVehicleLandSound = 0xD478C96D;       // vehicle_play_land_sound (a script)
 
 constexpr uint32_t kDriving = 0x2ED;
-constexpr uint32_t kSurface = 0xFA;           // (the feeler's hit: a byte of its face)
+constexpr uint32_t kSurface = 0xFA; // (the feeler's hit: a byte of its face)
 constexpr uint32_t kHitObjectChecksum = 0x100;
-constexpr uint32_t kWallplanted = 0x4E8;      // (a vert wall plant done: not again until reset)
+constexpr uint32_t kWallplanted = 0x4E8; // (a vert wall plant done: not again until reset)
 constexpr uint32_t kWallplantTime = 0x4E0;
-constexpr uint32_t kWallDirection = 0x38C;    // (the wall last ridden or planted on, it seems)
-constexpr uint32_t kTakeOffHeight = 0x11C;    // (in the flags block)
-constexpr uint32_t kTrickRotation = 0x13A4;   // (the skater component's rotation total)
+constexpr uint32_t kWallDirection = 0x38C;  // (the wall last ridden or planted on, it seems)
+constexpr uint32_t kTakeOffHeight = 0x11C;  // (in the flags block)
+constexpr uint32_t kTrickRotation = 0x13A4; // (the skater component's rotation total)
 
-constexpr float kToMilliseconds = 1000.0f;    // 0x006453C0
-constexpr float kFeelerDepth = -200.0f;       // (0xC3480000)
-constexpr float kMinWallplantHeight = 60.0f;  // 0x00645EA0
-constexpr float kMaxWallplantTilt = 0.1f;     // 0x00645D74
-constexpr float kMilliseconds = 0.001f;       // 0x006461D8
-constexpr float kUnsignedOffset = 4294967296.0f; // 0x006453B4
-constexpr float kCeilingSteepest = -0.1f;     // 0x0064BD44
-constexpr float kCeilingNudge = 0.001f;       // (0x3A83126F)
-constexpr float kNoHeadHeight = 6.0f;         // 0x00646284
-constexpr float kWallOffset = 18.0f;          // 0x0064AAAC
-constexpr float kWallFlat = 0.01f;            // 0x0064544C
-constexpr float kWallPushOut = 0.1f;          // 0x00645D74
-constexpr float kBounceBack = 6.0f;           // 0x00646284
+constexpr float kToMilliseconds = 1000.0f;         // 0x006453C0
+constexpr float kFeelerDepth = -200.0f;            // (0xC3480000)
+constexpr float kMinWallplantHeight = 60.0f;       // 0x00645EA0
+constexpr float kMaxWallplantTilt = 0.1f;          // 0x00645D74
+constexpr float kMilliseconds = 0.001f;            // 0x006461D8
+constexpr float kUnsignedOffset = 4294967296.0f;   // 0x006453B4
+constexpr float kCeilingSteepest = -0.1f;          // 0x0064BD44
+constexpr float kCeilingNudge = 0.001f;            // (0x3A83126F)
+constexpr float kNoHeadHeight = 6.0f;              // 0x00646284
+constexpr float kWallOffset = 18.0f;               // 0x0064AAAC
+constexpr float kWallFlat = 0.01f;                 // 0x0064544C
+constexpr float kWallPushOut = 0.1f;               // 0x00645D74
+constexpr float kBounceBack = 6.0f;                // 0x00646284
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kHalfPi = 1.57079637f;        // 0x00645484
-constexpr float kPi = 3.14159274f;            // 0x0064BB7C
+constexpr float kHalfPi = 1.57079637f;             // 0x00645484
+constexpr float kPi = 3.14159274f;                 // 0x0064BB7C
 
 objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
 
@@ -89,7 +89,10 @@ void check_triggers(void* component, const int* kind)
 }
 
 // Whether a trigger's script took over (+0x1530's +0x26).
-bool trigger_took_over(void* component) { return get_at<uint8_t>(get_at<void*>(component, kStateModuleSlot), 0x26) != 0; }
+bool trigger_took_over(void* component)
+{
+    return get_at<uint8_t>(get_at<void*>(component, kStateModuleSlot), 0x26) != 0;
+}
 
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
@@ -119,7 +122,8 @@ bool SkaterPhysicsModule::vert_wallplant()
     uint8_t* flags = flags_of(this);
     if (!flags[0x30] || !flags[0xD8])
         return false;
-    if (!(get_at<float>(get_at<void*>(this, kSkaterComponent), kTrickRotation) == 0.0f) || get_at<uint8_t>(this, kWallplanted))
+    if (!(get_at<float>(get_at<void*>(this, kSkaterComponent), kTrickRotation) == 0.0f) ||
+        get_at<uint8_t>(this, kWallplanted))
         return false;
     // The wall within reach below the skater's up axis.
     void* object = object_of(this);
@@ -130,7 +134,8 @@ bool SkaterPhysicsModule::vert_wallplant()
     vector_at(this, kProbeTip) += vector_at(object_of(this), kPosition);
     if (!probe_touches_zone(0x10, 0))
         return false;
-    float distance = static_cast<float>(length_unrounded(vector_at(object_of(this), kPosition) - vector_at(this, kHitPoint)));
+    float distance =
+        static_cast<float>(length_unrounded(vector_at(object_of(this), kPosition) - vector_at(this, kHitPoint)));
     if (static_cast<double>(script::fetch_int_value(kWallplantDistance)) < distance)
         return false;
     object = object_of(this);
@@ -148,7 +153,7 @@ bool SkaterPhysicsModule::vert_wallplant()
     object = object_of(this);
     if (vector_at(object, kVelocity).y >= 0.0f)
         vector_at(object, kVelocity).y = static_cast<float>(script::fetch_int_value(kWallplantBoost) +
-                                                          static_cast<double>(vector_at(object, kVelocity).y));
+                                                            static_cast<double>(vector_at(object, kVelocity).y));
     skater_object(this)->post_own_event(kVertWallPlant, nullptr);
     static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))
         ->pass_to_trick_objects(get_at<uint32_t>(this, kHitObjectChecksum));
@@ -235,7 +240,8 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     // A feeler up the skater's height (just 6 for a while after a wall plant).
     float head_height = tuning_float_lookup(kEyeLevelStat, object);
     uint32_t elapsed = get_since(get_at<uint32_t>(this, kWallplantTime));
-    double reach = elapsed > static_cast<uint32_t>(script::fetch_int_value(kIgnoreCeilings)) ? head_height : kNoHeadHeight;
+    double reach =
+        elapsed > static_cast<uint32_t>(script::fetch_int_value(kIgnoreCeilings)) ? head_height : kNoHeadHeight;
     object = object_of(this);
     const maths::Vec4& up = vector_at(object, kUp);
     double x = reach * up.x, y = reach * up.y;
@@ -261,7 +267,8 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     const maths::Vec4& position = vector_at(object_of(this), kPosition);
     end = {along.x + position.x, along.y + position.y, along.z + position.z, along.w + position.w};
     if (probe_touches_zone(0x10, 0)) // (nudged along the new hit's normal)
-        vector_at(object_of(this), kPosition) = vector_at(this, kHitPoint) + kCeilingNudge * vector_at(this, kHitNormal);
+        vector_at(object_of(this), kPosition) =
+            vector_at(this, kHitPoint) + kCeilingNudge * vector_at(this, kHitNormal);
     else
         vector_at(object_of(this), kPosition) = end;
     const maths::Vec4 entry_velocity = vector_at(object_of(this), kVelocity); // (not original: for note_path)
@@ -361,7 +368,7 @@ void SkaterPhysicsModule::check_wall_ahead()
             vector_at(object_of(this), kPosition) = vector_at(this, kHitPoint);
             vector_at(object_of(this), kPosition) += out;
             collision_events::note_path(this, collision_events::RouteWay::kWallAheadClimb,
-                                      vector_at(object_of(this), kVelocity)); // (not original)
+                                        vector_at(object_of(this), kVelocity)); // (not original)
             return;
         }
     }
@@ -375,7 +382,8 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
 {
     const maths::Vec4 entry_velocity = vector_at(object_of(this), kVelocity); // (not original: for note_path)
     if (wall_push_off()) {
-        collision_events::note_path(this, collision_events::RouteWay::kWallAheadPlant, entry_velocity); // (not original)
+        collision_events::note_path(this, collision_events::RouteWay::kWallAheadPlant,
+                                    entry_velocity); // (not original)
         return;
     }
     void* object = object_of(this);
@@ -441,9 +449,9 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     // Then a feeler from there (twice the lift up) along the velocity, as far as the skater moved plus
     // Skater_First_Forward_Collision_Length.
     object = object_of(this);
-    float moved = static_cast<float>(std::sqrt(static_cast<double>(move.x) * move.x +
-                                               static_cast<double>(move.z) * move.z +
-                                               static_cast<double>(move.y) * move.y));
+    float moved =
+        static_cast<float>(std::sqrt(static_cast<double>(move.x) * move.x + static_cast<double>(move.z) * move.z +
+                                     static_cast<double>(move.y) * move.y));
     maths::Vec4 heading = vector_at(object, kVelocity);
     heading.make_unit();
     maths::Vec4 travel = {heading.x * moved, heading.y * moved, heading.z * moved, heading.w * moved};
@@ -485,4 +493,4 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
         skater_object(this)->post_own_event(kFlailLeft, nullptr);
 }
 
-} // namespace Skater
+} // namespace skater

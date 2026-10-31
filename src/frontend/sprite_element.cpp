@@ -37,11 +37,14 @@ constexpr uint32_t kTextureElement = 0x118F6383, kSpriteElement = 0xB12B510A, kW
 constexpr uint32_t kTexture = 0x7D99F28D, kRotAngle = 0xED344E1B, kBlend = 0x54628ED7, kNoZWrite = 0x40F139CB;
 constexpr uint32_t kRgba = 0x3F6BCDBA;
 
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; }        // pi / 180
-float rotation_offset() { return ::goals::g_goal_life_seconds_per_millisecond; }  // 0.001 (added to a rotation in radians)
-float minimum_alpha() { return ::modules::g_competition_tiny; }    // 0.0001: below it, transparent
-float layout_top() { return frontend::g_layout_top; }       // -200: a sprite whose top is above it is hidden
-float layout_bottom() { return frontend::g_layout_bottom; }    // 648: ... or below it
+float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
+float rotation_offset()
+{
+    return ::goals::g_goal_life_seconds_per_millisecond;
+}                                                               // 0.001 (added to a rotation in radians)
+float minimum_alpha() { return ::modules::g_competition_tiny; } // 0.0001: below it, transparent
+float layout_top() { return frontend::g_layout_top; }           // -200: a sprite whose top is above it is hidden
+float layout_bottom() { return frontend::g_layout_bottom; }     // 648: ... or below it
 float get_one() { return ::objects::g_anim_movies_one; }
 float get_half() { return ::gfx::g_half; }
 
@@ -55,18 +58,22 @@ uint32_t shown_colour(const UiWidget* e)
     std::memcpy(&rgba, e->shown_.rgba, 4);
     uint8_t alpha = 0;
     if (e->summed_.alpha >= minimum_alpha()) // (NaN: transparent)
-        alpha = static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->summed_.alpha));
+        alpha =
+            static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(rgba >> 24)) * e->summed_.alpha));
     return (rgba & 0x00FFFFFFu) | (static_cast<uint32_t>(alpha) << 24);
 }
 
 // The texture with this checksum (the texture dictionary 0x00700F1C's lookup, 0x0049F540) and its size
 // (vtable slots 0x84 / 0x88).
-void* find_texture(uint32_t checksum)
+void* find_texture(uint32_t checksum) { return render::g_game_texture_dict->fetch_skin(checksum); }
+uint16_t texels_across(void* texture)
 {
-    return render::g_game_texture_dict->fetch_skin(checksum);
+    return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&render::virtual_slot33_jump)(texture);
 }
-uint16_t texels_across(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&render::virtual_slot33_jump)(texture); }
-uint16_t texels_down(void* texture) { return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&render::virtual_slot34_jump)(texture); }
+uint16_t texels_down(void* texture)
+{
+    return reinterpret_cast<uint16_t(__thiscall*)(void*)>(&render::virtual_slot34_jump)(texture);
+}
 
 // The drawing pieces: made (cdecl), freed (cdecl), and their setters (thiscall).
 void* new_textured_piece() { return render::create_textured_quad(); }
@@ -74,10 +81,7 @@ void* new_sprite(int unused) { return (void)unused, render::build_sprite_quad();
 void free_piece(void* piece) { render::delete_model_lights(static_cast<render::PcModelLights*>(piece)); }
 
 // The 2D windows (a free list, 0x004A1620 / 0x004A1670; cdecl) and their position / size (thiscall).
-void* new_window2d(int x, int y, int w, int h)
-{
-    return render::allocate_window_2d(x, y, w, h);
-}
+void* new_window2d(int x, int y, int w, int h) { return render::allocate_window_2d(x, y, w, h); }
 void free_window2d(void* window) { render::free_window_2d(static_cast<render::ScreenWindow*>(window)); }
 
 } // namespace
@@ -273,9 +277,12 @@ void ImageWidget::tick_frame()
     // (the size truncated: the height first)
     int height = get_truncated(level_y_);
     int width = get_truncated(span_);
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_extent(static_cast<uint16_t>(width), static_cast<uint16_t>(height));
-    reinterpret_cast<render::BillboardQuad*>(quad_)->set_flip(static_cast<bool>((object_flags_ >> 25) & 1), static_cast<bool>((object_flags_ >> 26) & 1));
-    reinterpret_cast<render::BillboardQuad*>(quad_)->change_spin((object_flags_ & kFlag1000000) ? shown_.angle : summed_.angle);
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_extent(static_cast<uint16_t>(width),
+                                                                   static_cast<uint16_t>(height));
+    reinterpret_cast<render::BillboardQuad*>(quad_)->set_flip(static_cast<bool>((object_flags_ >> 25) & 1),
+                                                              static_cast<bool>((object_flags_ >> 26) & 1));
+    reinterpret_cast<render::BillboardQuad*>(quad_)->change_spin((object_flags_ & kFlag1000000) ? shown_.angle
+                                                                                                : summed_.angle);
     reinterpret_cast<render::BillboardQuad*>(quad_)->set_hot_spot(just_x_, just_y_);
     reinterpret_cast<render::BillboardQuad*>(quad_)->change_scale(summed_.scale_x_, summed_.scale_y_);
     if (object_flags_ & kPos3d) {
@@ -326,10 +333,7 @@ PanelWidget* PanelWidget::teardown(uint8_t flags)
 }
 
 // 0x004B2160
-void* PanelWidget::fetch_screen_rect() const
-{
-    return screen_region_;
-}
+void* PanelWidget::fetch_screen_rect() const { return screen_region_; }
 
 // 0x004B21A0
 void PanelWidget::tick_frame()
@@ -345,28 +349,52 @@ void PanelWidget::tick_frame()
 }
 
 namespace {
-static VtableSlot g_c_texture_element_vtable_slots[] = {&TextureElement::teardown, &TextureElement::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &TextureElement::get_properties,
-                &UiWidget::blend_towards, &TextureElement::tick_frame};
+static VtableSlot g_c_texture_element_vtable_slots[] = {
+    &TextureElement::teardown,
+    &TextureElement::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &TextureElement::get_properties,
+    &UiWidget::blend_towards,
+    &TextureElement::tick_frame};
 void** const kCTextureElementVtable = reinterpret_cast<void**>(g_c_texture_element_vtable_slots);
-static VtableSlot g_c_sprite_element_vtable_slots[] = {&ImageWidget::teardown, &ImageWidget::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &ImageWidget::get_properties, &ImageWidget::blend_towards,
-                &ImageWidget::tick_frame};
+static VtableSlot g_c_sprite_element_vtable_slots[] = {
+    &ImageWidget::teardown,
+    &ImageWidget::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &ImageWidget::get_properties,
+    &ImageWidget::blend_towards,
+    &ImageWidget::tick_frame};
 void** const kCSpriteElementVtable = reinterpret_cast<void**>(g_c_sprite_element_vtable_slots);
-static VtableSlot g_c_window_element_vtable_slots[] = {&PanelWidget::teardown, &UiWidget::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                &PanelWidget::tick_frame};
+static VtableSlot g_c_window_element_vtable_slots[] = {
+    &PanelWidget::teardown,
+    &UiWidget::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    &PanelWidget::tick_frame};
 void** const kCWindowElementVtable = reinterpret_cast<void**>(g_c_window_element_vtable_slots);
 } // namespace
 
-} // namespace Front
+} // namespace frontend
 
 using frontend::ImageWidget;
-using frontend::TextureElement;
 using frontend::PanelWidget;
+using frontend::TextureElement;

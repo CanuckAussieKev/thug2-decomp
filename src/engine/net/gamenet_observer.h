@@ -23,8 +23,8 @@ struct ObserverTaskNode {
 struct SpectatorInputSink {
     uint8_t list_link_[0x18];
     uint8_t* control_data_; // +0x18 its controller's place in the input manager (+0x44)
-    uint8_t* dev_;      // +0x1C
-    int ordinal_;            // +0x20 the controller
+    uint8_t* dev_;          // +0x1C
+    int ordinal_;           // +0x20 the controller
     void* code_value_;
     Hub* content_;
 };
@@ -38,7 +38,7 @@ inline void construct_task_node(void* node, int priority)
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
 // The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (enter_observe_mode).
 inline void add_observer_controls(Hub* manager, uint8_t* player, tasks::PileUp* tasks, uint8_t* input,
-                                int handler_priority = -1000)
+                                  int handler_priority = -1000)
 {
     auto* task = static_cast<ObserverTaskNode*>(memory::alloc_zeroed(sizeof(ObserverTaskNode)));
     if (task) {
@@ -65,4 +65,4 @@ inline void add_observer_controls(Hub* manager, uint8_t* player, tasks::PileUp* 
     handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
 }
 
-} // namespace online::Detail
+} // namespace online::detail

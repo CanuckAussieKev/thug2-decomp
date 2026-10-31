@@ -35,4 +35,4 @@ void PingProbe::input_delay_amount(int latency)
         average_latency_ = static_cast<int>(total) / count;
 }
 
-} // namespace Net
+} // namespace net

@@ -28,8 +28,8 @@ bool is_clip_text(const std::string& text)
     return text.compare(0, n, kHeaderComment) == 0;
 }
 
-int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteHooks& hooks, std::vector<std::string>* missing,
-          std::vector<uint32_t>* copy_names)
+int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteHooks& hooks,
+          std::vector<std::string>* missing, std::vector<uint32_t>* copy_names)
 {
     int added = 0;
     auto label_of = [&](uint32_t checksum) {
@@ -93,7 +93,8 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
                 missing->push_back(spec.name + " (the level has one by that name)");
                 continue;
             }
-            spec.name = node_create::fresh_name(node_create::name_stem(kind), [&](const std::string& n) { return !name_free(n); });
+            spec.name = node_create::fresh_name(node_create::name_stem(kind),
+                                                [&](const std::string& n) { return !name_free(n); });
         }
         used_names.push_back(spec.name);
         into->added.push_back(spec);
@@ -102,7 +103,8 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
     for (const triggers::Placed& t : fragment.triggers) {
         triggers::Placed placed = t;
         if (!name_free(placed.spec.name))
-            placed.spec.name = node_create::fresh_name("ed_trigger", [&](const std::string& n) { return !name_free(n); });
+            placed.spec.name =
+                node_create::fresh_name("ed_trigger", [&](const std::string& n) { return !name_free(n); });
         used_names.push_back(placed.spec.name);
         into->triggers.push_back(placed);
         ++added;
@@ -125,14 +127,26 @@ bool spec_of_level_node(const nodes::Elem& n, node_create::Spec* spec)
 {
     node_create::Kind kind;
     switch (n.family) {
-    case nodes::Family::kSpawn: kind = (n.restart_types_ & nodes::kCtf) ? node_create::Kind::kTeamSpawn : node_create::Kind::kSpawn; break;
-    case nodes::Family::kCrown: kind = node_create::Kind::kCrown; break;
-    case nodes::Family::kLight: kind = node_create::Kind::kLight; break;
-    case nodes::Family::kSound: kind = node_create::Kind::kSound; break;
-    case nodes::Family::kFireOff: kind = node_create::Kind::kProximityNode; break;
-    default: return false;
+    case nodes::Family::kSpawn:
+        kind = (n.restart_types_ & nodes::kCtf) ? node_create::Kind::kTeamSpawn : node_create::Kind::kSpawn;
+        break;
+    case nodes::Family::kCrown:
+        kind = node_create::Kind::kCrown;
+        break;
+    case nodes::Family::kLight:
+        kind = node_create::Kind::kLight;
+        break;
+    case nodes::Family::kSound:
+        kind = node_create::Kind::kSound;
+        break;
+    case nodes::Family::kFireOff:
+        kind = node_create::Kind::kProximityNode;
+        break;
+    default:
+        return false;
     }
-    *spec = node_create::Default(kind, node_create::Team::kRed, n.pos, n.angles.y, node_create::name_stem(kind) + std::string("01"));
+    *spec = node_create::Default(kind, node_create::Team::kRed, n.pos, n.angles.y,
+                                 node_create::name_stem(kind) + std::string("01"));
     spec->angles = n.angles;
     if (kind == node_create::Kind::kLight && n.radius > 0.0f) {
         spec->outer = n.radius;
@@ -229,7 +243,8 @@ bool dup_from(std::string* message)
             }
             for (const node_create::Spec& spec : node_create::at_hand()) {
                 node_create::Kind kind;
-                if (!done && node_create::name_hash(spec.name) == s.node && !spec.owned && node_create::kind_of(spec, &kind)) {
+                if (!done && node_create::name_hash(spec.name) == s.node && !spec.owned &&
+                    node_create::kind_of(spec, &kind)) {
                     fragment.added.push_back(spec);
                     done = true;
                 }
@@ -306,7 +321,8 @@ bool graft(std::string* message)
         select.objects = copies;
         set_selection(select);
     }
-    *message = "Pasted " + std::to_string(added) + (fragment.scene == now.scene ? " (in place)" : " from another level");
+    *message =
+        "Pasted " + std::to_string(added) + (fragment.scene == now.scene ? " (in place)" : " from another level");
     if (!missing.empty()) {
         *message += " - missing in this level: " + missing.front() +
                     (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
@@ -329,8 +345,8 @@ bool copy_props(std::string* message)
             if (!row.editable || row.included || row.key == fields::key_pos() || row.key == fields::key_angles() ||
                 row.key == fields::key_links())
                 continue;
-            props.fields.push_back({row.key, static_cast<int>(row.value.kind), fields::get_format(row.value, fields::get_name_of),
-                                    false});
+            props.fields.push_back(
+                {row.key, static_cast<int>(row.value.kind), fields::get_format(row.value, fields::get_name_of), false});
         }
     }
     if (!props.have_transform_ && props.fields.empty()) {
@@ -392,4 +408,4 @@ std::string describe()
     return text.empty() ? "nothing" : text;
 }
 
-} // namespace MenuSystem::level_editor::Clip
+} // namespace frontend::level_editor::clip

@@ -50,10 +50,10 @@ struct Checklist {
 // What the save writes for a checklist: the baseline when there is one, else the checklist as it is (`live`) - either
 // way without the editor's gaps (a name of `editor_gaps` that isn't one of `level_gaps`).
 Checklist for_save(const Checklist& live, const Checklist* baseline, const std::vector<std::string>& editor_gaps,
-                  const std::vector<std::string>& level_gaps);
+                   const std::vector<std::string>& level_gaps);
 // Whether a gap is the editor's (its name one of `editor_gaps`, not one of `level_gaps`; case counts, as the checklist's).
 bool editor_gap(const std::string& name, const std::vector<std::string>& editor_gaps,
-               const std::vector<std::string>& level_gaps);
+                const std::vector<std::string>& level_gaps);
 
 // The game side.
 // The checklist as it is now.
@@ -66,4 +66,4 @@ void career_replaced();
 // The save's view of `checklist` (career.cpp's write_to_structure): false - write it as it is; true - write `out`.
 bool save_view(goals::GapTally* checklist, Checklist* out);
 
-} // namespace MenuSystem::level_editor::Career
+} // namespace frontend::level_editor::career

@@ -27,7 +27,7 @@ namespace {
 
 extern void** const kManagerVtable;
 extern void** const kHeadVtable;
-void** const& g_node_vtable = vt::kParticleNode; // (lists::Elem<EmitterInstance>'s own)
+void** const& g_node_vtable = vt::kParticleNode;  // (lists::Elem<EmitterInstance>'s own)
 const char* const kHeapName = "FlxParticles";     // "FlxParticles"
 const char* const kTempHeapName = "TEMPFlxPrtcl"; // "TEMPFlxPrtcl"
 constexpr uint32_t kHeapSizeSymbol = 0x91CB7552;
@@ -85,7 +85,8 @@ FlexibleParticleManager* FlexibleParticleManager::make_new()
     colour_scale_[0] = colour_scale_[1] = colour_scale_[2] = colour_scale_[3] = 1.0f;
     float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
-    frame_time_scale() = rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
+    frame_time_scale() =
+        rate == 0.0f ? kFramesPerSecond : static_cast<float>(kFramesPerSecond / static_cast<double>(rate));
     return this;
 }
 
@@ -170,8 +171,7 @@ void FlexibleParticleManager::render_systems(bool force)
     }
     if (!count)
         return;
-    crt::get_qsort(
-        systems, static_cast<size_t>(count), sizeof(systems[0]), &compare_distance); // (the game's qsort)
+    crt::get_qsort(systems, static_cast<size_t>(count), sizeof(systems[0]), &compare_distance); // (the game's qsort)
     bool always = force || is_game_halted();
     for (int i = 0; i < count; ++i)
         systems[i]->render_if_visible(always);
@@ -188,10 +188,10 @@ EmitterInstance* FlexibleParticleManager::find_system(uint32_t name)
 }
 
 // 0x0049AC60
-EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_t type, int particle_cap, int max_streams,
-                                                        uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                                        int segments, float unknown, int history, int perm,
-                                                        bool use_level_colour, const char* model)
+EmitterInstance* FlexibleParticleManager::start_subsystem(uint32_t name, uint32_t type, int particle_cap,
+                                                          int max_streams, uint32_t texture, uint32_t blend_mode,
+                                                          int fixed_alpha, int segments, float unknown, int history,
+                                                          int perm, bool use_level_colour, const char* model)
 {
     memory::Hub::get_pull()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(temp_heap_ ? temp_heap_ : arena_));
     auto* system = static_cast<EmitterInstance*>(create_flexible_particles(
@@ -302,4 +302,4 @@ static VtableSlot g_head_vtable_slots[] = {&render::ParticleSystemListHead::tear
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

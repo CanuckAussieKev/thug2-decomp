@@ -39,8 +39,7 @@ void __cdecl set_fog_distance(float start)
 {
     g_fog_begin_distance = start;
     // the end: 7200 further with distance clipping (0x007D643A), else four times as far
-    double end = g_distance_clipping ? static_cast<double>(start) + 7200.0f
-                                                : static_cast<double>(start) * 3.0f + start;
+    double end = g_distance_clipping ? static_cast<double>(start) + 7200.0f : static_cast<double>(start) * 3.0f + start;
     g_fog_end = static_cast<float>(end);
     input_port()->SetRenderState(D3DRS_FOGSTART, reinterpret_cast<uint32_t&>(g_fog_begin_distance));
     input_port()->SetRenderState(D3DRS_FOGEND, reinterpret_cast<uint32_t&>(g_fog_end));
@@ -68,4 +67,4 @@ void __cdecl set_fog_color(uint32_t rgba)
     input_port()->SetRenderState(D3DRS_FOGCOLOR, color);
 }
 
-} // namespace Nx
+} // namespace render

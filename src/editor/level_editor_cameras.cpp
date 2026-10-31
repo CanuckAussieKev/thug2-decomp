@@ -212,7 +212,8 @@ struct Step : ModuleStep {
         std::vector<ViewCam> now = get_all();
         // (those not in the step: removed; those in it: made, or put where the step has them)
         for (const ViewCam& c : now) {
-            bool keep = std::any_of(cameras.begin(), cameras.end(), [&](const ViewCam& k) { return same_text(k.name, c.name); });
+            bool keep = std::any_of(cameras.begin(), cameras.end(),
+                                    [&](const ViewCam& k) { return same_text(k.name, c.name); });
             if (!keep) {
                 node_create::Spec removed;
                 int at = -1;
@@ -259,8 +260,9 @@ const ViewCam* get_find(const std::vector<ViewCam>& all, uint32_t name)
 // The node's offsets written when they're not those of its place (it was moved / turned since).
 void keep_offsets(const ViewCam& c)
 {
-    script::Struct* node = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(node_create::name_hash(c.name), false)
-                                                               : nullptr;
+    script::Struct* node = level_nodes::node_manager_instance()
+                               ? level_nodes::fetch_vertex(node_create::name_hash(c.name), false)
+                               : nullptr;
     if (!node)
         return;
     struct Key {
@@ -340,7 +342,8 @@ bool shot_offsets(uint32_t name, V3* target, V3* position)
     if (!node)
         return false;
     script::VectorValue t, p;
-    if (node->fetch_vec(get_checksums("targetOffset"), &t, 0) && node->fetch_vec(get_checksums("positionOffset"), &p, 0)) {
+    if (node->fetch_vec(get_checksums("targetOffset"), &t, 0) &&
+        node->fetch_vec(get_checksums("positionOffset"), &p, 0)) {
         *target = {t.x, t.y, t.z};
         *position = {p.x, p.y, p.z};
         return true;
@@ -374,7 +377,8 @@ bool __cdecl cfunc_play_camera(script::Struct* params, script::Script* script)
     }
     float seconds = kShotDefaultSeconds;
     int whole = 0;
-    if (!params->fetch_float(get_checksums("time"), &seconds, 0) && params->fetch_int_value(get_checksums("time"), &whole, 0))
+    if (!params->fetch_float(get_checksums("time"), &seconds, 0) &&
+        params->fetch_int_value(get_checksums("time"), &whole, 0))
         seconds = static_cast<float>(whole);
     const uint32_t shot = get_checksums("ed_camera_shot");
     double now = get_now();
@@ -431,8 +435,8 @@ std::string create_from_view()
         return "";
     }
     hud::get_message("Added camera " + c.name);
-    get_log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", c.name.c_str(), c.pos.x, c.pos.y,
-        c.pos.z, view.yaw * 180.0f / kPi, view.pitch * 180.0f / kPi);
+    get_log("level editor: camera %s made at (%.1f, %.1f, %.1f), heading %.1f, pitch %.1f", c.name.c_str(), c.pos.x,
+            c.pos.y, c.pos.z, view.yaw * 180.0f / kPi, view.pitch * 180.0f / kPi);
     return c.name;
 }
 
@@ -554,7 +558,7 @@ void tick_frame()
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                uint32_t selected, std::vector<ui::Seg>* lines)
+                 uint32_t selected, std::vector<ui::Seg>* lines)
 {
     auto line = [&](V3 a, V3 b, uint32_t argb, float thickness) {
         if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
@@ -612,7 +616,8 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     float pitch_degrees = pitch * 180.0f / kPi;
     ImGui::PushFont(mono);
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
-    if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg", ImGuiSliderFlags_AlwaysClamp)) {
+    if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",
+                         ImGuiSliderFlags_AlwaysClamp)) {
         float value = pitch_degrees;
         g_queue.push_back([node, value] { set_pitch(node, value, false); });
     }
@@ -647,7 +652,6 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::Button("Delete##camera"))
         g_queue.push_back([node] { drop_out(node); });
     ImGui::PopStyleColor();
-    
 }
 
 void list_section(ImFont* mono, ImFont* small_font)
@@ -677,4 +681,4 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::PopFont();
 }
 
-} // namespace MenuSystem::level_editor::Cameras
+} // namespace frontend::level_editor::cameras

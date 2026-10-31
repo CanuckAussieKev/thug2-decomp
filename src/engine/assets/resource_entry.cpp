@@ -44,86 +44,198 @@ struct DependentNode : memory::ListNode {
     }
 };
 
-static VtableSlot g_asset_vtable_slots[] = {stubs::return_zero, &park_editing::ParkTile::fetch_serial, &render::PcTexture::get_unknown_c,
-        &assets::Resource::scalar_delete, &assets::Resource::start_loading, &assets::Resource::start_loading, &assets::Resource::offload,
-        stubs::return_zero1, &assets::Resource::is_loaded, &assets::Resource::fetch_title, &assets::Resource::change_contents,
-        &assets::Resource::pin_resident, &assets::Resource::process_buffer, &assets::Resource::finish_loading, &assets::Resource::cancel_now,
-        stubs::do_nothing, &assets::Resource::set_loading, &assets::Resource::set_read, &assets::Resource::set_processing,
-        &assets::Resource::set_loaded, &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_asset_vtable_slots[] = {stubs::return_zero,
+                                            &park_editing::ParkTile::fetch_serial,
+                                            &render::PcTexture::get_unknown_c,
+                                            &assets::Resource::scalar_delete,
+                                            &assets::Resource::start_loading,
+                                            &assets::Resource::start_loading,
+                                            &assets::Resource::offload,
+                                            stubs::return_zero1,
+                                            &assets::Resource::is_loaded,
+                                            &assets::Resource::fetch_title,
+                                            &assets::Resource::change_contents,
+                                            &assets::Resource::pin_resident,
+                                            &assets::Resource::process_buffer,
+                                            &assets::Resource::finish_loading,
+                                            &assets::Resource::cancel_now,
+                                            stubs::do_nothing,
+                                            &assets::Resource::set_loading,
+                                            &assets::Resource::set_read,
+                                            &assets::Resource::set_processing,
+                                            &assets::Resource::set_loaded,
+                                            &assets::Resource::set_unloaded,
+                                            &assets::Resource::set_aborted};
 void** const kAssetVtable = reinterpret_cast<void**>(g_asset_vtable_slots);
 static VtableSlot g_dependent_node_vtable_slots[] = {&assets::DependentNode::teardown};
 void** const kDependentNodeVtable = reinterpret_cast<void**>(g_dependent_node_vtable_slots); // lists::Elem<Resource>
 static VtableSlot g_dependent_head_vtable_slots[] = {&assets::DependentNode::destroy_head};
-void** const kDependentHeadVtable = reinterpret_cast<void**>(g_dependent_head_vtable_slots); // lists::Foremost<Resource>
+void** const kDependentHeadVtable =
+    reinterpret_cast<void**>(g_dependent_head_vtable_slots); // lists::Foremost<Resource>
 
-static VtableSlot g_animation_vtable_slots[] = {&assets::AnimResource::fetch_kind, &park_editing::ParkTile::fetch_serial, &render::PcTexture::get_unknown_c,
-        &assets::Resource::type_scalar_delete, &assets::AnimResource::load_from_buffer, &assets::AnimResource::read_in,
-        &assets::AnimResource::offload, &assets::ReloadAdapter::reload, &assets::Resource::is_loaded, &assets::AnimResource::fetch_title,
-        &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer, &assets::AnimResource::finish_loading,
-        &assets::Resource::cancel_now, &assets::AnimResource::get_free_buffer, &assets::Resource::set_loading, &assets::Resource::set_read,
-        &assets::Resource::set_processing, &assets::Resource::set_loaded, &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_animation_vtable_slots[] = {
+    &assets::AnimResource::fetch_kind,      &park_editing::ParkTile::fetch_serial,   &render::PcTexture::get_unknown_c,
+    &assets::Resource::type_scalar_delete,  &assets::AnimResource::load_from_buffer, &assets::AnimResource::read_in,
+    &assets::AnimResource::offload,         &assets::ReloadAdapter::reload,          &assets::Resource::is_loaded,
+    &assets::AnimResource::fetch_title,     &assets::Resource::change_contents,      &assets::Resource::pin_resident,
+    &assets::Resource::process_buffer,      &assets::AnimResource::finish_loading,   &assets::Resource::cancel_now,
+    &assets::AnimResource::get_free_buffer, &assets::Resource::set_loading,          &assets::Resource::set_read,
+    &assets::Resource::set_processing,      &assets::Resource::set_loaded,           &assets::Resource::set_unloaded,
+    &assets::Resource::set_aborted};
 void** const kAnimationVtable = reinterpret_cast<void**>(g_animation_vtable_slots);
-static VtableSlot g_scene_vtable_slots[] = {&render::ParticleCounts::two_colours, &park_editing::ParkTile::fetch_serial, &render::PcTexture::get_unknown_c,
-        &assets::Resource::type_scalar_delete, &assets::SceneAsset::load_from_buffer, &assets::SceneAsset::read_in,
-        &assets::SceneAsset::offload, stubs::return_zero1, &assets::Resource::is_loaded, &assets::SceneAsset::fetch_title,
-        &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer, &assets::SceneAsset::finish_loading,
-        &assets::Resource::cancel_now, stubs::do_nothing, &assets::Resource::set_loading, &assets::Resource::set_read,
-        &assets::Resource::set_processing, &assets::Resource::set_loaded, &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_scene_vtable_slots[] = {
+    &render::ParticleCounts::two_colours,  &park_editing::ParkTile::fetch_serial,
+    &render::PcTexture::get_unknown_c,     &assets::Resource::type_scalar_delete,
+    &assets::SceneAsset::load_from_buffer, &assets::SceneAsset::read_in,
+    &assets::SceneAsset::offload,          stubs::return_zero1,
+    &assets::Resource::is_loaded,          &assets::SceneAsset::fetch_title,
+    &assets::Resource::change_contents,    &assets::Resource::pin_resident,
+    &assets::Resource::process_buffer,     &assets::SceneAsset::finish_loading,
+    &assets::Resource::cancel_now,         stubs::do_nothing,
+    &assets::Resource::set_loading,        &assets::Resource::set_read,
+    &assets::Resource::set_processing,     &assets::Resource::set_loaded,
+    &assets::Resource::set_unloaded,       &assets::Resource::set_aborted};
 void** const kSceneVtable = reinterpret_cast<void**>(g_scene_vtable_slots);
-static VtableSlot g_scene_collision_vtable_slots[] = {&render::ParticleCounts::four_colours, &park_editing::ParkTile::fetch_serial,
-        &render::PcTexture::get_unknown_c, &assets::Resource::type_scalar_delete, &assets::SceneCollisionAsset::load_from_buffer,
-        &assets::SceneCollisionAsset::read_in, &assets::SceneCollisionAsset::offload, stubs::return_zero1, &assets::Resource::is_loaded,
-        &assets::SceneCollisionAsset::fetch_title, &assets::Resource::change_contents, &assets::Resource::pin_resident,
-        &assets::Resource::process_buffer, &assets::SceneCollisionAsset::finish_loading, &assets::Resource::cancel_now, stubs::do_nothing,
-        &assets::Resource::set_loading, &assets::Resource::set_read, &assets::Resource::set_processing, &assets::Resource::set_loaded,
-        &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_scene_collision_vtable_slots[] = {&render::ParticleCounts::four_colours,
+                                                      &park_editing::ParkTile::fetch_serial,
+                                                      &render::PcTexture::get_unknown_c,
+                                                      &assets::Resource::type_scalar_delete,
+                                                      &assets::SceneCollisionAsset::load_from_buffer,
+                                                      &assets::SceneCollisionAsset::read_in,
+                                                      &assets::SceneCollisionAsset::offload,
+                                                      stubs::return_zero1,
+                                                      &assets::Resource::is_loaded,
+                                                      &assets::SceneCollisionAsset::fetch_title,
+                                                      &assets::Resource::change_contents,
+                                                      &assets::Resource::pin_resident,
+                                                      &assets::Resource::process_buffer,
+                                                      &assets::SceneCollisionAsset::finish_loading,
+                                                      &assets::Resource::cancel_now,
+                                                      stubs::do_nothing,
+                                                      &assets::Resource::set_loading,
+                                                      &assets::Resource::set_read,
+                                                      &assets::Resource::set_processing,
+                                                      &assets::Resource::set_loaded,
+                                                      &assets::Resource::set_unloaded,
+                                                      &assets::Resource::set_aborted};
 void** const kSceneCollisionVtable = reinterpret_cast<void**>(g_scene_collision_vtable_slots);
-static VtableSlot g_skeleton_vtable_slots[] = {&assets::RigResource::fetch_kind, &park_editing::ParkTile::fetch_serial, &render::PcTexture::get_unknown_c,
-        &assets::Resource::type_scalar_delete, &assets::RigResource::load_from_buffer, &assets::RigResource::read_in,
-        &assets::RigResource::offload, stubs::return_zero1, &assets::Resource::is_loaded, &assets::RigResource::fetch_title,
-        &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer,
-        &assets::RigResource::finish_loading, &assets::Resource::cancel_now, &assets::RigResource::get_free_buffer,
-        &assets::Resource::set_loading, &assets::Resource::set_read, &assets::Resource::set_processing, &assets::Resource::set_loaded,
-        &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_skeleton_vtable_slots[] = {
+    &assets::RigResource::fetch_kind,       &park_editing::ParkTile::fetch_serial,
+    &render::PcTexture::get_unknown_c,      &assets::Resource::type_scalar_delete,
+    &assets::RigResource::load_from_buffer, &assets::RigResource::read_in,
+    &assets::RigResource::offload,          stubs::return_zero1,
+    &assets::Resource::is_loaded,           &assets::RigResource::fetch_title,
+    &assets::Resource::change_contents,     &assets::Resource::pin_resident,
+    &assets::Resource::process_buffer,      &assets::RigResource::finish_loading,
+    &assets::Resource::cancel_now,          &assets::RigResource::get_free_buffer,
+    &assets::Resource::set_loading,         &assets::Resource::set_read,
+    &assets::Resource::set_processing,      &assets::Resource::set_loaded,
+    &assets::Resource::set_unloaded,        &assets::Resource::set_aborted};
 void** const kSkeletonVtable = reinterpret_cast<void**>(g_skeleton_vtable_slots);
-static VtableSlot g_skinned_model_vtable_slots[] = {&assets::SkinResource::fetch_kind, &park_editing::ParkTile::fetch_serial, &render::PcTexture::get_unknown_c,
-        &assets::Resource::type_scalar_delete, &assets::SkinResource::load_from_buffer, &assets::SkinResource::read_in,
-        &assets::SkinResource::offload, stubs::return_zero1, &assets::Resource::is_loaded, &assets::SkinResource::fetch_title,
-        &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer, &assets::SkinResource::finish_loading,
-        &assets::SkinResource::cancel_now, &assets::SkinResource::get_free_buffer, &assets::Resource::set_loading, &assets::SkinResource::set_read,
-        &assets::Resource::set_processing, &assets::Resource::set_loaded, &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_skinned_model_vtable_slots[] = {&assets::SkinResource::fetch_kind,
+                                                    &park_editing::ParkTile::fetch_serial,
+                                                    &render::PcTexture::get_unknown_c,
+                                                    &assets::Resource::type_scalar_delete,
+                                                    &assets::SkinResource::load_from_buffer,
+                                                    &assets::SkinResource::read_in,
+                                                    &assets::SkinResource::offload,
+                                                    stubs::return_zero1,
+                                                    &assets::Resource::is_loaded,
+                                                    &assets::SkinResource::fetch_title,
+                                                    &assets::Resource::change_contents,
+                                                    &assets::Resource::pin_resident,
+                                                    &assets::Resource::process_buffer,
+                                                    &assets::SkinResource::finish_loading,
+                                                    &assets::SkinResource::cancel_now,
+                                                    &assets::SkinResource::get_free_buffer,
+                                                    &assets::Resource::set_loading,
+                                                    &assets::SkinResource::set_read,
+                                                    &assets::Resource::set_processing,
+                                                    &assets::Resource::set_loaded,
+                                                    &assets::Resource::set_unloaded,
+                                                    &assets::Resource::set_aborted};
 void** const kSkinnedModelVtable = reinterpret_cast<void**>(g_skinned_model_vtable_slots);
-static VtableSlot g_skin_collision_vtable_slots[] = {&assets::SkinCollisionAsset::fetch_kind, &park_editing::ParkTile::fetch_serial,
-        &render::PcTexture::get_unknown_c, &assets::Resource::type_scalar_delete, &assets::SkinCollisionAsset::load_from_buffer,
-        &assets::SkinCollisionAsset::read_in, &assets::SkinCollisionAsset::offload, stubs::return_zero1, &assets::Resource::is_loaded,
-        &assets::SkinCollisionAsset::fetch_title, &assets::Resource::change_contents, &assets::Resource::pin_resident,
-        &assets::Resource::process_buffer, &assets::SkinCollisionAsset::finish_loading, &assets::Resource::cancel_now, stubs::do_nothing,
-        &assets::Resource::set_loading, &assets::Resource::set_read, &assets::Resource::set_processing, &assets::Resource::set_loaded,
-        &assets::Resource::set_unloaded, &assets::Resource::set_aborted};
+static VtableSlot g_skin_collision_vtable_slots[] = {&assets::SkinCollisionAsset::fetch_kind,
+                                                     &park_editing::ParkTile::fetch_serial,
+                                                     &render::PcTexture::get_unknown_c,
+                                                     &assets::Resource::type_scalar_delete,
+                                                     &assets::SkinCollisionAsset::load_from_buffer,
+                                                     &assets::SkinCollisionAsset::read_in,
+                                                     &assets::SkinCollisionAsset::offload,
+                                                     stubs::return_zero1,
+                                                     &assets::Resource::is_loaded,
+                                                     &assets::SkinCollisionAsset::fetch_title,
+                                                     &assets::Resource::change_contents,
+                                                     &assets::Resource::pin_resident,
+                                                     &assets::Resource::process_buffer,
+                                                     &assets::SkinCollisionAsset::finish_loading,
+                                                     &assets::Resource::cancel_now,
+                                                     stubs::do_nothing,
+                                                     &assets::Resource::set_loading,
+                                                     &assets::Resource::set_read,
+                                                     &assets::Resource::set_processing,
+                                                     &assets::Resource::set_loaded,
+                                                     &assets::Resource::set_unloaded,
+                                                     &assets::Resource::set_aborted};
 void** const kSkinCollisionVtable = reinterpret_cast<void**>(g_skin_collision_vtable_slots);
-static VtableSlot g_texture_dictionary_vtable_slots[] = {&render::ParticleCounts::three_colours, &park_editing::ParkTile::fetch_serial,
-        &render::PcTexture::get_unknown_c, &assets::Resource::type_scalar_delete, &assets::TexDictAsset::load_from_buffer,
-        &assets::TexDictAsset::read_in, &assets::TexDictAsset::offload, stubs::return_zero1, &assets::Resource::is_loaded,
-        &assets::TexDictAsset::fetch_title, &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer,
-        &assets::TexDictAsset::finish_loading, &assets::Resource::cancel_now, stubs::do_nothing, &assets::Resource::set_loading,
-        &assets::Resource::set_read, &assets::Resource::set_processing, &assets::Resource::set_loaded, &assets::Resource::set_unloaded,
-        &assets::Resource::set_aborted};
+static VtableSlot g_texture_dictionary_vtable_slots[] = {&render::ParticleCounts::three_colours,
+                                                         &park_editing::ParkTile::fetch_serial,
+                                                         &render::PcTexture::get_unknown_c,
+                                                         &assets::Resource::type_scalar_delete,
+                                                         &assets::TexDictAsset::load_from_buffer,
+                                                         &assets::TexDictAsset::read_in,
+                                                         &assets::TexDictAsset::offload,
+                                                         stubs::return_zero1,
+                                                         &assets::Resource::is_loaded,
+                                                         &assets::TexDictAsset::fetch_title,
+                                                         &assets::Resource::change_contents,
+                                                         &assets::Resource::pin_resident,
+                                                         &assets::Resource::process_buffer,
+                                                         &assets::TexDictAsset::finish_loading,
+                                                         &assets::Resource::cancel_now,
+                                                         stubs::do_nothing,
+                                                         &assets::Resource::set_loading,
+                                                         &assets::Resource::set_read,
+                                                         &assets::Resource::set_processing,
+                                                         &assets::Resource::set_loaded,
+                                                         &assets::Resource::set_unloaded,
+                                                         &assets::Resource::set_aborted};
 void** const kTextureDictionaryVtable = reinterpret_cast<void**>(g_texture_dictionary_vtable_slots);
-static VtableSlot g_cutscene_vtable_slots[] = {&assets::CutsceneResource::fetch_kind, &park_editing::ParkTile::fetch_serial, &render::PcTexture::get_unknown_c,
-        &assets::Resource::type_scalar_delete, &assets::Resource::start_loading, &assets::CutsceneResource::read_in,
-        &assets::CutsceneResource::offload, &assets::ReloadAdapter::reload, &assets::CutsceneResource::is_loaded,
-        &assets::CutsceneResource::fetch_title, &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer,
-        &assets::Resource::finish_loading, &assets::Resource::cancel_now, stubs::do_nothing, &assets::Resource::set_loading,
-        &assets::Resource::set_read, &assets::Resource::set_processing, &assets::Resource::set_loaded, &assets::Resource::set_unloaded,
-        &assets::Resource::set_aborted};
+static VtableSlot g_cutscene_vtable_slots[] = {
+    &assets::CutsceneResource::fetch_kind, &park_editing::ParkTile::fetch_serial,
+    &render::PcTexture::get_unknown_c,     &assets::Resource::type_scalar_delete,
+    &assets::Resource::start_loading,      &assets::CutsceneResource::read_in,
+    &assets::CutsceneResource::offload,    &assets::ReloadAdapter::reload,
+    &assets::CutsceneResource::is_loaded,  &assets::CutsceneResource::fetch_title,
+    &assets::Resource::change_contents,    &assets::Resource::pin_resident,
+    &assets::Resource::process_buffer,     &assets::Resource::finish_loading,
+    &assets::Resource::cancel_now,         stubs::do_nothing,
+    &assets::Resource::set_loading,        &assets::Resource::set_read,
+    &assets::Resource::set_processing,     &assets::Resource::set_loaded,
+    &assets::Resource::set_unloaded,       &assets::Resource::set_aborted};
 void** const kCutsceneVtable = reinterpret_cast<void**>(g_cutscene_vtable_slots);
-static VtableSlot g_node_array_vtable_slots[] = {&assets::NodeTableResource::fetch_kind, &park_editing::ParkTile::fetch_serial,
-        &render::PcTexture::get_unknown_c, &assets::Resource::type_scalar_delete, &assets::NodeTableResource::load_from_buffer,
-        &assets::NodeTableResource::read_in, &assets::NodeTableResource::offload, &assets::ReloadAdapter::reload, &assets::Resource::is_loaded,
-        &assets::NodeTableResource::fetch_title, &assets::Resource::change_contents, &assets::Resource::pin_resident, &assets::Resource::process_buffer,
-        &assets::NodeTableResource::finish_loading, &assets::Resource::cancel_now, &assets::AnimResource::get_free_buffer, &assets::Resource::set_loading,
-        &assets::Resource::set_read, &assets::Resource::set_processing, &assets::Resource::set_loaded, &assets::Resource::set_unloaded,
-        &assets::Resource::set_aborted};
+static VtableSlot g_node_array_vtable_slots[] = {&assets::NodeTableResource::fetch_kind,
+                                                 &park_editing::ParkTile::fetch_serial,
+                                                 &render::PcTexture::get_unknown_c,
+                                                 &assets::Resource::type_scalar_delete,
+                                                 &assets::NodeTableResource::load_from_buffer,
+                                                 &assets::NodeTableResource::read_in,
+                                                 &assets::NodeTableResource::offload,
+                                                 &assets::ReloadAdapter::reload,
+                                                 &assets::Resource::is_loaded,
+                                                 &assets::NodeTableResource::fetch_title,
+                                                 &assets::Resource::change_contents,
+                                                 &assets::Resource::pin_resident,
+                                                 &assets::Resource::process_buffer,
+                                                 &assets::NodeTableResource::finish_loading,
+                                                 &assets::Resource::cancel_now,
+                                                 &assets::AnimResource::get_free_buffer,
+                                                 &assets::Resource::set_loading,
+                                                 &assets::Resource::set_read,
+                                                 &assets::Resource::set_processing,
+                                                 &assets::Resource::set_loaded,
+                                                 &assets::Resource::set_unloaded,
+                                                 &assets::Resource::set_aborted};
 void** const kNodeArrayVtable = reinterpret_cast<void**>(g_node_array_vtable_slots);
 
 Resource* construct_type(Resource* asset, void** vtable)
@@ -163,10 +275,7 @@ void Resource::destruct()
 }
 
 // 0x004093E0 (a jump to 0x00407810, the types' destructor body)
-void Resource::destruct_type()
-{
-    destruct();
-}
+void Resource::destruct_type() { destruct(); }
 
 // 0x00407950
 Resource* Resource::scalar_delete(uint8_t flags)
@@ -201,16 +310,10 @@ int Resource::offload()
 }
 
 // 0x00407610
-bool Resource::is_loaded() const
-{
-    return cur_phase_ == kLoaded;
-}
+bool Resource::is_loaded() const { return cur_phase_ == kLoaded; }
 
 // 0x00407620
-bool Resource::process_buffer()
-{
-    return v_finish_loading(octets_, extent_);
-}
+bool Resource::process_buffer() { return v_finish_loading(octets_, extent_); }
 
 // 0x00407630
 bool Resource::finish_loading(void* /*buffer*/, uint32_t /*size*/)
@@ -232,34 +335,19 @@ bool Resource::cancel_now()
 }
 
 // 0x004076D0
-const char* Resource::fetch_title() const
-{
-    return "Unnamed Asset";
-}
+const char* Resource::fetch_title() const { return "Unnamed Asset"; }
 
 // 0x004076E0
-void Resource::change_contents(void* data)
-{
-    content_ = data;
-}
+void Resource::change_contents(void* data) { content_ = data; }
 
 // 0x004072F0
-void Resource::pin_resident(bool permanent)
-{
-    pinned_ = permanent;
-}
+void Resource::pin_resident(bool permanent) { pinned_ = permanent; }
 
 // 0x004076F0
-void Resource::change_cluster(Resource* group)
-{
-    bundle_ = group;
-}
+void Resource::change_cluster(Resource* group) { bundle_ = group; }
 
 // 0x00407700
-void Resource::set_checksum(uint32_t checksum)
-{
-    checksum_ = checksum;
-}
+void Resource::set_checksum(uint32_t checksum) { checksum_ = checksum; }
 
 // 0x004075D0
 void Resource::change_hook(LoadCallback callback, void* first_word, void* data1)
@@ -379,10 +467,7 @@ Resource* AssetConstructors::scene_collision()
 }
 
 // 0x00409970
-Resource* AssetConstructors::get_skeleton()
-{
-    return construct_type(this, kSkeletonVtable);
-}
+Resource* AssetConstructors::get_skeleton() { return construct_type(this, kSkeletonVtable); }
 
 // 0x00409C40
 Resource* AssetConstructors::skinned_model()
@@ -414,10 +499,7 @@ Resource* AssetConstructors::texture_bank()
 }
 
 // 0x00407A30
-Resource* AssetConstructors::get_cutscene()
-{
-    return construct_type(this, kCutsceneVtable);
-}
+Resource* AssetConstructors::get_cutscene() { return construct_type(this, kCutsceneVtable); }
 
 // 0x00408BB0
 Resource* AssetConstructors::get_node_array()
@@ -434,4 +516,4 @@ void AssetConstructors::make_node_array_owner()
     level_nodes::node_manager_instance()->set_owner(this);
 }
 
-} // namespace Ass
+} // namespace assets

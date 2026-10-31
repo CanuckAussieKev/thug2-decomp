@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) of the game in 0x005B1B60-0x005B34A0: interpolating parameters, a texture's name from
 // a path, clearing power-ups, the nearest rail point, the park's name, the special bar's colours, the default

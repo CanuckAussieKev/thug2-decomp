@@ -17,9 +17,9 @@ struct PartUnit {
     enum OrderCode : int { kNone = 0, kStart = 1, kStop = 2, kRestart = 3 };
 
     void** vtable_;
-    int cur_phase_;       // +0x04
-    int queued_op_;     // +0x08 (not set by the constructor)
-    bool locked_;     // +0x0C: the manager neither starts nor stops it
+    int cur_phase_; // +0x04
+    int queued_op_; // +0x08 (not set by the constructor)
+    bool locked_;   // +0x0C: the manager neither starts nor stops it
     uint8_t pad0d_[3];
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>, vtable 0x00647284)
 
@@ -33,12 +33,13 @@ struct PartUnit {
     void start_callback() { reinterpret_cast<void(__thiscall*)(PartUnit*)>(vtable_[1])(this); }
     void stop_callback() { reinterpret_cast<void(__thiscall*)(PartUnit*)>(vtable_[2])(this); }
 };
-static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C && offsetof(PartUnit, list_link_) == 0x10);
+static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
+              offsetof(PartUnit, list_link_) == 0x10);
 
 struct Hub {
-    void* task_;            // tasks::Task<Manager> (priority -1000) running tick_modules
+    void* task_;               // tasks::Task<Manager> (priority -1000) running tick_modules
     memory::ListNode modules_; // +0x04: the list's head (lists::Foremost<Module>, vtable 0x00647288)
-    bool command_pending_;   // +0x18: a module was given a command since the task last ran
+    bool command_pending_;     // +0x18: a module was given a command since the task last ran
 
     // 0x0044F5E0: the empty list and the task (not added to a task list here). Returns this.
     Hub* make_new();
@@ -79,4 +80,4 @@ struct ModuleListDestructors {
     ModuleListDestructors* search_destroy(unsigned int flags);
 };
 
-} // namespace Mdl
+} // namespace modules

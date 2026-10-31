@@ -42,4 +42,4 @@ bool __cdecl flag_camera_for_removal(gfx::ViewCam* camera)
     return false;
 }
 
-} // namespace Nx
+} // namespace render

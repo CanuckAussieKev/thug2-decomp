@@ -88,7 +88,7 @@ Route decide(const RouteInput& input)
     return route;
 }
 
-} // namespace MenuSystem::level_editor::ui_layout
+} // namespace frontend::level_editor::ui_layout
 
 // The Outliner's markers (level_editor_ui.h) - pure, beside the layout's other pure parts.
 namespace frontend::level_editor::ui {
@@ -100,12 +100,9 @@ struct MarkInfo {
     const char* name;
 };
 const MarkInfo kMarks[kMaxMarkers] = {
-    {'M', 0xFFFFC040u, "Moved"},
-    {'+', 0xFF60E060u, "Added"},
-    {'D', 0xFFFF6060u, "Hidden in game"},
-    {'H', 0xFF9090A0u, "Hidden in editor"},
-    {'L', 0xFF60B0FFu, "Locked"},
-    {'C', 0xFFFF40E0u, "Collision off"},
+    {'M', 0xFFFFC040u, "Moved"},          {'+', 0xFF60E060u, "Added"},
+    {'D', 0xFFFF6060u, "Hidden in game"}, {'H', 0xFF9090A0u, "Hidden in editor"},
+    {'L', 0xFF60B0FFu, "Locked"},         {'C', 0xFFFF40E0u, "Collision off"},
 };
 } // namespace
 
@@ -125,4 +122,4 @@ std::string mark_letters(uint8_t marks)
     return letters;
 }
 
-} // namespace MenuSystem::level_editor::Ui
+} // namespace frontend::level_editor::ui

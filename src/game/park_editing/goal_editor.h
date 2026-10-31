@@ -10,10 +10,10 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace memory {
 class Arena;
-} // namespace Mem
+} // namespace memory
 
 // Create-a-goal: a goal the player made in the goal editor (EditedGoal, a 0x338-byte record) - its level, texts,
 // type, points (the pro, the start, the letters / cone checkpoints) and the type's own settings (time, score, laps,
@@ -23,18 +23,18 @@ namespace park_editing {
 // A point of an edited goal (0x1C bytes).
 struct EditedGoalPoint {
     // 1 the pro, 2 the start (restart), 3 an object (a letter), 4 a checkpoint (the cone goal's).
-    int kind;            // +0x00
-    maths::Vec4 pos;     // +0x04
-    float height;        // +0x14 above pos
-    float angle;         // +0x18 heading (radians)
+    int kind;        // +0x00
+    maths::Vec4 pos; // +0x04
+    float height;    // +0x14 above pos
+    float angle;     // +0x18 heading (radians)
 };
 static_assert(sizeof(EditedGoalPoint) == 0x1C, "layout must match the original");
 
 // A key combo set of a trick goal (num_taps etc.).
 struct KeyComboSet {
-    uint8_t set;            // +0x0 (key_combo_set)
+    uint8_t set;               // +0x0 (key_combo_set)
     uint8_t must_be_flawless_; // +0x1 (the flag 0x687E2C25)
-    uint8_t spin;           // +0x2 in half turns (spin / 180)
+    uint8_t spin;              // +0x2 in half turns (spin / 180)
     uint8_t tap_total_;        // +0x3
 };
 
@@ -132,41 +132,41 @@ public:
     // 0x004EB6B0: the goal added to the goal manager as CreatedGoal<n> (seen; won again unless `unwin`).
     void add_to_goal_manager(bool unwin);
 
-    uint32_t level_;                // +0x000 the level's load script
-    char label_[0x32];               // +0x004 view_goals_text
-    char ped_name_[0x15];            // +0x036
-    char summary_text_[0x64];        // +0x04B goal_description
-    char win_message_[0x65];         // +0x0AF
+    uint32_t level_;                    // +0x000 the level's load script
+    char label_[0x32];                  // +0x004 view_goals_text
+    char ped_name_[0x15];               // +0x036
+    char summary_text_[0x64];           // +0x04B goal_description
+    char win_message_[0x65];            // +0x0AF
     uint32_t kind_tag_;                 // +0x114
-    EditedGoalPoint path_vertices_[13];    // +0x118
-    uint8_t max_points_;             // +0x284
-    uint8_t min_points_;             // +0x285 (complete with this many)
-    uint8_t vertex_total_;             // +0x286 set
-    uint8_t current_point_;          // +0x287
-    bool last_point_placed_;          // +0x288
-    bool won_;                      // +0x289
-    bool taken_count_;                     // +0x28A
+    EditedGoalPoint path_vertices_[13]; // +0x118
+    uint8_t max_points_;                // +0x284
+    uint8_t min_points_;                // +0x285 (complete with this many)
+    uint8_t vertex_total_;              // +0x286 set
+    uint8_t current_point_;             // +0x287
+    bool last_point_placed_;            // +0x288
+    bool won_;                          // +0x289
+    bool taken_count_;                  // +0x28A
     uint8_t pad28b_;
-    int level_goal_number_;                 // +0x28C its number in its level (CreatedGoal<n>)
+    int level_goal_number_;          // +0x28C its number in its level (CreatedGoal<n>)
     int time_limit_;                 // +0x290
     uint32_t control_type_;          // +0x294
-    int points_held_;                     // +0x298
-    int race_total_laps_;             // +0x29C
-    int race_per_checkpoint_time_;     // +0x2A0
+    int points_held_;                // +0x298
+    int race_total_laps_;            // +0x29C
+    int race_per_checkpoint_time_;   // +0x2A0
     int acceleration_interval_;      // +0x2A4
     float acceleration_percent_;     // +0x2A8
     int trick_time_;                 // +0x2AC
-    int time_to_stop_adding_tricks_;    // +0x2B0
+    int time_to_stop_adding_tricks_; // +0x2B0
     int max_tricks_;                 // +0x2B4
-    int twist_rate_;                      // +0x2B8
+    int twist_rate_;                 // +0x2B8
     bool single_combo_;              // +0x2BC
     uint8_t pad2bd_[3];
-    int chain_length_;                 // +0x2C0
-    int stack_block_span_;        // +0x2C4
-    int tricktris_total_to_win_;       // +0x2C8
-    KeyComboSet key_combo_sets_[10];  // +0x2CC
-    int num_key_combo_sets_;           // +0x2F4
-    uint8_t gaps_[10];              // +0x2F8
+    int chain_length_;               // +0x2C0
+    int stack_block_span_;           // +0x2C4
+    int tricktris_total_to_win_;     // +0x2C8
+    KeyComboSet key_combo_sets_[10]; // +0x2CC
+    int num_key_combo_sets_;         // +0x2F4
+    uint8_t gaps_[10];               // +0x2F8
     uint8_t num_gaps_;               // +0x302
     char required_trick_[0x35];      // +0x303
 };
@@ -346,12 +346,12 @@ public:
     bool get_created_goals(script::Struct* params, script::Script* script);
 
     EditedGoal goals_[50];               // +0x0018
-    EditedGoal* active_node_;               // +0xA108 the one being edited
-    objects::ObjectModule* input_ptr_;         // +0xA10C the object's input component
-    objects::ObjectModule* view_camera_;        // +0xA110 its editor camera
+    EditedGoal* active_node_;            // +0xA108 the one being edited
+    objects::ObjectModule* input_ptr_;   // +0xA10C the object's input component
+    objects::ObjectModule* view_camera_; // +0xA110 its editor camera
 };
 static_assert(offsetof(ObjectiveAuthoring, goals_) == 0x18 && offsetof(ObjectiveAuthoring, active_node_) == 0xA108 &&
                   sizeof(ObjectiveAuthoring) == 0xA114,
               "layout must match the original");
 
-} // namespace Ed
+} // namespace park_editing

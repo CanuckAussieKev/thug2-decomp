@@ -24,21 +24,21 @@ using namespace physics;
 
 namespace {
 
-constexpr uint32_t kSkitch = 0x3506CE64;           // skitch (a component)
-constexpr uint32_t kSkitchHoldTime = 0x19B2C752;   // skitch_hold_time (ms)
+constexpr uint32_t kSkitch = 0x3506CE64;            // skitch (a component)
+constexpr uint32_t kSkitchHoldTime = 0x19B2C752;    // skitch_hold_time (ms)
 constexpr uint32_t kSkitchMaxDistance = 0x2928F080; // Skitch_Max_Distance
-constexpr uint32_t kSkitched = 0x2F184EB1;         // Skitched (an event)
-constexpr uint32_t kSkitchLeft = 0x74BF80CF;       // SkitchLeft (an event)
-constexpr uint32_t kSkitchRight = 0x2E7474B5;      // SkitchRight (an event)
-constexpr uint32_t kSkitchOffset = 0x21FB182C;     // Skitch_Offset
-constexpr uint32_t kSkitchSuckSpeed = 0x97496256;  // skitch_suck_speed
-constexpr uint32_t kOffMeterBottom = 0x47D44B84;   // OffMeterBottom (an event)
+constexpr uint32_t kSkitched = 0x2F184EB1;          // Skitched (an event)
+constexpr uint32_t kSkitchLeft = 0x74BF80CF;        // SkitchLeft (an event)
+constexpr uint32_t kSkitchRight = 0x2E7474B5;       // SkitchRight (an event)
+constexpr uint32_t kSkitchOffset = 0x21FB182C;      // Skitch_Offset
+constexpr uint32_t kSkitchSuckSpeed = 0x97496256;   // skitch_suck_speed
+constexpr uint32_t kOffMeterBottom = 0x47D44B84;    // OffMeterBottom (an event)
 
-constexpr uint32_t kDriving = 0x2ED;               // (driving a vehicle)
-constexpr uint32_t kSkitchMoving = 0x24A;          // moving to another skitch point
-constexpr uint32_t kTowAnchorIndex = 0x24C;           // the skitch point's index
-constexpr uint32_t kSkitchDirection = 0x250;       // which way it moved (1 or -1, along the skater's side)
-constexpr uint32_t kSkitchCar = 0x364;             // a smart pointer to the car
+constexpr uint32_t kDriving = 0x2ED;         // (driving a vehicle)
+constexpr uint32_t kSkitchMoving = 0x24A;    // moving to another skitch point
+constexpr uint32_t kTowAnchorIndex = 0x24C;  // the skitch point's index
+constexpr uint32_t kSkitchDirection = 0x250; // which way it moved (1 or -1, along the skater's side)
+constexpr uint32_t kSkitchCar = 0x364;       // a smart pointer to the car
 
 constexpr float kSkitchStep = 6.0f;                // 0x00646284
 constexpr float kSkitchReach = 120.0f;             // 0x0064BD2C
@@ -66,7 +66,8 @@ void SkaterPhysicsModule::try_start_skitch()
     if (flags_of(this)[0x88] || !hold[0])
         return;
     uint32_t held = static_cast<uint32_t>(time_since_press(hold));
-    if (held <= static_cast<uint32_t>(script::fetch_int_value(kSkitchHoldTime)) || get_at<int>(flags_of(this), kState) != 0)
+    if (held <= static_cast<uint32_t>(script::fetch_int_value(kSkitchHoldTime)) ||
+        get_at<int>(flags_of(this), kState) != 0)
         return;
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
     float nearest = script::fetch_float(kSkitchMaxDistance);
@@ -94,7 +95,8 @@ void SkaterPhysicsModule::try_start_skitch()
     take_press(button + 0x80);
     take_press(button + 0xE0);
     // (0x0041D1D0: the smart pointer set)
-    get_at<objects::SharedRef<objects::SharedBase>>(this, kSkitchCar).assign_object(reinterpret_cast<objects::SharedBase*>(found));
+    get_at<objects::SharedRef<objects::SharedBase>>(this, kSkitchCar)
+        .assign_object(reinterpret_cast<objects::SharedBase*>(found));
     found->post_own_event(kSkitched, nullptr);
     skater_object(this)->post_own_event(kSkitched, nullptr);
 }
@@ -201,4 +203,4 @@ void SkaterPhysicsModule::get_skitch()
     get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
 }
 
-} // namespace Skater
+} // namespace skater

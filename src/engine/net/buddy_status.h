@@ -7,7 +7,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The buddy list's part before its own code (0x00548100-0x00548560: FriendsManager in buddy_man.h): GP's buddy request
 // and login, buddy messages sent, the presence status, and the buddy lists' list types; with the getters the linker
@@ -55,8 +55,8 @@ struct FoldedGetters {
 };
 
 // The script commands.
-bool __cdecl profile_logged_in(script::Struct* params, script::Script* script);   // 0x00548360
-bool __cdecl send_buddy_message(script::Struct* params, script::Script* script);  // 0x00548370
-bool __cdecl set_lobby_status(script::Struct* params, script::Script* script);    // 0x005483E0
+bool __cdecl profile_logged_in(script::Struct* params, script::Script* script);  // 0x00548360
+bool __cdecl send_buddy_message(script::Struct* params, script::Script* script); // 0x00548370
+bool __cdecl set_lobby_status(script::Struct* params, script::Script* script);   // 0x005483E0
 
 } // namespace online

@@ -54,7 +54,10 @@ int len_of(memory::ListNode* head)
     return count;
 }
 
-void unlink_list_node(memory::ListNode* node) { reinterpret_cast<void*(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1); }
+void unlink_list_node(memory::ListNode* node)
+{
+    reinterpret_cast<void*(__thiscall*)(memory::ListNode*, int)>(node->vtable[0])(node, 1);
+}
 
 // One cell's update: the objects taken out and put in, `delta` the change in its count so far. While objects
 // have been taken out (delta below 0) new ones fill the gaps at the end of the list; while more have been put in
@@ -353,7 +356,8 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     float dy = line->end.y - line->start.y;
     float dz = line->end.z - line->start.z;
     float dxf = static_cast<float>(dx);
-    double length = std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dxf) * dxf);
+    double length =
+        std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dxf) * dxf);
     if (length > 0.0) {
         float inverse = static_cast<float>(1.0 / static_cast<float>(length));
         dx = static_cast<double>(dxf) * inverse;
@@ -437,4 +441,4 @@ memory::ListNode* CollGridListNodes::destroy_head(uint8_t flags)
     return reinterpret_cast<memory::ListNode*>(this);
 }
 
-} // namespace Nx
+} // namespace render

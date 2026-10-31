@@ -280,6 +280,6 @@ void ParkLayout::clear_floor_change_marks()
         node->get_piece_group()->get_cast()->flag_bits_ &= ~PieceGroup::kFlag20;
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::ParkLayout;

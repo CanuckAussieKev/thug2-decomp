@@ -31,4 +31,4 @@ void end_world()
     s_wire = false;
 }
 
-} // namespace render::Wireframe
+} // namespace render::wireframe

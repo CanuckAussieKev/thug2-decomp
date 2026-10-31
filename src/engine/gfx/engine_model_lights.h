@@ -39,25 +39,25 @@ public:
     bool change_brightness(float brightness);
 
     // The base's platform calls (each prints its "STUB: CModelLights::...\n"):
-    bool put_ambient_light_tint(const uint32_t* color);                   // 0x0048E4E0 [1]: false
-    bool put_light_aim(int light, const maths::Vec4* direction);    // 0x0048E500 [2]: false
-    bool put_diffuse_light_tint(int light, const uint32_t* color);        // 0x0048E520 [3]: false
-    uint32_t* read_ambient_light_tint(uint32_t* out);                      // 0x0048E730 [4]: 0
-    maths::Vec4* read_light_aim(int light);                          // 0x0048E760 [5]: a static 0 vector
-    uint32_t* read_diffuse_light_tint(uint32_t* out, int light);           // 0x0048E7C0 [6]: 0
+    bool put_ambient_light_tint(const uint32_t* color);                         // 0x0048E4E0 [1]: false
+    bool put_light_aim(int light, const maths::Vec4* direction);                // 0x0048E500 [2]: false
+    bool put_diffuse_light_tint(int light, const uint32_t* color);              // 0x0048E520 [3]: false
+    uint32_t* read_ambient_light_tint(uint32_t* out);                           // 0x0048E730 [4]: 0
+    maths::Vec4* read_light_aim(int light);                                     // 0x0048E760 [5]: a static 0 vector
+    uint32_t* read_diffuse_light_tint(uint32_t* out, int light);                // 0x0048E7C0 [6]: 0
     void plat_apply_scene_lights(const maths::Vec4* position, uint32_t radius); // 0x0048E5A0 [7]
-    void apply_light_brightness(bool ambient, bool diffuse);                  // 0x0048E540 [8]
-    void switch_ambient_light(bool on);                                   // 0x0048E550 [9]
-    void switch_diffuse_light(int light, bool on);                        // 0x0048E560 [10]
-    bool ambient_light_is_on();                                       // 0x0048E570 [11]: false
-    bool diffuse_light_is_on(int light);                              // 0x0048E580 [12]: false (not a Ghidra function)
+    void apply_light_brightness(bool ambient, bool diffuse);                    // 0x0048E540 [8]
+    void switch_ambient_light(bool on);                                         // 0x0048E550 [9]
+    void switch_diffuse_light(int light, bool on);                              // 0x0048E560 [10]
+    bool ambient_light_is_on();                                                 // 0x0048E570 [11]: false
+    bool diffuse_light_is_on(int light); // 0x0048E580 [12]: false (not a Ghidra function)
 
     void** vtable_;
     uint32_t unknown4_;
-    float brightness_;            // +0x08
-    float intensity_goal_;      // +0x0C
-    float size_factor_;                 // +0x10: the ambient colour's
-    float* intensities_;         // +0x14: each light's
+    float brightness_;             // +0x08
+    float intensity_goal_;         // +0x0C
+    float size_factor_;            // +0x10: the ambient colour's
+    float* intensities_;           // +0x14: each light's
     const maths::Vec4* place_ref_; // +0x18
 };
 static_assert(offsetof(ModelLights, intensities_) == 0x14 && sizeof(ModelLights) == 0x1C,
@@ -65,4 +65,4 @@ static_assert(offsetof(ModelLights, intensities_) == 0x14 && sizeof(ModelLights)
 
 extern uint32_t g_light_count;
 
-} // namespace Nx
+} // namespace render

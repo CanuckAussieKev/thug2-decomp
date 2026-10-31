@@ -581,4 +581,4 @@ const uint8_t* read_array_from_buffer(Array* array, const uint8_t* buffer)
     return p;
 }
 
-} // namespace Script
+} // namespace script

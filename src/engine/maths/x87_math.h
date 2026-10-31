@@ -160,17 +160,17 @@ inline void spin_by(double angle, double a, double b, double* rotated_a, double*
         fld st(0)
         fsin
         fxch st(1)
-        fcos               // cos, sin
-        fld a              // a, cos, sin
-        fmul st, st(1)     // cos*a
+        fcos // cos, sin
+        fld a // a, cos, sin
+        fmul st, st(1) // cos*a
         fld b
-        fmul st, st(3)     // sin*b, cos*a, cos, sin
-        faddp st(1), st    // cos*a + sin*b, cos, sin
-        fstp ra            // cos, sin
-        fmul b             // cos*b, sin
-        fxch st(1)         // sin, cos*b
-        fmul a             // sin*a, cos*b
-        fsubp st(1), st    // cos*b - sin*a
+        fmul st, st(3) // sin*b, cos*a, cos, sin
+        faddp st(1), st // cos*a + sin*b, cos, sin
+        fstp ra // cos, sin
+        fmul b // cos*b, sin
+        fxch st(1) // sin, cos*b
+        fmul a // sin*a, cos*b
+        fsubp st(1), st // cos*b - sin*a
         fstp rb
     }
     *rotated_a = ra;
@@ -239,7 +239,7 @@ inline float neg_asin_cos(double value, float limit, bool* above, double* invers
         call function
         fchs
         fst angle
-        fcos               // cos
+        fcos // cos
         fld st(0)
         fabs
         fcomp limit

@@ -22,10 +22,8 @@ constexpr uint32_t kLoadSk5edGameplay = 0xB664035D;        // load_sk5ed_gamepla
 
 // The ported levels' lists, made by tools/pipeline/menu_level (absent when those levels aren't installed).
 constexpr const char* kPortedLevelLists[] = {
-    "level_select_menu_thug1_level_info",
-    "level_select_menu_thps4_level_info",
-    "level_select_menu_thps3_level_info",
-    "level_select_menu_thaw_level_info",
+    "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
+    "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info",
     "level_select_menu_misc_level_info", // (the skate shops, tutorials, test levels: tools/pipeline/menu_level MISCELLANEOUS)
 };
 
@@ -89,8 +87,7 @@ const char* Hub::level_list_name(uint32_t level)
 
 namespace online {
 
-static_assert(offsetof(Hub, host_) == 0x04 && offsetof(Hub, client_app_) == 0x08,
-              "layout must match the original");
+static_assert(offsetof(Hub, host_) == 0x04 && offsetof(Hub, client_app_) == 0x08, "layout must match the original");
 
 // 0x0044E4E0
 int Hub::is_network_game() { return (flag_bits_ & 0x0C) != 0 ? 1 : 0; }

@@ -59,57 +59,60 @@ gfx::CtodManager* g_tod_manager;
 
 namespace {
 
-constexpr uint32_t kName = 0xA1DC81F9;        // "name"
-constexpr uint32_t kClass = 0x12B4E660;       // "class"
-constexpr uint32_t kPos = 0x7F261953;         // "pos"
-constexpr uint32_t kAngles = 0x9D2D0915;      // "angles"
-constexpr uint32_t kScale = 0x13B9DA7B;       // "scale"
-constexpr uint32_t kCloneFrom = 0xEDC063B9;   // (name unknown) a level geometry node's sector to copy
-constexpr uint32_t kOccluder = 0x4E549FE1;    // (name unknown) a level geometry node's flag (0x0048BF90)
-constexpr uint32_t kLevelColor = 0x99A9B716;  // (name unknown) a level object's colour, added from the time of day
+constexpr uint32_t kName = 0xA1DC81F9;       // "name"
+constexpr uint32_t kClass = 0x12B4E660;      // "class"
+constexpr uint32_t kPos = 0x7F261953;        // "pos"
+constexpr uint32_t kAngles = 0x9D2D0915;     // "angles"
+constexpr uint32_t kScale = 0x13B9DA7B;      // "scale"
+constexpr uint32_t kCloneFrom = 0xEDC063B9;  // (name unknown) a level geometry node's sector to copy
+constexpr uint32_t kOccluder = 0x4E549FE1;   // (name unknown) a level geometry node's flag (0x0048BF90)
+constexpr uint32_t kLevelColor = 0x99A9B716; // (name unknown) a level object's colour, added from the time of day
 constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the viewer's camera object
 
 // The node classes.
-constexpr uint32_t kClassPedestrian = 0xA0DFAC98;    // "Pedestrian"
-constexpr uint32_t kClass061a741e = 0x061A741E;      // (name unknown) made as a pedestrian
-constexpr uint32_t kClassClimbingNode = 0x30C19600;  // "ClimbingNode"
-constexpr uint32_t kClassRailNode = 0x8E6B02AD;      // "RailNode"
-constexpr uint32_t kClassProximNode = 0x08470F2E;    // "ProximNode"
+constexpr uint32_t kClassPedestrian = 0xA0DFAC98;     // "Pedestrian"
+constexpr uint32_t kClass061a741e = 0x061A741E;       // (name unknown) made as a pedestrian
+constexpr uint32_t kClassClimbingNode = 0x30C19600;   // "ClimbingNode"
+constexpr uint32_t kClassRailNode = 0x8E6B02AD;       // "RailNode"
+constexpr uint32_t kClassProximNode = 0x08470F2E;     // "ProximNode"
 constexpr uint32_t kClassParticleObject = 0x9E7D469E; // "ParticleObject"
-constexpr uint32_t kClassEmitterObject = 0xD64DC7C2; // "EmitterObject"
-constexpr uint32_t kClassLevelObject = 0xB7B3BD86;   // "LevelObject"
-constexpr uint32_t kClassLevelGeometry = 0xBF4D3536; // "LevelGeometry"
-constexpr uint32_t kClassVehicle = 0xE47F1B79;       // "Vehicle"
-constexpr uint32_t kClassGameObject = 0xEF59C100;    // "GameObject"
-constexpr uint32_t kClassTrigger = 0xE594F0A2;       // "Trigger"
-constexpr uint32_t kClassSkater = 0x5B8AB877;        // "skater"
-constexpr uint32_t kClassA0e52802 = 0xA0E52802;      // (name unknown) killed through 0x0048FCA0
+constexpr uint32_t kClassEmitterObject = 0xD64DC7C2;  // "EmitterObject"
+constexpr uint32_t kClassLevelObject = 0xB7B3BD86;    // "LevelObject"
+constexpr uint32_t kClassLevelGeometry = 0xBF4D3536;  // "LevelGeometry"
+constexpr uint32_t kClassVehicle = 0xE47F1B79;        // "Vehicle"
+constexpr uint32_t kClassGameObject = 0xEF59C100;     // "GameObject"
+constexpr uint32_t kClassTrigger = 0xE594F0A2;        // "Trigger"
+constexpr uint32_t kClassSkater = 0x5B8AB877;         // "skater"
+constexpr uint32_t kClassA0e52802 = 0xA0E52802;       // (name unknown) killed through 0x0048FCA0
 
 uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 objects::GrindRailHub* rail_manager() { return *reinterpret_cast<objects::GrindRailHub**>(get_skate() + 0x24); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 
 // Whether the skate module leaves a node out (0x00565BB0: its flag 0x68910AC6, in a game with more than one player).
-bool skips_node(script::Struct* node)
-{
-    return modules::Skate::should_be_absent(node) != 0;
-}
+bool skips_node(script::Struct* node) { return modules::Skate::should_be_absent(node) != 0; }
 
 // The scenes (Nx), from their list (0x006FA7EC; 0x0048C7F0 gives the first node, its +0xC the next - the one with
 // data -1 ends it - and +4 the scene).
 struct SceneNode {
     uint32_t unknown0;
-    uint8_t* scene;     // +0x04
+    uint8_t* scene; // +0x04
     uint32_t unknown8;
-    SceneNode* next;    // +0x0C
+    SceneNode* next; // +0x0C
 };
 SceneNode* first_scene() { return reinterpret_cast<SceneNode*>(render::first_scene_node()); }
-SceneNode* next_scene(SceneNode* node) { return node->next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : node->next; }
+SceneNode* next_scene(SceneNode* node)
+{
+    return node->next->scene == reinterpret_cast<uint8_t*>(-1) ? nullptr : node->next;
+}
 
 // A scene's sector by name (0x0049CB00) and a copy of one (0x0049D510).
 render::WorldCell* as_sector(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector); }
 render::WorldScene* as_scene(uint8_t* scene) { return reinterpret_cast<render::WorldScene*>(scene); }
-uint8_t* look_up_sector(uint8_t* scene, uint32_t name) { return static_cast<uint8_t*>(as_scene(scene)->look_up_sector(name)); }
+uint8_t* look_up_sector(uint8_t* scene, uint32_t name)
+{
+    return static_cast<uint8_t*>(as_scene(scene)->look_up_sector(name));
+}
 void duplicate_scene_sector(uint8_t* scene, uint8_t* sector, uint8_t* destination, int a, int b, uint32_t name)
 {
     as_scene(scene)->duplicate_scene_sector(as_sector(sector), as_scene(destination), a, b != 0, name);
@@ -163,7 +166,8 @@ void __cdecl fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float
                 if (count) {
                     if (!memory::g_manager_ready) // (the memory manager set up, if it isn't)
                         memory::ensure_manager();
-                    auto* vertices = static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));
+                    auto* vertices =
+                        static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
                     geometry_slot<void(__thiscall*)(void*, maths::Vec4*)>(geometry, 37)(geometry, vertices);
                     for (int i = 0; i < count; ++i)
@@ -323,7 +327,8 @@ bool __cdecl create_from_node(script::Struct* node)
     }
     if (!sector) {
         // " WARNING: sGetSector(0x%x) returned NULL (%s)\n"
-        debug::printf(" WARNING: sGetSector(0x%x) returned NULL (%s)\n", section_id, script::find_checksum_name_or_unknown(section_id));
+        debug::printf(" WARNING: sGetSector(0x%x) returned NULL (%s)\n", section_id,
+                      script::find_checksum_name_or_unknown(section_id));
         return true;
     }
     if (!clone_from) {
@@ -385,7 +390,8 @@ bool __cdecl kill_from_node_name(uint32_t name, script::Script* script)
             uint32_t id;
             objects::Entity* object;
         } data = {name, script->entity_.get_pull()};
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->for_each(&destroy_object_with_id, &data);
+        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+            ->for_each(&destroy_object_with_id, &data);
         return true;
     }
     case kClassClimbingNode:
@@ -430,7 +436,7 @@ bool __cdecl cfunc_create_from_structure(script::Struct* params, script::Script*
 namespace {
 
 constexpr uint32_t kCreatedAtStart = 0x7C2552B9;  // (name unknown) a node's object made when the level starts
-constexpr uint32_t kSurfaceKindKey = 0x7E4813A7;     // (name unknown) a level sector's terrain
+constexpr uint32_t kSurfaceKindKey = 0x7E4813A7;  // (name unknown) a level sector's terrain
 constexpr uint32_t kDefaultTerrain = 0xE3714DC1;  // (name unknown) ... when none is given
 constexpr uint32_t kTrickObject = 0x1645B830;     // (name unknown) a node that is a trick object
 constexpr uint32_t kCluster = 0x1A3A966B;         // (name unknown) its cluster (its own name if none)
@@ -442,7 +448,11 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 
 // The sector named `name` in any scene (0x0048C510; null if none).
 uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
-bool park_editor_off() { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == kParkEditorOff; }
+bool park_editor_off()
+{
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
+           kParkEditorOff;
+}
 objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
 
 } // namespace
@@ -497,7 +507,8 @@ bool __cdecl cfunc_parse_node_array(script::Struct* params, script::Script*)
             node->read_hash_value(kName, &name, 0);
             if (!name) {
                 script::dump_to_log(node, 0);
-                debug::printf("FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n", i); // "FAILED BECAUSE Node %d is LevelGeometry..."
+                debug::printf("FAILED BECAUSE Node %d is LevelGeometry, but has no Name=....\n",
+                              i); // "FAILED BECAUSE Node %d is LevelGeometry..."
             }
             if (uint8_t* sector = find_sector(name)) {
                 if (!park_editor_off()) {
@@ -524,7 +535,10 @@ bool __cdecl cfunc_parse_node_array(script::Struct* params, script::Script*)
                 node->read_hash_value(kCloneFrom, &clone_from, 0);
                 if (!clone_from && !modules::Skate::is_multiplayer() && park_editor_off()) {
                     // "FAILED BECAUSE: Cannot find level geometry or collision for node %d ..."
-                    debug::printf("FAILED BECAUSE: Cannot find level geometry or collision for node %d \nMaybe there are spaces in or after the name of the Max object (%s)\?\nOr maybe the .QN file does not match the .SCN file checked into Perforce\?\n", i, script::find_checksum_name_or_unknown(name));
+                    debug::printf("FAILED BECAUSE: Cannot find level geometry or collision for node %d \nMaybe there "
+                                  "are spaces in or after the name of the Max object (%s)\?\nOr maybe the .QN file "
+                                  "does not match the .SCN file checked into Perforce\?\n",
+                                  i, script::find_checksum_name_or_unknown(name));
                 }
             }
             bool trick = node->has_entry_named(kTrickObject);
@@ -547,13 +561,13 @@ bool __cdecl cfunc_parse_node_array(script::Struct* params, script::Script*)
                 continue;
         } else {
             if (node_class == kClassProximNode) {
-                memory::push_mem_profile("Proximity Nodes"); // "Proximity Nodes"
+                memory::push_mem_profile("Proximity Nodes");        // "Proximity Nodes"
                 bool active = node->has_bare_flag(kCreatedAtStart); // (asked before the name, as in the original)
                 objects::nearby_zone_add_node(level_nodes::get_node_name(node), active);
                 memory::pop_mem_profile();
             }
             if (node_class == kClassEmitterObject) {
-                memory::push_mem_profile("Emitter Objects"); // "Emitter Objects"
+                memory::push_mem_profile("Emitter Objects");        // "Emitter Objects"
                 bool active = node->has_bare_flag(kCreatedAtStart); // (asked before the name, as in the original)
                 objects::emitter_add_node(level_nodes::get_node_name(node), active);
                 memory::pop_mem_profile();
@@ -612,8 +626,8 @@ bool __cdecl cfunc_re_load_node_array(script::Struct*, script::Script* script)
 
 namespace {
 
-constexpr uint32_t kColor = 0x99A9B716;    // (name unknown) SetObjectColor's colour (0xBBGGRR)
-constexpr uint32_t kTerrain = 0x9655CFF7;  // (name unknown) the terrain a node's sector gets
+constexpr uint32_t kColor = 0x99A9B716;   // (name unknown) SetObjectColor's colour (0xBBGGRR)
+constexpr uint32_t kTerrain = 0x9655CFF7; // (name unknown) the terrain a node's sector gets
 
 // flag_command_by_name's walk data (game_flow_cfuncs.cpp): {id, value, action, result, found}.
 struct NodeFlagCommand {
@@ -663,7 +677,8 @@ bool __cdecl set_node_hidden(uint32_t name, bool hide, int second_viewport)
         command.value = 4;
         command.action = hide ? kFlagActionSetObjectFlags : kFlagActionClearObjectFlags;
         command.id = name;
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->for_each(&apply_flag_command_to_object, &command);
+        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+            ->for_each(&apply_flag_command_to_object, &command);
         return true;
     }
     if (node_class != kClassLevelObject && node_class != kClassLevelGeometry)
@@ -695,7 +710,8 @@ bool __cdecl node_is_alive(uint32_t name)
         command.found = false;
         command.result = false;
         command.id = name;
-        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->for_each(&apply_flag_command_to_object, &command);
+        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+            ->for_each(&apply_flag_command_to_object, &command);
         return command.found;
     }
     if (node_class != kClassLevelGeometry)
@@ -723,7 +739,8 @@ bool __cdecl set_node_color(uint32_t name, script::Struct* params)
             auto* object = static_cast<objects::GameEntity*>(
                 reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(object_name));
             // (neither checked for null, as in the original)
-            reinterpret_cast<objects::MeshInstanceModule*>(object->fetch_module(0x286A8D26))->change_tint(rgba); // "model"
+            reinterpret_cast<objects::MeshInstanceModule*>(object->fetch_module(0x286A8D26))
+                ->change_tint(rgba); // "model"
         }
         return true;
     }
@@ -756,7 +773,8 @@ bool __cdecl shatter_node(uint32_t name)
     if (!node->read_hash_value(kName, &section_id, 0))
         return true;
     uint8_t* sector = find_scene_sector(section_id); // (not checked for null)
-    reinterpret_cast<void(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(sector))[1])(sector, 1); // (0x004A1090: a jump to vtable +4)
+    reinterpret_cast<void(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(sector))[1])(
+        sector, 1); // (0x004A1090: a jump to vtable +4)
     return true;
 }
 
@@ -787,8 +805,8 @@ bool __cdecl node_command(uint32_t name, int action, script::Script* script, scr
         return false;
     int second_viewport = 0;
     if (script && script->entity_.get_pull() && !game_net->in_net_game() && modules::g_viewport_count == 2 &&
-        script->entity_.get_pull() == reinterpret_cast<objects::Entity*>(
-                                       reinterpret_cast<modules::Skate*>(get_skate())->get_rider_at(1)))
+        script->entity_.get_pull() ==
+            reinterpret_cast<objects::Entity*>(reinterpret_cast<modules::Skate*>(get_skate())->get_rider_at(1)))
         second_viewport = 1;
     switch (action) {
     case 0:
@@ -822,7 +840,7 @@ bool __cdecl node_command_by_name(script::Struct* params, script::Script* script
         return true;
     uint32_t prefix = 0;
     if (params->hash_from_name_or_text(0x6C4E7971u, &prefix, 0)) { // "prefix"
-        uint32_t count = 0; // (a 16-bit count in a zeroed 32-bit slot)
+        uint32_t count = 0;                                        // (a 16-bit count in a zeroed 32-bit slot)
         bool is_prefix = !params->has_bare_flag(0x80804991u);
         (void)is_prefix; // (passed to 0x0045BF90, which ignores it)
         uint32_t* nodes = level_nodes::collect_nodes_by_prefix(prefix, reinterpret_cast<uint16_t*>(&count));
@@ -846,10 +864,22 @@ bool __cdecl cfunc_create(script::Struct* params, script::Script* script)
 }
 
 // 0x005A5010 / 0x005A5030 / 0x005A5050 / 0x005A5070: SetObjectColor / Kill / Visible / Invisible name= or prefix=.
-bool __cdecl cfunc_set_object_color(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 6); }
-bool __cdecl cfunc_kill(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 1); }
-bool __cdecl cfunc_visible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 2); }
-bool __cdecl cfunc_invisible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 3); }
+bool __cdecl cfunc_set_object_color(script::Struct* params, script::Script* script)
+{
+    return node_command_by_name(params, script, 6);
+}
+bool __cdecl cfunc_kill(script::Struct* params, script::Script* script)
+{
+    return node_command_by_name(params, script, 1);
+}
+bool __cdecl cfunc_visible(script::Struct* params, script::Script* script)
+{
+    return node_command_by_name(params, script, 2);
+}
+bool __cdecl cfunc_invisible(script::Struct* params, script::Script* script)
+{
+    return node_command_by_name(params, script, 3);
+}
 
 // 0x005A5090: Shatter name= / prefix= [0x9F98989E scale= (1): the calling object's velocity times scale, else
 // 0x6187906D / 0x1680A0FB / 0x8F89F141 asserted] and the shatter's settings (0x286BC297 - at least 2000, 5000 in a
@@ -904,9 +934,9 @@ bool __cdecl cfunc_shatter(script::Struct* params, script::Script* script)
         minimum_area = g_node_object_minimum_area; // (5000)
     if (area < minimum_area)
         area = minimum_area;
-    render::engine::change_breakup_settings(&velocity, reinterpret_cast<const maths::Vec4*>(&vector), value_c483, area, value_bd30,
-                                 value_834a, value_e632, value_7d_c3, value_f_01b, value_2e_1c, checksum_b_3d_e, checksum_af_1a,
-                                 value_33d_f);
+    render::engine::change_breakup_settings(&velocity, reinterpret_cast<const maths::Vec4*>(&vector), value_c483, area,
+                                            value_bd30, value_834a, value_e632, value_7d_c3, value_f_01b, value_2e_1c,
+                                            checksum_b_3d_e, checksum_af_1a, value_33d_f);
     return node_command_by_name(params, script, 4);
 }
 

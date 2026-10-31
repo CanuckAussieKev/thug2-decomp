@@ -164,14 +164,14 @@ namespace {
 constexpr uint32_t kBackground = 0xFF2A2C30;
 
 CellCache g_cells;
-uint32_t g_generation;          // (the atlas's: a new one - every cell to draw again)
+uint32_t g_generation; // (the atlas's: a new one - every cell to draw again)
 uint64_t g_frame = 1;
-std::vector<uint64_t> g_wanted; // (the grid's entries shown last frame, in order)
+std::vector<uint64_t> g_wanted;                  // (the grid's entries shown last frame, in order)
 std::unordered_map<uint64_t, uint64_t> g_failed; // (entries that couldn't be drawn: the frame tried)
-std::string g_level;            // (the lists' level)
+std::string g_level;                             // (the lists' level)
 std::vector<std::string> g_recent, g_favourites;
 bool g_grid_read, g_grid = true;
-int g_list_mode;                 // (0 all, 1 recent, 2 favourites)
+int g_list_mode; // (0 all, 1 recent, 2 favourites)
 
 std::string get_ini() { return game_folder_path("thug2-decomp.ini"); }
 
@@ -239,7 +239,8 @@ void tick_cycle(const ui::ShapeMesh& model)
             return; // (no atlas: logged once by the backend)
         int tab = static_cast<int>(key >> 32) - 1;
         auto id = static_cast<uint32_t>(key);
-        bool drew = preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
+        bool drew =
+            preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
         ui_backend::end_atlas_cell();
         g_cells.drawn[cell] = 1;
         if (!drew)
@@ -360,8 +361,8 @@ void chip(const char* label, int mode, const char* tip)
 
 } // namespace
 
-int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* small_font,
-               float scale, std::vector<ui::Request>* requests)
+int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono,
+                ImFont* small_font, float scale, std::vector<ui::Request>* requests)
 {
     const std::vector<ui::BrowserItem>& items = *model.browser_items_;
     int tab = model.browser_tab_;
@@ -424,9 +425,9 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     if (items.empty())
         ImGui::TextDisabled(tab == 0 ? "(no movable pieces)" : "(no copyable objects)");
     else if (shown.empty())
-        ImGui::TextDisabled(g_list_mode == 1 ? "(none placed yet)"
+        ImGui::TextDisabled(g_list_mode == 1   ? "(none placed yet)"
                             : g_list_mode == 2 ? "(no favourites)"
-                                              : "(no matches)");
+                                               : "(no matches)");
     if (!grid) {
         // The list, a star at each row's end.
         ImGui::PushFont(mono);
@@ -448,7 +449,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 ImGui::SetScrollHereY(0.5f);
             float right = row_right - star_radius - 2.0f;
             if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * 0.5f), star_radius,
-                           favourite(tab, items[i].id)))
+                            favourite(tab, items[i].id)))
                 toggle_favourite(tab, items[i].id);
             ImGui::PopID();
         }
@@ -466,7 +467,8 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     float width = ImGui::GetContentRegionAvail().x;
     int columns = std::max(1, static_cast<int>((width + spacing) / (cell + spacing)));
     int rows = (static_cast<int>(shown.size()) + columns - 1) / columns;
-    float row_height = cell + label_height + ImGui::GetStyle().ItemSpacing.y; // (a row's group and the spacing after it)
+    float row_height =
+        cell + label_height + ImGui::GetStyle().ItemSpacing.y; // (a row's group and the spacing after it)
     uint64_t texture = ui_backend::atlas_texture();
     std::vector<uint64_t> wanted;
     // (keys moved the highlight: its row scrolled into view)
@@ -549,4 +551,4 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     return hovered;
 }
 
-} // namespace MenuSystem::level_editor::thumbs
+} // namespace frontend::level_editor::thumbs

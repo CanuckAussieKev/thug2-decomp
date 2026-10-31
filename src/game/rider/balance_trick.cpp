@@ -22,9 +22,7 @@
 
 namespace objects {
 
-uint32_t g_balance_trick_member_functions[12]{
-    0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0,
-    0, 0x589E5FB3, 0, 0, 0, 0};
+uint32_t g_balance_trick_member_functions[12]{0x6DF82E70, 0x589E5FB3, 0, 0, 0, 0, 0, 0x589E5FB3, 0, 0, 0, 0};
 
 namespace {
 
@@ -71,8 +69,7 @@ ObjectModule* __cdecl RiderTeeterMoves::fabricate()
 // 0x004F8CD0
 void __cdecl RiderTeeterMoves::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_balance_trick_member_functions,
-                                        0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_balance_trick_member_functions, 0x18);
 }
 
 // 0x004F8F80
@@ -273,13 +270,13 @@ void RiderTeeterMoves::set_wobble(script::Struct* wobble)
 }
 
 // 0x004F9420
-int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* params,
-                                                     script::Script* /*script*/)
+int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kSwitchOffBalanceMeter: {
         auto* score = entity_->fetch_module(kSkaterScore);
-        modules::PointTally* display = *reinterpret_cast<modules::PointTally**>(reinterpret_cast<uint8_t*>(score) + 0x18);
+        modules::PointTally* display =
+            *reinterpret_cast<modules::PointTally**>(reinterpret_cast<uint8_t*>(score) + 0x18);
         display->set_teeter_gauge(false, 0.0f);
         display->set_wheelie_gauge(false, 0.0f);
         manual_.hide_display();
@@ -317,7 +314,8 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
         balance->lean_ = static_cast<float>((lean < 0.0 ? -1.0f : 1.0f) * static_cast<double>(lean_add) + lean);
         double speed = static_cast<double>(speed_mult) * balance->lean_speed_;
         balance->lean_speed_ = static_cast<float>(speed);
-        balance->lean_speed_ = static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed);
+        balance->lean_speed_ =
+            static_cast<float>((speed < 0.0 ? -1.0f : 1.0f) * static_cast<double>(speed_add) + speed);
         return 1;
     }
     case kSetWobbleDetails: {
@@ -370,25 +368,25 @@ int RiderTeeterMoves::invoke_method_by_name(uint32_t name, script::Struct* param
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::RiderTeeterMoves::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::RiderTeeterMoves::configure_from_data,
-         &objects::RiderTeeterMoves::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::RiderTeeterMoves::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      &objects::RiderTeeterMoves::configure_from_data,
+                                      &objects::RiderTeeterMoves::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::RiderTeeterMoves::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

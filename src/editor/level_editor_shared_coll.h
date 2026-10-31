@@ -51,7 +51,7 @@ float point_triangle_distance(V3 p, V3 a, V3 b, V3 c);
 // The least of `best` and the distance from `p` to the triangles of a strip (each three consecutive indices; those
 // repeating an index or past `vertexCount` skipped), positions every `stride` bytes.
 float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
-                    uint32_t index_count, float best);
+                     uint32_t index_count, float best);
 // Whether a face whose farthest vertex is `own` from the piece (and `nearest_other` from the nearest other piece) is
 // the piece's: within kNear and strictly nearer.
 bool belongs(float own, float nearest_other);
@@ -98,9 +98,9 @@ private:
 
     std::vector<V3> base_;
     std::vector<float> vertices_;
-    std::vector<uint8_t> faces_;      // 10 bytes each: flags, terrain, three u16 indices
-    std::vector<uint8_t> bytes_;      // one per vertex
-    std::vector<uint8_t> rejection_;  // one per face (all 0: the rejection scale is 0)
+    std::vector<uint8_t> faces_;     // 10 bytes each: flags, terrain, three u16 indices
+    std::vector<uint8_t> bytes_;     // one per vertex
+    std::vector<uint8_t> rejection_; // one per face (all 0: the rejection scale is 0)
     render::TriMeshSource geometry_{};
     render::StaticCollider entity_{};
 };
@@ -122,7 +122,7 @@ void change_live(uint32_t checksum, bool active);
 // it does - `Finish`.
 std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source);
 void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
-                uint8_t* geom);
+                 uint8_t* geom);
 // The scene's companions put in its collision grid / moved there (after UpdateSuperSectors).
 void finalise(uint8_t* scene);
 // How many pieces have a companion, and their faces (the HUD's debug line, the log).
@@ -145,4 +145,4 @@ bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t f
 // The piece's companion (null: none, or its level gone).
 const Companion* companion_of(uint32_t piece);
 
-} // namespace MenuSystem::level_editor::SharedCollision
+} // namespace frontend::level_editor::shared_collision

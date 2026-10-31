@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace sio {
 class InputPort;
@@ -32,10 +32,10 @@ public:
 
     // A motor's timed run (0xC bytes from +0x1C).
     struct Stopwatch {
-        bool running;        // +0 a duration was given
+        bool running; // +0 a duration was given
         uint8_t pad1[3];
-        int start;           // +4 the game clock (with its offset) when it started
-        uint32_t duration;   // +8 ms
+        int start;         // +4 the game clock (with its offset) when it started
+        uint32_t duration; // +8 ms
     };
 
     // 0x0043D670 (registered with the composite object manager): a new one (0 if out of memory): off, no runs.
@@ -70,13 +70,13 @@ public:
     // seconds) the motor's run is timed, else its run is cleared. True.
     bool vibrate(script::Struct* params, script::Script* script);
 
-    bool active_;                 // +0x18
+    bool active_; // +0x18
     uint8_t pad19[3];
-    Stopwatch timers_[kActuators];    // +0x1C
-    sio::InputPort* pad_dev_;        // +0x34
+    Stopwatch timers_[kActuators]; // +0x1C
+    sio::InputPort* pad_dev_;      // +0x34
 };
 static_assert(offsetof(PadRumbleModule, active_) == 0x18 && offsetof(PadRumbleModule, timers_) == 0x1C &&
                   offsetof(PadRumbleModule, pad_dev_) == 0x34 && sizeof(PadRumbleModule) == 0x38,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

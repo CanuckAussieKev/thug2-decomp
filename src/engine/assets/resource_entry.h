@@ -16,13 +16,13 @@ namespace assets {
 
 // The asset types (each file extension maps to one, 0x0067C650).
 enum ResourceKind : int {
-    kBinary = 1,          // .BIN
-    kScene = 2,           // .SCN, .GEOM
-    kResTexDict = 3, // .TEX
-    kSceneCollision = 4,  // .COL
-    kAnimation = 5,       // .SKA, .FAM
-    kSkeleton = 6,        // .SKE
-    kSkinnedModel = 7,    // .MDL, .SKIN
+    kBinary = 1,         // .BIN
+    kScene = 2,          // .SCN, .GEOM
+    kResTexDict = 3,     // .TEX
+    kSceneCollision = 4, // .COL
+    kAnimation = 5,      // .SKA, .FAM
+    kSkeleton = 6,       // .SKE
+    kSkinnedModel = 7,   // .MDL, .SKIN
     kSkinCollision = 8,
     kCutscene = 9,        // .CUT
     kNodeArray = 10,      // .QB
@@ -32,8 +32,8 @@ enum ResourceKind : int {
 // The load states (+0x08).
 enum AssetState : int {
     kUnloaded = 0,
-    kLoading = 1,   // the file is being read
-    kRead = 2,      // the file is read (the async read's callback)
+    kLoading = 1, // the file is being read
+    kRead = 2,    // the file is read (the async read's callback)
     kProcessing = 3,
     kLoaded = 4,
     kAborted = 5,
@@ -119,21 +119,21 @@ public:
     }
 
     void** vtable_;
-    uint32_t checksum_;          // +0x04
-    int cur_phase_;                  // +0x08 AssetState
-    bool pinned_;             // +0x0C not unloaded by unload_all_assets(false)
+    uint32_t checksum_; // +0x04
+    int cur_phase_;     // +0x08 AssetState
+    bool pinned_;       // +0x0C not unloaded by unload_all_assets(false)
     uint8_t pad0d_[3];
-    void* content_;                 // +0x10 what was loaded (a scene, a texture dictionary...)
-    LoadCallback callback_;      // +0x14
-    void* callback_data0_;        // +0x18
-    void* callback_data1_;        // +0x1C
+    void* content_;                   // +0x10 what was loaded (a scene, a texture dictionary...)
+    LoadCallback callback_;           // +0x14
+    void* callback_data0_;            // +0x18
+    void* callback_data1_;            // +0x1C
     file::AsyncFileHandle* file_ref_; // +0x20 the file being read
-    void* octets_;               // +0x24 its contents
-    uint32_t extent_;              // +0x28 their size
-    Resource* last_value_;               // +0x2C in the manager's list (circular)
-    Resource* succ_;               // +0x30
-    Resource* bundle_;              // +0x34 the asset it depends on (a model's textures)
-    memory::ListNode dependents_;   // +0x38 the assets depending on it (lists::Foremost<Resource>, vtable 0x006455C0)
+    void* octets_;                    // +0x24 its contents
+    uint32_t extent_;                 // +0x28 their size
+    Resource* last_value_;            // +0x2C in the manager's list (circular)
+    Resource* succ_;                  // +0x30
+    Resource* bundle_;                // +0x34 the asset it depends on (a model's textures)
+    memory::ListNode dependents_;     // +0x38 the assets depending on it (lists::Foremost<Resource>, vtable 0x006455C0)
 };
 static_assert(sizeof(Resource) == 0x4C, "layout must match the original");
 static_assert(offsetof(Resource, file_ref_) == 0x20 && offsetof(Resource, dependents_) == 0x38, "layout");
@@ -213,12 +213,12 @@ struct CutsceneResource : Resource {
 
 // Node array (a .qb file: its nodes, added to the node manager).
 struct NodeTableResource : Resource {
-    uint32_t archive_;    // +0x4C
-    uint32_t source_path_;   // +0x50 the checksum of the file name (its script's)
+    uint32_t archive_;     // +0x4C
+    uint32_t source_path_; // +0x50 the checksum of the file name (its script's)
     uint32_t array_name_;  // +0x54 the node array's checksum
-    void* nodes_;         // +0x58 its script array
-    char* args_;        // +0x5C (0x40 bytes, the file name)
-    bool owned_;          // +0x60 the node manager's owner
+    void* nodes_;          // +0x58 its script array
+    char* args_;           // +0x5C (0x40 bytes, the file name)
+    bool owned_;           // +0x60 the node manager's owner
     uint8_t pad61[3];
     // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
     int fetch_kind() const;
@@ -285,13 +285,13 @@ struct RigResource : Resource {
 
 // The skinned model's load parameters (0x14 bytes from the pool): 0x00409E90 clears them (returns them).
 struct SkinParams {
-    uint8_t flag0;      // +0x00
+    uint8_t flag0; // +0x00
     uint8_t pad01[3];
-    int value;          // +0x04
-    void* cas_data_;      // +0x08 the .cas file's contents
+    int value;       // +0x04
+    void* cas_data_; // +0x08 the .cas file's contents
     uint32_t unknown0c_;
-    uint8_t has_cas_;     // +0x10
-    uint8_t on_heap_;     // +0x11 (cleared by Load; a pop of the heap context when set)
+    uint8_t has_cas_; // +0x10
+    uint8_t on_heap_; // +0x11 (cleared by Load; a pop of the heap context when set)
     uint8_t pad12[2];
     SkinParams* get_clear();
 };
@@ -354,4 +354,4 @@ struct TexDictAsset : Resource {
     int offload();
 };
 
-} // namespace Ass
+} // namespace assets

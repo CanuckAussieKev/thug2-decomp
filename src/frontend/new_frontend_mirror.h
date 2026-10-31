@@ -20,13 +20,13 @@
 namespace frontend::new_frontend::mirror {
 
 enum class Kind {
-    kNone,    // nothing to restyle (the original as it is, or ours)
-    kDialog,  // a dialog box: its title, text and buttons
-    kSkaters, // the skater select: the skaters, the selected one's name and stats (the 3D skater left in view)
-    kLinkChain,    // a plain vertical menu: its title, its items (label, value), the other words on its screen
-    kFreeze,   // a level's pause menu (pause_vmenu): its items, labelled as ours (pause_label), over the game
-    kMenu,    // a front end roundbar menu (the main menu, Career, STORY / CLASSIC MODE OPTIONS, Create, the skate shop's
-             // menu...): its items, in our words, art and notes where the style table has them (menu_item_style)
+    kNone,      // nothing to restyle (the original as it is, or ours)
+    kDialog,    // a dialog box: its title, text and buttons
+    kSkaters,   // the skater select: the skaters, the selected one's name and stats (the 3D skater left in view)
+    kLinkChain, // a plain vertical menu: its title, its items (label, value), the other words on its screen
+    kFreeze,    // a level's pause menu (pause_vmenu): its items, labelled as ours (pause_label), over the game
+    kMenu, // a front end roundbar menu (the main menu, Career, STORY / CLASSIC MODE OPTIONS, Create, the skate shop's
+           // menu...): its items, in our words, art and notes where the style table has them (menu_item_style)
     kKeyboard, // the on-screen keyboard (a vertical menu of horizontal rows of keys): the text typed, the keys
 };
 const char* kind_name(Kind kind); // "dialog", "skaters", "list", "pause", "menu", "keyboard" ("" for None)
@@ -34,28 +34,28 @@ const char* kind_name(Kind kind); // "dialog", "skaters", "list", "pause", "menu
 // One child of the menu as read.
 struct ItemRead {
     uint32_t id = 0;
-    bool focusable = true;              // (not tagged not_focusable, no block_events)
-    std::vector<std::string> texts;     // its text elements' strings, in tree order (raw: the game's escapes)
-    bool graphic_value_ = false;          // a visible sprite in it that isn't a highlight (decoration: bars, icons -
-                                        // not a reason to leave the screen as it is)
-    int checkbox = -1;                  // a checkbox in it (the "checkbox" texture): 1 ticked ("checkmark"), 0 not, -1 none
-    bool adjustable = false;            // its value changes with Left / Right (the left_arrow / right_arrow sprites, or a
-                                        // slider's up_arrow / down_arrow markers)
+    bool focusable = true;          // (not tagged not_focusable, no block_events)
+    std::vector<std::string> texts; // its text elements' strings, in tree order (raw: the game's escapes)
+    bool graphic_value_ = false;    // a visible sprite in it that isn't a highlight (decoration: bars, icons -
+                                    // not a reason to leave the screen as it is)
+    int checkbox = -1;              // a checkbox in it (the "checkbox" texture): 1 ticked ("checkmark"), 0 not, -1 none
+    bool adjustable = false;        // its value changes with Left / Right (the left_arrow / right_arrow sprites, or a
+                                    // slider's up_arrow / down_arrow markers)
     // A slider item (the colour menus' HUE / SAT. / VAL., the scaling menus' bars - sliderbar_add_item): the marker's
     // place on the bar, 0 (left end) .. 1 (right end); -1 not a slider. `slider_hue_`: the bar is the hue's (degrees).
     float slider_at_ = -1.0f;
     bool slider_hue_ = false;
-    int slider_kind_ = 0;                 // which slider: 1 hue, 2 saturation, 3 value, 4 alpha (CAGR), 0 any other bar
-    std::string display;                // (the skater select: the profile's display name)
+    int slider_kind_ = 0; // which slider: 1 hue, 2 saturation, 3 value, 4 alpha (CAGR), 0 any other bar
+    std::string display;  // (the skater select: the profile's display name)
 };
 
 // What the glue read: the menu that takes the pad events now (the deepest focused one) and what is around it.
 struct MenuRead {
     bool found = false;
     uint32_t menu_id_ = 0;
-    uintptr_t menu_key_ = 0;              // (its address: a new menu is a new screen - the animations start again)
+    uintptr_t menu_key_ = 0; // (its address: a new menu is a new screen - the animations start again)
     bool vertical = true;
-    int selected_index_ = -1;             // the menu's +0x178 (its children's index)
+    int selected_index_ = -1; // the menu's +0x178 (its children's index)
     std::vector<ItemRead> items;
     // A dialog box: the menu is in dialog_box_container; its title (the menu's first text), its text block's lines.
     bool in_dialog_ = false;
@@ -68,8 +68,8 @@ struct MenuRead {
     // The skater select: the selected skater's name as the original shows it (select_skater_name), the stats.
     std::string skater_name_;
     std::vector<std::pair<std::string, int>> stats; // (label, value 0-10)
-    bool in_level_ = false;               // (drawn over the game rather than over the front end)
-    bool graphic_editor_ = false;         // Create-A-Graphic is up (its value slider starts at 0, CAS's at 12)
+    bool in_level_ = false;                         // (drawn over the game rather than over the front end)
+    bool graphic_editor_ = false; // Create-A-Graphic is up (its value slider starts at 0, CAS's at 12)
     // The on-screen keyboard: its rows of keys (each key's words; the row's own label for a wide key), the key
     // selected (row, key; -1 none), the text typed so far.
     bool keyboard = false;
@@ -80,12 +80,12 @@ struct MenuRead {
 
 // What decides whether a list is restyled (the glue fills it from the game).
 struct Policy {
-    bool lists = true;                  // [frontend] restyle_menus (1)
-    bool dialogs = true;                // [frontend] restyle_dialogs (1)
-    bool skaters = true;                // [frontend] restyle_skater_select (1)
-    bool editor = false;                // a Create-a-mode's editor is up (CAS, CAT, CAG, park editor, graphics) - its
-                                        // menus restyled lighter over it (the editor's view shows through)
-    bool online = true;                 // [frontend] restyle_online (1): the online screens too
+    bool lists = true;   // [frontend] restyle_menus (1)
+    bool dialogs = true; // [frontend] restyle_dialogs (1)
+    bool skaters = true; // [frontend] restyle_skater_select (1)
+    bool editor = false; // a Create-a-mode's editor is up (CAS, CAT, CAG, park editor, graphics) - its
+                         // menus restyled lighter over it (the editor's view shows through)
+    bool online = true;  // [frontend] restyle_online (1): the online screens too
 };
 
 // The menus ours stands for (never restyled: ours is drawn over them, or the player asked for the original).
@@ -113,8 +113,8 @@ struct Row {
     std::string label;
     std::string value;
     bool focusable = true;
-    int index = 0;                      // the menu's child index
-    bool adjustable = false;            // Left / Right change its value (the mouse clicks its sides)
+    int index = 0;           // the menu's child index
+    bool adjustable = false; // Left / Right change its value (the mouse clicks its sides)
     // A slider row's track: which (ItemRead::slider_kind_, 0 none) and where the marker stands on it, 0 .. 1.
     int track = 0;
     float track_at_ = 0.0f;
@@ -124,20 +124,20 @@ struct Row {
 
 struct View {
     Kind kind = Kind::kNone;
-    uintptr_t key = 0;                  // (the menu read: a change restarts the rows' animations)
+    uintptr_t key = 0; // (the menu read: a change restarts the rows' animations)
     std::string title;
-    std::vector<std::string> lines;     // a dialog's text (wrapped by the drawing); a list's other words
+    std::vector<std::string> lines; // a dialog's text (wrapped by the drawing); a list's other words
     std::vector<Row> rows;
-    int selected = -1;                  // an index into rows (-1: none)
-    bool horizontal = false;            // (the skater select: Left / Right move)
-    std::string big_name_;                // the skater select's name; a list's selected label
+    int selected = -1;       // an index into rows (-1: none)
+    bool horizontal = false; // (the skater select: Left / Right move)
+    std::string big_name_;   // the skater select's name; a list's selected label
     std::vector<std::pair<std::string, int>> stats;
     bool over_game_ = false;
     // A colour menu (HUE / SAT. / VAL. all there): the colour's values as the game holds them - hue in degrees,
     // saturation and value in percent (the markers' places turned back into the numbers).
     bool has_colour_ = false;
     float hue = 0.0f, sat = 0.0f, val = 0.0f;
-    bool editor = false;                // (an editor's: drawn lighter over its view)
+    bool editor = false; // (an editor's: drawn lighter over its view)
     // (Kind::Keyboard: the keys, the one selected, the text typed)
     std::vector<std::vector<std::string>> keys;
     int key_row_ = -1, key_col_ = -1;
@@ -193,4 +193,4 @@ private:
     std::vector<RowAnim> rows_;
 };
 
-} // namespace MenuSystem::NewFrontend::Mirror
+} // namespace frontend::new_frontend::mirror

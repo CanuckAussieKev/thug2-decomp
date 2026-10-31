@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The cutscene destroy list (0x007CEDD8: a std::list of commands::CutsceneDestroyEntry, movie_cfuncs.h): what a
 // cutscene made and how to get rid of it - each entry's destroy script run with its parameters when the list is

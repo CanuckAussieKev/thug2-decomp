@@ -13,7 +13,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The Vehicle component (GameObjects::DrivableModule, type 0xE47F1B79 "Vehicle", vtable 0x00646770, 0x1334 bytes; made by
 // 0x0043AA30): the driveable cars' physics. A rigid body (position, linear and angular momentum, orientation as a
@@ -38,12 +38,12 @@ public:
 
     // The wheels' grip states (Wheel::state).
     enum WheelState : int {
-        kWheelOnGround = 0,       // touching, grip not worked out yet this step
+        kWheelOnGround = 0, // touching, grip not worked out yet this step
         kWheelInAir = 1,
-        kWheelStaticSlow = 2,     // static friction below min_static_grip_velocity (scaled down to 0)
-        kWheelStatic = 3,         // static friction
+        kWheelStaticSlow = 2,      // static friction below min_static_grip_velocity (scaled down to 0)
+        kWheelStatic = 3,          // static friction
         kWheelStaticToDynamic = 4, // between max_static_grip_velocity and min_dynamic_grip_velocity
-        kWheelDynamic = 5,        // dynamic friction
+        kWheelDynamic = 5,         // dynamic friction
         kWheelHandbrakeThrottle = 6,
         kWheelHandbrakeLocked = 7,
     };
@@ -55,40 +55,40 @@ public:
         float spin;                // +0x08 the tyre's angular velocity (radians a second)
         float rotation;            // +0x0C the tyre's roll angle (kept within -pi..pi)
         float steering;            // +0x10 the steering angle (Ackermann)
-        float display_steering_;     // +0x14 the same from the smoothed steering (the model's)
+        float display_steering_;   // +0x14 the same from the smoothed steering (the model's)
         maths::Vec4 pos;           // +0x18 the contact point (world)
         maths::Vec4 vel;           // +0x28 the body's velocity there
         float load;                // +0x38 the suspension's force, averaged over the last ten steps
-        float load_history_[10];     // +0x3C
+        float load_history_[10];   // +0x3C
         maths::Vec4 normal;        // +0x64 the ground's normal under it
         float friction;            // +0x74 the tyre's friction coefficient this step (0x00435250)
-        maths::Vec4 feeler_start_;   // +0x78 the suspension's line (world): top
-        maths::Vec4 feeler_end_;     // +0x88 bottom
+        maths::Vec4 feeler_start_; // +0x78 the suspension's line (world): top
+        maths::Vec4 feeler_end_;   // +0x88 bottom
         float slip;                // +0x98 the tyre's sideways / spinning slip speed
         float torque;              // +0x9C the torques on the tyre this step (summed)
         maths::Vec4 offset;        // +0xA0 the wheel's position in the body (the model's, less the centre of mass)
-        int steering_side_;          // +0xB0 steering (0x07560E63): 0 Fixed, 1 left, 2 right
+        int steering_side_;        // +0xB0 steering (0x07560E63): 0 Fixed, 1 left, 2 right
         bool drive;                // +0xB4 drive (0x97E20A70): yes / no
         uint8_t padb5_[3];
         float rest_y_;               // +0xB8 the suspension's rest extension (Finalize)
-        float max_drawn_y_;           // +0xBC (0xD87D0183) the model's wheel drawn no lower than this
-        float radius;              // +0xC0 radius
+        float max_drawn_y_;          // +0xBC (0xD87D0183) the model's wheel drawn no lower than this
+        float radius;                // +0xC0 radius
         float inv_moment_;           // +0xC4 386.4 / moment
         float spring_rate_;          // +0xC8 spring_rate
         float damping_rate_;         // +0xCC damping_rate
-        float min_static_grip_vel_;    // +0xD0 min_static_grip_velocity (mph -> inches a second)
-        float max_static_grip_vel_;    // +0xD4 max_static_grip_velocity
-        float min_dynamic_grip_vel_;   // +0xD8 min_dynamic_grip_velocity
+        float min_static_grip_vel_;  // +0xD0 min_static_grip_velocity (mph -> inches a second)
+        float max_static_grip_vel_;  // +0xD4 max_static_grip_velocity
+        float min_dynamic_grip_vel_; // +0xD8 min_dynamic_grip_velocity
         float static_friction_;      // +0xDC static_friction
         float dynamic_friction_;     // +0xE0 dynamic_friction
         float parking_grip_powered_; // +0xE4 handbrake_throttle_friction
-        float parking_grip_locked_;   // +0xE8 handbrake_locked_friction
+        float parking_grip_locked_;  // +0xE8 handbrake_locked_friction
         float brake_excess_;         // +0xEC the brake torque left over once the tyre stopped
         float brake_torque_;         // +0xF0 brake_torque (* 12)
         float handbrake_torque_;     // +0xF4 handbrake_torque (* 12)
-        maths::Vec4 sideways;      // +0xF8 the tyre's sideways direction (world, unit, w = 1)
+        maths::Vec4 sideways;        // +0xF8 the tyre's sideways direction (world, unit, w = 1)
         maths::Vec4 contact_vel_;    // +0x108 the body's velocity at the wheel, before the suspension (world)
-        render::ProbeRay feeler;        // +0x118 the suspension's line against the world
+        render::ProbeRay feeler;     // +0x118 the suspension's line against the world
 
         // 0x00435870: the feeler constructed. Returns this.
         Wheel* make_new();
@@ -99,21 +99,21 @@ public:
     // A collision box's face (0x88 bytes): a corner and two edges in the body, the same in the world, the edges as
     // unit vectors and their lengths.
     struct Collider {
-        maths::Vec4 corner;        // +0x00 (body)
-        maths::Vec4 edges[2];      // +0x10
+        maths::Vec4 corner;          // +0x00 (body)
+        maths::Vec4 edges[2];        // +0x10
         maths::Vec4 world_corner_;   // +0x30
         maths::Vec4 world_edges_[2]; // +0x40
-        maths::Vec4 directions[2]; // +0x60 the world edges, unit
-        float lengths[2];          // +0x80
+        maths::Vec4 directions[2];   // +0x60 the world edges, unit
+        float lengths[2];            // +0x80
     };
 
     // A contact point of the colliders with the world this step (0x2C bytes; in the array at 0x006951C8).
     struct Contact {
-        maths::Vec4 point;         // +0x00 (world)
-        maths::Vec4 normal;        // +0x10 the world's, out of it
-        float depth;               // +0x20 how far in
-        float impulse;             // +0x24 the impulses at it this step (summed)
-        bool from_feeler_;           // +0x28 (set on the record after a feeler's - as the original)
+        maths::Vec4 point;  // +0x00 (world)
+        maths::Vec4 normal; // +0x10 the world's, out of it
+        float depth;        // +0x20 how far in
+        float impulse;      // +0x24 the impulses at it this step (summed)
+        bool from_feeler_;  // +0x28 (set on the record after a feeler's - as the original)
         uint8_t pad29[3];
     };
     // The contacts (one array for every vehicle; contact_count_ of them this step).
@@ -302,92 +302,92 @@ public:
     bool is_rider_shown(script::Struct* params, script::Script* script);
 
     // --- the fields ---
-    maths::Vec4 at_point_;             // +0x18 the centre of mass (world)
-    maths::Vec4 linear_momentum_;             // +0x28 linear momentum
+    maths::Vec4 at_point_;        // +0x18 the centre of mass (world)
+    maths::Vec4 linear_momentum_; // +0x28 linear momentum
     maths::Vec4 orientation_;     // +0x38 a quaternion (x, y, z, w)
     maths::Vec4 rotmom_;          // +0x48 angular momentum
     int awake_;                   // +0x58 0: asleep (only the model kept up to date)
-    int still_frames_;             // +0x5C frames it has hardly moved (asleep after three)
-    int contact_count_;            // +0x60 the colliders' contact points this step (in s_contacts)
-    maths::Mat4 basis_frame_;          // +0x64 the orientation as a matrix
+    int still_frames_;            // +0x5C frames it has hardly moved (asleep after three)
+    int contact_count_;           // +0x60 the colliders' contact points this step (in s_contacts)
+    maths::Mat4 basis_frame_;     // +0x64 the orientation as a matrix
     maths::Vec4 vel_;             // +0xA4 linear_momentum_ * inv_mass_
     maths::Vec4 rotvel_;          // +0xB4 the angular velocity
-    maths::Mat4 inv_inertia_;      // +0xC4 the inverse inertia tensor in the world
-    maths::Vec4 com_offset_;       // +0x104 balance_point_ turned into the world
-    int wheels_in_contact_;         // +0x114
-    int8_t load_index_;            // +0x118 the wheels' load history slot (0-9)
-    bool cut_short_;            // +0x119 a trigger's script took over during the step
+    maths::Mat4 inv_inertia_;     // +0xC4 the inverse inertia tensor in the world
+    maths::Vec4 com_offset_;      // +0x104 balance_point_ turned into the world
+    int wheels_in_contact_;       // +0x114
+    int8_t load_index_;           // +0x118 the wheels' load history slot (0-9)
+    bool cut_short_;              // +0x119 a trigger's script took over during the step
     bool righting_;               // +0x11A turning itself upright
     uint8_t pad11b_;
-    int righting_start_;           // +0x11C the game clock (with its offset) when it started righting itself
-    float kick_time_;              // +0x120 seconds left of a random kick (0x00435890)
-    maths::Vec4 force_;           // +0x124 the force this step
-    maths::Vec4 twist_force_;          // +0x134 the torque this step
-    float step_length_;              // +0x144 the sub-step's length (seconds)
-    maths::Vec4 balance_point_;    // +0x148 (body; y from 0x93346B8C)
-    float inv_mass_;               // +0x158 386.4 / mass
-    float inv_moments_[3];         // +0x15C 386.4 / moment_of_inertia
+    int righting_start_;        // +0x11C the game clock (with its offset) when it started righting itself
+    float kick_time_;           // +0x120 seconds left of a random kick (0x00435890)
+    maths::Vec4 force_;         // +0x124 the force this step
+    maths::Vec4 twist_force_;   // +0x134 the torque this step
+    float step_length_;         // +0x144 the sub-step's length (seconds)
+    maths::Vec4 balance_point_; // +0x148 (body; y from 0x93346B8C)
+    float inv_mass_;            // +0x158 386.4 / mass
+    float inv_moments_[3];      // +0x15C 386.4 / moment_of_inertia
     uint32_t unknown168_;
-    float restitution_;           // +0x16C body_restitution (0x79C3B862)
-    float drag_factor_;              // +0x170 body_friction (0xF476273C)
-    float depth_correction_;       // +0x174 (0x01DD4890) the contacts' depth correction
-    float tipped_friction_;        // +0x178 (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
-    float wall_steering_;          // +0x17C (0xB9F026ED) the steering's turning against walls
-    float align_speed_;            // +0x180 (0x8C14709E) below this horizontal speed the body turns towards its
-                                   //        facing, above it towards its velocity (0x00439D90)
-    float align_time_;             // +0x184 (0x2C91E49B) the turning's ramp-in time in the air
-    float align_rate_;             // +0x188 (0x280F0E0B) the turning's rate
-    bool align_when_slow_;          // +0x18C (0x5341806A) turn towards the facing when slow
+    float restitution_;      // +0x16C body_restitution (0x79C3B862)
+    float drag_factor_;      // +0x170 body_friction (0xF476273C)
+    float depth_correction_; // +0x174 (0x01DD4890) the contacts' depth correction
+    float tipped_friction_;  // +0x178 (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
+    float wall_steering_;    // +0x17C (0xB9F026ED) the steering's turning against walls
+    float align_speed_;      // +0x180 (0x8C14709E) below this horizontal speed the body turns towards its
+                             //        facing, above it towards its velocity (0x00439D90)
+    float align_time_;       // +0x184 (0x2C91E49B) the turning's ramp-in time in the air
+    float align_rate_;       // +0x188 (0x280F0E0B) the turning's rate
+    bool align_when_slow_;   // +0x18C (0x5341806A) turn towards the facing when slow
     uint8_t pad18d_[3];
-    int wheel_count_;              // +0x190 Wheels
-    int drive_wheel_count_;         // +0x194 wheels with drive
-    float max_steering_angle_;      // +0x198 max_steering_angle (radians)
-    float wheelbase_;             // +0x19C (Finalize: the model's front to back wheels)
-    float track_;                 // +0x1A0 (Finalize: the model's left to right wheels)
-    float yaw_damping_;            // +0x1A4 (0x386837DB) the turning damped when not steering
-    float spin_damping_;           // +0x1A8 (0x469CF79A) the angular momentum damped
-    Collider colliders_[2];       // +0x1AC colliders (0xFC8C4AC6)
-    maths::Vec4 skater_bone_;      // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
-    bool can_dismount_;               // +0x2CC Exitable
-    bool handbrake_disabled_;            // +0x2CD no_handbrake
+    int wheel_count_;          // +0x190 Wheels
+    int drive_wheel_count_;    // +0x194 wheels with drive
+    float max_steering_angle_; // +0x198 max_steering_angle (radians)
+    float wheelbase_;          // +0x19C (Finalize: the model's front to back wheels)
+    float track_;              // +0x1A0 (Finalize: the model's left to right wheels)
+    float yaw_damping_;        // +0x1A4 (0x386837DB) the turning damped when not steering
+    float spin_damping_;       // +0x1A8 (0x469CF79A) the angular momentum damped
+    Collider colliders_[2];    // +0x1AC colliders (0xFC8C4AC6)
+    maths::Vec4 skater_bone_;  // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
+    bool can_dismount_;        // +0x2CC Exitable
+    bool handbrake_disabled_;  // +0x2CD no_handbrake
     uint8_t pad2ce_[2];
-    Wheel* wheels_;               // +0x2D0
-    float engine_torque_;           // +0x2D4 drive_torque (engine; * 12)
-    float engine_braking_;         // +0x2D8 (0xB2268648, * 12) engine braking without throttle
-    int gear_count_;               // +0x2DC gear_ratios
+    Wheel* wheels_;                        // +0x2D0
+    float engine_torque_;                  // +0x2D4 drive_torque (engine; * 12)
+    float engine_braking_;                 // +0x2D8 (0xB2268648, * 12) engine braking without throttle
+    int gear_count_;                       // +0x2DC gear_ratios
     float transmission_ratios_[kMaxGears]; // +0x2E0
-    float reverse_ratio_;          // +0x2F8 reverse_torque_ratio
-    float final_drive_ratio_;     // +0x2FC differential_ratio
-    float upshift_speed_;          // +0x300 upshift_rpm (rpm -> radians a second)
-    float steering_;              // +0x304 the input: -1 (left) .. 1 (right), squared with its sign
-    bool throttle_;               // +0x308
-    bool brake_;                  // +0x309
-    bool handbrake_;              // +0x30A
-    bool reverse_;                // +0x30B
+    float reverse_ratio_;                  // +0x2F8 reverse_torque_ratio
+    float final_drive_ratio_;              // +0x2FC differential_ratio
+    float upshift_speed_;                  // +0x300 upshift_rpm (rpm -> radians a second)
+    float steering_;                       // +0x304 the input: -1 (left) .. 1 (right), squared with its sign
+    bool throttle_;                        // +0x308
+    bool brake_;                           // +0x309
+    bool handbrake_;                       // +0x30A
+    bool reverse_;                         // +0x30B
     render::HitMeshCache contact_memo_;    // +0x30C the feelers' collision cache
-    bool rider_shown_;          // +0x12D8 (0x2ED67657) a skater is shown driving
+    bool rider_shown_;                     // +0x12D8 (0x2ED67657) a skater is shown driving
     uint8_t pad12d9_[3];
-    maths::Vec4 skater_pos_;       // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
-    uint32_t rider_anim_name_;         // +0x12EC skater_anim (0xDA75A33E)
-    float display_steering_;       // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
-    uint32_t sounds_name_;         // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
-    float gravity_scale_;          // +0x12F8 (Vehicle_AdjustGravity)
-    float gravity_time_;           // +0x12FC seconds left of it
-    bool handbrake_active_;        // +0x1300 (forces the brake)
+    maths::Vec4 skater_pos_;   // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
+    uint32_t rider_anim_name_; // +0x12EC skater_anim (0xDA75A33E)
+    float display_steering_;   // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
+    uint32_t sounds_name_;     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
+    float gravity_scale_;      // +0x12F8 (Vehicle_AdjustGravity)
+    float gravity_time_;       // +0x12FC seconds left of it
+    bool handbrake_active_;    // +0x1300 (forces the brake)
     uint8_t pad1301[3];
-    float air_time_;               // +0x1304 seconds without a wheel on the ground
-    float free_fall_time_;          // +0x1308 seconds in the air without touching anything
-    float collision_impulse_;      // +0x130C the strongest contact impulse this step
-    ObjectModule* bone_rig_;   // +0x1310 the object's skeleton (0x222756D5)
-    uint8_t* input_ptr_;             // +0x1314 the input component (0x27D7CD28)
-    ObjectModule* mesh_instance_;      // +0x1318 the model (0x286A8D26)
-    int debug_mode_;               // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
+    float air_time_;              // +0x1304 seconds without a wheel on the ground
+    float free_fall_time_;        // +0x1308 seconds in the air without touching anything
+    float collision_impulse_;     // +0x130C the strongest contact impulse this step
+    ObjectModule* bone_rig_;      // +0x1310 the object's skeleton (0x222756D5)
+    uint8_t* input_ptr_;          // +0x1314 the input component (0x27D7CD28)
+    ObjectModule* mesh_instance_; // +0x1318 the model (0x286A8D26)
+    int debug_mode_;              // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
     bool passive_;                // +0x1320 no input, collision or debug drawing (set from outside)
     uint8_t pad1321[3];
-    GameEntity* rider_ref_;   // +0x1324 the local skater (modules::Skate's 0x00566520)
-    ObjectModule* anim_blender_ptr_; // +0x1328 its animation blender (with rider_shown_)
+    GameEntity* rider_ref_;             // +0x1324 the local skater (modules::Skate's 0x00566520)
+    ObjectModule* anim_blender_ptr_;    // +0x1328 its animation blender (with rider_shown_)
     ObjectModule* skater_core_physics_; // +0x132C its core physics (0x5BD63B29)
-    ObjectModule* trigger_ptr_;    // +0x1330 the object's trigger component (0xE594F0A2)
+    ObjectModule* trigger_ptr_;         // +0x1330 the object's trigger component (0xE594F0A2)
 };
 // 0x004354C0 (cdecl): the quaternion product a * b into `out` (0x00420140, a quaternion's *=, on a copy of a).
 // Returns out.
@@ -396,11 +396,9 @@ maths::Vec4* quat_product(maths::Vec4* out, const maths::Vec4* a, const maths::V
 static_assert(sizeof(DrivableModule::Wheel) == 0x1C8 && offsetof(DrivableModule::Wheel, load) == 0x38 &&
                   offsetof(DrivableModule::Wheel, normal) == 0x64 &&
                   offsetof(DrivableModule::Wheel, feeler_start_) == 0x78 &&
-                  offsetof(DrivableModule::Wheel, offset) == 0xA0 &&
-                  offsetof(DrivableModule::Wheel, rest_y_) == 0xB8 &&
+                  offsetof(DrivableModule::Wheel, offset) == 0xA0 && offsetof(DrivableModule::Wheel, rest_y_) == 0xB8 &&
                   offsetof(DrivableModule::Wheel, brake_torque_) == 0xF0 &&
-                  offsetof(DrivableModule::Wheel, sideways) == 0xF8 &&
-                  offsetof(DrivableModule::Wheel, feeler) == 0x118,
+                  offsetof(DrivableModule::Wheel, sideways) == 0xF8 && offsetof(DrivableModule::Wheel, feeler) == 0x118,
               "layout must match the original");
 static_assert(sizeof(DrivableModule::Collider) == 0x88, "layout must match the original");
 static_assert(offsetof(DrivableModule, at_point_) == 0x18 && offsetof(DrivableModule, awake_) == 0x58 &&
@@ -408,20 +406,16 @@ static_assert(offsetof(DrivableModule, at_point_) == 0x18 && offsetof(DrivableMo
                   offsetof(DrivableModule, inv_inertia_) == 0xC4 &&
                   offsetof(DrivableModule, wheels_in_contact_) == 0x114 &&
                   offsetof(DrivableModule, kick_time_) == 0x120 && offsetof(DrivableModule, step_length_) == 0x144 &&
-                  offsetof(DrivableModule, inv_mass_) == 0x158 &&
-                  offsetof(DrivableModule, restitution_) == 0x16C &&
-                  offsetof(DrivableModule, wheel_count_) == 0x190 &&
-                  offsetof(DrivableModule, colliders_) == 0x1AC &&
-                  offsetof(DrivableModule, skater_bone_) == 0x2BC &&
-                  offsetof(DrivableModule, wheels_) == 0x2D0 &&
+                  offsetof(DrivableModule, inv_mass_) == 0x158 && offsetof(DrivableModule, restitution_) == 0x16C &&
+                  offsetof(DrivableModule, wheel_count_) == 0x190 && offsetof(DrivableModule, colliders_) == 0x1AC &&
+                  offsetof(DrivableModule, skater_bone_) == 0x2BC && offsetof(DrivableModule, wheels_) == 0x2D0 &&
                   offsetof(DrivableModule, transmission_ratios_) == 0x2E0 &&
-                  offsetof(DrivableModule, steering_) == 0x304 &&
-                  offsetof(DrivableModule, contact_memo_) == 0x30C &&
+                  offsetof(DrivableModule, steering_) == 0x304 && offsetof(DrivableModule, contact_memo_) == 0x30C &&
                   offsetof(DrivableModule, rider_shown_) == 0x12D8 &&
                   offsetof(DrivableModule, sounds_name_) == 0x12F4 &&
                   offsetof(DrivableModule, collision_impulse_) == 0x130C &&
-                  offsetof(DrivableModule, input_ptr_) == 0x1314 &&
-                  offsetof(DrivableModule, trigger_ptr_) == 0x1330 && sizeof(DrivableModule) == 0x1334,
+                  offsetof(DrivableModule, input_ptr_) == 0x1314 && offsetof(DrivableModule, trigger_ptr_) == 0x1330 &&
+                  sizeof(DrivableModule) == 0x1334,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

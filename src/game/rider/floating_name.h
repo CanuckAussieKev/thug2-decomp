@@ -7,7 +7,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's floating name component (SkaterFloatingName, type 0x125044E2, vtable 0x0064BE54, 0x1C bytes): in a
 // network game, each skater's name shown above it - a screen element label (skater_name_0 ... skater_name_7, by the
@@ -40,4 +40,4 @@ public:
 static_assert(offsetof(RiderOverheadTag, label_id_) == 0x18 && sizeof(RiderOverheadTag) == 0x1C,
               "layout must match the original (0x00511810 allocates 0x1C bytes)");
 
-} // namespace Obj
+} // namespace objects

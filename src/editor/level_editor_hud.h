@@ -32,4 +32,4 @@ bool panel_shown();
 // The keys in the highlight colour: "\c1" + keys + "\c0".
 std::string get_key(const char* keys);
 
-} // namespace MenuSystem::level_editor::Hud
+} // namespace frontend::level_editor::hud

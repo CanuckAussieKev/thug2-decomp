@@ -156,4 +156,4 @@ __declspec(naked) void max_vector_stub()
     }
 }
 
-} // namespace Nx
+} // namespace render

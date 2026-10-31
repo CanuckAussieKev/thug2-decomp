@@ -14,11 +14,11 @@ namespace tasks {
 namespace {
 
 extern void** const kBaseTaskVtable;
-extern void** const kTaskNodeVtable;       // lists::Elem<SchedulerTask>
-extern void** const kTaskSearchVtable;     // lists::Hunt<SchedulerTask>
+extern void** const kTaskNodeVtable;        // lists::Elem<SchedulerTask>
+extern void** const kTaskSearchVtable;      // lists::Hunt<SchedulerTask>
 extern void** const kStackListSearchVtable; // lists::Hunt<StackList>
-extern void** const kStackListNodeVtable;  // lists::Elem<StackList>
-extern void** const kStackListHeadVtable;  // lists::Foremost<StackList>
+extern void** const kStackListNodeVtable;   // lists::Elem<StackList>
+extern void** const kStackListHeadVtable;   // lists::Foremost<StackList>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
@@ -170,10 +170,7 @@ void SchedulerTask::drop_out()
 }
 
 // 0x00406850
-bool SchedulerTask::is_on_task_list() const
-{
-    return list_link_->prev != list_link_;
-}
+bool SchedulerTask::is_on_task_list() const { return list_link_->prev != list_link_; }
 
 // 0x00406A50
 LinkChain* LinkChain::make_new()
@@ -186,16 +183,10 @@ LinkChain* LinkChain::make_new()
 }
 
 // 0x00406A20
-void LinkChain::destruct()
-{
-    head_.unlink_as(kTaskNodeVtable);
-}
+void LinkChain::destruct() { head_.unlink_as(kTaskNodeVtable); }
 
 // 0x004069B0
-void LinkChain::mark_changed()
-{
-    altered_ = true;
-}
+void LinkChain::mark_changed() { altered_ = true; }
 
 // 0x00406A80
 void LinkChain::queue_job(SchedulerTask* task)
@@ -339,16 +330,10 @@ void PileUp::stack_off()
 }
 
 // 0x00406C90
-void PileUp::queue_job(SchedulerTask* task)
-{
-    ongoing_->queue_job(task);
-}
+void PileUp::queue_job(SchedulerTask* task) { ongoing_->queue_job(task); }
 
 // 0x00406CB0
-void PileUp::clear_job_list()
-{
-    (pushed_ ? top_side_ : ongoing_)->clear_job_list();
-}
+void PileUp::clear_job_list() { (pushed_ ? top_side_ : ongoing_)->clear_job_list(); }
 
 // 0x004070A0
 void PileUp::work_on(void* unused)
@@ -376,8 +361,7 @@ void PileUp::delete_popped_lists()
 }
 
 namespace {
-static VtableSlot g_base_task_vtable_slots[] = {&_purecall, &_purecall,
-                &tasks::SchedulerTask::scalar_delete};
+static VtableSlot g_base_task_vtable_slots[] = {&_purecall, &_purecall, &tasks::SchedulerTask::scalar_delete};
 void** const kBaseTaskVtable = reinterpret_cast<void**>(g_base_task_vtable_slots);
 static VtableSlot g_task_node_vtable_slots[] = {&tasks::TaskNode::teardown};
 void** const kTaskNodeVtable = reinterpret_cast<void**>(g_task_node_vtable_slots);
@@ -391,4 +375,4 @@ static VtableSlot g_stack_list_head_vtable_slots[] = {&tasks::StackListNode::des
 void** const kStackListHeadVtable = reinterpret_cast<void**>(g_stack_list_head_vtable_slots);
 } // namespace
 
-} // namespace Tsk
+} // namespace tasks

@@ -20,10 +20,7 @@ Mat4& Mat4::operator=(const Mat4& other)
 }
 
 // 0x00404080
-Vec4& Mat4::operator[](int index)
-{
-    return row[index];
-}
+Vec4& Mat4::operator[](int index) { return row[index]; }
 
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
 Mat4& make_pitch_matrix(Mat4& m, float angle)
@@ -223,17 +220,16 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
     float xs = static_cast<float>(x * s);
     double ys = y * s, zs = static_cast<double>(z) * s;
     m.row[0] = {static_cast<float>(1.0 - xx_t), static_cast<float>(xy_t + zs), static_cast<float>(zx_t - ys), 0.0f};
-    m.row[1] = {static_cast<float>(xy_t - zs), static_cast<float>(1.0 - yy_t), static_cast<float>(zy_t + static_cast<double>(xs)), 0.0f};
-    m.row[2] = {static_cast<float>(zx_t + ys), static_cast<float>(zy_t - static_cast<double>(xs)), static_cast<float>(1.0 - zz_t), 0.0f};
+    m.row[1] = {static_cast<float>(xy_t - zs), static_cast<float>(1.0 - yy_t),
+                static_cast<float>(zy_t + static_cast<double>(xs)), 0.0f};
+    m.row[2] = {static_cast<float>(zx_t + ys), static_cast<float>(zy_t - static_cast<double>(xs)),
+                static_cast<float>(1.0 - zz_t), 0.0f};
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
 
 // 0x00404100 (the original calls the statically linked D3DXMatrixMultiply)
-Mat4& Mat4::operator=(const MatrixProduct& product)
-{
-    return get_multiply(*this, *product.left, *product.right);
-}
+Mat4& Mat4::operator=(const MatrixProduct& product) { return get_multiply(*this, *product.left, *product.right); }
 
 // 0x0040AF60 (x87: each sum in double, rounded once; `in` may be `out`)
 Vec4& Mat4::xform(Vec4& out, const Vec4& in) const
@@ -319,7 +315,7 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
 
     // Which way round: compare ref x in_plane with the plane normal on its largest axis.
     Vec4 cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
-                 ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
+               ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
     int axis;
     bool cross_positive = cross.dominant_axis_index(&axis) > 0.0f;
     bool normal_positive = (&normal.x)[axis] > 0.0f;
@@ -423,15 +419,15 @@ Mat4& Mat4::square_up_axes(int axis)
 bool Mat4::restore_right_angles()
 {
     constexpr float kMinLength = 0.99f;
-    const double length1 = static_cast<float>(x87::get_sqrt(
-        (static_cast<double>(row[1].x) * row[1].x + static_cast<double>(row[1].y) * row[1].y) +
-        static_cast<double>(row[1].z) * row[1].z));
-    const double length2 = x87::get_sqrt(
-        (static_cast<double>(row[2].x) * row[2].x + static_cast<double>(row[2].y) * row[2].y) +
-        static_cast<double>(row[2].z) * row[2].z);
-    const double length0 = x87::get_sqrt(
-        (static_cast<double>(row[0].z) * row[0].z + static_cast<double>(row[0].x) * row[0].x) +
-        static_cast<double>(row[0].y) * row[0].y);
+    const double length1 = static_cast<float>(
+        x87::get_sqrt((static_cast<double>(row[1].x) * row[1].x + static_cast<double>(row[1].y) * row[1].y) +
+                      static_cast<double>(row[1].z) * row[1].z));
+    const double length2 =
+        x87::get_sqrt((static_cast<double>(row[2].x) * row[2].x + static_cast<double>(row[2].y) * row[2].y) +
+                      static_cast<double>(row[2].z) * row[2].z);
+    const double length0 =
+        x87::get_sqrt((static_cast<double>(row[0].z) * row[0].z + static_cast<double>(row[0].x) * row[0].x) +
+                      static_cast<double>(row[0].y) * row[0].y);
     const bool short0 = length0 < kMinLength;
     const bool short1 = length1 < kMinLength;
     const bool short2 = length2 < kMinLength;
@@ -567,10 +563,7 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
 namespace {
 
 // Element (r, c), treating the four row vectors as a 4x4 array.
-float get_at(const Mat4& m, int r, int c)
-{
-    return (&m.row[r].x)[c];
-}
+float get_at(const Mat4& m, int r, int c) { return (&m.row[r].x)[c]; }
 
 // Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
 // first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg) - on the FPU (53 bits; the
@@ -665,4 +658,4 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     return out;
 }
 
-} // namespace Mth
+} // namespace maths

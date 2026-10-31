@@ -66,4 +66,4 @@ struct PointerMember {
     void* get_pull();
 };
 
-} // namespace Spt
+} // namespace single

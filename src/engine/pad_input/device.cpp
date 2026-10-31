@@ -106,10 +106,7 @@ InputPort* InputPort::teardown(unsigned int flags)
 //                        case kSettle: Settle(); break; }
 // where pull_data polls the pad into control_data_. Originally from PartyMod Fixes (its jump from here): SDL game controllers
 // and the keyboard (engine/pad_input/sdl_input.h).
-void InputPort::work_on(int /*unused*/)
-{
-    process_sdl_device(this);
-}
+void InputPort::work_on(int /*unused*/) { process_sdl_device(this); }
 
 // 0x005BCC70
 void InputPort::acquire()
@@ -320,20 +317,35 @@ void key_input(int key, int flags)
         return;
     bool queue = true;
     switch (key) {
-    case '\r': key = 0x19; break; // Enter
-    case '\b': key = 0x18; break; // Backspace
-    case 0x1B:                    // Escape (not its auto-repeats)
+    case '\r':
+        key = 0x19;
+        break; // Enter
+    case '\b':
+        key = 0x18;
+        break; // Backspace
+    case 0x1B: // Escape (not its auto-repeats)
         if (flags & 0x40000000)
             queue = false;
         else
             key = 0x1A;
         break;
-    case ';': key = ':'; break;
+    case ';':
+        key = ':';
+        break;
     // (not typeable in the game's fonts)
-    case -1: case '%': case '~': case '\\': case '|': case '[': case ']': case '}': case '"':
+    case -1:
+    case '%':
+    case '~':
+    case '\\':
+    case '|':
+    case '[':
+    case ']':
+    case '}':
+    case '"':
         queue = false;
         break;
-    default: break;
+    default:
+        break;
     }
     if (queue)
         keyboard_chars()[keyboard_char_count()++] = key;
@@ -371,54 +383,99 @@ char key_char(UINT scan_code)
 int get_menu_key(int button)
 {
     switch (button) {
-    case 0: return key_binding(11);
-    case 1: return key_binding(10);
-    case 2: return key_binding(9);
-    case 3: return key_binding(8);
-    case 8: return 1;  // Escape
-    case 9: return 0x39; // space
-    case 14: return key_binding(16);
-    case 15: return key_binding(17);
-    case 16: return key_binding(14);
-    case 17: return key_binding(15);
-    case 21: return key_binding(18);
-    case 22: return 0x1C; // Enter
-    case 23: return 1;
-    case 24: return 0x12; // E
-    case 25: return 0x13; // R
-    case 26: return 0x0C; // -
-    case 27: return 0x0D; // =
-    case 28: return 2;  // 1
-    case 29: return 3;  // 2
-    default: return 0;
+    case 0:
+        return key_binding(11);
+    case 1:
+        return key_binding(10);
+    case 2:
+        return key_binding(9);
+    case 3:
+        return key_binding(8);
+    case 8:
+        return 1; // Escape
+    case 9:
+        return 0x39; // space
+    case 14:
+        return key_binding(16);
+    case 15:
+        return key_binding(17);
+    case 16:
+        return key_binding(14);
+    case 17:
+        return key_binding(15);
+    case 21:
+        return key_binding(18);
+    case 22:
+        return 0x1C; // Enter
+    case 23:
+        return 1;
+    case 24:
+        return 0x12; // E
+    case 25:
+        return 0x13; // R
+    case 26:
+        return 0x0C; // -
+    case 27:
+        return 0x0D; // =
+    case 28:
+        return 2; // 1
+    case 29:
+        return 3; // 2
+    default:
+        return 0;
     }
 }
 // ...while typing...
 int typing_key(int button)
 {
     switch (button) {
-    case 0: case 1: case 2: case 3: case 8: case 9: case 14: case 15: case 16: case 17: return -1;
-    case 22: return 0x1C;
-    case 23: return 1;
-    default: return 0;
+    case 0:
+    case 1:
+    case 2:
+    case 3:
+    case 8:
+    case 9:
+    case 14:
+    case 15:
+    case 16:
+    case 17:
+        return -1;
+    case 22:
+        return 0x1C;
+    case 23:
+        return 1;
+    default:
+        return 0;
     }
 }
 // ...and otherwise.
 int play_key(int button)
 {
     switch (button) {
-    case 0: return key_binding(11);
-    case 1: return key_binding(10);
-    case 2: return key_binding(9);
-    case 3: return key_binding(8);
-    case 8: return 1;
-    case 9: return key_binding(13);
-    case 14: return key_binding(16);
-    case 15: return key_binding(17);
-    case 16: return key_binding(14);
-    case 17: return key_binding(15);
-    case 21: return key_binding(18);
-    default: return 0;
+    case 0:
+        return key_binding(11);
+    case 1:
+        return key_binding(10);
+    case 2:
+        return key_binding(9);
+    case 3:
+        return key_binding(8);
+    case 8:
+        return 1;
+    case 9:
+        return key_binding(13);
+    case 14:
+        return key_binding(16);
+    case 15:
+        return key_binding(17);
+    case 16:
+        return key_binding(14);
+    case 17:
+        return key_binding(15);
+    case 21:
+        return key_binding(18);
+    default:
+        return 0;
     }
 }
 } // namespace
@@ -496,19 +553,37 @@ void special_key_input(int key, int flags)
     int queued = 0;
     if (in_menu()) {
         switch (key) {
-        case VK_DOWN: queued = 0x17; break;
-        case VK_UP: queued = 0x16; break;
-        case VK_LEFT: queued = 0x14; break;
-        case VK_RIGHT: queued = 0x15; break;
-        default: break;
+        case VK_DOWN:
+            queued = 0x17;
+            break;
+        case VK_UP:
+            queued = 0x16;
+            break;
+        case VK_LEFT:
+            queued = 0x14;
+            break;
+        case VK_RIGHT:
+            queued = 0x15;
+            break;
+        default:
+            break;
         }
     } else {
         switch (key) {
-        case VK_F1: queued = 0x1B; break;
-        case VK_F2: queued = 0x1C; break;
-        case VK_F3: queued = 0x1D; break;
-        case VK_F4: queued = 0x1E; break;
-        default: break;
+        case VK_F1:
+            queued = 0x1B;
+            break;
+        case VK_F2:
+            queued = 0x1C;
+            break;
+        case VK_F3:
+            queued = 0x1D;
+            break;
+        case VK_F4:
+            queued = 0x1E;
+            break;
+        default:
+            break;
         }
     }
     if (queued)
@@ -541,7 +616,11 @@ void pump_window_messages() { os_layer::process_window_events(); }
 void read_pad_state(int port, PadSnapshot* state) { os_layer::read_pad(port + 1, state); }
 bool get_key_down(int code) { return os_layer::get_key_down(code); }
 // The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
-int get_menu_port() { return reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(reinterpret_cast<void*>(objects::g_profile_roster)); }
+int get_menu_port()
+{
+    return reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(
+        reinterpret_cast<void*>(objects::g_profile_roster));
+}
 
 uint8_t if_above(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
 uint8_t pressure_or_zero(uint8_t value) { return value > 0x20 ? value : 0; }
@@ -719,8 +798,8 @@ Hub::Hub()
     devs_.vtable = g_device_node_vtable;
     auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
     if (task) {
-        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(0);                 // tasks::SchedulerTask(priority 0)
-        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);                                             // tasks::Task<lists::Foremost<Device>>
+        reinterpret_cast<tasks::SchedulerTask*>(task)->make_new(0);   // tasks::SchedulerTask(priority 0)
+        task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<lists::Foremost<Device>>
         task[6] = reinterpret_cast<uint32_t>(&process_task);
         task[7] = reinterpret_cast<uint32_t>(&devs_);
     }
@@ -863,14 +942,17 @@ static VtableSlot g_manager_vtable_slots[] = {&sio::Hub::teardown};
 void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 } // namespace
 
-} // namespace Sio
+} // namespace sio
 
 namespace {
 
 struct DeviceAdapter {
     sio::InputPort* make_new(int index, int port, int slot) { return new (this) sio::InputPort(index, port, slot); }
     sio::Hub* construct_manager() { return new (this) sio::Hub(); }
-    memory::ListNode* destroy_node(unsigned int flags) { return sio::destroy_device_node(reinterpret_cast<memory::ListNode*>(this), flags); }
+    memory::ListNode* destroy_node(unsigned int flags)
+    {
+        return sio::destroy_device_node(reinterpret_cast<memory::ListNode*>(this), flags);
+    }
 };
 
 } // namespace
@@ -878,4 +960,4 @@ struct DeviceAdapter {
 namespace vt {
 static VtableSlot g_device_node_slots[] = {&DeviceAdapter::destroy_node};
 void** const kDeviceNode = reinterpret_cast<void**>(g_device_node_slots);
-} // namespace Vt
+} // namespace vt

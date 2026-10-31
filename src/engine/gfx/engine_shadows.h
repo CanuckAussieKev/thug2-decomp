@@ -55,13 +55,12 @@ public:
     // position kept); the caster aimed.
     void set_light_direction(const maths::Vec4* direction);
 
-    gfx::ViewCam* view_camera_;  // +0x08
-    uint8_t* bitmap_;     // +0x0C the render target
-    maths::Vec4 direction_; // +0x10 the light's
-    float reach_;        // +0x20
+    gfx::ViewCam* view_camera_; // +0x08
+    uint8_t* bitmap_;           // +0x0C the render target
+    maths::Vec4 direction_;     // +0x10 the light's
+    float reach_;               // +0x20
 };
-static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24,
-              "layout must match the original");
+static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24, "layout must match the original");
 
 // The simple shadow (0x14 bytes, vtable 0x00649EB8).
 class BlobShadow : public ShadowBase {
@@ -82,8 +81,8 @@ public:
     void get_show();
 
     RenderModel* mesh_instance_; // +0x08
-    float size_factor_;    // +0x0C
-    float shift_;   // +0x10
+    float size_factor_;          // +0x0C
+    float shift_;                // +0x10
 };
 static_assert(sizeof(BlobShadow) == 0x14, "layout must match the original");
 
@@ -91,7 +90,7 @@ static_assert(sizeof(BlobShadow) == 0x14, "layout must match the original");
 struct ShadowEdges {
     uint8_t* edges; // 0x50 bytes each
     int count;      // +0x04
-    int last_mesh_;   // +0x08 the last mesh read
+    int last_mesh_; // +0x08 the last mesh read
     int users;      // +0x0C
 };
 
@@ -114,12 +113,12 @@ public:
     // kept) found or built, and this volume put in the volumes' list.
     void change_mesh(RenderModel* model, uint8_t* asset_data);
 
-    gfx::ViewCam* view_camera_;  // +0x08
-    maths::Mat4 basis_frame_;    // +0x0C
-    uint32_t model_key_;     // +0x4C the asset data's meshes
-    maths::Vec4 direction_; // +0x50
-    ShadowEdges* edges_;   // +0x60
-    float reach_;        // +0x64
+    gfx::ViewCam* view_camera_; // +0x08
+    maths::Mat4 basis_frame_;   // +0x0C
+    uint32_t model_key_;        // +0x4C the asset data's meshes
+    maths::Vec4 direction_;     // +0x50
+    ShadowEdges* edges_;        // +0x60
+    float reach_;               // +0x64
 };
 static_assert(offsetof(ShadowVolume, model_key_) == 0x4C && offsetof(ShadowVolume, edges_) == 0x60 &&
                   sizeof(ShadowVolume) == 0x68,
@@ -135,4 +134,4 @@ void __cdecl release_shadow_edges(uint32_t key);
 extern ShadowVolume* g_shadow_volumes[16];
 extern lists::KeyMap g_shadow_edge_table; // 0x00701418: the silhouette edges by model
 
-} // namespace Nx
+} // namespace render

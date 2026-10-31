@@ -23,7 +23,7 @@ class GameEntity;
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace gfx {
 
@@ -41,13 +41,14 @@ public:
     TimedClipEvent* teardown(uint8_t flags);
 
     void** vtable_;
-    int tick_;              // +0x04
-    bool armed_;             // +0x08
+    int tick_;   // +0x04
+    bool armed_; // +0x08
     uint8_t pad09_[3];
-    uint32_t kind_tag_;          // +0x0C
+    uint32_t kind_tag_;         // +0x0C
     script::Struct* call_args_; // +0x10
 };
-static_assert(sizeof(TimedClipEvent) == 0x14 && offsetof(TimedClipEvent, call_args_) == 0x10, "layout must match the original");
+static_assert(sizeof(TimedClipEvent) == 0x14 && offsetof(TimedClipEvent, call_args_) == 0x10,
+              "layout must match the original");
 
 // The events' base (vtable 0x006487B0: slot 2 pure).
 class AnimEventBase {
@@ -102,7 +103,7 @@ public:
     // controller, a weighted one (`params` with 0xD697A799 or flag 0x1B92121C), one for the structure 0xAEEEC12E,
     // the FlipRotate one; then each controller told 0xD0209498 (fraction 0) and PlayAnim with all of it.
     void play_anim(uint32_t anim, float start, float end, int loop_type, float blend_period, float speed, bool flipped,
-                  script::Struct* params);
+                   script::Struct* params);
 
     // 0x00481B40: starts fading out over `period` if playing (true); a period of 0 stops it at once.
     bool start_fade(float period);
@@ -128,16 +129,16 @@ public:
     static memory::PoolPair& get_pools();
 
     uint32_t unknown34_;
-    int cur_phase_;                          // +0x38 State
-    AnimDriver* controller_list_[6];   // +0x3C (by priority, highest first)
-    int controller_count_;                // +0x54
-    float fade_rate_;                     // +0x58 (1/60 when played)
-    float fade_left_;                     // +0x5C
-    float fade_scale_;                    // +0x60
-    objects::GameEntity* owner_object_;     // +0x64
-    TimedClipEvent* events_ptr_;                // +0x68 (an array of event_count_)
-    uint32_t event_count_;                // +0x6C
-    bool events_on_;                      // +0x70
+    int cur_phase_;                     // +0x38 State
+    AnimDriver* controller_list_[6];    // +0x3C (by priority, highest first)
+    int controller_count_;              // +0x54
+    float fade_rate_;                   // +0x58 (1/60 when played)
+    float fade_left_;                   // +0x5C
+    float fade_scale_;                  // +0x60
+    objects::GameEntity* owner_object_; // +0x64
+    TimedClipEvent* events_ptr_;        // +0x68 (an array of event_count_)
+    uint32_t event_count_;              // +0x6C
+    bool events_on_;                    // +0x70
     uint8_t pad71_[3];
 };
 static_assert(offsetof(AnimTrack, cur_phase_) == 0x38 && offsetof(AnimTrack, controller_list_) == 0x3C &&
@@ -145,4 +146,4 @@ static_assert(offsetof(AnimTrack, cur_phase_) == 0x38 && offsetof(AnimTrack, con
                   offsetof(AnimTrack, events_on_) == 0x70 && sizeof(AnimTrack) == 0x74,
               "layout must match the original");
 
-} // namespace Gfx
+} // namespace gfx

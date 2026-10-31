@@ -17,4 +17,4 @@ Vec4& Vec4::rotate_about_z(float angle)
     return *this;
 }
 
-} // namespace Mth
+} // namespace maths

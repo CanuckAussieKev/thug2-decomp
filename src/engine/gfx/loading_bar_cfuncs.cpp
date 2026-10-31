@@ -108,4 +108,4 @@ void __cdecl remove_loading_screen()
     loading_screen_shown() = false;
 }
 
-} // namespace Nx
+} // namespace render

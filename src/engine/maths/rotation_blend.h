@@ -25,9 +25,9 @@ public:
 
     Mat4 start;
     Mat4 end;
-    Vec4 axis;          // w holds 1 / (2 sin angle) when computed from the matrices, else 1
+    Vec4 axis;            // w holds 1 / (2 sin angle) when computed from the matrices, else 1
     float angle;          // radians, 0..pi
-    bool small_rotation_;  // angle below the game's threshold (2 degrees by default)
+    bool small_rotation_; // angle below the game's threshold (2 degrees by default)
 };
 
-} // namespace Mth
+} // namespace maths

@@ -60,9 +60,9 @@ public:
     // 0x00489400: read back: the slots replaced by the buffer's, then the face texture byte. Returns the end.
     uint8_t* decode_from_bytes(uint8_t* buffer);
 
-    script::Struct structure_;  // +0x4C the slots
-    FaceSkin* face_skin_; // +0x54
-    bool has_face_texture_;        // +0x58 (read from the network)
+    script::Struct structure_; // +0x4C the slots
+    FaceSkin* face_skin_;      // +0x54
+    bool has_face_texture_;    // +0x58 (read from the network)
 };
 static_assert(offsetof(ModelLook, structure_) == 0x4C && offsetof(ModelLook, face_skin_) == 0x54 &&
                   offsetof(ModelLook, has_face_texture_) == 0x58 && sizeof(ModelLook) == 0x5C,
@@ -71,4 +71,4 @@ static_assert(offsetof(ModelLook, structure_) == 0x4C && offsetof(ModelLook, fac
 // 0x00488FD0: the tattoo slots taken out of `appearance` (head, biceps, forearms, chest, back, legs).
 void remove_tattoos(script::Struct* appearance);
 
-} // namespace Gfx
+} // namespace gfx

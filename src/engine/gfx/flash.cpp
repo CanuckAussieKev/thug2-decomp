@@ -59,7 +59,7 @@ void draw_flash(const Flash* flash)
     set_sampler_state(2, 0);
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
     set_vertex_format(0x144);
-    ++g_draw_calls; // draw calls
+    ++g_draw_calls;         // draw calls
     g_drawn_triangles += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
@@ -70,7 +70,7 @@ void draw_flash(const Flash* flash)
     void** device = reinterpret_cast<void**>(g_draw_device);
     using DrawPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int);
     reinterpret_cast<DrawPrimitiveUP>((*reinterpret_cast<void***>(device))[83])(device, 5 /* triangle strip */, 2,
-                                                                                 vertices, sizeof(FlashVertex));
+                                                                                vertices, sizeof(FlashVertex));
 }
 
-} // namespace Nx
+} // namespace render

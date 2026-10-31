@@ -78,13 +78,14 @@ void current_settings(const Goal& goal, ImFont* mono)
         changed = true;
     if (g.type == KindTag::kHighScore || g.type == KindTag::kHighCombo) {
         if (int_field(g.type == KindTag::kHighScore ? "High score##goal" : "High combo##goal", &g.score, 250.0f, 1000,
-                     10000000, "%d", &done))
+                      10000000, "%d", &done))
             changed = true;
     }
     if (g.type == KindTag::kRace) {
         if (int_field("Laps##goal", &g.laps, 0.1f, 1, 10, "%d", &done))
             changed = true;
-        if (int_field("Per-checkpoint##goal", &g.checkpoint_time_, 0.2f, 0, 60, g.checkpoint_time_ ? "%d s" : "Off", &done))
+        if (int_field("Per-checkpoint##goal", &g.checkpoint_time_, 0.2f, 0, 60, g.checkpoint_time_ ? "%d s" : "Off",
+                      &done))
             changed = true;
     }
     ImGui::PopFont();
@@ -209,8 +210,8 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         float height = changed.points[point].height;
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(150.0f * ImGui::GetFontSize() / 13.0f);
-        bool dragged = ImGui::DragFloat("Height##goalpoint", &height, 0.5f, 0.0f, 1000.0f, "%.1f",
-                                        ImGuiSliderFlags_AlwaysClamp);
+        bool dragged =
+            ImGui::DragFloat("Height##goalpoint", &height, 0.5f, 0.0f, 1000.0f, "%.1f", ImGuiSliderFlags_AlwaysClamp);
         bool done = ImGui::IsItemDeactivated();
         ImGui::PopFont();
         if (dragged) {
@@ -262,7 +263,6 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::Button("Delete goal##goal"))
         get_queue([goal_id] { drop_out(goal_id); });
     ImGui::PopStyleColor();
-    
 }
 
 void list_section(ImFont* mono, ImFont* small_font)
@@ -315,4 +315,4 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::PopFont();
 }
 
-} // namespace MenuSystem::level_editor::Goals
+} // namespace frontend::level_editor::goal_edit

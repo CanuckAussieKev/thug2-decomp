@@ -106,9 +106,9 @@ struct Pace {
 };
 struct EmitterSound {
     uint32_t name = 0;
-    uint32_t sound = 0;     // (0: none)
-    float volume = 100.0f;  // percent
-    float radius = 0.0f;    // a sphere's radius (0: the node's own)
+    uint32_t sound = 0;    // (0: none)
+    float volume = 100.0f; // percent
+    float radius = 0.0f;   // a sphere's radius (0: the node's own)
 };
 struct State {
     std::vector<Pace> speeds;
@@ -189,7 +189,7 @@ void attach_sound(uint32_t emitter, uint32_t sound);
 bool& show_uncreated();
 // The ghosts and the previewed path drawn over the view (back buffer pixels).
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
 
 // The UI (level_editor_entities_ui.cpp, ImGui): the Inspector's sections for the selected node (`node`: Nodes::All()
 // index, -1 none) and object (`object`: its id, 0 none) - model, physics, moving, sound, particle; field edits go to
@@ -205,24 +205,23 @@ void forget_level();
 
 // For the UI (level_editor_entities_ui.cpp): what it shows and changes.
 namespace detail {
-const std::vector<std::string>& get_models(); // the models the level's live objects have (model=)
+const std::vector<std::string>& get_models();           // the models the level's live objects have (model=)
 void watch_model(uint32_t id, const std::string& made); // a swap asked for: `made` the model it has now
-bool has_path(uint32_t id);                // its node's first link starts a waypoint path
-float speed_set(uint32_t id);              // its path speed set (0: none)
-float default_mph(uint32_t id);            // the preview's speed
-void change_speed(uint32_t id, float mph); // (0: none)
+bool has_path(uint32_t id);                             // its node's first link starts a waypoint path
+float speed_set(uint32_t id);                           // its path speed set (0: none)
+float default_mph(uint32_t id);                         // the preview's speed
+void change_speed(uint32_t id, float mph);              // (0: none)
 EmitterSound emitter_now(uint32_t name);
 void change_emitter(const EmitterSound& e);
 float emitter_radius(uint32_t name, bool* sphere);
 std::vector<std::pair<uint32_t, std::string>> get_sounds(); // the level's loaded sounds: checksum, label
-void set_ui_active(bool active);            // a field of the section is being dragged (the undo step waits)
+void set_ui_active(bool active); // a field of the section is being dragged (the undo step waits)
 bool get_previewing(uint32_t id);
 bool preview_playing();
-void preview_play(uint32_t id);            // start / pause / go on
-void preview_step(uint32_t id);            // half a second along, paused
+void preview_play(uint32_t id); // start / pause / go on
+void preview_step(uint32_t id); // half a second along, paused
 float preview_distance();
 float preview_length();
-} // namespace Detail
+} // namespace detail
 
-
-} // namespace MenuSystem::level_editor::entities
+} // namespace frontend::level_editor::entities

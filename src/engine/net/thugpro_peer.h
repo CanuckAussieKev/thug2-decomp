@@ -22,7 +22,7 @@ namespace net {
 struct AppHost;
 struct NetMessageInfo;
 struct InboundMsgCtx;
-} // namespace Net
+} // namespace net
 
 namespace online {
 class Hub;
@@ -40,14 +40,14 @@ uint32_t get_machine_id();
 
 // --- Message ids and layouts (THUGPRO's GameMsg.h) ---
 
-constexpr uint8_t kMsgLevelSwitch = 70;          // 0x46
-constexpr uint8_t kMsgLobbyDetails = 51;            // 0x33
-constexpr uint8_t kMsgChat = 76;                 // 0x4C
-constexpr uint8_t kMsgServerInfo = 155;          // S->C
-constexpr uint8_t kMsgUpdateTimeOfDay = 156;     // S->C
-constexpr uint8_t kMsgUpdateWeather = 157;       // S->C
-constexpr uint8_t kMsgUpdateLevelOption = 158;   // S->C (no sender, a no-op handler in THUGPRO)
-constexpr uint8_t kMsgModsAllowed = 159;         // S->C
+constexpr uint8_t kMsgLevelSwitch = 70;        // 0x46
+constexpr uint8_t kMsgLobbyDetails = 51;       // 0x33
+constexpr uint8_t kMsgChat = 76;               // 0x4C
+constexpr uint8_t kMsgServerInfo = 155;        // S->C
+constexpr uint8_t kMsgUpdateTimeOfDay = 156;   // S->C
+constexpr uint8_t kMsgUpdateWeather = 157;     // S->C
+constexpr uint8_t kMsgUpdateLevelOption = 158; // S->C (no sender, a no-op handler in THUGPRO)
+constexpr uint8_t kMsgModsAllowed = 159;       // S->C
 
 constexpr int kNameSize = 16;      // vMAX_PLAYER_NAME_LEN + 1
 constexpr int kChatTextSize = 128; // vMAX_CHAT_MSG_LEN + 1 (THUGPRO drops longer text)
@@ -57,7 +57,7 @@ constexpr int kChatTextSize = 128; // vMAX_CHAT_MSG_LEN + 1 (THUGPRO drops longe
 #pragma pack(push, 1)
 struct ChatMessage {
     uint32_t machine_id_;
-    uint8_t obj_id_;   // the sender's skater's object id, 8 for an observer; shown as colour objId + 2
+    uint8_t obj_id_; // the sender's skater's object id, 8 for an observer; shown as colour objId + 2
     char name[kNameSize];
     char text[kChatTextSize];
 };
@@ -80,8 +80,8 @@ bool decode_chat(const uint8_t* data, uint32_t length, bool thugpro, ChatLine* o
 // Server info (155): 16 bytes. Flags: bits 0-7 level options 1-8, bits 8-15 pro sets 1-7 and the competition's
 // geometry (G_COMP); the rest unused.
 struct HostListing {
-    uint32_t time_of_day_;  // afternoon / night / morning / evening (THUG2's TOD states' checksums)
-    uint32_t weather;    // "default" / clear / rain / snow
+    uint32_t time_of_day_; // afternoon / night / morning / evening (THUG2's TOD states' checksums)
+    uint32_t weather;      // "default" / clear / rain / snow
     uint64_t flags;
 };
 static_assert(sizeof(HostListing) == 16, "THUGPRO's MsgTHUGProServerInfo");
@@ -115,7 +115,7 @@ struct Effects {
     virtual ~Effects() = default;
     virtual void set_time_of_day(uint32_t state) = 0;
     virtual void set_weather(uint32_t weather) = 0;
-    virtual bool launch_script(uint32_t script, bool on) = 0;            // false: no such script
+    virtual bool launch_script(uint32_t script, bool on) = 0; // false: no such script
     virtual void kill_prefix(const char* prefix) = 0;
     virtual void create_prefix(const char* prefix) = 0;
     virtual void kill_name(uint32_t name) = 0;
@@ -155,4 +155,4 @@ HostListing host_server_info();
 // /option <1-8> on|off, /proset <1-8> on|off, /thugpro (the state). True when `text` was one of them.
 bool handle_chat_command(const char* text);
 
-} // namespace online::Thugpro
+} // namespace online::thugpro

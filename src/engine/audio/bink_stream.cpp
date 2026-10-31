@@ -23,18 +23,60 @@ namespace {
 
 // The Bink SDK (binkw32.dll), through the game's import table.
 using render::Bink;
-Bink* video_open(const void* name, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const void*, uint32_t)>(crt::library_function("binkw32.dll", "_BinkOpen@8"))(name, flags); }
-void video_decode_frame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkDoFrame@4"))(bink); }
-void bink_set_pan(Bink* bink, uint32_t track, int pan) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetPan@12"))(bink, track, pan); }
-void bink_goto(Bink* bink, uint32_t frame, int flags) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags); }
-void bink_set_io_size(uint32_t size) { reinterpret_cast<void(__stdcall*)(uint32_t)>(crt::library_function("binkw32.dll", "_BinkSetIOSize@4"))(size); }
-void bink_set_video_on_off(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink, on); }
-void* bink_open_direct_sound() { return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the next
-int bink_set_sound_system(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
-void video_set_loudness(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetVolume@12"))(bink, track, sound::output_bink_volume(volume)); } // (NOT ORIGINAL: mute_audio)
-int video_wait_ready(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkWait@4"))(bink); }
-void video_close(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkClose@4"))(bink); }
-void video_advance_frame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkNextFrame@4"))(bink); }
+Bink* video_open(const void* name, uint32_t flags)
+{
+    return reinterpret_cast<Bink*(__stdcall*)(const void*, uint32_t)>(
+        crt::library_function("binkw32.dll", "_BinkOpen@8"))(name, flags);
+}
+void video_decode_frame(Bink* bink)
+{
+    reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkDoFrame@4"))(bink);
+}
+void bink_set_pan(Bink* bink, uint32_t track, int pan)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetPan@12"))(
+        bink, track, pan);
+}
+void bink_goto(Bink* bink, uint32_t frame, int flags)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkGoto@12"))(
+        bink, frame, flags);
+}
+void bink_set_io_size(uint32_t size)
+{
+    reinterpret_cast<void(__stdcall*)(uint32_t)>(crt::library_function("binkw32.dll", "_BinkSetIOSize@4"))(size);
+}
+void bink_set_video_on_off(Bink* bink, int on)
+{
+    reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkSetVideoOnOff@8"))(bink,
+                                                                                                                on);
+}
+void* bink_open_direct_sound()
+{
+    return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4"));
+} // the function, passed to the next
+int bink_set_sound_system(void* open, void* param)
+{
+    return reinterpret_cast<int(__stdcall*)(void*, void*)>(
+        crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
+}
+void video_set_loudness(Bink* bink, uint32_t track, int volume)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetVolume@12"))(
+        bink, track, sound::output_bink_volume(volume));
+} // (NOT ORIGINAL: mute_audio)
+int video_wait_ready(Bink* bink)
+{
+    return reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkWait@4"))(bink);
+}
+void video_close(Bink* bink)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkClose@4"))(bink);
+}
+void video_advance_frame(Bink* bink)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkNextFrame@4"))(bink);
+}
 
 constexpr uint32_t kBinkIoSize = 0x01000000;     // video_open: use the I/O buffer size set (bink_set_io_size)
 constexpr uint32_t kBinkFileHandle = 0x04000000; // video_open: the name is (the address of) an open file handle
@@ -66,7 +108,7 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 constexpr float kBinkVolumeScale = 327.68f; // 0-100 to Bink's 0-32768
 constexpr int kBinkMaxVolume = 0x8000;
-constexpr float kBinkPanScale = 65536.0f;   // Bink's pan: 0 left, 32768 centre, 65536 right
+constexpr float kBinkPanScale = 65536.0f; // Bink's pan: 0 left, 32768 centre, 65536 right
 
 // HRESULT_FROM_WIN32 (positive codes only).
 Result from_win32(DWORD error) { return static_cast<Result>((error & 0xFFFF) | 0x80070000u); }
@@ -272,12 +314,9 @@ bool WadStream::prefetch_complete()
 }
 
 // 0x00454430
-void WadStream::get_freeze(int pause)
-{
-    is_halted_ = static_cast<uint32_t>(pause) > 0;
-}
+void WadStream::get_freeze(int pause) { is_halted_ = static_cast<uint32_t>(pause) > 0; }
 
 // 0x00454440
 void WadStream::set_channel_volumes(float, float, float, float, float) {}
 
-} // namespace Pcm
+} // namespace audio

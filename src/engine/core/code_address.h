@@ -25,7 +25,6 @@ struct VtableSlot {
     void* code;
     template <typename F>
     VtableSlot(F f) : code(code_address(f))
-    {
-    }
+    {}
 };
 static_assert(sizeof(VtableSlot) == sizeof(void*), "a table of VtableSlots is a table of code pointers");

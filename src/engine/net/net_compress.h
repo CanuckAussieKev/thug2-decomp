@@ -24,4 +24,4 @@ int rle_decompress(const uint8_t* in, int size, uint8_t* out, int* out_size);
 // smaller than the data. Debug output gives the sizes.
 uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, char method);
 
-} // namespace Net
+} // namespace net

@@ -49,12 +49,13 @@ void log_missing_node(uint32_t name)
     if (count < 32)
         logged[count++] = name;
     const char* text = script::look_up_hash_name(name);
-    get_log("nodes: no node named 0x%08X%s%s%s in the level's node arrays - the caller expected one (it may crash on it)",
+    get_log(
+        "nodes: no node named 0x%08X%s%s%s in the level's node arrays - the caller expected one (it may crash on it)",
         name, text ? " (" : "", text ? text : "", text ? ")" : "");
 }
 
-constexpr uint32_t kClass = 0x12B4E660;    // class
-constexpr uint32_t kLink = 0xC953660E;     // link (a class= whose nodes aren't hashed)
+constexpr uint32_t kClass = 0x12B4E660; // class
+constexpr uint32_t kLink = 0xC953660E;  // link (a class= whose nodes aren't hashed)
 
 // NOT ORIGINAL - the level editor's overlay array (see node_manager.h).
 uint32_t g_editor_array;
@@ -81,8 +82,7 @@ public:
     explicit Slots(NodeManager* m)
         : small_(m->slots_), big_(is_big(m) ? g_big_slots.data() : nullptr),
           skip_bits_(big_ ? static_cast<uint32_t>(g_big_slots.size()) - 1 : NodeManager::kSlots - 1)
-    {
-    }
+    {}
     uint32_t get_mask() const { return skip_bits_; }
     bool vacant(uint32_t i) const { return elem(i) == -1; }
     int elem(uint32_t i) const { return big_ ? big_[i].list_link_ : small_[i].list_link_; }
@@ -145,8 +145,8 @@ void NodeManager::hash_node(uint32_t array, uint32_t index, Struct* node)
             static bool logged;
             if (!logged)
                 get_log("nodes: the node name hash is full (%u slots - [memory] node_hash_slots): node %u of array %u "
-                    "and later ones not hashed",
-                    slots.get_mask() + 1, index, array);
+                        "and later ones not hashed",
+                        slots.get_mask() + 1, index, array);
             logged = true;
             return;
         }
@@ -185,8 +185,10 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
     Slots slots(this);
     // (NOT ORIGINAL: at most every slot once - a full hash without the name went round for ever)
     uint32_t tries = slots.get_mask() + 1;
-    for (uint32_t slot = name & slots.get_mask(); tries-- && !slots.vacant(slot); slot = (slot + 1) & slots.get_mask()) {
-        auto* node = reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
+    for (uint32_t slot = name & slots.get_mask(); tries-- && !slots.vacant(slot);
+         slot = (slot + 1) & slots.get_mask()) {
+        auto* node =
+            reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
         if (node_name == name)
@@ -217,7 +219,8 @@ void NodeManager::start_walk(uint32_t name)
     Slots slots(this);
     uint32_t slot = name & slots.get_mask();
     for (;;) {
-        Struct* node = reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
+        Struct* node =
+            reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
         if (node_name == name)
@@ -280,7 +283,10 @@ uint32_t NodeManager::get_last_node_array_name()
 void NodeManager::set_owner(void* owner) { owner_ptr_ = owner; }
 
 // 0x0045D470
-uint32_t NodeManager::get_owner_value58() { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner_ptr_) + 0x58); }
+uint32_t NodeManager::get_owner_value58()
+{
+    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner_ptr_) + 0x58);
+}
 
 // 0x0045D270
 bool NodeManager::has_node_array(uint32_t name)

@@ -15,4 +15,4 @@ void __cdecl set_fog_distance(float start);
 // fog constant (0x00786F0C, three floats) alpha / 128, at most 1.
 void __cdecl set_fog_color(uint32_t rgba);
 
-} // namespace Nx
+} // namespace render

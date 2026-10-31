@@ -24,8 +24,8 @@ struct IDirect3DTexture9;
 namespace render::graphics_options {
 
 struct Options {
-    int anisotropy = 0;           // 0, or 2-16
-    int msaa = 0;                 // 0, or 2-16
+    int anisotropy = 0; // 0, or 2-16
+    int msaa = 0;       // 0, or 2-16
     float draw_distance_scale_ = 1.0f;
     float lod_distance_scale_ = 1.0f;
 };

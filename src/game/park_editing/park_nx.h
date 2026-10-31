@@ -35,7 +35,10 @@ inline void change_live(uint8_t* sector, bool active) { as_sector(sector)->chang
 // 0x0049E680: the viewports it shows in (a mask)
 inline void toggle_shown(uint8_t* sector, uint32_t mask) { as_sector(sector)->toggle_shown(mask); }
 // 0x0049E6C0: where it is
-inline void place_at_absolute_point(uint8_t* sector, const maths::Vec4* position) { as_sector(sector)->place_at_absolute_point(position); }
+inline void place_at_absolute_point(uint8_t* sector, const maths::Vec4* position)
+{
+    as_sector(sector)->place_at_absolute_point(position);
+}
 // 0x0049E7C0: its scale (x y z)
 inline void change_scale(uint8_t* sector, const maths::Vec4* scale) { as_sector(sector)->change_scale(scale); }
 // 0x004A2BA0 (a folded getter, +0x14): its geometry (null if none)
@@ -79,4 +82,4 @@ inline void set_box(uint8_t* scene, const void* points, int which, int flag)
     as_scene(scene)->set_sectors_in_box(static_cast<const maths::Vec4*>(points), static_cast<uint32_t>(which), flag);
 }
 
-} // namespace park_editing::Scene
+} // namespace park_editing::scene

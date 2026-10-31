@@ -63,8 +63,9 @@ void stop_simulation()
 
 actions::Chord get_k(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
 
-int append_one(const char* id, const char* name, const char* category, actions::Kind kind, std::vector<actions::Chord> keys,
-        const char* tip, std::function<void()> run = nullptr, std::function<int()> checked = nullptr)
+int append_one(const char* id, const char* name, const char* category, actions::Kind kind,
+               std::vector<actions::Chord> keys, const char* tip, std::function<void()> run = nullptr,
+               std::function<int()> checked = nullptr)
 {
     actions::ActStep a;
     a.id = id;
@@ -157,32 +158,32 @@ void register_actions()
 {
     using actions::kAlt;
     using actions::kCtrl;
-    using actions::kShift;
     using actions::Kind;
-    g_ids.pie_context_ = append_one("pie_context", "Pie Menu", "Panels", Kind::kPress,
-                           {get_k(SDL_SCANCODE_Q), get_k(SDL_SCANCODE_TAB)},
-                           "Hold for common actions; release over one to run it");
-    g_ids.pie_view_ = append_one("pie_view", "View Pie Menu", "Panels", Kind::kPress,
-                        {get_k(SDL_SCANCODE_Q, kAlt), get_k(SDL_SCANCODE_TAB, kShift)},
-                        "Hold for view modes and overlays");
+    using actions::kShift;
+    g_ids.pie_context_ =
+        append_one("pie_context", "Pie Menu", "Panels", Kind::kPress, {get_k(SDL_SCANCODE_Q), get_k(SDL_SCANCODE_TAB)},
+                   "Hold for common actions; release over one to run it");
+    g_ids.pie_view_ =
+        append_one("pie_view", "View Pie Menu", "Panels", Kind::kPress,
+                   {get_k(SDL_SCANCODE_Q, kAlt), get_k(SDL_SCANCODE_TAB, kShift)}, "Hold for view modes and overlays");
     g_ids.walk = append_one("walk_mode", "Walk Mode", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_GRAVE, kShift)},
-                     "Walk at skater height with gravity");
-    g_ids.follow = append_one("follow_selection", "Follow Selection", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_F, kShift)},
-                       "Keep the camera on the selection as it moves", nullptr, [] { return g_following ? 1 : 0; });
+                            "Walk at skater height with gravity");
+    g_ids.follow =
+        append_one("follow_selection", "Follow Selection", "Camera", Kind::kPress, {get_k(SDL_SCANCODE_F, kShift)},
+                   "Keep the camera on the selection as it moves", nullptr, [] { return g_following ? 1 : 0; });
     g_ids.teleport = append_one("teleport", "Go to Cursor", "Camera", Kind::kPress, {},
-                         "Move the camera to the surface under the cursor");
-    g_ids.pad = append_one("controller_mode", "Controller Mode", "Settings", Kind::kFlipOver, {},
-                    "Use a game controller in the editor",
-                    [] { set_pad_mode(!g_pad_mode); }, [] { return g_pad_mode ? 1 : 0; });
+                                "Move the camera to the surface under the cursor");
+    g_ids.pad = append_one(
+        "controller_mode", "Controller Mode", "Settings", Kind::kFlipOver, {}, "Use a game controller in the editor",
+        [] { set_pad_mode(!g_pad_mode); }, [] { return g_pad_mode ? 1 : 0; });
     for (int i = 0; i < nav::kQuickSets; ++i) {
         std::string n = std::to_string(i + 1);
         std::string store_id = "quick_set_store_" + n, recall_id = "quick_set_" + n;
         std::string store_name = "Store Set " + n, recall_name = "Select Set " + n;
         g_ids.store[i] = append_one(store_id.c_str(), store_name.c_str(), "Select", Kind::kPress,
-                             {get_k(SDL_SCANCODE_1 + i, kCtrl | kAlt)},
-                             "Store the selection as Set n");
+                                    {get_k(SDL_SCANCODE_1 + i, kCtrl | kAlt)}, "Store the selection as Set n");
         g_ids.recall[i] = append_one(recall_id.c_str(), recall_name.c_str(), "Select", Kind::kPress,
-                              {get_k(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
+                                     {get_k(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
         for (int index : {g_ids.store[i], g_ids.recall[i]}) {
             if (actions::ActStep* a = actions::get_pull(index)) {
                 size_t at = a->tip.find("Set n");
@@ -193,8 +194,7 @@ void register_actions()
     }
     add_hint("hint_drill", "Cycle Under Cursor", "Select", "Alt+wheel", "Step through items under the cursor");
     add_hint("hint_teleport", "Go to Surface", "Camera", "Double-click", "Move the camera to the clicked surface");
-    add_hint("hint_pad", "Controller", "Camera", "A game controller",
-            "Enable Controller Mode in Preferences");
+    add_hint("hint_pad", "Controller", "Camera", "A game controller", "Enable Controller Mode in Preferences");
 }
 
 void prepare_all()
@@ -266,7 +266,7 @@ Pad read_pad()
     p.look_x_ = axis(SDL_CONTROLLER_AXIS_RIGHTX);
     p.look_y_ = -axis(SDL_CONTROLLER_AXIS_RIGHTY);
     p.up_down_ = nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), 0.1f) -
-               nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), 0.1f);
+                 nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), 0.1f);
     uint32_t now = 0;
     for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX && b < 32; ++b) {
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
@@ -442,7 +442,7 @@ void tick_frame(TickCycle& f)
                 open_pie(f.pad.y ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, x, y, -1, true);
             else
                 open_pie(key_view ? pie::Kind::kView : pie::Kind::kCtxInfo, f.have_selection_, x, y,
-                        key_view ? g_ids.pie_view_ : g_ids.pie_context_, false);
+                         key_view ? g_ids.pie_view_ : g_ids.pie_context_, false);
         }
     }
     if (!g_pie.open)
@@ -469,7 +469,7 @@ void tick_frame(TickCycle& f)
     }
     // Letting go of its key / button: a hold runs what's pointed at; a tap keeps it up for a click.
     bool held = g_pie.pad_button_ ? (g_pie.kind == pie::Kind::kView ? f.pad.y_down_ : f.pad.x_down_)
-                                : g_pie.key >= 0 && get_held(f.keys, g_pie.key);
+                                  : g_pie.key >= 0 && get_held(f.keys, g_pie.key);
     if (!held && !g_pie.sticky) {
         if (SDL_GetTicks() - g_pie.opened_at_ < nav::kPieTapMs && g_pie.hovered < 0)
             g_pie.sticky = true;
@@ -517,7 +517,8 @@ bool take_teleport() { return actions::squeezed(g_ids.teleport); }
 
 bool note_empty_click(uint32_t now, float x, float y)
 {
-    bool twice = g_have_empty_click && nav::is_double_click(g_last_empty_click, g_last_empty_x, g_last_empty_y, now, x, y);
+    bool twice =
+        g_have_empty_click && nav::is_double_click(g_last_empty_click, g_last_empty_x, g_last_empty_y, now, x, y);
     g_have_empty_click = !twice;
     g_last_empty_click = now;
     g_last_empty_x = x;
@@ -560,4 +561,4 @@ void note_view_centre(float x, float y)
 }
 bool pad_owns_cursor() { return g_pad_mode && g_pad_owns; }
 
-} // namespace MenuSystem::level_editor::ux8
+} // namespace frontend::level_editor::ux8

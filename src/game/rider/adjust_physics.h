@@ -49,21 +49,20 @@ public:
     // brightness from that hit, else from the ground's (apply_brightness, lerped at rate 1).
     void get_update_brightness(render::ProbeRay* ground);
 
-    int uber_frig_tries_;                 // +0x18 the uber frig's tries in a row (0-5: its offsets from the frame's start)
-    uint8_t uber_frigged_;               // +0x1C set while the uber frig put the skater back this frame
+    int uber_frig_tries_;  // +0x18 the uber frig's tries in a row (0-5: its offsets from the frame's start)
+    uint8_t uber_frigged_; // +0x1C set while the uber frig put the skater back this frame
     uint8_t pad1d_[3];
-    void* core_ptr_;                       // +0x20 the skater's core physics component
-    MeshInstanceModule* mesh_instance_;           // +0x24 the model component (UpdateBrightness)
-    GroundShadowModule* shadow_handle_;         // +0x28
-    MovingSurfaceModule* ride_;   // +0x2C
-    RiderPoseState* state_ref_;     // +0x30
+    void* core_ptr_;                    // +0x20 the skater's core physics component
+    MeshInstanceModule* mesh_instance_; // +0x24 the model component (UpdateBrightness)
+    GroundShadowModule* shadow_handle_; // +0x28
+    MovingSurfaceModule* ride_;         // +0x2C
+    RiderPoseState* state_ref_;         // +0x30
 };
 static_assert(offsetof(RiderPhysicsTweaks, uber_frig_tries_) == 0x18 &&
                   offsetof(RiderPhysicsTweaks, uber_frigged_) == 0x1C &&
                   offsetof(RiderPhysicsTweaks, core_ptr_) == 0x20 &&
-                  offsetof(RiderPhysicsTweaks, shadow_handle_) == 0x28 &&
-                  offsetof(RiderPhysicsTweaks, ride_) == 0x2C &&
+                  offsetof(RiderPhysicsTweaks, shadow_handle_) == 0x28 && offsetof(RiderPhysicsTweaks, ride_) == 0x2C &&
                   offsetof(RiderPhysicsTweaks, state_ref_) == 0x30,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

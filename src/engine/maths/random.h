@@ -18,4 +18,4 @@ float signed_spread(float range);
 // The same unrounded, as the original's x87 callers use it.
 double plus_or_minus_exact(float range);
 
-} // namespace Mth
+} // namespace maths

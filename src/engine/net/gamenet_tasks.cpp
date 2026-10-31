@@ -45,19 +45,19 @@ using namespace detail;
 namespace {
 
 // Names.
-constexpr uint32_t kText = 0xC4745838;                // text
-constexpr uint32_t kRedialPause = 0x645456E7;         // net_modem_state_redial_pause
-constexpr uint32_t kConnecting = 0x23E04F62;          // net_modem_state_conencting
-constexpr uint32_t kDialing = 0x02F1330D;             // net_modem_state_dialing
-constexpr uint32_t kConnected = 0x685FBA50;           // net_modem_state_connected
-constexpr uint32_t kAuthDone = 0xE0DE5630;            // net_modem_state_logged_in
-constexpr uint32_t kDisconnecting = 0x8B0A8838;       // net_modem_state_disconnecting
-constexpr uint32_t kHangingUp = 0x2967A529;           // net_modem_state_hanging_up
-constexpr uint32_t kDisconnected = 0xF850742F;        // net_modem_state_disconnected
-constexpr uint32_t kStateDialog = 0xA37134DC;         // create_modem_state_dialog
-constexpr uint32_t kStatusDialog = 0x40766B63;        // create_modem_status_dialog
-constexpr uint32_t kFinalStateDialog = 0x551ABB16;    // create_modem_final_state_dialog
-constexpr uint32_t kUpdateNetMetrics = 0xC244B02B;    // update_net_metrics
+constexpr uint32_t kText = 0xC4745838;                  // text
+constexpr uint32_t kRedialPause = 0x645456E7;           // net_modem_state_redial_pause
+constexpr uint32_t kConnecting = 0x23E04F62;            // net_modem_state_conencting
+constexpr uint32_t kDialing = 0x02F1330D;               // net_modem_state_dialing
+constexpr uint32_t kConnected = 0x685FBA50;             // net_modem_state_connected
+constexpr uint32_t kAuthDone = 0xE0DE5630;              // net_modem_state_logged_in
+constexpr uint32_t kDisconnecting = 0x8B0A8838;         // net_modem_state_disconnecting
+constexpr uint32_t kHangingUp = 0x2967A529;             // net_modem_state_hanging_up
+constexpr uint32_t kDisconnected = 0xF850742F;          // net_modem_state_disconnected
+constexpr uint32_t kStateDialog = 0xA37134DC;           // create_modem_state_dialog
+constexpr uint32_t kStatusDialog = 0x40766B63;          // create_modem_status_dialog
+constexpr uint32_t kFinalStateDialog = 0x551ABB16;      // create_modem_final_state_dialog
+constexpr uint32_t kUpdateNetMetrics = 0xC244B02B;      // update_net_metrics
 constexpr uint32_t kShowJoinTimeoutNotice = 0x3F7009B4; // ShowJoinTimeoutNotice
 
 constexpr uint32_t kJoinTimeout = 60000; // ms
@@ -194,17 +194,15 @@ void __cdecl net_metrics_task(void* task)
 void __cdecl join_deadline_tick(void* task)
 {
     Hub* manager = task_manager(task);
-    if (manager->join_phase_ == 8 || frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at_) <= kJoinTimeout)
+    if (manager->join_phase_ == 8 ||
+        frame_clock::get_time() - static_cast<uint32_t>(manager->join_began_at_) <= kJoinTimeout)
         return;
     manager->join_phase_job_->drop_out();
     get_run(kShowJoinTimeoutNotice);
 }
 
 // 0x00533400
-void __cdecl player_team_key_callback(int, int, void* buffer, void*)
-{
-    game_spy::call_qr2_buffer_add(buffer, "");
-}
+void __cdecl player_team_key_callback(int, int, void* buffer, void*) { game_spy::call_qr2_buffer_add(buffer, ""); }
 
 // 0x00533420
 void __cdecl key_list_callback(int type, void* keys, void*)

@@ -39,4 +39,4 @@ uint64_t read_cpu_time_stamp();
 // 0x005BE7C0: sets the two flags at 0x007D1EE8 / 0x007D1EE9 (meaning not known yet).
 void change_bits();
 
-} // namespace Tmr
+} // namespace frame_clock

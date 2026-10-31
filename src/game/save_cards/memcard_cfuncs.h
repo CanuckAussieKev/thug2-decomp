@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 namespace save_cards {
 
@@ -56,4 +56,4 @@ extern script::Struct* g_kept_params;
 extern uint32_t g_kept_type;
 extern bool g_loaded_custom_skater;
 
-} // namespace Mc
+} // namespace save_cards

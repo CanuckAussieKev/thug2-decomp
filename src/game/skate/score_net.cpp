@@ -51,7 +51,7 @@ void PointTally::note_tagged_prop_ask(int score)
     message.game_id_ = net->get_game_id();
     auto* trick = static_cast<objects::MoveExecutor*>(rider_for_slot(rider_no_)->fetch_module(kTrick));
     uint32_t bytes = trick->end_trick_objects(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(message.objects)),
-                                            sizeof(message.objects));
+                                              sizeof(message.objects));
     message.count = bytes >> 2;
     debug::printf("Client -> server %d tricks\n", bytes >> 2); // "Client -> server %d tricks\n"
     // (the descriptor is filled and not used: the message goes by the stream's own arguments)
@@ -60,8 +60,8 @@ void PointTally::note_tagged_prop_ask(int score)
     desc.ident_ = objects::kMsgTrickObjects;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = objects::kGroupGame;
-    client->send_bulk_to_host(objects::kMsgTrickObjects, desc.byte_count_, &message, kTrickObjBuffer, objects::kGroupGame,
-                                  true, false);
+    client->send_bulk_to_host(objects::kMsgTrickObjects, desc.byte_count_, &message, kTrickObjBuffer,
+                              objects::kGroupGame, true, false);
 }
 
 // 0x00561CB0
@@ -91,7 +91,8 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
             auto* thief = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(skater_id)));
             auto* robbed = as_player(net->find_player_slot_by_obj(static_cast<uint16_t>(victim)));
             // (not between players of one team)
-            if (static_cast<uint8_t>(get_game_mode()->is_squad_match()) && robbed && thief && robbed->team_ == thief->team_)
+            if (static_cast<uint8_t>(get_game_mode()->is_squad_match()) && robbed && thief &&
+                robbed->team_ == thief->team_)
                 continue;
             net::NetMessageInfo desc;
             desc.make_new();
@@ -122,7 +123,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         desc.group_id_ = objects::kGroupGame;
         for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
             server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
-                                  kTrickObjBuffer, objects::kGroupGame, true, false);
+                                      kTrickObjBuffer, objects::kGroupGame, true, false);
 
         objects::ObserverTrickObjectsMessage observed;
         observed.count = count;
@@ -134,11 +135,11 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         desc.ident_ = objects::kMsgObserverTrickObjects;
         for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
             if (static_cast<uint8_t>(as_player(info)->is_observer()))
-                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
-                                      kTrickObjBuffer, objects::kGroupGame, true, false);
+                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_,
+                                          desc.content_, kTrickObjBuffer, objects::kGroupGame, true, false);
         }
         static_cast<modules::Skate*>(skate)->broadcast_points(false); // the skate module's score updates
-        if (conn->is_host_local()) // (no check: as the original)
+        if (conn->is_host_local())                                    // (no check: as the original)
             return;
     }
     int owner = static_cast<uint8_t>(get_game_mode()->is_squad_match())
@@ -154,8 +155,9 @@ int __cdecl PointTally::on_score_msg(net::InboundMsgCtx* context)
     auto* message = reinterpret_cast<objects::TrickObjectsMessage*>(context->body_);
     auto* score = static_cast<PointTally*>(static_cast<objects::Rider*>(context->content_)->get_points_total());
     if (static_cast<int8_t>(message->one) == 1 && message->game_id_ == net_session_slot()->get_game_id())
-        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects, false);
+        score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects,
+                                false);
     return 1;
 }
 
-} // namespace Mdl
+} // namespace modules

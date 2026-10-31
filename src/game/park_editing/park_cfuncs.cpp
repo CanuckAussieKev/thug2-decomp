@@ -33,4 +33,4 @@ bool __cdecl cfunc_get_park_editor_max_players_possible(script::Struct*, script:
     return true;
 }
 
-} // namespace Ed
+} // namespace park_editing

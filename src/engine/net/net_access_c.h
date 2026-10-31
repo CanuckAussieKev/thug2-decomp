@@ -30,18 +30,18 @@ constexpr uint8_t kMsgNoLength = 1;
 // (The App's fields: net_app.h; the Client's server address: net_client.h.)
 
 // App flags (+0x1E84).
-constexpr uint32_t kAppMeasureLatency = 0x4;   // send latency tests
-constexpr uint32_t kAppAcceptForeign = 0x10;   // (0x00456FA0)
-constexpr uint32_t kAppSecure = 0x20;          // checksummed packets: two bytes fewer counted
+constexpr uint32_t kAppMeasureLatency = 0x4; // send latency tests
+constexpr uint32_t kAppAcceptForeign = 0x10; // (0x00456FA0)
+constexpr uint32_t kAppSecure = 0x20;        // checksummed packets: two bytes fewer counted
 
-constexpr uint32_t kMaxPacketSize = 0x512;     // a packet being built
+constexpr uint32_t kMaxPacketSize = 0x512; // a packet being built
 constexpr uint32_t kReceiveBufferSize = 0x514;
 constexpr uint32_t kConnReceiveBufferSize = 0xA28;
 
 // (The connection's fields: net_conn.h.)
 
 // Connection status (+0x60).
-constexpr uint32_t kConnStatus1 = 0x1;     // (acks only measure latency with it; mark_new_connection clears it)
+constexpr uint32_t kConnStatus1 = 0x1; // (acks only measure latency with it; mark_new_connection clears it)
 constexpr uint32_t kConnDisconnAccepted = 0x8;
 
 // Queued messages: PendingMsg and SeqQueuedMsg (net_app_view.h).
@@ -118,7 +118,7 @@ inline bool pull_datagram(AppHost* app, char* packet, char* to, int size)
 }
 // A message straight to ip:port, not through a connection.
 inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
-                          int flags)
+                       int flags)
 {
     app->deliver_to(id, length, data, ip, port, flags);
 }
@@ -152,7 +152,10 @@ inline void mark_messages_for_retry(Conn* conn, uint32_t timestamp) { conn->mark
 // The connection's destructor.
 inline void destroy_conn(Conn* conn) { conn->teardown(); }
 // The connection's latency test takes a measurement.
-inline void add_latency(Conn* conn, uint32_t latency) { conn->ping_probe_.input_delay_amount(static_cast<int>(latency)); }
+inline void add_latency(Conn* conn, uint32_t latency)
+{
+    conn->ping_probe_.input_delay_amount(static_cast<int>(latency));
+}
 // Message/packet metrics (0x00454550, 0x00454D90).
 inline void add_message_metric(void* metrics, uint8_t id, uint32_t size)
 {
@@ -165,7 +168,8 @@ inline void add_packet_metric(void* metrics, uint32_t size, uint32_t time)
 
 // Queued messages: the destructor frees the data (0x004550F0).
 inline void destroy_queued_msg(void* msg) { static_cast<PendingMsg*>(msg)->destroy_body(); }
-inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group, bool compressed)
+inline SeqQueuedMsg* construct_seq_msg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group,
+                                       bool compressed)
 {
     return static_cast<SeqQueuedMsg*>(memory)->make_new(id, length, data, group, compressed);
 }
@@ -187,4 +191,4 @@ inline void unlink_list_node(void* node)
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[0])(node, 1);
 }
 
-} // namespace Net
+} // namespace net

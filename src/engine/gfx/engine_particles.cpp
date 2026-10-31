@@ -112,4 +112,4 @@ void PcParticleSystem::set_colour_mid_percent(float percent)
     Virtual(this, 6);
 }
 
-} // namespace Nx
+} // namespace render

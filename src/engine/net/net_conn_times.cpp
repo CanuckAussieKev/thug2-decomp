@@ -25,4 +25,4 @@ uint32_t Conn::get_silence_duration()
     return now - last_heard_from_;
 }
 
-} // namespace Net
+} // namespace net

@@ -367,7 +367,8 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
         hud::get_message(why, 4.0);
         return false;
     }
-    if (add && g_selection.size() >= kMostSelected && std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end()) {
+    if (add && g_selection.size() >= kMostSelected &&
+        std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end()) {
         hud::get_message("Limit: 8192 faces");
         return false;
     }
@@ -456,8 +457,8 @@ bool set_flag(uint16_t bit, bool on)
     push_module_undo(before);
     view::stale_cache();
     char text[128];
-    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit,
-                  on ? "set" : "cleared", faces, faces == 1 ? "" : "s");
+    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit, on ? "set" : "cleared", faces,
+                  faces == 1 ? "" : "s");
     hud::get_message(text);
     get_log("level editor: %s", text);
     return true;
@@ -472,7 +473,8 @@ bool home_selection()
     for (const FaceKey& key : g_selection) {
         auto origin = g_origins.find(key);
         uint16_t now = 0;
-        if (origin != g_origins.end() && get_take_in(key, &now) && now != origin->second && emit_out(key, origin->second))
+        if (origin != g_origins.end() && get_take_in(key, &now) && now != origin->second &&
+            emit_out(key, origin->second))
             ++faces;
     }
     if (faces) {
@@ -547,7 +549,7 @@ void tick_frame()
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines)
+                 std::vector<ui::Seg>* lines)
 {
     auto outline = [&](FaceKey key, uint32_t argb, float thickness) {
         V3 p[3];
@@ -661,4 +663,4 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     }
 }
 
-} // namespace MenuSystem::level_editor::Faces
+} // namespace frontend::level_editor::faces

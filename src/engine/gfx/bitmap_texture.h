@@ -9,14 +9,14 @@ namespace render {
 
 struct TextureRef {
     uint32_t checksum;
-    uint16_t width, height;           // the texture's
+    uint16_t width, height;               // the texture's
     uint16_t image_width_, image_height_; // the image's, at its top left
     uint8_t levels;
     uint8_t depth;
     uint8_t unknowne_, unknownf_;
-    void* texture;  // IDirect3DTexture9
-    void* palette;  // (or an alpha texture: GetPaletteOwner)
-    void* surface;  // a render target's level 0 (IDirect3DSurface9)
+    void* texture; // IDirect3DTexture9
+    void* palette; // (or an alpha texture: GetPaletteOwner)
+    void* surface; // a render target's level 0 (IDirect3DSurface9)
     bool render_target_;
 
     // 0x004E04B0: construct (no texture) and go on the list. Returns this.
@@ -39,7 +39,8 @@ struct TextureRef {
     // 0x004E0700: make it a width x height A8R8G8B8 render target (`depth` kept). Returns whether it was made.
     bool create_render_target(int width, int height, uint8_t depth, int unused);
 };
-static_assert(offsetof(TextureRef, texture) == 0x10 && offsetof(TextureRef, render_target_) == 0x1C && sizeof(TextureRef) == 0x20,
+static_assert(offsetof(TextureRef, texture) == 0x10 && offsetof(TextureRef, render_target_) == 0x1C &&
+                  sizeof(TextureRef) == 0x20,
               "layout must match the original");
 
 // 0x004E0790: a texture from an image file (opened "rb"), or null if there's no such file.
@@ -52,4 +53,4 @@ void __cdecl release_render_target_textures();
 // 0x004E0440: after it - the render target textures made again.
 void __cdecl restore_render_target_textures();
 
-} // namespace Nx
+} // namespace render

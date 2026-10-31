@@ -3,7 +3,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script functions (commands) for the save files on the memory card: deleting one, whether one exists and the space
 // they need, and the temporary script pools the save code works in. All are cdecl (params, script) and return
@@ -41,4 +41,4 @@ bool create_temporary_mem_card_pools(script::Struct* params, script::Script* scr
 // 0x005A9700: those reserve pools deleted. True.
 bool remove_temporary_mem_card_pools(script::Struct* params, script::Script* script);
 
-} // namespace Mc
+} // namespace save_cards

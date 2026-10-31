@@ -128,10 +128,7 @@ maths::Vec4* Geom::fetch_bound_sphere(maths::Vec4* out)
 }
 
 // 0x0048DF10
-void Geom::choose_tri_source(void* faces)
-{
-    hit_triangles_ = faces;
-}
+void Geom::choose_tri_source(void* faces) { hit_triangles_ = faces; }
 
 // 0x0048E150
 void Geom::fetch_tints(uint32_t* out)
@@ -217,7 +214,10 @@ maths::BBox* Geom::plat_get_bounding_box()
     return &g_plat_bounding_box;
 }
 // 0x0048DC30
-void Geom::plat_set_bounding_sphere(const maths::Vec4*) { get_stub("STUB: PlatSetBoundingSphere\n"); } // "STUB: PlatSetBoundingSphere\n"
+void Geom::plat_set_bounding_sphere(const maths::Vec4*)
+{
+    get_stub("STUB: PlatSetBoundingSphere\n");
+} // "STUB: PlatSetBoundingSphere\n"
 // 0x0048E0A0
 maths::Vec4* Geom::plat_get_bounding_sphere(maths::Vec4* out)
 {
@@ -229,7 +229,10 @@ maths::Vec4* Geom::plat_get_bounding_sphere(maths::Vec4* out)
     return out;
 }
 // 0x0048DBB0
-void Geom::plat_set_world_position(const maths::Vec4*) { get_stub("STUB: PlatSetWorldPosition\n"); } // "STUB: PlatSetWorldPosition\n"
+void Geom::plat_set_world_position(const maths::Vec4*)
+{
+    get_stub("STUB: PlatSetWorldPosition\n");
+} // "STUB: PlatSetWorldPosition\n"
 // 0x0048E0D0 (the vector 0x006FAA2C, its guard 0x006FAA3C: nothing to construct)
 maths::Vec4* Geom::plat_get_world_position()
 {
@@ -238,7 +241,10 @@ maths::Vec4* Geom::plat_get_world_position()
     return position;
 }
 // 0x0048DBC0
-void Geom::plat_set_orientation(const maths::Mat4*) { get_stub("STUB: PlatSetOrientation\n"); } // "STUB: PlatSetOrientation\n"
+void Geom::plat_set_orientation(const maths::Mat4*)
+{
+    get_stub("STUB: PlatSetOrientation\n");
+} // "STUB: PlatSetOrientation\n"
 // 0x0048E1C0 (the matrix 0x006FAA40, its guard 0x006FAA80)
 maths::Mat4* Geom::plat_get_orientation()
 {
@@ -249,7 +255,10 @@ maths::Mat4* Geom::plat_get_orientation()
 // 0x0048DBD0
 void Geom::plat_rotate_y(int) { get_stub("STUB: PlatRotateY\n"); } // "STUB: PlatRotateY\n"
 // 0x0048DBE0
-void Geom::plat_set_transform(const maths::Mat4*) { get_stub("STUB: PlatSetTransform\n"); } // "STUB: PlatSetTransform\n"
+void Geom::plat_set_transform(const maths::Mat4*)
+{
+    get_stub("STUB: PlatSetTransform\n");
+} // "STUB: PlatSetTransform\n"
 // 0x0048E1F0 (the matrix 0x006FAA88, its guard 0x006FAAC8)
 maths::Mat4* Geom::plat_get_transform()
 {
@@ -290,7 +299,10 @@ uint32_t Geom::plat_get_num_render_verts()
     return 0;
 }
 // 0x0048DC70
-void Geom::plat_get_render_verts(maths::Vec4*) { get_stub("STUB: CGeom::plat_get_render_verts\n"); } // "STUB: CGeom::plat_get_render_verts\n"
+void Geom::plat_get_render_verts(maths::Vec4*)
+{
+    get_stub("STUB: CGeom::plat_get_render_verts\n");
+} // "STUB: CGeom::plat_get_render_verts\n"
 // 0x0048DC80
 uint32_t Geom::plat_get_num_render_polys()
 {
@@ -304,18 +316,30 @@ uint32_t Geom::plat_get_num_render_base_polys()
     return 0;
 }
 // 0x0048DCA0
-void Geom::plat_get_render_colors(uint32_t*) { get_stub("STUB: CGeom::plat_get_render_colors\n"); } // "STUB: CGeom::plat_get_render_colors\n"
+void Geom::plat_get_render_colors(uint32_t*)
+{
+    get_stub("STUB: CGeom::plat_get_render_colors\n");
+} // "STUB: CGeom::plat_get_render_colors\n"
 // 0x0048DCB0
-void Geom::plat_set_render_verts(const maths::Vec4*) { get_stub("STUB: CGeom::plat_set_render_verts\n"); } // "STUB: CGeom::plat_set_render_verts\n"
+void Geom::plat_set_render_verts(const maths::Vec4*)
+{
+    get_stub("STUB: CGeom::plat_set_render_verts\n");
+} // "STUB: CGeom::plat_set_render_verts\n"
 // 0x0048DCC0
-void Geom::plat_set_render_colors(const uint32_t*) { get_stub("STUB: CGeom::plat_set_render_colors\n"); } // "STUB: CGeom::plat_set_render_colors\n"
+void Geom::plat_set_render_colors(const uint32_t*)
+{
+    get_stub("STUB: CGeom::plat_set_render_colors\n");
+} // "STUB: CGeom::plat_set_render_colors\n"
 // 0x0048DCE0
 void Geom::plat_set_uv_wibble_params(float, float, float, float, float, float, float, float)
 {
     get_stub("STUB: CGeom::plat_set_uv_wibble_params\n"); // "STUB: CGeom::plat_set_uv_wibble_params\n"
 }
 // 0x0048DCF0
-void Geom::plat_use_explicit_uv_wibble(int) { get_stub("STUB: CGeom::plat_use_explicit_uv_wibble\n"); } // "STUB: CGeom::plat_use_explicit_uv_wibble\n"
+void Geom::plat_use_explicit_uv_wibble(int)
+{
+    get_stub("STUB: CGeom::plat_use_explicit_uv_wibble\n");
+} // "STUB: CGeom::plat_use_explicit_uv_wibble\n"
 // 0x0048DD10
 bool Geom::plat_set_material_uv_wibble_offsets(uint32_t, int, float, float)
 {
@@ -323,7 +347,10 @@ bool Geom::plat_set_material_uv_wibble_offsets(uint32_t, int, float, float)
     return false;
 }
 // 0x0048DD00
-void Geom::plat_set_uv_wibble_offsets(float, float) { get_stub("STUB: CGeom::plat_set_uv_wibble_offsets\n"); } // "STUB: CGeom::plat_set_uv_wibble_offsets\n"
+void Geom::plat_set_uv_wibble_offsets(float, float)
+{
+    get_stub("STUB: CGeom::plat_set_uv_wibble_offsets\n");
+} // "STUB: CGeom::plat_set_uv_wibble_offsets\n"
 // 0x0048DD30
 bool Geom::plat_set_uv_matrix(uint32_t, int, const maths::Mat4*)
 {
@@ -334,10 +361,9 @@ bool Geom::plat_set_uv_matrix(uint32_t, int, const maths::Mat4*)
 // --- the dispatchers --------------------------------------------------------------------------------------------
 
 #define NX_VIRTUAL_SLOT_JUMP(slot)                                                                                     \
-    __declspec(naked) void virtual_slot##slot##_jump()                                                                   \
+    __declspec(naked) void virtual_slot##slot##_jump()                                                                 \
     {                                                                                                                  \
-        __asm mov eax, dword ptr [ecx]                                                                                 \
-        __asm jmp dword ptr [eax + 4 * slot]                                                                           \
+        __asm mov eax, dword ptr[ecx] __asm jmp dword ptr[eax + 4 * slot]                                              \
     }
 
 NX_VIRTUAL_SLOT_JUMP(7)
@@ -377,24 +403,58 @@ NX_VIRTUAL_SLOT_JUMP(50)
 #undef NX_VIRTUAL_SLOT_JUMP
 
 namespace {
-static VtableSlot g_geom_vtable_slots[] = {&render::Geom::teardown, &render::WorldCell::plat_clone, &render::WorldCell::plat_clone,
-                &render::Geom::plat_init_instance, stubs::do_nothing, &render::Geom::plat_get_checksum, &render::Geom::plat_set_color,
-                &render::Geom::plat_get_color, &render::Geom::plat_clear_color, &render::Geom::plat_set_material_color,
-                &render::Geom::plat_get_material_color, &render::Geom::plat_set_visibility, &render::Geom::plat_get_visibility,
-                &render::Geom::plat_set_active, &render::Geom::plat_is_active, &render::Geom::plat_get_bounding_box,
-                &render::Geom::plat_set_bounding_sphere, &render::Geom::plat_get_bounding_sphere, &render::Geom::plat_set_world_position,
-                &render::Geom::plat_get_world_position, &render::Geom::plat_set_orientation, &render::Geom::plat_get_orientation,
-                &render::Geom::plat_rotate_y, &render::Geom::plat_set_transform, &render::Geom::plat_get_transform,
-                &render::Geom::plat_set_scale, &render::Geom::plat_get_scale, &render::Geom::plat_set_model_lights,
-                &render::Geom::plat_render_setup, stubs::ignore_arguments2, stubs::ignore_arguments2,
-                &render::Geom::plat_hide_polys, &save_cards::SaveCard::always_true, &render::Geom::plat_get_num_render_polys,
-                &render::Geom::plat_get_num_render_base_polys, stubs::return_zero, &render::Geom::plat_get_num_render_verts,
-                &render::Geom::plat_get_render_verts, &render::Geom::plat_get_render_colors, &render::Geom::plat_set_render_verts,
-                &render::Geom::plat_set_render_colors, stubs::ignore_arguments3, &render::Geom::plat_set_uv_wibble_params,
-                &render::Geom::plat_use_explicit_uv_wibble, &render::Geom::plat_set_material_uv_wibble_offsets,
-                &render::Geom::plat_set_uv_wibble_offsets, &render::Geom::plat_set_uv_matrix, stubs::return_true2, stubs::do_nothing,
-                stubs::ignore_argument, stubs::do_nothing};
+static VtableSlot g_geom_vtable_slots[] = {&render::Geom::teardown,
+                                           &render::WorldCell::plat_clone,
+                                           &render::WorldCell::plat_clone,
+                                           &render::Geom::plat_init_instance,
+                                           stubs::do_nothing,
+                                           &render::Geom::plat_get_checksum,
+                                           &render::Geom::plat_set_color,
+                                           &render::Geom::plat_get_color,
+                                           &render::Geom::plat_clear_color,
+                                           &render::Geom::plat_set_material_color,
+                                           &render::Geom::plat_get_material_color,
+                                           &render::Geom::plat_set_visibility,
+                                           &render::Geom::plat_get_visibility,
+                                           &render::Geom::plat_set_active,
+                                           &render::Geom::plat_is_active,
+                                           &render::Geom::plat_get_bounding_box,
+                                           &render::Geom::plat_set_bounding_sphere,
+                                           &render::Geom::plat_get_bounding_sphere,
+                                           &render::Geom::plat_set_world_position,
+                                           &render::Geom::plat_get_world_position,
+                                           &render::Geom::plat_set_orientation,
+                                           &render::Geom::plat_get_orientation,
+                                           &render::Geom::plat_rotate_y,
+                                           &render::Geom::plat_set_transform,
+                                           &render::Geom::plat_get_transform,
+                                           &render::Geom::plat_set_scale,
+                                           &render::Geom::plat_get_scale,
+                                           &render::Geom::plat_set_model_lights,
+                                           &render::Geom::plat_render_setup,
+                                           stubs::ignore_arguments2,
+                                           stubs::ignore_arguments2,
+                                           &render::Geom::plat_hide_polys,
+                                           &save_cards::SaveCard::always_true,
+                                           &render::Geom::plat_get_num_render_polys,
+                                           &render::Geom::plat_get_num_render_base_polys,
+                                           stubs::return_zero,
+                                           &render::Geom::plat_get_num_render_verts,
+                                           &render::Geom::plat_get_render_verts,
+                                           &render::Geom::plat_get_render_colors,
+                                           &render::Geom::plat_set_render_verts,
+                                           &render::Geom::plat_set_render_colors,
+                                           stubs::ignore_arguments3,
+                                           &render::Geom::plat_set_uv_wibble_params,
+                                           &render::Geom::plat_use_explicit_uv_wibble,
+                                           &render::Geom::plat_set_material_uv_wibble_offsets,
+                                           &render::Geom::plat_set_uv_wibble_offsets,
+                                           &render::Geom::plat_set_uv_matrix,
+                                           stubs::return_true2,
+                                           stubs::do_nothing,
+                                           stubs::ignore_argument,
+                                           stubs::do_nothing};
 void** const kGeomVtable = reinterpret_cast<void**>(g_geom_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

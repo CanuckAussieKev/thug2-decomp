@@ -60,25 +60,27 @@ void MatrixComponent::tick_frame() { entity_->display_matrix_ = basis_frame_; }
 // 0x0041CAC0
 void MatrixComponent::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matrix; }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::MatrixComponent::teardown,
-         &objects::MatrixComponent::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         stubs::ignore_argument,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::MatrixComponent::teardown,
+    &objects::MatrixComponent::tick_frame,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    stubs::ignore_argument,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

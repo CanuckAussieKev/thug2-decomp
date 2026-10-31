@@ -55,11 +55,11 @@ namespace {
 constexpr uint8_t kMsgObserveRequest = 0x4A; // (the server's handle_observe_request)
 constexpr uint8_t kMsgFcfsNotice = 0x5F;     // (the client's handle_fcfs_notice)
 
-constexpr uint32_t kSkaterCamObject = 0x967C138C;     // the camera object (by id)
-constexpr uint32_t kSkaterCamera = 0x5E43A604;        // SkaterCamera
-constexpr uint32_t kWalkCamera = 0xC7D37EC2;          // WalkCamera
+constexpr uint32_t kSkaterCamObject = 0x967C138C;      // the camera object (by id)
+constexpr uint32_t kSkaterCamera = 0x5E43A604;         // SkaterCamera
+constexpr uint32_t kWalkCamera = 0xC7D37EC2;           // WalkCamera
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl
-constexpr uint32_t kFcfsPreference = 0x043EE978;      // the network preference naming the first-come notice's text
+constexpr uint32_t kFcfsPreference = 0x043EE978;       // the network preference naming the first-come notice's text
 
 constexpr int kMaxObjectIds = 16;
 constexpr uint32_t kNewPlayerObserver = 4; // JoinerRecord flags
@@ -71,9 +71,9 @@ constexpr uint32_t kPlayerPending = 0x08;       // joined during a game: added f
 constexpr uint32_t kPlayerGameEnded = 0x100;    // its game has ended (message 0x59)
 constexpr uint32_t kPlayerInfoSize = 0x1F0;
 
-constexpr uint8_t kMsgPlayerGone = 0x2D;  // a player left (its object id, the reason)
-constexpr uint8_t kMsgRemovedYou = 0x51;  // 'Q': kicked or banned (to its address)
-constexpr uint8_t kMsgMovedOn = 0x56;     // 'V': the game went on without it
+constexpr uint8_t kMsgPlayerGone = 0x2D; // a player left (its object id, the reason)
+constexpr uint8_t kMsgRemovedYou = 0x51; // 'Q': kicked or banned (to its address)
+constexpr uint8_t kMsgMovedOn = 0x56;    // 'V': the game went on without it
 constexpr uint8_t kMsgGameOver = 0x5A;
 
 constexpr int kGameSpyGameId = 1003; // THUG2 PC's (the CD-key SDK)
@@ -99,14 +99,14 @@ constexpr uint32_t kDropTexts[] = {
 };
 
 // Names.
-constexpr uint32_t kNetLobby = 0x1C471C60;              // netlobby
-constexpr uint32_t kHidePanelStuff = 0x47180228;        // hide_panel_stuff
-constexpr uint32_t kShouldModulateColor = 0x11941568;   // should_modulate_color
+constexpr uint32_t kNetLobby = 0x1C471C60;               // netlobby
+constexpr uint32_t kHidePanelStuff = 0x47180228;         // hide_panel_stuff
+constexpr uint32_t kShouldModulateColor = 0x11941568;    // should_modulate_color
 constexpr uint32_t kNetworkEndGameSelected = 0x70E20955; // network_end_game_selected
-constexpr uint32_t kTeam = 0x3B1F59E0;                  // Team
-constexpr uint32_t kString0 = 0xA4B08520;               // String0
-constexpr uint32_t kFlagReturned = 0x3B1F2478;          // flag_returned
-constexpr uint32_t kHideCtfArrow = 0x1C318F8C;          // hide_ctf_arrow
+constexpr uint32_t kTeam = 0x3B1F59E0;                   // Team
+constexpr uint32_t kString0 = 0xA4B08520;                // String0
+constexpr uint32_t kFlagReturned = 0x3B1F2478;           // flag_returned
+constexpr uint32_t kHideCtfArrow = 0x1C318F8C;           // hide_ctf_arrow
 
 // (The joining player's record: online::JoinerRecord, player_info.h.)
 constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
@@ -133,7 +133,8 @@ void reset_walk_camera(objects::ObjectModule* camera) { static_cast<objects::Foo
 void Hub::spectate_player(uint8_t* player)
 {
     auto* cam_object = static_cast<objects::GameEntity*>(
-        reinterpret_cast<objects::ObjectHubBase*>(reinterpret_cast<void*>(objects::g_composite_registry))->look_up_entity(kSkaterCamObject));
+        reinterpret_cast<objects::ObjectHubBase*>(reinterpret_cast<void*>(objects::g_composite_registry))
+            ->look_up_entity(kSkaterCamObject));
     objects::ObjectModule* skater_camera = cam_object->fetch_module(kSkaterCamera);
     objects::ObjectModule* walk_camera = cam_object->fetch_module(kWalkCamera);
     if (!player || !player_skater(player)) {
@@ -190,7 +191,8 @@ void Hub::assign_first_come_first_served()
     PlayerSearch search;
     net::NetMessageInfo desc;
     desc.make_new();
-    for (uint8_t* player = start_roster_sweep(this, &search, false); player; player = step_roster_sweep(this, &search, false)) {
+    for (uint8_t* player = start_roster_sweep(this, &search, false); player;
+         player = step_roster_sweep(this, &search, false)) {
         if (is_own_player(player) || !(prop<uint32_t>(player, 0x1D0) & kPlayerFcfsCandidate))
             continue;
         as_player(player)->set_host_player(); // (its flag 0x200: first come, first served)
@@ -216,9 +218,11 @@ int Hub::reserve_obj_id_for_player()
         PlayerSearch search;
         for (uint8_t* player = start_roster_sweep(this, &search, false); player && !used;
              player = step_roster_sweep(this, &search, false))
-            used = static_cast<int>(get_skater_id(player_skater(player))) == id; // (a player without a skater: read at 0x14)
+            used = static_cast<int>(get_skater_id(player_skater(player))) ==
+                   id; // (a player without a skater: read at 0x14)
         NewPlayerSearch new_search;
-        for (uint8_t* info = first_new_player(this, &new_search); info && !used; info = next_new_player(this, &new_search)) {
+        for (uint8_t* info = first_new_player(this, &new_search); info && !used;
+             info = next_new_player(this, &new_search)) {
             uint32_t flags = prop<uint32_t>(info, 0x20);
             if ((flags & kNewPlayerObserver) && !(flags & kNewPlayerPending))
                 continue; // (an observer joining takes no id)
@@ -234,7 +238,8 @@ int Hub::reserve_obj_id_for_player()
 uint8_t* Hub::find_player_by_sender(net::Conn* conn)
 {
     PlayerSearch search;
-    for (uint8_t* player = start_roster_sweep(this, &search, true); player; player = step_roster_sweep(this, &search, true))
+    for (uint8_t* player = start_roster_sweep(this, &search, true); player;
+         player = step_roster_sweep(this, &search, true))
         if (prop<net::Conn*>(player, 0x18) == conn)
             return player;
     return nullptr;
@@ -244,7 +249,8 @@ uint8_t* Hub::find_player_by_sender(net::Conn* conn)
 uint8_t* Hub::find_player_slot_by_obj(uint16_t id)
 {
     PlayerSearch search;
-    for (uint8_t* player = start_roster_sweep(this, &search, false); player; player = step_roster_sweep(this, &search, false)) {
+    for (uint8_t* player = start_roster_sweep(this, &search, false); player;
+         player = step_roster_sweep(this, &search, false)) {
         objects::Entity* skater = player_skater(player);
         if (skater && get_skater_id(skater) == id)
             return player;
@@ -299,7 +305,7 @@ void Hub::remove_player_record(uint8_t* player)
         reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(player))[0])(player, 1);
     update_lobby_server();
     if (g_online_active && g_online_hub->in_net_game() &&
-        g_query_reporting) // (reported to GameSpy's qr2: the player count changed)
+        g_query_reporting)                         // (reported to GameSpy's qr2: the player count changed)
         game_spy::qr2_send_state_changed(nullptr); // qr2_send_statechanged
 }
 
@@ -308,8 +314,10 @@ void Hub::evict_player(uint8_t* player, int reason)
 {
     char name[kNameSize];
     std::strcpy(name, player_name(player));
-    if (!is_observer(player) && get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), kShouldModulateColor))
-        objects::g_trick_spot_hub->release_player_clusters(static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
+    if (!is_observer(player) &&
+        get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), kShouldModulateColor))
+        objects::g_trick_spot_hub->release_player_clusters(
+            static_cast<int>(get_skater_id(player_skater(player)))); // its colours off the trick objects
     if (!get_on_server()) {
         remove_player_record(player);
         return;
@@ -318,7 +326,8 @@ void Hub::evict_player(uint8_t* player, int reason)
     game_spy::cd_key_disconnect_user(kGameSpyGameId, static_cast<int>(conn->ident_)); // gcd_disconnect_user
     if (!is_observer(player)) {
         PlayerSearch search;
-        for (uint8_t* other = start_roster_sweep(this, &search, true); other; other = step_roster_sweep(this, &search, true)) {
+        for (uint8_t* other = start_roster_sweep(this, &search, true); other;
+             other = step_roster_sweep(this, &search, true)) {
             if (is_own_player(other))
                 continue;
             net::NetMessageInfo desc;
@@ -333,7 +342,8 @@ void Hub::evict_player(uint8_t* player, int reason)
         }
         if ((reason == kDropQuit || reason == kDropTimedOut || reason == kDropDropped) &&
             static_cast<RankingsManager*>(rating_service_)->update_logged_in()) // (a rated game left early)
-            static_cast<RankingsManager*>(rating_service_)->remove_player(static_cast<int>(get_skater_id(player_skater(player))));
+            static_cast<RankingsManager*>(rating_service_)
+                ->remove_player(static_cast<int>(get_skater_id(player_skater(player))));
     }
     bool close = true;
     if (reason == kDropBanned || reason == kDropKicked) {
@@ -392,8 +402,7 @@ void Hub::re_add_pending_players()
 {
     update_lobby_server();
     g_open_waiting = true;
-    if (g_online_active && g_online_hub->in_net_game() &&
-        g_query_reporting && g_open_waiting != 1) // (just set: never)
+    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting && g_open_waiting != 1) // (just set: never)
         game_spy::qr2_send_state_changed(nullptr);
     int frames = 10;
     PlayerSearch search;
@@ -427,7 +436,7 @@ void Hub::re_add_pending_players()
     for (uint8_t* p = start_roster_sweep(this, &search, false); p; p = step_roster_sweep(this, &search, false)) {
         if (!is_own_player(p)) {
             static_cast<objects::Rider*>(player_skater(p))->conceal_skater(); // hidden
-            static_cast<objects::Rider*>(player_skater(p))->reset_27c();   // reset
+            static_cast<objects::Rider*>(player_skater(p))->reset_27c();      // reset
         }
     }
 }
@@ -441,7 +450,8 @@ void Hub::destroy_all_players()
     while (player) {
         uint8_t* next = step_roster_sweep(this, &search, true);
         objects::Entity* skater = player_skater(player);
-        if (skater && (static_cast<objects::Rider*>(skater)->get_skater_number() != 0 || !is_own_player(player))) // (not the first local skater)
+        if (skater && (static_cast<objects::Rider*>(skater)->get_skater_number() != 0 ||
+                       !is_own_player(player))) // (not the first local skater)
             get_call(code_address(&modules::Skate::drop_skater_from_roster), skate, skater);
         remove_player_record(player);
         player = next;
@@ -521,7 +531,8 @@ void Hub::enter_observe_mode()
         if (prop<void*>(this, 0x6C))
             prop<objects::CrownObject*>(this, 0x6C)->take_off();
     }
-    if (as_player(local)->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
+    if (as_player(local)
+            ->is_carrying_flag()) { // its flag returned (hide_ctf_arrow whatever the team, unlike flag_returned)
         int team = as_player(local)->get_flag_team();
         char key[64];
         team_name_key(key, team);

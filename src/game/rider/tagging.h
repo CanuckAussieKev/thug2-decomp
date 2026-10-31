@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // Graffiti tags and stickers: the tagging component holds a skater's two textures and puts a tag or sticker on the
 // world (a decal, told to the server in a network game); the tagging control component decides when - a walking
@@ -46,10 +46,10 @@ public:
     // towards `end`, `size` big; with `send`, told to the server in a network game (message 0x99).
     void place_tag(bool sticker, maths::Vec4 start, maths::Vec4 end, int size, bool send);
 
-    bool custom_tag_;     // +0x18
+    bool custom_tag_; // +0x18
     uint8_t pad19[3];
-    void* graffiti_;     // +0x1C the graffiti texture
-    void* sticker_;      // +0x20 the sticker texture
+    void* graffiti_; // +0x1C the graffiti texture
+    void* sticker_;  // +0x20 the sticker texture
 };
 static_assert(offsetof(TaggingComponent, graffiti_) == 0x1C && sizeof(TaggingComponent) == 0x24,
               "layout must match the original");
@@ -82,19 +82,19 @@ public:
     // countdown are over, or without a wall.
     bool slap_sticker(bool sticker, bool walking, bool low);
 
-    int countdown_;                // +0x18 frames until a pending tag may be placed
-    bool pending_;                 // +0x1C a tag or sticker started
-    bool blocked_;                 // +0x1D BlockTaggingOn
+    int countdown_; // +0x18 frames until a pending tag may be placed
+    bool pending_;  // +0x1C a tag or sticker started
+    bool blocked_;  // +0x1D BlockTaggingOn
     uint8_t pad1e_[2];
-    float cooldown_;               // +0x20 frames until the next tag (counted down by 1)
+    float cooldown_;             // +0x20 frames until the next tag (counted down by 1)
     ObjectModule* walk_;         // +0x24
     ObjectModule* input_;        // +0x28
-    ObjectModule* core_physics_;  // +0x2C
+    ObjectModule* core_physics_; // +0x2C
     ObjectModule* trigger_;      // +0x30
-    TaggingComponent* tagging_;   // +0x34
+    TaggingComponent* tagging_;  // +0x34
 };
 static_assert(offsetof(TaggingControlComponent, cooldown_) == 0x20 &&
                   offsetof(TaggingControlComponent, tagging_) == 0x34 && sizeof(TaggingControlComponent) == 0x38,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

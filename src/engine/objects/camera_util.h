@@ -15,6 +15,6 @@ double __cdecl frame_blend(float rate, float seconds);
 // first); with `refocus` - and a side wall found - `matrix` is turned to look from the position at `focus`
 // (its rows rebuilt with the original's cross products, right and at negated).
 void __cdecl avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const maths::Vec4* target,
-                                   const maths::Vec4* focus, bool sideways, bool refocus);
+                                     const maths::Vec4* focus, bool sideways, bool refocus);
 
-} // namespace Obj
+} // namespace objects

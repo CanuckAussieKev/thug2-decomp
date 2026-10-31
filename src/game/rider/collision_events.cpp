@@ -34,15 +34,15 @@ using namespace physics;
 constexpr uint32_t kForwardHeight = 0xD4205C9B; // Skater_First_Forward_Collision_Height
 constexpr uint32_t kManual = 0xEF24413B, kNoseManual = 0x0AC90769, kSkitch = 0x3506CE64; // balance trick kinds
 
-constexpr int kHistory = 90;          // frames kept
-constexpr int kWindow = 60;           // frames a reversal may take
-constexpr float kMinSpeedNow = 5.0f;  // inches a second
+constexpr int kHistory = 90;         // frames kept
+constexpr int kWindow = 60;          // frames a reversal may take
+constexpr float kMinSpeedNow = 5.0f; // inches a second
 constexpr float kMinSpeedBefore = 60.0f;
-constexpr float kOpposed = -0.8f;     // the two directions' dot product
-constexpr float kSudden = 0.5f;       // one frame's direction change: dot below this (60 degrees)
-constexpr float kStill = 1.0f;        // ... or the speed through (almost) zero
+constexpr float kOpposed = -0.8f; // the two directions' dot product
+constexpr float kSudden = 0.5f;   // one frame's direction change: dot below this (60 degrees)
+constexpr float kStill = 1.0f;    // ... or the speed through (almost) zero
 constexpr int kMostAirFrames = 20;
-constexpr float kTeleport = 300.0f;   // a frame's move past this starts the history again
+constexpr float kTeleport = 300.0f; // a frame's move past this starts the history again
 constexpr float kSameSpot = 40.0f;
 constexpr DWORD kSpotQuietMs = 1000;
 constexpr int kPathRecords = 32;
@@ -130,7 +130,10 @@ Face face_of(const render::ProbeRay& feeler)
     return face;
 }
 
-const render::ProbeRay& feeler_at(void* component, uint32_t offset) { return get_at<render::ProbeRay>(component, offset); }
+const render::ProbeRay& feeler_at(void* component, uint32_t offset)
+{
+    return get_at<render::ProbeRay>(component, offset);
+}
 
 std::string get_name_of(uint32_t checksum)
 {
@@ -372,11 +375,16 @@ char state_letter(int state) { return state >= 0 && state < 6 ? "gawlrp"[state] 
 const char* balance_name(uint32_t kind)
 {
     switch (kind) {
-    case kManual: return "manual";
-    case kNoseManual: return "nose_manual";
-    case kSkitch: return "skitch";
-    case 0: return "-";
-    default: return "other";
+    case kManual:
+        return "manual";
+    case kNoseManual:
+        return "nose_manual";
+    case kSkitch:
+        return "skitch";
+    case 0:
+        return "-";
+    default:
+        return "other";
     }
 }
 
@@ -462,7 +470,8 @@ void get_emit(int before)
         if (s.state == 0 && s.ground_normal_[1] < event.ground_min_y_)
             event.ground_min_y_ = s.ground_normal_[1];
     }
-    const char* reason = choose_reason(uber_frig, strongest ? path_name(strongest->path) : nullptr, event.ground_min_y_);
+    const char* reason =
+        choose_reason(uber_frig, strongest ? path_name(strongest->path) : nullptr, event.ground_min_y_);
     if (!reason)
         return; // (flat ground and no path: the player turned round)
     event.reason = reason;
@@ -493,7 +502,8 @@ void get_emit(int before)
     const float* at = event.spot;
     float high[3] = {at[0], at[1] + 48.0f, at[2]}, low[3] = {at[0], at[1] - 200.0f, at[2]};
     float beyond[3] = {at[0] + direction[0] * 24.0f, at[1], at[2] + direction[1] * 24.0f};
-    float beyond_high[3] = {beyond[0], beyond[1] + 48.0f, beyond[2]}, beyond_low[3] = {beyond[0], beyond[1] - 200.0f, beyond[2]};
+    float beyond_high[3] = {beyond[0], beyond[1] + 48.0f, beyond[2]},
+          beyond_low[3] = {beyond[0], beyond[1] - 200.0f, beyond[2]};
     float lift = script::fetch_float(kForwardHeight);
     float ahead_from[3] = {old.pos[0], old.pos[1] + lift, old.pos[2]};
     float ahead_to[3] = {ahead_from[0] + direction[0] * 120.0f, ahead_from[1], ahead_from[2] + direction[1] * 120.0f};
@@ -538,8 +548,8 @@ void get_emit(int before)
             continue;
         const Sample& s = sample_at(age);
         char text[64];
-        std::snprintf(text, sizeof(text), "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", s.pos[0],
-                      s.pos[1], s.pos[2], state_letter(s.state));
+        std::snprintf(text, sizeof(text), "%s%.0f,%.0f,%.0f,%c", detail.approach.empty() ? "" : ";", s.pos[0], s.pos[1],
+                      s.pos[2], state_letter(s.state));
         detail.approach += text;
     }
     detail.camera = sys::screenshot::last_view(detail.camera_pos_, detail.camera_dir_);
@@ -578,18 +588,30 @@ void detect()
 const char* path_name(RouteWay path)
 {
     switch (path) {
-    case RouteWay::kWallAheadCorner: return "wall-ahead-corner";
-    case RouteWay::kWallAhead: return "wall-ahead";
-    case RouteWay::kWallAheadPlant: return "wall-ahead-push";
-    case RouteWay::kSideWall: return "side-wall";
-    case RouteWay::kAirBonk: return "air-bonk";
-    case RouteWay::kAirWallVert: return "air-wall-vert";
-    case RouteWay::kCeiling: return "ceiling";
-    case RouteWay::kGroundUnskatable: return "ground-unskatable";
-    case RouteWay::kGroundRejected: return "ground-rejected";
-    case RouteWay::kNoGround: return "no-ground";
-    case RouteWay::kWallAheadClimb: return "wall-ahead-climb";
-    default: return "?";
+    case RouteWay::kWallAheadCorner:
+        return "wall-ahead-corner";
+    case RouteWay::kWallAhead:
+        return "wall-ahead";
+    case RouteWay::kWallAheadPlant:
+        return "wall-ahead-push";
+    case RouteWay::kSideWall:
+        return "side-wall";
+    case RouteWay::kAirBonk:
+        return "air-bonk";
+    case RouteWay::kAirWallVert:
+        return "air-wall-vert";
+    case RouteWay::kCeiling:
+        return "ceiling";
+    case RouteWay::kGroundUnskatable:
+        return "ground-unskatable";
+    case RouteWay::kGroundRejected:
+        return "ground-rejected";
+    case RouteWay::kNoGround:
+        return "no-ground";
+    case RouteWay::kWallAheadClimb:
+        return "wall-ahead-climb";
+    default:
+        return "?";
     }
 }
 
@@ -608,7 +630,8 @@ int find_reversal(const Motion* frames, int count)
         if (now.frame - old.frame > static_cast<uint32_t>(kWindow) || old.state != 0)
             continue;
         float dir_old[2];
-        if (get_horizontal(old.vel, dir_old) < kMinSpeedBefore || dir_old[0] * dir_now[0] + dir_old[1] * dir_now[1] >= kOpposed)
+        if (get_horizontal(old.vel, dir_old) < kMinSpeedBefore ||
+            dir_old[0] * dir_now[0] + dir_old[1] * dir_now[1] >= kOpposed)
             continue;
         // A sudden change between, no rail / lip / wall, not long in the air.
         bool sudden = false, refused = false;
@@ -694,7 +717,8 @@ void end_frame(void* component)
         std::string level = get_level_name();
         g_col_file = level_file_stamp(level, "col");
         g_scn_file = level_file_stamp(level, "scn");
-        get_log("collision-event: logging on in %s (col %s, scn %s)", level.c_str(), g_col_file.c_str(), g_scn_file.c_str());
+        get_log("collision-event: logging on in %s (col %s, scn %s)", level.c_str(), g_col_file.c_str(),
+                g_scn_file.c_str());
     }
     void* object = object_of(component);
     uint8_t* flags = flags_of(component);
@@ -705,7 +729,8 @@ void end_frame(void* component)
     s.trick = flags[0xE0] != 0;
     void* balance = get_at<void*>(component, kBalanceTrick);
     s.balance = balance ? get_at<uint32_t>(balance, 0x18) : 0;
-    if (uint8_t* pad = input_of(component)) { // (the GameObjects::PadSnapshot: 16 buttons of 0x20 bytes, the sticks at +0x210)
+    if (uint8_t* pad =
+            input_of(component)) { // (the GameObjects::PadSnapshot: 16 buttons of 0x20 bytes, the sticks at +0x210)
         for (int i = 0; i < 16; ++i)
             if (pad[i * 0x20])
                 s.buttons = static_cast<uint16_t>(s.buttons | (1u << i));
@@ -738,9 +763,10 @@ void end_frame(void* component)
 
 std::string flag_names(uint16_t flags)
 {
-    static const char* const kNames[16] = {"skatable", "not_skatable", "wall_ridable", "vert", "non_collidable",
-                                           "decal", "trigger", "camera_passes", "no_shadow", "shadow",
-                                           "no_shadow_wall", "under_ok", "invisible", "0x2000", "0x4000", "0x8000"};
+    static const char* const kNames[16] = {"skatable",       "not_skatable", "wall_ridable",   "vert",
+                                           "non_collidable", "decal",        "trigger",        "camera_passes",
+                                           "no_shadow",      "shadow",       "no_shadow_wall", "under_ok",
+                                           "invisible",      "0x2000",       "0x4000",         "0x8000"};
     std::string out;
     for (int bit = 0; bit < 16; ++bit) {
         if (!(flags & (1u << bit)))
@@ -754,8 +780,8 @@ std::string flag_names(uint16_t flags)
 
 std::string pad_button_labels(uint16_t mask)
 {
-    static const char* const kNames[16] = {"up", "down", "left", "right", "l1", "l2", "l3", "r1",
-                                           "r2", "r3", "circle", "square", "triangle", "x", "start", "select"};
+    static const char* const kNames[16] = {"up", "down", "left",   "right",  "l1",       "l2", "l3",    "r1",
+                                           "r2", "r3",   "circle", "square", "triangle", "x",  "start", "select"};
     std::string out;
     for (int bit = 0; bit < 16; ++bit) {
         if (!(mask & (1u << bit)))
@@ -772,7 +798,8 @@ std::string face_text(const Face& face, std::string (*name)(uint32_t))
     if (!face.hit)
         return "none";
     char text[256];
-    std::snprintf(text, sizeof(text), "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
+    std::snprintf(text, sizeof(text),
+                  "%s:%s;face:%d;flags:0x%04X;decoded:%s;terrain:%u;n:%.2f,%.2f,%.2f;at:%.1f,%.1f,%.1f",
                   face.object ? "object" : "sector", name(face.checksum).c_str(), face.index, face.flags,
                   flag_names(face.flags).c_str(), face.terrain, face.normal[0], face.normal[1], face.normal[2],
                   face.point[0], face.point[1], face.point[2]);
@@ -792,8 +819,8 @@ std::string v3(const float* v, const char* format = "%.1f,%.1f,%.1f")
 
 std::string format_event(const Occurrence& e, std::string (*name)(uint32_t))
 {
-    static const char* const kProbes[6] = {"probe_down_hit", "probe_down_hit_all", "probe_down_beyond",
-                                           "probe_down_beyond_all", "probe_ahead", "probe_ahead_all"};
+    static const char* const kProbes[6] = {"probe_down_hit",        "probe_down_hit_all", "probe_down_beyond",
+                                           "probe_down_beyond_all", "probe_ahead",        "probe_ahead_all"};
     char head[160];
     std::snprintf(head, sizeof(head), "collision-event: n=%d level=%s frame=%u reason=%s paths=%s frames=%d", e.number,
                   e.level.empty() ? "-" : e.level.c_str(), e.frame, e.reason, e.paths.c_str(), e.frames);
@@ -837,7 +864,9 @@ std::string format_detail(const Detail& d)
     }
     if (d.edge >= 0) {
         std::snprintf(text, sizeof(text), " edge=%d edge_dist=%.1f open_edge=%s", d.edge, d.edge_distance_,
-                      d.edge_open_ < 0 ? "-" : d.edge_open_ ? "1" : "0");
+                      d.edge_open_ < 0 ? "-"
+                      : d.edge_open_   ? "1"
+                                       : "0");
         line += text;
     } else {
         line += " edge=- edge_dist=- open_edge=-";
@@ -848,4 +877,4 @@ std::string format_detail(const Detail& d)
     return line;
 }
 
-} // namespace Skater::collision_events
+} // namespace skater::collision_events

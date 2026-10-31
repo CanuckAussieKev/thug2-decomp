@@ -164,7 +164,8 @@ void proxim_section(uint32_t node)
             get_queue([] { begin_edit(); });
     } else if (e.shape) {
         float size[3] = {e.size.x, e.size.y, e.size.z};
-        if (ImGui::DragFloat3("Size##proxim", size, 5.0f, kProximMin, kProximMax, "%.0f", ImGuiSliderFlags_AlwaysClamp)) {
+        if (ImGui::DragFloat3("Size##proxim", size, 5.0f, kProximMin, kProximMax, "%.0f",
+                              ImGuiSliderFlags_AlwaysClamp)) {
             ProximEdit sized = e;
             sized.size = {size[0], size[1], size[2]};
             get_queue([sized] { set_proxim(sized, false); });
@@ -371,7 +372,7 @@ void inspector_section(int index)
     }
     // The kind.
     const Kind kinds[] = {Kind::kKill,   Kind::kJumpTo, Kind::kScripts, Kind::kGapStart,
-                          Kind::kGapEnd, Kind::kBoost,    Kind::kViewCam};
+                          Kind::kGapEnd, Kind::kBoost,  Kind::kViewCam};
     if (ImGui::BeginCombo("Kind", kind_name(s.kind))) {
         for (Kind k : kinds) {
             if (ImGui::Selectable(kind_name(k), k == s.kind) && k != s.kind) {
@@ -476,7 +477,7 @@ void inspector_section(int index)
         if (ImGui::IsItemActivated())
             get_queue([] { begin_edit(); });
         ImGui::TextDisabled("LevelEditor_PlayCamera camera=%s time=%.1f",
-                           s.target.empty() ? "<camera>" : s.target.c_str(), s.seconds);
+                            s.target.empty() ? "<camera>" : s.target.c_str(), s.seconds);
         break;
     }
     case Kind::kOther:
@@ -491,9 +492,9 @@ void inspector_section(int index)
     if (a->problem)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.45f, 1.0f), "Not active: %s", a->problem);
     else
-        ImGui::TextColored(get_colour(kind_colour(s.kind)), "Runs %s on enter%s",
-                           get_script_name(s).c_str(), s.exit ? " and exit" : "");
-    
+        ImGui::TextColored(get_colour(kind_colour(s.kind)), "Runs %s on enter%s", get_script_name(s).c_str(),
+                           s.exit ? " and exit" : "");
+
     if (changed)
         get_queue([key, s] { set_spec(key, s, true); });
 }
@@ -519,4 +520,4 @@ void scenery_section(uint32_t sector)
         ImGui::TextDisabled("Broken in play; restored in the editor");
 }
 
-} // namespace MenuSystem::level_editor::Triggers
+} // namespace frontend::level_editor::triggers

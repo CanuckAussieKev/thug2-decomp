@@ -15,7 +15,7 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace render {
 class ProbeRay;
@@ -100,8 +100,8 @@ public:
     void set_sounds(uint32_t type);
 
     // --- script member functions (the table at 0x00683F28) ---
-    bool rigid_body_wake(script::Struct* params, script::Script* script);            // 0x0042DCA0
-    bool rigid_body_sleep(script::Struct* params, script::Script* script);           // 0x0042DCF0 (0x0042BE90)
+    bool rigid_body_wake(script::Struct* params, script::Script* script);  // 0x0042DCA0
+    bool rigid_body_sleep(script::Struct* params, script::Script* script); // 0x0042DCF0 (0x0042BE90)
     // 0x0042DD00 Rigidbody_Kick: vel=, rotvel= and pos= added to its own (the object's velocity and position too);
     // awake.
     bool rigidbody_kick(script::Struct* params, script::Script* script);
@@ -143,11 +143,11 @@ public:
         maths::Vec4 offset;
         maths::Vec4 normal;
         float impulse_scale_; // +0x20
-        float impulse;      // +0x24
-        float depth;        // +0x28
-        bool active;        // +0x2C
-        bool scaled;        // +0x2D impulse_scale_ worked out
-        int8_t friction;    // +0x2E its directed friction (an index into steer_friction_)
+        float impulse;        // +0x24
+        float depth;          // +0x28
+        bool active;          // +0x2C
+        bool scaled;          // +0x2D impulse_scale_ worked out
+        int8_t friction;      // +0x2E its directed friction (an index into steer_friction_)
         uint8_t pad2f_;
     };
     // The shape turned to the world this frame (from the centre of mass): the contact points (0x00694E30), the
@@ -203,77 +203,75 @@ public:
     // die timer started (1.5 s) once 48 or more from where it woke.
     void check_sleep();
 
-    float mass_over_moment_;                // +0x18 mass_over_moment (0.003)
-    maths::Vec4 steady_accel_;                // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
-    float restitution_;                   // +0x2C coeff_restitution (0.4)
-    float drag_factor_;                      // +0x30 coeff_friction (0.5)
-    float spring_const_;                   // +0x34 spring_const (10)
-    float unknown38_;                     // +0x38 (0xDE76C3A7): the linear damping (0x0042C6D0)
-    float unknown3c_;                     // +0x3C (0x9DA897CF): the angular damping (0x0042C6D0)
-    float skater_radius_;                  // +0x40 skater_collision_radius (48)
-    float skater_application_radius_;       // +0x44 skater_collision_application_radius (12)
-    float skater_assent_cos_;               // +0x48 skater_collision_assent (25 degrees)
-    float skater_assent_sin_;               // +0x4C
-    float skater_impulse_factor_;           // +0x50 skater_collision_impulse_factor (1)
-    float skater_rotation_factor_;          // +0x54 skater_collision_rotation_factor (1)
-    float linear_sleep_squared_;            // +0x58 linear_velocity_sleep_point squared (100)
-    float angular_sleep_squared_;           // +0x5C angular_velocity_sleep_point squared (0.16)
-    maths::Vec4* contacts_;              // +0x60 the shape's points (body space)
-    maths::Capsule capsule_;                // +0x64
+    float mass_over_moment_;           // +0x18 mass_over_moment (0.003)
+    maths::Vec4 steady_accel_;         // +0x1C const_acc (gravity: (0, -386.4, 0, 1))
+    float restitution_;                // +0x2C coeff_restitution (0.4)
+    float drag_factor_;                // +0x30 coeff_friction (0.5)
+    float spring_const_;               // +0x34 spring_const (10)
+    float unknown38_;                  // +0x38 (0xDE76C3A7): the linear damping (0x0042C6D0)
+    float unknown3c_;                  // +0x3C (0x9DA897CF): the angular damping (0x0042C6D0)
+    float skater_radius_;              // +0x40 skater_collision_radius (48)
+    float skater_application_radius_;  // +0x44 skater_collision_application_radius (12)
+    float skater_assent_cos_;          // +0x48 skater_collision_assent (25 degrees)
+    float skater_assent_sin_;          // +0x4C
+    float skater_impulse_factor_;      // +0x50 skater_collision_impulse_factor (1)
+    float skater_rotation_factor_;     // +0x54 skater_collision_rotation_factor (1)
+    float linear_sleep_squared_;       // +0x58 linear_velocity_sleep_point squared (100)
+    float angular_sleep_squared_;      // +0x5C angular_velocity_sleep_point squared (0.16)
+    maths::Vec4* contacts_;            // +0x60 the shape's points (body space)
+    maths::Capsule capsule_;           // +0x64
     DirectedFriction* steer_friction_; // +0x88 one per contact (directed_friction=)
-    uint16_t contact_count_;               // +0x8C
+    uint16_t contact_count_;           // +0x8C
     uint16_t pad8e_;
-    Sphere* spheres_;                    // +0x90
-    uint16_t sphere_count_;                // +0x94
+    Sphere* spheres_;       // +0x90
+    uint16_t sphere_count_; // +0x94
     uint16_t pad96;
-    Spring* springs_;                    // +0x98 (springs=)
-    uint16_t spring_count_;                // +0x9C
+    Spring* springs_;       // +0x98 (springs=)
+    uint16_t spring_count_; // +0x9C
     uint16_t pad9e_;
-    maths::Vec4 balance_point_;            // +0xA0 center_of_mass
-    maths::Vec4 model_offset_;             // +0xB0 the model's offset from the centre of mass
-    float push_cooldown_time_;              // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
-    uint32_t collide_script_;              // +0xC4 CollideScript
-    uint32_t bounce_script_;               // +0xC8 BounceScript
-    uint32_t settle_script_;               // +0xCC SettleScript
-    uint32_t script_d0_;                   // +0xD0 (0xCCB84047): run when the contacts can't be resolved
-    script::Struct* callback_params_ptr_;    // +0xD4 CallbackParams (a copy)
-    script::Struct* collide_sound_ptr_;      // +0xD8 the sound type's CollideSound (a copy)
-    script::Struct* bounce_sfx_;       // +0xDC ... BounceSound
-    int impact_quiet_ms_;                // +0xE0 (1000)
-    int global_collide_mute_delay_;          // +0xE4 (100)
-    float bounce_callback_threshold_;       // +0xE8 BounceVelocityCallbackThreshold (20)
-    float bounce_full_speed_;               // +0xEC BounceVelocityFullSpeed (300)
+    maths::Vec4 balance_point_;           // +0xA0 center_of_mass
+    maths::Vec4 model_offset_;            // +0xB0 the model's offset from the centre of mass
+    float push_cooldown_time_;            // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
+    uint32_t collide_script_;             // +0xC4 CollideScript
+    uint32_t bounce_script_;              // +0xC8 BounceScript
+    uint32_t settle_script_;              // +0xCC SettleScript
+    uint32_t script_d0_;                  // +0xD0 (0xCCB84047): run when the contacts can't be resolved
+    script::Struct* callback_params_ptr_; // +0xD4 CallbackParams (a copy)
+    script::Struct* collide_sound_ptr_;   // +0xD8 the sound type's CollideSound (a copy)
+    script::Struct* bounce_sfx_;          // +0xDC ... BounceSound
+    int impact_quiet_ms_;                 // +0xE0 (1000)
+    int global_collide_mute_delay_;       // +0xE4 (100)
+    float bounce_callback_threshold_;     // +0xE8 BounceVelocityCallbackThreshold (20)
+    float bounce_full_speed_;             // +0xEC BounceVelocityFullSpeed (300)
     uint32_t unknownf0_;                  // +0xF0
-    uint32_t flag_bits_;                      // +0xF4 FLAG_*
-    maths::Vec4 wake_pos_;                 // +0xF8 where it last woke
-    float die_timer_;                      // +0x108 (-1: none)
-    int cur_phase_;                           // +0x10C State (rigidbody_state=)
-    maths::Vec4 at_point_;                     // +0x110 its centre of mass
+    uint32_t flag_bits_;                  // +0xF4 FLAG_*
+    maths::Vec4 wake_pos_;                // +0xF8 where it last woke
+    float die_timer_;                     // +0x108 (-1: none)
+    int cur_phase_;                       // +0x10C State (rigidbody_state=)
+    maths::Vec4 at_point_;                // +0x110 its centre of mass
     maths::Vec4 vel_;                     // +0x120
-    maths::QuatRotation orientation_;               // +0x130
-    maths::Vec4 rot_vel_;                  // +0x140
-    maths::Mat4 basis_frame_;                  // +0x150 the orientation as a matrix
-    int8_t contacts_hit_;                  // +0x190 contacts touching this frame
+    maths::QuatRotation orientation_;     // +0x130
+    maths::Vec4 rot_vel_;                 // +0x140
+    maths::Mat4 basis_frame_;             // +0x150 the orientation as a matrix
+    int8_t contacts_hit_;                 // +0x190 contacts touching this frame
     int8_t unknown191_;                   // +0x191 (3 or more: Integrate leaves gravity out)
     uint8_t pad192[2];
-    float push_cooldown_;                  // +0x194 the time left of push_cooldown_time_
-    float radius_;                        // +0x198 the bounding radius
-    AudioEmitterModule* audio_module_;    // +0x19C the object's sound component (for the bounce sound)
+    float push_cooldown_;              // +0x194 the time left of push_cooldown_time_
+    float radius_;                     // +0x198 the bounding radius
+    AudioEmitterModule* audio_module_; // +0x19C the object's sound component (for the bounce sound)
 };
-static_assert(offsetof(BodyDynamicsModule, steady_accel_) == 0x1C && offsetof(BodyDynamicsModule, contacts_) == 0x60 &&
-                  offsetof(BodyDynamicsModule, capsule_) == 0x64 &&
-                  offsetof(BodyDynamicsModule, steer_friction_) == 0x88 &&
-                  offsetof(BodyDynamicsModule, contact_count_) == 0x8C &&
-                  offsetof(BodyDynamicsModule, balance_point_) == 0xA0 &&
-                  offsetof(BodyDynamicsModule, callback_params_ptr_) == 0xD4 &&
-                  offsetof(BodyDynamicsModule, flag_bits_) == 0xF4 && offsetof(BodyDynamicsModule, cur_phase_) == 0x10C &&
-                  offsetof(BodyDynamicsModule, at_point_) == 0x110 && offsetof(BodyDynamicsModule, basis_frame_) == 0x150 &&
-                  offsetof(BodyDynamicsModule, contacts_hit_) == 0x190 &&
-                  offsetof(BodyDynamicsModule, radius_) == 0x198 && sizeof(BodyDynamicsModule) == 0x1A0,
-              "layout must match the original");
+static_assert(
+    offsetof(BodyDynamicsModule, steady_accel_) == 0x1C && offsetof(BodyDynamicsModule, contacts_) == 0x60 &&
+        offsetof(BodyDynamicsModule, capsule_) == 0x64 && offsetof(BodyDynamicsModule, steer_friction_) == 0x88 &&
+        offsetof(BodyDynamicsModule, contact_count_) == 0x8C && offsetof(BodyDynamicsModule, balance_point_) == 0xA0 &&
+        offsetof(BodyDynamicsModule, callback_params_ptr_) == 0xD4 &&
+        offsetof(BodyDynamicsModule, flag_bits_) == 0xF4 && offsetof(BodyDynamicsModule, cur_phase_) == 0x10C &&
+        offsetof(BodyDynamicsModule, at_point_) == 0x110 && offsetof(BodyDynamicsModule, basis_frame_) == 0x150 &&
+        offsetof(BodyDynamicsModule, contacts_hit_) == 0x190 && offsetof(BodyDynamicsModule, radius_) == 0x198 &&
+        sizeof(BodyDynamicsModule) == 0x1A0,
+    "layout must match the original");
 static_assert(sizeof(BodyDynamicsModule::Spring) == 0x24 && sizeof(BodyDynamicsModule::Sphere) == 0x14 &&
-                  sizeof(BodyDynamicsModule::DirectedFriction) == 0x14 &&
-                  sizeof(BodyDynamicsModule::Contact) == 0x30 &&
+                  sizeof(BodyDynamicsModule::DirectedFriction) == 0x14 && sizeof(BodyDynamicsModule::Contact) == 0x30 &&
                   offsetof(BodyDynamicsModule::Contact, impulse_scale_) == 0x20 &&
                   offsetof(BodyDynamicsModule::Contact, active) == 0x2C,
               "layout must match the original");
@@ -287,19 +285,19 @@ void __cdecl set_rigid_body_pusher_reach(GameEntity* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
 bool __cdecl cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* script);
 
-extern maths::Vec4 g_rigid_body_world_contact_points[24];   // 0x00694E30
-extern maths::Vec4 g_rigid_body_world_sphere_centers[24];   // 0x00694FB0
-extern maths::Vec4 g_rigid_body_world_spring_points[2];    // 0x00695130
+extern maths::Vec4 g_rigid_body_world_contact_points[24];     // 0x00694E30
+extern maths::Vec4 g_rigid_body_world_sphere_centers[24];     // 0x00694FB0
+extern maths::Vec4 g_rigid_body_world_spring_points[2];       // 0x00695130
 extern BodyDynamicsModule::Contact g_rigid_body_contacts[24]; // 0x006949B0
-extern SharedRef<GameEntity> g_rigid_body_pushers[8];      // 0x00695150
+extern SharedRef<GameEntity> g_rigid_body_pushers[8];         // 0x00695150
 // (the cache is raw zeroed storage: the cache fills it before it looks)
 struct RigidBodyCacheStorage {
     alignas(8) uint8_t bytes[sizeof(render::HitMeshCache)];
 };
-extern RigidBodyCacheStorage g_rigid_body_cache;                       // 0x006939E0
+extern RigidBodyCacheStorage g_rigid_body_cache; // 0x006939E0
 extern float g_rigid_body_pusher_reach[8];
 extern float g_rigid_body_pusher_height;
 extern bool g_rigid_body_draw_shape;
 extern bool g_rigid_body_draw_details;
 
-} // namespace Obj
+} // namespace objects

@@ -32,9 +32,21 @@ uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 // A restart type's name (THUG2's and the ported games' restart_types).
 const char* current_type_name(uint32_t type)
 {
-    static const char* const kTypesKey[] = {"Player1", "Player2", "Multiplayer", "Horse", "CTF", "CTF_1", "CTF_2",
-                                         "CTF_3", "CTF_4", "Team", "Generic", "PriorityRestart", "Player1TrickAttack",
-                                         "Player1_Level_Event", "KingOfTheHill"};
+    static const char* const kTypesKey[] = {"Player1",
+                                            "Player2",
+                                            "Multiplayer",
+                                            "Horse",
+                                            "CTF",
+                                            "CTF_1",
+                                            "CTF_2",
+                                            "CTF_3",
+                                            "CTF_4",
+                                            "Team",
+                                            "Generic",
+                                            "PriorityRestart",
+                                            "Player1TrickAttack",
+                                            "Player1_Level_Event",
+                                            "KingOfTheHill"};
     for (const char* name : kTypesKey) {
         if (name_hash(name) == type)
             return name;
@@ -55,7 +67,8 @@ std::vector<Relaunch> level_restarts()
 {
     std::vector<Relaunch> out;
     const uint32_t class_key = name_hash("Class"), restart = name_hash("Restart"), name = name_hash("Name"),
-                   pos = name_hash("Pos"), types_key = name_hash("restart_types"), restart_name = name_hash("RestartName");
+                   pos = name_hash("Pos"), types_key = name_hash("restart_types"),
+                   restart_name = name_hash("RestartName");
     level_nodes::start_node_walk(0);
     while (script::Struct* node = level_nodes::get_next_node()) {
         uint32_t cls = 0, name = 0;
@@ -131,9 +144,10 @@ void get_next()
         script::launch_script(name_hash("ResetSkaters"), params, nullptr, false, "ResetSkaters");
         params->get_clear();
         script::delete_struct(params);
-        get_log("restart tester: %u / %u %s at (%.0f, %.0f, %.0f), types [%s]%s", static_cast<unsigned>(s_visited.size()),
-            static_cast<unsigned>(restarts.size()), r.text.c_str(), r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
-            s_visited.size() == restarts.size() ? " - all restarts visited" : "");
+        get_log("restart tester: %u / %u %s at (%.0f, %.0f, %.0f), types [%s]%s",
+                static_cast<unsigned>(s_visited.size()), static_cast<unsigned>(restarts.size()), r.text.c_str(),
+                r.pos.x, r.pos.y, r.pos.z, r.types.c_str(),
+                s_visited.size() == restarts.size() ? " - all restarts visited" : "");
         char text[160];
         std::snprintf(text, sizeof(text), "Restart %u / %u: %s", static_cast<unsigned>(s_visited.size()),
                       static_cast<unsigned>(restarts.size()), r.text.c_str());
@@ -160,9 +174,10 @@ void tick_frame(modules::FrontEnd* front_end)
     bool down = keys && keys[kKey];
     bool pressed = down && s_key_up;
     s_key_up = !down;
-    if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() || (front_end && front_end->is_halted_) || render::current_level() == 0)
+    if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
+        (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;
     get_next();
 }
 
-} // namespace MenuSystem::restart_tester
+} // namespace frontend::restart_tester

@@ -45,21 +45,15 @@ R Virtual(void* object, int slot, A... args)
 // The engine's sector (not rewritten here; thiscall): its flags (+8) read / set / cleared, its name (+4 - the folded
 // getter 0x005480C0), its box, drawn and collided with or not.
 uint32_t sector_attribute_bits(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bits(); }
-void apply_sector_bits(void* sector, uint32_t flags)
-{
-    static_cast<WorldCell*>(sector)->change_bits(flags);
-}
-void reset_sector_bits(void* sector, uint32_t flags)
-{
-    static_cast<WorldCell*>(sector)->clear_flags(flags);
-}
+void apply_sector_bits(void* sector, uint32_t flags) { static_cast<WorldCell*>(sector)->change_bits(flags); }
+void reset_sector_bits(void* sector, uint32_t flags) { static_cast<WorldCell*>(sector)->clear_flags(flags); }
 uint32_t sector_key_from_spec(void* sector) { return static_cast<online::FoldedGetters*>(sector)->word04(); }
-const maths::BBox* sector_box(void* sector)
-{
-    return static_cast<WorldCell*>(sector)->fetch_bounds();
-}
+const maths::BBox* sector_box(void* sector) { return static_cast<WorldCell*>(sector)->fetch_bounds(); }
 // (0x0049E9B0 tests the argument's low byte only)
-void enable_sector(void* sector, uint32_t on) { static_cast<WorldCell*>(sector)->change_live(static_cast<uint8_t>(on) != 0); }
+void enable_sector(void* sector, uint32_t on)
+{
+    static_cast<WorldCell*>(sector)->change_live(static_cast<uint8_t>(on) != 0);
+}
 
 // (a static collision object's own print, compiled out: the empty 0x005480A0 with it in ECX)
 inline void print_coll_static(const StaticCollider*) {}
@@ -172,7 +166,7 @@ bool WorldScene::delete_sector_named(uint32_t name)
 
 // 0x0049CBB0
 bool WorldScene::load_collision_data(const uint8_t* data, int* count, StaticCollider** statics, uint8_t** objects,
-                               maths::BBox* box, int)
+                                     maths::BBox* box, int)
 {
     auto word = [data](int offset) { return *reinterpret_cast<const int*>(data + offset); };
     auto align = [](uintptr_t at, uintptr_t to) { return (at + to - 1) & ~(to - 1); };
@@ -180,7 +174,8 @@ bool WorldScene::load_collision_data(const uint8_t* data, int* count, StaticColl
     // the objects (0x40 bytes each)
     *count = word(4);
     *objects = const_cast<uint8_t*>(data) + 0x20;
-    uintptr_t vertices = align(reinterpret_cast<uintptr_t>(*objects) + static_cast<uintptr_t>(*count) * kTriDataSize, 16);
+    uintptr_t vertices =
+        align(reinterpret_cast<uintptr_t>(*objects) + static_cast<uintptr_t>(*count) * kTriDataSize, 16);
     uintptr_t vertex_bytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
     uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
     uintptr_t nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
@@ -291,7 +286,8 @@ void WorldScene::set_sectors_in_box(const maths::Vec4* box, uint32_t on, int)
         const maths::BBox* bounds = sector_box(sector);
         const auto* f = reinterpret_cast<const float*>(bounds);
         // (each "not past it": NaN counts as touching)
-        if (!(min_x > f[4]) && !(f[0] > max_x) && !(min_z > f[6]) && !(f[2] > max_z) && !(min_y > f[5]) && !(f[1] > max_y))
+        if (!(min_x > f[4]) && !(f[0] > max_x) && !(min_z > f[6]) && !(f[2] > max_z) && !(min_y > f[5]) &&
+            !(f[1] > max_y))
             enable_sector(sector, on);
     });
 }
@@ -336,7 +332,7 @@ uint8_t* WorldScene::get_default_colour(uint8_t* out)
     return out;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace {
 
@@ -372,15 +368,29 @@ struct SceneCollisionAdapters {
 } // namespace
 
 namespace vt {
-static VtableSlot g_coll_static_slots[] = {&SceneCollisionAdapters::coll_static_delete, stubs::return_true,
-                &render::CollFaceAccess::get_triangle_attrs, &render::CollFaceAccess::get_face_terrain, &render::HitMesh::assign_shape_data,
-                &render::StaticCollider::place_at_absolute_point, stubs::ignore_argument, &render::StaticCollider::get_absolute_point,
-                &render::StaticCollider::fetch_facing, &render::StaticCollider::read_vertex_point, stubs::return_zero,
-                stubs::ignore_argument, &render::StaticCollider::replicate, &render::StaticCollider::inside_bounds,
-                &render::StaticCollider::collide_with_line, &render::StaticCollider::collide_with_rect,
-                &render::StaticCollider::collide_with_sphere, &render::StaticCollider::collide_with_capsule,
-                &render::CollGeometryForwarders::is_point_behind_faces, &render::CollGeometryForwarders::draw_diagnostic,
-                stubs::return_zero, &render::StaticCollider::get_geometry_b_box, &render::CollGeometryForwarders::rotate_y,
-                &render::CollGeometryForwarders::scale_tool};
+static VtableSlot g_coll_static_slots[] = {&SceneCollisionAdapters::coll_static_delete,
+                                           stubs::return_true,
+                                           &render::CollFaceAccess::get_triangle_attrs,
+                                           &render::CollFaceAccess::get_face_terrain,
+                                           &render::HitMesh::assign_shape_data,
+                                           &render::StaticCollider::place_at_absolute_point,
+                                           stubs::ignore_argument,
+                                           &render::StaticCollider::get_absolute_point,
+                                           &render::StaticCollider::fetch_facing,
+                                           &render::StaticCollider::read_vertex_point,
+                                           stubs::return_zero,
+                                           stubs::ignore_argument,
+                                           &render::StaticCollider::replicate,
+                                           &render::StaticCollider::inside_bounds,
+                                           &render::StaticCollider::collide_with_line,
+                                           &render::StaticCollider::collide_with_rect,
+                                           &render::StaticCollider::collide_with_sphere,
+                                           &render::StaticCollider::collide_with_capsule,
+                                           &render::CollGeometryForwarders::is_point_behind_faces,
+                                           &render::CollGeometryForwarders::draw_diagnostic,
+                                           stubs::return_zero,
+                                           &render::StaticCollider::get_geometry_b_box,
+                                           &render::CollGeometryForwarders::rotate_y,
+                                           &render::CollGeometryForwarders::scale_tool};
 void** const kVtblStaticColl = reinterpret_cast<void**>(g_coll_static_slots);
-} // namespace Vt
+} // namespace vt

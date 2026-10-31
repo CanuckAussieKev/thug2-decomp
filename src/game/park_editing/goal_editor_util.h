@@ -36,4 +36,4 @@ void __stdcall run_marker_object_script(int index);
 extern char g_created_goal_name[24];
 extern char g_goal_name_buffer[104];
 
-} // namespace Ed
+} // namespace park_editing

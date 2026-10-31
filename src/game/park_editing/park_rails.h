@@ -18,12 +18,12 @@ struct ParkRailSet;
 
 // A rail point (0x30 bytes).
 struct ParkRailPoint {
-    uint32_t kind_tag_;            // +0x00: a climbing node's type
-    uint32_t surface_type_;         // +0x04: a rail node's TerrainType
-    maths::Vec4 at_point_;          // +0x08 (w = 1 once placed)
-    maths::Vec4 headings_;       // +0x18: a climbing rail's (y: its heading, radians)
+    uint32_t kind_tag_;        // +0x00: a climbing node's type
+    uint32_t surface_type_;    // +0x04: a rail node's TerrainType
+    maths::Vec4 at_point_;     // +0x08 (w = 1 once placed)
+    maths::Vec4 headings_;     // +0x18: a climbing rail's (y: its heading, radians)
     uint32_t cluster_;         // +0x28 (set when the rail is copied into the park)
-    ParkRailPoint* following_;    // +0x2C
+    ParkRailPoint* following_; // +0x2C
 };
 static_assert(offsetof(ParkRailPoint, at_point_) == 0x08 && offsetof(ParkRailPoint, headings_) == 0x18 &&
                   offsetof(ParkRailPoint, following_) == 0x2C && sizeof(ParkRailPoint) == 0x30,
@@ -37,16 +37,16 @@ struct ParkRailString {
     };
     static constexpr uint32_t kClimbingNode = 0x30C19600; // ClimbingNode (the class)
 
-    uint32_t class_;           // +0x00: RailNode or ClimbingNode
-    uint8_t flag_bits_;            // +0x04
+    uint32_t class_;    // +0x00: RailNode or ClimbingNode
+    uint8_t flag_bits_; // +0x04
     uint8_t pad05[3];
-    uint32_t label_;            // +0x08: the piece (sector) it belongs to (find_rail looks it up)
-    ParkRailPoint* point_chain_;  // +0x0C
-    ParkRailPoint* tail_node_;    // +0x10
-    uint16_t vertex_total_;       // +0x14
+    uint32_t label_;             // +0x08: the piece (sector) it belongs to (find_rail looks it up)
+    ParkRailPoint* point_chain_; // +0x0C
+    ParkRailPoint* tail_node_;   // +0x10
+    uint16_t vertex_total_;      // +0x14
     uint8_t pad16[2];
-    ParkRailString* following_;   // +0x18
-    ParkRailSet* point_group_;       // +0x1C: whose pools it uses
+    ParkRailString* following_; // +0x18
+    ParkRailSet* point_group_;  // +0x1C: whose pools it uses
 
     // 0x0058AFC0: `point` on the end.
     void append_spot(ParkRailPoint* point);
@@ -67,13 +67,13 @@ static_assert(offsetof(ParkRailString, point_chain_) == 0x0C && offsetof(ParkRai
 
 // A rail set (0x34 bytes: its rails and the pools they and their points come from).
 struct ParkRailSet {
-    ParkRailString* rail_groups_;  // +0x00
+    ParkRailString* rail_groups_; // +0x00
     ParkRailString* tail_node_;   // +0x04
-    uint16_t rail_total_;        // +0x08
+    uint16_t rail_total_;         // +0x08
     uint8_t pad0a_[2];
-    memory::SlabBank* point_pool_;    // +0x0C (0x30-byte items)
-    memory::SlabBank* rail_pool_;     // +0x10 (0x20-byte items)
-    char label_[0x20];          // +0x14: "In set" / "Out set"
+    memory::SlabBank* point_pool_; // +0x0C (0x30-byte items)
+    memory::SlabBank* rail_pool_;  // +0x10 (0x20-byte items)
+    char label_[0x20];             // +0x14: "In set" / "Out set"
 
     // 0x0058AFF0: no rails, no pools (the last rail isn't cleared). Returns this.
     ParkRailSet* make_new();
@@ -100,4 +100,4 @@ static_assert(offsetof(ParkRailSet, rail_total_) == 0x08 && offsetof(ParkRailSet
                   offsetof(ParkRailSet, label_) == 0x14 && sizeof(ParkRailSet) == 0x34,
               "layout must match the original");
 
-} // namespace Ed
+} // namespace park_editing

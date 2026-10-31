@@ -15,4 +15,4 @@ void init_pc_setup();
 // is skipped. (Not exit(): that would run the C runtime shutdown while the game's other threads still run.)
 void fast_exit();
 
-} // namespace Sys
+} // namespace sys

@@ -48,17 +48,22 @@ int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The materials' code (0x004D1A90-0x004D3390).
-uint8_t* construct_material(void* memory) { return reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new()); }
+uint8_t* construct_material(void* memory)
+{
+    return reinterpret_cast<uint8_t*>(static_cast<MaterialRef*>(memory)->make_new());
+}
 void destroy_material(uint8_t* material) { reinterpret_cast<MaterialRef*>(material)->destroy_body(); }
 void set_material_states(uint8_t* material) { reinterpret_cast<MaterialRef*>(material)->submit_states(); }
 void change_material_layer(uint8_t* material, int pass, int flags)
 {
-    reinterpret_cast<MaterialRef*>(material)->submit_pass(pass, reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
+    reinterpret_cast<MaterialRef*>(material)->submit_pass(pass,
+                                                          reinterpret_cast<const float*>(static_cast<intptr_t>(flags)));
 }
 // The skater's texture dictionary's texture by checksum, its key (+0x10, through one more pointer with flag 1 of +0x08).
 const uint8_t* find_texture(uint32_t checksum)
 {
-    return reinterpret_cast<const uint8_t*>(static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
+    return reinterpret_cast<const uint8_t*>(
+        static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(checksum));
 }
 uint32_t texture_key(const uint8_t* texture)
 {
@@ -264,7 +269,8 @@ void PcParticleSystem::initialise()
     material[0x0D] = 1;
     for (int k = 0; k < 3; ++k)
         *reinterpret_cast<float*>(material + 0x40 + 4 * k) = 0.5f;
-    *reinterpret_cast<float*>(material + 0x4C) = static_cast<float>(static_cast<double>(alpha_cut_off_) * (1.0f / 128.0f));
+    *reinterpret_cast<float*>(material + 0x4C) =
+        static_cast<float>(static_cast<double>(alpha_cut_off_) * (1.0f / 128.0f));
     *reinterpret_cast<uint32_t*>(material + 0x90) = 0x10001;
     *reinterpret_cast<uint32_t*>(material + 0xC0) = 0x10001;
     *reinterpret_cast<uint32_t*>(material + 0x80) = blend_mode_from_name(blend_mode_);
@@ -452,29 +458,32 @@ void PcParticleSystem::render(bool advance)
                     uint32_t colour = alpha << 24 | red << 16 | green << 8 | blue;
 
                     // The spread at t, times its random numbers.
-                    float spread_x = static_cast<float>(
-                        static_cast<double>(static_cast<float>(t * spread.b.x + spread.a.x)) + static_cast<double>(t2) * spread.c.x);
+                    float spread_x =
+                        static_cast<float>(static_cast<double>(static_cast<float>(t * spread.b.x + spread.a.x)) +
+                                           static_cast<double>(t2) * spread.c.x);
                     double spread_y = t * spread.b.y + spread.a.y + t2 * static_cast<double>(spread.c.y);
-                    double spread_z =
-                        static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(t * spread.b.z)) + spread.a.z)) +
-                        static_cast<float>(t2 * static_cast<double>(spread.c.z));
-                    float spread_w = static_cast<float>(
-                        static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(t * spread.b.w)) + spread.a.w)) +
-                        static_cast<float>(t2 * static_cast<double>(spread.c.w)));
+                    double spread_z = static_cast<double>(static_cast<float>(
+                                          static_cast<double>(static_cast<float>(t * spread.b.z)) + spread.a.z)) +
+                                      static_cast<float>(t2 * static_cast<double>(spread.c.z));
+                    float spread_w =
+                        static_cast<float>(static_cast<double>(static_cast<float>(
+                                               static_cast<double>(static_cast<float>(t * spread.b.w)) + spread.a.w)) +
+                                           static_cast<float>(t2 * static_cast<double>(spread.c.w)));
                     float offset_x = static_cast<float>(spread_x * s1);
                     float offset_y = static_cast<float>(spread_y * s2);
                     double offset_z = spread_z * s3;
                     double offset_w = static_cast<double>(spread_w) * s4;
                     // The path at t.
-                    float path_x = static_cast<float>(
-                        static_cast<double>(static_cast<float>(t * path.b.x + path.a.x)) + static_cast<double>(t2) * path.c.x);
+                    float path_x = static_cast<float>(static_cast<double>(static_cast<float>(t * path.b.x + path.a.x)) +
+                                                      static_cast<double>(t2) * path.c.x);
                     double path_y = t * path.b.y + path.a.y + t2 * static_cast<double>(path.c.y);
-                    double path_z =
-                        static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(t * path.b.z)) + path.a.z)) +
-                        static_cast<float>(t2 * static_cast<double>(path.c.z));
-                    float path_w = static_cast<float>(
-                        static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(t * path.b.w)) + path.a.w)) +
-                        static_cast<float>(t2 * static_cast<double>(path.c.w)));
+                    double path_z = static_cast<double>(static_cast<float>(
+                                        static_cast<double>(static_cast<float>(t * path.b.z)) + path.a.z)) +
+                                    static_cast<float>(t2 * static_cast<double>(path.c.z));
+                    float path_w =
+                        static_cast<float>(static_cast<double>(static_cast<float>(
+                                               static_cast<double>(static_cast<float>(t * path.b.w)) + path.a.w)) +
+                                           static_cast<float>(t2 * static_cast<double>(path.c.w)));
                     float centre_x = static_cast<float>(static_cast<double>(path_x) + offset_x);
                     float centre_y = static_cast<float>(path_y + offset_y);
                     float centre_z = static_cast<float>(path_z + offset_z);
@@ -490,16 +499,28 @@ void PcParticleSystem::render(bool advance)
                     float left_z = static_cast<float>(static_cast<double>(centre_z) - across_z);
                     vertex[0] = {static_cast<float>(static_cast<double>(up_x) + left_x),
                                  static_cast<float>(static_cast<double>(up_y) + left_y),
-                                 static_cast<float>(static_cast<double>(up_z) + left_z), colour, 0.0f, 0.0f};
+                                 static_cast<float>(static_cast<double>(up_z) + left_z),
+                                 colour,
+                                 0.0f,
+                                 0.0f};
                     vertex[1] = {static_cast<float>(static_cast<double>(centre_x) + up_x + across_x),
                                  static_cast<float>(static_cast<double>(centre_y) + up_y + across_y),
-                                 static_cast<float>(static_cast<double>(centre_z) + up_z + across_z), colour, 1.0f, 0.0f};
+                                 static_cast<float>(static_cast<double>(centre_z) + up_z + across_z),
+                                 colour,
+                                 1.0f,
+                                 0.0f};
                     vertex[2] = {static_cast<float>(static_cast<double>(centre_x) + across_x - up_x),
                                  static_cast<float>(static_cast<double>(centre_y) + across_y - up_y),
-                                 static_cast<float>(static_cast<double>(centre_z) + across_z - up_z), colour, 1.0f, 1.0f};
+                                 static_cast<float>(static_cast<double>(centre_z) + across_z - up_z),
+                                 colour,
+                                 1.0f,
+                                 1.0f};
                     vertex[3] = {static_cast<float>(static_cast<double>(left_x) - up_x),
                                  static_cast<float>(static_cast<double>(left_y) - up_y),
-                                 static_cast<float>(static_cast<double>(left_z) - up_z), colour, 0.0f, 1.0f};
+                                 static_cast<float>(static_cast<double>(left_z) - up_z),
+                                 colour,
+                                 0.0f,
+                                 1.0f};
                     vertex += 4;
                     t = t - burst->period;
                     ++quads;
@@ -513,16 +534,22 @@ void PcParticleSystem::render(bool advance)
             os_layer::unlock_dynamic_vertices(quads * 4, sizeof(ParticleVertex));
             input_port()->SetStreamSource(0, buffer, 0, sizeof(ParticleVertex));
             input_port()->SetIndices(quad_indices());
-            input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0, quads * 2);
+            input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
+                                               quads * 2);
         }
     }
 }
 
 namespace {
-static VtableSlot g_system_vtable_slots[] = {&render::PcParticleSystem::teardown, &render::PcParticleSystem::initialise,
-                &render::PcParticleSystem::get_release, stubs::ignore_argument, &render::PcParticleSystem::render,
-                &render::PcParticleSystem::tick_frame, stubs::do_nothing, &render::PcParticleSystem::is_emitting};
+static VtableSlot g_system_vtable_slots[] = {&render::PcParticleSystem::teardown,
+                                             &render::PcParticleSystem::initialise,
+                                             &render::PcParticleSystem::get_release,
+                                             stubs::ignore_argument,
+                                             &render::PcParticleSystem::render,
+                                             &render::PcParticleSystem::tick_frame,
+                                             stubs::do_nothing,
+                                             &render::PcParticleSystem::is_emitting};
 void** const kSystemVtable = reinterpret_cast<void**>(g_system_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

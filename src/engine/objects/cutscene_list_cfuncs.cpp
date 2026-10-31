@@ -22,17 +22,17 @@ namespace {
 using script::Struct;
 using Elem = PointerList::Elem;
 
-constexpr uint32_t kName = 0xA1DC81F9;             // "name"
-constexpr uint32_t kDestroyFunc = 0x589B2282;      // "destroy_func"
-constexpr uint32_t kDestroyParams = 0x9C2E3A57;    // "destroy_params"
-constexpr uint32_t kParams = 0x7031F10C;           // "params"
-constexpr uint32_t kId = 0x40C698AF;               // "id"
-constexpr uint32_t kCallback = 0x86068BD9;         // "callback"
-constexpr uint32_t kCallbackParams = 0x0DD85BDA;   // "CallbackParams"
-constexpr uint32_t kOnlineFlag = 0x20209C31;       // "online_mode_flag"
-constexpr uint32_t kPermanent = 0x23627FD7;        // "permanent"
+constexpr uint32_t kName = 0xA1DC81F9;               // "name"
+constexpr uint32_t kDestroyFunc = 0x589B2282;        // "destroy_func"
+constexpr uint32_t kDestroyParams = 0x9C2E3A57;      // "destroy_params"
+constexpr uint32_t kParams = 0x7031F10C;             // "params"
+constexpr uint32_t kId = 0x40C698AF;                 // "id"
+constexpr uint32_t kCallback = 0x86068BD9;           // "callback"
+constexpr uint32_t kCallbackParams = 0x0DD85BDA;     // "CallbackParams"
+constexpr uint32_t kOnlineFlag = 0x20209C31;         // "online_mode_flag"
+constexpr uint32_t kPermanent = 0x23627FD7;          // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
-constexpr uint32_t kKillSpawnedScript = 0xD7034230; // "cutscene_kill_spawned_script"
+constexpr uint32_t kKillSpawnedScript = 0xD7034230;  // "cutscene_kill_spawned_script"
 
 PointerList& free_node_chain() { return g_cutscene_destroy_list; }
 // Set while the list is flushed (RemoveFromCutsceneDestroyList does nothing then).
@@ -162,8 +162,8 @@ bool __cdecl cfunc_cutscene_spawn_script(script::Struct* params, script::Script*
     bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
-    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_, id,
-                                                   replicate_flag, permanent, not_session_specific != 0, false);
+    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_,
+                                                   id, replicate_flag, permanent, not_session_specific != 0, false);
     uint32_t unique_id = spawned->unique_id_;
 
     Struct* entry = new_params();

@@ -219,8 +219,7 @@ bool AppHost::bundle_messages(Conn* conn, int queue, bool resends_only)
     }
     case kLaneOrdered: {
         lists::Hunt<OrderedMsgNode> search;
-        for (OrderedMsgNode* link = search.head_element(&conn->sequenced_msgs_); link;
-             link = search.following_item()) {
+        for (OrderedMsgNode* link = search.head_element(&conn->sequenced_msgs_); link; link = search.following_item()) {
             if (get_timestamp(this) < link->due_time_)
                 continue;
             if (net::over_bandwidth_budget(this, conn))
@@ -312,8 +311,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
             return kResultConsumed;
         }
         size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(reinterpret_cast<uint8_t*>(msg + 3),
-                                                                     reinterpret_cast<uint8_t*>(data),
-                                                                     stream_size)) -
+                                                                     reinterpret_cast<uint8_t*>(data), stream_size)) -
                                 data);
         if (expected_size != size) {
             memory::Hub::get_pull()->dealloc(data);
@@ -371,8 +369,8 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     uint8_t id = msg[5];
     auto length = static_cast<uint16_t>(context->body_size_ - 6);
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
-    SeqQueuedMsg* seq_msg = memory ? construct_seq_msg(memory, id, length, reinterpret_cast<char*>(msg + 6), group, false)
-                            : nullptr;
+    SeqQueuedMsg* seq_msg =
+        memory ? construct_seq_msg(memory, id, length, reinterpret_cast<char*>(msg + 6), group, false) : nullptr;
     void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
     OrderedMsgNode* link = link_memory ? construct_msg_seq_link(link_memory, seq_msg) : nullptr;
     // (a failed allocation crashes here, as in the original)
@@ -407,8 +405,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     {
         lists::Hunt<ReliableMsgNode> search;
         ReliableMsgNode* next;
-        for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs_); link;
-             link = next) {
+        for (ReliableMsgNode* link = search.head_element(&context->sender_conn_->important_msgs_); link; link = next) {
             next = search.following_item();
             if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 free_queued_msg(link->shared_msg_);
@@ -420,8 +417,7 @@ int AppHost::on_receipt_msg(InboundMsgCtx* context)
     {
         lists::Hunt<OrderedMsgNode> search;
         OrderedMsgNode* next;
-        for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs_); link;
-             link = next) {
+        for (OrderedMsgNode* link = search.head_element(&context->sender_conn_->sequenced_msgs_); link; link = next) {
             next = search.following_item();
             if (*packetstamp == static_cast<uint16_t>(link->packet_clock_) && link->stamp_ms_) {
                 SeqQueuedMsg* msg = link->shared_msg_;
@@ -506,7 +502,8 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         link->list_link_.prev = head->prev;
         head->prev->next = &link->list_link_;
         head->prev = &link->list_link_;
-        if (static_cast<uint32_t>(desc->succ_ - desc->content_) >= static_cast<uint32_t>(desc->extent_)) // all in one message
+        if (static_cast<uint32_t>(desc->succ_ - desc->content_) >=
+            static_cast<uint32_t>(desc->extent_))               // all in one message
             return dispatch_stream(context, link, desc, false); // (no checksum check on this path)
         break;
     }
@@ -517,4 +514,4 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
     return kResultPassOn;
 }
 
-} // namespace Net
+} // namespace net

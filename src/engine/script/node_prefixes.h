@@ -8,7 +8,7 @@
 // array, so scripts can find e.g. every "Ped_" node. From the disassembly of 0x0045BDA0-0x0045CE40.
 namespace lists {
 class KeyMap;
-} // namespace Lst
+} // namespace lists
 
 namespace level_nodes {
 

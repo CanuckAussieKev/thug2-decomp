@@ -17,4 +17,4 @@ void register_event_handler(EventHandler handler);
 // Hand every pending event to the handlers (os_layer::process_window_events, and Sio's device processing).
 void pump_sdl_events();
 
-} // namespace Platform
+} // namespace os_layer

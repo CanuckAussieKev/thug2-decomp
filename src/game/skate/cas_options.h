@@ -30,4 +30,4 @@ script::Struct* __cdecl pick_random_cas_option(uint32_t part, uint32_t filter);
 // none, or the list is empty: the original's).
 script::Struct* __cdecl get_cas_option_by_index(uint32_t part, int index, uint32_t filter);
 
-} // namespace Obj
+} // namespace objects

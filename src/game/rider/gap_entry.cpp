@@ -54,8 +54,8 @@ constexpr uint32_t kGapId = 0x3B442E26, kTrickText = 0x3EAFA520, kTrickscript = 
                    kScore = 0xCD66C8AE, kGapScript = 0x7C9E51AB, kPermanent = 0x23627FD7, kOnlineFlag = 0x20209C31,
                    kContinue = 0xEC1CD520, kNotInSameFrame = 0x97975226, kTriggerScript = 0x2CA8A299;
 // Scripts and settings
-constexpr uint32_t kDoPerfectCheck2 = 0x35B75889, kDefaultGapScript = 0x541A2485,
-                   kProcessAllGapsReward = 0x927DAA70, kOff = 0xD443A2BC;
+constexpr uint32_t kDoPerfectCheck2 = 0x35B75889, kDefaultGapScript = 0x541A2485, kProcessAllGapsReward = 0x927DAA70,
+                   kOff = 0xD443A2BC;
 
 // Gap flags (gap_entry.h)
 constexpr uint32_t kGapGround = 0x1, kGapAir = 0x2, kGapRail = 0x4, kGapWall = 0x8, kGapLip = 0x10,
@@ -74,10 +74,13 @@ uint32_t& get_gap_id(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x14); }
 uint32_t& gap_option_labels(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x18); }
 int& gap_node(TrickListEntry* gap) { return prop<int>(gap, 0x1C); }
 uint32_t& gap_key_combo(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x20); }
-int& gap_trick_count(TrickListEntry* gap) { return prop<int>(gap, 0x24); } // the score's count of the trick at the start
+int& gap_trick_count(TrickListEntry* gap)
+{
+    return prop<int>(gap, 0x24);
+} // the score's count of the trick at the start
 uint32_t& gap_trick_script(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x28); }
 uint32_t& gap_trick_text(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x2C); } // (its checksum)
-int& gap_spin(TrickListEntry* gap) { return prop<int>(gap, 0x30); }               // in half turns
+int& gap_spin(TrickListEntry* gap) { return prop<int>(gap, 0x30); }                 // in half turns
 uint8_t& gap_perfect(TrickListEntry* gap) { return prop<uint8_t>(gap, 0x34); }
 uint32_t& gap_tricks_count(TrickListEntry* gap) { return prop<uint32_t>(gap, 0x38); } // the score's +0x5C then
 int& gap_taps(TrickListEntry* gap) { return prop<int>(gap, 0x3C); }
@@ -131,11 +134,11 @@ void setup_list_sentinel(memory::ListNode& head, void** vtable)
 
 // The skate module (0x007CE478): the current level's gap checklist (0x005656C0) and the career (+0x20). Not
 // rewritten yet.
-goals::GapTally* gap_tally_ref()
+goals::GapTally* gap_tally_ref() { return static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
+RiderStoryProgress* get_career()
 {
-    return static_cast<goals::GapTally*>(modules::Skate::sole()->fetch_gap_list());
+    return *reinterpret_cast<RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20);
 }
-RiderStoryProgress* get_career() { return *reinterpret_cast<RiderStoryProgress**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20); }
 
 // The score (modules::PointTally; not rewritten yet): how often a trick has been done - by key combo (0x00562620 /
 // 0x00562510 with perfect) or by name (0x005625A0 / 0x005624C0) - with a spin and taps; 0x0049F4C0 (a shared "0"
@@ -150,11 +153,13 @@ int get_trick_count(uint8_t* score, uint32_t trick, int spin, int taps)
 }
 int key_combo_count(uint8_t* score, uint32_t key_combo, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_key_combo(key_combo, spin, reinterpret_cast<bool&>(perfect), taps);
+    return reinterpret_cast<modules::PointTally*>(score)->count_key_combo(key_combo, spin,
+                                                                          reinterpret_cast<bool&>(perfect), taps);
 }
 int get_trick_count(uint8_t* score, uint32_t trick, int spin, uint32_t perfect, int taps)
 {
-    return reinterpret_cast<modules::PointTally*>(score)->count_trick_after_taps(trick, spin, reinterpret_cast<bool&>(perfect), taps);
+    return reinterpret_cast<modules::PointTally*>(score)->count_trick_after_taps(
+        trick, spin, reinterpret_cast<bool&>(perfect), taps);
 }
 int tricks_array_count(uint8_t* /*score*/, script::Array* tricks, uint32_t since)
 {
@@ -250,8 +255,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
-        GameEntity* vehicle =
-            static_cast<GameEntity*>(object_hub_slot()->look_up_entity(kPlayerVehicle));
+        GameEntity* vehicle = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(kPlayerVehicle));
         uint8_t* physics = reinterpret_cast<uint8_t*>(vehicle->fetch_module(kVehicle));
         set(prop<uint32_t>(physics, 0x114) != 0 ? kGapGround : kGapAir);
         return;
@@ -261,11 +265,20 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         *cancel = kGapWalking;
         *require |= kGapWalking << kRequireShift;
         switch (prop<int>(walk_, 0x18)) {
-        case 0: set(kGapGround); break;
-        case 1: set(kGapAir); break;
-        case 2: set(kGapWalk2); break;
-        case 3: set(kGapWalk3); break;
-        default: break;
+        case 0:
+            set(kGapGround);
+            break;
+        case 1:
+            set(kGapAir);
+            break;
+        case 2:
+            set(kGapWalk2);
+            break;
+        case 3:
+            set(kGapWalk3);
+            break;
+        default:
+            break;
         }
         return;
     }
@@ -282,12 +295,23 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
             set(kGapManual);
         break;
     }
-    case 1: set(kGapAir); break;
-    case 2: set(kGapWall); break;
-    case 3: set(kGapLip); break;
-    case 4: set(kGapRail); break;
-    case 5: set(kGapWallplant); break;
-    default: break;
+    case 1:
+        set(kGapAir);
+        break;
+    case 2:
+        set(kGapWall);
+        break;
+    case 3:
+        set(kGapLip);
+        break;
+    case 4:
+        set(kGapRail);
+        break;
+    case 5:
+        set(kGapWallplant);
+        break;
+    default:
+        break;
     }
 }
 
@@ -299,9 +323,10 @@ void RiderGapTracker::scan_for_gaps(uint32_t cancel, uint32_t require)
         gap_option_labels(gap) &= ~require;
         if (gap_option_labels(gap) & cancel) {
             if (uint32_t script = gap_trick_script(gap)) {
-                for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
-                    if (!trick_done(trick) && trick_gap_id(trick) == get_gap_id(gap) && get_trick_script(trick) == script &&
-                        trick_node(trick) == gap_node(gap)) {
+                for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;
+                     trick = get_next(trick)) {
+                    if (!trick_done(trick) && trick_gap_id(trick) == get_gap_id(gap) &&
+                        get_trick_script(trick) == script && trick_node(trick) == gap_node(gap)) {
                         erase_one(trick);
                         break;
                     }
@@ -461,7 +486,8 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
     for (TrickListEntry* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
         // Its GapID - without one, a gap started at a node that links to this script's.
-        if (get_gap_id(gap) != gap_id || (gap_id == 0 && !level_nodes::has_link_to(gap_node(gap), script->list_link_))) {
+        if (get_gap_id(gap) != gap_id ||
+            (gap_id == 0 && !level_nodes::has_link_to(gap_node(gap), script->list_link_))) {
             gap = next;
             continue;
         }
@@ -501,18 +527,21 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                 done = true;
             } else {
                 done = false;
-                if (gap_key_combo(gap) && gap_trick_count(gap) < key_combo_count(points_held_, gap_key_combo(gap), gap_spin(gap),
-                                                                           gap_perfect(gap), gap_taps(gap)))
+                if (gap_key_combo(gap) &&
+                    gap_trick_count(gap) < key_combo_count(points_held_, gap_key_combo(gap), gap_spin(gap),
+                                                           gap_perfect(gap), gap_taps(gap)))
                     done = true;
-                else if (gap_trick_text(gap) && gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
-                                                                               gap_perfect(gap), gap_taps(gap)))
+                else if (gap_trick_text(gap) &&
+                         gap_trick_count(gap) < get_trick_count(points_held_, gap_trick_text(gap), gap_spin(gap),
+                                                                gap_perfect(gap), gap_taps(gap)))
                     done = true;
                 else if (gap->element_list_->extent_ > 0 &&
                          tricks_array_count(points_held_, gap->element_list_, gap_tricks_count(gap)) > 0)
                     done = true;
             }
             if (done) {
-                for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
+                for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;
+                     trick = get_next(trick)) {
                     if (trick_gap_id(trick) == get_gap_id(gap)) {
                         // (0x00578670, trick_lists.h's TrickListEntry::SetFlag: the flag at +0x2C - here the gap
                         // trick's done)
@@ -571,12 +600,23 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
         }
         return 1;
     }
-    case kCheckGapTricks: check_gap_tricks(params); return 1;
-    case kClearGapTricks: clear_gap_tricks(params); return 1;
-    case kStartGap: start_gap(params, script); return 1;
-    case kStartGapTrick: start_gap_trick(params, script); return 1;
-    case kEndGap: end_gap(params, script); return 1;
-    default: return 2;
+    case kCheckGapTricks:
+        check_gap_tricks(params);
+        return 1;
+    case kClearGapTricks:
+        clear_gap_tricks(params);
+        return 1;
+    case kStartGap:
+        start_gap(params, script);
+        return 1;
+    case kStartGapTrick:
+        start_gap_trick(params, script);
+        return 1;
+    case kEndGap:
+        end_gap(params, script);
+        return 1;
+    default:
+        return 2;
     }
 }
 
@@ -617,24 +657,26 @@ void __cdecl pay_out_queued_gaps()
         script::spawn_script(kProcessAllGapsReward, nullptr, 0, nullptr, 0, 0, false, false, false, false);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderGapTracker::teardown,
-         &objects::RiderGapTracker::tick_frame,
-         &objects::RiderGapTracker::configure_from_data,
-         &objects::RiderGapTracker::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderGapTracker::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderGapTracker::teardown,
+    &objects::RiderGapTracker::tick_frame,
+    &objects::RiderGapTracker::configure_from_data,
+    &objects::RiderGapTracker::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderGapTracker::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 static VtableSlot g_gap_head_vtable_slots[] = {&objects::GapListNode::destroy_head};
 void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots);
@@ -642,18 +684,18 @@ static VtableSlot g_gap_trick_head_vtable_slots[] = {&objects::GapTrickListNode:
 void** const kGapTrickHeadVtable = reinterpret_cast<void**>(g_gap_trick_head_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
 static VtableSlot g_gap_node_vtable_slots[] = {&objects::GapListNode::teardown};
 void** const kGapNodeVtable = reinterpret_cast<void**>(g_gap_node_vtable_slots);
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
 static VtableSlot g_gap_trick_node_vtable_slots[] = {&objects::GapTrickListNode::teardown};
 void** const kGapTrickNodeVtable = reinterpret_cast<void**>(g_gap_trick_node_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

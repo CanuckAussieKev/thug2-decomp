@@ -21,10 +21,10 @@ namespace frontend::level_editor::nodes {
 enum class Family : uint8_t {
     kSpawn,    // Restart
     kCrown,    // GenericNode Type=Crown (King of the Hill: the n-th crown in node order)
-    kBitMark,     // GameObject Type=Flag_<colour>[_Base] (CTF and team flags)
+    kBitMark,  // GameObject Type=Flag_<colour>[_Base] (CTF and team flags)
     kRail,     // RailNode (chains by Links)
     kLadder,   // ClimbingNode
-    kRouteWay,     // Waypoint (peds' and cars' paths)
+    kRouteWay, // Waypoint (peds' and cars' paths)
     kObject,   // LevelObject, GameObject, Pedestrian, Vehicle
     kScenery,  // LevelGeometry
     kLight,    // LevelLight
@@ -71,10 +71,10 @@ struct Elem {
     Family family = Family::kOther;
     bool has_pos_ = false;
     V3 pos = {}, angles = {};
-    V3 forward = {0.0f, 0.0f, 1.0f}; // its heading (the matrix the game makes of its angles: its at row)
-    std::vector<int> links;          // linked nodes (indices into All())
-    uint32_t colour = 0xFFC0C0C0;    // ARGB
-    int order = -1;                  // crowns: the index among the crowns; spawns: among the restarts
+    V3 forward = {0.0f, 0.0f, 1.0f};           // its heading (the matrix the game makes of its angles: its at row)
+    std::vector<int> links;                    // linked nodes (indices into All())
+    uint32_t colour = 0xFFC0C0C0;              // ARGB
+    int order = -1;                            // crowns: the index among the crowns; spawns: among the restarts
     float radius = 0.0f, inner_radius_ = 0.0f; // a light's outer / inner radius, a proximity node's radius
     uint32_t restart_types_ = 0;
     uint32_t terrain = 0;
@@ -88,9 +88,9 @@ struct Elem {
 // components that keep a hidden node's own.
 extern const char* const kOverlayArrayName; // "thug2_decomp_editor_nodes"
 uint32_t overlay_array();
-uint32_t hidden_marker();      // ed_hidden
-uint32_t hidden_class_key();    // ed_hidden_class
-uint32_t hidden_type_key();     // ed_hidden_type
+uint32_t hidden_marker();    // ed_hidden
+uint32_t hidden_class_key(); // ed_hidden_class
+uint32_t hidden_type_key();  // ed_hidden_type
 
 // The nodes (scanned again when the node arrays change: their names, sizes or count) - empty outside a level.
 const std::vector<Elem>& get_all();
@@ -127,7 +127,10 @@ std::vector<Prop> get_fields(const Elem& node);
 // "THUG1" or "THAW".
 bool level_is_shared(const char** game);
 // Whether a family matters online (spawns, crowns, flags).
-inline bool get_online(Family family) { return family == Family::kSpawn || family == Family::kCrown || family == Family::kBitMark; }
+inline bool get_online(Family family)
+{
+    return family == Family::kSpawn || family == Family::kCrown || family == Family::kBitMark;
+}
 
 // --- picking (pure) ---
 
@@ -153,4 +156,4 @@ struct Occluder {
 // -1 if none.
 int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float radius, const Occluder& occluder = {});
 
-} // namespace MenuSystem::level_editor::Nodes
+} // namespace frontend::level_editor::nodes

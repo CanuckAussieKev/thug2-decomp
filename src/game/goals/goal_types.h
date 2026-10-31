@@ -10,7 +10,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
@@ -18,11 +18,11 @@ namespace goals {
 // modules::Contest), the best place its record.
 class ContestObjective : public Objective {
 public:
-    bool is_halted_;      // +0x70: paused by the competition (freeze_contest)
-    bool has_top_prize_;     // +0x71
-    bool has_second_place_;   // +0x72
-    bool has_third_place_;   // +0x73
-    int prize_paid_;  // +0x74 (reward_given)
+    bool is_halted_;        // +0x70: paused by the competition (freeze_contest)
+    bool has_top_prize_;    // +0x71
+    bool has_second_place_; // +0x72
+    bool has_third_place_;  // +0x73
+    int prize_paid_;        // +0x74 (reward_given)
 
     // 0x005517C0: the constructor (Objective's; no medals, the record 0x7FFFFFFF, the normal end of run). Returns this.
     ContestObjective* make_new(script::Struct* params);
@@ -63,13 +63,13 @@ static_assert(offsetof(ContestObjective, is_halted_) == 0x70 && offsetof(Contest
 // checkpoints).
 class ShootVideoObjective : public Objective {
 public:
-    bool recording_shot_;          // +0x70 (StartFilming)
+    bool recording_shot_; // +0x70 (StartFilming)
     uint8_t pad71_[3];
     uint32_t shot_hold_time_; // +0x74 ms
-    uint32_t time_needed_;   // +0x78 ms (total_time_required)
-    uint32_t unknown7c_;    // +0x7C (always 0: 0 times time)
-    int checkpoints_;       // +0x80 (0xC808F9FB: the checkpoints to pass)
-    int checkpoints_passed_; // +0x84
+    uint32_t time_needed_;    // +0x78 ms (total_time_required)
+    uint32_t unknown7c_;      // +0x7C (always 0: 0 times time)
+    int checkpoints_;         // +0x80 (0xC808F9FB: the checkpoints to pass)
+    int checkpoints_passed_;  // +0x84
 
     // 0x005527D0: the constructor. Returns this. 0x005527F0 / 0x005528A0 (vtable +0x00): the destructor body / the
     // scalar deleting destructor.
@@ -87,8 +87,8 @@ public:
     // 0x00552AF0: a checkpoint passed with the target in view (won after the last).
     void checkpoint();
 };
-static_assert(offsetof(ShootVideoObjective, shot_hold_time_) == 0x74 && offsetof(ShootVideoObjective, checkpoints_passed_) == 0x84 &&
-                  sizeof(ShootVideoObjective) == 0x88,
+static_assert(offsetof(ShootVideoObjective, shot_hold_time_) == 0x74 &&
+                  offsetof(ShootVideoObjective, checkpoints_passed_) == 0x84 && sizeof(ShootVideoObjective) == 0x88,
               "layout must match the original");
 
 // A find gaps goal (vtable 0x0064DCD8; the goal manager allocates 0x74 bytes, the last word never used): find
@@ -108,4 +108,4 @@ public:
 };
 static_assert(sizeof(HuntGapsObjective) == 0x74, "the size the goal manager allocates");
 
-} // namespace Game
+} // namespace goals

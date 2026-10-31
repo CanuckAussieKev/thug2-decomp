@@ -38,8 +38,8 @@ namespace {
 
 extern void** const kObjectAnimMovieVtable;
 extern void** const kCameraAnimMovieVtable;
-constexpr uint32_t kNoAsset = 0xEE721991;   // a timer, not an asset
-constexpr uint32_t kFrames = 0x019176C5;    // its length in frames
+constexpr uint32_t kNoAsset = 0xEE721991; // a timer, not an asset
+constexpr uint32_t kFrames = 0x019176C5;  // its length in frames
 constexpr uint32_t kLooping = 0x5EA0E211;
 constexpr uint32_t kBackwards = 0xF8CFD515;
 
@@ -112,7 +112,8 @@ void play_on(AnimTimeline* t, void* anim, int loop_type, bool backwards)
 {
     float length = *static_cast<float*>(anim);
     if (backwards)
-        play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0f, loop_type, 0.0f, 1.0f);
+        play_anim(t, 0, static_cast<float>(static_cast<double>(length) - seconds_per_frame()), 0.0f, loop_type, 0.0f,
+                  1.0f);
     else
         play_anim(t, 0, 0.0f, length, loop_type, 0.0f, 1.0f);
 }
@@ -132,8 +133,8 @@ bool load_anim(Movie* movie, script::Struct* params)
         int frames = 0;
         params->fetch_int_value(kFrames, &frames, 1);
         movie->anim_ = nullptr;
-        play_anim(&movie->timeline_, 0, 0.0f, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0, 0.0f,
-                 1.0f);
+        play_anim(&movie->timeline_, 0, 0.0f, static_cast<float>(frames * static_cast<double>(seconds_per_frame())), 0,
+                  0.0f, 1.0f);
     }
     set_held(movie, 1);
     return true;
@@ -364,7 +365,8 @@ void CameraAnimMovie::place_camera()
     float dir[4];
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
-        auto* object = reinterpret_cast<uint8_t*>(reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(aim_point_));
+        auto* object = reinterpret_cast<uint8_t*>(
+            reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(aim_point_));
         if (!object)
             return;
         float target[4] = {prop<float>(object, 0x4C), prop<float>(object, 0x50), prop<float>(object, 0x54), 1.0f};
@@ -469,7 +471,7 @@ void ObjectAnimMovie::tick_frame()
         std::memcpy(object + 0x4C, positions + 4 * i, 16);  // its position
         if (script::fetch_int_value(0x2F510F45)) {
             debug::printf("Object %s @ time %f:  ", script::find_checksum_name_or_unknown(name),
-                        static_cast<double>(timeline_.ongoing_));
+                          static_cast<double>(timeline_.ongoing_));
             reinterpret_cast<const maths::Vec4*>(object + 0x4C)->echo_out(); // (printed)
             reinterpret_cast<const maths::Mat4*>(object + 0x6C)->echo_out();
         }
@@ -483,41 +485,41 @@ void ObjectAnimMovie::tick_frame()
     memory::Hub::get_pull()->dealloc(flags);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_object_anim_movie_vtable_slots[] = {&objects::ObjectAnimMovie::teardown,
-         &objects::ObjectAnimMovie::read_in,
-         &objects::ObjectAnimMovie::tick_frame,
-         &objects::ObjectAnimMovie::kickoff,
-         &render::ViewRegion::query_point,
-         &objects::ObjectAnimMovie::is_finished,
-         &objects::ObjectAnimMovie::is_held_and_complete,
-         stubs::return_false,
-         stubs::do_nothing,
-         stubs::return_true,
-         stubs::return_false,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::do_nothing};
+                                                        &objects::ObjectAnimMovie::read_in,
+                                                        &objects::ObjectAnimMovie::tick_frame,
+                                                        &objects::ObjectAnimMovie::kickoff,
+                                                        &render::ViewRegion::query_point,
+                                                        &objects::ObjectAnimMovie::is_finished,
+                                                        &objects::ObjectAnimMovie::is_held_and_complete,
+                                                        stubs::return_false,
+                                                        stubs::do_nothing,
+                                                        stubs::return_true,
+                                                        stubs::return_false,
+                                                        stubs::do_nothing,
+                                                        stubs::ignore_argument,
+                                                        stubs::do_nothing};
 void** const kObjectAnimMovieVtable = reinterpret_cast<void**>(g_object_anim_movie_vtable_slots);
 static VtableSlot g_camera_anim_movie_vtable_slots[] = {&objects::CameraAnimMovie::teardown,
-         &objects::CameraAnimMovie::read_in,
-         &objects::CameraAnimMovie::tick_frame,
-         &objects::CameraAnimMovie::kickoff,
-         &objects::CameraAnimMovie::invoke_method_by_name,
-         &objects::CameraAnimMovie::is_finished,
-         &objects::CameraAnimMovie::is_held_and_complete,
-         stubs::return_true,
-         stubs::do_nothing,
-         stubs::return_true,
-         stubs::return_true,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::do_nothing};
+                                                        &objects::CameraAnimMovie::read_in,
+                                                        &objects::CameraAnimMovie::tick_frame,
+                                                        &objects::CameraAnimMovie::kickoff,
+                                                        &objects::CameraAnimMovie::invoke_method_by_name,
+                                                        &objects::CameraAnimMovie::is_finished,
+                                                        &objects::CameraAnimMovie::is_held_and_complete,
+                                                        stubs::return_true,
+                                                        stubs::do_nothing,
+                                                        stubs::return_true,
+                                                        stubs::return_true,
+                                                        stubs::do_nothing,
+                                                        stubs::ignore_argument,
+                                                        stubs::do_nothing};
 void** const kCameraAnimMovieVtable = reinterpret_cast<void**>(g_camera_anim_movie_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

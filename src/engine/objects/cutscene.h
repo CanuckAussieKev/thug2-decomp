@@ -12,7 +12,7 @@
 namespace script {
 class Array;
 class Struct;
-}
+} // namespace script
 #include "engine/file/asset_bundle.h"
 
 namespace objects {
@@ -107,20 +107,20 @@ public:
     // An animation it loaded (12 bytes).
     struct AnimationEntry {
         uint32_t name;
-        void* source;             // +0x04: an animation source (0x214 bytes, made when an object uses it)
-        void* data;               // +0x08
+        void* source; // +0x04: an animation source (0x214 bytes, made when an object uses it)
+        void* data;   // +0x08
     };
     // An object of the cutscene (0x20 bytes).
     struct ObjectEntry {
-        uint32_t name;              // +0x00: its id (a child's is its parent's + 1)
-        uint32_t skeleton;          // +0x04
-        int part;                   // +0x08: the animation part it plays (its animation: name + part * 10)
-        bool active;                // +0x0C: it stands in for an object of the level
+        uint32_t name;     // +0x00: its id (a child's is its parent's + 1)
+        uint32_t skeleton; // +0x04
+        int part;          // +0x08: the animation part it plays (its animation: name + part * 10)
+        bool active;       // +0x0C: it stands in for an object of the level
         uint8_t padd_[3];
-        AnimationEntry* animation;  // +0x10
-        GameEntity* object;   // +0x14
-        GameEntity* parent;   // +0x18: the object of the entry named name - 1
-        int anim_index_;              // +0x1C: its index in the object animations (-1: none)
+        AnimationEntry* animation; // +0x10
+        GameEntity* object;        // +0x14
+        GameEntity* parent;        // +0x18: the object of the entry named name - 1
+        int anim_index_;           // +0x1C: its index in the object animations (-1: none)
     };
 
     ObjectEntry* find_entry(uint32_t name);
@@ -164,61 +164,61 @@ public:
     void load_from_bundle();
     void ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data);
 
-    void** vtable_;              // +0x00 (0x00647908)
+    void** vtable_; // +0x00 (0x00647908)
     uint32_t unknown4_;
     file::AssetBundle* bundle_ptr_; // +0x08: the cutscene's loaded bundle
-    bool ready_flag_;                // +0x0C
+    bool ready_flag_;               // +0x0C
     uint8_t unknownd_[3];
-    int camera_parts_;            // +0x10: the camera animation's parts (after the first)
-    void* camera_source_;         // +0x14: its animation source
-    int object_parts_;            // +0x18: the object animation's parts
-    void* object_source_;         // +0x1C
-    void* object_anims_;         // +0x20
-    void* camera_anim_;          // +0x24
-    void* anim_list_;            // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
-    uint8_t lent_2c_[0x10];       // +0x2C: given back to the objects' models
-    uint8_t lent_3c_;             // +0x3C
-    uint8_t lent_3d_;             // +0x3D
+    int camera_parts_;      // +0x10: the camera animation's parts (after the first)
+    void* camera_source_;   // +0x14: its animation source
+    int object_parts_;      // +0x18: the object animation's parts
+    void* object_source_;   // +0x1C
+    void* object_anims_;    // +0x20
+    void* camera_anim_;     // +0x24
+    void* anim_list_;       // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
+    uint8_t lent_2c_[0x10]; // +0x2C: given back to the objects' models
+    uint8_t lent_3c_;       // +0x3C
+    uint8_t lent_3d_;       // +0x3D
     uint8_t unknown3e_[2];
-    float shade_[4];            // +0x40: the colour of the first level object a cutscene object stood in for
-    bool colour_saved_;           // +0x50: (and its model's settings, +0x2C-0x3D) saved
+    float shade_[4];    // +0x40: the colour of the first level object a cutscene object stood in for
+    bool colour_saved_; // +0x50: (and its model's settings, +0x2C-0x3D) saved
     uint8_t unknown51_[3];
-    ObjectEntry entities_[256];   // +0x54
-    int object_count_;            // +0x2054
+    ObjectEntry entities_[256];      // +0x54
+    int object_count_;               // +0x2054
     AnimationEntry animations_[256]; // +0x2058
-    int animation_count_;         // +0x2C58
-    uint32_t assets_[512];       // +0x2C5C
-    int asset_count_;             // +0x345C
-    bool ready_;                 // +0x3460: the music started (or none to wait for)
-    bool can_skip_;             // +0x3461
-    bool skipped_;               // +0x3462
+    int animation_count_;            // +0x2C58
+    uint32_t assets_[512];           // +0x2C5C
+    int asset_count_;                // +0x345C
+    bool ready_;                     // +0x3460: the music started (or none to wait for)
+    bool can_skip_;                  // +0x3461
+    bool skipped_;                   // +0x3462
     uint8_t unknown3463_;
-    int camera_part_;             // +0x3464
-    int object_part_;             // +0x3468
-    float end_time_;              // +0x346C: seconds
-    float unknown3470_;          // +0x3470 (1 at first)
+    int camera_part_;   // +0x3464
+    int object_part_;   // +0x3468
+    float end_time_;    // +0x346C: seconds
+    float unknown3470_; // +0x3470 (1 at first)
     uint8_t unknown3474_;
     uint8_t unknown3475_[3];
-    uint32_t unknown3478_;       // +0x3478
-    float clock_;                 // +0x347C: seconds into the cutscene
-    float unknown3480_;          // +0x3480
-    float camera_start_;          // +0x3484
+    uint32_t unknown3478_; // +0x3478
+    float clock_;          // +0x347C: seconds into the cutscene
+    float unknown3480_;    // +0x3480
+    float camera_start_;   // +0x3484
     uint32_t unknown3488_;
-    float unknown348c_;          // +0x348C: where a fixed-step cutscene loops (0: never)
-    uint64_t paused_vblanks_;     // +0x3490
-    uint64_t vblanks_;           // +0x3498: counted by update_vblanks
-    uint64_t prev_retraces_;       // +0x34A0: the timer's count at the last update_vblanks
-    void* unknown34a8_;          // +0x34A8: the skater's appearance
-    void* unknown34ac_;          // +0x34AC: the skater's profile structure
-    uint8_t flag_34b_0_;           // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)
+    float unknown348c_;       // +0x348C: where a fixed-step cutscene loops (0: never)
+    uint64_t paused_vblanks_; // +0x3490
+    uint64_t vblanks_;        // +0x3498: counted by update_vblanks
+    uint64_t prev_retraces_;  // +0x34A0: the timer's count at the last update_vblanks
+    void* unknown34a8_;       // +0x34A8: the skater's appearance
+    void* unknown34ac_;       // +0x34AC: the skater's profile structure
+    uint8_t flag_34b_0_;      // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)
     uint8_t unknown34b1_[3];
-    uint32_t label_;              // +0x34B4: the cutscene's name checksum
+    uint32_t label_;            // +0x34B4: the cutscene's name checksum
     script::Array* subtitles_;  // +0x34B8
-    float subtitle_duration_;     // +0x34BC: the last subtitle's (0 if it gave none)
-    float subtitle_time_;         // +0x34C0: when the last subtitle started
-    float next_subtitle_time_;     // +0x34C4: -1: no more
-    uint32_t next_subtitle_;      // +0x34C8: its index
-    script::Struct* call_args_;   // +0x34CC
+    float subtitle_duration_;   // +0x34BC: the last subtitle's (0 if it gave none)
+    float subtitle_time_;       // +0x34C0: when the last subtitle started
+    float next_subtitle_time_;  // +0x34C4: -1: no more
+    uint32_t next_subtitle_;    // +0x34C8: its index
+    script::Struct* call_args_; // +0x34CC
 };
 
 // The cutscene kind of the movie manager's movie details (vtable 0x00647920).
@@ -257,34 +257,35 @@ public:
 
     void** vtable_;
     uint8_t unknown4_[0x10];
-    void* viewer_;               // +0x14 (the movie details')
-    bool flag18_;                // +0x18
+    void* viewer_; // +0x14 (the movie details')
+    bool flag18_;  // +0x18
     bool flag19_;
-    bool is_finished_;                  // +0x1A
+    bool is_finished_; // +0x1A
     bool flag_1b_;
     uint8_t unknown1c_[0x10];
-    CinematicTable* content_;        // +0x2C
-    uint32_t asset_;             // +0x30
-    uint32_t begin_script_;       // +0x34: the cutscene's name + "_begin"
-    bool begun_;                 // +0x38: the begin script run
+    CinematicTable* content_; // +0x2C
+    uint32_t asset_;          // +0x30
+    uint32_t begin_script_;   // +0x34: the cutscene's name + "_begin"
+    bool begun_;              // +0x38: the begin script run
     uint8_t unknown39_[3];
-    uint32_t end_script_;         // +0x3C: + "_end"
-    script::Struct* args_;    // +0x40
-    float music_volume_;          // +0x44: the volumes before the cutscene (given back at its end)
-    float stream_volume0_;        // +0x48
-    float stream_volume1_;        // +0x4C
-    uint32_t settings_[3];       // +0x50
-    uint8_t owns_data_;           // +0x5C (the third setting's low byte, as it is)
-    bool flag_5d_;                // +0x5D
+    uint32_t end_script_;  // +0x3C: + "_end"
+    script::Struct* args_; // +0x40
+    float music_volume_;   // +0x44: the volumes before the cutscene (given back at its end)
+    float stream_volume0_; // +0x48
+    float stream_volume1_; // +0x4C
+    uint32_t settings_[3]; // +0x50
+    uint8_t owns_data_;    // +0x5C (the third setting's low byte, as it is)
+    bool flag_5d_;         // +0x5D
     uint8_t unknown5e_[2];
-    int unknown60_;              // +0x60
+    int unknown60_; // +0x60
 };
 
 static_assert(sizeof(CinematicTable) == 0x34D0 && offsetof(CinematicTable, unknown3470_) == 0x3470 &&
                   offsetof(CinematicTable, unknown348c_) == 0x348C && offsetof(CinematicTable, anim_list_) == 0x28,
               "layout must match the original");
 static_assert(offsetof(CinematicTable, entities_) == 0x54 && offsetof(CinematicTable, object_count_) == 0x2054 &&
-                  offsetof(CinematicTable, animation_count_) == 0x2C58 && offsetof(CinematicTable, asset_count_) == 0x345C &&
+                  offsetof(CinematicTable, animation_count_) == 0x2C58 &&
+                  offsetof(CinematicTable, asset_count_) == 0x345C &&
                   offsetof(CinematicTable, unknown3478_) == 0x3478 && offsetof(CinematicTable, flag_34b_0_) == 0x34B0 &&
                   sizeof(CinematicTable::ObjectEntry) == 0x20,
               "layout must match the original");
@@ -308,4 +309,4 @@ extern float g_cutscene_translations[512];
 // 0x00647908: cutsceneDataVtable (defined where the class's functions are).
 extern void** const kCutsceneDataVtable;
 
-} // namespace Obj
+} // namespace objects

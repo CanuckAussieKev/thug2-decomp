@@ -79,10 +79,7 @@ T& prop(void* object, uint32_t offset)
 double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float(name, 1, skater); }
 
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void turn_by(maths::Mat4& m, const maths::Mat4& rotation)
-{
-    d3dx::matrix_multiply(&m, &rotation, &m);
-}
+void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
 
 // The C runtime's acos (0x00623630) as its x87 code computes it: atan2(sqrt((1 + x)(1 - x)), x).
 double x87_acos(double x)
@@ -195,7 +192,7 @@ void RiderRemoteSync::update_ground_lighting()
         void* light = prop<void*>(model, 0x2C);
         if (light)
             static_cast<render::ModelLights*>(light)->move_brightness(static_cast<float>(feeler.get_hit_vertex_value()),
-                                                                  kLightTime);
+                                                                      kLightTime);
         else
             render::set_world_brightness(static_cast<float>(feeler.get_hit_vertex_value()));
     }
@@ -243,25 +240,25 @@ void RiderRemoteSync::settle_onto_floor()
 
     // (only its low byte is tested: skatable, vert, not "not skatable" and not wallride)
     uint8_t flags = static_cast<uint8_t>(feeler.hit_.face_flags_);
-    bool skatable = (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) &&
-                    !(flags & kFaceWallride);
-    if (skatable &&
-        !(skater::x87_sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree) >
-          normal.y)) {
+    bool skatable =
+        (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) && !(flags & kFaceWallride);
+    if (skatable && !(skater::x87_sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) *
+                                      kRadiansPerDegree) > normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
         const maths::Vec4 ground = normal;
         const maths::Vec4& at_row = skater->basis_frame_.row[2];
         maths::Vec4 on_ground = at_row;
-        float facing = static_cast<float>((static_cast<double>(normal.x) * at_row.x + static_cast<double>(normal.z) * at_row.z) +
-                                          static_cast<double>(at_row.y) * normal.y);
+        float facing =
+            static_cast<float>((static_cast<double>(normal.x) * at_row.x + static_cast<double>(normal.z) * at_row.z) +
+                               static_cast<double>(at_row.y) * normal.y);
         maths::Vec4 on_last = at_row;
         on_ground.align_to_plane(ground);
         on_last.align_to_plane(surface_up_);
-        float turn = static_cast<float>((static_cast<double>(on_last.x) * on_ground.x +
-                                         static_cast<double>(on_last.z) * on_ground.z) +
-                                        static_cast<double>(on_last.y) * on_ground.y);
-        float stick = static_cast<float>(
-            skater::x87_cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
+        float turn = static_cast<float>(
+            (static_cast<double>(on_last.x) * on_ground.x + static_cast<double>(on_last.z) * on_ground.z) +
+            static_cast<double>(on_last.y) * on_ground.y);
+        float stick =
+            static_cast<float>(skater::x87_cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
         if (facing > 0.0f && turn > 0.0f && turn < stick)
             return;
         if (height > 0.0f) {
@@ -522,25 +519,27 @@ void RiderRemoteSync::tick_frame()
     sound->sliding_ = prop<uint8_t>(cur_phase_, 0x58);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderRemoteSync::teardown,
-         &objects::RiderRemoteSync::tick_frame,
-         stubs::ignore_argument,
-         &objects::RiderRemoteSync::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderRemoteSync::teardown,
+    &objects::RiderRemoteSync::tick_frame,
+    stubs::ignore_argument,
+    &objects::RiderRemoteSync::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

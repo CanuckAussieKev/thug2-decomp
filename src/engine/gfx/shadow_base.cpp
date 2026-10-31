@@ -86,18 +86,9 @@ constexpr float kFacingLimit = std::bit_cast<float>(0xB8D1B717u); // 0x0064AAA0,
 ShadowCompanionFn g_shadow_companion = nullptr; // NOT ORIGINAL (set_shadow_companion)
 
 // D3DX (linked library code; stdcall).
-void matrix_multiply(float* out, const float* a, const float* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
-void matrix_inverse(float* out, float* determinant, const float* m)
-{
-    d3dx::matrix_inverse(out, determinant, m);
-}
-void transform_coord(float* out, const float* v, const void* m)
-{
-    d3dx::vec3_transform_coord(out, v, m);
-}
+void matrix_multiply(float* out, const float* a, const float* b) { d3dx::matrix_multiply(out, a, b); }
+void matrix_inverse(float* out, float* determinant, const float* m) { d3dx::matrix_inverse(out, determinant, m); }
+void transform_coord(float* out, const float* v, const void* m) { d3dx::vec3_transform_coord(out, v, m); }
 void matrix_look_at(float* out, const float* eye, const float* at, const float* up)
 {
     d3dx::matrix_look_at_rh(out, eye, at, up);
@@ -110,7 +101,10 @@ void matrix_ortho(float* out, float width, float height, float near_z, float far
 // The models' meshes (not rewritten yet; thiscall).
 int get_mesh_count(void* model) { return static_cast<RenderModel*>(model)->fetch_geom_total(); }
 void* get_mesh(void* model, int index) { return static_cast<RenderModel*>(model)->fetch_geom(index); }
-void draw_mesh(void* mesh, int flags) { draw_one_instance(static_cast<Singleton*>(mesh), static_cast<uint32_t>(flags)); }
+void draw_mesh(void* mesh, int flags)
+{
+    draw_one_instance(static_cast<Singleton*>(mesh), static_cast<uint32_t>(flags));
+}
 // A scene mesh's draw (thiscall).
 void draw_scene_mesh(void* mesh) { static_cast<MeshRef*>(mesh)->render(); }
 
@@ -397,12 +391,13 @@ void __cdecl draw_shadows(const void* /*unused*/, void* const* meshes, int count
             if (!sphere_in_view(reinterpret_cast<const maths::Vec4*>(mesh + 4), *reinterpret_cast<float*>(mesh + 0x10)))
                 continue;
             set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
-            project_shadow_vertices(*reinterpret_cast<const float**>(mesh + 0xB0), *reinterpret_cast<uint32_t*>(mesh + 0xAC),
-                                  to_texture);
+            project_shadow_vertices(*reinterpret_cast<const float**>(mesh + 0xB0),
+                                    *reinterpret_cast<uint32_t*>(mesh + 0xAC), to_texture);
             int triangles = clip_shadow_triangles(*reinterpret_cast<const uint16_t**>(mesh + 0xB8),
-                                                *reinterpret_cast<uint32_t*>(mesh + 0xB4));
+                                                  *reinterpret_cast<uint32_t*>(mesh + 0xB4));
             if (triangles) {
-                input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles(), sizeof(ShadowCornerPoint));
+                input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, shadow_triangles(),
+                                              sizeof(ShadowCornerPoint));
                 ++g_draw_calls; // draws
                 g_drawn_triangles += triangles;
             }
@@ -474,4 +469,4 @@ void __cdecl add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
 // NOT ORIGINAL
 void set_shadow_companion(ShadowCompanionFn fn) { g_shadow_companion = fn; }
 
-} // namespace Nx
+} // namespace render

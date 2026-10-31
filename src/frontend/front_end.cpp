@@ -47,24 +47,24 @@ bool g_pending_script;
 
 namespace {
 
-constexpr uint32_t kId = 0x40C698AF;              // "id"
-constexpr uint32_t kNull = 0xDA3403B0;            // "null"
-constexpr uint32_t kText = 0xC4745838;            // "text"
-constexpr uint32_t kDeviceNum = 0xC9428A08;       // "device_num"
-constexpr uint32_t kController = 0xB30D9965;      // "controller"
-constexpr uint32_t kKeyboardAnchor = 0x31631B98;  // "keyboard_anchor"
-constexpr uint32_t kCurrentMenuAnchor = 0xF53D1D83; // "current_menu_anchor"
-constexpr uint32_t kDialogBoxAnchor = 0x3B56E746; // "dialog_box_anchor"
-constexpr uint32_t kBlockMenuInput = 0xDB96E524;  // "block_menu_input"
-constexpr uint32_t kUnblockMenuInput = 0x4F653B0B; // "unblock_menu_input"
-constexpr uint32_t kInactive = 0x742CF11F;        // "inactive"
-constexpr uint32_t kActive = 0xB4E103FD;          // "active"
-constexpr uint32_t kUseAsFirst = 0xAD6C73EE;      // "use_as_first"
+constexpr uint32_t kId = 0x40C698AF;                  // "id"
+constexpr uint32_t kNull = 0xDA3403B0;                // "null"
+constexpr uint32_t kText = 0xC4745838;                // "text"
+constexpr uint32_t kDeviceNum = 0xC9428A08;           // "device_num"
+constexpr uint32_t kController = 0xB30D9965;          // "controller"
+constexpr uint32_t kKeyboardAnchor = 0x31631B98;      // "keyboard_anchor"
+constexpr uint32_t kCurrentMenuAnchor = 0xF53D1D83;   // "current_menu_anchor"
+constexpr uint32_t kDialogBoxAnchor = 0x3B56E746;     // "dialog_box_anchor"
+constexpr uint32_t kBlockMenuInput = 0xDB96E524;      // "block_menu_input"
+constexpr uint32_t kUnblockMenuInput = 0x4F653B0B;    // "unblock_menu_input"
+constexpr uint32_t kInactive = 0x742CF11F;            // "inactive"
+constexpr uint32_t kActive = 0xB4E103FD;              // "active"
+constexpr uint32_t kUseAsFirst = 0xAD6C73EE;          // "use_as_first"
 constexpr uint32_t kHandleKeyboardInput = 0xA6ED4911; // "handle_keyboard_input"
 constexpr uint32_t kKeyboardDeviceParam = 0x69E3A1C4; // (the device_num the keys came from; name unknown)
-constexpr uint32_t kEnterKey = 0xB292CC42;        // (handle_keyboard_input's flag for Enter; name unknown)
-constexpr uint32_t kBackspaceKey = 0x86C0FC77;    // (and for Backspace)
-constexpr uint32_t kMenuEvent = 0x36B2EE74;       // the pad events' target and source (name unknown)
+constexpr uint32_t kEnterKey = 0xB292CC42;            // (handle_keyboard_input's flag for Enter; name unknown)
+constexpr uint32_t kBackspaceKey = 0x86C0FC77;        // (and for Backspace)
+constexpr uint32_t kMenuEvent = 0x36B2EE74;           // the pad events' target and source (name unknown)
 
 // The typed keys' control characters (sio::get_keyboard_chars).
 constexpr char kKeyBackspace = 0x18;
@@ -73,8 +73,24 @@ constexpr char kKeyEscape = 0x1A;
 
 // The button names of SetButtonEventMappings' xbox array, by index (the null ones are unused indexes).
 const char* const kXboxButtonNames[18] = {
-    "left_trigger_full", "right_trigger_full", "left_trigger_half", "right_trigger_half", "y", "b", "a", "x",
-    "back", "left_stick_button", "right_stick_button", "null", "null", "null", "null", "null", "black", "white",
+    "left_trigger_full",
+    "right_trigger_full",
+    "left_trigger_half",
+    "right_trigger_half",
+    "y",
+    "b",
+    "a",
+    "x",
+    "back",
+    "left_stick_button",
+    "right_stick_button",
+    "null",
+    "null",
+    "null",
+    "null",
+    "null",
+    "black",
+    "white",
 };
 
 uint32_t g_front_end_refs;
@@ -82,15 +98,15 @@ bool g_skateshop_override;
 
 uint32_t& front_end_refs() { return g_front_end_refs; }
 // Set each frame by Update.
-bool& menus_active() { return g_menus_active; }      // paused, in the skateshop, or keyboard up
+bool& menus_active() { return g_menus_active; }             // paused, in the skateshop, or keyboard up
 bool& skateshop_override() { return g_skateshop_override; } // set elsewhere: never counts as the skateshop
 bool& get_keyboard_on_screen() { return sio::g_keyboard_on_screen; }
-bool& menu_on_screen() { return sio::g_in_menu_flag; }     // a menu, dialog box or the quit dialog
+bool& menu_on_screen() { return sio::g_in_menu_flag; } // a menu, dialog box or the quit dialog
 bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame
 bool& is_game_halted() { return objects::g_simulation_halted; }
 
 uint8_t* skate_bytes() { return reinterpret_cast<uint8_t*>(g_skate_module); } // modules::Skate
-void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }    // GameObjects::EventWaitBoard
+void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }   // GameObjects::EventWaitBoard
 uint8_t* main_loop_manager() { return reinterpret_cast<uint8_t*>(assets::g_main_loop_manager); }
 uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); } // pad_input::Hub
 
@@ -121,7 +137,10 @@ bool object_exists(script::Struct* params) // the script command ObjectExists
 void construct_module(void* module) { static_cast<PartUnit*>(module)->make_new(); }
 void destroy_module(void* module) { static_cast<PartUnit*>(module)->destroy_body(); }
 void construct_node(void* node, int priority) { static_cast<tasks::SchedulerTask*>(node)->make_new(priority); }
-void append_vertex(void* list, void* node) { static_cast<tasks::PileUp*>(list)->queue_job(static_cast<tasks::SchedulerTask*>(node)); }
+void append_vertex(void* list, void* node)
+{
+    static_cast<tasks::PileUp*>(list)->queue_job(static_cast<tasks::SchedulerTask*>(node));
+}
 void remove_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->drop_out(); }
 
 // A task list node's scalar deleting destructor (vtable slot 2).
@@ -206,10 +225,7 @@ bool FrontEnd::pads_plugged_in()
 }
 
 // 0x0054ECD0
-void FrontEnd::unregister_key_listener()
-{
-    remove_node(keyboard_task_);
-}
+void FrontEnd::unregister_key_listener() { remove_node(keyboard_task_); }
 
 // 0x0054ECE0
 uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
@@ -467,7 +483,8 @@ void FrontEnd::tick_frame(bool game_paused)
     reinterpret_cast<modules::Skate*>(skate_bytes())->advance_match_flow();
     if (pending_script()) {
         pending_script() = false;
-        auto* object = static_cast<objects::Entity*>(reinterpret_cast<modules::Skate*>(skate_bytes())->get_home_rider());
+        auto* object =
+            static_cast<objects::Entity*>(reinterpret_cast<modules::Skate*>(skate_bytes())->get_home_rider());
         script::launch_script(0xFB11E6CD, nullptr, object, false, nullptr);
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -542,11 +559,12 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's sentinel has -1 at +4).
     uint32_t count = 0;
-    for (auto* node = *reinterpret_cast<uint8_t**>(skate + 0x34);
-         *reinterpret_cast<int*>(node + 4) != -1 && node; node = *reinterpret_cast<uint8_t**>(node + 0xC))
+    for (auto* node = *reinterpret_cast<uint8_t**>(skate + 0x34); *reinterpret_cast<int*>(node + 4) != -1 && node;
+         node = *reinterpret_cast<uint8_t**>(node + 0xC))
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater = reinterpret_cast<void***>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
+        auto* skater =
+            reinterpret_cast<void***>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
         if (!skater)
             continue;
         if (pause)
@@ -597,7 +615,8 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
                 if (front_end->startup_script_on_) {
                     script::Script* script =
                         script::spawn_script(0xDCE60A74u, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-                    front_end->startup_script_id_ = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(script) + 0xB0);
+                    front_end->startup_script_id_ =
+                        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(script) + 0xB0);
                 }
                 front_end->check_startup_script_ = false;
             }
@@ -606,7 +625,7 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
                 event = repeated;
         }
         uint32_t pressed = front_end->grab_control_event(handler->control_data_->makes_, index, handler->ordinal_,
-                                                      handler->control_data_->held_);
+                                                         handler->control_data_->held_);
         if (pressed)
             event = pressed;
         if (!event)
@@ -617,7 +636,8 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
         params.prepare_all();
         params.put_int(kDeviceNum, *reinterpret_cast<int*>(handler->dev_ + 0xC));
         params.put_int(kController, 0); // (the original loads the mapping, then passes 0)
-        static_cast<objects::EventWaitBoard*>(tracker)->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
+        static_cast<objects::EventWaitBoard*>(tracker)->launch_event(event, kMenuEvent, kMenuEvent, &params, false,
+                                                                     -1.0f);
         params.get_clear();
     }
 }
@@ -667,7 +687,8 @@ FrontEnd* FrontEnd::make_new()
     auto* task = static_cast<FrontEndTask*>(memory::alloc_zeroed(sizeof(FrontEndTask)));
     if (task) {
         construct_node(task, -2000);
-        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<FrontEnd>
+        *reinterpret_cast<uint32_t*>(task) =
+            reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<FrontEnd>
         task->code_value_ = &front_end_tick;
         task->content_ = this;
     }
@@ -685,7 +706,8 @@ FrontEnd* FrontEnd::make_new()
         if (handler) {
             construct_node(handler, -1000);
             handler->ordinal_ = i;
-            *reinterpret_cast<uint32_t*>(handler) = reinterpret_cast<uint32_t>(game_code::kInputHandlerVtable); // pad_input::Responder<FrontEnd>
+            *reinterpret_cast<uint32_t*>(handler) =
+                reinterpret_cast<uint32_t>(game_code::kInputHandlerVtable); // pad_input::Responder<FrontEnd>
             handler->code_value_ = &input_logic;
             handler->content_ = this;
         }
@@ -719,8 +741,9 @@ FrontEnd* create_front_end(bool create)
 }
 
 namespace {
-static VtableSlot g_front_end_vtable_slots[] = {&modules::FrontEnd::teardown, &modules::FrontEnd::kickoff, &modules::FrontEnd::halt};
+static VtableSlot g_front_end_vtable_slots[] = {&modules::FrontEnd::teardown, &modules::FrontEnd::kickoff,
+                                                &modules::FrontEnd::halt};
 void** const kFrontEndVtable = reinterpret_cast<void**>(g_front_end_vtable_slots);
 } // namespace
 
-} // namespace Mdl
+} // namespace modules

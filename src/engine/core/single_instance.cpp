@@ -42,10 +42,7 @@ PointerMember* PointerMember::make_new(void* pointer)
 }
 
 // 0x00469490
-void* PointerMember::get_pull()
-{
-    return pointer_;
-}
+void* PointerMember::get_pull() { return pointer_; }
 
 namespace {
 
@@ -119,7 +116,8 @@ struct ModelSlotStub {
     static KindTag* fabricate(bool create) { return modules::create_manager(create); }
     static void Release() { modules::release_manager(); }
 };
-struct SoundManager { // the sound effects manager (its Create returns nothing: no LazyInstance<SoundManager> is constructed)
+struct
+    SoundManager { // the sound effects manager (its Create returns nothing: no LazyInstance<SoundManager> is constructed)
     using KindTag = void;
     static void** Vtable() { return kSoundManagerVtable; }
     static void fabricate(bool create) { sound::create_manager(create); }
@@ -274,4 +272,4 @@ void** const kSingleton574540Vtable = reinterpret_cast<void**>(g_singleton574540
 
 } // namespace
 
-} // namespace Spt
+} // namespace single

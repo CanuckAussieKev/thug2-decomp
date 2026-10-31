@@ -39,27 +39,25 @@ constexpr uint32_t kReleased = 0x04BA9EE9, kGetSpazzFactor = 0x00271B04, kUseEve
                    kNoQuickGetup = 0x444C0E5A, kSetTrickName = 0x4B2EE2BC, kGetSpin = 0x4BA7719F,
                    kClearTrickQueue = 0x54C33B20, kRestoreEvents = 0x54D43789, kSetExtraGrindTricks = 0x6BA35AB4,
                    kFunction72c926cA = 0x72C926CA, kSetExtraTricks = 0x7627DC71, kDoNextManualTrick = 0x788F9A4E,
-                   kClearEventBuffer = 0x86928082, kClearManualTrick = 0x8E3D3BEC,
-                   kClearExtraGrindTrick = 0xAB6B8DD9, kReplaceBindings = 0xABFF7889, kSetTrickSlot = 0xB42A1230,
-                   kClearPanelBailed = 0xB8045433, kClearTricksFrom = 0xCB30572D, kSetTrickScore = 0xCB3A8FD2,
-                   kUseGrindEvents = 0xD4099D35, kKillExtraTricks = 0xD5813251, kBashOn = 0xD872002D,
-                   kSetQueueTricks = 0xD8C79BB0, kFunctionDe98dE7a = 0xDE98DE7A, kResetSpin = 0xE50D471E,
-                   kHeld = 0xEDA2772E, kDisplay = 0xF32E8D5C;
+                   kClearEventBuffer = 0x86928082, kClearManualTrick = 0x8E3D3BEC, kClearExtraGrindTrick = 0xAB6B8DD9,
+                   kReplaceBindings = 0xABFF7889, kSetTrickSlot = 0xB42A1230, kClearPanelBailed = 0xB8045433,
+                   kClearTricksFrom = 0xCB30572D, kSetTrickScore = 0xCB3A8FD2, kUseGrindEvents = 0xD4099D35,
+                   kKillExtraTricks = 0xD5813251, kBashOn = 0xD872002D, kSetQueueTricks = 0xD8C79BB0,
+                   kFunctionDe98dE7a = 0xDE98DE7A, kResetSpin = 0xE50D471E, kHeld = 0xEDA2772E, kDisplay = 0xF32E8D5C;
 // Parameter and other names.
 constexpr uint32_t kSpazzFactor = 0x679B2500, kX = 0x7323E97C, kSpinCountSlop = 0x50C5CC2F, kSkaterId = 0x5B24FAAA,
                    kSkaterExitCombo = 0x4B3CE1FE, kSkaterGap = 0x11B4C67F, kSkaterLanded = 0xC98BA111,
                    kSkaterBailed = 0x6045A960, kSkaterTrickDisplayed = 0x11D8BC9E, kSpin = 0xEDF5DB70,
                    kSpecial = 0xB394C01C, kDuration = 0x79A07F3F, kUsedBy = 0x9694FC41, kRegular = 0xB58EFC2B,
-                   kExtra = 0xB2C0F29A, kManual = 0xEF24413B, kUsedByEc066b6a = 0xEC066B6A,
-                   kButtonsName = 0xBCA37A49,
+                   kExtra = 0xB2C0F29A, kManual = 0xEF24413B, kUsedByEc066b6a = 0xEC066B6A, kButtonsName = 0xBCA37A49,
                    kOlderThan = 0xCDCFEE8A, kSlot = 0x53F1DF98, kTrick = 0x270F56E1, kNoQueue = 0x9E22D268,
                    kDeferred = 0x5C9B1765, kAddSpin = 0x83CB0082, kBlockspin = 0xC2150BB0, kNoDegrade = 0x3C24AC46,
                    kNoSpecial = 0x559BE3ED, kCat = 0x61A1BC57, kNatas = 0x7A57EB44, kNoMult = 0x62F7C401,
                    kNoSwitch = 0xFC6944A8;
 
-constexpr float kFullTurn = 360.0f;  // 0x00645EA8
-constexpr float kHalfTurn = 180.0f;  // 0x0064B278
-constexpr float kSpinMargin = 0.1f;  // 0x00645D74 (0.100000001f)
+constexpr float kFullTurn = 360.0f; // 0x00645EA8
+constexpr float kHalfTurn = 180.0f; // 0x0064B278
+constexpr float kSpinMargin = 0.1f; // 0x00645D74 (0.100000001f)
 
 // The fields (see trick_queue.cpp).
 constexpr uint32_t kScore = 0x1C, kBalanceTrick = 0x24, kCorePhysics = 0x28, kState = 0x30, kComponent34 = 0x34;
@@ -69,11 +67,11 @@ constexpr uint32_t kQueueCount = 0x1204, kQueueArrays = 0x1208, kQueueSpecial = 
 constexpr uint32_t kManualCount = 0x1238, kManualArrays = 0x123C, kManualSpecial = 0x1264;
 constexpr uint32_t kGrindCount = 0x1280, kGrindArrays = 0x1284, kGrindSpecial = 0x12AC;
 constexpr uint32_t kExtraOn = 0x12C8, kBashing = 0x1330;
-constexpr uint32_t kTrickName = 0x1331;     // char[0x33] the trick displayed
-constexpr uint32_t kTrickScore = 0x1364;    // int
-constexpr uint32_t kDeferredName = 0x1368;  // char[0x34] a deferred trick's name
+constexpr uint32_t kTrickName = 0x1331;    // char[0x33] the trick displayed
+constexpr uint32_t kTrickScore = 0x1364;   // int
+constexpr uint32_t kDeferredName = 0x1368; // char[0x34] a deferred trick's name
 constexpr uint32_t kDeferredScore = 0x139C, kDeferredFlags = 0x13A0;
-constexpr uint32_t kSpinTotal = 0x13A4;     // float degrees
+constexpr uint32_t kSpinTotal = 0x13A4; // float degrees
 constexpr uint32_t kBailed = 0x13A8, kBailedPanel = 0x13A9, kTrickCount = 0x13AC, kTrickObjectsOn = 0x13B0,
                    kTrickObjects = 0x13B4, kQuickGetupDone = 0x1BB8;
 
@@ -88,13 +86,11 @@ void copy_text(char* to, const char* from)
 int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // The rest of the component (0x0051EA90-0x00521B8F) and its neighbours, not rewritten here.
-bool is_pad_held(MoveExecutor* self, uint32_t button)
-{
-    return self->is_key_held(button);
-}
+bool is_pad_held(MoveExecutor* self, uint32_t button) { return self->is_key_held(button); }
 bool is_switch(MoveExecutor* self)
 {
-    return (static_cast<skater::SkaterPhysicsModule*>(get_component(self, kCorePhysics))->is_sides_swapped() & 0xFF) != 0;
+    return (static_cast<skater::SkaterPhysicsModule*>(get_component(self, kCorePhysics))->is_sides_swapped() & 0xFF) !=
+           0;
 }
 // The score component (+0x1C): the trick's points (0x00563990), the spin's (0x00563F30).
 void score_trick(MoveExecutor* self, const char* name, int score, uint32_t flags)
@@ -181,7 +177,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             if (*deferred) {
                 bool on_rail = get_at<bool>(get_component(this, kCorePhysics), 0x374);
                 if (spin_counts(this, on_rail)) {
-                    score_trick(this, deferred, get_at<int>(this, kDeferredScore), get_at<uint32_t>(this, kDeferredFlags));
+                    score_trick(this, deferred, get_at<int>(this, kDeferredScore),
+                                get_at<uint32_t>(this, kDeferredFlags));
                     score_spin(this, truncate(get_at<float>(this, kSpinTotal)));
                 }
                 *deferred = 0;
@@ -336,7 +333,8 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         params->read_hash_value(kSlot, &slot, 0);
         uint32_t trick = 0;
         params->read_hash_value(kTrick, &trick, 0);
-        get_at<script::Struct*>(this, kTrickBindingsSlot)->insert_pair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
+        get_at<script::Struct*>(this, kTrickBindingsSlot)
+            ->insert_pair(slot, 13.0f, static_cast<float>(static_cast<double>(trick)));
         return 1;
     }
     case kClearPanelBailed: {
@@ -464,9 +462,11 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                     int trick_score = get_at<int>(this, kTrickScore);
                     if (trick_score) {
                         float multiplier = get_at<float>(score, 0x154C);
-                        debug::printf("RAIL score %d * %2.3f = %d\n", trick_score, static_cast<double>(multiplier),
-                                    truncate(static_cast<double>(trick_score) * multiplier)); // "RAIL score %d * %2.3f = %d\n"
-                        get_at<int>(this, kTrickScore) = truncate(static_cast<double>(get_at<int>(this, kTrickScore)) * multiplier);
+                        debug::printf(
+                            "RAIL score %d * %2.3f = %d\n", trick_score, static_cast<double>(multiplier),
+                            truncate(static_cast<double>(trick_score) * multiplier)); // "RAIL score %d * %2.3f = %d\n"
+                        get_at<int>(this, kTrickScore) =
+                            truncate(static_cast<double>(get_at<int>(this, kTrickScore)) * multiplier);
                     }
                 }
                 char* trick_name = &get_at<char>(this, kTrickName);
@@ -491,4 +491,4 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     }
 }
 
-} // namespace Obj
+} // namespace objects

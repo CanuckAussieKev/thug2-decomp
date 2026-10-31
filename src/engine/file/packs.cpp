@@ -40,10 +40,7 @@ unsigned int sector_aligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu
 
 // The pre manager instance finds files inside .pre archives registered with it. (Like the original, this
 // assumes it exists.)
-void* pre_manager_load_file(const char* name, int* size)
-{
-    return pre::sole()->ingest_file(name, size, nullptr);
-}
+void* pre_manager_load_file(const char* name, int* size) { return pre::sole()->ingest_file(name, size, nullptr); }
 
 // A loaded .pre archive: its name, padded to 16 bytes, then the archive's own header and its files.
 struct PackLeadIn {
@@ -52,10 +49,7 @@ struct PackLeadIn {
     int num_files_;
 };
 
-PackLeadIn* header_of(char* pre)
-{
-    return reinterpret_cast<PackLeadIn*>(pre + ((std::strlen(pre) + 0x10) & ~0xFu));
-}
+PackLeadIn* header_of(char* pre) { return reinterpret_cast<PackLeadIn*>(pre + ((std::strlen(pre) + 0x10) & ~0xFu)); }
 
 PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(header + 1); }
 
@@ -64,7 +58,8 @@ PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(h
 PreEntry* next_raw_entry(PreEntry* entry)
 {
     uint32_t stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
-    return reinterpret_cast<PreEntry*>(reinterpret_cast<uint8_t*>(entry + 1) + entry->name_size_ + ((stored + 3) & ~3u));
+    return reinterpret_cast<PreEntry*>(reinterpret_cast<uint8_t*>(entry + 1) + entry->name_size_ +
+                                       ((stored + 3) & ~3u));
 }
 
 PreEntry* next_entry(PreEntry* entry)
@@ -135,7 +130,7 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
         if (callback) {
             file::async_set_callback_mask(file, 1u << file::kOpReadFile); // call back when the read completes
             file::async_set_callback(file, reinterpret_cast<file::IoCompletionHook>(callback), hook_user_a,
-                                   hook_user_b);
+                                     hook_user_b);
         }
         file::start_background_read(file, data, size);
         file::async_close(file);
@@ -299,8 +294,8 @@ void load_pre(const char* name)
 
     // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
     // can be used in place. First the new size (plus slack), then the copy.
-    auto* old_header = reinterpret_cast<PackLeadIn*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) &
-                                                             ~size_t(0xF)));
+    auto* old_header =
+        reinterpret_cast<PackLeadIn*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) & ~size_t(0xF)));
     int count = old_header->num_files_;
     uintptr_t new_size = prefix + sizeof(PackLeadIn);
     {
@@ -329,8 +324,8 @@ void load_pre(const char* name)
 
         PreEntry* next_from = next_raw_entry(from);
         const uint8_t* source = reinterpret_cast<const uint8_t*>(from + 1) + from->name_size_;
-        auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) &
-                                                  ~uintptr_t(0xF));
+        auto* target =
+            reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) & ~uintptr_t(0xF));
         if (from->compressed_size_) {
             uint8_t* end = lzss::decode(source, target, from->compressed_size_);
             for (uint32_t pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
@@ -351,8 +346,8 @@ void load_pre(const char* name)
 
 namespace {
 
-constexpr uint32_t kHeapParam = 0x42D6DD1E;    // LoadPipPre ... heap = <name>
-constexpr uint32_t kHeapTopDown = 0x477FC6DE;  // the two heap names it accepts
+constexpr uint32_t kHeapParam = 0x42D6DD1E;   // LoadPipPre ... heap = <name>
+constexpr uint32_t kHeapTopDown = 0x477FC6DE; // the two heap names it accepts
 constexpr uint32_t kHeapBottomUp = 0xC80BF12D;
 
 const char* pre_name(script::Struct* params)
@@ -418,7 +413,8 @@ bool __cdecl cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /
         for (int i = 0; i < kMaxLoadedFiles; ++i) {
             const LoadedFile& file = loaded_files()[i];
             if (file.data)
-                debug::printf("Usage:%d  File: %s\n", file.ref_count_, script::find_checksum_name_or_unknown(file.checksum));
+                debug::printf("Usage:%d  File: %s\n", file.ref_count_,
+                              script::find_checksum_name_or_unknown(file.checksum));
         }
     }
     return true;
@@ -445,10 +441,7 @@ void offload(uint32_t checksum)
 }
 
 // 0x005B7270
-void offload(const char* name)
-{
-    offload(checksums::hash_from_text(name));
-}
+void offload(const char* name) { offload(checksums::hash_from_text(name)); }
 
 // 0x005B7290
 int get_file_size(uint32_t checksum)
@@ -463,10 +456,7 @@ int get_file_size(uint32_t checksum)
 }
 
 // 0x005B72E0
-int get_file_size(const char* name)
-{
-    return get_file_size(checksums::hash_from_text(name));
-}
+int get_file_size(const char* name) { return get_file_size(checksums::hash_from_text(name)); }
 
 // 0x005B70F0
 FileTables* FileTables::make_new()
@@ -526,6 +516,6 @@ bool archive_is_busy(const char* name)
     return false;
 }
 
-} // namespace Pip
+} // namespace packs
 
 static_assert(sizeof(packs::PreEntry) == 16 && sizeof(packs::LoadedFile) == 16, "layout must match the original");

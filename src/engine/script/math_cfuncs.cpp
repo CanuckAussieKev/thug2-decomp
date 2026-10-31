@@ -18,30 +18,30 @@ float g_script_radians_to_degrees{57.295776f};
 
 namespace {
 
-constexpr uint32_t kSin = 0x483C6C55;          // "sin"
-constexpr uint32_t kCos = 0x6146047A;          // "cos"
-constexpr uint32_t kTan = 0x85AAF0D8;          // "tan"
-constexpr uint32_t kASin = 0x15A3FA3D;         // "asin"
-constexpr uint32_t kACos = 0x3CD99212;         // "acos"
-constexpr uint32_t kATan = 0xD83566B0;         // "atan"
-constexpr uint32_t kSqrt = 0xB86383A7;         // "sqrt"
-constexpr uint32_t kNorm = 0x68C32A5F;         // "norm"
-constexpr uint32_t kLength = 0xFE82614D;       // "length"
-constexpr uint32_t kResult = 0xEC953EEC;       // "result"
-constexpr uint32_t kFrom = 0x46E55E8F;         // "From"
-constexpr uint32_t kTo = 0x28782D3B;           // "To"
-constexpr uint32_t kValue = 0x08296457;        // (name unknown) LinearMap's input
-constexpr uint32_t kLowerBound = 0x0EA9E0A8;   // "lowerbound"
-constexpr uint32_t kUpperBound = 0xACAECE33;   // "upperbound"
-constexpr uint32_t kMin = 0x5E84E22F;          // "min"
-constexpr uint32_t kMax = 0x6289DD76;          // "max"
-constexpr uint32_t kClamped = 0xCC419A08;      // "Clamped"
-constexpr uint32_t kX = 0x7323E97C;            // "x"
-constexpr uint32_t kY = 0x0424D9EA;            // "Y"
-constexpr uint32_t kZ = 0x9D2D8850;            // "z"
-constexpr uint32_t kRx = 0xFDF10F7A;           // "rx"
-constexpr uint32_t kRy = 0x8AF63FEC;           // "ry"
-constexpr uint32_t kRz = 0x13FF6E56;           // "rz"
+constexpr uint32_t kSin = 0x483C6C55;        // "sin"
+constexpr uint32_t kCos = 0x6146047A;        // "cos"
+constexpr uint32_t kTan = 0x85AAF0D8;        // "tan"
+constexpr uint32_t kASin = 0x15A3FA3D;       // "asin"
+constexpr uint32_t kACos = 0x3CD99212;       // "acos"
+constexpr uint32_t kATan = 0xD83566B0;       // "atan"
+constexpr uint32_t kSqrt = 0xB86383A7;       // "sqrt"
+constexpr uint32_t kNorm = 0x68C32A5F;       // "norm"
+constexpr uint32_t kLength = 0xFE82614D;     // "length"
+constexpr uint32_t kResult = 0xEC953EEC;     // "result"
+constexpr uint32_t kFrom = 0x46E55E8F;       // "From"
+constexpr uint32_t kTo = 0x28782D3B;         // "To"
+constexpr uint32_t kValue = 0x08296457;      // (name unknown) LinearMap's input
+constexpr uint32_t kLowerBound = 0x0EA9E0A8; // "lowerbound"
+constexpr uint32_t kUpperBound = 0xACAECE33; // "upperbound"
+constexpr uint32_t kMin = 0x5E84E22F;        // "min"
+constexpr uint32_t kMax = 0x6289DD76;        // "max"
+constexpr uint32_t kClamped = 0xCC419A08;    // "Clamped"
+constexpr uint32_t kX = 0x7323E97C;          // "x"
+constexpr uint32_t kY = 0x0424D9EA;          // "Y"
+constexpr uint32_t kZ = 0x9D2D8850;          // "z"
+constexpr uint32_t kRx = 0xFDF10F7A;         // "rx"
+constexpr uint32_t kRy = 0x8AF63FEC;         // "ry"
+constexpr uint32_t kRz = 0x13FF6E56;         // "rz"
 
 float degree_to_radian_conv() { return g_degree_to_radian_ratio; } // pi / 180
 float convert_to_degrees() { return g_script_radians_to_degrees; } // 180 / pi
@@ -91,10 +91,7 @@ double x87_atan(double value)
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The unnamed argument, in degrees for the trigonometry.
 float get_argument(script::Struct* params)

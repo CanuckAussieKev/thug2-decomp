@@ -79,22 +79,22 @@ void shut_down_object(void* object) { static_cast<objects::PreviewEntity*>(objec
 void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
 
 // More names.
-constexpr uint32_t kViewerPadKey = 0x702247A5;       // the controller the handlers read (a script integer)
-constexpr uint32_t kViewerCam = 0xEB17151B;              // viewer_cam (the camera object's id)
+constexpr uint32_t kViewerPadKey = 0x702247A5; // the controller the handlers read (a script integer)
+constexpr uint32_t kViewerCam = 0xEB17151B;    // viewer_cam (the camera object's id)
 constexpr uint32_t kResetCameraToViewerObject = 0xC965E06F;
-constexpr uint32_t kNoRoll = 0xD8C91578;                 // (a script integer: the roll commands ignored)
-constexpr uint32_t kScene = 0x26861025;                  // scene
-constexpr uint32_t kAdd = 0x02E58C18;                    // Add
-constexpr uint32_t kAddToScene = 0x89A0D75E;             // AddToScene (a script)
-constexpr uint32_t kReloadScene = 0x179BB868;            // ReloadScene (a script)
-constexpr uint32_t kModelName = 0xB974F2FC;              // modelname
-constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
+constexpr uint32_t kNoRoll = 0xD8C91578;       // (a script integer: the roll commands ignored)
+constexpr uint32_t kScene = 0x26861025;        // scene
+constexpr uint32_t kAdd = 0x02E58C18;          // Add
+constexpr uint32_t kAddToScene = 0x89A0D75E;   // AddToScene (a script)
+constexpr uint32_t kReloadScene = 0x179BB868;  // ReloadScene (a script)
+constexpr uint32_t kModelName = 0xB974F2FC;    // modelname
+constexpr uint32_t kSkeletonName = 0x09794932; // skeletonName
 
 float& movement_velocity() { return g_movement_velocity; }
 float& rotate_velocity() { return g_rotate_velocity; }
 uint32_t& last_time() { return g_last_time; }
 bool debug_checks() { return game_config::g_from_cd; }
-uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); }    // pad_input::Hub
+uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); } // pad_input::Hub
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
 
 void construct_node(void* node, int priority) { static_cast<tasks::SchedulerTask*>(node)->make_new(priority); }
@@ -278,7 +278,7 @@ void __cdecl handle_viewer_input(ViewerInputHandler* handler)
     viewer->pad_ly_ = stick(pad_input::Payload::kRawLeftY);
     // Not original - debug mode's keyboard flying (engine/sys/debug_mode.h): held keys over the sticks, and up / down.
     sys::debug_mode::keyboard_viewer(&viewer->pad_lx_, &viewer->pad_ly_, &viewer->pad_rx_, &viewer->pad_ry_,
-                                   &viewer->actions_);
+                                     &viewer->actions_);
     if (!script::fetch_int_value(kViewerButtonsEnabled))
         return;
     auto held = [handler]() { return handler->control_data_->buttons_; };
@@ -344,10 +344,11 @@ void Viewer::create_viewer_object(void* data)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(manager->debug_heap_)
-                                                         : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
+                                                           : static_cast<memory::MemSource*>(manager->bottom_up_heap_));
     drop_viewer_entity();
     void* memory = memory::alloc_zeroed(0x128);
-    entity_ = memory ? static_cast<objects::PreviewEntity*>(memory)->make_new(static_cast<net::AppHost*>(net_handler_)) : nullptr;
+    entity_ = memory ? static_cast<objects::PreviewEntity*>(memory)->make_new(static_cast<net::AppHost*>(net_handler_))
+                     : nullptr;
     static_cast<objects::PreviewEntity*>(entity_)->read_in(static_cast<script::Struct*>(data));
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -498,14 +499,16 @@ void __cdecl free_camera_task(ViewerTask* task)
             if (viewer->pad_ly_ != 0.0f) {
                 // Up / down: about its own x axis.
                 maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
-                float angle = static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
+                float angle =
+                    static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
                 camera->basis_frame_.turn_in_own_frame(axis, angle);
             }
             if (viewer->pad_lx_ != 0.0f) {
                 // Left / right: about the world's y axis.
                 maths::Mat4 matrix;
                 matrix = camera->basis_frame_;
-                float angle = static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx_ * seconds * -kDegrees);
+                float angle =
+                    static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx_ * seconds * -kDegrees);
                 maths::Mat4 rotation;
                 maths::get_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angle));
                 camera->basis_frame_ = matrix;
@@ -526,7 +529,8 @@ void __cdecl free_camera_task(ViewerTask* task)
         move_object_local(camera, &offset);
     }
     if (viewer->actions_ & Viewer::kCommandShoulderB) {
-        maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)), 0.0f, 1.0f};
+        maths::Vec4 offset = {0.0f, static_cast<float>(-(static_cast<double>(movement_velocity()) * seconds)), 0.0f,
+                              1.0f};
         move_object_local(camera, &offset);
     }
     if (!script::fetch_int_value(kNoRoll)) {
@@ -564,10 +568,12 @@ void Viewer::start_callback()
         net::Router& dispatcher = static_cast<net::AppHost*>(net_handler_)->dispatcher_;
         dispatcher.append_listener(0x20, &handle_reload_scene, 3, nullptr, 0x80);
         dispatcher.append_listener(0x21, &online::handle_nothing, 3, nullptr, 0x80);
-        dispatcher.append_listener(0x22, reinterpret_cast<net::HandlerSlotValue>(&reload_script_file), 3, nullptr, 0x80);
+        dispatcher.append_listener(0x22, reinterpret_cast<net::HandlerSlotValue>(&reload_script_file), 3, nullptr,
+                                   0x80);
         dispatcher.append_listener(0x2A, &handle_add_to_scene, 3, nullptr, 0x80);
         dispatcher.append_listener(0x23, &handle_create_viewer_object, 3, this, 0x80);
-        dispatcher.append_listener(0x24, reinterpret_cast<net::HandlerSlotValue>(&handle_remove_viewer_object), 3, this, 0x80);
+        dispatcher.append_listener(0x24, reinterpret_cast<net::HandlerSlotValue>(&handle_remove_viewer_object), 3, this,
+                                   0x80);
         dispatcher.append_listener(0x2B, &on_remote_script_msg, 3, this, 0x80);
     }
     append_vertex(main_loop_manager()->logic_tasks_, task_1c_);
@@ -588,7 +594,7 @@ Viewer* Viewer::make_new()
     if (!debug_checks()) {
         net::Hub* net = net::Hub::sole();
         inet_addr(net->fetch_own_address()); // (unused)
-        stubs::return_true();          // (0x005B9760 on the net manager: a check compiled to "true")
+        stubs::return_true();                // (0x005B9760 on the net manager: a check compiled to "true")
         int address = static_cast<int>(inet_addr(net->fetch_own_address()));
         net_handler_ = net->make_server_app(0, "THUG2 Viewer", 4, 10000, address, 0x10);
     }
@@ -636,10 +642,11 @@ Viewer* Viewer::make_new()
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&modules::Viewer::teardown, &modules::Viewer::start_callback, &modules::Viewer::stop_callback};
+static VtableSlot g_vtable_slots[] = {&modules::Viewer::teardown, &modules::Viewer::start_callback,
+                                      &modules::Viewer::stop_callback};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 static VtableSlot g_base_handler_vtable_slots[] = {&_purecall, &_purecall, &modules::ViewerInputHandler::teardown};
 void** const kBaseHandlerVtable = reinterpret_cast<void**>(g_base_handler_vtable_slots);
 } // namespace
 
-} // namespace Mdl
+} // namespace modules

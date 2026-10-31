@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands of the engine, 0x00445000-0x00445B30 (LoadScene, 0x00445130, is in gfx/scene.cpp): terrain sounds,
 // models, scenes and their collision, animations and other assets, the system configuration and the sun's lens

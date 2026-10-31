@@ -32,7 +32,7 @@ namespace online {
 
 namespace {
 
-constexpr uint8_t kMsgChat = 0x4C;   // 'L'
+constexpr uint8_t kMsgChat = 0x4C; // 'L'
 constexpr uint8_t kObserverColor = 8;
 // Sender colour for messages from "Server". The receiver writes the name colour as \c<color + 2> in decimal,
 // but the text renderer reads a single hex digit after \c - so only 0..7 work (the game's own observer
@@ -57,10 +57,7 @@ void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
 
 // The local player's info (online::PlayerRecord, declared by the skate module's header): name at +0x38, flags at
 // +0x1D0, team at [+0x14]+0x14.
-PlayerRecord* find_own_player_record(Hub* manager)
-{
-    return static_cast<PlayerRecord*>(manager->get_own_player());
-}
+PlayerRecord* find_own_player_record(Hub* manager) { return static_cast<PlayerRecord*>(manager->get_own_player()); }
 const char* player_name(PlayerRecord* player) { return reinterpret_cast<const char*>(player) + 0x38; }
 bool is_observer(PlayerRecord* player)
 {
@@ -103,8 +100,8 @@ void launch_script(uint32_t script, ParamBag* params)
     script::launch_script(script, params, nullptr, false, nullptr);
 }
 
-constexpr uint32_t kText = 0xC4745838;              // checksum of "text"
-constexpr uint32_t kShowChatScript = 0xCCB19938;    // the script that adds a line to the chat display
+constexpr uint32_t kText = 0xC4745838;           // checksum of "text"
+constexpr uint32_t kShowChatScript = 0xCCB19938; // the script that adds a line to the chat display
 
 void dup_from(char* out, size_t size, const char* in)
 {
@@ -171,7 +168,7 @@ constexpr char kKeyF1 = 0x1F; // (0x1B in the original - see keyboard_task)
 constexpr char kKeyF2 = 0x1C;
 constexpr char kKeyF3 = 0x1D;
 constexpr char kKeyF4 = 0x1E;
-constexpr uint32_t kId = 0x40C698AF;           // "id"
+constexpr uint32_t kId = 0x40C698AF; // "id"
 constexpr uint32_t kOpenChatScript = 0x3B4548B8;
 constexpr uint32_t kTauntScript = 0x2C43B5BA;
 constexpr uint32_t kTauntName = 0xB53D0E0F;
@@ -255,7 +252,7 @@ bool handle_chat_command(Hub* manager, const char* text)
     if (_stricmp(text, "/colours") == 0 || _stricmp(text, "/colors") == 0) {
         // Only shown here, not sent: each palette entry in its own colour, to pick codes from.
         show_local_chat_line("\\c11 \\c22 \\c33 \\c44 \\c55 \\c66 \\c77 \\c88 \\c99 \\cAA \\cBB \\cCC \\cDD "
-                          "\\cEE \\cFF\\c0 (colour codes)");
+                             "\\cEE \\cFF\\c0 (colour codes)");
         return true;
     }
     if (_stricmp(text, "/where") == 0) {
@@ -263,7 +260,8 @@ bool handle_chat_command(Hub* manager, const char* text)
         // to thug2-decomp.log (for picking a place to show behind the main menu).
         uint8_t level = render::current_level();
         get_log("where: level %u", level);
-        auto* skater = reinterpret_cast<modules::Skate*>(reinterpret_cast<void*>(modules::g_skate_module))->get_home_rider(); // the skate module's local skater
+        auto* skater = reinterpret_cast<modules::Skate*>(reinterpret_cast<void*>(modules::g_skate_module))
+                           ->get_home_rider(); // the skate module's local skater
         if (skater) {
             const maths::Vec4& p = skater->at_point_;
             const maths::Mat4& m = skater->basis_frame_;
@@ -276,7 +274,7 @@ bool handle_chat_command(Hub* manager, const char* text)
         // The camera of the last frame drawn (choose_camera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
         const float* camera = reinterpret_cast<const float*>(&render::g_camera);
         get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
-            camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
+                camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
         char line[128];
         if (skater)
             std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
@@ -326,11 +324,20 @@ void __cdecl keyboard_task(void* /*task*/)
     // Escape there): its byte at 0x00533652 - the original compares with 0x1B.
     uint32_t taunt;
     switch (key) {
-    case kKeyF1: taunt = 0x0E5FD359; break;
-    case kKeyF2: taunt = 0xBEEA3518; break;
-    case kKeyF3: taunt = 0x4525ADBD; break;
-    case kKeyF4: taunt = 0xA36DBEE1; break;
-    default: return;
+    case kKeyF1:
+        taunt = 0x0E5FD359;
+        break;
+    case kKeyF2:
+        taunt = 0xBEEA3518;
+        break;
+    case kKeyF3:
+        taunt = 0x4525ADBD;
+        break;
+    case kKeyF4:
+        taunt = 0xA36DBEE1;
+        break;
+    default:
+        return;
     }
     if (frame_clock::get_time() - previous_taunt_stamp() <= 2000)
         return;
@@ -372,10 +379,7 @@ bool __cdecl cfunc_send_chat_message(script::Struct* params, script::Script* /*s
 namespace {
 
 struct ManagerAdapter {
-    void send_chat_message(const char* text)
-    {
-        online::send_chat_message(reinterpret_cast<online::Hub*>(this), text);
-    }
+    void send_chat_message(const char* text) { online::send_chat_message(reinterpret_cast<online::Hub*>(this), text); }
 };
 
 } // namespace

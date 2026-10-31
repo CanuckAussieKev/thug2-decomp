@@ -4,10 +4,10 @@
 
 namespace memory {
 struct ListNode;
-} // namespace Mem
+} // namespace memory
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The save file types (by checksum) and what the memory card commands need to know about each: the file's
 // name, the version scripts give it, its size and the blocks it takes, and the summary shown for a save - 0x005A5F70-
@@ -92,4 +92,4 @@ void round_up_to_card_block_stub();
 void type_file_size_stub();
 void apply_cat_and_custom_skater_stub();
 
-} // namespace Mc
+} // namespace save_cards

@@ -73,10 +73,11 @@ bool anteara_mod()
         bool setting = config_int("features", "anteara_mod", 0) != 0;
         if (setting) {
             std::string folder = get_folder() + "\\anteara";
-            get_log(is_folder(folder) ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
-                                 : "anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
-                                   "game's scripts are used",
-                folder.c_str());
+            get_log(is_folder(folder)
+                        ? "anteara_mod: on - Anteara Mod's scripts from %s (tools/anteara)"
+                        : "anteara_mod: on, but %s not found - run tools/pipeline/menu_level/make_menu_level.ts; the "
+                          "game's scripts are used",
+                    folder.c_str());
         }
         return setting;
     }();
@@ -120,4 +121,4 @@ bool get_overlay_path(const char* name, char (&path)[260])
     return true;
 }
 
-} // namespace MenuSystem::data_overlay
+} // namespace frontend::data_overlay

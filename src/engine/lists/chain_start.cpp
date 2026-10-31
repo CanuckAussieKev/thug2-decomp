@@ -74,4 +74,4 @@ void Foremost::append_node(memory::ListNode* node)
     insert_after(&list_link_, node); // at the front
 }
 
-} // namespace Lst
+} // namespace lists

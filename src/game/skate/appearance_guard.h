@@ -18,7 +18,7 @@
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects::appearance_guard {
 
@@ -34,4 +34,4 @@ struct Catalog {
 const Catalog& game_catalog();
 void set_catalog(const Catalog& catalog);
 
-} // namespace GameObjects::appearance_guard
+} // namespace objects::appearance_guard

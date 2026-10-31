@@ -33,4 +33,4 @@ struct ImposterManager {
 };
 static_assert(sizeof(ImposterManager) == 8, "layout must match the original");
 
-} // namespace Nx
+} // namespace render

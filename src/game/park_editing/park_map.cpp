@@ -24,15 +24,15 @@ bool g_rail_editor_flag{true};
 namespace {
 
 constexpr uint16_t kMapVersion = 0x4E24;
-constexpr uint32_t kParkEditorGoals = 0xD8EB825E; // "Park_editor_goals"
-constexpr uint32_t kMaxPlayers = 0xB7E39B53;      // "MaxPlayers"
+constexpr uint32_t kParkEditorGoals = 0xD8EB825E;  // "Park_editor_goals"
+constexpr uint32_t kMaxPlayers = 0xB7E39B53;       // "MaxPlayers"
 constexpr uint32_t kPremadeParksInfo = 0x9FAE26EE; // "premade_parks_info"
-constexpr uint32_t kSlot = 0x53F1DF98;            // "slot"
-constexpr uint32_t kName = 0xA1DC81F9;            // "name"
-constexpr uint32_t kEdSaveMap = 0xBC29F55A;       // "Ed_Save_Map": the metapieces' names by saved index
-constexpr uint32_t kDeadPiece = 0xA0560CBD;       // "Sk6Ed_dead": a saved piece that's gone
-constexpr uint32_t kOldDeadPiece = 0xE2730BC0;    // the older parks' dead piece
-constexpr uint32_t kEditLevel = 0x7ECA21E5;       // "edit": the park editor's level
+constexpr uint32_t kSlot = 0x53F1DF98;             // "slot"
+constexpr uint32_t kName = 0xA1DC81F9;             // "name"
+constexpr uint32_t kEdSaveMap = 0xBC29F55A;        // "Ed_Save_Map": the metapieces' names by saved index
+constexpr uint32_t kDeadPiece = 0xA0560CBD;        // "Sk6Ed_dead": a saved piece that's gone
+constexpr uint32_t kOldDeadPiece = 0xE2730BC0;     // the older parks' dead piece
+constexpr uint32_t kEditLevel = 0x7ECA21E5;        // "edit": the park editor's level
 
 // The goal editor (0x004E8470 looks it up): its goals cleared (0x004E8280), read from a structure (0x004EA470).
 void* get_goal_editor() { return ObjectiveAuthoring::get_pull(); }
@@ -42,10 +42,7 @@ void read_goals(void* goal_editor, script::Struct* goals, int flag)
     static_cast<ObjectiveAuthoring*>(goal_editor)->read_goals(goals, flag);
 }
 // The rail editor (0x004F4970 looks it up): its rails read from a structure (0x004F7ED0).
-void read_rails(script::Struct* params)
-{
-    RailAuthoring::sole()->decode_from_struct(params);
-}
+void read_rails(script::Struct* params) { RailAuthoring::sole()->decode_from_struct(params); }
 // A flag the rail editor reads (cleared while rails are read outside the park editor's level).
 bool& rail_editor_flag() { return g_rail_editor_flag; }
 
@@ -172,10 +169,7 @@ void ParkLayout::transfer_park_file(bool save, int slot)
 }
 
 // 0x00599EB0: an older park (gaps of 0x2C bytes, another dead piece).
-void ParkLayout::read_from_old_compressed_map()
-{
-    read_compressed_map(script::fetch_list(kEdSaveMap), false);
-}
+void ParkLayout::read_from_old_compressed_map() { read_compressed_map(script::fetch_list(kEdSaveMap), false); }
 
 // 0x0059B750
 void ParkLayout::read_from_compressed_map()
@@ -271,4 +265,4 @@ void ParkLayout::reset_park()
     flag_bits_ = (flag_bits_ & ~kFlag8) | kMapUpToDate;
 }
 
-} // namespace Ed
+} // namespace park_editing

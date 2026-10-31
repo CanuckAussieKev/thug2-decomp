@@ -205,10 +205,8 @@ void __cdecl update_spawned_polys()
         float top = static_cast<float>(-y_offset);
         float right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
         float bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
-        maths::Vec4 corners[4] = {{left, top, 0.0f, 0.0f},
-                                  {right, top, 0.0f, 0.0f},
-                                  {right, bottom, 0.0f, 0.0f},
-                                  {left, bottom, 0.0f, 0.0f}};
+        maths::Vec4 corners[4] = {
+            {left, top, 0.0f, 0.0f}, {right, top, 0.0f, 0.0f}, {right, bottom, 0.0f, 0.0f}, {left, bottom, 0.0f, 0.0f}};
         place_corners(poly, corners);
         for (int c = 0; c < 4; ++c)
             set_corner(poly->primitive, c, corners[c]);
@@ -231,6 +229,6 @@ void __cdecl kill_all_spawned_polys()
     }
 }
 
-} // namespace Engine
+} // namespace engine
 
-} // namespace Nx
+} // namespace render

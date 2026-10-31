@@ -54,8 +54,7 @@ public:
     GameEntity* create_composite_object();
     // 0x0045F3A0: a new composite object set up from `node_data` (0x0045DAD0), with the components `components`
     // names (0x0045DA90, each with `node_data`), then, with `finalize`, its vtable +0x20 (Finalize).
-    GameEntity* spawn_entity_from_node(script::Array* components, script::Struct* node_data,
-                                                    bool finalize);
+    GameEntity* spawn_entity_from_node(script::Array* components, script::Struct* node_data, bool finalize);
 
     // 0x0045F4A0: every object's update (GameEntity 0x0045D920), in list order (node priority, highest
     // first), each once even if updates register or unregister objects (the walk starts again from the front,
@@ -64,7 +63,7 @@ public:
     // 0x0045F5D0: kCompositeFlagPaused set (or cleared) on every object it has now - the same walk.
     void get_freeze(bool pause);
 
-    void* update_job_;        // +0x40 a tasks::Task (vtable 0x006476F0) running UpdateTask
+    void* update_job_;         // +0x40 a tasks::Task (vtable 0x006476F0) running UpdateTask
     uint32_t component_types_; // +0x44
     struct ComponentType {
         uint32_t type;
@@ -72,8 +71,7 @@ public:
     };
     ComponentType components_[kMaxComponentTypes]; // +0x48
 };
-static_assert(offsetof(EntityHub, update_job_) == 0x40 &&
-                  offsetof(EntityHub, component_types_) == 0x44 &&
+static_assert(offsetof(EntityHub, update_job_) == 0x40 && offsetof(EntityHub, component_types_) == 0x44 &&
                   offsetof(EntityHub, components_) == 0x48 && sizeof(EntityHub) == 0x448,
               "layout must match the original (0x0045F7A0 allocates 0x448 bytes)");
 
@@ -106,4 +104,4 @@ void resize_coim_heap(uint32_t size);
 extern objects::EntityHub* g_composite_registry;
 
 extern float g_pi;
-} // namespace Obj
+} // namespace objects

@@ -15,7 +15,7 @@ class GameEntity;
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // NOT ORIGINAL - the level editor (ours, added at the user's request; not the game's and not PartyMod's).
 //
@@ -348,4 +348,4 @@ void segment_box(V3 a, V3 b, V3* min, V3* max);
 // and `high`, a pulse a second and a quarter (0 at low).
 uint32_t get_pulse(uint32_t low, uint32_t high, double seconds);
 
-} // namespace MenuSystem::level_editor
+} // namespace frontend::level_editor

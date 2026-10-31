@@ -32,7 +32,10 @@ constexpr int kFlushTaskPriority = 1000;
 uint32_t& tracker_references() { return g_tracker_references; }
 
 // lists::Foremost<Entity>'s insert by priority (the highest first, equal ones newest first).
-void add_node_by_priority(memory::ListNode* head, memory::ListNode* node) { reinterpret_cast<lists::Foremost*>(head)->append_vertex(node); }
+void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)
+{
+    reinterpret_cast<lists::Foremost*>(head)->append_vertex(node);
+}
 // tasks::Task's constructor and the main loop's system task list's add.
 void construct_task(void* task, int priority) { static_cast<tasks::SchedulerTask*>(task)->make_new(priority); }
 void queue_engine_job(void* task)
@@ -351,7 +354,7 @@ void EventWaitBoard::subscribe_receiver(SignalReceiver* listener)
     listener->on_board_ = true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -359,24 +362,24 @@ namespace {
 static VtableSlot g_list_head_vtable_slots[] = {&objects::ObjectListHead::teardown};
 void** const kListHeadVtable = reinterpret_cast<void**>(g_list_head_vtable_slots);
 static VtableSlot g_manager_vtable_slots[] = {&objects::ObjectHubBase::teardown,
-         &objects::ObjectHubBase::enrol_subject,
-         &objects::ObjectHubBase::drop_entity_registration,
-         &objects::ObjectHubBase::reassign_object_id,
-         &objects::ObjectHubBase::set_entity_rank,
-         &_purecall,
-         &_purecall};
+                                              &objects::ObjectHubBase::enrol_subject,
+                                              &objects::ObjectHubBase::drop_entity_registration,
+                                              &objects::ObjectHubBase::reassign_object_id,
+                                              &objects::ObjectHubBase::set_entity_rank,
+                                              &_purecall,
+                                              &_purecall};
 void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 static VtableSlot g_general_manager_vtable_slots[] = {&objects::MiscHub::teardown,
-         &objects::ObjectHubBase::enrol_subject,
-         &objects::ObjectHubBase::drop_entity_registration,
-         &objects::ObjectHubBase::reassign_object_id,
-         &objects::ObjectHubBase::set_entity_rank,
-         &objects::MiscHub::remove_entity,
-         &frontend::UiTree::fetch_object_set};
+                                                      &objects::ObjectHubBase::enrol_subject,
+                                                      &objects::ObjectHubBase::drop_entity_registration,
+                                                      &objects::ObjectHubBase::reassign_object_id,
+                                                      &objects::ObjectHubBase::set_entity_rank,
+                                                      &objects::MiscHub::remove_entity,
+                                                      &frontend::UiTree::fetch_object_set};
 void** const kGeneralManagerVtable = reinterpret_cast<void**>(g_general_manager_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -385,4 +388,4 @@ static VtableSlot g_object_search_base_vtable_slots[] = {&objects::ObjectSearch:
 void** const kObjectSearchBaseVtable = reinterpret_cast<void**>(g_object_search_base_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

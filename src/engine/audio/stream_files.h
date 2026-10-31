@@ -18,4 +18,4 @@ static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
 
 extern CachedStreamFile g_stream_files[12];
 
-} // namespace Pcm
+} // namespace audio

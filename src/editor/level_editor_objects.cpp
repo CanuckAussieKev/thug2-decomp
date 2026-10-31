@@ -31,7 +31,7 @@ namespace {
 
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters aren't picked)
-constexpr uint32_t kCamModuleName = 0xC4E311FA;      // camera (camera objects aren't either)
+constexpr uint32_t kCamModuleName = 0xC4E311FA;        // camera (camera objects aren't either)
 constexpr uint32_t kClass = 0x12B4E660;                // Class
 constexpr uint32_t kName = 0xA1DC81F9;                 // Name
 constexpr uint32_t kPos = 0x7F261953;                  // Pos
@@ -42,10 +42,7 @@ constexpr uint32_t kPedestrian = 0xA0DFAC98, kVehicle = 0xE47F1B79, kParticleObj
 constexpr float kPi = 3.14159265f;
 
 // The node of that name (0x0045C1B0: by name).
-script::Struct* node_of(uint32_t name)
-{
-    return level_nodes::fetch_vertex(name, false);
-}
+script::Struct* node_of(uint32_t name) { return level_nodes::fetch_vertex(name, false); }
 
 uint32_t node_class_hash(script::Struct* node)
 {
@@ -70,7 +67,6 @@ uint32_t copy_nodes_name()
     static const uint32_t kName = checksums::hash_from_text("level_editor_copy_nodes");
     return kName;
 }
-
 
 level_nodes::NodeManager* get_node_manager() { return level_nodes::g_node_manager; }
 
@@ -135,7 +131,8 @@ void __cdecl pick_one(objects::Entity* object, void* data)
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);
     OrientedBox box;
-    if (picking::latched(picking::kObjects, composite->ident_) || view::hidden_object(composite->ident_) || // (H: level_editor_view.h)
+    if (picking::latched(picking::kObjects, composite->ident_) ||
+        view::hidden_object(composite->ident_) || // (H: level_editor_view.h)
         !model_box(composite, &box))
         return;
     float t;
@@ -160,19 +157,19 @@ void __cdecl count_one(objects::Entity* object, void* data)
     if (!model_box(composite, &box)) {
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
-            uint8_t* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208)
-                                       : nullptr;
+            uint8_t* model =
+                component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
-                "(flags %02X)",
-                caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y, composite->at_point_.z,
-                composite->composite_flags_, static_cast<void*>(component), static_cast<void*>(model),
-                model ? model[0x44] : 0);
+                    "(flags %02X)",
+                    caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
+                    composite->at_point_.z, composite->composite_flags_, static_cast<void*>(component),
+                    static_cast<void*>(model), model ? model[0x44] : 0);
         }
         return;
     }
     if (++census->pickable <= 8)
-        get_log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", caption(composite->ident_).c_str(), composite->at_point_.x,
-            composite->at_point_.y, composite->at_point_.z);
+        get_log("level editor:   pickable %s at (%.1f, %.1f, %.1f)", caption(composite->ident_).c_str(),
+                composite->at_point_.x, composite->at_point_.y, composite->at_point_.z);
 }
 
 // An object's model's geometry `index` (the model component's model +0x208, 0x00494640 - as 0x00420700 colours a
@@ -233,7 +230,8 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         return false;
     void* geometry = reinterpret_cast<render::RenderModel*>(model)->get_geom_by_name(0);
     const maths::Vec4* box =
-        geometry ? reinterpret_cast<const maths::Vec4*(__thiscall*)(void*)>(&render::virtual_slot15_jump)(geometry) : nullptr;
+        geometry ? reinterpret_cast<const maths::Vec4*(__thiscall*)(void*)>(&render::virtual_slot15_jump)(geometry)
+                 : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
     V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
     if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {
@@ -244,9 +242,12 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         const float* scale = reinterpret_cast<const float*>(model + 0x1C);
         min = {min.x * scale[0], min.y * scale[1], min.z * scale[2]};
         max = {max.x * scale[0], max.y * scale[1], max.z * scale[2]};
-        if (min.x > max.x) std::swap(min.x, max.x);
-        if (min.y > max.y) std::swap(min.y, max.y);
-        if (min.z > max.z) std::swap(min.z, max.z);
+        if (min.x > max.x)
+            std::swap(min.x, max.x);
+        if (min.y > max.y)
+            std::swap(min.y, max.y);
+        if (min.z > max.z)
+            std::swap(min.z, max.z);
     }
     if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN)
         return false;
@@ -338,14 +339,22 @@ void turn_about(objects::GameEntity* object, V3 pivot, float angle)
 const char* class_of(uint32_t id)
 {
     switch (node_class_hash(node_of(id))) {
-    case 0xB7B3BD86: return "LevelObject";
-    case 0xEF59C100: return "GameObject";
-    case 0xA0DFAC98: return "Pedestrian";
-    case 0xE47F1B79: return "Vehicle";
-    case 0x9E7D469E: return "ParticleObject";
-    case 0xDABD3086: return "EnvironmentObject";
-    case 0: return is_copy(id) ? "copy" : "object";
-    default: return "node";
+    case 0xB7B3BD86:
+        return "LevelObject";
+    case 0xEF59C100:
+        return "GameObject";
+    case 0xA0DFAC98:
+        return "Pedestrian";
+    case 0xE47F1B79:
+        return "Vehicle";
+    case 0x9E7D469E:
+        return "ParticleObject";
+    case 0xDABD3086:
+        return "EnvironmentObject";
+    case 0:
+        return is_copy(id) ? "copy" : "object";
+    default:
+        return "node";
     }
 }
 
@@ -363,7 +372,8 @@ std::string describe(objects::GameEntity* object)
 
 State store_away(objects::GameEntity* object)
 {
-    return {object->ident_, object->at_point_, object->basis_frame_, object->display_matrix_, scale_tool::get_object_scale(object)};
+    return {object->ident_, object->at_point_, object->basis_frame_, object->display_matrix_,
+            scale_tool::get_object_scale(object)};
 }
 
 bool get_restore(const State& state)
@@ -415,7 +425,8 @@ void* resolve_tint(scenery::TintOwner owner)
     if (owner.index < 0)
         return scenery::sector_geometry(owner.id);
     auto* object = static_cast<objects::GameEntity*>(objects::find_object(owner.id));
-    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? model_geometry(object, owner.index) : nullptr;
+    return object && !(object->object_flags_ & objects::kObjectFlagDead) ? model_geometry(object, owner.index)
+                                                                         : nullptr;
 }
 
 bool can_copy(uint32_t source)
@@ -478,7 +489,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         g_copies.push_back({name, source});
     if (debug_enabled())
         get_log("level editor: copy %08X of %s at (%.0f, %.0f, %.0f): %s", name, caption(source).c_str(), pos.x, pos.y,
-            pos.z, object ? "made" : "NOT made");
+                pos.z, object ? "made" : "NOT made");
     return object;
 }
 
@@ -571,4 +582,4 @@ std::vector<TableRow> copyable()
     return entries;
 }
 
-} // namespace MenuSystem::level_editor::Objects
+} // namespace frontend::level_editor::object_edit

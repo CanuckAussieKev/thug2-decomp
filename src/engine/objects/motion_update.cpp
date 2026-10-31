@@ -408,6 +408,6 @@ bool KinematicsModule::obj_follow_leader(script::Struct* params, script::Script*
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::KinematicsModule;

@@ -99,4 +99,4 @@ void tick();
 // The Inspector's lines about it: off or on, moved or not.
 std::string describe_state(uint32_t checksum);
 
-} // namespace MenuSystem::level_editor::Walls
+} // namespace frontend::level_editor::walls

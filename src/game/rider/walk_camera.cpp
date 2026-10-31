@@ -44,19 +44,16 @@ constexpr uint32_t kLockAngle = 0xB8DA8A73, kFullSlerpSpeed = 0xBCEF6DDA, kMinSl
                    kMatrixSlerpRate = 0x0C39B639, kRunSlerpFactor = 0xD25348EB, kControlSlerpFactor = 0xB2DA3C87,
                    kFlushSlerpFactor = 0x7178E048;
 
-constexpr float kDegrees = 0.01745329238474369f;   // 0x00645464
-constexpr float kAligned = 0.9900000095367432f;    // 0x00645450
-constexpr float kNearHeight = 3.0f;                // 0x006467A8
-constexpr float kTiltOffset = 0.628000020980835f;  // 0x0064BB00
-constexpr float kTiltScale = 1.5923566818237305f;  // 0x0064BAFC
-constexpr float kTiltRange = 0.6000000238418579f;  // 0x006463C4
-constexpr float kTiltBase = 0.4000000059604645f;   // 0x0064BAF8
+constexpr float kDegrees = 0.01745329238474369f;  // 0x00645464
+constexpr float kAligned = 0.9900000095367432f;   // 0x00645450
+constexpr float kNearHeight = 3.0f;               // 0x006467A8
+constexpr float kTiltOffset = 0.628000020980835f; // 0x0064BB00
+constexpr float kTiltScale = 1.5923566818237305f; // 0x0064BAFC
+constexpr float kTiltRange = 0.6000000238418579f; // 0x006463C4
+constexpr float kTiltBase = 0.4000000059604645f;  // 0x0064BAF8
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The right stick's turn of the facing (0x00525468-): the sine rounded to float, the cosine kept at full
 // precision: x' = z * sin + cos * x, z' = -(sin * x) + z * cos.
@@ -92,7 +89,7 @@ void turn_by_stick(double angle, float* x, float* z)
 
 // 0x00524D70
 maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low,
-                                 float high)
+                                   float high)
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
@@ -256,10 +253,10 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
     if (instant) {
         aim_point_ = skater_->at_point_;
     } else {
-        float across = static_cast<float>(
-            frame_blend(get_at<float>(skater_camera_, 0xE4), static_cast<float>(frame_clock::get_slomo_frame_seconds())));
-        float up = static_cast<float>(
-            frame_blend(get_at<float>(skater_camera_, 0xE8), static_cast<float>(frame_clock::get_slomo_frame_seconds())));
+        float across = static_cast<float>(frame_blend(get_at<float>(skater_camera_, 0xE4),
+                                                      static_cast<float>(frame_clock::get_slomo_frame_seconds())));
+        float up = static_cast<float>(frame_blend(get_at<float>(skater_camera_, 0xE8),
+                                                  static_cast<float>(frame_clock::get_slomo_frame_seconds())));
         const maths::Vec4& skater = skater_->at_point_;
         float x = aim_point_.x, y = aim_point_.y, z = aim_point_.z;
         aim_point_.w = 1.0f;
@@ -342,7 +339,7 @@ void FootView::tick_frame()
                 }
                 const maths::Vec4& velocity = skater_->vel_;
                 double speed = x87::get_sqrt(static_cast<double>(velocity.x) * velocity.x +
-                                         static_cast<double>(velocity.z) * velocity.z);
+                                             static_cast<double>(velocity.z) * velocity.z);
                 float speed_f = static_cast<float>(speed);
                 if (!(speed < full)) {
                     swing = true;
@@ -429,9 +426,9 @@ void FootView::tick_frame()
             slerp.fetch_mat(matrix, static_cast<float>(frame_blend(rate, frame)));
             const maths::Vec4& now = matrix.row[2];
             const maths::Vec4& before = orientation_.row[2];
-            turn_cosine_ = static_cast<float>(static_cast<double>(now.z) * before.z +
-                                              static_cast<double>(now.y) * before.y +
-                                              static_cast<double>(now.x) * before.x);
+            turn_cosine_ =
+                static_cast<float>(static_cast<double>(now.z) * before.z + static_cast<double>(now.y) * before.y +
+                                   static_cast<double>(now.x) * before.x);
         }
     }
     orientation_ = matrix;
@@ -475,8 +472,9 @@ void FootView::tick_frame()
     right.make_unit();
     maths::Vec4& aim_up = aim.row[1];
     aim_up = {static_cast<float>(static_cast<double>(right.z) * aim_at.y - static_cast<double>(right.y) * aim_at.z),
-             static_cast<float>(static_cast<double>(right.x) * aim_at.z - static_cast<double>(right.z) * aim_at.x),
-             static_cast<float>(static_cast<double>(right.y) * aim_at.x - static_cast<double>(right.x) * aim_at.y), 0.0f};
+              static_cast<float>(static_cast<double>(right.x) * aim_at.z - static_cast<double>(right.z) * aim_at.x),
+              static_cast<float>(static_cast<double>(right.y) * aim_at.x - static_cast<double>(right.x) * aim_at.y),
+              0.0f};
     aim_up.make_unit();
     matrix.row[0] = {-right.x, -right.y, -right.z, -right.w};
     matrix.row[1] = aim_up;
@@ -504,25 +502,27 @@ void FootView::tick_frame()
     get_at<maths::Mat4>(skater_camera_, 0x74) = matrix;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::FootView::teardown,
-         &objects::FootView::tick_frame,
-         &objects::FootView::configure_from_data,
-         &objects::FootView::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::FootView::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::FootView::teardown,
+    &objects::FootView::tick_frame,
+    &objects::FootView::configure_from_data,
+    &objects::FootView::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::FootView::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

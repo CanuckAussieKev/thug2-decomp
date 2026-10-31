@@ -33,7 +33,7 @@ public:
     // 0x00459DC0: a message streamed to the server (AppHost::send_bulk_to_conn, 0x00458740, on the first
     // connection).
     void send_bulk_to_host(uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
-                               bool queue_all_pieces, bool borrow_caller_buffer);
+                           bool queue_all_pieces, bool borrow_caller_buffer);
 
     // 0x0045A300: everything waiting on the socket, into the server connection's read buffer (or, from an unknown
     // address while not connected, into a new connection).
@@ -54,4 +54,4 @@ public:
 };
 static_assert(sizeof(Guest) == 0x1F18, "allocated as 0x1F18 bytes (0x00455460)");
 
-} // namespace Net
+} // namespace net

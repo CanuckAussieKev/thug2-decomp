@@ -127,8 +127,8 @@ Hdl unseal(const char* name, const char* mode)
     // Original behaviour: archives first, then the data folder.
     char overlay[260];
     if (frontend::data_overlay::get_overlay_path(name, overlay)) {
-        HANDLE file = CreateFileA(overlay, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
-                                  nullptr);
+        HANDLE file =
+            CreateFileA(overlay, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (file != INVALID_HANDLE_VALUE) {
             note_opened(name, file, false);
             return file;
@@ -236,7 +236,7 @@ bool is_present(const char* name)
     return file != nullptr;
 }
 
-} // namespace File
+} // namespace file
 
 namespace {
 

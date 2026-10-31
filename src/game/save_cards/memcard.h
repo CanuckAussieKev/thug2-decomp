@@ -80,4 +80,4 @@ void release_manager();
 
 extern Hub* g_the_card;
 
-} // namespace Mc
+} // namespace save_cards

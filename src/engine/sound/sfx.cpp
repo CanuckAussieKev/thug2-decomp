@@ -74,11 +74,15 @@ inline void print_group(int) {}
 int falloff_from_checksum(uint32_t checksum)
 {
     switch (checksum) {
-    case 0xF221474C: return 1;
-    case 0x9706104B: return 2;
-    case 0x0CA64C41: return 3;
+    case 0xF221474C:
+        return 1;
+    case 0x9706104B:
+        return 2;
+    case 0x0CA64C41:
+        return 3;
     case 0xEF082878: // (named, but the default)
-    default: return 0;
+    default:
+        return 0;
     }
 }
 
@@ -143,10 +147,7 @@ bool no_sound()
 }
 
 // 0x0047AFD0
-float fetch_master_loudness()
-{
-    return master_loudness();
-}
+float fetch_master_loudness() { return master_loudness(); }
 
 // 0x0047AFE0
 int count_playing_voices()
@@ -342,7 +343,7 @@ bool AudioMixer::is_frozen()
 
 // 0x0047B360
 bool AudioMixer::ingest_sound(const char* path, uint16_t flags, int load_type, int group, float dropoff, float pitch,
-                            float volume)
+                              float volume)
 {
     if (no_sound())
         return false;
@@ -517,4 +518,4 @@ bool AudioMixer::set_sound_params_scaled(uint32_t unique_id, VolumeRef* volume, 
     return true;
 }
 
-} // namespace Sfx
+} // namespace sound

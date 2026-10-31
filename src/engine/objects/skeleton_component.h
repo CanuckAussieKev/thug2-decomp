@@ -10,7 +10,7 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -61,8 +61,8 @@ public:
     // object's matrix): vel = `velocity_scale` * the object's velocity + `velocity` turned by the object; rotvel =
     // `rotational_velocity` turned by the object.
     void spawn_composite_object_at_bone(uint32_t bone, script::Array* components, script::Struct* params,
-                                    float velocity_scale, const maths::Vec4* velocity,
-                                    const maths::Vec4* rotational_velocity, maths::Vec4* offset);
+                                        float velocity_scale, const maths::Vec4* velocity,
+                                        const maths::Vec4* rotational_velocity, maths::Vec4* offset);
 
     // --- script member functions (the table at 0x00684DE0) ---
     // 0x00431C00 Obj_SetBoneActive: bone= and active= (both asserted) to the skeleton (0x004A2BB0). True.
@@ -89,4 +89,4 @@ public:
 static_assert(offsetof(BoneRigModule, bone_rig_) == 0x18 && sizeof(BoneRigModule) == 0x1C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

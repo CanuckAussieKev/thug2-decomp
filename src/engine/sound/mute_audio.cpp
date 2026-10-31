@@ -57,11 +57,10 @@ bool with_session_volume(F use)
 
 bool set_audio_session_muted(bool muted)
 {
-    bool ok = with_session_volume([muted](ISimpleAudioVolume* volume) {
-        return SUCCEEDED(volume->SetMute(muted ? TRUE : FALSE, nullptr));
-    });
+    bool ok = with_session_volume(
+        [muted](ISimpleAudioVolume* volume) { return SUCCEEDED(volume->SetMute(muted ? TRUE : FALSE, nullptr)); });
     get_log("mute_audio: audio session %s%s (thug2-decomp.ini [features] mute_audio)", muted ? "muted" : "unmuted",
-        ok ? "" : " - FAILED (no playback device?); the game's volume paths are silenced anyway");
+            ok ? "" : " - FAILED (no playback device?); the game's volume paths are silenced anyway");
     return ok;
 }
 
@@ -72,4 +71,4 @@ bool audio_session_muted()
     return ok && muted;
 }
 
-} // namespace Sfx
+} // namespace sound

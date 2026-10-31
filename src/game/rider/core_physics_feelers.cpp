@@ -53,7 +53,7 @@ constexpr uint32_t kLipHorizOffset = 0xB92CBE3B;       // SkateInAble_LipHorizOf
 constexpr uint32_t kLipDownOffset = 0xEFDFE781;        // SkateInAble_LipDownOffset
 constexpr uint32_t kLipExtraHorizOffset = 0x108613CB;  // SkateInAble_LipExtraCheckHorizOffset
 constexpr uint32_t kLipExtraDownOffset = 0xF9DC446D;   // SkateInAble_LipExtraCheckDownOffset
-constexpr uint32_t kSidewaysShift = 0xC78EBE56;          // SkateInAble_HorizOffset
+constexpr uint32_t kSidewaysShift = 0xC78EBE56;        // SkateInAble_HorizOffset
 constexpr uint32_t kDownOffset = 0xFCA3378C;           // SkateInAble_DownOffset
 constexpr uint32_t kCount = 0x7A26BB9D;                // count
 constexpr uint32_t kAmmoMeterChange = 0x0C8E5500;      // ammo_meter_change (a script)
@@ -77,43 +77,41 @@ constexpr uint16_t kFaceWall = 0x4;
 constexpr uint16_t kFaceVert = 0x8;
 
 // The other fields used here.
-constexpr uint32_t kLastRail = 0x22C;          // the rail node last ground
+constexpr uint32_t kLastRail = 0x22C; // the rail node last ground
 constexpr uint32_t kRailManager = 0x230;
 constexpr uint32_t kRailLeftTime = 0x234;
-constexpr uint32_t kRailWait = 0x23C;          // (ms) before the same rail can be ground again
+constexpr uint32_t kRailWait = 0x23C; // (ms) before the same rail can be ground again
 constexpr uint32_t kOnLedge = 0x248;
 constexpr uint32_t kNearestSide = 0x2D4;
-constexpr uint32_t kSideNormalSum = 0x2AC;     // the side feelers' hit normals added up
-constexpr uint32_t kSideNearest = 0x2BC;       // the nearest side hit (0..1 along the feeler)
-constexpr uint32_t kSideDistance = 0x2C0;      // how far the side feelers reach (0: off)
+constexpr uint32_t kSideNormalSum = 0x2AC; // the side feelers' hit normals added up
+constexpr uint32_t kSideNearest = 0x2BC;   // the nearest side hit (0..1 along the feeler)
+constexpr uint32_t kSideDistance = 0x2C0;  // how far the side feelers reach (0: off)
 constexpr uint32_t kSidePush = 0x2C4;
 constexpr uint32_t kSideTurn = 0x2C8;
-constexpr uint32_t kSideTimes = 0x328;         // the clock when each side last hit (4)
-constexpr uint32_t kProjectileCount = 0x2F8;   // (the ammo)
+constexpr uint32_t kSideTimes = 0x328;       // the clock when each side last hit (4)
+constexpr uint32_t kProjectileCount = 0x2F8; // (the ammo)
 
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kNearGroundReach = 16.0f;          // 0x00645D68
 constexpr float kNearGroundHeight = 20.0f;         // 0x006486AC
 constexpr float kRailEndDistance = 6.0f;           // 0x00646284
 // The natas exit's turns about Y (radians; the code's immediates).
-constexpr float kEighthTurn = 0.785398185f;        // 0x3F490FDB
-constexpr float kQuarterTurn = 1.57079637f;        // 0x3FC90FDB
-constexpr float kThreeEighthsTurn = 2.3561945f;    // 0x4016CBE4
-constexpr float kHalfTurn = 3.14159274f;           // 0x40490FDB
+constexpr float kEighthTurn = 0.785398185f;     // 0x3F490FDB
+constexpr float kQuarterTurn = 1.57079637f;     // 0x3FC90FDB
+constexpr float kThreeEighthsTurn = 2.3561945f; // 0x4016CBE4
+constexpr float kHalfTurn = 3.14159274f;        // 0x40490FDB
 
 objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // 0x0057CB60 (GameObjects::GrindRailHub::get_absolute_pos): a rail node's position.
 maths::Vec4 rail_node_position(void* manager, const void* node)
 {
     maths::Vec4 position;
-    static_cast<objects::GrindRailHub*>(manager)->get_absolute_pos(&position, static_cast<const objects::GrindPoint*>(node));
+    static_cast<objects::GrindRailHub*>(manager)->get_absolute_pos(&position,
+                                                                   static_cast<const objects::GrindPoint*>(node));
     return position;
 }
 
@@ -192,8 +190,10 @@ bool SkaterPhysicsModule::can_grind_rail(const void* rail, const void*, bool any
             maths::Vec4 d3 = between(node, last_previous);
             last_previous = get_at<const RailNode*>(this, kLastRail)->previous;
             maths::Vec4 d4 = between(node->previous, last_previous);
-            new_rail = std::fabs(length_unrounded(d1)) > kRailEndDistance && std::fabs(length_unrounded(d2)) > kRailEndDistance &&
-                      std::fabs(length_unrounded(d3)) > kRailEndDistance && std::fabs(length_unrounded(d4)) > kRailEndDistance;
+            new_rail = std::fabs(length_unrounded(d1)) > kRailEndDistance &&
+                       std::fabs(length_unrounded(d2)) > kRailEndDistance &&
+                       std::fabs(length_unrounded(d3)) > kRailEndDistance &&
+                       std::fabs(length_unrounded(d4)) > kRailEndDistance;
         }
     }
     if (new_rail)
@@ -525,9 +525,10 @@ void SkaterPhysicsModule::check_side_feelers()
         return;
     maths::Vec4 along = forward;
     along.align_to_plane(normal);
-    float angle = static_cast<float>(maths::get_turn_around_axis(vector_at(object_of(this), kForward), along,
-                                                        vector_at(object_of(this), kUp)));
-    double turn = static_cast<double>(maths::get_sign(angle)) * get_at<float>(this, kSideTurn) * get_at<float>(this, kFrameLength);
+    float angle = static_cast<float>(
+        maths::get_turn_around_axis(vector_at(object_of(this), kForward), along, vector_at(object_of(this), kUp)));
+    double turn = static_cast<double>(maths::get_sign(angle)) * get_at<float>(this, kSideTurn) *
+                  get_at<float>(this, kFrameLength);
     float step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
@@ -561,4 +562,4 @@ bool SkaterPhysicsModule::apply_model_rotations()
     return true;
 }
 
-} // namespace Skater
+} // namespace skater

@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 namespace lists {
 class KeyMap;
@@ -25,7 +25,7 @@ class ArchiveFile {
 public:
     // One file inside the archive. Also the "file handle" the FileLoad:: calls get for it.
     struct FileInfo {
-        int compressed_size_;   // 0 if stored uncompressed
+        int compressed_size_; // 0 if stored uncompressed
         uint8_t* data;        // inside the archive's block (compressed, or the file itself)
         uint8_t* unpacked;    // decompressed copy while the file is open, else null
         int position;         // read position while open
@@ -99,7 +99,7 @@ public:
     ArchiveFile::FileInfo* open_entry_key_;
     uint8_t* open_entry_data_;
     ArchiveFile::FileInfo* missing_handle_; // the last handle no archive had (a quick "no" next time)
-    lists::KeyMap* pres_;             // ArchiveFile by archive name checksum
+    lists::KeyMap* pres_;                   // ArchiveFile by archive name checksum
     bool hold_archive_loads_;
     PendingLoad pending_[8];
     int queued_archive_count_;
@@ -132,4 +132,4 @@ bool __cdecl cfunc_wait_load_pre(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_wait_all_load_pre(script::Struct* params, script::Script* script);
 bool __cdecl cfunc_in_pre_file(script::Struct* params, script::Script* script);
 
-} // namespace Pre
+} // namespace pre

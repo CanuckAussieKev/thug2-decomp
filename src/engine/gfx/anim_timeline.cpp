@@ -27,10 +27,10 @@ void** const& g_list_node_vtable = vt::kAnimListNode; // (the channel list's nod
 void** const& g_blend_timeline_vtable = vt::kAnimTrack;
 extern void** const kControllerVtable;
 void** const& g_event_vtable = vt::kAnimEventBase;
-constexpr uint32_t kNoAnim = 0xF60C9090;     // Unassigned
-constexpr uint32_t kId = 0x40C698AF;         // id
-constexpr uint32_t kSkeleton = 0x222756D5;   // skeleton
-constexpr float kFramesPerSecond = 60.0f;    // 0x00645EA0
+constexpr uint32_t kNoAnim = 0xF60C9090;         // Unassigned
+constexpr uint32_t kId = 0x40C698AF;             // id
+constexpr uint32_t kSkeleton = 0x222756D5;       // skeleton
+constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
 constexpr float kSecondsPerFrame = 1.0f / 60.0f; // 0x006463B8
 
 template <typename T>
@@ -78,10 +78,7 @@ AnimTimeline* AnimTimeline::make_new()
 }
 
 // 0x00481690
-void AnimTimeline::destroy_body()
-{
-    elem(this)->unlink_as(g_list_node_vtable);
-}
+void AnimTimeline::destroy_body() { elem(this)->unlink_as(g_list_node_vtable); }
 
 // 0x004816E0
 AnimTimeline* AnimTimeline::teardown(uint8_t flags)
@@ -93,16 +90,10 @@ AnimTimeline* AnimTimeline::teardown(uint8_t flags)
 }
 
 // 0x00481380
-void AnimTimeline::get_reset()
-{
-    get_clear(this);
-}
+void AnimTimeline::get_reset() { get_clear(this); }
 
 // 0x00481640
-void AnimTimeline::tick_frame()
-{
-    ongoing_ = static_cast<float>(next_time());
-}
+void AnimTimeline::tick_frame() { ongoing_ = static_cast<float>(next_time()); }
 
 // 0x00481430 (start: the smaller of the two - `to` when they're equal or NaN; end: the other)
 void AnimTimeline::play_anim(uint32_t anim, float from, float to, int loop_type, float /*blendPeriod*/, float speed)
@@ -265,16 +256,10 @@ bool AnimTrack::get_poses(void* pose)
 }
 
 // 0x00481980
-bool AnimTrack::is_operative()
-{
-    return cur_phase_ != kOff;
-}
+bool AnimTrack::is_operative() { return cur_phase_ != kOff; }
 
 // 0x00481990
-bool AnimTrack::is_fading()
-{
-    return cur_phase_ == kFading;
-}
+bool AnimTrack::is_fading() { return cur_phase_ == kFading; }
 
 // 0x004819A0
 void AnimTrack::arm_events()
@@ -284,10 +269,7 @@ void AnimTrack::arm_events()
 }
 
 // 0x004819D0
-objects::GameEntity* AnimTrack::fetch_subject()
-{
-    return owner_object_;
-}
+objects::GameEntity* AnimTrack::fetch_subject() { return owner_object_; }
 
 // --- the base controller ---
 
@@ -303,10 +285,7 @@ AnimDriver* AnimDriver::make_new(AnimTimeline* timeline)
 }
 
 // 0x00481730
-void AnimDriver::destroy_body()
-{
-    vtable_ = kControllerVtable;
-}
+void AnimDriver::destroy_body() { vtable_ = kControllerVtable; }
 
 // 0x004817A0
 AnimDriver* AnimDriver::teardown(uint8_t flags)
@@ -318,16 +297,10 @@ AnimDriver* AnimDriver::teardown(uint8_t flags)
 }
 
 // 0x00481740
-bool AnimDriver::configure_from_data(script::Struct* params)
-{
-    return params->read_hash_value(kId, &ident_, 0);
-}
+bool AnimDriver::configure_from_data(script::Struct* params) { return params->read_hash_value(kId, &ident_, 0); }
 
 // 0x00481760
-objects::GameEntity* AnimDriver::fetch_subject()
-{
-    return static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject();
-}
+objects::GameEntity* AnimDriver::fetch_subject() { return static_cast<AnimTrack*>(timeline_ptr_)->fetch_subject(); }
 
 // 0x00481770
 uint8_t* AnimDriver::fetch_rig()
@@ -339,19 +312,20 @@ uint8_t* AnimDriver::fetch_rig()
 // --- the base event ---
 
 // 0x004819E0
-void AnimEventBase::destroy_body()
-{
-    vtable_ = g_event_vtable;
-}
+void AnimEventBase::destroy_body() { vtable_ = g_event_vtable; }
 
 namespace {
 static VtableSlot g_timeline_vtable_slots[] = {&gfx::AnimTimeline::teardown, &gfx::AnimTimeline::get_reset,
-                &gfx::AnimTimeline::tick_frame, &gfx::AnimTimeline::play_anim, stubs::ignore_argument};
+                                               &gfx::AnimTimeline::tick_frame, &gfx::AnimTimeline::play_anim,
+                                               stubs::ignore_argument};
 void** const kTimelineVtable = reinterpret_cast<void**>(g_timeline_vtable_slots);
-static VtableSlot g_controller_vtable_slots[] = {&gfx::AnimDriver::teardown, stubs::return_false1,
-                stubs::ignore_argument, &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-                &gfx::AnimDriver::configure_from_data, stubs::do_nothing};
+static VtableSlot g_controller_vtable_slots[] = {&gfx::AnimDriver::teardown,
+                                                 stubs::return_false1,
+                                                 stubs::ignore_argument,
+                                                 &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+                                                 &gfx::AnimDriver::configure_from_data,
+                                                 stubs::do_nothing};
 void** const kControllerVtable = reinterpret_cast<void**>(g_controller_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

@@ -150,7 +150,7 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
         return;
     }
     debug::printf("Breaking Euler's formula: %df + %dv - 2 != %d!  Make sure the model is convex.", faces, vertices,
-                count);
+                  count);
     if (edges_->edges) {
         memory::Hub::get_pull()->dealloc(edges_->edges);
         edges_->edges = nullptr;
@@ -159,11 +159,11 @@ void ShadowVolume::change_mesh(RenderModel*, uint8_t* asset_data)
     edges_ = nullptr;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640CD0 (a static initialiser): the shadow edges' table, 256 buckets.
 void construct_shadow_edge_table() { new (&g_shadow_edge_table) lists::KeyMap(8); }
 
-} // namespace Nx
+} // namespace render

@@ -152,4 +152,4 @@ static VtableSlot g_pc_mesh_vtable_slots[] = {&render::PcMesh::teardown};
 void** const kPcMeshVtable = reinterpret_cast<void**>(g_pc_mesh_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

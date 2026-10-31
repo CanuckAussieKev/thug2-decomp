@@ -17,4 +17,4 @@ void init_script_patches();
 // does that).
 const uint8_t* load_patched_script(const char* filename);
 
-} // namespace Script
+} // namespace script

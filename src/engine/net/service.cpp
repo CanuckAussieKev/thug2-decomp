@@ -38,17 +38,17 @@ namespace net {
 namespace {
 
 // The manager's fields this task uses (the network manager isn't decompiled yet: reached by offset).
-constexpr uint32_t kLobbyList = 0x10;       // an object: the lobby (server) list
+constexpr uint32_t kLobbyList = 0x10;        // an object: the lobby (server) list
 constexpr uint32_t kServiceTaskField = 0xE0; // the task running this function
 constexpr uint32_t kState = 0x1B8;
-constexpr uint32_t kNextState = 0x1BC;      // state 0 moves on to it at the wake time
-constexpr uint32_t kWakeTime = 0x1C0;       // frame_clock::GetTime() milliseconds; 0 = none
-constexpr uint32_t kMotdText = 0xFDF4;      // char*: the downloaded message of the day
-constexpr uint32_t kRequest = 0xFE00;       // the current ghttp request
-constexpr uint32_t kRequestStart = 0xFE04;  // when it was started
-constexpr uint32_t kNewsFinished = 0xFE08;  // bool: the news download has finished
-constexpr uint32_t kNewsOk = 0xFE09;        // bool (PartyMod sets it; meaning not known beyond that)
-constexpr uint32_t kAvailable = 0xFE0A;     // bool: the GameSpy services are available
+constexpr uint32_t kNextState = 0x1BC;     // state 0 moves on to it at the wake time
+constexpr uint32_t kWakeTime = 0x1C0;      // frame_clock::GetTime() milliseconds; 0 = none
+constexpr uint32_t kMotdText = 0xFDF4;     // char*: the downloaded message of the day
+constexpr uint32_t kRequest = 0xFE00;      // the current ghttp request
+constexpr uint32_t kRequestStart = 0xFE04; // when it was started
+constexpr uint32_t kNewsFinished = 0xFE08; // bool: the news download has finished
+constexpr uint32_t kNewsOk = 0xFE09;       // bool (PartyMod sets it; meaning not known beyond that)
+constexpr uint32_t kAvailable = 0xFE0A;    // bool: the GameSpy services are available
 
 template <typename T>
 T& prop(uint8_t* manager, uint32_t offset)
@@ -70,15 +70,9 @@ constexpr uint32_t kText = 0x4942CF80; // "text"
 const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::news_thread));
 const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::motd_thread));
 
-void change_phase(uint8_t* manager, int state)
-{
-    reinterpret_cast<online::Hub*>(manager)->set_service_state(state);
-}
+void change_phase(uint8_t* manager, int state) { reinterpret_cast<online::Hub*>(manager)->set_service_state(state); }
 // Take this task out of the task list (tasks::SchedulerTask::drop_out).
-void remove_service_task(uint8_t* manager)
-{
-    prop<tasks::SchedulerTask*>(manager, kServiceTaskField)->drop_out();
-}
+void remove_service_task(uint8_t* manager) { prop<tasks::SchedulerTask*>(manager, kServiceTaskField)->drop_out(); }
 online::RoomManager* lobby_list(uint8_t* manager) { return prop<online::RoomManager*>(manager, kLobbyList); }
 
 void push_internet_heap()
@@ -285,4 +279,4 @@ void __cdecl service_task(const uint8_t* task)
     }
 }
 
-} // namespace Net
+} // namespace net

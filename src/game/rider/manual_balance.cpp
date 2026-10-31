@@ -77,8 +77,14 @@ double get_physics(uint8_t* balance_trick, uint32_t name)
 uint32_t& get_trick_type(uint8_t* balance_trick) { return *reinterpret_cast<uint32_t*>(balance_trick + 0x18); }
 void* score_display(uint8_t* score) { return *reinterpret_cast<void**>(score + 0x18); }
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
-void show_lean(void* score, int on, float lean) { static_cast<modules::PointTally*>(score)->set_teeter_gauge(on != 0, lean); }
-void show_lean2(void* score, int on, float lean) { static_cast<modules::PointTally*>(score)->set_wheelie_gauge(on != 0, lean); }
+void show_lean(void* score, int on, float lean)
+{
+    static_cast<modules::PointTally*>(score)->set_teeter_gauge(on != 0, lean);
+}
+void show_lean2(void* score, int on, float lean)
+{
+    static_cast<modules::PointTally*>(score)->set_wheelie_gauge(on != 0, lean);
+}
 // A button of the input component's control data held (its first byte).
 bool get_held(uint8_t* input, uint32_t button)
 {
@@ -183,7 +189,8 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
         void* rail = *reinterpret_cast<void**>(core + 0x22C);
         if (rail_ != -1) {
             if (static_cast<GrindPoint*>(rail)->is_named(static_cast<uint32_t>(rail_))) { // the same rail
-                on_rail_seconds_ = static_cast<float>(get_physics(balance_trick_, kSameGrindAddTime) + on_rail_seconds_);
+                on_rail_seconds_ =
+                    static_cast<float>(get_physics(balance_trick_, kSameGrindAddTime) + on_rail_seconds_);
             } else {
                 double time = on_rail_seconds_ - get_physics(balance_trick_, kNewGrindSubTime);
                 on_rail_seconds_ = static_cast<float>(time);
@@ -197,13 +204,13 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
         float run_time = *reinterpret_cast<float*>(static_cast<uint8_t*>(score_display(points_held_)) + 0x154C);
         if (run_time < 0.5f) {
             float inverse = static_cast<float>(1.0 / run_time);
-            on_rail_seconds_ = static_cast<float>(script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 +
-                                            on_rail_seconds_);
+            on_rail_seconds_ = static_cast<float>(
+                script::fetch_float(kRobotRailAddTime) * static_cast<double>(inverse) * 0.5 + on_rail_seconds_);
             float side = -1.0f;
             if (!(lean_speed_ < 0.0f))
                 side = 1.0f;
-            lean_ = static_cast<float>(script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * 0.5 +
-                                        lean_);
+            lean_ = static_cast<float>(
+                script::fetch_float(kRobotRailNudge) * static_cast<double>(inverse) * side * 0.5 + lean_);
         }
     }
     float repeat_min = static_cast<float>(get_physics(balance_trick_, kRepeatMin));
@@ -245,7 +252,7 @@ void Balance::tick_frame()
     if (!left_button_ || !right_press_)
         return;
     auto* net = online::g_online_hub;
-    if (net->host_) // (the folded getter 0x005480C0)
+    if (net->host_)                                                           // (the folded getter 0x005480C0)
         net->find_player_slot_by_obj(static_cast<uint16_t>(skater_->ident_)); // (its result unused)
     // The cheese wears off.
     if (cheese_ > 0.01f) {
@@ -264,7 +271,8 @@ void Balance::tick_frame()
     // The lean speeds up.
     float gravity = static_cast<float>(get_physics(balance_trick_, kLeanGravityStat));
     float instable_rate = static_cast<float>(get_physics(balance_trick_, kInstableRate));
-    double instable = get_physics(balance_trick_, kInstableBase) + instable_rate * static_cast<double>(on_rail_seconds_);
+    double instable =
+        get_physics(balance_trick_, kInstableBase) + instable_rate * static_cast<double>(on_rail_seconds_);
     double grown = (gravity * instable * frame * kFrames + 1.0) * lean_;
     lean_ = static_cast<float>(grown + instable * lean_speed_ * frame * kFrames);
     bool left = get_held(input_, left_button_);
@@ -337,7 +345,7 @@ void Balance::tick_frame()
         show_lean(score, 1, shown);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -346,4 +354,4 @@ static VtableSlot g_vtable_slots[] = {&objects::Balance::teardown};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

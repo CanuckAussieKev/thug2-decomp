@@ -30,21 +30,21 @@ uint32_t g_debounce_times[22];
 
 namespace {
 
-constexpr uint32_t kTime = 0x906B67BA;           // "time"
-constexpr uint32_t kId = 0x40C698AF;             // "id"
-constexpr uint32_t kPrefix = 0x6C4E7971;         // "prefix"
-constexpr uint32_t kFakeLightsExact = 0x80804991; // (name unknown) FakeLights: the prefix's nodes, not a prefix
-constexpr uint32_t kParams = 0x7031F10C;         // "params"
-constexpr uint32_t kCallback = 0x86068BD9;       // "callback"
-constexpr uint32_t kCallbackParams = 0x0DD85BDA; // "callbackparams"
-constexpr uint32_t kOnlineFlag = 0x20209C31;     // "online_mode_flag"
-constexpr uint32_t kPermanent = 0x23627FD7;      // "permanent"
+constexpr uint32_t kTime = 0x906B67BA;               // "time"
+constexpr uint32_t kId = 0x40C698AF;                 // "id"
+constexpr uint32_t kPrefix = 0x6C4E7971;             // "prefix"
+constexpr uint32_t kFakeLightsExact = 0x80804991;    // (name unknown) FakeLights: the prefix's nodes, not a prefix
+constexpr uint32_t kParams = 0x7031F10C;             // "params"
+constexpr uint32_t kCallback = 0x86068BD9;           // "callback"
+constexpr uint32_t kCallbackParams = 0x0DD85BDA;     // "callbackparams"
+constexpr uint32_t kOnlineFlag = 0x20209C31;         // "online_mode_flag"
+constexpr uint32_t kPermanent = 0x23627FD7;          // "permanent"
 constexpr uint32_t kNotSessionSpecific = 0x2EBFF4BC; // "NotSessionSpecific"
-constexpr uint32_t kKeepSpawnerFile = 0x01917DF2; // (name unknown) SpawnScript: don't note the spawner's .qb file
-constexpr uint32_t kFreeze = 0xB96E0BE5;         // "freeze"
-constexpr uint32_t kBlank = 0xC3D43B9A;          // "blank"
-constexpr uint32_t kOmnigon = 0xAE94C183;        // (name unknown) the Omnigon's checksum
-constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF; // (name unknown) passed to DumpScripts' compiled-out dump
+constexpr uint32_t kKeepSpawnerFile = 0x01917DF2;    // (name unknown) SpawnScript: don't note the spawner's .qb file
+constexpr uint32_t kFreeze = 0xB96E0BE5;             // "freeze"
+constexpr uint32_t kBlank = 0xC3D43B9A;              // "blank"
+constexpr uint32_t kOmnigon = 0xAE94C183;            // (name unknown) the Omnigon's checksum
+constexpr uint32_t kDumpScriptsFlag = 0x2AB71EEF;    // (name unknown) passed to DumpScripts' compiled-out dump
 
 // The button's index in the button table (0x0067D6D8, entries 1-21; 0 if it isn't one).
 int glyph_for_button_tag(uint32_t button) { return pad_input::glyph_for_button_tag(button); }
@@ -78,26 +78,46 @@ bool __cdecl controller_pressed(const void* controller, uint32_t button)
     if (debounce_times()[index] > frame_clock::get_time())
         return false;
     switch (button) {
-    case 0xBC6B118F: return input->up != 0;                        // up
-    case 0xE3006FC4: return input->down != 0;                      // down
-    case 0x85981897: return input->left != 0;                      // left
-    case 0x4B358AEB: return input->right != 0;                     // right
-    case 0xB7231A95: return input->up && input->left;              // upleft
-    case 0xA50950C5: return input->up && input->right;             // upright
-    case 0xD8847EFA: return input->down && input->left;            // downleft
-    case 0x786B8B68: return input->down && input->right;           // downright
-    case 0x7323E97C: return input->x != 0;                         // x
-    case 0x20689278: return input->triangle != 0;                  // triangle
-    case 0x321C9756: return input->square != 0;                    // square
-    case 0x2B489A86: return input->circle != 0;                    // circle
-    case 0x26B0C991: return input->l1 != 0;                        // l1
-    case 0xBFB9982B: return input->l2 != 0;                        // l2
-    case 0xF2F1F64E: return input->r1 != 0;                        // r1
-    case 0x6BF8A7F4: return input->r2 != 0;                        // r2
-    case 0x767A45D7: return input->black != 0;                     // black
-    case 0xBD30325B: return input->white != 0;                     // white
-    case 0x9D2D8850: return input->z != 0;                         // z
-    default: return false;
+    case 0xBC6B118F:
+        return input->up != 0; // up
+    case 0xE3006FC4:
+        return input->down != 0; // down
+    case 0x85981897:
+        return input->left != 0; // left
+    case 0x4B358AEB:
+        return input->right != 0; // right
+    case 0xB7231A95:
+        return input->up && input->left; // upleft
+    case 0xA50950C5:
+        return input->up && input->right; // upright
+    case 0xD8847EFA:
+        return input->down && input->left; // downleft
+    case 0x786B8B68:
+        return input->down && input->right; // downright
+    case 0x7323E97C:
+        return input->x != 0; // x
+    case 0x20689278:
+        return input->triangle != 0; // triangle
+    case 0x321C9756:
+        return input->square != 0; // square
+    case 0x2B489A86:
+        return input->circle != 0; // circle
+    case 0x26B0C991:
+        return input->l1 != 0; // l1
+    case 0xBFB9982B:
+        return input->l2 != 0; // l2
+    case 0xF2F1F64E:
+        return input->r1 != 0; // r1
+    case 0x6BF8A7F4:
+        return input->r2 != 0; // r2
+    case 0x767A45D7:
+        return input->black != 0; // black
+    case 0xBD30325B:
+        return input->white != 0; // white
+    case 0x9D2D8850:
+        return input->z != 0; // z
+    default:
+        return false;
     }
 }
 
@@ -237,8 +257,8 @@ bool __cdecl cfunc_spawn_script(script::Struct* params, script::Script* script)
     bool permanent = params->has_bare_flag(kPermanent);
     int not_session_specific = 0;
     params->fetch_int_value(kNotSessionSpecific, &not_session_specific, 0);
-    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_, id,
-                                                   replicate_flag, permanent, not_session_specific != 0, false);
+    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_,
+                                                   id, replicate_flag, permanent, not_session_specific != 0, false);
     // (as in the original, not checked for null - a C function spawns no script)
     if (!params->has_bare_flag(kKeepSpawnerFile))
         spawned->set_spawner_file(script);
@@ -290,7 +310,7 @@ bool __cdecl cfunc_display_loading_screen(script::Struct* params, script::Script
     bool freeze = params->has_bare_flag(kFreeze);
     render::display_loading_screen(image, freeze, blank);
     gfx::loading_console::screen_shown(freeze, blank); // not original: the loading console (gfx/loading_console.h)
-    float seconds = 0.0f; // (the original leaves it unset - unused then)
+    float seconds = 0.0f;                              // (the original leaves it unset - unused then)
     if (params->fetch_float(0u, &seconds, 0))
         render::set_loading_bar_time(seconds);
     return true;

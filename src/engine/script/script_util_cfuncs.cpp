@@ -27,34 +27,34 @@ using script::Component;
 using script::Script;
 using script::Struct;
 
-constexpr uint32_t kName = 0xA1DC81F9;           // "name"
-constexpr uint32_t kInteger = 0xA5F054F4;        // "integer"
-constexpr uint32_t kA = 0x174841BC;              // "a"
-constexpr uint32_t kB = 0x8E411006;              // "b"
-constexpr uint32_t kResolution = 0x022CF075;     // "resolution"
-constexpr uint32_t kArraySize = 0x26828C6E;      // "ArraySize"
-constexpr uint32_t kIndex = 0x7F8C98FE;          // "index"
-constexpr uint32_t kElement = 0xBEBFA1C6;        // "element"
-constexpr uint32_t kParams = 0x7031F10C;         // "params"
-constexpr uint32_t kMangledId = 0xFBA40626;      // "mangled_id"
-constexpr uint32_t kBase = 0x3F4B019E;           // "base"
-constexpr uint32_t kSuffixString = 0x94542EEA;   // "SuffixString"
-constexpr uint32_t kAppendedId = 0xAFB911C6;     // "appended_id"
+constexpr uint32_t kName = 0xA1DC81F9;            // "name"
+constexpr uint32_t kInteger = 0xA5F054F4;         // "integer"
+constexpr uint32_t kA = 0x174841BC;               // "a"
+constexpr uint32_t kB = 0x8E411006;               // "b"
+constexpr uint32_t kResolution = 0x022CF075;      // "resolution"
+constexpr uint32_t kArraySize = 0x26828C6E;       // "ArraySize"
+constexpr uint32_t kIndex = 0x7F8C98FE;           // "index"
+constexpr uint32_t kElement = 0xBEBFA1C6;         // "element"
+constexpr uint32_t kParams = 0x7031F10C;          // "params"
+constexpr uint32_t kMangledId = 0xFBA40626;       // "mangled_id"
+constexpr uint32_t kBase = 0x3F4B019E;            // "base"
+constexpr uint32_t kSuffixString = 0x94542EEA;    // "SuffixString"
+constexpr uint32_t kAppendedId = 0xAFB911C6;      // "appended_id"
 constexpr uint32_t kUpperCaseString = 0xFE366B7B; // "UpperCaseString"
-constexpr uint32_t kText = 0xC4745838;           // "text"
-constexpr uint32_t kMaxLength = 0xA6931595;      // (name unknown) AppendSuffix: the longest result
-constexpr uint32_t kSuffix = 0x4A4F7821;         // "suffix"
-constexpr uint32_t kResultName = 0x50060694;     // (name unknown) AppendSuffix: the result's name
-constexpr uint32_t kDo = 0x62BA3F6A;             // "do"
-constexpr uint32_t kTextName = 0xFF0DB407;       // "TextName"
-constexpr uint32_t kPrintfText = 0xBC4AC08B;     // "PrintfText"
-constexpr uint32_t kIndexArray = 0xAC3A91DE;     // "index_array"
-constexpr uint32_t kStruct = 0x456D28D1;         // "struct"
-constexpr uint32_t kField = 0xA40ABAA7;          // "field"
-constexpr uint32_t kString = 0x61414D56;         // "string"
-constexpr uint32_t kCharArray = 0x3C5EC9E9;      // "char_array"
-constexpr uint32_t kArrayName = 0x8F61D602;      // "ArrayName"
-constexpr uint32_t kNewValue = 0x4B40630D;       // "NewValue"
+constexpr uint32_t kText = 0xC4745838;            // "text"
+constexpr uint32_t kMaxLength = 0xA6931595;       // (name unknown) AppendSuffix: the longest result
+constexpr uint32_t kSuffix = 0x4A4F7821;          // "suffix"
+constexpr uint32_t kResultName = 0x50060694;      // (name unknown) AppendSuffix: the result's name
+constexpr uint32_t kDo = 0x62BA3F6A;              // "do"
+constexpr uint32_t kTextName = 0xFF0DB407;        // "TextName"
+constexpr uint32_t kPrintfText = 0xBC4AC08B;      // "PrintfText"
+constexpr uint32_t kIndexArray = 0xAC3A91DE;      // "index_array"
+constexpr uint32_t kStruct = 0x456D28D1;          // "struct"
+constexpr uint32_t kField = 0xA40ABAA7;           // "field"
+constexpr uint32_t kString = 0x61414D56;          // "string"
+constexpr uint32_t kCharArray = 0x3C5EC9E9;       // "char_array"
+constexpr uint32_t kArrayName = 0x8F61D602;       // "ArrayName"
+constexpr uint32_t kNewValue = 0x4B40630D;        // "NewValue"
 // add_component_of_type's type for a structure handed over by pointer.
 constexpr uint32_t kTypeStructurePointer = 11;
 
@@ -198,7 +198,8 @@ bool __cdecl cfunc_get_next_array_element(Struct* params, Script* script)
         own->put_name_key(kElement, array->fetch_part(index));
         break;
     default:
-        debug::printf("GetNextArrayElement does not support arrays of type '%s'\n", current_type_name(array->kind_tag_)); // "... does not support ..."
+        debug::printf("GetNextArrayElement does not support arrays of type '%s'\n",
+                      current_type_name(array->kind_tag_)); // "... does not support ..."
         break;
     }
     return true;
@@ -235,7 +236,8 @@ bool __cdecl cfunc_get_random_array_element(Struct* params, Script* script)
         own->put_name_key(kElement, array->fetch_part(index));
         break;
     default:
-        debug::printf("GetRandomArrayElement does not support arrays of type '%s'\n", current_type_name(array->kind_tag_)); // "... does not support ..."
+        debug::printf("GetRandomArrayElement does not support arrays of type '%s'\n",
+                      current_type_name(array->kind_tag_)); // "... does not support ..."
         break;
     }
     return true;
@@ -432,7 +434,9 @@ bool __cdecl cfunc_get_element(Struct* params, Script* script)
         script->args_->append_array_value(kElement, reinterpret_cast<Array*>(array->fetch_part(index)));
         break;
     default:
-        debug::printf("GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n", array->kind_tag_); // "... only supports ..."
+        debug::printf(
+            "GetElement currently only supports arrays of structures, arrays or integers ... \n(Requested type=%d)\n",
+            array->kind_tag_); // "... only supports ..."
         break;
     }
     return true;
@@ -520,7 +524,7 @@ bool __cdecl format_printf_text(char* out, Struct* params, Script*)
         if (format_text_into(format, format))
             format->fetch_text("PrintfText", &text, 0); // "PrintfText"
         else
-            text = ""; // ""
+            text = "";                  // ""
         get_sprintf(out, "%s\n", text); // "%s\n"
         if (format) {
             format->get_clear();

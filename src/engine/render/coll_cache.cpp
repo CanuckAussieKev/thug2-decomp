@@ -66,10 +66,7 @@ HitMeshCache* HitMeshCache::make_new()
 }
 
 // 0x0040AB40
-void HitMeshCache::destruct()
-{
-    unregister_coll_cache(this);
-}
+void HitMeshCache::destruct() { unregister_coll_cache(this); }
 
 // 0x0040ABA0
 void HitMeshCache::tick_frame(const maths::BBox& box)
@@ -94,7 +91,8 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
             ++statics_;
         }
     }
-    for (memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node; node = node->next) {
+    for (memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node;
+         node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (!object || (object_flags(object) & 6) || !touches_box(object, &grown))
             continue;
@@ -190,4 +188,4 @@ int shape_type_from_checksum(uint32_t shape)
     }
 }
 
-} // namespace Nx
+} // namespace render

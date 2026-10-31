@@ -28,20 +28,29 @@ struct Payload {
     // The analogue values: the sticks (right X, right Y, left X, left Y: 0-255, 0x80 centred), then a pressure
     // per button (0 or 0xFF from a digital pad), and copies of the sticks before the dead zone at 0x12-0x15.
     enum : int {
-        kRightX = 0, kRightY = 1, kLeftX = 2, kLeftY = 3,
-        kPadRight = 4, kPadLeft = 5, kPadUp = 6, kPadDown = 7,
-        kRawRightX = 0x12, kRawRightY = 0x13, kRawLeftX = 0x14, kRawLeftY = 0x15,
+        kRightX = 0,
+        kRightY = 1,
+        kLeftX = 2,
+        kLeftY = 3,
+        kPadRight = 4,
+        kPadLeft = 5,
+        kPadUp = 6,
+        kPadDown = 7,
+        kRawRightX = 0x12,
+        kRawRightY = 0x13,
+        kRawLeftX = 0x14,
+        kRawLeftY = 0x15,
         kQueueCapacity = 25,
     };
     enum : uint32_t { kReleaseEdge = 0x1000, kButtonRight = 0x2000, kPressEdge = 0x4000, kButtonLeft = 0x8000 };
 
     uint8_t incident_[kQueueCapacity];
     uint8_t pad19[3];
-    uint32_t buttons_; // +0x1C: down
-    uint32_t makes_;   // +0x20: pressed this frame
-    uint32_t breaks_;  // +0x24: released this frame
-    uint32_t changes_; // +0x28
-    uint32_t ongoing_; // +0x2C: the buttons read this frame
+    uint32_t buttons_;  // +0x1C: down
+    uint32_t makes_;    // +0x20: pressed this frame
+    uint32_t breaks_;   // +0x24: released this frame
+    uint32_t changes_;  // +0x28
+    uint32_t ongoing_;  // +0x2C: the buttons read this frame
     uint32_t previous_; // +0x30: and last frame
 
     // 0x0044E840: the buttons in `mask` read as up (held, pressed and released).
@@ -63,12 +72,12 @@ static_assert(sizeof(Payload) == 0x34 && offsetof(Payload, buttons_) == 0x1C && 
 // A controller's server (0x84 bytes).
 struct HostEnd {
     sio::InputPort* dev_;
-    uint8_t handlers_[0x3C];    // +0x04: the handler list (tasks::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
-    Payload content_;                 // +0x40
-    PadFrameRecord* data_in_;      // +0x74: the recording played back (null: none)
-    PadFrameRecord* in_buf_limit_;   // +0x78
-    PadFrameRecord* data_out_;     // +0x7C: the recording made (null: none)
-    PadFrameRecord* out_buf_limit_;  // +0x80
+    uint8_t handlers_[0x3C];  // +0x04: the handler list (tasks::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
+    Payload content_;         // +0x40
+    PadFrameRecord* data_in_; // +0x74: the recording played back (null: none)
+    PadFrameRecord* in_buf_limit_;  // +0x78
+    PadFrameRecord* data_out_;      // +0x7C: the recording made (null: none)
+    PadFrameRecord* out_buf_limit_; // +0x80
 
     // 0x0044E9E0: the handler list and everything cleared (but dev_, makes_ and breaks_). Returns this.
     HostEnd* make_new();
@@ -79,17 +88,18 @@ struct HostEnd {
     // 0x0044E520: the destructor: the handler list destroyed (0x004070E0).
     void destruct();
 };
-static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, content_) == 0x40 && offsetof(HostEnd, out_buf_limit_) == 0x80);
+static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, content_) == 0x40 &&
+              offsetof(HostEnd, out_buf_limit_) == 0x80);
 
 struct Hub {
     enum { kNumServers = 2 };
 
-    void* task_;                     // tasks::Task<Manager> (priority 2000) running the servers (0x0044E660)
-    HostEnd hosts_[kNumServers];    // +0x04
-    bool stick_replaces_pad_;      // +0x10C (0x0044E610 sets, 0x0044E620 gets)
+    void* task_;                 // tasks::Task<Manager> (priority 2000) running the servers (0x0044E660)
+    HostEnd hosts_[kNumServers]; // +0x04
+    bool stick_replaces_pad_;    // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
     uint8_t pad10e_[2];
-    int unknown110_[2];              // +0x110 (0x0044E630 / 0x0044E640 get and set them)
+    int unknown110_[2]; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
 
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
     // Returns this.
@@ -127,4 +137,4 @@ int __cdecl glyph_for_button_tag(uint32_t checksum);
 
 extern pad_input::Hub* g_input_manager;
 
-} // namespace Inp
+} // namespace pad_input

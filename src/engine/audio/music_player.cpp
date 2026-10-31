@@ -31,12 +31,12 @@ float g_music_stream_volume{100.0f};
 int g_bgm_stream_kind;
 bool g_shuffle_user;
 void* g_sound_device;
-Playlist g_playlists[2];       // (the music's two playlists; 0 is the game's, 1 the script's)
+Playlist g_playlists[2]; // (the music's two playlists; 0 is the game's, 1 the script's)
 char g_track_titles[80][100];
 Stream g_streams[3];
 void* g_stream_owners[3];
 int g_user_order[600];
-int g_track_order[600];          // the shuffled order (the word before it, 0x00696D9C, is read once)
+int g_track_order[600]; // the shuffled order (the word before it, 0x00696D9C, is read once)
 char g_special_track[44];
 char g_soundtrack_name[100];
 
@@ -67,15 +67,9 @@ int& order_count() { return g_order_count; }
 int& order_position() { return g_order_position; }
 bool& reshuffle() { return g_reshuffle; }
 
-bool music_on()
-{
-    return g_sound_device && game_config::g_platform != 2 && g_music_header_loaded;
-}
+bool music_on() { return g_sound_device && game_config::g_platform != 2 && g_music_header_loaded; }
 // The same for streamed sound effects (0x0067D7E1).
-bool streams_on()
-{
-    return g_sound_device && game_config::g_platform != 2 && g_streams_on;
-}
+bool streams_on() { return g_sound_device && game_config::g_platform != 2 && g_streams_on; }
 
 Stream* get_streams() { return g_streams; }
 constexpr int kStreams = 3;
@@ -433,7 +427,8 @@ void __cdecl play_next_track()
             if (!is_off(list, track))
                 get_order()[count++] = track;
         order_count() = count;
-        debug::printf("shuffling random song order num_songs=%i\n", count); // "shuffling random song order num_songs=%i\n"
+        debug::printf("shuffling random song order num_songs=%i\n",
+                      count); // "shuffling random song order num_songs=%i\n"
         // 2000 swaps of two random places. PartyMod draws them with shuffle_random; the original with
         // maths::Rnd(order_count()).
         for (int i = 0; i < 2000; ++i) {
@@ -701,4 +696,4 @@ void __cdecl set_user_soundtrack_volume(float volume)
         platform_set_music_volume(volume);
 }
 
-} // namespace Pcm
+} // namespace audio

@@ -68,7 +68,7 @@ enum Mark : uint8_t {
     kMarkAdded = 2,         // added by the editor (a node of the overlay)
     kMarkHidden = 4,        // hidden in the level (scenery's Delete, a level's node hidden) - saved
     kMarkViewHidden = 8,    // hidden while editing only (H / Isolate - never saved)
-    kMarkClickThrough = 16,       // locked (clicks pass it)
+    kMarkClickThrough = 16, // locked (clicks pass it)
     kMarkCollisionOff = 32, // its collision switched off (level_editor_walls.h)
 };
 constexpr int kMaxMarkers = 6;
@@ -80,16 +80,16 @@ const char* mark_name(int bit);
 bool mark_shown(uint8_t marks, bool changed_only);
 std::string mark_letters(uint8_t marks);
 struct ShapeMesh {
-    std::string level;    // the level's scene name
+    std::string level; // the level's scene name
     // Which level is edited (level_editor_layout.h): its title ("Training"), always its edited copy - whether that has
     // a saved layout yet.
     std::string level_title_;
     bool edited_saved_ = false;
-    bool confirm_reset_ = false; // (Reset level's confirm window)
-    const char* mode;     // FLYING, SELECTED, MOVING..., ADD
-    std::string selected; // the selection described
-    std::string hover;    // what's under the cursor
-    std::string message;  // the message line (empty: none)
+    bool confirm_reset_ = false;                           // (Reset level's confirm window)
+    const char* mode;                                      // FLYING, SELECTED, MOVING..., ADD
+    std::string selected;                                  // the selection described
+    std::string hover;                                     // what's under the cursor
+    std::string message;                                   // the message line (empty: none)
     std::vector<std::pair<std::string, std::string>> keys; // the keys for what you're doing: key, what it does
     V3 camera;
     float speed;
@@ -164,8 +164,8 @@ struct ShapeMesh {
         int index = -1;
         uint64_t texture = 0;
         std::string name;
-        std::string size;  // "x by y by z"
-        std::string type;  // objects: class and model file; scenery: "scene sector"
+        std::string size; // "x by y by z"
+        std::string type; // objects: class and model file; scenery: "scene sector"
     } preview;
     // The node layer (level_editor_nodes.h): the families shown (the chips' bits), the node selected (by a gizmo or
     // in the Outliner; or the selected object's / scenery's own node) and the one under the cursor - indices into
@@ -275,11 +275,11 @@ struct Request {
         kDiscardAutosave,
         kToggleHelp,
         kToggleBrowser,
-        kBrowserTab,    // value: 0 / 1
-        kBrowserIndex,  // value: the item
-        kBrowserPlace,  // a copy of the browser's item where the view looks
-        kBrowserFocus,  // the camera to the browser's item
-        kDrop,          // G
+        kBrowserTab,   // value: 0 / 1
+        kBrowserIndex, // value: the item
+        kBrowserPlace, // a copy of the browser's item where the view looks
+        kBrowserFocus, // the camera to the browser's item
+        kDrop,         // G
         kDeselect,
         kSnapAlways,    // value: 0 / 1
         kSelectScenery, // id: a sector
@@ -291,19 +291,19 @@ struct Request {
         kNodeSetDone,   // the Inspector's field let go (the changes since its first kNodeSet: one undo step)
         kReset,         // Home: the selection back where the level had it
         kOnlineWarningSeen,
-        kPlaceToggle,   // N: the Place palette
-        kPlaceArm,      // value: a palette entry (-1: none) - the next click in the view places it
-        kPlaceHere,     // value: a palette entry placed where the view looks
-        kRemoveNodeAction,    // the Inspector's Delete / Hide (as the Delete key)
-        kHideConfirmed, // the confirm window's Hide
+        kPlaceToggle,      // N: the Place palette
+        kPlaceArm,         // value: a palette entry (-1: none) - the next click in the view places it
+        kPlaceHere,        // value: a palette entry placed where the view looks
+        kRemoveNodeAction, // the Inspector's Delete / Hide (as the Delete key)
+        kHideConfirmed,    // the confirm window's Hide
         kHideCancelled,
-        kCrownMove,     // value: -1 / +1 - an added crown earlier / later in the crowns' order
+        kCrownMove,      // value: -1 / +1 - an added crown earlier / later in the crowns' order
         kBrowserPreview, // value: the browser's entry the preview shows (-1: the highlighted one)
         kPreviewOrbit,   // a: the preview dragged (pixels x, y) and its wheel steps
-        kResetLevel,    // the toolbar's Reset level (as Ctrl+Shift+Delete: the confirm window)
+        kResetLevel,     // the toolbar's Reset level (as Ctrl+Shift+Delete: the confirm window)
         kResetConfirmed,
         kResetCancelled,
-        kReqEntireRail,     // value: 0 / 1 - a rail node moves alone / with its whole rail (L)
+        kReqEntireRail, // value: 0 / 1 - a rail node moves alone / with its whole rail (L)
         kPickFilter,    // id: the pick filter's bits
         kToggleLock,    // L: the selection locked / unlocked
         kUnlock,        // value: the lock's kind, id: its id
@@ -318,15 +318,15 @@ struct Request {
         // Phase 6 (level_editor_fields.h, level_editor_level_props.h): `node` the node, id the field, value its
         // Fields::Kind, text what was typed, label the field's name as typed (a new field).
         kFieldSet,
-        kFieldRemove,   // the field taken out (an own field), a flag off
-        kFieldHome,     // the field back as the level has it (id 0: every field of the node)
-        kLevelProps,    // `props`: the level's properties as the panel has them now
-        kLevelPropsDone, // a property's field let go (the changes since its first kLevelProps: one undo step)
-        kWallCollision, // value: 0 / 1 - the selected invisible wall's collision off (Delete wall) / on (Restore)
+        kFieldRemove,      // the field taken out (an own field), a flag off
+        kFieldHome,        // the field back as the level has it (id 0: every field of the node)
+        kLevelProps,       // `props`: the level's properties as the panel has them now
+        kLevelPropsDone,   // a property's field let go (the changes since its first kLevelProps: one undo step)
+        kWallCollision,    // value: 0 / 1 - the selected invisible wall's collision off (Delete wall) / on (Restore)
         kSceneryCollision, // value: 0 / 1 - the selected scenery's collision off / on (the Inspector's Collision)
-        kMemberRemove,  // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
-        kMemberKeep,    // value, id: as kMemberRemove - the selection is only that
-        kCarry,         // value: 0 / 1 - the toolbar's Carry objects (level_editor_carry.h)
+        kMemberRemove,     // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
+        kMemberKeep,       // value, id: as kMemberRemove - the selection is only that
+        kCarry,            // value: 0 / 1 - the toolbar's Carry objects (level_editor_carry.h)
     } kind;
     int value = 0;
     uint32_t id = 0;
@@ -360,4 +360,4 @@ int preview_pixels();
 // The frame (level_editor::Blit): the overlay (under the panels), the panels from the model, drawn.
 void tick_cycle(const ShapeMesh& model, const Overlay& overlay);
 
-} // namespace MenuSystem::level_editor::Ui
+} // namespace frontend::level_editor::ui

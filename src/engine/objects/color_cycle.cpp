@@ -22,12 +22,9 @@
 
 namespace objects {
 
-uint32_t g_color_cycle_member_functions[30]{
-            0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0,
-            0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0,
-            0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0,
-            0x80D5F732, 0xCDC76A22, 0, 0, 0, 0,
-            0, 0xCDC76A22, 0, 0, 0, 0};
+uint32_t g_color_cycle_member_functions[30]{0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0, 0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0,
+                                            0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0, 0x80D5F732, 0xCDC76A22, 0, 0, 0, 0,
+                                            0,          0xCDC76A22, 0, 0, 0, 0};
 
 namespace {
 
@@ -39,10 +36,7 @@ constexpr float kMilliseconds = 1000.0f; // 0x006453C0
 
 // 0x005A3E80 (cdecl; no source yet): the colour of the object `id` from `params` (color=), as the script command
 // SetObjectColor does.
-void set_object_color(uint32_t id, script::Struct* params)
-{
-    commands::set_node_color(id, params);
-}
+void set_object_color(uint32_t id, script::Struct* params) { commands::set_node_color(id, params); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -191,25 +185,25 @@ int ColorCycleComponent::set_colors_from_script(script::Struct* params, script::
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::ColorCycleComponent::teardown,
-         &objects::ColorCycleComponent::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ColorCycleComponent::tick_frame,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

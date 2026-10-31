@@ -55,8 +55,14 @@ GoalEdge* alloc_chain_link()
 online::Hub* net_session_slot() { return online::g_online_hub; }
 objects::GameEntity* local_skater() { return skate_calls::get_home_rider(); }
 // The game mode's name (0x005532A0) and whether it beeps the timer (0x00553150).
-uint32_t active_ruleset_label() { return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key(); }
-bool game_mode_timer_beeps() { return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->clock_beeps_near_end(); }
+uint32_t active_ruleset_label()
+{
+    return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->get_name_key();
+}
+bool game_mode_timer_beeps()
+{
+    return static_cast<goals::MatchRules*>(skate_calls::get_game_mode())->clock_beeps_near_end();
+}
 // A field at `offset`.
 float float_at(const void* object, uint32_t offset)
 {
@@ -201,11 +207,12 @@ bool Objective::tick_frame()
         return true;
     if (Virtual<bool>(this, kVtHasTimeLimit) && seconds_remaining_ >= 1) {
         int before = seconds_remaining_;
-        seconds_remaining_ += truncate(frame_clock::get_slomo_frame_seconds() * g_goal_run_minus_milliseconds); // (-1000)
-        elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand);  // (1000)
+        seconds_remaining_ +=
+            truncate(frame_clock::get_slomo_frame_seconds() * g_goal_run_minus_milliseconds); // (-1000)
+        elapsed_ += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand);       // (1000)
         // The last ten seconds beep each second.
-        if (seconds_remaining_ < 10000 && before / 1000 > seconds_remaining_ / 1000 && Virtual<bool>(this, kVtTimerBeeps) &&
-            game_mode_timer_beeps())
+        if (seconds_remaining_ < 10000 && before / 1000 > seconds_remaining_ / 1000 &&
+            Virtual<bool>(this, kVtTimerBeeps) && game_mode_timer_beeps())
             script::launch_script(kTimerRunoutBeep, nullptr, nullptr, false, nullptr);
     }
     if (args_->has_bare_flag(kRequireCombo) && !args_->has_bare_flag(kChainActiveFlag)) {
@@ -297,8 +304,8 @@ bool Objective::step_to_next_waypoint()
             waypoint->put_name_key(kNoName, kQuickStart);
         else
             waypoint->remove_flag(kQuickStart);
-        script::spawn_script(args_->has_bare_flag(kHorse) ? kHorseSpotScript : kRaceSpotScript, waypoint, 0, nullptr,
-                            0, 0, false, false, false, false);
+        script::spawn_script(args_->has_bare_flag(kHorse) ? kHorseSpotScript : kRaceSpotScript, waypoint, 0, nullptr, 0,
+                             0, false, false, false, false);
         waypoint->remove_flag(kQuickStart);
         return true;
     }
@@ -331,8 +338,8 @@ void Objective::kill_cluster(uint32_t cluster, int score)
 // 0x005553C0
 bool Objective::did_trick_string()
 {
-    void* score = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(local_skater()->fetch_module(kSkaterScore)) +
-                                            0x18);
+    void* score =
+        *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(local_skater()->fetch_module(kSkaterScore)) + 0x18);
     const char* trick;
     args_->fetch_text(kTrickString, &trick, 1);
     uint32_t type;
@@ -368,7 +375,8 @@ uint32_t Objective::get_top_objective_key()
 bool Objective::has_won()
 {
     // (NetLobby counts whether or not a network game is on)
-    if ((net_session_slot()->in_net_game() && active_ruleset_label() == kNetGoalAttack) || active_ruleset_label() == kNetLobby)
+    if ((net_session_slot()->in_net_game() && active_ruleset_label() == kNetGoalAttack) ||
+        active_ruleset_label() == kNetLobby)
         return (flag_bits_ & kFlagWonInNetGame) != 0;
     return (flag_bits_ & kFlagWon) != 0;
 }
@@ -435,7 +443,8 @@ bool Objective::test_longest_jump()
 {
     uint32_t id;
     args_->read_hash_value(kDistanceObject, &id, 1);
-    objects::Entity* object = reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(id);
+    objects::Entity* object =
+        reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(id);
     objects::GameEntity* skater = local_skater();
     if (!skater || !object)
         return false;
@@ -517,4 +526,4 @@ bool Objective::run_started()
     return false;
 }
 
-} // namespace Game
+} // namespace goals

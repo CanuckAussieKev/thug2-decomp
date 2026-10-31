@@ -61,6 +61,6 @@ void TopBarMenus::turn_off_now()
     point_group_ = nullptr;
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::TopBarMenus;

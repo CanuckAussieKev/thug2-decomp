@@ -149,7 +149,8 @@ bool __cdecl cfunc_add_skater_early(Struct*, Script*)
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
 bool __cdecl cfunc_weather_update_grid(Struct*, Script*)
 {
-    reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(get_weather()))[1])(get_weather()); // (0x004A1090: a jump through the vtable +0x04)
+    reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(get_weather()))[1])(
+        get_weather()); // (0x004A1090: a jump through the vtable +0x04)
     return true;
 }
 // 0x005A5690

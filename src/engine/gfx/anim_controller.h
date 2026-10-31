@@ -9,7 +9,7 @@ class GameEntity;
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The animation controllers an object's animation blender stacks up (made by the factory 0x00481FB0 from a
 // structure's Type, with its Priority): each fills in a pose (gfx::Stance: 64 rotations at +0, 64 translations at
@@ -54,15 +54,15 @@ struct AnimTimeline {
 
     void** vtable_;
     uint32_t unknown04_[4];
-    float outset_;      // +0x14
-    float ongoing_;    // +0x18
-    float finish_;        // +0x1C
-    float speed_;      // +0x20 (per 1/60 s)
-    int direction_;    // +0x24 0 forwards, -1 backwards
-    int repeat_mode_;     // +0x28
-    bool complete_;    // +0x2C
+    float outset_;    // +0x14
+    float ongoing_;   // +0x18
+    float finish_;    // +0x1C
+    float speed_;     // +0x20 (per 1/60 s)
+    int direction_;   // +0x24 0 forwards, -1 backwards
+    int repeat_mode_; // +0x28
+    bool complete_;   // +0x2C
     uint8_t pad2d_[3];
-    uint32_t anim_;    // +0x30 the animation's name
+    uint32_t anim_; // +0x30 the animation's name
 };
 static_assert(offsetof(AnimTimeline, outset_) == 0x14 && offsetof(AnimTimeline, anim_) == 0x30 &&
                   sizeof(AnimTimeline) == 0x34,
@@ -72,9 +72,9 @@ static_assert(offsetof(AnimTimeline, outset_) == 0x14 && offsetof(AnimTimeline, 
 struct AnimDriver {
     void** vtable_;
     AnimTimeline* timeline_ptr_;        // +0x04 (the timeline of the blender channel it belongs to)
-    objects::GameEntity* owner_object_;  // +0x08 (set by some controllers only; fetch_subject asks the channel)
-    int rank_;                    // +0x0C
-    uint32_t ident_;                     // +0x10
+    objects::GameEntity* owner_object_; // +0x08 (set by some controllers only; fetch_subject asks the channel)
+    int rank_;                          // +0x0C
+    uint32_t ident_;                    // +0x10
 
     // 0x00481710: on `timeline`, no object, priority 0, id 0 (vtable 0x0064877C). Returns this.
     AnimDriver* make_new(AnimTimeline* timeline);
@@ -119,11 +119,11 @@ public:
     static void operator delete(void* item);
     static void operator delete(void* item, int) { operator delete(item); }
 
-    void* cur_frame_data_;       // +0x14 (unused)
+    void* cur_frame_data_; // +0x14 (unused)
     void* frame_source_;   // +0x18 the current frame (0x0048CFA0 / 0x0048CFD0)
-    void* blend_source_;      // +0x1C its frame source
-    uint32_t anim_set_;   // +0x20 added to an animation's name
-    int frame_index_;     // +0x24 (-1 none)
+    void* blend_source_;   // +0x1C its frame source
+    uint32_t anim_set_;    // +0x20 added to an animation's name
+    int frame_index_;      // +0x24 (-1 none)
 };
 static_assert(sizeof(StandardAnimController) == 0x28, "layout must match the original");
 
@@ -143,9 +143,9 @@ public:
     // 0xC6AE16AC), 0xC68365EB, stale_cache.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script);
 
-    void* frame_source_;   // +0x14
-    void* blend_source_;      // +0x18
-    uint32_t anim_set_;   // +0x1C
+    void* frame_source_; // +0x14
+    void* blend_source_; // +0x18
+    uint32_t anim_set_;  // +0x1C
     float weight_;       // +0x20
 };
 static_assert(sizeof(WeightedAnimController) == 0x24, "layout must match the original");
@@ -170,15 +170,15 @@ public:
     // 0x004A5180: the time to show now (ST0).
     float wobble_time();
 
-    float amp_a_;         // +0x14 wobbleAmpA
-    float amp_b_;         // +0x18 wobbleAmpB
+    float amp_a_;        // +0x14 wobbleAmpA
+    float amp_b_;        // +0x18 wobbleAmpB
     float k1_;           // +0x1C wobbleK1 (cycles per ms of the first sine)
     float k2_;           // +0x20 wobbleK2
-    float spaz_factor_;   // +0x24 spazFactor
-    float aim_point_;       // +0x28 the time it wobbles around
-    void* blend_source_;      // +0x2C
-    void* frame_source_;   // +0x30
-    uint32_t anim_set_;   // +0x34
+    float spaz_factor_;  // +0x24 spazFactor
+    float aim_point_;    // +0x28 the time it wobbles around
+    void* blend_source_; // +0x2C
+    void* frame_source_; // +0x30
+    uint32_t anim_set_;  // +0x34
 };
 static_assert(sizeof(WobbleDriver) == 0x38, "layout must match the original");
 
@@ -219,10 +219,10 @@ public:
     void tick_frame();
 
     AnimTimeline* partial_; // +0x14 its own timeline
-    void* blend_source_;           // +0x18
-    void* frame_source_;        // +0x1C
-    uint32_t anim_set_;        // +0x20
+    void* blend_source_;    // +0x18
+    void* frame_source_;    // +0x1C
+    uint32_t anim_set_;     // +0x20
 };
 static_assert(sizeof(PartialClipDriver) == 0x24, "layout must match the original");
 
-} // namespace Gfx
+} // namespace gfx

@@ -20,10 +20,7 @@ namespace render {
 namespace {
 
 // The vertex buffers (not rewritten yet): a new one of `size` bytes, and Unlock (thiscall).
-VertexBuffer* new_vertex_buffer(uint32_t size)
-{
-    return render::new_vertex_buffer(size, 0, 0);
-}
+VertexBuffer* new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
 void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 // The inlined lock: the whole buffer (flags 0x10: read only).
 uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
@@ -344,4 +341,4 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     get_unlock(buffer);
 }
 
-} // namespace Nx
+} // namespace render

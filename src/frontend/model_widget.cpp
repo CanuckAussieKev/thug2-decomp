@@ -43,11 +43,12 @@ static_assert(offsetof(ModelWidget, models_) == 0x178 && offsetof(ModelWidget, m
                   offsetof(ModelWidget, bob_height_) == 0x4B0 && offsetof(ModelWidget, bob_period_) == 0x4B4 &&
                   offsetof(ModelWidget, pivot_) == 0x4B8 && offsetof(ModelWidget, anchor_shift_) == 0x4C8 &&
                   offsetof(ModelWidget, centre_) == 0x4D8 && offsetof(ModelWidget, fit_scale_) == 0x4E8 &&
-                  offsetof(ModelWidget, size_follows_range_) == 0x4EC && offsetof(ModelWidget, distance_scale_) == 0x4F0 &&
-                  offsetof(ModelWidget, max_scale_) == 0x4F4 && offsetof(ModelWidget, view_slot_) == 0x4F8 &&
-                  offsetof(ModelWidget, anchor_object_) == 0x4FC && offsetof(ModelWidget, parent_integer_) == 0x500 &&
-                  offsetof(ModelWidget, attach_to_name_) == 0x504 && offsetof(ModelWidget, lean_angle_) == 0x508 &&
-                  offsetof(ModelWidget, is_dead_) == 0x50C && sizeof(ModelWidget) == 0x510,
+                  offsetof(ModelWidget, size_follows_range_) == 0x4EC &&
+                  offsetof(ModelWidget, distance_scale_) == 0x4F0 && offsetof(ModelWidget, max_scale_) == 0x4F4 &&
+                  offsetof(ModelWidget, view_slot_) == 0x4F8 && offsetof(ModelWidget, anchor_object_) == 0x4FC &&
+                  offsetof(ModelWidget, parent_integer_) == 0x500 && offsetof(ModelWidget, attach_to_name_) == 0x504 &&
+                  offsetof(ModelWidget, lean_angle_) == 0x508 && offsetof(ModelWidget, is_dead_) == 0x50C &&
+                  sizeof(ModelWidget) == 0x510,
               "layout must match the original");
 
 namespace {
@@ -78,16 +79,16 @@ constexpr uint32_t kModelModuleName = 0x286A8D26;
 
 // The originals' float constants (read from the exe).
 float aspect_to_layout() { return frontend::g_aspect_to_layout; } // 0.75000006 (3/4, a bit over)
-float wide_screen() { return frontend::g_wide_screen; }     // 0.9
-float minus_inv448() { return frontend::g_minus_inv448; }    // -1/448
-float inv448() { return frontend::g_inv448; }         // 1/448
-float inv896() { return frontend::g_inv896; }         // 1/896
-float inv1280() { return frontend::g_inv1280; }        // 1/1280
+float wide_screen() { return frontend::g_wide_screen; }           // 0.9
+float minus_inv448() { return frontend::g_minus_inv448; }         // -1/448
+float inv448() { return frontend::g_inv448; }                     // 1/448
+float inv896() { return frontend::g_inv896; }                     // 1/896
+float inv1280() { return frontend::g_inv1280; }                   // 1/1280
 float inv_two_pi() { return frontend::g_inv_two_pi; }
 float two_pi() { return frontend::g_two_pi; }
 float get_pi() { return frontend::g_pi; }
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; }        // pi / 180
-float visible_alpha() { return ::modules::g_competition_tiny; }   // 0.0001
+float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
+float visible_alpha() { return ::modules::g_competition_tiny; }      // 0.0001
 
 // UiWidget's pieces.
 void base_construct(UiWidget* e) { e->UiWidget::make_new(); }
@@ -98,14 +99,8 @@ void base_set_morph(UiWidget* e, Struct* params) { e->UiWidget::blend_towards(pa
 // The viewport's camera (0x004A09C0, cdecl; null if none) and the camera's matrix, position and horizontal angle
 // in degrees (thiscall getters).
 void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
-const maths::Mat4* cam_orientation(void* camera)
-{
-    return static_cast<gfx::ViewCam*>(camera)->fetch_mat();
-}
-const maths::Vec4* viewer_location(void* camera)
-{
-    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
-}
+const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_mat(); }
+const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_effective_h_fov(); }
 
 // A geom's bounding box (0x0048DE80, thiscall).
@@ -148,10 +143,7 @@ void mark_object_dead(objects::GameEntity* object)
 {
     reinterpret_cast<void(__thiscall*)(void*)>(object->vtable_[6])(object);
 }
-void seal(objects::GameEntity* object)
-{
-    reinterpret_cast<void(__thiscall*)(void*)>(object->vtable_[8])(object);
-}
+void seal(objects::GameEntity* object) { reinterpret_cast<void(__thiscall*)(void*)>(object->vtable_[8])(object); }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -404,8 +396,7 @@ void ModelWidget::change_traits(Struct* params)
 
     if (params->has_bare_flag(kScaleToScreenDims)) {
         scale_to_screen_dims();
-    } else if (params->fetch_vec("PivotPoint",
-                                 reinterpret_cast<script::VectorValue*>(&pivot_), 0)) {
+    } else if (params->fetch_vec("PivotPoint", reinterpret_cast<script::VectorValue*>(&pivot_), 0)) {
         pivot_.w = 1.0f;
     }
     size_follows_range_ = params->has_bare_flag(kShrinkWithRange);
@@ -469,10 +460,11 @@ void apply_angles(maths::Mat4* m, float x, float y, float z, int order)
 
 // 0x004A5EE0
 void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, float x, float y, float z,
-                   maths::Vec4* local)
+                     maths::Vec4* local)
 {
     float down = y - 224.0f; // (stored: rounded to float)
-    double across = (static_cast<double>(x) - 320.0f) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
+    double across =
+        (static_cast<double>(x) - 320.0f) * (static_cast<double>(render::fetch_view_ratio()) * aspect_to_layout());
     if (static_cast<int32_t>(render::g_back_buffer_width) > 640) { // the back buffer's width
         across *= wide_screen();
         down = static_cast<float>(static_cast<double>(down) * wide_screen());
@@ -595,10 +587,11 @@ void ModelWidget::tick_frame()
         objects::Entity* parent = manager->look_up_entity(anchor_object_);
         if (parent) {
             basis_frame_.reset_to_identity();
-            basis_frame_.row[3] = reinterpret_cast<objects::GameEntity*>(parent)->at_point_ + anchor_shift_ * basis_frame_;
+            basis_frame_.row[3] =
+                reinterpret_cast<objects::GameEntity*>(parent)->at_point_ + anchor_shift_ * basis_frame_;
         } else {
-            script::Script* script = script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false,
-                                                          false);
+            script::Script* script =
+                script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false, false);
             script->entity_.assign_value(reinterpret_cast<objects::Entity*>(this));
             is_dead_ = true;
         }
@@ -666,14 +659,14 @@ void ModelWidget::tick_frame()
     local.row[3].w += pivot_.w;
 
     float scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * fit_scale_);
-    maths::Vec4 scale = {scale_x, static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), scale_x, 1.0f};
+    maths::Vec4 scale = {scale_x, static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), scale_x,
+                         1.0f};
     void* camera = nullptr;
     if (size_follows_range_ && (camera = viewport_camera(view_slot_)) != nullptr) {
         maths::Vec4 away = basis_frame_.row[3] - *viewer_location(camera);
-        double distance =
-            std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
-                      static_cast<double>(away.y) * away.y) *
-            distance_scale_;
+        double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
+                                    static_cast<double>(away.y) * away.y) *
+                          distance_scale_;
         if (distance < 1.0f)
             distance = 1.0f;
         if (distance > max_scale_)
@@ -708,7 +701,8 @@ void ModelWidget::tick_frame()
                     corners[count++] = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
                 }
             }
-            double tan_half_angle = std::tan(static_cast<double>(camera_angle(view)) * (3.14159265358979323846 / 360.0));
+            double tan_half_angle =
+                std::tan(static_cast<double>(camera_angle(view)) * (3.14159265358979323846 / 360.0));
             float stretch = widescreen_stretch(corners, count, place, tan_half_angle);
             scale.x *= stretch;
         }
@@ -749,12 +743,20 @@ void ModelWidget::tick_frame()
 }
 
 namespace {
-static VtableSlot g_c_element3d_vtable_slots[] = {&frontend::ModelWidget::teardown, &frontend::ModelWidget::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties,
-                &frontend::ModelWidget::blend_towards, &frontend::ModelWidget::tick_frame};
+static VtableSlot g_c_element3d_vtable_slots[] = {
+    &frontend::ModelWidget::teardown,
+    &frontend::ModelWidget::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &frontend::ModelWidget::blend_towards,
+    &frontend::ModelWidget::tick_frame};
 void** const kCElement3dVtable = reinterpret_cast<void**>(g_c_element3d_vtable_slots);
 } // namespace
 
-} // namespace Front
+} // namespace frontend

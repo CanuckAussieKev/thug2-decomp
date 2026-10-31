@@ -31,9 +31,9 @@ namespace render {
 IDirect3DDevice9* g_d3d_device;
 D3DPRESENT_PARAMETERS g_present_parameters;
 bool g_stream_offset_supported;
-bool g_show_window_flag; // (the original showed the window maximised / minimised by it)
-uint32_t g_loading_bar_timer; // the timer's id (timeSetEvent)
-float g_display_factor_x; // 640x480 -> back buffer scale
+bool g_show_window_flag;         // (the original showed the window maximised / minimised by it)
+uint32_t g_loading_bar_timer;    // the timer's id (timeSetEvent)
+float g_display_factor_x;        // 640x480 -> back buffer scale
 IDirect3DDevice9* g_draw_device; // the same device, kept twice
 IDirect3DTexture9* g_screen_textures[9];
 
@@ -57,14 +57,15 @@ namespace {
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 constexpr float kPer640 = get_bits(0x3ACCCCCD); // 0x0064A474, 1 / 640
 constexpr float kPer480 = get_bits(0x3B088889); // 0x0064A47C, 1 / 480
-constexpr float kOffsetLines = 16.0f;       // 0x00645D68
+constexpr float kOffsetLines = 16.0f;           // 0x00645D68
 
 int g_device_width{640};
 int g_device_height{480};
 const char* g_disc_error_french1{"Le disque utilis\xE9 pr\xE9sente une anomalie."};
 const char* g_disc_error_french2{"Il est peut-\xEAtre sale ou endommag\xE9."};
 const char* g_disc_error_german1{"Bei der benutzten CD ist ein Problem aufgetreten."};
-const char* g_disc_error_german2{"M\xF6glicherweise ist sie verschmutzt oder besch\xE4" "digt."};
+const char* g_disc_error_german2{"M\xF6glicherweise ist sie verschmutzt oder besch\xE4"
+                                 "digt."};
 const char* g_disc_error_english1{"There's a problem with the disc you're using."};
 const char* g_disc_error_english2{"It may be dirty or damaged."};
 D3DADAPTER_IDENTIFIER9 g_adapter_identifier;
@@ -105,9 +106,9 @@ void init_direct_3d()
     if (!d3d) {
         // (the text and the caption are the wrong way round)
         MessageBoxA(nullptr, "Error" /* "Error" */,
-                                                         "Direct3D could not initialize. Please download and install DirectX 9.0 or higher."
-                                                         /* "Direct3D could not initialize. Please download and install DirectX 9.0 or higher." */,
-                                                         MB_OK);
+                    "Direct3D could not initialize. Please download and install DirectX 9.0 or higher."
+                    /* "Direct3D could not initialize. Please download and install DirectX 9.0 or higher." */,
+                    MB_OK);
         return;
     }
     D3DDISPLAYMODE mode;
@@ -241,8 +242,8 @@ HRESULT __cdecl create_device(int width, int height, bool hardware_vertices, boo
     pp.MultiSampleType = multisample ? D3DMULTISAMPLE_2_SAMPLES : D3DMULTISAMPLE_NONE;
     // NOT ORIGINAL - [Graphics] msaa (engine/gfx/graphics_options.h): the chosen sample count and quality instead of 2.
     if (graphics_options::chosen_samples()) {
-        pp.MultiSampleType = multisample ? static_cast<D3DMULTISAMPLE_TYPE>(graphics_options::chosen_samples())
-                                         : D3DMULTISAMPLE_NONE;
+        pp.MultiSampleType =
+            multisample ? static_cast<D3DMULTISAMPLE_TYPE>(graphics_options::chosen_samples()) : D3DMULTISAMPLE_NONE;
         pp.MultiSampleQuality = multisample ? graphics_options::chosen_quality() : 0;
     }
     pp.BackBufferWidth = width;
@@ -295,18 +296,19 @@ void __cdecl create_render_targets()
     D3DPRESENT_PARAMETERS& pp = present_parameters();
     for (int i = 0; i < 9; ++i) {
         input_port()->CreateTexture(pp.BackBufferWidth / kDivisors[i], pp.BackBufferHeight / kDivisors[i], 1,
-                                D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &screen_textures()[i], nullptr);
+                                    D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &screen_textures()[i],
+                                    nullptr);
         screen_textures()[i]->GetSurfaceLevel(0, &screen_surfaces()[i]);
     }
     input_port()->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
-                                        D3DMULTISAMPLE_NONE, 0, TRUE, &z_buffer_surface(), nullptr);
+                                            D3DMULTISAMPLE_NONE, 0, TRUE, &z_buffer_surface(), nullptr);
     input_port()->GetRenderTarget(0, &back_buffer());
     input_port()->GetDepthStencilSurface(&back_depth());
     back_buffer()->Release(); // (only the pointers are kept)
     back_depth()->Release();
     if (g_depth_textures_supported) // depth textures
         input_port()->CreateRenderTarget(256, 256, pp.BackBufferFormat, D3DMULTISAMPLE_NONE, 0, FALSE,
-                                     &depth_texture_target(), nullptr);
+                                         &depth_texture_target(), nullptr);
     D3DCAPS9 caps;
     input_port()->GetDeviceCaps(&caps);
     if (caps.PixelShaderVersion >= D3DPS_VERSION(1, 1))
@@ -317,8 +319,8 @@ void __cdecl create_render_targets()
     // NOT ORIGINAL - [Graphics] anisotropy and msaa (engine/gfx/graphics_options.h): the anisotropy this device can
     // give, and the multisampled scene surface for the screen copies.
     graphics_options::active_anisotropy() = graphics_options::device_anisotropy(
-        graphics_options::get_pull().anisotropy, (caps.TextureFilterCaps & 0x400) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */,
-        caps.MaxAnisotropy);
+        graphics_options::get_pull().anisotropy,
+        (caps.TextureFilterCaps & 0x400) != 0 /* D3DPTFILTERCAPS_MINFANISOTROPY */, caps.MaxAnisotropy);
     graphics_options::create_scene_target();
     if (caps.TextureAddressCaps & D3DPTADDRESSCAPS_BORDER)
         g_border_addressing_supported = true;
@@ -427,9 +429,10 @@ long __cdecl set_render_state(int state, uint32_t value)
 }
 
 // 0x0044F890
-long __cdecl clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil)
+long __cdecl clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z,
+                          uint32_t stencil)
 {
     return input_port()->Clear(rect_count, static_cast<const D3DRECT*>(rects), flags, color, z, stencil);
 }
 
-} // namespace Nx
+} // namespace render

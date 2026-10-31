@@ -23,27 +23,27 @@ namespace park_editing {
 
 namespace {
 
-constexpr uint32_t kStartGap = 0x65B9EC39;     // StartGap
-constexpr uint32_t kEndGap = 0xE5399FB2;       // EndGap
-constexpr uint32_t kGapId = 0x3B442E26;        // GapID
-constexpr uint32_t kScore = 0xCD66C8AE;        // score
-constexpr uint32_t kText = 0xC4745838;         // text
+constexpr uint32_t kStartGap = 0x65B9EC39;      // StartGap
+constexpr uint32_t kEndGap = 0xE5399FB2;        // EndGap
+constexpr uint32_t kGapId = 0x3B442E26;         // GapID
+constexpr uint32_t kScore = 0xCD66C8AE;         // score
+constexpr uint32_t kText = 0xC4745838;          // text
 constexpr uint32_t kCombinedFlags = 0x2760DE9E; // combined_flags
-constexpr uint32_t kCancelGround = 0x9A27E74D; // CANCEL_GROUND (the global integer: the default cancel flags)
+constexpr uint32_t kCancelGround = 0x9A27E74D;  // CANCEL_GROUND (the global integer: the default cancel flags)
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); } // modules::Skate
 // The skate module's career (+0x20).
-objects::RiderStoryProgress* get_career() { return *reinterpret_cast<objects::RiderStoryProgress**>(skate_module() + 0x20); }
+objects::RiderStoryProgress* get_career()
+{
+    return *reinterpret_cast<objects::RiderStoryProgress**>(skate_module() + 0x20);
+}
 // 0x005656C0: the skate module's (the current level's) gap checklist.
 goals::GapTally* skate_checklist()
 {
     return static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate_module())->fetch_gap_list());
 }
 // The goal editor (0x004E8470 looks it up); 0x004E8420: gap `index` taken out of the created park's gap goals.
-void remove_gap_from_goals(int index)
-{
-    ObjectiveAuthoring::get_pull()->remove_gap_from_park_goals(index);
-}
+void remove_gap_from_goals(int index) { ObjectiveAuthoring::get_pull()->remove_gap_from_park_goals(index); }
 
 // A new gap record (the inline constructor: its GapDetails made, no pieces, no cancel flags). Out of memory, the
 // original goes on writing through null.
@@ -210,6 +210,6 @@ void GapRegistry::fire_gap(int index, script::Script* script)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::GapRegistry;

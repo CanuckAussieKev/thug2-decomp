@@ -35,7 +35,8 @@ void __cdecl load_gamma();
 // 0x0044F870: the device's SetRenderState (a D3DRENDERSTATETYPE and its value). Returns the HRESULT.
 long __cdecl set_render_state(int state, uint32_t value);
 // 0x0044F890: the device's Clear (rectangles or the whole viewport; D3DCLEAR_* flags). Returns the HRESULT.
-long __cdecl clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil);
+long __cdecl clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z,
+                          uint32_t stencil);
 
 extern IDirect3DDevice9* g_d3d_device;
 extern IDirect3DDevice9* g_draw_device; // the same device, kept twice
@@ -45,7 +46,7 @@ extern bool g_show_window_flag;
 extern bool g_stream_offset_supported;
 extern IDirect3DTexture9* g_screen_textures[9];
 extern uint32_t g_loading_bar_timer; // the timer's id (timeSetEvent)
-extern float g_display_factor_x; // 640x480 -> back buffer scale
+extern float g_display_factor_x;     // 640x480 -> back buffer scale
 
 extern float g_display_factor_y;
 extern int g_screen_offset_x;
@@ -61,4 +62,4 @@ extern uint8_t g_set_frequency_allowed;
 extern int g_resolution_setting;
 extern IDirect3D9* g_direct_3d;
 extern HWND g_game_window;
-} // namespace Nx
+} // namespace render

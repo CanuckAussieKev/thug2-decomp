@@ -24,44 +24,44 @@ namespace {
 
 using namespace goal_names;
 
-constexpr uint32_t kIsFreeskate = 0x337E7779;     // is_freeskate
-constexpr uint32_t kIsCreateGoals = 0x353961D7;   // is_creategoals
-constexpr uint32_t kCareerOnly = 0xC18FEF36;      // career_only
-constexpr uint32_t kCompetitionFlag = 0x4AF5D34E; // competition
-constexpr uint32_t kNetFlag = 0x0D15EA00;         // net
-constexpr uint32_t kRaceFlag = 0x25904450;        // race
-constexpr uint32_t kTetrisFlag = 0x4147922B;      // tetris
-constexpr uint32_t kHorseFlag = 0x9D65D0E7;       // Horse
-constexpr uint32_t kFindGapsFlag = 0xC5EC08E6;    // findGaps
-constexpr uint32_t kFilmFlag = 0x7DBB41DD;        // Film
-constexpr uint32_t kTrickObjectsFlag = 0xEFC35592; // TrickObjects
-constexpr uint32_t kSkateTheLine = 0xF268C278;    // SkateTheLine
-constexpr uint32_t kTimedScoreRun = 0xD3C2899D;   // TimedScoreRun
-constexpr uint32_t kTrickBeat = 0xD0DD047B;       // TrickBeat
-constexpr uint32_t kChildren = 0x5E684E45;        // children
-constexpr uint32_t kChild = 0xDD4CABD6;           // child
-constexpr uint32_t kPro = 0x944B2900;             // pro
-constexpr uint32_t kFullName = 0x243B9C3B;        // full_name
-constexpr uint32_t kJudgeFullName = 0xA500BC5F;   // judge_full_name
-constexpr uint32_t kSk3KillSkater = 0xDEA3057B;   // sk3_killskater
-constexpr uint32_t kSk3KillSkaterFinish = 0x0B38ED6B; // SK3_Killskater_Finish
-constexpr uint32_t kKillBlur = 0xBDA66E7D;        // kill_blur
-constexpr uint32_t kDontKillTriggerOnSuccess = 0x6BEBDBCC; // dont_kill_trigger_on_success
-constexpr uint32_t kResetGoalTrigger = 0x17C2E09F; // GoalManager_ResetGoalTrigger
-constexpr uint32_t kGoalManagerParams = 0x23D4170A; // GoalManager_Params
-constexpr uint32_t kSkillTiers = 0xB13D98D3; // difficulty_levels
-constexpr uint32_t kNullGoal = 0x3D1CAB0B;        // null_goal
-constexpr uint32_t kParent = 0xC2719FB0;          // parent
-constexpr uint32_t kCurrentMenu = 0x4D49AC0A;     // current_menu
-constexpr uint32_t kText = 0xC4745838;            // text
-constexpr uint32_t kFont = 0x2F6BF72D;            // font
-constexpr uint32_t kSmall = 0x8ABA15EC;           // small
-constexpr uint32_t kScale = 0x13B9DA7B;           // scale
+constexpr uint32_t kIsFreeskate = 0x337E7779;                    // is_freeskate
+constexpr uint32_t kIsCreateGoals = 0x353961D7;                  // is_creategoals
+constexpr uint32_t kCareerOnly = 0xC18FEF36;                     // career_only
+constexpr uint32_t kCompetitionFlag = 0x4AF5D34E;                // competition
+constexpr uint32_t kNetFlag = 0x0D15EA00;                        // net
+constexpr uint32_t kRaceFlag = 0x25904450;                       // race
+constexpr uint32_t kTetrisFlag = 0x4147922B;                     // tetris
+constexpr uint32_t kHorseFlag = 0x9D65D0E7;                      // Horse
+constexpr uint32_t kFindGapsFlag = 0xC5EC08E6;                   // findGaps
+constexpr uint32_t kFilmFlag = 0x7DBB41DD;                       // Film
+constexpr uint32_t kTrickObjectsFlag = 0xEFC35592;               // TrickObjects
+constexpr uint32_t kSkateTheLine = 0xF268C278;                   // SkateTheLine
+constexpr uint32_t kTimedScoreRun = 0xD3C2899D;                  // TimedScoreRun
+constexpr uint32_t kTrickBeat = 0xD0DD047B;                      // TrickBeat
+constexpr uint32_t kChildren = 0x5E684E45;                       // children
+constexpr uint32_t kChild = 0xDD4CABD6;                          // child
+constexpr uint32_t kPro = 0x944B2900;                            // pro
+constexpr uint32_t kFullName = 0x243B9C3B;                       // full_name
+constexpr uint32_t kJudgeFullName = 0xA500BC5F;                  // judge_full_name
+constexpr uint32_t kSk3KillSkater = 0xDEA3057B;                  // sk3_killskater
+constexpr uint32_t kSk3KillSkaterFinish = 0x0B38ED6B;            // SK3_Killskater_Finish
+constexpr uint32_t kKillBlur = 0xBDA66E7D;                       // kill_blur
+constexpr uint32_t kDontKillTriggerOnSuccess = 0x6BEBDBCC;       // dont_kill_trigger_on_success
+constexpr uint32_t kResetGoalTrigger = 0x17C2E09F;               // GoalManager_ResetGoalTrigger
+constexpr uint32_t kGoalManagerParams = 0x23D4170A;              // GoalManager_Params
+constexpr uint32_t kSkillTiers = 0xB13D98D3;                     // difficulty_levels
+constexpr uint32_t kNullGoal = 0x3D1CAB0B;                       // null_goal
+constexpr uint32_t kParent = 0xC2719FB0;                         // parent
+constexpr uint32_t kCurrentMenu = 0x4D49AC0A;                    // current_menu
+constexpr uint32_t kText = 0xC4745838;                           // text
+constexpr uint32_t kFont = 0x2F6BF72D;                           // font
+constexpr uint32_t kSmall = 0x8ABA15EC;                          // small
+constexpr uint32_t kScale = 0x13B9DA7B;                          // scale
 constexpr uint32_t kViewSelectedGoalsMenuSetEvents = 0xE704C86C; // view_selected_goals_menu_set_events
 constexpr uint32_t kChooseGoalsMenuSetEvents = 0x6790AC11;       // choose_goals_menu_set_events
-constexpr uint32_t kTrickName = 0x5B077CE1;       // trickname
-constexpr uint32_t kButtonSequences = 0x79704516;       // key_combos
-constexpr uint32_t kAttempts = 0xD023ADBE;        // (name unknown: the times the beaten goals were started)
+constexpr uint32_t kTrickName = 0x5B077CE1;                      // trickname
+constexpr uint32_t kButtonSequences = 0x79704516;                // key_combos
+constexpr uint32_t kAttempts = 0xD023ADBE; // (name unknown: the times the beaten goals were started)
 
 const char* const kNetJudge = "NetJudge"; // "NetJudge"
 
@@ -111,7 +111,8 @@ Objective* make_goal(script::Struct* params)
     }
     if (params->has_bare_flag(kTetrisFlag)) {
         void* memory = memory::alloc_zeroed(0x458);
-        return memory ? reinterpret_cast<Objective*>(static_cast<FallingTricksGoal*>(memory)->make_new(params)) : nullptr;
+        return memory ? reinterpret_cast<Objective*>(static_cast<FallingTricksGoal*>(memory)->make_new(params))
+                      : nullptr;
     }
     if (params->has_bare_flag(kHorseFlag)) {
         void* memory = memory::alloc_zeroed(0x70);
@@ -127,7 +128,8 @@ Objective* make_goal(script::Struct* params)
     }
     if (params->has_bare_flag(kTrickObjectsFlag)) {
         void* memory = memory::alloc_zeroed(0x70);
-        return memory ? reinterpret_cast<Objective*>(static_cast<TrickObjectsGoal*>(memory)->make_new(params)) : nullptr;
+        return memory ? reinterpret_cast<Objective*>(static_cast<TrickObjectsGoal*>(memory)->make_new(params))
+                      : nullptr;
     }
     if (params->has_bare_flag(kSkateTheLine)) {
         void* memory = memory::alloc_zeroed(0x70);
@@ -135,7 +137,8 @@ Objective* make_goal(script::Struct* params)
     }
     if (params->has_bare_flag(kTimedScoreRun)) {
         void* memory = memory::alloc_zeroed(0x70);
-        return memory ? reinterpret_cast<Objective*>(static_cast<TimedScoreRunGoal*>(memory)->make_new(params)) : nullptr;
+        return memory ? reinterpret_cast<Objective*>(static_cast<TimedScoreRunGoal*>(memory)->make_new(params))
+                      : nullptr;
     }
     if (params->has_bare_flag(kTrickBeat)) {
         void* memory = memory::alloc_zeroed(0x47C);
@@ -266,8 +269,8 @@ void GoalManager::append_objective_options(bool selected_only, bool skip_edited,
         choice->append_word(kText, text);
         choice->put_name_key(kFont, kSmall);
         choice->put_int(kScale, 0);
-        script::launch_script(selected_only ? kViewSelectedGoalsMenuSetEvents : kChooseGoalsMenuSetEvents, choice, nullptr,
-                          false, nullptr);
+        script::launch_script(selected_only ? kViewSelectedGoalsMenuSetEvents : kChooseGoalsMenuSetEvents, choice,
+                              nullptr, false, nullptr);
         delete_structure(choice);
     }
 }
@@ -311,4 +314,4 @@ script::Struct* GoalManager::get_objective_try_details()
     return info;
 }
 
-} // namespace Game
+} // namespace goals

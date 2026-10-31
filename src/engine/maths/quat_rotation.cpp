@@ -126,8 +126,9 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
 // 0x0042E310
 QuatRotation* QuatRotation::make_unit(float length)
 {
-    double current = std::sqrt(((static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z) +
-                               static_cast<double>(w) * w);
+    double current =
+        std::sqrt(((static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z) +
+                  static_cast<double>(w) * w);
     if (!(current > 0.0))
         return this;
     double scale = length / current;
@@ -138,4 +139,4 @@ QuatRotation* QuatRotation::make_unit(float length)
     return this;
 }
 
-} // namespace Mth
+} // namespace maths

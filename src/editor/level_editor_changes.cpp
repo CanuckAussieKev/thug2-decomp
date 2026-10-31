@@ -20,13 +20,32 @@ struct GroupRow {
     const char* group;
 };
 const GroupRow kGroups[] = {
-    {"level", "Level properties"}, {"sector", "Scenery"},       {"clone", "Scenery copies"}, {"rail", "Rail points"},
-    {"object", "Objects"},         {"copy", "Object copies"},   {"set", "Nodes moved / fields"},
-    {"node", "Nodes added"},       {"hide", "Nodes hidden"},    {"order", "Nodes added"},   {"trigger", "Triggers"},
-    {"proxim", "Triggers"},        {"point", "Chains"},         {"links", "Chains"},        {"drop", "Chains"},
-    {"terrain", "Chains"},         {"facing", "Chains"},        {"grindflat", "Chains"},    {"railspeed", "Chains"},
-    {"speed", "Peds, cars, sounds"}, {"emitter", "Peds, cars, sounds"}, {"wall", "Collision and walls"},
-    {"faces", "Collision and walls"}, {"cluster", "Trick objects"}, {"camera", "Cameras"},  {"lock", "Locks"},
+    {"level", "Level properties"},
+    {"sector", "Scenery"},
+    {"clone", "Scenery copies"},
+    {"rail", "Rail points"},
+    {"object", "Objects"},
+    {"copy", "Object copies"},
+    {"set", "Nodes moved / fields"},
+    {"node", "Nodes added"},
+    {"hide", "Nodes hidden"},
+    {"order", "Nodes added"},
+    {"trigger", "Triggers"},
+    {"proxim", "Triggers"},
+    {"point", "Chains"},
+    {"links", "Chains"},
+    {"drop", "Chains"},
+    {"terrain", "Chains"},
+    {"facing", "Chains"},
+    {"grindflat", "Chains"},
+    {"railspeed", "Chains"},
+    {"speed", "Peds, cars, sounds"},
+    {"emitter", "Peds, cars, sounds"},
+    {"wall", "Collision and walls"},
+    {"faces", "Collision and walls"},
+    {"cluster", "Trick objects"},
+    {"camera", "Cameras"},
+    {"lock", "Locks"},
 };
 
 std::vector<std::string> get_lines(const std::string& text)
@@ -71,9 +90,9 @@ const char* group_of(const std::string& keyword)
 const std::vector<const char*>& bunches()
 {
     static const std::vector<const char*> kGroups = {
-        "Level properties", "Scenery", "Scenery copies", "Rail points", "Objects", "Object copies", "Nodes moved / fields",
-        "Nodes added", "Nodes hidden", "Triggers", "Chains", "Peds, cars, sounds", "Collision and walls", "Trick objects",
-        "Cameras", "Locks"};
+        "Level properties",     "Scenery",       "Scenery copies", "Rail points", "Objects", "Object copies",
+        "Nodes moved / fields", "Nodes added",   "Nodes hidden",   "Triggers",    "Chains",  "Peds, cars, sounds",
+        "Collision and walls",  "Trick objects", "Cameras",        "Locks"};
     return kGroups;
 }
 
@@ -169,7 +188,8 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             float x = number(at), y = number(at + 1), z = number(at + 2);
             // (the at row: the heading)
             float ax = number(at + 9), az = number(at + 11);
-            float heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * 180.0 / 3.14159265358979);
+            float heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * 180.0 /
+                                               3.14159265358979);
             std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? words[1] : "?")
                                     : name_of(e.id, words.empty() ? "?" : words[0]);
             char text[96];
@@ -187,22 +207,27 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             }
             std::string what = pos ? (angles ? "moved / turned" : "moved") : angles ? "turned" : "";
             if (fields)
-                what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") + " edited";
+                what += (what.empty() ? "" : ", ") + std::to_string(fields) + (fields == 1 ? " field" : " fields") +
+                        " edited";
             e.summary = name + ": " + (what.empty() ? std::string("edited") : what);
         } else if (keyword == "node" || keyword == "point" || keyword == "camera") {
             e.id = words.empty() ? 0 : id_of(words[0]);
             std::string cls = keyword == "camera" ? "camera" : words.size() > 1 ? words[1] : "?";
-            e.summary = std::string(keyword == "point" ? "Point " : keyword == "camera" ? "Camera " : "Added ") +
+            e.summary = std::string(keyword == "point"    ? "Point "
+                                    : keyword == "camera" ? "Camera "
+                                                          : "Added ") +
                         (words.empty() ? "?" : words[0]) + " (" + cls + ")";
         } else if (keyword == "order") {
-            e.summary = "The added crowns' order: " + std::to_string(words.size() > 0 ? words.size() - 1 : 0) + " crowns";
+            e.summary =
+                "The added crowns' order: " + std::to_string(words.size() > 0 ? words.size() - 1 : 0) + " crowns";
         } else if (keyword == "hide" || keyword == "drop") {
             e.id = words.empty() ? 0 : id_of(words[0]);
-            e.summary = name_of(e.id, words.empty() ? "?" : words[0]) + (keyword == "drop" ? " deleted (a chain point)" : " hidden");
+            e.summary = name_of(e.id, words.empty() ? "?" : words[0]) +
+                        (keyword == "drop" ? " deleted (a chain point)" : " hidden");
         } else if (keyword == "lock") {
             e.id = words.size() > 1 ? id_of(words[1]) : 0;
-            e.summary = name_of(e.id, words.size() > 1 ? words[1] : "?") + " locked (" +
-                        (words.empty() ? "?" : words[0]) + ")";
+            e.summary =
+                name_of(e.id, words.size() > 1 ? words[1] : "?") + " locked (" + (words.empty() ? "?" : words[0]) + ")";
         } else if (keyword == "trigger") {
             e.id = words.empty() ? 0 : id_of(words[0]);
             e.summary = "Trigger " + (words.empty() ? std::string("?") : words[0]) +
@@ -263,4 +288,4 @@ std::string without(const std::string& layout_text, int line)
     return out;
 }
 
-} // namespace MenuSystem::level_editor::Changes
+} // namespace frontend::level_editor::changes

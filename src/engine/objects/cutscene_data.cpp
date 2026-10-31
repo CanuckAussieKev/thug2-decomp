@@ -36,20 +36,20 @@ float g_cutscene_translations[512];
 
 namespace {
 
-constexpr uint32_t kModelModuleName = 0x286A8D26;    // the component whose +0x208 is the object's model
+constexpr uint32_t kModelModuleName = 0x286A8D26; // the component whose +0x208 is the object's model
 constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 constexpr uint32_t kCutsceneObjectType = 0xCDEB9229;
-constexpr uint32_t kCutsceneHideList = 0x67F08671;       // a global array: the objects a cutscene hides
-constexpr uint32_t kLights = 0x2A79C44E;            // a global array: the nodes of the cutscene's lights
-constexpr uint32_t kCreateScript = 0x1F29C5A5;      // the scripts that make a cutscene object
+constexpr uint32_t kCutsceneHideList = 0x67F08671; // a global array: the objects a cutscene hides
+constexpr uint32_t kLights = 0x2A79C44E;           // a global array: the nodes of the cutscene's lights
+constexpr uint32_t kCreateScript = 0x1F29C5A5;     // the scripts that make a cutscene object
 constexpr uint32_t kInitScript = 0x2E20EA32;
-constexpr uint32_t kFlagParam = 0x82C84419;         // create_object's parameter: +0x34B0
-constexpr uint32_t kProfile = 0x1804A7C4;           // skater_model_name's parameters and table
+constexpr uint32_t kFlagParam = 0x82C84419; // create_object's parameter: +0x34B0
+constexpr uint32_t kProfile = 0x1804A7C4;   // skater_model_name's parameters and table
 constexpr uint32_t kProfiles = 0xCA1DB456;
 constexpr uint32_t kProfileName = 0x40C698AF;
 constexpr uint32_t kProfileModel = 0x16CBB85A;
 constexpr uint32_t kMale = 0x3F813177;
-constexpr uint32_t kNoColour = 0x5A96985D;          // read_colour's structure: {r, g, b}, or this set: white
+constexpr uint32_t kNoColour = 0x5A96985D; // read_colour's structure: {r, g, b}, or this set: white
 constexpr uint32_t kRed = 0x7323E97C;
 constexpr uint32_t kGreen = 0x0424D9EA;
 constexpr uint32_t kBlue = 0x9D2D8850;
@@ -61,7 +61,8 @@ void* model_of(ObjectModule* component)
 }
 uint32_t model_get(void* model)
 {
-    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model);
+    return reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(
+        model);
 }
 void model_set(void* model, uint32_t value)
 {
@@ -69,10 +70,7 @@ void model_set(void* model, uint32_t value)
 }
 
 // The asset manager (0x006918DC).
-assets::ResourceRegistry* asset_manager()
-{
-    return assets::g_asset_manager;
-}
+assets::ResourceRegistry* asset_manager() { return assets::g_asset_manager; }
 // (from memory, a2 the data and a3 its size: not permanent, copied)
 void load_asset_file(uint32_t name, uint32_t a2, uint32_t a3)
 {
@@ -215,7 +213,8 @@ void CinematicTable::destroy_objects()
             uint32_t id = static_cast<MeshInstanceModule*>(stand_in)->get_linked_entity_name();
             auto* original = static_cast<GameEntity*>(find_object(id));
             void* model = model_of(original->fetch_module(kModelModuleName));
-            static_cast<render::RenderModel*>(model)->change_bound_sphere(reinterpret_cast<const maths::Vec4*>(lent_2c_));
+            static_cast<render::RenderModel*>(model)->change_bound_sphere(
+                reinterpret_cast<const maths::Vec4*>(lent_2c_));
             static_cast<render::RenderModel*>(model)->conceal(lent_3c_);
             static_cast<render::RenderModel*>(model)->allow_resizing(lent_3d_);
             uint32_t mine = model_get(model);
@@ -263,8 +262,7 @@ GameEntity* CinematicTable::create_object(script::Struct* params)
     auto* object = memory ? static_cast<GameEntity*>(memory)->make_new() : nullptr;
     object->change_species(kCutsceneObjectType);
     void* objects = static_cast<void*>(g_composite_registry);
-    reinterpret_cast<void(__thiscall*)(void*, GameEntity*)>((*reinterpret_cast<void***>(objects))[1])(objects,
-                                                                                                         object);
+    reinterpret_cast<void(__thiscall*)(void*, GameEntity*)>((*reinterpret_cast<void***>(objects))[1])(objects, object);
     params->put_int(kFlagParam, flag_34b_0_);
     script::launch_script(kCreateScript, params, object, false, nullptr);
     reinterpret_cast<void(__thiscall*)(GameEntity*)>((*reinterpret_cast<void***>(object))[0x20 / 4])(object);
@@ -309,8 +307,9 @@ void CinematicTable::refresh_viewer(void* camera)
     float translation[4];
     bool flag = false;
     static_cast<gfx::JointClipFrames*>(camera_anim_)
-        ->get_float_key_pose(rotation, translation, &flag, static_cast<float>(clock_ - static_cast<double>(camera_start_)),
-                          static_cast<int>(reinterpret_cast<uint32_t>(camera_source_)));
+        ->get_float_key_pose(rotation, translation, &flag,
+                             static_cast<float>(clock_ - static_cast<double>(camera_start_)),
+                             static_cast<int>(reinterpret_cast<uint32_t>(camera_source_)));
     std::memcpy(position, translation, 16);
     float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     quat_to_matrix(rotation, origin, matrix);
@@ -344,21 +343,21 @@ void CinematicTable::update_object_poses()
         *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? data + 0x408 : nullptr;
         *reinterpret_cast<uint32_t*>(source + 0x210) = *reinterpret_cast<uint32_t*>(skeleton + 0xC);
         const uint8_t* base_pose = *reinterpret_cast<uint8_t**>(*reinterpret_cast<uint8_t**>(skeleton + 8) + 0x590);
-        uint32_t count = reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);
+        uint32_t count =
+            reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);
         std::memcpy(translations, base_pose, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)
             source = nullptr;
         static_cast<gfx::JointClipFrames*>(animation)->get_frames(
             reinterpret_cast<maths::QuatRotation*>(rotations), reinterpret_cast<maths::Vec4*>(translations),
-            g_cutscene_camera_slot, static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1,
-            source);
-        reinterpret_cast<gfx::Rig*>(skeleton)->tick_frame(reinterpret_cast<const float(*)[4]>(rotations),
-                                                            reinterpret_cast<const float(*)[4]>(translations));
+            g_cutscene_camera_slot, static_cast<float>(clock_ - static_cast<double>(camera_start_)), -1, source);
+        reinterpret_cast<gfx::Rig*>(skeleton)->tick_frame(reinterpret_cast<const float (*)[4]>(rotations),
+                                                          reinterpret_cast<const float (*)[4]>(translations));
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
@@ -373,4 +372,4 @@ void construct_cutscene_rotations()
     }
 }
 
-} // namespace Obj
+} // namespace objects

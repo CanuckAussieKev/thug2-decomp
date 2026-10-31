@@ -103,7 +103,7 @@ int __cdecl game_main(int argc, char** argv)
     game_config::prepare_all(argc, argv); // the command line options (Config)
     memory::Hub::get_pull()->init_standard_heaps();
     switch (game_config::g_language) { // the language's start-up (German has its own)
-    case 3: // French
+    case 3:                            // French
         set_key_names();
         break;
     case 5: // German
@@ -162,8 +162,10 @@ int __cdecl game_main(int argc, char** argv)
         frontend::level_editor::register_script_functions();
         frontend::career_complete::register_script_functions();
         frontend::test_view::register_script_functions(); // (TeleportSkaterStanding - frontend/test_view.h)
-        skater::thaw_bmx::register_script_functions(); // (ThawBmx_Available, the bike's members - game/rider/thaw_bmx.h)
-        frontend::new_frontend::register_script_functions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
+        skater::thaw_bmx::
+            register_script_functions(); // (ThawBmx_Available, the bike's members - game/rider/thaw_bmx.h)
+        frontend::new_frontend::
+            register_script_functions(); // (the overlay's pause items: NewFrontend_PauseItem / _Open)
         script::load_boot_script_files();
 
         memory::push_mem_profile("Game Singletons");
@@ -257,4 +259,4 @@ int __cdecl game_main(int argc, char** argv)
     return 0;
 }
 
-} // namespace Sys
+} // namespace sys

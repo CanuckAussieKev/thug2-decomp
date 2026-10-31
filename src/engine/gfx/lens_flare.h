@@ -11,7 +11,7 @@ class ViewCam;
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The sun and its lens flare (0x00442670-0x00443870; compiled without optimisation in the original): a sprite on a
 // camera-facing quad at the sun's place (theta / phi from the camera, `radius` away), a corona drawn over it while
@@ -23,15 +23,15 @@ namespace sun {
 
 // What SetSun is given (0x44 bytes); `mask` says which parts to take.
 struct Settings {
-    float theta;             // +0x00 (mask 0x01) around the vertical, radians
-    float phi;               // +0x04 (0x02) above the horizon
-    float radius;            // +0x08 (0x04) the distance from the camera
-    float size;              // +0x0C (0x08)
-    uint32_t texture;        // +0x10 (0x20) the sun's texture (checksum)
-    uint32_t corona_texture_;  // +0x14 (0x40)
-    maths::Vec4 color;       // +0x18 (0x10) r, g, b, a (0-255)
+    float theta;              // +0x00 (mask 0x01) around the vertical, radians
+    float phi;                // +0x04 (0x02) above the horizon
+    float radius;             // +0x08 (0x04) the distance from the camera
+    float size;               // +0x0C (0x08)
+    uint32_t texture;         // +0x10 (0x20) the sun's texture (checksum)
+    uint32_t corona_texture_; // +0x14 (0x40)
+    maths::Vec4 color;        // +0x18 (0x10) r, g, b, a (0-255)
     uint8_t unknown28[0x18];
-    bool shown;              // +0x40 (0x80)
+    bool shown; // +0x40 (0x80)
     uint8_t pad41[3];
 };
 static_assert(offsetof(Settings, color) == 0x18 && offsetof(Settings, shown) == 0x40 && sizeof(Settings) == 0x44,
@@ -41,12 +41,12 @@ constexpr uint32_t kTheta = 0x01, kPhi = 0x02, kRadius = 0x04, kSize = 0x08, kCo
 
 // A lens flare element (0x18 bytes; the array at 0x006968A0).
 struct FlareElement {
-    uint32_t id;               // +0x00 its screen element's id
-    float pos_scale_;            // +0x04 how far along the line from the screen's centre to the sun
-    float scale;               // +0x08
-    uint32_t rgba;             // +0x0C packed: r in the low byte
-    script::Struct* create;   // +0x10 its creation params (id, scale, rgba)
-    script::Struct* morph;    // +0x14 its morph params (id, pos, time)
+    uint32_t id;            // +0x00 its screen element's id
+    float pos_scale_;       // +0x04 how far along the line from the screen's centre to the sun
+    float scale;            // +0x08
+    uint32_t rgba;          // +0x0C packed: r in the low byte
+    script::Struct* create; // +0x10 its creation params (id, scale, rgba)
+    script::Struct* morph;  // +0x14 its morph params (id, pos, time)
 };
 static_assert(sizeof(FlareElement) == 0x18, "layout must match the original");
 
@@ -64,7 +64,7 @@ void __cdecl place_flare_elements(float time, const maths::Vec4* sun, const math
 // 0x004429D0: the sun set up (shown) and its flare elements read from the global array `lens_flare_data`; the morph
 // times from LensFlare_Morph_In / LensFlare_Morph_Out / SunBurst_Out; the colour 255 255 255 128.
 void __cdecl prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
-                  uint32_t lens_flare_data);
+                         uint32_t lens_flare_data);
 // 0x00442D70: UpdateLensFlare's work: center (default 320 240), morph_time, sun_pos.
 void __cdecl update_flare(script::Struct* params, script::Script* script);
 // 0x00442DF0 / 0x00443030: the Lens_Flare_Container faded out (alpha 0 over morph_time; with params, the elements
@@ -81,4 +81,4 @@ void __cdecl show_flare(const maths::Vec4* sun, float time);
 // shown or faded (MaybeHideLensFlare).
 void __cdecl render(gfx::ViewCam* camera);
 
-} // namespace Sun
+} // namespace sun

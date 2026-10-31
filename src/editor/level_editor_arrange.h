@@ -9,7 +9,7 @@
 
 namespace frontend::level_editor::ui {
 struct Overlay;
-} // namespace MenuSystem::level_editor::Ui
+} // namespace frontend::level_editor::ui
 
 // NOT ORIGINAL - the level editor's arrange tools (ours; see level_editor.h):
 //   - Align / distribute (Roblox Studio's Align tool): the selection's pieces (each object, each scenery piece with
@@ -69,7 +69,7 @@ struct Contact {
 // or its top level with a neighbour's top (next to it - within reach across). `axes`: the axes it may snap on (bits:
 // 1 X, 2 Y, 4 Z). The faces met added to `contacts` (may be null).
 V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float reach, int axes,
-            std::vector<Contact>* contacts);
+             std::vector<Contact>* contacts);
 // The reach in units for a camera `distance` away: 6 near, up to 24 far.
 float snap_reach(float distance);
 
@@ -101,22 +101,22 @@ struct Run {
 std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float min_length);
 // The run nearest (x, y) in pixels within `grab` (its index; -1 none) - `project` as the gizmos'.
 int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
-          float grab);
+           float grab);
 
 // --- the settings (this session) ----------------------------------------------------------------------------------
 
 struct Settings {
-    bool window = false;       // the Arrange window (M)
-    int axis = 0;              // 0 / 1 / 2: X / Y / Z
+    bool window = false; // the Arrange window (M)
+    int axis = 0;        // 0 / 1 / 2: X / Y / Z
     Edge edge = Edge::kMin;
     Reference reference = Reference::kBounds;
     bool local = false;        // along the first piece's own axes
     bool gaps = false;         // distribute: equal gaps (else evenly spaced centres)
-    bool edge_snap_ = true;      // edge-to-edge snapping while moving scenery
+    bool edge_snap_ = true;    // edge-to-edge snapping while moving scenery
     bool measure = true;       // the readout while dragging
     bool ghost = true;         // the placement ghost
-    bool click_places_ = true;   // a click in the view places the Add palette's piece
-    bool ghost_slope_ = false;   // the ghost (and the object placed) turned to the surface's slope
+    bool click_places_ = true; // a click in the view places the Add palette's piece
+    bool ghost_slope_ = false; // the ghost (and the object placed) turned to the surface's slope
 };
 Settings& at_hand();
 
@@ -142,7 +142,7 @@ bool place_click(bool more);
 void tick_frame();
 // What's drawn over the view: the ghost, the readout, the edges met by snapping, the top outline.
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                ui::Overlay* overlay);
+                 ui::Overlay* overlay);
 // The UI (level_editor_arrange_ui.cpp): the window, and the Add palette's extra row (Replace, Click places).
 void pane(float ui_scale);
 void browser_extras(float ui_scale);
@@ -151,4 +151,4 @@ void run_queued();
 // A new level / the editor stopping: caches dropped.
 void get_forget();
 
-} // namespace MenuSystem::level_editor::Arrange
+} // namespace frontend::level_editor::arrange

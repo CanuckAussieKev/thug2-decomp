@@ -26,29 +26,21 @@
 namespace objects {
 
 uint32_t g_rigid_body_member_functions[78]{
-            0xCC12CF87, 0xFFB39248, 0, 0, 0, 0,
-            0x9599C10F, 0xFFB39248, 0, 0, 0, 0,
-            0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
-            0xAE24DF9F, 0xFFB39248, 0, 0, 0, 0,
-            0xE8B73AB3, 0xFFB39248, 0, 0, 0, 0,
-            0x8A3A6B5F, 0xFFB39248, 0, 0, 0, 0,
-            0x39D708AC, 0xFFB39248, 0, 0, 0, 0,
-            0x92F5DB9A, 0xFFB39248, 0, 0, 0, 0,
-            0x0A2BBB3A, 0xFFB39248, 0, 0, 0, 0,
-            0x49F44585, 0xFFB39248, 0, 0, 0, 0,
-            0xD4A0946B, 0xFFB39248, 0, 0, 0, 0,
-            0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
-            0, 0xFFB39248, 0, 0, 0, 0};
+    0xCC12CF87, 0xFFB39248, 0, 0, 0, 0, 0x9599C10F, 0xFFB39248, 0, 0, 0, 0, 0xCD5BA67B, 0xFFB39248, 0, 0, 0, 0,
+    0xAE24DF9F, 0xFFB39248, 0, 0, 0, 0, 0xE8B73AB3, 0xFFB39248, 0, 0, 0, 0, 0x8A3A6B5F, 0xFFB39248, 0, 0, 0, 0,
+    0x39D708AC, 0xFFB39248, 0, 0, 0, 0, 0x92F5DB9A, 0xFFB39248, 0, 0, 0, 0, 0x0A2BBB3A, 0xFFB39248, 0, 0, 0, 0,
+    0x49F44585, 0xFFB39248, 0, 0, 0, 0, 0xD4A0946B, 0xFFB39248, 0, 0, 0, 0, 0x949BE8A9, 0xFFB39248, 0, 0, 0, 0,
+    0,          0xFFB39248, 0, 0, 0, 0};
 int g_next_collide_sound_time;
 
 namespace {
 
-constexpr uint32_t kSound = 0x07713C7B;          // the sound component
-constexpr uint32_t kFrames = 0x019176C5;         // frames
-constexpr uint32_t kFrame = 0x4A07C332;          // frame
-constexpr float kFrameSeconds = 1.0f / 60;       // 0x006463B8
-constexpr float kSettledDistanceSqr = 2304.0f;   // 0x006463DC (48 squared)
-constexpr float kDieAfterSettling = 1.5f;        // (an immediate)
+constexpr uint32_t kSound = 0x07713C7B;        // the sound component
+constexpr uint32_t kFrames = 0x019176C5;       // frames
+constexpr uint32_t kFrame = 0x4A07C332;        // frame
+constexpr float kFrameSeconds = 1.0f / 60;     // 0x006463B8
+constexpr float kSettledDistanceSqr = 2304.0f; // 0x006463DC (48 squared)
+constexpr float kDieAfterSettling = 1.5f;      // (an immediate)
 
 double get_wide(float value) { return value; }
 float get_narrow(double value) { return static_cast<float>(value); }
@@ -62,7 +54,10 @@ SharedRef<GameEntity>* get_pushers() { return g_rigid_body_pushers; }
 float* pusher_reach() { return g_rigid_body_pusher_reach; }
 
 // The matrix's element at byte offset `offset` from its start.
-double get_m(const maths::Mat4& m, int offset) { return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset); }
+double get_m(const maths::Mat4& m, int offset)
+{
+    return *reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(&m) + offset);
+}
 
 } // namespace
 
@@ -88,12 +83,12 @@ void __cdecl BodyDynamicsModule::publish_method_table()
 
 // 0x0042BB20
 int ObjectModule::dispatch_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
-                                      script::Script* script)
+                                         script::Script* script)
 {
     if (entry->method_code_) {
         void* self = reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_;
-        return reinterpret_cast<int(__thiscall*)(void*, script::Struct*, script::Script*)>(entry->method_code_)(self, params,
-                                                                                                         script);
+        return reinterpret_cast<int(__thiscall*)(void*, script::Struct*, script::Script*)>(entry->method_code_)(
+            self, params, script);
     }
     return invoke_method_by_name(entry->callsign_, params, script);
 }
@@ -141,8 +136,10 @@ void BodyDynamicsModule::seal()
         Spring& spring = springs_[i];
         const maths::Vec4& p = spring.point;
         double x = (get_wide(p.y) * get_m(m, 0x10) + get_wide(p.x) * get_m(m, 0x00)) + get_wide(p.z) * get_m(m, 0x20);
-        float y = get_narrow((get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) + get_wide(p.y) * get_m(m, 0x14));
-        float z = get_narrow((get_wide(p.x) * get_m(m, 0x08) + get_wide(p.z) * get_m(m, 0x28)) + get_wide(p.y) * get_m(m, 0x18));
+        float y = get_narrow((get_wide(p.x) * get_m(m, 0x04) + get_wide(p.z) * get_m(m, 0x24)) +
+                             get_wide(p.y) * get_m(m, 0x14));
+        float z = get_narrow((get_wide(p.x) * get_m(m, 0x08) + get_wide(p.z) * get_m(m, 0x28)) +
+                             get_wide(p.y) * get_m(m, 0x18));
         spring.anchor.z = get_narrow(get_wide(z) + at_point_.z);
         spring.anchor.w = get_narrow(get_wide(p.w) + at_point_.w);
         spring.anchor.x = get_narrow(x + at_point_.x);
@@ -218,7 +215,10 @@ void get_slow(maths::Vec4& v, float drag)
 }
 
 // x * x + y * y + z * z, as the original sums it.
-double magnitude_squared(const maths::Vec4& v) { return (get_wide(v.x) * v.x + get_wide(v.y) * v.y) + get_wide(v.z) * v.z; }
+double magnitude_squared(const maths::Vec4& v)
+{
+    return (get_wide(v.x) * v.x + get_wide(v.y) * v.y) + get_wide(v.z) * v.z;
+}
 
 } // namespace
 
@@ -239,7 +239,8 @@ void BodyDynamicsModule::check_sleep()
     if (magnitude_squared(rot_vel_) > angular_sleep_squared_)
         return;
     sleep();
-    if ((flag_bits_ & kFlagDieUponSettling) && !(maths::get_distance_squared(at_point_, wake_pos_) < kSettledDistanceSqr))
+    if ((flag_bits_ & kFlagDieUponSettling) &&
+        !(maths::get_distance_squared(at_point_, wake_pos_) < kSettledDistanceSqr))
         die_timer_ = kDieAfterSettling;
 }
 
@@ -397,6 +398,6 @@ void BodyDynamicsModule::feel_pushers()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::BodyDynamicsModule;

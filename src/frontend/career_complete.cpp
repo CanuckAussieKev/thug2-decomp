@@ -21,15 +21,15 @@ namespace {
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // A goal's saved state as the goal manager keeps it (the names a goal's save writes - 0x00554770).
-constexpr uint32_t kLevelNum = 0x1A4CDE06;  // level_index_
+constexpr uint32_t kLevelNum = 0x1A4CDE06; // level_index_
 constexpr uint32_t kUnlocked = 0xD3E93882;
 constexpr uint32_t kK2206b1e7 = 0x2206B1E7;
 constexpr uint32_t kAlreadyWon = 0x49807745; // hasBeaten
 constexpr uint32_t kRecord = 0xC22A2B72;
 // The bare name a goal's save adds: career for a story goal, classic for a classic mode one (its classic_mode_goal
 // test - 0x00554770); GoalManager_ResetCareer <mode> (0x00557E70) drops the store's goals of a mode by it.
-constexpr uint32_t kCareer = 0x4DA4937B;    // career
-constexpr uint32_t kClassic = 0x4C10DE52;   // classic
+constexpr uint32_t kCareer = 0x4DA4937B;  // career
+constexpr uint32_t kClassic = 0x4C10DE52; // classic
 
 uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 
@@ -99,7 +99,8 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         int index = checklist->find_gap(name);
         if (index >= 0 && checklist->count_gaps_found(index) > 0)
             continue; // (landed already)
-        checklist->register_gap_entry(name, 1, score); // (also marks the checklist built; one already there is left as it is)
+        checklist->register_gap_entry(name, 1,
+                                      score); // (also marks the checklist built; one already there is left as it is)
         script::VectorValue pos = {0.0f, 0.0f, 0.0f, 1.0f};
         gap->fetch_vec(name_hash("pos"), &pos, 0);
         checklist->set_gap_positions(name, {pos.x, pos.y, pos.z, 1.0f}, facing);
@@ -152,10 +153,10 @@ bool __cdecl cfunc_apply(script::Struct* params, script::Script*)
         int points = 0, total = 0;
         if (level->fetch_int_value(name_hash("points"), &points, 0)) {
             level->fetch_int_value(name_hash("total"), &total, 0);
-            career->lifetime_funds_ = static_cast<uint16_t>(career->lifetime_funds_ + (points - career->funds_[number]));
+            career->lifetime_funds_ =
+                static_cast<uint16_t>(career->lifetime_funds_ + (points - career->funds_[number]));
             career->funds_[number] = static_cast<uint16_t>(points);
-            career->total_amount_ =
-                static_cast<uint16_t>(career->total_amount_ + (total - career->amount_[number]));
+            career->total_amount_ = static_cast<uint16_t>(career->total_amount_ + (total - career->amount_[number]));
             career->amount_[number] = static_cast<uint16_t>(total);
         }
         script::Array* goals = nullptr;
@@ -185,10 +186,11 @@ bool __cdecl cfunc_apply(script::Struct* params, script::Script*)
         counter_total += counter;
     career->total_counter_ = static_cast<uint8_t>(counter_total);
     int stat_goals = complete_stat_goals();
-    get_log("create 100%% cas: %u levels; %d story goals beaten, story points %u / %u; %d classic goals beaten, classic "
+    get_log(
+        "create 100%% cas: %u levels; %d story goals beaten, story points %u / %u; %d classic goals beaten, classic "
         "goals %u / %u; %d gaps got in %d levels, all gaps got: %d; %d stat challenges done",
-        levels->extent_, goal_count, career->lifetime_funds_, career->total_amount_, classic_count, career->total_counter_,
-        career->flag_5e_f_, gap_count, gap_levels, career->all_gaps_got() ? 1 : 0, stat_goals);
+        levels->extent_, goal_count, career->lifetime_funds_, career->total_amount_, classic_count,
+        career->total_counter_, career->flag_5e_f_, gap_count, gap_levels, career->all_gaps_got() ? 1 : 0, stat_goals);
     return true;
 }
 
@@ -201,4 +203,4 @@ void register_script_functions()
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
-} // namespace MenuSystem::career_complete
+} // namespace frontend::career_complete

@@ -13,7 +13,7 @@ struct Signal;
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The front end's screen elements: menus, text, sprites, windows... - a tree of objects (the screen element
 // manager 0x00701440 holds the root) laid out on a 640x480 layout each frame.
@@ -24,16 +24,16 @@ class UiTree;
 // One of an element's three states (0x44 bytes): the one shown (+0x7C, what a morph starts from), the one it is
 // morphing to (+0xC0) and the summed one the layout pass leaves (+0x114: its parents' included).
 struct ElementState {
-    float alpha;                     // +0x00
-    maths::Vec4 pos3d;               // +0x04 (pos3D; w 1)
-    float x, y;                      // +0x14 the position (its justification point) on the 640x480 layout
-    float z;                         // +0x1C (pos3D: the projected depth)
-    float left, top;                 // +0x20 its top left (x, y moved by the justification)
-    float scale_x_, scale_y_;            // +0x28
-    float base_scale_x_, base_scale_y_;    // +0x30 (a relative scale is a factor of these)
-    float angle;                     // +0x38 radians
-    uint8_t rgba[4];                 // +0x3C
-    uint32_t unknown40;              // +0x40
+    float alpha;                        // +0x00
+    maths::Vec4 pos3d;                  // +0x04 (pos3D; w 1)
+    float x, y;                         // +0x14 the position (its justification point) on the 640x480 layout
+    float z;                            // +0x1C (pos3D: the projected depth)
+    float left, top;                    // +0x20 its top left (x, y moved by the justification)
+    float scale_x_, scale_y_;           // +0x28
+    float base_scale_x_, base_scale_y_; // +0x30 (a relative scale is a factor of these)
+    float angle;                        // +0x38 radians
+    uint8_t rgba[4];                    // +0x3C
+    uint32_t unknown40;                 // +0x40
 
     // 0x004A8730: a copy (returns this).
     ElementState* get_assign(const ElementState* other);
@@ -44,25 +44,25 @@ class UiWidget : public objects::Entity {
 public:
     // object_flags_ (+0x08) - the element's own bits, beside Entity's.
     enum : uint32_t {
-        kMorphCurve = 0x300,          // Anim: 0x100 0xF5B95CE4 (ease out), 0x200 fast_in, 0x300 gentle
-        kDirty = 0x400,               // changed since the layout pass looked
-        kChildrenDirty = 0x800,       // (the layout pass: the parent changed, so must it)
-        kVisibleNow = 0x1000,         // (UnHide; z_priority set) - cleared by the layout pass
-        kDimsLocked = 0x2000,         // fit_to_size' flag
-        kFocusSent = 0x4000,          // the element's 0x3056434F event went (cleared: 0x4A57316B)
-        kZPriority = 0x8000,          // z_priority given
-        kNew = 0x10000,               // (set by the constructor)
-        kPauseAsked = 0x20000,        // paused (the layout pass: kPaused from the next frame)
-        kPaused = 0x40000,            // its morph doesn't advance
-        kPos3d = 0x80000,             // placed by pos3D (projected each frame)
-        kOffScreen = 0x100000,        // pos3D behind the camera
-        kBlockEvents = 0x200000,      // block_events
-        kHidden = 0x400000,           // Hide
-        kKeepScale = 0x800000,        // (0x1CC71DFF: pos3D doesn't scale it with distance)
-        kFlag1000000 = 0x1000000,     // (0x1F2C6E1D)
-        kFlipH = 0x2000000,           // flip_h
-        kFlipV = 0x4000000,           // flip_v
-        kPriority = 0x10000000,       // Priority > 0 (pad events with priorities)
+        kMorphCurve = 0x300,      // Anim: 0x100 0xF5B95CE4 (ease out), 0x200 fast_in, 0x300 gentle
+        kDirty = 0x400,           // changed since the layout pass looked
+        kChildrenDirty = 0x800,   // (the layout pass: the parent changed, so must it)
+        kVisibleNow = 0x1000,     // (UnHide; z_priority set) - cleared by the layout pass
+        kDimsLocked = 0x2000,     // fit_to_size' flag
+        kFocusSent = 0x4000,      // the element's 0x3056434F event went (cleared: 0x4A57316B)
+        kZPriority = 0x8000,      // z_priority given
+        kNew = 0x10000,           // (set by the constructor)
+        kPauseAsked = 0x20000,    // paused (the layout pass: kPaused from the next frame)
+        kPaused = 0x40000,        // its morph doesn't advance
+        kPos3d = 0x80000,         // placed by pos3D (projected each frame)
+        kOffScreen = 0x100000,    // pos3D behind the camera
+        kBlockEvents = 0x200000,  // block_events
+        kHidden = 0x400000,       // Hide
+        kKeepScale = 0x800000,    // (0x1CC71DFF: pos3D doesn't scale it with distance)
+        kFlag1000000 = 0x1000000, // (0x1F2C6E1D)
+        kFlipH = 0x2000000,       // flip_h
+        kFlipV = 0x4000000,       // flip_v
+        kPriority = 0x10000000,   // Priority > 0 (pad events with priorities)
     };
 
     // 0x004A8F90: the constructor (returns this): vtable 0x0064A090, no parent / children / siblings, the three
@@ -170,22 +170,22 @@ public:
     bool read_colour_param(script::Struct* params, uint32_t name, uint32_t* rgba);
 
     // --- fields (after Entity's) ---
-    objects::SharedRef<UiWidget> container_;       // +0x4C
-    objects::SharedRef<UiWidget> eldest_;   // +0x58
-    objects::SharedRef<UiWidget> following_;         // +0x64 the next sibling
-    objects::SharedRef<UiWidget> preceding_;         // +0x70 the previous sibling
-    ElementState shown_;                        // +0x7C
-    ElementState aim_point_;                       // +0xC0
-    int morph_start_;                             // +0x104 (ms)
-    int morph_length_;                            // +0x108 (ms; 0 none)
-    float morph_curve_done_;                       // +0x10C the curve's value last frame
-    float morph_done_;                            // +0x110 the time's fraction last frame
-    ElementState summed_;                       // +0x114
-    float just_x_, just_y_;                       // +0x158 (-1 left / top .. 1 right / bottom)
-    float span_, level_y_;                      // +0x160 the size (unscaled)
-    uint8_t rgba168_[4];                         // +0x168 (0x80 each)
-    float z_priority_;                            // +0x16C
-    float remembered_alpha_;                      // +0x170 (remember_alpha / restore_alpha; 1)
+    objects::SharedRef<UiWidget> container_; // +0x4C
+    objects::SharedRef<UiWidget> eldest_;    // +0x58
+    objects::SharedRef<UiWidget> following_; // +0x64 the next sibling
+    objects::SharedRef<UiWidget> preceding_; // +0x70 the previous sibling
+    ElementState shown_;                     // +0x7C
+    ElementState aim_point_;                 // +0xC0
+    int morph_start_;                        // +0x104 (ms)
+    int morph_length_;                       // +0x108 (ms; 0 none)
+    float morph_curve_done_;                 // +0x10C the curve's value last frame
+    float morph_done_;                       // +0x110 the time's fraction last frame
+    ElementState summed_;                    // +0x114
+    float just_x_, just_y_;                  // +0x158 (-1 left / top .. 1 right / bottom)
+    float span_, level_y_;                   // +0x160 the size (unscaled)
+    uint8_t rgba168_[4];                     // +0x168 (0x80 each)
+    float z_priority_;                       // +0x16C
+    float remembered_alpha_;                 // +0x170 (remember_alpha / restore_alpha; 1)
     int rank_;                               // +0x174
 };
 
@@ -194,4 +194,4 @@ using ElementPtr = objects::SharedRef<UiWidget>;
 // The element with this id (the screen element manager's lookup, 0x004AAE20), into `out` (which must be empty).
 void fetch_part(ElementPtr* out, uint32_t id);
 
-} // namespace Front
+} // namespace frontend

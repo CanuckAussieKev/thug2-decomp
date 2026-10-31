@@ -32,7 +32,7 @@ constexpr uint32_t kColours[] = {0xFFD84A, 0xFF7A59, 0x5AC8FA, 0x7BD88F, 0xC18CF
 constexpr int kColourCount = static_cast<int>(sizeof(kColours) / sizeof(kColours[0]));
 
 struct Note {
-    std::string name;            // ed_note01...
+    std::string name; // ed_note01...
     V3 pos = {};
     uint32_t colour = kColours[0]; // RGB
     std::string text;
@@ -64,10 +64,10 @@ void add_here_queued();
 void tick_frame();
 // The pins over the view (the selected one brighter): a stem from the point up, a head, the text beside it.
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                 std::vector<ui::Overlay::text_tools>* texts);
 // The Outliner's Notes section (`search`: the Outliner's search text - rows matching it) and the selected note's window.
 void outliner_section(ImFont* mono, const char* search);
 void pane(float view_x, float view_y, float view_width, float view_height, float scale);
 
-} // namespace MenuSystem::level_editor::Notes
+} // namespace frontend::level_editor::notes

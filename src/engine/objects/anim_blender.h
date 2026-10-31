@@ -14,12 +14,12 @@
 namespace gfx {
 class BlendChannel;
 struct Stance;
-} // namespace Gfx
+} // namespace gfx
 
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -124,14 +124,13 @@ public:
 
     ObjectModule* component18_;   // +0x18 the object's 0xCE0CA665 component
     ObjectModule* bone_rig_;      // +0x1C its 0x222756D5 component
-    ObjectModule* mesh_instance_;         // +0x20 its 0x286A8D26 component
-    uint32_t unknown24_;             // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
-    memory::ListNode lanes_;         // +0x28 the channel list's head (vtable 0x00645D88; data -1)
-    void* observers_;               // +0x3C a std::list of observers: its sentinel node (+4 next, +8 prev)
-    uint32_t observer_count_;         // +0x40
+    ObjectModule* mesh_instance_; // +0x20 its 0x286A8D26 component
+    uint32_t unknown24_;          // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
+    memory::ListNode lanes_;      // +0x28 the channel list's head (vtable 0x00645D88; data -1)
+    void* observers_;             // +0x3C a std::list of observers: its sentinel node (+4 next, +8 prev)
+    uint32_t observer_count_;     // +0x40
 };
-static_assert(offsetof(AnimBlenderComponent, component18_) == 0x18 &&
-                  offsetof(AnimBlenderComponent, lanes_) == 0x28 &&
+static_assert(offsetof(AnimBlenderComponent, component18_) == 0x18 && offsetof(AnimBlenderComponent, lanes_) == 0x28 &&
                   offsetof(AnimBlenderComponent, observers_) == 0x3C && sizeof(AnimBlenderComponent) == 0x44,
               "layout must match the original");
 
@@ -157,8 +156,8 @@ struct VectorAt1c {
     maths::Vec4 get_pull() const;
 
     uint8_t unknown00_[0x1C];
-    maths::Vec4 vector_;  // +0x1C
+    maths::Vec4 vector_; // +0x1C
 };
 static_assert(offsetof(VectorAt1c, vector_) == 0x1C, "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

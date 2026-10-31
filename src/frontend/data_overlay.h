@@ -38,4 +38,4 @@ int search_folders(bool anteara, bool front_end, const char* (&folders)[4]);
 // the self-tests).
 void overlay_name(const char* name, char (&out)[260]);
 
-} // namespace MenuSystem::data_overlay
+} // namespace frontend::data_overlay

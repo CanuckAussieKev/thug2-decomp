@@ -21,14 +21,10 @@
 
 namespace objects {
 
-uint32_t g_object_proximity_member_functions[42]{
-            0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0,
-            0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0,
-            0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0,
-            0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0,
-            0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0,
-            0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
-            0, 0x1D5B1AE6, 0, 0, 0, 0};
+uint32_t g_object_proximity_member_functions[42]{0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0, 0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0,
+                                                 0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0, 0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0,
+                                                 0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0, 0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
+                                                 0,          0x1D5B1AE6, 0, 0, 0, 0};
 
 namespace {
 
@@ -75,8 +71,8 @@ ObjectModule* __cdecl ObjectProximityComponent::fabricate()
 // 0x004EC220
 void __cdecl ObjectProximityComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kObjectProximity), g_object_proximity_member_functions,
-                                        0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kObjectProximity),
+                                           g_object_proximity_member_functions, 0x18);
 }
 
 // 0x004EC370
@@ -253,25 +249,25 @@ bool ObjectProximityComponent::obj_object_in_attention_radius(script::Struct* /*
     return local_skater_distance_squared(&skater) <= attention_radius_squared_;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::ObjectProximityComponent::teardown,
-         &objects::ObjectProximityComponent::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ObjectProximityComponent::tick_frame,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

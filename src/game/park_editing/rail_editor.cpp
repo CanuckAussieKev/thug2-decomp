@@ -52,20 +52,21 @@ uint32_t g_next_rail_id{1};
 
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&park_editing::RailAuthoring::teardown,
-         &park_editing::RailAuthoring::tick_frame,
-         stubs::ignore_argument,
-         &park_editing::RailAuthoring::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         &park_editing::RailAuthoring::conceal,
-         stubs::do_nothing,
-         &park_editing::RailAuthoring::fetch_diagnostics,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
-             &objects::ObjectModule::invoke_method_by_name),
-         &park_editing::RailAuthoring::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &park_editing::RailAuthoring::teardown,
+    &park_editing::RailAuthoring::tick_frame,
+    stubs::ignore_argument,
+    &park_editing::RailAuthoring::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    &park_editing::RailAuthoring::conceal,
+    stubs::do_nothing,
+    &park_editing::RailAuthoring::fetch_diagnostics,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &park_editing::RailAuthoring::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 uint32_t& next_rail_id() { return g_next_rail_id; }
 
@@ -233,8 +234,8 @@ void EditedRail::delete_posts()
 }
 
 // 0x004F4280
-bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared, int* index,
-                                   int skip) const
+bool EditedRail::find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared,
+                                    int* index, int skip) const
 {
     const EditedRailPoint* p = point_chain_;
     if (!p)
@@ -715,7 +716,7 @@ int RailAuthoring::count_points_inside(float x0, float z0, float x1, float z1) c
 
 // 0x004F4710
 bool RailAuthoring::find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared,
-                                            uint32_t* rail_id, int* index, uint32_t skip_rail, int bypass_idx) const
+                                       uint32_t* rail_id, int* index, uint32_t skip_rail, int bypass_idx) const
 {
     bool found = false;
     float best = 1e8f;
@@ -823,4 +824,4 @@ EditedRail* RailAuthoring::copy_rails_inside(float x0, float z0, float x1, float
     return list;
 }
 
-} // namespace Ed
+} // namespace park_editing

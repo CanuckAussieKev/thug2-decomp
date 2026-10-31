@@ -13,7 +13,7 @@
 // it in the game: init_input no longer makes the DirectInput devices, so the reads find none.
 namespace sio {
 struct PadSnapshot;
-} // namespace Sio
+} // namespace sio
 
 namespace os_layer {
 
@@ -36,16 +36,16 @@ inline PortControls* get_controls() { return reinterpret_cast<PortControls*>(g_i
 // The graphics options (0x007D6434; the registry's "options", "distance" and "resolution" - PartyMod's
 // [Graphics] in thug2-decomp.ini, engine/gfx/settings.h).
 struct Options {
-    uint8_t antialiasing;     // 0x007D6434 options & 0x20
+    uint8_t antialiasing;       // 0x007D6434 options & 0x20
     uint8_t hq_shadows_;        // 0x007D6435 options & 2
-    uint8_t fog;              // 0x007D6436 options & 1
-    uint8_t option37;         // 0x007D6437 options & 0x10
-    uint8_t option38;         // 0x007D6438 options & 4
-    uint8_t option39;         // 0x007D6439 options & 8
+    uint8_t fog;                // 0x007D6436 options & 1
+    uint8_t option37;           // 0x007D6437 options & 0x10
+    uint8_t option38;           // 0x007D6438 options & 4
+    uint8_t option39;           // 0x007D6439 options & 8
     uint8_t distance_clipping_; // 0x007D643A options & 0x100
     uint8_t pad3b_;
-    uint32_t resolution;      // 0x007D643C 0-3
-    uint32_t distance;        // 0x007D6440 1-100 (0: none)
+    uint32_t resolution;        // 0x007D643C 0-3
+    uint32_t distance;          // 0x007D6440 1-100 (0: none)
     int32_t clipping_distance_; // 0x007D6444 distance * 5 + 95
 };
 static_assert(sizeof(Options) == 0x14, "layout must match the original");
@@ -131,4 +131,4 @@ extern uint16_t g_options38_and39;
 extern uint8_t g_unknown643b;
 extern uint32_t g_distance_setting;
 
-} // namespace Platform
+} // namespace os_layer

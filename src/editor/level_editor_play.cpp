@@ -35,9 +35,9 @@ bool get_key_down(const uint8_t* keys)
 namespace {
 
 constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
-constexpr int kUnpauseFrames = 2;       // (after level_editor_exit's pause menu, before it's closed)
-constexpr int kPauseWaitFrames = 120;   // (for the game to pause after Start)
-constexpr int kPauseMenuFrames = 10;    // (the pause menu up this long before LEVEL EDITOR is chosen)
+constexpr int kUnpauseFrames = 2;        // (after level_editor_exit's pause menu, before it's closed)
+constexpr int kPauseWaitFrames = 120;    // (for the game to pause after Start)
+constexpr int kPauseMenuFrames = 10;     // (the pause menu up this long before LEVEL EDITOR is chosen)
 
 bool g_requested;
 bool g_have_resume;
@@ -116,7 +116,8 @@ void tick_frame(modules::FrontEnd* front_end)
         }
         if (!paused) {
             if (++g_frames >= kPauseWaitFrames) {
-                get_log("level editor: back to the editor - the game didn't pause (the pause menu's LEVEL EDITOR opens it)");
+                get_log("level editor: back to the editor - the game didn't pause (the pause menu's LEVEL EDITOR opens "
+                        "it)");
                 g_phase = Phase::kIdle;
             }
             return;
@@ -153,4 +154,4 @@ void tick_frame(modules::FrontEnd* front_end)
     g_frames = 0;
 }
 
-} // namespace MenuSystem::level_editor::Perform
+} // namespace frontend::level_editor::perform

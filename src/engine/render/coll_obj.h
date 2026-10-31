@@ -24,7 +24,7 @@ struct TriMeshSource;
 class HitMesh {
 public:
     enum Flags : uint16_t {
-        kOwnsGeometry = 0x8000,    // the geometry is deleted with the object (unless kSharedGeometry)
+        kOwnsGeometry = 0x8000, // the geometry is deleted with the object (unless kSharedGeometry)
         kSharedGeometry = 0x4000,
     };
 
@@ -45,11 +45,11 @@ public:
     }
 
     void** vtable_;
-    uint32_t checksum_;           // +0x04
-    uint16_t flag_bits_;              // +0x08
-    uint8_t visit_stamp_;          // +0x0A the grid queries' mark (0x00693998): already listed this query
+    uint32_t checksum_;   // +0x04
+    uint16_t flag_bits_;  // +0x08
+    uint8_t visit_stamp_; // +0x0A the grid queries' mark (0x00693998): already listed this query
     uint8_t pad0b_;
-    TriMeshSource* geometry_;   // +0x0C
+    TriMeshSource* geometry_; // +0x0C
 };
 static_assert(sizeof(HitMesh) == 0x10, "layout must match the original");
 
@@ -107,12 +107,12 @@ public:
     // 0x00411DD0: the box made from the children's.
     void recompute_b_box();
 
-    memory::ListNode* sub_nodes_;    // +0x10 the head (lists::Foremost<HitMesh>)
-    maths::BBox box_;              // +0x14
-    bool dirty_;                 // +0x34
+    memory::ListNode* sub_nodes_; // +0x10 the head (lists::Foremost<HitMesh>)
+    maths::BBox box_;             // +0x14
+    bool dirty_;                  // +0x34
     bool box_valid_;              // +0x35
     uint8_t pad36[2];
-    int value38_;                // +0x38
+    int value38_; // +0x38
 };
 static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");
 
@@ -121,4 +121,4 @@ struct CollObjStubs {
     uint16_t no_terrain(int face);
 };
 
-} // namespace Nx
+} // namespace render

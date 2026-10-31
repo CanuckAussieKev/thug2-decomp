@@ -51,9 +51,16 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
     symbol->unknown8 = checksums::hash_from_text(filename);
     switch (*token) {
     case 0x0E:
-    case 0x16: case 0x17: case 0x1A: case 0x1B: case 0x1C: case 0x1E: case 0x1F: {
+    case 0x16:
+    case 0x17:
+    case 0x1A:
+    case 0x1B:
+    case 0x1C:
+    case 0x1E:
+    case 0x1F: {
         Component* value = new_component();
-        const uint8_t* end = *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
+        const uint8_t* end =
+            *token == 0x0E ? parse_expression(token, nullptr, value) : parse_value(token, nullptr, value);
         symbol->type = value->kind_tag();
         symbol->raw = value->raw;
         value->raw = 0;
@@ -81,7 +88,7 @@ const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, cons
 
 // 0x0046FE40 (the size in EAX, the code in EBX)
 SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
-                                      const char* filename)
+                                       const char* filename)
 {
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->type = kQbvalScriptBody;
@@ -304,7 +311,7 @@ void unload_qb(uint32_t file_checksum)
     packs::offload(file_checksum);
 }
 
-} // namespace Script
+} // namespace script
 
 // --- the entry points with register arguments -------------------------------------------------------------
 
@@ -315,7 +322,7 @@ const uint8_t* __cdecl parse_symbol_definition_registers(const uint8_t* token, u
     return script::parse_symbol_definition(token, name, filename);
 }
 script::SymbolTableEntry* __cdecl create_script_symbol_registers(uint32_t size, const uint8_t* code, uint32_t name,
-                                                               uint32_t checksum, const char* filename)
+                                                                 uint32_t checksum, const char* filename)
 {
     return script::define_script_symbol(size, code, name, checksum, filename);
 }

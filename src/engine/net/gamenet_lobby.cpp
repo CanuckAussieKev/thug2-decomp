@@ -178,9 +178,9 @@ int __cdecl RoomManager::count_callback(void*, int type, void*)
 void __cdecl RoomManager::key_list_callback(void*, int type, void* key_buffer, void*)
 {
     if (type == kKeyTypeServer) {
-        for (int key : {kKeyHostport, kKeyMapname, kKeyGametype, kKeyTeamplay, kKeyNumplayers, kKeyMaxplayers,
-                        kKeyPassword, kKeyObservers, kKeyMaxObservers, kKeyLoggedIn, kKeySkillLevel, kKeyInProgress,
-                        kKeyHostMode})
+        for (int key :
+             {kKeyHostport, kKeyMapname, kKeyGametype, kKeyTeamplay, kKeyNumplayers, kKeyMaxplayers, kKeyPassword,
+              kKeyObservers, kKeyMaxObservers, kKeyLoggedIn, kKeySkillLevel, kKeyInProgress, kKeyHostMode})
             key_buffer_add(key_buffer, key);
     } else if (type == kKeyTypePlayer) {
         key_buffer_add(key_buffer, kKeyForPlayer);

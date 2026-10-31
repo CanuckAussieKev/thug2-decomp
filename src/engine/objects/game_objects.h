@@ -65,11 +65,11 @@ public:
 
     GameEntity* skater_; // +0x108
     uint32_t unknown10c_;
-    bool worn_;                // +0x110
+    bool worn_; // +0x110
     uint8_t pad111[3];
 };
 static_assert(offsetof(CrownObject, skater_) == 0x108 && offsetof(CrownObject, worn_) == 0x110 &&
                   sizeof(CrownObject) == 0x114,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

@@ -143,59 +143,59 @@ public:
     void destroy_body();
     Rider* teardown(unsigned int flags);
 
-    uint32_t stroke_kind_;        // +0x108 (the profile's pushstyle)
-    uint32_t style_;            // +0x10C (skatestyle)
-    bool goofy_;                // +0x110
-    bool pro_;                  // +0x111
+    uint32_t stroke_kind_; // +0x108 (the profile's pushstyle)
+    uint32_t style_;       // +0x10C (skatestyle)
+    bool goofy_;           // +0x110
+    bool pro_;             // +0x111
     uint8_t pad112[2];
-    int male_;                  // +0x114
-    char given_name_[0x40];      // +0x118
-    uint32_t label_;             // +0x158
-    text::Chars shown_name_;   // +0x15C
+    int male_;               // +0x114
+    char given_name_[0x40];  // +0x118
+    uint32_t label_;         // +0x158
+    text::Chars shown_name_; // +0x15C
     uint8_t unknown168_[0x16C - 0x168];
-    uint32_t last_restart_;      // +0x16C
-    bool sparks_;               // +0x170
+    uint32_t last_restart_; // +0x16C
+    bool sparks_;           // +0x170
     uint8_t pad171[3];
-    int shadow_fade_;            // +0x174
+    int shadow_fade_; // +0x174
     uint8_t unknown178_[4];
-    uint8_t* trick_slots_[11];    // +0x17C (each: +4 a structure, +8 / +0xC arrays)
+    uint8_t* trick_slots_[11]; // +0x17C (each: +4 a structure, +8 / +0xC arrays)
     uint8_t unknown1a8_[0x1C0 - 0x1A8];
     struct Projectile {
-        uint32_t name;           // projectile_0 ... projectile_4
+        uint32_t name; // projectile_0 ... projectile_4
         bool active;
         uint8_t unknown5_[0x13];
-    } projectiles_[5];          // +0x1C0
+    } projectiles_[5]; // +0x1C0
     uint8_t block238_[0x24C - 0x238];
-    void* unknown24c_;          // +0x24C
-    uint8_t* unknown250_;       // +0x250
-    void* shadow_;              // +0x254
-    void* unknown258_;          // +0x258
-    void* unknown25c_;          // +0x25C
+    void* unknown24c_;    // +0x24C
+    uint8_t* unknown250_; // +0x250
+    void* shadow_;        // +0x254
+    void* unknown258_;    // +0x258
+    void* unknown25c_;    // +0x25C
     uint8_t unknown260_[4];
-    uint8_t* unknown264_;       // +0x264 (+0x20: reset; +0x490 -> +0x1C its input device)
-    void* unknown268_;          // +0x268 (component 0x187574FA)
-    void* unknown26c_;          // +0x26C (component 0x1859F772)
-    uint8_t* unknown270_;       // +0x270
+    uint8_t* unknown264_; // +0x264 (+0x20: reset; +0x490 -> +0x1C its input device)
+    void* unknown268_;    // +0x268 (component 0x187574FA)
+    void* unknown26c_;    // +0x26C (component 0x1859F772)
+    uint8_t* unknown270_; // +0x270
     uint8_t unknown274_[4];
-    uint8_t* score_holder_;      // +0x278 (+0x18 the score)
-    uint8_t* unknown27c_;       // +0x27C
-    uint8_t* core_physics_;      // +0x280
-    uint8_t* state284_;         // +0x284
-    uint8_t* state288_;         // +0x288
-    void* list_28c_;             // +0x28C
-    float stat_overrides_[10];   // +0x290
-    int skater_number_;          // +0x2B8
-    int view_slot_;              // +0x2BC
-    int pause_state_;            // +0x2C0
-    bool flag_2c_4_;              // +0x2C4
+    uint8_t* score_holder_;    // +0x278 (+0x18 the score)
+    uint8_t* unknown27c_;      // +0x27C
+    uint8_t* core_physics_;    // +0x280
+    uint8_t* state284_;        // +0x284
+    uint8_t* state288_;        // +0x288
+    void* list_28c_;           // +0x28C
+    float stat_overrides_[10]; // +0x290
+    int skater_number_;        // +0x2B8
+    int view_slot_;            // +0x2BC
+    int pause_state_;          // +0x2C0
+    bool flag_2c_4_;           // +0x2C4
     uint8_t pad2c5_[3];
     maths::Vec4 custom_restart_pos_;    // +0x2C8 (SetCustomRestart)
     maths::Mat4 custom_restart_matrix_; // +0x2D8
-    bool custom_restart_walking_; // +0x318
-    bool custom_restart_set_;     // +0x319
+    bool custom_restart_walking_;       // +0x318
+    bool custom_restart_set_;           // +0x319
     uint8_t pad31a_[2];
-    uint32_t unknown31c_;       // +0x31C
-    bool is_halted_;               // +0x320
+    uint32_t unknown31c_; // +0x31C
+    bool is_halted_;      // +0x320
     uint8_t pad321[3];
 };
 static_assert(offsetof(Rider, style_) == 0x10C && offsetof(Rider, label_) == 0x158 &&
@@ -204,7 +204,8 @@ static_assert(offsetof(Rider, style_) == 0x10C && offsetof(Rider, label_) == 0x1
                   offsetof(Rider, flag_2c_4_) == 0x2C4 && offsetof(Rider, shown_name_) == 0x15C &&
                   offsetof(Rider, unknown264_) == 0x264 && offsetof(Rider, custom_restart_pos_) == 0x2C8 &&
                   offsetof(Rider, custom_restart_walking_) == 0x318 && offsetof(Rider, projectiles_) == 0x1C0 &&
-                  offsetof(Rider, block238_) == 0x238 && offsetof(Rider, unknown270_) == 0x270 && offsetof(Rider, is_halted_) == 0x320,
+                  offsetof(Rider, block238_) == 0x238 && offsetof(Rider, unknown270_) == 0x270 &&
+                  offsetof(Rider, is_halted_) == 0x320,
               "layout must match the original");
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).
@@ -213,4 +214,4 @@ script::Struct* __cdecl get_physics_structure(GameEntity* skater);
 float __cdecl read_tuning_float(uint32_t name, int assert, GameEntity* skater);
 int __cdecl read_tuning_int(uint32_t name, int assert, GameEntity* skater);
 
-} // namespace Obj
+} // namespace objects

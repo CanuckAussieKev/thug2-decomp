@@ -26,36 +26,36 @@ namespace objects {
 namespace {
 
 // Names.
-constexpr uint32_t kClass = 0x12B4E660;          // Class
-constexpr uint32_t kClimbingNode = 0x30C19600;   // ClimbingNode
-constexpr uint32_t kType = 0x7321A8D6;           // type
-constexpr uint32_t kLadder = 0xC84243DA;         // Ladder
-constexpr uint32_t kCreatedAtStart = 0x7C2552B9; // CreatedAtStart
-constexpr uint32_t kLipOverride = 0xF4C67F0F;    // LipOverride
-constexpr uint32_t kStockRailFlag = 0x4DE721DE;    // DefaultLine
-constexpr uint32_t kHangLeft = 0xF6DD21CA;       // HangLeft
-constexpr uint32_t kHangRight = 0x5E9CE29B;      // HangRight
-constexpr uint32_t kNoClimbing = 0xF22BFC6D;     // NoClimbing
-constexpr uint32_t kSurfaceKindKey = 0x54CF8532;    // TerrainType
-constexpr uint32_t kClimbMaxSnap = 0x30CE7F2C;   // Climb_Max_Snap (a script float)
-constexpr uint32_t kRailMaxSnap = 0xF840753E;    // Rail_Max_Snap (a script float)
-constexpr uint32_t kRailNode = 0x8E6B02AD;       // RailNode
-constexpr uint32_t kTrickObject = 0x1645B830;    // TrickObject
+constexpr uint32_t kClass = 0x12B4E660;                // Class
+constexpr uint32_t kClimbingNode = 0x30C19600;         // ClimbingNode
+constexpr uint32_t kType = 0x7321A8D6;                 // type
+constexpr uint32_t kLadder = 0xC84243DA;               // Ladder
+constexpr uint32_t kCreatedAtStart = 0x7C2552B9;       // CreatedAtStart
+constexpr uint32_t kLipOverride = 0xF4C67F0F;          // LipOverride
+constexpr uint32_t kStockRailFlag = 0x4DE721DE;        // DefaultLine
+constexpr uint32_t kHangLeft = 0xF6DD21CA;             // HangLeft
+constexpr uint32_t kHangRight = 0x5E9CE29B;            // HangRight
+constexpr uint32_t kNoClimbing = 0xF22BFC6D;           // NoClimbing
+constexpr uint32_t kSurfaceKindKey = 0x54CF8532;       // TerrainType
+constexpr uint32_t kClimbMaxSnap = 0x30CE7F2C;         // Climb_Max_Snap (a script float)
+constexpr uint32_t kRailMaxSnap = 0xF840753E;          // Rail_Max_Snap (a script float)
+constexpr uint32_t kRailNode = 0x8E6B02AD;             // RailNode
+constexpr uint32_t kTrickObject = 0x1645B830;          // TrickObject
 constexpr uint32_t kAllRailsTrickObjects = 0xB675F8F6; // (a script integer: every rail a trick object)
-constexpr uint32_t kName = 0xA1DC81F9;           // name
-constexpr uint32_t kCluster = 0x1A3A966B;        // Cluster
-constexpr uint32_t kLinks = 0x2E7D5EE7;          // Links
-constexpr uint32_t kLadderTrigger = 0xF5B17B09;  // TRG_Ladder03 (a node: counted 4 times as far)
+constexpr uint32_t kName = 0xA1DC81F9;                 // name
+constexpr uint32_t kCluster = 0x1A3A966B;              // Cluster
+constexpr uint32_t kLinks = 0x2E7D5EE7;                // Links
+constexpr uint32_t kLadderTrigger = 0xF5B17B09;        // TRG_Ladder03 (a node: counted 4 times as far)
 
 // A collision probe along a line (Nx's feeler, 0xB0 bytes; as park_floor.cpp's): constructed by 0x00417760, its line
 // set by 0x004171D0 (from, to), tested by 0x004172F0; what it hit (contact_pos_) and the object hit, held by a smart pointer
 // (+0x98). Going away: the smart pointer let go of (the destructor inlined), or the destructor 0x0041C350 - the
 // original uses either (no C++ destructor here: callers say which).
 struct Feeler {
-    maths::Vec4 outset_;   // +0x00
-    maths::Vec4 finish_;     // +0x10
+    maths::Vec4 outset_; // +0x00
+    maths::Vec4 finish_; // +0x10
     uint8_t unknown20_[0x58];
-    maths::Vec4 contact_pos_;   // +0x78
+    maths::Vec4 contact_pos_; // +0x78
     uint8_t unknown88_[0x10];
     objects::SharedBase* entity_; // +0x98 (a SharedRef<SharedBase>: the object, then its links)
     uint32_t links_[2];
@@ -238,7 +238,8 @@ void set_rail_clear_override(RailClearOverride override) { g_rail_clear_override
 // 0x0057C600
 bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == 0xD443A2BC) // (the park editor's)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
+        0xD443A2BC) // (the park editor's)
         return true;
     if (g_rail_clear_override && g_rail_clear_override(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
@@ -522,7 +523,8 @@ void GrindRailHub::remove_overlaps()
         float dy = static_cast<float>(static_cast<double>(q.y) - p.y);
         float dz = static_cast<float>(static_cast<double>(q.z) - p.z);
         const float raw_x = dx, raw_y = dy, raw_z = dz;
-        double length = std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz);
+        double length =
+            std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz);
         if (length > 0.0) {
             double inverse = 1.0 / length;
             dx = static_cast<float>(dx * inverse);
@@ -530,9 +532,11 @@ void GrindRailHub::remove_overlaps()
             dz = static_cast<float>(dz * inverse);
         }
         // Its box, 16 bigger each way.
-        const float lo_x = static_cast<float>(a->lower_limit_.x - 16.0), lo_y = static_cast<float>(a->lower_limit_.y - 16.0),
+        const float lo_x = static_cast<float>(a->lower_limit_.x - 16.0),
+                    lo_y = static_cast<float>(a->lower_limit_.y - 16.0),
                     lo_z = static_cast<float>(a->lower_limit_.z - 16.0);
-        const float hi_x = static_cast<float>(a->upper_limit_.x + 16.0), hi_y = static_cast<float>(a->upper_limit_.y + 16.0),
+        const float hi_x = static_cast<float>(a->upper_limit_.x + 16.0),
+                    hi_y = static_cast<float>(a->upper_limit_.y + 16.0),
                     hi_z = static_cast<float>(a->upper_limit_.z + 16.0);
         for (int j = i + 1; j < num_; ++j) {
             if (!(a->flag_bits_ & kRailFlagActive))
@@ -542,31 +546,30 @@ void GrindRailHub::remove_overlaps()
             if (!b_next)
                 continue;
             // (the tests as the original's: NaN passes them)
-            if (b->lower_limit_.x > hi_x || b->upper_limit_.x < lo_x || b->lower_limit_.z > hi_z || b->upper_limit_.z < lo_z || b->lower_limit_.y > hi_y ||
-                b->upper_limit_.y < lo_y)
+            if (b->lower_limit_.x > hi_x || b->upper_limit_.x < lo_x || b->lower_limit_.z > hi_z ||
+                b->upper_limit_.z < lo_z || b->lower_limit_.y > hi_y || b->upper_limit_.y < lo_y)
                 continue;
             const maths::Vec4 r = b->at_point_;
             const maths::Vec4 s = b_next->at_point_;
-            maths::Vec4 along = {static_cast<float>(static_cast<double>(s.x) - r.x),
-                                 static_cast<float>(static_cast<double>(s.y) - r.y),
-                                 static_cast<float>(static_cast<double>(s.z) - r.z),
-                                 static_cast<float>(static_cast<double>(s.w) - r.w)};
+            maths::Vec4 along = {
+                static_cast<float>(static_cast<double>(s.x) - r.x), static_cast<float>(static_cast<double>(s.y) - r.y),
+                static_cast<float>(static_cast<double>(s.z) - r.z), static_cast<float>(static_cast<double>(s.w) - r.w)};
             along.make_unit();
             double dot = static_cast<double>(along.y) * dy + static_cast<double>(along.x) * dx +
                          static_cast<double>(along.z) * dz;
             // Parallel (or opposite) to within about 8 degrees.
             if (!(dot < -0.99f) && !(dot > 0.99f))
                 continue;
-            maths::Vec4 offset = {static_cast<float>(static_cast<double>(r.x) - p.x),
-                                  static_cast<float>(static_cast<double>(r.y) - p.y),
-                                  static_cast<float>(static_cast<double>(r.z) - p.z),
-                                  static_cast<float>(static_cast<double>(r.w) - p.w)};
+            maths::Vec4 offset = {
+                static_cast<float>(static_cast<double>(r.x) - p.x), static_cast<float>(static_cast<double>(r.y) - p.y),
+                static_cast<float>(static_cast<double>(r.z) - p.z), static_cast<float>(static_cast<double>(r.w) - p.w)};
             maths::Vec4 direction = {raw_x, raw_y, raw_z, static_cast<float>(static_cast<double>(q.w) - p.w)};
             direction.make_unit();
             maths::Vec4 apart = offset;
             apart.flatten_onto_plane(direction);
-            double distance = std::sqrt(static_cast<double>(apart.x) * apart.x + static_cast<double>(apart.z) * apart.z +
-                                        static_cast<double>(apart.y) * apart.y);
+            double distance =
+                std::sqrt(static_cast<double>(apart.x) * apart.x + static_cast<double>(apart.z) * apart.z +
+                          static_cast<double>(apart.y) * apart.y);
             if (!(distance < 6.0))
                 continue;
             int matches = get_overlap(p.x, q.x, r.x, s.x) > 6.0 ? 1 : 0;
@@ -592,7 +595,8 @@ void GrindRailHub::remove_overlaps()
 // 0x0057D7A0
 void GrindRailHub::remove_overlaps_if_not_park()
 {
-    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == 0xD443A2BC) // (the park editor's level)
+    if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
+        0xD443A2BC) // (the park editor's level)
         return;
     remove_overlaps();
 }
@@ -635,8 +639,8 @@ bool GrindRailHub::is_operative(uint32_t name)
 }
 
 // 0x0057D880
-bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker, uint32_t extra,
-                              GrindPoint** found)
+bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker,
+                               uint32_t extra, GrindPoint** found)
 {
     float radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
     for (int index = num_; index != 0;) {
@@ -655,15 +659,15 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
         maths::Mat4 matrix;
         if (up) {
             maths::Mat4* orientation = get_climb_matrix(&matrix, node);
-            if (static_cast<FootMovement*>(checker)->check_ladder_bottom(&node->at_point_, &other->at_point_, orientation,
-                                                                          reinterpret_cast<Record24*>(extra))) {
+            if (static_cast<FootMovement*>(checker)->check_ladder_bottom(
+                    &node->at_point_, &other->at_point_, orientation, reinterpret_cast<Record24*>(extra))) {
                 *found = node;
                 return true;
             }
         } else {
             maths::Mat4* orientation = get_climb_matrix(&matrix, other);
             if (static_cast<FootMovement*>(checker)->check_ladder_top(&other->at_point_, &node->at_point_, orientation,
-                                                                       reinterpret_cast<Record24*>(extra))) {
+                                                                      reinterpret_cast<Record24*>(extra))) {
                 *found = other;
                 return true;
             }
@@ -673,8 +677,8 @@ bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float heigh
 }
 
 // 0x0057DA20
-bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker, Record24* result,
-                                    GrindPoint** found)
+bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker,
+                                       Record24* result, GrindPoint** found)
 {
     *found = nullptr;
     maths::Seg line;
@@ -696,8 +700,8 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
         if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
         // (the tests as the original's: NaN passes them)
-        if (min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z || max.z < node->lower_limit_.z ||
-            min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
+        if (min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z ||
+            max.z < node->lower_limit_.z || min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
             continue;
         GrindPoint* next = node->succ_;
         maths::Seg rail;
@@ -718,14 +722,14 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
         if (node->at_point_.y < next->at_point_.y) {
             // Climbing up from this node.
             maths::Mat4* orientation = get_climb_matrix(&matrix, node);
-            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&node->at_point_, &next->at_point_, orientation, &on_rail, t,
-                                                                         &record))
+            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&node->at_point_, &next->at_point_, orientation,
+                                                                        &on_rail, t, &record))
                 continue;
             *found = node;
         } else {
             maths::Mat4* orientation = get_climb_matrix(&matrix, next);
-            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&next->at_point_, &node->at_point_, orientation, &on_rail,
-                                                                         static_cast<float>(1.0 - t), &record))
+            if (!static_cast<FootMovement*>(checker)->check_ladder_line(&next->at_point_, &node->at_point_, orientation,
+                                                                        &on_rail, static_cast<float>(1.0 - t), &record))
                 continue;
             *found = next;
         }
@@ -736,8 +740,8 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
 }
 
 // 0x0057DDA0
-bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* direction, void* checker,
-                            Record34* result, float margin)
+bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* direction,
+                             void* checker, Record34* result, float margin)
 {
     bool found = false;
     maths::Seg line;
@@ -759,8 +763,8 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
             !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
             continue;
         // (the tests as the original's: NaN passes them)
-        if (min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z || max.z < node->lower_limit_.z ||
-            min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
+        if (min.x > node->upper_limit_.x || max.x < node->lower_limit_.x || min.z > node->upper_limit_.z ||
+            max.z < node->lower_limit_.z || min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
             continue;
         GrindPoint* next = node->succ_;
         maths::Seg rail;
@@ -935,8 +939,8 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
 }
 
 // 0x0057E2D0
-bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point, GrindPoint** found,
-                                 const GrindPoint* exclude, float min_alignment, int side)
+bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point,
+                                   GrindPoint** found, const GrindPoint* exclude, float min_alignment, int side)
 {
     maths::Seg line;
     line.start = *start;
@@ -979,9 +983,9 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             seg_direction.y = 0.0f;
             rail_dir.make_unit();
             seg_direction.make_unit();
-            float alignment = static_cast<float>(std::fabs(
-                static_cast<double>(seg_direction.x) * rail_dir.x + static_cast<double>(seg_direction.z) * rail_dir.z +
-                static_cast<double>(seg_direction.y) * rail_dir.y));
+            float alignment = static_cast<float>(std::fabs(static_cast<double>(seg_direction.x) * rail_dir.x +
+                                                           static_cast<double>(seg_direction.z) * rail_dir.z +
+                                                           static_cast<double>(seg_direction.y) * rail_dir.y));
             if (seg_direction.x == 0.0f && seg_direction.z == 0.0f && alignment == 0.0f)
                 alignment = 1.0f;
             float score = static_cast<float>((1.122f - static_cast<double>(alignment)) * distance);
@@ -1014,9 +1018,9 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             double k = static_cast<double>(offset.x) * along.x + static_cast<double>(offset.z) * along.z +
                        static_cast<double>(offset.y) * along.y;
             offset -= static_cast<float>(k) * along;
-            double distance = std::sqrt(static_cast<double>(offset.x) * offset.x +
-                                        static_cast<double>(offset.y) * offset.y +
-                                        static_cast<double>(offset.z) * offset.z);
+            double distance =
+                std::sqrt(static_cast<double>(offset.x) * offset.x + static_cast<double>(offset.y) * offset.y +
+                          static_cast<double>(offset.z) * offset.z);
             if (distance > snap)
                 continue;
             double twice = distance + distance;
@@ -1045,4 +1049,4 @@ GrindRailHub* GrindRailHub::prepare_all()
     return this;
 }
 
-} // namespace Obj
+} // namespace objects

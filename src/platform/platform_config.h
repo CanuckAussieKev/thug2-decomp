@@ -29,4 +29,4 @@ int get_int(const char* section, const char* key, int fallback);
 // GetPrivateProfileString: the characters copied into `out`.
 int fetch_text(const char* section, const char* key, const char* fallback, char* out, size_t size);
 
-} // namespace Config
+} // namespace build_info

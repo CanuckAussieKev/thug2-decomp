@@ -33,9 +33,9 @@ constexpr uint32_t kGetHeading = 0x8E7833BE, kAbsolutePitchGreaterThan = 0x5E269
 constexpr uint32_t kHeading = 0xFD4BC03E, kCosine = 0x2315EF17, kSine = 0x26910CC0, kSlope = 0xA733BA7A,
                    kChangeInSlope = 0x21AFFF16;
 
-constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
+constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
 constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
-constexpr float kFullCircle = 360.0f;                  // 0x00645EA8
+constexpr float kFullCircle = 360.0f;                     // 0x00645EA8
 
 // The core physics' vector at +0x78 (the plane PitchGreaterThan and RollGreaterThan measure against).
 const maths::Vec4& core_vector78(uint8_t* core_physics) { return *reinterpret_cast<maths::Vec4*>(core_physics + 0x78); }
@@ -128,7 +128,8 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     case kPitchGreaterThan: {
         float angle = angle_parameter(params);
         const maths::Vec4& v = core_vector78(core_physics_);
-        double dot = static_cast<double>(up.z) * v.z + static_cast<double>(up.y) * v.y + static_cast<double>(v.x) * up.x;
+        double dot =
+            static_cast<double>(up.z) * v.z + static_cast<double>(up.y) * v.y + static_cast<double>(v.x) * up.x;
         return cos_degrees(angle) > dot ? 1 : 0;
     }
     case kYawingLeft: {
@@ -162,25 +163,27 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderFrameLookups::teardown,
-         &objects::RiderFrameLookups::tick_frame,
-         stubs::ignore_argument,
-         &objects::RiderFrameLookups::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderFrameLookups::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderFrameLookups::teardown,
+    &objects::RiderFrameLookups::tick_frame,
+    stubs::ignore_argument,
+    &objects::RiderFrameLookups::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderFrameLookups::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -21,4 +21,4 @@ int __cdecl get_view_layout();
 // 0x004A0D50). Whether one did.
 bool __cdecl flag_camera_for_removal(gfx::ViewCam* camera);
 
-} // namespace Nx
+} // namespace render

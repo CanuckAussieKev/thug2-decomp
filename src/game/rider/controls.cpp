@@ -32,12 +32,12 @@ T& get_at(void* object, uint32_t offset)
 int& os_layer() { return game_config::g_platform; }
 
 // The fields the acid drops use (offsets into the skater component).
-constexpr uint32_t kVelocity = 0x34;    // four floats, then one more at +0x44
+constexpr uint32_t kVelocity = 0x34; // four floats, then one more at +0x44
 constexpr uint32_t kStateKeyField = 0x78;
-constexpr uint32_t kDisabled = 0x9B;   // (a bool that stops it)
+constexpr uint32_t kDisabled = 0x9B; // (a bool that stops it)
 constexpr uint32_t kMode = 0x748;
-constexpr uint32_t kInput = 0x1770;    // the pad: +0xC0 and +0x120 are held buttons
-constexpr uint32_t kFlags = 0x1780;    // +0x24 / +0x26: bools
+constexpr uint32_t kInput = 0x1770;          // the pad: +0xC0 and +0x120 are held buttons
+constexpr uint32_t kFlags = 0x1780;          // +0x24 / +0x26: bools
 constexpr uint32_t kTrigger = 0x177C;        // the trigger component
 constexpr uint32_t kMovableContact = 0x1784; // the movable contact component
 constexpr uint32_t kPhysics = 0x178C;        // the core physics component
@@ -48,9 +48,9 @@ constexpr uint32_t kAcidDropState = 0x2EDA83EA;
 // The physics' acid drop search: fills `velocity` if there's somewhere to drop in.
 bool find_acid_drop(void* skater, float* velocity)
 {
-    return get_at<SkaterPhysicsModule*>(skater, kPhysics)->find_acid_drop(
-        false, &get_at<maths::Vec4>(skater, 0x24), &get_at<maths::Vec4>(skater, 0x68), reinterpret_cast<maths::Vec4*>(velocity),
-        &get_at<AcidDrop>(skater, 0x768));
+    return get_at<SkaterPhysicsModule*>(skater, kPhysics)
+        ->find_acid_drop(false, &get_at<maths::Vec4>(skater, 0x24), &get_at<maths::Vec4>(skater, 0x68),
+                         reinterpret_cast<maths::Vec4*>(velocity), &get_at<AcidDrop>(skater, 0x768));
 }
 
 // The two buttons; PartyMod's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).
@@ -103,11 +103,12 @@ bool Component::try_walk_acid_drop()
 {
     if (!buttons_held(this))
         return false;
-    float velocity[4] = {get_at<float>(this, kVelocity), get_at<float>(this, kVelocity + 0x10), get_at<float>(this, kVelocity + 8),
-                         1.0f};
+    float velocity[4] = {get_at<float>(this, kVelocity), get_at<float>(this, kVelocity + 0x10),
+                         get_at<float>(this, kVelocity + 8), 1.0f};
     if (!find_acid_drop(this, velocity))
         return false;
-    get_at<objects::MovingSurfaceModule*>(this, kMovableContact)->start_riding(&get_at<render::ProbeRay>(this, kTriggerFeeler));
+    get_at<objects::MovingSurfaceModule*>(this, kMovableContact)
+        ->start_riding(&get_at<render::ProbeRay>(this, kTriggerFeeler));
     begin_drop_in(this, velocity);
     return true;
 }
@@ -117,15 +118,15 @@ bool Component::try_acid_drop()
 {
     if (!buttons_held(this))
         return false;
-    float velocity[4] = {get_at<float>(this, kVelocity), get_at<float>(this, kVelocity + 4), get_at<float>(this, kVelocity + 8),
-                         get_at<float>(this, kVelocity + 12)};
+    float velocity[4] = {get_at<float>(this, kVelocity), get_at<float>(this, kVelocity + 4),
+                         get_at<float>(this, kVelocity + 8), get_at<float>(this, kVelocity + 12)};
     // (a physics value, 0xC0491D2E, as the second component)
     velocity[1] = objects::FootMovement::get_param(0xC0491D2E);
     if (!find_acid_drop(this, velocity))
         return false;
     if (get_at<bool>(this, kWalking)) {
-        get_at<objects::ActivationZoneModule*>(this, kTrigger)->probe_touches_zone(kWalkEvents0064c63c,
-                                                                 &get_at<render::ProbeRay>(this, kTriggerFeeler));
+        get_at<objects::ActivationZoneModule*>(this, kTrigger)
+            ->probe_touches_zone(kWalkEvents0064c63c, &get_at<render::ProbeRay>(this, kTriggerFeeler));
         if (get_at<bool>(get_at<uint8_t*>(this, kFlags), 0x26))
             return true;
     }
@@ -134,4 +135,4 @@ bool Component::try_acid_drop()
     return true;
 }
 
-} // namespace Skater
+} // namespace skater

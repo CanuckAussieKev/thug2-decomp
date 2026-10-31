@@ -46,13 +46,13 @@ double get_fill(double used, double limit);
 uint32_t level_colour(StageMap level);
 
 struct Meter {
-    const char* name = "";   // "Crowns"
-    double used = 0.0;       // now
-    double limit = 0.0;      // the engine's (0: no limit - a count only)
-    double added = 0.0;      // what the editor's edits added (counts) or the change since the level came up (memory)
-    bool bytes = false;      // used / limit / added are bytes (shown as KB / MB)
+    const char* name = "";    // "Crowns"
+    double used = 0.0;        // now
+    double limit = 0.0;       // the engine's (0: no limit - a count only)
+    double added = 0.0;       // what the editor's edits added (counts) or the change since the level came up (memory)
+    bool bytes = false;       // used / limit / added are bytes (shown as KB / MB)
     bool approximate = false; // `added` is a difference of the game's own counters (see the top)
-    const char* where = "";  // the limit's source in the engine (the tooltip)
+    const char* where = "";   // the limit's source in the engine (the tooltip)
 };
 // The worst meter (the bar shows it): the highest fill among meters with a limit (-1: none).
 int get_worst(const std::vector<Meter>& meters);
@@ -75,4 +75,4 @@ bool strip_meter(float* fill, uint32_t* argb);
 void tooltip();
 void get_table();
 
-} // namespace MenuSystem::level_editor::Budget
+} // namespace frontend::level_editor::budget

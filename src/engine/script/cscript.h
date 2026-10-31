@@ -22,11 +22,11 @@
 // arguments in other registers. One caller relies on ECX surviving a call: 0x00472E70 calls 0x00472D20 and
 // reads ECX afterwards (both must be ours together, or 0x00472D20 must preserve ECX - it does in the original).
 namespace objects {
-class Entity;          // a game object (SharedBase; +0x100 its component list)
-class ObjectModule;   // one of an object's components; can hold a script waiting on it
+class Entity;           // a game object (SharedBase; +0x100 its component list)
+class ObjectModule;     // one of an object's components; can hold a script waiting on it
 class SignalRouteTable; // a script's event handlers (engine/objects/signal.h)
 struct Signal;          // an event (engine/objects/signal.h)
-} // namespace Obj
+} // namespace objects
 
 namespace script {
 
@@ -34,9 +34,9 @@ class Script;
 
 // What Update returns.
 enum ScriptOutcome : int {
-    kScriptOutcomeFinished = 0,           // no code left (the script has ended or was never set)
-    kScriptOutcomeBlocked = 1,            // waiting with kSuspendOnBlock or kWaitTypeRealTimer
-    kScriptOutcomeSuspended = 2,            // any other wait
+    kScriptOutcomeFinished = 0,  // no code left (the script has ended or was never set)
+    kScriptOutcomeBlocked = 1,   // waiting with kSuspendOnBlock or kWaitTypeRealTimer
+    kScriptOutcomeSuspended = 2, // any other wait
     // (3 and 4 are never returned by this build)
     kScriptOutcomeEndedByInterrupt = 5, // an interrupt (Interrupt / OnExitRun script) returned
 };
@@ -44,10 +44,10 @@ enum ScriptOutcome : int {
 // suspend_reason_: what the script waits for before its next statement (checked by update_wait, 0x00473050).
 enum BlockReason : uint32_t {
     kSuspendOnNothing = 0,
-    kSuspendOnCount = 1,        // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)
-    kSuspendOnTimer = 2,          // suspend_clock_ seconds of slomo frame time (Wait n seconds: 0x00472C10)
-    kSuspendOnBlock = 3,        // until unblocked - by an event of type suspend_arg_ (Block: 0x00472FD0) or by hand
-    kWaitTypeRealTimer = 4,     // suspend_clock_ ms of the game clock since suspend_arg_ (0x00473310)
+    kSuspendOnCount = 1,    // suspend_frames_left_ more Updates (Wait n frames: 0x00472BD0)
+    kSuspendOnTimer = 2,    // suspend_clock_ seconds of slomo frame time (Wait n seconds: 0x00472C10)
+    kSuspendOnBlock = 3,    // until unblocked - by an event of type suspend_arg_ (Block: 0x00472FD0) or by hand
+    kWaitTypeRealTimer = 4, // suspend_clock_ ms of the game clock since suspend_arg_ (0x00473310)
     // 5-10: waiting on blocking_module_, which is asked every Update (its vtable +0x18) - the object waits
     // (move, anim, jump, stop, rotate, stream finished...; set by set_wait_on_component 0x004739A0).
     kWaitTypeObjectFirst = 5,
@@ -58,12 +58,12 @@ enum BlockReason : uint32_t {
 // A begin ... repeat loop (0x10 bytes). One is inside the script; the second nested loop moves them all to a
 // block of 10 on the script heap (no check beyond 10).
 struct RepeatFrame {
-    const uint8_t* tokens_begin_;  // the first token after 'begin'
-    const uint8_t* tokens_end_;    // the token after 'repeat n' (set the first time repeat is reached)
-    bool args_seen_;          // repeat had a count (otherwise the loop is endless)
-    bool args_expected_;   // repeat's arguments not read yet
+    const uint8_t* tokens_begin_; // the first token after 'begin'
+    const uint8_t* tokens_end_;   // the token after 'repeat n' (set the first time repeat is reached)
+    bool args_seen_;              // repeat had a count (otherwise the loop is endless)
+    bool args_expected_;          // repeat's arguments not read yet
     uint16_t unknowna_;
-    int headcount_;              // repeats left
+    int headcount_; // repeats left
 };
 static_assert(sizeof(RepeatFrame) == 0x10, "layout must match the original");
 static_assert(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame, args_seen_) == 0x8 &&
@@ -74,27 +74,27 @@ static_assert(offsetof(RepeatFrame, tokens_end_) == 0x4 && offsetof(RepeatFrame,
 // return_from_script. Two are inside the script; the third call moves them to a block of 16 on the script
 // heap (no check beyond 16).
 struct CallFrame {
-    uint32_t script_id_;        // +0x00 script_title_
-    Struct* arg_struct_;           // +0x04 args_ (owned)
-    const uint8_t* caller_frame_; // +0x08 pc_
-    objects::Entity* owner_entity_;      // +0x0C entity_ (a plain pointer here: object_destroyed clears it)
-    RepeatFrame* loop_state_;               // +0x10 innermost_repeat_
-    uint32_t on_exit_script_ptr_;      // +0x14 on_exit_script_
+    uint32_t script_id_;                     // +0x00 script_title_
+    Struct* arg_struct_;                     // +0x04 args_ (owned)
+    const uint8_t* caller_frame_;            // +0x08 pc_
+    objects::Entity* owner_entity_;          // +0x0C entity_ (a plain pointer here: object_destroyed clears it)
+    RepeatFrame* loop_state_;                // +0x10 innermost_repeat_
+    uint32_t on_exit_script_ptr_;            // +0x14 on_exit_script_
     objects::ObjectModule* sleep_component_; // +0x18 blocking_module_
-    float sleep_timer_;            // +0x1C suspend_clock_
-    uint32_t suspend_arg_ref_;           // +0x20 suspend_arg_
-    int suspend_frames_ref_;            // +0x24 suspend_frames_left_
-    uint32_t suspend_kind_;          // +0x28 bits 0-3: suspend_reason_ (the other bits are kept as they are)
-    uint8_t trait_mask_;              // +0x2C bit 0: suspend_clock_started_, bit 1: the level was an interrupt
+    float sleep_timer_;                      // +0x1C suspend_clock_
+    uint32_t suspend_arg_ref_;               // +0x20 suspend_arg_
+    int suspend_frames_ref_;                 // +0x24 suspend_frames_left_
+    uint32_t suspend_kind_;                  // +0x28 bits 0-3: suspend_reason_ (the other bits are kept as they are)
+    uint8_t trait_mask_;                     // +0x2C bit 0: suspend_clock_started_, bit 1: the level was an interrupt
     uint8_t unknown2d_[3];
 };
 static_assert(sizeof(CallFrame) == 0x30, "layout must match the original");
 static_assert(offsetof(CallFrame, arg_struct_) == 0x04 && offsetof(CallFrame, caller_frame_) == 0x08 &&
                   offsetof(CallFrame, owner_entity_) == 0x0C && offsetof(CallFrame, loop_state_) == 0x10 &&
-                  offsetof(CallFrame, on_exit_script_ptr_) == 0x14 &&
-                  offsetof(CallFrame, sleep_component_) == 0x18 && offsetof(CallFrame, sleep_timer_) == 0x1C &&
-                  offsetof(CallFrame, suspend_arg_ref_) == 0x20 && offsetof(CallFrame, suspend_frames_ref_) == 0x24 &&
-                  offsetof(CallFrame, suspend_kind_) == 0x28 && offsetof(CallFrame, trait_mask_) == 0x2C,
+                  offsetof(CallFrame, on_exit_script_ptr_) == 0x14 && offsetof(CallFrame, sleep_component_) == 0x18 &&
+                  offsetof(CallFrame, sleep_timer_) == 0x1C && offsetof(CallFrame, suspend_arg_ref_) == 0x20 &&
+                  offsetof(CallFrame, suspend_frames_ref_) == 0x24 && offsetof(CallFrame, suspend_kind_) == 0x28 &&
+                  offsetof(CallFrame, trait_mask_) == 0x2C,
               "layout must match the original");
 constexpr uint32_t kReturnWaitTypeMask = 0xF;
 constexpr uint8_t kReturnFlagTimerStarted = 0x01;
@@ -116,7 +116,7 @@ struct MemberFunctionEntry {
     // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
     // CStruct* params, CScript* script)`; null: the object looks the name up (Entity::invoke_method_by_name 0x0045D850).
     void* method_code_;
-    int this_adjustment_;      // +0x0C
+    int this_adjustment_;         // +0x0C
     int virtual_base_offsets_[2]; // +0x10 (unused by single-inheritance classes)
 };
 static_assert(sizeof(MemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
@@ -234,57 +234,57 @@ public:
     ScriptOutcome preempt(uint32_t name, Struct* params);
     // Event handlers (0x00472EA0, 0x00472EC0, 0x004734E0, 0x004735D0, 0x00473690, 0x004736C0): through
     // signal_routes_ (made on demand: 0x10 bytes, 0x0045F820, on the front-end heap).
-    void clear_event_handler_group(uint32_t group);                       // 0x00472EA0 (0x004600E0)
-    int print_event_handler_table();                                      // 0x00472EC0 (0x0045F880, cdecl)
-    void install_event_table(Array* handlers, bool replace);             // 0x004734E0
+    void clear_event_handler_group(uint32_t group);          // 0x00472EA0 (0x004600E0)
+    int print_event_handler_table();                         // 0x00472EC0 (0x0045F880, cdecl)
+    void install_event_table(Array* handlers, bool replace); // 0x004734E0
     void set_event_handler(uint32_t event_type, uint32_t script, uint32_t group, bool exception,
-                         Struct* params);                             // 0x004735D0
-    void clear_event_handler(uint32_t event_type);                        // 0x00473690
-    void reset_event_handlers_from_table(Array* table, uint32_t group);   // 0x004736C0
+                           Struct* params);                             // 0x004735D0
+    void clear_event_handler(uint32_t event_type);                      // 0x00473690
+    void reset_event_handlers_from_table(Array* table, uint32_t group); // 0x004736C0
 
     // --- the fields ---
-    Script* following_;                 // +0x00 the list (older)
-    Script* prior_entry_;             // +0x04 (newer; null for the head)
-    uint8_t* code_copy_;              // +0x08 a private copy of the code (set_script_copy), freed by reset_script_state
-    const uint8_t* pc_;              // +0x0C the next token; null: not running
-    Struct* stmt_args_;        // +0x10 the current statement's arguments (owned)
-    Struct* args_;                // +0x14 the script's parameters (owned; CFunctions leave results here)
-    RepeatFrame* innermost_repeat_;             // +0x18 the innermost begin ... repeat (null: none)
-    RepeatFrame inline_loop_;               // +0x1C
-    RepeatFrame* loops_;                   // +0x2C inline_loop_, or 10 on the script heap
-    int call_depth_;         // +0x30 the call depth
+    Script* following_;             // +0x00 the list (older)
+    Script* prior_entry_;           // +0x04 (newer; null for the head)
+    uint8_t* code_copy_;            // +0x08 a private copy of the code (set_script_copy), freed by reset_script_state
+    const uint8_t* pc_;             // +0x0C the next token; null: not running
+    Struct* stmt_args_;             // +0x10 the current statement's arguments (owned)
+    Struct* args_;                  // +0x14 the script's parameters (owned; CFunctions leave results here)
+    RepeatFrame* innermost_repeat_; // +0x18 the innermost begin ... repeat (null: none)
+    RepeatFrame inline_loop_;       // +0x1C
+    RepeatFrame* loops_;            // +0x2C inline_loop_, or 10 on the script heap
+    int call_depth_;                // +0x30 the call depth
     CallFrame inline_return_addresses_[2]; // +0x34
-    CallFrame* frame_records_; // +0x94 inline_return_addresses_, or 16 on the script heap
-    int suspend_frames_left_;                // +0x98 kSuspendOnCount / ONE_PER_FRAME
-    bool suspend_clock_started_;          // +0x9C kSuspendOnTimer: the first Update has been
+    CallFrame* frame_records_;             // +0x94 inline_return_addresses_, or 16 on the script heap
+    int suspend_frames_left_;              // +0x98 kSuspendOnCount / ONE_PER_FRAME
+    bool suspend_clock_started_;           // +0x9C kSuspendOnTimer: the first Update has been
     uint8_t unknown9d_[3];
-    float suspend_clock_;                // +0xA0 kSuspendOnTimer seconds left / REAL_TIMER ms
-    uint32_t suspend_reason_;              // +0xA4 BlockReason
-    uint32_t suspend_arg_;               // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
+    float suspend_clock_;     // +0xA0 kSuspendOnTimer seconds left / REAL_TIMER ms
+    uint32_t suspend_reason_; // +0xA4 BlockReason
+    uint32_t suspend_arg_;    // +0xA8 BLOCKED: the event type; REAL_TIMER: the start; 5-10: for the component
     objects::ObjectModule* blocking_module_; // +0xAC types 5-10
-    uint32_t unique_id_;              // +0xB0 from 0x006F3540
-    uint8_t flag_bits_;                  // +0xB4 SCRIPT_RUN_*
+    uint32_t unique_id_;                     // +0xB0 from 0x006F3540
+    uint8_t flag_bits_;                      // +0xB4 SCRIPT_RUN_*
     uint8_t unknownb5_[3];
-    int list_link_;                       // +0xB8 SpawnScript's node
+    int list_link_;                              // +0xB8 SpawnScript's node
     objects::SharedRef<objects::Entity> entity_; // +0xBC the object it runs on (+0xC0 / +0xC4 the pointer's links)
-    uint32_t script_title_;            // +0xC8 the script running now (the top level)
-    uint8_t spawn_flags_;             // +0xCC SCRIPT_FLAG_*
+    uint32_t script_title_;                      // +0xC8 the script running now (the top level)
+    uint8_t spawn_flags_;                        // +0xCC SCRIPT_FLAG_*
     uint8_t unknowncd_[3];
-    uint32_t spawner_file_;           // +0xD0 the .qb file of the script that spawned it (set_spawner_file)
-    uint32_t spawn_id_;               // +0xD4 SpawnScript's id
-    uint32_t on_finish_script_;        // +0xD8 run when a spawned script ends
-    Struct* callback_params_;        // +0xDC (owned)
+    uint32_t spawner_file_;                    // +0xD0 the .qb file of the script that spawned it (set_spawner_file)
+    uint32_t spawn_id_;                        // +0xD4 SpawnScript's id
+    uint32_t on_finish_script_;                // +0xD8 run when a spawned script ends
+    Struct* callback_params_;                  // +0xDC (owned)
     objects::SignalRouteTable* signal_routes_; // +0xE0 made on demand
-    uint32_t on_exception_script_;     // +0xE4 OnExceptionRun
-    uint32_t on_exit_script_;          // +0xE8 OnExitRun (this level's)
-    objects::SharedBase shared_base_;    // +0xEC lets smart pointers point at the script (vtable 0x006478E4)
+    uint32_t on_exception_script_;             // +0xE4 OnExceptionRun
+    uint32_t on_exit_script_;                  // +0xE8 OnExitRun (this level's)
+    objects::SharedBase shared_base_;          // +0xEC lets smart pointers point at the script (vtable 0x006478E4)
 };
 static_assert(offsetof(Script, prior_entry_) == 0x04 && offsetof(Script, code_copy_) == 0x08 &&
                   offsetof(Script, pc_) == 0x0C && offsetof(Script, stmt_args_) == 0x10 &&
                   offsetof(Script, args_) == 0x14 && offsetof(Script, innermost_repeat_) == 0x18 &&
                   offsetof(Script, inline_loop_) == 0x1C && offsetof(Script, loops_) == 0x2C &&
-                  offsetof(Script, call_depth_) == 0x30 &&
-                  offsetof(Script, inline_return_addresses_) == 0x34 && offsetof(Script, frame_records_) == 0x94,
+                  offsetof(Script, call_depth_) == 0x30 && offsetof(Script, inline_return_addresses_) == 0x34 &&
+                  offsetof(Script, frame_records_) == 0x94,
               "layout must match the original");
 static_assert(offsetof(Script, suspend_frames_left_) == 0x98 && offsetof(Script, suspend_clock_started_) == 0x9C &&
                   offsetof(Script, suspend_clock_) == 0xA0 && offsetof(Script, suspend_reason_) == 0xA4 &&
@@ -301,14 +301,14 @@ static_assert(offsetof(Script, script_title_) == 0xC8 && offsetof(Script, spawn_
 static_assert(sizeof(Script) == 0xF4, "allocated as 0xF4 bytes by the original");
 
 // flag_bits_ (+0xB4)
-constexpr uint8_t kScriptRunInterrupted = 0x01;   // the top level was entered as an interrupt
-constexpr uint8_t kScriptRunWaitUpdated = 0x02;  // the wait was already counted this Update (set on return)
+constexpr uint8_t kScriptRunInterrupted = 0x01; // the top level was entered as an interrupt
+constexpr uint8_t kScriptRunWaitUpdated = 0x02; // the wait was already counted this Update (set on return)
 // spawn_flags_ (+0xCC)
 constexpr uint8_t kScriptFlagSpawned = 0x01;
 constexpr uint8_t kScriptFlagNotSessionSpecific = 0x02; // survives kill_all_child_scripts
 constexpr uint8_t kScriptFlagPaused = 0x04;
-constexpr uint8_t kScriptFlagPauseWithObject = 0x08;    // not updated while its object says no (vtable +0x1C)
-constexpr uint8_t kScriptFlagTrackerBlocked = 0x10;      // Block registered it with the tracker
+constexpr uint8_t kScriptFlagPauseWithObject = 0x08; // not updated while its object says no (vtable +0x1C)
+constexpr uint8_t kScriptFlagTrackerBlocked = 0x10;  // Block registered it with the tracker
 
 // The globals.
 extern Script* g_script_list_head;
@@ -343,15 +343,17 @@ void tick_child_scripts();
 // tick_child_scripts if called during it).
 void kill_all_child_scripts();
 // 0x00475420 / 0x00475670: spawn `name` (a C function is just called, with a temporary script; returns null).
-Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node,
-                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object);
+Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node, uint32_t id,
+                     bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object);
 Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct* callback_params, int node,
-                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object);
+                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific,
+                     bool pause_with_object);
 // 0x004756C0: delete `script` if it's spawned.
 void kill_spawned_script(Script* script);
 // 0x00475790 / 0x004758F0: run `name` to the end now (a C function / member function is just called); `name`
 // (the string) isn't used. With `replicate_flag` in a network game, the other players are told (0x00473350).
-void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag, const char* name_string);
+void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag,
+                   const char* name_string);
 void launch_script(const char* name, Struct* params, objects::Entity* object, bool replicate_flag);
 // 0x004752F0: one Update of `name`, then its parameters are added to `results` (not checked for null).
 void run_script_once(uint32_t name, Struct* params, objects::Entity* object, Struct* results);
@@ -373,14 +375,14 @@ void component_destroyed_all_scripts(objects::ObjectModule* component);
 void component_destroyed_stub();
 // Stopping scripts (reset_script_state + report_stopped; they stay on the list, tick_child_scripts deletes spawned
 // ones once Update says finished):
-void stop_scripts_targeting(uint32_t name);                               // 0x00473FA0 (any level)
-void stop_scripts_by_tag(uint32_t id);              // 0x00474040 (spawn id, unique id or spawner file)
-void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script* except);     // 0x004740D0
+void stop_scripts_targeting(uint32_t name); // 0x00473FA0 (any level)
+void stop_scripts_by_tag(uint32_t id);      // 0x00474040 (spawn id, unique id or spawner file)
+void stop_scripts_of_object_and_tag(objects::Entity* object, uint32_t id, Script* except);        // 0x004740D0
 void end_child_scripts_of_entity_by_name(objects::Entity* object, uint32_t name, Script* except); // 0x00474190
-void stop_all_scripts();                                                           // 0x00474250 (every script)
-void stop_scripts_using_object(objects::Entity* object, uint32_t name);  // 0x004742B0 (name 0: any; top level only)
-void end_scripts_bound_to_entity(objects::Entity* object);          // 0x004756F0 = 0x004742B0(object, 0)
+void stop_all_scripts();                                                // 0x00474250 (every script)
+void stop_scripts_using_object(objects::Entity* object, uint32_t name); // 0x004742B0 (name 0: any; top level only)
+void end_scripts_bound_to_entity(objects::Entity* object);              // 0x004756F0 = 0x004742B0(object, 0)
 void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t name); // 0x00474350 (name at any level)
 // 0x00475700: delete the scripts that aren't spawned, have no code and no event handler table (Cleanup).
 void delete_finished_scripts();
-} // namespace Script
+} // namespace script

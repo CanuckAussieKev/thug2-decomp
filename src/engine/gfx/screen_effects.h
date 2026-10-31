@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The engine's screen effects (render::ScreenEffects, 8 bytes; vtable 0x00649A0C - the PC's PcScreenEffects,
 // pc_scene.h, fills in its slots): on / off, and the bloom and depth-of-field settings from script structures, each
@@ -41,4 +41,4 @@ public:
 };
 static_assert(sizeof(ScreenEffects) == 8, "layout must match the original");
 
-} // namespace Nx
+} // namespace render

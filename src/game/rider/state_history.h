@@ -22,7 +22,7 @@ namespace objects {
 // One of the history's other messages (0x54 bytes, 20 of them at +0xA70; the newest at +0xA6C % 20): the message's
 // id first, then its time stamp as two halves.
 struct StateHistoryMessage {
-    uint8_t ident_;        // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
+    uint8_t ident_; // +0x00 the network message's id (0x29-0x8C: 0x00516180's switch)
     uint8_t pad01[3];
     uint16_t clock_;     // +0x04 the low half of the 32-bit time stamp
     uint16_t time_high_; // +0x06 the high half
@@ -102,4 +102,4 @@ struct PlayerSearchDestructors {
 // 0x0064C174: stateHistoryVtable (defined where the class's functions are).
 extern void** const kStateHistoryVtable;
 
-} // namespace Obj
+} // namespace objects

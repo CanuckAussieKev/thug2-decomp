@@ -21,9 +21,9 @@ struct BillboardRec {
 
 // A material's batch (0x14 bytes).
 struct BillboardBatch {
-    uint32_t vertex_bytes_;     // (the material's passes + 2) x 0x20
+    uint32_t vertex_bytes_; // (the material's passes + 2) x 0x20
     uint8_t* material;
-    memory::ListNode* lists[3];  // heads (data -1, vtable 0x0064A898) of nodes (vtable 0x0064A894) over entries
+    memory::ListNode* lists[3]; // heads (data -1, vtable 0x0064A898) of nodes (vtable 0x0064A894) over entries
 
     // 0x004CEB30: construct for a material: three empty lists. Returns this.
     BillboardBatch* make_new(uint8_t* material);
@@ -42,11 +42,11 @@ static_assert(sizeof(BillboardBatch) == 0x14, "layout must match the original");
 struct BillboardSet {
     int count;
     BillboardBatch* batches[0x100]; // sorted by the materials' draw order (+0x1C), nulls last
-    float view[4];           // +0x404 the view's forward (its third column), w 1
-    float right[4];          // +0x414 forward x up, normalised
-    float up[4];             // +0x424 right x forward
-    float flat_forward_[4];    // +0x434 the forward along the ground, w 1
-    float flat_right_[4];      // +0x444 and right
+    float view[4];                  // +0x404 the view's forward (its third column), w 1
+    float right[4];                 // +0x414 forward x up, normalised
+    float up[4];                    // +0x424 right x forward
+    float flat_forward_[4];         // +0x434 the forward along the ground, w 1
+    float flat_right_[4];           // +0x444 and right
 
     // 0x004CDA60: the batch of a material, or null.
     BillboardBatch* get_find(const uint8_t* material);
@@ -112,4 +112,4 @@ void __cdecl clear_flag_786e_b4();
 extern uint8_t g_billboard_flag;
 extern BillboardSet g_billboard_pool;
 
-} // namespace Nx
+} // namespace render

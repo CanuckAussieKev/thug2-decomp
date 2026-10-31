@@ -15,7 +15,7 @@
 namespace script {
 class Struct;
 class Array;
-}
+} // namespace script
 namespace gfx {
 class ViewCam;
 }
@@ -66,17 +66,17 @@ public:
     bool set_flag_1b(uint8_t value);
     bool set_value20(uint32_t value);
 
-    memory::ListNode list_link_;          // +0x00 (vtable, data = this, priority 0, links)
-    gfx::ViewCam* viewer_;         // +0x14
-    bool flag18_;                 // +0x18 (0xEB300C29)
-    uint8_t flag19_;              // +0x19 (0x8DDE72C0; a flag, any byte)
-    bool is_finished_;                   // +0x1A
-    uint8_t flag_1b_;              // +0x1B (a flag, any byte)
-    bool flag_1c_;                 // +0x1C (0xB8CA12C5)
+    memory::ListNode list_link_; // +0x00 (vtable, data = this, priority 0, links)
+    gfx::ViewCam* viewer_;       // +0x14
+    bool flag18_;                // +0x18 (0xEB300C29)
+    uint8_t flag19_;             // +0x19 (0x8DDE72C0; a flag, any byte)
+    bool is_finished_;           // +0x1A
+    uint8_t flag_1b_;            // +0x1B (a flag, any byte)
+    bool flag_1c_;               // +0x1C (0xB8CA12C5)
     uint8_t unknown1d_[3];
-    uint32_t value20_;            // +0x20
-    uint32_t label_;               // +0x24
-    script::Struct* args_;     // +0x28
+    uint32_t value20_;     // +0x20
+    uint32_t label_;       // +0x24
+    script::Struct* args_; // +0x28
 };
 static_assert(offsetof(VideoEntry, viewer_) == 0x14 && offsetof(VideoEntry, flag_1c_) == 0x1C &&
                   offsetof(VideoEntry, label_) == 0x24 && offsetof(VideoEntry, args_) == 0x28,
@@ -86,11 +86,11 @@ static_assert(offsetof(VideoEntry, viewer_) == 0x14 && offsetof(VideoEntry, flag
 class ClassNodeList {
 public:
     struct TableRow {
-        maths::Vec4 pos;      // +0x00
-        TableRow* next;          // +0x10
-        uint16_t index;       // +0x14: in the node array
-        bool flag;            // +0x16: the node's 0x7C2552B9 flag
-        bool unknown17;       // +0x17 (cleared)
+        maths::Vec4 pos; // +0x00
+        TableRow* next;  // +0x10
+        uint16_t index;  // +0x14: in the node array
+        bool flag;       // +0x16: the node's 0x7C2552B9 flag
+        bool unknown17;  // +0x17 (cleared)
     };
 
     // 0x004693C0: empty, no transform (returns this).
@@ -106,14 +106,14 @@ public:
     // 0x00469430: an entry for each node of the class in `nodes` (kept).
     void set_nodes(script::Array* nodes);
 
-    TableRow* entries_;           // +0x00
-    bool transformed_;         // +0x04
+    TableRow* entries_; // +0x00
+    bool transformed_;  // +0x04
     uint8_t unknown5_[3];
-    maths::Mat4 placement_mat_;    // +0x08
-    script::Array* nodes_;    // +0x48
+    maths::Mat4 placement_mat_; // +0x08
+    script::Array* nodes_;      // +0x48
 };
 static_assert(offsetof(ClassNodeList, placement_mat_) == 8 && offsetof(ClassNodeList, nodes_) == 0x48 &&
                   sizeof(ClassNodeList::TableRow) == 0x18,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

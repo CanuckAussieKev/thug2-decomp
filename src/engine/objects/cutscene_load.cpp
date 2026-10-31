@@ -34,8 +34,8 @@ constexpr uint32_t kUnnamed = 0; // (a flag: a checksum without a name)
 constexpr uint32_t kModelModuleName = 0x286A8D26;
 constexpr uint32_t kSkeletonModuleName = 0x222756D5;
 constexpr uint32_t kFlagParam = 0x82C84419;
-constexpr uint32_t kRefreshScript = 0x2E20EA32;     // (create_object's second script)
-constexpr uint32_t kRefreshGlobal = 0x4AF50A5B;     // a global integer: refresh the objects once
+constexpr uint32_t kRefreshScript = 0x2E20EA32; // (create_object's second script)
+constexpr uint32_t kRefreshGlobal = 0x4AF50A5B; // a global integer: refresh the objects once
 
 // The objects' parameters (names unknown).
 constexpr uint32_t kVersion = 0x40E32C3C;
@@ -81,19 +81,16 @@ void* model_of(ObjectModule* component)
 {
     return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
 }
-bool stands_in(ObjectModule* model)
-{
-    return *(reinterpret_cast<uint8_t*>(model) + 0x234) != 0;
-}
-uint32_t stand_in_id(ObjectModule* model)
-{
-    return static_cast<MeshInstanceModule*>(model)->get_linked_entity_name();
-}
+bool stands_in(ObjectModule* model) { return *(reinterpret_cast<uint8_t*>(model) + 0x234) != 0; }
+uint32_t stand_in_id(ObjectModule* model) { return static_cast<MeshInstanceModule*>(model)->get_linked_entity_name(); }
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
 void* __fastcall model_fader(void* model) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x2C); }
-void* __fastcall appearance_face(void* appearance) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(appearance) + 0x54); }
+void* __fastcall appearance_face(void* appearance)
+{
+    return *reinterpret_cast<void**>(static_cast<uint8_t*>(appearance) + 0x54);
+}
 
 namespace {
 
@@ -120,16 +117,10 @@ void* appearance_part(void* appearance, uint32_t part)
 } // namespace
 
 // 0x004645A0
-void* __cdecl anim_source_allocate(unsigned int size)
-{
-    return source_pools().carve(size);
-}
+void* __cdecl anim_source_allocate(unsigned int size) { return source_pools().carve(size); }
 
 // 0x004645E0
-void __cdecl anim_source_free(void* item)
-{
-    source_pools().dealloc(item);
-}
+void __cdecl anim_source_free(void* item) { source_pools().dealloc(item); }
 
 // 0x00464640
 CinematicTable* CinematicTable::make_new()
@@ -177,8 +168,7 @@ void CinematicTable::refresh_objects()
         if (object->fetch_module(kModelModuleName))
             script::launch_script(kRefreshScript, params, object, false, nullptr);
     }
-    auto* skater =
-        static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
+    auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater)
         script::launch_script(kRefreshScript, params, skater, false, nullptr);
     free_struct(params);
@@ -294,8 +284,9 @@ void CinematicTable::add_objects(script::Struct* params)
                     void* model2 = model_of(level_model);
                     if (!colour_saved_) {
                         float saved[4];
-                        const float* settings =
-                            reinterpret_cast<const float*>(static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(reinterpret_cast<maths::Vec4*>(saved)));
+                        const float* settings = reinterpret_cast<const float*>(
+                            static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
+                                reinterpret_cast<maths::Vec4*>(saved)));
                         std::memcpy(lent_2c_, settings, 16);
                         uint8_t flags = *(static_cast<uint8_t*>(model2) + 0x44);
                         lent_3c_ = flags >> 2 & 1;
@@ -307,10 +298,14 @@ void CinematicTable::add_objects(script::Struct* params)
                     model_set_offset(model2, offset2);
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
-                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model2);
-                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model_of(stand_in));
-                    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(reinterpret_cast<uint8_t*>(theirs));
-                    static_cast<render::RenderModel*>(model_of(stand_in))->upload_skinning_palette(reinterpret_cast<uint8_t*>(mine));
+                    uint32_t mine = reinterpret_cast<uint32_t(__thiscall*)(void*)>(
+                        code_address(&render::RenderModel::fetch_skinning_palette))(model2);
+                    uint32_t theirs = reinterpret_cast<uint32_t(__thiscall*)(void*)>(
+                        code_address(&render::RenderModel::fetch_skinning_palette))(model_of(stand_in));
+                    static_cast<render::RenderModel*>(model2)->upload_skinning_palette(
+                        reinterpret_cast<uint8_t*>(theirs));
+                    static_cast<render::RenderModel*>(model_of(stand_in))
+                        ->upload_skinning_palette(reinterpret_cast<uint8_t*>(mine));
                     static_cast<MeshInstanceModule*>(level_model)->get_update_brightness();
                 }
                 reinterpret_cast<void(__thiscall*)(ObjectModule*, int)>((*reinterpret_cast<void***>(stand_in))[7])(
@@ -330,8 +325,7 @@ void CinematicTable::add_objects(script::Struct* params)
                     AnimationEntry* animation = &animations_[j];
                     entry.animation = animation;
                     void* memory = anim_source_allocate(0x214);
-                    animation->source =
-                        memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
+                    animation->source = memory ? static_cast<render::FrameSource*>(memory)->make_new() : nullptr;
                     static_cast<render::FrameSource*>(animation->source)->play_clip(anim);
                     static_cast<render::FrameSource*>(animation->source)->set_done(true);
                     break;
@@ -365,7 +359,8 @@ void CinematicTable::add_objects(script::Struct* params)
         ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent && parent->active) {
             GameEntity* level = level_object_of(parent->object);
-            flags |= static_cast<render::RenderModel*>(model_of(level->fetch_module(kModelModuleName)))->get_strip_break_flags();
+            flags |= static_cast<render::RenderModel*>(model_of(level->fetch_module(kModelModuleName)))
+                         ->get_strip_break_flags();
         }
         static_cast<render::RenderModel*>(model)->break_strips(flags);
     }
@@ -417,12 +412,10 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     reinterpret_cast<void(__thiscall*)(ObjectModule*, void*, int, int, uint32_t)>(
         (*reinterpret_cast<void***>(component))[0x34 / 4])(component, unknown34a8_, 0, 0, 0x8FB01036);
     uint32_t part_name = kPartA;
-    auto* part = static_cast<script::Struct*>(
-        static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
+    auto* part = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
     if (!part) {
         part_name = kPartB;
-        part = static_cast<script::Struct*>(
-            static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartB));
+        part = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartB));
         if (!part)
             return;
     }
@@ -450,11 +443,11 @@ void CinematicTable::apply_skater_look(ObjectEntry& entry)
     free_struct(colour);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
 static VtableSlot g_cutscene_data_vtable_slots[] = {&objects::CinematicTable::teardown};
 void** const kCutsceneDataVtable = reinterpret_cast<void**>(g_cutscene_data_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

@@ -21,14 +21,11 @@ constexpr Pools kDefaults = {1200, 360000, 64000, 48000, 1600, 26000, 45000, 120
 
 constexpr uint32_t kOriginalScriptRegion = 0x434770;
 constexpr uint32_t kOriginalMainBlock = 0x4000000; // 64 MB
-constexpr int kMostItems = 4000000;                 // (an ini value above this is taken as this)
+constexpr int kMostItems = 4000000;                // (an ini value above this is taken as this)
 
 bool g_use_original = false;
 
-int total_of(const char* key, int fallback)
-{
-    return std::clamp(config_int("memory", key, fallback), 1, kMostItems);
-}
+int total_of(const char* key, int fallback) { return std::clamp(config_int("memory", key, fallback), 1, kMostItems); }
 
 Pools get_take_in()
 {
@@ -43,8 +40,8 @@ Pools get_take_in()
     p.arrays = total_of("array_pool", p.arrays);
     p.symbols = total_of("symbol_pool", p.symbols);
     p.scripts = total_of("script_pool", p.scripts);
-    p.string_bytes_ = static_cast<uint32_t>(std::clamp(config_int("memory", "string_heap", static_cast<int>(p.string_bytes_)),
-                                                     0x1000, 0x4000000));
+    p.string_bytes_ = static_cast<uint32_t>(
+        std::clamp(config_int("memory", "string_heap", static_cast<int>(p.string_bytes_)), 0x1000, 0x4000000));
     p.strings = static_cast<uint32_t>(total_of("string_count", static_cast<int>(p.strings)));
     p.hash_items_ = total_of("hash_item_pool", p.hash_items_);
     return p;
@@ -100,7 +97,8 @@ uint32_t script_heap_extra()
 
 uint32_t main_block_size()
 {
-    uint32_t extra = script_region_size() - kOriginalScriptRegion + get_grown(hash_item_bytes(at_hand()), hash_item_bytes(kOriginal));
+    uint32_t extra = script_region_size() - kOriginalScriptRegion +
+                     get_grown(hash_item_bytes(at_hand()), hash_item_bytes(kOriginal));
     return kOriginalMainBlock + ((extra + 0xFFFF) & ~0xFFFFu);
 }
 

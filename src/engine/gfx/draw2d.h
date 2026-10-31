@@ -7,12 +7,12 @@
 namespace render {
 
 struct OverlayDraw {
-    void** vtable;   // 0x0064AD18 for the base: [0] destroy, [1] open_sketch, [2] Draw, [3] close_sketch
+    void** vtable; // 0x0064AD18 for the base: [0] destroy, [1] open_sketch, [2] Draw, [3] close_sketch
     OverlayDraw* next;
-    uint8_t hidden;  // not in the list (a byte: change_concealed keeps any value it's given)
+    uint8_t hidden; // not in the list (a byte: change_concealed keeps any value it's given)
     uint8_t pad[3];
     float priority;
-    float z;         // above 0: the next frame's z test on (0x007CC24C)
+    float z; // above 0: the next frame's z test on (0x007CC24C)
 
     // 0x004DFA70: construct with this priority, in the list unless hidden. Returns this.
     OverlayDraw* make_new(float priority, bool hidden);
@@ -37,4 +37,4 @@ static_assert(sizeof(OverlayDraw) == 0x14, "layout must match the original");
 // frame's items wanted.
 void __cdecl draw_2d();
 
-} // namespace Nx
+} // namespace render

@@ -35,8 +35,8 @@ constexpr uint32_t kRed = 0xFFE5484D, kBlue = 0xFF3E8BFF, kGreen = 0xFF46C46E, k
 
 const char* family_name(Family family)
 {
-    static const char* const kNames[kFamilies] = {"Spawns", "Crowns",  "Flags",     "Rails",    "Ladders",
-                                                  "Paths",  "Objects", "Scenery",   "Lights",   "Sounds",
+    static const char* const kNames[kFamilies] = {"Spawns",    "Crowns",   "Flags",   "Rails",  "Ladders",
+                                                  "Paths",     "Objects",  "Scenery", "Lights", "Sounds",
                                                   "Particles", "Triggers", "Other"};
     int i = static_cast<int>(family);
     return i >= 0 && i < kFamilies ? kNames[i] : "?";
@@ -52,9 +52,11 @@ Family get_classify(uint32_t cls, uint32_t type)
                           kLevelLight = name_hash("LevelLight"), kEmitterObject = name_hash("EmitterObject"),
                           kParticleObject = name_hash("ParticleObject"), kProximNode = name_hash("ProximNode"),
                           kCrown = name_hash("Crown"),
-                          kEditorTrigger = name_hash("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
-    static const uint32_t kFlags[] = {name_hash("Flag_Red"),       name_hash("Flag_Blue"),       name_hash("Flag_Green"),
-                                      name_hash("Flag_Yellow"),    name_hash("Flag_Red_Base"),   name_hash("Flag_Blue_Base"),
+                          kEditorTrigger =
+                              name_hash("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
+    static const uint32_t kFlags[] = {name_hash("Flag_Red"),        name_hash("Flag_Blue"),
+                                      name_hash("Flag_Green"),      name_hash("Flag_Yellow"),
+                                      name_hash("Flag_Red_Base"),   name_hash("Flag_Blue_Base"),
                                       name_hash("Flag_Green_Base"), name_hash("Flag_Yellow_Base")};
     if (cls == kRestart)
         return Family::kSpawn;
@@ -110,10 +112,18 @@ uint32_t restart_type_bit(uint32_t type)
     static const struct {
         uint32_t checksum, bit;
     } kTypes[] = {
-        {name_hash("Player1"), kPlayer1},        {name_hash("Player2"), kPlayer2},  {name_hash("Multiplayer"), kMultiplayer},
-        {name_hash("Horse"), kHorse},            {name_hash("CTF"), kCtf},          {name_hash("CTF_1"), kCtf},
-        {name_hash("CTF_2"), kCtf},              {name_hash("CTF_3"), kCtf},        {name_hash("CTF_4"), kCtf},
-        {name_hash("Team"), kTeam},              {name_hash("KingOfTheHill"), kKing}, {name_hash("Generic"), kGeneric},
+        {name_hash("Player1"), kPlayer1},
+        {name_hash("Player2"), kPlayer2},
+        {name_hash("Multiplayer"), kMultiplayer},
+        {name_hash("Horse"), kHorse},
+        {name_hash("CTF"), kCtf},
+        {name_hash("CTF_1"), kCtf},
+        {name_hash("CTF_2"), kCtf},
+        {name_hash("CTF_3"), kCtf},
+        {name_hash("CTF_4"), kCtf},
+        {name_hash("Team"), kTeam},
+        {name_hash("KingOfTheHill"), kKing},
+        {name_hash("Generic"), kGeneric},
     };
     for (const auto& t : kTypes) {
         if (t.checksum == type)
@@ -168,12 +178,12 @@ uint32_t spawn_colour(uint32_t types, uint32_t team)
 
 namespace {
 
-constexpr uint32_t kClass = 0x12B4E660;   // class
-constexpr uint32_t kType = 0x7321A8D6;    // type
-constexpr uint32_t kName = 0xA1DC81F9;    // name
-constexpr uint32_t kLinks = 0x2E7D5EE7;   // links
-constexpr uint32_t kPos = 0x7F261953;     // pos
-constexpr uint32_t kAngles = 0x9D2D0915;  // angles
+constexpr uint32_t kClass = 0x12B4E660;  // class
+constexpr uint32_t kType = 0x7321A8D6;   // type
+constexpr uint32_t kName = 0xA1DC81F9;   // name
+constexpr uint32_t kLinks = 0x2E7D5EE7;  // links
+constexpr uint32_t kPos = 0x7F261953;    // pos
+constexpr uint32_t kAngles = 0x9D2D0915; // angles
 
 std::vector<Elem> g_nodes;
 std::unordered_map<uint32_t, int> g_by_name;
@@ -298,10 +308,10 @@ void get_scan()
                 static const uint32_t kMetal = name_hash("Metal"), kWood = name_hash("Wood"),
                                       kConcrete = name_hash("Concrete");
                 node.colour = node.family == Family::kLadder ? 0xFFB98CFF
-                              : node.type == kMetal         ? 0xFF7FB2D9
-                              : node.type == kWood          ? 0xFFC9935A
-                              : node.type == kConcrete      ? 0xFFC8C8C8
-                                                            : 0xFF9FE0E0;
+                              : node.type == kMetal          ? 0xFF7FB2D9
+                              : node.type == kWood           ? 0xFFC9935A
+                              : node.type == kConcrete       ? 0xFFC8C8C8
+                                                             : 0xFF9FE0E0;
                 break;
             }
             case Family::kRouteWay:
@@ -312,7 +322,7 @@ void get_scan()
                 if (s->fetch_list(kColor, &colour, 0) && colour && colour->extent_ >= 3) {
                     auto c = [&](uint32_t k) {
                         int value = colour->kind_tag_ == script::kQbvalFloat ? static_cast<int>(colour->fetch_float(k))
-                                                                                 : static_cast<int>(colour->fetch_part(k));
+                                                                             : static_cast<int>(colour->fetch_part(k));
                         return static_cast<uint32_t>(std::max(0, std::min(255, value)));
                     };
                     node.colour = 0xFF000000u | (c(0) << 16) | (c(1) << 8) | c(2);
@@ -374,7 +384,9 @@ void sync_rails()
     g_rail_generation = scenery::rail_generation();
     std::unordered_map<uint32_t, V3> points;
     scenery::for_each_rail_point(
-        [](void* context, uint32_t name, V3 pos) { static_cast<std::unordered_map<uint32_t, V3>*>(context)->emplace(name, pos); },
+        [](void* context, uint32_t name, V3 pos) {
+            static_cast<std::unordered_map<uint32_t, V3>*>(context)->emplace(name, pos);
+        },
         &points);
     if (points.empty())
         return;
@@ -418,7 +430,9 @@ const int* get_counts()
 int walked(Family family)
 {
     get_refresh();
-    return family == Family::kCrown ? g_walked_crowns : family == Family::kSpawn ? g_walked_spawns : g_counts[static_cast<int>(family)];
+    return family == Family::kCrown   ? g_walked_crowns
+           : family == Family::kSpawn ? g_walked_spawns
+                                      : g_counts[static_cast<int>(family)];
 }
 
 uint32_t get_generation()
@@ -486,7 +500,8 @@ void reread(int index)
         node.forward = get_heading_of(node.angles);
     // (a rail / ladder point: where the rail manager has it - see sync_rails)
     V3 point;
-    if ((node.family == Family::kRail || node.family == Family::kLadder) && scenery::get_rail_point(node.name, &point, true))
+    if ((node.family == Family::kRail || node.family == Family::kLadder) &&
+        scenery::get_rail_point(node.name, &point, true))
         node.pos = point;
 }
 
@@ -627,10 +642,8 @@ bool level_is_shared(const char** game)
         const char* list;
         const char* game;
     } kLists[] = {
-        {"level_select_menu_thps3_level_info", "THPS3"},
-        {"level_select_menu_thps4_level_info", "THPS4"},
-        {"level_select_menu_thug1_level_info", "THUG1"},
-        {"level_select_menu_thaw_level_info", "THAW"},
+        {"level_select_menu_thps3_level_info", "THPS3"}, {"level_select_menu_thps4_level_info", "THPS4"},
+        {"level_select_menu_thug1_level_info", "THUG1"}, {"level_select_menu_thaw_level_info", "THAW"},
         {"level_select_menu_misc_level_info", nullptr}, // (skate shops, tutorials: the entry's game_tag names the game)
     };
     static const uint32_t kLevel = name_hash("level"), kGameTag = name_hash("game_tag");
@@ -674,7 +687,7 @@ int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float
                 depth = 1.0f / ((1.0f - s) / p.depth_a_ + s / p.depth_b_);
             }
             if (!picking::gizmo_in_front(depth, true, occluder.depth,
-                                       picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels)))
+                                         picking::gizmo_slack(depth, occluder.units_per_pixel_, occluder.pixels)))
                 continue;
         }
         bool point = !p.segment;
@@ -697,4 +710,4 @@ int pick_nearest(const std::vector<Pickable>& pickables, float x, float y, float
     return best;
 }
 
-} // namespace MenuSystem::level_editor::Nodes
+} // namespace frontend::level_editor::nodes

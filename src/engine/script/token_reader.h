@@ -57,4 +57,4 @@ extern StoredRandom* g_stored_randoms_newest;
 // The script parser's expression evaluator (script/parse.cpp).
 extern ValueResolver g_evaluator;
 
-} // namespace Script
+} // namespace script

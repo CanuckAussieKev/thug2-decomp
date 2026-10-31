@@ -38,10 +38,10 @@ char g_path_prefix[128];
 char g_bootstrap_argument[128];
 char g_bootstrap_return[128];
 
-char* path_prefix() { return g_path_prefix; }       // (0x80 bytes)
-char* bootstrap_return() { return g_bootstrap_return; }  // where a bootstrap demo returns to
+char* path_prefix() { return g_path_prefix; }               // (0x80 bytes)
+char* bootstrap_return() { return g_bootstrap_return; }     // where a bootstrap demo returns to
 char* bootstrap_argument() { return g_bootstrap_argument; } // what it passes back
-const char* const kEmpty = ""; // ""
+const char* const kEmpty = "";                              // ""
 
 // strcpy (unbounded, as the original's).
 void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
@@ -138,15 +138,24 @@ const char* __cdecl get_path_prefix() { return path_prefix(); }
 const char* __cdecl get_locale_label()
 {
     switch (get_language()) {
-    case 1: return "Japanese"; // "Japanese"
-    case 2: return "English"; // "English"
-    case 3: return "French"; // "French"
-    case 4: return "Spanish"; // "Spanish"
-    case 5: return "German"; // "German"
-    case 6: return "Italian"; // "Italian"
-    case 7: return "Dutch"; // "Dutch"
-    case 8: return "Portuguese"; // "Portuguese"
-    default: return "Unknown language"; // "Unknown language"
+    case 1:
+        return "Japanese"; // "Japanese"
+    case 2:
+        return "English"; // "English"
+    case 3:
+        return "French"; // "French"
+    case 4:
+        return "Spanish"; // "Spanish"
+    case 5:
+        return "German"; // "German"
+    case 6:
+        return "Italian"; // "Italian"
+    case 7:
+        return "Dutch"; // "Dutch"
+    case 8:
+        return "Portuguese"; // "Portuguese"
+    default:
+        return "Unknown language"; // "Unknown language"
     }
 }
 
@@ -154,10 +163,14 @@ const char* __cdecl get_locale_label()
 const char* __cdecl get_region_label()
 {
     switch (territory()) {
-    case 1: return "Europe"; // "Europe"
-    case 2: return "US"; // "US"
-    case 3: return "Asia"; // "Asia"
-    default: return "Unknown territory"; // "Unknown territory"
+    case 1:
+        return "Europe"; // "Europe"
+    case 2:
+        return "US"; // "US"
+    case 3:
+        return "Asia"; // "Asia"
+    default:
+        return "Unknown territory"; // "Unknown territory"
     }
 }
 
@@ -165,13 +178,20 @@ const char* __cdecl get_region_label()
 const char* __cdecl get_platform_label()
 {
     switch (hardware()) {
-    case 1: return "PS2"; // "PS2"
-    case 2: return "PS2 ProView"; // "PS2 ProView"
-    case 3: return "PS2 Dev System"; // "PS2 Dev System"
-    case 4: return "XBox"; // "XBox"
-    case 5: return "GameCube"; // "GameCube"
-    case 7: return "Win32"; // "Win32"
-    default: return "Unknown platform"; // "Unknown platform"
+    case 1:
+        return "PS2"; // "PS2"
+    case 2:
+        return "PS2 ProView"; // "PS2 ProView"
+    case 3:
+        return "PS2 Dev System"; // "PS2 Dev System"
+    case 4:
+        return "XBox"; // "XBox"
+    case 5:
+        return "GameCube"; // "GameCube"
+    case 7:
+        return "Win32"; // "Win32"
+    default:
+        return "Unknown platform"; // "Unknown platform"
     }
 }
 
@@ -179,9 +199,12 @@ const char* __cdecl get_platform_label()
 const char* __cdecl get_screen_mode_label()
 {
     switch (display_type()) {
-    case 0: return "PAL"; // "PAL"
-    case 1: return "NTSC"; // "NTSC"
-    default: return "Unknown display type"; // "Unknown display type"
+    case 0:
+        return "PAL"; // "PAL"
+    case 1:
+        return "NTSC"; // "NTSC"
+    default:
+        return "Unknown display type"; // "Unknown display type"
     }
 }
 
@@ -191,11 +214,16 @@ const char* __cdecl fetch_platform_suffix()
     switch (hardware()) {
     case 1:
     case 2:
-    case 3: return "ps2"; // "ps2"
-    case 4: return "xbx"; // "xbx"
-    case 5: return "ngc"; // "ngc"
-    case 6: return "xen"; // "xen"
-    default: return "???"; // "???"
+    case 3:
+        return "ps2"; // "ps2"
+    case 4:
+        return "xbx"; // "xbx"
+    case 5:
+        return "ngc"; // "ngc"
+    case 6:
+        return "xen"; // "xen"
+    default:
+        return "???"; // "???"
     }
 }
 
@@ -226,7 +254,8 @@ void __cdecl prepare_all(int argc, char** argv)
             else
                 copy_string(bootstrap_argument(), "THUG2"); // "THUG2" (the original's sprintf)
             // "This bootstrap demo will return to %s passing back: %s\n"
-            debug::printf("This bootstrap demo will return to %s passing back: %s\n", bootstrap_return(), bootstrap_argument());
+            debug::printf("This bootstrap demo will return to %s passing back: %s\n", bootstrap_return(),
+                          bootstrap_argument());
         }
     }
     if (got_argument("NotBootstrap", argc, argv)) // "NotBootstrap"
@@ -249,7 +278,8 @@ const char* __cdecl get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kE
 // 0x005B6270
 void __cdecl read_registry(int, char**)
 {
-    const char* path = "Software\\Activision\\Tony Hawk's Underground 2\\Install"; // "Software\Activision\Tony Hawk's Underground 2\Install"
+    const char* path =
+        "Software\\Activision\\Tony Hawk's Underground 2\\Install"; // "Software\Activision\Tony Hawk's Underground 2\Install"
     hardware() = 7;
     get_language() = 2;
     get_extra_memory() = false;
@@ -268,9 +298,15 @@ void __cdecl read_registry(int, char**)
         RegCloseKey(key);
     }
     switch (language) {
-    case 2: get_language() = 3; break; // French
-    case 3: get_language() = 5; break; // German
-    default: get_language() = 2; break;
+    case 2:
+        get_language() = 3;
+        break; // French
+    case 3:
+        get_language() = 5;
+        break; // German
+    default:
+        get_language() = 2;
+        break;
     }
 }
 

@@ -18,10 +18,11 @@ void construct_app_task(AppHost* app); // net_client.cpp
 
 namespace {
 
-static VtableSlot g_server_vtable_slots[] = {&net::Guest::teardown, &net::AppHost::handle_incoming, &net::HostEnd::pull_inbound,
-        &net::HostEnd::transmit, &net::HostEnd::prepare_all, &net::Guest::tear_down_state};
+static VtableSlot g_server_vtable_slots[] = {&net::Guest::teardown,       &net::AppHost::handle_incoming,
+                                             &net::HostEnd::pull_inbound, &net::HostEnd::transmit,
+                                             &net::HostEnd::prepare_all,  &net::Guest::tear_down_state};
 void** const kServerVtable = reinterpret_cast<void**>(g_server_vtable_slots);
-constexpr int kBandwidthStep = 500;      // less when messages pile up
+constexpr int kBandwidthStep = 500; // less when messages pile up
 constexpr int kMinBandwidth = 0x530;
 constexpr int kIdleBandwidthStep = 1000; // more when nothing waits for an ack
 
@@ -64,8 +65,7 @@ void HostEnd::pull_inbound()
     int received;
     do {
         char* buffer = receive_buffer_;
-        received = recvfrom(sock_, buffer, kReceiveBufferSize, 0,
-                            reinterpret_cast<sockaddr*>(&from), &from_length);
+        received = recvfrom(sock_, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);
         if (received < 0) {
             WSAGetLastError();
             return;
@@ -78,8 +78,7 @@ void HostEnd::pull_inbound()
                 read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
                 if (pull_datagram(this, buffer, read_ptr, received)) {
                     read_ptr += size;
-                    add_packet_metric(&conn->receive_metrics_, received + 0x1C,
-                                    get_timestamp(this));
+                    add_packet_metric(&conn->receive_metrics_, received + 0x1C, get_timestamp(this));
                     conn->last_heard_from_ = frame_clock::get_time();
                 } else if (auto handler = unknown_packet_sink_) {
                     // (given the connection's read pointer, not the packet - as in the original)
@@ -120,7 +119,9 @@ void HostEnd::transmit(Conn* conn)
             if (sent == 0 || now - sent > max_latency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
                 if (sent > conn->ping_probe_.echo_seen_at_) {
-                    uint32_t latency = (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_)) + 100;
+                    uint32_t latency =
+                        (net::is_host_local(conn) ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_)) +
+                        100;
                     if (latency > max_latency())
                         latency = max_latency();
                     add_latency(conn, latency);
@@ -151,8 +152,7 @@ void HostEnd::transmit(Conn* conn)
             done = true;
         if (!bundle_messages(conn, kLanePriority, false))
             done = true;
-        if (get_num_pending_messages(conn) > pending_before &&
-            (conn->cur_standing_ & kConnStatus1)) {
+        if (get_num_pending_messages(conn) > pending_before && (conn->cur_standing_ & kConnStatus1)) {
             // more waiting for acks: take it as high latency and lower the bandwidth
             add_latency(conn, max_latency());
             change_throughput(conn, fetch_throughput(conn) - kBandwidthStep);
@@ -163,8 +163,7 @@ void HostEnd::transmit(Conn* conn)
         char*& write_ptr = conn->write_ptr_;
         int size = static_cast<int>(write_ptr - conn->outgoing_bytes_);
         if (size > 0 && is_off_machine(conn)) {
-            if (!net::transmit_to(this, conn->remote_ip_, conn->port_no_,
-                        conn->outgoing_bytes_, size, 0)) {
+            if (!net::transmit_to(this, conn->remote_ip_, conn->port_no_, conn->outgoing_bytes_, size, 0)) {
                 mark_messages_for_retry(conn, conn->timestamp_out_);
                 write_ptr = conn->outgoing_bytes_;
                 break;
@@ -191,8 +190,8 @@ int HostEnd::on_link_ask_msg(InboundMsgCtx* context)
         if (!net::allows_outside_peers(context->receiver_app_))
             return kResultConsumed;
         Conn* conn = context->sender_conn_;
-        net::deliver_to(context->receiver_app_, kMsgConnectionAccepted, 0, nullptr, conn->remote_ip_,
-                      conn->port_no_, 0);
+        net::deliver_to(context->receiver_app_, kMsgConnectionAccepted, 0, nullptr, conn->remote_ip_, conn->port_no_,
+                        0);
         return kResultPassOn;
     }
     if (!net::is_host_local(context->sender_conn_))
@@ -230,4 +229,4 @@ int HostEnd::on_clock_sync_msg(InboundMsgCtx* context)
     return kResultPassOn;
 }
 
-} // namespace Net
+} // namespace net

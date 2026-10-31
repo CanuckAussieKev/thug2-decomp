@@ -28,10 +28,7 @@ void construct_base(FlipRotateComponent* component, void* object)
 {
     reinterpret_cast<gfx::AnimDriver*>(component)->make_new(static_cast<gfx::AnimTimeline*>(object));
 }
-void destroy_base(FlipRotateComponent* component)
-{
-    reinterpret_cast<gfx::AnimDriver*>(component)->destroy_body();
-}
+void destroy_base(FlipRotateComponent* component) { reinterpret_cast<gfx::AnimDriver*>(component)->destroy_body(); }
 void init_base_from_structure(FlipRotateComponent* component, script::Struct* params)
 {
     reinterpret_cast<gfx::AnimDriver*>(component)->configure_from_data(params);
@@ -93,9 +90,9 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
             float product[4];
-            const float* result = reinterpret_cast<const float*>(quat_product(reinterpret_cast<maths::Vec4*>(product),
-                                                                             reinterpret_cast<const maths::Vec4*>(turn),
-                                                                             reinterpret_cast<const maths::Vec4*>(rotation)));
+            const float* result = reinterpret_cast<const float*>(
+                quat_product(reinterpret_cast<maths::Vec4*>(product), reinterpret_cast<const maths::Vec4*>(turn),
+                             reinterpret_cast<const maths::Vec4*>(rotation)));
             std::memcpy(rotation, result, 16);
             reinterpret_cast<maths::QuatRotation*>(rotation)->make_unit(1.0f); // (to length 1)
         }
@@ -125,18 +122,18 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::FlipRotateComponent::teardown,
-         &objects::FlipRotateComponent::fetch_pose,
-         stubs::ignore_argument,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-         &objects::FlipRotateComponent::configure_from_data,
-         stubs::do_nothing};
+                                      &objects::FlipRotateComponent::fetch_pose,
+                                      stubs::ignore_argument,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+                                      &objects::FlipRotateComponent::configure_from_data,
+                                      stubs::do_nothing};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

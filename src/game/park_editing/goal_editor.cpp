@@ -29,58 +29,34 @@
 namespace park_editing {
 
 uint32_t g_goal_editor_member_functions[216]{
-            0x0AB710F3, 0x81F01058, 0, 0, 0, 0,
-            0x5C155A29, 0x81F01058, 0, 0, 0, 0,
-            0xFB279560, 0x81F01058, 0, 0, 0, 0,
-            0xCCA11C78, 0x81F01058, 0, 0, 0, 0,
-            0x1D30A7B6, 0x81F01058, 0, 0, 0, 0,
-            0xE5ED63B7, 0x81F01058, 0, 0, 0, 0,
-            0x03EBD2C9, 0x81F01058, 0, 0, 0, 0,
-            0x47208C6D, 0x81F01058, 0, 0, 0, 0,
-            0x769309E1, 0x81F01058, 0, 0, 0, 0,
-            0x88D54A10, 0x81F01058, 0, 0, 0, 0,
-            0xFF9E8752, 0x81F01058, 0, 0, 0, 0,
-            0x259C59DD, 0x81F01058, 0, 0, 0, 0,
-            0x1F80B5AE, 0x81F01058, 0, 0, 0, 0,
-            0x26848221, 0x81F01058, 0, 0, 0, 0,
-            0xFDB2C514, 0x81F01058, 0, 0, 0, 0,
-            0x98ABBD09, 0x81F01058, 0, 0, 0, 0,
-            0x66A33157, 0x81F01058, 0, 0, 0, 0,
-            0x7AABBC09, 0x81F01058, 0, 0, 0, 0,
-            0x69B872E3, 0x81F01058, 0, 0, 0, 0,
-            0x96F11BD3, 0x81F01058, 0, 0, 0, 0,
-            0x96874358, 0x81F01058, 0, 0, 0, 0,
-            0x5BD8050A, 0x81F01058, 0, 0, 0, 0,
-            0x5408AC04, 0x81F01058, 0, 0, 0, 0,
-            0xB525B113, 0x81F01058, 0, 0, 0, 0,
-            0x4A569426, 0x81F01058, 0, 0, 0, 0,
-            0x410821DF, 0x81F01058, 0, 0, 0, 0,
-            0x60288ABE, 0x81F01058, 0, 0, 0, 0,
-            0x831ECA10, 0x81F01058, 0, 0, 0, 0,
-            0xDBA8E3FC, 0x81F01058, 0, 0, 0, 0,
-            0xD7258335, 0x81F01058, 0, 0, 0, 0,
-            0x9E5A634A, 0x81F01058, 0, 0, 0, 0,
-            0x7D5073F6, 0x81F01058, 0, 0, 0, 0,
-            0xEC316A9C, 0x81F01058, 0, 0, 0, 0,
-            0x20B566B1, 0x81F01058, 0, 0, 0, 0,
-            0xD5F6EA3B, 0x81F01058, 0, 0, 0, 0,
-            0, 0x81F01058, 0, 0, 0, 0};
+    0x0AB710F3, 0x81F01058, 0, 0, 0, 0, 0x5C155A29, 0x81F01058, 0, 0, 0, 0, 0xFB279560, 0x81F01058, 0, 0, 0, 0,
+    0xCCA11C78, 0x81F01058, 0, 0, 0, 0, 0x1D30A7B6, 0x81F01058, 0, 0, 0, 0, 0xE5ED63B7, 0x81F01058, 0, 0, 0, 0,
+    0x03EBD2C9, 0x81F01058, 0, 0, 0, 0, 0x47208C6D, 0x81F01058, 0, 0, 0, 0, 0x769309E1, 0x81F01058, 0, 0, 0, 0,
+    0x88D54A10, 0x81F01058, 0, 0, 0, 0, 0xFF9E8752, 0x81F01058, 0, 0, 0, 0, 0x259C59DD, 0x81F01058, 0, 0, 0, 0,
+    0x1F80B5AE, 0x81F01058, 0, 0, 0, 0, 0x26848221, 0x81F01058, 0, 0, 0, 0, 0xFDB2C514, 0x81F01058, 0, 0, 0, 0,
+    0x98ABBD09, 0x81F01058, 0, 0, 0, 0, 0x66A33157, 0x81F01058, 0, 0, 0, 0, 0x7AABBC09, 0x81F01058, 0, 0, 0, 0,
+    0x69B872E3, 0x81F01058, 0, 0, 0, 0, 0x96F11BD3, 0x81F01058, 0, 0, 0, 0, 0x96874358, 0x81F01058, 0, 0, 0, 0,
+    0x5BD8050A, 0x81F01058, 0, 0, 0, 0, 0x5408AC04, 0x81F01058, 0, 0, 0, 0, 0xB525B113, 0x81F01058, 0, 0, 0, 0,
+    0x4A569426, 0x81F01058, 0, 0, 0, 0, 0x410821DF, 0x81F01058, 0, 0, 0, 0, 0x60288ABE, 0x81F01058, 0, 0, 0, 0,
+    0x831ECA10, 0x81F01058, 0, 0, 0, 0, 0xDBA8E3FC, 0x81F01058, 0, 0, 0, 0, 0xD7258335, 0x81F01058, 0, 0, 0, 0,
+    0x9E5A634A, 0x81F01058, 0, 0, 0, 0, 0x7D5073F6, 0x81F01058, 0, 0, 0, 0, 0xEC316A9C, 0x81F01058, 0, 0, 0, 0,
+    0x20B566B1, 0x81F01058, 0, 0, 0, 0, 0xD5F6EA3B, 0x81F01058, 0, 0, 0, 0, 0,          0x81F01058, 0, 0, 0, 0};
 
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&park_editing::ObjectiveAuthoring::teardown,
-         &park_editing::ObjectiveAuthoring::tick_frame,
-         stubs::ignore_argument,
-         &park_editing::ObjectiveAuthoring::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         &park_editing::ObjectiveAuthoring::conceal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &park_editing::ObjectiveAuthoring::tick_frame,
+                                      stubs::ignore_argument,
+                                      &park_editing::ObjectiveAuthoring::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      &park_editing::ObjectiveAuthoring::conceal,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
@@ -93,10 +69,7 @@ int get_sprintf(char* out, const char* format, Args... args)
     return crt::get_sprintf(out, format, args...);
 }
 // The game's _stricmp (0x00626EFB).
-int compare_no_case(const char* a, const char* b)
-{
-    return crt::stricmp(a, b);
-}
+int compare_no_case(const char* a, const char* b) { return crt::stricmp(a, b); }
 
 char* created_goal_name() { return g_created_goal_name; }
 uint32_t created_goal_id(int index)
@@ -689,4 +662,4 @@ bool ObjectiveAuthoring::get_edited_goals_info(script::Struct* params, script::S
     return true;
 }
 
-} // namespace Ed
+} // namespace park_editing

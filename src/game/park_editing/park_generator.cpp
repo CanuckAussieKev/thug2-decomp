@@ -93,8 +93,7 @@ int ParkAssembler::get_player_cap_limit()
     get_memory_stats(&stats);
     // (the original's 32-bit arithmetic, wrapping)
     const int memory = static_cast<int>(static_cast<uint32_t>(stats.main_heap_free_) +
-                                        static_cast<uint32_t>(max_players_) *
-                                            static_cast<uint32_t>(kMemoryPerPlayer) -
+                                        static_cast<uint32_t>(max_players_) * static_cast<uint32_t>(kMemoryPerPlayer) -
                                         static_cast<uint32_t>(kMemoryPerPlayer));
     return memory / kMemoryPerPlayer + 1;
 }
@@ -120,7 +119,7 @@ void ParkAssembler::destroy_rails()
 }
 
 void ParkAssembler::configure_lighting(int count, float ambient_r, float ambient_g, float ambient_b, float falloff_r,
-                               float falloff_g, float falloff_b, float cursor_ambience)
+                                       float falloff_g, float falloff_b, float cursor_ambience)
 {
     light_total_ = count;
     ambient_[0] = ambient_r;
@@ -279,15 +278,17 @@ bool ParkAssembler::destroy_sector(uint32_t name, int /*unused*/)
 ParkTile* ParkAssembler::create_piece(ParkTile* source, uint32_t flags)
 {
     flags &= ParkTile::kCursor | ParkTile::kNoNode20 | ParkTile::kNoRails | ParkTile::kDestroyNow;
-    TileTemplate* from = (source->flag_bits_ & ParkTile::kSource) ? reinterpret_cast<TileTemplate*>(source) : source->blend_source_;
+    TileTemplate* from =
+        (source->flag_bits_ & ParkTile::kSource) ? reinterpret_cast<TileTemplate*>(source) : source->blend_source_;
     // The source's sector copied into the park's scene (on the bottom-up heap).
     cloning_piece() = 1;
     const uint32_t name = from->label_;
     flag_bits_ |= ParkAssembler::kSceneChanged;
     memory::enter_heap_scope(memory::bottom_up_heap());
-    uint32_t clone = (flags & ParkTile::kCursor)
-                         ? scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 1, 0, 0)
-                         : scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 0, 1, 0);
+    uint32_t clone =
+        (flags & ParkTile::kCursor)
+            ? scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 1, 0, 0)
+            : scene::duplicate_scene_sector(scene_of(source_world_), name, scene_of(scene_handle_), 0, 1, 0);
     memory::leave_heap_scope();
     cloning_piece() = 0;
     // The piece itself on the park editor's heap.
@@ -347,7 +348,7 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
         auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
         uint32_t node_class = 0;
-        node->read_hash_value(0x12B4E660u, &node_class, 0); // Class
+        node->read_hash_value(0x12B4E660u, &node_class, 0);         // Class
         if (node_class != 0xBF4D3536u && node_class != 0xEF59C100u) // LevelGeometry, GameObject
             continue;
         uint32_t name = 0;
@@ -380,8 +381,8 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing
 
-using park_editing::MapListNode;
 using park_editing::CellChainScratch;
+using park_editing::MapListNode;
 using park_editing::ParkAssembler;

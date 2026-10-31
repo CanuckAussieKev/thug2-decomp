@@ -28,10 +28,7 @@ constexpr uint32_t kMirroredBoneScale = 0xDFEE29AC;
 constexpr uint32_t kTurnBone = 0x9F173EEB;
 
 // out = a * b (D3DXMatrixMultiply, 0x005BFA8C).
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 void set_identity(maths::Mat4& m)
 {
@@ -138,10 +135,7 @@ int RigData::fetch_slot_no(uint32_t name)
 }
 
 // 0x004A30D0
-int RigData::fetch_parent_slot(int index)
-{
-    return fetch_slot_no(parent_names_[index]);
-}
+int RigData::fetch_parent_slot(int index) { return fetch_slot_no(parent_names_[index]); }
 
 // 0x004A3100
 bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
@@ -477,10 +471,10 @@ __declspec(naked) void quat_to_bone_matrix_stub()
 {
     __asm {
         movzx ecx, bl
-        push ecx                     // swap_z
+        push ecx // swap_z
         movzx ecx, byte ptr [esp + 0xC]
-        push ecx                     // mirror
-        push dword ptr [esp + 0xC]   // the quaternion
+        push ecx // mirror
+        push dword ptr [esp + 0xC] // the quaternion
         push edx
         push eax
         call quat_to_bone_matrix
@@ -541,10 +535,7 @@ void Rig::tick_frame(const float (*rotations)[4], const float (*translations)[4]
 }
 
 // 0x004A44E0
-void Rig::tick_frame(const Stance* pose)
-{
-    tick_frame(pose->rotations, pose->translations);
-}
+void Rig::tick_frame(const Stance* pose) { tick_frame(pose->rotations, pose->translations); }
 
 // 0x004A4000
 void Rig::collapse_zero_scaled_bones()
@@ -579,4 +570,4 @@ static VtableSlot g_skeleton_data_vtable_slots[] = {&gfx::RigData::teardown};
 void** const kSkeletonDataVtable = reinterpret_cast<void**>(g_skeleton_data_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

@@ -13,7 +13,7 @@
 namespace objects {
 class GameEntity;
 struct RiderIdentity;
-} // namespace Obj
+} // namespace objects
 
 namespace skate_calls {
 
@@ -33,10 +33,7 @@ inline uint8_t* get_horse() { return skate_field<uint8_t*>(0x364); }
 
 // 0x005665C0: skater `index` of the list (null past the end). 0x00566520: the first local skater (null: none).
 // 0x00566600: the skater whose object id is `id` (null: none).
-inline objects::GameEntity* get_rider_at(int index)
-{
-    return modules::Skate::sole()->get_rider_at(index);
-}
+inline objects::GameEntity* get_rider_at(int index) { return modules::Skate::sole()->get_rider_at(index); }
 inline objects::GameEntity* get_home_rider()
 {
     // (a Rider is a GameEntity: the same pointer)
@@ -48,10 +45,7 @@ inline objects::GameEntity* get_rider_by_number(uint32_t id)
 }
 // 0x00564FC0: the profile manager's profile `index`. 0x00564F80: the profile `params`' integer `skater` names (none,
 // or no params: the current one).
-inline objects::RiderIdentity* fetch_account(int index)
-{
-    return modules::Skate::sole()->fetch_account(index);
-}
+inline objects::RiderIdentity* fetch_account(int index) { return modules::Skate::sole()->fetch_account(index); }
 inline objects::RiderIdentity* get_profile_from_params(void* params)
 {
     return modules::Skate::sole()->fetch_account(static_cast<script::Struct*>(params));
@@ -67,6 +61,9 @@ inline bool game_mode_is_true(uint32_t property)
     return static_cast<goals::MatchRules*>(get_game_mode())->is_true(property);
 }
 // 0x00553910: elimiskate's end - everyone eliminated but one (or every scavenger hunt player done).
-inline bool game_mode_should_end_run() { return static_cast<goals::MatchRules*>(get_game_mode())->finish_rules_reached(); }
+inline bool game_mode_should_end_run()
+{
+    return static_cast<goals::MatchRules*>(get_game_mode())->finish_rules_reached();
+}
 
 } // namespace skate_calls

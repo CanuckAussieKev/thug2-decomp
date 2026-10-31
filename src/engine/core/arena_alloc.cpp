@@ -19,7 +19,7 @@ extern void** const kAllocRegionVtable;
 
 namespace {
 
-extern void** const kHeadVtable;       // lists::Foremost<Context>
+extern void** const kHeadVtable; // lists::Foremost<Context>
 extern void** const kAllocatorVtable;
 
 } // namespace
@@ -34,16 +34,10 @@ void* mark_block_in_use(void* block)
 }
 
 // 0x005BA090
-ChunkPrefix* fetch_chunk_prefix(void* block)
-{
-    return ChunkPrefix::get_of(block);
-}
+ChunkPrefix* fetch_chunk_prefix(void* block) { return ChunkPrefix::get_of(block); }
 
 // 0x005BA0A0
-uint32_t get_block_size(void* block)
-{
-    return ChunkPrefix::get_of(block)->size;
-}
+uint32_t get_block_size(void* block) { return ChunkPrefix::get_of(block)->size; }
 
 // 0x005BA0B0
 MemSource* free_block(void* block)
@@ -79,10 +73,7 @@ void Zone::add_allocator(MemSource* allocator)
 }
 
 // 0x005BC510
-void Zone::remove_allocator(MemSource* allocator)
-{
-    allocators_[(allocator->direction_ >> 1) & 1] = nullptr;
-}
+void Zone::remove_allocator(MemSource* allocator) { allocators_[(allocator->direction_ >> 1) & 1] = nullptr; }
 
 // 0x005BC530
 int Zone::free_byte_count()
@@ -142,10 +133,7 @@ void MemoryArena::destroy_body()
 // --- allocators ----------------------------------------------------------------------------------------
 
 // 0x005BA0E0 (lists::Elem destructor: take it out of its list)
-void ListNode::uncouple()
-{
-    unlink_as(kNodeVtable);
-}
+void ListNode::uncouple() { unlink_as(kNodeVtable); }
 
 // 0x005BC990 / 0x005BCD30: the other node types' destructors
 void ListNode::unlink_as(void** node_vtable)
@@ -158,10 +146,7 @@ void ListNode::unlink_as(void** node_vtable)
 }
 
 // 0x005BC4D0
-void Zone::destroy_body()
-{
-    vtable_ = kRegionVtable;
-}
+void Zone::destroy_body() { vtable_ = kRegionVtable; }
 
 // 0x005BA260
 MemSource::MemSource(Zone* region, int direction, const char* name)
@@ -220,13 +205,13 @@ void MemSource::leave_heap_scope()
     context_ = next->data != reinterpret_cast<void*>(-1) && next ? static_cast<CtxInfo*>(next->data) : nullptr;
 }
 
-} // namespace Mem
+} // namespace memory
 
 namespace {
 
-using memory::MemSource;
-using memory::MemoryArena;
 using memory::ListNode;
+using memory::MemoryArena;
+using memory::MemSource;
 using memory::Zone;
 
 // Constructors and destructors through member functions (they return `this` in EAX).
@@ -286,20 +271,28 @@ namespace memory {
 namespace {
 static VtableSlot g_head_vtable_slots[] = {&AllocAdapters::node_destroy};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-static VtableSlot g_allocator_vtable_slots[] = {&memory::MemSource::enter_heap_scope, &memory::MemSource::leave_heap_scope, &AllocAdapters::allocator_destroy, &_purecall, stubs::return_zero, stubs::return_zero2, stubs::return_zero2, stubs::return_zero2, &_purecall};
+static VtableSlot g_allocator_vtable_slots[] = {&memory::MemSource::enter_heap_scope,
+                                                &memory::MemSource::leave_heap_scope,
+                                                &AllocAdapters::allocator_destroy,
+                                                &_purecall,
+                                                stubs::return_zero,
+                                                stubs::return_zero2,
+                                                stubs::return_zero2,
+                                                stubs::return_zero2,
+                                                &_purecall};
 void** const kAllocatorVtable = reinterpret_cast<void**>(g_allocator_vtable_slots);
 } // namespace
 
 static VtableSlot g_node_vtable_slots[] = {&AllocAdapters::node_destroy};
-void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);          // lists::Elem<Context>
+void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<Context>
 static VtableSlot g_region_vtable_slots[] = {&AllocAdapters::region_destroy};
 void** const kRegionVtable = reinterpret_cast<void**>(g_region_vtable_slots);
 static VtableSlot g_alloc_region_vtable_slots[] = {&AllocAdapters::alloc_region_destroy};
 void** const kAllocRegionVtable = reinterpret_cast<void**>(g_alloc_region_vtable_slots);
 
-} // namespace Mem
+} // namespace memory
 
 namespace vt {
 static VtableSlot g_save_node_slots[] = {&save_cards::ListDestructors::node_destroy};
 void** const kSaveNode = reinterpret_cast<void**>(g_save_node_slots);
-} // namespace Vt
+} // namespace vt

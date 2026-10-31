@@ -30,4 +30,4 @@ maths::Vec4* __cdecl max_vector(maths::Vec4* out, const maths::Vec4* a, const ma
 void min_vector_stub();
 void max_vector_stub();
 
-} // namespace Nx
+} // namespace render

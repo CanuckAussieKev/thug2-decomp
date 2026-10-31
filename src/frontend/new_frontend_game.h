@@ -24,7 +24,7 @@ enum class Anchor {
     kCareerOptions, // STORY MODE / CLASSIC MODE OPTIONS (career_options_vmenu)
     kCreateModes,   // CREATE-A-MODES (its menu_cas item)
     kSkateShop,     // free skate's skate shop menu after the skater select (ss_play_level, single session)
-    kFreeze,         // a level's pause menu (pause_vmenu with its CONTINUE: free skate, story, classic)
+    kFreeze,        // a level's pause menu (pause_vmenu with its CONTINUE: free skate, story, classic)
 };
 const char* anchor_name(Anchor anchor);
 
@@ -42,4 +42,4 @@ UiWidget* get_find(uint32_t id);
 // first input handler's device; controller 0).
 void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element);
 
-} // namespace MenuSystem::NewFrontend::game_screens
+} // namespace frontend::new_frontend::game_screens

@@ -16,14 +16,13 @@
 
 namespace park_editing {
 
-static VtableSlot g_meta_piece_vtable_slots[] = {&_purecall, &PieceGroup::teardown,
-        &_purecall};
+static VtableSlot g_meta_piece_vtable_slots[] = {&_purecall, &PieceGroup::teardown, &_purecall};
 void** const kMetaPieceVtable = reinterpret_cast<void**>(g_meta_piece_vtable_slots);
 static VtableSlot g_concrete_meta_piece_vtable_slots[] = {&PlacedPieceGroup::get_piece, &PlacedPieceGroup::teardown,
-        &PlacedPieceGroup::insert_tile};
+                                                          &PlacedPieceGroup::insert_tile};
 void** const kConcreteMetaPieceVtable = reinterpret_cast<void**>(g_concrete_meta_piece_vtable_slots);
 static VtableSlot g_abstract_meta_piece_vtable_slots[] = {&PieceBlueprint::get_piece, &PlacedPieceGroup::teardown,
-        &PieceBlueprint::insert_tile};
+                                                          &PieceBlueprint::insert_tile};
 void** const kAbstractMetaPieceVtable = reinterpret_cast<void**>(g_abstract_meta_piece_vtable_slots);
 
 namespace {
@@ -47,7 +46,10 @@ void multiply_matrices(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4
     d3dx::matrix_multiply(out, a, b);
 }
 
-uint8_t get_cells(double size, float cell) { return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell)); }
+uint8_t get_cells(double size, float cell)
+{
+    return static_cast<uint8_t>(static_cast<int>((size + kCellSlack) / cell));
+}
 
 } // namespace
 
@@ -186,7 +188,8 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     // The piece's centre in the metapiece, from the metapiece's centre.
     const double x = static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size_x) * 0.5;
     const double y = static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp; // (read unsigned)
-    const float z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(size_z) * 0.5);
+    const float z =
+        static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(size_z) * 0.5);
     out->x = static_cast<float>(x - half_w);
     out->y = static_cast<float>(y);
     out->z = static_cast<float>(static_cast<double>(z) - half_l);
@@ -299,7 +302,8 @@ void PieceGroup::get_piece_list(script::Array* out)
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* piece = memory ? memory->prepare_all() : nullptr;
-        piece->put_name_key(0u, reinterpret_cast<uint32_t>(entry->piece)); // (out of memory crashes, as in the original)
+        piece->put_name_key(0u,
+                            reinterpret_cast<uint32_t>(entry->piece)); // (out of memory crashes, as in the original)
         maths::Vec4 position;
         get_relative_position(&position, i);
         piece->put_vec3(0u, position.x, position.y, position.z);
@@ -329,11 +333,11 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
         maths::Mat4 place;
         place.reset_to_identity();
-        place.row[3].x = static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * 0.5 -
-                                            half_w);
+        place.row[3].x =
+            static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * 0.5 - half_w);
         place.row[3].y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
-        place.row[3].z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(size.z) * 0.5 -
-                                            half_l);
+        place.row[3].z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong +
+                                            static_cast<double>(size.z) * 0.5 - half_l);
         place.row[3].w = 1.0f;
         maths::Mat4 turn;
         maths::make_yaw_matrix(turn, radians);
@@ -453,7 +457,8 @@ ParkTile* PieceBlueprint::get_piece(uint32_t index)
     if (index >= filled_slots_ || static_cast<int>(index) < 0)
         return nullptr;
     const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
-    TileTemplate* source = ParkLayout::singleton()->builder_->get_piece_source(reinterpret_cast<uint32_t>(entry->piece));
+    TileTemplate* source =
+        ParkLayout::singleton()->builder_->get_piece_source(reinterpret_cast<uint32_t>(entry->piece));
     return source ? source->as_piece() : nullptr;
 }
 
@@ -567,8 +572,8 @@ PieceGroupDesc* PieceBlueprint::get_entry(PieceGroupDesc* out, int index)
     return out;
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::PieceBlueprint;
-using park_editing::PlacedPieceGroup;
 using park_editing::PieceGroup;
+using park_editing::PlacedPieceGroup;

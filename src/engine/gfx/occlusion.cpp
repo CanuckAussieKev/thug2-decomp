@@ -46,26 +46,22 @@ float side_sin() { return g_view_shape.cos_x_; }
 float vertical_sin() { return g_view_shape.cos_y_; }
 
 // D3DXVec3Transform (linked library code; stdcall): (x, y, z, 1) x matrix.
-void xform(float* out, const float* point, const void* matrix)
-{
-    d3dx::vec3_transform(out, point, matrix);
-}
+void xform(float* out, const float* point, const void* matrix) { d3dx::vec3_transform(out, point, matrix); }
 
 // The C runtime's qsort (the game's, so equal occluders end up in the same order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
 {
-    crt::get_qsort(
-        base, count, size, compare);
+    crt::get_qsort(base, count, size, compare);
 }
 
 // How each of the original's (inlined) plane calculations rounds.
 enum class LengthOrder { kXzy, kZyx }; // the order the squares are added in
-enum class DotOrder { kZyx, kXyz };     // ... and the products of the plane's distance
+enum class DotOrder { kZyx, kXyz };    // ... and the products of the plane's distance
 
 // A plane through `point` with the normal (v x u) normalised, where u = u_end - origin (kept in double precision)
 // and v = vEnd - origin (x and y rounded to floats, z kept).
 void set_plane(float* plane, const float* origin, const float* u_end, const float* v_end, LengthOrder length_order,
-              bool exact_inverse_for_x, const float* point, DotOrder dot_order)
+               bool exact_inverse_for_x, const float* point, DotOrder dot_order)
 {
     double u0 = static_cast<double>(u_end[0]) - origin[0];
     double u1 = static_cast<double>(u_end[1]) - origin[1];
@@ -205,7 +201,7 @@ void __cdecl add_occluders()
 
 // 0x004D8D70
 void __cdecl insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2,
-                              const maths::Vec4* p3, uint32_t checksum)
+                                  const maths::Vec4* p3, uint32_t checksum)
 {
     OccluderPolygon& poly = polys()[poly_count()];
     poly.in_use_ = 0;
@@ -352,4 +348,4 @@ bool __cdecl beyond_clip_distance(const void* bounds)
     return distance - radius > far_clip();
 }
 
-} // namespace Nx
+} // namespace render

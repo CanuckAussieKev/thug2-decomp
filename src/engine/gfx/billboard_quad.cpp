@@ -186,7 +186,8 @@ void QuadSprite::blit()
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)
             layout_x[i] = static_cast<double>(corners[i].x) + x;
-            vertices[i].x = static_cast<float>(static_cast<int32_t>(get_truncated(layout_x[i] * horiz_screen_ratio() + offset_x)));
+            vertices[i].x =
+                static_cast<float>(static_cast<int32_t>(get_truncated(layout_x[i] * horiz_screen_ratio() + offset_x)));
             vertices[i].y = static_cast<float>(static_cast<int32_t>(
                 get_truncated((static_cast<double>(corners[i].y) + y) * vert_screen_ratio() + offset_y)));
         }
@@ -225,10 +226,11 @@ void QuadSprite::blit()
             seen |= s_seen[i] == key;
         if (!seen && tally < 256 && (reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
             s_seen[tally++] = key;
-            get_log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x %.1f %.1f "
-                "%.1f %.1f, y %.1f %.1f",
-                x, y, width, height, xscale, yscale, hot_x_, hot_y_, rotation, flip_u_, flip_v_, vertices[0].x,
-                vertices[1].x, vertices[2].x, vertices[3].x, vertices[0].y, vertices[1].y);
+            get_log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x "
+                    "%.1f %.1f "
+                    "%.1f %.1f, y %.1f %.1f",
+                    x, y, width, height, xscale, yscale, hot_x_, hot_y_, rotation, flip_u_, flip_v_, vertices[0].x,
+                    vertices[1].x, vertices[2].x, vertices[3].x, vertices[0].y, vertices[1].y);
         }
     }
     const float u[4] = {u0, u0, u1, u1};
@@ -241,16 +243,16 @@ void QuadSprite::blit()
         vertices[i].v = v[i];
     }
 
-    set_vertex_format(0x144);        // position (pre-transformed), colour, one texture coordinate
+    set_vertex_format(0x144);         // position (pre-transformed), colour, one texture coordinate
     set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 4, 5); // alpha: the same
-    if (!g_suppress_draw) { // (rendering not skipped)
-        ++g_draw_calls;    // draw calls
-        g_drawn_triangles += 2; // triangles
-        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
-                                                        int, const void*, unsigned int);
+    if (!g_suppress_draw) {           // (rendering not skipped)
+        ++g_draw_calls;               // draw calls
+        g_drawn_triangles += 2;       // triangles
+        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int,
+                                                        const void*, int, const void*, unsigned int);
         device_method<DrawIndexedPrimitiveUP>(0x150)(input_port(), 4 /* triangle list */, 0, 4, 2, quad_indices(),
-                                                    0x65 /* 16-bit indices */, vertices, sizeof(Vertex));
+                                                     0x65 /* 16-bit indices */, vertices, sizeof(Vertex));
     }
 }
 
@@ -309,9 +311,9 @@ void QuadSprite::close_sketch()
 }
 
 namespace {
-static VtableSlot g_s_sprite_vtable_slots[] = {&render::QuadSprite::teardown, &render::QuadSprite::open_sketch, &render::QuadSprite::blit,
-                &render::QuadSprite::close_sketch};
+static VtableSlot g_s_sprite_vtable_slots[] = {&render::QuadSprite::teardown, &render::QuadSprite::open_sketch,
+                                               &render::QuadSprite::blit, &render::QuadSprite::close_sketch};
 void** const kSSpriteVtable = reinterpret_cast<void**>(g_s_sprite_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

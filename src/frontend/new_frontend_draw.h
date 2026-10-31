@@ -81,15 +81,15 @@ struct Extras {
     // (a restyled front end menu - Kind::Menu: the levels' data for the items' art, the main menu's Continue level)
     const Catalogue* catalogue = nullptr;
     std::string continue_name_;
-    bool show_ini_keys_ = false;   // ([frontend] show_ini_keys=1: the options show their ini section and key)
+    bool show_ini_keys_ = false; // ([frontend] show_ini_keys=1: the options show their ini section and key)
 };
 
 // The whole window: the screen the menu shows, the wipe and the launch over it. `hits` gets what the mouse can point
 // at; the list's rows that fit (for Menu::set_visible_rows) in `visible_rows`.
 void get_screen(const Menu& menu, const TickCycle& frame, float window_width, float window_height, const Extras& extras,
-            std::vector<Hit>* hits, int* visible_rows);
+                std::vector<Hit>* hits, int* visible_rows);
 
-}
+} // namespace frontend::new_frontend::paint
 
 namespace frontend::new_frontend::mirror {
 class Tracker;
@@ -104,7 +104,8 @@ void restyled(const mirror::Tracker& tracker, const TickCycle& frame, float wind
               std::vector<Hit>* hits, float* scroll, const Extras* extras = nullptr);
 // The front end come up before any of its menus has: the screen's ground and the art with id `art_id` full-bleed (the
 // main menu's), no rows - so the front end's 3D scene is never seen behind a menu that isn't there yet.
-void get_waiting(const TickCycle& frame, float window_width, float window_height, const Extras& extras, const char* art_id);
+void get_waiting(const TickCycle& frame, float window_width, float window_height, const Extras& extras,
+                 const char* art_id);
 
 // --- the layout's numbers (design px; exposed for the self-tests) ---
 
@@ -126,10 +127,10 @@ constexpr float kRight = 470.0f;
 constexpr float kMainType = 64.0f;
 constexpr float kLevelType = 36.0f;
 constexpr float kMainRowHeight = kMainType * 0.92f + 4.0f; // (line-height 0.92, padding 2 + 2)
-constexpr float kLevelRowHeight = kLevelType * 1.05f;   // (line-height 1.05)
+constexpr float kLevelRowHeight = kLevelType * 1.05f;      // (line-height 1.05)
 
 // A TrueType file's vertical metrics as stb_truetype scales it: hhea's ascender / descender over head's units_per_em
 // (descent negative). False if it isn't a font file it can read.
 bool read_font_metrics(const uint8_t* data, size_t size, float* ascent, float* descent);
 
-} // namespace MenuSystem::NewFrontend::Paint
+} // namespace frontend::new_frontend::paint

@@ -36,7 +36,8 @@ void options_menu_items()
     if (ImGui::BeginMenu("Snap To")) {
         static const char* const kKeys[4] = {"Ctrl", "Ctrl+Shift", "Alt+Shift", "Ctrl+Alt"};
         int i = 0;
-        for (SnapTarget target : {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {
+        for (SnapTarget target :
+             {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {
             if (ImGui::MenuItem(target_name(target), kKeys[i], settings.target == target))
                 settings.target = target;
             ++i;
@@ -52,4 +53,4 @@ void options_menu_items()
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Fly without holding the right mouse button");
 }
-} // namespace MenuSystem::level_editor::xform
+} // namespace frontend::level_editor::xform

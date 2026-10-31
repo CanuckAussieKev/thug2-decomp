@@ -98,4 +98,4 @@ void inspector_section(const ui::ShapeMesh& model);
 // The Inspector's sections folded / unfolded as last time ([editor_sections] in the ini) - after it's drawn.
 void remember_sections();
 
-} // namespace MenuSystem::level_editor::Ux3
+} // namespace frontend::level_editor::ux3

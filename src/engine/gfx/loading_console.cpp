@@ -122,16 +122,16 @@ namespace {
 SRWLOCK g_lock = SRWLOCK_INIT; // the ring and the activity time
 Ring g_ring;
 std::atomic<bool> g_active{false};
-double g_start = 0.0;        // when the load began (Now())
+double g_start = 0.0;         // when the load began (Now())
 double g_last_activity = 0.0; // the last line's time (Now())
 
 // The loading screen's lock (0x007052AC: a mutex, held while it draws) and its state.
 HANDLE screen_mutex() { return reinterpret_cast<HANDLE&>(render::g_screen_mutex); }
 IDirect3DDevice9* input_port() { return render::g_d3d_device; }
 bool load_screen_shown() { return render::g_loading_screen_up != 0; } // the main loop draws nothing then
-uint32_t bar_timer() { return render::g_loading_bar_timer; }   // the loading bar's timer (0x004B7400)
-void* screen_picture() { return render::g_loading_screen_picture; }    // the loading screen's picture
-void* movie_shown() { return render::g_current_movie; }       // a Bink movie playing (gfx/movie.cpp)
+uint32_t bar_timer() { return render::g_loading_bar_timer; }          // the loading bar's timer (0x004B7400)
+void* screen_picture() { return render::g_loading_screen_picture; }   // the loading screen's picture
+void* movie_shown() { return render::g_current_movie; }               // a Bink movie playing (gfx/movie.cpp)
 int get_screen_width() { return render::g_back_buffer_width; }
 int get_screen_height() { return render::g_back_buffer_height; }
 int progress_bar_pixels() { return render::g_gradient_width; } // the loading bar's width in pixels
@@ -164,7 +164,7 @@ struct Glyph {
     bool visible;
 };
 Glyph g_glyphs[128];
-float g_advance = 0.0f;    // the font's one advance (monospace)
+float g_advance = 0.0f;     // the font's one advance (monospace)
 float g_line_height = 0.0f; // pixels
 float g_white_u = 0.0f, g_white_v = 0.0f;
 IDirect3DTexture9* g_texture = nullptr;
@@ -214,8 +214,8 @@ void build_font()
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
         if (!glyph)
             continue;
-        g_glyphs[c] = {glyph->X0, glyph->Y0, glyph->X1, glyph->Y1, glyph->U0, glyph->V0, glyph->U1, glyph->V1,
-                       glyph->AdvanceX, glyph->Visible != 0};
+        g_glyphs[c] = {glyph->X0, glyph->Y0, glyph->X1, glyph->Y1,       glyph->U0,
+                       glyph->V0, glyph->U1, glyph->V1, glyph->AdvanceX, glyph->Visible != 0};
     }
     g_advance = g_glyphs['M'].advance;
     g_line_height = std::round(pixels * 1.2f);
@@ -253,9 +253,11 @@ void text_tools(float x, float y, const char* text, size_t columns, uint32_t col
         unsigned char c = static_cast<unsigned char>(text[i]);
         const Glyph& glyph = g_glyphs[c < 0x80 ? c : '?'];
         if (glyph.visible) {
-            float x0 = x + glyph.x0 - 0.5f, y0 = y + glyph.y0 - 0.5f, x1 = x + glyph.x1 - 0.5f, y1 = y + glyph.y1 - 0.5f;
-            const Vertex a{x0, y0, 0.0f, 1.0f, color, glyph.u0, glyph.v0}, b{x1, y0, 0.0f, 1.0f, color, glyph.u1, glyph.v0},
-                cc{x0, y1, 0.0f, 1.0f, color, glyph.u0, glyph.v1}, d{x1, y1, 0.0f, 1.0f, color, glyph.u1, glyph.v1};
+            float x0 = x + glyph.x0 - 0.5f, y0 = y + glyph.y0 - 0.5f, x1 = x + glyph.x1 - 0.5f,
+                  y1 = y + glyph.y1 - 0.5f;
+            const Vertex a{x0, y0, 0.0f, 1.0f, color, glyph.u0, glyph.v0},
+                b{x1, y0, 0.0f, 1.0f, color, glyph.u1, glyph.v0}, cc{x0, y1, 0.0f, 1.0f, color, glyph.u0, glyph.v1},
+                d{x1, y1, 0.0f, 1.0f, color, glyph.u1, glyph.v1};
             g_vertices.insert(g_vertices.end(), {a, b, cc, b, d, cc});
         }
         x += g_advance;
@@ -302,10 +304,11 @@ void get_layout(double now)
     size_t right_length = std::strlen(right);
     size_t left_length = std::strlen(left);
     if (left_length + 2 + right_length <= columns)
-        text_tools(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns, stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+        text_tools(x1 - pad - static_cast<float>(right_length) * g_advance, y, right, columns,
+                   stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     else
-        text_tools(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right, columns - std::min(columns, left_length + 2),
-             stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
+        text_tools(x0 + pad + static_cast<float>(left_length + 2) * g_advance, y, right,
+                   columns - std::min(columns, left_length + 2), stalled ? 0xFFFF9A2Eu : 0xFFA0A0A0u);
     y += g_line_height + pad * 0.5f;
     for (size_t i = 0; i < lines.size(); ++i) {
         bool newest = i + 1 == lines.size();

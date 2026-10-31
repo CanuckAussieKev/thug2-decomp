@@ -38,40 +38,40 @@ using namespace detail;
 
 namespace {
 
-constexpr uint32_t kText = 0xC4745838;                // text
-constexpr uint32_t kPadChooseScript = 0x2B0CFCA1;     // pad_choose_script
-constexpr uint32_t kPadChooseParams = 0xB8437568;     // pad_choose_params
-constexpr uint32_t kParentMenuId = 0x416062AB;        // parent_menu_id
-constexpr uint32_t kFocusScript = 0x5A8C82DB;         // focus_script
-constexpr uint32_t kUnfocusParams = 0xF974BF7C;       // unfocus_params
-constexpr uint32_t kProfile = 0x7EA855F0;             // profile
-constexpr uint32_t kNick = 0xD6F4D0C8;                // nick
-constexpr uint32_t kNetName = 0xD3A5478A;             // net_name
-constexpr uint32_t kIndex = 0x7F8C98FE;               // index
-constexpr uint32_t kRank = 0x7786171A;                // rank
-constexpr uint32_t kId = 0x40C698AF;                  // id
-constexpr uint32_t kScale = 0x13B9DA7B;               // scale
-constexpr uint32_t kRgba = 0x3F6BCDBA;                // rgba
-constexpr uint32_t kSystemMessage = 0xA531B313;       // system_message
+constexpr uint32_t kText = 0xC4745838;            // text
+constexpr uint32_t kPadChooseScript = 0x2B0CFCA1; // pad_choose_script
+constexpr uint32_t kPadChooseParams = 0xB8437568; // pad_choose_params
+constexpr uint32_t kParentMenuId = 0x416062AB;    // parent_menu_id
+constexpr uint32_t kFocusScript = 0x5A8C82DB;     // focus_script
+constexpr uint32_t kUnfocusParams = 0xF974BF7C;   // unfocus_params
+constexpr uint32_t kProfile = 0x7EA855F0;         // profile
+constexpr uint32_t kNick = 0xD6F4D0C8;            // nick
+constexpr uint32_t kNetName = 0xD3A5478A;         // net_name
+constexpr uint32_t kIndex = 0x7F8C98FE;           // index
+constexpr uint32_t kRank = 0x7786171A;            // rank
+constexpr uint32_t kId = 0x40C698AF;              // id
+constexpr uint32_t kScale = 0x13B9DA7B;           // scale
+constexpr uint32_t kRgba = 0x3F6BCDBA;            // rgba
+constexpr uint32_t kSystemMessage = 0xA531B313;   // system_message
 // Scripts and menus.
-constexpr uint32_t kLobbyAddBuddy = 0xD7059EC7;       // lobby_add_buddy
-constexpr uint32_t kBuddyMenu = 0x750C8BC0;           // (the buddy menu the item goes in)
-constexpr uint32_t kMakeTextSubMenuItem = 0xBEED50B6; // make_text_sub_menu_item
+constexpr uint32_t kLobbyAddBuddy = 0xD7059EC7;        // lobby_add_buddy
+constexpr uint32_t kBuddyMenu = 0x750C8BC0;            // (the buddy menu the item goes in)
+constexpr uint32_t kMakeTextSubMenuItem = 0xBEED50B6;  // make_text_sub_menu_item
 constexpr uint32_t kCreateConsoleMessage = 0xCCB19938; // create_console_message
-constexpr uint32_t kRegionsMenuAddItem = 0xB0DA8BB7;  // regions_menu_add_item
-constexpr uint32_t kChooseSelectedLobby = 0x8DE96379; // choose_selected_lobby
-constexpr uint32_t kRegionsMenuSetFocus = 0x36258921; // regions_menu_set_focus
-constexpr uint32_t kNotFocusable = 0x1D944426;        // not_focusable
-constexpr uint32_t kUnavailableLobby = 0xBA468C44;    // (chosen on a full / out of range room)
-constexpr uint32_t kNetLobbyFull = 0x2767F99B;        // net_lobby_full
-constexpr uint32_t kAddBuddyPrompt = 0xD094CCB0;      // add_buddy_prompt
-constexpr uint32_t kCantAddBuddyPrompt1 = 0x077E365A; // cant_add_buddy_prompt_1 (logged in, the player has no profile)
-constexpr uint32_t kCantAddBuddyPrompt2 = 0x9E7767E0; // cant_add_buddy_prompt_2 (not logged in)
-constexpr uint32_t kCantAddBuddyPrompt3 = 0xE9705776; // cant_add_buddy_prompt_3 (30 buddies)
-constexpr uint32_t kCantAddSelfPrompt = 0xB11CCDA6;   // cant_add_self_to_buddy_prompt
-constexpr uint32_t kAlreadyBuddyPrompt = 0x68635516;  // already_buddy_prompt
-constexpr uint32_t kLobbyPlayerListMenu = 0xECA96FAF; // lobby_player_list_menu
-constexpr uint32_t kAddLobbyPlayer = 0x459148C5;      // (the player list's item script)
+constexpr uint32_t kRegionsMenuAddItem = 0xB0DA8BB7;   // regions_menu_add_item
+constexpr uint32_t kChooseSelectedLobby = 0x8DE96379;  // choose_selected_lobby
+constexpr uint32_t kRegionsMenuSetFocus = 0x36258921;  // regions_menu_set_focus
+constexpr uint32_t kNotFocusable = 0x1D944426;         // not_focusable
+constexpr uint32_t kUnavailableLobby = 0xBA468C44;     // (chosen on a full / out of range room)
+constexpr uint32_t kNetLobbyFull = 0x2767F99B;         // net_lobby_full
+constexpr uint32_t kAddBuddyPrompt = 0xD094CCB0;       // add_buddy_prompt
+constexpr uint32_t kCantAddBuddyPrompt1 = 0x077E365A;  // cant_add_buddy_prompt_1 (logged in, the player has no profile)
+constexpr uint32_t kCantAddBuddyPrompt2 = 0x9E7767E0;  // cant_add_buddy_prompt_2 (not logged in)
+constexpr uint32_t kCantAddBuddyPrompt3 = 0xE9705776;  // cant_add_buddy_prompt_3 (30 buddies)
+constexpr uint32_t kCantAddSelfPrompt = 0xB11CCDA6;    // cant_add_self_to_buddy_prompt
+constexpr uint32_t kAlreadyBuddyPrompt = 0x68635516;   // already_buddy_prompt
+constexpr uint32_t kLobbyPlayerListMenu = 0xECA96FAF;  // lobby_player_list_menu
+constexpr uint32_t kAddLobbyPlayer = 0x459148C5;       // (the player list's item script)
 
 constexpr int kMaxBuddies = 30;
 constexpr int kMaxRank = 10;
@@ -164,8 +164,8 @@ bool __cdecl cfunc_send_message(script::Struct* params, script::Script*)
         return true;
     }
     push_internet_heap();
-    game_spy::peer_message_room(
-        static_cast<RoomManager*>(manager->lobby_service_)->remote_, kRoomGroupKind, message, 0); // to the group room
+    game_spy::peer_message_room(static_cast<RoomManager*>(manager->lobby_service_)->remote_, kRoomGroupKind, message,
+                                0); // to the group room
     pop_heap();
     return true;
 }
@@ -221,7 +221,8 @@ void RoomManager::add_player_list_item(LobbyPlayer* player)
             choose->append_word(kNick, player->nick_);
             choose->append_word(kNetName, player->nick_);
             params->put_sub_struct(kPadChooseParams, choose);
-            script = static_cast<FriendsManager*>(buddy)->count_buddies() < kMaxBuddies ? kAddBuddyPrompt : kCantAddBuddyPrompt3;
+            script = static_cast<FriendsManager*>(buddy)->count_buddies() < kMaxBuddies ? kAddBuddyPrompt
+                                                                                        : kCantAddBuddyPrompt3;
         } else if (own_profile(buddy) == player->account_) {
             set_rgba(rgba, 0, 0, 128, 128);
             script = kCantAddSelfPrompt;
@@ -259,7 +260,7 @@ bool g_listing_found;
 
 // 0x00541690
 void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name,
-                                         int num_waiting, int max_waiting, int num_games, int, void* param)
+                                              int num_waiting, int max_waiting, int num_games, int, void* param)
 {
     Hub* manager = net_session_slot();
     auto set_state = [manager](int state) { manager->set_service_state(state); };
@@ -267,7 +268,7 @@ void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, 
         set_state(kLobbyStateFailed);
         return;
     }
-    bool& asked = g_listing_asked;    // a room was asked for (by its lobby_num)
+    bool& asked = g_listing_asked; // a room was asked for (by its lobby_num)
     bool& found = g_listing_found;
     if (group_id == 0) { // the list's end
         set_state(!asked || found ? kLobbyStateListed : kLobbyStateFailed);
@@ -291,7 +292,8 @@ void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, 
     if (lobby) {
         uint32_t size;
         void* data = manager->get_pending_data(&size);
-        if (static_cast<uint32_t>(lobby) == checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))
+        if (static_cast<uint32_t>(lobby) ==
+            checksums::generate_crc_caseless(static_cast<const char*>(data), static_cast<int>(size)))
             found = true;
         asked = true;
     }

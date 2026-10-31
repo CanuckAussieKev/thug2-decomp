@@ -17,4 +17,4 @@ void __cdecl set_transform(uint32_t type, const void* matrix);
 // 0x004B6070: the render target (0) and the depth surface set; D3DERR_INVALIDCALL if either failed, else 0.
 long __cdecl set_render_target_and_depth(void* surface, void* depth);
 
-} // namespace Nx
+} // namespace render

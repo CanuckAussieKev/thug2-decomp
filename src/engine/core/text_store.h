@@ -28,4 +28,4 @@ protected:
     static int last_index(const char* text);
 };
 
-} // namespace Str
+} // namespace text

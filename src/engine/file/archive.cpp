@@ -132,7 +132,7 @@ ArchiveFile::ArchiveFile(uint8_t* block, bool bottom_up)
             info->size = entry->size;
         }
         entry = reinterpret_cast<TableRow*>(reinterpret_cast<uint8_t*>(entry) + ((stored + 3) & ~3) +
-                                         entry->name_size_ + sizeof(TableRow));
+                                            entry->name_size_ + sizeof(TableRow));
     }
     open_entry_ = nullptr;
     open_count_ = 0;
@@ -236,13 +236,13 @@ int ArchiveFile::seek_to(int offset, int origin)
 // --- ArchiveManager ---------------------------------------------------------------------------------------------
 
 static_assert(offsetof(ArchiveManager, pres_) == 0x10 && offsetof(ArchiveManager, hold_archive_loads_) == 0x14 &&
-                  offsetof(ArchiveManager, pending_) == 0x18 && offsetof(ArchiveManager, queued_archive_count_) == 0x238 &&
-                  sizeof(ArchiveManager) == 0x23C,
+                  offsetof(ArchiveManager, pending_) == 0x18 &&
+                  offsetof(ArchiveManager, queued_archive_count_) == 0x238 && sizeof(ArchiveManager) == 0x23C,
               "layout must match the original");
 
 namespace {
 
-ArchiveManager*& manager_slot() { return g_manager_slot; } // set by the constructor
+ArchiveManager*& manager_slot() { return g_manager_slot; }   // set by the constructor
 ArchiveManager*& instance_slot() { return g_instance_slot; } // the one create_manager made
 int& instance_refs() { return g_instance_refs; }
 bool& get_handled() { return file::g_handled_by_archive; } // see FileLoad:: - "this call was ours"
@@ -321,10 +321,7 @@ void destroy_manager()
 namespace {
 
 // The script global block_pre_loading (Scripts::fetch_int_value by name - not decompiled yet).
-bool pre_loading_blocked()
-{
-    return script::fetch_int_value("block_pre_loading") != 0;
-}
+bool pre_loading_blocked() { return script::fetch_int_value("block_pre_loading") != 0; }
 // Always false in this build; only does debugging work when the debug flag is set.
 bool skip_synchronous_load() { return audio::disc_mode_active(); }
 int time_milliseconds() { return static_cast<int>(frame_clock::get_time()); }
@@ -352,7 +349,8 @@ void apply_patch(uint8_t* archive, const uint32_t* patch)
 void __cdecl on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
-        static_cast<ArchiveManager*>(manager)->finish_load(reinterpret_cast<int>(file), static_cast<uint8_t*>(data), size);
+        static_cast<ArchiveManager*>(manager)->finish_load(reinterpret_cast<int>(file), static_cast<uint8_t*>(data),
+                                                           size);
 }
 
 // 0x005B8EE0
@@ -426,8 +424,8 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         file::Hdl file = file::unseal(path, "rb");
         if (!file && (report_missing || debug_checks())) {
             debug::printf("couldn't open %s.  Make sure the, if this is a level PRE file, that the name in "
-                        "levels.q matches the file on disk\n",
-                        path);
+                          "levels.q matches the file on disk\n",
+                          path);
             return;
         }
         uint32_t file_size = file::get_file_size(file);
@@ -469,9 +467,8 @@ bool ArchiveManager::is_file_present(const char* name)
 {
     char path[128];
     normalise_name(path, name);
-    return for_each_pre(pres_, [&](ArchiveFile* pre) {
-        return pre->files_->fetch_entry(checksums::hash_from_text(path)) != nullptr;
-    });
+    return for_each_pre(
+        pres_, [&](ArchiveFile* pre) { return pre->files_->fetch_entry(checksums::hash_from_text(path)) != nullptr; });
 }
 
 // 0x005B8AD0
@@ -739,7 +736,7 @@ bool __cdecl cfunc_in_pre_file(script::Struct* params, script::Script* /*script*
     return sole()->is_loaded(archive_name(params));
 }
 
-} // namespace Pre
+} // namespace pre
 
 namespace {
 

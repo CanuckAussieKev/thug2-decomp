@@ -15,8 +15,8 @@ struct Bink;
 // playing is compiled out on PC (its update, volume and "done" calls are linker-folded stubs).
 namespace audio {
 
-using Hdl = void*; // a Win32 HANDLE
-using Result = long;  // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))
+using Hdl = void*;   // a Win32 HANDLE
+using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRESULT_FROM_WIN32(...))
 
 // A raw stream from pcm.wad (0xA8 bytes): reads the file in 8 KB pieces with overlapped ReadFile. On PC nothing
 // opens one with a valid file (see 0x00453850), so only the set-up and the flags are live.
@@ -54,36 +54,36 @@ struct WadStream {
         return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(this) + 0x2C + 4 * status_index_);
     }
 
-    Hdl file_ref_;              // +0x00 INVALID_HANDLE_VALUE when closed
-    uint32_t unknown04_;       // +0x04
-    _OVERLAPPED* async_ctl_;  // +0x08 (from the ring, 0x004535E0; never set for these on PC)
-    bool reading_;             // +0x0C
-    bool read_done_;            // +0x0D the read finished at once
+    Hdl file_ref_;           // +0x00 INVALID_HANDLE_VALUE when closed
+    uint32_t unknown04_;     // +0x04
+    _OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0; never set for these on PC)
+    bool reading_;           // +0x0C
+    bool read_done_;         // +0x0D the read finished at once
     uint8_t pad0e_[2];
-    uint32_t unknown10_;       // +0x10
-    bool from_wad_;             // +0x14 read at shift_ (else from the start)
-    bool unknown15_;           // +0x15
+    uint32_t unknown10_; // +0x10
+    bool from_wad_;      // +0x14 read at shift_ (else from the start)
+    bool unknown15_;     // +0x15
     uint8_t pad16_[2];
-    uint32_t shift_;          // +0x18
-    uint32_t extent_;            // +0x1C
-    uint32_t unknown20_;       // +0x20
-    uint32_t unknown24_;       // +0x24
+    uint32_t shift_;     // +0x18
+    uint32_t extent_;    // +0x1C
+    uint32_t unknown20_; // +0x20
+    uint32_t unknown24_; // +0x24
     uint8_t unknown28_[4];
-    uint32_t cur_standing_[9];       // +0x2C indexed by status_index_ (0x8000000A: still fine)
+    uint32_t cur_standing_[9]; // +0x2C indexed by status_index_ (0x8000000A: still fine)
     uint32_t unknown50_;       // +0x50
-    bool is_halted_;              // +0x54
+    bool is_halted_;           // +0x54
     bool finished_;            // +0x55
     uint8_t pad56_[2];
-    int status_index_;          // +0x58
+    int status_index_; // +0x58
     uint8_t unknown5c_[3];
-    bool unknown5f_;           // +0x5F set by the constructor and the "start" calls, cleared once loaded
+    bool unknown5f_; // +0x5F set by the constructor and the "start" calls, cleared once loaded
     uint8_t unknown60_[0x30];
-    uint32_t unknown90_;       // +0x90
-    void* octets_;             // +0x94
-    int ready_flag_;               // +0x98
-    int played_;               // +0x9C
-    int cur_phase_;                // +0xA0 1: preloading
-    bool stop_requested_;       // +0xA4 freed by the update once ready_to_free
+    uint32_t unknown90_;  // +0x90
+    void* octets_;        // +0x94
+    int ready_flag_;      // +0x98
+    int played_;          // +0x9C
+    int cur_phase_;       // +0xA0 1: preloading
+    bool stop_requested_; // +0xA4 freed by the update once ready_to_free
     uint8_t pada5_[3];
 };
 static_assert(offsetof(WadStream, async_ctl_) == 0x08 && offsetof(WadStream, from_wad_) == 0x14 &&
@@ -122,35 +122,35 @@ struct BinkStream {
     // 0x00454440 (WadStream::set_channel_volumes, linker-folded: empty).
     void set_channel_volumes(float, float, float, float, float) {}
 
-    Hdl file_ref_;              // +0x00 INVALID_HANDLE_VALUE: none
-    uint32_t unknown04_;       // +0x04
-    _OVERLAPPED* async_ctl_;  // +0x08 (from the ring, 0x004535E0)
-    int wad_entry_;             // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
-    bool silent_;              // +0x10 the volume is 0: not updated
-    bool is_halted_;              // +0x11 the pause state carried out
+    Hdl file_ref_;           // +0x00 INVALID_HANDLE_VALUE: none
+    uint32_t unknown04_;     // +0x04
+    _OVERLAPPED* async_ctl_; // +0x08 (from the ring, 0x004535E0)
+    int wad_entry_;          // +0x0C the pcm.wad entry open (0x0069CADC), -1: none
+    bool silent_;            // +0x10 the volume is 0: not updated
+    bool is_halted_;         // +0x11 the pause state carried out
     uint8_t unknown12_[6];
-    bool shared_file_;          // +0x18 file_ref_ isn't closed with the stream
-    bool unknown19_;           // +0x19
+    bool shared_file_; // +0x18 file_ref_ isn't closed with the stream
+    bool unknown19_;   // +0x19
     uint8_t unknown1a_[0xA];
-    int plays_;                // +0x24 plays left (counted down at the last frame; 0 after one: finished)
-    render::Bink* bink_;           // +0x28 null while paused
-    void* memory_;             // +0x2C freed with the stream
-    uint8_t unknown30_[0x30];  // +0x34: status words, indexed by status_index_ (see Status)
-    bool pause_requested_;      // +0x60
-    bool finished_;            // +0x61
+    int plays_;               // +0x24 plays left (counted down at the last frame; 0 after one: finished)
+    render::Bink* bink_;      // +0x28 null while paused
+    void* memory_;            // +0x2C freed with the stream
+    uint8_t unknown30_[0x30]; // +0x34: status words, indexed by status_index_ (see Status)
+    bool pause_requested_;    // +0x60
+    bool finished_;           // +0x61
     uint8_t unknown62_[2];
-    int status_index_;          // +0x64
+    int status_index_; // +0x64
     uint8_t unknown68_[3];
-    bool unknown6b_;           // +0x6B set by the constructor and the "start" calls, cleared once loaded
+    bool unknown6b_; // +0x6B set by the constructor and the "start" calls, cleared once loaded
     uint8_t unknown6c_[0x14];
-    float loudness_;             // +0x80
-    uint32_t resume_frame_;     // +0x84 the frame it was paused on
-    bool from_handle_;          // +0x88 from_where_ holds a file handle, not a path
-    char from_where_[0x11F];       // +0x89 the path, or the handle (video_open is given its address)
-    uint32_t unknown1a8_;      // +0x1A8
-    uint32_t unknown1ac_;      // +0x1AC
+    float loudness_;         // +0x80
+    uint32_t resume_frame_;  // +0x84 the frame it was paused on
+    bool from_handle_;       // +0x88 from_where_ holds a file handle, not a path
+    char from_where_[0x11F]; // +0x89 the path, or the handle (video_open is given its address)
+    uint32_t unknown1a8_;    // +0x1A8
+    uint32_t unknown1ac_;    // +0x1AC
     uint8_t unknown1b0_[0xC];
-    bool stop_requested_;       // +0x1BC freed by the update once ready_to_free
+    bool stop_requested_; // +0x1BC freed by the update once ready_to_free
     uint8_t pad1bd_[3];
 
     // The status word at +0x34 + 4 * status_index_ (0x8000000A: still fine).
@@ -184,11 +184,11 @@ struct StreamSlot {
 
     bool get_playing() const { return wad || bink; }
 
-    WadStream* wad;      // +0x00
-    BinkStream* bink;    // +0x04
-    uint32_t unknown08;  // +0x08
-    float volume;        // +0x0C
-    bool paused;         // +0x10 (cleared as a dword at start-up)
+    WadStream* wad;     // +0x00
+    BinkStream* bink;   // +0x04
+    uint32_t unknown08; // +0x08
+    float volume;       // +0x0C
+    bool paused;        // +0x10 (cleared as a dword at start-up)
     uint8_t pad11[3];
 };
 static_assert(sizeof(StreamSlot) == 0x14, "layout must match the original");
@@ -271,8 +271,8 @@ struct StreamGain {
 };
 // 0x00454080: load pcm.wad's entry `checksum` into stream `slot` (free) as a Bink stream played `plays`
 // times (0: once), at `volume` (if given); a preload isn't started (StartPreloadedStream). Two arguments unused.
-bool __cdecl load_stream(uint32_t checksum, int slot, const StreamGain* volume, int unused4, int unused5,
-                        bool preload, int plays);
+bool __cdecl load_stream(uint32_t checksum, int slot, const StreamGain* volume, int unused4, int unused5, bool preload,
+                         int plays);
 // 0x00454200: load and start stream `checksum` (noted in 0x0069CBAC) in `slot`, played once.
 bool __cdecl play_stream(uint32_t checksum, int slot, int unused);
 // 0x00454270: start the stream preloaded in `slot` at `volume`: false if there's none.
@@ -300,4 +300,4 @@ extern uint32_t g_stream_file_uses;
 extern WadEntry* g_wad_entries;
 extern void* g_stream_lock;
 
-} // namespace Pcm
+} // namespace audio

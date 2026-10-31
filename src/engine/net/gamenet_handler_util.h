@@ -21,7 +21,7 @@
 
 namespace objects {
 class Entity;
-} // namespace Obj
+} // namespace objects
 
 namespace online {
 extern void** const kNewPlayerSearchVtable; // 0x0064C82C: lists::Hunt<JoinerRecord> (gamenet_handlers.cpp)
@@ -73,18 +73,27 @@ inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::En
 // The singletons (not rewritten): the skate module, the game mode, the goal manager.
 inline uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 inline uint8_t* get_game_mode() { return reinterpret_cast<uint8_t*>(goals::g_game_mode); }
-inline bool is_squad_match() { return get_call<bool>(code_address(&goals::MatchRules::is_squad_match), get_game_mode()); }
-inline uint32_t get_game_type() { return get_call<uint32_t>(code_address(&goals::MatchRules::get_name_key), get_game_mode()); }
+inline bool is_squad_match()
+{
+    return get_call<bool>(code_address(&goals::MatchRules::is_squad_match), get_game_mode());
+}
+inline uint32_t get_game_type()
+{
+    return get_call<uint32_t>(code_address(&goals::MatchRules::get_name_key), get_game_mode());
+}
 inline uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_objective_board()); }
-inline uint8_t* get_goal(uint8_t* goals, uint32_t name) { return get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), goals, name, 1); }
+inline uint8_t* get_goal(uint8_t* goals, uint32_t name)
+{
+    return get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), goals, name, 1);
+}
 
 // The manager's players (online::PlayerRecord, player_info.h; reached as bytes here): +0x14 the skater, +0x18 the
 // connection, +0x30 the team, +0x38 the name, +0x1D0 flags.
-inline PlayerRecord* as_player(const uint8_t* player) { return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player)); }
-inline uint8_t* find_player_by_sender(Hub* manager, net::Conn* conn)
+inline PlayerRecord* as_player(const uint8_t* player)
 {
-    return manager->find_player_by_sender(conn);
+    return reinterpret_cast<PlayerRecord*>(const_cast<uint8_t*>(player));
 }
+inline uint8_t* find_player_by_sender(Hub* manager, net::Conn* conn) { return manager->find_player_by_sender(conn); }
 // (the original pushes the id as 16 bits)
 inline uint8_t* find_player_slot_by_obj(Hub* manager, uint16_t id) { return manager->find_player_slot_by_obj(id); }
 inline uint8_t* find_player_slot_by_obj(Hub* manager, const uint8_t* id) // a signed byte, widened
@@ -174,4 +183,4 @@ inline void team_name_key(char* out, int team)
     std::memcpy(p, "_name", 6);
 }
 
-} // namespace online::Detail
+} // namespace online::detail

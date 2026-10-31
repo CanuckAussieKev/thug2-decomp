@@ -40,10 +40,7 @@ MemSource* current_heap(Hub* manager) { return *manager->ongoing_; }
 Hub* g_memory_manager;
 bool g_manager_ready; // the memory manager is set up
 
-Hub* Hub::get_pull()
-{
-    return g_memory_manager;
-}
+Hub* Hub::get_pull() { return g_memory_manager; }
 
 // 0x005BAFC0
 void* Hub::carve(uint32_t size, int halt_if_exhausted, MemSource* heap)
@@ -99,10 +96,7 @@ void Hub::dealloc(void* block)
 }
 
 // 0x005BB050
-uint32_t Hub::obtainable()
-{
-    return call_slot<uint32_t>(current_heap(this), 4);
-}
+uint32_t Hub::obtainable() { return call_slot<uint32_t>(current_heap(this), 4); }
 
 // 0x005BB0E0
 void Hub::enter_heap_scope(MemSource* heap)
@@ -121,16 +115,10 @@ void Hub::leave_heap_scope()
 }
 
 // 0x005BB150
-const char* Hub::current_heap_name()
-{
-    return current_heap(this)->label_;
-}
+const char* Hub::current_heap_name() { return current_heap(this)->label_; }
 
 // 0x005BAC10
-MemSource* Hub::first_zone()
-{
-    return heap_count_ ? heaps_[0] : nullptr;
-}
+MemSource* Hub::first_zone() { return heap_count_ ? heaps_[0] : nullptr; }
 
 // 0x005BAC20 (the last heap is never found, so its "next" is null too)
 MemSource* Hub::following_zone(MemSource* heap)
@@ -224,28 +212,50 @@ Arena* Hub::get_memory_pool(uint32_t name)
     if (LabeledZone* named = find_named_heap(name))
         return named->heap;
     switch (name) {
-    case kTopDownHeap: return top_down_heap_;
-    case kBottomUpHeap: return bottom_up_heap_;
-    case kFrontEndHeap: return front_end_heap_;
-    case kScriptHeap: return script_heap_;
-    case kNetworkHeap: return network_heap_;
-    case kNetMiscHeap: return net_misc_heap_;
-    case kInternetTopDownHeap: return internet_top_down_heap_;
-    case kInternetBottomUpHeap: return internet_bottom_up_heap_;
-    case kCutsceneTopDown: return cinematic_high_heap_;
-    case kCutsceneBottomUp: return cinematic_low_heap_;
-    case kDebugHeap: return debug_heap_;
-    case kSkater0: return skater_heaps_[0];
-    case kSkater1: return skater_heaps_[1];
-    case kSkater2: return skater_heaps_[2];
-    case kSkater3: return skater_heaps_[3];
-    case kSkaterGeom0: return skater_geom_heaps_[0];
-    case kSkaterGeom1: return skater_geom_heaps_[1];
-    case kSkaterGeom2: return skater_geom_heaps_[2];
-    case kSkaterGeom3: return skater_geom_heaps_[3];
-    case kSkaterInfo: return skater_info_heap_;
-    case kThemeHeap: return theme_heap_;
-    default: break;
+    case kTopDownHeap:
+        return top_down_heap_;
+    case kBottomUpHeap:
+        return bottom_up_heap_;
+    case kFrontEndHeap:
+        return front_end_heap_;
+    case kScriptHeap:
+        return script_heap_;
+    case kNetworkHeap:
+        return network_heap_;
+    case kNetMiscHeap:
+        return net_misc_heap_;
+    case kInternetTopDownHeap:
+        return internet_top_down_heap_;
+    case kInternetBottomUpHeap:
+        return internet_bottom_up_heap_;
+    case kCutsceneTopDown:
+        return cinematic_high_heap_;
+    case kCutsceneBottomUp:
+        return cinematic_low_heap_;
+    case kDebugHeap:
+        return debug_heap_;
+    case kSkater0:
+        return skater_heaps_[0];
+    case kSkater1:
+        return skater_heaps_[1];
+    case kSkater2:
+        return skater_heaps_[2];
+    case kSkater3:
+        return skater_heaps_[3];
+    case kSkaterGeom0:
+        return skater_geom_heaps_[0];
+    case kSkaterGeom1:
+        return skater_geom_heaps_[1];
+    case kSkaterGeom2:
+        return skater_geom_heaps_[2];
+    case kSkaterGeom3:
+        return skater_geom_heaps_[3];
+    case kSkaterInfo:
+        return skater_info_heap_;
+    case kThemeHeap:
+        return theme_heap_;
+    default:
+        break;
     }
     // (looked up again, as in the original)
     LabeledZone* named = find_named_heap(name);
@@ -258,28 +268,50 @@ const char* Hub::get_zone_label(uint32_t name)
     if (LabeledZone* named = find_named_heap(name))
         return named->text;
     switch (name) {
-    case kTopDownHeap: return "TopDownHeap";
-    case kBottomUpHeap: return "BottomUpHeap";
-    case kFrontEndHeap: return "FrontEndHeap";
-    case kScriptHeap: return "ScriptHeap";
-    case kNetworkHeap: return "NetworkHeap";
-    case kNetMiscHeap: return "NetMiscHeap";
-    case kInternetTopDownHeap: return "InternetTopDownHeap";
-    case kInternetBottomUpHeap: return "InternetBottomUpHeap";
-    case kCutsceneTopDown: return "CutsceneTopDown";
-    case kCutsceneBottomUp: return "CutsceneBottomUp";
-    case kDebugHeap: return "DebugHeap";
-    case kSkater0: return "Skater0";
-    case kSkater1: return "Skater1";
-    case kSkater2: return "Skater2";
-    case kSkater3: return "Skater3";
-    case kSkaterGeom0: return "SkaterGeom0";
-    case kSkaterGeom1: return "SkaterGeom1";
-    case kSkaterGeom2: return "SkaterGeom2";
-    case kSkaterGeom3: return "SkaterGeom3";
-    case kSkaterInfo: return "SkaterInfo";
-    case kThemeHeap: return "ThemeHeap";
-    default: return "Unrecognized Heap";
+    case kTopDownHeap:
+        return "TopDownHeap";
+    case kBottomUpHeap:
+        return "BottomUpHeap";
+    case kFrontEndHeap:
+        return "FrontEndHeap";
+    case kScriptHeap:
+        return "ScriptHeap";
+    case kNetworkHeap:
+        return "NetworkHeap";
+    case kNetMiscHeap:
+        return "NetMiscHeap";
+    case kInternetTopDownHeap:
+        return "InternetTopDownHeap";
+    case kInternetBottomUpHeap:
+        return "InternetBottomUpHeap";
+    case kCutsceneTopDown:
+        return "CutsceneTopDown";
+    case kCutsceneBottomUp:
+        return "CutsceneBottomUp";
+    case kDebugHeap:
+        return "DebugHeap";
+    case kSkater0:
+        return "Skater0";
+    case kSkater1:
+        return "Skater1";
+    case kSkater2:
+        return "Skater2";
+    case kSkater3:
+        return "Skater3";
+    case kSkaterGeom0:
+        return "SkaterGeom0";
+    case kSkaterGeom1:
+        return "SkaterGeom1";
+    case kSkaterGeom2:
+        return "SkaterGeom2";
+    case kSkaterGeom3:
+        return "SkaterGeom3";
+    case kSkaterInfo:
+        return "SkaterInfo";
+    case kThemeHeap:
+        return "ThemeHeap";
+    default:
+        return "Unrecognized Heap";
     }
 }
 
@@ -366,16 +398,10 @@ void Hub::destroy_main_heaps()
 // --- the global allocation functions (on the current heap) -------------------------------------------------
 
 // 0x005BBAE0
-void* alloc_block(unsigned int size)
-{
-    return Hub::get_pull()->carve(size, 1, nullptr);
-}
+void* alloc_block(unsigned int size) { return Hub::get_pull()->carve(size, 1, nullptr); }
 
 // 0x005BBB10
-uint32_t malloc_available()
-{
-    return Hub::get_pull()->obtainable();
-}
+uint32_t malloc_available() { return Hub::get_pull()->obtainable(); }
 
 // 0x005BBB30
 void* trim_block_end(unsigned int size, void* memory)
@@ -394,10 +420,7 @@ void free_malloc(void* memory)
 }
 
 // 0x005BBB80
-unsigned int malloc_size(void* memory)
-{
-    return memory ? get_block_size(memory) : 0;
-}
+unsigned int malloc_size(void* memory) { return memory ? get_block_size(memory) : 0; }
 
 // 0x005BBBA0: a new block of `size` with the old one's contents (copies `size` bytes, even from a smaller
 // block - as in the original)
@@ -417,7 +440,7 @@ void* regrow(void* memory, unsigned int size)
     return block;
 }
 
-} // namespace Mem
+} // namespace memory
 
 // --- creating the manager and its heaps -----------------------------------------------------------------------
 
@@ -449,10 +472,7 @@ MemoryArena* new_alloc_region(uint32_t size)
 
 } // namespace
 
-Hub*& Hub::sole()
-{
-    return g_memory_manager;
-}
+Hub*& Hub::sole() { return g_memory_manager; }
 
 uint8_t* g_heap_block_limit;
 uint8_t* g_heap_block_end;
@@ -484,9 +504,10 @@ Hub* Hub::make_new()
     g_heap_block_limit = block + block_size;
     uint8_t* end = g_heap_block_limit;
     void* region = get_clear(sizeof(Zone), kMainRegionStorage);
-    primary_zone_ = region ? new (region) Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
-                                                reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
-                          : nullptr;
+    primary_zone_ = region ? new (region)
+                                 Zone(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
+                                      reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
+                           : nullptr;
     void* top = get_clear(sizeof(Arena), kTopDownStorage);
     top_down_heap_ = top ? new (top) Arena(primary_zone_, MemSource::kGrowDown, "Top Down") : nullptr;
     void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);
@@ -501,8 +522,8 @@ Hub* Hub::make_new()
     auto data_end = g_data_end;
     uint32_t data_k = static_cast<uint32_t>(data_end - data_start) >> 10;
     uint32_t code_k = static_cast<uint32_t>(data_start - code_start) >> 10;
-    debug::printf("code [%p - %p] (%dK) + data [%p - %p] (%dK) = %dK \n", code_start, data_start, code_k, data_start, data_end,
-                data_k, data_k + code_k);
+    debug::printf("code [%p - %p] (%dK) + data [%p - %p] (%dK) = %dK \n", code_start, data_start, code_k, data_start,
+                  data_end, data_k, data_k + code_k);
 
     context_depth_ = 0;
     online_zone_ = nullptr;
@@ -675,4 +696,4 @@ void shut_down_manager()
     Hub::sole() = nullptr;
 }
 
-} // namespace Mem
+} // namespace memory

@@ -32,18 +32,18 @@ struct NetMessageInfo {
     // 0x004549F0 (net_descs.cpp)
     NetMessageInfo* make_new();
 
-    uint8_t ident_;               // 0x00
-    uint8_t feed_;           // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
-    uint16_t byte_count_;          // 0x02
-    void* content_;               // 0x04
-    int rank_;             // 0x08 (0x80 by default)
-    int queue_;                // 0x0C
-    uint8_t group_id_;          // 0x10 sequenced messages: each group has its own sequence
-    bool singular_;            // 0x11 drop the connection's queued messages with the same id first
+    uint8_t ident_;       // 0x00
+    uint8_t feed_;        // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
+    uint16_t byte_count_; // 0x02
+    void* content_;       // 0x04
+    int rank_;            // 0x08 (0x80 by default)
+    int queue_;           // 0x0C
+    uint8_t group_id_;    // 0x10 sequenced messages: each group has its own sequence
+    bool singular_;       // 0x11 drop the connection's queued messages with the same id first
     uint8_t pad12_[2];
-    int delay_;                // 0x14 added to the app's timestamp: when the message may go
+    int delay_;             // 0x14 added to the app's timestamp: when the message may go
     uint32_t fixed_seq_no_; // 0x18 sequenced: this id instead of the group's next one (0 = the next)
-    uint8_t compression_;      // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
+    uint8_t compression_;   // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
     uint8_t pad1d_[3];
 };
 static_assert(sizeof(NetMessageInfo) == 0x20 && offsetof(NetMessageInfo, rank_) == 0x08 &&
@@ -59,18 +59,18 @@ struct StreamDesc {
     // 0x00454E00: the data freed unless it's the sender's ("Destroying StreamDesc's Data").
     void destroy_body();
 
-    int extent_;                 // 0x00
-    int stream_id_;             // 0x04
-    uint8_t msg_id_;            // 0x08
-    char desc_[32];            // 0x09 the sender's description of the data
+    int extent_;     // 0x00
+    int stream_id_;  // 0x04
+    uint8_t msg_id_; // 0x08
+    char desc_[32];  // 0x09 the sender's description of the data
     uint8_t pad29_[3];
-    uint8_t* content_;            // 0x2C
-    uint8_t* succ_;            // 0x30 the first byte not sent yet
-    uint8_t group_id_;          // 0x34
+    uint8_t* content_; // 0x2C
+    uint8_t* succ_;    // 0x30 the first byte not sent yet
+    uint8_t group_id_; // 0x34
     uint8_t pad35_[3];
-    uint32_t order_number_;      // 0x38 the next piece's sequence id (reserved when the stream was queued)
-    uint32_t checksum_;        // 0x3C received streams: the whole message's checksum
-    bool borrowed_payload_;         // 0x40 content_ is the caller's (not freed)
+    uint32_t order_number_; // 0x38 the next piece's sequence id (reserved when the stream was queued)
+    uint32_t checksum_;     // 0x3C received streams: the whole message's checksum
+    bool borrowed_payload_; // 0x40 content_ is the caller's (not freed)
     uint8_t pad41_[3];
 };
 static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, content_) == 0x2C &&
@@ -85,8 +85,8 @@ struct AppHost {
     static constexpr uint32_t kBroadcast = 0x01; // the socket may broadcast
     static constexpr uint32_t kLocal = 0x08;     // no socket of its own (a client in the same process as its server)
     static constexpr uint32_t kMeasureLatency = 0x04; // send latency tests
-    static constexpr uint32_t kAcceptForeign = 0x10; // connection requests from foreign addresses are answered
-    static constexpr uint32_t kSecure = 0x20;    // packets carry a checksum and are scrambled (Encrypt / Decrypt)
+    static constexpr uint32_t kAcceptForeign = 0x10;  // connection requests from foreign addresses are answered
+    static constexpr uint32_t kSecure = 0x20;         // packets carry a checksum and are scrambled (Encrypt / Decrypt)
 
     // The largest packet (the receive and scramble buffers).
     static constexpr uint32_t kMaxPacketSize = 0x51C;
@@ -164,7 +164,6 @@ struct AppHost {
     // 2 sequenced), a PendingMsg deleted when its last link goes.
     void free_messages(Conn* conn, int queue, uint8_t id);
 
-
     // 0x004594C0 (constructor)
     AppHost* make_new(int flags);
     // 0x00459660 (scalar deleting destructor; the body is 0x00457710)
@@ -175,11 +174,11 @@ struct AppHost {
     void put_on_outbox(int handle, NetMessageInfo* desc);
     // 0x00458740: send `size` bytes in pieces (a start message with the first 256, then data messages).
     // queue_all_pieces: queue every piece now; else a few each frame (the data copied unless borrow_caller_buffer).
-    void send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void* data, const char* desc,
-                             uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer);
+    void send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
+                           bool queue_all_pieces, bool borrow_caller_buffer);
     // 0x00458AB0: the same for `handle`'s connection or every valid one (0xFF).
     void send_bulk_message(int handle, uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
-                       bool queue_all_pieces, bool borrow_caller_buffer);
+                           bool queue_all_pieces, bool borrow_caller_buffer);
     // 0x00458BE0
     Conn* begin_conn_walk(ConnSearch* search);
     // 0x00458C10: flush_outbox(conn) (virtual slot 3) for each connection.
@@ -239,41 +238,41 @@ struct AppHost {
     // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
     static int __cdecl drain_stream_msgs(InboundMsgCtx* context);
 
-    void** vtable_;          // +0x0000
-    uint32_t unknown4_;      // +0x0004
+    void** vtable_;           // +0x0000
+    uint32_t unknown4_;       // +0x0004
     uint32_t clock_;          // +0x0008 the current time (ms)
-    Router dispatcher_;  // +0x000C (wt/netC)
-    AppHost* dispatcher_app_;     // +0x13F8 the Dispatcher's app
+    Router dispatcher_;       // +0x000C (wt/netC)
+    AppHost* dispatcher_app_; // +0x13F8 the Dispatcher's app
     // +0x13FC statistics (zeroed by Init)
-    int outbound_byte_total_;      // +0x13FC
-    int inbound_byte_total_;       // +0x1400
-    int skipped_stamps_;        // +0x1404 timestamps skipped over
-    int stale_arrivals_;        // +0x1408 timestamps older than the newest
-    int repeat_arrivals_;        // +0x140C timestamps seen twice
-    int frame_count_;         // +0x1410 frames processed (pump_incoming_traffic)
-    memory::ListNode list1414_; // +0x1414 lists::Elem<App> (vtable 0x006474D8, data = the app)
-    uint32_t sock_;        // +0x1428
+    int outbound_byte_total_;     // +0x13FC
+    int inbound_byte_total_;      // +0x1400
+    int skipped_stamps_;          // +0x1404 timestamps skipped over
+    int stale_arrivals_;          // +0x1408 timestamps older than the newest
+    int repeat_arrivals_;         // +0x140C timestamps seen twice
+    int frame_count_;             // +0x1410 frames processed (pump_incoming_traffic)
+    memory::ListNode list1414_;   // +0x1414 lists::Elem<App> (vtable 0x006474D8, data = the app)
+    uint32_t sock_;               // +0x1428
     uint8_t local_address_[0x10]; // +0x142C sockaddr_in (Bind)
-    bool linked_up_;         // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
+    bool linked_up_;              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
     uint8_t pad143d_[3];
-    void* supervisor_;          // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
+    void* supervisor_; // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
-    void* process_task_;      // +0x1444
-    void* send_task_;         // +0x1448
-    void* receive_task_;      // +0x144C
-    void* metrics_task_;      // +0x1450
-    int open_links_;     // +0x1454 (zeroed by Init)
-    int peer_cap_;     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
-    uint8_t scrambled_[0x514]; // +0x145C a secure packet being sent
+    void* process_task_;         // +0x1444
+    void* send_task_;            // +0x1448
+    void* receive_task_;         // +0x144C
+    void* metrics_task_;         // +0x1450
+    int open_links_;             // +0x1454 (zeroed by Init)
+    int peer_cap_;               // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
+    uint8_t scrambled_[0x514];   // +0x145C a secure packet being sent
     char receive_buffer_[0x514]; // +0x1970
     uint32_t flag_bits_;         // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
-    ConnNode circuits_;   // +0x1E8C head (data -1)
-    BannedConnNode banned_;  // +0x1EA0 head
+    ConnNode circuits_;                         // +0x1E8C head (data -1)
+    BannedConnNode banned_;                     // +0x1EA0 head
     uint32_t unknown1eb4_;
-    char label_[0x48];        // +0x1EB8 ("server", "client"...)
-    double unknown1f00_;     // +0x1F00 (0.0 from the constructor; not used by the library)
+    char label_[0x48];   // +0x1EB8 ("server", "client"...)
+    double unknown1f00_; // +0x1F00 (0.0 from the constructor; not used by the library)
 };
 static_assert(offsetof(AppHost, dispatcher_) == 0x0C && offsetof(AppHost, dispatcher_app_) == 0x13F8 &&
                   offsetof(AppHost, outbound_byte_total_) == 0x13FC && offsetof(AppHost, frame_count_) == 0x1410 &&
@@ -293,4 +292,4 @@ static_assert(offsetof(AppHost, dispatcher_) == 0x0C && offsetof(AppHost, dispat
 using EnqueueFilter = bool (*)(AppHost* app, int handle, NetMessageInfo* desc);
 void set_enqueue_filter(EnqueueFilter filter);
 
-} // namespace Net
+} // namespace net

@@ -46,17 +46,20 @@ constexpr uint8_t kTokenKeyHash = 0x16;
 constexpr uint8_t kTokenRepeat = 0x21;
 constexpr uint8_t kTokenEndOfScript = 0x24;
 constexpr uint8_t kTokenNot = 0x39;
-constexpr uint8_t kTokenCFunction = 0x43;        // a C function already looked up
-constexpr uint8_t kTokenMemberFunction = 0x44;   // a member function's name (no table entry)
+constexpr uint8_t kTokenCFunction = 0x43;           // a C function already looked up
+constexpr uint8_t kTokenMemberFunction = 0x44;      // a member function's name (no table entry)
 constexpr uint8_t kTokenMemberFunctionEntry = 0x46; // a member function's table entry (its name first)
-constexpr uint8_t kTokenIf = 0x47;               // (a short jump)
+constexpr uint8_t kTokenIf = 0x47;                  // (a short jump)
 
 NodeManager* hub() { return node_manager_instance(); }
 
 VectorValue* as_value(maths::Vec4* v) { return reinterpret_cast<VectorValue*>(v); }
 
 // A quaternion (x, y, z, w) to a rotation matrix (0x0042BC40, maths::QuatRotation::fetch_mat).
-void quat_to_matrix(const float* quat, maths::Mat4* matrix) { reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix); }
+void quat_to_matrix(const float* quat, maths::Mat4* matrix)
+{
+    reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix);
+}
 
 } // namespace
 
@@ -162,7 +165,10 @@ Struct* fetch_neighbour_node(uint32_t name, int index)
 bool fetch_place(uint32_t name, maths::Vec4* out) { return fetch_place(hub()->fetch_vertex(name, true), out); }
 
 // 0x0045C590
-bool read_turn_angles(uint32_t name, maths::Vec4* out) { return read_turn_angles(hub()->fetch_vertex(name, true), out); }
+bool read_turn_angles(uint32_t name, maths::Vec4* out)
+{
+    return read_turn_angles(hub()->fetch_vertex(name, true), out);
+}
 
 // 0x0045C520
 bool has_link_to(uint32_t name, uint32_t target)
@@ -201,7 +207,8 @@ Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4* pos)
 }
 
 // 0x0045C950
-void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback callback, Struct* parent_params, int depth)
+void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback callback, Struct* parent_params,
+                          int depth)
 {
     if (depth > kDeepestLevel)
         return;

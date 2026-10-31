@@ -28,9 +28,7 @@
 
 namespace objects {
 
-uint32_t g_suspend_component_member_functions[12]{
-            0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0,
-            0, 0xCE0CA665, 0, 0, 0, 0};
+uint32_t g_suspend_component_member_functions[12]{0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0, 0, 0xCE0CA665, 0, 0, 0, 0};
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
 int g_suspend_interleave4_count;
@@ -42,14 +40,14 @@ extern void** const kVtable;
 constexpr int kTaskPriority = -1100;
 
 constexpr uint32_t kModel = 0x286A8D26;
-constexpr uint32_t kDefaultSuspendDistance = 0xAD501995; // DefaultMovingObjectSuspendDistance
-constexpr uint32_t kSuspendDistance = 0xE4279BA2;        // SuspendDistance
-constexpr uint32_t kNeverSuspend = 0xCB839DC1;           // NeverSuspend
-constexpr uint32_t kNoLod = 0x95EDC6F6;                  // NoLOD
+constexpr uint32_t kDefaultSuspendDistance = 0xAD501995;                           // DefaultMovingObjectSuspendDistance
+constexpr uint32_t kSuspendDistance = 0xE4279BA2;                                  // SuspendDistance
+constexpr uint32_t kNeverSuspend = 0xCB839DC1;                                     // NeverSuspend
+constexpr uint32_t kNoLod = 0x95EDC6F6;                                            // NoLOD
 constexpr uint32_t kLodDist[4] = {0x4EEDFAE7, 0xD7E4AB5D, 0xA0E39BCB, 0x3E870E68}; // lod_dist1-4
 
-constexpr float kInchesPerFoot = 12.0f;     // 0x0064546C
-constexpr float kLod2Beyond1 = 75.0f;       // 0x006465FC
+constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
+constexpr float kLod2Beyond1 = 75.0f;   // 0x006465FC
 constexpr int kCheckFrames = 10;
 // The distances that mean no LOD (1000000 - 1000003): lod_dist3 at its no-LOD value means the model is always drawn.
 const uint32_t kNoLodBits[4] = {0x49742400, 0x49742410, 0x49742420, 0x49742430};
@@ -66,8 +64,14 @@ void set_no_lod(float* distances)
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
 // bounding sphere (0x00492F30: centre, radius in w), and whether it wants to be drawn regardless (+0x234).
-uint8_t* model_of(ObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
-void change_model_enabled(uint8_t* model, bool active) { reinterpret_cast<render::RenderModel*>(model)->change_live(active); }
+uint8_t* model_of(ObjectModule* component)
+{
+    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+}
+void change_model_enabled(uint8_t* model, bool active)
+{
+    reinterpret_cast<render::RenderModel*>(model)->change_live(active);
+}
 
 } // namespace
 
@@ -192,7 +196,7 @@ bool DormancyModule::wants_animating(float* distance_squared)
     if (d > lod * lod) { // (not a number: as within)
         animate = false;
     } else {
-        float skip_every2 = script::fetch_float(0xDB120FB5); // AnimLODInterleave2
+        float skip_every2 = script::fetch_float(0xDB120FB5);  // AnimLODInterleave2
         double skip_every4 = script::fetch_float(0x3271AA80); // AnimLODInterleave4
         float within2 = static_cast<float>(static_cast<double>(skip_every2) * skip_every2);
         if (d > skip_every4 * skip_every4)
@@ -222,7 +226,8 @@ void DormancyModule::refresh_shown_state()
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 float sphere[4];
-                reinterpret_cast<render::RenderModel*>(model)->fetch_bound_sphere(reinterpret_cast<maths::Vec4*>(sphere));
+                reinterpret_cast<render::RenderModel*>(model)->fetch_bound_sphere(
+                    reinterpret_cast<maths::Vec4*>(sphere));
                 maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
                 centre += entity_->at_point_;
@@ -264,10 +269,11 @@ SuspendTaskHolder* SuspendTaskHolder::make_new()
         task->make_new(kTaskPriority);
         task->vtable_ = game_code::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&suspend_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
+        reinterpret_cast<void**>(task)[7] = this;                                   // +0x1C the data
     }
     job_handle_ = task;
-    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04)->queue_job(task); // the logic tasks
+    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04)
+        ->queue_job(task); // the logic tasks
     return this;
 }
 
@@ -284,8 +290,7 @@ void __cdecl suspend_task(void* /*task*/)
     // The camera the distances are measured from: the skate module's +0x3DC (a flag that turns the checks off, then
     // the position).
     const uint8_t* camera = reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x3DC;
-    auto* component =
-        static_cast<DormancyModule*>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
+    auto* component = static_cast<DormancyModule*>(object_hub_slot()->find_first_module_of_kind(DormancyModule::kType));
     while (component) {
         component->distance_squared_ = 0.0f;
         component->far_ = false;
@@ -325,25 +330,25 @@ void __cdecl suspend_task(void* /*task*/)
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::DormancyModule::teardown,
-         &objects::DormancyModule::tick_frame,
-         &objects::DormancyModule::configure_from_data,
-         &objects::DormancyModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         stubs::ignore_argument,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::DormancyModule::tick_frame,
+                                      &objects::DormancyModule::configure_from_data,
+                                      &objects::DormancyModule::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      stubs::ignore_argument,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

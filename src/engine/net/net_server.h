@@ -34,4 +34,4 @@ public:
     static int __cdecl on_clock_sync_msg(InboundMsgCtx* context);
 };
 
-} // namespace Net
+} // namespace net

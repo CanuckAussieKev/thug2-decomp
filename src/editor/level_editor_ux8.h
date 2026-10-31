@@ -51,11 +51,11 @@ void halt();
 // A game controller this frame (controller mode on and one attached; else `active` false and nothing else set).
 struct Pad {
     bool active = false;
-    bool used = false;       // a stick past its dead zone or a button down this frame
+    bool used = false;              // a stick past its dead zone or a button down this frame
     float move_x_ = 0, move_y_ = 0; // left stick (-1..1; y: up = forward)
     float look_x_ = 0, look_y_ = 0; // right stick (y: up = up)
-    float up_down_ = 0;        // RT - LT (0..1 each)
-    bool fast = false;       // L3 held
+    float up_down_ = 0;             // RT - LT (0..1 each)
+    bool fast = false;              // L3 held
     bool a_down_ = false;
     int a_presses_ = 0, a_releases_ = 0;
     bool b = false, x = false, y = false, back = false, r3 = false, lb = false, rb = false; // pressed this frame
@@ -135,8 +135,9 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts);
 void sets_menu(const Fonts& fonts);
 // The status bar's hints (key caps, mouse and controller glyphs); with `max_width` (pixels) the hints that don't fit are
 // left out, an ellipsis in their place.
-void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts, float max_width = 0.0f);
+void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts,
+              float max_width = 0.0f);
 // The preferences window's section (controller mode).
 void prefs_section();
 
-} // namespace MenuSystem::level_editor::ux8
+} // namespace frontend::level_editor::ux8

@@ -61,7 +61,7 @@ public:
     int seat_;
     uint8_t is_usable_;
     uint8_t pad15_[3];
-    uint32_t octets_; // buffer_raw_ rounded up to 64
+    uint32_t octets_;          // buffer_raw_ rounded up to 64
     uint8_t control_data_[32]; // PS2 format: buttons (inverted bits), sticks, pressures
     uint8_t align_data_[32];
     uint8_t rumble_raw_[32]; // each motor's level
@@ -80,8 +80,8 @@ public:
     bool is_connected_;
     uint8_t pade1_[3];
     int disconnected_ticks_;
-    int reconnect_delay_; // rand() & 63
-    uint8_t held_down_; // any button down
+    int reconnect_delay_;      // rand() & 63
+    uint8_t held_down_;        // any button down
     uint8_t keyboard_control_; // set by the original read (start, the keyboard's char 0x19...)
     uint8_t padee_[2];
 };
@@ -93,9 +93,9 @@ static_assert(offsetof(InputPort, control_data_) == 0x1C && offsetof(InputPort, 
 // The platform layer's pad state for a port (0x005F5BC0 fills it).
 struct PadSnapshot {
     uint32_t unknown0;
-    uint16_t buttons;     // bits: 0x10 start...; 0x01 / 0x02 / 0x04 / 0x08 the d-pad
-    uint8_t pressure[8];  // analogue buttons and triggers, 0-255
-    int16_t sticks[4];    // -32768..32767
+    uint16_t buttons;    // bits: 0x10 start...; 0x01 / 0x02 / 0x04 / 0x08 the d-pad
+    uint8_t pressure[8]; // analogue buttons and triggers, 0-255
+    int16_t sticks[4];   // -32768..32767
     uint8_t unknown16[2];
 };
 static_assert(offsetof(PadSnapshot, sticks) == 0x0E && sizeof(PadSnapshot) == 0x18, "layout must match the original");
@@ -166,4 +166,4 @@ Hub*& manager_instance();
 
 extern Hub* g_manager;
 
-} // namespace Sio
+} // namespace sio

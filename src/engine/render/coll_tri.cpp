@@ -42,7 +42,8 @@ maths::Vec4 TriMeshSource::read_stored_vertex(int index) const
 {
     if (compressed_) {
         const uint16_t* v = static_cast<const uint16_t*>(vertices_) + 3 * index;
-        return {v[0] * 0.0625f + lower_limit_.x, v[1] * 0.0625f + lower_limit_.y, v[2] * 0.0625f + lower_limit_.z, 0.0f};
+        return {v[0] * 0.0625f + lower_limit_.x, v[1] * 0.0625f + lower_limit_.y, v[2] * 0.0625f + lower_limit_.z,
+                0.0f};
     }
     const float* v = static_cast<const float*>(vertices_) + 3 * index;
     return {v[0], v[1], v[2], 0.0f};
@@ -181,7 +182,7 @@ bool TriMeshSource::delete_bsp()
 
 // 0x004169C0
 bool TriMeshSource::relocate(uint32_t, uint32_t vertex_base, uint32_t vertex_byte_base, uint32_t face_base,
-                               uint32_t node_base, uint32_t face_list_base)
+                             uint32_t node_base, uint32_t face_list_base)
 {
     vertices_ = reinterpret_cast<void*>(reinterpret_cast<uint32_t>(vertices_) + vertex_base);
     vertex_bytes_ = reinterpret_cast<uint8_t*>(reinterpret_cast<uint32_t>(vertex_bytes_) + vertex_byte_base);
@@ -356,7 +357,8 @@ void TriMeshSource::add_occlusion_polys()
             float n2y = static_cast<float>(static_cast<double>(bz2) * cx2 - static_cast<double>(cz2) * bx2);
             float n2z = static_cast<float>(static_cast<double>(cy2) * bx2 - static_cast<double>(by2) * cx2);
             double unit1x = n1x;
-            double length1 = std::sqrt((unit1x * n1x + static_cast<double>(n1z) * n1z) + static_cast<double>(n1y) * n1y);
+            double length1 =
+                std::sqrt((unit1x * n1x + static_cast<double>(n1z) * n1z) + static_cast<double>(n1y) * n1y);
             if (length1 > 0.0) {
                 double inverse = 1.0 / length1;
                 unit1x = n1x * inverse;
@@ -641,4 +643,4 @@ HitTreeNode* HitTreeNode::replicate(int) const
     return copy;
 }
 
-} // namespace Nx
+} // namespace render

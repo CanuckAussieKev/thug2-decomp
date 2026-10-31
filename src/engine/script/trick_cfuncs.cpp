@@ -35,64 +35,62 @@ using objects::RiderIdentity;
 using script::Array;
 using script::Struct;
 
-constexpr uint32_t kProfile = 0x7EA855F0;            // "profile"
-constexpr uint32_t kCat = 0x61A1BC57;                // "cat"
-constexpr uint32_t kTrickMapping = 0xD544AA2D;       // "trick_mapping"
-constexpr uint32_t kTrick = 0x270F56E1;              // "trick"
-constexpr uint32_t kCatNum = 0xA75B8581;             // "cat_num"
-constexpr uint32_t kSpecial = 0xB394C01C;            // "special"
-constexpr uint32_t kSkater = 0x5B8AB877;             // "Skater"
-constexpr uint32_t kType = 0x7321A8D6;               // "type"
-constexpr uint32_t kEditableTrickList = 0x5004A967; // "ConfigurableTricks"
-constexpr uint32_t kEditableCategoryList = 0x325F0B5D;   // "ConfigurableCats"
-constexpr uint32_t kTrickType = 0x89FA55CE;          // "trickType"
-constexpr uint32_t kScr = 0xA6D2D890;                // "scr"
-constexpr uint32_t kGrindTrick = 0x6881FCB4;         // "GrindTrick"
-constexpr uint32_t kGrabTrick = 0xB9AE26D2;          // "GrabTrick"
-constexpr uint32_t kFlipTrick = 0xBA15FC7F;          // "FlipTrick"
-constexpr uint32_t kParams = 0x7031F10C;             // "params"
-constexpr uint32_t kIsSpecial = 0x1AEEAA40;          // "IsSpecial"
-constexpr uint32_t kFull = 0x1F802B5F;               // "full"
-constexpr uint32_t kLockedForOthers = 0x7ABFD5B4;    // (name unknown) TrickIsLocked: locked unless it's the current skater's
-constexpr uint32_t kIsHidden = 0x27EB9B9D;           // "is_hidden"
-constexpr uint32_t kName = 0xA1DC81F9;               // "name"
-constexpr uint32_t kTrickDisplayText = 0x7BFE5BE2;   // "trick_display_text"
-constexpr uint32_t kExtraTricks = 0x6E855102;        // "ExtraTricks"
-constexpr uint32_t kExtraTrickString = 0x3DAAF58B;   // "extra_trick_string"
-constexpr uint32_t kExtraTrickName = 0xD0BCFC62;     // (name unknown) GetTrickDisplayText: the extra trick's name
-constexpr uint32_t kIndex = 0x7F8C98FE;              // "index"
-constexpr uint32_t kSpecialTrickSlot = 0xC7C1990C;   // "special_trickslot"
-constexpr uint32_t kSpecialTrickName = 0x35ECC76D;   // "special_trickname"
-constexpr uint32_t kIsCat = 0xB56A8816;              // "isCat"
-constexpr uint32_t kTrickTypeOut = 0x3D929B66;       // "trick_type"
-constexpr uint32_t kArray = 0x5EF31148;              // "array"
-constexpr uint32_t kValue = 0xE288A7CB;              // "value"
-constexpr uint32_t kLevel = 0x651533EC;              // "level"
-constexpr uint32_t kTrickText = 0x3EAFA520;          // "TrickText"
+constexpr uint32_t kProfile = 0x7EA855F0;              // "profile"
+constexpr uint32_t kCat = 0x61A1BC57;                  // "cat"
+constexpr uint32_t kTrickMapping = 0xD544AA2D;         // "trick_mapping"
+constexpr uint32_t kTrick = 0x270F56E1;                // "trick"
+constexpr uint32_t kCatNum = 0xA75B8581;               // "cat_num"
+constexpr uint32_t kSpecial = 0xB394C01C;              // "special"
+constexpr uint32_t kSkater = 0x5B8AB877;               // "Skater"
+constexpr uint32_t kType = 0x7321A8D6;                 // "type"
+constexpr uint32_t kEditableTrickList = 0x5004A967;    // "ConfigurableTricks"
+constexpr uint32_t kEditableCategoryList = 0x325F0B5D; // "ConfigurableCats"
+constexpr uint32_t kTrickType = 0x89FA55CE;            // "trickType"
+constexpr uint32_t kScr = 0xA6D2D890;                  // "scr"
+constexpr uint32_t kGrindTrick = 0x6881FCB4;           // "GrindTrick"
+constexpr uint32_t kGrabTrick = 0xB9AE26D2;            // "GrabTrick"
+constexpr uint32_t kFlipTrick = 0xBA15FC7F;            // "FlipTrick"
+constexpr uint32_t kParams = 0x7031F10C;               // "params"
+constexpr uint32_t kIsSpecial = 0x1AEEAA40;            // "IsSpecial"
+constexpr uint32_t kFull = 0x1F802B5F;                 // "full"
+constexpr uint32_t kLockedForOthers =
+    0x7ABFD5B4;                            // (name unknown) TrickIsLocked: locked unless it's the current skater's
+constexpr uint32_t kIsHidden = 0x27EB9B9D; // "is_hidden"
+constexpr uint32_t kName = 0xA1DC81F9;     // "name"
+constexpr uint32_t kTrickDisplayText = 0x7BFE5BE2;    // "trick_display_text"
+constexpr uint32_t kExtraTricks = 0x6E855102;         // "ExtraTricks"
+constexpr uint32_t kExtraTrickString = 0x3DAAF58B;    // "extra_trick_string"
+constexpr uint32_t kExtraTrickName = 0xD0BCFC62;      // (name unknown) GetTrickDisplayText: the extra trick's name
+constexpr uint32_t kIndex = 0x7F8C98FE;               // "index"
+constexpr uint32_t kSpecialTrickSlot = 0xC7C1990C;    // "special_trickslot"
+constexpr uint32_t kSpecialTrickName = 0x35ECC76D;    // "special_trickname"
+constexpr uint32_t kIsCat = 0xB56A8816;               // "isCat"
+constexpr uint32_t kTrickTypeOut = 0x3D929B66;        // "trick_type"
+constexpr uint32_t kArray = 0x5EF31148;               // "array"
+constexpr uint32_t kValue = 0xE288A7CB;               // "value"
+constexpr uint32_t kLevel = 0x651533EC;               // "level"
+constexpr uint32_t kTrickText = 0x3EAFA520;           // "TrickText"
 constexpr uint32_t kNumberOfOccurrences = 0x3F42ADAC; // "Number_Of_Occurrences"
-constexpr uint32_t kNumSoundtracks = 0xAA0B4287;     // "numsoundtracks"
-constexpr uint32_t kSoundtrackName = 0x869029CA;     // "soundtrackname"
-constexpr uint32_t kController = 0xB30D9965;         // "controller"
-constexpr uint32_t kSkaterHeapIndex = 0xC52D1A41;    // "skater_heap_index"
-constexpr uint32_t kFrontEndPad = 0xCDC3D2FD;        // "front_end_pad"
-constexpr uint32_t kTricks = 0x1E26FD3E;             // "tricks"
-constexpr uint32_t kButtonSequences = 0x1A4F3519;          // (name unknown) GetKeyComboArrayFromTrickArray: the key combos
-constexpr uint32_t kPort = 0xBC6EA233;               // "port"
-constexpr uint32_t kActuator = 0x114FC131;           // "Actuator"
-constexpr uint32_t kPercent = 0x9E497FC6;            // "Percent"
-constexpr uint32_t kSlot = 0x53F1DF98;               // "slot"
-constexpr uint32_t kTrickName = 0xEF6FB249;          // "trick_name"
-constexpr uint32_t kKeyCombo = 0xACFDB27A;           // "key_combo"
+constexpr uint32_t kNumSoundtracks = 0xAA0B4287;      // "numsoundtracks"
+constexpr uint32_t kSoundtrackName = 0x869029CA;      // "soundtrackname"
+constexpr uint32_t kController = 0xB30D9965;          // "controller"
+constexpr uint32_t kSkaterHeapIndex = 0xC52D1A41;     // "skater_heap_index"
+constexpr uint32_t kFrontEndPad = 0xCDC3D2FD;         // "front_end_pad"
+constexpr uint32_t kTricks = 0x1E26FD3E;              // "tricks"
+constexpr uint32_t kButtonSequences = 0x1A4F3519;     // (name unknown) GetKeyComboArrayFromTrickArray: the key combos
+constexpr uint32_t kPort = 0xBC6EA233;                // "port"
+constexpr uint32_t kActuator = 0x114FC131;            // "Actuator"
+constexpr uint32_t kPercent = 0x9E497FC6;             // "Percent"
+constexpr uint32_t kSlot = 0x53F1DF98;                // "slot"
+constexpr uint32_t kTrickName = 0xEF6FB249;           // "trick_name"
+constexpr uint32_t kKeyCombo = 0xACFDB27A;            // "key_combo"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
-objects::GameEntity* local_skater()
-{
-    return get_skate()->get_home_rider();
-}
+objects::GameEntity* local_skater() { return get_skate()->get_home_rider(); }
 // Whether a skater is a local one (its byte at +0xBC, as 0x00566520 reads it).
 bool is_local_skater(objects::GameEntity* skater) { return reinterpret_cast<uint8_t*>(skater)[0xBC] != 0; }
 // The skater's score (0x00580480: its score component's object).
@@ -100,13 +98,13 @@ void* skater_score(objects::GameEntity* skater) { return static_cast<objects::Ri
 
 // 0x00564F80 (no source yet; a skate module method that ignores the module): the profile of `params`' Skater, or the
 // current one (no params or no Skater).
-RiderIdentity* profile_for(Struct* params)
-{
-    return get_skate()->fetch_account(params);
-}
+RiderIdentity* profile_for(Struct* params) { return get_skate()->fetch_account(params); }
 
 // 0x005A9D90 (commands::find_name_of_value): the key combo in `mapping` bound to `trick` (0 if none).
-uint32_t key_combo_for_trick(Struct* mapping, uint32_t trick) { return commands::find_name_of_value(mapping, trick, 0); }
+uint32_t key_combo_for_trick(Struct* mapping, uint32_t trick)
+{
+    return commands::find_name_of_value(mapping, trick, 0);
+}
 
 // 0x005A9E30 (commands::find_name_of_integer; in the original the structure goes in EBX): the key combo in `mapping` bound
 // to the created trick `cat` (the name of its last integer component of that value; 0 if none).
@@ -127,7 +125,8 @@ Array* alloc_script_array()
 int template_count(objects::ProfileRoster* manager) { return static_cast<int>(manager->templates_.num_); }
 RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {
-    return reinterpret_cast<RiderIdentity*(__thiscall*)(objects::ProfileRoster*, int)>(code_address(&goals::GoalManager::get_objective_at))(manager, index);
+    return reinterpret_cast<RiderIdentity*(__thiscall*)(objects::ProfileRoster*, int)>(
+        code_address(&goals::GoalManager::get_objective_at))(manager, index);
 }
 
 // A trick structure's type: its trickType, else its scr, else GrindTrick.
@@ -237,7 +236,8 @@ bool __cdecl cfunc_get_key_combo_bound_to_trick(script::Struct* params, script::
                 if (special.trick == trick)
                     break;
             }
-            debug::printf("GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
+            debug::printf(
+                "GetKeyComboBoundToTrick found a special trick\n"); // "GetKeyComboBoundToTrick found a special trick\n"
             key_combo = special.keys;
             found_special = true;
         }
@@ -469,7 +469,8 @@ bool __cdecl cfunc_get_level_records(script::Struct* params, script::Script* scr
     modules::Skate* skate = get_skate();
     int level;
     if (!params->fetch_int_value(kLevel, &level, 0))
-        level = (*reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(skate) + 0x20))->fetch_stage();
+        level =
+            (*reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(skate) + 0x20))->fetch_stage();
     highscores::g_game_records->get_level_records(level)->write_to_structure(script->args_);
     return true;
 }

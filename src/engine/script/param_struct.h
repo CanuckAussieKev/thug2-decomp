@@ -328,4 +328,4 @@ extern memory::PoolPair g_vector_pools;
 
 struct PermanentString;
 extern PermanentString* g_permanent_string_table;
-} // namespace Script
+} // namespace script

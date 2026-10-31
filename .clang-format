@@ -15,11 +15,6 @@ BraceWrapping:
 IndentCaseLabels: false
 NamespaceIndentation: None
 FixNamespaceComments: true
-SortIncludes: CaseSensitive
-IncludeBlocks: Regroup
-IncludeCategories:
-  - Regex: '^<'
-    Priority: 2
-  - Regex: '^"'
-    Priority: 3
+SortIncludes: Never  # include order is meaningful here (windows.h before mmsystem.h / dsound.h...)
+IncludeBlocks: Preserve
 ReflowComments: false

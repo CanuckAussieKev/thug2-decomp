@@ -97,8 +97,8 @@ enum class GapStatus : uint8_t { kAwaiting, kLanded, kLost };
 struct Occurrence {
     EventKind kind = EventKind::kGap;
     V3 pos = {};
-    std::string name;  // a gap's
-    int value = 0;     // a gap's score / a combo's points
+    std::string name;                        // a gap's
+    int value = 0;                           // a gap's score / a combo's points
     GapStatus status = GapStatus::kAwaiting; // (a gap: got, then landed or lost; a combo: Landed or Lost)
 };
 
@@ -129,9 +129,9 @@ struct ComboEnd {
     bool landed = false;
 };
 struct ComboTracker {
-    int pending = 0;     // the points pending last frame
-    int ending = 0;      // a combo that just ended: its points (0: none) ...
-    int settle = 0;      // ... and the frames left to see a bail
+    int pending = 0;                                               // the points pending last frame
+    int ending = 0;                                                // a combo that just ended: its points (0: none) ...
+    int settle = 0;                                                // ... and the frames left to see a bail
     bool tick_frame(int pending_now, bool bailing, ComboEnd* end); // true when `end` is a combo decided this frame
 };
 
@@ -186,8 +186,8 @@ void on_editor_stop();
 void tick(bool dragging);
 // The trails and markers over the view (the UI's overlay; nothing while hidden).
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                 std::vector<ui::Overlay::text_tools>* texts);
 
 bool get_simulating();
 // A gap's state for the UI: landed in a recorded run of this level (`known`: the level has any trail data at all).
@@ -211,7 +211,7 @@ bool& show_trails();
 const LevelTrails* current_trails();
 std::vector<GapRead> get_level_gaps();
 bool& recording();
-bool& keep_simulation(); // (Simulate's stop leaves the objects where they got to)
-std::string get_standing();   // a line: recording / runs / simulate
+bool& keep_simulation();    // (Simulate's stop leaves the objects where they got to)
+std::string get_standing(); // a line: recording / runs / simulate
 
-} // namespace MenuSystem::level_editor::play_test
+} // namespace frontend::level_editor::play_test

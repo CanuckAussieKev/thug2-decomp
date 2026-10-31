@@ -14,7 +14,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -23,12 +23,12 @@ namespace objects {
 // +0x0C Start, +0x10 invoke_method_by_name(name, params, script) -> bool, +0x14 is_finished -> bool, +0x18 (bool),
 // +0x1C has_camera -> bool, +0x20 Stop, +0x24 (bool), +0x28 (bool), +0x2C / +0x30 / +0x34.
 struct Movie {
-    memory::ListNode list_link_;        // in the manager's queue
+    memory::ListNode list_link_; // in the manager's queue
     gfx::ViewCam* viewer_;       // +0x14
     uint8_t unknown18_;
-    bool can_skip_;            // +0x19 ended with the others by end_movies(true)
+    bool can_skip_; // +0x19 ended with the others by end_movies(true)
     uint8_t unknown1a_;
-    bool plays_while_paused_;     // +0x1B
+    bool plays_while_paused_; // +0x1B
     uint8_t unknown1c_[8];
     uint32_t end_script_;        // +0x24
     script::Struct* end_params_; // +0x28
@@ -107,7 +107,7 @@ public:
     void playing30(uint32_t value); // (passed on: the original tail-jumps with its caller's argument)
     void playing34();
 
-    memory::ListNode movies_;   // +0x4C the queue's head (lists::Foremost<Movie>, vtable 0x0064ED30)
+    memory::ListNode movies_; // +0x4C the queue's head (lists::Foremost<Movie>, vtable 0x0064ED30)
     gfx::ViewCam viewer_;     // +0x60 the last movie's camera, kept
     uint32_t keep_until_;     // +0x124 the render frame it's kept until
     bool keep_camera_;        // +0x128
@@ -149,4 +149,4 @@ uint32_t __fastcall movie_key_from_params(const void* movie);
 extern bool g_simulation_halted;
 extern int g_view_mode;
 
-} // namespace Obj
+} // namespace objects

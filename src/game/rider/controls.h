@@ -26,4 +26,4 @@ public:
     bool try_acid_drop();
 };
 
-} // namespace Skater
+} // namespace skater

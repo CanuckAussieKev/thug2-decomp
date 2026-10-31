@@ -49,29 +49,46 @@ namespace frontend::level_editor::checks {
 const char* severity_name(Severity severity)
 {
     switch (severity) {
-    case Severity::kError: return "Error";
-    case Severity::kWarning: return "Warning";
-    default: return "Info";
+    case Severity::kError:
+        return "Error";
+    case Severity::kWarning:
+        return "Warning";
+    default:
+        return "Info";
     }
 }
 
 const char* rule_name(Rule rule)
 {
     switch (rule) {
-    case Rule::kInsideSolid: return "Inside solid";
-    case Rule::kBelowGround: return "Below the ground";
-    case Rule::kNoGround: return "Nothing below";
-    case Rule::kFloatingRail: return "Floating rail point";
-    case Rule::kLonelyRail: return "Rail of one point";
-    case Rule::kCollisionLeft: return "Collision left behind";
-    case Rule::kHiddenCollision: return "Hidden, collision on";
-    case Rule::kLimit: return "Limit";
-    case Rule::kTriggerIdle: return "Trigger never fires";
-    case Rule::kTriggerScript: return "Trigger script";
-    case Rule::kGapUnpaired: return "Gap unpaired";
-    case Rule::kOnlineParity: return "Online parity";
-    case Rule::kMultiplayer: return "Multiplayer";
-    case Rule::kLayoutRecord: return "Layout record";
+    case Rule::kInsideSolid:
+        return "Inside solid";
+    case Rule::kBelowGround:
+        return "Below the ground";
+    case Rule::kNoGround:
+        return "Nothing below";
+    case Rule::kFloatingRail:
+        return "Floating rail point";
+    case Rule::kLonelyRail:
+        return "Rail of one point";
+    case Rule::kCollisionLeft:
+        return "Collision left behind";
+    case Rule::kHiddenCollision:
+        return "Hidden, collision on";
+    case Rule::kLimit:
+        return "Limit";
+    case Rule::kTriggerIdle:
+        return "Trigger never fires";
+    case Rule::kTriggerScript:
+        return "Trigger script";
+    case Rule::kGapUnpaired:
+        return "Gap unpaired";
+    case Rule::kOnlineParity:
+        return "Online parity";
+    case Rule::kMultiplayer:
+        return "Multiplayer";
+    case Rule::kLayoutRecord:
+        return "Layout record";
     }
     return "?";
 }
@@ -134,7 +151,7 @@ std::vector<int> lonely_points(const std::vector<std::vector<int>>& links)
     std::vector<int> lonely;
     for (size_t i = 0; i < links.size(); ++i) {
         bool links_out = std::any_of(links[i].begin(), links[i].end(),
-                                    [&](int to) { return to >= 0 && to < static_cast<int>(links.size()); });
+                                     [&](int to) { return to >= 0 && to < static_cast<int>(links.size()); });
         if (!links_out && incoming[i] == 0)
             lonely.push_back(static_cast<int>(i));
     }
@@ -164,8 +181,7 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
     for (const TeamNodes& t : counts.teams)
         any_team = any_team || t.flag || t.base || t.restart;
     if (!any_team) {
-        out.push_back({Severity::kWarning, "No Capture the Flag flags, bases or team restarts",
-                       -1});
+        out.push_back({Severity::kWarning, "No Capture the Flag flags, bases or team restarts", -1});
         return out;
     }
     for (int team = 0; team < 4; ++team) {
@@ -246,7 +262,8 @@ bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     if (normal)
         *normal = {n[0], n[1], n[2]};
     if (sector)
-        *sector = *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58) : 0;
+        *sector =
+            *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58) : 0;
     return true;
 }
 
@@ -289,14 +306,14 @@ namespace {
 
 // --- the state ----------------------------------------------------------------------------------------------------
 
-std::vector<Issue> g_issues;         // the last check's
-std::vector<Issue> g_layout_issues;   // the loaded layout's unresolved records
+std::vector<Issue> g_issues;        // the last check's
+std::vector<Issue> g_layout_issues; // the loaded layout's unresolved records
 std::unordered_set<uint32_t> g_ignored;
 std::unordered_map<uint32_t, uint8_t> g_marks;
 int g_changes = -1;
 uint32_t g_generation = 0;
 int g_loads = -1;
-double g_due = -1.0;      // (seconds: when to check again; -1 none due)
+double g_due = -1.0; // (seconds: when to check again; -1 none due)
 bool g_checked_once = false;
 double g_last_seconds = 0.0; // (how long the last check took)
 bool g_open = false;
@@ -352,7 +369,7 @@ struct Placed {
     uint32_t world = 0;
     Place place = Place::kClear;
     float up_in_ = -1.0f; // (the surface above, from the point - kBelowGround's Fix)
-    bool ground = true; // (a face within kGroundReach below)
+    bool ground = true;   // (a face within kGroundReach below)
 };
 std::unordered_map<uint32_t, Placed> g_placed;
 
@@ -410,12 +427,14 @@ void check_placement(std::vector<Issue>* out, uint32_t world)
     for (const nodes::Elem& n : nodes::get_all()) {
         if (n.hidden || !n.has_pos_)
             continue;
-        if (n.family != nodes::Family::kSpawn && n.family != nodes::Family::kCrown && n.family != nodes::Family::kBitMark)
+        if (n.family != nodes::Family::kSpawn && n.family != nodes::Family::kCrown &&
+            n.family != nodes::Family::kBitMark)
             continue;
         V3 point = n.pos + V3{0.0f, kLift, 0.0f};
         const Placed& placed = placed_at(n.name, point, world);
         Place place = placed.place;
-        bool own = !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded) && !n.added && !scenery_changed_near(n.pos, 300.0f);
+        bool own =
+            !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded) && !n.added && !scenery_changed_near(n.pos, 300.0f);
         std::string what = std::string(nodes::family_name(n.family));
         what = what.substr(0, what.size() - 1); // ("Spawns" -> "Spawn")
         Issue issue;
@@ -581,8 +600,8 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
         if (a.problem) {
             issue.rule = Rule::kTriggerIdle;
             issue.severity = Severity::kWarning;
-            issue.text = std::string(triggers::kind_name(a.spec.kind)) + " " + a.spec.name + " does nothing yet: " +
-                         a.problem;
+            issue.text =
+                std::string(triggers::kind_name(a.spec.kind)) + " " + a.spec.name + " does nothing yet: " + a.problem;
             append_one(out, issue);
         }
         if (a.alive) {
@@ -591,8 +610,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
                 issue.rule = Rule::kTriggerIdle;
                 issue.severity = Severity::kDetailsOf;
                 issue.text = std::string(triggers::kind_name(a.spec.kind)) + " " + a.spec.name + ": its middle is " +
-                             (place == Place::kInsideSolid ? "inside solid collision" : "under a surface") +
-                             "";
+                             (place == Place::kInsideSolid ? "inside solid collision" : "under a surface") + "";
                 append_one(out, issue, "reach");
             }
         }
@@ -636,7 +654,8 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             issue.node = t.sector;
             issue.rule = Rule::kTriggerScript;
             issue.severity = Severity::kError;
-            issue.text = "Trigger " + get_name(t.sector) + ": its TriggerScript " + get_name(t.script) + " isn't a script";
+            issue.text =
+                "Trigger " + get_name(t.sector) + ": its TriggerScript " + get_name(t.script) + " isn't a script";
             append_one(out, issue);
         }
     }
@@ -665,7 +684,8 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
             issue.rule = Rule::kTriggerScript;
             issue.severity = Severity::kError;
             issue.level_own_ = own;
-            issue.text = "Proximity node " + get_name(n.name) + ": its TriggerScript " + get_name(script) + " isn't a script";
+            issue.text =
+                "Proximity node " + get_name(n.name) + ": its TriggerScript " + get_name(script) + " isn't a script";
             append_one(out, issue);
         }
         if (edit) {
@@ -675,8 +695,8 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
                 issue.rule = Rule::kTriggerScript;
                 issue.severity = Severity::kError;
                 issue.level_own_ = false;
-                issue.text = "Proximity node " + get_name(n.name) + ": its " + (name == &edit->enter ? "enter" : "exit") +
-                             " script " + *name + " isn't a script";
+                issue.text = "Proximity node " + get_name(n.name) + ": its " +
+                             (name == &edit->enter ? "enter" : "exit") + " script " + *name + " isn't a script";
                 append_one(out, issue, *name);
             }
         }
@@ -701,8 +721,11 @@ void check_online(std::vector<Issue>* out)
         issue.node = n.name;
         issue.has_pos_ = n.has_pos_;
         issue.pos = n.pos;
-        issue.text = get_name(n.name) + (added ? " added" : hidden ? " hidden" : " moved") + " in a level shared with " +
-                     "THUGPRO (" + game + ")";
+        issue.text = get_name(n.name) +
+                     (added    ? " added"
+                      : hidden ? " hidden"
+                               : " moved") +
+                     " in a level shared with " + "THUGPRO (" + game + ")";
         append_one(out, issue);
     }
 }
@@ -753,7 +776,8 @@ void check_multiplayer(std::vector<Issue>* out)
         issue.rule = Rule::kMultiplayer;
         issue.severity = p.severity;
         issue.text = p.text;
-        issue.level_own_ = std::any_of(shipped.begin(), shipped.end(), [&](const MpProblem& s) { return s.text == p.text; });
+        issue.level_own_ =
+            std::any_of(shipped.begin(), shipped.end(), [&](const MpProblem& s) { return s.text == p.text; });
         append_one(out, issue);
     }
 }
@@ -780,7 +804,7 @@ void get_run()
     g_last_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     if (debug_enabled())
         get_log("level editor: problems checked - %u issues in %.1f ms", static_cast<unsigned>(g_issues.size()),
-            g_last_seconds * 1000.0);
+                g_last_seconds * 1000.0);
 }
 
 // --- fixes (undoable) -------------------------------------------------------------------------------------------
@@ -828,8 +852,8 @@ void fix(const Issue& issue)
         if (int index = nodes::get_find(issue.node); index >= 0)
             nodes::reread(index);
         hud::get_message(("Moved to surface: " + get_name(issue.node)).c_str());
-        get_log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)", get_name(issue.node).c_str(),
-            issue.fix_pos_.x, issue.fix_pos_.y, issue.fix_pos_.z);
+        get_log("level editor: problems - %s put on the surface above it (%.0f, %.0f, %.0f)",
+                get_name(issue.node).c_str(), issue.fix_pos_.x, issue.fix_pos_.y, issue.fix_pos_.z);
         break;
     }
     case Rule::kHiddenCollision:
@@ -839,13 +863,14 @@ void fix(const Issue& issue)
     case Rule::kLayoutRecord: {
         push_module_undo(std::make_shared<LayoutRecords>(g_layout_issues));
         g_layout_issues.erase(std::remove_if(g_layout_issues.begin(), g_layout_issues.end(),
-                                            [&](const Issue& i) { return i.key == issue.key; }),
-                             g_layout_issues.end());
+                                             [&](const Issue& i) { return i.key == issue.key; }),
+                              g_layout_issues.end());
         hud::get_message("Record removed");
         get_log("level editor: problems - layout record dropped: %s", issue.record.c_str());
         break;
     }
-    default: break;
+    default:
+        break;
     }
     g_due = get_seconds();
 }
@@ -887,7 +912,8 @@ void note_layout_applied(const layout::FileLoad& file)
         issue.fixable = !issue.record.empty();
         issue.text = what + " not found in the level: " + issue.record;
         issue.key = issue_key(Rule::kLayoutRecord, subject, issue.record);
-        if (std::none_of(g_layout_issues.begin(), g_layout_issues.end(), [&](const Issue& i) { return i.key == issue.key; }))
+        if (std::none_of(g_layout_issues.begin(), g_layout_issues.end(),
+                         [&](const Issue& i) { return i.key == issue.key; }))
             g_layout_issues.push_back(issue);
     };
     for (const scenery::SectorState& s : file.sectors) {
@@ -944,8 +970,9 @@ void note_layout_applied(const layout::FileLoad& file)
         if (!there) {
             layout::FileLoad one;
             one.locks.push_back(lock);
-            report(lock.id, "Locked " + std::string(lock.kind == picking::kObjects ? "object " : "piece ") +
-                                get_name(lock.id), one);
+            report(lock.id,
+                   "Locked " + std::string(lock.kind == picking::kObjects ? "object " : "piece ") + get_name(lock.id),
+                   one);
         }
     }
     for (const triggers::ProximEdit& p : file.proxims) {
@@ -1041,8 +1068,8 @@ void note_layout_applied(const layout::FileLoad& file)
     }
     for (const Issue& i : g_layout_issues)
         get_log("level editor: layout record not found in the level - kept for the next save (the Problems window, "
-            "Alt+P, drops it): %s",
-            i.record.c_str());
+                "Alt+P, drops it): %s",
+                i.record.c_str());
     g_due = get_seconds();
 }
 
@@ -1154,9 +1181,12 @@ namespace {
 ImVec4 severity_colour(Severity severity)
 {
     switch (severity) {
-    case Severity::kError: return ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
-    case Severity::kWarning: return ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
-    default: return ImVec4(0.45f, 0.70f, 0.95f, 1.0f);
+    case Severity::kError:
+        return ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
+    case Severity::kWarning:
+        return ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
+    default:
+        return ImVec4(0.45f, 0.70f, 0.95f, 1.0f);
     }
 }
 
@@ -1202,7 +1232,8 @@ void problems_tab(float scale, ImFont* mono)
             ImGui::TextDisabled("(%d in the original level)", own);
         return;
     }
-    if (!ImGui::BeginTable("##problems", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
+    if (!ImGui::BeginTable("##problems", 3,
+                           ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingFixedFit,
                            ImVec2(0.0f, 340.0f * scale)))
         return;
     ImGui::TableSetupScrollFreeze(0, 1);
@@ -1243,9 +1274,10 @@ void problems_tab(float scale, ImFont* mono)
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"
                                         : issue.rule == Rule::kHiddenCollision ? "Turn the collision off"
-                                        : issue.rule == Rule::kLayoutRecord    ? "Drop the record: the next save leaves it out "
-                                                                                "(undoable)"
-                                                                              : "");
+                                        : issue.rule == Rule::kLayoutRecord
+                                            ? "Drop the record: the next save leaves it out "
+                                              "(undoable)"
+                                            : "");
         }
         ImGui::SameLine();
         if (ImGui::SmallButton(is_ignored ? "Unignore" : "Ignore")) {
@@ -1301,4 +1333,4 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     g_open = open;
 }
 
-} // namespace MenuSystem::level_editor::Checks
+} // namespace frontend::level_editor::checks

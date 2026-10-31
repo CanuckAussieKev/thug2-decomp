@@ -25,9 +25,7 @@
 
 namespace objects {
 
-uint32_t g_vehicle_camera_member_functions[12]{
-    0x000469FD, 0x2C747D8A, 0, 0, 0, 0,
-    0, 0x2C747D8A, 0, 0, 0, 0};
+uint32_t g_vehicle_camera_member_functions[12]{0x000469FD, 0x2C747D8A, 0, 0, 0, 0, 0, 0x2C747D8A, 0, 0, 0, 0};
 
 namespace {
 
@@ -52,10 +50,7 @@ gfx::ViewCam* camera_of(GameEntity* object)
 }
 
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The camera position the collision check pulls toward: `distance` along the orientation's at-row before
 // `position` (x with the product unrounded, as the original).
@@ -90,8 +85,8 @@ ObjectModule* __cdecl CarView::fabricate()
 // 0x00524420
 void __cdecl CarView::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kVehicleCamera),
-                                        g_vehicle_camera_member_functions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kVehicleCamera), g_vehicle_camera_member_functions,
+                                           0x18);
 }
 
 // 0x00524440
@@ -267,25 +262,25 @@ void CarView::tick_frame()
     apply_to_camera();
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::CarView::teardown,
-         &objects::CarView::tick_frame,
-         &objects::CarView::configure_from_data,
-         &objects::CarView::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::CarView::tick_frame,
+                                      &objects::CarView::configure_from_data,
+                                      &objects::CarView::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -35,10 +35,10 @@ bool BodyDynamicsModule::find_contacts()
 {
     const float r = radius_;
     maths::BBox box;
-    box.min = {get_narrow(get_wide(at_point_.x) - r), get_narrow(get_wide(at_point_.y) - r), get_narrow(get_wide(at_point_.z) - r),
-               get_narrow(get_wide(at_point_.w) - 1.0f)};
-    box.max = {get_narrow(get_wide(r) + at_point_.x), get_narrow(get_wide(r) + at_point_.y), get_narrow(get_wide(r) + at_point_.z),
-               get_narrow(get_wide(at_point_.w) + 1.0f)};
+    box.min = {get_narrow(get_wide(at_point_.x) - r), get_narrow(get_wide(at_point_.y) - r),
+               get_narrow(get_wide(at_point_.z) - r), get_narrow(get_wide(at_point_.w) - 1.0f)};
+    box.max = {get_narrow(get_wide(r) + at_point_.x), get_narrow(get_wide(r) + at_point_.y),
+               get_narrow(get_wide(r) + at_point_.z), get_narrow(get_wide(at_point_.w) + 1.0f)};
     body_cache()->tick_frame(box);
     contacts_hit_ = 0;
     unknown191_ = 0;
@@ -51,8 +51,9 @@ bool BodyDynamicsModule::find_contacts()
             const maths::Vec4& point = world_contact_points()[i];
             Contact& contact = get_contacts()[contacts_hit_];
             feeler.line_.start = at_point_;
-            feeler.line_.end = {get_narrow(get_wide(at_point_.x) + point.x), get_narrow(get_wide(at_point_.y) + point.y),
-                                 get_narrow(get_wide(at_point_.z) + point.z), get_narrow(get_wide(at_point_.w) + point.w)};
+            feeler.line_.end = {
+                get_narrow(get_wide(at_point_.x) + point.x), get_narrow(get_wide(at_point_.y) + point.y),
+                get_narrow(get_wide(at_point_.z) + point.z), get_narrow(get_wide(at_point_.w) + point.w)};
             contact.active = feeler.get_hit_shape(false, false) != 0;
             if (!contact.active)
                 continue;
@@ -110,7 +111,8 @@ bool BodyDynamicsModule::find_contacts()
             } else {
                 // (towards the centre: the hit point less the centre, reversed)
                 double inverse = 1.0 / -get_wide(length);
-                n = {get_narrow(inverse * n.x), get_narrow(inverse * n.y), get_narrow(inverse * n.z), get_narrow(inverse * n.w)};
+                n = {get_narrow(inverse * n.x), get_narrow(inverse * n.y), get_narrow(inverse * n.z),
+                     get_narrow(inverse * n.w)};
             }
             // (a face turned away from it, or a hit ahead of the centre of mass: none)
             if ((get_wide(hit.normal.z) * n.z + get_wide(hit.normal.x) * n.x) + get_wide(n.y) * hit.normal.y < 0.0)
@@ -132,4 +134,4 @@ bool BodyDynamicsModule::find_contacts()
     return unknown191_ != 0;
 }
 
-} // namespace Obj
+} // namespace objects

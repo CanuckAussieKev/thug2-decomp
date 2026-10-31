@@ -24,28 +24,28 @@ enum class Selection : uint8_t { kNone, object_edit, kScenery, kPointNode, kOthe
 enum class Drag : uint8_t { kNone, kShiftBy, kMoveAxis, kSpinBy, scale_tool };
 
 struct CtxInfo {
-    bool rmb = false;       // the right button held (looking / flying)
+    bool rmb = false;         // the right button held (looking / flying)
     bool fly_always_ = false; // [editor] wasd_flies=1
-    uint8_t mods = 0;       // Actions::kCtrl | kShift | kAlt held
+    uint8_t mods = 0;         // Actions::kCtrl | kShift | kAlt held
     Selection selection = Selection::kNone;
     bool free_camera_ = false; // (with a selection: the camera flew off it - F frames it again)
-    int tool = 0;            // the transform tool: 0 move, 1 rotate, 2 scale (level_editor_transform.h)
+    int tool = 0;              // the transform tool: 0 move, 1 rotate, 2 scale (level_editor_transform.h)
     Drag drag = Drag::kNone;
-    bool modal = false;      // Alt+G's transform (no button held)
-    std::string typed;       // a typed value's description ("" none)
-    int carried = 0;         // what the moving scenery carries
+    bool modal = false; // Alt+G's transform (no button held)
+    std::string typed;  // a typed value's description ("" none)
+    int carried = 0;    // what the moving scenery carries
     bool browser = false, place_armed_ = false;
     bool chain_drawing_ = false, ladder_drawing_ = false, chain_pick_ = false;
     std::string chain_waiting_; // (Chains::Waiting)
     bool ruler_armed_ = false, faces_mode_ = false, box_armed_ = false;
-    int ux9_tool_ = 0;          // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle
-    bool chain_point_ = false;  // a rail / ladder / path point selected
-    bool following = false;   // the camera follows the selection (Shift+F)
-    bool walking = false;     // walk mode
-    bool pie_open_ = false;     // a pie menu up
-    bool pie_sticky_ = false;   // (opened by a tap: stays until a click)
-    bool pad = false;         // controller mode with a controller attached
-    bool simulating = false;  // UX6's Simulate (F6)
+    int ux9_tool_ = 0; // (UX9 - level_editor_ux9.h) 1 the gap wizard picking, 2 the ground tool marking a rectangle
+    bool chain_point_ = false; // a rail / ladder / path point selected
+    bool following = false;    // the camera follows the selection (Shift+F)
+    bool walking = false;      // walk mode
+    bool pie_open_ = false;    // a pie menu up
+    bool pie_sticky_ = false;  // (opened by a tap: stays until a click)
+    bool pad = false;          // controller mode with a controller attached
+    bool simulating = false;   // UX6's Simulate (F6)
     // What the held modifiers do (modifier_hints from the registry), filled by the caller when `mods` isn't 0.
     std::vector<std::pair<std::string, std::string>> modded;
 };
@@ -65,13 +65,25 @@ std::string leading_key_name(const std::string& keys_text);
 std::string join_keys(const std::vector<std::string>& keys);
 // The registry's actions bound with exactly `mods` held (their first such chord), as (keys, name): Press and Toggle,
 // in the registry's order, at most `limit`.
-std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions, uint8_t mods,
-                                                               size_t limit);
+std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions,
+                                                                uint8_t mods, size_t limit);
 
 // A hint's keys split into tokens ('+' between them; a key ending in '+' - "Keypad+" - kept whole).
 std::vector<std::string> get_tokens(const std::string& keys);
-enum class Glyph : uint8_t { kKey, kMouse, kMouseLeft, kMouseRight, kMouseMiddle, kWheel, kDoubleClick, kPadA, kPadB, kPadX, kPadY,
-                             kPadOther };
+enum class Glyph : uint8_t {
+    kKey,
+    kMouse,
+    kMouseLeft,
+    kMouseRight,
+    kMouseMiddle,
+    kWheel,
+    kDoubleClick,
+    kPadA,
+    kPadB,
+    kPadX,
+    kPadY,
+    kPadOther
+};
 Glyph glyph_of(const std::string& token);
 
-} // namespace MenuSystem::level_editor::Hints
+} // namespace frontend::level_editor::hints

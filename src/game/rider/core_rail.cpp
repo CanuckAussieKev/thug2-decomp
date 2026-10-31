@@ -34,7 +34,7 @@ using namespace core_fields;
 namespace {
 
 constexpr uint32_t kCornerLeaveAngle = 0x76C1DA15; // Rail_Corner_Leave_Angle
-constexpr uint32_t kRailRegrabDelay = 0x2B4645AD;       // Rail_minimum_rerail_time
+constexpr uint32_t kRailRegrabDelay = 0x2B4645AD;  // Rail_minimum_rerail_time
 constexpr uint32_t kJumpRerailTime = 0x0BF35053;   // Rail_jump_rerail_time
 constexpr uint32_t kRailGravity = 0xD1F46992;      // Physics_Rail_Gravity
 constexpr uint32_t kRailManagerType = 0x1CDFB2A3;  // RailManager (a component)
@@ -46,13 +46,19 @@ constexpr uint32_t kName = 0xA1DC81F9;
 constexpr uint32_t kParkEditorLevel = 0xD443A2BC;
 
 constexpr float kDegrees = 0.0174532924f;
-constexpr float kRaise = 6.0f;      // 0x00646284: the transfer line's start raised
-constexpr float kRaiseEnd = 6.1f;   // 0x0064BDA8: its end
+constexpr float kRaise = 6.0f;       // 0x00646284: the transfer line's start raised
+constexpr float kRaiseEnd = 6.1f;    // 0x0064BDA8: its end
 constexpr float kFeelerAhead = 6.0f; // (the feeler past the move: 6 along it)
-constexpr float kTurnFacing = 0.3f; // (how far the display facing turns to the rail each frame)
+constexpr float kTurnFacing = 0.3f;  // (how far the display facing turns to the rail each frame)
 
-bool in_park_editor() { return get_at<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) == kParkEditorLevel; }
-void change_state(void* component, int state) { static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state); }
+bool in_park_editor()
+{
+    return get_at<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) == kParkEditorLevel;
+}
+void change_state(void* component, int state)
+{
+    static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
+}
 
 maths::Vec4 grind_point_in_world(void* component, const objects::GrindPoint* node)
 {
@@ -113,7 +119,8 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     maths::Vec4 point;
     objects::GrindPoint* found = nullptr;
     bool onto = get_at<objects::GrindRailHub*>(this, kRailManager)
-                    ->find_grind_rail(&start, &stop, &point, &found, get_at<objects::GrindPoint*>(this, kRailNode), alignment, side) &&
+                    ->find_grind_rail(&start, &stop, &point, &found, get_at<objects::GrindPoint*>(this, kRailNode),
+                                      alignment, side) &&
                 found && found != get_at<objects::GrindPoint*>(this, kRailNode) && found->succ_;
     if (onto && !in_park_editor()) {
         // (Not this rail's next or last node.)
@@ -288,13 +295,14 @@ void SkaterPhysicsModule::step_grind_move()
         objects::GrindPoint* from_node = after < 0.0f ? next : node;
         const maths::Vec4& p = vector_at(object_of(this), kPosition);
         maths::Vec4 q = grind_point_in_world(this, from_node);
-        double ex = static_cast<double>(p.x) - q.x, ey = static_cast<double>(p.y) - q.y, ez = static_cast<double>(p.z) - q.z;
+        double ex = static_cast<double>(p.x) - q.x, ey = static_cast<double>(p.y) - q.y,
+               ez = static_cast<double>(p.z) - q.z;
         double distance = std::sqrt((ez * ez + ey * ey) + ex * ex);
         if (distance > static_cast<double>(segment_length) + 0.1f) {
             overshoot = static_cast<float>(distance - segment_length);
-            objects::GrindPoint* corner = after < 0.0f ? node : next;               // the node passed
+            objects::GrindPoint* corner = after < 0.0f ? node : next;                     // the node passed
             objects::GrindPoint* onward = after < 0.0f ? node->last_value_ : next->succ_; // the next segment's far node
-            objects::GrindPoint* flagged = after < 0.0f ? node->last_value_ : next;      // the node whose flag says go on
+            objects::GrindPoint* flagged = after < 0.0f ? node->last_value_ : next; // the node whose flag says go on
             bool clear = false;
             if (onward && continues(flagged)) {
                 maths::Vec4 far = grind_point_in_world(this, onward);
@@ -332,7 +340,8 @@ void SkaterPhysicsModule::ride_moving_rail()
         if (!tracker->entity_.owner_object_) {
             stop_riding(this);
         } else {
-            void* rails = static_cast<objects::GameEntity*>(get_tracker(this)->entity_.owner_object_)->fetch_module(kRailManagerType);
+            void* rails = static_cast<objects::GameEntity*>(get_tracker(this)->entity_.owner_object_)
+                              ->fetch_module(kRailManagerType);
             maths::Mat4 matrix;
             static_cast<objects::GrindPathLinkModule*>(rails)->update_rail_matrix(&matrix);
             tracker = get_tracker(this);
@@ -360,7 +369,9 @@ void SkaterPhysicsModule::update_grind_balance()
     uint32_t kind = get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0x18);
     if (kind == kGrind || kind == kSlide) {
         reinterpret_cast<objects::Balance*>(get_at<uint8_t*>(this, kBalanceTrick) + 0x7C)->tick_frame();
-        auto career = [] { return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20); };
+        auto career = [] {
+            return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
+        };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0xAC) = 0;
@@ -372,8 +383,8 @@ void SkaterPhysicsModule::update_grind_balance()
 
 // (Part of 0x0050DDF0) Still on the rail: the velocity along the segment, the facing turned to it, the move (and
 // what went past the last segment's end), then a feeler ahead along the move.
-void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::GrindPoint* go_on_to, bool no_next_segment,
-                                      float overshoot)
+void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::GrindPoint* go_on_to,
+                                      bool no_next_segment, float overshoot)
 {
     auto* node = get_at<objects::GrindPoint*>(this, kRailNode);
     objects::GrindPoint* next = node->succ_;
@@ -598,4 +609,4 @@ void SkaterPhysicsModule::do_bike_stall_physics()
     finish_rail();
 }
 
-} // namespace Skater
+} // namespace skater

@@ -89,8 +89,8 @@ public:
     bool work_on(void* camera);
 
     maths::QuatRotation orientation_turn_; // +0x0C
-    maths::Vec4 at_point_;    // +0x1C (w 1)
-    bool cut_;           // +0x2C
+    maths::Vec4 at_point_;                 // +0x1C (w 1)
+    bool cut_;                             // +0x2C
     uint8_t pad2d_[3];
 };
 static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x30, "layout must match the original");
@@ -106,7 +106,7 @@ public:
     // 0x00486440 (vtable slot 2): the event sent by the object to itself. True.
     bool work_on(void* object);
 
-    uint32_t kind_tag_;           // +0x0C
+    uint32_t kind_tag_;         // +0x0C
     script::Struct* call_args_; // +0x10
 };
 static_assert(sizeof(AnimScriptKey) == 0x14, "layout must match the original");
@@ -115,4 +115,4 @@ static_assert(sizeof(AnimScriptKey) == 0x14, "layout must match the original");
 // the kind's data. Unknown kinds are skipped (by size); null for them and when memory runs out.
 UserClipKey* __cdecl create_custom_anim_key(const uint8_t** cursor);
 
-} // namespace Gfx
+} // namespace gfx

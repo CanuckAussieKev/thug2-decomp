@@ -13,31 +13,31 @@
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
 // GrindPoint::flag_bits_
 constexpr uint32_t kRailFlagLipOverride = 0x1;
 constexpr uint32_t kRailFlagDefaultLine = 0x2;
-constexpr uint32_t kRailFlagActive = 0x4;       // CreatedAtStart, or switched on later
+constexpr uint32_t kRailFlagActive = 0x4; // CreatedAtStart, or switched on later
 constexpr uint32_t kRailFlagNoClimbing = 0x8;
-constexpr uint32_t kRailFlagClimbing = 0x10;    // a climbing node (Class ClimbingNode)
-constexpr uint32_t kRailFlagLadder = 0x20;      // of type Ladder
+constexpr uint32_t kRailFlagClimbing = 0x10; // a climbing node (Class ClimbingNode)
+constexpr uint32_t kRailFlagLadder = 0x20;   // of type Ladder
 constexpr uint32_t kRailFlagHangLeft = 0x40;
 constexpr uint32_t kRailFlagHangRight = 0x80;
 
 // A rail or climbing node (0x54 bytes).
 struct GrindPoint {
-    maths::Vec4 lower_limit_;       // +0x00 the box of its segment (to the next node; its own point with none)
-    maths::Vec4 upper_limit_;       // +0x10
-    maths::Vec4 at_point_;       // +0x20
-    maths::Vec4 climb_;     // +0x30 (climbing nodes)
-    GrindPoint* succ_;       // +0x40
-    GrindPoint* last_value_;       // +0x44
-    uint32_t flag_bits_;        // +0x48 (4 active, 0x10 a climbing node, ...)
-    uint32_t label_;         // +0x4C its node's name (checksum)
-    uint8_t surface_type_;       // +0x50
+    maths::Vec4 lower_limit_; // +0x00 the box of its segment (to the next node; its own point with none)
+    maths::Vec4 upper_limit_; // +0x10
+    maths::Vec4 at_point_;    // +0x20
+    maths::Vec4 climb_;       // +0x30 (climbing nodes)
+    GrindPoint* succ_;        // +0x40
+    GrindPoint* last_value_;  // +0x44
+    uint32_t flag_bits_;      // +0x48 (4 active, 0x10 a climbing node, ...)
+    uint32_t label_;          // +0x4C its node's name (checksum)
+    uint8_t surface_type_;    // +0x50
     uint8_t pad51[3];
 
     // 0x0057C200: whether it's the node `name`.
@@ -83,18 +83,18 @@ public:
     // 0x00441260 with the other node first and its orientation; both with `extra`) - into `found` (the node climbed
     // from: the node, or the other one).
     bool find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker, uint32_t extra,
-                    GrindPoint** found);
+                     GrindPoint** found);
     // 0x0057DA20: the ladder nearest the line `start`-`end` (within Climb_Max_Snap of it; TRG_Ladder03's counted 4
     // times as far) that `checker` accepts (0x004413E0: climbing up from the lower node, with the closest point on
     // the ladder and how far along it); its record into `result`, the node climbed from into `found`. Whether one was.
     bool find_ladder_on_line(const maths::Vec4* start, const maths::Vec4* end, void* checker, struct Record24* result,
-                          GrindPoint** found);
+                             GrindPoint** found);
     // 0x0057DDA0: the rail nearest the line `start`-`end` (within `margin`; the part along `direction` counting a
     // third) that's clear (RailClear) and that `checker` accepts (0x00440690: the segment's ends, the closest points
     // on the rail and the line, in the world, how far along); its record (with the node) into `result`. Whether one
     // was.
     bool find_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* direction, void* checker,
-                  struct Record34* result, float margin);
+                   struct Record34* result, float margin);
     // 0x0057E170: a rail starting (or ending) within 1 of `from` on every axis, other than `from`, switched on, without
     // any of `exclude_flags`, and clear (RailClear): its node going on from there, or the node before it - into `found`.
     bool find_joining_rail(const GrindPoint* from, uint32_t exclude_flags, GrindPoint** found);
@@ -109,18 +109,18 @@ public:
     // of one node count by their point. Into `point` (on the rail) and `found`. (Quirk kept: a better rail out of
     // reach still takes the best score and drops what was found.)
     bool find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point, GrindPoint** found,
-                       const GrindPoint* exclude, float min_alignment, int side);
+                         const GrindPoint* exclude, float min_alignment, int side);
     // 0x0057CBD0: the node named `name` (null: none).
     GrindPoint* find_node(uint32_t name);
     // 0x0057C3F0: the node `name` moved to `pos`: its segment's box again, and (the original's) a check of the node's
     // own previous link at its own index count times (found: the previous node's box - never).
     void move_node(uint32_t name, const maths::Vec4* pos);
 
-    maths::Mat4 frame_xform_; // +0x00
+    maths::Mat4 frame_xform_;   // +0x00
     GrindPoint* nodes_;         // +0x40
     script::Array* node_array_; // +0x44 the node array they were made from
-    int num_;                // +0x48
-    int adding_;               // +0x4C the node being added (0x0057D090)
+    int num_;                   // +0x48
+    int adding_;                // +0x4C the node being added (0x0057D090)
     bool on_object_;            // +0x50
     uint8_t pad51[3];
 };
@@ -163,4 +163,4 @@ struct Record34 {
     Record34* get_assign(const Record34* other);
 };
 
-} // namespace Obj
+} // namespace objects

@@ -88,7 +88,7 @@ void read_in()
     if (s_options.anisotropy || s_options.msaa || s_options.draw_distance_scale_ != 1.0f ||
         s_options.lod_distance_scale_ != 1.0f)
         get_log("graphics options: anisotropy=%d msaa=%d draw_distance_scale=%.3g lod_distance_scale=%.3g",
-                   s_options.anisotropy, s_options.msaa, s_options.draw_distance_scale_, s_options.lod_distance_scale_);
+                s_options.anisotropy, s_options.msaa, s_options.draw_distance_scale_, s_options.lod_distance_scale_);
 }
 
 int parse_anisotropy(int value) { return value < 2 ? 0 : (value > 16 ? 16 : value); }
@@ -149,7 +149,7 @@ void choose_multisample(IDirect3D9* d3d, uint32_t back_buffer_format, uint32_t d
     if (s_samples)
         s_quality = query.quality - 1; // (the highest)
     get_log("graphics options: msaa=%d asked, %d samples (quality %lu) chosen", s_options.msaa, s_samples,
-               static_cast<unsigned long>(s_quality));
+            static_cast<unsigned long>(s_quality));
 }
 
 void create_scene_target()
@@ -159,15 +159,15 @@ void create_scene_target()
     if (s_samples <= 0 || pp.MultiSampleType == D3DMULTISAMPLE_NONE)
         return; // (the device was made without: the fallbacks in init_direct_3d)
     IDirect3DDevice9* device = input_port();
-    HRESULT colour = device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat,
-                                                pp.MultiSampleType, pp.MultiSampleQuality, FALSE, &s_scene_colour,
-                                                nullptr);
-    HRESULT depth = device->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight,
-                                                      pp.AutoDepthStencilFormat, pp.MultiSampleType,
-                                                      pp.MultiSampleQuality, TRUE, &s_scene_depth, nullptr);
+    HRESULT colour =
+        device->CreateRenderTarget(pp.BackBufferWidth, pp.BackBufferHeight, pp.BackBufferFormat, pp.MultiSampleType,
+                                   pp.MultiSampleQuality, FALSE, &s_scene_colour, nullptr);
+    HRESULT depth =
+        device->CreateDepthStencilSurface(pp.BackBufferWidth, pp.BackBufferHeight, pp.AutoDepthStencilFormat,
+                                          pp.MultiSampleType, pp.MultiSampleQuality, TRUE, &s_scene_depth, nullptr);
     if (FAILED(colour) || FAILED(depth)) {
         get_log("graphics options: no multisampled scene surface (0x%08lX / 0x%08lX) - screen effects unsmoothed",
-                   static_cast<unsigned long>(colour), static_cast<unsigned long>(depth));
+                static_cast<unsigned long>(colour), static_cast<unsigned long>(depth));
         release_scene_target();
     }
 }

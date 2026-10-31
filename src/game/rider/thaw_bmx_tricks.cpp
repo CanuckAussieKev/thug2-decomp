@@ -43,31 +43,31 @@ maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<math
 
 // The core physics component's fields (THUG2's; THAW's in the comment).
 constexpr uint32_t kObject = 0x0C;
-constexpr uint32_t kDisplayMatrix = 0x18;  // (rows: +0x18 right, +0x28 up, +0x38 forward)
+constexpr uint32_t kDisplayMatrix = 0x18; // (rows: +0x18 right, +0x28 up, +0x38 forward)
 constexpr uint32_t kDisplayUp = 0x28;
 
-constexpr uint32_t kFrameLength = 0x8C;    // THAW +0x9C
+constexpr uint32_t kFrameLength = 0x8C; // THAW +0x9C
 constexpr uint32_t kHitFlags = 0xF8;
 constexpr uint32_t kHitPoint = 0x120;
 constexpr uint32_t kProbeOrigin = 0x208;
 constexpr uint32_t kProbeTip = 0x218;
-constexpr uint32_t kInput = 0x150C;        // THAW +0x1910 (the pad at its +0x20)
+constexpr uint32_t kInput = 0x150C;         // THAW +0x1910 (the pad at its +0x20)
 constexpr uint32_t kBalanceTricks = 0x1524; // THAW +0x1928 (the balance trick component: +0x18 its kind)
-constexpr uint32_t kFlags = 0x1528;        // THAW +0x192C
+constexpr uint32_t kFlags = 0x1528;         // THAW +0x192C
 constexpr uint32_t kFloorUpVector = 0x68;   // THAW +0x68 (THAW's 0x005D0BD0 sets it - the same place as THUG2's)
 // The timed flags (THUG2's; THAW's in the comment).
 constexpr uint32_t kFlagVert = 0x30;       // THAW 0x30
 constexpr uint32_t kFlag38 = 0x38;         // THAW 0x38
 constexpr uint32_t kFlagVertGround = 0x40; // THAW 0x40 (THAW clears 0x48 too: ours 0x48)
 constexpr uint32_t kFlag48 = 0x48;
-constexpr uint32_t kFlag70 = 0x70;         // THAW 0x78
-constexpr uint32_t kFlagAcidDrop = 0x78;   // THAW 0x80
+constexpr uint32_t kFlag70 = 0x70;       // THAW 0x78
+constexpr uint32_t kFlagAcidDrop = 0x78; // THAW 0x80
 // The skater object's.
-constexpr uint32_t kPosition = 0x4C;       // THAW +0x68
-constexpr uint32_t kMatrix = 0x6C;         // THAW +0x88
-constexpr uint32_t kUp = 0x7C;             // THAW +0x98
-constexpr uint32_t kFacing = 0x8C;         // THAW +0xA8
-constexpr uint32_t kVelocity = 0xAC;       // THAW +0xC8
+constexpr uint32_t kPosition = 0x4C; // THAW +0x68
+constexpr uint32_t kMatrix = 0x6C;   // THAW +0x88
+constexpr uint32_t kUp = 0x7C;       // THAW +0x98
+constexpr uint32_t kFacing = 0x8C;   // THAW +0xA8
+constexpr uint32_t kVelocity = 0xAC; // THAW +0xC8
 // The pad's buttons (offsets in THUG2's pad = THAW's).
 constexpr uint32_t kR1 = 0xE0, kR2 = 0x100, kSquare = 0x160;
 // THAW's stall state (core_fields::kBikeStall).
@@ -169,7 +169,8 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
     const float steepest = rail_ascent_sine();
     for (int index = 0; index < rails->num_; ++index) {
         const objects::GrindPoint* node = &rails->nodes_[index];
-        if ((node->flag_bits_ & objects::kRailFlagLadder) || !(node->flag_bits_ & objects::kRailFlagActive) || !node->succ_)
+        if ((node->flag_bits_ & objects::kRailFlagLadder) || !(node->flag_bits_ & objects::kRailFlagActive) ||
+            !node->succ_)
             continue;
         maths::Vec4 a, b, at;
         rails->get_absolute_pos(&a, node);
@@ -193,8 +194,8 @@ bool find_ledge(const maths::Vec4& start, const maths::Vec4& end, const maths::V
 // The bike (the skater's special item named ThawBmx), or null.
 objects::GameEntity* bike_of(void* skater)
 {
-    auto* items = static_cast<objects::PickupItemHandler*>(
-        static_cast<objects::GameEntity*>(skater)->fetch_module(kSpecialItem));
+    auto* items =
+        static_cast<objects::PickupItemHandler*>(static_cast<objects::GameEntity*>(skater)->fetch_module(kSpecialItem));
     if (!items)
         return nullptr;
     const uint32_t id = name_hash(kBikeObject);
@@ -279,7 +280,10 @@ uint32_t balance_offset(uint32_t kind)
     }
 }
 
-float balance_wobble(float lean, bool flip) { return (flip ? kBalanceMiddle - lean : lean + kBalanceMiddle) * kBalanceScale; }
+float balance_wobble(float lean, bool flip)
+{
+    return (flip ? kBalanceMiddle - lean : lean + kBalanceMiddle) * kBalanceScale;
+}
 
 bool display_pitch_beyond(const maths::Vec4& up, const maths::Vec4& normal, float degrees)
 {
@@ -287,7 +291,7 @@ bool display_pitch_beyond(const maths::Vec4& up, const maths::Vec4& normal, floa
 }
 
 bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::Vec4& direction, const maths::Vec4& a,
-                const maths::Vec4& b, float margin, maths::Vec4* point, float* score)
+                 const maths::Vec4& b, float margin, maths::Vec4* point, float* score)
 {
     maths::Seg line(start, end), rail(a, b);
     maths::Vec4 on_line, on_rail;
@@ -314,7 +318,7 @@ bool ledge_point(const maths::Vec4& start, const maths::Vec4& end, const maths::
     return true;
 }
 
-} // namespace Bike
+} // namespace bike
 
 // --- the gates ---------------------------------------------------------------------------------------------------
 
@@ -463,14 +467,15 @@ void carry_tire_tap(void* core, BikeState& state)
             state.landed_from_tire_tap_ = state.tap_ledge_;
         }
     } else {
-        maths::Vec4 pull = {state.tap_point_.x - state.tap_start_.x, 0.0f, state.tap_point_.z - state.tap_start_.z, 0.0f};
+        maths::Vec4 pull = {state.tap_point_.x - state.tap_start_.x, 0.0f, state.tap_point_.z - state.tap_start_.z,
+                            0.0f};
         if (dot3(pull, pull) > 0.0)
             pull.make_unit();
         velocity.x += pull.x * kTapPull;
         velocity.z += pull.z * kTapPull;
         if (velocity.y > 0.0f)
-            velocity.y = velocity.y > kTapRiseFast ? velocity.y - velocity.y * kTapRiseFraction
-                                                    : velocity.y - kTapRiseSlow;
+            velocity.y =
+                velocity.y > kTapRiseFast ? velocity.y - velocity.y * kTapRiseFraction : velocity.y - kTapRiseSlow;
     }
     // THAW 0x005DC9E9..: the bike turned over to 45 degrees in half a second (THAW slerps its display there; here the
     // skater's matrix and the display's, a step a frame).
@@ -541,7 +546,7 @@ void* shadow_companion_of(const void* caster_model, const void* rider_model, voi
     return (bike_model_flags & 0x2) && !(bike_model_flags & 0x4) ? bike_model : nullptr;
 }
 
-} // namespace Bike
+} // namespace bike
 
 void* shadow_companion(void* caster_model)
 {
@@ -561,7 +566,7 @@ void* shadow_companion(void* caster_model)
         return nullptr;
     uint8_t* bike_renderer = get_at<uint8_t*>(bike_model, kModelOfComponent);
     return bike::shadow_companion_of(caster_model, get_at<void*>(rider_model, kModelOfComponent), bike_renderer,
-                                   bike_renderer ? bike_renderer[kModelFlags] : 0);
+                                     bike_renderer ? bike_renderer[kModelFlags] : 0);
 }
 
 // --- the flip ----------------------------------------------------------------------------------------------------
@@ -576,8 +581,7 @@ int play_flip(void* object)
     if (object == skater) {
         // (THAW's Skater_Playanim: HandleFlipOrBoardRotateAfter before the branch - the component's own PlayAnim
         // answer does it too, after this or before: done once, the flags cleared)
-        if (auto* flip_and_rotate =
-                static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate)))
+        if (auto* flip_and_rotate = static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate)))
             flip_and_rotate->do_after_anim();
     } else if (object != bike_of(skater)) {
         return -1;
@@ -591,8 +595,7 @@ void flip_anims_to_flag(void* core)
     // animation played left them as they were)
     auto* skater = static_cast<objects::GameEntity*>(object_of(core));
     if (auto* flip_and_rotate =
-            skater ? static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate))
-                   : nullptr)
+            skater ? static_cast<objects::RiderSpinAndFlip*>(skater->fetch_module(kSkaterFlipAndRotate)) : nullptr)
         flip_and_rotate->apply_flip_to_anims();
 }
 
@@ -632,8 +635,8 @@ int call_trick_member(void* core, uint32_t name, script::Struct* params, script:
                           kPitchingForward = name_hash("PitchingForward"),
                           kPitchingBackward = name_hash("PitchingBackward"),
                           kShouldStall = name_hash("ShouldRunStallScript"),
-                          kClearStall = name_hash("ClearStallScriptFlag"), kExitStallBoost = name_hash("ExitStallBoost"),
-                          kOnStall = name_hash("OnStall");
+                          kClearStall = name_hash("ClearStallScriptFlag"),
+                          kExitStallBoost = name_hash("ExitStallBoost"), kOnStall = name_hash("OnStall");
     if (name == kDisplayPitch) {
         // 0x005CA490: the model's display up (the model component's matrix: THUG2's model draws
         // with the display matrix) against the GROUND normal (+0x68 - phase 4 took THAW's +0x68 for the display
@@ -641,7 +644,8 @@ int call_trick_member(void* core, uint32_t name, script::Struct* params, script:
         float degrees = 0.0f;
         if (params)
             params->fetch_float(static_cast<uint32_t>(0), &degrees, 0);
-        return bike::display_pitch_beyond(vector_at(core, kDisplayUp), vector_at(core, kFloorUpVector), degrees) ? 1 : 0;
+        return bike::display_pitch_beyond(vector_at(core, kDisplayUp), vector_at(core, kFloorUpVector), degrees) ? 1
+                                                                                                                 : 0;
     }
     if (name == kLandedFromTap) { // 0x005C7AF0
         const BikeState* state = state_of(core, false);
@@ -678,4 +682,4 @@ int call_trick_member(void* core, uint32_t name, script::Struct* params, script:
     return 2;
 }
 
-} // namespace Skater::ThawBmx
+} // namespace skater::thaw_bmx

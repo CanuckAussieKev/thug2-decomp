@@ -6,7 +6,8 @@
 namespace util {
 
 // 0x00401050
-PackedBitBuffer::PackedBitBuffer() : cursor_(nullptr), outset_(nullptr), octets_(0), free_bits_in_word_(32), extent_(0), bits_used_(0)
+PackedBitBuffer::PackedBitBuffer()
+    : cursor_(nullptr), outset_(nullptr), octets_(0), free_bits_in_word_(32), extent_(0), bits_used_(0)
 {
     // The original leaves outset_ uninitialised; zeroing it here is harmless.
 }
@@ -32,10 +33,7 @@ void PackedBitBuffer::bind_output_buffer(void* data, int size)
 }
 
 // 0x004010C0
-int PackedBitBuffer::get_byte_count() const
-{
-    return (bits_used_ + 7) >> 3;
-}
+int PackedBitBuffer::get_byte_count() const { return (bits_used_ + 7) >> 3; }
 
 // 0x00401180
 void PackedBitBuffer::drain()
@@ -110,15 +108,12 @@ int32_t PackedBitBuffer::read_signed_bits(int count)
     return static_cast<int32_t>(bits);
 }
 
-} // namespace Util
+} // namespace util
 
 namespace {
 
 struct BitStreamAdapter {
-    util::PackedBitBuffer* make_new()
-    {
-        return new (this) util::PackedBitBuffer();
-    }
+    util::PackedBitBuffer* make_new() { return new (this) util::PackedBitBuffer(); }
 };
 
 } // namespace

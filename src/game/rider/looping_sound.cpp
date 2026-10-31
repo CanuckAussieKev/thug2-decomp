@@ -36,11 +36,11 @@ constexpr uint32_t kTableWheelroll = 0xDAFD1B8C, kTableGrind = 0x29A21517, kTabl
 
 constexpr int kStateGround = 0, kStateAir = 1, kStateRail = 4;
 
-constexpr float kAirPitchFloor = 45.0f;           // 0x42340000
-constexpr float kAirPitchFall = 18.3333340f;      // 0x4192AAAB (a second)
-constexpr float kPercent = 100.0f;                // 0x0064BF2C
-constexpr float kChangeThreshold = 0.5f;          // 0x0064BF28 (volume or pitch: an update when it moved more)
-constexpr float kCapsizedFraction = 0.5f;         // the core physics' +0x2EC
+constexpr float kAirPitchFloor = 45.0f;      // 0x42340000
+constexpr float kAirPitchFall = 18.3333340f; // 0x4192AAAB (a second)
+constexpr float kPercent = 100.0f;           // 0x0064BF2C
+constexpr float kChangeThreshold = 0.5f;     // 0x0064BF28 (volume or pitch: an update when it moved more)
+constexpr float kCapsizedFraction = 0.5f;    // the core physics' +0x2EC
 
 template <typename T>
 T& prop(void* object, uint32_t offset)
@@ -55,8 +55,8 @@ sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
 bool terrain_sound(uint8_t* entry, int terrain, uint8_t table)
 {
-    return surface_kind::get_terrain_sound(reinterpret_cast<surface_kind::SoundInfo*>(entry), static_cast<uint8_t>(terrain), table,
-                                    0.0f);
+    return surface_kind::get_terrain_sound(reinterpret_cast<surface_kind::SoundInfo*>(entry),
+                                           static_cast<uint8_t>(terrain), table, 0.0f);
 }
 double sound_volume(uint8_t* entry, float percent)
 {
@@ -100,7 +100,7 @@ ObjectModule* __cdecl RiderRollingAudio::fabricate()
 void __cdecl RiderRollingAudio::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterLoopingSound),
-                                        g_looping_sound_member_functions, 0x18);
+                                           g_looping_sound_member_functions, 0x18);
 }
 
 // 0x005138E0
@@ -181,8 +181,7 @@ void RiderRollingAudio::hold_off(bool suspend)
 }
 
 // 0x005139E0
-int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
-                                                     script::Script* /*script*/)
+int RiderRollingAudio::invoke_method_by_name(uint32_t name, script::Struct* /*params*/, script::Script* /*script*/)
 {
     switch (name) {
     case kTurnOn:
@@ -229,9 +228,9 @@ void RiderRollingAudio::tick_frame()
     int bike = -1;
     if (skater::thaw_bmx::is_switched_on()) {
         using skater::thaw_bmx::BikeSound;
-        BikeSound kind = cur_phase_ == kStateGround ? BikeSound::kRoll
+        BikeSound kind = cur_phase_ == kStateGround                                 ? BikeSound::kRoll
                          : cur_phase_ == kStateRail && !sliding_ && !no_rail_sound_ ? BikeSound::kGrind
-                                                                                  : BikeSound::kAir;
+                                                                                    : BikeSound::kAir;
         bike = skater::thaw_bmx::bike_sound_of(entity_, kind, sound_);
         if (bike >= 0) {
             have_sound_ = static_cast<uint8_t>(bike);
@@ -289,7 +288,8 @@ void RiderRollingAudio::tick_frame()
     if (cur_phase_ == kStateAir && sound_id_) {
         // In the air the playing sound's pitch falls (to the floor, then it's silent).
         if (lean_pitch_angle_ > air_pitch_floor_) {
-            lean_pitch_angle_ = static_cast<float>(lean_pitch_angle_ - static_cast<double>(frame_clock::get_slomo_frame_seconds()) * air_pitch_fall_);
+            lean_pitch_angle_ = static_cast<float>(
+                lean_pitch_angle_ - static_cast<double>(frame_clock::get_slomo_frame_seconds()) * air_pitch_fall_);
             pitch = lean_pitch_angle_;
         } else {
             volume.change_muted();
@@ -303,9 +303,9 @@ void RiderRollingAudio::tick_frame()
         if (speed_ratio_ > 0.0f) {
             float percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
             volume.percent_tweak(static_cast<float>(sound_volume(sound_, percent)));
-            pitch = static_cast<float>((static_cast<double>(full_speed_pitch(sound_)) - rest_pitch(sound_)) *
-                                           speed_ratio_ +
-                                       rest_pitch(sound_));
+            pitch =
+                static_cast<float>((static_cast<double>(full_speed_pitch(sound_)) - rest_pitch(sound_)) * speed_ratio_ +
+                                   rest_pitch(sound_));
             lean_pitch_angle_ = pitch;
         } else {
             volume.change_muted();
@@ -322,7 +322,7 @@ void RiderRollingAudio::tick_frame()
         static_cast<LoopingSoundVolume*>(&prev_levels_)->get_assign(&volume);
         prev_pitch_value_ = pitch;
         sound_id_ = sfx->emit_sound(sound_name_key(sound_), &volume, pitch, 0, nullptr,
-                                   static_cast<int>(reinterpret_cast<uintptr_t>(sound_)));
+                                    static_cast<int>(reinterpret_cast<uintptr_t>(sound_)));
         if (sound_id_)
             playing_checksum_ = sound_name_key(sound_);
         return;
@@ -338,25 +338,25 @@ void RiderRollingAudio::tick_frame()
     sfx->set_sound_params_scaled(sound_id_, &volume, pitch);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::RiderRollingAudio::teardown,
-         &objects::RiderRollingAudio::tick_frame,
-         &objects::RiderRollingAudio::configure_from_data,
-         &objects::RiderRollingAudio::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::RiderRollingAudio::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::RiderRollingAudio::invoke_method_by_name};
+                                      &objects::RiderRollingAudio::tick_frame,
+                                      &objects::RiderRollingAudio::configure_from_data,
+                                      &objects::RiderRollingAudio::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::RiderRollingAudio::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::RiderRollingAudio::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

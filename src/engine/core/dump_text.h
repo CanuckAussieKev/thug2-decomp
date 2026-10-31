@@ -6,4 +6,4 @@ namespace memory {
 // first written to the dump file (never opened in this build).
 void __cdecl dump_text(const char* text);
 
-} // namespace Mem
+} // namespace memory

@@ -43,7 +43,8 @@ float sound_volume() { return sound::fetch_master_loudness(); }
 
 void bink_goto(render::Bink* bink, uint32_t frame, int flags)
 {
-    reinterpret_cast<void(__stdcall*)(render::Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
+    reinterpret_cast<void(__stdcall*)(render::Bink*, uint32_t, int)>(
+        crt::library_function("binkw32.dll", "_BinkGoto@12"))(bink, frame, flags);
 }
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
@@ -170,10 +171,7 @@ bool __cdecl play_user_track(int soundtrack, int track)
 }
 
 // 0x00453AA0
-void __cdecl platform_stop_music()
-{
-    halt(music_slot());
-}
+void __cdecl platform_stop_music() { halt(music_slot()); }
 
 // 0x00453400
 int __cdecl platform_set_music_volume(float volume)
@@ -304,10 +302,7 @@ bool __cdecl start_preloaded_stream(int slot, const StreamGain* volume)
 }
 
 // 0x00453B30
-void __cdecl halt_stream(int slot, int)
-{
-    halt(stream_slots()[slot]);
-}
+void __cdecl halt_stream(int slot, int) { halt(stream_slots()[slot]); }
 
 // 0x00453BD0
 void __cdecl halt_streams()
@@ -316,4 +311,4 @@ void __cdecl halt_streams()
         halt_stream(i, 0);
 }
 
-} // namespace Pcm
+} // namespace audio

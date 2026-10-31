@@ -328,9 +328,11 @@ void GlyphRun::blit()
             }
             if (!glyph)
                 glyph = &char_font->chars[char_font->map[static_cast<uint8_t>(*p)]];
-            float top = static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
+            float top =
+                static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
-                effects ? reinterpret_cast<const TextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect) : nullptr;
+                effects ? reinterpret_cast<const TextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect)
+                        : nullptr;
             float right, bottom;
             if (e) {
                 int w = ftol(e->xscale * static_cast<double>(kEffectScale) * glyph->w * xscale * scale_x);
@@ -501,23 +503,24 @@ void GlyphRun::draw_vertices()
         return;
     TypefaceData* texture_font = get_texture_font() ? get_texture_font() : font;
     set_pixel_shader(nullptr, nullptr); // (no pixel shader)
-    set_texture_stage_state(0, 1, 5); // colour: texture x diffuse, doubled
+    set_texture_stage_state(0, 1, 5);   // colour: texture x diffuse, doubled
     set_texture_stage_state(0, 2, 2);
     set_texture_stage_state(0, 3, 1);
     set_texture_stage_state(0, 4, 5); // alpha: the same
     set_texture_stage_state(0, 5, 2);
     set_texture_stage_state(0, 6, 1);
-    set_texture_stage_state(1, 1, 1); // stage 1 off
-    set_vertex_format(0x144);        // position (pre-transformed), colour, one texture coordinate
+    set_texture_stage_state(1, 1, 1);      // stage 1 off
+    set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture); // (the original also passes unknown17c_, which SetTexture doesn't take)
     device_method<long(__stdcall*)(void*, int, int)>(0xE4)(input_port(), 22, 1); // D3DRS_CULLMODE: none
-    if (!g_suppress_draw) { // (rendering not skipped)
-        ++g_draw_calls;            // draw calls
-        g_drawn_triangles += count / 2; // "triangles"
-        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
-                                                        int, const void*, unsigned int);
-        device_method<DrawIndexedPrimitiveUP>(0x150)(input_port(), 4 /* triangle list */, 0, count, count / 2, quad_indices(),
-                                                    0x65 /* 16-bit indices */, vertex_store(), sizeof(TextVertex));
+    if (!g_suppress_draw) {                                                      // (rendering not skipped)
+        ++g_draw_calls;                                                          // draw calls
+        g_drawn_triangles += count / 2;                                          // "triangles"
+        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int,
+                                                        const void*, int, const void*, unsigned int);
+        device_method<DrawIndexedPrimitiveUP>(0x150)(input_port(), 4 /* triangle list */, 0, count, count / 2,
+                                                     quad_indices(), 0x65 /* 16-bit indices */, vertex_store(),
+                                                     sizeof(TextVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
     set_texture_stage_state(0, 4, 4);
@@ -576,7 +579,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
             if (code >= 0)
                 font->map[code & 0xFF] = static_cast<uint8_t>(i);
             else
-                font_bytes[offsetof(TypefaceData, special_map_) + static_cast<uint8_t>(0xFF - (code & 0xFF))] = static_cast<uint8_t>(i);
+                font_bytes[offsetof(TypefaceData, special_map_) + static_cast<uint8_t>(0xFF - (code & 0xFF))] =
+                    static_cast<uint8_t>(i);
         }
     } else if (font->format == 2) {
         // Each glyph: its baseline, then up to four characters (0xFF ends them early).
@@ -609,9 +613,10 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     uint32_t hd_scale = hd_ui::font_scale(get_u32(buffer + 8), get_u32(buffer + 0xC));
     if (hd_scale != 1)
         hd_ui::note_font(from_memory ? nullptr : name, hd_scale, width, height);
-    using CreateTexture = long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
+    using CreateTexture =
+        long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
     if (device_method<CreateTexture>(0x5C)(input_port(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
-                                         &font->texture, nullptr) != 0)
+                                           &font->texture, nullptr) != 0)
         return nullptr;
     uint32_t size = (height * width + 3) & ~3u;
     uint8_t* indices = nullptr;
@@ -696,9 +701,9 @@ void TypefaceData::offload(TypefaceData* font)
 }
 
 namespace {
-static VtableSlot g_s_text_vtable_slots[] = {&render::GlyphRun::teardown, &render::GlyphRun::reset_vertices, &render::GlyphRun::blit,
-                &render::GlyphRun::draw_vertices};
+static VtableSlot g_s_text_vtable_slots[] = {&render::GlyphRun::teardown, &render::GlyphRun::reset_vertices,
+                                             &render::GlyphRun::blit, &render::GlyphRun::draw_vertices};
 void** const kSTextVtable = reinterpret_cast<void**>(g_s_text_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

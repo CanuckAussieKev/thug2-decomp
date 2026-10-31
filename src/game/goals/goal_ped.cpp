@@ -31,46 +31,46 @@ namespace {
 
 using namespace goal_names;
 
-constexpr uint32_t kPro = 0x944B2900;            // pro
-constexpr uint32_t kProAlternative = 0x878CCC12; // (name unknown: the pro's name when the skater is that pro)
-constexpr uint32_t kGoalName = 0xBFECC45B;       // goal_name
-constexpr uint32_t kSkater = 0x5B8AB877;         // skater
-constexpr uint32_t kIsMale = 0x3F813177;         // is_male
-constexpr uint32_t kGoalPlayStream = 0x5376A011; // goal_play_stream
-constexpr uint32_t kCurrentStream = 0xDC14D454;  // (name unknown: the goal's current stream)
-constexpr uint32_t kTriggerObjId = 0x02D7E03D;   // trigger_obj_id
+constexpr uint32_t kPro = 0x944B2900;                    // pro
+constexpr uint32_t kProAlternative = 0x878CCC12;         // (name unknown: the pro's name when the skater is that pro)
+constexpr uint32_t kGoalName = 0xBFECC45B;               // goal_name
+constexpr uint32_t kSkater = 0x5B8AB877;                 // skater
+constexpr uint32_t kIsMale = 0x3F813177;                 // is_male
+constexpr uint32_t kGoalPlayStream = 0x5376A011;         // goal_play_stream
+constexpr uint32_t kCurrentStream = 0xDC14D454;          // (name unknown: the goal's current stream)
+constexpr uint32_t kTriggerObjId = 0x02D7E03D;           // trigger_obj_id
 constexpr uint32_t kGoalProStopAnimScripts = 0xBF67A3CF; // goal_pro_stop_anim_scripts
-constexpr uint32_t kType = 0x7321A8D6;           // type
-constexpr uint32_t kPartialAnim = 0x659BF355;    // PartialAnim
-constexpr uint32_t kId = 0x40C698AF;             // id
-constexpr uint32_t kJawRotation = 0xC0BA0665;    // jawRotation
-constexpr uint32_t kAnimBlender = 0x7149B753;    // animblender
-constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
-constexpr uint32_t kNullGoal = 0x3D1CAB0B;       // null_goal
-constexpr uint32_t kGoalPedKillArrow = 0x6D39F2F3; // goal_ped_kill_arrow
-constexpr uint32_t kGoalAddPedArrow = 0x6EA4D309;  // goal_add_ped_arrow
-constexpr uint32_t kStreamChecksum = 0x0572EA28; // stream_checksum
-constexpr uint32_t kUsePosInfo = 0xC9B0DEB7;     // use_pos_info
-constexpr uint32_t kStreamId = 0x8A68AB90;       // streamId
-constexpr uint32_t kPlayAnim = 0x93516575;       // play_anim
-constexpr uint32_t kNoStream = 0x102A8591;       // no_stream
-constexpr uint32_t kCamClipIndex = 0x64EEE2E6;   // cam_anim_index
-constexpr uint32_t kSpeakerName = 0x82CBE8D1;    // speaker_name
-constexpr uint32_t kLastAnim = 0x0E7F5FF8;       // last_anim
-constexpr uint32_t kSpeakerObjId = 0xF0C598FA;   // speaker_obj_id
-constexpr uint32_t kPlayRandom = 0x2BE2056A;     // play_random
-constexpr uint32_t kCallPlayerByName = 0x9F38B332; // call_player_by_name
-constexpr uint32_t kVo = 0x1A4E4FB9;             // VO
-constexpr uint32_t kMidgoal = 0x1623B689;        // (the midgoal type)
-constexpr uint32_t kWait = 0x82117C1A;           // wait
+constexpr uint32_t kType = 0x7321A8D6;                   // type
+constexpr uint32_t kPartialAnim = 0x659BF355;            // PartialAnim
+constexpr uint32_t kId = 0x40C698AF;                     // id
+constexpr uint32_t kJawRotation = 0xC0BA0665;            // jawRotation
+constexpr uint32_t kAnimBlender = 0x7149B753;            // animblender
+constexpr uint32_t kRemoveAnimController = 0x986D274E;   // RemoveAnimController
+constexpr uint32_t kNullGoal = 0x3D1CAB0B;               // null_goal
+constexpr uint32_t kGoalPedKillArrow = 0x6D39F2F3;       // goal_ped_kill_arrow
+constexpr uint32_t kGoalAddPedArrow = 0x6EA4D309;        // goal_add_ped_arrow
+constexpr uint32_t kStreamChecksum = 0x0572EA28;         // stream_checksum
+constexpr uint32_t kUsePosInfo = 0xC9B0DEB7;             // use_pos_info
+constexpr uint32_t kStreamId = 0x8A68AB90;               // streamId
+constexpr uint32_t kPlayAnim = 0x93516575;               // play_anim
+constexpr uint32_t kNoStream = 0x102A8591;               // no_stream
+constexpr uint32_t kCamClipIndex = 0x64EEE2E6;           // cam_anim_index
+constexpr uint32_t kSpeakerName = 0x82CBE8D1;            // speaker_name
+constexpr uint32_t kLastAnim = 0x0E7F5FF8;               // last_anim
+constexpr uint32_t kSpeakerObjId = 0xF0C598FA;           // speaker_obj_id
+constexpr uint32_t kPlayRandom = 0x2BE2056A;             // play_random
+constexpr uint32_t kCallPlayerByName = 0x9F38B332;       // call_player_by_name
+constexpr uint32_t kVo = 0x1A4E4FB9;                     // VO
+constexpr uint32_t kMidgoal = 0x1623B689;                // (the midgoal type)
+constexpr uint32_t kWait = 0x82117C1A;                   // wait
 
-const char* const kFormatTwo = "%s_%s";  // "%s_%s"
-const char* const kSuccess = "%s_success";    // "%s_success"
-const char* const kFemale = "%s_f";     // "%s_f"
-const char* const kCamAnim = "%s_camAnim%02i";    // "%s_camAnim%02i"
+const char* const kFormatTwo = "%s_%s";                 // "%s_%s"
+const char* const kSuccess = "%s_success";              // "%s_success"
+const char* const kFemale = "%s_f";                     // "%s_f"
+const char* const kCamAnim = "%s_camAnim%02i";          // "%s_camAnim%02i"
 const char* const kCamAnimSuffix = "%s_camAnim%02i_%s"; // "%s_camAnim%02i_%s"
-const char* const kLip = "%s_lip";        // "%s_lip"
-const char* const kFar = "Far";        // "Far"
+const char* const kLip = "%s_lip";                      // "%s_lip"
+const char* const kFar = "Far";                         // "Far"
 
 GoalManager* hub() { return get_objective_board(); }
 script::Struct* get_goal_params(uint32_t id) { return hub()->get_objective_args(id); }
@@ -200,10 +200,17 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     std::snprintf(base, sizeof(base), kFormatTwo, pro, goal_name);
     const char* difficulty;
     switch (hub()->get_skill_tier(false)) {
-    case 0: difficulty = "easy"; break; // "easy"
-    case 1: difficulty = "medium"; break; // "medium"
-    case 2: difficulty = "hard"; break; // "hard"
-    default: return false;
+    case 0:
+        difficulty = "easy";
+        break; // "easy"
+    case 1:
+        difficulty = "medium";
+        break; // "medium"
+    case 2:
+        difficulty = "hard";
+        break; // "hard"
+    default:
+        return false;
     }
     bool female = false;
     if (suffix && checksums::hash_from_text(suffix) == kSkater) {
@@ -253,8 +260,8 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
         append_format(base, sizeof(base), kSuccess);
     }
     // The candidates in order (the camera animation's first when there's one); for each its _lip version first.
-    const char* candidates[8] = {base,   base_difficulty, base_suffix,  base_difficulty_suffix,
-                                 cam_difficulty, cam_base, cam_suffix, cam_difficulty_suffix};
+    const char* candidates[8] = {base,           base_difficulty, base_suffix, base_difficulty_suffix,
+                                 cam_difficulty, cam_base,        cam_suffix,  cam_difficulty_suffix};
     uint32_t found = 0;
     bool lip = false;
     for (int i = index >= 0 ? 4 : 0; i < 8; ++i) {
@@ -427,7 +434,8 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
     play_params->put_name_key(kStreamChecksum, stream);
     if (!no_anim) {
         play_params->put_int(kUsePosInfo, 0);
-        uint32_t anim_set = static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender))->get_anim_set();
+        uint32_t anim_set =
+            static_cast<objects::AnimBlenderComponent*>(object->fetch_module(kAnimBlender))->get_anim_set();
         if (load_fam)
             load_anim_bank(stream, anim_set);
         uint32_t handle = audio::prime_stream(stream, 0x66);
@@ -438,7 +446,8 @@ void ObjectiveNpc::play_stream(uint32_t stream, bool no_anim, uint32_t object_id
             anim_object_ = id;
         }
     }
-    script::Script* script = script::spawn_script(kGoalPlayStream, play_params, 0, nullptr, 0, 0, false, false, false, false);
+    script::Script* script =
+        script::spawn_script(kGoalPlayStream, play_params, 0, nullptr, 0, 0, false, false, false, false);
     script->entity_.assign_object(object);
     delete_structure(play_params);
 }
@@ -561,8 +570,10 @@ void ObjectiveNpc::play_objective_voice_line(const char* type, script::Struct* p
         if (!suspended_)
             play_pro_voice_line(kFar, 10, true, true);
         break;
-    default: play_pro_voice_line(type, 10, false, true); break;
+    default:
+        play_pro_voice_line(type, 10, false, true);
+        break;
     }
 }
 
-} // namespace Game
+} // namespace goals

@@ -22,15 +22,15 @@ using namespace motion_detail;
 
 namespace {
 
-constexpr uint32_t kDistAbove = 0xA8A5A3C7;  // DistAbove
-constexpr uint32_t kDistBelow = 0x182D87A7;  // DistBelow
-constexpr uint32_t kTime = 0x906B67BA;       // time
+constexpr uint32_t kDistAbove = 0xA8A5A3C7;    // DistAbove
+constexpr uint32_t kDistBelow = 0x182D87A7;    // DistBelow
+constexpr uint32_t kTime = 0x906B67BA;         // time
 constexpr uint32_t kAcceleration = 0x85894A84; // Acceleration
-constexpr uint32_t kOrient = 0x90A91232;     // orient
-constexpr uint32_t kDist = 0x7E832F08;       // dist
-constexpr uint32_t kLinkNum = 0xE85997D0;    // LinkNum
-constexpr uint32_t kRandomLink = 0x90A1C52A; // randomlink
-constexpr uint32_t kModel = 0x286A8D26;      // the model component
+constexpr uint32_t kOrient = 0x90A91232;       // orient
+constexpr uint32_t kDist = 0x7E832F08;         // dist
+constexpr uint32_t kLinkNum = 0xE85997D0;      // LinkNum
+constexpr uint32_t kRandomLink = 0x90A1C52A;   // randomlink
+constexpr uint32_t kModel = 0x286A8D26;        // the model component
 
 // Miles per hour to inches per second (63360 inches a mile, 1 / 3600 hours a second: 0x006461E4, 0x006461E0).
 constexpr float kInchesPerMile = get_bits(0x47778000);
@@ -187,10 +187,9 @@ bool KinematicsModule::stick_to_ground()
         right = {x, y, z, 0.0f};
         right.make_unit();
     }
-    const float ahead[4] = {static_cast<float>(static_cast<double>(at.x) * 72.0f),
-                            static_cast<float>(static_cast<double>(at.y) * 72.0f),
-                            static_cast<float>(static_cast<double>(at.z) * 72.0f),
-                            static_cast<float>(static_cast<double>(at.w) * 72.0f)};
+    const float ahead[4] = {
+        static_cast<float>(static_cast<double>(at.x) * 72.0f), static_cast<float>(static_cast<double>(at.y) * 72.0f),
+        static_cast<float>(static_cast<double>(at.z) * 72.0f), static_cast<float>(static_cast<double>(at.w) * 72.0f)};
     const float side[4] = {static_cast<float>(static_cast<double>(right.x) * 30.0f),
                            static_cast<float>(static_cast<double>(right.y) * 30.0f),
                            static_cast<float>(static_cast<double>(right.z) * 30.0f),
@@ -287,7 +286,8 @@ bool KinematicsModule::move_to(script::Struct* params, script::Script*, maths::V
     double inches = speed; // (kept unrounded)
     if (units == 2) {
         inches = inches * kInchesPerMile * kHoursPerSecond;
-        move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerMile * kHoursPerSecond);
+        move_acceleration_ =
+            static_cast<float>(static_cast<double>(move_acceleration_) * kInchesPerMile * kHoursPerSecond);
     } else if (units == 1) {
         inches = inches * 12.0f;
         move_acceleration_ = static_cast<float>(static_cast<double>(move_acceleration_) * 12.0f);
@@ -444,6 +444,6 @@ bool KinematicsModule::obj_move_to_link(script::Struct* params, script::Script* 
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::KinematicsModule;

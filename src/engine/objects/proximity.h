@@ -18,11 +18,11 @@ class Entity;
 
 // The node's shape (its Shape checksum, 0x22CF0027).
 enum ProximShape : int {
-    kProximShapeSphere = 0,          // within Radius of the node
-    kProximShapeBox = 1,             // the sector's box (axis-aligned, in the world)
-    kProximShapeSectorBox = 2,      // the sector's box, in the sector's own frame
-    kProximShapeNone = 3,            // (never inside)
-    kProximShapeSector = 4,          // the sector's collision
+    kProximShapeSphere = 0,    // within Radius of the node
+    kProximShapeBox = 1,       // the sector's box (axis-aligned, in the world)
+    kProximShapeSectorBox = 2, // the sector's box, in the sector's own frame
+    kProximShapeNone = 3,      // (never inside)
+    kProximShapeSector = 4,    // the sector's collision
 };
 
 struct ProximNode {
@@ -37,24 +37,24 @@ struct ProximNode {
     // a shape (or an unknown one) leaves `out` as the original's stack held it - here, as it was.
     maths::Vec4* nearest_point_on(maths::Vec4* out, const maths::Vec4* point);
 
-    uint32_t label_;               // +0x00
-    maths::Vec4 at_point_;             // +0x04
-    maths::Mat4 to_sector_;        // +0x14: the sector's world matrix, inverted
-    bool active_;                 // +0x54
+    uint32_t label_;        // +0x00
+    maths::Vec4 at_point_;  // +0x04
+    maths::Mat4 to_sector_; // +0x14: the sector's world matrix, inverted
+    bool active_;           // +0x54
     uint8_t unknown55_[3];
-    uint32_t entity_key_;           // +0x58: ProximObject nodes: their objects' ids are this + the skater's id
-    uint32_t entities_;            // +0x5C: the skaters (by id) a ProximObject node has an object for
-    uint32_t is_within_;             // +0x60: the skaters whose enter script ran
-    uint32_t outside_;            // +0x64: the update masks outside the shape (bits as proximity_notify's `mask`)
-    int kind_tag_;                    // +0x68: what it reacts to (ProximType: 0, 1, 2), proximity_notify's `type`
-    int form_;                   // +0x6C: ProximShape
-    float radius_;                // +0x70
-    float reach_sq_;         // +0x74
-    void* sector_;                // +0x78
-    maths::BBox box_;               // +0x7C
+    uint32_t entity_key_; // +0x58: ProximObject nodes: their objects' ids are this + the skater's id
+    uint32_t entities_;   // +0x5C: the skaters (by id) a ProximObject node has an object for
+    uint32_t is_within_;  // +0x60: the skaters whose enter script ran
+    uint32_t outside_;    // +0x64: the update masks outside the shape (bits as proximity_notify's `mask`)
+    int kind_tag_;        // +0x68: what it reacts to (ProximType: 0, 1, 2), proximity_notify's `type`
+    int form_;            // +0x6C: ProximShape
+    float radius_;        // +0x70
+    float reach_sq_;      // +0x74
+    void* sector_;        // +0x78
+    maths::BBox box_;     // +0x7C
     uint32_t unknown9c_;
-    uint32_t own_script_;             // +0xA0
-    ProximNode* succ_;            // +0xA4
+    uint32_t own_script_; // +0xA0
+    ProximNode* succ_;    // +0xA4
 };
 static_assert(offsetof(ProximNode, to_sector_) == 0x14 && offsetof(ProximNode, active_) == 0x54 &&
                   offsetof(ProximNode, kind_tag_) == 0x68 && offsetof(ProximNode, box_) == 0x7C &&
@@ -64,8 +64,8 @@ static_assert(offsetof(ProximNode, to_sector_) == 0x14 && offsetof(ProximNode, a
 // The node list (0x006F2268 points to it).
 struct ProximityRegistry {
     ProximNode* head_;
-    bool entering_;     // +4: while a node's script runs: entering (true) or leaving
-    bool in_script_;     // +5: a node's script is running
+    bool entering_;  // +4: while a node's script runs: entering (true) or leaving
+    bool in_script_; // +5: a node's script is running
 };
 
 // 0x0046AAC0: the shape named by `checksum` (sphere for any other).
@@ -97,4 +97,4 @@ int get_restart_nodes(uint32_t type, uint32_t* out, uint32_t start);
 uint32_t get_spawn_node(uint32_t type, int index, uint32_t start);
 
 extern void* g_proximity_hub;
-} // namespace Obj
+} // namespace objects

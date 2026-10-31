@@ -32,44 +32,34 @@
 namespace objects {
 
 uint32_t g_input_component_member_functions[90]{
-            0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0,
-            0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0,
-            0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
-            0x6DF51774, 0x27D7CD28, 0, 0, 0, 0,
-            0x31C6454F, 0x27D7CD28, 0, 0, 0, 0,
-            0x0660746A, 0x27D7CD28, 0, 0, 0, 0,
-            0x78238598, 0x27D7CD28, 0, 0, 0, 0,
-            0x1D604A9D, 0x27D7CD28, 0, 0, 0, 0,
-            0x89AA9B5F, 0x27D7CD28, 0, 0, 0, 0,
-            0x83028FC5, 0x27D7CD28, 0, 0, 0, 0,
-            0xB2A022DE, 0x27D7CD28, 0, 0, 0, 0,
-            0x2366469C, 0x27D7CD28, 0, 0, 0, 0,
-            0x1090A150, 0x27D7CD28, 0, 0, 0, 0,
-            0x28729460, 0x27D7CD28, 0, 0, 0, 0,
-            0, 0x27D7CD28, 0, 0, 0, 0};
+    0xBF7D6C46, 0x27D7CD28, 0, 0, 0, 0, 0x6E24F5FD, 0x27D7CD28, 0, 0, 0, 0, 0x56C6C0CD, 0x27D7CD28, 0, 0, 0, 0,
+    0x6DF51774, 0x27D7CD28, 0, 0, 0, 0, 0x31C6454F, 0x27D7CD28, 0, 0, 0, 0, 0x0660746A, 0x27D7CD28, 0, 0, 0, 0,
+    0x78238598, 0x27D7CD28, 0, 0, 0, 0, 0x1D604A9D, 0x27D7CD28, 0, 0, 0, 0, 0x89AA9B5F, 0x27D7CD28, 0, 0, 0, 0,
+    0x83028FC5, 0x27D7CD28, 0, 0, 0, 0, 0xB2A022DE, 0x27D7CD28, 0, 0, 0, 0, 0x2366469C, 0x27D7CD28, 0, 0, 0, 0,
+    0x1090A150, 0x27D7CD28, 0, 0, 0, 0, 0x28729460, 0x27D7CD28, 0, 0, 0, 0, 0,          0x27D7CD28, 0, 0, 0, 0};
 
 namespace {
 
 extern void** const kVtable;
 
-constexpr uint32_t kPlayer = 0x67E6859A;      // Player
-constexpr uint32_t kController = 0xB30D9965;  // controller
+constexpr uint32_t kPlayer = 0x67E6859A;     // Player
+constexpr uint32_t kController = 0xB30D9965; // controller
 constexpr uint32_t kUnknownB9b1e3b6 = 0xB9B1E3B6;
-constexpr uint32_t kVibration = 0x404EB936;   // vibration
-constexpr uint32_t kTime = 0x906B67BA;        // time
-constexpr uint32_t kClear = 0x1A4E0EF9;       // clear
-constexpr uint32_t kButton = 0xC5F953C2;      // button
+constexpr uint32_t kVibration = 0x404EB936;                     // vibration
+constexpr uint32_t kTime = 0x906B67BA;                          // time
+constexpr uint32_t kClear = 0x1A4E0EF9;                         // clear
+constexpr uint32_t kButton = 0xC5F953C2;                        // button
 constexpr uint32_t kSeconds = 0xD029F619, kSecond = 0x49E0EE96; // seconds, second
 constexpr uint32_t kFrames = 0x019176C5, kFrame = 0x4A07C332;   // frames, frame
-constexpr uint32_t kControllerUnpluggedDialog = 0x2EDB780F; // controller_unplugged_dialog_anchor
-constexpr uint32_t kRootWindow = 0x56A1EAE3;                // root_window
-constexpr uint32_t kMenuState = 0xCDC00E63;                 // menu_state
-constexpr uint32_t kOn = 0xF649D637;                        // on
-constexpr uint32_t kKeyboardAnchor = 0x31631B98;            // keyboard_anchor
-constexpr float kMilliseconds = 1000.0f;            // 0x006453C0
-constexpr float kFrameMilliseconds = 16.6666660f;   // 0x006460DC (0x41855555)
-constexpr float kDegreesPerRadian = 57.2957764f;    // 0x00645468 (0x42652EE0)
-constexpr double kTwoTo32 = 4294967296.0;           // 0x006453B4
+constexpr uint32_t kControllerUnpluggedDialog = 0x2EDB780F;     // controller_unplugged_dialog_anchor
+constexpr uint32_t kRootWindow = 0x56A1EAE3;                    // root_window
+constexpr uint32_t kMenuState = 0xCDC00E63;                     // menu_state
+constexpr uint32_t kOn = 0xF649D637;                            // on
+constexpr uint32_t kKeyboardAnchor = 0x31631B98;                // keyboard_anchor
+constexpr float kMilliseconds = 1000.0f;                        // 0x006453C0
+constexpr float kFrameMilliseconds = 16.6666660f;               // 0x006460DC (0x41855555)
+constexpr float kDegreesPerRadian = 57.2957764f;                // 0x00645468 (0x42652EE0)
+constexpr double kTwoTo32 = 4294967296.0;                       // 0x006453B4
 
 // The pad events: a button's pressure index in the controller data, its event bit, its events down / up and the
 // first pad's button (an offset into the pad; -1: none).
@@ -81,14 +71,14 @@ struct EventButton {
     int button;
 };
 const EventButton kEventButtons[] = {
-    {6, 0x40, 0x5C8FAA09, 0xB27804A2, 0x000},          {7, 0x80, 0xD26ADAE9, 0xAEF7DFD3, 0x020},
-    {5, 0x20, 0xB4F2ADBA, 0xC86FA880, 0x040},          {4, 0x10, 0x0EDBBC2B, 0xC8ABF89C, 0x060},
-    {9, 0x200, 0xB069B600, 0xE5AAE06B, 0x140},         {0xB, 0x800, 0xA93DBBD0, 0xFCFEEDBB, 0x160},
-    {8, 0x100, 0x7F695A77, 0x7B684919, 0x180},         {0xA, 0x400, 0x42717176, 0xBBBEF674, 0x1A0},
-    {0xC, 0x1000, 0xC6547217, 0x28A3DCBC, 0x080},      {0xE, 0x4000, 0x5F5D23AD, 0xB1AA8D06, 0x0A0},
-    {0x10, 0x10000, 0x285A133B, 0xC6ADBD90, 0x0C0},    {0xD, 0x2000, 0x12154DC8, 0xFCE2E363, 0x0E0},
-    {0xF, 0x8000, 0x8B1C1C72, 0x65EBB2D9, 0x100},      {0x11, 0x20000, 0xFC1B2CE4, 0x12EC824F, 0x120},
-    {0x16, 0x400000, 0x33947317, 0xF5E437A0, -1},      {0x17, 0x800000, 0xF8DE049B, 0x3EAE402C, -1},
+    {6, 0x40, 0x5C8FAA09, 0xB27804A2, 0x000},       {7, 0x80, 0xD26ADAE9, 0xAEF7DFD3, 0x020},
+    {5, 0x20, 0xB4F2ADBA, 0xC86FA880, 0x040},       {4, 0x10, 0x0EDBBC2B, 0xC8ABF89C, 0x060},
+    {9, 0x200, 0xB069B600, 0xE5AAE06B, 0x140},      {0xB, 0x800, 0xA93DBBD0, 0xFCFEEDBB, 0x160},
+    {8, 0x100, 0x7F695A77, 0x7B684919, 0x180},      {0xA, 0x400, 0x42717176, 0xBBBEF674, 0x1A0},
+    {0xC, 0x1000, 0xC6547217, 0x28A3DCBC, 0x080},   {0xE, 0x4000, 0x5F5D23AD, 0xB1AA8D06, 0x0A0},
+    {0x10, 0x10000, 0x285A133B, 0xC6ADBD90, 0x0C0}, {0xD, 0x2000, 0x12154DC8, 0xFCE2E363, 0x0E0},
+    {0xF, 0x8000, 0x8B1C1C72, 0x65EBB2D9, 0x100},   {0x11, 0x20000, 0xFC1B2CE4, 0x12EC824F, 0x120},
+    {0x16, 0x400000, 0x33947317, 0xF5E437A0, -1},   {0x17, 0x800000, 0xF8DE049B, 0x3EAE402C, -1},
     {0x18, 0x1000000, 0xAC7F105A, 0x55B09758, -1},
 };
 
@@ -113,7 +103,8 @@ int player_controller(int player)
 }
 
 // A new handler (on the current heap).
-PadInputModule::Responder* new_handler(int index, void(__cdecl* code)(PadInputModule::Responder*), PadInputModule* component)
+PadInputModule::Responder* new_handler(int index, void(__cdecl* code)(PadInputModule::Responder*),
+                                       PadInputModule* component)
 {
     auto* handler = static_cast<PadInputModule::Responder*>(memory::alloc_zeroed(sizeof(PadInputModule::Responder)));
     if (!handler)
@@ -229,10 +220,16 @@ void PadInputModule::link_to_pad(int controller)
 }
 
 // 0x0041F170
-void __cdecl PadInputModule::handler_code(Responder* handler) { handler->component_->update_pad(handler->control_data_); }
+void __cdecl PadInputModule::handler_code(Responder* handler)
+{
+    handler->component_->update_pad(handler->control_data_);
+}
 
 // 0x0041F190
-void __cdecl PadInputModule::handler_code2(Responder* handler) { handler->component_->update_pad2(handler->control_data_); }
+void __cdecl PadInputModule::handler_code2(Responder* handler)
+{
+    handler->component_->update_pad2(handler->control_data_);
+}
 
 // 0x0041F090
 void PadInputModule::update_pad(const uint8_t* data)
@@ -296,15 +293,16 @@ void PadInputModule::update_events(const uint8_t* data)
     events_ = 0;
     for (const EventButton& event : kEventButtons) {
         ControlButton* button =
-            event.button < 0 ? nullptr
-                             : reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(&pad_primary_) + event.button);
+            event.button < 0
+                ? nullptr
+                : reinterpret_cast<ControlButton*>(reinterpret_cast<uint8_t*>(&pad_primary_) + event.button);
         read_button_state(data, event.index, event.bit, event.down, event.up, button);
     }
 }
 
 // 0x0041EBF0
 void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
-                                  ControlButton* button)
+                                       ControlButton* button)
 {
     if (button) {
         uint32_t locked_until = static_cast<uint32_t>(get_truncated(button->locked_until_));
@@ -402,26 +400,40 @@ int PadInputModule::player_input_is_disabled(script::Struct*, script::Script*)
 }
 
 // 0x0041EA20
-int PadInputModule::left_pressed(script::Struct*, script::Script*) { return pad_primary_.left_side_.held_down_ != 0 ? 1 : 0; }
+int PadInputModule::left_pressed(script::Struct*, script::Script*)
+{
+    return pad_primary_.left_side_.held_down_ != 0 ? 1 : 0;
+}
 
 // 0x0041EA30
-int PadInputModule::right_pressed(script::Struct*, script::Script*) { return pad_primary_.right_side_.held_down_ != 0 ? 1 : 0; }
+int PadInputModule::right_pressed(script::Struct*, script::Script*)
+{
+    return pad_primary_.right_side_.held_down_ != 0 ? 1 : 0;
+}
 
 // 0x0041EA40
-int PadInputModule::up_pressed(script::Struct*, script::Script*) { return pad_primary_.up_dir_.held_down_ != 0 ? 1 : 0; }
+int PadInputModule::up_pressed(script::Struct*, script::Script*)
+{
+    return pad_primary_.up_dir_.held_down_ != 0 ? 1 : 0;
+}
 
 // 0x0041EA50
-int PadInputModule::down_pressed(script::Struct*, script::Script*) { return pad_primary_.btn_down_.held_down_ != 0 ? 1 : 0; }
+int PadInputModule::down_pressed(script::Struct*, script::Script*)
+{
+    return pad_primary_.btn_down_.held_down_ != 0 ? 1 : 0;
+}
 
 // 0x0041EA60
 int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
     script->args_->push_float(0x737F15CF, pad_primary_.polar_[1].angle * kDegreesPerRadian);
-    script->args_->push_float(0x686AD1C2,
-                               static_cast<float>(stick_length(pad_primary_.stick_[2], pad_primary_.stick_[3], pad_primary_.polar_[1].angle)));
+    script->args_->push_float(
+        0x686AD1C2,
+        static_cast<float>(stick_length(pad_primary_.stick_[2], pad_primary_.stick_[3], pad_primary_.polar_[1].angle)));
     script->args_->push_float(0xD6030CEA, pad_primary_.polar_[0].angle * kDegreesPerRadian);
-    script->args_->push_float(0xC94777AC,
-                               static_cast<float>(stick_length(pad_primary_.stick_[0], pad_primary_.stick_[1], pad_primary_.polar_[0].angle)));
+    script->args_->push_float(
+        0xC94777AC,
+        static_cast<float>(stick_length(pad_primary_.stick_[0], pad_primary_.stick_[1], pad_primary_.polar_[0].angle)));
     return 1;
 }
 
@@ -445,25 +457,25 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
     return 0;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::PadInputModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::PadInputModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      &objects::PadInputModule::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

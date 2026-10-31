@@ -39,7 +39,8 @@ using detail::new_params;
 static VtableSlot g_item_vtable_slots[] = {&online::VaultItem::teardown};
 void** const kItemVtable = reinterpret_cast<void**>(g_item_vtable_slots); // VaultItem (and a category's items head)
 static VtableSlot g_categories_head_vtable_slots[] = {&online::VaultNode::delete_categories_head};
-void** const kCategoriesHeadVtable = reinterpret_cast<void**>(g_categories_head_vtable_slots); // the vault's categories head
+void** const kCategoriesHeadVtable =
+    reinterpret_cast<void**>(g_categories_head_vtable_slots); // the vault's categories head
 static VtableSlot g_category_vtable_slots[] = {&online::VaultCategory::teardown};
 void** const kCategoryVtable = reinterpret_cast<void**>(g_category_vtable_slots); // VaultCategory
 static VtableSlot g_item_node_vtable_slots[] = {&online::VaultNode::delete_item_node};
@@ -51,10 +52,10 @@ void** const kCategorySearchVtable = reinterpret_cast<void**>(g_category_search_
 static VtableSlot g_item_search_vtable_slots[] = {&online::VaultSearch::destroy_item_search_and_free};
 void** const kItemSearchVtable = reinterpret_cast<void**>(g_item_search_vtable_slots);
 
-constexpr uint32_t kTimeout = 25000;     // ms without progress
+constexpr uint32_t kTimeout = 25000; // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
 constexpr uint32_t kDownloadFileSize = 0x14000;
-constexpr int kErrorScriptResult = 11;   // ghttp's result that runs the error script instead of the fail script
+constexpr int kErrorScriptResult = 11; // ghttp's result that runs the error script instead of the fail script
 // The profile that may list the uploads (DownloadDirectoryList).
 constexpr int kUploadsProfile = 0x011B0C16;
 
@@ -70,11 +71,20 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+}
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
-void get_run(const char* script, script::Struct* params = nullptr) { script::launch_script(script, params, nullptr, false); }
-void get_run(uint32_t script, script::Struct* params = nullptr) { script::launch_script(script, params, nullptr, false, nullptr); }
+void get_run(const char* script, script::Struct* params = nullptr)
+{
+    script::launch_script(script, params, nullptr, false);
+}
+void get_run(uint32_t script, script::Struct* params = nullptr)
+{
+    script::launch_script(script, params, nullptr, false, nullptr);
+}
 
 // The semaphore (the threads set their request up while holding it).
 void get_stall(void* semaphore) { WaitForSingleObject(static_cast<HANDLE>(semaphore), INFINITE); }
@@ -93,10 +103,9 @@ void ghttp_think() { game_spy::http_think(); }
 void ghttp_cancel_request(int request) { game_spy::http_cancel_request(request); }
 void ghttp_cleanup() { game_spy::http_cleanup(); }
 int ghttp_get_ex(const char* url, const char* headers, char* buffer, uint32_t size, void* post, int throttle,
-               int blocking, const void* progress, const void* completed, void* param)
+                 int blocking, const void* progress, const void* completed, void* param)
 {
-    return game_spy::http_get_ex(url, headers, buffer, size, post, throttle,
-                                                                       blocking, progress, completed, param);
+    return game_spy::http_get_ex(url, headers, buffer, size, post, throttle, blocking, progress, completed, param);
 }
 void* ghttp_new_post() { return game_spy::http_new_post(); }
 void ghttp_post_add_string(void* post, const char* name, const char* value)
@@ -104,13 +113,12 @@ void ghttp_post_add_string(void* post, const char* name, const char* value)
     game_spy::http_post_add_string(post, name, value);
 }
 void ghttp_post_add_file_from_memory(void* post, const char* name, const char* buffer, uint32_t size,
-                                const char* report_name, const char* content_type)
+                                     const char* report_name, const char* content_type)
 {
-    game_spy::http_post_add_file_from_memory(
-        post, name, buffer, size, report_name, content_type);
+    game_spy::http_post_add_file_from_memory(post, name, buffer, size, report_name, content_type);
 }
 int ghttp_post_ex(const char* url, const char* headers, void* post, int throttle, int blocking, const void* progress,
-                const void* completed, void* param)
+                  const void* completed, void* param)
 {
     return game_spy::http_post_ex(url, headers, post, throttle, blocking, progress, completed, param);
 }
@@ -129,22 +137,32 @@ void load_downloaded_item(char* buffer, uint32_t script)
 const char* type_folder(uint32_t type)
 {
     switch (type) {
-    case kVaultParks: return "levels";
-    case kVaultSkaters: return "skaters";
-    case kVaultTricks: return "tricks";
-    case kVaultGoals: return "goals";
-    default: return nullptr;
+    case kVaultParks:
+        return "levels";
+    case kVaultSkaters:
+        return "skaters";
+    case kVaultTricks:
+        return "tricks";
+    case kVaultGoals:
+        return "goals";
+    default:
+        return nullptr;
     }
 }
 // The upload's file type ("cap" park, "cas" skater, "cat" trick, "cag" goal; null for an unknown type).
 const char* upload_file_type(uint32_t type)
 {
     switch (type) {
-    case kVaultParks: return "cap";
-    case kVaultSkaters: return "cas";
-    case kVaultTricks: return "cat";
-    case kVaultGoals: return "cag";
-    default: return nullptr;
+    case kVaultParks:
+        return "cap";
+    case kVaultSkaters:
+        return "cas";
+    case kVaultTricks:
+        return "cat";
+    case kVaultGoals:
+        return "cag";
+    default:
+        return nullptr;
     }
 }
 
@@ -352,7 +370,7 @@ VaultMan* VaultMan::make_new()
         task->make_new(0);
         task->vtable_ = game_code::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&vault_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
+        reinterpret_cast<void**>(task)[7] = this;                                 // +0x1C the data
     }
     task_ = task;
     semaphore_ = CreateSemaphoreA(nullptr, 1, 10, nullptr);
@@ -533,7 +551,8 @@ void __cdecl VaultMan::vault_task(tasks::SchedulerTask* task)
             return;
         }
         // Each line: file:name:creator[:park, trick, skater or goal fields]:...:description
-        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line; line = text_tools::get_token(nullptr, "\r\n")) {
+        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
+             line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? static_cast<VaultItem*>(memory)->make_new() : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
@@ -541,8 +560,8 @@ void __cdecl VaultMan::vault_task(tasks::SchedulerTask* task)
             char file[1024];
             text_tools::dup_from(file, prop(&rest));
             // (the original makes the URL with sprintf: no limit)
-            std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s/%s",
-                          vault->folder_, vault->category_->label_, file);
+            std::snprintf(item->url_, sizeof(item->url_) + 0x80, "http://www.thugonline.com/%s/%s/%s", vault->folder_,
+                          vault->category_->label_, file);
             text_tools::dup_from(item->label_, prop(&rest));
             text_tools::dup_from(item->creator_, prop(&rest));
             if (vault->kind_tag_ == kVaultParks) {
@@ -583,7 +602,8 @@ void __cdecl VaultMan::vault_task(tasks::SchedulerTask* task)
     case kUploads: {
         push_bottom_up();
         // Each line: file:creator:size:...:description (the whole line also makes the URL).
-        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line; line = text_tools::get_token(nullptr, "\r\n")) {
+        for (char* line = text_tools::get_token(vault->octets_, "\r\n"); line;
+             line = text_tools::get_token(nullptr, "\r\n")) {
             void* memory = memory::alloc_zeroed(sizeof(VaultItem));
             VaultItem* item = memory ? static_cast<VaultItem*>(memory)->make_new() : nullptr;
             prepend(&vault->category_->items_, &item->list_link_);
@@ -618,8 +638,8 @@ unsigned long __stdcall VaultMan::list_thread(void* param)
     vault->octets_ = buffer;
     std::memset(buffer, 0, kListBufferSize);
     vault->req_ = ghttp_get_ex(vault->url_, nullptr, vault->octets_, kListBufferSize, nullptr, 0, 0,
-                                  reinterpret_cast<const void*>(&on_progress),
-                                  reinterpret_cast<const void*>(&on_transfer_done), vault);
+                               reinterpret_cast<const void*>(&on_progress),
+                               reinterpret_cast<const void*>(&on_transfer_done), vault);
     pop_heap();
     get_release(vault->semaphore_);
     return 0;
@@ -636,7 +656,7 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
     auto* buffer = static_cast<char*>(memory::alloc(size));
     vault->octets_ = buffer;
     int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
-                             reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
+                               reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
     reinterpret_cast<VaultMan*>(manager->vault_man_)->req_ = request;
     pop_heap();
     get_release(reinterpret_cast<VaultMan*>(manager->vault_man_)->semaphore_);
@@ -719,8 +739,8 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
         ghttp_post_add_string(post, "filetype", file_type);
     ghttp_post_add_string(post, "dblog", "1");
     vault->req_ = ghttp_post_ex("http://www.thugonline.com/cgi-bin/upload2.pl", nullptr, post, 0, 0,
-                                   reinterpret_cast<const void*>(&on_progress),
-                                   reinterpret_cast<const void*>(&on_transfer_done), vault);
+                                reinterpret_cast<const void*>(&on_progress),
+                                reinterpret_cast<const void*>(&on_transfer_done), vault);
     pop_heap();
     get_release(vault->semaphore_);
     return 0;
@@ -728,7 +748,7 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
 
 // 0x0054A660
 void __cdecl VaultMan::on_progress(void*, int state, const char*, int64_t, int64_t received, int64_t total,
-                                  VaultMan* vault)
+                                   VaultMan* vault)
 {
     // (states 3 and 7: receiving the file / posting)
     if ((state == 7 || state == 3) && total > 0)
@@ -756,11 +776,20 @@ int __cdecl VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_
     vault->outcome_val_ = 1;
     uint32_t script = 0;
     switch (vault->kind_tag_) {
-    case kVaultTricks: script = 0x61A1BC57; break;
-    case kVaultSkaters: script = 0xB010F357; break;
-    case kVaultGoals: script = 0x62896EDF; break;
-    case kVaultParks: script = 0x3BF882CC; break;
-    default: break;
+    case kVaultTricks:
+        script = 0x61A1BC57;
+        break;
+    case kVaultSkaters:
+        script = 0xB010F357;
+        break;
+    case kVaultGoals:
+        script = 0x62896EDF;
+        break;
+    case kVaultParks:
+        script = 0x3BF882CC;
+        break;
+    default:
+        break;
     }
     load_downloaded_item(buffer, script);
     vault->fault_ = 0;
@@ -902,11 +931,20 @@ bool __cdecl fill_vault_menu(script::Struct*, script::Script*)
         params->put_sub_struct("pad_choose_params", choose);
         const char* script = nullptr;
         switch (vault->kind_tag_) {
-        case kVaultParks: script = "net_vault_menu_add_park"; break;
-        case kVaultGoals: script = "net_vault_menu_add_goal"; break;
-        case kVaultSkaters: script = "net_vault_menu_add_skater"; break;
-        case kVaultTricks: script = "net_vault_menu_add_trick"; break;
-        default: break;
+        case kVaultParks:
+            script = "net_vault_menu_add_park";
+            break;
+        case kVaultGoals:
+            script = "net_vault_menu_add_goal";
+            break;
+        case kVaultSkaters:
+            script = "net_vault_menu_add_skater";
+            break;
+        case kVaultTricks:
+            script = "net_vault_menu_add_trick";
+            break;
+        default:
+            break;
         }
         if (script)
             get_run(script, params);

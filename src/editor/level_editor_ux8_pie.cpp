@@ -107,4 +107,4 @@ std::vector<Item> view_items()
     return items;
 }
 
-} // namespace MenuSystem::level_editor::ux8::Pie
+} // namespace frontend::level_editor::ux8::pie

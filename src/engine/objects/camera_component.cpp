@@ -68,7 +68,7 @@ void ViewpointModule::configure_from_data(script::Struct*)
 {
     ObjectHubBase* manager = reinterpret_cast<ObjectHubBase*>(object_hub_slot());
     reinterpret_cast<void(__thiscall*)(ObjectHubBase*, Entity*, int)>(manager->vtable_[4])(manager, entity_,
-                                                                                         kCameraPriority);
+                                                                                           kCameraPriority);
 }
 
 // 0x0041B810
@@ -89,25 +89,27 @@ void ViewpointModule::tick_frame()
     view_camera_->change_mat(matrix);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::ViewpointModule::teardown,
-         &objects::ViewpointModule::tick_frame,
-         &objects::ViewpointModule::configure_from_data,
-         &objects::ViewpointModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::ViewpointModule::teardown,
+    &objects::ViewpointModule::tick_frame,
+    &objects::ViewpointModule::configure_from_data,
+    &objects::ViewpointModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

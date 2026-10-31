@@ -31,17 +31,14 @@ using memory::ListNode;
 namespace {
 
 void** const& g_pc_geom_vtable = vt::kPcGeom;
-extern void** const kMeshNodeVtable; // the load list's nodes (lists::Elem<MeshRef>)
-extern void** const kMeshHeadVtable; // and its head
-constexpr float kPer255 = 1.0f / 255.0f;          // 0x00645D70 (0x3B808081)
-constexpr float kQuarterTurn = 1.57079637f;      // 0x00645484
+extern void** const kMeshNodeVtable;        // the load list's nodes (lists::Elem<MeshRef>)
+extern void** const kMeshHeadVtable;        // and its head
+constexpr float kPer255 = 1.0f / 255.0f;    // 0x00645D70 (0x3B808081)
+constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
 
 // A mesh's vertex buffers (not rewritten yet): buffer `index`, locked (offset, size - 0: all, flags; the vertices
 // into *data) and unlocked.
-VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index)
-{
-    return mesh->fetch_vertex_store(index);
-}
+VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
 uint8_t* get_lock(VertexBuffer* buffer, uint32_t flags)
 {
     uint8_t* data;
@@ -53,14 +50,14 @@ constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
 uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
-void mesh_position(MeshRef* mesh, maths::Vec4* out)
-{
-    mesh->fetch_place(reinterpret_cast<float*>(out));
-}
+void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(reinterpret_cast<float*>(out)); }
 MaterialRef* material_of(MeshRef* mesh) { return reinterpret_cast<MaterialRef*>(mesh->material); }
 // A mesh's colour (flag 4): the floats at +0x80; its vertex shader at +0x38.
 float* mesh_tint_ptr(MeshRef* mesh) { return reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80); }
-uint32_t& mesh_vertex_shader(MeshRef* mesh) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x38); }
+uint32_t& mesh_vertex_shader(MeshRef* mesh)
+{
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x38);
+}
 
 // The instance's meshes (its mesh list's).
 MeshRef** scene_meshes(SceneRef* scene) { return reinterpret_cast<MeshRef**>(scene->meshes); }
@@ -95,7 +92,10 @@ void call_virtual(PcGeom* geom, int slot, int argument)
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).
 float channel_to_float(uint32_t channel) { return static_cast<float>(static_cast<double>(channel) * kPer255); }
 // And back (the C runtime's _ftol of the float times 255: truncated).
-uint8_t float_to_channel(float value) { return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0)); }
+uint8_t float_to_channel(float value)
+{
+    return static_cast<uint8_t>(static_cast<int>(static_cast<double>(value) * 255.0));
+}
 
 maths::Vec4 g_static_position;
 uint32_t g_static_position_guard;
@@ -494,10 +494,7 @@ void PcGeom::toggle_shown(uint32_t mask)
 }
 
 // 0x004B4120
-uint32_t PcGeom::fetch_shown()
-{
-    return visibility | 0xFFFFFF00u;
-}
+uint32_t PcGeom::fetch_shown() { return visibility | 0xFFFFFF00u; }
 
 // 0x004B4630
 void PcGeom::change_live(bool on)
@@ -518,10 +515,7 @@ void PcGeom::change_live(bool on)
 }
 
 // 0x004B4690
-bool PcGeom::is_operative()
-{
-    return instance ? instance->active : active;
-}
+bool PcGeom::is_operative() { return instance ? instance->active : active; }
 
 // 0x004B4730
 void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
@@ -612,8 +606,7 @@ void PcGeom::rotate_y(int turns)
     maths::Mat4 rotation;
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
-    d3dx::matrix_multiply(&rotation, &m,
-                                                                                                 &rotation);
+    d3dx::matrix_multiply(&rotation, &m, &rotation);
     rotation.row[3] = instance->transform.row[3];
     instance->transform = rotation;
 }
@@ -679,7 +672,7 @@ bool PcGeom::break_strips(uint32_t mask)
 {
     if (source)
         instance->scene->break_strips(mask, *reinterpret_cast<uint32_t**>(source + 0xBC),
-                                     *reinterpret_cast<uint32_t*>(source + 0xC0));
+                                      *reinterpret_cast<uint32_t*>(source + 0xC0));
     return true;
 }
 
@@ -783,8 +776,8 @@ void PcGeom::change_colors(const uint8_t* in)
 }
 
 // 0x004B4300
-void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp, float v_freq,
-                                float v_phase)
+void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
+                                  float v_freq, float v_phase)
 {
     if (!meshes)
         return;
@@ -919,26 +912,60 @@ static VtableSlot g_mesh_head_vtable_slots[] = {&render::MeshListNode::destroy_h
 void** const kMeshHeadVtable = reinterpret_cast<void**>(g_mesh_head_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace vt {
 // (slot 15, the bounding box getter, is the same code as online::RankingsManager::get_personal_stats: the linker folded them)
-static VtableSlot g_pc_geom_slots[] = {&render::PcGeom::teardown, &render::PcGeom::clone_instance, &render::PcGeom::replicate,
-                &render::PcGeom::init_instance, &render::PcGeom::clean_instance_strips, &render::Geom::plat_get_checksum,
-                &render::PcGeom::change_tint, &render::PcGeom::fetch_tint, &render::PcGeom::wipe_tint,
-                &render::PcGeom::change_material_tint, &render::Geom::plat_get_material_color, &render::PcGeom::toggle_shown,
-                &render::PcGeom::fetch_shown, &render::PcGeom::change_live, &render::PcGeom::is_operative,
-                &online::RankingsManager::get_personal_stats, &render::PcGeom::change_bound_sphere, &render::PcGeom::fetch_bound_sphere,
-                &render::PcGeom::place_at_absolute_point, &render::PcGeom::get_absolute_point, &render::PcGeom::change_facing,
-                &render::PcGeom::fetch_facing, &render::PcGeom::rotate_y, &render::Geom::plat_set_transform,
-                &render::Geom::plat_get_transform, &render::PcGeom::change_scale, &render::PcGeom::fetch_magnification, stubs::ignore_argument,
-                &render::PcGeom::upload_skinning_palette, &render::PcGeom::copy_bones, &render::PcGeom::set_bones,
-                &render::PcGeom::break_strips, &save_cards::SaveCard::always_true, stubs::return_zero,
-                &render::Geom::plat_get_num_render_base_polys, stubs::return_zero, &render::PcGeom::fetch_vertex_tally,
-                &render::PcGeom::get_vertices, &render::PcGeom::fetch_tints, &render::PcGeom::set_vertices, &render::PcGeom::change_colors,
-                stubs::ignore_arguments3, &render::PcGeom::set_uv_wibble_params, &render::PcGeom::enable_explicit_uv_wibble,
-                &render::RenderModel::virtual_true4, &render::PcGeom::set_uv_wibble_offsets, &render::PcGeom::choose_uv_matrix,
-                &render::PcGeom::create_uv_anim_params, &render::PcGeom::reset_texture_anims, stubs::ignore_argument,
-                stubs::do_nothing};
+static VtableSlot g_pc_geom_slots[] = {&render::PcGeom::teardown,
+                                       &render::PcGeom::clone_instance,
+                                       &render::PcGeom::replicate,
+                                       &render::PcGeom::init_instance,
+                                       &render::PcGeom::clean_instance_strips,
+                                       &render::Geom::plat_get_checksum,
+                                       &render::PcGeom::change_tint,
+                                       &render::PcGeom::fetch_tint,
+                                       &render::PcGeom::wipe_tint,
+                                       &render::PcGeom::change_material_tint,
+                                       &render::Geom::plat_get_material_color,
+                                       &render::PcGeom::toggle_shown,
+                                       &render::PcGeom::fetch_shown,
+                                       &render::PcGeom::change_live,
+                                       &render::PcGeom::is_operative,
+                                       &online::RankingsManager::get_personal_stats,
+                                       &render::PcGeom::change_bound_sphere,
+                                       &render::PcGeom::fetch_bound_sphere,
+                                       &render::PcGeom::place_at_absolute_point,
+                                       &render::PcGeom::get_absolute_point,
+                                       &render::PcGeom::change_facing,
+                                       &render::PcGeom::fetch_facing,
+                                       &render::PcGeom::rotate_y,
+                                       &render::Geom::plat_set_transform,
+                                       &render::Geom::plat_get_transform,
+                                       &render::PcGeom::change_scale,
+                                       &render::PcGeom::fetch_magnification,
+                                       stubs::ignore_argument,
+                                       &render::PcGeom::upload_skinning_palette,
+                                       &render::PcGeom::copy_bones,
+                                       &render::PcGeom::set_bones,
+                                       &render::PcGeom::break_strips,
+                                       &save_cards::SaveCard::always_true,
+                                       stubs::return_zero,
+                                       &render::Geom::plat_get_num_render_base_polys,
+                                       stubs::return_zero,
+                                       &render::PcGeom::fetch_vertex_tally,
+                                       &render::PcGeom::get_vertices,
+                                       &render::PcGeom::fetch_tints,
+                                       &render::PcGeom::set_vertices,
+                                       &render::PcGeom::change_colors,
+                                       stubs::ignore_arguments3,
+                                       &render::PcGeom::set_uv_wibble_params,
+                                       &render::PcGeom::enable_explicit_uv_wibble,
+                                       &render::RenderModel::virtual_true4,
+                                       &render::PcGeom::set_uv_wibble_offsets,
+                                       &render::PcGeom::choose_uv_matrix,
+                                       &render::PcGeom::create_uv_anim_params,
+                                       &render::PcGeom::reset_texture_anims,
+                                       stubs::ignore_argument,
+                                       stubs::do_nothing};
 void** const kPcGeom = reinterpret_cast<void**>(g_pc_geom_slots);
-} // namespace Vt
+} // namespace vt

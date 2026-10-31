@@ -44,7 +44,8 @@ void pane(float ui_scale)
         return;
     ImGui::SetNextWindowSize(ImVec2(330.0f * ui_scale, 0.0f), ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(ImVec2(420.0f * ui_scale, 120.0f * ui_scale), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Arrange###arrange", &s.window, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
+    if (!ImGui::Begin("Arrange###arrange", &s.window,
+                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End();
         return;
     }
@@ -71,9 +72,7 @@ void pane(float ui_scale)
         std::snprintf(label, sizeof(label), "Align %s", kEdges[edge]);
         if (ImGui::Button(label)) {
             int axis = s.axis;
-            get_later([axis, edge] {
-                justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local);
-            });
+            get_later([axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
     }
     if (ImGui::Button("Distribute")) {
@@ -126,7 +125,7 @@ void browser_extras(float ui_scale)
     get_tip("Click in the view to place (Shift: more)");
 }
 
-} // namespace MenuSystem::level_editor::Arrange
+} // namespace frontend::level_editor::arrange
 
 namespace frontend::level_editor::adjust {
 
@@ -228,4 +227,4 @@ void get_panel(float x, float y, float ui_scale)
         get_request(edit, done);
 }
 
-} // namespace MenuSystem::level_editor::Adjust
+} // namespace frontend::level_editor::adjust

@@ -57,45 +57,45 @@ T& get_at(const void* object, uint32_t offset)
 maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<maths::Vec4>(object, offset); }
 
 // The component's fields (offsets).
-constexpr uint32_t kState = 0x18;              // 0 ground, 1 air, 2 hang, 3 ladder, 4 hang move
-constexpr uint32_t kStateTime = 0x1C;          // when the state last changed
+constexpr uint32_t kState = 0x18;     // 0 ground, 1 air, 2 hang, 3 ladder, 4 hang move
+constexpr uint32_t kStateTime = 0x1C; // when the state last changed
 constexpr uint32_t kPreviousState = 0x20;
 constexpr uint32_t kPosition = 0x24;
-constexpr uint32_t kVelocity = 0x34;           // (horizontal; +0x44 the vertical speed)
+constexpr uint32_t kVelocity = 0x34; // (horizontal; +0x44 the vertical speed)
 constexpr uint32_t kVerticalSpeed = 0x44;
 constexpr uint32_t kFacing = 0x48;
 constexpr uint32_t kOldPosition = 0x68;
-constexpr uint32_t kAnimState = 0x78;          // the state's animation checksum (Stand, Land, Jump, HANG, ...)
+constexpr uint32_t kAnimState = 0x78; // the state's animation checksum (Stand, Land, Jump, HANG, ...)
 constexpr uint32_t kPreviousAnimState = 0x7C;
-constexpr uint32_t kFrameLength = 0x80;        // seconds
+constexpr uint32_t kFrameLength = 0x80; // seconds
 constexpr uint32_t kStickHeading = 0x84;
 constexpr uint32_t kStickDeflection = 0x94;
-constexpr uint32_t kContacts = 0xA0;           // 8 contacts, 0xCC each
+constexpr uint32_t kContacts = 0xA0; // 8 contacts, 0xCC each
 constexpr uint32_t kAnimSpeedMode = 0x700;
 constexpr uint32_t kSpeed = 0x704;
-constexpr uint32_t kCurbOffset = 0x714;        // the step smoothing's height
+constexpr uint32_t kCurbOffset = 0x714; // the step smoothing's height
 constexpr uint32_t kHitMeshStore = 0x790;
 constexpr uint32_t kWalkCamera = 0x1760;
 constexpr uint32_t kInput = 0x1770;
 constexpr uint32_t kAnimation = 0x1774;
-constexpr uint32_t kComponents = 0x1770;       // the eight components found by Finalize (+0x1770-+0x178C)
-constexpr uint32_t kRide = 0x1784;             // the ride component: +0x18 its tracker (RideTracker)
-constexpr uint32_t kRunSpeed = 0x17B0;         // the run animation's natural speed
+constexpr uint32_t kComponents = 0x1770; // the eight components found by Finalize (+0x1770-+0x178C)
+constexpr uint32_t kRide = 0x1784;       // the ride component: +0x18 its tracker (RideTracker)
+constexpr uint32_t kRunSpeed = 0x17B0;   // the run animation's natural speed
 constexpr uint32_t kTriggerFeeler = 0x17B4;
 constexpr uint32_t kHeading = 0x1878;
-constexpr uint32_t kCarried = 0x1888;          // the velocity of what it stood on
+constexpr uint32_t kCarried = 0x1888; // the velocity of what it stood on
 constexpr uint32_t kExtraVelocity = 0x189C;
 constexpr uint32_t kSentLadderSpeed = 0x18E0;
 constexpr uint32_t kHangMoveFacing = 0x191C;
 constexpr uint32_t kHangMoving = 0x1944;
 constexpr uint32_t kFlag1958 = 0x1958;
-constexpr uint32_t kJumpHeld = 0x9A;           // (a byte: cleared once the input's +0x100 is)
-constexpr uint32_t kDestElevation = 0x9C;       // (the animation wait's height, eased from +0x1914 to +0x1918)
-constexpr uint32_t kCurbSnapped = 0x718;       // (a byte: the step smoothing held this frame)
-constexpr uint32_t kRideOffset = 0x71C;        // (the point checked against moving objects, from the position)
-constexpr uint32_t kTrigger = 0x1780;          // (a component: +0x24 animation speed shown, +0x26 the walk halted)
-constexpr uint32_t kSkater = 0x178C;           // the skater component
-constexpr uint32_t kBlocked = 0x186C;          // (a byte: walking into something - see update_contacts)
+constexpr uint32_t kJumpHeld = 0x9A;      // (a byte: cleared once the input's +0x100 is)
+constexpr uint32_t kDestElevation = 0x9C; // (the animation wait's height, eased from +0x1914 to +0x1918)
+constexpr uint32_t kCurbSnapped = 0x718;  // (a byte: the step smoothing held this frame)
+constexpr uint32_t kRideOffset = 0x71C;   // (the point checked against moving objects, from the position)
+constexpr uint32_t kTrigger = 0x1780;     // (a component: +0x24 animation speed shown, +0x26 the walk halted)
+constexpr uint32_t kSkater = 0x178C;      // the skater component
+constexpr uint32_t kBlocked = 0x186C;     // (a byte: walking into something - see update_contacts)
 constexpr uint32_t kSkidTime = 0x1870;
 constexpr uint32_t kExtraVelocityTop = 0x18AC; // the extra velocity's lost above this height
 constexpr uint32_t kWaitFrom = 0x18E4;         // the animation wait: from, to (vectors), the target height's ends,
@@ -105,21 +105,21 @@ constexpr uint32_t kWaitHeightTo = 0x1918;
 constexpr uint32_t kWaitTurnTime = 0x192C;
 constexpr uint32_t kWaitTurn = 0x1930;
 constexpr uint32_t kWaitCarried = 0x1934;
-constexpr uint32_t kOffVert = 0x9B;            // (a byte: began in the air off a vert ramp)
-constexpr uint32_t kVertTurnSpeed = 0x72C;     // (a turn under way when it began: non-zero, the angle, the axis)
+constexpr uint32_t kOffVert = 0x9B;        // (a byte: began in the air off a vert ramp)
+constexpr uint32_t kVertTurnSpeed = 0x72C; // (a turn under way when it began: non-zero, the angle, the axis)
 constexpr uint32_t kVertTurn = 0x730;
 constexpr uint32_t kVertTurnAxis = 0x734;
 constexpr uint32_t kActivationZoneSlot = 0x177C; // the object's trigger component (sets off the ground's triggers)
-constexpr uint32_t kTerrainComponent = 0x1788; // (a component told the terrain under it)
+constexpr uint32_t kTerrainComponent = 0x1788;   // (a component told the terrain under it)
 constexpr uint32_t kFloorUpVector = 0x1794;
 constexpr uint32_t kHasGround = 0x1864;        // (a byte: the trigger feeler holds the ground stood on)
-constexpr uint32_t kEntityUpRow = 0x7C;           // the object's matrix: the second row
+constexpr uint32_t kEntityUpRow = 0x7C;        // the object's matrix: the second row
 constexpr uint32_t kObjectForward = 0x8C;      // ... the third
 constexpr uint32_t kBarrierJumpAllowed = 0x98; // (a byte checked before a barrier jump)
 constexpr uint32_t kBarrierTimed = 0x17A8;     // (a byte: walking into a barrier since +0x17AC)
 constexpr uint32_t kBarrierSince = 0x17AC;
-constexpr uint32_t kHangJump = 0x18B0;         // (a byte: jumped off a hang - from the plane through +0x18C4 along
-constexpr uint32_t kHangJumpFacing = 0x18B4;   //  +0x18B4; +0x18C8 the height over +0x18D0)
+constexpr uint32_t kHangJump = 0x18B0;       // (a byte: jumped off a hang - from the plane through +0x18C4 along
+constexpr uint32_t kHangJumpFacing = 0x18B4; //  +0x18B4; +0x18C8 the height over +0x18D0)
 constexpr uint32_t kHangJumpPlane = 0x18C4;
 constexpr uint32_t kHangJumpHeight = 0x18C8;
 constexpr uint32_t kHangHeight = 0x18D0;
@@ -138,60 +138,60 @@ constexpr uint32_t kLand = 0x57FF2A27;           // Land
 constexpr uint32_t kWalkOffEdge = 0xABF1F6AC;    // WalkOffEdge
 
 // Names.
-constexpr uint32_t kWalkParameters = 0x6775E538;   // walk_parameters
-constexpr uint32_t kHangMoveAnimSpeed = 0x1A47FFAB; // hang_move_animation_speed
-constexpr uint32_t kLadderMoveSpeed = 0x0AB2DB54;  // ladder_move_speed
-constexpr uint32_t kSpeedName = 0xF0D90109;        // speed
-constexpr uint32_t kSetAnimSpeed = 0xBD4EDD44;     // (the animation component's member function given the speed)
-constexpr uint32_t kAir = 0x439F4704;              // AIR (an event; also the air's animation state)
+constexpr uint32_t kWalkParameters = 0x6775E538;        // walk_parameters
+constexpr uint32_t kHangMoveAnimSpeed = 0x1A47FFAB;     // hang_move_animation_speed
+constexpr uint32_t kLadderMoveSpeed = 0x0AB2DB54;       // ladder_move_speed
+constexpr uint32_t kSpeedName = 0xF0D90109;             // speed
+constexpr uint32_t kSetAnimSpeed = 0xBD4EDD44;          // (the animation component's member function given the speed)
+constexpr uint32_t kAir = 0x439F4704;                   // AIR (an event; also the air's animation state)
 constexpr uint32_t kPeggedDurationForSkid = 0x8E1CF27A; // pegged_duration_for_skid
 constexpr uint32_t kCurbFloatLerpDownRate = 0x9B3388FA; // curb_float_lerp_down_rate
-constexpr uint32_t kRehangDelay = 0xE6E0C0A4;      // rehang_delay (a skater physics value)
+constexpr uint32_t kRehangDelay = 0xE6E0C0A4;           // rehang_delay (a skater physics value)
 constexpr uint32_t kStickyLandThresholdSpeed = 0x530DCF34; // sticky_land_threshold_speed (the same)
-constexpr uint32_t kSnapUpHeight = 0xCEE3A3E1;     // snap_up_height
-constexpr uint32_t kSnapDownHeight = 0xAF3E4251;   // snap_down_height
-constexpr uint32_t kMaxUnnoticedGroundSnap = 0xD3193D8E; // max_unnoticed_ground_snap
-constexpr uint32_t kInitialVertVelBoost = 0x17B37748; // initial_vert_vel_boost
-constexpr uint32_t kSteppedUp = 0x93FCF3ED;        // (events for a big step up / down; names not recovered)
+constexpr uint32_t kSnapUpHeight = 0xCEE3A3E1;             // snap_up_height
+constexpr uint32_t kSnapDownHeight = 0xAF3E4251;           // snap_down_height
+constexpr uint32_t kMaxUnnoticedGroundSnap = 0xD3193D8E;   // max_unnoticed_ground_snap
+constexpr uint32_t kInitialVertVelBoost = 0x17B37748;      // initial_vert_vel_boost
+constexpr uint32_t kSteppedUp = 0x93FCF3ED;                // (events for a big step up / down; names not recovered)
 constexpr uint32_t kSteppedDown = 0x56E21153;
-constexpr uint32_t kSkaterOffEdge = 0xD96F01F1;    // SkaterOffEdge (an event)
-constexpr uint32_t kHoldTimeForMaxJump = 0x12333EBD; // hold_time_for_max_jump
-constexpr uint32_t kMinJumpFactor = 0x246D0BF3;    // min_jump_factor
-constexpr uint32_t kHangJumpFactor = 0xF2FA5845;   // hang_jump_factor
-constexpr uint32_t kJumpVelocity = 0x63D62A21;     // jump_velocity
-constexpr uint32_t kJumpHorizSpeed = 0x839FE542;   // jump_horiz_speed (a skater physics value)
+constexpr uint32_t kSkaterOffEdge = 0xD96F01F1;             // SkaterOffEdge (an event)
+constexpr uint32_t kHoldTimeForMaxJump = 0x12333EBD;        // hold_time_for_max_jump
+constexpr uint32_t kMinJumpFactor = 0x246D0BF3;             // min_jump_factor
+constexpr uint32_t kHangJumpFactor = 0xF2FA5845;            // hang_jump_factor
+constexpr uint32_t kJumpVelocity = 0x63D62A21;              // jump_velocity
+constexpr uint32_t kJumpHorizSpeed = 0x839FE542;            // jump_horiz_speed (a skater physics value)
 constexpr uint32_t kBarrierJumpHighestBarrier = 0xDA85F5AE; // barrier_jump_highest_barrier
-constexpr uint32_t kBarrierJumpMaxAngle = 0x78E6A5EC; // barrier_jump_max_angle
-constexpr uint32_t kBarrierJumpMinClearance = 0x72660978; // barrier_jump_min_clearance
-constexpr uint32_t kBarrierJumpDelay = 0x38D36700; // barrier_jump_delay
-constexpr uint32_t kFeelerLength = 0x99978D2B;     // feeler_length
-constexpr uint32_t kProbeElevation = 0x6DA7F696;     // feeler_height
-constexpr uint32_t kPushFeelerLength = 0xA20C43B7; // push_feeler_length
-constexpr uint32_t kPushStrength = 0x4D16F37D;     // push_strength
-constexpr uint32_t kMinAnimRunSpeed = 0x0BD6A05D;  // min_anim_run_speed
-constexpr uint32_t kSkaterJump = 0x8687163A;       // SkaterJump (an event)
-constexpr uint32_t kJump = 0x584CF9E9;             // Jump (the animation state)
-constexpr uint32_t kJumpRequested = 0x6B9CA247;    // JumpRequested (an event handler type)
+constexpr uint32_t kBarrierJumpMaxAngle = 0x78E6A5EC;       // barrier_jump_max_angle
+constexpr uint32_t kBarrierJumpMinClearance = 0x72660978;   // barrier_jump_min_clearance
+constexpr uint32_t kBarrierJumpDelay = 0x38D36700;          // barrier_jump_delay
+constexpr uint32_t kFeelerLength = 0x99978D2B;              // feeler_length
+constexpr uint32_t kProbeElevation = 0x6DA7F696;            // feeler_height
+constexpr uint32_t kPushFeelerLength = 0xA20C43B7;          // push_feeler_length
+constexpr uint32_t kPushStrength = 0x4D16F37D;              // push_strength
+constexpr uint32_t kMinAnimRunSpeed = 0x0BD6A05D;           // min_anim_run_speed
+constexpr uint32_t kSkaterJump = 0x8687163A;                // SkaterJump (an event)
+constexpr uint32_t kJump = 0x584CF9E9;                      // Jump (the animation state)
+constexpr uint32_t kJumpRequested = 0x6B9CA247;             // JumpRequested (an event handler type)
 
-constexpr uint16_t kFaceWall = 0x2;        // a face flag: not stood on
-constexpr float kWallGap = 0.1f;           // 0x00645D74
-constexpr float kSlideGap = 0.05f;         // 0x00645D6C
-constexpr float kBigStepDown = -3.0f;      // 0x0064C798
-constexpr float kNudge = 0.001f;           // 0x006461D8
+constexpr uint16_t kFaceWall = 0x2;                         // a face flag: not stood on
+constexpr float kWallGap = 0.1f;                            // 0x00645D74
+constexpr float kSlideGap = 0.05f;                          // 0x00645D6C
+constexpr float kBigStepDown = -3.0f;                       // 0x0064C798
+constexpr float kNudge = 0.001f;                            // 0x006461D8
 constexpr double kMinHeadingLength = 0.0010000000474974513; // (0.001f)
-constexpr double kSeventhTurn = 0.8975979089736938;       // 0x00646968 (2 pi / 7, as a float)
-constexpr double kDegrees = 0.01745329238474369;          // 0x00645464 (pi / 180, as a float)
-constexpr double kNinth = 0.1111111119389534;             // 0x0064C79C (1 / 9, as a float)
-constexpr double kSteepGround = 0.5;                      // 0x006453BC
-constexpr double kFloorBelow = 0.7070000171661377;        // 0x006467BC
-constexpr double kMovingSqr = 0.009999999776482582;       // 0x0064544C (0.01f)
-constexpr double kStillLength = 0.0001;                   // 0x006484A0
-constexpr double kStillSqr = 1e-08;                       // 0x0064C7A0
-constexpr double kMostlyStopped = 0.25;                   // 0x006467AC
+constexpr double kSeventhTurn = 0.8975979089736938;         // 0x00646968 (2 pi / 7, as a float)
+constexpr double kDegrees = 0.01745329238474369;            // 0x00645464 (pi / 180, as a float)
+constexpr double kNinth = 0.1111111119389534;               // 0x0064C79C (1 / 9, as a float)
+constexpr double kSteepGround = 0.5;                        // 0x006453BC
+constexpr double kFloorBelow = 0.7070000171661377;          // 0x006467BC
+constexpr double kMovingSqr = 0.009999999776482582;         // 0x0064544C (0.01f)
+constexpr double kStillLength = 0.0001;                     // 0x006484A0
+constexpr double kStillSqr = 1e-08;                         // 0x0064C7A0
+constexpr double kMostlyStopped = 0.25;                     // 0x006467AC
 
-constexpr float kCameraRate = 0.05f;       // 0x3D4CCCCD
+constexpr float kCameraRate = 0.05f;            // 0x3D4CCCCD
 constexpr double kHangTurn = 0.949999988079071; // 0x0064C790 (radians)
-constexpr float kHangTurnBack = -0.95f;    // 0xBF733333
+constexpr float kHangTurnBack = -0.95f;         // 0xBF733333
 
 // walk_parameters' float `name` (asserted).
 float walk_parameter(uint32_t name)
@@ -250,14 +250,15 @@ const uint8_t* rider_state_bits(const void* walk) { return get_at<uint8_t*>(get_
 struct Contact {
     bool hit;
     uint8_t unknown1[3];
-    maths::Vec4 normal;  // +0x04 the hit's, flattened and made unit length
-    bool clear;          // +0x14 (a barrier jump: nothing in the way at the highest barrier's height)
+    maths::Vec4 normal; // +0x04 the hit's, flattened and made unit length
+    bool clear;         // +0x14 (a barrier jump: nothing in the way at the highest barrier's height)
     uint8_t unknown15[3];
-    float object_speed_;   // +0x18 how fast the object hit moves along the normal
-    render::ProbeRay feeler;  // +0x1C
+    float object_speed_;     // +0x18 how fast the object hit moves along the normal
+    render::ProbeRay feeler; // +0x1C
 };
 static_assert(offsetof(Contact, normal) == 0x04 && offsetof(Contact, clear) == 0x14 &&
-                  offsetof(Contact, object_speed_) == 0x18 && offsetof(Contact, feeler) == 0x1C && sizeof(Contact) == 0xCC,
+                  offsetof(Contact, object_speed_) == 0x18 && offsetof(Contact, feeler) == 0x1C &&
+                  sizeof(Contact) == 0xCC,
               "layout must match the original");
 Contact& contact_at(const void* walk, int index) { return get_at<Contact>(walk, kContacts + 0xCC * index); }
 
@@ -329,7 +330,8 @@ FootMovement* FootMovement::make_new()
     ObjectModule::make_new();
     vtable_ = kWalkVtable;
     for (uint32_t i = 0; i < 8; ++i)
-        reinterpret_cast<WalkContact*>(&get_at<uint8_t>(this, kContacts + 0xCC * i))->make_new(); // (each contact's constructor)
+        reinterpret_cast<WalkContact*>(&get_at<uint8_t>(this, kContacts + 0xCC * i))
+            ->make_new(); // (each contact's constructor)
     reinterpret_cast<render::HitMeshCache*>(&get_at<uint8_t>(this, kHitMeshStore))->make_new();
     reinterpret_cast<render::ProbeRay*>(&get_at<uint8_t>(this, kTriggerFeeler))->make_new();
     for (uint32_t offset = kComponents; offset <= 0x178C; offset += 4)
@@ -408,7 +410,8 @@ void FootMovement::update_anim_speed()
     // 0x00419B90: the animation's first channel's speed (and whether to send it over the network).
     auto set_speed = [animation](float speed, int send) {
         // (the other three are passed as integers: their bits)
-        static_cast<AnimBlenderComponent*>(animation)->first_channel_47e_850(speed, std::bit_cast<float>(send), 0.0f, 0.0f);
+        static_cast<AnimBlenderComponent*>(animation)->first_channel_47e_850(speed, std::bit_cast<float>(send), 0.0f,
+                                                                             0.0f);
     };
     // The animation component's member function 0xBD4EDD44 with speed = `speed`.
     auto tell = [animation](float speed) {
@@ -681,8 +684,8 @@ void FootMovement::update_ground()
             velocity.y = 0.0f;
             get_at<float>(this, kVerticalSpeed) = 0.0f;
             double length_sqr = static_cast<double>(velocity.x) * velocity.x +
-                               static_cast<double>(velocity.y) * velocity.y +
-                               static_cast<double>(velocity.z) * velocity.z;
+                                static_cast<double>(velocity.y) * velocity.y +
+                                static_cast<double>(velocity.z) * velocity.z;
             if (length_sqr > 100.0)
                 vector_at(this, kFacing) = velocity / static_cast<float>(std::sqrt(length_sqr));
         }
@@ -732,12 +735,11 @@ void FootMovement::update_air()
         int previous = get_at<int>(this, kPreviousState);
         bool grab = true;
         if (previous == 2 || previous == 3 || previous == 4) {
-            auto since = static_cast<float>(
-                static_cast<double>(static_cast<uint32_t>(frame_clock::game_clock_time_since(get_at<int>(this, kStateTime)))));
+            auto since = static_cast<float>(static_cast<double>(
+                static_cast<uint32_t>(frame_clock::game_clock_time_since(get_at<int>(this, kStateTime)))));
             grab = get_param(kRehangDelay) < since;
         }
-        if (grab && (grab_rail(old_position, position) ||
-                     grab_ladder(&old_position, &position))) {
+        if (grab && (grab_rail(old_position, position) || grab_ladder(&old_position, &position))) {
             clear_current_cache();
             return;
         }
@@ -879,7 +881,8 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
     render::ProbeRay* ground = &get_at<render::ProbeRay>(this, kTriggerFeeler);
     reinterpret_cast<render::ProbeRay*>(ground)->get_assign(*feeler); // (the feeler copied)
     get_at<bool>(this, kHasGround) = true;
-    static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))->probe_touches_zone(kWalkEvents0064c648, ground);
+    static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+        ->probe_touches_zone(kWalkEvents0064c648, ground);
     if (!halted(this)) {
         vector_at(this, kFloorUpVector) = feeler->surface_dir_;
         void* ride = get_at<void*>(this, kRide);
@@ -911,7 +914,8 @@ void FootMovement::collide_air_move(const maths::Vec4* from, const maths::Vec4* 
         if (stop)
             velocity = {0.0f, 0.0f, 0.0f, 1.0f};
         vector_at(this, kRideOffset) = {0.0f, 0.0f, 0.0f, 1.0f};
-        reinterpret_cast<ControlButton*>(get_at<uint8_t*>(this, kInput) + 0x1C0)->forget_let_go(); // (a button's release taken)
+        reinterpret_cast<ControlButton*>(get_at<uint8_t*>(this, kInput) + 0x1C0)
+            ->forget_let_go(); // (a button's release taken)
         get_at<uint32_t>(this, kAnimState) = kLand;
     }
     release_hit(feeler);
@@ -944,13 +948,15 @@ void FootMovement::settle_onto_floor()
         render::ProbeRay* ground = &get_at<render::ProbeRay>(this, kTriggerFeeler);
         if (ground->hit_.object != feeler->hit_.object) {
             if (get_at<bool>(this, kHasGround)) {
-                static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))->probe_touches_zone(kWalkEvents0064c660, ground);
+                static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+                    ->probe_touches_zone(kWalkEvents0064c660, ground);
                 if (halted(this)) {
                     feeler->destruct();
                     return;
                 }
             }
-            static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))->probe_touches_zone(kWalkEvents0064c654, feeler);
+            static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+                ->probe_touches_zone(kWalkEvents0064c654, feeler);
             if (halted(this)) {
                 feeler->destruct();
                 return;
@@ -961,7 +967,8 @@ void FootMovement::settle_onto_floor()
         vector_at(this, kFloorUpVector) = feeler->surface_dir_;
         static_cast<MovingSurfaceModule*>(get_at<void*>(this, kRide))->start_riding(feeler); // (what it stands on)
         // (the terrain byte, passed as the dword there)
-        static_cast<RiderPoseState*>(get_at<void*>(this, kTerrainComponent))->set_surface_kind(static_cast<uint8_t>(*reinterpret_cast<const uint32_t*>(&feeler->hit_.terrain)));
+        static_cast<RiderPoseState*>(get_at<void*>(this, kTerrainComponent))
+            ->set_surface_kind(static_cast<uint8_t>(*reinterpret_cast<const uint32_t*>(&feeler->hit_.terrain)));
         release_hit(feeler);
         return;
     }
@@ -970,7 +977,8 @@ void FootMovement::settle_onto_floor()
     if (feeler->get_hit_shape(true, false))
         put_off(&position, feeler, kWallGap);
     if (get_at<bool>(this, kHasGround)) {
-        static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))->probe_touches_zone(kWalkEvents0064c630, &get_at<render::ProbeRay>(this, kTriggerFeeler));
+        static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+            ->probe_touches_zone(kWalkEvents0064c630, &get_at<render::ProbeRay>(this, kTriggerFeeler));
         if (halted(this)) {
             release_hit(feeler);
             return;
@@ -1030,21 +1038,21 @@ void FootMovement::get_begin(bool on_ground)
         maths::Vec4& heading = vector_at(this, kHeading);
         heading = entity_->vel_;
         heading.y = 0.0f;
-        double length = std::sqrt((static_cast<double>(heading.x) * heading.x +
-                                   static_cast<double>(heading.y) * heading.y) +
-                                  static_cast<double>(heading.z) * heading.z);
+        double length =
+            std::sqrt((static_cast<double>(heading.x) * heading.x + static_cast<double>(heading.y) * heading.y) +
+                      static_cast<double>(heading.z) * heading.z);
         if (length < kMinHeadingLength) {
             heading = vector_at(entity_, kObjectForward);
             heading.y = 0.0f;
-            length = std::sqrt((static_cast<double>(heading.z) * heading.z +
-                                static_cast<double>(heading.x) * heading.x) +
-                               static_cast<double>(heading.y) * heading.y);
+            length =
+                std::sqrt((static_cast<double>(heading.z) * heading.z + static_cast<double>(heading.x) * heading.x) +
+                          static_cast<double>(heading.y) * heading.y);
             if (length < kMinHeadingLength) {
                 heading = -vector_at(entity_, kEntityUpRow);
                 heading.y = 0.0f;
-                length = std::sqrt((static_cast<double>(heading.x) * heading.x +
-                                    static_cast<double>(heading.y) * heading.y) +
-                                   static_cast<double>(heading.z) * heading.z);
+                length = std::sqrt(
+                    (static_cast<double>(heading.x) * heading.x + static_cast<double>(heading.y) * heading.y) +
+                    static_cast<double>(heading.z) * heading.z);
             }
         }
         double inverse = 1.0 / length;
@@ -1091,7 +1099,9 @@ void FootMovement::get_jump()
         break;
     }
     if (get_at<int>(this, kState) == 0 && get_at<bool>(this, kHasGround)) {
-        static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))->probe_touches_zone(kWalkEvents0064c63c, &get_at<render::ProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+            ->probe_touches_zone(kWalkEvents0064c63c,
+                                 &get_at<render::ProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (halted(this))
             return;
     }
@@ -1113,13 +1123,14 @@ void FootMovement::get_jump()
             float scaled = get_param(kJumpHorizSpeed) * push;
             auto speed = static_cast<float>(scaled / run_speed());
             const maths::Vec4& direction = vector_at(this, kStickHeading);
-            double along = (static_cast<double>(velocity.z) * direction.z + static_cast<double>(velocity.y) * direction.y) +
-                           static_cast<double>(velocity.x) * direction.x;
+            double along =
+                (static_cast<double>(velocity.z) * direction.z + static_cast<double>(velocity.y) * direction.y) +
+                static_cast<double>(velocity.x) * direction.x;
             if (along > 0.0) {
                 velocity.project_onto(direction);
-                double length = std::sqrt((static_cast<double>(velocity.x) * velocity.x +
-                                           static_cast<double>(velocity.y) * velocity.y) +
-                                          static_cast<double>(velocity.z) * velocity.z);
+                double length = std::sqrt(
+                    (static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y) +
+                    static_cast<double>(velocity.z) * velocity.z);
                 if (length < speed)
                     velocity.set_length(speed);
             } else {
@@ -1129,8 +1140,9 @@ void FootMovement::get_jump()
             vector_at(this, kFacing) = direction;
         }
         plan_jump_over_obstruction();
-        double length_sqr = (static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y) +
-                           static_cast<double>(velocity.z) * velocity.z;
+        double length_sqr =
+            (static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y) +
+            static_cast<double>(velocity.z) * velocity.z;
         if (length_sqr > kMovingSqr) {
             heading = velocity;
             heading /= static_cast<float>(std::sqrt(length_sqr));
@@ -1203,9 +1215,9 @@ bool FootMovement::try_barrier_jump()
             continue;
         double limit = x87_cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
         const maths::Vec4& control = vector_at(this, kStickHeading);
-        double facing_it = (static_cast<double>(control.z) * contact.normal.z +
-                           static_cast<double>(control.y) * contact.normal.y) +
-                          static_cast<double>(control.x) * contact.normal.x;
+        double facing_it =
+            (static_cast<double>(control.z) * contact.normal.z + static_cast<double>(control.y) * contact.normal.y) +
+            static_cast<double>(control.x) * contact.normal.x;
         if (-limit < facing_it) {
             contact.clear = false;
             continue;
@@ -1267,7 +1279,9 @@ bool FootMovement::try_barrier_jump()
     double gravity = static_cast<float>(get_gravity());
     auto speed = static_cast<float>(std::sqrt(gravity * rise * 2.0));
     if (get_at<bool>(this, kHasGround)) {
-        static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))->probe_touches_zone(kWalkEvents0064c63c, &get_at<render::ProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
+        static_cast<ActivationZoneModule*>(get_at<void*>(this, kActivationZoneSlot))
+            ->probe_touches_zone(kWalkEvents0064c63c,
+                                 &get_at<render::ProbeRay>(this, kTriggerFeeler)); // (the ground's jump triggers)
         if (halted(this)) {
             cache->destruct();
             release_hit(feeler);
@@ -1349,8 +1363,9 @@ bool FootMovement::update_contacts()
         contact.normal.y = 0.0f;
         any = true;
         maths::Vec4& normal = contact.normal;
-        double length = std::sqrt((static_cast<double>(normal.x) * normal.x + static_cast<double>(normal.y) * normal.y) +
-                                  static_cast<double>(normal.z) * normal.z);
+        double length =
+            std::sqrt((static_cast<double>(normal.x) * normal.x + static_cast<double>(normal.y) * normal.y) +
+                      static_cast<double>(normal.z) * normal.z);
         if (length > 0.0) {
             double inverse = 1.0 / length;
             normal.x = static_cast<float>(inverse * normal.x);
@@ -1449,9 +1464,9 @@ bool FootMovement::update_contacts()
         auto& contact = contact_at(this, i);
         if (!contact.hit)
             continue;
-        double into = (static_cast<double>(velocity.z) * contact.normal.z +
-                       static_cast<double>(contact.normal.x) * velocity.x) +
-                      static_cast<double>(velocity.y) * contact.normal.y;
+        double into =
+            (static_cast<double>(velocity.z) * contact.normal.z + static_cast<double>(contact.normal.x) * velocity.x) +
+            static_cast<double>(velocity.y) * contact.normal.y;
         if (into >= contact.object_speed_)
             contact.hit = false;
         else
@@ -1530,8 +1545,9 @@ bool FootMovement::update_contacts()
         auto unit_y = static_cast<float>(y * inverse);
         auto unit_z = static_cast<float>(z * inverse);
         auto unit_w = static_cast<float>(w * inverse);
-        auto along = static_cast<float>((static_cast<double>(unit_z) * velocity.z + static_cast<double>(unit_y) * velocity.y) +
-                                        static_cast<double>(unit_x) * velocity.x);
+        auto along =
+            static_cast<float>((static_cast<double>(unit_z) * velocity.z + static_cast<double>(unit_y) * velocity.y) +
+                               static_cast<double>(unit_x) * velocity.x);
         if (length_rounded > along) {
             new_w = unit_w * along;
             new_z = unit_z * along;
@@ -1557,9 +1573,9 @@ bool FootMovement::update_contacts()
     velocity = {static_cast<float>(new_x), new_y, new_z, new_w};
 
     // The run animation's speed follows (kept at least min_anim_run_speed) unless it is already that slow.
-    auto speed = static_cast<float>(std::sqrt((static_cast<double>(velocity.x) * velocity.x +
-                                               static_cast<double>(velocity.y) * velocity.y) +
-                                              static_cast<double>(velocity.z) * velocity.z));
+    auto speed = static_cast<float>(
+        std::sqrt((static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y) +
+                  static_cast<double>(velocity.z) * velocity.z));
     if (get_at<float>(this, kSpeed) > walk_parameter(kMinAnimRunSpeed)) {
         get_at<float>(this, kSpeed) = speed;
         float minimum = walk_parameter(kMinAnimRunSpeed);
@@ -1569,7 +1585,7 @@ bool FootMovement::update_contacts()
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::FootMovement;
 
@@ -1577,19 +1593,19 @@ namespace objects {
 namespace {
 
 static VtableSlot g_walk_vtable_slots[] = {&FootMovement::teardown,
-         &FootMovement::tick_frame,
-         &objects::FootMovement::configure_from_data,
-         &objects::FootMovement::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                           &FootMovement::tick_frame,
+                                           &objects::FootMovement::configure_from_data,
+                                           &objects::FootMovement::seal,
+                                           stubs::do_nothing,
+                                           objects::reapply_from_data,
+                                           stubs::ignore_arguments2,
+                                           &objects::ObjectModule::hold_off,
+                                           stubs::ignore_argument,
+                                           stubs::do_nothing,
+                                           stubs::ignore_argument,
+                                           &objects::ObjectModule::dispatch_script_method,
+                                           &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kWalkVtable = reinterpret_cast<void**>(g_walk_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

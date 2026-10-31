@@ -23,9 +23,7 @@
 
 namespace objects {
 
-uint32_t g_vibration_component_member_functions[12]{
-            0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
-            0, 0x404EB936, 0, 0, 0, 0};
+uint32_t g_vibration_component_member_functions[12]{0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0, 0, 0x404EB936, 0, 0, 0, 0};
 
 namespace {
 
@@ -62,7 +60,8 @@ ObjectModule* __cdecl PadRumbleModule::fabricate()
 // 0x0043D490
 void __cdecl PadRumbleModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_vibration_component_member_functions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_vibration_component_member_functions,
+                                           0x18);
 }
 
 // 0x0043D4B0
@@ -104,7 +103,8 @@ void PadRumbleModule::update_timers()
             continue;
         int start = timer.start;
         int clock = frame_clock::game_clock_elapsed();
-        uint32_t elapsed = static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start));
+        uint32_t elapsed =
+            static_cast<uint32_t>(clock) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start));
         if (elapsed >= timer.duration) {
             pad_dev_->fire_actuator(i, 0);
             timer.running = false;
@@ -186,25 +186,25 @@ bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::PadRumbleModule::teardown,
-         &objects::PadRumbleModule::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::PadRumbleModule::tick_frame,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -66,8 +66,8 @@ constexpr uint32_t kSpinY = 0x7DF8E00B;
 constexpr uint32_t kSpinZ = 0xE4F1B1B1;
 constexpr uint32_t kSpinScript = 0xD8FA65D7;
 constexpr uint32_t kStepUpHeight = 0x786B3272;
-constexpr uint32_t kTrickModuleKey = 0x270F56E1;      // Trick
-constexpr uint32_t kModelModuleName = 0x286A8D26;      // Model
+constexpr uint32_t kTrickModuleKey = 0x270F56E1;  // Trick
+constexpr uint32_t kModelModuleName = 0x286A8D26; // Model
 
 // The balance tricks and boards for which going backwards isn't turned round (their checksums).
 constexpr uint32_t kBalanceTrickA = 0xEF24413B;
@@ -75,22 +75,22 @@ constexpr uint32_t kBalanceTrickB = 0x0AC90769;
 constexpr uint32_t kBoards[] = {0xEF24413B, 0x89B7DBE4, 0xA84EF276, 0x2FD8E618, 0xEFF59585, 0xC692E824};
 
 // The game's constants.
-constexpr float kTargetFirst = 10.0f;        // 0x00646710
-constexpr float kTargetLast = 500.0f;        // 0x0064BC80
-constexpr float kTargetStep = 6.0f;          // 0x00646284
-constexpr float kTargetDrop = 4000.0f;       // 0x0064B8F8
-constexpr float kTargetLift = 400.0f;        // 0x00646288
-constexpr float kTargetVertY = 0.707f;       // 0x006467BC
-constexpr float kDestHeading = 0.95f;       // 0x0064BC7C
-constexpr float kTargetOpposite = -0.866f;   // 0x00646960
-constexpr float kOverrideStart = 1.25f;      // 0x00649AC4
-constexpr float kAirBoostFactor = 1.1f;         // 0x0064A300
-constexpr uint32_t kNoLimit = 0x60AD78EC;    // (float bits: about 1e20)
-constexpr float kBarelyMoving = 0.00001f;    // 0x006453B8
+constexpr float kTargetFirst = 10.0f;            // 0x00646710
+constexpr float kTargetLast = 500.0f;            // 0x0064BC80
+constexpr float kTargetStep = 6.0f;              // 0x00646284
+constexpr float kTargetDrop = 4000.0f;           // 0x0064B8F8
+constexpr float kTargetLift = 400.0f;            // 0x00646288
+constexpr float kTargetVertY = 0.707f;           // 0x006467BC
+constexpr float kDestHeading = 0.95f;            // 0x0064BC7C
+constexpr float kTargetOpposite = -0.866f;       // 0x00646960
+constexpr float kOverrideStart = 1.25f;          // 0x00649AC4
+constexpr float kAirBoostFactor = 1.1f;          // 0x0064A300
+constexpr uint32_t kNoLimit = 0x60AD78EC;        // (float bits: about 1e20)
+constexpr float kBarelyMoving = 0.00001f;        // 0x006453B8
 constexpr float kDegrees = 0.01745329238474369f; // 0x00645464 (pi / 180)
-constexpr float kPushOffStill = 0.001f;      // 0x006461D8
-constexpr float kStepUpGround = 0.5f;        // 0x006453BC
-constexpr float kStepUpLift = 0.1f;          // 0x00645D74
+constexpr float kPushOffStill = 0.001f;          // 0x006461D8
+constexpr float kStepUpGround = 0.5f;            // 0x006453BC
+constexpr float kStepUpLift = 0.1f;              // 0x00645D74
 constexpr float kFlipSpinTime = 50.0f;
 
 // The component's fields used here.
@@ -111,7 +111,7 @@ constexpr uint32_t kRailTricksOff = 0x3A4;
 constexpr uint32_t kOverrideFactor = 0x3AC;
 constexpr uint32_t kPushOffStart = 0x4E0;
 constexpr uint32_t kLastPushOff = 0x4E4;
-constexpr uint32_t kBalanceTrick = 0x1524;           // (+0x18 the trick)
+constexpr uint32_t kBalanceTrick = 0x1524; // (+0x18 the trick)
 
 // The state component's flags.
 constexpr uint32_t kFlagJump = 0x20;
@@ -223,7 +223,8 @@ void SkaterPhysicsModule::update_speed_override()
         return;
     }
     get_at<float>(this, kLimitsTime) = -1.0f;
-    double left = factor - static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * get_at<float>(this, kFrameLength);
+    double left =
+        factor - static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * get_at<float>(this, kFrameLength);
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
         float stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));
@@ -248,7 +249,7 @@ void SkaterPhysicsModule::update_speed_override()
             // (Every tenth time: a line printed, compiled out - an inlined loop that runs once.)
             while (counter == 0) {
                 debug::printf("Post-Transfer Speed Limit Overrides:  current / standard = %.2f\n",
-                            static_cast<double>(inverse) * get_at<float>(this, kLimitsMax));
+                              static_cast<double>(inverse) * get_at<float>(this, kLimitsMax));
                 counter = (counter + 1) % 10;
             }
             return;
@@ -267,7 +268,8 @@ double SkaterPhysicsModule::get_gravity()
     uint8_t* flags = flags_of(this);
     float gravity = tuning_float_lookup(kGravity, object);
     bool vert = flags[kFlagVertAir] || flags[kFlagAcidDrop];
-    float result = static_cast<float>(gravity / static_cast<double>(script::fetch_float(vert ? kGravityScaleVert : kGravityScale)));
+    float result = static_cast<float>(
+        gravity / static_cast<double>(script::fetch_float(vert ? kGravityScaleVert : kGravityScale)));
     auto* career = get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
     if (career->is_code_on(kMoonCheat)) {
         career->set_global_flag(script::fetch_int_value(kMoonCheat));
@@ -380,7 +382,8 @@ void SkaterPhysicsModule::turn_round_if_backwards()
             if (get_at<uint8_t>(this, kBackwardsScriptRun))
                 return;
             get_at<uint8_t>(this, kBackwardsScriptRun) = 1;
-            script::launch_script(kBackwardsScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false, nullptr);
+            script::launch_script(kBackwardsScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
+                                  nullptr);
             return;
         }
     }
@@ -393,7 +396,8 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     maths::Vec4& display_right = vector_at(this, kDisplayMatrix);
     display_right = -display_right;
     if (!script::fetch_int_value(kNoTurnRoundScript))
-        script::launch_script(kTurnRoundScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false, nullptr);
+        script::launch_script(kTurnRoundScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
+                              nullptr);
 }
 
 // 0x004FFB10
@@ -443,17 +447,21 @@ void SkaterPhysicsModule::check_flip_spin()
     get_at<float>(this, kModelRotationLeft) = kFlipSpinTime;
     get_at<uint8_t>(this, kRailTricksOff) = 1;
     get_at<uint8_t>(this, kModelRotationFlag) = 1;
-    auto* model = static_cast<objects::MeshInstanceModule*>(get_composite(object_of(this))->fetch_module(kModelModuleName));
+    auto* model =
+        static_cast<objects::MeshInstanceModule*>(get_composite(object_of(this))->fetch_module(kModelModuleName));
     int x = 0, y = 0, z = 0;
     if (spin->fetch_int_value(kSpinX, &x, 0) && x)
-        model->rotate_display(get_at<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(x), 0, true, true, false, false);
+        model->rotate_display(get_at<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(x), 0, true, true,
+                              false, false);
     if (spin->fetch_int_value(kSpinY, &y, 0) && y) {
         if (y == 180 || y == -180)
             get_at<uint8_t>(this, kModelFlipped) = 1;
-        model->rotate_display(get_at<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(y), 0, true, false, true, false);
+        model->rotate_display(get_at<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(y), 0, true, false,
+                              true, false);
     }
     if (spin->fetch_int_value(kSpinZ, &z, 0) && z)
-        model->rotate_display(get_at<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(z), 0, true, false, false, true);
+        model->rotate_display(get_at<float>(this, kModelRotationLeft), 0.0f, static_cast<float>(z), 0, true, false,
+                              false, true);
     script::launch_script(kSpinScript, spin, static_cast<objects::Entity*>(object_of(this)), false, nullptr);
 }
 
@@ -485,8 +493,8 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     float z = static_cast<float>(static_cast<double>(feeler.surface_dir_.z) + feeler.contact_pos_.z);
     float y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) + feeler.surface_dir_.y);
     float x = static_cast<float>(static_cast<double>(feeler.surface_dir_.x) + feeler.contact_pos_.x);
-    feeler.line_.start = maths::Vec4(point->x, static_cast<float>(static_cast<double>(point->y) + height), point->z,
-                                      point->w);
+    feeler.line_.start =
+        maths::Vec4(point->x, static_cast<float>(static_cast<double>(point->y) + height), point->z, point->w);
     feeler.line_.end = maths::Vec4(x, static_cast<float>(static_cast<double>(y) + height), z, w);
     if (feeler.get_hit_shape(true, false))
         return false;
@@ -496,6 +504,6 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     return true;
 }
 
-} // namespace Skater
+} // namespace skater
 
 using skater::SkaterPhysicsModule;

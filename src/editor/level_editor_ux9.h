@@ -41,4 +41,4 @@ void get_windows(float view_x, float view_y, float view_width, float view_height
 // For the screenshot sidecar: a line ("" when nothing to say).
 std::string describe();
 
-} // namespace MenuSystem::level_editor::ux9
+} // namespace frontend::level_editor::ux9

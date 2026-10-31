@@ -61,4 +61,4 @@ Mat4* QuatRotation::fetch_mat(Mat4* out) const
     return out;
 }
 
-} // namespace Mth
+} // namespace maths

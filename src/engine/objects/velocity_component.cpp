@@ -91,25 +91,27 @@ void VelocityTrackerModule::tick_frame()
     out.y = static_cast<float>(static_cast<double>(step_y) + pos.y);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::VelocityTrackerModule::teardown,
-         &objects::VelocityTrackerModule::tick_frame,
-         &objects::VelocityTrackerModule::configure_from_data,
-         &objects::ImpactDestructModule::seal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::VelocityTrackerModule::teardown,
+    &objects::VelocityTrackerModule::tick_frame,
+    &objects::VelocityTrackerModule::configure_from_data,
+    &objects::ImpactDestructModule::seal,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

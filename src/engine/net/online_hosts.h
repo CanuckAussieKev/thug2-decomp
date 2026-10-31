@@ -13,4 +13,4 @@ void set_up_online_hosts();
 // original's gamestats.gamespy.com).
 const char*& gamestats_host();
 
-} // namespace Net
+} // namespace net

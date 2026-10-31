@@ -91,4 +91,4 @@ void apply_style(float scale, const float accent_rgb[3])
     ImGui::GetStyle() = style;
 }
 
-} // namespace MenuSystem::level_editor::ui_theme
+} // namespace frontend::level_editor::ui_theme

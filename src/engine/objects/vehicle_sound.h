@@ -7,7 +7,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The VehicleSound component (GameObjects::EngineAudioModule, type 0x28C97F3C, vtable 0x006467F4, 0xBC bytes; made by
 // 0x0043CFC0): a driveable car's sounds - the engine, whose pitch and volume follow the slowest driven wheel's speed
@@ -76,31 +76,30 @@ public:
     // percentage (Sound component's 0x00433240), and the skater gets event 0xC4A60423 with its Strength (0-1).
     void update_collide_sound();
 
-    script::Struct* settings_;   // +0x18
-    bool park_editor_level_;        // +0x1C
+    script::Struct* settings_; // +0x18
+    bool park_editor_level_;   // +0x1C
     uint8_t pad1d_[3];
-    uint32_t engine_sound_;        // +0x20 the playing engine sound's id (0: none)
-    uint32_t skid_sound_;          // +0x24 the playing tyre sound's id
+    uint32_t engine_sound_;         // +0x20 the playing engine sound's id (0: none)
+    uint32_t skid_sound_;           // +0x24 the playing tyre sound's id
     script::Struct* collide_sound_; // +0x28 CollideSound
     uint32_t engine_sound_name_;    // +0x2C EngineSound
     uint32_t skid_sound_name_;      // +0x30 TireSound
-    int gear_count_;               // +0x34
-    Gear gear_steps_[kMaxGears];       // +0x38
-    float speed_;                 // +0x98 the smoothed speed (mph)
-    int gear_;                    // +0x9C
-    float rpm_;                   // +0xA0
-    int shift_time_;               // +0xA4 the clock at the last shift
+    int gear_count_;                // +0x34
+    Gear gear_steps_[kMaxGears];    // +0x38
+    float speed_;                   // +0x98 the smoothed speed (mph)
+    int gear_;                      // +0x9C
+    float rpm_;                     // +0xA0
+    int shift_time_;                // +0xA4 the clock at the last shift
     uint32_t unknowna8_;
     float skid_;                  // +0xAC the tyre sound's level
-    int collide_time_;             // +0xB0 the clock at the last crash sound
+    int collide_time_;            // +0xB0 the clock at the last crash sound
     DrivableModule* vehicle_ptr_; // +0xB4
-    ObjectModule* sound_ptr_;      // +0xB8
+    ObjectModule* sound_ptr_;     // +0xB8
 };
-static_assert(offsetof(EngineAudioModule, engine_sound_) == 0x20 &&
-                  offsetof(EngineAudioModule, gear_count_) == 0x34 &&
-                  offsetof(EngineAudioModule, gear_steps_) == 0x38 &&
-                  offsetof(EngineAudioModule, speed_) == 0x98 && offsetof(EngineAudioModule, skid_) == 0xAC &&
-                  offsetof(EngineAudioModule, vehicle_ptr_) == 0xB4 && sizeof(EngineAudioModule) == 0xBC,
+static_assert(offsetof(EngineAudioModule, engine_sound_) == 0x20 && offsetof(EngineAudioModule, gear_count_) == 0x34 &&
+                  offsetof(EngineAudioModule, gear_steps_) == 0x38 && offsetof(EngineAudioModule, speed_) == 0x98 &&
+                  offsetof(EngineAudioModule, skid_) == 0xAC && offsetof(EngineAudioModule, vehicle_ptr_) == 0xB4 &&
+                  sizeof(EngineAudioModule) == 0xBC,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

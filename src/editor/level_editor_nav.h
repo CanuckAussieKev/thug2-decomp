@@ -17,13 +17,13 @@ namespace frontend::level_editor::nav {
 // --- walk mode: the camera at a skater's eye height, with gravity and collision (Blender's walk navigation) ---------
 
 // Units: the game's (an inch). A skater stands about 72 tall.
-constexpr float kEyeHeight = 62.0f;   // the camera above the feet
-constexpr float kRadius = 14.0f;      // how near a wall the feet come
-constexpr float kStepHeight = 24.0f;  // a kerb or a stair is stepped up (and down, standing on the ground)
-constexpr float kWalkSpeed = 220.0f;  // units a second
-constexpr float kRunSpeed = 560.0f;   // (Shift)
-constexpr float kGravity = 1400.0f;   // units a second squared
-constexpr float kJumpSpeed = 330.0f;  // up, at a jump (about 39 units high)
+constexpr float kEyeHeight = 62.0f;  // the camera above the feet
+constexpr float kRadius = 14.0f;     // how near a wall the feet come
+constexpr float kStepHeight = 24.0f; // a kerb or a stair is stepped up (and down, standing on the ground)
+constexpr float kWalkSpeed = 220.0f; // units a second
+constexpr float kRunSpeed = 560.0f;  // (Shift)
+constexpr float kGravity = 1400.0f;  // units a second squared
+constexpr float kJumpSpeed = 330.0f; // up, at a jump (about 39 units high)
 constexpr float kGroundSearch = 5000.0f;
 
 // The collision ray: from `from` to `to`, the first hit (false: none).
@@ -31,7 +31,7 @@ using Cast = std::function<bool(V3 from, V3 to, V3* hit)>;
 
 struct Walker {
     V3 feet = {};
-    float vy = 0.0f;       // up speed
+    float vy = 0.0f; // up speed
     bool grounded = false;
 };
 struct WalkInput {
@@ -51,8 +51,8 @@ Walker walker_at(V3 camera);
 // --- click-to-teleport ----------------------------------------------------------------------------------------------
 
 // Two clicks are a double click: within `max_ms` and `max_pixels` of each other.
-bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x, float second_y,
-                   uint32_t max_ms = 400, float max_pixels = 6.0f);
+bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x,
+                     float second_y, uint32_t max_ms = 400, float max_pixels = 6.0f);
 // Where a double click on a surface takes the camera: back along the ray from the point hit by kStandOff (or 80% of
 // the way there when nearer), and at least kLift above the point - looking the same way.
 constexpr float kStandOff = 260.0f;
@@ -105,4 +105,4 @@ bool store_group(organize::State* state, const std::string& name, const std::vec
 // `members` taken out of group `index` (false: none of them were in it).
 bool remove_from_group(organize::State* state, int index, const std::vector<organize::Member>& members);
 
-} // namespace MenuSystem::level_editor::nav
+} // namespace frontend::level_editor::nav

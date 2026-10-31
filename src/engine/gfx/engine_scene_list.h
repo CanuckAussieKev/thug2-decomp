@@ -10,7 +10,7 @@ struct Seg;
 namespace script {
 class Script;
 class Struct;
-}
+} // namespace script
 
 // The engine's loaded scenes (render::CEngine's statics, cdecl): the list of them (lists::Foremost<WorldScene> at 0x006FA7E0 - its
 // first node at 0x006FA7EC; nodes {vtable 0x00648A38, the scene, priority, next, prev}, the head's data -1), the main
@@ -63,11 +63,11 @@ void __cdecl get_scene_debug_info(script::Struct* info);
 WorldScene* __cdecl build_world_scene(const char* name, TextureSet* textures, bool with_super_sectors);
 // 0x0048CCB0: a scene loaded from "levels\<name>\<name>.scn.<ext>" (with a vertex arena of its own when 0x00786AB6
 // is set) and registered (0x0048C560 - `unused` passed on, and not used there).
-WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
-                          int unused);
+WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky,
+                               bool mesh_flag, int unused);
 // 0x0048CD80: a scene loaded from geometry in memory and registered under `name` (the same way).
-WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, TextureSet* textures, bool with_super_sectors,
-                                    bool is_sky, bool mesh_flag, int unused);
+WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, TextureSet* textures,
+                                                 bool with_super_sectors, bool is_sky, bool mesh_flag, int unused);
 // 0x0048CDD0: the scene "levels\<add>\<add>.scn.<ext>" added over the scene `scene_name` (that scene's added scene
 // let go of first, with its texture dictionary, if it's this one), with its texture dictionary ("levels\<add>\
 // <add>.tex"). The scene.
@@ -77,4 +77,4 @@ bool __cdecl reload_scene(const char* name);
 
 extern WorldScene* g_collision_scenes[16];
 
-} // namespace Nx
+} // namespace render

@@ -73,7 +73,7 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
     D3DSURFACE_DESC desc;
     from->GetLevelDesc(0, &desc);
     input_port()->CreateTexture(desc.Width, desc.Height, level_count, 0, desc.Format, D3DPOOL_MANAGED,
-                            reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
+                                reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
     for (uint32_t level = 0; level < levels; ++level) {
         D3DSURFACE_DESC level_desc;
         get_d3d(source)->GetLevelDesc(level, &level_desc);
@@ -152,24 +152,19 @@ void* TextureRef::get_lock()
 }
 
 // 0x004E03D0
-void TextureRef::get_unlock()
-{
-    get_d3d(this)->UnlockRect(0);
-}
+void TextureRef::get_unlock() { get_d3d(this)->UnlockRect(0); }
 
 // 0x004E03E0
-TextureRef* TextureRef::palette_owner()
-{
-    return palette ? this : nullptr;
-}
+TextureRef* TextureRef::palette_owner() { return palette ? this : nullptr; }
 
 // 0x004E0700
 bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new_depth, int /*unused*/)
 {
     if (texture)
         get_d3d(this)->Release();
-    HRESULT result = input_port()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8,
-                                             D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
+    HRESULT result =
+        input_port()->CreateTexture(new_width, new_height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
+                                    reinterpret_cast<IDirect3DTexture9**>(&texture), nullptr);
     get_d3d(this)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&surface));
     render_target_ = true;
     if (result != D3D_OK)
@@ -211,10 +206,10 @@ void __cdecl restore_render_target_textures()
         if (t->texture || !t->render_target_)
             continue;
         input_port()->CreateTexture(t->width, t->height, 1, D3DUSAGE_RENDERTARGET, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT,
-                                reinterpret_cast<IDirect3DTexture9**>(&t->texture), nullptr);
+                                    reinterpret_cast<IDirect3DTexture9**>(&t->texture), nullptr);
         if (t->texture)
             get_d3d(t)->GetSurfaceLevel(0, reinterpret_cast<IDirect3DSurface9**>(&t->surface));
     }
 }
 
-} // namespace Nx
+} // namespace render

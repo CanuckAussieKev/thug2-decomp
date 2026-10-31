@@ -26,8 +26,8 @@ std::string join_keys(const std::vector<std::string>& keys)
     return out;
 }
 
-std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions, uint8_t mods,
-                                                               size_t limit)
+std::vector<std::pair<std::string, std::string>> modifier_hints(const std::vector<actions::ActStep>& actions,
+                                                                uint8_t mods, size_t limit)
 {
     std::vector<std::pair<std::string, std::string>> out;
     if (!mods)
@@ -90,7 +90,8 @@ Glyph glyph_of(const std::string& token)
         return Glyph::kPadX;
     if (token == "PadY")
         return Glyph::kPadY;
-    static const char* const kPad[] = {"LS", "RS", "LT", "RT", "LB", "RB", "DPad", "Back", "L3", "R3", "LT/RT", "LB/RB"};
+    static const char* const kPad[] = {"LS",   "RS",   "LT", "RT", "LB",    "RB",
+                                       "DPad", "Back", "L3", "R3", "LT/RT", "LB/RB"};
     for (const char* p : kPad) {
         if (token == p)
             return Glyph::kPadOther;
@@ -377,7 +378,9 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
             break;
         }
         if (!c.fly_always_)
-            b.acts({"tool_move", "tool_rotate", "tool_scale"}, c.tool == 1 ? "tool (rotate)" : c.tool == 2 ? "tool (scale)" : "tool (move)");
+            b.acts({"tool_move", "tool_rotate", "tool_scale"}, c.tool == 1   ? "tool (rotate)"
+                                                               : c.tool == 2 ? "tool (scale)"
+                                                                             : "tool (move)");
         else
             b.act("tool_cycle", "next tool");
         b.get_fly(c, c.fly_always_ ? "nudge" : "fly");
@@ -406,4 +409,4 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
     return b.out;
 }
 
-} // namespace MenuSystem::level_editor::Hints
+} // namespace frontend::level_editor::hints

@@ -41,7 +41,7 @@ inline uint32_t get_geom_visibility(void* geom) { return geom_call<uint32_t>(12,
 inline void set_geom_active(void* geom, uint8_t active) { geom_call<void>(13, geom, active); }
 inline void set_geom_lights(void* geom, uint8_t* lights) { geom_call<void>(27, geom, lights); }
 inline void set_geom_bone_matrices(void* geom, const maths::Mat4* transform, uint8_t* bones, int count, int flag,
-                                int index)
+                                   int index)
 {
     geom_call<void>(28, geom, transform, bones, count, flag, index);
 }
@@ -78,10 +78,7 @@ inline uint8_t* skeleton_bones(uint8_t* skeleton)
 {
     return reinterpret_cast<uint8_t*>(reinterpret_cast<online::FoldedGetters*>(skeleton)->word04());
 }
-inline int skeleton_bone_count(uint8_t* skeleton)
-{
-    return reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones();
-}
+inline int skeleton_bone_count(uint8_t* skeleton) { return reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones(); }
 
 // The list's first node (none without a head - which the original then reads through anyway).
 inline ModelGeomNode* get_first(const RenderModel* model) { return model->geoms_ ? model->geoms_->next : nullptr; }

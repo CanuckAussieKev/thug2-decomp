@@ -20,8 +20,8 @@ namespace script {
 
 namespace {
 
-constexpr uint32_t kNodeArray = 0xC472ECC5;      // "nodearray": looked up after each unload, the result unused
-constexpr uint32_t kDebuggerNames = 0xC2F97BA7;  // "debugger_names": removed once the start-up files are loaded
+constexpr uint32_t kNodeArray = 0xC472ECC5;     // "nodearray": looked up after each unload, the result unused
+constexpr uint32_t kDebuggerNames = 0xC2F97BA7; // "debugger_names": removed once the start-up files are loaded
 
 // Compiled-out debug output (the empty function 0x005480A0): a .qb file's name before it loads, and a call with
 // nothing after.
@@ -29,7 +29,10 @@ inline void print_loading(const char* /*filename*/) {}
 inline void print_done() {}
 
 // The pool pairs of the classes AllocatePools makes pools for.
-void create_pool_of(memory::PoolPair& pools, int item_size, int count, const char* name) { create_pool(pools, item_size, count, name); }
+void create_pool_of(memory::PoolPair& pools, int item_size, int count, const char* name)
+{
+    create_pool(pools, item_size, count, name);
+}
 
 } // namespace
 
@@ -47,10 +50,7 @@ NativeCommand* find_c_function(const char* name)
     return nullptr;
 }
 
-void bind_native_command(NativeCommand& entry, void* function)
-{
-    entry.function = function;
-}
+void bind_native_command(NativeCommand& entry, void* function) { entry.function = function; }
 
 // 0x005A5960
 void load_qb_file(const char* filename, int unused)
@@ -121,12 +121,30 @@ void load_boot_script_files()
 }
 
 // 0x005A5B40 ... 0x005A5DF0
-void create_anim_cache_predictor_pool(int count, const char* name) { create_pool_of(gfx::g_anim_slot_pools, 0x1E4, count, name); }
-void create_blend_channel_pool(int count, const char* name) { create_pool_of(gfx::g_anim_track_pools, 0x74, count, name); }
-void create_boned_anim_controller_pool(int count, const char* name) { create_pool_of(gfx::g_standard_pools, 0x28, count, name); }
-void create_anim_lookup_pool(int count, const char* name) { create_pool_of(render::g_frame_source_pools, 0x214, count, name); }
-void create_spawned_poly_details_pool(int count, const char* name) { create_pool_of(render::g_spawned_poly_pools, 0xB8, count, name); }
-void create_event_receiver_list_pool(int count, const char* name) { create_pool_of(objects::g_script_list_pools, 0x14, count, name); }
+void create_anim_cache_predictor_pool(int count, const char* name)
+{
+    create_pool_of(gfx::g_anim_slot_pools, 0x1E4, count, name);
+}
+void create_blend_channel_pool(int count, const char* name)
+{
+    create_pool_of(gfx::g_anim_track_pools, 0x74, count, name);
+}
+void create_boned_anim_controller_pool(int count, const char* name)
+{
+    create_pool_of(gfx::g_standard_pools, 0x28, count, name);
+}
+void create_anim_lookup_pool(int count, const char* name)
+{
+    create_pool_of(render::g_frame_source_pools, 0x214, count, name);
+}
+void create_spawned_poly_details_pool(int count, const char* name)
+{
+    create_pool_of(render::g_spawned_poly_pools, 0xB8, count, name);
+}
+void create_event_receiver_list_pool(int count, const char* name)
+{
+    create_pool_of(objects::g_script_list_pools, 0x14, count, name);
+}
 
 // 0x005A5E70
 void allocate_pools()
@@ -159,4 +177,4 @@ void allocate_pools()
     memory::pop_mem_profile();
 }
 
-} // namespace Script
+} // namespace script

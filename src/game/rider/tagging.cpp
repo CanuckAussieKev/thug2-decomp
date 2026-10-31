@@ -52,7 +52,7 @@ constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D;
 constexpr uint32_t kSkaterScore = 0xD262802F;
 
 constexpr float kRadiansPerDegree = 0.017453292f; // 0x00645464
-constexpr float kInch = 12.0f;                   // 0x0064546C (feet to inches)
+constexpr float kInch = 12.0f;                    // 0x0064546C (feet to inches)
 
 template <typename T>
 T& prop(const void* object, uint32_t offset)
@@ -68,20 +68,31 @@ void* ingest_skin(const char* name, bool a, bool b, bool c)
 }
 void* copy_texture(uint32_t key, void* texture)
 {
-    return static_cast<render::TextureSet*>(texture_bank())->copy_texture(key, static_cast<render::BitmapTexture*>(texture));
+    return static_cast<render::TextureSet*>(texture_bank())
+        ->copy_texture(key, static_cast<render::BitmapTexture*>(texture));
 }
 void* find_texture(uint32_t checksum) { return static_cast<render::TextureSet*>(texture_bank())->fetch_skin(checksum); }
-void unload_texture(void* texture) { static_cast<render::TextureSet*>(texture_bank())->unload_texture(static_cast<render::BitmapTexture*>(texture)); }
-void release_texture(void* texture) { reinterpret_cast<void(__thiscall*)(void*)>(&render::virtual_slot32_jump)(texture); }
+void unload_texture(void* texture)
+{
+    static_cast<render::TextureSet*>(texture_bank())->unload_texture(static_cast<render::BitmapTexture*>(texture));
+}
+void release_texture(void* texture)
+{
+    reinterpret_cast<void(__thiscall*)(void*)>(&render::virtual_slot32_jump)(texture);
+}
 // A texture's image put on `texture` (its vtable +0x10).
-void put_on(void* texture, void* image) { reinterpret_cast<void(__thiscall*)(void*, void*)>(&gfx::virtual_slot4_jump)(texture, image); }
+void put_on(void* texture, void* image)
+{
+    reinterpret_cast<void(__thiscall*)(void*, void*)>(&gfx::virtual_slot4_jump)(texture, image);
+}
 
 // One of the component's own textures given back.
 void free_texture(void*& texture)
 {
     if (!texture)
         return;
-    render::engine::kill_texture_splats_of_texture(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(prop<void*>(texture, 4))));
+    render::engine::kill_texture_splats_of_texture(
+        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(prop<void*>(texture, 4))));
     static_cast<render::BitmapTexture*>(texture)->pin_resident(false);
     release_texture(texture);
     unload_texture(texture);
@@ -185,7 +196,7 @@ void TaggingComponent::configure_from_data(script::Struct* params)
     int skater = static_cast<int>(reinterpret_cast<uint32_t>(params));
     params->fetch_int_value(0xA2B033FDu, &skater, 0);
     char key[32];
-    std::snprintf(key, sizeof(key), "_%d", skater); // "_%d"
+    std::snprintf(key, sizeof(key), "_%d", skater);             // "_%d"
     void* texture = load_on_texture_heap("tags\\cas_01", true); // "tags\cas_01"
     graffiti_ = copy_texture(checksums::fold_text_into_checksum(0xF4FD2D63, key), texture);
     release_texture(texture);
@@ -254,9 +265,8 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     if (sticker)
         spin = static_cast<float>((maths::rnd(90) - 45) * static_cast<double>(kRadiansPerDegree));
     float width = static_cast<float>(size);
-    render::engine::create_texture_splat_at(&start, &end, width, width, spin, turn, 5000.0f,
-                                     "", 0x54628ED7, 0, 0,
-                                     static_cast<uint8_t*>(sticker ? sticker_ : graffiti_));
+    render::engine::create_texture_splat_at(&start, &end, width, width, spin, turn, 5000.0f, "", 0x54628ED7, 0, 0,
+                                            static_cast<uint8_t*>(sticker ? sticker_ : graffiti_));
     if (!send)
         return;
     net::NetMessageInfo msg;
@@ -485,10 +495,11 @@ bool TaggingControlComponent::tick_frame()
         direction(i, dx, dz);
         feeler.set_excluded(0x3000, 0);
         float back_z = dz * kInch, back_x = dx * kInch;
-        feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z, static_cast<float>(joint_world.w - 12.0)};
+        feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z,
+                              static_cast<float>(joint_world.w - 12.0)};
         float ahead_z = dz * reach, ahead_x = dx * reach;
         feeler.line_.end = {joint_world.x + ahead_x, joint_world.y + rise, joint_world.z + ahead_z,
-                             static_cast<float>(static_cast<double>(reach) + joint_world.w)};
+                            static_cast<float>(static_cast<double>(reach) + joint_world.w)};
         if (feeler.get_hit_shape(true, false)) {
             hits[i] = feeler.contact_pos_;
             distances[i] = std::fabs(feeler.reach_);
@@ -518,10 +529,11 @@ bool TaggingControlComponent::tick_frame()
     float back_z = dz * kInch, back_x = dx * kInch;
     for (int j = 0; j < 5; ++j) {
         feeler.set_excluded(0x3000, 0);
-        feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z, static_cast<float>(joint_world.w - 12.0)};
+        feeler.line_.start = {joint_world.x - back_x, joint_world.y, joint_world.z - back_z,
+                              static_cast<float>(joint_world.w - 12.0)};
         float ahead_z = dz * distance, ahead_y = static_cast<float>(distance * 0.0), ahead_x = dx * distance;
         feeler.line_.end = {joint_world.x + ahead_x, joint_world.y + ahead_y, joint_world.z + ahead_z,
-                             static_cast<float>(static_cast<double>(distance) + joint_world.w)};
+                            static_cast<float>(static_cast<double>(distance) + joint_world.w)};
         if (feeler.get_hit_shape(true, false))
             break;
         distance = static_cast<float>(distance + 10.0);
@@ -530,7 +542,8 @@ bool TaggingControlComponent::tick_frame()
 
     if (!pending_) {
         pending_ = true;
-        script::launch_script(prop<int>(walk_, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false, nullptr);
+        script::launch_script(prop<int>(walk_, 0x18) == 2 ? 0x8C92DEA3u : 0x5213AFD6u, nullptr, entity_, false,
+                              nullptr);
         countdown_ = 30;
         return true;
     }
@@ -549,39 +562,43 @@ bool TaggingControlComponent::tick_frame()
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_tagging_vtable_slots[] = {&objects::TaggingComponent::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::TaggingComponent::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::TaggingComponent::invoke_method_by_name};
+static VtableSlot g_tagging_vtable_slots[] = {
+    &objects::TaggingComponent::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    &objects::TaggingComponent::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::TaggingComponent::invoke_method_by_name};
 void** const kTaggingVtable = reinterpret_cast<void**>(g_tagging_vtable_slots);
-static VtableSlot g_control_vtable_slots[] = {&objects::TaggingControlComponent::teardown,
-         &objects::TaggingControlComponent::tick_frame,
-         stubs::ignore_argument,
-         &objects::TaggingControlComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::TaggingControlComponent::invoke_method_by_name};
+static VtableSlot g_control_vtable_slots[] = {
+    &objects::TaggingControlComponent::teardown,
+    &objects::TaggingControlComponent::tick_frame,
+    stubs::ignore_argument,
+    &objects::TaggingControlComponent::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::TaggingControlComponent::invoke_method_by_name};
 void** const kControlVtable = reinterpret_cast<void**>(g_control_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

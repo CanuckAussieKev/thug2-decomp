@@ -14,30 +14,33 @@ namespace frontend::new_frontend {
 // --- the data: <overlay>\frontend\levels.json (tools/pipeline/menu_level/frontend_levels.ts) ----------------------------
 
 struct StageMap {
-    std::string name;  // "BOSTON"
-    std::string load;  // its load script ("load_BO")
-    std::string art;   // its loading screen (an image name: images\<art>.img.xbx)
-    std::vector<std::string> art_variants_; // the level select's pictures to choose from (levels.json art_variants; [0] is `art`)
-    std::vector<std::string> art_labels_;   // a label per picture for the indicator (levels.json art_labels, e.g. "70%"; may be empty)
-    int variant = 0;                    // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
+    std::string name; // "BOSTON"
+    std::string load; // its load script ("load_BO")
+    std::string art;  // its loading screen (an image name: images\<art>.img.xbx)
+    std::vector<std::string>
+        art_variants_; // the level select's pictures to choose from (levels.json art_variants; [0] is `art`)
+    std::vector<std::string>
+        art_labels_; // a label per picture for the indicator (levels.json art_labels, e.g. "70%"; may be empty)
+    int variant = 0; // the one shown (Q / E on the level select; saved in thug2-decomp-art.txt)
     // The picture shown: the chosen variant, else `art`.
     const std::string& current_art() const
     {
         return variant >= 0 && variant < static_cast<int>(art_variants_.size()) ? art_variants_[variant] : art;
     }
     std::string level_num_name_; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
-    int level_index_ = -1;        // level_num as a number (-1: a name - resolved by the game)
-    std::string flag;         // its unlock flag's script name ("LEVEL_UNLOCKED_BO")
-    std::string seen_flag_;     // its seen flag's ("LEVEL_SEEN_BO"; "" none): outside a career the game's select locks by it
+    int level_index_ = -1;       // level_num as a number (-1: a name - resolved by the game)
+    std::string flag;            // its unlock flag's script name ("LEVEL_UNLOCKED_BO")
+    std::string
+        seen_flag_; // its seen flag's ("LEVEL_SEEN_BO"; "" none): outside a career the game's select locks by it
     bool hide_when_locked_ = false;
     bool generic_art_ = false; // (the art is one of THUG2's generic loading screens: the level has none of its own)
     std::string game_tag_;
 };
 
 struct Section {
-    std::string id;    // "thug2", "thps3", "misc"...
-    std::string tab;   // "THUG2", "THPS3", "Misc"
-    std::string title; // "TONY HAWK'S PRO SKATER 3"
+    std::string id;               // "thug2", "thps3", "misc"...
+    std::string tab;              // "THUG2", "THPS3", "Misc"
+    std::string title;            // "TONY HAWK'S PRO SKATER 3"
     uint32_t colour = 0xFFC9CBD0; // ARGB
     std::vector<StageMap> levels;
 };
@@ -105,7 +108,7 @@ constexpr float kSelectSeconds = 0.12f; // the selection snaps in (ease-out)
 constexpr float kWipeSeconds = 0.42f;   // a screen change: one diagonal wipe (the screen changes half-way)
 constexpr float kLaunchSeconds = 0.55f; // a level confirmed: the name sliced, the art up through the gap
 constexpr float kPanSeconds = 10.0f;    // the art pans across its range and back
-float ease_out(float t);                 // cubic: 1 - (1 - t)^3, t clamped to 0..1
+float ease_out(float t);                // cubic: 1 - (1 - t)^3, t clamped to 0..1
 
 // A row's selection amount: moves toward 1 (selected) or 0 at 1 / kSelectSeconds a second; drawn eased.
 struct RowAnim {
@@ -113,7 +116,6 @@ struct RowAnim {
     void tick(bool selected, float dt);
     float get_eased() const { return ease_out(value); }
 };
-
 
 // --- the menus -----------------------------------------------------------------------------------------------------
 
@@ -124,7 +126,7 @@ enum class Screen {
     kMain,    // the root in the front end
     kOptions, // thug2-decomp.ini's settings (new_frontend_options.h) and the game's GAME OPTIONS
     kLevels,  // the level select (Free Skate, the pause menu's Change level, the Level Editor's level)
-    kFreeze,   // the root in a level
+    kFreeze,  // the root in a level
 };
 constexpr int kScreens = 4;
 const char* get_screen_name(Screen screen); // "main", "options", "levels", "pause" (the automation channel's names)
@@ -137,12 +139,12 @@ enum class Intake { kUp, kDown, kLeft, kRight, kConfirm, kBack, kPrevTab, kNextT
 // What the menus ask the game for.
 enum class ActionKind {
     kNone,
-    kMoveSound,      // the selection moved (the menus' up / down sound)
-    kChooseSound,    // something chosen
+    kMoveSound,   // the selection moved (the menus' up / down sound)
+    kChooseSound, // something chosen
     kBackSound,
-    kGameOptions,    // the game's GAME OPTIONS (in a level: the pause menu's)
-    kOption,         // option: an index into Options::get_specs(), value: its choice
-    kSkate,          // load; levels: what the level select was opened for
+    kGameOptions, // the game's GAME OPTIONS (in a level: the pause menu's)
+    kOption,      // option: an index into Options::get_specs(), value: its choice
+    kSkate,       // load; levels: what the level select was opened for
 };
 enum class LevelsFor { kFreeSkate, kFreeze, kEdit };
 struct ActStep {
@@ -170,7 +172,7 @@ public:
     // The data (kept by the caller), each section's view, and the screens open (`stack`, the last shown): Back pops
     // them (back at the root: nothing - the caller steps ours aside). `levels`: what an open level select is for.
     void get_reset(const Catalogue* catalogue, std::vector<SectionView> views, const std::string& last_level,
-               std::vector<Screen> stack = {Screen::kMain}, LevelsFor levels = LevelsFor::kFreeSkate);
+                   std::vector<Screen> stack = {Screen::kMain}, LevelsFor levels = LevelsFor::kFreeSkate);
     void set_last_level(const std::string& load) { last_level_ = load; }
     // The sections' views made again (the locks changed): each section's row kept where it still is.
     void set_views(std::vector<SectionView> views);
@@ -214,12 +216,12 @@ public:
     int deepness() const { return static_cast<int>(pile_.size()); }
     // Whether the screens open are the pause menu's (Options / Levels opened from it are drawn over the game too).
     bool over_pause() const;
-    int get_selected() const;                                       // the shown list's selection (-1: none)
+    int get_selected() const; // the shown list's selection (-1: none)
     LevelsFor levels_purpose() const { return levels_for_; }
     int get_section_index() const { return section_; }
-    int level_row() const;                      // the selected row in the section's list (-1: an empty list)
-    const SectionView* get_view() const;           // the section's view (null: no sections)
-    const StageMap* selected_level() const;        // (null: none)
+    int level_row() const;                  // the selected row in the section's list (-1: an empty list)
+    const SectionView* get_view() const;    // the section's view (null: no sections)
+    const StageMap* selected_level() const; // (null: none)
     bool selected_locked() const;
     int section_count() const { return static_cast<int>(views_.size()); }
     const Catalogue* payload() const { return catalogue_; }
@@ -308,10 +310,10 @@ public:
     static constexpr float kSettleSeconds = 0.25f;
     static constexpr float kMaxSeconds = 3.0f;
     struct Now {
-        bool target_ready_ = false;  // ours shown, or a restyled screen up
-        bool gameplay = false;     // in a level and playing, a tool's UI (the level editor), a loading screen, no level
+        bool target_ready_ = false; // ours shown, or a restyled screen up
+        bool gameplay = false; // in a level and playing, a tool's UI (the level editor), a loading screen, no level
         bool left_original_ = false; // the screen up stays the original's (not restyled: the decision says so)
-        uintptr_t screen = 0;      // the menu taking the pad events (0: none) - settled when it stays the same
+        uintptr_t screen = 0;        // the menu taking the pad events (0: none) - settled when it stays the same
     };
     void kickoff(Over over);
     void halt() { over_ = Over::kNone; }
@@ -328,4 +330,4 @@ private:
     bool seen_ = false;
 };
 
-} // namespace MenuSystem::NewFrontend
+} // namespace frontend::new_frontend

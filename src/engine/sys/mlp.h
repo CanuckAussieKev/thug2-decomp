@@ -10,16 +10,16 @@
 namespace frame_loop {
 
 struct Hub {
-    uint8_t is_finished_;             // +0x00: (a bool) ends the loop after the current frame
+    uint8_t is_finished_; // +0x00: (a bool) ends the loop after the current frame
     uint8_t pad01[3];
-    tasks::PileUp logic_tasks_;     // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
-    tasks::PileUp display_tasks_;   // +0x40 (not run by the loop)
-    tasks::PileUp system_tasks_;    // +0x7C: the module manager's and the input devices' tasks
-    uint32_t unknownb8_;       // +0xB8 (cleared by the constructor, otherwise unused here)
-    uint32_t unknownbc_;       // +0xBC (the same)
+    tasks::PileUp logic_tasks_;   // +0x04: a task list (0x00406C90 adds, 0x004070A0 runs)
+    tasks::PileUp display_tasks_; // +0x40 (not run by the loop)
+    tasks::PileUp system_tasks_;  // +0x7C: the module manager's and the input devices' tasks
+    uint32_t unknownb8_;          // +0xB8 (cleared by the constructor, otherwise unused here)
+    uint32_t unknownbc_;          // +0xBC (the same)
     uint8_t padc0_[0x04];
-    int profile_frames_;        // +0xC4: frames still to profile (announced, counted down)
-    int profiling_;            // +0xC8: this frame is being profiled (passed to the task lists)
+    int profile_frames_; // +0xC4: frames still to profile (announced, counted down)
+    int profiling_;      // +0xC8: this frame is being profiled (passed to the task lists)
 
     // 0x0044EDC0: the three task lists (0x00406E80 each), the +0xB8/+0xBC words and is_finished_ cleared. Returns this.
     Hub* make_new();
@@ -62,4 +62,4 @@ void release_manager();
 // the main loop's plain render call at 0x0044F1C0).
 void render_frame_letterboxed();
 
-} // namespace Mlp
+} // namespace frame_loop

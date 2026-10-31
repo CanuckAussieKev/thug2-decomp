@@ -11,7 +11,7 @@ class ProbeRay;
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace maths {
 class Mat4;
 }
@@ -19,7 +19,7 @@ namespace objects {
 struct GrindPoint;
 struct Record24;
 struct Record34;
-} // namespace Obj
+} // namespace objects
 
 // The Walk component (type 0x726E85AA, vtable 0x0064C75C; made by 0x0052A5C0, its member function table 0x006847F8
 // registered by 0x00525E40, 0x1960 bytes): the skater on foot - walking, running, jumping, hanging, climbing. Its code
@@ -153,16 +153,16 @@ public:
     bool try_grind();
 
     // --- member functions (by their records) ---
-    bool walk_ground(script::Struct* params, script::Script* script);              // 0x00525E90
-    bool walk_scale_anim_speed(script::Struct* params, script::Script* script);      // 0x00525EA0
-    bool walk_release_hang(script::Struct* params, script::Script* script);         // 0x00525F60
-    bool walk_get_state_time(script::Struct* params, script::Script* script);        // 0x00528580
-    bool walk_get_speed_scale(script::Struct* params, script::Script* script);       // 0x005285C0
-    bool walk_get_hang_init_anim_type(script::Struct* params, script::Script* script); // 0x005286A0
-    bool walk_get_state_duration(script::Struct* params, script::Script* script);    // 0x005286C0
-    bool walk_get_previous_state(script::Struct* params, script::Script* script);    // 0x00528710
-    bool walk_get_state(script::Struct* params, script::Script* script);            // 0x00528740
-    bool walk_get_hang_angle(script::Struct* params, script::Script* script);        // 0x00528770
+    bool walk_ground(script::Struct* params, script::Script* script);                   // 0x00525E90
+    bool walk_scale_anim_speed(script::Struct* params, script::Script* script);         // 0x00525EA0
+    bool walk_release_hang(script::Struct* params, script::Script* script);             // 0x00525F60
+    bool walk_get_state_time(script::Struct* params, script::Script* script);           // 0x00528580
+    bool walk_get_speed_scale(script::Struct* params, script::Script* script);          // 0x005285C0
+    bool walk_get_hang_init_anim_type(script::Struct* params, script::Script* script);  // 0x005286A0
+    bool walk_get_state_duration(script::Struct* params, script::Script* script);       // 0x005286C0
+    bool walk_get_previous_state(script::Struct* params, script::Script* script);       // 0x00528710
+    bool walk_get_state(script::Struct* params, script::Script* script);                // 0x00528740
+    bool walk_get_hang_angle(script::Struct* params, script::Script* script);           // 0x00528770
     bool walk_set_forward_control_lock(script::Struct* params, script::Script* script); // 0x00528860
 
     // --- walk_moves.cpp (skater-6: 0x00529F80-0x0052D6A0) ---
@@ -293,8 +293,8 @@ public:
     // by `out`) sideways along the move (`move`, `left` or not), at three heights and down at the critical point -
     // near the segment's end (`segment`, `start` / `end`, `along` it) turned onto the next segment first. True if any
     // hits.
-    bool shimmy_blocked(const maths::Vec4* out, float along, const maths::Vec4* point, bool left, const maths::Vec4* move,
-                       maths::Vec4 segment, GrindPoint* start, GrindPoint* end);
+    bool shimmy_blocked(const maths::Vec4* out, float along, const maths::Vec4* point, bool left,
+                        const maths::Vec4* move, maths::Vec4 segment, GrindPoint* start, GrindPoint* end);
     // 0x0043FC70: the position on the hang: the rail's point along +0x18CC, raised by +0x18D0 and out along the
     // facing by +0x18D4. Riding something that turns (the ride tracker's +0xAC), the facing set across the rail
     // again, flat (the side it was on; its w the side's sign - the original's).
@@ -316,8 +316,8 @@ public:
     // (0x40 / 0x80); room to hang (hang_clear) facing that way or, if the flags allow, the other. Into `result`: the
     // facing, how far along, out and up from the rail, and the animation (SWING, or WALL when a feeler out from the
     // hang point hits).
-    bool check_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* on_rail, const maths::Vec4* on_line,
-                   float along, Record34* result, bool away);
+    bool check_rail(const maths::Vec4* start, const maths::Vec4* end, const maths::Vec4* on_rail,
+                    const maths::Vec4* on_line, float along, Record34* result, bool away);
     // 0x00440BF0 (state 2): hanging, each frame: carried by what it rides on (else the ride let go); with the control
     // pushed forward a pull-up (twice: pull_up_offset_forward ahead, then half that); turned round: let go (in the
     // air, SkaterExitHang); else shimmied by the control's sideways part (hang_move_speed, eased by
@@ -342,11 +342,11 @@ public:
     // 0x004413E0 (find_ladder_on_line's): grabbed where the line meets it (`on_ladder`, `along` it), between the two
     // offsets, nothing in the way from the skater; the skater core's flag +0xA0 of +0x1528 set.
     bool check_ladder_top(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                        Record24* record);
+                          Record24* record);
     bool check_ladder_bottom(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                           Record24* record);
+                             Record24* record);
     bool check_ladder_line(const maths::Vec4* bottom, const maths::Vec4* top, const maths::Mat4* orientation,
-                         const maths::Vec4* on_ladder, float along, Record24* record);
+                           const maths::Vec4* on_ladder, float along, Record24* record);
     // 0x00441680 / 0x00441B80: off the ladder's bottom (ladder_bottom_offset_forward back, down) / top
     // (ladder_top_offset_forward ahead, up): the ground there (find_stand_position), the animated move
     // (LadderOffBottom / LadderOffTop) - off the top with no ground, into the air at its end.
@@ -376,4 +376,4 @@ struct WalkContact {
     void teardown();
 };
 
-} // namespace Obj
+} // namespace objects

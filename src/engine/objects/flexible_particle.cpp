@@ -33,58 +33,41 @@ void EmitterInstance::set_flag(int bit, bool on)
         flag_bits_ &= ~(1u << bit);
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace objects {
 
 float g_particle_update_time{1.0f};
 uint32_t g_flexible_particle_member_functions[156]{
-            0x63274395, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xDB8621F7, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xE985A9A6, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xE3309AB5, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xFBB6720D, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xA075EE45, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x2A479569, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x2E66815E, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xD3F1D333, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xB373FB6E, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x1CFBF078, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x514B2584, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x711B1A6A, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x35B65BD4, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x099CD17B, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x4893F05D, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x482482C6, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x7F97BAD3, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xE99D53A8, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xED0FE310, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x2A1F307B, 0xC5BCEB9E, 0, 0, 0, 0,
-            0xABF5F9E1, 0xC5BCEB9E, 0, 0, 0, 0,
-            0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0,
-            0, 0xC5BCEB9E, 0, 0, 0, 0};
+    0x63274395, 0xC5BCEB9E, 0, 0, 0, 0, 0x8FFDEF38, 0xC5BCEB9E, 0, 0, 0, 0, 0x7911855B, 0xC5BCEB9E, 0, 0, 0, 0,
+    0xDB8621F7, 0xC5BCEB9E, 0, 0, 0, 0, 0xE985A9A6, 0xC5BCEB9E, 0, 0, 0, 0, 0xE3309AB5, 0xC5BCEB9E, 0, 0, 0, 0,
+    0xFBB6720D, 0xC5BCEB9E, 0, 0, 0, 0, 0xA075EE45, 0xC5BCEB9E, 0, 0, 0, 0, 0x2A479569, 0xC5BCEB9E, 0, 0, 0, 0,
+    0x2E66815E, 0xC5BCEB9E, 0, 0, 0, 0, 0xD3F1D333, 0xC5BCEB9E, 0, 0, 0, 0, 0xB373FB6E, 0xC5BCEB9E, 0, 0, 0, 0,
+    0x1CFBF078, 0xC5BCEB9E, 0, 0, 0, 0, 0x514B2584, 0xC5BCEB9E, 0, 0, 0, 0, 0x711B1A6A, 0xC5BCEB9E, 0, 0, 0, 0,
+    0x35B65BD4, 0xC5BCEB9E, 0, 0, 0, 0, 0x099CD17B, 0xC5BCEB9E, 0, 0, 0, 0, 0x4893F05D, 0xC5BCEB9E, 0, 0, 0, 0,
+    0x482482C6, 0xC5BCEB9E, 0, 0, 0, 0, 0x7F97BAD3, 0xC5BCEB9E, 0, 0, 0, 0, 0xE99D53A8, 0xC5BCEB9E, 0, 0, 0, 0,
+    0xED0FE310, 0xC5BCEB9E, 0, 0, 0, 0, 0x2A1F307B, 0xC5BCEB9E, 0, 0, 0, 0, 0xABF5F9E1, 0xC5BCEB9E, 0, 0, 0, 0,
+    0x83B57984, 0xC5BCEB9E, 0, 0, 0, 0, 0,          0xC5BCEB9E, 0, 0, 0, 0};
 
 namespace {
 
 extern void** const kVtable;
 
-constexpr uint32_t kName = 0xA1DC81F9;                 // name
-constexpr uint32_t kMax = 0x6289DD76;                  // max
-constexpr uint32_t kMaxStreams = 0x9E52A20F;           // MaxStreams
-constexpr uint32_t kTexture = 0x7D99F28D;              // texture
-constexpr uint32_t kBlendMode = 0xDD6BB3D5;            // blendmode
-constexpr uint32_t kTypeParam = 0x7321A8D6;            // type
+constexpr uint32_t kName = 0xA1DC81F9;       // name
+constexpr uint32_t kMax = 0x6289DD76;        // max
+constexpr uint32_t kMaxStreams = 0x9E52A20F; // MaxStreams
+constexpr uint32_t kTexture = 0x7D99F28D;    // texture
+constexpr uint32_t kBlendMode = 0xDD6BB3D5;  // blendmode
+constexpr uint32_t kTypeParam = 0x7321A8D6;  // type
 constexpr uint32_t kUnknown184197d5 = 0x184197D5;
 constexpr uint32_t kUnknownA605b89f = 0xA605B89F;
-constexpr uint32_t kSegments = 0xD93124D6;             // segments
+constexpr uint32_t kSegments = 0xD93124D6; // segments
 constexpr uint32_t kUnknown4e0a65eE = 0x4E0A65EE;
-constexpr uint32_t kHistory = 0xD8458FB4;              // history
-constexpr uint32_t kPerm = 0xD5928F25;                 // perm
-constexpr uint32_t kEmitterIndependent = 0x03D4E483;   // emitterIndependent
-constexpr uint32_t kEmitRate = 0x8E9A640E;             // emit_rate
-constexpr uint32_t kModel = 0x286A8D26;                // model
+constexpr uint32_t kHistory = 0xD8458FB4;            // history
+constexpr uint32_t kPerm = 0xD5928F25;               // perm
+constexpr uint32_t kEmitterIndependent = 0x03D4E483; // emitterIndependent
+constexpr uint32_t kEmitRate = 0x8E9A640E;           // emit_rate
+constexpr uint32_t kModel = 0x286A8D26;              // model
 constexpr uint32_t kUseGlobalColorModulation = 0xA0E585B0;
 constexpr uint32_t kGroupId = 0x87FA53ED;              // groupID
 constexpr uint32_t kParams = 0x7031F10C;               // params
@@ -95,14 +78,14 @@ constexpr uint32_t kUpdateBrightness = 0xBBFA4B06;     // update_Brightness
 constexpr uint32_t kObjId = 0x0830ECAF;                // ObjID
 constexpr uint32_t kUseRandomUvQuadrants = 0x47580C70; // UseRandomUVQuadrants
 constexpr uint32_t kUnknown5446aF14 = 0x5446AF14;
-constexpr uint32_t kFillPath = 0x9B9381E2;             // FillPath
+constexpr uint32_t kFillPath = 0x9B9381E2; // FillPath
 constexpr uint32_t kUnknownDe45a90d = 0xDE45A90D;
-constexpr uint32_t kPriority = 0x9D5923D8;             // priority
-constexpr uint32_t kAlignTo = 0xE4247A6B;              // align_to
+constexpr uint32_t kPriority = 0x9D5923D8;                // priority
+constexpr uint32_t kAlignTo = 0xE4247A6B;                 // align_to
 constexpr uint32_t kForceParticleUpdateTime = 0x0CF3CBA1; // Force_Particle_Update_Time (a script global)
-constexpr uint32_t kIfEmpty = 0x0CF50F29;              // ifEmpty
-constexpr uint32_t kIsEmitting = 0x2299A9F2;           // IsEmitting
-constexpr uint32_t kApplyEnvBrightness = 0x96896315;   // ApplyEnvBrightness
+constexpr uint32_t kIfEmpty = 0x0CF50F29;                 // ifEmpty
+constexpr uint32_t kIsEmitting = 0x2299A9F2;              // IsEmitting
+constexpr uint32_t kApplyEnvBrightness = 0x96896315;      // ApplyEnvBrightness
 constexpr uint32_t kSuspend = 0xCE0CA665;
 
 // The particle manager's update time (0x0067D6D0: Force_Particle_Update_Time as a float).
@@ -116,12 +99,12 @@ render::EmitterInstance* find_system(uint32_t name)
 }
 // 0x0049AC60: a new system (named `name`) from the parameters.
 render::EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int max, int max_streams, uint32_t texture,
-                                  uint32_t blend_mode, int unknowna605b89f, int segments, float unknown4e0a65ee,
-                                  int history, int perm, bool use_global_color_modulation, const char* model)
+                                         uint32_t blend_mode, int unknowna605b89f, int segments, float unknown4e0a65ee,
+                                         int history, int perm, bool use_global_color_modulation, const char* model)
 {
     return static_cast<render::FlexibleParticleManager*>(particle_hub_handle())
         ->start_subsystem(name, type, max, max_streams, texture, blend_mode, unknowna605b89f, segments, unknown4e0a65ee,
-                       history, perm, use_global_color_modulation, model);
+                          history, perm, use_global_color_modulation, model);
 }
 void destroy_system_now(uint32_t name)
 {
@@ -134,7 +117,7 @@ void destroy_system_when_empty(uint32_t name)
 
 // The system's own (no source yet).
 bool system_call_member_function(render::EmitterInstance* system, uint32_t name, script::Struct* params,
-                              script::Script* script)
+                                 script::Script* script)
 {
     return system->invoke_method_by_name(name, params, script);
 }
@@ -146,14 +129,8 @@ void set_update_script(render::EmitterInstance* system, uint32_t script, script:
 {
     system->set_update_script(script, params, object);
 }
-void update_system(render::EmitterInstance* system, float time, int unknown)
-{
-    system->tick_frame(time, unknown != 0);
-}
-void idle_system(render::EmitterInstance* system)
-{
-    system->run_emit_script();
-}
+void update_system(render::EmitterInstance* system, float time, int unknown) { system->tick_frame(time, unknown != 0); }
+void idle_system(render::EmitterInstance* system) { system->run_emit_script(); }
 // 0x00497AB0: the matrix of the system's rotation, into `out` (returned).
 maths::Mat4* system_rotation(render::EmitterInstance* system, maths::Mat4* out)
 {
@@ -161,10 +138,7 @@ maths::Mat4* system_rotation(render::EmitterInstance* system, maths::Mat4* out)
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The suspend component (no source yet): whether its object should be updated (0x00433EA0), suspended (+0x30, the
 // getter 0x00433E90), told to start (0x00433E70).
@@ -193,7 +167,7 @@ ObjectModule* __cdecl FlexibleParticleComponent::fabricate()
 void __cdecl FlexibleParticleComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(FlexibleParticleComponent::kType),
-                                        g_flexible_particle_member_functions, 0x18);
+                                           g_flexible_particle_member_functions, 0x18);
 }
 
 // 0x0041DA00
@@ -276,9 +250,9 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     }
     if (!found) {
         label_ = reinterpret_cast<uint32_t>(this);
-        system_.assign_value(start_subsystem(reinterpret_cast<uint32_t>(this), type, max, max_streams, texture, blend_mode,
-                                   unknowna605b89f, segments, unknown4e0a65ee, history, perm, use_global_color_modulation,
-                                   model));
+        system_.assign_value(start_subsystem(reinterpret_cast<uint32_t>(this), type, max, max_streams, texture,
+                                             blend_mode, unknowna605b89f, segments, unknown4e0a65ee, history, perm,
+                                             use_global_color_modulation, model));
         if (!system_.get_pull())
             return;
     }
@@ -368,15 +342,16 @@ void FlexibleParticleComponent::tick_frame()
                 maths::Mat4 orientation = entity_->display_matrix_;
                 orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
                 maths::Mat4 rotation;
-                matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation), &orientation);
+                matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation),
+                                &orientation);
                 system_.get_pull()->xform_ref_ = &entity_->display_matrix_;
             }
             system_.get_pull()->at_point_ = entity_->at_point_;
             render::EmitterInstance* system = system_.get_pull();
             if (system->wants_time_) {
                 if (brightness_model_)
-                    system->unknownec_ = *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(brightness_model_) +
-                                                                       0x22C);
+                    system->unknownec_ =
+                        *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(brightness_model_) + 0x22C);
                 update_system(system_.get_pull(), clock_, 0);
                 clock_ = 0.0f;
             }
@@ -416,15 +391,15 @@ int FlexibleParticleComponent::invoke_method_by_name(uint32_t name, script::Stru
 
 // 0x0041D700
 int FlexibleParticleComponent::call_member_function_entry(script::MemberFunctionEntry* entry, script::Struct* params,
-                                                        script::Script* script)
+                                                          script::Script* script)
 {
     if (entry->method_code_) {
         using Member = int(__thiscall*)(void*, uint32_t, script::Struct*, script::Script*);
         return reinterpret_cast<Member>(entry->method_code_)(reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_,
-                                                      entry->callsign_, params, script);
+                                                             entry->callsign_, params, script);
     }
-    return reinterpret_cast<int(__thiscall*)(ObjectModule*, uint32_t, script::Struct*, script::Script*)>(
-        vtable_[12])(this, entry->callsign_, params, script);
+    return reinterpret_cast<int(__thiscall*)(ObjectModule*, uint32_t, script::Struct*, script::Script*)>(vtable_[12])(
+        this, entry->callsign_, params, script);
 }
 
 // 0x0041D7F0
@@ -509,25 +484,25 @@ int FlexibleParticleComponent::destroy_particles(uint32_t, script::Struct*, scri
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::FlexibleParticleComponent::teardown,
-         &objects::FlexibleParticleComponent::tick_frame,
-         &objects::FlexibleParticleComponent::configure_from_data,
-         &objects::FlexibleParticleComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         stubs::ignore_argument,
-         &objects::FlexibleParticleComponent::conceal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::FlexibleParticleComponent::call_member_function_entry,
-         &objects::FlexibleParticleComponent::invoke_method_by_name};
+                                      &objects::FlexibleParticleComponent::tick_frame,
+                                      &objects::FlexibleParticleComponent::configure_from_data,
+                                      &objects::FlexibleParticleComponent::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      stubs::ignore_argument,
+                                      &objects::FlexibleParticleComponent::conceal,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::FlexibleParticleComponent::call_member_function_entry,
+                                      &objects::FlexibleParticleComponent::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -99,12 +99,12 @@ render::TriMeshSource* tri_of(uint8_t* coll) { return *reinterpret_cast<render::
 bool flag_off(uint8_t* coll) { return (coll[0x08] & 4) != 0; }
 
 // WorldCell::change_live (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
-void change_live(uint8_t* sector, bool active)
-{
-    reinterpret_cast<render::WorldCell*>(sector)->change_live(active);
-}
+void change_live(uint8_t* sector, bool active) { reinterpret_cast<render::WorldCell*>(sector)->change_live(active); }
 // The geometry's is_operative (0x0048DE70, as WorldCell::is_operative 0x0049E9E0 asks it).
-bool geom_active(uint8_t* geom) { return reinterpret_cast<bool(__thiscall*)(void*)>(&render::virtual_slot14_jump)(geom); }
+bool geom_active(uint8_t* geom)
+{
+    return reinterpret_cast<bool(__thiscall*)(void*)>(&render::virtual_slot14_jump)(geom);
+}
 
 bool same_v(const maths::Vec4& a, const maths::Vec4& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
@@ -256,7 +256,7 @@ bool set_off(uint32_t checksum, bool off)
     put_switch(t);
     if (debug_enabled())
         get_log("level editor: collision of %08X switched %s (%s)", checksum, off ? "off" : "on",
-            t->wall ? "an invisible wall" : "a drawn piece");
+                t->wall ? "an invisible wall" : "a drawn piece");
     return true;
 }
 
@@ -354,12 +354,12 @@ std::string describe_state(uint32_t checksum)
     bool moved = get_moved(checksum, &placement);
     char text[192];
     if (moved)
-        std::snprintf(text, sizeof(text), "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s", off ? "OFF" : "on",
-                      placement.offset.x, placement.offset.y, placement.offset.z, placement.quarters,
-                      placement.quarters == 1 ? "" : "s");
+        std::snprintf(text, sizeof(text), "Collision %s - moved by (%.1f, %.1f, %.1f), %d quarter turn%s",
+                      off ? "OFF" : "on", placement.offset.x, placement.offset.y, placement.offset.z,
+                      placement.quarters, placement.quarters == 1 ? "" : "s");
     else
         std::snprintf(text, sizeof(text), "Collision %s - where the level has it", off ? "OFF" : "on");
     return text;
 }
 
-} // namespace MenuSystem::level_editor::Walls
+} // namespace frontend::level_editor::walls

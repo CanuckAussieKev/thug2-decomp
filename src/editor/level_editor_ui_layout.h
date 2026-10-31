@@ -35,8 +35,8 @@ bool on_panel(const Layout& layout, float x, float y);
 struct RouteInput {
     bool ui_wants_mouse_;    // ImGui's WantCaptureMouse (the last frame: over a window, or a widget held)
     bool ui_wants_keyboard_; // ImGui's WantCaptureKeyboard (a text field or widget active)
-    bool over_panel_;       // the cursor is on a panel (on_panel)
-    bool editor_capture_;   // the editor holds the mouse: a drag or a right-button look started in the viewport
+    bool over_panel_;        // the cursor is on a panel (on_panel)
+    bool editor_capture_;    // the editor holds the mouse: a drag or a right-button look started in the viewport
 };
 struct Route {
     bool mouse_to_ui_;     // ImGui gets the mouse's events
@@ -48,4 +48,4 @@ struct Route {
 // The keys go to the editor unless ImGui wants the keyboard.
 Route decide(const RouteInput& input);
 
-} // namespace MenuSystem::level_editor::ui_layout
+} // namespace frontend::level_editor::ui_layout

@@ -3,7 +3,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // The world's scenes (Nx engine): the script commands that load them.
 namespace render {
@@ -13,4 +13,4 @@ namespace render {
 // containing "_sky" (any case) is a sky (drawn in the sky pass, no super sectors), as is.is_sky. Always returns true.
 bool __cdecl cfunc_load_scene(script::Struct* params, script::Script* script);
 
-} // namespace Nx
+} // namespace render

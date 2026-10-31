@@ -22,7 +22,8 @@
 namespace game_code {
 
 // pad_input::Responder<T>'s vtable, shared by the park editor's, the viewer's and the observer's input handlers.
-static VtableSlot g_input_handler_vtable_slots[] = {&modules::ViewerInputHandler::hdl, stubs::return_zero, &modules::ViewerInputHandler::teardown};
+static VtableSlot g_input_handler_vtable_slots[] = {&modules::ViewerInputHandler::hdl, stubs::return_zero,
+                                                    &modules::ViewerInputHandler::teardown};
 void** const kInputHandlerVtable = reinterpret_cast<void**>(g_input_handler_vtable_slots);
 
 } // namespace game_code
@@ -109,8 +110,8 @@ bool __cdecl cfunc_set_park_editor_state(script::Struct* params, script::Script*
             TopBarMenus::fabricate();
             BuildPointer::spawn_occurrence();
             break;
-        case 0xE76F5250: // a new, empty park
-        case 0x1A4E0EF9: // rebuilt as a new park
+        case 0xE76F5250:   // a new, empty park
+        case 0x1A4E0EF9:   // rebuilt as a new park
         case 0x2A907CBC: { // rebuilt from the saved map
             ParkLayout* manager = ParkLayout::singleton();
             switch (command) {
@@ -246,4 +247,4 @@ ParkBuilderMode* __cdecl ParkBuilderMode::fabricate(bool create)
     return sole();
 }
 
-} // namespace Ed
+} // namespace park_editing

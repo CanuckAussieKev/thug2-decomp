@@ -228,4 +228,4 @@ bool tintable(void* geom); // (the PC geometry class)
 void get_tint(TintOwner owner, void* geom, uint32_t rgba);
 void end_tints(void* (*resolve)(TintOwner), bool all);
 
-} // namespace MenuSystem::level_editor::Scenery
+} // namespace frontend::level_editor::scenery

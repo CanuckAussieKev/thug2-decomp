@@ -69,16 +69,66 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
 const uint8_t* step_over_token(const uint8_t* token)
 {
     switch (*token) {
-    case 0x01: case 0x03: case 0x04: case 0x05: case 0x06: case 0x07: case 0x08: case 0x09: case 0x0A:
-    case 0x0B: case 0x0C: case 0x0D: case 0x0E: case 0x0F: case 0x11: case 0x12: case 0x13: case 0x14:
-    case 0x15: case 0x20: case 0x21: case 0x22: case 0x23: case 0x24: case 0x25: case 0x26: case 0x27:
-    case 0x28: case 0x29: case 0x2C: case 0x2D: case 0x30: case 0x32: case 0x33: case 0x34: case 0x35:
-    case 0x36: case 0x38: case 0x39: case 0x3A: case 0x3B: case 0x3C: case 0x3D: case 0x3E: case 0x3F:
-    case 0x42: case 0x45:
+    case 0x01:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x06:
+    case 0x07:
+    case 0x08:
+    case 0x09:
+    case 0x0A:
+    case 0x0B:
+    case 0x0C:
+    case 0x0D:
+    case 0x0E:
+    case 0x0F:
+    case 0x11:
+    case 0x12:
+    case 0x13:
+    case 0x14:
+    case 0x15:
+    case 0x20:
+    case 0x21:
+    case 0x22:
+    case 0x23:
+    case 0x24:
+    case 0x25:
+    case 0x26:
+    case 0x27:
+    case 0x28:
+    case 0x29:
+    case 0x2C:
+    case 0x2D:
+    case 0x30:
+    case 0x32:
+    case 0x33:
+    case 0x34:
+    case 0x35:
+    case 0x36:
+    case 0x38:
+    case 0x39:
+    case 0x3A:
+    case 0x3B:
+    case 0x3C:
+    case 0x3D:
+    case 0x3E:
+    case 0x3F:
+    case 0x42:
+    case 0x45:
         return token + 1;
-    case 0x02: case 0x16: case 0x17: case 0x18: case 0x1A: case 0x2E: case 0x43: case 0x44: case 0x46:
+    case 0x02:
+    case 0x16:
+    case 0x17:
+    case 0x18:
+    case 0x1A:
+    case 0x2E:
+    case 0x43:
+    case 0x44:
+    case 0x46:
         return token + 5;
-    case 0x1B: case 0x1C: // strings: the length, then the text
+    case 0x1B:
+    case 0x1C: // strings: the length, then the text
         return token + 5 + fetch_word32(token + 1);
     case 0x1E: // vector
         return token + 13;
@@ -90,9 +140,14 @@ const uint8_t* step_over_token(const uint8_t* token)
             ++p;
         return p + 1;
     }
-    case 0x2F: case 0x37: case 0x40: case 0x41: // tables of 6-byte entries
+    case 0x2F:
+    case 0x37:
+    case 0x40:
+    case 0x41: // tables of 6-byte entries
         return token + 5 + fetch_word32(token + 1) * 6;
-    case 0x47: case 0x48: case 0x49:
+    case 0x47:
+    case 0x48:
+    case 0x49:
         return token + 3;
     default: // (0x00, 0x10, 0x19, 0x1D, 0x2A, 0x31 and unknown tokens: no step)
         return token;
@@ -106,10 +161,7 @@ uint32_t fetch_word32(const uint8_t* p)
 }
 
 // 0x0046F800
-uint16_t fetch_word16(const uint8_t* p)
-{
-    return static_cast<uint16_t>(p[0] | (p[1] << 8));
-}
+uint16_t fetch_word16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
 
 // 0x0046F810
 uint8_t* store_word32(uint8_t* p, uint32_t value)
@@ -384,7 +436,8 @@ void create_script_pools()
     memory::pop_mem_profile();
     memory::leave_heap_scope();
     // (not original either: the sizes in the log)
-    get_log("script pools: CComponent %d, CStruct %d, CVector %d, CPair %d, CArray %d, CSymbolTableEntry %d, CScript %d, "
+    get_log(
+        "script pools: CComponent %d, CStruct %d, CVector %d, CPair %d, CArray %d, CSymbolTableEntry %d, CScript %d, "
         "CScriptCacheEntry %d, strings %u bytes / %u (thug2-decomp.ini [memory]; the original's CComponent 86000); "
         "script region %u bytes",
         sizes.components, sizes.structs, sizes.vectors, sizes.pairs, sizes.arrays, sizes.symbols, sizes.scripts,
@@ -399,9 +452,9 @@ void log_script_pool_use(const char* when)
         memory::PoolPair* pair;
     };
     const Named pools[] = {{"CComponent", &g_component_pools}, {"CStruct", &g_struct_pools},
-                            {"CVector", &g_vector_pools},       {"CPair", &g_pair_pools},
-                            {"CArray", &g_array_pools},         {"CSymbolTableEntry", &g_symbol_pools},
-                            {"CScript", &g_script_pools}};
+                           {"CVector", &g_vector_pools},       {"CPair", &g_pair_pools},
+                           {"CArray", &g_array_pools},         {"CSymbolTableEntry", &g_symbol_pools},
+                           {"CScript", &g_script_pools}};
     std::string line;
     for (const Named& p : pools) {
         int used = 0, peak = 0, count = 0;
@@ -427,12 +480,12 @@ void log_script_pool_use(const char* when)
     get_log("script pools in use %s: %s", when, line.c_str());
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 
 // The per-class pool creators (cdecl: count, name).
-#define POOL_CREATOR(function, pools, itemSize)                                                                \
+#define POOL_CREATOR(function, pools, itemSize)                                                                        \
     void function(int count, const char* name) { script::create_pool(script::pools, itemSize, count, name); }
 POOL_CREATOR(create_cache_entry_pool, g_cache_entry_pools, 0x14)
 POOL_CREATOR(create_component_pool, g_component_pools, 0x10)
@@ -564,4 +617,4 @@ void process_pending_symbols()
     pending_symbol_count() = 0;
 }
 
-} // namespace Script
+} // namespace script

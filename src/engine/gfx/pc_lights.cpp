@@ -23,8 +23,8 @@ float g_light_constants[28];
 namespace {
 
 extern void** const kModelLightsVtable;
-constexpr double kPer128 = 1.0 / 128.0;           // 0x0064A2FC
-constexpr float kPer255 = 1.0f / 255.0f;          // 0x00645D70 (0x3B808081)
+constexpr double kPer128 = 1.0 / 128.0;  // 0x0064A2FC
+constexpr float kPer255 = 1.0f / 255.0f; // 0x00645D70 (0x3B808081)
 
 // The renderer's light constants.
 float* ambient_constant() { return g_light_constants; }
@@ -233,10 +233,7 @@ void PcModelLights::enable_ambient_override(bool on)
 }
 
 // 0x004B6240
-bool PcModelLights::is_ambient_overridden()
-{
-    return (overrides & 1) != 0;
-}
+bool PcModelLights::is_ambient_overridden() { return (overrides & 1) != 0; }
 
 // 0x004B6210
 void PcModelLights::enable_light_override(int light, bool on)
@@ -249,10 +246,7 @@ void PcModelLights::enable_light_override(int light, bool on)
 }
 
 // 0x004B6250
-bool PcModelLights::is_light_overridden(int light)
-{
-    return (overrides & (2u << (light & 31))) != 0;
-}
+bool PcModelLights::is_light_overridden(int light) { return (overrides & (2u << (light & 31))) != 0; }
 
 // 0x004B67E0
 bool __cdecl update_ambient_light()
@@ -337,13 +331,20 @@ PcModelLights* __cdecl spawn_model_lights()
 }
 
 namespace {
-static VtableSlot g_model_lights_vtable_slots[] = {&render::PcModelLights::teardown, &render::PcModelLights::change_ambient_tint,
-                &render::PcModelLights::set_light_direction, &render::PcModelLights::set_light_diffuse_color,
-                &render::PcModelLights::fetch_ambient_tint, &render::PcModelLights::get_light_direction,
-                &render::PcModelLights::get_light_diffuse_color, &render::PcModelLights::tick_frame, stubs::ignore_arguments2,
-                &render::PcModelLights::enable_ambient_override, &render::PcModelLights::enable_light_override,
-                &render::PcModelLights::is_ambient_overridden, &render::PcModelLights::is_light_overridden};
+static VtableSlot g_model_lights_vtable_slots[] = {&render::PcModelLights::teardown,
+                                                   &render::PcModelLights::change_ambient_tint,
+                                                   &render::PcModelLights::set_light_direction,
+                                                   &render::PcModelLights::set_light_diffuse_color,
+                                                   &render::PcModelLights::fetch_ambient_tint,
+                                                   &render::PcModelLights::get_light_direction,
+                                                   &render::PcModelLights::get_light_diffuse_color,
+                                                   &render::PcModelLights::tick_frame,
+                                                   stubs::ignore_arguments2,
+                                                   &render::PcModelLights::enable_ambient_override,
+                                                   &render::PcModelLights::enable_light_override,
+                                                   &render::PcModelLights::is_ambient_overridden,
+                                                   &render::PcModelLights::is_light_overridden};
 void** const kModelLightsVtable = reinterpret_cast<void**>(g_model_lights_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

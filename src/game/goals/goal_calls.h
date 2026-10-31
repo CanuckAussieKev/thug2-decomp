@@ -19,7 +19,10 @@ inline void* objective_board() { return get_objective_board(); }
 // 0x00557F90: the goal with id `id`, or null.
 inline Objective* get_goal(void* manager, uint32_t id, int assert) { return as_manager(manager)->get_goal(id, assert); }
 // 0x00559110: group `group` of level `level` (-1: the career's) is locked; group -1: never.
-inline bool is_group_locked(void* manager, int group, int level) { return as_manager(manager)->is_group_locked(group, level); }
+inline bool is_group_locked(void* manager, int group, int level)
+{
+    return as_manager(manager)->is_group_locked(group, level);
+}
 // 0x00557E40: the goal points counted up and shown.
 inline void show_goal_points(void* manager) { as_manager(manager)->show_goal_points(); }
 // 0x005588D0: goal `id` unlocked.
@@ -30,9 +33,12 @@ inline int get_skill_tier(void* manager, bool career) { return as_manager(manage
 inline bool complete_objective(void* manager, uint32_t id) { return as_manager(manager)->complete_objective(id); }
 inline bool fail_objective(void* manager, uint32_t id) { return as_manager(manager)->fail_objective(id); }
 // 0x00557FC0: goal `id` started.
-inline bool engage_objective(void* manager, uint32_t id, bool unused) { return as_manager(manager)->engage_objective(id, unused); }
+inline bool engage_objective(void* manager, uint32_t id, bool unused)
+{
+    return as_manager(manager)->engage_objective(id, unused);
+}
 // 0x0055DBE0: `goal` added to the active goals' list.
 inline void add_active_goal(void* manager, Objective* goal) { as_manager(manager)->add_active_goal(goal); }
 
 } // namespace goal_calls
-} // namespace Game
+} // namespace goals

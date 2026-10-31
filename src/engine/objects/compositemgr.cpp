@@ -25,56 +25,25 @@
 namespace objects {
 
 uint32_t g_composite_object_member_functions[186]{
-    0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0,
-    0xC2404947, 0x0ADA4E74, 0, 0, 0, 0,
-    0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
-    0x2BFFEAA3, 0x0ADA4E74, 0, 0, 0, 0,
-    0xF7251A64, 0x0ADA4E74, 0, 0, 0, 0,
-    0xC6F3BAA5, 0x0ADA4E74, 0, 0, 0, 0,
-    0x77403AFC, 0x0ADA4E74, 0, 0, 0, 0,
-    0xC1BFF0F3, 0x0ADA4E74, 0, 0, 0, 0,
-    0x11FE9F71, 0x0ADA4E74, 0, 0, 0, 0,
-    0xC0CAAC4A, 0x0ADA4E74, 0, 0, 0, 0,
-    0x5B6634D4, 0x0ADA4E74, 0, 0, 0, 0,
-    0xB60D1F35, 0x0ADA4E74, 0, 0, 0, 0,
-    0xB16619AE, 0x0ADA4E74, 0, 0, 0, 0,
-    0x10C1C887, 0x0ADA4E74, 0, 0, 0, 0,
-    0xCE0CA665, 0x0ADA4E74, 0, 0, 0, 0,
-    0xCA3C59A6, 0x0ADA4E74, 0, 0, 0, 0,
-    0x28656D12, 0x0ADA4E74, 0, 0, 0, 0,
-    0xFF85D4D7, 0x0ADA4E74, 0, 0, 0, 0,
-    0x0168B09C, 0x0ADA4E74, 0, 0, 0, 0,
-    0xB9ED09D2, 0x0ADA4E74, 0, 0, 0, 0,
-    0xD96C0A20, 0x0ADA4E74, 0, 0, 0, 0,
-    0x4AF57BBB, 0x0ADA4E74, 0, 0, 0, 0,
-    0x2A26FFA2, 0x0ADA4E74, 0, 0, 0, 0,
-    0xF8CFD515, 0x0ADA4E74, 0, 0, 0, 0,
-    0x7DCC5FB9, 0x0ADA4E74, 0, 0, 0, 0,
-    0xE5DF66D7, 0x0ADA4E74, 0, 0, 0, 0,
-    0xDD468509, 0x0ADA4E74, 0, 0, 0, 0,
-    0x37185D8A, 0x0ADA4E74, 0, 0, 0, 0,
-    0x70ED3048, 0x0ADA4E74, 0, 0, 0, 0,
-    0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
-    0, 0x0ADA4E74, 0, 0, 0, 0};
+    0xE90AAD2D, 0x0ADA4E74, 0, 0, 0, 0, 0xC2404947, 0x0ADA4E74, 0, 0, 0, 0, 0x406998A5, 0x0ADA4E74, 0, 0, 0, 0,
+    0x2BFFEAA3, 0x0ADA4E74, 0, 0, 0, 0, 0xF7251A64, 0x0ADA4E74, 0, 0, 0, 0, 0xC6F3BAA5, 0x0ADA4E74, 0, 0, 0, 0,
+    0x77403AFC, 0x0ADA4E74, 0, 0, 0, 0, 0xC1BFF0F3, 0x0ADA4E74, 0, 0, 0, 0, 0x11FE9F71, 0x0ADA4E74, 0, 0, 0, 0,
+    0xC0CAAC4A, 0x0ADA4E74, 0, 0, 0, 0, 0x5B6634D4, 0x0ADA4E74, 0, 0, 0, 0, 0xB60D1F35, 0x0ADA4E74, 0, 0, 0, 0,
+    0xB16619AE, 0x0ADA4E74, 0, 0, 0, 0, 0x10C1C887, 0x0ADA4E74, 0, 0, 0, 0, 0xCE0CA665, 0x0ADA4E74, 0, 0, 0, 0,
+    0xCA3C59A6, 0x0ADA4E74, 0, 0, 0, 0, 0x28656D12, 0x0ADA4E74, 0, 0, 0, 0, 0xFF85D4D7, 0x0ADA4E74, 0, 0, 0, 0,
+    0x0168B09C, 0x0ADA4E74, 0, 0, 0, 0, 0xB9ED09D2, 0x0ADA4E74, 0, 0, 0, 0, 0xD96C0A20, 0x0ADA4E74, 0, 0, 0, 0,
+    0x4AF57BBB, 0x0ADA4E74, 0, 0, 0, 0, 0x2A26FFA2, 0x0ADA4E74, 0, 0, 0, 0, 0xF8CFD515, 0x0ADA4E74, 0, 0, 0, 0,
+    0x7DCC5FB9, 0x0ADA4E74, 0, 0, 0, 0, 0xE5DF66D7, 0x0ADA4E74, 0, 0, 0, 0, 0xDD468509, 0x0ADA4E74, 0, 0, 0, 0,
+    0x37185D8A, 0x0ADA4E74, 0, 0, 0, 0, 0x70ED3048, 0x0ADA4E74, 0, 0, 0, 0, 0x33CAC5FF, 0x0ADA4E74, 0, 0, 0, 0,
+    0,          0x0ADA4E74, 0, 0, 0, 0};
 
 uint32_t g_object_member_functions[102]{
-    0x3611C136, 0x57525413, 0, 0, 0, 0,
-    0x62C11CB9, 0x57525413, 0, 0, 0, 0,
-    0xEEEB7220, 0x57525413, 0, 0, 0, 0,
-    0xA58079EB, 0x57525413, 0, 0, 0, 0,
-    0x0C7CD27A, 0x57525413, 0, 0, 0, 0,
-    0xB3C262EC, 0x57525413, 0, 0, 0, 0,
-    0x500EB224, 0x57525413, 0, 0, 0, 0,
-    0x4BABC987, 0x57525413, 0, 0, 0, 0,
-    0x53EBEE03, 0x57525413, 0, 0, 0, 0,
-    0x6C2B67F9, 0x57525413, 0, 0, 0, 0,
-    0xBE563426, 0x57525413, 0, 0, 0, 0,
-    0xFBD89CD5, 0x57525413, 0, 0, 0, 0,
-    0x23A4E5C2, 0x57525413, 0, 0, 0, 0,
-    0x714937C7, 0x57525413, 0, 0, 0, 0,
-    0x20D125D7, 0x57525413, 0, 0, 0, 0,
-    0x3578E5A9, 0x57525413, 0, 0, 0, 0,
-    0, 0x57525413, 0, 0, 0, 0};
+    0x3611C136, 0x57525413, 0, 0, 0, 0, 0x62C11CB9, 0x57525413, 0, 0, 0, 0, 0xEEEB7220, 0x57525413, 0, 0, 0, 0,
+    0xA58079EB, 0x57525413, 0, 0, 0, 0, 0x0C7CD27A, 0x57525413, 0, 0, 0, 0, 0xB3C262EC, 0x57525413, 0, 0, 0, 0,
+    0x500EB224, 0x57525413, 0, 0, 0, 0, 0x4BABC987, 0x57525413, 0, 0, 0, 0, 0x53EBEE03, 0x57525413, 0, 0, 0, 0,
+    0x6C2B67F9, 0x57525413, 0, 0, 0, 0, 0xBE563426, 0x57525413, 0, 0, 0, 0, 0xFBD89CD5, 0x57525413, 0, 0, 0, 0,
+    0x23A4E5C2, 0x57525413, 0, 0, 0, 0, 0x714937C7, 0x57525413, 0, 0, 0, 0, 0x20D125D7, 0x57525413, 0, 0, 0, 0,
+    0x3578E5A9, 0x57525413, 0, 0, 0, 0, 0,          0x57525413, 0, 0, 0, 0};
 
 int g_composite_mgr_block_header_size{16};
 int g_coim_integer0{4};
@@ -109,10 +78,7 @@ ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of
 uint32_t& composite_flags(GameEntity* object) { return object->composite_flags_; }
 
 // GameEntity's code (composite.cpp).
-GameEntity* construct_composite_object(void* memory)
-{
-    return static_cast<GameEntity*>(memory)->make_new();
-}
+GameEntity* construct_composite_object(void* memory) { return static_cast<GameEntity*>(memory)->make_new(); }
 void update_composite_object(GameEntity* object) { object->tick_frame(); }
 void configure_from_data(GameEntity* object, script::Struct* node_data) { object->configure_from_data(node_data); }
 void build_modules_from_list(GameEntity* object, script::Array* components, script::Struct* node_data)
@@ -191,9 +157,9 @@ EntityHub* EntityHub::make_new()
     update_job_ = task;
     register_logic_task(task);
     script::register_member_function_table(reinterpret_cast<void*>(kObjectMemberFunctionType),
-                                        g_object_member_functions, 0x18);
+                                           g_object_member_functions, 0x18);
     script::register_member_function_table(reinterpret_cast<void*>(kCompositeMemberFunctionType),
-                                        g_composite_object_member_functions, 0x18);
+                                           g_composite_object_member_functions, 0x18);
     return this;
 }
 
@@ -221,8 +187,7 @@ EntityHub* EntityHub::teardown(unsigned int flags)
 }
 
 // 0x0045F270
-void EntityHub::enrol_module(uint32_t type, ComponentCreateFunction create,
-                                                ComponentRegisterFunction register_function)
+void EntityHub::enrol_module(uint32_t type, ComponentCreateFunction create, ComponentRegisterFunction register_function)
 {
     components_[component_types_].type = type;
     components_[component_types_].create = create;
@@ -298,8 +263,7 @@ GameEntity* EntityHub::create_composite_object()
 }
 
 // 0x0045F3A0
-GameEntity* EntityHub::spawn_entity_from_node(script::Array* components,
-                                                                         script::Struct* node_data, bool finalize)
+GameEntity* EntityHub::spawn_entity_from_node(script::Array* components, script::Struct* node_data, bool finalize)
 {
     GameEntity* object = create_composite_object();
     configure_from_data(object, node_data);
@@ -371,9 +335,9 @@ uint32_t& instance_count() { return g_instance_count; }
 // std::list::erase(first, last) (0x004ECC30; the result iterator in `result`).
 void erase_instances(MaterializeNode** result, MaterializeNode* first, MaterializeNode* last)
 {
-    reinterpret_cast<PointerList*>(&g_instance_list_head)->get_erase(reinterpret_cast<PointerListNode**>(result),
-                                                           reinterpret_cast<PointerListNode*>(first),
-                                                           reinterpret_cast<PointerListNode*>(last));
+    reinterpret_cast<PointerList*>(&g_instance_list_head)
+        ->get_erase(reinterpret_cast<PointerListNode**>(result), reinterpret_cast<PointerListNode*>(first),
+                    reinterpret_cast<PointerListNode*>(last));
 }
 
 memory::Zone*& coim_region() { return g_coim_region; }
@@ -417,7 +381,8 @@ void destroy_coim_heap()
     if (coim_heap()) {
         memory::Hub::get_pull()->delete_heap(coim_heap());
         if (coim_region()) // (its scalar deleting destructor, through the vtable)
-            reinterpret_cast<void*(__thiscall*)(memory::Zone*, unsigned int)>(coim_region()->vtable_[0])(coim_region(), 1);
+            reinterpret_cast<void*(__thiscall*)(memory::Zone*, unsigned int)>(coim_region()->vtable_[0])(coim_region(),
+                                                                                                         1);
         coim_heap() = nullptr;
         coim_region() = nullptr;
     }
@@ -433,7 +398,7 @@ bool create_coim_heap(uint32_t size)
         coim_heap() = memory::Hub::get_pull()->add_heap(coim_region(), 1, "COIMHeap");
         coim_heap()->unknown64_ = true;
         coim_heap()->unknown68_ = coim_b() - g_composite_mgr_block_header_size; // (16: a block header)
-        script::fetch_int_value(0xBA2C7CCB); // (the result isn't used)
+        script::fetch_int_value(0xBA2C7CCB);                                    // (the result isn't used)
     }
     return false;
 }
@@ -459,22 +424,22 @@ void resize_coim_heap(uint32_t size)
         destroy_coim_heap();
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_manager_vtable_slots[] = {&objects::EntityHub::teardown,
-         &objects::ObjectHubBase::enrol_subject,
-         &objects::ObjectHubBase::drop_entity_registration,
-         &objects::ObjectHubBase::reassign_object_id,
-         &objects::ObjectHubBase::set_entity_rank,
-         &objects::MiscHub::remove_entity,
-         &frontend::UiTree::fetch_object_set};
+                                              &objects::ObjectHubBase::enrol_subject,
+                                              &objects::ObjectHubBase::drop_entity_registration,
+                                              &objects::ObjectHubBase::reassign_object_id,
+                                              &objects::ObjectHubBase::set_entity_rank,
+                                              &objects::MiscHub::remove_entity,
+                                              &frontend::UiTree::fetch_object_set};
 void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
@@ -491,4 +456,4 @@ void construct_spare_object_list() { g_spare_object_list.make_new(); }
 // 0x00640A10 (a static initialiser): the instance list (its head and the count after it), empty.
 void construct_instance_list() { reinterpret_cast<commands::PointerList*>(&g_instance_list_head)->make_new(); }
 
-} // namespace Obj
+} // namespace objects

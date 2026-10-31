@@ -47,10 +47,14 @@ namespace frontend::level_editor {
 V3 get_quarter_turn(V3 v, int quarters)
 {
     switch (quarters & 3) {
-    case 1: return {v.z, v.y, -v.x};
-    case 2: return {-v.x, v.y, -v.z};
-    case 3: return {-v.z, v.y, v.x};
-    default: return v;
+    case 1:
+        return {v.z, v.y, -v.x};
+    case 2:
+        return {-v.x, v.y, -v.z};
+    case 3:
+        return {-v.z, v.y, v.x};
+    default:
+        return v;
     }
 }
 
@@ -65,7 +69,8 @@ Placement compose(const Placement& outer, const Placement& inner)
 {
     // outer(inner(x)) = Q_o S_o (Q_i S_i x + o_i) + o_o = Q_o Q_i (S_o' S_i) x + (Q_o S_o o_i + o_o), S_o' = S_o as
     // seen through Q_i (S_o Q_i = Q_i S_o': odd turns swap its x and z).
-    return {(inner.quarters + outer.quarters) & 3, get_quarter_turn(per_axis(inner.offset, outer.scale), outer.quarters) + outer.offset,
+    return {(inner.quarters + outer.quarters) & 3,
+            get_quarter_turn(per_axis(inner.offset, outer.scale), outer.quarters) + outer.offset,
             per_axis(turned_scale(outer.scale, inner.quarters), inner.scale)};
 }
 
@@ -178,7 +183,6 @@ struct SceneNode {
     SceneNode* next;
 };
 bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
-
 
 template <typename F>
 void for_each_scene(F fn)
@@ -309,7 +313,8 @@ struct Track {
     V3 position;
     V3 collision_moved_; // (how far its own collision has been moved since: position - position0 on sixteenths)
     bool moved;
-    std::shared_ptr<scale_tool::Original> original; // (once scaled: its vertices and collision then - level_editor_scale.h)
+    std::shared_ptr<scale_tool::Original>
+        original; // (once scaled: its vertices and collision then - level_editor_scale.h)
 };
 std::map<uint32_t, Track> g_tracks;
 std::vector<uint32_t> g_selection;
@@ -334,8 +339,8 @@ Track* track_of(uint32_t checksum)
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end()) {
         Track& track = it->second;
-        if (track.sector == sector && track.geom == geom && track.scene == scene && track.quarters == quarters_of(sector) &&
-            same_v3(track.position, geom_position(geom)))
+        if (track.sector == sector && track.geom == geom && track.scene == scene &&
+            track.quarters == quarters_of(sector) && same_v3(track.position, geom_position(geom)))
             return &track;
         if (track.sector == sector && track.geom == geom && track.scene == scene)
             shared_collision::rebase(checksum); // (moved by something else: its shared collision's base is now too)
@@ -389,7 +394,8 @@ void apply_track(Track* track)
     if (!track->original && !is_unit_scale(track->placement.scale)) {
         track->original = scale_tool::get_capture(track->sector, track->geom, track->quarters, track->position);
         if (!track->original) {
-            get_log("level editor: sector %p can't be scaled (its meshes can't be copied)", static_cast<void*>(track->sector));
+            get_log("level editor: sector %p can't be scaled (its meshes can't be copied)",
+                    static_cast<void*>(track->sector));
             track->placement.scale = {1.0f, 1.0f, 1.0f};
         }
     }
@@ -419,9 +425,8 @@ void apply_track(Track* track)
         track->collision_moved_ = collision_moved;
         track->position = position;
     }
-    if (track->original &&
-        !scale_tool::reassemble(*track->original, track->sector, track->geom, track->quarters, track->position,
-                        track->placement.scale, track->quarters0))
+    if (track->original && !scale_tool::reassemble(*track->original, track->sector, track->geom, track->quarters,
+                                                   track->position, track->placement.scale, track->quarters0))
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
     shared_collision::get_place(track->checksum, track->placement);
     if (flags_of(track->sector) & 0x40)
@@ -509,7 +514,7 @@ struct RailTrack {
     V3 pos;
 };
 std::map<uint32_t, RailTrack> g_rail_tracks;
-std::vector<uint32_t> g_rails; // (the selection's rail nodes, by name)
+std::vector<uint32_t> g_rails;         // (the selection's rail nodes, by name)
 std::vector<uint32_t> g_dropped_rails; // (Ctrl+click / the Inspector's x: not carried until another group is selected)
 
 RailNode* find_rail(uint32_t name)
@@ -661,9 +666,10 @@ float geom_level_share(uint32_t checksum, uint8_t* geom);
 
 bool same_placement(const Placement& a, const Placement& b)
 {
-    return a.quarters == b.quarters && std::fabs(a.scale.x - b.scale.x) < 1e-4f && std::fabs(a.scale.y - b.scale.y) < 1e-4f &&
-           std::fabs(a.scale.z - b.scale.z) < 1e-4f && std::fabs(a.offset.x - b.offset.x) < 0.5f &&
-           std::fabs(a.offset.y - b.offset.y) < 0.5f && std::fabs(a.offset.z - b.offset.z) < 0.5f;
+    return a.quarters == b.quarters && std::fabs(a.scale.x - b.scale.x) < 1e-4f &&
+           std::fabs(a.scale.y - b.scale.y) < 1e-4f && std::fabs(a.scale.z - b.scale.z) < 1e-4f &&
+           std::fabs(a.offset.x - b.offset.x) < 0.5f && std::fabs(a.offset.y - b.offset.y) < 0.5f &&
+           std::fabs(a.offset.z - b.offset.z) < 0.5f;
 }
 
 // The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
@@ -752,12 +758,11 @@ std::vector<uint32_t> group_of(uint32_t checksum)
         for (uint32_t joining : joined) {
             uint32_t joining_cluster = cluster_of(joining);
             for (Piece& piece : pieces) {
-                if (piece.checksum == joining ||
-                    (joining_cluster && cluster_of(piece.checksum) == joining_cluster &&
-                     piece_fits(piece.min, piece.max, group_min, group_max))) {
+                if (piece.checksum == joining || (joining_cluster && cluster_of(piece.checksum) == joining_cluster &&
+                                                  piece_fits(piece.min, piece.max, group_min, group_max))) {
                     if (take(piece) && debug_enabled())
                         get_log("level editor:   joins: %s (%.0f x %.0f x %.0f)", caption(piece.checksum).c_str(),
-                            piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
+                                piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
                 }
             }
         }
@@ -825,8 +830,8 @@ std::vector<uint32_t> group_of(uint32_t checksum)
         g_shadow_of[piece.checksum] = caster;
         if (debug_enabled())
             get_log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, caption(piece.checksum).c_str(),
-                piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
-                caster ? " of " : "", caster ? caption(caster).c_str() : "");
+                    piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
+                    caster ? " of " : "", caster ? caption(caster).c_str() : "");
     }
     return group;
 }
@@ -883,7 +888,7 @@ bool ray_meshes(uint8_t* geom, V3 origin, V3 dir, float max_t, float* t)
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         if (picking::ray_strip(origin, dir, vertices->data, mesh->stride, mesh->vertex_count_, indices->indices,
-                              mesh->index_counts_[0], best, &hit)) {
+                               mesh->index_counts_[0], best, &hit)) {
             best = hit;
             found = true;
         }
@@ -904,7 +909,7 @@ bool geom_see_through(uint8_t* geom)
     for (uint32_t i = 0; i < count; ++i) {
         const uint8_t* material = meshes[i] ? meshes[i]->material : nullptr;
         if (!material || !picking::material_see_through(*reinterpret_cast<const uint32_t*>(material + 0x20),
-                                                       *reinterpret_cast<const uint32_t*>(material + 0x80)))
+                                                        *reinterpret_cast<const uint32_t*>(material + 0x80)))
             return false;
     }
     return true;
@@ -931,7 +936,7 @@ float geom_level_share(uint32_t checksum, uint8_t* geom)
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         picking::add_top_strip(&area, vertices->data, mesh->stride, mesh->vertex_count_, indices->indices,
-                             mesh->index_counts_[0]);
+                               mesh->index_counts_[0]);
     }
     float share = picking::get_level_share(area);
     g_level_shares[checksum] = {geom, share};
@@ -1197,11 +1202,11 @@ void log_meshes()
         const uint32_t* m = reinterpret_cast<const uint32_t*>(material);
         const float* colour = reinterpret_cast<const float*>(mesh + 0x80);
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
-            "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
-            i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
-            *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material), material ? m[2] & 0xFFFFFFF : 0,
-            material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0, material ? m[0x11] : 0,
-            material ? m[0x12] : 0, static_cast<uint8_t>(render::g_shaders_available));
+                "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
+                i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
+                *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material),
+                material ? m[2] & 0xFFFFFFF : 0, material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0,
+                material ? m[0x11] : 0, material ? m[0x12] : 0, static_cast<uint8_t>(render::g_shaders_available));
     }
 }
 
@@ -1213,7 +1218,8 @@ void select_group(uint32_t checksum)
     select_rails();
     log_meshes();
     if (debug_enabled()) {
-        get_log("level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
+        get_log(
+            "level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
             caption(checksum).c_str(), static_cast<unsigned>(g_selection.size()), g_selection.size() == 1 ? "" : "s",
             cluster_of(checksum), static_cast<unsigned>(g_rails.size()), g_rails.size() == 1 ? "" : "s", g_pivot.x,
             g_pivot.y, g_pivot.z);
@@ -1475,7 +1481,8 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
         if (!track)
             continue;
         if (track->placement.quarters != saved.placement.quarters ||
-            !same_v3(track->placement.offset, saved.placement.offset) || !same_v3(track->placement.scale, saved.placement.scale)) {
+            !same_v3(track->placement.offset, saved.placement.offset) ||
+            !same_v3(track->placement.scale, saved.placement.scale)) {
             track->placement = saved.placement;
             apply_track(track);
         }
@@ -1521,7 +1528,8 @@ std::vector<SectorState> changed_sectors()
             continue;
         bool hidden = !is_operative(track.sector);
         const Placement& p = track.placement;
-        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
+            p.offset.z != 0.0f)
             changed.push_back({entry.first, p, hidden});
     }
     return changed;
@@ -1536,7 +1544,8 @@ std::vector<RailState> changed_rails()
             continue;
         bool hidden = track.active0 && !(track.node->flags & 4);
         const Placement& p = track.placement;
-        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+        if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
+            p.offset.z != 0.0f)
             changed.push_back({entry.first, p, hidden});
     }
     return changed;
@@ -1618,8 +1627,8 @@ uint32_t get_duplicate(uint32_t source)
     script::note_qb_name(made, name);
     if (debug_enabled())
         get_log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
-            caption(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
-            meshes_movable(geom) ? meshes_movable(geom) : "movable");
+                caption(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
+                meshes_movable(geom) ? meshes_movable(geom) : "movable");
     return made;
 }
 
@@ -1695,8 +1704,8 @@ bool selection_moved(Placement* placement)
     if (!sector)
         return false;
     *placement = placement_of(g_selection[0], geom_of(sector));
-    return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0f || placement->offset.y != 0.0f ||
-           placement->offset.z != 0.0f;
+    return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0f ||
+           placement->offset.y != 0.0f || placement->offset.z != 0.0f;
 }
 
 void get_reset()
@@ -1834,7 +1843,7 @@ void finalise()
     }
     if (debug_enabled())
         get_log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(g_dirty_scenes.size()),
-            g_dirty_scenes.size() == 1 ? "" : "s");
+                g_dirty_scenes.size() == 1 ? "" : "s");
     g_dirty_scenes.clear();
 }
 
@@ -1866,8 +1875,9 @@ void log_census()
         uint8_t* scene = end ? nullptr : node->scene;
         auto* table = scene ? *reinterpret_cast<uint32_t**>(scene + 0xD0) : nullptr;
         get_log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
-            static_cast<void*>(node), static_cast<void*>(node->scene), end ? " (end)" : "", scene ? scene[0x8D] : -1,
-            scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0, static_cast<void*>(table), table ? table[0] : 0);
+                static_cast<void*>(node), static_cast<void*>(node->scene), end ? " (end)" : "",
+                scene ? scene[0x8D] : -1, scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0,
+                static_cast<void*>(table), table ? table[0] : 0);
         if (end)
             break;
     }
@@ -1881,10 +1891,12 @@ void log_census()
             see_through += geom_of(sector) && plain_geom(geom_of(sector)) && geom_see_through(geom_of(sector)) ? 1 : 0;
         });
         uint32_t name = *reinterpret_cast<uint32_t*>(scene + 0x84);
-        get_log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable, %d see-through",
-            name, get_name_of(name) ? get_name_of(name) : "?", sectors, with_geometry, with_collision, movable, see_through);
+        get_log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable, %d "
+                "see-through",
+                name, get_name_of(name) ? get_name_of(name) : "?", sectors, with_geometry, with_collision, movable,
+                see_through);
     });
 }
 
-} // namespace Scenery
-} // namespace MenuSystem::level_editor
+} // namespace scenery
+} // namespace frontend::level_editor

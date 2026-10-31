@@ -11,7 +11,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The engine's flexible particle systems (Nx; the particle manager 0x006FA7C0's - the flexible particle component's
 // systems): particles emitted from a box about the emitter in a cone about a direction, each with a speed, a force, a
@@ -22,12 +22,12 @@ namespace render {
 
 // A particle (0x30 bytes).
 struct FlexibleParticle {
-    float velocity[3];  // +0x00
-    float force[3];     // +0x0C: added to the velocity each second (the system's when it was emitted)
+    float velocity[3];    // +0x00
+    float force[3];       // +0x0C: added to the velocity each second (the system's when it was emitted)
     float start_size_[2]; // +0x18: across, up
     float end_size_[2];   // +0x20
-    float age;          // +0x28
-    float lifetime;     // +0x2C
+    float age;            // +0x28
+    float lifetime;       // +0x2C
 };
 static_assert(sizeof(FlexibleParticle) == 0x30, "layout must match the original");
 
@@ -39,63 +39,63 @@ struct EmitterInstance : objects::SharedBase {
     void set_flag(int bit, bool on);
 
     uint32_t unknown08;
-    memory::ListNode list_link_;         // +0x0C: in the particle manager's list (data: the system)
+    memory::ListNode list_link_;      // +0x0C: in the particle manager's list (data: the system)
     maths::Vec4 at_point_;            // +0x20: the emitter
-    maths::Vec4 last_pos_;        // +0x30: where it was last update (FillPath emits along the way)
-    maths::Vec4 align_to_;        // +0x40 align_to
-    maths::Vec4 bounds_;         // +0x50: the bounding sphere (centre, radius)
-    float colour_scale_[4];       // +0x60: the level's colour (with 0x10000 set)
-    float emit_rate_;             // +0x70 emit_rate (particles a second)
-    float emit_owed_;             // +0x74: particles owed, a fraction
-    uint32_t unknown78_;         // +0x78 (the component's 0x184197D5: an object's id - the system dies with it)
-    int max_particles_;           // +0x7C
-    int lod_min_particles_;        // +0x80 setLODParams min_particles
-    float lod_near_;              // +0x84 lod_dist1, squared
-    float lod_far_;               // +0x88 lod_dist2, squared
-    int unknown8c_;              // +0x8C: live particles (empty_system: 0)
-    float speed_[2];             // +0x90 setSpeedRange min, max
-    float emit_range_[3];         // +0x98 setEmitRange width, height, depth
-    float angle_spread_;          // +0xA4 setAngleSpread spread
-    float force_[3];             // +0xA8 setForce
-    float extent_[4];              // +0xB4 setParticleSize sw, sh, ew, eh
-    float size_scale_;            // +0xC4 SetParticleSizeScale
-    float age_left_[2];              // +0xC8 setLife min, max
-    float emit_target_[3];        // +0xD0 setEmitTarget (a direction)
-    maths::Mat4* xform_ref_;       // +0xDC the matrix it follows (its object's display matrix)
-    float orientation_turn_[3];          // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
-    uint32_t unknownec_;         // +0xEC (a float: a model's +0x22C, update_Brightness; the ground's brightness)
-    uint32_t label_;              // +0xF0
-    uint32_t group_id_;           // +0xF4 groupID
+    maths::Vec4 last_pos_;            // +0x30: where it was last update (FillPath emits along the way)
+    maths::Vec4 align_to_;            // +0x40 align_to
+    maths::Vec4 bounds_;              // +0x50: the bounding sphere (centre, radius)
+    float colour_scale_[4];           // +0x60: the level's colour (with 0x10000 set)
+    float emit_rate_;                 // +0x70 emit_rate (particles a second)
+    float emit_owed_;                 // +0x74: particles owed, a fraction
+    uint32_t unknown78_;              // +0x78 (the component's 0x184197D5: an object's id - the system dies with it)
+    int max_particles_;               // +0x7C
+    int lod_min_particles_;           // +0x80 setLODParams min_particles
+    float lod_near_;                  // +0x84 lod_dist1, squared
+    float lod_far_;                   // +0x88 lod_dist2, squared
+    int unknown8c_;                   // +0x8C: live particles (empty_system: 0)
+    float speed_[2];                  // +0x90 setSpeedRange min, max
+    float emit_range_[3];             // +0x98 setEmitRange width, height, depth
+    float angle_spread_;              // +0xA4 setAngleSpread spread
+    float force_[3];                  // +0xA8 setForce
+    float extent_[4];                 // +0xB4 setParticleSize sw, sh, ew, eh
+    float size_scale_;                // +0xC4 SetParticleSizeScale
+    float age_left_[2];               // +0xC8 setLife min, max
+    float emit_target_[3];            // +0xD0 setEmitTarget (a direction)
+    maths::Mat4* xform_ref_;          // +0xDC the matrix it follows (its object's display matrix)
+    float orientation_turn_[3];       // +0xE0 (x, y, z angles: the matrix of build_emitter_orientation; setEmitAngle)
+    uint32_t unknownec_;              // +0xEC (a float: a model's +0x22C, update_Brightness; the ground's brightness)
+    uint32_t label_;                  // +0xF0
+    uint32_t group_id_;               // +0xF4 groupID
     FlexibleParticle* particle_list_; // +0xF8 (max_particles_ of them, after their count)
-    script::Script* emit_script_ptr_;   // +0xFC emitscript (run each emit... update)
-    script::Script* tick_script_; // +0x100 UpdateScript
-    script::Struct* script_args_; // +0x104 their params
-    float colour_mid_;            // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
-    uint8_t* start_colour_;      // +0x10C (RGBA; the types with segments: one a segment and three more)
-    uint8_t* mid_colour_;        // +0x110
-    uint8_t* end_colour_;        // +0x114
-    int history_length_;          // +0x118 (the glow ribbon trail's history steps)
-    float* position_array_;          // +0x11C: three floats a particle a history step (step-major)
-    uint32_t flag_bits_;             // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
-                                  // spread (0xDB8621F7), 0x100 setCircularEmit; 0x4000 UseRandomUVQuadrants, 0x8000
-                                  // 0x5446AF14, 0x10000 takes the level's colour)
-    uint8_t rank_;           // +0x124 priority
-    bool fading_out_;                 // +0x125: emits no more, dies once empty
-    bool emitter_independent_;    // +0x126 setEmitterIndependent: positions in the world, not about the emitter
-    bool aligned_;               // +0x127 align_to given
-    bool random_direction_;       // +0x128 (0xDB8621F7 random)
-    bool circular_emit_;          // +0x129 setCircularEmit circular
-    bool wants_time_;             // +0x12A (Update is given the component's time)
-    bool spewing_;              // +0x12B
-    bool moving_;                // +0x12C (setLife: particles get a direction and speed, and move)
-    bool end_colour_set_;          // +0x12D (setColor's end colour given: the start no longer copies over it)
+    script::Script* emit_script_ptr_; // +0xFC emitscript (run each emit... update)
+    script::Script* tick_script_;     // +0x100 UpdateScript
+    script::Struct* script_args_;     // +0x104 their params
+    float colour_mid_;         // +0x108 setColor midTime: when the mid colour is, a fraction of a life (below 0: none)
+    uint8_t* start_colour_;    // +0x10C (RGBA; the types with segments: one a segment and three more)
+    uint8_t* mid_colour_;      // +0x110
+    uint8_t* end_colour_;      // +0x114
+    int history_length_;       // +0x118 (the glow ribbon trail's history steps)
+    float* position_array_;    // +0x11C: three floats a particle a history step (step-major)
+    uint32_t flag_bits_;       // +0x120 (bit 0 while the component updates it; 4 the system's set; 0x10 random
+                               // spread (0xDB8621F7), 0x100 setCircularEmit; 0x4000 UseRandomUVQuadrants, 0x8000
+                               // 0x5446AF14, 0x10000 takes the level's colour)
+    uint8_t rank_;             // +0x124 priority
+    bool fading_out_;          // +0x125: emits no more, dies once empty
+    bool emitter_independent_; // +0x126 setEmitterIndependent: positions in the world, not about the emitter
+    bool aligned_;             // +0x127 align_to given
+    bool random_direction_;    // +0x128 (0xDB8621F7 random)
+    bool circular_emit_;       // +0x129 setCircularEmit circular
+    bool wants_time_;          // +0x12A (Update is given the component's time)
+    bool spewing_;             // +0x12B
+    bool moving_;              // +0x12C (setLife: particles get a direction and speed, and move)
+    bool end_colour_set_;      // +0x12D (setColor's end colour given: the start no longer copies over it)
     uint8_t unknown12e_;
-    bool unknown12f_;            // +0x12F (set while the component updates it, cleared while its object is hidden;
-                                  // Hide sets it to its argument)
-    bool unknown130_;            // +0x130 (cleared while its object is hidden; set: updated this frame)
-    bool fill_path_;              // +0x131 FillPath
-    bool update_brightness_;      // +0x132
-    bool unknown133_;            // +0x133 (cleared by 0xDE45A90D: not culled)
+    bool unknown12f_;        // +0x12F (set while the component updates it, cleared while its object is hidden;
+                             // Hide sets it to its argument)
+    bool unknown130_;        // +0x130 (cleared while its object is hidden; set: updated this frame)
+    bool fill_path_;         // +0x131 FillPath
+    bool update_brightness_; // +0x132
+    bool unknown133_;        // +0x133 (cleared by 0xDE45A90D: not culled)
 
     // 0x00496F10: SharedBase's constructor, the node (not linked), the vtables, no flags, then Reset. Returns this.
     EmitterInstance* make_new();
@@ -183,11 +183,11 @@ static_assert(offsetof(EmitterInstance, list_link_) == 0x0C && offsetof(EmitterI
                   offsetof(EmitterInstance, age_left_) == 0xC8 && offsetof(EmitterInstance, emit_target_) == 0xD0 &&
                   offsetof(EmitterInstance, xform_ref_) == 0xDC && offsetof(EmitterInstance, unknownec_) == 0xEC &&
                   offsetof(EmitterInstance, group_id_) == 0xF4 && offsetof(EmitterInstance, particle_list_) == 0xF8 &&
-                  offsetof(EmitterInstance, script_args_) == 0x104 &&
-                  offsetof(EmitterInstance, colour_mid_) == 0x108 &&
-                  offsetof(EmitterInstance, position_array_) == 0x11C && offsetof(EmitterInstance, flag_bits_) == 0x120 &&
-                  offsetof(EmitterInstance, wants_time_) == 0x12A && offsetof(EmitterInstance, unknown12f_) == 0x12F &&
-                  offsetof(EmitterInstance, unknown133_) == 0x133 && sizeof(EmitterInstance) == 0x134,
+                  offsetof(EmitterInstance, script_args_) == 0x104 && offsetof(EmitterInstance, colour_mid_) == 0x108 &&
+                  offsetof(EmitterInstance, position_array_) == 0x11C &&
+                  offsetof(EmitterInstance, flag_bits_) == 0x120 && offsetof(EmitterInstance, wants_time_) == 0x12A &&
+                  offsetof(EmitterInstance, unknown12f_) == 0x12F && offsetof(EmitterInstance, unknown133_) == 0x133 &&
+                  sizeof(EmitterInstance) == 0x134,
               "layout must match the original");
 
 // The types' engine classes: constructed with (name, max particles, texture, blend mode, fixed alpha, segments, a
@@ -198,7 +198,7 @@ static_assert(offsetof(EmitterInstance, list_link_) == 0x0C && offsetof(EmitterI
 struct NewFlatParticles : EmitterInstance {
     // 0x00499010. Returns this.
     NewFlatParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                 int segments, float unknown, int history);
+                               int segments, float unknown, int history);
     // 0x00498FB0: the vtables, the base's body.
     void destroy_body();
     // 0x00498FE0 (vtable slot 0) / 0x00498FD0 (through the node)
@@ -213,7 +213,7 @@ struct FlatRibbonParticles : EmitterInstance {
 
     // 0x004992C0. Returns this.
     FlatRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                    int fixed_alpha, int segments, float unknown, int history);
+                                  int fixed_alpha, int segments, float unknown, int history);
     // 0x00499200: the vtables, the particles freed (and forgotten), the base's body.
     void destroy_body();
     // 0x00499290 (vtable slot 0) / 0x004991F0 (through the node)
@@ -225,12 +225,12 @@ struct FlatRibbonParticles : EmitterInstance {
 
 // "glow" (vtables 0x00649464 and 0x00649460): three colours.
 struct GlowParticles : EmitterInstance {
-    int segments_;   // +0x134
+    int segments_;     // +0x134
     float glow_width_; // +0x138
 
     // 0x004995B0. Returns this.
     GlowParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                              int segments, float glow_width, int history);
+                            int segments, float glow_width, int history);
     // 0x00499550
     void destroy_body();
     // 0x00499580 (vtable slot 0) / 0x00499570 (through the node)
@@ -242,11 +242,11 @@ struct GlowParticles : EmitterInstance {
 // flat ribbon.
 struct GlowRibbonTrailParticles : EmitterInstance {
     int segments_; // +0x134: the glow's
-    float span_;  // +0x138
+    float span_;   // +0x138
 
     // 0x00499880. Returns this.
     GlowRibbonTrailParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                         int fixed_alpha, int segments, float width, int history);
+                                       int fixed_alpha, int segments, float width, int history);
     // 0x00499800
     void destroy_body();
     // 0x00499850 (vtable slot 0) / 0x00499840 (through the node)
@@ -263,7 +263,7 @@ struct LineParticles : EmitterInstance {
 
     // 0x00499B80. Returns this.
     LineParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                              int segments, float unknown, int history);
+                            int segments, float unknown, int history);
     // 0x00499B20
     void destroy_body();
     // 0x00499B50 (vtable slot 0) / 0x00499B40 (through the node)
@@ -273,11 +273,12 @@ struct LineParticles : EmitterInstance {
 
 // The model type (0x286A8D26; vtables 0x006494A0 and 0x0064949C; constructed by 0x0049A0C0): models as particles.
 struct ModelParticles : EmitterInstance {
-    unsigned int model_count_; // +0x134
+    unsigned int model_count_;  // +0x134
     unsigned int drawn_models_; // +0x138: the models Render goes through (the same count)
-    void* unknown_13c_ptr_;       // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
+    void*
+        unknown_13c_ptr_; // +0x13C (freed): a rotation (maths::QuatRotation) a model, turned by its particle's velocity
     uint8_t unknown140[4];
-    void** model_list_;          // +0x144: model_count_ of them (deleted with 0x0048C3C0)
+    void** model_list_; // +0x144: model_count_ of them (deleted with 0x0048C3C0)
 
     // 0x0049A0C0 (model_particles.cpp): constructed with (name, max particles, model file name, ...): the base's,
     // `particleCap` particles, positions and models - each from "<model>.mdl" (lower case) at a random scale 1 - 2.98 -
@@ -285,7 +286,7 @@ struct ModelParticles : EmitterInstance {
     // the original); one colour of each kind (not set); no mid colour, flag 4. Each step stops at the first that fails.
     // Returns this.
     ModelParticles* make_new(uint32_t name, int particle_cap, const char* model, uint32_t blend_mode, int fixed_alpha,
-                               int segments, float unknown, int history);
+                             int segments, float unknown, int history);
     // 0x0049A4C0 (vtable slot 1): with no particles every model hidden; else from the last particle's model on hidden,
     // and each particle's model shown, coloured (its colour through its life), turned (its rotation moved by its
     // velocity and normalised), scaled (its start size less a quarter for each of its index's lowest two bits) and
@@ -308,4 +309,4 @@ static_assert(offsetof(ModelParticles, model_count_) == 0x134 && offsetof(ModelP
 
 extern uint8_t g_alloc_assert_flag;
 
-} // namespace Nx
+} // namespace render

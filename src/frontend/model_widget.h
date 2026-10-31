@@ -62,33 +62,33 @@ public:
     // the element's size at its CameraZ.
     void scale_to_screen_dims();
 
-    ShapeMesh models_[kMaxModels];    // +0x178
-    int model_total_;               // +0x434
+    ShapeMesh models_[kMaxModels]; // +0x178
+    int model_total_;              // +0x434
     float camera_z_;               // +0x438 (CameraZ: the distance in front of the camera, negative)
-    float angle_[3];              // +0x43C angleX/Y/Z (radians, kept within one turn)
+    float angle_[3];               // +0x43C angleX/Y/Z (radians, kept within one turn)
     float angular_velocity_[3];    // +0x448 AngVelX/Y/Z (per frame)
-    maths::Mat4 basis_frame_;          // +0x454 where the element is: the camera's orientation and the place in
+    maths::Mat4 basis_frame_;      // +0x454 where the element is: the camera's orientation and the place in
                                    // front of it (row 3 at +0x484)
     maths::Vec4 target_position_;  // +0x494 NodeToPointTo's node position
     int point_at_;                 // +0x4A4 kPointAt*
-    int euler_sequence_;              // +0x4A8 AngleOrderXYZ 0, kXzy 1, YXZ 2 (default), YZX 3, ZXY 4, kZyx 5
+    int euler_sequence_;           // +0x4A8 AngleOrderXYZ 0, kXzy 1, YXZ 2 (default), YZX 3, ZXY 4, kZyx 5
     uint32_t target_object_;       // +0x4AC ObjectToPointTo
-    float bob_height_;        // +0x4B0 HoverParams Amp
-    int bob_period_;             // +0x4B4 ms (1000 / freq)
-    maths::Vec4 pivot_;           // +0x4B8 PivotPoint (w = 1)
-    maths::Vec4 anchor_shift_;    // +0x4C8 ParentParams' vector
-    maths::Vec4 centre_;          // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
+    float bob_height_;             // +0x4B0 HoverParams Amp
+    int bob_period_;               // +0x4B4 ms (1000 / freq)
+    maths::Vec4 pivot_;            // +0x4B8 PivotPoint (w = 1)
+    maths::Vec4 anchor_shift_;     // +0x4C8 ParentParams' vector
+    maths::Vec4 centre_;           // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
     float fit_scale_;              // +0x4E8 scale_to_screen_dims' scale (1)
     bool size_follows_range_;      // +0x4EC ScaleWithDistance
     uint8_t pad4ed_[3];
-    float distance_scale_;         // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
-    float max_scale_;              // +0x4F4 MaxScale (3)
-    int view_slot_;                // +0x4F8 active_viewport
-    uint32_t anchor_object_;       // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
-    int parent_integer_;           // +0x500 ParentParams' integer 0x5B8AB877
-    uint32_t attach_to_name_;         // +0x504 ParentParams' node (0x7A8017BA)
-    float lean_angle_;                  // +0x508 tilt (degrees, when pointing at something)
-    bool is_dead_;                   // +0x50C its parent object went: element3d_died ran, nothing more
+    float distance_scale_;    // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
+    float max_scale_;         // +0x4F4 MaxScale (3)
+    int view_slot_;           // +0x4F8 active_viewport
+    uint32_t anchor_object_;  // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
+    int parent_integer_;      // +0x500 ParentParams' integer 0x5B8AB877
+    uint32_t attach_to_name_; // +0x504 ParentParams' node (0x7A8017BA)
+    float lean_angle_;        // +0x508 tilt (degrees, when pointing at something)
+    bool is_dead_;            // +0x50C its parent object went: element3d_died ran, nothing more
     uint8_t pad50d_[3];
 };
 
@@ -102,7 +102,7 @@ void apply_angles(maths::Mat4* m, float x, float y, float z, int order);
 // aspect / (4/3), both by 0.9 on back buffers wider than 640. `local` (ours, may be null) gets the point in the
 // camera's frame (x right, y up, z backward).
 void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, float x, float y, float z,
-                   maths::Vec4* local = nullptr);
+                     maths::Vec4* local = nullptr);
 // The register-argument entry point for screen_to_world (tests call it).
 void screen_to_world_stub();
 
@@ -112,4 +112,4 @@ void screen_to_world_stub();
 // scale is multiplied by, 1 when unchanged. See model_widget.cpp.
 float widescreen_stretch(const maths::Vec4* corners, int count, const maths::Vec4& place, double tan_half_angle);
 
-} // namespace Front
+} // namespace frontend

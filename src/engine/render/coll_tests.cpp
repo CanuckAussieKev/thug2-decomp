@@ -58,7 +58,8 @@ maths::Vec4 edge_crossing_scaled(const maths::Vec4& a, const maths::Vec4& b, flo
     float ew = get_difference(b.w, a.w);
     maths::Vec4 scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
                        static_cast<float>((static_cast<double>(b.y) - a.y) * da),
-                       static_cast<float>(static_cast<double>(ez) * da), static_cast<float>(static_cast<double>(ew) * da)};
+                       static_cast<float>(static_cast<double>(ez) * da),
+                       static_cast<float>(static_cast<double>(ew) * da)};
     maths::Vec4 r = maths::operator/(scaled, static_cast<float>(difference));
     return {a.x + r.x, r.y + a.y, r.z + a.z, r.w + a.w};
 }
@@ -71,9 +72,10 @@ bool get_inside(bool towards_positive, double value) { return towards_positive ?
 
 // 0x0040B420 (NaN in the determinant or the first barycentric coordinate doesn't rule a hit out by itself)
 bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, const maths::Vec4& v0,
-                     const maths::Vec4& v1, const maths::Vec4& v2, float* t)
+                       const maths::Vec4& v1, const maths::Vec4& v2, float* t)
 {
-    maths::Vec4 leg_alpha{get_difference(v1.x, v0.x), get_difference(v1.y, v0.y), get_difference(v1.z, v0.z), get_difference(v1.w, v0.w)};
+    maths::Vec4 leg_alpha{get_difference(v1.x, v0.x), get_difference(v1.y, v0.y), get_difference(v1.z, v0.z),
+                          get_difference(v1.w, v0.w)};
     float e2x = get_difference(v2.x, v0.x), e2y = get_difference(v2.y, v0.y), e2z = get_difference(v2.z, v0.z);
     // p = direction x edge2
     double px = static_cast<double>(e2z) * direction.y - static_cast<double>(e2y) * direction.z;
@@ -102,7 +104,7 @@ bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, c
 
 // 0x0040B610
 bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const CollSphere& sphere,
-                    const maths::Vec4& end, float* t, float limit)
+                      const maths::Vec4& end, float* t, float limit)
 {
     double dx = static_cast<double>(end.x) - base.x;
     double dy = static_cast<double>(end.y) - base.y;
@@ -153,7 +155,7 @@ bool segments_cross_2d(float ax, float ay, float adx, float ady, float bx, float
 // 0x0040B860 (a = |e0|^2, b = e0.e1, c = |e1|^2, d = e0.D, e = e1.D, f = |D|^2 with e0 = v1 - v0, e1 = v2 - v0,
 // D = v0 - point; rounded where the original's x87 code stores, a few terms kept unrounded as it keeps them)
 double point_triangle_distance_squared(const maths::Vec4& point, const maths::Vec4& v0, const maths::Vec4& v1,
-                                    const maths::Vec4& v2, float* out, float* t_out)
+                                       const maths::Vec4& v2, float* out, float* t_out)
 {
     double dx = static_cast<double>(v0.x) - point.x;
     double dy = static_cast<double>(v0.y) - point.y;
@@ -319,9 +321,9 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
 
 // 0x0040BDC0 (with e1 = v1 - v0, e2 = v2 - v0, d = end - start, D = v0 - start: the 3x3 system for the segment's
 // t and the triangle's s, t solved by Cramer's rule; rounded where the original's x87 code stores)
-double segment_triangle_distance_squared(const maths::Seg& segment, const maths::Vec4& /*normal*/, const maths::Vec4& v0,
-                                      const maths::Vec4& v1, const maths::Vec4& v2, float* out, float* t_out,
-                                      float* along_out)
+double segment_triangle_distance_squared(const maths::Seg& segment, const maths::Vec4& /*normal*/,
+                                         const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
+                                         float* out, float* t_out, float* along_out)
 {
     const maths::Vec4& start = segment.start;
     const double rel_x = static_cast<double>(v0.x) - start.x;
@@ -443,8 +445,8 @@ double segment_triangle_distance_squared(const maths::Seg& segment, const maths:
     const double rhs2_exact = -(inverse * e_2d);
     const float rhs2 = static_cast<float>(rhs2_exact);
     along = static_cast<float>((rhs2_exact * cofactor13 + product(rhs1, cofactor12)) + rhs_d * cofactor11);
-    const double exact = ((product(e2e2, dd) - product(de2, de2)) * rhs1 + product(rhs2, cofactor23)) +
-                          product(rhs_d, cofactor12);
+    const double exact =
+        ((product(e2e2, dd) - product(de2, de2)) * rhs1 + product(rhs2, cofactor23)) + product(rhs_d, cofactor12);
     s = static_cast<float>(exact);
     t = static_cast<float>(((product(e1e1, dd) - product(de1, de1)) * rhs2 + product(rhs1, cofactor23)) +
                            product(rhs_d, cofactor13));
@@ -577,7 +579,7 @@ __declspec(naked) void segments_cross_2d_keeping_edx()
 // 0x0040D370 (P's side tests use its line values unrounded, Q's rounded to floats; each pair of sides' direction
 // test the first time unrounded, the second time rounded - as the original's x87 code keeps them)
 bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                      maths::Vec4* points, int* kinds)
+                        maths::Vec4* points, int* kinds)
 {
     const maths::Vec4& o = rect.origin;
     const maths::Vec4& a = rect.side_a_;
@@ -738,4 +740,4 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
     return true;
 }
 
-} // namespace Nx
+} // namespace render

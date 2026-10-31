@@ -31,7 +31,7 @@ int get_nearest(const std::vector<V3>& points, V3 to)
 }
 
 int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3, float*, float*)>& project, float x,
-                    float y)
+                      float y)
 {
     int best = -1;
     float best_d = 0.0f;
@@ -89,8 +89,8 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
     const float* point = reinterpret_cast<const float*>(feeler + 0x34);
     hit->normal = {normal[0], normal[1], normal[2]};
     hit->point = {point[0], point[1], point[2]};
-    hit->checksum = *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58)
-                                                                   : 0;
+    hit->checksum =
+        *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58) : 0;
     return true;
 }
 
@@ -141,4 +141,4 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
     return out;
 }
 
-} // namespace MenuSystem::level_editor::Snap
+} // namespace frontend::level_editor::snap

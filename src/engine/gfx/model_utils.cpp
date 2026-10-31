@@ -24,21 +24,21 @@ namespace {
 
 using script::Struct;
 
-constexpr uint32_t kCycle = 0x4F792E6C;    // cycle
-constexpr uint32_t kPingPong = 0x3153E314; // pingpong
-constexpr uint32_t kWobble = 0x6D941203;   // wobble
-constexpr uint32_t kFrom = 0x46E55E8F;     // from
-constexpr uint32_t kTo = 0x28782D3B;       // to
-constexpr uint32_t kStart = 0x6086AA70;    // start
-constexpr uint32_t kMiddle = 0x617FE530;   // middle
-constexpr uint32_t kCurrent = 0x230CCBF4;  // current
-constexpr uint32_t kEnd = 0xFF03CC4E;      // end
-constexpr uint32_t kSeconds = 0xD029F619;  // seconds
+constexpr uint32_t kCycle = 0x4F792E6C;     // cycle
+constexpr uint32_t kPingPong = 0x3153E314;  // pingpong
+constexpr uint32_t kWobble = 0x6D941203;    // wobble
+constexpr uint32_t kFrom = 0x46E55E8F;      // from
+constexpr uint32_t kTo = 0x28782D3B;        // to
+constexpr uint32_t kStart = 0x6086AA70;     // start
+constexpr uint32_t kMiddle = 0x617FE530;    // middle
+constexpr uint32_t kCurrent = 0x230CCBF4;   // current
+constexpr uint32_t kEnd = 0xFF03CC4E;       // end
+constexpr uint32_t kSeconds = 0xD029F619;   // seconds
 constexpr uint32_t kBackwards = 0xF8CFD515; // backwards
-constexpr uint32_t kScale = 0x13B9DA7B;    // scale
-constexpr uint32_t kX = 0x7323E97C;        // x
-constexpr uint32_t kY = 0x0424D9EA;        // y
-constexpr uint32_t kZ = 0x9D2D8850;        // z
+constexpr uint32_t kScale = 0x13B9DA7B;     // scale
+constexpr uint32_t kX = 0x7323E97C;         // x
+constexpr uint32_t kY = 0x0424D9EA;         // y
+constexpr uint32_t kZ = 0x9D2D8850;         // z
 constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
@@ -173,10 +173,12 @@ void HiddenModels::conceal()
 {
     auto* manager = objects::object_hub_slot();
     auto first = [manager] {
-        return static_cast<objects::MeshInstanceModule*>(manager->find_first_module_of_kind(objects::MeshInstanceModule::kType));
+        return static_cast<objects::MeshInstanceModule*>(
+            manager->find_first_module_of_kind(objects::MeshInstanceModule::kType));
     };
     int count = 0;
-    for (auto* component = first(); component; component = static_cast<objects::MeshInstanceModule*>(component->next_of_type_)) {
+    for (auto* component = first(); component;
+         component = static_cast<objects::MeshInstanceModule*>(component->next_of_type_)) {
         if (hideable(component))
             ++count;
     }
@@ -186,7 +188,8 @@ void HiddenModels::conceal()
         memory::ensure_manager();
     ids_ptr_ = static_cast<uint32_t*>(memory::Hub::get_pull()->carve(count * 4, 1, nullptr));
     num_ = 0;
-    for (auto* component = first(); component; component = static_cast<objects::MeshInstanceModule*>(component->next_of_type_)) {
+    for (auto* component = first(); component;
+         component = static_cast<objects::MeshInstanceModule*>(component->next_of_type_)) {
         if (hideable(component)) {
             ids_ptr_[num_] = current_object_id(component);
             component->mesh_instance_->conceal(1);
@@ -202,7 +205,8 @@ void HiddenModels::get_show()
     if (ids_ptr_) {
         for (int i = 0; i < num_; ++i) {
             if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(ids_ptr_[i]))) {
-                auto* component = static_cast<objects::MeshInstanceModule*>(object->fetch_module(objects::MeshInstanceModule::kType));
+                auto* component =
+                    static_cast<objects::MeshInstanceModule*>(object->fetch_module(objects::MeshInstanceModule::kType));
                 component->mesh_instance_->conceal(0);
             }
         }
@@ -230,4 +234,4 @@ __declspec(naked) void virtual_slot4_jump()
     }
 }
 
-} // namespace Gfx
+} // namespace gfx

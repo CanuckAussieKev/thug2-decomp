@@ -66,15 +66,18 @@ DIMOUSESTATE2& last_mouse_state() { return g_last_mouse_state; }
 uint32_t* force_axis_counts() { return g_force_axis_counts; }
 uint32_t* force_resolutions() { return g_force_resolutions; }
 
-wchar_t (*key_names())[kKeyNameLength] { return g_key_names; }
+wchar_t (*key_names()) [kKeyNameLength] { return g_key_names; }
 
-HWND game_window() { return render::g_game_window; }
+HWND game_window()
+{
+    return render::g_game_window;
+}
 
 // dinput8.lib's data formats and the constant-force effect's GUID, as the exe has them.
 const DIDATAFORMAT* joystick_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00667204); } // c_dfDIJoystick2
 const DIDATAFORMAT* keyboard_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666FFC); } // c_dfDIKeyboard
 const DIDATAFORMAT* mouse_format() { return reinterpret_cast<const DIDATAFORMAT*>(0x00666DF4); }    // c_dfDIMouse2
-const GUID& constant_force_guid() { return *reinterpret_cast<const GUID*>(0x00666B54); }             // GUID_ConstantForce
+const GUID& constant_force_guid() { return *reinterpret_cast<const GUID*>(0x00666B54); } // GUID_ConstantForce
 
 // Any of `count` controls set (not -1).
 bool any_binding(const int32_t* controls, int count)
@@ -138,27 +141,27 @@ struct KeyNameEntry {
 
 // The keyboard's names, in the order the original sets them (DIK codes).
 const KeyNameEntry kKeyNames[] = {
-    {0x1E, L"A"},        {0x30, L"B"},        {0x2E, L"C"},      {0x20, L"D"},      {0x12, L"E"},
-    {0x21, L"F"},        {0x22, L"G"},        {0x23, L"H"},      {0x17, L"I"},      {0x24, L"J"},
-    {0x25, L"K"},        {0x26, L"L"},        {0x32, L"M"},      {0x31, L"N"},      {0x18, L"O"},
-    {0x19, L"P"},        {0x10, L"Q"},        {0x13, L"R"},      {0x1F, L"S"},      {0x14, L"T"},
-    {0x16, L"U"},        {0x2F, L"V"},        {0x11, L"W"},      {0x2D, L"X"},      {0x15, L"Y"},
-    {0x2C, L"Z"},        {0x0B, L"0"},        {0x02, L"1"},      {0x03, L"2"},      {0x04, L"3"},
-    {0x05, L"4"},        {0x06, L"5"},        {0x07, L"6"},      {0x08, L"7"},      {0x09, L"8"},
-    {0x0A, L"9"},        {0x01, L"Esc"},      {0x0C, L"Minus"},  {0x0D, L"Equals"}, {0x0E, L"Back"},
-    {0x0F, L"Tab"},      {0x1A, L"["},        {0x1B, L"]"},      {0x1C, L"Return"}, {0x1D, L"LCtrl"},
-    {0x27, L";"},        {0x28, L"'"},        {0x29, L"`"},      {0x2A, L"LShift"}, {0x2B, L"\\"},
-    {0x33, L","},        {0x34, L"."},        {0x35, L"/"},      {0x36, L"RShift"}, {0x37, L"*"},
-    {0x38, L"LAlt"},     {0xB8, L"RAlt"},     {0x39, L"Spacebar"}, {0x3A, L"Capslock"}, {0x3B, L"F1"},
-    {0x3C, L"F2"},       {0x3D, L"F3"},       {0x3E, L"F4"},     {0x3F, L"F5"},     {0x40, L"F6"},
-    {0x41, L"F7"},       {0x42, L"F8"},       {0x43, L"F9"},     {0x44, L"F10"},    {0x57, L"F11"},
-    {0x58, L"F12"},      {0x64, L"F13"},      {0x65, L"F14"},    {0x66, L"F15"},    {0x45, L"Numlock"},
-    {0x46, L"Scroll"},   {0x47, L"KP 7"},     {0x48, L"KP 8"},   {0x49, L"KP 9"},   {0x4A, L"KP -"},
-    {0x4B, L"KP 4"},     {0x4C, L"KP 5"},     {0x4D, L"KP 6"},   {0x4E, L"KP +"},   {0x4F, L"KP 1"},
-    {0x50, L"KP 2"},     {0x51, L"KP 3"},     {0x52, L"KP 0"},   {0x53, L"KP ."},   {0xB3, L"KP ,"},
-    {0xB5, L"KP /"},     {0x9C, L"Enter"},    {0x9D, L"RCtrl"},  {0xC5, L"Pause"},  {0xC7, L"Home"},
-    {0xC8, L"Up"},       {0xC9, L"PgUp"},     {0xCB, L"Left"},   {0xCD, L"Right"},  {0xCF, L"End"},
-    {0xD0, L"Down"},     {0xD1, L"PgDown"},   {0xD2, L"Insert"}, {0xD3, L"Delete"},
+    {0x1E, L"A"},      {0x30, L"B"},      {0x2E, L"C"},        {0x20, L"D"},        {0x12, L"E"},
+    {0x21, L"F"},      {0x22, L"G"},      {0x23, L"H"},        {0x17, L"I"},        {0x24, L"J"},
+    {0x25, L"K"},      {0x26, L"L"},      {0x32, L"M"},        {0x31, L"N"},        {0x18, L"O"},
+    {0x19, L"P"},      {0x10, L"Q"},      {0x13, L"R"},        {0x1F, L"S"},        {0x14, L"T"},
+    {0x16, L"U"},      {0x2F, L"V"},      {0x11, L"W"},        {0x2D, L"X"},        {0x15, L"Y"},
+    {0x2C, L"Z"},      {0x0B, L"0"},      {0x02, L"1"},        {0x03, L"2"},        {0x04, L"3"},
+    {0x05, L"4"},      {0x06, L"5"},      {0x07, L"6"},        {0x08, L"7"},        {0x09, L"8"},
+    {0x0A, L"9"},      {0x01, L"Esc"},    {0x0C, L"Minus"},    {0x0D, L"Equals"},   {0x0E, L"Back"},
+    {0x0F, L"Tab"},    {0x1A, L"["},      {0x1B, L"]"},        {0x1C, L"Return"},   {0x1D, L"LCtrl"},
+    {0x27, L";"},      {0x28, L"'"},      {0x29, L"`"},        {0x2A, L"LShift"},   {0x2B, L"\\"},
+    {0x33, L","},      {0x34, L"."},      {0x35, L"/"},        {0x36, L"RShift"},   {0x37, L"*"},
+    {0x38, L"LAlt"},   {0xB8, L"RAlt"},   {0x39, L"Spacebar"}, {0x3A, L"Capslock"}, {0x3B, L"F1"},
+    {0x3C, L"F2"},     {0x3D, L"F3"},     {0x3E, L"F4"},       {0x3F, L"F5"},       {0x40, L"F6"},
+    {0x41, L"F7"},     {0x42, L"F8"},     {0x43, L"F9"},       {0x44, L"F10"},      {0x57, L"F11"},
+    {0x58, L"F12"},    {0x64, L"F13"},    {0x65, L"F14"},      {0x66, L"F15"},      {0x45, L"Numlock"},
+    {0x46, L"Scroll"}, {0x47, L"KP 7"},   {0x48, L"KP 8"},     {0x49, L"KP 9"},     {0x4A, L"KP -"},
+    {0x4B, L"KP 4"},   {0x4C, L"KP 5"},   {0x4D, L"KP 6"},     {0x4E, L"KP +"},     {0x4F, L"KP 1"},
+    {0x50, L"KP 2"},   {0x51, L"KP 3"},   {0x52, L"KP 0"},     {0x53, L"KP ."},     {0xB3, L"KP ,"},
+    {0xB5, L"KP /"},   {0x9C, L"Enter"},  {0x9D, L"RCtrl"},    {0xC5, L"Pause"},    {0xC7, L"Home"},
+    {0xC8, L"Up"},     {0xC9, L"PgUp"},   {0xCB, L"Left"},     {0xCD, L"Right"},    {0xCF, L"End"},
+    {0xD0, L"Down"},   {0xD1, L"PgDown"}, {0xD2, L"Insert"},   {0xD3, L"Delete"},
 };
 
 } // namespace
@@ -215,16 +218,10 @@ DIMOUSESTATE2* read_mouse()
 }
 
 // 0x005F2F80
-bool has_key_bindings(int port)
-{
-    return any_binding(get_controls()[port].keys, kBindings);
-}
+bool has_key_bindings(int port) { return any_binding(get_controls()[port].keys, kBindings); }
 
 // 0x005F2FC0
-bool has_mouse_bindings(int port)
-{
-    return any_binding(get_controls()[port].mouse, kBindings);
-}
+bool has_mouse_bindings(int port) { return any_binding(get_controls()[port].mouse, kBindings); }
 
 // 0x005F3000
 int joystick_axis(const DIJOYSTATE2* state, int control)
@@ -282,10 +279,7 @@ bool get_key_down(int code)
 }
 
 // 0x005F3120
-wchar_t* get_key_name(int code)
-{
-    return key_names()[code];
-}
+wchar_t* get_key_name(int code) { return key_names()[code]; }
 
 // 0x005F3130
 BOOL CALLBACK add_joystick_axis(LPCDIDEVICEOBJECTINSTANCEA object, LPVOID device)
@@ -405,11 +399,9 @@ void load_registry_options(const char* key)
     // (The size starts at 1, so the first read - "distance" - always fails, setting it to 4: "distance" is
     // read again after "options".)
     DWORD size = 1;
-    if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
-        ERROR_SUCCESS)
+    if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS)
         place_at_range(value);
-    if (RegQueryValueExA(options, "options", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
-        ERROR_SUCCESS) {
+    if (RegQueryValueExA(options, "options", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS) {
         if (value & 1)
             render::g_fog_setting = true;
         if (value & 2)
@@ -425,8 +417,7 @@ void load_registry_options(const char* key)
         if (value & 0x100)
             render::g_distance_clipping = true;
     }
-    if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
-        ERROR_SUCCESS)
+    if (RegQueryValueExA(options, "distance", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) == ERROR_SUCCESS)
         place_at_range(value);
     if (RegQueryValueExA(options, "resolution", nullptr, &type, reinterpret_cast<BYTE*>(&value), &size) ==
         ERROR_SUCCESS)
@@ -488,10 +479,7 @@ void release_input()
 }
 
 // 0x005F3BF0
-wchar_t* set_key_name(int code, const wchar_t* name)
-{
-    return std::wcscpy(key_names()[code], name);
-}
+wchar_t* set_key_name(int code, const wchar_t* name) { return std::wcscpy(key_names()[code], name); }
 
 // 0x005F3C10
 void init_key_names()
@@ -777,21 +765,12 @@ int read_pad(int port, sio::PadSnapshot* pad)
 }
 
 // 0x005F6610
-void set_pad_mode(int mode)
-{
-    pad_mode_setting() = mode;
-}
+void set_pad_mode(int mode) { pad_mode_setting() = mode; }
 
 // 0x005F6620
-void set_default_enter_control(int control)
-{
-    default_enter_control() = control;
-}
+void set_default_enter_control(int control) { default_enter_control() = control; }
 
 // 0x005F6630
-void set_default_escape_control(int control)
-{
-    default_escape_control() = control;
-}
+void set_default_escape_control(int control) { default_escape_control() = control; }
 
-} // namespace Platform
+} // namespace os_layer

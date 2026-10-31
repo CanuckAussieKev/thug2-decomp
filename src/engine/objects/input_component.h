@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -28,11 +28,11 @@ public:
     // Its input handler (pad_input::Responder<PadInputModule>, 0x2C bytes, vtable 0x0064D7D8; the front end's has the same
     // shape).
     struct Responder : tasks::SchedulerTask {
-        uint8_t* control_data_;         // +0x18 its server's data (the button pressures first)
-        void* dev_;                 // +0x1C its server's Sio device
-        int ordinal_;                    // +0x20 which of the two
+        uint8_t* control_data_;                 // +0x18 its server's data (the button pressures first)
+        void* dev_;                             // +0x1C its server's Sio device
+        int ordinal_;                           // +0x20 which of the two
         void(__cdecl* code_value_)(Responder*); // +0x24
-        PadInputModule* component_;   // +0x28
+        PadInputModule* component_;             // +0x28
     };
 
     // 0x0041EEC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
@@ -72,7 +72,8 @@ public:
     // 0x0041EBF0: a button's event: while it's locked (its lock time not yet reached: frame_clock::GetTime, unsigned) nothing;
     // down (its pressure in `data`) - its `down` event to the object (when it wasn't down last frame, input events are
     // on and input isn't disabled) and its bit set; up - its `up` event (when it was down last frame).
-    void read_button_state(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up, ControlButton* button);
+    void read_button_state(const uint8_t* data, int index, uint32_t bit, uint32_t down, uint32_t up,
+                           ControlButton* button);
     // 0x0041E7E0: `name`'s button (none: a crash, as the original) locked for `seconds` (its lock time: frame_clock::GetTime +
     // seconds * 1000, truncated, as a float); with `release`, also released and its events taken.
     void lock_button(uint32_t name, float seconds, bool release);
@@ -104,17 +105,17 @@ public:
     // (asserted; milliseconds, or with seconds / second times 1000, with frames / frame times 1000 / 60).
     int held_longer_than(script::Struct* params, script::Script* script);
 
-    uint32_t last_events_;    // +0x18 the buttons down last frame (their event bits)
-    uint32_t events_;        // +0x1C this frame's
-    PadSnapshot pad_primary_;        // +0x20
-    PadSnapshot pad_secondary_;       // +0x258
-    Responder* handler_;      // +0x490
-    Responder* handler2_;     // +0x494
-    bool disabled_;          // +0x498 disable_player_input
-    bool net_disabled_;       // +0x499 net_disable_player_input
-    bool input_events_;       // +0x49A EnableInputEvents
+    uint32_t last_events_;      // +0x18 the buttons down last frame (their event bits)
+    uint32_t events_;           // +0x1C this frame's
+    PadSnapshot pad_primary_;   // +0x20
+    PadSnapshot pad_secondary_; // +0x258
+    Responder* handler_;        // +0x490
+    Responder* handler2_;       // +0x494
+    bool disabled_;             // +0x498 disable_player_input
+    bool net_disabled_;         // +0x499 net_disable_player_input
+    bool input_events_;         // +0x49A EnableInputEvents
     uint8_t pad49b_;
-    uint32_t unknown49c_;    // +0x49C 0xB9B1E3B6
+    uint32_t unknown49c_; // +0x49C 0xB9B1E3B6
 };
 static_assert(offsetof(PadInputModule, pad_primary_) == 0x20 && offsetof(PadInputModule, pad_secondary_) == 0x258 &&
                   offsetof(PadInputModule, handler_) == 0x490 && offsetof(PadInputModule, disabled_) == 0x498 &&
@@ -124,4 +125,4 @@ static_assert(offsetof(PadInputModule::Responder, control_data_) == 0x18 &&
                   offsetof(PadInputModule::Responder, component_) == 0x28 && sizeof(PadInputModule::Responder) == 0x2C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

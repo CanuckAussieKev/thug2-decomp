@@ -91,7 +91,10 @@ void* viewport_camera(int viewport) { return render::obtain_active_lens(viewport
 const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 const maths::Mat4* cam_orientation(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_mat(); }
 // The objects' sound parts: the "object" the sound manager is given is the object's sound component.
-objects::AudioEmitterModule* audio_emitter_of(objects::Entity* object) { return reinterpret_cast<objects::AudioEmitterModule*>(object); }
+objects::AudioEmitterModule* audio_emitter_of(objects::Entity* object)
+{
+    return reinterpret_cast<objects::AudioEmitterModule*>(object);
+}
 double get_extent(void* extent, const maths::Vec4* from)
 {
     return maths::get_distance(*static_cast<const maths::Vec4*>(extent), *from);
@@ -119,10 +122,7 @@ const maths::Vec4* object_position(objects::Entity* object)
 }
 
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
-int ftol(double x)
-{
-    return static_cast<int>(static_cast<int64_t>(x));
-}
+int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
 
 // The FPU's logarithms (FYL2X with FLDLG2 / FLDLN2), unrounded.
 double x87_log10(double x)
@@ -203,10 +203,11 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
     double ny = static_cast<double>(listener->y) - position->y;
     double nz = static_cast<double>(listener->z) - position->z;
     double now = std::sqrt(nz * nz + ny * ny + nx * nx);
-    double before = std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py +
-                              static_cast<double>(px) * px);
+    double before =
+        std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py + static_cast<double>(px) * px);
     float change = static_cast<float>(now - before);
-    float speed = static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * 60.0f));
+    float speed =
+        static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * 60.0f));
     double limit = frame_clock::get_slomo_frame_seconds() * 60.0f * 360.0f;
     if (limit < speed) // (equal or unordered: shifted)
         return;
@@ -311,8 +312,8 @@ uint32_t AudioMixer::emit_sound(uint32_t checksum, VolumeRef* volume, float pitc
 }
 
 // 0x0047BE10
-bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, float dropoff, int falloff, void* camera,
-                            void* extent)
+bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, float dropoff, int falloff,
+                                void* camera, void* extent)
 {
     if (no_sound())
         return true;
@@ -400,7 +401,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
 
 // 0x0047C140
 uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects::Entity* object, bool not_positional,
-                                      bool force)
+                                       bool force)
 {
     if (no_sound())
         return 0;
@@ -560,10 +561,7 @@ int fetch_idle_voice(PcWave* wave)
 }
 
 // 0x0047C790
-int group_count()
-{
-    return -1;
-}
+int group_count() { return -1; }
 
 // 0x0047C7A0
 void stop_voice(int voice)
@@ -573,25 +571,16 @@ void stop_voice(int voice)
 }
 
 // 0x0047C7C0
-void set_voice_volume(float volume)
-{
-    g_voice_volume = volume;
-}
+void set_voice_volume(float volume) { g_voice_volume = volume; }
 
 float g_voice_pitch{1.0f};
 char g_wave_file_name[256]{"data\\sounds\\"};
 
 // 0x0047C7D0
-void set_voice_pitch(float pitch)
-{
-    g_voice_pitch = pitch;
-}
+void set_voice_pitch(float pitch) { g_voice_pitch = pitch; }
 
 // 0x0047C7E0
-int is_voice_playing(int voice)
-{
-    return get_voices()[voice].playing && get_voices()[voice].buffer ? 1 : 0;
-}
+int is_voice_playing(int voice) { return get_voices()[voice].playing && get_voices()[voice].buffer ? 1 : 0; }
 
 // 0x0047C810
 void update_voice_states()
@@ -627,7 +616,7 @@ void init_voices(AudioMixer* manager)
         voice_count() = 0x30;
         return;
     }
-    has_3d() = caps[0x38 / 4] > 0; // free 3D hardware buffers
+    has_3d() = caps[0x38 / 4] > 0;    // free 3D hardware buffers
     uint32_t mixing = caps[0x20 / 4]; // free hardware mixing buffers
     if (mixing <= 0x10) {
         voice_count() = 0x30;
@@ -643,10 +632,10 @@ void init_voices(AudioMixer* manager)
     desc[0] = 0x24;
     desc[1] = 0x11; // DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRL3D
     void* primary = nullptr;
-    com<long>(input_port(), 0xC, desc, &primary, nullptr); // CreateSoundBuffer
+    com<long>(input_port(), 0xC, desc, &primary, nullptr);            // CreateSoundBuffer
     com<long>(primary, 0, &g_iid_sound_3d_listener, &get_listener()); // IDirectSound3DListener
-    com<long>(get_listener(), 0x38, 0.0f, 0.0f, 0.0f, 0u); // change_place
-    com<long>(primary, 8); // Release
+    com<long>(get_listener(), 0x38, 0.0f, 0.0f, 0.0f, 0u);            // change_place
+    com<long>(primary, 8);                                            // Release
 }
 
 // 0x0047CBD0
@@ -719,7 +708,7 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
     auto* converted = static_cast<uint8_t*>(memory::alloc(size));
     os_layer::decode_adpcm(reinterpret_cast<int16_t*>(converted), static_cast<const uint8_t*>(samples),
-                          static_cast<int>(size) >> 1);
+                           static_cast<int>(size) >> 1);
     std::free(samples);
     data = converted;
     data_size_ = size;
@@ -795,8 +784,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             com<long>(get_listener(), 0x34, front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, 1u); // change_facing
         }
         float range = volume->dropoff_;
-        com<long>(voice.buffer_3d_, 0x40, range, 1u); // SetMaxDistance
-        com<long>(voice.buffer_3d_, 0x44, 90.0f, 1u); // SetMinDistance
+        com<long>(voice.buffer_3d_, 0x40, range, 1u);                              // SetMaxDistance
+        com<long>(voice.buffer_3d_, 0x44, 90.0f, 1u);                              // SetMinDistance
         com<long>(voice.buffer_3d_, 0x4C, relative.x, relative.y, relative.z, 1u); // change_place
         int attenuation = -10000;
         double level = static_cast<double>(voice_volume()) * 0.0099999998f;
@@ -808,7 +797,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
                 attenuation = 0;
         }
         bool audible = volume->lanes_[0] > 0.0f || volume->lanes_[1] > 0.0f;
-        com<long>(voice.buffer, 0x3C, output_attenuation(audible ? attenuation : -10000)); // change_loudness (NOT ORIGINAL: mute_audio)
+        com<long>(voice.buffer, 0x3C,
+                  output_attenuation(audible ? attenuation : -10000)); // change_loudness (NOT ORIGINAL: mute_audio)
         if (get_listener())
             com<long>(get_listener(), 0x44); // CommitDeferredSettings
         return;
@@ -839,15 +829,14 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         }
     }
     com<long>(voice.buffer, 0x3C, output_attenuation(attenuation)); // change_loudness (NOT ORIGINAL: mute_audio)
-    com<long>(voice.buffer, 0x40, pan);         // SetPan
+    com<long>(voice.buffer, 0x40, pan);                             // SetPan
     if (pitch == 0.0f)
         return;
     int frequency;
     if (pitch == 100.0f) {
         frequency = voice.base_frequency_;
     } else {
-        frequency = ftol(static_cast<double>(static_cast<uint32_t>(voice.base_frequency_)) * pitch *
-                                     0.0099999998f);
+        frequency = ftol(static_cast<double>(static_cast<uint32_t>(voice.base_frequency_)) * pitch * 0.0099999998f);
         if (frequency > 200000)
             frequency = 200000;
         else if (frequency < 100)
@@ -923,4 +912,4 @@ void silence_voices()
     // (then the volume's destructor: empty)
 }
 
-} // namespace Sfx
+} // namespace sound

@@ -69,14 +69,14 @@ struct Filter {
     uint32_t families = 0; // Nodes::Bit()s named (0: any family)
     std::string group;     // "group:<name>" (only its members)
     bool labeled = false, locked = false, hidden = false;
-    std::string text;      // the rest (as the search matched before)
+    std::string text; // the rest (as the search matched before)
 };
 Filter parse_filter(const std::string& search);
 // The family a filter word names ("rail", "Rails", "spawn"...; false: none).
 bool family_of_word(const std::string& word, nodes::Family* family);
 // Whether a row passes: its family, its text (the name and the label: the words, any case), its flags.
 bool row_passes(const Filter& filter, nodes::Family family, const std::string& name, const std::string& label,
-               bool in_group, bool locked, bool hidden);
+                bool in_group, bool locked, bool hidden);
 
 // Box select: the box (back buffer pixels) dragged from (x0, y0) to (x1, y1); inside when dragged to the right, crossing
 // when to the left. A thing's screen box (its projected corners' bounds) taken: wholly inside, or (crossing) touching.
@@ -96,9 +96,9 @@ struct Thing {
     uint32_t id = 0;
     nodes::Family family = nodes::Family::kOther;
     uint32_t cls = 0, type = 0;
-    std::string model; // objects: the model file
+    std::string model;   // objects: the model file
     uint32_t source = 0; // scenery: what it's a copy of (itself if not a copy)
-    V3 size = {};       // scenery: its box's size
+    V3 size = {};        // scenery: its box's size
 };
 bool alike(const Thing& a, const Thing& b, Similar by);
 
@@ -162,4 +162,4 @@ bool save_snapshot(const std::string& name, std::string* message);
 bool switch_snapshot(const std::string& name, std::string* message);
 bool delete_snapshot(const std::string& name, std::string* message);
 
-} // namespace MenuSystem::level_editor::organize
+} // namespace frontend::level_editor::organize

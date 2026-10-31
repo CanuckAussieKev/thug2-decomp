@@ -28,7 +28,7 @@ void DynamicLight::set_reach(float radius)
     inverse_radius_ = radius == 0.0f ? 1e10f : 1.0f / radius;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace objects {
 
@@ -39,13 +39,13 @@ extern void** const kVtable;
 constexpr uint32_t kStartRadius = 0x3BEE67C8, kMiddleRadius = 0x8E39913D, kEndRadius = 0x3F243A3C; // StartRadius...
 constexpr uint32_t kStartIntensity = 0x27A7443F, kMiddleIntensity = 0xCEF9F4FD, kEndIntensity = 0xE1CE9780;
 constexpr uint32_t kStartColor = 0x7E6BCBE6, kMiddleColor = 0x2A6B6FE2, kEndColor = 0x0481113D; // StartRGBA...
-constexpr uint32_t kMiddleTime = 0x856BC5E2; // midTime
+constexpr uint32_t kMiddleTime = 0x856BC5E2;                                                    // midTime
 constexpr uint32_t kWaitAndDie = 0x03AC8065;
 // invoke_method_by_name's members and parameters
 constexpr uint32_t kSetRadius = 0xFAAD1C11, kSetIntensity = 0x86E1FA56, kSetColor = 0x1A0F4C50;
 constexpr uint32_t kRadius = 0xC48391A5, kIntensity = 0x164D476D, kColor = 0x3F6BCDBA; // radius, intensity, rgba
 constexpr uint32_t kNoMiddle = 0xBF800000; // -1.0f's bits (compared as bits)
-constexpr double kTwoTo32 = 4294967296.0;   // 0x006453B4 (FILD's correction for unsigned values)
+constexpr double kTwoTo32 = 4294967296.0;  // 0x006453B4 (FILD's correction for unsigned values)
 
 // The colour of `name` - an array of four bytes - into `color` (unchanged if there's none; `bytes` is the caller's
 // one slot for the array, as in the original).
@@ -213,25 +213,27 @@ int DynamicLightComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::DynamicLightComponent::teardown,
-         &objects::DynamicLightComponent::tick_frame,
-         &objects::DynamicLightComponent::configure_from_data,
-         &objects::DynamicLightComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::DynamicLightComponent::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::DynamicLightComponent::teardown,
+    &objects::DynamicLightComponent::tick_frame,
+    &objects::DynamicLightComponent::configure_from_data,
+    &objects::DynamicLightComponent::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::DynamicLightComponent::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

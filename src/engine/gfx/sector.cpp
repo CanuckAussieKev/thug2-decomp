@@ -55,7 +55,7 @@ void WorldCell::destroy_body()
     if (hit_body_ && (flag_bits_ & kSectorClone))
         hit_body_->get_call<void*>(0, 1u);
     if (geom_handle_)
-        (*reinterpret_cast<void* (__thiscall***)(void*, unsigned int)>(geom_handle_))[0](geom_handle_, 1);
+        (*reinterpret_cast<void*(__thiscall***)(void*, unsigned int)>(geom_handle_))[0](geom_handle_, 1);
 }
 
 // 0x0049E930
@@ -87,7 +87,7 @@ WorldCell* WorldCell::plat_clone(int, void*)
 // 0x0049EAD0
 WorldCell* WorldCell::replicate(int instance, bool flag, void* scene)
 {
-    auto* clone = reinterpret_cast<WorldCell* (__thiscall*)(WorldCell*, int, void*)>(vtable[3])(this, instance, scene);
+    auto* clone = reinterpret_cast<WorldCell*(__thiscall*)(WorldCell*, int, void*)>(vtable[3])(this, instance, scene);
     if (!clone)
         return nullptr;
     clone->checksum_ = new_sector_name();
@@ -260,7 +260,8 @@ void WorldCell::spin_around_up(int turns)
 {
     int delta = (turns - rot_y_ + 4) % 4;
     if (hit_body_) {
-        const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_call<const maths::Vec4*>(7);
+        const maths::Vec4* about =
+            geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_call<const maths::Vec4*>(7);
         hit_body_->get_call<void>(22, about, delta);
     }
     if (geom_handle_)
@@ -272,7 +273,8 @@ void WorldCell::spin_around_up(int turns)
 void WorldCell::change_scale(const maths::Vec4* scale)
 {
     if (hit_body_) {
-        const maths::Vec4* about = geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_call<const maths::Vec4*>(7);
+        const maths::Vec4* about =
+            geom_handle_ ? geom_world_position(geom_handle_) : hit_body_->get_call<const maths::Vec4*>(7);
         hit_body_->get_call<void>(23, about, scale);
         if (flag_bits_ & kSectorInGrid)
             flag_bits_ |= kSectorMoved;
@@ -296,13 +298,13 @@ void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
 void WorldCell::play_vc_wibble_from_keyframe(int sequence, int keyframe, int time_ms)
 {
     if (geom_handle_)
-        reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&virtual_slot41_jump)(geom_handle_, sequence, keyframe,
-                                                                                    time_ms);
+        reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&virtual_slot41_jump)(geom_handle_, sequence,
+                                                                                        keyframe, time_ms);
 }
 
 // 0x0049E830
-void WorldCell::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp, float v_freq,
-                                float v_phase)
+void WorldCell::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
+                                     float v_freq, float v_phase)
 {
     if (geom_handle_)
         geom_call<void>(42, geom_handle_, u_vel, u_amp, u_freq, u_phase, v_vel, v_amp, v_freq, v_phase);
@@ -345,8 +347,8 @@ void WorldCell::stop_texture_anim()
 
 namespace {
 static VtableSlot g_sector_vtable_slots[] = {&render::WorldCell::teardown, &render::WorldCell::plat_set_shatter,
-                &render::WorldCell::plat_get_shatter, &render::WorldCell::plat_clone};
+                                             &render::WorldCell::plat_get_shatter, &render::WorldCell::plat_clone};
 void** const kSectorVtable = reinterpret_cast<void**>(g_sector_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

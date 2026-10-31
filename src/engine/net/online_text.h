@@ -20,4 +20,4 @@ inline char* get_token(char* text, const char* delimiters)
     return strtok_s(text, delimiters, &s_position);
 }
 
-} // namespace online::Text
+} // namespace online::text_tools

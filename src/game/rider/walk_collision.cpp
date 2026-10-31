@@ -36,11 +36,10 @@ using namespace walk_fields;
 
 // walk_parameters' names.
 constexpr uint32_t kCurbFloatFeelerLength = 0x11EDCC52, kSnapUpHeight = 0xCEE3A3E1,
-                   kMinCurbHeightAdjustVel = 0x227D72EE, kCurbFloatLerpUpRate = 0x856A80D3,
-                   kWalkerHeight = 0x9EA1974A, kProbeElevation = 0x6DA7F696, kFeelerLength = 0x99978D2B,
-                   kJumpObstructionCheckHeight = 0x48C0AC2A, kJumpObstructionCheckBack = 0x06EBBAB7,
-                   kVertWallJumpSpeed = 0x420D18BC, kHoldTimeForMaxJump = 0x12333EBD, kMinJumpFactor = 0x246D0BF3,
-                   kHorizWallJumpSpeed = 0x99510695;
+                   kMinCurbHeightAdjustVel = 0x227D72EE, kCurbFloatLerpUpRate = 0x856A80D3, kWalkerHeight = 0x9EA1974A,
+                   kProbeElevation = 0x6DA7F696, kFeelerLength = 0x99978D2B, kJumpObstructionCheckHeight = 0x48C0AC2A,
+                   kJumpObstructionCheckBack = 0x06EBBAB7, kVertWallJumpSpeed = 0x420D18BC,
+                   kHoldTimeForMaxJump = 0x12333EBD, kMinJumpFactor = 0x246D0BF3, kHorizWallJumpSpeed = 0x99510695;
 // Global script values and names.
 constexpr uint32_t kMinWallplantHeight = 0xD5349CC6;     // Physics_Min_Wallplant_Height
 constexpr uint32_t kDisallowRewallplant = 0x82135DD7;    // Physics_Disallow_Rewallplant_Duration
@@ -52,13 +51,13 @@ constexpr uint32_t kOutputTrackingLines = 0x19FB78FA;    // output_tracking_line
 constexpr uint32_t kShadow = 0x8A897DD2, kTrick = 0x270F56E1, kRailManagerType = 0x1CDFB2A3;
 constexpr uint32_t kLand = 0x57FF2A27, kWallplant = 0xCF74F6B7, kRail = 0xA6A3147E;
 
-constexpr float kOne = 1.0f;          // 0x006453A8
-constexpr float kHalf = 0.5f;         // 0x006453BC
-constexpr float kCurbStill = 0.01f;   // 0x0064544C
-constexpr float kHeadClearance = 3.0f; // 0x006467A8
-constexpr float kFallingHead = 18.0f;  // 0x0064AAAC: the head's reach is this much less while falling
-constexpr float kTwelve = 12.0f;       // 0x0064546C (uber_frig_current_height is in feet)
-constexpr float kMinus = -1.0f;        // 0x00645420
+constexpr float kOne = 1.0f;               // 0x006453A8
+constexpr float kHalf = 0.5f;              // 0x006453BC
+constexpr float kCurbStill = 0.01f;        // 0x0064544C
+constexpr float kHeadClearance = 3.0f;     // 0x006467A8
+constexpr float kFallingHead = 18.0f;      // 0x0064AAAC: the head's reach is this much less while falling
+constexpr float kTwelve = 12.0f;           // 0x0064546C (uber_frig_current_height is in feet)
+constexpr float kMinus = -1.0f;            // 0x00645420
 constexpr float kOffsetEaseRate = 1000.0f; // 0x006453C0: the critical point's offset eased out at this a second
 constexpr float kAdjustClearance = 0.1f;   // the bad critical point's adjustment: this far off the face hit
 constexpr float kGrindClearance = 36.0f;   // 0x0064B9CC: a wall this close (squared) to the rail's point is fine
@@ -103,7 +102,7 @@ void FootMovement::update_curb_float()
     float reach_y = ahead.y * reach;
     float reach_x = reach * ahead.x;
     feeler.line_.end = {reach_x + pos.x, static_cast<float>((static_cast<double>(reach_y) + pos.y) + kHalf),
-                         static_cast<float>(static_cast<double>(ahead.z) * reach + pos.z), 0.0f};
+                        static_cast<float>(static_cast<double>(ahead.z) * reach + pos.z), 0.0f};
     if (!feeler.get_hit_shape(true, false))
         return;
     float distance = feeler.reach_;
@@ -120,14 +119,15 @@ void FootMovement::update_curb_float()
 
     // Its height, less the nearer it is, eased toward - unless the float is settled, there's no push and it's
     // slower than min_curb_height_adjust_vel (the original reads it through 0x0043DA70).
-    float target = static_cast<float>((static_cast<double>(feeler.contact_pos_.y) - pos.y) * (kOne - static_cast<double>(distance)));
+    float target = static_cast<float>((static_cast<double>(feeler.contact_pos_.y) - pos.y) *
+                                      (kOne - static_cast<double>(distance)));
     float& curb = get_at<float>(this, kCurbOffset);
     const maths::Vec4& vel = get_at<maths::Vec4>(this, kVel);
     bool settled = std::fabs(curb) < kCurbStill && get_at<float>(this, kStickDeflection) == 0.0f;
     if (settled) {
         double least = walk_parameter(kMinCurbHeightAdjustVel);
         double speed_squared = (static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
-                              static_cast<double>(vel.z) * vel.z;
+                               static_cast<double>(vel.z) * vel.z;
         settled = least * least > speed_squared;
     }
     if (!settled) {
@@ -160,7 +160,8 @@ void FootMovement::check_ceiling()
     maths::Vec4& vel = get_at<maths::Vec4>(this, kVel);
     vel.y = get_at<float>(this, kUpSpeed);
     const maths::Vec4& normal = feeler.surface_dir_;
-    if ((static_cast<double>(normal.y) * vel.y + static_cast<double>(normal.z) * vel.z) + static_cast<double>(normal.x) * vel.x <
+    if ((static_cast<double>(normal.y) * vel.y + static_cast<double>(normal.z) * vel.z) +
+            static_cast<double>(normal.x) * vel.x <
         0.0)
         vel.flatten_onto_plane(normal);
     const maths::Vec4& end = feeler.line_.end;
@@ -197,7 +198,7 @@ void FootMovement::check_sticker_slap()
     start.y = static_cast<float>(static_cast<double>(start.y) + walk_parameter(kProbeElevation));
     float reach = walk_parameter(kFeelerLength);
     feeler.line_.end = {reach * facing.x + start.x, reach * facing.y + start.y, reach * facing.z + start.z,
-                         static_cast<float>(static_cast<double>(reach) * facing.w + start.w)};
+                        static_cast<float>(static_cast<double>(reach) * facing.w + start.w)};
     if (!feeler.get_hit_shape(false, false))
         return;
 
@@ -240,15 +241,17 @@ void FootMovement::update_ground_below()
     shade.make_new();
     shade.set_excluded(0, 0x20);
     shade.line_.start = {point.x, static_cast<float>((static_cast<double>(pos.y) + offset.y) + kTwelve), point.z,
-                          point.w};
+                         point.w};
     if (below)
         shade.line_.end = {down.contact_pos_.x, static_cast<float>(static_cast<double>(down.contact_pos_.y) - kOne),
-                            down.contact_pos_.z, down.contact_pos_.w};
+                           down.contact_pos_.z, down.contact_pos_.w};
     else
         shade.line_.end = {point.x, static_cast<float>(static_cast<double>(shade.line_.start.y) - depth), point.z,
-                            point.w};
+                           point.w};
     // The model shaded by the face hit (its vertex value).
-    auto shade_model = [this](render::ProbeRay* feeler) { get_at<MeshInstanceModule*>(this, kModel)->apply_brightness(feeler, true, kOne); };
+    auto shade_model = [this](render::ProbeRay* feeler) {
+        get_at<MeshInstanceModule*>(this, kModel)->apply_brightness(feeler, true, kOne);
+    };
     if (shade.get_hit_shape(true, false))
         shade_model(&shade);
     else if (below)
@@ -256,7 +259,8 @@ void FootMovement::update_ground_below()
 
     if (below) {
         // The height above it (the skater state's +0x11C), the shadow on it.
-        get_at<float>(get_at<uint8_t*>(this, kSkaterState), 0x11C) = static_cast<float>(static_cast<double>(pos.y) - down.contact_pos_.y);
+        get_at<float>(get_at<uint8_t*>(this, kSkaterState), 0x11C) =
+            static_cast<float>(static_cast<double>(pos.y) - down.contact_pos_.y);
         auto* shadow = static_cast<GroundShadowModule*>(entity_->fetch_module(kShadow));
         shadow->change_place(&down.contact_pos_);
         shadow->set_normal(&down.surface_dir_);
@@ -286,9 +290,9 @@ void FootMovement::update_ground_below()
 void FootMovement::ease_critical_point_offset()
 {
     maths::Vec4& offset = get_at<maths::Vec4>(this, kCriticalPointOffset);
-    float length_squared = static_cast<float>(
-        (static_cast<double>(offset.x) * offset.x + static_cast<double>(offset.y) * offset.y) +
-        static_cast<double>(offset.z) * offset.z);
+    float length_squared =
+        static_cast<float>((static_cast<double>(offset.x) * offset.x + static_cast<double>(offset.y) * offset.y) +
+                           static_cast<double>(offset.z) * offset.z);
     if (length_squared == 0.0f)
         return;
     int state = get_at<int>(this, kState);
@@ -324,9 +328,9 @@ void FootMovement::ease_critical_point_offset()
         pos += adjustment;
         debug::printf(kMessageFormat, kSourceFile, 0xB8C, kBadPointMessage);
         debug::printf(kAdjustmentFormat, kSourceFile, 0xB8D, static_cast<double>(adjustment.x),
-                    static_cast<double>(adjustment.y), static_cast<double>(adjustment.z));
-        debug::printf(kOffsetFormat, kSourceFile, 0xB8E, static_cast<double>(offset.x),
-                    static_cast<double>(offset.y), static_cast<double>(offset.z));
+                      static_cast<double>(adjustment.y), static_cast<double>(adjustment.z));
+        debug::printf(kOffsetFormat, kSourceFile, 0xB8E, static_cast<double>(offset.x), static_cast<double>(offset.y),
+                      static_cast<double>(offset.z));
     }
     // Pushed back off a wall: the critical point kept on its side of the plane.
     if (get_at<bool>(this, kPushing)) {
@@ -379,8 +383,9 @@ void FootMovement::plan_jump_over_obstruction()
     double speed = -(back / time);
     float speed_f = static_cast<float>(speed);
     get_at<maths::Vec4>(this, kJumpVelocity) = {speed_f * facing.x, speed_f * facing.y, speed_f * facing.z,
-                                            static_cast<float>(speed * facing.w)};
-    get_at<float>(this, kJumpTargetHeight) = static_cast<float>(static_cast<double>(height) + get_at<maths::Vec4>(this, kPos).y);
+                                                static_cast<float>(speed * facing.w)};
+    get_at<float>(this, kJumpTargetHeight) =
+        static_cast<float>(static_cast<double>(height) + get_at<maths::Vec4>(this, kPos).y);
     get_at<float>(this, kLeapDuration) = static_cast<float>((inverse * rise + inverse * rise) - time);
 }
 
@@ -417,7 +422,7 @@ void FootMovement::try_wallplant()
 
     // Off the wall: the way pushed (or the jump's way) mirrored off it, up by the hold of X.
     maths::Vec4 direction = get_at<float>(this, kStickDeflection) == 0.0f ? get_at<maths::Vec4>(this, kLeapHeading)
-                                                                      : get_at<maths::Vec4>(this, kStickHeading);
+                                                                          : get_at<maths::Vec4>(this, kStickHeading);
     const maths::Vec4& normal = get_at<maths::Vec4>(contact, 4);
     double into = (static_cast<double>(direction.z) * normal.z + static_cast<double>(direction.y) * normal.y) +
                   static_cast<double>(direction.x) * normal.x;
@@ -430,7 +435,8 @@ void FootMovement::try_wallplant()
     float least = walk_parameter(kMinJumpFactor);
     get_at<float>(this, kUpSpeed) = static_cast<float>(((kOne - static_cast<double>(least)) * strength + least) * rise);
     float across = walk_parameter(kHorizWallJumpSpeed);
-    get_at<maths::Vec4>(this, kVel) = {across * direction.x, direction.y * across, direction.z * across, direction.w * across};
+    get_at<maths::Vec4>(this, kVel) = {across * direction.x, direction.y * across, direction.z * across,
+                                       direction.w * across};
     get_at<maths::Vec4>(this, kLeapHeading) = get_at<maths::Vec4>(this, kFacing);
     // Off a moving object: its velocity added.
     auto& feeler = get_at<render::ProbeRay>(contact, 0x1C);
@@ -473,7 +479,9 @@ bool FootMovement::try_grind()
         if (!component)
             return false;
         // (vtable +0x34: the component's rails)
-        auto rails_of = [](ObjectModule* c) { return reinterpret_cast<GrindRailHub*(__thiscall*)(ObjectModule*)>(c->vtable_[13])(c); };
+        auto rails_of = [](ObjectModule* c) {
+            return reinterpret_cast<GrindRailHub*(__thiscall*)(ObjectModule*)>(c->vtable_[13])(c);
+        };
         for (; component && !found; component = component->next_of_type_) {
             maths::Mat4 world;
             static_cast<GrindPathLinkModule*>(component)->update_rail_matrix(&world);
@@ -494,8 +502,8 @@ bool FootMovement::try_grind()
             return false;
     }
     // The core physics' say, and nothing in the way to it (a wall within 6 of the rail is fine).
-    if (!get_at<skater::SkaterPhysicsModule*>(this, kCorePhysics)->can_grind_rail(node, get_at<GrindRailHub*>(this, kGrindRails),
-                                                                             true))
+    if (!get_at<skater::SkaterPhysicsModule*>(this, kCorePhysics)
+             ->can_grind_rail(node, get_at<GrindRailHub*>(this, kGrindRails), true))
         return false;
     render::ProbeRay feeler;
     feeler.make_new(&pos, &point);
@@ -508,11 +516,11 @@ bool FootMovement::try_grind()
     }
     if (script::fetch_int_value(kOutputTrackingLines))
         debug::printf(kTrackingFormat, 2, static_cast<double>(old_pos.x), static_cast<double>(old_pos.y),
-                    static_cast<double>(old_pos.z), static_cast<double>(pos.x), static_cast<double>(pos.y),
-                    static_cast<double>(pos.z));
+                      static_cast<double>(old_pos.z), static_cast<double>(pos.x), static_cast<double>(pos.y),
+                      static_cast<double>(pos.z));
     get_at<int>(this, kLeaveFor) = 1;
     get_at<uint32_t>(this, kAnimState) = kRail;
     return true;
 }
 
-} // namespace Obj
+} // namespace objects

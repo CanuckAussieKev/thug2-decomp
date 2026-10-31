@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) and helpers 0x005AA930-0x005AAEEF: a swap table of checksum pairs, the goal editor's
 // nodes, preloading the meshes a list names, the skater profiles (pro or not, the current one, templates, temporary

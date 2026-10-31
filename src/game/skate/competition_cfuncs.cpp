@@ -27,29 +27,26 @@ namespace {
 
 using namespace skate_calls;
 
-constexpr uint32_t kGameType = 0x9834C4FA;        // game_type
-constexpr uint32_t kChecksum = 0x21902065;        // checksum
-constexpr uint32_t kTimeLimit = 0xC51BF6E3;       // time_limit
-constexpr uint32_t kTime = 0x906B67BA;            // time
-constexpr uint32_t kIsHorse = 0xD1993397;         // is_horse
-constexpr uint32_t kHorseTimeLimit = 0xC146142E;  // horse_time_limit
-constexpr uint32_t kHorseWord = 0x6EA5ADDD;       // horse_word
-constexpr uint32_t kUiString = 0x96875C0F;        // ui_string
-constexpr uint32_t kDefaultTimeLimit = 0x8D38A280; // default_time_limit
-constexpr uint32_t kExtraParams = 0xA61DC9A4;     // extra_params
-constexpr uint32_t kWhichString = 0xB8D0CCC8;     // whichString
-constexpr uint32_t kId = 0x40C698AF;              // id
-constexpr uint32_t kText = 0xC4745838;            // text
+constexpr uint32_t kGameType = 0x9834C4FA;                // game_type
+constexpr uint32_t kChecksum = 0x21902065;                // checksum
+constexpr uint32_t kTimeLimit = 0xC51BF6E3;               // time_limit
+constexpr uint32_t kTime = 0x906B67BA;                    // time
+constexpr uint32_t kIsHorse = 0xD1993397;                 // is_horse
+constexpr uint32_t kHorseTimeLimit = 0xC146142E;          // horse_time_limit
+constexpr uint32_t kHorseWord = 0x6EA5ADDD;               // horse_word
+constexpr uint32_t kUiString = 0x96875C0F;                // ui_string
+constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;        // default_time_limit
+constexpr uint32_t kExtraParams = 0xA61DC9A4;             // extra_params
+constexpr uint32_t kWhichString = 0xB8D0CCC8;             // whichString
+constexpr uint32_t kId = 0x40C698AF;                      // id
+constexpr uint32_t kText = 0xC4745838;                    // text
 constexpr uint32_t kCreateHorsePanelMessage = 0x621637CE; // create_horse_panel_message
-constexpr uint32_t kFreezeScore = 0x294C84E1;     // freeze_score
-constexpr uint32_t kSkater = 0x5B8AB877;          // skater
-constexpr uint32_t kBonus = 0x60678085;           // bonus
+constexpr uint32_t kFreezeScore = 0x294C84E1;             // freeze_score
+constexpr uint32_t kSkater = 0x5B8AB877;                  // skater
+constexpr uint32_t kBonus = 0x60678085;                   // bonus
 
 // The skate module's split screen preferences (0x00564D80: +0x58) and its time limit (0x00564D50: +0x370).
-prefs::Preferences* split_screen_preferences()
-{
-    return modules::Skate::sole()->get_split_view_settings();
-}
+prefs::Preferences* split_screen_preferences() { return modules::Skate::sole()->get_split_view_settings(); }
 void set_countdown_seconds(int seconds) { modules::Skate::sole()->set_unknown370(seconds); }
 
 // The game mode: 0x00553AD0 the mode `type` loaded (its structure from the mode list); 0x00553BE0 its options
@@ -60,7 +57,10 @@ void override_game_mode_options(script::Struct* options)
 {
     static_cast<goals::MatchRules*>(get_game_mode())->force_match_settings(options);
 }
-void set_game_mode_flag(void (goals::MatchRules::*setter)(bool), bool on) { (static_cast<goals::MatchRules*>(get_game_mode())->*setter)(on); }
+void set_game_mode_flag(void (goals::MatchRules::*setter)(bool), bool on)
+{
+    (static_cast<goals::MatchRules*>(get_game_mode())->*setter)(on);
+}
 constexpr auto kSetAccumulateScore = &goals::MatchRules::set_score_accumulation;
 constexpr auto kApplyPointHold = &goals::MatchRules::hold_points;
 constexpr auto kSetDegradeScore = &goals::MatchRules::set_score_degradation;
@@ -206,10 +206,7 @@ bool __cdecl cfunc_end_competition(script::Struct*, script::Script*)
     return true;
 }
 
-bool __cdecl cfunc_competition_ended(script::Struct*, script::Script*)
-{
-    return the_competition()->is_ended();
-}
+bool __cdecl cfunc_competition_ended(script::Struct*, script::Script*) { return the_competition()->is_ended(); }
 
 // 0x005AF450 StartHorse, 0x005AF470 HorseEnded, 0x005AF480 HorseStatusEquals <status>, 0x005AF4A0 StartHorseRun,
 // 0x005AF4C0 EndHorseRun, 0x005AF4E0 SwitchHorsePlayers.
@@ -219,10 +216,7 @@ bool __cdecl cfunc_start_horse(script::Struct*, script::Script*)
     return true;
 }
 
-bool __cdecl cfunc_horse_ended(script::Struct*, script::Script*)
-{
-    return the_horse()->is_over();
-}
+bool __cdecl cfunc_horse_ended(script::Struct*, script::Script*) { return the_horse()->is_over(); }
 
 bool __cdecl cfunc_horse_status_equals(script::Struct* params, script::Script*)
 {

@@ -6,7 +6,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Fonts loaded by the scripts (LoadFont), by name, and the meta button map the button glyphs go through.
 namespace render {
@@ -70,4 +70,4 @@ extern char g_glyph_alias_table[32];
 extern FontSlot g_font_slots[16];
 extern lists::KeyMap g_font_table; // 0x006FA9F0: the fonts by name
 
-} // namespace Nx
+} // namespace render

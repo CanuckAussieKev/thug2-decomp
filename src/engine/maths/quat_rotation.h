@@ -30,4 +30,4 @@ public:
     float x, y, z, w;
 };
 
-} // namespace Mth
+} // namespace maths

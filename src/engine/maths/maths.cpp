@@ -63,10 +63,7 @@ float confine(float value, float min, float max)
 }
 
 // 0x00405FD0
-float get_sign(float value)
-{
-    return value < 0.0f ? -1.0f : 1.0f;
-}
+float get_sign(float value) { return value < 0.0f ? -1.0f : 1.0f; }
 
 // 0x00403EF0
 float fast_a_cos(float value)
@@ -87,7 +84,8 @@ float fast_atan2(float y, float x)
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
     bool x_below_zero = x < 0.0f;
     bool y_not_positive = y <= 0.0f;
-    double ratio = x87::divide(y_not_positive ? -static_cast<double>(y) : y, x_below_zero ? -static_cast<double>(x) : x);
+    double ratio =
+        x87::divide(y_not_positive ? -static_cast<double>(y) : y, x_below_zero ? -static_cast<double>(x) : x);
     double t = (ratio - 1.0) / (ratio + 1.0);
     double t2 = t * t;
     double p = (t * kAtanC15 * t2 + t * kAtanC13) * t2 - t * kAtanC11;
@@ -170,4 +168,4 @@ void fill_sine_table()
     table[kSinTableSize - 1].cos_delta_ = table[0].cos - table[kSinTableSize - 1].cos;
 }
 
-} // namespace Mth
+} // namespace maths

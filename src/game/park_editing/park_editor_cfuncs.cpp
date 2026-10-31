@@ -28,28 +28,28 @@ uint32_t g_saved_grid_guard;
 
 namespace {
 
-constexpr uint32_t kCancelFlags = 0x049EC3F9; // cancel_flags
-constexpr uint32_t kTheme = 0x688A18F7;       // theme
-constexpr uint32_t kMaxThemes = 0x7DDC0DA8;   // max_themes
-constexpr uint32_t kTodScript = 0x4C72ED98;   // tod_script
-constexpr uint32_t kPos = 0x7F261953;         // pos
-constexpr uint32_t kSlot = 0x53F1DF98;        // slot
-constexpr uint32_t kX = 0x7323E97C;           // x
-constexpr uint32_t kZ = 0x9D2D8850;           // z
-constexpr uint32_t kW = 0xE39CF4ED;           // w
-constexpr uint32_t kL = 0x69F93D01;           // l
-constexpr uint32_t kUp = 0xBC6B118F;          // up
-constexpr uint32_t kWidth = 0x73E5BAD0;       // width
-constexpr uint32_t kResizeArea = 0xB4F88771;  // (ResizePark's / CanCleanlyResizePark's area structure; name unknown)
-constexpr uint32_t kSaveArea = 0x937EB5C8;    // (ResizePark: keep the area for later; name unknown)
-constexpr uint32_t kUseSavedArea = 0x6F2C496C; // (ResizePark: the area kept; name unknown)
-constexpr uint32_t kResizeFailed = 0xA9967819; // (run when there's no memory for the new size; name unknown)
-constexpr uint32_t kExitTestPlay = 0x6B5A5BB6; // (ExitParkEdTestPlay's script; name unknown)
-constexpr uint32_t kParkedCam = 0x64716BEE;   // parked_cam
+constexpr uint32_t kCancelFlags = 0x049EC3F9;   // cancel_flags
+constexpr uint32_t kTheme = 0x688A18F7;         // theme
+constexpr uint32_t kMaxThemes = 0x7DDC0DA8;     // max_themes
+constexpr uint32_t kTodScript = 0x4C72ED98;     // tod_script
+constexpr uint32_t kPos = 0x7F261953;           // pos
+constexpr uint32_t kSlot = 0x53F1DF98;          // slot
+constexpr uint32_t kX = 0x7323E97C;             // x
+constexpr uint32_t kZ = 0x9D2D8850;             // z
+constexpr uint32_t kW = 0xE39CF4ED;             // w
+constexpr uint32_t kL = 0x69F93D01;             // l
+constexpr uint32_t kUp = 0xBC6B118F;            // up
+constexpr uint32_t kWidth = 0x73E5BAD0;         // width
+constexpr uint32_t kResizeArea = 0xB4F88771;    // (ResizePark's / CanCleanlyResizePark's area structure; name unknown)
+constexpr uint32_t kSaveArea = 0x937EB5C8;      // (ResizePark: keep the area for later; name unknown)
+constexpr uint32_t kUseSavedArea = 0x6F2C496C;  // (ResizePark: the area kept; name unknown)
+constexpr uint32_t kResizeFailed = 0xA9967819;  // (run when there's no memory for the new size; name unknown)
+constexpr uint32_t kExitTestPlay = 0x6B5A5BB6;  // (ExitParkEdTestPlay's script; name unknown)
+constexpr uint32_t kParkedCam = 0x64716BEE;     // parked_cam
 constexpr uint32_t kRailEditorCam = 0x5B509AD3; // Raileditor
-constexpr uint32_t kParkedMenuUp = 0xBB9B790B; // parked_menu_up
+constexpr uint32_t kParkedMenuUp = 0xBB9B790B;  // parked_menu_up
 constexpr uint32_t kSetMenuContainer = 0xE25EE8C3; // set_menu_container
-constexpr uint32_t kMenuEvent = 0x36B2EE74;   // the menus' pad events' source (name unknown)
+constexpr uint32_t kMenuEvent = 0x36B2EE74;        // the menus' pad events' source (name unknown)
 
 constexpr float kRailMargin = 10.0f; // 0x00646710: how far inside the park's edge a rail's points must be
 
@@ -77,7 +77,7 @@ CellBox area_from_structure(script::Struct* area)
     area->fetch_int_value(kW, &w, 0);
     area->fetch_int_value(kL, &l, 0);
     return CellBox::get_make(static_cast<uint8_t>(x), 0, static_cast<uint8_t>(z), static_cast<uint8_t>(w), 1,
-                          static_cast<uint8_t>(l));
+                             static_cast<uint8_t>(l));
 }
 
 // The world rectangles of `area` the rails and the goals must be within: its corner and the corner plus its size
@@ -535,7 +535,9 @@ bool __cdecl cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*
         }
     }
     // 0x0059F890: the active camera - the rail editor's while placing rails, else parked_cam
-    auto set_camera = [](uint32_t id, int viewport, int take_current_view) { commands::make_camera_active(id, viewport, take_current_view != 0); };
+    auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
+        commands::make_camera_active(id, viewport, take_current_view != 0);
+    };
     if (have_cursor() && get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement)
         set_camera(kRailEditorCam, 0, 0);
     else
@@ -552,4 +554,4 @@ bool __cdecl cfunc_bind_park_editor_to_controller(script::Struct* params, script
     return true;
 }
 
-} // namespace Ed
+} // namespace park_editing

@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's run timer component (SkaterRunTimer, type 0x8BCE7E66, vtable 0x0064C04C, 0x28 bytes): the timer of a
 // combo run - started by a combo (Physics_RunTimer_Duration), counting down while running (faster while the walk
@@ -49,23 +49,22 @@ public:
     void get_resume();
 
     // --- script member functions (the table at 0x006849C0; params, script; all true) ---
-    bool get_freeze(script::Struct* params, script::Script* script);                       // 0x005184A0 RunTimer_Pause
-    bool unpause(script::Struct* params, script::Script* script);                     // 0x005184F0 RunTimer_unpause
-    bool get_factor_complete(script::Struct* params, script::Script* script);           // 0x00518500 (FactorComplete)
-    bool fetch_run_clock_pad_id(script::Struct* params, script::Script* script);     // 0x00518540
-    bool get_run_timer_id(script::Struct* params, script::Script* script);               // 0x00518570
-    bool chain_began(script::Struct* params, script::Script* script);                // 0x005185A0
+    bool get_freeze(script::Struct* params, script::Script* script);             // 0x005184A0 RunTimer_Pause
+    bool unpause(script::Struct* params, script::Script* script);                // 0x005184F0 RunTimer_unpause
+    bool get_factor_complete(script::Struct* params, script::Script* script);    // 0x00518500 (FactorComplete)
+    bool fetch_run_clock_pad_id(script::Struct* params, script::Script* script); // 0x00518540
+    bool get_run_timer_id(script::Struct* params, script::Script* script);       // 0x00518570
+    bool chain_began(script::Struct* params, script::Script* script);            // 0x005185A0
 
     int cur_phase_;           // +0x18 State
-    float seconds_remaining_;      // +0x1C seconds
-    int16_t resumes_;     // +0x20
+    float seconds_remaining_; // +0x1C seconds
+    int16_t resumes_;         // +0x20
     uint8_t pad22[2];
-    uint8_t* walk_;       // +0x24 Walk (0x726E85AA)
+    uint8_t* walk_; // +0x24 Walk (0x726E85AA)
 };
-static_assert(offsetof(RiderRunClock, cur_phase_) == 0x18 &&
-                  offsetof(RiderRunClock, seconds_remaining_) == 0x1C &&
-                  offsetof(RiderRunClock, resumes_) == 0x20 &&
-                  offsetof(RiderRunClock, walk_) == 0x24 && sizeof(RiderRunClock) == 0x28,
+static_assert(offsetof(RiderRunClock, cur_phase_) == 0x18 && offsetof(RiderRunClock, seconds_remaining_) == 0x1C &&
+                  offsetof(RiderRunClock, resumes_) == 0x20 && offsetof(RiderRunClock, walk_) == 0x24 &&
+                  sizeof(RiderRunClock) == 0x28,
               "layout must match the original (0x005185D0 allocates 0x28 bytes)");
 
-} // namespace Obj
+} // namespace objects

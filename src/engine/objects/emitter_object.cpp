@@ -21,19 +21,16 @@ void* g_emitter_table;
 
 namespace {
 
-constexpr uint32_t kName = 0xA1DC81F9;     // name
-constexpr uint32_t kShape = 0x7321A8D6;    // (the shape's parameter; the proximity nodes' type)
-constexpr uint32_t kRadius = 0xC48391A5;   // radius
-constexpr uint32_t kScript = 0x2CA8A299;   // (the node's script)
+constexpr uint32_t kName = 0xA1DC81F9;   // name
+constexpr uint32_t kShape = 0x7321A8D6;  // (the shape's parameter; the proximity nodes' type)
+constexpr uint32_t kRadius = 0xC48391A5; // radius
+constexpr uint32_t kScript = 0x2CA8A299; // (the node's script)
 
 lists::KeyMap*& get_table() { return reinterpret_cast<lists::KeyMap*&>(g_emitter_table); }
 
 // The level sector named `name` (null if none) and its bounding box (not rewritten yet).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
-const maths::BBox* sector_box(void* sector)
-{
-    return static_cast<render::WorldCell*>(sector)->fetch_bounds();
-}
+const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_bounds(); }
 
 // The node whose item the table's iteration is at (null at the end).
 EmitterNode* step_iterator(lists::KeyMap* table)
@@ -48,16 +45,13 @@ void start_iteration(lists::KeyMap* table)
     table->iter_item_ = nullptr;
 }
 
-constexpr float kTrailSpacingSquared = 1600.0f;  // 0x006479F4
-constexpr float kFacingWeight = 10.0f;           // 0x00646710
+constexpr float kTrailSpacingSquared = 1600.0f; // 0x006479F4
+constexpr float kFacingWeight = 10.0f;          // 0x00646710
 
 } // namespace
 
 // 0x004680E0
-EmitterNode* emitter_get_node(uint32_t name)
-{
-    return static_cast<EmitterNode*>(get_table()->fetch_entry(name));
-}
+EmitterNode* emitter_get_node(uint32_t name) { return static_cast<EmitterNode*>(get_table()->fetch_entry(name)); }
 
 // 0x00468120
 bool EmitterNode::is_within(const maths::Vec4* point)
@@ -246,8 +240,8 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         dz = point.z - previous.z;
         dw = point.w - previous.w;
         --left;
-        length = static_cast<float>(std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx +
-                                              static_cast<double>(dz) * dz));
+        length = static_cast<float>(
+            std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz));
         if (!(remaining > length))
             break;
         remaining -= length;
@@ -300,4 +294,4 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     }
 }
 
-} // namespace Obj
+} // namespace objects

@@ -48,32 +48,32 @@ constexpr uint32_t kAnimBlender = 0x7149B753;
 
 // Script names.
 constexpr uint32_t kAltTrigger = 0x68B74085, kDuration = 0x79A07F3F, kParams = 0x7031F10C, kScr = 0xA6D2D890,
-                   kGrind = 0x255ED86F, kIsExtra = 0x7A16ACA0, kTrickSlot = 0xA92A2280,
-                   kScriptToRunFirst = 0x148FEE96, kTrickIndex = 0xB4A39841, kCreateATrick = 0x2D90485D,
-                   kTricksDone = 0x94182A08, kScripts = 0x22E168C1, kTemplate = 0x689FE07C, kPrefix = 0x6C4E7971,
-                   kTricks = 0x1E26FD3E, kSpecial = 0xB394C01C, kIgnore = 0xF277291D, kBashPeriod = 0x6C83FDBF,
-                   kTriangle = 0x20689278, kBashSpeedupFactor = 0xCED14273, kBashMaxPercentSpeedup = 0xD24ABFA3,
-                   kTantrumOff = 0x1FE009C7, kBailQuickGetup = 0x2D1335EE, kRunOutQuick = 0xDA3A5A4D,
-                   kRunOut = 0xA4B7A992, kTrickParams = 0x31261D2F, kTrickMapping = 0xD544AA2D,
-                   kCurrentBailEndpose = 0xA3B7CFC2, kNone = 0x806FFF30, kSkaterType = 0xBAF9B341;
+                   kGrind = 0x255ED86F, kIsExtra = 0x7A16ACA0, kTrickSlot = 0xA92A2280, kScriptToRunFirst = 0x148FEE96,
+                   kTrickIndex = 0xB4A39841, kCreateATrick = 0x2D90485D, kTricksDone = 0x94182A08,
+                   kScripts = 0x22E168C1, kTemplate = 0x689FE07C, kPrefix = 0x6C4E7971, kTricks = 0x1E26FD3E,
+                   kSpecial = 0xB394C01C, kIgnore = 0xF277291D, kBashPeriod = 0x6C83FDBF, kTriangle = 0x20689278,
+                   kBashSpeedupFactor = 0xCED14273, kBashMaxPercentSpeedup = 0xD24ABFA3, kTantrumOff = 0x1FE009C7,
+                   kBailQuickGetup = 0x2D1335EE, kRunOutQuick = 0xDA3A5A4D, kRunOut = 0xA4B7A992,
+                   kTrickParams = 0x31261D2F, kTrickMapping = 0xD544AA2D, kCurrentBailEndpose = 0xA3B7CFC2,
+                   kNone = 0x806FFF30, kSkaterType = 0xBAF9B341;
 
 // The fields (offsets into the component).
-constexpr uint32_t kBusy = 0x18;            // int: tries in progress (try_trick)
-constexpr uint32_t kFlags1c = 0x1C;         // (+0x74: a flag the special arrays need)
-constexpr uint32_t kInput = 0x20;           // the Input component (+0x1C its button mask)
-constexpr uint32_t kBalanceTrick = 0x24;    // SkaterBalanceTrick
-constexpr uint32_t kCorePhysics = 0x28;     // SkaterCorePhysics
-constexpr uint32_t kFlipAndRotate = 0x2C;   // SkaterFlipAndRotate
-constexpr uint32_t kState = 0x30;           // SkaterState (+0x1C, +0xE0 a trick started)
-constexpr uint32_t kComponent34 = 0x34;     // 0x4FF8DAC6
+constexpr uint32_t kBusy = 0x18;          // int: tries in progress (try_trick)
+constexpr uint32_t kFlags1c = 0x1C;       // (+0x74: a flag the special arrays need)
+constexpr uint32_t kInput = 0x20;         // the Input component (+0x1C its button mask)
+constexpr uint32_t kBalanceTrick = 0x24;  // SkaterBalanceTrick
+constexpr uint32_t kCorePhysics = 0x28;   // SkaterCorePhysics
+constexpr uint32_t kFlipAndRotate = 0x2C; // SkaterFlipAndRotate
+constexpr uint32_t kState = 0x30;         // SkaterState (+0x1C, +0xE0 a trick started)
+constexpr uint32_t kComponent34 = 0x34;   // 0x4FF8DAC6
 // The button buffer: 100 events of 0x18 bytes from +0x38 (+0 the time, +4 1 pressed / 2 released, +8 the button,
 // +0x14 the masks of who used it); +0x998 their count, +0x99A the newest's index.
 constexpr uint32_t kEventRing = 0x38;
 constexpr uint32_t kEventCount = 0x998;
 constexpr uint32_t kEventNewest = 0x99A;
-constexpr uint32_t kButtonsHeld = 0xA18;    // (the balance trick's buttons: a count, then the buttons)
-constexpr uint32_t kIsSpecial = 0xA24;      // bool: the trick being started is special
-constexpr uint32_t kTrickBindingsSlot = 0xA28;  // CStruct*
+constexpr uint32_t kButtonsHeld = 0xA18;       // (the balance trick's buttons: a count, then the buttons)
+constexpr uint32_t kIsSpecial = 0xA24;         // bool: the trick being started is special
+constexpr uint32_t kTrickBindingsSlot = 0xA28; // CStruct*
 constexpr uint32_t kQueueHead = 0xA2C, kQueueTail = 0xA30;
 constexpr uint32_t kQueue = 0xA34;          // 100 entries of 0x14: +0 the array, +4 the index, +0x10 special
 constexpr uint32_t kManualPending = 0x1268; // bool
@@ -90,7 +90,7 @@ constexpr uint32_t kBashOn = 0x1330;
 constexpr uint32_t kTrickCount = 0x13AC;
 constexpr uint32_t kFlag13a8 = 0x13A8, kFlag13a9 = 0x13A9;
 constexpr uint32_t kTrickObjectsOn = 0x13B0;
-constexpr uint32_t kTrickObjects = 0x13B4;  // HitClusterLog
+constexpr uint32_t kTrickObjects = 0x13B4; // HitClusterLog
 constexpr uint32_t kQuickGetupDone = 0x1BB8;
 constexpr uint32_t kBailEndpose = 0x1BBC;
 
@@ -148,10 +148,7 @@ void free_struct(script::Struct* structure)
 }
 
 // The goal manager told a mapped trick is about to start (0x005591B0 / 0x0055E790).
-void tell_goal_manager(script::Struct* trick)
-{
-    goals::get_objective_board()->trick_landed(trick);
-}
+void tell_goal_manager(script::Struct* trick) { goals::get_objective_board()->trick_landed(trick); }
 
 // A trick's mapped structure: its trickSlot's checksum in the trick mappings, as a global structure (null if any
 // step finds nothing).
@@ -237,9 +234,8 @@ void MoveExecutor::apply_trick_bindings(RiderIdentity* profile)
         RiderIdentity::SpecialTrick special;
         profile->get_special_trick(&special, i);
         if (!special.is_vacant())
-            mappings->add_component_of_type(special.keys, special.flag ? script::kQbvalInteger
-                                                                     : script::kQbvalName,
-                                         special.trick);
+            mappings->add_component_of_type(special.keys, special.flag ? script::kQbvalInteger : script::kQbvalName,
+                                            special.trick);
     }
     mappings->append_structure_if_any(profile->fetch_details_params(kTrickMapping));
 }
@@ -255,7 +251,7 @@ void MoveExecutor::update_buttons()
     static const struct {
         int button;
         int bit;
-    } kButtonBits[] = {{9, 9},     {0xA, 0xB},  {0xC, 8},    {0xB, 0xA},  {0xD, 0xC},  {0xE, 0xE},  {0xF, 0x10},
+    } kButtonBits[] = {{9, 9},      {0xA, 0xB},  {0xC, 8},     {0xB, 0xA},   {0xD, 0xC},   {0xE, 0xE},  {0xF, 0x10},
                        {0x10, 0xD}, {0x11, 0xF}, {0x12, 0x11}, {0x13, 0x16}, {0x14, 0x17}, {0x15, 0x18}};
     for (const auto& b : kButtonBits)
         set_button(this, b.button, bit(b.bit));
@@ -542,8 +538,7 @@ bool MoveExecutor::do_extra_grind_trick(bool a, bool b, bool c, bool d)
         script = scripts->fetch_part(which);
     } else {
         char name[100];
-        crt::get_sprintf(name, "%s%s", prefix,
-                                                                           templates->find_inline_text(which));
+        crt::get_sprintf(name, "%s%s", prefix, templates->find_inline_text(which));
         script = checksums::hash_from_text(name);
     }
     script::Struct* trick_params = nullptr;
@@ -627,7 +622,8 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
 void MoveExecutor::ignore_tricks(uint32_t ignore)
 {
     for (int i = 0; i < get_at<int>(this, kExtraArrayCount); ++i)
-        get_at<uint32_t>(this, kExtraMasks + 4 * i) |= fetch_skip_mask(get_at<uint32_t>(this, kExtraArrays + 4 * i), ignore);
+        get_at<uint32_t>(this, kExtraMasks + 4 * i) |=
+            fetch_skip_mask(get_at<uint32_t>(this, kExtraArrays + 4 * i), ignore);
     if (uint32_t special = get_at<uint32_t>(this, kExtraSpecial))
         get_at<uint32_t>(this, kExtraSpecialMask) |= fetch_skip_mask(special, ignore);
 }
@@ -710,7 +706,8 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     if (params->fetch_float(kDuration, &duration, 0)) {
         get_at<bool>(this, kExtraForever) = false;
         get_at<uint32_t>(this, kExtraStart) = frame_clock::get_time();
-        get_at<int>(this, kExtraDuration) = static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
+        get_at<int>(this, kExtraDuration) =
+            static_cast<int>(static_cast<int64_t>(static_cast<double>(duration) * kFrameMs));
     }
     int& count = get_at<int>(this, kExtraArrayCount);
     count = 0;
@@ -761,7 +758,8 @@ void MoveExecutor::update_bash()
         }
         script::launch_script(kTantrumOff, nullptr, entity_, false, nullptr);
         if (get_at<uint32_t>(this, kBailEndpose) && !get_at<bool>(this, kQuickGetupDone)) {
-            debug::printf("ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
+            debug::printf(
+                "ButtonMash - trigger quick getup..........................\n"); // "ButtonMash - trigger quick getup..."
             get_at<bool>(this, kQuickGetupDone) = true;
             script::launch_script(kBailQuickGetup, nullptr, entity_, false, nullptr);
             return;
@@ -782,7 +780,8 @@ void MoveExecutor::tick_frame()
     }
     update_buttons();
     static_cast<RiderTeeterMoves*>(get_component(this, kBalanceTrick))
-        ->get_buttons(&get_at<int>(this, kButtonsHeld), reinterpret_cast<uint32_t*>(&get_at<int>(this, kButtonsHeld + 4)));
+        ->get_buttons(&get_at<int>(this, kButtonsHeld),
+                      reinterpret_cast<uint32_t*>(&get_at<int>(this, kButtonsHeld + 4)));
     update_extra_tricks();
     queue_all_done_tricks();
     update_manual_tricks();
@@ -804,8 +803,8 @@ void MoveExecutor::tick_frame()
 // 0x00523350
 bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script)
 {
-    auto* trick = static_cast<MoveExecutor*>(
-        reinterpret_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));
+    auto* trick =
+        static_cast<MoveExecutor*>(reinterpret_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));
     uint32_t first = 0;
     script::Struct* first_params = nullptr;
     params->read_hash_value(kScriptToRunFirst, &first, 0);
@@ -823,25 +822,25 @@ bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::MoveExecutor::teardown,
-         &objects::MoveExecutor::tick_frame,
-         stubs::ignore_argument,
-         &objects::MoveExecutor::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::MoveExecutor::invoke_method_by_name};
+                                      &objects::MoveExecutor::tick_frame,
+                                      stubs::ignore_argument,
+                                      &objects::MoveExecutor::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::MoveExecutor::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

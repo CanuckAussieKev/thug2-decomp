@@ -17,11 +17,11 @@ namespace render {
 struct VertexBuffer {
     uint32_t size;
     uint32_t usage;
-    void* buffer;            // +0x08: IDirect3DVertexBuffer9
-    uint8_t* data;           // +0x0C
+    void* buffer;                                   // +0x08: IDirect3DVertexBuffer9
+    uint8_t* data;                                  // +0x0C
     uint32_t lock_offset_, lock_size_, lock_flags_; // +0x10 (lockFlags -1: not locked)
-    uint32_t flags;          // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
-    uint32_t arena_offset_;    // +0x20: where in the arena's buffer
+    uint32_t flags;                                 // +0x1C: 1 no copy in memory; 4 a share of an arena's buffer
+    uint32_t arena_offset_;                         // +0x20: where in the arena's buffer
 
     // 0x004D3FF0: construct - a buffer of its own (without flag 4: CreateVertexBuffer, default pool), the copy (but
     // with flag 1), on the list. Returns this.
@@ -47,7 +47,7 @@ static_assert(offsetof(VertexBuffer, data) == 0xC && offsetof(VertexBuffer, lock
               "layout must match the original");
 
 struct VertexArena; // (pc_scene.h)
-struct SceneRef;       // (mesh_list.h)
+struct SceneRef;    // (mesh_list.h)
 
 // An index buffer (0x18 bytes, constructor 0x004D4270): the size, the Direct3D buffer and a copy of the indices in
 // memory, written to the card when unlocked; on a list (0x007865E8) as the vertex buffers are.
@@ -80,41 +80,41 @@ struct Billboard {
 };
 
 struct MeshRef {
-    uint32_t flags;            // 1: shares another mesh's buffers; 0x10: a billboard
-    float centre[3];           // the bounding sphere
+    uint32_t flags;  // 1: shares another mesh's buffers; 0x10: a billboard
+    float centre[3]; // the bounding sphere
     float radius;
     uint8_t* material;
-    uint8_t stride;            // bytes per vertex
+    uint8_t stride;                 // bytes per vertex
     uint8_t current_vertex_buffer_; // +0x19
-    uint8_t vertex_buffer_count_; // +0x1A
-    uint8_t viewports;         // +0x1B: a bit per viewport it shows in
-    uint8_t unknown1c_[4];      // +0x1C: the colour's offset in a vertex, the normal's, ?, the bone (-1: none)
-    uint16_t load_index_;        // +0x20
-    uint16_t vertex_count_;      // +0x22
-    uint16_t index_counts_[8];   // +0x24
+    uint8_t vertex_buffer_count_;   // +0x1A
+    uint8_t viewports;              // +0x1B: a bit per viewport it shows in
+    uint8_t unknown1c_[4];          // +0x1C: the colour's offset in a vertex, the normal's, ?, the bone (-1: none)
+    uint16_t load_index_;           // +0x20
+    uint16_t vertex_count_;         // +0x22
+    uint16_t index_counts_[8];      // +0x24
     uint8_t unknown34[4];
-    uint32_t fvf;              // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
+    uint32_t fvf; // +0x38: its vertex format (D3DFVF; 0x10 the normals: lit)
     uint8_t unknown3c_[8];
-    void* pixel_shader_;         // +0x44
-    void* unknown48;           // +0x48 (from the heap)
-    Billboard* billboard;     // +0x4C
-    uint32_t primitive_type_;    // +0x50 (5 when constructed)
-    IdxStore* index_buffers_[8]; // +0x54
-    uint32_t buffer_usage_;      // +0x74: the vertex buffers' usage and flags
-    uint32_t buffer_flags_;      // +0x78
-    float depth;               // +0x7C (the render's)
-    float color[3];            // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
-    uint8_t* per_vertex_bytes_;   // +0x8C: a byte per vertex
-    float* transform;          // +0x90: 16 floats, made on first use
-    uint8_t* per_vertex_data_;    // +0x94: 0x4C bytes per vertex
-    int unknown98;             // +0x98: its one bone (-1: none)
-    int unknown9c_;             // +0x9C: the frame (0x00786AC4) it was last skinned in
-    uint32_t unknowna0_;        // +0xA0: and for which instance (0x007825B8)
-    uint32_t unknowna4_, unknowna8_; // +0xA4: texture coordinate sets; +0xA8: bones a vertex (1-3)
-    uint32_t position_count_;    // +0xAC
-    float* positions;          // +0xB0: three floats each
-    uint32_t triangle_count_;    // +0xB4
-    uint16_t* triangles;       // +0xB8: three indices each
+    void* pixel_shader_;              // +0x44
+    void* unknown48;                  // +0x48 (from the heap)
+    Billboard* billboard;             // +0x4C
+    uint32_t primitive_type_;         // +0x50 (5 when constructed)
+    IdxStore* index_buffers_[8];      // +0x54
+    uint32_t buffer_usage_;           // +0x74: the vertex buffers' usage and flags
+    uint32_t buffer_flags_;           // +0x78
+    float depth;                      // +0x7C (the render's)
+    float color[3];                   // +0x80: its colour (doubled when used: 0.5 leaves the passes as they are)
+    uint8_t* per_vertex_bytes_;       // +0x8C: a byte per vertex
+    float* transform;                 // +0x90: 16 floats, made on first use
+    uint8_t* per_vertex_data_;        // +0x94: 0x4C bytes per vertex
+    int unknown98;                    // +0x98: its one bone (-1: none)
+    int unknown9c_;                   // +0x9C: the frame (0x00786AC4) it was last skinned in
+    uint32_t unknowna0_;              // +0xA0: and for which instance (0x007825B8)
+    uint32_t unknowna4_, unknowna8_;  // +0xA4: texture coordinate sets; +0xA8: bones a vertex (1-3)
+    uint32_t position_count_;         // +0xAC
+    float* positions;                 // +0xB0: three floats each
+    uint32_t triangle_count_;         // +0xB4
+    uint16_t* triangles;              // +0xB8: three indices each
     VertexBuffer* extra_buffers_[3];  // +0xBC: destroyed with it (each beside its vertex buffer)
     VertexBuffer* last_buffer_;       // +0xC8: destroyed with it
     VertexBuffer* vertex_buffers_[3]; // +0xCC
@@ -210,4 +210,4 @@ void __cdecl recreate_buffers();
 
 extern void* g_vertex_buffer_list;
 extern void* g_index_buffer_list;
-} // namespace Nx
+} // namespace render

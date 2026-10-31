@@ -28,17 +28,10 @@
 namespace objects {
 
 uint32_t g_physics_control_member_functions[66]{
-            0x3522D612, 0xD9151D4D, 0, 0, 0, 0,
-            0x0595627C, 0xD9151D4D, 0, 0, 0, 0,
-            0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
-            0xA887285A, 0xD9151D4D, 0, 0, 0, 0,
-            0x9366A509, 0xD9151D4D, 0, 0, 0, 0,
-            0x04830E80, 0xD9151D4D, 0, 0, 0, 0,
-            0xD5A9F889, 0xD9151D4D, 0, 0, 0, 0,
-            0x27FDDEB7, 0xD9151D4D, 0, 0, 0, 0,
-            0x174A6AD9, 0xD9151D4D, 0, 0, 0, 0,
-            0x246322C9, 0xD9151D4D, 0, 0, 0, 0,
-            0, 0xD9151D4D, 0, 0, 0, 0};
+    0x3522D612, 0xD9151D4D, 0, 0, 0, 0, 0x0595627C, 0xD9151D4D, 0, 0, 0, 0, 0x9569D5B1, 0xD9151D4D, 0, 0, 0, 0,
+    0xA887285A, 0xD9151D4D, 0, 0, 0, 0, 0x9366A509, 0xD9151D4D, 0, 0, 0, 0, 0x04830E80, 0xD9151D4D, 0, 0, 0, 0,
+    0xD5A9F889, 0xD9151D4D, 0, 0, 0, 0, 0x27FDDEB7, 0xD9151D4D, 0, 0, 0, 0, 0x174A6AD9, 0xD9151D4D, 0, 0, 0, 0,
+    0x246322C9, 0xD9151D4D, 0, 0, 0, 0, 0,          0xD9151D4D, 0, 0, 0, 0};
 
 namespace {
 
@@ -120,7 +113,7 @@ ObjectModule* __cdecl RiderBoardPhysics::fabricate()
 void __cdecl RiderBoardPhysics::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterPhysicsControl),
-                                        g_physics_control_member_functions, 0x18);
+                                           g_physics_control_member_functions, 0x18);
 }
 
 // 0x005176C0
@@ -239,22 +232,31 @@ void RiderBoardPhysics::tick_frame()
     if (!is_halted_)
         return;
     switch (prop<int>(cur_phase_, 0x1C)) {
-    case kSkating: entity_->display_matrix_ = prop<maths::Mat4>(core_physics_, 0x18); break;
-    case kWalking: entity_->display_matrix_ = entity_->basis_frame_; break;
-    default: break;
+    case kSkating:
+        entity_->display_matrix_ = prop<maths::Mat4>(core_physics_, 0x18);
+        break;
+    case kWalking:
+        entity_->display_matrix_ = entity_->basis_frame_;
+        break;
+    default:
+        break;
     }
     if (!(reinterpret_cast<ObjectModule*>(core_physics_)->flag_bits_ & kComponentFlagSuspended))
         set_frozen(true);
 }
 
 // 0x00517C80
-int RiderBoardPhysics::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
-                                                       script::Script* /*script*/)
+int RiderBoardPhysics::invoke_method_by_name(uint32_t name, script::Struct* /*params*/, script::Script* /*script*/)
 {
     switch (name) {
-    case kCmdWalkToSkate: remount_board(); return 1;
-    case kCmdSkateToWalk: dismount_to_walk(); return 1;
-    default: return 2;
+    case kCmdWalkToSkate:
+        remount_board();
+        return 1;
+    case kCmdSkateToWalk:
+        dismount_to_walk();
+        return 1;
+    default:
+        return 2;
     }
 }
 
@@ -315,25 +317,25 @@ bool RiderBoardPhysics::un_set_force_walk(script::Struct*, script::Script*)
 // 0x00517730
 bool RiderBoardPhysics::is_force_walk_on(script::Struct*, script::Script*) { return force_walk_; }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::RiderBoardPhysics::teardown,
-         &objects::RiderBoardPhysics::tick_frame,
-         &objects::RiderBoardPhysics::configure_from_data,
-         &objects::RiderBoardPhysics::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::RiderBoardPhysics::invoke_method_by_name};
+                                      &objects::RiderBoardPhysics::tick_frame,
+                                      &objects::RiderBoardPhysics::configure_from_data,
+                                      &objects::RiderBoardPhysics::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::RiderBoardPhysics::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

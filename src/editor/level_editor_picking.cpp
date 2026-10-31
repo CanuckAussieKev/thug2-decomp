@@ -38,7 +38,7 @@ void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
 }
 
 void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-                 const uint16_t* indices, uint32_t index_count)
+                   const uint16_t* indices, uint32_t index_count)
 {
     auto at = [&](uint16_t i) {
         const float* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
@@ -59,12 +59,17 @@ bool material_see_through(uint32_t pass_flags, uint32_t blend_mode)
     if (pass_flags & 0x40)
         return true;
     switch (blend_mode & 0xFFFFFF) {
-    case 1: case 2:  // add, fixadd
-    case 3: case 4:  // subtract, fixsubtract
-    case 7: case 8:  // modulate, fixmodulate
-    case 9: case 10: // brighten, fixbrighten
+    case 1:
+    case 2: // add, fixadd
+    case 3:
+    case 4: // subtract, fixsubtract
+    case 7:
+    case 8: // modulate, fixmodulate
+    case 9:
+    case 10: // brighten, fixbrighten
         return true;
-    default: return false; // 0 diffuse, 5 blend, 6 fixblend (and anything else)
+    default:
+        return false; // 0 diffuse, 5 blend, 6 fixblend (and anything else)
     }
 }
 
@@ -140,7 +145,7 @@ Choice get_choose(const Candidates& c, uint32_t filter, bool everything)
 }
 
 std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
-                              uint32_t filter)
+                                  uint32_t filter)
 {
     std::vector<TableRow> order;
     if (node >= 0 && (filter & kNodes))
@@ -163,9 +168,9 @@ int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id)
 {
     // (a passed piece taken by Alt is the same piece as in the passed part)
     for (size_t i = 0; i < order.size(); ++i)
-        if (order[i].id == id && (order[i].kind == kind ||
-                                  ((kind == Choice::kScenery || kind == Choice::kPassed) &&
-                                   (order[i].kind == Choice::kScenery || order[i].kind == Choice::kPassed))))
+        if (order[i].id == id &&
+            (order[i].kind == kind || ((kind == Choice::kScenery || kind == Choice::kPassed) &&
+                                       (order[i].kind == Choice::kScenery || order[i].kind == Choice::kPassed))))
             return static_cast<int>(i);
     return -1;
 }
@@ -200,7 +205,7 @@ bool ray_triangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t)
 }
 
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-              const uint16_t* indices, uint32_t index_count, float max_t, float* t)
+               const uint16_t* indices, uint32_t index_count, float max_t, float* t)
 {
     bool found = false;
     float best = max_t;
@@ -251,4 +256,4 @@ const std::vector<Lock>& get_locks() { return g_locks; }
 void clear_locks() { g_locks.clear(); }
 void set_locks(const std::vector<Lock>& locks) { g_locks = locks; }
 
-} // namespace MenuSystem::level_editor::Picking
+} // namespace frontend::level_editor::picking

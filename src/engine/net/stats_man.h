@@ -8,10 +8,10 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace tasks {
 class SchedulerTask;
-} // namespace Tsk
+} // namespace tasks
 
 // The online stats: online::Hub's rating_service_ (+0x1C), on GameSpy's stats and persistent storage SDK (gstats /
 // gpersist: library code, not decompiled - called by address, some of it through function pointers the SDK keeps).
@@ -23,10 +23,10 @@ namespace online {
 
 // A line of a top-score list (0x3C bytes): lists::Elem<TopEntry> (vtable 0x0064D640; the node's own 0x0064D634).
 struct TopEntry {
-    memory::ListNode list_link_;    // +0x00 data = this
-    char label_[0x20];       // +0x14
-    int skill_points_;            // +0x34
-    int points_held_;             // +0x38
+    memory::ListNode list_link_; // +0x00 data = this
+    char label_[0x20];           // +0x14
+    int skill_points_;           // +0x34
+    int points_held_;            // +0x38
 
     // 0x0054D6E0 (vtable 0x0064D640 slot 0, scalar deleting): the node destructor (0x0054D8F0), freed with flag 1.
     TopEntry* teardown(unsigned int flags);
@@ -35,9 +35,9 @@ static_assert(sizeof(TopEntry) == 0x3C && offsetof(TopEntry, skill_points_) == 0
 
 // A level's part of a top-score list (0x2C bytes): lists::Elem<LevelScores> (vtable 0x0064D648) and its entries.
 struct LevelScores {
-    memory::ListNode list_link_;    // +0x00 data = this
-    uint32_t level_;        // +0x14 the level's checksum
-    memory::ListNode entries_; // +0x18 lists::Foremost<TopEntry> (vtable 0x0064D640)
+    memory::ListNode list_link_; // +0x00 data = this
+    uint32_t level_;             // +0x14 the level's checksum
+    memory::ListNode entries_;   // +0x18 lists::Foremost<TopEntry> (vtable 0x0064D640)
 
     // 0x0054DFE0 (destructor body): the entries deleted, the head and the node unlinked.
     void destroy_body();
@@ -51,7 +51,7 @@ static_assert(sizeof(LevelScores) == 0x2C && offsetof(LevelScores, entries_) == 
 struct TopList {
     memory::ListNode levels_;  // +0x00 lists::Foremost<LevelScores> (vtable 0x0064D644)
     memory::ListNode entries_; // +0x14 lists::Foremost<TopEntry> (vtable 0x0064D640): the ratings list's
-    char title_[0x20];      // +0x28 the file's first line (the lists of combos)
+    char title_[0x20];         // +0x28 the file's first line (the lists of combos)
 
     // 0x0054D8B0: two empty heads.
     TopList* make_new();
@@ -71,11 +71,11 @@ static_assert(sizeof(TopList) == 0x48 && offsetof(TopList, title_) == 0x28, "lay
 // A sorted line for the menus (0x40 bytes, on a local list): lists::Elem<SortEntry> (vtable 0x0064D64C; the node's
 // own 0x0064D63C), its priority the score.
 struct SortEntry {
-    memory::ListNode list_link_;    // +0x00 data = this, priority = the sort key
-    char label_[0x20];       // +0x14
-    uint32_t level_;        // +0x34
-    int points_held_;             // +0x38
-    int skill_points_;            // +0x3C
+    memory::ListNode list_link_; // +0x00 data = this, priority = the sort key
+    char label_[0x20];           // +0x14
+    uint32_t level_;             // +0x34
+    int points_held_;            // +0x38
+    int skill_points_;           // +0x3C
 
     // 0x0054D780 (vtable 0x0064D64C slot 0, scalar deleting)
     SortEntry* teardown(unsigned int flags);
@@ -115,9 +115,9 @@ struct StatsSearch {
 
 // The player's own stats from persistent storage (RankingsManager +0x14).
 struct PersonalStats {
-    int skill_points_;            // +0x00
-    int high_scores_[15];    // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
-    int high_combos_[15];    // +0x40
+    int skill_points_;    // +0x00
+    int high_scores_[15]; // +0x04 by level (1-14 filled: index i at high_scores_[i - 1])
+    int high_combos_[15]; // +0x40
 
     // 0x0054DDB0: the levels' high scores (the level checksums at 0x0067F260), best first, into the menu (script
     // 0xA6111F30: score, level name; its parameters are never freed - kept).
@@ -130,8 +130,8 @@ public:
     // cur_phase_.
     enum State : int {
         kNone = 0,
-        kLoggingIn = 1,    // the login thread runs
-        kAuthDone = 2,     // (the thread's answer: the task makes it 4)
+        kLoggingIn = 1, // the login thread runs
+        kAuthDone = 2,  // (the thread's answer: the task makes it 4)
         kLoginFailed = 3,
         kReady = 4,
         kGettingStats = 5, // RetrievePersonalStats: waiting for the 15 answers
@@ -181,8 +181,8 @@ public:
     static unsigned long __stdcall log_in_thread(void* stats);
     // 0x0054CCF0: GetPersistDataValues' answer for index `index` (0 the rating, 1-14 a level's high score and combo;
     // after 14: script 0x955801C6, state 4).
-    static void __cdecl on_personal_stats(int local_id, int profile, int type, int index, int success, uint32_t modified,
-                                        char* data, int length, void* instance);
+    static void __cdecl on_personal_stats(int local_id, int profile, int type, int index, int success,
+                                          uint32_t modified, char* data, int length, void* instance);
     // 0x0054DB20 (ghttp's completed callback of the top stats' download; param: the VaultMan): the file parsed into
     // its top list. Returns 1.
     static int __cdecl on_top_stats(void* request, int result, char* buffer, int64_t buffer_length, void* vault);
@@ -191,32 +191,31 @@ public:
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
     static void __stdcall generate_auth(const char* challenge, const char* password, char* response);
 
-    tasks::SchedulerTask* task_;     // +0x000 tasks::Task<RankingsManager> (stats_task)
-    bool authenticated_;           // +0x004
+    tasks::SchedulerTask* task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
+    bool authenticated_;         // +0x004
     uint8_t pad5_[3];
-    int cur_phase_;               // +0x008 State
-    void* game_;              // +0x00C the SDK's game being reported
-    uint32_t last_report_;     // +0x010
-    PersonalStats personal_;  // +0x014
-    int top_file_;             // +0x090 the top-score file being downloaded (RetrieveTopStats)
-    TopList top_lists_[5];     // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
-    bool need_top_stats_;       // +0x1FC
+    int cur_phase_;          // +0x008 State
+    void* game_;             // +0x00C the SDK's game being reported
+    uint32_t last_report_;   // +0x010
+    PersonalStats personal_; // +0x014
+    int top_file_;           // +0x090 the top-score file being downloaded (RetrieveTopStats)
+    TopList top_lists_[5];   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
+    bool need_top_stats_;    // +0x1FC
 };
-static_assert(offsetof(RankingsManager, personal_) == 0x14 &&
-                  offsetof(RankingsManager, top_file_) == 0x90 && offsetof(RankingsManager, top_lists_) == 0x94 &&
-                  offsetof(RankingsManager, need_top_stats_) == 0x1FC,
+static_assert(offsetof(RankingsManager, personal_) == 0x14 && offsetof(RankingsManager, top_file_) == 0x90 &&
+                  offsetof(RankingsManager, top_lists_) == 0x94 && offsetof(RankingsManager, need_top_stats_) == 0x1FC,
               "layout must match the original");
 
 // The script commands.
-bool __cdecl stats_logged_in(script::Struct* params, script::Script* script);        // 0x0054CC90
-bool __cdecl stats_log_in(script::Struct* params, script::Script* script);           // 0x0054CCB0
-bool __cdecl stats_log_off(script::Struct* params, script::Script* script);          // 0x0054CCC0
-bool __cdecl retrieve_personal_stats(script::Struct* params, script::Script* script); // 0x0054CE00
+bool __cdecl stats_logged_in(script::Struct* params, script::Script* script);            // 0x0054CC90
+bool __cdecl stats_log_in(script::Struct* params, script::Script* script);               // 0x0054CCB0
+bool __cdecl stats_log_off(script::Struct* params, script::Script* script);              // 0x0054CCC0
+bool __cdecl retrieve_personal_stats(script::Struct* params, script::Script* script);    // 0x0054CE00
 bool __cdecl need_to_retrieve_top_stats(script::Struct* params, script::Script* script); // 0x0054CE70
-bool __cdecl raise_tallies(script::Struct* params, script::Script* script);          // 0x0054D670
-bool __cdecl get_rank(script::Struct* params, script::Script* script);              // 0x0054D6A0
-bool __cdecl clean_up_top_stats(script::Struct* params, script::Script* script);      // 0x0054EA40
-bool __cdecl fill_stats_arrays(script::Struct* params, script::Script* script);      // 0x0054EB00
+bool __cdecl raise_tallies(script::Struct* params, script::Script* script);              // 0x0054D670
+bool __cdecl get_rank(script::Struct* params, script::Script* script);                   // 0x0054D6A0
+bool __cdecl clean_up_top_stats(script::Struct* params, script::Script* script);         // 0x0054EA40
+bool __cdecl fill_stats_arrays(script::Struct* params, script::Script* script);          // 0x0054EB00
 
 extern float g_rank_scale;
 

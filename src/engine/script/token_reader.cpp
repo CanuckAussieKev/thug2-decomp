@@ -109,10 +109,7 @@ const uint8_t* add_named_expression(const uint8_t* token, uint32_t name, Struct*
 Script* get_running_script() { return g_running_script; }
 
 // 0x004728D0
-Script* step_script_list(Script* script)
-{
-    return script ? *reinterpret_cast<Script**>(script) : g_script_list_head;
-}
+Script* step_script_list(Script* script) { return script ? *reinterpret_cast<Script**>(script) : g_script_list_head; }
 
 // 0x0046F7A0 (the table in EBX, the type in EDI, the count in ESI)
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
@@ -241,7 +238,8 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
 const uint8_t* skip_value(const uint8_t* token)
 {
     switch (*token) {
-    case 0x03: case 0x05: {
+    case 0x03:
+    case 0x05: {
         uint8_t open = *token, close = static_cast<uint8_t>(open + 1);
         int depth = 1;
         do {
@@ -253,9 +251,13 @@ const uint8_t* skip_value(const uint8_t* token)
         } while (depth);
         return token + 1;
     }
-    case 0x16: case 0x17: case 0x18: case 0x1A:
+    case 0x16:
+    case 0x17:
+    case 0x18:
+    case 0x1A:
         return token + 5;
-    case 0x1B: case 0x1C:
+    case 0x1B:
+    case 0x1C:
         return token + 5 + fetch_word32(token + 1);
     case 0x1E:
         return token + 13;
@@ -315,8 +317,14 @@ void evaluate_name_token(Component* component)
     if (!symbol)
         return;
     switch (symbol->type) {
-    case kQbvalInteger: case kQbvalFloat: case kQbvalString: case kQbvalInlineText:
-    case kQbvalPair: case kQbvalVector: case kQbvalStruct: case kQbvalArray:
+    case kQbvalInteger:
+    case kQbvalFloat:
+    case kQbvalString:
+    case kQbvalInlineText:
+    case kQbvalPair:
+    case kQbvalVector:
+    case kQbvalStruct:
+    case kQbvalArray:
     case kQbvalName:
         change_species(component, symbol->type);
         component->raw = symbol->raw;
@@ -442,7 +450,8 @@ const uint8_t* add_parameter(const uint8_t* token, uint32_t name, Struct* dest, 
         dest->push_float(name, get_as_float(fetch_word32(p)));
         return token + 5;
     case 0x1E: {
-        float x = get_as_float(fetch_word32(p)), y = get_as_float(fetch_word32(token + 5)), z = get_as_float(fetch_word32(token + 9));
+        float x = get_as_float(fetch_word32(p)), y = get_as_float(fetch_word32(token + 5)),
+              z = get_as_float(fetch_word32(token + 9));
         // (a zero vector named 0x9D2D0915 isn't added)
         const float tolerance = render::g_one_percent;
         if (name != 0x9D2D0915 || !(std::fabs(x) < tolerance) || !(std::fabs(y) < tolerance) ||
@@ -635,25 +644,53 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
     do {
         uint8_t t = *p;
         switch (t) {
-        case 0x03: type = kQbvalStruct; break;
-        case 0x05: type = kQbvalArray; break;
-        case 0x16: type = kQbvalName; break;
-        case 0x17: case 0x18:
+        case 0x03:
+            type = kQbvalStruct;
+            break;
+        case 0x05:
+            type = kQbvalArray;
+            break;
+        case 0x16:
+            type = kQbvalName;
+            break;
+        case 0x17:
+        case 0x18:
             if (type != kQbvalFloat)
                 type = kQbvalInteger;
             break;
-        case 0x1A: type = kQbvalFloat; break;
-        case 0x1B: type = kQbvalString; break;
-        case 0x1C: type = kQbvalInlineText; break;
-        case 0x1E: type = kQbvalVector; break;
-        case 0x1F: type = kQbvalPair; break;
-        default: break;
+        case 0x1A:
+            type = kQbvalFloat;
+            break;
+        case 0x1B:
+            type = kQbvalString;
+            break;
+        case 0x1C:
+            type = kQbvalInlineText;
+            break;
+        case 0x1E:
+            type = kQbvalVector;
+            break;
+        case 0x1F:
+            type = kQbvalPair;
+            break;
+        default:
+            break;
         }
         switch (t) {
-        case 0x01: case 0x02: case 0x09:
+        case 0x01:
+        case 0x02:
+        case 0x09:
             p = step_over_token(p);
             break;
-        case 0x03: case 0x05: case 0x16: case 0x17: case 0x18: case 0x1A: case 0x1B: case 0x1C: case 0x1E:
+        case 0x03:
+        case 0x05:
+        case 0x16:
+        case 0x17:
+        case 0x18:
+        case 0x1A:
+        case 0x1B:
+        case 0x1C:
+        case 0x1E:
         case 0x1F:
             ++count;
             p = skip_value(p);
@@ -799,13 +836,19 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
         p = resolve_random_jumps(p);
         uint8_t t = *p;
         switch (t) {
-        case 0x01: case 0x06:
+        case 0x01:
+        case 0x06:
             ++p;
             continue;
         case 0x02:
             p += 5;
             continue;
-        case 0x03: case 0x1B: case 0x1C: case 0x1E: case 0x1F: case 0x30:
+        case 0x03:
+        case 0x1B:
+        case 0x1C:
+        case 0x1E:
+        case 0x1F:
+        case 0x30:
             if (!expect_value)
                 break;
             p = parse_value(p, args, &value);
@@ -813,8 +856,17 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             release_component(&value);
             pushed();
             continue;
-        case 0x05: case 0x07: case 0x08: case 0x0A: case 0x0B: case 0x0C: case 0x0D: case 0x12: case 0x14:
-        case 0x32: case 0x33: // operators
+        case 0x05:
+        case 0x07:
+        case 0x08:
+        case 0x0A:
+        case 0x0B:
+        case 0x0C:
+        case 0x0D:
+        case 0x12:
+        case 0x14:
+        case 0x32:
+        case 0x33: // operators
             evaluator.intake(static_cast<int>(t));
             ++p;
             after_dot = t == 0x08;
@@ -847,8 +899,13 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             if (symbol) {
                 bool push = true;
                 switch (symbol->type) {
-                case kQbvalInteger: case kQbvalFloat: case kQbvalString:
-                case kQbvalInlineText: case kQbvalPair: case kQbvalVector: case kQbvalName:
+                case kQbvalInteger:
+                case kQbvalFloat:
+                case kQbvalString:
+                case kQbvalInlineText:
+                case kQbvalPair:
+                case kQbvalVector:
+                case kQbvalName:
                     change_species(&value, symbol->type);
                     value.raw = symbol->raw;
                     break;
@@ -934,7 +991,8 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
             p += 6;
             Component* found = args ? args->find_last_component(name) : nullptr;
             if (found) {
-                value.type_and_flag_ = static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & 0xFE));
+                value.type_and_flag_ =
+                    static_cast<uint8_t>((value.type_and_flag_ & 1) | (found->type_and_flag_ & 0xFE));
                 value.raw = found->raw;
                 evaluate_name_token(&value);
                 make_reference(&value);
@@ -955,7 +1013,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
     return p;
 }
 
-} // namespace Script
+} // namespace script
 
 // --- the entry points with register arguments -------------------------------------------------------------
 
@@ -1037,4 +1095,4 @@ namespace script {
 // 0x00640A70 (a static initialiser): the expression evaluator, cleared.
 void construct_evaluator() { g_evaluator.prepare_all(); }
 
-} // namespace Script
+} // namespace script

@@ -53,7 +53,8 @@ uint32_t vertex_format(const render::MeshRef* mesh)
 
 uint8_t* lookup_sector(uint8_t* scene, uint32_t checksum)
 {
-    return scene ? static_cast<uint8_t*>(reinterpret_cast<render::WorldScene*>(scene)->look_up_sector(checksum)) : nullptr;
+    return scene ? static_cast<uint8_t*>(reinterpret_cast<render::WorldScene*>(scene)->look_up_sector(checksum))
+                 : nullptr;
 }
 // WorldCell::change_live (0x0049E9B0) / is_operative (0x0049E9E0): drawn and collided with, or neither.
 void change_live(uint8_t* sector, bool on) { reinterpret_cast<render::WorldCell*>(sector)->change_live(on); }
@@ -69,10 +70,7 @@ render::StaticCollider* static_of(uint8_t* sector)
 
 // The buffers as MeshRef::Replicate (sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
 // an index buffer (the C runtime's malloc 0x00624031, constructor 0x004D4270).
-render::VertexBuffer* new_vertex_buffer(uint32_t size)
-{
-    return render::new_vertex_buffer(size, 0, 0);
-}
+render::VertexBuffer* new_vertex_buffer(uint32_t size) { return render::new_vertex_buffer(size, 0, 0); }
 void upload_vertices(render::VertexBuffer* buffer)
 {
     buffer->lock_offset_ = 0;
@@ -105,7 +103,7 @@ struct Made {
     Spec built;
 };
 std::map<std::string, Made> g_made;   // (the pieces in place)
-std::set<uint32_t> g_pool;           // (every sector made this level - kept, hidden, when its piece goes)
+std::set<uint32_t> g_pool;            // (every sector made this level - kept, hidden, when its piece goes)
 std::map<uint32_t, int> g_tile_hides; // (tiles hidden by pits, and by how many)
 uint8_t* g_scene;
 uint32_t g_active_scene_key;
@@ -234,7 +232,8 @@ bool emit_out(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* 
             render::IdxStore* buffer = other->index_buffers_[k];
             if (!other->index_counts_[k] || !buffer || !buffer->indices)
                 continue;
-            if (std::any_of(buffer->indices, buffer->indices + other->index_counts_[k], [](uint16_t v) { return v != 0; })) {
+            if (std::any_of(buffer->indices, buffer->indices + other->index_counts_[k],
+                            [](uint16_t v) { return v != 0; })) {
                 std::memset(buffer->indices, 0, other->index_counts_[k] * 2u);
                 upload_indices(buffer);
             }
@@ -355,9 +354,10 @@ bool get_make(const Spec& spec, std::string* why)
     }
     hide_tiles(spec.hides, true);
     g_made[spec.name] = {name, spec};
-    get_log("level editor: ground piece %s (%s, %.0f x %.0f, %.0f %s, %u faces) in place - material %s", spec.name.c_str(),
-        spec.lower ? "pit" : "platform", spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height, spec.lower ? "deep" : "high",
-        static_cast<unsigned>(mesh.faces.size()), object_edit::caption(spec.material).c_str());
+    get_log("level editor: ground piece %s (%s, %.0f x %.0f, %.0f %s, %u faces) in place - material %s",
+            spec.name.c_str(), spec.lower ? "pit" : "platform", spec.x1 - spec.x0, spec.z1 - spec.z0, spec.height,
+            spec.lower ? "deep" : "high", static_cast<unsigned>(mesh.faces.size()),
+            object_edit::caption(spec.material).c_str());
     return true;
 }
 
@@ -417,9 +417,8 @@ const char* why_not_donor(uint32_t checksum)
         return "its vertex buffers";
     if (first->per_vertex_data_)
         return "per-vertex data the editor can't make";
-    if (!first->material ||
-        picking::material_see_through(*reinterpret_cast<const uint32_t*>(first->material + 0x20),
-                                    *reinterpret_cast<const uint32_t*>(first->material + 0x80)))
+    if (!first->material || picking::material_see_through(*reinterpret_cast<const uint32_t*>(first->material + 0x20),
+                                                          *reinterpret_cast<const uint32_t*>(first->material + 0x80)))
         return "a see-through material";
     render::StaticCollider* coll = static_of(sector);
     if (!coll || !coll->geometry_ || !coll->geometry_->tri_count_)
@@ -445,7 +444,8 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
                     return;
                 const render::TriMeshSource* tri = static_of(sector)->geometry_;
                 V3 c = {(w->spec->x0 + w->spec->x1) * 0.5f, w->spec->base, (w->spec->z0 + w->spec->z1) * 0.5f};
-                V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z}, hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+                V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z},
+                   hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
                 V3 nearest = {std::clamp(c.x, lo.x, hi.x), std::clamp(c.y, lo.y, hi.y), std::clamp(c.z, lo.z, hi.z)};
                 V3 d = nearest - c;
                 float distance = std::sqrt(get_dot(d, d));
@@ -538,8 +538,9 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             if (!tri || !tri->faces_ || !tri->vertices_ || ((coll->flag_bits_ & 4) && !mine))
                 return;
             const Spec& s = *w->spec;
-            if (tri->upper_limit_.x < s.x0 || tri->lower_limit_.x > s.x1 || tri->upper_limit_.z < s.z0 || tri->lower_limit_.z > s.z1 ||
-                tri->upper_limit_.y < s.base - 40.0f || tri->lower_limit_.y > s.base + 40.0f)
+            if (tri->upper_limit_.x < s.x0 || tri->lower_limit_.x > s.x1 || tri->upper_limit_.z < s.z0 ||
+                tri->lower_limit_.z > s.z1 || tri->upper_limit_.y < s.base - 40.0f ||
+                tri->lower_limit_.y > s.base + 40.0f)
                 return;
             bool ground = false;
             int faces = std::min<int>(tri->tri_count_, 60000);
@@ -561,17 +562,19 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             }
             if (!ground)
                 return;
-            V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z}, hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
+            V3 lo = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z},
+               hi = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
             if (tile_inside(lo, hi, s, 25.0f)) {
                 w->tiles.push_back(checksum);
                 return;
             }
             char text[320];
-            std::snprintf(text, sizeof(text),
-                          "the floor here is %s%s, %.0f x %.0f - bigger than the rectangle. THUG2's floors can't be cut: "
-                          "make the rectangle cover that whole piece, or raise around it instead",
-                          object_edit::caption(checksum).c_str(), geom_of(sector) ? "" : " (collision only)", hi.x - lo.x,
-                          hi.z - lo.z);
+            std::snprintf(
+                text, sizeof(text),
+                "the floor here is %s%s, %.0f x %.0f - bigger than the rectangle. THUG2's floors can't be cut: "
+                "make the rectangle cover that whole piece, or raise around it instead",
+                object_edit::caption(checksum).c_str(), geom_of(sector) ? "" : " (collision only)", hi.x - lo.x,
+                hi.z - lo.z);
             w->refused = text;
         },
         &walk);
@@ -677,7 +680,8 @@ void apply_records(const std::vector<std::string>& lines)
     std::string message;
     int placed = apply_to_each(specs, &message);
     if (!specs.empty())
-        get_log("level editor: the layout's %d of %u ground pieces put in place", placed, static_cast<unsigned>(specs.size()));
+        get_log("level editor: the layout's %d of %u ground pieces put in place", placed,
+                static_cast<unsigned>(specs.size()));
 }
 
 void reset_all()
@@ -711,4 +715,4 @@ void add_preview(const overlays::Painter& painter, const Spec& spec, uint32_t ar
     }
 }
 
-} // namespace MenuSystem::level_editor::Ground
+} // namespace frontend::level_editor::ground

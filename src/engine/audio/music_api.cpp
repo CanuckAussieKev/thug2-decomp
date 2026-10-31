@@ -49,17 +49,17 @@ int& current_track_index() { return g_current_track_index; }
 
 // The stream fields used here (Stream in music_player.h; 0x74 bytes each, three at 0x0069B938).
 struct StreamFields {
-    uint32_t name;      // +0x00
-    uint32_t id;        // +0x04
-    uint32_t volume;    // +0x08 (a float: percent)
-    uint32_t dropoff;   // +0x0C (a float)
-    int channel;        // +0x10
+    uint32_t name;    // +0x00
+    uint32_t id;      // +0x04
+    uint32_t volume;  // +0x08 (a float: percent)
+    uint32_t dropoff; // +0x0C (a float)
+    int channel;      // +0x10
     uint8_t pad14[4];
-    int priority;       // +0x18
-    int queue_position_;  // +0x1C
-    int queue_count_;     // +0x20
+    int priority;        // +0x18
+    int queue_position_; // +0x1C
+    int queue_count_;    // +0x20
     uint8_t pad24[4];
-    bool positional;    // +0x28: the volume follows the owner's object
+    bool positional; // +0x28: the volume follows the owner's object
     uint8_t pad29[3];
     int falloff_curve_; // +0x2C
     uint8_t pad30[4];
@@ -295,7 +295,8 @@ bool __cdecl remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
     int index = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
-            if (get_owners()[i] == owner && stream_at(i)->name == id_or_name && channel_status(stream_at(i)->channel) != 1) {
+            if (get_owners()[i] == owner && stream_at(i)->name == id_or_name &&
+                channel_status(stream_at(i)->channel) != 1) {
                 index = i;
                 break;
             }
@@ -354,8 +355,8 @@ bool __cdecl update_stream_volume(int slot)
                 extent_or_null = &extent;
             maths::Vec4 position;
             maths::Vec4* where = component->get_stream_position(&position, object);
-            manager->fetch_loudness(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloff_curve_, object,
-                               extent_or_null);
+            manager->fetch_loudness(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloff_curve_,
+                                    object, extent_or_null);
         } else {
             volume.change_muted();
         }
@@ -428,4 +429,4 @@ bool FamData::read_in(uint32_t fam_name)
     return true;
 }
 
-} // namespace Pcm
+} // namespace audio

@@ -53,7 +53,8 @@ T& prop(void* object, uint32_t offset)
 online::Hub* net_session_slot() { return online::g_online_hub; }
 online::PlayerRecord* find_player_slot_by_obj(uint32_t id)
 {
-    return reinterpret_cast<online::PlayerRecord*>(net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
+    return reinterpret_cast<online::PlayerRecord*>(
+        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
 }
 bool is_own_player(online::PlayerRecord* player) { return player->is_own_player() != 0; }
 int player_skater_index(online::PlayerRecord* player) { return static_cast<int>(player->get_skater_value_2b_c()); }
@@ -64,7 +65,10 @@ uint32_t app_value8(net::Guest* app) { return prop<uint32_t>(app, 0x08); }
 // The core physics component's (not rewritten yet): the skater turned around (0x004FE120) and whether the flip is
 // needed (0x004FC440).
 void turn_around(uint8_t* core_physics) { reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->turn_around(); }
-bool flip_needed(uint8_t* core_physics) { return (reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->is_sides_swapped() & 0xFF) != 0; }
+bool flip_needed(uint8_t* core_physics)
+{
+    return (reinterpret_cast<skater::SkaterPhysicsModule*>(core_physics)->is_sides_swapped() & 0xFF) != 0;
+}
 
 // The animation blender's 0x00419C10: its animations mirrored or not (`flip`: the state component's byte as it is).
 void flip_anims(ObjectModule* blender, uint32_t object_id, uint32_t flip, uint32_t a, int b)
@@ -192,8 +196,7 @@ void RiderSpinAndFlip::do_after_anim()
 }
 
 // 0x00511600
-int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* params,
-                                                      script::Script* /*script*/)
+int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     switch (name) {
     case kBoardIsRotated:
@@ -238,25 +241,27 @@ int RiderSpinAndFlip::invoke_method_by_name(uint32_t name, script::Struct* param
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderSpinAndFlip::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         &objects::RiderSpinAndFlip::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderSpinAndFlip::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderSpinAndFlip::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    stubs::ignore_argument,
+    &objects::RiderSpinAndFlip::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderSpinAndFlip::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

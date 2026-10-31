@@ -103,4 +103,4 @@ void reset_all();
 // A new level: the changes forgotten (put back first if the last level's node array is still the one loaded).
 void forget_level();
 
-} // namespace MenuSystem::level_editor::node_edit
+} // namespace frontend::level_editor::node_edit

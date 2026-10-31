@@ -32,10 +32,7 @@ void init_events()
     register_event_handler(handle_quit);
 }
 
-void register_event_handler(EventHandler handler)
-{
-    s_handlers->push_back(handler);
-}
+void register_event_handler(EventHandler handler) { s_handlers->push_back(handler); }
 
 void pump_sdl_events()
 {
@@ -46,4 +43,4 @@ void pump_sdl_events()
     }
 }
 
-} // namespace Platform
+} // namespace os_layer

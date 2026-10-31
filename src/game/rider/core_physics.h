@@ -7,11 +7,11 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 namespace objects {
 struct GrindPoint;
 class GrindRailHub;
-} // namespace Obj
+} // namespace objects
 
 // The skater's core physics component (on the ground, in the air): the pieces PartyMod changes for its
 // PS2-style controls (thug2-decomp.ini [Miscellaneous] UsePS2Controls - Skater::ps2_controls()). Its layout is only partly
@@ -22,8 +22,8 @@ namespace skater {
 struct AcidDrop {
     maths::Vec4 point;  // +0x00 where on the wall the skater drops to
     maths::Vec4 normal; // +0x10 the wall's normal there
-    float hit_height_;    // +0x20 the height the search first hit it at
-    bool object_hit_;     // +0x24 (the feeler's hit object was still there)
+    float hit_height_;  // +0x20 the height the search first hit it at
+    bool object_hit_;   // +0x24 (the feeler's hit object was still there)
     uint8_t pad25[3];
 };
 static_assert(sizeof(AcidDrop) == 0x28, "layout must match the original");
@@ -135,8 +135,8 @@ public:
     // coin toss when across it; nothing at the rail's end), Rail_Speed_Boost, the bad ledge feelers either side, and
     // the grind trick picked from the pad. `from_object` (from a car plant or a vehicle): the velocity isn't
     // flattened, and too slow against the facing it starts from the facing.
-    void start_grind(const maths::Vec4* point, objects::GrindPoint* node, objects::GrindRailHub* manager, bool no_lip_trick,
-                    bool from_object);
+    void start_grind(const maths::Vec4* point, objects::GrindPoint* node, objects::GrindRailHub* manager,
+                     bool no_lip_trick, bool from_object);
     // 0x0050DAE0: in the air (or `always`), grind button (+0x1A0) held, not after a wallplant for
     // Physics_Wallplant_Disallow_Grind_Duration: a rail along the last move (soon after leaving a rail, only one
     // lining up within Rail_Corner_Leave_Angle) - the level's, else each moving rail manager's (the move in its
@@ -403,7 +403,7 @@ public:
     // (Physics_Acid_Drop_Min_Air_Time), and a point up the wall (24 at a time) reached with nothing in the way: `drop`.
     // Whether one was found (`velocity` is put back if not).
     bool find_acid_drop(bool pop, const maths::Vec4* position, const maths::Vec4* last_position, maths::Vec4* velocity,
-                      AcidDrop* drop);
+                        AcidDrop* drop);
     // 0x00502F20: starting the acid drop to `drop`: the horizontal speed to get there in the fall's time (flags block
     // +0xE4), the wall's orientation (+0x3B0, +0x490) and the slerp to it (+0x3F0) over that time; flags +0x78 (in the
     // drop), +0x30, +0xA8; SkaterAcidDropTriggered with DropHeight; Ollied handlers cleared.
@@ -436,68 +436,68 @@ public:
     // ResetIsFlipping (+0x2DB), SetThrowingProjectile / Unset / IsThrowingProjectile (+0x14C8), EndManualTurnaround
     // (+0x304 0), EnterTantrum / ExitTantrum / InTantrum (+0x1508), EnterTagging / ExitTagging / IsTagging (+0x1509);
     // ResetProjectileInput (+0x308 = -1). The queries return 1 or 0.
-    int can_brake_off(script::Struct* params, script::Script* script);           // 0x004FBF40
-    int can_brake_on(script::Struct* params, script::Script* script);            // 0x004FBF50
-    int can_kick_on(script::Struct* params, script::Script* script);             // 0x004FBF60
-    int can_kick_off(script::Struct* params, script::Script* script);            // 0x004FBF70
-    int force_auto_kick_on(script::Struct* params, script::Script* script);       // 0x004FBF80
-    int force_auto_kick_off(script::Struct* params, script::Script* script);      // 0x004FBF90
-    int auto_kick_is_off(script::Struct* params, script::Script* script);         // 0x004FBFA0
-    int skater_vehicle_on(script::Struct* params, script::Script* script);       // 0x004FBFB0
-    int skater_vehicle_off(script::Struct* params, script::Script* script);      // 0x004FBFC0
-    int is_skater_on_vehicle(script::Struct* params, script::Script* script);     // 0x004FBFD0
-    int can_spin(script::Struct* params, script::Script* script);               // 0x004FC000
-    int bail_on(script::Struct* params, script::Script* script);                // 0x004FC010
-    int bail_off(script::Struct* params, script::Script* script);               // 0x004FC020
-    int bail_is_on(script::Struct* params, script::Script* script);              // 0x004FC030
-    int bad_ledge(script::Struct* params, script::Script* script);              // 0x004FC080
+    int can_brake_off(script::Struct* params, script::Script* script);             // 0x004FBF40
+    int can_brake_on(script::Struct* params, script::Script* script);              // 0x004FBF50
+    int can_kick_on(script::Struct* params, script::Script* script);               // 0x004FBF60
+    int can_kick_off(script::Struct* params, script::Script* script);              // 0x004FBF70
+    int force_auto_kick_on(script::Struct* params, script::Script* script);        // 0x004FBF80
+    int force_auto_kick_off(script::Struct* params, script::Script* script);       // 0x004FBF90
+    int auto_kick_is_off(script::Struct* params, script::Script* script);          // 0x004FBFA0
+    int skater_vehicle_on(script::Struct* params, script::Script* script);         // 0x004FBFB0
+    int skater_vehicle_off(script::Struct* params, script::Script* script);        // 0x004FBFC0
+    int is_skater_on_vehicle(script::Struct* params, script::Script* script);      // 0x004FBFD0
+    int can_spin(script::Struct* params, script::Script* script);                  // 0x004FC000
+    int bail_on(script::Struct* params, script::Script* script);                   // 0x004FC010
+    int bail_off(script::Struct* params, script::Script* script);                  // 0x004FC020
+    int bail_is_on(script::Struct* params, script::Script* script);                // 0x004FC030
+    int bad_ledge(script::Struct* params, script::Script* script);                 // 0x004FC080
     int came_down_off_spine(script::Struct* params, script::Script* script);       // 0x004FC090
-    int landed_from_vert(script::Struct* params, script::Script* script);        // 0x004FC0A0
-    int set_landed_from_vert(script::Struct* params, script::Script* script);     // 0x004FC0B0
-    int reset_landed_from_vert(script::Struct* params, script::Script* script);   // 0x004FC0C0
-    int allow_lip_no_grind(script::Struct* params, script::Script* script);       // 0x004FC0D0
+    int landed_from_vert(script::Struct* params, script::Script* script);          // 0x004FC0A0
+    int set_landed_from_vert(script::Struct* params, script::Script* script);      // 0x004FC0B0
+    int reset_landed_from_vert(script::Struct* params, script::Script* script);    // 0x004FC0C0
+    int allow_lip_no_grind(script::Struct* params, script::Script* script);        // 0x004FC0D0
     int clear_allow_lip_no_grind(script::Struct* params, script::Script* script);  // 0x004FC0E0
-    int no_rail_tricks(script::Struct* params, script::Script* script);          // 0x004FC0F0
-    int allow_rail_tricks(script::Struct* params, script::Script* script);       // 0x004FC100
-    int in_revert(script::Struct* params, script::Script* script);              // 0x004FC1A0
-    int out_revert(script::Struct* params, script::Script* script);             // 0x004FC1B0
-    int is_in_revert(script::Struct* params, script::Script* script);            // 0x004FC1C0
-    int projectiles_on(script::Struct* params, script::Script* script);         // 0x004FC1D0
-    int projectiles_off(script::Struct* params, script::Script* script);        // 0x004FC1E0
-    int focus_on(script::Struct* params, script::Script* script);               // 0x004FC1F0
-    int is_skater_focused(script::Struct* params, script::Script* script);       // 0x004FC200
-    int reset_projectile_input(script::Struct* params, script::Script* script);  // 0x004FC210
-    int enter_powerslide(script::Struct* params, script::Script* script);       // 0x004FC230
-    int exit_powerslide(script::Struct* params, script::Script* script);        // 0x004FC240
-    int moto_skateboard_on(script::Struct* params, script::Script* script);      // 0x004FC250
-    int moto_skateboard_off(script::Struct* params, script::Script* script);     // 0x004FC260
-    int is_on_motoskateboard(script::Struct* params, script::Script* script);    // 0x004FC270
-    int skater_is_flipping(script::Struct* params, script::Script* script);      // 0x004FC280
-    int reset_is_flipping(script::Struct* params, script::Script* script);       // 0x004FC290
-    int set_throwing_projectile(script::Struct* params, script::Script* script); // 0x004FC2A0
+    int no_rail_tricks(script::Struct* params, script::Script* script);            // 0x004FC0F0
+    int allow_rail_tricks(script::Struct* params, script::Script* script);         // 0x004FC100
+    int in_revert(script::Struct* params, script::Script* script);                 // 0x004FC1A0
+    int out_revert(script::Struct* params, script::Script* script);                // 0x004FC1B0
+    int is_in_revert(script::Struct* params, script::Script* script);              // 0x004FC1C0
+    int projectiles_on(script::Struct* params, script::Script* script);            // 0x004FC1D0
+    int projectiles_off(script::Struct* params, script::Script* script);           // 0x004FC1E0
+    int focus_on(script::Struct* params, script::Script* script);                  // 0x004FC1F0
+    int is_skater_focused(script::Struct* params, script::Script* script);         // 0x004FC200
+    int reset_projectile_input(script::Struct* params, script::Script* script);    // 0x004FC210
+    int enter_powerslide(script::Struct* params, script::Script* script);          // 0x004FC230
+    int exit_powerslide(script::Struct* params, script::Script* script);           // 0x004FC240
+    int moto_skateboard_on(script::Struct* params, script::Script* script);        // 0x004FC250
+    int moto_skateboard_off(script::Struct* params, script::Script* script);       // 0x004FC260
+    int is_on_motoskateboard(script::Struct* params, script::Script* script);      // 0x004FC270
+    int skater_is_flipping(script::Struct* params, script::Script* script);        // 0x004FC280
+    int reset_is_flipping(script::Struct* params, script::Script* script);         // 0x004FC290
+    int set_throwing_projectile(script::Struct* params, script::Script* script);   // 0x004FC2A0
     int unset_throwing_projectile(script::Struct* params, script::Script* script); // 0x004FC2B0
-    int is_throwing_projectile(script::Struct* params, script::Script* script);  // 0x004FC2C0
-    int end_manual_turnaround(script::Struct* params, script::Script* script);   // 0x004FC2D0
-    int enter_tantrum(script::Struct* params, script::Script* script);          // 0x004FC2E0
-    int exit_tantrum(script::Struct* params, script::Script* script);           // 0x004FC2F0
-    int in_tantrum(script::Struct* params, script::Script* script);             // 0x004FC300
-    int enter_tagging(script::Struct* params, script::Script* script);          // 0x004FC310
-    int exit_tagging(script::Struct* params, script::Script* script);           // 0x004FC320
-    int is_tagging(script::Struct* params, script::Script* script);             // 0x004FC330
+    int is_throwing_projectile(script::Struct* params, script::Script* script);    // 0x004FC2C0
+    int end_manual_turnaround(script::Struct* params, script::Script* script);     // 0x004FC2D0
+    int enter_tantrum(script::Struct* params, script::Script* script);             // 0x004FC2E0
+    int exit_tantrum(script::Struct* params, script::Script* script);              // 0x004FC2F0
+    int in_tantrum(script::Struct* params, script::Script* script);                // 0x004FC300
+    int enter_tagging(script::Struct* params, script::Script* script);             // 0x004FC310
+    int exit_tagging(script::Struct* params, script::Script* script);              // 0x004FC320
+    int is_tagging(script::Struct* params, script::Script* script);                // 0x004FC330
     int get_braking(script::Struct* params, script::Script* script);               // 0x004FC9B0
     // The timed flags read or set (the time noted when one changes): flipped (+0x28), switched (flipped, inverted
     // unless the skater's +0x110 is set), Crouched (+0x20), FirstTimeOnThisRail (+0xC8), SKITCHING (+0x88), InVertAir
     // (+0x30), IsInBail (+0x70); CancelWallpush (+0xB8 on), in_bail / NotInBail (+0x70), 0x004FD630 (checksum
     // 0x2A547E37, name not recovered: +0x30 on), OverrideCancelGround (+0x90: on unless Off), no_spin (+0x370 = 1 and
     // +0x68 off).
-    int get_flipped(script::Struct* params, script::Script* script);               // 0x004FC780
-    int get_switched(script::Struct* params, script::Script* script);              // 0x004FC7A0
-    int get_crouched(script::Struct* params, script::Script* script);              // 0x004FC7E0
-    int first_time_on_this_rail(script::Struct* params, script::Script* script);   // 0x004FC800
-    int skitching(script::Struct* params, script::Script* script);             // 0x004FC820
-    int cancel_wallpush(script::Struct* params, script::Script* script);        // 0x004FC840
-    int no_spin(script::Struct* params, script::Script* script);                // 0x004FCF90
-    int in_bail(script::Struct* params, script::Script* script);                // 0x004FCFC0
+    int get_flipped(script::Struct* params, script::Script* script);             // 0x004FC780
+    int get_switched(script::Struct* params, script::Script* script);            // 0x004FC7A0
+    int get_crouched(script::Struct* params, script::Script* script);            // 0x004FC7E0
+    int first_time_on_this_rail(script::Struct* params, script::Script* script); // 0x004FC800
+    int skitching(script::Struct* params, script::Script* script);               // 0x004FC820
+    int cancel_wallpush(script::Struct* params, script::Script* script);         // 0x004FC840
+    int no_spin(script::Struct* params, script::Script* script);                 // 0x004FCF90
+    int in_bail(script::Struct* params, script::Script* script);                 // 0x004FCFC0
     int not_in_bail(script::Struct* params, script::Script* script);             // 0x004FCFF0
     int is_in_bail(script::Struct* params, script::Script* script);              // 0x004FD020
     int in_vert_air(script::Struct* params, script::Script* script);             // 0x004FD1C0
@@ -508,7 +508,7 @@ public:
     // from the unnamed integer, if any. 0x004FC040 LockVelocityDirection: +0x388 = whether `on` is there.
     int set_skater_vehicle(script::Struct* params, script::Script* script);      // 0x004FBFE0
     int lock_velocity_direction(script::Struct* params, script::Script* script); // 0x004FC040
-    int change_rail_adjust(script::Struct* params, script::Script* script);         // 0x004FC060
+    int change_rail_adjust(script::Struct* params, script::Script* script);      // 0x004FC060
     int set_ammo_type(script::Struct* params, script::Script* script);           // 0x004FC180
     // 0x004FC110 SetExtraPush: radius (+0x2C0, 48), speed (+0x2C4, 100) and 0xDFDFEAB8 (+0x2C8, 6) from `params`.
     int set_extra_push(script::Struct* params, script::Script* script);
@@ -652,8 +652,8 @@ public:
     // vert face (normal y under 0.707) whose horizontal normal is at most 0.95 along `facing`. Found: its point and
     // normal, whether its object is still there (`object_alive`) and whether that normal is more than -0.866 along
     // `facing` (`not_opposite`; rounded to a float first). Whether one was found.
-    bool find_vert_target(const maths::Vec4* direction, const maths::Vec4* facing, bool* not_opposite, maths::Vec4* point,
-                        maths::Vec4* normal, bool* object_alive);
+    bool find_vert_target(const maths::Vec4* direction, const maths::Vec4* facing, bool* not_opposite,
+                          maths::Vec4* point, maths::Vec4* normal, bool* object_alive);
     // 0x004FF200: the speed override (+0x3AC, a factor; 1 when off): turned on (+0x255, not in an acid drop or a
     // bail) when faster than 1.25 times the 0x2EACDDB3 stat - the factor the speed over that (at most 0xC6B38BE0),
     // the limits (+0x354, +0x358) lifted. Running down at 0xF9B006AA a second; while above 1 the max speed (+0x354)
@@ -695,7 +695,8 @@ public:
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
-    void grind_along(objects::GrindPoint* start_node, objects::GrindPoint* go_on_to, bool no_next_segment, float overshoot);
+    void grind_along(objects::GrindPoint* start_node, objects::GrindPoint* go_on_to, bool no_next_segment,
+                     float overshoot);
     void finish_rail();
     // (Parts of 0x0050DDF0: on a moving rail, carried along with it; a grind's or a slide's balance.)
     void ride_moving_rail();
@@ -720,4 +721,4 @@ extern maths::Vec4 g_acid_hold;
 // 0x0064BC48: corePhysicsVtable (defined where the class's functions are).
 extern void** const kCorePhysicsVtable;
 
-} // namespace Skater
+} // namespace skater

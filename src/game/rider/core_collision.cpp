@@ -22,15 +22,15 @@ using namespace core_fields;
 
 namespace {
 
-constexpr uint32_t kForwardHeight = 0xD4205C9B;    // Skater_First_Forward_Collision_Height
-constexpr uint32_t kForwardLength = 0x20102726;    // Skater_First_Forward_Collision_Length
-constexpr uint32_t kAirSnapUp = 0x786B3272;        // Physics_Air_Snap_Up
+constexpr uint32_t kForwardHeight = 0xD4205C9B;     // Skater_First_Forward_Collision_Height
+constexpr uint32_t kForwardLength = 0x20102726;     // Skater_First_Forward_Collision_Length
+constexpr uint32_t kAirSnapUp = 0x786B3272;         // Physics_Air_Snap_Up
 constexpr uint32_t kMinDistanceToWall = 0x23410C14; // Skater_Min_Distance_To_Wall
 constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;      // Skater_Max_Max_Speed_Stat
-constexpr uint32_t kVehicleLandSound = 0xD478C96D; // vehicle_play_land_sound (a script)
-constexpr uint32_t kSideHeight = 0xB45B39E2;       // Skater_side_collide_height
-constexpr uint32_t kSideLength = 0x406B425F;       // Skater_side_collide_length
-constexpr uint32_t kAirExtraSide = 0x1C58C8B4;     // Skater_air_extra_side_col
+constexpr uint32_t kVehicleLandSound = 0xD478C96D;  // vehicle_play_land_sound (a script)
+constexpr uint32_t kSideHeight = 0xB45B39E2;        // Skater_side_collide_height
+constexpr uint32_t kSideLength = 0x406B425F;        // Skater_side_collide_length
+constexpr uint32_t kAirExtraSide = 0x1C58C8B4;      // Skater_air_extra_side_col
 
 // A stack feeler: raw storage (see copy_feeler).
 struct alignas(16) FeelerStorage {
@@ -115,8 +115,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     p.y = end.y - raise.y;
     p.z = end.z - raise.z;
     p.w = end.w - raise.w;
-    if (step_up(from) &&
-        (vector_at(object_of(this), kVelocity).y > 10.0f || steep)) {
+    if (step_up(from) && (vector_at(object_of(this), kVelocity).y > 10.0f || steep)) {
         release_feeler_object(hit);
         return true;
     }
@@ -194,10 +193,11 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
                 void* skater = object_of(this);
                 float speed = static_cast<float>(length_of(vector_at(skater, kVelocity)));
                 float fraction = speed / static_cast<objects::Rider*>(skater)->get_scaled_physics(kSpeedCapStat);
-                static_cast<objects::RiderSfxPlayer*>(get_at<void*>(this, kSfxModuleSlot))->play_bonk(fraction, terrain);
+                static_cast<objects::RiderSfxPlayer*>(get_at<void*>(this, kSfxModuleSlot))
+                    ->play_bonk(fraction, terrain);
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
-                                  nullptr);
+                                      nullptr);
             }
         }
         // The velocity along the wall (keeping its height when the wall isn't facing down), pushed off it by a
@@ -230,8 +230,9 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         auto& feeler = get_at<render::ProbeRay>(this, kFeeler);
         if (feeler.hit_object_alive()) {
             maths::Vec4 carried = vector_at(feeler.get_hit_object(), kVelocity);
-            double into = (static_cast<double>(carried.z) * hit_normal->z + static_cast<double>(carried.y) * hit_normal->y) +
-                          static_cast<double>(carried.x) * hit_normal->x;
+            double into =
+                (static_cast<double>(carried.z) * hit_normal->z + static_cast<double>(carried.y) * hit_normal->y) +
+                static_cast<double>(carried.x) * hit_normal->x;
             if (into > 0.0) {
                 float frame = get_at<float>(this, kFrameLength);
                 void* t = object_of(this);
@@ -301,7 +302,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     }
     // On the ground: a near-vertical wall puts the skater back where it was (+0x98) ...
     double facing_up = (static_cast<double>(normal.z) * up.z + static_cast<double>(normal.y) * up.y) +
-                      static_cast<double>(normal.x) * up.x;
+                       static_cast<double>(normal.x) * up.x;
     if (!(facing_up < static_cast<double>(0.25f)) || !(facing_up > static_cast<double>(-0.25f)))
         return false;
     const maths::Vec4 entry_velocity = vector_at(object_of(this), kVelocity); // (not original: for note_path)
@@ -345,4 +346,4 @@ void SkaterPhysicsModule::test_lateral_hits()
         vector_at(object_of(this), kPosition) = saved;
 }
 
-} // namespace Skater
+} // namespace skater

@@ -160,11 +160,11 @@ bool __cdecl cfunc_load_font(script::Struct* params, script::Script* /*script*/)
     return true;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640B40 (a static initialiser): the loaded fonts' table, 16 buckets.
 void construct_font_table() { new (&g_font_table) lists::KeyMap(4); }
 
-} // namespace Nx
+} // namespace render

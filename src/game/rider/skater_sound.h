@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's sound component (SkaterSound, type 0x187574FA, vtable 0x0064C0C4, 0x28 bytes): the one-shot sounds of
 // the skater's terrain - jump, land, bonk, cess (and on a rail grind / slide jump and land) - played at the skater
@@ -51,18 +51,17 @@ public:
     void play_bonk_here(float speed);
     void play_cess_here(float speed);
 
-    int cur_phase_;           // +0x18 the skater's state (0 ground, 1 air, 4 rail)
-    uint8_t surface_type_;     // +0x1C
+    int cur_phase_;        // +0x18 the skater's state (0 ground, 1 air, 4 rail)
+    uint8_t surface_type_; // +0x1C
     uint8_t last_ground_;  // +0x1D the terrain the ground and air sounds use
-    uint8_t sliding_;     // +0x1E on a rail: a slide, not a grind
+    uint8_t sliding_;      // +0x1E on a rail: a slide, not a grind
     uint8_t pad1f_;
-    float full_speed_;     // +0x20 the speed that counts as 1
-    float volume_mult_;    // +0x24 volume_mult
+    float full_speed_;  // +0x20 the speed that counts as 1
+    float volume_mult_; // +0x24 volume_mult
 };
 static_assert(offsetof(RiderSfxPlayer, cur_phase_) == 0x18 && offsetof(RiderSfxPlayer, surface_type_) == 0x1C &&
-                  offsetof(RiderSfxPlayer, sliding_) == 0x1E &&
-                  offsetof(RiderSfxPlayer, full_speed_) == 0x20 &&
+                  offsetof(RiderSfxPlayer, sliding_) == 0x1E && offsetof(RiderSfxPlayer, full_speed_) == 0x20 &&
                   offsetof(RiderSfxPlayer, volume_mult_) == 0x24 && sizeof(RiderSfxPlayer) == 0x28,
               "layout must match the original (0x00518E20 allocates 0x28 bytes)");
 
-} // namespace Obj
+} // namespace objects

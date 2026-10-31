@@ -16,17 +16,17 @@ namespace memory::sizes {
 
 struct Pools {
     int script_cache_entries_; // CScriptCacheEntry (0x14 bytes)
-    int components;         // CComponent (0x10)
-    int structs;            // CStruct (8)
-    int vectors;            // CVector (0x10)
-    int pairs;              // CPair (0xC)
-    int arrays;             // CArray (0xC)
-    int symbols;            // CSymbolTableEntry (0x14)
-    int scripts;            // CScript (0xF4)
-    int stored_randoms_;      // CStoredRandom (0x60) - THUGPRO leaves it, so do we
-    uint32_t string_bytes_;   // the permanent string heap (AllocatePermanentStringHeap)
-    uint32_t strings;       // its string slots (8 bytes each)
-    int hash_items_;          // the HashItem pool (memory::slot_pool_setup::SetUp, 12 bytes; from the bottom-up heap)
+    int components;            // CComponent (0x10)
+    int structs;               // CStruct (8)
+    int vectors;               // CVector (0x10)
+    int pairs;                 // CPair (0xC)
+    int arrays;                // CArray (0xC)
+    int symbols;               // CSymbolTableEntry (0x14)
+    int scripts;               // CScript (0xF4)
+    int stored_randoms_;       // CStoredRandom (0x60) - THUGPRO leaves it, so do we
+    uint32_t string_bytes_;    // the permanent string heap (AllocatePermanentStringHeap)
+    uint32_t strings;          // its string slots (8 bytes each)
+    int hash_items_;           // the HashItem pool (memory::slot_pool_setup::SetUp, 12 bytes; from the bottom-up heap)
 };
 
 // The original's (CreateScriptPools 0x0046F520, Main 0x004E1EF0).

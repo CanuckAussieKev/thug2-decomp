@@ -15,8 +15,8 @@ public:
     struct LabeledZone {
         Zone* region;
         Arena* heap;
-        uint32_t name;    // checksum
-        char text[0x80];  // the name
+        uint32_t name;   // checksum
+        char text[0x80]; // the name
         bool used;
         uint8_t pad[3];
     };
@@ -79,7 +79,7 @@ public:
 
     MemSource* heaps_[kMaxHeaps];
     int heap_count_;
-    MemSource** ongoing_;            // the top of alloc_source_stack_
+    MemSource** ongoing_; // the top of alloc_source_stack_
     MemSource* alloc_source_stack_[16];
     int context_depth_;
     Zone* primary_zone_;
@@ -128,4 +128,4 @@ int ensure_manager();
 void shut_down_manager();
 
 extern bool g_manager_ready;
-} // namespace Mem
+} // namespace memory

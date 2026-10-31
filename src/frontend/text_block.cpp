@@ -40,9 +40,9 @@ constexpr uint32_t kRememberOverrideRgbaState = 0x0BF51A0C, kRestoreOverrideRgba
 constexpr uint32_t kOverrideEncodedRgba = 0xB7686F92, kDontOverrideEncodedRgba = 0xD25BC6CD;
 constexpr uint32_t kOverrideEncodedAlpha = 0x1A226DCD, kDontOverrideEncodedAlpha = 0xE1931201;
 
-constexpr int kLineBuffers = 30;   // lines while they are made
+constexpr int kLineBuffers = 30; // lines while they are made
 constexpr int kLineChars = 0x60;
-constexpr int kMaxTexts = 29;      // (the original's stack room for an array's strings)
+constexpr int kMaxTexts = 29; // (the original's stack room for an array's strings)
 
 // strcpy / strcat (the original's: no length limit).
 void copy_text(char* to, const char* from)
@@ -66,7 +66,8 @@ const char* get_space() { return " "; }
 void* get_font(uint32_t name) { return render::get_font(name); }
 void read_string_param(void* font, const char* text, float* width, float* height)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&render::virtual_slot8_jump)(font, text, width, height);
+    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&render::virtual_slot8_jump)(font, text,
+                                                                                                         width, height);
 }
 
 void* front_end_new(unsigned int size)
@@ -251,8 +252,8 @@ void ParagraphWidget::change_caption(const char** texts, int count)
         line->object_flags_ |= kVisibleNow;
         line->change_caption(lines_[first]);
         line->change_scale(internal_scale_, internal_scale_, false, 0);
-        lines_height_ = static_cast<float>(static_cast<double>(line->level_y_) * internal_scale_ * line_spacing_ +
-                                           lines_height_);
+        lines_height_ =
+            static_cast<float>(static_cast<double>(line->level_y_) * internal_scale_ * line_spacing_ + lines_height_);
         if (++first >= line_capacity_)
             first = 0;
     }
@@ -453,8 +454,8 @@ void ParagraphWidget::blend_towards(Struct* params)
             child->fetch_location(&x, &y);
             y = static_cast<float>(static_cast<double>(child->level_y_) * get_half() + y);
             double offset = static_cast<double>(level_y_) * get_half() - y;
-            settings.max_displacement_[1] = static_cast<float>(offset * target->bottom_scales_[1] - offset +
-                                                             settings.max_displacement_[1]);
+            settings.max_displacement_[1] =
+                static_cast<float>(offset * target->bottom_scales_[1] - offset + settings.max_displacement_[1]);
             as_text(child.owner_object_)->blur_->set_target(&settings, ms);
             child.assign_value(child->following_.owner_object_);
         }
@@ -467,8 +468,8 @@ void ParagraphWidget::tick_frame()
 {
     if (!(object_flags_ & kVisibleNow))
         return;
-    float y = static_cast<float>((static_cast<double>(level_y_) - lines_height_) * (static_cast<double>(inner_align_v_) + get_one()) *
-                                 get_half());
+    float y = static_cast<float>((static_cast<double>(level_y_) - lines_height_) *
+                                 (static_cast<double>(inner_align_v_) + get_one()) * get_half());
     ElementPtr child;
     child.assign_value(eldest_.owner_object_);
     for (int i = 0; i < rows_filled_; ++i) {
@@ -485,14 +486,22 @@ void ParagraphWidget::tick_frame()
 }
 
 namespace {
-static VtableSlot g_c_text_block_element_vtable_slots[] = {&ParagraphWidget::teardown, &ParagraphWidget::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties,
-                &ParagraphWidget::blend_towards, &ParagraphWidget::tick_frame};
+static VtableSlot g_c_text_block_element_vtable_slots[] = {
+    &ParagraphWidget::teardown,
+    &ParagraphWidget::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &ParagraphWidget::blend_towards,
+    &ParagraphWidget::tick_frame};
 void** const kCTextBlockElementVtable = reinterpret_cast<void**>(g_c_text_block_element_vtable_slots);
 } // namespace
 
-} // namespace Front
+} // namespace frontend
 
 using frontend::ParagraphWidget;

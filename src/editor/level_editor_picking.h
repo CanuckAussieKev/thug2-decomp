@@ -67,7 +67,7 @@ struct TopArea {
 void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c);
 // The triangles of an indexed strip (as ray_strip reads them) added.
 void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-                 const uint16_t* indices, uint32_t index_count);
+                   const uint16_t* indices, uint32_t index_count);
 // The level part of the upward-facing surface (1 when there's none: a piece of side walls only).
 float get_level_share(const TopArea& area);
 
@@ -115,14 +115,14 @@ float gizmo_slack(float depth, float units_per_pixel, float pixels);
 
 // What the ray met (the nearest of each kind; t: the distance along the ray) and what a click takes.
 struct Candidates {
-    int node = -1;          // a node's gizmo under the cursor (screen distance; first)
-    bool object = false;    // an object's box
+    int node = -1;       // a node's gizmo under the cursor (screen distance; first)
+    bool object = false; // an object's box
     float object_t_ = 0.0f;
-    bool scenery = false;   // a scenery piece a plain click takes
+    bool scenery = false; // a scenery piece a plain click takes
     float scenery_t_ = 0.0f;
-    bool passed = false;    // the nearest piece a plain click passes (structure, see-through)
+    bool passed = false; // the nearest piece a plain click passes (structure, see-through)
     float passed_t_ = 0.0f;
-    bool blocked = false;   // the first occluding scenery surface (Resolved::block_t_)
+    bool blocked = false; // the first occluding scenery surface (Resolved::block_t_)
     float block_t_ = 0.0f;
 };
 enum class Choice { kNone, kNode, kObject, kScenery, kPassed };
@@ -151,7 +151,7 @@ struct Layered {
 // Everything under the cursor in the cycle's order, as the filter lets it be clicked (`objects` and `scenery` each
 // nearest first).
 std::vector<TableRow> cycle_order(int node, const std::vector<Layered>& objects, const std::vector<Layered>& scenery,
-                              uint32_t filter);
+                                  uint32_t filter);
 // Where `kind` / `id` is in the order (-1: not in it).
 int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id);
 // Within `tolerance` pixels of the last click.
@@ -163,7 +163,7 @@ bool ray_triangle(V3 origin, V3 dir, V3 a, V3 b, V3 c, float* t);
 // triangle, repeated indices - the strips' joins - none): `positions` the vertices' x, y, z, `stride` bytes apart,
 // `vertexCount` of them (indices past it skipped). The nearest hit below `max_t`.
 bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uint32_t vertex_count,
-              const uint16_t* indices, uint32_t index_count, float max_t, float* t);
+               const uint16_t* indices, uint32_t index_count, float max_t, float* t);
 
 // Locks: by kind (kObjects: an object's id; kScenery: a sector's checksum).
 struct Lock {
@@ -178,4 +178,4 @@ const std::vector<Lock>& get_locks();
 void clear_locks();
 void set_locks(const std::vector<Lock>& locks);
 
-} // namespace MenuSystem::level_editor::Picking
+} // namespace frontend::level_editor::picking

@@ -82,14 +82,14 @@ struct Rig {
     float* yaw;
     float* pitch;
     float* orbit_distance_; // (with a selection the editor puts the camera this far back from `target` each frame)
-    float* speed;         // the flying speed
+    float* speed;           // the flying speed
     bool have_selection_;
-    V3 target;            // the selection's centre (what the camera orbits)
-    float radius;         // the selection's size (a sphere round its boxes)
-    bool dragging;        // a move under way (the wheel pushes it)
-    Lens lens;            // the last frame's (perspective: the game's angle)
+    V3 target;                             // the selection's centre (what the camera orbits)
+    float radius;                          // the selection's size (a sphere round its boxes)
+    bool dragging;                         // a move under way (the wheel pushes it)
+    Lens lens;                             // the last frame's (perspective: the game's angle)
     bool (*cast)(V3 from, V3 to, V3* hit); // the game's collision ray
-    void (*focus)();      // the camera made to look at the selection (focus_on_selection)
+    void (*focus)();                       // the camera made to look at the selection (focus_on_selection)
     void (*deselect)();
 };
 
@@ -138,4 +138,4 @@ float get_near_plane();
 // For the status bar: "Top (ortho)", "flying to the selection"... (empty: nothing to say).
 std::string get_standing();
 
-} // namespace MenuSystem::level_editor::ViewCam
+} // namespace frontend::level_editor::view_cam

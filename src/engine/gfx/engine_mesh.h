@@ -32,11 +32,11 @@ public:
     uint32_t unknown4_;
     char collision_name_[0x80]; // +0x08: the .col file kept loaded (Pip)
     int collision_count_;       // +0x88
-    uint8_t* hit_shape_;      // +0x8C: the objects (0x40 bytes each)
-    maths::BBox box_;            // +0x90
+    uint8_t* hit_shape_;        // +0x8C: the objects (0x40 bytes each)
+    maths::BBox box_;           // +0x90
     uint32_t unknownb0_;
-    void* hierarchy_;         // +0xB4
-    uint32_t hierarchy_count_;  // +0xB8
+    void* hierarchy_;          // +0xB4
+    uint32_t hierarchy_count_; // +0xB8
 };
 static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_count_) == 0xB8 && sizeof(SubMesh) == 0xBC,
               "layout must match the original");
@@ -54,4 +54,4 @@ struct SplatSlots {
     int oldest_slot(uint32_t count);
 };
 
-} // namespace Nx
+} // namespace render

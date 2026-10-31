@@ -131,4 +131,4 @@ Mat4& make_pitch_matrix(Mat4& m, float angle);
 Mat4& make_yaw_matrix(Mat4& m, float angle);
 Mat4& make_roll_matrix(Mat4& m, float angle);
 
-} // namespace Mth
+} // namespace maths

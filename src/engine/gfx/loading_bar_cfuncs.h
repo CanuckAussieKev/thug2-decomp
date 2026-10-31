@@ -5,7 +5,7 @@
 namespace script {
 class Script;
 class Struct;
-}
+} // namespace script
 
 // The loading bar's script commands and the engine's loading screen calls (Nx, cdecl).
 namespace render {
@@ -29,4 +29,4 @@ void __cdecl display_loading_screen(const char* name, bool keep, bool black);
 void __cdecl remove_loading_screen();
 
 extern uint8_t g_loading_screen_shown;
-} // namespace Nx
+} // namespace render

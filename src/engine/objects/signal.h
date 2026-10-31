@@ -20,7 +20,7 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -49,13 +49,14 @@ struct Signal {
     // 0x00460150: the destructor: the data goes if the event owns it.
     void teardown();
 
-    uint32_t kind_tag_;          // +0x00
-    uint32_t from_where_;        // +0x04 the id of the sender
-    uint32_t aim_point_;        // +0x08 the id of the object (or spawned script) it is for
-    uint32_t flag_bits_;         // +0x0C
+    uint32_t kind_tag_;       // +0x00
+    uint32_t from_where_;     // +0x04 the id of the sender
+    uint32_t aim_point_;      // +0x08 the id of the object (or spawned script) it is for
+    uint32_t flag_bits_;      // +0x0C
     script::Struct* payload_; // +0x10 added to each handler's parameters
 };
-static_assert(offsetof(Signal, flag_bits_) == 0x0C && offsetof(Signal, payload_) == 0x10, "layout must match the original");
+static_assert(offsetof(Signal, flag_bits_) == 0x0C && offsetof(Signal, payload_) == 0x10,
+              "layout must match the original");
 
 // 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
 int __cdecl event_controller(Signal* event);
@@ -74,11 +75,11 @@ public:
     void enter_wait_board(Entity* object);
 
     void** vtable_;
-    SharedRef<Entity> owner_object_;       // +0x04
-    SignalReceiver* next_subscriber_;  // +0x10 the tracker's list (set by the tracker)
-    bool on_board_;                // +0x14 on the tracker's list
+    SharedRef<Entity> owner_object_;  // +0x04
+    SignalReceiver* next_subscriber_; // +0x10 the tracker's list (set by the tracker)
+    bool on_board_;                   // +0x14 on the tracker's list
     uint8_t pad15_[3];
-    int busy_;                       // +0x18 raised by the tracker while it asks this listener (0x00462F00)
+    int busy_; // +0x18 raised by the tracker while it asks this listener (0x00462F00)
 };
 static_assert(offsetof(SignalReceiver, next_subscriber_) == 0x10 && offsetof(SignalReceiver, on_board_) == 0x14 &&
                   sizeof(SignalReceiver) == 0x1C,
@@ -92,13 +93,13 @@ public:
     struct TableRow {
         enum : uint8_t {
             kFlagReplacesRunning = 0x01, // replaces the running script instead of interrupting it
-            kFlagMarked = 0x02,    // marked for removal (mark_group / remove_marked)
+            kFlagMarked = 0x02,          // marked for removal (mark_group / remove_marked)
         };
-        uint32_t type;            // +0x00 the event type (0 after remove_type)
-        uint32_t script;          // +0x04 the handler script; kNullScript = removed
-        uint32_t group;           // +0x08
-        script::Struct* params;  // +0x0C a copy, owned
-        uint8_t flags;            // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
+        uint32_t type;          // +0x00 the event type (0 after remove_type)
+        uint32_t script;        // +0x04 the handler script; kNullScript = removed
+        uint32_t group;         // +0x08
+        script::Struct* params; // +0x0C a copy, owned
+        uint8_t flags;          // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
         uint8_t pad[3];
     };
     static_assert(sizeof(TableRow) == 0x14, "layout must match the original");
@@ -111,7 +112,7 @@ public:
     // 0x0045FBC0: a handler for `type`: replaces the entry of that type, else reuses a removed entry, else a new
     // one at the end. The tracker is told `script` listens for `type` unless the entry of that type was live.
     void append_listener(script::Script* script, uint32_t type, uint32_t script_name, uint32_t group, bool exception,
-                    script::Struct* params);
+                         script::Struct* params);
     // 0x004601A0: the handler structures of `handlers` ({type, script, [params = {...}], [group = g], [exception]})
     // go in front of the existing entries; with `replace`, existing entries of each type are removed first, and
     // an empty array removes (and drops) them all. The tracker isn't told.
@@ -141,14 +142,14 @@ public:
     // 0x0045F880 (cdecl): print the table (null: "Emtpy" [sic]); returns debug::Printf's result.
     static int list_wait_table(SignalRouteTable* table);
 
-    TableRow* entries_;   // +0x00
-    int num_;        // +0x04
-    bool alive_;       // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
-    bool altered_;     // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
+    TableRow* entries_; // +0x00
+    int num_;           // +0x04
+    bool alive_; // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
+    bool altered_; // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
     uint8_t pad0a_[2];
-    int in_use_;        // +0x0C forward_trigger nesting depth
+    int in_use_; // +0x0C forward_trigger nesting depth
 };
 static_assert(sizeof(SignalRouteTable) == 0x10 && offsetof(SignalRouteTable, in_use_) == 0x0C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

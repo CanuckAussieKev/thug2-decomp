@@ -16,13 +16,13 @@ class HitMesh;
 
 // WorldCell::flag_bits_ (4, 8, 0x10 and 0x20 are acted on by the scene's next UpdateSuperSectors)
 enum : uint32_t {
-    kSectorCollidable = 0x01,      // (set when made)
-    kSectorClone = 0x02,           // a clone: its collision object is its own (deleted with it)
-    kSectorAddToGrid = 0x04,       // its collision to be put in the super sectors (a clone made with Clone's flag)
-    kSectorDelete = 0x08,          // to be taken out of them and deleted
-    kSectorRemoveFromGrid = 0x10,  // to be taken out of them
-    kSectorMoved = 0x20,           // moved, turned or scaled while kSectorInGrid: to be moved in them
-    kSectorInGrid = 0x40,          // its collision is in the scene's super sectors
+    kSectorCollidable = 0x01,     // (set when made)
+    kSectorClone = 0x02,          // a clone: its collision object is its own (deleted with it)
+    kSectorAddToGrid = 0x04,      // its collision to be put in the super sectors (a clone made with Clone's flag)
+    kSectorDelete = 0x08,         // to be taken out of them and deleted
+    kSectorRemoveFromGrid = 0x10, // to be taken out of them
+    kSectorMoved = 0x20,          // moved, turned or scaled while kSectorInGrid: to be moved in them
+    kSectorInGrid = 0x40,         // its collision is in the scene's super sectors
 };
 
 // The sector (0x1C bytes of the engine's; vtable 0x00649A40 - PC 0x0064A718). Its virtual slots: [0] destroy, [1]
@@ -95,8 +95,8 @@ public:
     // the explicit UV wibble on / off, 0x0049E850 its offsets, 0x0049E860 / 0x0049E870 / 0x0049E880 the texture
     // animation reset, started, stopped.
     void play_vc_wibble_from_keyframe(int sequence, int keyframe, int time_ms);
-    void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp, float v_freq,
-                           float v_phase);
+    void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
+                              float v_freq, float v_phase);
     void force_uv_wobble(bool on);
     void set_uv_wibble_offsets(float u, float v);
     void reset_texture_anim();
@@ -104,14 +104,15 @@ public:
     void stop_texture_anim();
 
     void** vtable;
-    uint32_t checksum_;   // +0x04: its name
-    uint32_t flag_bits_;      // +0x08
-    uint32_t surface_type_;    // +0x0C: its terrain type (the node's TerrainType)
-    int rot_y_;            // +0x10: quarter turns about y
-    void* geom_handle_;         // +0x14: CGeom (on PC a PcGeom), or null
-    HitMesh* hit_body_;  // +0x18: or null
+    uint32_t checksum_;     // +0x04: its name
+    uint32_t flag_bits_;    // +0x08
+    uint32_t surface_type_; // +0x0C: its terrain type (the node's TerrainType)
+    int rot_y_;             // +0x10: quarter turns about y
+    void* geom_handle_;     // +0x14: CGeom (on PC a PcGeom), or null
+    HitMesh* hit_body_;     // +0x18: or null
 };
-static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 && sizeof(WorldCell) == 0x1C,
+static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&
+                  sizeof(WorldCell) == 0x1C,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

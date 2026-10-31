@@ -20,16 +20,16 @@ namespace objects {
 namespace {
 
 // Names.
-constexpr uint32_t kName = 0xA1DC81F9;         // name
-constexpr uint32_t kDisplayName = 0x2AB66CB8;  // display_name
-constexpr uint32_t kIsPro = 0xD82F8AC8;        // is_pro
-constexpr uint32_t kSpecials = 0xDDBEE809;     // specials
-constexpr uint32_t kMaxSpecials = 0xAC9B9EDA;  // max_specials
-constexpr uint32_t kStance = 0x7D02BCC3;       // stance
-constexpr uint32_t kPushStyle = 0xC15DBF86;    // pushstyle
-constexpr uint32_t kAppearance = 0x554C7D6F;   // appearance
-constexpr uint32_t kInfo = 0x3476CEA8;         // info
-constexpr uint32_t kDeckFlags = 0x95388A60;    // DeckFlags
+constexpr uint32_t kName = 0xA1DC81F9;        // name
+constexpr uint32_t kDisplayName = 0x2AB66CB8; // display_name
+constexpr uint32_t kIsPro = 0xD82F8AC8;       // is_pro
+constexpr uint32_t kSpecials = 0xDDBEE809;    // specials
+constexpr uint32_t kMaxSpecials = 0xAC9B9EDA; // max_specials
+constexpr uint32_t kStance = 0x7D02BCC3;      // stance
+constexpr uint32_t kPushStyle = 0xC15DBF86;   // pushstyle
+constexpr uint32_t kAppearance = 0x554C7D6F;  // appearance
+constexpr uint32_t kInfo = 0x3476CEA8;        // info
+constexpr uint32_t kDeckFlags = 0x95388A60;   // DeckFlags
 constexpr uint32_t kTrickSlot = 0x5B077CE1;
 constexpr uint32_t kTrickKeys = 0xA92A2280;
 constexpr uint32_t kTrickMarker = 0xB56A8816;
@@ -38,7 +38,7 @@ constexpr uint32_t kTrickStyle = 0xD544AA2D;     // the trick style structure (i
 constexpr uint32_t kTrickStyleName = 0xE365363E; // its global structure's name (in params)
 constexpr uint32_t kAppearanceName = 0x1D6F290C; // a global appearance structure's name (in params)
 constexpr uint32_t kCustomSkater = 0x0A7BE964;   // the custom skater's name
-constexpr uint32_t kStatCatalog = 0x61EB6BA9;       // the global array of stats (each a structure with a name)
+constexpr uint32_t kStatCatalog = 0x61EB6BA9;    // the global array of stats (each a structure with a name)
 constexpr uint32_t kOwnedStructure = 11;         // a component type: a structure it owns, by pointer
 
 // The appearance's code (0x00488xxx-0x00489xxx).
@@ -380,9 +380,11 @@ bool RiderIdentity::get_reset(script::Struct* params)
     script::Struct* mine = details_params();
     mine->get_clear();
     script::Struct* memory = script::spawn_param_bag();
-    mine->add_component_of_type(kTrickStyle, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->prepare_all() : nullptr));
+    mine->add_component_of_type(kTrickStyle, kOwnedStructure,
+                                reinterpret_cast<uint32_t>(memory ? memory->prepare_all() : nullptr));
     memory = script::spawn_param_bag();
-    mine->add_component_of_type(kSpecials, kOwnedStructure, reinterpret_cast<uint32_t>(memory ? memory->prepare_all() : nullptr));
+    mine->add_component_of_type(kSpecials, kOwnedStructure,
+                                reinterpret_cast<uint32_t>(memory ? memory->prepare_all() : nullptr));
     pop_heap();
     if (!params)
         return true;
@@ -419,7 +421,7 @@ void RiderIdentity::write_to_save(script::Struct* save)
 {
     script::Struct* mine = new_empty_struct();
     mine->add_component_of_type(0x1902C8F0, script::kQbvalInteger, 2); // the version
-    int pro = static_cast<int>(reinterpret_cast<uint32_t>(mine)); // (the slot's last value, if is_pro isn't there)
+    int pro = static_cast<int>(reinterpret_cast<uint32_t>(mine));      // (the slot's last value, if is_pro isn't there)
     details_params()->fetch_int_value(kIsPro, &pro, 1);
     if (!pro) {
         script::Struct* appearance = new_empty_struct();
@@ -485,7 +487,8 @@ uint8_t* RiderIdentity::read_info_from_buffer(uint8_t* buffer)
 int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
 {
     push_script_heap();
-    int total = reinterpret_cast<gfx::ModelLook*>(this)->emit_into_buffer(buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
+    int total = reinterpret_cast<gfx::ModelLook*>(this)->emit_into_buffer(
+        buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
     size -= total;
     buffer += total;
     script::Struct* part = reinterpret_cast<script::Struct*>(flags); // (the argument's slot)
@@ -548,4 +551,4 @@ int RiderIdentity::write_info_to_buffer(uint8_t* buffer, int size)
     return written;
 }
 
-} // namespace Obj
+} // namespace objects

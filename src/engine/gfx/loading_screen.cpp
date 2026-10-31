@@ -41,10 +41,7 @@ uint32_t fog_render_flag() { return g_fog_active; } // (the renderer's cached D3
 // The Windows calls, through the exe's imports (as device.cpp's timer: so a test can stand in for them alone).
 void get_lock() { WaitForSingleObject(screen_mutex(), INFINITE); }
 void get_unlock() { ReleaseMutex(screen_mutex()); }
-UINT start_timer(UINT delay, LPTIMECALLBACK callback)
-{
-    return timeSetEvent(delay, 0, callback, 0, TIME_PERIODIC);
-}
+UINT start_timer(UINT delay, LPTIMECALLBACK callback) { return timeSetEvent(delay, 0, callback, 0, TIME_PERIODIC); }
 void stop_timer(UINT timer) { timeKillEvent(timer); }
 
 void* g_loading_screen_sprite;
@@ -223,8 +220,8 @@ void __cdecl free_loading_screen_sprite()
 // 0x004B7400
 void __cdecl show_progress_bar(float seconds)
 {
-    g_elapsed_seconds = 0.0f;  // elapsed
-    g_tick_seconds = 0.03f; // a tick's seconds (0x3CF5C28F)
+    g_elapsed_seconds = 0.0f;                                                  // elapsed
+    g_tick_seconds = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
     g_total_seconds = static_cast<float>(static_cast<double>(seconds) * 0.6f); // (0x006463C4)
     update_loading_bar_colors();
     if (!bar_timer())
@@ -267,7 +264,8 @@ void __cdecl show_loading_screen(const char* name, bool keep, bool black)
                 }
             }
             void* memory = memory::alloc(0x14);
-            picture() = memory ? reinterpret_cast<uint8_t*>(static_cast<render::PcTexture*>(memory)->make_new()) : nullptr;
+            picture() =
+                memory ? reinterpret_cast<uint8_t*>(static_cast<render::PcTexture*>(memory)->make_new()) : nullptr;
             // the language's picture: French "fr/<name>", German "gr/<name>"
             char localised[0xC8];
             const char* file = name;
@@ -299,4 +297,4 @@ void __cdecl show_loading_screen(const char* name, bool keep, bool black)
 
 bool select_picture_up() { return s_select_picture; }
 
-} // namespace Nx
+} // namespace render

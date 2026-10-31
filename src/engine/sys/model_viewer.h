@@ -34,10 +34,10 @@ struct Viewer;
 
 // pad_input::Responder<Viewer> (0x2C bytes, vtable 0x0064D7D8 - the template's, shared with the front end's handlers).
 struct ViewerInputHandler {
-    uint8_t list_link_[0x18];            // the handler list node (0x00406890, with the priority)
-    pad_input::Payload* control_data_;        // +0x18: the controller's data this frame
-    uint8_t* dev_;               // +0x1C
-    int ordinal_;                     // +0x20: the controller (the script integer 0x702247A5)
+    uint8_t list_link_[0x18];          // the handler list node (0x00406890, with the priority)
+    pad_input::Payload* control_data_; // +0x18: the controller's data this frame
+    uint8_t* dev_;                     // +0x1C
+    int ordinal_;                      // +0x20: the controller (the script integer 0x702247A5)
     void(__cdecl* code_value_)(ViewerInputHandler*);
     Viewer* content_;
 
@@ -69,21 +69,21 @@ struct Viewer : PartUnit {
         kCommandShoulderB = 0x4,
     };
 
-    ViewerInputHandler* pad_listener_; // +0x14 (process_pad_input, priority 0)
+    ViewerInputHandler* pad_listener_;  // +0x14 (process_pad_input, priority 0)
     ViewerInputHandler* shift_handler_; // +0x18 (HandleShift, priority 1000)
     void* task_1c_;                     // +0x1C a tasks::Task<Viewer> (0x00577870)
-    void* task20_;                     // +0x20 a tasks::Task<Viewer> (0x00577380)
-    float pad_rx_;                     // +0x24 the sticks (raw, -128..127)
-    float pad_ry_;                     // +0x28
+    void* task20_;                      // +0x20 a tasks::Task<Viewer> (0x00577380)
+    float pad_rx_;                      // +0x24 the sticks (raw, -128..127)
+    float pad_ry_;                      // +0x28
     uint8_t unknown2c_[8];
-    float pad_lx_;                      // +0x34
-    float pad_ly_;                      // +0x38
+    float pad_lx_; // +0x34
+    float pad_ly_; // +0x38
     uint8_t unknown3c_[8];
-    uint32_t actions_;                // +0x44 the buttons' commands (bits; add_commands)
-    uint32_t shift_makes_;              // +0x48 the buttons pressed with select held
-    int mode_sel_;                         // +0x4C 0: object mode, 1: ...
-    void* net_handler_;                 // +0x50 the PC tool's message handler (vtable; +0x0C a list node)
-    void* entity_;                     // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
+    uint32_t actions_;     // +0x44 the buttons' commands (bits; add_commands)
+    uint32_t shift_makes_; // +0x48 the buttons pressed with select held
+    int mode_sel_;         // +0x4C 0: object mode, 1: ...
+    void* net_handler_;    // +0x50 the PC tool's message handler (vtable; +0x0C a list node)
+    void* entity_;         // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
 
     // 0x00577F20: the constructor (only cfunc_launch_viewer 0x005A54E0 makes one): the module, no commands; unless
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port
@@ -164,4 +164,4 @@ int __cdecl reload_script_file(const char** name);
 // 0x005772E0: `object` moved by `offset` along its own axes (its matrix's rotation).
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset);
 
-} // namespace Mdl
+} // namespace modules

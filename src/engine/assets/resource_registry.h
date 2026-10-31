@@ -37,15 +37,15 @@ public:
     // 0x00408060: an asset of `type` from data in memory (load_from_buffer with `data`, `size`, `copy`, `params`,
     // `extra`); `group` is the checksum of an asset it depends on. Returns the asset's data, or null if it failed
     // (the asset deleted - unless the script integer 0x25DC7904 is set, a debug leftover).
-    void* read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size, bool permanent,
-                              bool copy, void* params, int extra);
+    void* read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size,
+                                    bool permanent, bool copy, void* params, int extra);
     // 0x00408440: an asset loaded from a file (Load with `name`, `async`, `use_archive`, `params`, `extra`). A zero
     // checksum is the name's, a zero type the extension's. An async one goes on the pending list.
     void* load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
-                    bool permanent, void* params, int extra);
+                     bool permanent, void* params, int extra);
     // 0x004087B0: the asset's data if it's there (waiting for it to load), else LoadAsset.
-    void* fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
-                         bool permanent, void* params, int extra);
+    void* fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
+                                 bool use_archive, bool permanent, void* params, int extra);
     // 0x00408870: an animation by name (its checksum `base` + `offset` if `base` isn't zero); false if one with
     // that checksum is there already or loading failed.
     bool load_anim(const char* name, uint32_t base, uint32_t offset, bool async, bool use_archive);
@@ -89,21 +89,22 @@ public:
     // 0x004079C0: the type of a file name's extension (0 if none matches; thiscall, the manager unused).
     int get_type_from_extension(const char* name);
 
-    bool permanent_by_default_;    // +0x14 what LoadAnim loads with
-    bool unknown15_;             // +0x15 cleared by the constructor
+    bool permanent_by_default_; // +0x14 what LoadAnim loads with
+    bool unknown15_;            // +0x15 cleared by the constructor
     uint8_t pad16[2];
-    int unknown18_;              // +0x18 set by 0x00407A70 (not read here)
-    lists::KeyMap* assets_;     // +0x1C
-    Resource* ready_flag_;             // +0x20 the head of the loaded list
-    Resource* pending_;            // +0x24 the head of the pending list
-    LoadCallback callback_;      // +0x28 given to the next assets loaded
-    void* callback_data0_;        // +0x2C
-    void* callback_data1_;        // +0x30
-    bool callback_once_;          // +0x34 the callback cleared after one asset
+    int unknown18_;         // +0x18 set by 0x00407A70 (not read here)
+    lists::KeyMap* assets_; // +0x1C
+    Resource* ready_flag_;  // +0x20 the head of the loaded list
+    Resource* pending_;     // +0x24 the head of the pending list
+    LoadCallback callback_; // +0x28 given to the next assets loaded
+    void* callback_data0_;  // +0x2C
+    void* callback_data1_;  // +0x30
+    bool callback_once_;    // +0x34 the callback cleared after one asset
     uint8_t pad35[3];
-    tasks::SchedulerTask* task_;        // +0x38 a tasks::Task<ResourceRegistry> running process_task
+    tasks::SchedulerTask* task_; // +0x38 a tasks::Task<ResourceRegistry> running process_task
 };
-static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C && offsetof(ResourceRegistry, task_) == 0x38,
+static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&
+                  offsetof(ResourceRegistry, task_) == 0x38,
               "layout must match the original");
 
 // 0x004088E0: the first call with `create` makes the manager; every call takes a reference. Returns the manager.
@@ -115,4 +116,4 @@ inline ResourceRegistry*& asset_manager() { return g_asset_manager; }
 
 extern frame_loop::Hub* g_main_loop_manager;
 
-} // namespace Ass
+} // namespace assets

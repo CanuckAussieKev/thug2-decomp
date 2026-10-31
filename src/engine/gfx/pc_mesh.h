@@ -28,11 +28,11 @@ struct PcMesh {
     void** vtable;
     uint8_t base[0xAC];
     uint32_t bone_count_;      // +0xB0 (the skin file's, from version 2)
-    void* hierarchy;         // +0xB4: the scene's (SHierarchyNode)
+    void* hierarchy;           // +0xB4: the scene's (SHierarchyNode)
     uint32_t hierarchy_count_; // +0xB8
-    StripBreak* breaks;     // +0xBC
+    StripBreak* breaks;        // +0xBC
     uint32_t break_count_;     // +0xC0
-    uint8_t* scene;          // +0xC4
+    uint8_t* scene;            // +0xC4
 
     // 0x004B7B30: construct. Returns this.
     PcMesh* make_new();
@@ -55,4 +55,4 @@ struct PcMesh {
 static_assert(offsetof(PcMesh, bone_count_) == 0xB0 && offsetof(PcMesh, scene) == 0xC4 && sizeof(PcMesh) == 0xC8,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

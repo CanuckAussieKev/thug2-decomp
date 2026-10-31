@@ -99,4 +99,4 @@ uint32_t refused_reason_text(int reason)
     return text.name;
 }
 
-} // namespace online::Thugpro
+} // namespace online::thugpro

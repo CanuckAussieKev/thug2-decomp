@@ -26,7 +26,7 @@ class Array;
 class Script;
 class Struct;
 struct MemberFunctionEntry;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -59,9 +59,9 @@ struct EntityListEntry : memory::ListNode {
 };
 
 // object_flags_ (+0x08)
-constexpr uint32_t kObjectFlagDead = 0x1;      // flag_as_dead: waiting in the manager's dead list to be deleted
-constexpr uint32_t kObjectFlagLocked = 0x2;    // not deleted by the manager walks that delete unlocked objects
-constexpr uint32_t kEntityHiddenBit = 0x4; // obj_invisible / Obj_Visible
+constexpr uint32_t kObjectFlagDead = 0x1;              // flag_as_dead: waiting in the manager's dead list to be deleted
+constexpr uint32_t kObjectFlagLocked = 0x2;            // not deleted by the manager walks that delete unlocked objects
+constexpr uint32_t kEntityHiddenBit = 0x4;             // obj_invisible / Obj_Visible
 constexpr uint32_t kObjectFlagHasPosition = 0x20;      // the tracker's distance checks use its position (+0x4C)
 constexpr uint32_t kObjectFlagSpawnHandlers = 0x10000; // its event handlers run as new spawned scripts on it
 
@@ -118,7 +118,7 @@ public:
     // 0x00461480: spawn `name` on the object and Update it once at once (`replicate_flag`: the other players are
     // told first, with no object).
     script::Script* start_script_task(uint32_t name, int node, bool replicate_flag, bool permanent,
-                                       script::Struct* params);
+                                      script::Struct* params);
 
     // --- events (the tracker 0x006F0FC0's LaunchEvent 0x00462F00) ---
     // 0x004609F0: an event of `type` from the object to itself.
@@ -161,34 +161,34 @@ public:
     uint32_t get_flag_mask(script::Struct* params, script::Script* script);
 
     // --- the member functions scripts call on the object (the table at 0x00683550) ---
-    bool obj_leave_script(script::Struct* params, script::Script* script);       // 0x00460840 (0xB3C262EC)
+    bool obj_leave_script(script::Struct* params, script::Script* script);        // 0x00460840 (0xB3C262EC)
     bool obj_kill_spawned_script(script::Struct* params, script::Script* script); // 0x00460850
-    bool obj_visible(script::Struct* params, script::Script* script);           // 0x004608D0
-    bool obj_invisible(script::Struct* params, script::Script* script);         // 0x004608E0
-    bool obj_get_id(script::Struct* params, script::Script* script);             // 0x00460940
-    bool obj_get_tags(script::Struct* params, script::Script* script);           // 0x00460EB0 (fetch_labels)
+    bool obj_visible(script::Struct* params, script::Script* script);             // 0x004608D0
+    bool obj_invisible(script::Struct* params, script::Script* script);           // 0x004608E0
+    bool obj_get_id(script::Struct* params, script::Script* script);              // 0x00460940
+    bool obj_get_tags(script::Struct* params, script::Script* script);            // 0x00460EB0 (fetch_labels)
     bool obj_get_single_tag(script::Struct* params, script::Script* script);      // 0x00460FB0 (GetSingleTag)
     bool obj_get_named_tags(script::Struct* params, script::Script* script);      // 0x00460FC0 (0xEEEB7220)
-    bool obj_remove_tags(script::Struct* params, script::Script* script);        // 0x00460FF0 (RemoveTags)
+    bool obj_remove_tags(script::Struct* params, script::Script* script);         // 0x00460FF0 (RemoveTags)
     bool obj_flag_not_set(script::Struct* params, script::Script* script);        // 0x00461040
-    bool obj_clear_flag(script::Struct* params, script::Script* script);         // 0x00461070
-    bool obj_set_flag(script::Struct* params, script::Script* script);           // 0x004610C0
-    bool obj_flag_set(script::Struct* params, script::Script* script);           // 0x004610F0
-    bool obj_set_tags(script::Struct* params, script::Script* script);           // 0x004617C0 (SetTags)
-    bool obj_spawn_script(script::Struct* params, script::Script* script);       // 0x004617E0
-    bool obj_switch_script(script::Struct* params, script::Script* script);      // 0x004618A0
+    bool obj_clear_flag(script::Struct* params, script::Script* script);          // 0x00461070
+    bool obj_set_flag(script::Struct* params, script::Script* script);            // 0x004610C0
+    bool obj_flag_set(script::Struct* params, script::Script* script);            // 0x004610F0
+    bool obj_set_tags(script::Struct* params, script::Script* script);            // 0x004617C0 (SetTags)
+    bool obj_spawn_script(script::Struct* params, script::Script* script);        // 0x004617E0
+    bool obj_switch_script(script::Struct* params, script::Script* script);       // 0x004618A0
 
     // --- fields (after SharedBase's vtable and smart pointer list) ---
-    uint32_t object_flags_;        // +0x08 OBJECT_FLAG_*
-    ObjectHubBase* park_owner_;      // +0x0C the manager it is registered with
-    script::Script* own_script_;     // +0x10 its own script (made on demand)
-    uint32_t ident_;                 // +0x14 kUnassignedId until registered
-    uint32_t kind_tag_;               // +0x18
-    uint32_t visited_mask_;        // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
-    script::Struct* tag_table_;      // +0x20 made on demand (front-end heap)
-    uint32_t flag_bits_;              // +0x24 the script flags (Obj_SetFlag...; never initialised here)
-    EntityListEntry list_link_;            // +0x28 in the manager's list (or its dead list)
-    uint32_t alias_count_;         // +0x3C the tracker's aliases of it (tracker.cpp)
+    uint32_t object_flags_;      // +0x08 OBJECT_FLAG_*
+    ObjectHubBase* park_owner_;  // +0x0C the manager it is registered with
+    script::Script* own_script_; // +0x10 its own script (made on demand)
+    uint32_t ident_;             // +0x14 kUnassignedId until registered
+    uint32_t kind_tag_;          // +0x18
+    uint32_t visited_mask_;      // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
+    script::Struct* tag_table_;  // +0x20 made on demand (front-end heap)
+    uint32_t flag_bits_;         // +0x24 the script flags (Obj_SetFlag...; never initialised here)
+    EntityListEntry list_link_;  // +0x28 in the manager's list (or its dead list)
+    uint32_t alias_count_;       // +0x3C the tracker's aliases of it (tracker.cpp)
     ObjectRef ref_;              // +0x40
 };
 static_assert(offsetof(Entity, object_flags_) == 0x08 && offsetof(Entity, park_owner_) == 0x0C &&
@@ -262,11 +262,11 @@ public:
     }
 
     void** vtable_;
-    uint32_t kind_tag_;                // +0x04 its component type (a checksum)
-    uint32_t flag_bits_;               // +0x08 COMPONENT_FLAG_*
-    GameEntity* entity_;     // +0x0C
-    ObjectModule* following_;        // +0x10 the next of its object's components
-    ObjectModule* next_of_type_;  // +0x14 the next of the manager's components of its type
+    uint32_t kind_tag_;          // +0x04 its component type (a checksum)
+    uint32_t flag_bits_;         // +0x08 COMPONENT_FLAG_*
+    GameEntity* entity_;         // +0x0C
+    ObjectModule* following_;    // +0x10 the next of its object's components
+    ObjectModule* next_of_type_; // +0x14 the next of the manager's components of its type
 };
 static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == 0x08 &&
                   offsetof(ObjectModule, entity_) == 0x0C && offsetof(ObjectModule, following_) == 0x10 &&
@@ -278,8 +278,8 @@ constexpr uint32_t kComponentFlagSuspended = 0x1;
 constexpr uint32_t kComponentFlagScriptWaiting = 0x2; // a script waited on it (set_wait_on_component)
 
 // GameEntity::composite_flags_ (+0x104)
-constexpr uint32_t kCompositeFlagPaused = 0x1;      // not updated at all; its PAUSE_WITH_OBJECT scripts wait too
-constexpr uint32_t kCompositeFlagSuspended = 0x2;   // its script and own update skipped (components still run)
+constexpr uint32_t kCompositeFlagPaused = 0x1;    // not updated at all; its PAUSE_WITH_OBJECT scripts wait too
+constexpr uint32_t kCompositeFlagSuspended = 0x2; // its script and own update skipped (components still run)
 constexpr uint32_t kCompositeFlagHidden = 0x4;
 constexpr uint32_t kCompositeFlagTeleported = 0x8;  // until the end of its next update
 constexpr uint32_t kCompositeFlagFinalized = 0x20;  // Finalize (which also sets 0x40)
@@ -339,39 +339,39 @@ public:
 
     // --- the member functions scripts call (the table at 0x00683268, component type 0x0ADA4E74) ---
     // (Names in brackets are the checksums of names not recovered; the C++ names say what they do.)
-    bool obj_get_position(script::Struct* params, script::Script* script);         // 0x0045DBC0
-    bool obj_print_details(script::Struct* params, script::Script* script);        // 0x0045D7F0
-    bool obj_create_component(script::Struct* params, script::Script* script);     // 0x0045D810 [0x406998A5]
-    bool obj_component_exists(script::Struct* params, script::Script* script);     // 0x0045DBF0 [0x2BFFEAA3]
-    bool obj_set_position(script::Struct* params, script::Script* script);         // 0x0045D830
-    bool obj_force_update(script::Struct* params, script::Script* script);         // 0x0045DC40
-    bool obj_get_velocity(script::Struct* params, script::Script* script);         // 0x0045DC50
-    bool get_speed(script::Struct* params, script::Script* script);                // 0x0045DC80
-    bool obj_hide(script::Struct* params, script::Script* script);                // 0x0045DCD0 (Hide)
-    bool obj_unhide(script::Struct* params, script::Script* script);              // 0x0045DD20 (Unhide)
-    bool obj_is_hidden(script::Struct* params, script::Script* script);            // 0x0045DD70 (is_concealed)
-    bool obj_move_local(script::Struct* params, script::Script* script);           // 0x0045DD80 [0x10C1C887]
-    bool obj_suspend(script::Struct* params, script::Script* script);             // 0x0045DED0 (Suspend)
-    bool obj_unsuspend(script::Struct* params, script::Script* script);           // 0x0045DF20 (Unsuspend)
+    bool obj_get_position(script::Struct* params, script::Script* script);           // 0x0045DBC0
+    bool obj_print_details(script::Struct* params, script::Script* script);          // 0x0045D7F0
+    bool obj_create_component(script::Struct* params, script::Script* script);       // 0x0045D810 [0x406998A5]
+    bool obj_component_exists(script::Struct* params, script::Script* script);       // 0x0045DBF0 [0x2BFFEAA3]
+    bool obj_set_position(script::Struct* params, script::Script* script);           // 0x0045D830
+    bool obj_force_update(script::Struct* params, script::Script* script);           // 0x0045DC40
+    bool obj_get_velocity(script::Struct* params, script::Script* script);           // 0x0045DC50
+    bool get_speed(script::Struct* params, script::Script* script);                  // 0x0045DC80
+    bool obj_hide(script::Struct* params, script::Script* script);                   // 0x0045DCD0 (Hide)
+    bool obj_unhide(script::Struct* params, script::Script* script);                 // 0x0045DD20 (Unhide)
+    bool obj_is_hidden(script::Struct* params, script::Script* script);              // 0x0045DD70 (is_concealed)
+    bool obj_move_local(script::Struct* params, script::Script* script);             // 0x0045DD80 [0x10C1C887]
+    bool obj_suspend(script::Struct* params, script::Script* script);                // 0x0045DED0 (Suspend)
+    bool obj_unsuspend(script::Struct* params, script::Script* script);              // 0x0045DF20 (Unsuspend)
     bool obj_get_distance_to_object(script::Struct* params, script::Script* script); // 0x0045E0B0
-    bool obj_moving_backward(script::Struct* params, script::Script* script);      // 0x0045E260 [0xF8CFD515]
-    bool obj_speed_near(script::Struct* params, script::Script* script);           // 0x0045E2A0 [0x7DCC5FB9]
-    bool obj_speed_above(script::Struct* params, script::Script* script);          // 0x0045E310 [0xE5DF66D7]
-    bool obj_speed_below(script::Struct* params, script::Script* script);          // 0x0045E380 [0xDD468509]
-    bool obj_get_type(script::Struct* params, script::Script* script);             // 0x0045E3F0
-    bool obj_has_component(script::Struct* params, script::Script* script);        // 0x0045E410
-    bool obj_pause(script::Struct* params, script::Script* script);               // 0x0045E9B0 (Pause)
-    bool obj_unpause(script::Struct* params, script::Script* script);             // 0x0045E9D0 (Unpause)
+    bool obj_moving_backward(script::Struct* params, script::Script* script);        // 0x0045E260 [0xF8CFD515]
+    bool obj_speed_near(script::Struct* params, script::Script* script);             // 0x0045E2A0 [0x7DCC5FB9]
+    bool obj_speed_above(script::Struct* params, script::Script* script);            // 0x0045E310 [0xE5DF66D7]
+    bool obj_speed_below(script::Struct* params, script::Script* script);            // 0x0045E380 [0xDD468509]
+    bool obj_get_type(script::Struct* params, script::Script* script);               // 0x0045E3F0
+    bool obj_has_component(script::Struct* params, script::Script* script);          // 0x0045E410
+    bool obj_pause(script::Struct* params, script::Script* script);                  // 0x0045E9B0 (Pause)
+    bool obj_unpause(script::Struct* params, script::Script* script);                // 0x0045E9D0 (Unpause)
     // 0x0045E9E0 (Obj_GetCollision): whether the collision feeler hits anything along a line from its position
     // + up * height= + at * distance= + right * shift= (feet; height 3), length= (feet, 3) along right (side),
     // down (down) or at.
     bool obj_get_collision(script::Struct* params, script::Script* script);
-    bool obj_get_orientation(script::Struct* params, script::Script* script);      // 0x0045DF70
-    bool obj_get_dist_to_node(script::Struct* params, script::Script* script);       // 0x0045E020
+    bool obj_get_orientation(script::Struct* params, script::Script* script);           // 0x0045DF70
+    bool obj_get_dist_to_node(script::Struct* params, script::Script* script);          // 0x0045E020
     bool obj_get_orientation_to_object(script::Struct* params, script::Script* script); // 0x0045E140
-    bool obj_set_orientation(script::Struct* params, script::Script* script);      // 0x0045E650
-    bool obj_get_quat(script::Struct* params, script::Script* script);             // 0x0045E940
-    bool obj_nearest_outside_angle(script::Struct* params, script::Script* script); // 0x0045EF30 [0x37185D8A]
+    bool obj_set_orientation(script::Struct* params, script::Script* script);           // 0x0045E650
+    bool obj_get_quat(script::Struct* params, script::Script* script);                  // 0x0045E940
+    bool obj_nearest_outside_angle(script::Struct* params, script::Script* script);     // 0x0045EF30 [0x37185D8A]
     // 0x0045ED30: the nearest other object of `type` in its manager's list (the first one met if none is nearer
     // than 5322672), or null.
     GameEntity* find_nearest_object_of_type(uint32_t type);
@@ -380,29 +380,27 @@ public:
     void virtual_own_update() { reinterpret_cast<void(__thiscall*)(GameEntity*)>(vtable_[10])(this); }
     void virtual_create_component_from_structure(script::Struct* params, script::Struct* extra)
     {
-        reinterpret_cast<void(__thiscall*)(GameEntity*, script::Struct*, script::Struct*)>(vtable_[9])(
-            this, params, extra);
+        reinterpret_cast<void(__thiscall*)(GameEntity*, script::Struct*, script::Struct*)>(vtable_[9])(this, params,
+                                                                                                       extra);
     }
 
-    maths::Vec4 at_point_;             // +0x4C (w = 1 after every update)
-    maths::Vec4 old_pos_;          // +0x5C (not initialised here; the skater's code sets it)
-    maths::Mat4 basis_frame_;          // +0x6C its orientation (rows: right, up, at, and a fourth)
-    maths::Vec4 vel_;             // +0xAC
-    uint8_t unknownbc_;           // +0xBC (cleared by the constructor)
+    maths::Vec4 at_point_;    // +0x4C (w = 1 after every update)
+    maths::Vec4 old_pos_;     // +0x5C (not initialised here; the skater's code sets it)
+    maths::Mat4 basis_frame_; // +0x6C its orientation (rows: right, up, at, and a fourth)
+    maths::Vec4 vel_;         // +0xAC
+    uint8_t unknownbc_;       // +0xBC (cleared by the constructor)
     uint8_t padbd_[3];
-    maths::Mat4 display_matrix_;   // +0xC0
+    maths::Mat4 display_matrix_;     // +0xC0
     ObjectModule* attached_modules_; // +0x100
-    uint32_t composite_flags_;     // +0x104 COMPOSITE_FLAG_*
+    uint32_t composite_flags_;       // +0x104 COMPOSITE_FLAG_*
 };
 static_assert(offsetof(GameEntity, at_point_) == 0x4C && offsetof(GameEntity, old_pos_) == 0x5C &&
                   offsetof(GameEntity, basis_frame_) == 0x6C && offsetof(GameEntity, vel_) == 0xAC &&
-                  offsetof(GameEntity, unknownbc_) == 0xBC &&
-                  offsetof(GameEntity, display_matrix_) == 0xC0 &&
-                  offsetof(GameEntity, attached_modules_) == 0x100 &&
-                  offsetof(GameEntity, composite_flags_) == 0x104,
+                  offsetof(GameEntity, unknownbc_) == 0xBC && offsetof(GameEntity, display_matrix_) == 0xC0 &&
+                  offsetof(GameEntity, attached_modules_) == 0x100 && offsetof(GameEntity, composite_flags_) == 0x104,
               "layout must match the original");
 
 // 0x006477E4: objectNodeVtable (defined where the class's functions are).
 extern void** const kObjectNodeVtable;
 
-} // namespace Obj
+} // namespace objects

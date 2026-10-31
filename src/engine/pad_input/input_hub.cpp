@@ -22,7 +22,10 @@ Hub*& sole() { return g_input_manager; }
 
 unsigned int g_input_manager_references;
 // The buttons' name checksums (index 0: none).
-uint32_t g_pad_button_keys[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95, 0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C, 0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4, 0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
+uint32_t g_pad_button_keys[22]{0x00000000, 0xBC6B118F, 0xE3006FC4, 0x85981897, 0x4B358AEB, 0xB7231A95,
+                               0xA50950C5, 0xD8847EFA, 0x786B8B68, 0x2B489A86, 0x321C9756, 0x7323E97C,
+                               0x20689278, 0x26B0C991, 0xBFB9982B, 0xC8BEA8BD, 0xF2F1F64E, 0x6BF8A7F4,
+                               0x1CFF9762, 0x767A45D7, 0xBD30325B, 0x9D2D8850};
 
 unsigned int& ref_tally() { return g_input_manager_references; }
 
@@ -40,7 +43,10 @@ struct DigitalToAnalog {
     int event;
 };
 // (pairs of {mask, event} up to and including the first with a mask of 0 or less)
-DigitalToAnalog g_digital_to_analog[18]{{0x200, 16}, {0x400, 17}, {0x1, 14}, {0x2, 15}, {0x4, 12}, {0x8, 13}, {0x10, 8}, {0x20, 9}, {0x40, 10}, {0x80, 11}, {0x1000, 6}, {0x2000, 4}, {0x4000, 7}, {0x8000, 5}, {0x10000, 22}, {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
+DigitalToAnalog g_digital_to_analog[18]{{0x200, 16},   {0x400, 17},   {0x1, 14},   {0x2, 15},   {0x4, 12},
+                                        {0x8, 13},     {0x10, 8},     {0x20, 9},   {0x40, 10},  {0x80, 11},
+                                        {0x1000, 6},   {0x2000, 4},   {0x4000, 7}, {0x8000, 5}, {0x10000, 22},
+                                        {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
 const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog; }
 
 void construct_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->make_new(); }
@@ -96,8 +102,8 @@ void Payload::block_stick_input(uint32_t mask)
     for (int i = 0; i < kQueueCapacity; ++i) {
         if (!(mask & (1u << i)))
             continue;
-        bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
-                     i == kRawRightY || i == kRawLeftX || i == kRawLeftY;
+        bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX || i == kRawRightY ||
+                     i == kRawLeftX || i == kRawLeftY;
         incident_[i] = stick ? 0x80 : 0;
     }
 }
@@ -326,4 +332,4 @@ int __cdecl glyph_for_button_tag(uint32_t checksum)
     return 0;
 }
 
-} // namespace Inp
+} // namespace pad_input

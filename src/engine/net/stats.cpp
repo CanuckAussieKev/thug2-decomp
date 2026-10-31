@@ -47,11 +47,16 @@ static_assert(sizeof(StatsRequest) == 0x118, "built in the original's stack fram
 const char* stats_file(int index)
 {
     switch (index) {
-    case 0: return "hs_at.txt";
-    case 1: return "bc_at.txt";
-    case 2: return "hs_mo.txt";
-    case 3: return "bc_mo.txt";
-    default: return "ratings.txt";
+    case 0:
+        return "hs_at.txt";
+    case 1:
+        return "bc_at.txt";
+    case 2:
+        return "hs_mo.txt";
+    case 3:
+        return "bc_mo.txt";
+    default:
+        return "ratings.txt";
     }
 }
 
@@ -86,4 +91,4 @@ bool __cdecl retrieve_top_stats(script::Struct* params, script::Script*)
     return true;
 }
 
-} // namespace Net
+} // namespace net

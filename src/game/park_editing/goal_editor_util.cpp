@@ -32,22 +32,33 @@ const char* __fastcall goal_object_model(uint32_t type, int index)
         return "Mdl_Cone/mdl_cone.mdl";
     if (type == kCombo) {
         switch (index) {
-        case 0: return "gameobjects\\combo\\goal_combo_c\\goal_combo_c.mdl";
+        case 0:
+            return "gameobjects\\combo\\goal_combo_c\\goal_combo_c.mdl";
         case 1:
-        case 4: return "gameobjects\\combo\\goal_combo_o\\goal_combo_o.mdl";
-        case 2: return "gameobjects\\combo\\goal_combo_m\\goal_combo_m.mdl";
-        case 3: return "gameobjects\\combo\\goal_combo_b\\goal_combo_b.mdl";
-        default: return nullptr;
+        case 4:
+            return "gameobjects\\combo\\goal_combo_o\\goal_combo_o.mdl";
+        case 2:
+            return "gameobjects\\combo\\goal_combo_m\\goal_combo_m.mdl";
+        case 3:
+            return "gameobjects\\combo\\goal_combo_b\\goal_combo_b.mdl";
+        default:
+            return nullptr;
         }
     }
     if (type == kSkate) {
         switch (index) {
-        case 0: return "gameobjects\\skate\\letter_s\\letter_s.mdl";
-        case 1: return "gameobjects\\skate\\letter_k\\letter_k.mdl";
-        case 2: return "gameobjects\\skate\\letter_a\\letter_a.mdl";
-        case 3: return "gameobjects\\skate\\letter_t\\letter_t.mdl";
-        case 4: return "gameobjects\\skate\\letter_e\\letter_e.mdl";
-        default: return nullptr;
+        case 0:
+            return "gameobjects\\skate\\letter_s\\letter_s.mdl";
+        case 1:
+            return "gameobjects\\skate\\letter_k\\letter_k.mdl";
+        case 2:
+            return "gameobjects\\skate\\letter_a\\letter_a.mdl";
+        case 3:
+            return "gameobjects\\skate\\letter_t\\letter_t.mdl";
+        case 4:
+            return "gameobjects\\skate\\letter_e\\letter_e.mdl";
+        default:
+            return nullptr;
         }
     }
     return nullptr;
@@ -58,22 +69,33 @@ uint32_t __fastcall goal_object_name(uint32_t type, int index)
 {
     if (type == kCombo) {
         switch (index) {
-        case 0: return 0x7BF1BA66;
+        case 0:
+            return 0x7BF1BA66;
         case 1:
-        case 4: return 0x7247F64D;
-        case 2: return 0x9C499761;
-        case 3: return 0x0CF68AF0;
-        default: return 0;
+        case 4:
+            return 0x7247F64D;
+        case 2:
+            return 0x9C499761;
+        case 3:
+            return 0x0CF68AF0;
+        default:
+            return 0;
         }
     }
     if (type == kSkate) {
         switch (index) {
-        case 0: return 0xF75425EA;
-        case 1: return 0xE438BDBC;
-        case 2: return 0x04ED54A2;
-        case 3: return 0x6930B049;
-        case 4: return 0x038090BB;
-        default: return 0;
+        case 0:
+            return 0xF75425EA;
+        case 1:
+            return 0xE438BDBC;
+        case 2:
+            return 0x04ED54A2;
+        case 3:
+            return 0x6930B049;
+        case 4:
+            return 0x038090BB;
+        default:
+            return 0;
         }
     }
     return 0;
@@ -97,17 +119,26 @@ uint32_t __fastcall edited_goal_node_name(int which, int goal)
 script::Struct* __fastcall goal_type_structure(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D: return script::read_sub_struct(0xEF8F345F);
-    case kCombo: return script::read_sub_struct(0xB4F5801D);
+    case 0x6FE44C6D:
+        return script::read_sub_struct(0xEF8F345F);
+    case kCombo:
+        return script::read_sub_struct(0xB4F5801D);
     case 0x0FC6F698:
     case 0x7FE2238A:
-    case 0xEA7BA666: return script::read_sub_struct(0x675816B5);
-    case kCone: return script::read_sub_struct(0x34785A5B);
-    case kSkate: return script::read_sub_struct(0x3328976A);
-    case 0x61C5D092: return script::read_sub_struct(0x5756A675);
-    case 0xD0DD047B: return script::read_sub_struct(0xD3828793);
-    case 0xEC414B76: return script::read_sub_struct(0xB520A510);
-    default: return nullptr;
+    case 0xEA7BA666:
+        return script::read_sub_struct(0x675816B5);
+    case kCone:
+        return script::read_sub_struct(0x34785A5B);
+    case kSkate:
+        return script::read_sub_struct(0x3328976A);
+    case 0x61C5D092:
+        return script::read_sub_struct(0x5756A675);
+    case 0xD0DD047B:
+        return script::read_sub_struct(0xD3828793);
+    case 0xEC414B76:
+        return script::read_sub_struct(0xB520A510);
+    default:
+        return nullptr;
     }
 }
 
@@ -115,29 +146,36 @@ script::Struct* __fastcall goal_type_structure(uint32_t type)
 script::Struct* goal_type_defaults(uint32_t type)
 {
     switch (type) {
-    case 0x6FE44C6D: return script::read_sub_struct(0x28C7B799);
-    case kCombo: return script::read_sub_struct(0xFECBAB7C);
-    case 0x0FC6F698: return script::read_sub_struct(0x6626B0D8);
-    case kCone: return script::read_sub_struct(0xFD6CAF2A);
-    case kSkate: return script::read_sub_struct(0xE41E0E04);
-    case 0x61C5D092: return script::read_sub_struct(0x9005703A);
-    case 0xEA7BA666: return script::read_sub_struct(0xAD585D92);
-    case 0x7FE2238A: return script::read_sub_struct(0x38C1D87E);
+    case 0x6FE44C6D:
+        return script::read_sub_struct(0x28C7B799);
+    case kCombo:
+        return script::read_sub_struct(0xFECBAB7C);
+    case 0x0FC6F698:
+        return script::read_sub_struct(0x6626B0D8);
+    case kCone:
+        return script::read_sub_struct(0xFD6CAF2A);
+    case kSkate:
+        return script::read_sub_struct(0xE41E0E04);
+    case 0x61C5D092:
+        return script::read_sub_struct(0x9005703A);
+    case 0xEA7BA666:
+        return script::read_sub_struct(0xAD585D92);
+    case 0x7FE2238A:
+        return script::read_sub_struct(0x38C1D87E);
     case 0xD0DD047B: {
         script::Struct* defaults = script::read_sub_struct(0x97FEFF8F);
         script::run_script_once(0xFA54B475, nullptr, nullptr, defaults);
         return defaults;
     }
-    case 0xEC414B76: return script::read_sub_struct(0xAB62B082);
-    default: return nullptr;
+    case 0xEC414B76:
+        return script::read_sub_struct(0xAB62B082);
+    default:
+        return nullptr;
     }
 }
 
 // 0x004E69C0
-int __cdecl goal_editor_constant82()
-{
-    return 0x82;
-}
+int __cdecl goal_editor_constant82() { return 0x82; }
 
 // 0x004E69D0
 void __fastcall init_edited_goal(uint8_t* goal)
@@ -220,4 +258,4 @@ __declspec(naked) void init_edited_goal_stub()
 
 } // namespace
 
-} // namespace Ed
+} // namespace park_editing

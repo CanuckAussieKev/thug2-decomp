@@ -25,16 +25,16 @@ struct RideTracker {
     // object is gone.
     bool tick_frame(const maths::Vec4* point);
 
-    SharedRef<GameEntity> entity_;  // +0x00
-    maths::Mat4 previous_xform_;            // +0x0C
-    maths::Vec4 last_pos_;               // +0x4C
-    maths::Vec4 carried_;               // +0x5C
-    maths::Mat4 turn_;                  // +0x6C
-    bool turned_;                       // +0xAC
+    SharedRef<GameEntity> entity_; // +0x00
+    maths::Mat4 previous_xform_;   // +0x0C
+    maths::Vec4 last_pos_;         // +0x4C
+    maths::Vec4 carried_;          // +0x5C
+    maths::Mat4 turn_;             // +0x6C
+    bool turned_;                  // +0xAC
     uint8_t padad_[3];
 };
 static_assert(offsetof(RideTracker, previous_xform_) == 0x0C && offsetof(RideTracker, carried_) == 0x5C &&
                   offsetof(RideTracker, turned_) == 0xAC && sizeof(RideTracker) == 0xB0,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

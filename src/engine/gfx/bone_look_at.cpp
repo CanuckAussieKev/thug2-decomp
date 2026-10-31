@@ -34,24 +34,24 @@ constexpr uint32_t kIsOn = 0x027B2B1C;
 constexpr uint32_t kOff = 0x4599FB80;
 constexpr uint32_t kSettings = 0xB040E943;
 // Parameters
-constexpr uint32_t kIndex = 0x7F8C98FE;      // index
-constexpr uint32_t kId = 0x40C698AF;         // id
-constexpr uint32_t kAll = 0xC4E78E22;        // all
-constexpr uint32_t kOnFlag = 0x0C5F37CD;     // (name unknown) made active
-constexpr uint32_t kOffFlag = 0xB0BAB2AE;    // (name unknown) made inactive
-constexpr uint32_t kBone = 0xCAB94088;       // bone
+constexpr uint32_t kIndex = 0x7F8C98FE;        // index
+constexpr uint32_t kId = 0x40C698AF;           // id
+constexpr uint32_t kAll = 0xC4E78E22;          // all
+constexpr uint32_t kOnFlag = 0x0C5F37CD;       // (name unknown) made active
+constexpr uint32_t kOffFlag = 0xB0BAB2AE;      // (name unknown) made inactive
+constexpr uint32_t kBone = 0xCAB94088;         // bone
 constexpr uint32_t kTargetObject = 0x4ACEE3F7; // (name unknown) the object looked at
-constexpr uint32_t kAimPointHash = 0xDC741BAD;  // (name unknown) a point looked at
-constexpr uint32_t kOffset = 0x1F07CF31;     // (name unknown) the offset from the object
-constexpr uint32_t kAxis = 0x7AF07905;       // Axis
-constexpr uint32_t kWeight = 0xF832AABE;     // weight
-constexpr uint32_t kMinAngles = 0x0B405328;  // min_angles
-constexpr uint32_t kMaxAngles = 0x0A4CC99C;  // max_angles
-constexpr uint32_t kNoClamp = 0xD4A8CD5F;    // (name unknown) each angle past its limits zeroed instead
+constexpr uint32_t kAimPointHash = 0xDC741BAD; // (name unknown) a point looked at
+constexpr uint32_t kOffset = 0x1F07CF31;       // (name unknown) the offset from the object
+constexpr uint32_t kAxis = 0x7AF07905;         // Axis
+constexpr uint32_t kWeight = 0xF832AABE;       // weight
+constexpr uint32_t kMinAngles = 0x0B405328;    // min_angles
+constexpr uint32_t kMaxAngles = 0x0A4CC99C;    // max_angles
+constexpr uint32_t kNoClamp = 0xD4A8CD5F;      // (name unknown) each angle past its limits zeroed instead
 
-constexpr float kQuarterTurn = 1.57079637f;  // 0x00645484
-constexpr float kEaseBelow = 0.923879027f;   // 0x006488F8: a turn this close to the last one isn't eased
-constexpr float kEaseFactor = 0.216478556f;  // 0x006488F4
+constexpr float kQuarterTurn = 1.57079637f; // 0x00645484
+constexpr float kEaseBelow = 0.923879027f;  // 0x006488F8: a turn this close to the last one isn't eased
+constexpr float kEaseFactor = 0.216478556f; // 0x006488F4
 
 float epsilon() { return objects::g_float_zero; }
 
@@ -104,7 +104,7 @@ maths::Vec4* ClampVector::confine(const maths::Vec4* min, const maths::Vec4* max
 
 // 0x00487EE0
 maths::Vec4* __cdecl clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min,
-                                   const maths::Vec4* max)
+                                    const maths::Vec4* max)
 {
     ClampVector clamped;
     static_cast<maths::Vec4&>(clamped) = *v;
@@ -208,8 +208,8 @@ void BoneLookAt::tick_frame()
     for (Bone& bone : bones_) {
         if (bone.fixed_pos_)
             continue;
-        auto* object = reinterpret_cast<objects::GameEntity*>(
-            objects::object_hub_slot()->look_up_entity(bone.aim_point_));
+        auto* object =
+            reinterpret_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(bone.aim_point_));
         if (!object)
             continue;
         bone.look_goal_.z = bone.shift_.z + object->at_point_.z;
@@ -456,10 +456,14 @@ void BoneLookAt::set_all_max(const maths::Vec4* max)
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&gfx::BoneLookAt::teardown, &gfx::BoneLookAt::get_apply, stubs::ignore_argument,
-                &gfx::BoneLookAt::invoke_method_by_name, &gfx::BoneLookAt::configure_from_data, &gfx::BoneLookAt::tick_frame,
-                gfx::virtual_slot4_jump};
+static VtableSlot g_vtable_slots[] = {&gfx::BoneLookAt::teardown,
+                                      &gfx::BoneLookAt::get_apply,
+                                      stubs::ignore_argument,
+                                      &gfx::BoneLookAt::invoke_method_by_name,
+                                      &gfx::BoneLookAt::configure_from_data,
+                                      &gfx::BoneLookAt::tick_frame,
+                                      gfx::virtual_slot4_jump};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

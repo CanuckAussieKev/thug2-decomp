@@ -286,8 +286,8 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
         float dz = static_cast<float>(static_cast<double>(entity_->at_point_.z) - entity_->old_pos_.z);
         double frame = frame_clock::get_slomo_frame_seconds();
         if (!(frame == 0.0)) {
-            double moved = std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) +
-                                     static_cast<double>(dx) * dx);
+            double moved =
+                std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
             speed = static_cast<float>(moved / frame);
         }
     } else {
@@ -337,7 +337,7 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::KinematicsModule;
 
@@ -345,19 +345,19 @@ namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&KinematicsModule::teardown,
-         &KinematicsModule::tick_frame,
-         &KinematicsModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         &KinematicsModule::step_wait_state,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &KinematicsModule::invoke_method_by_name};
+                                      &KinematicsModule::tick_frame,
+                                      &KinematicsModule::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      &KinematicsModule::step_wait_state,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &KinematicsModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

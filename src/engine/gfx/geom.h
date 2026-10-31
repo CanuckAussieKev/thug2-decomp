@@ -19,18 +19,18 @@ struct SceneRef;
 // An instance (0x64 bytes, constructor 0x004D1030): a mesh list drawn with a transform of its own and bone matrices,
 // on the instances' list (0x007825C0).
 struct Singleton {
-    uint32_t flags;          // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
-                             // constructor); 4: coloured
-    maths::Mat4 transform;   // +0x04
-    maths::Mat4* bones;      // +0x44
-    int bone_count_;           // +0x48
-    bool active;             // +0x4C
-    uint8_t color[4];        // +0x4D: RGBA (0x80 each: unchanged)
+    uint32_t flags;        // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
+                           // constructor); 4: coloured
+    maths::Mat4 transform; // +0x04
+    maths::Mat4* bones;    // +0x44
+    int bone_count_;       // +0x48
+    bool active;           // +0x4C
+    uint8_t color[4];      // +0x4D: RGBA (0x80 each: unchanged)
     uint8_t pad51[3];
-    void* model;             // +0x54
-    SceneRef* scene;           // +0x58: its mesh list (the bounding sphere at +0x64)
-    Singleton* next;         // +0x5C
-    uint32_t viewports;      // +0x60: a bit per viewport it shows in (all: -1)
+    void* model;        // +0x54
+    SceneRef* scene;    // +0x58: its mesh list (the bounding sphere at +0x64)
+    Singleton* next;    // +0x5C
+    uint32_t viewports; // +0x60: a bit per viewport it shows in (all: -1)
 
     // 0x004D1030: construct over `scene` (its mesh list) with a copy of `transform` and the bones (not copied);
     // active, on the instances' list (0x007825C0). Lit (2) when the bones are not drawn by the vertex shader and
@@ -75,17 +75,17 @@ struct MeshListNode : memory::ListNode {
 struct PcGeom {
     void** vtable;
     uint8_t base[0x10];
-    maths::BBox bounds;        // +0x14 (as loaded)
-    uint8_t* scene;          // +0x34: the PC scene it's in
-    memory::ListNode* load_list_;      // +0x38: the meshes while it loads (a list's head), made into `meshes` after
-    MeshRef** meshes;          // +0x3C
-    uint32_t mesh_count_;      // +0x40
-    uint32_t visibility;     // +0x44: a viewport mask (0xDEADBEEF until set)
-    bool active;             // +0x48
+    maths::BBox bounds;           // +0x14 (as loaded)
+    uint8_t* scene;               // +0x34: the PC scene it's in
+    memory::ListNode* load_list_; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
+    MeshRef** meshes;             // +0x3C
+    uint32_t mesh_count_;         // +0x40
+    uint32_t visibility;          // +0x44: a viewport mask (0xDEADBEEF until set)
+    bool active;                  // +0x48
     uint8_t pad49[3];
-    Singleton* instance;     // +0x4C: an instance's (null for a sector's geometry)
-    uint8_t* source;         // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
-    maths::Vec4 scale;       // +0x54
+    Singleton* instance; // +0x4C: an instance's (null for a sector's geometry)
+    uint8_t* source;     // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
+    maths::Vec4 scale;   // +0x54
 
     // 0x004B4460: construct - no meshes, no instance, active, visible to all, scale 1. Returns this.
     PcGeom* make_new();
@@ -153,7 +153,7 @@ struct PcGeom {
     maths::Vec4* fetch_magnification(maths::Vec4* out);
     // 0x004B47B0 (virtual [28]): the instance's transform and `count` bone matrices copied. Always true.
     bool upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int unused3,
-                         int unused4);
+                                 int unused4);
     // 0x004B47F0 (virtual [29]): `count` bone matrices copied into the instance's.
     void copy_bones(const maths::Mat4* bones, int count);
     // 0x004B4820 (virtual [30]): the instance's bones pointed at `bones`.
@@ -172,8 +172,8 @@ struct PcGeom {
     void fetch_tints(uint8_t* out);
     void change_colors(const uint8_t* in);
     // 0x004B4300 (virtual [42]): the UV wibble of each mesh's first pass that has one.
-    void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp, float v_freq,
-                           float v_phase);
+    void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
+                              float v_freq, float v_phase);
     // 0x004B4EF0 (virtual [43]): every instance pass with a UV wibble set to the explicit one (flag 0x4000).
     void enable_explicit_uv_wibble(int unused);
     // 0x004B43E0 (virtual [45]): the UV offsets of each mesh's first pass with a wibble (then explicit, [43]).
@@ -186,12 +186,11 @@ struct PcGeom {
     // 0x004B52A0 (virtual [48]): the meshes' texture animations started again (not for an instance).
     void reset_texture_anims();
 };
-static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 &&
-                  offsetof(PcGeom, meshes) == 0x3C && offsetof(PcGeom, instance) == 0x4C &&
-                  offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
+static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&
+                  offsetof(PcGeom, instance) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
               "layout must match the original");
 
 extern maths::Mat4* g_palette_base;
 extern Singleton* g_current_instance;
 
-} // namespace Nx
+} // namespace render

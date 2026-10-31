@@ -51,7 +51,7 @@ namespace {
 constexpr uint32_t kConnectionFailureDialog = 0x209F813A; // create_gamespy_connection_failure_dialog
 constexpr uint32_t kLostConnectionToGameSpy = 0xFB1C18E4; // lost_connection_to_gamespy
 constexpr uint32_t kCreateNotPostedDialog = 0xE1B4ADEB;   // CreateNotPostedDialog
-constexpr uint32_t kNatNegotiationFailed = 0x3A9FB574;  // show_nat_timeout
+constexpr uint32_t kNatNegotiationFailed = 0x3A9FB574;    // show_nat_timeout
 constexpr uint32_t kHomieStatusHosting = 0xC5A16CE1;      // homie_status_hosting
 constexpr uint32_t kServerName = 0x2A5CF019;              // server_name
 constexpr uint32_t kUiString = 0x96875C0F;                // ui_string
@@ -82,7 +82,8 @@ constexpr uint32_t kNewPlayerObserver = 0x04;
 Hub* net_session_slot() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    return reinterpret_cast<tasks::PileUp*>(
+        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
 }
 QueuedPacket* get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }
@@ -125,7 +126,7 @@ void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
 int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, game_spy::HookFn completed, int user_data)
 {
     return game_spy::nat_begin_with_socket(socket, cookie, client_index, progress, completed,
-                                       reinterpret_cast<void*>(static_cast<intptr_t>(user_data)));
+                                           reinterpret_cast<void*>(static_cast<intptr_t>(user_data)));
 }
 void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function: no progress callback)
 
@@ -238,9 +239,11 @@ void __cdecl RoomManager::public_address_callback(void*, uint32_t ip, uint16_t p
     const char* name = nullptr;
     manager->get_online_settings()->fetch_setting(kServerName)->fetch_text(kUiString, &name, 1);
     char location[1024];
-    std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name, lobby->room_name_);
+    std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", ip, peer_private_ip(lobby->remote_), port, name,
+                 lobby->room_name_);
     if (prop<bool>(buddy, 0x10)) // (logged in to the presence)
-        static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting), location);
+        static_cast<FriendsManager*>(buddy)->change_standing(kStatusHosting, script::fetch_text(kHomieStatusHosting),
+                                                             location);
 }
 
 // 0x0053FEE0
@@ -310,7 +313,8 @@ void __cdecl RoomManager::query_task(void* task)
     for (int i = 0; i < queued_count(); ++i) {
         QueuedPacket& packet = get_queue()[i];
         if (packet.type == kPacketQuery)
-            game_spy::peer_parse_query(lobby->remote_, static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
+            game_spy::peer_parse_query(lobby->remote_, static_cast<char*>(packet.data), packet.length,
+                                       static_cast<void*>(packet.from));
         else if (packet.type == kPacketNatNegotiation)
             game_spy::nat_process_data(static_cast<char*>(packet.data), packet.length, static_cast<void*>(packet.from));
         game_free(packet.data);
@@ -338,10 +342,11 @@ void RoomManager::start_hosting()
     net::AppHost* server = net_session_slot()->host_;
     server->set_outside_packet_hook(reinterpret_cast<net::UnknownPacketCallback>(&RoomManager::queue_packet));
     clear_queue();
-    if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) == 1) // reporting on its socket
+    if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
+        1) // reporting on its socket
         peer_state_changed(remote_);
     uint32_t now = frame_clock::get_time();
-    g_hosting_since = now; // hosting since
+    g_hosting_since = now;    // hosting since
     g_connection_timer = now; // the connection timer
     g_last_report_time = now; // reported last
     g_not_posted_shown = false;
@@ -400,8 +405,9 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
     lobby->connecting_ = true;
     auto nick_error = &RoomManager::get_nick_error_callback;
     auto connected = &RoomManager::get_connect_callback;
-    game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick), prop<int>(manager->presence_service_, 4) /* its profile */,
-                         nick_error, connected, lobby_data, 0); // peer connect (not blocking)
+    game_spy::peer_connect(lobby->remote_, static_cast<const char*>(nick),
+                           prop<int>(manager->presence_service_, 4) /* its profile */, nick_error, connected,
+                           lobby_data, 0); // peer connect (not blocking)
     memory::Hub::get_pull()->leave_heap_scope();
     return 0;
 }

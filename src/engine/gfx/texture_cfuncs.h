@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) and helpers 0x005A9D80-0x005AA92F: SceAltPt, two searches through a structure for a
 // value's name and an angle wrap (helpers of the cutscene / CAT code next to them), CompositeObjectExists, the
@@ -31,23 +31,23 @@ float __cdecl wrap_angle(float degrees);
 bool __cdecl cfunc_composite_object_exists(script::Struct* params, script::Script* script);
 
 // The texture dictionary's commands (each finds its texture by the unnamed checksum; true unless noted).
-bool __cdecl cfunc_load_texture(script::Struct* params, script::Script* script);      // 0x005A9F00 (loaded?)
+bool __cdecl cfunc_load_texture(script::Struct* params, script::Script* script); // 0x005A9F00 (loaded?)
 // (not original) Whether the texture dictionary has the texture of a file name as ingest_skin / UnloadTexture take it
 // ("folder/name": the dictionary's own name lookup, as UnloadTexture's).
 bool texture_loaded(const char* file);
-bool __cdecl cfunc_create_texture(script::Struct* params, script::Script* script);    // 0x005A9F60 (made?)
-bool __cdecl cfunc_unload_texture(script::Struct* params, script::Script* script);    // 0x005AA040
-bool __cdecl cfunc_generate32_bit_image(script::Struct* params, script::Script* script); // 0x005AA0C0
+bool __cdecl cfunc_create_texture(script::Struct* params, script::Script* script);               // 0x005A9F60 (made?)
+bool __cdecl cfunc_unload_texture(script::Struct* params, script::Script* script);               // 0x005AA040
+bool __cdecl cfunc_generate32_bit_image(script::Struct* params, script::Script* script);         // 0x005AA0C0
 bool __cdecl cfunc_put32_bit_image_into_texture(script::Struct* params, script::Script* script); // 0x005AA160
-bool __cdecl cfunc_flip_texture(script::Struct* params, script::Script* script);      // 0x005AA1E0
-bool __cdecl cfunc_resize_texture_into(script::Struct* params, script::Script* script); // 0x005AA270
-bool __cdecl cfunc_scale_texture(script::Struct* params, script::Script* script);     // 0x005AA2E0
-bool __cdecl cfunc_adjust_texture_region(script::Struct* params, script::Script* script); // 0x005AA340
-bool __cdecl cfunc_pull_texture_to_edge(script::Struct* params, script::Script* script); // 0x005AA460
-bool __cdecl cfunc_adjust_texture_brightness(script::Struct* params, script::Script* script); // 0x005AA500
-bool __cdecl cfunc_adjust_texture_hsv(script::Struct* params, script::Script* script);  // 0x005AA590
-bool __cdecl cfunc_copy_texture(script::Struct* params, script::Script* script);      // 0x005AA670
-bool __cdecl cfunc_combine_textures(script::Struct* params, script::Script* script);  // 0x005AA6E0
+bool __cdecl cfunc_flip_texture(script::Struct* params, script::Script* script);                 // 0x005AA1E0
+bool __cdecl cfunc_resize_texture_into(script::Struct* params, script::Script* script);          // 0x005AA270
+bool __cdecl cfunc_scale_texture(script::Struct* params, script::Script* script);                // 0x005AA2E0
+bool __cdecl cfunc_adjust_texture_region(script::Struct* params, script::Script* script);        // 0x005AA340
+bool __cdecl cfunc_pull_texture_to_edge(script::Struct* params, script::Script* script);         // 0x005AA460
+bool __cdecl cfunc_adjust_texture_brightness(script::Struct* params, script::Script* script);    // 0x005AA500
+bool __cdecl cfunc_adjust_texture_hsv(script::Struct* params, script::Script* script);           // 0x005AA590
+bool __cdecl cfunc_copy_texture(script::Struct* params, script::Script* script);                 // 0x005AA670
+bool __cdecl cfunc_combine_textures(script::Struct* params, script::Script* script);             // 0x005AA6E0
 // The particle texture dictionary's (by the unnamed file name string).
 bool __cdecl cfunc_load_particle_texture(script::Struct* params, script::Script* script);   // 0x005AA7B0 (loaded?)
 bool __cdecl cfunc_unload_particle_texture(script::Struct* params, script::Script* script); // 0x005AA830

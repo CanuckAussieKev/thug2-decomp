@@ -34,4 +34,4 @@ Hdl open_on_disk(const char* name);
 
 extern bool g_handled_by_archive;
 
-} // namespace File
+} // namespace file

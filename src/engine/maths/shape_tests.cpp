@@ -302,8 +302,7 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
 {
     const float dx = start.x - other.start.x, dy = start.y - other.start.y, dz = start.z - other.start.z;
     const float d0x = end.x - start.x, d0y = end.y - start.y, d0z = end.z - start.z;
-    const float d1x = other.end.x - other.start.x, d1y = other.end.y - other.start.y,
-                d1z = other.end.z - other.start.z;
+    const float d1x = other.end.x - other.start.x, d1y = other.end.y - other.start.y, d1z = other.end.z - other.start.z;
 
     const float a00 = d0y * d0y + d0z * d0z + d0x * d0x;
     const float a01 = -d0y * d1y + -d0z * d1z + -d0x * d1x;
@@ -501,8 +500,8 @@ float clamp01(float value)
 } // namespace
 
 // 0x00402F00
-bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s,
-                               float& t, bool clamp)
+bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s, float& t,
+                                  bool clamp)
 {
     float vx = b.end.x - b.start.x, vy = b.end.y - b.start.y, vz = b.end.z - b.start.z;
     if (!long_enough(vx, vy, vz))
@@ -538,7 +537,7 @@ bool __cdecl point_in_box(const Vec4* point, const Vec4* max, const Vec4* min)
            !(point->y < min->y) && !(point->z < min->z);
 }
 
-} // namespace Mth
+} // namespace maths
 
 // --- replacements -------------------------------------------------------------------------------------
 namespace {

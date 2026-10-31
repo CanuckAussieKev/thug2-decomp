@@ -14,14 +14,14 @@
 namespace frontend::level_editor::career {
 
 bool editor_gap(const std::string& name, const std::vector<std::string>& editor_gaps,
-               const std::vector<std::string>& level_gaps)
+                const std::vector<std::string>& level_gaps)
 {
     return std::find(editor_gaps.begin(), editor_gaps.end(), name) != editor_gaps.end() &&
            std::find(level_gaps.begin(), level_gaps.end(), name) == level_gaps.end();
 }
 
 Checklist for_save(const Checklist& live, const Checklist* baseline, const std::vector<std::string>& editor_gaps,
-                  const std::vector<std::string>& level_gaps)
+                   const std::vector<std::string>& level_gaps)
 {
     const Checklist& from = baseline ? *baseline : live;
     Checklist out;
@@ -60,8 +60,8 @@ void take_baseline(const char* why)
     g_baseline = g_of ? get_take_in(g_of) : Checklist{};
     if (g_of)
         get_log("level editor: the career's gap list kept as it is (%s: %u gaps, %d landed) - the edited copy doesn't "
-            "change it",
-            why, static_cast<unsigned>(g_baseline.gaps.size()), get_landed(g_baseline));
+                "change it",
+                why, static_cast<unsigned>(g_baseline.gaps.size()), get_landed(g_baseline));
 }
 
 } // namespace
@@ -105,13 +105,14 @@ void get_edited_copy(bool on)
             checklist->register_gap_entry(gap.name.c_str(), gap.count, gap.score);
             if (gap.count)
                 checklist->set_gap_positions(gap.name.c_str(), {gap.pos[0], gap.pos[1], gap.pos[2], gap.pos[3]},
-                                           {gap.dir[0], gap.dir[1], gap.dir[2], gap.dir[3]});
+                                             {gap.dir[0], gap.dir[1], gap.dir[2], gap.dir[3]});
         }
         checklist->built_ = g_baseline.built; // (register_gap_entry marks it built)
-        get_log("level editor: the career's gap list put back as before the edited copy (%u gaps, %d landed; it had %u, "
+        get_log(
+            "level editor: the career's gap list put back as before the edited copy (%u gaps, %d landed; it had %u, "
             "%d landed)",
-            static_cast<unsigned>(g_baseline.gaps.size()), get_landed(g_baseline), static_cast<unsigned>(now.gaps.size()),
-            get_landed(now));
+            static_cast<unsigned>(g_baseline.gaps.size()), get_landed(g_baseline),
+            static_cast<unsigned>(now.gaps.size()), get_landed(now));
     }
     g_of = nullptr;
     g_baseline = {};
@@ -133,9 +134,10 @@ bool save_view(goals::GapTally* checklist, Checklist* out)
     Checklist live = get_take_in(checklist);
     *out = for_save(live, baseline ? &g_baseline : nullptr, editor_gaps, level_gaps);
     get_log("level editor: the career save gets this level's gap list %s (%u gaps, %d landed; it has %u, %d landed)",
-        baseline ? "as before the edited copy" : "without the editor's gaps", static_cast<unsigned>(out->gaps.size()),
-        get_landed(*out), static_cast<unsigned>(live.gaps.size()), get_landed(live));
+            baseline ? "as before the edited copy" : "without the editor's gaps",
+            static_cast<unsigned>(out->gaps.size()), get_landed(*out), static_cast<unsigned>(live.gaps.size()),
+            get_landed(live));
     return true;
 }
 
-} // namespace MenuSystem::level_editor::Career
+} // namespace frontend::level_editor::career

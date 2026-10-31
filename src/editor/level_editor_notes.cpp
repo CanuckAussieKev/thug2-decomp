@@ -188,10 +188,10 @@ std::string caption(const std::string& text, size_t most)
 namespace {
 
 std::vector<Note> g_notes;
-std::string g_selected;                       // (the note whose window is open; "" none)
-char g_edit_text[kMaxText + 1];                // (the window's text while typed)
-std::string g_edit_for;                        // (the note the text buffer holds)
-std::vector<Note> g_before;                   // (the notes as they were when a field was taken: its undo step)
+std::string g_selected;         // (the note whose window is open; "" none)
+char g_edit_text[kMaxText + 1]; // (the window's text while typed)
+std::string g_edit_for;         // (the note the text buffer holds)
+std::vector<Note> g_before;     // (the notes as they were when a field was taken: its undo step)
 std::vector<std::function<void()>> g_queue;
 
 struct NotesStep : ModuleStep {
@@ -301,8 +301,8 @@ void tick_frame()
 }
 
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
-                std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::Circle>* circles,
+                 std::vector<ui::Overlay::text_tools>* texts)
 {
     for (const Note& note : g_notes) {
         bool selected = note.name == g_selected;
@@ -357,7 +357,7 @@ void outliner_section(ImFont* mono, const char* search)
         ImVec2 pos = ImGui::GetCursorScreenPos();
         float h = ImGui::GetTextLineHeight();
         ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(pos.x + h * 0.25f, pos.y + h * 0.5f), h * 0.22f,
-                                                     get_colour(note.colour));
+                                                    get_colour(note.colour));
         ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
         std::string label = caption(note.text, 40);
         bool clicked = ImGui::Selectable(label.c_str(), note.name == g_selected, ImGuiSelectableFlags_AllowDoubleClick);
@@ -373,8 +373,7 @@ void outliner_section(ImFont* mono, const char* search)
             });
         }
         if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s\n%s", note.name.c_str(),
-                              note.text.empty() ? "(empty)" : note.text.c_str());
+            ImGui::SetTooltip("%s\n%s", note.name.c_str(), note.text.empty() ? "(empty)" : note.text.c_str());
         ImGui::PopID();
     }
     ImGui::TreePop();
@@ -390,8 +389,8 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         std::snprintf(g_edit_text, sizeof(g_edit_text), "%s", note->text.c_str());
         g_edit_for = note->name;
     }
-    ImGui::SetNextWindowPos(ImVec2(view_x + 12.0f * scale, view_y + view_height - 12.0f * scale), ImGuiCond_FirstUseEver,
-                            ImVec2(0.0f, 1.0f));
+    ImGui::SetNextWindowPos(ImVec2(view_x + 12.0f * scale, view_y + view_height - 12.0f * scale),
+                            ImGuiCond_FirstUseEver, ImVec2(0.0f, 1.0f));
     ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_FirstUseEver);
     bool open = true;
     std::string title = "Note " + note->name + "###noteWindow";
@@ -433,7 +432,8 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         ImGui::PushID(c);
         bool on = note->colour == kColours[c];
         ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(kColours[c]));
-        if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip, ImVec2(18.0f * scale, 18.0f * scale))) {
+        if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
+                               ImVec2(18.0f * scale, 18.0f * scale))) {
             uint32_t rgb = kColours[c];
             g_queue.push_back([name, rgb] {
                 Note* n = get_find(name);
@@ -494,10 +494,13 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         g_queue.push_back([] { g_selected.clear(); });
 }
 
-} // namespace MenuSystem::level_editor::Notes
+} // namespace frontend::level_editor::notes
 
 namespace frontend::level_editor::notes {
 
-void add_here_queued() { g_queue.push_back([] { add_here(); }); }
+void add_here_queued()
+{
+    g_queue.push_back([] { add_here(); });
+}
 
-} // namespace MenuSystem::level_editor::Notes
+} // namespace frontend::level_editor::notes

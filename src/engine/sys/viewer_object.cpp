@@ -42,17 +42,17 @@ namespace {
 
 extern void** const kViewerObjectVtable;
 constexpr uint32_t kKillViewerObjectPanel = 0x9E65A71E; // kill_viewer_object_panel
-constexpr uint32_t kCasArtist = 0x2A648514;              // cas_artist
-constexpr uint32_t kModelName = 0xB974F2FC;              // modelname
-constexpr uint32_t kModel = 0x286A8D26;                  // model
-constexpr uint32_t kProfile = 0x7EA855F0;                // profile
-constexpr uint32_t kSkeletonFileName = 0xF679DB13;       // skeletonFileName
-constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
-constexpr uint32_t kViewerObjPos = 0x15670AB7;           // ViewerObjPos
-constexpr uint32_t kAddComponents = 0x24C71BC7;          // viewerobj_add_components
-constexpr uint32_t kSetupModelScript = 0xBBAB79DE;              // viewerobj_init_model
-constexpr uint32_t kIdle = 0x23DB4AEA;                   // idle
-constexpr int kAssetKindSkeleton = 6;                        // (the asset type)
+constexpr uint32_t kCasArtist = 0x2A648514;             // cas_artist
+constexpr uint32_t kModelName = 0xB974F2FC;             // modelname
+constexpr uint32_t kModel = 0x286A8D26;                 // model
+constexpr uint32_t kProfile = 0x7EA855F0;               // profile
+constexpr uint32_t kSkeletonFileName = 0xF679DB13;      // skeletonFileName
+constexpr uint32_t kSkeletonName = 0x09794932;          // skeletonName
+constexpr uint32_t kViewerObjPos = 0x15670AB7;          // ViewerObjPos
+constexpr uint32_t kAddComponents = 0x24C71BC7;         // viewerobj_add_components
+constexpr uint32_t kSetupModelScript = 0xBBAB79DE;      // viewerobj_init_model
+constexpr uint32_t kIdle = 0x23DB4AEA;                  // idle
+constexpr int kAssetKindSkeleton = 6;                   // (the asset type)
 
 // `path` set to a model's file path: "models\<name>\<name><extension>", or "models\<name>" when the name holds a path
 // separator (0x004879D0, in the CAS code - not rewritten yet - makes it as a temporary String).
@@ -105,24 +105,24 @@ AnimBlenderComponent* get_animation(GameEntity* object)
 ObjectModule* animation_base(GameEntity* object) { return object->fetch_module(AnimBlenderComponent::kType); }
 
 // More names.
-constexpr uint32_t kSpeed = 0xF0D90109;                  // speed
-constexpr uint32_t kSetSpeed = 0xBD4EDD44;               // (the animation component's Speed member function)
-constexpr uint32_t kStep = 0x6AAEB76F;                   // (its step member function: frames)
+constexpr uint32_t kSpeed = 0xF0D90109;    // speed
+constexpr uint32_t kSetSpeed = 0xBD4EDD44; // (the animation component's Speed member function)
+constexpr uint32_t kStep = 0x6AAEB76F;     // (its step member function: frames)
 constexpr uint32_t kFrames = 0x06C9F278;
-constexpr uint32_t kReverse = 0xF5E2B871;                // (its reverse member function)
-constexpr uint32_t kSkeleton = 0x222756D5;               // skeleton (the component)
-constexpr uint32_t kMaxWheelSpeed = 0xCACA33A4;          // max_wheel_speed
-constexpr uint32_t kLine1 = 0x282C53D5;                  // line1
-constexpr uint32_t kLine2 = 0xB125026F;                  // line2
-constexpr uint32_t kLine3 = 0xC62232F9;                  // line3
-constexpr uint32_t kLine4 = 0x5846A75A;                  // text_row4
-constexpr uint32_t kDrawViewerObjectPanel = 0xED9C1839;  // draw_viewer_object_panel
-constexpr uint32_t kViewerAutoRepeatTime = 0xE60442D5;   // ViewerAutoRepeatTime
-constexpr uint32_t kViewerAutoRepeatSpeed = 0x2DA212E5;  // ViewerAutoRepeatSpeed
-constexpr uint32_t kObjectTypeComposite = 0xCDEB9229;    // OBJECT_TYPE_COMPOSITE
-const float kStepSeconds = std::bit_cast<float>(0x3C888889u);              // 1/60 s
-constexpr float kSpeedStep = 0.25f;                                      // 0x0064F130
-constexpr float kRadiansPerDegree = 0.017453292f;                        // 0x00645464
+constexpr uint32_t kReverse = 0xF5E2B871;                     // (its reverse member function)
+constexpr uint32_t kSkeleton = 0x222756D5;                    // skeleton (the component)
+constexpr uint32_t kMaxWheelSpeed = 0xCACA33A4;               // max_wheel_speed
+constexpr uint32_t kLine1 = 0x282C53D5;                       // line1
+constexpr uint32_t kLine2 = 0xB125026F;                       // line2
+constexpr uint32_t kLine3 = 0xC62232F9;                       // line3
+constexpr uint32_t kLine4 = 0x5846A75A;                       // text_row4
+constexpr uint32_t kDrawViewerObjectPanel = 0xED9C1839;       // draw_viewer_object_panel
+constexpr uint32_t kViewerAutoRepeatTime = 0xE60442D5;        // ViewerAutoRepeatTime
+constexpr uint32_t kViewerAutoRepeatSpeed = 0x2DA212E5;       // ViewerAutoRepeatSpeed
+constexpr uint32_t kObjectTypeComposite = 0xCDEB9229;         // OBJECT_TYPE_COMPOSITE
+const float kStepSeconds = std::bit_cast<float>(0x3C888889u); // 1/60 s
+constexpr float kSpeedStep = 0.25f;                           // 0x0064F130
+constexpr float kRadiansPerDegree = 0.017453292f;             // 0x00645464
 
 // A pooled script structure, and one cleared and freed (either may be null).
 script::Struct* spawn_param_table()
@@ -139,10 +139,7 @@ void delete_structure(script::Struct* structure)
 }
 
 // D3DXMatrixMultiply (library code: stdcall), out = a * b.
-void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The model component's model (+0x208), its bone count (0x00492FF0) and hierarchy (0x00493040: objects of 0x50 bytes,
 // each with its matrix at +0x10) - render::RenderModel, not rewritten yet; the skeleton component's skeleton (the folded
@@ -151,8 +148,14 @@ uint8_t* model_of(ObjectModule* component)
 {
     return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
 }
-int get_bone_count(uint8_t* model) { return static_cast<int>(reinterpret_cast<render::RenderModel*>(model)->get_asset_bone_count()); }
-uint8_t* hierarchy_of(uint8_t* model) { return reinterpret_cast<uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy()); }
+int get_bone_count(uint8_t* model)
+{
+    return static_cast<int>(reinterpret_cast<render::RenderModel*>(model)->get_asset_bone_count());
+}
+uint8_t* hierarchy_of(uint8_t* model)
+{
+    return reinterpret_cast<uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+}
 uint8_t* skeleton_of(ObjectModule* component)
 {
     return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
@@ -170,7 +173,10 @@ uint32_t& no_skeleton_counter() { return g_no_skeleton_counter; }
 // The input handler's auto-repeat count (a function static: its guard is bit 1 of 0x007CE58C).
 int& repeat_count() { return g_repeat_count; }
 uint32_t& repeat_count_guard() { return g_repeat_count_guard; }
-uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); } // pad_input::Hub (0x84 bytes a controller)
+uint8_t* input_manager()
+{
+    return reinterpret_cast<uint8_t*>(pad_input::g_input_manager);
+} // pad_input::Hub (0x84 bytes a controller)
 
 PreviewEntity* object_of(net::InboundMsgCtx* context) { return static_cast<PreviewEntity*>(context->content_); }
 
@@ -186,8 +192,8 @@ void PreviewEntity::play_animation(uint32_t anim)
     if (!get_animation(this) || !get_animation(this)->has_value(anim))
         return;
     const float length = get_animation(this)->fetch_value(anim);
-    get_animation(this)->play_animation_ex(anim, 0, 0, std::bit_cast<uint32_t>(length), 1, std::bit_cast<uint32_t>(0.3f),
-                                     std::bit_cast<uint32_t>(1.0f));
+    get_animation(this)->play_animation_ex(anim, 0, 0, std::bit_cast<uint32_t>(length), 1,
+                                           std::bit_cast<uint32_t>(0.3f), std::bit_cast<uint32_t>(1.0f));
 }
 
 // 0x00589860
@@ -227,7 +233,7 @@ void PreviewEntity::read_in(script::Struct* params)
     add_node_components(this, params);
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(commands::g_got_extra_memory ? static_cast<memory::MemSource*>(memory->debug_heap_)
-                                                        : static_cast<memory::MemSource*>(memory->bottom_up_heap_));
+                                                          : static_cast<memory::MemSource*>(memory->bottom_up_heap_));
     const char* name;
     for (int i = 0; i < 4; ++i) {
         char key[260];
@@ -405,7 +411,8 @@ void PreviewEntity::update_panel()
             uint32_t current = get_animation(this)->get_timeline30();
             float length = get_animation(this)->fetch_value(current);
             float time = get_animation(this)->get_timeline18();
-            std::snprintf(line3, sizeof(line3), "time %f of %f", static_cast<double>(time), static_cast<double>(length));
+            std::snprintf(line3, sizeof(line3), "time %f of %f", static_cast<double>(time),
+                          static_cast<double>(length));
             params->append_word(kLine3, line3);
             current = get_animation(this)->get_timeline30();
             length = get_animation(this)->fetch_value(current);
@@ -618,13 +625,21 @@ PreviewEntity* PreviewEntity::make_new(net::AppHost* app)
 }
 
 namespace {
-static VtableSlot g_viewer_object_vtable_slots[] = {&objects::PreviewEntity::teardown, &objects::Entity::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(&objects::GameEntity::invoke_method_by_name),
-                stubs::ignore_argument, &objects::Entity::pass_event_to_script, &objects::GameEntity::flag_as_dead,
-                &objects::GameEntity::should_update_scripts, &objects::GameEntity::seal,
-                &objects::GameEntity::create_component_from_structure, &objects::PreviewEntity::own_update};
+static VtableSlot g_viewer_object_vtable_slots[] = {
+    &objects::PreviewEntity::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(
+        &objects::GameEntity::invoke_method_by_name),
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::GameEntity::flag_as_dead,
+    &objects::GameEntity::should_update_scripts,
+    &objects::GameEntity::seal,
+    &objects::GameEntity::create_component_from_structure,
+    &objects::PreviewEntity::own_update};
 void** const kViewerObjectVtable = reinterpret_cast<void**>(g_viewer_object_vtable_slots);
 } // namespace
 
-} // namespace Obj
+} // namespace objects

@@ -30,4 +30,4 @@ void fill_sine_table();
 float fast_sin(float angle);
 float fast_cos(float angle);
 
-} // namespace Mth
+} // namespace maths

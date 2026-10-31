@@ -84,7 +84,7 @@ float midpoint(float a, float b) { return static_cast<float>((static_cast<double
 // 0x004B7F30
 void __cdecl collapse_splat_triangle(TextureSplats* splats, int index)
 {
-    uint8_t(*triangle)[0x18] = splats->vertices[index];
+    uint8_t (*triangle)[0x18] = splats->vertices[index];
     std::memcpy(triangle[1], triangle[0], 0x18);
     std::memcpy(triangle[2], triangle[0], 0x18);
 }
@@ -93,7 +93,7 @@ void __cdecl collapse_splat_triangle(TextureSplats* splats, int index)
 void __cdecl light_texture_splats(TextureSplats* splats)
 {
     for (int i = 0; i <= splats->last; ++i) {
-        uint8_t(*triangle)[0x18] = splats->vertices[i];
+        uint8_t (*triangle)[0x18] = splats->vertices[i];
         uint32_t* base = splats->base_colors_[i];
         // (the lit colours come back over `colors`, which first holds the base colours)
         uint32_t colors[3];
@@ -227,14 +227,16 @@ bool __cdecl triangle_overlaps_screen(float x0, float y0, float x1, float y1, fl
         py = static_cast<double>(corner[1]) - y2;
         double e1 = static_cast<double>(x0) - x2, f1 = static_cast<double>(y0) - y2;
         float e1f = static_cast<float>(e1), f1f = static_cast<float>(f1);
-        float g1 = static_cast<float>(static_cast<double>(x1) - x2), h1 = static_cast<float>(static_cast<double>(y1) - y2);
+        float g1 = static_cast<float>(static_cast<double>(x1) - x2),
+              h1 = static_cast<float>(static_cast<double>(y1) - y2);
         if (!((py * e1 - f1f * px) * (static_cast<double>(h1) * e1f - f1 * g1) >= 0.0))
             continue;
         px = static_cast<double>(corner[0]) - x0;
         py = static_cast<double>(corner[1]) - y0;
         double e2 = static_cast<double>(x1) - x0, f2 = static_cast<double>(y1) - y0;
         float e2f = static_cast<float>(e2), f2f = static_cast<float>(f2);
-        float g2 = static_cast<float>(static_cast<double>(x2) - x0), h2 = static_cast<float>(static_cast<double>(y2) - y0);
+        float g2 = static_cast<float>(static_cast<double>(x2) - x0),
+              h2 = static_cast<float>(static_cast<double>(y2) - y0);
         if ((py * e2 - f2f * px) * (static_cast<double>(h2) * e2f - f2 * g2) >= 0.0)
             return true;
     }
@@ -266,7 +268,8 @@ bool __cdecl split_next_triangle(uint8_t** out, const SplitFormat* format)
     float cross_x = static_cast<float>(bz * ay - byf * az);
     float cross_y = static_cast<float>(az * bxf - bz * ax);
     double cross_z = ax * byf - ay * bxf;
-    double length_squared = cross_z * cross_z + static_cast<double>(cross_y) * cross_y + static_cast<double>(cross_x) * cross_x;
+    double length_squared =
+        cross_z * cross_z + static_cast<double>(cross_y) * cross_y + static_cast<double>(cross_x) * cross_x;
     uint32_t size = get_vertex_size();
     if (!(length_squared > g_split_area_limit)) {
         for (uint8_t* v : {v0, v1, v2}) {
@@ -340,10 +343,7 @@ double get_cosine(double a)
 }
 
 // D3DX (linked library code).
-void transform_coord(float* out, const float* v, const maths::Mat4* m)
-{
-    d3dx::vec3_transform_coord(out, v, m);
-}
+void transform_coord(float* out, const float* v, const maths::Mat4* m) { d3dx::vec3_transform_coord(out, v, m); }
 void normalize3(float* v) { d3dx::vec3_normalize(v, v); }
 void get_look_at(maths::Mat4* out, const float* eye, const float* at, const float* up)
 {
@@ -351,19 +351,12 @@ void get_look_at(maths::Mat4* out, const float* eye, const float* at, const floa
 }
 void ortho(maths::Mat4* out, float width, float height, float near_z, float far_z)
 {
-    d3dx::matrix_ortho_rh(out, width, height, near_z,
-                                                                                         far_z);
+    d3dx::matrix_ortho_rh(out, width, height, near_z, far_z);
 }
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A set's oldest triangle (a free one first: 0x00490CD0, the engine's).
-int oldest_triangle(TextureSplats* splats)
-{
-    return reinterpret_cast<SplatSlots*>(splats)->oldest_slot(0x100);
-}
+int oldest_triangle(TextureSplats* splats) { return reinterpret_cast<SplatSlots*>(splats)->oldest_slot(0x100); }
 // The lifetime in milliseconds (the C runtime's _ftol: truncated).
 int get_milliseconds(float seconds) { return static_cast<int>(static_cast<double>(seconds) * 1000.0f); }
 // A vertex colour as the splats keep it: opaque-ish (alpha 0x80).
@@ -563,8 +556,8 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
                 }
                 const uint32_t index[3] = {ia, ib, ic};
                 for (int k = 0; k < 3; ++k)
-                    get_color(v[k]) = splat_color(*reinterpret_cast<uint32_t*>(vertices + stride * index[k] +
-                                                                          mesh->unknown1c_[0]));
+                    get_color(v[k]) =
+                        splat_color(*reinterpret_cast<uint32_t*>(vertices + stride * index[k] + mesh->unknown1c_[0]));
                 // how fine to split it: a 128th of its cross product's square
                 {
                     const float* p0 = get_at(v0);
@@ -603,7 +596,7 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
                         return static_cast<float>(value + value - 1.0f);
                     };
                     if (!triangle_overlaps_screen(twice(0x10), twice(0x14), twice(0x28), twice(0x2C), twice(0x40),
-                                                twice(0x44)))
+                                                  twice(0x44)))
                         continue;
                     kept = true;
                     splats->alive[slot] = get_milliseconds(params->lifetime);
@@ -641,4 +634,4 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
     return splats;
 }
 
-} // namespace Nx
+} // namespace render

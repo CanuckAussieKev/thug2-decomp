@@ -86,9 +86,9 @@ uint32_t get_faded(uint32_t argb);
 struct FaceFacts {
     uint32_t flags = 0;
     bool collision_only_ = false; // (its sector has nothing drawn: an invisible wall)
-    bool off = false;           // (its sector's collision switched off)
-    bool taken = false;         // (turned off for a moved piece's shared collision)
-    bool companion = false;     // (a moved piece's shared collision)
+    bool off = false;             // (its sector's collision switched off)
+    bool taken = false;           // (turned off for a moved piece's shared collision)
+    bool companion = false;       // (a moved piece's shared collision)
     bool selected = false, hovered = false;
     uint32_t trigger_colour_ = 0; // (a level trigger's kind colour, ARGB; 0: not one)
 };
@@ -119,7 +119,7 @@ void set_show_collision(bool on);
 // The collision near the camera, as triangles over the view (back buffer pixels, painted far to near) and the
 // selected wall's edges as lines.
 void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                  std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines);
+                   std::vector<ui::Overlay::Triangle>* triangles, std::vector<ui::Seg>* lines);
 struct Attributes {
     int triangles = 0, sectors = 0, walls = 0, off = 0; // (off: pieces whose collision is switched off)
     int companions = 0, taken = 0; // (moved pieces' shared collision drawn; faces drawn where it was taken from)
@@ -167,4 +167,4 @@ int hidden_count();
 // What is hidden while editing: the sectors' checksums and the objects' ids (the Outliner's markers).
 std::vector<uint32_t> hidden_ids();
 
-} // namespace MenuSystem::level_editor::View
+} // namespace frontend::level_editor::view

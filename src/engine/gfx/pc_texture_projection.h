@@ -13,11 +13,11 @@ namespace render {
 
 // A frame's batch for one texture (0x9120 bytes; ten at 0x00705758, how many in use at 0x00705750).
 struct ProjectionBatch {
-    uint32_t texture;           // +0x00: its key
-    uint32_t blend_name_;         // +0x04: the projection's last (a checksum)
-    uint32_t triangle_count_;     // +0x08
-    uint8_t material[0x110];    // +0x0C (constructor 0x004D1A90)
-    void* pixel_shader_;          // +0x11C (material_pixel_shader's)
+    uint32_t texture;              // +0x00: its key
+    uint32_t blend_name_;          // +0x04: the projection's last (a checksum)
+    uint32_t triangle_count_;      // +0x08
+    uint8_t material[0x110];       // +0x0C (constructor 0x004D1A90)
+    void* pixel_shader_;           // +0x11C (material_pixel_shader's)
     uint8_t vertices[0x600][0x18]; // +0x120: position, ARGB colour, u, v
 
     // 0x004C7610: construct (the material's constructor). Returns this.
@@ -40,11 +40,11 @@ void __cdecl draw_projection_batches();
 struct PcTextureProjection {
     void** vtable;
     uint8_t engine04[0x14];
-    uint8_t* texture;     // +0x18: the texture holder (+0x10 the key, through one more pointer with flag 1 of +0x08)
+    uint8_t* texture;       // +0x18: the texture holder (+0x10 the key, through one more pointer with flag 1 of +0x08)
     uint32_t blend_name_;   // +0x1C
     maths::Mat4 projection; // +0x20: world to the projection's square (-1..1, depth -1 up)
     uint8_t engine60[0xC];
-    uint32_t fineness;    // +0x6C: 0 the triangles hit kept whole, else split down to 1 / (16 n) of their size
+    uint32_t fineness; // +0x6C: 0 the triangles hit kept whole, else split down to 1 / (16 n) of their size
     uint8_t engine70[0x58];
 
     // 0x004C7E80: construct. Returns this.
@@ -61,4 +61,4 @@ static_assert(offsetof(PcTextureProjection, texture) == 0x18 && offsetof(PcTextu
                   offsetof(PcTextureProjection, fineness) == 0x6C && sizeof(PcTextureProjection) == 0xC8,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

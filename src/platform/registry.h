@@ -10,4 +10,4 @@ namespace sys {
 // writes the value into it.
 void write_default_setting(const char* name, uint32_t value);
 
-} // namespace Sys
+} // namespace sys

@@ -104,8 +104,7 @@ void Hub::destroy_body()
 }
 
 // 0x00455270
-HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_t port, int address,
-                                        int flags)
+HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_t port, int address, int flags)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->network_heap_);
     if (connection_type_ != kConnectionType3 && connection_type_ != kConnectionTypeNone && use_dhcp_)
@@ -129,7 +128,7 @@ HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_
     in_addr ip;
     ip.s_addr = static_cast<ULONG>(address);
     debug::printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, max_clients,
-                inet_ntoa(ip), port);
+                  inet_ntoa(ip), port);
     ++num_apps_;
     memory::Hub::get_pull()->leave_heap_scope();
     return server;
@@ -167,7 +166,7 @@ void Hub::release_app(AppHost* app)
     node.next = &node;
     node.prev = &node;
     reinterpret_cast<void(__thiscall*)(AppHost*)>(app->vtable_[5])(app); // Deinit (through 0x00456B30)
-    if (app) // (checked only now)
+    if (app)                                                             // (checked only now)
         reinterpret_cast<void*(__thiscall*)(AppHost*, unsigned int)>(app->vtable_[0])(app, 1);
     --num_apps_;
 }
@@ -202,4 +201,4 @@ void release_manager()
     ref_tally() = 0;
 }
 
-} // namespace Net
+} // namespace net

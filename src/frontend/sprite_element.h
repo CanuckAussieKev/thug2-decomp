@@ -30,7 +30,7 @@ public:
     // alpha. (Slot 9 is 0x004AEE50, a jump to UiWidget::blend_towards.)
     void tick_frame();
 
-    uint32_t texture_;  // +0x178 the texture's checksum
+    uint32_t texture_; // +0x178 the texture's checksum
     void* piece_;      // +0x17C
 };
 static_assert(offsetof(TextureElement, texture_) == 0x178 && sizeof(TextureElement) == 0x180,
@@ -62,10 +62,10 @@ public:
     // and colour (the shown colour with the summed alpha).
     void tick_frame();
 
-    uint32_t texture_;  // +0x178 the texture's checksum
-    bool z_write_;       // +0x17C (no_zwrite clears it)
+    uint32_t texture_; // +0x178 the texture's checksum
+    bool z_write_;     // +0x17C (no_zwrite clears it)
     uint8_t pad17d_[3];
-    void* quad_;     // +0x180
+    void* quad_; // +0x180
 };
 static_assert(offsetof(ImageWidget, z_write_) == 0x17C && offsetof(ImageWidget, quad_) == 0x180 &&
                   sizeof(ImageWidget) == 0x184,
@@ -86,8 +86,8 @@ public:
     // 0x004B21A0 (slot 10): after a change, the window moved to the element's top left and sized as it.
     void tick_frame();
 
-    void* screen_region_;  // +0x178
+    void* screen_region_; // +0x178
 };
 static_assert(sizeof(PanelWidget) == 0x17C, "layout must match the original");
 
-} // namespace Front
+} // namespace frontend

@@ -25,4 +25,4 @@ int hex_digit_value(const char* digit);
 // Returns 0 for a word, 1 at an end-of-line escape, 2 at the end of the text.
 int next_word(char* out, const char*& cursor);
 
-} // namespace Str
+} // namespace text

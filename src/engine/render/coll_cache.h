@@ -33,11 +33,11 @@ public:
     // 0x0040A990: `object` out of the movable ones (the last entry moved into its place).
     void remove_movable(HitMesh* object);
 
-    maths::BBox box_;            // +0x000
-    TableRow entries_[500];       // +0x020
-    int num_;                // +0xFC0
-    int statics_;              // +0xFC4
-    int movables_;             // +0xFC8
+    maths::BBox box_;       // +0x000
+    TableRow entries_[500]; // +0x020
+    int num_;               // +0xFC0
+    int statics_;           // +0xFC4
+    int movables_;          // +0xFC8
 };
 static_assert(sizeof(HitMeshCache) == 0xFCC && offsetof(HitMeshCache, num_) == 0xFC0, "layout must match the original");
 
@@ -52,4 +52,4 @@ void remove_from_caches(HitMesh* object);
 // (0xDD42AA66, 0x2BA71070), 4 for a sector (0x6AADF154), 0 for anything else.
 int shape_type_from_checksum(uint32_t shape);
 
-} // namespace Nx
+} // namespace render

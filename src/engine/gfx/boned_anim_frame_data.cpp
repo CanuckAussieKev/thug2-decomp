@@ -229,7 +229,8 @@ void __cdecl expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
         out->value[3] = 1.0f;
         return;
     }
-    float x = get_scaled(in->value[0], kQuatUnit), y = get_scaled(in->value[1], kQuatUnit), z = get_scaled(in->value[2], kQuatUnit);
+    float x = get_scaled(in->value[0], kQuatUnit), y = get_scaled(in->value[1], kQuatUnit),
+          z = get_scaled(in->value[2], kQuatUnit);
     float w = quat_w(x, y, z, in->time, false);
     out->value[0] = x;
     out->value[1] = y;
@@ -271,7 +272,8 @@ void __cdecl get_short_quat(const ShortKey* key, float* out)
         out[3] = 1.0f;
         return;
     }
-    float x = get_scaled(key->value[0], kQuatUnit), y = get_scaled(key->value[1], kQuatUnit), z = get_scaled(key->value[2], kQuatUnit);
+    float x = get_scaled(key->value[0], kQuatUnit), y = get_scaled(key->value[1], kQuatUnit),
+          z = get_scaled(key->value[2], kQuatUnit);
     out[0] = x;
     out[1] = y;
     out[2] = z;
@@ -914,7 +916,8 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
             if (from <= quat_frame && to >= quat_frame) {
                 quat_from = key;
                 quat_to = key + 16;
-                quat_t = static_cast<float>((static_cast<double>(quat_frame) - from) / (static_cast<double>(to) - from));
+                quat_t =
+                    static_cast<float>((static_cast<double>(quat_frame) - from) / (static_cast<double>(to) - from));
                 break;
             }
         }
@@ -930,7 +933,8 @@ bool JointClipFrames::get_float_key_pose(float* rotations, float* translations, 
             if (from <= trans_frame && to >= trans_frame) {
                 trans_from = key;
                 trans_to = key + 16;
-                trans_t = static_cast<float>((static_cast<double>(trans_frame) - from) / (static_cast<double>(to) - from));
+                trans_t =
+                    static_cast<float>((static_cast<double>(trans_frame) - from) / (static_cast<double>(to) - from));
                 break;
             }
         }
@@ -955,7 +959,7 @@ int16_t cache_direction(uint8_t* entry, int cursor, int time)
 
 // 0x00484760
 bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t* valid, float time, int cursor,
-                                  FrameSource* source)
+                                 FrameSource* source)
 {
     float quat_frame = static_cast<float>(static_cast<double>(time) * 60.0);
     float trans_frame = quat_frame; // (each clamped in turn by the cache's keys - kept for the later bones)
@@ -995,7 +999,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         int from = quat_key_time(first), to = quat_key_time(second);
                         if (from == to) {
                             interpolate_float_quat(rotations, reinterpret_cast<FloatKey*>(first),
-                                                 reinterpret_cast<FloatKey*>(second), 0.0f);
+                                                   reinterpret_cast<FloatKey*>(second), 0.0f);
                         } else {
                             if (quat_frame < from)
                                 quat_frame = static_cast<float>(from);
@@ -1004,7 +1008,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                             float t = static_cast<float>((static_cast<double>(quat_frame) - from) /
                                                          (static_cast<double>(to) - from));
                             interpolate_float_quat(rotations, reinterpret_cast<FloatKey*>(first),
-                                                 reinterpret_cast<FloatKey*>(second), t);
+                                                   reinterpret_cast<FloatKey*>(second), t);
                         }
                         done = true;
                     }
@@ -1030,7 +1034,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         float from = static_cast<float>(quat_key_time(reinterpret_cast<const uint8_t*>(&a.time)));
                         float to = static_cast<float>(quat_key_time(reinterpret_cast<const uint8_t*>(&b.time)));
                         if (quat_frame >= from && quat_frame <= to) {
-                            t = static_cast<float>((static_cast<double>(quat_frame) - from) / (static_cast<double>(to) - from));
+                            t = static_cast<float>((static_cast<double>(quat_frame) - from) /
+                                                   (static_cast<double>(to) - from));
                             break;
                         }
                     }
@@ -1052,7 +1057,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         maths::Vec4 before = *reinterpret_cast<maths::Vec4*>(translations);
                         if (from == to) {
                             interpolate_float_trans(translations, reinterpret_cast<FloatKey*>(first),
-                                                  reinterpret_cast<FloatKey*>(second), 0.0f);
+                                                    reinterpret_cast<FloatKey*>(second), 0.0f);
                             if (add)
                                 *reinterpret_cast<maths::Vec4*>(translations) += before;
                         } else if (trans_frame >= from) { // (before the first key: left as it was)
@@ -1060,7 +1065,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                             float t = static_cast<float>((static_cast<double>(trans_frame) - from) /
                                                          (static_cast<double>(to) - from));
                             interpolate_float_trans(translations, reinterpret_cast<FloatKey*>(first),
-                                                  reinterpret_cast<FloatKey*>(second), t);
+                                                    reinterpret_cast<FloatKey*>(second), t);
                             if (add)
                                 *reinterpret_cast<maths::Vec4*>(translations) += before;
                         }
@@ -1090,7 +1095,8 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                         }
                         int to = trans_key_time(reinterpret_cast<const uint8_t*>(&b.time));
                         if (to >= trans_frame) {
-                            t = static_cast<float>((static_cast<double>(trans_frame) - from) / (static_cast<double>(to) - from));
+                            t = static_cast<float>((static_cast<double>(trans_frame) - from) /
+                                                   (static_cast<double>(to) - from));
                             break;
                         }
                     }
@@ -1112,4 +1118,4 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
     return true;
 }
 
-} // namespace Gfx
+} // namespace gfx

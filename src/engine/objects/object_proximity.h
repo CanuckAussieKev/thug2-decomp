@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -58,14 +58,14 @@ public:
 
     float inner_radius_squared_;       // +0x18
     float outer_radius_squared_;       // +0x1C
-    float inner_avoid_radius_squared_;  // +0x20
-    float outer_avoid_radius_squared_;  // +0x24
+    float inner_avoid_radius_squared_; // +0x20
+    float outer_avoid_radius_squared_; // +0x24
     float attention_radius_squared_;   // +0x28
-    uint32_t unknown2c_;             // +0x2C
+    uint32_t unknown2c_;               // +0x2C
 };
 static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == 0x18 &&
                   offsetof(ObjectProximityComponent, attention_radius_squared_) == 0x28 &&
                   sizeof(ObjectProximityComponent) == 0x30,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

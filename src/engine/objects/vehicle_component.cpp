@@ -54,10 +54,10 @@ constexpr uint32_t kPercent = 0x9E497FC6;
 constexpr uint32_t kDuration = 0x79A07F3F;
 constexpr uint32_t kOffset = 0xA6F5352F;
 
-const float kHalf = 0.5f;                      // 0x006453BC
-const float kHundredPi = 314.159271f;          // 0x006466A8 (the wheels' roll wraps at 200 pi by 100 pi)
-const float kTwoHundredPi = 628.318542f;       // 0x006466AC
-const float kHundredth = 0.00999999978f;       // 0x0064544C
+const float kHalf = 0.5f;                // 0x006453BC
+const float kHundredPi = 314.159271f;    // 0x006466A8 (the wheels' roll wraps at 200 pi by 100 pi)
+const float kTwoHundredPi = 628.318542f; // 0x006466AC
+const float kHundredth = 0.00999999978f; // 0x0064544C
 
 } // namespace
 
@@ -76,9 +76,9 @@ void DrivableModule::update_wheel_rotations()
 {
     for (int i = wheel_count_ - 1; i >= 0; --i) {
         Wheel& wheel = wheels_[i];
-        double rotation =
-            (static_cast<double>(wheel.spin) - static_cast<double>(wheel.torque) * step_length_ * kHalf) * step_length_ +
-            wheel.rotation;
+        double rotation = (static_cast<double>(wheel.spin) - static_cast<double>(wheel.torque) * step_length_ * kHalf) *
+                              step_length_ +
+                          wheel.rotation;
         wheel.rotation = static_cast<float>(rotation);
         if (rotation > kTwoHundredPi)
             wheel.rotation = static_cast<float>(rotation - kHundredPi);
@@ -158,9 +158,12 @@ void DrivableModule::step_vehicle_speeds()
 maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::Vec4* offset)
 {
     // The angular velocity across the offset, plus the velocity.
-    float x = static_cast<float>(static_cast<double>(offset->z) * rotvel_.y - static_cast<double>(offset->y) * rotvel_.z);
-    float y = static_cast<float>(static_cast<double>(rotvel_.z) * offset->x - static_cast<double>(rotvel_.x) * offset->z);
-    float z = static_cast<float>(static_cast<double>(rotvel_.x) * offset->y - static_cast<double>(rotvel_.y) * offset->x);
+    float x =
+        static_cast<float>(static_cast<double>(offset->z) * rotvel_.y - static_cast<double>(offset->y) * rotvel_.z);
+    float y =
+        static_cast<float>(static_cast<double>(rotvel_.z) * offset->x - static_cast<double>(rotvel_.x) * offset->z);
+    float z =
+        static_cast<float>(static_cast<double>(rotvel_.x) * offset->y - static_cast<double>(rotvel_.y) * offset->x);
     float w = vel_.w;
     out->x = static_cast<float>(static_cast<double>(x) + vel_.x);
     out->y = static_cast<float>(static_cast<double>(y) + vel_.y);
@@ -199,7 +202,8 @@ void DrivableModule::add_force_at_offset(const maths::Vec4* force, const maths::
     // The torque: x and y unrounded, z rounded.
     double tx = static_cast<double>(offset->y) * force->z - static_cast<double>(force->y) * offset->z;
     double ty = static_cast<double>(offset->z) * force->x - static_cast<double>(force->z) * offset->x;
-    float tz = static_cast<float>(static_cast<double>(force->y) * offset->x - static_cast<double>(offset->y) * force->x);
+    float tz =
+        static_cast<float>(static_cast<double>(force->y) * offset->x - static_cast<double>(offset->y) * force->x);
     twist_force_.x = static_cast<float>(tx + twist_force_.x);
     twist_force_.y = static_cast<float>(ty + twist_force_.y);
     twist_force_.z = static_cast<float>(static_cast<double>(tz) + twist_force_.z);
@@ -214,7 +218,8 @@ void DrivableModule::apply_impulse_at_offset(const maths::Vec4* impulse, const m
     linear_momentum_.w = static_cast<float>(static_cast<double>(impulse->w) + linear_momentum_.w);
     double tx = static_cast<double>(offset->y) * impulse->z - static_cast<double>(impulse->y) * offset->z;
     double ty = static_cast<double>(offset->z) * impulse->x - static_cast<double>(impulse->z) * offset->x;
-    float tz = static_cast<float>(static_cast<double>(impulse->y) * offset->x - static_cast<double>(offset->y) * impulse->x);
+    float tz =
+        static_cast<float>(static_cast<double>(impulse->y) * offset->x - static_cast<double>(offset->y) * impulse->x);
     rotmom_.x = static_cast<float>(tx + rotmom_.x);
     rotmom_.y = static_cast<float>(ty + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(tz) + rotmom_.z);
@@ -249,11 +254,15 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     float side_z = static_cast<float>(dx * side);
     float side_w = static_cast<float>(side);
     float push_x = static_cast<float>(static_cast<double>(dx) * forward + side_x);
-    float push_y = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy) * forward)) + side_y);
-    float push_z = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dz) * forward)) + side_z);
-    float push_w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
+    float push_y =
+        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy) * forward)) + side_y);
+    float push_z =
+        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dz) * forward)) + side_z);
+    float push_w =
+        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
     float up_scale = static_cast<float>(maths::signed_spread(0.2f) + 1.0);
-    push_y = static_cast<float>(static_cast<double>(push_y) + script::fetch_float(0x738500FD) * static_cast<double>(up_scale));
+    push_y = static_cast<float>(static_cast<double>(push_y) +
+                                script::fetch_float(0x738500FD) * static_cast<double>(up_scale));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
     float yaw_scale = script::fetch_float(0x14DDB3EF);
@@ -340,7 +349,8 @@ bool DrivableModule::adjust_gravity(script::Struct* params, script::Script*)
     params->fetch_float(kPercent, &gravity_scale_, 1);
     gravity_scale_ = static_cast<float>(static_cast<double>(gravity_scale_) * kHundredth);
     params->fetch_float(kDuration, &gravity_time_, 1);
-    debug::printf(kDebugFormat, kDebugFile, 0xD78, "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
+    debug::printf(kDebugFormat, kDebugFile, 0xD78,
+                  "Initiating vehicle gravity override"); // "Initiating vehicle gravity override"
     return true;
 }
 
@@ -376,21 +386,21 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kTrigger = 0xE594F0A2;
 constexpr uint32_t kAnimBlender = 0x7149B753;
-constexpr uint32_t kParkEditor = 0xD443A2BC;      // the park editor's level (its +0x40)
-constexpr uint32_t kSkater = 0x2ED67657;          // a skater is shown driving
-const float kToRadians = std::bit_cast<float>(0x3C8EFA35u);    // 0x00645464
-const float kFeet = 12.0f;                                    // 0x0064546C
-const float kRpmToRadians = std::bit_cast<float>(0x3DD67770u); // 0x006467A4: 2 pi / 60
-const float kThird = std::bit_cast<float>(0x3EAAAAABu);        // 0x006463D8
-const float kCameraBack = 48.0f;                              // 0x006461CC
-const float kQuarter = 0.25f;                                 // 0x006467AC
-const float kAbove = 24.0f;                                   // 0x00645EE8
-const float kBelow = 240.0f;                                  // 0x00646558
-const float kMaxStep = std::bit_cast<float>(0x3D088889u);      // 0x00646430: 1/30
+constexpr uint32_t kParkEditor = 0xD443A2BC;                     // the park editor's level (its +0x40)
+constexpr uint32_t kSkater = 0x2ED67657;                         // a skater is shown driving
+const float kToRadians = std::bit_cast<float>(0x3C8EFA35u);      // 0x00645464
+const float kFeet = 12.0f;                                       // 0x0064546C
+const float kRpmToRadians = std::bit_cast<float>(0x3DD67770u);   // 0x006467A4: 2 pi / 60
+const float kThird = std::bit_cast<float>(0x3EAAAAABu);          // 0x006463D8
+const float kCameraBack = 48.0f;                                 // 0x006461CC
+const float kQuarter = 0.25f;                                    // 0x006467AC
+const float kAbove = 24.0f;                                      // 0x00645EE8
+const float kBelow = 240.0f;                                     // 0x00646558
+const float kMaxStep = std::bit_cast<float>(0x3D088889u);        // 0x00646430: 1/30
 const float kStepsPerSecond = std::bit_cast<float>(0x426FFFFFu); // 0x006467D0: 59.999996
-const float kRimHalfWidth = std::bit_cast<float>(0x40766666u); // 0x006467CC: 3.85
-const float kSpokeAngle = std::bit_cast<float>(0x3F060A90u);   // 0x006467C8: pi / 6
-const double kTwoTo32 = 4294967296.0;                         // 0x006453B4
+const float kRimHalfWidth = std::bit_cast<float>(0x40766666u);   // 0x006467CC: 3.85
+const float kSpokeAngle = std::bit_cast<float>(0x3F060A90u);     // 0x006467C8: pi / 6
+const double kTwoTo32 = 4294967296.0;                            // 0x006453B4
 
 // A count as the original loads it (FILD, then 2^32 added when negative: unsigned).
 double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
@@ -401,14 +411,8 @@ void read_wheel(DrivableModule::Wheel* wheel, script::Struct* params)
     read_wheel_settings(reinterpret_cast<uint8_t*>(wheel), params);
 }
 // The skate module's local skater (0x00566520) and a restart node's name (0x00566100).
-GameEntity* local_skater()
-{
-    return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
-}
-uint32_t skate_restart(int index)
-{
-    return modules::Skate::sole()->warp_to_restart(static_cast<uint32_t>(index));
-}
+GameEntity* local_skater() { return static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider()); }
+uint32_t skate_restart(int index) { return modules::Skate::sole()->warp_to_restart(static_cast<uint32_t>(index)); }
 // The model's geometry (0x00493040 on the model's +0x208): its matrix at +0x60, the wheels' places (z up) at +0xE0 +
 // 0x50 each.
 const uint8_t* model_geometry(ObjectModule* model)
@@ -416,7 +420,10 @@ const uint8_t* model_geometry(ObjectModule* model)
     void* instance = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x208);
     return reinterpret_cast<const uint8_t*>(static_cast<render::RenderModel*>(instance)->get_asset_hierarchy());
 }
-const float* wheel_place(const uint8_t* geometry, int i) { return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50); }
+const float* wheel_place(const uint8_t* geometry, int i)
+{
+    return reinterpret_cast<const float*>(geometry + 0xE0 + i * 0x50);
+}
 // The skeleton (0x005480F0): its bone matrices (0x005480C0) and how many (0x004A2BA0).
 void* skeleton_of(ObjectModule* skeleton)
 {
@@ -425,10 +432,7 @@ void* skeleton_of(ObjectModule* skeleton)
 // The viewport's camera (0x004A09C0; null if none), its position (0x00485A00) and matrix (0x00485A10).
 void* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
 // 0x0041A730 (not rewritten yet): the rotation of a node's angles.
-void matrix_from_angles(maths::Mat4* matrix, const maths::Vec4* angles)
-{
-    matrix->init_from_angles(*angles);
-}
+void matrix_from_angles(maths::Mat4* matrix, const maths::Vec4* angles) { matrix->init_from_angles(*angles); }
 
 void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
 
@@ -565,9 +569,10 @@ void DrivableModule::configure_from_data(script::Struct* params)
             const maths::Vec4& a = c.edges[0];
             const maths::Vec4& b = c.edges[1];
             double s0 = length_squared(o.x, o.y, o.z);
-            double s1 = length_squared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y, static_cast<double>(a.z) + o.z);
-            float s2 = static_cast<float>(
-                length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y, static_cast<double>(b.z) + o.z));
+            double s1 = length_squared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y,
+                                       static_cast<double>(a.z) + o.z);
+            float s2 = static_cast<float>(length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y,
+                                                         static_cast<double>(b.z) + o.z));
             sum = static_cast<float>(((std::sqrt(s0) + sum) + std::sqrt(s1)) + std::sqrt(static_cast<double>(s2)));
             c.lengths[0] = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
             c.lengths[1] = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
@@ -665,7 +670,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
     rider_shown_ = rider_shown_ || params->has_bare_flag(kSkater);
     if (params->has_bare_flag(kSkater)) {
         params->fetch_vec(0xEC86EF7A, reinterpret_cast<script::VectorValue*>(&skater_pos_), 1); // skater_pos
-        params->read_hash_value(0xDA75A33E, &rider_anim_name_, 1);                                       // skater_anim
+        params->read_hash_value(0xDA75A33E, &rider_anim_name_, 1);                              // skater_anim
     }
     params->read_hash_value(0x0EDCF90E, &sounds_name_, 0); // sounds
 
@@ -685,7 +690,8 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.display_steering_ = 0.0f;
         wheel.torque = 0.0f;
         for (int k = 9; k >= 0; --k)
-            wheel.load_history_[k] = static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / Unsigned(wheel_count_));
+            wheel.load_history_[k] =
+                static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / Unsigned(wheel_count_));
     }
     load_index_ = 0;
     gravity_time_ = 0.0f;
@@ -712,14 +718,23 @@ void DrivableModule::seal()
     int fixed = -1, left = -1, right = -1;
     for (int i = 3; i >= 0; --i) {
         switch (wheels_[i].steering_side_) {
-        case 0: fixed = i; break;
-        case 1: left = i; break;
-        case 2: right = i; break;
-        default: break;
+        case 0:
+            fixed = i;
+            break;
+        case 1:
+            left = i;
+            break;
+        case 2:
+            right = i;
+            break;
+        default:
+            break;
         }
     }
-    wheelbase_ = static_cast<float>(std::fabs(static_cast<double>(wheel_place(geometry, left)[1]) - wheel_place(geometry, fixed)[1]));
-    track_ = static_cast<float>(std::fabs(static_cast<double>(wheel_place(geometry, left)[0]) - wheel_place(geometry, right)[0]));
+    wheelbase_ = static_cast<float>(
+        std::fabs(static_cast<double>(wheel_place(geometry, left)[1]) - wheel_place(geometry, fixed)[1]));
+    track_ = static_cast<float>(
+        std::fabs(static_cast<double>(wheel_place(geometry, left)[0]) - wheel_place(geometry, right)[0]));
     // The suspension: the wheel's place raised by its diameter; its rest extension down from there, sagged by its
     // share of the weight.
     for (int i = wheel_count_ - 1; i >= 0; --i) {
@@ -811,7 +826,8 @@ void DrivableModule::tick_frame()
         double left = static_cast<double>(gravity_time_) - frame;
         gravity_time_ = static_cast<float>(left);
         if (left <= 0.0 || static_cast<uint32_t>(wheels_in_contact_) > 1) {
-            debug::printf(kDebugFormat, kDebugFile, 0x2A0, "Ending vehicle gravity override"); // "Ending vehicle gravity override"
+            debug::printf(kDebugFormat, kDebugFile, 0x2A0,
+                          "Ending vehicle gravity override"); // "Ending vehicle gravity override"
             gravity_time_ = 0.0f;
             gravity_scale_ = 1.0f;
         }
@@ -872,7 +888,8 @@ void DrivableModule::refresh_bone_rig()
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     auto* bones = reinterpret_cast<maths::Mat4*>(static_cast<online::FoldedGetters*>(skeleton_of(bone_rig_))->word04());
-    int count = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton_of(bone_rig_));
+    int count =
+        reinterpret_cast<int(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton_of(bone_rig_));
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than max_drawn_y_. In debug mode 2 all of them nothing.
     for (int b = count - 1; b >= 0; --b) {
@@ -941,13 +958,27 @@ void DrivableModule::debug_draw()
         const Wheel& wheel = wheels_[i];
         uint32_t colour;
         switch (wheel.state) {
-        case kWheelStaticSlow: colour = 0xFF00FF00; break;
-        case kWheelStatic: colour = 0xFF000000; break;
-        case kWheelStaticToDynamic: colour = 0xFF00C8FF; break;
-        case kWheelDynamic: colour = 0xFF0000FF; break;
-        case kWheelHandbrakeThrottle: colour = 0xFF960096; break;
-        case kWheelHandbrakeLocked: colour = 0xFF969600; break;
-        default: colour = 0xFFFFFFFF; break;
+        case kWheelStaticSlow:
+            colour = 0xFF00FF00;
+            break;
+        case kWheelStatic:
+            colour = 0xFF000000;
+            break;
+        case kWheelStaticToDynamic:
+            colour = 0xFF00C8FF;
+            break;
+        case kWheelDynamic:
+            colour = 0xFF0000FF;
+            break;
+        case kWheelHandbrakeThrottle:
+            colour = 0xFF960096;
+            break;
+        case kWheelHandbrakeLocked:
+            colour = 0xFF969600;
+            break;
+        default:
+            colour = 0xFFFFFFFF;
+            break;
         }
         for (int spoke = 11; spoke >= 0; --spoke) {
             maths::Vec4 a, b;
@@ -966,7 +997,8 @@ void DrivableModule::debug_draw()
             maths::Vec4 ends[2];
             for (int e = 0; e < 2; ++e) {
                 float side = e ? kBelow : -kBelow;
-                maths::Vec4 local{steer.row[0].x * side + wheel.offset.x, steer.row[0].y * side + wheel.offset.y + wheel.y,
+                maths::Vec4 local{steer.row[0].x * side + wheel.offset.x,
+                                  steer.row[0].y * side + wheel.offset.y + wheel.y,
                                   steer.row[0].z * side + wheel.offset.z, 1.0f};
                 maths::Vec4 world;
                 basis_frame_.rotate_vector(world, local);
@@ -1087,7 +1119,8 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     at_point_.x = static_cast<float>(static_cast<double>(static_cast<float>(up_x * kFeet)) + at_point_.x);
     at_point_.y = static_cast<float>(up_y * kFeet + at_point_.y);
     at_point_.z = static_cast<float>(static_cast<double>(up_z) * kFeet + at_point_.z);
-    at_point_.w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(up_w) * kFeet)) + at_point_.w);
+    at_point_.w =
+        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(up_w) * kFeet)) + at_point_.w);
     const maths::Vec4& at = view.row[2];
     double at_x = static_cast<double>(at.x) * kFeet, at_y = static_cast<double>(at.y) * kFeet;
     float at_z = static_cast<float>(static_cast<double>(at.z) * kFeet);
@@ -1095,7 +1128,8 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     at_point_.x = static_cast<float>(static_cast<double>(at_point_.x) - static_cast<float>(at_x * kFeet));
     at_point_.y = static_cast<float>(at_point_.y - at_y * kFeet);
     at_point_.z = static_cast<float>(at_point_.z - static_cast<double>(at_z) * kFeet);
-    at_point_.w = static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
+    at_point_.w =
+        static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
     entity_->at_point_ = at_point_;
     // Facing away from the camera.
     basis_frame_.row[0] = {-view.row[0].x, -view.row[0].y, -view.row[0].z, -view.row[0].w};
@@ -1130,25 +1164,25 @@ __declspec(naked) void update_wheel_rotations_stub()
 
 } // namespace
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::DrivableModule::teardown,
-         &objects::DrivableModule::tick_frame,
-         &objects::DrivableModule::configure_from_data,
-         &objects::DrivableModule::seal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::DrivableModule::tick_frame,
+                                      &objects::DrivableModule::configure_from_data,
+                                      &objects::DrivableModule::seal,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

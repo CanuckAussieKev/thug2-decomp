@@ -57,21 +57,21 @@ constexpr uint32_t kMetrics = 0xDD755518;      // "Metrics"
 // A spawned polygon's settings (0xB8 bytes, from the pool pair 0x00700500; constructed by 0x00491990: zeroed,
 // blend mode 0x54628ED7). The fields not named are set elsewhere (0x00492450).
 struct SpawnedPolyDetails {
-    script::VectorValue pos;   // +0x00
+    script::VectorValue pos; // +0x00
     uint8_t unknown10[0x48];
-    float start_dims_[2];        // +0x58
-    float end_dims_[2];          // +0x60
+    float start_dims_[2];         // +0x58
+    float end_dims_[2];           // +0x60
     uint8_t start_colours_[4][4]; // +0x68 (r, g, b, a per corner)
-    uint8_t end_colours_[4][4];  // +0x78
+    uint8_t end_colours_[4][4];   // +0x78
     uint8_t unknown88[0x10];
-    uint32_t flags;            // +0x98
+    uint32_t flags; // +0x98
     uint32_t unknown9c_;
-    float lifetime;            // +0xA0
-    void* texture;             // +0xA4
+    float lifetime; // +0xA0
+    void* texture;  // +0xA4
     uint32_t unknowna8_;
-    uint32_t blend_mode_;        // +0xAC
-    float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)
-    float align_v_;               // +0xB4 (-1 top, 0 centre, 1 bottom)
+    uint32_t blend_mode_; // +0xAC
+    float align_h_;       // +0xB0 (-1 left, 0 centre, 1 right)
+    float align_v_;       // +0xB4 (-1 top, 0 centre, 1 bottom)
 };
 static_assert(sizeof(SpawnedPolyDetails) == 0xB8, "layout must match the original");
 
@@ -246,25 +246,41 @@ bool __cdecl cfunc_spawn_poly(Struct* params, Script*)
     details->align_v_ = 0.0f;
     if (params->fetch_list(kJust, &just, 0)) {
         switch (just->fetch_part(0)) {
-        case kRight: details->align_h_ = 1.0f; break;
-        case kLeft: details->align_h_ = -1.0f; break;
-        case kCenter: details->align_h_ = 0.0f; break;
-        default: break;
+        case kRight:
+            details->align_h_ = 1.0f;
+            break;
+        case kLeft:
+            details->align_h_ = -1.0f;
+            break;
+        case kCenter:
+            details->align_h_ = 0.0f;
+            break;
+        default:
+            break;
         }
         switch (just->fetch_part(1)) {
-        case kBottom: details->align_v_ = 1.0f; break;
-        case kCenter: details->align_v_ = 0.0f; break;
-        case kTop: details->align_v_ = -1.0f; break;
-        default: break;
+        case kBottom:
+            details->align_v_ = 1.0f;
+            break;
+        case kCenter:
+            details->align_v_ = 0.0f;
+            break;
+        case kTop:
+            details->align_v_ = -1.0f;
+            break;
+        default:
+            break;
         }
     }
     params->read_hash_value(kBlendMode, &details->blend_mode_, 0);
     uint32_t texture = 0;
     params->read_hash_value(kTexture, &texture, 0);
-    details->texture = texture ? static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))->fetch_skin(texture) // the texture dictionary
-                               : nullptr;
-    render::engine::spawn_poly(reinterpret_cast<render::SpawnedPoly*>(details), reinterpret_cast<maths::Vec4*>(&vector1),
-                          reinterpret_cast<maths::Vec4*>(&vector2));
+    details->texture = texture
+                           ? static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))
+                                 ->fetch_skin(texture) // the texture dictionary
+                           : nullptr;
+    render::engine::spawn_poly(reinterpret_cast<render::SpawnedPoly*>(details),
+                               reinterpret_cast<maths::Vec4*>(&vector1), reinterpret_cast<maths::Vec4*>(&vector2));
     return true;
 }
 
@@ -370,7 +386,7 @@ bool __cdecl cfunc_nudge_vc(Struct* params, Script*)
 bool __cdecl cfunc_set_light_direction(Struct* params, Script*)
 {
     constexpr float kRadiansPerDegree = 0.0174532924f; // (0x00645464)
-    int index = 0; // (uninitialised in the original)
+    int index = 0;                                     // (uninitialised in the original)
     params->fetch_int_value(kIndex, &index, 0);
     script::VectorValue direction = {0.0f, 0.0f, 1.0f, 0.0f};
     float heading;

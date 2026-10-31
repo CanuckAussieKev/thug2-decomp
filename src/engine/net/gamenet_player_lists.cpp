@@ -55,9 +55,9 @@ using namespace detail;
 
 namespace {
 
-constexpr uint32_t kPlayers = 0x11C;       // lists::Foremost<PlayerRecord>
-constexpr uint32_t kJoinerListOffset = 0x130;    // lists::Foremost<JoinerRecord>
-constexpr uint32_t kQueuedScripts = 0x144; // PendingScriptItem (a head of its own type)
+constexpr uint32_t kPlayers = 0x11C;          // lists::Foremost<PlayerRecord>
+constexpr uint32_t kJoinerListOffset = 0x130; // lists::Foremost<JoinerRecord>
+constexpr uint32_t kQueuedScripts = 0x144;    // PendingScriptItem (a head of its own type)
 
 constexpr uint32_t kNewPlayerObjectId = 0x10; // JoinerRecord: its object id (a signed byte)
 constexpr uint32_t kNewPlayerConn = 0x14;     // JoinerRecord: its connection
@@ -108,13 +108,13 @@ unsigned int tally_nodes(const memory::ListNode* node)
     return count;
 }
 // --- 0x00539610-0x0053A580's ---
-constexpr uint32_t kNewPlayerSize = 0x44;      // JoinerRecord (constructor 0x005434D0)
-constexpr uint32_t kNewPlayerProfile = 0x1C;   // JoinerRecord: its skater profile
-constexpr uint32_t kNewPlayerFlags = 0x20;     // (4 observing, 8 will play, 0x10, 0x18 ...)
+constexpr uint32_t kNewPlayerSize = 0x44;    // JoinerRecord (constructor 0x005434D0)
+constexpr uint32_t kNewPlayerProfile = 0x1C; // JoinerRecord: its skater profile
+constexpr uint32_t kNewPlayerFlags = 0x20;   // (4 observing, 8 will play, 0x10, 0x18 ...)
 constexpr uint32_t kNewPlayerTeam = 0x28;
-constexpr uint32_t kPlayerConnection = 0x18;   // PlayerRecord: its connection
-constexpr uint32_t kPlayerProfileInfo = 0x4C;  // PlayerRecord: its skater profile
-constexpr uint32_t kPlayerFace = 0x1E8;        // PlayerRecord: its face texture data (a byte, then kFaceSize)
+constexpr uint32_t kPlayerConnection = 0x18;  // PlayerRecord: its connection
+constexpr uint32_t kPlayerProfileInfo = 0x4C; // PlayerRecord: its skater profile
+constexpr uint32_t kPlayerFace = 0x1E8;       // PlayerRecord: its face texture data (a byte, then kFaceSize)
 constexpr uint16_t kFaceSize = 0x4498;
 constexpr uint8_t kMsgFace = 0x7E;
 constexpr uint8_t kGroupFace = 9;
@@ -124,23 +124,23 @@ constexpr uint8_t kMsgTagTexture = 0x97;
 constexpr uint8_t kMsgTagPalette = 0x98;
 constexpr uint8_t kMsgTagLogos = 0x9A;
 constexpr uint8_t kGroupTag = 10;
-const char* const kTagPaletteDesc = "CAG Palette"; // "CAG Palette"
-const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
-constexpr uint32_t kHatLogo = 0x5B288E0B;      // hat_logo
-constexpr uint32_t kFrontLogo = 0x23A1DF80;    // front_logo
-constexpr uint32_t kBackLogo = 0xD0C656A2;     // back_logo
-constexpr uint32_t kDeckGraphic = 0x07CB4FA9;  // deck_graphic
+const char* const kTagPaletteDesc = "CAG Palette";      // "CAG Palette"
+const char* const kTagTextureDesc = "CAG Texture";      // "CAG Texture"
+constexpr uint32_t kHatLogo = 0x5B288E0B;               // hat_logo
+constexpr uint32_t kFrontLogo = 0x23A1DF80;             // front_logo
+constexpr uint32_t kBackLogo = 0xD0C656A2;              // back_logo
+constexpr uint32_t kDeckGraphic = 0x07CB4FA9;           // deck_graphic
 constexpr uint32_t kNetMessageJoining = 0xA41ECAAF;     // net_message_joining
 constexpr uint32_t kNetMessageObserving = 0x8A7E0A70;   // net_message_observing
 constexpr uint32_t kNetMessageJoinPending = 0xF33706D5; // net_message_join_pending
-constexpr uint32_t kNetCtf = 0x6C5FF266;       // netctf
-constexpr uint32_t kTrgCtfRed = 0x36EA35EB;    // TRG_CTF_Red
-constexpr uint32_t kTrgCtfBlue = 0x06270B12;   // TRG_CTF_Blue
-constexpr uint32_t kTrgCtfGreen = 0x3DB516B0;  // TRG_CTF_Green
-constexpr uint32_t kTrgCtfYellow = 0x85E38F38; // TRG_CTF_Yellow
-constexpr uint32_t kSkeleton = 0x222756D5;     // Skeleton (the component)
-constexpr uint32_t kBoneHead = 0xDDEC28AF;     // Bone_Head
-constexpr float kQuarterTurn = 90.0f;          // (make_pitch_matrix's angle, as the original passes it)
+constexpr uint32_t kNetCtf = 0x6C5FF266;                // netctf
+constexpr uint32_t kTrgCtfRed = 0x36EA35EB;             // TRG_CTF_Red
+constexpr uint32_t kTrgCtfBlue = 0x06270B12;            // TRG_CTF_Blue
+constexpr uint32_t kTrgCtfGreen = 0x3DB516B0;           // TRG_CTF_Green
+constexpr uint32_t kTrgCtfYellow = 0x85E38F38;          // TRG_CTF_Yellow
+constexpr uint32_t kSkeleton = 0x222756D5;              // Skeleton (the component)
+constexpr uint32_t kBoneHead = 0xDDEC28AF;              // Bone_Head
+constexpr float kQuarterTurn = 90.0f;                   // (make_pitch_matrix's angle, as the original passes it)
 
 // A joining player who will play: flags 0x18, or not observing.
 bool will_play(const uint8_t* info)
@@ -155,31 +155,26 @@ void delete_virtual(void* object)
     reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(object))[2])(object, 1);
 }
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
-bool profile_has_part(void* profile, uint32_t part)
-{
-    return objects::part_is_created_graphic(profile, part);
-}
+bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 // A custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
-void* texture_pixels(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[25](texture); }
+void* texture_pixels(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[25](texture); }
 uint16_t get_texture_size(void* texture)
 {
     return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[26](texture));
 }
-void* texture_palette(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[27](texture); }
+void* texture_palette(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[27](texture); }
 uint16_t texture_palette_size(void* texture)
 {
     return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[28](texture));
 }
 // D3DXMatrixMultiply (the D3DX library's, stdcall): out = a * b.
-void d_3d_x_matrix_multiply(void* out, const void* a, const void* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void d_3d_x_matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The first player (observers too) for whom the PlayerRecord member `test` is true (0 / 1 in EAX: tested as AL).
 void* find_player(Hub* manager, int (PlayerRecord::*test)())
 {
-    for (memory::ListNode* node = get_next_node(player_list(manager)); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(player_list(manager)); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         if ((as_player(player)->*test)() != 0)
             return player;
     }
@@ -187,7 +182,10 @@ void* find_player(Hub* manager, int (PlayerRecord::*test)())
 }
 
 // A node deleted through its vtable (slot 0, the scalar deleting destructor).
-void unlink_list_node(memory::ListNode* node) { reinterpret_cast<void(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node, 1); }
+void unlink_list_node(memory::ListNode* node)
+{
+    reinterpret_cast<void(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node, 1);
+}
 
 // A joining player's record deleted (JoinerRecord's destructor body 0x00543560, then freed).
 void delete_new_player(void* player)
@@ -334,7 +332,8 @@ int Hub::count_other_players()
 // 0x00537620
 void Hub::clear_roster()
 {
-    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         prop<uint32_t>(player, kPlayerFlags) &= ~0x00020100u;
         prop<uint32_t>(player, 0x20) = 0;
         prop<uint32_t>(player, 0x1C) = 0;
@@ -350,7 +349,7 @@ void Hub::clear_roster()
 
 // 0x005376F0
 void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, const char* string2, void*,
-                                    const char* properties, bool important, int time)
+                           const char* properties, bool important, int time)
 {
     if (broadcast) {
         net::NetMessageInfo desc;
@@ -372,7 +371,8 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             desc.group_id_ = kGroupGame;
         }
-        for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node); node = get_next_node(node))
+        for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node);
+             node = get_next_node(node))
             host_->put_on_outbox(player_handle(player), &desc);
         return;
     }
@@ -401,7 +401,8 @@ void Hub::build_net_notice(bool broadcast, uint32_t text, const char* string1, c
 void Hub::queue_script(int node, uint32_t object_id, uint32_t script)
 {
     memory::ListNode* head = queued_script_list(this);
-    for (memory::ListNode* n = get_next_node(head); auto* queued = reinterpret_cast<PendingScriptItem*>(data_of(n)); n = get_next_node(n)) {
+    for (memory::ListNode* n = get_next_node(head); auto* queued = reinterpret_cast<PendingScriptItem*>(data_of(n));
+         n = get_next_node(n)) {
         if (queued->own_script_ == script)
             return;
     }
@@ -453,9 +454,10 @@ void Hub::launch_queued_scripts()
     for (auto* queued = reinterpret_cast<PendingScriptItem*>(data_of(node)); queued;) {
         node = get_next_node(node);
         auto* next = reinterpret_cast<PendingScriptItem*>(data_of(node));
-        script::Script* script =
-            script::spawn_script(queued->own_script_, nullptr, 0, nullptr, queued->list_link_, 0, false, false, false, false);
-        objects::Entity* object = reinterpret_cast<objects::ObjectHubBase*&>(objects::g_composite_registry)->look_up_entity(queued->entity_key_);
+        script::Script* script = script::spawn_script(queued->own_script_, nullptr, 0, nullptr, queued->list_link_, 0,
+                                                      false, false, false, false);
+        objects::Entity* object = reinterpret_cast<objects::ObjectHubBase*&>(objects::g_composite_registry)
+                                      ->look_up_entity(queued->entity_key_);
         script->entity_.assign_value(object);
         while (script->tick_frame() != script::kScriptOutcomeFinished) {
         }
@@ -486,7 +488,8 @@ void Hub::toggle_pro_set(uint8_t bit, uint32_t param)
     desc.ident_ = kMsgFlipProSetting;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     net::AppHost* server = host_;
-    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         if (!is_own_player(player))
             server->put_on_outbox(player_handle(player), &desc);
     }
@@ -502,7 +505,8 @@ int Hub::count_team_players(int team)
         if (player_team(player) == team)
             ++count;
     }
-    for (memory::ListNode* node = get_next_node(new_player_list(this)); uint8_t* info = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(new_player_list(this)); uint8_t* info = data_of(node);
+         node = get_next_node(node)) {
         if (will_play(info) && prop<int>(info, kNewPlayerTeam) == team)
             ++count;
     }
@@ -516,14 +520,16 @@ int Hub::count_players()
     uint8_t ids[12] = {};
     int noted = 0;
     int count = 0;
-    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         if (!is_observer(player) || (prop<uint8_t>(player, kPlayerFlags) & 8)) {
             if (objects::Entity* skater = player_skater(player))
                 ids[noted++] = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
         }
     }
-    for (memory::ListNode* node = get_next_node(new_player_list(this)); uint8_t* info = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(new_player_list(this)); uint8_t* info = data_of(node);
+         node = get_next_node(node)) {
         if (!will_play(info))
             continue;
         bool listed = false;
@@ -539,11 +545,14 @@ int Hub::count_players()
 int Hub::count_observers()
 {
     int count = 0;
-    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node); node = get_next_node(node)) {
-        if (is_observer(player) && !as_player(player)->is_pending_observer() && (!is_own_player(player) || host_mode_ == 0))
+    for (memory::ListNode* node = get_next_node(player_list(this)); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
+        if (is_observer(player) && !as_player(player)->is_pending_observer() &&
+            (!is_own_player(player) || host_mode_ == 0))
             ++count;
     }
-    for (memory::ListNode* node = get_next_node(new_player_list(this)); uint8_t* info = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = get_next_node(new_player_list(this)); uint8_t* info = data_of(node);
+         node = get_next_node(node)) {
         uint32_t flags = prop<uint32_t>(info, kNewPlayerFlags);
         if ((flags & 4) && !(flags & 8))
             ++count;
@@ -599,7 +608,8 @@ void Hub::send_tag_textures_to(void* target)
     for (auto* other = static_cast<uint8_t*>(begin_player_walk(&search, false)); other;
          other = static_cast<uint8_t*>(step_player_walk(&search, false))) {
         void* texture = as_player(other)->get_graffiti_texture(); // its custom tag texture
-        if (!texture || other == player || player_conn(player)->get_link_speed_class() == 1 || !as_player(other)->has_custom_tag())
+        if (!texture || other == player || player_conn(player)->get_link_speed_class() == 1 ||
+            !as_player(other)->has_custom_tag())
             continue;
         // (the logos are read from the receiving player's profile, as in the original)
         void* profile = prop<void*>(player, kPlayerProfileInfo);
@@ -621,10 +631,10 @@ void Hub::send_tag_textures_to(void* target)
         host_->put_on_outbox(player_handle(player), &desc);
         void* palette = texture_palette(texture);
         host_->send_bulk_to_conn(player_conn(player), kMsgTagPalette, texture_palette_size(texture), palette,
-                                      kTagPaletteDesc, kGroupTag, false, true);
+                                 kTagPaletteDesc, kGroupTag, false, true);
         void* pixels = texture_pixels(texture);
-        host_->send_bulk_to_conn(player_conn(player), kMsgTagTexture, get_texture_size(texture), pixels, kTagTextureDesc,
-                                      kGroupTag, false, true);
+        host_->send_bulk_to_conn(player_conn(player), kMsgTagTexture, get_texture_size(texture), pixels,
+                                 kTagTextureDesc, kGroupTag, false, true);
         desc.content_ = &logos;
         desc.ident_ = kMsgTagLogos;
         desc.byte_count_ = 4;
@@ -639,7 +649,9 @@ bool Hub::prepare_local_face()
 {
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem)
         return false;
-    void* profile = get_call<void*>(code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)), detail::get_skate(), 0);
+    void* profile = get_call<void*>(
+        code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
+        detail::get_skate(), 0);
     void* face = prop<void*>(profile, 0x54); // its face texture (0x00576E60)
     if (!face || !get_call<bool>(code_address(&gfx::FaceSkin::is_sound), face))
         return false;
@@ -661,8 +673,8 @@ bool Hub::prepare_local_face()
         void* data = memory::alloc(kFaceSize);
         memory::Hub::get_pull()->leave_heap_scope();
         get_call(code_address(&gfx::FaceSkin::write_to), face, data, kFaceSize);
-        static_cast<net::Guest*>(client_app_)->send_bulk_to_host(kMsgFace, kFaceSize, data, kFaceDesc, kGroupFace,
-                                                                    false, false);
+        static_cast<net::Guest*>(client_app_)
+            ->send_bulk_to_host(kMsgFace, kFaceSize, data, kFaceDesc, kGroupFace, false, false);
         memory::dealloc(data);
     }
     return true;
@@ -681,8 +693,8 @@ void Hub::send_faces_to(void* target)
             continue;
         if (!as_player(other)->get_face_texture_data() && !(is_own_player(other) && prepare_local_face()))
             continue;
-        host_->send_bulk_to_conn(player_conn(player), kMsgFace, kFaceSize + 1, as_player(other)->get_face_texture_data(),
-                                      kFaceDesc, kGroupFace, false, true);
+        host_->send_bulk_to_conn(player_conn(player), kMsgFace, kFaceSize + 1,
+                                 as_player(other)->get_face_texture_data(), kFaceDesc, kGroupFace, false, true);
     }
 }
 
@@ -698,7 +710,8 @@ void Hub::add_joining_player(void* message, int timeout)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
     void* record_memory = memory::alloc_zeroed(kNewPlayerSize);
-    auto* record = reinterpret_cast<uint8_t*>(record_memory ? static_cast<JoinerRecord*>(record_memory)->make_new() : nullptr);
+    auto* record =
+        reinterpret_cast<uint8_t*>(record_memory ? static_cast<JoinerRecord*>(record_memory)->make_new() : nullptr);
     std::strcpy(reinterpret_cast<char*>(record), reinterpret_cast<const char*>(info));
     prop<uint32_t>(record, 0x14) = prop<uint32_t>(info, 0x14);
     prop<uint8_t>(record, kNewPlayerObjectId) = prop<uint8_t>(info, kNewPlayerObjectId);
@@ -723,7 +736,7 @@ void Hub::add_joining_player(void* message, int timeout)
             const char* name = reinterpret_cast<const char*>(info);
             if (flags & 4)
                 build_net_notice(true, (flags & 8) ? kNetMessageJoinPending : kNetMessageObserving, name, nullptr,
-                                      nullptr, nullptr, false, 2000);
+                                 nullptr, nullptr, false, 2000);
             else
                 build_net_notice(false, kNetMessageJoining, name, nullptr, nullptr, nullptr, false, 2000);
         }
@@ -751,7 +764,8 @@ void* Hub::next_cam_player()
 {
     PlayerSearch search;
     auto can_watch = [](void* player) {
-        return !static_cast<PlayerRecord*>(player)->is_scouting_level() && !static_cast<PlayerRecord*>(player)->is_eliminated();
+        return !static_cast<PlayerRecord*>(player)->is_scouting_level() &&
+               !static_cast<PlayerRecord*>(player)->is_eliminated();
     };
     if (viewed_player_) {
         void* player = begin_player_walk(&search, false);
@@ -792,18 +806,29 @@ void __cdecl carried_flags_task(void*)
             continue;
         uint32_t name;
         switch (as_player(player)->get_flag_team()) {
-        case 0: name = kTrgCtfRed; break;
-        case 1: name = kTrgCtfBlue; break;
-        case 2: name = kTrgCtfGreen; break;
-        case 3: name = kTrgCtfYellow; break;
-        default: name = 0; break;
+        case 0:
+            name = kTrgCtfRed;
+            break;
+        case 1:
+            name = kTrgCtfBlue;
+            break;
+        case 2:
+            name = kTrgCtfGreen;
+            break;
+        case 3:
+            name = kTrgCtfYellow;
+            break;
+        default:
+            name = 0;
+            break;
         }
         auto* flag = reinterpret_cast<uint8_t*>(objects::find_object(name));
         if (!flag)
             return;
         auto* skater = reinterpret_cast<objects::GameEntity*>(player_skater(player));
         // (the component's +0x18, BoneRigModule::bone_rig_, through the getter folded at 0x005480F0)
-        auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<FoldedGetters*>(skater->fetch_module(kSkeleton))->word18());
+        auto* skeleton =
+            reinterpret_cast<void*>(reinterpret_cast<FoldedGetters*>(skater->fetch_module(kSkeleton))->word18());
         auto* matrix = reinterpret_cast<maths::Mat4*>(flag + 0x6C);
         get_call(code_address(&gfx::Rig::read_joint_matrix), skeleton, kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn;

@@ -26,7 +26,7 @@
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects::thugpro_cas {
 
@@ -41,7 +41,7 @@ bool file_path(const char* relative, char (&path)[260]);
 
 // An archive's (.prx) files named in `names` (lower case, '\'), decompressed; false if it isn't one.
 bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::string>& names,
-                 std::vector<std::pair<std::string, std::vector<uint8_t>>>* out);
+                  std::vector<std::pair<std::string, std::vector<uint8_t>>>* out);
 // The archives' LZSS (a 4 KB window of spaces, written from 4078): `size` bytes out, or fewer if the input runs out.
 std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size);
 // A .qb file's top-level `name = [` arrays: their names and where each array starts (its '[' token). The walk stops
@@ -55,4 +55,4 @@ std::string path_key(const char* path);
 // they name found by `found` (which notes the THUGPRO ones). Their indices in `theirs`.
 std::vector<uint32_t> pick_new(script::Array* ours, script::Array* theirs, bool (*found)(const char* path));
 
-} // namespace GameObjects::thugpro_cas
+} // namespace objects::thugpro_cas

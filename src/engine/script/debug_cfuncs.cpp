@@ -42,10 +42,7 @@ int get_language() { return game_config::g_language; }
 
 // A .qb file loaded (0x005A5960; `level_specific`: unloaded with the level) / unloaded by its name's checksum
 // (0x005A59B0).
-void load_qb_file(const char* name, bool level_specific)
-{
-    script::load_qb_file(name, level_specific ? 1 : 0);
-}
+void load_qb_file(const char* name, bool level_specific) { script::load_qb_file(name, level_specific ? 1 : 0); }
 void unload_qb_file(uint32_t name) { script::unload_qb_file(name); }
 
 // A screenshot written to `name` (0x0048C100, a jump to 0x004B24E0).
@@ -184,9 +181,11 @@ bool __cdecl cfunc_english(script::Struct*, script::Script*) { return get_langua
 // the proximity nodes), then every proximity node freed.
 bool __cdecl cfunc_proxim_cleanup(script::Struct*, script::Script*)
 {
-    for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c; c = c->next_of_type_)
+    for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
+         c = c->next_of_type_)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0xBC) = 0;
-    for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c; c = c->next_of_type_)
+    for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kStream); c;
+         c = c->next_of_type_)
         *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(c) + 0x28) = 0;
     objects::nearby_zone_shutdown();
     return true;

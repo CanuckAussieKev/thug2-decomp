@@ -246,4 +246,4 @@ AppNode* AppNode::destroy_head(unsigned int flags)
     return this;
 }
 
-} // namespace Net
+} // namespace net

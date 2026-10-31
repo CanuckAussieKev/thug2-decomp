@@ -43,10 +43,10 @@ public:
     // 0x0049FA20: a texture loaded from memory (slot 2 with all the arguments but `permanent`), kept and added as
     // ingest_skin's.
     BitmapTexture* read_texture_buffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
-                                    bool permanent, uint32_t a6);
+                                       bool permanent, uint32_t a6);
     // 0x0049FAA0: a texture made (slot 3 with the first six arguments), kept and added as ingest_skin's.
-    BitmapTexture* create_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel, uint32_t a4,
-                            uint32_t a5, bool permanent);
+    BitmapTexture* create_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
+                                  uint32_t a4, uint32_t a5, bool permanent);
     // 0x0049F500: a texture destroyed by the platform (slot 5) and, if it was, taken out of the table. Whether it was.
     bool unload_texture(BitmapTexture* texture);
     // 0x0049F5C0: every texture destroyed and taken out - but the permanent ones unless `all`.
@@ -59,11 +59,12 @@ public:
     // 0x0049FBE0: a copy of `source` (slot 8) named `checksum` and added. Returns it.
     BitmapTexture* copy_texture(uint32_t checksum, BitmapTexture* source);
     // 0x0049FC20: the same, then `overlay` drawn over it (the copy's slot 41 with `argument`).
-    BitmapTexture* copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay, uint32_t argument);
+    BitmapTexture* copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay,
+                                             uint32_t argument);
 
     void** vtable;
-    uint32_t checksum_;      // +0x04
-    uint16_t share_count_;      // +0x08: its loads (unload_tex_dict deletes it at 0)
+    uint32_t checksum_;    // +0x04
+    uint16_t share_count_; // +0x08: its loads (unload_tex_dict deletes it at 0)
     uint8_t pada_[2];
     lists::KeyMap* textures_; // +0x0C
 };
@@ -78,7 +79,7 @@ TextureSet* __cdecl load_tex_dict(const char* path, int level, uint32_t offset, 
 // 0x0049F050: one loaded from memory (0x004C72E0) under `checksum + offset` - or the one loaded already (not counted
 // again).
 TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t size, uint32_t a3,
-                                        uint32_t offset, uint32_t a5, uint32_t a6);
+                                              uint32_t offset, uint32_t a5, uint32_t a6);
 // 0x0049F180: a model's textures - "<base>.tex" of its name (0x0048BFE0 splits it: whether it's a skin) loaded as
 // load_tex_dict's (level 0; the skin flag as the third argument).
 TextureSet* __cdecl load_model_textures(const char* name, uint32_t offset, uint32_t a4);
@@ -91,4 +92,4 @@ void __cdecl drop_particle_textures(bool all);
 
 extern TextureSet* g_game_texture_dict;
 extern TextureSet* g_particle_texture_dict;
-} // namespace Nx
+} // namespace render

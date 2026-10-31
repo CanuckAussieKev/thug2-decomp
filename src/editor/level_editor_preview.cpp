@@ -102,11 +102,13 @@ constexpr SavedRange kSaved[] = {
     {[]() -> void* { return &render::g_device_viewport; }, sizeof(render::DeviceViewport)},
     {[]() -> void* { return &render::g_camera; }, sizeof(render::RenderCamera)},
     {[]() -> void* { return &render::g_view_shape; }, sizeof(render::ViewShape)}, // (the view's shape: culling)
-    {[]() -> void* { return &render::g_world_transform; }, sizeof(void*)},      // (the culling world matrix: none or the copy)
+    {[]() -> void* { return &render::g_world_transform; },
+     sizeof(void*)}, // (the culling world matrix: none or the copy)
     {[]() -> void* { return &render::g_world_transform_copy; }, sizeof(float[16])},
 };
-constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(render::RenderCamera) +
-                                 sizeof(render::ViewShape) + sizeof(void*) + sizeof(float[16]);
+constexpr uint32_t kSavedBytes = 4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) +
+                                 sizeof(render::RenderCamera) + sizeof(render::ViewShape) + sizeof(void*) +
+                                 sizeof(float[16]);
 // (the camera's globals from the world matrix to the camera's end: 0x164 bytes; the view's shape: 0x18)
 static_assert(4 * sizeof(maths::Mat4) + sizeof(render::DeviceViewport) + sizeof(render::RenderCamera) == 0x164 &&
                   sizeof(render::ViewShape) == 0x18,
@@ -318,4 +320,4 @@ void tick_cycle(ui::ShapeMesh* model)
     view.texture = render(ui::preview_pixels());
 }
 
-} // namespace MenuSystem::level_editor::Preview
+} // namespace frontend::level_editor::preview

@@ -17,7 +17,7 @@
 
 namespace script {
 class Array;
-} // namespace Script
+} // namespace script
 
 namespace park_editing {
 
@@ -42,9 +42,9 @@ struct RailNodeInfo {
     uint32_t class_;
     uint32_t kind_tag_;
     uint32_t surface_type_;
-    maths::Vec4 at_point_;        // +0x0C
-    maths::Vec4 headings_;     // +0x1C
-    bool climbable_;         // +0x2C: no NoClimbing
+    maths::Vec4 at_point_; // +0x0C
+    maths::Vec4 headings_; // +0x1C
+    bool climbable_;       // +0x2C: no NoClimbing
     uint8_t pad2d_[3];
 };
 static_assert(offsetof(RailNodeInfo, at_point_) == 0x0C && sizeof(RailNodeInfo) == 0x30, "the original's local");
@@ -52,4 +52,4 @@ static_assert(offsetof(RailNodeInfo, at_point_) == 0x0C && sizeof(RailNodeInfo) 
 // The node array the park's level runs on (its symbol and node manager name).
 constexpr uint32_t kParkNodeArray = 0xC472ECC5; // "nodearray"
 
-} // namespace Ed
+} // namespace park_editing

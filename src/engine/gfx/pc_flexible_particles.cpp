@@ -145,7 +145,8 @@ PcFlexibleParticles::ColourSpan PcFlexibleParticles::colour_span(float life) con
             span.t = static_cast<float>(static_cast<double>(life) / colour_mid_);
             span.to = mid_colour_;
         } else {
-            span.t = static_cast<float>((static_cast<double>(life) - colour_mid_) / (1.0f - static_cast<double>(colour_mid_)));
+            span.t = static_cast<float>((static_cast<double>(life) - colour_mid_) /
+                                        (1.0f - static_cast<double>(colour_mid_)));
             span.from = mid_colour_;
         }
     }
@@ -196,14 +197,14 @@ struct ConstructArgs {
 template <typename T>
 void* make_plain(void* memory, const ConstructArgs& a)
 {
-    return static_cast<T*>(memory)->make_new(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_, a.segments,
-                                              a.unknown);
+    return static_cast<T*>(memory)->make_new(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_,
+                                             a.segments, a.unknown);
 }
 template <typename T>
 void* make_with_history(void* memory, const ConstructArgs& a)
 {
-    return static_cast<T*>(memory)->make_new(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_, a.segments,
-                                              a.unknown, a.history);
+    return static_cast<T*>(memory)->make_new(a.name, a.particle_cap_, a.texture, a.blend_mode_, a.fixed_alpha_,
+                                             a.segments, a.unknown, a.history);
 }
 template <typename T>
 void* make_five(void* memory, const ConstructArgs& a)
@@ -212,16 +213,16 @@ void* make_five(void* memory, const ConstructArgs& a)
 }
 void* make_model(void* memory, const ConstructArgs& a)
 {
-    return static_cast<ModelParticles*>(memory)->make_new(a.name, a.particle_cap_, a.model, a.blend_mode_, a.fixed_alpha_,
-                                                            a.segments, a.unknown, a.history);
+    return static_cast<ModelParticles*>(memory)->make_new(a.name, a.particle_cap_, a.model, a.blend_mode_,
+                                                          a.fixed_alpha_, a.segments, a.unknown, a.history);
 }
 
 } // namespace
 
 // 0x004BCEF0
 void* __cdecl create_flexible_particles(uint32_t name, uint32_t type, int particle_cap, int, uint32_t texture,
-                                      uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history,
-                                      const char* model)
+                                        uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history,
+                                        const char* model)
 {
     struct sType {
         uint32_t type;
@@ -229,19 +230,19 @@ void* __cdecl create_flexible_particles(uint32_t name, uint32_t type, int partic
         void* (*construct)(void*, const ConstructArgs&); // the class's constructor
     };
     static constexpr sType types[] = {
-        {0x15834EEA, 0x150, &make_plain<PcGlowParticles>},             // glow
-        {0x0EE6FC5B, 0x148, &make_with_history<PcRibbonParticles>},     // ribbon
-        {0x097CB7A9, 0x150, &make_plain<PcSmoothStarParticles>},       // smoothstar
-        {0x286A8D26, 0x148, &make_model},                               // (the engine's model class)
-        {0x3624A5EB, 0x150, &make_plain<PcStarParticles>},             // star
-        {0x2EEB4B09, 0x148, &make_plain<PcLineParticles>},             // line
-        {0x3D56A7A6, 0x144, &make_with_history<PcFlatRibbonParticles>}, // (a flat ribbon)
-        {0x8ADDAC1F, 0x148, &make_plain<PcSmoothParticles>},           // smooth
+        {0x15834EEA, 0x150, &make_plain<PcGlowParticles>},                   // glow
+        {0x0EE6FC5B, 0x148, &make_with_history<PcRibbonParticles>},          // ribbon
+        {0x097CB7A9, 0x150, &make_plain<PcSmoothStarParticles>},             // smoothstar
+        {0x286A8D26, 0x148, &make_model},                                    // (the engine's model class)
+        {0x3624A5EB, 0x150, &make_plain<PcStarParticles>},                   // star
+        {0x2EEB4B09, 0x148, &make_plain<PcLineParticles>},                   // line
+        {0x3D56A7A6, 0x144, &make_with_history<PcFlatRibbonParticles>},      // (a flat ribbon)
+        {0x8ADDAC1F, 0x148, &make_plain<PcSmoothParticles>},                 // smooth
         {0x7EC7252D, 0x150, &make_with_history<PcGlowRibbonTrailParticles>}, // glowribbontrail
-        {0x3F109FCC, 0x140, &make_with_history<PcSmoothRibbonParticles>}, // smoothribbon
-        {0xC4D5A4CB, 0x148, &make_with_history<PcRibbonTrailParticles>}, // ribbontrail
-        {0xF4D8D486, 0x138, &make_five<PcShadedParticles>},            // shaded
-        {0xDEDFC057, 0x148, &make_plain<PcNewFlatParticles>},          // newflat
+        {0x3F109FCC, 0x140, &make_with_history<PcSmoothRibbonParticles>},    // smoothribbon
+        {0xC4D5A4CB, 0x148, &make_with_history<PcRibbonTrailParticles>},     // ribbontrail
+        {0xF4D8D486, 0x138, &make_five<PcShadedParticles>},                  // shaded
+        {0xDEDFC057, 0x148, &make_plain<PcNewFlatParticles>},                // newflat
     };
     const sType* chosen = &types[12]; // (any other type: newflat)
     for (const sType& t : types)
@@ -257,21 +258,26 @@ void* __cdecl create_flexible_particles(uint32_t name, uint32_t type, int partic
 // --- newflat ---
 
 // 0x004BD3A0
-PcNewFlatParticles* PcNewFlatParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
-                                                    uint32_t blend_mode, int fixed_alpha, int segments, float unknown)
+PcNewFlatParticles* PcNewFlatParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
+                                                 int fixed_alpha, int segments, float unknown)
 {
-    reinterpret_cast<NewFlatParticles*>(this)->NewFlatParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segments, unknown, 0);
+    reinterpret_cast<NewFlatParticles*>(this)->NewFlatParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                          fixed_alpha, segments, unknown, 0);
     vtable = kCPcNewFlatParticlesVtable;
     secondary_vtable_ = kCPcNewFlatParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 1, texture, blend_mode,
-                                                                          fixed_alpha, 0, 0)
-                      : nullptr;
+    material =
+        memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 1, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
     return this;
 }
 
 // 0x004BD610
-void PcNewFlatParticles::destroy_body() { destroy_parts(kCPcNewFlatParticlesVtable, kCPcNewFlatParticlesSecondaryVtable, material, &destroy_engine<NewFlatParticles>); }
+void PcNewFlatParticles::destroy_body()
+{
+    destroy_parts(kCPcNewFlatParticlesVtable, kCPcNewFlatParticlesSecondaryVtable, material,
+                  &destroy_engine<NewFlatParticles>);
+}
 
 // 0x004BDC40
 PcNewFlatParticles* PcNewFlatParticles::teardown(unsigned int free_flags)
@@ -337,17 +343,29 @@ void PcNewFlatParticles::render()
                     float fsx = static_cast<float>(static_cast<double>(rx) + cx),
                           fsy = static_cast<float>(static_cast<double>(ry) + cy), fsz = static_cast<float>(sz);
                     vertex[0] = {static_cast<float>(static_cast<double>(fdx) + ux),
-                                 static_cast<float>(static_cast<double>(fdy) + uy), static_cast<float>(dz + uz), colour,
-                                 0.0f, 0.0f};
+                                 static_cast<float>(static_cast<double>(fdy) + uy),
+                                 static_cast<float>(dz + uz),
+                                 colour,
+                                 0.0f,
+                                 0.0f};
                     vertex[1] = {static_cast<float>(static_cast<double>(fsx) + ux),
-                                 static_cast<float>(static_cast<double>(fsy) + uy), static_cast<float>(sz + uz), colour,
-                                 1.0f, 0.0f};
+                                 static_cast<float>(static_cast<double>(fsy) + uy),
+                                 static_cast<float>(sz + uz),
+                                 colour,
+                                 1.0f,
+                                 0.0f};
                     vertex[2] = {static_cast<float>(static_cast<double>(fsx) - ux),
                                  static_cast<float>(static_cast<double>(fsy) - uy),
-                                 static_cast<float>(static_cast<double>(fsz) - uz), colour, 1.0f, 1.0f};
+                                 static_cast<float>(static_cast<double>(fsz) - uz),
+                                 colour,
+                                 1.0f,
+                                 1.0f};
                     vertex[3] = {static_cast<float>(static_cast<double>(fdx) - ux),
                                  static_cast<float>(static_cast<double>(fdy) - uy),
-                                 static_cast<float>(static_cast<double>(fdz) - uz), colour, 0.0f, 1.0f};
+                                 static_cast<float>(static_cast<double>(fdz) - uz),
+                                 colour,
+                                 0.0f,
+                                 1.0f};
                     vertex += 4;
                     ++quads;
                     if (quads >= room - 4)
@@ -366,7 +384,7 @@ void PcNewFlatParticles::render()
             input_port()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
             input_port()->SetIndices(quad_indices());
             input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, quads * 4, 0,
-                                           quads * 2);
+                                               quads * 2);
             ++draw_calls();
             drawn_triangles() += quads * 2;
         }
@@ -423,22 +441,27 @@ void get_across(const float p0[3], const float p1[3], double a, double b, double
 
 // 0x004BDC80
 PcFlatRibbonParticles* PcFlatRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
-                                                          uint32_t blend_mode, int fixed_alpha, int segment_count,
-                                                          float ribbon_width, int history)
+                                                       uint32_t blend_mode, int fixed_alpha, int segment_count,
+                                                       float ribbon_width, int history)
 {
-    reinterpret_cast<FlatRibbonParticles*>(this)->FlatRibbonParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history);
+    reinterpret_cast<FlatRibbonParticles*>(this)->FlatRibbonParticles::make_new(
+        name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history);
     vtable = kCPcFlatRibbonParticlesVtable;
     secondary_vtable_ = kCPcFlatRibbonParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 0xB, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, history)
+                                                                       fixed_alpha, segment_count, history)
                       : nullptr;
     width = ribbon_width;
     return this;
 }
 
 // 0x004BDD60
-void PcFlatRibbonParticles::destroy_body() { destroy_parts(kCPcFlatRibbonParticlesVtable, kCPcFlatRibbonParticlesSecondaryVtable, material, &destroy_engine<FlatRibbonParticles>); }
+void PcFlatRibbonParticles::destroy_body()
+{
+    destroy_parts(kCPcFlatRibbonParticlesVtable, kCPcFlatRibbonParticlesSecondaryVtable, material,
+                  &destroy_engine<FlatRibbonParticles>);
+}
 
 // 0x004BECD0
 PcFlatRibbonParticles* PcFlatRibbonParticles::teardown(unsigned int free_flags)
@@ -486,8 +509,9 @@ void PcFlatRibbonParticles::render()
                 place_of(this, index, p0);
                 place_of(this, history_stride_ + index, p1);
                 get_across(p0, p1, a, b, c, true, n);
-                float w = static_cast<float>(
-                    (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life + particle->start_size_[0]);
+                float w =
+                    static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
+                                       particle->start_size_[0]);
                 ColourSpan span = colour_span(life);
                 const uint32_t* from = span.from;
                 const uint32_t* to = span.to;
@@ -499,10 +523,11 @@ void PcFlatRibbonParticles::render()
                 float o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
                 float o1 = static_cast<float>(width * n1w);
                 float previous_a[3] = {static_cast<float>(static_cast<double>(o0) + p0[0]),
-                                      static_cast<float>(static_cast<double>(o1) + p0[1]),
-                                      static_cast<float>(width * n2w + p0[2])};
+                                       static_cast<float>(static_cast<double>(o1) + p0[1]),
+                                       static_cast<float>(width * n2w + p0[2])};
                 float previous_b[3] = {
-                    static_cast<float>(static_cast<double>(p0[0]) - o0), static_cast<float>(static_cast<double>(p0[1]) - o1),
+                    static_cast<float>(static_cast<double>(p0[0]) - o0),
+                    static_cast<float>(static_cast<double>(p0[1]) - o1),
                     static_cast<float>(p0[2] - width * static_cast<double>(static_cast<float>(n2w)))};
 
                 for (int k = 1; k < segments; ++k) {
@@ -517,12 +542,12 @@ void PcFlatRibbonParticles::render()
                     o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
                     o1 = static_cast<float>(width * n1w);
                     float next_b[3] = {static_cast<float>(static_cast<double>(p1[0]) - o0),
-                                      static_cast<float>(static_cast<double>(p1[1]) - o1),
-                                      static_cast<float>(p1[2] - width * n2w)};
+                                       static_cast<float>(static_cast<double>(p1[1]) - o1),
+                                       static_cast<float>(p1[2] - width * n2w)};
                     float o2 = static_cast<float>(width * static_cast<double>(static_cast<float>(n2w)));
                     float next_a[3] = {static_cast<float>(static_cast<double>(o0) + p1[0]),
-                                      static_cast<float>(static_cast<double>(o1) + p1[1]),
-                                      static_cast<float>(static_cast<double>(o2) + p1[2])};
+                                       static_cast<float>(static_cast<double>(o1) + p1[1]),
+                                       static_cast<float>(static_cast<double>(o2) + p1[2])};
                     vertex[0] = {previous_a[0], previous_a[1], previous_a[2], previous_colour};
                     vertex[1] = {previous_b[0], previous_b[1], previous_b[2], previous_colour};
                     vertex[2] = {next_a[0], next_a[1], next_a[2], colour};
@@ -551,7 +576,8 @@ void PcFlatRibbonParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -594,17 +620,30 @@ void PcFlatRibbonParticles::render()
                 float g1f = static_cast<float>(g1);
                 ColourSpan span = colour_span(life);
                 uint32_t colour = get_colour(*span.from, *span.to, span.t);
-                vertex[0] = {static_cast<float>(e0 - u0), static_cast<float>(static_cast<double>(e1) - u1),
-                             static_cast<float>(e2 - u2), colour, 0.0f, 0.0f};
+                vertex[0] = {static_cast<float>(e0 - u0),
+                             static_cast<float>(static_cast<double>(e1) - u1),
+                             static_cast<float>(e2 - u2),
+                             colour,
+                             0.0f,
+                             0.0f};
                 vertex[1] = {static_cast<float>(static_cast<double>(g0) - u0),
-                             static_cast<float>(static_cast<double>(g1f) - u1), static_cast<float>(g2 - u2), colour,
-                             1.0f, 0.0f};
+                             static_cast<float>(static_cast<double>(g1f) - u1),
+                             static_cast<float>(g2 - u2),
+                             colour,
+                             1.0f,
+                             0.0f};
                 vertex[2] = {static_cast<float>(static_cast<double>(g0) + u0),
-                             static_cast<float>(static_cast<double>(g1f) + u1), static_cast<float>(g2 + u2), colour,
-                             1.0f, 1.0f};
+                             static_cast<float>(static_cast<double>(g1f) + u1),
+                             static_cast<float>(g2 + u2),
+                             colour,
+                             1.0f,
+                             1.0f};
                 vertex[3] = {static_cast<float>(static_cast<double>(static_cast<float>(e0)) + u0),
-                             static_cast<float>(static_cast<double>(e1) + u1), static_cast<float>(e2 + u2), colour,
-                             0.0f, 1.0f};
+                             static_cast<float>(static_cast<double>(e1) + u1),
+                             static_cast<float>(e2 + u2),
+                             colour,
+                             0.0f,
+                             1.0f};
                 vertex += 4;
                 vertices += 4;
                 triangles += 2;
@@ -622,7 +661,8 @@ void PcFlatRibbonParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -632,20 +672,24 @@ void PcFlatRibbonParticles::render()
 
 // 0x004BED10
 PcGlowParticles* PcGlowParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                              int fixed_alpha, int segment_count, float unknown)
+                                           int fixed_alpha, int segment_count, float unknown)
 {
-    reinterpret_cast<GlowParticles*>(this)->GlowParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0);
+    reinterpret_cast<GlowParticles*>(this)->GlowParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                    fixed_alpha, segment_count, unknown, 0);
     vtable = kCPcGlowParticlesVtable;
     secondary_vtable_ = kCPcGlowParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 4, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, 0)
+                                                                       fixed_alpha, segment_count, 0)
                       : nullptr;
     return this;
 }
 
 // 0x004BEDE0
-void PcGlowParticles::destroy_body() { destroy_parts(kCPcGlowParticlesVtable, kCPcGlowParticlesSecondaryVtable, material, &destroy_engine<GlowParticles>); }
+void PcGlowParticles::destroy_body()
+{
+    destroy_parts(kCPcGlowParticlesVtable, kCPcGlowParticlesSecondaryVtable, material, &destroy_engine<GlowParticles>);
+}
 
 // 0x004BF6E0
 PcGlowParticles* PcGlowParticles::teardown(unsigned int free_flags)
@@ -698,7 +742,8 @@ void PcGlowParticles::render()
             }
             float rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
                   rz = static_cast<float>(r.z * across);
-            float ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up), uz = static_cast<float>(u.z * up);
+            float ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
+                  uz = static_cast<float>(u.z * up);
             // The centre's, the edge's and the outer ring's colours (each its own of the three colour arrays').
             ColourSpan span = colour_span(life);
             uint32_t colours[3];
@@ -732,7 +777,9 @@ void PcGlowParticles::render()
                 float next_outer[3], next_inner[3];
                 double rsw = rx * si * w;
                 double r1 = static_cast<double>(static_cast<float>(ry * si)) * w;
-                double r2 = static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) * w)) + p[2];
+                double r2 =
+                    static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) * w)) +
+                    p[2];
                 float cosine = static_cast<float>(ci);
                 double usw = ux * ci * w;
                 double u1 = static_cast<double>(static_cast<float>(uy * ci)) * w;
@@ -744,8 +791,10 @@ void PcGlowParticles::render()
                 double y = static_cast<double>(static_cast<float>(ry * si)) + p[1];
                 float z = static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) + p[2]);
                 next_inner[0] = static_cast<float>(ux * static_cast<double>(cosine) + x);
-                next_inner[1] = static_cast<float>(static_cast<double>(static_cast<float>(uy * static_cast<double>(cosine))) + y);
-                next_inner[2] = static_cast<float>(static_cast<double>(static_cast<float>(uz * static_cast<double>(cosine))) + z);
+                next_inner[1] =
+                    static_cast<float>(static_cast<double>(static_cast<float>(uy * static_cast<double>(cosine))) + y);
+                next_inner[2] =
+                    static_cast<float>(static_cast<double>(static_cast<float>(uz * static_cast<double>(cosine))) + z);
                 vertex[0] = {p[0], p[1], p[2], colours[0]};
                 vertex[1] = {outer[0], outer[1], outer[2], colours[1]};
                 vertex[2] = {next_outer[0], next_outer[1], next_outer[2], colours[1]};
@@ -766,7 +815,7 @@ void PcGlowParticles::render()
             ++particle;
         }
         uint32_t triangles = (words >> 4) / 3; // (the original's count: a quarter of what it wrote)
-        if (!g_suppress_draw) { // (rendering not skipped)
+        if (!g_suppress_draw) {                // (rendering not skipped)
             drawn_triangles() += triangles;
             ++draw_calls();
             input_port()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, triangles, buffer, sizeof(TrailVertex));
@@ -778,20 +827,24 @@ void PcGlowParticles::render()
 
 // 0x004C09F0
 PcLineParticles* PcLineParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                              int fixed_alpha, int segment_count, float unknown)
+                                           int fixed_alpha, int segment_count, float unknown)
 {
-    reinterpret_cast<LineParticles*>(this)->LineParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0);
+    reinterpret_cast<LineParticles*>(this)->LineParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                    fixed_alpha, segment_count, unknown, 0);
     vtable = kCPcLineParticlesVtable;
     secondary_vtable_ = kCPcLineParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 0, texture, blend_mode,
-                                                                          fixed_alpha, 0, 0)
-                      : nullptr;
+    material =
+        memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 0, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
     return this;
 }
 
 // 0x004C0AC0
-void PcLineParticles::destroy_body() { destroy_parts(kCPcLineParticlesVtable, kCPcLineParticlesSecondaryVtable, material, &destroy_engine<LineParticles>); }
+void PcLineParticles::destroy_body()
+{
+    destroy_parts(kCPcLineParticlesVtable, kCPcLineParticlesSecondaryVtable, material, &destroy_engine<LineParticles>);
+}
 
 // 0x004C0E70
 PcLineParticles* PcLineParticles::teardown(unsigned int free_flags)
@@ -857,22 +910,26 @@ void PcLineParticles::render()
 // --- ribbon ---
 
 // 0x004C0EB0
-PcRibbonParticles* PcRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
-                                                  uint32_t blend_mode, int fixed_alpha, int segment_count, float unknown,
-                                                  int history)
+PcRibbonParticles* PcRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
+                                               int fixed_alpha, int segment_count, float unknown, int history)
 {
-    reinterpret_cast<RibbonParticles*>(this)->RibbonParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
+    reinterpret_cast<RibbonParticles*>(this)->RibbonParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                        fixed_alpha, segment_count, unknown, history);
     vtable = kCPcRibbonParticlesVtable;
     secondary_vtable_ = kCPcRibbonParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 7, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, 0)
+                                                                       fixed_alpha, segment_count, 0)
                       : nullptr;
     return this;
 }
 
 // 0x004C0F80
-void PcRibbonParticles::destroy_body() { destroy_parts(kCPcRibbonParticlesVtable, kCPcRibbonParticlesSecondaryVtable, material, &destroy_engine<RibbonParticles>); }
+void PcRibbonParticles::destroy_body()
+{
+    destroy_parts(kCPcRibbonParticlesVtable, kCPcRibbonParticlesSecondaryVtable, material,
+                  &destroy_engine<RibbonParticles>);
+}
 
 // 0x004C16E0
 PcRibbonParticles* PcRibbonParticles::teardown(unsigned int free_flags)
@@ -915,8 +972,8 @@ void PcRibbonParticles::render()
     while (remaining != 0) {
         IDirect3DVertexBuffer9* buffer = nullptr;
         uint32_t first_vertex = 0, room = 0, vertices = 0, triangles = 0;
-        auto* out = static_cast<uint8_t*>(
-            os_layer::lock_dynamic_vertices(remaining, stride, &buffer, &first_vertex, &room));
+        auto* out =
+            static_cast<uint8_t*>(os_layer::lock_dynamic_vertices(remaining, stride, &buffer, &first_vertex, &room));
         while (index < count) {
             float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double hx, hy;
@@ -945,13 +1002,15 @@ void PcRibbonParticles::render()
                 n1 *= inverse;
                 n2 = static_cast<float>(n2 * inverse);
             }
-            float w = static_cast<float>(
-                (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life + particle->start_size_[0]);
+            float w =
+                static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
+                                   particle->start_size_[0]);
             double n0w = n0 * w, n1w = n1 * w, n2w = static_cast<double>(n2) * w;
             float f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
             float corners[4][3] = {
                 {static_cast<float>(f0 + hx), static_cast<float>(f1 + hy), static_cast<float>(n2w + hz)},
-                {static_cast<float>(hx - f0), static_cast<float>(hy - f1), static_cast<float>(static_cast<double>(hz) - f2)},
+                {static_cast<float>(hx - f0), static_cast<float>(hy - f1),
+                 static_cast<float>(static_cast<double>(hz) - f2)},
                 {static_cast<float>(static_cast<double>(t[0]) - f0), static_cast<float>(static_cast<double>(t[1]) - f1),
                  static_cast<float>(static_cast<double>(t[2]) - f2)},
                 {static_cast<float>(static_cast<double>(f0) + t[0]), static_cast<float>(static_cast<double>(f1) + t[1]),
@@ -964,8 +1023,8 @@ void PcRibbonParticles::render()
             for (int k = 0; k < 4; ++k) {
                 uint32_t colour = colours[k / 2];
                 if (textured) {
-                    reinterpret_cast<QuadVertex*>(out)[k] = {corners[k][0], corners[k][1], corners[k][2], colour,
-                                                              kUv[k][0], kUv[k][1]};
+                    reinterpret_cast<QuadVertex*>(out)[k] = {corners[k][0], corners[k][1], corners[k][2],
+                                                             colour,        kUv[k][0],     kUv[k][1]};
                 } else {
                     reinterpret_cast<TrailVertex*>(out)[k] = {corners[k][0], corners[k][1], corners[k][2], colour};
                 }
@@ -986,7 +1045,8 @@ void PcRibbonParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, stride);
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -1011,21 +1071,26 @@ uint32_t PcRibbonTrailParticles::head_colour(uint32_t from, uint32_t to, float t
 
 // 0x004C1720
 PcRibbonTrailParticles* PcRibbonTrailParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
-                                                            uint32_t blend_mode, int fixed_alpha, int segment_count,
-                                                            float unknown, int history)
+                                                         uint32_t blend_mode, int fixed_alpha, int segment_count,
+                                                         float unknown, int history)
 {
-    reinterpret_cast<RibbonTrailParticles*>(this)->RibbonTrailParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
+    reinterpret_cast<RibbonTrailParticles*>(this)->RibbonTrailParticles::make_new(
+        name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
     vtable = kCPcRibbonTrailParticlesVtable;
     secondary_vtable_ = kCPcRibbonTrailParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 9, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, history)
+                                                                       fixed_alpha, segment_count, history)
                       : nullptr;
     return this;
 }
 
 // 0x004C17F0
-void PcRibbonTrailParticles::destroy_body() { destroy_parts(kCPcRibbonTrailParticlesVtable, kCPcRibbonTrailParticlesSecondaryVtable, material, &destroy_engine<RibbonTrailParticles>); }
+void PcRibbonTrailParticles::destroy_body()
+{
+    destroy_parts(kCPcRibbonTrailParticlesVtable, kCPcRibbonTrailParticlesSecondaryVtable, material,
+                  &destroy_engine<RibbonTrailParticles>);
+}
 
 // 0x004C2160
 PcRibbonTrailParticles* PcRibbonTrailParticles::teardown(unsigned int free_flags)
@@ -1037,7 +1102,8 @@ PcRibbonTrailParticles* PcRibbonTrailParticles::teardown(unsigned int free_flags
 }
 
 // 0x004C1710: the same through the vtable at +0x0C.
-static PcRibbonTrailParticles* __fastcall destroy_ribbon_trail_secondary(uint8_t* secondary, int, unsigned int free_flags)
+static PcRibbonTrailParticles* __fastcall destroy_ribbon_trail_secondary(uint8_t* secondary, int,
+                                                                         unsigned int free_flags)
 {
     return reinterpret_cast<PcRibbonTrailParticles*>(secondary - 0xC)->teardown(free_flags);
 }
@@ -1080,8 +1146,9 @@ void PcRibbonTrailParticles::render()
                         f = static_cast<float>(f * inverse);
                 }
             }
-            float w = static_cast<float>(
-                (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life + particle->start_size_[0]);
+            float w =
+                static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
+                                   particle->start_size_[0]);
             ColourSpan span = colour_span(life);
             const uint32_t* from = span.from;
             const uint32_t* to = span.to;
@@ -1090,11 +1157,11 @@ void PcRibbonTrailParticles::render()
                    n2w = static_cast<double>(n[2]) * w;
             float f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
             float previous_plus[3] = {static_cast<float>(static_cast<double>(f0) + p0[0]),
-                                     static_cast<float>(static_cast<double>(f1) + p0[1]),
-                                     static_cast<float>(n2w + p0[2])};
+                                      static_cast<float>(static_cast<double>(f1) + p0[1]),
+                                      static_cast<float>(n2w + p0[2])};
             float previous_minus[3] = {static_cast<float>(static_cast<double>(p0[0]) - f0),
-                                      static_cast<float>(static_cast<double>(p0[1]) - f1),
-                                      static_cast<float>(static_cast<double>(p0[2]) - f2)};
+                                       static_cast<float>(static_cast<double>(p0[1]) - f1),
+                                       static_cast<float>(static_cast<double>(p0[2]) - f2)};
             for (int k = 1; k < segments; ++k) {
                 uint32_t colour = get_colour(*from++, *to++, span.t);
                 if (k > 1) {
@@ -1148,7 +1215,8 @@ void PcRibbonTrailParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -1177,20 +1245,25 @@ void PcFlexibleParticles::aligned_axes(maths::Vec4& r, maths::Vec4& u) const
 
 // 0x004C21A0
 PcShadedParticles* PcShadedParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                                  int fixed_alpha)
+                                               int fixed_alpha)
 {
-    reinterpret_cast<ShadedParticles*>(this)->ShadedParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, 0, 0, 0);
+    reinterpret_cast<ShadedParticles*>(this)->ShadedParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                        fixed_alpha, 0, 0, 0);
     vtable = kCPcShadedParticlesVtable;
     secondary_vtable_ = kCPcShadedParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 2, texture, blend_mode,
-                                                                          fixed_alpha, 0, 0)
-                      : nullptr;
+    material =
+        memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 2, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
     return this;
 }
 
 // 0x004C2260
-void PcShadedParticles::destroy_body() { destroy_parts(kCPcShadedParticlesVtable, kCPcShadedParticlesSecondaryVtable, material, &destroy_engine<ShadedParticles>); }
+void PcShadedParticles::destroy_body()
+{
+    destroy_parts(kCPcShadedParticlesVtable, kCPcShadedParticlesSecondaryVtable, material,
+                  &destroy_engine<ShadedParticles>);
+}
 
 // 0x004C2AF0
 PcShadedParticles* PcShadedParticles::teardown(unsigned int free_flags)
@@ -1257,11 +1330,20 @@ void PcShadedParticles::render()
                 float u0 = 0.0f, v0 = 0.0f, u1 = 1.0f, v1 = 1.0f;
                 if (flags & 0x4000) {
                     switch (index % 4) {
-                    case 0: u0 = 0.5f, v0 = 0.5f; break;
-                    case 1: v1 = 0.5f, u0 = 0.5f; break;
-                    case 2: v1 = 0.5f, u1 = 0.5f; break;
-                    case 3: u1 = 0.5f, v0 = 0.5f; break;
-                    default: break;
+                    case 0:
+                        u0 = 0.5f, v0 = 0.5f;
+                        break;
+                    case 1:
+                        v1 = 0.5f, u0 = 0.5f;
+                        break;
+                    case 2:
+                        v1 = 0.5f, u1 = 0.5f;
+                        break;
+                    case 3:
+                        u1 = 0.5f, v0 = 0.5f;
+                        break;
+                    default:
+                        break;
                     }
                 }
                 double e0 = static_cast<double>(rx) + p[0], e1 = static_cast<double>(ry) + p[1],
@@ -1271,17 +1353,29 @@ void PcShadedParticles::render()
                        g2 = static_cast<double>(p[2]) - rz;
                 float g0f = static_cast<float>(g0), g1f = static_cast<float>(g1), g2f = static_cast<float>(g2);
                 vertex[0] = {static_cast<float>(static_cast<double>(e0f) - ux),
-                             static_cast<float>(static_cast<double>(e1f) - uy), static_cast<float>(e2 - uz), colours[0],
-                             u0, v0};
+                             static_cast<float>(static_cast<double>(e1f) - uy),
+                             static_cast<float>(e2 - uz),
+                             colours[0],
+                             u0,
+                             v0};
                 vertex[1] = {static_cast<float>(static_cast<double>(g0f) - ux),
-                             static_cast<float>(static_cast<double>(g1f) - uy), static_cast<float>(g2 - uz), colours[1],
-                             u1, v0};
+                             static_cast<float>(static_cast<double>(g1f) - uy),
+                             static_cast<float>(g2 - uz),
+                             colours[1],
+                             u1,
+                             v0};
                 vertex[2] = {static_cast<float>(static_cast<double>(g0f) + ux),
                              static_cast<float>(static_cast<double>(g1f) + uy),
-                             static_cast<float>(static_cast<double>(g2f) + uz), colours[2], u1, v1};
+                             static_cast<float>(static_cast<double>(g2f) + uz),
+                             colours[2],
+                             u1,
+                             v1};
                 vertex[3] = {static_cast<float>(static_cast<double>(e0f) + ux),
                              static_cast<float>(static_cast<double>(e1f) + uy),
-                             static_cast<float>(static_cast<double>(e2f) + uz), colours[3], u0, v1};
+                             static_cast<float>(static_cast<double>(e2f) + uz),
+                             colours[3],
+                             u0,
+                             v1};
                 vertex += 4;
                 vertices += 4;
                 triangles += 2;
@@ -1300,7 +1394,8 @@ void PcShadedParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(QuadVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -1310,20 +1405,25 @@ void PcShadedParticles::render()
 
 // 0x004C2B30
 PcSmoothParticles* PcSmoothParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                                  int fixed_alpha, int segment_count, float unknown)
+                                               int fixed_alpha, int segment_count, float unknown)
 {
-    reinterpret_cast<SmoothParticles*>(this)->SmoothParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0);
+    reinterpret_cast<SmoothParticles*>(this)->SmoothParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                        fixed_alpha, segment_count, unknown, 0);
     vtable = kCPcSmoothParticlesVtable;
     secondary_vtable_ = kCPcSmoothParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 3, texture, blend_mode,
-                                                                          fixed_alpha, 0, 0)
-                      : nullptr;
+    material =
+        memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 3, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
     return this;
 }
 
 // 0x004C2C00
-void PcSmoothParticles::destroy_body() { destroy_parts(kCPcSmoothParticlesVtable, kCPcSmoothParticlesSecondaryVtable, material, &destroy_engine<SmoothParticles>); }
+void PcSmoothParticles::destroy_body()
+{
+    destroy_parts(kCPcSmoothParticlesVtable, kCPcSmoothParticlesSecondaryVtable, material,
+                  &destroy_engine<SmoothParticles>);
+}
 
 // 0x004C3500
 PcSmoothParticles* PcSmoothParticles::teardown(unsigned int free_flags)
@@ -1366,8 +1466,9 @@ void PcSmoothParticles::render()
             float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                             particle->start_size_[0];
-            float up = static_cast<float>(
-                (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life + particle->start_size_[1]);
+            float up =
+                static_cast<float>((static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
+                                   particle->start_size_[1]);
             float p[3];
             if (emitter_independent_) {
                 p[0] = place[0], p[1] = place[1], p[2] = place[2];
@@ -1388,15 +1489,14 @@ void PcSmoothParticles::render()
             float e0f = static_cast<float>(e0), e1f = static_cast<float>(e1),
                   e2f = static_cast<float>(static_cast<double>(rz) + p[2]);
             // The four corners (each with a triangle to the centre).
-            float k[4][3] = {
-                {static_cast<float>(g0f + ux), static_cast<float>(static_cast<double>(g1f) + uy),
-                 static_cast<float>(g2 + uz)},
-                {static_cast<float>(e0f + ux), static_cast<float>(static_cast<double>(e1f) + uy),
-                 static_cast<float>(static_cast<double>(e2f) + uz)},
-                {static_cast<float>(e0f - ux), static_cast<float>(static_cast<double>(e1f) - uy),
-                 static_cast<float>(static_cast<double>(e2f) - uz)},
-                {static_cast<float>(g0f - ux), static_cast<float>(static_cast<double>(g1f) - uy),
-                 static_cast<float>(static_cast<double>(g2f) - uz)}};
+            float k[4][3] = {{static_cast<float>(g0f + ux), static_cast<float>(static_cast<double>(g1f) + uy),
+                              static_cast<float>(g2 + uz)},
+                             {static_cast<float>(e0f + ux), static_cast<float>(static_cast<double>(e1f) + uy),
+                              static_cast<float>(static_cast<double>(e2f) + uz)},
+                             {static_cast<float>(e0f - ux), static_cast<float>(static_cast<double>(e1f) - uy),
+                              static_cast<float>(static_cast<double>(e2f) - uz)},
+                             {static_cast<float>(g0f - ux), static_cast<float>(static_cast<double>(g1f) - uy),
+                              static_cast<float>(static_cast<double>(g2f) - uz)}};
             static constexpr float kUv[4][2] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
             // The centre's colour and the edge's.
             ColourSpan span = colour_span(life);
@@ -1433,21 +1533,26 @@ void PcSmoothParticles::render()
 
 // 0x004C3550
 PcSmoothRibbonParticles* PcSmoothRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
-                                                              uint32_t blend_mode, int fixed_alpha, int segment_count,
-                                                              float unknown, int history)
+                                                           uint32_t blend_mode, int fixed_alpha, int segment_count,
+                                                           float unknown, int history)
 {
-    reinterpret_cast<SmoothRibbonParticles*>(this)->SmoothRibbonParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
+    reinterpret_cast<SmoothRibbonParticles*>(this)->SmoothRibbonParticles::make_new(
+        name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
     vtable = kCPcSmoothRibbonParticlesVtable;
     secondary_vtable_ = kCPcSmoothRibbonParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 8, texture, blend_mode,
-                                                                          fixed_alpha, 0, 0)
-                      : nullptr;
+    material =
+        memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 8, texture, blend_mode, fixed_alpha, 0, 0)
+               : nullptr;
     return this;
 }
 
 // 0x004C3620
-void PcSmoothRibbonParticles::destroy_body() { destroy_parts(kCPcSmoothRibbonParticlesVtable, kCPcSmoothRibbonParticlesSecondaryVtable, material, &destroy_engine<SmoothRibbonParticles>); }
+void PcSmoothRibbonParticles::destroy_body()
+{
+    destroy_parts(kCPcSmoothRibbonParticlesVtable, kCPcSmoothRibbonParticlesSecondaryVtable, material,
+                  &destroy_engine<SmoothRibbonParticles>);
+}
 
 // 0x004C3D40
 PcSmoothRibbonParticles* PcSmoothRibbonParticles::teardown(unsigned int free_flags)
@@ -1459,7 +1564,8 @@ PcSmoothRibbonParticles* PcSmoothRibbonParticles::teardown(unsigned int free_fla
 }
 
 // 0x004C3540: the same through the vtable at +0x0C.
-static PcSmoothRibbonParticles* __fastcall destroy_smooth_ribbon_secondary(uint8_t* secondary, int, unsigned int free_flags)
+static PcSmoothRibbonParticles* __fastcall destroy_smooth_ribbon_secondary(uint8_t* secondary, int,
+                                                                           unsigned int free_flags)
 {
     return reinterpret_cast<PcSmoothRibbonParticles*>(secondary - 0xC)->teardown(free_flags);
 }
@@ -1514,20 +1620,23 @@ void PcSmoothRibbonParticles::render()
                     n1 *= inverse;
                     n2 = static_cast<float>(n2 * inverse);
                 }
-                float w = static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
-                                             particle->start_size_[0]);
+                float w =
+                    static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
+                                       particle->start_size_[0]);
                 double n0w = n0 * w, n1w = n1 * w, n2w = static_cast<double>(n2) * w;
                 float f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
                 float plus_head[3] = {static_cast<float>(static_cast<double>(f0) + h[0]),
-                                     static_cast<float>(static_cast<double>(f1) + h[1]), static_cast<float>(n2w + h[2])};
+                                      static_cast<float>(static_cast<double>(f1) + h[1]),
+                                      static_cast<float>(n2w + h[2])};
                 float minus_head[3] = {static_cast<float>(static_cast<double>(h[0]) - f0),
-                                      static_cast<float>(static_cast<double>(h[1]) - f1),
-                                      static_cast<float>(static_cast<double>(h[2]) - f2)};
+                                       static_cast<float>(static_cast<double>(h[1]) - f1),
+                                       static_cast<float>(static_cast<double>(h[2]) - f2)};
                 float minus_tail[3] = {static_cast<float>(static_cast<double>(t[0]) - f0),
-                                      static_cast<float>(static_cast<double>(t[1]) - f1),
-                                      static_cast<float>(static_cast<double>(t[2]) - f2)};
+                                       static_cast<float>(static_cast<double>(t[1]) - f1),
+                                       static_cast<float>(static_cast<double>(t[2]) - f2)};
                 float plus_tail[3] = {static_cast<float>(static_cast<double>(f0) + t[0]),
-                                     static_cast<float>(static_cast<double>(f1) + t[1]), static_cast<float>(n2w + t[2])};
+                                      static_cast<float>(static_cast<double>(f1) + t[1]),
+                                      static_cast<float>(n2w + t[2])};
                 ColourSpan span = colour_span(life);
                 uint32_t colours[4];
                 for (int k = 0; k < 4; ++k)
@@ -1560,7 +1669,8 @@ void PcSmoothRibbonParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -1570,21 +1680,26 @@ void PcSmoothRibbonParticles::render()
 
 // 0x004C3D80
 PcSmoothStarParticles* PcSmoothStarParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
-                                                          uint32_t blend_mode, int fixed_alpha, int segment_count,
-                                                          float unknown)
+                                                       uint32_t blend_mode, int fixed_alpha, int segment_count,
+                                                       float unknown)
 {
-    reinterpret_cast<SmoothStarParticles*>(this)->SmoothStarParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0);
+    reinterpret_cast<SmoothStarParticles*>(this)->SmoothStarParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                                fixed_alpha, segment_count, unknown, 0);
     vtable = kCPcSmoothStarParticlesVtable;
     secondary_vtable_ = kCPcSmoothStarParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 6, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, 0)
+                                                                       fixed_alpha, segment_count, 0)
                       : nullptr;
     return this;
 }
 
 // 0x004C3E50
-void PcSmoothStarParticles::destroy_body() { destroy_parts(kCPcSmoothStarParticlesVtable, kCPcSmoothStarParticlesSecondaryVtable, material, &destroy_engine<SmoothStarParticles>); }
+void PcSmoothStarParticles::destroy_body()
+{
+    destroy_parts(kCPcSmoothStarParticlesVtable, kCPcSmoothStarParticlesSecondaryVtable, material,
+                  &destroy_engine<SmoothStarParticles>);
+}
 
 // 0x004C4880
 PcSmoothStarParticles* PcSmoothStarParticles::teardown(unsigned int free_flags)
@@ -1628,7 +1743,7 @@ void PcSmoothStarParticles::render()
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                 particle->start_size_[0];
                 double up_size = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
-                                particle->start_size_[1];
+                                 particle->start_size_[1];
                 float p[3];
                 if (emitter_independent_) {
                     p[0] = place[0], p[1] = place[1], p[2] = place[2];
@@ -1661,7 +1776,8 @@ void PcSmoothStarParticles::render()
                     float uz = static_cast<float>(static_cast<double>(uv[2]) * cos0);
                     outer[0] = static_cast<float>(static_cast<double>(static_cast<float>(ux * w)) + ox);
                     outer[1] = static_cast<float>(uy * w + oy);
-                    outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
+                    outer[2] =
+                        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
                 }
                 for (int i = 0, k = 1; i < segments; ++i, k += 2) {
                     float step = static_cast<float>(360.0f / (static_cast<double>(segments) + segments));
@@ -1748,7 +1864,8 @@ void PcSmoothStarParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -1758,20 +1875,24 @@ void PcSmoothStarParticles::render()
 
 // 0x004C48C0
 PcStarParticles* PcStarParticles::make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                              int fixed_alpha, int segment_count, float unknown)
+                                           int fixed_alpha, int segment_count, float unknown)
 {
-    reinterpret_cast<StarParticles*>(this)->StarParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0);
+    reinterpret_cast<StarParticles*>(this)->StarParticles::make_new(name, particle_cap, texture, blend_mode,
+                                                                    fixed_alpha, segment_count, unknown, 0);
     vtable = kCPcStarParticlesVtable;
     secondary_vtable_ = kCPcStarParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 5, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, 0)
+                                                                       fixed_alpha, segment_count, 0)
                       : nullptr;
     return this;
 }
 
 // 0x004C4990
-void PcStarParticles::destroy_body() { destroy_parts(kCPcStarParticlesVtable, kCPcStarParticlesSecondaryVtable, material, &destroy_engine<StarParticles>); }
+void PcStarParticles::destroy_body()
+{
+    destroy_parts(kCPcStarParticlesVtable, kCPcStarParticlesSecondaryVtable, material, &destroy_engine<StarParticles>);
+}
 
 // 0x004C5200
 PcStarParticles* PcStarParticles::teardown(unsigned int free_flags)
@@ -1815,7 +1936,7 @@ void PcStarParticles::render()
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                 particle->start_size_[0];
                 double up_size = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
-                                particle->start_size_[1];
+                                 particle->start_size_[1];
                 float p[3];
                 if (emitter_independent_) {
                     p[0] = place[0], p[1] = place[1], p[2] = place[2];
@@ -1847,7 +1968,8 @@ void PcStarParticles::render()
                     float uz = static_cast<float>(static_cast<double>(uv[2]) * cos0);
                     outer[0] = static_cast<float>(static_cast<double>(static_cast<float>(ux * w)) + ox);
                     outer[1] = static_cast<float>(uy * w + oy);
-                    outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
+                    outer[2] =
+                        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
                 }
                 for (int k = 1; k <= segments; ++k) {
                     // The next outer point (out at the width) and the inner one between (unscaled).
@@ -1907,7 +2029,8 @@ void PcStarParticles::render()
             break;
         input_port()->SetStreamSource(0, buffer, 0, sizeof(TrailVertex));
         input_port()->SetIndices(quad_indices());
-        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0, triangles);
+        input_port()->DrawIndexedPrimitive(D3DPT_TRIANGLELIST, static_cast<INT>(first_vertex), 0, vertices, 0,
+                                           triangles);
         ++draw_calls();
         drawn_triangles() += triangles;
     }
@@ -1930,23 +2053,27 @@ uint32_t PcGlowRibbonTrailParticles::fine_colour(uint32_t from, uint32_t to, dou
 }
 
 // 0x004BF720
-PcGlowRibbonTrailParticles* PcGlowRibbonTrailParticles::make_new(uint32_t name, int particle_cap,
-                                                                    uint32_t texture, uint32_t blend_mode,
-                                                                    int fixed_alpha, int segment_count, float unknown,
-                                                                    int history)
+PcGlowRibbonTrailParticles* PcGlowRibbonTrailParticles::make_new(uint32_t name, int particle_cap, uint32_t texture,
+                                                                 uint32_t blend_mode, int fixed_alpha,
+                                                                 int segment_count, float unknown, int history)
 {
-    reinterpret_cast<GlowRibbonTrailParticles*>(this)->GlowRibbonTrailParticles::make_new(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
+    reinterpret_cast<GlowRibbonTrailParticles*>(this)->GlowRibbonTrailParticles::make_new(
+        name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history);
     vtable = kCPcGlowRibbonTrailParticlesVtable;
     secondary_vtable_ = kCPcGlowRibbonTrailParticlesSecondaryVtable;
     void* memory = memory::alloc(sizeof(SimpleMaterial));
     material = memory ? static_cast<SimpleMaterial*>(memory)->make_new(particle_cap, 10, texture, blend_mode,
-                                                                          fixed_alpha, segment_count, history)
+                                                                       fixed_alpha, segment_count, history)
                       : nullptr;
     return this;
 }
 
 // 0x004C0940
-void PcGlowRibbonTrailParticles::destroy_body() { destroy_parts(kCPcGlowRibbonTrailParticlesVtable, kCPcGlowRibbonTrailParticlesSecondaryVtable, material, &destroy_engine<GlowRibbonTrailParticles>); }
+void PcGlowRibbonTrailParticles::destroy_body()
+{
+    destroy_parts(kCPcGlowRibbonTrailParticlesVtable, kCPcGlowRibbonTrailParticlesSecondaryVtable, material,
+                  &destroy_engine<GlowRibbonTrailParticles>);
+}
 
 // 0x004C09B0
 PcGlowRibbonTrailParticles* PcGlowRibbonTrailParticles::teardown(unsigned int free_flags)
@@ -1959,7 +2086,7 @@ PcGlowRibbonTrailParticles* PcGlowRibbonTrailParticles::teardown(unsigned int fr
 
 // 0x004BF710: the same through the vtable at +0x0C.
 static PcGlowRibbonTrailParticles* __fastcall destroy_glow_ribbon_trail_secondary(uint8_t* secondary, int,
-                                                                              unsigned int free_flags)
+                                                                                  unsigned int free_flags)
 {
     return reinterpret_cast<PcGlowRibbonTrailParticles*>(secondary - 0xC)->teardown(free_flags);
 }
@@ -2014,10 +2141,12 @@ void PcGlowRibbonTrailParticles::render()
                     n[2] *= inverse;
                 }
             }
-            float size0 = static_cast<float>(
-                (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life + particle->start_size_[0]);
-            float size1 = static_cast<float>(
-                (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life + particle->start_size_[1]);
+            float size0 =
+                static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
+                                   particle->start_size_[0]);
+            float size1 =
+                static_cast<float>((static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
+                                   particle->start_size_[1]);
             // The colours (unrounded fraction): the trail's from index 3 on.
             const uint32_t* from = start_colour_;
             const uint32_t* to = end_colour_;
@@ -2075,11 +2204,11 @@ void PcGlowRibbonTrailParticles::render()
                 float o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
                       o2 = static_cast<float>(w * static_cast<double>(f2));
                 float next_c[3] = {static_cast<float>(static_cast<double>(o0) + p1[0]),
-                                  static_cast<float>(static_cast<double>(o1) + p1[1]),
-                                  static_cast<float>(w * static_cast<double>(f2) + p1[2])};
+                                   static_cast<float>(static_cast<double>(o1) + p1[1]),
+                                   static_cast<float>(w * static_cast<double>(f2) + p1[2])};
                 float next_d[3] = {static_cast<float>(static_cast<double>(p1[0]) - o0),
-                                  static_cast<float>(static_cast<double>(p1[1]) - o1),
-                                  static_cast<float>(static_cast<double>(p1[2]) - o2)};
+                                   static_cast<float>(static_cast<double>(p1[1]) - o1),
+                                   static_cast<float>(static_cast<double>(p1[2]) - o2)};
                 vertex[0] = {previous_a[0], previous_a[1], previous_a[2], previous_colour};
                 vertex[1] = {previous_b[0], previous_b[1], previous_b[2], previous_colour};
                 vertex[2] = {next_c[0], next_c[1], next_c[2], colour};
@@ -2119,11 +2248,13 @@ void PcGlowRibbonTrailParticles::render()
             {
                 double r0 = static_cast<double>(rr[0]) * 0.0f, r1 = static_cast<double>(rr[1]) * 0.0f,
                        r2 = static_cast<double>(rr[2]) * 0.0f;
-                double x = static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(r0)) * w)) + p0[0];
+                double x =
+                    static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(r0)) * w)) + p0[0];
                 outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(w * r1)) + p0[1]);
                 outer[2] = static_cast<float>(w * r2 + p0[2]);
                 outer[0] = static_cast<float>(x + static_cast<float>(static_cast<double>(uu[0]) * w));
-                outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uu[1]) * w)) + outer[1]);
+                outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uu[1]) * w)) +
+                                              outer[1]);
                 outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(w * uu[2])) + outer[2]);
                 inner[0] = static_cast<float>(static_cast<double>(p0[0]) + static_cast<float>(r0));
                 inner[1] = static_cast<float>(r1 + p0[1]);
@@ -2138,14 +2269,16 @@ void PcGlowRibbonTrailParticles::render()
                 double r0s = static_cast<double>(rr[0]) * s, r1s = static_cast<double>(s) * rr[1],
                        r2s = static_cast<double>(s) * rr[2];
                 float next_outer[3], next_inner[3];
-                double x = static_cast<double>(p0[0]) + static_cast<float>(static_cast<double>(static_cast<float>(r0s)) * w);
+                double x =
+                    static_cast<double>(p0[0]) + static_cast<float>(static_cast<double>(static_cast<float>(r0s)) * w);
                 next_outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(r1s * w)) + p0[1]);
                 next_outer[2] = static_cast<float>(w * r2s + p0[2]);
                 double u0c = static_cast<double>(uu[0]) * cs, u1c = static_cast<double>(cs) * uu[1];
                 float u2c = static_cast<float>(static_cast<double>(cs) * uu[2]);
                 next_outer[0] = static_cast<float>(x + static_cast<float>(u0c * w));
                 next_outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(u1c * w)) + next_outer[1]);
-                next_outer[2] = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(u2c) * w)) + next_outer[2]);
+                next_outer[2] = static_cast<float>(
+                    static_cast<double>(static_cast<float>(static_cast<double>(u2c) * w)) + next_outer[2]);
                 float ix = static_cast<float>(static_cast<double>(p0[0]) + static_cast<float>(r0s));
                 float iy = static_cast<float>(r1s + p0[1]);
                 double iz = static_cast<double>(static_cast<float>(r2s)) + p0[2];
@@ -2179,68 +2312,88 @@ void PcGlowRibbonTrailParticles::render()
 
 namespace {
 static VtableSlot g_c_pc_new_flat_particles_secondary_vtable_slots[] = {render::destroy_new_flat_secondary};
-void** const kCPcNewFlatParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_new_flat_particles_secondary_vtable_slots);
+void** const kCPcNewFlatParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_new_flat_particles_secondary_vtable_slots);
 static VtableSlot g_c_pc_new_flat_particles_vtable_slots[] = {&render::PcNewFlatParticles::teardown,
-                &render::PcNewFlatParticles::render, online::handle_nothing, online::handle_nothing};
+                                                              &render::PcNewFlatParticles::render,
+                                                              online::handle_nothing, online::handle_nothing};
 void** const kCPcNewFlatParticlesVtable = reinterpret_cast<void**>(g_c_pc_new_flat_particles_vtable_slots);
 static VtableSlot g_c_pc_flat_ribbon_particles_secondary_vtable_slots[] = {render::destroy_flat_ribbon_secondary};
-void** const kCPcFlatRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_flat_ribbon_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_flat_ribbon_particles_vtable_slots[] = {&render::PcFlatRibbonParticles::teardown,
-                &render::PcFlatRibbonParticles::render, &render::ParticleCounts::field134,
-                &render::FlatRibbonParticles::get_num_colours};
+void** const kCPcFlatRibbonParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_flat_ribbon_particles_secondary_vtable_slots);
+static VtableSlot g_c_pc_flat_ribbon_particles_vtable_slots[] = {
+    &render::PcFlatRibbonParticles::teardown, &render::PcFlatRibbonParticles::render, &render::ParticleCounts::field134,
+    &render::FlatRibbonParticles::get_num_colours};
 void** const kCPcFlatRibbonParticlesVtable = reinterpret_cast<void**>(g_c_pc_flat_ribbon_particles_vtable_slots);
 static VtableSlot g_c_pc_glow_particles_secondary_vtable_slots[] = {render::destroy_glow_secondary};
 void** const kCPcGlowParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_glow_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_glow_particles_vtable_slots[] = {&render::PcGlowParticles::teardown, &render::PcGlowParticles::render,
-                online::handle_nothing, &render::ParticleCounts::three_colours};
+static VtableSlot g_c_pc_glow_particles_vtable_slots[] = {&render::PcGlowParticles::teardown,
+                                                          &render::PcGlowParticles::render, online::handle_nothing,
+                                                          &render::ParticleCounts::three_colours};
 void** const kCPcGlowParticlesVtable = reinterpret_cast<void**>(g_c_pc_glow_particles_vtable_slots);
-static VtableSlot g_c_pc_glow_ribbon_trail_particles_secondary_vtable_slots[] = {render::destroy_glow_ribbon_trail_secondary};
-void** const kCPcGlowRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_glow_ribbon_trail_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_glow_ribbon_trail_particles_vtable_slots[] = {&render::PcGlowRibbonTrailParticles::teardown,
-                &render::PcGlowRibbonTrailParticles::render, &render::GlowRibbonTrailParticles::get_num_vertex_lists,
-                &render::GlowRibbonTrailParticles::get_num_colours};
-void** const kCPcGlowRibbonTrailParticlesVtable = reinterpret_cast<void**>(g_c_pc_glow_ribbon_trail_particles_vtable_slots);
+static VtableSlot g_c_pc_glow_ribbon_trail_particles_secondary_vtable_slots[] = {
+    render::destroy_glow_ribbon_trail_secondary};
+void** const kCPcGlowRibbonTrailParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_glow_ribbon_trail_particles_secondary_vtable_slots);
+static VtableSlot g_c_pc_glow_ribbon_trail_particles_vtable_slots[] = {
+    &render::PcGlowRibbonTrailParticles::teardown, &render::PcGlowRibbonTrailParticles::render,
+    &render::GlowRibbonTrailParticles::get_num_vertex_lists, &render::GlowRibbonTrailParticles::get_num_colours};
+void** const kCPcGlowRibbonTrailParticlesVtable =
+    reinterpret_cast<void**>(g_c_pc_glow_ribbon_trail_particles_vtable_slots);
 static VtableSlot g_c_pc_line_particles_secondary_vtable_slots[] = {render::destroy_line_secondary};
 void** const kCPcLineParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_line_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_line_particles_vtable_slots[] = {&render::PcLineParticles::teardown, &render::PcLineParticles::render,
-                &render::ParticleCounts::field134, &render::ParticleCounts::two_colours};
+static VtableSlot g_c_pc_line_particles_vtable_slots[] = {
+    &render::PcLineParticles::teardown, &render::PcLineParticles::render, &render::ParticleCounts::field134,
+    &render::ParticleCounts::two_colours};
 void** const kCPcLineParticlesVtable = reinterpret_cast<void**>(g_c_pc_line_particles_vtable_slots);
 static VtableSlot g_c_pc_ribbon_particles_secondary_vtable_slots[] = {render::destroy_ribbon_secondary};
-void** const kCPcRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_ribbon_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_ribbon_particles_vtable_slots[] = {&render::PcRibbonParticles::teardown,
-                &render::PcRibbonParticles::render, &render::ParticleCounts::field134, &render::ParticleCounts::two_colours};
+void** const kCPcRibbonParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_ribbon_particles_secondary_vtable_slots);
+static VtableSlot g_c_pc_ribbon_particles_vtable_slots[] = {
+    &render::PcRibbonParticles::teardown, &render::PcRibbonParticles::render, &render::ParticleCounts::field134,
+    &render::ParticleCounts::two_colours};
 void** const kCPcRibbonParticlesVtable = reinterpret_cast<void**>(g_c_pc_ribbon_particles_vtable_slots);
 static VtableSlot g_c_pc_ribbon_trail_particles_secondary_vtable_slots[] = {render::destroy_ribbon_trail_secondary};
-void** const kCPcRibbonTrailParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_ribbon_trail_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_ribbon_trail_particles_vtable_slots[] = {&render::PcRibbonTrailParticles::teardown,
-                &render::PcRibbonTrailParticles::render, &render::ParticleCounts::field134, &render::ParticleCounts::field134};
+void** const kCPcRibbonTrailParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_ribbon_trail_particles_secondary_vtable_slots);
+static VtableSlot g_c_pc_ribbon_trail_particles_vtable_slots[] = {
+    &render::PcRibbonTrailParticles::teardown, &render::PcRibbonTrailParticles::render,
+    &render::ParticleCounts::field134, &render::ParticleCounts::field134};
 void** const kCPcRibbonTrailParticlesVtable = reinterpret_cast<void**>(g_c_pc_ribbon_trail_particles_vtable_slots);
 static VtableSlot g_c_pc_shaded_particles_secondary_vtable_slots[] = {render::destroy_shaded_secondary};
-void** const kCPcShadedParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_shaded_particles_secondary_vtable_slots);
+void** const kCPcShadedParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_shaded_particles_secondary_vtable_slots);
 static VtableSlot g_c_pc_shaded_particles_vtable_slots[] = {&render::PcShadedParticles::teardown,
-                &render::PcShadedParticles::render, online::handle_nothing, &render::ParticleCounts::four_colours};
+                                                            &render::PcShadedParticles::render, online::handle_nothing,
+                                                            &render::ParticleCounts::four_colours};
 void** const kCPcShadedParticlesVtable = reinterpret_cast<void**>(g_c_pc_shaded_particles_vtable_slots);
 static VtableSlot g_c_pc_smooth_particles_secondary_vtable_slots[] = {render::destroy_smooth_secondary};
-void** const kCPcSmoothParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_smooth_particles_secondary_vtable_slots);
+void** const kCPcSmoothParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_smooth_particles_secondary_vtable_slots);
 static VtableSlot g_c_pc_smooth_particles_vtable_slots[] = {&render::PcSmoothParticles::teardown,
-                &render::PcSmoothParticles::render, online::handle_nothing, &render::ParticleCounts::two_colours};
+                                                            &render::PcSmoothParticles::render, online::handle_nothing,
+                                                            &render::ParticleCounts::two_colours};
 void** const kCPcSmoothParticlesVtable = reinterpret_cast<void**>(g_c_pc_smooth_particles_vtable_slots);
 static VtableSlot g_c_pc_smooth_ribbon_particles_secondary_vtable_slots[] = {render::destroy_smooth_ribbon_secondary};
-void** const kCPcSmoothRibbonParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_smooth_ribbon_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_smooth_ribbon_particles_vtable_slots[] = {&render::PcSmoothRibbonParticles::teardown,
-                &render::PcSmoothRibbonParticles::render, &render::PcSmoothRibbonParticles::get_segments,
-                &render::ParticleCounts::four_colours};
+void** const kCPcSmoothRibbonParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_smooth_ribbon_particles_secondary_vtable_slots);
+static VtableSlot g_c_pc_smooth_ribbon_particles_vtable_slots[] = {
+    &render::PcSmoothRibbonParticles::teardown, &render::PcSmoothRibbonParticles::render,
+    &render::PcSmoothRibbonParticles::get_segments, &render::ParticleCounts::four_colours};
 void** const kCPcSmoothRibbonParticlesVtable = reinterpret_cast<void**>(g_c_pc_smooth_ribbon_particles_vtable_slots);
 static VtableSlot g_c_pc_smooth_star_particles_secondary_vtable_slots[] = {render::destroy_smooth_star_secondary};
-void** const kCPcSmoothStarParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_smooth_star_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_smooth_star_particles_vtable_slots[] = {&render::PcSmoothStarParticles::teardown,
-                &render::PcSmoothStarParticles::render, online::handle_nothing, &render::ParticleCounts::three_colours};
+void** const kCPcSmoothStarParticlesSecondaryVtable =
+    reinterpret_cast<void**>(g_c_pc_smooth_star_particles_secondary_vtable_slots);
+static VtableSlot g_c_pc_smooth_star_particles_vtable_slots[] = {
+    &render::PcSmoothStarParticles::teardown, &render::PcSmoothStarParticles::render, online::handle_nothing,
+    &render::ParticleCounts::three_colours};
 void** const kCPcSmoothStarParticlesVtable = reinterpret_cast<void**>(g_c_pc_smooth_star_particles_vtable_slots);
 static VtableSlot g_c_pc_star_particles_secondary_vtable_slots[] = {render::destroy_star_secondary};
 void** const kCPcStarParticlesSecondaryVtable = reinterpret_cast<void**>(g_c_pc_star_particles_secondary_vtable_slots);
-static VtableSlot g_c_pc_star_particles_vtable_slots[] = {&render::PcStarParticles::teardown, &render::PcStarParticles::render,
-                online::handle_nothing, &render::ParticleCounts::three_colours};
+static VtableSlot g_c_pc_star_particles_vtable_slots[] = {&render::PcStarParticles::teardown,
+                                                          &render::PcStarParticles::render, online::handle_nothing,
+                                                          &render::ParticleCounts::three_colours};
 void** const kCPcStarParticlesVtable = reinterpret_cast<void**>(g_c_pc_star_particles_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

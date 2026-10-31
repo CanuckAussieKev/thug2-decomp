@@ -100,4 +100,4 @@ struct TableRow {
 };
 std::vector<TableRow> copyable();
 
-} // namespace MenuSystem::level_editor::Objects
+} // namespace frontend::level_editor::object_edit

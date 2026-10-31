@@ -47,7 +47,7 @@ static_assert(sizeof(PcFont) == 0xC, "layout must match the original");
 struct PcText {
     void** vtable;
     PcFont* font;
-    const void* effects;  // per-character effects (TextEffect), or null
+    const void* effects; // per-character effects (TextEffect), or null
     const char* string;
     float x, y;
     float pivot_x_, pivot_y_;
@@ -55,15 +55,15 @@ struct PcText {
     float angle;
     float priority;
     uint32_t unknown30;
-    uint32_t z;           // the depth, in 1/65536ths (used with z_enabled_)
-    uint32_t color;       // RGBA as bytes
+    uint32_t z;     // the depth, in 1/65536ths (used with z_enabled_)
+    uint32_t color; // RGBA as bytes
     bool fixed_color_;
     uint8_t unknown3d_;
     bool hidden;
     bool z_enabled_;
-    uint32_t unknown40;   // the engine constructor's argument
-    PcText* next_free_;    // +0x44: the free list (0x006FA804)
-    GlyphRun* text;          // +0x48
+    uint32_t unknown40; // the engine constructor's argument
+    PcText* next_free_; // +0x44: the free list (0x006FA804)
+    GlyphRun* text;     // +0x48
 
     // 0x004B3E70: construct (the engine's with 0): a screen text of its own (priority 0), then everything sent to
     // it. Returns this.
@@ -92,4 +92,4 @@ void __cdecl unload_pc_font(PcFont* font);
 // 0x004B40A0: a new PC font, loaded (virtually) from `name`.
 PcFont* __cdecl create_pc_font(const char* name);
 
-} // namespace Nx
+} // namespace render

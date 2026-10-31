@@ -24,36 +24,42 @@ namespace goals {
 namespace {
 
 // The vtables.
-static VtableSlot g_base_vtable_slots[] = {&goals::WinRule::destroy_base, stubs::return_false1, &_purecall,
-                 &_purecall, &_purecall};
+static VtableSlot g_base_vtable_slots[] = {&goals::WinRule::destroy_base, stubs::return_false1, &_purecall, &_purecall,
+                                           &_purecall};
 void** const kBaseVtable = reinterpret_cast<void**>(g_base_vtable_slots);
-static VtableSlot g_highest_score_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_false,
-                 stubs::return_false, stubs::return_true};
+static VtableSlot g_highest_score_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score,
+                                                    stubs::return_false, stubs::return_false, stubs::return_true};
 void** const kHighestScoreVtable = reinterpret_cast<void**>(g_highest_score_vtable_slots);
-static VtableSlot g_score_reached_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_true,
-                 &goals::ScoreReachedVictoryCondition::rule_satisfied, &goals::ScoreReachedVictoryCondition::echo_out};
+static VtableSlot g_score_reached_vtable_slots[] = {
+    &goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_true,
+    &goals::ScoreReachedVictoryCondition::rule_satisfied, &goals::ScoreReachedVictoryCondition::echo_out};
 void** const kScoreReachedVtable = reinterpret_cast<void**>(g_score_reached_vtable_slots);
-static VtableSlot g_complete_goals_vtable_slots[] = {&goals::WinRule::teardown, stubs::return_false1, stubs::return_true,
-                 &goals::CompleteGoalsVictoryCondition::rule_satisfied, stubs::return_true};
+static VtableSlot g_complete_goals_vtable_slots[] = {
+    &goals::WinRule::teardown, stubs::return_false1, stubs::return_true,
+    &goals::CompleteGoalsVictoryCondition::rule_satisfied, stubs::return_true};
 void** const kCompleteGoalsVtable = reinterpret_cast<void**>(g_complete_goals_vtable_slots);
-static VtableSlot g_best_combo_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_false,
-                 stubs::return_false, &goals::BestComboVictoryCondition::echo_out};
+static VtableSlot g_best_combo_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score,
+                                                 stubs::return_false, stubs::return_false,
+                                                 &goals::BestComboVictoryCondition::echo_out};
 void** const kBestComboVtable = reinterpret_cast<void**>(g_best_combo_vtable_slots);
-static VtableSlot g_last_man_standing_vtable_slots[] = {&goals::WinRule::teardown, &goals::SoleSurvivorWin::has_won_match,
-                 stubs::return_true, &goals::SoleSurvivorWin::rule_satisfied, stubs::return_true};
+static VtableSlot g_last_man_standing_vtable_slots[] = {&goals::WinRule::teardown,
+                                                        &goals::SoleSurvivorWin::has_won_match, stubs::return_true,
+                                                        &goals::SoleSurvivorWin::rule_satisfied, stubs::return_true};
 void** const kLastManStandingVtable = reinterpret_cast<void**>(g_last_man_standing_vtable_slots);
-static VtableSlot g_elimination_vtable_slots[] = {&goals::WinRule::teardown, &goals::EliminationVictoryCondition::has_won_match, stubs::return_true,
-                 &goals::EliminationVictoryCondition::rule_satisfied, stubs::return_true};
+static VtableSlot g_elimination_vtable_slots[] = {
+    &goals::WinRule::teardown, &goals::EliminationVictoryCondition::has_won_match, stubs::return_true,
+    &goals::EliminationVictoryCondition::rule_satisfied, stubs::return_true};
 void** const kEliminationVtable = reinterpret_cast<void**>(g_elimination_vtable_slots);
-static VtableSlot g_collect_all_objects_vtable_slots[] = {&goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_true,
-                 &goals::CollectAllObjectsVictoryCondition::rule_satisfied, stubs::return_true};
+static VtableSlot g_collect_all_objects_vtable_slots[] = {
+    &goals::WinRule::teardown, &goals::WinRule::is_highest_score, stubs::return_true,
+    &goals::CollectAllObjectsVictoryCondition::rule_satisfied, stubs::return_true};
 void** const kCollectAllObjectsVtable = reinterpret_cast<void**>(g_collect_all_objects_vtable_slots);
 
 // The types (type=).
 constexpr uint32_t kHighestScore = 0x8F30FD26;      // highest_score
 constexpr uint32_t kTargetScore = 0x71CD53A2;       // target_score
 constexpr uint32_t kCompleteGoals = 0x6FC19399;     // complete_goals
-constexpr uint32_t kLabelBestChain = 0x6FAD9811;         // best_combo
+constexpr uint32_t kLabelBestChain = 0x6FAD9811;    // best_combo
 constexpr uint32_t kLastManStanding = 0xCC06880F;   // last_man_standing
 constexpr uint32_t kElimination = 0xA6B8D7B0;       // elimination
 constexpr uint32_t kCollectAllObjects = 0x72068889; // collect_all_objects
@@ -79,7 +85,10 @@ uint8_t* get_rider_at(uint8_t* skate, uint32_t index)
     return reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(index)));
 }
 // A skater's score object (modules::PointTally) and its total.
-uint8_t* get_score_of(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total()); }
+uint8_t* get_score_of(uint8_t* skater)
+{
+    return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total());
+}
 int total_score(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_total_score(); }
 
 // The game mode (0x007CE470).
@@ -197,7 +206,8 @@ bool CompleteGoalsVictoryCondition::rule_satisfied()
         }
         return false;
     }
-    uint32_t count = *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
+    uint32_t count =
+        *reinterpret_cast<uint32_t*>(goals); // (the goals there are: its first word - 0x00469490, a folded getter)
     for (uint32_t i = 0; i < skater_count(skate); ++i) {
         uint8_t* skater = get_rider_at(skate, i);
         if (count == 0)
@@ -209,7 +219,8 @@ bool CompleteGoalsVictoryCondition::rule_satisfied()
             // +0x50, by the skater's id).
             if (**reinterpret_cast<int**>(goal + 0x2C) != 0 || !reinterpret_cast<Objective*>(goal)->is_picked())
                 continue;
-            auto has_won = reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>((*reinterpret_cast<void***>(goal))[0x50 / 4]);
+            auto has_won =
+                reinterpret_cast<bool(__thiscall*)(uint8_t*, uint32_t)>((*reinterpret_cast<void***>(goal))[0x50 / 4]);
             if (has_won(goal, *reinterpret_cast<uint32_t*>(skater + 0x14)))
                 continue;
             missing = true;
@@ -318,4 +329,4 @@ WinRule* create_victory_condition(script::Struct* params)
     }
 }
 
-} // namespace Game
+} // namespace goals

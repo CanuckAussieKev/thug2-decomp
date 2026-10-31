@@ -19,8 +19,7 @@ struct HookFn {
     const void* code;
     template <typename F>
     HookFn(F* function) : code(reinterpret_cast<const void*>(function))
-    {
-    }
+    {}
     HookFn(std::nullptr_t) : code(nullptr) {}
 };
 
@@ -36,7 +35,7 @@ void get_msleep(unsigned milliseconds);
 char* game_strdup(const char* text); // goastrdup: freed with free()
 void start_available_check(const char* game_name);
 int available_check_think(); // GSIACResult: 0 waiting, 1 available, 2 unavailable, 3 temporarily unavailable
-const char* get_unique_id();    // GOAGetUniqueID
+const char* get_unique_id(); // GOAGetUniqueID
 // The online service's domain (OnlineDomain): the SDK's host names are made from it (online_hosts.cpp).
 void set_online_domain(const char* domain);
 
@@ -46,15 +45,15 @@ void cd_key_shutdown();
 void cd_key_think();
 // `callback`: void(int gameId, int local_id, int authenticated, char* message, void* instance)
 void cd_key_authenticate_user(int game_id, int local_id, uint32_t ip, const char* challenge, const char* response,
-                           HookFn callback, void* instance);
+                              HookFn callback, void* instance);
 void cd_key_disconnect_user(int game_id, int local_id);
 void cd_key_disconnect_all(int game_id);
 void cd_key_compute_response(const char* cd_key, const char* challenge, char* response); // response: 73 bytes
 
 // query and reporting (qr2); a null `qrec` is the SDK's default one
-int call_qr2_init(void* qrec, const char* ip, int base_port, const char* game_name, const char* secret_key, int is_public,
-            int nat_negotiate, HookFn server_key, HookFn player_key, HookFn team_key, HookFn key_list,
-            HookFn count, HookFn add_error, void* user_data);
+int call_qr2_init(void* qrec, const char* ip, int base_port, const char* game_name, const char* secret_key,
+                  int is_public, int nat_negotiate, HookFn server_key, HookFn player_key, HookFn team_key,
+                  HookFn key_list, HookFn count, HookFn add_error, void* user_data);
 void get_qr2_think(void* qrec);
 void qr2_send_state_changed(void* qrec);
 void get_qr2_shutdown(void* qrec);
@@ -66,7 +65,7 @@ void qr2_key_buffer_add(void* key_buffer, int key_id);
 // NAT negotiation
 // `progress`: void(int state, void* user_data); `completed`: void(int result, SOCKET, sockaddr_in*, void* user_data)
 int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, HookFn completed,
-                       void* user_data);
+                          void* user_data);
 void nat_think();
 void nat_process_data(char* data, int length, void* from);
 void nat_cancel(int cookie);
@@ -74,12 +73,12 @@ void nat_free_negotiations();
 
 // peer (chat lobby, game listing, hosting)
 void* peer_initialize(const PeerCallbacks callbacks);
-int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name, const char* sb_secret_key,
-                 int sb_game_version, int sb_max_updates, int nat_negotiate, const int* ping_rooms,
-                 const int* cross_ping_rooms);
+int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name,
+                   const char* sb_secret_key, int sb_game_version, int sb_max_updates, int nat_negotiate,
+                   const int* ping_rooms, const int* cross_ping_rooms);
 void peer_clear_title(void* peer);
 void peer_connect(void* peer, const char* nick, int profile, HookFn nick_error, HookFn connected, void* param,
-                 int blocking);
+                  int blocking);
 void peer_retry_with_nick(void* peer, const char* nick);
 void peer_fix_nick(char* new_nick, const char* old_nick);
 int peer_is_connected(void* peer);
@@ -102,9 +101,9 @@ void peer_enum_players(void* peer, int room_type, HookFn callback, void* param);
 int peer_get_player_info_no_wait(void* peer, const char* nick, uint32_t* ip, int* profile);
 void peer_set_room_keys(void* peer, int room_type, const char* nick, int count, const char** keys, const char** values);
 void peer_get_room_keys(void* peer, int room_type, const char* nick, int count, const char** keys, HookFn callback,
-                     void* param, int blocking);
+                        void* param, int blocking);
 void peer_start_listing_games(void* peer, const uint8_t* fields, int count, const char* filter, HookFn callback,
-                           void* param);
+                              void* param);
 void peer_stop_listing_games(void* peer);
 void peer_update_game(void* peer, void* server, int full_update);
 int peer_start_reporting_with_socket(void* peer, uint32_t socket, int port);
@@ -130,13 +129,13 @@ int server_get_ping(void* server);
 // `progress`: void(request, int state, const char*, int64 length, int64 received, int64 total, void* param);
 // `completed`: int(request, int result, char* buffer, int64 length, void* param) - nonzero: the SDK frees the buffer
 int http_get_ex(const char* url, const char* headers, char* buffer, int size, void* post, int throttle, int blocking,
-              HookFn progress, HookFn completed, void* param);
+                HookFn progress, HookFn completed, void* param);
 int http_post_ex(const char* url, const char* headers, void* post, int throttle, int blocking, HookFn progress,
-               HookFn completed, void* param);
+                 HookFn completed, void* param);
 void* http_new_post();
 int http_post_add_string(void* post, const char* name, const char* value);
 int http_post_add_file_from_memory(void* post, const char* name, const char* buffer, int size, const char* report_name,
-                              const char* content_type);
+                                   const char* content_type);
 void http_think();
 void http_cancel_request(int request);
 void http_cleanup();
@@ -149,10 +148,10 @@ int gp_initialize(void* connection, int product_id, int namespace_id);
 int gp_process(void* connection);
 int gp_set_callback(void* connection, int type, HookFn callback, void* param);
 int gp_connect(void* connection, const char* nick, const char* email, const char* password, int firewall, int blocking,
-              HookFn callback, void* param);
+               HookFn callback, void* param);
 int gp_connect_new_user(void* connection, const char* nick, const char* unique_nick, const char* email,
-                     const char* password, const char* cd_key, int firewall, int blocking, HookFn callback,
-                     void* param);
+                        const char* password, const char* cd_key, int firewall, int blocking, HookFn callback,
+                        void* param);
 void gp_disconnect(void* connection);
 int gp_set_status(void* connection, int status, const char* text, const char* location);
 int gp_send_buddy_request(void* connection, int profile, const char* reason);
@@ -179,7 +178,7 @@ void stats_remove_player(void* game, int number);
 int stats_send_snap_shot(void* game, const char* snapshot, int final);
 // `callback`: PersDataCallbackFn
 void stats_get_persist_data_values(int local_id, int profile, int type, int index, const char* keys, HookFn callback,
-                          void* instance);
+                                   void* instance);
 void stats_generate_auth(const char* challenge, const char* password, char* response); // response: 33 bytes
 // bucket "set" operations: the server's (index 0) or a player's
 void set_server_int_bucket(void* game, const char* key, int value);
@@ -187,5 +186,4 @@ void set_server_string_bucket(void* game, const char* key, const char* value);
 void set_player_int_bucket(void* game, const char* key, int value, int player);
 void set_player_string_bucket(void* game, const char* key, const char* value, int player);
 
-
-} // namespace GameSpy
+} // namespace game_spy

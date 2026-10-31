@@ -79,20 +79,21 @@ public:
     // the feeler's own, given the feeler (the hit's callback data).
     static void __cdecl callback_relay(CollisionHit* hit);
 
-    maths::Seg line_;                              // +0x00 start, +0x10 end
-    FeelerCallback callback_;                     // +0x20
-    CollisionHit hit_;                            // +0x24
-    float reach_;                              // +0x74 the hit's, copied after a query
-    maths::Vec4 contact_pos_;                           // +0x78 "
-    maths::Vec4 surface_dir_;                          // +0x88 "
-    objects::SharedRef<objects::GameEntity> entity_;  // +0x98 the object hit (a movable's owner)
-    uint32_t entity_key_;                           // +0xA4 its id
-    uint32_t unknowna8_;                          // +0xA8
-    HitMeshCache* hit_cache_;                          // +0xAC null: the current cache
+    maths::Seg line_;                                // +0x00 start, +0x10 end
+    FeelerCallback callback_;                        // +0x20
+    CollisionHit hit_;                               // +0x24
+    float reach_;                                    // +0x74 the hit's, copied after a query
+    maths::Vec4 contact_pos_;                        // +0x78 "
+    maths::Vec4 surface_dir_;                        // +0x88 "
+    objects::SharedRef<objects::GameEntity> entity_; // +0x98 the object hit (a movable's owner)
+    uint32_t entity_key_;                            // +0xA4 its id
+    uint32_t unknowna8_;                             // +0xA8
+    HitMeshCache* hit_cache_;                        // +0xAC null: the current cache
 };
 static_assert(offsetof(ProbeRay, hit_) == 0x24 && offsetof(ProbeRay, reach_) == 0x74 &&
-                  offsetof(ProbeRay, entity_) == 0x98 && offsetof(ProbeRay, hit_cache_) == 0xAC && sizeof(ProbeRay) == 0xB0,
+                  offsetof(ProbeRay, entity_) == 0x98 && offsetof(ProbeRay, hit_cache_) == 0xAC &&
+                  sizeof(ProbeRay) == 0xB0,
               "layout must match the original");
 
 extern HitMeshCache* g_current_cache;
-} // namespace Nx
+} // namespace render

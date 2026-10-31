@@ -48,14 +48,8 @@ constexpr uint32_t kSkaterState = 0x43686585, kSkaterCorePhysics = 0x5BD63B29;
 constexpr uint32_t kString0 = 0xA4B08520, kGraffitiStealYou = 0x0B3FF911, kGraffitiStealOther = 0x4D7F6FFA;
 
 // modules::Skate (0x007CE478; not rewritten yet): a multiplayer game (0x005651F0), a skater by its id (0x00566600).
-bool is_versus_session()
-{
-    return modules::Skate::is_multiplayer() != 0;
-}
-Rider* rider_for_slot(uint32_t id)
-{
-    return modules::Skate::sole()->get_rider_by_number(id);
-}
+bool is_versus_session() { return modules::Skate::is_multiplayer() != 0; }
+Rider* rider_for_slot(uint32_t id) { return modules::Skate::sole()->get_rider_by_number(id); }
 // The network manager's first local player and its run count (+0x38, which the manager's code calls the game id).
 void* find_own_player_record() { return net_session_slot()->get_own_player(); }
 uint8_t run_count() { return net_session_slot()->get_game_id(); }
@@ -119,7 +113,8 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
     read_update_state(this, component_6c, now);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value = k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
+        int16_t value =
+            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
         if (value != sent_pos_[k] || force)
             flags |= 1u << k;
     }
@@ -175,7 +170,8 @@ void RiderHostSync::send_update()
     }
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value = k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
+        int16_t value =
+            k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         sent_pos_[k] = value;
@@ -187,7 +183,9 @@ void RiderHostSync::send_update()
         sent_angles_[k] = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
-    auto signed_byte = [](uint8_t value) { return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value))); };
+    auto signed_byte = [](uint8_t value) {
+        return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value)));
+    };
     if (flags & 0x40) {
         sent_value_7c_ = now.value_7c_;
         sent_flag75_ = now.flag75;
@@ -311,25 +309,27 @@ int __cdecl RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
     return net::kResultPassOn;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderHostSync::teardown,
-         &objects::RiderHostSync::tick_frame,
-         &RiderStateReset::configure_from_data,
-         &objects::RiderHostSync::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderHostSync::teardown,
+    &objects::RiderHostSync::tick_frame,
+    &RiderStateReset::configure_from_data,
+    &objects::RiderHostSync::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

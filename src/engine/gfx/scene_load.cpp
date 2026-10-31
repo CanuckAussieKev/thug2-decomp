@@ -36,7 +36,10 @@ uint8_t* new_pc_scene(int hash_bits)
 }
 void* spawn_sector(uint8_t* scene) { return reinterpret_cast<WorldScene*>(scene)->spawn_sector(); }
 void choose_geom(void* sector, void* geom) { static_cast<WorldCell*>(sector)->choose_geom(geom); }
-void insert_sector(uint8_t* scene, void* sector) { reinterpret_cast<WorldScene*>(scene)->insert_sector(static_cast<WorldCell*>(sector)); }
+void insert_sector(uint8_t* scene, void* sector)
+{
+    reinterpret_cast<WorldScene*>(scene)->insert_sector(static_cast<WorldCell*>(sector));
+}
 void set_up_sectors(uint8_t* scene, const char* name)
 {
     reinterpret_cast<WorldScene*>(scene)->finish_load(name, nullptr);
@@ -99,10 +102,7 @@ uint8_t* build_world_scene(int sectors, bool with_super_sectors, bool flag_8d, S
 }
 
 // The mesh made around a loaded scene: the scene (+0xC4) and its hierarchy (+0xB4, +0xB8); the textures at +0x04.
-void set_mesh_scene(PcMesh* mesh, uint8_t* scene)
-{
-    mesh->choose_scene(scene);
-}
+void set_mesh_scene(PcMesh* mesh, uint8_t* scene) { mesh->choose_scene(scene); }
 
 } // namespace
 
@@ -119,7 +119,8 @@ HierarchyNode* HierarchyNode::make_new()
 }
 
 // 0x004B3490
-void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool with_super_sectors, bool flag_8d, bool mesh_flag)
+void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool with_super_sectors, bool flag_8d,
+                                     bool mesh_flag)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
     const uint8_t* p = data + 0xC; // (past the header)
@@ -151,8 +152,8 @@ void* __cdecl load_scene_from_memory(const uint8_t* data, void* textures, bool w
 }
 
 // 0x004B36D0
-void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d, bool mesh_flag,
-                                int sector_flags)
+void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d,
+                                   bool mesh_flag, int sector_flags)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
     file::Hdl file = file::unseal(name, "rb");
@@ -228,4 +229,4 @@ void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, int 
     return mesh;
 }
 
-} // namespace Nx
+} // namespace render

@@ -14,7 +14,7 @@ class GapTally;
 namespace script {
 class Script;
 class Struct;
-}
+} // namespace script
 
 namespace objects {
 
@@ -90,30 +90,33 @@ public:
     uint32_t* goal_words() { return &goals_[0][0]; }
     uint32_t* flag_words() { return &flag_bits_[0][0]; }
 
-    void** vtable_;                     // +0x000 (0x0064EFD4)
-    uint32_t goals_[kLevels][8];        // +0x004
-    uint32_t flag_bits_[kLevels][8];        // +0x2A4
-    uint32_t start_goals_[8];            // +0x544
-    uint32_t start_flags_[8];            // +0x564
-    uint16_t funds_[kLevels];            // +0x584
-    uint16_t amount_[kLevels];          // +0x5AE
-    uint16_t lifetime_funds_;                // +0x5D8
-    uint16_t total_amount_;              // +0x5DA
-    uint8_t counter_[18];               // +0x5DC
-    uint8_t total_counter_;              // +0x5EE
-    uint8_t flag_5e_f_;                   // +0x5EF
-    uint32_t global_flags_[16];          // +0x5F0
-    int level_;                         // +0x630
-    int value634_;                      // +0x634
-    int max_value634_;                   // +0x638
+    void** vtable_;                  // +0x000 (0x0064EFD4)
+    uint32_t goals_[kLevels][8];     // +0x004
+    uint32_t flag_bits_[kLevels][8]; // +0x2A4
+    uint32_t start_goals_[8];        // +0x544
+    uint32_t start_flags_[8];        // +0x564
+    uint16_t funds_[kLevels];        // +0x584
+    uint16_t amount_[kLevels];       // +0x5AE
+    uint16_t lifetime_funds_;        // +0x5D8
+    uint16_t total_amount_;          // +0x5DA
+    uint8_t counter_[18];            // +0x5DC
+    uint8_t total_counter_;          // +0x5EE
+    uint8_t flag_5e_f_;              // +0x5EF
+    uint32_t global_flags_[16];      // +0x5F0
+    int level_;                      // +0x630
+    int value634_;                   // +0x634
+    int max_value634_;               // +0x638
     goals::GapTally* gaps_[kLevels]; // +0x63C
-    bool visited_[kLevels];             // +0x690
+    bool visited_[kLevels];          // +0x690
     uint8_t pad6a5_[3];
-    script::Struct* details_;             // +0x6A8
+    script::Struct* details_; // +0x6A8
 };
-static_assert(offsetof(RiderStoryProgress, flag_bits_) == 0x2A4 && offsetof(RiderStoryProgress, start_goals_) == 0x544 &&
-                  offsetof(RiderStoryProgress, funds_) == 0x584 && offsetof(RiderStoryProgress, lifetime_funds_) == 0x5D8 &&
-                  offsetof(RiderStoryProgress, counter_) == 0x5DC && offsetof(RiderStoryProgress, global_flags_) == 0x5F0 &&
+static_assert(offsetof(RiderStoryProgress, flag_bits_) == 0x2A4 &&
+                  offsetof(RiderStoryProgress, start_goals_) == 0x544 &&
+                  offsetof(RiderStoryProgress, funds_) == 0x584 &&
+                  offsetof(RiderStoryProgress, lifetime_funds_) == 0x5D8 &&
+                  offsetof(RiderStoryProgress, counter_) == 0x5DC &&
+                  offsetof(RiderStoryProgress, global_flags_) == 0x5F0 &&
                   offsetof(RiderStoryProgress, level_) == 0x630 && offsetof(RiderStoryProgress, gaps_) == 0x63C &&
                   offsetof(RiderStoryProgress, visited_) == 0x690 && offsetof(RiderStoryProgress, details_) == 0x6A8,
               "layout must match the original");
@@ -121,4 +124,4 @@ static_assert(offsetof(RiderStoryProgress, flag_bits_) == 0x2A4 && offsetof(Ride
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
 bool __cdecl cfunc_get_career_save_info(script::Struct* params, script::Script* script);
 
-} // namespace Obj
+} // namespace objects

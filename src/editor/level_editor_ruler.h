@@ -46,4 +46,4 @@ void add_overlay(const overlays::Painter& painter);
 // The measurement now ("" when there's none) - the status bar, the screenshot sidecar.
 std::string describe();
 
-} // namespace MenuSystem::level_editor::Ruler
+} // namespace frontend::level_editor::ruler

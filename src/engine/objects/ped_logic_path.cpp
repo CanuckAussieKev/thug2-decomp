@@ -27,74 +27,77 @@ namespace {
 constexpr uint32_t kMotion = 0x0A015E17;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 
-constexpr uint32_t kSkateAction = 0x963DC198;       // SkateAction
-constexpr uint32_t kStopAction = 0xE41199AF;        // (a SkateAction: the end of a grind's way off)
-constexpr uint32_t kVertGrab = 0x7D9D0008;          // Vert_Grab
-constexpr uint32_t kVertLip = 0x554DBD64;           // Vert_Lip
-constexpr uint32_t kVertGrind = 0xE6DFAEC7;         // Vert_Grind
-constexpr uint32_t kVertJump = 0xD5B4F014;          // Vert_Jump
-constexpr uint32_t kVertFlip = 0xE8F91257;          // Vert_Flip
-constexpr uint32_t kVertOther = 0xDA0723DA;         // (a vert SkateAction; its name isn't known)
-constexpr uint32_t kGrind = 0x255ED86F;             // Grind
-constexpr uint32_t kJump = 0x584CF9E9;              // Jump
-constexpr uint32_t kManual = 0xEF24413B;            // Manual
-constexpr uint32_t kManualDown = 0x9403A0ED;        // Manual_Down
-constexpr uint32_t kGrabTrick = 0x12797A1B;         // Grab_Trick
-constexpr uint32_t kFlipTrick = 0xBA1D1E94;         // Flip_Trick
-constexpr uint32_t kStop = 0x46A9E949;              // stop
-constexpr uint32_t kRollOff = 0x6D3144BF;           // Roll_off
-constexpr uint32_t kGrindOff = 0xC870BCE5;          // (a SkateAction: off the grind)
+constexpr uint32_t kSkateAction = 0x963DC198;                   // SkateAction
+constexpr uint32_t kStopAction = 0xE41199AF;                    // (a SkateAction: the end of a grind's way off)
+constexpr uint32_t kVertGrab = 0x7D9D0008;                      // Vert_Grab
+constexpr uint32_t kVertLip = 0x554DBD64;                       // Vert_Lip
+constexpr uint32_t kVertGrind = 0xE6DFAEC7;                     // Vert_Grind
+constexpr uint32_t kVertJump = 0xD5B4F014;                      // Vert_Jump
+constexpr uint32_t kVertFlip = 0xE8F91257;                      // Vert_Flip
+constexpr uint32_t kVertOther = 0xDA0723DA;                     // (a vert SkateAction; its name isn't known)
+constexpr uint32_t kGrind = 0x255ED86F;                         // Grind
+constexpr uint32_t kJump = 0x584CF9E9;                          // Jump
+constexpr uint32_t kManual = 0xEF24413B;                        // Manual
+constexpr uint32_t kManualDown = 0x9403A0ED;                    // Manual_Down
+constexpr uint32_t kGrabTrick = 0x12797A1B;                     // Grab_Trick
+constexpr uint32_t kFlipTrick = 0xBA1D1E94;                     // Flip_Trick
+constexpr uint32_t kStop = 0x46A9E949;                          // stop
+constexpr uint32_t kRollOff = 0x6D3144BF;                       // Roll_off
+constexpr uint32_t kGrindOff = 0xC870BCE5;                      // (a SkateAction: off the grind)
 constexpr uint32_t kClass = 0x12B4E660, kWaypoint = 0x4C23A77E; // Class: Waypoint
 constexpr uint32_t kTypeName = 0x7321A8D6, kPedAi = 0xCBA10FFA; // Type: PedAI
 constexpr uint32_t kPriority = 0x9D5923D8, kLow = 0x6D77875E, kNormal = 0xDE7A971B; // Priority: Low / Normal
-constexpr uint32_t kMinInnerPathAngle = 0xFE65D822; // ped_min_inner_path_angle
-constexpr uint32_t kPedType = 0x17EA37FB, kSkate = 0x54166ACD; // PedType: Skate
-constexpr uint32_t kHitDeadEnd = 0xA80F965E;        // ped_walker_hit_dead_end (an aux script)
-constexpr uint32_t kChangePaceFlag = 0x74E4BBA5;       // (a node flag: its speed changed)
+constexpr uint32_t kMinInnerPathAngle = 0xFE65D822;                                 // ped_min_inner_path_angle
+constexpr uint32_t kPedType = 0x17EA37FB, kSkate = 0x54166ACD;                      // PedType: Skate
+constexpr uint32_t kHitDeadEnd = 0xA80F965E;     // ped_walker_hit_dead_end (an aux script)
+constexpr uint32_t kChangePaceFlag = 0x74E4BBA5; // (a node flag: its speed changed)
 constexpr uint32_t kAdjustSpeedWeight = 0x922C5B59;
 constexpr uint32_t kAdjustSpeedPercent = 0xA04D16EC; // AdjustSpeedPercent
-constexpr uint32_t kLaunchNodeScript = 0x55D98ED7;         // launch_script
-constexpr uint32_t kRunScriptWeight = 0x86C9CCCE;   // RunScriptWeight
-constexpr uint32_t kNodeScriptKey = 0x64B4CD9D;     // RunScriptName
-constexpr uint32_t kSurfaceKindKey = 0x54CF8532;       // TerrainType
-constexpr uint32_t kTable = 0x46196541;             // SkaterPed_StateTable
+constexpr uint32_t kLaunchNodeScript = 0x55D98ED7;   // launch_script
+constexpr uint32_t kRunScriptWeight = 0x86C9CCCE;    // RunScriptWeight
+constexpr uint32_t kNodeScriptKey = 0x64B4CD9D;      // RunScriptName
+constexpr uint32_t kSurfaceKindKey = 0x54CF8532;     // TerrainType
+constexpr uint32_t kTable = 0x46196541;              // SkaterPed_StateTable
 constexpr uint32_t kStateGrind = 0x57CD5C63, kStateGrindOff = 0x6DB75D2A, kStateJumpVert = 0x5DC4A15F,
                    kStateJump = 0xCCAF702F, kStateLip = 0x4E7AA8C2, kStateManual = 0xE6E09E94,
                    kStateManualDown = 0xEF03188F, kStateGrab = 0x423331C0, kStateStop = 0xD24A608F,
                    kStateRollOff = 0x5F69700C, kStateFlip = 0xD757239F, kStateBailGrind = 0x423431E1;
-constexpr uint32_t kIsVert = 0x01615618;            // is_vert
-constexpr uint32_t kIsJumping = 0x65B5788D;         // is_jumping
-constexpr uint32_t kJumpToNextNode = 0xB02567AE;    // JumpToNextNode
-constexpr uint32_t kJumpHeight = 0x838DA447;        // JumpHeight
-constexpr uint32_t kLeapGravity = 0xE224A5D3;       // ped_skater_jump_gravity
-constexpr uint32_t kJumpSpeedGlobal = 0xF1FF758A;   // ped_skater_jump_speed
-constexpr uint32_t kJumpSpeed = 0x1C4C5690;         // jumpSpeed
-constexpr uint32_t kLeapDuration = 0x66CED87B;          // jump_time
-constexpr uint32_t kHeading = 0xFD4BC03E;           // heading
-constexpr uint32_t kHeightSlop = 0x23F14B13;        // ped_skater_jump_to_next_node_height_slop
-constexpr uint32_t kRandomSpin = 0xB4077854;        // (a flag: a random spin, in half turns)
-constexpr uint32_t kMinSpinTime = 0x8B381AB1;       // ped_skater_min_180_spin_time
-constexpr uint32_t kSpinAngle = 0x96FB50D9;         // SpinAngle
-constexpr uint32_t kSpinDirection = 0xEF0B71A0;     // SpinDirection
+constexpr uint32_t kIsVert = 0x01615618;                                   // is_vert
+constexpr uint32_t kIsJumping = 0x65B5788D;                                // is_jumping
+constexpr uint32_t kJumpToNextNode = 0xB02567AE;                           // JumpToNextNode
+constexpr uint32_t kJumpHeight = 0x838DA447;                               // JumpHeight
+constexpr uint32_t kLeapGravity = 0xE224A5D3;                              // ped_skater_jump_gravity
+constexpr uint32_t kJumpSpeedGlobal = 0xF1FF758A;                          // ped_skater_jump_speed
+constexpr uint32_t kJumpSpeed = 0x1C4C5690;                                // jumpSpeed
+constexpr uint32_t kLeapDuration = 0x66CED87B;                             // jump_time
+constexpr uint32_t kHeading = 0xFD4BC03E;                                  // heading
+constexpr uint32_t kHeightSlop = 0x23F14B13;                               // ped_skater_jump_to_next_node_height_slop
+constexpr uint32_t kRandomSpin = 0xB4077854;                               // (a flag: a random spin, in half turns)
+constexpr uint32_t kMinSpinTime = 0x8B381AB1;                              // ped_skater_min_180_spin_time
+constexpr uint32_t kSpinAngle = 0x96FB50D9;                                // SpinAngle
+constexpr uint32_t kSpinDirection = 0xEF0B71A0;                            // SpinDirection
 constexpr uint32_t kBs = 0x20E1C4A3, kFs = 0x448D01A7, kRand = 0xE7390A8B; // BS / FS / Rand
-constexpr uint32_t kSpineTransfer = 0x04AA0CFF;     // SpineTransfer
-constexpr uint32_t kShouldFlip = 0x8868E76A;        // should_flip
-constexpr uint32_t kSpineSlop = 0x95E91D23;         // ped_skater_spine_rotation_slop
-constexpr uint32_t kVertTimeSlop = 0xC1DFC97B;      // ped_skater_vert_rotation_time_slop
-constexpr uint32_t kLandHeight = 0xA1810C27;        // land_height
-constexpr uint32_t kHeight = 0x0AB21AF0, kGravity = 0xA5E2DA58; // height / gravity
-constexpr uint32_t kJumpSpeedScale = 0x2B5BEDBA;    // (a global float: the jump's speed along the ground)
+constexpr uint32_t kSpineTransfer = 0x04AA0CFF;                            // SpineTransfer
+constexpr uint32_t kShouldFlip = 0x8868E76A;                               // should_flip
+constexpr uint32_t kSpineSlop = 0x95E91D23;                                // ped_skater_spine_rotation_slop
+constexpr uint32_t kVertTimeSlop = 0xC1DFC97B;                             // ped_skater_vert_rotation_time_slop
+constexpr uint32_t kLandHeight = 0xA1810C27;                               // land_height
+constexpr uint32_t kHeight = 0x0AB21AF0, kGravity = 0xA5E2DA58;            // height / gravity
+constexpr uint32_t kJumpSpeedScale = 0x2B5BEDBA; // (a global float: the jump's speed along the ground)
 
-constexpr float kFullTurnDegrees = 360.0f;         // 0x00645EA8
-constexpr float kInverseFullTurn = 1.0f / 360.0f;  // 0x0064B798
-constexpr float kAlwaysAbove = 0.99f;               // 0x00645450
-constexpr float kThousand = 1000.0f;                // 0x006453C0
-constexpr float kHundred = 100.0f;                  // 0x006463D4
-constexpr float kMinusTwo = -2.0f;                  // 0x00646970
-constexpr float kHalf = 0.5f;                       // 0x006453BC
-constexpr float kSpinRound = 0.01f;                 // 0x0064544C
+constexpr float kFullTurnDegrees = 360.0f;        // 0x00645EA8
+constexpr float kInverseFullTurn = 1.0f / 360.0f; // 0x0064B798
+constexpr float kAlwaysAbove = 0.99f;             // 0x00645450
+constexpr float kThousand = 1000.0f;              // 0x006453C0
+constexpr float kHundred = 100.0f;                // 0x006463D4
+constexpr float kMinusTwo = -2.0f;                // 0x00646970
+constexpr float kHalf = 0.5f;                     // 0x006453BC
+constexpr float kSpinRound = 0.01f;               // 0x0064544C
 
-KinematicsModule* get_motion(GameEntity* object) { return static_cast<KinematicsModule*>(object->fetch_module(kMotion)); }
+KinematicsModule* get_motion(GameEntity* object)
+{
+    return static_cast<KinematicsModule*>(object->fetch_module(kMotion));
+}
 
 void delete_params(script::Struct* params)
 {
@@ -154,7 +157,8 @@ void PedestrianBrainModule::choose_node_after()
         if (chosen == list_link_) {
             // A dead end, unless the node is a vert grab: back the way it came.
             uint32_t next_action;
-            if (level_nodes::fetch_vertex(next_node_, true)->read_hash_value(kSkateAction, &next_action, 0) && next_action == kVertGrab)
+            if (level_nodes::fetch_vertex(next_node_, true)->read_hash_value(kSkateAction, &next_action, 0) &&
+                next_action == kVertGrab)
                 chosen = next_node_;
         }
     } else {
@@ -278,11 +282,12 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
         double inverse_gravity = 1.0 / gravity;
         double up = std::sqrt(static_cast<double>(height) * inverse_gravity * kMinusTwo);
         float up_speed = static_cast<float>(height / up - up * gravity * kHalf);
-        float across_sqr = static_cast<float>((static_cast<double>(across.y) * across.y +
-                                              static_cast<double>(across.z) * across.z) +
-                                             static_cast<double>(across.x) * across.x);
-        double down = std::sqrt(std::fabs(((static_cast<double>(height) + entity_->at_point_.y) - next_node_pos_.y) *
-                                          inverse_gravity) * 2.0);
+        float across_sqr =
+            static_cast<float>((static_cast<double>(across.y) * across.y + static_cast<double>(across.z) * across.z) +
+                               static_cast<double>(across.x) * across.x);
+        double down = std::sqrt(
+            std::fabs(((static_cast<double>(height) + entity_->at_point_.y) - next_node_pos_.y) * inverse_gravity) *
+            2.0);
         jump_time = static_cast<float>(down + up);
         const maths::Vec4& direction = across.make_unit();
         double speed_across = std::sqrt(static_cast<double>(across_sqr)) / jump_time;
@@ -296,9 +301,9 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
         maths::Vec4 heading = {vel_x, vel_y, vel_z, static_cast<float>(up_speed + aw)};
         heading.make_unit();
         out->put_vec3(kHeading, script::VectorValue{heading.x, heading.y, heading.z, heading.w});
-        out->push_float(kJumpSpeed, static_cast<float>(std::sqrt((static_cast<double>(vel_x) * vel_x +
-                                                                static_cast<double>(vel_z) * vel_z) +
-                                                               static_cast<double>(vel_y) * vel_y)));
+        out->push_float(kJumpSpeed, static_cast<float>(std::sqrt(
+                                        (static_cast<double>(vel_x) * vel_x + static_cast<double>(vel_z) * vel_z) +
+                                        static_cast<double>(vel_y) * vel_y)));
         out->push_float(kLeapDuration, jump_time);
     }
     // The spin.
@@ -540,7 +545,8 @@ bool PedestrianBrainModule::bail_from_grind()
         for (int i = 0; i < count; ++i) {
             uint32_t link = level_nodes::fetch_link(next_node_, i);
             uint32_t action;
-            if (level_nodes::fetch_vertex(link, true)->read_hash_value(kSkateAction, &action, 0) && action == kStopAction) {
+            if (level_nodes::fetch_vertex(link, true)->read_hash_value(kSkateAction, &action, 0) &&
+                action == kStopAction) {
                 node_after_ = link;
                 level_nodes::fetch_place(link, &node_after_pos_);
                 break;
@@ -560,21 +566,48 @@ void PedestrianBrainModule::do_skate_action(script::Struct* node)
     if (!node->read_hash_value(kSkateAction, &action, 0))
         return;
     switch (action) {
-    case kManualDown: manual_down(node); break;
-    case kVertLip: get_lip_trick(node); break;
-    case kGrabTrick: grab_trick(node, false); break;
+    case kManualDown:
+        manual_down(node);
+        break;
+    case kVertLip:
+        get_lip_trick(node);
+        break;
+    case kGrabTrick:
+        grab_trick(node, false);
+        break;
     case kGrind:
-    case kVertGrind: start_grind(node); break;
-    case kStop: halt(node); break;
-    case kJump: get_jump(node, false); break;
-    case kRollOff: roll_off(node); break;
-    case kVertGrab: grab_trick(node, true); break;
-    case kFlipTrick: flip_trick(node, false); break;
-    case kGrindOff: end_grind(node); break;
-    case kVertJump: get_jump(node, true); break;
-    case kVertFlip: flip_trick(node, true); break;
-    case kManual: get_manual(node); break;
-    default: break;
+    case kVertGrind:
+        start_grind(node);
+        break;
+    case kStop:
+        halt(node);
+        break;
+    case kJump:
+        get_jump(node, false);
+        break;
+    case kRollOff:
+        roll_off(node);
+        break;
+    case kVertGrab:
+        grab_trick(node, true);
+        break;
+    case kFlipTrick:
+        flip_trick(node, false);
+        break;
+    case kGrindOff:
+        end_grind(node);
+        break;
+    case kVertJump:
+        get_jump(node, true);
+        break;
+    case kVertFlip:
+        flip_trick(node, true);
+        break;
+    case kManual:
+        get_manual(node);
+        break;
+    default:
+        break;
     }
 }
 
@@ -641,7 +674,8 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
     // Facing along the way to the first waypoint.
     float dx = next_node_pos_.x - node_pos_.x, dy = next_node_pos_.y - node_pos_.y, dz = next_node_pos_.z - node_pos_.z,
           dw = next_node_pos_.w - node_pos_.w;
-    double length = std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
+    double length =
+        std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         dx = static_cast<float>(dx * inverse);
@@ -679,8 +713,8 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     double rise = std::sqrt(static_cast<double>(height) / gravity * kMinusTwo);
     float time = static_cast<float>(rise + rise);
     float up_speed = static_cast<float>(std::sqrt(static_cast<double>(gravity) * height * kMinusTwo));
-    float distance = static_cast<float>(std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) +
-                                                  static_cast<double>(dx) * dx));
+    float distance = static_cast<float>(
+        std::sqrt((static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx));
     double across = script::fetch_float(kJumpSpeedScale) * (static_cast<double>(distance) * kHalf);
     if (distance > 0.0f) {
         double inverse = 1.0 / distance;
@@ -713,4 +747,4 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     return true;
 }
 
-} // namespace Obj
+} // namespace objects

@@ -40,94 +40,94 @@ ModelLook*& built_appearance() { return g_built_appearance; }
 render::TextureSet* game_textures() { return render::g_game_texture_dict; }
 render::TextureSet* skater_textures() { return render::g_particle_texture_dict; }
 
-constexpr float kPercent = 0.01f;            // 0x0064544C
-constexpr float kDegrees = 0.0174532924f;    // 0x00645464 (pi / 180)
-constexpr float kHalf = 0.5f;                // 0x006453BC
-constexpr float kQuarterTurn = 1.57079637f;  // 0x3FC90FDB
+constexpr float kPercent = 0.01f;           // 0x0064544C
+constexpr float kDegrees = 0.0174532924f;   // 0x00645464 (pi / 180)
+constexpr float kHalf = 0.5f;               // 0x006453BC
+constexpr float kQuarterTurn = 1.57079637f; // 0x3FC90FDB
 
 // The build script's member functions.
-constexpr uint32_t kGeomSetUvOffset = 0x18924DA1;            // GeomSetUVOffset
-constexpr uint32_t kModelClearAllGeoms = 0x0ECF0248;         // ModelClearAllGeoms
-constexpr uint32_t kModelApplyBoneScale = 0x21AEC583;        // ModelApplyBoneScale
-constexpr uint32_t kAppearanceUnused30e2951d = 0x30E2951D;   // (name unknown: an empty call on the appearance)
-constexpr uint32_t kGeomAllocateUvMatrixParams = 0x3BF41299; // GeomAllocateUVMatrixParams
-constexpr uint32_t kModelApplyObjectScale = 0x50F1285B;      // ModelApplyObjectScale
-constexpr uint32_t kModelAddGeom = 0x53DA94F1;               // ModelAddGeom
+constexpr uint32_t kGeomSetUvOffset = 0x18924DA1;             // GeomSetUVOffset
+constexpr uint32_t kModelClearAllGeoms = 0x0ECF0248;          // ModelClearAllGeoms
+constexpr uint32_t kModelApplyBoneScale = 0x21AEC583;         // ModelApplyBoneScale
+constexpr uint32_t kAppearanceUnused30e2951d = 0x30E2951D;    // (name unknown: an empty call on the appearance)
+constexpr uint32_t kGeomAllocateUvMatrixParams = 0x3BF41299;  // GeomAllocateUVMatrixParams
+constexpr uint32_t kModelApplyObjectScale = 0x50F1285B;       // ModelApplyObjectScale
+constexpr uint32_t kModelAddGeom = 0x53DA94F1;                // ModelAddGeom
 constexpr uint32_t kAppearanceAllowScalingCheat = 0x6516B484; // AppearanceAllowScalingCheat
-constexpr uint32_t kModelHideGeom = 0x681A03AF;              // ModelHideGeom
-constexpr uint32_t kModelPropagateHeadColor = 0x705117E1;    // ModelPropagateHeadColor
-constexpr uint32_t kModelApplyFaceTexture = 0x73AB02BC;      // ModelApplyFaceTexture
-constexpr uint32_t kModelRemovePolys = 0x9041E901;           // ModelRemovePolys
-constexpr uint32_t kGeomReplaceTexture = 0xAA42A104;         // GeomReplaceTexture
-constexpr uint32_t kGeomModulateColor = 0xAEE6E915;          // GeomModulateColor
-constexpr uint32_t kModelRunScript = 0xB1C39A54;             // ModelRunScript
-constexpr uint32_t kModelRemovePart = 0xBFF957A9;            // (name unknown: the slot taken out)
-constexpr uint32_t kModelApplyBodyShape = 0xC0BC8271;        // ModelApplyBodyShape
-constexpr uint32_t kModelResetScale = 0xCDEEA636;            // ModelResetScale
-constexpr uint32_t kModelFinalize = 0xCEFE8478;              // ModelFinalize
-constexpr uint32_t kGeomSetCreatedTexture = 0xDD9C297E;      // GeomSetCreatedTexture
+constexpr uint32_t kModelHideGeom = 0x681A03AF;               // ModelHideGeom
+constexpr uint32_t kModelPropagateHeadColor = 0x705117E1;     // ModelPropagateHeadColor
+constexpr uint32_t kModelApplyFaceTexture = 0x73AB02BC;       // ModelApplyFaceTexture
+constexpr uint32_t kModelRemovePolys = 0x9041E901;            // ModelRemovePolys
+constexpr uint32_t kGeomReplaceTexture = 0xAA42A104;          // GeomReplaceTexture
+constexpr uint32_t kGeomModulateColor = 0xAEE6E915;           // GeomModulateColor
+constexpr uint32_t kModelRunScript = 0xB1C39A54;              // ModelRunScript
+constexpr uint32_t kModelRemovePart = 0xBFF957A9;             // (name unknown: the slot taken out)
+constexpr uint32_t kModelApplyBodyShape = 0xC0BC8271;         // ModelApplyBodyShape
+constexpr uint32_t kModelResetScale = 0xCDEEA636;             // ModelResetScale
+constexpr uint32_t kModelFinalize = 0xCEFE8478;               // ModelFinalize
+constexpr uint32_t kGeomSetCreatedTexture = 0xDD9C297E;       // GeomSetCreatedTexture
 
 // Names.
-constexpr uint32_t kPart = 0xB6F08F39;              // part
-constexpr uint32_t kMaterial = 0x83418A6A;          // material
-constexpr uint32_t kPass = 0x318F2BDB;              // pass
-constexpr uint32_t kTarget = 0xB990D003;            // target
-constexpr uint32_t kBoneScaling = 0x3F5F5BC2;       // bone_scaling
-constexpr uint32_t kMaleCasPart = 0xE6530EF0;       // male_cas_part
-constexpr uint32_t kFemaleCasPart = 0x564E3BC0;     // female_cas_part
-constexpr uint32_t kBodyShape = 0x812684EF;         // body_shape
-constexpr uint32_t kIsBigheadCheat = 0x3C4D849D;    // is_bighead_cheat
-constexpr uint32_t kBigheadScaleInfo = 0x1ADE0DD8;  // bighead_scale_info
-constexpr uint32_t kSrc = 0x9FBBDB72;               // src
-constexpr uint32_t kIn = 0xA01371B1;                // in
-constexpr uint32_t kAll = 0xC4E78E22;               // All
+constexpr uint32_t kPart = 0xB6F08F39;               // part
+constexpr uint32_t kMaterial = 0x83418A6A;           // material
+constexpr uint32_t kPass = 0x318F2BDB;               // pass
+constexpr uint32_t kTarget = 0xB990D003;             // target
+constexpr uint32_t kBoneScaling = 0x3F5F5BC2;        // bone_scaling
+constexpr uint32_t kMaleCasPart = 0xE6530EF0;        // male_cas_part
+constexpr uint32_t kFemaleCasPart = 0x564E3BC0;      // female_cas_part
+constexpr uint32_t kBodyShape = 0x812684EF;          // body_shape
+constexpr uint32_t kIsBigheadCheat = 0x3C4D849D;     // is_bighead_cheat
+constexpr uint32_t kBigheadScaleInfo = 0x1ADE0DD8;   // bighead_scale_info
+constexpr uint32_t kSrc = 0x9FBBDB72;                // src
+constexpr uint32_t kIn = 0xA01371B1;                 // in
+constexpr uint32_t kAll = 0xC4E78E22;                // All
 constexpr uint32_t kAllowsScalingCheat = 0xB25E39FD; // (name unknown: a body part's flag - no scaling cheat)
-constexpr uint32_t kMulticolor = 0x92B43E79;        // multicolor
-constexpr uint32_t kMeshIfFacemapped = 0xC9AED80F;  // mesh_if_facemapped
-constexpr uint32_t kDescId = 0x4BB2084E;            // desc_id
-constexpr uint32_t kPaperBag = 0x64E9DAEF;          // PaperBag
-constexpr uint32_t kBigfoot = 0x92986E0D;           // bigfoot
-constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6;     // use_default_hsv
-constexpr uint32_t kDefaultH = 0xC6CC7F7F;          // default_h
-constexpr uint32_t kDefaultS = 0x4CA9B693;          // default_s
-constexpr uint32_t kDefaultV = 0x3CC3421C;          // default_v
-constexpr uint32_t kH = 0x6E94F918;                 // h
-constexpr uint32_t kS = 0xE4F130F4;                 // s
-constexpr uint32_t kV = 0x949BC47B;                 // v
-constexpr uint32_t kCreatedGraphic = 0x79DAA2F9;    // CreatedGraphic
-constexpr uint32_t kXScale = 0x6AA8D676;            // x_scale
-constexpr uint32_t kYScale = 0xCCDFDDC2;            // y_scale
-constexpr uint32_t kWith = 0x676F1DF1;              // with
-constexpr uint32_t kTempTexture = 0xC553C612;       // temp_texture
-constexpr uint32_t kCagWorkspace = 0xAA286543;      // cag_workspace
-constexpr uint32_t kRotate = 0xC876ADF3;            // rotate
-constexpr uint32_t kIsDeck = 0x25A0E7E9;            // is_deck
-constexpr uint32_t kBaseTexture = 0x499F4BE9;       // base_texture
-constexpr uint32_t kLogoTexture = 0x49B318FD;       // logo_texture
-constexpr uint32_t kKeepStockScale = 0x5A96985D;   // use_default_scale
-constexpr uint32_t kX = 0x7323E97C;                 // x
-constexpr uint32_t kY = 0x0424D9EA;                 // y
-constexpr uint32_t kZ = 0x9D2D8850;                 // z
-constexpr uint32_t kNonlocalBones = 0x20D9AC2F;     // nonlocal_bones
-constexpr uint32_t kObjectScaling = 0x8B314358;     // object_scaling
-constexpr uint32_t kUseDefaultUv = 0x8602F6EE;      // use_default_uv
-constexpr uint32_t kUvU = 0xCF6AA087;               // uv_u
-constexpr uint32_t kUvV = 0x5663F13D;               // uv_v
-constexpr uint32_t kUvScale = 0x266932C8;           // uv_scale
-constexpr uint32_t kUvRot = 0x1256B6C6;             // uv_rot
+constexpr uint32_t kMulticolor = 0x92B43E79;         // multicolor
+constexpr uint32_t kMeshIfFacemapped = 0xC9AED80F;   // mesh_if_facemapped
+constexpr uint32_t kDescId = 0x4BB2084E;             // desc_id
+constexpr uint32_t kPaperBag = 0x64E9DAEF;           // PaperBag
+constexpr uint32_t kBigfoot = 0x92986E0D;            // bigfoot
+constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6;      // use_default_hsv
+constexpr uint32_t kDefaultH = 0xC6CC7F7F;           // default_h
+constexpr uint32_t kDefaultS = 0x4CA9B693;           // default_s
+constexpr uint32_t kDefaultV = 0x3CC3421C;           // default_v
+constexpr uint32_t kH = 0x6E94F918;                  // h
+constexpr uint32_t kS = 0xE4F130F4;                  // s
+constexpr uint32_t kV = 0x949BC47B;                  // v
+constexpr uint32_t kCreatedGraphic = 0x79DAA2F9;     // CreatedGraphic
+constexpr uint32_t kXScale = 0x6AA8D676;             // x_scale
+constexpr uint32_t kYScale = 0xCCDFDDC2;             // y_scale
+constexpr uint32_t kWith = 0x676F1DF1;               // with
+constexpr uint32_t kTempTexture = 0xC553C612;        // temp_texture
+constexpr uint32_t kCagWorkspace = 0xAA286543;       // cag_workspace
+constexpr uint32_t kRotate = 0xC876ADF3;             // rotate
+constexpr uint32_t kIsDeck = 0x25A0E7E9;             // is_deck
+constexpr uint32_t kBaseTexture = 0x499F4BE9;        // base_texture
+constexpr uint32_t kLogoTexture = 0x49B318FD;        // logo_texture
+constexpr uint32_t kKeepStockScale = 0x5A96985D;     // use_default_scale
+constexpr uint32_t kX = 0x7323E97C;                  // x
+constexpr uint32_t kY = 0x0424D9EA;                  // y
+constexpr uint32_t kZ = 0x9D2D8850;                  // z
+constexpr uint32_t kNonlocalBones = 0x20D9AC2F;      // nonlocal_bones
+constexpr uint32_t kObjectScaling = 0x8B314358;      // object_scaling
+constexpr uint32_t kUseDefaultUv = 0x8602F6EE;       // use_default_uv
+constexpr uint32_t kUvU = 0xCF6AA087;                // uv_u
+constexpr uint32_t kUvV = 0x5663F13D;                // uv_v
+constexpr uint32_t kUvScale = 0x266932C8;            // uv_scale
+constexpr uint32_t kUvRot = 0x1256B6C6;              // uv_rot
 // The CAS slots.
-constexpr uint32_t kSkaterMHead = 0x650FAB6D;       // skater_m_head
-constexpr uint32_t kSkaterMHands = 0x7E54E2A2;      // skater_m_hands
-constexpr uint32_t kSkaterMLowerLegs = 0x0571DA24;  // skater_m_lower_legs
-constexpr uint32_t kSkaterFHead = 0x0FC85BAE;       // skater_f_head
-constexpr uint32_t kSkaterFHands = 0x7C53B658;      // skater_f_hands
-constexpr uint32_t kSkaterFLowerLegs = 0x74E37E2A;  // skater_f_lower_legs
-constexpr uint32_t kBareTorso = 0xA921D236;         // bare_torso
-constexpr uint32_t kNone = 0x806FFF30;              // None
-constexpr uint32_t kHands = 0x99D1CC07;             // Hands
-constexpr uint32_t kShoes = 0xEB307E68;             // shoes
-constexpr uint32_t kBareFeet = 0xF11C6E74;          // bare_feet
-constexpr uint32_t kBody = 0x2457F44D;              // body
+constexpr uint32_t kSkaterMHead = 0x650FAB6D;      // skater_m_head
+constexpr uint32_t kSkaterMHands = 0x7E54E2A2;     // skater_m_hands
+constexpr uint32_t kSkaterMLowerLegs = 0x0571DA24; // skater_m_lower_legs
+constexpr uint32_t kSkaterFHead = 0x0FC85BAE;      // skater_f_head
+constexpr uint32_t kSkaterFHands = 0x7C53B658;     // skater_f_hands
+constexpr uint32_t kSkaterFLowerLegs = 0x74E37E2A; // skater_f_lower_legs
+constexpr uint32_t kBareTorso = 0xA921D236;        // bare_torso
+constexpr uint32_t kNone = 0x806FFF30;             // None
+constexpr uint32_t kHands = 0x99D1CC07;            // Hands
+constexpr uint32_t kShoes = 0xEB307E68;            // shoes
+constexpr uint32_t kBareFeet = 0xF11C6E74;         // bare_feet
+constexpr uint32_t kBody = 0x2457F44D;             // body
 
 // A part's geoms, one model file each.
 const uint32_t kMeshes[] = {0x1E90C5A9, 0xFECA8BB3, 0x67C3DA09, 0x10C4EA9F, 0x8EA07F3C}; // mesh, mesh1 ... mesh4
@@ -143,10 +143,7 @@ bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
 
 // The scale a structure gives (not rewritten yet, cdecl: its scale - one value or a vector - or its x / y / z),
 // into `scale`. Whether it had one.
-bool fetch_magnification(maths::Vec4* scale, script::Struct* from)
-{
-    return scale_from_args(scale, from);
-}
+bool fetch_magnification(maths::Vec4* scale, script::Struct* from) { return scale_from_args(scale, from); }
 bool fetch_script(script::Struct* s, uint32_t name, script::ParamScript* out, int assert)
 {
     return s->fetch_script(name, out, assert);
@@ -610,7 +607,8 @@ bool ModelAssembler::apply_object_scale()
         return true;
     }
     script::Struct* body_shape = nullptr;
-    if (built_appearance()->structure_.read_sub_struct(kBodyShape, &body_shape, 0) && fetch_magnification(&scale, body_shape)) {
+    if (built_appearance()->structure_.read_sub_struct(kBodyShape, &body_shape, 0) &&
+        fetch_magnification(&scale, body_shape)) {
         built_model()->change_scale(&scale);
         return true;
     }
@@ -712,7 +710,7 @@ bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
     uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) + kHalf);
     uv.row[3].y = static_cast<float>(static_cast<double>(uv.row[3].y) + kHalf);
     uv.offset_local(maths::Vec4{static_cast<float>(static_cast<double>(u) * kPercent),
-                                  static_cast<float>(static_cast<double>(v) * kPercent), 0.0f, 0.0f});
+                                static_cast<float>(static_cast<double>(v) * kPercent), 0.0f, 0.0f});
     built_model()->choose_uv_matrix(material, pass, &uv);
     return true;
 }
@@ -744,18 +742,35 @@ bool ModelAssembler::launch_script(uint32_t part, uint32_t target)
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&gfx::ModelAssembler::teardown, &objects::Entity::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &gfx::ModelAssembler::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &gfx::ModelAssembler::get_build, &gfx::ModelAssembler::add_geom,
-                &gfx::ModelAssembler::remove_part, &gfx::ModelAssembler::conceal_mesh, &gfx::ModelAssembler::blend_tint_over,
-                &gfx::ModelAssembler::choose_uv_shift, &gfx::ModelAssembler::create_uv_anim_params,
-                &gfx::ModelAssembler::swap_texture, &gfx::ModelAssembler::set_created_texture,
-                &gfx::ModelAssembler::clear_all_geoms, &gfx::ModelAssembler::detach_polys, &gfx::ModelAssembler::restore_scale,
-                &gfx::ModelAssembler::apply_body_shape, &gfx::ModelAssembler::apply_bone_sizing,
-                &gfx::ModelAssembler::apply_object_scale, &gfx::ModelAssembler::seal,
-                &gfx::ModelAssembler::propagate_head_color, &gfx::ModelAssembler::launch_script};
+static VtableSlot g_vtable_slots[] = {
+    &gfx::ModelAssembler::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &gfx::ModelAssembler::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &gfx::ModelAssembler::get_build,
+    &gfx::ModelAssembler::add_geom,
+    &gfx::ModelAssembler::remove_part,
+    &gfx::ModelAssembler::conceal_mesh,
+    &gfx::ModelAssembler::blend_tint_over,
+    &gfx::ModelAssembler::choose_uv_shift,
+    &gfx::ModelAssembler::create_uv_anim_params,
+    &gfx::ModelAssembler::swap_texture,
+    &gfx::ModelAssembler::set_created_texture,
+    &gfx::ModelAssembler::clear_all_geoms,
+    &gfx::ModelAssembler::detach_polys,
+    &gfx::ModelAssembler::restore_scale,
+    &gfx::ModelAssembler::apply_body_shape,
+    &gfx::ModelAssembler::apply_bone_sizing,
+    &gfx::ModelAssembler::apply_object_scale,
+    &gfx::ModelAssembler::seal,
+    &gfx::ModelAssembler::propagate_head_color,
+    &gfx::ModelAssembler::launch_script};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

@@ -52,7 +52,7 @@ public:
     // below the line's distance from the geometry's minimum corner times the rejection scale (none at all past
     // 255) -, each hit offered to `hit` (report_hit). Whether any was taken.
     bool collide_with_line(const maths::Seg* line, const maths::Vec4* direction, CollisionHit* hit,
-                         const maths::BBox* line_box);
+                           const maths::BBox* line_box);
     // 0x00410C70 (slot 13) / 0x00412750 (slot 21): the geometry's box.
     bool inside_bounds(const maths::BBox* box) const;
     const maths::BBox* get_geometry_b_box() const;
@@ -72,8 +72,8 @@ public:
     // geometry's rejection scale kept (+0x14). The block's next free byte.
     uint8_t* take_buffer(uint8_t* block, const TriMeshSource* geometry);
 
-    uint8_t* octets_;   // +0x10
-    int unknown14_;     // +0x14
+    uint8_t* octets_; // +0x10
+    int unknown14_;   // +0x14
 };
 static_assert(sizeof(StaticCollider) == 0x18, "layout must match the original");
 
@@ -101,7 +101,7 @@ public:
     // 0x00413FF0 (slot 14): as the sector's, in the instance's space (no rejection); the point (scaled, placed)
     // and normal (turned) back in world space.
     bool collide_with_line(const maths::Seg* line, const maths::Vec4* direction, CollisionHit* hit,
-                         const maths::BBox* line_box);
+                           const maths::BBox* line_box);
     // 0x00411460 (slot 13) / 0x00412830 (slot 21)
     bool inside_bounds(const maths::BBox* box) const;
     maths::BBox* get_world_bounds();
@@ -113,9 +113,9 @@ public:
     // 0x00412F50 (slot 19): the geometry drawn with the scaled matrix (0x00414D60).
     void draw_diagnostic(int a, int b);
 
-    maths::BBox world_box_;   // +0xA0
-    uint8_t* octets_;      // +0xC0
-    int unknownc4_;        // +0xC4
+    maths::BBox world_box_; // +0xA0
+    uint8_t* octets_;       // +0xC0
+    int unknownc4_;         // +0xC4
 };
 static_assert(sizeof(CollStaticInstance) == 0xC8 && offsetof(CollStaticInstance, world_box_) == 0xA0, "layout");
 
@@ -138,7 +138,7 @@ public:
     // 0x00414460 (slot 14): as the sector's, in the object's space (rejection only for 8-byte faces); the point
     // and normal turned and placed back.
     bool collide_with_line(const maths::Seg* line, const maths::Vec4* direction, CollisionHit* hit,
-                         const maths::BBox* line_box);
+                           const maths::BBox* line_box);
     // 0x00411810 (slot 13) / 0x00412FC0 (slot 20): the box (made again if the object moved).
     bool inside_bounds(const maths::BBox* box);
     maths::BBox* get_local_bounds();
@@ -147,14 +147,15 @@ public:
     // 0x00413130 (slot 19)
     void draw_diagnostic(int a, int b);
 
-    float radius_;          // +0xA4
-    bool box_dirty_;         // +0xA8
+    float radius_;   // +0xA4
+    bool box_dirty_; // +0xA8
     uint8_t pada9_[3];
-    maths::BBox box_;         // +0xAC
-    uint32_t unknowncc_;    // +0xCC
-    uint32_t unknownd0_;    // +0xD0 the geometry's +0x3C
+    maths::BBox box_;    // +0xAC
+    uint32_t unknowncc_; // +0xCC
+    uint32_t unknownd0_; // +0xD0 the geometry's +0x3C
 };
-static_assert(sizeof(HitMovingTriangles) == 0xD4 && offsetof(HitMovingTriangles, box_) == 0xAC, "layout must match the original");
+static_assert(sizeof(HitMovingTriangles) == 0xD4 && offsetof(HitMovingTriangles, box_) == 0xAC,
+              "layout must match the original");
 
 // Slots every collision object shares that pass straight on to its geometry (geometry_; a multi-object has none).
 struct CollGeometryForwarders : HitMesh {
@@ -179,4 +180,4 @@ struct CollGeometryStubs {
     void draw_diagnostic(const maths::Mat4* transform, int a, int b, int c);
 };
 
-} // namespace Nx
+} // namespace render

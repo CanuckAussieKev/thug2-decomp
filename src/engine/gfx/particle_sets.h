@@ -17,41 +17,41 @@ namespace render {
 // The parameters a particle system is made from (0x15C bytes; kept as the system's +4). Only what the particle
 // component fills is named; names from the script parameters where known.
 struct SparkleConfig {
-    uint32_t label_;          // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
-    uint32_t unknown04_;     // +0x004 (0x7321A8D6)
-    uint32_t group_id_;       // +0x008 GroupID
-    float extent_[3];          // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
-    float radius_[3];        // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
-    int unknown24_;          // +0x024 (0x9E52A20F)
-    float unknown28_;        // +0x028 (0x35B65BD4; the rate)
-    float unknown2c_;        // +0x02C (0xC218CF77; the lifetime, seconds)
-    float unknown30_;        // +0x030 (0x520682C6, then 0x59463C93; when the mid is, a percentage of the lifetime)
-    float unknown34_;        // +0x034
-    float colour_scale_[4];   // +0x038 (r, g, b, a: the manager's colour)
-    uint32_t emit_script_;    // +0x048 (0x092276DB: the component's +0x18)
-    uint32_t entity_key_;      // +0x04C its object's id (with the above)
+    uint32_t label_;        // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
+    uint32_t unknown04_;    // +0x004 (0x7321A8D6)
+    uint32_t group_id_;     // +0x008 GroupID
+    float extent_[3];       // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
+    float radius_[3];       // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
+    int unknown24_;         // +0x024 (0x9E52A20F)
+    float unknown28_;       // +0x028 (0x35B65BD4; the rate)
+    float unknown2c_;       // +0x02C (0xC218CF77; the lifetime, seconds)
+    float unknown30_;       // +0x030 (0x520682C6, then 0x59463C93; when the mid is, a percentage of the lifetime)
+    float unknown34_;       // +0x034
+    float colour_scale_[4]; // +0x038 (r, g, b, a: the manager's colour)
+    uint32_t emit_script_;  // +0x048 (0x092276DB: the component's +0x18)
+    uint32_t entity_key_;   // +0x04C its object's id (with the above)
     uint8_t unknown50[4];
-    maths::Mat4 orientation_turn_;   // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
-    maths::Vec4 at_point_[3];     // +0x094 start / mid / end (scaled, oriented)
-    maths::Vec4 box_[3];     // +0x0C4 (scaled, oriented)
-    maths::Vec4 offset_pos_[3]; // +0x0F4 the positions again (0xB7B7240D: they move with the object)
-    float unknown124_;       // +0x124
-    uint8_t shade_[3][4];   // +0x128 r, g, b (three arrays), a (three integers, at most 128)
-    uint32_t unknown134_;    // +0x134 (0xDD6BB3D5)
-    int unknown138_;         // +0x138 (0x13D0BE1D)
-    int unknown13c_;         // +0x13C (0x9F677D4E)
-    uint32_t unknown140_;    // +0x140 (0x7D99F28D)
-    int unknown144_;         // +0x144 (0x4EEDFAE7)
-    int unknown148_;         // +0x148 (0xD7E4AB5D)
-    int unknown14c_;         // +0x14C (0xE4279BA2)
-    uint8_t unknown150_;     // +0x150 (0x9D5923D8's low byte)
-    bool flag151_;           // +0x151 (0xA7A5BFFB; the paths go through the mid)
-    bool local_positions_;    // +0x152 (0xB7B7240D)
-    bool flag153_;           // +0x153 (0x454962EF)
-    bool orient_with_object_;  // +0x154 (0xA2487CC3)
+    maths::Mat4 orientation_turn_; // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
+    maths::Vec4 at_point_[3];      // +0x094 start / mid / end (scaled, oriented)
+    maths::Vec4 box_[3];           // +0x0C4 (scaled, oriented)
+    maths::Vec4 offset_pos_[3];    // +0x0F4 the positions again (0xB7B7240D: they move with the object)
+    float unknown124_;             // +0x124
+    uint8_t shade_[3][4];          // +0x128 r, g, b (three arrays), a (three integers, at most 128)
+    uint32_t unknown134_;          // +0x134 (0xDD6BB3D5)
+    int unknown138_;               // +0x138 (0x13D0BE1D)
+    int unknown13c_;               // +0x13C (0x9F677D4E)
+    uint32_t unknown140_;          // +0x140 (0x7D99F28D)
+    int unknown144_;               // +0x144 (0x4EEDFAE7)
+    int unknown148_;               // +0x148 (0xD7E4AB5D)
+    int unknown14c_;               // +0x14C (0xE4279BA2)
+    uint8_t unknown150_;           // +0x150 (0x9D5923D8's low byte)
+    bool flag151_;                 // +0x151 (0xA7A5BFFB; the paths go through the mid)
+    bool local_positions_;         // +0x152 (0xB7B7240D)
+    bool flag153_;                 // +0x153 (0x454962EF)
+    bool orient_with_object_;      // +0x154 (0xA2487CC3)
     uint8_t unknown155[2];
-    bool flag157_;           // +0x157 (0x5446AF14)
-    bool flag158_;           // +0x158 (0xA0E585B0: takes the manager's colour)
+    bool flag157_; // +0x157 (0x5446AF14)
+    bool flag158_; // +0x158 (0xA0E585B0: takes the manager's colour)
     uint8_t unknown159[3];
 
     // 0x00496240: the defaults (sizes 1, no spread, boxes 20 wide, grey colours, rate 300, lifetime 4, mid at 50%,
@@ -73,9 +73,9 @@ static_assert(offsetof(SparkleConfig, colour_scale_) == 0x38 && offsetof(Sparkle
 // 7 IsEmitting - the engine's own empty or constant; the PC class's real ones).
 struct Sparkle {
     void** vtable;
-    SparkleConfig args_; // +0x004
-    maths::BBox extent_box_;         // +0x160: of every particle's path
-    maths::Vec4 bound_ball_;     // +0x180: around the box (centre, radius)
+    SparkleConfig args_;     // +0x004
+    maths::BBox extent_box_; // +0x160: of every particle's path
+    maths::Vec4 bound_ball_; // +0x180: around the box (centre, radius)
 
     // 0x00496360: the vtable, the default parameters, an empty box. Returns this.
     Sparkle* make_new();
@@ -114,7 +114,7 @@ static_assert(offsetof(Sparkle, args_) == 0x4 && offsetof(Sparkle, extent_box_) 
 struct EffectsDirector {
     void** vtable;
     objects::PointerList systems_; // +0x04: Sparkle*
-    float shade_[4];          // +0x0C: given to the systems that take it
+    float shade_[4];               // +0x0C: given to the systems that take it
 
     // 0x00496770: the vtable, an empty list, white. Returns this.
     EffectsDirector* make_new();
@@ -141,4 +141,4 @@ static_assert(offsetof(EffectsDirector, systems_) == 0x4 && offsetof(EffectsDire
                   sizeof(EffectsDirector) == 0x1C,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

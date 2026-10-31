@@ -25,38 +25,38 @@ namespace commands {
 
 namespace {
 
-constexpr uint32_t kNode = 0x7A8017BA;          // "node"
-constexpr uint32_t kParams = 0x7031F10C;        // "params"
-constexpr uint32_t kSize = 0x083FDB95;          // "size"
-constexpr uint32_t kCoimB0847d54 = 0xB0847D54;  // (name unknown) InitCOIM's second integer
-constexpr uint32_t kCoimBb9a31b5 = 0xBB9A31B5;  // (name unknown) InitCOIM's first integer
-constexpr uint32_t kCoim03d6dE47 = 0x03D6DE47;  // (name unknown) InitCOIM's float (squared)
-constexpr uint32_t kCoimNewSize = 0x7C554E79;   // "newsize"
-constexpr uint32_t kComponents = 0x11B70A02;    // "Components"
-constexpr uint32_t kPreferredId = 0x392649D7;   // "PreferredId"
-constexpr uint32_t kUniqueId = 0xA2B033FD;      // "UniqueID"
-constexpr uint32_t kObject = 0x57525413;        // "object"
-constexpr uint32_t kScreenX = 0x3828EDE4;       // "screen_x"
-constexpr uint32_t kScreenY = 0x4F2FDD72;       // "screen_y"
-constexpr uint32_t kComponent = 0xB6015EA8;     // "component"
-constexpr uint32_t kTarget = 0xB990D003;        // "target"
-constexpr uint32_t kLocalOffset = 0xA18717AA;   // "local_offset"
-constexpr uint32_t kWorldOffset = 0x36CB486C;   // "world_offset"
-constexpr uint32_t kGroupId = 0x87FA53ED;       // "groupID"
-constexpr uint32_t kParticle = 0xA9DB601E;      // "particle" (the component type)
-constexpr uint32_t kNodeName = 0x9F92BA78;      // "nodename"
-constexpr uint32_t kId = 0x40C698AF;            // "id"
-constexpr uint32_t kRelativeTo = 0xC03F9839;    // "RelativeTo"
-constexpr uint32_t kBone = 0xCAB94088;          // "bone"
-constexpr uint32_t kOffset = 0xA6F5352F;        // "offset"
-constexpr uint32_t kAngles = 0x9D2D0915;        // "Angles"
-constexpr uint32_t kDegrees = 0x30EDA37B;       // "degrees"
-constexpr uint32_t kSkeleton = 0x222756D5;      // "skeleton" (the component type)
-constexpr uint32_t kEx = 0xF8728BEC;            // "ex"
-constexpr uint32_t kScr = 0xA6D2D890;           // "scr"
-constexpr uint32_t kGroup = 0x923FBB3A;         // "Group"
-constexpr uint32_t kDefaultGroup = 0x1CA1FF20;  // "default"
-constexpr uint32_t kException = 0x80367192;     // "Exception"
+constexpr uint32_t kNode = 0x7A8017BA;         // "node"
+constexpr uint32_t kParams = 0x7031F10C;       // "params"
+constexpr uint32_t kSize = 0x083FDB95;         // "size"
+constexpr uint32_t kCoimB0847d54 = 0xB0847D54; // (name unknown) InitCOIM's second integer
+constexpr uint32_t kCoimBb9a31b5 = 0xBB9A31B5; // (name unknown) InitCOIM's first integer
+constexpr uint32_t kCoim03d6dE47 = 0x03D6DE47; // (name unknown) InitCOIM's float (squared)
+constexpr uint32_t kCoimNewSize = 0x7C554E79;  // "newsize"
+constexpr uint32_t kComponents = 0x11B70A02;   // "Components"
+constexpr uint32_t kPreferredId = 0x392649D7;  // "PreferredId"
+constexpr uint32_t kUniqueId = 0xA2B033FD;     // "UniqueID"
+constexpr uint32_t kObject = 0x57525413;       // "object"
+constexpr uint32_t kScreenX = 0x3828EDE4;      // "screen_x"
+constexpr uint32_t kScreenY = 0x4F2FDD72;      // "screen_y"
+constexpr uint32_t kComponent = 0xB6015EA8;    // "component"
+constexpr uint32_t kTarget = 0xB990D003;       // "target"
+constexpr uint32_t kLocalOffset = 0xA18717AA;  // "local_offset"
+constexpr uint32_t kWorldOffset = 0x36CB486C;  // "world_offset"
+constexpr uint32_t kGroupId = 0x87FA53ED;      // "groupID"
+constexpr uint32_t kParticle = 0xA9DB601E;     // "particle" (the component type)
+constexpr uint32_t kNodeName = 0x9F92BA78;     // "nodename"
+constexpr uint32_t kId = 0x40C698AF;           // "id"
+constexpr uint32_t kRelativeTo = 0xC03F9839;   // "RelativeTo"
+constexpr uint32_t kBone = 0xCAB94088;         // "bone"
+constexpr uint32_t kOffset = 0xA6F5352F;       // "offset"
+constexpr uint32_t kAngles = 0x9D2D0915;       // "Angles"
+constexpr uint32_t kDegrees = 0x30EDA37B;      // "degrees"
+constexpr uint32_t kSkeleton = 0x222756D5;     // "skeleton" (the component type)
+constexpr uint32_t kEx = 0xF8728BEC;           // "ex"
+constexpr uint32_t kScr = 0xA6D2D890;          // "scr"
+constexpr uint32_t kGroup = 0x923FBB3A;        // "Group"
+constexpr uint32_t kDefaultGroup = 0x1CA1FF20; // "default"
+constexpr uint32_t kException = 0x80367192;    // "Exception"
 
 objects::GameEntity* entity_for_id(uint32_t id)
 {
@@ -68,8 +68,8 @@ objects::GameEntity* entity_for_id(uint32_t id)
 void* viewport_camera(int index) { return render::fetch_current_view(index); }
 float project_to_screen(void* camera, const maths::Vec4* position, float* x, float* y, float* depth)
 {
-    return reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(&render::virtual_slot1_jump)(
-        camera, position, x, y, depth);
+    return reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(
+        &render::virtual_slot1_jump)(camera, position, x, y, depth);
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
@@ -93,10 +93,7 @@ void angles_to_matrix(maths::Mat4* matrix, const script::VectorValue* angles)
 }
 
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18) and that skeleton's matrix of `bone` (0x004A36E0; false -
 // `out` untouched - if it has no such bone).
@@ -111,7 +108,10 @@ bool read_joint_matrix(void* skeleton, uint32_t bone, maths::Mat4* out)
 }
 
 // The object's flag_as_dead (vtable slot 6).
-void flag_as_dead(objects::Entity* object) { reinterpret_cast<void(__thiscall*)(objects::Entity*)>(object->vtable_[6])(object); }
+void flag_as_dead(objects::Entity* object)
+{
+    reinterpret_cast<void(__thiscall*)(objects::Entity*)>(object->vtable_[6])(object);
+}
 
 } // namespace
 

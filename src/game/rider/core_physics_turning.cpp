@@ -45,8 +45,8 @@ constexpr uint32_t kAirRampLeanTime = 0x12CD2D14;      // Physics_Air_Ramp_Lean_
 constexpr uint32_t kRecoverRateStat = 0xE7116A96;      // Physics_recover_rate_stat
 constexpr uint32_t kUprightSidewaysSpeed = 0xABD57877; // skater_upright_sideways_speed (degrees a second)
 
-constexpr uint32_t kSpinningLeft = 0x3A5;     // (true for a positive turn)
-constexpr uint32_t kTurnVelocityToo = 0x388;  // (0: the velocity turns with the skater on the ground)
+constexpr uint32_t kSpinningLeft = 0x3A5;    // (true for a positive turn)
+constexpr uint32_t kTurnVelocityToo = 0x388; // (0: the velocity turns with the skater on the ground)
 constexpr uint32_t kNatasCounterClockwise = 0x1500;
 constexpr uint32_t kNatasSpinTime = 0x1504;
 constexpr uint32_t kBalance = 0x1524;         // (+0xD4: a balance meter; +0x104, +0x108)
@@ -55,26 +55,26 @@ constexpr uint32_t kRotationDisplay = 0x1520; // [+0x18]: what shows the rotatio
 constexpr uint32_t kAcidDropSlerp = 0x3F0;    // (a ArcRotationBlender)
 constexpr uint32_t kAcidDropTime = 0x488;
 constexpr uint32_t kAcidDropDuration = 0x48C;
-constexpr uint32_t kAcidDropMatrix = 0x4A0;   // the slerp's last matrix
+constexpr uint32_t kAcidDropMatrix = 0x4A0; // the slerp's last matrix
 
-constexpr float kRadiansPerDegree = 0.0174532924f;  // 0x00645464
+constexpr float kRadiansPerDegree = 0.0174532924f;       // 0x00645464
 constexpr float kMinusDegreesToRadians = -0.0174532924f; // 0x0064BCCC
-constexpr float kDegreesPerRadian = 57.2957764f;    // 0x00645468
-constexpr float kSlopeTurnSpeed = 0.001f;           // 0x006461D8
-constexpr float kSlowGroundTurnSpeed = 10.0f;       // 0x00646710
-constexpr float kSlowGroundTurnRate = 0.00166666671f; // 0x0064BD38 (1 / 600)
-constexpr float kHalfPi = 1.57079637f;              // 0x00645484
-constexpr float kPi = 3.14159274f;                  // 0x0064BB7C
-constexpr float kNatasSpinScale = 4000.0f;          // 0x0064B8F8
-constexpr float kNatasSpinBase = 5.0f;              // 0x006469AC
-constexpr float kAcidDropEase = 1.5f;               // 0x00646744
-constexpr float kAcidDropEaseScale = -2.0f;         // 0x00646970
-constexpr float kRecoverFeelerLength = 500.0f;      // 0x0064BC80
-constexpr float kRecoverSteepest = 0.2f;            // 0x006473AC
-constexpr float kRecoverUpright = 0.9f;             // 0x00649FE4
-constexpr float kUprightMaxTilt = 0.95f;            // 0x0064BC7C
-constexpr float kUprightRight = 1.2f;               // 0x0064BD40
-constexpr float kUprightLeft = -1.2f;               // 0x0064BD3C
+constexpr float kDegreesPerRadian = 57.2957764f;         // 0x00645468
+constexpr float kSlopeTurnSpeed = 0.001f;                // 0x006461D8
+constexpr float kSlowGroundTurnSpeed = 10.0f;            // 0x00646710
+constexpr float kSlowGroundTurnRate = 0.00166666671f;    // 0x0064BD38 (1 / 600)
+constexpr float kHalfPi = 1.57079637f;                   // 0x00645484
+constexpr float kPi = 3.14159274f;                       // 0x0064BB7C
+constexpr float kNatasSpinScale = 4000.0f;               // 0x0064B8F8
+constexpr float kNatasSpinBase = 5.0f;                   // 0x006469AC
+constexpr float kAcidDropEase = 1.5f;                    // 0x00646744
+constexpr float kAcidDropEaseScale = -2.0f;              // 0x00646970
+constexpr float kRecoverFeelerLength = 500.0f;           // 0x0064BC80
+constexpr float kRecoverSteepest = 0.2f;                 // 0x006473AC
+constexpr float kRecoverUpright = 0.9f;                  // 0x00649FE4
+constexpr float kUprightMaxTilt = 0.95f;                 // 0x0064BC7C
+constexpr float kUprightRight = 1.2f;                    // 0x0064BD40
+constexpr float kUprightLeft = -1.2f;                    // 0x0064BD3C
 
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
@@ -106,7 +106,8 @@ void SkaterPhysicsModule::turn_for_rail_jump()
         if (bike && bike->stick_left_.down)
             angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kRadiansPerDegree);
         else if (bike && bike->stick_right_.down)
-            angle = static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
+            angle =
+                static_cast<float>(static_cast<double>(script::fetch_float(kRailJumpAngle)) * kMinusDegreesToRadians);
         else
             return;
     } else if (input[0x60])
@@ -172,8 +173,9 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
         return 0.0f;
     }
     const maths::Vec4& side = vector_at(object_of(this), kMatrix);
-    float cosine = static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
-                                      static_cast<double>(normal->x) * side.x);
+    float cosine =
+        static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
+                           static_cast<double>(normal->x) * side.x);
     if (cosine > 1.0f)
         cosine = 1.0f;
     else if (cosine < -1.0f)
@@ -196,15 +198,17 @@ bool SkaterPhysicsModule::turn_down_slope()
         return false;
     void* object = object_of(this);
     // Along the velocity, or the facing when hardly moving: turned towards straight down the slope.
-    maths::Vec4 heading = length_unrounded(vector_at(object, kVelocity)) < kSlopeTurnSpeed ? vector_at(object, kForward)
-                                                                                       : vector_at(object, kVelocity);
+    maths::Vec4 heading = length_unrounded(vector_at(object, kVelocity)) < kSlopeTurnSpeed
+                              ? vector_at(object, kForward)
+                              : vector_at(object, kVelocity);
     maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
     down.flatten_onto_plane(vector_at(this, kFloorUpVector));
     object = object_of(this);
     double off = maths::get_turn_around_axis(heading, down, vector_at(object, kUp));
     float angle = static_cast<float>(off);
     float sign = off < 0.0 ? -1.0f : 1.0f;
-    double turn = static_cast<double>(tuning_float_lookup(kSlowTurnOnSlopes, object)) * get_at<float>(this, kFrameLength) * sign;
+    double turn =
+        static_cast<double>(tuning_float_lookup(kSlowTurnOnSlopes, object)) * get_at<float>(this, kFrameLength) * sign;
     float step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
@@ -227,7 +231,8 @@ void SkaterPhysicsModule::natas_spin()
     get_at<objects::Balance>(get_at<void*>(this, kBalance), 0xD4).tick_frame();
     float factor = script::fetch_float(kNatasSpinFactor);
     // (read as a double - the unrounded x87 result: get_lean 0x004F8F20 isn't called as a float function)
-    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(code_address(&objects::RiderTeeterMoves::get_lean))(get_at<void*>(this, kBalance)));
+    double balance = std::fabs(reinterpret_cast<double(__thiscall*)(void*)>(
+        code_address(&objects::RiderTeeterMoves::get_lean))(get_at<void*>(this, kBalance)));
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
     if (get_at<uint8_t>(this, kNatasCounterClockwise))
@@ -372,4 +377,4 @@ void SkaterPhysicsModule::keep_upright()
     get_at<maths::Mat4>(this, kDisplayMatrix) = get_at<maths::Mat4>(object_of(this), kMatrix);
 }
 
-} // namespace Skater
+} // namespace skater

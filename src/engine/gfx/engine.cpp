@@ -48,8 +48,8 @@ namespace {
 
 extern void** const kSceneNodeVtable;
 
-constexpr uint32_t kCameraFov = 0x99529205;     // camera_fov
-constexpr float kAspectRatio = 1.33333337f;     // 0x3FAAAAAB (4:3)
+constexpr uint32_t kCameraFov = 0x99529205;                     // camera_fov
+constexpr float kAspectRatio = 1.33333337f;                     // 0x3FAAAAAB (4:3)
 const char* const kSceneFileFormat = "levels\\%s\\%s%s.scn.%s"; // 0x00648A20 (the third: "", 0x006469B4)
 const char* const kModelFileFormat = "%s.%s.%s";                // 0x006458F4
 
@@ -210,7 +210,7 @@ bool __cdecl split_skin_name(const char* name, char* base)
 
 // 0x0048C030
 void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures, int,
-                                  uint32_t, uint32_t)
+                                     uint32_t, uint32_t)
 {
     memory::push_mem_profile("model_data_buffer");
     void* model = load_mesh_from_memory(checksum, data, size, skin, textures);
@@ -312,7 +312,8 @@ bool __cdecl unload_scene(WorldScene* scene, int /*flags*/)
     if (!render::unload_scene(scene)) // (the platform's: the original passes `flags` on too - unused)
         return false;
     if (scene)
-        reinterpret_cast<void*(__thiscall*)(WorldScene*, unsigned int)>((*reinterpret_cast<void***>(scene))[0])(scene, 1);
+        reinterpret_cast<void*(__thiscall*)(WorldScene*, unsigned int)>((*reinterpret_cast<void***>(scene))[0])(scene,
+                                                                                                                1);
     for (SceneNode* node = first_scene(); node;) {
         SceneNode* next = next_scene(node);
         if (scene_of(node) == scene) {
@@ -336,18 +337,18 @@ WorldScene* __cdecl find_scene(uint32_t checksum)
     return nullptr;
 }
 
-} // namespace Engine
+} // namespace engine
 
 namespace {
 static VtableSlot g_scene_node_vtable_slots[] = {&render::SceneNode::teardown};
 void** const kSceneNodeVtable = reinterpret_cast<void**>(g_scene_node_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640B00 (a static initialiser): the scene list, an empty head.
 void construct_scene_list() { reinterpret_cast<SceneListHead*>(&g_scene_list)->make_new(); }
 
-} // namespace Nx
+} // namespace render

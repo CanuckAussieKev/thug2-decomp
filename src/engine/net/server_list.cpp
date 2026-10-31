@@ -81,18 +81,18 @@ constexpr int kStateNews = 7;
 constexpr int kStateNewsDone = 8;
 constexpr int kStateMotd = 9;
 constexpr int kStateNewsFailed = 11;
-constexpr int kPort = 0x1421; // 5153
-constexpr uint32_t kRefreshInterval = 5000;   // ms
-constexpr uint32_t kListClock = 3000;         // ms
-constexpr uint32_t kShowDelay = 500;          // ms
-constexpr uint32_t kNewsBufferSize = 0x6400;  // bytes
+constexpr int kPort = 0x1421;                // 5153
+constexpr uint32_t kRefreshInterval = 5000;  // ms
+constexpr uint32_t kListClock = 3000;        // ms
+constexpr uint32_t kShowDelay = 500;         // ms
+constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 
 static VtableSlot g_server_vtable_slots[] = {&HostListing::teardown};
 void** const kServerVtable = reinterpret_cast<void**>(g_server_vtable_slots); // HostListing
 
 // The manager's fields not named in gamenet_manager.h yet.
-constexpr uint32_t kServiceTask = 0xE0;     // tasks::SchedulerTask*: the online service task
-constexpr uint32_t kMatchTask = 0xF0;       // tasks::SchedulerTask*: the server-list client's task
+constexpr uint32_t kServiceTask = 0xE0; // tasks::SchedulerTask*: the online service task
+constexpr uint32_t kMatchTask = 0xF0;   // tasks::SchedulerTask*: the server-list client's task
 constexpr uint32_t kServiceState = 0x1B8;
 constexpr uint32_t kNextServiceState = 0x1BC;
 constexpr uint32_t kServers = 0x158;        // lists::Foremost<HostListing>: the listed servers
@@ -107,7 +107,10 @@ constexpr uint32_t kNewsOk = 0xFE09;
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+}
 RoomManager* current_lobby(Hub* manager) { return static_cast<RoomManager*>(manager->lobby_service_); }
 
 uint32_t g_last_refresh;
@@ -175,7 +178,8 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 // A server's id in the menu and in fetch_host: its SBServer on the internet, itself on the LAN.
 uint32_t server_id(Hub* manager, HostListing* server)
 {
-    return manager->in_internet_mode() ? reinterpret_cast<uint32_t>(server->sb_server_) : reinterpret_cast<uint32_t>(server);
+    return manager->in_internet_mode() ? reinterpret_cast<uint32_t>(server->sb_server_)
+                                       : reinterpret_cast<uint32_t>(server);
 }
 
 // The waiting servers moved to the list (and the menu), after the "none found" message.
@@ -255,8 +259,9 @@ HostListing* HostListing::teardown(unsigned int flags)
 // 0x00545790
 void HostListing::enroll_player(const char* name, int rating)
 {
-    ram_stats()->enter_heap_scope(the_manager()->in_internet_mode() ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap_)
-                                                         : static_cast<memory::MemSource*>(ram_stats()->network_heap_));
+    ram_stats()->enter_heap_scope(the_manager()->in_internet_mode()
+                                      ? static_cast<memory::MemSource*>(ram_stats()->internet_bottom_up_heap_)
+                                      : static_cast<memory::MemSource*>(ram_stats()->network_heap_));
     void* block = memory::alloc_zeroed(sizeof(PlayerRecord));
     PlayerRecord* player = block ? static_cast<PlayerRecord*>(block)->make_new(0) : nullptr;
     player->skill_points_ = rating;
@@ -353,12 +358,13 @@ void Hub::update_hosting_status()
         RoomManager* lobby = current_lobby(this);
         if (lobby->remote_) {
             uint32_t private_ip = game_spy::peer_get_private_ip(lobby->remote_); // (the peer's private address)
-            std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort, server_name,
-                         lobby->room_name_);
+            std::sprintf(location, "10thug211:%d:%d:%d:%s (%s)", net->get_local_address(), private_ip, kPort,
+                         server_name, lobby->room_name_);
         } else {
             std::sprintf(location, "10thug211:0:0:0:%s (%s)", server_name, lobby->room_name_);
         }
-        static_cast<FriendsManager*>(presence_service_)->change_standing(2, script::fetch_text(kHostingStatus), location);
+        static_cast<FriendsManager*>(presence_service_)
+            ->change_standing(2, script::fetch_text(kHostingStatus), location);
     }
     ram_stats()->leave_heap_scope();
 }
@@ -525,8 +531,9 @@ void Hub::refresh_server_list(bool force)
     uint8_t keys[4] = {8, 10, 4, 6}; // (in the original: over its argument's slot)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     static_cast<RoomManager*>(manager->lobby_service_)->clear_lost_connection();
-    game_spy::peer_start_listing_games(current_lobby(this)->remote_, keys, 4, nullptr, code_address(listing_games_callback),
-                                   this); // (the games listed)
+    game_spy::peer_start_listing_games(current_lobby(this)->remote_, keys, 4, nullptr,
+                                       code_address(listing_games_callback),
+                                       this); // (the games listed)
     ram_stats()->leave_heap_scope();
     ram_stats()->leave_heap_scope();
 }
@@ -562,8 +569,8 @@ unsigned long __stdcall news_thread(void* argument)
     std::sprintf(url, commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
     prop<int>(manager, kRequest) =
-        game_spy::http_get_ex(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr, 0, 0,
-                           code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
+        game_spy::http_get_ex(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr,
+                              0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -576,7 +583,8 @@ unsigned long __stdcall motd_thread(void* argument)
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->get_online_settings()->fetch_setting(kUniqueId)->fetch_text(kUiString, &unique_id, 0); // (not used)
     prop<uint32_t>(manager, kRequestStart) = frame_clock::get_time();
-    prop<int>(manager, kRequest) = game_spy::track_usage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
+    prop<int>(manager, kRequest) =
+        game_spy::track_usage(0, 10368, "1.0", 0, 0); // (the usage report: the SDK's MOTD request)
     prop<int>(manager, kServiceState) = kStateMotd;
     ram_stats()->leave_heap_scope();
     return 0;
@@ -603,7 +611,8 @@ int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t s
         return 1;
     }
     prop<uint8_t*>(manager, kNewsText) = text;
-    int length = (static_cast<int>(std::strlen(reinterpret_cast<const char*>(text))) + 4) & ~3; // (with its NUL, a word)
+    int length =
+        (static_cast<int>(std::strlen(reinterpret_cast<const char*>(text))) + 4) & ~3; // (with its NUL, a word)
     prop<int>(manager, kNewsRestSize) = remaining - length;
     prop<uint8_t*>(manager, kNewsRest) = text + length;
     prop<bool>(manager, kNewsOk) = true;
@@ -642,5 +651,5 @@ bool __cdecl cfunc_num_servers_in_lobby(script::Struct* params, script::Script* 
 
 } // namespace online
 
-using online::Hub;
 using online::HostListing;
+using online::Hub;

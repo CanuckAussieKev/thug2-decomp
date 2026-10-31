@@ -43,31 +43,25 @@ char g_hosted_game_name[16]{"Beenox"};
 
 namespace {
 
-constexpr uint32_t kJoinScript = 0xFF5C39B6;        // (names unknown) JoinServer's scripts: before joining,
-constexpr uint32_t kJoinedNetGameScript = 0xFF898BE6; // and after each client of a network game
+constexpr uint32_t kJoinScript = 0xFF5C39B6;           // (names unknown) JoinServer's scripts: before joining,
+constexpr uint32_t kJoinedNetGameScript = 0xFF898BE6;  // and after each client of a network game
 constexpr uint32_t kNetSetupFailedScript = 0x6D51F203; // (name unknown) TestNetSetup's when the setup failed
-constexpr uint32_t kNetSetupError = 0xC4745838;     // (name unknown) its error text
-constexpr uint32_t kOnlineScript = 0x90FF204D;      // (names unknown) ConnectToInternet's scripts
+constexpr uint32_t kNetSetupError = 0xC4745838;        // (name unknown) its error text
+constexpr uint32_t kOnlineScript = 0x90FF204D;         // (names unknown) ConnectToInternet's scripts
 constexpr uint32_t kFailScript = 0xDE64FC3E;
-constexpr uint32_t kCallback = 0x86068BD9;          // "callback"
-constexpr uint32_t kSlomoComponent = 0x5BD63B29;    // (name unknown) the local skater's component SetSlomo tells
+constexpr uint32_t kCallback = 0x86068BD9;             // "callback"
+constexpr uint32_t kSlomoComponent = 0x5BD63B29;       // (name unknown) the local skater's component SetSlomo tells
 constexpr uint32_t kPlayerNamesOffScript = 0x271D435C; // (name unknown)
-constexpr uint32_t kSkaterType = 0xBAF9B341;        // (name unknown) the skaters' object type
+constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the skaters' object type
 
 uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 modules::SkateNet* skate_net() { return reinterpret_cast<modules::SkateNet*>(get_skate()); }
-objects::GameEntity* get_home_rider()
-{
-    return reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider();
-}
+objects::GameEntity* get_home_rider() { return reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
 net::Hub* net_session_slot() { return net::g_net_core; }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
-uint32_t game_mode_players()
-{
-    return static_cast<uint32_t>(goals::g_game_mode->get_starting_rider_count());
-}
+uint32_t game_mode_players() { return static_cast<uint32_t>(goals::g_game_mode->get_starting_rider_count()); }
 
 // inet_addr through the game's import (0x005BEAAE).
 uint32_t get_inet_addr(const char* address) { return crt::get_inet_addr(address); }
@@ -476,7 +470,10 @@ bool __cdecl cfunc_start_network_lobby(script::Struct*, script::Script*)
 }
 
 // 0x005A1AD0: ObserversAllowed: unless the connection is a modem (type 1).
-bool __cdecl cfunc_observers_allowed(script::Struct*, script::Script*) { return net_session_slot()->get_net_link_kind() != 1; }
+bool __cdecl cfunc_observers_allowed(script::Struct*, script::Script*)
+{
+    return net_session_slot()->get_net_link_kind() != 1;
+}
 
 // 0x005A1AF0: NumPlayersAllowed <num_n>: over a modem, every count but 0x1FA67C3D; otherwise all.
 bool __cdecl cfunc_num_players_allowed(script::Struct* params, script::Script*)
@@ -509,7 +506,10 @@ bool __cdecl cfunc_using_default_master_servers(script::Struct*, script::Script*
 bool __cdecl cfunc_using_dhcp(script::Struct*, script::Script*) { return network_preference(0xBB2EB924) == 0x2189CFF8; }
 
 // 0x005A1BF0: InInternetMode.
-bool __cdecl cfunc_in_internet_mode(script::Struct*, script::Script*) { return online_hub_handle()->in_internet_mode(); }
+bool __cdecl cfunc_in_internet_mode(script::Struct*, script::Script*)
+{
+    return online_hub_handle()->in_internet_mode();
+}
 
 // 0x005A1C00: EnteringNetGame: a network game, and the skate module's +0x37C is 0xE92ECAFE.
 bool __cdecl cfunc_entering_net_game(script::Struct*, script::Script*)
@@ -519,7 +519,10 @@ bool __cdecl cfunc_entering_net_game(script::Struct*, script::Script*)
 }
 
 // 0x005A1C30: DeviceChosen: the network preference 0xFA187DEC isn't 0x09562A0A.
-bool __cdecl cfunc_device_chosen(script::Struct*, script::Script*) { return network_preference(0xFA187DEC) != 0x09562A0A; }
+bool __cdecl cfunc_device_chosen(script::Struct*, script::Script*)
+{
+    return network_preference(0xFA187DEC) != 0x09562A0A;
+}
 
 // 0x005A1C70: GameIsOver.
 bool __cdecl cfunc_game_is_over(script::Struct*, script::Script*) { return online_hub_handle()->has_match_ended(); }
@@ -546,7 +549,7 @@ bool __cdecl cfunc_try_join_internet_game(script::Struct*, script::Script*)
 // address) looked for and a join tried; nothing if neither gives one.
 bool __cdecl cfunc_try_join_server_ip(script::Struct* params, script::Script*)
 {
-    const char* address = nullptr; // (unset in the original when missing - an asserted parameter)
+    const char* address = nullptr;                // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &address, true); // "string"
     uint32_t ip = get_inet_addr(address);
     if (ip == 0xFFFFFFFF) {
@@ -609,7 +612,7 @@ void set_string_preference(prefs::Preferences* prefs, const char* name, const ch
 void set_choice_preference(script::Struct* preference, const char* text, const char* value)
 {
     preference->append_word("ui_string", reinterpret_cast<const char*>(text)); // "ui_string"
-    preference->put_name_key("checksum", get_checksums(value));                        // "checksum"
+    preference->put_name_key("checksum", get_checksums(value));                // "checksum"
 }
 
 } // namespace
@@ -622,28 +625,48 @@ void __cdecl init_beenox_preferences()
     online::Hub* game_net = online_hub_handle();
     prefs::Preferences* prefs = game_net->get_online_settings();
     set_string_preference(prefs, "server_name", g_hosted_game_name); // "server_name"
-    set_string_preference(prefs, "password", g_network_password);           // "password"
+    set_string_preference(prefs, "password", g_network_password);    // "password"
     if (g_network_id[0] != '\0')
         set_string_preference(prefs, "network_id", g_network_id); // "network_id"
     game_net->set_max_players_preference(online::g_net_max_players);
     script::Struct* teams = new_preference();
     switch (online::g_network_team_mode) {
-    case 0: set_choice_preference(teams, "None", "teams_none"); break; // "None", teams_none
-    case 2: set_choice_preference(teams, "2", "teams_two"); break; // "2", teams_two
-    case 3: set_choice_preference(teams, "3", "teams_three"); break; // "3", teams_three
-    case 4: set_choice_preference(teams, "4", "teams_four"); break; // "4", teams_four
-    default: break;
+    case 0:
+        set_choice_preference(teams, "None", "teams_none");
+        break; // "None", teams_none
+    case 2:
+        set_choice_preference(teams, "2", "teams_two");
+        break; // "2", teams_two
+    case 3:
+        set_choice_preference(teams, "3", "teams_three");
+        break; // "3", teams_three
+    case 4:
+        set_choice_preference(teams, "4", "teams_four");
+        break; // "4", teams_four
+    default:
+        break;
     }
     prefs->change_setting(get_checksums("team_mode"), teams); // "team_mode"
     delete_preference(teams);
     script::Struct* skill = new_preference();
     switch (online::g_net_skill_level) {
-    case 1: set_choice_preference(skill, "1: Baby Steps", "num_1"); break; // "1: Baby Steps", num_1
-    case 2: set_choice_preference(skill, "2: I Can Crawl!", "num_2"); break; // "2: I Can Crawl!", num_2
-    case 3: set_choice_preference(skill, "3: Hold My Own", "num_3"); break; // "3: Hold My Own", num_3
-    case 4: set_choice_preference(skill, "4: Let's Do This", "num_4"); break; // "4: Let's Do This", num_4
-    case 5: set_choice_preference(skill, "5: Bring It On!", "num_5"); break; // "5: Bring It On!", num_5
-    default: break;
+    case 1:
+        set_choice_preference(skill, "1: Baby Steps", "num_1");
+        break; // "1: Baby Steps", num_1
+    case 2:
+        set_choice_preference(skill, "2: I Can Crawl!", "num_2");
+        break; // "2: I Can Crawl!", num_2
+    case 3:
+        set_choice_preference(skill, "3: Hold My Own", "num_3");
+        break; // "3: Hold My Own", num_3
+    case 4:
+        set_choice_preference(skill, "4: Let's Do This", "num_4");
+        break; // "4: Let's Do This", num_4
+    case 5:
+        set_choice_preference(skill, "5: Bring It On!", "num_5");
+        break; // "5: Bring It On!", num_5
+    default:
+        break;
     }
     prefs->change_setting(get_checksums("skill_level"), skill); // "skill_level"
     delete_preference(skill);

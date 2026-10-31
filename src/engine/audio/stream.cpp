@@ -125,7 +125,8 @@ void StreamSlot::fabricate(int type, bool unknown, int plays)
 }
 
 // 0x00453090
-Result StreamSlot::unseal(uint32_t checksum, const char* path, Hdl wad_file, uint32_t offset, uint32_t size, void* buffer)
+Result StreamSlot::unseal(uint32_t checksum, const char* path, Hdl wad_file, uint32_t offset, uint32_t size,
+                          void* buffer)
 {
     if (wad)
         return wad->open_from_wad(wad_file, offset, size, buffer);
@@ -224,7 +225,7 @@ void __cdecl init_platform()
     std::memset(stream_slots(), 0, kStreamSlots * sizeof(StreamSlot));
     user_soundtrack_count();
     get_wad_file() = CreateFileA("data\\streams\\pcm\\pcm.wad", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
-                            FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
+                                 FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
     HANDLE index = CreateFileA("data\\streams\\pcm\\pcm.dat", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (index != INVALID_HANDLE_VALUE) {
@@ -294,10 +295,7 @@ uint32_t __cdecl stream_exists(uint32_t checksum, int music)
 // --- State -------------------------------------------------------------------------------------------------
 
 // 0x00453250
-int __cdecl music_status()
-{
-    return music_slot().get_playing() ? 2 : 1;
-}
+int __cdecl music_status() { return music_slot().get_playing() ? 2 : 1; }
 
 // 0x00453270
 int __cdecl stream_status(int slot)
@@ -311,16 +309,10 @@ int __cdecl stream_status(int slot)
 }
 
 // 0x00453220
-bool __cdecl music_preload_done()
-{
-    return prefetch_complete(music_slot());
-}
+bool __cdecl music_preload_done() { return prefetch_complete(music_slot()); }
 
 // 0x004531D0
-bool __cdecl stream_preload_done(int slot)
-{
-    return prefetch_complete(stream_slots()[slot]);
-}
+bool __cdecl stream_preload_done(int slot) { return prefetch_complete(stream_slots()[slot]); }
 
 // 0x004532C0
 void __cdecl pause_streams(bool pause, int which)
@@ -383,11 +375,11 @@ int __cdecl user_soundtrack_tracks(int index)
     return index < soundtrack_count() ? *reinterpret_cast<int*>(get_soundtrack(index)) : 0;
 }
 
-} // namespace Pcm
+} // namespace audio
 
 namespace audio {
 
 // 0x006409D0 (a static initialiser): the streams' lock, a mutex nobody owns.
 void create_stream_lock() { g_stream_lock = CreateMutexA(nullptr, FALSE, nullptr); }
 
-} // namespace Pcm
+} // namespace audio

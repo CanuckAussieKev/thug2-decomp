@@ -87,10 +87,7 @@ void PcFont::change_colors(const uint32_t* colors)
 }
 
 // 0x004B3CB0
-void PcFont::flag_button_font(bool buttons)
-{
-    pad_glyph_typeface() = buttons ? font : nullptr;
-}
+void PcFont::flag_button_font(bool buttons) { pad_glyph_typeface() = buttons ? font : nullptr; }
 
 // 0x004B3CD0
 void PcFont::offload()
@@ -100,16 +97,10 @@ void PcFont::offload()
 }
 
 // 0x004B3CF0
-uint32_t PcFont::fetch_tallness()
-{
-    return font->height;
-}
+uint32_t PcFont::fetch_tallness() { return font->height; }
 
 // 0x004B3D00
-uint32_t PcFont::get_base()
-{
-    return font->base;
-}
+uint32_t PcFont::get_base() { return font->base; }
 
 // 0x004B3D10
 void PcFont::read_string_param(const char* string, float* width, float* height)
@@ -158,10 +149,7 @@ void PcText::tick_frame()
 }
 
 // 0x004B3DA0
-void PcText::update_hidden()
-{
-    draw_2d(text)->change_concealed(hidden);
-}
+void PcText::update_hidden() { draw_2d(text)->change_concealed(hidden); }
 
 // 0x004B3F50
 void PcText::tick_traits()
@@ -204,10 +192,7 @@ void __cdecl allocate_text_pool(uint32_t count)
 }
 
 // 0x004B4090
-void __cdecl unload_pc_font(PcFont* font)
-{
-    reinterpret_cast<Typeface*>(font)->offload();
-}
+void __cdecl unload_pc_font(PcFont* font) { reinterpret_cast<Typeface*>(font)->offload(); }
 
 // 0x004B40A0
 PcFont* __cdecl create_pc_font(const char* name)
@@ -220,13 +205,15 @@ PcFont* __cdecl create_pc_font(const char* name)
 }
 
 namespace {
-static VtableSlot g_pc_font_vtable_slots[] = {&render::PcFont::teardown, &render::PcFont::read_in, &render::PcFont::change_spacings,
-                &render::PcFont::change_colors, &render::PcFont::flag_button_font, &render::PcFont::offload, &render::PcFont::fetch_tallness,
-                &render::PcFont::get_base, &render::PcFont::read_string_param};
+static VtableSlot g_pc_font_vtable_slots[] = {
+    &render::PcFont::teardown,       &render::PcFont::read_in,          &render::PcFont::change_spacings,
+    &render::PcFont::change_colors,  &render::PcFont::flag_button_font, &render::PcFont::offload,
+    &render::PcFont::fetch_tallness, &render::PcFont::get_base,         &render::PcFont::read_string_param};
 void** const kPcFontVtable = reinterpret_cast<void**>(g_pc_font_vtable_slots);
-static VtableSlot g_pc_text_vtable_slots[] = {&render::PcText::teardown, &render::PcText::tick_frame, &render::PcText::update_hidden,
-                &render::PcText::tick_traits, &render::PcText::update_priority, stubs::do_nothing};
+static VtableSlot g_pc_text_vtable_slots[] = {&render::PcText::teardown,        &render::PcText::tick_frame,
+                                              &render::PcText::update_hidden,   &render::PcText::tick_traits,
+                                              &render::PcText::update_priority, stubs::do_nothing};
 void** const kPcTextVtable = reinterpret_cast<void**>(g_pc_text_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

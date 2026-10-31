@@ -10,7 +10,7 @@ namespace frontend::new_frontend::options {
 
 // When a change is seen.
 enum class Apply {
-    kLive,    // at once (the feature's switch is set as the ini is written)
+    kLive,     // at once (the feature's switch is set as the ini is written)
     kRelaunch, // the next time the game starts (read once at start-up)
 };
 
@@ -25,13 +25,13 @@ struct Spec {
     const char* label;
     const char* help;
     std::vector<Choice> choices;
-    int fallback;        // the choice when the key isn't there (the feature's own default)
+    int fallback; // the choice when the key isn't there (the feature's own default)
     Apply apply;
 };
 
 struct GroupSet {
-    const char* id;    // "graphics", ... (automation)
-    const char* name;  // "Graphics"
+    const char* id;        // "graphics", ... (automation)
+    const char* name;      // "Graphics"
     std::vector<int> rows; // indices into get_specs()
 };
 
@@ -55,6 +55,6 @@ bool ini_get(const std::string& text, const std::string& section, const std::str
 // a line added after the section's last line that isn't blank (a missing section added at the end) - every other
 // line, comment and unknown key as it was, the file's line ending kept (\r\n unless it only uses \n).
 std::string ini_set(const std::string& text, const std::string& section, const std::string& key,
-                   const std::string& value);
+                    const std::string& value);
 
-} // namespace MenuSystem::NewFrontend::Options
+} // namespace frontend::new_frontend::options

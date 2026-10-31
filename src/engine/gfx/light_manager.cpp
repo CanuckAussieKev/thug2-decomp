@@ -37,7 +37,7 @@ LightingState* pile_up() { return g_world_light_stack; }
 int g_light_stack_top{-1};
 float g_light_brightness{1.0f};
 float g_light_brightness_target{1.0f};
-int g_near_light_indexes[32]{-1}; // get_dynamic_lights_near's indexes
+int g_near_light_indexes[32]{-1};      // get_dynamic_lights_near's indexes
 float g_near_light_falloffs[31]{1.0f}; // get_dynamic_lights_near's falloffs
 float g_min_intensity;
 
@@ -190,10 +190,7 @@ void __cdecl change_diffuse_scale(int light, float low, float high)
 }
 
 // 0x0048E9B0
-float __cdecl fetch_ambient_scale(bool low)
-{
-    return low ? get_world().ambient_low_ : get_world().ambient_high_;
-}
+float __cdecl fetch_ambient_scale(bool low) { return low ? get_world().ambient_low_ : get_world().ambient_high_; }
 
 // 0x0048E9D0 (both branches read the low ranges, as the original)
 float __cdecl fetch_diffuse_scale(int light, bool low)
@@ -374,30 +371,21 @@ DynamicLightBase* __cdecl new_dynamic_light(int type)
 }
 
 // 0x0048E8C0
-int DynamicLightBase::is_on()
-{
-    return intensity > 0.0f ? 1 : 0;
-}
+int DynamicLightBase::is_on() { return intensity > 0.0f ? 1 : 0; }
 
 // 0x0048EA90
-int DynamicLightBase::in_reach(float distance)
-{
-    return distance < radius ? 1 : 0;
-}
+int DynamicLightBase::in_reach(float distance) { return distance < radius ? 1 : 0; }
 
 // 0x0048EAB0
-double DynamicLightBase::get_falloff(float distance)
-{
-    return static_cast<double>(distance) * inverse_radius_;
-}
+double DynamicLightBase::get_falloff(float distance) { return static_cast<double>(distance) * inverse_radius_; }
 
 namespace {
-static VtableSlot g_dynamic_light_vtable_slots[] = {&render::DynamicLightBase::is_on, &render::DynamicLightBase::in_reach,
-                &render::DynamicLightBase::get_falloff};
+static VtableSlot g_dynamic_light_vtable_slots[] = {
+    &render::DynamicLightBase::is_on, &render::DynamicLightBase::in_reach, &render::DynamicLightBase::get_falloff};
 void** const kDynamicLightVtable = reinterpret_cast<void**>(g_dynamic_light_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
@@ -411,4 +399,4 @@ void construct_world_light_stack()
         lights.make_new();
 }
 
-} // namespace Nx
+} // namespace render

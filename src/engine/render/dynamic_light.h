@@ -14,16 +14,16 @@ struct DynamicLight {
     void set_reach(float radius);
 
     uint8_t unknown00[4];
-    maths::Vec4 at_point_;       // +0x04
+    maths::Vec4 at_point_; // +0x04
     uint8_t unknown14[4];
-    float radius_;          // +0x18
-    float inverse_radius_;   // +0x1C
+    float radius_;         // +0x18
+    float inverse_radius_; // +0x1C
     float strength_;       // +0x20
     uint32_t tint_;        // +0x24 (bytes r, g, b, a)
-    uint32_t holder_key_;      // +0x28 the id of the object it belongs to (0 once it's let go)
+    uint32_t holder_key_;  // +0x28 the id of the object it belongs to (0 once it's let go)
 };
 static_assert(offsetof(DynamicLight, at_point_) == 0x04 && offsetof(DynamicLight, radius_) == 0x18 &&
                   offsetof(DynamicLight, tint_) == 0x24 && offsetof(DynamicLight, holder_key_) == 0x28,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

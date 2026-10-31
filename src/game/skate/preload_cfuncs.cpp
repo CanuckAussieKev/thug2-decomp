@@ -48,34 +48,39 @@ constexpr uint32_t kNoCollision = 0x0BF29BC0;     // nocollision
 constexpr uint32_t kNone = 0x806FFF30;            // none
 constexpr uint32_t kNoRandom = 0xF6F8E158;        // no_random
 constexpr uint32_t kNoPedestrians = 0x2CAA92ED;   // (name unknown) a global integer: no pedestrians preloaded
-constexpr uint32_t kPreloadModelFromAppearance = 0x53E82A70; // preload_model_from_appearance
-constexpr uint32_t kPart = 0xB6F08F39;            // part
-constexpr uint32_t kDescId = 0x4BB2084E;          // desc_id
-constexpr uint32_t kPickPermitted = 0x355F9467;   // allowed_to_pick
-constexpr uint32_t kAllowRandom = 0xF1E3CD22;     // allow_random
-constexpr uint32_t kAlreadySelected = 0x92BDDFD9; // already_selected
-constexpr uint32_t kShuffleIndex = 0x4B833E64;     // random_index
-constexpr uint32_t kLevelSpecific = 0x3598BF7D;   // level_specific
-constexpr uint32_t kExcludeFromLevels = 0x94D12F97; // exclude_from_levels
-constexpr uint32_t kCasArtist = 0x2A648514;       // cas_artist
-constexpr uint32_t kNum = 0x23BC5091;             // num
+constexpr uint32_t kPreloadModelFromAppearance = 0x53E82A70;                   // preload_model_from_appearance
+constexpr uint32_t kPart = 0xB6F08F39;                                         // part
+constexpr uint32_t kDescId = 0x4BB2084E;                                       // desc_id
+constexpr uint32_t kPickPermitted = 0x355F9467;                                // allowed_to_pick
+constexpr uint32_t kAllowRandom = 0xF1E3CD22;                                  // allow_random
+constexpr uint32_t kAlreadySelected = 0x92BDDFD9;                              // already_selected
+constexpr uint32_t kShuffleIndex = 0x4B833E64;                                 // random_index
+constexpr uint32_t kLevelSpecific = 0x3598BF7D;                                // level_specific
+constexpr uint32_t kExcludeFromLevels = 0x94D12F97;                            // exclude_from_levels
+constexpr uint32_t kCasArtist = 0x2A648514;                                    // cas_artist
+constexpr uint32_t kNum = 0x23BC5091;                                          // num
 constexpr uint32_t kLight = 0x94E5A308, kTan = 0x85AAF0D8, kDark = 0xE4834204; // light, tan, dark
-constexpr uint32_t kCarType = 0x5C0312EB;         // OBJECT_TYPE_CAR
-constexpr uint32_t kObjReplaceTexture = 0x83F9BE15; // Obj_ReplaceTexture
+constexpr uint32_t kCarType = 0x5C0312EB;                                      // OBJECT_TYPE_CAR
+constexpr uint32_t kObjReplaceTexture = 0x83F9BE15;                            // Obj_ReplaceTexture
 // The capture-the-flag nodes' types (not preloaded in a game of one player).
-constexpr uint32_t kFlagTypes[] = {0xBEBB41F0, 0x836284A5, 0xC3EBE05E, 0x4F8FF239,  // Flag_Red(_Base), Flag_Green(_Base)
-                                   0x8CCA938A, 0x041E5BCF, 0xC2AF1EB1, 0xED3AD7FE}; // Flag_Blue(_Base), Flag_Yellow(_Base)
+constexpr uint32_t kFlagTypes[] = {
+    0xBEBB41F0, 0x836284A5, 0xC3EBE05E, 0x4F8FF239,  // Flag_Red(_Base), Flag_Green(_Base)
+    0x8CCA938A, 0x041E5BCF, 0xC2AF1EB1, 0xED3AD7FE}; // Flag_Blue(_Base), Flag_Yellow(_Base)
 // The pedestrians' CAS part lists preloaded (unless no_random).
 constexpr uint32_t kPedPartLists[] = {0xF56A8CFB, 0x26D93E89, 0xAF8139ED, 0xE5DC27BA,  // ped_m_head, torso, legs,
                                       0x9FAD7C38, 0x24DE6A73, 0xC546C92E, 0x02159819}; // accessories; ped_f_...
 
 // Nx (not rewritten yet): a new model (0x0048BFA0, cdecl) and its deletion (0x0048C3C0); a model loaded from a file
 // (0x004935E0, eight arguments); its geom count (0x00492E40) and a geom's texture dictionary (0x004946C0).
-void* spawn_render_model(int) { return render::spawn_model(); } // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
+void* spawn_render_model(int)
+{
+    return render::spawn_model();
+} // (0x0048BFA0 jumps to 0x004B29C0; its argument isn't used)
 void delete_model(void* model) { render::engine::delete_geom_object(model); }
 void ingest_mesh(void* model, const char* file, int a, int b, int c, uint32_t d, int e, int f, int g)
 {
-    static_cast<render::RenderModel*>(model)->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0, f != 0, g != 0);
+    static_cast<render::RenderModel*>(model)->add_file_geom(file, static_cast<uint32_t>(a), b != 0, c, d != 0, e != 0,
+                                                            f != 0, g != 0);
 }
 // 0x004879D0 (cdecl): the model file's path for `name` with `extension` (a String made in `out`, returned).
 text::Chars* model_path(void* out, const char* name, const char* extension)
@@ -86,10 +91,7 @@ text::Chars* model_path(void* out, const char* name, const char* extension)
 void get_base_name(const char* name, char* base) { render::engine::split_skin_name(name, base); }
 
 // 0x00565BB0: the skate module's: whether a node isn't for this game (its own 0x68910AC6 test).
-bool skip_node(script::Struct* node)
-{
-    return modules::Skate::should_be_absent(node) != 0;
-}
+bool skip_node(script::Struct* node) { return modules::Skate::should_be_absent(node) != 0; }
 
 // 0x005AAAA0 (gamenet-2's range: the list's name in EAX): every part of a global CAS part list with allow_random
 // preloaded (its mesh kept in memory).
@@ -185,7 +187,8 @@ bool __cdecl cfunc_preload_models(script::Struct*, script::Script*)
                 std::memcpy(name + std::strlen(name), ".col", 5);
                 assets::ResourceRegistry* assets = assets::asset_manager();
                 bool permanent = assets->get_permanent_by_default();
-                assets->fetch_or_load_resource(name, 8, 0, checksums::hash_from_text(file), false, false, permanent, nullptr, 0);
+                assets->fetch_or_load_resource(name, 8, 0, checksums::hash_from_text(file), false, false, permanent,
+                                               nullptr, 0);
             }
         }
         if (node_class == kVehicle) {
@@ -260,7 +263,8 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
         ModelAssembler builder;
         auto* gfx_builder = reinterpret_cast<gfx::ModelAssembler*>(&builder);
         gfx_builder->make_new(true, 8);
-        gfx_builder->get_build(gfx_appearance, static_cast<render::RenderModel*>(nx_model), nullptr, kPreloadModelFromAppearance);
+        gfx_builder->get_build(gfx_appearance, static_cast<render::RenderModel*>(nx_model), nullptr,
+                               kPreloadModelFromAppearance);
         delete_model(nx_model);
         reinterpret_cast<objects::Entity*>(&builder)->destroy_body();
         gfx_appearance->destroy_body();
@@ -387,8 +391,8 @@ bool __cdecl cfunc_replace_car_textures(script::Struct* params, script::Script* 
         void* model = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x208);
         bool added = false;
         for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
-            uint32_t textures =
-                static_cast<uint32_t>(reinterpret_cast<uintptr_t>(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
+            uint32_t textures = static_cast<uint32_t>(
+                reinterpret_cast<uintptr_t>(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
             bool found = false;
             for (int k = 0; k < seen_count; ++k) {
                 if (seen[k] == textures)

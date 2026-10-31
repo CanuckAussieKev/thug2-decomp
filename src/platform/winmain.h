@@ -34,4 +34,4 @@ extern bool g_internet_game_host;
 extern bool g_joining_internet_game;
 extern bool g_app_active;
 
-} // namespace Sys
+} // namespace sys

@@ -94,12 +94,13 @@ void install()
     get_point("CD", reinterpret_cast<void*>(&cfunc_cd));
     get_point("NotCD", reinterpret_cast<void*>(&cfunc_not_cd));
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
-        "menu - and the viewer: F9 free camera)");
+            "menu - and the viewer: F9 free camera)");
 }
 
 void tick_frame(modules::FrontEnd* front_end)
 {
-    if (!is_switched_on() || frame_loop::frames_run() == 0) // (not in the early self-tests, which run this on stand-in state)
+    if (!is_switched_on() ||
+        frame_loop::frames_run() == 0) // (not in the early self-tests, which run this on stand-in state)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)

@@ -37,9 +37,15 @@ const uint8_t* hierarchy_of(ObjectModule* model)
 }
 
 // The skeleton component's skeleton (+0x18), its bone matrices (+0x04) and bone count (0x004A2BA0, not rewritten).
-uint8_t* skeleton_of(ObjectModule* skeleton) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18); }
+uint8_t* skeleton_of(ObjectModule* skeleton)
+{
+    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skeleton) + 0x18);
+}
 maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *reinterpret_cast<maths::Mat4**>(skeleton + 0x04); }
-int get_bone_count(uint8_t* skeleton) { return reinterpret_cast<int(__thiscall*)(uint8_t*)>(code_address(&gfx::Rig::get_num_bones))(skeleton); }
+int get_bone_count(uint8_t* skeleton)
+{
+    return reinterpret_cast<int(__thiscall*)(uint8_t*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);
+}
 
 // A model position in the game's axes: x and the model's y negated, y and z swapped.
 maths::Vec4 from_model(const float* p) { return {-p[0], p[2], -p[1], 1.0f}; }
@@ -109,25 +115,27 @@ void ParkedVehicleModule::seal()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::ParkedVehicleModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         &objects::ParkedVehicleModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::ParkedVehicleModule::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    stubs::ignore_argument,
+    &objects::ParkedVehicleModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

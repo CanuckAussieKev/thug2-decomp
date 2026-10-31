@@ -63,16 +63,16 @@ void** const kEntrySearchVtable = reinterpret_cast<void**>(g_entry_search_vtable
 static VtableSlot g_level_search_vtable_slots[] = {&online::StatsSearch::delete_level_search};
 void** const kLevelSearchVtable = reinterpret_cast<void**>(g_level_search_vtable_slots);
 
-constexpr uint32_t kLoginTimeout = 10000;  // ms
+constexpr uint32_t kLoginTimeout = 10000;   // ms
 constexpr uint32_t kReportInterval = 60000; // ms between reports of a game
-constexpr int kPersonalStatsLevels = 15;  // GetPersistDataValues' indexes: 0 the rating, 1-15 the levels
-constexpr int kMaxSorted = 50;            // lines of a sorted list into the menu
-constexpr int kLevelBest = 3;             // a level's best lines into the menu
+constexpr int kPersonalStatsLevels = 15;    // GetPersistDataValues' indexes: 0 the rating, 1-15 the levels
+constexpr int kMaxSorted = 50;              // lines of a sorted list into the menu
+constexpr int kLevelBest = 3;               // a level's best lines into the menu
 constexpr int kMaxRank = 10;
 constexpr int kStatsPort = 0x1421;
 
 // The rank's factors (0x0064CC1C, 0x00646710).
-float rank_scale() { return g_rank_scale; } // 0.000286
+float rank_scale() { return g_rank_scale; }        // 0.000286
 float rank_times() { return render::g_float_ten; } // 10
 // rating * 0.000286 * 10 truncated, at most 10 (x87 at 53 bits: each product rounded to double).
 int current_rank(double rating)
@@ -94,10 +94,16 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+}
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
-void get_run(uint32_t script, script::Struct* params = nullptr) { script::launch_script(script, params, nullptr, false, nullptr); }
+void get_run(uint32_t script, script::Struct* params = nullptr)
+{
+    script::launch_script(script, params, nullptr, false, nullptr);
+}
 
 // GameSpy's stats and persistent storage SDK (library code; cdecl).
 int is_stats_connected() { return game_spy::stats_is_connected(); }
@@ -107,24 +113,23 @@ int persist_think() { return game_spy::stats_persist_think(); }
 void* new_game(int usebuckets) { return game_spy::stats_new_game(usebuckets); }
 void free_game(void* game) { game_spy::stats_free_game(game); }
 const char* get_challenge(void* game) { return game_spy::stats_get_challenge(game); }
-void new_player(void* game, int number, const char* name)
-{
-    game_spy::stats_new_player(game, number, name);
-}
+void new_player(void* game, int number, const char* name) { game_spy::stats_new_player(game, number, name); }
 void remove_player_from_game(void* game, int number) { game_spy::stats_remove_player(game, number); }
 void send_game_snap_shot(void* game, const char* snapshot, int final)
 {
     game_spy::stats_send_snap_shot(game, snapshot, final);
 }
 void get_persist_data_values(int local_id, int profile, int type, int index, const char* keys, const void* callback,
-                          void* instance)
+                             void* instance)
 {
-    game_spy::stats_get_persist_data_values(
-        local_id, profile, type, index, keys, callback, instance);
+    game_spy::stats_get_persist_data_values(local_id, profile, type, index, keys, callback, instance);
 }
 // The SDK's bucket "set" operations (game / player keys, ints / strings).
 void set_game_int(void* game, const char* key, int value) { game_spy::set_server_int_bucket(game, key, value); }
-void set_game_string(void* game, const char* key, const char* value) { game_spy::set_server_string_bucket(game, key, value); }
+void set_game_string(void* game, const char* key, const char* value)
+{
+    game_spy::set_server_string_bucket(game, key, value);
+}
 void set_player_int(void* game, const char* key, int value, int player)
 {
     game_spy::set_player_int_bucket(game, key, value, player);
@@ -191,7 +196,8 @@ void delete_all(memory::ListNode* head)
 int total_of(const memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node;
+         node = node->next)
         ++count;
     return count;
 }
@@ -377,7 +383,8 @@ void TopList::fill_level_scores()
             delete_params(params);
         }
         int shown = 0;
-        for (memory::ListNode* line = get_next_node(&level->entries_); line && shown < kLevelBest; line = get_next_node(line)) {
+        for (memory::ListNode* line = get_next_node(&level->entries_); line && shown < kLevelBest;
+             line = get_next_node(line)) {
             auto* entry = static_cast<TopEntry*>(line->data);
             if (!entry)
                 break;
@@ -457,8 +464,8 @@ void TopList::fill_sorted_scores(bool ratings)
 
 // The level checksums the personal stats list their high scores by.
 uint32_t g_level_checksums[15]{0x55894059, 0x2A179957, 0xCDAFB450, 0xCAC27049, 0xFC5833EE,
-    0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C, 0xCC877C27, 0x0C27CA5E, 0x532C99DE,
-    0xD4B48511, 0x8C32C761};
+                               0x86A2D65B, 0xF3AB73AB, 0x991B5359, 0xDAF9A383, 0x7078F66C,
+                               0xCC877C27, 0x0C27CA5E, 0x532C99DE, 0xD4B48511, 0x8C32C761};
 
 // 0x0054DDB0
 void PersonalStats::get_fill()
@@ -502,7 +509,7 @@ RankingsManager* RankingsManager::make_new()
         task->make_new(0);
         task->vtable_ = game_code::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&stats_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
+        reinterpret_cast<void**>(task)[7] = this;                                 // +0x1C the data
     }
     task_ = task;
     authenticated_ = false;
@@ -951,10 +958,18 @@ bool __cdecl fill_stats_arrays(script::Struct* params, script::Script*)
     params->read_hash_value(0x5EF31148u, &which, 1);
     TopList* list = nullptr;
     switch (which) {
-    case 0xEF20D3A1: list = &stats->top_lists_[0]; break;
-    case 0x9FE64312: list = &stats->top_lists_[1]; break;
-    case 0xCB95928F: list = &stats->top_lists_[2]; break;
-    case 0x67F1AE8A: list = &stats->top_lists_[3]; break;
+    case 0xEF20D3A1:
+        list = &stats->top_lists_[0];
+        break;
+    case 0x9FE64312:
+        list = &stats->top_lists_[1];
+        break;
+    case 0xCB95928F:
+        list = &stats->top_lists_[2];
+        break;
+    case 0x67F1AE8A:
+        list = &stats->top_lists_[3];
+        break;
     case 0x5299291B:
         stats->top_lists_[4].fill_sorted_scores(true);
         return true;

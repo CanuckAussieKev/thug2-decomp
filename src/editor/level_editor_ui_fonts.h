@@ -8,8 +8,8 @@ struct CompressedFont {
     const void* data;
     int size;
 };
-CompressedFont inter();         // Inter Regular: the UI
+CompressedFont inter();           // Inter Regular: the UI
 CompressedFont inter_semi_bold(); // Inter SemiBold: headings, the selection's name
-CompressedFont get_mono();          // JetBrains Mono Regular: numbers, names, checksums
+CompressedFont get_mono();        // JetBrains Mono Regular: numbers, names, checksums
 
-} // namespace MenuSystem::level_editor::ui_fonts
+} // namespace frontend::level_editor::ui_fonts

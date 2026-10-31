@@ -150,4 +150,4 @@ float GapDetails::fetch_magnitude(int half)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

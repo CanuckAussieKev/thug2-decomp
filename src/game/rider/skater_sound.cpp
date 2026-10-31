@@ -40,7 +40,8 @@ constexpr float kPercent = 100.0f; // 0x006463D4
 uint8_t sound_table(uint32_t name) { return surface_kind::get_table_index(name); }
 void play_terrain_sound(uint32_t table, int terrain, const maths::Vec4* pos, float volume, float percent)
 {
-    surface_kind::play_terrain_sound(sound_table(table), static_cast<uint8_t>(terrain), pos, volume, percent, percent, true);
+    surface_kind::play_terrain_sound(sound_table(table), static_cast<uint8_t>(terrain), pos, volume, percent, percent,
+                                     true);
 }
 
 bool on_ground_or_in_air(int state) { return state == kStateGround || state == kStateAir; }
@@ -203,25 +204,27 @@ int RiderSfxPlayer::invoke_method_by_name(uint32_t name, script::Struct* /*param
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderSfxPlayer::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::RiderSfxPlayer::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderSfxPlayer::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderSfxPlayer::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    &objects::RiderSfxPlayer::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderSfxPlayer::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

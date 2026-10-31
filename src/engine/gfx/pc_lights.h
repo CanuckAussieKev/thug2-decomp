@@ -17,11 +17,11 @@ namespace render {
 struct PcModelLights {
     void** vtable;
     uint8_t unknown4[0xC];
-    float scale;             // +0x10
-    float* intensities;      // +0x14: one per light (0x006FAAE0 of them)
+    float scale;        // +0x10
+    float* intensities; // +0x14: one per light (0x006FAAE0 of them)
     uint32_t unknown18;
     uint32_t overrides;      // +0x1C: bit 0 the ambient colour, bit 1 + n light n's
-    uint32_t first_dynamic_;   // +0x20: the renderer light the dynamic lights start at (2)
+    uint32_t first_dynamic_; // +0x20: the renderer light the dynamic lights start at (2)
     uint32_t ambient;        // +0x24: RGBA
     uint32_t* colors;        // +0x28: one per light (0x006FAAE4 of them), RGBA
     maths::Vec4* directions; // +0x2C
@@ -81,4 +81,4 @@ PcModelLights* __cdecl spawn_model_lights();
 
 extern float g_light_constants[28];
 
-} // namespace Nx
+} // namespace render

@@ -16,25 +16,25 @@ using CollisionHitCallback = void(__cdecl*)(CollisionHit* hit);
 // What a line test fills in (0x50 bytes; the caller sets the flags, the distance to beat and the callback): the
 // nearest hit so far. (Our name: the original's isn't known.)
 struct CollisionHit {
-    maths::Vec4 normal;             // +0x00 the face's normal (world space)
-    maths::Vec4 point;              // +0x10 where the line hits (w = 1)
-    uint32_t face;                  // +0x20 the face's index in its geometry
-    float distance;                 // +0x24 along the line, 0..1 (the one to beat)
-    uint16_t ignore_flags_;           // +0x28 faces with any of these flags are passed over
-    uint16_t require_flags_;          // +0x2A ... and faces without all of these
-    uint16_t face_flags_;             // +0x2C the hit face's
-    uint8_t terrain;                // +0x2E the hit face's (low byte)
+    maths::Vec4 normal;      // +0x00 the face's normal (world space)
+    maths::Vec4 point;       // +0x10 where the line hits (w = 1)
+    uint32_t face;           // +0x20 the face's index in its geometry
+    float distance;          // +0x24 along the line, 0..1 (the one to beat)
+    uint16_t ignore_flags_;  // +0x28 faces with any of these flags are passed over
+    uint16_t require_flags_; // +0x2A ... and faces without all of these
+    uint16_t face_flags_;    // +0x2C the hit face's
+    uint8_t terrain;         // +0x2E the hit face's (low byte)
     uint8_t pad2f_;
     HitMesh* object;               // +0x30 what was hit
-    uint32_t object_checksum_;        // +0x34 its checksum
-    uint32_t unknown38;             // +0x38
-    CollisionHitCallback callback;  // +0x3C
-    uint32_t callback_data_;          // +0x40 (for the callback)
-    uint32_t owner;                 // +0x44 while a movable object is tested: its owner (slot 10), else 0
-    bool hit;                       // +0x48 a face was accepted
-    uint8_t face_flag40_;             // +0x49 the hit face's flag 0x40 (0 or 0x40)
+    uint32_t object_checksum_;     // +0x34 its checksum
+    uint32_t unknown38;            // +0x38
+    CollisionHitCallback callback; // +0x3C
+    uint32_t callback_data_;       // +0x40 (for the callback)
+    uint32_t owner;                // +0x44 while a movable object is tested: its owner (slot 10), else 0
+    bool hit;                      // +0x48 a face was accepted
+    uint8_t face_flag40_;          // +0x49 the hit face's flag 0x40 (0 or 0x40)
     uint8_t pad4a_[2];
-    uint32_t scene;                 // +0x4C the scene whose grid held the static object hit (collide_with_statics)
+    uint32_t scene; // +0x4C the scene whose grid held the static object hit (collide_with_statics)
 
     // 0x004F8160: every field copied (not the padding). Returns this.
     CollisionHit* copy_from(const CollisionHit& other);
@@ -58,4 +58,4 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
 
 extern bool g_want_farthest;
 
-} // namespace Nx
+} // namespace render

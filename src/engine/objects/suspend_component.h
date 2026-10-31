@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -68,18 +68,18 @@ public:
     // 0x004341E0 (not a Ghidra function) Obj_ResetNoSuspendCount: reset_counts and the object unsuspended. True.
     bool obj_reset_no_suspend_count(script::Struct* params, script::Script* script);
 
-    bool never_suspend_;             // +0x18
+    bool never_suspend_; // +0x18
     uint8_t pad19[3];
     float suspend_distance_;         // +0x1C (inches)
-    float suspend_distance_squared_;  // +0x20
+    float suspend_distance_squared_; // +0x20
     float distance_squared_;         // +0x24 to the camera, at the last check (0 when not checked)
-    int frames_before_check_;         // +0x28
-    ObjectModule* mesh_instance_;        // +0x2C
-    bool far_;                      // +0x30 suspended by distance
+    int frames_before_check_;        // +0x28
+    ObjectModule* mesh_instance_;    // +0x2C
+    bool far_;                       // +0x30 suspended by distance
     uint8_t pad31[3];
-    float lod_distances_[4];         // +0x34 (inches)
-    int frames_before_lod_;           // +0x44
-    uint32_t unused48_;             // +0x48
+    float lod_distances_[4]; // +0x34 (inches)
+    int frames_before_lod_;  // +0x44
+    uint32_t unused48_;      // +0x48
 };
 static_assert(offsetof(DormancyModule, suspend_distance_) == 0x1C && offsetof(DormancyModule, far_) == 0x30 &&
                   offsetof(DormancyModule, lod_distances_) == 0x34 &&
@@ -106,4 +106,4 @@ struct SuspendTaskHolder {
 // LOD frames: shown) or its visibility decided (refresh_shown_state).
 void __cdecl suspend_task(void* task);
 
-} // namespace Obj
+} // namespace objects

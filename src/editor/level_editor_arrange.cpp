@@ -120,7 +120,7 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
 }
 
 V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, float reach, int axes,
-            std::vector<Contact>* contacts)
+             std::vector<Contact>* contacts)
 {
     V3 out = delta;
     Aabb m = {moving.min + delta, moving.max + delta};
@@ -343,7 +343,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
 }
 
 int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, float*)>& project, float x, float y,
-          float grab)
+           float grab)
 {
     int best = -1;
     float best_d = grab;
@@ -456,7 +456,8 @@ void axes_of(const std::vector<Unit>& units, bool local, V3 out[3])
         return;
     if (objects::GameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
-            out[i] = make_unit({object->basis_frame_.row[i].x, object->basis_frame_.row[i].y, object->basis_frame_.row[i].z});
+            out[i] = make_unit(
+                {object->basis_frame_.row[i].x, object->basis_frame_.row[i].y, object->basis_frame_.row[i].z});
         return;
     }
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
@@ -467,7 +468,7 @@ void axes_of(const std::vector<Unit>& units, bool local, V3 out[3])
 
 // Each unit moved by its own amount along `axis` (one undo step).
 void move_units(const edit::Selected& selection, const std::vector<Unit>& units, V3 axis,
-               const std::vector<float>& moves)
+                const std::vector<float>& moves)
 {
     edit::get_begin();
     if (selection.kind == edit::Kind::kScenery) {
@@ -509,9 +510,12 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     std::vector<float> moves = align_moves(spans, edge, reference);
     move_units(selection, units, axes[axis], moves);
     char text[128];
-    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)",
-                  static_cast<int>(units.size()), edge == Edge::kMin ? "min" : edge == Edge::kMax ? "max" : "centre",
-                  get_axis_name(axis), local ? "local" : "world", reference == Reference::kFirst ? "the first" : "the bounds");
+    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
+                  edge == Edge::kMin   ? "min"
+                  : edge == Edge::kMax ? "max"
+                                       : "centre",
+                  get_axis_name(axis), local ? "local" : "world",
+                  reference == Reference::kFirst ? "the first" : "the bounds");
     hud::get_message(text, 4.0);
     adjust::ActStep action;
     action.kind = adjust::Kind::kJustify;
@@ -539,8 +543,8 @@ bool distribute(int axis, bool gaps, bool local)
         spans.push_back(span_along(unit.corners, axes[axis]));
     move_units(selection, units, axes[axis], distribute_moves(spans, gaps));
     char text[128];
-    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s)",
-                  static_cast<int>(units.size()), get_axis_name(axis), gaps ? "equal gaps" : "evenly spaced centres");
+    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()),
+                  get_axis_name(axis), gaps ? "equal gaps" : "evenly spaced centres");
     hud::get_message(text, 4.0);
     adjust::ActStep action;
     action.kind = adjust::Kind::kDistribute;
@@ -571,7 +575,10 @@ bool sectors_bounds(const std::vector<uint32_t>& sectors, Aabb* out)
     return have;
 }
 
-V3 bottom_centre(const Aabb& box) { return {(box.min.x + box.max.x) * 0.5f, box.min.y, (box.min.z + box.max.z) * 0.5f}; }
+V3 bottom_centre(const Aabb& box)
+{
+    return {(box.min.x + box.max.x) * 0.5f, box.min.y, (box.min.z + box.max.z) * 0.5f};
+}
 
 uint32_t key_model() { return checksums::hash_from_text("model"); }
 
@@ -636,17 +643,17 @@ bool replace_scenery(const edit::Selected& selection, uint32_t source)
     edit::fold(depth);
     edit::choose_one({edit::Kind::kScenery, made});
     hud::get_message("Replaced " + std::to_string(made.size()) + " piece(s) with " + object_edit::caption(source) +
-                     " - Ctrl+Z puts them back",
-                 4.0);
+                         " - Ctrl+Z puts them back",
+                     4.0);
     get_log("level editor: replaced %u scenery piece(s) with %s", static_cast<unsigned>(made.size()),
-        object_edit::caption(source).c_str());
+            object_edit::caption(source).c_str());
     return true;
 }
 
 bool replace_objects(const edit::Selected& selection, uint32_t source)
 {
     std::string model = model_of(source);
-    std::vector<object_edit::State> copies;  // (object copies: replaced by copies of the source where they were)
+    std::vector<object_edit::State> copies; // (object copies: replaced by copies of the source where they were)
     std::vector<uint32_t> copy_ids, swapped;
     for (uint32_t id : selection.ids) {
         objects::GameEntity* object = live_object(id);
@@ -660,9 +667,8 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
         }
     }
     if (copies.empty() && (swapped.empty() || model.empty())) {
-        hud::get_message(model.empty() ? "Replace: original object has no model to swap"
-                                   : "Replace: nothing selected",
-                     5.0);
+        hud::get_message(model.empty() ? "Replace: original object has no model to swap" : "Replace: nothing selected",
+                         5.0);
         return false;
     }
     size_t depth = edit::deepness();
@@ -696,11 +702,11 @@ bool replace_objects(const edit::Selected& selection, uint32_t source)
     if (!made.empty())
         edit::choose_one({edit::Kind::object_edit, made});
     char text[160];
-    std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects re-modelled",
-                  static_cast<int>(made.size()), swaps);
+    std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects re-modelled", static_cast<int>(made.size()),
+                  swaps);
     hud::get_message(text, 5.0);
     get_log("level editor: replace with %s: %d copies made again, %d model swaps", object_edit::caption(source).c_str(),
-        static_cast<int>(made.size()), swaps);
+            static_cast<int>(made.size()), swaps);
     return !made.empty() || swaps > 0;
 }
 
@@ -719,10 +725,10 @@ bool get_replace()
         return replace_scenery(selection, source);
     if (selection.kind == edit::Kind::object_edit && tab == 1)
         return replace_objects(selection, source);
-    hud::get_message(selection.kind == edit::Kind::kScenery   ? "Replace: choose a scenery piece"
-                 : selection.kind == edit::Kind::object_edit ? "Replace: choose an object"
-                                                         : "Replace: nothing selected",
-                 5.0);
+    hud::get_message(selection.kind == edit::Kind::kScenery      ? "Replace: choose a scenery piece"
+                     : selection.kind == edit::Kind::object_edit ? "Replace: choose an object"
+                                                                 : "Replace: nothing selected",
+                     5.0);
     return false;
 }
 
@@ -782,8 +788,8 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
         // (the neighbours, once a drag: within 1500 of where the piece is - they don't move meanwhile)
         g_snap.selection = selection.ids;
         g_snap.boxes.clear();
-        GatherContext context = {&selection.ids, {moving.min - V3{1500, 1500, 1500}, moving.max + V3{1500, 1500, 1500}},
-                                 &g_snap.boxes};
+        GatherContext context = {
+            &selection.ids, {moving.min - V3{1500, 1500, 1500}, moving.max + V3{1500, 1500, 1500}}, &g_snap.boxes};
         scenery::for_each_level_sector(gather_sector, &context);
     }
     g_snap.last_used_ = now;
@@ -836,7 +842,8 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
         const uint16_t* index = indices->indices;
         for (uint32_t k = 2; k < mesh->index_counts_[0]; ++k) {
             uint16_t a = index[k - 2], b = index[k - 1], c = index[k];
-            if (a == b || b == c || a == c || a >= mesh->vertex_count_ || b >= mesh->vertex_count_ || c >= mesh->vertex_count_)
+            if (a == b || b == c || a == c || a >= mesh->vertex_count_ || b >= mesh->vertex_count_ ||
+                c >= mesh->vertex_count_)
                 continue;
             out->push_back(at(a));
             out->push_back(at(b));
@@ -892,9 +899,8 @@ void set_edge_picking(bool on)
     g_edge_hover = -1;
     if (on) {
         size_t runs = edge_runs().size();
-        hud::get_message(runs ? "Rail Along Edge: click a top edge (Shift: more)"
-                          : "Rail Along Edge: no top edges found",
-                     5.0);
+        hud::get_message(
+            runs ? "Rail Along Edge: click a top edge (Shift: more)" : "Rail Along Edge: no top edges found", 5.0);
         if (!runs)
             g_edge_picking = false;
     }
@@ -908,8 +914,9 @@ bool edge_click(float x, float y)
     if (!current_view(&view))
         return false;
     const std::vector<Run>& runs = edge_runs();
-    int pick = run_at(runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, x, y,
-                     12.0f * static_cast<float>(view.viewport[3]) / 720.0f);
+    int pick = run_at(
+        runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, x, y,
+        12.0f * static_cast<float>(view.viewport[3]) / 720.0f);
     if (pick < 0) {
         hud::get_message("Rail Along Edge: click a highlighted edge");
         return true;
@@ -927,8 +934,8 @@ bool edge_click(float x, float y)
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool more = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
     char text[128];
-    std::snprintf(text, sizeof(text), "Rail added: %d points, %.0f long",
-                  static_cast<int>(run.points.size()), run.length);
+    std::snprintf(text, sizeof(text), "Rail added: %d points, %.0f long", static_cast<int>(run.points.size()),
+                  run.length);
     // (Shift: the piece stays selected for the next edge; else the rail's first point is selected)
     edit::chain_changed(&before, more ? 0 : select, text);
     if (more)
@@ -936,7 +943,7 @@ bool edge_click(float x, float y)
     else
         g_edge_picking = false;
     get_log("level editor: auto-rail along an edge of %s: %d points, %.0f long", object_edit::caption(cluster).c_str(),
-        static_cast<int>(run.points.size()), run.length);
+            static_cast<int>(run.points.size()), run.length);
     return true;
 }
 
@@ -1020,8 +1027,8 @@ namespace {
 // The registry's entries (level_editor_actions.h): their indices, once registered.
 int g_act_window = -1, g_act_adjust = -1, g_act_edge_rail = -1, g_act_linked = -1;
 
-int add_action(const char* id, const char* name, const char* category, const char* tip, std::vector<actions::Chord> keys,
-              std::function<void()> run, std::function<int()> checked = nullptr)
+int add_action(const char* id, const char* name, const char* category, const char* tip,
+               std::vector<actions::Chord> keys, std::function<void()> run, std::function<int()> checked = nullptr)
 {
     actions::ActStep a;
     a.id = id;
@@ -1044,41 +1051,45 @@ void register_actions()
     using actions::Chord;
     const uint8_t ctrl_alt = actions::kCtrl | actions::kAlt;
     g_act_window = add_action("arrange_window", "Arrange", "Panels", "Align, distribute and replace",
-                            {Chord{SDL_SCANCODE_F2, 0}}, [] { flip_over(&at_hand().window); });
-    g_act_adjust = add_action("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
-                            {Chord{SDL_SCANCODE_F4, 0}}, [] { flip_over(&adjust::get_shown()); });
+                              {Chord{SDL_SCANCODE_F2, 0}}, [] { flip_over(&at_hand().window); });
+    g_act_adjust =
+        add_action("adjust_last", "Adjust Last Operation", "Panels", "Edit the parameters of the last operation",
+                   {Chord{SDL_SCANCODE_F4, 0}}, [] { flip_over(&adjust::get_shown()); });
     g_act_edge_rail = add_action("edge_rail", "Rail Along Edge", "Edit", "Click a scenery edge to add a rail along it",
-                              {Chord{SDL_SCANCODE_R, actions::kAlt}}, [] { set_edge_picking(!g_edge_picking); });
-    g_act_linked = add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
-                            {Chord{SDL_SCANCODE_D, ctrl_alt}}, [] { links::linked_duplicate(); });
+                                 {Chord{SDL_SCANCODE_R, actions::kAlt}}, [] { set_edge_picking(!g_edge_picking); });
+    g_act_linked =
+        add_action("linked_duplicate", "Duplicate Linked", "Edit", "Duplicate; copies follow the source's changes",
+                   {Chord{SDL_SCANCODE_D, ctrl_alt}}, [] { links::linked_duplicate(); });
     static const char* const kEdges[] = {"min", "centre", "max"};
     static const char* const kAxes = "xyz";
     for (int axis = 0; axis < 3; ++axis) {
         for (int edge = 0; edge < 3; ++edge) {
             std::string key = std::string("align_") + kAxes[axis] + "_" + kEdges[edge];
             std::string name = std::string("Align ") + get_axis_name(axis) + " " + kEdges[edge];
-            add_action(key.c_str(), name.c_str(), "Arrange",
-                      "Align the selection", {}, [axis, edge] {
-                          justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local);
-                      });
+            add_action(key.c_str(), name.c_str(), "Arrange", "Align the selection", {},
+                       [axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
         std::string key = std::string("distribute_") + kAxes[axis];
         std::string name = std::string("Distribute along ") + get_axis_name(axis);
         add_action(key.c_str(), name.c_str(), "Arrange", "Space the selection evenly (3 or more)", {},
-                  [axis] { distribute(axis, at_hand().gaps, at_hand().local); });
+                   [axis] { distribute(axis, at_hand().gaps, at_hand().local); });
     }
     add_action("replace_selection", "Replace Selection", "Arrange", "Replace with the item highlighted in Add Piece",
-              {}, [] { get_replace(); });
-    add_action("unlink", "Unlink Copies", "Arrange", "Make linked copies independent",
-              {}, [] { links::unlink_selection(); });
-    add_action("edge_snap", "Edge Snapping", "Settings", "Snap scenery flush to neighbours",
-              {}, [] { flip_over(&at_hand().edge_snap_); }, [] { return at_hand().edge_snap_ ? 1 : 0; });
-    add_action("drag_readout", "Drag Measurements", "Settings", "Show distances while dragging", {},
-              [] { flip_over(&at_hand().measure); }, [] { return at_hand().measure ? 1 : 0; });
-    add_action("placement_ghost", "Placement Preview", "Settings", "Preview what a click places", {},
-              [] { flip_over(&at_hand().ghost); }, [] { return at_hand().ghost ? 1 : 0; });
-    add_action("click_places", "Click to Place", "Settings", "Place the Add Piece item with a click", {},
-              [] { flip_over(&at_hand().click_places_); }, [] { return at_hand().click_places_ ? 1 : 0; });
+               {}, [] { get_replace(); });
+    add_action("unlink", "Unlink Copies", "Arrange", "Make linked copies independent", {},
+               [] { links::unlink_selection(); });
+    add_action(
+        "edge_snap", "Edge Snapping", "Settings", "Snap scenery flush to neighbours", {},
+        [] { flip_over(&at_hand().edge_snap_); }, [] { return at_hand().edge_snap_ ? 1 : 0; });
+    add_action(
+        "drag_readout", "Drag Measurements", "Settings", "Show distances while dragging", {},
+        [] { flip_over(&at_hand().measure); }, [] { return at_hand().measure ? 1 : 0; });
+    add_action(
+        "placement_ghost", "Placement Preview", "Settings", "Preview what a click places", {},
+        [] { flip_over(&at_hand().ghost); }, [] { return at_hand().ghost ? 1 : 0; });
+    add_action(
+        "click_places", "Click to Place", "Settings", "Place the Add Piece item with a click", {},
+        [] { flip_over(&at_hand().click_places_); }, [] { return at_hand().click_places_ ? 1 : 0; });
 }
 
 V3 g_drag_from;
@@ -1148,7 +1159,8 @@ struct Painter {
         if (!fill)
             return;
         // (its six faces, see-through: two triangles each - only when all four corners are in front)
-        static const int kFaces[6][4] = {{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4}, {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}};
+        static const int kFaces[6][4] = {{0, 1, 3, 2}, {4, 5, 7, 6}, {0, 1, 5, 4},
+                                         {2, 3, 7, 6}, {0, 2, 6, 4}, {1, 3, 7, 5}};
         for (const auto& f : kFaces) {
             float x[4], y[4];
             bool ok = true;
@@ -1160,7 +1172,10 @@ struct Painter {
             overlay->triangles.push_back({x[0], y[0], x[2], y[2], x[3], y[3], fill});
         }
     }
-    void text_tools(float x, float y, uint32_t argb, const std::string& text) const { overlay->texts.push_back({x, y, argb, text}); }
+    void text_tools(float x, float y, uint32_t argb, const std::string& text) const
+    {
+        overlay->texts.push_back({x, y, argb, text});
+    }
 };
 
 // A node's marker for the ghost: a post, a ring and the heading it will face.
@@ -1170,9 +1185,10 @@ void get_marker(const Painter& p, V3 at, float yaw, uint32_t colour)
     p.get_seg(at, at + V3{0.0f, 72.0f, 0.0f}, c, 2.0f);
     constexpr int kSegments = 24;
     for (int i = 0; i < kSegments; ++i) {
-        float a0 = 6.2831853f * static_cast<float>(i) / kSegments, a1 = 6.2831853f * static_cast<float>(i + 1) / kSegments;
-        p.get_seg(at + V3{std::sin(a0) * 30.0f, 1.0f, std::cos(a0) * 30.0f}, at + V3{std::sin(a1) * 30.0f, 1.0f, std::cos(a1) * 30.0f},
-               c, 1.5f);
+        float a0 = 6.2831853f * static_cast<float>(i) / kSegments,
+              a1 = 6.2831853f * static_cast<float>(i + 1) / kSegments;
+        p.get_seg(at + V3{std::sin(a0) * 30.0f, 1.0f, std::cos(a0) * 30.0f},
+                  at + V3{std::sin(a1) * 30.0f, 1.0f, std::cos(a1) * 30.0f}, c, 1.5f);
     }
     V3 heading = {std::sin(yaw) * 50.0f, 1.0f, std::cos(yaw) * 50.0f};
     p.get_seg(at + V3{0.0f, 1.0f, 0.0f}, at + heading, c, 2.0f);
@@ -1301,7 +1317,8 @@ void add_readout(const Painter& p)
     if (!have_box)
         lines.erase(lines.begin()); // (a node: no size)
     for (size_t i = 0; i < lines.size(); ++i)
-        p.text_tools(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF, lines[i]);
+        p.text_tools(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF,
+                     lines[i]);
 }
 
 void add_contacts(const Painter& p)
@@ -1315,8 +1332,10 @@ void add_contacts(const Painter& p)
         const Aabb& o = g_snap.boxes[c.other];
         const Aabb& m = g_snap.moving;
         int u = c.axis == 0 ? 1 : 0, v = c.axis == 2 ? 1 : 2;
-        float u0 = std::max(get_component(o.min, u), get_component(m.min, u)), u1 = std::min(get_component(o.max, u), get_component(m.max, u));
-        float v0 = std::max(get_component(o.min, v), get_component(m.min, v)), v1 = std::min(get_component(o.max, v), get_component(m.max, v));
+        float u0 = std::max(get_component(o.min, u), get_component(m.min, u)),
+              u1 = std::min(get_component(o.max, u), get_component(m.max, u));
+        float v0 = std::max(get_component(o.min, v), get_component(m.min, v)),
+              v1 = std::min(get_component(o.max, v), get_component(m.max, v));
         if (u1 < u0) // (beside it, not over it: the neighbour's whole face)
             u0 = get_component(o.min, u), u1 = get_component(o.max, u);
         if (v1 < v0)
@@ -1340,8 +1359,9 @@ void add_edges(const Painter& p)
     const std::vector<Run>& runs = edge_runs();
     float x, y;
     edit::get_cursor(&x, &y);
-    g_edge_hover = run_at(runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
-                        12.0f * static_cast<float>(p.viewport[3]) / 720.0f);
+    g_edge_hover = run_at(
+        runs, [&](V3 q, float* px, float* py) { return p.get_pixel(q, px, py); }, x, y,
+        12.0f * static_cast<float>(p.viewport[3]) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
         bool lit = static_cast<int>(r) == g_edge_hover;
         for (size_t i = 1; i < runs[r].points.size(); ++i)
@@ -1359,7 +1379,7 @@ void add_edges(const Painter& p)
 } // namespace
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                ui::Overlay* overlay)
+                 ui::Overlay* overlay)
 {
     Painter p = {camera, frame, lens, viewport, near_z, overlay};
     add_ghost(p);
@@ -1410,4 +1430,4 @@ void get_forget()
     g_segments.clear();
 }
 
-} // namespace MenuSystem::level_editor::Arrange
+} // namespace frontend::level_editor::arrange

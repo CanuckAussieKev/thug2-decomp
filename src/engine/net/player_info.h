@@ -7,11 +7,11 @@
 
 namespace net {
 struct Conn;
-} // namespace Net
+} // namespace net
 namespace objects {
 class Rider;
 struct RiderIdentity;
-} // namespace Obj
+} // namespace objects
 
 // The network game's players (0x00543060-0x00544780): online::PlayerRecord, one per player the manager knows (in its
 // player list - begin_player_walk / step_player_walk), and JoinerRecord, a player announced but not yet added.
@@ -20,40 +20,40 @@ namespace online {
 
 // The player's flags (PlayerRecord::flag_bits_).
 enum PlayerFlag : uint32_t {
-    kPlayerLocal = 0x1,            // this machine's player
-    kPlayerJustJoined = 0x2,       // (with join_time_) still settling in - see IsVulnerable
+    kPlayerLocal = 0x1,      // this machine's player
+    kPlayerJustJoined = 0x2, // (with join_time_) still settling in - see IsVulnerable
     kPlayerObserver = 0x4,
-    kPlayerPendingObserver = 0x8,  // joined to watch: not yet in the observers
-    kPlayerFullyIn = 0x20,         // in the game (set_finished_joining)
+    kPlayerPendingObserver = 0x8, // joined to watch: not yet in the observers
+    kPlayerFullyIn = 0x20,        // in the game (set_finished_joining)
     kPlayerToldGameState = 0x40,
-    kPlayerKing = 0x80,            // has the crown (king of the hill)
+    kPlayerKing = 0x80, // has the crown (king of the hill)
     kPlayerReady = 0x100,
-    kPlayerServer = 0x200,         // the host's own player
-    kPlayerCarryingFlag0 = 0x800,  // carries team 0's flag (0x800 << team: the four teams' flags)
+    kPlayerServer = 0x200,        // the host's own player
+    kPlayerCarryingFlag0 = 0x800, // carries team 0's flag (0x800 << team: the four teams' flags)
     kPlayerCarryingFlags = 0x7800,
     kPlayerFaceTextureSent = 0x8000,
-    kPlayerSurveying = 0x10000,    // (the byte at +0x1D2, bit 0) watching from the surveyor camera
-    kPlayerEliminated = 0x20000,   // out of the game (firefight), the time in eliminated_time_
+    kPlayerSurveying = 0x10000,  // (the byte at +0x1D2, bit 0) watching from the surveyor camera
+    kPlayerEliminated = 0x20000, // out of the game (firefight), the time in eliminated_time_
 };
 
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
-    char label_[16];                  // +0x00
-    uint8_t entity_key_;               // +0x10
+    char label_[16];     // +0x00
+    uint8_t entity_key_; // +0x10
     uint8_t pad11[3];
-    net::Conn* conn_;                // +0x14
+    net::Conn* conn_; // +0x14
     uint32_t unknown18_;
-    objects::RiderIdentity* account_;   // +0x1C
-    uint32_t flag_bits_;                 // +0x20 PlayerFlag
+    objects::RiderIdentity* account_; // +0x1C
+    uint32_t flag_bits_;              // +0x20 PlayerFlag
     uint32_t unknown24_;
-    int team_;                       // +0x28
-    int32_t profile_id_;              // +0x2C the GameSpy profile
-    int32_t skill_points_;                 // +0x30
+    int team_;             // +0x28
+    int32_t profile_id_;   // +0x2C the GameSpy profile
+    int32_t skill_points_; // +0x30
     uint32_t unknown34_;
     uint32_t unknown38_;
     uint32_t unknown3c_;
-    int32_t drive_control_mode_;     // +0x40
+    int32_t drive_control_mode_; // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
     // +0x2C (profile id), +0x30 (rating), +0x38, +0x40 zeroed (the rest is left). Returns this.
@@ -72,7 +72,7 @@ class PlayerRecord : public memory::ListNode {
 public:
     static constexpr int kMaxPlayers = 8;
 
-    // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile, 
+    // 0x00543740: an empty player with `flags` (PlayerFlag): no skater, connection or profile,
     // "<No Name>", last_sent_skater_ 7 and the update records cleared (the per-skater ones to -1). Returns this.
     PlayerRecord* make_new(uint32_t flags);
     // 0x00543810: the destructor: its profile (destroyed and freed), the object at +0x1EC (deleted - virtual slot 2),
@@ -124,31 +124,31 @@ public:
     void add_to_accumulated_score(int score);
 
     // The flags (0 / 1 in EAX).
-    int is_own_player();       // 0x00543300
-    int is_host_player();      // 0x00543310 (0x200)
-    int is_observer();          // 0x00543320
-    int is_scouting_level();         // 0x00543330
+    int is_own_player();           // 0x00543300
+    int is_host_player();          // 0x00543310 (0x200)
+    int is_observer();             // 0x00543320
+    int is_scouting_level();       // 0x00543330
     void mark_face_texture_sent(); // 0x00543340
-    void mark_just_joined();     // 0x00543350: and join_time_ the time now
-    void clear_just_joined();    // 0x00543370
-    int has_finished_joining();           // 0x00543380: fully in, or the local player
-    void set_host_player(); // 0x00543390
-    void clear_server_player();  // 0x005433A0
-    int is_carrying_flag();      // 0x005433B0
+    void mark_just_joined();       // 0x00543350: and join_time_ the time now
+    void clear_just_joined();      // 0x00543370
+    int has_finished_joining();    // 0x00543380: fully in, or the local player
+    void set_host_player();        // 0x00543390
+    void clear_server_player();    // 0x005433A0
+    int is_carrying_flag();        // 0x005433B0
     // 0x005433D0: the team whose flag it carries (the lowest), -1 for none.
     int get_flag_team();
-    void clear_flags();         // 0x00543410: carries no flag
+    void clear_flags(); // 0x00543410: carries no flag
     // 0x00543420: out of the game - eliminated_time_ the game mode's time (0x00553270).
     void mark_eliminated();
     // 0x00543440: out of the game: marked so, or in firefight with a skater whose SkaterScore says no lives (0x00561B40
     // = 0). The flag tested first (a bool in AL).
     bool is_eliminated();
-    int holds_crown();              // 0x00543490
+    int holds_crown(); // 0x00543490
     // 0x005434A0: its connection's handle (AppHost::put_on_outbox's), 0 without a connection.
     int get_link_handle();
     // 0x005434B0: the skater's +0x2BC (one of the getters folded there: no null check).
     uint32_t get_skater_value_2b_c();
-    int is_pending_observer();   // 0x005434C0
+    int is_pending_observer(); // 0x005434C0
 
     // --- player_flags.cpp: the game's announcements about the player ---
     // 0x00543910: whether collisions with other skaters leave it alone (1): its connection not ready, its skater not
@@ -173,34 +173,34 @@ public:
     // player's crown arrow shown again in netking / king).
     void give_crown(bool king);
 
-    objects::Rider* skater_;             // +0x14
-    net::Conn* conn_;                  // +0x18
-    uint32_t eliminated_time_;          // +0x1C
-    int accumulated_score_;             // +0x20
+    objects::Rider* skater_;   // +0x14
+    net::Conn* conn_;          // +0x18
+    uint32_t eliminated_time_; // +0x1C
+    int accumulated_score_;    // +0x20
     uint32_t unknown24_;
     uint32_t unknown28_;
-    int skill_points_;                       // +0x2C (a server list's player: its rating)
-    int team_;                         // +0x30
-    int unknown34_;                    // +0x34 (scavenger hunt: 5 minus it is its score line's number)
-    char label_[16];                    // +0x38 ("<No Name>" until named)
+    int skill_points_; // +0x2C (a server list's player: its rating)
+    int team_;         // +0x30
+    int unknown34_;    // +0x34 (scavenger hunt: 5 minus it is its score line's number)
+    char label_[16];   // +0x38 ("<No Name>" until named)
     uint32_t unknown48_;
-    objects::RiderIdentity* account_;     // +0x4C
+    objects::RiderIdentity* account_; // +0x4C
     uint8_t unknown50_[0x58];
     uint16_t update_records_a_[kMaxPlayers][3]; // +0xA8 (-1 each)
     uint16_t update_records_b_[kMaxPlayers][3]; // +0xD8 (-1 each)
-    int sent_updates_[kMaxPlayers];     // +0x108 (-1 each)
-    int sent_updates2_[kMaxPlayers];    // +0x128
-    uint8_t update_bytes_a_[kMaxPlayers]; // +0x148 (-1 each)
-    uint8_t update_bytes_b_[kMaxPlayers]; // +0x150 (-1 each)
+    int sent_updates_[kMaxPlayers];             // +0x108 (-1 each)
+    int sent_updates2_[kMaxPlayers];            // +0x128
+    uint8_t update_bytes_a_[kMaxPlayers];       // +0x148 (-1 each)
+    uint8_t update_bytes_b_[kMaxPlayers];       // +0x150 (-1 each)
     uint8_t unknown158_[0x78];
-    uint32_t flag_bits_;                   // +0x1D0 PlayerFlag
-    uint32_t ready_query_owed_;          // +0x1D4
+    uint32_t flag_bits_;        // +0x1D0 PlayerFlag
+    uint32_t ready_query_owed_; // +0x1D4
     uint32_t unknown1d8_;
-    uint32_t join_time_;                // +0x1DC (mark_just_joined)
-    uint32_t last_impact_at_;             // +0x1E0
-    int last_sent_skater_;               // +0x1E4
-    uint8_t* face_texture_data_;         // +0x1E8
-    void* object_1e_c_;                  // +0x1EC (deleted with it: virtual slot 2)
+    uint32_t join_time_;         // +0x1DC (mark_just_joined)
+    uint32_t last_impact_at_;    // +0x1E0
+    int last_sent_skater_;       // +0x1E4
+    uint8_t* face_texture_data_; // +0x1E8
+    void* object_1e_c_;          // +0x1EC (deleted with it: virtual slot 2)
 };
 static_assert(offsetof(PlayerRecord, skater_) == 0x14 && offsetof(PlayerRecord, team_) == 0x30 &&
                   offsetof(PlayerRecord, label_) == 0x38 && offsetof(PlayerRecord, account_) == 0x4C &&

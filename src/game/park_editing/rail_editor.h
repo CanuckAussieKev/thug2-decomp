@@ -22,21 +22,21 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace park_editing {
 
 // A point of an edited rail (0x28 bytes).
 struct EditedRailPoint {
-    maths::Vec4 at_point_;           // +0x00 (w = 1)
-    bool has_post_;              // +0x10 a post stands under it
-    bool highlighted_;          // +0x11 its sectors coloured (Highlight)
+    maths::Vec4 at_point_; // +0x00 (w = 1)
+    bool has_post_;        // +0x10 a post stands under it
+    bool highlighted_;     // +0x11 its sectors coloured (Highlight)
     uint8_t pad12[2];
     float level_y_;              // +0x14 how far over the ground below it is (where its post stands)
-    EditedRailPoint* following_;   // +0x18
-    EditedRailPoint* preceding_;   // +0x1C
-    uint8_t* segment_;         // +0x20 the sector of the rail from here to the next point (an render::WorldCell)
-    uint8_t* post_;            // +0x24 its post's sector
+    EditedRailPoint* following_; // +0x18
+    EditedRailPoint* preceding_; // +0x1C
+    uint8_t* segment_;           // +0x20 the sector of the rail from here to the next point (an render::WorldCell)
+    uint8_t* post_;              // +0x24 its post's sector
 
     // 0x004F3AD0: if highlighted, its sectors (and those of its neighbours that Highlight coloured: the previous
     // point's segment, an end point's post) back to their own colour and shown in every viewport; not highlighted.
@@ -71,10 +71,10 @@ static_assert(offsetof(EditedRailPoint, has_post_) == 0x10 && offsetof(EditedRai
 
 // A rail (0x10 bytes). Its points are kept newest first: the head is the last point laid.
 struct EditedRail {
-    EditedRail* following_;          // +0x00
-    EditedRail* preceding_;          // +0x04
-    EditedRailPoint* point_chain_;   // +0x08
-    uint32_t ident_;                 // +0x0C (from the counter 0x0067EFFC: unique)
+    EditedRail* following_;        // +0x00
+    EditedRail* preceding_;        // +0x04
+    EditedRailPoint* point_chain_; // +0x08
+    uint32_t ident_;               // +0x0C (from the counter 0x0067EFFC: unique)
 
     // 0x004F70C0: the constructor (returns this): a new id, unlinked, no points.
     EditedRail* make_new();
@@ -92,7 +92,7 @@ struct EditedRail {
     // 0x004F4280: the point nearest `position` on the ground plane (x, z; the squared distance under 1e8), skipping
     // the point `skip`: its position, squared distance and index written. Whether the rail has any points.
     bool find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared, int* index,
-                          int skip) const;
+                            int skip) const;
     // 0x004F4310: how many points lie strictly inside (x0, z0)-(x1, z1).
     int count_points_inside(float x0, float z0, float x1, float z1) const;
     // 0x004F4370: every point moved from `origin` to `position` turned `angle` degrees about y (w: the original adds
@@ -132,9 +132,9 @@ static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail,
 // The rails packed for the park file and network messages (0x1132 bytes): the rail count, each rail's point count,
 // then 10-byte point records (CEditedRailPoint::Pack), each rail's points from its first laid.
 struct RailBuffer {
-    uint16_t rail_count_;                 // +0x00
-    uint16_t point_counts_[200];          // +0x02
-    uint16_t records_[400][5];           // +0x192
+    uint16_t rail_count_;        // +0x00
+    uint16_t point_counts_[200]; // +0x02
+    uint16_t records_[400][5];   // +0x192
 };
 static_assert(sizeof(RailBuffer) == 0x1132, "layout must match the original");
 
@@ -145,7 +145,7 @@ uint8_t* __cdecl clone_rail_sector(uint32_t source);
 // full precision, the sine rounded to float; w: the original adds `position`'s to an unset local - here 0). Returns
 // `out`.
 maths::Vec4* transform_rail_point(maths::Vec4* out, const maths::Vec4* point, const maths::Vec4* origin,
-                                const maths::Vec4* position, float angle);
+                                  const maths::Vec4* position, float angle);
 // 0x004F3E40: whether the turn at `b` from `a` to `c` (on the ground plane) is gentle enough: the cosine between the
 // two directions at least that of Rail_Corner_Leave_Angle.
 bool rail_corner_ok(const maths::Vec4* a, const maths::Vec4* b, const maths::Vec4* c);
@@ -159,12 +159,12 @@ bool rail_segment_valid(const maths::Vec4* a, const maths::Vec4* b);
 // 0x004F4B90: the `count` vertices `indices` picks turned about the first of them to face `direction` (its up kept
 // up; straight up or down: facing z), then moved by `translation`.
 void orient_rail_vertices(const maths::Vec4* direction, const maths::Vec4* translation, maths::Vec4* vertices,
-                        const int* indices, int count);
+                          const int* indices, int count);
 // 0x004F4E70: the source sector `source`'s vertices fitted between `from` and `to` (the start half turned towards
 // the previous segment's direction and that segment's end moved onto it when `previous_sector` is given) and given to
 // `sector`; with `update_collision`, its collision's vertices too.
 void stretch_rail_sector(uint32_t source, const maths::Vec4* from, const maths::Vec4* previous, const maths::Vec4* to,
-                       uint8_t* sector, uint8_t* previous_sector, bool update_collision);
+                         uint8_t* sector, uint8_t* previous_sector, bool update_collision);
 // Their register-argument entry points (the original's conventions; see the .cpp).
 void transform_rail_point_stub();
 void rail_corner_ok_stub();
@@ -252,7 +252,7 @@ public:
     // 0x004F4710: the rail point nearest `position` (ground plane), skipping the point `bypass_idx` of the rail
     // `skip_rail`: its position, squared distance, rail id and index. Whether one was found.
     bool find_nearest_point(const maths::Vec4* position, maths::Vec4* point, float* distance_squared, uint32_t* rail_id,
-                          int* index, uint32_t skip_rail, int bypass_idx) const;
+                            int* index, uint32_t skip_rail, int bypass_idx) const;
     // 0x004F48F0: the dotted line's sector deleted.
     void delete_dotted_line();
     // 0x004F6AF0: the dotted line from the current rail's head point to `position` (green when that segment would be
@@ -294,20 +294,20 @@ public:
     static void __cdecl free_rail(void* rail);
     static void __cdecl free_point(void* point);
 
-    void* input_ptr_;                // +0x18 the input component (0x27D7CD28)
-    void* view_camera_;               // +0x1C the editor camera component (0xAC8946E2)
-    EditedRail* rail_groups_;         // +0x20
-    EditedRail* active_node_;       // +0x24 the rail points are added to
-    uint32_t mode_sel_;               // +0x28 SetEditingMode's Mode
-    uint32_t dotted_line_name_;     // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
-    uint8_t* dotted_line_;        // +0x30 its sector
-    RailBuffer packed_;           // +0x34
+    void* input_ptr_;           // +0x18 the input component (0x27D7CD28)
+    void* view_camera_;         // +0x1C the editor camera component (0xAC8946E2)
+    EditedRail* rail_groups_;   // +0x20
+    EditedRail* active_node_;   // +0x24 the rail points are added to
+    uint32_t mode_sel_;         // +0x28 SetEditingMode's Mode
+    uint32_t dotted_line_name_; // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
+    uint8_t* dotted_line_;      // +0x30 its sector
+    RailBuffer packed_;         // +0x34
     uint8_t pad1166[2];
 };
 static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&
                   offsetof(RailAuthoring, active_node_) == 0x24 && offsetof(RailAuthoring, mode_sel_) == 0x28 &&
-                  offsetof(RailAuthoring, dotted_line_) == 0x30 &&
-                  offsetof(RailAuthoring, packed_) == 0x34 && sizeof(RailAuthoring) == 0x1168,
+                  offsetof(RailAuthoring, dotted_line_) == 0x30 && offsetof(RailAuthoring, packed_) == 0x34 &&
+                  sizeof(RailAuthoring) == 0x1168,
               "layout must match the original (0x004F7FB0 allocates 0x1168 bytes)");
 
-} // namespace Ed
+} // namespace park_editing

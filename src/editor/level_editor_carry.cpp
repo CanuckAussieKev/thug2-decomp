@@ -105,7 +105,7 @@ struct Carried {
     uint32_t reference = 0;        // (the selection's first piece)
     Placement last;                // (its placement when last followed)
     bool armed = false;
-    std::vector<uint32_t> noted;   // (objects whose first place was noted)
+    std::vector<uint32_t> noted; // (objects whose first place was noted)
 };
 Carried g_carried;
 
@@ -288,8 +288,8 @@ Taken arm()
     g_carried.armed = true;
     if (debug_enabled() && (!g_carried.objects.empty() || !g_carried.nodes.empty()))
         get_log("level editor: carrying %u object%s and %u node%s with the selection",
-            static_cast<unsigned>(g_carried.objects.size()), g_carried.objects.size() == 1 ? "" : "s",
-            static_cast<unsigned>(g_carried.nodes.size()), g_carried.nodes.size() == 1 ? "" : "s");
+                static_cast<unsigned>(g_carried.objects.size()), g_carried.objects.size() == 1 ? "" : "s",
+                static_cast<unsigned>(g_carried.nodes.size()), g_carried.nodes.size() == 1 ? "" : "s");
     return g_carried.taken;
 }
 
@@ -354,4 +354,4 @@ std::vector<uint32_t> carried_objects() { return g_carried.armed ? g_carried.obj
 
 std::vector<uint32_t> carried_nodes() { return g_carried.armed ? g_carried.nodes : std::vector<uint32_t>{}; }
 
-} // namespace MenuSystem::level_editor::Carry
+} // namespace frontend::level_editor::carry

@@ -25,44 +25,44 @@ uint32_t g_game_mode_references;
 
 namespace {
 
-constexpr uint32_t kAccumulateScore = 0xC1F5864B;   // accumulate_score
-constexpr uint32_t kTrackBestCombo = 0xD57C16BA;    // track_best_combo
-constexpr uint32_t kPointsHeldFlag = 0x78FB9F04;       // score_frozen
-constexpr uint32_t kDegradeScore = 0xCA37E639;      // degrade_score
-constexpr uint32_t kTrackTrickScore = 0x47F763FF;   // track_trick_score
-constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;  // team_graffiti_mode
-constexpr uint32_t kGoals = 0x38DBE1D0;             // goals
-constexpr uint32_t kNumTeams = 0x2EBE6CD1;          // num_teams
-constexpr uint32_t kTimerBeeps = 0x035C8073;        // timer_beeps
-constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;  // default_time_limit
-constexpr uint32_t kInitialPlayers = 0x6DC3D6F1;    // initial_players
-constexpr uint32_t kMaxPlayers = 0x4D42E61D;        // max_players
-constexpr uint32_t kFireballLevel = 0xCE87E4E3;     // fireball_level
-constexpr uint32_t kRound = 0x3A1115CB;             // round
-constexpr uint32_t kName = 0xA1DC81F9;              // Name
-constexpr uint32_t kKing = 0x5D32129C;              // king
-constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
-constexpr uint32_t kScoreChallenge = 0xF135ECB6;    // scorechallenge
-constexpr uint32_t kNetScoreChallenge = 0x1498240A; // netscorechallenge
-constexpr uint32_t kCreateGoals = 0xE45F0CA2;       // creategoals
-constexpr uint32_t kFirefight = 0x3D6D444F;         // firefight
-constexpr uint32_t kNetFirefight = 0xBFF33600;      // netfirefight
-constexpr uint32_t kStopAtZero = 0x48E748B5;        // stop_at_zero
-constexpr uint32_t kNetLobby = 0x1C471C60;          // NetLobby
-constexpr uint32_t kScreenMode = 0x9BAB2EAE;        // screenmode
-constexpr uint32_t kSplitScreen = 0x06AB02F2;       // splitscreen
-constexpr uint32_t kSingle = 0x3558D8E6;            // single
-constexpr uint32_t kHorse = 0x9D65D0E7;             // Horse
-constexpr uint32_t kScreenLayoutKey = 0x6F82C71E;      // viewport_type
-constexpr uint32_t kChecksum = 0x21902065;          // checksum
-constexpr uint32_t kViewportVertical = 0x92F5B4CB;  // viewport_type_vertical
+constexpr uint32_t kAccumulateScore = 0xC1F5864B;    // accumulate_score
+constexpr uint32_t kTrackBestCombo = 0xD57C16BA;     // track_best_combo
+constexpr uint32_t kPointsHeldFlag = 0x78FB9F04;     // score_frozen
+constexpr uint32_t kDegradeScore = 0xCA37E639;       // degrade_score
+constexpr uint32_t kTrackTrickScore = 0x47F763FF;    // track_trick_score
+constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;   // team_graffiti_mode
+constexpr uint32_t kGoals = 0x38DBE1D0;              // goals
+constexpr uint32_t kNumTeams = 0x2EBE6CD1;           // num_teams
+constexpr uint32_t kTimerBeeps = 0x035C8073;         // timer_beeps
+constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;   // default_time_limit
+constexpr uint32_t kInitialPlayers = 0x6DC3D6F1;     // initial_players
+constexpr uint32_t kMaxPlayers = 0x4D42E61D;         // max_players
+constexpr uint32_t kFireballLevel = 0xCE87E4E3;      // fireball_level
+constexpr uint32_t kRound = 0x3A1115CB;              // round
+constexpr uint32_t kName = 0xA1DC81F9;               // Name
+constexpr uint32_t kKing = 0x5D32129C;               // king
+constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
+constexpr uint32_t kScoreChallenge = 0xF135ECB6;     // scorechallenge
+constexpr uint32_t kNetScoreChallenge = 0x1498240A;  // netscorechallenge
+constexpr uint32_t kCreateGoals = 0xE45F0CA2;        // creategoals
+constexpr uint32_t kFirefight = 0x3D6D444F;          // firefight
+constexpr uint32_t kNetFirefight = 0xBFF33600;       // netfirefight
+constexpr uint32_t kStopAtZero = 0x48E748B5;         // stop_at_zero
+constexpr uint32_t kNetLobby = 0x1C471C60;           // NetLobby
+constexpr uint32_t kScreenMode = 0x9BAB2EAE;         // screenmode
+constexpr uint32_t kSplitScreen = 0x06AB02F2;        // splitscreen
+constexpr uint32_t kSingle = 0x3558D8E6;             // single
+constexpr uint32_t kHorse = 0x9D65D0E7;              // Horse
+constexpr uint32_t kScreenLayoutKey = 0x6F82C71E;    // viewport_type
+constexpr uint32_t kChecksum = 0x21902065;           // checksum
+constexpr uint32_t kViewportVertical = 0x92F5B4CB;   // viewport_type_vertical
 constexpr uint32_t kViewportHorizontal = 0x7C442511; // viewport_type_horizontal
-constexpr uint32_t kVictoryConditions = 0x94A24C5E; // victory_conditions
-constexpr uint32_t kIsElimiskate = 0x2B1304A1;      // is_elimiskate
-constexpr uint32_t kIsScavengerHunt = 0xD4734865;   // is_scavenger_hunt
-constexpr uint32_t kModeInfo = 0xCA5F7FFB;          // mode_info
-constexpr uint32_t kDefinition = 0x97CFD027;        // definition
-constexpr uint32_t kFreeskate = 0x34861A16;         // freeskate
+constexpr uint32_t kVictoryConditions = 0x94A24C5E;  // victory_conditions
+constexpr uint32_t kIsElimiskate = 0x2B1304A1;       // is_elimiskate
+constexpr uint32_t kIsScavengerHunt = 0xD4734865;    // is_scavenger_hunt
+constexpr uint32_t kModeInfo = 0xCA5F7FFB;           // mode_info
+constexpr uint32_t kDefinition = 0x97CFD027;         // definition
+constexpr uint32_t kFreeskate = 0x34861A16;          // freeskate
 
 static VtableSlot g_game_flow_vtable_slots[] = {&goals::MatchFlow::teardown};
 void** const kGameFlowVtable = reinterpret_cast<void**>(g_game_flow_vtable_slots);
@@ -311,8 +311,7 @@ void MatchRules::build_victory_conditions()
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
     for (uint32_t i = 0; i < conditions->extent_; ++i) {
-        WinRule* condition =
-            create_victory_condition(reinterpret_cast<script::Struct*>(conditions->fetch_part(i)));
+        WinRule* condition = create_victory_condition(reinterpret_cast<script::Struct*>(conditions->fetch_part(i)));
         auto* node = static_cast<ConditionNode*>(memory::alloc_zeroed(sizeof(ConditionNode)));
         if (node) {
             node->vtable_ = kConditionNodeVtable;
@@ -402,9 +401,9 @@ bool MatchRules::apply_match_style(uint32_t type)
 // 0x00553BE0
 bool MatchRules::force_match_settings(script::Struct* options)
 {
-    for (const char* name : {"time_limit_type",   // "time_limit_type"
-                             "victory_condition_type",   // "victory_condition_type"
-                             "screenmode"}) { // "screenmode"
+    for (const char* name : {"time_limit_type",        // "time_limit_type"
+                             "victory_condition_type", // "victory_condition_type"
+                             "screenmode"}) {          // "screenmode"
         if (options->has_entry_named(name))
             args_.erase_module(checksums::hash_from_text(name));
     }
@@ -572,15 +571,24 @@ uint32_t MatchRules::get_team_graffiti_mode()
 uint32_t MatchRules::remap_online_name_key(uint32_t name)
 {
     switch (name) {
-    case 0x30C2FFA3: return 0xF9283EE7; // nettrickattack: trickattack
-    case 0x5E2EA50C: return 0xC8A82B5A; // netgraffiti: Graffiti
-    case 0xC50AFFD0: return 0x23EB3DA3; // netcombomambo: combomambo
-    case 0xF9D5D933: return 0xCA1F360F; // netslap: slap
-    case kNetKing: return kKing;
-    case kNetFirefight: return kFirefight;
-    case 0x6C5FF266: return 0xA5AD2B0B; // netctf: CTF
-    case 0x10F84276: return 0xF6198005; // netelimiskate: elimiskate
-    default: return name;
+    case 0x30C2FFA3:
+        return 0xF9283EE7; // nettrickattack: trickattack
+    case 0x5E2EA50C:
+        return 0xC8A82B5A; // netgraffiti: Graffiti
+    case 0xC50AFFD0:
+        return 0x23EB3DA3; // netcombomambo: combomambo
+    case 0xF9D5D933:
+        return 0xCA1F360F; // netslap: slap
+    case kNetKing:
+        return kKing;
+    case kNetFirefight:
+        return kFirefight;
+    case 0x6C5FF266:
+        return 0xA5AD2B0B; // netctf: CTF
+    case 0x10F84276:
+        return 0xF6198005; // netelimiskate: elimiskate
+    default:
+        return name;
     }
 }
 
@@ -688,4 +696,4 @@ bool __cdecl cfunc_override_game_mode_options(script::Struct* params, script::Sc
     return the_game_mode()->force_match_settings(params);
 }
 
-} // namespace Game
+} // namespace goals

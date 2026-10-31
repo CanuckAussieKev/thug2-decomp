@@ -31,11 +31,10 @@ public:
     void tick_frame();
 
     uint8_t* core_physics_; // +0x18 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* cur_phase_;       // +0x1C SkaterState (0x43686585)
+    uint8_t* cur_phase_;    // +0x1C SkaterState (0x43686585)
 };
-static_assert(offsetof(RiderPhysicsCommit, core_physics_) == 0x18 &&
-                  offsetof(RiderPhysicsCommit, cur_phase_) == 0x1C &&
+static_assert(offsetof(RiderPhysicsCommit, core_physics_) == 0x18 && offsetof(RiderPhysicsCommit, cur_phase_) == 0x1C &&
                   sizeof(RiderPhysicsCommit) == 0x20,
               "layout must match the original (0x00511280 allocates 0x20 bytes)");
 
-} // namespace Obj
+} // namespace objects

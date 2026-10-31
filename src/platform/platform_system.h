@@ -18,7 +18,7 @@ char find_cd_drive(const char* volume);
 // on the screen). Full screen: a topmost popup over the whole screen. The cursor hidden. Returns the window (also
 // kept at 0x007D6A28).
 HWND create_game_window(const char* class_name, const char* title, int x, int y, int width, int height,
-                      WNDPROC window_proc, HINSTANCE instance, int icon, bool full_screen);
+                        WNDPROC window_proc, HINSTANCE instance, int icon, bool full_screen);
 
 // 0x005F59D0 / 0x005F5A00 (cdecl): DirectSound (priority level, for `window`) made / released.
 void init_direct_sound(HWND window);
@@ -32,4 +32,4 @@ void decode_adpcm(int16_t* out, const uint8_t* in, int count);
 // interleaved, x's first) into rows. Returns out.
 void* unswizzle(void* out, const void* in, int width, int height, uint32_t bytes_per_texel);
 
-} // namespace Platform
+} // namespace os_layer

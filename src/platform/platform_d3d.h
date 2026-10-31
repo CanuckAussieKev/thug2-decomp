@@ -28,7 +28,7 @@ HRESULT create_quad_index_buffer(uint32_t quads);
 // start (DISCARD). The buffer, the first vertex's index and (if asked) how many vertices fit from there are given
 // back. Returns where to write.
 void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
-                          uint32_t* room);
+                            uint32_t* room);
 // 0x005F4800 (cdecl): unlocked after writing `count` vertices of `stride` bytes; the next go after them (32-byte
 // aligned).
 void unlock_dynamic_vertices(uint32_t count, uint32_t stride);
@@ -48,4 +48,4 @@ void release_occlusion_queries();
 // 0x005F55E0 (cdecl): the buffers, the queries, the device and Direct3D released.
 void release_direct_3d();
 
-} // namespace Platform
+} // namespace os_layer

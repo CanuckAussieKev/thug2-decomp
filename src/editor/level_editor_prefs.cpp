@@ -54,22 +54,28 @@ bool g_loaded;
 Values g_values;
 int g_style_generation;
 bool g_open;
-bool g_tips;     // (the tips window is up)
+bool g_tips; // (the tips window is up)
 bool g_tips_shown_this_run;
 
 // One [editor] key per value: its name, and the value as an int.
 struct Key {
     const char* name;
-    int Values::*field;
+    int Values::* field;
 };
 const Key kIntKeys[] = {
-    {"fly_speed", &Values::fly_speed_},       {"fly_accel_ms", &Values::fly_accel_ms_}, {"look_pct", &Values::look_pct_},
-    {"gizmo_pct", &Values::gizmo_pct_},       {"ui_scale_pct", &Values::ui_scale_pct_}, {"autosave_s", &Values::autosave_seconds_},
-    {"snap_move", &Values::snap_move_},       {"snap_turn", &Values::snap_turn_},      {"accent", &Values::accent},
+    {"fly_speed", &Values::fly_speed_},
+    {"fly_accel_ms", &Values::fly_accel_ms_},
+    {"look_pct", &Values::look_pct_},
+    {"gizmo_pct", &Values::gizmo_pct_},
+    {"ui_scale_pct", &Values::ui_scale_pct_},
+    {"autosave_s", &Values::autosave_seconds_},
+    {"snap_move", &Values::snap_move_},
+    {"snap_turn", &Values::snap_turn_},
+    {"accent", &Values::accent},
 };
 struct BitMark {
     const char* name;
-    bool Values::*field;
+    bool Values::* field;
 };
 const BitMark kFlags[] = {
     {"invert_y", &Values::invert_y_},
@@ -149,7 +155,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Appearing,
                             ImVec2(0.5f, 0.5f));
     ImGui::SetNextWindowSize(ImVec2(440.0f * scale, 0.0f), ImGuiCond_Appearing);
-    if (!ImGui::Begin("Preferences###editorprefs", &g_open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
+    if (!ImGui::Begin("Preferences###editorprefs", &g_open,
+                      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         return;
     }
@@ -319,4 +326,4 @@ void tips_window(float scale, ImFont* heading, ImFont* mono)
     }
 }
 
-} // namespace MenuSystem::level_editor::prefs
+} // namespace frontend::level_editor::prefs

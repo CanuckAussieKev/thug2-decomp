@@ -41,8 +41,8 @@ const char* const kFiles[] = {
 };
 
 std::string s_data;                  // THUGPRO's data folder, ending in '\'
-std::set<std::string> s_our_keys;     // the path keys our own parts name (never served from THUGPRO's install)
-std::set<std::string> s_their_files;  // the path keys of THUGPRO's loose files the added parts name (while loading)
+std::set<std::string> s_our_keys;    // the path keys our own parts name (never served from THUGPRO's install)
+std::set<std::string> s_their_files; // the path keys of THUGPRO's loose files the added parts name (while loading)
 // What file_path serves: s_their_files once the load is done (published once - the file system's threads read it).
 std::atomic<const std::set<std::string>*> s_served{nullptr};
 bool s_done;
@@ -139,9 +139,14 @@ void collect_paths(script::Struct* part, std::vector<const char*>* out, int dept
             if (c->string && is_path(c->string))
                 out->push_back(c->string);
             break;
-        case script::kQbvalStruct: collect_paths(c->structure, out, depth + 1); break;
-        case script::kQbvalArray: collect_array_paths(c->array, out, depth + 1); break;
-        default: break;
+        case script::kQbvalStruct:
+            collect_paths(c->structure, out, depth + 1);
+            break;
+        case script::kQbvalArray:
+            collect_array_paths(c->array, out, depth + 1);
+            break;
+        default:
+            break;
         }
     }
 }
@@ -227,7 +232,7 @@ std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
 }
 
 bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::string>& names,
-                 std::vector<std::pair<std::string, std::vector<uint8_t>>>* out)
+                  std::vector<std::pair<std::string, std::vector<uint8_t>>>* out)
 {
     // {total size, version, file count}, then each file: {size, compressed size (0: stored), name size (int16), use
     // count, checksum}, its name, its data padded to 4 bytes (src/engine/file/packs.cpp next_raw_entry).
@@ -257,7 +262,8 @@ bool read_archive(const std::vector<uint8_t>& archive, const std::vector<std::st
             if (key != wanted)
                 continue;
             const uint8_t* data = archive.data() + body;
-            std::vector<uint8_t> file = compressed ? expand_lzss(data, stored, size) : std::vector<uint8_t>(data, data + size);
+            std::vector<uint8_t> file =
+                compressed ? expand_lzss(data, stored, size) : std::vector<uint8_t>(data, data + size);
             if (file.size() == size) // (a file that doesn't decompress to its size is left out)
                 out->emplace_back(key, std::move(file));
         }
@@ -275,7 +281,8 @@ std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t*
         p = script::skip_newline_tokens(p);
         const uint8_t* before = p;
         switch (*p) {
-        case 0x00: return arrays;
+        case 0x00:
+            return arrays;
         case 0x16: { // name = value
             uint32_t name = script::fetch_word32(p + 1);
             const uint8_t* q = script::skip_newline_tokens(p + 5);
@@ -289,9 +296,15 @@ std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t*
             p = script::skip_value(q);
             break;
         }
-        case 0x23: p = script::skip_to_end_of_script(p + 6); break; // script name ... endscript
-        case 0x45: p += 6; break;                               // a section marker
-        default: p = script::step_over_token(p); break;
+        case 0x23:
+            p = script::skip_to_end_of_script(p + 6);
+            break; // script name ... endscript
+        case 0x45:
+            p += 6;
+            break; // a section marker
+        default:
+            p = script::step_over_token(p);
+            break;
         }
         if (p <= before)
             return arrays; // (a token we can't move past: stop)
@@ -302,7 +315,7 @@ std::vector<std::pair<uint32_t, const uint8_t*>> top_level_arrays(const uint8_t*
 std::string path_key(const char* path)
 {
     std::string key = get_relative(path);
-    static const char* const kExtensions[] = {".xbx", ".skin", ".tex", ".cas", ".col", ".img", ".png",
+    static const char* const kExtensions[] = {".xbx", ".skin", ".tex",  ".cas", ".col", ".img", ".png",
                                               ".mdl", ".ske",  ".geom", ".txx", ".dds", ".bmp"};
     for (bool again = true; again;) {
         again = false;
@@ -374,7 +387,8 @@ void load_once()
     s_done = true;
     int setting = config_int("features", "thugpro_parts", 1);
     if (!setting) {
-        get_log("THUGPRO CAS (TP-R10): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to THUG2's");
+        get_log("THUGPRO CAS (TP-R10): off ([features] thugpro_parts=0) - a THUGPRO player's own parts fall back to "
+                "THUG2's");
         return;
     }
     std::string folder = install_folder();
@@ -382,15 +396,16 @@ void load_once()
     std::vector<uint8_t> archive = read_whole_file(archive_path);
     if (archive.empty()) {
         get_log("THUGPRO CAS (TP-R10): no THUGPRO install at %s - a THUGPRO player's own parts fall back to THUG2's "
-            "([features] thugpro_folder= names another)",
-            folder.c_str());
+                "([features] thugpro_folder= names another)",
+                folder.c_str());
         return;
     }
     s_data = folder + "\\data\\";
     std::vector<std::string> names(std::begin(kFiles), std::end(kFiles));
     std::vector<std::pair<std::string, std::vector<uint8_t>>> files;
     if (!read_archive(archive, names, &files)) {
-        get_log("THUGPRO CAS (TP-R10): %s isn't an archive we can read - THUGPRO's parts not loaded", archive_path.c_str());
+        get_log("THUGPRO CAS (TP-R10): %s isn't an archive we can read - THUGPRO's parts not loaded",
+                archive_path.c_str());
         return;
     }
     // The arrays that are also our part lists, and every path our own parts name (never served from THUGPRO's).
@@ -466,11 +481,12 @@ void load_once()
     }
     memory::leave_heap_scope();
     s_served.store(new std::set<std::string>(s_their_files)); // (kept for the game's life)
-    get_log("THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
+    get_log(
+        "THUGPRO CAS (TP-R10): %d of THUGPRO's parts added to %d of our lists from %s (%s); %d left out (files not in "
         "the install's loose data); %d of its loose files to read from there when asked for",
         added, lists, archive_path.c_str(),
         setting == 1 ? "hidden from our menus" : "offered in our CAS menus too: thugpro_parts=2", skipped,
         static_cast<int>(s_their_files.size()));
 }
 
-} // namespace GameObjects::thugpro_cas
+} // namespace objects::thugpro_cas

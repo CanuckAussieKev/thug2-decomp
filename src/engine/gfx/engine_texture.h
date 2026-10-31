@@ -29,15 +29,17 @@ public:
     // "images/" (a "../" taken off instead); named by the CRC of the name after its last slash. Whether it was.
     bool load_by_name(const char* name, int in_images, int argument);
     // 0x0049F300: loaded from an image in memory (slot 2 with the other arguments), named `checksum`. Whether it was.
-    bool read_from_ram_block(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4, uint32_t a5);
+    bool read_from_ram_block(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
+                             uint32_t a5);
     // 0x0049F330 (not a function in Ghidra): made (slot 3 with all the arguments), named `checksum`. Whether it was.
-    bool fabricate(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel, uint32_t a4, uint32_t a5);
+    bool fabricate(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel, uint32_t a4,
+                   uint32_t a5);
     // 0x0049F3F0: kept or not when its dictionary is flushed.
     void pin_resident(bool permanent);
 
     void** vtable;
-    uint32_t checksum_; // +0x04
-    uint32_t flag_bits_;    // +0x08 (the platform's low half: PcTexture's)
+    uint32_t checksum_;  // +0x04
+    uint32_t flag_bits_; // +0x08 (the platform's low half: PcTexture's)
 };
 static_assert(sizeof(BitmapTexture) == 0xC, "layout must match the original");
 
@@ -66,4 +68,4 @@ inline uint16_t texels_down(void* texture)
     return reinterpret_cast<uint16_t(__thiscall*)(void*)>((*static_cast<void***>(texture))[34])(texture);
 }
 
-} // namespace Nx
+} // namespace render

@@ -18,6 +18,6 @@ bool made_for(const uint8_t* patch, size_t patch_size, const uint8_t* input, siz
 // Apply `patch` to `input`: true and a malloc'd `*output` of `*output_size` bytes, or false (the wrong patch for the
 // input, or a checksum that doesn't match; logged) with `*output` null.
 bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, size_t input_size, uint8_t** output,
-           size_t* output_size);
+               size_t* output_size);
 
-} // namespace Bps
+} // namespace bps

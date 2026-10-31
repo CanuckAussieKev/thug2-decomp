@@ -29,8 +29,8 @@ struct VolumeRef {
     enum : int {
         kTypeStereo = 0,
         kTypePositional = 1,
-        kTypeSurround = 2,   // 5 channels
-        kType3d = 3,         // the voice's 3D buffer places it (never silent)
+        kTypeSurround = 2, // 5 channels
+        kType3d = 3,       // the voice's 3D buffer places it (never silent)
     };
 
     // 0x0047B030 (returns this): the manager's default type, every channel 0.
@@ -48,10 +48,10 @@ struct VolumeRef {
 
     int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
 
-    float lanes_[5];      // +0x00
-    int kind_tag_;               // +0x14
-    maths::Vec4 anchor_point_;   // +0x18: 3D: where the sound is
-    float dropoff_;          // +0x28: 3D: its range
+    float lanes_[5];           // +0x00
+    int kind_tag_;             // +0x14
+    maths::Vec4 anchor_point_; // +0x18: 3D: where the sound is
+    float dropoff_;            // +0x28: 3D: its range
 };
 static_assert(sizeof(VolumeRef) == 0x2C, "layout must match the original");
 
@@ -62,39 +62,39 @@ struct PcWave {
     // format's bytes-per-second long: one second, whatever the data chunk's size.)
     bool read_in(const char* file_name, uint32_t desc_flags);
 
-    uint16_t format_tag_;        // +0x00 (WAVEFORMATEX)
-    uint16_t channels;         // +0x02
-    uint32_t samples_per_second_; // +0x04
-    uint32_t bytes_per_second_;   // +0x08
-    uint16_t block_align_;       // +0x0C
-    uint16_t bits_per_sample_;    // +0x0E
-    uint16_t extra_size_;        // +0x10
-    uint16_t unknown12;        // +0x12 (0x40 once loaded)
-    uint32_t desc_size_;         // +0x14 (DSBUFFERDESC: 0x24)
-    uint32_t desc_flags_;        // +0x18
-    uint32_t desc_bytes_;        // +0x1C
-    uint32_t desc_reserved_;     // +0x20
-    PcWave* desc_format_;        // +0x24: this (the WAVEFORMATEX at its start)
+    uint16_t format_tag_;           // +0x00 (WAVEFORMATEX)
+    uint16_t channels;              // +0x02
+    uint32_t samples_per_second_;   // +0x04
+    uint32_t bytes_per_second_;     // +0x08
+    uint16_t block_align_;          // +0x0C
+    uint16_t bits_per_sample_;      // +0x0E
+    uint16_t extra_size_;           // +0x10
+    uint16_t unknown12;             // +0x12 (0x40 once loaded)
+    uint32_t desc_size_;            // +0x14 (DSBUFFERDESC: 0x24)
+    uint32_t desc_flags_;           // +0x18
+    uint32_t desc_bytes_;           // +0x1C
+    uint32_t desc_reserved_;        // +0x20
+    PcWave* desc_format_;           // +0x24: this (the WAVEFORMATEX at its start)
     uint32_t desc_3d_algorithm_[4]; // +0x28
-    uint32_t data_size_;         // +0x38
-    uint8_t* data;             // +0x3C
-    bool looping;              // +0x40: the file's smpl chunk has loops
+    uint32_t data_size_;            // +0x38
+    uint8_t* data;                  // +0x3C
+    bool looping;                   // +0x40: the file's smpl chunk has loops
 };
 static_assert(sizeof(PcWave) == 0x44 && offsetof(PcWave, desc_size_) == 0x14 && offsetof(PcWave, data) == 0x3C,
               "layout must match the original");
 
 // A wave table entry (0x1C bytes).
 struct SoundWaveSlot {
-    uint32_t checksum;    // +0x00: of the file's name (without folders)
-    uint16_t flags;       // +0x04
-    uint8_t load_type_;     // +0x06: 0 = level (the temporary table), else permanent (2: ... by group)
-    uint8_t group;        // +0x07
-    float pitch;          // +0x08 (percent)
-    float volume;         // +0x0C (percent)
-    float dropoff;        // +0x10 (0: the default 0x0067DA34)
-    PcWave* wave;         // +0x14
-    bool looping;         // +0x18
-    bool not_streamed_;     // +0x19
+    uint32_t checksum;  // +0x00: of the file's name (without folders)
+    uint16_t flags;     // +0x04
+    uint8_t load_type_; // +0x06: 0 = level (the temporary table), else permanent (2: ... by group)
+    uint8_t group;      // +0x07
+    float pitch;        // +0x08 (percent)
+    float volume;       // +0x0C (percent)
+    float dropoff;      // +0x10 (0: the default 0x0067DA34)
+    PcWave* wave;       // +0x14
+    bool looping;       // +0x18
+    bool not_streamed_; // +0x19
     uint8_t unknown1a_[2];
 };
 static_assert(sizeof(SoundWaveSlot) == 0x1C, "layout must match the original");
@@ -102,49 +102,49 @@ static_assert(sizeof(SoundWaveSlot) == 0x1C, "layout must match the original");
 // How a sound plays (0x2C bytes): from the play parameters {pitch, volume, dropoff, falloff} and the wave's
 // defaults.
 struct PlaybackProps {
-    uint32_t checksum;    // +0x00
-    float dropoff;        // +0x04
-    float pitch;          // +0x08 (percent)
-    float volume;         // +0x0C (percent)
-    float pitch2;         // +0x10
-    float volume2;        // +0x14
-    float pitch3;         // +0x18
-    float volume3;        // +0x1C
-    uint32_t unknown20;   // +0x20
-    uint32_t unknown24;   // +0x24
-    uint32_t falloff;     // +0x28
+    uint32_t checksum;  // +0x00
+    float dropoff;      // +0x04
+    float pitch;        // +0x08 (percent)
+    float volume;       // +0x0C (percent)
+    float pitch2;       // +0x10
+    float volume2;      // +0x14
+    float pitch3;       // +0x18
+    float volume3;      // +0x1C
+    uint32_t unknown20; // +0x20
+    uint32_t unknown24; // +0x24
+    uint32_t falloff;   // +0x28
 };
 static_assert(sizeof(PlaybackProps) == 0x2C, "layout must match the original");
 
 // A sound playing (0x3C bytes; 48 of them).
 struct PlayingSound {
-    uint32_t unique_id_;        // +0x00
-    uint32_t checksum;        // +0x04
-    SoundWaveSlot* entry;    // +0x08
-    PlaybackProps props;      // +0x0C
-    uint32_t unknown38;       // +0x38: the next time (frame_clock::GetTime) a distant positional sound is checked
+    uint32_t unique_id_;  // +0x00
+    uint32_t checksum;    // +0x04
+    SoundWaveSlot* entry; // +0x08
+    PlaybackProps props;  // +0x0C
+    uint32_t unknown38;   // +0x38: the next time (frame_clock::GetTime) a distant positional sound is checked
 };
 static_assert(sizeof(PlayingSound) == 0x3C, "layout must match the original");
 
 // A positional sound following an object (0x18 bytes; 128 of them).
 struct PositionalSound {
-    uint32_t unique_id_;        // +0x00
-    uint32_t checksum;        // +0x04
-    uint32_t in_use_;           // +0x08 (bit 0)
-    objects::Entity* object;     // +0x0C
-    PositionalSound* next;    // +0x10
-    PositionalSound* prev;    // +0x14
+    uint32_t unique_id_;     // +0x00
+    uint32_t checksum;       // +0x04
+    uint32_t in_use_;        // +0x08 (bit 0)
+    objects::Entity* object; // +0x0C
+    PositionalSound* next;   // +0x10
+    PositionalSound* prev;   // +0x14
 };
 
 // One of the driver's voices (0x18 bytes; up to 48).
 struct Voice {
-    void* buffer;             // +0x00: IDirectSoundBuffer
-    void* buffer_3d_;           // +0x04: IDirectSound3DBuffer (3D hardware only)
-    int base_frequency_;        // +0x08
-    int frequency;            // +0x0C: the last set
-    bool playing;             // +0x10
+    void* buffer;        // +0x00: IDirectSoundBuffer
+    void* buffer_3d_;    // +0x04: IDirectSound3DBuffer (3D hardware only)
+    int base_frequency_; // +0x08
+    int frequency;       // +0x0C: the last set
+    bool playing;        // +0x10
     uint8_t unknown11[3];
-    PcWave* wave;             // +0x14
+    PcWave* wave; // +0x14
 };
 
 class AudioMixer {
@@ -168,7 +168,7 @@ public:
     // 0x0047B360: `path` loaded into the level (`loadType` 0) or the permanent table; false if it's loaded
     // already, the table is full (256) or the file can't be read.
     bool ingest_sound(const char* path, uint16_t flags, int load_type, int group, float dropoff, float pitch,
-                   float volume);
+                      float volume);
     // 0x0047B480: the wave's volume (and the game's 50 %) applied to `volume`, its pitch to `pitch`.
     void adjust_volume_and_pitch(VolumeRef* volume, float* pitch, SoundWaveSlot* entry);
     // 0x0047B4E0: the sound `id` stopped (false if it isn't playing).
@@ -202,7 +202,7 @@ public:
     // 0x0047B8E0: `pitch` shifted by the sound's motion relative to the camera (Doppler): `position` now,
     // `previous` a frame ago, over `frame_seconds` (nothing when it moved more than 360 units a 60th).
     void doppler_shift(float* pitch, const maths::Vec4* position, const maths::Vec4* previous, float frame_seconds,
-                      void* camera);
+                       void* camera);
     // 0x0047BA00: the props of the positional sound of `object` with that unique id (or, `by_checksum`, name), if
     // it's playing.
     PlaybackProps* get_positional_props(objects::Entity* object, uint32_t id, bool by_checksum);
@@ -215,23 +215,25 @@ public:
     void halt_object_sound(objects::Entity* object, uint32_t checksum);
     // 0x0047BD20: the sound `checksum` played at `volume` / `pitch` (the unique id `uniqueId`, else the name;
     // made free); `params` its play parameters. Returns the unique id (0: not played).
-    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, void* params, int unused);
+    uint32_t emit_sound(uint32_t checksum, VolumeRef* volume, float pitch, uint32_t unique_id, void* params,
+                        int unused);
     // 0x0047BE10: `volume` for a sound at `position` heard from `camera` (the nearest if null): a level by the
     // distance over `dropoff` (falloff 0 smooth, 1 linear, 2 squared, 3 root), 3D. False when it's out of range
     // (5 % past the dropoff); true otherwise, or when paused (then silent).
     bool fetch_loudness(VolumeRef* volume, const maths::Vec4* position, float dropoff, int falloff, void* camera,
-                   void* extent);
+                        void* extent);
     // 0x0047C140: the sound played on `object` (positional unless `not_positional`); a silent looping one is kept
     // by the object to start later (unless `force`, which plays it anyway). Returns the unique id.
-    uint32_t play_object_sound(uint32_t checksum, void* params, objects::Entity* object, bool not_positional, bool force);
+    uint32_t play_object_sound(uint32_t checksum, void* params, objects::Entity* object, bool not_positional,
+                               bool force);
     // 0x0047C360: a positional sound's volume and pitch from its object's place; false when it should stop.
     bool update_positional_sound(objects::Entity* object, PlayingSound* sound, uint32_t time);
     // 0x0047C560: every positional sound updated; those that ended or stop are dropped.
     void tick_positional_sounds();
 
-    uint8_t mute_override_;   // +0x00
+    uint8_t mute_override_; // +0x00
     uint8_t unknown1_[3];
-    int fallback_channel_mode_;  // +0x04
+    int fallback_channel_mode_; // +0x04
 };
 
 // 0x0047AC10: the falloff function named by `checksum` (0: linear and others).
@@ -288,4 +290,4 @@ extern int g_permanent_count;
 extern int g_level_count;
 extern int g_positional_count;
 
-} // namespace Sfx
+} // namespace sound

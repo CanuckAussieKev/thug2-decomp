@@ -70,4 +70,4 @@ struct Spot {
 };
 bool parse_spot(const std::string& text, Spot* out);
 
-} // namespace MenuSystem::begin_level
+} // namespace frontend::begin_level

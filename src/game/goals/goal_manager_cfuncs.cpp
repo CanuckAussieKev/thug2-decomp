@@ -275,4 +275,4 @@ bool __cdecl cfunc_goal_manager_next_waypoint(script::Struct* params, script::Sc
     return manager->goals_.get_pull(get_goal_name(params))->step_to_next_waypoint();
 }
 
-} // namespace Game
+} // namespace goals

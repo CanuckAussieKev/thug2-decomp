@@ -25,7 +25,10 @@ constexpr uint32_t kGraffitiColors = 0x7F1BA1AA; // graffitiColors
 
 // An render::WorldCell's: its checksum (+0x04); its geometry (+0x14) told a colour (its vtable +0x18); the colour cleared
 // (0x0049E670); the viewports it shows in (0x0049E680, a mask); drawn and collided with or not (0x0049E9B0).
-inline uint32_t sector_key_from_spec(const uint8_t* sector) { return *reinterpret_cast<const uint32_t*>(sector + 0x04); }
+inline uint32_t sector_key_from_spec(const uint8_t* sector)
+{
+    return *reinterpret_cast<const uint32_t*>(sector + 0x04);
+}
 inline void set_sector_colour(uint8_t* sector, uint32_t rgba)
 {
     void* geometry = *reinterpret_cast<void**>(sector + 0x14);
@@ -45,4 +48,4 @@ inline void enable_sector(uint8_t* sector, bool active)
 }
 
 } // namespace rail_editor_internal
-} // namespace Ed
+} // namespace park_editing

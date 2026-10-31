@@ -86,4 +86,4 @@ extern int g_user_soundtrack;
 
 extern uint32_t g_user_track;
 extern uint32_t g_user_position;
-} // namespace Pcm
+} // namespace audio

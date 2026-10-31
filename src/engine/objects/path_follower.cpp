@@ -25,7 +25,7 @@ namespace {
 
 extern void** const kPathFollowerVtable;
 
-constexpr uint32_t kPathComponent = 0x0A015E17;  // the owner's component that picks links and hears of nodes
+constexpr uint32_t kPathComponent = 0x0A015E17; // the owner's component that picks links and hears of nodes
 
 void** get_vtable() { return kPathFollowerVtable; }
 
@@ -41,10 +41,7 @@ void node_passed(ObjectModule* component, uint32_t node)
     static_cast<KinematicsModule*>(component)->arrive_at_node(node);
 }
 // x, y and z scaled to `length` (0x0042BBF0, not rewritten yet).
-void set_length(maths::Vec4& v, float length)
-{
-    v.set_length(length);
-}
+void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 // D3DXMatrixMultiply (linked library code).
 void d3dx_multiply(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
@@ -174,7 +171,8 @@ bool PathFollower::start_segment()
     along_ = static_cast<float>(along + carry_);
     carry_ = 0.0f;
     maths::Vec4& heading = tick_.row[2];
-    heading = {end_point_.x - segment_origin_.x, end_point_.y - segment_origin_.y, end_point_.z - segment_origin_.z, end_point_.w - segment_origin_.w};
+    heading = {end_point_.x - segment_origin_.x, end_point_.y - segment_origin_.y, end_point_.z - segment_origin_.z,
+               end_point_.w - segment_origin_.w};
     heading.make_unit();
     check_corner();
     return true;
@@ -214,8 +212,7 @@ int PathFollower::compute_arc()
     double my = (static_cast<double>(bend_point_.y) - at_point_.y) * 0.5;
     double mz = static_cast<double>(bend_point_.z - at_point_.z) * 0.5;
     float mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * 0.5);
-    float half_chord =
-        static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
+    float half_chord = static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
     float mid_x = static_cast<float>(static_cast<double>(mx) + at_point_.x);
     float mid_y = static_cast<float>(my + at_point_.y);
     double mid_z = mz + at_point_.z;
@@ -224,8 +221,8 @@ int PathFollower::compute_arc()
     float qy = static_cast<float>(static_cast<double>(mid_y) - segment_origin_.y);
     float qz = static_cast<float>(mid_z - segment_origin_.z);
     double qw = mid_w - segment_origin_.w;
-    double bisector = std::sqrt(static_cast<double>(qz) * qz + static_cast<double>(qy) * qy +
-                                static_cast<double>(qx) * qx);
+    double bisector =
+        std::sqrt(static_cast<double>(qz) * qz + static_cast<double>(qy) * qy + static_cast<double>(qx) * qx);
     float bisectorf = static_cast<float>(bisector);
     bool tight = 6.0 * bisector < half_chord;
     if (tight || bisector == 0.0)
@@ -334,7 +331,8 @@ void PathFollower::kickoff(uint32_t node, const maths::Vec4* position)
             return;
     }
     maths::Vec4& heading = tick_.row[2];
-    heading = {end_point_.x - at_point_.x, end_point_.y - at_point_.y, end_point_.z - at_point_.z, end_point_.w - at_point_.w};
+    heading = {end_point_.x - at_point_.x, end_point_.y - at_point_.y, end_point_.z - at_point_.z,
+               end_point_.w - at_point_.w};
     heading.make_unit();
 }
 
@@ -449,19 +447,15 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
 }
 
 // 0x0046A1B0
-void PathFollower::get_heading(maths::Vec4* out)
-{
-    *out = tick_.row[2];
-}
+void PathFollower::get_heading(maths::Vec4* out) { *out = tick_.row[2]; }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_path_follower_vtable_slots[] = {&objects::PathFollower::teardown,
-         stubs::ignore_argument};
+static VtableSlot g_path_follower_vtable_slots[] = {&objects::PathFollower::teardown, stubs::ignore_argument};
 void** const kPathFollowerVtable = reinterpret_cast<void**>(g_path_follower_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

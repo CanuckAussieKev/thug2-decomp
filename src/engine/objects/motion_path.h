@@ -6,18 +6,18 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
 // MotionPathMembers::motion_flags_ (+0x18)
 constexpr uint32_t kMotionFlagMoving = 0x18;   // (two bits: Obj_IsMoving / Obj_StopMoving)
-constexpr uint32_t kMotionFlagOnPath = 0x10;  // following a path (the speed updated)
+constexpr uint32_t kMotionFlagOnPath = 0x10;   // following a path (the speed updated)
 constexpr uint32_t kMotionFlagRotating = 0x27; // (Obj_IsRotating; Obj_StopRotating also clears 0x40)
 // MotionPathMembers::path_flags_ (+0x1C)
-constexpr uint32_t kMotionPathStopping = 0x8;     // Obj_StopAlongPath: slowing to a stop over a distance
-constexpr uint32_t kMotionPathNoHeading = 0x10;  // Obj_PathHeading off
-constexpr uint32_t kMotionPathRandom = 0x200;     // Obj_RandomPathMode: a random link at each node
+constexpr uint32_t kMotionPathStopping = 0x8;   // Obj_StopAlongPath: slowing to a stop over a distance
+constexpr uint32_t kMotionPathNoHeading = 0x10; // Obj_PathHeading off
+constexpr uint32_t kMotionPathRandom = 0x200;   // Obj_RandomPathMode: a random link at each node
 
 // The motion component's (type 0x0A015E17 "motion") members of 0x00423130-0x00423642: its member-function table, the
 // moving / rotating flags, the path speeds and the speed's update along a path - as they see the component (its
@@ -72,23 +72,23 @@ public:
     int wait_move(script::Struct* params, script::Script* script);
     int wait_stop(script::Struct* params, script::Script* script);
 
-    uint8_t base_[0x18];           // the base component's
-    uint32_t motion_flags_;         // +0x18 MOTION_FLAG_*
-    uint32_t path_flags_;           // +0x1C MOTION_PATH_*
+    uint8_t base_[0x18];    // the base component's
+    uint32_t motion_flags_; // +0x18 MOTION_FLAG_*
+    uint32_t path_flags_;   // +0x1C MOTION_PATH_*
     uint32_t unknown20_;
-    float acceleration_;           // +0x24 inches a second per second
-    float slowdown_rate_;           // +0x28 "
-    float path_velocity_;           // +0x2C inches a second: the speed aimed at
-    float velocity_;               // +0x30 the speed now
-    float stop_distance_;           // +0x34 Obj_StopAlongPath's (inches)
+    float acceleration_;  // +0x24 inches a second per second
+    float slowdown_rate_; // +0x28 "
+    float path_velocity_; // +0x2C inches a second: the speed aimed at
+    float velocity_;      // +0x30 the speed now
+    float stop_distance_; // +0x34 Obj_StopAlongPath's (inches)
     uint8_t unknown38_[0x1A4 - 0x38];
-    float stop_covered_;            // +0x1A4 of the stop's distance
-    float stop_start_velocity_;      // +0x1A8 the speed when it began
-    float min_stop_velocity_;        // +0x1AC Obj_SetPathMinStopVel
+    float stop_covered_;        // +0x1A4 of the stop's distance
+    float stop_start_velocity_; // +0x1A8 the speed when it began
+    float min_stop_velocity_;   // +0x1AC Obj_SetPathMinStopVel
     uint8_t unknown1b0_[0x1E0 - 0x1B0];
-    float step_seconds_;              // +0x1E0 seconds
+    float step_seconds_; // +0x1E0 seconds
     uint8_t unknown1e4_[0x1EC - 0x1E4];
-    void* path_follower_;          // +0x1EC
+    void* path_follower_; // +0x1EC
 };
 static_assert(offsetof(MotionPathMembers, motion_flags_) == 0x18 &&
                   offsetof(MotionPathMembers, acceleration_) == 0x24 &&
@@ -97,4 +97,4 @@ static_assert(offsetof(MotionPathMembers, motion_flags_) == 0x18 &&
                   offsetof(MotionPathMembers, path_follower_) == 0x1EC,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

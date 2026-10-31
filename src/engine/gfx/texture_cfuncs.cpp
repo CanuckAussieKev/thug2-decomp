@@ -23,10 +23,10 @@ using script::Script;
 using script::Struct;
 
 // The names of the texture commands' parameters.
-constexpr uint32_t kWidth = 0x73E5BAD0;  // "width"
-constexpr uint32_t kHeight = 0x0AB21AF0; // "height"
-constexpr uint32_t kSrc = 0x9FBBDB72;    // "src"
-constexpr uint32_t kNew = 0x941CBBBA;    // "new"
+constexpr uint32_t kWidth = 0x73E5BAD0;           // "width"
+constexpr uint32_t kHeight = 0x0AB21AF0;          // "height"
+constexpr uint32_t kSrc = 0x9FBBDB72;             // "src"
+constexpr uint32_t kNew = 0x941CBBBA;             // "new"
 constexpr uint32_t kSetsPaletteFlag = 0xC164842A; // (name unknown) brightness / HSV: an integer, 1 = the flag on
 
 // The texture dictionaries (Nx): the level's / scripts' (0x00700F1C) and the particles' (0x00700F20).
@@ -169,13 +169,13 @@ bool __cdecl cfunc_create_texture(Struct* params, Script*)
     int clut_bits = 0; // (not initialised in the original: only read when needed)
     bool valid = params->fetch_int_value(kWidth, &width, 0);
     valid = params->fetch_int_value(kHeight, &height, 0) && valid;
-    valid = params->fetch_int_value(0xBA0F2AC5u, &bit_depth, 0) && valid; // bitdepth
+    valid = params->fetch_int_value(0xBA0F2AC5u, &bit_depth, 0) && valid;       // bitdepth
     if (bit_depth <= 8 && !params->fetch_int_value(0x51533ECBu, &clut_bits, 0)) // palette_bitdepth
         return false;
     if (!valid)
         return false;
-    return static_cast<render::TextureSet*>(get_textures())->create_texture(name, width, height, bit_depth, clut_bits, 1, true) !=
-           nullptr;
+    return static_cast<render::TextureSet*>(get_textures())
+               ->create_texture(name, width, height, bit_depth, clut_bits, 1, true) != nullptr;
 }
 
 // 0x005AA040
@@ -301,8 +301,8 @@ bool __cdecl cfunc_adjust_texture_region(Struct* params, Script*)
         params->fetch_int_value(0xE679982Eu, &value5, 0); // (names unknown)
         params->fetch_int_value(0x3D0F162Au, &value6, 0);
         params->fetch_int_value(0x39C54BDEu, &value7, 0);
-        texture_call<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width,
-                                                                                 height, value5, value6, value7);
+        texture_call<void(__thiscall*)(void*, int, int, int, int, int, int, int)>(20, texture, x, y, width, height,
+                                                                                  value5, value6, value7);
     }
     return true;
 }
@@ -362,8 +362,7 @@ bool __cdecl cfunc_adjust_texture_hsv(Struct* params, Script*)
         params->fetch_int_value(kSetsPaletteFlag, &bit_value, 0);
         if (bit_value == 1)
             flag = true;
-        texture_call<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value,
-                                                                         flag);
+        texture_call<void(__thiscall*)(void*, float, float, float, bool)>(24, texture, hue, saturation, value, flag);
         texture_call<void(__thiscall*)(void*, bool, bool)>(9, texture, false, false);
     }
     return true;
@@ -377,7 +376,8 @@ bool __cdecl cfunc_copy_texture(Struct* params, Script*)
     void* texture = fetch_skin(get_textures(), source);
     uint32_t copy;
     if (texture && params->read_hash_value(kNew, &copy, 0))
-        static_cast<render::TextureSet*>(get_textures())->copy_texture(copy, static_cast<render::BitmapTexture*>(texture));
+        static_cast<render::TextureSet*>(get_textures())
+            ->copy_texture(copy, static_cast<render::BitmapTexture*>(texture));
     return true;
 }
 
@@ -401,8 +401,9 @@ bool __cdecl cfunc_combine_textures(Struct* params, Script*)
         return true;
     if (combined) {
         // a new texture of the two
-        static_cast<render::TextureSet*>(get_textures())->copy_texture_with_overlay(
-            combined, static_cast<render::BitmapTexture*>(source_texture), static_cast<render::BitmapTexture*>(top_texture), palette_gen);
+        static_cast<render::TextureSet*>(get_textures())
+            ->copy_texture_with_overlay(combined, static_cast<render::BitmapTexture*>(source_texture),
+                                        static_cast<render::BitmapTexture*>(top_texture), palette_gen);
         return true;
     }
     texture_call<void(__thiscall*)(void*, void*, bool)>(41, source_texture, top_texture, palette_gen);

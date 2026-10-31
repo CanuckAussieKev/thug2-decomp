@@ -39,7 +39,7 @@ T& prop(const void* object, uint32_t offset)
 }
 
 // The core physics component's fields read here (THUG2's).
-constexpr uint32_t kObject = 0xC;     // its skater
+constexpr uint32_t kObject = 0xC; // its skater
 // The skater object's.
 constexpr uint32_t kPosition = 0x4C;
 constexpr uint32_t kFacing = 0x8C;
@@ -58,18 +58,41 @@ constexpr const char* kTestAnim = "bmx_idle";
 
 // THAW's bike members (its core physics table, THAW 0x00732368) and ours.
 const char* const kMembers[] = {
-    "SkaterOnBike",   "SkaterOffBike", "IsSkaterOnBike",   "BikeIsInOverGrind", "GetBikeManualAngle",
-    "ResetBikeManualAngle", "BikeInManual", "BikeInXup",   "BikeEnterXup",      "BikeExitXup",
-    "BikeInTireTap",  "BikeEnterSkid", "BikeExitSkid",     "bikeinskid",        "BikeCanSkid",
-    "BikeExitTireTap", "exitbikeendo", "EnterWheelieFromAir", "ThawBmxLoadAssets",
+    "SkaterOnBike",
+    "SkaterOffBike",
+    "IsSkaterOnBike",
+    "BikeIsInOverGrind",
+    "GetBikeManualAngle",
+    "ResetBikeManualAngle",
+    "BikeInManual",
+    "BikeInXup",
+    "BikeEnterXup",
+    "BikeExitXup",
+    "BikeInTireTap",
+    "BikeEnterSkid",
+    "BikeExitSkid",
+    "bikeinskid",
+    "BikeCanSkid",
+    "BikeExitTireTap",
+    "exitbikeendo",
+    "EnterWheelieFromAir",
+    "ThawBmxLoadAssets",
     // (phase 4: the other THAW-only members THAW's bike scripts ask - thaw_bmx_tricks.cpp call_trick_member)
-    "DisplayPitchGreaterThan", "LandedFromTireTap", "InTireTap", "PitchingForward", "PitchingBackward",
-    "ShouldRunStallScript", "ClearStallScriptFlag", "ExitStallBoost", "OnStall",
+    "DisplayPitchGreaterThan",
+    "LandedFromTireTap",
+    "InTireTap",
+    "PitchingForward",
+    "PitchingBackward",
+    "ShouldRunStallScript",
+    "ClearStallScriptFlag",
+    "ExitStallBoost",
+    "OnStall",
     // (ours: bike_playturnanim's turn animation on / off - thaw_bmx_physics.cpp steer_anim)
     "ThawBmxSteerAnim",
     // (THAW's CameraLookAround members - the d-pad turns the camera on the bike: camera_lookaround.cpp, answered only
     // while the feature is on)
-    "LookaroundOnDPad_On", "LookaroundOnDPad_Off",
+    "LookaroundOnDPad_On",
+    "LookaroundOnDPad_Off",
 };
 
 std::unordered_map<const void*, BikeState>& get_states()
@@ -82,9 +105,10 @@ bool run_if_there(const char* name, objects::Entity* object)
 {
     uint32_t checksum = name_hash(name);
     if (!script::script_exists(checksum)) {
-        get_log("thaw_bmx: the script %s isn't loaded - make the overlay with tools/pipeline/menu_level/make_menu_level.ts after "
-            "tools/pipeline/thaw_bmx/convert.ts",
-            name);
+        get_log("thaw_bmx: the script %s isn't loaded - make the overlay with "
+                "tools/pipeline/menu_level/make_menu_level.ts after "
+                "tools/pipeline/thaw_bmx/convert.ts",
+                name);
         return false;
     }
     script::launch_script(checksum, nullptr, object, false, name);
@@ -184,7 +208,8 @@ uint32_t skater_script(const objects::Rider* skater, uint32_t name, const script
     if (!is_switched_on() || !skater || !on_bike(skater->core_physics_))
         return name;
     static const uint32_t kBikeKnockDown = name_hash("bike_PedKnockDown");
-    uint32_t chosen = bike_skater_script(name, caller ? caller->script_title_ : 0, script::script_exists(kBikeKnockDown));
+    uint32_t chosen =
+        bike_skater_script(name, caller ? caller->script_title_ : 0, script::script_exists(kBikeKnockDown));
     if (chosen == 0)
         get_log("thaw_bmx: a ped's knock-down on the bike - not knocked over (THAW's STATESCRIPT_knockdown)");
     else if (chosen != name)
@@ -215,8 +240,10 @@ script::Struct* physics_structure(const void* core)
     script::Struct* physics = script::read_sub_struct(name_hash(kPhysics));
     int now = physics ? 1 : 2;
     if (now != s_logged) {
-        get_log(physics ? "thaw_bmx: on the bike - %s in use"
-                    : "thaw_bmx: on the bike, but %s isn't loaded (the overlay's specialitems.qb) - the skater's physics",
+        get_log(
+            physics
+                ? "thaw_bmx: on the bike - %s in use"
+                : "thaw_bmx: on the bike, but %s isn't loaded (the overlay's specialitems.qb) - the skater's physics",
             kPhysics);
         s_logged = now;
     }
@@ -227,9 +254,9 @@ void set_wheel_points(BikeState& state, const maths::Vec4& position, const maths
 {
     // (THAW: the front one along the facing, the rear one back; w as the sum's)
     state.front_wheel_ = {position.x + facing.x * kWheelOffset, position.y + facing.y * kWheelOffset,
-                        position.z + facing.z * kWheelOffset, position.w + facing.w * kWheelOffset};
+                          position.z + facing.z * kWheelOffset, position.w + facing.w * kWheelOffset};
     state.rear_wheel_ = {position.x - facing.x * kWheelOffset, position.y - facing.y * kWheelOffset,
-                       position.z - facing.z * kWheelOffset, position.w - facing.w * kWheelOffset};
+                         position.z - facing.z * kWheelOffset, position.w - facing.w * kWheelOffset};
 }
 
 int invoke_method_by_name(void* core, uint32_t name, script::Struct* params, script::Script* script)
@@ -244,8 +271,8 @@ int invoke_method_by_name(void* core, uint32_t name, script::Struct* params, scr
                           kExitSkid = name_hash("BikeExitSkid"), kInSkid = name_hash("bikeinskid"),
                           kCanSkid = name_hash("BikeCanSkid"), kExitTireTap = name_hash("BikeExitTireTap"),
                           kExitEndo = name_hash("exitbikeendo"), kLoad = name_hash("ThawBmxLoadAssets"),
-                          kEnterWheelie = name_hash("EnterWheelieFromAir"),
-                          kManualAngle = name_hash("manual_angle"), kNose = name_hash("nose");
+                          kEnterWheelie = name_hash("EnterWheelieFromAir"), kManualAngle = name_hash("manual_angle"),
+                          kNose = name_hash("nose");
     auto nose = [&](bool set) {
         if (set && script && script->args_)
             script->args_->put_int(kNose, 1);
@@ -355,7 +382,7 @@ void register_script_functions()
     auto by_name = [](const std::string& text) { return static_cast<int>(SDL_GetScancodeFromName(text.c_str())); };
     g_key = sys::screenshot::parse_key(setting, SDL_SCANCODE_F7, by_name);
     get_log("thaw_bmx: on - %s gets on / off THAW's BMX in a level (also the pause menu, or the script %s)",
-        SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)), kToggleScript);
+            SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)), kToggleScript);
 }
 
 void on_skater_reset(objects::Rider* skater)
@@ -387,10 +414,10 @@ void tick_frame(modules::FrontEnd* front_end)
     bool down = keys && g_key > 0 && g_key < SDL_NUM_SCANCODES && keys[g_key];
     bool pressed = down && g_key_up;
     g_key_up = !down;
-    if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() || (front_end && front_end->is_halted_) ||
-        render::current_level() == 0)
+    if (!pressed || frame_loop::frames_run() == 0 || frontend::level_editor::live_now() ||
+        (front_end && front_end->is_halted_) || render::current_level() == 0)
         return;
     run_if_there(kToggleScript, nullptr);
 }
 
-} // namespace Skater::ThawBmx
+} // namespace skater::thaw_bmx

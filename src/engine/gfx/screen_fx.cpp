@@ -87,7 +87,7 @@ uint32_t tap_colour(float weight)
 
 // 0x004DE5E0
 void __cdecl draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour,
-                            bool shader)
+                              bool shader)
 {
     bool fog_was_on = g_fog_active != 0;
     change_fog(false);
@@ -161,9 +161,7 @@ void __cdecl begin_screen_effects()
             set_render_target_and_depth(surface, z_buffer_surface());
     }
     // The clear colour: the fog's with distance clipping and fog on (0x007D643A, 0x007D6436), else 0x00786CC0.
-    uint32_t colour = (g_fog_setting && g_distance_clipping)
-                          ? g_fog_colour
-                          : g_camera.background_colour_;
+    uint32_t colour = (g_fog_setting && g_distance_clipping) ? g_fog_colour : g_camera.background_colour_;
     input_port()->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, colour, 1.0f, 0);
     surface->Release();
     screen_copy_in_use() = true;
@@ -261,7 +259,8 @@ void __cdecl get_bloom()
         TexturedVertex quad[4] = {
             {0.0f, 0.0f, 1.0f, 1.0f, colour, half_x_float, half_y_float},
             {width, 0.0f, 1.0f, 1.0f, colour, 1.0f, half_y_float},
-            {0.0f, height, 1.0f, 1.0f, colour, half_x_float, static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
+            {0.0f, height, 1.0f, 1.0f, colour, half_x_float,
+             static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
             {width, static_cast<float>(static_cast<double>(height) - half_y_float), 1.0f, 1.0f, colour,
              static_cast<float>(half_x + 1.0), static_cast<float>(static_cast<double>(half_y_float) + 1.0)},
         };
@@ -282,4 +281,4 @@ void __cdecl get_bloom()
     set_pixel_shader(nullptr, nullptr);
 }
 
-} // namespace Nx
+} // namespace render

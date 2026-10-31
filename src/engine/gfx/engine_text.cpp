@@ -21,7 +21,10 @@ extern void** const kTextVtable;
 GlyphString*& free_list() { return g_free_texts; }
 
 // The platform's updates (virtual [2]-[5]).
-void tick_frame(GlyphString* text, int slot) { reinterpret_cast<void(__thiscall*)(GlyphString*)>(text->vtable_[slot])(text); }
+void tick_frame(GlyphString* text, int slot)
+{
+    reinterpret_cast<void(__thiscall*)(GlyphString*)>(text->vtable_[slot])(text);
+}
 
 // Memory from the front end's heap.
 void* front_end_new(unsigned int size)
@@ -53,7 +56,10 @@ CharEffect* new_effects()
 void delete_effects(CharEffect* effects) { memory::dealloc(reinterpret_cast<int*>(effects) - 1); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 16 bits kept.
-int16_t get_fixed(float value) { return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * 16384.0)); }
+int16_t get_fixed(float value)
+{
+    return static_cast<int16_t>(static_cast<int64_t>(static_cast<double>(value) * 16384.0));
+}
 
 } // namespace
 
@@ -264,9 +270,13 @@ void __cdecl free_text(GlyphString* text)
 }
 
 namespace {
-static VtableSlot g_text_vtable_slots[] = {&render::GlyphString::teardown, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing,
-                stubs::do_nothing, stubs::do_nothing};
+static VtableSlot g_text_vtable_slots[] = {&render::GlyphString::teardown,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing};
 void** const kTextVtable = reinterpret_cast<void**>(g_text_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

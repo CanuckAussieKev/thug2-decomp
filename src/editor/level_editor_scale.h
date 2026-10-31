@@ -15,7 +15,7 @@ struct TriMeshSource;
 struct HitTreeNode;
 struct MeshRef;
 struct VertexBuffer;
-} // namespace Nx
+} // namespace render
 namespace objects {
 class GameEntity;
 }
@@ -69,7 +69,10 @@ inline V3 get_uniform(float s) { return {s, s, s}; }
 // Scaled by `factor` (along the world's axes) about `pivot` (a world point, where it is now): x' = (x - pivot) * factor
 // + pivot, per axis.
 void scale_about(Placement* placement, V3 pivot, V3 factor);
-inline void scale_about(Placement* placement, V3 pivot, float factor) { scale_about(placement, pivot, get_uniform(factor)); }
+inline void scale_about(Placement* placement, V3 pivot, float factor)
+{
+    scale_about(placement, pivot, get_uniform(factor));
+}
 // The factor a selection may be scaled by (per axis): `factor` limited so that each member's scale (`scales`, along
 // the same axes) times it stays within kMin and that member's limit (`limits`: kMax, or less for compressed
 // collision). 1 on an axis that can't go that way at all; a factor that isn't a positive number is 1. `uniform`: the
@@ -107,13 +110,13 @@ RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, i
 // A vertex buffer's positions (the first 12 bytes of each of `count` vertices `stride` apart) written from `original`
 // (x, y, z each) as Rebuilt.
 void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
-                      int quarters, V3 scale);
+                       int quarters, V3 scale);
 // A normal of the copy for a piece scaled by `scale` and turned `quarters`: get_quarter_turn(normalise(n / scale)) - the
 // inverse transpose of a per-axis scale (unscaled: just turned, not normalised again; zero stays zero).
 V3 scaled_normal(V3 n, V3 scale, int quarters);
 // The normals (at `offset` in each vertex) written from `original` as scaled_normal.
 void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
-                    int quarters);
+                     int quarters);
 // Where a mesh's vertices keep their normal (-1: none): its vertex format (MeshRef +0x38) a Direct3D FVF with XYZ
 // positions and NORMAL (0x10) - the normal's three floats after the position - in a vertex of `stride` bytes. (Meshes
 // with one of the built-in vertex shaders have a handle there, not an FVF: none.)
@@ -161,7 +164,7 @@ std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarte
 // (the placement's: along the piece's axes when first touched, the engine then at `quarters0`) about that position.
 // False (nothing written) when the sector no longer matches its copy (another level).
 bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
-             int quarters0);
+                int quarters0);
 // The largest scale along each world axis a sector's collision allows (kMax with none, or not compressed), its scale
 // along them now being `world_scale`.
 V3 get_limit(uint8_t* sector, V3 world_scale);
@@ -180,4 +183,4 @@ V3 object_limit(objects::GameEntity* object);
 // A new level: the objects' records forgotten (their collision copies belong to the objects).
 void forget_objects();
 
-} // namespace MenuSystem::level_editor::scale_tool
+} // namespace frontend::level_editor::scale_tool

@@ -117,7 +117,7 @@ void BillboardQuad::change_scale(float xscale, float yscale)
         width = static_cast<float>(texels_across(bitmap_));
         height = static_cast<float>(texels_down(bitmap_));
     }
-    constexpr float kNarrowest = 1.25f;                                // 0x00649AC4
+    constexpr float kNarrowest = 1.25f;                             // 0x00649AC4
     constexpr float kMinHeight = std::bit_cast<float>(0x3F955326u); // 0x00649AC0: 1.1666
     if (xscale > 0.0f && static_cast<double>(width) * xscale <= kNarrowest)
         xscale = static_cast<float>(static_cast<double>(kNarrowest) / width);
@@ -248,13 +248,24 @@ void TexturedQuad::change_rgba(uint32_t rgba)
 }
 
 namespace {
-static VtableSlot g_sprite_vtable_slots[] = {&render::BillboardQuad::teardown, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing,
-                stubs::do_nothing, stubs::do_nothing};
+static VtableSlot g_sprite_vtable_slots[] = {&render::BillboardQuad::teardown,
+                                             stubs::do_nothing,
+                                             stubs::do_nothing,
+                                             stubs::do_nothing,
+                                             stubs::do_nothing,
+                                             stubs::do_nothing};
 void** const kSpriteVtable = reinterpret_cast<void**>(g_sprite_vtable_slots);
-static VtableSlot g_quad_vtable_slots[] = {&render::TexturedQuad::teardown, &render::TexturedQuad::fabricate, stubs::do_nothing,
-                stubs::do_nothing, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing, stubs::do_nothing,
-                stubs::ignore_argument, stubs::ignore_argument};
+static VtableSlot g_quad_vtable_slots[] = {&render::TexturedQuad::teardown,
+                                           &render::TexturedQuad::fabricate,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::do_nothing,
+                                           stubs::ignore_argument,
+                                           stubs::ignore_argument};
 void** const kQuadVtable = reinterpret_cast<void**>(g_quad_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

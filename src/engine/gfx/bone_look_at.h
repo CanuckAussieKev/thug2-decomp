@@ -9,7 +9,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // An object's bones turned to look at something (gfx::BoneLookAt, 0x1A4 bytes, vtable 0x006488D8 - its base is the
 // pose modifier at 0x0064877C, 0x14 bytes: +4 its owner, +8 the object, +0x10 its id; the base's code is at
@@ -25,7 +25,7 @@ maths::QuatRotation* __cdecl angles_to_quat(maths::QuatRotation* out, const math
 maths::Vec4* __cdecl quat_to_euler(maths::Vec4* out, const maths::QuatRotation* rotation);
 // 0x00487EE0 (cdecl): `v` clamped (ClampVector::Confine) into `out`. Returns out.
 maths::Vec4* __cdecl clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min,
-                                   const maths::Vec4* max);
+                                    const maths::Vec4* max);
 // A vector clamped.
 struct ClampVector : maths::Vec4 {
     // 0x00487E00: each of the four components kept to min..max (above max: max; then below min: min - a NaN stays).
@@ -37,18 +37,18 @@ class BoneLookAt {
 public:
     // One bone's look-at (0x64 bytes).
     struct Bone {
-        uint32_t bone_;       // +0x00 its name (-1: none)
-        uint32_t aim_point_;     // +0x04 the object looked at (its id)
-        float weight_;        // +0x08 the clamped angles' scale (1)
-        int pivot_dir_;            // +0x0C which way the bone looks: +-1 / +-2 x / z turned a quarter, +-3 as it is
-        maths::Vec4 lower_limit_;     // +0x10 the angle limits (radians; w 1)
-        maths::Vec4 upper_limit_;     // +0x20
-        maths::Vec4 look_goal_; // +0x30 the point looked at
-        maths::Vec4 shift_;  // +0x40 from the target object's position (w 1)
-        maths::QuatRotation orientation_turn_;  // +0x50 the turn last applied
-        bool active_;         // +0x60
-        bool fixed_pos_;       // +0x61: look_goal_ given (the target object isn't followed)
-        bool clamp_;          // +0x62: the angles clamped and scaled (else each one past its limits zeroed)
+        uint32_t bone_;           // +0x00 its name (-1: none)
+        uint32_t aim_point_;      // +0x04 the object looked at (its id)
+        float weight_;            // +0x08 the clamped angles' scale (1)
+        int pivot_dir_;           // +0x0C which way the bone looks: +-1 / +-2 x / z turned a quarter, +-3 as it is
+        maths::Vec4 lower_limit_; // +0x10 the angle limits (radians; w 1)
+        maths::Vec4 upper_limit_; // +0x20
+        maths::Vec4 look_goal_;   // +0x30 the point looked at
+        maths::Vec4 shift_;       // +0x40 from the target object's position (w 1)
+        maths::QuatRotation orientation_turn_; // +0x50 the turn last applied
+        bool active_;                          // +0x60
+        bool fixed_pos_;                       // +0x61: look_goal_ given (the target object isn't followed)
+        bool clamp_; // +0x62: the angles clamped and scaled (else each one past its limits zeroed)
         uint8_t pad63;
     };
     static_assert(sizeof(Bone) == 0x64, "layout must match the original");
@@ -86,11 +86,11 @@ public:
 
     void** vtable;
     void* owner_ptr_;       // +0x04
-    uint8_t* owner_object_;   // +0x08 (a composite object)
-    uint32_t unknownc_;  // +0x0C
+    uint8_t* owner_object_; // +0x08 (a composite object)
+    uint32_t unknownc_;     // +0x0C
     uint32_t ident_;        // +0x10
-    Bone bones_[4];     // +0x14
+    Bone bones_[4];         // +0x14
 };
 static_assert(offsetof(BoneLookAt, bones_) == 0x14 && sizeof(BoneLookAt) == 0x1A4, "layout must match the original");
 
-} // namespace Gfx
+} // namespace gfx

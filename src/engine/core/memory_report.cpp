@@ -49,7 +49,8 @@ void log_memory_use(const char* when)
     Zone* main = manager->primary_zone_;
     std::string line;
     char part[160];
-    std::snprintf(part, sizeof(part), "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),
+    std::snprintf(part, sizeof(part),
+                  "main block %d KB, free %d KB (least %d KB); heaps:", kb(sizes::main_block_size()),
                   kb(main->free_byte_count()), kb(main->min_available_));
     line += part;
     for (MemSource* heap = manager->first_zone(); heap; heap = manager->following_zone(heap)) {
@@ -65,7 +66,8 @@ void log_memory_use(const char* when)
     address_space(total, largest);
     if (K32GetProcessMemoryInfo(GetCurrentProcess(), &counters, sizeof(counters))) {
         std::snprintf(part, sizeof(part), "; process: private %d MB (peak %d MB)",
-                      static_cast<int>(counters.PagefileUsage >> 20), static_cast<int>(counters.PeakPagefileUsage >> 20));
+                      static_cast<int>(counters.PagefileUsage >> 20),
+                      static_cast<int>(counters.PeakPagefileUsage >> 20));
         line += part;
     }
     std::snprintf(part, sizeof(part), ", address space free %d MB (largest %d MB)", static_cast<int>(total >> 20),
@@ -74,4 +76,4 @@ void log_memory_use(const char* when)
     get_log("memory %s: %s", when, line.c_str());
 }
 
-} // namespace Mem
+} // namespace memory

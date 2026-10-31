@@ -12,22 +12,22 @@ namespace render {
 // The PC sprite (0x48 bytes, vtable 0x0064A744; made by build_sprite_quad 0x004B2A80).
 struct PcSprite {
     void** vtable;
-    uint8_t* texture;     // +0x04: the engine's texture holder (+0x10 the texture, through one more pointer with
-                          // flag 1 of its +0x08), or null
+    uint8_t* texture; // +0x04: the engine's texture holder (+0x10 the texture, through one more pointer with
+                      // flag 1 of its +0x08), or null
     uint8_t engine08[4];
     float x, y;           // +0x0C
     float xscale, yscale; // +0x14
-    float hot_x_, hot_y_;     // +0x1C: the hot spot, -1..1 across the sprite
+    float hot_x_, hot_y_; // +0x1C: the hot spot, -1..1 across the sprite
     float rotation;       // +0x24
     float priority;       // +0x28
     uint8_t engine_2c_[4];
     uint16_t width, height; // +0x30
-    uint8_t hidden;       // +0x34
+    uint8_t hidden;         // +0x34
     uint8_t engine35[2];
     uint8_t flip_v_, flip_u_; // +0x37
-    uint8_t colour[4];    // +0x39 (unaligned)
+    uint8_t colour[4];        // +0x39 (unaligned)
     uint8_t engine_3d_[7];
-    QuadSprite* sprite;      // +0x44
+    QuadSprite* sprite; // +0x44
 
     // 0x004C70E0: construct - the 2D sprite made with priority 0 (none without memory). Returns this.
     PcSprite* make_new();
@@ -45,8 +45,7 @@ struct PcSprite {
 };
 static_assert(offsetof(PcSprite, x) == 0xC && offsetof(PcSprite, priority) == 0x28 &&
                   offsetof(PcSprite, width) == 0x30 && offsetof(PcSprite, flip_v_) == 0x37 &&
-                  offsetof(PcSprite, colour) == 0x39 && offsetof(PcSprite, sprite) == 0x44 &&
-                  sizeof(PcSprite) == 0x48,
+                  offsetof(PcSprite, colour) == 0x39 && offsetof(PcSprite, sprite) == 0x44 && sizeof(PcSprite) == 0x48,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

@@ -29,35 +29,32 @@ namespace {
 using script::Array;
 using script::Struct;
 
-constexpr uint32_t kPart = 0xB6F08F39;            // "part"
-constexpr uint32_t kPlayer = 0x67E6859A;          // "player"
-constexpr uint32_t kTiltDegrees = 0x5582FE27;       // "Skew_Angle"
-constexpr uint32_t kVelX = 0x6187906D;            // "vel_x"
-constexpr uint32_t kVelY = 0x1680A0FB;            // "vel_y"
-constexpr uint32_t kVelZ = 0x8F89F141;            // "vel_z"
-constexpr uint32_t kScale = 0x13B9DA7B;           // "scale"
-constexpr uint32_t kScaledX = 0xBDED7A76;         // "scaled_x"
-constexpr uint32_t kScaledY = 0xCAEA4AE0;         // "scaled_y"
-constexpr uint32_t kScaledZ = 0x53E31B5A;         // "scaled_z"
-constexpr uint32_t kType = 0x7321A8D6;            // "type"
-constexpr uint32_t kStreamCount = 0x58492707;     // (name unknown) PlaySkaterStream: how many streams there are (10)
-constexpr uint32_t kLastName = 0x37F745A5;        // "last_name"
-constexpr uint32_t kVoice = 0x1804A7C4;           // "voice"
-constexpr uint32_t kPlayerVoices = 0xCA1DB456;    // "player_voices"
-constexpr uint32_t kId = 0x40C698AF;              // "id"
-constexpr uint32_t kStreamName = 0x1A6BE294;      // "play_skater_stream_name"
-constexpr uint32_t kIsMale = 0x3F813177;          // "is_male"
-constexpr uint32_t kStreamChecksum = 0x0572EA28;  // "stream_checksum"
+constexpr uint32_t kPart = 0xB6F08F39;           // "part"
+constexpr uint32_t kPlayer = 0x67E6859A;         // "player"
+constexpr uint32_t kTiltDegrees = 0x5582FE27;    // "Skew_Angle"
+constexpr uint32_t kVelX = 0x6187906D;           // "vel_x"
+constexpr uint32_t kVelY = 0x1680A0FB;           // "vel_y"
+constexpr uint32_t kVelZ = 0x8F89F141;           // "vel_z"
+constexpr uint32_t kScale = 0x13B9DA7B;          // "scale"
+constexpr uint32_t kScaledX = 0xBDED7A76;        // "scaled_x"
+constexpr uint32_t kScaledY = 0xCAEA4AE0;        // "scaled_y"
+constexpr uint32_t kScaledZ = 0x53E31B5A;        // "scaled_z"
+constexpr uint32_t kType = 0x7321A8D6;           // "type"
+constexpr uint32_t kStreamCount = 0x58492707;    // (name unknown) PlaySkaterStream: how many streams there are (10)
+constexpr uint32_t kLastName = 0x37F745A5;       // "last_name"
+constexpr uint32_t kVoice = 0x1804A7C4;          // "voice"
+constexpr uint32_t kPlayerVoices = 0xCA1DB456;   // "player_voices"
+constexpr uint32_t kId = 0x40C698AF;             // "id"
+constexpr uint32_t kStreamName = 0x1A6BE294;     // "play_skater_stream_name"
+constexpr uint32_t kIsMale = 0x3F813177;         // "is_male"
+constexpr uint32_t kStreamChecksum = 0x0572EA28; // "stream_checksum"
 constexpr uint32_t kSkaterPlayBailStream = 0x38A0F1EC; // "skater_play_bail_stream"
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The matrix turned about Y by `degrees` (the rotation: degrees in radians, rounded to float): m = m * rotation, or
 // with `before` m = rotation * m.
@@ -108,7 +105,8 @@ bool __cdecl cfunc_get_skater_velocity(script::Struct* params, script::Script* s
     params->fetch_float(kScale, &scale, 0);
     velocity.y = 0.0f;
     // x87: z * z + x * x and its root in double
-    double speed = std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
+    double speed =
+        std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
     float x;
     float y;
     float z;
@@ -209,8 +207,7 @@ bool __cdecl cfunc_play_skater_stream(script::Struct* params, script::Script* sc
 
     for (int i = 0; i < count; ++i) {
         // "%s_%s%02i" (the original's sprintf is unbounded)
-        std::snprintf(stream, sizeof(stream), "%s_%s%02i", voice, type,
-                      static_cast<int>(order->fetch_part(i)));
+        std::snprintf(stream, sizeof(stream), "%s_%s%02i", voice, type, static_cast<int>(order->fetch_part(i)));
         if (!audio::stream_exists(checksums::hash_from_text(stream)))
             continue;
         Struct* struct_memory = script::spawn_param_bag();

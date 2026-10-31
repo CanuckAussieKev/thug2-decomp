@@ -15,24 +15,25 @@ namespace render {
 
 namespace {
 
-constexpr uint32_t kScene = 0x26861025;           // scene
-constexpr uint32_t kIsDictionary = 0x3D559E7D;    // is_dictionary
-constexpr uint32_t kIsSky = 0xB5BD28D8;           // is_sky
-constexpr uint32_t kIsNet = 0x417149C8;           // is_net
-constexpr uint32_t kNoSuperSectors = 0x8943DBD8;  // no_supersectors
+constexpr uint32_t kScene = 0x26861025;              // scene
+constexpr uint32_t kIsDictionary = 0x3D559E7D;       // is_dictionary
+constexpr uint32_t kIsSky = 0xB5BD28D8;              // is_sky
+constexpr uint32_t kIsNet = 0x417149C8;              // is_net
+constexpr uint32_t kNoSuperSectors = 0x8943DBD8;     // no_supersectors
 constexpr uint32_t kEnableSuperSectors = 0x9E6EA452; // add_super_sectors
-constexpr uint32_t kTexDict = 0xDC8116B2;         // tex_dict
+constexpr uint32_t kTexDict = 0xDC8116B2;            // tex_dict
 
 // 0x0049F0C0 (cdecl): a texture dictionary from its file; the 1 marks a level's.
 void* read_texture_dictionary(const char* path, int level, int unknown2, int unknown3, int unknown4)
 {
     return load_tex_dict(path, level, static_cast<uint32_t>(unknown2), static_cast<uint32_t>(unknown3),
-                       static_cast<uint32_t>(unknown4));
+                         static_cast<uint32_t>(unknown4));
 }
 
 // 0x0048CCB0 (cdecl): the engine's scene load (the geometry file, then the scene registered under its name and
 // put in the scene list); returns the scene.
-void* load_scene_file(const char* name, void* tex_dict, bool with_super_sectors, bool is_sky, bool is_dictionary, bool is_net)
+void* load_scene_file(const char* name, void* tex_dict, bool with_super_sectors, bool is_sky, bool is_dictionary,
+                      bool is_net)
 {
     return load_scene(name, static_cast<TextureSet*>(tex_dict), with_super_sectors, is_sky, is_dictionary, is_net);
 }
@@ -82,4 +83,4 @@ bool __cdecl cfunc_load_scene(script::Struct* params, script::Script* /*script*/
     return true;
 }
 
-} // namespace Nx
+} // namespace render

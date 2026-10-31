@@ -80,16 +80,16 @@ const char* rule_name(Rule rule); // "Inside solid"...
 struct Issue {
     Rule rule = Rule::kLimit;
     Severity severity = Severity::kWarning;
-    std::string text;       // what is wrong
-    uint32_t node = 0;      // the node it is about (Go to selects it; 0 none)
-    uint32_t sector = 0;    // or the scenery piece
-    bool has_pos_ = false;    // or a place to look at
+    std::string text;      // what is wrong
+    uint32_t node = 0;     // the node it is about (Go to selects it; 0 none)
+    uint32_t sector = 0;   // or the scenery piece
+    bool has_pos_ = false; // or a place to look at
     V3 pos = {};
-    bool fixable = false;   // a safe Fix is offered
-    V3 fix_pos_ = {};         // (placement: where Fix puts the node)
-    bool level_own_ = false;  // the level has it as shipped (not the editor's doing)
-    std::string record;     // (layout records: the record's line)
-    uint32_t key = 0;       // identity (Ignore): the rule, the subject and the detail
+    bool fixable = false;    // a safe Fix is offered
+    V3 fix_pos_ = {};        // (placement: where Fix puts the node)
+    bool level_own_ = false; // the level has it as shipped (not the editor's doing)
+    std::string record;      // (layout records: the record's line)
+    uint32_t key = 0;        // identity (Ignore): the rule, the subject and the detail
 };
 // An issue's identity from its rule, subject (a node, a sector, 0) and a detail text.
 uint32_t issue_key(Rule rule, uint32_t subject, const std::string& detail);
@@ -171,4 +171,4 @@ void open_window(int tab);
 void toggle_window();
 void pane(float view_x, float view_y, float view_width, float view_height, float scale, ImFont* mono);
 
-} // namespace MenuSystem::level_editor::Checks
+} // namespace frontend::level_editor::checks

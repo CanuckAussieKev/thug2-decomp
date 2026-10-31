@@ -11,7 +11,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 namespace highscores {
 
@@ -27,10 +27,10 @@ public:
     // The initials set (three characters).
     void set_player_tag(const char* initials);
 
-    char* tag_; // +0x00
-    int val_;      // +0x04
-    int slot_no_;     // +0x08
-    bool is_fresh_;       // +0x0C
+    char* tag_;     // +0x00
+    int val_;       // +0x04
+    int slot_no_;   // +0x08
+    bool is_fresh_; // +0x0C
     uint8_t pad0d_[3];
 };
 static_assert(sizeof(BestEntry) == 0x10, "layout must match the original");
@@ -52,8 +52,8 @@ public:
     // The records freed and the table (the destructor, inlined by its owners).
     void erase_one();
 
-    int num_;         // +0x00
-    BestEntry* records_;  // +0x04
+    int num_;            // +0x00
+    BestEntry* records_; // +0x04
 };
 static_assert(sizeof(BestEntryList) == 8, "layout must match the original");
 
@@ -74,13 +74,13 @@ public:
     // 0x0057F7B0: the records written to `params` as structures of those names.
     void write_to_structure(script::Struct* params);
 
-    BestEntryList* high_scores_;      // +0x00
-    BestEntryList* best_combos_;      // +0x04
-    BestEntryList* arcade_scores_;    // +0x08
-    BestEntry* grind_record_;         // +0x0C
-    BestEntry* longest_manual_;        // +0x10
-    BestEntry* longest_lip_trick_;      // +0x14
-    BestEntry* biggest_chain_;         // +0x18
+    BestEntryList* high_scores_;   // +0x00
+    BestEntryList* best_combos_;   // +0x04
+    BestEntryList* arcade_scores_; // +0x08
+    BestEntry* grind_record_;      // +0x0C
+    BestEntry* longest_manual_;    // +0x10
+    BestEntry* longest_lip_trick_; // +0x14
+    BestEntry* biggest_chain_;     // +0x18
 };
 static_assert(sizeof(StageBests) == 0x1C, "layout must match the original");
 
@@ -106,9 +106,9 @@ public:
     static BestResults* fabricate(bool create);
     static void get_release();
 
-    int level_count_;           // +0x00
-    char* default_initials_;    // +0x04
-    StageBests* levels_;    // +0x08
+    int level_count_;        // +0x00
+    char* default_initials_; // +0x04
+    StageBests* levels_;     // +0x08
 };
 static_assert(sizeof(BestResults) == 0xC, "layout must match the original");
 
@@ -131,4 +131,4 @@ bool __cdecl cfunc_new_record(script::Struct* params, script::Script* script);
 
 extern highscores::BestResults* g_game_records;
 
-} // namespace Records
+} // namespace highscores

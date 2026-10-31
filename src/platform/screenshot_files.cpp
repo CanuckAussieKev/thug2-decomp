@@ -47,8 +47,8 @@ std::string file_stem(const Stamp& s)
 std::string series_folder_name(const Stamp& s)
 {
     char text[64];
-    std::snprintf(text, sizeof(text), "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour,
-                  s.minute, s.second);
+    std::snprintf(text, sizeof(text), "series_%04d-%02d-%02d_%02d-%02d-%02d", s.year, s.month, s.day, s.hour, s.minute,
+                  s.second);
     return text;
 }
 
@@ -86,21 +86,29 @@ int get_bytes_per_pixel(PixelFormat format)
 {
     switch (format) {
     case PixelFormat::kX8r8g8b8:
-    case PixelFormat::kA8r8g8b8: return 4;
+    case PixelFormat::kA8r8g8b8:
+        return 4;
     case PixelFormat::kR5g6b5:
-    case PixelFormat::kX1r5g5b5: return 2;
-    default: return 0;
+    case PixelFormat::kX1r5g5b5:
+        return 2;
+    default:
+        return 0;
     }
 }
 
 const char* format_name(PixelFormat format)
 {
     switch (format) {
-    case PixelFormat::kX8r8g8b8: return "X8R8G8B8";
-    case PixelFormat::kA8r8g8b8: return "A8R8G8B8";
-    case PixelFormat::kR5g6b5: return "R5G6B5";
-    case PixelFormat::kX1r5g5b5: return "X1R5G5B5";
-    default: return "unknown";
+    case PixelFormat::kX8r8g8b8:
+        return "X8R8G8B8";
+    case PixelFormat::kA8r8g8b8:
+        return "A8R8G8B8";
+    case PixelFormat::kR5g6b5:
+        return "R5G6B5";
+    case PixelFormat::kX1r5g5b5:
+        return "X1R5G5B5";
+    default:
+        return "unknown";
     }
 }
 
@@ -175,7 +183,8 @@ bool to_rgb(const TickCycle& frame, std::vector<uint8_t>* rgb)
                 *out++ = widen5(v & 0x1F);
             }
             break;
-        default: return false;
+        default:
+            return false;
         }
     }
     return true;
@@ -201,7 +210,7 @@ bool encode_png(const uint8_t* rgb, int width, int height, std::vector<uint8_t>*
 }
 
 std::string format_sidecar(const std::string& heading, const std::vector<Section>& sections,
-                          const std::vector<std::string>& log_tail)
+                           const std::vector<std::string>& log_tail)
 {
     std::string text = heading + "\n";
     for (const Section& section : sections) {
@@ -230,4 +239,4 @@ std::string format_sidecar(const std::string& heading, const std::vector<Section
     return text;
 }
 
-} // namespace sys::Screenshot
+} // namespace sys::screenshot

@@ -9,11 +9,11 @@
 namespace maths {
 class Vec4;
 class Mat4;
-} // namespace Mth
+} // namespace maths
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace level_nodes {
 
@@ -63,7 +63,7 @@ using ScriptCallCallback = void(__cdecl*)(script::Struct* params, const uint8_t*
 // assigned to, is passed over by itself (its arguments read as statements). Called with `params` for the
 // arguments of the script's own call, `depth` 0.
 void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback callback, script::Struct* params,
-                       int depth);
+                          int depth);
 // 0x0045CCA0: for_each_script_call over the script each node names by `script_param` (e.g. TriggerScript=), with the
 // script flag 0x006F2564 cleared meanwhile (the gap list finds every EndGap this way).
 void for_each_node_script_call(uint32_t script_param, uint32_t target, ScriptCallCallback callback);

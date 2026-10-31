@@ -28,11 +28,11 @@ namespace objects {
 
 namespace {
 
-constexpr float kHalfPi = 1.57079637f;         // 0x00645484
-constexpr float kFramesToMs = 16.666666f;      // 0x006460DC (1000 / 60)
+constexpr float kHalfPi = 1.57079637f;             // 0x00645484
+constexpr float kFramesToMs = 16.666666f;          // 0x006460DC (1000 / 60)
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kLerpRateScale = 0.02f;        // 0x00646124
-constexpr double kTwoTo32 = 4294967296.0;      // 0x006453B4
+constexpr float kLerpRateScale = 0.02f;            // 0x00646124
+constexpr double kTwoTo32 = 4294967296.0;          // 0x006453B4
 
 constexpr uint8_t kMsgHideGeom = 0x3E;
 constexpr uint8_t kMsgSpinModel = 0x76;
@@ -57,28 +57,25 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // replaced (0x00493E80), geom `index` (0x00494640), the bone volumes (0x00492FC0) and a line tested against them
 // (0x004939E0), and its lights (+0x2C, the folded getter 0x00532EB0).
 void model_hide(render::RenderModel* model, bool hide) { model->conceal(hide); }
-void model_hide_geom(render::RenderModel* model, uint32_t name, bool hide)
-{
-    model->conceal_mesh(name, hide);
-}
+void model_hide_geom(render::RenderModel* model, uint32_t name, bool hide) { model->conceal_mesh(name, hide); }
 bool model_replace_texture(render::RenderModel* model, uint32_t mesh, const char* src, const char* dest)
 {
     return model->replace_texture_with(mesh, src, reinterpret_cast<uint32_t>(dest));
 }
-void** model_geom(render::RenderModel* model, int index)
-{
-    return static_cast<void**>(model->fetch_geom(index));
-}
+void** model_geom(render::RenderModel* model, int index) { return static_cast<void**>(model->fetch_geom(index)); }
 void* model_bone_volumes(render::RenderModel* model) { return model->get_bone_volumes(); }
 int model_test_collision(render::RenderModel* model, maths::Vec4* line, void* skeleton, maths::Mat4* matrix, uint32_t a,
-                       uint32_t b, uint32_t c, uint32_t d)
+                         uint32_t b, uint32_t c, uint32_t d)
 {
     // (the original's seven stack arguments: the line, skeleton and matrix pointers, then a, b, c and d - the extra
     // result's pointer)
     return model->test_bone_volumes(reinterpret_cast<uint32_t>(line), reinterpret_cast<uint32_t>(skeleton),
-                                  reinterpret_cast<uint32_t>(matrix), a, b, c, reinterpret_cast<uint32_t*>(d));
+                                    reinterpret_cast<uint32_t>(matrix), a, b, c, reinterpret_cast<uint32_t*>(d));
 }
-void* model_lights(render::RenderModel* model) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C); }
+void* model_lights(render::RenderModel* model)
+{
+    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(model) + 0x2C);
+}
 // The model's lights (not rewritten yet): their brightness from the level's (0x0048E660), set at once (0x0048E8A0)
 // or lerped towards (0x0048E830); without model lights, the global brightness (0x0048EDB0).
 void lights_update_brightness(void* lights) { static_cast<render::ModelLights*>(lights)->get_update_brightness(); }
@@ -99,10 +96,7 @@ void* skeleton_of(ObjectModule* component)
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The network manager (0x007CCE14) and its players (not rewritten yet): the player with an object id (0x0053AEA0),
 // whether it's this machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
@@ -112,7 +106,10 @@ void* find_player_slot_by_obj(uint32_t id)
     return static_cast<online::Hub*>(net_session_slot())->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
 bool is_own_player(void* player) { return static_cast<online::PlayerRecord*>(player)->is_own_player() != 0; }
-int player_skater_index(void* player) { return static_cast<int>(static_cast<online::PlayerRecord*>(player)->get_skater_value_2b_c()); }
+int player_skater_index(void* player)
+{
+    return static_cast<int>(static_cast<online::PlayerRecord*>(player)->get_skater_value_2b_c());
+}
 net::Guest* client_app(void* manager, int index)
 {
     return static_cast<net::Guest*>(static_cast<online::Hub*>(manager)->fetch_patron(index));
@@ -172,7 +169,8 @@ void ModelSpinAxis::get_clear()
 }
 
 // 0x00420520
-void ModelSpinAxis::append_one(float period, uint32_t start, float base, float range, int power, bool hold, bool real_time)
+void ModelSpinAxis::append_one(float period, uint32_t start, float base, float range, int power, bool hold,
+                               bool real_time)
 {
     for (ModelSpin& spin : spins_) {
         if (spin.flag_bits_ & kModelSpinOn)
@@ -182,9 +180,9 @@ void ModelSpinAxis::append_one(float period, uint32_t start, float base, float r
         spin.base_ = base;
         spin.range_ = range;
         spin.power_ = power;
-        spin.flag_bits_ = static_cast<uint8_t>((spin.flag_bits_ & ~(kModelSpinHold | kModelSpinRealTime)) |
-                                            (real_time ? kModelSpinRealTime : 0) | (hold ? kModelSpinHold : 0) |
-                                            kModelSpinOn);
+        spin.flag_bits_ =
+            static_cast<uint8_t>((spin.flag_bits_ & ~(kModelSpinHold | kModelSpinRealTime)) |
+                                 (real_time ? kModelSpinRealTime : 0) | (hold ? kModelSpinHold : 0) | kModelSpinOn);
         active_ = true;
         return;
     }
@@ -353,7 +351,7 @@ void MeshInstanceModule::change_tint(uint32_t color)
 
 // 0x00420730
 void MeshInstanceModule::rotate_display(float duration, float start, float end, int power, bool hold, bool x, bool y,
-                                    bool z)
+                                        bool z)
 {
     float period = duration * kFramesToMs;
     pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
@@ -408,11 +406,11 @@ void MeshInstanceModule::cancel_rotate_display()
     send_to_server(entity_, kMsgCancelRotateDisplay, 1, &object);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace frame_clock {
 
 // 0x00420250
 int game_clock_time_since(int start) { return game_clock_elapsed() + (objects::g_clock_offset - start); }
 
-} // namespace Tmr
+} // namespace frame_clock

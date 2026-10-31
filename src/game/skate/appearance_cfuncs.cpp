@@ -29,25 +29,25 @@ using namespace skate_calls;
 constexpr uint32_t kPlayer = 0x67E6859A;            // player
 constexpr uint32_t kCurrentFacePoints = 0x12E87395; // current_face_points
 constexpr uint32_t kTexture = 0x7D99F28D;           // texture
-constexpr uint32_t kPathIsComplete = 0x54C2E57C;  // fullPathIncluded
+constexpr uint32_t kPathIsComplete = 0x54C2E57C;    // fullPathIncluded
 
-constexpr uint32_t kProfile = 0x7EA855F0;           // profile
-constexpr uint32_t kSkater = 0x5B8AB877;            // skater
-constexpr uint32_t kModel = 0x286A8D26;             // model (the component)
-constexpr uint32_t kTrick = 0x270F56E1;             // trick (the component)
-constexpr uint32_t kBailBoard = 0x884EF81B;         // BailBoard (the object)
-constexpr uint32_t kNoBoard = 0x41EEC86B;           // no_board
-constexpr uint32_t kBoard = 0xA7A9D4B8;             // board (the geom)
-constexpr uint32_t kTarget = 0xB990D003;            // target
-constexpr uint32_t kDestArgs = 0x46A2869C;      // target_params
-constexpr uint32_t kPart = 0xB6F08F39;              // part
-constexpr uint32_t kDescId = 0x4BB2084E;            // desc_id
+constexpr uint32_t kProfile = 0x7EA855F0;                             // profile
+constexpr uint32_t kSkater = 0x5B8AB877;                              // skater
+constexpr uint32_t kModel = 0x286A8D26;                               // model (the component)
+constexpr uint32_t kTrick = 0x270F56E1;                               // trick (the component)
+constexpr uint32_t kBailBoard = 0x884EF81B;                           // BailBoard (the object)
+constexpr uint32_t kNoBoard = 0x41EEC86B;                             // no_board
+constexpr uint32_t kBoard = 0xA7A9D4B8;                               // board (the geom)
+constexpr uint32_t kTarget = 0xB990D003;                              // target
+constexpr uint32_t kDestArgs = 0x46A2869C;                            // target_params
+constexpr uint32_t kPart = 0xB6F08F39;                                // part
+constexpr uint32_t kDescId = 0x4BB2084E;                              // desc_id
 constexpr uint32_t kH = 0x6E94F918, kS = 0xE4F130F4, kV = 0x949BC47B; // h, s, v
-constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6;     // use_default_hsv
+constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6;                       // use_default_hsv
 constexpr uint32_t kX = 0x7323E97C, kY = 0x0424D9EA, kZ = 0x9D2D8850; // x, y, z
-constexpr uint32_t kKeepStockScale = 0x5A96985D;   // use_default_scale
+constexpr uint32_t kKeepStockScale = 0x5A96985D;                      // use_default_scale
 constexpr uint32_t kUvU = 0xCF6AA087, kUvV = 0x5663F13D, kUvScale = 0x266932C8, kUvRot = 0x1256B6C6; // uv_*
-constexpr uint32_t kUseDefaultUv = 0x8602F6EE;      // use_default_uv
+constexpr uint32_t kUseDefaultUv = 0x8602F6EE;                                                       // use_default_uv
 // The model build scripts RefreshSkaterColors / Scale / Visibility / UV rebuild with.
 constexpr uint32_t kColorModelFromAppearance = 0xD2C041C2; // color_model_from_appearance
 constexpr uint32_t kScaleModelFromAppearance = 0xAEE1AF7D; // scale_model_from_appearance
@@ -66,7 +66,10 @@ objects::RiderIdentity* rider_identity_from_params(script::Struct* params, int a
 // The appearance's parts (no source yet): 0x00489050 the part a slot was given as built (its CAS option's structure),
 // 0x004890B0 the slot's own structure in the appearance; null if none. 0x00485CF0 (cdecl): the CAS option `descriptor_id` of
 // the slot's global part list. The appearance's own structure is at +0x4C.
-gfx::ModelLook* get_appearance(objects::RiderIdentity* profile) { return reinterpret_cast<gfx::ModelLook*>(profile); } // (its first member)
+gfx::ModelLook* get_appearance(objects::RiderIdentity* profile)
+{
+    return reinterpret_cast<gfx::ModelLook*>(profile);
+} // (its first member)
 script::Struct* actual_part(objects::RiderIdentity* profile, uint32_t part)
 {
     return get_appearance(profile)->get_part_option(part);
@@ -94,7 +97,8 @@ bool refresh_skater(script::Struct* params, uint32_t build_script)
     params->fetch_int_value(kSkater, &skater_index, 1);
     objects::GameEntity* skater = get_rider_at(skater_index);
     objects::RiderIdentity* profile = fetch_account(profile_index);
-    static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel))->rebuild_from_profile(profile, build_script);
+    static_cast<objects::MeshInstanceModule*>(skater->fetch_module(kModel))
+        ->rebuild_from_profile(profile, build_script);
     return true;
 }
 
@@ -225,7 +229,10 @@ bool __cdecl cfunc_refresh_skater_visibility(script::Struct* params, script::Scr
 {
     return refresh_skater(params, kHideModelFromAppearance);
 }
-bool __cdecl cfunc_refresh_skater_uv(script::Struct* params, script::Script*) { return refresh_skater(params, kSetUvFromAppearance); }
+bool __cdecl cfunc_refresh_skater_uv(script::Struct* params, script::Script*)
+{
+    return refresh_skater(params, kSetUvFromAppearance);
+}
 
 // 0x005AFD80: RefreshSkaterModel [<n>] [profile=<p>] [skater=<s>] [no_board=...] - skater s's (n) model built again
 // from profile p's (n) appearance in the skater's geometry heap (the first viewport's skater: the BailBoard object
@@ -294,8 +301,7 @@ bool __cdecl cfunc_get_actual_cas_option_struct(script::Struct* params, script::
     uint32_t part = 0, descriptor_id = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
     params->read_hash_value(kDescId, &descriptor_id, 1);
-    script::Struct* option =
-        objects::find_cas_option(part, descriptor_id, true);
+    script::Struct* option = objects::find_cas_option(part, descriptor_id, true);
     script->args_->append_structure_if_any(option);
     return false;
 }

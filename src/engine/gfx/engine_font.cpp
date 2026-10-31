@@ -44,10 +44,7 @@ Typeface* Typeface::make_new()
 }
 
 // 0x0048D030
-void Typeface::destroy_body()
-{
-    vtable_ = reinterpret_cast<void**>(kFontVtable);
-}
+void Typeface::destroy_body() { vtable_ = reinterpret_cast<void**>(kFontVtable); }
 
 // 0x0048D1F0
 Typeface* Typeface::teardown(unsigned int flags)
@@ -78,10 +75,7 @@ void Typeface::plat_set_colors(const uint32_t* /*colors*/)
 }
 
 // 0x0048D6A0
-char __cdecl button_glyph(const char* digit)
-{
-    return glyph_escape_table()[text::hex_digit_value(digit)];
-}
+char __cdecl button_glyph(const char* digit) { return glyph_escape_table()[text::hex_digit_value(digit)]; }
 
 // 0x0048D6C0
 void __cdecl unload_font(const char* name)
@@ -115,10 +109,16 @@ bool __cdecl cfunc_unload_font(script::Struct* params, script::Script* /*script*
 }
 
 namespace {
-static VtableSlot g_font_vtable_slots[] = {&render::Typeface::teardown, stubs::return_false1, &render::Typeface::set_glyph_gaps,
-                &render::Typeface::plat_set_colors, &render::Typeface::plat_set_colors, stubs::do_nothing, stubs::return_zero,
-                stubs::return_zero, stubs::ignore_arguments3};
+static VtableSlot g_font_vtable_slots[] = {&render::Typeface::teardown,
+                                           stubs::return_false1,
+                                           &render::Typeface::set_glyph_gaps,
+                                           &render::Typeface::plat_set_colors,
+                                           &render::Typeface::plat_set_colors,
+                                           stubs::do_nothing,
+                                           stubs::return_zero,
+                                           stubs::return_zero,
+                                           stubs::ignore_arguments3};
 void** const kFontVtable = reinterpret_cast<void**>(g_font_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

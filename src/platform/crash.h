@@ -48,7 +48,7 @@ enum class TestFault {
     kCrtError,         // _RPT0(_CRT_ERROR, ...) (Debug CRT): DEBUG CRT REPORT (type 1)
     kInvalidParameter, // _invalid_parameter_noinfo: INVALID PARAMETER
     kPureCall,         // _purecall: PURE VIRTUAL CALL
-    kCancelNow,            // abort(): ABORT
+    kCancelNow,        // abort(): ABORT
     kGameOverrun,      // the game's __security_error_handler(1, 0): BUFFER OVERRUN DETECTED
     kGameCrtMessage,   // the game's __crtMessageBoxA: GAME CRT MESSAGE
     kFastFail,         // __fastfail(FAST_FAIL_STACK_COOKIE_CHECK_FAILURE): ends at once, nothing logged (our /GS)

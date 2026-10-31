@@ -55,9 +55,9 @@ public:
     // The destructor's body (only the vtable to set back: the memory isn't the region's).
     void destroy_body();
 
-    void** vtable_;          // 0x00658A58
+    void** vtable_; // 0x00658A58
     uint8_t* outset_;
-    int min_available_;       // the least free_byte_count has been (starts as the whole region)
+    int min_available_; // the least free_byte_count has been (starts as the whole region)
     uint8_t* finish_;
     MemSource* allocators_[2]; // growing up, growing down
 
@@ -92,7 +92,7 @@ public:
 
     // A context: an entry in the allocator's stack; heaps keep a free list in each.
     struct CtxInfo {
-        ListNode node; // data = the context itself
+        ListNode node;           // data = the context itself
         ChunkPrefix* free_list_; // free blocks, in address order
     };
 
@@ -105,14 +105,15 @@ public:
     // The virtual allocate (slot 3) and free (slot 8).
     void* virtual_allocate(uint32_t size, bool halt_if_exhausted)
     {
-        return reinterpret_cast<void*(__thiscall*)(MemSource*, uint32_t, bool)>(vtable_[3])(this, size, halt_if_exhausted);
+        return reinterpret_cast<void*(__thiscall*)(MemSource*, uint32_t, bool)>(vtable_[3])(this, size,
+                                                                                            halt_if_exhausted);
     }
     void virtual_free(ChunkPrefix* header)
     {
         reinterpret_cast<void(__thiscall*)(MemSource*, ChunkPrefix*)>(vtable_[8])(this, header);
     }
 
-    void** vtable_;         // 0x0065845C (base), 0x0065848C (Heap)
+    void** vtable_; // 0x0065845C (base), 0x0065848C (Heap)
     // Statistics: block counts and sizes in use and free, and the most there have been.
     int used_blocks_;
     int max_used_blocks_;
@@ -123,11 +124,11 @@ public:
     int free_size_;
     int max_free_size_;
     Zone* region_;
-    int direction_;         // Direction
-    uint8_t* top_side_;          // how far it has claimed in the region
-    CtxInfo* context_;      // the current context
+    int direction_;     // Direction
+    uint8_t* top_side_; // how far it has claimed in the region
+    CtxInfo* context_;  // the current context
     const char* label_;
-    ListNode zone_chain_;     // head of the context stack (newest first)
+    ListNode zone_chain_; // head of the context stack (newest first)
     CtxInfo base_context_;
 };
 static_assert(sizeof(MemSource) == 0x64, "layout must match the original");
@@ -159,4 +160,4 @@ public:
 };
 static_assert(sizeof(Arena) == 0x98, "allocated as 0x98 bytes by the memory manager");
 
-} // namespace Mem
+} // namespace memory

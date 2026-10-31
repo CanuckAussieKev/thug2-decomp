@@ -41,39 +41,39 @@ namespace {
 extern void** const kCollisionVtable;
 extern void** const kProximityVtable;
 
-constexpr uint32_t kRadius = 0xC48391A5;          // radius
-constexpr uint32_t kScale = 0x13B9DA7B;           // scale
-constexpr uint32_t kOwnerId = 0x81C39E06;         // owner_id
+constexpr uint32_t kRadius = 0xC48391A5;              // radius
+constexpr uint32_t kScale = 0x13B9DA7B;               // scale
+constexpr uint32_t kOwnerId = 0x81C39E06;             // owner_id
 constexpr uint32_t kOnDestroyScript = 0x6647ADC3;     // death_script
-constexpr uint32_t kProjectileType = 0xB4D91E49;  // projectile_type
-constexpr uint32_t kPos = 0x7F261953;             // Pos
-constexpr uint32_t kVel = 0x0C4C809E;             // Vel
-constexpr uint32_t kSkaterScore = 0xD262802F;     // SkaterScore
-constexpr uint32_t kFriendlyFire = 0xE959C43A;    // friendly_fire
-constexpr uint32_t kChecksum = 0x21902065;        // checksum
-constexpr uint32_t kBooleanTrue = 0xF81BC89B;     // boolean_true
-constexpr uint32_t kName = 0xA1DC81F9;            // Name
+constexpr uint32_t kProjectileType = 0xB4D91E49;      // projectile_type
+constexpr uint32_t kPos = 0x7F261953;                 // Pos
+constexpr uint32_t kVel = 0x0C4C809E;                 // Vel
+constexpr uint32_t kSkaterScore = 0xD262802F;         // SkaterScore
+constexpr uint32_t kFriendlyFire = 0xE959C43A;        // friendly_fire
+constexpr uint32_t kChecksum = 0x21902065;            // checksum
+constexpr uint32_t kBooleanTrue = 0xF81BC89B;         // boolean_true
+constexpr uint32_t kName = 0xA1DC81F9;                // Name
 constexpr uint32_t kAnnounceElimination = 0x9B043179; // announce_elimination
 constexpr uint32_t kPedLogic = 0x6EFDDFB8;
-constexpr uint32_t kShot = 0x54F87744;            // shot (a PedLogic state)
+constexpr uint32_t kShot = 0x54F87744; // shot (a PedLogic state)
 constexpr uint32_t kProjectileInAvoidRadius = 0x261029C1;
-constexpr uint32_t kPedId = 0x3989D7D6;           // Ped_ID
-constexpr uint32_t kProjectileId = 0x31916493;    // projectile_id
+constexpr uint32_t kPedId = 0x3989D7D6;            // Ped_ID
+constexpr uint32_t kProjectileId = 0x31916493;     // projectile_id
 constexpr uint32_t kProjectileHitPed = 0x9B1FFB83; // projectile_hit_ped
 constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;
-constexpr uint32_t kAmmoType = 0x1D1A8B59;        // ammo_type
-constexpr uint32_t kHitPedScript = 0x186E040D;    // hit_ped_script
+constexpr uint32_t kAmmoType = 0x1D1A8B59;     // ammo_type
+constexpr uint32_t kHitPedScript = 0x186E040D; // hit_ped_script
 
-constexpr float kReach = 48.0f;     // 0x006461CC: added to the radius
-constexpr float kAbovePed = 30.0f;  // 0x00646240: the ped's middle, above its position
+constexpr float kReach = 48.0f;    // 0x006461CC: added to the radius
+constexpr float kAbovePed = 30.0f; // 0x00646240: the ped's middle, above its position
 
 // The network message a hit sends (0x84 to the hit skater's player, 0x85 to the owner's).
 constexpr uint8_t kMsgHit = 0x84, kMsgHitOwner = 0x85;
 struct HitMessage {
-    uint8_t id;       // the owner's object id / the hit skater's (low byte)
+    uint8_t id; // the owner's object id / the hit skater's (low byte)
     bool fireball;
     uint8_t pad[2];
-    int score;        // what the hit takes (score_taken)
+    int score; // what the hit takes (score_taken)
 };
 static_assert(sizeof(HitMessage) == 8, "the message is 8 bytes");
 
@@ -81,10 +81,7 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 modules::Skate* skate_module() { return modules::g_skate_module; }
 
 // The skate module's local skater (0x00566520, a register stub on our side).
-Rider* local_skater()
-{
-    return skate_module()->get_home_rider();
-}
+Rider* local_skater() { return skate_module()->get_home_rider(); }
 
 // The object dies (its vtable slot 6, flag_as_dead).
 void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
@@ -104,7 +101,8 @@ void delete_params(script::Struct* params)
 
 modules::PointTally* get_score_of(GameEntity* skater)
 {
-    return reinterpret_cast<modules::PointTally*>(static_cast<RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_);
+    return reinterpret_cast<modules::PointTally*>(
+        static_cast<RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_);
 }
 
 } // namespace
@@ -183,15 +181,18 @@ void ShotImpactModule::tick_frame()
         GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
         if (skater->ident_ == holder_key_)
             continue;
-        auto* owner = reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
-        auto* victim = reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+        auto* owner =
+            reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(holder_key_)));
+        auto* victim = reinterpret_cast<online::PlayerRecord*>(
+            net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
         if (!victim->can_be_hit_again())
             continue;
         modules::PointTally* score = get_score_of(skater);
         if (projectile_type_ == kFireball && score->get_total_score() <= 0)
             continue;
-        if (team_game && *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(owner) + 0x30) ==
-                            *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(victim) + 0x30) &&
+        if (team_game &&
+            *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(owner) + 0x30) ==
+                *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(victim) + 0x30) &&
             net->get_online_settings()->get_preference_checksum(kFriendlyFire, kChecksum) != kBooleanTrue)
             continue;
         GameEntity* object = entity_;
@@ -255,7 +256,8 @@ void ShotImpactModule::tick_frame()
 // 0x004F3550
 ObjectModule* __cdecl ProjectileProximityComponent::fabricate()
 {
-    auto* component = static_cast<ProjectileProximityComponent*>(memory::alloc_zeroed(sizeof(ProjectileProximityComponent)));
+    auto* component =
+        static_cast<ProjectileProximityComponent*>(memory::alloc_zeroed(sizeof(ProjectileProximityComponent)));
     if (!component)
         return nullptr;
     component->ObjectModule::make_new();
@@ -322,9 +324,8 @@ void ProjectileProximityComponent::tick_frame()
         params->put_name_key(kProjectileId, projectile.name);
         script::launch_script(kProjectileHitPed, params, find_object(rider_ref_->ident_), false, nullptr);
         params->put_name_key(kAmmoType,
-                            *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(
-                                                             rider_ref_->fetch_module(kSkaterCorePhysics)) +
-                                                         0x2FC));
+                             *reinterpret_cast<uint32_t*>(
+                                 reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kSkaterCorePhysics)) + 0x2FC));
         script::launch_script(kHitPedScript, params, entity_, false, nullptr);
         delete_params(params);
         projectile.active = false;
@@ -332,39 +333,43 @@ void ProjectileProximityComponent::tick_frame()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_collision_vtable_slots[] = {&objects::ShotImpactModule::teardown,
-         &objects::ShotImpactModule::tick_frame,
-         &objects::ShotImpactModule::configure_from_data,
-         &objects::ImpactDestructModule::seal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_collision_vtable_slots[] = {
+    &objects::ShotImpactModule::teardown,
+    &objects::ShotImpactModule::tick_frame,
+    &objects::ShotImpactModule::configure_from_data,
+    &objects::ImpactDestructModule::seal,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kCollisionVtable = reinterpret_cast<void**>(g_collision_vtable_slots);
-static VtableSlot g_proximity_vtable_slots[] = {&objects::ProjectileProximityComponent::teardown,
-         &objects::ProjectileProximityComponent::tick_frame,
-         &objects::ProjectileProximityComponent::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_proximity_vtable_slots[] = {
+    &objects::ProjectileProximityComponent::teardown,
+    &objects::ProjectileProximityComponent::tick_frame,
+    &objects::ProjectileProximityComponent::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kProximityVtable = reinterpret_cast<void**>(g_proximity_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

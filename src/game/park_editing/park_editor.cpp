@@ -33,72 +33,78 @@
 namespace park_editing {
 
 static VtableSlot g_park_editor_listener_vtable_slots[] = {&ParkBuilderMode::Listener::destroy_editor,
-        &ParkBuilderMode::Listener::listen_to};
+                                                           &ParkBuilderMode::Listener::listen_to};
 void** const kParkEditorListenerVtable = reinterpret_cast<void**>(g_park_editor_listener_vtable_slots);
 static VtableSlot g_park_editor_vtable_slots[] = {&ParkBuilderMode::teardown, &ParkBuilderMode::start_callback,
-        &ParkBuilderMode::stop_callback};
+                                                  &ParkBuilderMode::stop_callback};
 void** const kParkEditorVtable = reinterpret_cast<void**>(g_park_editor_vtable_slots);
 
 namespace {
 
 // Scripts and names.
-constexpr uint32_t kParkedCam = 0x64716BEE;          // parked_cam (the editor's camera object)
-constexpr uint32_t kRailEditorCam = 0x5B509AD3;      // Raileditor
-constexpr uint32_t kRootWindow = 0x56A1EAE3;         // root_window
-constexpr uint32_t kMenuEvent = 0x36B2EE74;          // the menus' pad events' source (name unknown)
-constexpr uint32_t kParkedMenuUp = 0xBB9B790B;       // parked_menu_up
-constexpr uint32_t kParkedMenuDown = 0xFF86DC11;     // parked_menu_down
-constexpr uint32_t kParkedMenuLeft = 0x991EAB42;     // parked_menu_left
-constexpr uint32_t kParkedMenuRight = 0xBD902A03;    // parked_menu_right
-constexpr uint32_t kSetMenuContainer = 0xE25EE8C3;   // set_menu_container
-constexpr uint32_t kPieceMenuContainer = 0x3F391840; // piece_menu_container
-constexpr uint32_t kPadUp = 0x30A4F836;              // pad_up
-constexpr uint32_t kPadDown = 0x0FD1AC26;            // pad_down
-constexpr uint32_t kPadLeft = 0x6949DB75;            // pad_left
-constexpr uint32_t kPadRight = 0x05DDD87C;           // pad_right
-constexpr uint32_t kLevel = 0x651533EC;              // level
-constexpr uint32_t kLoadSk5ed = 0xE8B4B836;          // load_sk5ed
-constexpr uint32_t kChangeLevel = 0x39C58EA1;        // change_level
-constexpr uint32_t kHide = 0x5B6634D4;               // Hide
+constexpr uint32_t kParkedCam = 0x64716BEE;            // parked_cam (the editor's camera object)
+constexpr uint32_t kRailEditorCam = 0x5B509AD3;        // Raileditor
+constexpr uint32_t kRootWindow = 0x56A1EAE3;           // root_window
+constexpr uint32_t kMenuEvent = 0x36B2EE74;            // the menus' pad events' source (name unknown)
+constexpr uint32_t kParkedMenuUp = 0xBB9B790B;         // parked_menu_up
+constexpr uint32_t kParkedMenuDown = 0xFF86DC11;       // parked_menu_down
+constexpr uint32_t kParkedMenuLeft = 0x991EAB42;       // parked_menu_left
+constexpr uint32_t kParkedMenuRight = 0xBD902A03;      // parked_menu_right
+constexpr uint32_t kSetMenuContainer = 0xE25EE8C3;     // set_menu_container
+constexpr uint32_t kPieceMenuContainer = 0x3F391840;   // piece_menu_container
+constexpr uint32_t kPadUp = 0x30A4F836;                // pad_up
+constexpr uint32_t kPadDown = 0x0FD1AC26;              // pad_down
+constexpr uint32_t kPadLeft = 0x6949DB75;              // pad_left
+constexpr uint32_t kPadRight = 0x05DDD87C;             // pad_right
+constexpr uint32_t kLevel = 0x651533EC;                // level
+constexpr uint32_t kLoadSk5ed = 0xE8B4B836;            // load_sk5ed
+constexpr uint32_t kChangeLevel = 0x39C58EA1;          // change_level
+constexpr uint32_t kHide = 0x5B6634D4;                 // Hide
 constexpr uint32_t kPlayRotatePieceSound = 0x9366CECE; // PlayRotatePieceSound
-constexpr uint32_t kPlayEdPlaceSound = 0x3B32A620;   // PlayEdPlaceSound
-constexpr uint32_t kPlayEdBuzzSound = 0x5179BDF3;    // PlayEdBuzzSound
-constexpr uint32_t kPlayEdEraseSound = 0xF969E9A1;   // PlayEdEraseSound
+constexpr uint32_t kPlayEdPlaceSound = 0x3B32A620;     // PlayEdPlaceSound
+constexpr uint32_t kPlayEdBuzzSound = 0x5179BDF3;      // PlayEdBuzzSound
+constexpr uint32_t kPlayEdEraseSound = 0xF969E9A1;     // PlayEdEraseSound
 constexpr uint32_t kPlayRaiseGroundSound = 0x1508BBB6; // PlayRaiseGroundSound
 constexpr uint32_t kPlayLowerGroundSound = 0xFF957F6E; // PlayLowerGroundSound
-constexpr uint32_t kGapPlaced = 0x169F244F;          // (after a gap's half is placed; name unknown)
-constexpr uint32_t kAreaSelected = 0xC3E9871D;       // (after an area selection is finished; name unknown)
-constexpr uint32_t kSwitchOnRailEditor = 0x2C3B17EA; // SwitchOnRailEditor
-constexpr uint32_t kSwitchOffRailEditor = 0x32428A49; // SwitchOffRailEditor
-constexpr uint32_t kPauseTrickText = 0x93109A21;     // pause_trick_text
-constexpr uint32_t kEditorViewOn = 0x6CBDF252;       // (with pause_trick_text; name unknown)
-constexpr uint32_t kHideGoalPoints = 0xFB9AF75E;     // GoalManager_HideGoalPoints
-constexpr uint32_t kEditorViewOn2 = 0x4EFFB0AC;      // (name unknown)
-constexpr uint32_t kUnpauseTrickText = 0x07E3440E;   // unpause_trick_text
-constexpr uint32_t kShowPoints = 0x09A30DBF;         // GoalManager_ShowPoints
-constexpr uint32_t kShowGoalPoints = 0x888EF05E;     // GoalManager_ShowGoalPoints
+constexpr uint32_t kGapPlaced = 0x169F244F;            // (after a gap's half is placed; name unknown)
+constexpr uint32_t kAreaSelected = 0xC3E9871D;         // (after an area selection is finished; name unknown)
+constexpr uint32_t kSwitchOnRailEditor = 0x2C3B17EA;   // SwitchOnRailEditor
+constexpr uint32_t kSwitchOffRailEditor = 0x32428A49;  // SwitchOffRailEditor
+constexpr uint32_t kPauseTrickText = 0x93109A21;       // pause_trick_text
+constexpr uint32_t kEditorViewOn = 0x6CBDF252;         // (with pause_trick_text; name unknown)
+constexpr uint32_t kHideGoalPoints = 0xFB9AF75E;       // GoalManager_HideGoalPoints
+constexpr uint32_t kEditorViewOn2 = 0x4EFFB0AC;        // (name unknown)
+constexpr uint32_t kUnpauseTrickText = 0x07E3440E;     // unpause_trick_text
+constexpr uint32_t kShowPoints = 0x09A30DBF;           // GoalManager_ShowPoints
+constexpr uint32_t kShowGoalPoints = 0x888EF05E;       // GoalManager_ShowGoalPoints
 
 // The camera's constants (the exe's).
-constexpr float kAngleScaleToRad = 0.0174532924f;    // 0x00645464
-constexpr float kCameraHeight = 300.0f;       // 0x0064F224
-constexpr float kStickDeadZone = 50.0f;       // 0x006463CC (and -50, 0x0064EBE8)
-constexpr float kStickScale = 0.0128205130f;  // 0x0064EBEC (1 / 78)
-constexpr float kMillisecond = 0.001f;        // 0x006461D8
-constexpr float kZoomStep = 16.0f;            // 0x0064F220
-constexpr float kMaxDistance = 1500.0f;       // 0x0064F218
-constexpr float kMinDistance = 500.0f;        // 0x0064F21C
-constexpr float kMinTilt = 10.0f;             // 0x00646710
-constexpr double kMaxTilt = 90.0;             // 0x0064F340
-constexpr double kFullTurn = 360.0;           // 0x0064F348 (and 360.0f, 0x00645EA8)
+constexpr float kAngleScaleToRad = 0.0174532924f; // 0x00645464
+constexpr float kCameraHeight = 300.0f;           // 0x0064F224
+constexpr float kStickDeadZone = 50.0f;           // 0x006463CC (and -50, 0x0064EBE8)
+constexpr float kStickScale = 0.0128205130f;      // 0x0064EBEC (1 / 78)
+constexpr float kMillisecond = 0.001f;            // 0x006461D8
+constexpr float kZoomStep = 16.0f;                // 0x0064F220
+constexpr float kMaxDistance = 1500.0f;           // 0x0064F218
+constexpr float kMinDistance = 500.0f;            // 0x0064F21C
+constexpr float kMinTilt = 10.0f;                 // 0x00646710
+constexpr double kMaxTilt = 90.0;                 // 0x0064F340
+constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x00645EA8)
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-uint8_t* get_main_loop() { return reinterpret_cast<uint8_t*>(assets::g_main_loop_manager); } // +0x04 the logic tasks, +0x40 the display tasks
+uint8_t* get_main_loop()
+{
+    return reinterpret_cast<uint8_t*>(assets::g_main_loop_manager);
+} // +0x04 the logic tasks, +0x40 the display tasks
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
 ParkLayout* hub() { return ParkLayout::singleton(); }
 BuildPointer* get_cursor() { return BuildPointer::singleton(); }
 bool have_cursor() { return BuildPointer::singleton() != nullptr; } // (the original asks the getter with 0)
-bool is_gap_tool(BuildPointer* cursor) { return cursor->mode_sel_ == BuildPointer::kModeGap || cursor->mode_sel_ == BuildPointer::kModeGapAdjust; }
+bool is_gap_tool(BuildPointer* cursor)
+{
+    return cursor->mode_sel_ == BuildPointer::kModeGap || cursor->mode_sel_ == BuildPointer::kModeGapAdjust;
+}
 
 void launch_script(uint32_t name) { script::launch_script(name, nullptr, nullptr, false, nullptr); }
 GapRegistry* gap_registry() { return GapRegistry::singleton(); }
@@ -165,10 +171,7 @@ void turn_move(double angle, double a, double b, float* x, float* z)
 }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 } // namespace
 
@@ -213,7 +216,8 @@ ParkBuilderMode* ParkBuilderMode::Listener::destroy_editor(uint8_t flags) { retu
 void ParkBuilderMode::start_callback()
 {
     uint8_t* main_loop = get_main_loop();
-    reinterpret_cast<tasks::PileUp*>(main_loop + 4)->queue_job(reinterpret_cast<tasks::SchedulerTask*>(editor_update_job_));
+    reinterpret_cast<tasks::PileUp*>(main_loop + 4)
+        ->queue_job(reinterpret_cast<tasks::SchedulerTask*>(editor_update_job_));
     ParkEditorInputHandler* handler = editor_pad_listener_;
     pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
     reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(reinterpret_cast<tasks::SchedulerTask*>(handler));
@@ -288,12 +292,15 @@ void ParkBuilderMode::decode_from_struct(script::Struct* params, bool apply_to_e
     hub()->decode_from_struct(params, apply_to_editor);
 }
 void ParkBuilderMode::get_map_info(const CompressedMap* map, int* num_gaps, int* num_metas, uint16_t* shell_size,
-                             uint32_t* theme, int* width, int* length)
+                                   uint32_t* theme, int* width, int* length)
 {
     hub()->get_map_info(map, num_gaps, num_metas, shell_size, theme, width, length);
 }
 void ParkBuilderMode::write_compressed_map_if_built() { hub()->write_compressed_map_if_built(); }
-CompressedMap* ParkBuilderMode::get_packed_park_data(bool flag_clean) { return hub()->get_packed_park_data(flag_clean); }
+CompressedMap* ParkBuilderMode::get_packed_park_data(bool flag_clean)
+{
+    return hub()->get_packed_park_data(flag_clean);
+}
 void ParkBuilderMode::set_packed_park_data(const CompressedMap* map, bool flag_dirty)
 {
     hub()->set_packed_park_data(map, flag_dirty);
@@ -326,7 +333,9 @@ void ParkBuilderMode::show_editor_view(bool on)
 void ParkBuilderMode::switch_camera()
 {
     // 0x0059F890: the active camera (by its object's name)
-    auto set_camera = [](uint32_t id, int viewport, int take_current_view) { commands::make_camera_active(id, viewport, take_current_view != 0); };
+    auto set_camera = [](uint32_t id, int viewport, int take_current_view) {
+        commands::make_camera_active(id, viewport, take_current_view != 0);
+    };
     if (have_cursor() && get_cursor()->mode_sel_ == BuildPointer::kModeRailPlacement) {
         set_camera(kRailEditorCam, 0, 0);
         return;
@@ -382,17 +391,15 @@ bool ParkBuilderMode::is_inside_park(maths::Vec4 pos, float margin)
     maths::Vec4 corner = hub()->cell_to_world_pos(bounds, &size);
     double x = pos.x;
     double z = pos.z;
-    return static_cast<double>(corner.x) + margin < x &&
-           x < static_cast<double>(size.x) + corner.x - margin &&
-           static_cast<double>(corner.z) + margin < z &&
-           z < static_cast<double>(size.z) + corner.z - margin;
+    return static_cast<double>(corner.x) + margin < x && x < static_cast<double>(size.x) + corner.x - margin &&
+           static_cast<double>(corner.z) + margin < z && z < static_cast<double>(size.z) + corner.z - margin;
 }
 
 // 0x0058DF80
 bool ParkBuilderMode::find_restart(void* a, void* b, void* c)
 {
     return hub()->builder_->find_nearest_rail_point(static_cast<const maths::Vec4*>(a), static_cast<maths::Vec4*>(b),
-                                                         static_cast<float*>(c));
+                                                    static_cast<float*>(c));
 }
 
 // 0x0058DFA0
@@ -473,10 +480,12 @@ void ParkBuilderMode::tick_frame()
     camera.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     camera.row[3] = {0.0f, 0.0f, orbit_radius_, 1.0f};
     maths::Mat4 rotation;
-    matrix_multiply(&camera, &camera,
-                   &maths::make_pitch_matrix(rotation, static_cast<float>(camera_tilt_ * -static_cast<double>(kAngleScaleToRad))));
-    matrix_multiply(&camera, &camera,
-                   &maths::make_yaw_matrix(rotation, static_cast<float>(camera_angle_ * static_cast<double>(kAngleScaleToRad))));
+    matrix_multiply(
+        &camera, &camera,
+        &maths::make_pitch_matrix(rotation, static_cast<float>(camera_tilt_ * -static_cast<double>(kAngleScaleToRad))));
+    matrix_multiply(
+        &camera, &camera,
+        &maths::make_yaw_matrix(rotation, static_cast<float>(camera_angle_ * static_cast<double>(kAngleScaleToRad))));
     const maths::Vec4& cursor_pos = get_cursor()->at_point_;
     camera.row[3].x = static_cast<float>(static_cast<double>(camera.row[3].x) + get_cursor()->at_point_.x);
     camera.row[3].y = static_cast<float>(static_cast<double>(camera.row[3].y) + kCameraHeight);
@@ -545,7 +554,8 @@ void ParkBuilderMode::tick_frame()
     // Placing: a gap's half, the area selection's corners, the paste, or the piece.
     if (actions_ & kCommandPlace) {
         if (is_gap_tool(get_cursor())) {
-            if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) && get_cursor()->gap_.halves_placed_ != 1) {
+            if ((get_cursor()->add_gap_half() || get_cursor()->is_over_gap()) &&
+                get_cursor()->gap_.halves_placed_ != 1) {
                 launch_script(kPlayEdPlaceSound);
                 launch_script(kGapPlaced);
             } else {
@@ -629,9 +639,9 @@ void ParkBuilderMode::tick_frame()
     // After a change to the park: the rails and the goals follow the floor.
     if ((actions_ & (kCommandPlace | kCommandRemove | kCommandRaise)) || (actions_ & kCommandLower)) {
         RailAuthoring* rails = get_rail_editor();
-        rails->restore_heights();                // the rails' points onto the floor again
-        rails->draw_all_segments();               // their segments updated
-        rails->draw_all_posts();                  // their points updated
+        rails->restore_heights();                        // the rails' points onto the floor again
+        rails->draw_all_segments();                      // their segments updated
+        rails->draw_all_posts();                         // their points updated
         get_goal_editor()->place_park_goals_on_ground(); // the park's goals placed again
     }
 
@@ -732,6 +742,6 @@ void ParkBuilderMode::change_phase(uint32_t state)
     modules::release_front_end();
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::ParkBuilderMode;

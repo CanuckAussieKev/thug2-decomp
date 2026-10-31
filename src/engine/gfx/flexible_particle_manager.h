@@ -15,12 +15,12 @@ struct EmitterInstance;
 // (0x28 bytes, vtable 0x006494B0: 0 the scalar deleting destructor.)
 struct FlexibleParticleManager {
     void** vtable_;
-    memory::Zone* zone_;     // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
-    memory::Arena* arena_;         // +0x08 "FlxParticles"
-    memory::Zone* temp_region_; // +0x0C
-    memory::Arena* temp_heap_;     // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
-    memory::ListNode* systems_ptr_;  // +0x14: the list's head (lists::Foremost<EmitterInstance>, vtable 0x006494C4)
-    float colour_scale_[4];     // +0x18: the level's colour (given to the systems with flag 0x10000)
+    memory::Zone* zone_;            // +0x04: its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
+    memory::Arena* arena_;          // +0x08 "FlxParticles"
+    memory::Zone* temp_region_;     // +0x0C
+    memory::Arena* temp_heap_;      // +0x10 "TEMPFlxPrtcl": systems are made on it while it's there
+    memory::ListNode* systems_ptr_; // +0x14: the list's head (lists::Foremost<EmitterInstance>, vtable 0x006494C4)
+    float colour_scale_[4];         // +0x18: the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
     // 0x3214C818 - 60 when that's 0. Returns this.
@@ -44,8 +44,8 @@ struct FlexibleParticleManager {
     // own), unless it couldn't allocate everything (then destroyed: null): `perm` (not 0) kept by
     // destroy_non_persistent, `use_level_colour` given the level's colour; updating, not emitting, added at the list's end.
     EmitterInstance* start_subsystem(uint32_t name, uint32_t type, int particle_cap, int max_streams, uint32_t texture,
-                                  uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history, int perm,
-                                  bool use_level_colour, const char* model);
+                                     uint32_t blend_mode, int fixed_alpha, int segments, float unknown, int history,
+                                     int perm, bool use_level_colour, const char* model);
     // 0x0049AD60: `system` taken out of the list (null: nothing).
     void remove_system(EmitterInstance* system);
     // 0x0049AD90: the system named `name` destroyed (if there's one).
@@ -64,8 +64,7 @@ struct FlexibleParticleManager {
     static int __cdecl compare_distance(const void* a, const void* b);
 };
 static_assert(offsetof(FlexibleParticleManager, systems_ptr_) == 0x14 &&
-                  offsetof(FlexibleParticleManager, colour_scale_) == 0x18 &&
-                  sizeof(FlexibleParticleManager) == 0x28,
+                  offsetof(FlexibleParticleManager, colour_scale_) == 0x18 && sizeof(FlexibleParticleManager) == 0x28,
               "layout must match the original");
 
 // 0x0049AEF0 (the head's vtable 0x006494C4, slot 0): the list's head (lists::Foremost<EmitterInstance>) destroyed - the
@@ -76,4 +75,4 @@ struct ParticleSystemListHead {
 
 extern float g_frame_time_scale;
 extern int g_drawn_viewport;
-} // namespace Nx
+} // namespace render

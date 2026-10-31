@@ -30,11 +30,14 @@ using namespace core_fields;
 
 namespace {
 
-constexpr uint32_t kLipKind = 0xA549B57B;        // Lip (the balance trick's kind)
-constexpr uint32_t kPerfectRail = 0xCD09E062;    // CHEAT_PERFECT_RAIL
+constexpr uint32_t kLipKind = 0xA549B57B;     // Lip (the balance trick's kind)
+constexpr uint32_t kPerfectRail = 0xCD09E062; // CHEAT_PERFECT_RAIL
 constexpr uint32_t kName = 0xA1DC81F9;
 
-void change_state(void* component, int state) { static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state); }
+void change_state(void* component, int state)
+{
+    static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
+}
 
 } // namespace
 
@@ -59,8 +62,7 @@ void SkaterPhysicsModule::step_coping_move()
             get_at<objects::MovingSurfaceModule*>(this, kRide)->get_contact_point(&where);
             vector_at(this, 0x258) = where;
             if (get_tracker(this)->turned_) {
-                auto multiply =
-                    d3dx::matrix_multiply;
+                auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& matrix = matrix_at(object_of(this), kMatrix);
                 multiply(&matrix, &matrix, &get_tracker(this)->turn_);
                 multiply(&matrix_at(this, kDisplayMatrix), &matrix_at(this, kDisplayMatrix), &get_tracker(this)->turn_);
@@ -69,7 +71,9 @@ void SkaterPhysicsModule::step_coping_move()
     }
     // The lip's balance (the Perfect Rail cheat: its global flag, and no lean).
     if (get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0x18) == kLipKind) {
-        auto career = [] { return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20); };
+        auto career = [] {
+            return get_at<objects::RiderStoryProgress*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20);
+        };
         if (career()->is_code_on(kPerfectRail)) {
             career()->set_global_flag(script::fetch_int_value(kPerfectRail));
             get_at<uint32_t>(get_at<void*>(this, kBalanceTrick), 0x104) = 0;
@@ -149,7 +153,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
         if (void* object = get_at<void*>(rail, 0x18))
             get_at<walk::MovableContact*>(this, kRide)->start_riding(static_cast<objects::GameEntity*>(object));
         start_grind(reinterpret_cast<const maths::Vec4*>(grind), get_at<objects::GrindPoint*>(rail, 0x14),
-                   get_at<objects::GrindRailHub*>(rail, 0x10), true, true);
+                    get_at<objects::GrindRailHub*>(rail, 0x10), true, true);
         vector_at(this, 0x98) = vector_at(object_of(this), kPosition);
         vector_at(object_of(this), kOldPosition) = vector_at(this, 0x98);
     } else if (acid_drop) {
@@ -157,4 +161,4 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const uint8_t* grind, v
     }
 }
 
-} // namespace Skater
+} // namespace skater

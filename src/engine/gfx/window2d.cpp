@@ -36,10 +36,7 @@ ScreenWindow* ScreenWindow::make_new(int x, int y, int width, int height)
 }
 
 // 0x004A15B0
-void ScreenWindow::destroy_body()
-{
-    vtable_ = reinterpret_cast<void**>(kWindowVtable);
-}
+void ScreenWindow::destroy_body() { vtable_ = reinterpret_cast<void**>(kWindowVtable); }
 
 // 0x004A1690
 ScreenWindow* ScreenWindow::teardown(unsigned int free_flags)
@@ -51,10 +48,7 @@ ScreenWindow* ScreenWindow::teardown(unsigned int free_flags)
 }
 
 // 0x004A1600
-void ScreenWindow::tick_engine()
-{
-    debug::printf("STUB: PlatUpdateEngine\n");
-}
+void ScreenWindow::tick_engine() { debug::printf("STUB: PlatUpdateEngine\n"); }
 
 // 0x004A15C0
 void ScreenWindow::change_location(int x, int y)
@@ -99,4 +93,4 @@ static VtableSlot g_window_vtable_slots[] = {&render::ScreenWindow::teardown, &r
 void** const kWindowVtable = reinterpret_cast<void**>(g_window_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

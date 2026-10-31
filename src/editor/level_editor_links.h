@@ -83,4 +83,4 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
 void reset_all();
 void forget_level();
 
-} // namespace MenuSystem::level_editor::Links
+} // namespace frontend::level_editor::links

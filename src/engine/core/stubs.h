@@ -25,4 +25,4 @@ int __stdcall return_zero3(int, int, int);
 int __stdcall return_zero6(int, int, int, int, int, int);
 uint16_t return_zero_word();
 
-} // namespace Stubs
+} // namespace stubs

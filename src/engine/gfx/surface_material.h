@@ -34,9 +34,9 @@ struct TextureKey {
 struct TextureAnim {
     uint32_t start_time_;    // (set by Restart; the animation doesn't read it)
     uint32_t key_counts_[4]; // +0x04
-    uint32_t phases[4];    // +0x14
-    int loops[4];          // +0x24
-    TextureKey* keys[4];  // +0x34
+    uint32_t phases[4];      // +0x14
+    int loops[4];            // +0x24
+    TextureKey* keys[4];     // +0x34
 
     // 0x004D1A80: started again (the time now, frame_clock::GetTime).
     void relaunch();
@@ -58,34 +58,34 @@ struct MaterialRef {
     uint32_t checksum;
     uint32_t name_hash_; // passes are named relative to it (see pass_from_checksum)
     uint32_t pass_count_;
-    uint8_t sort_flag_;      // +0x0C
-    uint8_t two_sided_;      // +0x0D: no culling
-    bool has_uv_wibble_;      // +0x0E: set when a pass gets a UV wibble of its own
-    bool has_texture_anim_;   // +0x0F
-    uint8_t alpha_ref_;      // +0x10 (0: no alpha test)
-    uint8_t depth_bias_;     // +0x11 (up to 16)
+    uint8_t sort_flag_;     // +0x0C
+    uint8_t two_sided_;     // +0x0D: no culling
+    bool has_uv_wibble_;    // +0x0E: set when a pass gets a UV wibble of its own
+    bool has_texture_anim_; // +0x0F
+    uint8_t alpha_ref_;     // +0x10 (0: no alpha test)
+    uint8_t depth_bias_;    // +0x11 (up to 16)
     uint8_t unknown12[2];
     uint32_t unknown14;
     uint32_t unknown18;
-    float sort_key_;         // +0x1C
-    uint32_t pass_flags_[4]; // +0x20: 1 UV wibble, 2 (pass 0) colour animations, 8 environment mapped, 0x80 (byte) the
-                           // colour isn't to be changed, 0x100 (pass 0) specular, 0x200 a border colour, 0x400 bump
-                           // environment, 0x800 texture animation, 0x1000 alpha from the texture alone, 0x4000
-                           // explicit UV wibble (not animated)
-    uint8_t* textures[4];  // +0x30 (+0x10 the Direct3D texture)
-    float pass_color_[4][4]; // +0x40: r, g, b (0.5: unchanged) and a fourth value
-    uint32_t blend_modes_[4];    // +0x80 (choose_blend_mode's)
-    uint32_t address_modes_[4];  // +0x90 (kAddressMode0's)
-    float reflection_tiling_[4][2];  // +0xA0 (3, 3 when constructed)
-    uint32_t unknownc0_[4];     // +0xC0 (0x10001 when constructed)
+    float sort_key_;          // +0x1C
+    uint32_t pass_flags_[4];  // +0x20: 1 UV wibble, 2 (pass 0) colour animations, 8 environment mapped, 0x80 (byte) the
+                              // colour isn't to be changed, 0x100 (pass 0) specular, 0x200 a border colour, 0x400 bump
+                              // environment, 0x800 texture animation, 0x1000 alpha from the texture alone, 0x4000
+                              // explicit UV wibble (not animated)
+    uint8_t* textures[4];     // +0x30 (+0x10 the Direct3D texture)
+    float pass_color_[4][4];  // +0x40: r, g, b (0.5: unchanged) and a fourth value
+    uint32_t blend_modes_[4]; // +0x80 (choose_blend_mode's)
+    uint32_t address_modes_[4];     // +0x90 (kAddressMode0's)
+    float reflection_tiling_[4][2]; // +0xA0 (3, 3 when constructed)
+    uint32_t unknownc0_[4];         // +0xC0 (0x10001 when constructed)
     UvOscillator* uv_wibble_[4];    // +0xD0
-    uint32_t mip_lod_bias_[4];    // +0xE0 (kMipLodBias0's: float bits)
-    uint32_t color_anim_count_;   // +0xF0
-    ColorAnim* color_anims_;    // +0xF4
-    uint32_t* anim_colors_;      // +0xF8: each animation's colour now
-    TextureAnim* texture_anim_; // +0xFC
-    float specular[3];         // +0x100
-    float specular_power_;       // +0x10C
+    uint32_t mip_lod_bias_[4];      // +0xE0 (kMipLodBias0's: float bits)
+    uint32_t color_anim_count_;     // +0xF0
+    ColorAnim* color_anims_;        // +0xF4
+    uint32_t* anim_colors_;         // +0xF8: each animation's colour now
+    TextureAnim* texture_anim_;     // +0xFC
+    float specular[3];              // +0x100
+    float specular_power_;          // +0x10C
 
     // 0x004D1A90: construct - no passes, animations or wibbles; the per-pass defaults. Returns this.
     MaterialRef* make_new();
@@ -114,7 +114,7 @@ static_assert(offsetof(MaterialRef, pass_flags_) == 0x20 && offsetof(MaterialRef
                   offsetof(MaterialRef, specular_power_) == 0x10C && sizeof(MaterialRef) == 0x110,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render
 
 namespace lists {
 class KeyMap;
@@ -154,4 +154,4 @@ inline int pass_from_checksum(const MaterialRef* material, uint32_t checksum, in
     return index;
 }
 
-} // namespace Nx
+} // namespace render

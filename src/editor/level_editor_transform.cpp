@@ -58,28 +58,38 @@ const std::vector<float>& angle_steps()
 const char* mode_name(Mode mode)
 {
     switch (mode) {
-    case Mode::kShiftBy: return "Move";
-    case Mode::kSpinBy: return "Rotate";
-    case Mode::scale_tool: return "Scale";
+    case Mode::kShiftBy:
+        return "Move";
+    case Mode::kSpinBy:
+        return "Rotate";
+    case Mode::scale_tool:
+        return "Scale";
     }
     return "?";
 }
 const char* pivot_name(Pivot pivot)
 {
     switch (pivot) {
-    case Pivot::kBase: return "Base";
-    case Pivot::kCentre: return "Centre";
-    case Pivot::kOwn: return "Own";
+    case Pivot::kBase:
+        return "Base";
+    case Pivot::kCentre:
+        return "Centre";
+    case Pivot::kOwn:
+        return "Own";
     }
     return "?";
 }
 const char* target_name(SnapTarget target)
 {
     switch (target) {
-    case SnapTarget::kGrid: return "Grid";
-    case SnapTarget::kWorldGrid: return "World grid";
-    case SnapTarget::kSurface: return "Surface";
-    case SnapTarget::kVertex: return "Vertex";
+    case SnapTarget::kGrid:
+        return "Grid";
+    case SnapTarget::kWorldGrid:
+        return "World grid";
+    case SnapTarget::kSurface:
+        return "Surface";
+    case SnapTarget::kVertex:
+        return "Vertex";
     }
     return "?";
 }
@@ -231,10 +241,14 @@ uint32_t handle_colour(int handle, bool lit)
     if (lit)
         return 0xFFFFFF40;
     switch (handle) {
-    case 0: return 0xFFFF4040;
-    case 1: return 0xFF40E040;
-    case 2: return 0xFF4080FF;
-    default: return 0xFFE8E8E8;
+    case 0:
+        return 0xFFFF4040;
+    case 1:
+        return 0xFF40E040;
+    case 2:
+        return 0xFF4080FF;
+    default:
+        return 0xFFE8E8E8;
     }
 }
 
@@ -323,7 +337,7 @@ void note_duplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made
 }
 
 bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
-               RepeatStep* step)
+                RepeatStep* step)
 {
     if (memory.kind == Kind::kNone || kind != memory.kind || selected.empty())
         return false;
@@ -346,11 +360,12 @@ bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& se
 
 V3 repeat_target(V3 from, const RepeatStep& step)
 {
-    V3 offset = step.quarters ? get_quarter_turn(step.offset, step.quarters)
-                              : step.turn != 0.0f ? turn_about_up(step.offset, step.turn) : step.offset;
+    V3 offset = step.quarters       ? get_quarter_turn(step.offset, step.quarters)
+                : step.turn != 0.0f ? turn_about_up(step.offset, step.turn)
+                                    : step.offset;
     return from + offset;
 }
 
 Repeat& last_duplicate() { return g_repeat; }
 
-} // namespace MenuSystem::level_editor::xform
+} // namespace frontend::level_editor::xform

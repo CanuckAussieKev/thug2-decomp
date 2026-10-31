@@ -12,7 +12,7 @@
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -93,4 +93,4 @@ public:
 };
 static_assert(sizeof(GrindPathLinkModule) == 0x1C, "layout must match the original (0x0042B920 allocates 0x1C bytes)");
 
-} // namespace Obj
+} // namespace objects

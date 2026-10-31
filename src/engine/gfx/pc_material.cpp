@@ -24,11 +24,10 @@ namespace render {
 
 float g_billboard_uv_matrix[8]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 float g_wibble_matrix_pass[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_environment_matrix_pass[16]{
-    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
+float g_environment_matrix_pass[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
+                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f};
 float g_wibble_matrix[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_environment_matrix[16]{
-    0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
+float g_environment_matrix[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
 
 namespace {
 
@@ -41,15 +40,15 @@ void device_stage_state(uint32_t stage, D3DTEXTURESTAGESTATETYPE type, uint32_t 
     input_port()->SetTextureStageState(stage, type, value);
 }
 
-constexpr uint32_t kPassUvWibble = 0x1;      // the texture matrix from the pass's UV wibble
-constexpr uint32_t kPassColorAnim = 0x2;     // (pass 0's) the material's colour animations
-constexpr uint32_t kPassEnvironment = 0x8;   // environment mapped (near the camera only)
-constexpr uint32_t kPassSpecular = 0x100;    // (pass 0's) specular lighting
-constexpr uint32_t kPassBorder = 0x200;      // the sampler's border colour 0xE0000000
-constexpr uint32_t kPassBumpEnv = 0x400;     // the bump environment matrix
-constexpr uint32_t kPassTextureAnim = 0x800; // the texture from the material's texture animation
+constexpr uint32_t kPassUvWibble = 0x1;        // the texture matrix from the pass's UV wibble
+constexpr uint32_t kPassColorAnim = 0x2;       // (pass 0's) the material's colour animations
+constexpr uint32_t kPassEnvironment = 0x8;     // environment mapped (near the camera only)
+constexpr uint32_t kPassSpecular = 0x100;      // (pass 0's) specular lighting
+constexpr uint32_t kPassBorder = 0x200;        // the sampler's border colour 0xE0000000
+constexpr uint32_t kPassBumpEnv = 0x400;       // the bump environment matrix
+constexpr uint32_t kPassTextureAnim = 0x800;   // the texture from the material's texture animation
 constexpr uint32_t kPassTextureAlpha = 0x1000; // alpha from the texture only
-constexpr uint32_t kPassExplicitUv = 0x4000; // the UV wibble's matrix is set, not animated
+constexpr uint32_t kPassExplicitUv = 0x4000;   // the UV wibble's matrix is set, not animated
 
 // (t - from) / (to - from) between two keys' colours, channel by channel in the order a, r, g, b (the bytes 3, 0, 1,
 // 2), each the x87's to * f + from * (1 - f) truncated - and not masked: the four values are shifted and or'd as
@@ -66,7 +65,8 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* 
         fld1
         fsub st(0), st(1)
     }
-    for (int k = 0; k < 4; ++k) {
+    for (int k = 0; k < 4; ++k)
+    {
         int a = to[kOrder[k]];
         int b = from[kOrder[k]];
         int64_t value;
@@ -213,7 +213,10 @@ void fill_wibble_matrix(float* matrix, const UvOscillator* wibble)
     matrix[9] = wibble->offset[1];
 }
 
-uint32_t factor_channel(float value) { return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF; }
+uint32_t factor_channel(float value)
+{
+    return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF;
+}
 
 } // namespace
 
@@ -522,7 +525,7 @@ void MaterialRef::submit_pass(uint32_t pass, const float* color)
     device_stage_state(2, D3DTSS_COLOROP, D3DTOP_DISABLE);
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
@@ -536,4 +539,4 @@ MaterialRef g_spare_material;
 // 0x00640D70 (a static initialiser)
 void construct_spare_material() { g_spare_material.make_new(); }
 
-} // namespace Nx
+} // namespace render

@@ -48,9 +48,9 @@ constexpr uint8_t kMsgTookFlag = 0x71;
 constexpr uint8_t kMsgCapturedFlag = 0x72;
 constexpr uint8_t kMsgKickRequest = 0x61; // (a client asks the server to kick or ban)
 
-constexpr uint32_t kPlayer = 0x67E6859A;   // player
-constexpr uint32_t kFlagTeam = 0xD61CFF21; // flag_team
-constexpr uint32_t kObjId = 0x0830ECAF;    // objId
+constexpr uint32_t kPlayer = 0x67E6859A;      // player
+constexpr uint32_t kFlagTeam = 0xD61CFF21;    // flag_team
+constexpr uint32_t kObjId = 0x0830ECAF;       // objId
 constexpr uint32_t kSkaterScore = 0xD262802F; // the skater's score component
 
 // PlayerRecord flags (+0x1D0).
@@ -83,7 +83,8 @@ void send_flag_message(Hub* manager, uint8_t id, int player, int team, Local loc
     desc.group_id_ = kGroupGame;
     net::AppHost* server = manager->host_;
     PlayerSearch search;
-    for (uint8_t* other = start_roster_sweep(manager, &search, true); other; other = step_roster_sweep(manager, &search, true)) {
+    for (uint8_t* other = start_roster_sweep(manager, &search, true); other;
+         other = step_roster_sweep(manager, &search, true)) {
         if (is_own_player(other))
             local();
         else
@@ -97,7 +98,8 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
     PlayerSearch search;
     int index = 0;
     uint8_t* player = start_roster_sweep(manager, &search, true);
-    for (; player && !(prop<uint32_t>(player, 0x1D0) & kPlayerMarked); player = step_roster_sweep(manager, &search, true))
+    for (; player && !(prop<uint32_t>(player, 0x1D0) & kPlayerMarked);
+         player = step_roster_sweep(manager, &search, true))
         ++index;
     if (!player)
         return;
@@ -163,7 +165,8 @@ bool __cdecl cfunc_player_captured_flag(script::Struct* params, script::Script*)
     send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
         auto* skater = reinterpret_cast<objects::GameEntity*>(player_skater(capturer));
         uint8_t* score = prop<uint8_t*>(skater->fetch_module(kSkaterScore), 0x18);
-        get_call(code_address(&modules::PointTally::set_grand_total), score, get_call<int>(code_address(&modules::PointTally::get_total_score), score) + 1); // its captures
+        get_call(code_address(&modules::PointTally::set_grand_total), score,
+                 get_call<int>(code_address(&modules::PointTally::get_total_score), score) + 1); // its captures
         as_player(capturer)->score_flag_capture(team);
     });
     return true;
@@ -179,7 +182,8 @@ bool __cdecl cfunc_player_retrieved_flag(script::Struct* params, script::Script*
     params->fetch_int_value("flag_team", &team, 0);
     uint8_t* retriever = manager->find_player_slot_by_obj(static_cast<uint16_t>(player));
     if (retriever) // (as a capture: message 0x72 and 0x00543A90 - not 0x73 / 0x00544110, the retrieve's)
-        send_flag_message(manager, kMsgCapturedFlag, player, team, [&] { as_player(retriever)->score_flag_capture(team); });
+        send_flag_message(manager, kMsgCapturedFlag, player, team,
+                          [&] { as_player(retriever)->score_flag_capture(team); });
     return true;
 }
 

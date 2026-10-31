@@ -23,7 +23,10 @@ OverlayDraw*& foremost() { return g_draw2d_head; }
 uint32_t& z_test_next_frame() { return g_draw2d_z_test_next_frame; }
 void** base_vtable() { return kSDraw2dVtable; }
 
-void get_call(OverlayDraw* item, int slot) { reinterpret_cast<void(__thiscall*)(OverlayDraw*)>(item->vtable[slot])(item); }
+void get_call(OverlayDraw* item, int slot)
+{
+    reinterpret_cast<void(__thiscall*)(OverlayDraw*)>(item->vtable[slot])(item);
+}
 
 } // namespace
 
@@ -156,9 +159,8 @@ void __cdecl draw_2d()
 }
 
 namespace {
-static VtableSlot g_s_draw_2d_vtable_slots[] = {&render::OverlayDraw::teardown, &_purecall,
-                &_purecall, &_purecall};
+static VtableSlot g_s_draw_2d_vtable_slots[] = {&render::OverlayDraw::teardown, &_purecall, &_purecall, &_purecall};
 void** const kSDraw2dVtable = reinterpret_cast<void**>(g_s_draw_2d_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

@@ -25,10 +25,10 @@ namespace {
 
 extern void** const kVtable;
 constexpr uint32_t kSkaterStancePanel = 0x21FC3301, kSkaterCorePhysics = 0x5BD63B29;
-constexpr uint32_t kNollieOn = 0x41EB710B, kInNollie = 0x1EB61DCE, kPressureOn = 0x0A23D710,
-                   kPressureOff = 0x71B57DD6, kNollieOff = 0xFB9B7C9C, kInPressure = 0x9FAB9D0B;
-constexpr uint32_t kSkaterEnterNollie = 0x8157AB31, kSkaterExitNollie = 0x3F70881A,
-                   kSkaterEnterPressure = 0x2E8DE921, kSkaterExitPressure = 0xFA9ADB1D;
+constexpr uint32_t kNollieOn = 0x41EB710B, kInNollie = 0x1EB61DCE, kPressureOn = 0x0A23D710, kPressureOff = 0x71B57DD6,
+                   kNollieOff = 0xFB9B7C9C, kInPressure = 0x9FAB9D0B;
+constexpr uint32_t kSkaterEnterNollie = 0x8157AB31, kSkaterExitNollie = 0x3F70881A, kSkaterEnterPressure = 0x2E8DE921,
+                   kSkaterExitPressure = 0xFA9ADB1D;
 constexpr uint32_t kPanelIdOffset = 0x69751A23; // the panel's element id: below the skater number
 constexpr int kHidden = 5;
 
@@ -113,8 +113,7 @@ void RiderStanceDisplay::tick_frame()
 }
 
 // 0x005192C0
-int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
-                                                    script::Script* /*script*/)
+int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*params*/, script::Script* /*script*/)
 {
     switch (name) {
     case kNollieOn:
@@ -150,25 +149,27 @@ int RiderStanceDisplay::invoke_method_by_name(uint32_t name, script::Struct* /*p
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderStanceDisplay::teardown,
-         &objects::RiderStanceDisplay::tick_frame,
-         &objects::RiderStanceDisplay::configure_from_data,
-         &objects::RiderStanceDisplay::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderStanceDisplay::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderStanceDisplay::teardown,
+    &objects::RiderStanceDisplay::tick_frame,
+    &objects::RiderStanceDisplay::configure_from_data,
+    &objects::RiderStanceDisplay::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderStanceDisplay::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

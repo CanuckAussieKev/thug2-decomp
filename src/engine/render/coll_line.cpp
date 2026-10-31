@@ -109,7 +109,7 @@ bool report_hit(const maths::Seg& line, HitMesh* object, const FaceHit& face, fl
 
 // 0x004137B0 (the face index handed on is left unset by the original - stack garbage; 0 here)
 bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* /*direction*/, CollisionHit* hit,
-                                   const maths::BBox* /*line_box*/)
+                                     const maths::BBox* /*line_box*/)
 {
     maths::Seg local; // (its constructor, 0x005902E0, does nothing)
     box_to_local(reinterpret_cast<const maths::BBox*>(line), reinterpret_cast<maths::BBox*>(&local));
@@ -141,7 +141,7 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
 
 // 0x00413B50
 bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4* direction, CollisionHit* hit,
-                                  const maths::BBox* line_box)
+                                       const maths::BBox* line_box)
 {
     // the line's distance from the geometry's minimum corner, for the rejection test
     double ux = direction->x, uy = direction->y;
@@ -193,8 +193,8 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
         float e1z = static_cast<float>(e1z_exact);
         FaceHit face_hit;
         face_hit.normal = {static_cast<float>(e1z_exact * e0y - static_cast<double>(e1y) * e0z),
-                          static_cast<float>(static_cast<double>(e0z) * e1x - e1z * e0x),
-                          static_cast<float>(e1y * e0x - static_cast<double>(e0y) * e1x), 0.0f};
+                           static_cast<float>(static_cast<double>(e0z) * e1x - e1z * e0x),
+                           static_cast<float>(e1y * e0x - static_cast<double>(e0y) * e1x), 0.0f};
         face_hit.point = v0;
         face_hit.face = face;
         face_hit.normal.make_unit();
@@ -205,8 +205,8 @@ bool StaticCollider::collide_with_line(const maths::Seg* line, const maths::Vec4
 }
 
 // 0x00413FF0
-bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::Vec4* /*direction*/,
-                                          CollisionHit* hit, const maths::BBox* /*line_box*/)
+bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::Vec4* /*direction*/, CollisionHit* hit,
+                                           const maths::BBox* /*line_box*/)
 {
     maths::Seg local; // (its constructor, 0x005902E0, does nothing)
     line_to_local(line, &local);
@@ -250,14 +250,13 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
                            static_cast<float>(static_cast<double>(v0.w) * size_factor_.w)};
         basis_frame_.carry_point_through(face_hit.point, scaled);
         const maths::Vec4* r = basis_frame_.row;
-        face_hit.normal = {
-            static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) +
-                               static_cast<double>(nx) * r[0].x),
-            static_cast<float>((static_cast<double>(nx) * r[0].y + static_cast<double>(nz) * r[2].y) +
-                               static_cast<double>(ny) * r[1].y),
-            static_cast<float>((static_cast<double>(nx) * r[0].z + static_cast<double>(nz) * r[2].z) +
-                               static_cast<double>(ny) * r[1].z),
-            0.0f};
+        face_hit.normal = {static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) +
+                                              static_cast<double>(nx) * r[0].x),
+                           static_cast<float>((static_cast<double>(nx) * r[0].y + static_cast<double>(nz) * r[2].y) +
+                                              static_cast<double>(ny) * r[1].y),
+                           static_cast<float>((static_cast<double>(nx) * r[0].z + static_cast<double>(nz) * r[2].z) +
+                                              static_cast<double>(ny) * r[1].z),
+                           0.0f};
         if (report_hit(*line, this, face_hit, t, hit))
             any = true;
     }
@@ -266,7 +265,7 @@ bool CollStaticInstance::collide_with_line(const maths::Seg* line, const maths::
 
 // 0x00414460
 bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::Vec4* /*direction*/, CollisionHit* hit,
-                                  const maths::BBox* /*line_box*/)
+                                           const maths::BBox* /*line_box*/)
 {
     maths::Seg local; // (its constructor, 0x005902E0, does nothing)
     box_to_local(reinterpret_cast<const maths::BBox*>(line), reinterpret_cast<maths::BBox*>(&local));
@@ -317,8 +316,8 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         float ny = static_cast<float>(e0z * e1x - e1z * e0x);
         float nz = static_cast<float>(e1y * e0x - e0y * e1x);
         // the length and its inverse rounded to floats; x kept unrounded for the turn
-        double length = std::sqrt((static_cast<double>(nx) * nx + static_cast<double>(nz) * nz) +
-                                  static_cast<double>(ny) * ny);
+        double length =
+            std::sqrt((static_cast<double>(nx) * nx + static_cast<double>(nz) * nz) + static_cast<double>(ny) * ny);
         double unit_x = nx;
         if (length > 0.0) {
             float inverse = static_cast<float>(1.0 / static_cast<float>(length));
@@ -329,14 +328,15 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
         // the corner turned and placed (z rounded before it's placed), the normal turned
         const maths::Vec4* r = orientation_.row;
         double placed_x = (static_cast<double>(v0.z) * r[2].x + static_cast<double>(v0.y) * r[1].x) +
-                         static_cast<double>(v0.x) * r[0].x;
+                          static_cast<double>(v0.x) * r[0].x;
         double placed_y = (static_cast<double>(v0.z) * r[2].y + static_cast<double>(v0.y) * r[1].y) +
-                         static_cast<double>(v0.x) * r[0].y;
+                          static_cast<double>(v0.x) * r[0].y;
         float placed_z = static_cast<float>((static_cast<double>(v0.z) * r[2].z + static_cast<double>(v0.y) * r[1].z) +
-                                           static_cast<double>(v0.x) * r[0].z);
-        face_hit.point = {static_cast<float>(placed_x + anchor_point_.x), static_cast<float>(placed_y + anchor_point_.y),
-                         static_cast<float>(static_cast<double>(placed_z) + anchor_point_.z),
-                         static_cast<float>(static_cast<double>(v0.w) + anchor_point_.w)};
+                                            static_cast<double>(v0.x) * r[0].z);
+        face_hit.point = {static_cast<float>(placed_x + anchor_point_.x),
+                          static_cast<float>(placed_y + anchor_point_.y),
+                          static_cast<float>(static_cast<double>(placed_z) + anchor_point_.z),
+                          static_cast<float>(static_cast<double>(v0.w) + anchor_point_.w)};
         face_hit.normal = {
             static_cast<float>((static_cast<double>(nz) * r[2].x + static_cast<double>(ny) * r[1].x) + unit_x * r[0].x),
             static_cast<float>((unit_x * r[0].y + static_cast<double>(nz) * r[2].y) + static_cast<double>(ny) * r[1].y),
@@ -348,4 +348,4 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
     return any;
 }
 
-} // namespace Nx
+} // namespace render

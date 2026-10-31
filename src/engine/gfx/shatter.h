@@ -24,14 +24,14 @@ struct Shatter {
     maths::Vec4* centres;    // +0x04
     maths::Vec4* velocities; // +0x08
     uint32_t unknown0c_;
-    maths::Mat4* rotations;  // +0x10
-    float lifetime;          // +0x14: seconds left
-    float gravity;           // +0x18 (128)
-    float floor;             // +0x1C: the height the triangles bounce at
-    float bounce;            // +0x20: the speed kept in a bounce
-    uint16_t triangle_count_;  // +0x24
+    maths::Mat4* rotations;   // +0x10
+    float lifetime;           // +0x14: seconds left
+    float gravity;            // +0x18 (128)
+    float floor;              // +0x1C: the height the triangles bounce at
+    float bounce;             // +0x20: the speed kept in a bounce
+    uint16_t triangle_count_; // +0x24
     uint16_t pad26;
-    uint32_t unknown28;      // +0x28 (the settings' checksum 0x007004C0)
+    uint32_t unknown28; // +0x28 (the settings' checksum 0x007004C0)
 
     // 0x004912C0: construct for `count` triangles (their arrays from the default heap), with the settings. Returns
     // this.
@@ -55,15 +55,15 @@ struct PcShatter {
     maths::Vec4* centres;    // +0x04
     maths::Vec4* velocities; // +0x08
     uint32_t unknown0c_;
-    maths::Mat4* rotations;  // +0x10: each triangle's turn a step
+    maths::Mat4* rotations; // +0x10: each triangle's turn a step
     uint8_t settings14[0x10];
-    uint16_t triangle_count_;  // +0x24
+    uint16_t triangle_count_; // +0x24
     uint8_t unknown26[6];
-    float* positions;   // +0x2C: three floats per triangle
-    uint8_t* material;  // +0x30: a material of its own (0x110 bytes) when asked for
+    float* positions;       // +0x2C: three floats per triangle
+    uint8_t* material;      // +0x30: a material of its own (0x110 bytes) when asked for
     uint32_t own_material_; // +0x34
-    MeshRef* mesh;        // +0x38: what it was made from (its material, vertex size and format)
-    uint8_t* vertices;  // +0x3C: three per triangle
+    MeshRef* mesh;          // +0x38: what it was made from (its material, vertex size and format)
+    uint8_t* vertices;      // +0x3C: three per triangle
 
     // 0x004B8120: construct for `count` triangles of `mesh`. Returns this.
     PcShatter* make_new(int count, MeshRef* mesh, uint32_t own_material);
@@ -92,4 +92,4 @@ void __cdecl shatter_geom(uint8_t* geom);
 
 extern lists::KeyMap* g_shatters;
 
-} // namespace Nx
+} // namespace render

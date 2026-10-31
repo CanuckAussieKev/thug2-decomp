@@ -31,36 +31,16 @@
 namespace objects {
 
 uint32_t g_anim_blender_member_functions[180]{
-            0xCABB44AE, 0x7149B753, 0, 0, 0, 0,
-            0xB628A959, 0x7149B753, 0, 0, 0, 0,
-            0xAFC2493E, 0x7149B753, 0, 0, 0, 0,
-            0xF1D4B29F, 0x7149B753, 0, 0, 0, 0,
-            0xD58E2AD5, 0x7149B753, 0, 0, 0, 0,
-            0x98A32669, 0x7149B753, 0, 0, 0, 0,
-            0x58C52F64, 0x7149B753, 0, 0, 0, 0,
-            0x2CB9AD09, 0x7149B753, 0, 0, 0, 0,
-            0x2889C6C9, 0x7149B753, 0, 0, 0, 0,
-            0x76CC99D5, 0x7149B753, 0, 0, 0, 0,
-            0xB5FB7EB6, 0x7149B753, 0, 0, 0, 0,
-            0x1A0F9646, 0x7149B753, 0, 0, 0, 0,
-            0x5195BCBB, 0x7149B753, 0, 0, 0, 0,
-            0x68C86AEC, 0x7149B753, 0, 0, 0, 0,
-            0x80FDBDF2, 0x7149B753, 0, 0, 0, 0,
-            0x42FFC3CE, 0x7149B753, 0, 0, 0, 0,
-            0x922E7D14, 0x7149B753, 0, 0, 0, 0,
-            0x74CF5C94, 0x7149B753, 0, 0, 0, 0,
-            0x9069F357, 0x7149B753, 0, 0, 0, 0,
-            0x1DF59A54, 0x7149B753, 0, 0, 0, 0,
-            0xC68365EB, 0x7149B753, 0, 0, 0, 0,
-            0x83654874, 0x7149B753, 0, 0, 0, 0,
-            0xD63A1B81, 0x7149B753, 0, 0, 0, 0,
-            0xBD4EDD44, 0x7149B753, 0, 0, 0, 0,
-            0x6AAEB76F, 0x7149B753, 0, 0, 0, 0,
-            0xF5E2B871, 0x7149B753, 0, 0, 0, 0,
-            0x986D274E, 0x7149B753, 0, 0, 0, 0,
-            0x27A98022, 0x7149B753, 0, 0, 0, 0,
-            0x6ECEB234, 0x7149B753, 0, 0, 0, 0,
-            0, 0x7149B753, 0, 0, 0, 0};
+    0xCABB44AE, 0x7149B753, 0, 0, 0, 0, 0xB628A959, 0x7149B753, 0, 0, 0, 0, 0xAFC2493E, 0x7149B753, 0, 0, 0, 0,
+    0xF1D4B29F, 0x7149B753, 0, 0, 0, 0, 0xD58E2AD5, 0x7149B753, 0, 0, 0, 0, 0x98A32669, 0x7149B753, 0, 0, 0, 0,
+    0x58C52F64, 0x7149B753, 0, 0, 0, 0, 0x2CB9AD09, 0x7149B753, 0, 0, 0, 0, 0x2889C6C9, 0x7149B753, 0, 0, 0, 0,
+    0x76CC99D5, 0x7149B753, 0, 0, 0, 0, 0xB5FB7EB6, 0x7149B753, 0, 0, 0, 0, 0x1A0F9646, 0x7149B753, 0, 0, 0, 0,
+    0x5195BCBB, 0x7149B753, 0, 0, 0, 0, 0x68C86AEC, 0x7149B753, 0, 0, 0, 0, 0x80FDBDF2, 0x7149B753, 0, 0, 0, 0,
+    0x42FFC3CE, 0x7149B753, 0, 0, 0, 0, 0x922E7D14, 0x7149B753, 0, 0, 0, 0, 0x74CF5C94, 0x7149B753, 0, 0, 0, 0,
+    0x9069F357, 0x7149B753, 0, 0, 0, 0, 0x1DF59A54, 0x7149B753, 0, 0, 0, 0, 0xC68365EB, 0x7149B753, 0, 0, 0, 0,
+    0x83654874, 0x7149B753, 0, 0, 0, 0, 0xD63A1B81, 0x7149B753, 0, 0, 0, 0, 0xBD4EDD44, 0x7149B753, 0, 0, 0, 0,
+    0x6AAEB76F, 0x7149B753, 0, 0, 0, 0, 0xF5E2B871, 0x7149B753, 0, 0, 0, 0, 0x986D274E, 0x7149B753, 0, 0, 0, 0,
+    0x27A98022, 0x7149B753, 0, 0, 0, 0, 0x6ECEB234, 0x7149B753, 0, 0, 0, 0, 0,          0x7149B753, 0, 0, 0, 0};
 
 namespace {
 
@@ -155,8 +135,8 @@ void AnimBlenderComponent::destroy_body()
         void* result;
         reinterpret_cast<objects::PointerList*>(&observers_)
             ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
-                    reinterpret_cast<objects::PointerListNode*>(head ? head[1] : nullptr),
-                    reinterpret_cast<objects::PointerListNode*>(head));
+                        reinterpret_cast<objects::PointerListNode*>(head ? head[1] : nullptr),
+                        reinterpret_cast<objects::PointerListNode*>(head));
     }
     memory::Hub::get_pull()->dealloc(observers_);
     lanes_.unlink_as(vt::kBlenderChannelNode);
@@ -209,15 +189,19 @@ void AnimBlenderComponent::tick_frame()
     if (!changed)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    auto skeleton = [this]() { return reinterpret_cast<gfx::Rig*>(reinterpret_cast<online::FoldedGetters*>(bone_rig_)->word18()); };
+    auto skeleton = [this]() {
+        return reinterpret_cast<gfx::Rig*>(reinterpret_cast<online::FoldedGetters*>(bone_rig_)->word18());
+    };
     if (count == 1) {
         notify_observers(gfx::g_blend_buffer);
     } else {
         uint32_t sets = highest_set + 1;
         for (uint32_t set = 0; set != sets;) {
             gfx::Stance* pose = gfx::g_blend_buffer;
-            uint32_t bones = reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton());
-            gfx::blend_poses_by_id(gfx::g_blend_buffer, gfx::g_blend_weights, gfx::g_blend_sets, static_cast<int>(bones), pose, count, set);
+            uint32_t bones =
+                reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton());
+            gfx::blend_poses_by_id(gfx::g_blend_buffer, gfx::g_blend_weights, gfx::g_blend_sets,
+                                   static_cast<int>(bones), pose, count, set);
             ++set;
             gfx::g_blend_sets[0] = set;
             gfx::g_blend_weights[0] = 0.0f;
@@ -235,8 +219,7 @@ void AnimBlenderComponent::configure_from_data(script::Struct* params)
     if (lanes_.prev != &lanes_)
         return;
     void* memory = memory::alloc_zeroed(0x74);
-    Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, true)
-                              : nullptr;
+    Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, true) : nullptr;
     get_link(channel)->prev = &lanes_;
     get_link(channel)->next = lanes_.next;
     lanes_.next->prev = get_link(channel);
@@ -403,8 +386,7 @@ gfx::BlendChannel* AnimBlenderComponent::find_channel(uint32_t id)
 gfx::BlendChannel* AnimBlenderComponent::add_channel(uint32_t id, bool at_front)
 {
     void* memory = memory::alloc_zeroed(0x74);
-    Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, false)
-                              : nullptr;
+    Channel* channel = memory ? static_cast<Channel*>(memory)->make_new(entity_, this, false) : nullptr;
     ident_no(channel) = id;
     Virtual<void>(channel, 2);
     memory::ListNode* link = get_link(channel);
@@ -508,10 +490,11 @@ void AnimBlenderComponent::play_animation(uint32_t anim, uint32_t b)
 
 // 0x00419B50
 void AnimBlenderComponent::play_animation_ex(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f,
-                                            uint32_t g)
+                                             uint32_t g)
 {
     if (Channel* channel = masked(lanes_.next))
-        channel->play_anim(a, bool_arg(b), std::bit_cast<float>(c), std::bit_cast<float>(d), static_cast<int>(e), std::bit_cast<float>(f), std::bit_cast<float>(g), nullptr);
+        channel->play_anim(a, bool_arg(b), std::bit_cast<float>(c), std::bit_cast<float>(d), static_cast<int>(e),
+                           std::bit_cast<float>(f), std::bit_cast<float>(g), nullptr);
 }
 
 // 0x00419B90
@@ -661,7 +644,7 @@ float __cdecl larger_of(float a, float b) { return a > b ? a : b; }
 // 0x0041A680
 maths::Vec4 VectorAt1c::get_pull() const { return vector_; }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -669,19 +652,19 @@ namespace {
 static VtableSlot g_head_vtable_slots[] = {&objects::BlendChannelLinks::destroy_head};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 static VtableSlot g_vtable_slots[] = {&objects::AnimBlenderComponent::teardown,
-         &objects::AnimBlenderComponent::tick_frame,
-         &objects::AnimBlenderComponent::configure_from_data,
-         &objects::AnimBlenderComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         &objects::AnimBlenderComponent::pass_to_channels,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::FlexibleParticleComponent::call_member_function_entry,
-         &objects::AnimBlenderComponent::invoke_method_by_name};
+                                      &objects::AnimBlenderComponent::tick_frame,
+                                      &objects::AnimBlenderComponent::configure_from_data,
+                                      &objects::AnimBlenderComponent::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      &objects::AnimBlenderComponent::pass_to_channels,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::FlexibleParticleComponent::call_member_function_entry,
+                                      &objects::AnimBlenderComponent::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

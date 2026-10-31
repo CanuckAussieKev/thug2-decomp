@@ -21,7 +21,7 @@
 
 namespace render {
 class RenderModel;
-} // namespace Nx
+} // namespace render
 
 namespace objects::model_nx {
 
@@ -34,7 +34,10 @@ inline uint32_t get_skeleton_name(void* skeleton)
 {
     return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(skeleton) + 0x14);
 }
-inline void* rig_definition(void* skeleton) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08); }
+inline void* rig_definition(void* skeleton)
+{
+    return *reinterpret_cast<void**>(static_cast<uint8_t*>(skeleton) + 0x08);
+}
 
 // The model's lights (+0x2C, the folded getter 0x00532EB0), its file checksum (+0x30) and flags (+0x44: 2 active, 4
 // hidden).
@@ -53,9 +56,15 @@ inline void* look_up_sector(uint32_t name) { return render::engine::look_up_sect
 inline void* sector_geom(void* sector) { return *reinterpret_cast<void**>(static_cast<uint8_t*>(sector) + 0x14); }
 // A geom cloned for a model (0x0048DDC0) or from a sector (0x0048DD80), and activated (0x0048DE60); one added to a
 // model (0x004938E0).
-inline void* clone_model_geom(void* geom, render::RenderModel* to) { return static_cast<render::Geom*>(geom)->clone_for_model(1, to); }
+inline void* clone_model_geom(void* geom, render::RenderModel* to)
+{
+    return static_cast<render::Geom*>(geom)->clone_for_model(1, to);
+}
 inline void* clone_sector_geom(void* geom) { return static_cast<render::Geom*>(geom)->replicate(1, nullptr); }
-inline void activate_geom(void* geom) { reinterpret_cast<void(__thiscall*)(void*, int)>(&render::virtual_slot13_jump)(geom, 1); }
+inline void activate_geom(void* geom)
+{
+    reinterpret_cast<void(__thiscall*)(void*, int)>(&render::virtual_slot13_jump)(geom, 1);
+}
 inline void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->add_geom(geom, name, true); }
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).
 inline bool load_asset(render::RenderModel* model, uint32_t name, uint32_t mesh_label, bool multicolor)
@@ -71,7 +80,10 @@ inline bool fetch_magnification(maths::Vec4* scale, void* params)
 inline void change_scale(render::RenderModel* model, maths::Vec4* scale) { model->change_scale(scale); }
 inline void allow_resizing(render::RenderModel* model, bool on) { model->allow_resizing(on); }
 // The model's lights' brightness from the level's (0x0048E660).
-inline void update_lights_brightness(void* lights) { static_cast<render::ModelLights*>(lights)->get_update_brightness(); }
+inline void update_lights_brightness(void* lights)
+{
+    static_cast<render::ModelLights*>(lights)->get_update_brightness();
+}
 
 // The network manager (0x007CCE14) and its players: the player with an object id (0x0053AEA0), whether it's this
 // machine's (0x00543300), its skater's index (0x005434B0) and that index's client app (0x00532EA0).
@@ -95,4 +107,4 @@ inline net::Guest* client_app(void* manager, int index)
 // second argument: the lights in ECX and the two on the stack, popped - the original call's layout.)
 void __fastcall set_lights_direction(void* lights, void* unused, int index, const maths::Vec4* direction);
 
-} // namespace GameObjects::model_nx
+} // namespace objects::model_nx

@@ -79,7 +79,7 @@ public:
     bool launch_script(uint32_t part, uint32_t target);
 
     bool via_asset_store_; // +0x4C
-    int dict_shift_;    // +0x50
+    int dict_shift_;       // +0x50
 
 private:
     template <typename R, typename... A>
@@ -92,4 +92,4 @@ static_assert(offsetof(ModelAssembler, via_asset_store_) == 0x4C && offsetof(Mod
                   sizeof(ModelAssembler) == 0x54,
               "layout must match the original");
 
-} // namespace Gfx
+} // namespace gfx

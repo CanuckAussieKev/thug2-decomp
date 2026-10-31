@@ -23,4 +23,4 @@ struct Foremost {
     void append_node(memory::ListNode* node);
 };
 
-} // namespace Lst
+} // namespace lists

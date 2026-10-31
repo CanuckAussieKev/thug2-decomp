@@ -68,10 +68,10 @@ int fuzzy_score(const std::string& query, const std::string& text);
 // --- the registry ------------------------------------------------------------------------------------------------
 
 enum class Kind : uint8_t {
-    kPress,  // a key press does it
-    kHold,   // while its key is held (flying, nudging)
-    kFlipOver, // a setting switched (checked: on / off)
-    kDetailsOf,   // a hint: a mouse gesture, a mode's own key - listed, not rebindable
+    kPress,     // a key press does it
+    kHold,      // while its key is held (flying, nudging)
+    kFlipOver,  // a setting switched (checked: on / off)
+    kDetailsOf, // a hint: a mouse gesture, a mode's own key - listed, not rebindable
 };
 
 struct ActStep {
@@ -90,27 +90,104 @@ struct ActStep {
 
 // The editor's own actions, in the built-in table's order (an action's index is its Id).
 enum IdentNo : int {
-    kHelp, kPalette, kBrowser, kPlace, kHistory, kChanges, kKeys, kSnapshots,
-    kUndo, kRedo, kSave, kDuplicate, kRestoreAutosave, kDiscardAutosave, kDelete, kHome, kResetLevel, kDeselect,
-    kLock, kCopy, kPaste, kCopyProps, kPasteTransform, kPasteFields,
-    kBoxSelect, kSelectSimilar, kSelectFamily, kInvertSelection, kSelectAll, kMakeGroup,
-    kTurnLeft, kTurnRight, kScaleDown, kScaleUp, kDrop,
-    kForward, kBack, kLeft, kRight, kFlyUp, kFlyDown, kNudgeUp, kNudgeDown, kFaster, kSlower,
-    kCollision, kFaces, kTriggers, kOcclusion, kHide, kIsolate, kShowAll, kCameraNode, kLogCamera,
-    kChainInsert, kChainExtend, kChainLink, kChainUnlink, kChainFinish,
+    kHelp,
+    kPalette,
+    kBrowser,
+    kPlace,
+    kHistory,
+    kChanges,
+    kKeys,
+    kSnapshots,
+    kUndo,
+    kRedo,
+    kSave,
+    kDuplicate,
+    kRestoreAutosave,
+    kDiscardAutosave,
+    kDelete,
+    kHome,
+    kResetLevel,
+    kDeselect,
+    kLock,
+    kCopy,
+    kPaste,
+    kCopyProps,
+    kPasteTransform,
+    kPasteFields,
+    kBoxSelect,
+    kSelectSimilar,
+    kSelectFamily,
+    kInvertSelection,
+    kSelectAll,
+    kMakeGroup,
+    kTurnLeft,
+    kTurnRight,
+    kScaleDown,
+    kScaleUp,
+    kDrop,
+    kForward,
+    kBack,
+    kLeft,
+    kRight,
+    kFlyUp,
+    kFlyDown,
+    kNudgeUp,
+    kNudgeDown,
+    kFaster,
+    kSlower,
+    kCollision,
+    kFaces,
+    kTriggers,
+    kOcclusion,
+    kHide,
+    kIsolate,
+    kShowAll,
+    kCameraNode,
+    kLogCamera,
+    kChainInsert,
+    kChainExtend,
+    kChainLink,
+    kChainUnlink,
+    kChainFinish,
     // (UX1: play from here, the camera's tools, the preferences - level_editor_play.h, level_editor_camera.h,
     // level_editor_prefs.h)
-    kPlay, kPreferences, kFrameSelection,
-    kBookmark1, kBookmarkStore1 = kBookmark1 + 9,
-    kViewTop = kBookmarkStore1 + 9, kViewBottom, kCamFrontView, kViewBack, kPanRightAction, kPanLeftAction, kViewOrtho,
+    kPlay,
+    kPreferences,
+    kFrameSelection,
+    kBookmark1,
+    kBookmarkStore1 = kBookmark1 + 9,
+    kViewTop = kBookmarkStore1 + 9,
+    kViewBottom,
+    kCamFrontView,
+    kViewBack,
+    kPanRightAction,
+    kPanLeftAction,
+    kViewOrtho,
     // (UX2: the transform tools - level_editor_transform.h; the arrows nudge with wasd_flies=0)
-    kToolMove, kToolRotate, kToolScale, kToolCycle, kToolSpace, kModalTransform, kRepeatDuplicate,
-    kNudgeForward, kNudgeBack, kNudgeLeft, kNudgeRight,
+    kToolMove,
+    kToolRotate,
+    kToolScale,
+    kToolCycle,
+    kToolSpace,
+    kModalTransform,
+    kRepeatDuplicate,
+    kNudgeForward,
+    kNudgeBack,
+    kNudgeLeft,
+    kNudgeRight,
     // (UX4 / UX5: the view modes, jump arcs, the ruler - level_editor_overlays.h, level_editor_arcs.h,
     // level_editor_ruler.h; the Problems window - level_editor_checks.h)
-    kViewModeLit, kViewModeUnlit, kViewModeWireframe, kViewModeCollision, kJumpArcs, kRuler, kRulerClear, kProblems,
+    kViewModeLit,
+    kViewModeUnlit,
+    kViewModeWireframe,
+    kViewModeCollision,
+    kJumpArcs,
+    kRuler,
+    kRulerClear,
+    kProblems,
     // (UX6: Simulate and the Trail window - level_editor_playtest.h)
-    kSimulate, kTrailWindow,
+    kSimulate,
+    kTrailWindow,
     kBuiltinCount
 };
 
@@ -157,4 +234,4 @@ void cancel_capture();
 bool get_capturing();
 int capturing_index();
 
-} // namespace MenuSystem::level_editor::Actions
+} // namespace frontend::level_editor::actions

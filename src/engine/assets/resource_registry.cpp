@@ -24,8 +24,9 @@ frame_loop::Hub* g_main_loop_manager;
 
 namespace {
 
-static VtableSlot g_ass_man_vtable_slots[] = {&assets::ResourceRegistry::scalar_delete, &assets::ResourceRegistry::start_callback,
-        &assets::ResourceRegistry::stop_callback};
+static VtableSlot g_ass_man_vtable_slots[] = {&assets::ResourceRegistry::scalar_delete,
+                                              &assets::ResourceRegistry::start_callback,
+                                              &assets::ResourceRegistry::stop_callback};
 void** const kAssManVtable = reinterpret_cast<void**>(g_ass_man_vtable_slots);
 
 int& ref_tally() { return g_ass_man_references; }
@@ -39,20 +40,14 @@ struct ExtensionType {
     int type;
 };
 // (the extensions are the exe's strings; the table's last entry stays null)
-ExtensionType g_extensions[13]{
-                      {"BIN", 1}, {"COL", 4},
-                      {"SCN", 2}, {"GEOM", 2},
-                      {"MDL", 7}, {"SKA", 5},
-                      {"FAM", 5}, {"SKE", 6},
-                      {"SKIN", 7}, {"TEX", 3},
-                      {"CUT", 9}, {"QB", 10}};
+ExtensionType g_extensions[13]{{"BIN", 1}, {"COL", 4}, {"SCN", 2},  {"GEOM", 2}, {"MDL", 7}, {"SKA", 5},
+                               {"FAM", 5}, {"SKE", 6}, {"SKIN", 7}, {"TEX", 3},  {"CUT", 9}, {"QB", 10}};
 const ExtensionType* get_extensions() { return g_extensions; }
 
 // The hash table lookup inlined in the original: the first item with the key and a value.
 Resource* get_find(lists::KeyMap* table, uint32_t checksum)
 {
-    for (lists::KeyMap::Item* item = &table->buckets_[((1u << table->bits_) - 1) & checksum]; item;
-         item = item->next) {
+    for (lists::KeyMap::Item* item = &table->buckets_[((1u << table->bits_) - 1) & checksum]; item; item = item->next) {
         if (item->key == checksum && item->value)
             return static_cast<Resource*>(item->value);
     }
@@ -160,7 +155,7 @@ ResourceRegistry* ResourceRegistry::make_new()
     auto* task = static_cast<tasks::SchedulerTask*>(memory::alloc_zeroed(0x20));
     if (task) {
         task->make_new(0);
-        reinterpret_cast<void**>(task)[7] = this;                                  // +0x1C the data
+        reinterpret_cast<void**>(task)[7] = this; // +0x1C the data
         task->vtable_ = game_code::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&process_task); // +0x18 the callback
     }
@@ -172,7 +167,7 @@ ResourceRegistry* ResourceRegistry::make_new()
 void ResourceRegistry::destruct()
 {
     vtable_ = kAssManVtable;
-    unload_assets_in_list(ready_flag_, true);  // (inlined)
+    unload_assets_in_list(ready_flag_, true); // (inlined)
     unload_assets_in_list(pending_, true);
     if (lists::KeyMap* table = assets_) {
         if (table->buckets_) {
@@ -199,18 +194,16 @@ ResourceRegistry* ResourceRegistry::scalar_delete(uint8_t flags)
 // 0x00407E90
 void ResourceRegistry::start_callback()
 {
-    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(g_main_loop_manager) + 0x04)->queue_job(task_); // the logic tasks
+    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(g_main_loop_manager) + 0x04)
+        ->queue_job(task_); // the logic tasks
 }
 
 // 0x00407AE0
-void ResourceRegistry::stop_callback()
-{
-    task_->drop_out();
-}
+void ResourceRegistry::stop_callback() { task_->drop_out(); }
 
 // 0x00408060
-void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data, uint32_t size,
-                                   bool permanent, bool copy, void* params, int extra)
+void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, uint32_t group, void* data,
+                                                  uint32_t size, bool permanent, bool copy, void* params, int extra)
 {
     memory::push_mem_profile("Asset Overhead");
     Resource* asset = make_asset(type, false);
@@ -238,8 +231,8 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
 }
 
 // 0x00408440
-void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async, bool use_archive,
-                         bool permanent, void* params, int extra)
+void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
+                                   bool use_archive, bool permanent, void* params, int extra)
 {
     if (!checksum)
         checksum = checksums::hash_from_text(name);
@@ -265,8 +258,8 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
 }
 
 // 0x004087B0
-void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group, bool async,
-                              bool use_archive, bool permanent, void* params, int extra)
+void* ResourceRegistry::fetch_or_load_resource(const char* name, int type, uint32_t checksum, uint32_t group,
+                                               bool async, bool use_archive, bool permanent, void* params, int extra)
 {
     if (!checksum)
         checksum = checksums::hash_from_text(name);
@@ -289,7 +282,8 @@ bool ResourceRegistry::load_anim(const char* name, uint32_t base, uint32_t offse
         checksum = base + offset;
     if (asset_exists(checksum))
         return false;
-    return fetch_or_load_resource(name, kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr, 0) != nullptr;
+    return fetch_or_load_resource(name, kAnimation, checksum, 0, async, use_archive, permanent_by_default_, nullptr,
+                                  0) != nullptr;
 }
 
 // 0x00407EC0
@@ -404,28 +398,16 @@ void* ResourceRegistry::get_asset_data_by_name(const char* name, int unused)
 }
 
 // 0x00407CA0
-bool ResourceRegistry::asset_exists(uint32_t checksum)
-{
-    return get_find(assets_, checksum) != nullptr;
-}
+bool ResourceRegistry::asset_exists(uint32_t checksum) { return get_find(assets_, checksum) != nullptr; }
 
 // 0x00407A50
-void ResourceRegistry::set_permanent_by_default(bool permanent)
-{
-    permanent_by_default_ = permanent;
-}
+void ResourceRegistry::set_permanent_by_default(bool permanent) { permanent_by_default_ = permanent; }
 
 // 0x00407A60
-bool ResourceRegistry::get_permanent_by_default() const
-{
-    return permanent_by_default_;
-}
+bool ResourceRegistry::get_permanent_by_default() const { return permanent_by_default_; }
 
 // 0x00407A70
-void ResourceRegistry::set_unknown18(int value)
-{
-    unknown18_ = value;
-}
+void ResourceRegistry::set_unknown18(int value) { unknown18_ = value; }
 
 // 0x00407DD0
 void ResourceRegistry::process_pending_assets()
@@ -538,4 +520,4 @@ void release_asset_manager()
     ref_tally() = 0;
 }
 
-} // namespace Ass
+} // namespace assets

@@ -12,9 +12,9 @@ class Typeface;
 
 // A character's effect (10 bytes): an offset, a scale and a rotation, in 1/16384ths.
 struct CharEffect {
-    int16_t x, y;            // +0 (as given)
-    int16_t xscale, yscale;  // +4 (16384: 1)
-    int16_t rotation;        // +8
+    int16_t x, y;           // +0 (as given)
+    int16_t xscale, yscale; // +4 (16384: 1)
+    int16_t rotation;       // +8
 
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
     // Returns this.
@@ -31,23 +31,23 @@ constexpr int kTextLength = 0x60;
 // the properties, [4] the priority, [5] the window.)
 struct GlyphString {
     void** vtable_;
-    Typeface* typeface_;          // +0x04
-    CharEffect* effects_; // +0x08 (null until one is set)
-    char* text_buffer_;         // +0x0C (a buffer of its own, null until set)
-    float pos_x_, y_;          // +0x10
+    Typeface* typeface_;      // +0x04
+    CharEffect* effects_;     // +0x08 (null until one is set)
+    char* text_buffer_;       // +0x0C (a buffer of its own, null until set)
+    float pos_x_, y_;         // +0x10
     float pivot_x_, pivot_y_; // +0x18
     float scale_h_, scale_v_; // +0x20
-    float angle_;           // +0x28
-    float rank_;        // +0x2C
+    float angle_;             // +0x28
+    float rank_;              // +0x2C
     uint32_t unknown30_;
-    float layer_;           // +0x34 (with z_enabled_)
-    uint32_t shade_;       // +0x38: RGBA as bytes
+    float layer_;            // +0x34 (with z_enabled_)
+    uint32_t shade_;         // +0x38: RGBA as bytes
     bool fixed_colour_;      // +0x3C: the string's colour codes ignored
     bool override_alpha_;    // +0x3D
-    bool invisible_;           // +0x3E
+    bool invisible_;         // +0x3E
     bool z_enabled_;         // +0x3F
-    void* screen_region_;         // +0x40: the 2D window it's drawn in
-    GlyphString* next_free_;      // +0x44
+    void* screen_region_;    // +0x40: the 2D window it's drawn in
+    GlyphString* next_free_; // +0x44
 
     // 0x0048D220: construct in `window` - no font, string or effects, at 0, unrotated, scale 1, grey, hidden.
     // Returns this.
@@ -88,7 +88,8 @@ struct GlyphString {
     void set_char_rotation(int index, float rotation);
 };
 static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, layer_) == 0x34 &&
-                  offsetof(GlyphString, invisible_) == 0x3E && offsetof(GlyphString, next_free_) == 0x44 && sizeof(GlyphString) == 0x48,
+                  offsetof(GlyphString, invisible_) == 0x3E && offsetof(GlyphString, next_free_) == 0x44 &&
+                  sizeof(GlyphString) == 0x48,
               "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).
@@ -97,4 +98,4 @@ GlyphString* __cdecl new_text();
 void __cdecl free_text(GlyphString* text);
 
 extern GlyphString* g_free_texts;
-} // namespace Nx
+} // namespace render

@@ -3,7 +3,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 namespace sys {
 
@@ -18,4 +18,4 @@ bool __cdecl cfunc_is_ps2(script::Struct* params, script::Script* script);
 // registered).
 void install_is_ps2();
 
-} // namespace Sys
+} // namespace sys

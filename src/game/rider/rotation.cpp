@@ -31,24 +31,24 @@ T& get_at(void* object, uint32_t offset)
 }
 
 // The component's fields.
-constexpr uint32_t kObject = 0x0C;          // the skater object: matrix at +0x6C, velocity at +0xAC
+constexpr uint32_t kObject = 0x0C; // the skater object: matrix at +0x6C, velocity at +0xAC
 constexpr uint32_t kDisplayMatrix = 0x18;
-constexpr uint32_t kWallNormalX = 0x58;     // (x and z of the vert wall's normal, it seems)
+constexpr uint32_t kWallNormalX = 0x58; // (x and z of the vert wall's normal, it seems)
 constexpr uint32_t kWallNormalZ = 0x60;
-constexpr uint32_t kFrameLength = 0x8C;     // the turn per frame is speed * this
-constexpr uint32_t kRampDirection = 0x288;  // a vector the face-the-ramp turn is measured against
+constexpr uint32_t kFrameLength = 0x8C;    // the turn per frame is speed * this
+constexpr uint32_t kRampDirection = 0x288; // a vector the face-the-ramp turn is measured against
 constexpr uint32_t kBreakVertFlag = 0x2D0;
 constexpr uint32_t kTapSpin = 0x2DA;
-constexpr uint32_t kQueuedSpin = 0x30C;     // tap mode: the turn still to do (radians)
+constexpr uint32_t kQueuedSpin = 0x30C; // tap mode: the turn still to do (radians)
 constexpr uint32_t kNoSpin = 0x370;
-constexpr uint32_t kSpinningLeft = 0x3A5;   // (true for a positive turn)
-constexpr uint32_t kInput = 0x150C;         // the pad: buttons of 0x20 bytes from +0x20
-constexpr uint32_t kTrick = 0x1518;         // the trick: its rotation total (degrees) at +0x13A4
+constexpr uint32_t kSpinningLeft = 0x3A5;     // (true for a positive turn)
+constexpr uint32_t kInput = 0x150C;           // the pad: buttons of 0x20 bytes from +0x20
+constexpr uint32_t kTrick = 0x1518;           // the trick: its rotation total (degrees) at +0x13A4
 constexpr uint32_t kRotationDisplay = 0x1520; // [+0x18]: what shows the rotation total
-constexpr uint32_t kFlags = 0x1528;         // the skater's state flags: {bool, int time} each
+constexpr uint32_t kFlags = 0x1528;           // the skater's state flags: {bool, int time} each
 
 // The skater object's fields.
-constexpr uint32_t kMatrix = 0x6C;          // rows: +0x6C, up +0x7C, forward +0x8C, position +0x9C
+constexpr uint32_t kMatrix = 0x6C; // rows: +0x6C, up +0x7C, forward +0x8C, position +0x9C
 constexpr uint32_t kForward = 0x8C;
 constexpr uint32_t kUp = 0x7C;
 constexpr uint32_t kVelocity = 0xAC;
@@ -57,19 +57,19 @@ constexpr uint32_t kVelocity = 0xAC;
 constexpr uint32_t kFlag30 = 0x30;
 constexpr uint32_t kFlag38 = 0x38;
 constexpr uint32_t kFlag48 = 0x48;
-constexpr uint32_t kCanFaceRamp = 0x68;     // (cleared once a spin has gone on long enough)
+constexpr uint32_t kCanFaceRamp = 0x68; // (cleared once a spin has gone on long enough)
 constexpr uint32_t kFlag78 = 0x78;
 constexpr uint32_t kFlag80 = 0x80;
 constexpr uint32_t kFlagB0 = 0xB0;
 constexpr uint32_t kNoSecondSpin = 0xC0;
 
 // A button of the pad: {bool down, int time it changed, ..., +0x10 bool pressed this frame}.
-constexpr uint32_t kJump = 0x00;           // (offsets from the pad's +0x20)
+constexpr uint32_t kJump = 0x00; // (offsets from the pad's +0x20)
 constexpr uint32_t kSpinLeft2 = 0x40;
 constexpr uint32_t kSpinRight2 = 0x60;
-constexpr uint32_t kSpinLeft = 0x80;       // L1
-constexpr uint32_t kTriggerA = 0xA0;       // PartyMod's "R2/L2" pair
-constexpr uint32_t kSpinRight = 0xE0;      // R1
+constexpr uint32_t kSpinLeft = 0x80;  // L1
+constexpr uint32_t kTriggerA = 0xA0;  // PartyMod's "R2/L2" pair
+constexpr uint32_t kSpinRight = 0xE0; // R1
 constexpr uint32_t kTriggerB = 0x100;
 constexpr uint32_t kButton140 = 0x140;
 constexpr uint32_t kButton160 = 0x160;
@@ -89,10 +89,10 @@ constexpr uint32_t kBreakVertSlow = 0x13F33B41;
 constexpr uint32_t kBreakVertUpScale = 0x848C5CD6;
 constexpr uint32_t kBreakVertPitch = 0xD757F4BB;
 
-constexpr float kPi = 3.14159274f;                    // 0x0064BB7C
-constexpr float kRadiansPerDegree = 0.0174532924f;    // 0x00645464
-constexpr float kDegreesPerRadian = 57.2957764f;      // 0x00645468
-constexpr float kBreakVertPush = 24.0f;               // 0x00645EE8
+constexpr float kPi = 3.14159274f;                 // 0x0064BB7C
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
+constexpr float kDegreesPerRadian = 57.2957764f;   // 0x00645468
+constexpr float kBreakVertPush = 24.0f;            // 0x00645EE8
 static_assert(std::bit_cast<uint32_t>(kPi) == 0x40490FDB && std::bit_cast<uint32_t>(kRadiansPerDegree) == 0x3C8EFA35 &&
                   std::bit_cast<uint32_t>(kDegreesPerRadian) == 0x42652EE0,
               "the original's constants");
@@ -129,7 +129,10 @@ double stat_value(void* object, uint32_t name)
 // How long a button has been down - read as unsigned by the first pair of spin buttons, signed by
 // the second.
 int get_held_time(uint8_t* button) { return reinterpret_cast<objects::ControlButton*>(button)->get_held_millis(); }
-float get_held_seconds(uint8_t* button) { return static_cast<float>(static_cast<double>(static_cast<uint32_t>(get_held_time(button)))); }
+float get_held_seconds(uint8_t* button)
+{
+    return static_cast<float>(static_cast<double>(static_cast<uint32_t>(get_held_time(button))));
+}
 // Forget a button's press this frame.
 void take_press(uint8_t* button) { reinterpret_cast<objects::ControlButton*>(button)->reset_activation(); }
 
@@ -249,8 +252,8 @@ void SkaterPhysicsModule::get_spin()
                 clear_flag(this, kCanFaceRamp);
             } else {
                 float off = static_cast<float>(maths::get_turn_around_axis(get_at<maths::Vec4>(object, kForward),
-                                                                  get_at<maths::Vec4>(this, kRampDirection),
-                                                                  get_at<maths::Vec4>(object, kUp)));
+                                                                           get_at<maths::Vec4>(this, kRampDirection),
+                                                                           get_at<maths::Vec4>(object, kUp)));
                 float rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
                 double turn = static_cast<double>(maths::get_sign(off)) * rate;
                 speed = static_cast<float>(turn);
@@ -304,7 +307,7 @@ void SkaterPhysicsModule::break_vert(bool force)
     } else if (pad[kJump]) {
         int limit = tuning_int_lookup(kBreakVertJumpTime, 1, object);
         jump_held = get_held_time(pad + kJump) > limit && !pad[kSpinLeft2] && !pad[kSpinRight2] && !pad[kButton160] &&
-                   !pad[kButton140];
+                    !pad[kButton140];
     }
     if (!jump_held && !triggers() && !get_at<bool>(this, kBreakVertFlag) && !force)
         return;
@@ -315,8 +318,10 @@ void SkaterPhysicsModule::break_vert(bool force)
             get_at<maths::Mat4>(this, kDisplayMatrix) = body_transform(object);
             return;
         }
-        velocity[0] = static_cast<float>(velocity[0] - static_cast<double>(get_at<float>(this, kWallNormalX)) * kBreakVertPush);
-        velocity[2] = static_cast<float>(velocity[2] - static_cast<double>(get_at<float>(this, kWallNormalZ)) * kBreakVertPush);
+        velocity[0] =
+            static_cast<float>(velocity[0] - static_cast<double>(get_at<float>(this, kWallNormalX)) * kBreakVertPush);
+        velocity[2] =
+            static_cast<float>(velocity[2] - static_cast<double>(get_at<float>(this, kWallNormalZ)) * kBreakVertPush);
         body_transform(object).pitch_locally(
             static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
         clear_flag(this, kFlag30);
@@ -339,7 +344,8 @@ void SkaterPhysicsModule::break_vert(bool force)
     velocity[0] = static_cast<float>(velocity[0] - slow * get_at<float>(this, kWallNormalX));
     velocity[2] = static_cast<float>(velocity[2] - slow * get_at<float>(this, kWallNormalZ));
     velocity[1] = static_cast<float>(tuning_float_lookup(kBreakVertUpScale, 1, object) * velocity[1]);
-    body_transform(object).pitch_locally(static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
+    body_transform(object).pitch_locally(
+        static_cast<float>(tuning_float_lookup(kBreakVertPitch, 1, object) * kRadiansPerDegree));
     clear_flag(this, kFlag30);
     clear_flag(this, kFlag38);
     clear_flag(this, kFlag48);
@@ -348,4 +354,4 @@ void SkaterPhysicsModule::break_vert(bool force)
     get_at<maths::Mat4>(this, kDisplayMatrix) = body_transform(object);
 }
 
-} // namespace Skater
+} // namespace skater

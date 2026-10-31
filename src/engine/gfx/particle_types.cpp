@@ -53,13 +53,13 @@ T* destroy_and_free(T* system, unsigned int flags)
 
 // 0x0049B0D0
 RibbonParticles* RibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                              int history)
+                                           int history)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCRibbonParticlesVtable, kCRibbonParticlesNodeVtable);
     steps_ = history + 1;
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
-                       2)) {
+                        2)) {
         colour_mid_ = -1.0f;
         flag_bits_ |= 4u;
     }
@@ -80,14 +80,14 @@ RibbonParticles* RibbonParticles::teardown(unsigned int flags) { return destroy_
 
 // 0x0049B380
 RibbonTrailParticles* RibbonTrailParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int,
-                                                        float, int history)
+                                                     float, int history)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCRibbonTrailParticlesVtable, kCRibbonTrailParticlesNodeVtable);
     steps_ = history + 1;
     // (the colours' count read again from steps_ for each array and each step of the loop)
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * steps_) * kPosition, true,
-                       steps_)) {
+                        steps_)) {
         colour_mid_ = -1.0f;
         flag_bits_ |= 4u;
     }
@@ -107,8 +107,7 @@ RibbonTrailParticles* RibbonTrailParticles::teardown(unsigned int flags) { retur
 // --- shaded ---
 
 // 0x0049B660
-ShadedParticles* ShadedParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                              int)
+ShadedParticles* ShadedParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCShadedParticlesVtable, kCShadedParticlesNodeVtable);
@@ -132,8 +131,7 @@ ShadedParticles* ShadedParticles::teardown(unsigned int flags) { return destroy_
 // --- smooth ---
 
 // 0x0049B910
-SmoothParticles* SmoothParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float,
-                                              int)
+SmoothParticles* SmoothParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int, float, int)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCSmoothParticlesVtable, kCSmoothParticlesNodeVtable);
@@ -157,13 +155,13 @@ SmoothParticles* SmoothParticles::teardown(unsigned int flags) { return destroy_
 // --- smoothribbon ---
 
 // 0x0049BBD0
-SmoothRibbonParticles* SmoothRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
-                                                          int, float, int history)
+SmoothRibbonParticles* SmoothRibbonParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int,
+                                                       float, int history)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCSmoothRibbonParticlesVtable, kCSmoothRibbonParticlesNodeVtable);
     if (construct_parts(this, name, particle_cap, static_cast<unsigned int>(particle_cap * (history + 1)) * kPosition,
-                       true, 4)) {
+                        true, 4)) {
         steps_ = history + 1;
         colour_mid_ = -1.0f;
         flag_bits_ |= 4u;
@@ -185,7 +183,7 @@ SmoothRibbonParticles* SmoothRibbonParticles::teardown(unsigned int flags) { ret
 
 // 0x0049BE80
 SmoothStarParticles* SmoothStarParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int,
-                                                      int segments, float size, int)
+                                                   int segments, float size, int)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCSmoothStarParticlesVtable, kCSmoothStarParticlesNodeVtable);
@@ -212,7 +210,7 @@ SmoothStarParticles* SmoothStarParticles::teardown(unsigned int flags) { return 
 
 // 0x0049C140
 StarParticles* StarParticles::make_new(uint32_t name, int particle_cap, uint32_t, uint32_t, int, int segments,
-                                          float size, int)
+                                       float size, int)
 {
     EmitterInstance::make_new();
     set_vtables(this, kCStarParticlesVtable, kCStarParticlesNodeVtable);
@@ -243,7 +241,7 @@ int ParticleCounts::four_colours() { return 4; }
 int ParticleCounts::three_colours() { return 3; }
 int ParticleCounts::field134() { return *reinterpret_cast<const int*>(reinterpret_cast<const uint8_t*>(this) + 0x134); }
 
-} // namespace Nx
+} // namespace render
 
 namespace {
 
@@ -254,13 +252,22 @@ struct TypeNodeAdapters {
     {
         return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) - offsetof(render::EmitterInstance, list_link_));
     }
-    render::RibbonParticles* destroy_ribbon(unsigned int flags) { return get_system<render::RibbonParticles>()->teardown(flags); }
+    render::RibbonParticles* destroy_ribbon(unsigned int flags)
+    {
+        return get_system<render::RibbonParticles>()->teardown(flags);
+    }
     render::RibbonTrailParticles* destroy_ribbon_trail(unsigned int flags)
     {
         return get_system<render::RibbonTrailParticles>()->teardown(flags);
     }
-    render::ShadedParticles* destroy_shaded(unsigned int flags) { return get_system<render::ShadedParticles>()->teardown(flags); }
-    render::SmoothParticles* destroy_smooth(unsigned int flags) { return get_system<render::SmoothParticles>()->teardown(flags); }
+    render::ShadedParticles* destroy_shaded(unsigned int flags)
+    {
+        return get_system<render::ShadedParticles>()->teardown(flags);
+    }
+    render::SmoothParticles* destroy_smooth(unsigned int flags)
+    {
+        return get_system<render::SmoothParticles>()->teardown(flags);
+    }
     render::SmoothRibbonParticles* destroy_smooth_ribbon(unsigned int flags)
     {
         return get_system<render::SmoothRibbonParticles>()->teardown(flags);
@@ -269,7 +276,10 @@ struct TypeNodeAdapters {
     {
         return get_system<render::SmoothStarParticles>()->teardown(flags);
     }
-    render::StarParticles* destroy_star(unsigned int flags) { return get_system<render::StarParticles>()->teardown(flags); }
+    render::StarParticles* destroy_star(unsigned int flags)
+    {
+        return get_system<render::StarParticles>()->teardown(flags);
+    }
 };
 
 } // namespace
@@ -278,38 +288,45 @@ namespace render {
 namespace {
 static VtableSlot g_c_ribbon_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_ribbon};
 void** const kCRibbonParticlesNodeVtable = reinterpret_cast<void**>(g_c_ribbon_particles_node_vtable_slots);
-static VtableSlot g_c_ribbon_particles_vtable_slots[] = {&render::RibbonParticles::teardown, &render::WeatherSystem::render,
-                &render::ParticleCounts::field134, &render::ParticleCounts::two_colours};
+static VtableSlot g_c_ribbon_particles_vtable_slots[] = {
+    &render::RibbonParticles::teardown, &render::WeatherSystem::render, &render::ParticleCounts::field134,
+    &render::ParticleCounts::two_colours};
 void** const kCRibbonParticlesVtable = reinterpret_cast<void**>(g_c_ribbon_particles_vtable_slots);
 static VtableSlot g_c_ribbon_trail_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_ribbon_trail};
 void** const kCRibbonTrailParticlesNodeVtable = reinterpret_cast<void**>(g_c_ribbon_trail_particles_node_vtable_slots);
-static VtableSlot g_c_ribbon_trail_particles_vtable_slots[] = {&render::RibbonTrailParticles::teardown, &render::WeatherSystem::render,
-                &render::ParticleCounts::field134, &render::ParticleCounts::field134};
+static VtableSlot g_c_ribbon_trail_particles_vtable_slots[] = {
+    &render::RibbonTrailParticles::teardown, &render::WeatherSystem::render, &render::ParticleCounts::field134,
+    &render::ParticleCounts::field134};
 void** const kCRibbonTrailParticlesVtable = reinterpret_cast<void**>(g_c_ribbon_trail_particles_vtable_slots);
 static VtableSlot g_c_shaded_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_shaded};
 void** const kCShadedParticlesNodeVtable = reinterpret_cast<void**>(g_c_shaded_particles_node_vtable_slots);
-static VtableSlot g_c_shaded_particles_vtable_slots[] = {&render::ShadedParticles::teardown, &render::WeatherSystem::render,
-                online::handle_nothing, &render::ParticleCounts::four_colours};
+static VtableSlot g_c_shaded_particles_vtable_slots[] = {&render::ShadedParticles::teardown,
+                                                         &render::WeatherSystem::render, online::handle_nothing,
+                                                         &render::ParticleCounts::four_colours};
 void** const kCShadedParticlesVtable = reinterpret_cast<void**>(g_c_shaded_particles_vtable_slots);
 static VtableSlot g_c_smooth_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_smooth};
 void** const kCSmoothParticlesNodeVtable = reinterpret_cast<void**>(g_c_smooth_particles_node_vtable_slots);
-static VtableSlot g_c_smooth_particles_vtable_slots[] = {&render::SmoothParticles::teardown, &render::WeatherSystem::render,
-                online::handle_nothing, &render::ParticleCounts::two_colours};
+static VtableSlot g_c_smooth_particles_vtable_slots[] = {&render::SmoothParticles::teardown,
+                                                         &render::WeatherSystem::render, online::handle_nothing,
+                                                         &render::ParticleCounts::two_colours};
 void** const kCSmoothParticlesVtable = reinterpret_cast<void**>(g_c_smooth_particles_vtable_slots);
 static VtableSlot g_c_smooth_ribbon_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_smooth_ribbon};
-void** const kCSmoothRibbonParticlesNodeVtable = reinterpret_cast<void**>(g_c_smooth_ribbon_particles_node_vtable_slots);
-static VtableSlot g_c_smooth_ribbon_particles_vtable_slots[] = {&render::SmoothRibbonParticles::teardown, &render::WeatherSystem::render,
-                &render::ParticleCounts::field134, &render::ParticleCounts::four_colours};
+void** const kCSmoothRibbonParticlesNodeVtable =
+    reinterpret_cast<void**>(g_c_smooth_ribbon_particles_node_vtable_slots);
+static VtableSlot g_c_smooth_ribbon_particles_vtable_slots[] = {
+    &render::SmoothRibbonParticles::teardown, &render::WeatherSystem::render, &render::ParticleCounts::field134,
+    &render::ParticleCounts::four_colours};
 void** const kCSmoothRibbonParticlesVtable = reinterpret_cast<void**>(g_c_smooth_ribbon_particles_vtable_slots);
 static VtableSlot g_c_smooth_star_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_smooth_star};
 void** const kCSmoothStarParticlesNodeVtable = reinterpret_cast<void**>(g_c_smooth_star_particles_node_vtable_slots);
-static VtableSlot g_c_smooth_star_particles_vtable_slots[] = {&render::SmoothStarParticles::teardown, &render::WeatherSystem::render,
-                online::handle_nothing, &render::ParticleCounts::three_colours};
+static VtableSlot g_c_smooth_star_particles_vtable_slots[] = {&render::SmoothStarParticles::teardown,
+                                                              &render::WeatherSystem::render, online::handle_nothing,
+                                                              &render::ParticleCounts::three_colours};
 void** const kCSmoothStarParticlesVtable = reinterpret_cast<void**>(g_c_smooth_star_particles_vtable_slots);
 static VtableSlot g_c_star_particles_node_vtable_slots[] = {&TypeNodeAdapters::destroy_star};
 void** const kCStarParticlesNodeVtable = reinterpret_cast<void**>(g_c_star_particles_node_vtable_slots);
 static VtableSlot g_c_star_particles_vtable_slots[] = {&render::StarParticles::teardown, &render::WeatherSystem::render,
-                online::handle_nothing, &render::ParticleCounts::three_colours};
+                                                       online::handle_nothing, &render::ParticleCounts::three_colours};
 void** const kCStarParticlesVtable = reinterpret_cast<void**>(g_c_star_particles_vtable_slots);
 } // namespace
-} // namespace Nx
+} // namespace render

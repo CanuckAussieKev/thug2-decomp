@@ -60,12 +60,12 @@ void** const kBuddyVtable = reinterpret_cast<void**>(g_buddy_vtable_slots); // l
 static VtableSlot g_message_vtable_slots[] = {&online::FriendNote::teardown};
 void** const kMessageVtable = reinterpret_cast<void**>(g_message_vtable_slots); // lists::Elem<FriendNote>
 
-constexpr int kMaxBuddies = 30;          // BuddyListFull
-constexpr int kMaxMessages = 20;         // more than this waiting: new ones are dropped
-constexpr uint32_t kLoginTimeout = 10000; // ms
+constexpr int kMaxBuddies = 30;             // BuddyListFull
+constexpr int kMaxMessages = 20;            // more than this waiting: new ones are dropped
+constexpr uint32_t kLoginTimeout = 10000;   // ms
 constexpr uint32_t kProcessInterval = 1000; // ms between gpProcess calls once logged in
-constexpr int kJoinPort = 0x1421;        // THUG2's join port (a buddy behind the same public address)
-constexpr int kStatusPlaying = 2;        // GP_PLAYING
+constexpr int kJoinPort = 0x1421;           // THUG2's join port (a buddy behind the same public address)
+constexpr int kStatusPlaying = 2;           // GP_PLAYING
 
 // GP error codes (on_error).
 constexpr int kErrorLogin = 0x107;
@@ -88,10 +88,16 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
 void pop_heap() { ram_stats()->leave_heap_scope(); }
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+}
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
-void get_run(const char* script, script::Struct* params = nullptr) { script::launch_script(script, params, nullptr, false); }
+void get_run(const char* script, script::Struct* params = nullptr)
+{
+    script::launch_script(script, params, nullptr, false);
+}
 
 // The GameSpy presence SDK (library code, not decompiled; cdecl).
 void gp_initialize(void* connection, int product_id, int namespace_id)
@@ -108,20 +114,17 @@ void gp_send_buddy_request(void* connection, int profile, const char* reason)
 {
     game_spy::gp_send_buddy_request(connection, profile, reason);
 }
-void gp_delete_buddy(void* connection, int profile)
-{
-    game_spy::gp_delete_buddy(connection, profile);
-}
+void gp_delete_buddy(void* connection, int profile) { game_spy::gp_delete_buddy(connection, profile); }
 void gp_set_status(void* connection, int status, const char* text, const char* location)
 {
     game_spy::gp_set_status(connection, status, text, location);
 }
 void gp_connect_new_user(void* connection, const char* nick, const char* unique_nick, const char* email,
-                      const char* password, const char* cd_key, int firewall, int blocking, const void* callback,
-                      void* param)
+                         const char* password, const char* cd_key, int firewall, int blocking, const void* callback,
+                         void* param)
 {
-    game_spy::gp_connect_new_user(connection, nick, unique_nick, email, password, cd_key,
-                                                                firewall, blocking, callback, param);
+    game_spy::gp_connect_new_user(connection, nick, unique_nick, email, password, cd_key, firewall, blocking, callback,
+                                  param);
 }
 
 // GPBuddyStatus as gpGetBuddyStatus fills it (the end padded: the SDK's own size isn't known exactly).
@@ -209,7 +212,8 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 int total_of(const memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node;
+         node = node->next)
         ++count;
     return count;
 }
@@ -299,7 +303,7 @@ FriendsManager* FriendsManager::make_new()
         task->make_new(0);
         task->vtable_ = game_code::kTaskVtable;
         reinterpret_cast<void**>(task)[6] = reinterpret_cast<void*>(&buddy_task); // +0x18 the callback
-        reinterpret_cast<void**>(task)[7] = this;                                // +0x1C the data
+        reinterpret_cast<void**>(task)[7] = this;                                 // +0x1C the data
     }
     task_ = task;
     authenticated_ = false;
@@ -591,7 +595,8 @@ void __cdecl FriendsManager::on_buddy_status(void*, const void* argument, Friend
         params->append_word(get_checksums("name"), script::kQbvalString, buddy->nick_);
         params->append_word(get_checksums("status"), script::kQbvalString, buddy->status_text_);
         params->append_word(get_checksums("location"), script::kQbvalString, buddy->location_);
-        params->add_component_of_type(get_checksums("id"), script::kQbvalName, get_checksums("first_lobby_buddy") + buddy->account_);
+        params->add_component_of_type(get_checksums("id"), script::kQbvalName,
+                                      get_checksums("first_lobby_buddy") + buddy->account_);
         get_run("update_buddy_status", params);
         delete_params(params);
         pop_heap();
@@ -725,7 +730,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
     const char* password = prefs->get_preference_string(get_checksums("profile_password"), get_checksums("ui_string"));
     creating_profile() = true;
     gp_connect_new_user(man, "proskater", nullptr, email, password, nullptr, 1, 0,
-                     reinterpret_cast<const void*>(&on_connect_new_user), man);
+                        reinterpret_cast<const void*>(&on_connect_new_user), man);
     pop_heap();
     return 0;
 }
@@ -811,10 +816,16 @@ bool __cdecl add_buddy(script::Struct* params, script::Script*)
 bool __cdecl has_buddies(script::Struct*, script::Script*) { return total_of(&get_buddies()->friends_) > 0; }
 
 // 0x00548ED0
-bool __cdecl buddy_list_full(script::Struct*, script::Script*) { return total_of(&get_buddies()->friends_) >= kMaxBuddies; }
+bool __cdecl buddy_list_full(script::Struct*, script::Script*)
+{
+    return total_of(&get_buddies()->friends_) >= kMaxBuddies;
+}
 
 // 0x00548F10
-bool __cdecl any_buddy_messages_left(script::Struct*, script::Script*) { return total_of(&get_buddies()->messages_) != 0; }
+bool __cdecl any_buddy_messages_left(script::Struct*, script::Script*)
+{
+    return total_of(&get_buddies()->messages_) != 0;
+}
 
 // 0x00549D10
 bool __cdecl profile_log_off(script::Struct*, script::Script*)
@@ -876,7 +887,8 @@ bool __cdecl is_already_my_buddy(script::Struct* params, script::Script*)
 bool __cdecl profile_log_in(script::Struct*, script::Script*)
 {
     prefs::Preferences* prefs = net_session_slot()->get_online_settings();
-    if (prefs->get_preference_checksum(get_checksums("profile_success"), get_checksums("checksum")) != get_checksums("boolean_true"))
+    if (prefs->get_preference_checksum(get_checksums("profile_success"), get_checksums("checksum")) !=
+        get_checksums("boolean_true"))
         return false;
     get_buddies()->log_in();
     return true;

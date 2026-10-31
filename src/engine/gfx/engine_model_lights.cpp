@@ -200,11 +200,20 @@ void ModelLights::plat_apply_scene_lights(const maths::Vec4*, uint32_t)
     get_stub("STUB: CModelLights::plat_apply_scene_lights\n"); // "STUB: CModelLights::plat_apply_scene_lights\n"
 }
 // 0x0048E540
-void ModelLights::apply_light_brightness(bool, bool) { get_stub("STUB: CModelLights::UpdateBrightness\n"); } // "STUB: CModelLights::UpdateBrightness\n"
+void ModelLights::apply_light_brightness(bool, bool)
+{
+    get_stub("STUB: CModelLights::UpdateBrightness\n");
+} // "STUB: CModelLights::UpdateBrightness\n"
 // 0x0048E550
-void ModelLights::switch_ambient_light(bool) { get_stub("STUB: CModelLights::EnableAmbientLight\n"); } // "STUB: CModelLights::EnableAmbientLight\n"
+void ModelLights::switch_ambient_light(bool)
+{
+    get_stub("STUB: CModelLights::EnableAmbientLight\n");
+} // "STUB: CModelLights::EnableAmbientLight\n"
 // 0x0048E560
-void ModelLights::switch_diffuse_light(int, bool) { get_stub("STUB: CModelLights::EnableDiffuseLight\n"); } // "STUB: CModelLights::EnableDiffuseLight\n"
+void ModelLights::switch_diffuse_light(int, bool)
+{
+    get_stub("STUB: CModelLights::EnableDiffuseLight\n");
+} // "STUB: CModelLights::EnableDiffuseLight\n"
 // 0x0048E570
 bool ModelLights::ambient_light_is_on()
 {
@@ -219,14 +228,20 @@ bool ModelLights::diffuse_light_is_on(int)
 }
 
 namespace {
-static VtableSlot g_model_lights_vtable_slots[] = {&render::ModelLights::teardown, &render::ModelLights::put_ambient_light_tint,
-                &render::ModelLights::put_light_aim, &render::ModelLights::put_diffuse_light_tint,
-                &render::ModelLights::read_ambient_light_tint, &render::ModelLights::read_light_aim,
-                &render::ModelLights::read_diffuse_light_tint, &render::ModelLights::plat_apply_scene_lights,
-                &render::ModelLights::apply_light_brightness, &render::ModelLights::switch_ambient_light,
-                &render::ModelLights::switch_diffuse_light, &render::ModelLights::ambient_light_is_on,
-                &render::ModelLights::diffuse_light_is_on};
+static VtableSlot g_model_lights_vtable_slots[] = {&render::ModelLights::teardown,
+                                                   &render::ModelLights::put_ambient_light_tint,
+                                                   &render::ModelLights::put_light_aim,
+                                                   &render::ModelLights::put_diffuse_light_tint,
+                                                   &render::ModelLights::read_ambient_light_tint,
+                                                   &render::ModelLights::read_light_aim,
+                                                   &render::ModelLights::read_diffuse_light_tint,
+                                                   &render::ModelLights::plat_apply_scene_lights,
+                                                   &render::ModelLights::apply_light_brightness,
+                                                   &render::ModelLights::switch_ambient_light,
+                                                   &render::ModelLights::switch_diffuse_light,
+                                                   &render::ModelLights::ambient_light_is_on,
+                                                   &render::ModelLights::diffuse_light_is_on};
 void** const kModelLightsVtable = reinterpret_cast<void**>(g_model_lights_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

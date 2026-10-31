@@ -43,4 +43,4 @@ void fill_member_function_code(uint32_t* records, void* const* code, int count);
 // member_function_code.cpp). Run at start-up.
 void fill_member_function_tables();
 
-} // namespace Script
+} // namespace script

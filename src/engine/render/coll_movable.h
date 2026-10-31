@@ -40,10 +40,10 @@ public:
     int get_value_a0() const;
     void set_value_a0(int value);
 
-    maths::Vec4 anchor_point_;      // +0x10
-    maths::Mat4 orientation_;   // +0x20
-    maths::Mat4 inverse_;       // +0x60 the orientation's transpose
-    int value_a0_;               // +0xA0
+    maths::Vec4 anchor_point_; // +0x10
+    maths::Mat4 orientation_;  // +0x20
+    maths::Mat4 inverse_;      // +0x60 the orientation's transpose
+    int value_a0_;             // +0xA0
 };
 static_assert(sizeof(HitMovingMesh) == 0xA4 && offsetof(HitMovingMesh, inverse_) == 0x60, "layout must match");
 
@@ -73,14 +73,14 @@ public:
     // 0x004137B0 (slot 14): the line (world space) against the box, in the box's space; a hit is offered to
     // `hit` (report_hit) with its point and normal back in world space. The direction and the line's box unused.
     bool collide_with_line(const maths::Seg* line, const maths::Vec4* direction, CollisionHit* hit,
-                         const maths::BBox* line_box);
+                           const maths::BBox* line_box);
     // 0x004126E0 (slot 19): the box drawn where the object is (0x0048D090; the arguments unused).
     void draw_diagnostic(int a, int b);
 
-    maths::BBox box_;            // +0xA4
-    uint32_t poly_attr_bits_;       // +0xC4
-    uint16_t surface_type_;         // +0xC8
-    uint8_t unknownca_[4];     // +0xCA (copied, not otherwise used here)
+    maths::BBox box_;         // +0xA4
+    uint32_t poly_attr_bits_; // +0xC4
+    uint16_t surface_type_;   // +0xC8
+    uint8_t unknownca_[4];    // +0xCA (copied, not otherwise used here)
     uint8_t padce_[2];
 };
 static_assert(sizeof(HitMovingBox) == 0xD0 && offsetof(HitMovingBox, poly_attr_bits_) == 0xC4, "layout must match");
@@ -112,10 +112,10 @@ public:
     // 0x004109D0 (slot 9): vertex `index` scaled (w the scale's w), through the matrix.
     maths::Vec4 read_vertex_point(int index) const;
 
-    maths::Vec4 size_factor_;        // +0x10
-    maths::Mat4 basis_frame_;       // +0x20 (row 3, +0x50, the position)
-    maths::Mat4 inverse_;      // +0x60 (row 3, +0x90, the position turned back)
+    maths::Vec4 size_factor_; // +0x10
+    maths::Mat4 basis_frame_; // +0x20 (row 3, +0x50, the position)
+    maths::Mat4 inverse_;     // +0x60 (row 3, +0x90, the position turned back)
 };
 static_assert(sizeof(CollScaled) == 0xA0 && offsetof(CollScaled, inverse_) == 0x60, "layout must match");
 
-} // namespace Nx
+} // namespace render

@@ -21,9 +21,9 @@ class KeyMap;
 namespace objects {
 
 enum EmitterShape : int {
-    kEmitterShapeBox = 0,     // the sector's box (Shape 0xE460ABDE)
-    kEmitterShapeOther = 1,   // (Shape 0x03F1E5A7: never inside, no nearest point)
-    kEmitterShapeSphere = 2,  // (the default, and Shape 0xAA069978)
+    kEmitterShapeBox = 0,    // the sector's box (Shape 0xE460ABDE)
+    kEmitterShapeOther = 1,  // (Shape 0x03F1E5A7: never inside, no nearest point)
+    kEmitterShapeSphere = 2, // (the default, and Shape 0xAA069978)
 };
 
 struct EmitterNode {
@@ -33,18 +33,18 @@ struct EmitterNode {
     // sphere's). The other shape leaves `out` as it was (the original copies its uninitialised locals).
     maths::Vec4* nearest_point_on(maths::Vec4* out, const maths::Vec4* point);
 
-    uint32_t label_;          // +0x00
-    maths::Vec4 at_point_;        // +0x04
+    uint32_t label_;       // +0x00
+    maths::Vec4 at_point_; // +0x04
     uint8_t unknown14_[0x10];
-    bool active_;            // +0x24
+    bool active_; // +0x24
     uint8_t unknown25_[3];
-    int form_;              // +0x28 EmitterShape
-    float radius_;           // +0x2C
-    float reach_sq_;    // +0x30
-    void* sector_;           // +0x34
-    maths::BBox box_;          // +0x38
+    int form_;        // +0x28 EmitterShape
+    float radius_;    // +0x2C
+    float reach_sq_;  // +0x30
+    void* sector_;    // +0x34
+    maths::BBox box_; // +0x38
     uint32_t unknown58_;
-    uint32_t own_script_;        // +0x5C
+    uint32_t own_script_; // +0x5C
 };
 static_assert(offsetof(EmitterNode, active_) == 0x24 && offsetof(EmitterNode, sector_) == 0x34 &&
                   offsetof(EmitterNode, box_) == 0x38 && offsetof(EmitterNode, own_script_) == 0x5C &&
@@ -75,17 +75,17 @@ public:
     // segment has no length.
     void fetch_place(maths::Vec4* position, maths::Mat4* matrix);
 
-    maths::Vec4 path_vertices_[64];  // +0x000: a ring, newest at head_
-    int num_;               // +0x400
-    int head_;                // +0x404
-    uint32_t entity_key_;       // +0x408
-    maths::Vec4 aim_point_;      // +0x40C: the object's position at the last Update
-    float reach_;          // +0x41C
-    bool free_facing_;         // +0x420
+    maths::Vec4 path_vertices_[64]; // +0x000: a ring, newest at head_
+    int num_;                       // +0x400
+    int head_;                      // +0x404
+    uint32_t entity_key_;           // +0x408
+    maths::Vec4 aim_point_;         // +0x40C: the object's position at the last Update
+    float reach_;                   // +0x41C
+    bool free_facing_;              // +0x420
 };
 static_assert(offsetof(FollowTrail, num_) == 0x400 && offsetof(FollowTrail, aim_point_) == 0x40C &&
                   offsetof(FollowTrail, reach_) == 0x41C && offsetof(FollowTrail, free_facing_) == 0x420,
               "layout must match the original");
 
 extern void* g_emitter_table;
-} // namespace Obj
+} // namespace objects

@@ -46,7 +46,7 @@
 
 namespace park_editing {
 extern uint32_t g_goal_editor_member_functions[216];
-} // namespace Ed
+} // namespace park_editing
 
 namespace objects {
 extern uint32_t g_motion_path_member_functions[294];
@@ -80,11 +80,11 @@ extern uint32_t g_input_component_member_functions[90];
 extern uint32_t g_skeleton_component_member_functions[36];
 extern uint32_t g_stream_component_member_functions[30];
 extern uint32_t g_vibration_component_member_functions[12];
-} // namespace Obj
+} // namespace objects
 
 namespace skater {
 extern uint32_t g_core_member_functions[660];
-} // namespace Skater
+} // namespace skater
 
 namespace script {
 
@@ -398,22 +398,14 @@ void fill_composite_object_member_functions()
 void fill_object_member_functions()
 {
     void* const code[] = {
-        code_address(&objects::Entity::obj_get_tags),
-        code_address(&objects::Entity::obj_get_single_tag),
-        code_address(&objects::Entity::obj_get_named_tags),
-        code_address(&objects::Entity::obj_set_tags),
-        code_address(&objects::Entity::obj_remove_tags),
-        code_address(&objects::Entity::obj_leave_script),
-        code_address(&objects::Entity::obj_get_id),
-        code_address(&objects::Entity::obj_flag_set),
-        code_address(&objects::Entity::obj_flag_not_set),
-        code_address(&objects::Entity::obj_clear_flag),
-        code_address(&objects::Entity::obj_set_flag),
-        code_address(&objects::Entity::obj_kill_spawned_script),
-        code_address(&objects::Entity::obj_spawn_script),
-        code_address(&objects::Entity::obj_switch_script),
-        code_address(&objects::Entity::obj_visible),
-        code_address(&objects::Entity::obj_invisible),
+        code_address(&objects::Entity::obj_get_tags),       code_address(&objects::Entity::obj_get_single_tag),
+        code_address(&objects::Entity::obj_get_named_tags), code_address(&objects::Entity::obj_set_tags),
+        code_address(&objects::Entity::obj_remove_tags),    code_address(&objects::Entity::obj_leave_script),
+        code_address(&objects::Entity::obj_get_id),         code_address(&objects::Entity::obj_flag_set),
+        code_address(&objects::Entity::obj_flag_not_set),   code_address(&objects::Entity::obj_clear_flag),
+        code_address(&objects::Entity::obj_set_flag),       code_address(&objects::Entity::obj_kill_spawned_script),
+        code_address(&objects::Entity::obj_spawn_script),   code_address(&objects::Entity::obj_switch_script),
+        code_address(&objects::Entity::obj_visible),        code_address(&objects::Entity::obj_invisible),
     };
     fill_member_function_code(objects::g_object_member_functions, code, 16);
 }
@@ -839,39 +831,39 @@ void fill_vibration_component_member_functions()
 
 void fill_member_function_tables()
 {
-    fill_motion_path_member_functions(); // 0x00640E30
-    fill_anim_blender_member_functions(); // 0x006413A0
-    fill_object_proximity_member_functions(); // 0x00641700
-    fill_core_member_functions(); // 0x006417D0
-    fill_sound_component_member_functions(); // 0x006423F0
-    fill_trick_component_member_functions(); // 0x00642440
-    fill_pager_message_member_functions(); // 0x006424C0
-    fill_balance_trick_member_functions(); // 0x00642580
-    fill_composite_object_member_functions(); // 0x006425D0
-    fill_object_member_functions(); // 0x00642940
-    fill_fam_member_functions(); // 0x00642B30
-    fill_ped_logic_member_functions(); // 0x00642B90
-    fill_avoid_member_functions(); // 0x00642ED0
-    fill_flexible_particle_member_functions(); // 0x00642FE0
-    fill_particle_component_member_functions(); // 0x006432D0
-    fill_rigid_body_member_functions(); // 0x00643530
-    fill_vehicle_wheel_member_functions(); // 0x006436B0
-    fill_vehicle_camera_member_functions(); // 0x006437E0
-    fill_stats_manager_member_functions(); // 0x00643830
-    fill_goal_editor_member_functions(); // 0x00643960
-    fill_color_cycle_member_functions(); // 0x00643D60
-    fill_vehicle_sound_member_functions(); // 0x00643E00
-    fill_car_physics_member_functions(); // 0x00643E80
-    fill_physics_control_member_functions(); // 0x00643EE0
-    fill_walk_member_functions(); // 0x00644020
-    fill_run_timer_member_functions(); // 0x00644240
-    fill_looping_sound_member_functions(); // 0x00644310
-    fill_skater_state_member_functions(); // 0x00644340
-    fill_suspend_component_member_functions(); // 0x00644560
-    fill_input_component_member_functions(); // 0x006445B0
-    fill_skeleton_component_member_functions(); // 0x00644760
-    fill_stream_component_member_functions(); // 0x00644820
+    fill_motion_path_member_functions();         // 0x00640E30
+    fill_anim_blender_member_functions();        // 0x006413A0
+    fill_object_proximity_member_functions();    // 0x00641700
+    fill_core_member_functions();                // 0x006417D0
+    fill_sound_component_member_functions();     // 0x006423F0
+    fill_trick_component_member_functions();     // 0x00642440
+    fill_pager_message_member_functions();       // 0x006424C0
+    fill_balance_trick_member_functions();       // 0x00642580
+    fill_composite_object_member_functions();    // 0x006425D0
+    fill_object_member_functions();              // 0x00642940
+    fill_fam_member_functions();                 // 0x00642B30
+    fill_ped_logic_member_functions();           // 0x00642B90
+    fill_avoid_member_functions();               // 0x00642ED0
+    fill_flexible_particle_member_functions();   // 0x00642FE0
+    fill_particle_component_member_functions();  // 0x006432D0
+    fill_rigid_body_member_functions();          // 0x00643530
+    fill_vehicle_wheel_member_functions();       // 0x006436B0
+    fill_vehicle_camera_member_functions();      // 0x006437E0
+    fill_stats_manager_member_functions();       // 0x00643830
+    fill_goal_editor_member_functions();         // 0x00643960
+    fill_color_cycle_member_functions();         // 0x00643D60
+    fill_vehicle_sound_member_functions();       // 0x00643E00
+    fill_car_physics_member_functions();         // 0x00643E80
+    fill_physics_control_member_functions();     // 0x00643EE0
+    fill_walk_member_functions();                // 0x00644020
+    fill_run_timer_member_functions();           // 0x00644240
+    fill_looping_sound_member_functions();       // 0x00644310
+    fill_skater_state_member_functions();        // 0x00644340
+    fill_suspend_component_member_functions();   // 0x00644560
+    fill_input_component_member_functions();     // 0x006445B0
+    fill_skeleton_component_member_functions();  // 0x00644760
+    fill_stream_component_member_functions();    // 0x00644820
     fill_vibration_component_member_functions(); // 0x006448C0
 }
 
-} // namespace Script
+} // namespace script

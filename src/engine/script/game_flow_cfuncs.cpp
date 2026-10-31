@@ -62,18 +62,18 @@ uint32_t g_last_broadcasted_omnigon;
 
 namespace {
 
-constexpr uint32_t kParams = 0x7031F10C;      // "params"
-constexpr uint32_t kSkater = 0x5B8AB877;      // "skater"
-constexpr uint32_t kName = 0xA1DC81F9;        // "name"
-constexpr uint32_t kPrefix = 0x6C4E7971;      // "prefix"
-constexpr uint32_t kSkaterType = 0xBAF9B341;  // (name unknown) the skaters' object type
-constexpr uint32_t kKeepSpawnerFile = 0x01917DF2; // (name unknown) don't note the spawner's .qb file (as SpawnScript)
+constexpr uint32_t kParams = 0x7031F10C;           // "params"
+constexpr uint32_t kSkater = 0x5B8AB877;           // "skater"
+constexpr uint32_t kName = 0xA1DC81F9;             // "name"
+constexpr uint32_t kPrefix = 0x6C4E7971;           // "prefix"
+constexpr uint32_t kSkaterType = 0xBAF9B341;       // (name unknown) the skaters' object type
+constexpr uint32_t kKeepSpawnerFile = 0x01917DF2;  // (name unknown) don't note the spawner's .qb file (as SpawnScript)
 constexpr uint32_t kPausedAnswerKey = 0x3BA1FDB9;  // (name unknown) GameIsPaused's answer
 constexpr uint32_t kFlagCommandFlagA = 0x2E7D5EE7; // (names unknown) flags the object flag commands look for and
 constexpr uint32_t kFlagCommandFlagB = 0xBCEB479A; // ignore
-constexpr uint32_t kCleanupScript1 = 0xFF958F9D; // (names unknown) the scripts Cleanup runs
+constexpr uint32_t kCleanupScript1 = 0xFF958F9D;   // (names unknown) the scripts Cleanup runs
 constexpr uint32_t kCleanupScript2 = 0xDCA9A9A0;
-constexpr uint32_t kQbSymbol = 0xC472ECC5;    // (name unknown) the global whose value names a .qb file to unload
+constexpr uint32_t kQbSymbol = 0xC472ECC5;         // (name unknown) the global whose value names a .qb file to unload
 constexpr uint32_t kFlashTextureFlag = 0x70FFC649; // (names unknown) DoFlash's flags: 1, 2 or else 4, 8
 constexpr uint32_t kFlashFlag2 = 0x19C43CF6;
 constexpr uint32_t kFlashFlag4 = 0x387C9ED6;
@@ -107,8 +107,8 @@ constexpr int kLevelQbFiles = 15;
 // What a manager walk does to the objects of a name (0x005A01D0's structure; the object's part from +4).
 struct FlagCommand {
     uint32_t id;
-    uint32_t value;  // a flag's number, a mask, or an exception
-    int action;      // FlagAction
+    uint32_t value; // a flag's number, a mask, or an exception
+    int action;     // FlagAction
     bool result;
     bool found;
 };
@@ -170,9 +170,11 @@ bool __cdecl cfunc_cleanup(script::Struct* params, script::Script* script)
         unload_qb_file(level_qb_files()[i]);
         level_qb_files()[i] = 0;
     }
-    debug::printf("Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"
+    debug::printf(
+        "Starting to unload Geometry from the engine .....\n"); // "Starting to unload Geometry from the engine .....\n"
     cfunc_unload_all_level_geometry(nullptr, nullptr);
-    debug::printf("Done unloading Geometry from the engine .....\n"); // "Done unloading Geometry from the engine .....\n"
+    debug::printf(
+        "Done unloading Geometry from the engine .....\n"); // "Done unloading Geometry from the engine .....\n"
     if (!preserve_skaters) {
         debug::printf("Clean up without preserve skaters\n"); // "Clean up without preserve skaters\n"
         mem_manager()->delete_extra_skater_heaps();
@@ -195,7 +197,7 @@ bool __cdecl cfunc_cleanup(script::Struct* params, script::Script* script)
     GlobalMemoryStatus(&memory);
     char text[0x400];
     int length = wsprintfA(text, "%4d total kb of physical memory.\n", memory.dwTotalPhys >> 10); // "%4d total kb..."
-    wsprintfA(text + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);    // "%4d  free kb..."
+    wsprintfA(text + length, "%4d  free kb of physical memory.\n", memory.dwAvailPhys >> 10);     // "%4d  free kb..."
     OutputDebugStringA(text);
     if (skate_module()->in_net_game_level())
         mem_manager()->create_net_scratch_zone();
@@ -376,7 +378,7 @@ bool __cdecl cfunc_spawn_sound(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_pause_skater(script::Struct* params, script::Script*)
 {
     bool hide = params->has_bare_flag("hide"); // "hide"
-    int index = 0; // (unset in the original when missing - an asserted parameter)
+    int index = 0;                             // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0u, &index, true);
     if (objects::Rider* skater = get_rider_at(index)) {
         (*reinterpret_cast<void(__thiscall***)(objects::Rider*)>(skater))[0x2C / 4](skater);
@@ -444,7 +446,10 @@ bool __cdecl cfunc_reset_clock(script::Struct*, script::Script*)
 }
 
 // 0x005A0670: PadsPluggedIn.
-bool __cdecl cfunc_pads_plugged_in(script::Struct*, script::Script*) { return modules::front_end_instance()->pads_plugged_in(); }
+bool __cdecl cfunc_pads_plugged_in(script::Struct*, script::Script*)
+{
+    return modules::front_end_instance()->pads_plugged_in();
+}
 
 // 0x005A0680: DoFlash duration=<seconds> [texture="<name>"] [z=<depth>] [skater=n (the calling object's viewport)]
 // [start_r ... start_a] [end_r ... end_a] [flags 0x70FFC649 (1), 0x19C43CF6 (2) or else 0x387C9ED6 (4),
@@ -457,10 +462,10 @@ bool __cdecl cfunc_do_flash(script::Struct* params, script::Script* script)
     int viewport = -1;
     const char* texture = nullptr;
     params->fetch_float("duration", &duration, 0); // "duration"
-    if (!(duration > objects::g_float_zero)) // (0.0)
+    if (!(duration > objects::g_float_zero))       // (0.0)
         return true;
     params->fetch_text("texture", &texture, 0); // "texture"
-    params->fetch_float("z", &z, 0);        // "z"
+    params->fetch_float("z", &z, 0);            // "z"
     int flags = 0;
     if (params->has_bare_flag(kFlashTextureFlag))
         flags = 1;
@@ -477,7 +482,7 @@ bool __cdecl cfunc_do_flash(script::Struct* params, script::Script* script)
     uint8_t end[4];
     int value = 0;
     static const char* const kStart[4] = {"start_r", "start_g", "start_b", "start_a"}; // "start_r" ... "start_a"
-    static const char* const kEnd[4] = {"end_r", "end_g", "end_b", "end_a"};   // "end_r" ... "end_a"
+    static const char* const kEnd[4] = {"end_r", "end_g", "end_b", "end_a"};           // "end_r" ... "end_a"
     for (int i = 0; i < 4; ++i) {
         params->fetch_int_value(kStart[i], &value, 0);
         start[i] = static_cast<uint8_t>(value);
@@ -588,12 +593,12 @@ constexpr uint32_t kOmnigonFlags[] = {
     0xA9AF7BE6, 0x39106677, 0x4E1756E1, 0x1CE6BD86, 0x6BE18D10, 0xF2E8DCAA, 0x85EFEC3C,
 };
 
-constexpr uint32_t kOmnigon = 0xAE94C183;       // (name unknown) the Omnigon (as LastBroadcastedOmnigonWas)
-constexpr uint32_t kOmnigonFlag = 0xF649D637;   // (name unknown) sent with it
-constexpr uint32_t kCheatText = 0x61414D56;     // (name unknown) TryCheatString's text
-constexpr uint32_t kCheatFailed = 0x323D63FF;   // (names unknown) its scripts: no cheat,
-constexpr uint32_t kCheatFound = 0xB95B735C;    // a cheat (before the cheat's own script)
-constexpr uint32_t kCheatList = 0x75A23DA4;     // (name unknown) the global array of {c1 c2 cheatscript}
+constexpr uint32_t kOmnigon = 0xAE94C183;     // (name unknown) the Omnigon (as LastBroadcastedOmnigonWas)
+constexpr uint32_t kOmnigonFlag = 0xF649D637; // (name unknown) sent with it
+constexpr uint32_t kCheatText = 0x61414D56;   // (name unknown) TryCheatString's text
+constexpr uint32_t kCheatFailed = 0x323D63FF; // (names unknown) its scripts: no cheat,
+constexpr uint32_t kCheatFound = 0xB95B735C;  // a cheat (before the cheat's own script)
+constexpr uint32_t kCheatList = 0x75A23DA4;   // (name unknown) the global array of {c1 c2 cheatscript}
 
 uint32_t& last_broadcasted_omnigon() { return g_last_broadcasted_omnigon; }
 
@@ -700,7 +705,7 @@ bool __cdecl cfunc_try_cheat_string(script::Struct* params, script::Script*)
     }
     char buffer[0x80];
 #pragma warning(push)
-#pragma warning(disable : 4996) // (unbounded, and the text is the format: as in the original)
+#pragma warning(disable : 4996)                   // (unbounded, and the text is the format: as in the original)
     std::sprintf(buffer, "12345678901234567890"); // "12345678901234567890"
     std::sprintf(buffer, text);
     uint32_t checksum = checksums::hash_from_text(text);
@@ -715,7 +720,8 @@ bool __cdecl cfunc_try_cheat_string(script::Struct* params, script::Script*)
 #pragma warning(pop)
     uint32_t c1 = checksums::hash_from_text(text + std::strlen(text) / 3) ^ static_cast<uint32_t>(sum);
     uint32_t c2 = checksums::hash_from_text(buffer) ^ static_cast<uint32_t>(sum);
-    debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2, text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
+    debug::printf("\n{c1=%d c2=%d CheatScript=cheat_xxx },  ; %s\n\n", c1, c2,
+                  text); // "{c1=%d c2=%d CheatScript=cheat_xxx }..."
     script::Array* cheats = script::fetch_list(kCheatList);
     int count = static_cast<int>(cheats->extent_);
     bool found = false;
@@ -724,9 +730,9 @@ bool __cdecl cfunc_try_cheat_string(script::Struct* params, script::Script*)
         int cheat_c1 = 0;
         int cheat_c2 = 0;
         uint32_t script = 0;
-        cheat->fetch_int_value("c1", &cheat_c1, true);  // "c1"
-        cheat->fetch_int_value("c2", &cheat_c2, true);  // "c2"
-        cheat->read_hash_value("cheatscript", &script, true);  // "cheatscript"
+        cheat->fetch_int_value("c1", &cheat_c1, true);        // "c1"
+        cheat->fetch_int_value("c2", &cheat_c2, true);        // "c2"
+        cheat->read_hash_value("cheatscript", &script, true); // "cheatscript"
         if (static_cast<uint32_t>(cheat_c1) == c1 && static_cast<uint32_t>(cheat_c2) == c2) {
             script::launch_script(kCheatFound, nullptr, nullptr, false, nullptr);
             script::launch_script(script, nullptr, nullptr, false, nullptr);
@@ -828,8 +834,8 @@ bool __cdecl cfunc_spawn_skater_script(script::Struct* params, script::Script* s
     params->read_hash_value("Callback", &callback, 0); // "Callback"
     script::Struct* callback_params = nullptr;
     params->read_sub_struct("CallbackParams", &callback_params, 0); // "CallbackParams"
-    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_, id,
-                                                   false, false, false, false);
+    script::Script* spawned = script::spawn_script(name, script_params, callback, callback_params, script->list_link_,
+                                                   id, false, false, false, false);
     spawned->entity_.assign_value(get_home_rider()); // (not checked for null, as in the original)
     return true;
 }

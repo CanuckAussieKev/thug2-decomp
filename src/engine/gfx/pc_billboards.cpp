@@ -32,8 +32,7 @@ bool g_billboards_ready;
 BillboardSet g_billboard_pool;
 uint8_t g_billboard_flag;
 
-float g_billboard_constants[12]{
-    0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 namespace {
 
@@ -44,10 +43,7 @@ extern void** const kWindowVtable;
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }
 void toggle_fog(bool on) { engine::enable_fog(on); }
-VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index)
-{
-    return mesh->fetch_vertex_store(index);
-}
+VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
 template <typename T>
 T& get_at(void* base, uint32_t offset)
 {
@@ -58,7 +54,10 @@ bool is_head(const memory::ListNode* node) { return node->data == reinterpret_ca
 // The node after `node` (null at the head).
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 // A list's first node (null when empty).
-memory::ListNode* head_of_scene_list(const memory::ListNode* head) { return is_head(head->next) ? nullptr : head->next; }
+memory::ListNode* head_of_scene_list(const memory::ListNode* head)
+{
+    return is_head(head->next) ? nullptr : head->next;
+}
 
 memory::ListNode* new_head()
 {
@@ -75,8 +74,8 @@ memory::ListNode* new_head()
 
 void order_batches(BillboardSet* manager)
 {
-    crt::get_qsort(
-        manager->batches, static_cast<uint32_t>(manager->count), 4, compare_batches); // (the C runtime's qsort)
+    crt::get_qsort(manager->batches, static_cast<uint32_t>(manager->count), 4,
+                   compare_batches); // (the C runtime's qsort)
 }
 
 float sort_depth_of_batch(const BillboardBatch* batch)
@@ -115,13 +114,19 @@ int __cdecl compare_batches(const void* a, const void* b)
 uint32_t primitive_count(uint32_t type, uint32_t count)
 {
     switch (type) {
-    case 1: return count;
-    case 2: return count >> 1;
-    case 3: return count - 1;
-    case 4: return count / 3;
+    case 1:
+        return count;
+    case 2:
+        return count >> 1;
+    case 3:
+        return count - 1;
+    case 4:
+        return count / 3;
     case 5:
-    case 6: return count - 2;
-    default: return 0;
+    case 6:
+        return count - 2;
+    default:
+        return 0;
     }
 }
 
@@ -198,8 +203,8 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         a = static_cast<float>(static_cast<double>(z) * z_axis[0] + a);
         float b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
         double c2 = t3 + sum_z;
-        float out[3] = {static_cast<float>(static_cast<double>(px) + a), static_cast<float>(static_cast<double>(py) + b2),
-                        static_cast<float>(pz + c2)};
+        float out[3] = {static_cast<float>(static_cast<double>(px) + a),
+                        static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)};
         std::memcpy(into, out, 0xC);
         into += 0xC;
         if (table) {
@@ -218,8 +223,9 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         from += rest;
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
-    input_port()->SetStreamSource(0, *reinterpret_cast<IDirect3DVertexBuffer9**>(reinterpret_cast<uint8_t*>(get_vertex_buffer(mesh, 0)) + 8),
-                              0, mesh->stride);
+    input_port()->SetStreamSource(
+        0, *reinterpret_cast<IDirect3DVertexBuffer9**>(reinterpret_cast<uint8_t*>(get_vertex_buffer(mesh, 0)) + 8), 0,
+        mesh->stride);
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
     input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->index_buffers_[0]->buffer));
     DWORD format;
@@ -231,8 +237,9 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     } else {
         for (uint32_t pass = 0; pass < *reinterpret_cast<uint32_t*>(mesh->material + 8); ++pass) {
             reinterpret_cast<MaterialRef*>(mesh->material)
-                ->submit_pass(pass, mesh->flags & 4 ? reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80)
-                                                   : nullptr);
+                ->submit_pass(pass, mesh->flags & 4
+                                        ? reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80)
+                                        : nullptr);
             input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
         }
     }
@@ -384,7 +391,8 @@ void BillboardBatch::erase_record(MeshRef* mesh)
             auto* entry = static_cast<BillboardRec*>(node->data);
             memory::ListNode* next = get_next_node(node);
             if (entry->mesh == mesh) {
-                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node, 1);
+                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(node->vtable[0])(node,
+                                                                                                                   1);
                 memory::Hub::get_pull()->dealloc(entry);
                 return;
             }
@@ -520,7 +528,8 @@ void BillboardSet::remove_mesh(MeshRef* mesh)
             continue;
         for (memory::ListNode* head : batch->lists) {
             if (head) // (through its vtable)
-                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(head->vtable[0])(head, 1);
+                reinterpret_cast<memory::ListNode*(__thiscall*)(memory::ListNode*, unsigned int)>(head->vtable[0])(head,
+                                                                                                                   1);
         }
         memory::Hub::get_pull()->dealloc(batch);
         batches[i] = nullptr;
@@ -628,4 +637,4 @@ static VtableSlot g_window_vtable_slots[] = {&render::PcWindow::teardown, stubs:
 void** const kWindowVtable = reinterpret_cast<void**>(g_window_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

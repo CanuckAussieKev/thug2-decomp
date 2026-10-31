@@ -10,11 +10,11 @@
 namespace render {
 class ProbeRay;
 class RenderModel;
-} // namespace Nx
+} // namespace render
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -28,18 +28,18 @@ struct ModelSpin {
     double bearing();
 
     float period_;      // +0x00 milliseconds
-    uint32_t outset_;    // +0x04 when it started (the game clock's time, or the real time)
+    uint32_t outset_;   // +0x04 when it started (the game clock's time, or the real time)
     float base_;        // +0x08 degrees
     float range_;       // +0x0C degrees
     int power_;         // +0x10 SinePower
-    uint8_t flag_bits_;     // +0x14 MODEL_SPIN_*
+    uint8_t flag_bits_; // +0x14 MODEL_SPIN_*
     uint8_t pad15[3];
 };
 static_assert(sizeof(ModelSpin) == 0x18, "layout must match the original");
 
 // ModelSpin::flag_bits_
 constexpr uint8_t kModelSpinOn = 0x1;
-constexpr uint8_t kModelSpinHold = 0x2;      // HoldOnLastAngle
+constexpr uint8_t kModelSpinHold = 0x2;     // HoldOnLastAngle
 constexpr uint8_t kModelSpinRealTime = 0x4; // dontpause: the real time, not the game clock's
 
 // A model's turns about one axis: up to six at once, added up.
@@ -52,7 +52,7 @@ struct ModelSpinAxis {
     float bearing();
 
     ModelSpin spins_[6]; // +0x00
-    bool active_;         // +0x90
+    bool active_;        // +0x90
     uint8_t pad91[3];
 };
 static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
@@ -138,30 +138,31 @@ public:
     // 0x004208D0: every turn off; sent (message 0x8C).
     void cancel_rotate_display();
 
-    maths::Vec4 enclosing_ball_; // +0x18 the model's (0x00492F30)
-    maths::Vec4 pivot_;          // +0x28 RotationOffset
-    ModelSpinAxis twist_rate_[3];     // +0x38 about X, Y, Z
-    bool flip_;                  // +0x1F4 EnableDisplayFlip
+    maths::Vec4 enclosing_ball_;  // +0x18 the model's (0x00492F30)
+    maths::Vec4 pivot_;           // +0x28 RotationOffset
+    ModelSpinAxis twist_rate_[3]; // +0x38 about X, Y, Z
+    bool flip_;                   // +0x1F4 EnableDisplayFlip
     uint8_t pad1f5_[3];
-    maths::Vec4 shift_;         // +0x1F8 added to the display position (w 1)
-    render::RenderModel* mesh_instance_;         // +0x208
-    ObjectModule* bone_rig_;  // +0x20C its object's skeleton component (Finalize)
-    ObjectModule* anim_blender_ptr_; // +0x210
-    ObjectModule* suspend_;   // +0x214
-    float color_values_[4];       // +0x218 (1 to color_value_count_)
-    int color_value_count_;        // +0x228
-    float brightness_;           // +0x22C
-    uint32_t linked_entity_label_;     // +0x230 refObjectName: a level object's sector
-    bool level_object_;           // +0x234
-    bool sector_model_;           // +0x235 init_from_sector's
+    maths::Vec4 shift_;                  // +0x1F8 added to the display position (w 1)
+    render::RenderModel* mesh_instance_; // +0x208
+    ObjectModule* bone_rig_;             // +0x20C its object's skeleton component (Finalize)
+    ObjectModule* anim_blender_ptr_;     // +0x210
+    ObjectModule* suspend_;              // +0x214
+    float color_values_[4];              // +0x218 (1 to color_value_count_)
+    int color_value_count_;              // +0x228
+    float brightness_;                   // +0x22C
+    uint32_t linked_entity_label_;       // +0x230 refObjectName: a level object's sector
+    bool level_object_;                  // +0x234
+    bool sector_model_;                  // +0x235 init_from_sector's
     uint8_t pad236[2];
 };
 static_assert(offsetof(MeshInstanceModule, enclosing_ball_) == 0x18 && offsetof(MeshInstanceModule, pivot_) == 0x28 &&
                   offsetof(MeshInstanceModule, twist_rate_) == 0x38 && offsetof(MeshInstanceModule, flip_) == 0x1F4 &&
-                  offsetof(MeshInstanceModule, shift_) == 0x1F8 && offsetof(MeshInstanceModule, mesh_instance_) == 0x208 &&
+                  offsetof(MeshInstanceModule, shift_) == 0x1F8 &&
+                  offsetof(MeshInstanceModule, mesh_instance_) == 0x208 &&
                   offsetof(MeshInstanceModule, color_values_) == 0x218 &&
                   offsetof(MeshInstanceModule, color_value_count_) == 0x228 &&
                   offsetof(MeshInstanceModule, linked_entity_label_) == 0x230 && sizeof(MeshInstanceModule) == 0x238,
               "layout must match the original (0x00421490 allocates 0x238 bytes)");
 
-} // namespace Obj
+} // namespace objects

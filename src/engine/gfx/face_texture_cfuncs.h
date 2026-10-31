@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) 0x005B2420-0x005B2FC0: the custom skater's face texture (from the profile, from a
 // video capture), changing a texture (offset, rotate, push to a point, tint) and converting colours between HSV and

@@ -25,9 +25,9 @@ namespace {
 // Scripts
 constexpr uint32_t kRailEditorX = 0x415F2AFA, kRailEditorTriangle = 0x3AD21C4E, kRailEditorSquare = 0xD8D956C9,
                    kRailEditorCircle = 0xC18D5B19, kRailEditorEveryFrame = 0x97153F0E;
-constexpr uint32_t kCreateCursor = 0x52D1CE6F;     // rail_editor_create_cursor
-constexpr uint32_t kDestroyCursor = 0x0EC0A515;    // rail_editor_destroy_cursor
-constexpr uint32_t kHelperTextMode = 0x9DB065AD;   // parked_set_helper_text_mode
+constexpr uint32_t kCreateCursor = 0x52D1CE6F;   // rail_editor_create_cursor
+constexpr uint32_t kDestroyCursor = 0x0EC0A515;  // rail_editor_destroy_cursor
+constexpr uint32_t kHelperTextMode = 0x9DB065AD; // parked_set_helper_text_mode
 
 // Member functions
 constexpr uint32_t kGetCursorPosition = 0x8F3E0B97, kGetEditingMode = 0x63DD1204, kAddNewPosition = 0x5828E852,
@@ -45,13 +45,17 @@ constexpr uint32_t kMode = 0x6835B854, kRailId = 0xA61E7CD9, kRailPointIndex = 0
                    kNumFreeRails = 0xE954B3D4, kNull = 0xDA3403B0, kRails = 0x7E17DFA9, kCreatedRails = 0x244550A6,
                    kPoints = 0xD84571D6, kHasPost = 0xDCDED772, kName = 0xA1DC81F9,
                    kRailNodeClass = 0x4953E02A /* ncomp_railnode_park */, kTrickObject = 0x1645B830,
-                   kCluster = 0x1A3A966B, kSurfaceKindKey = 0x54CF8532, kMetalSmooth = 0xA9ECF4E9 /* TERRAIN_METALSMOOTH */,
-                   kLinks = 0x2E7D5EE7, kAngle = 0xFF7EBAF6, kRailPlacement = 0xFFD81C08;
+                   kCluster = 0x1A3A966B, kSurfaceKindKey = 0x54CF8532,
+                   kMetalSmooth = 0xA9ECF4E9 /* TERRAIN_METALSMOOTH */, kLinks = 0x2E7D5EE7, kAngle = 0xFF7EBAF6,
+                   kRailPlacement = 0xFFD81C08;
 
 constexpr float kAngleScaleToDeg = 57.2957763671875f; // 0x00645468
 
 // The input component's pad (+0x20) and its four buttons (X +0x1A0, Triangle +0x180, Square +0x160, Circle +0x140).
-objects::PadSnapshot* pad_of(void* input) { return reinterpret_cast<objects::PadSnapshot*>(static_cast<uint8_t*>(input) + 0x20); }
+objects::PadSnapshot* pad_of(void* input)
+{
+    return reinterpret_cast<objects::PadSnapshot*>(static_cast<uint8_t*>(input) + 0x20);
+}
 objects::ControlButton* get_button(void* input, uint32_t offset)
 {
     return reinterpret_cast<objects::ControlButton*>(static_cast<uint8_t*>(input) + 0x20 + offset);
@@ -82,7 +86,10 @@ int rail_pool_used()
 }
 
 // The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.
-const Vec4& viewer_location(void* camera) { return *reinterpret_cast<const Vec4*>(static_cast<uint8_t*>(camera) + 0x3C); }
+const Vec4& viewer_location(void* camera)
+{
+    return *reinterpret_cast<const Vec4*>(static_cast<uint8_t*>(camera) + 0x3C);
+}
 float camera_heading(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x78); }
 float camera_height(void* camera) { return *reinterpret_cast<const float*>(static_cast<uint8_t*>(camera) + 0x88); }
 
@@ -277,7 +284,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         if (!editor->is_park_full()) {
             if (EditedRailPoint* p = active_node_->append_rail_vertex()) {
                 p->at_point_ = pos;
-                p->level_y_ = static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point_));
+                p->level_y_ =
+                    static_cast<float>(static_cast<double>(pos.y) - EditedRailPoint::ground_height(&p->at_point_));
                 p->has_post_ = params->has_bare_flag(kAddPost);
                 const Vec4& zero = g_rail_origin;
                 p->draw_segment(&zero, &zero, 0.0f);
@@ -339,7 +347,8 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         float y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
         script::Struct* results = get_results(script);
         results->put_vec3(kPos, target.x, y, target.z);
-        results->push_float(kAngle, static_cast<float>(static_cast<double>(camera_heading(view_camera_)) * kAngleScaleToDeg));
+        results->push_float(kAngle,
+                            static_cast<float>(static_cast<double>(camera_heading(view_camera_)) * kAngleScaleToDeg));
         return 1;
     }
     case kDrawDottedLine: {
@@ -387,4 +396,4 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

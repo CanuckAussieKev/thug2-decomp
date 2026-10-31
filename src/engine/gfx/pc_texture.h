@@ -26,12 +26,12 @@ struct TextureEdit {
 // The PC texture (0x14 bytes, vtable 0x0064A770).
 struct PcTexture {
     void** vtable;
-    uint32_t checksum;  // +0x04 (the engine's)
-    uint32_t flags;     // +0x08: 1 being edited (`engine` is an STextureEdit*)
-    uint8_t unknownc_;   // +0x0C
-    uint8_t unknownd_;   // +0x0D
+    uint32_t checksum; // +0x04 (the engine's)
+    uint32_t flags;    // +0x08: 1 being edited (`engine` is an STextureEdit*)
+    uint8_t unknownc_; // +0x0C
+    uint8_t unknownd_; // +0x0D
     uint8_t pade_[2];
-    void* engine;       // +0x10: the TextureRef, or the edit holding it
+    void* engine; // +0x10: the TextureRef, or the edit holding it
 
     TextureRef* get_texture() const;
 
@@ -113,7 +113,7 @@ static_assert(offsetof(PcTexture, flags) == 8 && offsetof(PcTexture, engine) == 
 struct PcTexDict {
     void** vtable;
     uint8_t engine04[8];
-    void* textures;  // +0x0C: lists::KeyMap* by checksum
+    void* textures; // +0x0C: lists::KeyMap* by checksum
     uint8_t engine10[4];
 
     // 0x004C8070: construct (the engine's constructor with this checksum, 1). Returns this.
@@ -159,16 +159,17 @@ PcTexDict* __cdecl create_tex_dict(uint32_t checksum);
 
 // 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it (`bits_per_pixel` 4 copies half bytes).
 void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                          const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel);
+                            const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel);
 // 0x004C9200: an image resized - 8 bits a pixel by nearest (the bytes cleared first: as many as the source has),
 // else 32 bits bilinear in 1024ths.
-void __cdecl resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into, uint16_t into_width,
-                         uint16_t into_height, uint16_t bits_per_pixel);
+void __cdecl resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into,
+                          uint16_t into_width, uint16_t into_height, uint16_t bits_per_pixel);
 // 0x004C9520: a 32-bit image zoomed about its centre (bilinear, clamped to the edges).
-void __cdecl zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom, float y_zoom);
+void __cdecl zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom,
+                        float y_zoom);
 // 0x004C8180: RGB (0-1) to hue (degrees; -1 when black), saturation and value.
 void __cdecl rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v);
 // 0x004C82D0: and back.
 void __cdecl hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v);
 
-} // namespace Nx
+} // namespace render

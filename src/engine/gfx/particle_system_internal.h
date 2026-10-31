@@ -16,7 +16,7 @@ bool new_colours(EmitterInstance* system, int count);
 // After the base's constructor: the name and the maximum, no particles yet; the particles, then the positions
 // (`positions_zeroed`: zeroed memory), then `colours` colours. Whether everything was allocated.
 bool construct_parts(EmitterInstance* system, uint32_t name, int particle_cap, unsigned int positions_size,
-                    bool positions_zeroed, int colours);
+                     bool positions_zeroed, int colours);
 // The system's vtable and its node's.
 void set_vtables(EmitterInstance* system, void** primary, void** node);
 

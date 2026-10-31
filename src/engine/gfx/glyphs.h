@@ -24,4 +24,4 @@ uint32_t __cdecl button_for_tag(uint8_t* digit);
 // 0-17 otherwise.
 uint8_t __cdecl should_use_glyph(uint8_t index);
 
-} // namespace Nx
+} // namespace render

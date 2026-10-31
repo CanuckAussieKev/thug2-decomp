@@ -42,7 +42,10 @@ void* new_index_buffer(uint32_t bytes)
     return static_cast<IdxStore*>(memory)->make_new(bytes, 0, 0x65);
 }
 // A mesh's vertex buffers (+0xCC) and their release.
-void* get_vertex_buffer(uint8_t* mesh, int index) { return reinterpret_cast<MeshRef*>(mesh)->fetch_vertex_store(index); }
+void* get_vertex_buffer(uint8_t* mesh, int index)
+{
+    return reinterpret_cast<MeshRef*>(mesh)->fetch_vertex_store(index);
+}
 void set_vertex_buffer(uint8_t* mesh, int index, void* buffer)
 {
     reinterpret_cast<MeshRef*>(mesh)->set_vertex_buffer(index, static_cast<VertexBuffer*>(buffer));
@@ -60,8 +63,7 @@ uint16_t* tri_strip_scratch() { return g_index_scratch; }
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
 {
-    crt::get_qsort(
-        base, count, size, compare);
+    crt::get_qsort(base, count, size, compare);
 }
 
 // Iterate a hash table's values: the first (or next), null at the end.
@@ -342,4 +344,4 @@ void __cdecl discard_scene(SceneRef* scene)
     memory::Hub::sole()->dealloc(scene);
 }
 
-} // namespace Nx
+} // namespace render

@@ -59,8 +59,8 @@ enum Qr2Key : int {
     kKeyPassword = 19,
     kKeyGroupid = 20,
     kKeyForPlayer = 21, // player_
-    kKeyPing = 24,   // ping_
-    kKeyTeam = 25,   // team_
+    kKeyPing = 24,      // ping_
+    kKeyTeam = 25,      // team_
 };
 constexpr int kKeyTypePlayer = 1;
 constexpr int kKeyTypeTeam = 2;
@@ -202,9 +202,10 @@ void __cdecl start_query_reporting(bool keep_map_name)
     if (reporting)
         return;
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
-    int error = game_spy::call_qr2_init(nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &player_key_callback,
-                        code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
-                        code_address(online::add_error_callback), nullptr);
+    int error = game_spy::call_qr2_init(
+        nullptr, nullptr, kQueryPort, net::get_game_name(), key, 1, 0, &server_key_callback, &player_key_callback,
+        code_address(online::player_team_key_callback), code_address(online::key_list_callback), &count_callback,
+        code_address(online::add_error_callback), nullptr);
     if (error == 0)
         reporting = true;
 }

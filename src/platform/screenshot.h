@@ -62,4 +62,4 @@ bool series_running();
 // The last series' result: "ok: <n> frames in <folder>" or "error: ...".
 std::string series_result();
 
-} // namespace sys::Screenshot
+} // namespace sys::screenshot

@@ -29,7 +29,8 @@ extern void** const kPcAsyncFileHandleAdapterVtable;
 namespace file {
 
 static_assert(offsetof(AsyncFileHandle, callback_mask_) == 0x14 && offsetof(AsyncFileHandle, is_blocking_) == 0x21 &&
-                  offsetof(AsyncFileHandle, payload_bytes_) == 0x2C && offsetof(AsyncFileHandle, in_flight_ops_) == 0x38,
+                  offsetof(AsyncFileHandle, payload_bytes_) == 0x2C &&
+                  offsetof(AsyncFileHandle, in_flight_ops_) == 0x38,
               "layout must match the original");
 
 namespace {
@@ -61,10 +62,7 @@ struct PendingCallback {
 PendingCallback g_pending_callbacks[2][kMaxHandles];
 int g_callback_counts[2];
 
-PendingCallback (&callback_lists())[2][kMaxHandles]
-{
-    return g_pending_callbacks;
-}
+PendingCallback (&callback_lists())[2][kMaxHandles] { return g_pending_callbacks; }
 int (&callback_counts())[2] { return g_callback_counts; }
 int& current_list() { return g_current_list; }
 
@@ -153,10 +151,7 @@ bool AsyncFileHandle::get_cancel()
 }
 
 // 0x005B6730
-bool AsyncFileHandle::is_occupied()
-{
-    return in_flight_ops_ > 0;
-}
+bool AsyncFileHandle::is_occupied() { return in_flight_ops_ > 0; }
 
 // 0x005B6740
 int AsyncFileHandle::get_take_in(void* buffer, int size, int count)
@@ -229,10 +224,7 @@ void async_init()
 }
 
 // 0x005B6580
-bool async_busy()
-{
-    return pending_io_counter() > 0;
-}
+bool async_busy() { return pending_io_counter() > 0; }
 
 // 0x005B6590
 bool async_free_handle(AsyncFileHandle* file)
@@ -286,10 +278,11 @@ void async_wait_for_io(bool all)
 {
     for (;;) {
         debug::printf("CAsyncFileLoader waiting for io completion: busy count %d completion %d\n", pending_io_counter(),
-                    io_completed());
+                      io_completed());
         while (!io_completed()) {
         }
-        debug::printf("CAsyncFileLoader got completion: busy count %d completion %d\n", pending_io_counter(), io_completed());
+        debug::printf("CAsyncFileLoader got completion: busy count %d completion %d\n", pending_io_counter(),
+                      io_completed());
         async_execute_callbacks();
         if (!all)
             return;
@@ -351,7 +344,7 @@ bool async_close(AsyncFileHandle* file)
     return result;
 }
 
-} // namespace File
+} // namespace file
 
 namespace {
 
@@ -415,8 +408,8 @@ namespace file {
 
 namespace {
 
-constexpr int kErrorIoPending = 997;   // ERROR_IO_PENDING
-constexpr int kErrorHandleEof = 38;    // ERROR_HANDLE_EOF
+constexpr int kErrorIoPending = 997;    // ERROR_IO_PENDING
+constexpr int kErrorHandleEof = 38;     // ERROR_HANDLE_EOF
 constexpr DWORD kStatusPending = 0x103; // OVERLAPPED.Internal while the I/O is in progress
 
 // Overlapped (truly asynchronous, unbuffered) reads are used on Windows NT 6 (Vista) and later.
@@ -502,12 +495,13 @@ bool PcAsyncFileHandle::os_open_file(const char* name)
     // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
     if (!frontend::data_overlay::get_overlay_path(name, path))
-        make_disk_path(reinterpret_cast<char(&)[256]>(path), name);
+        make_disk_path(reinterpret_cast<char (&)[256]>(path), name);
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops_ = in_flight_ops_ + 1;
     bool overlapped = use_overlapped_io();
-    file_ref_ = CreateFileA(path, GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
-                         overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
+    file_ref_ =
+        CreateFileA(path, GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
+                    overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
     if (file_ref_ == INVALID_HANDLE_VALUE)
         return false; // (the busy counts stay raised, as in the original)
     payload_bytes_ = static_cast<int>(::GetFileSize(file_ref_, nullptr));
@@ -550,16 +544,10 @@ bool PcAsyncFileHandle::os_read_finished()
 }
 
 // 0x005B9700
-bool PcAsyncFileHandle::os_read_pending()
-{
-    return outcome_val_ == kErrorIoPending;
-}
+bool PcAsyncFileHandle::os_read_pending() { return outcome_val_ == kErrorIoPending; }
 
 // 0x005B9710
-bool PcAsyncFileHandle::os_at_end()
-{
-    return outcome_val_ == kErrorHandleEof;
-}
+bool PcAsyncFileHandle::os_at_end() { return outcome_val_ == kErrorHandleEof; }
 
 // 0x005B9720: read the whole file from the start
 int PcAsyncFileHandle::os_load_whole(void* buffer)
@@ -632,26 +620,20 @@ void platform_init()
         use_overlapped_io() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > 5;
 }
 
-void construct_async_file_handle(AsyncFileHandle* file)
-{
-    construct_base(file);
-}
+void construct_async_file_handle(AsyncFileHandle* file) { construct_base(file); }
 
 PcAsyncMethods pc_async_file_handle_methods()
 {
-    return {code_address(&PcAsyncFileHandle::pc_io_callback), code_address(&PcAsyncFileHandle::os_open_setup),
+    return {code_address(&PcAsyncFileHandle::pc_io_callback),   code_address(&PcAsyncFileHandle::os_open_setup),
             code_address(&PcAsyncFileHandle::os_open_file),     code_address(&PcAsyncFileHandle::os_close_file),
-            code_address(&PcAsyncFileHandle::os_read_finished),   code_address(&PcAsyncFileHandle::os_read_pending),
-            code_address(&PcAsyncFileHandle::os_at_end),    code_address(&PcAsyncFileHandle::os_load_whole),
+            code_address(&PcAsyncFileHandle::os_read_finished), code_address(&PcAsyncFileHandle::os_read_pending),
+            code_address(&PcAsyncFileHandle::os_at_end),        code_address(&PcAsyncFileHandle::os_load_whole),
             code_address(&PcAsyncFileHandle::os_read_chunk)};
 }
 
-bool& async_use_overlapped_io()
-{
-    return use_overlapped_io();
-}
+bool& async_use_overlapped_io() { return use_overlapped_io(); }
 
-} // namespace File
+} // namespace file
 
 namespace {
 
@@ -683,9 +665,9 @@ struct PcAsyncFileHandleAdapter {
 namespace file {
 
 struct AsyncLoaderModule {
-    void** vtable_;          // 0x00658158
+    void** vtable_;                   // 0x00658158
     uint8_t owning_module_[0x14 - 4]; // modules::PartUnit's fields
-    void* task_;             // tasks::Task running async_loader_task
+    void* task_;                      // tasks::Task running async_loader_task
 };
 static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
 
@@ -750,7 +732,7 @@ void destroy_async_loader_module()
     loader_module_refs() = 0;
 }
 
-} // namespace File
+} // namespace file
 
 namespace {
 
@@ -768,8 +750,8 @@ struct AsyncLoaderModuleMethods {
         auto* task = static_cast<uint32_t*>(memory::alloc_zeroed(0x20));
         if (task) {
             file::construct_task(task);
-            task[7] = reinterpret_cast<uint32_t>(module);    // the task's data
-            task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable);                           // tasks::Task<CAsyncFileLoader> vtable
+            task[7] = reinterpret_cast<uint32_t>(module);                 // the task's data
+            task[0] = reinterpret_cast<uint32_t>(game_code::kTaskVtable); // tasks::Task<CAsyncFileLoader> vtable
             task[6] = reinterpret_cast<uint32_t>(code_address(file::async_loader_task)); // its code: async_loader_task
         }
         module->task_ = task;
@@ -805,35 +787,46 @@ file::AsyncLoaderModule* file::construct_async_loader_module(void* memory)
 
 namespace {
 static VtableSlot g_async_file_handle_adapter_vtable_slots[] = {&AsyncFileHandleAdapter::teardown,
-                &AsyncFileHandle::io_done_handler,
-                &BaseStubs::prepare_all,
-                &BaseStubs::unseal,
-                &BaseStubs::shut,
-                &BaseStubs::is_finished,
-                &BaseStubs::is_occupied,
-                &BaseStubs::is_eof,
-                &BaseStubs::change_rank,
-                &BaseStubs::set_stream,
-                &BaseStubs::set_destination,
-                &BaseStubs::set_buffer_size,
-                &BaseStubs::set_blocking,
-                &BaseStubs::read_in,
-                &BaseStubs::get_take_in,
-                &BaseStubs::emit_out,
-                &BaseStubs::get_s,
-                &BaseStubs::seek_to,
-                &BaseStubs::get_cancel};
+                                                                &AsyncFileHandle::io_done_handler,
+                                                                &BaseStubs::prepare_all,
+                                                                &BaseStubs::unseal,
+                                                                &BaseStubs::shut,
+                                                                &BaseStubs::is_finished,
+                                                                &BaseStubs::is_occupied,
+                                                                &BaseStubs::is_eof,
+                                                                &BaseStubs::change_rank,
+                                                                &BaseStubs::set_stream,
+                                                                &BaseStubs::set_destination,
+                                                                &BaseStubs::set_buffer_size,
+                                                                &BaseStubs::set_blocking,
+                                                                &BaseStubs::read_in,
+                                                                &BaseStubs::get_take_in,
+                                                                &BaseStubs::emit_out,
+                                                                &BaseStubs::get_s,
+                                                                &BaseStubs::seek_to,
+                                                                &BaseStubs::get_cancel};
 void** const kAsyncFileHandleAdapterVtable = reinterpret_cast<void**>(g_async_file_handle_adapter_vtable_slots);
-static VtableSlot g_async_loader_module_methods_vtable_slots[] = {&AsyncLoaderModuleMethods::teardown,
-                &AsyncLoaderModuleMethods::kickoff, &modules::Skate::stop_callback};
+static VtableSlot g_async_loader_module_methods_vtable_slots[] = {
+    &AsyncLoaderModuleMethods::teardown, &AsyncLoaderModuleMethods::kickoff, &modules::Skate::stop_callback};
 void** const kAsyncLoaderModuleMethodsVtable = reinterpret_cast<void**>(g_async_loader_module_methods_vtable_slots);
 static VtableSlot g_pc_async_file_handle_adapter_vtable_slots[] = {&PcAsyncFileHandleAdapter::teardown,
-                &file::PcAsyncFileHandle::pc_io_callback, &file::PcAsyncFileHandle::os_open_setup,
-                &file::PcAsyncFileHandle::os_open_file, &file::PcAsyncFileHandle::os_close_file,
-                &file::PcAsyncFileHandle::os_read_finished, &file::PcAsyncFileHandle::os_read_pending,
-                &file::PcAsyncFileHandle::os_at_end, stubs::ignore_argument, stubs::ignore_argument,
-                stubs::ignore_argument, stubs::ignore_argument, stubs::ignore_argument, &file::PcAsyncFileHandle::os_load_whole,
-                &file::PcAsyncFileHandle::os_read_chunk, stubs::return_zero3, stubs::return_zero2, stubs::return_zero2,
-                &BaseStubs::get_cancel};
+                                                                   &file::PcAsyncFileHandle::pc_io_callback,
+                                                                   &file::PcAsyncFileHandle::os_open_setup,
+                                                                   &file::PcAsyncFileHandle::os_open_file,
+                                                                   &file::PcAsyncFileHandle::os_close_file,
+                                                                   &file::PcAsyncFileHandle::os_read_finished,
+                                                                   &file::PcAsyncFileHandle::os_read_pending,
+                                                                   &file::PcAsyncFileHandle::os_at_end,
+                                                                   stubs::ignore_argument,
+                                                                   stubs::ignore_argument,
+                                                                   stubs::ignore_argument,
+                                                                   stubs::ignore_argument,
+                                                                   stubs::ignore_argument,
+                                                                   &file::PcAsyncFileHandle::os_load_whole,
+                                                                   &file::PcAsyncFileHandle::os_read_chunk,
+                                                                   stubs::return_zero3,
+                                                                   stubs::return_zero2,
+                                                                   stubs::return_zero2,
+                                                                   &BaseStubs::get_cancel};
 void** const kPcAsyncFileHandleAdapterVtable = reinterpret_cast<void**>(g_pc_async_file_handle_adapter_vtable_slots);
 } // namespace

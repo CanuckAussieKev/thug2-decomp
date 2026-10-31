@@ -25,7 +25,7 @@ extern void** const kVtable;
 
 constexpr uint32_t kAppearanceInitStructure = 0xFE54486D; // appearance_init_structure
 constexpr uint32_t kRandomizedDescId = 0xD81C03B0;        // randomized_desc_id
-constexpr uint32_t kShuffleIndex = 0x4B833E64;             // random_index
+constexpr uint32_t kShuffleIndex = 0x4B833E64;            // random_index
 constexpr uint32_t kRandomSet = 0x0D7260FD;               // random_set
 constexpr uint32_t kDescId = 0x4BB2084E;                  // desc_id
 constexpr uint32_t kUseDefaultHsv = 0x97DBDDE6;           // use_default_hsv
@@ -46,7 +46,7 @@ constexpr uint32_t kPartGotFlag = 0xE961BAFA; // PartGotFlag
 constexpr uint32_t kSetChecksum = 0xD27427FF; // SetChecksum
 
 constexpr uint32_t kOwnedStructure = 11; // add_component_of_type's type: a structure it takes over, by pointer
-constexpr int kMaxBufferBytes = 0x2BC; // (more: the tattoos are left out)
+constexpr int kMaxBufferBytes = 0x2BC;   // (more: the tattoos are left out)
 
 const uint32_t kTattoos[] = {
     0x3FA9B96E, // head_tattoo
@@ -78,15 +78,9 @@ script::Struct* cas_option_at(uint32_t part, int index, uint32_t random_set)
 // A face texture constructed (0x004875C0, returns this).
 // Whether a face texture holds one (0x00487510) / set so (0x00487520) - called through the game (the tests script them).
 bool face_texture_is_valid(FaceSkin* face) { return face->is_sound(); }
-void set_face_texture_valid(FaceSkin* face, bool valid)
-{
-    face->mark_usable(valid);
-}
+void set_face_texture_valid(FaceSkin* face, bool valid) { face->mark_usable(valid); }
 
-FaceSkin* construct_face_texture(void* memory)
-{
-    return static_cast<FaceSkin*>(memory)->make_new();
-}
+FaceSkin* construct_face_texture(void* memory) { return static_cast<FaceSkin*>(memory)->make_new(); }
 
 // A temporary structure (from the structure pool; null if there's no memory) / cleared and given back.
 script::Struct* new_temp_struct()
@@ -364,11 +358,17 @@ uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer)
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&gfx::ModelLook::teardown, &objects::Entity::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &gfx::ModelLook::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true};
+static VtableSlot g_vtable_slots[] = {
+    &gfx::ModelLook::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &gfx::ModelLook::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

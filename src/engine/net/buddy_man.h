@@ -8,10 +8,10 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace tasks {
 class SchedulerTask;
-} // namespace Tsk
+} // namespace tasks
 
 // The online profile and buddy list ("homies"): online::Hub's presence_service_ (+0x18), a wrapper of the GameSpy
 // presence SDK (GP: library code, not decompiled - called by address). The profile is created or logged into from
@@ -22,17 +22,17 @@ namespace online {
 // A buddy (0x24C bytes, memory::alloc_zeroed'd): an lists::Elem<Buddy> (vtable 0x0064D140, its scalar deleting destructor
 // 0x00548CF0) carrying the GP buddy's details.
 struct Buddy {
-    memory::ListNode list_link_;   // +0x00 data = this
-    char nick_[32];        // +0x14
-    int account_;          // +0x34 the GameSpy profile id
-    int cur_standing_;           // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
-    bool pending_;         // +0x3C asked to be a buddy, no answer yet (not shown in the list)
+    memory::ListNode list_link_; // +0x00 data = this
+    char nick_[32];              // +0x14
+    int account_;                // +0x34 the GameSpy profile id
+    int cur_standing_; // +0x38 GP status: 0 offline, 1 online, 2 playing (in a THUG2 game: the location is one)
+    bool pending_;     // +0x3C asked to be a buddy, no answer yet (not shown in the list)
     uint8_t pad3d_[3];
-    uint32_t join_ip_;      // +0x40 the game the buddy plays in (from the location string, kThug2Location)
+    uint32_t join_ip_;         // +0x40 the game the buddy plays in (from the location string, kThug2Location)
     uint32_t join_private_ip_; // +0x44
-    int join_port_;         // +0x48
-    char location_[256];   // +0x4C the game's name (or the GP location string)
-    char status_text_[256]; // +0x14C
+    int join_port_;            // +0x48
+    char location_[256];       // +0x4C the game's name (or the GP location string)
+    char status_text_[256];    // +0x14C
 
     // 0x00548CF0 (vtable 0x0064D140 slot 0, scalar deleting): the node destructor (0x005484A0: unlinked), freed with
     // flag 1. Returns this.
@@ -46,10 +46,10 @@ static_assert(sizeof(Buddy) == 0x24C && offsetof(Buddy, account_) == 0x34 && off
 // deleting destructor 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
 struct FriendNote {
-    memory::ListNode list_link_;   // +0x00 data = this
-    int account_;          // +0x14 the sender
-    char nick_[16];        // +0x18
-    char text_[64];        // +0x28
+    memory::ListNode list_link_; // +0x00 data = this
+    int account_;                // +0x14 the sender
+    char nick_[16];              // +0x18
+    char text_[64];              // +0x28
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text. Returns this.
     FriendNote* make_new();
@@ -57,8 +57,7 @@ struct FriendNote {
     // flag 1. Returns this.
     FriendNote* teardown(unsigned int flags);
 };
-static_assert(sizeof(FriendNote) == 0x68 && offsetof(FriendNote, nick_) == 0x18 &&
-                  offsetof(FriendNote, text_) == 0x28,
+static_assert(sizeof(FriendNote) == 0x68 && offsetof(FriendNote, nick_) == 0x18 && offsetof(FriendNote, text_) == 0x28,
               "layout must match the original");
 
 class FriendsManager {
@@ -136,11 +135,11 @@ public:
     // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
     void change_standing(int status, const char* text, const char* location);
 
-    void* connection_;       // +0x00 GPConnection (this object is passed as its address)
-    int account_;            // +0x04 the logged-in profile id
+    void* connection_;           // +0x00 GPConnection (this object is passed as its address)
+    int account_;                // +0x04 the logged-in profile id
     int cur_phase_;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
-    tasks::SchedulerTask* task_;    // +0x0C tasks::Task<FriendsManager> (buddy_task)
-    bool authenticated_;          // +0x10
+    tasks::SchedulerTask* task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
+    bool authenticated_;         // +0x10
     uint8_t pad11_[3];
     memory::ListNode friends_;  // +0x14 lists::Foremost<Buddy>
     memory::ListNode messages_; // +0x28 lists::Foremost<FriendNote>
@@ -150,20 +149,20 @@ static_assert(offsetof(FriendsManager, authenticated_) == 0x10 && offsetof(Frien
               "layout must match the original");
 
 // The script commands (CFunctions: the parameters, the script).
-bool __cdecl set_unique_id(script::Struct* params, script::Script* script);            // 0x00548940
-bool __cdecl join_buddy(script::Struct* params, script::Script* script);              // 0x00548A40
-bool __cdecl add_buddy(script::Struct* params, script::Script* script);               // 0x00548E40
-bool __cdecl has_buddies(script::Struct* params, script::Script* script);             // 0x00548E90
-bool __cdecl buddy_list_full(script::Struct* params, script::Script* script);          // 0x00548ED0
-bool __cdecl any_buddy_messages_left(script::Struct* params, script::Script* script);   // 0x00548F10
-bool __cdecl profile_log_off(script::Struct* params, script::Script* script);          // 0x00549D10
-bool __cdecl fill_buddy_list(script::Struct* params, script::Script* script);          // 0x00549D20
-bool __cdecl cancel_add_buddy(script::Struct* params, script::Script* script);         // 0x00549D80
-bool __cdecl remove_buddy(script::Struct* params, script::Script* script);            // 0x00549D90
-bool __cdecl show_next_buddy_message(script::Struct* params, script::Script* script);   // 0x00549DC0
-bool __cdecl is_already_my_buddy(script::Struct* params, script::Script* script);       // 0x00549EA0
-bool __cdecl profile_log_in(script::Struct* params, script::Script* script);           // 0x0054A250
+bool __cdecl set_unique_id(script::Struct* params, script::Script* script);               // 0x00548940
+bool __cdecl join_buddy(script::Struct* params, script::Script* script);                  // 0x00548A40
+bool __cdecl add_buddy(script::Struct* params, script::Script* script);                   // 0x00548E40
+bool __cdecl has_buddies(script::Struct* params, script::Script* script);                 // 0x00548E90
+bool __cdecl buddy_list_full(script::Struct* params, script::Script* script);             // 0x00548ED0
+bool __cdecl any_buddy_messages_left(script::Struct* params, script::Script* script);     // 0x00548F10
+bool __cdecl profile_log_off(script::Struct* params, script::Script* script);             // 0x00549D10
+bool __cdecl fill_buddy_list(script::Struct* params, script::Script* script);             // 0x00549D20
+bool __cdecl cancel_add_buddy(script::Struct* params, script::Script* script);            // 0x00549D80
+bool __cdecl remove_buddy(script::Struct* params, script::Script* script);                // 0x00549D90
+bool __cdecl show_next_buddy_message(script::Struct* params, script::Script* script);     // 0x00549DC0
+bool __cdecl is_already_my_buddy(script::Struct* params, script::Script* script);         // 0x00549EA0
+bool __cdecl profile_log_in(script::Struct* params, script::Script* script);              // 0x0054A250
 bool __cdecl fill_prospective_buddy_list(script::Struct* params, script::Script* script); // 0x0054A2B0
-bool __cdecl spawn_account(script::Struct* params, script::Script* script);          // 0x0054A650
+bool __cdecl spawn_account(script::Struct* params, script::Script* script);               // 0x0054A650
 
 } // namespace online

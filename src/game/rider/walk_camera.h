@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -19,16 +19,16 @@ class FootMovement;
 
 // What the camera keeps for a later restore (WalkCamera's save_state / restore_state: 0x58 bytes).
 struct WalkCameraState {
-    maths::Mat4 orientation;  // +0x00
-    maths::Vec4 target;       // +0x40
-    float turn_cosine_;         // +0x50
-    float zoom;               // +0x54
+    maths::Mat4 orientation; // +0x00
+    maths::Vec4 target;      // +0x40
+    float turn_cosine_;      // +0x50
+    float zoom;              // +0x54
 };
 
 // 0x00524D70 (cdecl): `a` toward `b` by where `t` lies from `low` to `high` (x through a float step, y with its
 // step unrounded, z and w as floats). Returns `out`.
 maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low,
-                                 float high);
+                                   float high);
 
 // The WalkCamera component (type 0xC7D37EC2, vtable 0x0064C5E0, 0xA8 bytes; made by 0x00525DC0): the camera
 // behind a walking skater. Each frame it swings round toward the skater's facing (when the right stick isn't
@@ -82,33 +82,31 @@ public:
     // look-around's factor while it turns (else 1) at the skater camera's +0x110.
     void get_zoomed_offsets(float* height, float* distance);
 
-    int instant_frames_;            // +0x18 frames left that jump straight to the target (3 after a teleport)
-    bool flush_;                   // +0x1C a flush requested
-    bool snap_next_;                   // +0x1D (reset_now)
+    int instant_frames_; // +0x18 frames left that jump straight to the target (3 after a teleport)
+    bool flush_;         // +0x1C a flush requested
+    bool snap_next_;     // +0x1D (reset_now)
     uint8_t pad1e_[2];
-    float zoom_;                   // +0x20
-    maths::Vec4 aim_point_;           // +0x24
-    maths::Mat4 orientation_;      // +0x34
-    float turn_cosine_;             // +0x74 the last turn's cosine (the new at-row against the old)
-    bool override_;                // +0x78 (change_forced_heading)
+    float zoom_;              // +0x20
+    maths::Vec4 aim_point_;   // +0x24
+    maths::Mat4 orientation_; // +0x34
+    float turn_cosine_;       // +0x74 the last turn's cosine (the new at-row against the old)
+    bool override_;           // +0x78 (change_forced_heading)
     uint8_t pad79[3];
-    maths::Vec4 forced_heading_;   // +0x7C
-    float override_rate_;           // +0x8C
-    FreeLookModule* free_look_; // +0x90
+    maths::Vec4 forced_heading_; // +0x7C
+    float override_rate_;        // +0x8C
+    FreeLookModule* free_look_;  // +0x90
     ObjectModule* viewer_;       // +0x94 (+0x18 its camera)
-    uint8_t* skater_camera_;        // +0x98 (the parameters it shares: +0x74 a matrix, +0xC4, +0xD0, +0xE4, +0xE8,
-                                    // +0x110, +0x12C)
-    GameEntity* skater_;     // +0x9C
+    uint8_t* skater_camera_;     // +0x98 (the parameters it shares: +0x74 a matrix, +0xC4, +0xD0, +0xE4, +0xE8,
+                                 // +0x110, +0x12C)
+    GameEntity* skater_;         // +0x9C
     FootMovement* walk_;         // +0xA0
-    uint8_t* physics_control_;      // +0xA4
+    uint8_t* physics_control_;   // +0xA4
 };
 static_assert(offsetof(FootView, instant_frames_) == 0x18 && offsetof(FootView, zoom_) == 0x20 &&
-                  offsetof(FootView, aim_point_) == 0x24 &&
-                  offsetof(FootView, orientation_) == 0x34 &&
-                  offsetof(FootView, override_) == 0x78 &&
-                  offsetof(FootView, free_look_) == 0x90 &&
+                  offsetof(FootView, aim_point_) == 0x24 && offsetof(FootView, orientation_) == 0x34 &&
+                  offsetof(FootView, override_) == 0x78 && offsetof(FootView, free_look_) == 0x90 &&
                   offsetof(FootView, physics_control_) == 0xA4 && sizeof(FootView) == 0xA8,
               "layout must match the original");
 static_assert(sizeof(WalkCameraState) == 0x58, "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

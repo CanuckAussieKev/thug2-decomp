@@ -247,7 +247,7 @@ void MenuBase::arrange()
         if (regular) {
             for (; item; item.assign_value(item->following_.owner_object_)) {
                 double across = vertical_ ? static_cast<double>(item->span_) * item->shown_.scale_x_
-                                           : static_cast<double>(item->level_y_) * item->shown_.scale_y_;
+                                          : static_cast<double>(item->level_y_) * item->shown_.scale_y_;
                 total = static_cast<float>(static_cast<double>(total) + regular_space_);
                 if (across > largest)
                     largest = static_cast<float>(across);
@@ -287,11 +287,10 @@ void MenuBase::arrange()
     place_top_left(&aim_point_);
     object_flags_ |= kDirty;
     // where the first item goes: the free space split by internal_just
-    float offset = vertical_
-                       ? static_cast<float>((static_cast<double>(level_y_) - total) *
-                                            (static_cast<double>(inner_align_v_) + 1.0) * 0.5)
-                       : static_cast<float>((static_cast<double>(span_) - total) *
-                                            (static_cast<double>(inner_align_h_) + 1.0) * 0.5);
+    float offset = vertical_ ? static_cast<float>((static_cast<double>(level_y_) - total) *
+                                                  (static_cast<double>(inner_align_v_) + 1.0) * 0.5)
+                             : static_cast<float>((static_cast<double>(span_) - total) *
+                                                  (static_cast<double>(inner_align_h_) + 1.0) * 0.5);
     {
         ElementPtr item;
         item.assign_value(eldest_.owner_object_);
@@ -301,11 +300,11 @@ void MenuBase::arrange()
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span_ * 0.5),
-                                 offset, 1);
+                                          offset, 1);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
-                    item->change_location(offset,
-                                 static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y_ * 0.5), 1);
+                    item->change_location(
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y_ * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(offset) + regular_space_);
             }
@@ -319,11 +318,11 @@ void MenuBase::arrange()
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
                     item->change_location(static_cast<float>((static_cast<double>(inner_align_h_) + 1.0) * span_ * 0.5),
-                                 offset, 1);
+                                          offset, 1);
                 } else {
                     item->change_alignment(0.0f, inner_align_v_);
-                    item->change_location(offset,
-                                 static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y_ * 0.5), 1);
+                    item->change_location(
+                        offset, static_cast<float>((static_cast<double>(inner_align_v_) + 1.0) * level_y_ * 0.5), 1);
                 }
                 offset = static_cast<float>(static_cast<double>(half_stored) + offset + item_gap_);
                 if (item->object_flags_ & kDirty)
@@ -502,21 +501,37 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
 }
 
 namespace {
-static VtableSlot g_c_base_menu_vtable_slots[] = {&MenuBase::teardown, &MenuBase::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &MenuBase::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                stubs::do_nothing};
+static VtableSlot g_c_base_menu_vtable_slots[] = {
+    &MenuBase::teardown,
+    &MenuBase::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &MenuBase::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    stubs::do_nothing};
 void** const kCBaseMenuVtable = reinterpret_cast<void**>(g_c_base_menu_vtable_slots);
-static VtableSlot g_c_container_element_vtable_slots[] = {&GroupWidget::teardown, &GroupWidget::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &GroupWidget::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                stubs::do_nothing};
+static VtableSlot g_c_container_element_vtable_slots[] = {
+    &GroupWidget::teardown,
+    &GroupWidget::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &GroupWidget::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    stubs::do_nothing};
 void** const kCContainerElementVtable = reinterpret_cast<void**>(g_c_container_element_vtable_slots);
 } // namespace
 
-} // namespace Front
+} // namespace frontend
 
-using frontend::MenuBase;
 using frontend::GroupWidget;
+using frontend::MenuBase;

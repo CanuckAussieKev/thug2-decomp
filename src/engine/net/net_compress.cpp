@@ -17,9 +17,9 @@ namespace net {
 namespace {
 
 constexpr uint8_t kMsgCompressed = 0x12;
-constexpr int kMaxRun = 0x81;       // a run's bytes
-constexpr int kMaxLiteral = 0x80;   // a literal's bytes
-constexpr int kRunCode = 0x80;      // a run of n bytes: 0x80 + n - 2
+constexpr int kMaxRun = 0x81;     // a run's bytes
+constexpr int kMaxLiteral = 0x80; // a literal's bytes
+constexpr int kRunCode = 0x80;    // a run of n bytes: 0x80 + n - 2
 constexpr int kMethodRle = 1;
 constexpr int kMethodLzss = 2;
 
@@ -164,7 +164,8 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
         debug::printf("LZSS : New payload len : %d, New size : %d\n", size, compressed_size);
     } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11). A stream that fails or doesn't fit counts as "no smaller".
-        size_t lzham = lzham::compress(message, static_cast<size_t>(size), compressed + 3, static_cast<size_t>(max_size));
+        size_t lzham =
+            lzham::compress(message, static_cast<size_t>(size), compressed + 3, static_cast<size_t>(max_size));
         compressed_size = lzham != 0 ? static_cast<int>(lzham) : size;
         debug::printf("LZHAM : New payload len : %d, New size : %d\n", size, compressed_size);
     }
@@ -180,4 +181,4 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     return nullptr;
 }
 
-} // namespace Net
+} // namespace net

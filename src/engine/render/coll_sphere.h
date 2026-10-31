@@ -17,10 +17,10 @@ class HitMeshCache;
 // its object's checksum and flag 0x40.
 struct SphereHit {
     maths::Vec4 point;
-    float t;                 // +0x10
-    maths::Vec4 normal;      // +0x14
-    uint32_t checksum;       // +0x24
-    uint8_t face_flag40_;      // +0x28
+    float t;              // +0x10
+    maths::Vec4 normal;   // +0x14
+    uint32_t checksum;    // +0x24
+    uint8_t face_flag40_; // +0x28
     uint8_t pad[3];
 };
 static_assert(sizeof(SphereHit) == 0x2C, "layout must match the original");
@@ -35,8 +35,8 @@ struct SphereHits {
     maths::Vec4 direction;   // +0x584
     float sweep;             // +0x594
     int count;               // +0x598
-    uint16_t ignore_flags_;    // +0x59C
-    uint16_t require_flags_;   // +0x59E
+    uint16_t ignore_flags_;  // +0x59C
+    uint16_t require_flags_; // +0x59E
     int mode;                // +0x5A0
 };
 static_assert(sizeof(SphereHits) == 0x5A4 && offsetof(SphereHits, count) == 0x598, "layout must match the original");
@@ -44,33 +44,33 @@ static_assert(sizeof(SphereHits) == 0x5A4 && offsetof(SphereHits, count) == 0x59
 // 0x0040E280 (cdecl): where the segment crosses the sphere's surface: 0, 1 or 2 points (*count) in order along
 // it; whether any. (The fifth argument isn't used.)
 bool segment_crosses_sphere(const maths::Seg* segment, const CollSphere* sphere, int* count, maths::Vec4* points,
-                          int unused);
+                            int unused);
 // 0x0040E560 (cdecl): a sphere moving by `motion` against a segment moving by `edge_motion` (in practice (0, 0, 0,
 // 1): the edge stands, the point's w counts the time): already touching (segment_crosses_sphere) - those points; else
 // where the capsule round the segment meets the centre's path - *t the first time within 0..1, the point the
 // segment's nearest to the centre then (*count 1). Whether it touches.
 bool swept_sphere_hits_edge(const maths::Seg* edge, const maths::Vec4* edge_motion, const CollSphere* sphere,
-                         const maths::Vec4* motion, float* t, float limit, int* count, maths::Vec4* point);
+                            const maths::Vec4* motion, float* t, float limit, int* count, maths::Vec4* point);
 // 0x0040E940 (cdecl): the moving sphere against the triangle's corner `corner` and the edge leaving it towards the
 // sphere's path (chosen by where the path crosses the plane through the edge `edge_cross` stands on): the corner
 // inside the sphere already - *t 0 and no hit; moving away from it - no hit; else swept_sphere_hits_edge on that edge.
 // (`normal` isn't used; a corner that isn't one of the triangle's leaves the edge's other end unset.)
 bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* sphere, const maths::Vec4* motion,
-                           const maths::Vec4* edge_motion, const maths::Vec4* v0, const maths::Vec4* v1,
-                           const maths::Vec4* v2, const maths::Vec4* edge_cross, const maths::Vec4* edge, float* t,
-                           float limit, int* count, maths::Vec4* point, maths::Vec4* normal);
+                              const maths::Vec4* edge_motion, const maths::Vec4* v0, const maths::Vec4* v1,
+                              const maths::Vec4* v2, const maths::Vec4* edge_cross, const maths::Vec4* edge, float* t,
+                              float limit, int* count, maths::Vec4* point, maths::Vec4* normal);
 // 0x0040EC90 (cdecl): the sphere moving by `motion` (up to `limit` of it) against the triangle: the face's unit
 // normal to `normal`; where it touches first to `point` (*t how far along). A sphere already within its radius of
 // the plane: by where its centre lies against the three edges - the face (its nearest point, if the move's capsule
 // holds it), an edge or a corner; else the point where the sphere's front first meets the plane, again by the
 // edges.
 bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1,
-                             const maths::Vec4* v2, float* t, float limit, const maths::Vec4* motion,
-                             maths::Vec4* point, maths::Vec4* normal);
+                                const maths::Vec4* v2, float* t, float limit, const maths::Vec4* motion,
+                                maths::Vec4* point, maths::Vec4* normal);
 // 0x0040F9E0 (cdecl): the standing sphere against the triangle (from its front only): the face's unit normal to
 // `normal`, its nearest point to `point`; whether that's within the radius.
 bool sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0, const maths::Vec4* v1, const maths::Vec4* v2,
-                        maths::Vec4* point, maths::Vec4* normal);
+                          maths::Vec4* point, maths::Vec4* normal);
 
 // 0x00410240 (cdecl): the sphere (moving, when `hits` has a sweep) against the static collision objects (slot 16),
 // as the rect query: its box (and the moved sphere's), through `cache` when it holds it, else the scenes' grids.
@@ -86,14 +86,14 @@ public:
     // argument isn't used.)
     bool get_query(int unused);
 
-    CollSphere bound_ball_;            // +0x000
-    SphereHits hits_;              // +0x014
-    uint8_t unknown5b8_[0x598];    // +0x5B8
-    uint32_t unknownb50_;          // +0xB50
-    uint32_t unknownb54_[2];       // +0xB54
-    HitMeshCache* hit_cache_;           // +0xB5C
+    CollSphere bound_ball_;     // +0x000
+    SphereHits hits_;           // +0x014
+    uint8_t unknown5b8_[0x598]; // +0x5B8
+    uint32_t unknownb50_;       // +0xB50
+    uint32_t unknownb54_[2];    // +0xB54
+    HitMeshCache* hit_cache_;   // +0xB5C
 };
 static_assert(offsetof(SphereFeeler, hits_) == 0x14 && offsetof(SphereFeeler, hit_cache_) == 0xB5C,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

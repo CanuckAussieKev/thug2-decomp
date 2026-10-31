@@ -120,4 +120,4 @@ private:
 };
 static_assert(sizeof(SharedRef<SharedBase>) == 12, "a smart pointer is 12 bytes");
 
-} // namespace Obj
+} // namespace objects

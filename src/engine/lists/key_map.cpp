@@ -9,8 +9,7 @@
 
 namespace lists {
 
-static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 &&
-                  offsetof(KeyMap, flag_) == 0x14,
+static_assert(sizeof(KeyMap::Item) == 12 && offsetof(KeyMap, iter_item_) == 0x10 && offsetof(KeyMap, flag_) == 0x14,
               "layout must match the original");
 
 // 0x0049FD90
@@ -48,10 +47,7 @@ void* KeyMap::fetch_entry(uint32_t key) const
 }
 
 // 0x00462050
-void* KeyMap::fetch_entry(const uint32_t& key, bool /*unused*/) const
-{
-    return fetch_entry(key);
-}
+void* KeyMap::fetch_entry(const uint32_t& key, bool /*unused*/) const { return fetch_entry(key); }
 
 // 0x00462740
 bool KeyMap::store_entry(const uint32_t& key, void* value)
@@ -151,7 +147,7 @@ bool KeyMap::step_iterator()
     return true;
 }
 
-} // namespace Lst
+} // namespace lists
 
 namespace {
 

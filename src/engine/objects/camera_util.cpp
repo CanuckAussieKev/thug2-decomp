@@ -26,10 +26,7 @@ public:
         as_feeler()->set_excluded(static_cast<uint16_t>(skip), static_cast<uint16_t>(need));
     }
     // 0x004171D0
-    void change_strand(const maths::Vec4& start, const maths::Vec4& end)
-    {
-        as_feeler()->change_strand(&start, &end);
-    }
+    void change_strand(const maths::Vec4& start, const maths::Vec4& end) { as_feeler()->change_strand(&start, &end); }
     // 0x004172F0
     bool get_hit_shape(int a, int b) { return as_feeler()->get_hit_shape(a != 0, b != 0) != 0; }
     // 0x00417710: the line set, then get_hit_shape.
@@ -75,7 +72,7 @@ double __cdecl frame_blend(float rate, float seconds)
 
 // 0x004E4360
 void __cdecl avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const maths::Vec4* target,
-                                   const maths::Vec4* focus, bool sideways, bool refocus)
+                                     const maths::Vec4* focus, bool sideways, bool refocus)
 {
     maths::Vec4& pos = *position;
     // The direction from the target, normalised (z unrounded until then); w's difference as it is.
@@ -178,4 +175,4 @@ void __cdecl avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix,
     matrix->row[3].w = 1.0f;
 }
 
-} // namespace Obj
+} // namespace objects

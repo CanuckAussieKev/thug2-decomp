@@ -80,7 +80,7 @@ void SharedBase::detach_shared_ref(SharedRef<SharedBase>* pointer)
     pointer->following_ = nullptr;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -89,4 +89,4 @@ static VtableSlot g_ref_counted_vtable_slots[] = {&objects::SharedBase::scalar_d
 void** const kRefCountedVtable = reinterpret_cast<void**>(g_ref_counted_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

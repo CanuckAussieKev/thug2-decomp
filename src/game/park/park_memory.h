@@ -7,7 +7,7 @@ namespace memory {
 class Arena;
 class Zone;
 struct PoolPair;
-} // namespace Mem
+} // namespace memory
 
 // The park editor's memory budget (0x0059E100-0x0059ED5F): the park editor's own heap, the item pools of its
 // map list and clipboard, and the "memory used" figures its menu shows as bars - how full the main heap, the
@@ -17,28 +17,28 @@ namespace park_editing {
 
 // The figures (0x007CE618, 0x6C bytes, copied out by get_memory_stats).
 struct MemoryStats {
-    int park_bytes_in_use_;      // +0x00 the park heap's used size
-    int park_heap_free_;      // +0x04 its region's space + its free blocks - park_heap_pad
-    int main_heap_free_;      // +0x08 the main (bottom-up) heap's, less the pads (or its largest block, see below)
+    int park_bytes_in_use_;     // +0x00 the park heap's used size
+    int park_heap_free_;        // +0x04 its region's space + its free blocks - park_heap_pad
+    int main_heap_free_;        // +0x08 the main (bottom-up) heap's, less the pads (or its largest block, see below)
     bool main_heap_fragmented_; // +0x0C the main heap's largest block is less than its free space and the pad
     uint8_t pad0d_[3];
-    float main_heap_usage_;   // +0x10 1 - free / main_heap_base (1 when nothing is free)
-    float top_down_usage_;    // +0x14 2 - available / top_down_required; 0 unless it's the most
-    float park_heap_usage_;   // +0x18 1 - free / park_heap_base
+    float main_heap_usage_;  // +0x10 1 - free / main_heap_base (1 when nothing is free)
+    float top_down_usage_;   // +0x14 2 - available / top_down_required; 0 unless it's the most
+    float park_heap_usage_;  // +0x18 1 - free / park_heap_base
     float component_usage_;  // +0x1C the park's components / the component pool's room (less component_use_base)
     float vector_usage_;     // +0x20 the same for vectors
     float array_usage_;      // +0x24 the same for arrays (CArray)
     float dma_usage_;        // +0x28 DMA pieces / max_dma_pieces
     float max_usage_;        // +0x2C the largest of them
     int piece_counts_[3];    // +0x30 filled by the park's piece counter (0x00592AB0) - unknown
-    int components;        // +0x3C the park's script components
-    int vectors;           // +0x40 vectors
-    int arrays;            // +0x44 arrays
-    int marker48;          // +0x48 (marker 0x9BF91DBE) the main heap's free memory
+    int components;          // +0x3C the park's script components
+    int vectors;             // +0x40 vectors
+    int arrays;              // +0x44 arrays
+    int marker48;            // +0x48 (marker 0x9BF91DBE) the main heap's free memory
     int marker_4c_;          // +0x4C (marker 0xE113C765)
-    int outer_shell_mem_;     // +0x50 (markers 0x2D987043 / 0x7DE18688: the front end's use)
-    int net_anims_mem_;       // +0x54 (markers 0xAFFF3067 / 0x65B63305: the network animations' use)
-    int marker58_free_size_;  // +0x58 (marker 0xCC63F828) the main heap's free blocks
+    int outer_shell_mem_;    // +0x50 (markers 0x2D987043 / 0x7DE18688: the front end's use)
+    int net_anims_mem_;      // +0x54 (markers 0xAFFF3067 / 0x65B63305: the network animations' use)
+    int marker58_free_size_; // +0x58 (marker 0xCC63F828) the main heap's free blocks
     int marker_5c_;          // +0x5C (marker 0xCC63F828)
     int unknown60;
     int components_used_at_marker_; // +0x64 (marker 0x9BF91DBE) the component pool's items in use
@@ -49,12 +49,12 @@ static_assert(sizeof(MemoryStats) == 0x6C && offsetof(MemoryStats, max_usage_) =
                   offsetof(MemoryStats, vectors_used_at_marker_) == 0x68,
               "layout must match the original");
 
-MemoryStats& get_attributes();            // 0x007CE618
+MemoryStats& get_attributes();       // 0x007CE618
 memory::PoolPair& clipboard_pools(); // 0x007CE5B4 (CClipboard's CPoolable pools)
-memory::Zone*& park_region();      // 0x007CE684
-memory::Arena*& park_heap();          // 0x007CE688
-int& dma_pieces();                // 0x007CE690 the DMA pieces the park's pieces use
-bool& counts_dirty();             // 0x007CE694 the piece counts need counting again
+memory::Zone*& park_region();        // 0x007CE684
+memory::Arena*& park_heap();         // 0x007CE688
+int& dma_pieces();                   // 0x007CE690 the DMA pieces the park's pieces use
+bool& counts_dirty();                // 0x007CE694 the piece counts need counting again
 
 // 0x0059E100
 memory::Arena* __cdecl get_park_heap();
@@ -95,4 +95,4 @@ void __cdecl prepare_all(uint32_t level);
 
 extern memory::Arena* g_park_heap;
 
-} // namespace Ed
+} // namespace park_editing

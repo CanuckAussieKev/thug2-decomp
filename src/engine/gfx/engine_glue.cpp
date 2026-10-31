@@ -94,10 +94,7 @@ uint8_t* caster_key(const uint8_t* texture)
 } // namespace
 
 // 0x004B2270
-void __cdecl toggle_mem_view()
-{
-    g_mem_view_toggle ^= 1;
-}
+void __cdecl toggle_mem_view() { g_mem_view_toggle ^= 1; }
 
 // 0x004B2280 (the device 0x007D69E0's BeginScene, vtable slot 41; not while the loading screen is up: 0x00786D04)
 void __cdecl begin_frame_draw()
@@ -116,10 +113,7 @@ void __cdecl delete_object(void* object)
 }
 
 // 0x004B22B0
-void __cdecl set_screen_clip(const void* rect)
-{
-    set_skin_scaling(static_cast<const uint32_t*>(rect));
-}
+void __cdecl set_screen_clip(const void* rect) { set_skin_scaling(static_cast<const uint32_t*>(rect)); }
 
 // 0x004B22C0
 void __cdecl add_debug_shape(int type, const maths::Vec4* points, uint32_t colour)
@@ -129,40 +123,22 @@ void __cdecl add_debug_shape(int type, const maths::Vec4* points, uint32_t colou
 }
 
 // 0x004B22F0
-void __cdecl flag_debug_lines(uint32_t id, bool flag)
-{
-    activate_occluder_poly(id, flag);
-}
+void __cdecl flag_debug_lines(uint32_t id, bool flag) { activate_occluder_poly(id, flag); }
 
 // 0x004B2300
-void __cdecl clear_debug_lines()
-{
-    clear_occluder_polys();
-}
+void __cdecl clear_debug_lines() { clear_occluder_polys(); }
 
 // 0x004B2310
-int __cdecl sphere_visible(const maths::Vec4* centre, float radius)
-{
-    return sphere_outside_view(centre, radius);
-}
+int __cdecl sphere_visible(const maths::Vec4* centre, float radius) { return sphere_outside_view(centre, radius); }
 
 // 0x004B2320
-const char* __cdecl platform_suffix()
-{
-    return "Xbx";
-}
+const char* __cdecl platform_suffix() { return "Xbx"; }
 
 // 0x004B24C0
-void __cdecl set_gamma(float red, float green, float blue)
-{
-    set_device_gamma(red, green, blue);
-}
+void __cdecl set_gamma(float red, float green, float blue) { set_device_gamma(red, green, blue); }
 
 // 0x004B24D0
-void __cdecl get_gamma(float* red, float* green, float* blue)
-{
-    get_device_gamma(red, green, blue);
-}
+void __cdecl get_gamma(float* red, float* green, float* blue) { get_device_gamma(red, green, blue); }
 
 // 0x004B24E0
 void __cdecl screen_shot(const char* name, int /*unused*/)
@@ -184,7 +160,8 @@ void __cdecl screen_shot(const char* name, int /*unused*/)
     D3DDISPLAYMODE mode;
     input_port()->GetDisplayMode(0, &mode);
     IDirect3DSurface9* surface = nullptr;
-    input_port()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface, nullptr);
+    input_port()->CreateOffscreenPlainSurface(mode.Width, mode.Height, D3DFMT_A8R8G8B8, D3DPOOL_SCRATCH, &surface,
+                                              nullptr);
     input_port()->GetFrontBufferData(0, surface);
     save_surface_to_file(file, surface);
     surface->Release();
@@ -217,10 +194,7 @@ PcParticleManager* PcParticleManager::teardown(unsigned int flags)
 }
 
 // 0x004B2740
-void PcParticleManager::destroy_body()
-{
-    reinterpret_cast<EffectsDirector*>(this)->destroy_body();
-}
+void PcParticleManager::destroy_body() { reinterpret_cast<EffectsDirector*>(this)->destroy_body(); }
 
 // 0x004B2750
 void __cdecl finish_rendering()
@@ -346,8 +320,9 @@ void __cdecl remove_texture_shadow_caster(const uint8_t* texture)
 }
 
 namespace {
-static VtableSlot g_c_pc_particle_manager_vtable_slots[] = {&render::PcParticleManager::teardown, render::PcParticleSystem::fabricate};
+static VtableSlot g_c_pc_particle_manager_vtable_slots[] = {&render::PcParticleManager::teardown,
+                                                            render::PcParticleSystem::fabricate};
 void** const kCPcParticleManagerVtable = reinterpret_cast<void**>(g_c_pc_particle_manager_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

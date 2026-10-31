@@ -11,7 +11,7 @@ namespace render {
 // texels plus half a texel - or, without a source, a flat quad - with `blend`, the colour, and with pixel shader
 // 0x007CA950 if `shader`. Fog is off while it draws.
 void __cdecl draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour,
-                            bool shader);
+                              bool shader);
 // 0x004DEA80: the frame's render target - the current screen copy when blurring (0x00787328 over 2) or with the
 // bloom (0x00705720, pixel shaders) - cleared to the fog colour (with distance clipping and fog) or the clear colour.
 // Sets 0x007CC244 when it is used.
@@ -25,4 +25,4 @@ void __cdecl get_bloom();
 
 extern bool g_screen_copy_in_use;
 
-} // namespace Nx
+} // namespace render

@@ -22,10 +22,7 @@ constexpr std::array<uint32_t, 256> make_table()
 
 constexpr std::array<uint32_t, 256> kTable = make_table();
 
-uint32_t get_step(uint32_t crc, uint8_t byte)
-{
-    return (crc >> 8) ^ kTable[(crc ^ byte) & 0xFF];
-}
+uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> 8) ^ kTable[(crc ^ byte) & 0xFF]; }
 
 // Names are case-insensitive and treat '/' and '\' as the same character.
 uint8_t name_char(char c)
@@ -91,4 +88,4 @@ uint32_t generate_crc_caseless(const char* data, int size)
     return crc;
 }
 
-} // namespace Crc
+} // namespace checksums

@@ -9,21 +9,21 @@ namespace render {
 
 // The renderer's own render state numbering (change_phase's `state`).
 enum RenderStateId {
-    kZWrite = 1,          // bool
-    kZTest = 2,           // bool: less-equal, else always
-    kPhaseAlphaTest = 3,        // 0 = alpha test off, else on with this reference
-    kAddressMode0 = 4,    // 4-7: a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap,
-                          // 1 clamp, 2 border (clamp without border support)
-    kMipLodBias0 = 8,     // 8-11: a sampler's mip level bias (float bits)
-    kCullMode = 0x10,     // D3DCULL
-    kAlphaBlend = 0x11,   // bool
-    kAlphaTest = 0x12,    // bool
-    kSpecular = 0x13,     // bool (and the local viewer with it)
-    kFog = 0x14,          // bool
-    kDepthBias = 0x15,    // in units of the factor at 0x0064AAA4
-    kLighting = 0x16,     // bool
-    kFilter0 = 0x20,      // 0x20-0x23: a sampler's filters, bit 0 minification linear, bit 16 magnification
-    kLocalViewer = 0x24,  // bool
+    kZWrite = 1,         // bool
+    kZTest = 2,          // bool: less-equal, else always
+    kPhaseAlphaTest = 3, // 0 = alpha test off, else on with this reference
+    kAddressMode0 = 4,   // 4-7: a sampler's addressing, U in the low 16 bits and V in the high: 0 wrap,
+                         // 1 clamp, 2 border (clamp without border support)
+    kMipLodBias0 = 8,    // 8-11: a sampler's mip level bias (float bits)
+    kCullMode = 0x10,    // D3DCULL
+    kAlphaBlend = 0x11,  // bool
+    kAlphaTest = 0x12,   // bool
+    kSpecular = 0x13,    // bool (and the local viewer with it)
+    kFog = 0x14,         // bool
+    kDepthBias = 0x15,   // in units of the factor at 0x0064AAA4
+    kLighting = 0x16,    // bool
+    kFilter0 = 0x20,     // 0x20-0x23: a sampler's filters, bit 0 minification linear, bit 16 magnification
+    kLocalViewer = 0x24, // bool
 };
 
 // 0x004DAB60: set one of the renderer's states (RenderStateId) on the device, if it isn't already.
@@ -88,4 +88,4 @@ extern uint32_t g_fog_active;
 extern const float* g_world_transform;
 extern float g_world_transform_copy[16];
 
-} // namespace Nx
+} // namespace render

@@ -63,7 +63,10 @@ bool read_hex8(const std::string& word, uint32_t* out)
         return false;
     uint32_t value = 0;
     for (char c : word) {
-        int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+        int d = c >= '0' && c <= '9'   ? c - '0'
+                : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                                       : -1;
         if (d < 0)
             return false;
         value = value << 4 | static_cast<uint32_t>(d);
@@ -95,11 +98,11 @@ bool read_record(std::istringstream& in, Membership* out)
 
 namespace {
 
-constexpr uint32_t kTrickObject = 0x1645B830;           // TrickObject
-constexpr uint32_t kCluster = 0x1A3A966B;               // Cluster
-constexpr uint32_t kAllTrickObjects = 0xB675F8F6;       // (a script integer: every node a trick object)
+constexpr uint32_t kTrickObject = 0x1645B830;     // TrickObject
+constexpr uint32_t kCluster = 0x1A3A966B;         // Cluster
+constexpr uint32_t kAllTrickObjects = 0xB675F8F6; // (a script integer: every node a trick object)
 
-std::map<uint32_t, Membership> g_set; // (the pieces the editor changed: as they are now)
+std::map<uint32_t, Membership> g_set;   // (the pieces the editor changed: as they are now)
 std::map<uint32_t, Membership> g_level; // (those pieces as the level has them)
 std::vector<std::function<void()>> g_queue;
 std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept until the level goes)
@@ -108,10 +111,7 @@ char g_typed[64];
 
 uint8_t* hub() { return reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub); }
 
-script::Struct* node_of(uint32_t sector)
-{
-    return level_nodes::fetch_vertex(sector, false);
-}
+script::Struct* node_of(uint32_t sector) { return level_nodes::fetch_vertex(sector, false); }
 
 objects::TrickSpotHub* get_trick_objects(uint8_t* manager) { return reinterpret_cast<objects::TrickSpotHub*>(manager); }
 // The manager's cluster of that name, null for none.
@@ -266,11 +266,10 @@ bool assign_value(const std::vector<uint32_t>& sectors, bool trick, uint32_t clu
     push_module_undo(before);
     char text[160];
     if (trick)
-        std::snprintf(text, sizeof(text), "%d piece%s set to cluster %s", changed,
-                      changed == 1 ? "" : "s", cluster ? get_name_of(cluster).c_str() : "their own names");
+        std::snprintf(text, sizeof(text), "%d piece%s set to cluster %s", changed, changed == 1 ? "" : "s",
+                      cluster ? get_name_of(cluster).c_str() : "their own names");
     else
-        std::snprintf(text, sizeof(text), "%d piece%s cleared", changed,
-                      changed == 1 ? "" : "s");
+        std::snprintf(text, sizeof(text), "%d piece%s cleared", changed, changed == 1 ? "" : "s");
     hud::get_message(text);
     get_log("level editor: %s", text);
     return true;
@@ -420,4 +419,4 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::EndDisabled();
 }
 
-} // namespace MenuSystem::level_editor::Clusters
+} // namespace frontend::level_editor::clusters

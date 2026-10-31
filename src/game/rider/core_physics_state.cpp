@@ -52,23 +52,23 @@ constexpr uint32_t kTimeLimit = 0x70F16EA9;            // TimeLimit
 constexpr uint32_t kKillSpecial = 0x266B570C;          // KillSpecial (a script)
 constexpr uint32_t kAirTimeLeft = 0x7E2A8993;          // AirTimeLeft
 constexpr uint32_t kGrindTrickList = 0x2AB3341D;       // GrindTrickList
-constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78; // Trick_Motoskateboard_Grind (a script)
+constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78;  // Trick_Motoskateboard_Grind (a script)
 constexpr uint32_t kMotoGrind = 0x302;                 // (on the motoskateboard)
 
 // The free revert's message: the game's own format, file name and text.
-const char* const kMessageFormat = "M:%s:%i: %s\n"; // "M:%s:%i: %s\n"
+const char* const kMessageFormat = "M:%s:%i: %s\n";                         // "M:%s:%i: %s\n"
 const char* const kSourceFile = "mponents\\SkaterCorePhysicsComponent.cpp"; // (the component's source file)
-const char* const kFreeRevertText = "You earned a free revert!!!!"; // "You earned a free revert!!!!"
+const char* const kFreeRevertText = "You earned a free revert!!!!";         // "You earned a free revert!!!!"
 
 // The fields used here.
 constexpr uint32_t kFreeRevertsPending = 0x318;
 constexpr uint32_t kFreeRevertStart = 0x31C;
 constexpr uint32_t kFocusHeld = 0x14C1;
-constexpr uint32_t kThrowWait = 0x14C4;               // frames until the next throw
+constexpr uint32_t kThrowWait = 0x14C4; // frames until the next throw
 constexpr uint32_t kNoThrow = 0x14C8;
-constexpr uint32_t kProjectiles = 0x2F4;              // (on)
+constexpr uint32_t kProjectiles = 0x2F4; // (on)
 constexpr uint32_t kProjectileCount = 0x2F8;
-constexpr uint32_t kProjectileComponent = 0x1538;     // (+0x18, +0x1C, +0x20: what stops a throw)
+constexpr uint32_t kProjectileComponent = 0x1538; // (+0x18, +0x1C, +0x20: what stops a throw)
 constexpr uint32_t kModelRotating = 0x2DB;
 constexpr uint32_t kModelFlipped = 0x2DC;
 constexpr uint32_t kModelRotationLeft = 0x2E0;
@@ -76,17 +76,17 @@ constexpr uint32_t kModelRotationFlag = 0x2E4;
 constexpr uint32_t kModelRotationStep = 0x2E8;
 constexpr uint32_t kModelRotationEnding = 0x3A4;
 constexpr uint32_t kSpecialTimed = 0x301;
-constexpr uint32_t kTakeOffHeight = 0x11C;            // (in the flags block)
+constexpr uint32_t kTakeOffHeight = 0x11C; // (in the flags block)
 constexpr uint32_t kLastGroundNormal = 0x58;
-constexpr uint32_t kContactMeshStore = 0x4F4;           // (render::HitMeshCache)
+constexpr uint32_t kContactMeshStore = 0x4F4; // (render::HitMeshCache)
 
 // The game's constants.
-constexpr float kMillisecondsPerSecond = 1000.0f;     // 0x006453C0
-constexpr float kModelRotationEnd = 20.0f;            // 0x006486AC
-constexpr float kNeverLands = 0.00001f;               // 0x006453B8 (as a float: 0x3727C5AC)
-constexpr float kCacheReach = 180.0f;                 // 0x0064B278: the collision cache's box, along x and z
-constexpr float kCacheBelow = 204.0f;                 // 0x0064BCD0
-constexpr float kCacheAbove = 96.0f;                  // 0x0064B808
+constexpr float kMillisecondsPerSecond = 1000.0f; // 0x006453C0
+constexpr float kModelRotationEnd = 20.0f;        // 0x006486AC
+constexpr float kNeverLands = 0.00001f;           // 0x006453B8 (as a float: 0x3727C5AC)
+constexpr float kCacheReach = 180.0f;             // 0x0064B278: the collision cache's box, along x and z
+constexpr float kCacheBelow = 204.0f;             // 0x0064BCD0
+constexpr float kCacheAbove = 96.0f;              // 0x0064B808
 
 objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
 
@@ -227,8 +227,7 @@ void SkaterPhysicsModule::update_free_revert()
     if (get_since(start) <= wait)
         return;
     --get_at<int>(this, kFreeRevertsPending);
-    debug::printf(kMessageFormat, kSourceFile, 0x293F,
-                kFreeRevertText);
+    debug::printf(kMessageFormat, kSourceFile, 0x293F, kFreeRevertText);
     if (get_at<int>(this, kFreeRevertsPending))
         get_at<int>(this, kFreeRevertStart) = get_now();
 }
@@ -280,7 +279,8 @@ void SkaterPhysicsModule::update_model_rotation()
     if (!get_at<uint8_t>(this, kModelRotating))
         return;
     auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(kModel));
-    double left = static_cast<double>(get_at<float>(this, kModelRotationLeft)) - get_at<float>(this, kModelRotationStep);
+    double left =
+        static_cast<double>(get_at<float>(this, kModelRotationLeft)) - get_at<float>(this, kModelRotationStep);
     get_at<float>(this, kModelRotationLeft) = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
     if (get_at<int>(flags_of(this), kState) != 1) {
@@ -297,7 +297,8 @@ void SkaterPhysicsModule::update_model_rotation()
         get_at<uint8_t>(this, kModelRotating) = 0;
         get_at<uint32_t>(this, kModelRotationLeft) = 0;
         if (get_at<uint8_t>(this, kModelFlipped)) {
-            static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))->get_flip();
+            static_cast<objects::RiderSpinAndFlip*>(skater_object(this)->fetch_module(kSkaterFlipAndRotate))
+                ->get_flip();
         }
         reset_rotations();
     }
@@ -347,10 +348,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* scri
 }
 
 // 0x00500E80
-int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*)
-{
-    return can_push_off() ? 1 : 0;
-}
+int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*) { return can_push_off() ? 1 : 0; }
 
 // 0x00500E90
 int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
@@ -402,29 +400,27 @@ void SkaterPhysicsModule::start_grind_trick(uint32_t rail_type, bool trick1, boo
     flags_of(this)[0xE0] = 1;
 }
 
-} // namespace Skater
+} // namespace skater
 
 namespace skater {
-namespace {
-
-} // namespace
-} // namespace Skater
+namespace {} // namespace
+} // namespace skater
 
 namespace skater {
 
 static VtableSlot g_core_physics_vtable_slots[] = {&skater::SkaterPhysicsModule::teardown,
-         &skater::SkaterPhysicsModule::tick_frame,
-         &SkaterPhysicsModule::configure_from_data,
-         &SkaterPhysicsModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &skater::SkaterPhysicsModule::invoke_method_by_name};
+                                                   &skater::SkaterPhysicsModule::tick_frame,
+                                                   &SkaterPhysicsModule::configure_from_data,
+                                                   &SkaterPhysicsModule::seal,
+                                                   stubs::do_nothing,
+                                                   objects::reapply_from_data,
+                                                   stubs::ignore_arguments2,
+                                                   &objects::ObjectModule::hold_off,
+                                                   stubs::ignore_argument,
+                                                   stubs::do_nothing,
+                                                   stubs::ignore_argument,
+                                                   &objects::ObjectModule::dispatch_script_method,
+                                                   &skater::SkaterPhysicsModule::invoke_method_by_name};
 void** const kCorePhysicsVtable = reinterpret_cast<void**>(g_core_physics_vtable_slots);
 
-} // namespace Skater
+} // namespace skater

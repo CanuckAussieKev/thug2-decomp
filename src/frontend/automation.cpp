@@ -52,8 +52,8 @@ namespace {
 
 #include "frontend/automation_tables.inc"
 
-constexpr uint32_t kSystem = 0x36B2EE74;       // "system" (the menus' pad events' target and source)
-constexpr uint32_t kFocusEvent = 0x9D3FB516;   // "focus"
+constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
+constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"
 constexpr uint32_t kPadChoose = modules::FrontEnd::kPadChoose;
 constexpr uint32_t kPadStart = modules::FrontEnd::kPadStart;
 constexpr uint32_t kSkater = 0x5B8AB877;       // Skater (the local skater's alias)
@@ -64,12 +64,13 @@ constexpr int kReleaseFrames = 3;
 constexpr int kPressWaitSeconds = 5; // press: at most this long for the menus to take pad events
 constexpr int kDefaultChooseSeconds = 10;
 constexpr int kDefaultWaitSeconds = 90;
-constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the condition must hold
+constexpr int kSettleFrames = 60; // waitfor level / ingame: how long the condition must hold
 constexpr int kPartialLineFrames = 30;
-constexpr int kMaxCaptureFrames = sys::screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
-constexpr int kMaxTraceFrames = 36000;   // trace: ten minutes at 60 frames a second
-constexpr uint32_t kStateModuleKey = 0x43686585; // SkaterState
-constexpr uint32_t kScoreModuleKey = 0xD262802F; // SkaterScore
+constexpr int kMaxCaptureFrames =
+    sys::screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
+constexpr int kMaxTraceFrames = 36000; // trace: ten minutes at 60 frames a second
+constexpr uint32_t kStateModuleKey = 0x43686585;             // SkaterState
+constexpr uint32_t kScoreModuleKey = 0xD262802F;             // SkaterScore
 constexpr uint32_t kSkaterCorePhysicsComponent = 0x5BD63B29; // SkaterCorePhysics
 
 uint32_t name_hash(const std::string& name) { return checksums::hash_from_text(name.c_str()); }
@@ -237,17 +238,17 @@ bool parse_param(const std::string& token, Param* out, std::string* error)
 }
 
 const Button kButtons[] = {
-    {"up", 2, 4, 10},       {"right", 2, 5, 8},     {"down", 2, 6, 11},      {"left", 2, 7, 9},
-    {"x", 3, 6, 14},        {"circle", 3, 5, 13},   {"square", 3, 7, 15},    {"triangle", 3, 4, 12},
-    {"start", 2, 3, 0},     {"select", 2, 0, 0},    {"l1", 3, 2, 16},        {"r1", 3, 3, 17},
-    {"l2", 3, 0, 18},       {"r2", 3, 1, 19},       {"l3", 2, 1, 0},         {"r3", 2, 2, 0},
+    {"up", 2, 4, 10},   {"right", 2, 5, 8},   {"down", 2, 6, 11},   {"left", 2, 7, 9},
+    {"x", 3, 6, 14},    {"circle", 3, 5, 13}, {"square", 3, 7, 15}, {"triangle", 3, 4, 12},
+    {"start", 2, 3, 0}, {"select", 2, 0, 0},  {"l1", 3, 2, 16},     {"r1", 3, 3, 17},
+    {"l2", 3, 0, 18},   {"r2", 3, 1, 19},     {"l3", 2, 1, 0},      {"r3", 2, 2, 0},
 };
 const struct {
     const char* alias;
     const char* name;
 } kButtonAliases[] = {
-    {"cross", "x"}, {"choose", "x"}, {"enter", "x"}, {"a", "x"},   {"back", "circle"}, {"esc", "circle"},
-    {"b", "circle"}, {"y", "triangle"}, {"pause", "start"},
+    {"cross", "x"},    {"choose", "x"}, {"enter", "x"},    {"a", "x"},         {"back", "circle"},
+    {"esc", "circle"}, {"b", "circle"}, {"y", "triangle"}, {"pause", "start"},
 };
 
 // --- names ------------------------------------------------------------------------------------------------------
@@ -353,7 +354,8 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
     } else if (keyword == "choose" || keyword == "focus") {
         command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
         command.seconds = kDefaultChooseSeconds;
-        if (count < 2 || count > 3 || !is_id(tokens[1]) || (count == 3 && !read_count(tokens[2], 1, 3600, &command.seconds)))
+        if (count < 2 || count > 3 || !is_id(tokens[1]) ||
+            (count == 3 && !read_count(tokens[2], 1, 3600, &command.seconds)))
             return fail(keyword + " <id> [seconds]");
         command.target = tokens[1];
     } else if (keyword == "hold") {
@@ -399,7 +401,9 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         else if (what == "ingame")
             command.condition = Condition::kInGame;
         else if (what == "level" || what == "menu" || what == "focus") {
-            command.condition = what == "level" ? Condition::kStageMap : what == "menu" ? Condition::kMenu : Condition::kFocus;
+            command.condition = what == "level"  ? Condition::kStageMap
+                                : what == "menu" ? Condition::kMenu
+                                                 : Condition::kFocus;
             if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(tokens[2]) : is_id(tokens[2])))
                 return fail("waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
             command.target = tokens[2];
@@ -499,9 +503,9 @@ bool button_chooses(const Button& button) { return !(button.byte == 2 && button.
 
 bool name_looks_online(const std::string& name)
 {
-    static const char* const kWords[] = {"net",     "online",   "internet", "lobby",  "lobbies", "login",
-                                         "logon",   "buddy",    "buddies",  "homie",  "homies",  "gamespy",
-                                         "network", "server",   "servers",  "join",   "host",    "lan"};
+    static const char* const kWords[] = {"net",     "online", "internet", "lobby", "lobbies", "login",
+                                         "logon",   "buddy",  "buddies",  "homie", "homies",  "gamespy",
+                                         "network", "server", "servers",  "join",  "host",    "lan"};
     static const char* const kParts[] = {"internet", "lobby", "gamespy", "network", "login"};
     std::string low = get_lower(name);
     for (const char* part : kParts)
@@ -578,11 +582,16 @@ std::string describe(const OrderCode& command)
         }
         return text;
     }
-    case Op::kChoose: return "choose " + command.target;
-    case Op::kFocus: return "focus " + command.target;
-    case Op::kPress: return "press " + command.target + " " + std::to_string(command.frames);
-    case Op::kHold: return "hold " + command.target + " " + std::to_string(command.frames);
-    case Op::kStall: return "wait " + std::to_string(command.frames);
+    case Op::kChoose:
+        return "choose " + command.target;
+    case Op::kFocus:
+        return "focus " + command.target;
+    case Op::kPress:
+        return "press " + command.target + " " + std::to_string(command.frames);
+    case Op::kHold:
+        return "hold " + command.target + " " + std::to_string(command.frames);
+    case Op::kStall:
+        return "wait " + std::to_string(command.frames);
     case Op::kWaitFor: {
         static const char* const kConditions[] = {"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"};
         std::string text = std::string("waitfor ") + kConditions[static_cast<int>(command.condition)];
@@ -590,11 +599,16 @@ std::string describe(const OrderCode& command)
             text += " " + command.target;
         return text;
     }
-    case Op::kStageMap: return "level " + command.target;
-    case Op::kEcho: return "echo " + command.target;
-    case Op::kFrontend: return "fe " + command.target;
-    case Op::kQuit: return "quit";
-    case Op::kCrash: return "crash " + command.target;
+    case Op::kStageMap:
+        return "level " + command.target;
+    case Op::kEcho:
+        return "echo " + command.target;
+    case Op::kFrontend:
+        return "fe " + command.target;
+    case Op::kQuit:
+        return "quit";
+    case Op::kCrash:
+        return "crash " + command.target;
     case Op::kJumpTo:
     case Op::kViewCam: {
         if (command.target == "off")
@@ -609,9 +623,12 @@ std::string describe(const OrderCode& command)
             text += " board";
         return text;
     }
-    case Op::kCapture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
-    case Op::kLogTricks: return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
-    case Op::kTrace: return "trace " + std::to_string(command.frames);
+    case Op::kCapture:
+        return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
+    case Op::kLogTricks:
+        return "logtricks" + (command.frames ? " " + std::to_string(command.frames) : std::string());
+    case Op::kTrace:
+        return "trace " + std::to_string(command.frames);
     }
     return "?";
 }
@@ -647,7 +664,6 @@ std::string status_json(const Standing& status)
 }
 
 // --- the game ---------------------------------------------------------------------------------------------------
-
 
 namespace {
 
@@ -781,8 +797,7 @@ void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* s
     if (!manager)
         return;
     int guard = 0;
-    for (UiTree::FocusEntry* entry = manager->focus_lists_[0]; entry && guard < 64;
-         entry = entry->next, ++guard) {
+    for (UiTree::FocusEntry* entry = manager->focus_lists_[0]; entry && guard < 64; entry = entry->next, ++guard) {
         UiWidget* element = entry->element.get_pull();
         if (!element)
             continue;
@@ -857,7 +872,9 @@ std::string start_trace(int frames)
     FILE* file = _fsopen(path.c_str(), "w", _SH_DENYWR);
     if (!file)
         return "can't write " + path;
-    std::fprintf(file, "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
+    std::fprintf(
+        file,
+        "# frame x y z vx vy vz up_y state physics bailing trick pot multiplier landed ground_flags ground_object\n");
     std::fflush(file);
     trace_state().file = file;
     trace_state().left = frames;
@@ -888,11 +905,12 @@ void trace_frame()
         unsigned ground_flags = core ? *reinterpret_cast<uint16_t*>(core + 0x158 + 0x50) : 0;
         unsigned ground_object = core ? *reinterpret_cast<uint32_t*>(core + 0x158 + 0x58) : 0;
         std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
-                     frame_loop::frames_run(), static_cast<double>(skater->at_point_.x), static_cast<double>(skater->at_point_.y),
-                     static_cast<double>(skater->at_point_.z), static_cast<double>(skater->vel_.x),
-                     static_cast<double>(skater->vel_.y), static_cast<double>(skater->vel_.z),
-                     static_cast<double>(skater->basis_frame_.row[1].y), where, physics, bailing, trick, pot,
-                     static_cast<double>(multiplier), landed, ground_flags, ground_object);
+                     frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
+                     static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),
+                     static_cast<double>(skater->vel_.x), static_cast<double>(skater->vel_.y),
+                     static_cast<double>(skater->vel_.z), static_cast<double>(skater->basis_frame_.row[1].y), where,
+                     physics, bailing, trick, pot, static_cast<double>(multiplier), landed, ground_flags,
+                     ground_object);
         std::fflush(trace.file);
     }
     if (--trace.left <= 0)
@@ -1078,11 +1096,21 @@ script::Struct* make_params(const std::vector<Param>& params)
     script::Struct* out = script::spawn_param_bag()->prepare_all();
     for (const Param& param : params) {
         switch (param.kind) {
-        case Param::kBitMark: out->put_name_key(0u, name_hash(param.text)); break;
-        case Param::kInteger: out->put_int(name_hash(param.name), param.integer); break;
-        case Param::kFloat: out->push_float(name_hash(param.name), param.real); break;
-        case Param::kChars: out->append_word(name_hash(param.name), param.text.c_str()); break;
-        case Param::kName: out->put_name_key(name_hash(param.name), id_checksum(param.text)); break;
+        case Param::kBitMark:
+            out->put_name_key(0u, name_hash(param.text));
+            break;
+        case Param::kInteger:
+            out->put_int(name_hash(param.name), param.integer);
+            break;
+        case Param::kFloat:
+            out->push_float(name_hash(param.name), param.real);
+            break;
+        case Param::kChars:
+            out->append_word(name_hash(param.name), param.text.c_str());
+            break;
+        case Param::kName:
+            out->put_name_key(name_hash(param.name), id_checksum(param.text));
+            break;
         }
     }
     return out;
@@ -1236,7 +1264,8 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
         runner.target_set_ = true;
     }
     runner.target.count = child_count(menu);
-    mouse_menus::TargetState state = mouse_menus::advance_target(runner.target, wait, read_target, send_step, front_end);
+    mouse_menus::TargetState state =
+        mouse_menus::advance_target(runner.target, wait, read_target, send_step, front_end);
     if (state == mouse_menus::TargetState::kMoving)
         return;
     if (state == mouse_menus::TargetState::kGaveUp)
@@ -1251,9 +1280,12 @@ void step_choose(Runner& runner, modules::FrontEnd* front_end)
 bool condition_holds(const OrderCode& command)
 {
     switch (command.condition) {
-    case Condition::kReady: return get_state().menu_settled_;
-    case Condition::kFrontEnd: return in_front_end();
-    case Condition::kNewFrontend: return frontend::new_frontend::automation_screen_up(command.target);
+    case Condition::kReady:
+        return get_state().menu_settled_;
+    case Condition::kFrontEnd:
+        return in_front_end();
+    case Condition::kNewFrontend:
+        return frontend::new_frontend::automation_screen_up(command.target);
     case Condition::kInGame: {
         auto* front_end = modules::g_front_end_instance;
         return current_load_state() && !in_front_end() && skater_present() && !(front_end && front_end->is_halted_);
@@ -1280,7 +1312,8 @@ bool condition_holds(const OrderCode& command)
                 return true;
         return false;
     }
-    default: return false;
+    default:
+        return false;
     }
 }
 
@@ -1415,8 +1448,8 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         }
         const std::vector<float>& n = command.numbers;
         frontend::test_view::Vec3 at = {};
-        std::string failed = frontend::test_view::jump_to({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at,
-                                                       command.target == "board");
+        std::string failed = frontend::test_view::jump_to({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f,
+                                                          &at, command.target == "board");
         if (!failed.empty()) {
             get_fail(runner, failed, false);
             return true;
@@ -1568,9 +1601,11 @@ void Continue(Runner& runner, modules::FrontEnd* front_end)
         if (result.empty()) {
             if (get_timed_out(runner, runner.command.seconds)) {
                 frontend::new_frontend::automation_cancel();
-                get_fail(runner, "fe " + runner.command.target + ": its screen wasn't up in " +
-                                 std::to_string(runner.command.seconds) + " s (" + frontend::new_frontend::automation_status() + ")",
-                     false);
+                get_fail(runner,
+                         "fe " + runner.command.target + ": its screen wasn't up in " +
+                             std::to_string(runner.command.seconds) + " s (" +
+                             frontend::new_frontend::automation_status() + ")",
+                         false);
             }
             return;
         }
@@ -1765,4 +1800,4 @@ void add_pad_buttons(int port, uint8_t* data)
     }
 }
 
-} // namespace MenuSystem::automation
+} // namespace frontend::automation

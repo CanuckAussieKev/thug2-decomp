@@ -90,7 +90,7 @@ VertexBuffer* VertexBuffer::make_new(uint32_t bytes, uint32_t usage_flags, uint3
     buffer = nullptr;
     if (!(buffer_flags & kShared))
         input_port()->CreateVertexBuffer(bytes, usage_flags, 0, D3DPOOL_DEFAULT,
-                                     reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
+                                         reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
     size = bytes;
     usage = usage_flags;
     data = (buffer_flags & kNoCopy) ? nullptr : static_cast<uint8_t*>(alloc_block(bytes));
@@ -147,7 +147,7 @@ void VertexBuffer::recreate()
         d_3d(this)->AddRef();
     else
         input_port()->CreateVertexBuffer(size, usage | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                     reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
+                                         reinterpret_cast<IDirect3DVertexBuffer9**>(&buffer), nullptr);
     if (flags & kNoCopy)
         return;
     void* card = nullptr;
@@ -162,7 +162,7 @@ IdxStore* IdxStore::make_new(uint32_t bytes, uint32_t usage_flags, uint32_t inde
 {
     buffer = nullptr;
     input_port()->CreateIndexBuffer(bytes, usage_flags | D3DUSAGE_WRITEONLY, static_cast<D3DFORMAT>(index_format),
-                                D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&buffer), nullptr);
+                                    D3DPOOL_DEFAULT, reinterpret_cast<IDirect3DIndexBuffer9**>(&buffer), nullptr);
     size = bytes;
     usage = usage_flags;
     format = index_format;
@@ -239,7 +239,7 @@ void MeshRef::set_pixel_shader_colored()
     }
     g_pixel_shader_changed = 1; // (the constants changed)
     set_pixel_shader_with_constants(*reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(this) + 0x44),
-                                *reinterpret_cast<uint32_t*>(material + 8));
+                                    *reinterpret_cast<uint32_t*>(material + 8));
     std::memcpy(constants, saved, bytes);
     g_pixel_shader_changed = 1;
 }
@@ -270,12 +270,28 @@ void __cdecl clear_skin_scaling()
 void* __stdcall pixel_shader_from_index(uint32_t index)
 {
     // (kPixelShader948 is skipped: no index names it)
-    static const int kShaders[0x13] = {-1, -1, kPixelShader964, kPixelShader960, kPixelShader95c, kPixelShader958, kPixelShader954,
-                                            kPixelShader950, kPixelShader94c, kPixelShader944, kPixelShader940, kPixelShader93c, kPixelShader938,
-                                            kPixelShader934, kPixelShader930, kPixelShader92c, kPixelShader928, kPixelShader924, kPixelShader920};
+    static const int kShaders[0x13] = {-1,
+                                       -1,
+                                       kPixelShader964,
+                                       kPixelShader960,
+                                       kPixelShader95c,
+                                       kPixelShader958,
+                                       kPixelShader954,
+                                       kPixelShader950,
+                                       kPixelShader94c,
+                                       kPixelShader944,
+                                       kPixelShader940,
+                                       kPixelShader93c,
+                                       kPixelShader938,
+                                       kPixelShader934,
+                                       kPixelShader930,
+                                       kPixelShader92c,
+                                       kPixelShader928,
+                                       kPixelShader924,
+                                       kPixelShader920};
     if (index > 0x12)
         return reinterpret_cast<void*>(index); // (the original returns the index itself)
     return kShaders[index] >= 0 ? g_pixel_shaders[kShaders[index]] : nullptr;
 }
 
-} // namespace Nx
+} // namespace render

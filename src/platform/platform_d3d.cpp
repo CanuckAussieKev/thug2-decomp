@@ -50,7 +50,7 @@ void expand_palette(uint32_t* out, const uint8_t* indices, int count, const uint
 HRESULT create_dynamic_vertex_buffer(uint32_t size)
 {
     HRESULT result = input_port()->CreateVertexBuffer(size, D3DUSAGE_DYNAMIC | D3DUSAGE_WRITEONLY, 0, D3DPOOL_DEFAULT,
-                                                  &dynamic_vertices(), nullptr);
+                                                      &dynamic_vertices(), nullptr);
     dynamic_vertices_size() = size;
     return result;
 }
@@ -76,7 +76,7 @@ HRESULT create_quad_index_buffer(uint32_t quads)
 {
     uint16_t* index = nullptr;
     input_port()->CreateIndexBuffer(quads * 6 * sizeof(uint16_t), D3DUSAGE_WRITEONLY, D3DFMT_INDEX16, D3DPOOL_DEFAULT,
-                                &quad_indices(), nullptr);
+                                    &quad_indices(), nullptr);
     quad_indices()->Lock(0, 0, reinterpret_cast<void**>(&index), 0);
     for (uint32_t quad = 0, first = 0; quad < quads; ++quad, first += 4, index += 6) {
         index[0] = static_cast<uint16_t>(first);
@@ -91,7 +91,7 @@ HRESULT create_quad_index_buffer(uint32_t quads)
 
 // 0x005F4740
 void* lock_dynamic_vertices(uint32_t count, uint32_t stride, IDirect3DVertexBuffer9** buffer, uint32_t* first_vertex,
-                          uint32_t* room)
+                            uint32_t* room)
 {
     uint32_t first = (dynamic_vertices_used() + stride - 1) / stride;
     *buffer = dynamic_vertices();
@@ -203,4 +203,4 @@ void release_direct_3d()
     dynamic_vertices_locked() = nullptr;
 }
 
-} // namespace Platform
+} // namespace os_layer

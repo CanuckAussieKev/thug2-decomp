@@ -58,48 +58,48 @@ constexpr uint32_t kFlagsClient = 2;   // bit 1
 constexpr uint32_t kFlagsInternet = 4; // bit 2
 constexpr uint32_t kFlagsLan = 8;      // bit 3
 
-constexpr uint32_t kServerTask2 = 0xE8; // tasks::SchedulerTask* (removed with the server)
+constexpr uint32_t kServerTask2 = 0xE8;   // tasks::SchedulerTask* (removed with the server)
 constexpr uint32_t kInitialScores = 0x48; // int[8]: the starting points
-constexpr uint32_t kCrownStart = 0x68;  // int: the crown's
-constexpr uint32_t kShowMetrics = 0x45; // bool
-constexpr uint32_t kShowScores = 0x46;  // bool
-constexpr uint32_t kMetricsTask = 0xC4; // tasks::SchedulerTask*
+constexpr uint32_t kCrownStart = 0x68;    // int: the crown's
+constexpr uint32_t kShowMetrics = 0x45;   // bool
+constexpr uint32_t kShowScores = 0x46;    // bool
+constexpr uint32_t kMetricsTask = 0xC4;   // tasks::SchedulerTask*
 
 // Checksums.
-constexpr uint32_t kKillTeamFlags = 0xEBB3642E;     // Kill_Team_Flags
-constexpr uint32_t kCreateTeamFlags = 0x20B145E1;   // create_team_flags
-constexpr uint32_t kNumTeams = 0x2EBE6CD1;          // num_teams
-constexpr uint32_t kNumPlayers = 0x1CB2A6B0;        // num_players
-constexpr uint32_t kNumObservers = 0xA8DA5CB7;      // num_observers
-constexpr uint32_t kPassword = 0xCA3DB92A;          // password
-constexpr uint32_t kUiString = 0x96875C0F;          // ui_string
-constexpr uint32_t kChecksum = 0x21902065;          // checksum
-constexpr uint32_t kName = 0xA1DC81F9;              // name
-constexpr uint32_t kStrPlayers = 0x50589935;        // netmenu_str_players
-constexpr uint32_t kStrNoObservers = 0x8AD4F7EA;    // netmenu_str_no_observers
-constexpr uint32_t kStrObserver = 0x201D7F4E;       // netmenu_str_observer
-constexpr uint32_t kStrObservers = 0x5848516E;      // netmenu_str_observers
-constexpr uint32_t kPlayerCollision = 0x043EE978;   // player_collision
-constexpr uint32_t kBooleanTrue = 0xF81BC89B;       // boolean_true
-constexpr uint32_t kScoreDisplay = 0x92A6A8C8;      // score_display
-constexpr uint32_t kScoreTeams = 0xD071112F;        // score_teams
-constexpr uint32_t kHatLogo = 0x5B288E0B;           // hat_logo
-constexpr uint32_t kFrontLogo = 0x23A1DF80;         // front_logo
-constexpr uint32_t kBackLogo = 0xD0C656A2;          // back_logo
-constexpr uint32_t kDeckGraphic = 0x07CB4FA9;       // deck_graphic
+constexpr uint32_t kKillTeamFlags = 0xEBB3642E;   // Kill_Team_Flags
+constexpr uint32_t kCreateTeamFlags = 0x20B145E1; // create_team_flags
+constexpr uint32_t kNumTeams = 0x2EBE6CD1;        // num_teams
+constexpr uint32_t kNumPlayers = 0x1CB2A6B0;      // num_players
+constexpr uint32_t kNumObservers = 0xA8DA5CB7;    // num_observers
+constexpr uint32_t kPassword = 0xCA3DB92A;        // password
+constexpr uint32_t kUiString = 0x96875C0F;        // ui_string
+constexpr uint32_t kChecksum = 0x21902065;        // checksum
+constexpr uint32_t kName = 0xA1DC81F9;            // name
+constexpr uint32_t kStrPlayers = 0x50589935;      // netmenu_str_players
+constexpr uint32_t kStrNoObservers = 0x8AD4F7EA;  // netmenu_str_no_observers
+constexpr uint32_t kStrObserver = 0x201D7F4E;     // netmenu_str_observer
+constexpr uint32_t kStrObservers = 0x5848516E;    // netmenu_str_observers
+constexpr uint32_t kPlayerCollision = 0x043EE978; // player_collision
+constexpr uint32_t kBooleanTrue = 0xF81BC89B;     // boolean_true
+constexpr uint32_t kScoreDisplay = 0x92A6A8C8;    // score_display
+constexpr uint32_t kScoreTeams = 0xD071112F;      // score_teams
+constexpr uint32_t kHatLogo = 0x5B288E0B;         // hat_logo
+constexpr uint32_t kFrontLogo = 0x23A1DF80;       // front_logo
+constexpr uint32_t kBackLogo = 0xD0C656A2;        // back_logo
+constexpr uint32_t kDeckGraphic = 0x07CB4FA9;     // deck_graphic
 // The game modes.
-constexpr uint32_t kFreeskate = 0x34861A16;         // freeskate
-constexpr uint32_t kHorse = 0x9D65D0E7;             // horse
-constexpr uint32_t kNetLobby = 0x1C471C60;          // netlobby
-constexpr uint32_t kNetSlap = 0xF9D5D933;           // netslap
-constexpr uint32_t kSlap = 0xCA1F360F;              // slap
-constexpr uint32_t kNetFirefight = 0xBFF33600;      // netfirefight
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;     // netgoalattack
-constexpr uint32_t kNetCtf = 0x6C5FF266;            // netctf
-constexpr uint32_t kNetScavengerHunt = 0xFC13B531;  // netscavengerhunt
-constexpr uint32_t kNetElimiskate = 0x10F84276;     // netelimiskate
-constexpr uint32_t kIsHorse = 0xD1993397;           // is_horse
-constexpr uint32_t kOff = 0xD443A2BC;               // off
+constexpr uint32_t kFreeskate = 0x34861A16;        // freeskate
+constexpr uint32_t kHorse = 0x9D65D0E7;            // horse
+constexpr uint32_t kNetLobby = 0x1C471C60;         // netlobby
+constexpr uint32_t kNetSlap = 0xF9D5D933;          // netslap
+constexpr uint32_t kSlap = 0xCA1F360F;             // slap
+constexpr uint32_t kNetFirefight = 0xBFF33600;     // netfirefight
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;    // netgoalattack
+constexpr uint32_t kNetCtf = 0x6C5FF266;           // netctf
+constexpr uint32_t kNetScavengerHunt = 0xFC13B531; // netscavengerhunt
+constexpr uint32_t kNetElimiskate = 0x10F84276;    // netelimiskate
+constexpr uint32_t kIsHorse = 0xD1993397;          // is_horse
+constexpr uint32_t kOff = 0xD443A2BC;              // off
 
 // Messages.
 constexpr uint8_t kMsgTagTexture = 0x97;
@@ -113,29 +113,35 @@ const char* const kTagTextureDesc = "CAG Texture"; // "CAG Texture"
 // The game mode's members (not rewritten): its max_players, the flags accumulate_score / track_best_combo /
 // is_elimiskate, a property set (IsTrue).
 int mode_max_players() { return get_call<int>(code_address(&goals::MatchRules::get_rider_ceiling), get_game_mode()); }
-bool accumulates_score() { return get_call<bool>(code_address(&goals::MatchRules::keeps_running_total), get_game_mode()); }
+bool accumulates_score()
+{
+    return get_call<bool>(code_address(&goals::MatchRules::keeps_running_total), get_game_mode());
+}
 bool tracks_best_combo() { return get_call<bool>(code_address(&goals::MatchRules::keeps_best_chain), get_game_mode()); }
 bool is_elimiskate() { return get_call<bool>(code_address(&goals::MatchRules::finish_rules_reached), get_game_mode()); }
-bool mode_is_true(uint32_t property) { return get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), property); }
+bool mode_is_true(uint32_t property)
+{
+    return get_call<bool>(code_address(&goals::MatchRules::is_true), get_game_mode(), property);
+}
 
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+}
 
 // The Function InSplitScreenGame (0x005A1180), called with no parameters.
 bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0; }
 
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
-bool profile_has_part(void* profile, uint32_t part)
-{
-    return objects::part_is_created_graphic(profile, part);
-}
+bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 
 // The custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
-void* texture_pixels(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[25](texture); }
+void* texture_pixels(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[25](texture); }
 uint16_t get_texture_size(void* texture)
 {
     return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[26](texture));
 }
-void* texture_palette(void* texture) { return (*reinterpret_cast<void* (__thiscall***)(void*)>(texture))[27](texture); }
+void* texture_palette(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[27](texture); }
 uint16_t texture_palette_size(void* texture)
 {
     return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[28](texture));
@@ -253,7 +259,7 @@ void Hub::destroy_server()
     if (host_) {
         if (!host_->is_host_local() && (flag_bits_ & kFlagsInternet)) {
             static_cast<RoomManager*>(lobby_service_)->stop_hosting(); // the lobby's reporting stopped
-            game_spy::nat_free_negotiations();    // (GameSpy)
+            game_spy::nat_free_negotiations();                         // (GameSpy)
         }
         net->release_app(host_);
         host_admit_job_->drop_out();
@@ -282,7 +288,8 @@ bool Hub::send_custom_tag_texture()
     uint8_t* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;
-    auto* skater = get_call<objects::GameEntity*>(code_address(modules::Skate::get_local_skater_stub), skate); // the local skater
+    auto* skater =
+        get_call<objects::GameEntity*>(code_address(modules::Skate::get_local_skater_stub), skate); // the local skater
     if (!skater)
         return false;
     auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
@@ -291,7 +298,9 @@ bool Hub::send_custom_tag_texture()
 
     net::Conn* server = client_app_->begin_conn_walk(&search);
     if (server->get_link_speed_class() == 0) {
-        void* profile = get_call<void*>(code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)), detail::get_skate(), 0);
+        void* profile = get_call<void*>(
+            code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
+            detail::get_skate(), 0);
         uint32_t logos = profile_has_part(profile, kHatLogo) ? 1 : 0;
         if (profile_has_part(profile, kFrontLogo))
             logos |= 2;
@@ -310,10 +319,10 @@ bool Hub::send_custom_tag_texture()
             desc.group_id_ = kGroupTag;
             void* palette = texture_palette(texture);
             client_app_->send_bulk_to_conn(server, kMsgTagPalette, texture_palette_size(texture), palette,
-                                          kTagPaletteDesc, kGroupTag, false, true);
+                                           kTagPaletteDesc, kGroupTag, false, true);
             void* pixels = texture_pixels(texture);
             client_app_->send_bulk_to_conn(server, kMsgTagTexture, get_texture_size(texture), pixels, kTagTextureDesc,
-                                          kGroupTag, false, true);
+                                           kGroupTag, false, true);
             send_to_server(client_app_, &desc);
         }
     }
@@ -366,7 +375,8 @@ void Hub::choose_start_points()
         count = 8;
     } else {
         count = mode_max_players();
-        if (prop<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) != kOff && !mode_is_true(kIsHorse)) {
+        if (prop<uint32_t>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor), 0x40) != kOff &&
+            !mode_is_true(kIsHorse)) {
             count = 2;
             offset = 0;
         }
@@ -411,8 +421,8 @@ void Hub::toggle_scores()
 // 0x00535D00
 bool Hub::keeps_score()
 {
-    if (!accumulates_score() && !tracks_best_combo() && get_game_type() != kNetFirefight && get_game_type() != kNetGoalAttack &&
-        get_game_type() != kNetCtf && get_game_type() != kNetScavengerHunt)
+    if (!accumulates_score() && !tracks_best_combo() && get_game_type() != kNetFirefight &&
+        get_game_type() != kNetGoalAttack && get_game_type() != kNetCtf && get_game_type() != kNetScavengerHunt)
         return false;
     return !is_elimiskate() || get_game_type() == kNetFirefight || get_game_type() == kNetElimiskate;
 }

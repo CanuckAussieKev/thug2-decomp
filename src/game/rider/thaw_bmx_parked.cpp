@@ -28,15 +28,15 @@ constexpr double kPi = 3.14159265358979323846;
 uint32_t name_hash(const char* name) { return checksums::hash_from_text(name); }
 
 // The scripts and globals (tools/pipeline/thaw_bmx/ride.ts, convert.ts).
-constexpr const char* kHomeBike = "thaw_bmx_home";          // the level's bike's object
-constexpr const char* kHomeScript = "thaw_bmx_home_bike";   // makes it (the modes it's in decided there)
+constexpr const char* kHomeBike = "thaw_bmx_home";                // the level's bike's object
+constexpr const char* kHomeScript = "thaw_bmx_home_bike";         // makes it (the modes it's in decided there)
 constexpr const char* kLevelStartScript = "thaw_bmx_level_start"; // a new level: the last level's bikes gone
-constexpr const char* kHomeBikes = "thaw_bmx_home_bikes";   // THAW's places: [{level=<name> pos=(...) heading=<deg>}]
+constexpr const char* kHomeBikes = "thaw_bmx_home_bikes"; // THAW's places: [{level=<name> pos=(...) heading=<deg>}]
 // The skate module's level structure name (+0x380, SetLevelStructureName) and the structure's `level` string.
 constexpr uint32_t kLevelDataKey = 0x380;
 
-constexpr int kSettleFrames = 30; // (in a new level, unpaused, before the start spot is noted)
-constexpr int kCheckFrames = 30;  // (how often the level's bike is looked for)
+constexpr int kSettleFrames = 30;   // (in a new level, unpaused, before the start spot is noted)
+constexpr int kCheckFrames = 30;    // (how often the level's bike is looked for)
 constexpr float kEyeHeight = 36.0f; // (the line between the skater and a bike, this far up)
 constexpr float kGroundAbove = 48.0f, kGroundBelow = 200.0f, kGroundStep = 60.0f; // (a start spot's ground)
 
@@ -118,7 +118,8 @@ bool thaw_spot(Point* pos, float* heading)
         auto* bike = reinterpret_cast<script::Struct*>(bikes->fetch_part(i));
         uint32_t level_name = 0;
         script::VectorValue p = {};
-        if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want || !bike->fetch_vec("pos", &p, 0))
+        if (!bike || !bike->read_hash_value("level", &level_name, 0) || level_name != want ||
+            !bike->fetch_vec("pos", &p, 0))
             continue;
         *pos = {p.x, p.y, p.z};
         *heading = 0.0f;
@@ -251,7 +252,7 @@ void start_spot_candidates(Point pos, float heading, float distance, Point out[4
 {
     double h = static_cast<double>(heading) * kPi / 180.0;
     float ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h)); // (at)
-    float rx = az, rz = -ax;                                                           // (right: up x at)
+    float rx = az, rz = -ax;                                                          // (right: up x at)
     out[0] = {pos.x + rx * distance, pos.y, pos.z + rz * distance};
     out[1] = {pos.x - rx * distance, pos.y, pos.z - rz * distance};
     out[2] = {pos.x - ax * distance, pos.y, pos.z - az * distance};
@@ -295,9 +296,10 @@ void update_parked(modules::FrontEnd* front_end)
             get_log("thaw_bmx: no room for the level's bike near the start (%.0f, %.0f, %.0f)", pos.x, pos.y, pos.z);
         launch_script(kLevelStartScript);
     }
-    if (g_level.frames % kCheckFrames != 0 || on_bike(skater->core_physics_) || objects::find_object(name_hash(kHomeBike)))
+    if (g_level.frames % kCheckFrames != 0 || on_bike(skater->core_physics_) ||
+        objects::find_object(name_hash(kHomeBike)))
         return;
     launch_script(kHomeScript);
 }
 
-} // namespace Skater::ThawBmx
+} // namespace skater::thaw_bmx

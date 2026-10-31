@@ -16,7 +16,7 @@ struct Payload;
 namespace net {
 struct AppHost;
 struct InboundMsgCtx;
-} // namespace Net
+} // namespace net
 namespace script {
 class Struct;
 }
@@ -28,9 +28,9 @@ class PreviewEntity;
 // pad_input::Responder<PreviewEntity> (0x2C bytes, vtable 0x0064D7D8 - the template's, like modules::ViewerInputHandler).
 // The node is a task's (0x00406890, priority 0), on the controller's stack of handler lists.
 struct ViewerObjectInputHandler : tasks::SchedulerTask {
-    pad_input::Payload* control_data_;        // +0x18: the controller's data this frame
-    uint8_t* dev_;               // +0x1C
-    int ordinal_;                     // +0x20: the controller (0)
+    pad_input::Payload* control_data_; // +0x18: the controller's data this frame
+    uint8_t* dev_;                     // +0x1C
+    int ordinal_;                      // +0x20: the controller (0)
     void(__cdecl* code_value_)(ViewerObjectInputHandler*);
     PreviewEntity* content_;
 };
@@ -40,16 +40,16 @@ class PreviewEntity : public GameEntity {
 public:
     // The commands (actions_ bits) the input handler sets and own_update carries out.
     enum : uint32_t {
-        kCommandFaster = 0x40,          // the speed up by 0.25 (Square... - makes 0x4)
-        kCommandSlower = 0x80,          // down by 0.25 (makes 0x1)
-        kCommandStepForward = 0x100,    // a frame on (Right, or held and auto-repeated)
-        kCommandStepBack = 0x200,       // a frame back (Left)
-        kCommandTogglePanel = 0x1000,   // the info panel on / off (makes 0x10)
-        kCommandCameraUp = 0x2000,      // to the viewer: its command 0x2 (buttons 0x8 without 0x2)
-        kCommandCameraDown = 0x4000,    // its command 0x4 (buttons 0x2 without 0x8)
-        kCommandRollLeft = 0x8000,      // its command 0x10000 (no animations; buttons 0x20)
-        kCommandRollRight = 0x10000,    // its command 0x20000 (no animations; buttons 0x80)
-        kCommandToggleMode = 0x20000,   // its command 0x4000 (makes 0x200)
+        kCommandFaster = 0x40,        // the speed up by 0.25 (Square... - makes 0x4)
+        kCommandSlower = 0x80,        // down by 0.25 (makes 0x1)
+        kCommandStepForward = 0x100,  // a frame on (Right, or held and auto-repeated)
+        kCommandStepBack = 0x200,     // a frame back (Left)
+        kCommandTogglePanel = 0x1000, // the info panel on / off (makes 0x10)
+        kCommandCameraUp = 0x2000,    // to the viewer: its command 0x2 (buttons 0x8 without 0x2)
+        kCommandCameraDown = 0x4000,  // its command 0x4 (buttons 0x2 without 0x8)
+        kCommandRollLeft = 0x8000,    // its command 0x10000 (no animations; buttons 0x20)
+        kCommandRollRight = 0x10000,  // its command 0x20000 (no animations; buttons 0x80)
+        kCommandToggleMode = 0x20000, // its command 0x4000 (makes 0x200)
     };
 
     // 0x0058ADB0: the constructor: a composite object (vtable 0x0064F138, no commands) with the base components, type
@@ -96,13 +96,13 @@ public:
 
     ViewerObjectInputHandler* task_; // +0x108: its input handler (0x0058A060)
     uint32_t unknown10c_;
-    uint32_t actions_;     // +0x110
-    net::AppHost* owner_app_;         // +0x114: the PC tool's (the viewer's net handler)
-    float speed_;           // +0x118: the animation speed (0-1)
-    float saved_speed_;      // +0x11C: the speed while paused
-    uint32_t asset_;        // +0x120 (the skeleton asset it loaded, by checksum)
-    bool is_halted_;           // +0x124: stepped frame by frame (until a speed is set)
-    bool panel_shown_;       // +0x125
+    uint32_t actions_;        // +0x110
+    net::AppHost* owner_app_; // +0x114: the PC tool's (the viewer's net handler)
+    float speed_;             // +0x118: the animation speed (0-1)
+    float saved_speed_;       // +0x11C: the speed while paused
+    uint32_t asset_;          // +0x120 (the skeleton asset it loaded, by checksum)
+    bool is_halted_;          // +0x124: stepped frame by frame (until a speed is set)
+    bool panel_shown_;        // +0x125
     uint8_t pad126[2];
 };
 static_assert(offsetof(PreviewEntity, task_) == 0x108 && offsetof(PreviewEntity, actions_) == 0x110 &&
@@ -128,4 +128,4 @@ int __cdecl handle_reload_animation(net::InboundMsgCtx* context);
 int __cdecl handle_reload_cam_animation(net::InboundMsgCtx* context);
 int __cdecl handle_run_anim_view_script(net::InboundMsgCtx* context);
 
-} // namespace Obj
+} // namespace objects

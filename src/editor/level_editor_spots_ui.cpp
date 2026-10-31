@@ -56,4 +56,4 @@ void spawn_section(int node_index, std::vector<Request>* requests)
         ImGui::SetTooltip("%s", node.added ? "Set by the spawn type" : "Use as a HORSE spot");
 }
 
-} // namespace MenuSystem::level_editor::Ui
+} // namespace frontend::level_editor::ui

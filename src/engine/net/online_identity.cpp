@@ -35,7 +35,6 @@ constexpr const char* kOwnKey = "AdLWaZ";
 constexpr size_t kMaxName = 31;
 constexpr size_t kKeyLength = 6;
 
-
 bool valid_name(const char* name)
 {
     size_t length = std::strlen(name);
@@ -91,13 +90,12 @@ const char* game_key()
     return key;
 }
 
-
 void set_up_online_identity()
 {
     const char* name = get_game_name();
     if (s_name_setting[0] != '\0' && name != s_name_setting)
         debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
-                         s_name_setting);
+                          s_name_setting);
     char key[64];
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key, sizeof(key));
     const char* use_key = nullptr;
@@ -110,8 +108,8 @@ void set_up_online_identity()
     if (use_key && std::strcmp(use_key, kOwnKey) == 0)
         use_key = nullptr;
     debug_log::printf(debug_log::StageMap::kInfo, "ONLINE IDENTITY: game name %s%s, key %s\n", name,
-                     std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
-                     use_key ? "OnlineGameKey" : "the game's own");
+                      std::strcmp(name, kOwnName) == 0 ? "" : " (OnlineGameName)",
+                      use_key ? "OnlineGameKey" : "the game's own");
 }
 
-} // namespace Net
+} // namespace net

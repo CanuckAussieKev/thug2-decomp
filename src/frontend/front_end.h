@@ -24,7 +24,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace modules {
 
@@ -32,7 +32,7 @@ struct FrontEnd;
 
 // tasks::Task<FrontEnd> (0x20 bytes, vtable 0x006476F0): a node of a main loop task list.
 struct FrontEndTask {
-    uint8_t list_link_[0x18];   // the task list node (0x00406890 constructs it, with the priority)
+    uint8_t list_link_[0x18]; // the task list node (0x00406890 constructs it, with the priority)
     void(__cdecl* code_value_)(FrontEndTask*);
     FrontEnd* content_;
 };
@@ -50,10 +50,10 @@ struct InputControlData {
 
 // pad_input::Responder<FrontEnd> (0x2C bytes, vtable 0x0064D7D8): gets one controller's presses once a frame.
 struct FrontEndInputHandler {
-    uint8_t list_link_[0x18];               // the handler list node (0x00406890)
-    InputControlData* control_data_;    // +0x18: set when it's added to a controller's handler list
-    uint8_t* dev_;                  // +0x1C: the Sio device (its number at +0x0C)
-    int ordinal_;                        // +0x20: which of the front end's two handlers
+    uint8_t list_link_[0x18];        // the handler list node (0x00406890)
+    InputControlData* control_data_; // +0x18: set when it's added to a controller's handler list
+    uint8_t* dev_;                   // +0x1C: the Sio device (its number at +0x0C)
+    int ordinal_;                    // +0x20: which of the front end's two handlers
     void(__cdecl* code_value_)(FrontEndInputHandler*);
     FrontEnd* content_;
 };
@@ -74,31 +74,31 @@ struct FrontEnd {
     struct PadMapping {
         uint32_t repeat_state_; // a direction held: 0 no, 1 waiting for the auto-repeat delay, 2 repeating
         uint32_t repeat_timer_; // ms left until the next repeat
-        uint32_t mapping_;     // 0 inactive, 1 active (the default), 2 use_as_first
+        uint32_t mapping_;      // 0 inactive, 1 active (the default), 2 use_as_first
     };
     struct PadPressRecord {
-        uint32_t button_; // the index of the button's name (ButtonEventMappings)
-        uint32_t incident_;  // 0: a free slot
+        uint32_t button_;   // the index of the button's name (ButtonEventMappings)
+        uint32_t incident_; // 0: a free slot
     };
     static constexpr int kMaxButtonEvents = 32;
 
     void** vtable_;
-    uint8_t owning_module_[0x14 - 4];          // modules::PartUnit's fields
-    FrontEndTask* update_job_;           // +0x14: front_end_tick, priority -2000
-    FrontEndTask* keyboard_task_;        // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
+    uint8_t owning_module_[0x14 - 4]; // modules::PartUnit's fields
+    FrontEndTask* update_job_;        // +0x14: front_end_tick, priority -2000
+    FrontEndTask* keyboard_task_;     // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
     uint32_t unknown1c_;
-    FrontEndInputHandler* pad_listeners_[2]; // +0x20: input_logic, priority -1000
-    int device_server_map_[2];            // +0x28: which controller each handler listens to (0, 1)
-    bool is_halted_;                       // +0x30
-    int hold_repeat_ms_;               // +0x34: ms (300)
-    int auto_repeat_rate_;                // +0x38: ms (50)
-    int keyboard_device_;                // +0x3C: the device_num the typed keys are reported with
-    PadMapping pad_mappings_[2];         // +0x40
-    bool block_menu_input_;               // +0x58
+    FrontEndInputHandler* pad_listeners_[2];           // +0x20: input_logic, priority -1000
+    int device_server_map_[2];                         // +0x28: which controller each handler listens to (0, 1)
+    bool is_halted_;                                   // +0x30
+    int hold_repeat_ms_;                               // +0x34: ms (300)
+    int auto_repeat_rate_;                             // +0x38: ms (50)
+    int keyboard_device_;                              // +0x3C: the device_num the typed keys are reported with
+    PadMapping pad_mappings_[2];                       // +0x40
+    bool block_menu_input_;                            // +0x58
     PadPressRecord pad_event_queue_[kMaxButtonEvents]; // +0x5C
-    bool check_startup_script_;           // +0x15C: the first input frame looks at the global below once
-    bool startup_script_on_;              // +0x15D
-    uint32_t startup_script_id_;          // +0x160: the spawned script's unique id
+    bool check_startup_script_;                        // +0x15C: the first input frame looks at the global below once
+    bool startup_script_on_;                           // +0x15D
+    uint32_t startup_script_id_;                       // +0x160: the spawned script's unique id
 
     // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms). Returns this.
     FrontEnd* make_new();
@@ -173,4 +173,4 @@ extern bool g_menus_active;
 extern bool g_pending_script;
 
 extern modules::FrontEnd* g_front_end_instance;
-} // namespace Mdl
+} // namespace modules

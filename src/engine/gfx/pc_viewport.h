@@ -10,7 +10,6 @@
 // visibility test draws (nothing drawn to the colour buffer; not on a Radeon 8500).
 namespace render {
 
-
 // The PC viewport (0x24 bytes, vtable 0x0064A848).
 struct PcViewport {
     void** vtable;
@@ -46,4 +45,4 @@ extern float g_scale_2d_in_3d_numerator;
 extern float g_scale_2d_in_3d_max;
 extern float g_scale_2d_in_3d_min;
 
-} // namespace Nx
+} // namespace render

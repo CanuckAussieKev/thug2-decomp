@@ -41,31 +41,31 @@ using frontend::UiWidget;
 namespace {
 
 // Element types (Entity::kind_tag_) and names.
-constexpr uint32_t kVMenu = 0x130EF802;          // "vmenu"
-constexpr uint32_t kHMenu = 0xCCDED1E1;          // "hmenu"
-constexpr uint32_t kWindowElement = 0xA13ADBB7;  // "windowelement" (a clipping viewport, 0x004B2060)
-constexpr uint32_t kVScrollingMenu = 0x84298A3C; // "vscrollingmenu"
-constexpr uint32_t kHScrollingMenu = 0x2900E3D0; // "hscrollingmenu"
-constexpr uint32_t kTagNotFocusable = 0xF33A3321; // "tag_not_focusable" (set by not_focusable)
+constexpr uint32_t kVMenu = 0x130EF802;             // "vmenu"
+constexpr uint32_t kHMenu = 0xCCDED1E1;             // "hmenu"
+constexpr uint32_t kWindowElement = 0xA13ADBB7;     // "windowelement" (a clipping viewport, 0x004B2060)
+constexpr uint32_t kVScrollingMenu = 0x84298A3C;    // "vscrollingmenu"
+constexpr uint32_t kHScrollingMenu = 0x2900E3D0;    // "hscrollingmenu"
+constexpr uint32_t kTagNotFocusable = 0xF33A3321;   // "tag_not_focusable" (set by not_focusable)
 constexpr uint32_t kParkEditorElement = 0x5999551E; // (the park editor's element - as Sio's in_park_editor)
-constexpr uint32_t kTagBlank = 0xC3D43B9A;  // "blank" (make_spin_menu_item's filler items)
-constexpr uint32_t kTagActive = 0xB4E103FD; // "active" (make_spin_menu_item: 0 = disabled)
+constexpr uint32_t kTagBlank = 0xC3D43B9A;          // "blank" (make_spin_menu_item's filler items)
+constexpr uint32_t kTagActive = 0xB4E103FD;         // "active" (make_spin_menu_item: 0 = disabled)
 
 // The menus' pad events and how input_logic launches them (front_end.cpp).
-constexpr uint32_t kPadUp = 0x30A4F836;     // "pad_up"
-constexpr uint32_t kPadDown = 0x0FD1AC26;   // "pad_down"
-constexpr uint32_t kPadLeft = 0x6949DB75;   // "pad_left"
-constexpr uint32_t kPadRight = 0x05DDD87C;  // "pad_right"
-constexpr uint32_t kPadChoose = 0x1E3E253B; // "pad_choose"
-constexpr uint32_t kPadBack = 0x7EE0FD2A;   // "pad_back"
-constexpr uint32_t kDeviceNum = 0xC9428A08; // "device_num"
+constexpr uint32_t kPadUp = 0x30A4F836;      // "pad_up"
+constexpr uint32_t kPadDown = 0x0FD1AC26;    // "pad_down"
+constexpr uint32_t kPadLeft = 0x6949DB75;    // "pad_left"
+constexpr uint32_t kPadRight = 0x05DDD87C;   // "pad_right"
+constexpr uint32_t kPadChoose = 0x1E3E253B;  // "pad_choose"
+constexpr uint32_t kPadBack = 0x7EE0FD2A;    // "pad_back"
+constexpr uint32_t kDeviceNum = 0xC9428A08;  // "device_num"
 constexpr uint32_t kController = 0xB30D9965; // "controller"
-constexpr uint32_t kMenuEvent = 0x36B2EE74; // the pad events' target and source
+constexpr uint32_t kMenuEvent = 0x36B2EE74;  // the pad events' target and source
 
 // UiWidget's flags (+0x08).
-constexpr uint32_t kFlagBlockEvents = 0x200000;  // block_events
-constexpr uint32_t kFlagHidden = 0x400000;       // hide
-constexpr uint32_t kFlagPriority = 0x10000000;   // priority > 0 (pad events with priorities: 0x004A8F20)
+constexpr uint32_t kFlagBlockEvents = 0x200000; // block_events
+constexpr uint32_t kFlagHidden = 0x400000;      // hide
+constexpr uint32_t kFlagPriority = 0x10000000;  // priority > 0 (pad events with priorities: 0x004A8F20)
 
 // An element below this alpha (+0x114, its parents' included) isn't seen.
 constexpr float kMinAlpha = 0.01f;
@@ -383,8 +383,8 @@ bool any_menu(UiWidget* root, MenuFilter accepts, bool vertical_only)
     return root && find_menu(root, accepts, vertical_only);
 }
 
-int step_selection(int target, int count, bool wraps, int (*read)(void* context), void (*send)(void* context, int direction),
-                  void* context)
+int step_selection(int target, int count, bool wraps, int (*read)(void* context),
+                   void (*send)(void* context, int direction), void* context)
 {
     int current = read(context);
     if (current < 0 || target < 0 || target >= count || current == target)
@@ -416,7 +416,7 @@ int step_selection(int target, int count, bool wraps, int (*read)(void* context)
 Target start_target(int index, int count, bool wraps) { return {index, count, wraps, kTargetFrames, 0, -2}; }
 
 TargetState advance_target(Target& target, bool wait, int (*read)(void* context),
-                          void (*send)(void* context, int direction), void* context)
+                           void (*send)(void* context, int direction), void* context)
 {
     int current = read(context);
     if (current == target.index)
@@ -456,12 +456,12 @@ int option_side(const Rect2& item, float x)
 namespace {
 
 struct MouseState {
-    float x = 0.0f, y = 0.0f;   // window pixels
+    float x = 0.0f, y = 0.0f; // window pixels
     int window_width_ = 0, window_height_ = 0;
-    bool used = false;          // it has moved, clicked or turned its wheel since the game started
-    bool moved = false;         // this frame
+    bool used = false;  // it has moved, clicked or turned its wheel since the game started
+    bool moved = false; // this frame
     int left_clicks_ = 0, right_clicks_ = 0;
-    int wheel = 0;              // notches, away from the user positive
+    int wheel = 0; // notches, away from the user positive
 };
 MouseState s_mouse;
 bool s_cursor_shown = false; // (the window starts with it hidden: sys::create_sdl_window)
@@ -507,10 +507,7 @@ void handle_mouse_event(SDL_Event* event)
 }
 
 void* ui_tree_handle() { return frontend::g_ui_element_hub; }
-UiWidget* root_element(void* manager)
-{
-    return *reinterpret_cast<UiWidget**>(static_cast<uint8_t*>(manager) + 0x44);
-}
+UiWidget* root_element(void* manager) { return *reinterpret_cast<UiWidget**>(static_cast<uint8_t*>(manager) + 0x44); }
 void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }
 
 bool in_park_editor()
@@ -554,39 +551,57 @@ bool s_log_events = false; // (while handling a click: the events sent are logge
 const char* current_type_name(uint32_t type)
 {
     switch (type) {
-    case kVMenu: return "vmenu";
-    case kHMenu: return "hmenu";
-    case kWindowElement: return "windowelement";
-    case kVScrollingMenu: return "vscrollingmenu";
-    case kHScrollingMenu: return "hscrollingmenu";
-    case 0x5B9DA842: return "containerelement";
-    case 0x5200DFB6: return "textelement";
-    case 0xB12B510A: return "spriteelement";
-    case 0x40D92263: return "textblockelement";
-    case 0x82C59D78: return "element3d";
-    default: return "?";
+    case kVMenu:
+        return "vmenu";
+    case kHMenu:
+        return "hmenu";
+    case kWindowElement:
+        return "windowelement";
+    case kVScrollingMenu:
+        return "vscrollingmenu";
+    case kHScrollingMenu:
+        return "hscrollingmenu";
+    case 0x5B9DA842:
+        return "containerelement";
+    case 0x5200DFB6:
+        return "textelement";
+    case 0xB12B510A:
+        return "spriteelement";
+    case 0x40D92263:
+        return "textblockelement";
+    case 0x82C59D78:
+        return "element3d";
+    default:
+        return "?";
     }
 }
 
 const char* event_name(uint32_t event)
 {
     switch (event) {
-    case kPadUp: return "pad_up";
-    case kPadDown: return "pad_down";
-    case kPadLeft: return "pad_left";
-    case kPadRight: return "pad_right";
-    case kPadChoose: return "pad_choose";
-    case kPadBack: return "pad_back";
-    default: return "?";
+    case kPadUp:
+        return "pad_up";
+    case kPadDown:
+        return "pad_down";
+    case kPadLeft:
+        return "pad_left";
+    case kPadRight:
+        return "pad_right";
+    case kPadChoose:
+        return "pad_choose";
+    case kPadBack:
+        return "pad_back";
+    default:
+        return "?";
     }
 }
 
 void log_element(const char* what, const UiWidget* element)
 {
     Rect2 r = element_rect(element);
-    get_log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what, ident_no(element),
-        current_type_name(kind_tag(element)), kind_tag(element), r.left, r.top, r.right, r.bottom, bearing(element), get_alpha(element),
-        current_flags(element));
+    get_log("  %s %08X (%s %08X): rect (%.1f, %.1f)-(%.1f, %.1f), angle %.3f, alpha %.2f, flags %08X", what,
+            ident_no(element), current_type_name(kind_tag(element)), kind_tag(element), r.left, r.top, r.right,
+            r.bottom, bearing(element), get_alpha(element), current_flags(element));
 }
 
 // --- the menus ---
@@ -605,14 +620,15 @@ void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
         not_sent = "no input device";
     if (s_log_events && debug_enabled())
         get_log("  %s %s%s%s", not_sent ? "NOT sent:" : "sent", event_name(event), not_sent ? " - " : "",
-            not_sent ? not_sent : "");
+                not_sent ? not_sent : "");
     if (not_sent)
         return;
     script::Struct params;
     params.prepare_all();
     params.put_int(kDeviceNum, *reinterpret_cast<int*>(handler->dev_ + 0xC));
     params.put_int(kController, 0);
-    static_cast<objects::EventWaitBoard*>(get_tracker())->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
+    static_cast<objects::EventWaitBoard*>(get_tracker())
+        ->launch_event(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
     params.get_clear();
 }
 
@@ -642,9 +658,10 @@ UiWidget* child_at(const UiWidget* menu, int index)
 
 void log_menu(UiWidget* menu)
 {
-    get_log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s", ident_no(menu),
-        current_type_name(kind_tag(menu)), selected_index(menu), child_count(menu), menu_has_focus(menu), menu_takes_pad_events(menu),
-        prop<uint8_t>(menu, 0x1A0), menu_wraps(menu), is_rotating_menu(menu) ? ", turned (a spin menu)" : "");
+    get_log("  menu %08X (%s): selected %d of %d, focus %d, takes pad events %d, movement %d, wraps %d%s",
+            ident_no(menu), current_type_name(kind_tag(menu)), selected_index(menu), child_count(menu),
+            menu_has_focus(menu), menu_takes_pad_events(menu), prop<uint8_t>(menu, 0x1A0), menu_wraps(menu),
+            is_rotating_menu(menu) ? ", turned (a spin menu)" : "");
 }
 
 // What is under the cursor when no item is: every element (not hidden) whose own box holds the point, with the
@@ -811,7 +828,8 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
         return;
     }
     uint32_t event = kPadChoose;
-    if (menu_runs_top_to_bottom(hit.menu) && (handles_event(hit.item, kPadLeft) || handles_event(hit.item, kPadRight))) {
+    if (menu_runs_top_to_bottom(hit.menu) &&
+        (handles_event(hit.item, kPadLeft) || handles_event(hit.item, kPadRight))) {
         int side = option_side(element_rect(hit.item), x);
         if (side < 0)
             event = kPadLeft;
@@ -821,20 +839,21 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
     if (debug) {
         log_element("item", hit.item);
         Rect2 area = item_bounds(hit.item, hit.menu);
-        get_log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right, area.bottom);
+        get_log("    index %d, area (%.1f, %.1f)-(%.1f, %.1f)", hit.index, area.left, area.top, area.right,
+                area.bottom);
         log_menu(hit.menu);
     }
     if (s_pending.active && s_pending.item == hit.item && pending_menu().get_pull() == hit.menu) {
         s_pending.choose_event_ = event;
         if (debug)
-            get_log("  the menu is on its way to the item (selected %d): %s once it gets there", selected_index(hit.menu),
-                event_name(event));
+            get_log("  the menu is on its way to the item (selected %d): %s once it gets there",
+                    selected_index(hit.menu), event_name(event));
     } else if (selected_index(hit.menu) == hit.index) {
         clear_pending("another item was clicked");
         send_pad_event(front_end, event);
     } else if (!aim_at(front_end, hit, event) && s_pending.active && debug) {
         get_log("  the menu is on its way to the item (selected %d): %s once it gets there", selected_index(hit.menu),
-            event_name(event));
+                event_name(event));
     }
     s_log_events = false;
 }
@@ -934,8 +953,8 @@ void tick_frame(modules::FrontEnd* front_end)
             s_last_menus = menus;
             s_last_paused = front_end->is_halted_;
             get_log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
-                menus ? "active" : "inactive", render::current_level(), front_end->is_halted_, manager != nullptr,
-                manager && root_element(manager) != nullptr, in_park_editor());
+                    menus ? "active" : "inactive", render::current_level(), front_end->is_halted_, manager != nullptr,
+                    manager && root_element(manager) != nullptr, in_park_editor());
         }
     }
     show_cursor(menus);
@@ -964,7 +983,8 @@ void tick_frame(modules::FrontEnd* front_end)
     for (int i = 0; i < input.right_clicks_; ++i) {
         bool any = any_menu(root_element(ui_tree_handle()), menu_takes_pad_events, false);
         if (debug_enabled())
-            get_log("mouse: right click at layout (%.1f, %.1f)%s", x, y, any ? "" : ": no menu takes pad events - nothing sent");
+            get_log("mouse: right click at layout (%.1f, %.1f)%s", x, y,
+                    any ? "" : ": no menu takes pad events - nothing sent");
         s_log_events = true;
         if (any)
             send_pad_event(front_end, kPadBack);

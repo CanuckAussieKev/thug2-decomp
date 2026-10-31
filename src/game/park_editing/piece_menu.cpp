@@ -62,14 +62,8 @@ void fetch_part(void* manager, frontend::ElementPtr* out, uint32_t id)
 {
     static_cast<frontend::UiTree*>(manager)->fetch_part(out, id, 1);
 }
-void fetch_location(frontend::UiWidget* element, float* x, float* y)
-{
-    element->fetch_location(x, y);
-}
-void change_location(frontend::UiWidget* element, float x, float y, int flag)
-{
-    element->change_location(x, y, flag);
-}
+void fetch_location(frontend::UiWidget* element, float* x, float* y) { element->fetch_location(x, y); }
+void change_location(frontend::UiWidget* element, float x, float y, int flag) { element->change_location(x, y, flag); }
 void change_scale(frontend::UiWidget* element, float x, float y, int a, int b)
 {
     element->change_scale(x, y, a != 0, b);
@@ -195,4 +189,4 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     change_caption(text.get_pull(), name ? name : "---");
 }
 
-} // namespace Ed
+} // namespace park_editing

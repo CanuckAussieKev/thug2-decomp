@@ -17,25 +17,44 @@ namespace goals {
 
 namespace {
 
-constexpr uint32_t kRequiresLine = 0x7100155D;          // (name unknown: the line must be landed)
-constexpr uint32_t kGoalObjects = 0x3CCE31F0;           // goal_objects
-constexpr uint32_t kFlag = 0x2E0B1465;                  // flag
-constexpr uint32_t kTime = 0x906B67BA;                  // time
-constexpr uint32_t kGoalObjectsIndex = 0x89B927D0;      // goal_objects_index
-constexpr uint32_t kFirstSpotParams = 0xDB5515AA;       // first_spot_params
-constexpr uint32_t kNextCluster = 0x918C00F2;           // goal_skate_the_line_next_cluster
+constexpr uint32_t kRequiresLine = 0x7100155D;     // (name unknown: the line must be landed)
+constexpr uint32_t kGoalObjects = 0x3CCE31F0;      // goal_objects
+constexpr uint32_t kFlag = 0x2E0B1465;             // flag
+constexpr uint32_t kTime = 0x906B67BA;             // time
+constexpr uint32_t kGoalObjectsIndex = 0x89B927D0; // goal_objects_index
+constexpr uint32_t kFirstSpotParams = 0xDB5515AA;  // first_spot_params
+constexpr uint32_t kNextCluster = 0x918C00F2;      // goal_skate_the_line_next_cluster
 
-static VtableSlot g_skate_line_vtable_slots[] = {&goals::SkateLineGoal::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
-                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
-                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
-                 &goals::Objective::has_component_a_302d_7c_d, &goals::Objective::activate, &goals::Objective::change_live,
-                 &goals::Objective::disengage, &goals::Objective::clear_engaged_bit, &goals::Objective::get_win, &goals::Objective::lose,
-                 &goals::Objective::tick_frame, &goals::Objective::is_frozen, &goals::SkateLineGoal::set_flag,
-                 &goals::Objective::stage_flag_set, &goals::Objective::has_won, &goals::Objective::net_stage_flag_set,
-                 &goals::Objective::has_won_goal_or_child, &goals::Objective::is_prepared, &goals::Objective::may_try_again,
-                 &goals::Objective::mark_won, &goals::Objective::set_stage_flag,
-                 &goals::Objective::set_net_stage_flag,
-                 &goals::Objective::un_beat};
+static VtableSlot g_skate_line_vtable_slots[] = {&goals::SkateLineGoal::teardown,
+                                                 &goals::Objective::wants_to_end,
+                                                 &goals::Objective::has_run_out,
+                                                 &goals::Objective::is_operative,
+                                                 render::virtual_slot3_jump,
+                                                 &goals::Objective::expire,
+                                                 &goals::Objective::restore_save_block,
+                                                 &goals::Objective::capture_save_block,
+                                                 &goals::Objective::has_time_limit,
+                                                 stubs::return_true,
+                                                 &goals::Objective::has_component_a_302d_7c_d,
+                                                 &goals::Objective::activate,
+                                                 &goals::Objective::change_live,
+                                                 &goals::Objective::disengage,
+                                                 &goals::Objective::clear_engaged_bit,
+                                                 &goals::Objective::get_win,
+                                                 &goals::Objective::lose,
+                                                 &goals::Objective::tick_frame,
+                                                 &goals::Objective::is_frozen,
+                                                 &goals::SkateLineGoal::set_flag,
+                                                 &goals::Objective::stage_flag_set,
+                                                 &goals::Objective::has_won,
+                                                 &goals::Objective::net_stage_flag_set,
+                                                 &goals::Objective::has_won_goal_or_child,
+                                                 &goals::Objective::is_prepared,
+                                                 &goals::Objective::may_try_again,
+                                                 &goals::Objective::mark_won,
+                                                 &goals::Objective::set_stage_flag,
+                                                 &goals::Objective::set_net_stage_flag,
+                                                 &goals::Objective::un_beat};
 void** const kSkateLineVtable = reinterpret_cast<void**>(g_skate_line_vtable_slots);
 
 script::Struct* spawn_param_table()
@@ -139,4 +158,4 @@ bool SkateLineGoal::set_flag(uint32_t flag, int value, uint32_t sub)
     return set;
 }
 
-} // namespace Game
+} // namespace goals

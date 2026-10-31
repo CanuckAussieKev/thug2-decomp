@@ -34,10 +34,7 @@ uint32_t crc32(const uint8_t* data, size_t size)
     return crc ^ 0xFFFFFFFF;
 }
 
-uint8_t read_byte(const uint8_t* buffer, size_t* offset)
-{
-    return buffer[(*offset)++];
-}
+uint8_t read_byte(const uint8_t* buffer, size_t* offset) { return buffer[(*offset)++]; }
 
 uint32_t read_word(const uint8_t* buffer, size_t* offset)
 {
@@ -93,7 +90,7 @@ bool made_for(const uint8_t* patch, size_t patch_size, const uint8_t* input, siz
 }
 
 bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, size_t input_size, uint8_t** output,
-           size_t* output_size)
+               size_t* output_size)
 {
     size_t at = 0;
     char magic[5];
@@ -106,8 +103,8 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     }
     auto expected_input_size = static_cast<uint32_t>(read_number(patch, &at));
     if (expected_input_size != input_size) {
-        debug_log::printf(StageMap::kError, "Patch input of unexpected size!  expected: %d actual: %d\n", expected_input_size,
-                         input_size);
+        debug_log::printf(StageMap::kError, "Patch input of unexpected size!  expected: %d actual: %d\n",
+                          expected_input_size, input_size);
         return false;
     }
     *output_size = static_cast<size_t>(read_number(patch, &at));
@@ -151,12 +148,14 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     } else {
         uint32_t output_crc = read_word(patch, &at);
         if (output_crc != crc32(*output, *output_size)) {
-            debug_log::printf(StageMap::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", output_crc, crc32(*output, *output_size));
+            debug_log::printf(StageMap::kError, "OUTPUT CRC DID NOT MATCH: %x %x\n", output_crc,
+                              crc32(*output, *output_size));
         } else {
             uint32_t patch_crc = read_word(patch, &at);
             if (patch_crc == crc32(patch, patch_size - 4))
                 return true;
-            debug_log::printf(StageMap::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patch_crc, crc32(patch, patch_size));
+            debug_log::printf(StageMap::kError, "PATCH CRC DID NOT MATCH: %x %x\n", patch_crc,
+                              crc32(patch, patch_size));
         }
     }
     std::free(*output);
@@ -164,4 +163,4 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     return false;
 }
 
-} // namespace Bps
+} // namespace bps

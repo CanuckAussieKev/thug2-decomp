@@ -39,4 +39,4 @@ inline double x87_tan(double angle)
     return result;
 }
 
-} // namespace Skater
+} // namespace skater

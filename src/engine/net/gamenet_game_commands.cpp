@@ -62,57 +62,60 @@ constexpr uint8_t kMsgGameEnded = 0x6A;
 constexpr uint8_t kMsgSelectedGoals = 0x6D;
 constexpr uint8_t kMsgTeamGame = 0x7A;
 
-constexpr uint32_t kFlagsServer = 1;   // the manager's flags
+constexpr uint32_t kFlagsServer = 1; // the manager's flags
 constexpr uint32_t kFlagsInternet = 4;
 constexpr uint32_t kPlayerFlags = 0x1D0;
 constexpr uint32_t kProfileIdField = 0x28; // PlayerRecord: the GameSpy profile id
-constexpr uint32_t kRemoveMark = 0x400;   // a player's flags: being removed (its options dialog is up)
+constexpr uint32_t kRemoveMark = 0x400;    // a player's flags: being removed (its options dialog is up)
 
-constexpr uint32_t kGameStartTask = 0xE8;  // tasks::SchedulerTask*
+constexpr uint32_t kGameStartTask = 0xE8; // tasks::SchedulerTask*
 constexpr uint32_t kLevelSwitchJob = 0xEC;
-constexpr uint32_t kCrownSpawn = 0x68;     // int
-constexpr uint32_t kCrown = 0x6C;          // GameObjects::CrownObject*
+constexpr uint32_t kCrownSpawn = 0x68; // int
+constexpr uint32_t kCrown = 0x6C;      // GameObjects::CrownObject*
 
 // Checksums.
-constexpr uint32_t kChecksum = 0x21902065;            // checksum
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;       // netgoalattack
-constexpr uint32_t kAutoStarting = 0x65C14F78;        // net_message_auto_starting_game
-constexpr uint32_t kStarting = 0x831E8336;            // net_message_starting_game
-constexpr uint32_t kDoBackendRetry = 0x1D02CE3B;      // do_backend_retry
-constexpr uint32_t kPrepareSkaterForMove = 0xF1B110ED; // PrepareSkaterForMove
-constexpr uint32_t kBlue = 0x61C9354B;                // blue
-constexpr uint32_t kRed = 0x059EA070;                 // red
-constexpr uint32_t kGreen = 0x2F6511DE;               // green
-constexpr uint32_t kIndex = 0x7F8C98FE;               // index
-constexpr uint32_t kName = 0xA1DC81F9;                // name
-constexpr uint32_t kProfile = 0x7EA855F0;             // profile
-constexpr uint32_t kNick = 0xD6F4D0C8;                // nick
-constexpr uint32_t kAllowAddHomie = 0xBA3F599F;       // allow_add_homie
-constexpr uint32_t kAllowRemoveHomie = 0x5CBA31EC;    // allow_remove_homie
+constexpr uint32_t kChecksum = 0x21902065;                  // checksum
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;             // netgoalattack
+constexpr uint32_t kAutoStarting = 0x65C14F78;              // net_message_auto_starting_game
+constexpr uint32_t kStarting = 0x831E8336;                  // net_message_starting_game
+constexpr uint32_t kDoBackendRetry = 0x1D02CE3B;            // do_backend_retry
+constexpr uint32_t kPrepareSkaterForMove = 0xF1B110ED;      // PrepareSkaterForMove
+constexpr uint32_t kBlue = 0x61C9354B;                      // blue
+constexpr uint32_t kRed = 0x059EA070;                       // red
+constexpr uint32_t kGreen = 0x2F6511DE;                     // green
+constexpr uint32_t kIndex = 0x7F8C98FE;                     // index
+constexpr uint32_t kName = 0xA1DC81F9;                      // name
+constexpr uint32_t kProfile = 0x7EA855F0;                   // profile
+constexpr uint32_t kNick = 0xD6F4D0C8;                      // nick
+constexpr uint32_t kAllowAddHomie = 0xBA3F599F;             // allow_add_homie
+constexpr uint32_t kAllowRemoveHomie = 0x5CBA31EC;          // allow_remove_homie
 constexpr uint32_t kCreatePlayerOptionsDialog = 0xF95F6E22; // create_player_options_dialog
-constexpr uint32_t kText = 0xC4745838;                // text
-constexpr uint32_t kCentered = 0x2A434D05;            // centered
-constexpr uint32_t kId = 0x40C698AF;                  // id
-constexpr uint32_t kPadChooseScript = 0x2B0CFCA1;     // pad_choose_script
-constexpr uint32_t kChooseSelectedPlayer = 0x405A36F9; // choose_selected_player
-constexpr uint32_t kRgba = 0x3F6BCDBA;                // rgba
-constexpr uint32_t kUnfocusParams = 0xF974BF7C;       // unfocus_params
-constexpr uint32_t kPadChooseParams = 0xB8437568;     // pad_choose_params
-constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BD;    // theme_menu_add_item
-constexpr uint32_t kCrownSpawnType = 0xAF86421B;      // (a node's Type: the crown's starting point; the name isn't known)
+constexpr uint32_t kText = 0xC4745838;                      // text
+constexpr uint32_t kCentered = 0x2A434D05;                  // centered
+constexpr uint32_t kId = 0x40C698AF;                        // id
+constexpr uint32_t kPadChooseScript = 0x2B0CFCA1;           // pad_choose_script
+constexpr uint32_t kChooseSelectedPlayer = 0x405A36F9;      // choose_selected_player
+constexpr uint32_t kRgba = 0x3F6BCDBA;                      // rgba
+constexpr uint32_t kUnfocusParams = 0xF974BF7C;             // unfocus_params
+constexpr uint32_t kPadChooseParams = 0xB8437568;           // pad_choose_params
+constexpr uint32_t kThemeMenuAddItem = 0xC16BF7BD;          // theme_menu_add_item
+constexpr uint32_t kCrownSpawnType = 0xAF86421B; // (a node's Type: the crown's starting point; the name isn't known)
 
-const char* const kTeam = "team";           // "team"
+const char* const kTeam = "team";                     // "team"
 const char* const kNetStatusProps = "netstatusprops"; // "netstatusprops"
-const char* const kType = "Type";           // "Type"
-const char* const kBit = "bit";            // "bit"
-const char* const kParamId = "param_id";        // "param_id"
+const char* const kType = "Type";                     // "Type"
+const char* const kBit = "bit";                       // "bit"
+const char* const kParamId = "param_id";              // "param_id"
 
-constexpr int kPlayerMenuIdBase = 123456;  // the menu items' ids: this plus the player's place in the list
+constexpr int kPlayerMenuIdBase = 123456;   // the menu items' ids: this plus the player's place in the list
 constexpr uint32_t kJoinTeamInterval = 150; // ms between team requests
 constexpr int kMaxCrownSpawns = 10;
 
 Hub* net_link() { return g_online_hub; }
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+}
 
 uint32_t g_last_team_request;
 
@@ -129,7 +132,8 @@ enum class Recipients { kAll, kRemote, kObservers };
 // `desc` through the server to the players (all, those not local, the observers).
 void send_to_players(Hub* manager, net::AppHost* server, net::NetMessageInfo* desc, Recipients recipients)
 {
-    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         if (recipients == Recipients::kRemote && is_own_player(player))
             continue;
         if (recipients == Recipients::kObservers && !is_observer(player))
@@ -158,15 +162,17 @@ void report_game_state(Hub* manager, bool on)
     if (on ? reported == 1 : reported == 0)
         return;
     reported = on ? 1 : 0;
-    if (g_online_active && g_online_hub->in_net_game() &&
-        g_query_reporting)
+    if (g_online_active && g_online_hub->in_net_game() && g_query_reporting)
         game_spy::qr2_send_state_changed(nullptr);
 }
 
 // The GameSpy presence (+0x18): logged in (its flag at +0x10, through the getter folded at 0x005480B0), `profile` a
 // buddy (0x00549CB0).
 bool mark_friend_online(Hub* manager) { return static_cast<FoldedGetters*>(manager->presence_service_)->byte10(); }
-bool is_buddy(Hub* manager, int profile) { return static_cast<FriendsManager*>(manager->presence_service_)->is_buddy(profile); }
+bool is_buddy(Hub* manager, int profile)
+{
+    return static_cast<FriendsManager*>(manager->presence_service_)->is_buddy(profile);
+}
 
 } // namespace
 
@@ -212,10 +218,10 @@ bool __cdecl cfunc_spawn_crown(Struct*, Script*)
     Struct* node = nodes[spawn % count]; // (no node of the type divides by zero, as in the original)
     maths::Vec4 position;
     level_nodes::fetch_place(node, &position);
-    prop<objects::CrownObject*>(manager, kCrown)->init_from_node(objects::g_composite_registry,
-                                                             node);
+    prop<objects::CrownObject*>(manager, kCrown)->init_from_node(objects::g_composite_registry, node);
     if (auto* king = static_cast<uint8_t*>(manager->get_hill_ruler()))
-        prop<objects::CrownObject*>(manager, kCrown)->put_on(reinterpret_cast<objects::GameEntity*>(player_skater(king)));
+        prop<objects::CrownObject*>(manager, kCrown)
+            ->put_on(reinterpret_cast<objects::GameEntity*>(player_skater(king)));
     return true;
 }
 
@@ -241,7 +247,7 @@ bool __cdecl cfunc_start_network_game(Struct*, Script*)
     if (manager->in_net_game()) {
         uint32_t text = manager->host_mode_ == 1 ? kAutoStarting : kStarting;
         manager->build_net_notice(true, text, manager->get_game_type_name(), nullptr, nullptr, kNetStatusProps, true,
-                                       3000);
+                                  3000);
         if (is_squad_match()) {
             net::NetMessageInfo desc;
             net::AppHost* server = manager->host_;
@@ -350,9 +356,12 @@ bool __cdecl cfunc_set_num_teams(Struct* params, Script*)
         get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
     } else {
         get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), teams);
-        if (get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate)) { // the local skater
-            get_run(kPrepareSkaterForMove, nullptr, get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate));
-            get_call(code_address(&modules::Skate::teleport_to_spawn), skate, get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate), 0, 0);
+        if (get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub),
+                                       skate)) { // the local skater
+            get_run(kPrepareSkaterForMove, nullptr,
+                    get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate));
+            get_call(code_address(&modules::Skate::teleport_to_spawn), skate,
+                     get_call<objects::Entity*>(code_address(modules::Skate::get_local_skater_stub), skate), 0, 0);
         }
     }
     net::AppHost* server = manager->host_;
@@ -430,7 +439,8 @@ bool __cdecl cfunc_all_players_are_ready(Struct*, Script*)
     Hub* manager = net_link();
     if (!(manager->flag_bits_ & kFlagsServer))
         return true;
-    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         if (!(prop<uint8_t>(prop<void*>(player, 0x18), 0x60) & 1))
             return false;
     }
@@ -466,7 +476,8 @@ bool __cdecl cfunc_create_player_options(Struct* params, Script*)
     if ((manager->flag_bits_ & kFlagsInternet) && profile && mark_friend_online(manager)) {
         dialog->put_int(kProfile, prop<int>(player, kProfileIdField));
         dialog->append_word(kNick, player_name(player));
-        dialog->put_name_key(0u, is_buddy(manager, prop<int>(player, kProfileIdField)) ? kAllowRemoveHomie : kAllowAddHomie);
+        dialog->put_name_key(0u, is_buddy(manager, prop<int>(player, kProfileIdField)) ? kAllowRemoveHomie
+                                                                                       : kAllowAddHomie);
     }
     dialog->append_word(kName, script::kQbvalString, name);
     get_run(kCreatePlayerOptionsDialog, dialog);
@@ -484,7 +495,8 @@ bool __cdecl cfunc_fill_player_list_menu(Struct*, Script*)
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
     int index = 0;
-    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node); node = get_next_node(node)) {
+    for (memory::ListNode* node = first_player_node(manager); uint8_t* player = data_of(node);
+         node = get_next_node(node)) {
         if (is_own_player(player)) {
             ++index;
             continue;

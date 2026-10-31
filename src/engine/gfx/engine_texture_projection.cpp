@@ -35,10 +35,7 @@ float get_f(double value) { return static_cast<float>(value); }
 
 // The camera of the first active viewport (0x004A09C0; null if none) and its position (0x00485A00).
 void* first_camera() { return fetch_live_camera(0); }
-const maths::Vec4* viewer_location(void* camera)
-{
-    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
-}
+const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 // Whether a sphere is out of the camera's view (0x0048C490).
 bool sphere_out_of_view(const maths::Vec4* centre, float radius)
 {
@@ -46,10 +43,7 @@ bool sphere_out_of_view(const maths::Vec4* centre, float radius)
 }
 // The collision grids a line reaches (0x0048C980: null-terminated), and the sector of a name in any scene
 // (0x0048C510).
-CollGrid** grids_along_line(const maths::Seg* line)
-{
-    return get_coll_grids_on_line(line);
-}
+CollGrid** grids_along_line(const maths::Seg* line) { return get_coll_grids_on_line(line); }
 void* find_sector(uint32_t name) { return engine::look_up_sector(name); }
 
 void* g_projected_sectors[128];
@@ -93,7 +87,10 @@ TextureProjection* TextureProjection::make_new()
 }
 
 // 0x004A04A0
-void TextureProjection::destroy_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(g_projection_node_vtable); }
+void TextureProjection::destroy_body()
+{
+    reinterpret_cast<memory::ListNode*>(this)->unlink_as(g_projection_node_vtable);
+}
 
 // 0x0049FE10
 void TextureProjection::plat_project(void**, void**)
@@ -166,8 +163,7 @@ void TextureProjection::update_matrix()
     else
         return;
     // (D3DXMatrixMultiply)
-    d3dx::matrix_multiply(&projection_,
-                                                                                                     &view, &lens);
+    d3dx::matrix_multiply(&projection_, &view, &lens);
 }
 
 // 0x0049FFE0
@@ -184,7 +180,7 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     x += get_f(static_cast<double>(m.row[2].x) * oz);
     auto rounded = [&](int c) {
         float a = get_f(get_f(get_f((&m.row[0].x)[c] * ox) + static_cast<double>((&pos.x)[c])) +
-                    static_cast<double>(get_f((&m.row[1].x)[c] * oy)));
+                        static_cast<double>(get_f((&m.row[1].x)[c] * oy)));
         return a;
     };
     float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(m.row[2].y) * oz));
@@ -235,9 +231,8 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
         for (HitMesh** found = objects; *found; ++found) {
             const auto* bounds = (*found)->get_call<const maths::BBox*>(21);
             // (touching: no comparison says apart - NaNs count as touching)
-            if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x ||
-                bounds->min.z > reach.max.z || reach.min.z > bounds->max.z ||
-                bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)
+            if (bounds->min.x > reach.max.x || reach.min.x > bounds->max.x || bounds->min.z > reach.max.z ||
+                reach.min.z > bounds->max.z || bounds->min.y > reach.max.y || reach.min.y > bounds->max.y)
                 continue;
             void* sector = find_sector((*found)->checksum_);
             projected_collision()[count] = *found;
@@ -254,13 +249,14 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
 }
 
 namespace {
-static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown, &render::TextureProjection::plat_project};
+static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown,
+                                                 &render::TextureProjection::plat_project};
 void** const kProjectionVtable = reinterpret_cast<void**>(g_projection_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace vt {
 static VtableSlot g_projection_node_slots[] = {&objects::TextureProjectionComponent::ProjectionList::teardown};
 void** const kProjectionNode = reinterpret_cast<void**>(g_projection_node_slots);
-} // namespace Vt
+} // namespace vt

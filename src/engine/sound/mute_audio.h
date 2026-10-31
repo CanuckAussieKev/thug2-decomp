@@ -27,4 +27,4 @@ bool set_audio_session_muted(bool muted);
 // The session's mute as Windows has it (false without a device).
 bool audio_session_muted();
 
-} // namespace Sfx
+} // namespace sound

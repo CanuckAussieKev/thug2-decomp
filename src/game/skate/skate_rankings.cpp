@@ -23,27 +23,30 @@ namespace modules {
 
 namespace {
 
-constexpr uint32_t kShouldResetScores = 0x0B803C5E;   // should_reset_scores
-constexpr uint32_t kText = 0xC4745838;               // text
-constexpr uint32_t kParent = 0xC2719FB0;             // parent
-constexpr uint32_t kPlayerListMenu = 0x67382FBC;     // player_list_menu
-constexpr uint32_t kPlayerMenuAddItem = 0x17AD3E33;  // player_menu_add_item
-constexpr uint32_t kId = 0x40C698AF;                 // id
-constexpr uint32_t kFont = 0x2F6BF72D;               // font
-constexpr uint32_t kDialog = 0xBA9E279D;             // dialog
-constexpr uint32_t kRankingsListMenu = 0x5E5BF0E6;   // rankings_list_menu
-constexpr uint32_t kScoreMenuAddItem = 0x2C638965;   // score_menu_add_item
-constexpr uint32_t kTeamScore = 0x0A6081EE;          // team_score
-constexpr uint32_t kElimiskate = 0xF6198005;         // elimiskate
-constexpr uint32_t kNetElimiskate = 0x10F84276;      // netelimiskate
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;      // netgoalattack
-constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
-constexpr uint32_t kKing = 0x5D32129C;               // king
-constexpr uint32_t kFirstLine = 0x00039447;          // the first score line's id
+constexpr uint32_t kShouldResetScores = 0x0B803C5E; // should_reset_scores
+constexpr uint32_t kText = 0xC4745838;              // text
+constexpr uint32_t kParent = 0xC2719FB0;            // parent
+constexpr uint32_t kPlayerListMenu = 0x67382FBC;    // player_list_menu
+constexpr uint32_t kPlayerMenuAddItem = 0x17AD3E33; // player_menu_add_item
+constexpr uint32_t kId = 0x40C698AF;                // id
+constexpr uint32_t kFont = 0x2F6BF72D;              // font
+constexpr uint32_t kDialog = 0xBA9E279D;            // dialog
+constexpr uint32_t kRankingsListMenu = 0x5E5BF0E6;  // rankings_list_menu
+constexpr uint32_t kScoreMenuAddItem = 0x2C638965;  // score_menu_add_item
+constexpr uint32_t kTeamScore = 0x0A6081EE;         // team_score
+constexpr uint32_t kElimiskate = 0xF6198005;        // elimiskate
+constexpr uint32_t kNetElimiskate = 0x10F84276;     // netelimiskate
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;     // netgoalattack
+constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
+constexpr uint32_t kKing = 0x5D32129C;              // king
+constexpr uint32_t kFirstLine = 0x00039447;         // the first score line's id
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-bool is_crown_rule_active() { return get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing; }
+bool is_crown_rule_active()
+{
+    return get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing;
+}
 
 struct PlayerSearch {
     void** vtable_ = modules::kPlayerSearchVtable;
@@ -165,14 +168,16 @@ void __cdecl fill_elimination_ranking()
     RankingList list;
     memory::enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
     bool reset_scores = get_game_mode()->is_true(kShouldResetScores);
-    for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+    for (void* player = net->begin_player_walk(&search, false); player;
+         player = net->step_player_walk(&search, false)) {
         online::PlayerRecord* info = as_player(player);
         online::ScoreEntry* entry = new_entry();
         const char* name = info->skater_->fetch_shown_name();
         char* out = entry->text_;
         while ((*out++ = *name++) != 0) {
         }
-        entry->team_score_ = reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
+        entry->team_score_ =
+            reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
         entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
         entry->priority = info->eliminated_time_ ? static_cast<int>(info->eliminated_time_) : 100000;
         reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry); // (inlined there)
@@ -183,9 +188,11 @@ void __cdecl fill_elimination_ranking()
         char text[0x40];
         std::snprintf(text, sizeof(text), "\\c%d%s", entry->shade_, entry->text_); // "\c%d%s"
         add_player_line(text, false);
-        add_score_line([&](char* score, size_t size) {
-            std::snprintf(score, size, "%d", entry->team_score_); // "%d"
-        }, id, false);
+        add_score_line(
+            [&](char* score, size_t size) {
+                std::snprintf(score, size, "%d", entry->team_score_); // "%d"
+            },
+            id, false);
         delete_entry(entry);
         entry = next;
     }
@@ -207,7 +214,8 @@ bool __cdecl Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
     // A player's score: the goals beaten in goal attack.
     auto score_of = [&](online::PlayerRecord* info) -> uint32_t {
         if (goal_attack)
-            return static_cast<uint32_t>(goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater_->ident_)));
+            return static_cast<uint32_t>(
+                goals::get_objective_board()->count_cleared_by_player(static_cast<int>(info->skater_->ident_)));
         return static_cast<uint32_t>(net->get_entrant_points(info->skater_->ident_));
     };
     if (static_cast<uint8_t>(get_game_mode()->is_squad_match())) {
@@ -222,40 +230,45 @@ bool __cdecl Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             entry->team_score_ = net->get_squad_points(team);
             char name[0x40];
             std::snprintf(name, sizeof(name), "team_%d_name", team + 1); // "team_%d_name"
-            const char* total = script::fetch_text("total_str"); // "total_str"
+            const char* total = script::fetch_text("total_str");         // "total_str"
             const char* team_name = script::fetch_text(name);
-            std::snprintf(entry->text_, sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_),
-                          "\\c%d%s %s", entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
+            std::snprintf(entry->text_, sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_), "\\c%d%s %s",
+                          entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->get_squad_points(team);
             reinterpret_cast<lists::Foremost*>(&list.head_)->append_vertex(entry);
         }
         uint32_t line = 0;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry;) {
             online::ScoreEntry* next = RankingList::get_after(entry);
-            for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+            for (void* player = net->begin_player_walk(&search, false); player;
+                 player = net->step_player_walk(&search, false)) {
                 online::PlayerRecord* info = as_player(player);
                 if (static_cast<uint32_t>(info->team_) != entry->unknown44_)
                     continue;
                 uint32_t score = score_of(info);
                 char text[0x40];
-                std::snprintf(text, sizeof(text),
-                              (static_cast<uint8_t>(info->is_own_player()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
-                              entry->shade_, info->label_);
+                std::snprintf(
+                    text, sizeof(text),
+                    (static_cast<uint8_t>(info->is_own_player()) ? "\\c%d> %s" : "\\c%d%s"), // "\c%d> %s" / "\c%d%s"
+                    entry->shade_, info->label_);
                 add_player_line(text, false);
                 add_score_line([&](char* shown, size_t size) { format_score(shown, size, score, 0, false); },
-                             kFirstLine + line, false, true);
+                               kFirstLine + line, false, true);
                 ++line;
             }
             add_player_line(entry->text_, true);
-            add_score_line([&](char* total, size_t size) {
-                format_score(total, size, static_cast<uint32_t>(entry->priority), entry->shade_, true);
-            }, kFirstLine + line, true);
+            add_score_line(
+                [&](char* total, size_t size) {
+                    format_score(total, size, static_cast<uint32_t>(entry->priority), entry->shade_, true);
+                },
+                kFirstLine + line, true);
             delete_entry(entry);
             ++line;
             entry = next;
         }
     } else {
-        for (void* player = net->begin_player_walk(&search, false); player; player = net->step_player_walk(&search, false)) {
+        for (void* player = net->begin_player_walk(&search, false); player;
+             player = net->step_player_walk(&search, false)) {
             online::PlayerRecord* info = as_player(player);
             uint32_t score = score_of(info);
             online::ScoreEntry* entry = new_entry();
@@ -270,9 +283,11 @@ bool __cdecl Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
             online::ScoreEntry* next = RankingList::get_after(entry);
             add_player_line(entry->text_, false);
-            add_score_line([&](char* shown, size_t size) {
-                format_score(shown, size, static_cast<uint32_t>(entry->priority), 0, false);
-            }, id, false);
+            add_score_line(
+                [&](char* shown, size_t size) {
+                    format_score(shown, size, static_cast<uint32_t>(entry->priority), 0, false);
+                },
+                id, false);
             delete_entry(entry);
             entry = next;
         }
@@ -281,4 +296,4 @@ bool __cdecl Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
     return true;
 }
 
-} // namespace Mdl
+} // namespace modules

@@ -59,7 +59,10 @@ uint32_t unassigned_id() { return g_unassigned_id; }
 // The element classes still in game code (thiscall constructors; the memory zeroed by Calloc).
 void* new_memory(unsigned int size) { return memory::alloc_zeroed(size); }
 template <typename T>
-UiWidget* get_made(T* element) { return element; }
+UiWidget* get_made(T* element)
+{
+    return element;
+}
 
 void v_set_properties(UiWidget* e, Struct* params)
 {
@@ -67,8 +70,8 @@ void v_set_properties(UiWidget* e, Struct* params)
 }
 bool v_call_member_function(UiWidget* e, uint32_t name, Struct* params, Script* script)
 {
-    return reinterpret_cast<bool(__thiscall*)(UiWidget*, uint32_t, Struct*, Script*)>(e->vtable_[3])(
-        e, name, params, script);
+    return reinterpret_cast<bool(__thiscall*)(UiWidget*, uint32_t, Struct*, Script*)>(e->vtable_[3])(e, name, params,
+                                                                                                     script);
 }
 void v_get_properties(UiWidget* e, Struct* out)
 {
@@ -97,7 +100,8 @@ int get_text_length(UiWidget* e) { return text_tools(e)->fetch_magnitude(); }
 void* get_font(uint32_t name) { return render::get_font(name); }
 void read_string_param(void* font, const char* text, float* width, float* height)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&render::virtual_slot8_jump)(font, text, width, height);
+    reinterpret_cast<void(__thiscall*)(void*, const char*, float*, float*)>(&render::virtual_slot8_jump)(font, text,
+                                                                                                         width, height);
 }
 
 } // namespace
@@ -264,7 +268,7 @@ bool __cdecl cfunc_destroy_screen_element(script::Struct* params, script::Script
     if (!manager->resolve_id(params, kId, &id))
         return false;
     int recurse = params->has_bare_flag("dont_recurse") ? 0 : 1; // dont_recurse
-    int keep = params->has_bare_flag("preserve_parent") ? 1 : 0;    // preserve_parent
+    int keep = params->has_bare_flag("preserve_parent") ? 1 : 0; // preserve_parent
     if (recurse || !keep)
         manager->dismantle_part(id, recurse, keep, script);
     return true;
@@ -434,7 +438,8 @@ bool __cdecl cfunc_get_text_element_string(script::Struct* params, script::Scrip
         if (text_block_string(element.owner_object_, text, sizeof(text)))
             script->args_->append_word(kString, text);
     } else if (element->kind_tag_ == kTextElement) {
-        if (const char* string = *reinterpret_cast<const char**>(reinterpret_cast<uint8_t*>(element.owner_object_) + 0x178))
+        if (const char* string =
+                *reinterpret_cast<const char**>(reinterpret_cast<uint8_t*>(element.owner_object_) + 0x178))
             script->args_->append_word(kString, string);
     }
     return false;
@@ -578,6 +583,6 @@ bool __cdecl cfunc_create_multiple_text_elements(script::Struct* params, script:
     return true;
 }
 
-} // namespace Front
+} // namespace frontend
 
 using frontend::UiTree;

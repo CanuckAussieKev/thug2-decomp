@@ -95,8 +95,8 @@ void BuildPointer::on_mode_changed()
     else if (mode_sel_ == kModeRailPlacement)
         mode = 0xFFD81C08; // rail_placement
     else
-        mode = 0xB58EFC2B; // regular
-    params.put_name_key(0x6835B854, mode); // mode
+        mode = 0xB58EFC2B;                                               // regular
+    params.put_name_key(0x6835B854, mode);                               // mode
     script::launch_script(0x9DB065AD, &params, nullptr, false, nullptr); // parked_set_helper_text_mode
     params.get_clear();
 }
@@ -224,6 +224,6 @@ int BuildPointer::advance_area_selection()
     return box_select_stage_;
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::BuildPointer;

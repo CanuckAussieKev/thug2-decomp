@@ -43,12 +43,18 @@ bool get_paused(modules::FrontEnd* front_end) { return front_end && front_end->i
 const char* anchor_name(Anchor anchor)
 {
     switch (anchor) {
-    case Anchor::kNone: return "none";
-    case Anchor::kMainMenu: return "main menu";
-    case Anchor::kCareerOptions: return "career options";
-    case Anchor::kCreateModes: return "create-a-modes";
-    case Anchor::kSkateShop: return "skate shop menu";
-    case Anchor::kFreeze: return "pause menu";
+    case Anchor::kNone:
+        return "none";
+    case Anchor::kMainMenu:
+        return "main menu";
+    case Anchor::kCareerOptions:
+        return "career options";
+    case Anchor::kCreateModes:
+        return "create-a-modes";
+    case Anchor::kSkateShop:
+        return "skate shop menu";
+    case Anchor::kFreeze:
+        return "pause menu";
     }
     return "?";
 }
@@ -59,8 +65,8 @@ std::string active_ruleset_label()
     if (!mode)
         return {};
     uint32_t name = static_cast<goals::MatchRules*>(mode)->get_name_key();
-    static const char* const kNames[] = {"singlesession", "freeskate", "career", "classic", "creategoals", "net",
-                                         "netlobby", "freeskate_2p", "parkeditor"};
+    static const char* const kNames[] = {"singlesession", "freeskate", "career",       "classic",   "creategoals",
+                                         "net",           "netlobby",  "freeskate_2p", "parkeditor"};
     for (const char* known : kNames)
         if (name_hash(known) == name)
             return known;
@@ -128,4 +134,4 @@ void launch_pad(modules::FrontEnd* front_end, uint32_t type, UiWidget* element)
     params.get_clear();
 }
 
-} // namespace MenuSystem::NewFrontend::game_screens
+} // namespace frontend::new_frontend::game_screens

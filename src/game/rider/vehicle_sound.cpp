@@ -24,11 +24,8 @@
 
 namespace objects {
 
-uint32_t g_vehicle_sound_member_functions[24]{
-            0xB8451886, 0x1859F772, 0, 0, 0, 0,
-            0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
-            0xF876FAE9, 0x1859F772, 0, 0, 0, 0,
-            0, 0x1859F772, 0, 0, 0, 0};
+uint32_t g_vehicle_sound_member_functions[24]{0xB8451886, 0x1859F772, 0, 0, 0, 0, 0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
+                                              0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0};
 
 namespace {
 
@@ -82,9 +79,13 @@ double get_pace(const maths::Vec4& vel)
 // The clock now (with its offset) less `then`, wrapping as the original's 32-bit sums do.
 int get_since(int clock, int offset, int then)
 {
-    return static_cast<int>(static_cast<uint32_t>(clock) + (static_cast<uint32_t>(offset) - static_cast<uint32_t>(then)));
+    return static_cast<int>(static_cast<uint32_t>(clock) +
+                            (static_cast<uint32_t>(offset) - static_cast<uint32_t>(then)));
 }
-int get_now(int clock, int offset) { return static_cast<int>(static_cast<uint32_t>(clock) + static_cast<uint32_t>(offset)); }
+int get_now(int clock, int offset)
+{
+    return static_cast<int>(static_cast<uint32_t>(clock) + static_cast<uint32_t>(offset));
+}
 
 // An unsigned millisecond difference as a double (the original's FILD and its 2^32 fix for negatives).
 double Unsigned(int difference) { return difference < 0 ? difference + kTwoTo32 : difference; }
@@ -259,8 +260,9 @@ void SkaterVehicleSoundComponent::tick_engine()
     int gear = gear_;
     double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
     double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
-    float target = static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
-                                      gear_steps_[gear].low_rpm_);
+    float target =
+        static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
+                           gear_steps_[gear].low_rpm_);
     double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
     rpm_ = static_cast<float>((static_cast<double>(target) - rpm_) * ease + rpm_);
     float high_rpm = get_setting(settings_, 0x95DF9449);
@@ -270,11 +272,11 @@ void SkaterVehicleSoundComponent::tick_engine()
     sound::VolumeRef volume;
     volume.prepare_all();
     sound::AudioMixer* sfx = audio_mixer_handle();
-    sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr, nullptr);
+    sfx->fetch_loudness(&volume, &entity_->at_point_, sfx->get_dropoff_distance(engine_sound_name_), 0, nullptr,
+                        nullptr);
     float loudest = get_setting(settings_, 0x288B029D);
     float quiet = get_setting(settings_, 0xB8F81277);
-    volume.percent_tweak(
-        static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
+    volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
     float high_pitch = get_setting(settings_, 0x9F46344A);
     float low_pitch = get_setting(settings_, 0x2660AF3B);
     float pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
@@ -366,25 +368,25 @@ bool SkaterVehicleSoundComponent::stop_skater_vehicle_sounds(script::Struct*, sc
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::SkaterVehicleSoundComponent::teardown,
-         &objects::SkaterVehicleSoundComponent::tick_frame,
-         &objects::SkaterVehicleSoundComponent::configure_from_data,
-         &objects::SkaterVehicleSoundComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::SkaterVehicleSoundComponent::tick_frame,
+                                      &objects::SkaterVehicleSoundComponent::configure_from_data,
+                                      &objects::SkaterVehicleSoundComponent::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

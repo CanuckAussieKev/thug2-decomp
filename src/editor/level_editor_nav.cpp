@@ -108,8 +108,8 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     }
 }
 
-bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x, float second_y,
-                   uint32_t max_ms, float max_pixels)
+bool is_double_click(uint32_t first_ms, float first_x, float first_y, uint32_t second_ms, float second_x,
+                     float second_y, uint32_t max_ms, float max_pixels)
 {
     if (second_ms < first_ms || second_ms - first_ms > max_ms)
         return false;
@@ -220,4 +220,4 @@ bool remove_from_group(organize::State* state, int index, const std::vector<orga
     return in.size() != before;
 }
 
-} // namespace MenuSystem::level_editor::nav
+} // namespace frontend::level_editor::nav

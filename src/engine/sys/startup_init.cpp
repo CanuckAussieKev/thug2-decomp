@@ -40,49 +40,49 @@ void set_null_member_function()
 
 void run_startup_initialisers()
 {
-    render::construct_shared_orientation();        // 0x00640860
-    render::construct_movables();                 // 0x00640880
-    set_null_member_function();                 // 0x006408A0
+    render::construct_shared_orientation(); // 0x00640860
+    render::construct_movables();           // 0x00640880
+    set_null_member_function();             // 0x006408A0
     // 0x006408D0: the proximity skater's smart pointer (zeros)
-    objects::construct_rigid_body_cache();          // 0x00640900
+    objects::construct_rigid_body_cache(); // 0x00640900
     // 0x00640920: the rigid bodies' pusher smart pointers (zeros)
-    surface_kind::construct_terrain_types();        // 0x00640950 (the first allocation: sets the memory manager up)
-    surface_kind::construct_terrain_actions();      // 0x00640970
+    surface_kind::construct_terrain_types();   // 0x00640950 (the first allocation: sets the memory manager up)
+    surface_kind::construct_terrain_actions(); // 0x00640970
     // 0x00640990: FormatText's script component (zeros); 0x006409A0: the stream frame slot (zeros)
-    audio::create_stream_lock();                 // 0x006409D0
-    objects::construct_spare_object_list();         // 0x006409F0
-    objects::construct_instance_list();            // 0x00640A10
-    objects::construct_cutscene_rotations();       // 0x00640A30
+    audio::create_stream_lock();             // 0x006409D0
+    objects::construct_spare_object_list();  // 0x006409F0
+    objects::construct_instance_list();      // 0x00640A10
+    objects::construct_cutscene_rotations(); // 0x00640A30
     // 0x00640A60: the evaluator's result component (zeros)
-    script::construct_evaluator();            // 0x00640A70
+    script::construct_evaluator(); // 0x00640A70
     // 0x00640A90: the parser's scratch component (zeros)
-    gfx::construct_spare_rotations();          // 0x00640AA0
+    gfx::construct_spare_rotations(); // 0x00640AA0
     // 0x00640AD0: an exit function only (the hidden models' list)
-    gfx::construct_bone_volume_table();         // 0x00640AE0
-    render::construct_scene_list();                // 0x00640B00
+    gfx::construct_bone_volume_table(); // 0x00640AE0
+    render::construct_scene_list();     // 0x00640B00
     // 0x00640B20: the font slots' +0x18 words (zeros)
-    render::construct_font_table();                // 0x00640B40
-    render::set_world_lights_ambient();             // 0x00640B60
-    render::construct_world_light_stack();          // 0x00640B90
-    render::construct_scene_lights();              // 0x00640BC0
-    render::construct_loaded_tex_dicts();           // 0x00640BF0
-    render::set_up_game_texture_dict();              // 0x00640C10
-    render::set_up_particle_texture_dict();          // 0x00640C60
-    render::construct_spare_tex_dict_table();        // 0x00640CB0
-    render::construct_shadow_edge_table();          // 0x00640CD0
+    render::construct_font_table();           // 0x00640B40
+    render::set_world_lights_ambient();       // 0x00640B60
+    render::construct_world_light_stack();    // 0x00640B90
+    render::construct_scene_lights();         // 0x00640BC0
+    render::construct_loaded_tex_dicts();     // 0x00640BF0
+    render::set_up_game_texture_dict();       // 0x00640C10
+    render::set_up_particle_texture_dict();   // 0x00640C60
+    render::construct_spare_tex_dict_table(); // 0x00640CB0
+    render::construct_shadow_edge_table();    // 0x00640CD0
     // 0x00640CF0: the loading-screen picture's name = "" (as the image has it)
-    render::create_screen_mutex();                 // 0x00640D10
-    render::construct_projection_batches();        // 0x00640D30
+    render::create_screen_mutex();          // 0x00640D10
+    render::construct_projection_batches(); // 0x00640D30
     // 0x00640D60: an exit function only (it does nothing)
-    render::construct_spare_material();            // 0x00640D70
-    render::construct_grass_textures();            // 0x00640D90
-    render::construct_grass_texture_animation();    // 0x00640DC0
-    render::construct_shader_cache();              // 0x00640DF0
-    render::construct_glow_table();                // 0x00640E10
-    script::fill_member_function_tables();      // 0x00640E30 - 0x006448C0 (33 tables)
-    objects::fill_proximity_member_functions();     // 0x00644910
-    commands::construct_cutscene_destroy_list();  // 0x00644A00
+    render::construct_spare_material();          // 0x00640D70
+    render::construct_grass_textures();          // 0x00640D90
+    render::construct_grass_texture_animation(); // 0x00640DC0
+    render::construct_shader_cache();            // 0x00640DF0
+    render::construct_glow_table();              // 0x00640E10
+    script::fill_member_function_tables();       // 0x00640E30 - 0x006448C0 (33 tables)
+    objects::fill_proximity_member_functions();  // 0x00644910
+    commands::construct_cutscene_destroy_list(); // 0x00644A00
     // 0x00644A20: the file tables (zeros); 0x00644A30: the occlusion queries' hash_map (see above)
 }
 
-} // namespace Sys
+} // namespace sys

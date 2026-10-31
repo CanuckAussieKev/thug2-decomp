@@ -88,4 +88,4 @@ struct Sphere {
 // included; a NaN rules nothing out).
 bool __cdecl point_in_box(const Vec4* point, const Vec4* max, const Vec4* min);
 
-} // namespace Mth
+} // namespace maths

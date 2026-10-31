@@ -33,31 +33,31 @@ using namespace score_internal;
 
 namespace {
 
-constexpr uint32_t kTagTurnedOn = 0xC22EB9A0;        // tag_turned_on
-constexpr uint32_t kId = 0x40C698AF;                 // id
-constexpr uint32_t kShowBalanceMeter = 0xBA95DA16;   // show_balance_meter
-constexpr uint32_t kHideBalanceMeter = 0x58783B40;   // hide_balance_meter
-constexpr uint32_t kTagMode = 0x863A07E2;            // tag_mode
-constexpr uint32_t kManual = 0xEF24413B;             // Manual
-constexpr uint32_t kBalance = 0x530BE001;            // balance
-constexpr uint32_t kDebugScore = 0x1EDC33F1;         // (name unknown: the points printed)
-constexpr uint32_t kFocusTimeLimit = 0x59B9A85E;     // focus_time_limit
-constexpr uint32_t kFocusMaxTimesInCombo = 0xB33D71C0; // focus_max_times_in_combo
-constexpr uint32_t kTrickMultDegradeStart = 0xFD4625CD; // trick_mult_degrade_start
+constexpr uint32_t kTagTurnedOn = 0xC22EB9A0;             // tag_turned_on
+constexpr uint32_t kId = 0x40C698AF;                      // id
+constexpr uint32_t kShowBalanceMeter = 0xBA95DA16;        // show_balance_meter
+constexpr uint32_t kHideBalanceMeter = 0x58783B40;        // hide_balance_meter
+constexpr uint32_t kTagMode = 0x863A07E2;                 // tag_mode
+constexpr uint32_t kManual = 0xEF24413B;                  // Manual
+constexpr uint32_t kBalance = 0x530BE001;                 // balance
+constexpr uint32_t kDebugScore = 0x1EDC33F1;              // (name unknown: the points printed)
+constexpr uint32_t kFocusTimeLimit = 0x59B9A85E;          // focus_time_limit
+constexpr uint32_t kFocusMaxTimesInCombo = 0xB33D71C0;    // focus_max_times_in_combo
+constexpr uint32_t kTrickMultDegradeStart = 0xFD4625CD;   // trick_mult_degrade_start
 constexpr uint32_t kPhysicsRunTimerDuration = 0x0B84F532; // Physics_RunTimer_Duration
-constexpr uint32_t kSkaterEnterCombo = 0x670FDA8C;   // SkaterEnterCombo
-constexpr uint32_t kSpinCountSlop = 0x50C5CC2F;      // spin_count_slop
-constexpr uint32_t kOllie = 0x9B65D7B8;              // ollie
-constexpr uint32_t kSkaterSpinDisplayed = 0x68B887BB; // SkaterSpinDisplayed
-constexpr uint32_t kNetLobby = 0x1C471C60;           // NetLobby
-constexpr uint32_t kNetFirefight = 0xBFF33600;       // netfirefight
-constexpr uint32_t kFirefight = 0x3D6D444F;          // firefight
+constexpr uint32_t kSkaterEnterCombo = 0x670FDA8C;        // SkaterEnterCombo
+constexpr uint32_t kSpinCountSlop = 0x50C5CC2F;           // spin_count_slop
+constexpr uint32_t kOllie = 0x9B65D7B8;                   // ollie
+constexpr uint32_t kSkaterSpinDisplayed = 0x68B887BB;     // SkaterSpinDisplayed
+constexpr uint32_t kNetLobby = 0x1C471C60;                // NetLobby
+constexpr uint32_t kNetFirefight = 0xBFF33600;            // netfirefight
+constexpr uint32_t kFirefight = 0x3D6D444F;               // firefight
 // The trick names a spin turns into a Cab: Fakie\_Ollie and two more (names unknown).
 constexpr uint32_t kFakieOllie = 0x28C6399C;
 constexpr uint32_t kCabTrick2 = 0x8BF1B0CB;
 constexpr uint32_t kCabTrick3 = 0x428485BB;
 
-constexpr uint8_t kMsgBestCombo = 0x86;  // the best combo to the server
+constexpr uint8_t kMsgBestCombo = 0x86;   // the best combo to the server
 constexpr uint8_t kMsgLandedScore = 0x52; // a landed combo's points to the server
 constexpr uint8_t kGroupGame = 8;
 
@@ -157,9 +157,10 @@ void PointTally::bank_combo_score()
         if (trick->kind_)
             points = points * 120 / 100;
         if (verbose_print_)
-            debug::printf("base %d reduction mult %.2f spin mult %.1f score = %i %s\n", trick->points_held_, static_cast<double>(reduction) * static_cast<double>(0.01f),
-                        static_cast<double>(spin) * 0.5, points,
-                        trick->text_); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
+            debug::printf("base %d reduction mult %.2f spin mult %.1f score = %i %s\n", trick->points_held_,
+                          static_cast<double>(reduction) * static_cast<double>(0.01f), static_cast<double>(spin) * 0.5,
+                          points,
+                          trick->text_); // "base %d reduction mult %.2f spin mult %.1f score = %i %s\n"
         pot_ += points;
     }
     if (verbose_print_)
@@ -324,7 +325,8 @@ void PointTally::tick_frame()
     {
         frontend::ElementPtr found;
         objects::Rider* skater = rider_for_slot(rider_no_);
-        uint32_t id = skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
+        uint32_t id =
+            skater ? kTheSpecialBarSprite + static_cast<uint32_t>(skater->get_skater_number()) : kTheSpecialBarSprite;
         bar = *frontend::UiTree::sole()->fetch_part(&found, id, 0);
     }
     double full = static_cast<double>(special_) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
@@ -461,7 +463,8 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             multiplier_ = static_cast<float>(static_cast<double>(multiplier_) + 1.0);
         if (multiplier_ == 1.0f) {
             auto* timer = static_cast<objects::RiderRunClock*>(skater->fetch_module(kSkaterRunTimer));
-            timer->seconds_remaining_ = static_cast<objects::Rider*>(timer->entity_)->get_scaled_physics(kPhysicsRunTimerDuration);
+            timer->seconds_remaining_ =
+                static_cast<objects::Rider*>(timer->entity_)->get_scaled_physics(kPhysicsRunTimerDuration);
             timer->resumes_ = 0;
             timer->cur_phase_ = 2;
             focus_time_limit_ = script::fetch_float(kFocusTimeLimit);
@@ -492,7 +495,8 @@ void PointTally::change_spin_degrees(int degrees)
     if (!tricks_ || spin_trick_ < 0)
         return;
     objects::Rider* skater = rider_for_slot(rider_no_);
-    bool flipped = static_cast<objects::AnimBlenderComponent*>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
+    bool flipped =
+        static_cast<objects::AnimBlenderComponent*>(skater->fetch_module(kAnimBlender))->all_channels_flag29();
     int size = degrees;
     const char* side;
     if (degrees < 0) {
@@ -731,7 +735,7 @@ void PointTally::advance_turn(int degrees)
         change_spin_degrees(degrees);
 }
 
-} // namespace Mdl
+} // namespace modules
 
 namespace lists {
 
@@ -749,4 +753,4 @@ void TableItemEraser::free_table_contents()
     }
 }
 
-} // namespace Lst
+} // namespace lists

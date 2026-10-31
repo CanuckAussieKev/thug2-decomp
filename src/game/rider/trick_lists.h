@@ -20,10 +20,10 @@ namespace objects {
 struct TrickListEntry {
     memory::ListNode list_link_;
     uint32_t unknown14_[3];
-    uint32_t lookup_key_;           // +0x20
+    uint32_t lookup_key_; // +0x20
     uint32_t unknown24_;
     uint32_t unknown28_;
-    bool flag_2c_;            // +0x2C (0x00578670 sets it)
+    bool flag_2c_; // +0x2C (0x00578670 sets it)
     uint8_t pad2d_[3];
     uint32_t unknown30_;
     bool unknown34_;
@@ -31,7 +31,7 @@ struct TrickListEntry {
     uint32_t unknown38_;
     uint32_t unknown3c_;
     uint8_t unknown40_[0x20];
-    script::Array* element_list_;  // +0x60
+    script::Array* element_list_; // +0x60
 
     // 0x00578740: an unlinked node (its data itself), the fields cleared, a new empty script array. Returns this.
     TrickListEntry* make_new();
@@ -51,7 +51,7 @@ static_assert(offsetof(TrickListEntry, lookup_key_) == 0x20 && offsetof(TrickLis
 // sets after it.
 struct TrickNameEntry {
     memory::ListNode list_link_;
-    text::Chars label_;      // +0x14
+    text::Chars label_; // +0x14
     uint32_t unknown20_[5];
 
     // 0x005787F0: an unlinked node (its data itself), an empty name. Returns this.
@@ -64,4 +64,4 @@ struct TrickNameEntry {
 static_assert(offsetof(TrickNameEntry, label_) == 0x14 && sizeof(TrickNameEntry) == 0x34,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

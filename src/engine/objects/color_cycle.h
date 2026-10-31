@@ -10,7 +10,7 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -60,11 +60,11 @@ public:
     int set_colors_from_script(script::Struct* params, script::Script* script);
 
     maths::Vec4 colors_[kCycleColorCap]; // +0x18 (x, y, z: 0-255)
-    int color_count_;                 // +0x68
-    int ongoing_;                    // +0x6C
-    float period_;                   // +0x70 milliseconds
-    float clock_;                     // +0x74 milliseconds on the current colour
-    bool on_;                        // +0x78
+    int color_count_;                    // +0x68
+    int ongoing_;                        // +0x6C
+    float period_;                       // +0x70 milliseconds
+    float clock_;                        // +0x74 milliseconds on the current colour
+    bool on_;                            // +0x78
     uint8_t pad79[3];
 };
 static_assert(offsetof(ColorCycleComponent, colors_) == 0x18 && offsetof(ColorCycleComponent, color_count_) == 0x68 &&
@@ -72,4 +72,4 @@ static_assert(offsetof(ColorCycleComponent, colors_) == 0x18 && offsetof(ColorCy
                   sizeof(ColorCycleComponent) == 0x7C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

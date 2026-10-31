@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's gap component (SkaterGap, type 0x11B4C67F, vtable 0x0064BE90, 0x58 bytes): the gaps the scripts start
 // (StartGap) and end (EndGap) - each a 0x64-byte entry in the first list (trick_lists.h's TrickListEntry: GapID, its
@@ -82,19 +82,19 @@ public:
     // begins again after each.
     void end_gap(script::Struct* params, script::Script* script);
 
-    memory::ListNode gaps_;      // +0x18 lists::Foremost<TrickListEntry> (vtable 0x0064BEC4)
+    memory::ListNode gaps_;           // +0x18 lists::Foremost<TrickListEntry> (vtable 0x0064BEC4)
     memory::ListNode gap_move_chain_; // +0x2C lists::Foremost<TrickNameEntry> (vtable 0x0064BEC8)
-    uint32_t tick_;          // +0x40 counted by Update
-    uint8_t* points_held_;          // +0x44 the skater's score (modules::PointTally; set by the skater)
-    uint8_t* core_physics_;    // +0x48 SkaterCorePhysics (0x5BD63B29)
-    uint8_t* balance_trick_;   // +0x4C SkaterBalanceTrick (0x589E5FB3)
-    uint8_t* physics_control_; // +0x50 SkaterPhysicsControl (0xD9151D4D)
-    uint8_t* walk_;           // +0x54 Walk (0x726E85AA)
+    uint32_t tick_;                   // +0x40 counted by Update
+    uint8_t* points_held_;            // +0x44 the skater's score (modules::PointTally; set by the skater)
+    uint8_t* core_physics_;           // +0x48 SkaterCorePhysics (0x5BD63B29)
+    uint8_t* balance_trick_;          // +0x4C SkaterBalanceTrick (0x589E5FB3)
+    uint8_t* physics_control_;        // +0x50 SkaterPhysicsControl (0xD9151D4D)
+    uint8_t* walk_;                   // +0x54 Walk (0x726E85AA)
 };
 static_assert(offsetof(RiderGapTracker, gaps_) == 0x18 && offsetof(RiderGapTracker, gap_move_chain_) == 0x2C &&
                   offsetof(RiderGapTracker, tick_) == 0x40 && offsetof(RiderGapTracker, points_held_) == 0x44 &&
-                  offsetof(RiderGapTracker, core_physics_) == 0x48 &&
-                  offsetof(RiderGapTracker, walk_) == 0x54 && sizeof(RiderGapTracker) == 0x58,
+                  offsetof(RiderGapTracker, core_physics_) == 0x48 && offsetof(RiderGapTracker, walk_) == 0x54 &&
+                  sizeof(RiderGapTracker) == 0x58,
               "layout must match the original (0x00512C60 allocates 0x58 bytes)");
 
 // The two lists' node types (lists::Elem<TrickListEntry>, vtable 0x0064BE88; lists::Elem<TrickNameEntry>, 0x0064BE8C) and
@@ -126,4 +126,4 @@ extern void** const kGapNodeVtable;
 // 0x0064BE8C: gapTrickNodeVtable (defined where the class's functions are).
 extern void** const kGapTrickNodeVtable;
 
-} // namespace Obj
+} // namespace objects

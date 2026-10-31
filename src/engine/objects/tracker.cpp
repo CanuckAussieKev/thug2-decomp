@@ -74,7 +74,10 @@ void forward_trigger(Entity* object, Signal* event)
     reinterpret_cast<void(__thiscall*)(Entity*, Signal*)>(vtable[5])(object, event);
 }
 // The object with this id (the object manager 0x006F0FB8's look_up_entity).
-Entity* find_object_by_id(uint32_t id) { return reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id); }
+Entity* find_object_by_id(uint32_t id)
+{
+    return reinterpret_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id);
+}
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool get_object_id(script::Struct* params, uint32_t name, uint32_t* id)
@@ -258,8 +261,7 @@ void SignalTrace::echo_out(bool only_new, int /*count*/)
         count = kLogSize;
     }
     debug::printf(line);
-    debug::printf(only_new ? "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n"
-                        : "PRINTING EVENT LOG\n\n");
+    debug::printf(only_new ? "PRINTING EVENT LOG (ONLY NEW ENTRIES)\n\n" : "PRINTING EVENT LOG\n\n");
     // Each entry from the oldest (their printing is compiled out of this build).
     for (; count > 0; --count) {
         if (++index == kLogSize)
@@ -323,7 +325,10 @@ Entity* EventWaitBoard::look_up_object(uint32_t id)
 }
 
 // 0x00462190
-Entity* EventWaitBoard::look_up_by_nickname(uint32_t alias) { return static_cast<Entity*>(aliases_->fetch_entry(alias)); }
+Entity* EventWaitBoard::look_up_by_nickname(uint32_t alias)
+{
+    return static_cast<Entity*>(aliases_->fetch_entry(alias));
+}
 
 // 0x004621D0
 uint32_t EventWaitBoard::fetch_distinct_id()
@@ -512,7 +517,7 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
 
 // 0x00462F00
 bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t source, script::Struct* data, bool broadcast,
-                           float radius)
+                                  float radius)
 {
     ++launch_depth_;
     log_.add_row(type, target, source, static_cast<uint32_t>(launched_from_script_), 0, SignalTrace::kLaunched);
@@ -576,7 +581,8 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
             using Pointer = SharedRef<SharedBase>;
             auto* scripts = static_cast<script::Script**>(memory::alloc(static_cast<unsigned int>(count) * 4));
             Pointer* pointers = nullptr;
-            if (auto* block = static_cast<uint32_t*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
+            if (auto* block =
+                    static_cast<uint32_t*>(memory::alloc(static_cast<unsigned int>(count) * sizeof(Pointer) + 4))) {
                 block[0] = static_cast<uint32_t>(count);
                 pointers = reinterpret_cast<Pointer*>(block + 1);
                 for (int i = 0; i < count; ++i)
@@ -775,7 +781,7 @@ bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -788,4 +794,4 @@ static VtableSlot g_tracker_vtable_slots[] = {&objects::EventWaitBoard::scalar_d
 void** const kTrackerVtable = reinterpret_cast<void**>(g_tracker_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

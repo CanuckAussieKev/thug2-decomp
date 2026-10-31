@@ -74,11 +74,11 @@ constexpr uint32_t kNearestType = 0xBAF9B341;    // (name unknown): the object t
 // The constants the original reads (0x006461F4: inches to feet; 0x00645D74).
 constexpr float kInchesToFeet = 1.0f / 12.0f;
 constexpr float kSpeedTolerance = 0.1f;
-constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
+constexpr float kDegreesPerRadian = 57.2957763671875f;    // 0x00645468
 constexpr float kQuarterTurnDeg = 90.0f;                  // 0x00645EB0
 constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
-constexpr float kNearlyVertical = 0.99f;              // 0x00645450
-constexpr float kFarAway = 5322672.0f;                // (0x4AA26F60)
+constexpr float kNearlyVertical = 0.99f;                  // 0x00645450
+constexpr float kFarAway = 5322672.0f;                    // (0x4AA26F60)
 
 // The composite object manager (0x006F0FB8, compositemgr.cpp): its lists of the components of each type, and the
 // component makers.
@@ -93,8 +93,14 @@ void get_orientation_from_structure(Struct* params, maths::Mat4* matrix) { level
 Struct* fetch_vertex(uint32_t name, int assert) { return level_nodes::fetch_vertex(name, assert != 0); }
 // Quaternions (x, y, z, w): to a rotation matrix (0x0042BC40, on the quaternion), from one (0x0042E1F0, constructing
 // the quaternion).
-void quat_to_matrix(const float* quat, maths::Mat4* matrix) { reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix); }
-void matrix_to_quat(float* quat, const maths::Mat4* matrix) { reinterpret_cast<maths::QuatRotation*>(quat)->from_matrix(*matrix); }
+void quat_to_matrix(const float* quat, maths::Mat4* matrix)
+{
+    reinterpret_cast<const maths::QuatRotation*>(quat)->fetch_mat(matrix);
+}
+void matrix_to_quat(float* quat, const maths::Mat4* matrix)
+{
+    reinterpret_cast<maths::QuatRotation*>(quat)->from_matrix(*matrix);
+}
 // A manager's object list (its vtable +0x18).
 memory::ListNode* manager_object_list(ObjectHubBase* manager)
 {
@@ -128,8 +134,8 @@ maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 // The object's vtable slot 3 (a member function by name).
 bool virtual_call_member_function(Entity* object, uint32_t name, Struct* params, Script* script)
 {
-    return reinterpret_cast<bool(__thiscall*)(Entity*, uint32_t, Struct*, Script*)>(object->vtable_[3])(
-        object, name, params, script);
+    return reinterpret_cast<bool(__thiscall*)(Entity*, uint32_t, Struct*, Script*)>(object->vtable_[3])(object, name,
+                                                                                                        params, script);
 }
 
 // |v| as the original's x87 code works it out: (x*x + y*y) + z*z in double precision, not rounded to a float.
@@ -163,18 +169,12 @@ inline void print_object_details(const char* /*text*/) {}
 class CollisionFeeler {
 public:
     CollisionFeeler() { reinterpret_cast<render::ProbeRay*>(bytes_)->make_new(); }
-    ~CollisionFeeler()
-    {
-        reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(bytes_ + 0x98)->~SharedRef();
-    }
+    ~CollisionFeeler() { reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(bytes_ + 0x98)->~SharedRef(); }
     CollisionFeeler(const CollisionFeeler&) = delete;
     CollisionFeeler& operator=(const CollisionFeeler&) = delete;
     maths::Vec4& kickoff() { return *reinterpret_cast<maths::Vec4*>(bytes_); }
     maths::Vec4& get_end() { return *reinterpret_cast<maths::Vec4*>(bytes_ + 0x10); }
-    bool get_hit_shape(bool a, bool b)
-    {
-        return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a, b) != 0;
-    }
+    bool get_hit_shape(bool a, bool b) { return reinterpret_cast<render::ProbeRay*>(bytes_)->get_hit_shape(a, b) != 0; }
 
 private:
     alignas(16) uint8_t bytes_[0xB0];
@@ -729,7 +729,8 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
     if (other) {
         maths::Vec4 right = {basis_frame_.row[0].x, basis_frame_.row[0].y, basis_frame_.row[0].z, 0.0f};
         right.make_unit();
-        maths::Vec4 to_other = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y, other->at_point_.z - at_point_.z, 0.0f};
+        maths::Vec4 to_other = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
+                                other->at_point_.z - at_point_.z, 0.0f};
         to_other.make_unit();
         double sum = static_cast<double>(to_other.z) * right.z + static_cast<double>(to_other.y) * right.y;
         dot = static_cast<float>(sum + static_cast<double>(to_other.x) * right.x);
@@ -838,42 +839,47 @@ bool GameEntity::obj_nearest_outside_angle(Struct* params, Script* /*script*/)
     float angle = 0.0f; // (uninitialised in the original: a missing angle compares with stack garbage)
     params->fetch_float(kUnnamed, &angle, 1);
     angle *= kRadiansPerDegree;
-    maths::Vec4 offset = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y, other->at_point_.z - at_point_.z,
-                          other->at_point_.w - at_point_.w};
+    maths::Vec4 offset = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
+                          other->at_point_.z - at_point_.z, other->at_point_.w - at_point_.w};
     return std::fabs(maths::get_angle_in_plane(basis_frame_, offset, 2, 1)) > angle;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_component_vtable_slots[] = {&objects::ObjectModule::teardown,
-         &_purecall,
-         &_purecall,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_component_vtable_slots[] = {
+    &objects::ObjectModule::teardown,
+    &_purecall,
+    &_purecall,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kComponentVtable = reinterpret_cast<void**>(g_component_vtable_slots);
-static VtableSlot g_composite_object_vtable_slots[] = {&objects::GameEntity::teardown,
-         &objects::Entity::change_traits,
-         static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-         static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(&objects::GameEntity::invoke_method_by_name),
-         stubs::ignore_argument,
-         &objects::Entity::pass_event_to_script,
-         &objects::GameEntity::flag_as_dead,
-         &objects::GameEntity::should_update_scripts,
-         &objects::GameEntity::seal,
-         &objects::GameEntity::create_component_from_structure,
-         stubs::do_nothing};
+static VtableSlot g_composite_object_vtable_slots[] = {
+    &objects::GameEntity::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(
+        &objects::GameEntity::invoke_method_by_name),
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::GameEntity::flag_as_dead,
+    &objects::GameEntity::should_update_scripts,
+    &objects::GameEntity::seal,
+    &objects::GameEntity::create_component_from_structure,
+    stubs::do_nothing};
 void** const kCompositeObjectVtable = reinterpret_cast<void**>(g_composite_object_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

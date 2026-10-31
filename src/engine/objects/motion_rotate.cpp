@@ -43,10 +43,7 @@ constexpr float kDegrees = get_bits(0x3C8EFA35);
 float& get_axis(maths::Vec4& v, int axis) { return (&v.x)[axis]; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library: not decompiled): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The node after `node` in a manager's object list (null at the end: the head's data is -1).
 memory::ListNode* next_object_node(memory::ListNode* node)
@@ -273,7 +270,7 @@ void KinematicsModule::update_turn()
 
 // 0x004240E0
 bool KinematicsModule::setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
-                                     float threshold)
+                                       float threshold)
 {
     maths::Vec4 offset = {static_cast<float>(static_cast<double>(target->x) - from->x),
                           static_cast<float>(static_cast<double>(target->y) - from->y),
@@ -517,6 +514,6 @@ bool KinematicsModule::obj_look_at_object(script::Struct* params, script::Script
     return look_at_object(params, script);
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::KinematicsModule;

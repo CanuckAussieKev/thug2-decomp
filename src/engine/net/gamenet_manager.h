@@ -7,13 +7,13 @@ namespace net {
 struct AppHost;
 struct Conn;
 struct InboundMsgCtx;
-} // namespace Net
+} // namespace net
 namespace objects {
 class Entity;
-} // namespace Obj
+} // namespace objects
 namespace prefs {
 class Preferences;
-} // namespace Prefs
+} // namespace prefs
 
 namespace tasks {
 class SchedulerTask;
@@ -37,22 +37,22 @@ constexpr uint32_t kAppearanceSize = 0x1000;
 
 // The connection request (message 3, 92 bytes): sent by the joining client, read by the host's ok_to_join.
 struct ConnectInfo {
-    int32_t version;        // +0x00 kVersion
-    bool observer;          // +0x04
-    bool can_queue_up_;     // +0x05 a game in progress is no refusal
+    int32_t version;              // +0x00 kVersion
+    bool observer;                // +0x04
+    bool can_queue_up_;           // +0x05 a game in progress is no refusal
     char password[kPasswordSize]; // +0x06
-    bool broadband;         // +0x10
-    int8_t rank;            // +0x11 (the rank limit's test)
-    char cd_key_response_[74]; // +0x12 the GameSpy CD-key response (72 characters) to the host's challenge
+    bool broadband;               // +0x10
+    int8_t rank;                  // +0x11 (the rank limit's test)
+    char cd_key_response_[74];    // +0x12 the GameSpy CD-key response (72 characters) to the host's challenge
 };
 static_assert(sizeof(ConnectInfo) == 92 && offsetof(ConnectInfo, cd_key_response_) == 0x12);
 
 // The join request (message 80): the connection request, the player and the appearance (its used length only).
 struct JoinRequestBlock : ConnectInfo {
-    int32_t profile;                // +0x5C the GameSpy profile id
-    int32_t rating;                 // +0x60
-    int32_t drive_scheme_;     // +0x64
-    char name[kNameSize];           // +0x68
+    int32_t profile;                     // +0x5C the GameSpy profile id
+    int32_t rating;                      // +0x60
+    int32_t drive_scheme_;               // +0x64
+    char name[kNameSize];                // +0x68
     uint8_t appearance[kAppearanceSize]; // +0x78 (RiderIdentity::emit_into_buffer)
 };
 static_assert(offsetof(JoinRequestBlock, name) == 0x68 && offsetof(JoinRequestBlock, appearance) == 0x78);
@@ -61,12 +61,12 @@ constexpr uint32_t kJoinInfoHeaderSize = offsetof(JoinRequestBlock, appearance);
 // Join proceed (message 79, 32 bytes): the host's answer to a connection request; the client then sends its join
 // request.
 struct ProceedInfo {
-    uint32_t public_ip_;   // +0x00 (internet hosts)
-    uint32_t private_ip_;  // +0x04
-    int32_t port;        // +0x08
+    uint32_t public_ip_;                // +0x00 (internet hosts)
+    uint32_t private_ip_;               // +0x04
+    int32_t port;                       // +0x08
     char server_name_[kServerNameSize]; // +0x0C
-    int8_t max_players_;   // +0x1C
-    bool broadband;      // +0x1D (the host's: the client's connection to it is narrowband if not)
+    int8_t max_players_;                // +0x1C
+    bool broadband;                     // +0x1D (the host's: the client's connection to it is narrowband if not)
     uint8_t pad1e_[2];
 };
 static_assert(sizeof(ProceedInfo) == 32 && offsetof(ProceedInfo, max_players_) == 0x1C);
@@ -79,9 +79,9 @@ enum JoinRefusedReason : int8_t {
     kRefusedInProgress = 3,
     kRefusedBanned = 4,
     kRefusedFullObservers = 5,
-    kRefusedRankLow = 6,   // the host's "rank greater than" test
-    kRefusedRankHigh = 7,  // its "rank less than" test
-    kRefusedCdKey = 8,     // (and the challenge: the client answers with a new connection request)
+    kRefusedRankLow = 6,  // the host's "rank greater than" test
+    kRefusedRankHigh = 7, // its "rank less than" test
+    kRefusedCdKey = 8,    // (and the challenge: the client answers with a new connection request)
 };
 constexpr uint16_t kJoinRefusedSize = 10;
 
@@ -91,8 +91,8 @@ enum EntryPhase : int {
     kJoinStateJoining = 2,
     kJoinStateJoiningWithPassword = 3,
     kJoinStateTryingPassword = 4,
-    kJoinStateCdKey = 5,     // answered the host's CD-key challenge
-    kJoinStateRefused = 9,   // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
+    kJoinStateCdKey = 5,   // answered the host's CD-key challenge
+    kJoinStateRefused = 9, // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
 };
 
 class Hub {
@@ -347,7 +347,7 @@ public:
     // create_net_panel_message {text (the global text `text`, its "%s0" replaced by string 1), id = net_panel_msg,
     // msg_time = time}. `object` isn't used.
     void build_net_notice(bool broadcast, uint32_t text, const char* string1, const char* string2, void* object,
-                               const char* properties, bool important, int time);
+                          const char* properties, bool important, int time);
     // 0x00537A10: a script queued to spawn once the level is up (+0x144; in the network heap) - unless one of the same
     // name is queued already.
     void queue_script(int node, uint32_t object_id, uint32_t script);
@@ -459,7 +459,7 @@ public:
     // In the THUGPRO peer mode the CD-key check is left out: THUGPRO's hosts drop it, and its players send a made-up
     // key (TP-R12).
     bool joins_accepted(int& reason, ConnectInfo* msg, net::Conn* conn, bool check_password, bool check_version,
-                  bool check_cd_key);
+                        bool check_cd_key);
     // 0x00534480: join the server at ip:port with client `index` (a local client - the host's own - is connected
     // directly): the connection request sent, the client's join handlers added (index 0: the game's too).
     void join_server(uint32_t ip, uint16_t port, int index);
@@ -612,52 +612,52 @@ public:
     // Fields.
     net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
 
-    uint8_t flag_bits_;          // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
+    uint8_t flag_bits_; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     uint8_t unknown1_[3];
-    net::AppHost* host_;       // +0x04
-    net::AppHost* client_app_;       // +0x08 client 0 (the game's)
-    net::AppHost* client1_;      // +0x0C client 1
-    void* lobby_service_;         // +0x10 the GameSpy lobby (its server name +0xB4, its peer +0x34)
-    void* vault_man_;         // +0x14 the content vault and HTTP transfers (VaultMan)
-    void* presence_service_;        // +0x18 the GameSpy presence (logged in: +0x10)
+    net::AppHost* host_;           // +0x04
+    net::AppHost* client_app_;     // +0x08 client 0 (the game's)
+    net::AppHost* client1_;        // +0x0C client 1
+    void* lobby_service_;          // +0x10 the GameSpy lobby (its server name +0xB4, its peer +0x34)
+    void* vault_man_;              // +0x14 the content vault and HTTP transfers (VaultMan)
+    void* presence_service_;       // +0x18 the GameSpy presence (logged in: +0x10)
     void* rating_service_;         // +0x1C the player's rating (+0x14)
-    char challenge_[12];     // +0x20 the host's CD-key challenge
-    net::AppHost* browser_client_;  // +0x2C the server list's client
+    char challenge_[12];           // +0x20 the host's CD-key challenge
+    net::AppHost* browser_client_; // +0x2C the server list's client
     uint32_t unknown30_;
-    uint32_t level_;         // +0x34 the level's load script
+    uint32_t level_; // +0x34 the level's load script
     uint16_t unknown38_;
-    bool match_ended_;          // +0x3A
+    bool match_ended_; // +0x3A
     uint8_t unknown3b_;
-    int join_mode_;           // +0x3C (1: observe)
-    int host_mode_;           // +0x40 (0: serve)
+    int join_mode_; // +0x3C (1: observe)
+    int host_mode_; // +0x40 (0: serve)
     uint8_t unknown44_[0x88];
-    tasks::SchedulerTask* host_admit_job_; // +0xCC
+    tasks::SchedulerTask* host_admit_job_;  // +0xCC
     tasks::SchedulerTask* guest_admit_job_; // +0xD0
     uint8_t unknownd4_[8];
-    tasks::SchedulerTask* join_expiry_job_;   // +0xDC
+    tasks::SchedulerTask* join_expiry_job_; // +0xDC
     uint32_t unknowne0_;
-    tasks::SchedulerTask* join_phase_job_;     // +0xE4
+    tasks::SchedulerTask* join_phase_job_; // +0xE4
     uint8_t unknowne8_[0x14];
-    void* spectator_pad_listener_;       // +0xFC
-    int spectate_request_;              // +0x100
-    uint8_t net_options_[0x80]; // +0x104 (prefs::Preferences)
-    uint32_t refused_reason_;           // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
-    uint32_t last_ready_probe_id_;        // +0x188
-    bool cleared_to_start_;                 // +0x18C
+    void* spectator_pad_listener_; // +0xFC
+    int spectate_request_;         // +0x100
+    uint8_t net_options_[0x80];    // +0x104 (prefs::Preferences)
+    uint32_t refused_reason_;      // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
+    uint32_t last_ready_probe_id_; // +0x188
+    bool cleared_to_start_;        // +0x18C
     uint8_t unknown18d_[3];
-    uint32_t score_synced_at_;         // +0x190
-    uint32_t script_flag_bits_;             // +0x194
-    int join_phase_;                    // +0x198 EntryPhase
-    uint32_t join_ip_;                  // +0x19C
-    uint32_t join_private_ip_;           // +0x1A0
-    int join_port_;                     // +0x1A4
+    uint32_t score_synced_at_;  // +0x190
+    uint32_t script_flag_bits_; // +0x194
+    int join_phase_;            // +0x198 EntryPhase
+    uint32_t join_ip_;          // +0x19C
+    uint32_t join_private_ip_;  // +0x1A0
+    int join_port_;             // +0x1A4
     uint32_t unknown1a8_;
-    int join_began_at_;                // +0x1AC
+    int join_began_at_; // +0x1AC
     uint8_t unknown1b0_[4];
-    bool match_being_set_up_;                 // +0x1B4
-    bool awaiting_start_;       // +0x1B5
+    bool match_being_set_up_; // +0x1B4
+    bool awaiting_start_;     // +0x1B5
     uint8_t unknown1b6_[0x16];
-    void* viewed_player_;                  // +0x1CC
+    void* viewed_player_; // +0x1CC
 };
 static_assert(offsetof(Hub, level_) == 0x34 && offsetof(Hub, join_mode_) == 0x3C &&
                   offsetof(Hub, host_admit_job_) == 0xCC && offsetof(Hub, join_expiry_job_) == 0xDC &&

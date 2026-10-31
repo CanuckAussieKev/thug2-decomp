@@ -102,7 +102,8 @@ std::string write_records(const State& state)
 
 bool is_record(const std::string& keyword)
 {
-    return keyword == "group" || keyword == "label" || keyword == "edlock" || keyword == "nopick" || keyword == "snapshot";
+    return keyword == "group" || keyword == "label" || keyword == "edlock" || keyword == "nopick" ||
+           keyword == "snapshot";
 }
 
 bool read_record(const std::string& line, State* state)
@@ -195,7 +196,10 @@ void set_label(State* state, uint32_t id, const std::string& text)
         state->labels.push_back({id, text});
 }
 
-bool get_has(const std::vector<uint32_t>& list, uint32_t id) { return std::find(list.begin(), list.end(), id) != list.end(); }
+bool get_has(const std::vector<uint32_t>& list, uint32_t id)
+{
+    return std::find(list.begin(), list.end(), id) != list.end();
+}
 
 void Switch(std::vector<uint32_t>* list, uint32_t id, bool on)
 {
@@ -274,7 +278,7 @@ Filter parse_filter(const std::string& search)
 }
 
 bool row_passes(const Filter& filter, nodes::Family family, const std::string& name, const std::string& label,
-               bool in_group, bool locked, bool hidden)
+                bool in_group, bool locked, bool hidden)
 {
     if (filter.families && !(filter.families & nodes::get_bit(family)))
         return false;
@@ -369,7 +373,10 @@ bool valid_snapshot_name(const std::string& name)
     return true;
 }
 
-std::string snapshot_file_name(uint32_t scene, const std::string& name) { return hex_text(scene) + "." + name + ".txt"; }
+std::string snapshot_file_name(uint32_t scene, const std::string& name)
+{
+    return hex_text(scene) + "." + name + ".txt";
+}
 
 bool snapshot_of(const std::string& file_name, uint32_t scene, std::string* name)
 {
@@ -517,10 +524,14 @@ Thing thing_of(uint32_t id, bool sector)
 const char* similar_name(Similar by)
 {
     switch (by) {
-    case Similar::kMesh: return "mesh";
-    case Similar::kClass: return "class";
-    case Similar::kFamily: return "family";
-    case Similar::kKindTag: return "type";
+    case Similar::kMesh:
+        return "mesh";
+    case Similar::kClass:
+        return "class";
+    case Similar::kFamily:
+        return "family";
+    case Similar::kKindTag:
+        return "type";
     }
     return "?";
 }
@@ -672,7 +683,8 @@ void make_group(const std::string& wanted)
     // (a name of its own: "Group 2" when "Group" is taken)
     std::string base = name;
     for (int n = 2;; ++n) {
-        bool taken = std::any_of(g_state.groups.begin(), g_state.groups.end(), [&](const GroupSet& o) { return o.name == name; });
+        bool taken = std::any_of(g_state.groups.begin(), g_state.groups.end(),
+                                 [&](const GroupSet& o) { return o.name == name; });
         if (!taken)
             break;
         name = base + " " + std::to_string(n);
@@ -720,7 +732,7 @@ void select_group(int index)
     }
     set_selection(ids);
     show_message("Group \"" + g_state.groups[index].name + "\" selected" + note +
-                (missing ? " - " + std::to_string(missing) + " missing" : ""));
+                 (missing ? " - " + std::to_string(missing) + " missing" : ""));
 }
 
 void delete_group(int index)
@@ -814,7 +826,8 @@ void apply_box()
         for (uint32_t id : selectable_objects()) {
             OrientedBox ob;
             Rect2 r;
-            if (object_edit::model_box(live_object(id), &ob) && screen_box(ob, !crossing, &r) && box_takes(box, r, crossing))
+            if (object_edit::model_box(live_object(id), &ob) && screen_box(ob, !crossing, &r) &&
+                box_takes(box, r, crossing))
                 objects.push_back(id);
         }
     }
@@ -845,8 +858,9 @@ void apply_box()
         if (filter & picking::kNodes) {
             float cx = (box.x0 + box.x1) * 0.5f, cy = (box.y0 + box.y1) * 0.5f;
             for (const nodes::Elem& n : nodes::get_all()) {
-                if (!n.has_pos_ || !n.name || n.family == nodes::Family::kObject || n.family == nodes::Family::kScenery ||
-                    nodes::shape_of(n.family) == nodes::Shape::kNone || gizmo_hidden(n.name) || !gizmo_pickable(n.name))
+                if (!n.has_pos_ || !n.name || n.family == nodes::Family::kObject ||
+                    n.family == nodes::Family::kScenery || nodes::shape_of(n.family) == nodes::Shape::kNone ||
+                    gizmo_hidden(n.name) || !gizmo_pickable(n.name))
                     continue;
                 float x, y;
                 if (!project_to_back(n.pos, &x, &y) || x < box.x0 || x > box.x1 || y < box.y0 || y > box.y1)
@@ -861,8 +875,7 @@ void apply_box()
         }
         if (best && op != 2) {
             next.node = best;
-            std::snprintf(text, sizeof(text), "Box: %d nodes, nearest selected",
-                          in_box);
+            std::snprintf(text, sizeof(text), "Box: %d nodes, nearest selected", in_box);
         } else if (op == 0) {
             std::snprintf(text, sizeof(text), "Box (%s): nothing there", how);
         } else {
@@ -923,8 +936,8 @@ void select_similar(Similar by)
         // (the selection's own first: the primary stays)
         out = combine(sectors ? s.sectors : s.objects, out, 1);
         set_selection(next);
-        show_message("Selected " + std::to_string(out.size()) + (sectors ? " scenery pieces" : " objects") + " of the same " +
-                    similar_name(by));
+        show_message("Selected " + std::to_string(out.size()) + (sectors ? " scenery pieces" : " objects") +
+                     " of the same " + similar_name(by));
         return;
     }
     if (s.node) {
@@ -959,7 +972,7 @@ void select_all()
         next.objects = combine(s.objects, selectable_objects(), 1);
     set_selection(next);
     show_message("Selected " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
-                (next.objects.empty() ? " scenery pieces" : " objects"));
+                 (next.objects.empty() ? " scenery pieces" : " objects"));
 }
 
 void invert_selection()
@@ -978,7 +991,7 @@ void invert_selection()
     }
     set_selection(next);
     show_message("Inverted: " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
-                (next.objects.empty() && !s.sectors.empty() ? " scenery pieces" : " objects"));
+                 (next.objects.empty() && !s.sectors.empty() ? " scenery pieces" : " objects"));
 }
 
 // --- snapshots ---
@@ -1086,4 +1099,4 @@ bool delete_snapshot(const std::string& name, std::string* message)
     return true;
 }
 
-} // namespace MenuSystem::level_editor::organize
+} // namespace frontend::level_editor::organize

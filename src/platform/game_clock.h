@@ -16,4 +16,4 @@ void pause_game_clock(bool pause);
 // 0x0044ED70: the time so far into the offset; then running at `speed`, which also becomes the slow motion.
 void set_game_clock_speed(float speed);
 
-} // namespace Tmr
+} // namespace frame_clock

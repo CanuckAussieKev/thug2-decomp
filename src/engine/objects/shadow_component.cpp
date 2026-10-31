@@ -26,17 +26,17 @@ namespace {
 extern void** const kVtable;
 
 constexpr uint32_t kModel = 0x286A8D26;
-constexpr uint32_t kShadowType = 0x9AC24B18;  // ShadowType
-constexpr uint32_t kDetailed = 0x76A54CD1;    // detailed
-constexpr uint32_t kSimple = 0x3E84C2FD;      // simple
-constexpr uint32_t kVolume = 0x46653221;      // Volume
-constexpr uint32_t kNone = 0x806FFF30;        // none
-constexpr uint32_t kStayPut = 0x7E773A11;     // (a flag: the shadow doesn't follow the object; name unknown)
-constexpr uint32_t kShadowModel = 0x545F8172; // ShadowModel
-constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F; // ShadowScale
-constexpr uint32_t kOffset = 0xA6F5352F;      // offset
-constexpr uint32_t kCastNoShadow = 0xAAF6E513;   // Obj_ShadowOff
-constexpr uint32_t kEnableShadowCast = 0xF272C43A;    // Obj_ShadowOn
+constexpr uint32_t kShadowType = 0x9AC24B18;       // ShadowType
+constexpr uint32_t kDetailed = 0x76A54CD1;         // detailed
+constexpr uint32_t kSimple = 0x3E84C2FD;           // simple
+constexpr uint32_t kVolume = 0x46653221;           // Volume
+constexpr uint32_t kNone = 0x806FFF30;             // none
+constexpr uint32_t kStayPut = 0x7E773A11;          // (a flag: the shadow doesn't follow the object; name unknown)
+constexpr uint32_t kShadowModel = 0x545F8172;      // ShadowModel
+constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F;   // ShadowScale
+constexpr uint32_t kOffset = 0xA6F5352F;           // offset
+constexpr uint32_t kCastNoShadow = 0xAAF6E513;     // Obj_ShadowOff
+constexpr uint32_t kEnableShadowCast = 0xF272C43A; // Obj_ShadowOn
 
 enum ShadowKind { kShadowDetailed = 1, kShadowSimple = 2, kShadowVolume = 3 };
 
@@ -51,11 +51,14 @@ void** get_vtable(void* shadow) { return *static_cast<void***>(shadow); }
 int& shadow_kind_of(void* shadow) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(shadow) + 0x04); }
 float& shadow_scale_of(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x0C); }
 float& shadow_offset_of(void* shadow) { return *reinterpret_cast<float*>(static_cast<uint8_t*>(shadow) + 0x10); }
-void release_blob_shadow(void* shadow) { reinterpret_cast<void*(__thiscall*)(void*, int)>(get_vtable(shadow)[0])(shadow, 1); }
+void release_blob_shadow(void* shadow)
+{
+    reinterpret_cast<void*(__thiscall*)(void*, int)>(get_vtable(shadow)[0])(shadow, 1);
+}
 void shadow_update(void* shadow, const maths::Vec4* pos, const maths::Mat4* matrix, maths::Vec4 normal)
 {
-    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*, const maths::Mat4*, maths::Vec4)>(get_vtable(shadow)[1])(
-        shadow, pos, matrix, normal);
+    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*, const maths::Mat4*, maths::Vec4)>(
+        get_vtable(shadow)[1])(shadow, pos, matrix, normal);
 }
 void shadow_set_position(void* shadow, maths::Vec4 pos)
 {
@@ -70,7 +73,10 @@ void shadow_show(void* shadow) { reinterpret_cast<void(__thiscall*)(void*)>(get_
 
 // The model component's model (+0x208), and that model's flags (+0x44: 0x2 visible, 0x4 hidden), its +0x1C (a
 // simple shadow's first scale), its checksum (+0x30) and its +0x2C object (vtable slot 5 gives a vector).
-uint8_t* model_of(ObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208); }
+uint8_t* model_of(ObjectModule* component)
+{
+    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
+}
 // 0x004949B0 (not rewritten yet): whether the model casts a shadow (its flag 0x10).
 void set_model_shadow(uint8_t* model, bool on) { reinterpret_cast<render::RenderModel*>(model)->activate_shadow(on); }
 // 0x00493040 (not rewritten yet): the model's hierarchy (0x50-byte objects from +0x50; the root's matrix at +0x10).
@@ -129,8 +135,8 @@ void GroundShadowModule::seal()
     uint32_t checksum = *reinterpret_cast<uint32_t*>(model_of(mesh_instance_) + 0x30);
     void* asset = assets::g_asset_manager->get_asset_data(checksum, 0);
     if (shadow_handle_)
-        reinterpret_cast<void(__thiscall*)(void*, uint8_t*, void*)>(get_vtable(shadow_handle_)[7])(shadow_handle_, model_of(mesh_instance_),
-                                                                                         asset);
+        reinterpret_cast<void(__thiscall*)(void*, uint8_t*, void*)>(get_vtable(shadow_handle_)[7])(
+            shadow_handle_, model_of(mesh_instance_), asset);
 }
 
 // 0x00431450
@@ -152,7 +158,8 @@ void GroundShadowModule::refresh_shadow()
         maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
         // (the model's +0x2C object's slot 5 vector, turned round - and not used)
         if (void* fader = *reinterpret_cast<void**>(model + 0x2C)) {
-            const maths::Vec4* v = reinterpret_cast<const maths::Vec4*(__thiscall*)(void*, int)>(get_vtable(fader)[5])(fader, 0);
+            const maths::Vec4* v =
+                reinterpret_cast<const maths::Vec4*(__thiscall*)(void*, int)>(get_vtable(fader)[5])(fader, 0);
             maths::Vec4 unused = *v * -1.0f;
             (void)unused;
         }
@@ -192,9 +199,9 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     switch (type) {
     case kShadowDetailed: {
         void* memory = memory::alloc_zeroed(0x24);
-        shadow_handle_ = memory ? static_cast<render::FullShadow*>(memory)->make_new(reinterpret_cast<render::RenderModel*>(model), kDown,
-                                                                                      kCastDistance)
-                           : nullptr;
+        shadow_handle_ = memory ? static_cast<render::FullShadow*>(memory)->make_new(
+                                      reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance)
+                                : nullptr;
         return;
     }
     case kShadowSimple: {
@@ -208,9 +215,9 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     }
     case kShadowVolume: {
         void* memory = memory::alloc(0x68);
-        shadow_handle_ = memory ? static_cast<render::ShadowVolume*>(memory)->make_new(reinterpret_cast<render::RenderModel*>(model), kDown,
-                                                                                   kCastDistance)
-                           : nullptr;
+        shadow_handle_ = memory ? static_cast<render::ShadowVolume*>(memory)->make_new(
+                                      reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance)
+                                : nullptr;
         break;
     }
     default:
@@ -241,7 +248,8 @@ void GroundShadowModule::set_normal(const maths::Vec4* normal) { surface_dir_ = 
 void GroundShadowModule::set_light_direction(const maths::Vec4* direction)
 {
     if (shadow_handle_)
-        reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*)>(get_vtable(shadow_handle_)[3])(shadow_handle_, direction);
+        reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*)>(get_vtable(shadow_handle_)[3])(shadow_handle_,
+                                                                                                      direction);
 }
 
 // 0x00431860
@@ -298,7 +306,7 @@ void GroundShadowModule::tick_frame()
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)
                 pos += entity_->at_point_;
                 matrix = maths::MatrixProduct{reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10),
-                                            &entity_->display_matrix_};
+                                              &entity_->display_matrix_};
             }
             matrix.row[3] = pos;
             shadow_set_matrix(shadow_handle_, &matrix);
@@ -328,25 +336,27 @@ int GroundShadowModule::invoke_method_by_name(uint32_t name, script::Struct* par
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::GroundShadowModule::teardown,
-         &objects::GroundShadowModule::tick_frame,
-         &objects::GroundShadowModule::configure_from_data,
-         &objects::GroundShadowModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         &objects::GroundShadowModule::conceal,
-         render::virtual_slot1_jump,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::GroundShadowModule::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::GroundShadowModule::teardown,
+    &objects::GroundShadowModule::tick_frame,
+    &objects::GroundShadowModule::configure_from_data,
+    &objects::GroundShadowModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    &objects::GroundShadowModule::conceal,
+    render::virtual_slot1_jump,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::GroundShadowModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

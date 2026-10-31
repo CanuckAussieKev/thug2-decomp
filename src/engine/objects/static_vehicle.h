@@ -33,4 +33,4 @@ public:
 };
 static_assert(sizeof(ParkedVehicleModule) == 0x58, "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

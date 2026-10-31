@@ -13,11 +13,11 @@ namespace frontend::level_editor::ux8::pie {
 enum class Kind : uint8_t { kCtxInfo, kView };
 struct Item {
     std::string label;
-    std::string keys;                // as bound now ("" none)
+    std::string keys; // as bound now ("" none)
     std::function<void()> run;
-    std::function<bool()> enabled;   // (greyed when false)
-    std::function<int()> checked;    // 1 on, 0 off, -1 not a switch
-    bool edits = false;              // changes the level (a simulation stops first)
+    std::function<bool()> enabled; // (greyed when false)
+    std::function<int()> checked;  // 1 on, 0 off, -1 not a switch
+    bool edits = false;            // changes the level (a simulation stops first)
 };
 struct State {
     bool open = false;
@@ -39,4 +39,4 @@ constexpr float kDeadzone = 28.0f;
 std::vector<Item> context_items(bool have_selection);
 std::vector<Item> view_items();
 
-} // namespace MenuSystem::level_editor::ux8::Pie
+} // namespace frontend::level_editor::ux8::pie

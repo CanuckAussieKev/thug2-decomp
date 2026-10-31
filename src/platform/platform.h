@@ -15,4 +15,4 @@ void process_window_events();
 // 0x005F44F0 (cdecl): set up input once. False without a window; true if already set up.
 bool init_input(HINSTANCE instance, HWND window, int config);
 
-} // namespace Platform
+} // namespace os_layer

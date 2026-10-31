@@ -55,69 +55,69 @@ using script::Struct;
 namespace thugpro = online::thugpro;
 
 // Names.
-constexpr uint32_t kWidth = 0x73E5BAD0;                       // width
-constexpr uint32_t kTitle = 0xD4C98794;                       // title
-constexpr uint32_t kNetNoticeMsg = 0x170356DF;                // net_notice_msg
-constexpr uint32_t kServerRemovedYouDialog = 0xB836BD2B;      // CreateServerRemovedYouDialog
-constexpr uint32_t kServerMovedOnDialog = 0x2A874456;         // CreateServerMovedOnDialog
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;                // load_mainmenu
-constexpr uint32_t kScavengerAddTime = 0x15B30635;            // goal_scavenger_add_time
-constexpr uint32_t kScavenger = 0x1F3430CE;                   // scavenger (a goal)
-constexpr uint32_t kScavengerInterval = 0x8A6B04AD;           // scavenger_interval
-constexpr uint32_t kScavengerCollectPeriod = 0xD4F04E7F;      // scavenger_collect_period
-constexpr uint32_t kName = 0xA1DC81F9;                        // name
-constexpr uint32_t kOneLeftYou = 0x8C7162C9;                  // ScavengerHuntOneObjectLeftYou
-constexpr uint32_t kOneLeftOther = 0x6343ED6F;                // ScavengerHuntOneObjectLeftOther
-constexpr uint32_t kOneLeftOtherTeam = 0x2834F181;            // ScavengerHuntOneObjectLeftOtherTeam
-constexpr uint32_t kFiveLeftYou = 0x14D1928C;                 // ScavengerHuntFiveObjectsLeftYou
-constexpr uint32_t kFiveLeftOther = 0x53F03C93;               // ScavengerHuntFiveObjectsLeftOther
-constexpr uint32_t kFiveLeftOtherTeam = 0x81FECA4E;           // ScavengerHuntFiveObjectsLeftOtherTeam
-constexpr uint32_t kId = 0x40C698AF;                          // id
-constexpr uint32_t kRemoveHuntItem = 0xAB0B62AA;                  // ScavengerHunt_KillObject
-constexpr uint32_t kIndex = 0x7F8C98FE;                       // index
-constexpr uint32_t kObjId = 0x0830ECAF;                       // ObjId
-constexpr uint32_t kPos = 0x7F261953;                         // pos
-constexpr uint32_t kShowNow = 0x4F285F1E;                     // show_now
-constexpr uint32_t kDropObject = 0x5A968743;                  // DropSHObject
-constexpr uint32_t kShouldModulateColor = 0x11941568;         // should_modulate_color
-constexpr uint32_t kNetFirefight = 0xBFF33600;                // netfirefight
-constexpr uint32_t kAnnounceElimination = 0x9B043179;         // announce_elimination
-constexpr uint32_t kNotifyCheating = 0x1CEDB62C;              // notify_cheating
-constexpr uint32_t kNetElimiskate = 0x10F84276;               // netelimiskate
-constexpr uint32_t kShowLeaderMessages = 0xD63DFD0F;          // show_leader_messages
-constexpr uint32_t kString0 = 0xA4B08520;                     // String0
-constexpr uint32_t kWonGame = 0x96935417;                     // WonGame
-constexpr uint32_t kLostGame = 0xE3EC7E9E;                    // LostGame
-constexpr uint32_t kLeaderYou = 0xA1D334D0;                   // NewScoreLeaderYou
-constexpr uint32_t kLeaderOther = 0x7A4B9D14;                 // NewScoreLeaderOther
-constexpr uint32_t kLeaderYourTeam = 0xA8D9DCC2;              // NewScoreLeaderYourTeam
-constexpr uint32_t kLeaderOtherTeam = 0x6C499C84;             // NewScoreLeaderOtherTeam
-constexpr uint32_t kLevel = 0x651533EC;                       // level
-constexpr uint32_t kRequestLevel = 0x38028FC9;                // request_level
-constexpr uint32_t kLeaveFrontEnd = 0xB89ABE96;               // leave_front_end
-constexpr uint32_t kCleanupBeforeLoading = 0x65ED88DA;        // cleanup_before_loading_level
-constexpr uint32_t kProSetGeoFlag = 0xC12C8094;               // FLAG_PROSET1_GEO_ON
-constexpr uint32_t kFlag = 0x2E0B1465;                        // flag
-constexpr uint32_t kSetFlag = 0x1BC80657;                     // SetFlag
-constexpr uint32_t kNetLobby = 0x1C471C60;                    // netlobby
-constexpr uint32_t kNetCtf = 0x6C5FF266;                      // netctf
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;               // netgoalattack
-constexpr uint32_t kFirefight = 0x3D6D444F;                   // firefight
-constexpr uint32_t kTargetScoreArray = 0x50E63314;            // targetScoreArray
-constexpr uint32_t kHighestScoreArray = 0x1A2C22F9;           // highestScoreArray
-constexpr uint32_t kScore = 0xCD66C8AE;                       // score
-constexpr uint32_t kVictoryConditions = 0x94A24C5E;           // victory_conditions
-constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;            // default_time_limit
-constexpr uint32_t kNetGameTypeInfo = 0x2F94C542;             // net_game_type_info
-constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;              // mp_game_type_info
-constexpr uint32_t kChecksum = 0x21902065;                    // checksum
-constexpr uint32_t kTime = 0x906B67BA;                        // time
-constexpr uint32_t kUnlimitedTime = 0xF0E712D2;               // unlimited_time
-constexpr uint32_t kNetScavengerHunt = 0xFC13B531;            // netscavengerhunt
-constexpr uint32_t kElimiskateInterval = 0xF194FB10;          // StartGoal_ElimiSkate_Interval
-constexpr uint32_t kElimiskateBreak = 0xA420A073;             // StartGoal_ElimiSkate_Break_Period
-constexpr uint32_t kScavengerIntervalGoal = 0x5DF0B0E0;       // StartGoal_Scavenger_Interval
-constexpr uint32_t kScavengerCollectGoal = 0x991E4ABE;        // StartGoal_Scavenger_Collect
+constexpr uint32_t kWidth = 0x73E5BAD0;                  // width
+constexpr uint32_t kTitle = 0xD4C98794;                  // title
+constexpr uint32_t kNetNoticeMsg = 0x170356DF;           // net_notice_msg
+constexpr uint32_t kServerRemovedYouDialog = 0xB836BD2B; // CreateServerRemovedYouDialog
+constexpr uint32_t kServerMovedOnDialog = 0x2A874456;    // CreateServerMovedOnDialog
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;           // load_mainmenu
+constexpr uint32_t kScavengerAddTime = 0x15B30635;       // goal_scavenger_add_time
+constexpr uint32_t kScavenger = 0x1F3430CE;              // scavenger (a goal)
+constexpr uint32_t kScavengerInterval = 0x8A6B04AD;      // scavenger_interval
+constexpr uint32_t kScavengerCollectPeriod = 0xD4F04E7F; // scavenger_collect_period
+constexpr uint32_t kName = 0xA1DC81F9;                   // name
+constexpr uint32_t kOneLeftYou = 0x8C7162C9;             // ScavengerHuntOneObjectLeftYou
+constexpr uint32_t kOneLeftOther = 0x6343ED6F;           // ScavengerHuntOneObjectLeftOther
+constexpr uint32_t kOneLeftOtherTeam = 0x2834F181;       // ScavengerHuntOneObjectLeftOtherTeam
+constexpr uint32_t kFiveLeftYou = 0x14D1928C;            // ScavengerHuntFiveObjectsLeftYou
+constexpr uint32_t kFiveLeftOther = 0x53F03C93;          // ScavengerHuntFiveObjectsLeftOther
+constexpr uint32_t kFiveLeftOtherTeam = 0x81FECA4E;      // ScavengerHuntFiveObjectsLeftOtherTeam
+constexpr uint32_t kId = 0x40C698AF;                     // id
+constexpr uint32_t kRemoveHuntItem = 0xAB0B62AA;         // ScavengerHunt_KillObject
+constexpr uint32_t kIndex = 0x7F8C98FE;                  // index
+constexpr uint32_t kObjId = 0x0830ECAF;                  // ObjId
+constexpr uint32_t kPos = 0x7F261953;                    // pos
+constexpr uint32_t kShowNow = 0x4F285F1E;                // show_now
+constexpr uint32_t kDropObject = 0x5A968743;             // DropSHObject
+constexpr uint32_t kShouldModulateColor = 0x11941568;    // should_modulate_color
+constexpr uint32_t kNetFirefight = 0xBFF33600;           // netfirefight
+constexpr uint32_t kAnnounceElimination = 0x9B043179;    // announce_elimination
+constexpr uint32_t kNotifyCheating = 0x1CEDB62C;         // notify_cheating
+constexpr uint32_t kNetElimiskate = 0x10F84276;          // netelimiskate
+constexpr uint32_t kShowLeaderMessages = 0xD63DFD0F;     // show_leader_messages
+constexpr uint32_t kString0 = 0xA4B08520;                // String0
+constexpr uint32_t kWonGame = 0x96935417;                // WonGame
+constexpr uint32_t kLostGame = 0xE3EC7E9E;               // LostGame
+constexpr uint32_t kLeaderYou = 0xA1D334D0;              // NewScoreLeaderYou
+constexpr uint32_t kLeaderOther = 0x7A4B9D14;            // NewScoreLeaderOther
+constexpr uint32_t kLeaderYourTeam = 0xA8D9DCC2;         // NewScoreLeaderYourTeam
+constexpr uint32_t kLeaderOtherTeam = 0x6C499C84;        // NewScoreLeaderOtherTeam
+constexpr uint32_t kLevel = 0x651533EC;                  // level
+constexpr uint32_t kRequestLevel = 0x38028FC9;           // request_level
+constexpr uint32_t kLeaveFrontEnd = 0xB89ABE96;          // leave_front_end
+constexpr uint32_t kCleanupBeforeLoading = 0x65ED88DA;   // cleanup_before_loading_level
+constexpr uint32_t kProSetGeoFlag = 0xC12C8094;          // FLAG_PROSET1_GEO_ON
+constexpr uint32_t kFlag = 0x2E0B1465;                   // flag
+constexpr uint32_t kSetFlag = 0x1BC80657;                // SetFlag
+constexpr uint32_t kNetLobby = 0x1C471C60;               // netlobby
+constexpr uint32_t kNetCtf = 0x6C5FF266;                 // netctf
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;          // netgoalattack
+constexpr uint32_t kFirefight = 0x3D6D444F;              // firefight
+constexpr uint32_t kTargetScoreArray = 0x50E63314;       // targetScoreArray
+constexpr uint32_t kHighestScoreArray = 0x1A2C22F9;      // highestScoreArray
+constexpr uint32_t kScore = 0xCD66C8AE;                  // score
+constexpr uint32_t kVictoryConditions = 0x94A24C5E;      // victory_conditions
+constexpr uint32_t kDefaultTimeLimit = 0x8D38A280;       // default_time_limit
+constexpr uint32_t kNetGameTypeInfo = 0x2F94C542;        // net_game_type_info
+constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;         // mp_game_type_info
+constexpr uint32_t kChecksum = 0x21902065;               // checksum
+constexpr uint32_t kTime = 0x906B67BA;                   // time
+constexpr uint32_t kUnlimitedTime = 0xF0E712D2;          // unlimited_time
+constexpr uint32_t kNetScavengerHunt = 0xFC13B531;       // netscavengerhunt
+constexpr uint32_t kElimiskateInterval = 0xF194FB10;     // StartGoal_ElimiSkate_Interval
+constexpr uint32_t kElimiskateBreak = 0xA420A073;        // StartGoal_ElimiSkate_Break_Period
+constexpr uint32_t kScavengerIntervalGoal = 0x5DF0B0E0;  // StartGoal_Scavenger_Interval
+constexpr uint32_t kScavengerCollectGoal = 0x991E4ABE;   // StartGoal_Scavenger_Collect
 
 constexpr uint8_t kSymbolChecksum = 0xD; // kQbvalName
 constexpr uint8_t kSymbolString = 3;     // kQbvalString
@@ -128,7 +128,10 @@ uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(g_skate_module); }
 uint8_t* net_session_slot() { return reinterpret_cast<uint8_t*>(online::g_online_hub); }
 online::Hub* gn(uint8_t* net = net_session_slot()) { return reinterpret_cast<online::Hub*>(net); }
 uint8_t* get_game_mode() { return reinterpret_cast<uint8_t*>(goals::g_game_mode); }
-objects::ObjectHubBase* entity_hub_handle() { return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry); }
+objects::ObjectHubBase* entity_hub_handle()
+{
+    return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+}
 uint8_t* objective_board() { return reinterpret_cast<uint8_t*>(goals::get_objective_board()); }
 
 template <typename T>
@@ -175,7 +178,10 @@ objects::Rider* get_skater(uint8_t* skater) { return reinterpret_cast<objects::R
 objects::Entity* player_skater(const uint8_t* player) { return prop<objects::Entity*>(player, 0x14); }
 
 // A goal by name (the goal manager's 0x00557F90) and two of its virtuals: +0xC is it active, +0x14 its update.
-uint8_t* get_goal(uint8_t* manager, uint32_t name) { return reinterpret_cast<uint8_t*>(reinterpret_cast<goals::GoalManager*>(manager)->get_goal(name, 1)); }
+uint8_t* get_goal(uint8_t* manager, uint32_t name)
+{
+    return reinterpret_cast<uint8_t*>(reinterpret_cast<goals::GoalManager*>(manager)->get_goal(name, 1));
+}
 bool goal_virtual_bool(uint8_t* goal, int offset)
 {
     return reinterpret_cast<bool(__thiscall*)(uint8_t*)>(prop<void**>(goal, 0)[offset / 4])(goal);
@@ -193,24 +199,24 @@ struct PlayerSearch {
 
 // A skater's state history (+0x27C): the newest of 20 entries at count % 20.
 struct StateEntry {
-    int16_t pos[3];         // +0x00 the position, in half units (y in quarters)
+    int16_t pos[3]; // +0x00 the position, in half units (y in quarters)
     uint16_t pad06;
-    maths::Mat4 matrix;     // +0x08 from the angles
-    maths::Vec4 position;   // +0x48 (w 0)
-    float angles[3];        // +0x58
+    maths::Mat4 matrix;   // +0x08 from the angles
+    maths::Vec4 position; // +0x48 (w 0)
+    float angles[3];      // +0x58
     uint32_t unknown64;
-    uint32_t value68;       // +0x68 (5 bits)
-    uint32_t value_6c_;       // +0x6C (3 bits)
-    int state;              // +0x70 (3 bits; kept as a signed byte)
-    uint8_t flag74;         // +0x74 (always 0 from a message: bit 7 of a 4-bit value)
-    uint8_t flag75;         // +0x75
-    uint8_t flag76;         // +0x76
+    uint32_t value68;   // +0x68 (5 bits)
+    uint32_t value_6c_; // +0x6C (3 bits)
+    int state;          // +0x70 (3 bits; kept as a signed byte)
+    uint8_t flag74;     // +0x74 (always 0 from a message: bit 7 of a 4-bit value)
+    uint8_t flag75;     // +0x75
+    uint8_t flag76;     // +0x76
     uint8_t pad77;
-    uint16_t time;          // +0x78 the message's time stamp
-    uint16_t wraps;         // +0x7A the times the time stamp went back
-    uint8_t value_7c_;        // +0x7C (6 bits)
+    uint16_t time;     // +0x78 the message's time stamp
+    uint16_t wraps;    // +0x7A the times the time stamp went back
+    uint8_t value_7c_; // +0x7C (6 bits)
     uint8_t pad7d_[3];
-    uint32_t value80;       // +0x80 (32 bits)
+    uint32_t value80; // +0x80 (32 bits)
 };
 static_assert(sizeof(StateEntry) == 0x84 && offsetof(StateEntry, angles) == 0x58 &&
                   offsetof(StateEntry, value80) == 0x80,
@@ -235,7 +241,8 @@ uint8_t* new_task(uint8_t* skate, uint32_t code)
     return task;
 }
 
-void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data, int priority = 0x80)
+void append_listener(net::AppHost* app, int id, net::HandlerSlotValue code, uint32_t flags, void* data,
+                     int priority = 0x80)
 {
     app->dispatcher_.append_listener(static_cast<uint8_t>(id), code, flags, data, priority);
 }
@@ -358,10 +365,13 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
     append_listener(client, 0x99, handle_place_tag, 0, this);
     // The handlers of this client's own skaters.
     for (uint32_t i = 0; i < 8; ++i) {
-        uint8_t* skater = reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(this)->get_rider_at(static_cast<int>(i)));
+        uint8_t* skater =
+            reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(this)->get_rider_at(static_cast<int>(i)));
         if (!skater || !prop<bool>(skater, 0xBC) || get_skater(skater)->get_skater_number() != index)
             continue;
-        append_listener(client, 0x3B, reinterpret_cast<net::HandlerSlotValue>(code_address(modules::PointTally::on_score_msg)), 0, skater);
+        append_listener(client, 0x3B,
+                        reinterpret_cast<net::HandlerSlotValue>(code_address(modules::PointTally::on_score_msg)), 0,
+                        skater);
         append_listener(client, 0x44, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
         append_listener(client, 0x43, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
         append_listener(client, 0x85, &objects::RiderFrameLog::handle_hit_messages, 0, skater);
@@ -491,7 +501,8 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
 {
     auto* data = reinterpret_cast<const uint8_t*>(context->body_);
-    uint8_t* player = find_player_slot_by_obj(static_cast<uint32_t>(static_cast<int16_t>(static_cast<int8_t>(data[0]))));
+    uint8_t* player =
+        find_player_slot_by_obj(static_cast<uint32_t>(static_cast<int16_t>(static_cast<int8_t>(data[0]))));
     if (!player)
         return 4;
     prop<int>(player, 0x34) = *reinterpret_cast<const int*>(data + 4);
@@ -528,10 +539,11 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
         array->configure_size_kind(data[i], static_cast<script::QbValueKind>(kSymbolChecksum));
         for (int j = 0; j < static_cast<int>(data[i]); ++j)
             array->set_element(static_cast<uint32_t>(j),
-                              reinterpret_cast<objects::TrickSpotHub*>(profiles)->get_cluster_name(*colors++));
+                               reinterpret_cast<objects::TrickSpotHub*>(profiles)->get_cluster_name(*colors++));
         char name[32];
         std::sprintf(name, "Skater%d", i);
-        params->append_array_value(checksums::hash_from_text(name), array); // (the array isn't freed: the original's too)
+        params->append_array_value(checksums::hash_from_text(name),
+                                   array); // (the array isn't freed: the original's too)
     }
     reinterpret_cast<objects::TrickParamSet*>(profiles)->change_args(params); // (on the manager: its +0x38)
     reinterpret_cast<objects::TrickSpotHub*>(profiles)->apply_player_graffiti();
@@ -547,7 +559,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     auto* skate = static_cast<uint8_t*>(context->content_);
     uint8_t* net = net_session_slot();
     if (!gn(net)->get_on_server())
-        reinterpret_cast<goals::MatchRules*>(get_game_mode())->set_goal_time_left(static_cast<int>(*reinterpret_cast<const uint32_t*>(data)));
+        reinterpret_cast<goals::MatchRules*>(get_game_mode())
+            ->set_goal_time_left(static_cast<int>(*reinterpret_cast<const uint32_t*>(data)));
     // Each skater's score: [9] entries of 5 bytes from [10] - the object's id, its score.
     const uint8_t* entry = data + 10;
     for (int i = 0; i < static_cast<int8_t>(data[9]); ++i) {
@@ -559,14 +572,16 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
             continue;
         auto* skater = reinterpret_cast<uint8_t*>(object);
         uint8_t* score;
-        if (!reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_true(kShouldModulateColor) && reinterpret_cast<goals::MatchRules*>(get_game_mode())->keeps_move_points()) {
+        if (!reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_true(kShouldModulateColor) &&
+            reinterpret_cast<goals::MatchRules*>(get_game_mode())->keeps_move_points()) {
             if (prop<bool>(skater, 0xBC)) // (a local skater keeps its own)
                 continue;
             score = static_cast<uint8_t*>(get_skater(skater)->get_points_total());
         } else {
             score = static_cast<uint8_t*>(get_skater(skater)->get_points_total());
-            if (reinterpret_cast<goals::MatchRules*>(get_game_mode())->get_name_key() == kNetFirefight && !prop<bool>(skater, 0xBC) &&
-                reinterpret_cast<modules::PointTally*>(score)->get_total_score() > 0 && value == 0) {
+            if (reinterpret_cast<goals::MatchRules*>(get_game_mode())->get_name_key() == kNetFirefight &&
+                !prop<bool>(skater, 0xBC) && reinterpret_cast<modules::PointTally*>(score)->get_total_score() > 0 &&
+                value == 0) {
                 // Eliminated.
                 if (uint8_t* player = find_player_slot_by_obj(object->ident_))
                     details_of(player)->mark_eliminated();
@@ -581,13 +596,16 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
     }
     if (data[8])
         gn(net)->set_final_scores_received(true);
-    if (*reinterpret_cast<const int*>(data + 4) != static_cast<int>(reinterpret_cast<modules::Skate*>(skate)->get_cheats()) && !gn(net)->cheating_noted()) {
+    if (*reinterpret_cast<const int*>(data + 4) !=
+            static_cast<int>(reinterpret_cast<modules::Skate*>(skate)->get_cheats()) &&
+        !gn(net)->cheating_noted()) {
         get_run(kNotifyCheating);
         gn(net)->note_cheating();
     }
     bool final = data[8] != 0;
     char text[128];
-    if ((reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_squad_match() != 0) && reinterpret_cast<goals::MatchRules*>(get_game_mode())->get_name_key() != kNetElimiskate) {
+    if ((reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_squad_match() != 0) &&
+        reinterpret_cast<goals::MatchRules*>(get_game_mode())->get_name_key() != kNetElimiskate) {
         // The leading team (none on a tie).
         int teams = reinterpret_cast<goals::MatchRules*>(get_game_mode())->current_num_teams();
         int best = -1;
@@ -610,7 +628,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
                 skater->post_own_event(prop<int>(local, 0x30) == best ? kWonGame : kLostGame, nullptr);
             return 1;
         }
-        if (gn(net)->get_last_leading_team() == best || !reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_true(kShowLeaderMessages) ||
+        if (gn(net)->get_last_leading_team() == best ||
+            !reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_true(kShowLeaderMessages) ||
             gn(net)->has_match_ended())
             return 1;
         if (player_skater(local) && prop<int>(local, 0x30) == best) {
@@ -654,7 +673,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         return 1;
     }
     if (static_cast<uint8_t*>(gn(net)->get_last_leader()) == best || count <= 1 ||
-        !reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_true(kShowLeaderMessages) || objects::g_simulation_halted)
+        !reinterpret_cast<goals::MatchRules*>(get_game_mode())->is_true(kShowLeaderMessages) ||
+        objects::g_simulation_halted)
         return 1;
     if (is_own_player(best)) {
         get_run(kLeaderYou, nullptr, player_skater(best));
@@ -693,7 +713,8 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     get_run(kLeaveFrontEnd);
     get_run(kCleanupBeforeLoading);
     conn->stamp_last_heard(0);
-    reinterpret_cast<goals::MatchRules*>(get_game_mode())->set_rider_ceiling(static_cast<int>(static_cast<int8_t>(data[4])));
+    reinterpret_cast<goals::MatchRules*>(get_game_mode())
+        ->set_rider_ceiling(static_cast<int>(static_cast<int8_t>(data[4])));
     reinterpret_cast<goals::MatchRules*>(get_game_mode())->apply_match_style(u32(0xC));
     reinterpret_cast<modules::Skate*>(skate)->launch_game();
     reinterpret_cast<goals::MatchRules*>(get_game_mode())->apply_match_style(u32(0xC));
@@ -909,19 +930,19 @@ uint32_t entry_time(const StateEntry& entry) { return static_cast<uint32_t>(entr
 // The server's record of what it last sent one client about each of the 8 skaters (by object id).
 struct RelaySent {
     uint8_t unknown0[0x50];
-    uint32_t forced_frame_[8];   // +0x50 the server app's frame when everything was last sent
+    uint32_t forced_frame_[8]; // +0x50 the server app's frame when everything was last sent
     uint32_t time[8];          // +0x70 the entry's time stamp last sent
-    uint8_t value_7c_[8];        // +0x90
+    uint8_t value_7c_[8];      // +0x90
     uint8_t flag75[8];         // +0x98
     uint8_t flag76[8];         // +0xA0
     int16_t pos[8][3];         // +0xA8
     int16_t angles[8][3];      // +0xD8
     uint32_t value68[8];       // +0x108
-    uint32_t value_6c_[8];       // +0x128
+    uint32_t value_6c_[8];     // +0x128
     uint8_t state[8];          // +0x148
     uint8_t flag74[8];         // +0x150
     uint8_t unknown158[8];
-    uint32_t value80[8];       // +0x160
+    uint32_t value80[8]; // +0x160
 };
 static_assert(offsetof(RelaySent, time) == 0x70 && offsetof(RelaySent, pos) == 0xA8 &&
                   offsetof(RelaySent, angles) == 0xD8 && offsetof(RelaySent, value68) == 0x108 &&
@@ -948,14 +969,15 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
     // Everything again once 60 of the server's frames have gone by.
     uint32_t frame = server_frame();
     uint32_t since = frame > sent->forced_frame_[index] ? server_frame() - sent->forced_frame_[index]
-                                                       : sent->forced_frame_[index] - server_frame();
+                                                        : sent->forced_frame_[index] - server_frame();
     bool force = since >= 60;
     if (force)
         sent->forced_frame_[index] = server_frame();
     float angles[3] = {entry->angles[0], entry->angles[1], entry->angles[2]};
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value = k == 1 ? thugpro::pack_height((&entry->position.x)[1]) : thugpro::pack_horizontal((&entry->position.x)[k]);
+        int16_t value =
+            k == 1 ? thugpro::pack_height((&entry->position.x)[1]) : thugpro::pack_horizontal((&entry->position.x)[k]);
         if (value != sent->pos[index][k] || force)
             flags |= 1u << k;
     }
@@ -991,7 +1013,8 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     stream.write_bits(flags, 9);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
-        int16_t value = k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal((&entry.position.x)[k]);
+        int16_t value =
+            k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal((&entry.position.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
         sent->pos[index][k] = value;
@@ -1003,7 +1026,9 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         sent->angles[index][k] = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
-    auto signed_byte = [](uint8_t value) { return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value))); };
+    auto signed_byte = [](uint8_t value) {
+        return static_cast<uint32_t>(static_cast<int>(static_cast<int8_t>(value)));
+    };
     uint8_t value_7c = entry.value_7c_, state = static_cast<uint8_t>(entry.state), flag74 = entry.flag74;
     uint8_t flag75 = entry.flag75, flag76 = entry.flag76;
     if (flags & 0x40) {
@@ -1110,8 +1135,8 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     matrix.set_from_euler_angles(angles[0], angles[1], angles[2]);
     cur.matrix = matrix;
     // (TP-R6: whole units in a big level)
-    cur.position = {thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]), thugpro::unpack_horizontal(pos[2]),
-                    0.0f};
+    cur.position = {thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
+                    thugpro::unpack_horizontal(pos[2]), 0.0f};
     cur.time = static_cast<uint16_t>(time);
     cur.wraps = static_cast<uint16_t>(time >> 16);
     for (int k = 0; k < 3; ++k) {
@@ -1130,4 +1155,4 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     return 1;
 }
 
-} // namespace Mdl
+} // namespace modules

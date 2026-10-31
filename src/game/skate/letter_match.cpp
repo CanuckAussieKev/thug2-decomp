@@ -19,26 +19,27 @@ namespace modules {
 
 namespace {
 
-constexpr uint32_t kHorse = 0x9D65D0E7;            // Horse (the restarts' type)
-constexpr uint32_t kHorsePreRun = 0x5078BC7C;      // horseprerun
-constexpr uint32_t kYouAreA = 0x2523853D;          // youarea
-constexpr uint32_t kHorsePostRun = 0x2A13F850;     // horsepostrun
-constexpr uint32_t kPanelString2 = 0x478970CD;     // panelString2
-constexpr uint32_t kFinalWord = 0x5F7D73E9;        // finalword
-constexpr uint32_t kPlayerName = 0x9196D920;       // playerName
-constexpr uint32_t kPanelString1 = 0xDE802177;     // panelString1
-constexpr uint32_t kIsAn = 0x8DF39CE4;             // horse_str_isan
-constexpr uint32_t kIsA = 0xFB911171;              // horse_str_isa
-constexpr uint32_t kTargetScoreText = 0xA32FE78F;      // horse_str_scoretobeat
-constexpr uint32_t kSetScore = 0x695BC447;         // horse_str_setscore
-constexpr uint32_t kSetScoreIs = 0x5E024658;       // horse_str_setscoreis
-constexpr uint32_t kGetsTheLetter = 0xB470755A;    // horse_str_getstheletter
-constexpr uint32_t kNoScoreSet = 0x7C61AA4A;       // horse_str_noscoreset
-constexpr uint32_t kYouTied = 0x334622A1;          // horse_str_youtiedthetargetscore
+constexpr uint32_t kHorse = 0x9D65D0E7;           // Horse (the restarts' type)
+constexpr uint32_t kHorsePreRun = 0x5078BC7C;     // horseprerun
+constexpr uint32_t kYouAreA = 0x2523853D;         // youarea
+constexpr uint32_t kHorsePostRun = 0x2A13F850;    // horsepostrun
+constexpr uint32_t kPanelString2 = 0x478970CD;    // panelString2
+constexpr uint32_t kFinalWord = 0x5F7D73E9;       // finalword
+constexpr uint32_t kPlayerName = 0x9196D920;      // playerName
+constexpr uint32_t kPanelString1 = 0xDE802177;    // panelString1
+constexpr uint32_t kIsAn = 0x8DF39CE4;            // horse_str_isan
+constexpr uint32_t kIsA = 0xFB911171;             // horse_str_isa
+constexpr uint32_t kTargetScoreText = 0xA32FE78F; // horse_str_scoretobeat
+constexpr uint32_t kSetScore = 0x695BC447;        // horse_str_setscore
+constexpr uint32_t kSetScoreIs = 0x5E024658;      // horse_str_setscoreis
+constexpr uint32_t kGetsTheLetter = 0xB470755A;   // horse_str_getstheletter
+constexpr uint32_t kNoScoreSet = 0x7C61AA4A;      // horse_str_noscoreset
+constexpr uint32_t kYouTied = 0x334622A1;         // horse_str_youtiedthetargetscore
 
 // The statuses (0x0067F340, null-terminated): GotLetter, TieScore, BeatScore, 0xAE7D29B0 (the game over), idle,
 // NoScoreSet.
-uint32_t g_horse_statuses[7]{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0, 0x23DB4AEA, 0xA71DD8EB, 0x00000000}; // (zero-terminated)
+uint32_t g_horse_statuses[7]{0x0FD80EBA, 0x006BE86F, 0xBAA12466, 0xAE7D29B0,
+                             0x23DB4AEA, 0xA71DD8EB, 0x00000000}; // (zero-terminated)
 const uint32_t* statuses() { return g_horse_statuses; }
 enum StatusIndex { kGotLetter = 0, kTieScore = 1, kBeatScore = 2, kMatchEnded = 3, kIdle = 4, kNoScoreSetStatus = 5 };
 
@@ -147,7 +148,7 @@ int LetterMatch::fetch_next_live_rider()
         if (get_skater(static_cast<uint32_t>(id)))
             break;
     }
-    debug::printf("new skater id = %d\n", id); // "new skater id = %d\n"
+    debug::printf("new skater id = %d\n", id);  // "new skater id = %d\n"
     if (script::fetch_int_value("debug_horse")) // "debug_horse"
         return 0;
     return id;
@@ -168,7 +169,9 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
                       word.c_str()); // "%s: %s"
         break;
     }
-    case kHorsePostRun: dup_from(text, panel_); break;
+    case kHorsePostRun:
+        dup_from(text, panel_);
+        break;
     case kYouAreA: {
         char first = get_upper(word_[0]);
         bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
@@ -184,12 +187,16 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         } else
             std::snprintf(text, sizeof(text), script::fetch_text(kSetScore));
         break;
-    case kFinalWord: std::snprintf(text, sizeof(text), "%s", word_); break;
-    case kPlayerName:
-        std::snprintf(text, sizeof(text), "%s",
-                      get_skater(*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x14))->fetch_shown_name());
+    case kFinalWord:
+        std::snprintf(text, sizeof(text), "%s", word_);
         break;
-    default: break;
+    case kPlayerName:
+        std::snprintf(
+            text, sizeof(text), "%s",
+            get_skater(*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x14))->fetch_shown_name());
+        break;
+    default:
+        break;
     }
     return text::Chars(text);
 }
@@ -240,4 +247,4 @@ void LetterMatch::swap_riders()
     skater_ = id;
 }
 
-} // namespace Mdl
+} // namespace modules

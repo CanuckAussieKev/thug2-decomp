@@ -56,12 +56,12 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
         --start;
     checksum_ = checksums::hash_from_text(path + start);
     return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, const char*, int, int)>(vtable[1])(this, path, in_images,
-                                                                                         argument);
+                                                                                                 argument);
 }
 
 // 0x0049F300
 bool BitmapTexture::read_from_ram_block(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3, uint32_t a4,
-                              uint32_t a5)
+                                        uint32_t a5)
 {
     checksum_ = checksum;
     return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, const uint8_t*, uint32_t, uint32_t, uint32_t, uint32_t)>(
@@ -70,11 +70,12 @@ bool BitmapTexture::read_from_ram_block(const uint8_t* data, uint32_t size, uint
 
 // 0x0049F330
 bool BitmapTexture::fabricate(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel, uint32_t a4,
-                      uint32_t a5)
+                              uint32_t a5)
 {
     checksum_ = checksum;
-    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        vtable[3])(this, checksum, width, height, bits_per_pixel, a4, a5);
+    return reinterpret_cast<bool(__thiscall*)(BitmapTexture*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                                              uint32_t)>(vtable[3])(this, checksum, width, height, bits_per_pixel, a4,
+                                                                    a5);
 }
 
 // 0x0049F3F0
@@ -179,17 +180,49 @@ __declspec(naked) void virtual_slot41_jump()
 }
 
 namespace {
-static VtableSlot g_texture_vtable_slots[] = {&render::BitmapTexture::teardown, &render::ViewRegion::query_point, stubs::return_false5,
-                &render::ViewRegion::query_rect, stubs::return_false1, stubs::return_false4, stubs::return_false1,
-                stubs::return_false1, stubs::return_false2, stubs::return_false2, stubs::return_false, stubs::return_false5,
-                stubs::return_false2, stubs::return_false, stubs::return_false, stubs::return_false2, stubs::return_false2,
-                &render::ViewRegion::query_point, stubs::return_false4, stubs::return_false1, stubs::return_false7,
-                &render::ViewRegion::query_point, stubs::return_false5, stubs::return_false2, stubs::return_false4,
-                stubs::return_zero, stubs::return_zero, stubs::return_zero, stubs::return_zero, stubs::ignore_arguments2,
-                stubs::return_false1, stubs::return_false, stubs::return_false, stubs::return_zero_word,
-                stubs::return_zero_word, stubs::return_false, stubs::return_zero, stubs::ignore_argument, stubs::return_false,
-                stubs::return_false, stubs::return_false, stubs::return_false2};
+static VtableSlot g_texture_vtable_slots[] = {&render::BitmapTexture::teardown,
+                                              &render::ViewRegion::query_point,
+                                              stubs::return_false5,
+                                              &render::ViewRegion::query_rect,
+                                              stubs::return_false1,
+                                              stubs::return_false4,
+                                              stubs::return_false1,
+                                              stubs::return_false1,
+                                              stubs::return_false2,
+                                              stubs::return_false2,
+                                              stubs::return_false,
+                                              stubs::return_false5,
+                                              stubs::return_false2,
+                                              stubs::return_false,
+                                              stubs::return_false,
+                                              stubs::return_false2,
+                                              stubs::return_false2,
+                                              &render::ViewRegion::query_point,
+                                              stubs::return_false4,
+                                              stubs::return_false1,
+                                              stubs::return_false7,
+                                              &render::ViewRegion::query_point,
+                                              stubs::return_false5,
+                                              stubs::return_false2,
+                                              stubs::return_false4,
+                                              stubs::return_zero,
+                                              stubs::return_zero,
+                                              stubs::return_zero,
+                                              stubs::return_zero,
+                                              stubs::ignore_arguments2,
+                                              stubs::return_false1,
+                                              stubs::return_false,
+                                              stubs::return_false,
+                                              stubs::return_zero_word,
+                                              stubs::return_zero_word,
+                                              stubs::return_false,
+                                              stubs::return_zero,
+                                              stubs::ignore_argument,
+                                              stubs::return_false,
+                                              stubs::return_false,
+                                              stubs::return_false,
+                                              stubs::return_false2};
 void** const kTextureVtable = reinterpret_cast<void**>(g_texture_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

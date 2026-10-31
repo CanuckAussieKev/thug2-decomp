@@ -27,26 +27,24 @@
 
 namespace objects {
 
-uint32_t g_fam_member_functions[18]{
-            0xE5894C80, 0x0301D67C, 0, 0, 0, 0,
-            0x48AC2139, 0x0301D67C, 0, 0, 0, 0,
-            0, 0x0301D67C, 0, 0, 0, 0};
+uint32_t g_fam_member_functions[18]{0xE5894C80, 0x0301D67C, 0, 0, 0,          0, 0x48AC2139, 0x0301D67C, 0,
+                                    0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0};
 
 namespace {
 
 extern void** const kVtable;
 
-constexpr uint32_t kFamScript = 0x074253BB;      // fam_play_stream
-constexpr uint32_t kStreamChecksum = 0x0572EA28; // stream_checksum
-constexpr uint32_t kVol = 0xF6A36814;            // vol
-constexpr uint32_t kPriority = 0x9D5923D8;       // priority
-constexpr uint32_t kUsePosInfo = 0xC9B0DEB7;     // use_pos_info
-constexpr uint32_t kStreamId = 0x8A68AB90;       // streamId
-constexpr uint32_t kPlayAnim = 0x93516575;       // play_anim
-constexpr uint32_t kTypeParam = 0x7321A8D6;      // type
-constexpr uint32_t kId = 0x40C698AF;             // id
-constexpr uint32_t kPartialAnim = 0x659BF355;    // partialAnim
-constexpr uint32_t kJawRotation = 0xC0BA0665;    // jawRotation
+constexpr uint32_t kFamScript = 0x074253BB;            // fam_play_stream
+constexpr uint32_t kStreamChecksum = 0x0572EA28;       // stream_checksum
+constexpr uint32_t kVol = 0xF6A36814;                  // vol
+constexpr uint32_t kPriority = 0x9D5923D8;             // priority
+constexpr uint32_t kUsePosInfo = 0xC9B0DEB7;           // use_pos_info
+constexpr uint32_t kStreamId = 0x8A68AB90;             // streamId
+constexpr uint32_t kPlayAnim = 0x93516575;             // play_anim
+constexpr uint32_t kTypeParam = 0x7321A8D6;            // type
+constexpr uint32_t kId = 0x40C698AF;                   // id
+constexpr uint32_t kPartialAnim = 0x659BF355;          // partialAnim
+constexpr uint32_t kJawRotation = 0xC0BA0665;          // jawRotation
 constexpr uint32_t kRemoveAnimController = 0x986D274E; // RemoveAnimController
 constexpr int kDefaultPriority = 0x66;
 
@@ -84,8 +82,7 @@ ObjectModule* __cdecl FamComponent::fabricate()
 // 0x0041D170
 void __cdecl FamComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kType), g_fam_member_functions,
-                                        0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kType), g_fam_member_functions, 0x18);
 }
 
 // 0x0041D190
@@ -114,7 +111,8 @@ void FamComponent::unload_fam()
     params->put_name_key(kTypeParam, kPartialAnim);
     params->put_name_key(kId, kJawRotation);
     if (entity_)
-        entity_->fetch_module(AnimBlenderComponent::kType)->invoke_method_by_name(kRemoveAnimController, params, nullptr);
+        entity_->fetch_module(AnimBlenderComponent::kType)
+            ->invoke_method_by_name(kRemoveAnimController, params, nullptr);
     delete_params(params);
     assets::ResourceRegistry* assets = asset_manager();
     if (assets::Resource* asset = assets->obtain_loaded_item(fam_, 0))
@@ -127,7 +125,8 @@ void FamComponent::load_anim_bank(uint32_t name, uint32_t anim_set)
 {
     unload_fam();
     char file_name[32];
-    std::snprintf(file_name, sizeof(file_name), "fam\\%08x.fam", name); // (the original: the game's sprintf, 0x006234FE)
+    std::snprintf(file_name, sizeof(file_name), "fam\\%08x.fam",
+                  name); // (the original: the game's sprintf, 0x006234FE)
     debug::printf("loading %s\n", file_name);
     assets::ResourceRegistry* assets = asset_manager();
     int saved = assets->unknown18_;
@@ -192,25 +191,25 @@ int FamComponent::obj_stop_last_fam(script::Struct*, script::Script*)
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::FamComponent::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -51,15 +51,15 @@ enum class Ramp : uint8_t { kNone, kKicker, kQuarter };
 enum Flank { kMinusX, kPlusX, kMinusZ, kPlusZ };
 
 struct Spec {
-    std::string name;  // ed_ground01 (the sector's name)
+    std::string name; // ed_ground01 (the sector's name)
     bool lower = false;
     float x0 = 0.0f, z0 = 0.0f, x1 = 0.0f, z1 = 0.0f; // the rectangle (x0 < x1, z0 < z1)
-    float base = 0.0f;   // the ground's height there
+    float base = 0.0f;                                // the ground's height there
     float height = 200.0f;
     std::array<Ramp, 4> ramps = {Ramp::kNone, Ramp::kNone, Ramp::kNone, Ramp::kNone}; // by Side
-    float length = 0.0f; // the ramps' (0: automatic)
-    uint32_t material = 0; // the donor sector (its material and vertex format)
-    float uv = 256.0f;   // world units per texture repeat
+    float length = 0.0f;                                                              // the ramps' (0: automatic)
+    uint32_t material = 0;         // the donor sector (its material and vertex format)
+    float uv = 256.0f;             // world units per texture repeat
     uint32_t colour = 0xFF808080u; // ARGB
     uint16_t terrain = 0;
     std::vector<uint32_t> hides; // (lower) the floor tiles hidden
@@ -69,10 +69,10 @@ bool same_spec(const Spec& a, const Spec& b);
 constexpr float kMinHeight = 10.0f, kCeilingY = 2000.0f;
 constexpr float kMinSide = 50.0f, kMaxSide = 8000.0f;
 constexpr float kMaxLength = 4000.0f;
-constexpr float kSink = 4.0f;        // walls go this far below the ground (no seam on uneven ground)
-constexpr int kQuarterSegments = 8;  // a quarter pipe's faces along its curve
+constexpr float kSink = 4.0f;       // walls go this far below the ground (no seam on uneven ground)
+constexpr int kQuarterSegments = 8; // a quarter pipe's faces along its curve
 constexpr uint16_t kFlagDeck = 0x0001, kFlagRamp = 0x0001, kFlagVert = 0x0009, kFlagWall = 0x0004;
-constexpr int kMaxFaces = 2048;      // (a geometry with no tree lists every face through a table of 2048 - coll_tri.h)
+constexpr int kMaxFaces = 2048; // (a geometry with no tree lists every face through a table of 2048 - coll_tri.h)
 
 // The rectangle put in order, sizes and lengths kept within the limits, the uv scale sensible (false: not a number).
 bool normalise(Spec* spec);
@@ -164,4 +164,4 @@ void reset_all();
 // Drawing a spec's piece as lines (the form's preview, a selected piece's outline).
 void add_preview(const overlays::Painter& painter, const Spec& spec, uint32_t argb);
 
-} // namespace MenuSystem::level_editor::Ground
+} // namespace frontend::level_editor::ground

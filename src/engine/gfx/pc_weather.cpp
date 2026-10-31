@@ -42,7 +42,10 @@ constexpr int kNoGround = 800000; // (a cell's height when the cast hit nothing)
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
-uint32_t get_argb(const uint8_t* rgba) { return uint32_t(rgba[3]) << 24 | uint32_t(rgba[0]) << 16 | uint32_t(rgba[1]) << 8 | rgba[2]; }
+uint32_t get_argb(const uint8_t* rgba)
+{
+    return uint32_t(rgba[3]) << 24 | uint32_t(rgba[0]) << 16 | uint32_t(rgba[1]) << 8 | rgba[2];
+}
 
 // The frame's draw counts.
 void count_draw(uint32_t primitives)
@@ -340,7 +343,8 @@ void PcWeather::render_snow(float x, float z)
                 used += 4;
                 out += 4;
                 if (used >= 0x7FC) {
-                    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points, 0x10); // (a quarter, as the original)
+                    input_port()->DrawPrimitiveUP(D3DPT_POINTLIST, used >> 4, points,
+                                                  0x10); // (a quarter, as the original)
                     count_draw(used >> 4);
                     used = 0;
                     out = points;
@@ -487,7 +491,7 @@ void PcWeather::tick_grid()
             at.y = -50000.0f;
             feeler.change_finish(&at);
             int height = feeler.get_hit_shape(false, false) ? ftol(static_cast<double>(feeler.contact_pos_.y) * 16.0f)
-                                                           : kNoGround;
+                                                            : kNoGround;
             int found = -1;
             for (int i = 0; i < levels; ++i) {
                 int difference = heights[i] - height;
@@ -556,7 +560,8 @@ void PcWeather::tick_grid()
     auto* dictionary = reinterpret_cast<void*>(g_particle_texture_dict);
     auto* splash = reinterpret_cast<uint8_t*>(static_cast<TextureSet*>(dictionary)->fetch_skin(0x45C7EB0F));
     if (splash)
-        splash_texture_ = splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
+        splash_texture_ =
+            splash[8] & 1 ? **reinterpret_cast<void***>(splash + 0x10) : *reinterpret_cast<void**>(splash + 0x10);
     auto* snow = reinterpret_cast<uint8_t*>(
         static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict))->fetch_skin(0xC97C5A4C));
     if (snow)
@@ -568,10 +573,14 @@ void PcWeather::tick_grid()
 }
 
 namespace {
-static VtableSlot g_weather_vtable_slots[] = {&render::PcWeather::teardown, &render::PcWeather::tick_grid,
-                &render::PcWeather::tick_frame, &render::PcWeather::render, &render::PcWeather::set_rain_blend_mode,
-                &render::PcWeather::set_splash_blend_mode, &render::PcWeather::set_snow_blend_mode};
+static VtableSlot g_weather_vtable_slots[] = {&render::PcWeather::teardown,
+                                              &render::PcWeather::tick_grid,
+                                              &render::PcWeather::tick_frame,
+                                              &render::PcWeather::render,
+                                              &render::PcWeather::set_rain_blend_mode,
+                                              &render::PcWeather::set_splash_blend_mode,
+                                              &render::PcWeather::set_snow_blend_mode};
 void** const kWeatherVtable = reinterpret_cast<void**>(g_weather_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

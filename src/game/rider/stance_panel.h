@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's stance panel component (SkaterStancePanel, type 0x21FC3301, vtable 0x0064C0F8, 0x24 bytes): the HUD
 // sprite showing the skater's stance - regular / goofy, switch, nollie, pressure - and the nollie / pressure flags
@@ -41,18 +41,16 @@ public:
     // - flipped being the state component's +0x28 (the other way round when the skater's +0x110 is set).
     int get_stance();
 
-    int shown_;            // +0x18 the stance shown (-1: none yet)
+    int shown_; // +0x18 the stance shown (-1: none yet)
     uint8_t pad1c_;
     uint8_t nollie_;       // +0x1D
-    uint8_t press_amount_;     // +0x1E
+    uint8_t press_amount_; // +0x1E
     uint8_t pad1f_;
     uint8_t* core_physics_; // +0x20 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(RiderStanceDisplay, shown_) == 0x18 &&
-                  offsetof(RiderStanceDisplay, nollie_) == 0x1D &&
+static_assert(offsetof(RiderStanceDisplay, shown_) == 0x18 && offsetof(RiderStanceDisplay, nollie_) == 0x1D &&
                   offsetof(RiderStanceDisplay, press_amount_) == 0x1E &&
-                  offsetof(RiderStanceDisplay, core_physics_) == 0x20 &&
-                  sizeof(RiderStanceDisplay) == 0x24,
+                  offsetof(RiderStanceDisplay, core_physics_) == 0x20 && sizeof(RiderStanceDisplay) == 0x24,
               "layout must match the original (0x005193B0 allocates 0x24 bytes)");
 
-} // namespace Obj
+} // namespace objects

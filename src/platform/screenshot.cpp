@@ -76,7 +76,7 @@ struct Job {
     std::string error;
     double milliseconds = 0.0;
     int mouse_x_ = -1, mouse_y_ = -1; // (in the image's pixels; -1: not over the window)
-    std::string note;             // (an event's picture: request_event_shot)
+    std::string note;                 // (an event's picture: request_event_shot)
 };
 std::shared_ptr<Job> g_job;
 
@@ -140,7 +140,7 @@ std::string file_time(const char* path)
 
 // Everything the sidecar says, read on the main thread (every field safe when it isn't there).
 std::vector<Section> gather_sections(const TickCycle& frame, const std::string& png, const std::string& folder,
-                                    const std::string& taken)
+                                     const std::string& taken)
 {
     std::vector<Section> sections;
     char text[256];
@@ -173,7 +173,9 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
                            reinterpret_cast<LPCSTR>(&gather_sections), &dll))
         GetModuleFileNameA(dll, dll_path, MAX_PATH);
-    build.fields.push_back({"dll", dll_path[0] ? std::string(std::strrchr(dll_path, '\\') ? std::strrchr(dll_path, '\\') + 1 : dll_path) : ""});
+    build.fields.push_back(
+        {"dll",
+         dll_path[0] ? std::string(std::strrchr(dll_path, '\\') ? std::strrchr(dll_path, '\\') + 1 : dll_path) : ""});
     build.fields.push_back({"dll file", dll_path[0] ? file_time(dll_path) : ""});
     build.fields.push_back({"dll commit", THUG2_BUILD_COMMIT});
     sections.push_back(build);
@@ -200,7 +202,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
             float pos[3] = {s->at_point_.x, s->at_point_.y, s->at_point_.z};
             skater.fields.push_back({"position", vec(pos)});
             const maths::Vec4& at = s->basis_frame_.row[2];
-            double heading = std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
+            double heading =
+                std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             std::snprintf(text, sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
             skater.fields.push_back({"heading", text});
         }
@@ -271,14 +274,15 @@ void emit_out(std::shared_ptr<Job> job)
     bool read = to_rgb(job->frame, &rgb);
     if (read)
         mark_cursor(&rgb, job->frame.width, job->frame.height, job->mouse_x_, job->mouse_y_,
-                   std::max(12, job->frame.height / 60));
+                    std::max(12, job->frame.height / 60));
     if (!read) {
         job->error = "the pixels couldn't be read";
     } else if (!encode_png(rgb.data(), job->frame.width, job->frame.height, &png)) {
         job->error = "the PNG couldn't be made";
     } else {
         auto write_new = [](const std::string& path, const void* data, size_t size) {
-            HANDLE file = CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
+            HANDLE file =
+                CreateFileA(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr);
             if (file == INVALID_HANDLE_VALUE)
                 return false;
             DWORD written = 0;
@@ -298,7 +302,8 @@ void emit_out(std::shared_ptr<Job> job)
     job->frame.bytes.shrink_to_fit();
     QueryPerformanceCounter(&end);
     QueryPerformanceFrequency(&frequency);
-    job->milliseconds = static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / static_cast<double>(frequency.QuadPart);
+    job->milliseconds =
+        static_cast<double>(end.QuadPart - start.QuadPart) * 1000.0 / static_cast<double>(frequency.QuadPart);
     job->done = true;
 }
 
@@ -403,13 +408,13 @@ void get_take()
 // --- a frame series ---
 
 struct Series {
-    std::string folder;   // (ending in a backslash)
+    std::string folder; // (ending in a backslash)
     int total = 0, taken = 0;
-    std::string sidecar;  // (made at the first frame, written at the end with the frames' times)
-    std::string times;    // a line a frame: its number, the game's frame and vblank count, the game clock (ms)
+    std::string sidecar; // (made at the first frame, written at the end with the frames' times)
+    std::string times;   // a line a frame: its number, the game's frame and vblank count, the game clock (ms)
     std::atomic<int> in_flight_{0}, written{0};
     std::mutex mutex;
-    std::string error;    // the first failure (under `mutex`)
+    std::string error; // the first failure (under `mutex`)
 };
 std::shared_ptr<Series> g_series;
 std::string g_series_result = "none";
@@ -468,7 +473,8 @@ void take_series_frame()
                       local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec);
         std::vector<Section> sections = gather_sections(frame, series_frame_name(1), series->folder, taken);
         sections.front().title = "series";
-        sections.front().fields.push_back({"frames", std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});
+        sections.front().fields.push_back(
+            {"frames", std::to_string(series->total) + " (frame_0001.png on, one a rendered frame)"});
         series->sidecar = format_sidecar("THUG2 decomp frame series", sections, get_log_tail(kLogLines));
     }
     // (at most kSeriesInFlight waiting: the frame waits for one)
@@ -549,10 +555,14 @@ void prepare_all()
     if (setting[0] && parse_key(setting, 0, by_name) == 0)
         get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting);
     get_log("screenshot key: %s (scan code %d%s) - saves to %s", SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)),
-        g_key, setting[0] ? ", [Keybinds] Screenshot" : snipping ? ", F12: Windows' Snipping Tool takes Print Screen" : "",
-        folder_path().c_str());
+            g_key,
+            setting[0] ? ", [Keybinds] Screenshot"
+            : snipping ? ", F12: Windows' Snipping Tool takes Print Screen"
+                       : "",
+            folder_path().c_str());
     if (snipping && g_key == kPrintScreen)
-        get_log("screenshot key: Windows' Snipping Tool takes Print Screen (Settings > Accessibility > Keyboard): the game "
+        get_log(
+            "screenshot key: Windows' Snipping Tool takes Print Screen (Settings > Accessibility > Keyboard): the game "
             "won't see it - turn that off or set [Keybinds] Screenshot=69 (F12)");
     os_layer::register_event_handler(handle_event);
 }
@@ -568,7 +578,7 @@ void before_present(bool rendering)
         std::string note = job->note.empty() ? "" : " for " + job->note;
         if (job->ok) {
             get_log("screenshot: saved %s%s (and %s) in %.0f ms%s", job->folder.c_str(), job->png.c_str(),
-                job->txt.c_str(), job->milliseconds, note.c_str());
+                    job->txt.c_str(), job->milliseconds, note.c_str());
             if (job->note.empty())
                 g_message = "Screenshot saved: " + job->png;
         } else {
@@ -605,8 +615,8 @@ std::string start_series(int frames, const std::string& folder)
         std::time_t now = std::time(nullptr);
         std::tm local = {};
         localtime_s(&local, &now);
-        path = series_folder_name({local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min,
-                                 local.tm_sec});
+        path = series_folder_name(
+            {local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec});
     }
     bool absolute = path.size() >= 2 && (path[1] == ':' || (path[0] == '\\' && path[1] == '\\'));
     if (!absolute)
@@ -670,4 +680,4 @@ void note_view(int viewport, const float position[3], const float forward[3])
     g_view.noted = true;
 }
 
-} // namespace sys::Screenshot
+} // namespace sys::screenshot

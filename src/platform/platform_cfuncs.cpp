@@ -36,4 +36,4 @@ void install_is_ps2()
         script::bind_native_command(*entry, reinterpret_cast<void*>(&cfunc_is_ps2));
 }
 
-} // namespace Sys
+} // namespace sys

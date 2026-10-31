@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) 0x005B4260-0x005B45F0: the front end theme's colours. Each one names a global
 // (DE_HIGHLIGHTED_TEXT_COLOR, ...) - the theme's colour for that use - as the script's `return_value` parameter:

@@ -20,10 +20,10 @@ struct PendingMsg {
     // 0x004550F0 (SeqQueuedMsg's too): the data freed.
     void destroy_body();
 
-    uint8_t ident_;      // +0x00
+    uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
-    char* content_;      // +0x04
-    int share_count_;    // +0x08
+    char* content_;       // +0x04
+    int share_count_;     // +0x08
 };
 struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
@@ -31,11 +31,11 @@ struct SeqQueuedMsg {
     // (0x004550F0: PendingMsg::destroy_body - the data is at the same place)
     void destroy_body() { reinterpret_cast<PendingMsg*>(this)->destroy_body(); }
 
-    uint8_t ident_;      // +0x00
+    uint8_t ident_;       // +0x00
     uint16_t byte_count_; // +0x02
-    char* content_;      // +0x04
-    uint8_t byte8_;   // +0x08 (the constructor's 4th argument)
-    int share_count_;    // +0x0C
+    char* content_;       // +0x04
+    uint8_t byte8_;       // +0x08 (the constructor's 4th argument)
+    int share_count_;     // +0x0C
 };
 static_assert(offsetof(PendingMsg, share_count_) == 0x08 && offsetof(SeqQueuedMsg, content_) == 0x04 &&
                   offsetof(SeqQueuedMsg, share_count_) == 0x0C && sizeof(SeqQueuedMsg) == 0x10,
@@ -58,4 +58,4 @@ struct TimedMsgNode : memory::ListNode {
 // for the callee: the linker folded the identical non-virtual wrappers of several classes into this one.
 void virtual_slot5_jump();
 
-} // namespace Net
+} // namespace net

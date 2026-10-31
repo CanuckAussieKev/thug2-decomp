@@ -44,4 +44,4 @@ void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low);
 extern bool g_keyboard_on_screen;
 extern bool g_in_menu_flag;
 
-} // namespace Sio
+} // namespace sio

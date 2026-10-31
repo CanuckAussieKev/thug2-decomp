@@ -24,7 +24,7 @@ namespace objects {
 namespace {
 
 extern void** const kVtable;
-extern void** const kHeadVtable;     // the head as made
+extern void** const kHeadVtable; // the head as made
 
 constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 
@@ -33,7 +33,8 @@ constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 memory::ListNode* new_projection()
 {
     void* memory = memory::alloc_zeroed(0xC8);
-    return memory ? reinterpret_cast<memory::ListNode*>(static_cast<render::PcTextureProjection*>(memory)->make_new()) : nullptr;
+    return memory ? reinterpret_cast<memory::ListNode*>(static_cast<render::PcTextureProjection*>(memory)->make_new())
+                  : nullptr;
 }
 
 bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
@@ -127,27 +128,29 @@ void TextureProjectionComponent::tick_frame()
         reinterpret_cast<render::TextureProjection*>(node)->tick_frame(entity_);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::TextureProjectionComponent::teardown,
-         &objects::TextureProjectionComponent::tick_frame,
-         &objects::TextureProjectionComponent::configure_from_data,
-         &objects::TextureProjectionComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::TextureProjectionComponent::teardown,
+    &objects::TextureProjectionComponent::tick_frame,
+    &objects::TextureProjectionComponent::configure_from_data,
+    &objects::TextureProjectionComponent::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 static VtableSlot g_head_vtable_slots[] = {&render::PcTextureProjection::teardown};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

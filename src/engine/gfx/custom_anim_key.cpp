@@ -273,23 +273,23 @@ UserClipKey* __cdecl create_custom_anim_key(const uint8_t** cursor)
 
 namespace {
 static VtableSlot g_fov_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                &gfx::CameraFovKey::work_on};
+                                          &gfx::CameraFovKey::work_on};
 void** const kFovVtable = reinterpret_cast<void**>(g_fov_vtable_slots);
 static VtableSlot g_script_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                &gfx::ScriptKey::work_on};
+                                             &gfx::ScriptKey::work_on};
 void** const kScriptVtable = reinterpret_cast<void**>(g_script_vtable_slots);
 static VtableSlot g_marker_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                &save_cards::SaveCard::always_true};
+                                             &save_cards::SaveCard::always_true};
 void** const kMarkerVtable = reinterpret_cast<void**>(g_marker_vtable_slots);
 static VtableSlot g_structure_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                &gfx::StructureScriptKey::work_on};
+                                                &gfx::StructureScriptKey::work_on};
 void** const kStructureVtable = reinterpret_cast<void**>(g_structure_vtable_slots);
 static VtableSlot g_kill_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::UserClipKey::inside_range,
-                &gfx::KillObjectKey::work_on};
+                                           &gfx::KillObjectKey::work_on};
 void** const kKillVtable = reinterpret_cast<void**>(g_kill_vtable_slots);
 static VtableSlot g_camera_vtable_slots[] = {&gfx::UserClipKey::teardown, &gfx::CameraKey::inside_range,
-                &gfx::CameraKey::work_on};
+                                             &gfx::CameraKey::work_on};
 void** const kCameraVtable = reinterpret_cast<void**>(g_camera_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

@@ -7,7 +7,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -49,15 +49,14 @@ public:
     // `lerp`) and kept; nothing hit: nothing.
     void get_sample(bool lerp, float rate);
 
-    uint32_t light_flags_;      // +0x18 MODEL_LIGHT_*
-    uint32_t gap_time_;        // +0x1C 0x470B8AE9 (frames)
-    uint32_t counter_;         // +0x20
-    float brightness_;         // +0x24 the last sample's
-    MeshInstanceModule* mesh_instance_;  // +0x28
+    uint32_t light_flags_;              // +0x18 MODEL_LIGHT_*
+    uint32_t gap_time_;                 // +0x1C 0x470B8AE9 (frames)
+    uint32_t counter_;                  // +0x20
+    float brightness_;                  // +0x24 the last sample's
+    MeshInstanceModule* mesh_instance_; // +0x28
 };
-static_assert(offsetof(MeshLightingModule, light_flags_) == 0x18 &&
-                  offsetof(MeshLightingModule, brightness_) == 0x24 &&
+static_assert(offsetof(MeshLightingModule, light_flags_) == 0x18 && offsetof(MeshLightingModule, brightness_) == 0x24 &&
                   offsetof(MeshLightingModule, mesh_instance_) == 0x28 && sizeof(MeshLightingModule) == 0x2C,
               "layout must match the original (0x00422DC0 allocates 0x2C bytes)");
 
-} // namespace Obj
+} // namespace objects

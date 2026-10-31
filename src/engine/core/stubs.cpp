@@ -57,4 +57,4 @@ int __stdcall return_zero6(int, int, int, int, int, int) { return 0; }
 // 0x0049F460: a word 0 (the engine texture's width / height slots).
 uint16_t return_zero_word() { return 0; }
 
-} // namespace Stubs
+} // namespace stubs

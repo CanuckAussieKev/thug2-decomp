@@ -73,9 +73,9 @@ float& tick_seconds() { return g_tick_seconds; }
 float& elapsed_seconds() { return g_elapsed_seconds; }
 float& get_total_seconds() { return g_total_seconds; }
 int& get_screen_height() { return g_back_buffer_height; }
-uint32_t& bar_timer() { return g_loading_bar_timer; }    // the timer's id (timeSetEvent)
-bool& load_screen_shown() { return g_loading_screen_up; }           // shown (0x004B78B0): the main loop doesn't draw
-HANDLE& screen_mutex() { return reinterpret_cast<HANDLE&>(g_screen_mutex); }    // held while the loading screen is drawn
+uint32_t& bar_timer() { return g_loading_bar_timer; }     // the timer's id (timeSetEvent)
+bool& load_screen_shown() { return g_loading_screen_up; } // shown (0x004B78B0): the main loop doesn't draw
+HANDLE& screen_mutex() { return reinterpret_cast<HANDLE&>(g_screen_mutex); } // held while the loading screen is drawn
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 struct BarVertex {
@@ -88,7 +88,9 @@ constexpr uint32_t kBarVertexFormat = D3DFVF_XYZRHW | D3DFVF_DIFFUSE; // 0x44
 void draw_quad(float x0, float y0, float x1, float y1, uint32_t left, uint32_t right)
 {
     // (a strip: top left, bottom left, top right, bottom right)
-    BarVertex quad[4] = {{x0, y0, 1.0f, 1.0f, left}, {x0, y1, 1.0f, 1.0f, left}, {x1, y0, 1.0f, 1.0f, right},
+    BarVertex quad[4] = {{x0, y0, 1.0f, 1.0f, left},
+                         {x0, y1, 1.0f, 1.0f, left},
+                         {x1, y0, 1.0f, 1.0f, right},
                          {x1, y1, 1.0f, 1.0f, right}};
     input_port()->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, quad, sizeof(BarVertex));
 }
@@ -105,7 +107,8 @@ void update_loading_bar_colors()
 {
     gradient_start() = {start_color()[0], start_color()[1], start_color()[2]};
     gradient_end() = {end_color()[0], end_color()[1], end_color()[2]};
-    gradient_width() = static_cast<int>(static_cast<double>(get_screen_width()) * progress_bar_pixels() * (1.0f / 640.0f));
+    gradient_width() =
+        static_cast<int>(static_cast<double>(get_screen_width()) * progress_bar_pixels() * (1.0f / 640.0f));
     border_argb() = 0x80000000u | border_color()[0] << 16 | border_color()[1] << 8 | border_color()[2];
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
@@ -138,7 +141,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
 
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
-    double x_scale = static_cast<double>(get_screen_width()) * g_per640; // 1 / 640
+    double x_scale = static_cast<double>(get_screen_width()) * g_per640;                     // 1 / 640
     float y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * g_per480); // 1 / 480
     double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
     elapsed_seconds() = static_cast<float>(elapsed);
@@ -149,8 +152,8 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     int frame_left = ftol(static_cast<double>(static_cast<float>(left)) - x_scale * g_float_five); // 5
     int filled = ftol(gradient_width() * fraction) + left;
     int frame_right = ftol((gradient_width() + frame_left) + x_scale * g_float_ten); // 10
-    int top = ftol(y_scale * static_cast<double>(g_float420));                  // 420
-    int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));         // 20
+    int top = ftol(y_scale * static_cast<double>(g_float420));                       // 420
+    int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));          // 20
     float top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
     float frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
 
@@ -163,7 +166,8 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
         float pad_x = static_cast<float>(x_scale * 18.0), pad_y = y_scale * 14.0f;
         float rule = y_scale * 2.0f;
         draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, bottom_f + pad_y, 0xFF0A0A0A, 0xFF0A0A0A);
-        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, 0xFFF2E205, 0xFFF2E205);
+        draw_quad(frame_left_f - pad_x, top_f - pad_y, frame_right_f + pad_x, top_f - pad_y + rule, 0xFFF2E205,
+                  0xFFF2E205);
     }
     draw_quad(frame_left_f, top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     // the gradient, inset 5/480 of the screen's height top and bottom
@@ -171,7 +175,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     float gradient_top = static_cast<float>(top_f + inset);
     float gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
     draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(gradient_width() + left), gradient_bottom,
-             opaque(gradient_start()), opaque(gradient_end()));
+              opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again
     draw_quad(static_cast<float>(filled), top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     input_port()->SetRenderState(D3DRS_ZENABLE, TRUE);
@@ -182,11 +186,11 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     ReleaseMutex(screen_mutex());
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640D10 (a static initialiser): the loading screen's lock, a mutex nobody owns.
 void create_screen_mutex() { g_screen_mutex = CreateMutexA(nullptr, FALSE, nullptr); }
 
-} // namespace Nx
+} // namespace render

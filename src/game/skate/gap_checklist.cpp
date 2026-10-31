@@ -44,7 +44,7 @@ constexpr uint32_t kSkaterStartPos = 0x26A4E85A;     // skater_start_pos
 constexpr uint32_t kSkaterStartDir = 0x1CD674E6;     // skater_start_dir
 constexpr uint32_t kGapMenuAddItem = 0xB74B672C;     // gap_menu_add_item (a script)
 constexpr uint32_t kArraySize = 0x7F5B3D4D;          // array_size
-constexpr uint32_t kGapsFoundCount = 0x6A8A0061;         // num_gaps_got
+constexpr uint32_t kGapsFoundCount = 0x6A8A0061;     // num_gaps_got
 constexpr uint32_t kGapList = 0x737449DE;            // GapList
 constexpr uint32_t kLevel = 0x651533EC;              // level
 constexpr uint32_t kMultipleNewGaps = 0xD2E7D353;    // multiple_new_gaps
@@ -54,9 +54,9 @@ constexpr uint32_t kGotGapForFirstTime = 0x318EAF64; // got_gap_for_first_time (
 static VtableSlot g_gap_vtable_slots[] = {&goals::GapEntry::teardown};
 void** const kGapVtable = reinterpret_cast<void**>(g_gap_vtable_slots);
 static VtableSlot g_gap_node_vtable_slots[] = {&goals::GapCheckNode::teardown};
-void** const kGapNodeVtable = reinterpret_cast<void**>(g_gap_node_vtable_slots);  // lists::Elem<GapEntry>
+void** const kGapNodeVtable = reinterpret_cast<void**>(g_gap_node_vtable_slots); // lists::Elem<GapEntry>
 static VtableSlot g_gap_head_vtable_slots[] = {&goals::GapCheckNode::destroy2};
-void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots);  // lists::Foremost<GapEntry>
+void** const kGapHeadVtable = reinterpret_cast<void**>(g_gap_head_vtable_slots); // lists::Foremost<GapEntry>
 
 GapTally*& building() { return g_building_gap_checklist; }
 
@@ -81,10 +81,7 @@ void delete_structure(script::Struct* structure)
 }
 
 // The skate module's checklist (0x005656C0) and the career's of a level (0x00584110; the current level 0x00584130).
-GapTally* skate_checklist()
-{
-    return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list());
-}
+GapTally* skate_checklist() { return static_cast<GapTally*>(modules::Skate::sole()->fetch_gap_list()); }
 void* get_career() { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x20); }
 GapTally* level_checklist(void* career, int level)
 {
@@ -176,7 +173,8 @@ void GapTally::register_gap_entry(const char* name, int count, int score)
             gap->in_level_ = true;
             return;
         }
-        if (gap->points_held_ < score || (gap->points_held_ == score && text::compare_caseless(gap->label_.c_str(), name) < 0))
+        if (gap->points_held_ < score ||
+            (gap->points_held_ == score && text::compare_caseless(gap->label_.c_str(), name) < 0))
             after = gap;
     }
     memory::Hub* manager = memory::Hub::get_pull();
@@ -462,4 +460,4 @@ bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* /*scrip
 // 0x00585520
 void GapTally::destroy_body() { gaps_.unlink_as(kGapNodeVtable); }
 
-} // namespace Game
+} // namespace goals

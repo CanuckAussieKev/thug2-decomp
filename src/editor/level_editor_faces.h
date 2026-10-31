@@ -114,11 +114,11 @@ void forget_level();
 void tick_frame();
 // The selected faces (cyan) and the hovered one (yellow) outlined over the view.
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines);
+                 std::vector<ui::Seg>* lines);
 // The Inspector's section (the selected faces: their flags as checkboxes, All faces of the piece, Home); `mono` /
 // `small`: the UI's fonts.
 void inspector_section(ImFont* mono, ImFont* small_font);
 // The status line: what Faces mode is doing.
 std::string describe();
 
-} // namespace MenuSystem::level_editor::Faces
+} // namespace frontend::level_editor::faces

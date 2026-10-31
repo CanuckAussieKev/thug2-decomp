@@ -20,13 +20,13 @@ namespace objects {
 namespace {
 
 // The core physics component's fields read here.
-constexpr uint32_t kFirstTick = 0x98;    // the position as the frame began
-constexpr uint32_t kFeeler = 0xA8;        // its feeler (the last ground hit)
+constexpr uint32_t kFirstTick = 0x98; // the position as the frame began
+constexpr uint32_t kFeeler = 0xA8;    // its feeler (the last ground hit)
 constexpr uint32_t kHitPoint = 0x120;
 constexpr uint32_t kHitNormal = 0x130;
 constexpr uint32_t kProbeOrigin = 0x208;
 constexpr uint32_t kProbeTip = 0x218;
-constexpr uint32_t kTimedFlags = 0x1528;  // the skater's state component (+0x18 the physics state)
+constexpr uint32_t kTimedFlags = 0x1528; // the skater's state component (+0x18 the physics state)
 // The skater object's.
 constexpr uint32_t kPosition = 0x4C;
 constexpr uint32_t kUp = 0x7C;
@@ -38,20 +38,20 @@ constexpr uint32_t kUberFrigCurrentHeight = 0x801C9CB6; // uber_frig_current_hei
 constexpr uint32_t kUnderTheFloor = 0xAFAA46BA;         // the event sent when lifted out from under a floor (lip state)
 constexpr uint32_t kParkEditorTestPlay = 0xD443A2BC;    // the park editor's +0x40 while its park is being played
 
-constexpr float kUpNudge = 0.01f;          // 0x0064544C
-constexpr float kFeelerAbove = 8.0f;       // 0x006461D4
-constexpr float kFeet = 12.0f;             // 0x0064546C
-constexpr float kLeastHeight = 0.001f;     // 0x006461D8
+constexpr float kUpNudge = 0.01f;            // 0x0064544C
+constexpr float kFeelerAbove = 8.0f;         // 0x006461D4
+constexpr float kFeet = 12.0f;               // 0x0064546C
+constexpr float kLeastHeight = 0.001f;       // 0x006461D8
 constexpr float kFloorProbeHeight = 3000.0f; // 0x0064B9D0
-constexpr float kFloorNear = 36.0f;        // 0x0064B9CC (6 squared)
-constexpr float kOne = 1.0f;               // 0x006453A8
-constexpr float kBounce = -0.5f;           // (0xBF000000)
-constexpr float kLift = 2.0f;              // 0x00645448
+constexpr float kFloorNear = 36.0f;          // 0x0064B9CC (6 squared)
+constexpr float kOne = 1.0f;                 // 0x006453A8
+constexpr float kBounce = -0.5f;             // (0xBF000000)
+constexpr float kLift = 2.0f;                // 0x00645448
 // The velocity's nudge after the uber frig (0x0064B9C8, 0x0064B9C8, 0x0064B9C4, 0x006453A8).
 constexpr float kNudgeXy = 0.101f, kNudgeZ = 0.1001f;
 // The uber frig's offsets from the frame's start, one a try (the original's function-local static, 0x007CCD60).
 constexpr float kUberFrigOffsets[5][4] = {
-    {0.0f, 0.0f, 0.0f, 1.0f}, {0.1f, 0.1f, 0.1f, 1.0f}, {-0.2f, 0.0f, 0.0f, 1.0f},
+    {0.0f, 0.0f, 0.0f, 1.0f},  {0.1f, 0.1f, 0.1f, 1.0f}, {-0.2f, 0.0f, 0.0f, 1.0f},
     {0.0f, 0.0f, -0.2f, 1.0f}, {0.2f, 0.0f, 0.0f, 1.0f},
 };
 
@@ -183,7 +183,7 @@ void RiderPhysicsTweaks::tick_frame()
                 maths::Vec4 moved = {position.x - began.x, position.y - began.y, position.z - began.z,
                                      position.w - began.w};
                 double moved_sqr = static_cast<double>(moved.x) * moved.x + static_cast<double>(moved.y) * moved.y +
-                                  static_cast<double>(moved.z) * moved.z;
+                                   static_cast<double>(moved.z) * moved.z;
                 position = moved_sqr < kOne ? feeler.contact_pos_ : began;
                 maths::Vec4& velocity = vector_at(object, kVelocity);
                 velocity = {kBounce * velocity.x, kBounce * velocity.y, kBounce * velocity.z, kBounce * velocity.w};
@@ -200,4 +200,4 @@ void RiderPhysicsTweaks::tick_frame()
     vector_at(core, kFirstTick) = position;
 }
 
-} // namespace Obj
+} // namespace objects

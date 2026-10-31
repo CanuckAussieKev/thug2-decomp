@@ -28,8 +28,7 @@
 namespace render {
 
 D3DLIGHT9 g_device_light1{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}};
-D3DLIGHT9 g_device_light0{
-    D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
+D3DLIGHT9 g_device_light0{D3DLIGHT_DIRECTIONAL, {0.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f, 0.0f}};
 maths::Mat4* g_palette_base;
 int g_bone_count;
 Singleton* g_current_instance;
@@ -44,13 +43,16 @@ Singleton* g_visible_instances[4096]; // draw_instance_batch' list
 Singleton** get_visible() { return g_visible_instances; }
 const maths::Mat4* last_bones() { return g_last_bones; }
 void set_last_bones(const maths::Mat4* bones) { g_last_bones = bones; }
-const D3DMATRIX* get_view_world() { return reinterpret_cast<D3DMATRIX*>(&g_world_matrix); } // the world transform to put back
+const D3DMATRIX* get_view_world()
+{
+    return reinterpret_cast<D3DMATRIX*>(&g_world_matrix);
+} // the world transform to put back
 
-constexpr uint32_t kMeshLit = 0x10;          // a mesh's +0x38: it asks for lighting
-constexpr uint32_t kMeshNotLit = 0x20000;    // a mesh's flags
-constexpr uint32_t kMeshShown = 0x40;        // a mesh's flags
+constexpr uint32_t kMeshLit = 0x10;       // a mesh's +0x38: it asks for lighting
+constexpr uint32_t kMeshNotLit = 0x20000; // a mesh's flags
+constexpr uint32_t kMeshShown = 0x40;     // a mesh's flags
 constexpr int kMaxBones = 0x3A;
-constexpr int kStateLighting = 0x16;         // change_phase's
+constexpr int kStateLighting = 0x16; // change_phase's
 
 int bones_on_device(const SceneRef* scene) { return static_cast<int>(scene->unknown78); }
 // Its bones drawn by the vertex shader: it has bones, and its scene doesn't skin them on the CPU (+0x78).
@@ -67,14 +69,17 @@ const maths::Vec4* get_position(const Singleton* instance)
 }
 
 // A colour channel (0-1) as a byte, as the original's _ftol (truncated through 64 bits).
-uint32_t get_channel(float value) { return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF; }
+uint32_t get_channel(float value)
+{
+    return static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(value) * 255.0f)) & 0xFF;
+}
 
 // The model's lights for the instance's position (the model's +0x2C: virtual [7], Update, with its own +4), or the
 // scene's.
 void refresh_instance_lighting(Singleton* instance)
 {
-    uint8_t* lights = instance->model ? *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(instance->model) + 0x2C)
-                                      : nullptr;
+    uint8_t* lights =
+        instance->model ? *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(instance->model) + 0x2C) : nullptr;
     if (!lights) {
         reset_lights();
         return;
@@ -110,10 +115,7 @@ void send_lights()
     input_port()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 } // namespace
 
@@ -245,8 +247,8 @@ void __cdecl draw_one_instance(Singleton* instance, uint32_t flags)
         return;
     set_world_transform(reinterpret_cast<const float*>(&instance->transform));
     const auto* centre = reinterpret_cast<const maths::Vec4*>(instance->scene->centre);
-    if ((flags & 8) || (sphere_in_view(centre, instance->scene->radius) &&
-                        !sphere_occluded(centre, instance->scene->radius, 1))) {
+    if ((flags & 8) ||
+        (sphere_in_view(centre, instance->scene->radius) && !sphere_occluded(centre, instance->scene->radius, 1))) {
         if (instance->bones) {
             set_flag_786e_b4();
             instance->render(kRenderOpaque | kRenderTransparent);
@@ -285,7 +287,8 @@ void __cdecl draw_instance_batch(uint32_t flags, int viewport)
                 get_visible()[count++] = instance;
         }
         if (count > 0) {
-            crt::get_qsort(get_visible(), static_cast<uint32_t>(count), 4, compare_instances); // (the C runtime's qsort)
+            crt::get_qsort(get_visible(), static_cast<uint32_t>(count), 4,
+                           compare_instances); // (the C runtime's qsort)
             change_phase(kStateLighting, 1);
             input_port()->SetRenderState(D3DRS_COLORVERTEX, TRUE);
             input_port()->LightEnable(0, TRUE);
@@ -300,8 +303,7 @@ void __cdecl draw_instance_batch(uint32_t flags, int viewport)
                     instance->render(flags);
             }
             clear_flag_786e_b4();
-            float camera[3] = {g_camera.position[0], g_camera.position[1],
-                               g_camera.position[2]};
+            float camera[3] = {g_camera.position[0], g_camera.position[1], g_camera.position[2]};
             double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
             float near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
@@ -345,7 +347,8 @@ int __cdecl compare_instances(const void* a, const void* b)
         return x > y ? 1 : -1;
     if (x <= 0)
         return 0;
-    const uint8_t* m1 = *reinterpret_cast<uint8_t* const*>(first->scene->meshes[first->scene->first_transparent_] + 0x14);
+    const uint8_t* m1 =
+        *reinterpret_cast<uint8_t* const*>(first->scene->meshes[first->scene->first_transparent_] + 0x14);
     const uint8_t* m2 =
         *reinterpret_cast<uint8_t* const*>(second->scene->meshes[second->scene->first_transparent_] + 0x14);
     if (!m1 || !m2)
@@ -372,4 +375,4 @@ UvOscillator* UvOscillator::make_new()
 // 0x004D1A80
 void TextureAnim::relaunch() { start_time_ = frame_clock::get_time(); }
 
-} // namespace Nx
+} // namespace render

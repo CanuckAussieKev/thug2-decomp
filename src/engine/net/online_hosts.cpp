@@ -32,7 +32,6 @@ char* get_host_name(const char* format, const char* domain)
     return name;
 }
 
-
 } // namespace
 
 const char*& gamestats_host() { return s_gamestats_host; }
@@ -48,4 +47,4 @@ void set_up_online_hosts()
     game_spy::set_online_domain(domain);
 }
 
-} // namespace Net
+} // namespace net

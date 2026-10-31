@@ -41,13 +41,20 @@ std::string caption(const std::string& text)
 const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::kNone: return "";
-    case Kind::kDialog: return "dialog";
-    case Kind::kSkaters: return "skaters";
-    case Kind::kLinkChain: return "list";
-    case Kind::kFreeze: return "pause";
-    case Kind::kMenu: return "menu";
-    case Kind::kKeyboard: return "keyboard";
+    case Kind::kNone:
+        return "";
+    case Kind::kDialog:
+        return "dialog";
+    case Kind::kSkaters:
+        return "skaters";
+    case Kind::kLinkChain:
+        return "list";
+    case Kind::kFreeze:
+        return "pause";
+    case Kind::kMenu:
+        return "menu";
+    case Kind::kKeyboard:
+        return "keyboard";
     }
     return "";
 }
@@ -65,11 +72,16 @@ const char* pause_label(uint32_t item_id)
     // (the overlay's own items - menu_newfe_restart, menu_newfe_options - are made with these words already; the rest
     // keep the game's text: TEXT MESSAGES, VIEW GOALS, END CURRENT RUN...)
     static const std::pair<uint32_t, const char*> kLabels[] = {
-        {name_hash("menu_continue"), text_tools::kResume},           {name_hash("menu_retry_goal"), text_tools::kRetryGoal},
-        {name_hash("menu_newfe_restart"), text_tools::kRestart},     {name_hash("menu_view_goals"), text_tools::kViewGoals},
-        {name_hash("menu_chapters"), text_tools::kViewGoals},        {name_hash("menu_your_options"), text_tools::kYourOptions},
-        {name_hash("menu_level_select"), text_tools::kChangeLevel},  {name_hash("menu_level_editor"), text_tools::kPauseLevelEditor},
-        {name_hash("menu_newfe_options"), text_tools::kPauseOptions}, {name_hash("menu_skateshop"), text_tools::kQuitToMenu},
+        {name_hash("menu_continue"), text_tools::kResume},
+        {name_hash("menu_retry_goal"), text_tools::kRetryGoal},
+        {name_hash("menu_newfe_restart"), text_tools::kRestart},
+        {name_hash("menu_view_goals"), text_tools::kViewGoals},
+        {name_hash("menu_chapters"), text_tools::kViewGoals},
+        {name_hash("menu_your_options"), text_tools::kYourOptions},
+        {name_hash("menu_level_select"), text_tools::kChangeLevel},
+        {name_hash("menu_level_editor"), text_tools::kPauseLevelEditor},
+        {name_hash("menu_newfe_options"), text_tools::kPauseOptions},
+        {name_hash("menu_skateshop"), text_tools::kQuitToMenu},
     };
     for (const auto& [id, label] : kLabels)
         if (id == item_id)
@@ -89,7 +101,8 @@ const ItemStyle* menu_item_style(uint32_t item_id)
         {name_hash("menu_quit"), {"quit", text_tools::kQuit, text_tools::kQuitHelp, nullptr}},
         {name_hash("menu_career"), {"thug2story", text_tools::kStoryThug2, text_tools::kStoryThug2Help, nullptr}},
         {name_hash("menu_classic"), {"classic", text_tools::kClassic, text_tools::kClassicHelp, nullptr}},
-        {name_hash("menu_newfe_thugstory"), {"thugstory", text_tools::kStoryThug, text_tools::kStoryThugHelp, text_tools::kComingSoon}},
+        {name_hash("menu_newfe_thugstory"),
+         {"thugstory", text_tools::kStoryThug, text_tools::kStoryThugHelp, text_tools::kComingSoon}},
         {name_hash("ss_continue_story"), {"continue", text_tools::kContinue, text_tools::kContinueHelp, nullptr}},
         {name_hash("ss_new_story"), {"new", nullptr, text_tools::kNewHelp, nullptr}}, // (label: the mode's - Build)
         {name_hash("ss_load_story"), {"load", text_tools::kLoad, text_tools::kLoadHelp, nullptr}},
@@ -108,8 +121,8 @@ const ItemStyle* menu_item_style(uint32_t item_id)
 
 bool front_end_menu(uint32_t menu_id)
 {
-    static const uint32_t kMenus[] = {name_hash("main_vmenu"), name_hash("newfe_career_vmenu"), name_hash("career_options_vmenu"),
-                                      name_hash("main_menu")};
+    static const uint32_t kMenus[] = {name_hash("main_vmenu"), name_hash("newfe_career_vmenu"),
+                                      name_hash("career_options_vmenu"), name_hash("main_menu")};
     for (uint32_t id : kMenus)
         if (id == menu_id)
             return true;
@@ -243,7 +256,8 @@ View get_build(const MenuRead& read, const Policy& policy)
                 if (!item.display.empty() || k != label_at)
                     row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + texts[k];
             if (item.checkbox >= 0)
-                row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + std::string(item.checkbox ? text_tools::kOn : text_tools::kOff);
+                row.value += (row.value.empty() ? "" : " \xC2\xB7 ") +
+                             std::string(item.checkbox ? text_tools::kOn : text_tools::kOff);
             row.adjustable = item.adjustable;
             // A slider row: its track is drawn (Paint) from `track` / `track_at_`; its value shown as a number. The colour
             // menus' markers are all moved by any change (colormenu_refresh_arrows), so the numbers are true on every row
@@ -378,8 +392,8 @@ View get_build(const MenuRead& read, const Policy& policy)
             return view;
         }
         if (view.main_menu_ && view.selected >= 0)
-            view.kicker = std::string(text_tools::kMainKicker) + " \xE2\x80\x94 " + (view.selected + 1 < 10 ? "0" : "") +
-                          std::to_string(view.selected + 1);
+            view.kicker = std::string(text_tools::kMainKicker) + " \xE2\x80\x94 " +
+                          (view.selected + 1 < 10 ? "0" : "") + std::to_string(view.selected + 1);
         else
             view.kicker = view.title;
         view.big_name_ = view.selected >= 0 ? view.rows[view.selected].label : view.title;
@@ -507,12 +521,24 @@ void skater_colour(float hue, float sat_percent, float val_percent, float rgb[3]
         float f = sector - static_cast<float>(i);
         float p = (1.0f - s) * v, q = (1.0f - s * f) * v, t = (1.0f - (1.0f - f) * s) * v;
         switch (static_cast<unsigned>(i)) {
-        case 0: r = v, g = t, b = p; break;
-        case 1: r = q, g = v, b = p; break;
-        case 2: r = p, g = v, b = t; break;
-        case 3: r = p, g = q, b = v; break;
-        case 4: r = t, g = p, b = v; break;
-        default: r = v, g = p, b = q; break;
+        case 0:
+            r = v, g = t, b = p;
+            break;
+        case 1:
+            r = q, g = v, b = p;
+            break;
+        case 2:
+            r = p, g = v, b = t;
+            break;
+        case 3:
+            r = p, g = q, b = v;
+            break;
+        case 4:
+            r = t, g = p, b = v;
+            break;
+        default:
+            r = v, g = p, b = q;
+            break;
         }
     }
     rgb[0] = std::min(1.0f, r * 2.0f);
@@ -568,4 +594,4 @@ void Tracker::get_reset()
     rows_.clear();
 }
 
-} // namespace MenuSystem::NewFrontend::Mirror
+} // namespace frontend::new_frontend::mirror

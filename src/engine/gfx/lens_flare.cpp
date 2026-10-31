@@ -28,25 +28,25 @@ using script::Struct;
 
 namespace {
 
-constexpr uint32_t kPosScale = 0xEAA2389E;          // "pos_scale"
-constexpr uint32_t kScale = 0x13B9DA7B;             // "scale"
-constexpr uint32_t kRgba = 0x3F6BCDBA;              // "rgba"
-constexpr uint32_t kId = 0x40C698AF;                // "id"
-constexpr uint32_t kTime = 0x906B67BA;              // "time"
-constexpr uint32_t kPos = 0x7F261953;               // "pos"
-constexpr uint32_t kMorphIn = 0x8BDA33DC;           // "LensFlare_Morph_In"
-constexpr uint32_t kMorphOut = 0x753D46C1;          // "LensFlare_Morph_Out"
-constexpr uint32_t kSunBurstOut = 0x2E56C52D;       // "SunBurst_Out"
-constexpr uint32_t kCenter = 0xBF0F14DB;            // "center"
-constexpr uint32_t kMorphTime = 0xA99F828E;         // "morph_time"
-constexpr uint32_t kSunPos = 0x2E089F23;            // "sun_pos"
-constexpr uint32_t kContainer = 0x43AAD2DD;         // "Lens_Flare_Container"
-constexpr uint32_t kAlpha = 0x2F1FC695;             // "alpha"
-constexpr uint32_t kCreateLensFlare = 0xD355725F;   // "CreateLensFlare"
-constexpr uint32_t kDoUpdateLensFlare = 0x204F4CEC; // "DoUpdateLensFlare"
+constexpr uint32_t kPosScale = 0xEAA2389E;           // "pos_scale"
+constexpr uint32_t kScale = 0x13B9DA7B;              // "scale"
+constexpr uint32_t kRgba = 0x3F6BCDBA;               // "rgba"
+constexpr uint32_t kId = 0x40C698AF;                 // "id"
+constexpr uint32_t kTime = 0x906B67BA;               // "time"
+constexpr uint32_t kPos = 0x7F261953;                // "pos"
+constexpr uint32_t kMorphIn = 0x8BDA33DC;            // "LensFlare_Morph_In"
+constexpr uint32_t kMorphOut = 0x753D46C1;           // "LensFlare_Morph_Out"
+constexpr uint32_t kSunBurstOut = 0x2E56C52D;        // "SunBurst_Out"
+constexpr uint32_t kCenter = 0xBF0F14DB;             // "center"
+constexpr uint32_t kMorphTime = 0xA99F828E;          // "morph_time"
+constexpr uint32_t kSunPos = 0x2E089F23;             // "sun_pos"
+constexpr uint32_t kContainer = 0x43AAD2DD;          // "Lens_Flare_Container"
+constexpr uint32_t kAlpha = 0x2F1FC695;              // "alpha"
+constexpr uint32_t kCreateLensFlare = 0xD355725F;    // "CreateLensFlare"
+constexpr uint32_t kDoUpdateLensFlare = 0x204F4CEC;  // "DoUpdateLensFlare"
 constexpr uint32_t kMaybeHideLensFlare = 0xD4F107CB; // "MaybeHideLensFlare"
-constexpr uint32_t kBlend = 0x54628ED7;             // "blend"
-constexpr uint32_t kAdd = 0x02E58C18;               // "Add"
+constexpr uint32_t kBlend = 0x54628ED7;              // "blend"
+constexpr uint32_t kAdd = 0x02E58C18;                // "Add"
 
 float g_flare_theta;
 float g_flare_phi;
@@ -72,10 +72,10 @@ float& get_theta() { return g_flare_theta; }
 float& get_phi() { return g_flare_phi; }
 float& get_radius() { return g_flare_radius; }
 float& get_size() { return g_flare_size; }
-float& morph_in_time() { return g_flare_morph_in_time; }   // seconds
+float& morph_in_time() { return g_flare_morph_in_time; } // seconds
 float& morph_out_time() { return g_flare_morph_out_time; }
 float& sun_burst_out_time() { return g_flare_sun_burst_out_time; }
-uint8_t& get_query() { return g_flare_query; }     // the occlusion query's result number (0: none)
+uint8_t& get_query() { return g_flare_query; } // the occlusion query's result number (0: none)
 bool& get_shown() { return g_flare_shown; }
 bool& flare_hidden() { return g_flare_hidden; }
 void*& sun_texture() { return g_flare_sun_texture; }
@@ -83,7 +83,7 @@ void*& get_corona_texture() { return g_flare_corona_texture; }
 FlareElement*& get_elements() { return g_flare_elements; }
 uint32_t& element_count() { return g_flare_element_count; }
 uint32_t& visible_time() { return g_flare_visible_time; } // when the sun was last seen
-uint32_t& hidden_time() { return g_flare_hidden_time; }  // when it was last not seen
+uint32_t& hidden_time() { return g_flare_hidden_time; }   // when it was last not seen
 maths::Vec4& get_color() { return g_flare_color; }
 maths::Vec4& get_position() { return g_flare_position; } // in the world, this frame
 
@@ -91,7 +91,8 @@ maths::Vec4& get_position() { return g_flare_position; } // in the world, this f
 // the scalar deleting destructor).
 void* find_texture(uint32_t checksum)
 {
-    return static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))->fetch_skin(checksum);
+    return static_cast<render::TextureSet*>(reinterpret_cast<void*>(render::g_particle_texture_dict))
+        ->fetch_skin(checksum);
 }
 void delete_texture(void* texture)
 {
@@ -101,7 +102,10 @@ void delete_texture(void* texture)
 
 // The game's clock with its offset, and the milliseconds since `time`.
 uint32_t get_now() { return static_cast<uint32_t>(frame_clock::game_clock_time()); }
-uint32_t get_since(uint32_t time) { return static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(time))); }
+uint32_t get_since(uint32_t time)
+{
+    return static_cast<uint32_t>(frame_clock::game_clock_time_since(static_cast<int>(time)));
+}
 
 // The first viewport's camera (Nx, 0x004A06D0): its vtable slot 1 (through 0x004A1090) projects a point to the
 // screen (the depth scale returned), slot 3 (through 0x004A10A0) issues an occlusion query over a screen
@@ -132,8 +136,8 @@ struct Prim {
     void set_texture(void* texture)
     {
         // (slot 1, through the jump 0x004A1090)
-        reinterpret_cast<void(__thiscall*)(Prim*, void*, int, int)>((*reinterpret_cast<void***>(this))[1])(this, texture,
-                                                                                                         0, 0);
+        reinterpret_cast<void(__thiscall*)(Prim*, void*, int, int)>((*reinterpret_cast<void***>(this))[1])(
+            this, texture, 0, 0);
     }
     void set_unknown(int a, int b, int c)
     {
@@ -147,8 +151,8 @@ struct Prim {
     void get_ready() { reinterpret_cast<render::Primitive*>(this)->get_ready(); }
     void blit(const float* corners, const uint8_t* colors, const float* uvs)
     {
-        reinterpret_cast<render::Primitive*>(this)->draw_if_ready(corners, reinterpret_cast<const uint32_t*>(colors), uvs,
-                                                             nullptr);
+        reinterpret_cast<render::Primitive*>(this)->draw_if_ready(corners, reinterpret_cast<const uint32_t*>(colors),
+                                                                  uvs, nullptr);
     }
 };
 // A render state for the primitives (0x0049C700).
@@ -166,13 +170,13 @@ struct QueryRequest {
     QueryRequest* prepare_all();
 };
 static_assert(sizeof(QueryRequest) == 0x10, "the original keeps 0x10 bytes for it");
-void add_query(QueryRequest* request) { render::request_occlusion_query(reinterpret_cast<render::OcclusionRequest*>(request)); }
+void add_query(QueryRequest* request)
+{
+    render::request_occlusion_query(reinterpret_cast<render::OcclusionRequest*>(request));
+}
 uint32_t query_result(uint8_t) { return render::occlusion_pixels(); } // (the original also passed the query: unused)
 // `v` times `m` in place (all four components; 0x00434200).
-void transform_in_place(maths::Vec4* v, const maths::Mat4* m)
-{
-    v->multiply_by(*m);
-}
+void transform_in_place(maths::Vec4* v, const maths::Mat4* m) { v->multiply_by(*m); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -285,7 +289,7 @@ void __cdecl place_flare_elements(float time, const maths::Vec4* sun, const math
 
 // 0x004429D0
 void __cdecl prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
-                  uint32_t lens_flare_data)
+                         uint32_t lens_flare_data)
 {
     get_theta() = theta;
     get_phi() = phi;
@@ -305,8 +309,8 @@ void __cdecl prepare_all(float theta, float phi, float radius, float size, uint3
         item->fetch_float(kPosScale, &element.pos_scale_, 1);
         item->fetch_float(kScale, &element.scale, 1);
         item->fetch_list(kRgba, &rgba, 1);
-        element.rgba = rgba->fetch_part(3) << 24 | rgba->fetch_part(2) << 16 | rgba->fetch_part(1) << 8 |
-                       rgba->fetch_part(0);
+        element.rgba =
+            rgba->fetch_part(3) << 24 | rgba->fetch_part(2) << 16 | rgba->fetch_part(1) << 8 | rgba->fetch_part(0);
         item->read_hash_value(kId, &element.id, 1);
         element.create = new_params();
         element.create->put_name_key(kId, element.id);
@@ -554,7 +558,7 @@ void __cdecl render(gfx::ViewCam* camera)
     sun.destruct();
 }
 
-} // namespace Sun
+} // namespace sun
 
 namespace {
 

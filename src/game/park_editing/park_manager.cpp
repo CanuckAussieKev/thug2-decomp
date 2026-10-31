@@ -180,7 +180,8 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     }
     // A change to the park the player made: the compressed map is out of date.
     uint32_t meta_flags = meta->flag_bits_;
-    if (!(meta_flags & PieceGroup::kFence) && (meta_flags & PieceGroup::kInPark) && !(meta_flags & PieceGroup::kBuiltShell))
+    if (!(meta_flags & PieceGroup::kFence) && (meta_flags & PieceGroup::kInPark) &&
+        !(meta_flags & PieceGroup::kBuiltShell))
         flag_bits_ &= ~(kMapUpToDate | kMapSaved);
     // What stands on it goes too.
     if (!(meta->flag_bits_ & PieceGroup::kBuiltShell) && (flags & 1)) {
@@ -289,4 +290,4 @@ void ParkLayout::teardown(int keep_rails)
     destroy_park_pools();
 }
 
-} // namespace Ed
+} // namespace park_editing

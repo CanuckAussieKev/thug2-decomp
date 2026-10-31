@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) 0x005B0A40-0x005B1B60: dead objects, the configurable tricks (key combos bound in the
 // profile's trick_mapping or its special trick slots, trick types, display text, locking), records, soundtracks,

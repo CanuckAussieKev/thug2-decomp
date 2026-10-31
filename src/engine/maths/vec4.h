@@ -122,7 +122,7 @@ struct Seg {
 // Closest points between lines `a` and `b`: point_a = a.start + s * (a.end - a.start), point_b likewise with
 // t. With `clamp`, s and t are limited to [0, 1] (segments instead of infinite lines). Returns false, leaving
 // the outputs untouched, if either line is shorter than 1e-5 on every axis or they are (nearly) parallel.
-bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s,
-                               float& t, bool clamp);
+bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec4& point_b, float& s, float& t,
+                                  bool clamp);
 
-} // namespace Mth
+} // namespace maths

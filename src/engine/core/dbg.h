@@ -6,4 +6,4 @@ namespace debug {
 // Always returns -1.
 int printf(const char* format, ...);
 
-} // namespace Dbg
+} // namespace debug

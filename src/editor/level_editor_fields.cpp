@@ -26,18 +26,30 @@ namespace frontend::level_editor::fields {
 const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::kInteger: return "integer";
-    case Kind::kFloat: return "float";
-    case Kind::kName: return "name";
-    case Kind::kChars: return "string";
-    case Kind::kLocalisedText: return "local string";
-    case Kind::kVec4: return "vector";
-    case Kind::kPair: return "pair";
-    case Kind::kBitMark: return "flag";
-    case Kind::kNames: return "names";
-    case Kind::kIntegers: return "integers";
-    case Kind::kFloats: return "floats";
-    default: return "other";
+    case Kind::kInteger:
+        return "integer";
+    case Kind::kFloat:
+        return "float";
+    case Kind::kName:
+        return "name";
+    case Kind::kChars:
+        return "string";
+    case Kind::kLocalisedText:
+        return "local string";
+    case Kind::kVec4:
+        return "vector";
+    case Kind::kPair:
+        return "pair";
+    case Kind::kBitMark:
+        return "flag";
+    case Kind::kNames:
+        return "names";
+    case Kind::kIntegers:
+        return "integers";
+    case Kind::kFloats:
+        return "floats";
+    default:
+        return "other";
     }
 }
 
@@ -46,19 +58,27 @@ bool same_value(const Value& a, const Value& b)
     if (a.kind != b.kind)
         return false;
     switch (a.kind) {
-    case Kind::kInteger: return a.integer == b.integer;
-    case Kind::kFloat: return a.numbers[0] == b.numbers[0];
-    case Kind::kPair: return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1];
+    case Kind::kInteger:
+        return a.integer == b.integer;
+    case Kind::kFloat:
+        return a.numbers[0] == b.numbers[0];
+    case Kind::kPair:
+        return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1];
     case Kind::kVec4:
         return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1] && a.numbers[2] == b.numbers[2];
-    case Kind::kName: return a.checksum == b.checksum;
+    case Kind::kName:
+        return a.checksum == b.checksum;
     case Kind::kChars:
     case Kind::kLocalisedText:
-    case Kind::kOther: return a.text == b.text;
-    case Kind::kBitMark: return a.on == b.on;
+    case Kind::kOther:
+        return a.text == b.text;
+    case Kind::kBitMark:
+        return a.on == b.on;
     case Kind::kNames:
-    case Kind::kIntegers: return a.list == b.list;
-    case Kind::kFloats: return a.floats == b.floats;
+    case Kind::kIntegers:
+        return a.list == b.list;
+    case Kind::kFloats:
+        return a.floats == b.floats;
     }
     return false;
 }
@@ -193,7 +213,10 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
     if (!hex.empty()) {
         uint32_t value = 0;
         for (char c : hex) {
-            int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'A' && c <= 'F' ? c - 'A' + 10 : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1;
+            int digit = c >= '0' && c <= '9'   ? c - '0'
+                        : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                        : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                                               : -1;
             if (digit < 0)
                 return false;
             value = value << 4 | static_cast<uint32_t>(digit);
@@ -210,16 +233,22 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
 std::string get_format(const Value& value, const NameLookup& names)
 {
     switch (value.kind) {
-    case Kind::kInteger: return std::to_string(value.integer);
-    case Kind::kFloat: return float_text(value.numbers[0]);
-    case Kind::kPair: return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]);
+    case Kind::kInteger:
+        return std::to_string(value.integer);
+    case Kind::kFloat:
+        return float_text(value.numbers[0]);
+    case Kind::kPair:
+        return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]);
     case Kind::kVec4:
         return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]) + ", " + float_text(value.numbers[2]);
-    case Kind::kName: return get_name_text(value.checksum, names);
+    case Kind::kName:
+        return get_name_text(value.checksum, names);
     case Kind::kChars:
     case Kind::kLocalisedText:
-    case Kind::kOther: return value.text;
-    case Kind::kBitMark: return value.on ? "on" : "off";
+    case Kind::kOther:
+        return value.text;
+    case Kind::kBitMark:
+        return value.on ? "on" : "off";
     case Kind::kNames: {
         std::vector<std::string> parts;
         for (uint32_t c : value.list)
@@ -352,8 +381,8 @@ std::string escape(const std::string& text)
 {
     std::string out;
     for (unsigned char c : text) {
-        bool plain = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' || c == '.' ||
-                     c == '-' || c == '/' || c == ':';
+        bool plain = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' ||
+                     c == '.' || c == '-' || c == '/' || c == ':';
         if (plain) {
             out += static_cast<char>(c);
         } else {
@@ -379,7 +408,10 @@ bool unescape(const std::string& text, std::string* out)
         int value = 0;
         for (int k = 1; k <= 2; ++k) {
             char h = text[i + k];
-            int digit = h >= '0' && h <= '9' ? h - '0' : h >= 'A' && h <= 'F' ? h - 'A' + 10 : h >= 'a' && h <= 'f' ? h - 'a' + 10 : -1;
+            int digit = h >= '0' && h <= '9'   ? h - '0'
+                        : h >= 'A' && h <= 'F' ? h - 'A' + 10
+                        : h >= 'a' && h <= 'f' ? h - 'a' + 10
+                                               : -1;
             if (digit < 0)
                 return false;
             value = value * 16 + digit;
@@ -396,7 +428,8 @@ std::string encode_value(const Value& value, const NameLookup& names)
 {
     char text[96];
     switch (value.kind) {
-    case Kind::kInteger: return "i:" + std::to_string(value.integer);
+    case Kind::kInteger:
+        return "i:" + std::to_string(value.integer);
     case Kind::kFloat:
         std::snprintf(text, sizeof(text), "f:%.9g", static_cast<double>(value.numbers[0]));
         return text;
@@ -408,10 +441,14 @@ std::string encode_value(const Value& value, const NameLookup& names)
         std::snprintf(text, sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(value.numbers[0]),
                       static_cast<double>(value.numbers[1]), static_cast<double>(value.numbers[2]));
         return text;
-    case Kind::kName: return "n:" + record_name(value.checksum, names);
-    case Kind::kChars: return "s:" + escape(value.text);
-    case Kind::kLocalisedText: return "l:" + escape(value.text);
-    case Kind::kBitMark: return value.on ? "flag:1" : "flag:0";
+    case Kind::kName:
+        return "n:" + record_name(value.checksum, names);
+    case Kind::kChars:
+        return "s:" + escape(value.text);
+    case Kind::kLocalisedText:
+        return "l:" + escape(value.text);
+    case Kind::kBitMark:
+        return value.on ? "flag:1" : "flag:0";
     case Kind::kNames: {
         std::vector<std::string> parts;
         for (uint32_t c : value.list)
@@ -432,7 +469,8 @@ std::string encode_value(const Value& value, const NameLookup& names)
         }
         return "af:" + get_join(parts, ",");
     }
-    case Kind::kOther: break;
+    case Kind::kOther:
+        break;
     }
     return "";
 }
@@ -473,7 +511,8 @@ bool decode_value(const std::string& text, Value* value)
 
 std::string get_token(const Edit& edit, const NameLookup& names)
 {
-    return "f." + record_name(edit.key, names) + "=" + (edit.removed ? std::string("del") : encode_value(edit.value, names));
+    return "f." + record_name(edit.key, names) + "=" +
+           (edit.removed ? std::string("del") : encode_value(edit.value, names));
 }
 
 bool is_field_key(const std::string& key) { return key.size() > 2 && key[0] == 'f' && key[1] == '.'; }
@@ -494,14 +533,46 @@ bool read_token(const std::string& key, const std::string& value, Edit* edit)
     return true;
 }
 
-uint32_t get_key_name() { static const uint32_t kK = hash_of_name("name"); return kK; }
-uint32_t key_class() { static const uint32_t kK = hash_of_name("Class"); return kK; }
-uint32_t get_key_type() { static const uint32_t kK = hash_of_name("Type"); return kK; }
-uint32_t key_pos() { static const uint32_t kK = hash_of_name("pos"); return kK; }
-uint32_t key_angles() { static const uint32_t kK = hash_of_name("angles"); return kK; }
-uint32_t key_links() { static const uint32_t kK = hash_of_name("links"); return kK; }
-uint32_t key_terrain() { static const uint32_t kK = hash_of_name("TerrainType"); return kK; }
-uint32_t key_restart_types() { static const uint32_t kK = hash_of_name("restart_types"); return kK; }
+uint32_t get_key_name()
+{
+    static const uint32_t kK = hash_of_name("name");
+    return kK;
+}
+uint32_t key_class()
+{
+    static const uint32_t kK = hash_of_name("Class");
+    return kK;
+}
+uint32_t get_key_type()
+{
+    static const uint32_t kK = hash_of_name("Type");
+    return kK;
+}
+uint32_t key_pos()
+{
+    static const uint32_t kK = hash_of_name("pos");
+    return kK;
+}
+uint32_t key_angles()
+{
+    static const uint32_t kK = hash_of_name("angles");
+    return kK;
+}
+uint32_t key_links()
+{
+    static const uint32_t kK = hash_of_name("links");
+    return kK;
+}
+uint32_t key_terrain()
+{
+    static const uint32_t kK = hash_of_name("TerrainType");
+    return kK;
+}
+uint32_t key_restart_types()
+{
+    static const uint32_t kK = hash_of_name("restart_types");
+    return kK;
+}
 
 When when_applied(nodes::Family family, uint32_t key, const char** note)
 {
@@ -532,7 +603,7 @@ When when_applied(nodes::Family family, uint32_t key, const char** note)
 }
 
 bool valid_links(const std::vector<uint32_t>& links, uint32_t self, const std::function<bool(uint32_t)>& exists,
-                const NameLookup& names, std::string* error)
+                 const NameLookup& names, std::string* error)
 {
     for (size_t i = 0; i < links.size(); ++i) {
         if (links[i] == self) {
@@ -692,13 +763,27 @@ Value value_of(const script::Component* c)
 void add_value(script::Struct* s, uint32_t key, const Value& v)
 {
     switch (v.kind) {
-    case Kind::kInteger: s->put_int(key, v.integer); break;
-    case Kind::kFloat: s->push_float(key, v.numbers[0]); break;
-    case Kind::kName: s->put_name_key(key, v.checksum); break;
-    case Kind::kChars: s->append_word(key, v.text.c_str()); break;
-    case Kind::kLocalisedText: s->append_inline_text(key, v.text.c_str()); break;
-    case Kind::kPair: s->insert_pair(key, v.numbers[0], v.numbers[1]); break;
-    case Kind::kVec4: s->put_vec3(key, v.numbers[0], v.numbers[1], v.numbers[2]); break;
+    case Kind::kInteger:
+        s->put_int(key, v.integer);
+        break;
+    case Kind::kFloat:
+        s->push_float(key, v.numbers[0]);
+        break;
+    case Kind::kName:
+        s->put_name_key(key, v.checksum);
+        break;
+    case Kind::kChars:
+        s->append_word(key, v.text.c_str());
+        break;
+    case Kind::kLocalisedText:
+        s->append_inline_text(key, v.text.c_str());
+        break;
+    case Kind::kPair:
+        s->insert_pair(key, v.numbers[0], v.numbers[1]);
+        break;
+    case Kind::kVec4:
+        s->put_vec3(key, v.numbers[0], v.numbers[1], v.numbers[2]);
+        break;
     case Kind::kBitMark:
         if (v.on)
             s->put_name_key(0u, key);
@@ -709,8 +794,8 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         script::Array* array = script::alloc_script_array()->prepare_all();
         uint32_t size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
         array->configure_size_kind(size, v.kind == Kind::kNames      ? script::kQbvalName
-                                    : v.kind == Kind::kIntegers ? script::kQbvalInteger
-                                                               : script::kQbvalFloat);
+                                         : v.kind == Kind::kIntegers ? script::kQbvalInteger
+                                                                     : script::kQbvalFloat);
         for (uint32_t i = 0; i < size; ++i) {
             if (v.kind == Kind::kFloats)
                 array->change_float(i, v.floats[i]);
@@ -720,7 +805,8 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         s->append_array_ref(key, array);
         break;
     }
-    case Kind::kOther: break;
+    case Kind::kOther:
+        break;
     }
 }
 
@@ -924,7 +1010,7 @@ namespace {
 
 // The field set on structure `s` of node `name` (of `family`: what may be set - see Set).
 bool set_on(script::Struct* s, uint32_t name, nodes::Family family, uint32_t key, const Value& value, bool removed,
-           std::string* error)
+            std::string* error)
 {
     When when = when_applied(family, key, nullptr);
     if (when == When::kReadOnly || when == When::kElsewhere || key == key_links() || key == 0) {
@@ -1028,7 +1114,8 @@ bool reset_node(uint32_t name)
 bool node_edited(uint32_t name)
 {
     for (const Touched& t : g_touched) {
-        if (t.node == name && level_node(name) == t.structure && !same_own(own_of(t.structure, t.key, t.flag), t.origin, t.flag))
+        if (t.node == name && level_node(name) == t.structure &&
+            !same_own(own_of(t.structure, t.key, t.flag), t.origin, t.flag))
             return true;
     }
     return false;
@@ -1125,4 +1212,4 @@ int apply_early(uint32_t array, const std::vector<NodeEdits>& edits)
     return applied;
 }
 
-} // namespace MenuSystem::level_editor::Fields
+} // namespace frontend::level_editor::fields

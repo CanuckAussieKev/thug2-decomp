@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -57,23 +57,23 @@ public:
     bool place_cursor(maths::Vec4 previous, float step);
 
     uint32_t unknown18;
-    maths::Vec4 focus_;        // +0x1C what the camera looks at (the cursor, the height eased)
-    maths::Vec4 viewer_;       // +0x2C the camera's position
-    maths::Vec4 cursor_;       // +0x3C on the ground
-    maths::Vec4 right_side_;        // +0x4C the heading's axes (flat)
-    maths::Vec4 forward_;      // +0x5C
-    float zoom_;               // +0x6C the camera's distance
+    maths::Vec4 focus_;         // +0x1C what the camera looks at (the cursor, the height eased)
+    maths::Vec4 viewer_;        // +0x2C the camera's position
+    maths::Vec4 cursor_;        // +0x3C on the ground
+    maths::Vec4 right_side_;    // +0x4C the heading's axes (flat)
+    maths::Vec4 forward_;       // +0x5C
+    float zoom_;                // +0x6C the camera's distance
     float min_zoom_, max_zoom_; // +0x70
-    float heading_;            // +0x78 0..2 pi
-    float lean_angle_;               // +0x7C
+    float heading_;             // +0x78 0..2 pi
+    float lean_angle_;          // +0x7C
     float min_tilt_, max_tilt_; // +0x80 (from the script globals each frame)
     float level_y_;             // +0x88 above the cursor
     float min_height_;          // +0x8C
     bool simple_collision_;     // +0x90
-    bool no_wall_check_;         // +0x91 (0xF5680DEF)
+    bool no_wall_check_;        // +0x91 (0xF5680DEF)
     uint8_t pad92[2];
-    uint8_t* input_ptr_;          // +0x94 the Input component
-    void* shadow_handle_;            // +0x98
+    uint8_t* input_ptr_;  // +0x94 the Input component
+    void* shadow_handle_; // +0x98
 };
 static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
 static_assert(offsetof(EditorViewModule, cursor_) == 0x3C, "m_cursor");
@@ -92,4 +92,4 @@ void __cdecl flag_scripted_hit(void* feeler);
 // with 0x50 only).
 bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end);
 
-} // namespace Obj
+} // namespace objects

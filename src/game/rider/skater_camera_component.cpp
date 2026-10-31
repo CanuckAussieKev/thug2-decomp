@@ -39,30 +39,30 @@ namespace {
 using skater::physics::get_at;
 using skater::physics::x87_sin;
 
-constexpr uint32_t kSkaterCamera = 0x5E43A604;        // skatercamera (the component type)
+constexpr uint32_t kSkaterCamera = 0x5E43A604; // skatercamera (the component type)
 extern void** const kCleanupVtable;
-constexpr uint32_t kCleanupState = 0xD8CC3428;        // SkaterCleanupState (the component type)
-constexpr uint32_t kSkaterState = 0x43686585;         // SkaterState (a component)
-constexpr uint32_t kPhysicsControl = 0xD9151D4D;      // SkaterPhysicsControl (a component)
-constexpr uint32_t kSkaterId = 0x4C48DA58;            // (configure_from_data's object id; name not recovered)
-constexpr uint32_t kShake = 0x75A516D3;               // (the shake member function; name not recovered)
-constexpr uint32_t kSetMode = 0xD7867FFE;             // (the camera mode member function; name not recovered)
-constexpr uint32_t kMode = 0x6835B854;                // (its parameter; name not recovered)
+constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
+constexpr uint32_t kSkaterState = 0x43686585;    // SkaterState (a component)
+constexpr uint32_t kPhysicsControl = 0xD9151D4D; // SkaterPhysicsControl (a component)
+constexpr uint32_t kSkaterId = 0x4C48DA58;       // (configure_from_data's object id; name not recovered)
+constexpr uint32_t kShake = 0x75A516D3;          // (the shake member function; name not recovered)
+constexpr uint32_t kSetMode = 0xD7867FFE;        // (the camera mode member function; name not recovered)
+constexpr uint32_t kMode = 0x6835B854;           // (its parameter; name not recovered)
 
 // The shake's parameters (the game's strings).
 const char* const kDuration = "duration";  // "duration"
 const char* const kVertAmp = "vert_amp";   // "vert_amp"
-const char* const kHorizAmp = "horiz_amp";  // "horiz_amp"
+const char* const kHorizAmp = "horiz_amp"; // "horiz_amp"
 const char* const kVertVel = "vert_vel";   // "vert_vel"
 const char* const kHorizVel = "horiz_vel"; // "horiz_vel"
 
 // The game's constants.
-constexpr float kTwoPi = 6.2831854820251465f;   // 0x0064545C
-constexpr float kTiltBias = 0.628f;             // 0x0064BB00
+constexpr float kTwoPi = 6.2831854820251465f;     // 0x0064545C
+constexpr float kTiltBias = 0.628f;               // 0x0064BB00
 constexpr float kTiltScale = 1.5923566818237305f; // 0x0064BAFC
-constexpr float kTiltRange = 0.6f;              // 0x006463C4
-constexpr float kTiltBase = 0.4f;               // 0x0064BAF8
-constexpr float kZoomedHeight = 3.0f;           // 0x006467A8
+constexpr float kTiltRange = 0.6f;                // 0x006463C4
+constexpr float kTiltBase = 0.4f;                 // 0x0064BAF8
+constexpr float kZoomedHeight = 3.0f;             // 0x006467A8
 
 // In vert air: the state's +0x30 on, +0x48 and +0x78 off.
 bool vert_air(const uint8_t* state) { return state[0x30] && !state[0x48] && !state[0x78]; }
@@ -146,7 +146,8 @@ void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
             frame_blend(static_cast<float>(vert_air_lerp_xz_ * static_cast<double>(rate_scale_)), seconds));
         up = frame_blend(static_cast<float>(halfpipe_up_blend_ * static_cast<double>(rate_scale_)), seconds);
     } else {
-        across = static_cast<float>(frame_blend(static_cast<float>(lerp_xz_ * static_cast<double>(rate_scale_)), seconds));
+        across =
+            static_cast<float>(frame_blend(static_cast<float>(lerp_xz_ * static_cast<double>(rate_scale_)), seconds));
         up = frame_blend(static_cast<float>(lerp_y_ * static_cast<double>(rate_scale_)), seconds);
         state = state_ref_;
         if (state[0x98])
@@ -195,7 +196,8 @@ void RiderChaseView::get_zoomed_offsets(float* height, float* distance)
     *distance = static_cast<float>(behind);
     float tilt = free_look_module_->lean_angle_;
     if (tilt < 0.0f)
-        *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) * behind);
+        *distance = static_cast<float>(((tilt + static_cast<double>(kTiltBias)) * kTiltScale * kTiltRange + kTiltBase) *
+                                       behind);
     float above = get_at<int>(state_ref_, 0x18) == 3 ? lip_trick_above_ : above_;
     if (zoom_ < 1.0f)
         *height = static_cast<float>((static_cast<double>(above) - kZoomedHeight) * zoom_ + kZoomedHeight);
@@ -370,7 +372,7 @@ ObjectModule* __cdecl RiderStateReset::fabricate()
     return component;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::RiderChaseView;
 using objects::RiderStateReset;
@@ -378,39 +380,43 @@ using objects::RiderStateReset;
 namespace objects {
 namespace {
 
-static VtableSlot g_cleanup_vtable_slots[] = {&RiderStateReset::teardown,
-         &RiderStateReset::tick_frame,
-         &RiderStateReset::configure_from_data,
-         &RiderStateReset::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_cleanup_vtable_slots[] = {
+    &RiderStateReset::teardown,
+    &RiderStateReset::tick_frame,
+    &RiderStateReset::configure_from_data,
+    &RiderStateReset::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kCleanupVtable = reinterpret_cast<void**>(g_cleanup_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
-static VtableSlot g_skater_camera_vtable_slots[] = {&RiderChaseView::teardown,
-         &objects::RiderChaseView::tick_frame,
-         &RiderChaseView::configure_from_data,
-         &objects::RiderChaseView::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &RiderChaseView::invoke_method_by_name};
+static VtableSlot g_skater_camera_vtable_slots[] = {
+    &RiderChaseView::teardown,
+    &objects::RiderChaseView::tick_frame,
+    &RiderChaseView::configure_from_data,
+    &objects::RiderChaseView::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &RiderChaseView::invoke_method_by_name};
 void** const kSkaterCameraVtable = reinterpret_cast<void**>(g_skater_camera_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

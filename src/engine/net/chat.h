@@ -3,7 +3,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 namespace net {
 struct InboundMsgCtx;

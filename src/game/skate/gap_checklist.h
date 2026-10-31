@@ -14,21 +14,21 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
 // One gap (0x50 bytes, vtable 0x0064EC7C; its node type lists::Elem<GapEntry>'s 0x0064EC78).
 struct GapEntry {
-    memory::ListNode list_link_;          // data = the gap itself
-    maths::Vec4 skater_start_pos_;  // +0x14 where the gap menu puts the skater (set_gap_positions)
-    maths::Vec4 skater_start_dir_;  // +0x24
-    int pending_;                 // +0x34 landed since the last award (register_gap_hit)
-    int num_;                   // +0x38 times landed
-    int points_held_;                   // +0x3C
+    memory::ListNode list_link_;   // data = the gap itself
+    maths::Vec4 skater_start_pos_; // +0x14 where the gap menu puts the skater (set_gap_positions)
+    maths::Vec4 skater_start_dir_; // +0x24
+    int pending_;                  // +0x34 landed since the last award (register_gap_hit)
+    int num_;                      // +0x38 times landed
+    int points_held_;              // +0x3C
     bool in_level_;                // +0x40 found by the last scan of the level's scripts
     uint8_t pad41[3];
-    text::Chars label_;            // +0x44
+    text::Chars label_; // +0x44
 
     // 0x005786E0: an unlinked node, an empty name, never landed, in the level. Returns this.
     GapEntry* make_new();
@@ -108,9 +108,9 @@ public:
     // skater_start_dir for each) and num_gaps_got. False with no gaps (num_gaps_got 0).
     bool create_gap_list(script::Struct* params, script::Script* script);
 
-    bool built_;           // +0x00 (also set by register_gap_entry)
+    bool built_; // +0x00 (also set by register_gap_entry)
     uint8_t pad01[3];
-    memory::ListNode gaps_;   // +0x04 the list's head (lists::Foremost<GapEntry>, vtable 0x0064ED20)
+    memory::ListNode gaps_; // +0x04 the list's head (lists::Foremost<GapEntry>, vtable 0x0064ED20)
 };
 static_assert(offsetof(GapTally, gaps_) == 4 && sizeof(GapTally) == 0x18, "layout must match the original");
 
@@ -126,4 +126,4 @@ bool __cdecl cfunc_get_level_gap_totals(script::Struct* params, script::Script* 
 // 0x00579360 GiveAllGaps: every gap of level= (default: the current level - 0x00584130) landed once more.
 bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* script);
 
-} // namespace Game
+} // namespace goals

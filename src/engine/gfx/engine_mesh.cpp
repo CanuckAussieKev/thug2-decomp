@@ -64,16 +64,10 @@ SubMesh* SubMesh::teardown(unsigned int flags)
 }
 
 // 0x00490AB0
-void* SubMesh::fetch_bone_tree()
-{
-    return hierarchy_;
-}
+void* SubMesh::fetch_bone_tree() { return hierarchy_; }
 
 // 0x00490AC0
-uint32_t SubMesh::get_hierarchy_count()
-{
-    return hierarchy_count_;
-}
+uint32_t SubMesh::get_hierarchy_count() { return hierarchy_count_; }
 
 // 0x00490B80
 bool SubMesh::add_collision(const uint8_t* data)
@@ -151,4 +145,4 @@ static VtableSlot g_mesh_vtable_slots[] = {&render::SubMesh::teardown};
 void** const kMeshVtable = reinterpret_cast<void**>(g_mesh_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

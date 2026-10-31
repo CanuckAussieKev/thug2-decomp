@@ -61,7 +61,7 @@ namespace {
 void** const& g_coll_static_vtable = vt::kVtblStaticColl; // (StaticCollider)
 
 bool g_armed;
-int g_ends;        // (0, 1 or 2 ends placed)
+int g_ends; // (0, 1 or 2 ends placed)
 V3 g_a, g_b;
 bool g_have_hover, g_hover_snapped;
 V3 g_hover;
@@ -203,7 +203,8 @@ void add_overlay(const overlays::Painter& painter)
         painter.text_tools((g_a + b) * 0.5f, kRuler, arcs::span_to(m.distance));
         painter.text_tools((low + corner) * 0.5f, kGap, "across " + arcs::span_to(m.horizontal), 6.0f, 6.0f);
         if (std::fabs(m.height) > 0.5f)
-            painter.text_tools((corner + high) * 0.5f, kRise, (m.height < 0.0f ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
+            painter.text_tools((corner + high) * 0.5f, kRise,
+                               (m.height < 0.0f ? "down " : "up ") + arcs::span_to(std::fabs(m.height)));
     }
 }
 
@@ -214,4 +215,4 @@ std::string describe()
     return "ruler: " + describe(measure_of(g_a, g_b));
 }
 
-} // namespace MenuSystem::level_editor::Ruler
+} // namespace frontend::level_editor::ruler

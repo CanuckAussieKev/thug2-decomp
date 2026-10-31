@@ -50,19 +50,19 @@ public:
     void item_place(ElementPtr* item, float* x, float* y, float* w, float* h);
 
     objects::SignalReceiver listener_; // +0x178
-    UiWidget* menu_;        // +0x194
+    UiWidget* menu_;                   // +0x194
     uint32_t chosen_item_id_;          // +0x198 the item focused
-    float inner_align_h_;          // +0x19C internal_just
-    float inner_align_v_;          // +0x1A0
-    bool focused_;                 // +0x1A4
-    bool rearrange_;               // +0x1A5
+    float inner_align_h_;              // +0x19C internal_just
+    float inner_align_v_;              // +0x1A0
+    bool focused_;                     // +0x1A4
+    bool rearrange_;                   // +0x1A5
     uint8_t pad1a6_[2];
-    float window_start_;            // +0x1A8 along the menu
-    float scroll_speed_;            // +0x1AC per frame
-    int num_items_to_show_;           // +0x1B0 (-1: all)
-    float window_length_;           // +0x1B4
-    float regular_space_;           // +0x1B8 the menu's (-1: none)
-    bool vertical_;                // +0x1BC
+    float window_start_;    // +0x1A8 along the menu
+    float scroll_speed_;    // +0x1AC per frame
+    int num_items_to_show_; // +0x1B0 (-1: all)
+    float window_length_;   // +0x1B4
+    float regular_space_;   // +0x1B8 the menu's (-1: none)
+    bool vertical_;         // +0x1BC
     uint8_t pad1bd_[3];
 };
 static_assert(offsetof(WindowedList, listener_) == 0x178 && offsetof(WindowedList, menu_) == 0x194 &&
@@ -71,4 +71,4 @@ static_assert(offsetof(WindowedList, listener_) == 0x178 && offsetof(WindowedLis
                   sizeof(WindowedList) == 0x1C0,
               "layout must match the original");
 
-} // namespace Front
+} // namespace frontend

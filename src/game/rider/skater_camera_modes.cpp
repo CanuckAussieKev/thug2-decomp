@@ -22,13 +22,13 @@ constexpr uint32_t kCameraLookaround = 0x81C7122D, kCamera = 0xC4E311FA;
 constexpr uint32_t kHorizFov = 0x94DF1603, kBehind = 0x52E6C41B, kAbove = 0x0B96AE2D, kTilt = 0xE3C07609,
                    kOriginOffset = 0x012F6992, kLipTrickTilt = 0x7F0032AC, kLipTrickAbove = 0xADB6390E,
                    kSlerp = 0xF54FB9C5, kVertAirSlerp = 0x2FA11029, kVertAirLandedSlerp = 0x042FD4A0,
-                   kLerpXz = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXz = 0xF386F4D9, kHalfpipeAirBlendY = 0x4882A1FE,
-                   kLookRate = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A, kZoomBlend = 0x748743A7,
-                   kRailZoom = 0x5A7F5CC5, kBigAirTrickZoom = 0xD790B83D, kLipTrickZoom = 0xD414C22E,
-                   kName = 0xA1DC81F9;
+                   kLerpXz = 0xAE47899B, kLerpY = 0xE1E4E104, kVertAirLerpXz = 0xF386F4D9,
+                   kHalfpipeAirBlendY = 0x4882A1FE, kLookRate = 0xBEF0D195, kWallrideOffsetAngle = 0x3396BE2A,
+                   kZoomBlend = 0x748743A7, kRailZoom = 0x5A7F5CC5, kBigAirTrickZoom = 0xD790B83D,
+                   kLipTrickZoom = 0xD414C22E, kName = 0xA1DC81F9;
 
-constexpr float kFeet = 12.0f;  // 0x0064546C
-constexpr float kHalf = 0.5f;   // 0x006453BC
+constexpr float kFeet = 12.0f; // 0x0064546C
+constexpr float kHalf = 0.5f;  // 0x006453BC
 constexpr float kPi = 3.14159274f, kHalfPi = 1.57079637f;
 
 float one_frame()
@@ -95,8 +95,8 @@ void RiderChaseView::change_regime(int mode, float time)
     auto* camera = entity_->fetch_module(kCamera);
     int screen = screen_mode();
     const char* array_name = screen == 1   ? "Skater_Camera_2P_Vert_Array"
-                            : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
-                                          : "Skater_Camera_Array";
+                             : screen == 2 ? "Skater_Camera_2P_Horiz_Array"
+                                           : "Skater_Camera_Array";
     script::Array* modes = script::fetch_list(array_name);
     script::Struct* params = script::read_sub_struct(modes->fetch_part(static_cast<uint32_t>(mode)));
     mode_sel_ = mode;
@@ -172,4 +172,4 @@ void RiderChaseView::change_regime(int mode, float time)
     free_look_module_->mode_heading_ = heading;
 }
 
-} // namespace Obj
+} // namespace objects

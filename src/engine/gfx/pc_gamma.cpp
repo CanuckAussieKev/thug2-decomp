@@ -66,4 +66,4 @@ void __cdecl set_device_gamma(float r, float g, float b)
     g_d3d_device->SetGammaRamp(0, 0, reinterpret_cast<const D3DGAMMARAMP*>(get_ramp()));
 }
 
-} // namespace Nx
+} // namespace render

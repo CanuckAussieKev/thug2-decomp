@@ -49,32 +49,32 @@ public:
     void show_meter();
 
     void** vtable_;
-    GameEntity* skater_;    // +0x04
-    uint8_t* balance_trick_;       // +0x08 SkaterBalanceTrick (+0x18 the balance trick's type)
-    uint8_t* points_held_;              // +0x0C SkaterScore (+0x18 the score)
-    uint8_t* input_;              // +0x10 input (+0x20 its control data)
+    GameEntity* skater_;     // +0x04
+    uint8_t* balance_trick_; // +0x08 SkaterBalanceTrick (+0x18 the balance trick's type)
+    uint8_t* points_held_;   // +0x0C SkaterScore (+0x18 the score)
+    uint8_t* input_;         // +0x10 input (+0x20 its control data)
     uint8_t unknown14_[0x10];
-    float clock_;                  // +0x24
-    float on_rail_seconds_;              // +0x28
-    float best_time_;              // +0x2C
-    float lean_;                  // +0x30
-    float lean_speed_;             // +0x34
-    float cheese_;                // +0x38
-    bool pushed_;                 // +0x3C a button was let go, or the "no input" time passed
+    float clock_;           // +0x24
+    float on_rail_seconds_; // +0x28
+    float best_time_;       // +0x2C
+    float lean_;            // +0x30
+    float lean_speed_;      // +0x34
+    float cheese_;          // +0x38
+    bool pushed_;           // +0x3C a button was let go, or the "no input" time passed
     uint8_t pad3d_[3];
-    uint32_t start_time_;          // +0x40 the game clock at the start
-    uint32_t left_button_;         // +0x44
-    uint32_t right_press_;        // +0x48
-    uint32_t trick_;              // +0x4C
-    int rail_;                    // +0x50 the rail of the last grind (-1: none)
-    bool show_meter_;              // +0x54
-    bool hide_display_;            // +0x55
-    bool mirrored_;                // +0x56
-    bool flip_;                   // +0x57
+    uint32_t start_time_;  // +0x40 the game clock at the start
+    uint32_t left_button_; // +0x44
+    uint32_t right_press_; // +0x48
+    uint32_t trick_;       // +0x4C
+    int rail_;             // +0x50 the rail of the last grind (-1: none)
+    bool show_meter_;      // +0x54
+    bool hide_display_;    // +0x55
+    bool mirrored_;        // +0x56
+    bool flip_;            // +0x57
 };
 static_assert(offsetof(Balance, clock_) == 0x24 && offsetof(Balance, cheese_) == 0x38 &&
                   offsetof(Balance, start_time_) == 0x40 && offsetof(Balance, rail_) == 0x50 &&
                   offsetof(Balance, flip_) == 0x57 && sizeof(Balance) == 0x58,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

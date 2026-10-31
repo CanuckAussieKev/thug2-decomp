@@ -21,28 +21,28 @@ namespace {
 using script::Array;
 using script::Struct;
 
-constexpr uint32_t kLayerInfoList = 0x54AAD4BD;      // "info_array"
-constexpr uint32_t kCustomTag = 0xAA286543;      // (name unknown) the custom tag texture (in the dictionary 0x00700F20)
-constexpr uint32_t kWorkspace = 0xFDA19704;      // (name unknown) the layer workspace texture
-constexpr uint32_t kTextureId = 0xDFB43C53;      // "texture_id"
-constexpr uint32_t kScale = 0x13B9DA7B;          // "scale"
-constexpr uint32_t kFlipH = 0xA0C7507F;          // "flip_h"
-constexpr uint32_t kFlipV = 0x5AC86D1C;          // "flip_v"
-constexpr uint32_t kRot = 0xE2C6589E;            // "rot"
-constexpr uint32_t kPosX = 0x960061E4;           // "pos_x"
-constexpr uint32_t kPosY = 0xE1075172;           // "pos_y"
-constexpr uint32_t kRgba = 0x3F6BCDBA;           // "rgba"
-constexpr uint32_t kLayerId = 0x15910232;        // "layer_id"
-constexpr uint32_t kPlayer = 0x67E6859A;         // "player"
-constexpr uint32_t kTest = 0x278081F3;           // "Test"
+constexpr uint32_t kLayerInfoList = 0x54AAD4BD; // "info_array"
+constexpr uint32_t kCustomTag = 0xAA286543;     // (name unknown) the custom tag texture (in the dictionary 0x00700F20)
+constexpr uint32_t kWorkspace = 0xFDA19704;     // (name unknown) the layer workspace texture
+constexpr uint32_t kTextureId = 0xDFB43C53;     // "texture_id"
+constexpr uint32_t kScale = 0x13B9DA7B;         // "scale"
+constexpr uint32_t kFlipH = 0xA0C7507F;         // "flip_h"
+constexpr uint32_t kFlipV = 0x5AC86D1C;         // "flip_v"
+constexpr uint32_t kRot = 0xE2C6589E;           // "rot"
+constexpr uint32_t kPosX = 0x960061E4;          // "pos_x"
+constexpr uint32_t kPosY = 0xE1075172;          // "pos_y"
+constexpr uint32_t kRgba = 0x3F6BCDBA;          // "rgba"
+constexpr uint32_t kLayerId = 0x15910232;       // "layer_id"
+constexpr uint32_t kPlayer = 0x67E6859A;        // "player"
+constexpr uint32_t kTest = 0x278081F3;          // "Test"
 constexpr uint32_t kWorkspaceSprite = 0xAFFFDBCA; // "cag_workspace_sprite"
-constexpr uint32_t kSkater = 0x5B8AB877;         // "Skater"
-constexpr uint32_t kMagnitude = 0xCA7882FE;      // "magnitude"
-constexpr uint32_t kTheta = 0xF4E775F6;          // "theta"
-constexpr uint32_t kX = 0x7323E97C;              // "x"
-constexpr uint32_t kY = 0x0424D9EA;              // "Y"
-constexpr uint32_t kSkaterMHead = 0x650FAB6D;    // "skater_m_head"
-constexpr uint32_t kSkaterFHead = 0x0FC85BAE;    // "skater_f_head"
+constexpr uint32_t kSkater = 0x5B8AB877;          // "Skater"
+constexpr uint32_t kMagnitude = 0xCA7882FE;       // "magnitude"
+constexpr uint32_t kTheta = 0xF4E775F6;           // "theta"
+constexpr uint32_t kX = 0x7323E97C;               // "x"
+constexpr uint32_t kY = 0x0424D9EA;               // "Y"
+constexpr uint32_t kSkaterMHead = 0x650FAB6D;     // "skater_m_head"
+constexpr uint32_t kSkaterFHead = 0x0FC85BAE;     // "skater_f_head"
 constexpr uint32_t kHeadBoneGroups[4] = {
     0xA28FAB7F, // "head_bone_group"
     0x1DBCFAE8, // "nose_bone_group"
@@ -165,7 +165,8 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
     int player;
     params->fetch_int_value(kPlayer, &player, 1);
     if (player == 0) {
-        auto* tagging = static_cast<objects::TaggingComponent*>(get_skate()->get_rider_at(0)->fetch_module(objects::TaggingComponent::kType));
+        auto* tagging = static_cast<objects::TaggingComponent*>(
+            get_skate()->get_rider_at(0)->fetch_module(objects::TaggingComponent::kType));
         tagging->custom_tag_ = true; // (0x004E4000, a setter folded with others)
         tagging->apply_custom_tag_texture();
     }
@@ -257,9 +258,7 @@ bool __cdecl cfunc_resolve_head_bone_scale(script::Struct* params, script::Scrip
         return true;
     // the appearance's part structures (0x00489050: a part's, through its description; 0x004890B0: the appearance's
     // own component of that name)
-    auto part_of = [&](uint32_t name) {
-        return reinterpret_cast<gfx::ModelLook*>(profile)->get_part_option(name);
-    };
+    auto part_of = [&](uint32_t name) { return reinterpret_cast<gfx::ModelLook*>(profile)->get_part_option(name); };
     Struct* head = part_of(kSkaterMHead);
     if (!head) {
         head = part_of(kSkaterFHead);

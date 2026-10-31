@@ -44,10 +44,13 @@ R Virtual(void* object, int slot, A... args)
 
 // The rest of the scene (0x0049C910-0x0049D18E, engine_scene.cpp): the sector of a name, a sector deleted, a scene
 // file's collision data read, the collision let go of.
-WorldCell* scene_sector(WorldScene* scene, uint32_t name) { return static_cast<WorldCell*>(scene->look_up_sector(name)); }
+WorldCell* scene_sector(WorldScene* scene, uint32_t name)
+{
+    return static_cast<WorldCell*>(scene->look_up_sector(name));
+}
 bool delete_scene_sector(WorldScene* scene, WorldCell* sector) { return scene->remove_scene_sector(sector); }
-bool scene_load_collision_data(WorldScene* scene, const uint8_t* data, int* count, StaticCollider** statics, uint8_t** objects,
-                            maths::BBox* box, int flag)
+bool scene_load_collision_data(WorldScene* scene, const uint8_t* data, int* count, StaticCollider** statics,
+                               uint8_t** objects, maths::BBox* box, int flag)
 {
     return scene->load_collision_data(data, count, statics, objects, box, flag);
 }
@@ -252,7 +255,8 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
 void WorldScene::insert_sector(WorldCell* sector) { put_sector(this, sector); }
 
 // 0x0049D510
-uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene, int instance, bool flag, uint32_t name)
+uint32_t WorldScene::duplicate_scene_sector(WorldCell* sector, WorldScene* scene, int instance, bool flag,
+                                            uint32_t name)
 {
     if (!scene)
         scene = this;
@@ -310,8 +314,7 @@ bool WorldScene::add_collision_data(const uint8_t* data, int flag)
             sector->change_bits(kSectorInGrid);
         }
     }
-    if (script::fetch_int_value(0xBA1E4254))
-    {
+    if (script::fetch_int_value(0xBA1E4254)) {
         void* weather = g_weather; // the weather (slot 1, through the jump 0x004A1090)
         reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(weather))[1])(weather);
     }
@@ -364,7 +367,8 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
             memory::ListNode* next = get_next_node(node);
             auto* sector = static_cast<WorldCell*>(node->data);
             bool listed = false;
-            for (memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed; removing = get_next_node(removing))
+            for (memory::ListNode* removing = head_of_scene_list(&to_remove); removing && !listed;
+                 removing = get_next_node(removing))
                 listed = removing->data == sector->hit_body_;
             if (!listed) {
                 append_last(&to_remove, new_node(g_coll_node_vtable, sector->hit_body_));
@@ -518,10 +522,17 @@ memory::ListNode* SectorListNodes::destroy_head(unsigned int flags)
 }
 
 namespace {
-static VtableSlot g_scene_vtable_slots[] = {&render::WorldScene::teardown, &render::WorldScene::post_load, &render::WorldScene::post_add,
-                &render::WorldScene::load_textures, &render::WorldScene::load_collision, &render::WorldScene::add_collision,
-                &render::WorldScene::unload_add_scene, &render::WorldScene::plat_create_sector, stubs::ignore_argument,
-                &render::WorldScene::get_default_colour, &render::WorldScene::set_rendered};
+static VtableSlot g_scene_vtable_slots[] = {&render::WorldScene::teardown,
+                                            &render::WorldScene::post_load,
+                                            &render::WorldScene::post_add,
+                                            &render::WorldScene::load_textures,
+                                            &render::WorldScene::load_collision,
+                                            &render::WorldScene::add_collision,
+                                            &render::WorldScene::unload_add_scene,
+                                            &render::WorldScene::plat_create_sector,
+                                            stubs::ignore_argument,
+                                            &render::WorldScene::get_default_colour,
+                                            &render::WorldScene::set_rendered};
 void** const kSceneVtable = reinterpret_cast<void**>(g_scene_vtable_slots);
 static VtableSlot g_sector_node_vtable_slots[] = {&render::SectorListNodes::destroy_node};
 void** const kSectorNodeVtable = reinterpret_cast<void**>(g_sector_node_vtable_slots);
@@ -529,11 +540,11 @@ static VtableSlot g_sector_head_vtable_slots[] = {&render::SectorListNodes::dest
 void** const kSectorHeadVtable = reinterpret_cast<void**>(g_sector_head_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace vt {
 static VtableSlot g_coll_grid_node_slots[] = {&render::CollGridListNodes::destroy_node};
 void** const kCollGridNode = reinterpret_cast<void**>(g_coll_grid_node_slots);
 static VtableSlot g_coll_grid_head_slots[] = {&render::CollGridListNodes::destroy_head};
 void** const kCollGridHead = reinterpret_cast<void**>(g_coll_grid_head_slots);
-} // namespace Vt
+} // namespace vt

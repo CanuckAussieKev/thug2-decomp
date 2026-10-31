@@ -50,34 +50,36 @@ using namespace detail;
 namespace {
 
 // Names.
-constexpr uint32_t kNumPlayers = 0x1CB2A6B0;              // num_players
-constexpr uint32_t kUpdatePlayerList = 0x695C0037;        // update_lobby_player_list
-constexpr uint32_t kDestroyUserChildren = 0xC380FBEE;     // destroy_lobby_user_list_children
-constexpr uint32_t kDestroyBuddyChildren = 0x4C2FD924;    // destroy_lobby_buddy_list_children
-constexpr uint32_t kPrepareUserList = 0xEBF04D48;         // prepare_lobby_user_list_for_new_children
-constexpr uint32_t kConsoleMessage = 0xCCB19938;          // create_console_message
-constexpr uint32_t kStatusJoined = 0x404CEABA;            // lobby_status_joined
-constexpr uint32_t kStatusLeft = 0xBA252C57;              // lobby_status_left
-constexpr uint32_t kUserId = 0x58912C6A;                  // user_id
-constexpr uint32_t kDestroyUser = 0x053A9B81;             // destroy_lobby_user
-constexpr uint32_t kText = 0xC4745838;                    // text
-constexpr uint32_t kLeft = 0x85981897;                    // left
-constexpr uint32_t kId = 0x40C698AF;                      // id
-constexpr uint32_t kRank = 0x7786171A;                    // rank
-constexpr uint32_t kUpdateRank = 0xCD827195;              // player_list_update_rank
-constexpr uint32_t kDialogBoxExit = 0x666B6A9D;           // dialog_box_exit
-constexpr uint32_t kCreateLobbyListMenu = 0x3F584E2A;     // create_lobby_list_menu
-constexpr uint32_t kCreateSelectGamesMenu = 0x204092CB;   // create_network_select_games_menu
-constexpr uint32_t kJoinLobbyFailed = 0x3C5FE392;         // CreateJoinLobbyFailedDialog
-constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
+constexpr uint32_t kNumPlayers = 0x1CB2A6B0;            // num_players
+constexpr uint32_t kUpdatePlayerList = 0x695C0037;      // update_lobby_player_list
+constexpr uint32_t kDestroyUserChildren = 0xC380FBEE;   // destroy_lobby_user_list_children
+constexpr uint32_t kDestroyBuddyChildren = 0x4C2FD924;  // destroy_lobby_buddy_list_children
+constexpr uint32_t kPrepareUserList = 0xEBF04D48;       // prepare_lobby_user_list_for_new_children
+constexpr uint32_t kConsoleMessage = 0xCCB19938;        // create_console_message
+constexpr uint32_t kStatusJoined = 0x404CEABA;          // lobby_status_joined
+constexpr uint32_t kStatusLeft = 0xBA252C57;            // lobby_status_left
+constexpr uint32_t kUserId = 0x58912C6A;                // user_id
+constexpr uint32_t kDestroyUser = 0x053A9B81;           // destroy_lobby_user
+constexpr uint32_t kText = 0xC4745838;                  // text
+constexpr uint32_t kLeft = 0x85981897;                  // left
+constexpr uint32_t kId = 0x40C698AF;                    // id
+constexpr uint32_t kRank = 0x7786171A;                  // rank
+constexpr uint32_t kUpdateRank = 0xCD827195;            // player_list_update_rank
+constexpr uint32_t kDialogBoxExit = 0x666B6A9D;         // dialog_box_exit
+constexpr uint32_t kCreateLobbyListMenu = 0x3F584E2A;   // create_lobby_list_menu
+constexpr uint32_t kCreateSelectGamesMenu = 0x204092CB; // create_network_select_games_menu
+constexpr uint32_t kJoinLobbyFailed = 0x3C5FE392;       // CreateJoinLobbyFailedDialog
+constexpr uint32_t kIndex = 0x7F8C98FE;                 // index
 
 constexpr int kRoomGroupKind = 1; // (GameSpy's RoomType)
 constexpr int kMaxRank = 10;
 
 static VtableSlot g_lobby_list_vtable_slots[] = {&online::LobbyNode::destroy_other};
-void** const kLobbyListVtable = reinterpret_cast<void**>(g_lobby_list_vtable_slots); // lists::Foremost<LobbyRoom>, LobbyRoom
+void** const kLobbyListVtable =
+    reinterpret_cast<void**>(g_lobby_list_vtable_slots); // lists::Foremost<LobbyRoom>, LobbyRoom
 static VtableSlot g_player_list_vtable_slots[] = {&RoomManager::teardown};
-void** const kPlayerListVtable = reinterpret_cast<void**>(g_player_list_vtable_slots); // lists::Foremost<LobbyPlayer>, LobbyPlayer
+void** const kPlayerListVtable =
+    reinterpret_cast<void**>(g_player_list_vtable_slots); // lists::Foremost<LobbyPlayer>, LobbyPlayer
 
 Hub* the_manager() { return g_online_hub; }
 RoomManager* the_lobby() { return static_cast<RoomManager*>(the_manager()->lobby_service_); }
@@ -261,8 +263,10 @@ void RoomManager::init_peer()
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     // The SDK's callbacks (0x74 bytes; those not set stay null).
     uint32_t callbacks[0x1D] = {};
-    callbacks[0x00 / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::disconnected_callback)); // disconnected
-    callbacks[0x04 / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::room_message_callback)); // roomMessage
+    callbacks[0x00 / 4] =
+        reinterpret_cast<uint32_t>(code_address(online::RoomManager::disconnected_callback)); // disconnected
+    callbacks[0x04 / 4] =
+        reinterpret_cast<uint32_t>(code_address(online::RoomManager::room_message_callback)); // roomMessage
     callbacks[0x14 / 4] = reinterpret_cast<uint32_t>(code_address(stubs::do_nothing)); // (nothing: the empty function)
     callbacks[0x24 / 4] = reinterpret_cast<uint32_t>(&player_joined_callback);
     callbacks[0x28 / 4] = reinterpret_cast<uint32_t>(&player_left_callback);
@@ -277,7 +281,7 @@ void RoomManager::init_peer()
     callbacks[0x64 / 4] = reinterpret_cast<uint32_t>(code_address(stubs::do_nothing));
     callbacks[0x6C / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::public_address_callback));
     callbacks[0x70 / 4] = reinterpret_cast<uint32_t>(this); // (their parameter)
-    remote_ = game_spy::peer_initialize(callbacks); // (the peer made)
+    remote_ = game_spy::peer_initialize(callbacks);         // (the peer made)
     in_group_room_ = false;
     drop_is_expected_ = true;
     hosting_ = false;
@@ -297,7 +301,8 @@ void RoomManager::start_listing_games()
     g_listing_asked = 0;
     g_listing_found = 0;
     game_spy::peer_list_group_rooms(remote_, "\\maxplayers\\neversoft\\maxrating\\minrating",
-                                code_address(online::RoomManager::group_room_callback), this, 0); // (the group rooms listed)
+                                    code_address(online::RoomManager::group_room_callback), this,
+                                    0); // (the group rooms listed)
     ram_stats()->leave_heap_scope();
 }
 
@@ -373,7 +378,7 @@ void RoomManager::fill_prospective_buddy_list()
         int profile = player->account_;
         if (profile != prop<int>(manager->presence_service_, 0x04) && profile > 0 && // (0x005480C0: our own profile)
             !static_cast<FriendsManager*>(manager->presence_service_)->is_buddy(profile)) // (a buddy already)
-            add_buddy_menu_item(player);                                        // (a prospective buddy)
+            add_buddy_menu_item(player);                                                  // (a prospective buddy)
     }
 }
 
@@ -408,7 +413,7 @@ void __cdecl RoomManager::player_joined_callback(void* peer, int room_type, cons
 
 // 0x00541FD0
 void __cdecl RoomManager::player_info_callback(void* peer, int room_type, const char* nick, uint32_t ip, int profile_id,
-                                          RoomManager* lobby)
+                                               RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -427,7 +432,7 @@ void __cdecl RoomManager::player_info_callback(void* peer, int room_type, const 
 
 // 0x005420C0
 void __cdecl RoomManager::player_left_callback(void* peer, int room_type, const char* nick, const char* reason,
-                                          RoomManager* lobby)
+                                               RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -453,7 +458,7 @@ void __cdecl RoomManager::new_player_list_callback(void* peer, int room_type, Ro
 
 // 0x00542650
 void __cdecl RoomManager::room_key_changed_callback(void* peer, int room_type, const char* nick, const char* key,
-                                              const char* value, RoomManager* lobby)
+                                                    const char* value, RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -464,7 +469,7 @@ void __cdecl RoomManager::room_key_changed_callback(void* peer, int room_type, c
 
 // 0x00542330
 void __cdecl RoomManager::room_keys_callback(void* peer, int success, int room_type, const char* nick, int count,
-                                        char** keys, char** values, RoomManager* lobby)
+                                             char** keys, char** values, RoomManager* lobby)
 {
     (void)peer;
     (void)success;
@@ -482,7 +487,7 @@ void __cdecl RoomManager::room_keys_callback(void* peer, int success, int room_t
 
 // 0x005424F0
 void __cdecl RoomManager::enum_players_callback(void* peer, int success, int room_type, int index, const char* nick,
-                                           int flags, RoomManager* lobby)
+                                                int flags, RoomManager* lobby)
 {
     (void)room_type;
     (void)flags;
@@ -511,7 +516,8 @@ void __cdecl RoomManager::join_room_callback(void* peer, int success, int result
     if (!prop<bool>(manager->presence_service_, 0x10)) // (0x005480B0: logged in to GameSpy presence)
         return;
     // Our status: chatting in the lobby (0x00548320).
-    static_cast<FriendsManager*>(manager->presence_service_)->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_);
+    static_cast<FriendsManager*>(manager->presence_service_)
+        ->change_standing(4, script::fetch_text("homie_status_chatting"), lobby->room_name_);
     // Our room key b_rating: the stats' rating (0x0054CA80 of the stats manager, read through its pointer).
     char key[64];
     char value[64];
@@ -520,9 +526,10 @@ void __cdecl RoomManager::join_room_callback(void* peer, int success, int result
     std::sprintf(value, "%d", *rating);
     const char* keys[1] = {key};
     const char* values[1] = {value};
-    const char* our_nick = game_spy::peer_get_nick(peer); // (our nick)
+    const char* our_nick = game_spy::peer_get_nick(peer);                     // (our nick)
     game_spy::peer_set_room_keys(peer, room_type, our_nick, 1, keys, values); // (our room keys set)
-    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys, &room_keys_callback, lobby, 0); // (everyone's asked for)
+    game_spy::peer_get_room_keys(peer, room_type, "*", 1, keys, &room_keys_callback, lobby,
+                                 0); // (everyone's asked for)
 }
 
 // --- The script commands ---
@@ -637,7 +644,8 @@ bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = the_manager();
-    auto* logic = reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04); // (the logic tasks)
+    auto* logic = reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) +
+                                                   0x04); // (the logic tasks)
     DWORD thread_id = 0;
     BOOL ping_rooms[3] = {FALSE, TRUE, FALSE};
     BOOL cross_ping_rooms[3] = {FALSE, FALSE, FALSE};
@@ -646,13 +654,15 @@ bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script)
     lobby->init_peer();
     const char* key = net::game_key(); // (given to the SDK: nothing written into data)
     const char* name = net::get_game_name();
-    game_spy::peer_set_title(static_cast<RoomManager*>(manager->lobby_service_)->remote_, name, key, name, key, 6, 15, 1, ping_rooms,
-                          cross_ping_rooms);
-    HANDLE thread = CreateThread(nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::RoomManager::connect_thread)),
-                                 manager->lobby_service_, CREATE_SUSPENDED, &thread_id);
+    game_spy::peer_set_title(static_cast<RoomManager*>(manager->lobby_service_)->remote_, name, key, name, key, 6, 15,
+                             1, ping_rooms, cross_ping_rooms);
+    HANDLE thread = CreateThread(
+        nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::RoomManager::connect_thread)),
+        manager->lobby_service_, CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);
     ResumeThread(thread);
-    logic->queue_job(static_cast<tasks::SchedulerTask*>(static_cast<RoomManager*>(manager->lobby_service_)->think_task_));
+    logic->queue_job(
+        static_cast<tasks::SchedulerTask*>(static_cast<RoomManager*>(manager->lobby_service_)->think_task_));
     ram_stats()->leave_heap_scope();
     return true;
 }

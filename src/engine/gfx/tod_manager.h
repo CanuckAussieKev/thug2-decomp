@@ -17,7 +17,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace lists {
 class KeyMap;
 }
@@ -30,8 +30,8 @@ extern float g_half;
 // bytes, passed by value between the manager's methods.
 struct TodParams {
     int bloom_on_;            // +0x00 bloom_on (the bloom parameters are read only when it's on)
-    int bloom1;             // +0x04 bloom1
-    int bloom2;             // +0x08 bloom2
+    int bloom1;               // +0x04 bloom1
+    int bloom2;               // +0x08 bloom2
     uint32_t bloom_strength_; // +0x0C bloom_strength [r g b]: bytes r, g, b, 0
     uint32_t bloom_color_;    // +0x10 bloom_color [r g b]
     float sun_theta_;         // +0x14 sun_theta (degrees in the script, kept in radians)
@@ -54,25 +54,26 @@ struct TodParams {
     int ambient_red_;         // +0x58 ambient_red
     int ambient_green_;       // +0x5C ambient_green
     int ambient_blue_;        // +0x60 ambient_blue
-    float ambient_mod_lo_;     // +0x64 ambient_mod_factor_lo
-    float ambient_mod_hi_;     // +0x68 ambient_mod_factor_hi
-    float heading0;         // +0x6C heading_0: directional light 0 (degrees)
-    float pitch0;           // +0x70 pitch_0
-    int red0;               // +0x74 red_0
-    int green0;             // +0x78 green_0
-    int blue0;              // +0x7C blue_0
+    float ambient_mod_lo_;    // +0x64 ambient_mod_factor_lo
+    float ambient_mod_hi_;    // +0x68 ambient_mod_factor_hi
+    float heading0;           // +0x6C heading_0: directional light 0 (degrees)
+    float pitch0;             // +0x70 pitch_0
+    int red0;                 // +0x74 red_0
+    int green0;               // +0x78 green_0
+    int blue0;                // +0x7C blue_0
     float mod_lo0_;           // +0x80 mod_factor_0_lo
     float mod_hi0_;           // +0x84 mod_factor_0_hi
     float heading_a_;         // +0x88 heading_1: directional light 1
-    float pitch1;           // +0x8C pitch_1
-    int red1;               // +0x90 red_1
-    int green1;             // +0x94 green_1
-    int blue1;              // +0x98 blue_1
+    float pitch1;             // +0x8C pitch_1
+    int red1;                 // +0x90 red_1
+    int green1;               // +0x94 green_1
+    int blue1;                // +0x98 blue_1
     float mod_lo1_;           // +0x9C mod_factor_1_lo
     float mod_hi1_;           // +0xA0 mod_factor_1_hi
 };
-static_assert(sizeof(TodParams) == 0xA4 && offsetof(TodParams, lev_red_) == 0x28 && offsetof(TodParams, fog_on_) == 0x40 &&
-                  offsetof(TodParams, heading0) == 0x6C && offsetof(TodParams, mod_hi1_) == 0xA0,
+static_assert(sizeof(TodParams) == 0xA4 && offsetof(TodParams, lev_red_) == 0x28 &&
+                  offsetof(TodParams, fog_on_) == 0x40 && offsetof(TodParams, heading0) == 0x6C &&
+                  offsetof(TodParams, mod_hi1_) == 0xA0,
               "layout must match the original");
 
 // The bloom parameters as the manager passes them on (the start of TODParams; also the temporary ones).
@@ -97,26 +98,26 @@ uint32_t previous_tod_state(uint32_t state);
 // One "system" (the script's system=1 or 2): its own day - states, lengths, light groups. A sky system colours
 // only the sky scene and doesn't drive the lights, fog, bloom or the scripts.
 struct TodSystem {
-    TodParams current;          // +0x000 (manager +0x008) the state's parameters
-    TodParams next;             // +0x0A4 (+0x0AC) the next state's
-    script::Struct* params;    // +0x148 (+0x150) a copy of the system's TODManager_SetParams parameters
-    int time;                   // +0x14C (+0x154) milliseconds into the state, then into the transition
-    uint32_t state;             // +0x150 (+0x158) the current state
-    uint32_t next_state_;         // +0x154 (+0x15C)
-    int frame;                  // +0x158 (+0x160) frames since this group's last part was coloured
-    int wait_frames_;             // +0x15C (+0x164) the group's wait_frames: frames between its parts
-    int group;                  // +0x160 (+0x168) the light group being coloured (an index into groups)
-    int group_count_;             // +0x164 (+0x16C) how many groups there are
-    int part;                   // +0x168 (+0x170) the part of the group being coloured
-    int parts;                  // +0x16C (+0x174) the group's parts: each colours (100 / parts)% of the sectors
-    uint32_t light_group_;        // +0x170 (+0x178) the group's light_group
-    uint32_t reset_light_group_;   // +0x174 (+0x17C) its reset_light_group (sectors set back to neutral)
-    int transition_length_;       // +0x178 (+0x180) transition_length (ms)
-    int state_length_;            // +0x17C (+0x184) the state's state_length (ms)
-    int days_passed_;             // +0x180 (+0x188) nights ended
-    bool transitioning;         // +0x184 (+0x18C) blending towards the next state (time counts the blend)
-    bool script_run_;             // +0x185 (+0x18D) tod_manager_state_transition run for this transition
-    bool sky;                   // +0x186 (+0x18E) a sky system
+    TodParams current;           // +0x000 (manager +0x008) the state's parameters
+    TodParams next;              // +0x0A4 (+0x0AC) the next state's
+    script::Struct* params;      // +0x148 (+0x150) a copy of the system's TODManager_SetParams parameters
+    int time;                    // +0x14C (+0x154) milliseconds into the state, then into the transition
+    uint32_t state;              // +0x150 (+0x158) the current state
+    uint32_t next_state_;        // +0x154 (+0x15C)
+    int frame;                   // +0x158 (+0x160) frames since this group's last part was coloured
+    int wait_frames_;            // +0x15C (+0x164) the group's wait_frames: frames between its parts
+    int group;                   // +0x160 (+0x168) the light group being coloured (an index into groups)
+    int group_count_;            // +0x164 (+0x16C) how many groups there are
+    int part;                    // +0x168 (+0x170) the part of the group being coloured
+    int parts;                   // +0x16C (+0x174) the group's parts: each colours (100 / parts)% of the sectors
+    uint32_t light_group_;       // +0x170 (+0x178) the group's light_group
+    uint32_t reset_light_group_; // +0x174 (+0x17C) its reset_light_group (sectors set back to neutral)
+    int transition_length_;      // +0x178 (+0x180) transition_length (ms)
+    int state_length_;           // +0x17C (+0x184) the state's state_length (ms)
+    int days_passed_;            // +0x180 (+0x188) nights ended
+    bool transitioning;          // +0x184 (+0x18C) blending towards the next state (time counts the blend)
+    bool script_run_;            // +0x185 (+0x18D) tod_manager_state_transition run for this transition
+    bool sky;                    // +0x186 (+0x18E) a sky system
     uint8_t pad187;
 };
 static_assert(sizeof(TodSystem) == 0x188 && offsetof(TodSystem, params) == 0x148 &&
@@ -174,7 +175,7 @@ public:
     // 0x005727F0 (0x00572821 is the part after its first test): colour the scenes (`start_percent`..`end_percent` of
     // their sectors), the level scene and (for the outdoor group or no group) the models; or only the sky scene.
     void apply_color(uint32_t color, uint32_t sky_color, bool sky, uint32_t light_group, uint32_t reset_light_group,
-                    bool part_only, int start_percent, int end_percent);
+                     bool part_only, int start_percent, int end_percent);
     // 0x00573500: bloom on (the parameters) or off.
     void set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color);
     // 0x00572320: fog on (with the current fog colour and distance) or off.
@@ -205,18 +206,18 @@ public:
     uint32_t current_state() const;
     bool can_set_tod_instant(uint32_t state) const;
 
-    lists::KeyMap* dead_objects_;       // +0x000 nodes marked permanently dead (value: the manager)
-    script::Struct* unknown4_;          // +0x004 made, emptied and freed, never filled
-    TodSystem systems_[kSystems];        // +0x008
-    BloomParams temp_bloom_;              // +0x318 TODManager_SetTempBloomParams'
-    int full_length_;                      // +0x32C milliseconds the manager has run
-    float time_multiplier_;               // +0x330 TODManager_SetTimeMultiplier
-    uint32_t transition_script_;          // +0x334 TODManager_SetTODScript: level_specific_transition_script
-    bool fog_active_;                     // +0x338
-    bool level_lights_reset_;              // +0x339 reset_level_lights with a state: the lights aren't blended
-    bool temp_tod_;                       // +0x33A a temporary state is up (time stops)
-    bool active_;                        // +0x33B TODManager_SetActive
-    bool params_set_;                     // +0x33C
+    lists::KeyMap* dead_objects_; // +0x000 nodes marked permanently dead (value: the manager)
+    script::Struct* unknown4_;    // +0x004 made, emptied and freed, never filled
+    TodSystem systems_[kSystems]; // +0x008
+    BloomParams temp_bloom_;      // +0x318 TODManager_SetTempBloomParams'
+    int full_length_;             // +0x32C milliseconds the manager has run
+    float time_multiplier_;       // +0x330 TODManager_SetTimeMultiplier
+    uint32_t transition_script_;  // +0x334 TODManager_SetTODScript: level_specific_transition_script
+    bool fog_active_;             // +0x338
+    bool level_lights_reset_;     // +0x339 reset_level_lights with a state: the lights aren't blended
+    bool temp_tod_;               // +0x33A a temporary state is up (time stops)
+    bool active_;                 // +0x33B TODManager_SetActive
+    bool params_set_;             // +0x33C
     uint8_t pad33d_[3];
 
 private:
@@ -232,7 +233,7 @@ static_assert(offsetof(CtodManager, systems_) == 8 && offsetof(CtodManager, temp
 // `resetLightGroup` set back to neutral - or every sector for no group), only start_percent..end_percent of them
 // when start_percent >= 0.
 void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
-                       int start_percent, int end_percent);
+                          int start_percent, int end_percent);
 // 0x00572980: directional light `index` pointed by heading and pitch (degrees).
 void set_light_direction(int index, float heading, float pitch);
 // 0x00573180: the bloom parameters added to `out` (on, bloom1, bloom2, strength, color).
@@ -286,4 +287,4 @@ bool __cdecl cfunc_tod_manager_advance_tod_state(script::Struct* params, script:
 extern float g_thousand;
 extern float g_hundred;
 extern float g_two_to32;
-} // namespace Gfx
+} // namespace gfx

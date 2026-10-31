@@ -41,67 +41,67 @@ int g_render_mode;
 
 namespace {
 
-constexpr uint32_t kIgnore1 = 0xD12347A6;         // "ignore_1"
-constexpr uint32_t kIgnore0 = 0xA6247730;         // "ignore_0"
-constexpr uint32_t kT48 = 0xC06EAD08;             // "t48"
-constexpr uint32_t kQ48 = 0xC6A56FE3;             // "q48"
-constexpr uint32_t kAnimHeapSize = 0x83DFF28A;    // "AnimHeapSize"
-constexpr uint32_t kAnimCacheSize = 0x7AA8C11C;   // (name unknown) the animation cache's second size
-constexpr uint32_t kDefCacheType = 0x891A96A9;    // "DefCacheType"
-constexpr uint32_t kCacheType3 = 0x50428FBD;      // (name unknown) cache type 3
-constexpr uint32_t kCacheType4 = 0x7ADB1481;      // (name unknown) cache type 4
-constexpr uint32_t kStandard = 0xEF082878;        // "standard": cache type 2 (others 0)
-constexpr uint32_t kMaxAnimBlends = 0x416BC96B;   // (name unknown) the first of 0x0047EB30's sizes
-constexpr uint32_t kMaxAnimSubsets = 0xD14E9A11;  // "MaxAnimSubsets"
-constexpr uint32_t kDisable = 0xB0BAB2AE;         // "disable"
-constexpr uint32_t kEnable = 0x0C5F37CD;          // "enable"
-constexpr uint32_t kDefrag = 0x6A8251D1;          // "defrag"
-constexpr uint32_t kClear = 0x1A4E0EF9;           // "clear"
-constexpr uint32_t kLightCapacity = 0x50228D9E;       // "max_lights"
-constexpr uint32_t kMaxModelLights = 0x701C70AC;  // (name unknown) the light manager's second count
-constexpr uint32_t kAspect = 0x0F7C3CAA;          // "aspect"
-constexpr uint32_t kAngle = 0xFF7EBAF6;           // "angle"
-constexpr uint32_t kLetterbox = 0xD4328DD3;       // "letterbox"
-constexpr uint32_t kAllow = 0x81B6BF17;           // "allow"
-constexpr uint32_t kStart = 0x6086AA70;           // "start"
-constexpr uint32_t kEnd = 0xFF03CC4E;             // "end"
-constexpr uint32_t kColor = 0x99A9B716;           // "color"
-constexpr uint32_t kFrames = 0x019176C5;          // "frames"
-constexpr uint32_t kBox = 0xF756B7C5;             // "box"
-constexpr uint32_t kHeight = 0x0AB21AF0;          // "height"
-constexpr uint32_t kDist = 0x7E832F08;            // "dist"
-constexpr uint32_t kWidth = 0x73E5BAD0;           // "width"
-constexpr uint32_t kOffset = 0xA6F5352F;          // "offset"
-constexpr uint32_t kTexture = 0x7D99F28D;         // "texture"
-constexpr uint32_t kRed = 0x059EA070;             // "red"
-constexpr uint32_t kGreen = 0x2F6511DE;           // "green"
-constexpr uint32_t kBlue = 0x61C9354B;            // "blue"
-constexpr uint32_t kAmbient = 0xBCEE1D37;         // "ambient"
-constexpr uint32_t kDirectional = 0xB8F8BBE6;     // "directional"
-constexpr uint32_t kModValueLo = 0xF2BB5523;      // "mod_value_lo"
-constexpr uint32_t kModValueHi = 0x7FB43512;      // "mod_value_hi"
-constexpr uint32_t kMode = 0x6835B854;            // "mode"
-constexpr uint32_t kIndex = 0x7F8C98FE;           // "index"
-constexpr uint32_t kHeading = 0xFD4BC03E;         // "heading"
-constexpr uint32_t kPitch = 0xD8604126;           // "pitch"
-constexpr uint32_t kUpperR = 0x93F60062;          // "R"
-constexpr uint32_t kUpperG = 0xFE2BE489;          // "G"
-constexpr uint32_t kUpperB = 0x8E411006;          // "B"
-constexpr uint32_t kAmbientRed = 0xED664897;      // "ambient_red"
-constexpr uint32_t kAmbientGreen = 0x908BF647;    // "ambient_green"
-constexpr uint32_t kAmbientBlue = 0x5F4FBA78;     // "ambient_blue"
-constexpr uint32_t kRed0 = 0xE213AEB7;            // "red_0"
-constexpr uint32_t kGreen0 = 0x6EF19631;          // "green_0"
-constexpr uint32_t kBlue0 = 0x5EC44213;           // "blue_0"
-constexpr uint32_t kRed1 = 0x95149E21;            // "red_1"
-constexpr uint32_t kGreen1 = 0x19F6A6A7;          // "green_1"
-constexpr uint32_t kBlue1 = 0x29C37285;           // "blue_1"
-constexpr uint32_t kId = 0x40C698AF;              // "id"
-constexpr uint32_t kBone = 0xCAB94088;            // "bone"
-constexpr uint32_t kSkeleton = 0x222756D5;        // "skeleton" (the component type)
-constexpr uint32_t kX = 0x7323E97C;               // "x"
-constexpr uint32_t kY = 0x0424D9EA;               // "y"
-constexpr uint32_t kZ = 0x9D2D8850;               // "z"
+constexpr uint32_t kIgnore1 = 0xD12347A6;        // "ignore_1"
+constexpr uint32_t kIgnore0 = 0xA6247730;        // "ignore_0"
+constexpr uint32_t kT48 = 0xC06EAD08;            // "t48"
+constexpr uint32_t kQ48 = 0xC6A56FE3;            // "q48"
+constexpr uint32_t kAnimHeapSize = 0x83DFF28A;   // "AnimHeapSize"
+constexpr uint32_t kAnimCacheSize = 0x7AA8C11C;  // (name unknown) the animation cache's second size
+constexpr uint32_t kDefCacheType = 0x891A96A9;   // "DefCacheType"
+constexpr uint32_t kCacheType3 = 0x50428FBD;     // (name unknown) cache type 3
+constexpr uint32_t kCacheType4 = 0x7ADB1481;     // (name unknown) cache type 4
+constexpr uint32_t kStandard = 0xEF082878;       // "standard": cache type 2 (others 0)
+constexpr uint32_t kMaxAnimBlends = 0x416BC96B;  // (name unknown) the first of 0x0047EB30's sizes
+constexpr uint32_t kMaxAnimSubsets = 0xD14E9A11; // "MaxAnimSubsets"
+constexpr uint32_t kDisable = 0xB0BAB2AE;        // "disable"
+constexpr uint32_t kEnable = 0x0C5F37CD;         // "enable"
+constexpr uint32_t kDefrag = 0x6A8251D1;         // "defrag"
+constexpr uint32_t kClear = 0x1A4E0EF9;          // "clear"
+constexpr uint32_t kLightCapacity = 0x50228D9E;  // "max_lights"
+constexpr uint32_t kMaxModelLights = 0x701C70AC; // (name unknown) the light manager's second count
+constexpr uint32_t kAspect = 0x0F7C3CAA;         // "aspect"
+constexpr uint32_t kAngle = 0xFF7EBAF6;          // "angle"
+constexpr uint32_t kLetterbox = 0xD4328DD3;      // "letterbox"
+constexpr uint32_t kAllow = 0x81B6BF17;          // "allow"
+constexpr uint32_t kStart = 0x6086AA70;          // "start"
+constexpr uint32_t kEnd = 0xFF03CC4E;            // "end"
+constexpr uint32_t kColor = 0x99A9B716;          // "color"
+constexpr uint32_t kFrames = 0x019176C5;         // "frames"
+constexpr uint32_t kBox = 0xF756B7C5;            // "box"
+constexpr uint32_t kHeight = 0x0AB21AF0;         // "height"
+constexpr uint32_t kDist = 0x7E832F08;           // "dist"
+constexpr uint32_t kWidth = 0x73E5BAD0;          // "width"
+constexpr uint32_t kOffset = 0xA6F5352F;         // "offset"
+constexpr uint32_t kTexture = 0x7D99F28D;        // "texture"
+constexpr uint32_t kRed = 0x059EA070;            // "red"
+constexpr uint32_t kGreen = 0x2F6511DE;          // "green"
+constexpr uint32_t kBlue = 0x61C9354B;           // "blue"
+constexpr uint32_t kAmbient = 0xBCEE1D37;        // "ambient"
+constexpr uint32_t kDirectional = 0xB8F8BBE6;    // "directional"
+constexpr uint32_t kModValueLo = 0xF2BB5523;     // "mod_value_lo"
+constexpr uint32_t kModValueHi = 0x7FB43512;     // "mod_value_hi"
+constexpr uint32_t kMode = 0x6835B854;           // "mode"
+constexpr uint32_t kIndex = 0x7F8C98FE;          // "index"
+constexpr uint32_t kHeading = 0xFD4BC03E;        // "heading"
+constexpr uint32_t kPitch = 0xD8604126;          // "pitch"
+constexpr uint32_t kUpperR = 0x93F60062;         // "R"
+constexpr uint32_t kUpperG = 0xFE2BE489;         // "G"
+constexpr uint32_t kUpperB = 0x8E411006;         // "B"
+constexpr uint32_t kAmbientRed = 0xED664897;     // "ambient_red"
+constexpr uint32_t kAmbientGreen = 0x908BF647;   // "ambient_green"
+constexpr uint32_t kAmbientBlue = 0x5F4FBA78;    // "ambient_blue"
+constexpr uint32_t kRed0 = 0xE213AEB7;           // "red_0"
+constexpr uint32_t kGreen0 = 0x6EF19631;         // "green_0"
+constexpr uint32_t kBlue0 = 0x5EC44213;          // "blue_0"
+constexpr uint32_t kRed1 = 0x95149E21;           // "red_1"
+constexpr uint32_t kGreen1 = 0x19F6A6A7;         // "green_1"
+constexpr uint32_t kBlue1 = 0x29C37285;          // "blue_1"
+constexpr uint32_t kId = 0x40C698AF;             // "id"
+constexpr uint32_t kBone = 0xCAB94088;           // "bone"
+constexpr uint32_t kSkeleton = 0x222756D5;       // "skeleton" (the component type)
+constexpr uint32_t kX = 0x7323E97C;              // "x"
+constexpr uint32_t kY = 0x0424D9EA;              // "y"
+constexpr uint32_t kZ = 0x9D2D8850;              // "z"
 
 bool distance_clipping() { return render::g_distance_clipping; }
 
@@ -232,10 +232,7 @@ bool __cdecl cfunc_push_world_lights(Struct*, Script*)
 
 // 0x00446780 (a jump to 0x0048EA40): PopWorldLights: the world lights taken back from their stack; false if it's
 // empty.
-bool __cdecl cfunc_pop_world_lights(Struct*, Script*)
-{
-    return render::pop_world_lights();
-}
+bool __cdecl cfunc_pop_world_lights(Struct*, Script*) { return render::pop_world_lights(); }
 
 // 0x00446790: SetScreen [aspect=<f>] [angle=<f>] [letterbox=<n>]: those given are set. Always true.
 bool __cdecl cfunc_set_screen(Struct* params, Script*)
@@ -274,7 +271,7 @@ bool __cdecl cfunc_debug_line(Struct* params, Script*)
     params->fetch_int_value(kColor, &colour, 0);
     params->fetch_int_value(kFrames, &frames, 0);
     gfx::push_diag_line(reinterpret_cast<const maths::Vec4*>(&start), reinterpret_cast<const maths::Vec4*>(&end),
-                      static_cast<uint32_t>(colour), 0, frames);
+                        static_cast<uint32_t>(colour), 0, frames);
     return true;
 }
 
@@ -305,7 +302,7 @@ bool __cdecl cfunc_kill_all_texture_splats(Struct* params, Script*)
     float height = 0.0f;
     float dist = 0.0f;
     float width = 0.0f;
-    maths::Vec4 low = {0.0f, 0.0f, 0.0f, 0.0f};  // the box's corners around the offset (w unused)
+    maths::Vec4 low = {0.0f, 0.0f, 0.0f, 0.0f}; // the box's corners around the offset (w unused)
     maths::Vec4 high = {0.0f, 0.0f, 0.0f, 0.0f};
     maths::Vec4 offset = {0.0f, 0.0f, 0.0f, 0.0f}; // (x, y, z uninitialised in the original when not given)
     // Each size in feet to inches; the corners at minus / plus half of it (the low one not above 0, the high one not
@@ -411,8 +408,7 @@ bool __cdecl cfunc_set_fog_color(Struct* params, Script*)
     params->fetch_int_value("b", &b, 0);
     params->fetch_int_value("a", &a, 0);
     if (distance_clipping()) {
-        render::g_fog_colour = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 |
-                                             (b & 0xFF);
+        render::g_fog_colour = static_cast<uint32_t>(a) << 24 | (r & 0xFF) << 16 | (g & 0xFF) << 8 | (b & 0xFF);
         return false;
     }
     render::engine::set_fog_color(pack_bytes(r, g, b, a));

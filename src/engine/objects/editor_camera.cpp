@@ -43,15 +43,15 @@ namespace {
 extern void** const kVtable;
 constexpr uint32_t kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kInput = 0x27D7CD28;
-constexpr float kTwoPi = 6.2831854820251465f;    // 0x0064545C
-constexpr float kAbove = 10.0f;                  // 0x00646710
-constexpr float kDown = 10000.0f;                // 0x0064B308
-constexpr float kMaxSlope = 0.08699999749660492f; // 0x0064B304 (the ground normal's y at least this)
-constexpr float kWallHeight = 72.0f;             // 0x00646244
-constexpr float kNearZoom = 100.0f;              // 0x006463D4
-constexpr float kStickScale = 0.0078125f;        // 0x0064A2FC (1 / 128)
+constexpr float kTwoPi = 6.2831854820251465f;      // 0x0064545C
+constexpr float kAbove = 10.0f;                    // 0x00646710
+constexpr float kDown = 10000.0f;                  // 0x0064B308
+constexpr float kMaxSlope = 0.08699999749660492f;  // 0x0064B304 (the ground normal's y at least this)
+constexpr float kWallHeight = 72.0f;               // 0x00646244
+constexpr float kNearZoom = 100.0f;                // 0x006463D4
+constexpr float kStickScale = 0.0078125f;          // 0x0064A2FC (1 / 128)
 constexpr float kDeadZone = 0.009999999776482582f; // 0x0064544C
-constexpr double kHeightSlack = 0.01;            // 0x0064B310
+constexpr double kHeightSlack = 0.01;              // 0x0064B310
 
 // Script globals (Scripts::fetch_float).
 float get_global(uint32_t name) { return script::fetch_float(name); }
@@ -96,10 +96,7 @@ void release_blob_shadow(void*& shadow)
 }
 
 // The rail editor's 0x004F3D30 (thiscall; the editor from 0x004F4970), around the cursor's move in the park editor.
-void rail_editor_moving(int moved)
-{
-    park_editing::RailAuthoring::sole()->change_live(moved != 0);
-}
+void rail_editor_moving(int moved) { park_editing::RailAuthoring::sole()->change_live(moved != 0); }
 bool in_park_editor()
 {
     return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module) + 0x378) == 0xE8B4B836;
@@ -251,10 +248,7 @@ void EditorViewModule::configure_from_data(script::Struct* params)
 }
 
 // 0x004E51F0
-void EditorViewModule::seal()
-{
-    input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
-}
+void EditorViewModule::seal() { input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput)); }
 
 // 0x004E5170
 void EditorViewModule::build_blob_shadow()
@@ -328,7 +322,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
     float below = get_global(0xF230D521) + cursor_.y;
     float height;
     if (!ground_height({cursor_.x, above + level_y_, cursor_.z, cursor_.w},
-                      {cursor_.x, below + level_y_, cursor_.z, cursor_.w}, &height))
+                       {cursor_.x, below + level_y_, cursor_.z, cursor_.w}, &height))
         return false;
     // Nothing in the way at head height from where it was?
     double was = static_cast<double>(previous.y) + level_y_;
@@ -432,7 +426,8 @@ void EditorViewModule::tick_frame()
     if (controller == 4 || controller == 7) {
         zoom_in = (buttons & 0x400000) != 0;
         zoom_out = (buttons & 0x800000) != 0;
-        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) == 0x7ECA21E5) {
+        if (*reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(park_editing::g_park_editor) + 0x40) ==
+            0x7ECA21E5) {
             raise = (buttons & 0x1000) != 0;
             lower = (buttons & 0x4000) != 0;
         } else {
@@ -462,12 +457,13 @@ void EditorViewModule::tick_frame()
         zoom_ = min_zoom_;
     if (zoom_ > max_zoom_)
         zoom_ = max_zoom_;
-    float zoom_fraction = static_cast<float>((static_cast<double>(zoom_) - min_zoom_) /
-                                            (static_cast<double>(max_zoom_) - min_zoom_));
+    float zoom_fraction =
+        static_cast<float>((static_cast<double>(zoom_) - min_zoom_) / (static_cast<double>(max_zoom_) - min_zoom_));
 
     // Raising / lowering the height (by the zoom; slowly when close), not through a ceiling.
     float near_rate = get_global(0x604961F4);
-    float rise = static_cast<float>((static_cast<double>(get_global(0x5C445EAD)) - near_rate) * zoom_fraction + near_rate);
+    float rise =
+        static_cast<float>((static_cast<double>(get_global(0x5C445EAD)) - near_rate) * zoom_fraction + near_rate);
     if (zoom_ < kNearZoom)
         rise = 0.2f;
     if (!raise) {
@@ -513,7 +509,8 @@ void EditorViewModule::tick_frame()
         }
         feeler.change_origin(cursor_);
         float up = level_y_ + kAbove;
-        maths::Vec4 top = {cursor_.x, up + cursor_.y, cursor_.z, static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
+        maths::Vec4 top = {cursor_.x, up + cursor_.y, cursor_.z,
+                           static_cast<float>(static_cast<double>(cursor_.w) + 1.0f)};
         feeler.change_finish(top);
         if (feeler.get_hit_shape(1, 0))
             level_y_ = static_cast<float>((static_cast<double>(feeler.get_point().y) - cursor_.y) - kAbove);
@@ -526,9 +523,9 @@ void EditorViewModule::tick_frame()
     // The heading's axes.
     float heading_now = heading_;
     right_side_ = {static_cast<float>(std::cos(static_cast<double>(heading_now))), 0.0f,
-               static_cast<float>(-std::sin(static_cast<double>(heading_now))), 1.0f};
+                   static_cast<float>(-std::sin(static_cast<double>(heading_now))), 1.0f};
     forward_ = {static_cast<float>(std::sin(static_cast<double>(heading_now))), 0.0f,
-                 static_cast<float>(std::cos(static_cast<double>(heading_now))), 1.0f};
+                static_cast<float>(std::cos(static_cast<double>(heading_now))), 1.0f};
     float near_speed = get_global(0x83BDE786);
     double speed = (static_cast<double>(get_global(0xBFB0D8DF)) - near_speed) * zoom_fraction + near_speed;
     if (zoom_ < kNearZoom)
@@ -580,10 +577,11 @@ void EditorViewModule::tick_frame()
     float at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
     maths::Mat4 look;
     look.row[0] = {right_side_.x, right_side_.y, right_side_.z, 0.0f};
-    look.row[1] = {static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
-                   static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
-                   static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
-                   0.0f};
+    look.row[1] = {
+        static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
+        static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
+        static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
+        0.0f};
     look.row[2] = {at_x, at_y, at_z, 0.0f};
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     entity_->basis_frame_ = look;
@@ -615,25 +613,27 @@ __declspec(naked) void flagged_object_between_stub()
 
 } // namespace
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::EditorViewModule::teardown,
-         &objects::EditorViewModule::tick_frame,
-         &objects::EditorViewModule::configure_from_data,
-         &objects::EditorViewModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         &objects::EditorViewModule::conceal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::EditorViewModule::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::EditorViewModule::teardown,
+    &objects::EditorViewModule::tick_frame,
+    &objects::EditorViewModule::configure_from_data,
+    &objects::EditorViewModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    &objects::EditorViewModule::conceal,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::EditorViewModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

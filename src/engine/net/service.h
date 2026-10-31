@@ -10,4 +10,4 @@ namespace net {
 // download gives up after 500 ms (not 15 s) and then runs a different script with the "news ok" flag set.
 void __cdecl service_task(const uint8_t* task);
 
-} // namespace Net
+} // namespace net

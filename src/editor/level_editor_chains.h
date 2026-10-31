@@ -94,18 +94,18 @@ namespace frontend::level_editor::chains {
 
 // A point the editor added (in the overlay, in order).
 struct Point {
-    std::string name;   // ed_rail01, ed_path01, ed_ladder01...
-    std::string cls;    // RailNode, Waypoint, ClimbingNode (a ladder's: Type Ladder)
+    std::string name; // ed_rail01, ed_path01, ed_ladder01...
+    std::string cls;  // RailNode, Waypoint, ClimbingNode (a ladder's: Type Ladder)
     V3 pos = {};
-    uint32_t like = 0;  // the node it copies its fields from (0: none)
+    uint32_t like = 0;   // the node it copies its fields from (0: none)
     std::string terrain; // a rail's TerrainType ("": the default / the copied one)
     std::vector<uint32_t> links;
-    float facing = 0.0f;   // a ladder's heading (radians: Angles (0, facing, 0) - its at row points into the wall)
-    uint32_t cluster = 0;  // a rail's trick-object cluster (0: not a trick object)
+    float facing = 0.0f;      // a ladder's heading (radians: Angles (0, facing, 0) - its at row points into the wall)
+    uint32_t cluster = 0;     // a rail's trick-object cluster (0: not a trick object)
     bool grind_flat_ = false; // a rail's: grindable on flat ground (RailClear passed)
-    std::string type;       // a ClimbingNode's Type: "" (a ladder - Type Ladder) or "Ledge"
-    int hang = 0;           // a ledge's: 0 as the game decides, kHangLeft / kHangRight (the flags HangLeft / HangRight)
-    float speed = 0.0f;     // a rail point's speed-up rate (0: none)
+    std::string type;         // a ClimbingNode's Type: "" (a ladder - Type Ladder) or "Ledge"
+    int hang = 0;       // a ledge's: 0 as the game decides, kHangLeft / kHangRight (the flags HangLeft / HangRight)
+    float speed = 0.0f; // a rail point's speed-up rate (0: none)
 };
 constexpr int kHangLeft = 1, kHangRight = 2;
 // A speed-up's rate kept within these (THAW's rails: 0.02 - 0.1; its default 0.05).
@@ -130,11 +130,11 @@ struct TerrainEdit {
 // Everything the editor changed in the level's chains.
 struct State {
     std::vector<Point> points;
-    std::vector<LinkEdit> links;      // (sorted by name)
-    std::vector<uint32_t> dropped;    // (sorted)
+    std::vector<LinkEdit> links;       // (sorted by name)
+    std::vector<uint32_t> dropped;     // (sorted)
     std::vector<TerrainEdit> terrains; // (sorted by name)
     std::vector<FacingEdit> facings;   // level ladder points turned (sorted by name)
-    std::vector<uint32_t> grind_flat_;   // level rail points grindable on flat ground (sorted)
+    std::vector<uint32_t> grind_flat_; // level rail points grindable on flat ground (sorted)
     std::vector<SpeedEdit> speeds;     // level rail points given a speed-up (sorted by name)
 };
 bool same_point(const Point& a, const Point& b);
@@ -156,7 +156,7 @@ V3 facing_direction(float facing);
 // it (ground_at as snap_to_edge's: the ground's height below a point; none within 64 down: the hit's height). False: the
 // hit isn't on a wall (|normal.y| >= 0.7).
 bool ladder_foot(V3 hit, V3 normal, float out, const std::function<bool(V3 from, float* ground_y)>& ground_at,
-                V3* foot);
+                 V3* foot);
 // The ladder's top for a click: the point of the vertical line through `foot` nearest the ray from `from` along
 // `dir` (a ray along the line: the foot). False: below kLadderMin above the foot.
 constexpr float kLadderMin = 24.0f, kLadderOut = 4.0f;
@@ -190,7 +190,7 @@ std::vector<uint32_t> get_connected(const Graph& graph, uint32_t name);
 // below a point 20 above; false: none) falls more than 8 below the hit - half a step back from it. Elsewhere (walls,
 // no edge near): the hit itself. `snapped`: whether it moved.
 V3 snap_to_edge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from, float* ground_y)>& ground_at,
-              bool* snapped);
+                bool* snapped);
 
 // The game's grind terrains (Terrain_Types' TERRAIN_GRIND... in scripts\game\terrain.qb), in the script's order.
 const std::vector<std::string>& grind_terrain_names();
@@ -327,13 +327,13 @@ struct View {
     bool rail = false, ladder = false, path = false, object = false; // what the node is (object: a ped / car)
     bool added = false;
     bool can_insert_ = false, can_delete_ = false, can_unlink_ = false, can_extend_ = false, can_link_ = false;
-    std::string next, prev; // neighbours' labels
-    std::string why;        // why Delete can't (empty: it can)
+    std::string next, prev;            // neighbours' labels
+    std::string why;                   // why Delete can't (empty: it can)
     std::vector<std::string> terrains; // the grind terrains (names)
-    int terrain = -1;       // the rail's (index; -1 unknown)
-    std::string path_start_;  // an object's path's first waypoint ("": none)
+    int terrain = -1;                  // the rail's (index; -1 unknown)
+    std::string path_start_;           // an object's path's first waypoint ("": none)
     const char* waiting = nullptr;
-    int points = 0;         // the chain's points
+    int points = 0; // the chain's points
     // Ladders: its heading (degrees), turned from the level's.
     bool can_turn_ = false, turned = false;
     float facing_degrees_ = 0.0f;
@@ -350,4 +350,4 @@ struct View {
 };
 View view_of(uint32_t name);
 
-} // namespace MenuSystem::level_editor::Chains
+} // namespace frontend::level_editor::chains

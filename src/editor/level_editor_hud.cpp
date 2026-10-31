@@ -125,4 +125,4 @@ bool panel_shown() { return g_panel; }
 
 std::string get_key(const char* keys) { return std::string("\\c1") + keys + "\\c0"; }
 
-} // namespace MenuSystem::level_editor::Hud
+} // namespace frontend::level_editor::hud

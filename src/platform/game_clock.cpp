@@ -61,4 +61,4 @@ void set_game_clock_speed(float speed)
     set_slomo(speed);
 }
 
-} // namespace Tmr
+} // namespace frame_clock

@@ -50,15 +50,12 @@ constexpr uint32_t kObjectTypePed = 0xD2DB7F97;
 constexpr uint32_t kObjectTypeGameObj = 0xBC0D91D8;
 constexpr uint32_t kObjectTypeCar = 0x5C0312EB;
 
-constexpr float kTwelveInchScale = 12.0f;               // 0x0064546C
-constexpr float kRadiansPerDegree = 0.0174532924f;   // 0x00645464
-constexpr float kHalf = 0.5f;                        // 0x006453BC
+constexpr float kTwelveInchScale = 12.0f;          // 0x0064546C
+constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
+constexpr float kHalf = 0.5f;                      // 0x006453BC
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A manager's object list (its vtable +0x18).
 memory::ListNode* manager_object_list(ObjectHubBase* manager)
@@ -252,7 +249,7 @@ bool CbBoxComponent::any_skater_near(Rect2* rect, float reach_squared, const mat
 
 // 0x0041AF10
 bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* script, float reach_squared, Rect2* rect,
-                                          uint32_t type, const maths::Vec4* point)
+                                     uint32_t type, const maths::Vec4* point)
 {
     (void)params;
     (void)script;
@@ -292,7 +289,7 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
 
 // 0x0041B0A0
 bool CbBoxComponent::query_objects(script::Struct* params, script::Script* script, Rect2* rect,
-                                         const maths::Vec4* point)
+                                   const maths::Vec4* point)
 {
     float reach_squared = 0.0f;
     if (!rect) {
@@ -337,32 +334,34 @@ int CbBoxComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::CbBoxComponent::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::CbBoxComponent::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::CbBoxComponent::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::CbBoxComponent::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
 static VtableSlot g_object_search_vtable_slots[] = {&objects::ObjectSearch::teardown};
 void** const kObjectSearchVtable = reinterpret_cast<void**>(g_object_search_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

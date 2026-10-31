@@ -10,10 +10,10 @@ namespace lzss {
 
 namespace {
 
-constexpr int kN = 4096;      // window size
-constexpr int kF = 18;        // longest match
+constexpr int kN = 4096;            // window size
+constexpr int kF = 18;              // longest match
 constexpr int kLiteralRunLimit = 2; // matches this short or shorter are stored as literals
-constexpr int kNil = kN;       // "no node" in the search tree
+constexpr int kNil = kN;            // "no node" in the search tree
 
 uint8_t g_decode_window[4096];
 int* g_tree_parent;
@@ -27,10 +27,10 @@ uint32_t g_bytes_out;
 uint32_t g_emit_counter;
 
 // Encoder state, kept in the exe's globals.
-uint8_t*& pane() { return g_window; }  // N + F - 1 bytes
-int*& get_left() { return g_tree_left; }            // N + 1 entries
-int*& get_right() { return g_tree_right; }           // N + 257 entries (256 tree roots)
-int*& current_parent() { return g_tree_parent; }          // N + 1 entries
+uint8_t*& pane() { return g_window; }            // N + F - 1 bytes
+int*& get_left() { return g_tree_left; }         // N + 1 entries
+int*& get_right() { return g_tree_right; }       // N + 257 entries (256 tree roots)
+int*& current_parent() { return g_tree_parent; } // N + 1 entries
 int& longest_run_ref() { return g_longest_run; }
 int& window_match_offset() { return g_dict_hit_offset; }
 uint32_t& bytes_in() { return g_bytes_in; }
@@ -201,8 +201,8 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
             code[code_size++] = window[r];
         } else {
             code[code_size++] = static_cast<uint8_t>(window_match_offset());
-            code[code_size++] =
-                static_cast<uint8_t>(((window_match_offset() >> 4) & 0xF0) | (longest_run_ref() - (kLiteralRunLimit + 1)));
+            code[code_size++] = static_cast<uint8_t>(((window_match_offset() >> 4) & 0xF0) |
+                                                     (longest_run_ref() - (kLiteralRunLimit + 1)));
         }
 
         bool group_full = (mask & 0x80) != 0;
@@ -299,4 +299,4 @@ uint8_t* decode(const uint8_t* in, uint8_t* out, int size)
     }
 }
 
-} // namespace Lzss
+} // namespace lzss

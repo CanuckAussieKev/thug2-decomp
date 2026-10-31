@@ -63,7 +63,7 @@ constexpr uint32_t kAnimBlender = 0x7149B753, kSkeleton = 0x222756D5;
 
 enum : int { kNotMine = 2 };
 
-float frames_per_second() { return frontend::g_frames_per_second; } // 60
+float frames_per_second() { return frontend::g_frames_per_second; }              // 60
 float seconds_per_frame() { return ::objects::g_anim_movies_seconds_per_frame; } // 1/60
 float two_pi() { return frontend::g_two_pi; }
 
@@ -97,10 +97,7 @@ uint32_t current_anim_set(objects::GameEntity* object)
 
 // The timeline's pieces (thiscall, not rewritten yet).
 float get_step(AnimTimeline* t) { return static_cast<float>(t->next_time()); }
-void passed_events(AnimTimeline* t, float from, float to)
-{
-    static_cast<AnimTrack*>(t)->fire_events(from, to);
-}
+void passed_events(AnimTimeline* t, float from, float to) { static_cast<AnimTrack*>(t)->fire_events(from, to); }
 void play_anim(AnimTimeline* t, uint32_t anim, float start, float end, int loop_type, float blend, float speed)
 {
     t->play_anim(anim, start, end, loop_type, blend, speed);
@@ -111,7 +108,10 @@ bool is_accomplished(AnimTimeline* t) { return t->is_accomplished(); }
 void* new_source() { return render::create_frame_source(); }
 void free_source(void* source) { render::delete_object(source); }
 void* source_frame(void* source, bool done) { return static_cast<render::FrameSource*>(source)->set_done(done); }
-void* source_frame_of(void* source, uint32_t anim) { return static_cast<render::FrameSource*>(source)->play_clip(anim); }
+void* source_frame_of(void* source, uint32_t anim)
+{
+    return static_cast<render::FrameSource*>(source)->play_clip(anim);
+}
 int frame_index(void* frame) { return static_cast<JointClipFrames*>(frame)->acquire_cache_index(); }
 // NOT ORIGINAL - the frame of an animation the source's set hasn't is null, and FrameIndex reads through it (a crash at
 // 0x00482BA2, as in the original: e.g. peds whose animations weren't loaded, or a converted level's script playing one
@@ -121,8 +121,8 @@ void* logged_source_frame_of(void* source, uint32_t set, uint32_t anim)
     void* frame = source_frame_of(source, set + anim);
     if (!frame) {
         const char* name = script::look_up_hash_name(anim);
-        get_log("anim: no animation 0x%08X%s%s%s in the set 0x%08X - the next step (FrameIndex 0x00482BA0) crashes", anim,
-            name ? " (" : "", name ? name : "", name ? ")" : "", set);
+        get_log("anim: no animation 0x%08X%s%s%s in the set 0x%08X - the next step (FrameIndex 0x00482BA0) crashes",
+                anim, name ? " (" : "", name ? name : "", name ? ")" : "", set);
     }
     return frame;
 }
@@ -130,8 +130,8 @@ void release_frame_index(void* frame, int index) { static_cast<JointClipFrames*>
 void frame_pose(void* frame, uint8_t* pose, float time, int index, void* source)
 {
     static_cast<JointClipFrames*>(frame)->get_frames(reinterpret_cast<maths::QuatRotation*>(pose),
-                                                        reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, time,
-                                                        index, source);
+                                                     reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, time,
+                                                     index, source);
 }
 // The frame source told where the skeleton's bones are (its +0x20C, from the skeleton's +0x08) and how many
 // (+0x210, from the skeleton's +0x0C).
@@ -339,8 +339,9 @@ bool WeightedAnimController::fetch_pose(uint8_t* pose)
     set_bones(blend_source_, skeleton());
     set_bone_count(blend_source_, skeleton());
     static_cast<JointClipFrames*>(frame_source_)
-        ->apply_additive_if_compressed(reinterpret_cast<maths::QuatRotation*>(pose), reinterpret_cast<maths::Vec4*>(pose + 0x400),
-                                    pose + 0x800, weight_, static_cast<uint8_t*>(blend_source_));
+        ->apply_additive_if_compressed(reinterpret_cast<maths::QuatRotation*>(pose),
+                                       reinterpret_cast<maths::Vec4*>(pose + 0x400), pose + 0x800, weight_,
+                                       static_cast<uint8_t*>(blend_source_));
     source_frame(blend_source_, true);
     return true;
 }
@@ -484,9 +485,10 @@ float WobbleDriver::wobble_time()
     const AnimTimeline* t = timeline_ptr_;
     float target = aim_point_;
     float k1 = k1_, k2 = k2_;
-    double scale = std::fabs(target - (static_cast<double>(t->outset_) + t->finish_) * 0.5) *
-                       ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish_) - t->outset_) * 0.5)) +
-                   1.0;
+    double scale =
+        std::fabs(target - (static_cast<double>(t->outset_) + t->finish_) * 0.5) *
+            ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish_) - t->outset_) * 0.5)) +
+        1.0;
     float a = static_cast<float>(scale * amp_a_);
     float b = static_cast<float>(scale * amp_b_);
     if (static_cast<double>(target) - a - b < t->outset_)
@@ -626,8 +628,8 @@ void PartialClipDriver::configure_from_data(script::Struct* params)
     params->fetch_float(kSpeed, &speed, 0);
     params->fetch_float(kCurrent, &current, 0);
     // the timeline's PlayAnim (vtable +0x0C)
-    reinterpret_cast<void(__thiscall*)(AnimTimeline*, uint32_t, float, float, int, float, float)>(
-        partial_->vtable_[3])(partial_, anim, start, end, loop_type, 0.0f, speed);
+    reinterpret_cast<void(__thiscall*)(AnimTimeline*, uint32_t, float, float, int, float, float)>(partial_->vtable_[3])(
+        partial_, anim, start, end, loop_type, 0.0f, speed);
     if (current != 0.0f)
         partial_->advance_clock(current);
     frame_source_ = source_frame_of(blend_source_, anim_set_ + anim);
@@ -683,27 +685,43 @@ void PartialClipDriver::tick_frame()
 
 namespace {
 static VtableSlot g_c_standard_anim_controller_vtable_slots[] = {&StandardAnimController::teardown,
-                &StandardAnimController::fetch_pose, stubs::ignore_argument, &StandardAnimController::invoke_method_by_name,
-                &AnimDriver::base_init_from_structure, &StandardAnimController::tick_frame};
+                                                                 &StandardAnimController::fetch_pose,
+                                                                 stubs::ignore_argument,
+                                                                 &StandardAnimController::invoke_method_by_name,
+                                                                 &AnimDriver::base_init_from_structure,
+                                                                 &StandardAnimController::tick_frame};
 void** const kCStandardAnimControllerVtable = reinterpret_cast<void**>(g_c_standard_anim_controller_vtable_slots);
 static VtableSlot g_c_weighted_anim_controller_vtable_slots[] = {&WeightedAnimController::teardown,
-                &WeightedAnimController::fetch_pose, stubs::ignore_argument, &WeightedAnimController::invoke_method_by_name,
-                &AnimDriver::base_init_from_structure, stubs::do_nothing};
+                                                                 &WeightedAnimController::fetch_pose,
+                                                                 stubs::ignore_argument,
+                                                                 &WeightedAnimController::invoke_method_by_name,
+                                                                 &AnimDriver::base_init_from_structure,
+                                                                 stubs::do_nothing};
 void** const kCWeightedAnimControllerVtable = reinterpret_cast<void**>(g_c_weighted_anim_controller_vtable_slots);
-static VtableSlot g_c_wobble_controller_vtable_slots[] = {&WobbleDriver::teardown, &WobbleDriver::fetch_pose,
-                stubs::ignore_argument, &WobbleDriver::invoke_method_by_name, &AnimDriver::base_init_from_structure,
-                &WobbleDriver::tick_frame};
+static VtableSlot g_c_wobble_controller_vtable_slots[] = {&WobbleDriver::teardown,
+                                                          &WobbleDriver::fetch_pose,
+                                                          stubs::ignore_argument,
+                                                          &WobbleDriver::invoke_method_by_name,
+                                                          &AnimDriver::base_init_from_structure,
+                                                          &WobbleDriver::tick_frame};
 void** const kCWobbleControllerVtable = reinterpret_cast<void**>(g_c_wobble_controller_vtable_slots);
-static VtableSlot g_c_pose_controller_vtable_slots[] = {&StanceDriver::teardown, &StanceDriver::fetch_pose,
-                stubs::ignore_argument, &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
-                &AnimDriver::base_init_from_structure, stubs::do_nothing};
+static VtableSlot g_c_pose_controller_vtable_slots[] = {
+    &StanceDriver::teardown,
+    &StanceDriver::fetch_pose,
+    stubs::ignore_argument,
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name,
+    &AnimDriver::base_init_from_structure,
+    stubs::do_nothing};
 void** const kCPoseControllerVtable = reinterpret_cast<void**>(g_c_pose_controller_vtable_slots);
 static VtableSlot g_c_partial_anim_controller_vtable_slots[] = {&PartialClipDriver::teardown,
-                &PartialClipDriver::fetch_pose, stubs::ignore_argument, &PartialClipDriver::invoke_method_by_name,
-                &PartialClipDriver::configure_from_data, &PartialClipDriver::tick_frame};
+                                                                &PartialClipDriver::fetch_pose,
+                                                                stubs::ignore_argument,
+                                                                &PartialClipDriver::invoke_method_by_name,
+                                                                &PartialClipDriver::configure_from_data,
+                                                                &PartialClipDriver::tick_frame};
 void** const kCPartialAnimControllerVtable = reinterpret_cast<void**>(g_c_partial_anim_controller_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx
 
 using namespace gfx;

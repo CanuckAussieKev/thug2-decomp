@@ -365,4 +365,4 @@ void Conn::drop_queued_traffic()
     destroy_links();
 }
 
-} // namespace Net
+} // namespace net

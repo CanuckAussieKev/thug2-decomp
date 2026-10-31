@@ -10,7 +10,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace maths {
 class ArcRotationBlender;
@@ -23,14 +23,14 @@ class FollowTrail;
 class ObjectGroup;
 
 // KinematicsModule::motion_flags_ (+0x18): what the object is doing.
-constexpr uint32_t kMotionRotateX = 0x1;          // turning about its x axis (Obj_RotX, a look-at)
-constexpr uint32_t kMotionRotateY = 0x2;          // ... y (Obj_RotY)
-constexpr uint32_t kMotionRotateZ = 0x4;          // ... z (Obj_RotZ); bit `axis` for axis 0-2
+constexpr uint32_t kMotionRotateX = 0x1; // turning about its x axis (Obj_RotX, a look-at)
+constexpr uint32_t kMotionRotateY = 0x2; // ... y (Obj_RotY)
+constexpr uint32_t kMotionRotateZ = 0x4; // ... z (Obj_RotZ); bit `axis` for axis 0-2
 constexpr uint32_t kMotionRotateAxes = 0x7;
 constexpr uint32_t kMotionMoving = 0x8;            // moving to a point (Obj_MoveTo*)
-constexpr uint32_t kMotionFollowingPath = 0x10;   // along a path of nodes (Obj_FollowPath*)
+constexpr uint32_t kMotionFollowingPath = 0x10;    // along a path of nodes (Obj_FollowPath*)
 constexpr uint32_t kMotionTurning = 0x20;          // turning to an orientation over time (Obj_Rotate)
-constexpr uint32_t kMotionLookingAt = 0x40;       // the axes' turns were set up by a look-at (Obj_LookAt*)
+constexpr uint32_t kMotionLookingAt = 0x40;        // the axes' turns were set up by a look-at (Obj_LookAt*)
 constexpr uint32_t kMotionHovering = 0x80;         // bobbing up and down (Obj_Hover)
 constexpr uint32_t kMotionJumping = 0x100;         // Obj_Jump
 constexpr uint32_t kMotionFollowingLeader = 0x200; // along the trail of another object (obj_follow_leader)
@@ -39,10 +39,10 @@ constexpr uint32_t kMotionMoveMask = kMotionMoving | kMotionFollowingPath;
 constexpr uint32_t kMotionRotateMask = kMotionRotateAxes | kMotionTurning;
 
 // KinematicsModule::motion_flags2_ (+0x1C)
-constexpr uint32_t kMotion2StickToGround = 0x4;   // Obj_StickToGround (not `off`)
-constexpr uint32_t kMotion2StoppedOnPath = 0x8;   // Obj_StopAlongPath (Obj_StartAlongPath / FollowPath clear it)
-constexpr uint32_t kMotion2NoPathHeading = 0x10;  // the path's heading isn't taken (Obj_PathHeading off)
-constexpr uint32_t kMotion2RotateForeverX = 0x20; // the axis turns without a target angle (0x20 << axis)
+constexpr uint32_t kMotion2StickToGround = 0x4;    // Obj_StickToGround (not `off`)
+constexpr uint32_t kMotion2StoppedOnPath = 0x8;    // Obj_StopAlongPath (Obj_StartAlongPath / FollowPath clear it)
+constexpr uint32_t kMotion2NoPathHeading = 0x10;   // the path's heading isn't taken (Obj_PathHeading off)
+constexpr uint32_t kMotion2RotateForeverX = 0x20;  // the axis turns without a target angle (0x20 << axis)
 constexpr uint32_t kMotion2ConstantHeight = 0x100; // obj_set_constant_height: a path doesn't change its height
 constexpr uint32_t kMotion2RandomLinks = 0x200;    // Obj_FollowPathLinked picks a random link (from obj_follow_leader)
 constexpr uint32_t kMotion2LevelHeading = 0x400;   // the path's heading kept level (peds: game_objects.cpp)
@@ -155,7 +155,8 @@ public:
     void update_turn();
     // 0x004240E0: axis `axis` set to turn towards `target` seen from `from` (the angle in the plane across that axis
     // from row `reference_axis`): true (turning) when the angle is beyond `threshold`.
-    bool setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis, float threshold);
+    bool setup_look_axis(const maths::Vec4* target, const maths::Vec4* from, int reference_axis, int axis,
+                         float threshold);
     // 0x004252E0: turn to look at `target`: instant (about y at once when beyond AngleThreshold degrees; true if
     // turned), else the axes 0xA4AECB20 (bits, default y) turned over `time`, or at `speed` (degrees per second,
     // default 360) with Acceleration - true if any turns.
@@ -203,8 +204,8 @@ public:
     void move_along(script::Struct* params, script::Script* script, const maths::Vec4& direction);
 
     // --- script member functions (the table at 0x00681EB8; all true) ---
-    bool obj_store_pos(script::Struct* params, script::Script* script);          // 0x004237D0
-    bool obj_store_node(script::Struct* params, script::Script* script);         // 0x00423810 (the path's node)
+    bool obj_store_pos(script::Struct* params, script::Script* script);  // 0x004237D0
+    bool obj_store_node(script::Struct* params, script::Script* script); // 0x00423810 (the path's node)
     // 0x00423830: `off`: off; else on, the height = the unnamed float (if given).
     bool obj_set_constant_height(script::Struct* params, script::Script* script);
     // 0x00423890: `link` = a random link of its node, 1 based, into the script's parameters (none: nothing).
@@ -227,98 +228,98 @@ public:
     // 0x004251C0: the unnamed float (feet unless `inches`) as the path follower's corner distance (a follower made
     // if needed); none given: nothing.
     bool obj_set_path_turn_dist(script::Struct* params, script::Script* script);
-    bool obj_follow_path(script::Struct* params, script::Script* script);       // 0x00425220 (from the node Name)
+    bool obj_follow_path(script::Struct* params, script::Script* script);        // 0x00425220 (from the node Name)
     bool obj_follow_path_linked(script::Struct* params, script::Script* script); // 0x00425270
     bool obj_follow_path_stored(script::Struct* params, script::Script* script); // 0x00425290 (obj_store_node's)
-    bool obj_follow_leader(script::Struct* params, script::Script* script);     // 0x004252C0
+    bool obj_follow_leader(script::Struct* params, script::Script* script);      // 0x004252C0
     // 0x00424B90 / 0x00424D50 / 0x00424F50: turn about x / y / z (rotate_about_axis_by; a look-at's turns stopped
     // first). FLAG_MAX_COORDS: x's angle negated; y and z swapped.
     bool obj_rot_x(script::Struct* params, script::Script* script);
     bool obj_rot_y(script::Struct* params, script::Script* script);
     bool obj_rot_z(script::Struct* params, script::Script* script);
-    bool obj_rotate(script::Struct* params, script::Script* script);           // 0x00426770 (rotate_to)
-    bool obj_look_at_node(script::Struct* params, script::Script* script);       // 0x00426790
+    bool obj_rotate(script::Struct* params, script::Script* script);              // 0x00426770 (rotate_to)
+    bool obj_look_at_node(script::Struct* params, script::Script* script);        // 0x00426790
     bool obj_look_at_node_linked(script::Struct* params, script::Script* script); // 0x004267B0
     bool obj_look_at_node_stored(script::Struct* params, script::Script* script); // 0x004267D0 (obj_store_node's)
-    bool obj_look_at_pos(script::Struct* params, script::Script* script);        // 0x00426810 (absolute)
+    bool obj_look_at_pos(script::Struct* params, script::Script* script);         // 0x00426810 (absolute)
     bool obj_look_at_pos_stored(script::Struct* params, script::Script* script);  // 0x00426880 (Obj_StorePos's)
     bool obj_look_at_rel_pos(script::Struct* params, script::Script* script);     // 0x004268A0
-    bool obj_look_at_object(script::Struct* params, script::Script* script);     // 0x004276A0 (look_at_object's)
+    bool obj_look_at_object(script::Struct* params, script::Script* script);      // 0x004276A0 (look_at_object's)
     // 0x004268C0: DistAbove / DistBelow (feet); `off`: no longer sticking. Else sticking - false (and nothing
     // more) with both 0, else stuck now.
     bool obj_stick_to_ground(script::Struct* params, script::Script* script);
     // 0x00426960: at the unnamed node, oriented to it, its model brought up to date (a crash without one).
     bool obj_skip_to_restart(script::Struct* params, script::Script* script);
     bool obj_move_to_pos_stored(script::Struct* params, script::Script* script); // 0x004272D0 (Obj_StorePos's)
-    bool obj_move_forward(script::Struct* params, script::Script* script);     // 0x00427320 (along at)
-    bool obj_move_left(script::Struct* params, script::Script* script);        // 0x004273D0 (along right)
-    bool obj_move_to_pos(script::Struct* params, script::Script* script);       // 0x00427470 (absolute)
+    bool obj_move_forward(script::Struct* params, script::Script* script);       // 0x00427320 (along at)
+    bool obj_move_left(script::Struct* params, script::Script* script);          // 0x004273D0 (along right)
+    bool obj_move_to_pos(script::Struct* params, script::Script* script);        // 0x00427470 (absolute)
     bool obj_move_to_rel_pos(script::Struct* params, script::Script* script);    // 0x00427490
-    bool obj_move_to_link(script::Struct* params, script::Script* script);      // 0x004274B0
+    bool obj_move_to_link(script::Struct* params, script::Script* script);       // 0x004274B0
 
-    uint32_t motion_flags_;    // +0x18 MOTION_*
-    uint32_t motion_flags2_;   // +0x1C MOTION2_*
-    float move_speed_;         // +0x20 moving to a point: the speed now (per second)
-    float path_acceleration_;  // +0x24 Obj_SetPathAcceleration
-    float path_deceleration_;  // +0x28 Obj_SetPathDeceleration
-    float path_max_speed_;      // +0x2C Obj_SetPathVelocity
-    float path_speed_;         // +0x30 along the path: the speed now
-    float path_turn_distance_;  // +0x34
-    float ground_above_;       // +0x38 Obj_StickToGround DistAbove (feet)
-    float ground_below_;       // +0x3C DistBelow
+    uint32_t motion_flags_;          // +0x18 MOTION_*
+    uint32_t motion_flags2_;         // +0x1C MOTION2_*
+    float move_speed_;               // +0x20 moving to a point: the speed now (per second)
+    float path_acceleration_;        // +0x24 Obj_SetPathAcceleration
+    float path_deceleration_;        // +0x28 Obj_SetPathDeceleration
+    float path_max_speed_;           // +0x2C Obj_SetPathVelocity
+    float path_speed_;               // +0x30 along the path: the speed now
+    float path_turn_distance_;       // +0x34
+    float ground_above_;             // +0x38 Obj_StickToGround DistAbove (feet)
+    float ground_below_;             // +0x3C DistBelow
     maths::Vec4 ground_triangle_[3]; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
-    bool ground_height_only_;   // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
+    bool ground_height_only_; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
     uint8_t pad71[3];
-    maths::Vec4 ground_triangles_[3][3]; // +0x74 the three feelers' last triangles
-    ObjectGroup* path_group_; // +0x104 the path's group of objects (path manager)
-    maths::Vec4 move_target_;  // +0x108
-    float move_distance_;      // +0x118 from the start to the target
-    float move_done_;          // +0x11C how far it has gone
-    float move_max_speed_;      // +0x120 with an acceleration: the speed to reach
-    float move_acceleration_;  // +0x124
-    uint32_t move_arrive_node_; // +0x128 Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
-    maths::Vec4 rot_target_;   // +0x12C per axis: the angle to turn through (radians; 0 forever)
-    maths::Vec4 rot_done_;     // +0x13C per axis: turned so far
-    maths::Vec4 rot_max_speed_; // +0x14C per axis: the speed to reach (radians per second)
-    maths::Vec4 spin_rates_;    // +0x15C per axis: the speed now
-    maths::Vec4 rot_acceleration_; // +0x16C
-    maths::Vec4 rot_deceleration_; // +0x17C
-    maths::Vec4 move_start_;   // +0x18C
-    float ground_speed_;       // +0x19C the ground offset's speed of change
-    float ground_offset_;      // +0x1A0 how far the height has still to go to the ground
-    float path_speed_1a_4_;      // +0x1A4 (the path's speed handling: 0x00423530)
-    float path_speed_1a_8_;      // +0x1A8
-    float path_min_stop_speed_;  // +0x1AC Obj_SetPathMinStopVel
-    maths::Vec4 stored_pos_;   // +0x1B0 Obj_StorePos
-    uint32_t saved_node_id_;     // +0x1C0 obj_store_node
-    float turn_time_;          // +0x1C4 Obj_Rotate's time (0: at once)
-    float turn_elapsed_;       // +0x1C8
+    maths::Vec4 ground_triangles_[3][3];  // +0x74 the three feelers' last triangles
+    ObjectGroup* path_group_;             // +0x104 the path's group of objects (path manager)
+    maths::Vec4 move_target_;             // +0x108
+    float move_distance_;                 // +0x118 from the start to the target
+    float move_done_;                     // +0x11C how far it has gone
+    float move_max_speed_;                // +0x120 with an acceleration: the speed to reach
+    float move_acceleration_;             // +0x124
+    uint32_t move_arrive_node_;           // +0x128 Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
+    maths::Vec4 rot_target_;              // +0x12C per axis: the angle to turn through (radians; 0 forever)
+    maths::Vec4 rot_done_;                // +0x13C per axis: turned so far
+    maths::Vec4 rot_max_speed_;           // +0x14C per axis: the speed to reach (radians per second)
+    maths::Vec4 spin_rates_;              // +0x15C per axis: the speed now
+    maths::Vec4 rot_acceleration_;        // +0x16C
+    maths::Vec4 rot_deceleration_;        // +0x17C
+    maths::Vec4 move_start_;              // +0x18C
+    float ground_speed_;                  // +0x19C the ground offset's speed of change
+    float ground_offset_;                 // +0x1A0 how far the height has still to go to the ground
+    float path_speed_1a_4_;               // +0x1A4 (the path's speed handling: 0x00423530)
+    float path_speed_1a_8_;               // +0x1A8
+    float path_min_stop_speed_;           // +0x1AC Obj_SetPathMinStopVel
+    maths::Vec4 stored_pos_;              // +0x1B0 Obj_StorePos
+    uint32_t saved_node_id_;              // +0x1C0 obj_store_node
+    float turn_time_;                     // +0x1C4 Obj_Rotate's time (0: at once)
+    float turn_elapsed_;                  // +0x1C8
     maths::ArcRotationBlender* turn_ptr_; // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
-    float hover_base_;         // +0x1D0 the height without the bob
-    float bob_now_;       // +0x1D4 the bob now
-    float bob_height_;    // +0x1D8
-    int bob_period_;         // +0x1DC ms
-    float step_seconds_;         // +0x1E0 this frame's length (seconds, slow motion included)
-    uint32_t own_node_name_;      // +0x1E4 its own node (Name)
-    uint32_t list_link_;           // +0x1E8 the node it's at
-    PathFollower* path_follower_; // +0x1EC
-    FollowTrail* trail_;    // +0x1F0 obj_follow_leader's
-    bool leave_y_unaffected_;   // +0x1F4 obj_follow_leader's LeaveYUnaffected
+    float hover_base_;                    // +0x1D0 the height without the bob
+    float bob_now_;                       // +0x1D4 the bob now
+    float bob_height_;                    // +0x1D8
+    int bob_period_;                      // +0x1DC ms
+    float step_seconds_;                  // +0x1E0 this frame's length (seconds, slow motion included)
+    uint32_t own_node_name_;              // +0x1E4 its own node (Name)
+    uint32_t list_link_;                  // +0x1E8 the node it's at
+    PathFollower* path_follower_;         // +0x1EC
+    FollowTrail* trail_;                  // +0x1F0 obj_follow_leader's
+    bool leave_y_unaffected_;             // +0x1F4 obj_follow_leader's LeaveYUnaffected
     uint8_t pad1f5_[3];
-    float jump_speed_;         // +0x1F8 up (per second)
-    float leap_pull_;       // +0x1FC
+    float jump_speed_;           // +0x1F8 up (per second)
+    float leap_pull_;            // +0x1FC
     maths::Vec4 leap_direction_; // +0x200 along (x, z; w kept)
-    bool jump_has_heading_;     // +0x210
+    bool jump_has_heading_;      // +0x210
     uint8_t pad211[3];
-    maths::Vec4 jump_pos_;     // +0x214 the jump's position this frame
-    float jump_start_speed_;    // +0x224
-    float jump_col_above_;      // +0x228 col_dist_above
-    float jump_col_below_;      // +0x22C col_dist_below
+    maths::Vec4 jump_pos_;   // +0x214 the jump's position this frame
+    float jump_start_speed_; // +0x224
+    float jump_col_above_;   // +0x228 col_dist_above
+    float jump_col_below_;   // +0x22C col_dist_below
     uint32_t unknown230_;
-    bool jump_has_land_height_;  // +0x234
+    bool jump_has_land_height_; // +0x234
     uint8_t pad235[3];
-    float leap_touchdown_y_;    // +0x238
-    maths::Vec4 jump_start_;   // +0x23C
+    float leap_touchdown_y_; // +0x238
+    maths::Vec4 jump_start_; // +0x23C
 
     // 0x00425600 (thiscall; called by its member function for Obj_Rotate, 0x00426770): turn the object to an
     // orientation over time - `relative = (x, y, z)`: the object's orientation now turned by those angles about its
@@ -328,26 +329,22 @@ public:
     // the params).
     void rotate_to(script::Struct* params);
 };
-static_assert(offsetof(KinematicsModule, motion_flags_) == 0x18 && offsetof(KinematicsModule, move_speed_) == 0x20 &&
-                  offsetof(KinematicsModule, path_speed_) == 0x30 &&
-                  offsetof(KinematicsModule, ground_triangle_) == 0x40 &&
-                  offsetof(KinematicsModule, ground_height_only_) == 0x70 &&
-                  offsetof(KinematicsModule, ground_triangles_) == 0x74 && offsetof(KinematicsModule, path_group_) == 0x104 &&
-                  offsetof(KinematicsModule, move_target_) == 0x108 &&
-                  offsetof(KinematicsModule, move_arrive_node_) == 0x128 &&
-                  offsetof(KinematicsModule, rot_target_) == 0x12C && offsetof(KinematicsModule, move_start_) == 0x18C &&
-                  offsetof(KinematicsModule, ground_speed_) == 0x19C &&
-                  offsetof(KinematicsModule, path_min_stop_speed_) == 0x1AC &&
-                  offsetof(KinematicsModule, stored_pos_) == 0x1B0 && offsetof(KinematicsModule, turn_ptr_) == 0x1CC &&
-                  offsetof(KinematicsModule, hover_base_) == 0x1D0 && offsetof(KinematicsModule, step_seconds_) == 0x1E0 &&
-                  offsetof(KinematicsModule, path_follower_) == 0x1EC &&
-                  offsetof(KinematicsModule, leave_y_unaffected_) == 0x1F4 &&
-                  offsetof(KinematicsModule, jump_speed_) == 0x1F8 &&
-                  offsetof(KinematicsModule, jump_has_heading_) == 0x210 &&
-                  offsetof(KinematicsModule, jump_pos_) == 0x214 &&
-                  offsetof(KinematicsModule, jump_has_land_height_) == 0x234 &&
-                  offsetof(KinematicsModule, jump_start_) == 0x23C && sizeof(KinematicsModule) == 0x24C,
-              "layout must match the original (0x00426650 allocates 0x24C bytes)");
+static_assert(
+    offsetof(KinematicsModule, motion_flags_) == 0x18 && offsetof(KinematicsModule, move_speed_) == 0x20 &&
+        offsetof(KinematicsModule, path_speed_) == 0x30 && offsetof(KinematicsModule, ground_triangle_) == 0x40 &&
+        offsetof(KinematicsModule, ground_height_only_) == 0x70 &&
+        offsetof(KinematicsModule, ground_triangles_) == 0x74 && offsetof(KinematicsModule, path_group_) == 0x104 &&
+        offsetof(KinematicsModule, move_target_) == 0x108 && offsetof(KinematicsModule, move_arrive_node_) == 0x128 &&
+        offsetof(KinematicsModule, rot_target_) == 0x12C && offsetof(KinematicsModule, move_start_) == 0x18C &&
+        offsetof(KinematicsModule, ground_speed_) == 0x19C &&
+        offsetof(KinematicsModule, path_min_stop_speed_) == 0x1AC && offsetof(KinematicsModule, stored_pos_) == 0x1B0 &&
+        offsetof(KinematicsModule, turn_ptr_) == 0x1CC && offsetof(KinematicsModule, hover_base_) == 0x1D0 &&
+        offsetof(KinematicsModule, step_seconds_) == 0x1E0 && offsetof(KinematicsModule, path_follower_) == 0x1EC &&
+        offsetof(KinematicsModule, leave_y_unaffected_) == 0x1F4 && offsetof(KinematicsModule, jump_speed_) == 0x1F8 &&
+        offsetof(KinematicsModule, jump_has_heading_) == 0x210 && offsetof(KinematicsModule, jump_pos_) == 0x214 &&
+        offsetof(KinematicsModule, jump_has_land_height_) == 0x234 &&
+        offsetof(KinematicsModule, jump_start_) == 0x23C && sizeof(KinematicsModule) == 0x24C,
+    "layout must match the original (0x00426650 allocates 0x24C bytes)");
 
 // 0x00425CB0 (ECX the triangle, EDX the end; the start and `out` on the stack, the caller pops: ground_hit_stub):
 // the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
@@ -355,4 +352,4 @@ static_assert(offsetof(KinematicsModule, motion_flags_) == 0x18 && offsetof(Kine
 bool __cdecl get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out);
 void ground_hit_stub();
 
-} // namespace Obj
+} // namespace objects

@@ -37,33 +37,33 @@ constexpr uint32_t kDropHeight = 0xBB00FE40;         // DropHeight
 constexpr uint32_t kAcidDropTriggered = 0xC7ED5FEF;  // SkaterAcidDropTriggered (a script)
 constexpr uint32_t kOllied = 0x8FFEFB28;             // Ollied (an event)
 
-constexpr uint32_t kWalkState = 0x1534;    // (+0x18: on the ground; +0x48: the walking direction)
-constexpr uint32_t kDropFlags = 0xE4;      // (in the flags block: the drop's horizontal velocity)
+constexpr uint32_t kWalkState = 0x1534; // (+0x18: on the ground; +0x48: the walking direction)
+constexpr uint32_t kDropFlags = 0xE4;   // (in the flags block: the drop's horizontal velocity)
 constexpr uint32_t kDropTargetHeight = 0x37C;
 constexpr uint32_t kRideObjectHit = 0x14C0;
-constexpr uint32_t kDropMatrix = 0x3B0;    // the wall's orientation (rows: across, the normal, along)
+constexpr uint32_t kDropMatrix = 0x3B0; // the wall's orientation (rows: across, the normal, along)
 constexpr uint32_t kDropHeading = 0x490;
 constexpr uint32_t kSlerp = 0x3F0;
 constexpr uint32_t kPlungeSeconds = 0x488;
 constexpr uint32_t kDropDuration = 0x48C;
 constexpr uint32_t kDropLastMatrix = 0x4A0;
 
-constexpr float kMinSpeed = 0.01f;         // 0x0064544C
-constexpr float kSearchReach = 500.0f;     // (0x43FA0000)
-constexpr float kWalkLift = 200.0f;        // (0x43480000)
-constexpr float kWalkBack = 12.0f;         // 0x0064546C
-constexpr float kBoxDepth = 4200.0f;       // 0x0064BD34
-constexpr float kFeelerDepth = 4000.0f;    // 0x0064B8F8
-constexpr float kFirstStep = 0.01f;        // (0x3C23D70A)
-constexpr float kMaxWallY = 0.707f;        // 0x006467BC
-constexpr float kWalkFacing = -0.25f;      // 0x0064BD30
-constexpr float kFacing = 0.05f;           // 0x00645D6C
-constexpr float kFarStep = 100.0f;         // 0x006463D4
-constexpr float kFarStepExtra = 24.0f;     // 0x00645EE8
-constexpr float kStep = 3.0f;              // 0x006467A8
-constexpr float kMinHorizontal = 0.0001f;  // 0x006453D4
-constexpr float kNeverLands = 0.00001f;    // 0x006453B8
-constexpr float kRise = 24.0f;             // 0x00645EE8
+constexpr float kMinSpeed = 0.01f;        // 0x0064544C
+constexpr float kSearchReach = 500.0f;    // (0x43FA0000)
+constexpr float kWalkLift = 200.0f;       // (0x43480000)
+constexpr float kWalkBack = 12.0f;        // 0x0064546C
+constexpr float kBoxDepth = 4200.0f;      // 0x0064BD34
+constexpr float kFeelerDepth = 4000.0f;   // 0x0064B8F8
+constexpr float kFirstStep = 0.01f;       // (0x3C23D70A)
+constexpr float kMaxWallY = 0.707f;       // 0x006467BC
+constexpr float kWalkFacing = -0.25f;     // 0x0064BD30
+constexpr float kFacing = 0.05f;          // 0x00645D6C
+constexpr float kFarStep = 100.0f;        // 0x006463D4
+constexpr float kFarStepExtra = 24.0f;    // 0x00645EE8
+constexpr float kStep = 3.0f;             // 0x006467A8
+constexpr float kMinHorizontal = 0.0001f; // 0x006453D4
+constexpr float kNeverLands = 0.00001f;   // 0x006453B8
+constexpr float kRise = 24.0f;            // 0x00645EE8
 
 objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
 
@@ -94,7 +94,7 @@ double fall_time(void* component, float height, float upward)
 
 // 0x00502240
 bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, const maths::Vec4* last_position,
-                                        maths::Vec4* velocity, AcidDrop* drop)
+                                         maths::Vec4* velocity, AcidDrop* drop)
 {
     // Looking along the horizontal velocity (walking: the walking direction).
     maths::Vec4 direction;
@@ -164,7 +164,8 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
         float x = sx + base.x, y = base.y + sy, z = base.z + sz, w = static_cast<float>(sw + base.w);
         feeler.line_.start = {x, y + lift, z, w};
         feeler.line_.end = {x, static_cast<float>(y - static_cast<double>(kFeelerDepth)), z, w};
-        if (feeler.get_hit_shape(true, false) && (feeler.hit_.face_flags_ & 8) && std::fabs(feeler.surface_dir_.y) < kMaxWallY) {
+        if (feeler.get_hit_shape(true, false) && (feeler.hit_.face_flags_ & 8) &&
+            std::fabs(feeler.surface_dir_.y) < kMaxWallY) {
             maths::Vec4 flat = {feeler.surface_dir_.x, 0.0f, feeler.surface_dir_.z, feeler.surface_dir_.w};
             normal = feeler.surface_dir_;
             flat.make_unit();
@@ -263,8 +264,8 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     };
     if (peak < hit.y)
         return fail();
-    float air_time = static_cast<float>(fall_time(this, static_cast<float>(position->y - static_cast<double>(hit.y)),
-                                               velocity->y));
+    float air_time =
+        static_cast<float>(fall_time(this, static_cast<float>(position->y - static_cast<double>(hit.y)), velocity->y));
     if (script::fetch_float(kMinAirTime) > air_time)
         return fail();
     if (!(hit.y < peak))
@@ -349,8 +350,8 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
 
     // The wall's orientation: along the drop turned into the wall's plane, its normal up, across them.
     const maths::Vec4& normal = drop->normal;
-    double upward = -((static_cast<double>(direction.x) * normal.x + static_cast<double>(direction.z) * normal.z) /
-                      normal.y);
+    double upward =
+        -((static_cast<double>(direction.x) * normal.x + static_cast<double>(direction.z) * normal.z) / normal.y);
     double length = std::sqrt(static_cast<double>(direction.x) * direction.x + upward * upward +
                               static_cast<double>(direction.z) * direction.z);
     maths::Vec4 along = {direction.x, 0.0f, direction.z, direction.w};
@@ -392,8 +393,8 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     // SkaterAcidDropTriggered with DropHeight (how far above the hit's height the skater is).
     script::Struct* params = script::spawn_param_bag();
     params = params ? params->prepare_all() : nullptr;
-    params->push_float(kDropHeight,
-                     static_cast<float>(vector_at(object_of(this), kPosition).y - static_cast<double>(drop->hit_height_)));
+    params->push_float(kDropHeight, static_cast<float>(vector_at(object_of(this), kPosition).y -
+                                                       static_cast<double>(drop->hit_height_)));
     skater_object(this)->start_script_task(kAcidDropTriggered, -1, false, false, params);
     if (params) {
         params->get_clear();
@@ -409,21 +410,21 @@ constexpr uint32_t kAwardTransfer = 0xA5179E9E;    // SkaterAwardTransfer (a scr
 constexpr uint32_t kAwardHipTransfer = 0x283BB5D6; // SkaterAwardHipTransfer (a script)
 constexpr uint32_t kTransferBlocked = 0x2D0;       // (break_vert tries again while it's set)
 
-constexpr float kQuarterTurn = 1.57079632679f;  // (0x3FC90FDB)
-constexpr float kAhead = 0.5f;                  // 0x006453BC
-constexpr float kFlatTarget = 0.9f;             // 0x00649FE4 (also the drop's least duration)
-constexpr float kFarTarget = 24.0f;             // 0x00645EE8
-constexpr float kLeastFallTime = 0.1f;          // 0x00645D74
-constexpr float kLeastTurn = 0.5235988f;        // 0x0064BD48 (30 degrees)
+constexpr float kQuarterTurn = 1.57079632679f; // (0x3FC90FDB)
+constexpr float kAhead = 0.5f;                 // 0x006453BC
+constexpr float kFlatTarget = 0.9f;            // 0x00649FE4 (also the drop's least duration)
+constexpr float kFarTarget = 24.0f;            // 0x00645EE8
+constexpr float kLeastFallTime = 0.1f;         // 0x00645D74
+constexpr float kLeastTurn = 0.5235988f;       // 0x0064BD48 (30 degrees)
 
 // 0x004FEE10 (not rewritten yet): a spine or hip to transfer to, looking along `look` from the vert wall of
 // (horizontal) normal `normal`: true with the point to land on (`target`), its normal, whether it's a hip and
 // whether the object hit is still there.
 bool find_transfer_target(void* component, maths::Vec4* look, maths::Vec4* normal, bool* hip, maths::Vec4* target,
-                        maths::Vec4* target_normal, bool* object_hit)
+                          maths::Vec4* target_normal, bool* object_hit)
 {
     return static_cast<SkaterPhysicsModule*>(component)->find_vert_target(look, normal, hip, target, target_normal,
-                                                                         object_hit);
+                                                                          object_hit);
 }
 
 } // namespace
@@ -470,9 +471,9 @@ bool SkaterPhysicsModule::try_spine_transfer()
     const maths::Vec4& position = vector_at(object, kPosition);
     maths::Vec4 ahead = {target.x * kAhead, target.y * kAhead, target.z * kAhead, target.w * kAhead};
     feeler.line_.start = {static_cast<float>(static_cast<double>(ahead.x) + position.x),
-                           static_cast<float>(static_cast<double>(ahead.y) + position.y),
-                           static_cast<float>(static_cast<double>(ahead.z) + position.z),
-                           static_cast<float>(static_cast<double>(ahead.w) + position.w)};
+                          static_cast<float>(static_cast<double>(ahead.y) + position.y),
+                          static_cast<float>(static_cast<double>(ahead.z) + position.z),
+                          static_cast<float>(static_cast<double>(ahead.w) + position.w)};
     feeler.line_.end = feeler.line_.start;
     feeler.line_.end.y = static_cast<float>(feeler.line_.end.y - static_cast<double>(kFeelerDepth));
     if (!feeler.get_hit_shape(true, false))
@@ -606,4 +607,4 @@ bool SkaterPhysicsModule::try_spine_transfer()
     return true;
 }
 
-} // namespace Skater
+} // namespace skater

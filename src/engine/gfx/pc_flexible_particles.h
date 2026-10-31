@@ -23,34 +23,34 @@ struct SimpleMaterial;
 struct PcFlexibleParticles {
     void** vtable;
     uint8_t engine04[8];
-    void** secondary_vtable_;  // +0x0C
+    void** secondary_vtable_; // +0x0C
     uint8_t engine10[0x10];
-    maths::Vec4 position;    // +0x20: the emitter's (particles are relative to it unless emitterIndependent)
+    maths::Vec4 position; // +0x20: the emitter's (particles are relative to it unless emitterIndependent)
     uint8_t engine30[0x10];
-    maths::Vec4 align_to_;     // +0x40: the direction the aligned types face along
+    maths::Vec4 align_to_; // +0x40: the direction the aligned types face along
     uint8_t engine50[0x10];
-    float colour_scale_[3];    // +0x60: red, green, blue
+    float colour_scale_[3]; // +0x60: red, green, blue
     uint8_t engine_6c_[4];
-    float emit_rate_;          // +0x70: particles a second
+    float emit_rate_; // +0x70: particles a second
     uint8_t engine74[8];
-    int history_stride_;       // +0x7C: between a particle's positions at successive history steps (in positions)
+    int history_stride_; // +0x7C: between a particle's positions at successive history steps (in positions)
     uint8_t engine80[0xC];
-    int count;               // +0x8C: live particles
+    int count; // +0x8C: live particles
     uint8_t engine90[0x5C];
-    float brightness;        // +0xEC: scales colour_scale_
+    float brightness; // +0xEC: scales colour_scale_
     uint8_t engine_f0_[8];
     FlexibleParticle* particles; // +0xF8
     uint8_t engine_fc_[0xC];
-    float colour_mid_;         // +0x108: when the mid colour is, a fraction of a particle's life (below 0: none)
-    uint32_t* start_colour_;   // +0x10C (RGBA)
-    uint32_t* mid_colour_;     // +0x110
-    uint32_t* end_colour_;     // +0x114
-    int history_length_;       // +0x118: history steps (the glow ribbon trail's)
+    float colour_mid_;       // +0x108: when the mid colour is, a fraction of a particle's life (below 0: none)
+    uint32_t* start_colour_; // +0x10C (RGBA)
+    uint32_t* mid_colour_;   // +0x110
+    uint32_t* end_colour_;   // +0x114
+    int history_length_;     // +0x118: history steps (the glow ribbon trail's)
     float* positions;        // +0x11C: three floats a particle
     uint32_t flags;          // +0x120: 0x4000 UseRandomUVQuadrants
     uint8_t engine124[2];
     bool emitter_independent_; // +0x126
-    bool aligned;            // +0x127: facing along alignTo, not the camera
+    bool aligned;              // +0x127: facing along alignTo, not the camera
 
     // 0x004BD470: the colour `t` of the way from `from` to `to` (RGBA bytes, each channel wrapping as a byte), its
     // red, green and blue then scaled by colour_scale_ x brightness (clamped to 0-255) - into *out as a d_3d colour
@@ -70,14 +70,14 @@ struct PcFlexibleParticles {
     void aligned_axes(maths::Vec4& r, maths::Vec4& u) const;
     // A destructor body: the vtables, the material destroyed and freed, the engine's destructor body.
     void destroy_parts(void** primary, void** secondary, SimpleMaterial* material,
-                      void(__cdecl* engine_destructor)(PcFlexibleParticles*));
+                       void(__cdecl* engine_destructor)(PcFlexibleParticles*));
     // The rate's particles for this frame (1/60 s) emitted through the engine's 0x00496FE0, the fraction kept.
     void emit_for_frame(float& accumulator);
 };
 static_assert(offsetof(PcFlexibleParticles, position) == 0x20 && offsetof(PcFlexibleParticles, colour_scale_) == 0x60 &&
                   offsetof(PcFlexibleParticles, emit_rate_) == 0x70 &&
-                  offsetof(PcFlexibleParticles, history_stride_) == 0x7C && offsetof(PcFlexibleParticles, count) == 0x8C &&
-                  offsetof(PcFlexibleParticles, brightness) == 0xEC &&
+                  offsetof(PcFlexibleParticles, history_stride_) == 0x7C &&
+                  offsetof(PcFlexibleParticles, count) == 0x8C && offsetof(PcFlexibleParticles, brightness) == 0xEC &&
                   offsetof(PcFlexibleParticles, particles) == 0xF8 &&
                   offsetof(PcFlexibleParticles, colour_mid_) == 0x108 &&
                   offsetof(PcFlexibleParticles, positions) == 0x11C &&
@@ -90,20 +90,20 @@ static_assert(offsetof(PcFlexibleParticles, position) == 0x20 && offsetof(PcFlex
 // 0x004BCEF0: a new system of `type` (glow, ribbon, smoothstar, star, line, smooth, glowribbontrail, smoothribbon,
 // ribbontrail, shaded, 0x3D56A7A6 - a flat ribbon -, newflat - and newflat for any other type -; 0x286A8D26 the engine's
 // own class 0x0049A0C0, without a PC one, from `model`), each from the parameters it uses. Null if no memory.
-void* __cdecl create_flexible_particles(uint32_t name, uint32_t type, int particle_cap, int max_streams, uint32_t texture,
-                                      uint32_t blend_mode, int fixed_alpha, int segments, float unknown,
-                                      int history, const char* model);
+void* __cdecl create_flexible_particles(uint32_t name, uint32_t type, int particle_cap, int max_streams,
+                                        uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
+                                        float unknown, int history, const char* model);
 
 // The "newflat" type (0x148 bytes, vtables 0x0064A514 and 0x0064A510 at +0x0C; the engine's class 0x00499010 -
 // destructor body 0x00498FB0): each particle a quad, its size and colour through its life.
 struct PcNewFlatParticles : PcFlexibleParticles {
     uint8_t engine128[0x18];
     SimpleMaterial* material; // +0x140
-    float emitted;             // +0x144: particles owed, a fraction
+    float emitted;            // +0x144: particles owed, a fraction
 
     // 0x004BD3A0: construct. Returns this.
     PcNewFlatParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                   int fixed_alpha, int segments, float unknown);
+                                 int fixed_alpha, int segments, float unknown);
     // 0x004BD610: the destructor's body (the material freed).
     void destroy_body();
     // 0x004BDC40 (virtual [0]) / 0x004BD390 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -121,14 +121,14 @@ static_assert(offsetof(PcNewFlatParticles, material) == 0x140 && sizeof(PcNewFla
 // times the width at the particle.
 struct PcFlatRibbonParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134: history steps
+    int segments; // +0x134: history steps
     uint8_t engine138[4];
-    float width;               // +0x13C
+    float width;              // +0x13C
     SimpleMaterial* material; // +0x140
 
     // 0x004BDC80: construct. Returns this.
     PcFlatRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                      int fixed_alpha, int segments, float width, int history);
+                                    int fixed_alpha, int segments, float width, int history);
     // 0x004BDD60: the destructor's body (the material freed).
     void destroy_body();
     // 0x004BECD0 (virtual [0]) / 0x004BDC70 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -147,15 +147,15 @@ static_assert(offsetof(PcFlatRibbonParticles, segments) == 0x134 && offsetof(PcF
 // buffer on the stack and drawn with DrawPrimitiveUP (0x7FF words a draw). No emission.
 struct PcGlowParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134
-    float glow_width_;           // +0x138: the outer ring's radius, a multiple of the inner's
+    int segments;      // +0x134
+    float glow_width_; // +0x138: the outer ring's radius, a multiple of the inner's
     uint8_t engine_13c_[0xC];
     SimpleMaterial* material; // +0x148
     uint8_t unknown14c_[4];
 
     // 0x004BED10: construct. Returns this.
     PcGlowParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                int segments, float unknown);
+                              int segments, float unknown);
     // 0x004BEDE0: the destructor's body (the material freed).
     void destroy_body();
     // 0x004BF6E0 (virtual [0]) / 0x004BED00 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -175,15 +175,15 @@ static_assert(offsetof(PcGlowParticles, segments) == 0x134 && offsetof(PcGlowPar
 // blending off; positions as stored (the emitter's not added). Colours in 4096ths, not scaled.
 struct PcGlowRibbonTrailParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134: the glow's
-    float width;               // +0x138
+    int segments; // +0x134: the glow's
+    float width;  // +0x138
     uint8_t engine_13c_[0xC];
     SimpleMaterial* material; // +0x148
-    float glow_step_;            // +0x14C: degrees between the glow's points
+    float glow_step_;         // +0x14C: degrees between the glow's points
 
     // 0x004BF720: construct. Returns this.
     PcGlowRibbonTrailParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                           int fixed_alpha, int segments, float unknown, int history);
+                                         int fixed_alpha, int segments, float unknown, int history);
     // 0x004C0940: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C09B0 (virtual [0]) / 0x004BF710 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -208,7 +208,7 @@ struct PcLineParticles : PcFlexibleParticles {
 
     // 0x004C09F0: construct. Returns this.
     PcLineParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                int segments, float unknown);
+                              int segments, float unknown);
     // 0x004C0AC0: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C0E70 (virtual [0]) / 0x004C09E0 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -225,14 +225,14 @@ static_assert(offsetof(PcLineParticles, material) == 0x140 && sizeof(PcLineParti
 // camera and the path - textured when the material has a texture.
 struct PcRibbonParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134: history steps
+    int segments; // +0x134: history steps
     uint8_t engine138[8];
     SimpleMaterial* material; // +0x140
     uint8_t unknown144[4];
 
     // 0x004C0EB0: construct. Returns this.
-    PcRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                  int fixed_alpha, int segments, float unknown, int history);
+    PcRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
+                                int segments, float unknown, int history);
     // 0x004C0F80: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C16E0 (virtual [0]) / 0x004C0EA0 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -249,14 +249,14 @@ static_assert(offsetof(PcRibbonParticles, segments) == 0x134 && offsetof(PcRibbo
 // the brightness alone (the others by lerp_colour).
 struct PcRibbonTrailParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134
+    int segments; // +0x134
     uint8_t engine138[8];
     SimpleMaterial* material; // +0x140
     uint8_t unknown144[4];
 
     // 0x004C1720: construct. Returns this.
     PcRibbonTrailParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                       int fixed_alpha, int segments, float unknown, int history);
+                                     int fixed_alpha, int segments, float unknown, int history);
     // 0x004C17F0: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C2160 (virtual [0]) / 0x004C1710 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -279,7 +279,7 @@ struct PcShadedParticles : PcFlexibleParticles {
 
     // 0x004C21A0: construct. Returns this.
     PcShadedParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                  int fixed_alpha);
+                                int fixed_alpha);
     // 0x004C2260: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C2AF0 (virtual [0]) / 0x004C2190 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -298,8 +298,8 @@ struct PcSmoothParticles : PcFlexibleParticles {
     uint8_t unknown144[4];
 
     // 0x004C2B30: construct. Returns this.
-    PcSmoothParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                  int fixed_alpha, int segments, float unknown);
+    PcSmoothParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
+                                int segments, float unknown);
     // 0x004C2C00: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C3500 (virtual [0]) / 0x004C2B20 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -316,12 +316,12 @@ static_assert(offsetof(PcSmoothParticles, material) == 0x140 && sizeof(PcSmoothP
 // step out to either side, four colours.
 struct PcSmoothRibbonParticles : PcFlexibleParticles {
     uint8_t engine128[0x10];
-    int segments;              // +0x138: history steps
+    int segments;             // +0x138: history steps
     SimpleMaterial* material; // +0x13C
 
     // 0x004C3550: construct. Returns this.
     PcSmoothRibbonParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                        int fixed_alpha, int segments, float unknown, int history);
+                                      int fixed_alpha, int segments, float unknown, int history);
     // 0x004C3620: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C3D40 (virtual [0]) / 0x004C3540 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -340,15 +340,15 @@ static_assert(offsetof(PcSmoothRibbonParticles, segments) == 0x138 &&
 // quads a point: centre, tip, the next outer point and the inner one; three colours.
 struct PcSmoothStarParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134
-    float star_width_;           // +0x138
+    int segments;      // +0x134
+    float star_width_; // +0x138
     uint8_t engine_13c_[0xC];
     SimpleMaterial* material; // +0x148
     uint8_t unknown14c_[4];
 
     // 0x004C3D80: construct. Returns this.
     PcSmoothStarParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode,
-                                      int fixed_alpha, int segments, float unknown);
+                                    int fixed_alpha, int segments, float unknown);
     // 0x004C3E50: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C4880 (virtual [0]) / 0x004C3D70 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -365,15 +365,15 @@ static_assert(offsetof(PcSmoothStarParticles, segments) == 0x134 &&
 // 0x0049C0D0): each particle a star of `segments` points about its centre, a quad a point.
 struct PcStarParticles : PcFlexibleParticles {
     uint8_t engine128[0xC];
-    int segments;              // +0x134
-    float star_width_;           // +0x138
+    int segments;      // +0x134
+    float star_width_; // +0x138
     uint8_t engine_13c_[0xC];
     SimpleMaterial* material; // +0x148
     uint8_t unknown14c_[4];
 
     // 0x004C48C0: construct. Returns this.
     PcStarParticles* make_new(uint32_t name, int particle_cap, uint32_t texture, uint32_t blend_mode, int fixed_alpha,
-                                int segments, float unknown);
+                              int segments, float unknown);
     // 0x004C4990: the destructor's body (the material freed).
     void destroy_body();
     // 0x004C5200 (virtual [0]) / 0x004C48B0 (through the vtable at +0x0C): destroyed, and freed with flags & 1.
@@ -387,4 +387,4 @@ static_assert(offsetof(PcStarParticles, segments) == 0x134 && offsetof(PcStarPar
 
 extern IDirect3DIndexBuffer9* g_quad_indices;
 
-} // namespace Nx
+} // namespace render

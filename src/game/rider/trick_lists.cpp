@@ -92,7 +92,7 @@ TrickNameEntry* TrickNameEntry::teardown(unsigned int flags)
     return this;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -103,4 +103,4 @@ static VtableSlot g_name_entry_vtable_slots[] = {&objects::TrickNameEntry::teard
 void** const kNameEntryVtable = reinterpret_cast<void**>(g_name_entry_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

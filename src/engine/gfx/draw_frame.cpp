@@ -82,11 +82,23 @@ void change_fog(bool on) { engine::enable_fog(on); }
 
 void* input_port() { return reinterpret_cast<void*>(g_d3d_device); }
 template <typename F>
-F get_method(void* object, int offset) { return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]); }
+F get_method(void* object, int offset)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
+}
 
-void set_transform(int type, const maths::Mat4* m) { get_method<long(__stdcall*)(void*, int, const void*)>(input_port(), 0xB0)(input_port(), type, m); }
-void set_render_target(void* surface) { get_method<long(__stdcall*)(void*, int, void*)>(input_port(), 0x94)(input_port(), 0, surface); }
-void set_depth_stencil_surface(void* surface) { get_method<long(__stdcall*)(void*, void*)>(input_port(), 0x9C)(input_port(), surface); }
+void set_transform(int type, const maths::Mat4* m)
+{
+    get_method<long(__stdcall*)(void*, int, const void*)>(input_port(), 0xB0)(input_port(), type, m);
+}
+void set_render_target(void* surface)
+{
+    get_method<long(__stdcall*)(void*, int, void*)>(input_port(), 0x94)(input_port(), 0, surface);
+}
+void set_depth_stencil_surface(void* surface)
+{
+    get_method<long(__stdcall*)(void*, void*)>(input_port(), 0x9C)(input_port(), surface);
+}
 void set_texture_stage_state(int stage, int type, int value)
 {
     get_method<long(__stdcall*)(void*, int, int, int)>(input_port(), 0x10C)(input_port(), stage, type, value);
@@ -108,8 +120,8 @@ void clear_target(uint32_t color)
 }
 void draw_primitive_up(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
-    get_method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(input_port(), 0x14C)(input_port(), type, count,
-                                                                                               vertices, stride);
+    get_method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(input_port(), 0x14C)(
+        input_port(), type, count, vertices, stride);
 }
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
@@ -122,18 +134,9 @@ void matrix_perspective(maths::Mat4* out, float width, float height, float near_
 {
     d3dx::matrix_perspective_rh(out, width, height, near_z, far_z);
 }
-void matrix_scaling(maths::Mat4* out, float x, float y, float z)
-{
-    d3dx::matrix_scaling(out, x, y, z);
-}
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
-void matrix_rotation_y(maths::Mat4* out, float angle)
-{
-    d3dx::matrix_rotation_y(out, angle);
-}
+void matrix_scaling(maths::Mat4* out, float x, float y, float z) { d3dx::matrix_scaling(out, x, y, z); }
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
+void matrix_rotation_y(maths::Mat4* out, float angle) { d3dx::matrix_rotation_y(out, angle); }
 
 // --- x87 instructions the original uses, so results round exactly as there ---------------------------------------
 
@@ -224,7 +227,8 @@ void draw_2d_with_black_bars()
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {-0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(bar_width) + 0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(bar_width) + 0.5f, static_cast<float>(back_buffer_height) + 0.5f, 0.0f, 1.0f, kBlack,
+             0.0f, 0.0f},
             {static_cast<float>(bar_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
         };
         draw_primitive_up(6 /* D3DPT_TRIANGLEFAN */, 2, bar, sizeof(BarVertex));
@@ -239,7 +243,8 @@ void draw_2d_with_black_bars()
         BarVertex bar[4] = {
             {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
             {-0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
-            {static_cast<float>(back_buffer_width) + 0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(back_buffer_width) + 0.5f, static_cast<float>(bar_height) + 0.5f, 0.0f, 1.0f, kBlack,
+             0.0f, 0.0f},
             {static_cast<float>(back_buffer_width) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
         };
         draw_primitive_up(6, 2, bar, sizeof(BarVertex));
@@ -255,7 +260,7 @@ static float s_near_z = 2.0f;
 
 // 0x004DB200
 void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, float angle, float aspect, float zoom,
-               bool infinite)
+                   bool infinite)
 {
     auto& camera = g_camera;
     auto& world = g_world_matrix;
@@ -283,7 +288,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.far_z_ = 96000.0f;
     camera.angle = angle;
     if (g_distance_clipping) // distance clipping (setting 0x007D6444: 100-595)
-        camera.far_z_ = static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::g_draw_distance_setting)) * 18.0);
+        camera.far_z_ =
+            static_cast<float>(static_cast<double>(static_cast<uint32_t>(gfx::g_draw_distance_setting)) * 18.0);
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h): the far plane (and with it the
     // distance clipping's cull distance, 0x00786CAC) further out.
     camera.far_z_ = graphics_options::get_scaled(camera.far_z_, graphics_options::get_pull().draw_distance_scale_);
@@ -320,8 +326,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
 
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
-    matrix_rotation_y(&g_heading_matrix,
-                    atan2_less_quarter_turn(-camera.backward[2], -camera.backward[0]));
+    matrix_rotation_y(&g_heading_matrix, atan2_less_quarter_turn(-camera.backward[2], -camera.backward[0]));
     // The view frustum (0x00775B80) follows the new view.
     g_billboard_pool.setup_axes();
 }
@@ -350,7 +355,7 @@ void draw_screen_blur()
     uint32_t min_filter[4], mag_filter[4];
     for (int i = 0; i < 4; ++i) {
         min_filter[i] = get_sampler_state(i, 6); // D3DSAMP_MINFILTER
-        if (min_filter[i] != 2)                // D3DTEXF_LINEAR
+        if (min_filter[i] != 2)                  // D3DTEXF_LINEAR
             set_sampler_state(i, 6, 2);
         mag_filter[i] = get_sampler_state(i, 5); // D3DSAMP_MAGFILTER
         if (mag_filter[i] != 2)
@@ -369,7 +374,7 @@ void draw_screen_blur()
     void* const* textures = reinterpret_cast<void* const*>(g_screen_textures);
     void* texture = textures[current];
     void* other = textures[(current + 1) % 2];
-    uint32_t desc[8]; // D3DSURFACE_DESC
+    uint32_t desc[8];                                                                              // D3DSURFACE_DESC
     get_method<long(__stdcall*)(void*, unsigned int, uint32_t*)>(texture, 0x44)(texture, 0, desc); // GetLevelDesc
     uint32_t texels_wide = desc[6], texels_high = desc[7];
 
@@ -412,16 +417,16 @@ void draw_screen_blur()
         set_depth_stencil_surface(depth);
     }
     get_method<unsigned long(__stdcall*)(void*)>(surface, 8)(surface); // Release
-    set_vertex_format(0x144);                                       // XYZRHW | DIFFUSE | TEX1
-    set_pixel_shader(nullptr, nullptr); // (no pixel shader)
-    set_texture_stage_state(0, 1, 2); // colour op: select arg 1
-    set_texture_stage_state(0, 2, 2); // colour arg 1: texture
-    set_texture_stage_state(0, 4, 1); // alpha op: disable
+    set_vertex_format(0x144);                                          // XYZRHW | DIFFUSE | TEX1
+    set_pixel_shader(nullptr, nullptr);                                // (no pixel shader)
+    set_texture_stage_state(0, 1, 2);                                  // colour op: select arg 1
+    set_texture_stage_state(0, 2, 2);                                  // colour arg 1: texture
+    set_texture_stage_state(0, 4, 1);                                  // alpha op: disable
     if (g_screen_blur_frames > 2) {
         set_render_state(0x11, 1);
         set_texture(0, other);
         draw_primitive_up(5 /* triangle strip */, 2, quad, sizeof(ScreenVertex));
-        ++g_draw_calls; // draw calls
+        ++g_draw_calls;         // draw calls
         g_drawn_triangles += 2; // triangles
     }
     // ...then `texture` onto the back buffer, cleared first to the fog colour (with fog and distance clipping
@@ -453,7 +458,7 @@ struct Viewport {
     uint32_t unknown00;
     float x, y, width, height; // +0x04
     uint32_t unknown14;
-    void* camera;              // +0x18 (null: nothing to draw)
+    void* camera; // +0x18 (null: nothing to draw)
 };
 static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
 
@@ -461,7 +466,7 @@ static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
 struct MeshGroup {
     uint32_t flags;
     uint8_t unknown04[0x18];
-    void** meshes; // +0x1C
+    void** meshes;   // +0x1C
     int mesh_count_; // +0x20
 };
 static_assert(offsetof(MeshGroup, mesh_count_) == 0x20, "mesh group layout");
@@ -469,12 +474,12 @@ static_assert(offsetof(MeshGroup, mesh_count_) == 0x20, "mesh group layout");
 // A loaded world scene (only what the render uses).
 struct Scene {
     uint8_t unknown000[0x84];
-    uint32_t name;          // +0x84: the checksum of its name
-    void* tex_dict_;          // +0x88
+    uint32_t name;   // +0x84: the checksum of its name
+    void* tex_dict_; // +0x88
     uint8_t unknown08c_;
-    bool sky;               // +0x8D: drawn in the sky pass
+    bool sky; // +0x8D: drawn in the sky pass
     uint8_t unknown08e_[0x1F2];
-    MeshGroup* group;       // +0x280
+    MeshGroup* group; // +0x280
 };
 static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
               "scene layout");
@@ -482,7 +487,7 @@ static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D &&
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 struct SceneNode {
     uint32_t unknown0;
-    Scene* scene;    // +0x04
+    Scene* scene; // +0x04
     uint32_t unknown8;
     SceneNode* next; // +0x0C
 };
@@ -504,7 +509,10 @@ void for_each_scene(F fn)
 }
 
 DeviceViewport& the_viewport() { return g_device_viewport; }
-void set_viewport() { get_method<long(__stdcall*)(void*, const void*)>(input_port(), 0xBC)(input_port(), &the_viewport()); }
+void set_viewport()
+{
+    get_method<long(__stdcall*)(void*, const void*)>(input_port(), 0xBC)(input_port(), &the_viewport());
+}
 // The device's render state directly (not the renderer's cached one).
 void set_device_render_state(int state, uint32_t value)
 {
@@ -513,7 +521,9 @@ void set_device_render_state(int state, uint32_t value)
 
 void full_screen_viewport()
 {
-    the_viewport() = {0, 0, reinterpret_cast<uint32_t&>(g_back_buffer_width), reinterpret_cast<uint32_t&>(g_back_buffer_height), 0.0f, 1.0f};
+    the_viewport() = {
+        0,    0,   reinterpret_cast<uint32_t&>(g_back_buffer_width), reinterpret_cast<uint32_t&>(g_back_buffer_height),
+        0.0f, 1.0f};
 }
 
 // The camera (a game object).
@@ -621,7 +631,7 @@ void draw_viewport(int index)
     fog_start = 20.0f;
     fog_end = 21.0f;
     set_device_render_state(0x24, reinterpret_cast<uint32_t&>(g_fog_begin_distance)); // D3DRS_FOGSTART
-    set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end)); // D3DRS_FOGEND
+    set_device_render_state(0x25, reinterpret_cast<uint32_t&>(g_fog_end));            // D3DRS_FOGEND
     bool fog = g_fog_active != 0;
     change_fog(false);
     set_render_state(1, 0);
@@ -699,7 +709,7 @@ void draw_world()
     // while the game is paused.
     // Original behaviour: nothing.
     frontend::level_editor::tick_frame();
-    ++g_frames_rendered; // frames rendered
+    ++g_frames_rendered;        // frames rendered
     if (!g_loading_screen_up) { // (nothing while the device is lost)
         g_step_seconds = static_cast<int>(frame_clock::get_time());
         set_render_state(1, 1);
@@ -745,4 +755,4 @@ void draw_world()
     set_viewport();
 }
 
-} // namespace Nx
+} // namespace render

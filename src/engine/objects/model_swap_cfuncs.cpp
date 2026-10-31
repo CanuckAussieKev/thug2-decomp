@@ -37,7 +37,7 @@ constexpr uint32_t kShadow = 0x8A897DD2;            // "shadow"
 constexpr uint32_t kSkeleton = 0x222756D5;          // "skeleton"
 constexpr uint32_t kSuspend = 0xCE0CA665;           // "suspend"
 constexpr uint32_t kSkater = 0x5B8AB877;            // "Skater"
-const char* const kPedShadow = "Ped_Shadow"; // "Ped_Shadow"
+const char* const kPedShadow = "Ped_Shadow";        // "Ped_Shadow"
 
 // The swaps made (0x007CEDE0, five entries): each object's id and the id of the object whose model it wears now.
 struct SwapEntry {
@@ -56,7 +56,10 @@ void record_swap(uint32_t a, uint32_t b) { commands::swap_mapping(a, b); }
 
 // A skeleton (the skeleton component's +0x18): 0x004A3D30 constructs one in `memory` from the asset at another's +8,
 // 0x004A2E20 copies one into another, 0x004A2CB0 is its destructor body.
-uint8_t* skeleton_of(objects::ObjectModule* component) { return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
+uint8_t* skeleton_of(objects::ObjectModule* component)
+{
+    return *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x18);
+}
 void copy_skeleton(uint8_t* to, uint8_t* from)
 {
     reinterpret_cast<gfx::Rig*>(to)->copy_bone_scales(reinterpret_cast<gfx::Rig*>(from), true);
@@ -64,7 +67,11 @@ void copy_skeleton(uint8_t* to, uint8_t* from)
 
 // A model's +0xC (0x00492E50 / 0x00493460: the setter tells the model's parts) and its lights (+0x2C), whose
 // position follows a pointer (0x0048E4D0).
-uint32_t model_get(render::RenderModel* model) { return reinterpret_cast<uint32_t(__thiscall*)(render::RenderModel*)>(code_address(&render::RenderModel::fetch_skinning_palette))(model); }
+uint32_t model_get(render::RenderModel* model)
+{
+    return reinterpret_cast<uint32_t(__thiscall*)(render::RenderModel*)>(
+        code_address(&render::RenderModel::fetch_skinning_palette))(model);
+}
 void model_set(render::RenderModel* model, uint32_t value)
 {
     model->upload_skinning_palette(reinterpret_cast<uint8_t*>(value));
@@ -79,7 +86,8 @@ void follow_position(render::RenderModel* model, maths::Vec4* position)
 void set_model_virtual(objects::MeshInstanceModule* component, render::RenderModel* model)
 {
     auto** vtable = *reinterpret_cast<void***>(component);
-    reinterpret_cast<void(__thiscall*)(objects::MeshInstanceModule*, render::RenderModel*)>(vtable[14])(component, model);
+    reinterpret_cast<void(__thiscall*)(objects::MeshInstanceModule*, render::RenderModel*)>(vtable[14])(component,
+                                                                                                        model);
 }
 
 // An object's shadow made again: a skater's in its skater heap (type 1), anything else's type 2.

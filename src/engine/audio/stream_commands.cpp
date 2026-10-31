@@ -41,7 +41,10 @@ Stream* get_streams() { return g_streams; }
 constexpr int kStreams = 3;
 // The stream components that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
 void** get_owners() { return g_stream_owners; }
-uint32_t& owner_id(void* owner, int stream) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner) + 0x18 + 4 * stream); }
+uint32_t& owner_id(void* owner, int stream)
+{
+    return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner) + 0x18 + 4 * stream);
+}
 // The stream PlayStream started last.
 int& last_stream() { return g_last_stream; }
 
@@ -55,14 +58,18 @@ int channel_status(int channel) { return stream_status(channel); }
 void platform_pause(bool pause, int music) { pause_streams(pause, music); }
 void stop_channel(int channel) { halt_stream(channel, 1); } // (the second argument is unused)
 bool preload_on_channel(uint32_t checksum, int channel, int stopped) { return play_stream(checksum, channel, stopped); }
-bool play_on_channel(uint32_t checksum, int channel, const void* volume, float pitch, int stopped, int unknown, int option)
+bool play_on_channel(uint32_t checksum, int channel, const void* volume, float pitch, int stopped, int unknown,
+                     int option)
 {
     // (the pitch and `stopped` reach two unused arguments; `unknown` is the preload flag, `option` the plays)
     return load_stream(checksum, channel, static_cast<const StreamGain*>(volume), std::bit_cast<int>(pitch), stopped,
-                      unknown != 0, option);
+                       unknown != 0, option);
 }
 // StreamAmpCurve's load (FamData::ReadIn: data\fam\<checksum>.fam into the slot).
-bool read_amp_curve(StreamAmpCurve* slot, uint32_t checksum) { return reinterpret_cast<FamData*>(slot)->read_in(checksum); }
+bool read_amp_curve(StreamAmpCurve* slot, uint32_t checksum)
+{
+    return reinterpret_cast<FamData*>(slot)->read_in(checksum);
+}
 // A script integer that's read and ignored: what used it is compiled out (debug output).
 void read_debug_flag() { script::fetch_int_value(0xD7BB618Du); }
 
@@ -77,7 +84,7 @@ inline void destroy_volume(Loudness*) {} // (0x005480A0)
 // Whether sound is off (the manager's is_frozen).
 bool sound_off_requested(sound::AudioMixer* manager) { return manager->is_frozen(); }
 bool loudness_from_position(sound::AudioMixer* manager, Loudness* volume, const maths::Vec4* position, float dropoff,
-                      int falloff_curve, void* emitter, maths::Vec4* emitter_direction)
+                            int falloff_curve, void* emitter, maths::Vec4* emitter_direction)
 {
     return manager->fetch_loudness(volume, position, dropoff, falloff_curve, emitter, emitter_direction);
 }
@@ -175,7 +182,7 @@ bool __cdecl free_stream_frame_amp(uint32_t checksum)
 
 // 0x00451770
 int __cdecl start_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
-                        bool preload)
+                         bool preload)
 {
     if (!streams_on())
         return -1;
@@ -267,7 +274,8 @@ bool __cdecl add_stream(uint32_t stream, uint32_t name, void* owner)
     int found = -1;
     if (owner) {
         for (int i = 0; i < kStreams; ++i) {
-            if (get_owners()[i] == owner && get_streams()[i].name == stream && channel_status(get_streams()[i].channel) != 1) {
+            if (get_owners()[i] == owner && get_streams()[i].name == stream &&
+                channel_status(get_streams()[i].channel) != 1) {
                 found = i;
                 break;
             }
@@ -288,7 +296,7 @@ bool __cdecl add_stream(uint32_t stream, uint32_t name, void* owner)
 
 // 0x00451E20
 uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
-                                      int option, int priority, int use_pos_info, int falloff_curve, uint32_t id)
+                                       int option, int priority, int use_pos_info, int falloff_curve, uint32_t id)
 {
     sound::AudioMixer* manager = sound_manager();
     if (sound_off_requested(manager) || !streams_on())
@@ -304,8 +312,8 @@ uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float
             maths::Vec4 direction;
             maths::Vec4* towards = get_emitter_direction(component, emitter, &direction) ? &direction : nullptr;
             maths::Vec4 position;
-            audible = loudness_from_position(manager, &stream_volume, sound_position(component, &position, emitter), dropoff,
-                                       falloff_curve, emitter, towards);
+            audible = loudness_from_position(manager, &stream_volume, sound_position(component, &position, emitter),
+                                             dropoff, falloff_curve, emitter, towards);
         } else {
             change_muted(&stream_volume);
         }
@@ -333,7 +341,8 @@ uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float
             for (int i = 0; i < kStreams; ++i) {
                 if (get_streams()[i].id == playing) {
                     get_streams()[i].dropoff = dropoff;
-                    get_streams()[i].volume = static_cast<float>(static_cast<double>(get_streams()[i].volume) * volume * 0.01f);
+                    get_streams()[i].volume =
+                        static_cast<float>(static_cast<double>(get_streams()[i].volume) * volume * 0.01f);
                 }
             }
         }
@@ -352,4 +361,4 @@ uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float
     return playing;
 }
 
-} // namespace Pcm
+} // namespace audio

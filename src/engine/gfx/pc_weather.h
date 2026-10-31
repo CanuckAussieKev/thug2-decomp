@@ -20,54 +20,54 @@ struct WeatherRow {
 // The PC weather (0x12AC bytes, vtable 0x0064A860).
 struct PcWeather {
     void** vtable;
-    float rain_height_;           // +0x04 how far up a drop starts
-    int rain_frames_;             // +0x08 its fall's frames (0-254)
-    float rain_length_;           // +0x0C
-    float rain_rate_;             // +0x10 drops a frame
-    uint8_t rain_top_[4];         // +0x14 RGBA
-    uint8_t rain_bottom_[4];      // +0x18
-    float splash_rate_;           // +0x1C splashes a frame
-    int splash_life_;             // +0x20 frames
-    float splash_size_;           // +0x24
-    uint8_t splash_colour_[4];    // +0x28
-    int drops;                  // +0x2C falling now
-    bool active;                // +0x30 (a grid made)
+    float rain_height_;        // +0x04 how far up a drop starts
+    int rain_frames_;          // +0x08 its fall's frames (0-254)
+    float rain_length_;        // +0x0C
+    float rain_rate_;          // +0x10 drops a frame
+    uint8_t rain_top_[4];      // +0x14 RGBA
+    uint8_t rain_bottom_[4];   // +0x18
+    float splash_rate_;        // +0x1C splashes a frame
+    int splash_life_;          // +0x20 frames
+    float splash_size_;        // +0x24
+    uint8_t splash_colour_[4]; // +0x28
+    int drops;                 // +0x2C falling now
+    bool active;               // +0x30 (a grid made)
     uint8_t pad31[3];
-    float snow_height_;           // +0x34
-    int snow_frames_;             // +0x38
-    float snow_size_;             // +0x3C
-    float snow_rate_;             // +0x40
-    uint8_t snow_colour_[4];      // +0x44
-    float camera_x_;              // +0x48 where the camera was
+    float snow_height_;      // +0x34
+    int snow_frames_;        // +0x38
+    float snow_size_;        // +0x3C
+    float snow_rate_;        // +0x40
+    uint8_t snow_colour_[4]; // +0x44
+    float camera_x_;         // +0x48 where the camera was
     float camera_y_;
-    float camera_z_;              // +0x50
+    float camera_z_; // +0x50
     uint8_t engine54[4];
-    bool raining;               // +0x58 (else snow)
+    bool raining; // +0x58 (else snow)
     uint8_t pad59[3];
-    void* splash_texture_;        // +0x5C TextureRef* (0x45C7EB0F)
-    void* snow_texture_;          // +0x60 TextureRef* (0xC97C5A4C)
+    void* splash_texture_;      // +0x5C TextureRef* (0x45C7EB0F)
+    void* snow_texture_;        // +0x60 TextureRef* (0xC97C5A4C)
     uint8_t* columns;           // +0x64 the rows' columns' height indices
-    WeatherRow* rows;          // +0x68
+    WeatherRow* rows;           // +0x68
     int heights[0x100];         // +0x6C the ground's heights (16ths), by index
     int width;                  // +0x46C the grid's columns
     int depth;                  // +0x470 and rows
-    float origin_x_, origin_z_;     // +0x474 its corner
-    float rain_due_;              // +0x47C drops started so far, with the fraction due
-    float splash_due_;            // +0x480
-    float snow_due_;              // +0x484
+    float origin_x_, origin_z_; // +0x474 its corner
+    float rain_due_;            // +0x47C drops started so far, with the fraction due
+    float splash_due_;          // +0x480
+    float snow_due_;            // +0x484
     uint8_t unknown488[0x10];
-    uint8_t stage[0x400];       // +0x498 each slot's frame of its fall (0xFF: none)
-    uint8_t offset_x_[0x400];     // +0x898 its place in its cell (random)
-    uint8_t offset_z_[0x400];     // +0xC98
-    uint32_t next;              // +0x1098 the next slot (the feedback step's state)
-    uint32_t rain_blend_;         // +0x109C blend modes (the fixed alpha in the high byte)
-    uint32_t splash_blend_;       // +0x10A0
-    uint32_t snow_blend_;         // +0x10A4
-    float splash_x_[0x20];        // +0x10A8
-    float splash_y_[0x20];        // +0x1128
-    float splash_z_[0x20];        // +0x11A8
-    int splash_frames_[0x20];     // +0x1228 left (0: none)
-    int next_splash_;             // +0x12A8
+    uint8_t stage[0x400];     // +0x498 each slot's frame of its fall (0xFF: none)
+    uint8_t offset_x_[0x400]; // +0x898 its place in its cell (random)
+    uint8_t offset_z_[0x400]; // +0xC98
+    uint32_t next;            // +0x1098 the next slot (the feedback step's state)
+    uint32_t rain_blend_;     // +0x109C blend modes (the fixed alpha in the high byte)
+    uint32_t splash_blend_;   // +0x10A0
+    uint32_t snow_blend_;     // +0x10A4
+    float splash_x_[0x20];    // +0x10A8
+    float splash_y_[0x20];    // +0x1128
+    float splash_z_[0x20];    // +0x11A8
+    int splash_frames_[0x20]; // +0x1228 left (0: none)
+    int next_splash_;         // +0x12A8
 
     // 0x004CC560: construct (no grid, no splash texture - the snow's left as it was; blend mode 0xA86285A1 with alpha
     // 0x80 for all three). Returns this.
@@ -108,4 +108,4 @@ static_assert(offsetof(PcWeather, active) == 0x30 && offsetof(PcWeather, raining
                   sizeof(PcWeather) == 0x12AC,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

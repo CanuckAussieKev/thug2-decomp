@@ -53,53 +53,53 @@
 
 namespace gfx {
 extern float g_one_over255; // 0x00645D70 (defined in tod_manager.cpp)
-} // namespace Gfx
+} // namespace gfx
 
 namespace modules {
 
 uint8_t g_net_relay_object_id;
-float g_relay_time_scale{0.000244140625f};   // (2^-12: the relayed times and positions)
+float g_relay_time_scale{0.000244140625f}; // (2^-12: the relayed times and positions)
 
 namespace {
 
-using script::Struct;
 using online::PlayerRecord;
+using script::Struct;
 
 // Names.
-constexpr uint32_t kNetLobby = 0x1C471C60;              // NetLobby (a game mode)
-constexpr uint32_t kFirefight = 0x3D6D444F;             // firefight
-constexpr uint32_t kNetFirefight = 0xBFF33600;          // netfirefight
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;         // netgoalattack
-constexpr uint32_t kShouldModulateColor = 0x11941568;   // should_modulate_color
-constexpr uint32_t kSkaterScore = 0xD262802F;           // SkaterScore (the component)
-constexpr uint32_t kTagging = 0x5B512EDC;               // Tagging (the component)
-constexpr uint32_t kModel = 0x286A8D26;                 // model (the component)
-constexpr uint32_t kAnimBlender = 0x7149B753;           // animblender (the component)
+constexpr uint32_t kNetLobby = 0x1C471C60;               // NetLobby (a game mode)
+constexpr uint32_t kFirefight = 0x3D6D444F;              // firefight
+constexpr uint32_t kNetFirefight = 0xBFF33600;           // netfirefight
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;          // netgoalattack
+constexpr uint32_t kShouldModulateColor = 0x11941568;    // should_modulate_color
+constexpr uint32_t kSkaterScore = 0xD262802F;            // SkaterScore (the component)
+constexpr uint32_t kTagging = 0x5B512EDC;                // Tagging (the component)
+constexpr uint32_t kModel = 0x286A8D26;                  // model (the component)
+constexpr uint32_t kAnimBlender = 0x7149B753;            // animblender (the component)
 constexpr uint32_t kScavengerCollectPeriod = 0xD4F04E7F; // scavenger_collect_period (a goal)
 constexpr uint32_t kCreateServerQuitDialog = 0x1D3A6D04; // CreateServerQuitDialog
-constexpr uint32_t kPatchCleanup = 0xFF5C39B6;          // PatchCleanup
-constexpr uint32_t kHatLogo = 0x5B288E0B;               // hat_logo
-constexpr uint32_t kFrontLogo = 0x23A1DF80;             // front_logo
-constexpr uint32_t kBackLogo = 0xD0C656A2;              // back_logo
-constexpr uint32_t kDeckGraphic = 0x07CB4FA9;           // deck_graphic
-constexpr uint32_t kAll = 0xC4E78E22;                   // ALL
-constexpr uint32_t kOn = 0xF649D637;                    // on
-constexpr uint32_t kCheatFlag = 0xAE94C183;             // cheat_flag
-constexpr uint32_t kClientToggleCheat = 0x3CF9E86D;     // client_toggle_cheat
-constexpr uint32_t kOwnerId = 0x81C39E06;               // owner_id
-constexpr uint32_t kAmmoType = 0x1D1A8B59;              // ammo_type
-constexpr uint32_t kX = 0x7323E97C;                     // x
-constexpr uint32_t kY = 0x0424D9EA;                     // y
-constexpr uint32_t kZ = 0x9D2D8850;                     // z
-constexpr uint32_t kScaledX = 0xBDED7A76;               // scaled_x
-constexpr uint32_t kScaledY = 0xCAEA4AE0;               // scaled_y
-constexpr uint32_t kScaledZ = 0x53E31B5A;               // scaled_z
-constexpr uint32_t kRadius = 0xC48391A5;                // radius
-constexpr uint32_t kScale = 0x13B9DA7B;                 // scale
-constexpr uint32_t kPos = 0x7F261953;                   // Pos
-constexpr uint32_t kVel = 0x0C4C809E;                   // vel
-constexpr uint32_t kFireball = 0xD039432C;              // fireball
-constexpr uint32_t kClientLaunchFireball = 0xAA2B5552;  // ClientLaunchFireball
+constexpr uint32_t kPatchCleanup = 0xFF5C39B6;           // PatchCleanup
+constexpr uint32_t kHatLogo = 0x5B288E0B;                // hat_logo
+constexpr uint32_t kFrontLogo = 0x23A1DF80;              // front_logo
+constexpr uint32_t kBackLogo = 0xD0C656A2;               // back_logo
+constexpr uint32_t kDeckGraphic = 0x07CB4FA9;            // deck_graphic
+constexpr uint32_t kAll = 0xC4E78E22;                    // ALL
+constexpr uint32_t kOn = 0xF649D637;                     // on
+constexpr uint32_t kCheatFlag = 0xAE94C183;              // cheat_flag
+constexpr uint32_t kClientToggleCheat = 0x3CF9E86D;      // client_toggle_cheat
+constexpr uint32_t kOwnerId = 0x81C39E06;                // owner_id
+constexpr uint32_t kAmmoType = 0x1D1A8B59;               // ammo_type
+constexpr uint32_t kX = 0x7323E97C;                      // x
+constexpr uint32_t kY = 0x0424D9EA;                      // y
+constexpr uint32_t kZ = 0x9D2D8850;                      // z
+constexpr uint32_t kScaledX = 0xBDED7A76;                // scaled_x
+constexpr uint32_t kScaledY = 0xCAEA4AE0;                // scaled_y
+constexpr uint32_t kScaledZ = 0x53E31B5A;                // scaled_z
+constexpr uint32_t kRadius = 0xC48391A5;                 // radius
+constexpr uint32_t kScale = 0x13B9DA7B;                  // scale
+constexpr uint32_t kPos = 0x7F261953;                    // Pos
+constexpr uint32_t kVel = 0x0C4C809E;                    // vel
+constexpr uint32_t kFireball = 0xD039432C;               // fireball
+constexpr uint32_t kClientLaunchFireball = 0xAA2B5552;   // ClientLaunchFireball
 constexpr uint32_t kClientLaunchProjectile = 0x866C26A9; // ClientLaunchProjectile
 
 // The cheats send_cheats tells a player about, in order (CHEAT_ALWAYS_SPECIAL twice, as the original).
@@ -118,7 +118,10 @@ constexpr uint32_t kSentCheats[] = {
 
 online::Hub* net_link() { return online::g_online_hub; }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
-objects::ObjectHubBase* entity_hub_handle() { return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry); }
+objects::ObjectHubBase* entity_hub_handle()
+{
+    return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+}
 
 template <typename T>
 T& prop(const void* object, uint32_t offset)
@@ -134,7 +137,10 @@ R get_call(uint32_t address, const void* object, A... args)
 
 PlayerRecord* details_of(uint8_t* player) { return reinterpret_cast<PlayerRecord*>(player); }
 PlayerRecord* by_connection(net::Conn* conn) { return details_of(net_link()->find_player_by_sender(conn)); }
-PlayerRecord* by_object_id(int id) { return details_of(net_link()->find_player_slot_by_obj(static_cast<uint16_t>(id))); }
+PlayerRecord* by_object_id(int id)
+{
+    return details_of(net_link()->find_player_slot_by_obj(static_cast<uint16_t>(id)));
+}
 // An object id from a message byte (signed, as the original reads it).
 int id_byte(const uint8_t* data, int offset) { return static_cast<int8_t>(data[offset]); }
 
@@ -142,8 +148,14 @@ int id_byte(const uint8_t* data, int offset) { return static_cast<int8_t>(data[o
 struct PlayerSearch {
     void** vtable_ = modules::kPlayerSearchVtable;
     void* list_link_ = nullptr;
-    PlayerRecord* get_first(bool observers) { return static_cast<PlayerRecord*>(net_link()->begin_player_walk(this, observers)); }
-    PlayerRecord* get_next(bool observers) { return static_cast<PlayerRecord*>(net_link()->step_player_walk(this, observers)); }
+    PlayerRecord* get_first(bool observers)
+    {
+        return static_cast<PlayerRecord*>(net_link()->begin_player_walk(this, observers));
+    }
+    PlayerRecord* get_next(bool observers)
+    {
+        return static_cast<PlayerRecord*>(net_link()->step_player_walk(this, observers));
+    }
 };
 
 // A message on the server app to `player`, sequenced in `group`.
@@ -177,10 +189,7 @@ void delete_structure(Struct* structure)
 }
 
 // A skater's state history (+0x27C) and its newest state / message.
-objects::RiderFrameLog* get_history(const void* object)
-{
-    return prop<objects::RiderFrameLog*>(object, 0x27C);
-}
+objects::RiderFrameLog* get_history(const void* object) { return prop<objects::RiderFrameLog*>(object, 0x27C); }
 int& message_count(objects::RiderFrameLog* history) { return prop<int>(history, 0xA6C); }
 // The newest message slot made a message of `id`, stamped with the newest state's time.
 objects::StateHistoryMessage* new_message(objects::RiderFrameLog* history, uint8_t id)
@@ -196,10 +205,7 @@ T& get_at(objects::StateHistoryMessage* message, uint32_t offset)
 {
     return prop<T>(message, offset);
 }
-float get_scaled(uint32_t value, float constant)
-{
-    return static_cast<float>(static_cast<double>(value) * constant);
-}
+float get_scaled(uint32_t value, float constant) { return static_cast<float>(static_cast<double>(value) * constant); }
 
 // The relay message: the received one as it is.
 void relay(net::NetMessageInfo& desc, const net::InboundMsgCtx* context)
@@ -297,7 +303,7 @@ int SkateNet::handle_trick_objects(net::InboundMsgCtx* context)
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
     if (static_cast<int8_t>(data[0]) == 1 && data[0xA] == net->get_game_id())
         score->note_tagged_prop(prop<int>(data, 0xC), prop<int>(data, 0x10), prop<uint32_t>(data, 0x14),
-                              reinterpret_cast<uint32_t*>(data + 0x18), true);
+                                reinterpret_cast<uint32_t*>(data + 0x18), true);
     return 1;
 }
 
@@ -502,7 +508,7 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
                 desc.make_new();
                 net::AppHost* server = server_app();
                 left[0] = get_game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
-                                                    : get_skater_id(skater_of(collector));
+                                                            : get_skater_id(skater_of(collector));
                 left[1] = count;
                 desc.content_ = left;
                 desc.ident_ = 0x95;
@@ -640,14 +646,18 @@ int SkateNet::handle_graffiti_texture(net::InboundMsgCtx* context)
             desc.byte_count_ = 1;
             get_sequence(desc, 10);
             enqueue(app, other, &desc);
-            void* palette = get_call<void*>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot27_jump)), texture);
-            uint32_t palette_size = get_call<uint32_t>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot28_jump)), texture);
-            app->send_bulk_to_conn(other->conn_, 0x98, static_cast<uint16_t>(palette_size), palette,
-                                     "CAG Palette", 10, false, true); // "CAG Palette"
-            void* pixels = get_call<void*>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot25_jump)), texture);
-            uint32_t pixels_size = get_call<uint32_t>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot26_jump)), texture);
-            app->send_bulk_to_conn(other->conn_, 0x97, static_cast<uint16_t>(pixels_size), pixels,
-                                     "CAG Texture", 10, false, true); // "CAG Texture"
+            void* palette =
+                get_call<void*>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot27_jump)), texture);
+            uint32_t palette_size =
+                get_call<uint32_t>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot28_jump)), texture);
+            app->send_bulk_to_conn(other->conn_, 0x98, static_cast<uint16_t>(palette_size), palette, "CAG Palette", 10,
+                                   false, true); // "CAG Palette"
+            void* pixels =
+                get_call<void*>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot25_jump)), texture);
+            uint32_t pixels_size =
+                get_call<uint32_t>(reinterpret_cast<uint32_t>(code_address(render::virtual_slot26_jump)), texture);
+            app->send_bulk_to_conn(other->conn_, 0x97, static_cast<uint16_t>(pixels_size), pixels, "CAG Texture", 10,
+                                   false, true); // "CAG Texture"
             uint32_t sent_parts = parts;
             desc.content_ = &sent_parts;
             desc.ident_ = 0x9A;
@@ -689,7 +699,8 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
     static_cast<gfx::FaceSkin*>(texture)->read_from(data, static_cast<int>(size));
     static_cast<gfx::FaceSkin*>(texture)->mark_usable(true);
     auto* model = skater->fetch_module(kModel);
-    static_cast<render::RenderModel*>(prop<void*>(model, 0x208))->replace_face_texture(texture, "CS_NSN_facemap.png", kAll);
+    static_cast<render::RenderModel*>(prop<void*>(model, 0x208))
+        ->replace_face_texture(texture, "CS_NSN_facemap.png", kAll);
     if (net->get_on_server()) {
         // the server keeps the face and streams it to the others
         PlayerSearch search;
@@ -699,8 +710,8 @@ int SkateNet::handle_face_texture(net::InboundMsgCtx* context)
         for (PlayerRecord* other = search.get_first(true); other; other = search.get_next(true)) {
             if (other->is_own_player() || other == sender)
                 continue;
-            app->send_bulk_to_conn(other->conn_, 0x7E, 0x4499, sender->get_face_texture_data(),
-                                     "Face Data", 9, false, true); // "Face Data"
+            app->send_bulk_to_conn(other->conn_, 0x7E, 0x4499, sender->get_face_texture_data(), "Face Data", 9, false,
+                                   true); // "Face Data"
         }
     }
     // (freed without its destructor, as the original)
@@ -721,7 +732,8 @@ int SkateNet::on_level_switch_msg(net::InboundMsgCtx* context)
 int SkateNet::handle_history_value(net::InboundMsgCtx* context)
 {
     auto* data = reinterpret_cast<uint8_t*>(context->body_);
-    objects::Rider* skater = static_cast<Skate*>(context->content_)->get_rider_by_number(static_cast<uint32_t>(id_byte(data, 0)));
+    objects::Rider* skater =
+        static_cast<Skate*>(context->content_)->get_rider_by_number(static_cast<uint32_t>(id_byte(data, 0)));
     if (!skater)
         return 4;
     auto* history = skater->fetch_module(objects::RiderFrameLog::kType);
@@ -740,7 +752,8 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
     auto skater = [&](int offset) -> objects::Entity* {
         if (!object(offset))
             return nullptr;
-        return reinterpret_cast<objects::Entity*>(skate->get_rider_by_number(static_cast<uint32_t>(id_byte(data, offset))));
+        return reinterpret_cast<objects::Entity*>(
+            skate->get_rider_by_number(static_cast<uint32_t>(id_byte(data, offset))));
     };
     objects::Entity* target = nullptr;
     objects::StateHistoryMessage* message;
@@ -798,12 +811,22 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         get_at<uint8_t>(message, 1) = data[1];
         uint32_t bits = data[0];
         // five settings picked by the bits of [0]: two bits, then one each
-        static const float kFirst[4] = {std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu), std::bit_cast<float>(0x4121999Au), 0.0f}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
+        static const float kFirst[4] = {std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu),
+                                        std::bit_cast<float>(0x4121999Au),
+                                        0.0f}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
         get_at<float>(message, 0x28) = kFirst[bits & 3];
-        get_at<float>(message, 0x2C) = (bits >> 2 & 1) ? std::bit_cast<float>(0x4121999Au) : std::bit_cast<float>(0x3D23D70Au); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
-        get_at<float>(message, 0x30) = (bits >> 3 & 1) ? std::bit_cast<float>(0x41A00000u) : std::bit_cast<float>(0x3B102DE0u); // 20 / 0.0022 (0x006486AC / 0x006486B0)
-        get_at<float>(message, 0x34) = (bits >> 4 & 1) ? std::bit_cast<float>(0x41200000u) : std::bit_cast<float>(0x3ADED289u); // 10 / 0.0017 (0x00646710 / 0x006486A8)
-        get_at<float>(message, 0x38) = (bits >> 5 & 1) ? std::bit_cast<float>(0x3F800000u) : std::bit_cast<float>(0x3FC00000u); // 1 / 1.5 (0x006453A8 / 0x00646744)
+        get_at<float>(message, 0x2C) = (bits >> 2 & 1)
+                                           ? std::bit_cast<float>(0x4121999Au)
+                                           : std::bit_cast<float>(0x3D23D70Au); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
+        get_at<float>(message, 0x30) = (bits >> 3 & 1)
+                                           ? std::bit_cast<float>(0x41A00000u)
+                                           : std::bit_cast<float>(0x3B102DE0u); // 20 / 0.0022 (0x006486AC / 0x006486B0)
+        get_at<float>(message, 0x34) = (bits >> 4 & 1)
+                                           ? std::bit_cast<float>(0x41200000u)
+                                           : std::bit_cast<float>(0x3ADED289u); // 10 / 0.0017 (0x00646710 / 0x006486A8)
+        get_at<float>(message, 0x38) = (bits >> 5 & 1)
+                                           ? std::bit_cast<float>(0x3F800000u)
+                                           : std::bit_cast<float>(0x3FC00000u); // 1 / 1.5 (0x006453A8 / 0x00646744)
         break;
     }
     case 0x3D:
@@ -954,8 +977,8 @@ int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
 // 0x0056B7A0
 int SkateNet::on_sparks_msg(net::InboundMsgCtx* context)
 {
-    auto* object = reinterpret_cast<objects::Rider*>(
-        entity_hub_handle()->look_up_entity(static_cast<uint32_t>(id_byte(reinterpret_cast<uint8_t*>(context->body_), 0))));
+    auto* object = reinterpret_cast<objects::Rider*>(entity_hub_handle()->look_up_entity(
+        static_cast<uint32_t>(id_byte(reinterpret_cast<uint8_t*>(context->body_), 0))));
     if (!object)
         return 1;
     if (context->type_code_ == 0x37)
@@ -1223,4 +1246,4 @@ void Skate::broadcast_points(bool final)
     net->change_score_sync_stamp(server_app()->clock_);
 }
 
-} // namespace Mdl
+} // namespace modules

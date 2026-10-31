@@ -8,7 +8,7 @@
 namespace render {
 class HitMesh;
 struct TriMeshSource;
-} // namespace Nx
+} // namespace render
 namespace script {
 class Struct;
 }
@@ -55,4 +55,4 @@ public:
 static_assert(offsetof(ContactShapeModule, hit_shape_) == 0x18 && sizeof(ContactShapeModule) == 0x1C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

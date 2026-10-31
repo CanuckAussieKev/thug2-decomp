@@ -27,10 +27,7 @@ void to_capitals(char* string)
 
 namespace {
 
-char get_lower(char c)
-{
-    return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c;
-}
+char get_lower(char c) { return (c >= 'A' && c <= 'Z') ? static_cast<char>(c + ('a' - 'A')) : c; }
 
 } // namespace
 
@@ -157,4 +154,4 @@ int next_word(char* out, const char*& cursor)
     return 0;
 }
 
-} // namespace Str
+} // namespace text

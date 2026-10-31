@@ -100,8 +100,8 @@ struct SaveHeader {
     uint32_t checksum; // CRC of the whole file with this field 0
     uint32_t unknown4;
     uint32_t unknown8;
-    int size;          // of the whole file
-    int version;       // must match the save type's (0x005A6210)
+    int size;    // of the whole file
+    int version; // must match the save type's (0x005A6210)
 };
 static_assert(sizeof(SaveHeader) == 0x14, "the structures follow at +0x14");
 uint8_t* read_structure(script::Struct* into, uint8_t* data)
@@ -134,7 +134,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
     }
     script::Struct* header = new_params();   // the file's first structure (read, then dropped)
     script::Struct* contents = new_params(); // the second: what's loaded
-    const char* name = ""; // ""
+    const char* name = "";                   // ""
     uint32_t type = 0;
     uint8_t* data = nullptr;
     bool loaded = false;
@@ -241,7 +241,8 @@ bool save_failed_due_to_insufficient_space(script::Struct*, script::Script*) { r
 // 0x005A6560
 bool set_sections_to_apply_when_loading(script::Struct* params, script::Script*)
 {
-    debug::printf("ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
+    debug::printf(
+        "ScriptSetSectionsToApplyWhenLoading was called.........................\n"); // "ScriptSetSectionsToApplyWhenLoading was called..."
     uint32_t& sections = sections_to_apply_when_loading();
     sections = 0;
     if (params->has_bare_flag(0x16B506C0u)) // ApplyCustomSkater
@@ -388,4 +389,4 @@ bool switch_to_regular_pools(script::Struct*, script::Script*)
     return true;
 }
 
-} // namespace Mc
+} // namespace save_cards

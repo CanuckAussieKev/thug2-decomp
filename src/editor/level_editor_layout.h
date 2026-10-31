@@ -24,7 +24,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // NOT ORIGINAL - the level editor's saved layouts (ours; see level_editor.h): what the editor changed in a level,
 // written to thug2-decomp-layouts\<the level's scene>.txt next to the exe (Ctrl+S in the editor).
@@ -161,25 +161,25 @@ struct FileLoad {
     std::vector<ObjectRecord> objects;
     std::vector<CopyRecord> copies;
     std::vector<SetRecord> nodes;
-    std::vector<node_create::Spec> added;  // `node` records, in order
-    std::vector<std::string> crown_order_;  // `order crown`
-    std::vector<uint32_t> hidden;         // `hide`
-    std::vector<picking::Lock> locks;     // `lock`
-    std::vector<triggers::Placed> triggers; // `trigger`
-    std::vector<triggers::ProximEdit> proxims; // `proxim` (the feature map: a proximity node's scripts / shape)
-    chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
-    entities::State entities;             // `speed`, `emitter` (level_editor_entities.h)
-    level_props::Props level;              // (phase 6) `level` (level_editor_level_props.h)
-    std::vector<walls::WallState> walls;  // `wall`: collision moved / switched off
+    std::vector<node_create::Spec> added;       // `node` records, in order
+    std::vector<std::string> crown_order_;      // `order crown`
+    std::vector<uint32_t> hidden;               // `hide`
+    std::vector<picking::Lock> locks;           // `lock`
+    std::vector<triggers::Placed> triggers;     // `trigger`
+    std::vector<triggers::ProximEdit> proxims;  // `proxim` (the feature map: a proximity node's scripts / shape)
+    chains::State chains;                       // (phase 4) `point`, `links`, `drop`, `terrain`
+    entities::State entities;                   // `speed`, `emitter` (level_editor_entities.h)
+    level_props::Props level;                   // (phase 6) `level` (level_editor_level_props.h)
+    std::vector<walls::WallState> walls;        // `wall`: collision moved / switched off
     std::vector<faces::SectorFaces> faces;      // (map3) `faces`
     std::vector<clusters::Membership> clusters; // (map3) `cluster`
-    std::vector<cameras::ViewCam> cameras;       // (map3) `camera`
-    std::vector<goal_edit::Goal> goals;             // `goal` (level_editor_goals.h)
-    std::vector<links::LinkRecord> links;           // (UX7) `link`: linked copies (level_editor_links.h)
+    std::vector<cameras::ViewCam> cameras;      // (map3) `camera`
+    std::vector<goal_edit::Goal> goals;         // `goal` (level_editor_goals.h)
+    std::vector<links::LinkRecord> links;       // (UX7) `link`: linked copies (level_editor_links.h)
     // Records this reader doesn't know, as they are (comments taken off): another module's (add_extension - the
     // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
     std::vector<std::string> extra;
-    std::vector<notes::Note> notes;             // (UX5) `note` (level_editor_notes.h)
+    std::vector<notes::Note> notes; // (UX5) `note` (level_editor_notes.h)
     // (UX5) lines written again as they are, at the end: the loaded layout's records that didn't resolve (Capture fills
     // it from level_editor_checks.h; Read never does - they are records like any other there)
     std::vector<std::string> carried;
@@ -283,14 +283,14 @@ uint32_t scene_of_level_text(const char* level);
 // structures give them (is_freeskate=1 ...), read through the mode's IsTrue (0x00553220 - what GameModeEquals and
 // IsCareerMode 0x005AEFC0 ask).
 struct ModeFlags {
-    bool known = false;         // a game mode at all (modules::Skate's 0x007CE470)
-    bool freeskate = false;     // is_freeskate: mode_freeskate (SKATE NOW, -level / -edit), mode_freeskate2p (2 PLAYER)
+    bool known = false;     // a game mode at all (modules::Skate's 0x007CE470)
+    bool freeskate = false; // is_freeskate: mode_freeskate (SKATE NOW, -level / -edit), mode_freeskate2p (2 PLAYER)
     bool single_session_ = false; // is_singlesession: HIGH SCORE / FREE SKATE (its high score runs' records: see below)
-    bool career = false;        // is_career: story mode (goals, cash, stat points, chapters)
-    bool classic = false;       // is_classic: classic mode (goals, stat points, its records)
+    bool career = false;          // is_career: story mode (goals, cash, stat points, chapters)
+    bool classic = false;         // is_classic: classic mode (goals, stat points, its records)
     bool create_goals_ = false;   // is_creategoals: create-a-goal (the goals saved with the level); the park editor too
     bool park_editor_ = false;    // is_parkeditor
-    bool net = false;           // is_net: the network modes
+    bool net = false;             // is_net: the network modes
 };
 // Why the editor and edited copies aren't offered in `mode` ("story mode", "classic mode"...), nullptr when they are:
 // free skate (1 or 2 players) and single session only - a whitelist, so a mode nobody thought of is refused. (Single
@@ -337,4 +337,4 @@ bool __cdecl cfunc_pick_level(script::Struct* params, script::Script* script);
 // and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
 bool __cdecl cfunc_edited_levels(script::Struct* params, script::Script* script);
 
-} // namespace MenuSystem::level_editor::Layout
+} // namespace frontend::level_editor::layout

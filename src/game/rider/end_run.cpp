@@ -33,10 +33,7 @@ constexpr uint32_t kRunHasEnded = 0x822E13A9, kGoalHasEnded = 0xAB676175, kForce
 
 // modules::Skate (0x007CE478) and its 0x005651F0: a multiplayer game (a network game, or a game mode for more than one
 // player). Not rewritten yet.
-bool is_versus_session()
-{
-    return modules::Skate::is_multiplayer() != 0;
-}
+bool is_versus_session() { return modules::Skate::is_multiplayer() != 0; }
 // The game mode (0x007CE470)'s 0x00553550: whether a run is over at its end here (multiplayer, and the mode's
 // stop_at_zero if it has the setting). Not rewritten yet.
 bool game_mode_ends_runs()
@@ -45,10 +42,7 @@ bool game_mode_ends_runs()
 }
 // The network manager (0x007CCE14): whether it has told the server the local run is over (0x005332A0: its +0x39
 // matches +0x38), and telling it (0x00533250).
-bool server_told_run_ended()
-{
-    return online::g_online_hub->game_ended_sent();
-}
+bool server_told_run_ended() { return online::g_online_hub->game_ended_sent(); }
 void tell_server_run_ended() { online::g_online_hub->send_game_ended(); }
 
 // The skater object's +0xBC: a local skater (this machine's player).
@@ -98,8 +92,7 @@ void RiderSessionEnd::tick_frame()
 }
 
 // 0x00510DC0
-int RiderSessionEnd::invoke_method_by_name(uint32_t name, script::Struct* /*params*/,
-                                               script::Script* /*script*/)
+int RiderSessionEnd::invoke_method_by_name(uint32_t name, script::Struct* /*params*/, script::Script* /*script*/)
 {
     switch (name) {
     case kIsInEndOfRun:
@@ -119,8 +112,8 @@ int RiderSessionEnd::invoke_method_by_name(uint32_t name, script::Struct* /*para
         flag_bits_ |= kEndRunStarted;
         return 1;
     case kRunStarted:
-        flag_bits_ &= ~(kEndRunStarted | kEndRunGoalStarted | kEndRunDone | kEndRunGoalDone | kEndRunForced |
-                     kEndRunFlag20);
+        flag_bits_ &=
+            ~(kEndRunStarted | kEndRunGoalStarted | kEndRunDone | kEndRunGoalDone | kEndRunForced | kEndRunFlag20);
         return 1;
     case kClearEndofRunStarted:
         flag_bits_ &= ~(kEndRunStarted | kEndRunForced);
@@ -172,25 +165,27 @@ void RiderSessionEnd::clear_goal_end_of_run_started() { flag_bits_ &= ~kEndRunGo
 // 0x00510F80
 void RiderSessionEnd::clear_forced() { flag_bits_ &= ~kEndRunForced; }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderSessionEnd::teardown,
-         &objects::RiderSessionEnd::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderSessionEnd::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderSessionEnd::teardown,
+    &objects::RiderSessionEnd::tick_frame,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderSessionEnd::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

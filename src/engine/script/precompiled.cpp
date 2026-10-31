@@ -160,7 +160,7 @@ uint8_t* relocate_symbol(SymbolTableEntry* symbol, uint32_t base)
 
 // 0x0046CA50
 void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,
-                                uint32_t flag)
+                                  uint32_t flag)
 {
     uint8_t* end = file + *reinterpret_cast<const uint32_t*>(file + 4);
     uint8_t* p = file + 0x1C;
@@ -191,13 +191,16 @@ void parse_precompiled_qb(const char* filename, uint8_t* data, int unused)
 {
     uint32_t flag = unused != 0;
     relocate_precompiled_symbols(data, reinterpret_cast<uint32_t>(data), define_precompiled_symbol,
-                               checksums::hash_from_text(filename), flag);
+                                 checksums::hash_from_text(filename), flag);
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 struct ArrayAdapter {
-    void relocate_elements(uint32_t base) { script::relocate_array_elements(reinterpret_cast<script::Array*>(this), base); }
+    void relocate_elements(uint32_t base)
+    {
+        script::relocate_array_elements(reinterpret_cast<script::Array*>(this), base);
+    }
 };
 } // namespace

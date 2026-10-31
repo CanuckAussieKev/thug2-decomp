@@ -56,7 +56,7 @@ bool __cdecl split_skin_name(const char* name, char* base);
 // 0x0048C030: a model from geometry in memory (load_mesh_from_memory, under the "model_data_buffer" profile). The last
 // three arguments aren't used.
 void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, void* skin, void* textures,
-                                  int unused5, uint32_t unused6, uint32_t unused7);
+                                     int unused5, uint32_t unused6, uint32_t unused7);
 // 0x0048C390: a level's scene file name, "levels\<name>\<name>.scn.<platform>". The third argument isn't used.
 void __cdecl build_scene_file_path(char* out, const char* name, uint32_t unused);
 // 0x0048C3C0: an engine object deleted (a compiled-out call, then delete_model_lights' virtual delete). Its result.
@@ -81,7 +81,7 @@ bool __cdecl unload_scene(WorldScene* scene, int flags);
 // 0x0048C700: the scene named `checksum`, or null.
 WorldScene* __cdecl find_scene(uint32_t checksum);
 
-} // namespace Engine
+} // namespace engine
 
 extern bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
 
@@ -89,4 +89,4 @@ extern void* g_flexible_particle_manager;
 extern void* g_imposter_manager;
 extern int g_render_mode;
 extern memory::ListNode g_scene_list;
-} // namespace Nx
+} // namespace render

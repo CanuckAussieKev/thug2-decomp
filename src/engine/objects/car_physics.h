@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -27,12 +27,12 @@ public:
 
     // A bone of the model's skeleton description (0x50 bytes each; the model's 0x00493040).
     struct BoneDesc {
-        uint32_t name;       // +0x00
+        uint32_t name; // +0x00
         uint8_t unknown04[4];
-        int16_t parent;      // +0x08 (the matrix it is relative to)
-        int8_t index;        // +0x0A (its matrix in the skeleton)
+        int16_t parent; // +0x08 (the matrix it is relative to)
+        int8_t index;   // +0x0A (its matrix in the skeleton)
         uint8_t unknown0b_[5];
-        maths::Mat4 matrix;  // +0x10 (relative to its parent)
+        maths::Mat4 matrix; // +0x10 (relative to its parent)
     };
 
     // 0x0041BD90 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined; 0
@@ -76,25 +76,26 @@ public:
     // 0x0041BA20 [0xC9F0DB4B]: nothing. 1.
     int do_nothing(script::Struct* params, script::Script* script);
 
-    float wheel_spin_;     // +0x18 degrees, 0-360
-    float steer_;         // +0x1C
-    float target_steer_;   // +0x20
-    float lean_angle_;          // +0x24
-    float target_tilt_;    // +0x28
-    float wheel_base_;     // +0x2C
-    float last_speed_;     // +0x30
-    float min_tilt_;       // +0x34 0x877DB8DA
-    float max_tilt_;       // +0x38 0xFB3464DF
-    float tilt_rate_;      // +0x3C 0xFD8BC8D6
-    float tilt_divisor_;   // +0x40 0xB2C7447B
-    bool body_shown_;      // +0x44
+    float wheel_spin_;   // +0x18 degrees, 0-360
+    float steer_;        // +0x1C
+    float target_steer_; // +0x20
+    float lean_angle_;   // +0x24
+    float target_tilt_;  // +0x28
+    float wheel_base_;   // +0x2C
+    float last_speed_;   // +0x30
+    float min_tilt_;     // +0x34 0x877DB8DA
+    float max_tilt_;     // +0x38 0xFB3464DF
+    float tilt_rate_;    // +0x3C 0xFD8BC8D6
+    float tilt_divisor_; // +0x40 0xB2C7447B
+    bool body_shown_;    // +0x44
     uint8_t pad45[3];
-    void* mesh_instance_;        // +0x48 the model component's model (+0x208)
-    void* bone_rig_;     // +0x4C the skeleton component's skeleton (+0x18)
-    uint8_t* motion_;    // +0x50 the motion component
-    uint8_t* suspend_;   // +0x54 the suspend component
+    void* mesh_instance_; // +0x48 the model component's model (+0x208)
+    void* bone_rig_;      // +0x4C the skeleton component's skeleton (+0x18)
+    uint8_t* motion_;     // +0x50 the motion component
+    uint8_t* suspend_;    // +0x54 the suspend component
 };
-static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 && offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&
+static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
+                  offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&
                   offsetof(AutomobileDynamicsModule, tilt_divisor_) == 0x40 &&
                   offsetof(AutomobileDynamicsModule, body_shown_) == 0x44 &&
                   offsetof(AutomobileDynamicsModule, suspend_) == 0x54 && sizeof(AutomobileDynamicsModule) == 0x58,
@@ -105,4 +106,4 @@ static_assert(offsetof(AutomobileDynamicsModule::BoneDesc, parent) == 0x08 &&
                   sizeof(AutomobileDynamicsModule::BoneDesc) == 0x50,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

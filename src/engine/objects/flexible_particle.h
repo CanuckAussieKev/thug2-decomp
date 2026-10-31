@@ -13,7 +13,7 @@ namespace script {
 class Script;
 class Struct;
 struct MemberFunctionEntry;
-} // namespace Script
+} // namespace script
 
 // render::EmitterInstance: engine/gfx/particle_system.h.
 
@@ -89,12 +89,12 @@ public:
     int destroy_particles(uint32_t name, script::Struct* params, script::Script* script);
 
     SharedRef<render::EmitterInstance> system_; // +0x18
-    uint32_t label_;                        // +0x24 name (or the component's address)
-    uint32_t unknown28_;                   // +0x28 0x184197D5 (given to the system's +0x78)
-    float clock_;                           // +0x2C the time not yet given to the system
-    uint8_t* suspend_;                    // +0x30 the suspend component
-    ObjectModule* brightness_model_;     // +0x34 ObjID's model (update_Brightness)
-    bool rotate_;                          // +0x38 EnableRotate
+    uint32_t label_;                            // +0x24 name (or the component's address)
+    uint32_t unknown28_;                        // +0x28 0x184197D5 (given to the system's +0x78)
+    float clock_;                               // +0x2C the time not yet given to the system
+    uint8_t* suspend_;                          // +0x30 the suspend component
+    ObjectModule* brightness_model_;            // +0x34 ObjID's model (update_Brightness)
+    bool rotate_;                               // +0x38 EnableRotate
     uint8_t pad39[3];
 };
 static_assert(offsetof(FlexibleParticleComponent, system_) == 0x18 &&
@@ -104,4 +104,4 @@ static_assert(offsetof(FlexibleParticleComponent, system_) == 0x18 &&
                   offsetof(FlexibleParticleComponent, rotate_) == 0x38 && sizeof(FlexibleParticleComponent) == 0x3C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

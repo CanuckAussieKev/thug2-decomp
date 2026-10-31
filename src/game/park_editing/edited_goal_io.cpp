@@ -460,4 +460,4 @@ void EditedGoal::add_to_goal_manager(bool unwin)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

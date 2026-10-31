@@ -228,7 +228,10 @@ void Script::bind_script(uint32_t name, const uint8_t* code, Struct* params, obj
 }
 
 // 0x004747A0
-void Script::bind_script(uint32_t name, Struct* params, objects::Entity* object) { bind_script(name, nullptr, params, object); }
+void Script::bind_script(uint32_t name, Struct* params, objects::Entity* object)
+{
+    bind_script(name, nullptr, params, object);
+}
 
 // 0x004747C0
 void Script::bind_script(const char* name, Struct* params, objects::Entity* object)
@@ -334,4 +337,4 @@ Script* find_script_with_unique_id(uint32_t id)
     return nullptr;
 }
 
-} // namespace Script
+} // namespace script

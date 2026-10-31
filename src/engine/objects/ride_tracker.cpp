@@ -45,7 +45,7 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
         return false;
     const maths::Vec4& position = object->at_point_;
     carried_ = {get_difference(position.x, last_pos_.x), get_difference(position.y, last_pos_.y),
-                 get_difference(position.z, last_pos_.z), get_difference(position.w, last_pos_.w)};
+                get_difference(position.z, last_pos_.z), get_difference(position.w, last_pos_.w)};
     if (object->basis_frame_ == previous_xform_) {
         turned_ = false;
     } else {
@@ -71,4 +71,4 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects

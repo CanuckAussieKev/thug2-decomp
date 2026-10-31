@@ -54,37 +54,37 @@ void note_rect(float x0, float y0, float x1, float y1, const char* what);
 // --- the tool strip -------------------------------------------------------------------------------------------------
 
 struct State {
-    bool selection = false;       // something selected (Select lit; else Fly)
-    int tool = 0;                 // 0 move, 1 rotate, 2 scale (level_editor_transform.h)
-    bool local = false;           // World / Local
-    bool snap = false;            // Snap on
-    float grid = 25.0f;           // the grid's size
-    std::vector<float> grids;     // the sizes offered
-    uint32_t pick_filter_ = 7;      // Picking::kNodes | kObjects | kScenery
-    std::string level;            // the edited copy's title
-    bool saved = false;           // its layout saved
-    bool unsaved = false;         // unsaved changes
-    bool budget = false;          // the meter shown (a level up)
-    float budget_fill_ = 0.0f;      // 0..1
-    uint32_t budget_argb_ = 0;      // its level's colour
-    int errors = 0, warnings = 0; // the Problems button's count
-    int hidden = 0;               // pieces hidden while editing (Show All)
-    bool simulating = false;      // Simulate running (Stop)
+    bool selection = false;                             // something selected (Select lit; else Fly)
+    int tool = 0;                                       // 0 move, 1 rotate, 2 scale (level_editor_transform.h)
+    bool local = false;                                 // World / Local
+    bool snap = false;                                  // Snap on
+    float grid = 25.0f;                                 // the grid's size
+    std::vector<float> grids;                           // the sizes offered
+    uint32_t pick_filter_ = 7;                          // Picking::kNodes | kObjects | kScenery
+    std::string level;                                  // the edited copy's title
+    bool saved = false;                                 // its layout saved
+    bool unsaved = false;                               // unsaved changes
+    bool budget = false;                                // the meter shown (a level up)
+    float budget_fill_ = 0.0f;                          // 0..1
+    uint32_t budget_argb_ = 0;                          // its level's colour
+    int errors = 0, warnings = 0;                       // the Problems button's count
+    int hidden = 0;                                     // pieces hidden while editing (Show All)
+    bool simulating = false;                            // Simulate running (Stop)
     std::function<std::string(const char* id)> key_of_; // an action's keys as bound ("" none)
 };
 
 struct Occurrence {
     enum Kind {
-        kDeselect,  // Fly
-        kTool,      // value: 0 move, 1 rotate, 2 scale
-        kSpace,     // World / Local switched
-        kSnap,      // value: 0 / 1
-        kGrid,      // value: the grid's size
-        kPick,      // value: the pick filter's new bits
-        kProblems,  // the Problems window
-        kBudget,    // the Problems window's Budget tab
-        kShowAll,   // everything hidden while editing shown
-        kSimulate,  // Simulate stopped
+        kDeselect, // Fly
+        kTool,     // value: 0 move, 1 rotate, 2 scale
+        kSpace,    // World / Local switched
+        kSnap,     // value: 0 / 1
+        kGrid,     // value: the grid's size
+        kPick,     // value: the pick filter's new bits
+        kProblems, // the Problems window
+        kBudget,   // the Problems window's Budget tab
+        kShowAll,  // everything hidden while editing shown
+        kSimulate, // Simulate stopped
     } kind;
     float value = 0.0f;
 };
@@ -103,6 +103,6 @@ void blit(const State& state, float x, float y, float width, float scale, Output
 // One row across [x, x + width] at y: the message (or else the key hints - level_editor_hints.h) on the left, `right`
 // against the right end; both elided, never overlapping.
 void status_row(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
-               const std::string& right, float x, float y, float width, const ux8::Fonts& fonts);
+                const std::string& right, float x, float y, float width, const ux8::Fonts& fonts);
 
-} // namespace MenuSystem::level_editor::ui_strip
+} // namespace frontend::level_editor::ui_strip

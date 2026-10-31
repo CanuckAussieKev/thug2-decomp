@@ -52,4 +52,4 @@ Step on_key(bool pressed, bool in_level, bool paused, bool offered);
 // Whether the play key is down: F5, or Ctrl+P (pure, from SDL's keyboard state).
 bool get_key_down(const uint8_t* keys);
 
-} // namespace MenuSystem::level_editor::Perform
+} // namespace frontend::level_editor::perform

@@ -21,7 +21,7 @@ namespace frontend::test_view {
 namespace {
 
 constexpr double kPi = 3.14159265358979323846;
-constexpr float kProbeAbove = 12.0f;  // the ground ray starts this far above the point...
+constexpr float kProbeAbove = 12.0f;   // the ground ray starts this far above the point...
 constexpr float kProbeBelow = 4000.0f; // ...and ends this far below it
 
 Vec3 perpendicular(Vec3 a, Vec3 b) { return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x}; }
@@ -40,8 +40,7 @@ maths::Vec4 get_row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 objects::Rider* local_skater()
 {
     uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    return skate ? reinterpret_cast<modules::Skate*>(skate)->get_home_rider()
-                 : nullptr;
+    return skate ? reinterpret_cast<modules::Skate*>(skate)->get_home_rider() : nullptr;
 }
 
 // The game's collision ray (render::ProbeRay: static collision, the nearest hit) from `from` to `to`.
@@ -119,7 +118,8 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
         return "no local skater";
     if (!has_heading) {
         const maths::Vec4& at = skater->basis_frame_.row[2];
-        heading_degrees = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
+        heading_degrees =
+            static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     }
     float ground = 0.0f;
     bool grounded = ground_below(position, &ground);
@@ -141,8 +141,9 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     skater->custom_restart_pos_ = saved_pos;
     skater->custom_restart_matrix_ = saved_matrix;
     skater->custom_restart_walking_ = saved_walking;
-    get_log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s", on_board ? "on its board" : "standing",
-        position.x, position.y, position.z, heading_degrees, grounded ? " (on the ground below)" : " (no ground below: as given)");
+    get_log("test view: skater teleported %s to (%.1f, %.1f, %.1f) heading %.1f degrees%s",
+            on_board ? "on its board" : "standing", position.x, position.y, position.z, heading_degrees,
+            grounded ? " (on the ground below)" : " (no ground below: as given)");
     if (out_position)
         *out_position = position;
     return {};
@@ -154,9 +155,10 @@ bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift)
     if (!camera_rows(direction, &right, &up, &back))
         return false;
     g_lock = {true, position, right, up, back, drift, frame_loop::frames_run()};
-    get_log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, %.3f) a "
-        "frame",
-        position.x, position.y, position.z, -back.x, -back.y, -back.z, drift.x, drift.y, drift.z);
+    get_log("test view: camera locked at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f), drifting (%.3f, %.3f, "
+            "%.3f) a "
+            "frame",
+            position.x, position.y, position.z, -back.x, -back.y, -back.z, drift.x, drift.y, drift.z);
     return true;
 }
 
@@ -175,8 +177,8 @@ void place_camera(gfx::ViewCam* camera, int viewport)
         return;
     float frames = static_cast<float>(frame_loop::frames_run() - g_lock.frame);
     camera->at_point_ = get_row({g_lock.pos.x + g_lock.drift.x * frames, g_lock.pos.y + g_lock.drift.y * frames,
-                         g_lock.pos.z + g_lock.drift.z * frames},
-                        1.0f);
+                                 g_lock.pos.z + g_lock.drift.z * frames},
+                                1.0f);
     camera->basis_frame_.row[0] = get_row(g_lock.right, 0.0f);
     camera->basis_frame_.row[1] = get_row(g_lock.up, 0.0f);
     camera->basis_frame_.row[2] = get_row(g_lock.back, 0.0f);
@@ -190,4 +192,4 @@ void register_script_functions()
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }
 
-} // namespace MenuSystem::test_view
+} // namespace frontend::test_view

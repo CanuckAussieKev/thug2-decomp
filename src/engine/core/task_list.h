@@ -27,9 +27,9 @@ public:
     bool is_on_task_list() const;
 
     void** vtable_;
-    int disabled_;           // +0x04 not run while nonzero
-    memory::ListNode* list_link_;    // +0x08 data = this
-    LinkChain* sequence_;             // +0x0C the list it's in
+    int disabled_;                // +0x04 not run while nonzero
+    memory::ListNode* list_link_; // +0x08 data = this
+    LinkChain* sequence_;         // +0x0C the list it's in
     int pass_count_;              // +0x10 the list's stamp when it last ran
     uint32_t skip_bits_;          // +0x14 not run when it shares a bit with the mask the list is processed with
 };
@@ -53,10 +53,10 @@ public:
     // 0x004069B0
     void mark_changed();
 
-    int lock_;               // +0x00 nonzero while being changed or run
-    memory::ListNode head_;     // +0x04 (lists::Foremost<SchedulerTask>, node vtable 0x0064549C)
-    int pass_count_;              // +0x18 counts the passes
-    bool altered_;           // +0x1C a task was added or removed
+    int lock_;              // +0x00 nonzero while being changed or run
+    memory::ListNode head_; // +0x04 (lists::Foremost<SchedulerTask>, node vtable 0x0064549C)
+    int pass_count_;        // +0x18 counts the passes
+    bool altered_;          // +0x1C a task was added or removed
 };
 static_assert(sizeof(LinkChain) == 0x20, "layout must match the original");
 
@@ -68,7 +68,7 @@ public:
     // 0x00406C30: the node deleted, then the list's own destructor.
     void destruct();
 
-    memory::ListNode* list_link_;    // +0x20
+    memory::ListNode* list_link_; // +0x20
 };
 static_assert(sizeof(StackList) == 0x24, "layout must match the original");
 
@@ -94,15 +94,15 @@ public:
     // 0x00406F10: delete the popped lists.
     void delete_popped_lists();
 
-    int lock_;               // +0x00
-    uint32_t skip_bits_;          // +0x04
-    memory::ListNode lists_;    // +0x08 newest first (lists::Foremost<StackList>, vtable 0x006454A8)
+    int lock_;                      // +0x00
+    uint32_t skip_bits_;            // +0x04
+    memory::ListNode lists_;        // +0x08 newest first (lists::Foremost<StackList>, vtable 0x006454A8)
     memory::ListNode popped_lists_; // +0x1C lists popped while the stack was locked
-    StackList* top_side_;         // +0x30
-    StackList* ongoing_;     // +0x34 where queue_job puts tasks
-    bool pushed_;            // +0x38
-    bool just_popped_;        // +0x39
+    StackList* top_side_;           // +0x30
+    StackList* ongoing_;            // +0x34 where queue_job puts tasks
+    bool pushed_;                   // +0x38
+    bool just_popped_;              // +0x39
 };
 static_assert(sizeof(PileUp) == 0x3C, "layout must match the original");
 
-} // namespace Tsk
+} // namespace tasks

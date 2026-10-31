@@ -22,4 +22,4 @@ uint32_t extend_crc_with_buffer(const void* data, int size, uint32_t crc);
 // Returns 0 for null data or size < 1.
 uint32_t generate_crc_caseless(const char* data, int size);
 
-} // namespace Crc
+} // namespace checksums

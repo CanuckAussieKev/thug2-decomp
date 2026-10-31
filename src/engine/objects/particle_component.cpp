@@ -30,27 +30,13 @@
 namespace objects {
 
 uint32_t g_particle_component_member_functions[126]{
-            0x88BE2262, 0xA9DB601E, 0, 0, 0, 0,
-            0xBB6018F4, 0xA9DB601E, 0, 0, 0, 0,
-            0xE5134689, 0xA9DB601E, 0, 0, 0, 0,
-            0xF71D696E, 0xA9DB601E, 0, 0, 0, 0,
-            0x0AAB006D, 0xA9DB601E, 0, 0, 0, 0,
-            0xE2B99038, 0xA9DB601E, 0, 0, 0, 0,
-            0xC036F4D0, 0xA9DB601E, 0, 0, 0, 0,
-            0xC6525C4E, 0xA9DB601E, 0, 0, 0, 0,
-            0x31FCC8ED, 0xA9DB601E, 0, 0, 0, 0,
-            0x19AF74D1, 0xA9DB601E, 0, 0, 0, 0,
-            0x4AA40FB5, 0xA9DB601E, 0, 0, 0, 0,
-            0x234CEABB, 0xA9DB601E, 0, 0, 0, 0,
-            0x9E100F60, 0xA9DB601E, 0, 0, 0, 0,
-            0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0,
-            0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
-            0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0,
-            0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0,
-            0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
-            0x55835CF2, 0xA9DB601E, 0, 0, 0, 0,
-            0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0,
-            0, 0xA9DB601E, 0, 0, 0, 0};
+    0x88BE2262, 0xA9DB601E, 0, 0, 0, 0, 0xBB6018F4, 0xA9DB601E, 0, 0, 0, 0, 0xE5134689, 0xA9DB601E, 0, 0, 0, 0,
+    0xF71D696E, 0xA9DB601E, 0, 0, 0, 0, 0x0AAB006D, 0xA9DB601E, 0, 0, 0, 0, 0xE2B99038, 0xA9DB601E, 0, 0, 0, 0,
+    0xC036F4D0, 0xA9DB601E, 0, 0, 0, 0, 0xC6525C4E, 0xA9DB601E, 0, 0, 0, 0, 0x31FCC8ED, 0xA9DB601E, 0, 0, 0, 0,
+    0x19AF74D1, 0xA9DB601E, 0, 0, 0, 0, 0x4AA40FB5, 0xA9DB601E, 0, 0, 0, 0, 0x234CEABB, 0xA9DB601E, 0, 0, 0, 0,
+    0x9E100F60, 0xA9DB601E, 0, 0, 0, 0, 0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0, 0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
+    0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0, 0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0, 0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
+    0x55835CF2, 0xA9DB601E, 0, 0, 0, 0, 0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0, 0,          0xA9DB601E, 0, 0, 0, 0};
 render::EffectsDirector* g_particle_hub;
 
 namespace {
@@ -73,17 +59,17 @@ float unnamed_float(script::Struct* params)
 // Its parameters (particle_component.h).
 const uint8_t* get_params(void* particle) { return particle_system_params(particle); }
 // 0x00494EE0: its +0x38 set (the model's +0x22C, or the ground test's value), then its vtable slot 6.
-void set_ground_value(void* particle, float value) { reinterpret_cast<render::PcParticleSystem*>(particle)->set_value38(value); }
+void set_ground_value(void* particle, float value)
+{
+    reinterpret_cast<render::PcParticleSystem*>(particle)->set_value38(value);
+}
 
 // The parameters a particle system is made from (render::SparkleConfig, gfx/particles.h; constructed by 0x00496240,
 // given to the particle manager's 0x00496510, kept as the system's +4).
 using ParticleParams = render::SparkleConfig;
 
 // D3DXMatrixMultiply (the library's, 0x005BFA8C): out = a * b.
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // An array's first three integers' low bytes into `rgb`; `last` the third.
 void get_rgb(script::Array* array, uint8_t* rgb, uint32_t* last)
@@ -162,7 +148,10 @@ EffectsEmitterModule* EffectsEmitterModule::teardown(unsigned int flags)
 void EffectsEmitterModule::seal() { suspend_ = entity_->fetch_module(kSuspend); }
 
 // 0x00429960
-void EffectsEmitterModule::conceal(bool hide) { reinterpret_cast<render::PcParticleSystem*>(effect_handle_)->conceal(hide); }
+void EffectsEmitterModule::conceal(bool hide)
+{
+    reinterpret_cast<render::PcParticleSystem*>(effect_handle_)->conceal(hide);
+}
 
 // --- script member functions ---
 
@@ -242,24 +231,61 @@ bool change_colour(EffectsEmitterModule* component, script::Struct* params, int 
     params->fetch_list(0u, &array, 1);
     if (component->effect_handle_) {
         Colour colour = colour_of(array);
-        reinterpret_cast<render::PcParticleSystem*>(component->effect_handle_)->change_colour(which, reinterpret_cast<const uint32_t*>(&colour));
+        reinterpret_cast<render::PcParticleSystem*>(component->effect_handle_)
+            ->change_colour(which, reinterpret_cast<const uint32_t*>(&colour));
     }
     return true;
 }
 } // namespace
 
-bool EffectsEmitterModule::set_start_radius(script::Struct* params, script::Script*) { return set_reach(this, params, 0); } // 0x00429A60
-bool EffectsEmitterModule::set_mid_radius(script::Struct* params, script::Script*) { return set_reach(this, params, 1); }   // 0x00429AA0
-bool EffectsEmitterModule::set_end_radius(script::Struct* params, script::Script*) { return set_reach(this, params, 2); }   // 0x00429AE0
-bool EffectsEmitterModule::set_start_pos(script::Struct* params, script::Script*) { return change_location(this, params, 0); }       // 0x00429C10
-bool EffectsEmitterModule::set_mid_pos(script::Struct* params, script::Script*) { return change_location(this, params, 1); }         // 0x00429C50
-bool EffectsEmitterModule::set_end_pos(script::Struct* params, script::Script*) { return change_location(this, params, 2); }         // 0x00429C90
-bool EffectsEmitterModule::set_start_box(script::Struct* params, script::Script*) { return set_box(this, params, 0); }       // 0x00429CD0
-bool EffectsEmitterModule::set_mid_box(script::Struct* params, script::Script*) { return set_box(this, params, 1); }         // 0x00429D10
-bool EffectsEmitterModule::set_end_box(script::Struct* params, script::Script*) { return set_box(this, params, 2); }         // 0x00429D50
-bool EffectsEmitterModule::set_start_color(script::Struct* params, script::Script*) { return change_colour(this, params, 0); } // 0x00429DD0
-bool EffectsEmitterModule::set_mid_color(script::Struct* params, script::Script*) { return change_colour(this, params, 1); }   // 0x00429E50
-bool EffectsEmitterModule::set_end_color(script::Struct* params, script::Script*) { return change_colour(this, params, 2); }   // 0x00429ED0
+bool EffectsEmitterModule::set_start_radius(script::Struct* params, script::Script*)
+{
+    return set_reach(this, params, 0);
+} // 0x00429A60
+bool EffectsEmitterModule::set_mid_radius(script::Struct* params, script::Script*)
+{
+    return set_reach(this, params, 1);
+} // 0x00429AA0
+bool EffectsEmitterModule::set_end_radius(script::Struct* params, script::Script*)
+{
+    return set_reach(this, params, 2);
+} // 0x00429AE0
+bool EffectsEmitterModule::set_start_pos(script::Struct* params, script::Script*)
+{
+    return change_location(this, params, 0);
+} // 0x00429C10
+bool EffectsEmitterModule::set_mid_pos(script::Struct* params, script::Script*)
+{
+    return change_location(this, params, 1);
+} // 0x00429C50
+bool EffectsEmitterModule::set_end_pos(script::Struct* params, script::Script*)
+{
+    return change_location(this, params, 2);
+} // 0x00429C90
+bool EffectsEmitterModule::set_start_box(script::Struct* params, script::Script*)
+{
+    return set_box(this, params, 0);
+} // 0x00429CD0
+bool EffectsEmitterModule::set_mid_box(script::Struct* params, script::Script*)
+{
+    return set_box(this, params, 1);
+} // 0x00429D10
+bool EffectsEmitterModule::set_end_box(script::Struct* params, script::Script*)
+{
+    return set_box(this, params, 2);
+} // 0x00429D50
+bool EffectsEmitterModule::set_start_color(script::Struct* params, script::Script*)
+{
+    return change_colour(this, params, 0);
+} // 0x00429DD0
+bool EffectsEmitterModule::set_mid_color(script::Struct* params, script::Script*)
+{
+    return change_colour(this, params, 1);
+} // 0x00429E50
+bool EffectsEmitterModule::set_end_color(script::Struct* params, script::Script*)
+{
+    return change_colour(this, params, 2);
+} // 0x00429ED0
 
 // 0x00429D90
 bool EffectsEmitterModule::set_emit_target(script::Struct* params, script::Script*)
@@ -428,8 +454,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
             p.offset_pos_[i] = p.at_point_[i];
     p.orient_with_object_ = params->has_bare_flag(0xA2487CC3u);
     p.flag158_ = params->has_bare_flag(0xA0E585B0u);
-    effect_handle_ = g_particle_hub->spawn_particle(
-        &p);
+    effect_handle_ = g_particle_hub->spawn_particle(&p);
 
     // The model it follows (0x5E2A8D9F: an object's; no such object - a crash, as the original).
     uint32_t model = 0;
@@ -444,7 +469,8 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     params->read_hash_value(0x7E4813A7u, &value54, 0);
     reinterpret_cast<uint32_t*>(effect_handle_)[0x54 / 4] = value54;
     if (p.flag158_)
-        reinterpret_cast<render::Sparkle*>(effect_handle_)->change_colour(reinterpret_cast<const uint8_t*>(static_cast<void*>(nullptr)));
+        reinterpret_cast<render::Sparkle*>(effect_handle_)
+            ->change_colour(reinterpret_cast<const uint8_t*>(static_cast<void*>(nullptr)));
 }
 
 // 0x0042AD90
@@ -569,7 +595,7 @@ void __fastcall set_particle_value34(void* particle, float value)
     *reinterpret_cast<float*>(static_cast<uint8_t*>(particle) + 0x34) = value;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::EffectsEmitterModule;
 
@@ -577,19 +603,19 @@ namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&EffectsEmitterModule::teardown,
-         &EffectsEmitterModule::tick_frame,
-         &EffectsEmitterModule::configure_from_data,
-         &EffectsEmitterModule::seal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         &EffectsEmitterModule::conceal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &EffectsEmitterModule::invoke_method_by_name};
+                                      &EffectsEmitterModule::tick_frame,
+                                      &EffectsEmitterModule::configure_from_data,
+                                      &EffectsEmitterModule::seal,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      &EffectsEmitterModule::conceal,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &EffectsEmitterModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

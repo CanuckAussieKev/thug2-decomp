@@ -10,14 +10,14 @@
 
 namespace online {
 
-extern void** const kPlayerNodeVtable;     // lists::Elem<PlayerRecord>
-extern void** const kNewPlayerNodeVtable;  // lists::Elem<JoinerRecord>
-extern void** const kServerNodeVtable;     // lists::Elem<HostListing>
+extern void** const kPlayerNodeVtable;       // lists::Elem<PlayerRecord>
+extern void** const kNewPlayerNodeVtable;    // lists::Elem<JoinerRecord>
+extern void** const kServerNodeVtable;       // lists::Elem<HostListing>
 extern void** const kQueuedScriptNodeVtable; // lists::Elem<PendingScriptItem>
 extern void** const kQueuedScriptVtable;     // PendingScriptItem (and its head)
-extern void** const kPlayerHeadVtable;     // lists::Foremost<PlayerRecord>
-extern void** const kNewPlayerHeadVtable;  // lists::Foremost<JoinerRecord>
-extern void** const kServerHeadVtable;     // lists::Foremost<HostListing>
+extern void** const kPlayerHeadVtable;       // lists::Foremost<PlayerRecord>
+extern void** const kNewPlayerHeadVtable;    // lists::Foremost<JoinerRecord>
+extern void** const kServerHeadVtable;       // lists::Foremost<HostListing>
 
 // The manager's lists: +0x11C the players, +0x130 the players joining, +0x144 the scripts queued to run once the level
 // is up (PendingScriptItem, LaunchQueuedScripts), +0x158 / +0x16C the servers found (the server list's; a HostListing, vtable 0x0064CDFC, is
@@ -49,9 +49,9 @@ struct QueuedScriptNode : memory::ListNode {
 };
 // A script to spawn later (0x20 bytes; Hub::queue_script): a node whose data is itself.
 struct PendingScriptItem : QueuedScriptNode {
-    int list_link_;           // +0x14 the node it runs at
-    uint32_t entity_key_;  // +0x18 the object it runs on
-    uint32_t own_script_;    // +0x1C
+    int list_link_;       // +0x14 the node it runs at
+    uint32_t entity_key_; // +0x18 the object it runs on
+    uint32_t own_script_; // +0x1C
     // 0x005371F0: the scalar deleting destructor (the head's at +0x144 too).
     PendingScriptItem* destroy_record(unsigned int flags);
 };

@@ -37,7 +37,7 @@ bool __cdecl free_stream_frame_amp(uint32_t checksum);
 // oldest of those) if `priority` is at least that - stopped first; preloaded only, or played at `volume`
 // (an sound::VolumeRef) and `pitch`. Records it (under `name`, with a new id from `name` up); the channel, or -1.
 int __cdecl start_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
-                        bool preload);
+                         bool preload);
 // 0x00451960: the PlayStream command: play stream `checksum` (volume 100, dropoff 1020, one name) under `id` (0:
 // the checksum); the id it gets, 0 if it doesn't play. Not while the streams are paused or blocked (0x0069BAAA).
 // `option` is the script's integer 0xE46111E0 (default 0), passed on to the platform. (Callers push a seventh
@@ -55,7 +55,7 @@ bool __cdecl add_stream(uint32_t stream, uint32_t name, void* owner);
 // the manager says it isn't audible; else at `volume`. The component becomes the stream's owner (the one before
 // lets go). A volume other than 100 scales the stream's and sets its dropoff. The id, or 0.
 uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
-                                      int option, int priority, int use_pos_info, int falloff_curve, uint32_t id);
+                                       int option, int priority, int use_pos_info, int falloff_curve, uint32_t id);
 
 // The PC's streams are Bink files (sound only) opened from memory.
 
@@ -79,7 +79,10 @@ public:
 
 private:
     template <typename T>
-    T& get_at(uint32_t offset) { return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) + offset); }
+    T& get_at(uint32_t offset)
+    {
+        return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(this) + offset);
+    }
 };
 
-} // namespace Pcm
+} // namespace audio

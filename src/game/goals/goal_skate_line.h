@@ -29,4 +29,4 @@ public:
     bool set_flag(uint32_t flag, int value, uint32_t sub);
 };
 
-} // namespace Game
+} // namespace goals

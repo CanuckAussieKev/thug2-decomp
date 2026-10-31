@@ -31,7 +31,7 @@ constexpr uint32_t kIsClassicMode = 0x5A2C589A;   // is_classic
 constexpr uint32_t kGoalName = 0xBFECC45B;        // goal_name
 constexpr uint32_t kLevelPrefix = 0x15F818D0;     // level_prefix
 constexpr uint32_t kTotal = 0x3DD01EA1;           // total
-constexpr uint32_t kGoalScoreValue = 0x42C20492;      // goal_points
+constexpr uint32_t kGoalScoreValue = 0x42C20492;  // goal_points
 constexpr uint32_t kProsetNotPrefix = 0xC60CE720; // proset_not_prefix
 constexpr uint32_t kType = 0x7321A8D6;            // type
 constexpr uint32_t kProStuff = 0x18653764;        // pro_stuff
@@ -82,7 +82,7 @@ bool __cdecl cfunc_goal_manager_create_goal_name(script::Struct* params, script:
     dup_from(name, level);
     if (get_game_mode()->is_true(kIsClassicMode) || params->has_bare_flag(kClassicModeGoal))
         get_append(name, "_classic"); // "_classic"
-    get_append(name, "_goal_");     // "_goal_"
+    get_append(name, "_goal_");       // "_goal_"
     get_append(name, type);
     script->args_->put_name_key(kGoalIdChecksum, checksums::hash_from_text(name));
     script->args_->append_word(kGoalName, name);
@@ -433,4 +433,4 @@ bool __cdecl cfunc_goal_manager_remove_temp_special_trick(script::Struct* params
     return true;
 }
 
-} // namespace Game
+} // namespace goals

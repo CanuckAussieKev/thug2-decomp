@@ -81,11 +81,12 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
         password = g_command_line_password;
     } else {
         email = preferences->get_preference_string(checksums::hash_from_text("profile_email"),
-                                                 checksums::hash_from_text("ui_string"));
+                                                   checksums::hash_from_text("ui_string"));
         password = preferences->get_preference_string(checksums::hash_from_text("profile_password"),
-                                                    checksums::hash_from_text("ui_string"));
+                                                      checksums::hash_from_text("ui_string"));
     }
-    game_spy::gp_connect(man, "proskater", email, password, 1, 0, &FriendsManager::on_connect_new_user, man); // (gpConnect)
+    game_spy::gp_connect(man, "proskater", email, password, 1, 0, &FriendsManager::on_connect_new_user,
+                         man); // (gpConnect)
     ram_stats()->leave_heap_scope();
     return 0;
 }
@@ -94,8 +95,10 @@ unsigned long __stdcall FriendsManager::login_thread(void* man)
 void FriendsManager::send_buddy_message(int profile, const char* text)
 {
     const char* nick;
-    the_manager()->get_online_settings()->fetch_setting(checksums::hash_from_text("network_id"))->fetch_text(
-        kUiString, &nick, 1);
+    the_manager()
+        ->get_online_settings()
+        ->fetch_setting(checksums::hash_from_text("network_id"))
+        ->fetch_text(kUiString, &nick, 1);
     char message[128];
     std::sprintf(message, "%s\n%s", nick, text);
     game_spy::gp_send_buddy_message(this, profile, message); // (gpSendBuddyMessage)

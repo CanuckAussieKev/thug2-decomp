@@ -30,9 +30,9 @@ struct RectHit {
     RectHit* get_assign(const RectHit* other);
 
     RectHitEnd ends[2];
-    maths::Vec4 normal;      // +0x48
-    uint32_t checksum;       // +0x58
-    uint8_t face_flag40_;      // +0x5C
+    maths::Vec4 normal;   // +0x48
+    uint32_t checksum;    // +0x58
+    uint8_t face_flag40_; // +0x5C
     uint8_t pad[3];
 };
 static_assert(sizeof(RectHit) == 0x60 && offsetof(RectHit, normal) == 0x48, "layout must match the original");
@@ -44,8 +44,8 @@ struct RectHits {
 
     RectHit hits[kMost];
     int count;               // +0xC00
-    uint16_t ignore_flags_;    // +0xC04
-    uint16_t require_flags_;   // +0xC06
+    uint16_t ignore_flags_;  // +0xC04
+    uint16_t require_flags_; // +0xC06
 };
 static_assert(sizeof(RectHits) == 0xC08, "layout must match the original");
 
@@ -70,14 +70,14 @@ public:
     // 0x00417860: the rect drawn, then the joined hits (or the hits) - compiled out of this build.
     void debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames);
 
-    CollRect rect_;                    // +0x0000
-    RectHits hits_;                    // +0x0030
-    RectHit joined_[RectHits::kMost];  // +0x0C38
-    int joined_count_;                  // +0x1838
-    uint32_t unknown183c_;             // +0x183C
-    HitMeshCache* hit_cache_;               // +0x1840
+    CollRect rect_;                   // +0x0000
+    RectHits hits_;                   // +0x0030
+    RectHit joined_[RectHits::kMost]; // +0x0C38
+    int joined_count_;                // +0x1838
+    uint32_t unknown183c_;            // +0x183C
+    HitMeshCache* hit_cache_;         // +0x1840
 };
 static_assert(offsetof(BoxProbe, joined_) == 0xC38 && offsetof(BoxProbe, hit_cache_) == 0x1840,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

@@ -39,7 +39,8 @@ void load_graphics_settings()
     s_settings.antialiasing = build_info::fetch_flag(build_info::kGraphics, "AntiAliasing", false);
     s_settings.hq_shadows_ = build_info::fetch_flag(build_info::kGraphics, "HQShadows", false);
     s_settings.distance_clipping_ = build_info::fetch_flag(build_info::kGraphics, "DistanceClipping", false);
-    s_settings.clipping_distance_ = static_cast<uint32_t>(build_info::get_int(build_info::kGraphics, "ClippingDistance", 100));
+    s_settings.clipping_distance_ =
+        static_cast<uint32_t>(build_info::get_int(build_info::kGraphics, "ClippingDistance", 100));
     s_settings.fog = build_info::fetch_flag(build_info::kGraphics, "Fog", false);
     s_blur_disabled = build_info::fetch_flag(build_info::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: engine/gfx/occlusion.h)
@@ -59,8 +60,9 @@ void write_graphics_settings()
     else if (distance < 1)
         distance = 1;
     // (the engine's distance: 100 to 595)
-    reinterpret_cast<uint32_t&>(gfx::g_draw_distance_setting) = static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
+    reinterpret_cast<uint32_t&>(gfx::g_draw_distance_setting) =
+        static_cast<uint32_t>(static_cast<float>(distance) * 5.0f + 95.0f);
     g_fog_setting = static_cast<uint8_t>(s_settings.fog);
 }
 
-} // namespace Nx
+} // namespace render

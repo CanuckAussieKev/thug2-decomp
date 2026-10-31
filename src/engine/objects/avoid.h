@@ -11,7 +11,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -73,19 +73,20 @@ public:
     // 0x004E38F0 [0x53BC3B4E]: the motion component's flag 0x4 back as remembered. True.
     bool restore_motion(script::Struct* params, script::Script* script);
 
-    float lasts_for_;                // +0x18 the jump animation's
-    maths::ArcRotationBlender slerp_;  // +0x1C from where it was to where it lands
-    float progress_;                // +0xB4 along the slerp
-    maths::Vec4 herd_point_;         // +0xB8
-    maths::Vec4 aim_point_;            // +0xC8
-    bool motion_held_;               // +0xD8
+    float lasts_for_;                 // +0x18 the jump animation's
+    maths::ArcRotationBlender slerp_; // +0x1C from where it was to where it lands
+    float progress_;                  // +0xB4 along the slerp
+    maths::Vec4 herd_point_;          // +0xB8
+    maths::Vec4 aim_point_;           // +0xC8
+    bool motion_held_;                // +0xD8
     uint8_t padd9_[3];
 };
 static_assert(sizeof(maths::ArcRotationBlender) == 0x98, "layout must match the original");
 static_assert(offsetof(ObstacleDodgeModule, lasts_for_) == 0x18 && offsetof(ObstacleDodgeModule, slerp_) == 0x1C &&
-                  offsetof(ObstacleDodgeModule, progress_) == 0xB4 && offsetof(ObstacleDodgeModule, herd_point_) == 0xB8 &&
-                  offsetof(ObstacleDodgeModule, aim_point_) == 0xC8 && offsetof(ObstacleDodgeModule, motion_held_) == 0xD8 &&
-                  sizeof(ObstacleDodgeModule) == 0xDC,
+                  offsetof(ObstacleDodgeModule, progress_) == 0xB4 &&
+                  offsetof(ObstacleDodgeModule, herd_point_) == 0xB8 &&
+                  offsetof(ObstacleDodgeModule, aim_point_) == 0xC8 &&
+                  offsetof(ObstacleDodgeModule, motion_held_) == 0xD8 && sizeof(ObstacleDodgeModule) == 0xDC,
               "layout must match the original");
 
 // 0x004E3270 (cdecl, `params` in ESI): the distance for the quarter `angle` falls in (as play_jump's quarters, but
@@ -94,4 +95,4 @@ float avoid_distance(float angle, script::Struct* params);
 // 0x004E3930 (`start` in EDI, `end` in ESI): whether the collision feeler hits anything from `start` to `end`.
 bool line_collides(const maths::Vec4& start, const maths::Vec4& end);
 
-} // namespace Obj
+} // namespace objects

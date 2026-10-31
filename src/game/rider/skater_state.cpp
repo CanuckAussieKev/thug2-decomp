@@ -25,25 +25,13 @@ namespace objects {
 
 uint32_t g_powerup_names[1]{0xD039432C};
 uint32_t g_skater_state_member_functions[114]{
-            0x5EA287F2, 0x43686585, 0, 0, 0, 0,
-            0x3527FC07, 0x43686585, 0, 0, 0, 0,
-            0xA32C1A15, 0x43686585, 0, 0, 0, 0,
-            0x5CB1FBD8, 0x43686585, 0, 0, 0, 0,
-            0xE9851E62, 0x43686585, 0, 0, 0, 0,
-            0xA64DCF8B, 0x43686585, 0, 0, 0, 0,
-            0x1AB2389B, 0x43686585, 0, 0, 0, 0,
-            0x57BFBAE8, 0x43686585, 0, 0, 0, 0,
-            0xF2813EE5, 0x43686585, 0, 0, 0, 0,
-            0xEE584CBC, 0x43686585, 0, 0, 0, 0,
-            0xB32E9EAE, 0x43686585, 0, 0, 0, 0,
-            0x953A7B6D, 0x43686585, 0, 0, 0, 0,
-            0x58AD903F, 0x43686585, 0, 0, 0, 0,
-            0xB07AC662, 0x43686585, 0, 0, 0, 0,
-            0x0E11B7CA, 0x43686585, 0, 0, 0, 0,
-            0x44BA5FCE, 0x43686585, 0, 0, 0, 0,
-            0xE0645004, 0x43686585, 0, 0, 0, 0,
-            0xEF7A8687, 0x43686585, 0, 0, 0, 0,
-            0, 0x43686585, 0, 0, 0, 0};
+    0x5EA287F2, 0x43686585, 0, 0, 0, 0, 0x3527FC07, 0x43686585, 0, 0, 0, 0, 0xA32C1A15, 0x43686585, 0, 0, 0, 0,
+    0x5CB1FBD8, 0x43686585, 0, 0, 0, 0, 0xE9851E62, 0x43686585, 0, 0, 0, 0, 0xA64DCF8B, 0x43686585, 0, 0, 0, 0,
+    0x1AB2389B, 0x43686585, 0, 0, 0, 0, 0x57BFBAE8, 0x43686585, 0, 0, 0, 0, 0xF2813EE5, 0x43686585, 0, 0, 0, 0,
+    0xEE584CBC, 0x43686585, 0, 0, 0, 0, 0xB32E9EAE, 0x43686585, 0, 0, 0, 0, 0x953A7B6D, 0x43686585, 0, 0, 0, 0,
+    0x58AD903F, 0x43686585, 0, 0, 0, 0, 0xB07AC662, 0x43686585, 0, 0, 0, 0, 0x0E11B7CA, 0x43686585, 0, 0, 0, 0,
+    0x44BA5FCE, 0x43686585, 0, 0, 0, 0, 0xE0645004, 0x43686585, 0, 0, 0, 0, 0xEF7A8687, 0x43686585, 0, 0, 0, 0,
+    0,          0x43686585, 0, 0, 0, 0};
 
 namespace {
 
@@ -90,7 +78,7 @@ ObjectModule* __cdecl RiderPoseState::fabricate()
 void __cdecl RiderPoseState::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterState), g_skater_state_member_functions,
-                                        0x18);
+                                           0x18);
 }
 
 // 0x00519450
@@ -158,15 +146,9 @@ bool RiderPoseState::in_wallplant(script::Struct*, script::Script*) { return cur
 // 0x005196D0
 bool RiderPoseState::in_bail_state(script::Struct*, script::Script*) { return bailing_ != 0; }
 // 0x005194D0
-bool RiderPoseState::on_foot(script::Struct*, script::Script*)
-{
-    return !in_vehicle_ && physics_mode_ == kWalking;
-}
+bool RiderPoseState::on_foot(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == kWalking; }
 // 0x005194F0
-bool RiderPoseState::skating(script::Struct*, script::Script*)
-{
-    return !in_vehicle_ && physics_mode_ == kSkating;
-}
+bool RiderPoseState::skating(script::Struct*, script::Script*) { return !in_vehicle_ && physics_mode_ == kSkating; }
 // 0x00519510
 bool RiderPoseState::get_driving(script::Struct*, script::Script*) { return in_vehicle_ != 0; }
 // 0x00519520
@@ -244,44 +226,46 @@ void RiderFrameLog::destroy_body()
     ObjectModule::destroy_body();
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::RiderPoseState::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::RiderPoseState::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      &objects::RiderPoseState::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
-static VtableSlot g_state_history_vtable_slots[] = {&objects::RiderFrameLog::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_state_history_vtable_slots[] = {
+    &objects::RiderFrameLog::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kStateHistoryVtable = reinterpret_cast<void**>(g_state_history_vtable_slots);
 
-} // namespace Obj
+} // namespace objects

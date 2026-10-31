@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -52,11 +52,11 @@ public:
     // 0x0041D280 [obj_stop_last_fam 0x48AC2139]: the last fam's stream stopped (and its scripts). 1.
     int obj_stop_last_fam(script::Struct* params, script::Script* script);
 
-    uint32_t fam_;    // +0x18 the loaded fam's asset checksum (0: none)
+    uint32_t fam_;  // +0x18 the loaded fam's asset checksum (0: none)
     uint32_t feed_; // +0x1C the stream's id (0: none)
 };
 static_assert(offsetof(FamComponent, fam_) == 0x18 && offsetof(FamComponent, feed_) == 0x1C &&
                   sizeof(FamComponent) == 0x20,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

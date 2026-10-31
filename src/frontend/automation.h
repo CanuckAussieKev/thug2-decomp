@@ -126,26 +126,44 @@ void add_pad_buttons(int port, uint8_t* data);
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------
 
-enum class Op { kRun, kChoose, kFocus, kPress, kHold, kStall, kWaitFor, kStageMap, kEcho, kQuit, kJumpTo, kViewCam, kCapture, kLogTricks, kCrash, kTrace, kFrontend };
+enum class Op {
+    kRun,
+    kChoose,
+    kFocus,
+    kPress,
+    kHold,
+    kStall,
+    kWaitFor,
+    kStageMap,
+    kEcho,
+    kQuit,
+    kJumpTo,
+    kViewCam,
+    kCapture,
+    kLogTricks,
+    kCrash,
+    kTrace,
+    kFrontend
+};
 enum class Condition { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFocus, kNewFrontend };
 
 struct Param {
     enum Kind { kBitMark, kInteger, kFloat, kChars, kName } kind;
-    std::string name;  // "" for a flag (its name is `text`)
-    std::string text;  // a string's / name's text
+    std::string name; // "" for a flag (its name is `text`)
+    std::string text; // a string's / name's text
     int integer;
     float real;
 };
 
 struct OrderCode {
     Op op;
-    std::string target;        // run: the script; choose / focus: the id; press: the button; level / echo: the text;
-                               // waitfor level / menu / focus: the name; capture: the folder ("" default); camera:
-                               // "off" to let it go
-    std::vector<Param> params; // run
-    Condition condition;       // waitfor
-    int frames;                // press / wait / capture
-    int seconds;               // choose / focus / waitfor: the timeout
+    std::string target;         // run: the script; choose / focus: the id; press: the button; level / echo: the text;
+                                // waitfor level / menu / focus: the name; capture: the folder ("" default); camera:
+                                // "off" to let it go
+    std::vector<Param> params;  // run
+    Condition condition;        // waitfor
+    int frames;                 // press / wait / capture
+    int seconds;                // choose / focus / waitfor: the timeout
     std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 
@@ -199,5 +217,4 @@ struct Standing {
 };
 std::string status_json(const Standing& status);
 
-
-} // namespace MenuSystem::automation
+} // namespace frontend::automation

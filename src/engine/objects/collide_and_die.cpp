@@ -29,26 +29,23 @@ namespace {
 
 extern void** const kVtable;
 
-constexpr uint32_t kRadius = 0xC48391A5;      // radius
-constexpr uint32_t kScale = 0x13B9DA7B;       // scale
+constexpr uint32_t kRadius = 0xC48391A5;          // radius
+constexpr uint32_t kScale = 0x13B9DA7B;           // scale
 constexpr uint32_t kOnDestroyScript = 0x6647ADC3; // death_script
-constexpr uint32_t kVel = 0x0C4C809E;         // vel
-constexpr uint32_t kPos = 0x7F261953;         // pos
+constexpr uint32_t kVel = 0x0C4C809E;             // vel
+constexpr uint32_t kPos = 0x7F261953;             // pos
 constexpr uint32_t kSuspend = 0xCE0CA665;
 constexpr uint32_t kProjectileCollision = 0x7767D6D7;
 
-constexpr uint32_t kLifetime = 10000;  // milliseconds
-constexpr uint32_t kDyingTime = 1000;  // milliseconds after the hit
-constexpr float kAbove = 24.0f;        // 0x00645EE8
+constexpr uint32_t kLifetime = 10000; // milliseconds
+constexpr uint32_t kDyingTime = 1000; // milliseconds after the hit
+constexpr float kAbove = 24.0f;       // 0x00645EE8
 
 // The object dies (its vtable slot 6, flag_as_dead).
 void get_kill(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[6])(object); }
 
 // The projectile collision component's 0x004F2F40 (no source yet): told of the hit.
-void projectile_hit(ObjectModule* projectile)
-{
-    static_cast<ShotImpactModule*>(projectile)->mark_hit();
-}
+void projectile_hit(ObjectModule* projectile) { static_cast<ShotImpactModule*>(projectile)->mark_hit(); }
 
 } // namespace
 
@@ -110,7 +107,8 @@ void ImpactDestructModule::tick_frame()
     if (!g_online_hub->in_net_game() && suspend_[0x30])
         return;
     int& offset = g_clock_offset;
-    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) > kLifetime) {
+    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(offset) - made_time_) >
+        kLifetime) {
         get_kill(entity_);
     } else if (fading_out_) {
         if (static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset) > death_time_)
@@ -140,7 +138,8 @@ void ImpactDestructModule::tick_frame()
             if (ObjectModule* projectile = entity_->fetch_module(kProjectileCollision))
                 projectile_hit(projectile);
             fading_out_ = true;
-            death_time_ = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
+            death_time_ =
+                static_cast<uint32_t>(frame_clock::game_clock_elapsed() + offset + static_cast<int>(kDyingTime));
             if (on_collide_script_) {
                 maths::Vec4 point = feeler.contact_pos_;
                 script::Struct* params = script::spawn_param_bag();
@@ -161,25 +160,27 @@ void ImpactDestructModule::tick_frame()
     first_update_ = false;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::ImpactDestructModule::teardown,
-         &objects::ImpactDestructModule::tick_frame,
-         &objects::ImpactDestructModule::configure_from_data,
-         &objects::ImpactDestructModule::seal,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::ImpactDestructModule::teardown,
+    &objects::ImpactDestructModule::tick_frame,
+    &objects::ImpactDestructModule::configure_from_data,
+    &objects::ImpactDestructModule::seal,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

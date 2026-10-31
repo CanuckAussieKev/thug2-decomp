@@ -101,10 +101,10 @@ void forget_level();
 void tick_frame();
 // The frustums (the selected camera - `selected`: its node name, 0 none - brighter) over the view.
 void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                uint32_t selected, std::vector<ui::Seg>* lines);
+                 uint32_t selected, std::vector<ui::Seg>* lines);
 // The Inspector: the selected camera's section (`node`: its name, 0 none), and the Cameras section (new from the
 // view, the list with Look through).
 void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font);
 void list_section(ImFont* mono, ImFont* small_font);
 
-} // namespace MenuSystem::level_editor::Cameras
+} // namespace frontend::level_editor::cameras

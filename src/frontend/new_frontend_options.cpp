@@ -90,32 +90,74 @@ const std::vector<Spec>& get_specs()
     // (the words: new_frontend_text.h)
     static const std::vector<Spec> kSpecs = {
         // Graphics (engine/gfx/graphics_options.h)
-        {"Graphics", "anisotropy", text_tools::kOptAnisotropy, text_tools::kOptAnisotropyHelp,
-         {{"0", text_tools::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}, {"16", "16x"}}, 0, Apply::kRelaunch},
-        {"Graphics", "msaa", text_tools::kOptMsaa, text_tools::kOptMsaaHelp, {{"0", text_tools::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}}, 0,
+        {"Graphics",
+         "anisotropy",
+         text_tools::kOptAnisotropy,
+         text_tools::kOptAnisotropyHelp,
+         {{"0", text_tools::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}, {"16", "16x"}},
+         0,
          Apply::kRelaunch},
-        {"Graphics", "draw_distance_scale", text_tools::kOptDrawDistance, text_tools::kOptDrawDistanceHelp,
-         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}}, 0, Apply::kRelaunch},
-        {"Graphics", "lod_distance_scale", text_tools::kOptLodDistance, text_tools::kOptLodDistanceHelp,
-         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}}, 0, Apply::kRelaunch},
+        {"Graphics",
+         "msaa",
+         text_tools::kOptMsaa,
+         text_tools::kOptMsaaHelp,
+         {{"0", text_tools::kOff}, {"2", "2x"}, {"4", "4x"}, {"8", "8x"}},
+         0,
+         Apply::kRelaunch},
+        {"Graphics",
+         "draw_distance_scale",
+         text_tools::kOptDrawDistance,
+         text_tools::kOptDrawDistanceHelp,
+         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}},
+         0,
+         Apply::kRelaunch},
+        {"Graphics",
+         "lod_distance_scale",
+         text_tools::kOptLodDistance,
+         text_tools::kOptLodDistanceHelp,
+         {{"1", "1x"}, {"1.5", "1.5x"}, {"2", "2x"}, {"3", "3x"}},
+         0,
+         Apply::kRelaunch},
         // Interface
-        {"features", "new_frontend", text_tools::kOptNewFrontend, text_tools::kOptNewFrontendHelp, kOffOn, 0, Apply::kRelaunch},
+        {"features", "new_frontend", text_tools::kOptNewFrontend, text_tools::kOptNewFrontendHelp, kOffOn, 0,
+         Apply::kRelaunch},
         {"features", "hd_ui", text_tools::kOptHdUi, text_tools::kOptHdUiHelp, kOffOn, 0, Apply::kRelaunch},
         {"features", "mouse_menus", text_tools::kOptMouse, text_tools::kOptMouseHelp, kOffOn, 1, Apply::kLive},
-        {"features", "loading_console", text_tools::kOptLoadingConsole, text_tools::kOptLoadingConsoleHelp, kOffOn, 1, Apply::kRelaunch},
+        {"features", "loading_console", text_tools::kOptLoadingConsole, text_tools::kOptLoadingConsoleHelp, kOffOn, 1,
+         Apply::kRelaunch},
         // Gameplay
-        {"features", "skip_intro_movies", text_tools::kOptSkipIntro, text_tools::kOptSkipIntroHelp, kOffOn, 0, Apply::kRelaunch},
-        {"features", "restart_tester", text_tools::kOptRestartTester, text_tools::kOptRestartTesterHelp, kOffOn, 1, Apply::kLive},
-        {"features", "level_editor", text_tools::kOptLevelEditor, text_tools::kOptLevelEditorHelp, kOffOn, 1, Apply::kLive},
-        {"features", "screenshots", text_tools::kOptScreenshots, text_tools::kOptScreenshotsHelp, kOffOn, 1, Apply::kRelaunch},
-        {"frontend", "respect_locks", text_tools::kOptLocks, text_tools::kOptLocksHelp,
-         {{"0", text_tools::kOptLocksAll}, {"1", text_tools::kOptLocksUnlocked}}, 0, Apply::kLive},
+        {"features", "skip_intro_movies", text_tools::kOptSkipIntro, text_tools::kOptSkipIntroHelp, kOffOn, 0,
+         Apply::kRelaunch},
+        {"features", "restart_tester", text_tools::kOptRestartTester, text_tools::kOptRestartTesterHelp, kOffOn, 1,
+         Apply::kLive},
+        {"features", "level_editor", text_tools::kOptLevelEditor, text_tools::kOptLevelEditorHelp, kOffOn, 1,
+         Apply::kLive},
+        {"features", "screenshots", text_tools::kOptScreenshots, text_tools::kOptScreenshotsHelp, kOffOn, 1,
+         Apply::kRelaunch},
+        {"frontend",
+         "respect_locks",
+         text_tools::kOptLocks,
+         text_tools::kOptLocksHelp,
+         {{"0", text_tools::kOptLocksAll}, {"1", text_tools::kOptLocksUnlocked}},
+         0,
+         Apply::kLive},
         // Online
-        {"Miscellaneous", "OnlineGameName", text_tools::kOptIdentity, text_tools::kOptIdentityHelp,
-         {{"", text_tools::kIdentityThug2}, {"thugpro", text_tools::kIdentityThugpro}}, 0, Apply::kRelaunch},
-        {"online", "thugpro_peer", text_tools::kOptThugproChat, text_tools::kOptThugproChatHelp, kOffOn, 0, Apply::kRelaunch},
-        {"features", "thugpro_parts", text_tools::kOptThugproParts, text_tools::kOptThugproPartsHelp,
-         {{"0", text_tools::kOff}, {"1", text_tools::kOptThugproPartsHidden}, {"2", text_tools::kOptThugproPartsShown}}, 1, Apply::kRelaunch},
+        {"Miscellaneous",
+         "OnlineGameName",
+         text_tools::kOptIdentity,
+         text_tools::kOptIdentityHelp,
+         {{"", text_tools::kIdentityThug2}, {"thugpro", text_tools::kIdentityThugpro}},
+         0,
+         Apply::kRelaunch},
+        {"online", "thugpro_peer", text_tools::kOptThugproChat, text_tools::kOptThugproChatHelp, kOffOn, 0,
+         Apply::kRelaunch},
+        {"features",
+         "thugpro_parts",
+         text_tools::kOptThugproParts,
+         text_tools::kOptThugproPartsHelp,
+         {{"0", text_tools::kOff}, {"1", text_tools::kOptThugproPartsHidden}, {"2", text_tools::kOptThugproPartsShown}},
+         1,
+         Apply::kRelaunch},
         // Mods
         {"features", "anteara_mod", text_tools::kOptAnteara, text_tools::kOptAntearaHelp, kOffOn, 0, Apply::kRelaunch},
         {"features", "thaw_bmx", text_tools::kOptBmx, text_tools::kOptBmxHelp, kOffOn, 0, Apply::kRelaunch},
@@ -127,8 +169,10 @@ const std::vector<Spec>& get_specs()
 const std::vector<GroupSet>& bunches()
 {
     static const std::vector<GroupSet> kGroups = {
-        {"graphics", text_tools::kGroupGraphics, {0, 1, 2, 3}},  {"interface", text_tools::kGroupInterface, {4, 5, 6, 7}},
-        {"gameplay", text_tools::kGroupGameplay, {8, 9, 10, 11, 12}}, {"online", text_tools::kGroupOnline, {13, 14, 15}},
+        {"graphics", text_tools::kGroupGraphics, {0, 1, 2, 3}},
+        {"interface", text_tools::kGroupInterface, {4, 5, 6, 7}},
+        {"gameplay", text_tools::kGroupGameplay, {8, 9, 10, 11, 12}},
+        {"online", text_tools::kGroupOnline, {13, 14, 15}},
         {"mods", text_tools::kGroupMods, {16, 17, 18}},
     };
     return kGroups;
@@ -180,7 +224,7 @@ bool ini_get(const std::string& text, const std::string& section, const std::str
 }
 
 std::string ini_set(const std::string& text, const std::string& section, const std::string& key,
-                   const std::string& value)
+                    const std::string& value)
 {
     std::string eol = text.find("\r\n") != std::string::npos || text.find('\n') == std::string::npos ? "\r\n" : "\n";
     std::vector<Seg> lines = get_lines(text);
@@ -225,4 +269,4 @@ std::string ini_set(const std::string& text, const std::string& section, const s
     return out + "[" + section + "]" + eol + added + eol;
 }
 
-} // namespace MenuSystem::NewFrontend::Options
+} // namespace frontend::new_frontend::options

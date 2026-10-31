@@ -92,18 +92,18 @@ struct StoredRandom {
     // Shuffle the order; with `avoid_repeat`, the new first choice isn't the old last one.
     void shuffle(bool avoid_repeat);
 
-    uint32_t owner_;         // the script using it
-    const uint8_t* lookup_table_;   // the random table's offsets in the script
+    uint32_t owner_;              // the script using it
+    const uint8_t* lookup_table_; // the random table's offsets in the script
     uint16_t num_;
     uint16_t unknowna_;
-    uint32_t kind_tag_;          // the token: 0x40 no-repeat, 0x41 permute
-    uint16_t ordinal_;         // permute: the position in order_
+    uint32_t kind_tag_;      // the token: 0x40 no-repeat, 0x41 permute
+    uint16_t ordinal_;       // permute: the position in order_
     uint8_t order_[0x42];    // permute: the shuffled order (from +0x12)
     uint32_t last_;          // no-repeat: the last choice
-    StoredRandom* succ_;    // older
+    StoredRandom* succ_;     // older
     StoredRandom* previous_; // newer
 };
 
 extern memory::PoolPair g_stored_random_pools;
 
-} // namespace Script
+} // namespace script

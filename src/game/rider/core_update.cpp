@@ -17,14 +17,14 @@ using namespace core_fields;
 
 namespace {
 
-constexpr uint32_t kTouchedDownNow = 0x254;   // set when the air's update lands the skater on the ground
-constexpr uint32_t kFrameFlag255 = 0x255;      // the timed flags' +0x78 when the frame began
+constexpr uint32_t kTouchedDownNow = 0x254; // set when the air's update lands the skater on the ground
+constexpr uint32_t kFrameFlag255 = 0x255;   // the timed flags' +0x78 when the frame began
 constexpr uint32_t kFrameBeganInLip = 0x256;
-constexpr uint32_t kGroundStart = 0x338;       // the position the ground's update starts from
-constexpr uint32_t kAirFromJump = 0x4F0;       // in the air with +0x30 set and +0x78 not (told by event when it changes)
-constexpr uint32_t kAirborneClock = 0x14CC;         // (cleared whenever the skater is out of the air)
+constexpr uint32_t kGroundStart = 0x338;    // the position the ground's update starts from
+constexpr uint32_t kAirFromJump = 0x4F0;    // in the air with +0x30 set and +0x78 not (told by event when it changes)
+constexpr uint32_t kAirborneClock = 0x14CC; // (cleared whenever the skater is out of the air)
 
-constexpr uint32_t kEnteredAir = 0xF225FE69;   // the events sent when +0x4F0 changes (names unknown)
+constexpr uint32_t kEnteredAir = 0xF225FE69; // the events sent when +0x4F0 changes (names unknown)
 constexpr uint32_t kLeftAir = 0x5E27200A;
 
 } // namespace
@@ -34,7 +34,7 @@ void SkaterPhysicsModule::tick_frame()
 {
     get_at<float>(this, kFrameLength) = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     collision_events::checkpoint(this, "update-start"); // (not original)
-    bool bike = thaw_bmx::live_now(this); // (not original: THAW's bike, thaw_bmx_physics.cpp)
+    bool bike = thaw_bmx::live_now(this);               // (not original: THAW's bike, thaw_bmx_physics.cpp)
     if (bike)
         thaw_bmx::begin_frame(this);
     get_at<uint8_t>(this, kTouchedDownNow) = 0;
@@ -82,8 +82,8 @@ void SkaterPhysicsModule::tick_frame()
     collision_events::checkpoint(this, "state-physics"); // (not original)
     update_speed_override();
     collision_events::checkpoint(this, "after-4FF200"); // (not original)
-    try_grind(false); // (inlined in the original)
-    collision_events::checkpoint(this, "try-grind"); // (not original)
+    try_grind(false);                                   // (inlined in the original)
+    collision_events::checkpoint(this, "try-grind");    // (not original)
     update_free_revert();
     collision_events::checkpoint(this, "free-revert"); // (not original)
     update_focus_button();
@@ -105,4 +105,4 @@ void SkaterPhysicsModule::tick_frame()
     collision_events::end_frame(this); // (not original: [debug] collision_events)
 }
 
-} // namespace Skater
+} // namespace skater

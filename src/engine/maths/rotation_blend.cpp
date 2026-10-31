@@ -20,10 +20,7 @@ float small_rotation_threshold() { return g_slerp_small_rotation_threshold; }
 } // namespace
 
 // 0x00405E90
-ArcRotationBlender::ArcRotationBlender(const Mat4& from, const Mat4& to)
-{
-    set_matrices(from, to);
-}
+ArcRotationBlender::ArcRotationBlender(const Mat4& from, const Mat4& to) { set_matrices(from, to); }
 
 // 0x00405990
 int ArcRotationBlender::set_matrices(const Mat4& from, const Mat4& to)
@@ -82,7 +79,7 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     out.row[3].w = 1.0f;
 }
 
-} // namespace Mth
+} // namespace maths
 
 namespace {
 

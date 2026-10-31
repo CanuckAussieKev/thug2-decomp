@@ -46,7 +46,8 @@ Pose get_blend(const Pose& from, const Pose& to, float t)
 {
     float e = get_ease(t);
     float yaw = nearest_angle(from.yaw, to.yaw);
-    return {from.pos + (to.pos - from.pos) * e, from.yaw + (yaw - from.yaw) * e, from.pitch + (to.pitch - from.pitch) * e};
+    return {from.pos + (to.pos - from.pos) * e, from.yaw + (yaw - from.yaw) * e,
+            from.pitch + (to.pitch - from.pitch) * e};
 }
 
 float frame_distance(float radius, float tan_half, float minimum)
@@ -92,27 +93,48 @@ void axis_yaw_pitch(View view, float* yaw, float* pitch)
     *yaw = 0.0f;
     *pitch = 0.0f;
     switch (view) {
-    case View::kTop: *pitch = -kTopPitch; break;     // (looking down; up the screen +z)
-    case View::kBottom: *pitch = kTopPitch; break;
-    case View::kMenuSystem: *yaw = 0.0f; break;           // (looking along +z)
-    case View::kBack: *yaw = kPi; break;
-    case View::kRight: *yaw = -kPi * 0.5f; break;    // (from +x, looking along -x)
-    case View::kLeft: *yaw = kPi * 0.5f; break;
-    default: break;
+    case View::kTop:
+        *pitch = -kTopPitch;
+        break; // (looking down; up the screen +z)
+    case View::kBottom:
+        *pitch = kTopPitch;
+        break;
+    case View::kMenuSystem:
+        *yaw = 0.0f;
+        break; // (looking along +z)
+    case View::kBack:
+        *yaw = kPi;
+        break;
+    case View::kRight:
+        *yaw = -kPi * 0.5f;
+        break; // (from +x, looking along -x)
+    case View::kLeft:
+        *yaw = kPi * 0.5f;
+        break;
+    default:
+        break;
     }
 }
 
 const char* view_name(View view)
 {
     switch (view) {
-    case View::kTop: return "Top";
-    case View::kBottom: return "Bottom";
-    case View::kMenuSystem: return "Front";
-    case View::kBack: return "Back";
-    case View::kRight: return "Right";
-    case View::kLeft: return "Left";
-    case View::kDealloc: return "User";
-    default: return "Perspective";
+    case View::kTop:
+        return "Top";
+    case View::kBottom:
+        return "Bottom";
+    case View::kMenuSystem:
+        return "Front";
+    case View::kBack:
+        return "Back";
+    case View::kRight:
+        return "Right";
+    case View::kLeft:
+        return "Left";
+    case View::kDealloc:
+        return "User";
+    default:
+        return "Perspective";
     }
 }
 
@@ -316,7 +338,10 @@ float apparent(float distance)
     return distance * g_ortho.equivalent / eye_distance(g_ortho.equivalent);
 }
 
-float adjust_view_angle(float base_degrees) { return ortho() ? ortho_angle(base_degrees, g_ortho.equivalent) : base_degrees; }
+float adjust_view_angle(float base_degrees)
+{
+    return ortho() ? ortho_angle(base_degrees, g_ortho.equivalent) : base_degrees;
+}
 
 float get_near_plane() { return ortho() ? ortho_near(g_ortho.equivalent) : 2.0f; }
 
@@ -409,7 +434,8 @@ void apply_orbit(const Rig& rig)
     if (rig.have_selection_) {
         // (the editor puts the camera round it at its orbit distance: the wheel nearer / further)
         if (wheel)
-            *rig.orbit_distance_ = std::clamp(*rig.orbit_distance_ * std::pow(0.85f, static_cast<float>(wheel)), 20.0f, 20000.0f);
+            *rig.orbit_distance_ =
+                std::clamp(*rig.orbit_distance_ * std::pow(0.85f, static_cast<float>(wheel)), 20.0f, 20000.0f);
         return;
     }
     if (!g_orbit.have_pivot_)
@@ -466,7 +492,8 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             if (ortho())
                 m.pose.pos = rig.have_selection_ ? rig.target : g_ortho.pivot; // (an ortho bookmark keeps its pivot)
             bool saved = save_bookmarks();
-            std::snprintf(text, sizeof(text), "Camera bookmark %d stored%s", i + 1, saved ? "" : " (not saved: the file)");
+            std::snprintf(text, sizeof(text), "Camera bookmark %d stored%s", i + 1,
+                          saved ? "" : " (not saved: the file)");
             hud::get_message(text, 2.0);
         } else if (g_marks[i].set) {
             const Bookmark& m = g_marks[i];
@@ -509,7 +536,8 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             }
             continue;
         }
-        static const View kViews[3][2] = {{View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}};
+        static const View kViews[3][2] = {
+            {View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}};
         View view = kViews[i][opposite ? 1 : 0];
         V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : g_ortho.pivot) : look_point(rig);
         V3 d = pivot - *rig.pos;
@@ -528,7 +556,8 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
         // (the frame's time from SDL's clock: the editor caps a frame at a tenth of a second)
         static uint64_t last;
         uint64_t now = SDL_GetPerformanceCounter();
-        double seconds = g_flight.t == 0.0f || !last ? 1.0 / 60.0 : static_cast<double>(now - last) / SDL_GetPerformanceFrequency();
+        double seconds =
+            g_flight.t == 0.0f || !last ? 1.0 / 60.0 : static_cast<double>(now - last) / SDL_GetPerformanceFrequency();
         last = now;
         g_flight.t += static_cast<float>(std::min(seconds, 0.1)) / g_flight.duration;
         Pose to = g_flight.to;
@@ -551,7 +580,7 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
             if (g_flight.then_view_ != View::kNone) {
                 V3 forward = get_forward(to.yaw, to.pitch);
                 enter_ortho(rig, g_flight.then_view_, to.yaw, to.pitch, to.pos + forward * g_flight.then_equivalent_,
-                           g_flight.then_equivalent_);
+                            g_flight.then_equivalent_);
             } else if (rig.have_selection_ && rig.focus) {
                 rig.focus();
             }
@@ -566,7 +595,8 @@ void after_update(const Rig& rig, int wheel, bool interrupted)
     V3 forward = get_forward(g_ortho.yaw, g_ortho.pitch);
     if (rig.have_selection_) {
         if (wheel && !rig.dragging)
-            g_ortho.equivalent = std::clamp(g_ortho.equivalent * std::pow(0.85f, static_cast<float>(wheel)), 50.0f, 20000.0f);
+            g_ortho.equivalent =
+                std::clamp(g_ortho.equivalent * std::pow(0.85f, static_cast<float>(wheel)), 50.0f, 20000.0f);
         g_ortho.pivot = rig.target;
     } else {
         // (the editor flew the camera: along the view a zoom, across it a pan)
@@ -588,4 +618,4 @@ float fly_factor(bool held, double seconds)
     return fly_ramp(g_fly_held, prefs::get_pull().fly_accel_ms_);
 }
 
-} // namespace MenuSystem::level_editor::ViewCam
+} // namespace frontend::level_editor::view_cam

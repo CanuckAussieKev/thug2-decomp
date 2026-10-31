@@ -17,7 +17,7 @@ namespace objects {
 
 struct ObjectAnimMovie {
     Movie base_;
-    void* anim_;                // +0x2C the animation asset (null: just a timer)
+    void* anim_;                 // +0x2C the animation asset (null: just a timer)
     gfx::AnimTimeline timeline_; // +0x30
 
     // 0x005871B0: the constructor. 0x00587210: the destructor body. 0x00587370 (slot 0): the scalar deleting
@@ -48,16 +48,16 @@ static_assert(offsetof(ObjectAnimMovie, timeline_) == 0x30 && sizeof(ObjectAnimM
 
 struct CameraAnimMovie {
     Movie base_;
-    float field_of_view_;                 // +0x2C (0: the script global 0x99529205)
-    bool has_goal_;            // +0x30
+    float field_of_view_; // +0x2C (0: the script global 0x99529205)
+    bool has_goal_;       // +0x30
     uint8_t pad31[3];
-    uint32_t aim_point_;           // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
-    float goal_shift_[4];     // +0x38 (0x906642BF)
-    float look_offset_[4];       // +0x48 (0xA00D3D6E)
-    bool target_offset_set_;      // +0x58 (any of x, y, z not 0)
-    bool look_offset_set_;        // +0x59
+    uint32_t aim_point_;     // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
+    float goal_shift_[4];    // +0x38 (0x906642BF)
+    float look_offset_[4];   // +0x48 (0xA00D3D6E)
+    bool target_offset_set_; // +0x58 (any of x, y, z not 0)
+    bool look_offset_set_;   // +0x59
     uint8_t pad5a_[2];
-    void* anim_;                // +0x5C
+    void* anim_;                 // +0x5C
     gfx::AnimTimeline timeline_; // +0x60
 
     // 0x005873F0 / 0x005872C0 / 0x00587450: the constructor, the destructor body, the scalar deleting destructor.
@@ -91,4 +91,4 @@ static_assert(offsetof(CameraAnimMovie, aim_point_) == 0x34 && offsetof(CameraAn
 extern float g_float_zero;
 
 extern float g_anim_movies_one;
-} // namespace Obj
+} // namespace objects

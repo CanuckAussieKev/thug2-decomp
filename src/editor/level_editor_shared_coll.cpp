@@ -50,14 +50,15 @@ float point_triangle_distance(V3 p, V3 a, V3 b, V3 c)
         return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, a, c)});
     // Inside the triangle's prism: the distance to its plane; else to the nearest edge.
     V3 ap = p - a, bp = p - b, cp = p - c;
-    bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0f && get_dot(perpendicular(c - b, bp), n) >= 0.0f && get_dot(perpendicular(a - c, cp), n) >= 0.0f;
+    bool inside = get_dot(perpendicular(ab, ap), n) >= 0.0f && get_dot(perpendicular(c - b, bp), n) >= 0.0f &&
+                  get_dot(perpendicular(a - c, cp), n) >= 0.0f;
     if (inside)
         return std::fabs(get_dot(ap, n)) / std::sqrt(n2);
     return std::min({segment_distance(p, a, b), segment_distance(p, b, c), segment_distance(p, c, a)});
 }
 
 float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
-                    uint32_t index_count, float best)
+                     uint32_t index_count, float best)
 {
     auto at = [&](uint16_t i) {
         const float* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
@@ -167,10 +168,7 @@ void Companion::rebase()
         base_[i] = get_vertex(static_cast<int>(i));
 }
 
-V3 Companion::get_vertex(int i) const
-{
-    return {vertices_[i * 3], vertices_[i * 3 + 1], vertices_[i * 3 + 2]};
-}
+V3 Companion::get_vertex(int i) const { return {vertices_[i * 3], vertices_[i * 3 + 1], vertices_[i * 3 + 2]}; }
 
 std::vector<FaceCopy> Companion::get_faces() const
 {
@@ -262,7 +260,7 @@ void for_each_strip(uint8_t* geom, F fn)
 float geom_distance(uint8_t* geom, V3 p, float best)
 {
     for_each_strip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
-                           uint32_t index_count) {
+                             uint32_t index_count) {
         best = strip_distance(p, positions, stride, vertex_count, indices, index_count, best);
     });
     return best;
@@ -482,7 +480,7 @@ struct GridList {
 
 // The grid brought up to date for these objects (the top-down heap current, as UpdateSuperSectors has it).
 void tick_grid(void* grid, const std::vector<render::HitMesh*>& added, const std::vector<render::HitMesh*>& removed,
-                const std::vector<render::HitMesh*>& moved)
+               const std::vector<render::HitMesh*>& moved)
 {
     if (!grid || (added.empty() && removed.empty() && moved.empty()))
         return;
@@ -508,7 +506,8 @@ void get_drop(std::map<uint32_t, TableRow>::iterator it)
             if (entry.in_grid_)
                 tick_grid(entry.grid, {}, {entry.companion->get_object()}, {});
             for (const Taken& t : entry.taken)
-                *reinterpret_cast<uint16_t*>(t.geometry->faces_ + t.face * (t.geometry->small_faces_ ? 8 : 10)) = t.flags;
+                *reinterpret_cast<uint16_t*>(t.geometry->faces_ + t.face * (t.geometry->small_faces_ ? 8 : 10)) =
+                    t.flags;
         }
         render::remove_from_caches(entry.companion->get_object());
         ++g_generation;
@@ -529,7 +528,7 @@ TableRow* get_find(uint32_t checksum)
 }
 
 void append_one(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std::vector<FaceCopy> faces,
-         std::vector<Taken> taken)
+                std::vector<Taken> taken)
 {
     TableRow& entry = g_entries[checksum];
     entry.scene = scene;
@@ -556,8 +555,8 @@ void ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom)
     std::vector<Taken> taken;
     std::vector<FaceCopy> faces = gather(checksum, &taken);
     if (debug_enabled() || !faces.empty())
-        get_log("level editor: shared collision of %08X: %u face%s taken along", checksum, static_cast<unsigned>(faces.size()),
-            faces.size() == 1 ? "" : "s");
+        get_log("level editor: shared collision of %08X: %u face%s taken along", checksum,
+                static_cast<unsigned>(faces.size()), faces.size() == 1 ? "" : "s");
     append_one(checksum, scene, sector, geom, std::move(faces), std::move(taken));
 }
 
@@ -595,7 +594,7 @@ std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source)
 }
 
 void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
-                uint8_t* geom)
+                 uint8_t* geom)
 {
     if (!faces || faces->empty() || !scene || !sector || !geom)
         return;
@@ -726,4 +725,4 @@ bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t f
     return false;
 }
 
-} // namespace MenuSystem::level_editor::SharedCollision
+} // namespace frontend::level_editor::shared_collision

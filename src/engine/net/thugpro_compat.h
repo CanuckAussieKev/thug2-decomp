@@ -35,4 +35,4 @@ int16_t pack_height(float value);     // y
 float unpack_horizontal(int value);
 float unpack_height(int value);
 
-} // namespace online::Thugpro
+} // namespace online::thugpro

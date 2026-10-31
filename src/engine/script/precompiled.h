@@ -30,7 +30,7 @@ using PrecompiledSymbolCallback = void(__cdecl*)(SymbolTableEntry* symbol, uint3
 // Relocate every symbol of the pre-compiled image `file` (offsets from `base`), passing each to `callback`
 // (if any) with `argument` and `flag`.
 void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,
-                                uint32_t flag);
+                                  uint32_t flag);
 // Define the relocated symbol `symbol` of the file whose name's checksum is `file_checksum`: it replaces (and
 // frees) the symbol of the same name, if there is one, and is linked in.
 void define_precompiled_symbol(SymbolTableEntry* symbol, uint32_t file_checksum, uint32_t unused);
@@ -43,4 +43,4 @@ uint8_t* relocate_array(Array* array, uint32_t base);
 // Only the array's element pointers (the table, or the single element in its place).
 void relocate_array_elements(Array* array, uint32_t base);
 
-} // namespace Script
+} // namespace script

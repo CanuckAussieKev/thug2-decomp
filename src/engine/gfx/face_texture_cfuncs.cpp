@@ -29,17 +29,17 @@ constexpr uint32_t kColour0 = 0xB7A78C53;         // (names unknown) Offset / Pu
 constexpr uint32_t kColour1 = 0xDA7A68B8;
 constexpr uint32_t kColour2 = 0xAA109C37;
 constexpr uint32_t kColour3 = 0x3319CD8D;
-constexpr uint32_t kAngle = 0xFF7EBAF6;           // "angle"
-constexpr uint32_t kPushPoint = 0x485A0CDB;       // (name unknown) PushTextureToPoint: the point
-constexpr uint32_t kAxis = 0x7AF07905;            // "Axis"
-constexpr uint32_t kPushAmount = 0x88CF948C;      // (name unknown) PushTextureToPoint: how far
-constexpr uint32_t kR = 0x93F60062;               // "r"
-constexpr uint32_t kG = 0xFE2BE489;               // "g"
-constexpr uint32_t kB = 0x8E411006;               // "b"
-constexpr uint32_t kA = 0x174841BC;               // "a"
-constexpr uint32_t kTintMode = 0xC164842A;        // (name unknown) ApplyRGBAToTexture: 1 = the second mode
-constexpr uint32_t kHsv = 0xFB0E4249;             // "hsv"
-constexpr uint32_t kRgb = 0xDECB67C7;             // "rgb"
+constexpr uint32_t kAngle = 0xFF7EBAF6;      // "angle"
+constexpr uint32_t kPushPoint = 0x485A0CDB;  // (name unknown) PushTextureToPoint: the point
+constexpr uint32_t kAxis = 0x7AF07905;       // "Axis"
+constexpr uint32_t kPushAmount = 0x88CF948C; // (name unknown) PushTextureToPoint: how far
+constexpr uint32_t kR = 0x93F60062;          // "r"
+constexpr uint32_t kG = 0xFE2BE489;          // "g"
+constexpr uint32_t kB = 0x8E411006;          // "b"
+constexpr uint32_t kA = 0x174841BC;          // "a"
+constexpr uint32_t kTintMode = 0xC164842A;   // (name unknown) ApplyRGBAToTexture: 1 = the second mode
+constexpr uint32_t kHsv = 0xFB0E4249;        // "hsv"
+constexpr uint32_t kRgb = 0xDECB67C7;        // "rgb"
 
 // The texture dictionary (0x00700F1C) and its texture by checksum (0x0049F540; null if none).
 void* texture_bank() { return reinterpret_cast<void*>(render::g_game_texture_dict); }
@@ -109,7 +109,7 @@ bool __cdecl cfunc_load_face_texture_from_profile(script::Struct* params, script
     uint32_t name;
     params->read_hash_value(kChecksum, &name, 1);
     void* face = get_face_texture();
-    int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution();         // (0x4420)
+    int size = static_cast<gfx::FaceSkin*>(face)->fetch_skin_resolution(); // (0x4420)
     void* data = static_cast<gfx::FaceSkin*>(face)->get_image();           // (its +0x3C)
     void* texture = static_cast<render::TextureSet*>(texture_bank())
                         ->read_texture_buffer(static_cast<const uint8_t*>(data), size, name, 1, 1, true, 1);
@@ -232,7 +232,7 @@ bool __cdecl cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     Array* hsv = nullptr;
     params->fetch_list(kHsv, &hsv, 1);
 
-    constexpr float kSixtieth = 0x1.111112p-6f; // 0x006463B8
+    constexpr float kSixtieth = 0x1.111112p-6f;  // 0x006463B8
     constexpr float kNinetieth = 0x1.6c16c2p-7f; // 0x00657CC4
     double hue = static_cast<int>(hsv->fetch_part(0)) * static_cast<double>(kSixtieth);
     float h = static_cast<float>(hue);
@@ -266,13 +266,38 @@ bool __cdecl cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     float t = static_cast<float>((1.0 - (1.0 - f) * s) * v);
     float value = static_cast<float>(v);
     switch (static_cast<uint32_t>(ftol(static_cast<double>(sector)))) {
-    case 0: r = value; g = t; b = p; break;
-    case 1: r = q; g = value; b = p; break;
-    case 2: r = p; g = value; b = t; break;
-    case 3: r = p; g = q; b = value; break;
-    case 4: r = t; g = p; b = value; break;
-    case 5: r = value; g = p; b = q; break;
-    default: break;
+    case 0:
+        r = value;
+        g = t;
+        b = p;
+        break;
+    case 1:
+        r = q;
+        g = value;
+        b = p;
+        break;
+    case 2:
+        r = p;
+        g = value;
+        b = t;
+        break;
+    case 3:
+        r = p;
+        g = q;
+        b = value;
+        break;
+    case 4:
+        r = t;
+        g = p;
+        b = value;
+        break;
+    case 5:
+        r = value;
+        g = p;
+        b = q;
+        break;
+    default:
+        break;
     }
 
     Array* rgb = new_colour_array(hsv);

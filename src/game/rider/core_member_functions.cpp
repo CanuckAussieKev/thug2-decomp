@@ -21,122 +21,49 @@
 namespace skater {
 
 uint32_t g_core_member_functions[660]{
-    0x584CF9E9, 0x5BD63B29, 0, 0, 0, 0,
-    0x0C7A712C, 0x5BD63B29, 0, 0, 0, 0,
-    0x8F66B80B, 0x5BD63B29, 0, 0, 0, 0,
-    0x4ADC6C2A, 0x5BD63B29, 0, 0, 0, 0,
-    0x262D42D5, 0x5BD63B29, 0, 0, 0, 0,
-    0xCA6B3809, 0x5BD63B29, 0, 0, 0, 0,
-    0x9C6A7E41, 0x5BD63B29, 0, 0, 0, 0,
-    0x32DCC9CF, 0x5BD63B29, 0, 0, 0, 0,
-    0x5E8F9E77, 0x5BD63B29, 0, 0, 0, 0,
-    0x0C890A84, 0x5BD63B29, 0, 0, 0, 0,
-    0xBBF2B570, 0x5BD63B29, 0, 0, 0, 0,
-    0xDE583E34, 0x5BD63B29, 0, 0, 0, 0,
-    0x1996B797, 0x5BD63B29, 0, 0, 0, 0,
-    0x1F8BBD05, 0x5BD63B29, 0, 0, 0, 0,
-    0xEBBCF455, 0x5BD63B29, 0, 0, 0, 0,
-    0xBC19E291, 0x5BD63B29, 0, 0, 0, 0,
-    0x02F66333, 0x5BD63B29, 0, 0, 0, 0,
-    0x68BF6C13, 0x5BD63B29, 0, 0, 0, 0,
-    0xE8DEB0D7, 0x5BD63B29, 0, 0, 0, 0,
-    0x34DCFC97, 0x5BD63B29, 0, 0, 0, 0,
-    0x0257947E, 0x5BD63B29, 0, 0, 0, 0,
-    0x01BAA1D9, 0x5BD63B29, 0, 0, 0, 0,
-    0x9FCFDFEB, 0x5BD63B29, 0, 0, 0, 0,
-    0xFEFF11CC, 0x5BD63B29, 0, 0, 0, 0,
-    0xFE243FEF, 0x5BD63B29, 0, 0, 0, 0,
-    0xE168CFE0, 0x5BD63B29, 0, 0, 0, 0,
-    0x29FBA9DF, 0x5BD63B29, 0, 0, 0, 0,
-    0x17846595, 0x5BD63B29, 0, 0, 0, 0,
-    0x259CB90D, 0x5BD63B29, 0, 0, 0, 0,
-    0x1D1FD4F0, 0x5BD63B29, 0, 0, 0, 0,
-    0x383B939B, 0x5BD63B29, 0, 0, 0, 0,
-    0x54EF2B79, 0x5BD63B29, 0, 0, 0, 0,
-    0x0E2998B9, 0x5BD63B29, 0, 0, 0, 0,
-    0x6FC5AAE0, 0x5BD63B29, 0, 0, 0, 0,
-    0xBD4303F4, 0x5BD63B29, 0, 0, 0, 0,
-    0xA901A50C, 0x5BD63B29, 0, 0, 0, 0,
-    0xE0DF1F0A, 0x5BD63B29, 0, 0, 0, 0,
-    0x8C3D7864, 0x5BD63B29, 0, 0, 0, 0,
-    0x0E1D5168, 0x5BD63B29, 0, 0, 0, 0,
-    0x948EBF96, 0x5BD63B29, 0, 0, 0, 0,
-    0x947FCCF4, 0x5BD63B29, 0, 0, 0, 0,
-    0xACB82C02, 0x5BD63B29, 0, 0, 0, 0,
-    0x510F983B, 0x5BD63B29, 0, 0, 0, 0,
-    0x71B993B7, 0x5BD63B29, 0, 0, 0, 0,
-    0xBE371B7B, 0x5BD63B29, 0, 0, 0, 0,
-    0x55934543, 0x5BD63B29, 0, 0, 0, 0,
-    0xB424244D, 0x5BD63B29, 0, 0, 0, 0,
-    0x224CDDC9, 0x5BD63B29, 0, 0, 0, 0,
-    0x6C8A1316, 0x5BD63B29, 0, 0, 0, 0,
-    0x448E3630, 0x5BD63B29, 0, 0, 0, 0,
-    0xF37CE040, 0x5BD63B29, 0, 0, 0, 0,
-    0x133E1293, 0x5BD63B29, 0, 0, 0, 0,
-    0x0F922431, 0x5BD63B29, 0, 0, 0, 0,
-    0xDFB8F052, 0x5BD63B29, 0, 0, 0, 0,
-    0xC5B4B390, 0x5BD63B29, 0, 0, 0, 0,
-    0xB9EEBFF6, 0x5BD63B29, 0, 0, 0, 0,
-    0xEC681A59, 0x5BD63B29, 0, 0, 0, 0,
-    0x065A559A, 0x5BD63B29, 0, 0, 0, 0,
-    0x461E5B92, 0x5BD63B29, 0, 0, 0, 0,
-    0xA14A467F, 0x5BD63B29, 0, 0, 0, 0,
-    0x90F1D8D5, 0x5BD63B29, 0, 0, 0, 0,
-    0x5E8D9B80, 0x5BD63B29, 0, 0, 0, 0,
-    0xB94BC0C6, 0x5BD63B29, 0, 0, 0, 0,
-    0xE47FF4B5, 0x5BD63B29, 0, 0, 0, 0,
-    0x05144783, 0x5BD63B29, 0, 0, 0, 0,
-    0xF7E21884, 0x5BD63B29, 0, 0, 0, 0,
-    0x0BFF3271, 0x5BD63B29, 0, 0, 0, 0,
-    0x2A547E37, 0x5BD63B29, 0, 0, 0, 0,
-    0xAAE7E1D8, 0x5BD63B29, 0, 0, 0, 0,
-    0xA038260D, 0x5BD63B29, 0, 0, 0, 0,
-    0xD27F89E8, 0x5BD63B29, 0, 0, 0, 0,
-    0x25B393E7, 0x5BD63B29, 0, 0, 0, 0,
-    0xB6222B3A, 0x5BD63B29, 0, 0, 0, 0,
-    0x9D8BDE21, 0x5BD63B29, 0, 0, 0, 0,
-    0x83A46968, 0x5BD63B29, 0, 0, 0, 0,
-    0x6A0834C5, 0x5BD63B29, 0, 0, 0, 0,
-    0x675CF35E, 0x5BD63B29, 0, 0, 0, 0,
-    0xD3E1A093, 0x5BD63B29, 0, 0, 0, 0,
-    0x3BAAC2C5, 0x5BD63B29, 0, 0, 0, 0,
-    0xB195C726, 0x5BD63B29, 0, 0, 0, 0,
-    0xB649958F, 0x5BD63B29, 0, 0, 0, 0,
-    0x11B99941, 0x5BD63B29, 0, 0, 0, 0,
-    0xEFFC54DC, 0x5BD63B29, 0, 0, 0, 0,
-    0xE3822CCE, 0x5BD63B29, 0, 0, 0, 0,
-    0xD5BCAB93, 0x5BD63B29, 0, 0, 0, 0,
-    0x9AF4A4C2, 0x5BD63B29, 0, 0, 0, 0,
-    0x8A8EBE72, 0x5BD63B29, 0, 0, 0, 0,
-    0xC5623AEE, 0x5BD63B29, 0, 0, 0, 0,
-    0xD7ECF37C, 0x5BD63B29, 0, 0, 0, 0,
-    0x43A7516D, 0x5BD63B29, 0, 0, 0, 0,
-    0x5F48F4D1, 0x5BD63B29, 0, 0, 0, 0,
-    0x5F43DDF3, 0x5BD63B29, 0, 0, 0, 0,
-    0x68F6DB80, 0x5BD63B29, 0, 0, 0, 0,
-    0x1B4A5FF9, 0x5BD63B29, 0, 0, 0, 0,
-    0x007CDADB, 0x5BD63B29, 0, 0, 0, 0,
-    0x27C92E33, 0x5BD63B29, 0, 0, 0, 0,
-    0x8476CA5B, 0x5BD63B29, 0, 0, 0, 0,
-    0xF900547B, 0x5BD63B29, 0, 0, 0, 0,
-    0xFC9E2886, 0x5BD63B29, 0, 0, 0, 0,
-    0x3981FBF0, 0x5BD63B29, 0, 0, 0, 0,
-    0x821BF006, 0x5BD63B29, 0, 0, 0, 0,
-    0x2C30B07A, 0x5BD63B29, 0, 0, 0, 0,
-    0x1EB4121A, 0x5BD63B29, 0, 0, 0, 0,
-    0xA751E3D8, 0x5BD63B29, 0, 0, 0, 0,
-    0x03B9946F, 0x5BD63B29, 0, 0, 0, 0,
-    0xADCA7EE6, 0x5BD63B29, 0, 0, 0, 0,
-    0x0898E60F, 0x5BD63B29, 0, 0, 0, 0,
-    0xB17D17CD, 0x5BD63B29, 0, 0, 0, 0,
-    0xF22B4480, 0x5BD63B29, 0, 0, 0, 0,
-    0, 0x5BD63B29, 0, 0, 0, 0};
+    0x584CF9E9, 0x5BD63B29, 0, 0, 0, 0, 0x0C7A712C, 0x5BD63B29, 0, 0, 0, 0, 0x8F66B80B, 0x5BD63B29, 0, 0, 0, 0,
+    0x4ADC6C2A, 0x5BD63B29, 0, 0, 0, 0, 0x262D42D5, 0x5BD63B29, 0, 0, 0, 0, 0xCA6B3809, 0x5BD63B29, 0, 0, 0, 0,
+    0x9C6A7E41, 0x5BD63B29, 0, 0, 0, 0, 0x32DCC9CF, 0x5BD63B29, 0, 0, 0, 0, 0x5E8F9E77, 0x5BD63B29, 0, 0, 0, 0,
+    0x0C890A84, 0x5BD63B29, 0, 0, 0, 0, 0xBBF2B570, 0x5BD63B29, 0, 0, 0, 0, 0xDE583E34, 0x5BD63B29, 0, 0, 0, 0,
+    0x1996B797, 0x5BD63B29, 0, 0, 0, 0, 0x1F8BBD05, 0x5BD63B29, 0, 0, 0, 0, 0xEBBCF455, 0x5BD63B29, 0, 0, 0, 0,
+    0xBC19E291, 0x5BD63B29, 0, 0, 0, 0, 0x02F66333, 0x5BD63B29, 0, 0, 0, 0, 0x68BF6C13, 0x5BD63B29, 0, 0, 0, 0,
+    0xE8DEB0D7, 0x5BD63B29, 0, 0, 0, 0, 0x34DCFC97, 0x5BD63B29, 0, 0, 0, 0, 0x0257947E, 0x5BD63B29, 0, 0, 0, 0,
+    0x01BAA1D9, 0x5BD63B29, 0, 0, 0, 0, 0x9FCFDFEB, 0x5BD63B29, 0, 0, 0, 0, 0xFEFF11CC, 0x5BD63B29, 0, 0, 0, 0,
+    0xFE243FEF, 0x5BD63B29, 0, 0, 0, 0, 0xE168CFE0, 0x5BD63B29, 0, 0, 0, 0, 0x29FBA9DF, 0x5BD63B29, 0, 0, 0, 0,
+    0x17846595, 0x5BD63B29, 0, 0, 0, 0, 0x259CB90D, 0x5BD63B29, 0, 0, 0, 0, 0x1D1FD4F0, 0x5BD63B29, 0, 0, 0, 0,
+    0x383B939B, 0x5BD63B29, 0, 0, 0, 0, 0x54EF2B79, 0x5BD63B29, 0, 0, 0, 0, 0x0E2998B9, 0x5BD63B29, 0, 0, 0, 0,
+    0x6FC5AAE0, 0x5BD63B29, 0, 0, 0, 0, 0xBD4303F4, 0x5BD63B29, 0, 0, 0, 0, 0xA901A50C, 0x5BD63B29, 0, 0, 0, 0,
+    0xE0DF1F0A, 0x5BD63B29, 0, 0, 0, 0, 0x8C3D7864, 0x5BD63B29, 0, 0, 0, 0, 0x0E1D5168, 0x5BD63B29, 0, 0, 0, 0,
+    0x948EBF96, 0x5BD63B29, 0, 0, 0, 0, 0x947FCCF4, 0x5BD63B29, 0, 0, 0, 0, 0xACB82C02, 0x5BD63B29, 0, 0, 0, 0,
+    0x510F983B, 0x5BD63B29, 0, 0, 0, 0, 0x71B993B7, 0x5BD63B29, 0, 0, 0, 0, 0xBE371B7B, 0x5BD63B29, 0, 0, 0, 0,
+    0x55934543, 0x5BD63B29, 0, 0, 0, 0, 0xB424244D, 0x5BD63B29, 0, 0, 0, 0, 0x224CDDC9, 0x5BD63B29, 0, 0, 0, 0,
+    0x6C8A1316, 0x5BD63B29, 0, 0, 0, 0, 0x448E3630, 0x5BD63B29, 0, 0, 0, 0, 0xF37CE040, 0x5BD63B29, 0, 0, 0, 0,
+    0x133E1293, 0x5BD63B29, 0, 0, 0, 0, 0x0F922431, 0x5BD63B29, 0, 0, 0, 0, 0xDFB8F052, 0x5BD63B29, 0, 0, 0, 0,
+    0xC5B4B390, 0x5BD63B29, 0, 0, 0, 0, 0xB9EEBFF6, 0x5BD63B29, 0, 0, 0, 0, 0xEC681A59, 0x5BD63B29, 0, 0, 0, 0,
+    0x065A559A, 0x5BD63B29, 0, 0, 0, 0, 0x461E5B92, 0x5BD63B29, 0, 0, 0, 0, 0xA14A467F, 0x5BD63B29, 0, 0, 0, 0,
+    0x90F1D8D5, 0x5BD63B29, 0, 0, 0, 0, 0x5E8D9B80, 0x5BD63B29, 0, 0, 0, 0, 0xB94BC0C6, 0x5BD63B29, 0, 0, 0, 0,
+    0xE47FF4B5, 0x5BD63B29, 0, 0, 0, 0, 0x05144783, 0x5BD63B29, 0, 0, 0, 0, 0xF7E21884, 0x5BD63B29, 0, 0, 0, 0,
+    0x0BFF3271, 0x5BD63B29, 0, 0, 0, 0, 0x2A547E37, 0x5BD63B29, 0, 0, 0, 0, 0xAAE7E1D8, 0x5BD63B29, 0, 0, 0, 0,
+    0xA038260D, 0x5BD63B29, 0, 0, 0, 0, 0xD27F89E8, 0x5BD63B29, 0, 0, 0, 0, 0x25B393E7, 0x5BD63B29, 0, 0, 0, 0,
+    0xB6222B3A, 0x5BD63B29, 0, 0, 0, 0, 0x9D8BDE21, 0x5BD63B29, 0, 0, 0, 0, 0x83A46968, 0x5BD63B29, 0, 0, 0, 0,
+    0x6A0834C5, 0x5BD63B29, 0, 0, 0, 0, 0x675CF35E, 0x5BD63B29, 0, 0, 0, 0, 0xD3E1A093, 0x5BD63B29, 0, 0, 0, 0,
+    0x3BAAC2C5, 0x5BD63B29, 0, 0, 0, 0, 0xB195C726, 0x5BD63B29, 0, 0, 0, 0, 0xB649958F, 0x5BD63B29, 0, 0, 0, 0,
+    0x11B99941, 0x5BD63B29, 0, 0, 0, 0, 0xEFFC54DC, 0x5BD63B29, 0, 0, 0, 0, 0xE3822CCE, 0x5BD63B29, 0, 0, 0, 0,
+    0xD5BCAB93, 0x5BD63B29, 0, 0, 0, 0, 0x9AF4A4C2, 0x5BD63B29, 0, 0, 0, 0, 0x8A8EBE72, 0x5BD63B29, 0, 0, 0, 0,
+    0xC5623AEE, 0x5BD63B29, 0, 0, 0, 0, 0xD7ECF37C, 0x5BD63B29, 0, 0, 0, 0, 0x43A7516D, 0x5BD63B29, 0, 0, 0, 0,
+    0x5F48F4D1, 0x5BD63B29, 0, 0, 0, 0, 0x5F43DDF3, 0x5BD63B29, 0, 0, 0, 0, 0x68F6DB80, 0x5BD63B29, 0, 0, 0, 0,
+    0x1B4A5FF9, 0x5BD63B29, 0, 0, 0, 0, 0x007CDADB, 0x5BD63B29, 0, 0, 0, 0, 0x27C92E33, 0x5BD63B29, 0, 0, 0, 0,
+    0x8476CA5B, 0x5BD63B29, 0, 0, 0, 0, 0xF900547B, 0x5BD63B29, 0, 0, 0, 0, 0xFC9E2886, 0x5BD63B29, 0, 0, 0, 0,
+    0x3981FBF0, 0x5BD63B29, 0, 0, 0, 0, 0x821BF006, 0x5BD63B29, 0, 0, 0, 0, 0x2C30B07A, 0x5BD63B29, 0, 0, 0, 0,
+    0x1EB4121A, 0x5BD63B29, 0, 0, 0, 0, 0xA751E3D8, 0x5BD63B29, 0, 0, 0, 0, 0x03B9946F, 0x5BD63B29, 0, 0, 0, 0,
+    0xADCA7EE6, 0x5BD63B29, 0, 0, 0, 0, 0x0898E60F, 0x5BD63B29, 0, 0, 0, 0, 0xB17D17CD, 0x5BD63B29, 0, 0, 0, 0,
+    0xF22B4480, 0x5BD63B29, 0, 0, 0, 0, 0,          0x5BD63B29, 0, 0, 0, 0};
 
 using namespace physics;
 
 namespace {
 
-constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;    // SkaterCorePhysics (the component type)
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29; // SkaterCorePhysics (the component type)
 
 // Checksums.
 constexpr uint32_t kOn = 0xF649D637;                   // on
@@ -152,7 +79,7 @@ constexpr uint32_t kCarPlantUpwardBoost = 0xCB49B3F2;  // CarPlant_Upward_boost
 constexpr uint32_t kCarPlantForwardBoost = 0xB7422173; // CarPlant_Forward_boost
 constexpr uint32_t kSlide = 0x8D10119D;                // slide
 constexpr uint32_t kDefault = 0x1CA1FF20;              // Default
-constexpr uint32_t kCoastDrag = 0x78F80EC4;      // Physics_Rolling_Friction
+constexpr uint32_t kCoastDrag = 0x78F80EC4;            // Physics_Rolling_Friction
 constexpr uint32_t kBackside = 0x47953F00;             // backside
 constexpr uint32_t kFrontside = 0x996D5512;            // Frontside
 constexpr uint32_t kCancelLimits = 0xC6F342D9;         // (overridelimits' first flag; name not recovered)
@@ -181,7 +108,7 @@ constexpr uint32_t kFocusAllowed = 0xF6BE5E07;         // focus_allowed
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;  // SkaterFlipAndRotate (a component)
 
 // The component's fields used here.
-constexpr uint32_t kNearLedge = 0x249;                 // (BadLedge)
+constexpr uint32_t kNearLedge = 0x249; // (BadLedge)
 constexpr uint32_t kExtraPushRadius = 0x2C0;
 constexpr uint32_t kExtraPushSpeed = 0x2C4;
 constexpr uint32_t kExtraPushThirdValue = 0x2C8;
@@ -209,7 +136,7 @@ constexpr uint32_t kSpecialFrictionTime = 0x320;
 constexpr uint32_t kBraking = 0x324;
 constexpr uint32_t kLastGroundPos = 0x338;
 constexpr uint32_t kLastHeadingValue = 0x348;
-constexpr uint32_t kLimitsTime = 0x350;                // -1: until cancelled, -2: for the level
+constexpr uint32_t kLimitsTime = 0x350; // -1: until cancelled, -2: for the level
 constexpr uint32_t kLimitsMax = 0x354;
 constexpr uint32_t kLimitsMaxMax = 0x358;
 constexpr uint32_t kLimitsFriction = 0x35C;
@@ -228,7 +155,7 @@ constexpr uint32_t kGrindAdjust = 0x3A8;
 constexpr uint32_t kTantrum = 0x1508;
 constexpr uint32_t kTagging = 0x1509;
 constexpr uint32_t kThrowing = 0x14C8;
-constexpr uint32_t kSfxModuleSlot = 0x1514;           // (+0x1E: sliding)
+constexpr uint32_t kSfxModuleSlot = 0x1514; // (+0x1E: sliding)
 
 // The timed flags (offsets into the flags block).
 constexpr uint32_t kFlagCrouched = 0x20;
@@ -248,16 +175,16 @@ constexpr uint32_t kObjectRegularStance = 0x110;
 constexpr uint32_t kObjectProfile = 0x2BC;
 
 // The game's constants.
-constexpr float kMillisecondsPerSecond = 1000.0f;      // 0x006453C0
-constexpr float kMillisecondsPerFrame = 16.0f;         // 0x00645D68
-constexpr float kSecondsPerMillisecond = 0.001f;       // 0x006461D8
-constexpr float kFlipLeftMin = 10.0f;                  // 0x00646710
-constexpr float kSlowSquared = 100.0f;                 // 0x006463D4
-constexpr float kStillSquared = 0.0001f;               // 0x006453D4
-constexpr float kWallNormalY = 0.1f;                   // 0x00645D74
-constexpr float kVertFeelerRaise = 50.0f;              // 0x006463CC
-constexpr float kFacingDistance = 200.0f;              // (IsFacingWall's default)
-constexpr uint32_t kLimitsTimeDefault = 0x551184E7;    // (float bits: about 1e13)
+constexpr float kMillisecondsPerSecond = 1000.0f;       // 0x006453C0
+constexpr float kMillisecondsPerFrame = 16.0f;          // 0x00645D68
+constexpr float kSecondsPerMillisecond = 0.001f;        // 0x006461D8
+constexpr float kFlipLeftMin = 10.0f;                   // 0x00646710
+constexpr float kSlowSquared = 100.0f;                  // 0x006463D4
+constexpr float kStillSquared = 0.0001f;                // 0x006453D4
+constexpr float kWallNormalY = 0.1f;                    // 0x00645D74
+constexpr float kVertFeelerRaise = 50.0f;               // 0x006463CC
+constexpr float kFacingDistance = 200.0f;               // (IsFacingWall's default)
+constexpr uint32_t kLimitsTimeDefault = 0x551184E7;     // (float bits: about 1e13)
 constexpr uint32_t kLimitsFrictionDefault = 0x360637BD; // (float bits: about 2e-6)
 
 uint8_t& get_byte(void* component, uint32_t offset) { return get_at<uint8_t>(component, offset); }
@@ -325,8 +252,7 @@ bool hit_wall(const render::ProbeRay& feeler)
 // 0x004FBE80
 void __cdecl SkaterPhysicsModule::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kSkaterCorePhysics),
-                                        g_core_member_functions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kSkaterCorePhysics), g_core_member_functions, 0x18);
 }
 
 // 0x004FBEA0
@@ -380,7 +306,10 @@ int SkaterPhysicsModule::force_auto_kick_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FBFA0
-int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*) { return get_byte(this, kAutoKick) ? 0 : 1; }
+int SkaterPhysicsModule::auto_kick_is_off(script::Struct*, script::Script*)
+{
+    return get_byte(this, kAutoKick) ? 0 : 1;
+}
 // 0x004FBFB0
 int SkaterPhysicsModule::skater_vehicle_on(script::Struct*, script::Script*)
 {
@@ -394,7 +323,10 @@ int SkaterPhysicsModule::skater_vehicle_off(script::Struct*, script::Script*)
     return 1;
 }
 // 0x004FBFD0
-int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*) { return get_is(get_byte(this, kOnVehicle)); }
+int SkaterPhysicsModule::is_skater_on_vehicle(script::Struct*, script::Script*)
+{
+    return get_is(get_byte(this, kOnVehicle));
+}
 // 0x004FC000
 int SkaterPhysicsModule::can_spin(script::Struct*, script::Script*)
 {
@@ -423,7 +355,10 @@ int SkaterPhysicsModule::came_down_off_spine(script::Struct*, script::Script*)
     return get_is(get_byte(this, kCameDownSpine));
 }
 // 0x004FC0A0
-int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*) { return get_is(get_byte(this, kLandedFromVert)); }
+int SkaterPhysicsModule::landed_from_vert(script::Struct*, script::Script*)
+{
+    return get_is(get_byte(this, kLandedFromVert));
+}
 // 0x004FC0B0
 int SkaterPhysicsModule::set_landed_from_vert(script::Struct*, script::Script*)
 {
@@ -530,7 +465,10 @@ int SkaterPhysicsModule::is_on_motoskateboard(script::Struct*, script::Script*)
     return get_is(get_byte(this, kMotoskateboard));
 }
 // 0x004FC280
-int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*) { return get_is(get_byte(this, kModelRotating)); }
+int SkaterPhysicsModule::skater_is_flipping(script::Struct*, script::Script*)
+{
+    return get_is(get_byte(this, kModelRotating));
+}
 // 0x004FC290
 int SkaterPhysicsModule::reset_is_flipping(script::Struct*, script::Script*)
 {
@@ -550,7 +488,10 @@ int SkaterPhysicsModule::unset_throwing_projectile(script::Struct*, script::Scri
     return 1;
 }
 // 0x004FC2C0
-int SkaterPhysicsModule::is_throwing_projectile(script::Struct*, script::Script*) { return get_is(get_byte(this, kThrowing)); }
+int SkaterPhysicsModule::is_throwing_projectile(script::Struct*, script::Script*)
+{
+    return get_is(get_byte(this, kThrowing));
+}
 // 0x004FC2D0
 int SkaterPhysicsModule::end_manual_turnaround(script::Struct*, script::Script*)
 {
@@ -601,7 +542,10 @@ int SkaterPhysicsModule::get_switched(script::Struct*, script::Script*)
     return flipped ? 0 : 1;
 }
 // 0x004FC7E0
-int SkaterPhysicsModule::get_crouched(script::Struct*, script::Script*) { return get_is(flags_of(this)[kFlagCrouched]); }
+int SkaterPhysicsModule::get_crouched(script::Struct*, script::Script*)
+{
+    return get_is(flags_of(this)[kFlagCrouched]);
+}
 // 0x004FC800
 int SkaterPhysicsModule::first_time_on_this_rail(script::Struct*, script::Script*)
 {
@@ -740,7 +684,8 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     if (upward < 0.0f)
         upward = 0.0f;
     velocity.y = upward;
-    velocity.y = static_cast<float>(static_cast<double>(tuning_float_lookup(kCarPlantUpwardBoost, object)) + velocity.y);
+    velocity.y =
+        static_cast<float>(static_cast<double>(tuning_float_lookup(kCarPlantUpwardBoost, object)) + velocity.y);
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
     maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
@@ -750,8 +695,8 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
         if (flat < kStillSquared)
             direction = maths::Vec4(1.0f, 0.0f, 1.0f, 1.0f);
     }
-    double length = std::sqrt(static_cast<double>(direction.z) * direction.z +
-                              static_cast<double>(direction.x) * direction.x);
+    double length =
+        std::sqrt(static_cast<double>(direction.z) * direction.z + static_cast<double>(direction.x) * direction.x);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         direction.x = static_cast<float>(direction.x * inverse);
@@ -979,7 +924,8 @@ int SkaterPhysicsModule::is_facing_vert(script::Struct* params, script::Script*)
 int SkaterPhysicsModule::focus_off(script::Struct*, script::Script*)
 {
     get_byte(this, kFocus) = 0;
-    auto* camera = static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(object_of(this))->get_skater_camera());
+    auto* camera =
+        static_cast<objects::GameEntity*>(static_cast<objects::Rider*>(object_of(this))->get_skater_camera());
     static_cast<objects::FreeLookModule*>(camera->fetch_module(kCameraLookAround))->set_locked(false);
     return 1;
 }
@@ -1011,6 +957,6 @@ int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script:
     return 1;
 }
 
-} // namespace Skater
+} // namespace skater
 
 using skater::SkaterPhysicsModule;

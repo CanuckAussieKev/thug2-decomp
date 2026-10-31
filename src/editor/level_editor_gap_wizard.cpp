@@ -27,10 +27,14 @@ namespace frontend::level_editor::gap_wizard {
 const char* spot_name(SpotKind kind)
 {
     switch (kind) {
-    case SpotKind::kLip: return "a lip";
-    case SpotKind::kWall: return "a wall";
-    case SpotKind::kRail: return "a rail";
-    default: return "an area";
+    case SpotKind::kLip:
+        return "a lip";
+    case SpotKind::kWall:
+        return "a wall";
+    case SpotKind::kRail:
+        return "a rail";
+    default:
+        return "an area";
     }
 }
 
@@ -47,22 +51,32 @@ SpotKind kind_of_face(float normal_y, uint16_t face_flags)
 const char* current_type_name(KindTag type)
 {
     switch (type) {
-    case KindTag::kGrind: return "Grind";
-    case KindTag::kLip: return "Lip";
-    case KindTag::kManual: return "Manual";
-    case KindTag::kWallride: return "Wallride";
-    default: return "Air";
+    case KindTag::kGrind:
+        return "Grind";
+    case KindTag::kLip:
+        return "Lip";
+    case KindTag::kManual:
+        return "Manual";
+    case KindTag::kWallride:
+        return "Wallride";
+    default:
+        return "Air";
     }
 }
 
 std::vector<std::string> flags_for(KindTag type)
 {
     switch (type) {
-    case KindTag::kGrind: return {"REQUIRE_RAIL", "CANCEL_GROUND"};
-    case KindTag::kLip: return {"REQUIRE_LIP"};
-    case KindTag::kManual: return {"PURE_MANUAL"};
-    case KindTag::kWallride: return {"REQUIRE_WALLRIDE", "CANCEL_GROUND"};
-    default: return {"CANCEL_GROUND"};
+    case KindTag::kGrind:
+        return {"REQUIRE_RAIL", "CANCEL_GROUND"};
+    case KindTag::kLip:
+        return {"REQUIRE_LIP"};
+    case KindTag::kManual:
+        return {"PURE_MANUAL"};
+    case KindTag::kWallride:
+        return {"REQUIRE_WALLRIDE", "CANCEL_GROUND"};
+    default:
+        return {"CANCEL_GROUND"};
     }
 }
 
@@ -178,7 +192,8 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
     bool found = false;
     for (int i = 0; i < rails->num_; ++i) {
         const objects::GrindPoint& node = rails->nodes_[i];
-        if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) || !(node.flag_bits_ & objects::kRailFlagActive))
+        if (!node.succ_ || (node.flag_bits_ & objects::kRailFlagClimbing) ||
+            !(node.flag_bits_ & objects::kRailFlagActive))
             continue;
         V3 a = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
         V3 b = {node.succ_->at_point_.x, node.succ_->at_point_.y, node.succ_->at_point_.z};
@@ -227,7 +242,8 @@ void draw_gate(const overlays::Painter& painter, const Gate& gate, uint32_t argb
     OrientedBox box = triggers::box_of(gate.pos, gate.yaw, gate.size);
     V3 c[8];
     box_corners(box.origin, box.axes, box.min, box.max, c);
-    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3}, {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
+    const int edges[12][2] = {{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
+                              {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}};
     for (const auto& e : edges)
         painter.get_seg(c[e[0]], c[e[1]], argb, 2.0f);
 }
@@ -243,7 +259,7 @@ void get_make()
     start.spec.score = clamp_score(g_score);
     start.spec.flags = flags_for(static_cast<KindTag>(g_type));
     get_log("level editor: gap wizard - \"%s\" (%d, %s) from %s to %s", g_name, start.spec.score,
-        current_type_name(static_cast<KindTag>(g_type)), spot_name(g_spots[0].kind), spot_name(g_spots[1].kind));
+            current_type_name(static_cast<KindTag>(g_type)), spot_name(g_spots[0].kind), spot_name(g_spots[1].kind));
     triggers::get_queue([start, end] { triggers::add_gap_pair(start, end); });
 }
 
@@ -342,7 +358,8 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
                             ImVec2(0.5f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(320.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
-    if (!ImGui::Begin("Gap Wizard###gapWizard", &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
+    if (!ImGui::Begin("Gap Wizard###gapWizard", &open,
+                      ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
             g_queue.push_back([] { set_armed(false); });
@@ -386,4 +403,4 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         g_queue.push_back([] { set_armed(false); });
 }
 
-} // namespace MenuSystem::level_editor::gap_wizard
+} // namespace frontend::level_editor::gap_wizard

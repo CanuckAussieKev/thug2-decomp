@@ -8,10 +8,10 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace tasks {
 class SchedulerTask;
-} // namespace Tsk
+} // namespace tasks
 
 // The content vault and HTTP file transfers: online::Hub's +0x14, on GameSpy's HTTP SDK (ghttp: library code,
 // not decompiled - called by address). Created parks, goals, skaters and tricks are uploaded to and listed / fetched
@@ -30,22 +30,22 @@ constexpr uint32_t kVaultGoals = 0x38DBE1D0;   // "goals"
 
 // An item of a category (0x214 bytes): lists::Elem<VaultItem> (vtable 0x0064D414; its node destructor 0x0054B2D0).
 struct VaultItem {
-    memory::ListNode list_link_;    // +0x000 data = this
-    char url_[0x80];        // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
-    char label_[0x18];       // +0x094
-    char creator_[0x10];    // +0x0AC
-    char extent_[0x10];       // +0x0BC (parks)
-    char unknowncc_[0x21];  // +0x0CC the field before the description
-    char summary_text_[0x103]; // +0x0ED the rest of the line
-    int points_held_;             // +0x1F0 (tricks)
-    int span_;             // +0x1F4 (never read from the list)
-    int level_y_;            // +0x1F8 (never read from the list)
-    int num_pieces_;         // +0x1FC (parks)
-    int num_gaps_;           // +0x200 (parks)
-    int num_goals_;          // +0x204 (parks, goals)
-    int style_set_;             // +0x208 (parks)
-    uint32_t tod_script_;    // +0x20C (parks)
-    int has_male_body_;            // +0x210 (skaters)
+    memory::ListNode list_link_; // +0x000 data = this
+    char url_[0x80];             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
+    char label_[0x18];           // +0x094
+    char creator_[0x10];         // +0x0AC
+    char extent_[0x10];          // +0x0BC (parks)
+    char unknowncc_[0x21];       // +0x0CC the field before the description
+    char summary_text_[0x103];   // +0x0ED the rest of the line
+    int points_held_;            // +0x1F0 (tricks)
+    int span_;                   // +0x1F4 (never read from the list)
+    int level_y_;                // +0x1F8 (never read from the list)
+    int num_pieces_;             // +0x1FC (parks)
+    int num_gaps_;               // +0x200 (parks)
+    int num_goals_;              // +0x204 (parks, goals)
+    int style_set_;              // +0x208 (parks)
+    uint32_t tod_script_;        // +0x20C (parks)
+    int has_male_body_;          // +0x210 (skaters)
 
     // 0x0054B570: unlinked, every string and number empty. Returns this.
     VaultItem* make_new();
@@ -59,10 +59,10 @@ static_assert(sizeof(VaultItem) == 0x214 && offsetof(VaultItem, label_) == 0x94 
 
 // A category of the vault (0x44 bytes): lists::Elem<VaultCategory> (vtable 0x0064D41C) with its items.
 struct VaultCategory {
-    memory::ListNode list_link_;    // +0x00 data = this
-    bool skip_;             // +0x14 not chosen when moving through the categories at the start ("Uploads")
-    char label_[0x1B];       // +0x15
-    memory::ListNode items_;   // +0x30 lists::Foremost<VaultItem> (vtable 0x0064D414)
+    memory::ListNode list_link_; // +0x00 data = this
+    bool skip_;                  // +0x14 not chosen when moving through the categories at the start ("Uploads")
+    char label_[0x1B];           // +0x15
+    memory::ListNode items_;     // +0x30 lists::Foremost<VaultItem> (vtable 0x0064D414)
 
     // 0x0054B670: unlinked, no items, not skipped. Returns this.
     VaultCategory* make_new();
@@ -109,8 +109,8 @@ struct VaultSearch {
 // A file to download (Download: the top stats and DownloadFile build it on the stack).
 struct DownloadRequest {
     uint32_t buffer_size_;     // +0x000
-    char url[256];           // +0x004
-    const void* callback;    // +0x104 ghttp's completed callback (param: the VaultMan)
+    char url[256];             // +0x004
+    const void* callback;      // +0x104 ghttp's completed callback (param: the VaultMan)
     uint32_t fail_script_;     // +0x108
     uint32_t done_script_;     // +0x10C
     uint32_t progress_script_; // +0x110
@@ -123,12 +123,12 @@ public:
     // What transfer_ is doing.
     enum Transfer : int {
         kNone = 0,
-        kCategories = 1,  // the directory list (dir_list.txt of the folder)
-        kItems = 2,       // a category's items
-        kDownload = 3,    // a file (Download)
+        kCategories = 1, // the directory list (dir_list.txt of the folder)
+        kItems = 2,      // a category's items
+        kDownload = 3,   // a file (Download)
         kUpload = 4,
-        kUploads = 5,     // the uploads list (uploads.txt; profile 0x011B0C16 only)
-        kDownload6 = 6,   // (treated as a download; never set in this range)
+        kUploads = 5,   // the uploads list (uploads.txt; profile 0x011B0C16 only)
+        kDownload6 = 6, // (treated as a download; never set in this range)
     };
 
     // 0x0054C1D0: no categories, the task (vault_task, not in a list), the semaphore (1 of 10). Returns this.
@@ -166,47 +166,48 @@ public:
     // ghttp's callbacks (cdecl; param: this).
     // 0x0054A660: the progress (percent of a known total size) and the time of the last news.
     static void __cdecl on_progress(void* request, int state, const char* buffer, int64_t buffer_length,
-                                   int64_t received, int64_t total, VaultMan* vault);
+                                    int64_t received, int64_t total, VaultMan* vault);
     // 0x0054A740: a list or upload finished: 100%, the result 1 (ok) or 2 (failed). Returns 1.
-    static int __cdecl on_transfer_done(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
+    static int __cdecl on_transfer_done(void* request, int result, char* buffer, int64_t buffer_length,
+                                        VaultMan* vault);
     // 0x0054A6B0 (DownloadFile's): a file downloaded: loaded by type (0x005A8EB0 with the type's script), or the
     // failure kept. Returns 1.
     static int __cdecl on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length,
-                                        VaultMan* vault);
+                                          VaultMan* vault);
 
-    tasks::SchedulerTask* task_;     // +0x000 tasks::Task<VaultMan> (vault_task)
-    int transfer_;            // +0x004 Transfer
-    int progress_;            // +0x008 percent; 100 = finished
-    int outcome_val_;              // +0x00C 0 running, 1 done, 2 failed
-    int fault_;               // +0x010 ghttp's result (on_file_downloaded)
-    uint32_t buffer_size_;     // +0x014
-    char* octets_;            // +0x018 what came (or the upload's data)
-    uint32_t start_time_;      // +0x01C the time of the start or of the last progress
-    char url_[0x80];          // +0x020
-    char source_path_[0x80];     // +0x0A0 the upload's
-    char summary_text_[0x200]; // +0x120 the upload's
-    void* semaphore_;         // +0x320 (HANDLE) held while a thread sets its request up
-    int req_;             // +0x324 GHTTPRequest
-    script::Struct* content_;   // +0x328 the upload's item (its `data` structure)
-    int points_held_;               // +0x32C the upload's details (UploadFile)
-    int span_;               // +0x330
+    tasks::SchedulerTask* task_;  // +0x000 tasks::Task<VaultMan> (vault_task)
+    int transfer_;                // +0x004 Transfer
+    int progress_;                // +0x008 percent; 100 = finished
+    int outcome_val_;             // +0x00C 0 running, 1 done, 2 failed
+    int fault_;                   // +0x010 ghttp's result (on_file_downloaded)
+    uint32_t buffer_size_;        // +0x014
+    char* octets_;                // +0x018 what came (or the upload's data)
+    uint32_t start_time_;         // +0x01C the time of the start or of the last progress
+    char url_[0x80];              // +0x020
+    char source_path_[0x80];      // +0x0A0 the upload's
+    char summary_text_[0x200];    // +0x120 the upload's
+    void* semaphore_;             // +0x320 (HANDLE) held while a thread sets its request up
+    int req_;                     // +0x324 GHTTPRequest
+    script::Struct* content_;     // +0x328 the upload's item (its `data` structure)
+    int points_held_;             // +0x32C the upload's details (UploadFile)
+    int span_;                    // +0x330
     int byte_count_;              // +0x334 (posted as "height")
-    int num_pieces_;           // +0x338
-    int num_gaps_;             // +0x33C
-    int num_goals_;            // +0x340
+    int num_pieces_;              // +0x338
+    int num_gaps_;                // +0x33C
+    int num_goals_;               // +0x340
     int style_set_;               // +0x344
-    uint32_t tod_script_;      // +0x348
-    int has_male_body_;              // +0x34C
+    uint32_t tod_script_;         // +0x348
+    int has_male_body_;           // +0x34C
     memory::ListNode categories_; // +0x350 lists::Foremost<VaultCategory> (vtable 0x0064D418)
-    VaultSearch search_;      // +0x364 the current category's place in the list
-    VaultCategory* category_; // +0x36C
+    VaultSearch search_;          // +0x364 the current category's place in the list
+    VaultCategory* category_;     // +0x36C
     uint32_t kind_tag_;           // +0x370 kVaultParks...
-    char folder_[0x40];       // +0x374
-    uint32_t fail_script_;     // +0x3B4
-    uint32_t done_script_;     // +0x3B8
-    uint32_t progress_script_; // +0x3BC
-    uint32_t error_script_;    // +0x3C0
-    const void* callback_;    // +0x3C4 Download's completed callback
+    char folder_[0x40];           // +0x374
+    uint32_t fail_script_;        // +0x3B4
+    uint32_t done_script_;        // +0x3B8
+    uint32_t progress_script_;    // +0x3BC
+    uint32_t error_script_;       // +0x3C0
+    const void* callback_;        // +0x3C4 Download's completed callback
 };
 static_assert(offsetof(VaultMan, url_) == 0x20 && offsetof(VaultMan, semaphore_) == 0x320 &&
                   offsetof(VaultMan, content_) == 0x328 && offsetof(VaultMan, categories_) == 0x350 &&
@@ -215,8 +216,8 @@ static_assert(offsetof(VaultMan, url_) == 0x20 && offsetof(VaultMan, semaphore_)
               "layout must match the original");
 
 // The script commands.
-bool __cdecl download_file(script::Struct* params, script::Script* script);          // 0x0054AA10
-bool __cdecl upload_file(script::Struct* params, script::Script* script);            // 0x0054B060
+bool __cdecl download_file(script::Struct* params, script::Script* script);           // 0x0054AA10
+bool __cdecl upload_file(script::Struct* params, script::Script* script);             // 0x0054B060
 bool __cdecl cancel_file_transfer(script::Struct* params, script::Script* script);    // 0x0054B240
 bool __cdecl download_directory_list(script::Struct* params, script::Script* script); // 0x0054C290
 bool __cdecl free_directory_listing(script::Struct* params, script::Script* script);  // 0x0054C460

@@ -32,7 +32,10 @@ constexpr int kGrowBy = 100;           // indices
 uint32_t* node_names() { return g_node_names; } // (room for 1000)
 
 // The PrefixNodes stored under `prefix` (lists::KeyMap's lookup, inlined in the original).
-PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix) { return static_cast<PrefixNodes*>(table->fetch_entry(prefix)); }
+PrefixNodes* get_find(lists::KeyMap* table, uint32_t prefix)
+{
+    return static_cast<PrefixNodes*>(table->fetch_entry(prefix));
+}
 
 } // namespace
 
@@ -234,7 +237,10 @@ void add_node_array_prefixes(uint32_t name)
 void remove_node_array_prefixes(uint32_t name) { node_prefixes()->remove_node_array(name); }
 
 // 0x0045BF90
-uint32_t* collect_nodes_by_prefix(uint32_t prefix, uint16_t* count) { return node_prefixes()->get_nodes(prefix, count); }
+uint32_t* collect_nodes_by_prefix(uint32_t prefix, uint16_t* count)
+{
+    return node_prefixes()->get_nodes(prefix, count);
+}
 
 // 0x0045BFB0
 uint32_t* collect_nodes_by_prefix(const char* prefix, uint16_t* count)

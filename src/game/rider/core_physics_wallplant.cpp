@@ -30,30 +30,30 @@ using namespace physics;
 
 namespace {
 
-constexpr uint32_t kCanWallplant = 0x5310E7B5;         // canwallplant (a tag: a vehicle that may)
-constexpr uint32_t kDisallowRewallplant = 0x82135DD7;  // Physics_Disallow_Rewallplant_Duration (ms)
-constexpr uint32_t kWallplantDelay = 0x545840C4;       // Physics_Wallplant_Delay (seconds)
-constexpr uint32_t kMinWallplantHeight = 0xD5349CC6;   // Physics_Min_Wallplant_Height
-constexpr uint32_t kWallplantTrick = 0x5D1F84A7;       // Wallplant_Trick (the trick names that plant)
-constexpr uint32_t kLateWallplantFrames = 0x3B389187;  // Physics_late_wallplant_frames
-constexpr uint32_t kForwardHeight = 0xD4205C9B;        // Skater_First_Forward_Collision_Height
-constexpr uint32_t kForwardLength = 0x20102726;        // Skater_First_Forward_Collision_Length
-constexpr uint32_t kMinApproachAngle = 0x8F79CC1C;     // Physics_Wallplant_Min_Approach_Angle (degrees)
-constexpr uint32_t kSpeedLoss = 0x09B2D4A3;            // Physics_Wallplant_Speed_Loss
-constexpr uint32_t kMinExitSpeed = 0x7CEE396C;         // Physics_Wallplant_Min_Exit_Speed
+constexpr uint32_t kCanWallplant = 0x5310E7B5;          // canwallplant (a tag: a vehicle that may)
+constexpr uint32_t kDisallowRewallplant = 0x82135DD7;   // Physics_Disallow_Rewallplant_Duration (ms)
+constexpr uint32_t kWallplantDelay = 0x545840C4;        // Physics_Wallplant_Delay (seconds)
+constexpr uint32_t kMinWallplantHeight = 0xD5349CC6;    // Physics_Min_Wallplant_Height
+constexpr uint32_t kWallplantTrick = 0x5D1F84A7;        // Wallplant_Trick (the trick names that plant)
+constexpr uint32_t kLateWallplantFrames = 0x3B389187;   // Physics_late_wallplant_frames
+constexpr uint32_t kForwardHeight = 0xD4205C9B;         // Skater_First_Forward_Collision_Height
+constexpr uint32_t kForwardLength = 0x20102726;         // Skater_First_Forward_Collision_Length
+constexpr uint32_t kMinApproachAngle = 0x8F79CC1C;      // Physics_Wallplant_Min_Approach_Angle (degrees)
+constexpr uint32_t kSpeedLoss = 0x09B2D4A3;             // Physics_Wallplant_Speed_Loss
+constexpr uint32_t kMinExitSpeed = 0x7CEE396C;          // Physics_Wallplant_Min_Exit_Speed
 constexpr uint32_t kWalkingWallplantSpeed = 0x5F768D84; // Physics_Walking_Wallplant_Speed
-constexpr uint32_t kVerticalExitSpeed = 0x074957FA;    // Physics_Wallplant_Vertical_Exit_Speed
-constexpr uint32_t kDistanceFromWall = 0x024BE8F0;     // Physics_Wallplant_Distance_From_Wall
-constexpr uint32_t kWallplant = 0xCF74F6B7;            // Wallplant (an event)
-constexpr uint32_t kTriangle = 0x20689278;             // triangle (a button)
-constexpr uint32_t kWallRideWindow = 0x5D241B00;       // Wall_Ride_Triangle_Window (seconds)
-constexpr uint32_t kWallRideDelay = 0xF0C74EC2;        // Wall_Ride_Delay (seconds)
-constexpr uint32_t kWallRideMinSpeed = 0xF0636A67;     // Wall_Ride_Min_Speed
-constexpr uint32_t kUpsideDownAngle = 0xAE23E850;      // Wall_Ride_Upside_Down_Angle (degrees)
-constexpr uint32_t kMaxIncidentAngle = 0x6AC9F64D;     // Wall_Ride_Max_Incident_Angle (degrees)
-constexpr uint32_t kMaxTilt = 0xBFCBB7E8;              // Wall_Ride_Max_Tilt (degrees)
-constexpr uint32_t kWallRideRight = 0x51372712;        // WallRideRight (an event)
-constexpr uint32_t kWallRideLeft = 0x5DE19C83;         // WallRideLeft (an event)
+constexpr uint32_t kVerticalExitSpeed = 0x074957FA;     // Physics_Wallplant_Vertical_Exit_Speed
+constexpr uint32_t kDistanceFromWall = 0x024BE8F0;      // Physics_Wallplant_Distance_From_Wall
+constexpr uint32_t kWallplant = 0xCF74F6B7;             // Wallplant (an event)
+constexpr uint32_t kTriangle = 0x20689278;              // triangle (a button)
+constexpr uint32_t kWallRideWindow = 0x5D241B00;        // Wall_Ride_Triangle_Window (seconds)
+constexpr uint32_t kWallRideDelay = 0xF0C74EC2;         // Wall_Ride_Delay (seconds)
+constexpr uint32_t kWallRideMinSpeed = 0xF0636A67;      // Wall_Ride_Min_Speed
+constexpr uint32_t kUpsideDownAngle = 0xAE23E850;       // Wall_Ride_Upside_Down_Angle (degrees)
+constexpr uint32_t kMaxIncidentAngle = 0x6AC9F64D;      // Wall_Ride_Max_Incident_Angle (degrees)
+constexpr uint32_t kMaxTilt = 0xBFCBB7E8;               // Wall_Ride_Max_Tilt (degrees)
+constexpr uint32_t kWallRideRight = 0x51372712;         // WallRideRight (an event)
+constexpr uint32_t kWallRideLeft = 0x5DE19C83;          // WallRideLeft (an event)
 
 constexpr uint32_t kDriving = 0x2ED;
 constexpr uint32_t kModelRotating = 0x2DB;
@@ -61,25 +61,25 @@ constexpr uint32_t kHitObjectChecksum = 0x100;
 constexpr uint32_t kWallplantTime = 0x4E0;
 constexpr uint32_t kWallRideStartTime = 0x39C;
 constexpr uint32_t kWallplantEndTime = 0x3A0;
-constexpr uint32_t kWallDirection = 0x38C;   // the wall ridden (its normal)
-constexpr uint32_t kLateFrames = 0x14CC;     // frames left for a late wall plant
-constexpr uint32_t kSavedVelocity = 0x14D0;  // (when the plant was missed)
+constexpr uint32_t kWallDirection = 0x38C;  // the wall ridden (its normal)
+constexpr uint32_t kLateFrames = 0x14CC;    // frames left for a late wall plant
+constexpr uint32_t kSavedVelocity = 0x14D0; // (when the plant was missed)
 constexpr uint32_t kSavedPosition = 0x14E0;
 constexpr uint32_t kSavedWallNormal = 0x14F0;
-constexpr uint32_t kTakeOffHeight = 0x11C;   // (in the flags block)
+constexpr uint32_t kTakeOffHeight = 0x11C; // (in the flags block)
 
-constexpr float kMinUp = 0.1f;               // 0x00645D74
-constexpr float kToMilliseconds = 1000.0f;   // 0x006453C0
-constexpr float kUnsignedOffset = 4294967296.0f; // 0x006453B4
-constexpr float kMaxTilt01 = 0.1f;           // 0x00645D74
-constexpr float kBackOff = 24.0f;            // 0x00645EE8
-constexpr float kMinSpeed = 0.01f;           // 0x0064544C
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
-constexpr float kRiseScale = 0.15f;          // 0x0064BD4C
-constexpr float kProbe = 6.0f;               // (0x40C00000)
-constexpr float kWalkReach = 36.0f;          // (0x42100000)
-constexpr float kMinFlatSpeed = 0.0001f;     // 0x006453D4
-constexpr float kFromWall = 0.1f;            // (0x3DCCCCCD)
+constexpr float kMinUp = 0.1f;                             // 0x00645D74
+constexpr float kToMilliseconds = 1000.0f;                 // 0x006453C0
+constexpr float kUnsignedOffset = 4294967296.0f;           // 0x006453B4
+constexpr float kMaxTilt01 = 0.1f;                         // 0x00645D74
+constexpr float kBackOff = 24.0f;                          // 0x00645EE8
+constexpr float kMinSpeed = 0.01f;                         // 0x0064544C
+constexpr float kRadiansPerDegree = 0.0174532924f;         // 0x00645464
+constexpr float kRiseScale = 0.15f;                        // 0x0064BD4C
+constexpr float kProbe = 6.0f;                             // (0x40C00000)
+constexpr float kWalkReach = 36.0f;                        // (0x42100000)
+constexpr float kMinFlatSpeed = 0.0001f;                   // 0x006453D4
+constexpr float kFromWall = 0.1f;                          // (0x3DCCCCCD)
 const char* const kLateWallplantText = "late wallplant\n"; // "late wallplant\n"
 
 objects::GameEntity* skater_object(void* component) { return static_cast<objects::GameEntity*>(object_of(component)); }
@@ -90,7 +90,10 @@ void check_triggers(void* component, const int* kind, uint32_t feeler)
         ->probe_touches_zone(kind, &get_at<render::ProbeRay>(component, feeler));
 }
 
-bool trigger_took_over(void* component) { return get_at<uint8_t>(get_at<void*>(component, kStateModuleSlot), 0x26) != 0; }
+bool trigger_took_over(void* component)
+{
+    return get_at<uint8_t>(get_at<void*>(component, kStateModuleSlot), 0x26) != 0;
+}
 
 // The trick button `button` pressed now, or within Wall_Ride_Triangle_Window (0x0051ECF0 / 0x0051F6B0 on the
 // skater component).
@@ -100,7 +103,8 @@ bool button_pressed(void* component, uint32_t button)
     if (skater->is_key_held(button))
         return true;
     uint32_t window = ftol(static_cast<double>(script::fetch_float(kWallRideWindow)) * kToMilliseconds);
-    return static_cast<objects::MoveExecutor*>(get_at<void*>(component, kSkaterComponent))->find_press(button, window, 0xFFFFFFFFu);
+    return static_cast<objects::MoveExecutor*>(get_at<void*>(component, kSkaterComponent))
+        ->find_press(button, window, 0xFFFFFFFFu);
 }
 
 // Moving up the wall: whether there's wall 6 either side of the hit point raised by 0.15 of the upward speed (along
@@ -150,8 +154,8 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         if (script::fetch_float(kMinWallplantHeight) > get_at<float>(flags_of(this), kTakeOffHeight))
             return false;
         // Not a steep enough wall: only for a late plant (unless just checking, or it's vert).
-        if (!check_only && !(get_at<uint16_t>(this, kHitFlags) & 8) && std::fabs(vector_at(this, kHitNormal).y) > kMaxTilt01 &&
-            !late)
+        if (!check_only && !(get_at<uint16_t>(this, kHitFlags) & 8) &&
+            std::fabs(vector_at(this, kHitNormal).y) > kMaxTilt01 && !late)
             return false;
         // A wall plant trick pressed? (Not original: THAW 0x005DB1ED - on the bike square held plants without asking
         // the list, and the list is the bike's, bike_Wallplant_Trick.)
@@ -268,8 +272,9 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     // the vertical exit speed.
     void* object = object_of(this);
     maths::Vec4& velocity = vector_at(object, kVelocity);
-    float into = static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
-                                    static_cast<double>(wall.x) * velocity.x);
+    float into =
+        static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
+                           static_cast<double>(wall.x) * velocity.x);
     maths::Vec4 bounce = into * wall;
     if (!walking) {
         velocity -= 2.0f * bounce;
@@ -362,9 +367,9 @@ bool SkaterPhysicsModule::start_wall_ride()
     float speed = static_cast<float>(length_unrounded(along));
     if (script::fetch_float(kWallRideMinSpeed) > speed)
         return false;
-    float facing = static_cast<float>(static_cast<double>(heading.x) * flat_wall.x +
-                                      static_cast<double>(heading.z) * flat_wall.z +
-                                      static_cast<double>(heading.y) * flat_wall.y);
+    float facing =
+        static_cast<float>(static_cast<double>(heading.x) * flat_wall.x + static_cast<double>(heading.z) * flat_wall.z +
+                           static_cast<double>(heading.y) * flat_wall.y);
     if (!(-x87_sin(static_cast<double>(script::fetch_float(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))
         return false;
     float head_on = std::fabs(facing);
@@ -411,4 +416,4 @@ bool SkaterPhysicsModule::start_wall_ride()
     return true;
 }
 
-} // namespace Skater
+} // namespace skater

@@ -17,18 +17,18 @@ struct Conn;
 
 // What a handler returns.
 enum HandlerResult : int {
-    kResultFailed = 0,         // stop: the rest of the packet is dropped
-    kResultPassOn = 1,      // on to the next handler
-    kResultStop = 2,          // stop: the rest of the packet is dropped
-    kResultMsgFreed = 3,  // stop: the connection is gone (nothing of it may be touched)
-    kResultConsumed = 4,       // no more handlers for this message; the packet goes on
-    kHandlerKeep = 5,          // no more handlers; a streamed message's buffers are kept
+    kResultFailed = 0,   // stop: the rest of the packet is dropped
+    kResultPassOn = 1,   // on to the next handler
+    kResultStop = 2,     // stop: the rest of the packet is dropped
+    kResultMsgFreed = 3, // stop: the connection is gone (nothing of it may be touched)
+    kResultConsumed = 4, // no more handlers for this message; the packet goes on
+    kHandlerKeep = 5,    // no more handlers; a streamed message's buffers are kept
 };
 
 // Packet flags (InboundMsgCtx::wire_options_; a handler gets a message when its flags include them all).
-constexpr uint32_t kPacketForeign = 0x1;            // from an address that isn't a connection
-constexpr uint32_t kPacketLate = 0x2;               // its timestamp is older than the newest
-constexpr uint32_t kPacketChecksumMismatch = 0x4;   // a stream whose checksum doesn't match
+constexpr uint32_t kPacketForeign = 0x1;          // from an address that isn't a connection
+constexpr uint32_t kPacketLate = 0x2;             // its timestamp is older than the newest
+constexpr uint32_t kPacketChecksumMismatch = 0x4; // a stream whose checksum doesn't match
 
 // What a handler gets (0xA4 bytes, constructor 0x00454A20).
 struct InboundMsgCtx {
@@ -42,10 +42,10 @@ struct InboundMsgCtx {
     AppHost* receiver_app_;
     Conn* sender_conn_;
     uint32_t wire_options_;
-    void* content_;                       // the handler's own data (NoteHandler::content_)
-    uint32_t sequences_to_ack_[32];      // the timestamps to acknowledge after the packet (low 16 bits)
+    void* content_;                 // the handler's own data (NoteHandler::content_)
+    uint32_t sequences_to_ack_[32]; // the timestamps to acknowledge after the packet (low 16 bits)
     int num_sequences_to_ack_;
-    bool acknowledge_;                 // send those acks
+    bool acknowledge_; // send those acks
     uint8_t pada1_[3];
 };
 static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
@@ -56,7 +56,7 @@ using HandlerSlotValue = int(__cdecl*)(InboundMsgCtx* context);
 // A message handler (0x20 bytes, from the network heap): an lists::Elem<NoteHandler> (data: itself, priority: the
 // order in its list) with the code, its data and the packet flags it takes.
 struct NoteHandler {
-    memory::ListNode list_link_;   // vtable 0x006475E8
+    memory::ListNode list_link_; // vtable 0x006475E8
     HandlerSlotValue code_;
     void* content_;
     uint32_t mode_bits_;
@@ -98,4 +98,4 @@ public:
 };
 static_assert(sizeof(Router) == 0x13EC);
 
-} // namespace Net
+} // namespace net

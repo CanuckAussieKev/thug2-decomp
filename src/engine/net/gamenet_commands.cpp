@@ -45,11 +45,11 @@ uint32_t g_net_game_start_time;
 
 namespace {
 
-constexpr uint32_t kCtfTask = 0xF8;          // tasks::SchedulerTask*: capture the flag's
+constexpr uint32_t kCtfTask = 0xF8;         // tasks::SchedulerTask*: capture the flag's
 constexpr uint32_t kLevelSwitchJob = 0xEC;  // tasks::SchedulerTask*: the level change's
-constexpr uint32_t kMotdCancelled = 0xFE08;  // bool
-constexpr uint32_t kMotdReceived = 0xFE09;   // bool
-constexpr uint32_t kServicesState = 0xFE0A;  // uint8_t (1: available)
+constexpr uint32_t kMotdCancelled = 0xFE08; // bool
+constexpr uint32_t kMotdReceived = 0xFE09;  // bool
+constexpr uint32_t kServicesState = 0xFE0A; // uint8_t (1: available)
 
 // Messages to the server.
 constexpr uint8_t kMsgBeginMatchAsk = 0x60;
@@ -62,34 +62,34 @@ constexpr uint16_t kParkMapSize = 15000;
 constexpr uint16_t kRailsDataSize = 4402;
 
 // Checksums.
-constexpr uint32_t kChecksum = 0x21902065;            // checksum
-constexpr uint32_t kBooleanTrue = 0xF81BC89B;         // boolean_true
+constexpr uint32_t kChecksum = 0x21902065;               // checksum
+constexpr uint32_t kBooleanTrue = 0xF81BC89B;            // boolean_true
 constexpr uint32_t kDisplayFlagBaseWarning = 0x55AF7C02; // display_flag_base_warning
-constexpr uint32_t kGameType = 0x9834C4FA;            // game_type
-constexpr uint32_t kSkillLevel = 0x403DA0D0;          // skill_level
-constexpr uint32_t kFireballDifficulty = 0xCE238F5D;  // fireball_difficulty
-constexpr uint32_t kTimeLimit = 0xC51BF6E3;           // time_limit
-constexpr uint32_t kTargetScore = 0x71CD53A2;         // target_score
-constexpr uint32_t kPlayerCollision = 0x043EE978;     // player_collision
-constexpr uint32_t kFriendlyFire = 0xE959C43A;        // friendly_fire
-constexpr uint32_t kStopAtZero = 0x48E748B5;          // stop_at_zero
-constexpr uint32_t kScoreReset = 0x162E8C3A;          // score_reset
-constexpr uint32_t kCtfGameType = 0x15421B73;         // ctf_game_type
-constexpr uint32_t kGoals = 0x38DBE1D0;               // goals
-constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;    // team_graffiti_mode
-constexpr uint32_t kLevel = 0x651533EC;               // level
-constexpr uint32_t kCreatedPark = 0xB664035D;         // load_sk5ed_gameplay
-constexpr uint32_t kName = 0xA1DC81F9;                // name
-constexpr uint32_t kFlag = 0x2E0B1465;                // flag
-constexpr uint32_t kSetFlag = 0x1BC80657;             // SetFlag
-constexpr uint32_t kUnSetFlag = 0x1FF8F994;           // UnSetFlag
-constexpr uint32_t kSignedDisclaimer = 0x633A324E;    // signed_disclaimer
+constexpr uint32_t kGameType = 0x9834C4FA;               // game_type
+constexpr uint32_t kSkillLevel = 0x403DA0D0;             // skill_level
+constexpr uint32_t kFireballDifficulty = 0xCE238F5D;     // fireball_difficulty
+constexpr uint32_t kTimeLimit = 0xC51BF6E3;              // time_limit
+constexpr uint32_t kTargetScore = 0x71CD53A2;            // target_score
+constexpr uint32_t kPlayerCollision = 0x043EE978;        // player_collision
+constexpr uint32_t kFriendlyFire = 0xE959C43A;           // friendly_fire
+constexpr uint32_t kStopAtZero = 0x48E748B5;             // stop_at_zero
+constexpr uint32_t kScoreReset = 0x162E8C3A;             // score_reset
+constexpr uint32_t kCtfGameType = 0x15421B73;            // ctf_game_type
+constexpr uint32_t kGoals = 0x38DBE1D0;                  // goals
+constexpr uint32_t kTeamGraffitiMode = 0xA8774BF7;       // team_graffiti_mode
+constexpr uint32_t kLevel = 0x651533EC;                  // level
+constexpr uint32_t kCreatedPark = 0xB664035D;            // load_sk5ed_gameplay
+constexpr uint32_t kName = 0xA1DC81F9;                   // name
+constexpr uint32_t kFlag = 0x2E0B1465;                   // flag
+constexpr uint32_t kSetFlag = 0x1BC80657;                // SetFlag
+constexpr uint32_t kUnSetFlag = 0x1FF8F994;              // UnSetFlag
+constexpr uint32_t kSignedDisclaimer = 0x633A324E;       // signed_disclaimer
 
-const char* const kNumTeams = "num_teams";     // "num_teams"
-const char* const kParkMapDesc = "level data";  // "level data"
-const char* const kRailsDesc = "rail data";    // "rail data"
-const char* const kBit = "bit";          // "bit"
-const char* const kParamId = "param_id";      // "param_id"
+const char* const kNumTeams = "num_teams";                  // "num_teams"
+const char* const kParkMapDesc = "level data";              // "level data"
+const char* const kRailsDesc = "rail data";                 // "rail data"
+const char* const kBit = "bit";                             // "bit"
+const char* const kParamId = "param_id";                    // "param_id"
 const char* const kFirstProSetFlag = "FLAG_PROSET1_GEO_ON"; // "FLAG_PROSET1_GEO_ON"
 
 constexpr int kProSetCount = 7;
@@ -101,7 +101,10 @@ uint32_t g_last_flag_base_warning;
 uint32_t& last_flag_base_warning() { return g_last_flag_base_warning; }
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 
-tasks::PileUp* get_logic_tasks() { return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4); }
+tasks::PileUp* get_logic_tasks()
+{
+    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+}
 Hub* net_link() { return g_online_hub; }
 
 // The lobby (online's GameSpy peer side): its peer, whether it's in a group room; the lobby's state (the manager's
@@ -173,7 +176,8 @@ bool __cdecl cfunc_set_join_mode(Struct* params, Script*)
 // 0x00535E90: GetNumTeams - the game mode's team count into the script's num_teams.
 bool __cdecl cfunc_get_num_teams(Struct*, Script* script)
 {
-    script->args_->put_int(kNumTeams, get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()));
+    script->args_->put_int(kNumTeams,
+                           get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()));
     return true;
 }
 
@@ -284,7 +288,8 @@ bool __cdecl cfunc_fcfs_request_change_level(Struct* params, Script*)
         void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
         client->send_bulk_to_host(kMsgParkMap, kParkMapSize, map, kParkMapDesc, kGroupGame, true, false);
         park_editing::RailAuthoring::sole(); // (the rail editor looked up once for nothing)
-        void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed), park_editing::RailAuthoring::sole());
+        void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed),
+                                      park_editing::RailAuthoring::sole());
         client->send_bulk_to_host(kMsgRailsData, kRailsDataSize, rails, kRailsDesc, kGroupGame, true, false);
     }
     send_request(manager, kMsgChangeLevelRequest, &level, 4);

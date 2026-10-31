@@ -27,7 +27,7 @@
 namespace game_code {
 
 static VtableSlot g_task_vtable_slots[] = {modules::Skate::run_task, &online::FoldedGetters::word18,
-                &online::TaskDeleter::teardown};
+                                           &online::TaskDeleter::teardown};
 void** const kTaskVtable = reinterpret_cast<void**>(g_task_vtable_slots);
 
 } // namespace game_code
@@ -35,7 +35,7 @@ void** const kTaskVtable = reinterpret_cast<void**>(g_task_vtable_slots);
 namespace net {
 
 static VtableSlot g_app_vtable_slots[] = {&AppHost::teardown, &AppHost::handle_incoming, &_purecall,
-                &_purecall, &AppHost::prepare_all, &AppHost::tear_down_state};
+                                          &_purecall,         &AppHost::prepare_all,     &AppHost::tear_down_state};
 void** const kAppVtable = reinterpret_cast<void**>(g_app_vtable_slots);
 
 namespace {
@@ -47,7 +47,7 @@ constexpr int kHandleBroadcast = 0xFF;        // every connection
 constexpr int kHandleExcludeBroadcast = 0x80; // every connection but handle & 0x7F
 constexpr uint8_t kMsgBulkBegin = 0x0E;
 constexpr uint8_t kMsgBulkChunk = 0x0F;
-constexpr uint8_t kMsgUnreadyOk = 0x09;    // default-queue messages that go to a connection that isn't ready
+constexpr uint8_t kMsgUnreadyOk = 0x09; // default-queue messages that go to a connection that isn't ready
 constexpr int kStreamPieceSize = 0x100;
 
 constexpr int kMetricsTaskPriority = -2500;
@@ -71,7 +71,7 @@ AppHost*& owner_app(Conn* conn) { return conn->owner_app_; }
 uint32_t& next_sequence_id(Conn* conn, uint8_t group) { return conn->next_sequence_ids_[group]; }
 int& alloc_stream_key(Conn* conn) { return conn->stream_counter_; }
 ListNode* get_streams(Conn* conn) { return &conn->send_streams_; } // lists::Foremost<BulkStreamNode>
-void* in_metrics(Conn* conn) { return &conn->receive_metrics_; } // NetLink::Gauges (0x100C bytes)
+void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::Gauges (0x100C bytes)
 void* out_metrics(Conn* conn) { return &conn->send_metrics_; }
 // The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
 // in this process) straight into its own receive buffer.
@@ -94,7 +94,10 @@ int num_stream_pieces_queued(Conn* conn) { return conn->get_num_queued_stream_pi
 
 // NetLink::Gauges: bytes over the last second.
 int get_bytes_per_second(void* metrics) { return static_cast<Gauges*>(metrics)->get_throughput(); }
-void update_metrics(void* metrics, uint32_t time) { static_cast<Gauges*>(metrics)->calculate_usage(static_cast<int>(time)); }
+void update_metrics(void* metrics, uint32_t time)
+{
+    static_cast<Gauges*>(metrics)->calculate_usage(static_cast<int>(time));
+}
 // The app's manager: the bandwidth allowed over all connections.
 int total_bandwidth(void* manager) { return static_cast<Hub*>(manager)->fetch_throughput(); }
 // 1 = a modem: a slow connection.
@@ -321,8 +324,8 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
                    : nullptr;
         // To ready connections only (to a single connection, also message 9).
         auto ready = [&](Conn* conn) {
-            return get_standing(conn) == kConnReady || (handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) &&
-                                                    desc->ident_ == kMsgUnreadyOk);
+            return get_standing(conn) == kConnReady ||
+                   (handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) && desc->ident_ == kMsgUnreadyOk);
         };
         for_each_target(ready, [&](Conn* conn) {
             if (desc->singular_)
@@ -395,7 +398,7 @@ void AppHost::put_on_outbox(int handle, NetMessageInfo* desc)
 
 // 0x00458740
 void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void* data, const char* desc,
-                              uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
+                                uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
     // The original leaves the start message uninitialised on the stack (the 3 bytes sent past a short first
     // piece, the padding after a full one); it's zeroed here. (NetMessageInfo's constructor sets every field.)
@@ -472,8 +475,8 @@ void AppHost::send_bulk_to_conn(Conn* conn, uint8_t msg_id, uint16_t size, void*
 }
 
 // 0x00458AB0
-void AppHost::send_bulk_message(int handle, uint8_t msg_id, uint16_t size, void* data, const char* desc, uint8_t group_id,
-                        bool queue_all_pieces, bool borrow_caller_buffer)
+void AppHost::send_bulk_message(int handle, uint8_t msg_id, uint16_t size, void* data, const char* desc,
+                                uint8_t group_id, bool queue_all_pieces, bool borrow_caller_buffer)
 {
     if (handle == kHandleBroadcast) {
         lists::Hunt<Conn> search;
@@ -606,7 +609,8 @@ void AppHost::pump_stream_traffic()
             max_per_frame = 1;
         }
         unsigned int streams = 0;
-        for (ListNode* node = get_streams(conn)->next; node->data != reinterpret_cast<void*>(-1) && node; node = node->next)
+        for (ListNode* node = get_streams(conn)->next; node->data != reinterpret_cast<void*>(-1) && node;
+             node = node->next)
             ++streams;
         if (streams == 0)
             continue;
@@ -738,4 +742,4 @@ Conn* AppHost::opened_link(int ip, uint16_t port, int flags)
     return conn;
 }
 
-} // namespace Net
+} // namespace net

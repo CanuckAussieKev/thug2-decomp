@@ -66,4 +66,4 @@ script::Struct* spawn_param_table();
 void delete_structure(script::Struct* structure);
 
 } // namespace score_internal
-} // namespace Mdl
+} // namespace modules

@@ -46,7 +46,8 @@ struct StoredScript {
     uint8_t code[1];
 };
 
-static VtableSlot g_script_cache_vtable_slots[] = {&script::ScriptStore::teardown, stubs::do_nothing, stubs::do_nothing};
+static VtableSlot g_script_cache_vtable_slots[] = {&script::ScriptStore::teardown, stubs::do_nothing,
+                                                   stubs::do_nothing};
 void** const kScriptCacheVtable = reinterpret_cast<void**>(g_script_cache_vtable_slots);
 } // namespace
 
@@ -57,10 +58,7 @@ void* ScriptCacheEntry::operator new(size_t size) noexcept
 }
 
 // 0x00475B00
-void ScriptCacheEntry::operator delete(void* entry)
-{
-    entry_pools().dealloc(entry);
-}
+void ScriptCacheEntry::operator delete(void* entry) { entry_pools().dealloc(entry); }
 
 // 0x00475DD0
 ScriptStore* ScriptStore::make_new()
@@ -248,4 +246,4 @@ void release_script_cache()
     cache_references() = 0;
 }
 
-} // namespace Script
+} // namespace script

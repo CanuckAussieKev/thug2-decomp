@@ -19,7 +19,7 @@ class RigData;
 // One bone's volume (0x2C bytes, vtable 0x00648988).
 struct BoneVolume {
     void** vtable_;
-    uint32_t unknown4_; // (never set)
+    uint32_t unknown4_;      // (never set)
     maths::Capsule capsule_; // +0x08 (its radius +0x28)
 
     // 0x0048B330 (not a Ghidra function; vtable slot 0): whether `segment` passes through the capsule (where along
@@ -33,7 +33,7 @@ static_assert(offsetof(BoneVolume, capsule_) == 0x08 && sizeof(BoneVolume) == 0x
 struct BoneVolumes {
     BoneVolume** volumes_; // +0x00 (null where a bone has none)
     uint32_t num_;         // +0x04 the bones
-    int users_;              // +0x08
+    int users_;            // +0x08
 
     // 0x0048B350: `count` bones, none with a volume yet, no users. Returns this.
     BoneVolumes* make_new(uint32_t count);
@@ -49,7 +49,7 @@ struct BoneVolumes {
     // root of the squared distance) into `distance` and where along the segment into `t`, when given. The bone's
     // name, 0 for none.
     uint32_t segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world, uint32_t bone,
-                      float scale, float extra_radius, float* distance, float* t);
+                               float scale, float extra_radius, float* distance, float* t);
     // 0x0048BC40: the volume of the capsule round `bone` (radius times the bone's largest scale; none: 0) into
     // `volume`. True.
     bool get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint32_t bone, float* volume);
@@ -61,4 +61,4 @@ BoneVolumes* find_bone_volumes(uint32_t count);
 // 0x0048B400: one user fewer of those (they must exist); the last takes them out of the table (not freed).
 void release_bone_volumes(uint32_t count);
 
-} // namespace Gfx
+} // namespace gfx

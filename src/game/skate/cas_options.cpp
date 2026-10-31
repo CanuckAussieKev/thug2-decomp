@@ -22,7 +22,7 @@ constexpr uint32_t kFilter = 0x0D7260FD;          // (name unknown) an option's 
 constexpr uint32_t kNoRandom = 0xF6F8E158;        // no_random
 constexpr uint32_t kAllowRandom = 0xF1E3CD22;     // allow_random
 constexpr uint32_t kAlreadySelected = 0x92BDDFD9; // already_selected
-constexpr uint32_t kShuffleIndex = 0x4B833E64;     // random_index
+constexpr uint32_t kShuffleIndex = 0x4B833E64;    // random_index
 
 Struct* current_option(Array* list, uint32_t index) { return reinterpret_cast<Struct*>(list->fetch_part(index)); }
 
@@ -160,4 +160,4 @@ Struct* __cdecl get_cas_option_by_index(uint32_t part, int index, uint32_t filte
     }
 }
 
-} // namespace Obj
+} // namespace objects

@@ -29,14 +29,10 @@ extern void** const kListenerAdapterVtable;
 UiTree* g_ui_element_hub;
 
 static_assert(offsetof(UiTree, listener_) == 0x28 && offsetof(UiTree, tree_root_) == 0x44 &&
-                  offsetof(UiTree, resolving_) == 0x50 &&
-                  offsetof(UiTree, focus_entries_) == 0x5C &&
-                  offsetof(UiTree, focus_lists_) == 0x4DC &&
-                  offsetof(UiTree, focus_dirty_) == 0x4E4 &&
-                  offsetof(UiTree, num_priorities_) == 0x4E8 &&
-                  offsetof(UiTree, priorities_) == 0x4EC &&
-                  offsetof(UiTree, pad_event_types_) == 0x5DC &&
-                  offsetof(UiTree, pad_event_kind_count_) == 0x69C &&
+                  offsetof(UiTree, resolving_) == 0x50 && offsetof(UiTree, focus_entries_) == 0x5C &&
+                  offsetof(UiTree, focus_lists_) == 0x4DC && offsetof(UiTree, focus_dirty_) == 0x4E4 &&
+                  offsetof(UiTree, num_priorities_) == 0x4E8 && offsetof(UiTree, priorities_) == 0x4EC &&
+                  offsetof(UiTree, pad_event_types_) == 0x5DC && offsetof(UiTree, pad_event_kind_count_) == 0x69C &&
                   offsetof(UiTree, check_device_) == 0x6A0 && sizeof(UiTree) == 0x6A4,
               "layout must match the original");
 
@@ -55,7 +51,10 @@ const char* pad_event_types_name() { return "pad_event_types"; }
 
 UiWidget* as_element(objects::Entity* object) { return static_cast<UiWidget*>(object); }
 
-void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script) { event->set_event_consumed(how, script); }
+void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
+{
+    event->set_event_consumed(how, script);
+}
 
 void v_set_properties(UiWidget* e, Struct* params)
 {
@@ -486,8 +485,7 @@ void UiTree::clear_marks(ElementPtr* element)
 void UiTree::listener_receive(objects::Signal* event)
 {
     // (`this` is the listener: the manager is 0x28 before it)
-    UiTree* manager =
-        reinterpret_cast<UiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(UiTree, listener_));
+    UiTree* manager = reinterpret_cast<UiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(UiTree, listener_));
     if (manager->pad_event_kind_count_ == 0) {
         script::Array* types = script::fetch_list(pad_event_types_name()); // (the original passes 1 as well: unused)
         manager->pad_event_kind_count_ = static_cast<int>(types->extent_);
@@ -562,8 +560,8 @@ void UiTree::listener_receive(objects::Signal* event)
             if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
                 if (pad_event && (!entry->element->has_priority() || !manager->has_top_precedence(entry->id)))
                     continue;
-                if (tracker->launch_event(event->kind_tag_, entry->element->ident_, event->from_where_, event->payload_, false,
-                                         -1.0f)) {
+                if (tracker->launch_event(event->kind_tag_, entry->element->ident_, event->from_where_, event->payload_,
+                                          false, -1.0f)) {
                     event->set_event_handled(1, 0);
                     return;
                 }
@@ -726,7 +724,7 @@ void set_score_text(const char* text, int player)
         static_cast<LabelWidget*>(element.owner_object_)->change_caption(text);
 }
 
-} // namespace Front
+} // namespace frontend
 
 namespace {
 
@@ -746,11 +744,14 @@ using frontend::UiTree;
 namespace frontend {
 namespace {
 static VtableSlot g_c_screen_element_manager_vtable_slots[] = {&UiTree::teardown,
-                &objects::ObjectHubBase::enrol_subject, &UiTree::drop_entity_registration,
-                &objects::ObjectHubBase::reassign_object_id, &objects::ObjectHubBase::set_entity_rank, stubs::ignore_argument,
-                &UiTree::fetch_object_set};
+                                                               &objects::ObjectHubBase::enrol_subject,
+                                                               &UiTree::drop_entity_registration,
+                                                               &objects::ObjectHubBase::reassign_object_id,
+                                                               &objects::ObjectHubBase::set_entity_rank,
+                                                               stubs::ignore_argument,
+                                                               &UiTree::fetch_object_set};
 void** const kCScreenElementManagerVtable = reinterpret_cast<void**>(g_c_screen_element_manager_vtable_slots);
 static VtableSlot g_listener_adapter_vtable_slots[] = {&ListenerAdapter::teardown, &UiTree::listener_receive};
 void** const kListenerAdapterVtable = reinterpret_cast<void**>(g_listener_adapter_vtable_slots);
 } // namespace
-} // namespace Front
+} // namespace frontend

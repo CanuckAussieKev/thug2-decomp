@@ -21,14 +21,14 @@ namespace commands {
 
 namespace {
 
-constexpr uint32_t kResetAll = 0x81740BB6;      // "reset_all"
-constexpr uint32_t kNetKing = 0x6EF8FDA0;       // "netking"
-constexpr uint32_t kKing = 0x5D32129C;          // "king"
-constexpr uint32_t kUseBailStyle = 0x929EB4D5;  // "UseBailStyle"
-constexpr uint32_t kSkipTeam = 0x6C2A140F;   // "exclude_team"
-constexpr uint32_t kRadius = 0xC48391A5;        // "radius"
-constexpr uint32_t kTeam = 0x3B1F59E0;          // "team"
-constexpr uint32_t kPlayer = 0x67E6859A;        // "player"
+constexpr uint32_t kResetAll = 0x81740BB6;     // "reset_all"
+constexpr uint32_t kNetKing = 0x6EF8FDA0;      // "netking"
+constexpr uint32_t kKing = 0x5D32129C;         // "king"
+constexpr uint32_t kUseBailStyle = 0x929EB4D5; // "UseBailStyle"
+constexpr uint32_t kSkipTeam = 0x6C2A140F;     // "exclude_team"
+constexpr uint32_t kRadius = 0xC48391A5;       // "radius"
+constexpr uint32_t kTeam = 0x3B1F59E0;         // "team"
+constexpr uint32_t kPlayer = 0x67E6859A;       // "player"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::Rider* get_skater_at(int index) { return static_cast<objects::Rider*>(get_skate()->get_rider_at(index)); }
@@ -100,7 +100,8 @@ bool __cdecl cfunc_update_score(script::Struct*, script::Script*)
         if (!is_host_local(skater))
             continue;
         void* score = get_score_of(skater);
-        static_cast<modules::PointTally*>(score)->set_grand_total(static_cast<modules::PointTally*>(score)->get_total_score());
+        static_cast<modules::PointTally*>(score)->set_grand_total(
+            static_cast<modules::PointTally*>(score)->get_total_score());
     }
     return true;
 }
@@ -139,7 +140,8 @@ bool __cdecl cfunc_get_colliding_player_and_team(script::Struct* params, script:
         objects::Rider* skater = get_skater_at(i);
         if (!skater)
             continue;
-        auto* info = reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+        auto* info = reinterpret_cast<online::PlayerRecord*>(
+            net->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
         if (!info)
             continue;
         if (info->team_ == exclude_team && !info->is_carrying_flag())
@@ -156,7 +158,8 @@ bool __cdecl cfunc_get_colliding_player_and_team(script::Struct* params, script:
         }
     }
     if (static_cast<int>(player) > -1)
-        team = reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team_;
+        team =
+            reinterpret_cast<online::PlayerRecord*>(net->find_player_slot_by_obj(static_cast<uint16_t>(player)))->team_;
     results->put_int(kTeam, team);
     results->put_int(kPlayer, static_cast<int>(player));
     return true;

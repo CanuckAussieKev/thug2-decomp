@@ -18,7 +18,7 @@ namespace {
 
 // THAW's pad button names (by StickButtonIndex) and its trick component's (by stick, by direction 1-8: up, down,
 // left, right, up-left, up-right, down-left, down-right - d_pad_direction's numbers).
-const char* const kPadNames[8] = {"leftup", "leftdown", "leftleft", "leftright",
+const char* const kPadNames[8] = {"leftup",  "leftdown",  "leftleft",  "leftright",
                                   "rightup", "rightdown", "rightleft", "rightright"};
 const char* const kStickTrickTable[2][8] = {
     {"leftup", "leftdown", "leftleft", "leftright", "leftupleft", "leftupright", "leftdownleft", "leftdownright"},
@@ -230,4 +230,4 @@ bool g_dpad_camera = false;
 void note_d_pad_camera(bool on) { g_dpad_camera = on; }
 bool d_pad_camera_noted() { return g_dpad_camera; }
 
-} // namespace Skater::ThawBmx
+} // namespace skater::thaw_bmx

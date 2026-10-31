@@ -100,7 +100,8 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max)
     return inside >= kInside * area;
 }
 
-bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max, const std::vector<std::pair<V3, V3>>& others)
+bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max,
+                      const std::vector<std::pair<V3, V3>>& others)
 {
     float x = (shadow_min.x + shadow_max.x) * 0.5f, z = (shadow_min.z + shadow_max.z) * 0.5f;
     float mine = footprint_distance(x, z, group_min, group_max);
@@ -123,12 +124,9 @@ bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max)
            shadow_min.y <= caster_max.y + margin && shadow_max.y >= caster_min.y - margin;
 }
 
-bool stands_by(V3 piece_min, V3 shadow_max)
-{
-    return std::fabs(piece_min.y - shadow_max.y) <= kGap;
-}
+bool stands_by(V3 piece_min, V3 shadow_max) { return std::fabs(piece_min.y - shadow_max.y) <= kGap; }
 
-} // namespace MenuSystem::level_editor::shadows
+} // namespace frontend::level_editor::shadows
 
 namespace frontend::level_editor::members {
 
@@ -144,4 +142,4 @@ int drop_target(const std::vector<bool>& passed, const std::vector<bool>& select
     return -1;
 }
 
-} // namespace MenuSystem::level_editor::Members
+} // namespace frontend::level_editor::members

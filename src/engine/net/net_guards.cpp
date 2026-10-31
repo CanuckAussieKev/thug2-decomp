@@ -24,20 +24,20 @@ constexpr uint8_t kMsgCreateSpecialItem = 0x77;
 constexpr uint8_t kMsgDestroySpecialItem = 0x78;
 constexpr uint8_t kMsgServerMovedOn = 'V';
 
-constexpr uint32_t kDefaultAnim = 0x1CA1FF20;  // default
-constexpr uint32_t kSkaterAnims = 0x9FE476E2;  // THPS6_human (the skater's animation set: THUGPRO's choice too)
-constexpr uint32_t kModeInfo = 0xCA5F7FFB;     // mode_info
-constexpr uint32_t kChecksum = 0x21902065;     // checksum
-constexpr uint32_t kNetLobby = 0x1C471C60;     // netlobby
+constexpr uint32_t kDefaultAnim = 0x1CA1FF20; // default
+constexpr uint32_t kSkaterAnims = 0x9FE476E2; // THPS6_human (the skater's animation set: THUGPRO's choice too)
+constexpr uint32_t kModeInfo = 0xCA5F7FFB;    // mode_info
+constexpr uint32_t kChecksum = 0x21902065;    // checksum
+constexpr uint32_t kNetLobby = 0x1C471C60;    // netlobby
 
 // Where each message keeps what's checked (THUG2's layouts: the handlers 0x0056A450, 0x0056D810, 0x005313C0,
 // 0x005311F0 / 0x00569560 read them there).
-constexpr uint32_t kAnimOffset = 2;          // 0x29: looping type, object id, then the animation
-constexpr uint32_t kStartInfoMode = 0xC;     // 0x33
+constexpr uint32_t kAnimOffset = 2;      // 0x29: looping type, object id, then the animation
+constexpr uint32_t kStartInfoMode = 0xC; // 0x33
 constexpr uint32_t kStartInfoLevel = 0x10;
-constexpr uint32_t kGameInfoMode = 0;        // 0x34
-constexpr uint32_t kChangeLevelLevel = 0;    // 0x46
-constexpr uint32_t kSpecialItemDetails = 0;  // 0x77 / 0x78
+constexpr uint32_t kGameInfoMode = 0;       // 0x34
+constexpr uint32_t kChangeLevelLevel = 0;   // 0x46
+constexpr uint32_t kSpecialItemDetails = 0; // 0x77 / 0x78
 
 bool animation_loaded(uint32_t animation)
 {
@@ -110,13 +110,24 @@ int check_received_message(net::InboundMsgCtx* context)
     // How many bytes each check reads.
     uint32_t needed = 0;
     switch (id) {
-    case kMsgPrimaryAnim: needed = kAnimOffset + 4; break;
+    case kMsgPrimaryAnim:
+        needed = kAnimOffset + 4;
+        break;
     case kMsgCreateSpecialItem:
-    case kMsgDestroySpecialItem: needed = kSpecialItemDetails + 4; break;
-    case kMsgLobbyDetails: needed = kStartInfoLevel + 4; break;
-    case kMsgSessionBrief: needed = kGameInfoMode + 4; break;
-    case kMsgLevelSwitch: needed = kChangeLevelLevel + 4; break;
-    default: return kDispatch;
+    case kMsgDestroySpecialItem:
+        needed = kSpecialItemDetails + 4;
+        break;
+    case kMsgLobbyDetails:
+        needed = kStartInfoLevel + 4;
+        break;
+    case kMsgSessionBrief:
+        needed = kGameInfoMode + 4;
+        break;
+    case kMsgLevelSwitch:
+        needed = kChangeLevelLevel + 4;
+        break;
+    default:
+        return kDispatch;
     }
     if (!context->body_ || context->body_size_ < needed) {
         // (not checked - nothing is read past its end -, and left to THUG2's handlers as it is)
@@ -170,8 +181,9 @@ int check_received_message(net::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    default: return kDispatch;
+    default:
+        return kDispatch;
     }
 }
 
-} // namespace online::Guards
+} // namespace online::guards

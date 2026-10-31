@@ -18,7 +18,10 @@ namespace {
 memory::PoolPair& node_pools() { return g_node_pools; }
 
 // The generator's piece making.
-void* get_piece_source(void* generator, uint32_t name) { return static_cast<ParkAssembler*>(generator)->get_piece_source(name); }
+void* get_piece_source(void* generator, uint32_t name)
+{
+    return static_cast<ParkAssembler*>(generator)->get_piece_source(name);
+}
 void* create_piece(void* generator, void* source, uint32_t flags)
 {
     return static_cast<ParkAssembler*>(generator)->create_piece(static_cast<ParkTile*>(source), flags);
@@ -361,6 +364,6 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing
 
 using park_editing::ParkLayout;

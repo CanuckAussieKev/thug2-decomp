@@ -178,7 +178,7 @@ BitmapTexture* TextureSet::ingest_skin(const char* name, uint32_t a1, uint32_t a
 
 // 0x0049FA20
 BitmapTexture* TextureSet::read_texture_buffer(const uint8_t* data, uint32_t size, uint32_t checksum, uint32_t a3,
-                                          uint32_t a4, bool permanent, uint32_t a6)
+                                               uint32_t a4, bool permanent, uint32_t a6)
 {
     memory::push_mem_profile("texture from buffer"); // "texture from buf"
     auto* texture = bay<BitmapTexture*>(this, 2, data, size, checksum, a3, a4, a6);
@@ -189,7 +189,7 @@ BitmapTexture* TextureSet::read_texture_buffer(const uint8_t* data, uint32_t siz
 
 // 0x0049FAA0
 BitmapTexture* TextureSet::create_texture(uint32_t checksum, uint32_t width, uint32_t height, uint32_t bits_per_pixel,
-                                  uint32_t a4, uint32_t a5, bool permanent)
+                                          uint32_t a4, uint32_t a5, bool permanent)
 {
     memory::push_mem_profile("created texture"); // "created texture"
     auto* texture = bay<BitmapTexture*>(this, 3, checksum, width, height, bits_per_pixel, a4, a5);
@@ -275,7 +275,8 @@ BitmapTexture* TextureSet::copy_texture(uint32_t checksum, BitmapTexture* source
 }
 
 // 0x0049FC20
-BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay, uint32_t argument)
+BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTexture* source, BitmapTexture* overlay,
+                                                     uint32_t argument)
 {
     auto* texture = bay<BitmapTexture*>(this, 8, checksum, source);
     if (texture) {
@@ -289,7 +290,10 @@ BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTe
 // --- the loaded dictionaries --------------------------------------------------------------------------------------
 
 // 0x0049F010
-TextureSet* __cdecl find_tex_dict(uint32_t checksum) { return static_cast<TextureSet*>(loaded_tex_dicts().fetch_entry(checksum)); }
+TextureSet* __cdecl find_tex_dict(uint32_t checksum)
+{
+    return static_cast<TextureSet*>(loaded_tex_dicts().fetch_entry(checksum));
+}
 
 // 0x0049F0C0
 TextureSet* __cdecl load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
@@ -312,8 +316,8 @@ TextureSet* __cdecl load_tex_dict(const char* path, int /*level*/, uint32_t offs
 }
 
 // 0x0049F050
-TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/, uint32_t /*a3*/,
-                                        uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
+TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t /*size*/,
+                                              uint32_t /*a3*/, uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
     memory::push_mem_profile("TEX_data_buffer"); // "TEX_data_buffer"
     uint32_t key = checksum + offset;
@@ -359,13 +363,14 @@ void __cdecl tex_dict_file_name(char* out, const char* name)
 void __cdecl drop_particle_textures(bool all) { g_particle_texture_dict->drop_textures(all); }
 
 namespace {
-static VtableSlot g_tex_dict_vtable_slots[] = {&render::TextureSet::teardown, stubs::return_zero3, stubs::return_zero6,
-                stubs::return_zero6, stubs::return_zero1, stubs::return_false1, stubs::ignore_argument, stubs::return_false1,
-                stubs::return_zero2};
+static VtableSlot g_tex_dict_vtable_slots[] = {
+    &render::TextureSet::teardown, stubs::return_zero3,  stubs::return_zero6,
+    stubs::return_zero6,           stubs::return_zero1,  stubs::return_false1,
+    stubs::ignore_argument,        stubs::return_false1, stubs::return_zero2};
 void** const kTexDictVtable = reinterpret_cast<void**>(g_tex_dict_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
@@ -399,4 +404,4 @@ void set_up_particle_texture_dict() { g_particle_texture_dict = shared_tex_dict(
 // 0x00640CB0 (a static initialiser)
 void construct_spare_tex_dict_table() { new (&g_spare_tex_dict_table) lists::KeyMap(1); }
 
-} // namespace Nx
+} // namespace render

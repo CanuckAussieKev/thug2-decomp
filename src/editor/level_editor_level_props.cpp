@@ -61,9 +61,11 @@ bool tod_from_name(const std::string& name, int* tod)
 
 bool get_same(const Props& a, const Props& b)
 {
-    return a.name == b.name && a.start == b.start && a.tod == b.tod && a.time == b.time && a.has_ambient_ == b.has_ambient_ &&
+    return a.name == b.name && a.start == b.start && a.tod == b.tod && a.time == b.time &&
+           a.has_ambient_ == b.has_ambient_ &&
            (!a.has_ambient_ || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
-           (!a.has_fog_ || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0) && _stricmp(a.sky.c_str(), b.sky.c_str()) == 0;
+           (!a.has_fog_ || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0) &&
+           _stricmp(a.sky.c_str(), b.sky.c_str()) == 0;
 }
 
 bool vacant(const Props& props) { return get_same(props, Props{}); }
@@ -246,8 +248,9 @@ void install_filter()
 
 bool lighting_same(const Props& a, const Props& b)
 {
-    return a.has_ambient_ == b.has_ambient_ && (!a.has_ambient_ || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) &&
-           a.has_fog_ == b.has_fog_ && (!a.has_fog_ || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0);
+    return a.has_ambient_ == b.has_ambient_ &&
+           (!a.has_ambient_ || std::memcmp(a.ambient, b.ambient, sizeof(a.ambient)) == 0) && a.has_fog_ == b.has_fog_ &&
+           (!a.has_fog_ || std::memcmp(a.fog, b.fog, sizeof(a.fog)) == 0);
 }
 std::vector<std::string> g_skies;
 bool g_skies_made;
@@ -270,8 +273,8 @@ script::Struct* current_level_structure()
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         uint32_t value = 0;
-        if (e->type == script::kQbvalStruct && e->structure &&
-            e->structure->read_hash_value(kLoadScript, &value, 0) && value == load)
+        if (e->type == script::kQbvalStruct && e->structure && e->structure->read_hash_value(kLoadScript, &value, 0) &&
+            value == load)
             return e->structure;
     }
     return nullptr;
@@ -326,7 +329,7 @@ void on_level_up(bool network)
     install_filter();
     reapply();
     get_log("level editor: the level structure's own lighting (ed_ambient / ed_fog) put in place:%s%s",
-        level.has_ambient_ ? " ambient" : "", level.has_fog_ ? " fog" : "");
+            level.has_ambient_ ? " ambient" : "", level.has_fog_ ? " fog" : "");
 }
 
 void reapply()
@@ -391,7 +394,8 @@ const std::vector<std::string>& skies()
         return g_skies;
     g_skies_made = true;
     g_skies.clear();
-    static const uint32_t kSky = checksums::hash_from_text("sky"), kLoadScript = checksums::hash_from_text("load_script");
+    static const uint32_t kSky = checksums::hash_from_text("sky"),
+                          kLoadScript = checksums::hash_from_text("load_script");
     for (script::SymbolTableEntry* e = script::get_next_symbol(nullptr); e; e = script::get_next_symbol(e)) {
         const char* sky = nullptr;
         uint32_t load = 0;
@@ -405,9 +409,8 @@ const std::vector<std::string>& skies()
         if (!there)
             g_skies.push_back(sky);
     }
-    std::sort(g_skies.begin(), g_skies.end(), [](const std::string& a, const std::string& b) {
-        return _stricmp(a.c_str(), b.c_str()) < 0;
-    });
+    std::sort(g_skies.begin(), g_skies.end(),
+              [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
     return g_skies;
 }
 
@@ -429,7 +432,7 @@ void export_to_struct(script::Struct* level, const Props& props)
         fields::put_in(level, key, false, own);
     }
     get_log("level editor: the edited copy's level properties written into its level structure (%u values)",
-        static_cast<unsigned>(values.size()));
+            static_cast<unsigned>(values.size()));
 }
 
 void restore_structure()
@@ -445,8 +448,8 @@ void restore_structure()
 void on_edited_copy_up(const Props& props)
 {
     static const uint32_t kClass = checksums::hash_from_text("Class"), kRestart = checksums::hash_from_text("Restart");
-    script::Struct* node = props.start && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(props.start, false)
-                                                                              : nullptr;
+    script::Struct* node =
+        props.start && level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(props.start, false) : nullptr;
     uint32_t cls = 0;
     if (!node || !node->read_hash_value(kClass, &cls, 0) || cls != kRestart) {
         if (props.start)
@@ -461,4 +464,4 @@ void on_edited_copy_up(const Props& props)
     get_log("level editor: the edited copy's start - the skater put at %08X", props.start);
 }
 
-} // namespace MenuSystem::level_editor::level_props
+} // namespace frontend::level_editor::level_props

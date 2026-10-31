@@ -21,19 +21,19 @@ namespace {
 using script::Array;
 using script::Struct;
 
-constexpr uint32_t kLeftEye = 0x08BF1D3F;   // left_eye
-constexpr uint32_t kRightEye = 0xB0B44396;  // right_eye
-constexpr uint32_t kNose = 0x7F03932C;      // nose
-constexpr uint32_t kLips = 0x0E7EC187;      // lips
-constexpr uint32_t kH = 0x6E94F918;         // h
-constexpr uint32_t kS = 0xE4F130F4;         // s
-constexpr uint32_t kV = 0x949BC47B;         // v
-constexpr uint32_t kWidth = 0x73E5BAD0;     // width
-constexpr uint32_t kHeight = 0x0AB21AF0;    // height
-constexpr uint32_t kImageData = 0x99790D96; // (name unknown) the face texture's image, a dword an element
-constexpr uint32_t kOverlay = 0xA7E7A264;   // (name unknown) the face texture's overlay file name
-constexpr uint32_t kTexture = 0x7D99F28D;   // texture
-constexpr uint32_t kFacePoints = 0xAC3CD84C; // face_points
+constexpr uint32_t kLeftEye = 0x08BF1D3F;      // left_eye
+constexpr uint32_t kRightEye = 0xB0B44396;     // right_eye
+constexpr uint32_t kNose = 0x7F03932C;         // nose
+constexpr uint32_t kLips = 0x0E7EC187;         // lips
+constexpr uint32_t kH = 0x6E94F918;            // h
+constexpr uint32_t kS = 0xE4F130F4;            // s
+constexpr uint32_t kV = 0x949BC47B;            // v
+constexpr uint32_t kWidth = 0x73E5BAD0;        // width
+constexpr uint32_t kHeight = 0x0AB21AF0;       // height
+constexpr uint32_t kImageData = 0x99790D96;    // (name unknown) the face texture's image, a dword an element
+constexpr uint32_t kOverlay = 0xA7E7A264;      // (name unknown) the face texture's overlay file name
+constexpr uint32_t kTexture = 0x7D99F28D;      // texture
+constexpr uint32_t kFacePoints = 0xAC3CD84C;   // face_points
 constexpr uint32_t kNoPaletteGen = 0x5905256B; // no_palette_gen
 constexpr uint32_t kNoColour = 0x80808080;
 
@@ -54,23 +54,32 @@ render::BitmapTexture* find_texture(uint32_t name) { return render::g_game_textu
 template <typename R, typename... A>
 R texture_slot(render::BitmapTexture* texture, int slot, A... args)
 {
-    return reinterpret_cast<R(__thiscall*)(render::BitmapTexture*, A...)>((*reinterpret_cast<void***>(texture))[slot])(texture,
-                                                                                                             args...);
+    return reinterpret_cast<R(__thiscall*)(render::BitmapTexture*, A...)>((*reinterpret_cast<void***>(texture))[slot])(
+        texture, args...);
 }
 void begin_edit(render::BitmapTexture* texture) { texture_slot<void>(texture, 8, 0, 0); }
-void end_edit(render::BitmapTexture* texture, uint8_t generate_palette) { texture_slot<void>(texture, 9, generate_palette, 0); }
+void end_edit(render::BitmapTexture* texture, uint8_t generate_palette)
+{
+    texture_slot<void>(texture, 9, generate_palette, 0);
+}
 void get_offset(render::BitmapTexture* texture, int x, int y, bool use_colour, uint32_t colour)
 {
     texture_slot<void>(texture, 18, x, y, use_colour, colour);
 }
 // Pixels pulled in towards `point` along `axis` (0 x, 1 y) by `amount` (negative: from the other side)...
-void get_stretch(render::BitmapTexture* texture, int point, int axis, int amount) { texture_slot<void>(texture, 21, point, axis, amount); }
+void get_stretch(render::BitmapTexture* texture, int point, int axis, int amount)
+{
+    texture_slot<void>(texture, 21, point, axis, amount);
+}
 // ... or pushed out from it, the gap filled with `colour`.
 void stack_on(render::BitmapTexture* texture, int point, int axis, int amount, bool use_colour, uint32_t colour)
 {
     texture_slot<void>(texture, 22, point, axis, amount, use_colour, colour);
 }
-void shift_hsv(render::BitmapTexture* texture, float h, float s, float v) { texture_slot<void>(texture, 24, h, s, v, 0); }
+void shift_hsv(render::BitmapTexture* texture, float h, float s, float v)
+{
+    texture_slot<void>(texture, 24, h, s, v, 0);
+}
 uint16_t get_width(render::BitmapTexture* texture) { return texture_slot<uint16_t>(texture, 33); }
 uint16_t get_height(render::BitmapTexture* texture) { return texture_slot<uint16_t>(texture, 34); }
 void draw_over(render::BitmapTexture* texture, render::BitmapTexture* overlay, uint8_t generate_palette)
@@ -156,7 +165,8 @@ bool __cdecl write_face_points(const FaceAnchors* points, Struct* params)
 }
 
 // 0x00486C40
-bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour, uint32_t colour)
+bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour,
+                              uint32_t colour)
 {
     FaceAnchors face = *points;
     if (face.left_eye_[0] > face.right_eye_[0]) {
@@ -183,13 +193,14 @@ bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors*
     int eyes_y = ((face.left_eye_[1] + face.right_eye_[1]) >> 1) + dy;
     // The scales of the sides right of, above and below the nose (x87 quotients rounded to floats).
     float scale_right = static_cast<float>(static_cast<double>(get_width(texture) - face.nose_slot_[0] - dx) /
-                                          static_cast<double>(face.right_eye_[0] - face.nose_slot_[0]));
+                                           static_cast<double>(face.right_eye_[0] - face.nose_slot_[0]));
     float scale_up = static_cast<float>(static_cast<double>(dy + nose_y) / static_cast<double>(dy - eyes_y + nose_y));
     float scale_down = static_cast<float>(static_cast<double>(get_height(texture) - dy - nose_y) /
-                                         static_cast<double>(face.mouth_part_[1] - nose_y));
+                                          static_cast<double>(face.mouth_part_[1] - nose_y));
 
     // Left of the nose (its quotient kept at the x87's precision)
-    double scale_left = static_cast<double>(face.nose_slot_[0] + dx) / static_cast<double>(face.nose_slot_[0] - face.left_eye_[0]);
+    double scale_left =
+        static_cast<double>(face.nose_slot_[0] + dx) / static_cast<double>(face.nose_slot_[0] - face.left_eye_[0]);
     int amount = ftol(scale_left * (model.left_eye_[0] - dx - face.left_eye_[0]) + 0.5f);
     if (amount < 0)
         get_stretch(texture, model_nose_x, 0, amount);
@@ -217,8 +228,8 @@ bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors*
 }
 
 // 0x00486F70
-bool __cdecl massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette, bool use_colour,
-                                uint32_t colour)
+bool __cdecl massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette,
+                                  bool use_colour, uint32_t colour)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
@@ -342,7 +353,7 @@ void FaceSkin::save_to_structure(Struct* params)
     write_face_points(&path_vertices_, params);
 }
 
-} // namespace Gfx
+} // namespace gfx
 
 // --- the script commands ----------------------------------------------------------------------------------------
 

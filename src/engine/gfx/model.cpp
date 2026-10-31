@@ -17,7 +17,10 @@ using namespace model_geoms;
 namespace {
 
 // A flag of flag_bits_ set from a bit (the setters take a flag's low bit, as the original's shifts and masks).
-uint8_t set_flag(uint8_t flags, uint8_t flag, int bit) { return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag); }
+uint8_t set_flag(uint8_t flags, uint8_t flag, int bit)
+{
+    return static_cast<uint8_t>(bit ? flags | flag : flags & ~flag);
+}
 
 // The first geom's entry (as the original: through the head's next even when there's no head).
 ModelGeom* first_entry(RenderModel* model) { return table_row(get_first(model)); }
@@ -355,8 +358,8 @@ bool RenderModel::is_part_concealed(uint32_t name)
 // 0x004948D0
 bool RenderModel::change_tint(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
-    uint32_t rgba = r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) |
-                    (static_cast<uint32_t>(a) << 24);
+    uint32_t rgba =
+        r | (static_cast<uint32_t>(g) << 8) | (static_cast<uint32_t>(b) << 16) | (static_cast<uint32_t>(a) << 24);
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
         set_geom_color(get_geom(node), rgba);
     return true;
@@ -387,4 +390,4 @@ void RenderModel::activate_shadow(uint8_t on)
         set_geom_shadow(get_geom(node), on);
 }
 
-} // namespace Nx
+} // namespace render

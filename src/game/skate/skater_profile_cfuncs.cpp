@@ -21,22 +21,22 @@ namespace {
 
 using namespace skate_calls;
 
-constexpr uint32_t kString = 0x61414D56; // string
-constexpr uint32_t kName = 0xA1DC81F9;   // name
-constexpr uint32_t kIsClassic = 0x5A2C589A;        // is_classic
-constexpr uint32_t kStatPlayWinSound = 0x5A90FB86; // stat_play_win_sound
-constexpr uint32_t kAll = 0xC4E78E22;              // all
-constexpr uint32_t kProfile = 0x7EA855F0;          // profile
-constexpr uint32_t kPlayer = 0x67E6859A;           // player
-constexpr uint32_t kSkater = 0x5B8AB877;           // skater
+constexpr uint32_t kString = 0x61414D56;                    // string
+constexpr uint32_t kName = 0xA1DC81F9;                      // name
+constexpr uint32_t kIsClassic = 0x5A2C589A;                 // is_classic
+constexpr uint32_t kStatPlayWinSound = 0x5A90FB86;          // stat_play_win_sound
+constexpr uint32_t kAll = 0xC4E78E22;                       // all
+constexpr uint32_t kProfile = 0x7EA855F0;                   // profile
+constexpr uint32_t kPlayer = 0x67E6859A;                    // player
+constexpr uint32_t kSkater = 0x5B8AB877;                    // skater
 constexpr uint32_t kCurrentSkaterProfileIndex = 0x3C64476B; // currentSkaterProfileIndex
-constexpr uint32_t kDisplayName = 0x2AB66CB8;      // display_name
-constexpr uint32_t kCustom = 0x0A7BE964;           // custom (the custom skater's template)
-constexpr uint32_t kCurrentPedPro = 0x09EEBCB8;    // (name unknown) a global naming the current ped pro's structure
-constexpr uint32_t kPedProName = 0xF054556D;       // (name unknown) GetCurrentPedProName's result
-constexpr uint32_t kOverridden = 0xC70E7415;       // overridden
-constexpr uint32_t kStatValue = 0x8EAF7ADD;        // stat_value
-constexpr uint32_t kIsHidden = 0x27EB9B9D;         // is_hidden
+constexpr uint32_t kDisplayName = 0x2AB66CB8;               // display_name
+constexpr uint32_t kCustom = 0x0A7BE964;                    // custom (the custom skater's template)
+constexpr uint32_t kCurrentPedPro = 0x09EEBCB8; // (name unknown) a global naming the current ped pro's structure
+constexpr uint32_t kPedProName = 0xF054556D;    // (name unknown) GetCurrentPedProName's result
+constexpr uint32_t kOverridden = 0xC70E7415;    // overridden
+constexpr uint32_t kStatValue = 0x8EAF7ADD;     // stat_value
+constexpr uint32_t kIsHidden = 0x27EB9B9D;      // is_hidden
 
 // The players' options: the skate module's table at +0x394 (8 bytes a player: vibration, auto kick, spin taps), set
 // through 0x00567C30 / 0x00567C00 / 0x00567BD0 (player, on).
@@ -86,7 +86,7 @@ constexpr uint32_t kNodeName = 0x66780C6F;         // node_name
 constexpr uint32_t kRestartWalking = 0xD6F06BF6;   // RestartWalking
 constexpr uint32_t kOn = 0xF649D637;               // on
 constexpr uint32_t kOff = 0xD443A2BC;              // off
-constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;     // NoFaceTexture
+constexpr uint32_t kNoFaceTexture = 0x3AF36E6D;    // NoFaceTexture
 
 // The profile manager's templates (its table, 0x00557FB0 by index) and each one's info structure.
 uint32_t template_count() { return roster_handle()->templates_.num_; }
@@ -408,14 +408,26 @@ bool __cdecl cfunc_toggle_always_special(script::Struct* params, script::Script*
 // 0x005AE370 ... 0x005AE4F0: VibrationIsOn / VibrationOn / VibrationOff, AutoKickIsOn / On / Off, SpinTapsAreOn /
 // On / Off [<player>].
 bool __cdecl cfunc_vibration_is_on(script::Struct* params, script::Script*) { return get_option(params, kVibration); }
-bool __cdecl cfunc_vibration_on(script::Struct* params, script::Script*) { return set_option(params, kVibration, true); }
-bool __cdecl cfunc_vibration_off(script::Struct* params, script::Script*) { return set_option(params, kVibration, false); }
+bool __cdecl cfunc_vibration_on(script::Struct* params, script::Script*)
+{
+    return set_option(params, kVibration, true);
+}
+bool __cdecl cfunc_vibration_off(script::Struct* params, script::Script*)
+{
+    return set_option(params, kVibration, false);
+}
 bool __cdecl cfunc_auto_kick_is_on(script::Struct* params, script::Script*) { return get_option(params, kAutoKick); }
 bool __cdecl cfunc_auto_kick_on(script::Struct* params, script::Script*) { return set_option(params, kAutoKick, true); }
-bool __cdecl cfunc_auto_kick_off(script::Struct* params, script::Script*) { return set_option(params, kAutoKick, false); }
+bool __cdecl cfunc_auto_kick_off(script::Struct* params, script::Script*)
+{
+    return set_option(params, kAutoKick, false);
+}
 bool __cdecl cfunc_spin_taps_are_on(script::Struct* params, script::Script*) { return get_option(params, kSpinTaps); }
 bool __cdecl cfunc_spin_taps_on(script::Struct* params, script::Script*) { return set_option(params, kSpinTaps, true); }
-bool __cdecl cfunc_spin_taps_off(script::Struct* params, script::Script*) { return set_option(params, kSpinTaps, false); }
+bool __cdecl cfunc_spin_taps_off(script::Struct* params, script::Script*)
+{
+    return set_option(params, kSpinTaps, false);
+}
 
 // 0x005AE520: GetCurrentProDisplayInfo - the current profile's display name as string.
 bool __cdecl cfunc_get_current_pro_display_info(script::Struct*, script::Script* script)
@@ -470,7 +482,8 @@ bool __cdecl cfunc_award_special_trick_slot(script::Struct* params, script::Scri
     if (params->has_bare_flag(kAll)) {
         int count = static_cast<int>(manager->templates_.num_);
         for (int i = 0; i < count; ++i) // (0x00557FB0: the table's item by index)
-            reinterpret_cast<objects::RiderIdentity*>(reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(i))
+            reinterpret_cast<objects::RiderIdentity*>(
+                reinterpret_cast<goals::GoalManager*>(manager)->get_objective_at(i))
                 ->add_max_specials(1);
         return true;
     }

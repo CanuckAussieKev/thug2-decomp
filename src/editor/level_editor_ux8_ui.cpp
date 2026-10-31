@@ -39,7 +39,8 @@ void mouse_glyph(ImDrawList* draw, ImVec2 at, float h, int button, bool wheel, b
     if (button == 0)
         draw->AddRectFilled(a, ImVec2(at.x + w * 0.5f, split), kLit, r, ImDrawFlags_RoundCornersTopLeft);
     if (button == 1)
-        draw->AddRectFilled(ImVec2(at.x + w * 0.5f, at.y), ImVec2(b.x, split), kLit, r, ImDrawFlags_RoundCornersTopRight);
+        draw->AddRectFilled(ImVec2(at.x + w * 0.5f, at.y), ImVec2(b.x, split), kLit, r,
+                            ImDrawFlags_RoundCornersTopRight);
     draw->AddLine(ImVec2(at.x, split), ImVec2(b.x, split), kCapEdge);
     draw->AddLine(ImVec2(at.x + w * 0.5f, at.y), ImVec2(at.x + w * 0.5f, split), kCapEdge);
     if (button == 2 || wheel)
@@ -67,9 +68,9 @@ void token_glyph(const std::string& token, const Fonts& fonts)
     case hints::Glyph::kWheel:
     case hints::Glyph::kDoubleClick: {
         int button = g == hints::Glyph::kMouseLeft || g == hints::Glyph::kDoubleClick ? 0
-                     : g == hints::Glyph::kMouseRight                               ? 1
-                     : g == hints::Glyph::kMouseMiddle                              ? 2
-                                                                                    : -1;
+                     : g == hints::Glyph::kMouseRight                                 ? 1
+                     : g == hints::Glyph::kMouseMiddle                                ? 2
+                                                                                      : -1;
         mouse_glyph(draw, ImVec2(pos.x, pos.y), h, button, g == hints::Glyph::kWheel, g == hints::Glyph::kDoubleClick);
         width = h * 0.68f + (g == hints::Glyph::kDoubleClick ? 8.0f * s : 0.0f);
         break;
@@ -82,12 +83,13 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         ImU32 colour = g == hints::Glyph::kPadA   ? IM_COL32(80, 170, 70, 255)
                        : g == hints::Glyph::kPadB ? IM_COL32(200, 60, 50, 255)
                        : g == hints::Glyph::kPadX ? IM_COL32(50, 110, 210, 255)
-                                                 : IM_COL32(220, 180, 40, 255);
+                                                  : IM_COL32(220, 180, 40, 255);
         float r = h * 0.5f;
         draw->AddCircleFilled(ImVec2(pos.x + r, pos.y + r), r, colour);
         const char letter[2] = {token.back(), 0};
         ImVec2 size = ImGui::CalcTextSize(letter);
-        draw->AddText(ImVec2(pos.x + r - size.x * 0.5f, pos.y + r - size.y * 0.5f), IM_COL32(255, 255, 255, 255), letter);
+        draw->AddText(ImVec2(pos.x + r - size.x * 0.5f, pos.y + r - size.y * 0.5f), IM_COL32(255, 255, 255, 255),
+                      letter);
         width = 2.0f * r;
         break;
     }
@@ -98,7 +100,8 @@ void token_glyph(const std::string& token, const Fonts& fonts)
         ImVec2 size = ImGui::CalcTextSize(token.c_str());
         float pad_x = 4.0f * s;
         bool pad = g == hints::Glyph::kPadOther;
-        draw->AddRectFilled(ImVec2(pos.x, pos.y - 1.0f * s), ImVec2(pos.x + size.x + 2.0f * pad_x, pos.y + size.y + 1.0f * s),
+        draw->AddRectFilled(ImVec2(pos.x, pos.y - 1.0f * s),
+                            ImVec2(pos.x + size.x + 2.0f * pad_x, pos.y + size.y + 1.0f * s),
                             pad ? IM_COL32(40, 42, 46, 255) : kCap, (pad ? 8.0f : 3.0f) * s);
         draw->AddText(ImVec2(pos.x + pad_x, pos.y), kInk, token.c_str());
         if (fonts.mono)
@@ -219,17 +222,22 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
     if (pad_owns_cursor() || on_foot()) {
         float r = 7.0f * s;
         draw->AddCircle(centre, r, IM_COL32(255, 255, 255, 200), 0, 1.5f * s);
-        draw->AddLine(ImVec2(centre.x - 2.0f * r, centre.y), ImVec2(centre.x - r, centre.y), IM_COL32(255, 255, 255, 200), 1.5f * s);
-        draw->AddLine(ImVec2(centre.x + r, centre.y), ImVec2(centre.x + 2.0f * r, centre.y), IM_COL32(255, 255, 255, 200), 1.5f * s);
-        draw->AddLine(ImVec2(centre.x, centre.y - 2.0f * r), ImVec2(centre.x, centre.y - r), IM_COL32(255, 255, 255, 200), 1.5f * s);
-        draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + 2.0f * r), IM_COL32(255, 255, 255, 200), 1.5f * s);
+        draw->AddLine(ImVec2(centre.x - 2.0f * r, centre.y), ImVec2(centre.x - r, centre.y),
+                      IM_COL32(255, 255, 255, 200), 1.5f * s);
+        draw->AddLine(ImVec2(centre.x + r, centre.y), ImVec2(centre.x + 2.0f * r, centre.y),
+                      IM_COL32(255, 255, 255, 200), 1.5f * s);
+        draw->AddLine(ImVec2(centre.x, centre.y - 2.0f * r), ImVec2(centre.x, centre.y - r),
+                      IM_COL32(255, 255, 255, 200), 1.5f * s);
+        draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + 2.0f * r),
+                      IM_COL32(255, 255, 255, 200), 1.5f * s);
     }
     if (on_foot() && fonts.ui) {
         const char* text = "WALK MODE  -  WASD walk, Space jump, Shift run, Esc exit";
         ImVec2 size = fonts.ui->CalcTextSizeA(fonts.ui->FontSize, 1e9f, 0.0f, text);
         ImVec2 at(centre.x - size.x * 0.5f, vy + 14.0f * s);
-        draw->AddRectFilled(ImVec2(at.x - 8.0f * s, at.y - 4.0f * s), ImVec2(at.x + size.x + 8.0f * s, at.y + size.y + 4.0f * s),
-                            IM_COL32(16, 17, 19, 200), 6.0f * s);
+        draw->AddRectFilled(ImVec2(at.x - 8.0f * s, at.y - 4.0f * s),
+                            ImVec2(at.x + size.x + 8.0f * s, at.y + size.y + 4.0f * s), IM_COL32(16, 17, 19, 200),
+                            6.0f * s);
         draw->AddText(fonts.ui, fonts.ui->FontSize, at, kInk, text);
     }
     // The pie.
@@ -258,8 +266,10 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         int checked = item.checked ? item.checked() : -1;
         std::string label = (checked == 1 ? "\xE2\x97\x8F " : "") + item.label; // (a dot: on)
         ImVec2 size = font->CalcTextSizeA(font->FontSize, 1e9f, 0.0f, label.c_str());
-        ImVec2 key_size = item.keys.empty() ? ImVec2(0, 0) : small->CalcTextSizeA(small->FontSize, 1e9f, 0.0f, item.keys.c_str());
-        float w = std::max(size.x, key_size.x) + 18.0f * s, h = size.y + (item.keys.empty() ? 0.0f : key_size.y) + 8.0f * s;
+        ImVec2 key_size =
+            item.keys.empty() ? ImVec2(0, 0) : small->CalcTextSizeA(small->FontSize, 1e9f, 0.0f, item.keys.c_str());
+        float w = std::max(size.x, key_size.x) + 18.0f * s,
+              h = size.y + (item.keys.empty() ? 0.0f : key_size.y) + 8.0f * s;
         // (left / right of the centre: the box grows away from it)
         float left = dx > 0.3f ? at.x - 10.0f * s : dx < -0.3f ? at.x - w + 10.0f * s : at.x - w * 0.5f;
         ImVec2 a(left, at.y - h * 0.5f), b(left + w, at.y + h * 0.5f);
@@ -348,4 +358,4 @@ void prefs_section()
         ImGui::SetTooltip("Use a game controller in the editor");
 }
 
-} // namespace MenuSystem::level_editor::ux8
+} // namespace frontend::level_editor::ux8

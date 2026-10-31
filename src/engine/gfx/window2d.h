@@ -24,11 +24,12 @@ public:
     void change_extent(int width, int height);
 
     void** vtable_;
-    int pos_x_, y_;          // +0x04
-    int span_, level_y_; // +0x0C
-    ScreenWindow* following_;    // +0x14 on the free list
+    int pos_x_, y_;           // +0x04
+    int span_, level_y_;      // +0x0C
+    ScreenWindow* following_; // +0x14 on the free list
 };
-static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow) == 0x18, "layout must match the original");
+static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow) == 0x18,
+              "layout must match the original");
 
 // 0x004A1620: a window from the free list (none: written through null, as the original), placed and sized - each
 // with virtual [1].
@@ -38,4 +39,4 @@ void __cdecl free_window_2d(ScreenWindow* window);
 
 extern ScreenWindow* g_free_windows;
 
-} // namespace Nx
+} // namespace render

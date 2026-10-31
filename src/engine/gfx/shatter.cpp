@@ -39,8 +39,14 @@ lists::KeyMap* shatters() { return g_shatters; }
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
 
 // A mesh's fields the drawing uses: its vertex format (+0x38) and pixel shader (+0x44).
-uint32_t mesh_vertex_format(const MeshRef* mesh) { return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38); }
-void* mesh_pixel_shader(const MeshRef* mesh) { return *reinterpret_cast<void* const*>(reinterpret_cast<const uint8_t*>(mesh) + 0x44); }
+uint32_t mesh_vertex_format(const MeshRef* mesh)
+{
+    return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38);
+}
+void* mesh_pixel_shader(const MeshRef* mesh)
+{
+    return *reinterpret_cast<void* const*>(reinterpret_cast<const uint8_t*>(mesh) + 0x44);
+}
 
 } // namespace
 
@@ -127,7 +133,7 @@ void get_turn(const maths::Mat4& m, double x, double y, double z, float* out)
 }
 float* get_at(uint8_t* vertex) { return reinterpret_cast<float*>(vertex); }
 
-int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
+int get_rand() { return crt::get_rand(); }                          // (the game's C runtime's)
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);      // 0x00646510 (1 / 32767)
 constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u); // 0x0064930C (2 / 32767)
 
@@ -259,7 +265,8 @@ void __cdecl shatter_geom(uint8_t* geom)
         float speed = static_cast<float>(std::sqrt(static_cast<double>(direction[1]) * direction[1] +
                                                    static_cast<double>(direction[2]) * direction[2] +
                                                    static_cast<double>(direction[0]) * direction[0]));
-        float from[4] = {static_cast<float>(mesh->centre[0] + back_x), static_cast<float>(static_cast<double>(mesh->centre[1]) + back_y),
+        float from[4] = {static_cast<float>(mesh->centre[0] + back_x),
+                         static_cast<float>(static_cast<double>(mesh->centre[1]) + back_y),
                          static_cast<float>(static_cast<double>(mesh->centre[2]) + back_z),
                          static_cast<float>(static_cast<double>(back_w) + 1.0f)};
         uint32_t key = reinterpret_cast<uint32_t>(shatter);
@@ -272,11 +279,11 @@ void __cdecl shatter_geom(uint8_t* geom)
             maths::Vec4& centre = shatter->centres[j];
             for (int k = 0; k < 3; ++k)
                 (&centre.x)[k] = static_cast<float>(
-                    (static_cast<double>(get_at(t + 2 * stride)[k]) + get_at(t + stride)[k] + get_at(t)[k]) * (1.0f / 3.0f));
+                    (static_cast<double>(get_at(t + 2 * stride)[k]) + get_at(t + stride)[k] + get_at(t)[k]) *
+                    (1.0f / 3.0f));
             // a velocity away from the centre at a random speed
-            float pace = static_cast<float>(get_rand() * static_cast<double>(g_shatter_speed) * kPerRand *
-                                                speed +
-                                            speed);
+            float pace =
+                static_cast<float>(get_rand() * static_cast<double>(g_shatter_speed) * kPerRand * speed + speed);
             double dx = static_cast<double>(centre.x) - from[0];
             double dy = static_cast<double>(centre.y) - from[1];
             float dz = static_cast<float>(static_cast<double>(centre.z) - from[2]);
@@ -294,8 +301,8 @@ void __cdecl shatter_geom(uint8_t* geom)
             float a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
             float a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
             maths::Vec4 axis = {a3, a2, a1, 1.0f};
-            double axis_length = std::sqrt(static_cast<double>(a3) * a3 + static_cast<double>(a2) * a2 +
-                                          static_cast<double>(a1) * a1);
+            double axis_length =
+                std::sqrt(static_cast<double>(a3) * a3 + static_cast<double>(a2) * a2 + static_cast<double>(a1) * a1);
             if (axis_length > 0.0) {
                 double inverse = 1.0 / axis_length;
                 axis.x = static_cast<float>(a3 * inverse);
@@ -309,8 +316,7 @@ void __cdecl shatter_geom(uint8_t* geom)
             maths::Mat4 turn;
             maths::build_axis_angle_matrix(turn, axis, angle);
             // D3DX (linked library code): rotation = rotation * turn
-            d3dx::matrix_multiply(
-                &rotation, &rotation, &turn);
+            d3dx::matrix_multiply(&rotation, &rotation, &turn);
         }
         mesh->index_buffers_[0]->get_unlock(); // (unlocked)
         mesh->fetch_vertex_store(0)->get_unlock();
@@ -322,4 +328,4 @@ static VtableSlot g_shatter_vtable_slots[] = {&render::PcShatter::teardown};
 void** const kShatterVtable = reinterpret_cast<void**>(g_shatter_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

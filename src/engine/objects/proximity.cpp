@@ -23,15 +23,15 @@ void* g_proximity_hub;
 
 namespace {
 
-constexpr uint32_t kName = 0xA1DC81F9;            // name
-constexpr uint32_t kShape = 0x22CF0027;           // (the shape's parameter)
-constexpr uint32_t kProximType = 0x7321A8D6;      // (what the node reacts to)
-constexpr uint32_t kRadius = 0xC48391A5;          // radius
-constexpr uint32_t kScript = 0x2CA8A299;          // (the node's script)
-constexpr uint32_t kProximityTag = 0x5113F19C;    // ProximObject (a flag)
-constexpr uint32_t kOwnerSectorKey = 0x08470F2E;      // (the object's sector, by the node's name)
-constexpr uint32_t kClass = 0x12B4E660;           // class
-constexpr uint32_t kRestart = 0x1806DDF8;         // Restart
+constexpr uint32_t kName = 0xA1DC81F9;           // name
+constexpr uint32_t kShape = 0x22CF0027;          // (the shape's parameter)
+constexpr uint32_t kProximType = 0x7321A8D6;     // (what the node reacts to)
+constexpr uint32_t kRadius = 0xC48391A5;         // radius
+constexpr uint32_t kScript = 0x2CA8A299;         // (the node's script)
+constexpr uint32_t kProximityTag = 0x5113F19C;   // ProximObject (a flag)
+constexpr uint32_t kOwnerSectorKey = 0x08470F2E; // (the object's sector, by the node's name)
+constexpr uint32_t kClass = 0x12B4E660;          // class
+constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
 
 // The skaters by object id (0-31).
 constexpr int kSkaterSlots = 32;
@@ -41,14 +41,8 @@ EntityHub* entity_hub_handle() { return g_composite_registry; }
 Entity* entity_for_id(uint32_t id) { return entity_hub_handle()->look_up_entity(id); }
 
 // A level sector's bounding box and world matrix (not rewritten yet).
-const maths::BBox* sector_box(void* sector)
-{
-    return static_cast<render::WorldCell*>(sector)->fetch_bounds();
-}
-const maths::Mat4* sector_world_matrix(void* sector)
-{
-    return static_cast<render::WorldCell*>(sector)->fetch_facing();
-}
+const maths::BBox* sector_box(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_bounds(); }
+const maths::Mat4* sector_world_matrix(void* sector) { return static_cast<render::WorldCell*>(sector)->fetch_facing(); }
 // The sector's collision (+0x18) asked whether `point` is inside (its vtable +0x48; `offset` gets the point from
 // the node, which it may use).
 bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* offset)
@@ -62,10 +56,7 @@ bool sector_contains(void* sector, const maths::Vec4* point, maths::Vec4* offset
 // The level sector named `name` (null if none).
 void* look_up_sector(uint32_t name) { return render::engine::look_up_sector(name); }
 
-void flag_as_dead(Entity* object)
-{
-    reinterpret_cast<void(__thiscall*)(Entity*)>(object->vtable_[6])(object);
-}
+void flag_as_dead(Entity* object) { reinterpret_cast<void(__thiscall*)(Entity*)>(object->vtable_[6])(object); }
 
 // The node's script, run for `object` (as a spawned script on it) or by itself; `entering` tells it which.
 void execute_node_script(ProximityRegistry* manager, ProximNode* node, Entity* object, bool entering)
@@ -96,12 +87,17 @@ maths::Vec4 into_sector(const ProximNode* node, const maths::Vec4* point, const 
 int proxim_shape_from_checksum(uint32_t checksum)
 {
     switch (checksum) {
-    case 0xE460ABDE: return kProximShapeBox;
-    case 0x03F1E5A7: return kProximShapeSectorBox;
-    case 0x64FBA415: return kProximShapeNone;
-    case 0x6AADF154: return kProximShapeSector;
+    case 0xE460ABDE:
+        return kProximShapeBox;
+    case 0x03F1E5A7:
+        return kProximShapeSectorBox;
+    case 0x64FBA415:
+        return kProximShapeNone;
+    case 0x6AADF154:
+        return kProximShapeSector;
     case 0xAA069978: // (the sphere's own name)
-    default: return kProximShapeSphere;
+    default:
+        return kProximShapeSphere;
     }
 }
 
@@ -434,4 +430,4 @@ uint32_t get_spawn_node(uint32_t type, int index, uint32_t start)
     return index >= count ? names[index % count] : names[index];
 }
 
-} // namespace Obj
+} // namespace objects

@@ -112,4 +112,4 @@ void TableItemEraser::empty_table_items()
     }
 }
 
-} // namespace Lst
+} // namespace lists

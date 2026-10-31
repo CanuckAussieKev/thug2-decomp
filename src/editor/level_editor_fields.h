@@ -119,7 +119,7 @@ enum class When : uint8_t { kLive, kReload, kElsewhere, kReadOnly };
 When when_applied(nodes::Family family, uint32_t key, const char** note);
 // Links typed for node `self`: every one an existing node (`exists`), not itself, none twice. False: `error` says which.
 bool valid_links(const std::vector<uint32_t>& links, uint32_t self, const std::function<bool(uint32_t)>& exists,
-                const NameLookup& names, std::string* error);
+                 const NameLookup& names, std::string* error);
 
 // The few fields with a meaning of their own.
 uint32_t get_key_name();
@@ -129,7 +129,7 @@ uint32_t key_pos();
 uint32_t key_angles();
 uint32_t key_links();
 uint32_t key_terrain();       // TerrainType
-uint32_t key_restart_types();  // restart_types
+uint32_t key_restart_types(); // restart_types
 
 // A node's own field as it was (or is): present or not, its value, its place among the node's components (so it goes
 // back exactly where it was - before or after an included structure decides which one counts): how many of its other
@@ -147,14 +147,14 @@ void move_last_to(script::Struct* s, int index);
 // A row of the Inspector's table.
 struct Row {
     uint32_t key = 0;
-    Value value;            // what the game reads now (the last one there is)
-    bool included = false;  // from a shared structure (not overridden)
+    Value value;             // what the game reads now (the last one there is)
+    bool included = false;   // from a shared structure (not overridden)
     bool overridden = false; // the node's own value over a shared structure's
-    bool edited = false;    // changed by the editor (Home puts it back)
+    bool edited = false;     // changed by the editor (Home puts it back)
     When when = When::kReload;
     const char* note = "";
     bool editable = false;
-    std::string why;        // why not (read-only)
+    std::string why; // why not (read-only)
 };
 // Every field of the node (its own and its shared structures', each name once, in the order they first appear).
 std::vector<Row> rows_of(const nodes::Elem& node);
@@ -198,4 +198,4 @@ void forget_level();
 // noted first. Counted.
 int apply_early(uint32_t array, const std::vector<NodeEdits>& edits);
 
-} // namespace MenuSystem::level_editor::Fields
+} // namespace frontend::level_editor::fields

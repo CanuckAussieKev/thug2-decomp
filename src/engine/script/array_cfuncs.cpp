@@ -17,15 +17,15 @@ namespace {
 using script::Array;
 using script::Struct;
 
-constexpr uint32_t kArray = 0x5EF31148;      // "array"
-constexpr uint32_t kContains = 0x71059581;   // "contains"
-constexpr uint32_t kIndex1 = 0x0BA453B9;     // "Index1"
-constexpr uint32_t kIndex2 = 0x92AD0203;     // "index2"
-constexpr uint32_t kIndex3 = 0xE5AA3295;     // "index3"
-constexpr uint32_t kArraySize = 0x7F5B3D4D;  // "array_size"
-constexpr uint32_t kArrayName = 0x8F61D602;  // "arrayName"
-constexpr uint32_t kIndices = 0xFFC8E484;    // "indices"
-constexpr uint32_t kVal = 0x6820459A;        // "val"
+constexpr uint32_t kArray = 0x5EF31148;     // "array"
+constexpr uint32_t kContains = 0x71059581;  // "contains"
+constexpr uint32_t kIndex1 = 0x0BA453B9;    // "Index1"
+constexpr uint32_t kIndex2 = 0x92AD0203;    // "index2"
+constexpr uint32_t kIndex3 = 0xE5AA3295;    // "index3"
+constexpr uint32_t kArraySize = 0x7F5B3D4D; // "array_size"
+constexpr uint32_t kArrayName = 0x8F61D602; // "arrayName"
+constexpr uint32_t kIndices = 0xFFC8E484;   // "indices"
+constexpr uint32_t kVal = 0x6820459A;       // "val"
 
 Array* element_array(Array* array, uint32_t index) { return reinterpret_cast<Array*>(array->fetch_part(index)); }
 
@@ -135,7 +135,7 @@ bool __cdecl cfunc_get_array_size(Struct* params, script::Script* script)
     // crash on it, with the script's name: e.g. a converted level's script naming an array THUG2 hasn't)
     if (!array)
         get_log("GetArraySize: no array in %s's parameters (or an index leading to none) - the next line crashes",
-            script::find_checksum_name_or_unknown(script->script_title_));
+                script::find_checksum_name_or_unknown(script->script_title_));
     script->args_->put_int(kArraySize, static_cast<int>(array->extent_));
     return true;
 }

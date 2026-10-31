@@ -415,4 +415,4 @@ void forget_level()
     g_rail_origins.clear();
 }
 
-} // namespace MenuSystem::level_editor::node_edit
+} // namespace frontend::level_editor::node_edit

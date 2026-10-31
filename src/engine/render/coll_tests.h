@@ -17,12 +17,12 @@ struct CollSphere {
 // (v1 - v0) x (v2 - v0) points to; a determinant below 0.03 misses) at a distance along it - *t, set when it gets
 // that far - between 0 and 1. The barycentric bounds allow the determinant times 1.00001.
 bool ray_hits_triangle(const maths::Vec4& start, const maths::Vec4& direction, const maths::Vec4& v0,
-                     const maths::Vec4& v1, const maths::Vec4& v2, float* t);
+                       const maths::Vec4& v1, const maths::Vec4& v2, float* t);
 
 // 0x0040B610: whether the line through `base` along `end` - `base` passes within the sphere's radius of its centre,
 // and the nearer crossing (*t, measured from `start`) is at most `limit`.
 bool line_hits_sphere(const maths::Vec4& start, const maths::Vec4& base, const CollSphere& sphere,
-                    const maths::Vec4& end, float* t, float limit);
+                      const maths::Vec4& end, float* t, float limit);
 
 // 0x0040B750: whether the 2D segments (ax, ay) + s (adx, ady) and (bx, by) + u (bdx, bdy) cross for s and u in
 // 0..1; *s set (0 for parallel ones).
@@ -33,7 +33,7 @@ bool segments_cross_2d(float ax, float ay, float adx, float ady, float bx, float
 // ST0 and some callers compare it before storing). One region keeps the original's slip: below the first edge's
 // start (s < 0, t >= 0) e is compared with c without its sign flipped, so it always clamps along the second edge.
 double point_triangle_distance_squared(const maths::Vec4& point, const maths::Vec4& v0, const maths::Vec4& v1,
-                                    const maths::Vec4& v2, float* s, float* t);
+                                       const maths::Vec4& v2, float* s, float* t);
 
 // 0x0040BDC0 (cdecl): the squared distance between `segment` and the triangle v0 v1 v2 (Eberly's segment /
 // triangle regions). The nearest points: segment.start + *along (segment.end - segment.start) on the segment and
@@ -43,8 +43,8 @@ double point_triangle_distance_squared(const maths::Vec4& point, const maths::Ve
 // to float, some not, as the original's. `normal` isn't read. A segment crossing the triangle's interior prints
 // "uh oh..." and returns 0 (*along, *s, *t where it crosses).
 double segment_triangle_distance_squared(const maths::Seg& segment, const maths::Vec4& normal, const maths::Vec4& v0,
-                                      const maths::Vec4& v1, const maths::Vec4& v2, float* s, float* t,
-                                      float* along);
+                                         const maths::Vec4& v1, const maths::Vec4& v2, float* s, float* t,
+                                         float* along);
 
 // A parallelogram: a corner and its two sides (the rect queries' shape).
 struct CollRect {
@@ -59,11 +59,11 @@ struct CollRect {
 // go to points[0], points[1] and their kinds to kinds[0], kinds[1]; false unless two were found (one may still have
 // been written).
 bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths::Vec4& v1, const maths::Vec4& v2,
-                      maths::Vec4* points, int* kinds);
+                        maths::Vec4* points, int* kinds);
 
 // line_hits_sphere / segments_cross_2d as the game calls them: their callers (0x0040EC90, 0x0040D370) keep a value in
 // EDX across the call, which the originals don't touch - these adapters keep it.
 void line_hits_sphere_keeping_edx();
 void segments_cross_2d_keeping_edx();
 
-} // namespace Nx
+} // namespace render

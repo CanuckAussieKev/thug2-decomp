@@ -29,17 +29,11 @@
 
 namespace objects {
 
-uint32_t g_stats_manager_member_functions[60]{
-            0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0,
-            0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0,
-            0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
-            0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0,
-            0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0,
-            0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
-            0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0,
-            0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0,
-            0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0,
-            0, 0x4FF8DAC6, 0, 0, 0, 0};
+uint32_t g_stats_manager_member_functions[60]{0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0, 0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0,
+                                              0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0, 0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0,
+                                              0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0, 0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
+                                              0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0, 0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0,
+                                              0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0, 0,          0x4FF8DAC6, 0, 0, 0, 0};
 
 namespace {
 
@@ -54,18 +48,18 @@ constexpr uint32_t kStateLaunched = 0xB39B4F1B; // the skater state's +0x30
 constexpr uint32_t kStateAir = 0x439F4704;      // in the air (physics state 1) without +0x30
 
 // Goal kinds.
-constexpr uint32_t kRise = 0x39E7537B;          // a jump's rise (inches over 12)
-constexpr uint32_t kDrop = 0x7E064AD0;          // a jump's drop
-constexpr uint32_t kAirCombo = 0x1DBBB148;      // a combo's score made in the air (landed)
-constexpr uint32_t kAirHeight = 0x430B80C4;     // height above the take-off
+constexpr uint32_t kRise = 0x39E7537B;      // a jump's rise (inches over 12)
+constexpr uint32_t kDrop = 0x7E064AD0;      // a jump's drop
+constexpr uint32_t kAirCombo = 0x1DBBB148;  // a combo's score made in the air (landed)
+constexpr uint32_t kAirHeight = 0x430B80C4; // height above the take-off
 constexpr uint32_t kAirValue58 = 0x509ACA95;
 constexpr uint32_t kComboScore = 0x4EC3CFB5;
 constexpr uint32_t kMultiplier = 0x5B6556A4;
 constexpr uint32_t kCountA80 = 0x364E8C16;
 constexpr uint32_t kCountA84 = 0x68703AE9;
 constexpr uint32_t kTrickCount = 0x69B0F836;
-constexpr uint32_t kLeapReach = 0x8F6F9F05; // horizontal
-constexpr uint32_t kAirDistance = 0xC3EC3EED;  // horizontal, from take-off to landing
+constexpr uint32_t kLeapReach = 0x8F6F9F05;   // horizontal
+constexpr uint32_t kAirDistance = 0xC3EC3EED; // horizontal, from take-off to landing
 constexpr uint32_t kScore562370 = 0x9068B4E5;
 
 // Balance goal kinds and trick types.
@@ -86,7 +80,10 @@ T& prop(const void* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
 }
 
-void launch_script(uint32_t name, script::Struct* params = nullptr) { script::launch_script(name, params, nullptr, false, nullptr); }
+void launch_script(uint32_t name, script::Struct* params = nullptr)
+{
+    script::launch_script(name, params, nullptr, false, nullptr);
+}
 
 script::Struct* new_params()
 {
@@ -102,7 +99,10 @@ void delete_params(script::Struct* params)
 }
 
 void* skate_module() { return static_cast<void*>(modules::g_skate_module); }
-RiderIdentity* first_profile() { return static_cast<modules::Skate*>(skate_module())->fetch_account(static_cast<int>(0)); }
+RiderIdentity* first_profile()
+{
+    return static_cast<modules::Skate*>(skate_module())->fetch_account(static_cast<int>(0));
+}
 void* game_flow() { return goals::get_objective_board(); }
 
 // The skater's score component and its counts.
@@ -115,7 +115,8 @@ int count_tricks(void* score, uint32_t trick, int a, int b, int c)
 // 0x00423680: the distance between two points (z, x, then y; unrounded).
 double span_to(const maths::Vec4& a, const maths::Vec4& b)
 {
-    double dx = static_cast<double>(a.x) - b.x, dy = static_cast<double>(a.y) - b.y, dz = static_cast<double>(a.z) - b.z;
+    double dx = static_cast<double>(a.x) - b.x, dy = static_cast<double>(a.y) - b.y,
+           dz = static_cast<double>(a.z) - b.z;
     return std::sqrt((dz * dz + dx * dx) + dy * dy);
 }
 
@@ -211,7 +212,8 @@ void AttributeTracker::configure_from_data(script::Struct*)
         physics_control_ = skater_->fetch_module(kSkaterPhysicsControl);
     }
     difficulty_ = static_cast<goals::GoalManager*>(game_flow())->get_skill_tier(true);
-    debug::printf("STATSManager: difficulty ====================== %i\n", difficulty_); // "STATSManager: difficulty ... %i"
+    debug::printf("STATSManager: difficulty ====================== %i\n",
+                  difficulty_); // "STATSManager: difficulty ... %i"
     if (script::fetch_int_value(0xB8688A8Au) == 1)
         raise_stats_ = true;
 
@@ -342,17 +344,39 @@ void AttributeTracker::announce_met_goals()
         // The stat's name (a global string per stat).
         uint32_t text;
         switch (stat) {
-        case 0x6DCB497C: text = 0x585887CA; break;
-        case 0x439F4704: text = 0xA523DF6C; break;
-        case 0x9016B4E7: text = 0x1A6B74EA; break;
-        case 0xAE798769: text = 0x1F1BCDEF; break;
-        case 0x9B65D7B8: text = 0xA8386951; break;
-        case 0xAF895B3F: text = 0xA17AC668; break;
-        case 0xEDF5DB70: text = 0xB959CC23; break;
-        case 0xB1FC0722: text = 0x069F2596; break;
-        case 0xF0D90109: text = 0x1686EBD3; break;
-        case 0xF73A13E3: text = 0x6E7A996D; break;
-        default: text = 0; break;
+        case 0x6DCB497C:
+            text = 0x585887CA;
+            break;
+        case 0x439F4704:
+            text = 0xA523DF6C;
+            break;
+        case 0x9016B4E7:
+            text = 0x1A6B74EA;
+            break;
+        case 0xAE798769:
+            text = 0x1F1BCDEF;
+            break;
+        case 0x9B65D7B8:
+            text = 0xA8386951;
+            break;
+        case 0xAF895B3F:
+            text = 0xA17AC668;
+            break;
+        case 0xEDF5DB70:
+            text = 0xB959CC23;
+            break;
+        case 0xB1FC0722:
+            text = 0x069F2596;
+            break;
+        case 0xF0D90109:
+            text = 0x1686EBD3;
+            break;
+        case 0xF73A13E3:
+            text = 0x6E7A996D;
+            break;
+        default:
+            text = 0;
+            break;
         }
         if (text)
             params->append_word(0xC4745838u, script::fetch_text(text));
@@ -428,7 +452,8 @@ void AttributeTracker::tick_frame()
                 double height = static_cast<double>(pos.y) - air_start_.y;
                 if (height > air_height_)
                     air_height_ = static_cast<float>(height);
-                air_score_ = truncate((static_cast<double>(multiplier) - air_start_multiplier_) * get_minus(path_vertices_, air_start_points_));
+                air_score_ = truncate((static_cast<double>(multiplier) - air_start_multiplier_) *
+                                      get_minus(path_vertices_, air_start_points_));
                 if (air_score_ >= air_best_)
                     air_best_ = air_score_;
             }
@@ -540,8 +565,7 @@ void AttributeTracker::tick_frame()
             break;
         case kScore562370:
             // (it reads the goal's +0x18, the 0xCD021293 entry)
-            meets = static_cast<modules::PointTally*>(score)->count_tricks_named(goal.text_) >=
-                    goal.aim_point_;
+            meets = static_cast<modules::PointTally*>(score)->count_tricks_named(goal.text_) >= goal.aim_point_;
             break;
         default:
             break;
@@ -662,25 +686,25 @@ bool AttributeTracker::clear_last_air_combo_score(script::Struct*, script::Scrip
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::AttributeTracker::teardown,
-         &objects::AttributeTracker::tick_frame,
-         &objects::AttributeTracker::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::AttributeTracker::tick_frame,
+                                      &objects::AttributeTracker::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

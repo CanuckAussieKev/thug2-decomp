@@ -24,7 +24,7 @@
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
 void __cdecl sync_music_to_time(float seconds);
-} // namespace Pcm
+} // namespace audio
 
 namespace objects {
 
@@ -41,10 +41,10 @@ constexpr uint32_t kName = 0x2BFC2486;
 constexpr uint32_t kModel = 0xB974F2FC;
 constexpr uint32_t kKeepSkeleton = 0x0CBEC8AC;
 constexpr uint32_t kTypeModel = 0xFD8697E1;
-constexpr uint32_t kFixedTime = 0x0C00425A;    // a global integer: the time from the frame counter
-constexpr uint32_t kDiagnosticsHash = 0x5ECC0073;    // a global integer: show the time
+constexpr uint32_t kFixedTime = 0x0C00425A;       // a global integer: the time from the frame counter
+constexpr uint32_t kDiagnosticsHash = 0x5ECC0073; // a global integer: show the time
 constexpr uint32_t kStartScript = 0xE794A164;
-constexpr uint32_t kFieldOfView = 0x99529205;  // a global float: the cutscene camera's
+constexpr uint32_t kFieldOfView = 0x99529205; // a global float: the cutscene camera's
 constexpr uint32_t kInfoScript = 0xD9157174;
 
 // The frame counter while the time is fixed (one frame each update), and the screenshots' file name.
@@ -155,7 +155,8 @@ bool CinematicTable::read_in(const char* path, int a2, int /*unused*/, const uin
     if (flag_34b_0_) {
         // the music: the cutscene's for the skater's model, else the cutscene's own; else none to wait for
         char stream[256];
-        std::snprintf(stream, sizeof(stream), "%s_%s", name, skater_model_name(static_cast<script::Struct*>(unknown34ac_)));
+        std::snprintf(stream, sizeof(stream), "%s_%s", name,
+                      skater_model_name(static_cast<script::Struct*>(unknown34ac_)));
         if (!audio::prime_music_track(checksums::hash_from_text(stream))) {
             audio::stop_music();
             std::snprintf(stream, sizeof(stream), "%s", name);
@@ -339,4 +340,4 @@ bool CinematicEntry::is_ready()
     return data && data->flag_34b_0_ && data->is_loaded() && data->ready_;
 }
 
-} // namespace Obj
+} // namespace objects

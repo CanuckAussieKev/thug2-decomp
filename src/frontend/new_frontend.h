@@ -105,4 +105,4 @@ bool automation_screen_up(const std::string& name);
 // For the status file: "<state> <screen>/<selected item> over the <anchor>" ("" when off).
 std::string automation_status();
 
-} // namespace MenuSystem::NewFrontend
+} // namespace frontend::new_frontend

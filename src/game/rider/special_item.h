@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The special item component (SpecialItem, type 0xF27A294D, vtable 0x0064C250, 0x20 bytes; made by 0x0051BD80): up to
 // two items an object carries (CreateSpecialItem: a game object made from a global structure, locked to a bone of
@@ -50,4 +50,4 @@ public:
 static_assert(offsetof(PickupItemHandler, items_) == 0x18 && sizeof(PickupItemHandler) == 0x20,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

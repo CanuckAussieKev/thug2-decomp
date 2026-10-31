@@ -28,10 +28,8 @@
 
 namespace objects {
 
-uint32_t g_car_physics_member_functions[18]{
-            0xA2331896, 0xC695136D, 0, 0, 0, 0,
-            0xC9F0DB4B, 0xC695136D, 0, 0, 0, 0,
-            0, 0xC695136D, 0, 0, 0, 0};
+uint32_t g_car_physics_member_functions[18]{0xA2331896, 0xC695136D, 0, 0, 0,          0, 0xC9F0DB4B, 0xC695136D, 0,
+                                            0,          0,          0, 0, 0xC695136D, 0, 0,          0,          0};
 
 namespace {
 
@@ -54,18 +52,15 @@ constexpr uint32_t kWheelC = 0x69428757, kWheelD = 0xF04BD6ED;
 constexpr uint32_t kSteeringWheelA = 0x6E2F434E, kSteeringWheelB = 0xF72612F4;
 constexpr uint32_t kBody = 0x88C21962; // car
 
-constexpr float kFramesPerSecond = 60.0f;         // 0x00645EA0
+constexpr float kFramesPerSecond = 60.0f;              // 0x00645EA0
 constexpr float kMinusRadiansToDegrees = -57.2957764f; // 0x00645EA4
-constexpr float kFullTurn = 360.0f;               // 0x00645EA8
-constexpr float kSpinScale = 0.000668449211f;     // 0x00645EAC
-constexpr float kSpinSpeedScale = 90.0f;          // 0x00645EB0
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
+constexpr float kFullTurn = 360.0f;                    // 0x00645EA8
+constexpr float kSpinScale = 0.000668449211f;          // 0x00645EAC
+constexpr float kSpinSpeedScale = 90.0f;               // 0x00645EB0
+constexpr float kRadiansPerDegree = 0.0174532924f;     // 0x00645464
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // The game's C runtime asin (_CIasin: the argument and result on the FPU stack - platform/crt.h).
 double game_asin(double value)
@@ -83,10 +78,14 @@ double game_asin(double value)
 // The model's skeleton description (0x00493040, no source yet).
 AutomobileDynamicsModule::BoneDesc* model_bones(void* model)
 {
-    return reinterpret_cast<AutomobileDynamicsModule::BoneDesc*>(static_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+    return reinterpret_cast<AutomobileDynamicsModule::BoneDesc*>(
+        static_cast<render::RenderModel*>(model)->get_asset_hierarchy());
 }
 // A skeleton's bone matrices (+0x04) and bone count (+0x14) - the folded getters 0x005480C0 / 0x004A2BA0.
-maths::Mat4* rig_matrix_block(void* skeleton) { return *reinterpret_cast<maths::Mat4**>(static_cast<uint8_t*>(skeleton) + 4); }
+maths::Mat4* rig_matrix_block(void* skeleton)
+{
+    return *reinterpret_cast<maths::Mat4**>(static_cast<uint8_t*>(skeleton) + 4);
+}
 int skeleton_bone_count(void* skeleton) { return *reinterpret_cast<int*>(static_cast<uint8_t*>(skeleton) + 0x14); }
 
 // The motion component's speed (+0x30) and path follower (0x00423510).
@@ -230,7 +229,7 @@ void AutomobileDynamicsModule::update_angles()
                 target_steer_ = static_cast<float>(-target);
         }
         steer_ = maths::keep_within(target_steer_, steer_,
-                                  static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
+                                    static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond));
     }
     // The tilt.
     float speed = motion_speed(motion_);
@@ -248,12 +247,14 @@ void AutomobileDynamicsModule::update_angles()
         target_tilt_ = max_tilt_;
     if (target_tilt_ < min_tilt_)
         target_tilt_ = min_tilt_;
-    lean_angle_ = maths::keep_within(target_tilt_, lean_angle_,
-                             static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_rate_));
+    lean_angle_ =
+        maths::keep_within(target_tilt_, lean_angle_,
+                           static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond * tilt_rate_));
 }
 
 // 0x0041BF00
-void __cdecl AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer)
+void __cdecl AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin,
+                                                        float steer)
 {
     BoneDesc* bones = model_bones(model);
     maths::Mat4* matrices = rig_matrix_block(skeleton);
@@ -328,25 +329,25 @@ int AutomobileDynamicsModule::show_body(script::Struct* params, script::Script*)
 // 0x0041BA20
 int AutomobileDynamicsModule::do_nothing(script::Struct*, script::Script*) { return 1; }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::AutomobileDynamicsModule::teardown,
-         &objects::AutomobileDynamicsModule::tick_frame,
-         &objects::AutomobileDynamicsModule::configure_from_data,
-         &objects::AutomobileDynamicsModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::AutomobileDynamicsModule::tick_frame,
+                                      &objects::AutomobileDynamicsModule::configure_from_data,
+                                      &objects::AutomobileDynamicsModule::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

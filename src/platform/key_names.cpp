@@ -67,4 +67,4 @@ void __cdecl set_german_key_names()
     assign_value(kAfter);
 }
 
-} // namespace Sys
+} // namespace sys

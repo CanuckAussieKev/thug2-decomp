@@ -39,9 +39,9 @@ public:
     // 0x0046C650: the global structure `name`'s components added (asserting it exists); true.
     bool read_in(uint32_t name);
 
-    void** vtable_;          // 0x00647B34
-    script::Struct top_entry_;   // +0x04
+    void** vtable_;            // 0x00647B34
+    script::Struct top_entry_; // +0x04
 };
 static_assert(sizeof(Preferences) == 0xC && offsetof(Preferences, top_entry_) == 4, "layout must match the original");
 
-} // namespace Prefs
+} // namespace prefs

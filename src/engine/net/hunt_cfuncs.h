@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) of the network game in 0x005B1EE0-0x005B5320: the hunt (players placing objects for
 // the others to find - the positions kept in the player's PlayerRecord, announced and reported as messages), entering

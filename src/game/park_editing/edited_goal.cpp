@@ -24,7 +24,7 @@ char g_goal_name_buffer[104];
 
 namespace {
 
-constexpr float kPi = 3.14159274101257324f;          // 0x006453D8
+constexpr float kPi = 3.14159274101257324f;            // 0x006453D8
 constexpr float kDegreesPerRadian = 57.2957763671875f; // 0x00645468
 
 // The game's sprintf (its C runtime; 0x006234FE).
@@ -435,4 +435,4 @@ void EditedGoal::read_specific_params(script::Struct* params)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

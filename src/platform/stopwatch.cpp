@@ -135,8 +135,8 @@ void once_every_draw()
     ++render_frame();
     previous_frame_vblank() = last_frame_vblank();
     last_frame_vblank() = get_vblanks();
-    get_history()[history_index()] = static_cast<int>(static_cast<uint32_t>(get_vblanks()) -
-                                                 static_cast<uint32_t>(previous_frame_vblank()));
+    get_history()[history_index()] =
+        static_cast<int>(static_cast<uint32_t>(get_vblanks()) - static_cast<uint32_t>(previous_frame_vblank()));
     if (++history_index() == 4)
         history_index() = 0;
 }
@@ -144,7 +144,7 @@ void once_every_draw()
 // 0x005BE7F0
 void update_frame_length()
 {
-    const int(&h)[4] = get_history();
+    const int (&h)[4] = get_history();
     int clamped = get_clamped(h[0]) + get_clamped(h[1]) + get_clamped(h[2]) + get_clamped(h[3]);
     int raw = static_cast<int>(static_cast<uint32_t>(h[0]) + h[1] + h[2] + h[3]); // (wraps, as the original)
     get_slomo() = next_slomo();
@@ -199,4 +199,4 @@ void change_bits()
         flag_1e_e9() = true;
 }
 
-} // namespace Tmr
+} // namespace frame_clock

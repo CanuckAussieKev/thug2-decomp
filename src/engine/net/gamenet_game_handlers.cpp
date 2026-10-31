@@ -43,42 +43,42 @@ using namespace detail;
 namespace {
 
 // Names.
-constexpr uint32_t kNetMessageNewPlayer = 0x640D3C87;       // net_message_new_player
-constexpr uint32_t kDroppedCrownYou = 0xD10CDB7C;           // net_message_dropped_crown_you
-constexpr uint32_t kDroppedCrownOther = 0x484CE1C7;         // net_message_dropped_crown_other
-constexpr uint32_t kType = 0x7321A8D6;                      // Type
-constexpr uint32_t kCrownSpawnNode = 0xAF86421B;            // (a node type: where the crown may appear)
-constexpr uint32_t kChecksum = 0x21902065;                  // checksum
-constexpr uint32_t kLaunchFcfsNotification = 0xEB123AF2;    // launch_fcfs_notification
-constexpr uint32_t kTeam = 0x3B1F59E0;                      // Team
-constexpr uint32_t kString0 = 0xA4B08520;                   // String0
-constexpr uint32_t kString1 = 0xD3B7B5B6;                   // String1
-constexpr uint32_t kFlagReturned = 0x3B1F2478;              // flag_returned
-constexpr uint32_t kDestroyCtfPanelMessage = 0x514A53A6;    // destroy_ctf_panel_message
-constexpr uint32_t kHideCtfArrow = 0x1C318F8C;              // hide_ctf_arrow
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;              // Load_MainMenu
-constexpr uint32_t kShowTimeout = 0x19ECA78E;               // show_timeout
-constexpr uint32_t kCancelJoinServer = 0x60B653DB;          // cancel_join_server
-constexpr uint32_t kDoNotCreateGoalPeds = 0x88001327;       // DoNotCreateGoalPeds
-constexpr uint32_t kInitialiseCreatedGoals = 0x6F4180D0;    // InitialiseCreatedGoals
-constexpr uint32_t kGoalSummary = 0x40FC9B60;               // goal_summary
-constexpr uint32_t kViewSelectedGoalsMenu = 0x8DF3084E;     // wait_and_create_view_selected_goals_menu
-constexpr uint32_t kJoinedTeamYou = 0x92EFAD9E;             // joined_team_you
-constexpr uint32_t kJoinedTeamOther = 0x9D62E743;           // joined_team_other
-constexpr uint32_t kWarnAllSameTeam = 0x16C9B0DC;           // warn_all_same_team
-constexpr uint32_t kNumGoalsLeft = 0x684A8396;              // NumGoalsLeft
-constexpr uint32_t kCompletedGoal = 0xFFB3D309;             // goal_attack_completed_goal
-constexpr uint32_t kCompletedGoalSameTeam = 0xF4748E47;     // goal_attack_completed_goal_other_same_team
-constexpr uint32_t kStartedGoalSameTeam = 0xA77758DE;       // goal_attack_started_goal_other_same_team
-constexpr uint32_t kPlayerName = 0x9196D920;                // PlayerName
-constexpr uint32_t kGoalText = 0xB8A88B50;                  // GoalText
-constexpr uint32_t kEliminatedNone = 0x4BA23859;            // EliminatedNone
-constexpr uint32_t kEliminatedYou = 0x35E06259;             // EliminatedYou
-constexpr uint32_t kEliminatedOther = 0x1202DEE4;           // EliminatedOther
-constexpr uint32_t kReason = 0xC44777F3;                    // reason
-constexpr uint32_t kFullObservers = 0xDDE5676F;             // net_reason_full_observers
-constexpr uint32_t kJustDialog = 0xF6694E96;                // just_dialog
-constexpr uint32_t kCreateJoinRefusedDialog = 0x92528E98;   // CreateJoinRefusedDialog
+constexpr uint32_t kNetMessageNewPlayer = 0x640D3C87;     // net_message_new_player
+constexpr uint32_t kDroppedCrownYou = 0xD10CDB7C;         // net_message_dropped_crown_you
+constexpr uint32_t kDroppedCrownOther = 0x484CE1C7;       // net_message_dropped_crown_other
+constexpr uint32_t kType = 0x7321A8D6;                    // Type
+constexpr uint32_t kCrownSpawnNode = 0xAF86421B;          // (a node type: where the crown may appear)
+constexpr uint32_t kChecksum = 0x21902065;                // checksum
+constexpr uint32_t kLaunchFcfsNotification = 0xEB123AF2;  // launch_fcfs_notification
+constexpr uint32_t kTeam = 0x3B1F59E0;                    // Team
+constexpr uint32_t kString0 = 0xA4B08520;                 // String0
+constexpr uint32_t kString1 = 0xD3B7B5B6;                 // String1
+constexpr uint32_t kFlagReturned = 0x3B1F2478;            // flag_returned
+constexpr uint32_t kDestroyCtfPanelMessage = 0x514A53A6;  // destroy_ctf_panel_message
+constexpr uint32_t kHideCtfArrow = 0x1C318F8C;            // hide_ctf_arrow
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;            // Load_MainMenu
+constexpr uint32_t kShowTimeout = 0x19ECA78E;             // show_timeout
+constexpr uint32_t kCancelJoinServer = 0x60B653DB;        // cancel_join_server
+constexpr uint32_t kDoNotCreateGoalPeds = 0x88001327;     // DoNotCreateGoalPeds
+constexpr uint32_t kInitialiseCreatedGoals = 0x6F4180D0;  // InitialiseCreatedGoals
+constexpr uint32_t kGoalSummary = 0x40FC9B60;             // goal_summary
+constexpr uint32_t kViewSelectedGoalsMenu = 0x8DF3084E;   // wait_and_create_view_selected_goals_menu
+constexpr uint32_t kJoinedTeamYou = 0x92EFAD9E;           // joined_team_you
+constexpr uint32_t kJoinedTeamOther = 0x9D62E743;         // joined_team_other
+constexpr uint32_t kWarnAllSameTeam = 0x16C9B0DC;         // warn_all_same_team
+constexpr uint32_t kNumGoalsLeft = 0x684A8396;            // NumGoalsLeft
+constexpr uint32_t kCompletedGoal = 0xFFB3D309;           // goal_attack_completed_goal
+constexpr uint32_t kCompletedGoalSameTeam = 0xF4748E47;   // goal_attack_completed_goal_other_same_team
+constexpr uint32_t kStartedGoalSameTeam = 0xA77758DE;     // goal_attack_started_goal_other_same_team
+constexpr uint32_t kPlayerName = 0x9196D920;              // PlayerName
+constexpr uint32_t kGoalText = 0xB8A88B50;                // GoalText
+constexpr uint32_t kEliminatedNone = 0x4BA23859;          // EliminatedNone
+constexpr uint32_t kEliminatedYou = 0x35E06259;           // EliminatedYou
+constexpr uint32_t kEliminatedOther = 0x1202DEE4;         // EliminatedOther
+constexpr uint32_t kReason = 0xC44777F3;                  // reason
+constexpr uint32_t kFullObservers = 0xDDE5676F;           // net_reason_full_observers
+constexpr uint32_t kJustDialog = 0xF6694E96;              // just_dialog
+constexpr uint32_t kCreateJoinRefusedDialog = 0x92528E98; // CreateJoinRefusedDialog
 
 constexpr uint8_t kMsgEliminated = 0x8D;
 constexpr uint8_t kMsgRequestRails = 0x8B;
@@ -121,31 +121,32 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
 {
     const uint8_t* msg = get_message(context);
     Hub* manager = manager_of(context);
-    alignas(4) uint8_t info[0x44]; // a JoinerRecord
+    alignas(4) uint8_t info[0x44];                     // a JoinerRecord
     reinterpret_cast<JoinerRecord*>(info)->make_new(); // (its constructor: a skater profile at +0x1C)
     // (strncpy: 15 characters at most, the rest of the 15 zeroed)
     size_t length = strnlen(reinterpret_cast<const char*>(msg + 0x20), 15);
     std::memcpy(info, msg + 0x20, length);
     std::memset(info + length, 0, 15 - length);
     info[0x0F] = 0;
-    info[0x10] = msg[0x18];                                  // the object id
+    info[0x10] = msg[0x18];                                 // the object id
     prop<uint32_t>(info, 0x14) = 0;                         // the connection
     prop<uint32_t>(info, 0x20) = prop<uint32_t>(msg, 0x08); // flags
-    prop<int>(info, 0x28) = static_cast<int8_t>(msg[0x19]);  // the team
+    prop<int>(info, 0x28) = static_cast<int8_t>(msg[0x19]); // the team
     prop<uint32_t>(info, 0x2C) = prop<uint32_t>(msg, 0x00);
     prop<uint32_t>(info, 0x30) = prop<uint32_t>(msg, 0x04);
     prop<uint32_t>(info, 0x38) = prop<uint32_t>(msg, 0x14);
     prop<uint32_t>(info, 0x40) = prop<uint32_t>(msg, 0x1C);
     prop<uint32_t>(info, 0x34) = prop<uint32_t>(msg, 0x0C);
     if (!(prop<uint32_t>(info, 0x20) & 5))
-        prop<objects::RiderIdentity*>(info, 0x1C)->decode_from_bytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
+        prop<objects::RiderIdentity*>(info, 0x1C)
+            ->decode_from_bytes(const_cast<uint8_t*>(msg + 0x30)); // the appearance into its profile
     int delay = 0;
     if (manager->cleared_to_start_) {
         manager->build_net_notice(false, kNetMessageNewPlayer, reinterpret_cast<const char*>(info), nullptr, nullptr,
-                                       nullptr, false, kPanelTime);
+                                  nullptr, false, kPanelTime);
         delay = 10;
     }
-    manager->add_joining_player(info, delay);                   // the new player (added in `delay` frames)
+    manager->add_joining_player(info, delay);              // the new player (added in `delay` frames)
     reinterpret_cast<JoinerRecord*>(info)->destroy_body(); // (its destructor)
     return kContinue;
 }
@@ -165,7 +166,8 @@ int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
         panel_message(manager, kDroppedCrownOther, nullptr, nullptr);
     } else if (king && player_skater(king)) {
         // the other local player (id 1 if this one's is 0, else 0)
-        uint8_t* other = find_player_slot_by_obj(manager, static_cast<uint16_t>(get_skater_id(player_skater(king)) == 0));
+        uint8_t* other =
+            find_player_slot_by_obj(manager, static_cast<uint16_t>(get_skater_id(player_skater(king)) == 0));
         if (other)
             panel_message(manager, kDroppedCrownOther, nullptr, player_skater(other));
     }
@@ -241,7 +243,8 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(prop<memory::MemSource*>(memory, 0x114));
-        get_call(code_address(&park_editing::RailAuthoring::set_packed), get_rail_editor(), context->body_); // the rails read
+        get_call(code_address(&park_editing::RailAuthoring::set_packed), get_rail_editor(),
+                 context->body_); // the rails read
         park_editing::g_rail_editor_flag = false;
         get_call(code_address(&park_editing::RailAuthoring::unpack), get_rail_editor());
         park_editing::g_rail_editor_flag = true;
@@ -269,7 +272,8 @@ int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         const char* msg = context->body_;
-        get_call(code_address(&park_editing::ObjectiveAuthoring::read_level_goals_from_buffer), get_goal_editor(), prop<uint32_t>(msg, 0), msg + 4); // the level's goals read
+        get_call(code_address(&park_editing::ObjectiveAuthoring::read_level_goals_from_buffer), get_goal_editor(),
+                 prop<uint32_t>(msg, 0), msg + 4); // the level's goals read
         script::Struct* params = new_params();
         params->put_name_key(0u, kDoNotCreateGoalPeds);
         get_run(kInitialiseCreatedGoals, params);
@@ -368,14 +372,16 @@ int __cdecl handle_joined_team(net::InboundMsgCtx* context)
     // Everyone else on the same team: a warning.
     int others = 0;
     bool same_team = true;
-    for (uint8_t* other = start_roster_sweep(manager, &search, false); other; other = step_roster_sweep(manager, &search, false)) {
+    for (uint8_t* other = start_roster_sweep(manager, &search, false); other;
+         other = step_roster_sweep(manager, &search, false)) {
         if (other == player)
             continue;
         ++others;
         if (static_cast<int8_t>(msg[1]) != player_team(other))
             same_team = false;
     }
-    if (same_team && others > 0 && get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()) > 0)
+    if (same_team && others > 0 &&
+        get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()) > 0)
         get_run(kWarnAllSameTeam);
     return kContinue;
 }
@@ -398,7 +404,8 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
     reinterpret_cast<void(__thiscall*)(uint8_t*, int)>(virtual_call(goal, 0x70))(goal, player_team(player));
     if (!player_skater(player))
         return kContinue;
-    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(virtual_call(goal, 0x6C))(goal, get_skater_id(player_skater(player)));
+    reinterpret_cast<void(__thiscall*)(uint8_t*, uint32_t)>(virtual_call(goal, 0x6C))(
+        goal, get_skater_id(player_skater(player)));
     if (local == player) {
         int total = get_call<int>(code_address(&goals::GoalManager::count_picked_objectives), goals);
         int done = get_call<int>(code_address(&goals::GoalManager::count_objectives_cleared), goals);

@@ -11,7 +11,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace modules {
 
@@ -19,15 +19,15 @@ class LetterMatch {
 public:
     static constexpr int kPlayers = 8;
 
-    int points_target_;        // +0x000 (0: none set)
-    int skater_;             // +0x004: the skater taking the run (its id)
-    int last_skater_;         // +0x008
-    char word_[0x200];       // +0x00C ("HORSE")
-    char panel_[0x200];      // +0x20C: what the last run did
-    int letters_[kPlayers];  // +0x40C: each player's letters
+    int points_target_;     // +0x000 (0: none set)
+    int skater_;            // +0x004: the skater taking the run (its id)
+    int last_skater_;       // +0x008
+    char word_[0x200];      // +0x00C ("HORSE")
+    char panel_[0x200];     // +0x20C: what the last run did
+    int letters_[kPlayers]; // +0x40C: each player's letters
     uint32_t unknown42c_;
-    int restart_;            // +0x430: the restart the next run starts from
-    uint32_t cur_standing_;        // +0x434: one of the table at 0x0067F340
+    int restart_;           // +0x430: the restart the next run starts from
+    uint32_t cur_standing_; // +0x434: one of the table at 0x0067F340
 
     // 0x005600D0: the constructor: the word HORSE, restart 0. Returns this.
     LetterMatch* make_new();
@@ -60,4 +60,4 @@ public:
 };
 static_assert(sizeof(LetterMatch) == 0x438, "layout must match the original");
 
-} // namespace Mdl
+} // namespace modules

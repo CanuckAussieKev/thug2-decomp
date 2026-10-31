@@ -20,8 +20,8 @@ namespace objects::vehicle {
 inline const float kGravity = std::bit_cast<float>(0x43C13333u); // 0x006466A4: 386.4 (inches a second squared)
 
 // The debug messages' format and file.
-inline const char* const kDebugFormat = "M:%s:%i: %s\n"; // "M:%s:%i: %s\n"
-inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp";   // "omponents\vehiclecomponent.cpp"
+inline const char* const kDebugFormat = "M:%s:%i: %s\n";                 // "M:%s:%i: %s\n"
+inline const char* const kDebugFile = "omponents\\vehiclecomponent.cpp"; // "omponents\vehiclecomponent.cpp"
 
 // The trigger component's 0x00434BF0 / 0x00434CE0: a feeler / a rect feeler reported for
 // `events` (const int[3]).
@@ -60,4 +60,4 @@ inline void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths:
     d3dx::matrix_multiply(out, a, b);
 }
 
-} // namespace GameObjects::Vehicle
+} // namespace objects::vehicle

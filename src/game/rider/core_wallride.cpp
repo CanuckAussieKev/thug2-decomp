@@ -20,28 +20,31 @@ using namespace core_fields;
 
 namespace {
 
-constexpr uint32_t kWallRideGravity = 0x0C617CAF;    // Wall_Ride_Gravity
-constexpr uint32_t kWallRideTurnSpeed = 0x64A48A64;  // Wall_Ride_Turn_Speed
-constexpr uint32_t kForwardLength = 0x20102726;      // Skater_First_Forward_Collision_Length
-constexpr uint32_t kGroundSnapUp = 0xE4D79235;       // Physics_Ground_Snap_Up
-constexpr uint32_t kDownCheckLength = 0x438BA168;    // Wall_Ride_Down_Collision_Check_Length
-constexpr uint32_t kJumpOutSpeed = 0x349D02D4;       // Wall_Ride_Jump_Out_Speed
-constexpr uint32_t kJumpUpSpeed = 0x5A9DE35A;        // Wall_Ride_Jump_Up_Speed
-constexpr uint32_t kMatrixQueries = 0xBF518E27;      // SkaterMatrixQueries (a component)
-constexpr uint32_t kLanded = 0x532B16EF;             // Landed (event)
-constexpr uint32_t kOffEdge = 0xD96F01F1;            // SkaterOffEdge (event)
-constexpr uint32_t kGroundGone = 0x3B1001B6;         // GroundGone (event)
+constexpr uint32_t kWallRideGravity = 0x0C617CAF;   // Wall_Ride_Gravity
+constexpr uint32_t kWallRideTurnSpeed = 0x64A48A64; // Wall_Ride_Turn_Speed
+constexpr uint32_t kForwardLength = 0x20102726;     // Skater_First_Forward_Collision_Length
+constexpr uint32_t kGroundSnapUp = 0xE4D79235;      // Physics_Ground_Snap_Up
+constexpr uint32_t kDownCheckLength = 0x438BA168;   // Wall_Ride_Down_Collision_Check_Length
+constexpr uint32_t kJumpOutSpeed = 0x349D02D4;      // Wall_Ride_Jump_Out_Speed
+constexpr uint32_t kJumpUpSpeed = 0x5A9DE35A;       // Wall_Ride_Jump_Up_Speed
+constexpr uint32_t kMatrixQueries = 0xBF518E27;     // SkaterMatrixQueries (a component)
+constexpr uint32_t kLanded = 0x532B16EF;            // Landed (event)
+constexpr uint32_t kOffEdge = 0xD96F01F1;           // SkaterOffEdge (event)
+constexpr uint32_t kGroundGone = 0x3B1001B6;        // GroundGone (event)
 
-constexpr uint32_t kWallFaceVector = 0x38C;              // the wall's normal
+constexpr uint32_t kWallFaceVector = 0x38C; // the wall's normal
 
-constexpr float kHeadingUp = 0.68f;   // 0x0064BDB4: heading up the wall this much: no turning
-constexpr float kTopFacesUp = 0.9f;   // 0x00649FE4: a hit ahead facing up this much: the wall's top
-constexpr float kPushOff = 18.0f;     // 0x0064AAAC
-constexpr float kPushAway = 100.0f;   // 0x006463D4
+constexpr float kHeadingUp = 0.68f; // 0x0064BDB4: heading up the wall this much: no turning
+constexpr float kTopFacesUp = 0.9f; // 0x00649FE4: a hit ahead facing up this much: the wall's top
+constexpr float kPushOff = 18.0f;   // 0x0064AAAC
+constexpr float kPushAway = 100.0f; // 0x006463D4
 
 const maths::Vec4 kUpAxis = {0.0f, 1.0f, 0.0f, 1.0f};
 
-void change_state(void* component, int state) { static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state); }
+void change_state(void* component, int state)
+{
+    static_cast<SkaterPhysicsModule*>(component)->set_physics_state(state);
+}
 void set_up(void* component, const maths::Vec4& up)
 {
     static_cast<SkaterPhysicsModule*>(component)->turn_to_normal(up);
@@ -90,8 +93,7 @@ void SkaterPhysicsModule::step_wall_ride()
         } else {
             carried = get_tracker(this)->carried_;
             if (get_tracker(this)->turned_) {
-                auto multiply =
-                    d3dx::matrix_multiply;
+                auto multiply = d3dx::matrix_multiply;
                 maths::Mat4& m = matrix_at(object_of(this), kMatrix);
                 multiply(&m, &m, &get_tracker(this)->turn_);
                 multiply(&matrix_at(this, kDisplayMatrix), &matrix_at(this, kDisplayMatrix), &get_tracker(this)->turn_);
@@ -166,7 +168,8 @@ void SkaterPhysicsModule::step_wall_ride()
             turn = -turn;
         void* o = object_of(this);
         vector_at(o, kVelocity).w = 1.0f;
-        vector_at(object_of(this), kVelocity).rotate_about_axis(vector_at(this, kWallFaceVector), turn); // (about the wall)
+        vector_at(object_of(this), kVelocity)
+            .rotate_about_axis(vector_at(this, kWallFaceVector), turn); // (about the wall)
         o = object_of(this);
         vector_at(o, kFacing) = vector_at(o, kVelocity);
         vector_at(object_of(this), kFacing).make_unit();
@@ -214,8 +217,8 @@ void SkaterPhysicsModule::step_wall_ride()
     if (get_feel(this, 0x10, 0)) {
         const maths::Vec4 hit = vector_at(this, kHitNormal);
         const maths::Vec4& w = vector_at(this, kWallFaceVector);
-        double along_wall = (static_cast<double>(hit.z) * w.z + static_cast<double>(hit.y) * w.y) +
-                           static_cast<double>(hit.x) * w.x;
+        double along_wall =
+            (static_cast<double>(hit.z) * w.z + static_cast<double>(hit.y) * w.y) + static_cast<double>(hit.x) * w.x;
         const maths::Vec4& point = vector_at(this, kHitPoint);
         maths::Vec4& p = vector_at(object_of(this), kPosition);
         p.z = hit.z + point.z;
@@ -344,7 +347,8 @@ void SkaterPhysicsModule::step_wall_ride()
         vector_at(this, kFloorUpVector) = vector_at(this, 0x58);
         vector_at(this, 0x78) = vector_at(this, 0x58);
     }
-    static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))->pass_to_trick_objects(get_at<uint32_t>(this, 0x1B0));
+    static_cast<objects::MoveExecutor*>(get_at<void*>(this, kSkaterComponent))
+        ->pass_to_trick_objects(get_at<uint32_t>(this, 0x1B0));
 }
 
-} // namespace Skater
+} // namespace skater

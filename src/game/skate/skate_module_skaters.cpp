@@ -73,52 +73,52 @@ script::Struct* g_stat_target_info;
 
 namespace {
 
-constexpr uint32_t kBailBoard = 0x884EF81B;          // BailBoard (+ the skater's id)
-constexpr uint32_t kSkaterId = 0x5B24FAAA;           // SkaterId
-constexpr uint32_t kRemoveClientSkater = 0x5B3FDCCB; // (name unknown: a client's skater left)
-constexpr uint32_t kLevel = 0x651533EC;              // level
-constexpr uint32_t kRequestLevel = 0x38028FC9;       // request_level
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;       // Load_MainMenu
-constexpr uint32_t kPreserveSkaters = 0x7F07D3D4;    // preserve_skaters
-constexpr uint32_t kChangeLevelGameFlow = 0xFF135E2A; // ChangeLevelGameFlow
-constexpr uint32_t kShadow = 0x8A897DD2;             // shadow
-constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F;        // (name unknown: the shadow's scale)
-constexpr uint32_t kShadowModel = 0x545F8172;        // (name unknown: the shadow's model)
-constexpr uint32_t kRailManagerType = 0x1CDFB2A3;    // railmanager
-constexpr uint32_t kTeam = 0x3B1F59E0;               // Team
-constexpr uint32_t kNetLobby = 0x1C471C60;           // NetLobby
-constexpr uint32_t kNetCtf = 0x6C5FF266;             // netctf
-constexpr uint32_t kNetScavengerHunt = 0xFC13B531;   // netscavengerhunt
-constexpr uint32_t kScavengerHunt = 0x846504FC;      // scavengerhunt
-constexpr uint32_t kScavenger = 0x1F3430CE;          // scavenger
-constexpr uint32_t kIsHorse = 0xD1993397;            // is_horse
-constexpr uint32_t kHorse = 0x9D65D0E7;              // Horse
-constexpr uint32_t kMultiplayer = 0xBAE0E4DA;        // Multiplayer
-constexpr uint32_t kPlayer1 = 0x41639CE5;            // Player1
-constexpr uint32_t kUninitLightManager = 0x03732450; // uninit_light_manager
-constexpr uint32_t kResetLevel = 0xEDEA4ECE;         // reset_level
-constexpr uint32_t kInitializeGameFlow = 0xBC945B1B; // InitializeGameFlow
-constexpr uint32_t kStandardGameFlow = 0xA4E32C9B;   // StandardGameFlow
-constexpr uint32_t kNetFirefight = 0xBFF33600;       // netfirefight
-constexpr uint32_t kFirefight = 0x3D6D444F;          // firefight
-constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
-constexpr uint32_t kKing = 0x5D32129C;               // king
-constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3; // SkaterBalanceTrick
-constexpr uint32_t kInput = 0x27D7CD28;              // input
-constexpr uint32_t kShowPanelStuff = 0xD97CE49F;     // show_panel_stuff
-constexpr uint32_t kDestroySkaterParticles = 0xF429E0AC; // DestroySkaterParticles
-constexpr uint32_t kInitSkaterParticles = 0xAE5438AF;    // InitSkaterParticles
-constexpr uint32_t kSkaterCam0 = 0x967C138C;         // skatercam0
-constexpr uint32_t kVibration = 0x404EB936;          // vibration
-constexpr uint32_t kPlayer = 0x67E6859A;             // player
-constexpr uint32_t kModelApplyCustomLogos = 0x27670630; // model_apply_custom_logos
-constexpr uint32_t kClientSkaterInit = 0x41FC854A;   // ClientSkaterInit
-constexpr uint32_t kTrick = 0x270F56E1;              // trick
-constexpr uint32_t kSkaterEndRun = 0xB1D5A3E1;       // SkaterEndRun
-constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;  // SkaterCorePhysics
-constexpr uint32_t kFreeskate = 0x34861A16;           // freeskate
+constexpr uint32_t kBailBoard = 0x884EF81B;                     // BailBoard (+ the skater's id)
+constexpr uint32_t kSkaterId = 0x5B24FAAA;                      // SkaterId
+constexpr uint32_t kRemoveClientSkater = 0x5B3FDCCB;            // (name unknown: a client's skater left)
+constexpr uint32_t kLevel = 0x651533EC;                         // level
+constexpr uint32_t kRequestLevel = 0x38028FC9;                  // request_level
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;                  // Load_MainMenu
+constexpr uint32_t kPreserveSkaters = 0x7F07D3D4;               // preserve_skaters
+constexpr uint32_t kChangeLevelGameFlow = 0xFF135E2A;           // ChangeLevelGameFlow
+constexpr uint32_t kShadow = 0x8A897DD2;                        // shadow
+constexpr uint32_t kBlobSizeFactor = 0x6F8CD62F;                // (name unknown: the shadow's scale)
+constexpr uint32_t kShadowModel = 0x545F8172;                   // (name unknown: the shadow's model)
+constexpr uint32_t kRailManagerType = 0x1CDFB2A3;               // railmanager
+constexpr uint32_t kTeam = 0x3B1F59E0;                          // Team
+constexpr uint32_t kNetLobby = 0x1C471C60;                      // NetLobby
+constexpr uint32_t kNetCtf = 0x6C5FF266;                        // netctf
+constexpr uint32_t kNetScavengerHunt = 0xFC13B531;              // netscavengerhunt
+constexpr uint32_t kScavengerHunt = 0x846504FC;                 // scavengerhunt
+constexpr uint32_t kScavenger = 0x1F3430CE;                     // scavenger
+constexpr uint32_t kIsHorse = 0xD1993397;                       // is_horse
+constexpr uint32_t kHorse = 0x9D65D0E7;                         // Horse
+constexpr uint32_t kMultiplayer = 0xBAE0E4DA;                   // Multiplayer
+constexpr uint32_t kPlayer1 = 0x41639CE5;                       // Player1
+constexpr uint32_t kUninitLightManager = 0x03732450;            // uninit_light_manager
+constexpr uint32_t kResetLevel = 0xEDEA4ECE;                    // reset_level
+constexpr uint32_t kInitializeGameFlow = 0xBC945B1B;            // InitializeGameFlow
+constexpr uint32_t kStandardGameFlow = 0xA4E32C9B;              // StandardGameFlow
+constexpr uint32_t kNetFirefight = 0xBFF33600;                  // netfirefight
+constexpr uint32_t kFirefight = 0x3D6D444F;                     // firefight
+constexpr uint32_t kNetKing = 0x6EF8FDA0;                       // netking
+constexpr uint32_t kKing = 0x5D32129C;                          // king
+constexpr uint32_t kSkaterBalanceTrick = 0x589E5FB3;            // SkaterBalanceTrick
+constexpr uint32_t kInput = 0x27D7CD28;                         // input
+constexpr uint32_t kShowPanelStuff = 0xD97CE49F;                // show_panel_stuff
+constexpr uint32_t kDestroySkaterParticles = 0xF429E0AC;        // DestroySkaterParticles
+constexpr uint32_t kInitSkaterParticles = 0xAE5438AF;           // InitSkaterParticles
+constexpr uint32_t kSkaterCam0 = 0x967C138C;                    // skatercam0
+constexpr uint32_t kVibration = 0x404EB936;                     // vibration
+constexpr uint32_t kPlayer = 0x67E6859A;                        // player
+constexpr uint32_t kModelApplyCustomLogos = 0x27670630;         // model_apply_custom_logos
+constexpr uint32_t kClientSkaterInit = 0x41FC854A;              // ClientSkaterInit
+constexpr uint32_t kTrick = 0x270F56E1;                         // trick
+constexpr uint32_t kSkaterEndRun = 0xB1D5A3E1;                  // SkaterEndRun
+constexpr uint32_t kSkaterCorePhysics = 0x5BD63B29;             // SkaterCorePhysics
+constexpr uint32_t kFreeskate = 0x34861A16;                     // freeskate
 constexpr uint32_t kDefaultSplitscreenPreferences = 0x0076EAE3; // default_splitscreen_preferences
-constexpr uint8_t kMsgKing = 0x55;                   // the new king of the hill (its id)
+constexpr uint8_t kMsgKing = 0x55;                              // the new king of the hill (its id)
 constexpr uint8_t kGroupGame = 8;
 // The CTF / scavenger hunt restart points by team.
 constexpr uint32_t kTeamRestarts[4] = {0xACD3422F, 0x9AB434CC, 0x5C427A5C, 0x2C3ED607}; // TRG_CTF_Restart_<colour>
@@ -167,7 +167,8 @@ void unlink_skater_node(memory::ListNode* node)
 
 memory::ListNode* Skate::skater_node(uint32_t index)
 {
-    return reinterpret_cast<goals::GoalListHead*>(&riders_)->get_node_at(static_cast<int>(index)); // (lists::Foremost's fetch_entry)
+    return reinterpret_cast<goals::GoalListHead*>(&riders_)->get_node_at(
+        static_cast<int>(index)); // (lists::Foremost's fetch_entry)
 }
 
 // 0x005665C0
@@ -312,16 +313,17 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
                 vibration->stop_all();
         }
     }
-    net->in_net_game(); // (its answer unused, as the original)
+    net->in_net_game();                 // (its answer unused, as the original)
     memory::push_mem_profile("Skater"); // "Skater"
     int heap = find_free_rider_heap(local);
     memory::enter_heap_scope(rider_heap_at(heap));
     void* memory = memory::alloc_zeroed(sizeof(objects::Rider));
-    objects::Rider* skater = memory ? static_cast<objects::Rider*>(memory)->make_new(
-                                        viewport, reinterpret_cast<objects::EntityHub*>(entity_hub_handle()),
-                                        local, id, heap, 1)
-                                  : nullptr;
-    reinterpret_cast<void(__thiscall*)(objects::Rider*, objects::RiderIdentity*)>(skater->vtable_[0x34 / 4])(skater, profile);
+    objects::Rider* skater =
+        memory ? static_cast<objects::Rider*>(memory)->make_new(
+                     viewport, reinterpret_cast<objects::EntityHub*>(entity_hub_handle()), local, id, heap, 1)
+               : nullptr;
+    reinterpret_cast<void(__thiscall*)(objects::Rider*, objects::RiderIdentity*)>(skater->vtable_[0x34 / 4])(skater,
+                                                                                                             profile);
     if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr))) {
         script::Struct* params = spawn_param_table();
         params->put_int(kPlayer, 0);
@@ -391,7 +393,8 @@ void Skate::set_skater_shadow(objects::Rider* skater)
     script::Struct* params = spawn_param_table();
     params->push_float(kBlobSizeFactor, 1.0f);
     params->append_word(kShadowModel, "Ped_Shadow"); // "Ped_Shadow"
-    reinterpret_cast<void(__thiscall*)(objects::GroundShadowModule*, script::Struct*)>(shadow->vtable_[2])(shadow, params);
+    reinterpret_cast<void(__thiscall*)(objects::GroundShadowModule*, script::Struct*)>(shadow->vtable_[2])(shadow,
+                                                                                                           params);
     delete_structure(params);
     shadow->destroy_shadow();
     shadow->build_blob_shadow(type, "Ped_Shadow");
@@ -423,7 +426,8 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
 {
     online::Hub* net = net_session_slot();
     auto generic = [] {
-        debug::printf("\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
+        debug::printf(
+            "\n\nWARNING - no Player1 restart point, trying Generic\n\n"); // "WARNING - no Player1 restart point, trying Generic"
         uint32_t node = objects::get_spawn_node(0, 0, 0);
         if (!node)
             debug::printf("\n\nWARNING - No restart points found\n\n"); // "WARNING - No restart points found"
@@ -431,10 +435,12 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
     };
     auto found = [&](uint32_t node) { return node ? node : generic(); };
     auto multiplayer = [&](uint32_t start) {
-        uint32_t node = objects::get_spawn_node(kMultiplayer, static_cast<int>(net->get_start_info_word(static_cast<int>(start))), 0);
+        uint32_t node = objects::get_spawn_node(kMultiplayer,
+                                                static_cast<int>(net->get_start_info_word(static_cast<int>(start))), 0);
         if (node)
             return node;
-        debug::printf("\n\nWARNING - no multiplayer restart point, trying player1\n\n"); // "WARNING - no multiplayer restart point, trying player1"
+        debug::printf(
+            "\n\nWARNING - no multiplayer restart point, trying player1\n\n"); // "WARNING - no multiplayer restart point, trying player1"
         return found(objects::get_spawn_node(kPlayer1, 0, 0));
     };
     if (!net->in_net_game() && get_game_mode()->get_starting_rider_count() <= 1)
@@ -453,8 +459,9 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             if (!local)
                 return generic();
             goals::Objective* hunt = goals::get_objective_board()->get_goal(kScavenger, 1);
-            int team = goals::Virtual<bool>(hunt, goals::Objective::kVtIsActive) ? local->team_
-                                                                             : (local->team_ + 1) % get_game_mode()->current_num_teams();
+            int team = goals::Virtual<bool>(hunt, goals::Objective::kVtIsActive)
+                           ? local->team_
+                           : (local->team_ + 1) % get_game_mode()->current_num_teams();
             if (static_cast<uint32_t>(team) > 3)
                 return generic();
             return kTeamRestarts[team];
@@ -481,7 +488,7 @@ void Skate::teleport_to_spawn(objects::Rider* skater, uint32_t node, uint32_t wa
             return;
     }
     reinterpret_cast<void(__thiscall*)(objects::Rider*, uint32_t, uint32_t)>(skater->vtable_[0x3C / 4])(skater, node,
-                                                                                                          walking);
+                                                                                                        walking);
 }
 
 // 0x00566980
@@ -500,7 +507,7 @@ void Skate::reset_skaters(uint32_t node, uint32_t walking)
     run_over_ = false;
 }
 
-} // namespace Mdl
+} // namespace modules
 
 namespace modules {
 
@@ -509,7 +516,8 @@ namespace modules {
 // 0x005666A0
 void Skate::tidy_up()
 {
-    debug::printf("Skate::Cleanup() - Deleting all session specific objects\n"); // "Skate::tidy_up() - Deleting all session specific objects\n"
+    debug::printf(
+        "Skate::Cleanup() - Deleting all session specific objects\n"); // "Skate::tidy_up() - Deleting all session specific objects\n"
     for (uint32_t i = 0; i < static_cast<uint32_t>(count_riders()); ++i) {
         objects::Rider* skater = get_skater_at(i);
         if (!skater)
@@ -549,7 +557,8 @@ void Skate::tidy_up()
 // 0x00565A00
 void Skate::change_level(uint32_t level)
 {
-    debug::printf("-----------------------------------------Skate::ChangeLevel(%d)\n", level); // "-----...Skate::ChangeLevel(%d)\n"
+    debug::printf("-----------------------------------------Skate::ChangeLevel(%d)\n",
+                  level); // "-----...Skate::ChangeLevel(%d)\n"
     memory::enter_heap_scope(memory::Hub::get_pull()->skater_info_heap_);
     script::Struct* params = spawn_param_table();
     params->get_clear();
@@ -603,7 +612,8 @@ void Skate::launch_game()
     online::Hub* net = net_session_slot();
     g_front_end_instance->get_pause_game(false);
     memory::enter_heap_scope(memory::bottom_up_heap());
-    debug::printf("\nLAUNCH GAME CALLED with %d skaters \n\n", count_riders()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
+    debug::printf("\nLAUNCH GAME CALLED with %d skaters \n\n",
+                  count_riders()); // "\nLAUNCH GAME CALLED with %d skaters \n\n"
     if (!net->get_own_player()) {
         if (static_cast<uint32_t>(get_game_mode()->get_rider_ceiling()) > 1)
             memory::Hub::get_pull()->init_extra_skater_heaps(get_game_mode()->get_rider_ceiling());
@@ -709,8 +719,7 @@ bool __cdecl Skate::cfunc_reset_level(script::Struct*, script::Script* script)
 void Skate::update_records()
 {
     new_record_ = false;
-    highscores::StageBests* records =
-        highscores::g_game_records->get_level_records(career_->fetch_stage());
+    highscores::StageBests* records = highscores::g_game_records->get_level_records(career_->fetch_stage());
     objects::Rider* skater = sole()->get_home_rider();
     if (!skater)
         return;
@@ -719,7 +728,7 @@ void Skate::update_records()
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
     new_record_ |= records->best_combos_->try_insert_entry(score->top_chain_, 0) != -1;
     auto* balance = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterBalanceTrick));
-    float grind = *reinterpret_cast<float*>(balance + 0xA8);   // (the longest grind, manual and lip trick: seconds)
+    float grind = *reinterpret_cast<float*>(balance + 0xA8); // (the longest grind, manual and lip trick: seconds)
     float manual = *reinterpret_cast<float*>(balance + 0x50);
     float lip_trick = *reinterpret_cast<float*>(balance + 0x100);
     int tricks = score->best_tricks_;
@@ -834,13 +843,14 @@ void __cdecl Skate::debug_rails()
         matrix[11] = 0.0f;
         std::memcpy(matrix + 12, object + 0x4C, 12);
         matrix[15] = 1.0f;
-        void* rails = reinterpret_cast<void*(__thiscall*)(objects::ObjectModule*)>(component->vtable_[0x34 / 4])(component);
+        void* rails =
+            reinterpret_cast<void*(__thiscall*)(objects::ObjectModule*)>(component->vtable_[0x34 / 4])(component);
         if (rails)
             stubs::ignore_argument(static_cast<int>(reinterpret_cast<uintptr_t>(matrix)));
     }
 }
 
-} // namespace Mdl
+} // namespace modules
 
 namespace modules {
 
@@ -848,18 +858,18 @@ namespace modules {
 
 namespace {
 
-constexpr uint32_t kHideLoadingScreen = 0xC5C9373A;     // hide_loading_screen
-constexpr uint32_t kRestoreSkaterCamera = 0x15674315;   // restore_skater_camera
-constexpr uint32_t kGameUpdate = 0x1AEF674F;            // Game_Update
-constexpr uint32_t kIsChangingLevels = 0xE997DB9F;      // is_changing_levels
+constexpr uint32_t kHideLoadingScreen = 0xC5C9373A;            // hide_loading_screen
+constexpr uint32_t kRestoreSkaterCamera = 0x15674315;          // restore_skater_camera
+constexpr uint32_t kGameUpdate = 0x1AEF674F;                   // Game_Update
+constexpr uint32_t kIsChangingLevels = 0xE997DB9F;             // is_changing_levels
 constexpr uint32_t kCheckForUnpluggedControllers = 0x77A5662C; // check_for_unplugged_controllers
-constexpr uint32_t kRootWindow = 0x56A1EAE3;            // root_window
-constexpr uint32_t kUnpluggedDialogAnchor = 0x2EDB780F; // controller_unplugged_dialog_anchor
-constexpr uint32_t kUnpluggedFrameCount = 0xF7FABB50;   // controller_unplugged_frame_count
-constexpr uint32_t kLeavingNetGame = 0xEAA48E14;        // leaving_net_game
-constexpr uint32_t kDeviceNum = 0xC9428A08;             // device_num
-constexpr uint32_t kControllerUnplugged = 0xF77ACA62;   // controller_unplugged
-constexpr uint32_t kSuspend = 0xCE0CA665;               // suspend
+constexpr uint32_t kRootWindow = 0x56A1EAE3;                   // root_window
+constexpr uint32_t kUnpluggedDialogAnchor = 0x2EDB780F;        // controller_unplugged_dialog_anchor
+constexpr uint32_t kUnpluggedFrameCount = 0xF7FABB50;          // controller_unplugged_frame_count
+constexpr uint32_t kLeavingNetGame = 0xEAA48E14;               // leaving_net_game
+constexpr uint32_t kDeviceNum = 0xC9428A08;                    // device_num
+constexpr uint32_t kControllerUnplugged = 0xF77ACA62;          // controller_unplugged
+constexpr uint32_t kSuspend = 0xCE0CA665;                      // suspend
 
 // The game's cameras (0x004A09C0 the viewport's, 0x004A0950 the split screen's).
 gfx::ViewCam* viewport_camera(int index) { return render::fetch_live_camera(index); }
@@ -877,7 +887,8 @@ frontend::UiWidget* find_element(uint32_t id)
 // 0x00564D30 (an object walk's callback): the object's suspend component told to work out whether it's drawn.
 void __cdecl Skate::update_suspend_visibility(objects::Entity* object, void*)
 {
-    if (auto* suspend = static_cast<objects::DormancyModule*>(static_cast<objects::GameEntity*>(object)->fetch_module(kSuspend)))
+    if (auto* suspend =
+            static_cast<objects::DormancyModule*>(static_cast<objects::GameEntity*>(object)->fetch_module(kSuspend)))
         suspend->refresh_shown_state();
 }
 
@@ -920,12 +931,14 @@ void Skate::run_frame_logic()
             if (screen_camera(0)) {
                 objects::Entity* first = entity_hub_handle()->look_up_entity(0);
                 objects::proximity_notify(1, first, screen_camera(0)->fetch_location(), 1);
-                objects::proximity_notify(1, first, reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(first) + 0x4C), 2);
+                objects::proximity_notify(1, first,
+                                          reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(first) + 0x4C), 2);
             }
             if (screen_camera(1) && entity_hub_handle()->look_up_entity(1)) {
                 objects::Entity* second = entity_hub_handle()->look_up_entity(1);
                 objects::proximity_notify(2, second, screen_camera(1)->fetch_location(), 1);
-                objects::proximity_notify(2, second, reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(second) + 0x4C), 2);
+                objects::proximity_notify(2, second,
+                                          reinterpret_cast<maths::Vec4*>(reinterpret_cast<uint8_t*>(second) + 0x4C), 2);
             }
         }
     } else if (static_cast<uint8_t>(commands::cfunc_is_observing(nullptr, nullptr)) && g_viewport_count == 1 &&
@@ -998,11 +1011,13 @@ void __cdecl Skate::front_end_tick(tasks::SchedulerTask* task)
     // The king's time counts up; the beeps as the target comes near.
     auto* score = static_cast<PointTally*>(king->skater_->get_points_total());
     int total = score->get_total_score();
-    score->set_grand_total(total - ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));
+    score->set_grand_total(total -
+                           ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));
     int target = get_game_mode()->get_first_condition_value();
-    int current = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? net->get_squad_points(king->team_) : score->get_total_score();
+    int current = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? net->get_squad_points(king->team_)
+                                                                          : score->get_total_score();
     skate->timer_beep(static_cast<float>(static_cast<double>(target - current) * static_cast<double>(0.001f)), 10.0f,
-                     10.0f, "timer_runout_beep"); // "timer_runout_beep"
+                      10.0f, "timer_runout_beep"); // "timer_runout_beep"
 }
 
 // --- made and destroyed ---------------------------------------------------------------------------------------------
@@ -1090,10 +1105,12 @@ void Skate::destroy_body()
         memory::dealloc(rails);
     }
     if (career_)
-        reinterpret_cast<void(__thiscall*)(objects::RiderStoryProgress*, int)>(*reinterpret_cast<void***>(career_)[0])(career_, 1);
+        reinterpret_cast<void(__thiscall*)(objects::RiderStoryProgress*, int)>(*reinterpret_cast<void***>(career_)[0])(
+            career_, 1);
     reinterpret_cast<SkateNet*>(this)->delete_network_tasks();
     if (game_flow_)
-        reinterpret_cast<void(__thiscall*)(goals::MatchFlow*, int)>(*reinterpret_cast<void***>(game_flow_)[0])(game_flow_, 1);
+        reinterpret_cast<void(__thiscall*)(goals::MatchFlow*, int)>(*reinterpret_cast<void***>(game_flow_)[0])(
+            game_flow_, 1);
     if (goals::GoalManager* goals = goal_manager_) {
         goals->destroy_body();
         memory::dealloc(goals);
@@ -1101,8 +1118,8 @@ void Skate::destroy_body()
     if (update_job_)
         reinterpret_cast<void(__thiscall*)(tasks::SchedulerTask*, int)>(update_job_->vtable_[2])(update_job_, 1);
     if (splitscreen_preferences_)
-        reinterpret_cast<void(__thiscall*)(prefs::Preferences*, int)>(*reinterpret_cast<void***>(splitscreen_preferences_)[0])(
-            splitscreen_preferences_, 1);
+        reinterpret_cast<void(__thiscall*)(prefs::Preferences*, int)>(
+            *reinterpret_cast<void***>(splitscreen_preferences_)[0])(splitscreen_preferences_, 1);
     memory::dealloc(checksums_);
     if (script::Script* script = own_script_) {
         script->teardown();
@@ -1155,4 +1172,4 @@ uint32_t Skate::get_cheats()
     return cheats;
 }
 
-} // namespace Mdl
+} // namespace modules

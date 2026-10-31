@@ -231,12 +231,14 @@ void Script::unblock_interrupted_script()
 }
 
 // 0x004748E0
-void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object, bool interrupted)
+void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, objects::Entity* object,
+                            bool interrupted)
 {
     if (!pc_) {
         // Nothing running: just start it.
         bind_script(name, code, params, object);
-        flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | (interrupted ? kScriptRunInterrupted : 0));
+        flag_bits_ =
+            static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | (interrupted ? kScriptRunInterrupted : 0));
         return;
     }
     // The third level: the call stack moves from inside the script to 16 on the script heap (no check beyond).
@@ -261,8 +263,8 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     frame.suspend_frames_ref_ = suspend_frames_left_;
     frame.sleep_timer_ = suspend_clock_;
     frame.trait_mask_ = static_cast<uint8_t>((frame.trait_mask_ & ~(kReturnFlagTimerStarted | kReturnFlagInterrupted)) |
-                                        (suspend_clock_started_ ? kReturnFlagTimerStarted : 0) |
-                                        ((flag_bits_ & kScriptRunInterrupted) ? kReturnFlagInterrupted : 0));
+                                             (suspend_clock_started_ ? kReturnFlagTimerStarted : 0) |
+                                             ((flag_bits_ & kScriptRunInterrupted) ? kReturnFlagInterrupted : 0));
     // The callee: its default parameters (its first line), then the call's. (With no code the original reads
     // through null - not checked.) The loop pointer is kept: the callee's loops go above the caller's.
     script_title_ = name;
@@ -272,7 +274,8 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
     if (params)
         args_->merge_structure(params);
     entity_.assign_value(object);
-    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | (interrupted ? kScriptRunInterrupted : 0));
+    flag_bits_ =
+        static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | (interrupted ? kScriptRunInterrupted : 0));
     suspend_reason_ = kSuspendOnNothing;
     on_exit_script_ = 0;
 }
@@ -308,7 +311,7 @@ bool Script::return_from_script(Struct* results)
             suspend_arg_ = frame.suspend_arg_ref_;
         }
         flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) |
-                                       ((frame.trait_mask_ & kReturnFlagInterrupted) ? kScriptRunInterrupted : 0));
+                                          ((frame.trait_mask_ & kReturnFlagInterrupted) ? kScriptRunInterrupted : 0));
     }
     if (results)
         args_->append_structure_if_any(results);
@@ -383,7 +386,7 @@ void Script::reset_event_handlers_from_table(Array* table, uint32_t group)
         Component* script = type->next;
         Component* params = script->next;
         signal_routes_->append_listener(this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
-                 params ? params->structure : nullptr);
+                                        params ? params->structure : nullptr);
     }
     // (the group's handlers not added again go)
     if (signal_routes_)
@@ -412,4 +415,4 @@ __declspec(naked) void component_destroyed_stub()
     }
 }
 
-} // namespace Script
+} // namespace script

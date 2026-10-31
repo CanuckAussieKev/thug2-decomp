@@ -3,7 +3,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) for maths, 0x00448AE0-0x00448EF0: trigonometry in degrees, square roots, vector
 // normalising and rotating, linear mapping and clamping. Each reads its arguments from `params` and leaves its
@@ -12,16 +12,16 @@ class Script;
 // compiled-out assert); here it is 0.
 namespace commands {
 
-bool __cdecl cfunc_sin(script::Struct* params, script::Script* script);             // 0x00448AE0
-bool __cdecl cfunc_cos(script::Struct* params, script::Script* script);             // 0x00448B20
-bool __cdecl cfunc_tan(script::Struct* params, script::Script* script);             // 0x00448B60
+bool __cdecl cfunc_sin(script::Struct* params, script::Script* script);              // 0x00448AE0
+bool __cdecl cfunc_cos(script::Struct* params, script::Script* script);              // 0x00448B20
+bool __cdecl cfunc_tan(script::Struct* params, script::Script* script);              // 0x00448B60
 bool __cdecl cfunc_a_sin(script::Struct* params, script::Script* script);            // 0x00448BA0
 bool __cdecl cfunc_a_cos(script::Struct* params, script::Script* script);            // 0x00448BE0
 bool __cdecl cfunc_a_tan(script::Struct* params, script::Script* script);            // 0x00448C20
-bool __cdecl cfunc_sqrt(script::Struct* params, script::Script* script);            // 0x00448C60
+bool __cdecl cfunc_sqrt(script::Struct* params, script::Script* script);             // 0x00448C60
 bool __cdecl cfunc_normalize_vector(script::Struct* params, script::Script* script); // 0x00448CA0
 bool __cdecl cfunc_linear_map(script::Struct* params, script::Script* script);       // 0x00448D70
-bool __cdecl cfunc_clamp(script::Struct* params, script::Script* script);           // 0x00448E60
+bool __cdecl cfunc_clamp(script::Struct* params, script::Script* script);            // 0x00448E60
 bool __cdecl cfunc_rotate_vector(script::Struct* params, script::Script* script);    // 0x00448EF0
 
 } // namespace commands

@@ -80,8 +80,11 @@ constexpr uint32_t kWindowElement = 0xA13ADBB7;
 constexpr uint32_t kSystem = 0x36B2EE74, kFocusSentEvent = 0x3056434F, kFocusClearedEvent = 0x4A57316B;
 constexpr uint32_t kDeadBeef = 0xDEADBEEF;
 
-float get_degrees() { return ::commands::g_degree_to_radian_ratio; }       // pi / 180
-float rotation_offset() { return ::goals::g_goal_life_seconds_per_millisecond; } // 0.001 (added to a rotation in radians)
+float get_degrees() { return ::commands::g_degree_to_radian_ratio; } // pi / 180
+float rotation_offset()
+{
+    return ::goals::g_goal_life_seconds_per_millisecond;
+} // 0.001 (added to a rotation in radians)
 float convert_to_degrees() { return ::commands::g_script_radians_to_degrees; }
 
 // The original's _ftol (0x006236FC): truncated towards zero.
@@ -398,8 +401,10 @@ void UiWidget::change_alignment(float x, float y)
     just_x_ = x;
     just_y_ = y;
     object_flags_ |= kDirty;
-    aim_point_.top = static_cast<float>(aim_point_.y - (static_cast<double>(y) + 1.0) * aim_point_.scale_y_ * level_y_ * 0.5);
-    aim_point_.left = static_cast<float>(aim_point_.x - (static_cast<double>(x) + 1.0) * aim_point_.scale_x_ * span_ * 0.5);
+    aim_point_.top =
+        static_cast<float>(aim_point_.y - (static_cast<double>(y) + 1.0) * aim_point_.scale_y_ * level_y_ * 0.5);
+    aim_point_.left =
+        static_cast<float>(aim_point_.x - (static_cast<double>(x) + 1.0) * aim_point_.scale_x_ * span_ * 0.5);
 }
 
 // 0x004A94A0
@@ -664,8 +669,8 @@ void UiWidget::update_layout()
         // depth scale in ST0, negative behind the camera)
         void* camera = render::fetch_current_view(0);
         float x, y, z;
-        float scale = reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(&render::virtual_slot1_jump)(
-            camera, &aim_point_.pos3d, &x, &y, &z);
+        float scale = reinterpret_cast<float(__thiscall*)(void*, const maths::Vec4*, float*, float*, float*)>(
+            &render::virtual_slot1_jump)(camera, &aim_point_.pos3d, &x, &y, &z);
         if (scale < 0.0f) {
             aim_point_.x = -320.0f;
             aim_point_.y = -224.0f;
@@ -714,7 +719,8 @@ void UiWidget::update_layout()
             s.y = static_cast<float>((static_cast<double>(aim_point_.y) - shown_y) * k + shown_y);
             float shown_scale_y = s.scale_y_;
             s.scale_x_ = static_cast<float>((static_cast<double>(aim_point_.scale_x_) - s.scale_x_) * kt + s.scale_x_);
-            s.scale_y_ = static_cast<float>((static_cast<double>(aim_point_.scale_y_) - shown_scale_y) * kt + shown_scale_y);
+            s.scale_y_ =
+                static_cast<float>((static_cast<double>(aim_point_.scale_y_) - shown_scale_y) * kt + shown_scale_y);
             s.angle = static_cast<float>((static_cast<double>(aim_point_.angle) - s.angle) * kt + s.angle);
             s.alpha = static_cast<float>((static_cast<double>(aim_point_.alpha) - s.alpha) * kt + s.alpha);
             place_top_left(&s);
@@ -1052,15 +1058,23 @@ void UiWidget::blend_towards(script::Struct* params)
 void fetch_part(ElementPtr* out, uint32_t id) { get_look_up(hub(), out, id, 0); }
 
 namespace {
-static VtableSlot g_c_screen_element_vtable_slots[] = {&UiWidget::teardown, &UiWidget::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                stubs::do_nothing};
+static VtableSlot g_c_screen_element_vtable_slots[] = {
+    &UiWidget::teardown,
+    &UiWidget::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    stubs::do_nothing};
 void** const kCScreenElementVtable = reinterpret_cast<void**>(g_c_screen_element_vtable_slots);
 } // namespace
 
-} // namespace Front
+} // namespace frontend
 
-using frontend::UiWidget;
 using frontend::ElementState;
+using frontend::UiWidget;

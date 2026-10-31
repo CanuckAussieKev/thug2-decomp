@@ -18,25 +18,25 @@ using script::Array;
 using script::Script;
 using script::Struct;
 
-constexpr uint32_t kPitch = 0xD8604126;         // "pitch"
-constexpr uint32_t kDropoff = 0xFF2020EC;       // "dropoff"
-constexpr uint32_t kVol = 0xF6A36814;           // "vol"
-constexpr uint32_t kVolL = 0x5E285A66;          // "volL"
-constexpr uint32_t kVolR = 0xA4276705;          // "volR"
-constexpr uint32_t kId = 0x40C698AF;            // "id"
-constexpr uint32_t kBank = 0x279F4085;          // "bank"
-constexpr uint32_t kLevelSound = 0x389129E4;    // (name unknown) ingest_sound: a level sound (load type 0)
+constexpr uint32_t kPitch = 0xD8604126;                // "pitch"
+constexpr uint32_t kDropoff = 0xFF2020EC;              // "dropoff"
+constexpr uint32_t kVol = 0xF6A36814;                  // "vol"
+constexpr uint32_t kVolL = 0x5E285A66;                 // "volL"
+constexpr uint32_t kVolR = 0xA4276705;                 // "volR"
+constexpr uint32_t kId = 0x40C698AF;                   // "id"
+constexpr uint32_t kBank = 0x279F4085;                 // "bank"
+constexpr uint32_t kLevelSound = 0x389129E4;           // (name unknown) ingest_sound: a level sound (load type 0)
 constexpr uint32_t kPosUpdateWithDoppler = 0xCF15C120; // "PosUpdateWithDoppler"
-constexpr uint32_t kNoReverb = 0x8B87176F;      // "NoReverb"
-constexpr uint32_t kDebugSoundFx = 0xD7BB618D;  // "DebugSoundFX"
-constexpr uint32_t kMode = 0x6835B854;          // "mode"
-constexpr uint32_t kInstant = 0xF16FB852;       // "instant"
-constexpr uint32_t kPitchFlagA = 0x6A3BD54B;    // (name unknown) SetGlobalPitchModulation: its third argument
-constexpr uint32_t kPitchFlagB = 0xC406CE6F;    // (name unknown) SetGlobalPitchModulation: its second argument
-constexpr uint32_t kSfxVol = 0x8D6F6554;        // "sfxvol"
-constexpr uint32_t kMusicVolume = 0xA5162BD2;   // (name unknown) GetValueFromVolume: the music volume
-constexpr uint32_t kSfxVolume = 0xE32F3525;     // (name unknown) GetValueFromVolume: the sound effects volume
-constexpr uint32_t kValue = 0xE288A7CB;         // "value"
+constexpr uint32_t kNoReverb = 0x8B87176F;             // "NoReverb"
+constexpr uint32_t kDebugSoundFx = 0xD7BB618D;         // "DebugSoundFX"
+constexpr uint32_t kMode = 0x6835B854;                 // "mode"
+constexpr uint32_t kInstant = 0xF16FB852;              // "instant"
+constexpr uint32_t kPitchFlagA = 0x6A3BD54B;           // (name unknown) SetGlobalPitchModulation: its third argument
+constexpr uint32_t kPitchFlagB = 0xC406CE6F;           // (name unknown) SetGlobalPitchModulation: its second argument
+constexpr uint32_t kSfxVol = 0x8D6F6554;               // "sfxvol"
+constexpr uint32_t kMusicVolume = 0xA5162BD2;          // (name unknown) GetValueFromVolume: the music volume
+constexpr uint32_t kSfxVolume = 0xE32F3525;            // (name unknown) GetValueFromVolume: the sound effects volume
+constexpr uint32_t kValue = 0xE288A7CB;                // "value"
 
 constexpr float kTwelveInchScale = 12.0f; // (0x0064546C)
 

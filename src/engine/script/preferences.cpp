@@ -59,10 +59,7 @@ script::Array* Preferences::get_setting_list(uint32_t name)
 }
 
 // 0x0046C500
-void Preferences::set_preferences(script::Struct* preferences)
-{
-    top_entry_.append_structure_if_any(preferences);
-}
+void Preferences::set_preferences(script::Struct* preferences) { top_entry_.append_structure_if_any(preferences); }
 
 // 0x0046C510
 const char* Preferences::get_preference_string(uint32_t name, uint32_t field)
@@ -121,4 +118,4 @@ bool Preferences::read_in(uint32_t name)
     return true;
 }
 
-} // namespace Prefs
+} // namespace prefs

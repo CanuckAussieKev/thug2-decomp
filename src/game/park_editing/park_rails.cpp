@@ -129,7 +129,8 @@ void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* 
     }
     class_ = source->class_;
     label_ = source->label_;
-    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~(kLoop | kClimbable)) | (source->flag_bits_ & (kLoop | kClimbable)));
+    flag_bits_ =
+        static_cast<uint8_t>((flag_bits_ & ~(kLoop | kClimbable)) | (source->flag_bits_ & (kLoop | kClimbable)));
 }
 
 // 0x0058B620
@@ -245,7 +246,8 @@ ParkRailString* ParkRailSet::get_new_rail()
     lend_pool(pair, rail_pool_);
     auto* string = static_cast<ParkRailString*>(pair.carve(sizeof(ParkRailString)));
     if (string) {
-        string->flag_bits_ = static_cast<uint8_t>((string->flag_bits_ & ~ParkRailString::kLoop) | ParkRailString::kClimbable);
+        string->flag_bits_ =
+            static_cast<uint8_t>((string->flag_bits_ & ~ParkRailString::kLoop) | ParkRailString::kClimbable);
         string->point_chain_ = nullptr;
         string->vertex_total_ = 0;
         string->following_ = nullptr;
@@ -282,4 +284,4 @@ void ParkRailSet::get_clear()
     rail_total_ = 0;
 }
 
-} // namespace Ed
+} // namespace park_editing

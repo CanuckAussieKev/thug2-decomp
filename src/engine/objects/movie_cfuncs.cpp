@@ -23,25 +23,25 @@ namespace {
 
 using namespace skate_calls;
 
-constexpr uint32_t kUseGameCamera = 0x0C567FA2;  // (name unknown) PlaySkaterCamAnim: the game's camera taken over
-constexpr uint32_t kSkaterId = 0x5B24FAAA;       // SkaterId
-constexpr uint32_t kSkater = 0x5B8AB877;         // skater
-constexpr uint32_t kStop = 0x46A9E949;           // stop
-constexpr uint32_t kName = 0xA1DC81F9;           // name
+constexpr uint32_t kUseGameCamera = 0x0C567FA2;        // (name unknown) PlaySkaterCamAnim: the game's camera taken over
+constexpr uint32_t kSkaterId = 0x5B24FAAA;             // SkaterId
+constexpr uint32_t kSkater = 0x5B8AB877;               // skater
+constexpr uint32_t kStop = 0x46A9E949;                 // stop
+constexpr uint32_t kName = 0xA1DC81F9;                 // name
 constexpr uint32_t kDisableSkaterScaling = 0xDF00BDFF; // disable_skater_scaling
-constexpr uint32_t kSkaterCamAnim = 0x66B7DD11;  // SkaterCamAnim (the movie type)
-constexpr uint32_t kCutscene = 0xF5012F52;       // Cutscene (the movie type, and its name)
-constexpr uint32_t kObjectAnim = 0x12743EDB;     // ObjectAnim (the movie type, and PlayCutscene's flag)
-constexpr uint32_t kObjectCutscene = 0xB46E218F; // (name unknown) the movie type of PlayCutscene ObjectAnim
-constexpr uint32_t kSkippable = 0x8DDE72C0;      // skippable
-constexpr uint32_t kShouldPause = 0xB3ECC65E;    // should_pause
-constexpr uint32_t kCurrentAnimName = 0x5A4E23D3; // CurrentSkaterCamAnimName
-constexpr uint32_t kNone = 0x806FFF30;           // none
-constexpr uint32_t kCurrent = 0x230CCBF4;        // Current
-constexpr uint32_t kAll = 0xC4E78E22;            // all
-constexpr uint32_t kEdit = 0x7ECA21E5;           // edit (the park editor's state)
-constexpr uint32_t kRestoreSkaterCamera = 0x15674315; // Restore_skater_camera
-constexpr uint32_t kToggle = 0xDA155274;         // toggle
+constexpr uint32_t kSkaterCamAnim = 0x66B7DD11;        // SkaterCamAnim (the movie type)
+constexpr uint32_t kCutscene = 0xF5012F52;             // Cutscene (the movie type, and its name)
+constexpr uint32_t kObjectAnim = 0x12743EDB;           // ObjectAnim (the movie type, and PlayCutscene's flag)
+constexpr uint32_t kObjectCutscene = 0xB46E218F;       // (name unknown) the movie type of PlayCutscene ObjectAnim
+constexpr uint32_t kSkippable = 0x8DDE72C0;            // skippable
+constexpr uint32_t kShouldPause = 0xB3ECC65E;          // should_pause
+constexpr uint32_t kCurrentAnimName = 0x5A4E23D3;      // CurrentSkaterCamAnimName
+constexpr uint32_t kNone = 0x806FFF30;                 // none
+constexpr uint32_t kCurrent = 0x230CCBF4;              // Current
+constexpr uint32_t kAll = 0xC4E78E22;                  // all
+constexpr uint32_t kEdit = 0x7ECA21E5;                 // edit (the park editor's state)
+constexpr uint32_t kRestoreSkaterCamera = 0x15674315;  // Restore_skater_camera
+constexpr uint32_t kToggle = 0xDA155274;               // toggle
 
 // The skate module's movie managers: +0x368 skater camera animations and cutscenes, +0x36C object animations.
 objects::VideoHub* camera_movies() { return skate_field<objects::VideoHub*>(0x368); }

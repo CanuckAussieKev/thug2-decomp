@@ -25,24 +25,24 @@ using script::Struct;
 
 namespace {
 
-constexpr uint32_t kTerrainTypes = 0x533AD720;            // "Terrain_Types"
-constexpr uint32_t kTerrainActions = 0x828087B8;          // "Terrain_Actions"
-constexpr uint32_t kChecksum = 0x21902065;                // "checksum"
-constexpr uint32_t kType = 0x7321A8D6;                    // "type"
-constexpr uint32_t kAction = 0xB833736D;                  // "action"
-constexpr uint32_t kTerrainDefault = 0x64967688;          // "TERRAIN_DEFAULT"
-constexpr uint32_t kStandardTerrainDefault = 0x5B80CFCB;  // "STANDARD_TERRAIN_DEFAULT"
-constexpr uint32_t kSoundActions = 0x5C969C50;            // "SoundActions"
-constexpr uint32_t kSoundAction = 0x25F654C8;             // "soundAction"
-constexpr uint32_t kChance = 0xDBC4C4DB;                  // "chance"
-constexpr uint32_t kUseUpTo = 0x9EE9A09A;                 // "useUpTo"
-constexpr uint32_t kSound = 0x07713C7B;                   // "sound"
-constexpr uint32_t kMaxPitch = 0xFA3E14C5;                // "maxPitch"
-constexpr uint32_t kMinPitch = 0x1C5EBB24;                // "minPitch"
-constexpr uint32_t kMaxVol = 0x0693DAAF;                  // "maxVol"
-constexpr uint32_t kMinVol = 0x4391992D;                  // "floor_loudness_"
-constexpr uint32_t kInitialPitchKey = 0xF573682F;               // "load_pitch_"
-constexpr uint32_t kLoadVol = 0x312CCBCF;                 // "loadVol"
+constexpr uint32_t kTerrainTypes = 0x533AD720;           // "Terrain_Types"
+constexpr uint32_t kTerrainActions = 0x828087B8;         // "Terrain_Actions"
+constexpr uint32_t kChecksum = 0x21902065;               // "checksum"
+constexpr uint32_t kType = 0x7321A8D6;                   // "type"
+constexpr uint32_t kAction = 0xB833736D;                 // "action"
+constexpr uint32_t kTerrainDefault = 0x64967688;         // "TERRAIN_DEFAULT"
+constexpr uint32_t kStandardTerrainDefault = 0x5B80CFCB; // "STANDARD_TERRAIN_DEFAULT"
+constexpr uint32_t kSoundActions = 0x5C969C50;           // "SoundActions"
+constexpr uint32_t kSoundAction = 0x25F654C8;            // "soundAction"
+constexpr uint32_t kChance = 0xDBC4C4DB;                 // "chance"
+constexpr uint32_t kUseUpTo = 0x9EE9A09A;                // "useUpTo"
+constexpr uint32_t kSound = 0x07713C7B;                  // "sound"
+constexpr uint32_t kMaxPitch = 0xFA3E14C5;               // "maxPitch"
+constexpr uint32_t kMinPitch = 0x1C5EBB24;               // "minPitch"
+constexpr uint32_t kMaxVol = 0x0693DAAF;                 // "maxVol"
+constexpr uint32_t kMinVol = 0x4391992D;                 // "floor_loudness_"
+constexpr uint32_t kInitialPitchKey = 0xF573682F;        // "load_pitch_"
+constexpr uint32_t kLoadVol = 0x312CCBCF;                // "loadVol"
 
 constexpr float kHundred = 100.0f;
 constexpr uint32_t kHundredBits = 0x42C80000;
@@ -51,15 +51,15 @@ constexpr float kPercent = 0.0099999998f;
 
 // The two tables' items.
 struct TypeItem {
-    uint8_t index;      // +0 the terrain's index
+    uint8_t index; // +0 the terrain's index
     uint8_t pad[3];
-    uint32_t checksum;  // +4 its checksum (the item's key points here)
+    uint32_t checksum; // +4 its checksum (the item's key points here)
 };
 struct ActionItem {
-    uint8_t index;      // +0 the table's index (its key)
+    uint8_t index; // +0 the table's index (its key)
     uint8_t pad[3];
-    uint32_t type;      // +4 TABLE_*
-    uint32_t action;    // +8 TA_*
+    uint32_t type;   // +4 TABLE_*
+    uint32_t action; // +8 TA_*
 };
 static_assert(sizeof(TypeItem) == 8 && sizeof(ActionItem) == 12, "layout must match the original");
 
@@ -89,12 +89,12 @@ void ingest_sound(const SoundInfo& info)
 
 // The network message a propagated terrain sound sends (0x35, 12 bytes).
 struct SoundMessage {
-    int16_t x, y, z;        // +0 the position, truncated
-    uint8_t table;          // +6
-    uint8_t terrain;        // +7
-    uint8_t volume;         // +8 the percentages, truncated
-    uint8_t pitch;          // +9
-    uint8_t value;          // +A
+    int16_t x, y, z; // +0 the position, truncated
+    uint8_t table;   // +6
+    uint8_t terrain; // +7
+    uint8_t volume;  // +8 the percentages, truncated
+    uint8_t pitch;   // +9
+    uint8_t value;   // +A
     uint8_t padb_;
 };
 static_assert(sizeof(SoundMessage) == 12, "the original sends 12 bytes");
@@ -234,7 +234,8 @@ double __cdecl get_scaled_volume(const SoundInfo* info, float percent, bool clam
     if (info->floor_loudness_ == 0.0f && max_bits == kHundredBits)
         volume = percent;
     else
-        volume = (static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent + info->floor_loudness_;
+        volume =
+            (static_cast<double>(info->max_vol_) - info->floor_loudness_) * percent * kPercent + info->floor_loudness_;
     if (clamp && volume > info->max_vol_)
         volume = info->max_vol_;
     return volume;
@@ -248,7 +249,8 @@ Struct* __cdecl pick_sound_action(Struct* entry)
         return sound_action;
     Array* choices;
     entry->fetch_list(kSoundAction, &choices, 1);
-    int chance = 0; // (kept from one element to the next when one has none; uninitialised for the first in the original)
+    int chance =
+        0; // (kept from one element to the next when one has none; uninitialised for the first in the original)
     int total = 0;
     for (uint32_t i = choices->extent_; i != 0;) {
         --i;
@@ -347,7 +349,7 @@ bool __cdecl get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, 
 
 // 0x00444BB0
 void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
-                              float pitch_percent, float value, bool propagate)
+                                float pitch_percent, float value, bool propagate)
 {
     if (sound::no_sound())
         return;
@@ -389,7 +391,7 @@ void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec
     if (!volume.is_audio_off()) {
         float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
         sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
-                          static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
+                           static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
     }
 }
 
@@ -406,7 +408,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
     if (!volume.is_audio_off()) {
         float pitch = scaled_percent(pitch_percent, info.max_pitch_, info.min_pitch_);
         sounds->emit_sound(info.checksum, &volume, pitch, 0, nullptr,
-                          static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
+                           static_cast<int>(reinterpret_cast<uintptr_t>(&info)));
     }
 }
 
@@ -435,7 +437,7 @@ bool __cdecl load_terrain_sounds(uint32_t checksum)
     return true;
 }
 
-} // namespace Terrain
+} // namespace surface_kind
 
 namespace surface_kind {
 
@@ -443,4 +445,4 @@ namespace surface_kind {
 void construct_terrain_types() { new (&g_terrain_types) lists::KeyMap(8); }
 void construct_terrain_actions() { new (&g_terrain_actions) lists::KeyMap(8); }
 
-} // namespace Terrain
+} // namespace surface_kind

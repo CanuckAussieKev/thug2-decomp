@@ -84,9 +84,9 @@ void run_tasks(tasks::PileUp& list, bool profiling)
     list.work_on(reinterpret_cast<void*>(static_cast<uintptr_t>(profiling)));
 }
 void begin_scene() { render::begin_frame_draw(); }      // the device's BeginScene
-void render_frame() { render::engine::render_frame(); }     // the world, then the 2D
-void after_render() { modules::Skate::debug_rails(); }     // (uses the skate module)
-void end_scene() { render::engine::end_render(); }        // EndScene, Present
+void render_frame() { render::engine::render_frame(); } // the world, then the 2D
+void after_render() { modules::Skate::debug_rails(); }  // (uses the skate module)
+void end_scene() { render::engine::end_render(); }      // EndScene, Present
 
 uint8_t cinema_bars_on() { return render::g_camera.letterbox_active_; }
 
@@ -304,4 +304,4 @@ void Hub::get_main_loop()
     is_finished_ = done_on_entry;
 }
 
-} // namespace Mlp
+} // namespace frame_loop

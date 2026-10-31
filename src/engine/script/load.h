@@ -14,7 +14,7 @@ class Script;
 const uint8_t* parse_symbol_definition(const uint8_t* token, uint32_t name, const char* filename);
 // Make the script symbol `name` from `size` bytes of compiled code (compressed when that's smaller).
 SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint32_t name, uint32_t checksum,
-                                      const char* filename);
+                                       const char* filename);
 // Define everything in the .qb file `data` (old format). With `use_qb_names`, the file's checksum names go in
 // the .qb name table; with `temporary`, every change is undone by process_pending_symbols.
 void read_qb_file(const char* filename, const uint8_t* data, int unused, int use_qb_names, int temporary);
@@ -34,4 +34,4 @@ void unload_qb(uint32_t file_checksum);
 void parse_symbol_definition_stub();
 void create_script_symbol_stub();
 
-} // namespace Script
+} // namespace script

@@ -48,7 +48,10 @@ static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
 
 void** input_port() { return reinterpret_cast<void**>(g_d3d_device); }
 template <typename F>
-F get_method(int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[index]); }
+F get_method(int index)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[index]);
+}
 void set_texture_stage_state(int stage, int type, int value)
 {
     get_method<long(__stdcall*)(void*, int, int, int)>(0x10C / 4)(input_port(), stage, type, value);
@@ -64,8 +67,8 @@ void set_movie_texture(int stage, void* texture, int unknown)
     // GetLevelDesc(0): a D3DSURFACE_DESC (0x20 bytes: format, type, usage, pool, multisample type and quality,
     // width, height)
     uint32_t desc[8];
-    reinterpret_cast<long(__stdcall*)(void*, unsigned int, void*)>((*static_cast<void***>(texture))[0x44 / 4])(
-        texture, 0, desc);
+    reinterpret_cast<long(__stdcall*)(void*, unsigned int, void*)>((*static_cast<void***>(texture))[0x44 / 4])(texture,
+                                                                                                               0, desc);
     s_movie_width = desc[6];
     s_movie_height = desc[7];
     (void)unknown; // (passed on by the original; SetTexture doesn't take it)
@@ -131,15 +134,15 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     choose_blend_mode(0);
     change_phase(kAddressMode0, 0x10001); // (clamp)
     set_vertex_format(0x144);
-    get_method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(input_port(), 22, 1); // D3DRS_CULLMODE: none
+    get_method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(input_port(), 22, 1);  // D3DRS_CULLMODE: none
     get_method<long(__stdcall*)(void*, uint32_t)>(0x164 / 4)(input_port(), 0x144); // SetFVF
-    set_pixel_shader(nullptr, nullptr); // (no pixel shader)
-    set_texture_stage_state(0, 1, 5); // colour: modulate
+    set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
+    set_texture_stage_state(0, 1, 5);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
     set_texture_stage_state(0, 3, 1);
     set_texture_stage_state(0, 4, 3);
     set_texture_stage_state(1, 1, 1); // stage 1 off
-    set_texture(0, nullptr); // (the original also passes 0, unused)
+    set_texture(0, nullptr);          // (the original also passes 0, unused)
     // (a leftover from testing: the name of a frame dump that's never written)
     char dump_name[256];
     std::snprintf(dump_name, sizeof(dump_name), "e:\\movietest\\movie%04d.bmp", g_movie_dump_count);
@@ -148,9 +151,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     set_movie_texture(0, texture, 0);
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
-    uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255))
-                         << 24 |
-                     0x808080;
+    uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
     MovieVertex vertices[4];
     vertices[0] = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
     vertices[1] = vertices[0];
@@ -171,27 +172,68 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
 namespace {
 
 // The Bink SDK (binkw32.dll), through the game's import table.
-int bink_set_sound_system(void* open, void* param) { return reinterpret_cast<int(__stdcall*)(void*, void*)>(crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param); }
-void* bink_open_direct_sound() { return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4")); } // the function, passed to the above
-Bink* video_open(const char* path, uint32_t flags) { return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(crt::library_function("binkw32.dll", "_BinkOpen@8"))(path, flags); }
-void video_toggle_sound(Bink* bink, int on) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink, on); }
-void video_set_loudness(Bink* bink, uint32_t track, int volume) { reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetVolume@12"))(bink, track, sound::output_bink_volume(volume)); } // (NOT ORIGINAL: mute_audio)
-void bink_pause(Bink* bink, int pause) { reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkPause@8"))(bink, pause); }
-int video_wait_ready(Bink* bink) { return reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkWait@4"))(bink); }
-void video_decode_frame(Bink* bink) { reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkDoFrame@4"))(bink); }
+int bink_set_sound_system(void* open, void* param)
+{
+    return reinterpret_cast<int(__stdcall*)(void*, void*)>(
+        crt::library_function("binkw32.dll", "_BinkSetSoundSystem@8"))(open, param);
+}
+void* bink_open_direct_sound()
+{
+    return reinterpret_cast<void*>(crt::library_function("binkw32.dll", "_BinkOpenDirectSound@4"));
+} // the function, passed to the above
+Bink* video_open(const char* path, uint32_t flags)
+{
+    return reinterpret_cast<Bink*(__stdcall*)(const char*, uint32_t)>(
+        crt::library_function("binkw32.dll", "_BinkOpen@8"))(path, flags);
+}
+void video_toggle_sound(Bink* bink, int on)
+{
+    reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkSetSoundOnOff@8"))(bink,
+                                                                                                                on);
+}
+void video_set_loudness(Bink* bink, uint32_t track, int volume)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*, uint32_t, int)>(crt::library_function("binkw32.dll", "_BinkSetVolume@12"))(
+        bink, track, sound::output_bink_volume(volume));
+} // (NOT ORIGINAL: mute_audio)
+void bink_pause(Bink* bink, int pause)
+{
+    reinterpret_cast<int(__stdcall*)(Bink*, int)>(crt::library_function("binkw32.dll", "_BinkPause@8"))(bink, pause);
+}
+int video_wait_ready(Bink* bink)
+{
+    return reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkWait@4"))(bink);
+}
+void video_decode_frame(Bink* bink)
+{
+    reinterpret_cast<int(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkDoFrame@4"))(bink);
+}
 void video_copy_frame(Bink* bink, void* bits, int pitch, uint32_t height, uint32_t x, uint32_t y, uint32_t flags)
 {
-    reinterpret_cast<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(crt::library_function("binkw32.dll", "_BinkCopyToBuffer@28"))(bink, bits, pitch, height, x, y, flags);
+    reinterpret_cast<int(__stdcall*)(Bink*, void*, int, uint32_t, uint32_t, uint32_t, uint32_t)>(
+        crt::library_function("binkw32.dll", "_BinkCopyToBuffer@28"))(bink, bits, pitch, height, x, y, flags);
 }
-void video_advance_frame(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkNextFrame@4"))(bink); }
-void video_close(Bink* bink) { reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkClose@4"))(bink); }
+void video_advance_frame(Bink* bink)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkNextFrame@4"))(bink);
+}
+void video_close(Bink* bink)
+{
+    reinterpret_cast<void(__stdcall*)(Bink*)>(crt::library_function("binkw32.dll", "_BinkClose@4"))(bink);
+}
 
 Bink*& current_movie() { return g_current_movie; }
 bool& movie_playing() { return g_movie_playing; }
 
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
-void set_render_state(int state, uint32_t value) { get_method<long(__stdcall*)(void*, int, uint32_t)>(0xE4 / 4)(input_port(), state, value); }
-void get_render_state(int state, uint32_t* value) { get_method<long(__stdcall*)(void*, int, uint32_t*)>(0xE8 / 4)(input_port(), state, value); }
+void set_render_state(int state, uint32_t value)
+{
+    get_method<long(__stdcall*)(void*, int, uint32_t)>(0xE4 / 4)(input_port(), state, value);
+}
+void get_render_state(int state, uint32_t* value)
+{
+    get_method<long(__stdcall*)(void*, int, uint32_t*)>(0xE8 / 4)(input_port(), state, value);
+}
 void get_sampler_state(int sampler, int type, uint32_t* value)
 {
     get_method<long(__stdcall*)(void*, int, int, uint32_t*)>(0x110 / 4)(input_port(), sampler, type, value);
@@ -210,7 +252,10 @@ void set_renderer_sampler(int state, int value) { change_phase(state, static_cas
 
 // A texture's methods (IDirect3DTexture9: Release, LockRect, UnlockRect).
 template <typename F>
-F texture_method(void* texture, int index) { return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[index]); }
+F texture_method(void* texture, int index)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[index]);
+}
 struct SurfaceLock {
     int pitch;
     void* bits;
@@ -238,8 +283,8 @@ void* __cdecl begin_movie(uint32_t width, uint32_t height)
     g_movie_back_buffer_height = static_cast<float>(g_back_buffer_height);
     void* texture;
     // CreateTexture: one level, no usage, D3DFMT_X8R8G8B8 (0x16), D3DPOOL_MANAGED
-    long result = get_method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(0x5C / 4)(
-        device, width, height, 1, 0, 0x16, 1, &texture, nullptr);
+    long result = get_method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(
+        0x5C / 4)(device, width, height, 1, 0, 0x16, 1, &texture, nullptr);
     if (result < 0)
         return nullptr;
     movie_playing() = true;
@@ -257,7 +302,7 @@ void __cdecl end_movie(void* texture)
     set_renderer_sampler(2, 1);
     if (texture)
         texture_method<unsigned long(__stdcall*)(void*)>(texture, 2)(texture); // Release
-    set_texture(0, nullptr); // (the original also passes 0, unused)
+    set_texture(0, nullptr);                                                   // (the original also passes 0, unused)
 }
 
 // 0x0044FCC0
@@ -265,10 +310,12 @@ void __cdecl draw_movie(Bink* bink, void* texture)
 {
     get_method<long(__stdcall*)(void*)>(0xA4 / 4)(input_port()); // BeginScene
     // Clear: the target, to black (Z 1.0)
-    get_method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(0xAC / 4)(input_port(), 0, nullptr, 1, 0, 1.0f, 0);
+    get_method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(0xAC / 4)(
+        input_port(), 0, nullptr, 1, 0, 1.0f, 0);
     draw_movie_frame(texture, 0.0f, 0.0f, g_movie_draw_width, g_movie_draw_height, 1.0f);
     get_method<long(__stdcall*)(void*)>(0xA8 / 4)(input_port()); // EndScene
-    get_method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(input_port(), nullptr, nullptr, nullptr, nullptr); // Present
+    get_method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(
+        input_port(), nullptr, nullptr, nullptr, nullptr); // Present
     video_advance_frame(bink);
 }
 
@@ -356,8 +403,8 @@ void __cdecl play_movie_file(const char* name)
         uint16_t seen_up[4] = {};
         video_toggle_sound(current_movie(), 1);
         video_set_loudness(current_movie(), 0,
-                      static_cast<int>(static_cast<double>(volume) * g_one_percent // 0.01
-                                       * g_float16384));                         // 16384
+                           static_cast<int>(static_cast<double>(volume) * g_one_percent // 0.01
+                                            * g_float16384));                           // 16384
         int frames = 0;
         for (;;) {
             if (screen_saver_timeout && screen_saver_frames++ >= 200) {
@@ -392,8 +439,8 @@ void __cdecl play_movie_file(const char* name)
             Bink* bink = current_movie();
             video_decode_frame(bink);
             SurfaceLock locked;
-            if (texture_method<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(texture, 0x4C / 4)(
-                    texture, 0, &locked, nullptr, 0) >= 0) {
+            if (texture_method<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(
+                    texture, 0x4C / 4)(texture, 0, &locked, nullptr, 0) >= 0) {
                 video_copy_frame(bink, locked.bits, locked.pitch, bink->height, 0, 0,
                                  g_movie_surface_type | 0x80000000); // the surface type, copy all
                 texture_method<long(__stdcall*)(void*, uint32_t)>(texture, 0x50 / 4)(texture, 0);
@@ -482,4 +529,4 @@ bool __cdecl play_movie(script::Struct* params, void* script)
     return true;
 }
 
-} // namespace Nx
+} // namespace render

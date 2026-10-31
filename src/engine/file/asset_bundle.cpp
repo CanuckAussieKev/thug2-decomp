@@ -106,22 +106,13 @@ bool AssetBundle::get_split(int /*unused*/, int size)
 }
 
 // 0x005B6D50
-bool AssetBundle::is_loaded()
-{
-    return ready_flag_;
-}
+bool AssetBundle::is_loaded() { return ready_flag_; }
 
 // 0x005B6D60
-void* AssetBundle::obtain_loaded_item(int index)
-{
-    return assets_[index];
-}
+void* AssetBundle::obtain_loaded_item(int index) { return assets_[index]; }
 
 // 0x005B6D70
-AssetBundle::TableRow* AssetBundle::get_entry(int index)
-{
-    return &entries_[index];
-}
+AssetBundle::TableRow* AssetBundle::get_entry(int index) { return &entries_[index]; }
 
 // 0x005B6D80
 AssetBundle::TableRow* AssetBundle::find_entry(uint32_t name, uint32_t type, int /*unused*/)
@@ -172,7 +163,7 @@ static VtableSlot g_asset_bundle_vtable_slots[] = {&file::AssetBundle::teardown}
 void** const kAssetBundleVtable = reinterpret_cast<void**>(g_asset_bundle_vtable_slots);
 } // namespace
 
-} // namespace File
+} // namespace file
 
 namespace {
 

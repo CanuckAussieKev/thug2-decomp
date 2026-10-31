@@ -8,7 +8,7 @@ struct FrontEnd;
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // NOT ORIGINAL - debug mode (ours, added at the user's request; not the game's and not PartyMod's): Neversoft's
 // in-house build again, as far as the scripts go.

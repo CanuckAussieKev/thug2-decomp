@@ -81,7 +81,7 @@ void set_grid_mode(bool on);
 // and the items (the filter `filter` applied) in `height` pixels (negative: all but that much). `follow`: the
 // highlighted entry moved by the keys (scrolled into view). Requests (select, place) added to `requests`. Returns the
 // entry under the mouse (-1: none).
-int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono, ImFont* small_font,
-               float scale, std::vector<ui::Request>* requests);
+int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, float height, ImFont* mono,
+                ImFont* small_font, float scale, std::vector<ui::Request>* requests);
 
-} // namespace MenuSystem::level_editor::thumbs
+} // namespace frontend::level_editor::thumbs

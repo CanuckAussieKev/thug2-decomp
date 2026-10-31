@@ -27,4 +27,4 @@ bool select_picture_up();
 
 extern uint8_t* g_loading_screen_picture;
 
-} // namespace Nx
+} // namespace render

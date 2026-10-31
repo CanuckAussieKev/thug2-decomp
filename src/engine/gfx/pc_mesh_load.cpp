@@ -44,7 +44,10 @@ struct MemoryReader {
         cursor += size * count;
     }
     int SkipChunk() { return skip_memory_chunk(&cursor); }
-    void LoadScaled(uint8_t* vertices, uint32_t stride) { load_scaled_positions_from_memory(&cursor, vertices, stride); }
+    void LoadScaled(uint8_t* vertices, uint32_t stride)
+    {
+        load_scaled_positions_from_memory(&cursor, vertices, stride);
+    }
 };
 struct FileReader {
     file::Hdl file;
@@ -361,7 +364,8 @@ uint32_t vertex_format(uint32_t type)
 
 // What both mesh loaders share (their reads in the same order; the file one reads the counted things in one call).
 template <typename Reader>
-void read_mesh_from_file(MeshRef* mesh, Reader& reader, uint32_t material_checksum, SceneRef* scene, VertexArena* arena, bool dynamic)
+void read_mesh_from_file(MeshRef* mesh, Reader& reader, uint32_t material_checksum, SceneRef* scene, VertexArena* arena,
+                         bool dynamic)
 {
     for (int i = 0; i < 8; ++i) {
         reader.TakeIn(&mesh->index_counts_[i], 2, 1);
@@ -486,7 +490,9 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
     per_vertex_data_ = out;
     uint32_t bones = 1;
     bool suspect = vertex_count_ == 0x280 && index_counts_[0] == 0x6A3; // (a debugging check the original kept)
-    auto unpack11 = [](uint32_t bits) { return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF); };
+    auto unpack11 = [](uint32_t bits) {
+        return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF);
+    };
     for (int i = 0; i < vertex_count_; ++i) {
         std::memcpy(out, packed, 12); // the position
         if (suspect && i == 0xF7)
@@ -496,8 +502,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
         f[3] = static_cast<float>(unpack11(normal) * static_cast<double>(g_unpack11_scale));
         f[4] = static_cast<float>(unpack11(normal >> 11) * static_cast<double>(g_unpack11_scale));
         uint32_t z = normal >> 22;
-        f[5] = static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) *
-                                  static_cast<double>(g_unpack_z_scale));
+        f[5] = static_cast<float>(static_cast<int>(z & 0x200 ? z - 0x400 : z) * static_cast<double>(g_unpack_z_scale));
         std::memcpy(out + 0x18, packed + 0x1C, 4); // the colour
         std::memcpy(out + 0x1C, packed + 0x20, sets * 8);
         for (int k = 0; k < 4; ++k)
@@ -534,7 +539,8 @@ void MeshRef::read_from_ram_block(uint8_t** cursor, uint32_t material_checksum, 
 }
 
 // 0x004D6100
-void MeshRef::ingest_from_file(void* file, uint32_t material_checksum, SceneRef* scene, VertexArena* arena, bool dynamic)
+void MeshRef::ingest_from_file(void* file, uint32_t material_checksum, SceneRef* scene, VertexArena* arena,
+                               bool dynamic)
 {
     FileReader reader{file};
     read_mesh_from_file(this, reader, material_checksum, scene, arena, dynamic);
@@ -585,4 +591,4 @@ void MeshRef::build_collision()
     memory::Hub::get_pull()->dealloc(found);
 }
 
-} // namespace Nx
+} // namespace render

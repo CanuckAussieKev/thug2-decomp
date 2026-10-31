@@ -7,10 +7,10 @@
 
 namespace gfx {
 class ViewCam;
-} // namespace Gfx
+} // namespace gfx
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -47,4 +47,4 @@ public:
 static_assert(offsetof(ViewpointModule, view_camera_) == 0x18 && sizeof(ViewpointModule) == 0x1C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

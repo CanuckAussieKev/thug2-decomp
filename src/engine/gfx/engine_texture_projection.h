@@ -22,7 +22,7 @@ namespace render {
 
 // TextureProjection::flag_bits_
 enum : uint32_t {
-    kProjectionFlag1 = 0x01,       // the structure's 0xAF06447B
+    kProjectionFlag1 = 0x01,        // the structure's 0xAF06447B
     kProjectionOrthographic = 0x02, // a size given (0x083FDB95)
     kProjectionPerspective = 0x04,  // a field of view given (0x17E7321E; the aspect 0x0F7C3CAA)
 };
@@ -55,32 +55,32 @@ public:
     void tick_frame(objects::GameEntity* object);
 
     void** vtable;
-    memory::ListNode* self_link_;       // +0x04: itself
-    int node_priority_;              // +0x08
-    memory::ListNode* succ_;           // +0x0C
-    memory::ListNode* last_value_;           // +0x10
-    uint32_t label_;                 // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
-    uint8_t* bitmap_;             // +0x18: an engine BitmapTexture
-    uint32_t blend_mode_;            // +0x1C
-    maths::Mat4 projection_;        // +0x20
-    float extent_;                    // +0x60
-    float field_of_view_;                     // +0x64
-    float aspect_;                  // +0x68
-    uint32_t fineness_;             // +0x6C
-    maths::Vec4 direction_;         // +0x70: the object's (normalised)
-    maths::Vec4 world_direction_;    // +0x80
-    maths::Vec4 anchor_point_;          // +0x90: in the world
-    float range_;                   // +0xA0
-    uint32_t unknowna4_;            // +0xA4: the structure's 0xDC46BA66
+    memory::ListNode* self_link_;  // +0x04: itself
+    int node_priority_;            // +0x08
+    memory::ListNode* succ_;       // +0x0C
+    memory::ListNode* last_value_; // +0x10
+    uint32_t label_;               // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
+    uint8_t* bitmap_;              // +0x18: an engine BitmapTexture
+    uint32_t blend_mode_;          // +0x1C
+    maths::Mat4 projection_;       // +0x20
+    float extent_;                 // +0x60
+    float field_of_view_;          // +0x64
+    float aspect_;                 // +0x68
+    uint32_t fineness_;            // +0x6C
+    maths::Vec4 direction_;        // +0x70: the object's (normalised)
+    maths::Vec4 world_direction_;  // +0x80
+    maths::Vec4 anchor_point_;     // +0x90: in the world
+    float range_;                  // +0xA0
+    uint32_t unknowna4_;           // +0xA4: the structure's 0xDC46BA66
     maths::Vec4 shift_;            // +0xA8: from the object, in its space
-    float angle_;                   // +0xB8: radians
-    float unknownbc_;               // +0xBC: 0xE979B3D3 (100000)
-    float view_distance_;            // +0xC0: 0x7FCAEAB1 (15000)
-    uint32_t flag_bits_;                // +0xC4
+    float angle_;                  // +0xB8: radians
+    float unknownbc_;              // +0xBC: 0xE979B3D3 (100000)
+    float view_distance_;          // +0xC0: 0x7FCAEAB1 (15000)
+    uint32_t flag_bits_;           // +0xC4
 };
 static_assert(offsetof(TextureProjection, projection_) == 0x20 && offsetof(TextureProjection, fineness_) == 0x6C &&
                   offsetof(TextureProjection, anchor_point_) == 0x90 && offsetof(TextureProjection, shift_) == 0xA8 &&
                   offsetof(TextureProjection, flag_bits_) == 0xC4 && sizeof(TextureProjection) == 0xC8,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

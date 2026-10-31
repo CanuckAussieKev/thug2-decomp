@@ -87,10 +87,7 @@ ShadowBase* ShadowBase::make_new()
 }
 
 // 0x004A16D0
-void ShadowBase::destroy_body()
-{
-    vtable_ = reinterpret_cast<void**>(kShadowVtable);
-}
+void ShadowBase::destroy_body() { vtable_ = reinterpret_cast<void**>(kShadowVtable); }
 
 // 0x004A18B0
 ShadowBase* ShadowBase::teardown(unsigned int free_flags)
@@ -211,10 +208,11 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
 {
     const maths::Vec4& forward = matrix->row[2];
     maths::Mat4 placed;
-    placed.row[0] = {static_cast<float>(static_cast<double>(forward.z) * normal.y - static_cast<double>(forward.y) * normal.z),
-                     static_cast<float>(static_cast<double>(forward.x) * normal.z - static_cast<double>(forward.z) * normal.x),
-                     static_cast<float>(static_cast<double>(forward.y) * normal.x - static_cast<double>(forward.x) * normal.y),
-                     0.0f};
+    placed.row[0] = {
+        static_cast<float>(static_cast<double>(forward.z) * normal.y - static_cast<double>(forward.y) * normal.z),
+        static_cast<float>(static_cast<double>(forward.x) * normal.z - static_cast<double>(forward.z) * normal.x),
+        static_cast<float>(static_cast<double>(forward.y) * normal.x - static_cast<double>(forward.x) * normal.y),
+        0.0f};
     placed.row[1] = normal;
     placed.row[2] = forward;
     placed.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -306,10 +304,7 @@ void ShadowVolume::set_light_direction(const maths::Vec4* direction)
 }
 
 // 0x004A1EE0
-maths::Mat4* ShadowVolume::change_mat(const maths::Mat4* matrix)
-{
-    return &(basis_frame_ = *matrix);
-}
+maths::Mat4* ShadowVolume::change_mat(const maths::Mat4* matrix) { return &(basis_frame_ = *matrix); }
 
 // 0x004A1E40
 void __cdecl remove_shadow_volume(ShadowVolume* volume)
@@ -343,22 +338,38 @@ void __cdecl release_shadow_edges(uint32_t key)
 }
 
 namespace {
-static VtableSlot g_shadow_vtable_slots[] = {&render::ShadowBase::teardown, &render::ShadowBase::tick_frame,
-                &render::CollGeometryStubs::draw_diagnostic, stubs::ignore_argument, stubs::ignore_argument, stubs::do_nothing,
-                stubs::do_nothing, stubs::ignore_arguments2};
+static VtableSlot g_shadow_vtable_slots[] = {&render::ShadowBase::teardown,
+                                             &render::ShadowBase::tick_frame,
+                                             &render::CollGeometryStubs::draw_diagnostic,
+                                             stubs::ignore_argument,
+                                             stubs::ignore_argument,
+                                             stubs::do_nothing,
+                                             stubs::do_nothing,
+                                             stubs::ignore_arguments2};
 void** const kShadowVtable = reinterpret_cast<void**>(g_shadow_vtable_slots);
-static VtableSlot g_detailed_shadow_vtable_slots[] = {&render::FullShadow::teardown, &render::ShadowBase::tick_frame,
-                &render::FullShadow::change_place, &render::FullShadow::set_light_direction, stubs::ignore_argument,
-                stubs::do_nothing, stubs::do_nothing, stubs::ignore_arguments2};
+static VtableSlot g_detailed_shadow_vtable_slots[] = {&render::FullShadow::teardown,
+                                                      &render::ShadowBase::tick_frame,
+                                                      &render::FullShadow::change_place,
+                                                      &render::FullShadow::set_light_direction,
+                                                      stubs::ignore_argument,
+                                                      stubs::do_nothing,
+                                                      stubs::do_nothing,
+                                                      stubs::ignore_arguments2};
 void** const kDetailedShadowVtable = reinterpret_cast<void**>(g_detailed_shadow_vtable_slots);
-static VtableSlot g_simple_shadow_vtable_slots[] = {&render::BlobShadow::teardown, &render::BlobShadow::tick_frame,
-                &render::CollGeometryStubs::draw_diagnostic, stubs::ignore_argument, stubs::ignore_argument,
-                &render::BlobShadow::conceal, &render::BlobShadow::get_show, stubs::ignore_arguments2};
+static VtableSlot g_simple_shadow_vtable_slots[] = {
+    &render::BlobShadow::teardown, &render::BlobShadow::tick_frame, &render::CollGeometryStubs::draw_diagnostic,
+    stubs::ignore_argument,        stubs::ignore_argument,          &render::BlobShadow::conceal,
+    &render::BlobShadow::get_show, stubs::ignore_arguments2};
 void** const kSimpleShadowVtable = reinterpret_cast<void**>(g_simple_shadow_vtable_slots);
-static VtableSlot g_shadow_volume_vtable_slots[] = {&render::ShadowVolume::teardown, &render::ShadowBase::tick_frame,
-                &render::ShadowVolume::change_place, &render::ShadowVolume::set_light_direction, &render::ShadowVolume::change_mat,
-                stubs::do_nothing, stubs::do_nothing, &render::ShadowVolume::change_mesh};
+static VtableSlot g_shadow_volume_vtable_slots[] = {&render::ShadowVolume::teardown,
+                                                    &render::ShadowBase::tick_frame,
+                                                    &render::ShadowVolume::change_place,
+                                                    &render::ShadowVolume::set_light_direction,
+                                                    &render::ShadowVolume::change_mat,
+                                                    stubs::do_nothing,
+                                                    stubs::do_nothing,
+                                                    &render::ShadowVolume::change_mesh};
 void** const kShadowVolumeVtable = reinterpret_cast<void**>(g_shadow_volume_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

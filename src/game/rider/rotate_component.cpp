@@ -42,10 +42,7 @@ void core_matrix_from_object(uint8_t* core_physics)
     core_matrix(core_physics) = reinterpret_cast<ObjectModule*>(core_physics)->entity_->basis_frame_;
 }
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
-void turn_by(maths::Mat4& m, const maths::Mat4& rotation)
-{
-    d3dx::matrix_multiply(&m, &rotation, &m);
-}
+void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
 
 // A turn set up from `degrees` over `duration` seconds.
 void start_turn(RiderTurning::Turn& turn, double degrees, float duration)
@@ -97,10 +94,7 @@ void RiderTurning::configure_from_data(script::Struct* /*params*/)
 }
 
 // 0x00517D20
-void RiderTurning::seal()
-{
-    core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
-}
+void RiderTurning::seal() { core_physics_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics)); }
 
 // 0x00517DC0
 void RiderTurning::tick_frame()
@@ -190,25 +184,27 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderTurning::teardown,
-         &objects::RiderTurning::tick_frame,
-         &objects::RiderTurning::configure_from_data,
-         &objects::RiderTurning::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderTurning::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderTurning::teardown,
+    &objects::RiderTurning::tick_frame,
+    &objects::RiderTurning::configure_from_data,
+    &objects::RiderTurning::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderTurning::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

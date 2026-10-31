@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -63,12 +63,12 @@ public:
     // 0x00433930 (not a Ghidra function) Obj_StopStream: every stream it plays stopped. True.
     bool obj_stop_stream(script::Struct* params, script::Script* script);
 
-    uint32_t streams_[3];    // +0x18 the ids of the streams it plays (0: free)
-    EmitterNode* spewer_;  // +0x24
-    ProximNode* proxim_;    // +0x28
+    uint32_t streams_[3]; // +0x18 the ids of the streams it plays (0: free)
+    EmitterNode* spewer_; // +0x24
+    ProximNode* proxim_;  // +0x28
 };
 static_assert(offsetof(AudioStreamModule, streams_) == 0x18 && offsetof(AudioStreamModule, spewer_) == 0x24 &&
                   offsetof(AudioStreamModule, proxim_) == 0x28 && sizeof(AudioStreamModule) == 0x2C,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

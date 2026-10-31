@@ -32,35 +32,16 @@
 namespace objects {
 
 uint32_t g_ped_logic_member_functions[174]{
-            0x3685B765, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x423B7B29, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xE9906815, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x0D711542, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xCC85ADFE, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x68D298B0, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x2CC086DD, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xC643E8F5, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x13713760, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xF5627596, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xE575EFA9, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xB4445051, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x744CD649, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xEE24A410, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x0C076D74, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xDA7BE9E2, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x1AFFFFB3, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x5C794C57, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x5BB23915, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x56D9F55F, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x749DE914, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x58A588B5, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x5CFBFB31, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x9C37FBF5, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x35D3CA5E, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x9C209251, 0x6EFDDFB8, 0, 0, 0, 0,
-            0xC33754F7, 0x6EFDDFB8, 0, 0, 0, 0,
-            0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0,
-            0, 0x6EFDDFB8, 0, 0, 0, 0};
+    0x3685B765, 0x6EFDDFB8, 0, 0, 0, 0, 0x423B7B29, 0x6EFDDFB8, 0, 0, 0, 0, 0xE9906815, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x0D711542, 0x6EFDDFB8, 0, 0, 0, 0, 0xCC85ADFE, 0x6EFDDFB8, 0, 0, 0, 0, 0x68D298B0, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x2CC086DD, 0x6EFDDFB8, 0, 0, 0, 0, 0xC643E8F5, 0x6EFDDFB8, 0, 0, 0, 0, 0x13713760, 0x6EFDDFB8, 0, 0, 0, 0,
+    0xF5627596, 0x6EFDDFB8, 0, 0, 0, 0, 0xE575EFA9, 0x6EFDDFB8, 0, 0, 0, 0, 0xB4445051, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x744CD649, 0x6EFDDFB8, 0, 0, 0, 0, 0xEE24A410, 0x6EFDDFB8, 0, 0, 0, 0, 0x0C076D74, 0x6EFDDFB8, 0, 0, 0, 0,
+    0xDA7BE9E2, 0x6EFDDFB8, 0, 0, 0, 0, 0x1AFFFFB3, 0x6EFDDFB8, 0, 0, 0, 0, 0x5C794C57, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x5BB23915, 0x6EFDDFB8, 0, 0, 0, 0, 0x56D9F55F, 0x6EFDDFB8, 0, 0, 0, 0, 0x749DE914, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x58A588B5, 0x6EFDDFB8, 0, 0, 0, 0, 0x5CFBFB31, 0x6EFDDFB8, 0, 0, 0, 0, 0x9C37FBF5, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x35D3CA5E, 0x6EFDDFB8, 0, 0, 0, 0, 0x9C209251, 0x6EFDDFB8, 0, 0, 0, 0, 0xC33754F7, 0x6EFDDFB8, 0, 0, 0, 0,
+    0x5F041C7D, 0x6EFDDFB8, 0, 0, 0, 0, 0,          0x6EFDDFB8, 0, 0, 0, 0};
 
 namespace {
 
@@ -71,66 +52,69 @@ constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kSkaterLoopingSound = 0xB5F1E9D2;
 constexpr uint32_t kSkaterSound = 0x187574FA;
 
-constexpr uint32_t kNull = 0xDA3403B0;              // null (the checksum of "NULL")
-constexpr uint32_t kSkeletonName = 0x09794932;      // SkeletonName
-constexpr uint32_t kPedFemale = 0x8642CA2A;         // Ped_Female
-constexpr uint32_t kProfile = 0x7EA855F0;           // profile
-constexpr uint32_t kBoard = 0xA7A9D4B8;             // board
-constexpr uint32_t kDescId = 0x4BB2084E;            // desc_id
-constexpr uint32_t kName = 0xA1DC81F9;              // Name
-constexpr uint32_t kDistAbove = 0x367C4A1B, kDistBelow = 0x86F46E7B; // (configure_from_data's)
+constexpr uint32_t kNull = 0xDA3403B0;                                     // null (the checksum of "NULL")
+constexpr uint32_t kSkeletonName = 0x09794932;                             // SkeletonName
+constexpr uint32_t kPedFemale = 0x8642CA2A;                                // Ped_Female
+constexpr uint32_t kProfile = 0x7EA855F0;                                  // profile
+constexpr uint32_t kBoard = 0xA7A9D4B8;                                    // board
+constexpr uint32_t kDescId = 0x4BB2084E;                                   // desc_id
+constexpr uint32_t kName = 0xA1DC81F9;                                     // Name
+constexpr uint32_t kDistAbove = 0x367C4A1B, kDistBelow = 0x86F46E7B;       // (configure_from_data's)
 constexpr uint32_t kDistAboveCmd = 0xA8A5A3C7, kDistBelowCmd = 0x182D87A7; // DistAbove / DistBelow
-constexpr uint32_t kStickAbove = 0x379D93D2;        // ped_skater_stick_dist_above
-constexpr uint32_t kStickBelow = 0x8715B7B2;        // ped_skater_stick_dist_below
-constexpr uint32_t kPedInitializeMovement = 0x1B7DE0FB; // ped_initialize_movement
-constexpr uint32_t kGenericMoveUpdate = 0x5B4E8427; // generic_move_update
-constexpr uint32_t kSkaterMoveUpdate = 0xA631E964;  // skater_move_update
-constexpr uint32_t kNoMoveUpdate = 0x520A0B40;      // no_move_update
-constexpr uint32_t kPedInit = 0x2115FC7A;           // ped_init (a tag)
-constexpr uint32_t kUniqueStateTable = 0x1DD08028;  // UniqueStateTable (a tag)
-constexpr uint32_t kPedStateLogicTable = 0x51F1BB49; // Ped_StateLogic_Table
-constexpr uint32_t kScriptPedState = 0x9958DCFD;    // script_ped_state
-constexpr uint32_t kPedUpdateType = 0x959E031F;     // ped_update_type
-constexpr uint32_t kExitStateAction = 0xC1868052;   // exit_state_action
-constexpr uint32_t kWaitAnimFinished = 0x2E64106C;  // wait_anim_finished
-constexpr uint32_t kHighPriority = 0x0030AC01;      // high_priority
-constexpr uint32_t kDelayedState = 0x927BA4D7;      // DelayedState (a tag)
-constexpr uint32_t kDelayedTable = 0xC7C1F96A;      // DelayedTable (a tag)
-constexpr uint32_t kDelayWaitAnim = 0xF4C1639E;     // STATE_DELAY_waitanim
-constexpr uint32_t kDelayWaitAnimScript = 0x9C6561DC; // STATECONTROL_DELAY_waitanim
-constexpr uint32_t kHideBoardGeom = 0x1F22FA86;     // hide_boardgeom
-constexpr uint32_t kTable = 0x09D670B9;             // Table
-constexpr uint32_t kStateParams = 0x889A999C;       // StateParams
-constexpr uint32_t kLogicState = 0x7BA5C584;        // LogicState
-constexpr uint32_t kGrind = 0x255ED86F;             // Grind
-constexpr uint32_t kVelocity = 0x41272956;          // Velocity
-constexpr uint32_t kOriginalMaxVelocity = 0xEB4E99B3; // original_max_velocity
-constexpr uint32_t kPercent = 0x9E497FC6;           // percent
-constexpr uint32_t kDeltaV = 0x904403EC;            // ped_skater_deltaV
+constexpr uint32_t kStickAbove = 0x379D93D2;                               // ped_skater_stick_dist_above
+constexpr uint32_t kStickBelow = 0x8715B7B2;                               // ped_skater_stick_dist_below
+constexpr uint32_t kPedInitializeMovement = 0x1B7DE0FB;                    // ped_initialize_movement
+constexpr uint32_t kGenericMoveUpdate = 0x5B4E8427;                        // generic_move_update
+constexpr uint32_t kSkaterMoveUpdate = 0xA631E964;                         // skater_move_update
+constexpr uint32_t kNoMoveUpdate = 0x520A0B40;                             // no_move_update
+constexpr uint32_t kPedInit = 0x2115FC7A;                                  // ped_init (a tag)
+constexpr uint32_t kUniqueStateTable = 0x1DD08028;                         // UniqueStateTable (a tag)
+constexpr uint32_t kPedStateLogicTable = 0x51F1BB49;                       // Ped_StateLogic_Table
+constexpr uint32_t kScriptPedState = 0x9958DCFD;                           // script_ped_state
+constexpr uint32_t kPedUpdateType = 0x959E031F;                            // ped_update_type
+constexpr uint32_t kExitStateAction = 0xC1868052;                          // exit_state_action
+constexpr uint32_t kWaitAnimFinished = 0x2E64106C;                         // wait_anim_finished
+constexpr uint32_t kHighPriority = 0x0030AC01;                             // high_priority
+constexpr uint32_t kDelayedState = 0x927BA4D7;                             // DelayedState (a tag)
+constexpr uint32_t kDelayedTable = 0xC7C1F96A;                             // DelayedTable (a tag)
+constexpr uint32_t kDelayWaitAnim = 0xF4C1639E;                            // STATE_DELAY_waitanim
+constexpr uint32_t kDelayWaitAnimScript = 0x9C6561DC;                      // STATECONTROL_DELAY_waitanim
+constexpr uint32_t kHideBoardGeom = 0x1F22FA86;                            // hide_boardgeom
+constexpr uint32_t kTable = 0x09D670B9;                                    // Table
+constexpr uint32_t kStateParams = 0x889A999C;                              // StateParams
+constexpr uint32_t kLogicState = 0x7BA5C584;                               // LogicState
+constexpr uint32_t kGrind = 0x255ED86F;                                    // Grind
+constexpr uint32_t kVelocity = 0x41272956;                                 // Velocity
+constexpr uint32_t kOriginalMaxVelocity = 0xEB4E99B3;                      // original_max_velocity
+constexpr uint32_t kPercent = 0x9E497FC6;                                  // percent
+constexpr uint32_t kDeltaV = 0x904403EC;                                   // ped_skater_deltaV
 constexpr uint32_t kNodeTo = 0xD14CD5BC, kNodeFrom = 0x8141D319, kNodeAfter = 0x3C746255; // node_to / node_from
-constexpr uint32_t kGender = 0x38B8F5BD, kMale = 0xAA721F56, kFemale = 0xB58B7593; // Gender: male / female
-constexpr uint32_t kParams = 0x7031F10C;            // Params
-constexpr uint32_t kStartMoving = 0xBED339D4;       // ped_skater_start_moving
-constexpr uint32_t kProfileName = 0x17140E6D;       // profile_name (a tag)
-constexpr uint32_t kCustom = 0x0A7BE964;            // Custom
-constexpr uint32_t kMasterSkaterList = 0xF31E8FF8;  // master_skater_list
-constexpr uint32_t kLastName = 0x37F745A5;          // last_name
-constexpr uint32_t kVoicePrefix = 0xF75A5D96;       // VoicePrefix
-constexpr uint32_t kVoicePrefixParam = 0xAB88FD0D;  // voice_prefix
-constexpr uint32_t kVoice = 0x1804A7C4;             // voice
-constexpr uint32_t kPlayerVoices = 0xCA1DB456;      // player_voices
-constexpr uint32_t kId = 0x40C698AF;                // id
-constexpr uint32_t kStreamName = 0x16CBB85A;        // stream_name
-constexpr uint32_t kIsMale = 0x3F813177;            // is_male
-constexpr uint32_t kSkaterPedStateTable = 0x46196541; // SkaterPed_StateTable
+constexpr uint32_t kGender = 0x38B8F5BD, kMale = 0xAA721F56, kFemale = 0xB58B7593;        // Gender: male / female
+constexpr uint32_t kParams = 0x7031F10C;                                                  // Params
+constexpr uint32_t kStartMoving = 0xBED339D4;                                             // ped_skater_start_moving
+constexpr uint32_t kProfileName = 0x17140E6D;                                             // profile_name (a tag)
+constexpr uint32_t kCustom = 0x0A7BE964;                                                  // Custom
+constexpr uint32_t kMasterSkaterList = 0xF31E8FF8;                                        // master_skater_list
+constexpr uint32_t kLastName = 0x37F745A5;                                                // last_name
+constexpr uint32_t kVoicePrefix = 0xF75A5D96;                                             // VoicePrefix
+constexpr uint32_t kVoicePrefixParam = 0xAB88FD0D;                                        // voice_prefix
+constexpr uint32_t kVoice = 0x1804A7C4;                                                   // voice
+constexpr uint32_t kPlayerVoices = 0xCA1DB456;                                            // player_voices
+constexpr uint32_t kId = 0x40C698AF;                                                      // id
+constexpr uint32_t kStreamName = 0x16CBB85A;                                              // stream_name
+constexpr uint32_t kIsMale = 0x3F813177;                                                  // is_male
+constexpr uint32_t kSkaterPedStateTable = 0x46196541;                                     // SkaterPed_StateTable
 constexpr uint32_t kStateBail = 0x6259CA27, kStateBailGrind = 0x423431E1; // STATE_bail / STATE_bailgrind
-constexpr uint32_t kLedgeMember = 0x315D9ED4;       // (the member function the skater's core physics calls Ledge)
+constexpr uint32_t kLedgeMember = 0x315D9ED4; // (the member function the skater's core physics calls Ledge)
 
-constexpr float kMaxBoostedSpeed = 1100.0f;         // 0x0064A8CC
+constexpr float kMaxBoostedSpeed = 1100.0f; // 0x0064A8CC
 constexpr float kDefaultBoost = 1.25f;
-constexpr float kPercentScale = 0.01f;              // 0x0064544C
+constexpr float kPercentScale = 0.01f; // 0x0064544C
 
-KinematicsModule* get_motion(GameEntity* object) { return static_cast<KinematicsModule*>(object->fetch_module(kMotion)); }
+KinematicsModule* get_motion(GameEntity* object)
+{
+    return static_cast<KinematicsModule*>(object->fetch_module(kMotion));
+}
 
 script::Struct* new_params()
 {
@@ -501,7 +485,10 @@ bool PedestrianBrainModule::ped_stop_moving(script::Struct*, script::Script*)
 }
 
 // 0x004ED160
-bool PedestrianBrainModule::ped_is_moving(script::Struct*, script::Script*) { return (flag_bits_ & kPedFlagMoving) != 0; }
+bool PedestrianBrainModule::ped_is_moving(script::Struct*, script::Script*)
+{
+    return (flag_bits_ & kPedFlagMoving) != 0;
+}
 
 // 0x004ED170
 bool PedestrianBrainModule::ped_set_stick_distances(script::Struct* params, script::Script*)
@@ -509,7 +496,7 @@ bool PedestrianBrainModule::ped_set_stick_distances(script::Struct* params, scri
     params->fetch_float(kDistAboveCmd, &stick_above_, 0);
     params->fetch_float(kDistBelowCmd, &stick_below_, 0);
     debug::printf("StickToGround distances set to %f (above), %f (below)\n", static_cast<double>(stick_above_),
-                static_cast<double>(stick_below_));
+                  static_cast<double>(stick_below_));
     return true;
 }
 
@@ -725,28 +712,28 @@ bool PedestrianBrainModule::ped_get_voice_prefix(script::Struct*, script::Script
     return false;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::PedestrianBrainModule::teardown,
-         &objects::PedestrianBrainModule::tick_frame,
-         &objects::PedestrianBrainModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::PedestrianBrainModule::invoke_method_by_name,
-         &objects::PedestrianBrainModule::generic_move_update,
-         &objects::PedestrianBrainModule::skater_move_update,
-         &objects::PedestrianBrainModule::no_move_update};
+                                      &objects::PedestrianBrainModule::tick_frame,
+                                      &objects::PedestrianBrainModule::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::PedestrianBrainModule::invoke_method_by_name,
+                                      &objects::PedestrianBrainModule::generic_move_update,
+                                      &objects::PedestrianBrainModule::skater_move_update,
+                                      &objects::PedestrianBrainModule::no_move_update};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

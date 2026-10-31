@@ -7,4 +7,4 @@ namespace sys {
 // main loop returns, the process ends there (sys::fast_exit) instead of tearing everything down.
 int __cdecl game_main(int argc, char** argv);
 
-} // namespace Sys
+} // namespace sys

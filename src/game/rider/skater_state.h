@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's state component (SkaterState, type 0x43686585, vtable 0x0064C140, 0x128 bytes): where the skater is
 // (on the ground, in the air, on a wall / lip / rail, in a wallplant), whether it skates, walks or drives, its
@@ -52,48 +52,45 @@ public:
 
     // --- script member functions (the table at 0x00684A80; params, script) ---
     // (OnGround is 0x00525E90's, not here)
-    bool in_air(script::Struct* params, script::Script* script);           // 0x00519480
-    bool get_on_wall(script::Struct* params, script::Script* script);          // 0x00519490
-    bool on_lip(script::Struct* params, script::Script* script);           // 0x005194A0
-    bool get_on_rail(script::Struct* params, script::Script* script);          // 0x005194B0
-    bool in_wallplant(script::Struct* params, script::Script* script);     // 0x005194C0
-    bool in_bail_state(script::Struct* params, script::Script* script);     // 0x005196D0 (+0x70)
-    bool on_foot(script::Struct* params, script::Script* script);         // 0x005194D0 (not driving)
-    bool skating(script::Struct* params, script::Script* script);         // 0x005194F0 (not driving)
-    bool get_driving(script::Struct* params, script::Script* script);         // 0x00519510
-    bool set_driving(script::Struct* params, script::Script* script);      // 0x00519520
-    bool unset_driving(script::Struct* params, script::Script* script);    // 0x00519530
-    bool in_air_move(script::Struct* params, script::Script* script);      // 0x005196E0 (+0xE0)
+    bool in_air(script::Struct* params, script::Script* script);        // 0x00519480
+    bool get_on_wall(script::Struct* params, script::Script* script);   // 0x00519490
+    bool on_lip(script::Struct* params, script::Script* script);        // 0x005194A0
+    bool get_on_rail(script::Struct* params, script::Script* script);   // 0x005194B0
+    bool in_wallplant(script::Struct* params, script::Script* script);  // 0x005194C0
+    bool in_bail_state(script::Struct* params, script::Script* script); // 0x005196D0 (+0x70)
+    bool on_foot(script::Struct* params, script::Script* script);       // 0x005194D0 (not driving)
+    bool skating(script::Struct* params, script::Script* script);       // 0x005194F0 (not driving)
+    bool get_driving(script::Struct* params, script::Script* script);   // 0x00519510
+    bool set_driving(script::Struct* params, script::Script* script);   // 0x00519520
+    bool unset_driving(script::Struct* params, script::Script* script); // 0x00519530
+    bool in_air_move(script::Struct* params, script::Script* script);   // 0x005196E0 (+0xE0)
     // 0x00519540 / 0x005195B0: the powerup the unnamed checksum names (the one in the table at 0x0067F09C) - picked
     // up or not / picked up. Unknown names: false / nothing.
     bool has_powerup(script::Struct* params, script::Script* script);
     bool picked_up_powerup(script::Struct* params, script::Script* script);
-    bool get_surface_kind(script::Struct* params, script::Script* script);      // 0x005196F0 (terrain)
-    bool get_sparks_pos(script::Struct* params, script::Script* script);    // 0x00519720 (SparksPos)
-    bool set_sparks_pos(script::Struct* params, script::Script* script);    // 0x00519600 (the unnamed checksum)
+    bool get_surface_kind(script::Struct* params, script::Script* script); // 0x005196F0 (terrain)
+    bool get_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519720 (SparksPos)
+    bool set_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519600 (the unnamed checksum)
 
-    int cur_phase_;                // +0x18 State
-    int physics_mode_;          // +0x1C PhysicsMode (-1 until the physics control component sets it)
-    uint8_t unknown20_[0x50];  // +0x20 (the controls, the flip flag +0x28 and its time +0x2C... - the physics')
-    uint8_t bailing_;          // +0x70
+    int cur_phase_;           // +0x18 State
+    int physics_mode_;        // +0x1C PhysicsMode (-1 until the physics control component sets it)
+    uint8_t unknown20_[0x50]; // +0x20 (the controls, the flip flag +0x28 and its time +0x2C... - the physics')
+    uint8_t bailing_;         // +0x70
     uint8_t unknown71_[0x6F];
-    uint8_t in_trick_move_;       // +0xE0
-    uint8_t surface_type_;          // +0xE1
+    uint8_t in_trick_move_; // +0xE0
+    uint8_t surface_type_;  // +0xE1
     uint8_t unknowne2_[0x36];
-    uint8_t in_vehicle_;          // +0x118
+    uint8_t in_vehicle_; // +0x118
     uint8_t unknown119_[7];
-    uint8_t boost_items_[1];      // +0x120 (one per name in 0x0067F09C)
+    uint8_t boost_items_[1]; // +0x120 (one per name in 0x0067F09C)
     uint8_t unknown121_[3];
-    uint32_t sparks_pos_;       // +0x124 a checksum
+    uint32_t sparks_pos_; // +0x124 a checksum
 };
-static_assert(offsetof(RiderPoseState, cur_phase_) == 0x18 &&
-                  offsetof(RiderPoseState, physics_mode_) == 0x1C &&
-                  offsetof(RiderPoseState, bailing_) == 0x70 &&
-                  offsetof(RiderPoseState, in_trick_move_) == 0xE0 &&
-                  offsetof(RiderPoseState, surface_type_) == 0xE1 &&
-                  offsetof(RiderPoseState, in_vehicle_) == 0x118 &&
-                  offsetof(RiderPoseState, boost_items_) == 0x120 &&
-                  offsetof(RiderPoseState, sparks_pos_) == 0x124 && sizeof(RiderPoseState) == 0x128,
+static_assert(offsetof(RiderPoseState, cur_phase_) == 0x18 && offsetof(RiderPoseState, physics_mode_) == 0x1C &&
+                  offsetof(RiderPoseState, bailing_) == 0x70 && offsetof(RiderPoseState, in_trick_move_) == 0xE0 &&
+                  offsetof(RiderPoseState, surface_type_) == 0xE1 && offsetof(RiderPoseState, in_vehicle_) == 0x118 &&
+                  offsetof(RiderPoseState, boost_items_) == 0x120 && offsetof(RiderPoseState, sparks_pos_) == 0x124 &&
+                  sizeof(RiderPoseState) == 0x128,
               "layout must match the original (0x00519740 allocates 0x128 bytes)");
 
 // The skater's state history (SkaterStateHistory, state_history.h): its state records (0x84 bytes; 20 of them from
@@ -104,4 +101,4 @@ struct SkaterStateHistoryFrame {
     void change_moment(uint32_t time);
 };
 
-} // namespace Obj
+} // namespace objects

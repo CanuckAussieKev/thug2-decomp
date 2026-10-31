@@ -23,26 +23,26 @@ namespace render {
 namespace {
 
 constexpr unsigned int kMemoryPerModel = 0x1194; // (what's needed free for each model)
-constexpr float kScaleStep = 0.01f;             // 0x0064544C
-constexpr float kSizeStep = 0.25f;              // 0x006467AC
-const char* const kModelExtension = ".mdl"; // ".mdl"
+constexpr float kScaleStep = 0.01f;              // 0x0064544C
+constexpr float kSizeStep = 0.25f;               // 0x006467AC
+const char* const kModelExtension = ".mdl";      // ".mdl"
 
 uint8_t assert_flag() { return g_alloc_assert_flag; }
 void* carve(unsigned int size) { return memory::Hub::get_pull()->carve(size, assert_flag(), nullptr); }
-void* allocate_zeroed(unsigned int size) { return memory::Hub::get_pull()->allocate_zeroed(size, assert_flag(), nullptr); }
+void* allocate_zeroed(unsigned int size)
+{
+    return memory::Hub::get_pull()->allocate_zeroed(size, assert_flag(), nullptr);
+}
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 RenderModel* spawn_render_model(int) { return static_cast<RenderModel*>(render::spawn_model()); }
 // A model file's name with its extension (0x00487A70: name + `ext` into `out`).
-void model_path_for(const char* name, const char* ext, char* out)
-{
-    gfx::make_model_file_name(name, ext, out);
-}
+void model_path_for(const char* name, const char* ext, char* out) { gfx::make_model_file_name(name, ext, out); }
 
 } // namespace
 
 // 0x0049A0C0
-ModelParticles* ModelParticles::make_new(uint32_t name, int particle_cap, const char* model, uint32_t, int, int,
-                                            float, int)
+ModelParticles* ModelParticles::make_new(uint32_t name, int particle_cap, const char* model, uint32_t, int, int, float,
+                                         int)
 {
     EmitterInstance::make_new();
     label_ = name;
@@ -148,10 +148,10 @@ void ModelParticles::render()
         std::memcpy(&from_colour, from, 4);
         std::memcpy(&to_colour, to, 4);
         colour = *lerp_colour(&colour, reinterpret_cast<const uint8_t*>(&from_colour),
-                             reinterpret_cast<const uint8_t*>(&to_colour), life);
+                              reinterpret_cast<const uint8_t*>(&to_colour), life);
         model(static_cast<unsigned int>(p))
             ->change_tint(static_cast<uint8_t>(colour), static_cast<uint8_t>(colour >> 8),
-                       static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
+                          static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
         // the rotation moved by the velocity (w by its x too), then normalised
         maths::QuatRotation& q = rotations[p];
         q.x = static_cast<float>(static_cast<double>(particle.velocity[0]) + q.x);
@@ -182,4 +182,4 @@ void ModelParticles::render()
     }
 }
 
-} // namespace Nx
+} // namespace render

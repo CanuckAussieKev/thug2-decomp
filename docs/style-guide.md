@@ -30,8 +30,8 @@ house rules below for what they leave open. `.clang-format` and `.clang-tidy` at
 
 ## Formatting
 
-- `clang-format` with the root `.clang-format`: 4-space indent, 120 columns, `int* p`, includes grouped (standard
-  library, then the project's).
+- `clang-format` with the root `.clang-format`: 4-space indent, 120 columns, `int* p`. Includes keep the order they
+  are written in (standard library, then the project's; some Windows headers must follow `windows.h`).
 - `#pragma once` in headers; project includes by path from `src/`.
 - Comments say what the code does and why. A function rewritten from the game carries the original's address in a
   comment above it (`// 0x0046B940`); code that isn't in the original game is marked `NOT ORIGINAL`.

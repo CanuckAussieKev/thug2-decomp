@@ -22,17 +22,17 @@ struct TypefaceData {
     uint32_t height;
     uint32_t base;
     Char* chars;
-    uint8_t map[256];         // character -> chars index
+    uint8_t map[256];           // character -> chars index
     uint8_t special_map_[0x20]; // special glyph / button -> chars index; [0x1F] is also the default glyph (Load
-                              // gives it to the characters and specials the file leaves unmapped)
-    uint8_t format;           // the file's character map format (1 or 2, see Load)
+                                // gives it to the characters and specials the file leaves unmapped)
+    uint8_t format;             // the file's character map format (1 or 2, see Load)
     uint8_t pad12d_[3];
-    TypefaceData* next;              // the list of loaded fonts (0x00780FD8)
-    int16_t glyph_gap_;      // added after every character
-    int16_t blank_gap_;     // the width of a space ('I' when loaded)
-    uint32_t colors[16];      // "\c1" ... (RGBA as bytes)
-    void* texture;            // IDirect3DTexture9 (A8R8G8B8, managed)
-    uint32_t unknown17c_;      // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
+    TypefaceData* next;   // the list of loaded fonts (0x00780FD8)
+    int16_t glyph_gap_;   // added after every character
+    int16_t blank_gap_;   // the width of a space ('I' when loaded)
+    uint32_t colors[16];  // "\c1" ... (RGBA as bytes)
+    void* texture;        // IDirect3DTexture9 (A8R8G8B8, managed)
+    uint32_t unknown17c_; // passed with the texture to the renderer's texture set (0x004DA730); 0 when loaded
 
     // The colour "\c<index>" picks: index 1 is colors[0]; the original reads past the table for larger ones.
     uint32_t get_color(int index) const
@@ -57,7 +57,8 @@ static_assert(offsetof(TypefaceData, format) == 0x12C, "layout must match the or
 static_assert(offsetof(TypefaceData, next) == 0x130, "layout must match the original");
 static_assert(offsetof(TypefaceData, glyph_gap_) == 0x134, "layout must match the original");
 static_assert(offsetof(TypefaceData, colors) == 0x138, "layout must match the original");
-static_assert(offsetof(TypefaceData, texture) == 0x178 && sizeof(TypefaceData) == 0x180, "layout must match the original");
+static_assert(offsetof(TypefaceData, texture) == 0x178 && sizeof(TypefaceData) == 0x180,
+              "layout must match the original");
 
 // Per-character effects (an array parallel to the text, one record per character).
 struct TextEffect {
@@ -87,12 +88,12 @@ struct GlyphRun {
     TypefaceData* font;
     const TextEffect* effects; // or null
     const char* text;
-    float x, y;            // position, in 640x480 screen units
+    float x, y; // position, in 640x480 screen units
     float xscale, yscale;
-    float pivot_x_, pivot_y_;  // what it rotates about, from (x, y)
-    float angle;           // radians
-    uint32_t color;        // RGBA as bytes
-    bool fixed_color_;       // ignore "\c" colours
+    float pivot_x_, pivot_y_; // what it rotates about, from (x, y)
+    float angle;              // radians
+    uint32_t color;           // RGBA as bytes
+    bool fixed_color_;        // ignore "\c" colours
 
     // 0x004CFD00 (virtual [2]): the text's quads into the vertex buffer, drawing it whenever it fills or the
     // texture changes (a button glyph).
@@ -123,4 +124,4 @@ static_assert(offsetof(GlyphRun, fixed_color_) == 0x40, "layout must match the o
 
 extern TypefaceData* g_glyph_typeface;
 
-} // namespace Nx
+} // namespace render

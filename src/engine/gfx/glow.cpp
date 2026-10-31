@@ -152,8 +152,8 @@ void __cdecl update_glows(bool queries)
             }
         }
         if (seen)
-            glow->size = static_cast<float>(
-                (static_cast<double>(glow->max_size_) - glow->size) * glow->rate + glow->size);
+            glow->size =
+                static_cast<float>((static_cast<double>(glow->max_size_) - glow->size) * glow->rate + glow->size);
         else
             glow->size = static_cast<float>(glow->size - static_cast<double>(glow->rate) * glow->size);
         if (glow->size > 0.0f)
@@ -163,11 +163,11 @@ void __cdecl update_glows(bool queries)
     input_port()->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640E10 (a static initialiser): the glows' table, 256 buckets.
 void construct_glow_table() { new (&g_glow_table) lists::KeyMap(8); }
 
-} // namespace Nx
+} // namespace render

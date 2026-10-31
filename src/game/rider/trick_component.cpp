@@ -18,11 +18,8 @@
 
 namespace objects {
 
-uint32_t g_trick_component_member_functions[24]{
-            0xE4AB4785, 0x270F56E1, 0, 0, 0, 0,
-            0x46D49242, 0x270F56E1, 0, 0, 0, 0,
-            0x1FC98415, 0x270F56E1, 0, 0, 0, 0,
-            0, 0x270F56E1, 0, 0, 0, 0};
+uint32_t g_trick_component_member_functions[24]{0xE4AB4785, 0x270F56E1, 0, 0, 0, 0, 0x46D49242, 0x270F56E1, 0, 0, 0, 0,
+                                                0x1FC98415, 0x270F56E1, 0, 0, 0, 0, 0,          0x270F56E1, 0, 0, 0, 0};
 
 namespace {
 
@@ -564,35 +561,81 @@ void MoveExecutor::dump_event_buffer()
         debug::printf("T=%d Used=0x%08x Button=", e.time, e.flags);
         const char* text = nullptr;
         switch (e.button) {
-        case 0x00000000: text = "Nothing"; break;
-        case 0x20689278: text = "Triangle"; break;
-        case 0x26B0C991: text = "L1"; break;
-        case 0x2B489A86: text = "Circle"; break;
-        case 0x321C9756: text = "Square"; break;
-        case 0x4B358AEB: text = "Right"; break;
-        case 0x6BF8A7F4: text = "R2"; break;
-        case 0x7323E97C: text = "X"; break;
-        case 0x767A45D7: text = "Black"; break;
-        case 0x786B8B68: text = "DownRight"; break;
-        case 0x85981897: text = "Left"; break;
-        case 0xA50950C5: text = "UpRight"; break;
-        case 0xB7231A95: text = "UpLeft"; break;
-        case 0xBC6B118F: text = "Up"; break;
-        case 0xBD30325B: text = "White"; break;
-        case 0xBFB9982B: text = "L2"; break;
-        case 0xD8847EFA: text = "DownLeft"; break;
-        case 0xE3006FC4: text = "Down"; break;
-        case 0xF2F1F64E: text = "R1"; break;
-        default: break;
+        case 0x00000000:
+            text = "Nothing";
+            break;
+        case 0x20689278:
+            text = "Triangle";
+            break;
+        case 0x26B0C991:
+            text = "L1";
+            break;
+        case 0x2B489A86:
+            text = "Circle";
+            break;
+        case 0x321C9756:
+            text = "Square";
+            break;
+        case 0x4B358AEB:
+            text = "Right";
+            break;
+        case 0x6BF8A7F4:
+            text = "R2";
+            break;
+        case 0x7323E97C:
+            text = "X";
+            break;
+        case 0x767A45D7:
+            text = "Black";
+            break;
+        case 0x786B8B68:
+            text = "DownRight";
+            break;
+        case 0x85981897:
+            text = "Left";
+            break;
+        case 0xA50950C5:
+            text = "UpRight";
+            break;
+        case 0xB7231A95:
+            text = "UpLeft";
+            break;
+        case 0xBC6B118F:
+            text = "Up";
+            break;
+        case 0xBD30325B:
+            text = "White";
+            break;
+        case 0xBFB9982B:
+            text = "L2";
+            break;
+        case 0xD8847EFA:
+            text = "DownLeft";
+            break;
+        case 0xE3006FC4:
+            text = "Down";
+            break;
+        case 0xF2F1F64E:
+            text = "R1";
+            break;
+        default:
+            break;
         }
         if (text)
             debug::printf(text);
         debug::printf(" Event=");
         switch (e.type) {
-        case 0: debug::printf("None"); break;
-        case 1: debug::printf("Pressed"); break;
-        case 2: debug::printf("Released"); break;
-        default: break;
+        case 0:
+            debug::printf("None");
+            break;
+        case 1:
+            debug::printf("Pressed");
+            break;
+        case 2:
+            debug::printf("Released");
+            break;
+        default:
+            break;
         }
         debug::printf("\n");
         if (--index < 0)
@@ -721,7 +764,8 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
         if (scan != Scan::kFound)
             return scan == Scan::kStopped ? false : fail();
         e->flags |= mark_flags;
-        if (!skater::thaw_bmx::bike_press_may_count(button_map_[0], buttons[0], skater::thaw_bmx::get_right_stick_centred(this)))
+        if (!skater::thaw_bmx::bike_press_may_count(button_map_[0], buttons[0],
+                                                    skater::thaw_bmx::get_right_stick_centred(this)))
             return false;
         set_button_map(buttons);
         return true;
@@ -877,7 +921,8 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
                 scan = Scan::kFound;
                 return false;
             }
-            if (free && e.type == 1 && ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
+            if (free && e.type == 1 &&
+                ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
                 scan = Scan::kStopped;
                 return false;
             }
@@ -913,7 +958,8 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
                     scan = Scan::kFound;
                     return false;
                 }
-            } else if (free && e.type == 1 && ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
+            } else if (free && e.type == 1 &&
+                       ((got0 && e.button == buttons[0]) || (!got0 && got1 && e.button == buttons[1]))) {
                 scan = Scan::kStopped;
                 return false;
             }
@@ -1096,8 +1142,8 @@ void MoveExecutor::set_pending_trick(uint32_t list, uint32_t mask, bool flag)
             continue;
         prop<uint32_t>(this, 0x126C) = list;
         prop<int>(this, 0x1270) = i;
-        prop<int>(this, 0x1274) = static_cast<int>(
-            static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + static_cast<uint32_t>(g_clock_offset));
+        prop<int>(this, 0x1274) = static_cast<int>(static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
+                                                   static_cast<uint32_t>(g_clock_offset));
         prop<bool>(this, 0x127C) = flag;
         prop<int>(this, 0x1278) = -1;
         trick->fetch_int_value(0x79A07F3Fu, &prop<int>(this, 0x1278), 0);
@@ -1114,4 +1160,4 @@ bool MoveExecutor::set_current_bail_endpose(script::Struct* params, script::Scri
     return true;
 }
 
-} // namespace Obj
+} // namespace objects

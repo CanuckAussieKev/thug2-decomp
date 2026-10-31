@@ -84,9 +84,9 @@ bool get_rotated(float angle);
 // A menu (a vmenu or an hmenu - MenuBase, vtable 0x0064A048) and its item.
 bool is_menu(const frontend::UiWidget* element);
 bool menu_runs_top_to_bottom(const frontend::UiWidget* menu); // +0x190
-int selected_index(const frontend::UiWidget* menu);   // +0x178 (-1: none)
-bool menu_has_focus(const frontend::UiWidget* menu);   // +0x180
-bool menu_wraps(const frontend::UiWidget* menu);      // +0x1A1
+int selected_index(const frontend::UiWidget* menu);           // +0x178 (-1: none)
+bool menu_has_focus(const frontend::UiWidget* menu);          // +0x180
+bool menu_wraps(const frontend::UiWidget* menu);              // +0x1A1
 int child_count(const frontend::UiWidget* element);
 // What the menu's move (0x004A7850) skips: an item tagged tag_not_focusable, or one with block_events (flag
 // 0x200000) on it or a parent.
@@ -130,8 +130,8 @@ bool any_menu(frontend::UiWidget* root, MenuFilter accepts, bool vertical_only);
 // selected index (`read`, -1 when the menu is gone) after each: the shorter way round when the menu wraps; stops
 // when the index is the target, didn't move, moved the wrong way or past the target (an item that can't be
 // focused), or after `count` events. Returns the events sent.
-int step_selection(int target, int count, bool wraps, int (*read)(void* context), void (*send)(void* context, int direction),
-                  void* context);
+int step_selection(int target, int count, bool wraps, int (*read)(void* context),
+                   void (*send)(void* context, int direction), void* context);
 
 // Moving a selection to an item over several frames - for menus that don't move on every pad event (the spin
 // menu takes pad_up / pad_down only while its 0.15 s turn isn't running: spin_menu_input_timer turns
@@ -141,8 +141,8 @@ int step_selection(int target, int count, bool wraps, int (*read)(void* context)
 // send nothing this frame (the current item is one the menu passes over by itself).
 enum class TargetState { kReached, kMoving, kGaveUp };
 struct Target {
-    int index;       // the item's place in its menu
-    int count;       // the menu's children
+    int index; // the item's place in its menu
+    int count; // the menu's children
     bool wraps;
     int frames_left_;
     int stuck_frames_; // frames in a row ending with the selection where the last one ended
@@ -152,7 +152,7 @@ constexpr int kTargetFrames = 300;
 constexpr int kMaxStuckFrames = 45;
 Target start_target(int index, int count, bool wraps);
 TargetState advance_target(Target& target, bool wait, int (*read)(void* context),
-                          void (*send)(void* context, int direction), void* context);
+                           void (*send)(void* context, int direction), void* context);
 
 // [features] debug_mouse (default 0): each click logged - the cursor on the layout, the item found (or the
 // elements under the cursor when none), its menu's state, and which events were sent or why none were.

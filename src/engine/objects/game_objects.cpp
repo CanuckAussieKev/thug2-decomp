@@ -37,15 +37,15 @@ namespace objects {
 namespace {
 
 // Names.
-constexpr uint32_t kMotion = 0x0A015E17;            // motion (a component)
-constexpr uint32_t kModel = 0x286A8D26;             // model
-constexpr uint32_t kSkeleton = 0x222756D5;          // skeleton
-constexpr uint32_t kSuspend = 0xCE0CA665;           // suspend
-constexpr uint32_t kComponent = 0xB6015EA8;         // component
-constexpr uint32_t kBoneHead = 0xDDEC28AF;          // bone_head
-constexpr uint32_t kCrownObject = 0xC015BC23;       // crown_object (its id)
-constexpr uint32_t kCarAddComponents = 0xF1753591;  // car_add_components (a script)
-constexpr uint32_t kObjectTypeCar = 0x5C0312EB;     // OBJECT_TYPE_CAR
+constexpr uint32_t kMotion = 0x0A015E17;           // motion (a component)
+constexpr uint32_t kModel = 0x286A8D26;            // model
+constexpr uint32_t kSkeleton = 0x222756D5;         // skeleton
+constexpr uint32_t kSuspend = 0xCE0CA665;          // suspend
+constexpr uint32_t kComponent = 0xB6015EA8;        // component
+constexpr uint32_t kBoneHead = 0xDDEC28AF;         // bone_head
+constexpr uint32_t kCrownObject = 0xC015BC23;      // crown_object (its id)
+constexpr uint32_t kCarAddComponents = 0xF1753591; // car_add_components (a script)
+constexpr uint32_t kObjectTypeCar = 0x5C0312EB;    // OBJECT_TYPE_CAR
 constexpr uint32_t kObjectTypeCrown = 0xD2156C50;
 
 extern void** const kCrownVtable;
@@ -97,17 +97,17 @@ void delete_structure(script::Struct* structure)
 void add_base_components(GameEntity* object)
 {
     object->attach_module(new_component<DormancyModule>(0x4C)); // suspend
-    object->attach_module(new_component<CbBoxComponent>(0x4C));    // (type 0xB87C8E43)
+    object->attach_module(new_component<CbBoxComponent>(0x4C)); // (type 0xB87C8E43)
 }
 
 // 0x0057B2F0
 void add_motion_components(GameEntity* object)
 {
-    object->attach_module(new_component<KinematicsModule>(0x24C)); // motion
+    object->attach_module(new_component<KinematicsModule>(0x24C));        // motion
     object->attach_module(new_component<ObjectProximityComponent>(0x30)); // objectproximity
-    object->attach_module(new_component<AudioEmitterModule>(0xC0));   // sound
-    object->attach_module(new_component<AudioStreamModule>(0x2C));  // stream
-    object->attach_module(new_component<PinnedObjectModule>(0x90)); // lockobj
+    object->attach_module(new_component<AudioEmitterModule>(0xC0));       // sound
+    object->attach_module(new_component<AudioStreamModule>(0x2C));        // stream
+    object->attach_module(new_component<PinnedObjectModule>(0x90));       // lockobj
 }
 
 // 0x0057B420
@@ -227,7 +227,8 @@ void CrownObject::own_update()
     if (!worn_)
         return;
     // (the skeleton component's +0x18, through the getter folded at 0x005480F0)
-    auto* skeleton = reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skater_->fetch_module(kSkeleton))->word18());
+    auto* skeleton =
+        reinterpret_cast<void*>(reinterpret_cast<online::FoldedGetters*>(skater_->fetch_module(kSkeleton))->word18());
     static_cast<gfx::Rig*>(skeleton)->read_joint_matrix(kBoneHead, &basis_frame_);
     maths::Mat4 turn;
     maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
@@ -288,23 +289,26 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     update_model(fetch_module(kModel));
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_crown_vtable_slots[] = {&objects::CrownObject::teardown,
-         &objects::Entity::change_traits,
-         static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-         static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(&objects::GameEntity::invoke_method_by_name),
-         stubs::ignore_argument,
-         &objects::Entity::pass_event_to_script,
-         &objects::GameEntity::flag_as_dead,
-         &objects::GameEntity::should_update_scripts,
-         &objects::GameEntity::seal,
-         &objects::GameEntity::create_component_from_structure,
-         &objects::CrownObject::own_update};
+static VtableSlot g_crown_vtable_slots[] = {
+    &objects::CrownObject::teardown,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    static_cast<bool (objects::GameEntity::*)(uint32_t, script::Struct*, script::Script*)>(
+        &objects::GameEntity::invoke_method_by_name),
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::GameEntity::flag_as_dead,
+    &objects::GameEntity::should_update_scripts,
+    &objects::GameEntity::seal,
+    &objects::GameEntity::create_component_from_structure,
+    &objects::CrownObject::own_update};
 void** const kCrownVtable = reinterpret_cast<void**>(g_crown_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

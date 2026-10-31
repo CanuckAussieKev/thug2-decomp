@@ -22,13 +22,14 @@ struct CollGridCell {
     // 0x00418410: the two blocks freed.
     void destruct();
 
-    maths::BBox box;          // +0x00
-    uint32_t unknown20;     // +0x20
-    int count;              // +0x24
-    void* unknown28;        // +0x28 (freed through the memory manager)
-    HitMesh** objects;     // +0x2C a Malloc block of `count`
+    maths::BBox box;    // +0x00
+    uint32_t unknown20; // +0x20
+    int count;          // +0x24
+    void* unknown28;    // +0x28 (freed through the memory manager)
+    HitMesh** objects;  // +0x2C a Malloc block of `count`
 };
-static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects) == 0x2C, "layout must match the original");
+static_assert(sizeof(CollGridCell) == 0x30 && offsetof(CollGridCell, objects) == 0x2C,
+              "layout must match the original");
 
 class CollGrid {
 public:
@@ -56,12 +57,12 @@ public:
 
     CollGridCell* get_cell(int x, int z) { return &cells_[x][z]; }
 
-    maths::BBox box_;                       // +0x00
-    float cell_span_x_;                     // +0x20 on x
-    float cell_depth_;                     // +0x24 on z
-    int columns_;                         // +0x28 on x (20)
-    int rows_;                            // +0x2C on z (20)
-    CollGridCell cells_[kSize][kSize];    // +0x30 [x][z]
+    maths::BBox box_;                  // +0x00
+    float cell_span_x_;                // +0x20 on x
+    float cell_depth_;                 // +0x24 on z
+    int columns_;                      // +0x28 on x (20)
+    int rows_;                         // +0x2C on z (20)
+    CollGridCell cells_[kSize][kSize]; // +0x30 [x][z]
 };
 static_assert(offsetof(CollGrid, cells_) == 0x30 && sizeof(CollGrid) == 0x4B30, "layout must match the original");
 
@@ -74,4 +75,4 @@ struct CollGridListNodes {
     memory::ListNode* destroy_head(uint8_t flags);
 };
 
-} // namespace Nx
+} // namespace render

@@ -24,9 +24,9 @@ struct PcModel {
     uint8_t base04[0xC];
     ModelGeomNode* geoms; // +0x10: the list's head (its own node)
     uint8_t base14[0x32];
-    uint16_t geom_count_;    // +0x46
+    uint16_t geom_count_; // +0x46
     uint8_t base48[4];
-    uint32_t unknown4c_;    // +0x4C (cleared)
+    uint32_t unknown4c_; // +0x4C (cleared)
 
     // 0x004BAD90: construct. Returns this.
     PcModel* make_new();
@@ -41,8 +41,7 @@ struct PcModel {
     // original. Returns out.
     maths::Vec4* fetch_bound_sphere(maths::Vec4* out);
 };
-static_assert(offsetof(PcModel, geoms) == 0x10 && offsetof(PcModel, geom_count_) == 0x46 &&
-                  sizeof(PcModel) == 0x50,
+static_assert(offsetof(PcModel, geoms) == 0x10 && offsetof(PcModel, geom_count_) == 0x46 && sizeof(PcModel) == 0x50,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

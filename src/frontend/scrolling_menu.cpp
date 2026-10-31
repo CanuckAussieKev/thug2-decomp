@@ -42,7 +42,10 @@ uint32_t h_menu_type() { return checksums::hash_from_text("hmenu"); }
 
 void v_update(UiWidget* e) { reinterpret_cast<void(__thiscall*)(UiWidget*)>(e->vtable_[10])(e); }
 
-void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script) { event->set_event_consumed(how, script); }
+void set_event_consumed(objects::Signal* event, uint32_t how, uint32_t script)
+{
+    event->set_event_consumed(how, script);
+}
 
 UiTree* manager_of(const UiWidget* e) { return static_cast<UiTree*>(e->park_owner_); }
 
@@ -360,13 +363,16 @@ void WindowedList::tick_frame()
     rearrange_ = false;
 }
 
-} // namespace Front
+} // namespace frontend
 
 namespace {
 
 // The listener's slot 0 (`this` = the listener at +0x178): the element's destructor.
 struct ListenerAdapter {
-    frontend::WindowedList* get_self() { return reinterpret_cast<frontend::WindowedList*>(reinterpret_cast<uint8_t*>(this) - 0x178); }
+    frontend::WindowedList* get_self()
+    {
+        return reinterpret_cast<frontend::WindowedList*>(reinterpret_cast<uint8_t*>(this) - 0x178);
+    }
     frontend::WindowedList* teardown(uint8_t flags) { return get_self()->teardown(flags); }
     frontend::WindowedList* destroy_vertical(uint8_t flags) { return get_self()->destroy_vertical(flags); }
     frontend::WindowedList* destroy_horizontal(uint8_t flags) { return get_self()->destroy_horizontal(flags); }
@@ -380,30 +386,53 @@ namespace frontend {
 namespace {
 static VtableSlot g_listener_adapter_vtable_slots[] = {&ListenerAdapter::teardown, &WindowedList::listener_receive};
 void** const kListenerAdapterVtable = reinterpret_cast<void**>(g_listener_adapter_vtable_slots);
-static VtableSlot g_c_scrolling_menu_vtable_slots[] = {&WindowedList::teardown, &WindowedList::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &WindowedList::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                &WindowedList::tick_frame};
+static VtableSlot g_c_scrolling_menu_vtable_slots[] = {
+    &WindowedList::teardown,
+    &WindowedList::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &WindowedList::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    &WindowedList::tick_frame};
 void** const kCScrollingMenuVtable = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_slots);
 static VtableSlot g_listener_adapter_vtable_a180_slots[] = {&ListenerAdapter::destroy_vertical,
-                &WindowedList::listener_receive};
+                                                            &WindowedList::listener_receive};
 void** const kListenerAdapterVtableA180 = reinterpret_cast<void**>(g_listener_adapter_vtable_a180_slots);
-static VtableSlot g_c_scrolling_menu_vtable_a188_slots[] = {&WindowedList::destroy_vertical, &WindowedList::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &WindowedList::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                &WindowedList::tick_frame};
+static VtableSlot g_c_scrolling_menu_vtable_a188_slots[] = {
+    &WindowedList::destroy_vertical,
+    &WindowedList::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &WindowedList::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    &WindowedList::tick_frame};
 void** const kCScrollingMenuVtableA188 = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_a188_slots);
 static VtableSlot g_listener_adapter_vtable_a_1b_4_slots[] = {&ListenerAdapter::destroy_horizontal,
-                &WindowedList::listener_receive};
+                                                              &WindowedList::listener_receive};
 void** const kListenerAdapterVtableA1b4 = reinterpret_cast<void**>(g_listener_adapter_vtable_a_1b_4_slots);
-static VtableSlot g_c_scrolling_menu_vtable_a_1b_c_slots[] = {&WindowedList::destroy_horizontal,
-                &WindowedList::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &UiWidget::invoke_method_by_name, stubs::ignore_argument, &WindowedList::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true, &UiWidget::get_properties, &UiWidget::blend_towards,
-                &WindowedList::tick_frame};
+static VtableSlot g_c_scrolling_menu_vtable_a_1b_c_slots[] = {
+    &WindowedList::destroy_horizontal,
+    &WindowedList::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &UiWidget::invoke_method_by_name,
+    stubs::ignore_argument,
+    &WindowedList::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true,
+    &UiWidget::get_properties,
+    &UiWidget::blend_towards,
+    &WindowedList::tick_frame};
 void** const kCScrollingMenuVtableA1bC = reinterpret_cast<void**>(g_c_scrolling_menu_vtable_a_1b_c_slots);
 } // namespace
-} // namespace Front
+} // namespace frontend

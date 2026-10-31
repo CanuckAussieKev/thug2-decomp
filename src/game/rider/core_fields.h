@@ -29,34 +29,35 @@ inline maths::Vec4& vector_at(void* object, uint32_t offset) { return get_at<mat
 inline maths::Mat4& matrix_at(void* object, uint32_t offset) { return get_at<maths::Mat4>(object, offset); }
 
 // The component's fields (offsets).
-constexpr uint32_t kObject = 0xC;            // the skater's object (below)
-constexpr uint32_t kDisplayMatrix = 0x18;    // (a copy of the object's matrix)
+constexpr uint32_t kObject = 0xC;         // the skater's object (below)
+constexpr uint32_t kDisplayMatrix = 0x18; // (a copy of the object's matrix)
 constexpr uint32_t kFloorUpVector = 0x68;
-constexpr uint32_t kFrameLength = 0x8C;      // the frame's length (seconds)
-constexpr uint32_t kFeeler = 0xA8;           // a collision feeler (ProbeRay: +0x78 its hit point, +0x88 normal)
+constexpr uint32_t kFrameLength = 0x8C; // the frame's length (seconds)
+constexpr uint32_t kFeeler = 0xA8;      // a collision feeler (ProbeRay: +0x78 its hit point, +0x88 normal)
 constexpr uint32_t kSurfaceFlags = 0xFA;
-constexpr uint32_t kHitPoint = 0x120;        // the feeler's hit: point, then normal
+constexpr uint32_t kHitPoint = 0x120; // the feeler's hit: point, then normal
 constexpr uint32_t kHitNormal = 0x130;
 constexpr uint32_t kOtherFeeler = 0x158;
-constexpr uint32_t kProbeOrigin = 0x208;     // the feeler's line
+constexpr uint32_t kProbeOrigin = 0x208; // the feeler's line
 constexpr uint32_t kProbeTip = 0x218;
-constexpr uint32_t kHitSkatable = 0x228;     // (set by the feeler check 0x005003A0)
-constexpr uint32_t kRailNode = 0x22C;        // the rail node being ground (GrindPoint*)
-constexpr uint32_t kRailManager = 0x230;     // ... and its rail manager
-constexpr uint32_t kRailScriptNode = 0x240;  // the rail node whose TriggerScript last ran (its name)
-constexpr uint32_t kLastRailScript = 0x244;  // (the same, kept for the next)
-constexpr uint32_t kSkitched = 0x364;        // the object being skitched on (a smart pointer)
-constexpr uint32_t kJumpChargeMs = 0x378;       // how long the jump was held (ms), up to the max tense time
-constexpr uint32_t kLeapDuration = 0x4EC;        // when the skater last jumped
-constexpr uint32_t kInput = 0x150C;          // the pad: a button every 0x20 bytes (pressed, then times)
+constexpr uint32_t kHitSkatable = 0x228;    // (set by the feeler check 0x005003A0)
+constexpr uint32_t kRailNode = 0x22C;       // the rail node being ground (GrindPoint*)
+constexpr uint32_t kRailManager = 0x230;    // ... and its rail manager
+constexpr uint32_t kRailScriptNode = 0x240; // the rail node whose TriggerScript last ran (its name)
+constexpr uint32_t kLastRailScript = 0x244; // (the same, kept for the next)
+constexpr uint32_t kSkitched = 0x364;       // the object being skitched on (a smart pointer)
+constexpr uint32_t kJumpChargeMs = 0x378;   // how long the jump was held (ms), up to the max tense time
+constexpr uint32_t kLeapDuration = 0x4EC;   // when the skater last jumped
+constexpr uint32_t kInput = 0x150C;         // the pad: a button every 0x20 bytes (pressed, then times)
 constexpr uint32_t kActivationZoneSlot = 0x1510;
 constexpr uint32_t kSfxModuleSlot = 0x1514;
 constexpr uint32_t kSkaterComponent = 0x1518;
 constexpr uint32_t kOtherFlags = 0x151C;
-constexpr uint32_t kBalanceTrick = 0x1524;    // the balance trick component (+0x18 the trick's kind, +0xD4 a lip's balance)
-constexpr uint32_t kTimedFlags = 0x1528;     // bools, each followed by the time it last changed; +0x18 the state
-constexpr uint32_t kRide = 0x152C;           // +0x18: the ride tracker (GameObjects::RideTracker*), if riding something
-constexpr uint32_t kTriggerState = 0x1530;   // +0x26: a trigger's script took over
+constexpr uint32_t kBalanceTrick =
+    0x1524;                              // the balance trick component (+0x18 the trick's kind, +0xD4 a lip's balance)
+constexpr uint32_t kTimedFlags = 0x1528; // bools, each followed by the time it last changed; +0x18 the state
+constexpr uint32_t kRide = 0x152C;       // +0x18: the ride tracker (GameObjects::RideTracker*), if riding something
+constexpr uint32_t kTriggerState = 0x1530; // +0x26: a trigger's script took over
 
 // The timed flags' state (+0x18): what the skater is doing.
 // (kBikeStall: not original - THAW's stall state, only on THAW's bike: game/rider/thaw_bmx.h)
@@ -66,7 +67,7 @@ enum State : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4, kW
 constexpr uint32_t kPosition = 0x4C;
 constexpr uint32_t kOldPosition = 0x5C;
 constexpr uint32_t kMatrix = 0x6C;
-constexpr uint32_t kRight = 0x6C;            // the matrix's rows: right, up, facing
+constexpr uint32_t kRight = 0x6C; // the matrix's rows: right, up, facing
 constexpr uint32_t kUp = 0x7C;
 constexpr uint32_t kFacing = 0x8C;
 constexpr uint32_t kVelocity = 0xAC;
@@ -98,7 +99,10 @@ inline void set_timed_flag(void* flags, uint32_t offset, uint8_t value)
     flag = value;
     get_at<int>(flags, offset + 4) = get_now();
 }
-inline void set_flag(void* component, uint32_t offset, uint8_t value) { set_timed_flag(flags_of(component), offset, value); }
+inline void set_flag(void* component, uint32_t offset, uint8_t value)
+{
+    set_timed_flag(flags_of(component), offset, value);
+}
 inline uint8_t bit_mark(void* component, uint32_t offset) { return get_at<uint8_t>(flags_of(component), offset); }
 
 // 0x00580400 / 0x00580440: a physics value (the skater's own tuning structure for `object`, else the global script
@@ -119,13 +123,17 @@ inline void trigger_feeler(void* component, const int* events, uint32_t feeler_o
         ->probe_touches_zone(events, &get_at<render::ProbeRay>(component, feeler_offset));
 }
 // Whether a trigger's script took over (+0x1530's +0x26).
-inline bool trigger_took_over(void* component) { return get_at<uint8_t>(get_at<uint8_t*>(component, kTriggerState), 0x26) != 0; }
+inline bool trigger_took_over(void* component)
+{
+    return get_at<uint8_t>(get_at<uint8_t*>(component, kTriggerState), 0x26) != 0;
+}
 
 // A vector's length as the original's 0x004023C0 leaves it in ST0: sqrt((x*x + y*y) + z*z) in double, unrounded
 // (maths::Vec4::len_of rounds it to a float).
 inline double length_of(const maths::Vec4& v)
 {
-    return std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) + static_cast<double>(v.z) * v.z);
+    return std::sqrt((static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y) +
+                     static_cast<double>(v.z) * v.z);
 }
 
 // The component's feeler (+0xA8) copied into a feeler on the stack (0x004F8200, the copy constructor), copied back
@@ -141,7 +149,10 @@ inline void assign_feeler(void* to, const void* from)
     static_cast<render::ProbeRay*>(to)->get_assign(*static_cast<const render::ProbeRay*>(from));
 }
 // The ride tracker (+0x152C's +0x18) and what its smart pointer points at; 0x00427C70: stop riding.
-inline objects::RideTracker*& get_tracker(void* component) { return get_at<objects::RideTracker*>(get_at<void*>(component, kRide), 0x18); }
+inline objects::RideTracker*& get_tracker(void* component)
+{
+    return get_at<objects::RideTracker*>(get_at<void*>(component, kRide), 0x18);
+}
 inline void stop_riding(void* component)
 {
     static_cast<objects::MovingSurfaceModule*>(get_at<void*>(component, kRide))->stop_riding();
@@ -156,4 +167,4 @@ inline bool get_feel(void* component, uint32_t a, uint32_t b)
     return static_cast<SkaterPhysicsModule*>(component)->probe_touches_zone(a, b);
 }
 
-} // namespace Skater::core_fields
+} // namespace skater::core_fields

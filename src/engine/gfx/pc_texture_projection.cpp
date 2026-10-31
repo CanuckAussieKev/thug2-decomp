@@ -53,10 +53,7 @@ void transform_coord(float* out, const float* v, const maths::Mat4* m)
 
 // The vertex stack (0x006FC4A0) the splitter works on.
 uint8_t* vertex_stack() { return reinterpret_cast<uint8_t*>(&g_vertex_stack); }
-void push_vertex(const uint8_t* vertex)
-{
-    reinterpret_cast<VertexStack*>(vertex_stack())->stack_on(vertex);
-}
+void push_vertex(const uint8_t* vertex) { reinterpret_cast<VertexStack*>(vertex_stack())->stack_on(vertex); }
 
 float* get_uv(uint8_t* vertex) { return reinterpret_cast<float*>(vertex + 0x10); }
 uint32_t& get_colour(uint8_t* vertex) { return *reinterpret_cast<uint32_t*>(vertex + 0xC); }
@@ -89,10 +86,7 @@ ProjectionBatch* ProjectionBatch::make_new()
 }
 
 // 0x004C73D0
-void ProjectionBatch::teardown()
-{
-    reinterpret_cast<MaterialRef*>(material)->destroy_body();
-}
+void ProjectionBatch::teardown() { reinterpret_cast<MaterialRef*>(material)->destroy_body(); }
 
 // 0x004C73E0
 ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_name)
@@ -111,7 +105,7 @@ ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_n
     *reinterpret_cast<uint32_t*>(material + 0x20) = 0x44; // (the pass's flags)
     int a = get_rand();
     int b = get_rand();
-    *reinterpret_cast<int*>(material) = a * b; // a random checksum
+    *reinterpret_cast<int*>(material) = a * b;         // a random checksum
     *reinterpret_cast<uint32_t*>(material + 0x08) = 1; // one pass
     *reinterpret_cast<uint32_t*>(material + 0x30) = texture;
     material[0x0D] = 1;
@@ -142,7 +136,7 @@ void __cdecl draw_projection_batches()
         reinterpret_cast<MaterialRef*>(batch->material)->hand_in(); // (the material's set-up)
         set_pixel_shader(batch->pixel_shader_, batch->material);
         draw_device()->DrawPrimitiveUP(D3DPT_TRIANGLELIST, batch->triangle_count_, batch->vertices, 0x18);
-        ++reinterpret_cast<uint32_t&>(g_draw_calls); // (the frame's draw calls)
+        ++reinterpret_cast<uint32_t&>(g_draw_calls);                              // (the frame's draw calls)
         reinterpret_cast<uint32_t&>(g_drawn_triangles) += batch->triangle_count_; // (and triangles)
     }
     input_port()->SetSamplerState(0, D3DSAMP_MINFILTER, min_filter);
@@ -206,7 +200,8 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                     if (texture[8] & 1)
                         key = *reinterpret_cast<uint8_t**>(key);
                     batch = get_projection_batch(reinterpret_cast<uint32_t>(key), blend_name_);
-                    batch_vertices = reinterpret_cast<uint8_t*>(batch) + 0x120; // (null: written near null, as the original)
+                    batch_vertices =
+                        reinterpret_cast<uint8_t*>(batch) + 0x120; // (null: written near null, as the original)
                 }
                 // the triangle written at the batch's next slot (the pieces' scratch: the first piece kept goes there)
                 uint32_t count = batch->triangle_count_;
@@ -268,9 +263,10 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
                 bool full = false;
                 if (!fineness || pieces != end) {
                     for (uint8_t* piece = pieces; piece != end; piece += 0x48) {
-                        if (!triangle_overlaps_screen(from_uv(get_uv(piece)[0]), from_uv(get_uv(piece)[1]),
-                                                    from_uv(get_uv(piece + 0x18)[0]), from_uv(get_uv(piece + 0x18)[1]),
-                                                    from_uv(get_uv(piece + 0x30)[0]), from_uv(get_uv(piece + 0x30)[1])))
+                        if (!triangle_overlaps_screen(
+                                from_uv(get_uv(piece)[0]), from_uv(get_uv(piece)[1]), from_uv(get_uv(piece + 0x18)[0]),
+                                from_uv(get_uv(piece + 0x18)[1]), from_uv(get_uv(piece + 0x30)[0]),
+                                from_uv(get_uv(piece + 0x30)[1])))
                             continue;
                         copy_triangle(batch_vertices + count * 0x48, piece);
                         ++count;
@@ -300,11 +296,12 @@ void PcTextureProjection::cast_onto(void** sectors, int /*unused*/)
 }
 
 namespace {
-static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown, &render::PcTextureProjection::cast_onto};
+static VtableSlot g_projection_vtable_slots[] = {&render::PcTextureProjection::teardown,
+                                                 &render::PcTextureProjection::cast_onto};
 void** const kProjectionVtable = reinterpret_cast<void**>(g_projection_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
@@ -315,4 +312,4 @@ void construct_projection_batches()
         batch.make_new();
 }
 
-} // namespace Nx
+} // namespace render

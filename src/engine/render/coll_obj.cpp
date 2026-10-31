@@ -54,13 +54,27 @@ void for_each_child(memory::ListNode* head, F f)
 
 } // namespace
 
-static VtableSlot g_coll_obj_vtable_slots[] = {&render::HitMesh::scalar_delete, stubs::return_false,
-        &_purecall, &_purecall, &render::HitMesh::assign_shape_data,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, stubs::return_zero, stubs::ignore_argument,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, stubs::return_zero};
+static VtableSlot g_coll_obj_vtable_slots[] = {&render::HitMesh::scalar_delete,
+                                               stubs::return_false,
+                                               &_purecall,
+                                               &_purecall,
+                                               &render::HitMesh::assign_shape_data,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               stubs::return_zero,
+                                               stubs::ignore_argument,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               &_purecall,
+                                               stubs::return_zero};
 void** const kCollObjVtable = reinterpret_cast<void**>(g_coll_obj_vtable_slots);
 static VtableSlot g_node_vtable_slots[] = {&render::CollObjListNodes::destroy_node};
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots); // lists::Elem<HitMesh>
@@ -93,10 +107,7 @@ HitMesh* HitMesh::scalar_delete(uint8_t flags)
 }
 
 // 0x004131D0
-void CollObjListNodes::destroy_node_body()
-{
-    reinterpret_cast<memory::ListNode*>(this)->unlink_as(kNodeVtable);
-}
+void CollObjListNodes::destroy_node_body() { reinterpret_cast<memory::ListNode*>(this)->unlink_as(kNodeVtable); }
 
 // 0x00411880 (the body inlined)
 memory::ListNode* CollObjListNodes::destroy_node(uint8_t flags)
@@ -269,28 +280,16 @@ void* HitMeshGroup::get_absolute_point()
 }
 
 // 0x00411F80
-void* HitMeshGroup::fetch_facing()
-{
-    return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_call<void*>(8);
-}
+void* HitMeshGroup::fetch_facing() { return static_cast<HitMesh*>(get_first(sub_nodes_)->data)->get_call<void*>(8); }
 
 // 0x00410960
-maths::Vec4 HitMeshGroup::read_vertex_point(int /*vertex*/) const
-{
-    return {0.0f, 0.0f, 0.0f, 0.0f};
-}
+maths::Vec4 HitMeshGroup::read_vertex_point(int /*vertex*/) const { return {0.0f, 0.0f, 0.0f, 0.0f}; }
 
 // 0x0040AE20
-int HitMeshGroup::get_value38() const
-{
-    return value38_;
-}
+int HitMeshGroup::get_value38() const { return value38_; }
 
 // 0x0040AE10
-void HitMeshGroup::set_value38(int value)
-{
-    value38_ = value;
-}
+void HitMeshGroup::set_value38(int value) { value38_ = value; }
 
 // 0x00411E80
 int HitMeshGroup::inside_bounds(const maths::BBox* box)
@@ -349,9 +348,6 @@ void HitMeshGroup::recompute_b_box()
 }
 
 // 0x0040AE30
-uint16_t CollObjStubs::no_terrain(int /*face*/)
-{
-    return 0;
-}
+uint16_t CollObjStubs::no_terrain(int /*face*/) { return 0; }
 
-} // namespace Nx
+} // namespace render

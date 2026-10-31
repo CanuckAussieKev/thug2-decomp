@@ -28,4 +28,4 @@ static VtableSlot g_search_vtable_slots[] = {&lists::SearchDestructors::teardown
 void** const kSearchVtable = reinterpret_cast<void**>(g_search_vtable_slots);
 } // namespace
 
-} // namespace Lst
+} // namespace lists

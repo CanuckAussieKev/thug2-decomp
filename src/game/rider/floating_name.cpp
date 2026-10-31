@@ -43,10 +43,16 @@ constexpr float kOtherHeight = 120.0f; // above the others'
 online::Hub* net_session_slot() { return online::g_online_hub; }
 bool in_net_game() { return net_session_slot()->in_net_game(); }
 bool show_names() { return net_session_slot()->wants_name_tags(); }
-uint8_t* find_player_slot_by_obj(uint32_t id) { return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id)); }
+uint8_t* find_player_slot_by_obj(uint32_t id)
+{
+    return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
+}
 uint8_t* find_own_player_record() { return static_cast<uint8_t*>(net_session_slot()->fetch_viewed_player()); }
 // The game mode (0x007CE470)'s 0x005535F0: a team game. Not rewritten yet.
-bool is_squad_match() { return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_squad_match() != 0; }
+bool is_squad_match()
+{
+    return static_cast<goals::MatchRules*>(static_cast<void*>(goals::g_game_mode))->is_squad_match() != 0;
+}
 
 // `name` run with a structure holding only id = `label_id`.
 void run_with_label_id(uint32_t name, uint32_t label_id)
@@ -144,25 +150,27 @@ void RiderOverheadTag::tick_frame()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderOverheadTag::teardown,
-         &objects::RiderOverheadTag::tick_frame,
-         &objects::RiderOverheadTag::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderOverheadTag::teardown,
+    &objects::RiderOverheadTag::tick_frame,
+    &objects::RiderOverheadTag::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

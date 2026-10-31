@@ -29,9 +29,9 @@ static_assert(offsetof(AnimCacheSlot, clock_) == 0x1E0 && sizeof(AnimCacheSlot) 
 // One cached animation (0x168 bytes).
 struct AnimCacheEntry {
     enum Flags : uint16_t {
-        kUserMask = 0x1FFF,  // how many play it
-        kKeep = 0x2000,      // never given back as the oldest
-        kBusy = 0x4000,      // Release waits (forever) while it's set
+        kUserMask = 0x1FFF, // how many play it
+        kKeep = 0x2000,     // never given back as the oldest
+        kBusy = 0x4000,     // Release waits (forever) while it's set
         kReleasing = 0x8000,
     };
 
@@ -67,23 +67,23 @@ struct AnimCacheEntry {
     // 0x00480640: called with `arg` when the entry is given back.
     void set_release_callback(void(__cdecl* callback)(void*), void* arg);
 
-    uint32_t lookup_key_;                      // +0x000 the animation (0: free)
-    uint32_t last_used_;                 // +0x004
-    int kind_tag_;                          // +0x008 (0: not in use)
-    uint8_t* payload_;                    // +0x00C
-    uint32_t allocated_;                // +0x010
-    uint32_t extent_;                     // +0x014
-    uint8_t* rotation_keys_ptr_;            // +0x018
-    uint8_t* translation_keys_ptr_;         // +0x01C
+    uint32_t lookup_key_;                    // +0x000 the animation (0: free)
+    uint32_t last_used_;                     // +0x004
+    int kind_tag_;                           // +0x008 (0: not in use)
+    uint8_t* payload_;                       // +0x00C
+    uint32_t allocated_;                     // +0x010
+    uint32_t extent_;                        // +0x014
+    uint8_t* rotation_keys_ptr_;             // +0x018
+    uint8_t* translation_keys_ptr_;          // +0x01C
     void(__cdecl* release_callback_)(void*); // +0x020
-    void* release_arg_;                 // +0x024
-    AnimCacheSlot* slots_ptr_[18];        // +0x028
-    uint8_t rotation_key_size_;           // +0x070
-    uint8_t translation_key_size_;        // +0x071
-    uint16_t rotation_offsets_[60];      // +0x072
-    uint16_t translation_offsets_[60];   // +0x0EA
-    int16_t bones_;                     // +0x162
-    uint16_t flag_bits_;                    // +0x164
+    void* release_arg_;                      // +0x024
+    AnimCacheSlot* slots_ptr_[18];           // +0x028
+    uint8_t rotation_key_size_;              // +0x070
+    uint8_t translation_key_size_;           // +0x071
+    uint16_t rotation_offsets_[60];          // +0x072
+    uint16_t translation_offsets_[60];       // +0x0EA
+    int16_t bones_;                          // +0x162
+    uint16_t flag_bits_;                     // +0x164
     uint16_t pad166_;
 };
 static_assert(offsetof(AnimCacheEntry, slots_ptr_) == 0x28 && offsetof(AnimCacheEntry, rotation_key_size_) == 0x70 &&
@@ -132,16 +132,16 @@ public:
     int defragment();
 
     AnimCacheEntry* slot_array_[50]; // +0x00
-    int num_;                     // +0xC8
-    uint32_t taken_count_;                 // +0xCC bytes
-    uint32_t granularity_;          // +0xD0
-    int kind_tag_;                      // +0xD4
+    int num_;                        // +0xC8
+    uint32_t taken_count_;           // +0xCC bytes
+    uint32_t granularity_;           // +0xD0
+    int kind_tag_;                   // +0xD4
     uint32_t unknownd8_;
-    bool evict_unused_;              // +0xDC
+    bool evict_unused_; // +0xDC
     uint8_t paddd_[3];
 };
 static_assert(offsetof(ClipStore, num_) == 0xC8 && offsetof(ClipStore, evict_unused_) == 0xDC &&
                   sizeof(ClipStore) == 0xE0,
               "layout must match the original");
 
-} // namespace Gfx
+} // namespace gfx

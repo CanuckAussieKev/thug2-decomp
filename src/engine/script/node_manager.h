@@ -10,7 +10,7 @@
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace level_nodes {
 
@@ -80,11 +80,11 @@ public:
     void set_owner(void* owner);
     uint32_t get_owner_value58();
 
-    NodeSlot slots_[kSlots];               // +0x00000
-    NodeSlot walk_;                        // +0x10000 the walk's place (list_link_ -1: no walk)
-    uint32_t num_;                       // +0x10004 node arrays in use
-    NodeArrayEntry arrays_[kMaxArrays];    // +0x10008
-    void* owner_ptr_;                         // +0x100F8
+    NodeSlot slots_[kSlots];            // +0x00000
+    NodeSlot walk_;                     // +0x10000 the walk's place (list_link_ -1: no walk)
+    uint32_t num_;                      // +0x10004 node arrays in use
+    NodeArrayEntry arrays_[kMaxArrays]; // +0x10008
+    void* owner_ptr_;                   // +0x100F8
 };
 static_assert(offsetof(NodeManager, walk_) == 0x10000 && offsetof(NodeManager, num_) == 0x10004 &&
                   offsetof(NodeManager, arrays_) == 0x10008 && offsetof(NodeManager, owner_ptr_) == 0x100F8 &&

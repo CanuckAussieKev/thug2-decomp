@@ -7,7 +7,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The WaitAndDie component (GameObjects::WaitAndDieComponent, type 0x03AC8065 "WaitAndDie", vtable 0x00646898, 0x28 bytes;
 // made by 0x0043D930): its object dies (flag_as_dead) when its LifeTime is up or, given an object to wait for, as soon
@@ -33,10 +33,10 @@ public:
     // object it waits for can't be found, or - waiting for none - once the time is past the lifetime.
     void tick_frame();
 
-    int outset_;         // +0x18 the game clock (with its offset) at configure_from_data
+    int outset_;        // +0x18 the game clock (with its offset) at configure_from_data
     uint32_t elapsed_;  // +0x1C ms since then (each update)
     uint32_t lifespan_; // +0x20 ms
-    uint32_t wait_for_;  // +0x24 the id of the object to wait for (0: none)
+    uint32_t wait_for_; // +0x24 the id of the object to wait for (0: none)
 };
 static_assert(offsetof(WaitAndDieComponent, outset_) == 0x18 && offsetof(WaitAndDieComponent, wait_for_) == 0x24 &&
                   sizeof(WaitAndDieComponent) == 0x28,
@@ -45,4 +45,4 @@ static_assert(offsetof(WaitAndDieComponent, outset_) == 0x18 && offsetof(WaitAnd
 // 0x00646898: waitAndDieVtable (defined where the class's functions are).
 extern void** const kWaitAndDieVtable;
 
-} // namespace Obj
+} // namespace objects

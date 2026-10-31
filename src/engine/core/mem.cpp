@@ -25,10 +25,7 @@ void* zeroed(void* memory, unsigned int size)
 
 } // namespace
 
-void* carve(unsigned int size, int mode, Arena* heap)
-{
-    return Hub::get_pull()->carve(size, mode, heap);
-}
+void* carve(unsigned int size, int mode, Arena* heap) { return Hub::get_pull()->carve(size, mode, heap); }
 
 Arena* bottom_up_heap() { return Hub::get_pull()->bottom_up_heap_; }
 Arena* top_down_heap() { return Hub::get_pull()->top_down_heap_; }
@@ -49,37 +46,19 @@ void* alloc(unsigned int size)
 }
 
 // 0x00401000
-void dealloc(void* memory)
-{
-    Hub::get_pull()->dealloc(memory);
-}
+void dealloc(void* memory) { Hub::get_pull()->dealloc(memory); }
 
 // 0x00401CC0
-void* alloc_zeroed(unsigned int size)
-{
-    return zeroed(carve(size, 1, nullptr), size);
-}
+void* alloc_zeroed(unsigned int size) { return zeroed(carve(size, 1, nullptr), size); }
 
 // 0x00401D00
-void* alloc_zeroed(unsigned int size, int mode)
-{
-    return zeroed(carve(size, mode, nullptr), size);
-}
+void* alloc_zeroed(unsigned int size, int mode) { return zeroed(carve(size, mode, nullptr), size); }
 
 // 0x00401D40
-void* alloc_zeroed(unsigned int size, Arena* heap, int mode)
-{
-    return zeroed(carve(size, mode, heap), size);
-}
+void* alloc_zeroed(unsigned int size, Arena* heap, int mode) { return zeroed(carve(size, mode, heap), size); }
 
-void enter_heap_scope(Arena* heap)
-{
-    Hub::get_pull()->enter_heap_scope(heap);
-}
+void enter_heap_scope(Arena* heap) { Hub::get_pull()->enter_heap_scope(heap); }
 
-void leave_heap_scope()
-{
-    Hub::get_pull()->leave_heap_scope();
-}
+void leave_heap_scope() { Hub::get_pull()->leave_heap_scope(); }
 
-} // namespace Mem
+} // namespace memory

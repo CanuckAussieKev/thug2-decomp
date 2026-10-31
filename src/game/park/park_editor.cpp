@@ -16,9 +16,9 @@ namespace {
 
 constexpr uint32_t kNewPark = 0x1A4E0EF9;
 constexpr uint16_t kParkInfoVersion = 0x4E24;
-constexpr uint32_t kMetaFloor = 0x8;       // a meta piece's flag: part of the floor
-constexpr uint32_t kMetaLocked = 0x100;    // (not destroyed by an area's deletion when asked)
-constexpr uint32_t kMetaInCursor = 0x200;  // held by the cursor
+constexpr uint32_t kMetaFloor = 0x8;      // a meta piece's flag: part of the floor
+constexpr uint32_t kMetaLocked = 0x100;   // (not destroyed by an area's deletion when asked)
+constexpr uint32_t kMetaInCursor = 0x200; // held by the cursor
 
 uint32_t& get_meta_flags(void* meta) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(meta) + 0xC); }
 CellBox& meta_footprint(void* meta) { return *reinterpret_cast<CellBox*>(static_cast<uint8_t*>(meta) + 0x4); }
@@ -267,4 +267,4 @@ void BuildPointer::step_piece_family(int dir)
     }
 }
 
-} // namespace Ed
+} // namespace park_editing

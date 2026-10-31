@@ -54,4 +54,4 @@ void place_camera(gfx::ViewCam* camera, int viewport);
 // TeleportSkaterStanding (sys/main.cpp, after the game's own commands).
 void register_script_functions();
 
-} // namespace MenuSystem::test_view
+} // namespace frontend::test_view

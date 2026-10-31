@@ -85,4 +85,4 @@ void conceal();
 // to show (model->preview.index), that entry shown and drawn - its picture, name, size and type filled in; else Hide.
 void tick_cycle(ui::ShapeMesh* model);
 
-} // namespace MenuSystem::level_editor::Preview
+} // namespace frontend::level_editor::preview

@@ -26,4 +26,4 @@ public:
 };
 static_assert(sizeof(FaceHeadingModule) == 0x18, "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

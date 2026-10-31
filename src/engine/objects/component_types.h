@@ -7,4 +7,4 @@ namespace objects {
 // that makes one and the one that registers its script member functions.
 void __cdecl register_component_types();
 
-} // namespace Obj
+} // namespace objects

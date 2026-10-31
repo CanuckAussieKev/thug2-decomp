@@ -72,16 +72,56 @@ bool same_text(const std::string& a, const std::string& b)
 uint32_t get_checksums(const char* text) { return checksums::hash_from_text(text); }
 
 // The names the scripts use.
-uint32_t start_gap() { static const uint32_t kC = get_checksums("StartGap"); return kC; }
-uint32_t end_gap() { static const uint32_t kC = get_checksums("EndGap"); return kC; }
-uint32_t get_gap_id() { static const uint32_t kC = get_checksums("GapID"); return kC; }
-uint32_t current_flags() { static const uint32_t kC = get_checksums("flags"); return kC; }
-uint32_t get_score() { static const uint32_t kC = get_checksums("score"); return kC; }
-uint32_t get_text() { static const uint32_t kC = get_checksums("text"); return kC; }
-uint32_t current_node_name() { static const uint32_t kC = get_checksums("nodename"); return kC; }
-uint32_t kill_skater() { static const uint32_t kC = get_checksums("SK3_KillSkater"); return kC; }
-uint32_t kill_skater_water() { static const uint32_t kC = get_checksums("SK3_KillSkater_Water"); return kC; }
-uint32_t get_teleport() { static const uint32_t kC = get_checksums("TeleportSkaterToNode"); return kC; }
+uint32_t start_gap()
+{
+    static const uint32_t kC = get_checksums("StartGap");
+    return kC;
+}
+uint32_t end_gap()
+{
+    static const uint32_t kC = get_checksums("EndGap");
+    return kC;
+}
+uint32_t get_gap_id()
+{
+    static const uint32_t kC = get_checksums("GapID");
+    return kC;
+}
+uint32_t current_flags()
+{
+    static const uint32_t kC = get_checksums("flags");
+    return kC;
+}
+uint32_t get_score()
+{
+    static const uint32_t kC = get_checksums("score");
+    return kC;
+}
+uint32_t get_text()
+{
+    static const uint32_t kC = get_checksums("text");
+    return kC;
+}
+uint32_t current_node_name()
+{
+    static const uint32_t kC = get_checksums("nodename");
+    return kC;
+}
+uint32_t kill_skater()
+{
+    static const uint32_t kC = get_checksums("SK3_KillSkater");
+    return kC;
+}
+uint32_t kill_skater_water()
+{
+    static const uint32_t kC = get_checksums("SK3_KillSkater_Water");
+    return kC;
+}
+uint32_t get_teleport()
+{
+    static const uint32_t kC = get_checksums("TeleportSkaterToNode");
+    return kC;
+}
 
 void get_put4(std::vector<uint8_t>* out, uint32_t value)
 {
@@ -109,7 +149,10 @@ bool is_hex_form(const std::string& name, uint32_t* value)
     uint32_t v = 0;
     for (size_t i = 2; i < 10; ++i) {
         char c = name[i];
-        int d = c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 : c >= 'A' && c <= 'F' ? c - 'A' + 10 : -1;
+        int d = c >= '0' && c <= '9'   ? c - '0'
+                : c >= 'a' && c <= 'f' ? c - 'a' + 10
+                : c >= 'A' && c <= 'F' ? c - 'A' + 10
+                                       : -1;
         if (d < 0)
             return false;
         v = v << 4 | static_cast<uint32_t>(d);
@@ -155,15 +198,24 @@ std::string triple(V3 v)
 const char* kind_name(Kind kind)
 {
     switch (kind) {
-    case Kind::kKill: return "Kill zone";
-    case Kind::kJumpTo: return "Teleport";
-    case Kind::kScripts: return "Runs a script";
-    case Kind::kGapStart: return "Gap start";
-    case Kind::kGapEnd: return "Gap end";
-    case Kind::kOther: return "Trigger (no script)";
-    case Kind::kBoost: return "Jump boost";
-    case Kind::kBreak: return "Breakable";
-    case Kind::kViewCam: return "Camera";
+    case Kind::kKill:
+        return "Kill zone";
+    case Kind::kJumpTo:
+        return "Teleport";
+    case Kind::kScripts:
+        return "Runs a script";
+    case Kind::kGapStart:
+        return "Gap start";
+    case Kind::kGapEnd:
+        return "Gap end";
+    case Kind::kOther:
+        return "Trigger (no script)";
+    case Kind::kBoost:
+        return "Jump boost";
+    case Kind::kBreak:
+        return "Breakable";
+    case Kind::kViewCam:
+        return "Camera";
     }
     return "?";
 }
@@ -171,15 +223,24 @@ const char* kind_name(Kind kind)
 const char* kind_word(Kind kind)
 {
     switch (kind) {
-    case Kind::kKill: return "kill";
-    case Kind::kJumpTo: return "teleport";
-    case Kind::kScripts: return "script";
-    case Kind::kGapStart: return "gapstart";
-    case Kind::kGapEnd: return "gapend";
-    case Kind::kOther: return "other";
-    case Kind::kBoost: return "boost";
-    case Kind::kBreak: return "break";
-    case Kind::kViewCam: return "camera";
+    case Kind::kKill:
+        return "kill";
+    case Kind::kJumpTo:
+        return "teleport";
+    case Kind::kScripts:
+        return "script";
+    case Kind::kGapStart:
+        return "gapstart";
+    case Kind::kGapEnd:
+        return "gapend";
+    case Kind::kOther:
+        return "other";
+    case Kind::kBoost:
+        return "boost";
+    case Kind::kBreak:
+        return "break";
+    case Kind::kViewCam:
+        return "camera";
     }
     return "other";
 }
@@ -198,15 +259,24 @@ bool kind_from_word(const std::string& word, Kind* kind)
 uint32_t kind_colour(Kind kind)
 {
     switch (kind) {
-    case Kind::kKill: return 0xFFFF4848;
-    case Kind::kJumpTo: return 0xFFB27CFF;
-    case Kind::kScripts: return 0xFF3FD4E6;
-    case Kind::kGapStart: return 0xFF62E26A;
-    case Kind::kGapEnd: return 0xFFF2D24A;
-    case Kind::kOther: return 0xFF8C9AAA;
-    case Kind::kBoost: return 0xFF3F9BFF;
-    case Kind::kBreak: return 0xFFD8EEFF;
-    case Kind::kViewCam: return 0xFFFFA040;
+    case Kind::kKill:
+        return 0xFFFF4848;
+    case Kind::kJumpTo:
+        return 0xFFB27CFF;
+    case Kind::kScripts:
+        return 0xFF3FD4E6;
+    case Kind::kGapStart:
+        return 0xFF62E26A;
+    case Kind::kGapEnd:
+        return 0xFFF2D24A;
+    case Kind::kOther:
+        return 0xFF8C9AAA;
+    case Kind::kBoost:
+        return 0xFF3F9BFF;
+    case Kind::kBreak:
+        return 0xFFD8EEFF;
+    case Kind::kViewCam:
+        return 0xFFFFA040;
     }
     return 0xFF8C9AAA;
 }
@@ -239,10 +309,10 @@ const std::vector<const char*>& break_sounds()
 const std::vector<const char*>& gap_option_labels()
 {
     static const std::vector<const char*> kFlags = {
-        "PURE_AIR",       "PURE_GRIND",     "PURE_RAIL",       "PURE_MANUAL",    "CANCEL_GROUND", "CANCEL_AIR",
-        "CANCEL_RAIL",    "CANCEL_GRIND",   "CANCEL_MANUAL",   "CANCEL_WALL",    "CANCEL_WALLRIDE",
-        "CANCEL_LIP",     "CANCEL_HANG",    "CANCEL_WALK",     "REQUIRE_AIR",    "REQUIRE_RAIL",  "REQUIRE_GRIND",
-        "REQUIRE_MANUAL", "REQUIRE_LIP",    "REQUIRE_WALL",    "REQUIRE_WALLRIDE", "REQUIRE_WALK"};
+        "PURE_AIR",    "PURE_GRIND",   "PURE_RAIL",        "PURE_MANUAL",  "CANCEL_GROUND",   "CANCEL_AIR",
+        "CANCEL_RAIL", "CANCEL_GRIND", "CANCEL_MANUAL",    "CANCEL_WALL",  "CANCEL_WALLRIDE", "CANCEL_LIP",
+        "CANCEL_HANG", "CANCEL_WALK",  "REQUIRE_AIR",      "REQUIRE_RAIL", "REQUIRE_GRIND",   "REQUIRE_MANUAL",
+        "REQUIRE_LIP", "REQUIRE_WALL", "REQUIRE_WALLRIDE", "REQUIRE_WALK"};
     return kFlags;
 }
 
@@ -622,9 +692,9 @@ bool read_record(const std::string& line, Placed* placed)
     std::string word;
     if (!(in >> s.name >> word) || !valid_name(s.name) || !kind_from_word(word, &s.kind) || s.kind == Kind::kOther)
         return false;
-    bool have_pos = false, have_yaw = false, have_size = false, have_target = false, have_water = false, have_script = false,
-         have_gap = false, have_flags = false, have_score = false, have_replaces = false, have_exit = false,
-         have_strength = false, have_sound = false, have_seconds = false;
+    bool have_pos = false, have_yaw = false, have_size = false, have_target = false, have_water = false,
+         have_script = false, have_gap = false, have_flags = false, have_score = false, have_replaces = false,
+         have_exit = false, have_strength = false, have_sound = false, have_seconds = false;
     s.score = 100;
     auto once = [](bool* seen) {
         if (*seen)
@@ -891,7 +961,7 @@ void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
 constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
-constexpr float kDrawRadius = 8000.0f;   // (level triggers drawn within this of the camera)
+constexpr float kDrawRadius = 8000.0f; // (level triggers drawn within this of the camera)
 constexpr float kLabelRadius = 3000.0f;
 constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
 
@@ -939,7 +1009,8 @@ bool node_alive(const std::string& name) { return node_create::is_added(hash_of_
 
 bool node_place(const std::string& name, V3* pos, float* yaw)
 {
-    script::Struct* node = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(hash_of_name(name), false) : nullptr;
+    script::Struct* node =
+        level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(hash_of_name(name), false) : nullptr;
     if (!node)
         return false;
     maths::Vec4 p = {0.0f, 0.0f, 0.0f, 1.0f}, a = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -1048,8 +1119,8 @@ Calls get_walk(uint32_t script)
     if (!is_script(script))
         return calls;
     g_calls = &calls;
-    static const uint32_t kKills[] = {kill_skater(), get_checksums("SK3_KillSkater_Pungee"), get_checksums("SK3_Killskater_Finish"),
-                                     get_checksums("KillSkater")};
+    static const uint32_t kKills[] = {kill_skater(), get_checksums("SK3_KillSkater_Pungee"),
+                                      get_checksums("SK3_Killskater_Finish"), get_checksums("KillSkater")};
     script::clear_script_flag_6f_2564(); // (as for_each_node_script_call walks them)
     for (uint32_t target : kKills)
         level_nodes::for_each_script_call(script, target, &on_kill, nullptr, 0);
@@ -1063,7 +1134,8 @@ Calls get_walk(uint32_t script)
     level_nodes::for_each_script_call(script, get_checksums("ShatterAndDie"), &on_shatter, nullptr, 0);
     level_nodes::for_each_script_call(script, get_checksums("RailAccelerate"), &on_rail_accelerate, nullptr, 0);
     level_nodes::for_each_script_call(script, get_checksums("ed_RailSpeed"), &on_rail_accelerate, nullptr, 0);
-    level_nodes::for_each_script_call(script, get_checksums("LevelEditor_PlayCamera"), &on_camera, nullptr, 0); // (map4)
+    level_nodes::for_each_script_call(script, get_checksums("LevelEditor_PlayCamera"), &on_camera, nullptr,
+                                      0); // (map4)
     script::set_script_flag_6f_2564();
     g_calls = nullptr;
     return calls;
@@ -1285,8 +1357,9 @@ void refresh_level()
         if (!tri)
             continue;
         t.off = walls::disengaged(t.sector) || (*reinterpret_cast<uint16_t*>(coll + 0x08) & 4) != 0;
-        if (tri->lower_limit_.x != t.bounds_low_.x || tri->lower_limit_.y != t.bounds_low_.y || tri->lower_limit_.z != t.bounds_low_.z ||
-            tri->upper_limit_.x != t.bounds_high_.x || tri->upper_limit_.y != t.bounds_high_.y || tri->upper_limit_.z != t.bounds_high_.z) {
+        if (tri->lower_limit_.x != t.bounds_low_.x || tri->lower_limit_.y != t.bounds_low_.y ||
+            tri->lower_limit_.z != t.bounds_low_.z || tri->upper_limit_.x != t.bounds_high_.x ||
+            tri->upper_limit_.y != t.bounds_high_.y || tri->upper_limit_.z != t.bounds_high_.z) {
             LevelTrigger now = t;
             if (read_faces(sector, &now)) {
                 t.faces = now.faces;
@@ -1380,7 +1453,9 @@ void sync_proxims()
             continue;
         auto o = g_proxim_originals.find(e.node);
         if (o == g_proxim_originals.end()) {
-            ProximOriginal original = {p->own_script_, p->form_, p->radius_,
+            ProximOriginal original = {p->own_script_,
+                                       p->form_,
+                                       p->radius_,
                                        {p->box_.min.x, p->box_.min.y, p->box_.min.z},
                                        {p->box_.max.x, p->box_.max.y, p->box_.max.z}};
             o = g_proxim_originals.emplace(e.node, original).first;
@@ -1409,7 +1484,8 @@ void sync_proxims()
         const ProximEdit& e = *l.first;
         objects::ProximNode* p = l.second;
         const ProximOriginal& o = g_proxim_originals[e.node];
-        uint32_t script = !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
+        uint32_t script =
+            !e.enter.empty() || !e.exit.empty() ? get_checksums(proxim_script_name(e.node).c_str()) : o.script;
         if (p->own_script_ != script)
             p->own_script_ = script;
         if (!e.shape) {
@@ -1543,7 +1619,8 @@ void get_sync()
             take_out_gaps(checklist, wanted);
             g_checklist = checklist;
             if (wanted != g_gaps_added)
-                get_log("level editor: gap list built again - %u of the editor's gaps", static_cast<unsigned>(wanted.size()));
+                get_log("level editor: gap list built again - %u of the editor's gaps",
+                        static_cast<unsigned>(wanted.size()));
             g_gaps_added = wanted;
         }
     }
@@ -1553,7 +1630,7 @@ void get_sync()
 } // namespace
 
 bool get_editor_gaps(const goals::GapTally* checklist, std::vector<std::string>* names,
-                std::vector<std::string>* level_names)
+                     std::vector<std::string>* level_names)
 {
     names->clear();
     level_names->clear();
@@ -1606,7 +1683,8 @@ void on_array_removed(uint32_t name)
     if (!name || name != g_level_array)
         return;
     if (!g_specs.empty())
-        get_log("level editor: the level's node array left - its %u triggers go with it", static_cast<unsigned>(g_specs.size()));
+        get_log("level editor: the level's node array left - its %u triggers go with it",
+                static_cast<unsigned>(g_specs.size()));
     get_forget();
 }
 
@@ -1734,8 +1812,8 @@ void fabricate(std::vector<Placed> made, const char* what)
         g_specs.push_back(p.spec);
         if (first < 0)
             first = static_cast<int>(g_specs.size()) - 1;
-        get_log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", p.spec.name.c_str(), kind_name(p.spec.kind),
-            p.pos.x, p.pos.y, p.pos.z);
+        get_log("level editor: added trigger %s (%s) at (%.1f, %.1f, %.1f)", p.spec.name.c_str(),
+                kind_name(p.spec.kind), p.pos.x, p.pos.y, p.pos.z);
     }
     get_sync();
     if (first >= 0) {
@@ -1760,7 +1838,7 @@ void get_guard()
             free_box(g_boxes[i].coll);
             g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
             get_log("level editor: breakable %s broken - its box taken out until the piece is back",
-                g_specs[at].name.c_str());
+                    g_specs[at].name.c_str());
         } else {
             ++i;
         }
@@ -1769,7 +1847,7 @@ void get_guard()
     if (g_boxes.empty() || !layout::get_refused(&why))
         return;
     get_log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(g_boxes.size()),
-        why.c_str());
+            why.c_str());
     drop_boxes();
 }
 
@@ -1897,7 +1975,8 @@ void register_gap_entry()
     end.pos = place_ahead(end.spec.size, 600.0f);
     // (two fresh names: the first isn't taken until it's made)
     std::string first = start.spec.name;
-    end.spec.name = node_create::fresh_name("ed_trigger", [&](const std::string& n) { return same_text(n, first) || name_taken(n); });
+    end.spec.name = node_create::fresh_name("ed_trigger",
+                                            [&](const std::string& n) { return same_text(n, first) || name_taken(n); });
     fabricate({start, end}, "a gap");
 }
 
@@ -1907,8 +1986,8 @@ void add_gap_pair(Placed start, Placed end)
     std::string gap = fresh_gap();
     start.spec.name = node_create::fresh_name("ed_trigger", name_taken);
     std::string first = start.spec.name;
-    end.spec.name =
-        node_create::fresh_name("ed_trigger", [&](const std::string& n) { return same_text(n, first) || name_taken(n); });
+    end.spec.name = node_create::fresh_name("ed_trigger",
+                                            [&](const std::string& n) { return same_text(n, first) || name_taken(n); });
     start.spec.kind = Kind::kGapStart;
     end.spec.kind = Kind::kGapEnd;
     for (Placed* p : {&start, &end}) {
@@ -1969,13 +2048,10 @@ void turn_off(uint32_t sector, bool off)
         return;
     }
     hud::get_message(off ? "Trigger " + get_label_of(sector) + " disabled"
-                     : "Trigger " + get_label_of(sector) + " enabled");
+                         : "Trigger " + get_label_of(sector) + " enabled");
 }
 
-void select_wall(uint32_t sector)
-{
-    g_select_wall = sector;
-}
+void select_wall(uint32_t sector) { g_select_wall = sector; }
 
 void make_editable(uint32_t sector)
 {
@@ -2006,7 +2082,7 @@ void make_editable(uint32_t sector)
     p.spec.script = name_for(t->script, script::kept_qb_name(t->script));
     p.spec.replaces = sector;
     p.spec.size = clamp_size({std::max(20.0f, t->max.x - t->min.x), std::max(20.0f, t->max.y - t->min.y),
-                             std::max(20.0f, t->max.z - t->min.z)});
+                              std::max(20.0f, t->max.z - t->min.z)});
     p.pos = (t->min + t->max) * 0.5f;
     p.yaw = 0.0f;
     fabricate({p}, ("an editable copy of " + get_label_of(sector)).c_str());
@@ -2201,7 +2277,7 @@ void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const ui
 } // namespace
 
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
 {
     remember_view(camera, frame, lens, viewport, near_z); // (the resize handles are drawn and picked with it)
     if (!get_shown())
@@ -2239,7 +2315,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
                 paint.get_seg(l.faces[f + 2], l.faces[f], colour, thickness);
             }
         } else {
-            OrientedBox box = {{0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, l.min, l.max};
+            OrientedBox box = {
+                {0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, l.min, l.max};
             paint.cuboid(box, colour, thickness);
         }
         V3 centre = (l.min + l.max) * 0.5f;
@@ -2260,7 +2337,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         uint32_t colour = a.problem ? 0xC0A0A0A0u : kind_colour(a.spec.kind);
         paint.cuboid(box, colour, 2.0f);
         V3 target;
-        if (!a.problem && (a.spec.kind == Kind::kJumpTo || a.spec.kind == Kind::kKill || a.spec.kind == Kind::kViewCam) &&
+        if (!a.problem &&
+            (a.spec.kind == Kind::kJumpTo || a.spec.kind == Kind::kKill || a.spec.kind == Kind::kViewCam) &&
             get_node_pos(checksum_of(a.spec.target), &target))
             paint.get_arrow(a.pos, target, get_dim(colour, a.spec.kind == Kind::kKill ? 0x80 : 0xE0));
         if (a.spec.kind == Kind::kGapStart) {
@@ -2289,8 +2367,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     }
 }
 
-void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z, int selected_node,
-               std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts)
 {
     Painter paint = {camera, &frame, &lens, viewport, near_z, lines};
     auto label = [&](V3 at, uint32_t argb, const std::string& text) {
@@ -2330,7 +2408,8 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     }
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
-    uint32_t selected = selected_node >= 0 && selected_node < static_cast<int>(nodes.size()) ? nodes[selected_node].name : 0;
+    uint32_t selected =
+        selected_node >= 0 && selected_node < static_cast<int>(nodes.size()) ? nodes[selected_node].name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
         objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
         if (!p)
@@ -2347,7 +2426,8 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
                 V3 previous = at + plane[0] * p->radius_;
                 for (int i = 1; i <= kSides; ++i) {
                     float angle = 2.0f * 3.14159265f * static_cast<float>(i) / kSides;
-                    V3 next = at + plane[0] * (p->radius_ * std::cos(angle)) + plane[1] * (p->radius_ * std::sin(angle));
+                    V3 next =
+                        at + plane[0] * (p->radius_ * std::cos(angle)) + plane[1] * (p->radius_ * std::sin(angle));
                     paint.get_seg(previous, next, colour, 1.0f);
                     previous = next;
                 }
@@ -2355,7 +2435,8 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             top = at + up * p->radius_;
         } else if (p->form_ == objects::kProximShapeBox) {
             V3 min = {p->box_.min.x, p->box_.min.y, p->box_.min.z}, max = {p->box_.max.x, p->box_.max.y, p->box_.max.z};
-            OrientedBox box = {{0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, min, max};
+            OrientedBox box = {
+                {0.0f, 0.0f, 0.0f}, {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}, min, max};
             paint.cuboid(box, colour, 1.5f);
             top = {(min.x + max.x) * 0.5f, max.y, (min.z + max.z) * 0.5f};
         }
@@ -2677,8 +2758,8 @@ void fire_on_leaving(objects::Entity* skater, uint32_t node)
     if (modules::Skate::should_be_absent(s))
         return;
     static const uint32_t kOnlineFlag = get_checksums("NetEnabled"), kPermanent = get_checksums("Permanent");
-    skater->start_script_task(script, static_cast<int>(node), s->has_bare_flag(kOnlineFlag), s->has_bare_flag(kPermanent),
-                              nullptr);
+    skater->start_script_task(script, static_cast<int>(node), s->has_bare_flag(kOnlineFlag),
+                              s->has_bare_flag(kPermanent), nullptr);
     if (debug_enabled())
         get_log("level editor: trigger %s left - its script run (exit)", get_label_of(node).c_str());
 }
@@ -2734,7 +2815,8 @@ void get_restore(const State& state)
     for (const node_create::Spec& n : node_create::at_hand()) {
         if (!n.owned || spec_index(n.name) < 0)
             continue;
-        bool keep = std::any_of(state.nodes.begin(), state.nodes.end(), [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
+        bool keep = std::any_of(state.nodes.begin(), state.nodes.end(),
+                                [&](const node_create::Spec& s) { return same_text(s.name, n.name); });
         if (!keep) {
             node_create::Spec removed;
             int at;
@@ -2749,8 +2831,8 @@ void get_restore(const State& state)
             node_create::fabricate(n, -1, &message);
         } else {
             node_edit::Values values;
-            if (node_edit::get_take_in(name, &values) &&
-                (values.pos.x != n.pos.x || values.pos.y != n.pos.y || values.pos.z != n.pos.z || values.angles.y != n.angles.y)) {
+            if (node_edit::get_take_in(name, &values) && (values.pos.x != n.pos.x || values.pos.y != n.pos.y ||
+                                                          values.pos.z != n.pos.z || values.angles.y != n.angles.y)) {
                 values.pos = n.pos;
                 values.angles = n.angles;
                 node_edit::assign_value(name, values);
@@ -2905,9 +2987,8 @@ void add_camera()
             p.spec.target = camera.name;
         }
     }
-    std::string what = p.spec.target.empty()
-                           ? std::string("a camera trigger")
-                           : "a camera trigger (" + p.spec.target + ")";
+    std::string what =
+        p.spec.target.empty() ? std::string("a camera trigger") : "a camera trigger (" + p.spec.target + ")";
     fabricate({p}, what.c_str());
 }
 
@@ -2948,7 +3029,8 @@ void set_breakable(uint32_t sector, bool on)
     int i = spec_index(name);
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
-    if (uint8_t* piece = scenery::sector_of(sector); piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
+    if (uint8_t* piece = scenery::sector_of(sector);
+        piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
         reinterpret_cast<render::WorldCell*>(piece)->change_live(true);
     get_sync();
     hud::get_message("No longer breakable", 4.0);
@@ -2966,7 +3048,8 @@ void set_proxim(const ProximEdit& edit, bool undo)
         note_undo();
     ProximEdit e = edit;
     e.radius = std::max(kProximMin, std::min(kProximMax, e.radius));
-    e.size = {std::max(kProximMin, std::min(kProximMax, e.size.x)), std::max(kProximMin, std::min(kProximMax, e.size.y)),
+    e.size = {std::max(kProximMin, std::min(kProximMax, e.size.x)),
+              std::max(kProximMin, std::min(kProximMax, e.size.y)),
               std::max(kProximMin, std::min(kProximMax, e.size.z))};
     int i = proxim_index(e.node);
     if (!proxim_edited(e)) {
@@ -2993,11 +3076,11 @@ std::string describe()
     for (const LevelTrigger& l : g_level)
         off += l.off ? 1 : 0;
     char text[160];
-    std::snprintf(text, sizeof(text), "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(g_level.size()),
-                  off, alive);
+    std::snprintf(text, sizeof(text), "%u level trigger volumes (%d off), %d added",
+                  static_cast<unsigned>(g_level.size()), off, alive);
     return text;
 }
 
 std::string describe_level_trigger(const LevelTrigger& l) { return describe(l.calls, l.kind); }
 
-} // namespace MenuSystem::level_editor::Triggers
+} // namespace frontend::level_editor::triggers

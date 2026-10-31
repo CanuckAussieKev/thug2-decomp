@@ -13,13 +13,13 @@
 namespace net {
 struct AppHost;
 struct InboundMsgCtx;
-} // namespace Net
+} // namespace net
 namespace objects {
 class Entity;
-} // namespace Obj
+} // namespace objects
 namespace tasks {
 class SchedulerTask;
-} // namespace Tsk
+} // namespace tasks
 
 namespace modules {
 
@@ -144,4 +144,4 @@ public:
     static void __cdecl write_object_update(objects::Entity* object, RelayStream* out);
 };
 
-} // namespace Mdl
+} // namespace modules

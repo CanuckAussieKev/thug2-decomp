@@ -26,13 +26,13 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 
 // The image's header.
 struct ImageHeader {
-    uint32_t id;           // 0x9B: never swizzled (the memory loader only)
+    uint32_t id; // 0x9B: never swizzled (the memory loader only)
     uint32_t unknown4;
     uint32_t width, height;
-    uint32_t format;       // 0: 32-bit, 2: 16-bit, 0x13: 8-bit with a palette; others 0-15: their bits with a palette
-    uint32_t unknown14;    // 0 (not original: hd_ui::kImageMarker | scale in an upscaled image - hd_ui.h)
+    uint32_t format;    // 0: 32-bit, 2: 16-bit, 0x13: 8-bit with a palette; others 0-15: their bits with a palette
+    uint32_t unknown14; // 0 (not original: hd_ui::kImageMarker | scale in an upscaled image - hd_ui.h)
     uint16_t image_width_, image_height_;
-    uint32_t palette_size_;  // (the file loader's)
+    uint32_t palette_size_; // (the file loader's)
 };
 static_assert(sizeof(ImageHeader) == 0x20, "the file's header");
 
@@ -40,10 +40,22 @@ static_assert(sizeof(ImageHeader) == 0x20, "the file's header");
 void decode(uint32_t format, uint32_t* bits, bool* palette)
 {
     switch (format) {
-    case 0: *bits = 32; *palette = false; break;
-    case 2: *bits = 16; *palette = false; break;
-    case 0x13: *bits = 8; *palette = true; break;
-    default: *bits = format; *palette = format < 0x10; break;
+    case 0:
+        *bits = 32;
+        *palette = false;
+        break;
+    case 2:
+        *bits = 16;
+        *palette = false;
+        break;
+    case 0x13:
+        *bits = 8;
+        *palette = true;
+        break;
+    default:
+        *bits = format;
+        *palette = format < 0x10;
+        break;
     }
 }
 
@@ -57,7 +69,7 @@ void unswizzle(void* out, const void* in, uint32_t width, uint32_t height, uint3
 void expand_palette(void* out, const void* indices, uint32_t size, const void* palette)
 {
     os_layer::expand_palette(static_cast<uint32_t*>(out), static_cast<const uint8_t*>(indices), static_cast<int>(size),
-                            static_cast<const uint32_t*>(palette));
+                             static_cast<const uint32_t*>(palette));
 }
 
 TextureRef* alloc_pc_texture()
@@ -143,7 +155,7 @@ TextureRef* __cdecl read_texture_file(const char* name)
         TextureRef* hd = alloc_pc_texture();
         hd->palette = nullptr;
         input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
-                                reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
+                                    reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
         set_sizes(hd, header, false);
         D3DLOCKED_RECT locked;
         static_cast<IDirect3DTexture9*>(hd->texture)->LockRect(0, &locked, nullptr, 0);
@@ -164,7 +176,7 @@ TextureRef* __cdecl read_texture_file(const char* name)
     // Not a power of two each way: the image is loaded as it is (no swizzling).
     bool plain = !(header.width && power_of_two(header.width) && header.height && power_of_two(header.height));
     input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
-                            reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
+                                reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
     set_sizes(texture, header, plain);
     uint32_t size = ((bits >> 3) * texture->height * texture->width + 3) & ~3u;
     D3DLOCKED_RECT locked;
@@ -203,7 +215,7 @@ TextureRef* __cdecl load_texture_memory(const uint8_t* data)
         TextureRef* hd = alloc_pc_texture();
         hd->palette = nullptr;
         input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_DXT1, D3DPOOL_MANAGED,
-                                reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
+                                    reinterpret_cast<IDirect3DTexture9**>(&hd->texture), nullptr);
         if (!hd->texture)
             return nullptr;
         set_sizes(hd, header, false);
@@ -228,7 +240,7 @@ TextureRef* __cdecl load_texture_memory(const uint8_t* data)
     if (header.id == 0x9B)
         plain = true;
     input_port()->CreateTexture(header.width, header.height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED,
-                            reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
+                                reinterpret_cast<IDirect3DTexture9**>(&texture->texture), nullptr);
     if (!texture->texture)
         return nullptr; // (the texture object stays made and listed)
     set_sizes(texture, header, plain);
@@ -259,4 +271,4 @@ TextureRef* __cdecl load_texture_memory(const uint8_t* data)
     return texture;
 }
 
-} // namespace Nx
+} // namespace render

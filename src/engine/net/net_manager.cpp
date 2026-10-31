@@ -175,4 +175,4 @@ const char* Hub::get_dialup_number()
     return dialup_numbers_[dialup_number_index_];
 }
 
-} // namespace Net
+} // namespace net

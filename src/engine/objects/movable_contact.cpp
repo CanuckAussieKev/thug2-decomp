@@ -26,9 +26,9 @@ namespace {
 
 extern void** const kVtable;
 
-constexpr float kFeelerTop = 400.0f;   // 0x00646288
-constexpr float kFeelerBottom = 6.0f;  // 0x00646284
-constexpr float kNudge = 0.1f;         // 0x00645D74 (as the float it is)
+constexpr float kFeelerTop = 400.0f;  // 0x00646288
+constexpr float kFeelerBottom = 6.0f; // 0x00646284
+constexpr float kNudge = 0.1f;        // 0x00645D74 (as the float it is)
 
 float get_sum(float a, double b) { return static_cast<float>(static_cast<double>(a) + b); }
 
@@ -78,13 +78,14 @@ GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::V
             return nullptr;
         // (nothing between the point and just over the hit: it's what the point is on)
         up.line_.start = *point;
-        up.line_.end = {down.contact_pos_.x, get_sum(down.contact_pos_.y, kNudge), down.contact_pos_.z, down.contact_pos_.w};
+        up.line_.end = {down.contact_pos_.x, get_sum(down.contact_pos_.y, kNudge), down.contact_pos_.z,
+                        down.contact_pos_.w};
         if (!up.get_hit_shape(true, false)) {
             *hit = down.contact_pos_;
             return down.get_hit_object();
         }
-        down.line_.start = {down.contact_pos_.x, get_sum(down.contact_pos_.y, -static_cast<double>(kNudge)), down.contact_pos_.z,
-                             down.contact_pos_.w};
+        down.line_.start = {down.contact_pos_.x, get_sum(down.contact_pos_.y, -static_cast<double>(kNudge)),
+                            down.contact_pos_.z, down.contact_pos_.w};
         if (++tries == 10)
             return nullptr;
     }
@@ -108,8 +109,8 @@ GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const math
     float y = static_cast<float>(frame * vel.y);
     float z = static_cast<float>(frame * vel.z);
     float w = static_cast<float>(frame * vel.w);
-    maths::Vec4 ahead = {get_sum(pos->x, x + x), get_sum(pos->y, static_cast<double>(y) + y), get_sum(pos->z, static_cast<double>(z) + z),
-                         get_sum(pos->w, static_cast<double>(w) + w)};
+    maths::Vec4 ahead = {get_sum(pos->x, x + x), get_sum(pos->y, static_cast<double>(y) + y),
+                         get_sum(pos->z, static_cast<double>(z) + z), get_sum(pos->w, static_cast<double>(w) + w)};
     if (!find_contact(&ahead, &other)) {
         *pos = ahead;
         return object;
@@ -205,37 +206,38 @@ void MovingSurfaceModule::update_contact_point()
     maths::Mat4 inverse;
     inverse = object->basis_frame_;
     const maths::Vec4& pos = entity_->at_point_;
-    contact_point_ = {static_cast<float>(static_cast<double>(pos.x) - at.x),
-                      static_cast<float>(static_cast<double>(pos.y) - at.y),
-                      static_cast<float>(static_cast<double>(pos.z) - at.z),
-                      static_cast<float>(static_cast<double>(pos.w) - at.w)};
+    contact_point_ = {
+        static_cast<float>(static_cast<double>(pos.x) - at.x), static_cast<float>(static_cast<double>(pos.y) - at.y),
+        static_cast<float>(static_cast<double>(pos.z) - at.z), static_cast<float>(static_cast<double>(pos.w) - at.w)};
     inverse.upend();
     maths::Vec4 local;
     inverse.rotate_vector(local, contact_point_);
     contact_point_ = local;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::MovingSurfaceModule;
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&MovingSurfaceModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &MovingSurfaceModule::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

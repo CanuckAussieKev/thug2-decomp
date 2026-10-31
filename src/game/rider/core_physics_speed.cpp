@@ -23,7 +23,7 @@ namespace {
 constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;   // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kMaxSpeedStat = 0x2EACDDB3;      // Skater_Max_Speed_Stat
 constexpr uint32_t kHeavyAirFriction = 0x850EB87A;  // Physics_Heavy_Air_Friction
-constexpr uint32_t kCoastDrag = 0x78F80EC4;   // Physics_Rolling_Friction
+constexpr uint32_t kCoastDrag = 0x78F80EC4;         // Physics_Rolling_Friction
 constexpr uint32_t kBrakeAcceleration = 0xE5D73F6F; // Physics_Brake_Acceleration
 
 // The fields used here.
@@ -111,7 +111,8 @@ void SkaterPhysicsModule::get_brake()
     }
     void* object = object_of(this);
     float speed = speed_of(vector_at(object, kVelocity));
-    double slowing = static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * get_at<float>(this, kFrameLength);
+    double slowing =
+        static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) * get_at<float>(this, kFrameLength);
     if (slowing + slowing > speed) {
         // Less than two frames' worth left: stopped.
         vector_at(object_of(this), kVelocity) = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -119,7 +120,7 @@ void SkaterPhysicsModule::get_brake()
     }
     maths::Vec4 slow = vector_at(object_of(this), kVelocity);
     set_length(slow, static_cast<float>(-(static_cast<double>(tuning_float_lookup(kBrakeAcceleration, object)) *
-                                        get_at<float>(this, kFrameLength))));
+                                          get_at<float>(this, kFrameLength))));
     maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
     velocity.x = slow.x + velocity.x;
     velocity.y = slow.y + velocity.y;
@@ -133,10 +134,11 @@ void SkaterPhysicsModule::apply_ground_friction()
     void* object = object_of(this);
     // (Not original: THAW 0x005D46C0 - on the bike the friction always applies.)
     if (!get_at<uint8_t>(this, kFrictionOn) && !flags_of(this)[0x70] &&
-        get_at<float>(this, kRollingFrictionNow) == tuning_float_lookup(kCoastDrag, object) && !thaw_bmx::live_now(this))
+        get_at<float>(this, kRollingFrictionNow) == tuning_float_lookup(kCoastDrag, object) &&
+        !thaw_bmx::live_now(this))
         return;
     apply_stance_friction(); // (the friction: crouched or standing)
-    if (turn_down_slope()) // (turned down the slope)
+    if (turn_down_slope())   // (turned down the slope)
         return;
     apply_wheel_drag(); // (the rolling friction)
 }
@@ -158,4 +160,4 @@ void SkaterPhysicsModule::start_riding_hit_object()
     velocity.w -= ride_velocity.w;
 }
 
-} // namespace Skater
+} // namespace skater

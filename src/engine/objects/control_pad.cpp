@@ -96,22 +96,13 @@ void update_lock(uint32_t& lock, float length, bool in_quarter)
 } // namespace
 
 // 0x0046B7E0
-void ControlButton::reset_activation()
-{
-    fired_ = 0;
-}
+void ControlButton::reset_activation() { fired_ = 0; }
 
 // 0x0046B7F0
-void ControlButton::forget_let_go()
-{
-    let_go_ = 0;
-}
+void ControlButton::forget_let_go() { let_go_ = 0; }
 
 // 0x0046B800
-void ControlButton::change_title(const char* name)
-{
-    label_ = checksums::hash_from_text(name);
-}
+void ControlButton::change_title(const char* name) { label_ = checksums::hash_from_text(name); }
 
 // 0x0046B820
 void ControlButton::tick_frame(int pressure)
@@ -170,15 +161,25 @@ namespace {
 
 // Every button of the pad with the name scripts ask for it by (each name's checksum is what read_button matches).
 struct PadButtonName {
-    ControlButton PadSnapshot::*button;
+    ControlButton PadSnapshot::* button;
     const char* name;
 };
 constexpr PadButtonName kPadButtons[] = {
-    {&PadSnapshot::up_dir_, "UP"},          {&PadSnapshot::btn_down_, "DOWN"},     {&PadSnapshot::left_side_, "LEFT"},
-    {&PadSnapshot::right_side_, "RIGHT"},    {&PadSnapshot::button_box_, "SQUARE"}, {&PadSnapshot::button_round_, "CIRCLE"},
-    {&PadSnapshot::button_wedge_, "TRIANGLE"}, {&PadSnapshot::pos_x_, "X"},       {&PadSnapshot::shoulder_left_a_, "L1"},
-    {&PadSnapshot::shoulder_left_b_, "L2"},          {&PadSnapshot::stick_click_left_, "L3"},         {&PadSnapshot::shoulder_right_a_, "R1"},
-    {&PadSnapshot::shoulder_right_b_, "R2"},          {&PadSnapshot::stick_click_right_, "R3"},         {&PadSnapshot::outset_, "START"},
+    {&PadSnapshot::up_dir_, "UP"},
+    {&PadSnapshot::btn_down_, "DOWN"},
+    {&PadSnapshot::left_side_, "LEFT"},
+    {&PadSnapshot::right_side_, "RIGHT"},
+    {&PadSnapshot::button_box_, "SQUARE"},
+    {&PadSnapshot::button_round_, "CIRCLE"},
+    {&PadSnapshot::button_wedge_, "TRIANGLE"},
+    {&PadSnapshot::pos_x_, "X"},
+    {&PadSnapshot::shoulder_left_a_, "L1"},
+    {&PadSnapshot::shoulder_left_b_, "L2"},
+    {&PadSnapshot::stick_click_left_, "L3"},
+    {&PadSnapshot::shoulder_right_a_, "R1"},
+    {&PadSnapshot::shoulder_right_b_, "R2"},
+    {&PadSnapshot::stick_click_right_, "R3"},
+    {&PadSnapshot::outset_, "START"},
     {&PadSnapshot::button_choose_, "SELECT"},
 };
 
@@ -213,7 +214,8 @@ void PadSnapshot::get_reset()
 void PadSnapshot::get_clear()
 {
     get_reset();
-    ControlButton* both[] = {&up_dir_, &btn_down_, &left_side_, &right_side_, &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_};
+    ControlButton* both[] = {&up_dir_,          &btn_down_,        &left_side_,        &right_side_,
+                             &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_};
     for (ControlButton* button : both) {
         button->reset_activation();
         button->forget_let_go();
@@ -292,8 +294,10 @@ void PadSnapshot::tick_frame(const uint8_t* data)
 ControlButton* PadSnapshot::read_button(uint32_t name)
 {
     // (the original's order)
-    ControlButton* buttons[] = {&up_dir_, &btn_down_, &left_side_, &right_side_, &button_box_, &button_round_, &button_wedge_, &pos_x_,
-                                 &shoulder_left_a_, &shoulder_left_b_, &stick_click_left_, &shoulder_right_a_, &shoulder_right_b_, &stick_click_right_, &outset_, &button_choose_};
+    ControlButton* buttons[] = {&up_dir_,           &btn_down_,          &left_side_,        &right_side_,
+                                &button_box_,       &button_round_,      &button_wedge_,     &pos_x_,
+                                &shoulder_left_a_,  &shoulder_left_b_,   &stick_click_left_, &shoulder_right_a_,
+                                &shoulder_right_b_, &stick_click_right_, &outset_,           &button_choose_};
     for (ControlButton* button : buttons) {
         if (button->label_ == name)
             return button;
@@ -319,10 +323,22 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
     // (the original's static table 0x006F2270, filled on the first call; up and down together count as down,
     // left and right together as right)
     static const float kAngles[16] = {
-        0.0f, 0.0f, kPi, kPi,
-        -kHalfPi, -kQuarterPi, -kThreeQuarterPi, -kThreeQuarterPi,
-        kHalfPi, kQuarterPi, kThreeQuarterPi, kThreeQuarterPi,
-        kHalfPi, kQuarterPi, kThreeQuarterPi, kThreeQuarterPi,
+        0.0f,
+        0.0f,
+        kPi,
+        kPi,
+        -kHalfPi,
+        -kQuarterPi,
+        -kThreeQuarterPi,
+        -kThreeQuarterPi,
+        kHalfPi,
+        kQuarterPi,
+        kThreeQuarterPi,
+        kThreeQuarterPi,
+        kHalfPi,
+        kQuarterPi,
+        kThreeQuarterPi,
+        kThreeQuarterPi,
     };
     return kAngles[up + 2 * (down + 2 * (left + 2 * right))];
 }
@@ -343,8 +359,9 @@ double __stdcall stick_length(float x, float y, float angle)
         to_gate = std::fabs(a) - kPi;
     else
         to_gate = a + kHalfPi;
-    double length = times_abs_cos(std::sqrt(ny * ny + nx * nx), to_gate) * static_cast<double>(float_from_bits(0x3F969696));
+    double length =
+        times_abs_cos(std::sqrt(ny * ny + nx * nx), to_gate) * static_cast<double>(float_from_bits(0x3F969696));
     return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
 }
 
-} // namespace Obj
+} // namespace objects

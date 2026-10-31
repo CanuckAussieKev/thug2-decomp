@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // Script commands (CFunctions) 0x005B3A90-0x005B4260: create-a-graphic (the custom tag texture composed from layers
 // in a workspace texture, and the workspace synced back from a skater's tag), a 2D position from a vector's length

@@ -20,7 +20,7 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 
 // 0x0040FC00
 bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0, const maths::Vec4* v1,
-                         const maths::Vec4* v2, maths::Vec4* point, maths::Vec4* normal, maths::Vec4* offset)
+                           const maths::Vec4* v2, maths::Vec4* point, maths::Vec4* normal, maths::Vec4* offset)
 {
     // The face's normal: e1 x e2 (e1 = v1 - v0, e2 = v2 - v0).
     const double e2x = static_cast<double>(v2->x) - v0->x;
@@ -94,7 +94,8 @@ bool StaticCollider::collide_with_capsule(const maths::Capsule* capsule, const m
     for (uint32_t i = 0; i < static_cast<uint32_t>(count); ++i) {
         const TriMeshSource* geometry = geometry_;
         uint32_t face = faces[i];
-        uint16_t flags = *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
+        uint16_t flags =
+            *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
         maths::Vec4 v0, v1, v2;
@@ -123,4 +124,4 @@ bool StaticCollider::collide_with_capsule(const maths::Capsule* capsule, const m
     return hits->count > 0;
 }
 
-} // namespace Nx
+} // namespace render

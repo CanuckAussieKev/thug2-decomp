@@ -116,7 +116,7 @@ void crash_log_stack_scan(uintptr_t esp)
         if (!after_call(value) || !module_of(value, name, &offset))
             continue;
         get_log("    [esp+0x%X] %s+0x%X (%08X)", static_cast<unsigned>(slot - esp), name, static_cast<unsigned>(offset),
-            static_cast<unsigned>(value));
+                static_cast<unsigned>(value));
         ++found;
     }
 }
@@ -146,24 +146,24 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
     uintptr_t offset = c->Eip;
     module_of(c->Eip, name, &offset);
     get_log("EXCEPTION 0x%08X at %s+0x%X (%08X) %s", static_cast<unsigned>(code), name, static_cast<unsigned>(offset),
-        static_cast<unsigned>(c->Eip), note);
+            static_cast<unsigned>(c->Eip), note);
     if (code == EXCEPTION_ACCESS_VIOLATION && info->ExceptionRecord->NumberParameters >= 2)
         get_log("  %s address %08X",
-            info->ExceptionRecord->ExceptionInformation[0] == 8   ? "executing"
-            : info->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing"
-                                                                  : "reading",
-            static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
-    get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X",
-        static_cast<unsigned>(c->Eax), static_cast<unsigned>(c->Ebx), static_cast<unsigned>(c->Ecx),
-        static_cast<unsigned>(c->Edx), static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi),
-        static_cast<unsigned>(c->Ebp), static_cast<unsigned>(c->Esp));
+                info->ExceptionRecord->ExceptionInformation[0] == 8   ? "executing"
+                : info->ExceptionRecord->ExceptionInformation[0] != 0 ? "writing"
+                                                                      : "reading",
+                static_cast<unsigned>(info->ExceptionRecord->ExceptionInformation[1]));
+    get_log("  EAX %08X EBX %08X ECX %08X EDX %08X ESI %08X EDI %08X EBP %08X ESP %08X", static_cast<unsigned>(c->Eax),
+            static_cast<unsigned>(c->Ebx), static_cast<unsigned>(c->Ecx), static_cast<unsigned>(c->Edx),
+            static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi), static_cast<unsigned>(c->Ebp),
+            static_cast<unsigned>(c->Esp));
     // The top of the stack as it is (arguments, saved registers, locals).
     for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
         if (!readable(slot, 0x20, false))
             break;
         const uint32_t* w = reinterpret_cast<const uint32_t*>(slot);
-        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0], w[1],
-            w[2], w[3], w[4], w[5], w[6], w[7]);
+        get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0],
+                w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
     }
     crash_log_stack_scan(c->Esp);
 }
@@ -214,11 +214,11 @@ LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
 }
 
 void __cdecl invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file,
-                              unsigned int line, uintptr_t)
+                               unsigned int line, uintptr_t)
 {
     // (a Release CRT passes none of them)
     get_log("INVALID PARAMETER: %ls in %ls (%ls:%u)", expression ? expression : L"?", function ? function : L"?",
-        file ? file : L"?", line);
+            file ? file : L"?", line);
     log_backtrace();
     crash_end_process(3);
 }
@@ -288,10 +288,11 @@ struct FaultName {
     const char* name;
 };
 constexpr FaultName kFaultNames[] = {
-    {TestFault::kAccess, "access"},     {TestFault::kRunTimeCheck, "rtc"},     {TestFault::kCrtError, "crterror"},
-    {TestFault::kInvalidParameter, "invalidparam"}, {TestFault::kPureCall, "purecall"}, {TestFault::kCancelNow, "abort"},
-    {TestFault::kGameOverrun, "overrun"}, {TestFault::kGameCrtMessage, "crtbox"}, {TestFault::kFastFail, "fastfail"},
-    {TestFault::kHang, "hang"},
+    {TestFault::kAccess, "access"},       {TestFault::kRunTimeCheck, "rtc"},
+    {TestFault::kCrtError, "crterror"},   {TestFault::kInvalidParameter, "invalidparam"},
+    {TestFault::kPureCall, "purecall"},   {TestFault::kCancelNow, "abort"},
+    {TestFault::kGameOverrun, "overrun"}, {TestFault::kGameCrtMessage, "crtbox"},
+    {TestFault::kFastFail, "fastfail"},   {TestFault::kHang, "hang"},
 };
 
 } // namespace
@@ -372,7 +373,10 @@ const char* test_fault_name(TestFault fault)
     return "?";
 }
 
-const char* test_fault_names() { return "access rtc crterror invalidparam purecall abort overrun crtbox fastfail hang"; }
+const char* test_fault_names()
+{
+    return "access rtc crterror invalidparam purecall abort overrun crtbox fastfail hang";
+}
 
 bool cause_test_fault(TestFault fault)
 {

@@ -66,8 +66,9 @@ void erase_geoms(RenderModel* model, ModelGeomNode* first, ModelGeomNode* last)
 {
     ModelGeomNode* result;
     reinterpret_cast<objects::PointerList*>(&model->geoms_)
-        ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result), reinterpret_cast<objects::PointerListNode*>(first),
-                reinterpret_cast<objects::PointerListNode*>(last));
+        ->get_erase(reinterpret_cast<objects::PointerListNode**>(&result),
+                    reinterpret_cast<objects::PointerListNode*>(first),
+                    reinterpret_cast<objects::PointerListNode*>(last));
 }
 
 // A node's memory: from the default heap, or the current one (0x00658555: whether to assert when out of it).
@@ -75,8 +76,7 @@ ModelGeom* new_entry(bool default_heap)
 {
     if (default_heap)
         return static_cast<ModelGeom*>(memory::alloc(sizeof(ModelGeom)));
-    return static_cast<ModelGeom*>(
-        memory::Hub::get_pull()->carve(sizeof(ModelGeom), g_alloc_assert_flag, nullptr));
+    return static_cast<ModelGeom*>(memory::Hub::get_pull()->carve(sizeof(ModelGeom), g_alloc_assert_flag, nullptr));
 }
 
 // A scene's texture dictionary (its +4).
@@ -107,10 +107,7 @@ void release_bone_volumes(void* volumes) { gfx::release_bone_volumes(reinterpret
 // made from an image (0x0049FA20) or loaded (0x0049F9B0); a texture's own replaced in a dictionary by name (0x0049FB20)
 // or by a texture (0x0049F800).
 void* get_textures() { return reinterpret_cast<void*>(g_game_texture_dict); }
-void* find_texture(uint32_t checksum)
-{
-    return static_cast<TextureSet*>(get_textures())->fetch_skin(checksum);
-}
+void* find_texture(uint32_t checksum) { return static_cast<TextureSet*>(get_textures())->fetch_skin(checksum); }
 void detach_texture(void* texture)
 {
     static_cast<TextureSet*>(get_textures())->unload_texture(static_cast<BitmapTexture*>(texture));
@@ -270,7 +267,7 @@ bool RenderModel::add_asset_geom(uint32_t asset_name, uint32_t name, bool multic
 
 // 0x004935E0
 bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_resource_store, int tex_dict_offset,
-                         bool force_tex_dict, bool multicolor, bool default_heap, bool by_name)
+                                bool force_tex_dict, bool multicolor, bool default_heap, bool by_name)
 {
     flag_bits_ &= ~kModelSphereValid;
     assets::ResourceRegistry* assets = assets::asset_manager();
@@ -299,7 +296,8 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         if (by_name)
             assets->get_asset_data_by_name(tex_name, 1);
         else
-            assets->fetch_or_load_resource(tex_name, 0, 0, 0, false, false, assets->get_permanent_by_default(), &tex_params, 0);
+            assets->fetch_or_load_resource(tex_name, 0, 0, 0, false, false, assets->get_permanent_by_default(),
+                                           &tex_params, 0);
         assets::SkinParams skin_params;
         skin_params.get_clear();
         skin_params.flag0 = (flag_bits_ >> 5) & 1;
@@ -307,9 +305,9 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         if (by_name)
             scene = static_cast<uint8_t*>(assets->get_asset_data_by_name(file_name, 1));
         else
-            scene = static_cast<uint8_t*>(assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name),
-                                                                 false, false, assets->get_permanent_by_default(),
-                                                                 &skin_params, 0));
+            scene = static_cast<uint8_t*>(
+                assets->fetch_or_load_resource(file_name, 0, 0, checksums::hash_from_text(tex_name), false, false,
+                                               assets->get_permanent_by_default(), &skin_params, 0));
         entry->asset_name_ = checksums::hash_from_text(file_name);
         ++num_asset_geoms_;
         entry->scene = nullptr;
@@ -406,8 +404,7 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
         if (skeleton)
             // (the original passes the floats 0.5, 0.5 and 1 as its colours and frame count: their bits)
             reinterpret_cast<gfx::Rig*>(skeleton)->blit(matrix, std::bit_cast<uint32_t>(0.5f),
-                                                              std::bit_cast<uint32_t>(0.5f),
-                                                              std::bit_cast<int>(1.0f));
+                                                        std::bit_cast<uint32_t>(0.5f), std::bit_cast<int>(1.0f));
         break;
     case 2:
     case 3:
@@ -428,7 +425,8 @@ bool RenderModel::render(maths::Mat4* matrix, bool no_bones, uint8_t* skeleton)
 }
 
 // 0x004939E0
-int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f, uint32_t* out)
+int RenderModel::test_bone_volumes(uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e, uint32_t f,
+                                   uint32_t* out)
 {
     int hit = 0;
     uint32_t hit_extra = 0;
@@ -636,8 +634,8 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
     };
     uint8_t generate_palette = get_parameters(parameters)[0x20]; // (the byte as it is - not made 0 / 1)
     gfx::massage_face_texture(static_cast<BitmapTexture*>(image),
-                            reinterpret_cast<const gfx::FaceAnchors*>(get_parameters(parameters)), generate_palette,
-                            false, 0x80808080);
+                              reinterpret_cast<const gfx::FaceAnchors*>(get_parameters(parameters)), generate_palette,
+                              false, 0x80808080);
     bool replaced = replace_texture_with(name, source, texture_hash(image));
     detach_texture(image);
     detach_texture(overlay);
@@ -645,11 +643,21 @@ bool RenderModel::replace_face_texture(void* face, const char* source, uint32_t 
 }
 
 namespace {
-static VtableSlot g_model_vtable_slots[] = {&render::RenderModel::teardown, &save_cards::SaveCard::always_true, stubs::return_zero1,
-                &save_cards::SaveCard::always_true, &render::RenderModel::virtual_true4, &save_cards::SaveCard::always_true, &save_cards::SaveCard::always_true,
-                &save_cards::SaveCard::always_true, stubs::return_true2, &net::Hub::load_network_drivers, stubs::return_true,
-                stubs::return_true, &render::RenderModel::plat_get_bounding_sphere, stubs::ignore_argument};
+static VtableSlot g_model_vtable_slots[] = {&render::RenderModel::teardown,
+                                            &save_cards::SaveCard::always_true,
+                                            stubs::return_zero1,
+                                            &save_cards::SaveCard::always_true,
+                                            &render::RenderModel::virtual_true4,
+                                            &save_cards::SaveCard::always_true,
+                                            &save_cards::SaveCard::always_true,
+                                            &save_cards::SaveCard::always_true,
+                                            stubs::return_true2,
+                                            &net::Hub::load_network_drivers,
+                                            stubs::return_true,
+                                            stubs::return_true,
+                                            &render::RenderModel::plat_get_bounding_sphere,
+                                            stubs::ignore_argument};
 void** const kModelVtable = reinterpret_cast<void**>(g_model_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

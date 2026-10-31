@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -73,18 +73,19 @@ public:
     // 0x00431360 (not a Ghidra function): the light's direction handed to the shadow (if any).
     void set_light_direction(const maths::Vec4* direction);
 
-    void* shadow_handle_;              // +0x18 the renderer's shadow object
-    maths::Vec4 at_point_;            // +0x1C where it is
-    maths::Vec4 surface_dir_;         // +0x2C the ground's normal under it
+    void* shadow_handle_;         // +0x18 the renderer's shadow object
+    maths::Vec4 at_point_;        // +0x1C where it is
+    maths::Vec4 surface_dir_;     // +0x2C the ground's normal under it
     uint32_t shadow_kind_;        // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
-    ObjectModule* mesh_instance_;     // +0x40 the model component (Finalize)
+    ObjectModule* mesh_instance_; // +0x40 the model component (Finalize)
     bool follow_object_;          // +0x44 each update puts it at the object's position
     uint8_t pad45[3];
 };
 static_assert(offsetof(GroundShadowModule, shadow_handle_) == 0x18 && offsetof(GroundShadowModule, at_point_) == 0x1C &&
-                  offsetof(GroundShadowModule, surface_dir_) == 0x2C && offsetof(GroundShadowModule, shadow_kind_) == 0x3C &&
-                  offsetof(GroundShadowModule, mesh_instance_) == 0x40 && offsetof(GroundShadowModule, follow_object_) == 0x44 &&
-                  sizeof(GroundShadowModule) == 0x48,
+                  offsetof(GroundShadowModule, surface_dir_) == 0x2C &&
+                  offsetof(GroundShadowModule, shadow_kind_) == 0x3C &&
+                  offsetof(GroundShadowModule, mesh_instance_) == 0x40 &&
+                  offsetof(GroundShadowModule, follow_object_) == 0x44 && sizeof(GroundShadowModule) == 0x48,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

@@ -10,4 +10,4 @@ namespace memory {
 
 void log_memory_use(const char* when);
 
-} // namespace Mem
+} // namespace memory

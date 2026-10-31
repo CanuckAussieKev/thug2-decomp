@@ -21,4 +21,4 @@ void __cdecl material_pixel_shader(const void* material, void** shader);
 
 extern lists::KeyMap* g_shadow_casters;
 
-} // namespace Nx
+} // namespace render

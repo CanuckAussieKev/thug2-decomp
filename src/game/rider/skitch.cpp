@@ -25,7 +25,7 @@ namespace {
 extern void** const kVtable;
 constexpr uint32_t kObjectHookManager = 0x27443708;
 constexpr uint32_t kAllowSkitching = 0xC38CCE3B; // Obj_AllowSkitching
-const char* const kOff = "off"; // "off"
+const char* const kOff = "off";                  // "off"
 
 // The hook manager's node list (its vtable +0x34), or null.
 ClassNodeList* hook_nodes(ObjectModule* hooks)
@@ -161,25 +161,27 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::TowRideHandler::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::TowRideHandler::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::TowRideHandler::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::TowRideHandler::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    &objects::TowRideHandler::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::TowRideHandler::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

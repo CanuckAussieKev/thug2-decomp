@@ -25,9 +25,9 @@ namespace {
 extern void** const kVolumeVtable;
 
 constexpr uint32_t kBoneDescriptions = 0x00E7085E; // (name unknown: the global array of bone descriptions)
-constexpr uint32_t kBone = 0xCAB94088;              // bone
-constexpr uint32_t kRadius = 0xC48391A5;            // radius
-constexpr float kDefaultRadius = 3.0f;              // 0x40400000
+constexpr uint32_t kBone = 0xCAB94088;             // bone
+constexpr uint32_t kRadius = 0xC48391A5;           // radius
+constexpr float kDefaultRadius = 3.0f;             // 0x40400000
 
 // The shared sets, by bone count.
 lists::KeyMap g_bone_volume_table{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
@@ -38,10 +38,7 @@ maths::Vec4 g_bone_world_pos[64]; // each bone's world position as segment_hits_
 maths::Vec4* joint_point_array() { return g_bone_world_pos; }
 
 // D3DXMatrixMultiply (0x005BFA8C, the D3DX library's): out = a * b.
-void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A bone's matrix in the world: its bind pose (the inverse bind matrix inverted) times `pose`, times `world`.
 void world_matrix(maths::Mat4* out, const maths::Mat4& inverse_bind, const maths::Mat4& pose, const maths::Mat4* world)
@@ -53,7 +50,7 @@ void world_matrix(maths::Mat4* out, const maths::Mat4& inverse_bind, const maths
 }
 // Bone `index`'s parent's world matrix (the root's: the identity's), with the parent's pose `parent_pose`.
 void parent_world_matrix(maths::Mat4* out, RigData* data, const maths::Mat4* inverse_binds, int index,
-                       const maths::Mat4& parent_pose, const maths::Mat4* world)
+                         const maths::Mat4& parent_pose, const maths::Mat4* world)
 {
     if (index == 0)
         out->reset_to_identity();
@@ -166,8 +163,8 @@ void BoneVolumes::get_fill(RigData* data)
 }
 
 // 0x0048B580
-uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world, uint32_t bone,
-                                float scale, float extra_radius, float* distance, float* t)
+uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton, const maths::Mat4* world,
+                                        uint32_t bone, float scale, float extra_radius, float* distance, float* t)
 {
     RigData* data = skeleton->payload_;
     maths::Mat4* inverse_binds = data->get_inverse_bind_matrices();
@@ -249,11 +246,11 @@ static VtableSlot g_volume_vtable_slots[] = {&gfx::BoneVolume::intersects_segmen
 void** const kVolumeVtable = reinterpret_cast<void**>(g_volume_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx
 
 namespace gfx {
 
 // 0x00640AE0 (a static initialiser): the bone volumes' table, 256 buckets.
 void construct_bone_volume_table() { new (&g_bone_volume_table) lists::KeyMap(8); }
 
-} // namespace Gfx
+} // namespace gfx

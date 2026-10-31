@@ -83,4 +83,4 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
 // Once a frame while the editor runs: what the form asked for.
 void tick_frame();
 
-} // namespace MenuSystem::level_editor::gap_wizard
+} // namespace frontend::level_editor::gap_wizard

@@ -84,7 +84,10 @@ bool object_runs_scripts(objects::Entity* object)
     return reinterpret_cast<bool(__thiscall*)(objects::Entity*)>(get_vtable(object)[7])(object);
 }
 // +0x14: the object's id (sent to the other players).
-uint32_t current_object_id(objects::Entity* object) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x14); }
+uint32_t current_object_id(objects::Entity* object)
+{
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x14);
+}
 
 // The network game (online::Hub 0x007CCE14).
 using NetSessionSlot = online::Hub;
@@ -97,10 +100,7 @@ void* fetch_patron(NetSessionSlot* net, int index) { return net->fetch_patron(in
 using ::net::NetMessageInfo;
 void init_msg_desc(NetMessageInfo* desc) { desc->make_new(); }
 // 0x00459E50: queue a message for the server.
-void send_to_host(void* client, NetMessageInfo* desc)
-{
-    static_cast<::net::Guest*>(client)->send_to_host(desc);
-}
+void send_to_host(void* client, NetMessageInfo* desc) { static_cast<::net::Guest*>(client)->send_to_host(desc); }
 // 0x00479E20: `params` written into `buffer` (at most `size` bytes); returns the bytes written.
 int emit_into_buffer(Struct* params, uint8_t* buffer, int size)
 {
@@ -139,7 +139,8 @@ void tick_child_scripts()
             run = object_runs_scripts(script->entity_.get_pull());
         if (run && get_update_script(script) == kScriptOutcomeFinished) {
             if (script->on_finish_script_)
-                launch_script(script->on_finish_script_, script->callback_params_, script->entity_.get_pull(), false, nullptr);
+                launch_script(script->on_finish_script_, script->callback_params_, script->entity_.get_pull(), false,
+                              nullptr);
             delete_script(script);
         }
         script = next;
@@ -167,8 +168,8 @@ void kill_all_child_scripts()
 }
 
 // 0x00475420
-Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node,
-                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
+Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* callback_params, int node, uint32_t id,
+                     bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
 {
     SymbolTableEntry* symbol = resolve_symbol(name);
     if (symbol && symbol->type == kQbvalNativeFunc) {
@@ -204,10 +205,11 @@ Script* spawn_script(uint32_t name, Struct* params, uint32_t callback, Struct* c
 
 // 0x00475670
 Script* spawn_script(const char* name, Struct* params, uint32_t callback, Struct* callback_params, int node,
-                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific, bool pause_with_object)
+                     uint32_t id, bool replicate_flag, bool permanent, bool not_session_specific,
+                     bool pause_with_object)
 {
     return spawn_script(checksums::hash_from_text(name), params, callback, callback_params, node, id, replicate_flag,
-                       permanent, not_session_specific, pause_with_object);
+                        permanent, not_session_specific, pause_with_object);
 }
 
 // 0x004756C0
@@ -232,11 +234,12 @@ void delete_finished_scripts()
 }
 
 // 0x00475790
-void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag, const char* /*nameString*/)
+void launch_script(uint32_t name, Struct* params, objects::Entity* object, bool replicate_flag,
+                   const char* /*nameString*/)
 {
     SymbolTableEntry* symbol = resolve_symbol(name);
-    if (!symbol || (symbol->type != kQbvalScriptBody && symbol->type != kQbvalNativeFunc &&
-                    symbol->type != kQbvalNativeMethod))
+    if (!symbol ||
+        (symbol->type != kQbvalScriptBody && symbol->type != kQbvalNativeFunc && symbol->type != kQbvalNativeMethod))
         return;
     if (replicate_flag)
         send_run_script_message(name, params, object);
@@ -341,8 +344,8 @@ void pause_spawned_scripts(bool pause)
 {
     for (Script* script = script_list_head(); script; script = script->following_) {
         if (is_spawned(script))
-            script->spawn_flags_ = static_cast<uint8_t>((script->spawn_flags_ & ~kScriptFlagPaused) |
-                                                        (pause ? kScriptFlagPaused : 0));
+            script->spawn_flags_ =
+                static_cast<uint8_t>((script->spawn_flags_ & ~kScriptFlagPaused) | (pause ? kScriptFlagPaused : 0));
     }
 }
 
@@ -393,8 +396,7 @@ void stop_scripts_by_tag(uint32_t id)
 {
     for (Script* script = script_list_head(); script;) {
         Script* next = script->following_;
-        if (is_spawned(script) &&
-            (script->spawn_id_ == id || script->unique_id_ == id || script->spawner_file_ == id))
+        if (is_spawned(script) && (script->spawn_id_ == id || script->unique_id_ == id || script->spawner_file_ == id))
             halt(script);
         script = next;
     }
@@ -449,4 +451,4 @@ void stop_scripts_using_object_that_refer_to(objects::Entity* object, uint32_t n
     }
 }
 
-} // namespace Script
+} // namespace script

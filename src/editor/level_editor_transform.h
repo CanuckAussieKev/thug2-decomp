@@ -120,8 +120,8 @@ uint32_t handle_colour(int handle, bool lit);
 
 // Typed values while dragging (Blender): an axis and the text typed.
 struct Typed {
-    int axis = -1;     // 0 / 1 / 2: X / Y / Z typed; -1: none
-    std::string text;  // digits, '.', a leading '-'
+    int axis = -1;              // 0 / 1 / 2: X / Y / Z typed; -1: none
+    std::string text;           // digits, '.', a leading '-'
     bool axis_changed_ = false; // (the axis was typed since the drag code last looked: TakeAxisChange)
 };
 // A key typed (a character: '0'-'9', '.', '-', 'x' / 'y' / 'z', '\b' for Backspace): whether it was taken. '-' turns the
@@ -151,7 +151,7 @@ void note_duplicate(Repeat* memory, Kind kind, const std::vector<uint32_t>& made
 // The step to repeat when the selection (`kind`, `selected`) is still those copies: their move and turn since they were
 // made (`pos`, `heading`: the selection's now). False: nothing to repeat (another selection).
 bool repeat_for(const Repeat& memory, Kind kind, const std::vector<uint32_t>& selected, V3 pos, float heading,
-               RepeatStep* step);
+                RepeatStep* step);
 // Where the next copy goes from a copy at `from` (the offset turned by the turn: a turned row makes an arc).
 V3 repeat_target(V3 from, const RepeatStep& step);
 Repeat& last_duplicate();
@@ -161,4 +161,4 @@ Repeat& last_duplicate();
 // grid are on the tool strip: level_editor_ui_strip.h.)
 void options_menu_items();
 
-} // namespace MenuSystem::level_editor::xform
+} // namespace frontend::level_editor::xform

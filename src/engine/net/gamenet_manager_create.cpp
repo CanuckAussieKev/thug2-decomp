@@ -99,14 +99,16 @@ Hub* Hub::make_new()
     reinterpret_cast<prefs::Preferences*>(net_options_)->prepare_all();
     auto* taunts = &prop<prefs::Preferences>(this, 0x110);
     taunts->prepare_all();
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x11C), reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
-    setup_list_sentinel(&prop<memory::ListNode>(this, 0x130), reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x11C),
+                        reinterpret_cast<uint32_t>(kPlayerHeadVtable)); // the players
+    setup_list_sentinel(&prop<memory::ListNode>(this, 0x130),
+                        reinterpret_cast<uint32_t>(kNewPlayerHeadVtable)); // the joining players
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x144), reinterpret_cast<uint32_t>(kQueuedScriptVtable));
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x158), reinterpret_cast<uint32_t>(kServerHeadVtable));
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x16C), reinterpret_cast<uint32_t>(kServerHeadVtable));
     script_flag_bits_ = 0;
-    tasks::PileUp* tasks =
-        reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    tasks::PileUp* tasks = reinterpret_cast<tasks::PileUp*>(
+        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
     net::Hub::sole()->set_msg_options(0x23, 1); // (the object update message's)
     client_app_ = nullptr;
     client1_ = nullptr;
@@ -138,7 +140,7 @@ Hub* Hub::make_new()
     prop<tasks::SchedulerTask*>(this, 0xEC) = new_task(this, get_code(&level_change_task), 0);
     prop<tasks::SchedulerTask*>(this, 0xF8) = new_task(this, code_address(carried_flags_task), 0);
     tasks->queue_job(prop<tasks::SchedulerTask*>(this, 0xC0));
-    prop<int>(this, 0x1A8) = 5; // the modem state shown last
+    prop<int>(this, 0x1A8) = 5;       // the modem state shown last
     prop<uint32_t>(this, 0x1948) = 0; // the created goals' message
     prop<uint32_t>(this, 0x194C) = 0;
     join_mode_ = 0;

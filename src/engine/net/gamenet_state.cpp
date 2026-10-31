@@ -26,20 +26,20 @@ T& prop(Hub* manager, uint32_t offset)
 }
 
 constexpr uint32_t kGameMode = 0x30;
-constexpr uint32_t kGameId = 0x38;           // uint8_t: the current game's number (the start info's)
-constexpr uint32_t kEndedGameId = 0x39;      // uint8_t: the game whose end was last reported
-constexpr uint32_t kCheatingNoted = 0x3B;    // bool
-constexpr uint32_t kFinalScores = 0x44;      // bool
-constexpr uint32_t kDrawNames = 0x47;        // bool
-constexpr uint32_t kStartInfoWords = 0x48;   // 8 words
+constexpr uint32_t kGameId = 0x38;         // uint8_t: the current game's number (the start info's)
+constexpr uint32_t kEndedGameId = 0x39;    // uint8_t: the game whose end was last reported
+constexpr uint32_t kCheatingNoted = 0x3B;  // bool
+constexpr uint32_t kFinalScores = 0x44;    // bool
+constexpr uint32_t kDrawNames = 0x47;      // bool
+constexpr uint32_t kStartInfoWords = 0x48; // 8 words
 constexpr uint32_t kCrownStartField = 0x68;
 constexpr uint32_t kCrown = 0x6C;
-constexpr uint32_t kHostTask = 0xF4;         // tasks::SchedulerTask*
-constexpr uint32_t kNetworkPrefs = 0x104;    // prefs::Preferences
-constexpr uint32_t kTauntPrefs = 0x110;      // prefs::Preferences
+constexpr uint32_t kHostTask = 0xF4;      // tasks::SchedulerTask*
+constexpr uint32_t kNetworkPrefs = 0x104; // prefs::Preferences
+constexpr uint32_t kTauntPrefs = 0x110;   // prefs::Preferences
 constexpr uint32_t kLastLeader = 0x1D0;
 constexpr uint32_t kLastLeadingTeam = 0x1D4;
-constexpr uint32_t kGoalsMessage = 0x1D8;    // the level, then the goals (6000 bytes)
+constexpr uint32_t kGoalsMessage = 0x1D8; // the level, then the goals (6000 bytes)
 constexpr uint32_t kGoalsSize = 0x1948;
 constexpr uint32_t kGoalSetField = 0x194C;
 constexpr uint32_t kLobbyId = 0x9950;
@@ -47,44 +47,44 @@ constexpr uint32_t kPendingData = 0xFDF8;
 constexpr uint32_t kPendingDataSize = 0xFDFC;
 
 constexpr int kGoalsBufferSize = 6000;
-constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
+constexpr uint16_t kLanPort = 5153; // the LAN lobby's port
 
 // Messages.
 constexpr uint8_t kMsgServerQuery = 0x11;
 constexpr uint8_t kMsgReadyResponse = 0x26;
 constexpr uint8_t kMsgGameEnded = 0x59;
-constexpr uint8_t kGroupGame = 8;            // the sequenced group of the game's messages
+constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 
 // Checksums.
-constexpr uint32_t kChecksum = 0x21902065;        // checksum
-constexpr uint32_t kRankTest = 0x2120910C;        // rank_test
-constexpr uint32_t kRankTestLess = 0x3C6F2B1A;    // rank_test_less
-constexpr uint32_t kRankTestGreater = 0x46D173AB; // rank_test_greater
-constexpr uint32_t kRankLimit = 0xAD6D5802;       // rank_limit
-constexpr uint32_t kSkillLevel = 0x403DA0D0;      // skill_level
-constexpr uint32_t kNumPlayers = 0x1CB2A6B0;      // num_players
-constexpr uint32_t kTeamMode = 0xB9D44C2F;        // team_mode
-constexpr uint32_t kNumObservers = 0xA8DA5CB7;    // num_observers
-constexpr uint32_t kLevel = 0x651533EC;           // level
+constexpr uint32_t kChecksum = 0x21902065;           // checksum
+constexpr uint32_t kRankTest = 0x2120910C;           // rank_test
+constexpr uint32_t kRankTestLess = 0x3C6F2B1A;       // rank_test_less
+constexpr uint32_t kRankTestGreater = 0x46D173AB;    // rank_test_greater
+constexpr uint32_t kRankLimit = 0xAD6D5802;          // rank_limit
+constexpr uint32_t kSkillLevel = 0x403DA0D0;         // skill_level
+constexpr uint32_t kNumPlayers = 0x1CB2A6B0;         // num_players
+constexpr uint32_t kTeamMode = 0xB9D44C2F;           // team_mode
+constexpr uint32_t kNumObservers = 0xA8DA5CB7;       // num_observers
+constexpr uint32_t kLevel = 0x651533EC;              // level
 constexpr uint32_t kFireballDifficulty = 0xCE238F5D; // fireball_difficulty
-constexpr uint32_t kShowNames = 0x0F7DD263;       // show_names
-constexpr uint32_t kBooleanTrue = 0xF81BC89B;     // boolean_true
-constexpr uint32_t kTeamsNone = 0x6A220326;       // teams_none
-constexpr uint32_t kTeamsTwo = 0x768E5A1D;        // teams_two
-constexpr uint32_t kTeamsThree = 0x4D04DFA7;      // teams_three
-constexpr uint32_t kCtfGameType = 0x15421B73;     // ctf_game_type
-constexpr uint32_t kTimedCtf = 0x938AB24B;        // timed_ctf
-constexpr uint32_t kStopAtZero = 0x48E748B5;      // stop_at_zero
+constexpr uint32_t kShowNames = 0x0F7DD263;          // show_names
+constexpr uint32_t kBooleanTrue = 0xF81BC89B;        // boolean_true
+constexpr uint32_t kTeamsNone = 0x6A220326;          // teams_none
+constexpr uint32_t kTeamsTwo = 0x768E5A1D;           // teams_two
+constexpr uint32_t kTeamsThree = 0x4D04DFA7;         // teams_three
+constexpr uint32_t kCtfGameType = 0x15421B73;        // ctf_game_type
+constexpr uint32_t kTimedCtf = 0x938AB24B;           // timed_ctf
+constexpr uint32_t kStopAtZero = 0x48E748B5;         // stop_at_zero
 // num_0 ... num_9
 constexpr uint32_t kNum[] = {0x18CBB824, 0x6FCC88B2, 0xF6C5D908, 0x81C2E99E, 0x1FA67C3D,
                              0x68A14CAB, 0xF1A81D11, 0x86AF2D87, 0x16103016, 0x61170080};
 // The game modes.
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;      // netgoalattack
-constexpr uint32_t kKing = 0x5D32129C;               // king
-constexpr uint32_t kNetKing = 0x6EF8FDA0;            // netking
-constexpr uint32_t kNetScoreChallenge = 0x1498240A;  // netscorechallenge
-constexpr uint32_t kScoreChallenge = 0xF135ECB6;     // scorechallenge
-constexpr uint32_t kNetCtf = 0x6C5FF266;             // netctf
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;     // netgoalattack
+constexpr uint32_t kKing = 0x5D32129C;              // king
+constexpr uint32_t kNetKing = 0x6EF8FDA0;           // netking
+constexpr uint32_t kNetScoreChallenge = 0x1498240A; // netscorechallenge
+constexpr uint32_t kScoreChallenge = 0xF135ECB6;    // scorechallenge
+constexpr uint32_t kNetCtf = 0x6C5FF266;            // netctf
 
 // The checksum the network preference `name` is set to. On a miss (asserted, so the debug message's empty
 // function is called) the original reads its uninitialised local: the slot ECX was pushed into - the manager.
@@ -325,10 +325,7 @@ void* Hub::get_pending_data(uint32_t* size)
 }
 
 // 0x00533380
-bool Hub::has_created_goals()
-{
-    return get_goal_editor()->count_complete_goals(0) > 0;
-}
+bool Hub::has_created_goals() { return get_goal_editor()->count_complete_goals(0) > 0; }
 
 // 0x005333A0
 void Hub::prepare_created_goals(uint32_t level)
@@ -336,8 +333,8 @@ void Hub::prepare_created_goals(uint32_t level)
     prop<uint32_t>(this, kGoalSetField) = level;
     prop<uint32_t>(this, kGoalsMessage) = level;
     park_editing::ObjectiveAuthoring* editor = get_goal_editor();
-    int size = static_cast<int>(editor->write_level_goals_to_buffer(
-        level, &prop<uint8_t>(this, kGoalsMessage + 4), static_cast<uint32_t>(kGoalsBufferSize)));
+    int size = static_cast<int>(editor->write_level_goals_to_buffer(level, &prop<uint8_t>(this, kGoalsMessage + 4),
+                                                                    static_cast<uint32_t>(kGoalsBufferSize)));
     prop<int>(this, kGoalsSize) = size + 4;
 }
 

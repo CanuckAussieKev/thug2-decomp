@@ -22,4 +22,4 @@ extern bool g_fog_setting;
 extern bool g_distance_clipping;
 
 extern uint8_t g_hq_shadows;
-} // namespace Nx
+} // namespace render

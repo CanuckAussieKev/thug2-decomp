@@ -98,10 +98,18 @@ V3 get_up() { return {0.0f, 1.0f, 0.0f}; }
 void side_frame(const Spec& s, int side, V3* out, V3* e0, V3* e1)
 {
     switch (side) {
-    case kMinusX: *out = {-1, 0, 0}, *e0 = {s.x0, 0, s.z0}, *e1 = {s.x0, 0, s.z1}; break;
-    case kPlusX: *out = {1, 0, 0}, *e0 = {s.x1, 0, s.z0}, *e1 = {s.x1, 0, s.z1}; break;
-    case kMinusZ: *out = {0, 0, -1}, *e0 = {s.x0, 0, s.z0}, *e1 = {s.x1, 0, s.z0}; break;
-    default: *out = {0, 0, 1}, *e0 = {s.x0, 0, s.z1}, *e1 = {s.x1, 0, s.z1}; break;
+    case kMinusX:
+        *out = {-1, 0, 0}, *e0 = {s.x0, 0, s.z0}, *e1 = {s.x0, 0, s.z1};
+        break;
+    case kPlusX:
+        *out = {1, 0, 0}, *e0 = {s.x1, 0, s.z0}, *e1 = {s.x1, 0, s.z1};
+        break;
+    case kMinusZ:
+        *out = {0, 0, -1}, *e0 = {s.x0, 0, s.z0}, *e1 = {s.x1, 0, s.z0};
+        break;
+    default:
+        *out = {0, 0, 1}, *e0 = {s.x0, 0, s.z1}, *e1 = {s.x1, 0, s.z1};
+        break;
     }
 }
 
@@ -166,7 +174,8 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, float foot, float top
         // (the surface's normal: out by the rise, up by the run)
         V3 hint = out * dy + get_up() * -dd;
         uint16_t flags = ramp == Ramp::kQuarter && dy >= -dd ? kFlagVert : kFlagRamp;
-        b->get_quad(get_at(e0 + out * d0, y0), get_at(e1 + out * d0, y0), get_at(e1 + out * d1, y1), get_at(e0 + out * d1, y1), hint, flags);
+        b->get_quad(get_at(e0 + out * d0, y0), get_at(e1 + out * d0, y0), get_at(e1 + out * d1, y1),
+                    get_at(e0 + out * d1, y1), hint, flags);
     }
     if (!cheeks)
         return;
@@ -205,7 +214,8 @@ Mesh get_build(const Spec& spec)
         }
     } else {
         float floor = s.base - s.height;
-        b.get_quad({s.x0, floor, s.z0}, {s.x1, floor, s.z0}, {s.x1, floor, s.z1}, {s.x0, floor, s.z1}, get_up(), kFlagDeck);
+        b.get_quad({s.x0, floor, s.z0}, {s.x1, floor, s.z0}, {s.x1, floor, s.z1}, {s.x0, floor, s.z1}, get_up(),
+                   kFlagDeck);
         for (int side = 0; side < 4; ++side) {
             V3 out, e0, e1;
             side_frame(s, side, &out, &e0, &e1);
@@ -385,15 +395,16 @@ std::string link_record(const Spec& s, const char* material_name)
     std::snprintf(colour, sizeof(colour), "%08X", s.colour);
     char material[16];
     std::snprintf(material, sizeof(material), "0x%08X", s.material);
-    std::string material_text = material_name && *material_name && valid_word(material_name) &&
-                                       name_checksum_for(material_name) == s.material
-                                   ? std::string(material_name)
-                                   : std::string(material);
+    std::string material_text =
+        material_name && *material_name && valid_word(material_name) && name_checksum_for(material_name) == s.material
+            ? std::string(material_name)
+            : std::string(material);
     out << s.name << (s.lower ? " lower" : " raise") << " rect=" << get_number(s.x0) << ',' << get_number(s.z0) << ','
-        << get_number(s.x1) << ',' << get_number(s.z1) << " base=" << get_number(s.base) << " height=" << get_number(s.height)
-        << " ramps=" << ramp_letter(s.ramps[0]) << ',' << ramp_letter(s.ramps[1]) << ',' << ramp_letter(s.ramps[2]) << ','
-        << ramp_letter(s.ramps[3]) << " length=" << get_number(s.length) << " material=" << material_text
-        << " uv=" << get_number(s.uv) << " color=" << colour << " terrain=" << s.terrain;
+        << get_number(s.x1) << ',' << get_number(s.z1) << " base=" << get_number(s.base)
+        << " height=" << get_number(s.height) << " ramps=" << ramp_letter(s.ramps[0]) << ',' << ramp_letter(s.ramps[1])
+        << ',' << ramp_letter(s.ramps[2]) << ',' << ramp_letter(s.ramps[3]) << " length=" << get_number(s.length)
+        << " material=" << material_text << " uv=" << get_number(s.uv) << " color=" << colour
+        << " terrain=" << s.terrain;
     if (!s.hides.empty()) {
         out << " hides=";
         for (size_t i = 0; i < s.hides.size(); ++i) {
@@ -530,4 +541,4 @@ float snap_to(float value, float grid)
     return std::floor(value / grid + 0.5f) * grid;
 }
 
-} // namespace MenuSystem::level_editor::Ground
+} // namespace frontend::level_editor::ground

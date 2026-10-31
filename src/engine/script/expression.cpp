@@ -21,14 +21,10 @@ Component g_eval_result;
 namespace {
 
 // The operators' precedences, by operator.
-int g_operator_precedence[74]{
-    -1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98,
-    99, 100, -1, -1, -1, -1, 80, 79, 78, 77, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1, 58, 60, 59, 90, 89, -1, -1, -1, -1, -1,
-    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-    -1, -1};
+int g_operator_precedence[74]{-1, -1, -1, -1, -1, 100, -1, 76, 100, -1, 98, 98, 99, 100, -1, -1, -1, -1, 80,
+                              79, 78, 77, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, -1, -1,
+                              -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, 58, 60,  59, 90, 89, -1, -1,
+                              -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1};
 int precedence(int op) { return g_operator_precedence[op]; }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
@@ -242,7 +238,7 @@ bool greater_than(Component* a, Component* b)
     case kQbvalString:
     case kQbvalInlineText:
         return type_b == type_a && std::strlen(reinterpret_cast<const char*>(value_a)) >
-                                     std::strlen(reinterpret_cast<const char*>(value_b));
+                                       std::strlen(reinterpret_cast<const char*>(value_b));
     case kQbvalStruct:
     case kQbvalStructRef:
         // b is a subset of a
@@ -265,7 +261,8 @@ void make_reference(Component* component)
     if (component->kind_tag() == kQbvalStruct)
         component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (kQbvalStructRef << 1));
     else if (component->kind_tag() == kQbvalArray)
-        component->type_and_flag_ = static_cast<uint8_t>((component->type_and_flag_ & 1) | (kEsymboltypeArraypointer << 1));
+        component->type_and_flag_ =
+            static_cast<uint8_t>((component->type_and_flag_ & 1) | (kEsymboltypeArraypointer << 1));
 }
 
 // 0x0046D1A0
@@ -354,10 +351,7 @@ void ValueResolver::intake(const Component* value)
 }
 
 // 0x0046D370
-void ValueResolver::open_bracket()
-{
-    ++operators_[operator_top_].open_parentheses_;
-}
+void ValueResolver::open_bracket() { ++operators_[operator_top_].open_parentheses_; }
 
 // 0x0046EB70
 void ValueResolver::intake(int op)
@@ -532,13 +526,15 @@ void ValueResolver::execute()
                 structure->append_structure_if_any(a->structure);
                 result.structure->append_structure_if_any(b->structure);
             } else {
-                error("Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
+                error(
+                    "Structure add operator requires 2nd arg to be a structure"); // "Structure add operator requires 2nd arg to be a structure"
             }
             break;
         case kQbvalArray:
         case kEsymboltypeArraypointer: {
             if (!is_array(type_b)) {
-                error("Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
+                error(
+                    "Array add operator requires 2nd arg to be an array as well"); // "Array add operator requires 2nd arg to be an array as well"
                 break;
             }
             Array* array = alloc_script_array();
@@ -574,7 +570,8 @@ void ValueResolver::execute()
             else if (type_b == kQbvalFloat)
                 set_result_float(as_double(a->integer) - as_double(b->float_value_));
             else
-                error("Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
+                error(
+                    "Second arg cannot be subtracted from an integer"); // "Second arg cannot be subtracted from an integer"
             break;
         case kQbvalFloat:
             if (type_b == kQbvalInteger)
@@ -600,7 +597,8 @@ void ValueResolver::execute()
                 result.vector->y = a->vector->y - b->vector->y;
                 result.vector->z = a->vector->z - b->vector->z;
             } else {
-                error("Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
+                error(
+                    "Second arg cannot be subtracted from a vector"); // "Second arg cannot be subtracted from a vector"
             }
             break;
         case kQbvalStruct:
@@ -673,7 +671,8 @@ void ValueResolver::execute()
                 break;
             }
             default:
-                error("Second arg cannot be multiplied by an integer"); // "Second arg cannot be multiplied by an integer"
+                error(
+                    "Second arg cannot be multiplied by an integer"); // "Second arg cannot be multiplied by an integer"
                 break;
             }
             break;
@@ -816,7 +815,8 @@ void ValueResolver::execute()
                 const Vector* v = b->vector;
                 set_result_float(as_double(v->z) * u->z + as_double(v->y) * u->y + as_double(v->x) * u->x);
             } else {
-                error("Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
+                error(
+                    "Vector can only be dot producted with another vector"); // "Vector can only be dot producted with another vector"
             }
             break;
         case kQbvalPair:
@@ -825,7 +825,8 @@ void ValueResolver::execute()
                 const Pair* v = b->pair;
                 set_result_float(as_double(v->y) * u->y + as_double(v->x) * u->x);
             } else {
-                error("Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"
+                error(
+                    "Pair can only be dot producted with another pair"); // "Pair can only be dot producted with another pair"
             }
             break;
         case kQbvalStruct:
@@ -835,7 +836,8 @@ void ValueResolver::execute()
                 if (Component* member = a->structure->find_last_component(b->checksum))
                     duplicate_component(&result, member, type_a == kQbvalStructRef);
             } else {
-                error("Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
+                error(
+                    "Structure dot operator requires 2nd arg to be a name"); // "Structure dot operator requires 2nd arg to be a name"
             }
             break;
         default:
@@ -846,7 +848,8 @@ void ValueResolver::execute()
 
     case kOperatorArrayElement:
         if (!is_array(type_a)) {
-            error("Array element operator not supported for this type"); // "Array element operator not supported for this type"
+            error(
+                "Array element operator not supported for this type"); // "Array element operator not supported for this type"
         } else if (type_b != kQbvalInteger) {
             error("[] index must be an integer"); // "[] index must be an integer"
         } else if (b->raw >= a->array->extent_) {
@@ -854,7 +857,8 @@ void ValueResolver::execute()
         } else {
             copy_array_element_to_component(a->array, b->raw, &result, type_a == kEsymboltypeArraypointer);
             if ((result.type_and_flag_ & 0xFE) == 0)
-                error("Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
+                error(
+                    "Array type cannot be accessed using [] yet ..."); // "Array type cannot be accessed using [] yet ..."
         }
         break;
 
@@ -879,14 +883,17 @@ void ValueResolver::execute()
         --operator_top_;
 }
 
-} // namespace Script
+} // namespace script
 
 namespace {
 
 using script::ValueResolver;
 
 struct ComponentAdapters {
-    bool less_than(script::Component* other) { return script::less_than(reinterpret_cast<script::Component*>(this), other); }
+    bool less_than(script::Component* other)
+    {
+        return script::less_than(reinterpret_cast<script::Component*>(this), other);
+    }
     bool greater_than(script::Component* other)
     {
         return script::greater_than(reinterpret_cast<script::Component*>(this), other);

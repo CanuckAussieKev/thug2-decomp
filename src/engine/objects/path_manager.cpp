@@ -17,9 +17,9 @@ PathManager* g_path_manager;
 
 namespace {
 
-constexpr uint32_t kPathNum = 0x9C91C3CA;   // PathNum
-constexpr uint32_t kClass = 0x12B4E660;     // class
-constexpr uint32_t kType = 0x7321A8D6;      // type
+constexpr uint32_t kPathNum = 0x9C91C3CA; // PathNum
+constexpr uint32_t kClass = 0x12B4E660;   // class
+constexpr uint32_t kType = 0x7321A8D6;    // type
 
 PathManager*& instance_pointer() { return g_path_manager; }
 
@@ -240,4 +240,4 @@ bool cfunc_allocate_path_man_memory(script::Struct* params, script::Script* /*sc
     return true;
 }
 
-} // namespace Obj
+} // namespace objects

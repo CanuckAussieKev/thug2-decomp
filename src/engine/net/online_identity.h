@@ -23,5 +23,4 @@ const char* game_key();
 // Report the identity when the settings differ from the game's own (once, at start-up).
 void set_up_online_identity();
 
-
-} // namespace Net
+} // namespace net

@@ -24,10 +24,10 @@ using namespace physics;
 
 namespace {
 
-constexpr uint32_t kCoastDrag = 0x78F80EC4;   // Physics_Rolling_Friction
-constexpr uint32_t kGetOffEvent = 0x5E27200A;       // (broadcast when the skater gets off its board; name not recovered)
-constexpr uint32_t kRailWaitName = 0xE4412EB7;      // (a script value: the rail wait, ms; name not recovered)
-constexpr uint32_t kTrackingName = 0x19FB78FA;      // (a script value: the tracking printout on; name not recovered)
+constexpr uint32_t kCoastDrag = 0x78F80EC4;    // Physics_Rolling_Friction
+constexpr uint32_t kGetOffEvent = 0x5E27200A;  // (broadcast when the skater gets off its board; name not recovered)
+constexpr uint32_t kRailWaitName = 0xE4412EB7; // (a script value: the rail wait, ms; name not recovered)
+constexpr uint32_t kTrackingName = 0x19FB78FA; // (a script value: the tracking printout on; name not recovered)
 const char* const kProjectileControl = "projectile_control"; // "projectile_control"
 
 // The components it finds in Finalize (each one's type, then where it's kept).
@@ -55,8 +55,8 @@ constexpr uint32_t kGroundNormalB = 0x68;
 constexpr uint32_t kGroundNormalC = 0x78;
 constexpr uint32_t kStateTime = 0x90;
 constexpr uint32_t kOldState = 0x94;
-constexpr uint32_t kFeelerObject = 0x140;          // (the feeler +0xA8's smart pointer)
-constexpr uint32_t kGroundFeelerObject = 0x1F0;    // (the feeler +0x158's)
+constexpr uint32_t kFeelerObject = 0x140;       // (the feeler +0xA8's smart pointer)
+constexpr uint32_t kGroundFeelerObject = 0x1F0; // (the feeler +0x158's)
 constexpr uint32_t kRailLeft = 0x234;
 constexpr uint32_t kRailLeftAt = 0x238;
 constexpr uint32_t kRailWait = 0x23C;
@@ -72,7 +72,7 @@ constexpr uint32_t kAirStart = 0x380;
 constexpr uint32_t kAirEnd = 0x384;
 constexpr uint32_t kGetOffPending = 0x4F0;
 constexpr uint32_t kContactMeshStore = 0x4F4;
-constexpr uint32_t kSfxModuleSlot = 0x1514;       // (+0x18 the state, +0x1C the terrain, +0x1E sliding)
+constexpr uint32_t kSfxModuleSlot = 0x1514; // (+0x18 the state, +0x1C the terrain, +0x1E sliding)
 
 // The state component's (+0x1528) flags used here.
 constexpr uint32_t kFlagFlipped = 0x28;
@@ -84,10 +84,7 @@ constexpr uint32_t kFlagD8 = 0xD8;
 
 enum : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4 };
 
-objects::RiderPoseState* state_of(void* component)
-{
-    return get_at<objects::RiderPoseState*>(component, kTimedFlags);
-}
+objects::RiderPoseState* state_of(void* component) { return get_at<objects::RiderPoseState*>(component, kTimedFlags); }
 uint8_t* sound_of(void* component) { return get_at<uint8_t*>(component, kSfxModuleSlot); }
 objects::MoveExecutor* trick_of(void* component) { return get_at<objects::MoveExecutor*>(component, kSkaterComponent); }
 void release_pointer(void* component, uint32_t offset)
@@ -103,8 +100,8 @@ void __cdecl tracking_print(int index, const maths::Vec4* a, const maths::Vec4* 
     if (!script::fetch_int_value(kTrackingName))
         return;
     debug::printf("Tracking%d %.2f,%.2f,%.2f,%.2f,%.2f,%.2f\n", index, static_cast<double>(a->x),
-                static_cast<double>(a->y), static_cast<double>(a->z), static_cast<double>(b->x),
-                static_cast<double>(b->y), static_cast<double>(b->z));
+                  static_cast<double>(a->y), static_cast<double>(a->z), static_cast<double>(b->x),
+                  static_cast<double>(b->y), static_cast<double>(b->z));
 }
 
 // 0x004FC3C0
@@ -268,7 +265,7 @@ void SkaterPhysicsModule::reset_to_air(void*)
     set_physics_state(kAir);
 }
 
-} // namespace Skater
+} // namespace skater
 
 namespace maths {
 
@@ -281,7 +278,7 @@ Vec4& Vec4::clamp_tiny_to_nothing(float length)
     return *this;
 }
 
-} // namespace Mth
+} // namespace maths
 
 namespace objects {
 
@@ -295,6 +292,6 @@ bool RiderBoardPhysics::is_on_foot()
     return !state->in_vehicle_ && state->physics_mode_ == 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using skater::SkaterPhysicsModule;

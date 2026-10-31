@@ -19,15 +19,14 @@ namespace render {
 
 // One of a model's geoms (0x18 bytes; what a node of the model's geom list holds).
 struct ModelGeom {
-    void* geom;            // +0x00: the engine's geom (CGeom; on PC a PcGeom)
-    uint8_t* textures;     // +0x04: the scene's texture dictionary (its +4; null for a geom added as it is)
-    uint32_t name;         // +0x08: the geom's name (a checksum; 0: none)
-    uint8_t* scene;        // +0x0C: the scene loaded from a model file (the model's own; null otherwise)
-    uint32_t asset_name_;    // +0x10: the asset manager's scene (its checksum; 0 otherwise)
-    uint8_t* bone_volumes_;  // +0x14: the bone volumes (the first geom's only)
+    void* geom;             // +0x00: the engine's geom (CGeom; on PC a PcGeom)
+    uint8_t* textures;      // +0x04: the scene's texture dictionary (its +4; null for a geom added as it is)
+    uint32_t name;          // +0x08: the geom's name (a checksum; 0: none)
+    uint8_t* scene;         // +0x0C: the scene loaded from a model file (the model's own; null otherwise)
+    uint32_t asset_name_;   // +0x10: the asset manager's scene (its checksum; 0 otherwise)
+    uint8_t* bone_volumes_; // +0x14: the bone volumes (the first geom's only)
 };
-static_assert(offsetof(ModelGeom, asset_name_) == 0x10 && sizeof(ModelGeom) == 0x18,
-              "layout must match the original");
+static_assert(offsetof(ModelGeom, asset_name_) == 0x10 && sizeof(ModelGeom) == 0x18, "layout must match the original");
 
 // RenderModel::flag_bits_ (the flag setters take a byte and keep its low bit - the original's shifts and masks)
 enum : uint8_t {
@@ -107,8 +106,8 @@ public:
     // 0x004935E0: a geom made from a model file `fileName` and added: through the asset manager (`via_resource_store`:
     // its .tex then the file, waited for unless `by_name` - then only looked up), else the scene loaded with its own
     // textures (0x0049F180 / 0x0048C3D0). Nodes and geom as add_asset_geom. True when added.
-    bool add_file_geom(const char* file_name, uint32_t name, bool via_resource_store, int tex_dict_offset, bool force_tex_dict,
-                     bool multicolor, bool default_heap, bool by_name);
+    bool add_file_geom(const char* file_name, uint32_t name, bool via_resource_store, int tex_dict_offset,
+                       bool force_tex_dict, bool multicolor, bool default_heap, bool by_name);
     // 0x004938E0: an existing geom added as it is (named `name`). True when added (false: no node).
     bool add_geom(void* geom, uint32_t name, bool default_heap);
     // 0x004939E0: a line tested against the bone volumes of each geom that has some (0x0048B580) - the hit nearest
@@ -181,22 +180,22 @@ public:
     // 0x00494BA0: every geom deleted (their scenes too, if the model's) and the list emptied.
     void drop_geoms();
 
-    void** vtable;                // +0x00
-    int display_mode_;            // +0x04
-    int bone_total_;               // +0x08
+    void** vtable;               // +0x00
+    int display_mode_;           // +0x04
+    int bone_total_;             // +0x08
     uint8_t* skin_palette_;      // +0x0C
-    ModelGeomNode* geoms_;      // +0x10: the list's head (a ring of nodes: std::list)
-    uint32_t geom_list_size_;      // +0x14
-    uint32_t visible_geoms_;      // +0x18: a bit per geom (in list order, modulo 32)
-    maths::Vec4 size_factor_;          // +0x1C
-    uint8_t* lights_ptr_;           // +0x2C
-    uint32_t source_path_;          // +0x30: the first geom's (a checksum; "none" when made)
+    ModelGeomNode* geoms_;       // +0x10: the list's head (a ring of nodes: std::list)
+    uint32_t geom_list_size_;    // +0x14
+    uint32_t visible_geoms_;     // +0x18: a bit per geom (in list order, modulo 32)
+    maths::Vec4 size_factor_;    // +0x1C
+    uint8_t* lights_ptr_;        // +0x2C
+    uint32_t source_path_;       // +0x30: the first geom's (a checksum; "none" when made)
     maths::Vec4 enclosing_ball_; // +0x34 (with kModelSphereValid)
-    uint8_t flag_bits_;              // +0x44
+    uint8_t flag_bits_;          // +0x44
     uint8_t pad45;
-    int16_t geom_total_;           // +0x46
-    int16_t num_file_geoms_;       // +0x48: geoms with a scene of their own
-    int16_t num_asset_geoms_;      // +0x4A: geoms with the asset manager's scene
+    int16_t geom_total_;      // +0x46
+    int16_t num_file_geoms_;  // +0x48: geoms with a scene of their own
+    int16_t num_asset_geoms_; // +0x4A: geoms with the asset manager's scene
 };
 static_assert(offsetof(RenderModel, geoms_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
                   offsetof(RenderModel, lights_ptr_) == 0x2C && offsetof(RenderModel, enclosing_ball_) == 0x34 &&
@@ -204,4 +203,4 @@ static_assert(offsetof(RenderModel, geoms_) == 0x10 && offsetof(RenderModel, siz
                   sizeof(RenderModel) == 0x4C,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

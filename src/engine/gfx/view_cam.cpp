@@ -67,7 +67,8 @@ ViewCam* ViewCam::make_new()
         far_clip_ = static_cast<float>(distance * 30.0);
     }
     // NOT ORIGINAL - [Graphics] draw_distance_scale (engine/gfx/graphics_options.h).
-    far_clip_ = render::graphics_options::get_scaled(far_clip_, render::graphics_options::get_pull().draw_distance_scale_);
+    far_clip_ =
+        render::graphics_options::get_scaled(far_clip_, render::graphics_options::get_pull().draw_distance_scale_);
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     old_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
     return this;
@@ -185,11 +186,17 @@ void ViewCam::change_h_fov(float degrees)
 }
 
 namespace {
-static VtableSlot g_vtable_slots[] = {&gfx::ViewCam::scalar_delete, &objects::Entity::change_traits,
-                static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::Entity::invoke_method_by_name),
-                &gfx::ViewCam::invoke_method_by_name, stubs::ignore_argument, &objects::Entity::pass_event_to_script,
-                &objects::Entity::flag_as_dead, stubs::return_true};
+static VtableSlot g_vtable_slots[] = {
+    &gfx::ViewCam::scalar_delete,
+    &objects::Entity::change_traits,
+    static_cast<bool (objects::Entity::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::Entity::invoke_method_by_name),
+    &gfx::ViewCam::invoke_method_by_name,
+    stubs::ignore_argument,
+    &objects::Entity::pass_event_to_script,
+    &objects::Entity::flag_as_dead,
+    stubs::return_true};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 } // namespace
 
-} // namespace Gfx
+} // namespace gfx

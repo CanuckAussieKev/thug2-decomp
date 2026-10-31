@@ -111,7 +111,8 @@ int Router::dispatch_msg(InboundMsgCtx* context)
         return guarded;
     lists::Hunt<NoteHandler> search;
     NoteHandler* next;
-    for (NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler; handler = next) {
+    for (NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler;
+         handler = next) {
         next = search.following_item();
         if ((handler->mode_bits_ & context->wire_options_) != context->wire_options_)
             continue;
@@ -192,4 +193,4 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
     return kResultPassOn;
 }
 
-} // namespace Net
+} // namespace net

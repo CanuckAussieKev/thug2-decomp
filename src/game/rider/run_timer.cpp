@@ -21,14 +21,10 @@
 namespace objects {
 
 uint32_t g_run_timer_state_names[4]{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA};
-uint32_t g_run_timer_member_functions[42]{
-            0x82445966, 0x8BCE7E66, 0, 0, 0, 0,
-            0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
-            0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0,
-            0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
-            0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0,
-            0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
-            0, 0x8BCE7E66, 0, 0, 0, 0};
+uint32_t g_run_timer_member_functions[42]{0x82445966, 0x8BCE7E66, 0, 0, 0, 0, 0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
+                                          0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0, 0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
+                                          0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0, 0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
+                                          0,          0x8BCE7E66, 0, 0, 0, 0};
 
 namespace {
 
@@ -47,7 +43,10 @@ constexpr float kResumeShare = 0.125f; // 0x0064B960 (1 / kMaxResumes)
 // The state names cur_phase_ shows as (0x0064C080).
 const uint32_t* mode_label_keys() { return g_run_timer_state_names; }
 
-uint32_t get_skater_index(GameEntity* skater) { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC); }
+uint32_t get_skater_index(GameEntity* skater)
+{
+    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(skater) + 0x2BC);
+}
 uint32_t timer_script_id(GameEntity* skater) { return get_skater_index(skater) + kRunTimerScriptId; }
 
 // The skater's physics value `name`.
@@ -81,7 +80,7 @@ ObjectModule* __cdecl RiderRunClock::fabricate()
 void __cdecl RiderRunClock::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterRunTimer), g_run_timer_member_functions,
-                                        0x18);
+                                           0x18);
 }
 
 // 0x00518260
@@ -176,7 +175,7 @@ bool RiderRunClock::unpause(script::Struct*, script::Script*)
 bool RiderRunClock::get_factor_complete(script::Struct*, script::Script* script)
 {
     script->args_->push_float(kFactorComplete,
-                               static_cast<float>(seconds_remaining_ / physics_value(entity_, kDuration)));
+                              static_cast<float>(seconds_remaining_ / physics_value(entity_, kDuration)));
     return true;
 }
 // 0x00518540
@@ -200,25 +199,25 @@ bool RiderRunClock::chain_began(script::Struct*, script::Script*)
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::RiderRunClock::teardown,
-         &objects::RiderRunClock::tick_frame,
-         &RiderStateReset::configure_from_data,
-         &objects::RiderRunClock::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         &objects::RiderRunClock::fetch_diagnostics,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::RiderRunClock::tick_frame,
+                                      &RiderStateReset::configure_from_data,
+                                      &objects::RiderRunClock::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      &objects::RiderRunClock::fetch_diagnostics,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

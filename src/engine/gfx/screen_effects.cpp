@@ -121,12 +121,20 @@ bool ScreenEffects::set_dof_params(script::Struct* params, script::Script*)
 }
 
 namespace {
-static VtableSlot g_screen_effects_vtable_slots[] = {&render::ScreenEffects::teardown, &_purecall,
-                &_purecall, &_purecall, &_purecall,
-                &_purecall, &_purecall, &_purecall,
-                &_purecall, &_purecall, &_purecall,
-                &_purecall, &_purecall};
+static VtableSlot g_screen_effects_vtable_slots[] = {&render::ScreenEffects::teardown,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall,
+                                                     &_purecall};
 void** const kScreenEffectsVtable = reinterpret_cast<void**>(g_screen_effects_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

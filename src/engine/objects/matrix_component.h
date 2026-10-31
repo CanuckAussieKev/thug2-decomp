@@ -35,4 +35,4 @@ public:
 static_assert(offsetof(MatrixComponent, basis_frame_) == 0x18 && sizeof(MatrixComponent) == 0x58,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

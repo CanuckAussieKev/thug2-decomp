@@ -20,8 +20,7 @@ void fix_nick(char* new_nick, const char* old_nick)
     *new_nick = '\0';
 }
 
-} // namespace GameSpy
-
+} // namespace game_spy
 
 #pragma warning(push)
 #pragma warning(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN again)
@@ -78,7 +77,8 @@ void set_master_server(const char* game_name)
 {
     uint32_t hash = 0;
     for (const char* c = game_name; *c; ++c)
-        hash = static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(*c)));
+        hash =
+            static_cast<uint32_t>(static_cast<int>(hash) * -1664117991 + std::tolower(static_cast<unsigned char>(*c)));
     std::snprintf(s_master_server, sizeof(s_master_server), "%s.ms%d.%s", game_name, static_cast<int>(hash % 20),
                   s_domain);
     SBOverrideMasterServer = s_master_server;
@@ -136,10 +136,10 @@ int cd_key_init(int game_id) { return gcd_init(game_id); }
 void cd_key_shutdown() { gcd_shutdown(); }
 void cd_key_think() { gcd_think(); }
 void cd_key_authenticate_user(int game_id, int local_id, uint32_t ip, const char* challenge, const char* response,
-                           HookFn callback, void* instance)
+                              HookFn callback, void* instance)
 {
-    gcd_authenticate_user(game_id, local_id, ip, challenge, response, as<AuthCallBackFn>(callback), &ignore_refresh_auth,
-                          instance);
+    gcd_authenticate_user(game_id, local_id, ip, challenge, response, as<AuthCallBackFn>(callback),
+                          &ignore_refresh_auth, instance);
 }
 void cd_key_disconnect_user(int game_id, int local_id) { gcd_disconnect_user(game_id, local_id); }
 void cd_key_disconnect_all(int game_id) { gcd_disconnect_all(game_id); }
@@ -151,9 +151,9 @@ void cd_key_compute_response(const char* cd_key, const char* challenge, char* re
 
 // --- qr2 ---
 
-int call_qr2_init(void* qrec, const char* ip, int base_port, const char* game_name, const char* secret_key, int is_public,
-            int nat_negotiate, HookFn server_key, HookFn player_key, HookFn team_key, HookFn key_list,
-            HookFn count, HookFn add_error, void* user_data)
+int call_qr2_init(void* qrec, const char* ip, int base_port, const char* game_name, const char* secret_key,
+                  int is_public, int nat_negotiate, HookFn server_key, HookFn player_key, HookFn team_key,
+                  HookFn key_list, HookFn count, HookFn add_error, void* user_data)
 {
     set_game_hosts(game_name);
     return static_cast<int>(qr2_init(static_cast<qr2_t*>(qrec), ip, base_port, game_name, secret_key, is_public,
@@ -168,12 +168,15 @@ void get_qr2_shutdown(void* qrec) { qr2_shutdown(static_cast<qr2_t>(qrec)); }
 void call_qr2_register_key(int key_id, const char* key) { qr2_register_key(key_id, key); }
 void call_qr2_buffer_add(void* buffer, const char* text) { qr2_buffer_add(static_cast<qr2_buffer_t>(buffer), text); }
 void get_qr2_buffer_add_int(void* buffer, int value) { qr2_buffer_add_int(static_cast<qr2_buffer_t>(buffer), value); }
-void qr2_key_buffer_add(void* key_buffer, int key_id) { qr2_keybuffer_add(static_cast<qr2_keybuffer_t>(key_buffer), key_id); }
+void qr2_key_buffer_add(void* key_buffer, int key_id)
+{
+    qr2_keybuffer_add(static_cast<qr2_keybuffer_t>(key_buffer), key_id);
+}
 
 // --- NAT negotiation ---
 
 int nat_begin_with_socket(uint32_t socket, int cookie, int client_index, HookFn progress, HookFn completed,
-                       void* user_data)
+                          void* user_data)
 {
     return static_cast<int>(NNBeginNegotiationWithSocket(static_cast<SOCKET>(socket), cookie, client_index,
                                                          as<NegotiateProgressFunc>(progress),
@@ -195,26 +198,29 @@ void* peer_initialize(const PeerCallbacks callbacks)
     std::memcpy(&sdk, callbacks, sizeof(sdk));
     return peerInitialize(&sdk);
 }
-int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name, const char* sb_secret_key,
-                 int sb_game_version, int sb_max_updates, int nat_negotiate, const int* ping_rooms,
-                 const int* cross_ping_rooms)
+int peer_set_title(void* peer, const char* title, const char* qr_secret_key, const char* sb_name,
+                   const char* sb_secret_key, int sb_game_version, int sb_max_updates, int nat_negotiate,
+                   const int* ping_rooms, const int* cross_ping_rooms)
 {
     set_game_hosts(title);
     set_master_server(sb_name);
-    return static_cast<int>(peerSetTitle(peer, title, qr_secret_key, sb_name, sb_secret_key, sb_game_version, sb_max_updates,
-                                         static_cast<PEERBool>(nat_negotiate),
+    return static_cast<int>(peerSetTitle(peer, title, qr_secret_key, sb_name, sb_secret_key, sb_game_version,
+                                         sb_max_updates, static_cast<PEERBool>(nat_negotiate),
                                          reinterpret_cast<PEERBool*>(const_cast<int*>(ping_rooms)),
                                          reinterpret_cast<PEERBool*>(const_cast<int*>(cross_ping_rooms))));
 }
 void peer_clear_title(void* peer) { peerClearTitle(peer); }
 void peer_connect(void* peer, const char* nick, int profile, HookFn nick_error, HookFn connected, void* param,
-                 int blocking)
+                  int blocking)
 {
     peerConnect(peer, nick, profile, as<peerNickErrorCallback>(nick_error), as<peerConnectCallback>(connected), param,
                 static_cast<PEERBool>(blocking));
 }
 void peer_retry_with_nick(void* peer, const char* nick) { peerRetryWithNick(peer, nick); }
-void peer_fix_nick(char* new_nick, const char* old_nick) { fix_nick(new_nick, old_nick); } // (the game's rules, not peerFixNick's)
+void peer_fix_nick(char* new_nick, const char* old_nick)
+{
+    fix_nick(new_nick, old_nick);
+} // (the game's rules, not peerFixNick's)
 int peer_is_connected(void* peer) { return static_cast<int>(peerIsConnected(peer)); }
 bool peer_has_chat(void* peer) { return peerGetChat(peer) != nullptr; }
 void peer_disconnect(void* peer) { peerDisconnect(peer); }
@@ -262,13 +268,13 @@ void peer_set_room_keys(void* peer, int room_type, const char* nick, int count, 
     peerSetRoomKeys(peer, static_cast<RoomType>(room_type), nick, count, keys, values);
 }
 void peer_get_room_keys(void* peer, int room_type, const char* nick, int count, const char** keys, HookFn callback,
-                     void* param, int blocking)
+                        void* param, int blocking)
 {
     peerGetRoomKeys(peer, static_cast<RoomType>(room_type), nick, count, keys, as<peerGetRoomKeysCallback>(callback),
                     param, static_cast<PEERBool>(blocking));
 }
 void peer_start_listing_games(void* peer, const uint8_t* fields, int count, const char* filter, HookFn callback,
-                           void* param)
+                              void* param)
 {
     peerStartListingGames(peer, fields, count, filter, as<peerListingGamesCallback>(callback), param);
 }
@@ -294,7 +300,10 @@ const char* server_get_string_value(void* server, const char* key, const char* f
 {
     return SBServerGetStringValue(get_sb(server), key, fallback);
 }
-int server_get_int_value(void* server, const char* key, int fallback) { return SBServerGetIntValue(get_sb(server), key, fallback); }
+int server_get_int_value(void* server, const char* key, int fallback)
+{
+    return SBServerGetIntValue(get_sb(server), key, fallback);
+}
 int server_get_bool_value(void* server, const char* key, int fallback)
 {
     return static_cast<int>(SBServerGetBoolValue(get_sb(server), key, static_cast<SBBool>(fallback)));
@@ -319,14 +328,14 @@ int server_get_ping(void* server) { return SBServerGetPing(get_sb(server)); }
 // --- HTTP ---
 
 int http_get_ex(const char* url, const char* headers, char* buffer, int size, void* post, int throttle, int blocking,
-              HookFn progress, HookFn completed, void* param)
+                HookFn progress, HookFn completed, void* param)
 {
     return ghttpGetEx(url, headers, buffer, size, static_cast<GHTTPPost>(post), static_cast<GHTTPBool>(throttle),
                       static_cast<GHTTPBool>(blocking), as<ghttpProgressCallback>(progress),
                       as<ghttpCompletedCallback>(completed), param);
 }
 int http_post_ex(const char* url, const char* headers, void* post, int throttle, int blocking, HookFn progress,
-               HookFn completed, void* param)
+                 HookFn completed, void* param)
 {
     return ghttpPostEx(url, headers, static_cast<GHTTPPost>(post), static_cast<GHTTPBool>(throttle),
                        static_cast<GHTTPBool>(blocking), as<ghttpProgressCallback>(progress),
@@ -338,7 +347,7 @@ int http_post_add_string(void* post, const char* name, const char* value)
     return static_cast<int>(ghttpPostAddString(static_cast<GHTTPPost>(post), name, value));
 }
 int http_post_add_file_from_memory(void* post, const char* name, const char* buffer, int size, const char* report_name,
-                              const char* content_type)
+                                   const char* content_type)
 {
     return static_cast<int>(
         ghttpPostAddFileFromMemory(static_cast<GHTTPPost>(post), name, buffer, size, report_name, content_type));
@@ -349,7 +358,8 @@ void http_cleanup() { ghttpCleanup(); }
 
 int track_usage(int user_id, int product_id, const char* version_id, int distribution_id, int blocking)
 {
-    return static_cast<int>(ptTrackUsage(user_id, product_id, version_id, distribution_id, static_cast<PTBool>(blocking)));
+    return static_cast<int>(
+        ptTrackUsage(user_id, product_id, version_id, distribution_id, static_cast<PTBool>(blocking)));
 }
 
 // --- presence ---
@@ -368,14 +378,14 @@ int gp_set_callback(void* connection, int type, HookFn callback, void* param)
     return static_cast<int>(gpSetCallback(gp(connection), static_cast<GPEnum>(type), as<GPCallback>(callback), param));
 }
 int gp_connect(void* connection, const char* nick, const char* email, const char* password, int firewall, int blocking,
-              HookFn callback, void* param)
+               HookFn callback, void* param)
 {
     return static_cast<int>(gpConnect(gp(connection), nick, email, password, static_cast<GPEnum>(firewall),
                                       static_cast<GPEnum>(blocking), as<GPCallback>(callback), param));
 }
 int gp_connect_new_user(void* connection, const char* nick, const char* unique_nick, const char* email,
-                     const char* password, const char* cd_key, int firewall, int blocking, HookFn callback,
-                     void* param)
+                        const char* password, const char* cd_key, int firewall, int blocking, HookFn callback,
+                        void* param)
 {
     return static_cast<int>(gpConnectNewUser(gp(connection), nick, unique_nick, email, password, cd_key,
                                              static_cast<GPEnum>(firewall), static_cast<GPEnum>(blocking),
@@ -390,7 +400,10 @@ int gp_send_buddy_request(void* connection, int profile, const char* reason)
 {
     return static_cast<int>(gpSendBuddyRequest(gp(connection), profile, reason));
 }
-int gp_auth_buddy_request(void* connection, int profile) { return static_cast<int>(gpAuthBuddyRequest(gp(connection), profile)); }
+int gp_auth_buddy_request(void* connection, int profile)
+{
+    return static_cast<int>(gpAuthBuddyRequest(gp(connection), profile));
+}
 int gp_delete_buddy(void* connection, int profile) { return static_cast<int>(gpDeleteBuddy(gp(connection), profile)); }
 int gp_send_buddy_message(void* connection, int profile, const char* message)
 {
@@ -422,7 +435,7 @@ int stats_send_snap_shot(void* game, const char* snapshot, int final)
     return ::SendGameSnapShot(static_cast<statsgame_t>(game), snapshot, final);
 }
 void stats_get_persist_data_values(int local_id, int profile, int type, int index, const char* keys, HookFn callback,
-                          void* instance)
+                                   void* instance)
 {
     ::GetPersistDataValues(local_id, profile, static_cast<persisttype_t>(type), index, const_cast<char*>(keys),
                            as<PersDataCallbackFn>(callback), instance);
@@ -446,9 +459,8 @@ void set_player_int_bucket(void* game, const char* key, int value, int player)
 }
 void set_player_string_bucket(void* game, const char* key, const char* value, int player)
 {
-    BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value),
-                   bl_player, player);
+    BucketStringOp(static_cast<statsgame_t>(game), const_cast<char*>(key), bo_set, const_cast<char*>(value), bl_player,
+                   player);
 }
 
-} // namespace GameSpy
-
+} // namespace game_spy

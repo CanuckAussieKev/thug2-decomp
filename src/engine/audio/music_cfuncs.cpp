@@ -22,22 +22,22 @@ namespace {
 using script::Script;
 using script::Struct;
 
-constexpr uint32_t kAdd = 0x02E58C18;       // "add"
-constexpr uint32_t kRemove = 0x977FE2CF;    // "remove"
-constexpr uint32_t kVol = 0xF6A36814;       // "vol"
-constexpr uint32_t kLoop = 0x5EA0E211;      // "loop"
-constexpr uint32_t kTrackTitle = 0x14BADF8A; // "TrackTitle"
-constexpr uint32_t kPlaylist0 = 0x389129E4; // (name unknown) AddMusicTrack / ClearMusicTrackList: playlist 0, not 1
-constexpr uint32_t kVolL = 0x5E285A66;      // "volL"
-constexpr uint32_t kVolR = 0xA4276705;      // "volR"
-constexpr uint32_t kPitch = 0xD8604126;     // "pitch"
-constexpr uint32_t kPriority = 0x9D5923D8;  // "priority"
+constexpr uint32_t kAdd = 0x02E58C18;          // "add"
+constexpr uint32_t kRemove = 0x977FE2CF;       // "remove"
+constexpr uint32_t kVol = 0xF6A36814;          // "vol"
+constexpr uint32_t kLoop = 0x5EA0E211;         // "loop"
+constexpr uint32_t kTrackTitle = 0x14BADF8A;   // "TrackTitle"
+constexpr uint32_t kPlaylist0 = 0x389129E4;    // (name unknown) AddMusicTrack / ClearMusicTrackList: playlist 0, not 1
+constexpr uint32_t kVolL = 0x5E285A66;         // "volL"
+constexpr uint32_t kVolR = 0xA4276705;         // "volR"
+constexpr uint32_t kPitch = 0xD8604126;        // "pitch"
+constexpr uint32_t kPriority = 0x9D5923D8;     // "priority"
 constexpr uint32_t kStreamOption = 0xE46111E0; // (name unknown) PlayStream: passed on to the platform
-constexpr uint32_t kId = 0x40C698AF;        // "id"
-constexpr uint32_t kLipsync = 0xF5C3922B;   // "lipsync"
+constexpr uint32_t kId = 0x40C698AF;           // "id"
+constexpr uint32_t kLipsync = 0xF5C3922B;      // "lipsync"
 constexpr uint32_t kCurrentTrack = 0x8D02705D; // "current_track"
-constexpr uint32_t kStreamId = 0x8A68AB90;  // "streamid"
-constexpr uint32_t kVolume = 0x46653221;    // "volume"
+constexpr uint32_t kStreamId = 0x8A68AB90;     // "streamid"
+constexpr uint32_t kVolume = 0x46653221;       // "volume"
 
 // The game's sprintf (its C runtime; 0x006234FE).
 template <typename... Args>
@@ -359,7 +359,7 @@ bool __cdecl cfunc_set_stream_params(Struct* params, Script*)
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
-    float left = 0.0f;  // (uninitialised in the original: a channel not given passes on whatever was there)
+    float left = 0.0f; // (uninitialised in the original: a channel not given passes on whatever was there)
     float right = 0.0f;
     float vol = 0.0f;
     bool got_left = params->fetch_float(kVolL, &left, 0);

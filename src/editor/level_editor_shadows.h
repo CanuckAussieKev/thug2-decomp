@@ -55,7 +55,8 @@ bool falls_under(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max);
 // And it's that caster's rather than one of `others` (the boxes of the pieces standing on that floor that aren't in the
 // group): the shadow's middle no further from the caster's footprint than from any other's (inside both: the nearer
 // footprint's middle).
-bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max, const std::vector<std::pair<V3, V3>>& others);
+bool nearest_to_group(V3 shadow_min, V3 shadow_max, V3 group_min, V3 group_max,
+                      const std::vector<std::pair<V3, V3>>& others);
 // A copy's shadow named for the copy's source (copies of one piece share their names): its footprint meets the
 // caster's grown as in falls_under - taken only then.
 bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max);
@@ -63,7 +64,7 @@ bool get_beside(V3 shadow_min, V3 shadow_max, V3 caster_min, V3 caster_max);
 // shadow's top) - one of `others` above.
 bool stands_by(V3 piece_min, V3 shadow_max);
 
-} // namespace MenuSystem::level_editor::shadows
+} // namespace frontend::level_editor::shadows
 
 namespace frontend::level_editor::members {
 
@@ -73,4 +74,4 @@ namespace frontend::level_editor::members {
 // and a selected piece behind something unselected doesn't. -1: none.
 int drop_target(const std::vector<bool>& passed, const std::vector<bool>& selected);
 
-} // namespace MenuSystem::level_editor::Members
+} // namespace frontend::level_editor::members

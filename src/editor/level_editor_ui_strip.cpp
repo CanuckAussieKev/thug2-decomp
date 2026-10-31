@@ -182,12 +182,18 @@ std::string grid_text(float grid)
 const char* pick_text(uint32_t bits)
 {
     switch (bits & 7) {
-    case 7: return "Pick: All";
-    case 0: return "Pick: None";
-    case 1: return "Pick: Nodes";
-    case 2: return "Pick: Objects";
-    case 4: return "Pick: Scenery";
-    default: return "Pick: Custom";
+    case 7:
+        return "Pick: All";
+    case 0:
+        return "Pick: None";
+    case 1:
+        return "Pick: Nodes";
+    case 2:
+        return "Pick: Objects";
+    case 4:
+        return "Pick: Scenery";
+    default:
+        return "Pick: Custom";
     }
 }
 
@@ -218,7 +224,18 @@ std::string show_all_text(const State& s)
 }
 
 // The controls, in the order they sit; their slots, and how each is drawn.
-enum ItemId { kMode, kTools, kSpace, kSnapGrid, kPickItem, kShowAllItem, kStopItem, kLevel, kBudgetItem, kProblemsItem };
+enum ItemId {
+    kMode,
+    kTools,
+    kSpace,
+    kSnapGrid,
+    kPickItem,
+    kShowAllItem,
+    kStopItem,
+    kLevel,
+    kBudgetItem,
+    kProblemsItem
+};
 
 struct Item {
     ItemId id;
@@ -437,7 +454,7 @@ void blit(const State& state, float x, float y, float width, float scale, Output
 // --- the status bar ----------------------------------------------------------------------------------------------------
 
 void status_row(const std::string& message, const std::vector<std::pair<std::string, std::string>>& hints,
-               const std::string& right, float x, float y, float width, const ux8::Fonts& fonts)
+                const std::string& right, float x, float y, float width, const ux8::Fonts& fonts)
 {
     float s = fonts.scale;
     const float gap = 16.0f * s;
@@ -472,4 +489,4 @@ void status_row(const std::string& message, const std::vector<std::pair<std::str
         ImGui::PopFont();
 }
 
-} // namespace MenuSystem::level_editor::ui_strip
+} // namespace frontend::level_editor::ui_strip

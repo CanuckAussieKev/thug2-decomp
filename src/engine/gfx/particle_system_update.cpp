@@ -26,9 +26,9 @@ namespace render {
 namespace {
 
 constexpr float kRandomUnit = std::bit_cast<float>(0x38000100u); // 0x00646510: 1 / 32767
-constexpr float kPi = std::bit_cast<float>(0x40490FDBu);          // 0x006493C0
-constexpr float kDegrees = std::bit_cast<float>(0x3C8EFA35u);     // 0x00645464: pi / 180
-constexpr float kFarAway = 1024.0f;                                 // where a removed particle's positions go
+constexpr float kPi = std::bit_cast<float>(0x40490FDBu);         // 0x006493C0
+constexpr float kDegrees = std::bit_cast<float>(0x3C8EFA35u);    // 0x00645464: pi / 180
+constexpr float kFarAway = 1024.0f;                              // where a removed particle's positions go
 
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 // _ftol: truncated to a 64-bit integer, its low half.
@@ -600,4 +600,4 @@ uint32_t* ModelParticles::lerp_colour(uint32_t* out, const uint8_t* from, const 
     return out;
 }
 
-} // namespace Nx
+} // namespace render

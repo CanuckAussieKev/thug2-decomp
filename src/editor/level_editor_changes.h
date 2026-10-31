@@ -17,11 +17,11 @@ namespace frontend::level_editor::changes {
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
 struct TableRow {
-    int line = -1;          // the record's line in the layout's text (0 = the first)
-    std::string keyword;    // its first word ("sector")
-    std::string group;      // "Scenery", "Objects", "Nodes", ...
-    uint32_t id = 0;        // what Go to takes: a sector, an object, a node (0: none - the level, an order)
-    std::string summary;    // "SkWare_Rail01 moved (12, 0, -40), turned 90 degrees"
+    int line = -1;       // the record's line in the layout's text (0 = the first)
+    std::string keyword; // its first word ("sector")
+    std::string group;   // "Scenery", "Objects", "Nodes", ...
+    uint32_t id = 0;     // what Go to takes: a sector, an object, a node (0: none - the level, an order)
+    std::string summary; // "SkWare_Rail01 moved (12, 0, -40), turned 90 degrees"
 };
 // The group a record's keyword belongs to (nullptr: not a change - the header, the scene, the editor's own records,
 // anything unknown).
@@ -37,4 +37,4 @@ std::string without(const std::string& layout_text, int line);
 // A record's checksum argument: 8 hex digits (or 0x and 8) as they are, else a name's checksum (the script's CRC).
 uint32_t id_of(const std::string& word);
 
-} // namespace MenuSystem::level_editor::Changes
+} // namespace frontend::level_editor::changes

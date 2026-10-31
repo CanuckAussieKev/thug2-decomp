@@ -114,11 +114,21 @@ maths::Vec4* PcModel::fetch_bound_sphere(maths::Vec4* out)
 }
 
 namespace {
-static VtableSlot g_model_vtable_slots[] = {&render::PcModel::teardown, &save_cards::SaveCard::always_true, stubs::return_zero1,
-                &save_cards::SaveCard::always_true, &render::RenderModel::virtual_true4, &save_cards::SaveCard::always_true, &save_cards::SaveCard::always_true,
-                &save_cards::SaveCard::always_true, stubs::return_true2, &net::Hub::load_network_drivers, stubs::return_true,
-                stubs::return_true, &render::PcModel::fetch_bound_sphere, &render::PcModel::change_bound_sphere};
+static VtableSlot g_model_vtable_slots[] = {&render::PcModel::teardown,
+                                            &save_cards::SaveCard::always_true,
+                                            stubs::return_zero1,
+                                            &save_cards::SaveCard::always_true,
+                                            &render::RenderModel::virtual_true4,
+                                            &save_cards::SaveCard::always_true,
+                                            &save_cards::SaveCard::always_true,
+                                            &save_cards::SaveCard::always_true,
+                                            stubs::return_true2,
+                                            &net::Hub::load_network_drivers,
+                                            stubs::return_true,
+                                            stubs::return_true,
+                                            &render::PcModel::fetch_bound_sphere,
+                                            &render::PcModel::change_bound_sphere};
 void** const kModelVtable = reinterpret_cast<void**>(g_model_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

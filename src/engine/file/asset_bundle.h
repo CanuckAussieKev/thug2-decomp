@@ -45,14 +45,14 @@ public:
     // Free every asset with this name and type; whether there was one.
     bool free_asset(uint32_t name, uint32_t type);
 
-    void** vtable_;                 // 0x0065822C
-    AsyncFileHandle* file_ref_;         // an async load in progress (closed when the bundle is split / destroyed)
-    void* bundle_bytes_;                // the whole file, as loaded (shrinks as the assets are split off)
-    uint8_t* loaded_data_;           // the start of the file
-    int num_;                     // number of entries
+    void** vtable_;             // 0x0065822C
+    AsyncFileHandle* file_ref_; // an async load in progress (closed when the bundle is split / destroyed)
+    void* bundle_bytes_;        // the whole file, as loaded (shrinks as the assets are split off)
+    uint8_t* loaded_data_;      // the start of the file
+    int num_;                   // number of entries
     int unknown14_;
     TableRow entries_[kBundleCapacity];
-    void* assets_[kBundleCapacity];     // each asset's own copy
+    void* assets_[kBundleCapacity]; // each asset's own copy
     bool ready_flag_;
     uint8_t pad2341_[3];
     memory::Arena* asset_heap_;
@@ -62,4 +62,4 @@ public:
 };
 static_assert(sizeof(AssetBundle) == 0x2354, "allocated as 0x2354 bytes by the original");
 
-} // namespace File
+} // namespace file

@@ -7,7 +7,7 @@
 namespace objects {
 class ObjectModule;
 class GameEntity;
-} // namespace Obj
+} // namespace objects
 
 // The walk component's hanging, ladder and rail-climbing code (WalkHangUtil.cpp in the original: 0x0043DA20-
 // 0x004425B0): its member functions are declared with the walk component (GameObjects::FootMovement, game/rider/
@@ -33,10 +33,10 @@ struct SkaterTurn {
     int turned_round() const;
 };
 
-} // namespace Walk
+} // namespace walk
 
 namespace objects {
 // 0x0043D930: a component of type 0x03AC8065 (WaitAndDie): the base component made (0x28 bytes, cleared), its vtable
 // 0x00646898 and its type. (Its other code, 0x0043D850-0x0043D8E0, isn't rewritten here.)
 ObjectModule* __cdecl create_wait_and_die_component();
-} // namespace Obj
+} // namespace objects

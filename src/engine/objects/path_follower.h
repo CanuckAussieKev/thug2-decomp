@@ -18,16 +18,16 @@ class GameEntity;
 class PathFollower {
 public:
     enum FollowPhase : int {
-        kStateStart = 0,     // the segment set up on the next update
-        kStateStraight = 1,  // along the segment
-        kStateArc = 2,       // round the corner on the arc
-        kStateBlend = 3,     // into the next segment, the heading blended (no arc)
-        kStateDone = 4,      // at the end of the path
+        kStateStart = 0,    // the segment set up on the next update
+        kStateStraight = 1, // along the segment
+        kStateArc = 2,      // round the corner on the arc
+        kStateBlend = 3,    // into the next segment, the heading blended (no arc)
+        kStateDone = 4,     // at the end of the path
     };
     enum : uint32_t {
-        kFlagCorner = 1,     // the corner is cut (cut_ short of the node)
-        kFlagLastNode = 2,  // the node has no links: the path ends there
-        kFlagTellNode = 4,  // the node passed is still to be told to the component (half way round)
+        kFlagCorner = 1,   // the corner is cut (cut_ short of the node)
+        kFlagLastNode = 2, // the node has no links: the path ends there
+        kFlagTellNode = 4, // the node passed is still to be told to the component (half way round)
     };
 
     // 0x0046A1D0: the constructor (returns this): `owner`, an identity frame, the points at the origin.
@@ -63,30 +63,30 @@ public:
     // 0x0046A550: the corner reached: onto the arc, into a blend, or (no arc) straight on to the next segment.
     void start_corner();
 
-    void** vtable_;               // +0x00 0x00647A84
-    maths::Vec4 at_point_;             // +0x04
-    GameEntity* owner_;     // +0x14
-    maths::Mat4 tick_;           // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
-    uint32_t last_node_;           // +0x58
-    uint32_t list_link_;               // +0x5C: the node headed for
+    void** vtable_;        // +0x00 0x00647A84
+    maths::Vec4 at_point_; // +0x04
+    GameEntity* owner_;    // +0x14
+    maths::Mat4 tick_;     // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
+    uint32_t last_node_;   // +0x58
+    uint32_t list_link_;   // +0x5C: the node headed for
     uint32_t unknown60_;
-    maths::Vec4 segment_origin_;            // +0x64: the segment's start
-    maths::Vec4 end_point_;              // +0x74: the node's position
-    maths::Vec4 unknown84_;       // +0x84 (0, 0, 0, 1)
-    float corner_distance_;        // +0x94 (none: 0)
+    maths::Vec4 segment_origin_; // +0x64: the segment's start
+    maths::Vec4 end_point_;      // +0x74: the node's position
+    maths::Vec4 unknown84_;      // +0x84 (0, 0, 0, 1)
+    float corner_distance_;      // +0x94 (none: 0)
     uint32_t unknown98_;
-    float cut_;                   // +0x9C: how far before the node the corner is left
-    float byte_count_;                // +0xA0: the segment's
-    float along_;                 // +0xA4
-    uint32_t flag_bits_;              // +0xA8
-    float carry_;                 // +0xAC: the distance past the last segment's end
-    maths::Vec4 center_;          // +0xB0: the arc's centre (the blend's start)
-    maths::Vec4 bend_point_;          // +0xC0: the point on the next segment as far from the node as the cut
-    float arc_angle_;              // +0xD0
-    float arc_length_;             // +0xD4
-    float radius_;                // +0xD8
-    int cur_phase_;                   // +0xDC
-    float step_;                  // +0xE0: the last arc step's angle
+    float cut_;              // +0x9C: how far before the node the corner is left
+    float byte_count_;       // +0xA0: the segment's
+    float along_;            // +0xA4
+    uint32_t flag_bits_;     // +0xA8
+    float carry_;            // +0xAC: the distance past the last segment's end
+    maths::Vec4 center_;     // +0xB0: the arc's centre (the blend's start)
+    maths::Vec4 bend_point_; // +0xC0: the point on the next segment as far from the node as the cut
+    float arc_angle_;        // +0xD0
+    float arc_length_;       // +0xD4
+    float radius_;           // +0xD8
+    int cur_phase_;          // +0xDC
+    float step_;             // +0xE0: the last arc step's angle
 };
 static_assert(offsetof(PathFollower, owner_) == 0x14 && offsetof(PathFollower, tick_) == 0x18 &&
                   offsetof(PathFollower, last_node_) == 0x58 && offsetof(PathFollower, segment_origin_) == 0x64 &&
@@ -95,4 +95,4 @@ static_assert(offsetof(PathFollower, owner_) == 0x14 && offsetof(PathFollower, t
                   offsetof(PathFollower, step_) == 0xE0,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

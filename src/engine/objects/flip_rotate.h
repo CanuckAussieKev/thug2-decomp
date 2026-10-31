@@ -32,13 +32,13 @@ public:
     bool fetch_pose(uint8_t* pose);
 
     void** vtable_;
-    void* owner_object_;        // +0x04: the object it belongs to
-    uint32_t base08_[3];   // +0x08..+0x10: the base component's (+0x10: a checksum from its parameters)
-    bool mirrored_;         // +0x14
-    bool has_pivoted_;         // +0x15
+    void* owner_object_; // +0x04: the object it belongs to
+    uint32_t base08_[3]; // +0x08..+0x10: the base component's (+0x10: a checksum from its parameters)
+    bool mirrored_;      // +0x14
+    bool has_pivoted_;   // +0x15
     uint8_t pad16[2];
 };
 static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);
 static_assert(sizeof(FlipRotateComponent) == 0x18);
 
-} // namespace Obj
+} // namespace objects

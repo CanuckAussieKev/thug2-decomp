@@ -28,23 +28,23 @@ using namespace vehicle;
 
 namespace {
 
-const float kHalf = 0.5f;                                   // 0x006453BC
-const float kMinusHalf = -0.5f;                             // 0x0064642C
-const float kShallowestLevel = std::bit_cast<float>(0x3C23D70Au);   // 0x0064544C: 0.01
-const float kSameEnd = std::bit_cast<float>(0x3DCCCCCDu);    // 0x00645D74: 0.1
-const double kOpposite = -0.99;                             // 0x00646730 (a double)
-const float kBounce = 1.5f;                                 // 0x00646744
-const float kDropTest = 4800.0f;                            // 0x006461D0
-const float kDeepestLevel = 2.0f;                               // 0x00645448
-const float kUpright = std::bit_cast<float>(0x3F34FDF4u);    // 0x006467BC: 0.707
-const float kMinSlide = std::bit_cast<float>(0x3A83126Fu);   // 0x006461D8: 0.001
-const float kRightingUp = std::bit_cast<float>(0x3F7FBE77u); // 0x006467B8: 0.999
-const float kRightingSpeed = 90000.0f;                      // 0x006467B4 (300 squared)
-const float kRightingSpin = std::bit_cast<float>(0x3F1DE9E7u); // 0x006467B0: 0.61685
-const float kRightingTilt = 0.25f;                          // 0x006467AC
-const float kRightingRate = 3.0f;                           // 0x006467A8
-const float kAlignFast = 122500.0f;                         // 0x006467C4 (350 squared)
-const float kAlignSlowRate = std::bit_cast<float>(0x3E99999Au); // 0x006467C0: 0.3
+const float kHalf = 0.5f;                                         // 0x006453BC
+const float kMinusHalf = -0.5f;                                   // 0x0064642C
+const float kShallowestLevel = std::bit_cast<float>(0x3C23D70Au); // 0x0064544C: 0.01
+const float kSameEnd = std::bit_cast<float>(0x3DCCCCCDu);         // 0x00645D74: 0.1
+const double kOpposite = -0.99;                                   // 0x00646730 (a double)
+const float kBounce = 1.5f;                                       // 0x00646744
+const float kDropTest = 4800.0f;                                  // 0x006461D0
+const float kDeepestLevel = 2.0f;                                 // 0x00645448
+const float kUpright = std::bit_cast<float>(0x3F34FDF4u);         // 0x006467BC: 0.707
+const float kMinSlide = std::bit_cast<float>(0x3A83126Fu);        // 0x006461D8: 0.001
+const float kRightingUp = std::bit_cast<float>(0x3F7FBE77u);      // 0x006467B8: 0.999
+const float kRightingSpeed = 90000.0f;                            // 0x006467B4 (300 squared)
+const float kRightingSpin = std::bit_cast<float>(0x3F1DE9E7u);    // 0x006467B0: 0.61685
+const float kRightingTilt = 0.25f;                                // 0x006467AC
+const float kRightingRate = 3.0f;                                 // 0x006467A8
+const float kAlignFast = 122500.0f;                               // 0x006467C4 (350 squared)
+const float kAlignSlowRate = std::bit_cast<float>(0x3E99999Au);   // 0x006467C0: 0.3
 
 // The model component's 0x00420670 (not rewritten yet): its lighting from what a feeler hit.
 void light_from_feeler(ObjectModule* model, render::ProbeRay* feeler, bool b, float c)
@@ -97,18 +97,23 @@ double __stdcall DrivableModule::get_penetration(const Contact* contact, const C
     const maths::Vec4& n = contact->normal;
     switch (side) {
     case 0:
-        return nearest / ((static_cast<double>(a.z) * n.z + static_cast<double>(a.y) * n.y) + static_cast<double>(n.x) * a.x);
+        return nearest /
+               ((static_cast<double>(a.z) * n.z + static_cast<double>(a.y) * n.y) + static_cast<double>(n.x) * a.x);
     case 1:
-        return -(nearest / ((static_cast<double>(a.z) * n.z + static_cast<double>(a.y) * n.y) + static_cast<double>(a.x) * n.x));
+        return -(nearest /
+                 ((static_cast<double>(a.z) * n.z + static_cast<double>(a.y) * n.y) + static_cast<double>(a.x) * n.x));
     case 2:
-        return nearest / ((static_cast<double>(b.z) * n.z + static_cast<double>(b.y) * n.y) + static_cast<double>(b.x) * n.x);
+        return nearest /
+               ((static_cast<double>(b.z) * n.z + static_cast<double>(b.y) * n.y) + static_cast<double>(b.x) * n.x);
     default:
-        return -(nearest / ((static_cast<double>(b.z) * n.z + static_cast<double>(b.y) * n.y) + static_cast<double>(b.x) * n.x));
+        return -(nearest /
+                 ((static_cast<double>(b.z) * n.z + static_cast<double>(b.y) * n.y) + static_cast<double>(b.x) * n.x));
     }
 }
 
 // 0x00436E50
-bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit, int end)
+bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit,
+                                       int end)
 {
     // Another joined hit with an end at this point (within 0.1) facing the opposite way.
     for (int k = rect->joined_count_ - 1; k >= 0; --k) {
@@ -133,7 +138,8 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
             double x = static_cast<double>(edge.y) * n.z - static_cast<double>(edge.z) * n.y;
             double y = static_cast<double>(edge.z) * n.x - static_cast<double>(edge.x) * n.z;
             contact->normal.w = 0.0f;
-            contact->normal.z = static_cast<float>(static_cast<double>(edge.x) * n.y - static_cast<double>(edge.y) * n.x);
+            contact->normal.z =
+                static_cast<float>(static_cast<double>(edge.x) * n.y - static_cast<double>(edge.y) * n.x);
             contact->normal.x = static_cast<float>(x);
             contact->normal.y = static_cast<float>(y);
             contact->depth = static_cast<float>(get_penetration(contact, collider));
@@ -206,7 +212,8 @@ void DrivableModule::move_by(const maths::Vec4* move)
         at_point_.y = static_cast<float>(static_cast<double>(ry) + at_point_.y);
         at_point_.z = static_cast<float>(rz + at_point_.z);
         at_point_.w = static_cast<float>(static_cast<double>(rw) + at_point_.w);
-        double into = ((static_cast<double>(n.z) * linear_momentum_.z + static_cast<double>(n.y) * linear_momentum_.y) + static_cast<double>(n.x) * linear_momentum_.x) *
+        double into = ((static_cast<double>(n.z) * linear_momentum_.z + static_cast<double>(n.y) * linear_momentum_.y) +
+                       static_cast<double>(n.x) * linear_momentum_.x) *
                       kBounce;
         linear_momentum_.x = static_cast<float>(linear_momentum_.x - static_cast<double>(n.x) * into);
         linear_momentum_.y = static_cast<float>(linear_momentum_.y - static_cast<double>(n.y) * into);
@@ -281,13 +288,15 @@ void DrivableModule::update_righting()
         righting_start_ = frame_clock::game_clock_elapsed() + g_clock_offset;
     }
     int start = righting_start_;
-    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) >
+    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
+            (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) >
         5300) {
         righting_ = false;
         return;
     }
     start = righting_start_;
-    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) + (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) <
+    if (static_cast<uint32_t>(frame_clock::game_clock_elapsed()) +
+            (static_cast<uint32_t>(g_clock_offset) - static_cast<uint32_t>(start)) <
         300)
         return;
     // After 300 ms, turned towards upright facing the same way.
@@ -388,7 +397,8 @@ void DrivableModule::integrate()
     float vz = static_cast<float>(static_cast<double>(hz) + vel_.z);
     float vw = static_cast<float>(static_cast<double>(hw) + vel_.w);
     maths::Vec4 move{static_cast<float>(vx * timestep), static_cast<float>(vy * timestep),
-                     static_cast<float>(static_cast<double>(vz) * timestep), static_cast<float>(static_cast<double>(vw) * timestep)};
+                     static_cast<float>(static_cast<double>(vz) * timestep),
+                     static_cast<float>(static_cast<double>(vw) * timestep)};
     move_by(&move);
     // The orientation: q += q * (-dt / 2) * (angular velocity + half the angular acceleration over the step).
     half = static_cast<double>(step_length_) * kHalf;
@@ -469,19 +479,19 @@ void DrivableModule::collide()
         for (int corner = 0; corner < 4; ++corner) {
             if (corner == 1) {
                 feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_a_.x),
-                                     static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line_.end.y),
-                                     static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line_.end.z),
-                                     static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line_.end.w)};
+                                    static_cast<float>(static_cast<double>(rect.rect_.side_a_.y) + feeler.line_.end.y),
+                                    static_cast<float>(static_cast<double>(rect.rect_.side_a_.z) + feeler.line_.end.z),
+                                    static_cast<float>(static_cast<double>(rect.rect_.side_a_.w) + feeler.line_.end.w)};
             } else if (corner == 2) {
                 feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) + rect.rect_.side_b_.x),
-                                     static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line_.end.y),
-                                     static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line_.end.z),
-                                     static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line_.end.w)};
+                                    static_cast<float>(static_cast<double>(rect.rect_.side_b_.y) + feeler.line_.end.y),
+                                    static_cast<float>(static_cast<double>(rect.rect_.side_b_.z) + feeler.line_.end.z),
+                                    static_cast<float>(static_cast<double>(rect.rect_.side_b_.w) + feeler.line_.end.w)};
             } else if (corner == 3) {
                 feeler.line_.end = {static_cast<float>(static_cast<double>(feeler.line_.end.x) - rect.rect_.side_a_.x),
-                                     static_cast<float>(static_cast<double>(feeler.line_.end.y) - rect.rect_.side_a_.y),
-                                     static_cast<float>(static_cast<double>(feeler.line_.end.z) - rect.rect_.side_a_.z),
-                                     static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
+                                    static_cast<float>(static_cast<double>(feeler.line_.end.y) - rect.rect_.side_a_.y),
+                                    static_cast<float>(static_cast<double>(feeler.line_.end.z) - rect.rect_.side_a_.z),
+                                    static_cast<float>(static_cast<double>(feeler.line_.end.w) - rect.rect_.side_a_.w)};
             }
             if (feeler.get_hit_shape(false, false)) {
                 trigger_feeler(trigger_ptr_, kCrossingEvents, &feeler);
@@ -497,7 +507,8 @@ void DrivableModule::collide()
                     double dy = static_cast<double>(line.start.y) - line.end.y;
                     double dx = static_cast<double>(line.start.x) - line.end.x;
                     contact.depth = static_cast<float>(
-                        (1.0 - feeler.reach_) * ((dz * feeler.surface_dir_.z + dy * feeler.surface_dir_.y) + dx * feeler.surface_dir_.x));
+                        (1.0 - feeler.reach_) *
+                        ((dz * feeler.surface_dir_.z + dy * feeler.surface_dir_.y) + dx * feeler.surface_dir_.x));
                     ++contact_count_;
                     // (the original marks the next record, not this one)
                     contacts[contact_count_].from_feeler_ = true;
@@ -527,7 +538,7 @@ void DrivableModule::collide()
             get_point_velocity(&v, &r);
             const maths::Vec4& nrm = contact.normal;
             double closing_exact = (static_cast<double>(v.z) * nrm.z + static_cast<double>(v.x) * nrm.x) +
-                                  static_cast<double>(v.y) * nrm.y;
+                                   static_cast<double>(v.y) * nrm.y;
             float closing = static_cast<float>(closing_exact);
             if (closing_exact > 0.0)
                 continue;
@@ -559,7 +570,8 @@ void DrivableModule::collide()
         const maths::Vec4& nrm = contact.normal;
         maths::Vec4 force{static_cast<float>(static_cast<double>(push_rounded) * nrm.x),
                           static_cast<float>(static_cast<double>(push_rounded) * nrm.y),
-                          static_cast<float>(static_cast<double>(push_rounded) * nrm.z), static_cast<float>(push * nrm.w)};
+                          static_cast<float>(static_cast<double>(push_rounded) * nrm.z),
+                          static_cast<float>(push * nrm.w)};
         maths::Vec4 r{static_cast<float>(static_cast<double>(contact.point.x) - at_point_.x),
                       static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
                       static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
@@ -593,7 +605,8 @@ void DrivableModule::collide()
         float slide_z = static_cast<float>(static_cast<double>(pvz) - tz);
         float slide_y = static_cast<float>(pvy - ty);
         double slide_x = pvx - tx;
-        double speed = std::sqrt((slide_x * slide_x + static_cast<double>(slide_y) * slide_y) + static_cast<double>(slide_z) * slide_z);
+        double speed = std::sqrt((slide_x * slide_x + static_cast<double>(slide_y) * slide_y) +
+                                 static_cast<double>(slide_z) * slide_z);
         float speed_rounded = static_cast<float>(speed);
         if (speed < kMinSlide)
             continue;
@@ -658,4 +671,4 @@ void DrivableModule::collide()
     }
 }
 
-} // namespace Obj
+} // namespace objects

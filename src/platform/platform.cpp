@@ -35,12 +35,9 @@ void set_actuators(int port, int left, int right)
 // original pumped the game window's (0x007D6A28) Win32 messages:
 //     MSG msg;
 //     while (PeekMessageA(&msg, window, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
-void process_window_events()
-{
-    os_layer::pump_sdl_events();
-}
+void process_window_events() { os_layer::pump_sdl_events(); }
 
-uint8_t g_option37; // (the graphics options: platform_input.h)
+uint8_t g_option37;         // (the graphics options: platform_input.h)
 uint16_t g_options38_and39; // (the distance clipping flag follows: gfx/settings.cpp)
 uint8_t g_unknown643b;
 uint32_t g_distance_setting;
@@ -91,4 +88,4 @@ bool init_input(HINSTANCE instance, HWND window, int config)
     return true;
 }
 
-} // namespace Platform
+} // namespace os_layer

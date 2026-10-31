@@ -475,7 +475,8 @@ void Objective::choose_run_ending(int type) { run_ending_ = type; }
 // 0x00554A20
 void Objective::change_ends_on_timeout(bool deactivate)
 {
-    flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
+    flag_bits_ =
+        static_cast<uint8_t>((flag_bits_ & ~kFlagDeactivateOnExpire) | ((deactivate << 6) & kFlagDeactivateOnExpire));
 }
 
 // 0x00554A40
@@ -490,4 +491,4 @@ bool Objective::has_no_time_limit() { return (cur_phase_ & kStateNoTimeLimit) !=
 // 0x00554A70
 bool Objective::requires_combo() { return args_->has_bare_flag(kRequireCombo); }
 
-} // namespace Game
+} // namespace goals

@@ -72,4 +72,4 @@ uint64_t atlas_texture();
 uint32_t atlas_generation();
 void free_atlas();
 
-} // namespace MenuSystem::level_editor::ui_backend
+} // namespace frontend::level_editor::ui_backend

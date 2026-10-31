@@ -21,14 +21,22 @@ constexpr float kPi = 3.14159265f;
 const char* get_title(Kind kind)
 {
     switch (kind) {
-    case Kind::kShiftBy: return "Move";
-    case Kind::kTurn: return "Turn";
-    case Kind::scale_tool: return "Scale";
-    case Kind::kDuplicate: return "Duplicate";
-    case Kind::kJustify: return "Align";
-    case Kind::kDistribute: return "Distribute";
-    case Kind::kPlace: return "Place";
-    case Kind::kNone: break;
+    case Kind::kShiftBy:
+        return "Move";
+    case Kind::kTurn:
+        return "Turn";
+    case Kind::scale_tool:
+        return "Scale";
+    case Kind::kDuplicate:
+        return "Duplicate";
+    case Kind::kJustify:
+        return "Align";
+    case Kind::kDistribute:
+        return "Distribute";
+    case Kind::kPlace:
+        return "Place";
+    case Kind::kNone:
+        break;
     }
     return "";
 }
@@ -148,10 +156,9 @@ void get_apply(const ActStep& wanted)
     case Kind::kJustify:
     case Kind::kDistribute: {
         edit::take_back();
-        bool done = n.kind == Kind::kJustify
-                        ? arrange::justify(n.axis, static_cast<arrange::Edge>(n.edge), static_cast<arrange::Reference>(n.reference),
-                                         n.local)
-                        : arrange::distribute(n.axis, n.gaps, n.local);
+        bool done = n.kind == Kind::kJustify ? arrange::justify(n.axis, static_cast<arrange::Edge>(n.edge),
+                                                                static_cast<arrange::Reference>(n.reference), n.local)
+                                             : arrange::distribute(n.axis, n.gaps, n.local);
         if (!done) {
             edit::get_begin();
             edit::get_end();
@@ -241,4 +248,4 @@ void get_forget()
     g_applying = false;
 }
 
-} // namespace MenuSystem::level_editor::Adjust
+} // namespace frontend::level_editor::adjust

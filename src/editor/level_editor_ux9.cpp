@@ -36,12 +36,12 @@ int g_gap_action = -1, g_skate_action = -1, g_ground_action = -1;
 
 enum class Stage { kDisengaged, kFirst, kSecond, kForm };
 Stage g_stage = Stage::kDisengaged;
-bool g_editing;          // (the form edits a piece that is there - g_draft.name)
+bool g_editing; // (the form edits a piece that is there - g_draft.name)
 ground::Spec g_draft;
 float g_grid = 50.0f;
 bool g_have_hover;
 V3 g_hover, g_first;
-uint32_t g_floor;        // (the piece the first corner was clicked on: the material by default)
+uint32_t g_floor; // (the piece the first corner was clicked on: the material by default)
 std::string g_form_message;
 std::vector<std::function<void()>> g_queue;
 
@@ -77,8 +77,7 @@ void change_stage(Stage stage)
     g_stage = stage;
     g_have_hover = false;
     if (stage == Stage::kFirst)
-        show_message("Ground Tool: click the first corner",
-                    6.0);
+        show_message("Ground Tool: click the first corner", 6.0);
 }
 
 void open_form(const ground::Spec& spec, bool editing)
@@ -120,8 +119,8 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                             ImVec2(1.0f, 0.0f));
     ImGui::SetNextWindowSize(ImVec2(340.0f * scale, 0.0f), ImGuiCond_Appearing);
     bool open = true;
-    std::string title = (g_editing ? "Ground piece " + g_draft.name : std::string("Raise / lower ground")) +
-                        "###groundForm";
+    std::string title =
+        (g_editing ? "Ground piece " + g_draft.name : std::string("Raise / lower ground")) + "###groundForm";
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
@@ -205,7 +204,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
                         go_to_point({(found->x0 + found->x1) * 0.5f, found->base, (found->z0 + found->z1) * 0.5f},
-                                  std::max(found->x1 - found->x0, found->z1 - found->z0) * 1.5f + 300.0f);
+                                    std::max(found->x1 - found->x0, found->z1 - found->z0) * 1.5f + 300.0f);
                     }
                 });
             }
@@ -241,7 +240,8 @@ bool ground_click(V3 origin, V3 unit_dir)
     }
     if (g_stage == Stage::kFirst && ground::is_piece(sector)) {
         for (const ground::Spec& s : ground::get_all()) {
-            if (hit.x >= s.x0 - 1000.0f && hit.x <= s.x1 + 1000.0f && hit.z >= s.z0 - 1000.0f && hit.z <= s.z1 + 1000.0f) {
+            if (hit.x >= s.x0 - 1000.0f && hit.x <= s.x1 + 1000.0f && hit.z >= s.z0 - 1000.0f &&
+                hit.z <= s.z1 + 1000.0f) {
                 open_form(s, true);
                 return true;
             }
@@ -288,10 +288,12 @@ void prepare_all()
         a.defaults = a.keys = {actions::Chord{scancode, actions::kAlt}};
         return actions::enrol(a);
     };
-    g_gap_action = make("gap_wizard", "Gap Wizard", "Triggers", SDL_SCANCODE_J, "Create a gap from a start and end point");
+    g_gap_action =
+        make("gap_wizard", "Gap Wizard", "Triggers", SDL_SCANCODE_J, "Create a gap from a start and end point");
     g_skate_action = make("skateability", "Skateability", "View", SDL_SCANCODE_K, "Colour surfaces by skateability");
     actions::set_checked(g_skate_action, [] { return skate_view::get_shown() ? 1 : 0; });
-    g_ground_action = make("ground_tool", "Ground Tool", "Edit", SDL_SCANCODE_U, "Raise or lower a rectangle of ground");
+    g_ground_action =
+        make("ground_tool", "Ground Tool", "Edit", SDL_SCANCODE_U, "Raise or lower a rectangle of ground");
     layout::Extension e;
     e.keywords = {"ground"};
     e.capture = [] { return ground::capture_records(); };
@@ -420,4 +422,4 @@ std::string describe()
     return text;
 }
 
-} // namespace MenuSystem::level_editor::ux9
+} // namespace frontend::level_editor::ux9

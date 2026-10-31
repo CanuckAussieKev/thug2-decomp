@@ -25,22 +25,16 @@
 
 namespace objects {
 
-uint32_t g_stream_component_member_functions[30]{
-            0xDB05A233, 0x0F1641E3, 0, 0, 0, 0,
-            0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0,
-            0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0,
-            0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0,
-            0, 0x0F1641E3, 0, 0, 0, 0};
+uint32_t g_stream_component_member_functions[30]{0xDB05A233, 0x0F1641E3, 0, 0, 0, 0, 0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0,
+                                                 0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0, 0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0,
+                                                 0,          0x0F1641E3, 0, 0, 0, 0};
 
 namespace {
 
 extern void** const kVtable;
 constexpr float kInchesPerFoot = 12.0f; // 0x0064546C
 
-const maths::Vec4* viewer_location(void* camera)
-{
-    return static_cast<gfx::ViewCam*>(camera)->fetch_location();
-}
+const maths::Vec4* viewer_location(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fetch_location(); }
 
 } // namespace
 
@@ -100,7 +94,7 @@ AudioStreamModule* AudioStreamModule::teardown(unsigned int flags)
 void AudioStreamModule::configure_from_data(script::Struct* params)
 {
     uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
-    if (params->read_hash_value(0x08470F2E, &node, 0)) // ProximNode
+    if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
 
@@ -136,14 +130,14 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     float volume = 100.0f, pitch = 100.0f, dropoff = 0.0f;
     int priority = 50, loops = 0, falloff = 0;
     uint32_t id = 0;
-    params->fetch_float(0xF6A36814, &volume, 0);    // vol
-    params->fetch_float(0xD8604126, &pitch, 0);     // pitch
+    params->fetch_float(0xF6A36814, &volume, 0);       // vol
+    params->fetch_float(0xD8604126, &pitch, 0);        // pitch
     params->fetch_int_value(0x9D5923D8, &priority, 0); // priority
     params->fetch_int_value(0xE46111E0, &loops, 0);    // num_loops
-    params->read_hash_value(0x40C698AF, &id, 0);      // id
-    if (params->fetch_float(0xFF2020EC, &dropoff, 0)) // dropoff (feet)
+    params->read_hash_value(0x40C698AF, &id, 0);       // id
+    if (params->fetch_float(0xFF2020EC, &dropoff, 0))  // dropoff (feet)
         dropoff = dropoff * kInchesPerFoot;
-    uint32_t function = 0; // (uninitialised in the original: only read when found)
+    uint32_t function = 0;                                 // (uninitialised in the original: only read when found)
     if (params->read_hash_value(0x0C6AC50A, &function, 0)) // dropoff_function
         falloff = sound::falloff_from_checksum(function);
     uint32_t emitter = 0;
@@ -154,9 +148,10 @@ bool AudioStreamModule::play_stream(script::Struct* params, script::Script* /*sc
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
-    int use_pos_info = 1; // (read into the parameters' own argument slot)
+    int use_pos_info = 1;                                  // (read into the parameters' own argument slot)
     params->fetch_int_value(0xC9B0DEB7, &use_pos_info, 0); // use_pos_info
-    return audio::play_stream_at_object(this, stream, dropoff, volume, pitch, loops, priority, use_pos_info, falloff, id) != 0;
+    return audio::play_stream_at_object(this, stream, dropoff, volume, pitch, loops, priority, use_pos_info, falloff,
+                                        id) != 0;
 }
 
 // 0x00433B30
@@ -165,7 +160,7 @@ bool AudioStreamModule::add_stream(script::Struct* params, script::Script* /*scr
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
-    uint32_t name = 0; // (read into the parameters' own argument slot, cleared first)
+    uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
     if (!params->read_hash_value(0x02E58C18, &name, 0)) // Add
         return false;
     return audio::add_stream(stream, name, this);
@@ -177,7 +172,7 @@ bool AudioStreamModule::remove_stream(script::Struct* params, script::Script* /*
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
         return false;
-    uint32_t name = 0; // (read into the parameters' own argument slot, cleared first)
+    uint32_t name = 0;                                  // (read into the parameters' own argument slot, cleared first)
     if (!params->read_hash_value(0x977FE2CF, &name, 0)) // remove
         return false;
     return audio::remove_stream(stream, name, this);
@@ -216,25 +211,25 @@ bool AudioStreamModule::obj_stop_stream(script::Struct* /*params*/, script::Scri
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::AudioStreamModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::AudioStreamModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      &objects::AudioStreamModule::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

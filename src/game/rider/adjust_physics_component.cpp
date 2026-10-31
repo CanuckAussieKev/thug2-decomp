@@ -39,7 +39,7 @@ constexpr uint32_t kUnderTheFloor = 0xAFAA46BA; // (as Update sends it)
 constexpr uint32_t kFirstTick = 0x98;
 constexpr uint32_t kTimedFlags = 0x1528;
 
-constexpr float kFeelerReach = 30.0f; // 0x00646240
+constexpr float kFeelerReach = 30.0f;     // 0x00646240
 constexpr float kBrightnessAbove = 12.0f; // 0x0064546C
 
 template <typename T>
@@ -121,7 +121,8 @@ void RiderPhysicsTweaks::check_inside_moving_object()
     maths::Vec4& frame_start = get_at<maths::Vec4>(core_ptr_, kFirstTick);
     if (!ride_->find_contact_ahead(&entity_->at_point_, &frame_start))
         return;
-    debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182, "found to be inside a moving object");
+    debug::printf("M:%s:%i: %s\n", "mponents\\SkaterAdjustPhysicsComponent.cpp", 0x182,
+                  "found to be inside a moving object");
     render::ProbeRay feeler;
     feeler.make_new();
     const maths::Vec4& pos = entity_->at_point_;
@@ -149,8 +150,9 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     feeler.set_excluded(0, 0x20);
     feeler.line_.start.y = static_cast<float>(static_cast<double>(feeler.line_.start.y) + kBrightnessAbove);
     if (hit)
-        feeler.line_.end = {ground->contact_pos_.x, static_cast<float>(static_cast<double>(ground->contact_pos_.y) - 1.0f),
-                             ground->contact_pos_.z, ground->contact_pos_.w};
+        feeler.line_.end = {ground->contact_pos_.x,
+                            static_cast<float>(static_cast<double>(ground->contact_pos_.y) - 1.0f),
+                            ground->contact_pos_.z, ground->contact_pos_.w};
     else
         feeler.line_.end = feeler.line_.start;
     if (feeler.get_hit_shape(false, false))
@@ -160,25 +162,27 @@ void RiderPhysicsTweaks::get_update_brightness(render::ProbeRay* ground)
     feeler.entity_.get_release();
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderPhysicsTweaks::teardown,
-         &objects::RiderPhysicsTweaks::frame_update,
-         stubs::ignore_argument,
-         &objects::RiderPhysicsTweaks::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderPhysicsTweaks::teardown,
+    &objects::RiderPhysicsTweaks::frame_update,
+    stubs::ignore_argument,
+    &objects::RiderPhysicsTweaks::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

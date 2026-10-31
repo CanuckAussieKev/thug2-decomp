@@ -49,51 +49,51 @@ maths::Vec4& vector_at(const void* object, uint32_t offset) { return get_at<math
 
 // The core physics component's fields (THUG2's; THAW's offset in the comment).
 constexpr uint32_t kObject = 0x0C;
-constexpr uint32_t kDisplayMatrix = 0x18;  // (rows: +0x18 right, +0x28 up, +0x38 forward)
+constexpr uint32_t kDisplayMatrix = 0x18; // (rows: +0x18 right, +0x28 up, +0x38 forward)
 constexpr uint32_t kDisplayUp = 0x28;
 constexpr uint32_t kDisplayForward = 0x38;
-constexpr uint32_t kVisualUp = 0x58;  // THAW +0x68
+constexpr uint32_t kVisualUp = 0x58;        // THAW +0x68
 constexpr uint32_t kFloorUpVector = 0x68;   // THAW +0x78
-constexpr uint32_t kOldNormal = 0x78;      // THAW +0x88 (the display normal when the ground normal changed)
-constexpr uint32_t kUpBlendT = 0x88;     // THAW +0x98 (1 -> 0 over the lerp)
-constexpr uint32_t kFrameLength = 0x8C;    // THAW +0x9C
-constexpr uint32_t kFeeler = 0xA8;         // THAW +0xB8
-constexpr uint32_t kHitFlags = 0xF8;       // the feeler's hit face's flags
+constexpr uint32_t kOldNormal = 0x78;       // THAW +0x88 (the display normal when the ground normal changed)
+constexpr uint32_t kUpBlendT = 0x88;        // THAW +0x98 (1 -> 0 over the lerp)
+constexpr uint32_t kFrameLength = 0x8C;     // THAW +0x9C
+constexpr uint32_t kFeeler = 0xA8;          // THAW +0xB8
+constexpr uint32_t kHitFlags = 0xF8;        // the feeler's hit face's flags
 constexpr uint32_t kFeelerDistance = 0x11C; // THAW +0x12C (the feeler's reach_)
-constexpr uint32_t kHitPoint = 0x120;      // THAW +0x130
-constexpr uint32_t kHitNormal = 0x130;     // THAW +0x140
-constexpr uint32_t kProbeOrigin = 0x208;   // THAW +0x388
+constexpr uint32_t kHitPoint = 0x120;       // THAW +0x130
+constexpr uint32_t kHitNormal = 0x130;      // THAW +0x140
+constexpr uint32_t kProbeOrigin = 0x208;    // THAW +0x388
 constexpr uint32_t kProbeTip = 0x218;
 constexpr uint32_t kHitSkatable = 0x228;
 constexpr uint32_t kHitVert = 0x229;
-constexpr uint32_t kCrouchedKick = 0x303;  // THAW +0x567
-constexpr uint32_t kNoKick = 0x310;        // THAW +0x674
-constexpr uint32_t kMayBrake = 0x311;      // THAW +0x675
-constexpr uint32_t kBraking = 0x324;       // THAW +0x688
-constexpr uint32_t kTurnVelocityToo = 0x388; // THAW +0x73C (set: the velocity isn't turned with the skater)
-constexpr uint32_t kSpinningLeft = 0x3A5;  // THAW +0x759
-constexpr uint32_t kInput = 0x150C;        // THAW +0x1910 (the pad at its +0x20)
+constexpr uint32_t kCrouchedKick = 0x303;     // THAW +0x567
+constexpr uint32_t kNoKick = 0x310;           // THAW +0x674
+constexpr uint32_t kMayBrake = 0x311;         // THAW +0x675
+constexpr uint32_t kBraking = 0x324;          // THAW +0x688
+constexpr uint32_t kTurnVelocityToo = 0x388;  // THAW +0x73C (set: the velocity isn't turned with the skater)
+constexpr uint32_t kSpinningLeft = 0x3A5;     // THAW +0x759
+constexpr uint32_t kInput = 0x150C;           // THAW +0x1910 (the pad at its +0x20)
 constexpr uint32_t kSkaterComponent = 0x1518; // THAW +0x191C (+0x13A4 the trick's rotation; THAW +0x13F8)
 constexpr uint32_t kRotationDisplay = 0x1520;
-constexpr uint32_t kBalance = 0x1524;      // THAW +0x1928 (+0x18 the balance trick's kind; +0x24 the manual's
-                                           // balance, its lean at +0x54)
-constexpr uint32_t kFlags = 0x1528;        // THAW +0x192C (+0x18 the state)
+constexpr uint32_t kBalance = 0x1524; // THAW +0x1928 (+0x18 the balance trick's kind; +0x24 the manual's
+                                      // balance, its lean at +0x54)
+constexpr uint32_t kFlags = 0x1528;   // THAW +0x192C (+0x18 the state)
 // The timed flags (THUG2's; THAW's in the comment).
-constexpr uint32_t kFlagCrouched = 0x20;   // THAW 0x20
-constexpr uint32_t kFlagVert = 0x30;       // THAW 0x30
-constexpr uint32_t kFlagVertGround = 0x40; // THAW 0x40
-constexpr uint32_t kFlagFaceRamp = 0x68;   // THAW 0x70 (the air's turn to face the ramp allowed)
-constexpr uint32_t kFlag70 = 0x70;         // THAW 0x78 (apply_ground_friction's flag)
-constexpr uint32_t kFlagAcidDrop = 0x78;   // THAW 0x80
+constexpr uint32_t kFlagCrouched = 0x20;     // THAW 0x20
+constexpr uint32_t kFlagVert = 0x30;         // THAW 0x30
+constexpr uint32_t kFlagVertGround = 0x40;   // THAW 0x40
+constexpr uint32_t kFlagFaceRamp = 0x68;     // THAW 0x70 (the air's turn to face the ramp allowed)
+constexpr uint32_t kFlag70 = 0x70;           // THAW 0x78 (apply_ground_friction's flag)
+constexpr uint32_t kFlagAcidDrop = 0x78;     // THAW 0x80
 constexpr uint32_t kFlagNoSecondSpin = 0xC0; // THAW 0xD8
 
 // The skater object's.
-constexpr uint32_t kPosition = 0x4C;       // THAW +0x68
-constexpr uint32_t kMatrix = 0x6C;         // THAW +0x88
+constexpr uint32_t kPosition = 0x4C; // THAW +0x68
+constexpr uint32_t kMatrix = 0x6C;   // THAW +0x88
 constexpr uint32_t kRight = 0x6C;
 constexpr uint32_t kUp = 0x7C;
-constexpr uint32_t kFacing = 0x8C;         // THAW +0xA8
-constexpr uint32_t kVelocity = 0xAC;       // THAW +0xC8
+constexpr uint32_t kFacing = 0x8C;   // THAW +0xA8
+constexpr uint32_t kVelocity = 0xAC; // THAW +0xC8
 
 // The states.
 constexpr int kStateAir = 1;
@@ -105,39 +105,39 @@ constexpr uint32_t kUpButton = 0x00, kDownButton = 0x20, kLeftButton = 0x40, kRi
 constexpr uint32_t kL1 = 0x80, kR1 = 0xE0, kCircle = 0x140, kSquare = 0x160;
 
 // Checksums.
-constexpr uint32_t kManualKind = 0xEF24413B;          // Manual (the balance trick's kind)
-constexpr uint32_t kBrakeAcceleration = 0xE5D73F6F;   // Physics_Brake_Acceleration
-constexpr uint32_t kFrontBrakeAcceleration = 0x6235801C; // Physics_Front_Brake_Acceleration
-constexpr uint32_t kSkidAcceleration = 0xECFA301C;    // Physics_Brake_Skid_Acceleration
-constexpr uint32_t kStandingKickSpeed = 0x4610C2E3;   // Skater_Max_Standing_Kick_Speed_Stat
-constexpr uint32_t kCrouchedKickSpeed = 0x92E0247C;   // Skater_Max_Crouched_Kick_Speed_Stat
-constexpr uint32_t kGroundRotation = 0x374E056B;      // Physics_Ground_Rotation
-constexpr uint32_t kGroundSharpRotation = 0x7933A8EF; // Physics_Ground_Sharp_Rotation
-constexpr uint32_t kMaxSpeedStat = 0x2EACDDB3;        // Skater_Max_Speed_Stat
-constexpr uint32_t kGroundNoLeanTime = 0xE978B078;    // Physics_Ground_No_Lean_Time
-constexpr uint32_t kNoBalanceFrames = 0x291AC9B9;     // Physics_manual_no_balance_frames
-constexpr uint32_t kGroundLeanStat = 0xA2133ED7;      // Physics_Ground_Lean_stat
-constexpr uint32_t kAirLeanStat = 0xCBFDD841;         // Physics_Air_Lean_stat
-constexpr uint32_t kAirLeanFastStat = 0x8A93C338;     // Physics_Air_Lean_fast_stat
-constexpr uint32_t kAirNoLeanTime = 0x5F70EF46;       // Physics_Air_No_Lean_Time
-constexpr uint32_t kAirRampLeanTime = 0x12CD2D14;     // Physics_Air_Ramp_Lean_Time
-constexpr uint32_t kAirRotationStat = 0x4957DB43;     // Physics_Air_Rotation_stat
-constexpr uint32_t kAirRotationFastStat = 0x3FBC1DC9; // Physics_Air_Rotation_fast_stat
-constexpr uint32_t kAirNoRotateTime = 0xA092B2BE;     // Physics_Air_No_Rotate_Time
-constexpr uint32_t kAirRampRotateTime = 0x5D756349;   // Physics_Air_Ramp_Rotate_Time
-constexpr uint32_t kAutoturnCancelTime = 0xABDD3395;  // skater_autoturn_cancel_time
-constexpr uint32_t kSpinCountSlop = 0x50C5CC2F;       // spin_count_slop
-constexpr uint32_t kEyeLevelStat = 0x542CF0C7;          // Skater_default_head_height
-constexpr uint32_t kGroundSnapUp = 0xE4D79235;        // Physics_Ground_Snap_Up
-constexpr uint32_t kGroundSnapDown = 0x899BA3D0;      // Physics_Ground_Snap_Down
-constexpr uint32_t kGroundStickAngle = 0xEF161C2A;    // Ground_stick_angle
+constexpr uint32_t kManualKind = 0xEF24413B;              // Manual (the balance trick's kind)
+constexpr uint32_t kBrakeAcceleration = 0xE5D73F6F;       // Physics_Brake_Acceleration
+constexpr uint32_t kFrontBrakeAcceleration = 0x6235801C;  // Physics_Front_Brake_Acceleration
+constexpr uint32_t kSkidAcceleration = 0xECFA301C;        // Physics_Brake_Skid_Acceleration
+constexpr uint32_t kStandingKickSpeed = 0x4610C2E3;       // Skater_Max_Standing_Kick_Speed_Stat
+constexpr uint32_t kCrouchedKickSpeed = 0x92E0247C;       // Skater_Max_Crouched_Kick_Speed_Stat
+constexpr uint32_t kGroundRotation = 0x374E056B;          // Physics_Ground_Rotation
+constexpr uint32_t kGroundSharpRotation = 0x7933A8EF;     // Physics_Ground_Sharp_Rotation
+constexpr uint32_t kMaxSpeedStat = 0x2EACDDB3;            // Skater_Max_Speed_Stat
+constexpr uint32_t kGroundNoLeanTime = 0xE978B078;        // Physics_Ground_No_Lean_Time
+constexpr uint32_t kNoBalanceFrames = 0x291AC9B9;         // Physics_manual_no_balance_frames
+constexpr uint32_t kGroundLeanStat = 0xA2133ED7;          // Physics_Ground_Lean_stat
+constexpr uint32_t kAirLeanStat = 0xCBFDD841;             // Physics_Air_Lean_stat
+constexpr uint32_t kAirLeanFastStat = 0x8A93C338;         // Physics_Air_Lean_fast_stat
+constexpr uint32_t kAirNoLeanTime = 0x5F70EF46;           // Physics_Air_No_Lean_Time
+constexpr uint32_t kAirRampLeanTime = 0x12CD2D14;         // Physics_Air_Ramp_Lean_Time
+constexpr uint32_t kAirRotationStat = 0x4957DB43;         // Physics_Air_Rotation_stat
+constexpr uint32_t kAirRotationFastStat = 0x3FBC1DC9;     // Physics_Air_Rotation_fast_stat
+constexpr uint32_t kAirNoRotateTime = 0xA092B2BE;         // Physics_Air_No_Rotate_Time
+constexpr uint32_t kAirRampRotateTime = 0x5D756349;       // Physics_Air_Ramp_Rotate_Time
+constexpr uint32_t kAutoturnCancelTime = 0xABDD3395;      // skater_autoturn_cancel_time
+constexpr uint32_t kSpinCountSlop = 0x50C5CC2F;           // spin_count_slop
+constexpr uint32_t kEyeLevelStat = 0x542CF0C7;            // Skater_default_head_height
+constexpr uint32_t kGroundSnapUp = 0xE4D79235;            // Physics_Ground_Snap_Up
+constexpr uint32_t kGroundSnapDown = 0x899BA3D0;          // Physics_Ground_Snap_Down
+constexpr uint32_t kGroundStickAngle = 0xEF161C2A;        // Ground_stick_angle
 constexpr uint32_t kGroundStickAngleForward = 0x4138283E; // Ground_stick_angle_forward
-constexpr uint32_t kForwardCollisionHeight = 0xD4205C9B; // Skater_First_Forward_Collision_Height
-constexpr uint32_t kVertMaxSpeedTime = 0x0F230065;    // Skater_Vert_Max_Speed_Time
-constexpr uint32_t kVertMaxMaxSpeedStat = 0x9CCDD908; // Skater_Vert_Max_Max_Speed_Stat
-constexpr uint32_t kLanded = 0x532B16EF;              // Landed (the exception)
-constexpr uint32_t kEndo = 0x4C961392;                // endo
-constexpr uint32_t kNose = 0x7F03932C;                // nose
+constexpr uint32_t kForwardCollisionHeight = 0xD4205C9B;  // Skater_First_Forward_Collision_Height
+constexpr uint32_t kVertMaxSpeedTime = 0x0F230065;        // Skater_Vert_Max_Speed_Time
+constexpr uint32_t kVertMaxMaxSpeedStat = 0x9CCDD908;     // Skater_Vert_Max_Max_Speed_Stat
+constexpr uint32_t kLanded = 0x532B16EF;                  // Landed (the exception)
+constexpr uint32_t kEndo = 0x4C961392;                    // endo
+constexpr uint32_t kNose = 0x7F03932C;                    // nose
 
 // THAW's scripts these spawn (bike_scripts.qb; phase 4 ported THAW's own: tools/pipeline/thaw_bmx/bike_scripts.ts).
 constexpr const char* kEnterManualScript = "bike_enter_manual";
@@ -154,39 +154,39 @@ constexpr const char* kForwardJumpBoost = "bike_forward_jump_boost";
 constexpr float kForwardJumpBoostThaw = 100.0f;
 constexpr const char* kGrindTrickList = "BikeGrindTrickList";
 constexpr const char* kStallSlipTime = "stall_slip_time";
-constexpr uint32_t kRailTolerance = 0xD0688D4E;       // Rail_Tolerance
+constexpr uint32_t kRailTolerance = 0xD0688D4E; // Rail_Tolerance
 
 // THAW's constants.
-constexpr float kRadiansPerDegree = 0.0174532924f; // 0x006DB474
-constexpr float kDegreesPerRadian = 57.2957764f;   // 0x006DB478
-constexpr float kLerpRate = 60.0f;                 // 0x006DCB7C (THUG2's 0x00645EA0)
-constexpr float kWheelBase = 2.0f * kWheelOffset;  // 0x006DB3A4 x 0x006DD14C
-constexpr float kWheelFeelDown = -200.0f;          // 0x006E15F8
-constexpr float kCrease = 0.2f;                    // 0x006DD574
-constexpr float kSlow = 10.0f;                     // 0x006DCFC4
-constexpr float kEndoSpeed = 300.0f;               // 0x006DD664
-constexpr float kManualBalance = 50.0f;            // 0x006DD6C8 (ResetBikeManualAngle's)
-constexpr float kManualTop = 100.0f;               // 0x006DCBC0
-constexpr float kEndoExitSpeed = 100.0f;           // 0x006DCBC0
-constexpr float kEndoBack = 200.0f;                // 0x006EDCF4
-constexpr float kJumpManualPitch = 0.7f;           // 0x006EDDB0 / 0x006EDDA8 (doubles)
-constexpr double kStickScale = 0.0078125;          // 0x006EDD88 (1 / 128)
-constexpr float kSlowTurnRamp = 1.0f / 600.0f;     // 0x006EDD90
-constexpr int kSlowTurnRampMs = 600;               // 0x258
-constexpr float kBackwardsLean = 0.0005f;          // 0x006EDD80
-constexpr double kSteerBlendBase = 1.0;            // THAW 0x006DB3A8 (double)
-constexpr double kSteerBlendScale = 0.5;           // THAW 0x006E4DE8 (double)
-constexpr float kSteerInTime = 0.4f;               // (bike_playturnanim's BlendPeriod: THAW's tree blends the turn in)
-constexpr float kSteerOutTime = 0.3f;              // (ours: THUG2's PlayAnim's blend, as the idle that follows plays)
+constexpr float kRadiansPerDegree = 0.0174532924f;  // 0x006DB474
+constexpr float kDegreesPerRadian = 57.2957764f;    // 0x006DB478
+constexpr float kLerpRate = 60.0f;                  // 0x006DCB7C (THUG2's 0x00645EA0)
+constexpr float kWheelBase = 2.0f * kWheelOffset;   // 0x006DB3A4 x 0x006DD14C
+constexpr float kWheelFeelDown = -200.0f;           // 0x006E15F8
+constexpr float kCrease = 0.2f;                     // 0x006DD574
+constexpr float kSlow = 10.0f;                      // 0x006DCFC4
+constexpr float kEndoSpeed = 300.0f;                // 0x006DD664
+constexpr float kManualBalance = 50.0f;             // 0x006DD6C8 (ResetBikeManualAngle's)
+constexpr float kManualTop = 100.0f;                // 0x006DCBC0
+constexpr float kEndoExitSpeed = 100.0f;            // 0x006DCBC0
+constexpr float kEndoBack = 200.0f;                 // 0x006EDCF4
+constexpr float kJumpManualPitch = 0.7f;            // 0x006EDDB0 / 0x006EDDA8 (doubles)
+constexpr double kStickScale = 0.0078125;           // 0x006EDD88 (1 / 128)
+constexpr float kSlowTurnRamp = 1.0f / 600.0f;      // 0x006EDD90
+constexpr int kSlowTurnRampMs = 600;                // 0x258
+constexpr float kBackwardsLean = 0.0005f;           // 0x006EDD80
+constexpr double kSteerBlendBase = 1.0;             // THAW 0x006DB3A8 (double)
+constexpr double kSteerBlendScale = 0.5;            // THAW 0x006E4DE8 (double)
+constexpr float kSteerInTime = 0.4f;                // (bike_playturnanim's BlendPeriod: THAW's tree blends the turn in)
+constexpr float kSteerOutTime = 0.3f;               // (ours: THUG2's PlayAnim's blend, as the idle that follows plays)
 constexpr const char* kSteerSubset = "ThawBmxTurn"; // (ours: the anim subset the turn animation plays in)
-constexpr uint32_t kSubsetRemove = 0xAFC2493E;     // Obj_RemoveAnimSubset
-constexpr uint32_t kSubsetId = 0x5CFCCF35;         // SubsetId
+constexpr uint32_t kSubsetRemove = 0xAFC2493E;      // Obj_RemoveAnimSubset
+constexpr uint32_t kSubsetId = 0x5CFCCF35;          // SubsetId
 constexpr int kStateGround = 0;
-constexpr double kAcidDropBack = 0.1;              // 0x006EDD70
-constexpr double kStallSteepUp = 0.95;             // THAW 0x006EDDC0 (the stall's rail too steep under this up y)
-constexpr int kStallSteepFrames = 10;              // (the frames of it before the stall turns into a grind)
-constexpr float kStallSlipTimeThaw = 130.0f;       // (THAW's stall_slip_time, physics.qb - while the overlay lacks it)
-constexpr uint32_t kStateChangeTime = 0x90;        // THAW +0xA0 (change_phase 0x004FDED0 notes the time of a change)
+constexpr double kAcidDropBack = 0.1;        // 0x006EDD70
+constexpr double kStallSteepUp = 0.95;       // THAW 0x006EDDC0 (the stall's rail too steep under this up y)
+constexpr int kStallSteepFrames = 10;        // (the frames of it before the stall turns into a grind)
+constexpr float kStallSlipTimeThaw = 130.0f; // (THAW's stall_slip_time, physics.qb - while the overlay lacks it)
+constexpr uint32_t kStateChangeTime = 0x90;  // THAW +0xA0 (change_phase 0x004FDED0 notes the time of a change)
 
 // --- helpers -----------------------------------------------------------------------------------------------------
 
@@ -206,7 +206,8 @@ uint32_t get_since(int stamp)
 // A button's time since it was pressed (0x0046B920), as THAW's float compares take it (unsigned).
 float get_held_ms(uint8_t* button)
 {
-    return static_cast<float>(static_cast<uint32_t>(reinterpret_cast<objects::ControlButton*>(button)->get_held_millis()));
+    return static_cast<float>(
+        static_cast<uint32_t>(reinterpret_cast<objects::ControlButton*>(button)->get_held_millis()));
 }
 float get_held_ms(const StickButton& button) { return static_cast<float>(get_since(button.press_time_)); }
 
@@ -230,7 +231,10 @@ int physics_integer(uint32_t name, const void* core)
 {
     return objects::read_tuning_int(name, 1, static_cast<objects::GameEntity*>(object_of(core)));
 }
-float get_stat(uint32_t name, const void* core) { return static_cast<objects::Rider*>(object_of(core))->get_scaled_physics(name); }
+float get_stat(uint32_t name, const void* core)
+{
+    return static_cast<objects::Rider*>(object_of(core))->get_scaled_physics(name);
+}
 // A global of THAW's physics.qb that THUG2 hasn't: THAW's value while the overlay lacks it.
 float thaw_global(const char* name, float thaw)
 {
@@ -276,8 +280,8 @@ void run_bike_script(const void* core, const char* name, script::Struct* params 
         static uint32_t s_warned = 0;
         if (s_warned != checksum) {
             get_log("thaw_bmx: the script %s isn't loaded (make the overlay again: tools/pipeline/thaw_bmx/convert.ts, "
-                "make_menu_level.ts)",
-                name);
+                    "make_menu_level.ts)",
+                    name);
             s_warned = checksum;
         }
         return;
@@ -338,7 +342,7 @@ int brake_choice(bool manual, bool nose, bool front_brake, bool endo, bool balan
 }
 
 float ground_turn_rate(float speed, float max_speed, float rotation, float sharp_rotation, bool braking, bool manual,
-                     float pad_axis_x, int held_ms, bool backwards, float balance_lean)
+                       float pad_axis_x, int held_ms, bool backwards, float balance_lean)
 {
     float rate = 0.0f;
     if (pad_axis_x != 0.0f) {
@@ -447,7 +451,8 @@ ManualOutput manual_step(const ManualInput& in)
 
 bool jump_boosts(const maths::Vec4& velocity, float stick_y)
 {
-    double horizontal = std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
+    double horizontal =
+        std::sqrt(static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x);
     return horizontal == 0.0 && !(stick_y > 0.0f);
 }
 
@@ -502,7 +507,7 @@ maths::Vec4 wheel_base_normal(const maths::Vec4& normal, const maths::Vec4& fron
 }
 
 maths::Vec4 wheel_base_up(const maths::Vec4& right, const maths::Vec4& front, const maths::Vec4& rear,
-                        const maths::Vec4& hit)
+                          const maths::Vec4& hit)
 {
     maths::Vec4 d = {front.x - rear.x, front.y - rear.y, front.z - rear.z, 0.0f};
     if (length3(d) > 0.0)
@@ -526,11 +531,11 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     WheelFeelResult out = {false, false, in.wheel, 1, 0.0f, 0.0f, 0.0f, 0.0f};
     // (THAW: the differences and `along` in SSE floats, the distance on the x87)
     float dx = in.wheel.x - in.point.x, dy = in.wheel.y - in.point.y, dz = in.wheel.z - in.point.z;
-    float distance = static_cast<float>(std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy +
-                                                  static_cast<double>(dx) * dx));
+    float distance = static_cast<float>(
+        std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx));
     float along = in.up.z * dz + in.up.y * dy + in.up.x * dx; // (how far above the hit, along up)
     const maths::Vec4 on_hit = {in.point.x + in.normal.x, in.point.y + in.normal.y, in.point.z + in.normal.z,
-                               in.point.w + in.normal.w};
+                                in.point.w + in.normal.w};
     if (!in.skatable) {
         if (along < 0.001f) { // 0x006DBD98
             out.move_wheel_ = true;
@@ -547,8 +552,9 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     maths::Vec4 in_hit = direction, in_ground = direction;
     in_hit.align_to_plane(in.normal);
     in_ground.align_to_plane(in.ground_normal_);
-    float turn = static_cast<float>(static_cast<double>(in_ground.x) * in_hit.x + static_cast<double>(in_ground.z) * in_hit.z +
-                                    static_cast<double>(in_ground.y) * in_hit.y);
+    float turn =
+        static_cast<float>(static_cast<double>(in_ground.x) * in_hit.x + static_cast<double>(in_ground.z) * in_hit.z +
+                           static_cast<double>(in_ground.y) * in_hit.y);
     float limit = static_cast<float>(std::cos(static_cast<double>(in.stick_angle_) * kRadiansPerDegree));
     out.distance = distance;
     out.turn = turn;
@@ -560,7 +566,8 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     if (along > 0.0f) {
         float cosine = turn < -1.0f ? -1.0f : (turn > 1.0f ? 1.0f : turn);
         float mx = in.wheel.x - in.last.x, my = in.wheel.y - in.last.y, mz = in.wheel.z - in.last.z;
-        double moved = std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz + static_cast<double>(my) * my);
+        double moved =
+            std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz + static_cast<double>(my) * my);
         float reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
         if (in.snap_down_ > reach)
             reach = in.snap_down_;
@@ -626,7 +633,7 @@ maths::Vec4 stall_facing(const maths::Vec4& facing, const maths::Vec4& direction
     return {direction.x * sign, direction.y * sign, direction.z * sign, direction.w * sign};
 }
 
-} // namespace Bike
+} // namespace bike
 
 // --- the frame -----------------------------------------------------------------------------------------------------
 
@@ -655,13 +662,14 @@ void end_frame(void* core)
         void* object = object_of(core);
         const maths::Vec4& p = vector_at(object, kPosition);
         const maths::Vec4& v = vector_at(object, kVelocity);
-        if (!s_logged && !(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z) && std::isfinite(v.x) &&
-                           std::isfinite(v.y) && std::isfinite(v.z) && std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z) < 1e6f)) {
+        if (!s_logged &&
+            !(std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z) && std::isfinite(v.x) &&
+              std::isfinite(v.y) && std::isfinite(v.z) && std::fabs(v.x) + std::fabs(v.y) + std::fabs(v.z) < 1e6f)) {
             s_logged = true;
             const BikeState& s = *state_of(core, true);
             get_log("thaw_bmx: not finite - state %d pos %g %g %g vel %g %g %g front %g %g %g rear %g %g %g manual %d",
-                state_of(core), p.x, p.y, p.z, v.x, v.y, v.z, s.front_wheel_.x, s.front_wheel_.y, s.front_wheel_.z,
-                s.rear_wheel_.x, s.rear_wheel_.y, s.rear_wheel_.z, s.manual ? 1 : 0);
+                    state_of(core), p.x, p.y, p.z, v.x, v.y, v.z, s.front_wheel_.x, s.front_wheel_.y, s.front_wheel_.z,
+                    s.rear_wheel_.x, s.rear_wheel_.y, s.rear_wheel_.z, s.manual ? 1 : 0);
         }
     }
     // (phase 4, thaw_bmx_tricks.cpp: THAW 0x00620780 - the manual's pose from its angle)
@@ -691,8 +699,9 @@ namespace {
 // table, which a call by name - GameEntity::invoke_method_by_name - never reaches: the blender is asked directly.)
 gfx::BlendChannel* steer_channel(objects::GameEntity* object, objects::AnimBlenderComponent** blender)
 {
-    *blender = object ? static_cast<objects::AnimBlenderComponent*>(object->fetch_module(objects::AnimBlenderComponent::kType))
-                      : nullptr;
+    *blender =
+        object ? static_cast<objects::AnimBlenderComponent*>(object->fetch_module(objects::AnimBlenderComponent::kType))
+               : nullptr;
     return *blender ? (*blender)->find_channel(checksums::hash_from_text(kSteerSubset)) : nullptr;
 }
 
@@ -795,7 +804,8 @@ void get_brake(void* core)
 {
     BikeState& state = *state_of(core, true);
     bool balance_is_manual = get_at<uint32_t>(get_at<void*>(core, kBalance), 0x18) == kManualKind;
-    int choice = bike::brake_choice(state.manual, state.nose_manual_, state.front_brake_, state.endo, balance_is_manual);
+    int choice =
+        bike::brake_choice(state.manual, state.nose_manual_, state.front_brake_, state.endo, balance_is_manual);
     if (choice == 0)
         return;
     get_at<uint8_t>(core, kBraking) = 1;
@@ -843,11 +853,13 @@ void turn_on_ground(void* core)
     // (THAW 0x005D6342: its pad +0x60 / +0x40 - the d-pad's right / left, not the stick's buttons; with the
     // stick off the d-pad on the bike, the time since the d-pad was last pressed, as THAW's)
     if (pad_axis_x != 0.0f)
-        held = static_cast<int>(pad->right_side_.held_down_ ? pad->right_side_.get_held_millis() : pad->left_side_.get_held_millis());
+        held = static_cast<int>(pad->right_side_.held_down_ ? pad->right_side_.get_held_millis()
+                                                            : pad->left_side_.get_held_millis());
     float sharp = tuning_float_lookup(kGroundSharpRotation, core);
-    float rate = bike::ground_turn_rate(get_pace(core), get_stat(kMaxSpeedStat, core), tuning_float_lookup(kGroundRotation, core),
-                                      sharp, pad_axis_x != 0.0f && brake_held(core, state), state.manual, pad_axis_x, held,
-                                      moving_backwards(core), get_at<float>(get_at<void*>(core, kBalance), 0x54));
+    float rate = bike::ground_turn_rate(get_pace(core), get_stat(kMaxSpeedStat, core),
+                                        tuning_float_lookup(kGroundRotation, core), sharp,
+                                        pad_axis_x != 0.0f && brake_held(core, state), state.manual, pad_axis_x, held,
+                                        moving_backwards(core), get_at<float>(get_at<void*>(core, kBalance), 0x54));
     // THAW 0x005D61F0's +0x570: the turn animation's share, every frame on the ground.
     state.steer_blend_ = bike::steer_blend(rate, sharp);
     {
@@ -857,8 +869,8 @@ void turn_on_ground(void* core)
             const maths::Vec4& v = vector_at(object_of(core), kVelocity);
             const maths::Vec4& f = vector_at(object_of(core), kFacing);
             get_log("thaw_bmx steer: speed %.0f along %.2f stick %.0f rate %.3f blend %.2f in %.2f anim %d manual %d",
-                get_pace(core), length3(v) > 0.0 ? dot3(v, f) / length3(v) : 0.0, pad_axis_x, rate, state.steer_blend_,
-                state.steer_in_, state.steer_anim_ ? 1 : 0, state.manual ? 1 : 0);
+                    get_pace(core), length3(v) > 0.0 ? dot3(v, f) / length3(v) : 0.0, pad_axis_x, rate,
+                    state.steer_blend_, state.steer_in_, state.steer_anim_ ? 1 : 0, state.manual ? 1 : 0);
         }
     }
     // The skid's wait (BikeExitSkid's 60 frames) counted down on the ground.
@@ -1141,7 +1153,7 @@ WheelHit feel_wheel(void* core, maths::Vec4& wheel, const maths::Vec4& last, con
 {
     WheelHit result;
     vector_at(core, kProbeOrigin) = {wheel.x + up.x * above, wheel.y + up.y * above, wheel.z + up.z * above,
-                                    wheel.w + up.w * above};
+                                     wheel.w + up.w * above};
     vector_at(core, kProbeTip) = {wheel.x + up.x * kWheelFeelDown, wheel.y + up.y * kWheelFeelDown,
                                   wheel.z + up.z * kWheelFeelDown, wheel.w + up.w * kWheelFeelDown};
     if (!static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0))
@@ -1158,7 +1170,8 @@ WheelHit feel_wheel(void* core, maths::Vec4& wheel, const maths::Vec4& last, con
     feel.facing = vector_at(object_of(core), kFacing);
     feel.backwards = moving_backwards(core);
     feel.skatable = get_at<uint8_t>(core, kHitSkatable) != 0;
-    feel.stick_angle_ = tuning_float_lookup(pad_of(core)[kUpButton] ? kGroundStickAngleForward : kGroundStickAngle, core);
+    feel.stick_angle_ =
+        tuning_float_lookup(pad_of(core)[kUpButton] ? kGroundStickAngleForward : kGroundStickAngle, core);
     feel.snap_down_ = tuning_float_lookup(kGroundSnapDown, core);
     bike::WheelFeelResult out = bike::feel_wheel_on(feel);
     result.why = out.why;
@@ -1200,7 +1213,7 @@ void snap_wheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, 
     // Under the skater (the component's own feeler, kept for the ground check after).
     const maths::Vec4 position = vector_at(object, kPosition);
     vector_at(core, kProbeOrigin) = {position.x + up.x * above, position.y + up.y * above, position.z + up.z * above,
-                                    position.w + up.w * above};
+                                     position.w + up.w * above};
     vector_at(core, kProbeTip) = {position.x + up.x * kWheelFeelDown, position.y + up.y * kWheelFeelDown,
                                   position.z + up.z * kWheelFeelDown, position.w + up.w * kWheelFeelDown};
     main_hit = static_cast<SkaterPhysicsModule*>(core)->probe_touches_zone(0x10, 0);
@@ -1210,8 +1223,8 @@ void snap_wheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, 
     // One wheel down: the other a wheel base from it - towards the ground under the skater, else along the facing.
     auto towards = [&](const maths::Vec4& from) {
         maths::Vec4 d = main_hit ? maths::Vec4{main_point.x - from.x, main_point.y - from.y, main_point.z - from.z,
-                                              main_point.w - from.w}
-                                : facing;
+                                               main_point.w - from.w}
+                                 : facing;
         if (main_hit)
             d.make_unit();
         return d;
@@ -1219,13 +1232,14 @@ void snap_wheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, 
     if (rear.hit && !front.hit) {
         maths::Vec4 d = towards(state.rear_wheel_);
         state.front_wheel_ = {state.rear_wheel_.x + d.x * kWheelBase, state.rear_wheel_.y + d.y * kWheelBase,
-                            state.rear_wheel_.z + d.z * kWheelBase, state.rear_wheel_.w + d.w * kWheelBase};
+                              state.rear_wheel_.z + d.z * kWheelBase, state.rear_wheel_.w + d.w * kWheelBase};
     } else if (front.hit && !rear.hit) {
         // (THAW subtracts here too - the rear a wheel base on from the front, past it, when the ground under the
         // skater was found: its slip; the rear goes back from the front, as the other case.)
-        maths::Vec4 d = main_hit ? towards(state.front_wheel_) : maths::Vec4{-facing.x, -facing.y, -facing.z, -facing.w};
+        maths::Vec4 d =
+            main_hit ? towards(state.front_wheel_) : maths::Vec4{-facing.x, -facing.y, -facing.z, -facing.w};
         state.rear_wheel_ = {state.front_wheel_.x + d.x * kWheelBase, state.front_wheel_.y + d.y * kWheelBase,
-                           state.front_wheel_.z + d.z * kWheelBase, state.front_wheel_.w + d.w * kWheelBase};
+                             state.front_wheel_.z + d.z * kWheelBase, state.front_wheel_.w + d.w * kWheelBase};
     }
     // Something between the rider and a wheel: the wheel there (out by its normal); nearly stopped, the bike pushed
     // back.
@@ -1233,7 +1247,7 @@ void snap_wheels(void* core, BikeState& state, WheelHit& front, WheelHit& rear, 
         render::ProbeRay feeler;
         feeler.make_new();
         feeler.line_.start = {position.x + up.x * kWheelOffset, position.y + up.y * kWheelOffset,
-                               position.z + up.z * kWheelOffset, position.w + up.w * kWheelOffset};
+                              position.z + up.z * kWheelOffset, position.w + up.w * kWheelOffset};
         feeler.line_.end = {wheel->x + up.x, wheel->y + up.y, wheel->z + up.z, wheel->w + up.w};
         if (feeler.get_hit_shape(true, false)) {
             *wheel = {feeler.contact_pos_.x + feeler.surface_dir_.x, feeler.contact_pos_.y + feeler.surface_dir_.y,
@@ -1256,8 +1270,8 @@ bool vert_push_held(void* core, int push_time)
     // square nor circle.
     const BikeState& state = *state_of(core, true);
     uint8_t* pad = pad_of(core);
-    return state.stick_up_.down && push_time < static_cast<int>(get_since(state.stick_up_.press_time_)) && !state.stick_left_.down &&
-           !state.stick_right_.down && !pad[kSquare] && !pad[kCircle];
+    return state.stick_up_.down && push_time < static_cast<int>(get_since(state.stick_up_.press_time_)) &&
+           !state.stick_left_.down && !state.stick_right_.down && !pad[kSquare] && !pad[kCircle];
 }
 
 bool vert_tap_held(void* core)
@@ -1295,7 +1309,7 @@ bool vert_speed_allowance(void* core, float* max_max)
         return true;
     bool raise = false;
     bool friction = bike::vert_window(static_cast<float>(get_since(state.vert_ground_time_)),
-                                     tuning_float_lookup(kVertMaxSpeedTime, core), &raise);
+                                      tuning_float_lookup(kVertMaxSpeedTime, core), &raise);
     if (raise)
         *max_max = get_stat(kVertMaxMaxSpeedStat, core);
     return friction;
@@ -1329,20 +1343,22 @@ WheelGround wheel_ground_check(void* core)
         static const bool kLog = config_int("debug", "thaw_bmx_wheels", 0) != 0;
         if (kLog) {
             const maths::Vec4& p = vector_at(object, kPosition);
-            get_log("thaw_bmx wheels off: pos %.1f %.1f %.1f speed %.1f%s | front %d why %d dist %.2f reach %.2f turn %.3f "
+            get_log(
+                "thaw_bmx wheels off: pos %.1f %.1f %.1f speed %.1f%s | front %d why %d dist %.2f reach %.2f turn %.3f "
                 "limit %.3f | rear %d why %d dist %.2f reach %.2f turn %.3f limit %.3f",
-                p.x, p.y, p.z, get_pace(core), backwards ? " backwards" : "", front.hit ? 1 : 0, front.why, front.distance,
-                front.reach, front.turn, front.limit, rear.hit ? 1 : 0, rear.why, rear.distance, rear.reach, rear.turn,
-                rear.limit);
+                p.x, p.y, p.z, get_pace(core), backwards ? " backwards" : "", front.hit ? 1 : 0, front.why,
+                front.distance, front.reach, front.turn, front.limit, rear.hit ? 1 : 0, rear.why, rear.distance,
+                rear.reach, rear.turn, rear.limit);
         }
         return kWheelsOff;
     }
     // On it: midway between the wheels, the ground normal across the wheel base.
     maths::Vec4& position = vector_at(object, kPosition);
-    position = {(state.front_wheel_.x + state.rear_wheel_.x) * 0.5f, (state.front_wheel_.y + state.rear_wheel_.y) * 0.5f,
-                (state.front_wheel_.z + state.rear_wheel_.z) * 0.5f, (state.front_wheel_.w + state.rear_wheel_.w) * 0.5f};
+    position = {
+        (state.front_wheel_.x + state.rear_wheel_.x) * 0.5f, (state.front_wheel_.y + state.rear_wheel_.y) * 0.5f,
+        (state.front_wheel_.z + state.rear_wheel_.z) * 0.5f, (state.front_wheel_.w + state.rear_wheel_.w) * 0.5f};
     maths::Vec4 up = bike::wheel_base_up(vector_at(object, kRight), state.front_wheel_, state.rear_wheel_,
-                                       vector_at(core, kHitNormal));
+                                         vector_at(core, kHitNormal));
     static_cast<SkaterPhysicsModule*>(core)->turn_to_normal(up); // (THAW's 0x005D0BD0: THUG2's own)
     if (state_of(core) != kStateAir)
         static_cast<SkaterPhysicsModule*>(core)->keep_upright(); // (THAW 0x005CE810, on the ground)
@@ -1355,7 +1371,8 @@ bool lerp_display_normal(void* core)
         return false;
     BikeState& state = *state_of(core, true);
     // THUG2's 0x004FEA50 with THAW's bike target and speed.
-    maths::Vec4 target = bike::wheel_base_normal(vector_at(core, kFloorUpVector), state.front_wheel_, state.rear_wheel_);
+    maths::Vec4 target =
+        bike::wheel_base_normal(vector_at(core, kFloorUpVector), state.front_wheel_, state.rear_wheel_);
     float& t = get_at<float>(core, kUpBlendT);
     maths::Vec4& display = vector_at(core, kVisualUp);
     if (t != 0.0f) {
@@ -1401,7 +1418,10 @@ script::Array* grind_trick_row(void* core, bool left_side, bool sideways, bool b
     return reinterpret_cast<script::Array*>(list->fetch_part(row));
 }
 
-bool grind_side(void*, bool left_side, bool bad_ledge_on_that_side) { return bad_ledge_on_that_side ? !left_side : left_side; }
+bool grind_side(void*, bool left_side, bool bad_ledge_on_that_side)
+{
+    return bad_ledge_on_that_side ? !left_side : left_side;
+}
 
 bool acid_drop_direction(void* core, maths::Vec4* direction)
 {
@@ -1484,4 +1504,4 @@ int enter_wheelie_from_air(void* core, script::Struct* params)
     return 1;
 }
 
-} // namespace Skater::ThawBmx
+} // namespace skater::thaw_bmx

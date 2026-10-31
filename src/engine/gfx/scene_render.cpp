@@ -50,8 +50,7 @@ void count_pass(int which) { g_billboard_pool.render(which); }
 // The game's qsort (equal entries keep the game's order).
 void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
 {
-    crt::get_qsort(
-        base, count, size, compare);
+    crt::get_qsort(base, count, size, compare);
 }
 
 struct Lap {
@@ -220,4 +219,4 @@ void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
         count_pass(2);
 }
 
-} // namespace Nx
+} // namespace render

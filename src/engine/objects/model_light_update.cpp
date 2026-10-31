@@ -30,11 +30,11 @@ constexpr uint32_t kOnce = 0xE7375C4C;     // (its name isn't in THUG2's scripts
 constexpr uint32_t kInterval = 0x470B8AE9; // (nor this one's)
 constexpr uint32_t kModel = 0x286A8D26;
 
-constexpr float kUpNudge = 0.001f;       // 0x006461D8: a thousandth of the object's up vector
-constexpr float kAbove = 8.0f;           // 0x006461D4: the first feeler starts this far above
-constexpr float kDepth = 4800.0f;        // 0x006461D0: and goes this far down
-constexpr float kSecondAbove = 48.0f;    // 0x006461CC: the second starts this far above the first's start
-constexpr float kLerpRate = 0.02f;       // 0x3CA3D70A
+constexpr float kUpNudge = 0.001f;    // 0x006461D8: a thousandth of the object's up vector
+constexpr float kAbove = 8.0f;        // 0x006461D4: the first feeler starts this far above
+constexpr float kDepth = 4800.0f;     // 0x006461D0: and goes this far down
+constexpr float kSecondAbove = 48.0f; // 0x006461CC: the second starts this far above the first's start
+constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
 
 } // namespace
 
@@ -84,10 +84,7 @@ void MeshLightingModule::configure_from_data(script::Struct* params)
 }
 
 // 0x00422DA0
-void MeshLightingModule::seal()
-{
-    mesh_instance_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel));
-}
+void MeshLightingModule::seal() { mesh_instance_ = static_cast<MeshInstanceModule*>(entity_->fetch_module(kModel)); }
 
 // 0x00422E40
 void MeshLightingModule::get_sample(bool lerp, float rate)
@@ -141,7 +138,8 @@ void MeshLightingModule::tick_frame()
         return;
     }
     if (gap_time_ && counter_++ < gap_time_) {
-        static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance_))->move_brightness(brightness_, kLerpRate);
+        static_cast<render::ModelLights*>(model_nx::model_lights(mesh_instance_->mesh_instance_))
+            ->move_brightness(brightness_, kLerpRate);
         return;
     }
     counter_ = 0;
@@ -151,25 +149,27 @@ void MeshLightingModule::tick_frame()
         get_sample(true, 1.0f);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::MeshLightingModule::teardown,
-         &objects::MeshLightingModule::tick_frame,
-         &objects::MeshLightingModule::configure_from_data,
-         &objects::MeshLightingModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::MeshLightingModule::teardown,
+    &objects::MeshLightingModule::tick_frame,
+    &objects::MeshLightingModule::configure_from_data,
+    &objects::MeshLightingModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

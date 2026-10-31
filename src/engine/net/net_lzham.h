@@ -22,4 +22,4 @@ size_t compress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity);
 // untouched) if the stream is bad, ends early, or expands to more than `capacity` bytes.
 bool decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, size_t* out_size);
 
-} // namespace NetLink::lzham
+} // namespace net::lzham

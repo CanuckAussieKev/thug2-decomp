@@ -33,12 +33,12 @@ constexpr uint32_t kSecondPad = 0x702247A5, kNoButton = 0xF3E055E1; // script gl
 constexpr uint32_t kSpecialObject = 0x967C138C;
 constexpr uint32_t kSpecialScript = 0x60871393, kScript = 0xA1B1146D;
 
-constexpr float kUpScale = 0.699999988079071f;     // 0x0064B2C8
-constexpr float kDownScale = 0.5f;                  // 0x006453BC
-constexpr float kTiltScale = -1.399999976158142f;   // 0x0064B2C4
-constexpr float kHeadingScale = 3.0f;               // 0x006467A8
-constexpr float kNear = 0.0010000000474974513f;    // 0x006461D8
-constexpr float kEase = 3.75f;                     // 0x0064B2C0
+constexpr float kUpScale = 0.699999988079071f;    // 0x0064B2C8
+constexpr float kDownScale = 0.5f;                // 0x006453BC
+constexpr float kTiltScale = -1.399999976158142f; // 0x0064B2C4
+constexpr float kHeadingScale = 3.0f;             // 0x006467A8
+constexpr float kNear = 0.0010000000474974513f;   // 0x006461D8
+constexpr float kEase = 3.75f;                    // 0x0064B2C0
 
 // A button's press this frame forgotten.
 void take_press(uint8_t* button) { reinterpret_cast<ControlButton*>(button)->reset_activation(); }
@@ -96,16 +96,10 @@ void FreeLookModule::configure_from_data(script::Struct* /*params*/)
 }
 
 // 0x004E4040
-void FreeLookModule::seal()
-{
-    input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
-}
+void FreeLookModule::seal() { input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput)); }
 
 // 0x004E4000
-void FreeLookModule::set_locked(bool locked)
-{
-    locked_ = locked;
-}
+void FreeLookModule::set_locked(bool locked) { locked_ = locked; }
 
 // 0x004E3FA0
 void FreeLookModule::turn_to(float heading, float tilt, float time, float factor)
@@ -129,7 +123,7 @@ void FreeLookModule::tick_frame()
     if (!script::fetch_int_value(kNoButton) && pad[0x1F0]) {
         take_press(pad + 0x1E0);
         script::launch_script(entity_->ident_ == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
-                          nullptr);
+                              nullptr);
     }
     if (pad[0x130]) {
         locked_ = !locked_;
@@ -141,9 +135,9 @@ void FreeLookModule::tick_frame()
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
         auto* p = reinterpret_cast<PadSnapshot*>(pad);
-        skater::thaw_bmx::LookInputs in =
-            skater::thaw_bmx::d_pad_look_inputs(p->up_dir_.held_down_ != 0, p->btn_down_.held_down_ != 0, p->left_side_.held_down_ != 0,
-                                            p->right_side_.held_down_ != 0, skater::thaw_bmx::kLookInvertDefault);
+        skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
+            p->up_dir_.held_down_ != 0, p->btn_down_.held_down_ != 0, p->left_side_.held_down_ != 0,
+            p->right_side_.held_down_ != 0, skater::thaw_bmx::kLookInvertDefault);
         float tilt = in.tilt * (in.tilt < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, tilt, frame);
         get_ease(heading_, in.heading, frame);
@@ -203,25 +197,27 @@ __declspec(naked) void reapply_from_data()
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::FreeLookModule::teardown,
-         &objects::FreeLookModule::tick_frame,
-         &objects::FreeLookModule::configure_from_data,
-         &objects::FreeLookModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::FreeLookModule::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::FreeLookModule::teardown,
+    &objects::FreeLookModule::tick_frame,
+    &objects::FreeLookModule::configure_from_data,
+    &objects::FreeLookModule::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::FreeLookModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

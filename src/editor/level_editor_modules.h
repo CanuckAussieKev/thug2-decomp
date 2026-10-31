@@ -86,7 +86,7 @@ struct FieldSet {
     bool removed = false;
 };
 int set_fields_on_nodes(const std::vector<uint32_t>& nodes, const std::vector<FieldSet>& fields, const char* label,
-                     std::string* message);
+                        std::string* message);
 // The selection's transform (its position, heading in radians - objects and point nodes - and scale), and one put on it
 // (one undo step; what the selection can't take is left: scenery turns by quarters).
 struct TransformValues {
@@ -172,6 +172,6 @@ int place_armed(uint32_t* colour);
 // Where a click places (the browser's Enter, the Place palette): the ground below what the cursor's ray meets.
 V3 cursor_point();
 
-} // namespace Edit
+} // namespace edit
 
-} // namespace MenuSystem::level_editor
+} // namespace frontend::level_editor

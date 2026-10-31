@@ -30,11 +30,11 @@ namespace {
 extern void** const kMovieDetailsVtable;
 extern void** const kMovieNodeVtable;
 
-constexpr uint32_t kName = 0xA1DC81F9;            // name
-constexpr uint32_t kNodeScript = 0x2CA8A299;      // (the node's script)
-constexpr uint32_t kNodeParams = 0x7031F10C;      // (the params it's switched to with)
-constexpr uint32_t kCreationValue = 0x99A9B716;   // (an integer passed to the creation script)
-constexpr uint32_t kCreationScript = 0x413B766D;  // (run with the node's name and that integer)
+constexpr uint32_t kName = 0xA1DC81F9;           // name
+constexpr uint32_t kNodeScript = 0x2CA8A299;     // (the node's script)
+constexpr uint32_t kNodeParams = 0x7031F10C;     // (the params it's switched to with)
+constexpr uint32_t kCreationValue = 0x99A9B716;  // (an integer passed to the creation script)
+constexpr uint32_t kCreationScript = 0x413B766D; // (run with the node's name and that integer)
 constexpr uint32_t kGameObjectComponents = 0x735A20BA;
 constexpr uint32_t kGameObjectScript = 0xF3B84DA6;
 constexpr uint32_t kPlainObjectFlag = 0x69C257E9;
@@ -43,10 +43,7 @@ constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
 EntityHub* entity_hub_handle() { return g_composite_registry; }
 
-void seal(GameEntity* object)
-{
-    reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[0x20 / 4])(object);
-}
+void seal(GameEntity* object) { reinterpret_cast<void(__thiscall*)(GameEntity*)>(object->vtable_[0x20 / 4])(object); }
 
 // The two components a game object gets after its array's (not rewritten yet).
 ObjectModule* new_game_object_component_a()
@@ -101,8 +98,8 @@ void** get_node_vtable() { return kMovieNodeVtable; }
 // 0x00468B00
 void spawn_effect_entity(script::Struct* params)
 {
-    const char* structure = params->has_entry_named("HasMotion") ? "moving_particle_composite_structure"
-                                                                          : "particle_composite_structure";
+    const char* structure =
+        params->has_entry_named("HasMotion") ? "moving_particle_composite_structure" : "particle_composite_structure";
     entity_hub_handle()->spawn_entity_from_node(script::fetch_list(structure), params, true);
 }
 
@@ -117,8 +114,8 @@ void start_node_object(GameEntity* object, script::Struct* params)
 // 0x00468CB0
 GameEntity* create_game_object(script::Struct* params, int /*unused*/)
 {
-    GameEntity* object = entity_hub_handle()->spawn_entity_from_node(
-        script::fetch_list(kGameObjectComponents), params, false);
+    GameEntity* object =
+        entity_hub_handle()->spawn_entity_from_node(script::fetch_list(kGameObjectComponents), params, false);
     object->attach_module(new_game_object_component_a());
     script::launch_script(kGameObjectScript, params, object, false, nullptr);
     object->attach_module(new_game_object_component_b());
@@ -131,10 +128,7 @@ GameEntity* create_game_object(script::Struct* params, int /*unused*/)
 }
 
 // 0x00468EB0
-GameEntity* create_game_object_from_node(script::Struct* params)
-{
-    return create_game_object(params, 0);
-}
+GameEntity* create_game_object_from_node(script::Struct* params) { return create_game_object(params, 0); }
 
 // 0x00468EC0
 void create_node_object(script::Struct* params)
@@ -327,28 +321,28 @@ void ClassNodeList::set_nodes(script::Array* nodes)
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_movie_details_vtable_slots[] = {&objects::VideoEntry::teardown,
-         &_purecall,
-         &_purecall,
-         &_purecall,
-         &render::ViewRegion::query_point,
-         &_purecall,
-         &_purecall,
-         &_purecall,
-         stubs::do_nothing,
-         &_purecall,
-         stubs::return_false,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::do_nothing};
+                                                    &_purecall,
+                                                    &_purecall,
+                                                    &_purecall,
+                                                    &render::ViewRegion::query_point,
+                                                    &_purecall,
+                                                    &_purecall,
+                                                    &_purecall,
+                                                    stubs::do_nothing,
+                                                    &_purecall,
+                                                    stubs::return_false,
+                                                    stubs::do_nothing,
+                                                    stubs::ignore_argument,
+                                                    stubs::do_nothing};
 void** const kMovieDetailsVtable = reinterpret_cast<void**>(g_movie_details_vtable_slots);
 static VtableSlot g_movie_node_vtable_slots[] = {&objects::VideoEntry::destroy_node};
 void** const kMovieNodeVtable = reinterpret_cast<void**>(g_movie_node_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

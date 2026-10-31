@@ -23,9 +23,9 @@ float g_proximity_skater_radius;
 
 namespace {
 
-constexpr uint32_t kSkaterId = 0x0AE89B6C;  // (its name unknown): the skater's id, for the scripts
-constexpr uint32_t kInactive = 0x742CF11F;  // kClockIdle
-constexpr uint32_t kDelay = 0x9D02737D;     // (its name unknown): seconds
+constexpr uint32_t kSkaterId = 0x0AE89B6C; // (its name unknown): the skater's id, for the scripts
+constexpr uint32_t kInactive = 0x742CF11F; // kClockIdle
+constexpr uint32_t kDelay = 0x9D02737D;    // (its name unknown): seconds
 
 // The skater the component watches and the radius added to its outer one (globals no code here sets).
 GameEntity* get_skater() { return g_proximity_skater; }
@@ -109,8 +109,7 @@ bool ProximityComponent::proximity_set_active(script::Struct* params, script::Sc
         float delay;
         if (params->fetch_float(kDelay, &delay, 0)) {
             int now = frame_clock::game_clock_elapsed();
-            reactivate_time_ =
-                now + (g_clock_offset - truncate(static_cast<double>(delay) * -1000.0f));
+            reactivate_time_ = now + (g_clock_offset - truncate(static_cast<double>(delay) * -1000.0f));
         } else {
             reactivate_time_ = 0;
         }
@@ -126,7 +125,7 @@ bool ProximityComponent::proximity_enter_proximity_not_handled(script::Struct*, 
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 using objects::ProximityComponent;
 
@@ -159,4 +158,4 @@ void fill_proximity_member_functions()
     script::fill_member_function_code(records, code, 3);
 }
 
-} // namespace Obj
+} // namespace objects

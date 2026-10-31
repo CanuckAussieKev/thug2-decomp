@@ -83,6 +83,6 @@ struct Section {
 // The sidecar's text: a heading, each section as "[title]" and its fields aligned ("key:  value"), a section
 // with no fields as "(not available)", then the log's last lines under [log]. Lines end in "\n".
 std::string format_sidecar(const std::string& heading, const std::vector<Section>& sections,
-                          const std::vector<std::string>& log_tail);
+                           const std::vector<std::string>& log_tail);
 
-} // namespace sys::Screenshot
+} // namespace sys::screenshot

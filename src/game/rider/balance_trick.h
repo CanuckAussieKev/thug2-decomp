@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's balance trick component (SkaterBalanceTrick, type 0x589E5FB3, vtable 0x0064BA30, 0x188 bytes; made by
 // 0x004F9170): the balance of the trick being balanced - a manual (or nose manual), a grind (or slide), a lip trick or
@@ -75,25 +75,21 @@ public:
     // The balance of the current type (null for none).
     Balance* at_hand();
 
-    uint32_t trick_;                   // +0x18 the balance trick being balanced (0: none)
-    bool started_;                     // +0x1C StartBalanceTrick
+    uint32_t trick_; // +0x18 the balance trick being balanced (0: none)
+    bool started_;   // +0x1C StartBalanceTrick
     uint8_t pad1d_[3];
-    script::Struct* call_args_;         // +0x20 DoBalanceTrick's BalanceParams (a copy)
-    Balance manual_;                  // +0x24 manual / nose manual
-    Balance grind_;                   // +0x7C grind / slide
-    Balance lip_;                     // +0xD4
-    Balance skitch_;                  // +0x12C
+    script::Struct* call_args_;              // +0x20 DoBalanceTrick's BalanceParams (a copy)
+    Balance manual_;                         // +0x24 manual / nose manual
+    Balance grind_;                          // +0x7C grind / slide
+    Balance lip_;                            // +0xD4
+    Balance skitch_;                         // +0x12C
     AnimBlenderComponent* anim_blender_ptr_; // +0x184
 };
-static_assert(offsetof(RiderTeeterMoves, trick_) == 0x18 &&
-                  offsetof(RiderTeeterMoves, started_) == 0x1C &&
-                  offsetof(RiderTeeterMoves, call_args_) == 0x20 &&
-                  offsetof(RiderTeeterMoves, manual_) == 0x24 &&
-                  offsetof(RiderTeeterMoves, grind_) == 0x7C &&
-                  offsetof(RiderTeeterMoves, lip_) == 0xD4 &&
+static_assert(offsetof(RiderTeeterMoves, trick_) == 0x18 && offsetof(RiderTeeterMoves, started_) == 0x1C &&
+                  offsetof(RiderTeeterMoves, call_args_) == 0x20 && offsetof(RiderTeeterMoves, manual_) == 0x24 &&
+                  offsetof(RiderTeeterMoves, grind_) == 0x7C && offsetof(RiderTeeterMoves, lip_) == 0xD4 &&
                   offsetof(RiderTeeterMoves, skitch_) == 0x12C &&
-                  offsetof(RiderTeeterMoves, anim_blender_ptr_) == 0x184 &&
-                  sizeof(RiderTeeterMoves) == 0x188,
+                  offsetof(RiderTeeterMoves, anim_blender_ptr_) == 0x184 && sizeof(RiderTeeterMoves) == 0x188,
               "layout must match the original (0x004F9170 allocates 0x188 bytes)");
 
-} // namespace Obj
+} // namespace objects

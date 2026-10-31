@@ -23,7 +23,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -45,9 +45,9 @@ public:
 
     void** vtable_;
     script::Script* payload_; // +0x04 (the head: -1)
-    int rank_;           // +0x08 (always 0)
-    ScriptNode* following_;     // +0x0C
-    ScriptNode* preceding_;     // +0x10
+    int rank_;                // +0x08 (always 0)
+    ScriptNode* following_;   // +0x0C
+    ScriptNode* preceding_;   // +0x10
 };
 static_assert(sizeof(ScriptNode) == 0x14 && offsetof(ScriptNode, following_) == 0x0C &&
                   offsetof(ScriptNode, preceding_) == 0x10,
@@ -84,13 +84,13 @@ public:
         kObjectRemoved = 5,
     };
     struct TableRow {
-        uint32_t type;   // the event type (FRAME: the number of frames)
+        uint32_t type; // the event type (FRAME: the number of frames)
         uint32_t target;
         uint32_t source;
         uint32_t script;
         uint32_t how;
-        int kind;        // Kind
-        int depth;       // the launch depth after this entry
+        int kind;  // Kind
+        int depth; // the launch depth after this entry
     };
 
     // 0x004627C0: add an entry. The first call also makes the table of event names from the global array
@@ -103,13 +103,13 @@ public:
     void teardown();
 
     TableRow entries_[0x400];
-    int ordinal_;               // +0x7000 the next entry
-    bool has_looped_;            // +0x7004 the ring is full
+    int ordinal_;             // +0x7000 the next entry
+    bool has_looped_;         // +0x7004 the ring is full
     char names_[0x100][0x40]; // +0x7005 the event names (no check that there are at most 256)
     uint8_t unknownb005_[3];
-    lists::KeyMap* names_ptr_;  // +0xB008 name checksum -> names_ entry (made on the first add_row)
-    int layer_;               // +0xB00C how many launches are under way
-    int added_since_sweep_;          // +0xB010 entries since the last Print
+    lists::KeyMap* names_ptr_; // +0xB008 name checksum -> names_ entry (made on the first add_row)
+    int layer_;                // +0xB00C how many launches are under way
+    int added_since_sweep_;    // +0xB010 entries since the last Print
 };
 static_assert(sizeof(SignalTrace::TableRow) == 0x1C && offsetof(SignalTrace, ordinal_) == 0x7000 &&
                   offsetof(SignalTrace, names_) == 0x7005 && offsetof(SignalTrace, names_ptr_) == 0xB008 &&
@@ -121,7 +121,7 @@ public:
     // A script waiting in WaitForEvent.
     struct Waiter {
         uint32_t script_id_; // its unique_id_
-        uint32_t type;     // 0: a free slot
+        uint32_t type;       // 0: a free slot
         uint32_t object_id_; // its object's id, or 0
     };
 
@@ -161,7 +161,7 @@ public:
 
     // 0x00462F00: launch an event. Returns whether something marked it handled.
     bool launch_event(uint32_t type, uint32_t target, uint32_t source, script::Struct* data, bool broadcast,
-                     float radius);
+                      float radius);
 
     // The log entries other code makes: 0x00462B10 / 0x00462B40 (`event` handled / read by `script`, `how`),
     // 0x00462B70 a frame went by.
@@ -170,18 +170,18 @@ public:
     void log_frame();
 
     void** vtable_;
-    int next_auto_id_;                  // +0x04
-    lists::KeyMap* entity_list_;        // +0x08 id -> Entity (8 bits)
-    lists::KeyMap* aliases_;        // +0x0C alias -> Entity (4 bits)
-    lists::KeyMap* listeners_;      // +0x10 event type -> ScriptList (8 bits)
+    int next_auto_id_;                // +0x04
+    lists::KeyMap* entity_list_;      // +0x08 id -> Entity (8 bits)
+    lists::KeyMap* aliases_;          // +0x0C alias -> Entity (4 bits)
+    lists::KeyMap* listeners_;        // +0x10 event type -> ScriptList (8 bits)
     SignalReceiver* event_listeners_; // +0x14
-    bool unknown18;                    // +0x18 (cleared by the constructor only)
+    bool unknown18;                   // +0x18 (cleared by the constructor only)
     uint8_t unknown19[3];
-    int launch_depth_;                 // +0x1C
-    SignalTrace log_;                   // +0x20
-    int launched_from_script_;          // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
-    Waiter waiters_[40];             // +0xB038
-    bool unknownb218_;                  // +0xB218 (cleared by the constructor only)
+    int launch_depth_;         // +0x1C
+    SignalTrace log_;          // +0x20
+    int launched_from_script_; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
+    Waiter waiters_[40];       // +0xB038
+    bool unknownb218_;         // +0xB218 (cleared by the constructor only)
     uint8_t unknownb219_[3];
 };
 static_assert(offsetof(EventWaitBoard, event_listeners_) == 0x14 && offsetof(EventWaitBoard, launch_depth_) == 0x1C &&
@@ -197,13 +197,12 @@ inline EventWaitBoard*& get_tracker() { return g_tracker; }
 EventWaitBoard* create_tracker(bool create);
 
 // The script commands (__cdecl).
-bool __cdecl cfunc_wait_for_event(script::Struct* params, script::Script* script);           // 0x00462310
-bool __cdecl cfunc_object_exists(script::Struct* params, script::Script* script);           // 0x00462340
+bool __cdecl cfunc_wait_for_event(script::Struct* params, script::Script* script);            // 0x00462310
+bool __cdecl cfunc_object_exists(script::Struct* params, script::Script* script);             // 0x00462340
 bool __cdecl cfunc_terminate_objects_scripts(script::Struct* params, script::Script* script); // 0x00462380
-bool __cdecl cfunc_set_object_props(script::Struct* params, script::Script* script);         // 0x00462440
-bool __cdecl cfunc_print_event_log(script::Struct* params, script::Script* script);          // 0x00462480
-bool __cdecl cfunc_assign_alias(script::Struct* params, script::Script* script);            // 0x00462C40
-bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script);            // 0x004634D0
+bool __cdecl cfunc_set_object_props(script::Struct* params, script::Script* script);          // 0x00462440
+bool __cdecl cfunc_print_event_log(script::Struct* params, script::Script* script);           // 0x00462480
+bool __cdecl cfunc_assign_alias(script::Struct* params, script::Script* script);              // 0x00462C40
+bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script);              // 0x004634D0
 
-
-} // namespace Obj
+} // namespace objects

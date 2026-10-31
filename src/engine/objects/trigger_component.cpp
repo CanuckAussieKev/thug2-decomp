@@ -177,7 +177,8 @@ int ActivationZoneModule::invoke_method_by_name(uint32_t name, script::Struct* p
 }
 
 // 0x00434A60
-bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, script::Array* nodes, const uint8_t* other)
+bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, script::Array* nodes,
+                                            const uint8_t* other)
 {
     script::Struct* node = nullptr;
     if (!nodes) {
@@ -192,7 +193,8 @@ bool ActivationZoneModule::get_trigger_node(const int* events, uint32_t name, sc
     }
     script::Struct* params = nullptr;
     if (other) {
-        if (script::Struct* other_node = level_nodes::fetch_vertex(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
+        if (script::Struct* other_node =
+                level_nodes::fetch_vertex(*reinterpret_cast<const uint32_t*>(other + 0x14), false))
             other_node->read_sub_struct(kParams, &params, 0);
     }
     // Not original - a trigger face whose object has no node (a level's collision with another level's node array:
@@ -276,25 +278,27 @@ bool __cdecl ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
     return component->probe_touches_zone(kNoEvents, feeler);
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::ActivationZoneModule::teardown,
-         &objects::ActivationZoneModule::tick_frame,
-         &objects::ActivationZoneModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::ActivationZoneModule::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::ActivationZoneModule::teardown,
+    &objects::ActivationZoneModule::tick_frame,
+    &objects::ActivationZoneModule::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::ActivationZoneModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

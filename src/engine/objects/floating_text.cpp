@@ -28,7 +28,7 @@ namespace frontend {
 // 0x0041E2A0
 UiTree* __cdecl fetch_ui_tree() { return UiTree::sole(); }
 
-} // namespace Front
+} // namespace frontend
 
 namespace objects {
 
@@ -48,7 +48,7 @@ constexpr uint32_t kModel = 0x286A8D26;
 constexpr uint32_t kCreateScript = 0x6A060CF0;  // makes the element
 constexpr uint32_t kDestroyScript = 0x2575B406; // destroys it
 constexpr uint32_t kReinit = 0xE357E3CB;
-constexpr uint32_t kIdBase = 0x1525E9DF;    // (subtracted from the object's id)
+constexpr uint32_t kIdBase = 0x1525E9DF;       // (subtracted from the object's id)
 constexpr float kMinusMilliseconds = -1000.0f; // 0x0064604C
 
 // strncpy: at most `size` characters, the rest of `out` zeroed (not terminated when `in` is that long or longer).
@@ -186,25 +186,27 @@ int FloatingTextComponent::invoke_method_by_name(uint32_t name, script::Struct* 
     return 1;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::FloatingTextComponent::teardown,
-         &objects::FloatingTextComponent::tick_frame,
-         &objects::FloatingTextComponent::configure_from_data,
-         &objects::FloatingTextComponent::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::FloatingTextComponent::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::FloatingTextComponent::teardown,
+    &objects::FloatingTextComponent::tick_frame,
+    &objects::FloatingTextComponent::configure_from_data,
+    &objects::FloatingTextComponent::seal,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::FloatingTextComponent::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

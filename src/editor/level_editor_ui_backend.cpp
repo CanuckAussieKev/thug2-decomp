@@ -140,7 +140,8 @@ void render()
     back_buffer_size(&back_width, &back_height);
     if (back_width <= 0 || back_height <= 0 || data->DisplaySize.x <= 0.0f || data->DisplaySize.y <= 0.0f)
         return;
-    float sx = static_cast<float>(back_width) / data->DisplaySize.x, sy = static_cast<float>(back_height) / data->DisplaySize.y;
+    float sx = static_cast<float>(back_width) / data->DisplaySize.x,
+          sy = static_cast<float>(back_height) / data->DisplaySize.y;
     if (sx != 1.0f || sy != 1.0f) {
         for (ImDrawList* list : data->CmdLists) {
             for (ImDrawVert& vertex : list->VtxBuffer) {
@@ -361,8 +362,8 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(a.depth);
-    D3DVIEWPORT9 viewport = {static_cast<DWORD>(x), static_cast<DWORD>(y), static_cast<DWORD>(size),
-                             static_cast<DWORD>(size), 0.0f, 1.0f};
+    D3DVIEWPORT9 viewport = {
+        static_cast<DWORD>(x), static_cast<DWORD>(y), static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
     device->SetViewport(&viewport);
     // (no rectangles: the viewport - the cell - is cleared)
     device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (a.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
@@ -399,4 +400,4 @@ void free_atlas()
     release_atlas();
 }
 
-} // namespace MenuSystem::level_editor::ui_backend
+} // namespace frontend::level_editor::ui_backend

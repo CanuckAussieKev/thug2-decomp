@@ -13,11 +13,11 @@ namespace objects {
 class AnimBlenderComponent;
 class ObjectModule;
 class GameEntity;
-} // namespace Obj
+} // namespace objects
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace gfx {
 
@@ -41,7 +41,7 @@ void __cdecl mix_poses(Stance* poses, float* weights, int bones, Stance* out, in
 // 0x0047D8F0: the same for the poses whose `ids` are `id` only (weights below 0.00001 left out); a bone a pose
 // takes from a higher one is marked valid.
 void __cdecl blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
-                            uint32_t id);
+                               uint32_t id);
 
 // 0x0047D580 (code nothing calls): the timeline's animation, speed, loop type and times added to `info`.
 void __stdcall add_timeline_info(AnimTimeline* timeline, script::Struct* info);
@@ -148,7 +148,7 @@ public:
     // blend period or no flag4C; a new timeline pushed and given the play (its slot 6, with the flip flag and
     // `params`); the object's AnimTags taken out and set again from `anim` (set_anim_tags).
     void play_anim(uint32_t anim, bool send, float from, float to, int loop_type, float blend_period, float speed,
-                  script::Struct* params);
+                   script::Struct* params);
     // 0x004803D0: `anim` played once over its length (0x0048CF50's first value) at speed 1, not sent.
     void play_animation(uint32_t anim, float blend_period);
     // 0x0047F470 (not a Ghidra function): PlayAnim / Obj_PlayAnim's parameters played (sent) - the anim (Default when
@@ -172,32 +172,32 @@ public:
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
     static void __cdecl init_buffers(int blends, int subsets);
 
-    memory::ListNode list_link_;                 // +0x00 (vtable 0x00648714; data = this)
-    memory::ListNode timelines_;            // +0x14 the head (vtable 0x00648710, data -1)
-    uint32_t ident_;                        // +0x28
-    int rank_;                       // +0x2C (0x3D836C96)
-    uint32_t ongoing_;                   // +0x30 the blend value (a float)
-    uint32_t aim_point_;                    // +0x34
-    uint32_t outset_;                     // +0x38
-    float period_;                       // +0x3C
-    float period_left_;                   // +0x40
-    bool has_next_blend_;                  // +0x44 (the next play blends over next_blend_)
+    memory::ListNode list_link_; // +0x00 (vtable 0x00648714; data = this)
+    memory::ListNode timelines_; // +0x14 the head (vtable 0x00648710, data -1)
+    uint32_t ident_;             // +0x28
+    int rank_;                   // +0x2C (0x3D836C96)
+    uint32_t ongoing_;           // +0x30 the blend value (a float)
+    uint32_t aim_point_;         // +0x34
+    uint32_t outset_;            // +0x38
+    float period_;               // +0x3C
+    float period_left_;          // +0x40
+    bool has_next_blend_;        // +0x44 (the next play blends over next_blend_)
     uint8_t pad45_[3];
-    float next_blend_;                    // +0x48
-    bool flag_4c_;                        // +0x4C (without it each play deletes the older timelines)
-    bool events_on_;                      // +0x4D
-    bool flag_4e_;                        // +0x4E
+    float next_blend_; // +0x48
+    bool flag_4c_;     // +0x4C (without it each play deletes the older timelines)
+    bool events_on_;   // +0x4D
+    bool flag_4e_;     // +0x4E
     uint8_t pad4f_;
-    uint32_t lookup_key_;                       // +0x50 the anim set
-    uint32_t flag_bits_;                     // +0x54 (bit 29: flipped)
-    uint32_t event_table_;                // +0x58 (AnimEventTableName 0x5B8C6DC2)
-    float prev_timeline_pos_;                    // +0x5C the playing timeline's time last frame
-    bool waiting_;                       // +0x60 a time waited for
+    uint32_t lookup_key_;     // +0x50 the anim set
+    uint32_t flag_bits_;      // +0x54 (bit 29: flipped)
+    uint32_t event_table_;    // +0x58 (AnimEventTableName 0x5B8C6DC2)
+    float prev_timeline_pos_; // +0x5C the playing timeline's time last frame
+    bool waiting_;            // +0x60 a time waited for
     uint8_t pad61_[3];
-    float wait_time_;                     // +0x64
-    uint8_t* owner_ptr_;                    // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
+    float wait_time_;                        // +0x64
+    uint8_t* owner_ptr_;                     // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
     objects::AnimBlenderComponent* blender_; // +0x6C
-    objects::ObjectModule* bone_rig_;     // +0x70 the object's skeleton component
+    objects::ObjectModule* bone_rig_;        // +0x70 the object's skeleton component
 };
 static_assert(offsetof(BlendChannel, timelines_) == 0x14 && offsetof(BlendChannel, ident_) == 0x28 &&
                   offsetof(BlendChannel, ongoing_) == 0x30 && offsetof(BlendChannel, flag_4c_) == 0x4C &&
@@ -223,4 +223,4 @@ extern Stance* g_blend_buffer;
 extern float* g_blend_weights;
 extern uint32_t* g_blend_sets;
 
-} // namespace Gfx
+} // namespace gfx

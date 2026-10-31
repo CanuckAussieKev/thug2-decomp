@@ -18,13 +18,13 @@ namespace park_editing {
 namespace {
 
 // The cursor's tuning (the exe's constants).
-constexpr float kQuarterTurn = 90.0f;      // 0x00645EB0
-constexpr float kFullTurn = 360.0f;        // 0x00645EA8
+constexpr float kQuarterTurn = 90.0f;        // 0x00645EB0
+constexpr float kFullTurn = 360.0f;          // 0x00645EA8
 constexpr float kDeadZone = 9.99999905e-09f; // 0x0064F7B0: the least squared stick deflection that moves
 constexpr float kAxisDominance = 5.8284001f; // 0x0064F7AC: tan(67.5 degrees) squared
-constexpr float kSlideStep = 0.15f;        // 0x0064F63C: of move_time_ per frame
-constexpr float kTurnStep = 15.0f;         // 0x0064F640: degrees per frame
-constexpr float kShowInset = 1.5f;         // 0x00646744
+constexpr float kSlideStep = 0.15f;          // 0x0064F63C: of move_time_ per frame
+constexpr float kTurnStep = 15.0f;           // 0x0064F640: degrees per frame
+constexpr float kShowInset = 1.5f;           // 0x00646744
 constexpr int kClipboardLimit = 6;
 
 // The pooled clipboards (clipboard_pools, park_memory.h - 0x007CE5B4): new from the current pool or the heap;
@@ -195,8 +195,10 @@ void BuildPointer::tick_frame(float offset_cell_x, float offset_cell_z, int turn
         at_point_ = aim_point_;
         move_time_ = 0.0f;
     } else {
-        at_point_.x = static_cast<float>((static_cast<double>(aim_point_.x) - at_point_.x) / move_time_ * kSlideStep + at_point_.x);
-        at_point_.z = static_cast<float>((static_cast<double>(aim_point_.z) - at_point_.z) / move_time_ * kSlideStep + at_point_.z);
+        at_point_.x = static_cast<float>((static_cast<double>(aim_point_.x) - at_point_.x) / move_time_ * kSlideStep +
+                                         at_point_.x);
+        at_point_.z = static_cast<float>((static_cast<double>(aim_point_.z) - at_point_.z) / move_time_ * kSlideStep +
+                                         at_point_.z);
         at_point_.y = aim_point_.y;
         double time = static_cast<double>(move_time_) - kSlideStep;
         move_time_ = static_cast<float>(time);
@@ -462,4 +464,4 @@ void BuildPointer::spawn_occurrence()
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
-} // namespace Ed
+} // namespace park_editing

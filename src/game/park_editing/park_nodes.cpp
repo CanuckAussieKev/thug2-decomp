@@ -42,7 +42,7 @@ constexpr uint32_t kPos = 0x7F261953;            // pos
 constexpr uint32_t kAngles = 0x9D2D0915;         // angles
 constexpr uint32_t kCluster = 0x1A3A966B;        // Cluster
 constexpr uint32_t kLinks = 0x2E7D5EE7;          // links
-constexpr uint32_t kSurfaceKindKey = 0x54CF8532;    // TerrainType
+constexpr uint32_t kSurfaceKindKey = 0x54CF8532; // TerrainType
 constexpr uint32_t kTriggerScript = 0x2CA8A299;  // TriggerScript
 constexpr uint32_t kNoClimbing = 0xF22BFC6D;     // NoClimbing
 constexpr uint32_t kModel = 0x286A8D26;          // model
@@ -51,12 +51,12 @@ constexpr uint32_t kRestartTypes = 0xDD304987;   // restart_types
 constexpr uint32_t kCreatedAtStart = 0x7C2552B9; // CreatedAtStart
 constexpr uint32_t kTrickObject = 0x1645B830;    // TrickObject
 // Node classes.
-constexpr uint32_t kLevelGeometry = 0xBF4D3536;  // LevelGeometry
-constexpr uint32_t kRailNode = 0x8E6B02AD;       // RailNode
-constexpr uint32_t kClimbingNode = 0x30C19600;   // ClimbingNode
-constexpr uint32_t kRestart = 0x1806DDF8;        // Restart
-constexpr uint32_t kGenericNode = 0xF8565321;    // GenericNode
-constexpr uint32_t kGameObject = 0xEF59C100;     // GameObject
+constexpr uint32_t kLevelGeometry = 0xBF4D3536; // LevelGeometry
+constexpr uint32_t kRailNode = 0x8E6B02AD;      // RailNode
+constexpr uint32_t kClimbingNode = 0x30C19600;  // ClimbingNode
+constexpr uint32_t kRestart = 0x1806DDF8;       // Restart
+constexpr uint32_t kGenericNode = 0xF8565321;   // GenericNode
+constexpr uint32_t kGameObject = 0xEF59C100;    // GameObject
 // A piece's node: its flag (by its type's flags).
 constexpr uint32_t kPieceFlag = 0x4DFAAF7A;
 constexpr uint32_t kGameObjectFlag = 0x9783D434;
@@ -66,27 +66,27 @@ constexpr uint32_t kClimbableRailFlag = 0x4953E02A;
 constexpr uint32_t kRailFlag = 0xD1E32F9B;
 constexpr uint32_t kClimbingFlag = 0x0E4C5B11;
 // Restart types.
-constexpr uint32_t kPlayerType = 0x67E6859A;     // Player
-constexpr uint32_t kPlayer1 = 0x41639CE5;        // Player1
-constexpr uint32_t kHorse = 0x9D65D0E7;          // horse
-constexpr uint32_t kMultiplayer = 0xBAE0E4DA;    // Multiplayer
-constexpr uint32_t kCrown = 0xAF86421B;          // Crown
-constexpr uint32_t kCtf = 0xA5AD2B0B;            // CTF
+constexpr uint32_t kPlayerType = 0x67E6859A;       // Player
+constexpr uint32_t kPlayer1 = 0x41639CE5;          // Player1
+constexpr uint32_t kHorse = 0x9D65D0E7;            // horse
+constexpr uint32_t kMultiplayer = 0xBAE0E4DA;      // Multiplayer
+constexpr uint32_t kCrown = 0xAF86421B;            // Crown
+constexpr uint32_t kCtf = 0xA5AD2B0B;              // CTF
 constexpr uint32_t kHighScoreRestart = 0xC62C3240; // TRG_G_TrickAttack_RestartNode
 // TRG_CTF_Restart_Red, _Green, _Blue, _Yellow
 constexpr uint32_t kCtfRestarts[4] = {0xACD3422F, 0x5C427A5C, 0x9AB434CC, 0x2C3ED607};
 constexpr const char* kFlagColours[4] = {"red", "green", "blue", "yellow"};
 // The pieces whose climbing rails turn: the ladders (by pi), two more (by pi / 2); the lamp has none.
-constexpr uint32_t kLadderSmall = 0x19E41B83;    // sk6ed_ladderSmall
-constexpr uint32_t kLadderMid = 0x2716A345;      // sk6ed_ladderMid
-constexpr uint32_t kLadderTall = 0xA94E4D6A;     // sk6ed_ladderTall
-constexpr uint32_t kLamp = 0xD48417FF;           // sk6ed_Lamp
+constexpr uint32_t kLadderSmall = 0x19E41B83; // sk6ed_ladderSmall
+constexpr uint32_t kLadderMid = 0x2716A345;   // sk6ed_ladderMid
+constexpr uint32_t kLadderTall = 0xA94E4D6A;  // sk6ed_ladderTall
+constexpr uint32_t kLamp = 0xD48417FF;        // sk6ed_Lamp
 constexpr uint32_t kQuarterTurnedA = 0x649FDDCA;
 constexpr uint32_t kQuarterTurnedB = 0x54055089;
-constexpr float kPi = 3.14159274101257324f;      // 0x40490FDB
-constexpr float kHalfPi = 1.57079637050628662f;  // 0x3FC90FDB (also 0x00645484)
+constexpr float kPi = 3.14159274101257324f;     // 0x40490FDB
+constexpr float kHalfPi = 1.57079637050628662f; // 0x3FC90FDB (also 0x00645484)
 // The script run before the source rails are read.
-constexpr uint32_t kLoadTerrain = 0xA4F9A278;    // LoadTerrain
+constexpr uint32_t kLoadTerrain = 0xA4F9A278; // LoadTerrain
 // The first names of the rail nodes and the restart nodes, and the rail editor's.
 constexpr uint32_t kFirstRailNode = 0x001E8481;
 constexpr uint32_t kFirstRestartNode = 0x005B8D81;
@@ -112,8 +112,14 @@ uint32_t gap_fire_script(DuplicatedTile* piece) { return GapRegistry::sole()->ge
 // cfunc_parse_node_array (0x005A34E0): the node manager's node array parsed (its objects made).
 void parse_node_array() { commands::cfunc_parse_node_array(nullptr, nullptr); }
 
-assets::NodeTableResource* node_table_resource(ParkAssembler& d) { return reinterpret_cast<assets::NodeTableResource*>(d.node_array_); }
-Struct* elem(Array* nodes, int index) { return reinterpret_cast<Struct*>(nodes->fetch_part(static_cast<uint32_t>(index))); }
+assets::NodeTableResource* node_table_resource(ParkAssembler& d)
+{
+    return reinterpret_cast<assets::NodeTableResource*>(d.node_array_);
+}
+Struct* elem(Array* nodes, int index)
+{
+    return reinterpret_cast<Struct*>(nodes->fetch_part(static_cast<uint32_t>(index)));
+}
 script::VectorValue get_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}; }
 script::VectorValue* get_out(maths::Vec4* v) { return reinterpret_cast<script::VectorValue*>(v); }
 // A restart's angles: (rot + 2) quarter turns about y.
@@ -156,7 +162,7 @@ uint32_t ParkAssembler::next_geometry_node(Array* nodes, int* index)
 }
 
 uint32_t ParkAssembler::find_following_rail_node(Array* nodes, uint32_t geometry, uint32_t previous, RailNodeInfo* info,
-                                      bool* is_loop)
+                                                 bool* is_loop)
 {
     auto used = [this](int node) {
         bool found = false;
@@ -558,11 +564,23 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                     const char* label = "Multi Restart";
                     if (k == 0) {
                         switch (type) {
-                        case RestartPoint::kPlayer1: label = "Player 1 Restart"; break;
-                        case RestartPoint::kPlayer2: label = "Player 2 Restart"; break;
-                        case RestartPoint::kHorse: label = "Horse Restart"; break;
-                        case 5: case 6: case 7: case 8: label = "Team: CTF"; break;
-                        default: break;
+                        case RestartPoint::kPlayer1:
+                            label = "Player 1 Restart";
+                            break;
+                        case RestartPoint::kPlayer2:
+                            label = "Player 2 Restart";
+                            break;
+                        case RestartPoint::kHorse:
+                            label = "Horse Restart";
+                            break;
+                        case 5:
+                        case 6:
+                        case 7:
+                        case 8:
+                            label = "Team: CTF";
+                            break;
+                        default:
+                            break;
                         }
                     }
                     node->append_word(kRestartName, script::kQbvalString, label);
@@ -635,4 +653,4 @@ void ParkAssembler::build_node_array(MapListNode* metas)
     flag_bits_ |= ParkAssembler::kNodeArrayBuilt;
 }
 
-} // namespace Ed
+} // namespace park_editing

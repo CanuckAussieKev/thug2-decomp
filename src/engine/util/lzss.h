@@ -23,4 +23,4 @@ void reset_match_tree();
 void add_match_node(int r);
 void unlink_list_node(int p);
 
-} // namespace Lzss
+} // namespace lzss

@@ -67,8 +67,8 @@ void dispatcher_init(HandlerLists* dispatcher) { static_cast<Router*>(dispatcher
 void dispatcher_deinit(HandlerLists* dispatcher) { static_cast<Router*>(dispatcher)->tear_down_state(); }
 void append_listener(HandlerLists* dispatcher, uint32_t id, HandlerSlotValue handler, uint32_t flags, uint32_t priority)
 {
-    static_cast<Router*>(dispatcher)->append_listener(static_cast<uint8_t>(id), handler, flags, nullptr,
-                                                     static_cast<int>(priority));
+    static_cast<Router*>(dispatcher)
+        ->append_listener(static_cast<uint8_t>(id), handler, flags, nullptr, static_cast<int>(priority));
 }
 int DispatchMessage(HandlerLists* dispatcher, InboundMsgCtx* context)
 {
@@ -247,9 +247,8 @@ bool AppHost::prepare_all()
             raise_fault();
             return false;
         }
-        if ((flag_bits_ & kBroadcast) &&
-            setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&on), sizeof(on)) ==
-                SOCKET_ERROR) {
+        if ((flag_bits_ & kBroadcast) && setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&on),
+                                                    sizeof(on)) == SOCKET_ERROR) {
             raise_fault();
             return false;
         }
@@ -479,4 +478,4 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
     }
 }
 
-} // namespace Net
+} // namespace net

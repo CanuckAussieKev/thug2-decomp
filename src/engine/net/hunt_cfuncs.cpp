@@ -25,28 +25,28 @@ namespace {
 using online::Hub;
 using script::Struct;
 
-constexpr uint32_t kIndex = 0x7F8C98FE;          // "index"
-constexpr uint32_t kPos = 0x7F261953;            // "pos"
-constexpr uint32_t kColObjId = 0xF79C90AE;       // "colObjId"
-constexpr uint32_t kId = 0x40C698AF;             // "id"
-constexpr uint32_t kSkaterId = 0x5B24FAAA;       // "SkaterId"
-constexpr uint32_t kControlType = 0x81CFF663;    // "control_type"
-constexpr uint32_t kKeyboardAnchor = 0x31631B98; // "keyboard_anchor"
+constexpr uint32_t kIndex = 0x7F8C98FE;            // "index"
+constexpr uint32_t kPos = 0x7F261953;              // "pos"
+constexpr uint32_t kColObjId = 0xF79C90AE;         // "colObjId"
+constexpr uint32_t kId = 0x40C698AF;               // "id"
+constexpr uint32_t kSkaterId = 0x5B24FAAA;         // "SkaterId"
+constexpr uint32_t kControlType = 0x81CFF663;      // "control_type"
+constexpr uint32_t kKeyboardAnchor = 0x31631B98;   // "keyboard_anchor"
 constexpr uint32_t kLobbyEnterKbChat = 0x6C41FCB3; // "lobby_enter_kb_chat"
-constexpr uint32_t kObjId = 0x0830ECAF;          // "ObjId"
-constexpr uint32_t kType = 0x7321A8D6;           // "type"
-constexpr uint32_t kAmmoType = 0x1D1A8B59;       // "ammo_type"
-constexpr uint32_t kVel = 0x0C4C809E;            // "vel"
-constexpr uint32_t kScale = 0x13B9DA7B;          // "scale"
-constexpr uint32_t kRadius = 0xC48391A5;         // "radius"
+constexpr uint32_t kObjId = 0x0830ECAF;            // "ObjId"
+constexpr uint32_t kType = 0x7321A8D6;             // "type"
+constexpr uint32_t kAmmoType = 0x1D1A8B59;         // "ammo_type"
+constexpr uint32_t kVel = 0x0C4C809E;              // "vel"
+constexpr uint32_t kScale = 0x13B9DA7B;            // "scale"
+constexpr uint32_t kRadius = 0xC48391A5;           // "radius"
 
 // The messages (game group 8, sequenced).
-constexpr uint8_t kMsgObjectPickedUp = 0x90;   // ReportObjectPickup: the object's id
+constexpr uint8_t kMsgObjectPickedUp = 0x90; // ReportObjectPickup: the object's id
 constexpr uint8_t kMsgNeedToPlaceObjects = 0x91;
 constexpr uint8_t kMsgHuntStarted = 0x93;
 constexpr uint8_t kMsgBoardVehicle = 0x89;     // BroadcastEnterVehicle: the skater and the control type
 constexpr uint8_t kMsgObjectPlacements = 0x8F; // a player's placed objects (from the server) / one placed (to it)
-constexpr uint8_t kMsgShotFired = 0x83;       // BroadcastProjectile
+constexpr uint8_t kMsgShotFired = 0x83;        // BroadcastProjectile
 constexpr int kMaxPlaced = 5;                  // (the placements message's room)
 constexpr uint8_t kGroupGame = 8;
 
@@ -54,7 +54,10 @@ Hub* net_session_slot() { return online::g_online_hub; }
 
 // A hunt player's placed objects: how many (+0x34) and where (+0x180, 16 bytes each).
 int& placed_count(uint8_t* player) { return online::detail::as_player(player)->unknown34_; }
-script::VectorValue* placed_positions(uint8_t* player) { return reinterpret_cast<script::VectorValue*>(player + 0x180); }
+script::VectorValue* placed_positions(uint8_t* player)
+{
+    return reinterpret_cast<script::VectorValue*>(player + 0x180);
+}
 
 // The player whose skater the script runs on (null without an object or a player).
 uint8_t* script_player(script::Script* script)

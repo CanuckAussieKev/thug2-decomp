@@ -173,7 +173,7 @@ bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh)
     return true;
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
@@ -191,4 +191,4 @@ void construct_grass_texture_animation()
         reinterpret_cast<TextureRef*>(g_grass_texture_animation + 0x20 * i)->make_new();
 }
 
-} // namespace Nx
+} // namespace render

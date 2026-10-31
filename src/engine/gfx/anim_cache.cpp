@@ -109,10 +109,7 @@ void free_data(AnimCacheEntry* entry)
 // --- the slots ---
 
 // 0x00480A70
-void __cdecl AnimCacheSlot::dealloc(AnimCacheSlot* slot)
-{
-    slot_pools().dealloc(slot);
-}
+void __cdecl AnimCacheSlot::dealloc(AnimCacheSlot* slot) { slot_pools().dealloc(slot); }
 
 void AnimCacheSlot::get_clear()
 {
@@ -282,7 +279,8 @@ void __cdecl ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int 
     if (get_cache())
         return;
     hub()->create_labeled_zone(kAnimHeap, heap_size, "AnimHeap", 0); // "AnimHeap"
-    debug::printf("Initializing CAnimCacheManager at %dk\n", heap_size >> 10); // "Initializing CAnimCacheManager at %dk\n"
+    debug::printf("Initializing CAnimCacheManager at %dk\n",
+                  heap_size >> 10); // "Initializing CAnimCacheManager at %dk\n"
     auto* cache = static_cast<ClipStore*>(memory::alloc_zeroed(sizeof(ClipStore)));
     if (cache) {
         std::memset(cache->slot_array_, 0, sizeof(cache->slot_array_));
@@ -521,4 +519,4 @@ int ClipStore::defragment()
     return 0;
 }
 
-} // namespace Gfx
+} // namespace gfx

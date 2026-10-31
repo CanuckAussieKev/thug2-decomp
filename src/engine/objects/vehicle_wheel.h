@@ -4,7 +4,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 // Pieces of the vehicle component (type 0xE47F1B79, "vehicle"; its class is decompiled with the rest of its code):
 // the registration of its script member functions, and the reading of one wheel's settings.
@@ -22,4 +22,4 @@ void __cdecl register_vehicle_member_functions();
 // +0xD0 / +0xD4 / +0xD8), and 0x3BCCBADC / 0x9439D144 (feet, kept in inches: +0xF0 / +0xF4).
 void __stdcall read_wheel_settings(uint8_t* wheel, script::Struct* params);
 
-} // namespace Obj
+} // namespace objects

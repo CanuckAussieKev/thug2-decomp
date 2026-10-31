@@ -9,7 +9,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The stats manager component (StatsManager, type 0x4FF8DAC6, vtable 0x0064C294, 0xAA0 bytes; made by 0x0051CB90):
 // the story mode's stat challenges - up to 70 goals (the global array 0x4E46CC28, per difficulty) a skater meets by
@@ -28,16 +28,16 @@ public:
 
     // A stat challenge (0x24 bytes from +0x1C).
     struct Goal {
-        uint32_t kind_;          // +0x00 (0x0FFD7BBE of its structure) what's checked
-        uint32_t attr_key_;          // +0x04 (0xC2455018) the stat it raises
-        int aim_point_;             // +0x08 (0xE288A7CB, by difficulty)
-        bool met_;               // +0x0C met (until announced or reset)
+        uint32_t kind_;     // +0x00 (0x0FFD7BBE of its structure) what's checked
+        uint32_t attr_key_; // +0x04 (0xC2455018) the stat it raises
+        int aim_point_;     // +0x08 (0xE288A7CB, by difficulty)
+        bool met_;          // +0x0C met (until announced or reset)
         uint8_t pad0d_[3];
-        int cur_standing_;             // +0x10 0 open, 1 done, 2 / 3 locked until the am / pro goals unlock
-        const char* label_;       // +0x14 (0xC4745838)
-        const char* text_;       // +0x18 (0xCD021293, by difficulty)
-        uint32_t trick_;         // +0x1C (0xD8A9D3CA, by difficulty)
-        uint32_t value20_;       // +0x20 (0x3C2FB496, by difficulty)
+        int cur_standing_;  // +0x10 0 open, 1 done, 2 / 3 locked until the am / pro goals unlock
+        const char* label_; // +0x14 (0xC4745838)
+        const char* text_;  // +0x18 (0xCD021293, by difficulty)
+        uint32_t trick_;    // +0x1C (0xD8A9D3CA, by difficulty)
+        uint32_t value20_;  // +0x20 (0x3C2FB496, by difficulty)
     };
     static_assert(sizeof(Goal) == 0x24, "layout must match the original");
 
@@ -89,58 +89,57 @@ public:
     bool reset_goals(script::Struct* params, script::Script* script);      // 0x0051CB20 StatsManager_Reset
     bool activate_goals(script::Struct* params, script::Script* script);   // 0x0051C4C0 (script 0x7EC5F3E0)
     bool deactivate_goals(script::Struct* params, script::Script* script); // 0x0051C4F0 (script 0x3CB06807)
-    bool get_goal_status_member(script::Struct* params, script::Script* script); // 0x0051CB30 StatsManager_GetGoalStatus
-    bool unlock_am_goals(script::Struct* params, script::Script* script);   // 0x0051C520 (status 2 -> 0)
-    bool unlock_pro_goals(script::Struct* params, script::Script* script);  // 0x0051C550 (status 3 -> 0)
+    bool get_goal_status_member(script::Struct* params,
+                                script::Script* script);                   // 0x0051CB30 StatsManager_GetGoalStatus
+    bool unlock_am_goals(script::Struct* params, script::Script* script);  // 0x0051C520 (status 2 -> 0)
+    bool unlock_pro_goals(script::Struct* params, script::Script* script); // 0x0051C550 (status 3 -> 0)
     bool get_last_air_combo_score(script::Struct* params, script::Script* script);   // 0x0051CB70
     bool clear_last_air_combo_score(script::Struct* params, script::Script* script); // 0x0051C580
 
-    bool first_update_;          // +0x18 the next update only clears the phases
+    bool first_update_; // +0x18 the next update only clears the phases
     uint8_t pad19[3];
-    Goal goals_[kGoals];        // +0x1C
-    bool activated_;            // +0x9F4
-    bool raise_stats_;           // +0x9F5 (the global integer 0xB8688A8A is 1)
-    bool goal_done_;             // +0x9F6 a goal's status was set to 1
+    Goal goals_[kGoals]; // +0x1C
+    bool activated_;     // +0x9F4
+    bool raise_stats_;   // +0x9F5 (the global integer 0xB8688A8A is 1)
+    bool goal_done_;     // +0x9F6 a goal's status was set to 1
     uint8_t pad9f7_;
-    int points_held_;                 // +0x9F8 the combo's points times its multiplier
-    int score_before_combo_;             // +0x9FC
-    int path_vertices_;                // +0xA00 the score over the multiplier
-    int last_points_;            // +0xA04
-    float multiplier_;          // +0xA08
-    float last_multiplier_;      // +0xA0C
-    int value10_;               // +0xA10
-    int value14_;               // +0xA14
-    int difficulty_;            // +0xA18
+    int points_held_;               // +0x9F8 the combo's points times its multiplier
+    int score_before_combo_;        // +0x9FC
+    int path_vertices_;             // +0xA00 the score over the multiplier
+    int last_points_;               // +0xA04
+    float multiplier_;              // +0xA08
+    float last_multiplier_;         // +0xA0C
+    int value10_;                   // +0xA10
+    int value14_;                   // +0xA14
+    int difficulty_;                // +0xA18
     uint32_t cur_phase_;            // +0xA1C this frame's (0x26A7CADF, 0xB39B4F1B, 0x439F4704)
-    uint32_t last_state_;        // +0xA20
-    maths::Vec4 air_start_;      // +0xA24 where the skater left the ground (state +0x30)
-    maths::Vec4 air_end_;        // +0xA34 where it landed
-    int air_start_points_;        // +0xA44
-    float air_start_multiplier_;  // +0xA48
-    int air_best_;               // +0xA4C the best combo score made in the air
-    int air_phase_;              // +0xA50 0, 1 in the air, 2 landed
-    float air_height_;           // +0xA54 the most above the start
-    float value58_;             // +0xA58 (cleared after each update)
-    maths::Vec4 jump_start_;     // +0xA5C
-    maths::Vec4 jump_end_;       // +0xA6C
-    int jump_phase_;             // +0xA7C 0, 1 in the air, 2 landed
-    int count_a80_;              // +0xA80 (0xBA15FC7F)
-    int count_a84_;              // +0xA84 (0xB9AE26D2)
-    int air_score_;              // +0xA88
-    int last_air_combo_score_;     // +0xA8C
-    GameEntity* skater_;  // +0xA90
-    ObjectModule* skater_state_;   // +0xA94
+    uint32_t last_state_;           // +0xA20
+    maths::Vec4 air_start_;         // +0xA24 where the skater left the ground (state +0x30)
+    maths::Vec4 air_end_;           // +0xA34 where it landed
+    int air_start_points_;          // +0xA44
+    float air_start_multiplier_;    // +0xA48
+    int air_best_;                  // +0xA4C the best combo score made in the air
+    int air_phase_;                 // +0xA50 0, 1 in the air, 2 landed
+    float air_height_;              // +0xA54 the most above the start
+    float value58_;                 // +0xA58 (cleared after each update)
+    maths::Vec4 jump_start_;        // +0xA5C
+    maths::Vec4 jump_end_;          // +0xA6C
+    int jump_phase_;                // +0xA7C 0, 1 in the air, 2 landed
+    int count_a80_;                 // +0xA80 (0xBA15FC7F)
+    int count_a84_;                 // +0xA84 (0xB9AE26D2)
+    int air_score_;                 // +0xA88
+    int last_air_combo_score_;      // +0xA8C
+    GameEntity* skater_;            // +0xA90
+    ObjectModule* skater_state_;    // +0xA94
     ObjectModule* physics_control_; // +0xA98
     uint32_t unknowna9c_;
 };
-static_assert(offsetof(AttributeTracker, goals_) == 0x1C &&
-                  offsetof(AttributeTracker, activated_) == 0x9F4 &&
+static_assert(offsetof(AttributeTracker, goals_) == 0x1C && offsetof(AttributeTracker, activated_) == 0x9F4 &&
                   offsetof(AttributeTracker, points_held_) == 0x9F8 &&
-                  offsetof(AttributeTracker, difficulty_) == 0xA18 &&
-                  offsetof(AttributeTracker, air_start_) == 0xA24 &&
+                  offsetof(AttributeTracker, difficulty_) == 0xA18 && offsetof(AttributeTracker, air_start_) == 0xA24 &&
                   offsetof(AttributeTracker, jump_start_) == 0xA5C &&
                   offsetof(AttributeTracker, last_air_combo_score_) == 0xA8C &&
                   offsetof(AttributeTracker, skater_) == 0xA90 && sizeof(AttributeTracker) == 0xAA0,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

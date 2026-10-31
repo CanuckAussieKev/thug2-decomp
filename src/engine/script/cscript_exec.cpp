@@ -73,12 +73,12 @@ bool object_call_member_function(objects::Entity* object, MemberFunctionEntry* e
 bool object_call_member_function(objects::Entity* object, uint32_t name, Struct* params, Script* script)
 {
     auto* vtable = *reinterpret_cast<void***>(object);
-    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, uint32_t, Struct*, Script*)>(vtable[3])(
-        object, name, params, script);
+    return reinterpret_cast<bool(__thiscall*)(objects::Entity*, uint32_t, Struct*, Script*)>(vtable[3])(object, name,
+                                                                                                        params, script);
 }
 // ObjectModule vtable +0x2C (the original tests the whole of EAX, not just AL).
 bool component_call_member_function(objects::ObjectModule* component, MemberFunctionEntry* entry, Struct* params,
-                                 Script* script)
+                                    Script* script)
 {
     auto* vtable = *reinterpret_cast<void***>(component);
     return reinterpret_cast<uint32_t(__thiscall*)(objects::ObjectModule*, MemberFunctionEntry*, Struct*, Script*)>(
@@ -293,13 +293,13 @@ bool Script::execute_command()
     SymbolTableEntry* symbol = resolve_symbol(name);
     if (!symbol) {
         if (script_title_ != kQuietScriptName)
-            debug::printf("WARNING: script %s not found, ignoring in default level.\n", find_checksum_name_or_unknown(name));
+            debug::printf("WARNING: script %s not found, ignoring in default level.\n",
+                          find_checksum_name_or_unknown(name));
         return false;
     }
     // Not original - the loading console (engine/gfx/loading_console.h): while a loading screen is up, the scripts
     // called and the commands that load or build things.
-    if (gfx::loading_console::live_now() &&
-        (symbol->type == kQbvalScriptBody || symbol->type == kQbvalNativeFunc))
+    if (gfx::loading_console::live_now() && (symbol->type == kQbvalScriptBody || symbol->type == kQbvalNativeFunc))
         gfx::loading_console::note_script_call(name, symbol->type == kQbvalNativeFunc, stmt_args_);
     switch (symbol->type) {
     case kQbvalScriptBody: {
@@ -517,8 +517,8 @@ ScriptOutcome Script::tick_frame()
                 objects::Entity* object = entity_.owner_object_;
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "
-                    "yields (the game hangs here)",
-                    find_checksum_name_or_unknown(script_title_), object ? object->ident_ : 0u, steps);
+                        "yields (the game hangs here)",
+                        find_checksum_name_or_unknown(script_title_), object ? object->ident_ : 0u, steps);
             }
         }
         current_script_var() = this;
@@ -527,8 +527,9 @@ ScriptOutcome Script::tick_frame()
         if (suspend_reason_ != kSuspendOnNothing) {
             flag_bits_ = static_cast<uint8_t>((flag_bits_ & ~kScriptRunInterrupted) | kScriptRunWaitUpdated);
             current_script_var() = nullptr;
-            return suspend_reason_ == kSuspendOnBlock || suspend_reason_ == kWaitTypeRealTimer ? kScriptOutcomeBlocked
-                                                                                       : kScriptOutcomeSuspended;
+            return suspend_reason_ == kSuspendOnBlock || suspend_reason_ == kWaitTypeRealTimer
+                       ? kScriptOutcomeBlocked
+                       : kScriptOutcomeSuspended;
         }
         switch (*pc_) {
         case 0x01: // end of line
@@ -600,4 +601,4 @@ ScriptOutcome Script::tick_frame()
     return kScriptOutcomeFinished;
 }
 
-} // namespace Script
+} // namespace script

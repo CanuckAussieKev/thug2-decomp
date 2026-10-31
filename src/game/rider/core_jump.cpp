@@ -37,8 +37,8 @@ constexpr uint32_t kName = 0xA1DC81F9;
 constexpr uint32_t kNoSound = 0xE13620A8;           // no_sound
 constexpr uint32_t kBonelessHeight = 0xEC6B7FC7;    // BonelessHeight
 constexpr uint32_t kSpeed = 0xF0D90109;             // speed
-constexpr uint32_t kChargeCapMs = 0xF733C097;      // Skater_max_tense_time
-constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;       // Skater_Max_Max_Speed_Stat
+constexpr uint32_t kChargeCapMs = 0xF733C097;       // Skater_max_tense_time
+constexpr uint32_t kSpeedCapStat = 0xCC5F87AA;      // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kWallplantDuration = 0xA06E446B; // Physics_Wallplant_Duration
 constexpr uint32_t kSkaterJump = 0x8687163A;        // SkaterJump (event)
 constexpr uint32_t kAirName = 0x439F4704;           // AIR
@@ -53,22 +53,26 @@ constexpr uint32_t kJumpSpeed[2][2][2] = {
     {{0x8851A76E, 0x6E8EFE38}, {0x39766891, 0x4CDB18CB}}, // Physics_Boneless_Jump_Speed_*; Physics_Boneless_Air_*
 };
 
-constexpr float kFeelerAhead = 12.0f;  // 0x0064546C (also how far a jump off a steep ramp lifts the skater)
+constexpr float kFeelerAhead = 12.0f;   // 0x0064546C (also how far a jump off a steep ramp lifts the skater)
 constexpr float kFeelerBehind = -36.0f; // 0x0064BD68
-constexpr float kSteepUp = -0.1f;      // 0x0064BD44: the up's y below this: a ramp too steep to jump straight off
-constexpr float kSteepDrop = 1.5f;     // 0x00646744
+constexpr float kSteepUp = -0.1f;       // 0x0064BD44: the up's y below this: a ramp too steep to jump straight off
+constexpr float kSteepDrop = 1.5f;      // 0x00646744
 
-float scaled_physics(void* object, uint32_t name) { return static_cast<objects::Rider*>(object)->get_scaled_physics(name); }
+float scaled_physics(void* object, uint32_t name)
+{
+    return static_cast<objects::Rider*>(object)->get_scaled_physics(name);
+}
 
 // 0x00518EE0: the jump sound, by how fast the skater goes (a fraction of the max max speed) and a terrain.
 void play_jump_sound(void* component, uint8_t terrain)
 {
     void* object = object_of(component);
     const maths::Vec4& v = vector_at(object, kVelocity);
-    float speed = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y +
-                                               static_cast<double>(v.z) * v.z));
+    float speed = static_cast<float>(
+        std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z));
     float fraction = speed / scaled_physics(object, kSpeedCapStat);
-    static_cast<objects::RiderSfxPlayer*>(get_at<void*>(component, kSfxModuleSlot))->play_jump_in_state(fraction, terrain);
+    static_cast<objects::RiderSfxPlayer*>(get_at<void*>(component, kSfxModuleSlot))
+        ->play_jump_in_state(fraction, terrain);
 }
 
 } // namespace
@@ -80,7 +84,8 @@ void SkaterPhysicsModule::trigger_rail_script(const int* events)
     if (!node)
         return;
     if (!get_at<void*>(this, kRailManager))
-        get_at<void*>(this, kRailManager) = get_at<void*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24); // (the skate module's)
+        get_at<void*>(this, kRailManager) =
+            get_at<void*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24); // (the skate module's)
     script::Struct* script = level_nodes::fetch_vertex(node->label_, false);
     if (!script)
         return;
@@ -352,4 +357,4 @@ int SkaterPhysicsModule::walking_wallplant(script::Struct*, script::Script*)
     return 1;
 }
 
-} // namespace Skater
+} // namespace skater

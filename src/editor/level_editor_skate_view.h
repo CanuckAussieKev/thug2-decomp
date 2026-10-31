@@ -47,4 +47,4 @@ void add_overlay(const overlays::Painter& painter);
 void get_legend(float view_x, float view_y, float view_width, float view_height, float scale);
 void halt(); // (the caches dropped)
 
-} // namespace MenuSystem::level_editor::skate_view
+} // namespace frontend::level_editor::skate_view

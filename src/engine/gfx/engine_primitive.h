@@ -11,14 +11,14 @@ namespace render {
 // (0x20 bytes of the PC class's 0x158; vtable 0x00649878.)
 struct Primitive {
     void** vtable_;
-    Primitive* following_;  // +0x04: in the new or the drawing list
-    uint32_t flag_bits_;     // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
-    uint32_t blend_mode_; // +0x0C: a checksum (0x54628ED7 to start)
-    int owns_vertices_;   // +0x10: 1: listed (and the vertices its own)
-    uint8_t unknown14;    // +0x14
-    bool ready_;         // +0x15: readied (Ready): drawn by render_primitives
+    Primitive* following_; // +0x04: in the new or the drawing list
+    uint32_t flag_bits_;   // +0x08: 0x100 on the list of new ones (the PC class's: 1 made, 2 set up, 4 ready)
+    uint32_t blend_mode_;  // +0x0C: a checksum (0x54628ED7 to start)
+    int owns_vertices_;    // +0x10: 1: listed (and the vertices its own)
+    uint8_t unknown14;     // +0x14
+    bool ready_;           // +0x15: readied (Ready): drawn by render_primitives
     uint8_t unknown16[6];
-    uint32_t unknown1c_;   // +0x1C
+    uint32_t unknown1c_; // +0x1C
 
     // 0x0049C660: the fields cleared, the vtable, blend mode 0x54628ED7, `own` kept - 1: on the list of new ones.
     // Returns this.
@@ -36,41 +36,41 @@ struct Primitive {
 
     // The virtuals' bodies (vtable slots 1 - 35, in PcPrimitive's order): each prints "STUB: plat_..." - the getters
     // return 0.
-    void set_texture(const uint8_t* texture, int unused1, int unused2);  // 0x0049C390
-    void change_colour(uint32_t rgba);                                       // 0x0049C3A0
-    void prepare_all(uint32_t layout_flags, int primitive_type, int count);      // 0x0049C3B0
-    void get_end();                                                          // 0x0049C3C0
-    void render();                                                       // 0x0049C3D0
+    void set_texture(const uint8_t* texture, int unused1, int unused2);                                 // 0x0049C390
+    void change_colour(uint32_t rgba);                                                                  // 0x0049C3A0
+    void prepare_all(uint32_t layout_flags, int primitive_type, int count);                             // 0x0049C3B0
+    void get_end();                                                                                     // 0x0049C3C0
+    void render();                                                                                      // 0x0049C3D0
     void blit(const float* positions, const uint32_t* colours, const float* uvs, const float* normals); // 0x0049C3E0
-    void change_place(int index, float x, float y, float z);             // 0x0049C3F0
-    void set_x(int index, float x);                                       // 0x0049C400
-    void set_y(int index, float y);                                       // 0x0049C410
-    void set_z(int index, float z);                                       // 0x0049C420
-    void set_normal(int index, float x, float y, float z);               // 0x0049C430
-    void set_normal_x(int index, float x);                                 // 0x0049C440
-    void set_normal_y(int index, float y);                                 // 0x0049C450
-    void set_normal_z(int index, float z);                                 // 0x0049C460
-    void set_vertex_colour(int index, uint32_t rgba);                      // 0x0049C470
-    void set_uv(int index, float u, float v);                             // 0x0049C480
-    void choose_u(int index, float u);                                       // 0x0049C490
-    void choose_v(int index, float v);                                       // 0x0049C4A0
-    float fetch_pos_x(int index);                                               // 0x0049C4B0
-    float fetch_pos_y(int index);                                               // 0x0049C4D0
-    float fetch_pos_z(int index);                                               // 0x0049C4F0
-    float get_normal_x(int index);                                         // 0x0049C510
-    float get_normal_y(int index);                                         // 0x0049C530
-    float get_normal_z(int index);                                         // 0x0049C550
-    uint32_t get_vertex_colour(int index);                                 // 0x0049C570
-    float get_u(int index);                                               // 0x0049C590
-    float get_v(int index);                                               // 0x0049C5B0
-    void get_slide(float x, float y, float z);                          // 0x0049C5D0
-    void translate_x(float x);                                            // 0x0049C5E0
-    void translate_y(float y);                                            // 0x0049C5F0
-    void translate_z(float z);                                            // 0x0049C600
-    void scroll_uv(float u, float v);                                     // 0x0049C610
-    void scroll_u(float u);                                               // 0x0049C620
-    void scroll_v(float v);                                               // 0x0049C630
-    int weigh(const Primitive* other);                                // 0x0049C640
+    void change_place(int index, float x, float y, float z);                                            // 0x0049C3F0
+    void set_x(int index, float x);                                                                     // 0x0049C400
+    void set_y(int index, float y);                                                                     // 0x0049C410
+    void set_z(int index, float z);                                                                     // 0x0049C420
+    void set_normal(int index, float x, float y, float z);                                              // 0x0049C430
+    void set_normal_x(int index, float x);                                                              // 0x0049C440
+    void set_normal_y(int index, float y);                                                              // 0x0049C450
+    void set_normal_z(int index, float z);                                                              // 0x0049C460
+    void set_vertex_colour(int index, uint32_t rgba);                                                   // 0x0049C470
+    void set_uv(int index, float u, float v);                                                           // 0x0049C480
+    void choose_u(int index, float u);                                                                  // 0x0049C490
+    void choose_v(int index, float v);                                                                  // 0x0049C4A0
+    float fetch_pos_x(int index);                                                                       // 0x0049C4B0
+    float fetch_pos_y(int index);                                                                       // 0x0049C4D0
+    float fetch_pos_z(int index);                                                                       // 0x0049C4F0
+    float get_normal_x(int index);                                                                      // 0x0049C510
+    float get_normal_y(int index);                                                                      // 0x0049C530
+    float get_normal_z(int index);                                                                      // 0x0049C550
+    uint32_t get_vertex_colour(int index);                                                              // 0x0049C570
+    float get_u(int index);                                                                             // 0x0049C590
+    float get_v(int index);                                                                             // 0x0049C5B0
+    void get_slide(float x, float y, float z);                                                          // 0x0049C5D0
+    void translate_x(float x);                                                                          // 0x0049C5E0
+    void translate_y(float y);                                                                          // 0x0049C5F0
+    void translate_z(float z);                                                                          // 0x0049C600
+    void scroll_uv(float u, float v);                                                                   // 0x0049C610
+    void scroll_u(float u);                                                                             // 0x0049C620
+    void scroll_v(float v);                                                                             // 0x0049C630
+    int weigh(const Primitive* other);                                                                  // 0x0049C640
 };
 static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, owns_vertices_) == 0x10 &&
                   offsetof(Primitive, ready_) == 0x15 && offsetof(Primitive, unknown1c_) == 0x1C &&
@@ -92,4 +92,4 @@ void __cdecl render_primitives();
 // bits 8-9) and passed on to the PC's 0x004C5E40.
 void __cdecl set_primitive_state(int state, int value);
 
-} // namespace Nx
+} // namespace render

@@ -85,7 +85,7 @@ constexpr uint32_t kAll = 0xC4E78E22;
 constexpr uint32_t kUScale = 0x3FB610B7, kVScale = 0xB9226219;
 constexpr uint32_t kRot = 0xE2C6589E;
 constexpr uint32_t kUOff = 0x56A7F41C, kVOff = 0x44125BF2;
-constexpr uint32_t kCollisionArg = 0x7B66ECC5;    // (passed on to the line test; its name isn't in THUG2's scripts)
+constexpr uint32_t kCollisionArg = 0x7B66ECC5; // (passed on to the line test; its name isn't in THUG2's scripts)
 constexpr uint32_t kLine = 0x2EEB4B09;
 constexpr uint32_t kStart = 0x6086AA70, kEnd = 0xFF03CC4E;
 constexpr uint32_t kCollisionResult = 0xED615AF5; // (the line test's result; its name isn't in THUG2's scripts)
@@ -115,10 +115,22 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 
 // The model's lights (not rewritten yet): ambient colour (0x0048E450) and on (0x0048DE30), a diffuse light's colour
 // (0x0048E480), on (0x0048E4C0) and direction (0x004E3F90).
-void change_ambient_tint(void* lights, const uint8_t* rgba) { static_cast<render::ModelLights*>(lights)->change_ambient_tint(reinterpret_cast<const uint32_t*>(rgba)); }
-void enable_ambient(void* lights, bool on) { reinterpret_cast<void(__thiscall*)(void*, bool)>(&render::virtual_slot9_jump)(lights, on); }
-void change_diffuse_hue(void* lights, int index, const uint8_t* rgba) { static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, reinterpret_cast<const uint32_t*>(rgba)); }
-void enable_diffuse(void* lights, int index, bool on) { reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&render::virtual_slot10_jump)(lights, index, on); }
+void change_ambient_tint(void* lights, const uint8_t* rgba)
+{
+    static_cast<render::ModelLights*>(lights)->change_ambient_tint(reinterpret_cast<const uint32_t*>(rgba));
+}
+void enable_ambient(void* lights, bool on)
+{
+    reinterpret_cast<void(__thiscall*)(void*, bool)>(&render::virtual_slot9_jump)(lights, on);
+}
+void change_diffuse_hue(void* lights, int index, const uint8_t* rgba)
+{
+    static_cast<render::ModelLights*>(lights)->change_diffuse_hue(index, reinterpret_cast<const uint32_t*>(rgba));
+}
+void enable_diffuse(void* lights, int index, bool on)
+{
+    reinterpret_cast<void(__thiscall*)(void*, int, bool)>(&render::virtual_slot10_jump)(lights, index, on);
+}
 void set_light_direction(void* lights, int index, const maths::Vec4* direction)
 {
     model_nx::set_lights_direction(lights, nullptr, index, direction);
@@ -284,7 +296,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         bool hold = params->has_bare_flag(kHoldOnLastAngle);
         bool dont_pause = params->has_bare_flag(kDontPause);
         uint32_t now = dont_pause ? frame_clock::get_time()
-                                 : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
+                                  : static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset);
         uint8_t axes = 0;
         static const uint32_t kAxes[3] = {kX, kY, kZ};
         for (int axis = 0; axis < 3; ++axis) {
@@ -407,7 +419,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             int h, s, v;
             if (params->fetch_int_value(kH, &h, false) && params->fetch_int_value(kS, &s, false) &&
                 params->fetch_int_value(kV, &v, false)) {
-                mesh_instance_->set_geom_color_hsv(kAll, static_cast<float>(h), static_cast<float>(static_cast<double>(s) * kPercent), static_cast<float>(static_cast<double>(v) * kPercent));
+                mesh_instance_->set_geom_color_hsv(kAll, static_cast<float>(h),
+                                                   static_cast<float>(static_cast<double>(s) * kPercent),
+                                                   static_cast<float>(static_cast<double>(v) * kPercent));
             }
         }
         break;
@@ -416,7 +430,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             int r, g, b;
             if (params->fetch_int_value(kR, &r, false) && params->fetch_int_value(kG, &g, false) &&
                 params->fetch_int_value(kB, &b, false))
-                mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b), static_cast<uint8_t>(0xFF));
+                mesh_instance_->change_tint(static_cast<uint8_t>(r), static_cast<uint8_t>(g), static_cast<uint8_t>(b),
+                                            static_cast<uint8_t>(0xFF));
         }
         break;
     case kObjHasModelLights:
@@ -502,8 +517,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         void* skeleton = skeleton_of(bone_rig_);
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
-        float volume = static_cast<float>(
-            mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton), reinterpret_cast<uint32_t>(&matrix), bone));
+        float volume = static_cast<float>(mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton),
+                                                                          reinterpret_cast<uint32_t>(&matrix), bone));
         script->args_->push_float(kBoneVolume, volume);
         break;
     }
@@ -516,8 +531,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
 // (no address: the tail jump folded at 0x004E3F90 - model_component_nx.h)
 void __fastcall model_nx::set_lights_direction(void* lights, void*, int index, const maths::Vec4* direction)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int, const maths::Vec4*)>((*static_cast<void***>(lights))[2])(lights, index,
-                                                                                                      direction);
+    reinterpret_cast<void(__thiscall*)(void*, int, const maths::Vec4*)>((*static_cast<void***>(lights))[2])(
+        lights, index, direction);
 }
 
-} // namespace Obj
+} // namespace objects

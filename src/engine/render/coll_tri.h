@@ -54,20 +54,20 @@ static_assert(sizeof(HitTreeNode) == 8, "layout must match the original");
 // A collision object's geometry (render::TriMeshSource, from a .col file): its vertices (floats, or 16-bit offsets
 // from its box's minimum in sixteenths when "compressed"), faces and BSP tree.
 struct TriMeshSource {
-    uint32_t checksum_;      // +0x00 the sector's name
+    uint32_t checksum_; // +0x00 the sector's name
     uint16_t unknown04_;
     uint16_t num_vertices_;   // +0x06
     uint16_t tri_count_;      // +0x08 (also the size of a sector object's own buffer)
     bool small_faces_;        // +0x0A faces of 8 bytes (else 10)
-    bool compressed_;        // +0x0B the vertices are 16-bit
-    uint8_t* faces_;         // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
-    maths::Vec4 lower_limit_;        // +0x10 the box (+0x20 its max)
+    bool compressed_;         // +0x0B the vertices are 16-bit
+    uint8_t* faces_;          // +0x0C each: u16 flags, u16 terrain, the three vertex indices (u8 / u16)
+    maths::Vec4 lower_limit_; // +0x10 the box (+0x20 its max)
     maths::Vec4 upper_limit_;
-    void* vertices_;         // +0x30 float[3] each, or uint16_t[3] when compressed
+    void* vertices_;        // +0x30 float[3] each, or uint16_t[3] when compressed
     HitTreeNode* bsp_;      // +0x34
-    uint8_t* vertex_bytes_;   // +0x38 one byte per vertex (copied and freed with the geometry), or null
-    uint32_t unknown3c_;     // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
-                              // triangle object keeps a copy)
+    uint8_t* vertex_bytes_; // +0x38 one byte per vertex (copied and freed with the geometry), or null
+    uint32_t unknown3c_;    // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
+                            // triangle object keeps a copy)
 
     // 0x0040B230: vertex `index` (w = 0).
     maths::Vec4 read_stored_vertex(int index) const;
@@ -137,4 +137,4 @@ static_assert(offsetof(TriMeshSource, lower_limit_) == 0x10, "layout must match 
 static_assert(offsetof(TriMeshSource, vertices_) == 0x30, "layout must match the original");
 static_assert(sizeof(TriMeshSource) == 0x40, "layout must match the original");
 
-} // namespace Nx
+} // namespace render

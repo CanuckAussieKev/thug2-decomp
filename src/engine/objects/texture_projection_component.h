@@ -8,7 +8,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -47,14 +47,13 @@ public:
         memory::ListNode list_link_;
     };
 
-    ProjectionList projections_;         // +0x18 (a lists::Foremost of the projections)
-    ObjectModule* suspend_;      // +0x2C
-    ObjectModule* bone_rig_;     // +0x30
-    ObjectModule* mesh_instance_;        // +0x34
+    ProjectionList projections_;  // +0x18 (a lists::Foremost of the projections)
+    ObjectModule* suspend_;       // +0x2C
+    ObjectModule* bone_rig_;      // +0x30
+    ObjectModule* mesh_instance_; // +0x34
 };
 static_assert(offsetof(TextureProjectionComponent, projections_) == 0x18 &&
-                  offsetof(TextureProjectionComponent, suspend_) == 0x2C &&
-                  sizeof(TextureProjectionComponent) == 0x38,
+                  offsetof(TextureProjectionComponent, suspend_) == 0x2C && sizeof(TextureProjectionComponent) == 0x38,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

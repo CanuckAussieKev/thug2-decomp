@@ -49,25 +49,26 @@ public:
     void change_rgba(uint32_t rgba);
 
     void** vtable;
-    uint8_t* bitmap_;   // +0x04: an engine BitmapTexture
-    uint32_t mix_mode_;      // +0x08
-    float pos_x_, y_;        // +0x0C
+    uint8_t* bitmap_;         // +0x04: an engine BitmapTexture
+    uint32_t mix_mode_;       // +0x08
+    float pos_x_, y_;         // +0x0C
     float scale_h_, scale_v_; // +0x14
-    float hot_x_, hot_y_;  // +0x1C
-    float orientation_turn_;      // +0x24
-    float rank_;      // +0x28
-    uint32_t layer_;      // +0x2C: (not set when made)
+    float hot_x_, hot_y_;     // +0x1C
+    float orientation_turn_;  // +0x24
+    float rank_;              // +0x28
+    uint32_t layer_;          // +0x2C: (not set when made)
     uint16_t span_, level_y_; // +0x30
-    bool invisible_;         // +0x34
-    bool use_depth_;       // +0x35: layer_ rather than rank_
-    bool z_write_;         // +0x36: (not set when made)
-    bool flip_v_, flip_u_; // +0x37
-    uint8_t rgba_value_[4];     // +0x39 (unaligned)
+    bool invisible_;          // +0x34
+    bool use_depth_;          // +0x35: layer_ rather than rank_
+    bool z_write_;            // +0x36: (not set when made)
+    bool flip_v_, flip_u_;    // +0x37
+    uint8_t rgba_value_[4];   // +0x39 (unaligned)
     uint8_t pad3d_[3];
-    void* screen_region_;       // +0x40: its 2D window (set by 0x0048D1B0)
+    void* screen_region_; // +0x40: its 2D window (set by 0x0048D1B0)
 };
 static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(BillboardQuad, span_) == 0x30 &&
-                  offsetof(BillboardQuad, rgba_value_) == 0x39 && offsetof(BillboardQuad, screen_region_) == 0x40 && sizeof(BillboardQuad) == 0x44,
+                  offsetof(BillboardQuad, rgba_value_) == 0x39 && offsetof(BillboardQuad, screen_region_) == 0x40 &&
+                  sizeof(BillboardQuad) == 0x44,
               "layout must match the original");
 
 // The textured quad (0x20 bytes; vtable 0x00649A98: [0] destroy, [1] a new one, [4] the hidden flag changed, [5] the
@@ -93,18 +94,18 @@ public:
     void change_rgba(uint32_t rgba);
 
     void** vtable;
-    void* screen_region_;       // +0x04
-    uint8_t* bitmap_;   // +0x08
-    bool invisible_;         // +0x0C
+    void* screen_region_; // +0x04
+    uint8_t* bitmap_;     // +0x08
+    bool invisible_;      // +0x0C
     uint8_t padd_[3];
-    float rank_;      // +0x10
-    bool use_depth_;       // +0x14: (always cleared)
+    float rank_;     // +0x10
+    bool use_depth_; // +0x14: (always cleared)
     uint8_t pad15[3];
-    uint32_t mix_mode_;      // +0x18: (not set when made)
-    uint8_t rgba_value_[4];     // +0x1C
+    uint32_t mix_mode_;     // +0x18: (not set when made)
+    uint8_t rgba_value_[4]; // +0x1C
 };
 static_assert(offsetof(TexturedQuad, rank_) == 0x10 && offsetof(TexturedQuad, rgba_value_) == 0x1C &&
                   sizeof(TexturedQuad) == 0x20,
               "layout must match the original");
 
-} // namespace Nx
+} // namespace render

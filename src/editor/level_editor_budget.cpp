@@ -48,9 +48,12 @@ StageMap get_level_of(double used, double limit)
 uint32_t level_colour(StageMap level)
 {
     switch (level) {
-    case StageMap::kOver: return 0xFFE5484D;
-    case StageMap::kNear: return 0xFFF5A524;
-    default: return 0xFF46A758;
+    case StageMap::kOver:
+        return 0xFFE5484D;
+    case StageMap::kNear:
+        return 0xFFF5A524;
+    default:
+        return 0xFF46A758;
     }
 }
 
@@ -126,12 +129,18 @@ struct PoolInfo {
     const char* where;
 };
 const PoolInfo kPools[] = {
-    {[]() -> memory::PoolPair& { return script::g_struct_pools; }, "Script structures (CStruct)", "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
-    {[]() -> memory::PoolPair& { return script::g_component_pools; }, "Script components", "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
-    {[]() -> memory::PoolPair& { return script::g_vector_pools; }, "Script vectors", "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
-    {[]() -> memory::PoolPair& { return script::g_array_pools; }, "Script arrays", "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
-    {[]() -> memory::PoolPair& { return script::g_symbol_pools; }, "Script symbols", "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
-    {[]() -> memory::PoolPair& { return script::g_script_pools; }, "Running scripts", "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
+    {[]() -> memory::PoolPair& { return script::g_struct_pools; }, "Script structures (CStruct)",
+     "CStruct pool 0x006F3614 (CreateScriptPools; ini [memory] struct_pool, original 19800)"},
+    {[]() -> memory::PoolPair& { return script::g_component_pools; }, "Script components",
+     "CComponent pool 0x006F2338 (CreateScriptPools; ini [memory] component_pool, original 86000)"},
+    {[]() -> memory::PoolPair& { return script::g_vector_pools; }, "Script vectors",
+     "CVector pool 0x006F3654 (CreateScriptPools; ini [memory] vector_pool, original 9500)"},
+    {[]() -> memory::PoolPair& { return script::g_array_pools; }, "Script arrays",
+     "CArray pool 0x006F22B4 (CreateScriptPools; ini [memory] array_pool, original 7000)"},
+    {[]() -> memory::PoolPair& { return script::g_symbol_pools; }, "Script symbols",
+     "CSymbolTableEntry pool 0x006F362C (CreateScriptPools; ini [memory] symbol_pool, original 12500)"},
+    {[]() -> memory::PoolPair& { return script::g_script_pools; }, "Running scripts",
+     "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 };
 constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
 
@@ -212,8 +221,7 @@ std::vector<Meter> get_meters()
         return meters;
     // Counted as the game counts them now, and as the level has them (no added node; hidden ones counted).
     int crowns_shipped = 0, restarts_shipped = 0, added_nodes = 0;
-    static const uint32_t kRestart = checksums::hash_from_text("Restart"),
-                          kCrown = checksums::hash_from_text("Crown");
+    static const uint32_t kRestart = checksums::hash_from_text("Restart"), kCrown = checksums::hash_from_text("Crown");
     for (const nodes::Elem& n : nodes) {
         if (n.added) {
             ++added_nodes;
@@ -243,7 +251,8 @@ std::vector<Meter> get_meters()
           "the light manager's level light list (count 0x006FAEF4; AddLight 0x00490570)");
     count("Dynamic lights", counts.dynamic_lights_, node_create::kMaxDynamicLights, 0,
           "the light manager's dynamic light list (count 0x006FAEF0)");
-    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(memory::sizes::node_hash_slots()), added_nodes,
+    count("Nodes", static_cast<double>(nodes.size()), static_cast<double>(memory::sizes::node_hash_slots()),
+          added_nodes,
           "the node manager's name hash 0x006F0D84 (HashNode 0x0045CE60): original 0x4000 slots, ours [memory] "
           "node_hash_slots");
     if (level_nodes::NodeManager* manager = level_nodes::node_manager_instance())
@@ -282,7 +291,8 @@ std::vector<Meter> get_meters()
             m.limit = size;
             m.added = g_base.taken ? used - g_base.script : 0.0;
             m.bytes = m.approximate = true;
-            m.where = "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
+            m.where =
+                "the script region (InitStandardHeaps 0x005BBE80: original 0x434770 bytes, grown by the bigger pools)";
             meters.push_back(m);
         }
         if (region_use(manager->primary_zone_, &size, &used)) {
@@ -292,7 +302,8 @@ std::vector<Meter> get_meters()
             m.limit = size;
             m.added = g_base.taken ? used - g_base.main : 0.0;
             m.bytes = m.approximate = true;
-            m.where = "the main region (Mem::Manager::Construct 0x005BBC00: original 64 MB, grown by the bigger pools) - geometry, copies' meshes, collision";
+            m.where = "the main region (Mem::Manager::Construct 0x005BBC00: original 64 MB, grown by the bigger pools) "
+                      "- geometry, copies' meshes, collision";
             meters.push_back(m);
         }
     }
@@ -390,4 +401,4 @@ void get_table()
     ImGui::EndTable();
 }
 
-} // namespace MenuSystem::level_editor::Budget
+} // namespace frontend::level_editor::budget

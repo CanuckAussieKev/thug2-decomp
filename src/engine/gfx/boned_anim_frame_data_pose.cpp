@@ -71,7 +71,7 @@ int translation_key_time(const uint8_t* key) { return *reinterpret_cast<const in
 // The pair of keys of `count` around `time` (each key 8 bytes) and how far between: the last key - itself twice, 0.
 // Without one, `from` / `to` / `fraction` stay as they were.
 void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const uint8_t*), uint8_t*& from, uint8_t*& to,
-              float& fraction)
+               float& fraction)
 {
     for (int i = 0; i < count; ++i) {
         uint8_t* key = keys + i * 8;
@@ -98,7 +98,7 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
 
 // 0x00484EB0
 bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4* translations, void*, float weight,
-                                        uint8_t* mask)
+                                     uint8_t* mask)
 {
     uint8_t* rot_keys = quat_keys_;
     uint8_t* trans_keys = trans_keys_;
@@ -157,8 +157,8 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
 }
 
 // 0x00485250
-bool JointClipFrames::apply_additive_if_compressed(maths::QuatRotation* rotations, maths::Vec4* translations, void* unused,
-                                                    float weight, uint8_t* mask)
+bool JointClipFrames::apply_additive_if_compressed(maths::QuatRotation* rotations, maths::Vec4* translations,
+                                                   void* unused, float weight, uint8_t* mask)
 {
     if (!(flag_bits_ & kCompressed))
         return false;
@@ -179,15 +179,16 @@ void JointClipFrames::build_cache(int format)
     }
     ClipStore* manager = ClipStore::get_pull();
     uint32_t size = manager->fetch_record_bytes(bone_count_, static_cast<int>(quat_key_count_),
-                                          static_cast<int>(trans_key_count_), format);
+                                                static_cast<int>(trans_key_count_), format);
     int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
     if (*reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||
         ClipStore::heap_available() < size) {
         if (manager->free_oldest(priority, size))
             cache_slot_ = nullptr;
     }
-    AnimCacheEntry* entry = manager->add_row(reinterpret_cast<uint32_t>(this), static_cast<int16_t>(bone_count_),
-                                               static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
+    AnimCacheEntry* entry =
+        manager->add_row(reinterpret_cast<uint32_t>(this), static_cast<int16_t>(bone_count_),
+                         static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
     uint8_t* cache = reinterpret_cast<uint8_t*>(entry);
     if (!cache)
         return;
@@ -286,7 +287,7 @@ void JointClipFrames::build_cache(int format)
 
     cache_slot_ = cache;
     entry->set_release_callback(reinterpret_cast<void(__cdecl*)(void*)>(&JointClipFrames::forget_cache_entry),
-                              this); // (the entry's owner and its release callback)
+                                this); // (the entry's owner and its release callback)
     uint16_t& cache_flags = *reinterpret_cast<uint16_t*>(cache_slot_ + 0x164);
     cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));
     ++caches_built();
@@ -312,14 +313,14 @@ bool JointClipFrames::read_in(const uint8_t* data, uint32_t, bool)
 
 // 0x00485730
 bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* translations, uint8_t* arg2, float time,
-                                    int arg4, void* arg5)
+                                 int arg4, void* arg5)
 {
     uint32_t flags = flag_bits_;
     if (flags & kCompressed) {
         if (!(flags & kNoAutoCache) && !cache_slot_)
             build_cache(cache_format(cache_manager()));
         return fetch_pose(reinterpret_cast<float*>(rotations), reinterpret_cast<float*>(translations), arg2, time, arg4,
-                       static_cast<FrameSource*>(arg5));
+                          static_cast<FrameSource*>(arg5));
     }
     float frame = time * kFramesPerSecond;
     uint8_t* rot_keys = quat_keys_;
@@ -342,10 +343,10 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
         }
         find_keys(rot_keys, rot_count, frame, rotation_key_time, rot_from, rot_to, rot_fraction);
         interpolate_quat(reinterpret_cast<float*>(rotations), rot_from, rot_to, rot_fraction,
-                        (flag_bits_ & kOtherInterpolation) != 0);
+                         (flag_bits_ & kOtherInterpolation) != 0);
         find_keys(trans_keys, trans_count, frame, translation_key_time, trans_from, trans_to, trans_fraction);
         interpolate_trans(reinterpret_cast<float*>(translations), trans_from, trans_to, trans_fraction,
-                         (flag_bits_ & kOtherInterpolation) != 0);
+                          (flag_bits_ & kOtherInterpolation) != 0);
         rot_keys += rot_count * 8;
         rotations++;
         trans_keys += trans_count * 8;
@@ -354,4 +355,4 @@ bool JointClipFrames::get_frames(maths::QuatRotation* rotations, maths::Vec4* tr
     return true;
 }
 
-} // namespace Gfx
+} // namespace gfx

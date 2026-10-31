@@ -22,4 +22,4 @@ int Skate::count_riders()
     return count;
 }
 
-} // namespace Mdl
+} // namespace modules

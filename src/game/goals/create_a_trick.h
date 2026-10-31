@@ -11,7 +11,7 @@ namespace script {
 class Array;
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
@@ -20,8 +20,8 @@ class CreateATrick {
 public:
     void** vtable_;
     script::Struct* other_params_; // +0x04 (Default_CAT_other_info's to begin with)
-    script::Array* spin_list_;    // +0x08 six structures (Default_CAT_rotation_info's)
-    script::Array* animations_;   // +0x0C six structures (Default_CAT_animation_info's)
+    script::Array* spin_list_;     // +0x08 six structures (Default_CAT_rotation_info's)
+    script::Array* animations_;    // +0x0C six structures (Default_CAT_animation_info's)
 
     // 0x00552560: the constructor: the defaults copied. Returns this.
     CreateATrick* make_new();
@@ -68,4 +68,4 @@ bool __cdecl cfunc_cat_get_total_x(script::Struct* params, script::Script* scrip
 bool __cdecl cfunc_cat_set_total_z(script::Struct* params, script::Script* script);
 bool __cdecl cfunc_cat_get_total_z(script::Struct* params, script::Script* script);
 
-} // namespace Game
+} // namespace goals

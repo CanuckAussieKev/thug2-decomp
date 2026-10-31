@@ -18,16 +18,21 @@ constexpr uint32_t kIsTallLevel = 0x7C793877; // IsTallLevel
 
 // The level select's lists: THUG2's own, then the ported levels' (tools/pipeline/menu_level/level_select.ts sections()).
 constexpr const char* kLevelLists[] = {
-    "level_select_menu_level_info",       "level_select_menu_thug1_level_info", "level_select_menu_thps4_level_info",
-    "level_select_menu_thps3_level_info", "level_select_menu_thaw_level_info",
+    "level_select_menu_level_info",
+    "level_select_menu_thug1_level_info",
+    "level_select_menu_thps4_level_info",
+    "level_select_menu_thps3_level_info",
+    "level_select_menu_thaw_level_info",
     // (not THUGPRO's: our THP8 / Proving Ground levels wider than half units reach - tools/pipeline/thp8_levels,
     // NET_HALF_REACH; tools/pipeline/thpg_levels)
-    "level_select_menu_thps2_level_info", "level_select_menu_thp8_level_info", "level_select_menu_thpg_level_info",
+    "level_select_menu_thps2_level_info",
+    "level_select_menu_thp8_level_info",
+    "level_select_menu_thpg_level_info",
     "level_select_menu_misc_level_info", // (the MISCELLANEOUS section: skate shops, tutorials, test levels)
 };
 
 PositionScale s_factor;
-uint32_t s_scale_level;  // the level s_factor was found for (0: none)
+uint32_t s_scale_level; // the level s_factor was found for (0: none)
 bool s_scale_net_game;
 
 } // namespace
@@ -68,7 +73,7 @@ void refresh_position_scale()
     PositionScale scale = net_game ? level_position_scale(level) : PositionScale{};
     if (scale.big != s_factor.big || scale.tall != s_factor.tall)
         get_log("THUGPRO big level (TP-R6): network positions %s%s", scale.big ? "x/z in whole units" : "x/z in halves",
-            scale.tall ? ", y in whole units" : "");
+                scale.tall ? ", y in whole units" : "");
     s_factor = scale;
 }
 
@@ -96,4 +101,4 @@ float unpack_height(int value)
     return s_factor.tall ? static_cast<float>(value) : static_cast<float>(static_cast<double>(value) * 0.25);
 }
 
-} // namespace online::Thugpro
+} // namespace online::thugpro

@@ -99,7 +99,10 @@ constexpr double kPerRandTwice = std::bit_cast<float>(0x38800100u);
 constexpr double kPerRand = std::bit_cast<float>(0x38000100u);
 
 // The frame's time in milliseconds (truncated, the original's _ftol).
-int frame_milliseconds() { return static_cast<int>(static_cast<int64_t>(frame_clock::get_slomo_frame_seconds() * 1000.0f)); }
+int frame_milliseconds()
+{
+    return static_cast<int>(static_cast<int64_t>(frame_clock::get_slomo_frame_seconds() * 1000.0f));
+}
 
 // The platform's fog exponent: compiled out on PC (the empty 0x005480A0).
 void set_fog_density_curve(float /*exponent*/) {}
@@ -206,8 +209,7 @@ void Shatter::get_step(int index, float step)
         maths::Mat4 turn;
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
         // D3DX (linked library code): rotation = rotation * turn
-        d3dx::matrix_multiply(
-            &rotation, &rotation, &turn);
+        d3dx::matrix_multiply(&rotation, &rotation, &turn);
     }
     velocity.y = static_cast<float>(velocity.y - static_cast<double>(step) * gravity);
 }
@@ -248,9 +250,10 @@ void __cdecl set_fog_color(uint32_t rgba)
 void __cdecl set_level_color(const float* color) { std::memcpy(g_level_color, color, 16); }
 
 // 0x00491110
-void __cdecl change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
-                              float speed, float velocity_scale, float lifetime, float floor, float bounce,
-                              float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f)
+void __cdecl change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483,
+                                     float area, float speed, float velocity_scale, float lifetime, float floor,
+                                     float bounce, float value_2e_1c, uint32_t texture, uint32_t value_af_1a,
+                                     int value_33d_f)
 {
     g_glass_burst_velocity = *velocity;
     g_shatter_vector_210e = *vector_210e;
@@ -323,7 +326,9 @@ void __cdecl age_texture_splats(TextureSplats* splats, int elapsed)
         uint8_t* alphas[6] = {reinterpret_cast<uint8_t*>(&splats->base_colors_[i][0]) + 3,
                               reinterpret_cast<uint8_t*>(&splats->base_colors_[i][1]) + 3,
                               reinterpret_cast<uint8_t*>(&splats->base_colors_[i][2]) + 3,
-                              splats->vertices[i][0] + 0xF, splats->vertices[i][1] + 0xF, splats->vertices[i][2] + 0xF};
+                              splats->vertices[i][0] + 0xF,
+                              splats->vertices[i][1] + 0xF,
+                              splats->vertices[i][2] + 0xF};
         int gone = 0;
         for (uint8_t* alpha : alphas) {
             if (*alpha == 0) {
@@ -416,9 +421,9 @@ struct RecentSplat {
 };
 
 // 0x004928A0
-bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
-                                  float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
-                                  uint32_t follow, uint8_t unknown40, uint8_t* texture)
+bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth,
+                                     float angle, float cone_angle, float lifetime, const char* image_label,
+                                     uint32_t unknown38, uint32_t follow, uint8_t unknown40, uint8_t* texture)
 {
     g_splat_reserve = script::fetch_int_value(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
@@ -457,7 +462,8 @@ bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4*
         }
     }
     if (!texture) {
-        auto* textures = static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict)); // (the particles' dictionary)
+        auto* textures =
+            static_cast<TextureSet*>(reinterpret_cast<void*>(g_particle_texture_dict)); // (the particles' dictionary)
         texture = reinterpret_cast<uint8_t*>(textures->fetch_skin(checksums::hash_from_text(image_label)));
     }
     // The line's box grown by the size; the collision objects of the grids along the line that meet it.
@@ -466,11 +472,11 @@ bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4*
     line_box.append_spot(line.end);
     maths::BBox box;
     box.min = {static_cast<float>(static_cast<double>(line_box.min.x) - size),
-                 static_cast<float>(static_cast<double>(line_box.min.y) - size),
-                 static_cast<float>(static_cast<double>(line_box.min.z) - size), 1.0f};
+               static_cast<float>(static_cast<double>(line_box.min.y) - size),
+               static_cast<float>(static_cast<double>(line_box.min.z) - size), 1.0f};
     box.max = {static_cast<float>(static_cast<double>(line_box.max.x) + size),
-                 static_cast<float>(static_cast<double>(line_box.max.y) + size),
-                 static_cast<float>(static_cast<double>(line_box.max.z) + size), 1.0f};
+               static_cast<float>(static_cast<double>(line_box.max.y) + size),
+               static_cast<float>(static_cast<double>(line_box.max.z) + size), 1.0f};
     auto** grids = get_coll_grids_on_line(&line);
     if (!grids || !*grids)
         return false;
@@ -486,9 +492,8 @@ bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4*
             // (slot 21: its geometry, a box first; NaN doesn't rule it out)
             auto* bounds = reinterpret_cast<const maths::BBox*(__thiscall*)(HitMesh*)>(
                 (*reinterpret_cast<void***>(object))[21])(object);
-            if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) &&
-                !(bounds->min.z > box.max.z) && !(box.min.z > bounds->max.z) &&
-                !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
+            if (!(bounds->min.x > box.max.x) && !(box.min.x > bounds->max.x) && !(bounds->min.z > box.max.z) &&
+                !(box.min.z > bounds->max.z) && !(bounds->min.y > box.max.y) && !(box.min.y > bounds->max.y)) {
                 void* sector = render::engine::look_up_sector(object->checksum_);
                 objects[count] = object;
                 sectors[count] = sector;
@@ -570,7 +575,7 @@ void __cdecl draw_shatters()
 
 // 0x004923E0
 void __cdecl add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
-                      const char* /*texture*/)
+                       const char* /*texture*/)
 {
     auto* flash = static_cast<Flash*>(memory::alloc(sizeof(Flash)));
     std::memcpy(flash->start, &start, 4);
@@ -664,11 +669,11 @@ void __cdecl kill_all_effects()
     kill_all_shatters();
 }
 
-} // namespace Engine
+} // namespace engine
 
 namespace {
 static VtableSlot g_shatter_vtable_slots[] = {&render::Shatter::teardown};
 void** const kShatterVtable = reinterpret_cast<void**>(g_shatter_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

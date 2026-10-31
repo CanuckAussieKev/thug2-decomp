@@ -179,7 +179,8 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     if (mine && its) {
         uint32_t colour[4] = {prop<uint32_t>(mine, 0x1C), prop<uint32_t>(mine, 0x20), prop<uint32_t>(mine, 0x24),
                               prop<uint32_t>(mine, 0x28)};
-        reinterpret_cast<render::RenderModel*>(its)->change_scale(reinterpret_cast<const maths::Vec4*>(colour)); // (0x00492EE0: four words set)
+        reinterpret_cast<render::RenderModel*>(its)->change_scale(
+            reinterpret_cast<const maths::Vec4*>(colour)); // (0x00492EE0: four words set)
     }
     return item;
 }
@@ -243,25 +244,27 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::PickupItemHandler::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::PickupItemHandler::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::PickupItemHandler::teardown,
+    &objects::ComponentWithoutUpdate::tick_frame,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::PickupItemHandler::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

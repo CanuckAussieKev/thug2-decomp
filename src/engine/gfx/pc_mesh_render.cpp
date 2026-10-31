@@ -30,27 +30,18 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool pixel_shaders() { return g_shaders_available; }
 
 // D3DX (the statically linked library's, through its thunks).
-void transform_coord(float* out, const float* v, const float* m)
-{
-    d3dx::vec3_transform_coord(out, v, m);
-}
-void transform_normal(float* out, const float* v, const float* m)
-{
-    d3dx::vec3_transform_normal(out, v, m);
-}
-void matrix_multiply(void* out, const void* a, const void* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void transform_coord(float* out, const float* v, const float* m) { d3dx::vec3_transform_coord(out, v, m); }
+void transform_normal(float* out, const float* v, const float* m) { d3dx::vec3_transform_normal(out, v, m); }
+void matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
 
 // A vertex's skinning data (0x4C bytes): its position, normal, colour, texture coordinates, bones and weights.
 struct SkinVertex {
     float position[3];
     float normal[3];
-    uint32_t color;    // +0x18
-    float uv[8];       // +0x1C: (u, v) a set
-    uint8_t bones[4];  // +0x3C
-    float weights[3];  // +0x40
+    uint32_t color;   // +0x18
+    float uv[8];      // +0x1C: (u, v) a set
+    uint8_t bones[4]; // +0x3C
+    float weights[3]; // +0x40
 };
 static_assert(sizeof(SkinVertex) == 0x4C, "layout must match the original");
 
@@ -166,8 +157,9 @@ void MeshRef::render()
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
     }
     VertexBuffer* vb = vertex_buffers_[current_vertex_buffer_];
-    if (per_vertex_data_ && (unknown9c_ != g_frames_rendered ||
-                          unknowna0_ != reinterpret_cast<uint32_t&>(g_current_instance))) { // (once a frame per instance)
+    if (per_vertex_data_ &&
+        (unknown9c_ != g_frames_rendered ||
+         unknowna0_ != reinterpret_cast<uint32_t&>(g_current_instance))) { // (once a frame per instance)
         unknown9c_ = g_frames_rendered;
         unknowna0_ = reinterpret_cast<uint32_t&>(g_current_instance);
         uint8_t* out = vb->data; // (locked whole with DISCARD, inline: the card's buffer written)
@@ -176,9 +168,15 @@ void MeshRef::render()
         vb->lock_flags_ = D3DLOCK_DISCARD;
         static_cast<IDirect3DVertexBuffer9*>(vb->buffer)->Lock(0, 0, reinterpret_cast<void**>(&out), D3DLOCK_DISCARD);
         switch (unknowna8_) {
-        case 1: skin_one_bone(out); break;
-        case 2: skin_two_bones(out); break;
-        case 3: skin_three_bones(out); break;
+        case 1:
+            skin_one_bone(out);
+            break;
+        case 2:
+            skin_two_bones(out);
+            break;
+        case 3:
+            skin_three_bones(out);
+            break;
         }
         vb->get_unlock();
     }
@@ -203,22 +201,22 @@ void MeshRef::render()
     uint32_t primitives = index_count_at(this, level) - 2u;
     if (pixel_shaders()) {
         count_draw(primitives);
-        input_port()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0, primitives);
+        input_port()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
+                                           primitives);
     } else {
         for (uint32_t pass = 0; pass < mat->pass_count_; ++pass) {
             float instance[3];
             const float* tint = nullptr;
             if (g_instance_colour_on) {
                 for (int k = 0; k < 3; ++k)
-                    instance[k] = static_cast<float>(g_instance_colour[k] *
-                                                     static_cast<double>(1.0f / 255));
+                    instance[k] = static_cast<float>(g_instance_colour[k] * static_cast<double>(1.0f / 255));
                 tint = instance;
             } else if (flags & 4) {
                 tint = color;
             }
             mat->submit_pass(pass, tint);
             input_port()->DrawIndexedPrimitive(static_cast<D3DPRIMITIVETYPE>(primitive_type_), 0, 0, vertex_count_, 0,
-                                           index_count_at(this, level) - 2u);
+                                               index_count_at(this, level) - 2u);
             count_draw(index_count_at(this, level) - 2u);
         }
     }
@@ -231,4 +229,4 @@ void MeshRef::render()
     toggle_fog(false);
 }
 
-} // namespace Nx
+} // namespace render

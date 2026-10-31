@@ -100,12 +100,26 @@ private:
                 break;
             char e = text_[look_at_++];
             switch (e) {
-            case '"': case '\\': case '/': out->push_back(e); break;
-            case 'b': out->push_back('\b'); break;
-            case 'f': out->push_back('\f'); break;
-            case 'n': out->push_back('\n'); break;
-            case 'r': out->push_back('\r'); break;
-            case 't': out->push_back('\t'); break;
+            case '"':
+            case '\\':
+            case '/':
+                out->push_back(e);
+                break;
+            case 'b':
+                out->push_back('\b');
+                break;
+            case 'f':
+                out->push_back('\f');
+                break;
+            case 'n':
+                out->push_back('\n');
+                break;
+            case 'r':
+                out->push_back('\r');
+                break;
+            case 't':
+                out->push_back('\t');
+                break;
             case 'u': {
                 if (look_at_ + 4 > text_.size())
                     return get_fail("a short \\u escape");
@@ -114,7 +128,8 @@ private:
                 append_utf8(out, code);
                 break;
             }
-            default: return get_fail("an unknown escape");
+            default:
+                return get_fail("an unknown escape");
             }
         }
         return get_fail("a string that doesn't end");
@@ -436,7 +451,8 @@ SavedState parse_state(const std::string& text)
 std::string format_state(const SavedState& state)
 {
     return "# The new front end's own state (thug2-decomp.ini [features] new_frontend - src/frontend/new_frontend.h)\n"
-           "last_level=" + state.last_level_ + "\n";
+           "last_level=" +
+           state.last_level_ + "\n";
 }
 
 // --- the frame --------------------------------------------------------------------------------------------------
@@ -492,7 +508,6 @@ void RowAnim::tick(bool selected, float dt)
     value = selected ? std::min(1.0f, value + step) : std::max(0.0f, value - step);
 }
 
-
 // --- the menus ----------------------------------------------------------------------------------------------------
 
 namespace {
@@ -526,12 +541,15 @@ std::string default_art(const std::string& id)
     // the highlighted item; tools/pipeline/menu_level/frontend_levels.ts MENU_ART has the main menu's the same. THUG2's advert
     // slides only where they say what the item is: generic_6 Create-A-Goal, generic_3 Create-A-Graphic.)
     static const std::pair<const char*, const char*> kArt[] = {
-        {"career", "loadscrn_boston_story"}, {"thug2story", "loadscrn_barcelona_story"}, {"story", "loadscrn_boston_story"},
-        {"classic", "loadscrn_boston_classic"}, {"thugstory", "loadscrn_secret_1"}, {"freeskate", "loadscrn_australia"},
-        {"online", "loadscrn_Online"},     {"play", "loadscrn_Online"},          {"identity", "loadscrn_Online2"},
-        {"create", "loadscrn_created"},    {"cas", "loadscrn_created"},          {"cat", "loadscrn_trick"},
-        {"cag", "loadscrn_generic_6"},     {"cap", "loadscrn_editor"},           {"cagr", "loadscrn_generic_3"},
-        {"editor", "loadscrn_editor_play"}, {"options", "loadscrn_generic"},     {"quit", "loadscrn_los_angeles"},
+        {"career", "loadscrn_boston_story"}, {"thug2story", "loadscrn_barcelona_story"},
+        {"story", "loadscrn_boston_story"},  {"classic", "loadscrn_boston_classic"},
+        {"thugstory", "loadscrn_secret_1"},  {"freeskate", "loadscrn_australia"},
+        {"online", "loadscrn_Online"},       {"play", "loadscrn_Online"},
+        {"identity", "loadscrn_Online2"},    {"create", "loadscrn_created"},
+        {"cas", "loadscrn_created"},         {"cat", "loadscrn_trick"},
+        {"cag", "loadscrn_generic_6"},       {"cap", "loadscrn_editor"},
+        {"cagr", "loadscrn_generic_3"},      {"editor", "loadscrn_editor_play"},
+        {"options", "loadscrn_generic"},     {"quit", "loadscrn_los_angeles"},
     };
     for (const auto& [key, image] : kArt)
         if (id == key)
@@ -540,7 +558,7 @@ std::string default_art(const std::string& id)
 }
 
 void Menu::get_reset(const Catalogue* catalogue, std::vector<SectionView> views, const std::string& last_level,
-                 std::vector<Screen> stack, LevelsFor levels)
+                     std::vector<Screen> stack, LevelsFor levels)
 {
     catalogue_ = catalogue;
     views_ = std::move(views);
@@ -855,8 +873,10 @@ ActStep Menu::get_press(Intake input)
         return {}; // (a wipe or a launch under way: the input waits for neither)
     bool levels = shown_ == Screen::kLevels, options = shown_ == Screen::kOptions;
     switch (input) {
-    case Intake::kUp: return move_by(-1);
-    case Intake::kDown: return move_by(1);
+    case Intake::kUp:
+        return move_by(-1);
+    case Intake::kDown:
+        return move_by(1);
     case Intake::kLeft:
         return levels ? set_section(section_ - 1) : options ? change_option(-1, false) : ActStep{};
     case Intake::kRight:
@@ -875,8 +895,10 @@ ActStep Menu::get_press(Intake input)
             return {ActionKind::kMoveSound};
         }
         return levels ? set_section(section_ + 1) : ActStep{};
-    case Intake::kConfirm: return get_confirm();
-    case Intake::kBack: return get_back();
+    case Intake::kConfirm:
+        return get_confirm();
+    case Intake::kBack:
+        return get_back();
     }
     return {};
 }
@@ -908,7 +930,8 @@ ActStep Menu::hover_level(int row)
 
 ActStep Menu::click_level(int row)
 {
-    if (occupied() || shown_ != Screen::kLevels || !get_view() || row < 0 || row >= static_cast<int>(get_view()->levels.size()))
+    if (occupied() || shown_ != Screen::kLevels || !get_view() || row < 0 ||
+        row >= static_cast<int>(get_view()->levels.size()))
         return {};
     move_level(row);
     return get_confirm();
@@ -972,7 +995,8 @@ bool Menu::select_id(const std::string& id)
     if (shown_ == Screen::kLevels) {
         if (id.rfind("tab:", 0) == 0) {
             for (size_t s = 0; catalogue_ && s < catalogue_->sections.size() && s < views_.size(); ++s)
-                if (same_text(catalogue_->sections[s].id, id.substr(4)) || same_text(catalogue_->sections[s].tab, id.substr(4))) {
+                if (same_text(catalogue_->sections[s].id, id.substr(4)) ||
+                    same_text(catalogue_->sections[s].tab, id.substr(4))) {
                     set_section(static_cast<int>(s));
                     return true;
                 }
@@ -1012,9 +1036,9 @@ bool Menu::select_id(const std::string& id)
         for (size_t g = 0; g < groups.size(); ++g)
             for (size_t r = 0; r < groups[g].rows.size(); ++r) {
                 const options::Spec& spec = options::get_specs()[groups[g].rows[r]];
-                bool match = dot == std::string::npos
-                                 ? same_text(spec.key, id)
-                                 : same_text(spec.section, id.substr(0, dot)) && same_text(spec.key, id.substr(dot + 1));
+                bool match = dot == std::string::npos ? same_text(spec.key, id)
+                                                      : same_text(spec.section, id.substr(0, dot)) &&
+                                                            same_text(spec.key, id.substr(dot + 1));
                 if (match) {
                     if (static_cast<int>(g) != bundle_) {
                         set_option_group(static_cast<int>(g));
@@ -1123,4 +1147,4 @@ bool Cover::tick_frame(const Now& now, float dt, const char** why)
     return true;
 }
 
-} // namespace MenuSystem::NewFrontend
+} // namespace frontend::new_frontend

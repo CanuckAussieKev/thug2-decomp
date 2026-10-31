@@ -38,37 +38,37 @@ using namespace detail;
 namespace {
 
 // Names.
-constexpr uint32_t kId = 0x40C698AF;                    // id
-constexpr uint32_t kText = 0xC4745838;                  // text
-constexpr uint32_t kName = 0xA1DC81F9;                  // name
-constexpr uint32_t kValue = 0xE288A7CB;                 // value
-constexpr uint32_t kRank = 0x7786171A;                  // rank
-constexpr uint32_t kDestroyDescChildren = 0xDD6DDFD6;   // destroy_server_desc_children
-constexpr uint32_t kAddInfoItem = 0x676C4DB8;           // net_game_info_add_item
-constexpr uint32_t kUpdatePlayerTitle = 0xC755D58E;     // net_game_info_update_player_title
-constexpr uint32_t kInfoAddPlayerText = 0x62F4E2E8;             // net_game_info_add_player
-constexpr uint32_t kMidGameText = 0xC7EDAA8E;        // netoptions_str_game_in_progress
-constexpr uint32_t kAutoServe = 0xA37CBD43;             // netoptions_str_auto_serve
-constexpr uint32_t kFcfs = 0x850E7F29;                  // netoptions_str_fcfs
-constexpr uint32_t kTitlePing = 0x7E63A240;             // sort_title_ping
-constexpr uint32_t kTitleMode = 0xCC7CD816;             // sort_title_mode
-constexpr uint32_t kTitleSkill = 0x39B47254;            // sort_title_skill
-constexpr uint32_t kTitleLevel = 0xFD635A30;            // sort_title_level
-constexpr uint32_t kTitleRanked = 0xEE56DAAF;           // sort_title_ranked
-constexpr uint32_t kYes = 0x47B25601;                   // netoptions_str_yes
-constexpr uint32_t kNo = 0xE5CF1315;                    // netoptions_str_no
-constexpr uint32_t kSkillLevelInfo = 0x48DAE9CB;        // skill_level_info
-constexpr uint32_t kReasonFull = 0x7782B5B7;            // net_reason_full
-constexpr uint32_t kReasonFullObservers = 0xDDE5676F;   // net_reason_full_observers
-constexpr uint32_t kReason = 0xC44777F3;                // reason
-constexpr uint32_t kJustDialog = 0xF6694E96;            // just_dialog
-constexpr uint32_t kJoinRefusedDialog = 0x92528E98;     // CreateJoinRefusedDialog
-constexpr uint32_t kCookie = 0x751F4599;                // cookie
-constexpr uint32_t kMaxPlayers = 0xB7E39B53;            // MaxPlayers
-constexpr uint32_t kChosenJoinServer = 0xBFF7C13B;      // net_chosen_join_server
-constexpr uint32_t kServerId = 0xE7BB1948;              // server_id
-constexpr uint32_t kDestroyLobbyServer = 0x10FA2FCB;    // destroy_lobby_server
-constexpr uint32_t kUpdateServerList = 0x40C621E4;      // update_lobby_server_list
+constexpr uint32_t kId = 0x40C698AF;                     // id
+constexpr uint32_t kText = 0xC4745838;                   // text
+constexpr uint32_t kName = 0xA1DC81F9;                   // name
+constexpr uint32_t kValue = 0xE288A7CB;                  // value
+constexpr uint32_t kRank = 0x7786171A;                   // rank
+constexpr uint32_t kDestroyDescChildren = 0xDD6DDFD6;    // destroy_server_desc_children
+constexpr uint32_t kAddInfoItem = 0x676C4DB8;            // net_game_info_add_item
+constexpr uint32_t kUpdatePlayerTitle = 0xC755D58E;      // net_game_info_update_player_title
+constexpr uint32_t kInfoAddPlayerText = 0x62F4E2E8;      // net_game_info_add_player
+constexpr uint32_t kMidGameText = 0xC7EDAA8E;            // netoptions_str_game_in_progress
+constexpr uint32_t kAutoServe = 0xA37CBD43;              // netoptions_str_auto_serve
+constexpr uint32_t kFcfs = 0x850E7F29;                   // netoptions_str_fcfs
+constexpr uint32_t kTitlePing = 0x7E63A240;              // sort_title_ping
+constexpr uint32_t kTitleMode = 0xCC7CD816;              // sort_title_mode
+constexpr uint32_t kTitleSkill = 0x39B47254;             // sort_title_skill
+constexpr uint32_t kTitleLevel = 0xFD635A30;             // sort_title_level
+constexpr uint32_t kTitleRanked = 0xEE56DAAF;            // sort_title_ranked
+constexpr uint32_t kYes = 0x47B25601;                    // netoptions_str_yes
+constexpr uint32_t kNo = 0xE5CF1315;                     // netoptions_str_no
+constexpr uint32_t kSkillLevelInfo = 0x48DAE9CB;         // skill_level_info
+constexpr uint32_t kReasonFull = 0x7782B5B7;             // net_reason_full
+constexpr uint32_t kReasonFullObservers = 0xDDE5676F;    // net_reason_full_observers
+constexpr uint32_t kReason = 0xC44777F3;                 // reason
+constexpr uint32_t kJustDialog = 0xF6694E96;             // just_dialog
+constexpr uint32_t kJoinRefusedDialog = 0x92528E98;      // CreateJoinRefusedDialog
+constexpr uint32_t kCookie = 0x751F4599;                 // cookie
+constexpr uint32_t kMaxPlayers = 0xB7E39B53;             // MaxPlayers
+constexpr uint32_t kChosenJoinServer = 0xBFF7C13B;       // net_chosen_join_server
+constexpr uint32_t kServerId = 0xE7BB1948;               // server_id
+constexpr uint32_t kDestroyLobbyServer = 0x10FA2FCB;     // destroy_lobby_server
+constexpr uint32_t kUpdateServerList = 0x40C621E4;       // update_lobby_server_list
 constexpr uint32_t kDescribeSelectedServer = 0x596BAB63; // describe_selected_server
 
 constexpr int kNoPing = 9999;
@@ -122,13 +122,13 @@ int rank_of(int rating)
 // A server's details from GameSpy (the add and update messages alike): level, mode, counts, flags, skill.
 void read_server_keys(HostListing* server, void* sb)
 {
-    std::strcpy(server->level_, game_spy::server_get_string_value(sb, "mapname", "..."));  // (string keys)
+    std::strcpy(server->level_, game_spy::server_get_string_value(sb, "mapname", "...")); // (string keys)
     std::strcpy(server->mode_sel_, game_spy::server_get_string_value(sb, "gametype", "..."));
-    server->num_players_ = game_spy::server_get_int_value(sb, "numplayers", 1);                   // (integer keys)
+    server->num_players_ = game_spy::server_get_int_value(sb, "numplayers", 1); // (integer keys)
     server->max_players_ = game_spy::server_get_int_value(sb, "maxplayers", 8);
     server->num_observers_ = game_spy::server_get_int_value(sb, "numobservers", 0);
     server->max_observers_ = game_spy::server_get_int_value(sb, "maxobservers", 1);
-    server->password_ = game_spy::server_get_bool_value(sb, "password", 0) != 0;                 // (boolean keys)
+    server->password_ = game_spy::server_get_bool_value(sb, "password", 0) != 0; // (boolean keys)
     server->started_ = game_spy::server_get_bool_value(sb, "started", 0) != 0;
     server->host_mode_ = game_spy::server_get_int_value(sb, "hostmode", 0);
     server->ranked_ = game_spy::server_get_int_value(sb, "ranked", 0) != 0;
@@ -137,8 +137,8 @@ void read_server_keys(HostListing* server, void* sb)
 void read_server_players(HostListing* server, void* sb)
 {
     for (int i = 0; i < server->num_players_; ++i) {
-        int rating = game_spy::server_get_player_int_value(sb, i, "rating", 0);                       // (a player's integer key)
-        const char* name = game_spy::server_get_player_string_value(sb, i, "player", "...");     // (a player's string key)
+        int rating = game_spy::server_get_player_int_value(sb, i, "rating", 0);              // (a player's integer key)
+        const char* name = game_spy::server_get_player_string_value(sb, i, "player", "..."); // (a player's string key)
         server->enroll_player(name, rating);
     }
 }
@@ -343,12 +343,13 @@ int __cdecl on_server_reply_msg(net::InboundMsgCtx* context)
 // destroy_lobby_server and the server deleted; clear - "none found" and every server deleted. Each but a failure ends
 // with update_lobby_server_list (the update message only when it shows the server).
 void __cdecl listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message,
-                                  int progress, Hub* manager)
+                                    int progress, Hub* manager)
 {
     (void)staging;
     (void)progress;
     if (!success) {
-        static_cast<RoomManager*>(the_manager()->lobby_service_)->set_lost_connection(); // (the lobby told the listing failed)
+        static_cast<RoomManager*>(the_manager()->lobby_service_)
+            ->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
     switch (message) {
@@ -361,9 +362,9 @@ void __cdecl listing_games_callback(void* peer, int success, const char* name, v
         server->label_[15] = '\0';
         server->ping_ = game_spy::server_get_ping(sb); // (its ping)
         bool same_network = false;
-        if (game_spy::server_direct_connect(sb)) { // (it answered directly)
-            uint32_t ours = game_spy::peer_get_public_ip(peer); // (our public address)
-            if (game_spy::server_get_public_address(sb) == ours) {      // (its public address)
+        if (game_spy::server_direct_connect(sb)) {                             // (it answered directly)
+            uint32_t ours = game_spy::peer_get_public_ip(peer);                // (our public address)
+            if (game_spy::server_get_public_address(sb) == ours) {             // (its public address)
                 server->remote_ip_ = game_spy::server_get_private_address(sb); // (its private address)
                 server->port_no_ = kPort;
                 same_network = true;
@@ -383,7 +384,7 @@ void __cdecl listing_games_callback(void* peer, int success, const char* name, v
         read_server_players(server, sb);
         memory::ListNode* list = foremost(manager, kServers);
         get_append(list, server);
-        if (game_spy::server_has_basic_keys(sb)) { // (it has its basic keys)
+        if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
             int index = reinterpret_cast<gfx::AnimListHead*>(list)->tally_entries() - 1; // (the list's count)
             manager->show_server_in_menu(server, index);
             get_run(kUpdateServerList);

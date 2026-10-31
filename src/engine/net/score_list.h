@@ -14,14 +14,14 @@ extern void** const kScoreEntryVtable; // 0x0064CCF8: lists::Elem<ScoreEntry> (s
 // A line of the score list (0x48 bytes, vtable 0x0064CCF8 - its scalar deleting destructor 0x00544720, the node's
 // body 0x00544700: ScoreNode in player_info.h), a node of a local list sorted by its priority, the score.
 struct ScoreEntry : memory::ListNode {
-    char text_[32];   // +0x14 the player's (or team's) name; "> " before the local one
-    bool king_;       // +0x34 has the crown
-    bool local_;      // +0x35
-    bool has_flag_;    // +0x36 carries a flag
+    char text_[32]; // +0x14 the player's (or team's) name; "> " before the local one
+    bool king_;     // +0x34 has the crown
+    bool local_;    // +0x35
+    bool has_flag_; // +0x36 carries a flag
     uint8_t pad37;
-    uint32_t flag_bits_;  // +0x38 the teams whose flags it carries (bit n: team n)
-    int shade_;      // +0x3C the text colour (\c): the team + 2, or the skater's id + 2
-    int team_score_;   // +0x40 (teams)
+    uint32_t flag_bits_; // +0x38 the teams whose flags it carries (bit n: team n)
+    int shade_;          // +0x3C the text colour (\c): the team + 2, or the skater's id + 2
+    int team_score_;     // +0x40 (teams)
     uint32_t unknown44_;
 };
 static_assert(offsetof(ScoreEntry, text_) == 0x14 && offsetof(ScoreEntry, flag_bits_) == 0x38 &&

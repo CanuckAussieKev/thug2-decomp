@@ -60,10 +60,10 @@ constexpr float kHalf = 0.5f;               // 0x006453BC
 constexpr float kSpeedScale = 16.0f;        // 0x00645D68: a move's length over the frame's ms, times this
 constexpr float kWallCheckReach = 120.0f;   // 0x0064BD2C: extrapolated further than this: no wall check
 constexpr uint32_t kFirstForwardCollisionHeight = 0xD4205C9B; // Skater_First_Forward_Collision_Height
-constexpr uint32_t kRailGravity = 0xD1F46992;         // (a physics float: the rail's pull downhill; name unknown)
-constexpr uint32_t kRailCornerLeaveAngle = 0x76C1DA15; // (the angle a rail may turn and still be followed)
-constexpr uint32_t kRailActive = 0x4;                 // GrindPoint::flag_bits_
-constexpr float kRailEndSlack = 0.1f;                 // 0x00645D74: past a segment's end by more than this
+constexpr uint32_t kRailGravity = 0xD1F46992;             // (a physics float: the rail's pull downhill; name unknown)
+constexpr uint32_t kRailCornerLeaveAngle = 0x76C1DA15;    // (the angle a rail may turn and still be followed)
+constexpr uint32_t kRailActive = 0x4;                     // GrindPoint::flag_bits_
+constexpr float kRailEndSlack = 0.1f;                     // 0x00645D74: past a segment's end by more than this
 constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
@@ -81,7 +81,10 @@ uint8_t* client_app() { return reinterpret_cast<uint8_t*>(net_session_slot()->fe
 int frame_rate() { return game_config::g_frame_rate; }
 int get_now() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // The level's rails (the skate module's +0x24).
-GrindRailHub* get_level_rails() { return prop<GrindRailHub*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24); }
+GrindRailHub* get_level_rails()
+{
+    return prop<GrindRailHub*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x24);
+}
 
 // How far behind the connection is, in frames of `frame_ms`: the latency - the server's connection to the skater's
 // player, a client's first (to the server) - less a frame, over a frame, as unsigned numbers (0 without a frame).
@@ -139,7 +142,8 @@ void RiderRemoteSync::interpolate()
     }
 
     // (the original's slerp interpolator is made here: its constructor 0x005902E0 does nothing)
-    auto* player = reinterpret_cast<online::PlayerRecord*>(net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
+    auto* player = reinterpret_cast<online::PlayerRecord*>(
+        net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(skater->ident_)));
     if (!player->has_finished_joining())
         player->set_finished_joining();
     int count = prop<int>(past_frames_, 0x18);
@@ -275,8 +279,8 @@ void RiderRemoteSync::get_extrapolate()
     }
     double squared = (static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz;
     float squared_rounded = static_cast<float>(squared);
-    speeds_[slot] = static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) *
-                                        kSpeedScale);
+    speeds_[slot] =
+        static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
     lags_[slot] = lag;
     alignments_[slot] = static_cast<float>(alignment);
     ++updates_;
@@ -388,10 +392,11 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         there.y = 0.0f;
         here.make_unit();
         there.make_unit();
-        float cosine = static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
-                                          static_cast<double>(there.x) * here.x);
+        float cosine =
+            static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
+                               static_cast<double>(there.x) * here.x);
         double limit = skater::x87_cos(static_cast<double>(read_tuning_float(kRailCornerLeaveAngle, 1, skater)) *
-                                      kRadiansPerDegree);
+                                       kRadiansPerDegree);
         if (limit > cosine)
             stopped = true;
     }
@@ -496,8 +501,8 @@ void RiderRemoteSync::extrapolate_on_rail()
                     kHalf;
     }
     double squared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
-    speeds_[slot] = static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) *
-                                        kSpeedScale);
+    speeds_[slot] =
+        static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
     lags_[slot] = lag;
     alignments_[slot] = static_cast<float>(alignment);
     ++updates_;
@@ -548,7 +553,7 @@ void RiderRemoteSync::play_history_events()
             case 0x29: // an animation played (the primary channel)
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->play_anim(prop<uint32_t>(m, 0x20), false, prop<float>(m, 0x10), prop<float>(m, 0x14),
-                                      prop<int8_t>(m, 0x02), prop<float>(m, 0x18), prop<float>(m, 0x1C), nullptr);
+                                       prop<int8_t>(m, 0x02), prop<float>(m, 0x18), prop<float>(m, 0x1C), nullptr);
                 break;
             case 0x2A: // the board rotated (the byte passed as it was sent)
                 static_cast<RiderSpinAndFlip*>(flip_and_rotate_)
@@ -561,7 +566,7 @@ void RiderRemoteSync::play_history_events()
             case 0x2C:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
                     channel->set_flipped(static_cast<uint32_t>(prop<int8_t>(m, 0x01)), prop<bool>(m, 0x08), 0,
-                                        false); // (the byte passed as it was sent)
+                                         false); // (the byte passed as it was sent)
                 break;
             case 0x3C: { // (20 bytes of the message passed by address)
                 uint32_t data[5];
@@ -576,7 +581,7 @@ void RiderRemoteSync::play_history_events()
                 break;
             case 0x3E:
                 reinterpret_cast<MeshInstanceModule*>(mesh_set_)->conceal_mesh(prop<uint32_t>(m, 0x20),
-                                                                      prop<uint8_t>(m, 0x0A) != 0, false);
+                                                                               prop<uint8_t>(m, 0x0A) != 0, false);
                 break;
             case 0x41:
                 if (gfx::BlendChannel* channel = blender->find_channel(0))
@@ -589,14 +594,15 @@ void RiderRemoteSync::play_history_events()
                     if (prop<uint8_t>(m, 0x03) & (1u << bit))
                         reinterpret_cast<ModelSpinAxis*>(mesh_set_ + kModelParts[bit])
                             ->append_one(static_cast<float>(prop<int>(m, 0x3C)), static_cast<uint32_t>(time),
-                                  prop<float>(m, 0x48), prop<float>(m, 0x4C), prop<int>(m, 0x40),
-                                  prop<uint8_t>(m, 0x50) != 0, false);
+                                         prop<float>(m, 0x48), prop<float>(m, 0x4C), prop<int>(m, 0x40),
+                                         prop<uint8_t>(m, 0x50) != 0, false);
                 }
                 break;
             }
             case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
                 auto* items = static_cast<PickupItemHandler*>(entity_->fetch_module(PickupItemHandler::kType));
-                script::Struct* structure = script::read_sub_struct(prop<uint32_t>(m, 0x20)); // (the original also passes 1)
+                script::Struct* structure =
+                    script::read_sub_struct(prop<uint32_t>(m, 0x20)); // (the original also passes 1)
                 GameEntity* item = items->create_item(prop<int>(m, 0x44), structure);
                 script::Struct* params = script::spawn_param_bag();
                 if (params)
@@ -627,4 +633,4 @@ void RiderRemoteSync::play_history_events()
     last_event_time_ = now;
 }
 
-} // namespace Obj
+} // namespace objects

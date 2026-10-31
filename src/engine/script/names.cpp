@@ -195,4 +195,4 @@ void fill_member_function_code(uint32_t* records, void* const* code, int count)
     terminator[5] = 0xFFFFFFFFu;
 }
 
-} // namespace Script
+} // namespace script

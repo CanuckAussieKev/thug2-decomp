@@ -36,8 +36,14 @@ lists::KeyMap g_shader_cache{lists::KeyMap::Unconstructed{}}; // (the exe makes 
 lists::KeyMap& get_cache() { return g_shader_cache; }
 
 // An ID3DXBuffer (COM, through its vtable): [2] Release, [3] GetBufferPointer.
-void* buffer_pointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
-void get_release(void* object) { reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object); }
+void* buffer_pointer(void* buffer)
+{
+    return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer);
+}
+void get_release(void* object)
+{
+    reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object);
+}
 
 // D3DXAssembleShader (linked library code; stdcall). Returns the HRESULT.
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors)
@@ -47,8 +53,14 @@ long assemble_shader(const char* source, uint32_t length, void** shader, void** 
 
 // Per-pass flags of a material (not rewritten yet; thiscall): bit n set for passes that take their alpha from the
 // texture alone.
-uint32_t pass_alpha_flags(const void* material) { return static_cast<const MaterialRef*>(material)->texture_alpha_passes(); }
-uint32_t pass_count(const void* material) { return *reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 8); }
+uint32_t pass_alpha_flags(const void* material)
+{
+    return static_cast<const MaterialRef*>(material)->texture_alpha_passes();
+}
+uint32_t pass_count(const void* material)
+{
+    return *reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 8);
+}
 uint32_t get_blend_mode(const void* material, uint32_t pass)
 {
     return reinterpret_cast<const uint32_t*>(static_cast<const uint8_t*>(material) + 0x80)[pass] & 0xFFFFFF;
@@ -57,8 +69,8 @@ uint32_t get_blend_mode(const void* material, uint32_t pass)
 // The fixed shaders' sources.
 const char kTextureVertexX4[] =
     "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\n+mul_x2 r0.a,v0.a,t0.a\nmul_x4\tr0.rgb,v0,r0\n"; // 0x0067EBF0
-const char kVertexFactor[] = "ps.1.1\nmul_x2\tr0.rgb,v0,c0\n+mov r0.a, v0.a\n";       // 0x0067EC3C
-const char kBloomCutoff[] =                                                                  // 0x0067ED60
+const char kVertexFactor[] = "ps.1.1\nmul_x2\tr0.rgb,v0,c0\n+mov r0.a, v0.a\n";         // 0x0067EC3C
+const char kBloomCutoff[] =                                                             // 0x0067ED60
     "ps.1.1\n"
     "; On entry, C0 contains the 'cutoff' color for the bloom effect (and 0.5 in the alpha component).\n"
     "; Only texels above this color value will be considered.\n"
@@ -69,7 +81,7 @@ const char kBloomCutoff[] =                                                     
     "dp3\tr1,r0,c1\t\t\t; r1.a = ( r0.r * 1 ) + ( r0.g * 1 ) + ( r0.b * 1 )\n"
     "add\tr0.a,r1.a,c0.a\t\t; r0.a = 0.5 + sum of r0.rgb\n"
     "cnd\tr0,r0.a,t0,c2\t\t; sets r0 = t0 if r1.a > 0.5 (so r0.rgb > 0.0), 0.0 otherwise\n";
-const char kVertexAlphaTextureAlpha[] = "ps.1.1\ntex t0\nmul_x2\tr0,v0.a,t0.a\n";   // 0x0067ECC8
+const char kVertexAlphaTextureAlpha[] = "ps.1.1\ntex t0\nmul_x2\tr0,v0.a,t0.a\n";  // 0x0067ECC8
 const char kConstantAlphaTextureAlpha[] = "ps.1.1\ntex t0\nmul_x2 r0,c4.a,t0.a\n"; // 0x0067ECEC
 const char kTextureConstantAlpha[] =
     "ps.1.1\ntex t0\nmul r0.rgb,t0,c0\nmul_x4 r0.rgb,v0,r0\n+mul_x2\tr0.a,c4.a,t0.a\n"; // 0x0067ED10
@@ -116,14 +128,17 @@ void __cdecl compile_pixel_shaders()
             int handle;
         };
         static const Fixed kFixed[] = {
-            {kTextureVertexX4, kPixelShader964},          {kVertexFactor, kPixelShader95c},
-            {kBloomCutoff, kPixelShader948},              {kVertexAlphaTextureAlpha, kPixelShader944},
-            {kConstantAlphaTextureAlpha, kPixelShader940}, {kTextureConstantAlpha, kPixelShader960},
+            {kTextureVertexX4, kPixelShader964},
+            {kVertexFactor, kPixelShader95c},
+            {kBloomCutoff, kPixelShader948},
+            {kVertexAlphaTextureAlpha, kPixelShader944},
+            {kConstantAlphaTextureAlpha, kPixelShader940},
+            {kTextureConstantAlpha, kPixelShader960},
         };
         for (const Fixed& f : kFixed) {
             assemble_shader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
             input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
-                                        reinterpret_cast<IDirect3DPixelShader9**>(&hdl(f.handle)));
+                                            reinterpret_cast<IDirect3DPixelShader9**>(&hdl(f.handle)));
             // Not original - the level editor's Unlit view (engine/gfx/view_mode.h): the source kept for its twin.
             view_mode::note_shader_source(hdl(f.handle), f.source);
             if (shader)
@@ -190,38 +205,62 @@ void* __cdecl generated_pixel_shader(const void* material)
             text.append_one("mul_x2 r1.rgb, c%d, t%d\n", pass, pass);
             if (!brighten) {
                 if (!(alpha_flags & bit))
-                    text.append_one(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n"
-                                                              : "+mul_x2 r1.a, v0.a, t%d.a\n",
-                                     pass);
+                    text.append_one(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n" : "+mul_x2 r1.a, v0.a, t%d.a\n",
+                                    pass);
                 else
                     text.append_one("+mov r1.a, t%d\n", pass);
             }
         } else if (!(alpha_flags & bit)) {
             text.append_one("mov r1.rgb, t%d\n", pass);
             if (!brighten)
-                text.append_one(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n"
-                                                          : "+mul_x2 r1.a, v0.a, t%d.a\n",
-                                 pass);
+                text.append_one(mode == 5 ? "+mul_x2_sat r1.a, v0.a, t%d.a\n" : "+mul_x2 r1.a, v0.a, t%d.a\n", pass);
         } else {
             reg = pass; // the texture itself
         }
         const char* r = kRegisters[reg];
         const char* p = kRegisters[previous];
         switch (mode) {
-        case 1: text.append_one("mad r0.rgb,%s,%s.a,r0\n", r, r); break;
-        case 2: text.append_one("mad r0.rgb,%s,c%d.a,r0\n", r, pass); break;
-        case 3: text.append_one("mad r0.rgb,%s,-%s.a,r0\n", r, r); break;
-        case 4: text.append_one("mad r0.rgb,-%s,c%d.a,r0\n", r, pass); break;
-        case 5: text.append_one("lrp r0.rgb,%s.a,%s,r0\n", r, r); break;
-        case 6: text.append_one("lrp r0.rgb,c%d.a,%s,r0\n", pass, r); break;
-        case 7: text.append_one("mul r0.rgb,r0,%s.a\n", r); break;
-        case 8: text.append_one("mul r0.rgb,r0,c%d.a\n", pass); break;
-        case 9: text.append_one("mad r0.rgb,r0,%s.a,r0\n", r); break;
-        case 0xA: text.append_one("mad r0.rgb,r0,c%d.a,r0\n", pass); break;
-        case 0xB: text.append_one("mul v1.rgb,v1,%s.a\n", r); break;
-        case 0xC: text.append_one("lrp r0.rgb, %s.a, %s, r0\n", p, r); break;
-        case 0xD: text.append_one("lrp r0.rgb, %s.a, r0, %s\n", p, r); break;
-        default: break;
+        case 1:
+            text.append_one("mad r0.rgb,%s,%s.a,r0\n", r, r);
+            break;
+        case 2:
+            text.append_one("mad r0.rgb,%s,c%d.a,r0\n", r, pass);
+            break;
+        case 3:
+            text.append_one("mad r0.rgb,%s,-%s.a,r0\n", r, r);
+            break;
+        case 4:
+            text.append_one("mad r0.rgb,-%s,c%d.a,r0\n", r, pass);
+            break;
+        case 5:
+            text.append_one("lrp r0.rgb,%s.a,%s,r0\n", r, r);
+            break;
+        case 6:
+            text.append_one("lrp r0.rgb,c%d.a,%s,r0\n", pass, r);
+            break;
+        case 7:
+            text.append_one("mul r0.rgb,r0,%s.a\n", r);
+            break;
+        case 8:
+            text.append_one("mul r0.rgb,r0,c%d.a\n", pass);
+            break;
+        case 9:
+            text.append_one("mad r0.rgb,r0,%s.a,r0\n", r);
+            break;
+        case 0xA:
+            text.append_one("mad r0.rgb,r0,c%d.a,r0\n", pass);
+            break;
+        case 0xB:
+            text.append_one("mul v1.rgb,v1,%s.a\n", r);
+            break;
+        case 0xC:
+            text.append_one("lrp r0.rgb, %s.a, %s, r0\n", p, r);
+            break;
+        case 0xD:
+            text.append_one("lrp r0.rgb, %s.a, r0, %s\n", p, r);
+            break;
+        default:
+            break;
         }
     }
     text.append_one("mul_x2 r0.rgb, r0, v0\n");
@@ -232,7 +271,7 @@ void* __cdecl generated_pixel_shader(const void* material)
     if (assemble_shader(text.buffer, static_cast<uint32_t>(std::strlen(text.buffer)), &shader, &errors) != 0)
         buffer_pointer(errors); // (the error text, not shown)
     input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(shader)),
-                                reinterpret_cast<IDirect3DPixelShader9**>(&handle));
+                                    reinterpret_cast<IDirect3DPixelShader9**>(&handle));
     // Not original - the Unlit view (view_mode.h): the source kept for its twin.
     view_mode::note_shader_source(handle, text.buffer);
     cache.store_entry(key, handle);
@@ -261,11 +300,11 @@ void __cdecl material_pixel_shader(const void* material, void** shader)
         *shader = hdl(alpha_flags ? kPixelShader960 : kPixelShader964);
 }
 
-} // namespace Nx
+} // namespace render
 
 namespace render {
 
 // 0x00640DF0 (a static initialiser): the generated pixel shaders' cache, 256 buckets.
 void construct_shader_cache() { new (&g_shader_cache) lists::KeyMap(8); }
 
-} // namespace Nx
+} // namespace render

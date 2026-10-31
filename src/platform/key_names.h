@@ -8,4 +8,4 @@ void __cdecl set_key_names();
 // 0x004E0FE0: the names in German (the keypad's "ZB" for Ziffernblock).
 void __cdecl set_german_key_names();
 
-} // namespace Sys
+} // namespace sys

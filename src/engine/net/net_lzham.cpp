@@ -45,4 +45,4 @@ bool decompress(const uint8_t* in, size_t size, uint8_t* out, size_t capacity, s
     return true;
 }
 
-} // namespace NetLink::lzham
+} // namespace net::lzham

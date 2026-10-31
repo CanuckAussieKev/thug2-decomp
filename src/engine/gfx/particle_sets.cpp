@@ -27,7 +27,7 @@ namespace {
 
 void** const& g_particle_vtable = vt::kEngineParticles;
 extern void** const kManagerVtable;
-constexpr float kByteToUnit = 1.0f / 255.0f;   // 0x00645D70 (the bit pattern 0x3B808081)
+constexpr float kByteToUnit = 1.0f / 255.0f;    // 0x00645D70 (the bit pattern 0x3B808081)
 constexpr uint32_t kObjectIdParam = 0x40C698AF; // (the emit script's parameter: the object's id)
 
 bool is_game_halted() { return objects::g_simulation_halted; }
@@ -38,10 +38,7 @@ Sparkle* erase_one(Sparkle* particle, unsigned int flags)
     return reinterpret_cast<Sparkle*(__thiscall*)(Sparkle*, unsigned int)>(particle->vtable[0])(particle, flags);
 }
 void initialise(Sparkle* particle) { reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[1])(particle); }
-void colour_changed(Sparkle* particle)
-{
-    reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[6])(particle);
-}
+void colour_changed(Sparkle* particle) { reinterpret_cast<void(__thiscall*)(Sparkle*)>(particle->vtable[6])(particle); }
 
 script::Struct* spawn_param_table()
 {
@@ -74,8 +71,8 @@ maths::Vec4* max_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* out
 }
 // 0x00494F10 (thiscall on `out`, the 14 words of arguments popped by the caller): per component, the extreme of the
 // quadratic through `start` (at 0), `mid` (at `midTime`) and `end` (at `life`); w 0. Returns out.
-maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, const maths::Vec4& mid, const maths::Vec4& end,
-                           float mid_time, float life)
+maths::Vec4* curve_extremes(maths::Vec4* destination, const maths::Vec4& start, const maths::Vec4& mid,
+                            const maths::Vec4& end, float mid_time, float life)
 {
     uint32_t args[14];
     std::memcpy(args, &start, 16);
@@ -195,18 +192,22 @@ void Sparkle::update_bounds()
     }
     {
         const maths::Vec4& at = p.at_point_[0];
-        hi[0].x = current_round((static_cast<double>(current_round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
+        hi[0].x =
+            current_round((static_cast<double>(current_round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
         hi[0].y = current_round(((static_cast<double>(at.y) + hb[0][1]) + s[0]) + hr[0]);
-        hi[0].z = current_round(static_cast<double>(current_round(s[0] + static_cast<double>(current_round(static_cast<double>(at.z) +
-                                                                                    hb[0][2])))) + hr[0]);
-        hi[0].w = current_round(static_cast<double>(current_round(s[0] + static_cast<double>(current_round(static_cast<double>(hr[0]) +
-                                                                                    s[0])))) + hr[0]);
+        hi[0].z = current_round(static_cast<double>(current_round(
+                                    s[0] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[0][2])))) +
+                                hr[0]);
+        hi[0].w = current_round(static_cast<double>(current_round(
+                                    s[0] + static_cast<double>(current_round(static_cast<double>(hr[0]) + s[0])))) +
+                                hr[0]);
     }
     for (int i = 1; i < 3; ++i) {
         const maths::Vec4& at = p.at_point_[i];
         hi[i].x = current_round(current_round(current_round(static_cast<double>(hb[i][0]) + at.x) + s[i]) + hr[i]);
         hi[i].y = current_round(current_round(current_round(static_cast<double>(at.y) + hb[i][1]) + s[i]) + hr[i]);
-        hi[i].z = current_round((s[i] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
+        hi[i].z =
+            current_round((s[i] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
         hi[i].w = current_round(static_cast<double>(current_round(s[i] + (static_cast<double>(hr[i]) + s[i]))) + hr[i]);
     }
     maths::Vec4 low, high, curve;
@@ -231,7 +232,8 @@ void Sparkle::update_bounds()
     bound_ball_.z = current_round(half_z + low.z);
     bound_ball_.x = current_round(static_cast<double>(half_x) + low.x);
     bound_ball_.y = current_round(half_y + low.y);
-    bound_ball_.w = current_round(std::sqrt((static_cast<double>(half_x) * half_x + half_z * half_z) + half_y * half_y));
+    bound_ball_.w =
+        current_round(std::sqrt((static_cast<double>(half_x) * half_x + half_z * half_z) + half_y * half_y));
 }
 
 // 0x00496030
@@ -434,7 +436,7 @@ static VtableSlot g_manager_vtable_slots[] = {&render::EffectsDirector::teardown
 void** const kManagerVtable = reinterpret_cast<void**>(g_manager_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render
 
 namespace objects {
 
@@ -452,10 +454,16 @@ void PointerList::splice(PointerListNode* position, void* const* value)
     node->prev->next = node; // (with no node, the original reads through null here)
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace vt {
-static VtableSlot g_engine_particles_slots[] = {&render::PcParticleSystem::engine_destroy, stubs::do_nothing, stubs::do_nothing,
-                stubs::ignore_argument, stubs::ignore_argument, stubs::do_nothing, stubs::do_nothing, stubs::return_true};
+static VtableSlot g_engine_particles_slots[] = {&render::PcParticleSystem::engine_destroy,
+                                                stubs::do_nothing,
+                                                stubs::do_nothing,
+                                                stubs::ignore_argument,
+                                                stubs::ignore_argument,
+                                                stubs::do_nothing,
+                                                stubs::do_nothing,
+                                                stubs::return_true};
 void** const kEngineParticles = reinterpret_cast<void**>(g_engine_particles_slots);
-} // namespace Vt
+} // namespace vt

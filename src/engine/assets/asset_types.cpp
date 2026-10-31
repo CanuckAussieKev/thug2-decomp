@@ -58,13 +58,19 @@ void parse_qb_file(const char* name, void* buffer)
 }
 void unload_qb_file(uint32_t name) { script::unload_qb_file(name); }
 // Scenes (Nx): the file name, made from the buffer (with the textures), unloaded.
-void build_scene_file_path(char* out, const char* name, uint8_t flag) { render::engine::build_scene_file_path(out, name, flag); }
+void build_scene_file_path(char* out, const char* name, uint8_t flag)
+{
+    render::engine::build_scene_file_path(out, name, flag);
+}
 void* make_scene(const char* name, void* buffer, void* textures, uint8_t a, uint8_t b, uint8_t c, uint8_t d)
 {
-    return render::load_named_scene_from_memory(name, static_cast<const uint8_t*>(buffer), static_cast<render::TextureSet*>(textures),
-                                        a != 0, b != 0, c != 0, d);
+    return render::load_named_scene_from_memory(name, static_cast<const uint8_t*>(buffer),
+                                                static_cast<render::TextureSet*>(textures), a != 0, b != 0, c != 0, d);
 }
-void unload_scene(void* scene, int flag) { render::engine::unload_scene(static_cast<render::WorldScene*>(scene), flag); }
+void unload_scene(void* scene, int flag)
+{
+    render::engine::unload_scene(static_cast<render::WorldScene*>(scene), flag);
+}
 // Scene collision: its file name, added to a scene, the scene's collision, removed.
 void collision_file_name(char* out, const char* name, uint8_t flag)
 {
@@ -80,10 +86,10 @@ void detach_hit_mesh(void* scene) { static_cast<render::WorldScene*>(scene)->unl
 // Skinned models: whether a name is a model with a .cas file (its base name out), the model made, unloaded.
 bool split_skin_name(const char* name, char* base) { return render::engine::split_skin_name(name, base); }
 void* make_skinned_model(uint32_t checksum, void* buffer, uint32_t size, void* cas, void* textures, int value,
-                       uint8_t has_cas, uint8_t flag)
+                         uint8_t has_cas, uint8_t flag)
 {
-    return render::engine::load_model_from_memory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size), cas,
-                                           textures, value, has_cas, flag);
+    return render::engine::load_model_from_memory(checksum, static_cast<const uint8_t*>(buffer), static_cast<int>(size),
+                                                  cas, textures, value, has_cas, flag);
 }
 void unload_skinned_model(void* model, int flag)
 {
@@ -101,8 +107,8 @@ void remove_skin_collision(void* model) { static_cast<render::SubMesh*>(model)->
 void tex_dict_file_name(char* out, const char* name) { render::tex_dict_file_name(out, name); }
 void* make_tex_dict(uint32_t checksum, void* buffer, uint32_t size, uint8_t a, int value, uint8_t b, uint8_t c)
 {
-    return render::load_tex_dict_from_memory(checksum, static_cast<const uint8_t*>(buffer), size, a, static_cast<uint32_t>(value),
-                                     b, c);
+    return render::load_tex_dict_from_memory(checksum, static_cast<const uint8_t*>(buffer), size, a,
+                                             static_cast<uint32_t>(value), b, c);
 }
 void unload_tex_dict(void* textures) { render::unload_tex_dict(static_cast<render::TextureSet*>(textures)); }
 
@@ -227,7 +233,7 @@ int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 {
     memory::push_mem_profile("Animation Sequence processing");
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     if (copy) {
         memory::push_mem_profile("anim from data stream");
         data = copy_data(this, data, size);
@@ -242,7 +248,7 @@ int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 int AnimResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     script::fetch_int_value(0x25DC7904u); // (a debug leftover: looked up and not used)
     memory::push_mem_profile(name);
     char file[256];
@@ -341,10 +347,7 @@ int CutsceneResource::offload()
 }
 
 // 0x00408AA0
-bool CutsceneResource::is_loaded()
-{
-    return static_cast<objects::CinematicTable*>(v_data())->is_loaded();
-}
+bool CutsceneResource::is_loaded() { return static_cast<objects::CinematicTable*>(v_data())->is_loaded(); }
 
 // --- node array -----------------------------------------------------------------------------------------------
 
@@ -357,7 +360,7 @@ const char* NodeTableResource::fetch_title() const { return "Node Array"; }
 int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     args_ = static_cast<char*>(alloc_load_params(0x40));
     if (params)
         copy_words(args_, params, 0x10);
@@ -369,7 +372,7 @@ int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool copy, vo
 int NodeTableResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     args_ = static_cast<char*>(alloc_load_params(0x40));
     if (params)
         copy_words(args_, params, 0x10);
@@ -480,7 +483,7 @@ void SceneAsset::set_up_params(void* params, void* structure)
 int SceneAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     if (copy) {
         memory::push_mem_profile("Scene from data stream");
@@ -495,7 +498,7 @@ int SceneAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* par
 int SceneAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 8), name);
     char file[256];
@@ -513,8 +516,8 @@ int SceneAsset::read_in(const char* name, bool async, bool use_archive, void* pa
 bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
-    v_set_data(make_scene(reinterpret_cast<char*>(args_ + 8), buffer, textures, args_[4], args_[5], args_[6],
-                       args_[7]));
+    v_set_data(
+        make_scene(reinterpret_cast<char*>(args_ + 8), buffer, textures, args_[4], args_[5], args_[6], args_[7]));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -556,7 +559,7 @@ int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, 
 {
     memory::push_mem_profile("Collision processing");
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     if (copy) {
         memory::push_mem_profile("SceneColl from data stream");
@@ -572,7 +575,7 @@ int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, 
 int SceneCollisionAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 5), name);
     char file[256];
@@ -621,7 +624,7 @@ int RigResource::load_from_buffer(void* data, uint32_t size, bool copy, void* pa
 {
     memory::push_mem_profile("Skeleton processing");
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     v_finish_loading(data, size);
     memory::pop_mem_profile();
     return 0;
@@ -631,7 +634,7 @@ int RigResource::load_from_buffer(void* data, uint32_t size, bool copy, void* pa
 int RigResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     char file[256];
     platform_name(name, file);
     file_ref_ = file::async_open(file, !async, 100);
@@ -672,10 +675,7 @@ int RigResource::offload()
 }
 
 // 0x00409A10
-void RigResource::get_free_buffer()
-{
-    free_malloc_buffer(octets_);
-}
+void RigResource::get_free_buffer() { free_malloc_buffer(octets_); }
 
 // --- skinned model --------------------------------------------------------------------------------------------
 
@@ -712,7 +712,7 @@ void SkinResource::set_up_params(void* params, void* structure)
 int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     if (copy && !args_->on_heap_) {
         memory::push_mem_profile("skin from data stream");
@@ -727,7 +727,7 @@ int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 int SkinResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     memory::push_mem_profile(name);
     char base[512];
@@ -859,7 +859,7 @@ uint8_t* skin_collision_params(void* params, void* structure)
 int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     args_ = skin_collision_params(params, structure);
     if (copy) {
         memory::push_mem_profile("SkinColl from data stream");
@@ -874,7 +874,7 @@ int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, v
 int SkinCollisionAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     args_ = skin_collision_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 4), name);
     char file[256];
@@ -938,7 +938,7 @@ void TexDictAsset::set_up_params(void* params, void* structure)
 int TexDictAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(data), size, copy, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     if (copy) {
         memory::push_mem_profile("TexDict from data stream");
@@ -953,7 +953,7 @@ int TexDictAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 int TexDictAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
 {
     start_loading(reinterpret_cast<uint32_t>(name), async, use_archive, reinterpret_cast<uint32_t>(params),
-                 reinterpret_cast<uint32_t>(structure));
+                  reinterpret_cast<uint32_t>(structure));
     set_up_params(params, structure);
     copy_string(reinterpret_cast<char*>(args_ + 0xA), name);
     char file[256];
@@ -970,8 +970,8 @@ int TexDictAsset::read_in(const char* name, bool async, bool use_archive, void* 
 // 0x0040A5A0
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
-    v_set_data(make_tex_dict(checksum_, buffer, size, args_[0], *reinterpret_cast<int*>(args_ + 4), args_[8],
-                         args_[9]));
+    v_set_data(
+        make_tex_dict(checksum_, buffer, size, args_[0], *reinterpret_cast<int*>(args_ + 4), args_[8], args_[9]));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -989,4 +989,4 @@ int TexDictAsset::offload()
     return Resource::offload();
 }
 
-} // namespace Ass
+} // namespace assets

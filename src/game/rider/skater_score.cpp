@@ -109,7 +109,8 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
     if (points_held_)
         return;
     void* memory = memory::alloc_zeroed(0x1550);
-    points_held_ = memory ? reinterpret_cast<uint8_t*>(static_cast<modules::PointTally*>(memory)->make_new()) : nullptr; // (its constructor)
+    points_held_ = memory ? reinterpret_cast<uint8_t*>(static_cast<modules::PointTally*>(memory)->make_new())
+                          : nullptr; // (its constructor)
     get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident_));
 }
 
@@ -122,7 +123,7 @@ void RiderPointKeeper::tick_frame()
     }
     get_score_of(points_held_)->tick_frame();
     bool always_special = prop<uint8_t>(entity_, 0x168) != 0 ||
-                         reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
+                          reinterpret_cast<RiderStoryProgress*>(get_career())->is_code_on(kCheatAlwaysSpecial);
     if (always_special) {
         uint8_t* career = get_career();
         reinterpret_cast<RiderStoryProgress*>(career)->set_global_flag(script::fetch_int_value(kCheatAlwaysSpecial));
@@ -209,8 +210,10 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
             spin /= 180;
         int taps = 1;
         params->fetch_int_value(kNumTaps, &taps, 0);
-        bool latest = by_key_combo ? get_score_of(points_held_)->last_trick_is_key_combo(key_combo, spin, false, taps)
-                                 : get_score_of(points_held_)->last_trick_is(checksums::hash_from_text(text), spin, false, taps);
+        bool latest =
+            by_key_combo
+                ? get_score_of(points_held_)->last_trick_is_key_combo(key_combo, spin, false, taps)
+                : get_score_of(points_held_)->last_trick_is(checksums::hash_from_text(text), spin, false, taps);
         return latest ? 1 : 0;
     }
     default:
@@ -218,25 +221,27 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::RiderPointKeeper::teardown,
-         &objects::RiderPointKeeper::tick_frame,
-         &objects::RiderPointKeeper::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::RiderPointKeeper::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::RiderPointKeeper::teardown,
+    &objects::RiderPointKeeper::tick_frame,
+    &objects::RiderPointKeeper::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    &objects::ObjectModule::hold_off,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::RiderPointKeeper::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

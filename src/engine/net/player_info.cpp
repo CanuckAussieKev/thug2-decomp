@@ -39,8 +39,8 @@ using namespace detail;
 
 namespace {
 
-constexpr uint32_t kTagging = 0x5B512EDC;     // Tagging (the component)
-constexpr uint32_t kSkaterScore = 0xD262802F; // SkaterScore (the component)
+constexpr uint32_t kTagging = 0x5B512EDC;      // Tagging (the component)
+constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore (the component)
 constexpr uint32_t kNetFirefight = 0xBFF33600; // netfirefight
 
 constexpr uint32_t kHitWindow = 5000; // ms
@@ -317,7 +317,8 @@ bool PlayerRecord::is_eliminated()
     if (get_game_type() != kNetFirefight || !skater_)
         return false;
     objects::ObjectModule* score = skater_component(skater_, kSkaterScore);
-    return score && get_call<int>(code_address(&modules::PointTally::get_total_score), prop<void*>(score, 0x18)) == 0; // (its score's lives)
+    return score && get_call<int>(code_address(&modules::PointTally::get_total_score), prop<void*>(score, 0x18)) ==
+                        0; // (its score's lives)
 }
 int PlayerRecord::holds_crown() { return (flag_bits_ >> 7) & 1; }
 int PlayerRecord::get_link_handle() { return conn_ ? prop<int>(conn_, 0x3C) : 0; }

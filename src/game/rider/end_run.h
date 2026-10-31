@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 // The skater's end-of-run component (SkaterEndRun, type 0xB1D5A3E1, vtable 0x0064BDB8, 0x1C bytes): where the skater
 // is in the end of a run - the run's end started and done (the scripts' EndOfRunStarted / EndofRunDone), the same for
@@ -19,9 +19,9 @@ class Struct;
 namespace objects {
 
 // RiderSessionEnd::flag_bits_ (+0x18)
-constexpr uint32_t kEndRunStarted = 0x01;      // EndOfRunStarted
-constexpr uint32_t kEndRunDone = 0x02;         // EndofRunDone: the run is over
-constexpr uint32_t kEndRunForced = 0x04;       // ForceEndOfRun has been run (EndRun)
+constexpr uint32_t kEndRunStarted = 0x01;     // EndOfRunStarted
+constexpr uint32_t kEndRunDone = 0x02;        // EndofRunDone: the run is over
+constexpr uint32_t kEndRunForced = 0x04;      // ForceEndOfRun has been run (EndRun)
 constexpr uint32_t kEndRunGoalStarted = 0x08; // Goal_EndOfRunStarted
 constexpr uint32_t kEndRunGoalDone = 0x10;    // Goal_EndOfRunDone
 constexpr uint32_t kEndRunFlag20 = 0x20;      // cleared by Goal_EndOfRunDone and RunStarted; never set here
@@ -66,4 +66,4 @@ public:
 static_assert(offsetof(RiderSessionEnd, flag_bits_) == 0x18 && sizeof(RiderSessionEnd) == 0x1C,
               "layout must match the original (0x00510F90 allocates 0x1C bytes)");
 
-} // namespace Obj
+} // namespace objects

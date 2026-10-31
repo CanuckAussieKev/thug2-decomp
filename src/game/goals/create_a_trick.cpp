@@ -21,18 +21,18 @@ namespace {
 constexpr uint32_t kFlipSkater180 = 0xAFB9A15E; // cat_flip_skater_180
 constexpr uint32_t kNoName = 0;                 // (the command's unnamed value)
 
-const char* const kTrickIndex = "trick_index";      // "trick_index"
-const char* const kOtherParams = "other_params";     // "other_params"
-const char* const kRotationInfo = "rotation_info";    // "rotation_info"
-const char* const kAnimationInfo = "animation_info";   // "animation_info"
-const char* const kNumAnimationsOn = "num_animations_on"; // "num_animations_on"
-const char* const kAnimationsDone = "cat_animations_done";  // "cat_animations_done"
+const char* const kTrickIndex = "trick_index";             // "trick_index"
+const char* const kOtherParams = "other_params";           // "other_params"
+const char* const kRotationInfo = "rotation_info";         // "rotation_info"
+const char* const kAnimationInfo = "animation_info";       // "animation_info"
+const char* const kNumAnimationsOn = "num_animations_on";  // "num_animations_on"
+const char* const kAnimationsDone = "cat_animations_done"; // "cat_animations_done"
 const char* const kRotationsDone = "cat_rotations_done";   // "cat_rotations_done"
 const char* const kBailDone = "bailtimescriptdone";        // "bailtimescriptdone"
-const char* const kHoldTime = "cat_hold_time";        // "cat_hold_time"
-const char* const kTotalY = "total_Y_angle";          // "total_Y_angle"
-const char* const kTotalX = "total_X_angle";          // "total_X_angle"
-const char* const kTotalZ = "total_Z_angle";          // "total_Z_angle"
+const char* const kHoldTime = "cat_hold_time";             // "cat_hold_time"
+const char* const kTotalY = "total_Y_angle";               // "total_Y_angle"
+const char* const kTotalX = "total_X_angle";               // "total_X_angle"
+const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
 static VtableSlot g_create_a_trick_vtable_slots[] = {&goals::CreateATrick::teardown};
 void** const kCreateATrickVtable = reinterpret_cast<void**>(g_create_a_trick_vtable_slots);
@@ -62,7 +62,7 @@ script::Array* alloc_script_array()
 CreateATrick* CreateATrick::make_new()
 {
     vtable_ = kCreateATrickVtable;
-    debug::printf("creating a CCreateATrick\n"); // "creating a CCreateATrick\n"
+    debug::printf("creating a CCreateATrick\n");                               // "creating a CCreateATrick\n"
     script::Struct* other = script::read_sub_struct("Default_CAT_other_info"); // "Default_CAT_other_info"
     script::Struct* params = script::spawn_param_bag();
     other_params_ = params ? params->prepare_all() : nullptr;
@@ -302,7 +302,10 @@ bool __cdecl cfunc_cat_get_rots_done(script::Struct*, script::Script* script)
 // 0x00552280
 bool __cdecl cfunc_cat_set_bail_done(script::Struct* params, script::Script*) { return set_flag(params, 0x1AC); }
 // 0x005522C0
-bool __cdecl cfunc_cat_get_bail_done(script::Struct*, script::Script* script) { return fetch_marker(script, 0x1AC, kBailDone); }
+bool __cdecl cfunc_cat_get_bail_done(script::Struct*, script::Script* script)
+{
+    return fetch_marker(script, 0x1AC, kBailDone);
+}
 // 0x00552310
 bool __cdecl cfunc_cat_set_flip_skater(script::Struct* params, script::Script*) { return set_flag(params, 0x1AD); }
 // 0x00552350
@@ -337,14 +340,23 @@ bool __cdecl cfunc_cat_get_hold_time(script::Struct*, script::Script* script)
 // 0x00552410
 bool __cdecl cfunc_cat_set_total_y(script::Struct* params, script::Script*) { return store_int_field(params, 0x1B8); }
 // 0x00552450
-bool __cdecl cfunc_cat_get_total_y(script::Struct*, script::Script* script) { return fetch_int_value(script, 0x1B8, kTotalY); }
+bool __cdecl cfunc_cat_get_total_y(script::Struct*, script::Script* script)
+{
+    return fetch_int_value(script, 0x1B8, kTotalY);
+}
 // 0x00552480
 bool __cdecl cfunc_cat_set_total_x(script::Struct* params, script::Script*) { return store_int_field(params, 0x1B4); }
 // 0x005524C0
-bool __cdecl cfunc_cat_get_total_x(script::Struct*, script::Script* script) { return fetch_int_value(script, 0x1B4, kTotalX); }
+bool __cdecl cfunc_cat_get_total_x(script::Struct*, script::Script* script)
+{
+    return fetch_int_value(script, 0x1B4, kTotalX);
+}
 // 0x005524F0
 bool __cdecl cfunc_cat_set_total_z(script::Struct* params, script::Script*) { return store_int_field(params, 0x1BC); }
 // 0x00552530
-bool __cdecl cfunc_cat_get_total_z(script::Struct*, script::Script* script) { return fetch_int_value(script, 0x1BC, kTotalZ); }
+bool __cdecl cfunc_cat_get_total_z(script::Struct*, script::Script* script)
+{
+    return fetch_int_value(script, 0x1BC, kTotalZ);
+}
 
-} // namespace Game
+} // namespace goals

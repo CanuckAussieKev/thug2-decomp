@@ -140,7 +140,8 @@ RebuildFrame frame_for(int copied_quarters, V3 copied_position, int quarters0, i
     // The copy was taken after `copied` quarter turns of the piece (scale 1): copy - from = Q_c (x - x0); now
     // x' - to = Q S (x - x0) = Q_t (Q_c S Q_c^-1) (copy - from), Q_t the turns since, Q_c S Q_c^-1 S seen through Q_c.
     int copied = (copied_quarters - quarters0) & 3;
-    return {copied_position, position, (quarters - copied_quarters) & 3, turned_scale(scale, copied), (quarters - quarters0) & 3};
+    return {copied_position, position, (quarters - copied_quarters) & 3, turned_scale(scale, copied),
+            (quarters - quarters0) & 3};
 }
 
 V3 get_rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale)
@@ -149,7 +150,7 @@ V3 get_rebuilt(V3 p, V3 from, V3 to, int quarters, V3 scale)
 }
 
 void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const float* original, V3 from, V3 to,
-                      int quarters, V3 scale)
+                       int quarters, V3 scale)
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
@@ -171,7 +172,7 @@ V3 scaled_normal(V3 n, V3 scale, int quarters)
 }
 
 void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t offset, const float* original, V3 scale,
-                    int quarters)
+                     int quarters)
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
@@ -244,7 +245,10 @@ void split_nodes(render::HitTreeNode* node, std::vector<CollisionCopy::Elem>* ou
     }
 }
 
-uint32_t get_vertex_bytes(const render::TriMeshSource* data) { return data->num_vertices_ * (data->compressed_ ? 6u : 12u); }
+uint32_t get_vertex_bytes(const render::TriMeshSource* data)
+{
+    return data->num_vertices_ * (data->compressed_ ? 6u : 12u);
+}
 
 } // namespace
 
@@ -347,7 +351,10 @@ render::TriMeshSource* collision_data(uint8_t* sector)
 }
 
 // The mesh's vertex format (+0x38: a Direct3D FVF, or a built-in vertex shader's handle).
-uint32_t vertex_format(const render::MeshRef* mesh) { return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38); }
+uint32_t vertex_format(const render::MeshRef* mesh)
+{
+    return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38);
+}
 
 // The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as MeshRef::move_to).
 void upload(render::VertexBuffer* buffer)
@@ -388,9 +395,19 @@ std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarte
         render::MeshRef* mesh = original->mesh_list_[i];
         if (!mesh || mesh->stride < 12 || mesh->vertex_buffer_count_ > 3)
             return nullptr;
-        MeshCopy copy = {mesh, mesh->vertex_count_, mesh->stride, surface_nudge(vertex_format(mesh), mesh->stride),
-                         {}, {}, {}, {}, {mesh->centre[0], mesh->centre[1], mesh->centre[2]}, mesh->radius,
-                         mesh->position_count_, mesh->positions, {}};
+        MeshCopy copy = {mesh,
+                         mesh->vertex_count_,
+                         mesh->stride,
+                         surface_nudge(vertex_format(mesh), mesh->stride),
+                         {},
+                         {},
+                         {},
+                         {},
+                         {mesh->centre[0], mesh->centre[1], mesh->centre[2]},
+                         mesh->radius,
+                         mesh->position_count_,
+                         mesh->positions,
+                         {}};
         for (int b = 0; b < mesh->vertex_buffer_count_; ++b) {
             render::VertexBuffer* buffer = mesh->vertex_buffers_[b];
             if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertex_count_) * mesh->stride)
@@ -420,7 +437,7 @@ std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarte
 }
 
 bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
-             int quarters0)
+                int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
     if (geom != original.geom || *reinterpret_cast<render::MeshRef***>(geom + 0x3C) != original.mesh_list_ ||
@@ -447,10 +464,11 @@ bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int qu
         render::MeshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
             rewrite_positions(copy.buffers[b]->data, copy.stride, copy.vertex_count_, copy.positions[b].data(), f.from,
-                             f.to, f.turns, f.copy_scale_);
+                              f.to, f.turns, f.copy_scale_);
             if (copy.normal_offset_ >= 0)
                 rewrite_normals(copy.buffers[b]->data, copy.stride, copy.vertex_count_,
-                               static_cast<uint32_t>(copy.normal_offset_), copy.normals[b].data(), scale, f.normal_turns_);
+                                static_cast<uint32_t>(copy.normal_offset_), copy.normals[b].data(), scale,
+                                f.normal_turns_);
             upload(copy.buffers[b]);
         }
         V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
@@ -459,8 +477,8 @@ bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int qu
         mesh->centre[2] = centre.z;
         mesh->radius = copy.radius * get_largest(scale);
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
-            V3 p = get_rebuilt({copy.list_copy_[3 * k], copy.list_copy_[3 * k + 1], copy.list_copy_[3 * k + 2]}, f.from, f.to,
-                           0, f.copy_scale_);
+            V3 p = get_rebuilt({copy.list_copy_[3 * k], copy.list_copy_[3 * k + 1], copy.list_copy_[3 * k + 2]}, f.from,
+                               f.to, 0, f.copy_scale_);
             mesh->positions[3 * k + 0] = p.x;
             mesh->positions[3 * k + 1] = p.y;
             mesh->positions[3 * k + 2] = p.z;
@@ -515,7 +533,8 @@ uint8_t* model_of(objects::GameEntity* object)
 
 render::HitMesh* collision_of(objects::GameEntity* object)
 {
-    auto* component = static_cast<objects::ContactShapeModule*>(object->fetch_module(objects::ContactShapeModule::kType));
+    auto* component =
+        static_cast<objects::ContactShapeModule*>(object->fetch_module(objects::ContactShapeModule::kType));
     return component ? component->hit_shape_ : nullptr;
 }
 
@@ -549,12 +568,14 @@ bool take_tri(render::HitMovingTriangles* tri, ObjectEntry* entry)
     render::TriMeshSource* geometry = tri->geometry_;
     if (!geometry)
         return true;
-    bool owns = (tri->flag_bits_ & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits_ & render::HitMesh::kSharedGeometry);
+    bool owns =
+        (tri->flag_bits_ & render::HitMesh::kOwnsGeometry) && !(tri->flag_bits_ & render::HitMesh::kSharedGeometry);
     if (!owns) {
         render::TriMeshSource* own = geometry->replicate(0, false);
         if (!own)
             return false;
-        tri->flag_bits_ = static_cast<uint16_t>((tri->flag_bits_ | render::HitMesh::kOwnsGeometry) & ~render::HitMesh::kSharedGeometry);
+        tri->flag_bits_ = static_cast<uint16_t>((tri->flag_bits_ | render::HitMesh::kOwnsGeometry) &
+                                                ~render::HitMesh::kSharedGeometry);
         tri->assign_shape_data(own);
         geometry = own;
     }
@@ -582,7 +603,8 @@ bool take_collision(render::HitMesh* collision, ObjectEntry* entry)
         }
         return true;
     }
-    get_log("level editor: an object's collision of an unknown kind (vtable %p) isn't scaled", static_cast<void*>(collision->vtable_));
+    get_log("level editor: an object's collision of an unknown kind (vtable %p) isn't scaled",
+            static_cast<void*>(collision->vtable_));
     return true;
 }
 
@@ -638,8 +660,8 @@ V3 object_limit(objects::GameEntity* object)
             narrow(c->geometry_, get_uniform(1.0f));
         if (c->vtable_ == g_multi_vtable) {
             memory::ListNode* head = static_cast<render::HitMeshGroup*>(c)->sub_nodes_;
-            for (memory::ListNode* node = head ? head->next : nullptr; node && node != head && node->data != kListHeadData;
-                 node = node->next)
+            for (memory::ListNode* node = head ? head->next : nullptr;
+                 node && node != head && node->data != kListHeadData; node = node->next)
                 pending.push_back(static_cast<render::HitMesh*>(node->data));
         }
     }
@@ -676,34 +698,73 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
 
 void forget_objects() { g_objects.clear(); }
 
-} // namespace MenuSystem::level_editor::scale_tool
+} // namespace frontend::level_editor::scale_tool
 
 namespace vt {
-static VtableSlot g_coll_multi_slots[] = {&render::HitMeshGroup::scalar_delete, &render::HitMeshGroup::is_triangle_hit,
-                stubs::return_zero1, &render::CollObjStubs::no_terrain, &render::HitMeshGroup::set_geometry_all,
-                &render::HitMeshGroup::place_at_absolute_point, &render::HitMeshGroup::change_facing, &render::HitMeshGroup::get_absolute_point,
-                &render::HitMeshGroup::fetch_facing, &render::HitMeshGroup::read_vertex_point, &render::HitMeshGroup::get_value38,
-                &render::HitMeshGroup::set_value38, &render::HitMeshGroup::replicate, &render::HitMeshGroup::inside_bounds,
-                &render::HitMeshGroup::collide_with_line, &render::ViewRegion::query_point, &render::ViewRegion::query_point,
-                &render::ViewRegion::query_point, &render::CollGeometryForwarders::is_point_behind_faces, &render::HitMeshGroup::pass_down,
-                &render::HitMeshGroup::get_local_bounds};
+static VtableSlot g_coll_multi_slots[] = {&render::HitMeshGroup::scalar_delete,
+                                          &render::HitMeshGroup::is_triangle_hit,
+                                          stubs::return_zero1,
+                                          &render::CollObjStubs::no_terrain,
+                                          &render::HitMeshGroup::set_geometry_all,
+                                          &render::HitMeshGroup::place_at_absolute_point,
+                                          &render::HitMeshGroup::change_facing,
+                                          &render::HitMeshGroup::get_absolute_point,
+                                          &render::HitMeshGroup::fetch_facing,
+                                          &render::HitMeshGroup::read_vertex_point,
+                                          &render::HitMeshGroup::get_value38,
+                                          &render::HitMeshGroup::set_value38,
+                                          &render::HitMeshGroup::replicate,
+                                          &render::HitMeshGroup::inside_bounds,
+                                          &render::HitMeshGroup::collide_with_line,
+                                          &render::ViewRegion::query_point,
+                                          &render::ViewRegion::query_point,
+                                          &render::ViewRegion::query_point,
+                                          &render::CollGeometryForwarders::is_point_behind_faces,
+                                          &render::HitMeshGroup::pass_down,
+                                          &render::HitMeshGroup::get_local_bounds};
 void** const kVtblCompoundColl = reinterpret_cast<void**>(g_coll_multi_slots);
-static VtableSlot g_coll_mov_b_box_slots[] = {&render::HitMovingBox::scalar_delete, stubs::return_false,
-                &render::HitMovingBox::get_triangle_attrs, &render::HitMovingBox::get_face_terrain, &render::HitMovingBox::assign_shape_data,
-                &render::ProbeRay::change_finish, &render::HitMovingMesh::change_facing, &render::HitMovingMesh::get_absolute_point,
-                &render::HitMovingMesh::fetch_facing, &render::HitMovingMesh::read_vertex_point, &render::HitMovingMesh::get_value_a0,
-                &render::HitMovingMesh::set_value_a0, &render::HitMovingBox::replicate, &save_cards::SaveCard::always_true,
-                &render::HitMovingBox::collide_with_line, &render::ViewRegion::query_point, &render::ViewRegion::query_point,
-                &render::ViewRegion::query_point, &render::CollGeometryForwarders::is_point_behind_faces,
-                &render::HitMovingBox::draw_diagnostic, stubs::return_zero};
+static VtableSlot g_coll_mov_b_box_slots[] = {&render::HitMovingBox::scalar_delete,
+                                              stubs::return_false,
+                                              &render::HitMovingBox::get_triangle_attrs,
+                                              &render::HitMovingBox::get_face_terrain,
+                                              &render::HitMovingBox::assign_shape_data,
+                                              &render::ProbeRay::change_finish,
+                                              &render::HitMovingMesh::change_facing,
+                                              &render::HitMovingMesh::get_absolute_point,
+                                              &render::HitMovingMesh::fetch_facing,
+                                              &render::HitMovingMesh::read_vertex_point,
+                                              &render::HitMovingMesh::get_value_a0,
+                                              &render::HitMovingMesh::set_value_a0,
+                                              &render::HitMovingBox::replicate,
+                                              &save_cards::SaveCard::always_true,
+                                              &render::HitMovingBox::collide_with_line,
+                                              &render::ViewRegion::query_point,
+                                              &render::ViewRegion::query_point,
+                                              &render::ViewRegion::query_point,
+                                              &render::CollGeometryForwarders::is_point_behind_faces,
+                                              &render::HitMovingBox::draw_diagnostic,
+                                              stubs::return_zero};
 void** const kVtblMovingBoxColl = reinterpret_cast<void**>(g_coll_mov_b_box_slots);
-static VtableSlot g_coll_mov_tri_slots[] = {&render::HitMovingTriangles::scalar_delete, stubs::return_true,
-                &render::CollFaceAccess::get_triangle_attrs, &render::CollFaceAccess::get_face_terrain, &render::HitMovingTriangles::assign_shape_data,
-                &render::HitMovingTriangles::place_at_absolute_point, &render::HitMovingMesh::change_facing,
-                &render::HitMovingMesh::get_absolute_point, &render::HitMovingMesh::fetch_facing, &render::HitMovingMesh::read_vertex_point,
-                &render::HitMovingMesh::get_value_a0, &render::HitMovingMesh::set_value_a0, &render::HitMovingTriangles::replicate,
-                &render::HitMovingTriangles::inside_bounds, &render::HitMovingTriangles::collide_with_line, &render::ViewRegion::query_point,
-                &render::ViewRegion::query_point, &render::ViewRegion::query_point, &render::CollGeometryForwarders::is_point_behind_faces,
-                &render::HitMovingTriangles::draw_diagnostic, &render::HitMovingTriangles::get_local_bounds};
+static VtableSlot g_coll_mov_tri_slots[] = {&render::HitMovingTriangles::scalar_delete,
+                                            stubs::return_true,
+                                            &render::CollFaceAccess::get_triangle_attrs,
+                                            &render::CollFaceAccess::get_face_terrain,
+                                            &render::HitMovingTriangles::assign_shape_data,
+                                            &render::HitMovingTriangles::place_at_absolute_point,
+                                            &render::HitMovingMesh::change_facing,
+                                            &render::HitMovingMesh::get_absolute_point,
+                                            &render::HitMovingMesh::fetch_facing,
+                                            &render::HitMovingMesh::read_vertex_point,
+                                            &render::HitMovingMesh::get_value_a0,
+                                            &render::HitMovingMesh::set_value_a0,
+                                            &render::HitMovingTriangles::replicate,
+                                            &render::HitMovingTriangles::inside_bounds,
+                                            &render::HitMovingTriangles::collide_with_line,
+                                            &render::ViewRegion::query_point,
+                                            &render::ViewRegion::query_point,
+                                            &render::ViewRegion::query_point,
+                                            &render::CollGeometryForwarders::is_point_behind_faces,
+                                            &render::HitMovingTriangles::draw_diagnostic,
+                                            &render::HitMovingTriangles::get_local_bounds};
 void** const kVtblMovingMeshColl = reinterpret_cast<void**>(g_coll_mov_tri_slots);
-} // namespace Vt
+} // namespace vt

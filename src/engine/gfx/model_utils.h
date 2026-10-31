@@ -54,4 +54,4 @@ void __cdecl show_models_after_cutscene();
 // and the geoms' calls of their slot 4.
 void virtual_slot4_jump();
 
-} // namespace Gfx
+} // namespace gfx

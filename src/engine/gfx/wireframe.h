@@ -20,4 +20,4 @@ void begin_world();
 // After them: solid again (before the full-screen effects and the 2D).
 void end_world();
 
-} // namespace render::Wireframe
+} // namespace render::wireframe

@@ -51,4 +51,4 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected);
 // What it shows now ("" when nothing): the rail, its points, length, terrain.
 std::string describe();
 
-} // namespace MenuSystem::level_editor::grind_preview
+} // namespace frontend::level_editor::grind_preview

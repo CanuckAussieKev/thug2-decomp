@@ -8,7 +8,7 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -35,17 +35,17 @@ public:
     // 0x0042B570 (Proximity_EnterProximityNotHandled): counts as out.
     bool proximity_enter_proximity_not_handled(script::Struct* params, script::Script* script);
 
-    bool active_;            // +0x18
+    bool active_; // +0x18
     uint8_t pad19[3];
-    int reactivate_time_;     // +0x1C
-    float inner_radius_;      // +0x20
-    float outer_radius_;      // +0x24
-    uint32_t enter_script_;   // +0x28
-    uint32_t dismount_script_;    // +0x2C
+    int reactivate_time_;       // +0x1C
+    float inner_radius_;        // +0x20
+    float outer_radius_;        // +0x24
+    uint32_t enter_script_;     // +0x28
+    uint32_t dismount_script_;  // +0x2C
     script::Struct* call_args_; // +0x30
     int is_within_;             // +0x34
 };
 static_assert(offsetof(ProximityComponent, active_) == 0x18 && offsetof(ProximityComponent, is_within_) == 0x34,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

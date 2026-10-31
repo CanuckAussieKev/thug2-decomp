@@ -22,14 +22,14 @@ class GrindRailHub;
 class VideoHub;
 struct RiderIdentity;
 struct ChecksumSet;
-} // namespace Obj
+} // namespace objects
 namespace prefs {
 class Preferences;
 }
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 namespace tasks {
 class SchedulerTask;
 }
@@ -39,11 +39,11 @@ class PlayerRecord;
 namespace goals {
 class GoalManager;
 class MatchFlow;
-} // namespace Game
+} // namespace goals
 namespace modules {
 struct Contest;
 class LetterMatch;
-} // namespace Mdl
+} // namespace modules
 
 namespace modules {
 
@@ -58,8 +58,8 @@ public:
     struct PlayerSettings {
         int unknown0_;   // +0 (the player's index, set by the constructor)
         bool vibration_; // +4 (the skater's vibration component told)
-        bool auto_kick_;  // +5 (the core physics' +0x2D9)
-        bool spin_taps_;  // +6 (the core physics' +0x2DA)
+        bool auto_kick_; // +5 (the core physics' +0x2D9)
+        bool spin_taps_; // +6 (the core physics' +0x2DA)
         uint8_t spare_byte7_;
     };
     // A score goal (+0x60, 64 of them): a career goal done when the total first reaches `score`.
@@ -237,47 +237,47 @@ public:
     memory::ListNode* skater_node(uint32_t index);
     objects::Rider* get_skater_at(uint32_t index);
 
-    tasks::SchedulerTask* update_job_;                   // +0x14 (tasks::Task<Skate>, vtable 0x006476F0: front_end_tick)
-    tasks::SchedulerTask* server_tasks_[2];              // +0x18 (SkateNet::create_network_tasks)
-    objects::RiderStoryProgress* career_;                 // +0x20
-    objects::GrindRailHub* rail_manager_;             // +0x24
-    lists::Foremost riders_;                          // +0x28 (their nodes' data the skaters, in object id order)
-    bool watch_for_unplug_;                      // +0x3C
+    tasks::SchedulerTask* update_job_;      // +0x14 (tasks::Task<Skate>, vtable 0x006476F0: front_end_tick)
+    tasks::SchedulerTask* server_tasks_[2]; // +0x18 (SkateNet::create_network_tasks)
+    objects::RiderStoryProgress* career_;   // +0x20
+    objects::GrindRailHub* rail_manager_;   // +0x24
+    lists::Foremost riders_;                // +0x28 (their nodes' data the skaters, in object id order)
+    bool watch_for_unplug_;                 // +0x3C
     uint8_t pad3d_[3];
-    int unplugged_frames_;                        // +0x40
-    bool running_queued_scripts_;                  // +0x44
-    bool level_launched_;                         // +0x45 (enter_stage)
-    bool run_over_;                                // +0x46
+    int unplugged_frames_;        // +0x40
+    bool running_queued_scripts_; // +0x44
+    bool level_launched_;         // +0x45 (enter_stage)
+    bool run_over_;               // +0x46
     uint8_t pad47[5];
-    uint32_t match_style_;                          // +0x4C (freeskate)
-    bool movie_camera_;                           // +0x50 a movie's camera in use
+    uint32_t match_style_; // +0x4C (freeskate)
+    bool movie_camera_;    // +0x50 a movie's camera in use
     uint8_t pad51[3];
-    objects::ChecksumSet* checksums_;                // +0x54 (0x404 bytes)
+    objects::ChecksumSet* checksums_;             // +0x54 (0x404 bytes)
     prefs::Preferences* splitscreen_preferences_; // +0x58
-    bool stage_switched_;                          // +0x5C
+    bool stage_switched_;                         // +0x5C
     uint8_t pad5d_[3];
-    ScoreGoal score_goals_[64];                   // +0x60
-    modules::Contest* competition_;             // +0x360
-    modules::LetterMatch* horse_;                         // +0x364
-    objects::VideoHub* movies_;                 // +0x368
-    objects::VideoHub* object_movies_;           // +0x36C
-    int unknown370_;                             // +0x370
-    uint32_t pending_level_;                    // +0x374
-    uint32_t level_;                             // +0x378
-    uint32_t previous_level_;                     // +0x37C
-    uint32_t unknown380_;                        // +0x380
-    bool new_record_;                             // +0x384 a record was set by the last UpdateRecords
+    ScoreGoal score_goals_[64];        // +0x60
+    modules::Contest* competition_;    // +0x360
+    modules::LetterMatch* horse_;      // +0x364
+    objects::VideoHub* movies_;        // +0x368
+    objects::VideoHub* object_movies_; // +0x36C
+    int unknown370_;                   // +0x370
+    uint32_t pending_level_;           // +0x374
+    uint32_t level_;                   // +0x378
+    uint32_t previous_level_;          // +0x37C
+    uint32_t unknown380_;              // +0x380
+    bool new_record_;                  // +0x384 a record was set by the last UpdateRecords
     uint8_t pad385[3];
-    goals::MatchFlow* game_flow_;                  // +0x388
-    goals::GoalManager* goal_manager_;            // +0x38C
-    PlayerSettings participants_[8];                  // +0x390
-    int unknown3d0_;                             // +0x3D0
-    bool debug_rails_;                            // +0x3D4
+    goals::MatchFlow* game_flow_;      // +0x388
+    goals::GoalManager* goal_manager_; // +0x38C
+    PlayerSettings participants_[8];   // +0x390
+    int unknown3d0_;                   // +0x3D0
+    bool debug_rails_;                 // +0x3D4
     uint8_t pad3d5_[3];
-    script::Script* own_script_;                    // +0x3D8
-    bool no_camera_;                              // +0x3DC (prepare_entity_update_data: no camera to measure from)
+    script::Script* own_script_; // +0x3D8
+    bool no_camera_;             // +0x3DC (prepare_entity_update_data: no camera to measure from)
     uint8_t pad3dd_[3];
-    maths::Vec4 viewer_pos_;                      // +0x3E0
+    maths::Vec4 viewer_pos_; // +0x3E0
 };
 static_assert(offsetof(Skate, update_job_) == 0x14 && offsetof(Skate, riders_) == 0x28 &&
                   offsetof(Skate, match_style_) == 0x4C && offsetof(Skate, score_goals_) == 0x60 &&
@@ -295,4 +295,4 @@ void __fastcall skater_head_destroy_body(memory::ListNode* head);
 extern int g_viewport_count;
 extern modules::Skate* g_skate_module;
 
-} // namespace Mdl
+} // namespace modules

@@ -28,9 +28,9 @@ struct ScriptCacheEntry {
     static void operator delete(void* entry);
 
     uint32_t name;
-    uint8_t* code;              // decompressed, from the script heap
-    int usage;                  // the scripts using it
-    ScriptCacheEntry* older;   // the unused list
+    uint8_t* code;           // decompressed, from the script heap
+    int usage;               // the scripts using it
+    ScriptCacheEntry* older; // the unused list
     ScriptCacheEntry* newer;
 };
 static_assert(sizeof(ScriptCacheEntry) == 0x14, "allocated as 0x14 bytes by the original");
@@ -67,12 +67,12 @@ struct ScriptStore {
     // unused.
     void make_room(int size, uint32_t name);
 
-    void** vtable_;            // 0x00648468: {Destroy, Start, Stop}
+    void** vtable_;                   // 0x00648468: {Destroy, Start, Stop}
     uint8_t owning_module_[0x14 - 4]; // modules::PartUnit's fields
-    lists::KeyMap* entries_;  // 8 bits, from the script heap
+    lists::KeyMap* entries_;          // 8 bits, from the script heap
     ScriptCacheEntry* newest_unused_;
     ScriptCacheEntry* oldest_unused_;
-    bool delete_unused_;        // never set in this game
+    bool delete_unused_; // never set in this game
 };
 static_assert(sizeof(ScriptStore) == 0x24, "allocated as 0x24 bytes by the original");
 
@@ -84,4 +84,4 @@ void release_script_cache();
 extern script::ScriptStore* g_script_store;
 extern memory::PoolPair g_cache_entry_pools;
 
-} // namespace Script
+} // namespace script

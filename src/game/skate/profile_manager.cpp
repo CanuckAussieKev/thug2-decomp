@@ -369,4 +369,4 @@ void ProfileRoster::get_release()
     ref_tally() = 0;
 }
 
-} // namespace Obj
+} // namespace objects

@@ -11,7 +11,7 @@ struct Playlist {
     uint8_t tracks[80][40]; // a track's name first (the rest unknown)
     int count;
     uint32_t unknownc84_;
-    uint64_t off[2];    // tracks 0-63, 64-127
+    uint64_t off[2]; // tracks 0-63, 64-127
     uint64_t played[2];
     uint8_t unknownca8_; // set: no next track (cleared by queue_track, set by empty_queue / ChangeTrackState)
     uint8_t padca9_[7];
@@ -45,24 +45,25 @@ struct StreamAmpCurve;
 
 // The three streams (0x74 bytes each, at 0x0069B938; started by start_stream / PlayStream, stream.h).
 struct Stream {
-    uint32_t name;      // +0 what's playing (a checksum: the id asked for, or the stream's)
-    uint32_t id;        // +4 the stream's id
-    float volume;       // +8 percent (100; play_stream_at_object scales it)
-    float dropoff;      // +0xC (1020)
-    int channel;        // +0x10 the platform's stream (-1: any; 0x00453270 says whether it's playing)
-    int priority;       // +0x14
-    int option;         // +0x18 PlayStream's (the script's 0xE46111E0)
-    uint32_t unknown1c_; // +0x1C (set 0)
-    int name_count_;      // +0x20 names in use
+    uint32_t name;         // +0 what's playing (a checksum: the id asked for, or the stream's)
+    uint32_t id;           // +4 the stream's id
+    float volume;          // +8 percent (100; play_stream_at_object scales it)
+    float dropoff;         // +0xC (1020)
+    int channel;           // +0x10 the platform's stream (-1: any; 0x00453270 says whether it's playing)
+    int priority;          // +0x14
+    int option;            // +0x18 PlayStream's (the script's 0xE46111E0)
+    uint32_t unknown1c_;   // +0x1C (set 0)
+    int name_count_;       // +0x20 names in use
     uint32_t begin_frame_; // +0x24 the frame it started (frame_clock::get_draw_frame)
     uint8_t use_pos_info_; // +0x28 its volume follows the owner's position (play_stream_at_object)
     uint8_t pad29[3];
     int falloff_curve_; // +0x2C
-    uint32_t* listener; // +0x30 the stream's frame amplitudes (a StreamAmpCurve: checksum and size cleared when it ends)
+    uint32_t*
+        listener; // +0x30 the stream's frame amplitudes (a StreamAmpCurve: checksum and size cleared when it ends)
     struct {
         uint32_t checksum;
         StreamAmpCurve* frame_amp_;
-    } names[8];         // +0x34 its names (AddStream adds more) and their frame amplitudes
+    } names[8]; // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
@@ -167,4 +168,4 @@ extern int g_bgm_stream_kind;
 extern bool g_shuffle_user;
 extern void* g_sound_device;
 
-} // namespace Pcm
+} // namespace audio

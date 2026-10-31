@@ -11,7 +11,7 @@
 namespace script {
 class Array;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace goals {
 
@@ -23,31 +23,32 @@ struct GoalBase {
     uint8_t unknown04_[0x1C - 0x04];
     script::Struct* args_; // +0x1C the goal's parameters (and its state as flags and integers)
     uint8_t unknown20_[0x24 - 0x20];
-    int cur_phase_;               // +0x24 (2: ...)
+    int cur_phase_; // +0x24 (2: ...)
     uint8_t unknown28_[0x50 - 0x28];
-    int seconds_remaining_;            // +0x50 ms
+    int seconds_remaining_; // +0x50 ms
     uint8_t unknown54_[0x6D - 0x54];
-    uint8_t flag_bits_;           // +0x6D (0x10: no time limit)
+    uint8_t flag_bits_; // +0x6D (0x10: no time limit)
     uint8_t unknown6e_[2];
 
     bool is_operative();
     bool is_frozen();
 };
-static_assert(sizeof(GoalBase) == 0x70 && offsetof(GoalBase, args_) == 0x1C && offsetof(GoalBase, seconds_remaining_) == 0x50,
+static_assert(sizeof(GoalBase) == 0x70 && offsetof(GoalBase, args_) == 0x1C &&
+                  offsetof(GoalBase, seconds_remaining_) == 0x50,
               "layout must match the original");
 
 // One trick in the stack (0x20 bytes).
 struct StackedTrickEntry {
-    uint32_t trick;     // +0x00 the trick's name (a grind: "FS " + name)
-    uint32_t trick2;    // +0x04 a grind's "BS " + name
-    uint32_t key_combo_;  // +0x08 a key combo's name (key combo tricks)
-    uint32_t element;   // +0x0C its screen element's id
-    bool free;          // +0x10 the slot is unused
-    bool perfect;       // +0x11
+    uint32_t trick;      // +0x00 the trick's name (a grind: "FS " + name)
+    uint32_t trick2;     // +0x04 a grind's "BS " + name
+    uint32_t key_combo_; // +0x08 a key combo's name (key combo tricks)
+    uint32_t element;    // +0x0C its screen element's id
+    bool free;           // +0x10 the slot is unused
+    bool perfect;        // +0x11
     uint8_t pad12[2];
-    int group;          // +0x14 the combo group (combo modes)
-    int spin;           // +0x18 in half turns
-    int taps;           // +0x1C 1, or 2 for a double tap
+    int group; // +0x14 the combo group (combo modes)
+    int spin;  // +0x18 in half turns
+    int taps;  // +0x1C 1, or 2 for a double tap
 };
 static_assert(sizeof(StackedTrickEntry) == 0x20, "layout must match the original");
 
@@ -57,9 +58,9 @@ public:
     static constexpr int kMaxTricks = 30;
 
     StackedTrickEntry tricks_[kMaxTricks]; // +0x70
-    int trick_total_;                   // +0x430
-    int stopwatch_;                       // +0x434 ms since the last trick was added
-    bool group_used_[kMaxTricks];      // +0x438 the combo groups in use
+    int trick_total_;                      // +0x430
+    int stopwatch_;                        // +0x434 ms since the last trick was added
+    bool group_used_[kMaxTricks];          // +0x438 the combo groups in use
     uint8_t pad456[2];
 
     // 0x0056F090: the constructor (Objective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
@@ -104,17 +105,17 @@ static_assert(offsetof(FallingTricksGoal, trick_total_) == 0x430 && offsetof(Fal
 
 // One trick of TrickBeat's (0x20 bytes).
 struct BeatTrick {
-    uint32_t trick;     // +0x00 the trick's name (key combos: its text's checksum)
-    uint32_t trick2;    // +0x04
-    uint32_t key_combo_;  // +0x08
-    uint32_t element;   // +0x0C
-    bool landed;        // +0x10 done in the beat window
-    bool free;          // +0x11
-    bool perfect;       // +0x12
+    uint32_t trick;      // +0x00 the trick's name (key combos: its text's checksum)
+    uint32_t trick2;     // +0x04
+    uint32_t key_combo_; // +0x08
+    uint32_t element;    // +0x0C
+    bool landed;         // +0x10 done in the beat window
+    bool free;           // +0x11
+    bool perfect;        // +0x12
     uint8_t pad13;
-    int unknown14;      // +0x14
-    int spin;           // +0x18
-    int taps;           // +0x1C
+    int unknown14; // +0x14
+    int spin;      // +0x18
+    int taps;      // +0x1C
 };
 static_assert(sizeof(BeatTrick) == 0x20, "layout must match the original");
 
@@ -125,20 +126,20 @@ public:
     static constexpr int kBeats = 16;
 
     BeatTrick tricks_[kMaxTricks]; // +0x70
-    int trick_total_;                 // +0x430
-    int last_time_;                  // +0x434 the game clock last frame (ms)
-    int beat_time_;                  // +0x438 ms into the beat
-    int beat_;                      // +0x43C 0..15
-    float beat_length_;              // +0x440 ms (15000 / tempo)
-    bool pulse_;                    // +0x444 the beat pattern's pulse flag for this beat
+    int trick_total_;              // +0x430
+    int last_time_;                // +0x434 the game clock last frame (ms)
+    int beat_time_;                // +0x438 ms into the beat
+    int beat_;                     // +0x43C 0..15
+    float beat_length_;            // +0x440 ms (15000 / tempo)
+    bool pulse_;                   // +0x444 the beat pattern's pulse flag for this beat
     uint8_t pad445[3];
-    script::Array* pattern_;       // +0x448 a copy of beat_pattern (16 structures: sounds, pulse)
-    bool in_window_;                 // +0x44C tricks count as on the beat
+    script::Array* pattern_; // +0x448 a copy of beat_pattern (16 structures: sounds, pulse)
+    bool in_window_;         // +0x44C tricks count as on the beat
     uint8_t pad44d_[3];
-    int window_time_;                // +0x450 beat_window_time
-    int completed_;                 // +0x454
-    int total_to_win_;                // +0x458 total_to_win
-    bool unknown45c_[kMaxTricks];   // +0x45C
+    int window_time_;             // +0x450 beat_window_time
+    int completed_;               // +0x454
+    int total_to_win_;            // +0x458 total_to_win
+    bool unknown45c_[kMaxTricks]; // +0x45C
     uint8_t pad47a_[2];
 
     // 0x00574C40 / 0x00575140 / 0x00576210: constructor, destructor body, scalar deleting destructor.
@@ -204,4 +205,4 @@ public:
     void get_object_hit(uint32_t cluster);
 };
 
-} // namespace Game
+} // namespace goals

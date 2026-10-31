@@ -36,7 +36,8 @@ bool g_refresh_asked = true;
 void get_say(const std::string& message) { show_message(message, 5.0); }
 
 // A setting of the toolbar's in the registry (the search shows and switches it).
-void add_toggle(const char* id, const char* name, const char* tip, std::function<int()> checked, std::function<void()> run)
+void add_toggle(const char* id, const char* name, const char* tip, std::function<int()> checked,
+                std::function<void()> run)
 {
     actions::ActStep a;
     a.id = id;
@@ -108,11 +109,13 @@ void prepare_all()
     set_checked(kKeys, [] { return g_open[kKeysWindow] ? 1 : 0; });
     set_checked(kSnapshots, [] { return g_open[kSnapshotsWindow] ? 1 : 0; });
     set_checked(kCollision, [] { return settings_now().collision ? 1 : 0; });
-    add_toggle("snap25", "Snap", "Snap moves to the grid",
-              [] { return settings_now().snap_always_ ? 1 : 0; },
-              [] { get_ask(ui::Request::kSnapAlways, settings_now().snap_always_ ? 0 : 1); });
-    add_toggle("carry_objects", "Carry Objects", "Move objects standing on scenery with it",
-              [] { return settings_now().carry ? 1 : 0; }, [] { get_ask(ui::Request::kCarry, settings_now().carry ? 0 : 1); });
+    add_toggle(
+        "snap25", "Snap", "Snap moves to the grid", [] { return settings_now().snap_always_ ? 1 : 0; },
+        [] { get_ask(ui::Request::kSnapAlways, settings_now().snap_always_ ? 0 : 1); });
+    add_toggle(
+        "carry_objects", "Carry Objects", "Move objects standing on scenery with it",
+        [] { return settings_now().carry ? 1 : 0; },
+        [] { get_ask(ui::Request::kCarry, settings_now().carry ? 0 : 1); });
     struct PickToggle {
         const char *id, *name;
         uint32_t bit;
@@ -124,8 +127,10 @@ void prepare_all()
     for (const overlays::BitInfo& info : overlays::get_bits()) {
         uint32_t bit = info.bit;
         std::string id = "overlay_" + std::to_string(bit);
-        add_toggle(id.c_str(), (std::string("Overlay ") + info.label).c_str(), info.tip,
-                  [bit] { return overlays::get_shown(bit) ? 1 : 0; }, [bit] { overlays::assign_value(bit, !overlays::get_shown(bit)); });
+        add_toggle(
+            id.c_str(), (std::string("Overlay ") + info.label).c_str(), info.tip,
+            [bit] { return overlays::get_shown(bit) ? 1 : 0; },
+            [bit] { overlays::assign_value(bit, !overlays::get_shown(bit)); });
     }
     {
         actions::ActStep note;
@@ -147,9 +152,10 @@ void prepare_all()
     }
     for (const PickToggle& p : kPicks) {
         uint32_t bit = p.bit;
-        add_toggle(p.id, p.name, "What a click in the view selects",
-                  [bit] { return (settings_now().pick_filter_ & bit) ? 1 : 0; },
-                  [bit] { get_ask(ui::Request::kPickFilter, 0, settings_now().pick_filter_ ^ bit); });
+        add_toggle(
+            p.id, p.name, "What a click in the view selects",
+            [bit] { return (settings_now().pick_filter_ & bit) ? 1 : 0; },
+            [bit] { get_ask(ui::Request::kPickFilter, 0, settings_now().pick_filter_ ^ bit); });
     }
 }
 
@@ -279,4 +285,4 @@ void revert(const ChangeRow& row)
     });
 }
 
-} // namespace MenuSystem::level_editor::Ux3
+} // namespace frontend::level_editor::ux3

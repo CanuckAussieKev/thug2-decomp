@@ -50,10 +50,10 @@ using namespace detail;
 namespace {
 
 // JoinerRecord (0x44 bytes; constructor 0x005434D0, destructor 0x00543560) - the fields used here.
-constexpr uint32_t kInfoObjId = 0x10;     // int8_t
+constexpr uint32_t kInfoObjId = 0x10; // int8_t
 constexpr uint32_t kInfoConn = 0x14;
-constexpr uint32_t kInfoTime = 0x18;      // when it may be added (the app's +0x1410: its frame)
-constexpr uint32_t kInfoProfile = 0x1C;   // RiderIdentity*
+constexpr uint32_t kInfoTime = 0x18;    // when it may be added (the app's +0x1410: its frame)
+constexpr uint32_t kInfoProfile = 0x1C; // RiderIdentity*
 constexpr uint32_t kInfoFlags = 0x20;
 constexpr uint32_t kInfoTeam = 0x28;
 constexpr uint32_t kInfoProfileId = 0x2C;
@@ -65,13 +65,13 @@ constexpr uint32_t kInfoVehicle = 0x40;
 // Its flags.
 constexpr uint32_t kNewLocal = 0x01;
 constexpr uint32_t kNewObserver = 0x04;
-constexpr uint32_t kNewResync = 0x10;      // the player again (after a level change)
+constexpr uint32_t kNewResync = 0x10; // the player again (after a level change)
 constexpr uint32_t kNewHasCrown = 0x80;
 constexpr uint32_t kNewPlayerFlags = 0x27805; // the flags a player keeps
 
-constexpr uint32_t kSkaterScore = 0xD262802F;     // the score component
+constexpr uint32_t kSkaterScore = 0xD262802F;      // the score component
 constexpr uint32_t kVehicleComponent = 0x18223FD6; // (its vehicle control type at +0x1104)
-constexpr uint32_t kResyncedPlayers = 0x1D02CE3B; // (run after a resync)
+constexpr uint32_t kResyncedPlayers = 0x1D02CE3B;  // (run after a resync)
 
 Hub* task_manager(void* task) { return prop<Hub*>(task, 0x1C); }
 uint8_t* skate_module() { return get_skate(); }
@@ -97,16 +97,23 @@ void Hub::add_new_player(uint8_t* info)
     uint32_t flags = prop<uint32_t>(info, kInfoFlags);
     if (!(flags & kNewObserver)) {
         bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
-        void* profile = get_call<void*>(code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)), skate, split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
+        void* profile = get_call<void*>(
+            code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
+            skate, split_screen ? static_cast<int>(obj_id) : 0); // the skater's profile
         if (!in_net_game()) {
-            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, profile, true, static_cast<int>(obj_id), skater_count(skate));
+            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, profile,
+                                                true, static_cast<int>(obj_id), skater_count(skate));
         } else if (prop<uint32_t>(info, kInfoFlags) & kNewLocal) {
-            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, profile, true, static_cast<int>(obj_id), 0);
+            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, profile,
+                                                true, static_cast<int>(obj_id), 0);
         } else {
             auto* skaters = reinterpret_cast<modules::Skate*>(skate);
-            int count = get_call<void*>(code_address(modules::Skate::get_local_skater_stub), skate) ? skaters->count_riders() : (skaters->count_riders() + 1) & 7;
-            skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, prop<void*>(info, kInfoProfile), false,
-                                         static_cast<int>(obj_id), count);
+            int count = get_call<void*>(code_address(modules::Skate::get_local_skater_stub), skate)
+                            ? skaters->count_riders()
+                            : (skaters->count_riders() + 1) & 7;
+            skater =
+                get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate,
+                                           prop<void*>(info, kInfoProfile), false, static_cast<int>(obj_id), count);
             if (prop<int>(info, kInfoVehicle)) // its vehicle control type
                 prop<int>(static_cast<objects::GameEntity*>(skater)->fetch_module(kVehicleComponent), 0x1104) =
                     prop<int>(info, kInfoVehicle);
@@ -123,7 +130,8 @@ void Hub::add_new_player(uint8_t* info)
         get_call(code_address(&modules::Skate::teleport_to_spawn), skate, skater, 0, 0);
     }
     if (!player) {
-        player = new_player(skater, prop<net::Conn*>(info, kInfoConn), prop<uint32_t>(info, kInfoFlags) & kNewPlayerFlags);
+        player =
+            new_player(skater, prop<net::Conn*>(info, kInfoConn), prop<uint32_t>(info, kInfoFlags) & kNewPlayerFlags);
         std::strcpy(reinterpret_cast<char*>(player + 0x38), reinterpret_cast<const char*>(info));
         prop<int>(player, 0x30) = prop<int>(info, kInfoTeam);
         prop<int>(player, 0x28) = prop<int>(info, kInfoProfileId);
@@ -197,17 +205,17 @@ namespace {
 // A player's details for the others (message 0x22, the client's on_player_added_msg 0x0052DB80): a 0x30-byte header and
 // its appearance (RiderIdentity::emit_into_buffer, at most 0x1000 bytes).
 struct NewPlayerMessage {
-    int32_t profile_id_;      // +0x00
-    int32_t rating;         // +0x04
-    uint32_t flags;         // +0x08
-    int32_t score;          // +0x0C
-    uint32_t value10;       // +0x10 (the player's +0x1C)
-    uint32_t value14;       // +0x14 (the player's +0x20)
-    int8_t obj_id_;           // +0x18
-    int8_t team;            // +0x19
-    uint8_t pad1a_[2];       // (never written)
-    int32_t drive_scheme_; // +0x1C
-    char name[kNameSize];   // +0x20
+    int32_t profile_id_;                 // +0x00
+    int32_t rating;                      // +0x04
+    uint32_t flags;                      // +0x08
+    int32_t score;                       // +0x0C
+    uint32_t value10;                    // +0x10 (the player's +0x1C)
+    uint32_t value14;                    // +0x14 (the player's +0x20)
+    int8_t obj_id_;                      // +0x18
+    int8_t team;                         // +0x19
+    uint8_t pad1a_[2];                   // (never written)
+    int32_t drive_scheme_;               // +0x1C
+    char name[kNameSize];                // +0x20
     uint8_t appearance[kAppearanceSize]; // +0x30
 };
 static_assert(offsetof(NewPlayerMessage, obj_id_) == 0x18 && offsetof(NewPlayerMessage, name) == 0x20 &&
@@ -241,11 +249,13 @@ uint16_t fill_new_player_message(NewPlayerMessage& msg, uint8_t* player, int8_t 
     msg.value14 = 0;
     msg.value10 = 0;
     std::strcpy(msg.name, reinterpret_cast<const char*>(player + 0x38));
-    int size = prop<objects::RiderIdentity*>(player, 0x4C)->emit_into_buffer(msg.appearance, kAppearanceSize, broadband ? 1 : 0);
+    int size = prop<objects::RiderIdentity*>(player, 0x4C)
+                   ->emit_into_buffer(msg.appearance, kAppearanceSize, broadband ? 1 : 0);
     return static_cast<uint16_t>(size + kNewPlayerHeader);
 }
 
-void send_new_player(net::AppHost* server, net::NetMessageInfo& desc, uint8_t* to, NewPlayerMessage& msg, uint16_t length)
+void send_new_player(net::AppHost* server, net::NetMessageInfo& desc, uint8_t* to, NewPlayerMessage& msg,
+                     uint16_t length)
 {
     desc.content_ = &msg;
     desc.byte_count_ = length;
@@ -298,7 +308,8 @@ void __cdecl Hub::host_player_intake_tick(void* task)
             uint8_t* player = manager->new_player(nullptr, conn, prop<uint32_t>(info, kInfoFlags));
             memory::Hub::get_pull()->leave_heap_scope();
             std::strcpy(reinterpret_cast<char*>(player + 0x38), reinterpret_cast<const char*>(info));
-            as_player(player)->set_profile(prop<objects::RiderIdentity*>(info, kInfoProfile)); // its appearance (a copy of the profile)
+            as_player(player)->set_profile(
+                prop<objects::RiderIdentity*>(info, kInfoProfile)); // its appearance (a copy of the profile)
             prop<uint32_t>(player, 0x1D8) = prop<uint32_t>(info, 0x24);
             prop<int>(player, 0x28) = prop<int>(info, kInfoProfileId);
             prop<int>(player, 0x2C) = prop<int>(info, kInfoRating);
@@ -342,7 +353,8 @@ void __cdecl Hub::host_player_intake_tick(void* task)
                 desc.compression_ = 0;
             }
             if (!is_observer(player)) { // the new player to every other remote player
-                for (uint8_t* other = start_roster_sweep(manager, &search, true); other; other = step_roster_sweep(manager, &search, true)) {
+                for (uint8_t* other = start_roster_sweep(manager, &search, true); other;
+                     other = step_roster_sweep(manager, &search, true)) {
                     if (other == player || is_own_player(other))
                         continue;
                     uint16_t length = fill_new_player_message(msg, player, obj_id, 0, false);
@@ -354,8 +366,9 @@ void __cdecl Hub::host_player_intake_tick(void* task)
                      other = step_roster_sweep(manager, &search, false)) {
                     if (other == player || prop<uint32_t>(other, 0x1D8) != prop<uint32_t>(player, 0x1D8))
                         continue;
-                    uint16_t length = fill_new_player_message(msg, other, static_cast<int8_t>(get_skater_id(player_skater(other))),
-                                                           prop<uint32_t>(other, 0x1D0) & kPlayerFlagsSent, broadband);
+                    uint16_t length =
+                        fill_new_player_message(msg, other, static_cast<int8_t>(get_skater_id(player_skater(other))),
+                                                prop<uint32_t>(other, 0x1D0) & kPlayerFlagsSent, broadband);
                     send_new_player(server, desc, player, msg, length);
                 }
             } else { // every playing player to it, the created park and its rails, then joined
@@ -374,8 +387,8 @@ void __cdecl Hub::host_player_intake_tick(void* task)
                     msg.value14 = prop<uint32_t>(other, 0x20);
                     msg.value10 = prop<uint32_t>(other, 0x1C);
                     std::strcpy(msg.name, reinterpret_cast<const char*>(other + 0x38));
-                    int size = prop<objects::RiderIdentity*>(other, 0x4C)->emit_into_buffer(msg.appearance, kAppearanceSize,
-                                                                                       broadband ? 1 : 0);
+                    int size = prop<objects::RiderIdentity*>(other, 0x4C)
+                                   ->emit_into_buffer(msg.appearance, kAppearanceSize, broadband ? 1 : 0);
                     send_new_player(server, desc, player, msg, static_cast<uint16_t>(size + kNewPlayerHeader));
                 }
                 uint32_t level = manager->level_;
@@ -383,23 +396,26 @@ void __cdecl Hub::host_player_intake_tick(void* task)
                     auto* park = park_editing::ParkBuilderMode::sole();
                     park->write_compressed_map_if_built();
                     server->send_bulk_message(player_handle(player), kMsgParkMap, kParkMapSize,
-                                          park->get_packed_park_data(false), "level data", kGroupGame, false, true);
+                                              park->get_packed_park_data(false), "level data", kGroupGame, false, true);
                     park_editing::RailAuthoring::sole(); // (called twice, the first result unused)
-                    void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed), park_editing::RailAuthoring::sole());
-                    server->send_bulk_message(player_handle(player), kMsgRails, kRailsSize, rails, "rail data", kGroupGame,
-                                          false, true);
+                    void* rails = get_call<void*>(code_address(&park_editing::RailAuthoring::get_packed),
+                                                  park_editing::RailAuthoring::sole());
+                    server->send_bulk_message(player_handle(player), kMsgRails, kRailsSize, rails, "rail data",
+                                              kGroupGame, false, true);
                 }
                 send_word(server, desc, player, kMsgJoinAccepted, &level);
             }
             if (!is_observer(player)) { // its skater; every other player asked whether it's ready
                 int count = is_own_player(player) && manager->in_net_game() ? 0 : skater_count(skate);
                 bool local_conn = prop<net::Conn*>(player, 0x18)->is_host_local();
-                auto* skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate, prop<void*>(info, kInfoProfile), local_conn,
-                                                   static_cast<int>(obj_id), count);
+                auto* skater = get_call<objects::Entity*>(code_address(&modules::Skate::spawn_skater_entity), skate,
+                                                          prop<void*>(info, kInfoProfile), local_conn,
+                                                          static_cast<int>(obj_id), count);
                 as_player(player)->bind_rider(static_cast<objects::Rider*>(skater));
                 if (!is_own_player(player))
                     static_cast<objects::Rider*>(skater)->conceal_skater(); // hidden
-                for (uint8_t* other = start_roster_sweep(manager, &search, true); other; other = step_roster_sweep(manager, &search, true)) {
+                for (uint8_t* other = start_roster_sweep(manager, &search, true); other;
+                     other = step_roster_sweep(manager, &search, true)) {
                     if (other == player)
                         continue;
                     send_word(server, desc, other, kMsgReadyQuery, &now);

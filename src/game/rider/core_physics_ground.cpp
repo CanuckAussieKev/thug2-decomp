@@ -36,16 +36,16 @@ constexpr uint32_t kFrictionCrouched = 0xBED96EDA;
 constexpr uint32_t kFriction = 0x1A78B6FC;
 constexpr uint32_t kNormalBlendRate = 0xD8120182;
 constexpr uint32_t kVertPushOut = 0x78384871;
-constexpr uint32_t kOff = 0xD443A2BC;               // Off
+constexpr uint32_t kOff = 0xD443A2BC; // Off
 
 // The game's constants.
-constexpr float kBarelyMovingSquared = 0.00001f;     // 0x006453B8
-constexpr float kFramesPerSecond = 60.0f;            // 0x00645EA0
-constexpr float kSlow = 50.0f;                       // 0x006463CC
-constexpr float kLockedSlow = 0.5f;                  // 0x006453BC
-constexpr float kStill = 0.0001f;                    // 0x006453D4
-constexpr float kNormalFeeler = 72.0f;               // 0x00646244
-constexpr float kFlat = 0.001f;                      // 0x006461D8
+constexpr float kBarelyMovingSquared = 0.00001f; // 0x006453B8
+constexpr float kFramesPerSecond = 60.0f;        // 0x00645EA0
+constexpr float kSlow = 50.0f;                   // 0x006463CC
+constexpr float kLockedSlow = 0.5f;              // 0x006453BC
+constexpr float kStill = 0.0001f;                // 0x006453D4
+constexpr float kNormalFeeler = 72.0f;           // 0x00646244
+constexpr float kFlat = 0.001f;                  // 0x006461D8
 
 // The component's fields used here.
 constexpr uint32_t kDrawnNormal = 0x58;
@@ -91,12 +91,12 @@ void SkaterPhysicsModule::apply_friction(float friction)
     float length_squared = static_cast<float>(length_sqr_unrounded(velocity));
     if (length_squared < kBarelyMovingSquared)
         return;
-    float slowing = static_cast<float>(static_cast<double>(length_squared) * get_at<float>(this, kFrameLength) * friction *
-                                       kFramesPerSecond);
+    float slowing = static_cast<float>(static_cast<double>(length_squared) * get_at<float>(this, kFrameLength) *
+                                       friction * kFramesPerSecond);
     maths::Vec4 change = velocity;
     change.set_length(slowing);
     double change_squared = (static_cast<double>(change.z) * change.z + static_cast<double>(change.x) * change.x) +
-                           static_cast<double>(change.y) * change.y;
+                            static_cast<double>(change.y) * change.y;
     if (change_squared > length_squared) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -111,7 +111,8 @@ void SkaterPhysicsModule::apply_friction(float friction)
 bool SkaterPhysicsModule::should_brake()
 {
     uint8_t* input = input_of(this);
-    if (!get_at<uint8_t>(this, kAutoKick) && !input[kKickButton] && speed_of(vector_at(object_of(this), kVelocity)) < kSlow)
+    if (!get_at<uint8_t>(this, kAutoKick) && !input[kKickButton] &&
+        speed_of(vector_at(object_of(this), kVelocity)) < kSlow)
         return true;
     if (!input[kBrakeButton] || !get_at<uint8_t>(this, kCanBrake))
         return false;
@@ -174,7 +175,8 @@ void SkaterPhysicsModule::push_off()
     float x = static_cast<float>(static_cast<double>(direction.x) * push * frame);
     double y = static_cast<double>(direction.y) * push * frame;
     double z = static_cast<double>(static_cast<float>(static_cast<double>(direction.z) * push)) * frame;
-    float w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(direction.w) * push)) * frame);
+    float w =
+        static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(direction.w) * push)) * frame);
     maths::Vec4& velocity = vector_at(object_of(this), kVelocity);
     velocity.x += x;
     velocity.y = static_cast<float>(velocity.y + y);
@@ -209,13 +211,14 @@ void SkaterPhysicsModule::apply_wheel_drag()
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
-    double k = static_cast<double>(get_at<float>(this, kFrameLength)) / speed_rounded * get_at<float>(this, kRollingFrictionValue) *
-               kFramesPerSecond;
+    double k = static_cast<double>(get_at<float>(this, kFrameLength)) / speed_rounded *
+               get_at<float>(this, kRollingFrictionValue) * kFramesPerSecond;
     float dx = static_cast<float>(k * x);
     float dy = static_cast<float>(vy * k);
     float dz = static_cast<float>(vz * k);
     double dw = w * k;
-    double change_squared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
+    double change_squared =
+        (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
     if (static_cast<double>(speed_rounded) * speed_rounded < change_squared) {
         velocity = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -259,8 +262,8 @@ void SkaterPhysicsModule::update_ground_normal()
         if (vector_at(this, kOldNormal) == vector_at(this, kFloorUpVector)) {
             blend = 0.0f;
         } else {
-            double left = blend - static_cast<double>(script::fetch_float(kNormalBlendRate)) * get_at<float>(this, kFrameLength) *
-                                      kFramesPerSecond;
+            double left = blend - static_cast<double>(script::fetch_float(kNormalBlendRate)) *
+                                      get_at<float>(this, kFrameLength) * kFramesPerSecond;
             float t = static_cast<float>(left);
             blend = t;
             if (left > 0.0 || left != left) {
@@ -321,6 +324,6 @@ void SkaterPhysicsModule::start_vert_air()
     get_at<float>(this, kVertTime) = 6.0f;
 }
 
-} // namespace Skater
+} // namespace skater
 
 using skater::SkaterPhysicsModule;

@@ -97,13 +97,14 @@ lists::KeyMap* read_materials(Reader& reader, const lists::KeyMap* textures)
             reader.TakeIn(m->pass_color_[pass], 12, 1);
             const uint32_t half = 0x3F000000;
             if (all_half && (std::memcmp(&m->pass_color_[pass][0], &half, 4) != 0 ||
-                            std::memcmp(&m->pass_color_[pass][1], &half, 4) != 0 ||
-                            std::memcmp(&m->pass_color_[pass][2], &half, 4) != 0))
+                             std::memcmp(&m->pass_color_[pass][1], &half, 4) != 0 ||
+                             std::memcmp(&m->pass_color_[pass][2], &half, 4) != 0))
                 all_half = false;
             uint32_t blend[2];
             reader.TakeIn(blend, 8, 1);
             m->blend_modes_[pass] = (blend[0] & 0xFFFFFF) | blend[1] << 24;
-            m->pass_color_[pass][3] = static_cast<float>(static_cast<double>(blend[1]) * (1.0f / 128)); // the fixed alpha
+            m->pass_color_[pass][3] =
+                static_cast<float>(static_cast<double>(blend[1]) * (1.0f / 128)); // the fixed alpha
             if (pass == 0 && !keep_culling && (m->blend_modes_[0] & 0xFFFFFF))
                 m->two_sided_ = 1;
             uint32_t u = get_pull<uint32_t>(reader);
@@ -199,4 +200,4 @@ lists::KeyMap* __cdecl load_materials_from_file(file::Hdl file, const lists::Key
     return read_materials(reader, textures);
 }
 
-} // namespace Nx
+} // namespace render

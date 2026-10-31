@@ -21,13 +21,9 @@
 
 namespace objects {
 
-uint32_t g_pager_message_member_functions[36]{
-            0x4824484A, 0xD1515392, 0, 0, 0, 0,
-            0xD65B2BB5, 0xD1515392, 0, 0, 0, 0,
-            0x5B64BFEC, 0xD1515392, 0, 0, 0, 0,
-            0xAF88BE7A, 0xD1515392, 0, 0, 0, 0,
-            0xE7DF996D, 0xD1515392, 0, 0, 0, 0,
-            0, 0xD1515392, 0, 0, 0, 0};
+uint32_t g_pager_message_member_functions[36]{0x4824484A, 0xD1515392, 0, 0, 0, 0, 0xD65B2BB5, 0xD1515392, 0, 0, 0, 0,
+                                              0x5B64BFEC, 0xD1515392, 0, 0, 0, 0, 0xAF88BE7A, 0xD1515392, 0, 0, 0, 0,
+                                              0xE7DF996D, 0xD1515392, 0, 0, 0, 0, 0,          0xD1515392, 0, 0, 0, 0};
 
 namespace {
 
@@ -85,7 +81,8 @@ ObjectModule* __cdecl PagerMessageComponent::fabricate()
 // 0x004EC960
 void __cdecl PagerMessageComponent::publish_method_table()
 {
-    script::register_member_function_table(reinterpret_cast<void*>(kPagerMessage), g_pager_message_member_functions, 0x18);
+    script::register_member_function_table(reinterpret_cast<void*>(kPagerMessage), g_pager_message_member_functions,
+                                           0x18);
 }
 
 // 0x004ECE10
@@ -222,25 +219,25 @@ bool PagerMessageComponent::clear_pager_messages(script::Struct* params, script:
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::PagerMessageComponent::teardown,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

@@ -62,7 +62,7 @@ void TableReleaser::empty_table_items()
     lookup_table_->num_ = 0;
 }
 
-} // namespace Lst
+} // namespace lists
 
 namespace modules {
 
@@ -91,36 +91,36 @@ using namespace score_internal;
 
 namespace {
 
-constexpr uint32_t kSpecialBarColors = 0x2E8B9F1C;          // special_bar_colors
+constexpr uint32_t kSpecialBarColors = 0x2E8B9F1C;           // special_bar_colors
 constexpr uint32_t kSpecialBarInterpolatorRate = 0x3ABCDA81; // special_bar_interpolator_rate
-constexpr uint32_t kParams = 0x7031F10C;                    // params
-constexpr uint32_t kExtraTricks = 0x6E855102;               // ExtraTricks
-constexpr uint32_t kName = 0xA1DC81F9;                      // Name
-constexpr uint32_t kUpdateTrickText = 0xD4491BE1;           // UpdateTrickText
-constexpr uint32_t kBalanceMeterInfo = 0x91CB3C33;          // balance_meter_info
-constexpr uint32_t kArrowPositions = 0xF716442A;            // arrow_positions
-constexpr uint32_t kHorse = 0x9D65D0E7;                     // Horse
-constexpr uint32_t kNetHorse = 0xB239668F;                  // nethorse
-constexpr uint32_t kBarPositionsMpV = 0x44E39BB5;           // bar_positions_mp_v
-constexpr uint32_t kBarPositionsMpH = 0xBEECA6D6;           // bar_positions_mp_h
-constexpr uint32_t kBarPositions = 0xF314312A;              // bar_positions
-constexpr uint32_t kUpdateScorepot = 0xA611BB15;            // UpdateScorepot
-constexpr uint32_t kIsCareer = 0x1DED1EA4;                  // is_career
-constexpr uint32_t kNetKing = 0x6EF8FDA0;                   // netking
-constexpr uint32_t kKing = 0x5D32129C;                      // king
-constexpr uint32_t kTrickMapping = 0xD544AA2D;              // trick_mapping
-constexpr uint32_t kTrickSlot = 0xA92A2280;                 // trickslot
-constexpr uint32_t kTrickName = 0x5B077CE1;                 // trickname
-constexpr uint32_t kIsCat = 0xB56A8816;                     // isCat
-constexpr uint32_t kPerfectLandingSlop = 0xFCFACAB8;        // perfect_landing_slop
-constexpr uint32_t kRobotKickInCount = 0x6EE127B7;          // robot_kick_in_count
-constexpr uint32_t kTrickTextContainerId = 0x33124D2E;      // trick_text_container_id
-constexpr uint32_t kTheTrickTextId = 0x6E7C7BA7;            // the_trick_text_id
-constexpr uint32_t kTheScorePotTextId = 0x6D02989C;         // the_score_pot_text_id
-constexpr uint32_t kTrickTextCountdown = 0xEE9CE723;        // trick_text_countdown
-constexpr uint32_t kTrickTextLanded = 0xC890E875;           // trick_text_landed
-constexpr uint32_t kTrickTextBail = 0xAA7F404D;             // trick_text_bail
-constexpr uint32_t kTrickTextPulse = 0x3BD51FE5;            // trick_text_pulse
+constexpr uint32_t kParams = 0x7031F10C;                     // params
+constexpr uint32_t kExtraTricks = 0x6E855102;                // ExtraTricks
+constexpr uint32_t kName = 0xA1DC81F9;                       // Name
+constexpr uint32_t kUpdateTrickText = 0xD4491BE1;            // UpdateTrickText
+constexpr uint32_t kBalanceMeterInfo = 0x91CB3C33;           // balance_meter_info
+constexpr uint32_t kArrowPositions = 0xF716442A;             // arrow_positions
+constexpr uint32_t kHorse = 0x9D65D0E7;                      // Horse
+constexpr uint32_t kNetHorse = 0xB239668F;                   // nethorse
+constexpr uint32_t kBarPositionsMpV = 0x44E39BB5;            // bar_positions_mp_v
+constexpr uint32_t kBarPositionsMpH = 0xBEECA6D6;            // bar_positions_mp_h
+constexpr uint32_t kBarPositions = 0xF314312A;               // bar_positions
+constexpr uint32_t kUpdateScorepot = 0xA611BB15;             // UpdateScorepot
+constexpr uint32_t kIsCareer = 0x1DED1EA4;                   // is_career
+constexpr uint32_t kNetKing = 0x6EF8FDA0;                    // netking
+constexpr uint32_t kKing = 0x5D32129C;                       // king
+constexpr uint32_t kTrickMapping = 0xD544AA2D;               // trick_mapping
+constexpr uint32_t kTrickSlot = 0xA92A2280;                  // trickslot
+constexpr uint32_t kTrickName = 0x5B077CE1;                  // trickname
+constexpr uint32_t kIsCat = 0xB56A8816;                      // isCat
+constexpr uint32_t kPerfectLandingSlop = 0xFCFACAB8;         // perfect_landing_slop
+constexpr uint32_t kRobotKickInCount = 0x6EE127B7;           // robot_kick_in_count
+constexpr uint32_t kTrickTextContainerId = 0x33124D2E;       // trick_text_container_id
+constexpr uint32_t kTheTrickTextId = 0x6E7C7BA7;             // the_trick_text_id
+constexpr uint32_t kTheScorePotTextId = 0x6D02989C;          // the_score_pot_text_id
+constexpr uint32_t kTrickTextCountdown = 0xEE9CE723;         // trick_text_countdown
+constexpr uint32_t kTrickTextLanded = 0xC890E875;            // trick_text_landed
+constexpr uint32_t kTrickTextBail = 0xAA7F404D;              // trick_text_bail
+constexpr uint32_t kTrickTextPulse = 0x3BD51FE5;             // trick_text_pulse
 
 // The skate module's score goals (+0x60, 64 of them): a career goal done when the total first reaches `score`.
 struct ScoreGoal {
@@ -233,10 +233,12 @@ uint32_t PointTally::trick_name_after_taps(uint32_t trick, int taps)
     script::Struct* params;
     script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
     if (taps > 1) {
-        uint32_t extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
+        uint32_t extra =
+            static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
         for (int left = taps - 1; left; --left) {
             params->read_hash_value(kExtraTricks, &extra, 0);
-            reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0))->read_sub_struct(kParams, &params, 1);
+            reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0))
+                ->read_sub_struct(kParams, &params, 1);
         }
     }
     const char* name;
@@ -269,7 +271,8 @@ int PointTally::get_score_of_range(int first, int last)
             spin = 2;
         else if (i == 0 || (get_trick(i - 1)->flag_bits_ & kTrickNoSpin))
             spin = spin_multiplier(trick->twist_rate_);
-        int points = trick->points_held_ * get_reduction(trick->repeats_) * spin / 200; // (percent times half the multiplier)
+        int points =
+            trick->points_held_ * get_reduction(trick->repeats_) * spin / 200; // (percent times half the multiplier)
         if (trick->kind_)
             points = points * 120 / 100;
         total += points;
@@ -315,8 +318,8 @@ void PointTally::setup_balance_meter()
     arrow_step_ = static_cast<float>(1.0 / arrow_count_);
     script::Array* bars = nullptr;
     uint32_t name = kBarPositions;
-    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) && get_game_mode()->get_name_key() != kHorse &&
-        get_game_mode()->get_name_key() != kNetHorse)
+    if (static_cast<uint8_t>(commands::cfunc_in_split_screen_game(nullptr, nullptr)) &&
+        get_game_mode()->get_name_key() != kHorse && get_game_mode()->get_name_key() != kNetHorse)
         name = screen_mode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
     info->fetch_list(name, &bars, 0);
     for (uint32_t i = 0; i < 2; ++i)
@@ -385,7 +388,8 @@ void PointTally::set_grand_total(int total)
 // 0x00561B40
 int PointTally::get_total_score()
 {
-    if (net_session_slot()->get_on_server() && (script::fetch_int_value(kScoreByClusters) || get_game_mode()->is_true(kShouldModulateColor)))
+    if (net_session_slot()->get_on_server() &&
+        (script::fetch_int_value(kScoreByClusters) || get_game_mode()->is_true(kShouldModulateColor)))
         return get_trick_objects()->count_clusters_held_by(rider_no_);
     return sum_;
 }
@@ -640,7 +644,7 @@ void PointTally::refresh_bot_check(int line)
 void PointTally::trim_log()
 {
     TrickLog merged = {};
-    std::memcpy(merged.text_, "... + ", 7);  // "... + "
+    std::memcpy(merged.text_, "... + ", 7);      // "... + "
     std::memcpy(merged.shown_, "...\\_+\\_", 9); // "...\_+\_"
     int end = log_.num_;
     for (int i = 0; i < log_.num_; ++i) {
@@ -696,4 +700,4 @@ int PointTally::count_non_gap_tricks()
     return count;
 }
 
-} // namespace Mdl
+} // namespace modules

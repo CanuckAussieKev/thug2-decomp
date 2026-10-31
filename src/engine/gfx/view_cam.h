@@ -9,7 +9,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // A camera (gfx::ViewCam, vtable 0x006487E0, an GameObjects::Entity, 0xC4 bytes): where a viewport looks from. Camera
 // components copy their object's position and orientation into theirs every frame (ViewpointModule 0x0041B810 /
@@ -48,15 +48,15 @@ public:
     void change_h_fov(float degrees);
 
     maths::Vec4 old_pos_;       // +0x4C
-    maths::Vec4 at_point_;          // +0x5C
-    maths::Mat4 basis_frame_;       // +0x6C: row 2 points backward (the view looks along -row 2), row 1 up
+    maths::Vec4 at_point_;      // +0x5C
+    maths::Mat4 basis_frame_;   // +0x6C: row 2 points backward (the view looks along -row 2), row 1 up
     float h_fov_;               // +0xAC: degrees, at 4:3
-    float corrected_horiz_fov_;       // +0xB0: degrees, as drawn
-    float unknownb4_;          // +0xB4: tan(half corrected_horiz_fov_) / tan(half the default angle)
+    float corrected_horiz_fov_; // +0xB0: degrees, as drawn
+    float unknownb4_;           // +0xB4: tan(half corrected_horiz_fov_) / tan(half the default angle)
     float near_dist_;           // +0xB8: 12 (by its value)
     float far_clip_;            // +0xBC: 12000 (by its value)
-    float unknownc0_;          // +0xC0: 1 (divides the widened angle's tangent)
+    float unknownc0_;           // +0xC0: 1 (divides the widened angle's tangent)
 };
 
 extern int g_draw_distance_setting;
-} // namespace Gfx
+} // namespace gfx

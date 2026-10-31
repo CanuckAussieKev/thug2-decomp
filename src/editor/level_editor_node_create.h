@@ -39,7 +39,7 @@ enum class Kind : uint8_t { kSpawn, kTeamSpawn, kCrown, kFlagSet, kLight, kSound
 constexpr int kKinds = 7;
 enum class Team : uint8_t { kRed, kBlue, kGreen, kYellow };
 constexpr int kTeams = 4;
-const char* kind_name(Kind kind); // "Multiplayer spawn"...
+const char* kind_name(Kind kind);     // "Multiplayer spawn"...
 const char* get_team_name(Team team); // "Red"...
 
 // One component of a node: a flag (no key), a name, a string, an integer, a float, a vector, an array of names or of
@@ -55,14 +55,14 @@ struct Prop {
 };
 // A node the editor adds, as the layout's `node` record keeps it (the rest of the node follows from these: Fields).
 struct Spec {
-    std::string name;  // "ed_restart01", "TRG_CTF_Red"...
-    std::string cls;   // Restart, GenericNode, GameObject, LevelLight, EmitterObject, ProximNode
-    std::string type;  // MultiPlayer, CTF, Crown, Flag_Red, Flag_Red_Base... ("": none)
+    std::string name; // "ed_restart01", "TRG_CTF_Red"...
+    std::string cls;  // Restart, GenericNode, GameObject, LevelLight, EmitterObject, ProximNode
+    std::string type; // MultiPlayer, CTF, Crown, Flag_Red, Flag_Red_Base... ("": none)
     V3 pos = {}, angles = {};
-    std::vector<std::string> types; // a restart's restart_types
-    int colour[3] = {255, 255, 255}; // a light's Color
+    std::vector<std::string> types;                      // a restart's restart_types
+    int colour[3] = {255, 255, 255};                     // a light's Color
     float brightness = 0.0f, inner = 0.0f, outer = 0.0f; // a light's
-    float radius = 0.0f; // a proximity node's / an emitter's sphere
+    float radius = 0.0f;                                 // a proximity node's / an emitter's sphere
     // A node another of the editor's modules makes in the overlay (level_editor_triggers.h: a trigger volume's
     // node): `extra` fields after the kind's own (its TriggerScript...), and `owned` - its module writes its own
     // layout records, so it isn't a `node` record.
@@ -107,7 +107,7 @@ std::vector<Prop> get_fields(const Spec& spec);
 // get_spawn_node a 256-name one (both unchecked); the light lists hold 256 dynamic and 150 level lights.
 constexpr int kMaxCrowns = 10, kMaxRestarts = 256, kMaxDynamicLights = 256, kMaxLevelLights = 150;
 struct Counts {
-    int crowns = 0, restarts = 0;           // counted as the game counts them (hidden ones not)
+    int crowns = 0, restarts = 0;               // counted as the game counts them (hidden ones not)
     int dynamic_lights_ = 0, level_lights_ = 0; // the lists' counts now
 };
 // Why `kind` can't be added now (null: it can).
@@ -179,5 +179,4 @@ void reset_all();
 // A new level: forgotten (the overlay's array went with the level's; hidden nodes' structures with it).
 void forget_level();
 
-
-} // namespace MenuSystem::level_editor::node_create
+} // namespace frontend::level_editor::node_create

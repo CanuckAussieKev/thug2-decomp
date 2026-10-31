@@ -68,17 +68,17 @@ bool g_got_extra_memory;
 
 namespace {
 
-constexpr uint32_t kModel = 0x286A8D26;           // "model" (the component)
-constexpr uint32_t kCamera = 0xC4E311FA;          // "Camera" (an object's camera component)
-constexpr uint32_t kController = 0xB30D9965;      // "controller"
-constexpr uint32_t kLeftX = 0x303067F1;           // "leftx"
-constexpr uint32_t kLeftY = 0x47375767;           // "lefty"
-constexpr uint32_t kRightX = 0x694DF774;          // "rightx"
-constexpr uint32_t kRightY = 0x1E4AC7E2;          // "righty"
-constexpr uint32_t kPrefType = 0x17DAE143;        // "pref_type"
-constexpr uint32_t kUiString = 0x96875C0F;        // "ui_string"
-constexpr uint32_t kChecksum = 0x21902065;        // "checksum"
-constexpr uint32_t kCustomSkaterFile = 0xF36C1878; // (name unknown) the profile's custom skater file name
+constexpr uint32_t kModel = 0x286A8D26;              // "model" (the component)
+constexpr uint32_t kCamera = 0xC4E311FA;             // "Camera" (an object's camera component)
+constexpr uint32_t kController = 0xB30D9965;         // "controller"
+constexpr uint32_t kLeftX = 0x303067F1;              // "leftx"
+constexpr uint32_t kLeftY = 0x47375767;              // "lefty"
+constexpr uint32_t kRightX = 0x694DF774;             // "rightx"
+constexpr uint32_t kRightY = 0x1E4AC7E2;             // "righty"
+constexpr uint32_t kPrefType = 0x17DAE143;           // "pref_type"
+constexpr uint32_t kUiString = 0x96875C0F;           // "ui_string"
+constexpr uint32_t kChecksum = 0x21902065;           // "checksum"
+constexpr uint32_t kCustomSkaterFile = 0xF36C1878;   // (name unknown) the profile's custom skater file name
 constexpr uint32_t kBothControllersIn = 0x07C28B45;  // (name unknown) the script run while both are plugged in
 constexpr uint32_t kControllerMissing = 0x9C9DFCF8;  // (name unknown) ... and while one isn't
 constexpr uint32_t kViewerCameraObject = 0xEB17151B; // (name unknown) the object whose camera a view mode uses
@@ -98,7 +98,10 @@ objects::Rider* get_rider_at(int index)
 }
 
 // The object manager (0x006F0FB8).
-objects::ObjectHubBase* object_edit() { return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry); }
+objects::ObjectHubBase* object_edit()
+{
+    return reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+}
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
 gfx::ViewCam* viewport_camera(int viewport) { return render::fetch_live_camera(viewport); }
@@ -109,10 +112,7 @@ void set_viewport_camera(int viewport, void* camera)
 
 // The preferences of a type (0x00565680: the network's, the taunts', the skate module's; null for others). The
 // original passes a second argument (1) that isn't read.
-prefs::Preferences* get_preferences_of_type(uint32_t type)
-{
-    return modules::Skate::get_player_options(type);
-}
+prefs::Preferences* get_preferences_of_type(uint32_t type) { return modules::Skate::get_player_options(type); }
 
 // The network game flags (online).
 bool& internet_game_host() { return sys::g_internet_game_host; }
@@ -128,7 +128,10 @@ int& view_mode() { return g_view_mode_cfunc; }
 // GetPreferencePassword's row of stars (0x007CEBD0).
 char* password_stars() { return g_password_stars; }
 
-objects::PreviewEntity* viewer_target(modules::Viewer* viewer) { return static_cast<objects::PreviewEntity*>(viewer->get_viewer_entity()); }
+objects::PreviewEntity* viewer_target(modules::Viewer* viewer)
+{
+    return static_cast<objects::PreviewEntity*>(viewer->get_viewer_entity());
+}
 
 } // namespace
 
@@ -190,7 +193,7 @@ bool __cdecl cfunc_check_for_holes(script::Struct*, script::Script*)
 bool __cdecl cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 {
     if (void* task = second_controller_check()) {
-        auto destroy = (*static_cast<void* (__thiscall***)(void*, unsigned int)>(task))[2];
+        auto destroy = (*static_cast<void*(__thiscall***)(void*, unsigned int)>(task))[2];
         destroy(task, 1); // the scalar deleting destructor (vtable slot 2)
     }
     second_controller_check() = nullptr;
@@ -222,7 +225,8 @@ bool __cdecl cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
 {
     if (!trying_to_join())
         join_server_ip_succeeded() = false;
-    debug::printf("ScriptTryJoinServerIPSuccess %d\n", join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
+    debug::printf("ScriptTryJoinServerIPSuccess %d\n",
+                  join_server_ip_succeeded()); // "ScriptTryJoinServerIPSuccess %d\n"
     return join_server_ip_succeeded();
 }
 
@@ -391,9 +395,9 @@ bool __cdecl cfunc_get_preference_password(script::Struct* params, script::Scrip
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
-    params->read_hash_value("pref_type", &type, 0); // "pref_type"
+    params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
-    const char* password = nullptr; // (unset in the original when missing)
+    const char* password = nullptr;                    // (unset in the original when missing)
     preference->fetch_text("ui_string", &password, 0); // "ui_string"
     char* stars = password_stars();
     size_t length = std::strlen(password);
@@ -411,7 +415,7 @@ bool __cdecl cfunc_get_preference_checksum(script::Struct* params, script::Scrip
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
     uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
-    params->read_hash_value("pref_type", &type, 0); // "pref_type"
+    params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     uint32_t value = 0; // (unset in the original when missing)
     preference->read_hash_value(kChecksum, &value, 0);
@@ -532,12 +536,14 @@ bool __cdecl cfunc_debounce(script::Struct* params, script::Script*)
     int release = 0;
     params->fetch_int_value(0x1A4E0EF9u, &release, 0);
     auto* objects = objects::g_composite_registry;
-    for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input; input = input->next_of_type_)
+    for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
+         input = input->next_of_type_)
         static_cast<objects::PadInputModule*>(input)->lock_button(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
     float until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
                                      static_cast<double>(time) * static_cast<double>(gfx::g_thousand));
-    for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick; trick = trick->next_of_type_)
+    for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick;
+         trick = trick->next_of_type_)
         static_cast<objects::MoveExecutor*>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);
     return true;
 }
@@ -611,9 +617,8 @@ double game_atof(const char* text) { return crt::get_atof(text); }
 
 // ShowTracking's debug line drawing - compiled out of this build (an empty call, 0x005480A0).
 inline void draw_debug_line(const maths::Vec4* /*from*/, const maths::Vec4* /*to*/, uint32_t /*colour1*/,
-                          uint32_t /*colour2*/, int /*unused*/)
-{
-}
+                            uint32_t /*colour2*/, int /*unused*/)
+{}
 // ...and the empty call at its start (no arguments).
 inline void compiled_out_debug_call() {}
 
@@ -627,7 +632,7 @@ bool __cdecl cfunc_move_node(script::Struct* params, script::Script*)
 {
     uint32_t name;
     if (!params->read_hash_value(0xA1DC81F9u, &name, 0)) { // "name"
-        debug::printf("Missing Name\n"); // "Missing Name\n"
+        debug::printf("Missing Name\n");                   // "Missing Name\n"
         return false;
     }
     script::Struct* node = level_nodes::fetch_vertex(name, false);
@@ -704,7 +709,7 @@ bool __cdecl cfunc_show_tracking(script::Struct* params, script::Script*)
     int size = 0;
     if (!file::is_present(file)) {
         debug::printf("Can't find file: %s\n", file); // "Can't find file: %s\n"
-        return false; // (as in the original, the debug heap stays pushed)
+        return false;                                 // (as in the original, the debug heap stays pushed)
     }
     auto* data = static_cast<uint8_t*>(packs::load_file_into(file, &size, nullptr));
     debug::printf("Loaded %s, size = %d, at %p\n", file, size, data); // "Loaded %s, size = %d, at %p\n"
@@ -767,7 +772,8 @@ bool __cdecl cfunc_show_tracking(script::Struct* params, script::Script*)
         }
         draw_debug_line(&from, &to, colour, colour, 0);
     }
-    debug::printf("Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n", count1, count2, count3, count4); // "Bonks = %d, ..."
+    debug::printf("Bonks = %d,  Grinds = %d, verts= %d, lines = %d\n", count1, count2, count3,
+                  count4); // "Bonks = %d, ..."
     memory::free_malloc(data);
     return true;
 }
@@ -777,12 +783,12 @@ bool __cdecl cfunc_show_tracking(script::Struct* params, script::Script*)
 bool __cdecl cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
 {
     void* face = word54(fetch_account(0));
-    const char* name = nullptr; // (unset in the original when missing - an asserted parameter)
+    const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
     params->fetch_text("string", &name, 1); // "string"
     char path[0x80];
-#pragma warning(suppress : 4996) // (unbounded: as in the original)
+#pragma warning(suppress : 4996)           // (unbounded: as in the original)
     std::sprintf(path, "faces\\%s", name); // "faces\%s"
-    void* file = game_fopen(path, "rb"); // "rb"
+    void* file = game_fopen(path, "rb");   // "rb"
     if (!file)
         return false;
     game_fseek(file, 0, SEEK_END);
@@ -816,11 +822,11 @@ bool __cdecl cfunc_set_scene_color(script::Struct* params, script::Script*)
 
 namespace {
 
-constexpr uint32_t kMenuText = 0xC4745838;    // (names unknown) a menu item's text,
-constexpr uint32_t kMenuId = 0x40C698AF;      // "id"
-constexpr uint32_t kMenuParams = 0xB8437568;  // its pad_choose parameters
-constexpr uint32_t kMenuScript = 0x2B0CFCA1;  // its pad_choose script
-constexpr uint32_t kFirstRestartId = 123456;  // the restart items' ids, from here
+constexpr uint32_t kMenuText = 0xC4745838;   // (names unknown) a menu item's text,
+constexpr uint32_t kMenuId = 0x40C698AF;     // "id"
+constexpr uint32_t kMenuParams = 0xB8437568; // its pad_choose parameters
+constexpr uint32_t kMenuScript = 0x2B0CFCA1; // its pad_choose script
+constexpr uint32_t kFirstRestartId = 123456; // the restart items' ids, from here
 
 // A new, empty script structure (from the structures' pool) and its deletion.
 script::Struct* spawn_param_table()
@@ -857,7 +863,7 @@ bool __cdecl cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
         script::Struct* node = level_nodes::fetch_vertex(restart, true);
         const char* name;
         if (!node->fetch_text("RestartName", &name, 0)) // "RestartName"
-            name = "Unnamed restart";                       // "Unnamed restart"
+            name = "Unnamed restart";                   // "Unnamed restart"
         script::Struct* item = spawn_param_table();
         item->append_word(kMenuText, name);
         item->put_name_key(kMenuId, kFirstRestartId + count);
@@ -926,8 +932,8 @@ bool __cdecl cfunc_add_faces_to_menu(script::Struct*, script::Script*)
             if (std::strlen(name) > 4)
                 name[std::strlen(name) - 4] = '\0';
             script::Struct* item = spawn_param_table();
-            item->append_word("name", name); // "name"
-            item->append_word("file", file); // "file"
+            item->append_word("name", name);                                      // "name"
+            item->append_word("file", file);                                      // "file"
             script::launch_script("add_item_to_face_menu", item, nullptr, false); // "add_item_to_face_menu"
             ++count;
             delete_structure(item);

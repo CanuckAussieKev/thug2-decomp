@@ -29,21 +29,12 @@ void count_up(int& value, int& max, int amount)
         max = value;
 }
 
-uint32_t round_up16(uint32_t size)
-{
-    return (size + 15) & ~15u;
-}
+uint32_t round_up16(uint32_t size) { return (size + 15) & ~15u; }
 
-uint8_t* end_of(ChunkPrefix* header)
-{
-    return reinterpret_cast<uint8_t*>(header) + kBlockHeaderSize + header->size;
-}
+uint8_t* end_of(ChunkPrefix* header) { return reinterpret_cast<uint8_t*>(header) + kBlockHeaderSize + header->size; }
 
 // The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
-Arena* find_heap(uint32_t name)
-{
-    return Hub::get_pull()->fetch_heap_by_key(name, 0);
-}
+Arena* find_heap(uint32_t name) { return Hub::get_pull()->fetch_heap_by_key(name, 0); }
 void dump_heaps() { commands::cfunc_dump_heaps(nullptr, nullptr); }
 
 } // namespace
@@ -220,7 +211,7 @@ void Arena::dealloc(ChunkPrefix* header)
     used_size_ -= header->size;
     if (this == find_heap(0x502D3FD2))
         debug::printf(" *********************************************************************************** FREE %d\n",
-                    header->size);
+                      header->size);
 
     ChunkPrefix* before = nullptr;   // the free block before `previous`
     ChunkPrefix* previous = nullptr; // the last free block below this one
@@ -273,7 +264,7 @@ void Arena::dealloc(ChunkPrefix* header)
     used_size_ -= kBlockHeaderSize;
 }
 
-} // namespace Mem
+} // namespace memory
 
 namespace {
 
@@ -297,9 +288,15 @@ struct HeapAdapters {
 
 namespace memory {
 namespace {
-static VtableSlot g_heap_vtable_slots[] = {&memory::MemSource::enter_heap_scope, &memory::MemSource::leave_heap_scope,
-                &HeapAdapters::teardown, &memory::Arena::carve, &memory::Arena::largest_free, &memory::Arena::extend_block_downward,
-                &memory::Arena::extend_block_upward, &memory::Arena::trim_block_end, &memory::Arena::dealloc};
+static VtableSlot g_heap_vtable_slots[] = {&memory::MemSource::enter_heap_scope,
+                                           &memory::MemSource::leave_heap_scope,
+                                           &HeapAdapters::teardown,
+                                           &memory::Arena::carve,
+                                           &memory::Arena::largest_free,
+                                           &memory::Arena::extend_block_downward,
+                                           &memory::Arena::extend_block_upward,
+                                           &memory::Arena::trim_block_end,
+                                           &memory::Arena::dealloc};
 void** const kHeapVtable = reinterpret_cast<void**>(g_heap_vtable_slots);
 } // namespace
-} // namespace Mem
+} // namespace memory

@@ -32,15 +32,32 @@ uint32_t __cdecl button_for_tag(uint8_t* digit)
 {
     if (!key_names()) {
         switch (*digit) {
-        case 'M': case 'm': return 3;
-        case 'N': case 'n': return 2;
-        case 'O': case 'o': return 1;
-        case 'P': case 'p': return 0;
-        case 'Q': case 'q': return 14;
-        case 'R': case 'r': return 15;
-        case 'S': case 's': return 16;
-        case 'T': case 't': return 17;
-        default: break;
+        case 'M':
+        case 'm':
+            return 3;
+        case 'N':
+        case 'n':
+            return 2;
+        case 'O':
+        case 'o':
+            return 1;
+        case 'P':
+        case 'p':
+            return 0;
+        case 'Q':
+        case 'q':
+            return 14;
+        case 'R':
+        case 'r':
+            return 15;
+        case 'S':
+        case 's':
+            return 16;
+        case 'T':
+        case 't':
+            return 17;
+        default:
+            break;
         }
     }
     return static_cast<uint32_t>(text::hex_digit_value(reinterpret_cast<const char*>(digit)));
@@ -53,4 +70,4 @@ uint8_t __cdecl should_use_glyph(uint8_t index)
     return index <= 17;
 }
 
-} // namespace Nx
+} // namespace render

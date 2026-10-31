@@ -12,12 +12,12 @@
 
 namespace net {
 
-extern void** const kConnNodeVtable;       // lists::Elem<Conn>
-extern void** const kConnHeadVtable;       // lists::Foremost<Conn>
-extern void** const kBannedConnNodeVtable; // lists::Elem<BlockedConnEntry>
-extern void** const kBannedConnVtable;     // BlockedConnEntry, lists::Foremost<BlockedConnEntry>
-extern void** const kMsgHandlerNodeVtable; // lists::Elem<NoteHandler>
-extern void** const kMsgHandlerHeadVtable; // lists::Foremost<NoteHandler>
+extern void** const kConnNodeVtable;         // lists::Elem<Conn>
+extern void** const kConnHeadVtable;         // lists::Foremost<Conn>
+extern void** const kBannedConnNodeVtable;   // lists::Elem<BlockedConnEntry>
+extern void** const kBannedConnVtable;       // BlockedConnEntry, lists::Foremost<BlockedConnEntry>
+extern void** const kMsgHandlerNodeVtable;   // lists::Elem<NoteHandler>
+extern void** const kMsgHandlerHeadVtable;   // lists::Foremost<NoteHandler>
 extern void** const kConnSearchVtable;       // lists::Hunt<Conn>
 extern void** const kBannedConnSearchVtable; // lists::Hunt<BlockedConnEntry>
 
@@ -67,7 +67,8 @@ struct BlockedConnEntry : BannedConnNode {
     // 0x00457460: the scalar deleting destructor (BlockedConnEntry's and lists::Foremost<BlockedConnEntry>'s).
     BlockedConnEntry* destroy_banned(unsigned int flags);
 };
-static_assert(offsetof(BlockedConnEntry, remote_ip_) == 0x14 && sizeof(BlockedConnEntry) == 0x18, "layout must match the original");
+static_assert(offsetof(BlockedConnEntry, remote_ip_) == 0x14 && sizeof(BlockedConnEntry) == 0x18,
+              "layout must match the original");
 
 // A list search as the game lays it out: the vtable (its virtual destructor), then the current node (see
 // lists::Hunt). The destructors only reset the vtable.
@@ -90,4 +91,4 @@ struct BannedConnSearch {
     BannedConnSearch* teardown(unsigned int flags);
 };
 
-} // namespace Net
+} // namespace net

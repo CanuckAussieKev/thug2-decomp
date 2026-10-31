@@ -29,45 +29,45 @@ namespace {
 
 using namespace goal_names;
 
-constexpr uint32_t kName = 0xA1DC81F9;              // Name
-constexpr uint32_t kKeyCombo = 0xACFDB27A;          // key_combo
-constexpr uint32_t kProfile = 0x7EA855F0;           // profile
-constexpr uint32_t kTrickMapping = 0xD544AA2D;      // trick_mapping
-constexpr uint32_t kSpecialFlag = 0xB394C01C;       // special
-constexpr uint32_t kCatNum = 0xA75B8581;            // cat_num
-constexpr uint32_t kUnassigned = 0xF60C9090;        // Unassigned
-constexpr uint32_t kParams = 0x7031F10C;            // params
-constexpr uint32_t kTrickNameKey = 0x4443A4DA;     // trick_checksum
-constexpr uint32_t kExtraTricks = 0x6E855102;       // ExtraTricks
-constexpr uint32_t kExtraTrickString = 0x3DAAF58B;  // extra_trick_string
+constexpr uint32_t kName = 0xA1DC81F9;               // Name
+constexpr uint32_t kKeyCombo = 0xACFDB27A;           // key_combo
+constexpr uint32_t kProfile = 0x7EA855F0;            // profile
+constexpr uint32_t kTrickMapping = 0xD544AA2D;       // trick_mapping
+constexpr uint32_t kSpecialFlag = 0xB394C01C;        // special
+constexpr uint32_t kCatNum = 0xA75B8581;             // cat_num
+constexpr uint32_t kUnassigned = 0xF60C9090;         // Unassigned
+constexpr uint32_t kParams = 0x7031F10C;             // params
+constexpr uint32_t kTrickNameKey = 0x4443A4DA;       // trick_checksum
+constexpr uint32_t kExtraTricks = 0x6E855102;        // ExtraTricks
+constexpr uint32_t kExtraTrickString = 0x3DAAF58B;   // extra_trick_string
 constexpr uint32_t kExtraTrickChecksum = 0xD0BCFC62; // (name unknown: the extra trick's checksum)
-constexpr uint32_t kCurrentIndex = 0xDB92EFFA;      // current_index
-constexpr uint32_t kDontAssert = 0x9AC8D54F;        // DontAssert
-constexpr uint32_t kNumberOfFlags = 0xCB9D1224;     // number_of_flags
-constexpr uint32_t kClear = 0x1A4E0EF9;             // clear
-constexpr uint32_t kSkater = 0x5B8AB877;            // skater
-constexpr uint32_t kTimesStarted = 0xFF61BA23;      // times_started
-constexpr uint32_t kGoalEndOfRun = 0x54585419;      // Goal_EndOfRun
-constexpr uint32_t kEndOfRun = 0xE022C12C;          // EndOfRun
-constexpr uint32_t kNone = 0x806FFF30;              // none
-constexpr uint32_t kSuspend = 0xCE0CA665;           // suspend
-constexpr uint32_t kSkillTier = 0x3671F748;   // difficulty_level
-constexpr uint32_t kStage = 0x5D82C486;             // (name unknown: AdvanceStage's stage)
-constexpr uint32_t kForce = 0x68977CD7;             // force
-constexpr uint32_t kSponsor = 0x7E73362B;           // sponsor
-constexpr uint32_t kTeam = 0x3B1F59E0;              // Team
-constexpr uint32_t kNumTeamMembers = 0xEB8DD330;    // num_team_members
-constexpr uint32_t kPro = 0x944B2900;               // pro
-constexpr uint32_t kRemove = 0x977FE2CF;            // remove
-constexpr uint32_t kFlagAsUsed = 0x531FF702;          // mark_used
-constexpr uint32_t kTeamName = 0x703D7582;          // team_name
-constexpr uint32_t kTempo = 0x8B4A1490;             // tempo
-constexpr uint32_t kBeatPattern = 0x407CCE70;       // beat_pattern
-constexpr uint32_t kGoalManagerParams = 0xAC7C2B62; // GoalManagerParams
-constexpr uint32_t kTotalCheatPoints = 0x35F1301A;  // total_cheat_points
-constexpr uint32_t kActivePoints = 0x477CA8C1;      // active_points
-constexpr uint32_t kTotalPoints = 0x105152C0;       // total_points
-constexpr uint32_t kRewardPoints = 0xBAFFB052;      // reward_points
+constexpr uint32_t kCurrentIndex = 0xDB92EFFA;       // current_index
+constexpr uint32_t kDontAssert = 0x9AC8D54F;         // DontAssert
+constexpr uint32_t kNumberOfFlags = 0xCB9D1224;      // number_of_flags
+constexpr uint32_t kClear = 0x1A4E0EF9;              // clear
+constexpr uint32_t kSkater = 0x5B8AB877;             // skater
+constexpr uint32_t kTimesStarted = 0xFF61BA23;       // times_started
+constexpr uint32_t kGoalEndOfRun = 0x54585419;       // Goal_EndOfRun
+constexpr uint32_t kEndOfRun = 0xE022C12C;           // EndOfRun
+constexpr uint32_t kNone = 0x806FFF30;               // none
+constexpr uint32_t kSuspend = 0xCE0CA665;            // suspend
+constexpr uint32_t kSkillTier = 0x3671F748;          // difficulty_level
+constexpr uint32_t kStage = 0x5D82C486;              // (name unknown: AdvanceStage's stage)
+constexpr uint32_t kForce = 0x68977CD7;              // force
+constexpr uint32_t kSponsor = 0x7E73362B;            // sponsor
+constexpr uint32_t kTeam = 0x3B1F59E0;               // Team
+constexpr uint32_t kNumTeamMembers = 0xEB8DD330;     // num_team_members
+constexpr uint32_t kPro = 0x944B2900;                // pro
+constexpr uint32_t kRemove = 0x977FE2CF;             // remove
+constexpr uint32_t kFlagAsUsed = 0x531FF702;         // mark_used
+constexpr uint32_t kTeamName = 0x703D7582;           // team_name
+constexpr uint32_t kTempo = 0x8B4A1490;              // tempo
+constexpr uint32_t kBeatPattern = 0x407CCE70;        // beat_pattern
+constexpr uint32_t kGoalManagerParams = 0xAC7C2B62;  // GoalManagerParams
+constexpr uint32_t kTotalCheatPoints = 0x35F1301A;   // total_cheat_points
+constexpr uint32_t kActivePoints = 0x477CA8C1;       // active_points
+constexpr uint32_t kTotalPoints = 0x105152C0;        // total_points
+constexpr uint32_t kRewardPoints = 0xBAFFB052;       // reward_points
 
 constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of its chain) started
 
@@ -236,7 +236,10 @@ bool __cdecl cfunc_goal_manager_get_number_of_flags(script::Struct* params, scri
 }
 
 // 0x0055ACB0: the cheat flag (TurnPro / open_up_every_objective).
-bool __cdecl cfunc_goal_manager_is_pro(script::Struct*, script::Script*) { return get_objective_board()->all_unlocked_; }
+bool __cdecl cfunc_goal_manager_is_pro(script::Struct*, script::Script*)
+{
+    return get_objective_board()->all_unlocked_;
+}
 
 // 0x0055ACC0
 bool __cdecl cfunc_goal_manager_reset_goal_flags(script::Struct* params, script::Script*)
@@ -401,9 +404,15 @@ bool __cdecl cfunc_goal_manager_get_difficulty_level(script::Struct*, script::Sc
         level = 1;
     int result;
     switch (level) {
-    case 0: result = 0; break;
-    case 2: result = 2; break;
-    default: result = 1; break;
+    case 0:
+        result = 0;
+        break;
+    case 2:
+        result = 2;
+        break;
+    default:
+        result = 1;
+        break;
     }
     script->args_->put_int(kSkillTier, result);
     return true;
@@ -425,7 +434,8 @@ bool __cdecl cfunc_goal_manager_can_restart_stage(script::Struct*, script::Scrip
 bool __cdecl cfunc_goal_manager_set_goal_chapters_and_stages(script::Struct*, script::Script*)
 {
     get_objective_board();
-    debug::printf("CGoalManager::SetGoalChaptersAndStages() Stubbed\n"); // "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"
+    debug::printf(
+        "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"); // "CGoalManager::SetGoalChaptersAndStages() Stubbed\n"
     return true;
 }
 
@@ -620,4 +630,4 @@ bool __cdecl cfunc_goal_collect_active(script::Struct* params, script::Script*)
     return true;
 }
 
-} // namespace Game
+} // namespace goals

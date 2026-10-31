@@ -46,10 +46,11 @@ std::string unlit_shader_source(const std::string& source)
             comment = false;
         else if (c == ';')
             comment = true;
-        bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' && (i == 0 || !is_name(source[i - 1])) &&
-                  (i + 2 >= source.size() || !is_name(source[i + 2]));
+        bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' &&
+                  (i == 0 || !is_name(source[i - 1])) && (i + 2 >= source.size() || !is_name(source[i + 2]));
         if (v0) {
-            bool alpha = i + 3 < source.size() && source[i + 2] == '.' && (source[i + 3] == 'a' || source[i + 3] == 'w');
+            bool alpha =
+                i + 3 < source.size() && source[i + 2] == '.' && (source[i + 3] == 'a' || source[i + 3] == 'w');
             if (!alpha) {
                 out += constant;
                 ++i; // (the '0')
@@ -69,11 +70,16 @@ std::string unlit_shader_source(const std::string& source)
 const char* get_name(Mode mode)
 {
     switch (mode) {
-    case Mode::kLit: return "Lit";
-    case Mode::kUnlit: return "Unlit";
-    case Mode::kWireframe: return "Wireframe";
-    case Mode::kCollisionOnly: return "Collision only";
-    default: return "?";
+    case Mode::kLit:
+        return "Lit";
+    case Mode::kUnlit:
+        return "Unlit";
+    case Mode::kWireframe:
+        return "Wireframe";
+    case Mode::kCollisionOnly:
+        return "Collision only";
+    default:
+        return "?";
     }
 }
 
@@ -83,7 +89,7 @@ namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 void*& current_pixel_shader() { return g_current_pixel_shader; } // (render_state.cpp's cache)
-int& render_mode() { return g_render_mode; }              // (wireframe.h)
+int& render_mode() { return g_render_mode; }                     // (wireframe.h)
 
 Mode g_mode = Mode::kLit;
 bool g_in_world;
@@ -102,8 +108,14 @@ long assemble_shader(const char* source, uint32_t length, void** shader, void** 
 {
     return d3dx::assemble_shader(source, length, shader, errors);
 }
-void* buffer_pointer(void* buffer) { return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer); }
-void get_release(void* object) { reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object); }
+void* buffer_pointer(void* buffer)
+{
+    return reinterpret_cast<void*(__stdcall*)(void*)>((*static_cast<void***>(buffer))[3])(buffer);
+}
+void get_release(void* object)
+{
+    reinterpret_cast<unsigned long(__stdcall*)(void*)>((*static_cast<void***>(object))[2])(object);
+}
 
 void* make_twin(void* original, Twin* twin)
 {
@@ -119,11 +131,11 @@ void* make_twin(void* original, Twin* twin)
     long result = assemble_shader(text.c_str(), static_cast<uint32_t>(text.size()), &code, &errors);
     if (result >= 0 && code && input_port())
         input_port()->CreatePixelShader(static_cast<const DWORD*>(buffer_pointer(code)),
-                                    reinterpret_cast<IDirect3DPixelShader9**>(&made));
+                                        reinterpret_cast<IDirect3DPixelShader9**>(&made));
     if (!made && !g_assemble_failed_logged) {
         g_assemble_failed_logged = true;
         get_log("view mode: an unlit twin of a pixel shader couldn't be made (%08lX) - drawn lit:\n%s",
-            static_cast<unsigned long>(result), text.c_str());
+                static_cast<unsigned long>(result), text.c_str());
     }
     if (code)
         get_release(code);

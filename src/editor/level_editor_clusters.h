@@ -73,4 +73,4 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
 // A cluster's name for the UI (the game's name table, the names typed in), else its 8 hex digits.
 std::string get_name_of(uint32_t cluster);
 
-} // namespace MenuSystem::level_editor::Clusters
+} // namespace frontend::level_editor::clusters

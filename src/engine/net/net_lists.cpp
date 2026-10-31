@@ -124,4 +124,4 @@ BannedConnSearch* BannedConnSearch::teardown(unsigned int flags)
     return this;
 }
 
-} // namespace Net
+} // namespace net

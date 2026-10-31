@@ -27,12 +27,12 @@ namespace surface_kind {
 struct SoundInfo {
     char name[0x68];       // +0x00 the sound's file (sound=)
     uint32_t checksum;     // +0x68 the checksum of its name without folders
-    float max_pitch_;        // +0x6C
-    float min_pitch_;        // +0x70
-    float max_vol_;          // +0x74
-    float floor_loudness_;          // +0x78
-    float load_pitch_;       // +0x7C
-    float load_vol_;         // +0x80
+    float max_pitch_;      // +0x6C
+    float min_pitch_;      // +0x70
+    float max_vol_;        // +0x74
+    float floor_loudness_; // +0x78
+    float load_pitch_;     // +0x7C
+    float load_vol_;       // +0x80
 };
 static_assert(sizeof(SoundInfo) == 0x84 && offsetof(SoundInfo, checksum) == 0x68 &&
                   offsetof(SoundInfo, load_vol_) == 0x80,
@@ -76,7 +76,7 @@ bool __cdecl get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, 
 // 0x00444BB0: that sound played at `position`, its volume and pitch `loudness_percent` / `pitchPercent` of their
 // ranges; with `propagate`, also sent to the server (message 0x35) for the other players.
 void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
-                              float pitch_percent, float value, bool propagate);
+                                float pitch_percent, float value, bool propagate);
 // 0x00444EB0: every sound of the terrain `checksum` loaded (its SoundActions merged over TERRAIN_DEFAULT's). False
 // without sound.
 bool __cdecl load_terrain_sounds(uint32_t checksum);
@@ -85,4 +85,4 @@ bool __cdecl load_terrain_sounds(uint32_t checksum);
 // finds (its volume and pitch `loudness_percent` / `pitchPercent` of their ranges), not sent to the other players.
 void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float loudness_percent, float pitch_percent);
 
-} // namespace Terrain
+} // namespace surface_kind

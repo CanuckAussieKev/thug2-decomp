@@ -46,14 +46,14 @@ namespace {
 
 extern void** const kVtable;
 
-constexpr float kHalf = 0.5f;                              // 0x006453BC
-constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
-constexpr double kAssent = 0.4363323251406352;             // 0x006463F0 (25 degrees)
-constexpr float kPyramidBase = -0.6000000238418579f;       // 0x006463E8
-constexpr float kPyramidTip = 1.600000023841858f;          // 0x006463E4
-constexpr float kAlmostTwoPi = 6.2829999923706055f;        // 0x006463EC
-constexpr float kBigShape = 30.0f;                         // 0x00646240
-constexpr float kShapeScale = 0.03333333507180214f;        // 0x00646430
+constexpr float kHalf = 0.5f;                             // 0x006453BC
+constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
+constexpr double kAssent = 0.4363323251406352;            // 0x006463F0 (25 degrees)
+constexpr float kPyramidBase = -0.6000000238418579f;      // 0x006463E8
+constexpr float kPyramidTip = 1.600000023841858f;         // 0x006463E4
+constexpr float kAlmostTwoPi = 6.2829999923706055f;       // 0x006463EC
+constexpr float kBigShape = 30.0f;                        // 0x00646240
+constexpr float kShapeScale = 0.03333333507180214f;       // 0x00646430
 
 // The x87's own FCOS / FSIN (the original's; the C runtime's round differently), the result stored as a float.
 float x87_cos(double angle)
@@ -223,7 +223,7 @@ void BodyDynamicsModule::set_box(const maths::Vec4* top, const maths::Vec4* bott
             const maths::Vec4& half = upper ? *top : *bottom;
             for (bool front : {false, true}) {
                 contacts_[n++] = {half.x * (right ? 1.0f : -1.0f), upper ? top->y : -bottom->y,
-                                    half.z * (front ? 1.0f : -1.0f), 1.0f};
+                                  half.z * (front ? 1.0f : -1.0f), 1.0f};
             }
         }
     }
@@ -255,7 +255,7 @@ void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, flo
             double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
             float rounded = static_cast<float>(angle);
             contacts_[n++] = {x87_cos_times(angle, radius), upper ? half_height : -half_height,
-                                x87_sin_times(rounded, radius), 1.0f};
+                              x87_sin_times(rounded, radius), 1.0f};
         }
     }
 }
@@ -314,7 +314,7 @@ void BodyDynamicsModule::set_sounds(uint32_t type)
         impact_quiet_ms_ = delay;
     }
     if (sounds->has_entry_named(0xAD67A34D)) { // GlobalCollideMuteDelay
-        int delay = 0; // (uninitialised in the original: only read when it's given)
+        int delay = 0;                         // (uninitialised in the original: only read when it's given)
         sounds->fetch_int_value(0xAD67A34D, &delay, 0);
         global_collide_mute_delay_ = delay;
     }
@@ -328,11 +328,11 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     cur_phase_ = kStateAsleep;
     uint32_t state;
     if (params->read_hash_value(0x61FBB62C, &state, 0)) { // rigidbody_state
-        if (state == 0x4484B712)                       // asleep
+        if (state == 0x4484B712)                          // asleep
             cur_phase_ = kStateAsleep;
-        else if (state == 0x7B01911C)                  // disabled
+        else if (state == 0x7B01911C) // disabled
             cur_phase_ = kStateDisabled;
-        else if (state == 0x99A34896)                  // awake
+        else if (state == 0x99A34896) // awake
             cur_phase_ = kStateAwake;
     }
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -349,13 +349,13 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     auto vector = [params](uint32_t name, maths::Vec4* out) {
         return params->fetch_vec(name, reinterpret_cast<script::VectorValue*>(out), 0);
     };
-    vector(0x0C4C809E, &vel_);          // vel
-    vector(0xFB1A83B2, &rot_vel_);       // rotvel
-    vector(0x737612C6, &balance_point_); // center_of_mass
+    vector(0x0C4C809E, &vel_);                                 // vel
+    vector(0xFB1A83B2, &rot_vel_);                             // rotvel
+    vector(0x737612C6, &balance_point_);                       // center_of_mass
     if (!params->fetch_float(0x6FAE5C9A, &steady_accel_.y, 0)) // const_acc: a number is the y
         vector(0x6FAE5C9A, &steady_accel_);
-    params->fetch_float(0x60B4860D, &restitution_, 0); // coeff_restitution
-    params->fetch_float(0xF9D75930, &drag_factor_, 0);    // coeff_friction
+    params->fetch_float(0x60B4860D, &restitution_, 0);  // coeff_restitution
+    params->fetch_float(0xF9D75930, &drag_factor_, 0);  // coeff_friction
     params->fetch_float(0xF1ECB30F, &spring_const_, 0); // spring_const
     params->fetch_float(0xDE76C3A7, &unknown38_, 0);
     params->fetch_float(0x9DA897CF, &unknown3c_, 0);
@@ -369,9 +369,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     }
     params->fetch_float(0x3390D1E5, &skater_impulse_factor_, 0);     // skater_collision_impulse_factor
     params->fetch_float(0x5A18F61F, &skater_rotation_factor_, 0);    // skater_collision_rotation_factor
-    params->fetch_float(0x85F112C1, &skater_radius_, 0);            // skater_collision_radius
+    params->fetch_float(0x85F112C1, &skater_radius_, 0);             // skater_collision_radius
     params->fetch_float(0x8AB2DB68, &skater_application_radius_, 0); // skater_collision_application_radius
-    if (params->has_entry_named(0xE9156E6D)) {            // skater_collision_assent (degrees)
+    if (params->has_entry_named(0xE9156E6D)) {                       // skater_collision_assent (degrees)
         float degrees;
         params->fetch_float(0xE9156E6D, &degrees, 0);
         double radians = static_cast<double>(degrees) * kRadiansPerDegree;
@@ -426,13 +426,13 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         set_spheres(spheres);
         shape = 4;
     }
-    if (params->has_bare_flag(0xF756B7C5))       // Box
+    if (params->has_bare_flag(0xF756B7C5)) // Box
         shape = 0;
-    else if (params->has_bare_flag(0x1CB1A2B6))  // Pyramid
+    else if (params->has_bare_flag(0x1CB1A2B6)) // Pyramid
         shape = 1;
-    else if (params->has_bare_flag(0x64FBA415))  // Cylinder
+    else if (params->has_bare_flag(0x64FBA415)) // Cylinder
         shape = 2;
-    else if (params->has_bare_flag(0x20689278))  // Triangle
+    else if (params->has_bare_flag(0x20689278)) // Triangle
         shape = 3;
     switch (shape) {
     case 0: {
@@ -460,10 +460,10 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         int edges = 6;
         params->fetch_float(0xC48391A5, &radius, 0); // radius
         float bottom_radius = radius;
-        params->fetch_float(0x937E3B29, &radius, 0);       // top_radius
+        params->fetch_float(0x937E3B29, &radius, 0);        // top_radius
         params->fetch_float(0xE2AC8C3A, &bottom_radius, 0); // bottom_radius
-        params->fetch_float(0x0AB21AF0, &height, 0);       // height
-        params->fetch_int_value(0x4055F24A, &edges, 0);      // edges
+        params->fetch_float(0x0AB21AF0, &height, 0);        // height
+        params->fetch_int_value(0x4055F24A, &edges, 0);     // edges
         height = height * kHalf;
         set_cylinder(radius, bottom_radius, height, edges);
         break;
@@ -540,9 +540,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     model_offset_ = {model_offset.x - center.x, model_offset.y - center.y, model_offset.z - center.z,
                      model_offset.w - center.w};
     // The shape about the centre of mass (w too).
-    auto recentre = [&center](maths::Vec4& p) {
-        p = {p.x - center.x, p.y - center.y, p.z - center.z, p.w - center.w};
-    };
+    auto recentre = [&center](maths::Vec4& p) { p = {p.x - center.x, p.y - center.y, p.z - center.z, p.w - center.w}; };
     for (int i = contact_count_; i != 0;)
         recentre(contacts_[--i]);
     for (int i = sphere_count_; i != 0;)
@@ -596,7 +594,9 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     radius_ = static_cast<float>(std::sqrt(static_cast<double>(radius_)) + 1.0f);
 
     // The position is the centre of mass: moved by the (turned) model offset.
-    auto r = [this](int row, int c) { return static_cast<double>(reinterpret_cast<const float*>(&basis_frame_.row[row])[c]); };
+    auto r = [this](int row, int c) {
+        return static_cast<double>(reinterpret_cast<const float*>(&basis_frame_.row[row])[c]);
+    };
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
     double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
     double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
@@ -708,7 +708,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
     if (adjust) {
         double factor = maths::plus_or_minus_exact(0.4000000059604645f) + 1.0f;
         vel_ = {static_cast<float>(factor * vel_.x), static_cast<float>(factor * vel_.y),
-                 static_cast<float>(factor * vel_.z), static_cast<float>(factor * vel_.w)};
+                static_cast<float>(factor * vel_.z), static_cast<float>(factor * vel_.w)};
     }
     entity_->vel_ = vel_;
     if (cur_phase_ == kStateAsleep && std::fabs(vel_.y) < 1.0f)
@@ -738,32 +738,32 @@ void __cdecl add_rigid_body_pusher(GameEntity* object)
     }
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::BodyDynamicsModule::teardown,
-         &objects::BodyDynamicsModule::tick_frame,
-         &objects::BodyDynamicsModule::configure_from_data,
-         &BodyDynamicsModule::seal,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::BodyDynamicsModule::tick_frame,
+                                      &objects::BodyDynamicsModule::configure_from_data,
+                                      &BodyDynamicsModule::seal,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 
 // 0x00640900 (a static initialiser): the rigid bodies' collision cache (registered among the caches, empty).
 void construct_rigid_body_cache() { reinterpret_cast<render::HitMeshCache*>(&g_rigid_body_cache)->make_new(); }
 
-} // namespace Obj
+} // namespace objects

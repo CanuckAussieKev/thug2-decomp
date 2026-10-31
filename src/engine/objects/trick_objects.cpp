@@ -128,8 +128,7 @@ bool HitClusterLog::get_clear()
 }
 
 // 0x005886C0
-uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player,
-                                              uint32_t score)
+uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint8_t* stolen, int player, uint32_t score)
 {
     debug::printf("RequestLogTrick called\n");
     if (count > kMaxLoggedClusters) // (ours: the original's mask overran here)
@@ -210,7 +209,8 @@ uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engin
 void clear_sector_color(uint8_t* sector) { reinterpret_cast<render::WorldCell*>(sector)->wipe_tint(); }
 uint32_t* get_sector_color(uint8_t* sector, uint32_t* out)
 {
-    return reinterpret_cast<uint32_t*>(reinterpret_cast<render::WorldCell*>(sector)->fetch_tint(reinterpret_cast<uint8_t*>(out)));
+    return reinterpret_cast<uint32_t*>(
+        reinterpret_cast<render::WorldCell*>(sector)->fetch_tint(reinterpret_cast<uint8_t*>(out)));
 }
 
 // Graffiti colour `index`: graffitiColors[index]'s r, g, b.
@@ -692,8 +692,10 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
     if (send) {
         auto* server = *reinterpret_cast<net::AppHost**>(reinterpret_cast<uint8_t*>(net) + 4);
         net::Conn* conn = nullptr;
-        if (auto* skater = reinterpret_cast<uint8_t*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player)))) {
-            if (uint8_t* info = net->find_player_slot_by_obj(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
+        if (auto* skater = reinterpret_cast<uint8_t*>(
+                reinterpret_cast<modules::Skate*>(skate)->get_rider_by_number(static_cast<uint32_t>(player)))) {
+            if (uint8_t* info =
+                    net->find_player_slot_by_obj(static_cast<uint16_t>(*reinterpret_cast<uint32_t*>(skater + 0x14))))
                 conn = *reinterpret_cast<net::Conn**>(info + 0x18);
         }
         uint8_t stolen[8] = {};
@@ -735,7 +737,7 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
         desc.group_id_ = kGroupGame;
         for (void* info = net->begin_player_walk(&search, false); info; info = net->step_player_walk(&search, false))
             server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
-                                  "TrickObj Buffer", kGroupGame, true, false);
+                                      "TrickObj Buffer", kGroupGame, true, false);
 
         ObserverTrickObjectsMessage observed = {};
         observed.count = count;
@@ -747,16 +749,15 @@ void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uin
         desc.ident_ = kMsgObserverTrickObjects;
         for (void* info = net->begin_player_walk(&search, true); info; info = net->step_player_walk(&search, true)) {
             if (as_player(info)->is_observer())
-                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_, desc.content_,
-                                      "TrickObj Buffer", kGroupGame, true, false);
+                server->send_bulk_message(as_player(info)->get_link_handle(), desc.ident_, desc.byte_count_,
+                                          desc.content_, "TrickObj Buffer", kGroupGame, true, false);
         }
         reinterpret_cast<modules::Skate*>(skate)->broadcast_points(false);
         if (conn->is_host_local()) // (no null check: as the original)
             return;
     }
     for (uint32_t i = 0; i < count; ++i) {
-        auto* cluster = static_cast<TrickObjectCluster*>(
-            g_trick_spot_hub->object_clusters_.fetch_entry(objects[i]));
+        auto* cluster = static_cast<TrickObjectCluster*>(g_trick_spot_hub->object_clusters_.fetch_entry(objects[i]));
         if (cluster)
             cluster->set_graffiti_color(player == -1 ? -1 : player + 1);
     }
@@ -796,7 +797,7 @@ bool TrickSpotHub::add_object(uint32_t object_name, uint32_t cluster_name)
     return added;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
@@ -813,4 +814,4 @@ static VtableSlot g_trick_object_manager_vtable_slots[] = {&objects::TrickSpotHu
 void** const kTrickObjectManagerVtable = reinterpret_cast<void**>(g_trick_object_manager_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

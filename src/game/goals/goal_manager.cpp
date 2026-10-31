@@ -38,7 +38,7 @@ using namespace goal_names;
 
 constexpr uint32_t kGoalManagerShowGoalPoints = 0x888EF05E; // GoalManager_ShowGoalPoints
 constexpr uint32_t kGoalManagerParams = 0x23D4170A;         // GoalManager_Params
-constexpr uint32_t kSkillTiers = 0xB13D98D3;          // difficulty_levels
+constexpr uint32_t kSkillTiers = 0xB13D98D3;                // difficulty_levels
 constexpr uint32_t kGoalsClassic = 0xE8E7DBAD;              // goals_classic
 constexpr uint32_t kAlwaysInitializeGoal = 0x4E863E93;      // always_initialize_goal
 constexpr uint32_t kGoalCreateProsetGeom = 0xB3108A05;      // goal_create_proset_geom
@@ -49,8 +49,8 @@ constexpr uint32_t kTrick = 0x270F56E1;                     // trick (the compon
 constexpr uint32_t kCreateGeometry = 0xF4EB5C60;            // create_geometry
 constexpr uint32_t kTrickObjects = 0xEFC35592;              // TrickObjects
 
-constexpr uint8_t kMsgGoalWon = 0x6E;      // to the server: a goal (the chain's first) won
-constexpr uint8_t kGroupGoals = 8;         // (its message group)
+constexpr uint8_t kMsgGoalWon = 0x6E; // to the server: a goal (the chain's first) won
+constexpr uint8_t kGroupGoals = 8;    // (its message group)
 
 static VtableSlot g_goal_list_head_vtable_slots[] = {&goals::GoalListHead::teardown};
 void** const kGoalListHeadVtable = reinterpret_cast<void**>(g_goal_list_head_vtable_slots);
@@ -265,7 +265,8 @@ void GoalManager::activate_all_goals()
 {
     for (int i = 0; i < goals_.num_; ++i) {
         Objective* goal = goals_.get_by_index(i);
-        if (!Virtual<bool>(goal, Objective::kVtIsActive) && !Virtual<bool>(goal, Objective::kVtHasWon) && !goal->is_online_objective())
+        if (!Virtual<bool>(goal, Objective::kVtIsActive) && !Virtual<bool>(goal, Objective::kVtHasWon) &&
+            !goal->is_online_objective())
             Virtual<bool>(goal, Objective::kVtActivate);
     }
 }
@@ -647,9 +648,12 @@ int GoalManager::get_skill_tier(bool career)
     if (!args_->fetch_int_value(mode, &level, 0))
         level = 1;
     switch (level) {
-    case 0: return 0;
-    case 2: return 2;
-    default: return 1;
+    case 0:
+        return 0;
+    case 2:
+        return 2;
+    default:
+        return 1;
     }
 }
 
@@ -756,8 +760,8 @@ int GoalManager::count_live_goals(bool all)
     int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = count_active(&active_goals_.list_link_)
-                          ? static_cast<Objective*>(active_goals_.get_node_at(i)->data)
-                          : nullptr;
+                              ? static_cast<Objective*>(active_goals_.get_node_at(i)->data)
+                              : nullptr;
         bool counts = goal->is_online_objective() ? all : all || Virtual<bool>(goal, Objective::kVtIsActive2);
         if (counts)
             ++counted;
@@ -771,4 +775,4 @@ GoalManager* get_objective_board()
     return reinterpret_cast<modules::Skate*>(skate_calls::get_skate())->get_objective_board();
 }
 
-} // namespace Game
+} // namespace goals

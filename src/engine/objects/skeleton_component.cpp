@@ -31,26 +31,22 @@
 namespace objects {
 
 uint32_t g_skeleton_component_member_functions[36]{
-            0x20F7B992, 0x222756D5, 0, 0, 0, 0,
-            0x613831F2, 0x222756D5, 0, 0, 0, 0,
-            0xBE1C58CA, 0x222756D5, 0, 0, 0, 0,
-            0xB244C9CF, 0x222756D5, 0, 0, 0, 0,
-            0xF99F9FAF, 0x222756D5, 0, 0, 0, 0,
-            0, 0x222756D5, 0, 0, 0, 0};
+    0x20F7B992, 0x222756D5, 0, 0, 0, 0, 0x613831F2, 0x222756D5, 0, 0, 0, 0, 0xBE1C58CA, 0x222756D5, 0, 0, 0, 0,
+    0xB244C9CF, 0x222756D5, 0, 0, 0, 0, 0xF99F9FAF, 0x222756D5, 0, 0, 0, 0, 0,          0x222756D5, 0, 0, 0, 0};
 
 namespace {
 
 extern void** const kVtable;
 
-constexpr uint32_t kBone = 0xCAB94088;              // bone
-constexpr uint32_t kCopySkeletonFrom = 0xA81F615C;  // CopySkeletonFrom
-constexpr uint32_t kSkeletonName = 0x09794932;      // skeletonName
-constexpr uint32_t kMaxBoneSkipLod = 0xD3982061;    // max_bone_skip_lod
+constexpr uint32_t kBone = 0xCAB94088;             // bone
+constexpr uint32_t kCopySkeletonFrom = 0xA81F615C; // CopySkeletonFrom
+constexpr uint32_t kSkeletonName = 0x09794932;     // skeletonName
+constexpr uint32_t kMaxBoneSkipLod = 0xD3982061;   // max_bone_skip_lod
 
-constexpr float kInchesPerFoot = 12.0f;                   // 0x0064546C
+constexpr float kInchesPerFoot = 12.0f;                    // 0x0064546C
 constexpr float kOneOverRandMax = 3.0518509447574615e-05f; // 0x00646510 (1 / 32767)
-constexpr float kTwoPi = 6.2831854820251465f;             // 0x0064545C
-constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
+constexpr float kTwoPi = 6.2831854820251465f;              // 0x0064545C
+constexpr float kRadiansPerDegree = 0.01745329238474369f;  // 0x00645464
 
 // The renderer's skeleton (0x1C bytes; not rewritten yet): +0x00 flags, +0x08 its skeleton data (+0x04 the bone
 // count, +0x08 the bones' names), +0x10 the bone-skipping level of detail.
@@ -68,7 +64,10 @@ void change_bone_sizing(uint8_t* skeleton, uint32_t bone, const maths::Vec4* sca
 }
 // The skeleton data's index of the bone named `bone` (0x004A2C70), and whether bone `index` is `parent` or under it
 // (0x004A3100).
-uint32_t bone_index(uint8_t* data, uint32_t bone) { return static_cast<uint32_t>(reinterpret_cast<gfx::RigData*>(data)->fetch_slot_no(bone)); }
+uint32_t bone_index(uint8_t* data, uint32_t bone)
+{
+    return static_cast<uint32_t>(reinterpret_cast<gfx::RigData*>(data)->fetch_slot_no(bone));
+}
 bool is_bone_under(uint8_t* data, uint32_t index, uint32_t parent)
 {
     return reinterpret_cast<gfx::RigData*>(data)->is_descendant(index, parent);
@@ -77,14 +76,8 @@ uint32_t get_bone_count(uint8_t* data) { return *reinterpret_cast<uint32_t*>(dat
 uint32_t bone_name(uint8_t* data, uint32_t index) { return reinterpret_cast<uint32_t*>(data + 0x08)[index]; }
 
 // The texture dictionary's texture by name / checksum (0x0049F560 / 0x0049F540).
-void* texture_named(const char* name)
-{
-    return render::g_particle_texture_dict->get_texture_by_name(name);
-}
-void* texture_by_checksum(uint32_t checksum)
-{
-    return render::g_particle_texture_dict->fetch_skin(checksum);
-}
+void* texture_named(const char* name) { return render::g_particle_texture_dict->get_texture_by_name(name); }
+void* texture_by_checksum(uint32_t checksum) { return render::g_particle_texture_dict->fetch_skin(checksum); }
 
 // The game's C runtime rand().
 int get_rand() { return crt::get_rand(); }
@@ -138,7 +131,9 @@ void BoneRigModule::prepare_rig(uint32_t name)
 {
     void* asset = assets::g_asset_manager->get_asset_data(name, 0);
     void* memory = memory::alloc(0x1C);
-    bone_rig_ = memory ? reinterpret_cast<uint8_t*>(static_cast<gfx::Rig*>(memory)->make_new(static_cast<gfx::RigData*>(asset))) : nullptr;
+    bone_rig_ =
+        memory ? reinterpret_cast<uint8_t*>(static_cast<gfx::Rig*>(memory)->make_new(static_cast<gfx::RigData*>(asset)))
+               : nullptr;
 }
 
 // 0x00431CF0
@@ -150,8 +145,8 @@ void BoneRigModule::configure_from_data(script::Struct* params)
         auto* other_skeleton = reinterpret_cast<BoneRigModule*>(other->fetch_module(kType));
         void* memory = memory::alloc(0x1C);
         bone_rig_ = memory ? reinterpret_cast<uint8_t*>(static_cast<gfx::Rig*>(memory)->construct_copy(
-                                   reinterpret_cast<const gfx::Rig*>(other_skeleton->bone_rig_)))
-                             : nullptr;
+                                 reinterpret_cast<const gfx::Rig*>(other_skeleton->bone_rig_)))
+                           : nullptr;
         return;
     }
     // (the name is read into the parameters' own argument slot: neither given leaves the pointer's value)
@@ -186,9 +181,8 @@ bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
 
 // 0x004320F0
 void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec4* end, uint32_t bone, float width,
-                                           float height, float spin, float turn, float spread, float lifetime,
-                                           float dropdown_length, void* texture, uint32_t blend, bool follow,
-                                           bool dropdown)
+                                      float height, float spin, float turn, float spread, float lifetime,
+                                      float dropdown_length, void* texture, uint32_t blend, bool follow, bool dropdown)
 {
     maths::Vec4 from;
     if (!bone)
@@ -205,8 +199,8 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         to = {from.x - zero, from.y - length, from.z - zero, from.w - length};
     } else {
         const maths::Vec4& d = *end;
-        double length_squared = (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) +
-                               static_cast<double>(d.z) * d.z;
+        double length_squared =
+            (static_cast<double>(d.x) * d.x + static_cast<double>(d.y) * d.y) + static_cast<double>(d.z) * d.z;
         if (length_squared > 0.0) {
             to = d;
             raise = false;
@@ -240,13 +234,13 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         to.w = to.w + static_cast<float>(along * at.w);
     }
     render::engine::create_texture_splat_at(&from, &to, width, height, spin, turn, lifetime, nullptr, blend,
-                                     follow ? bone : 0, 0, static_cast<uint8_t*>(texture));
+                                            follow ? bone : 0, 0, static_cast<uint8_t*>(texture));
 }
 
 // 0x00432490
 void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array* components, script::Struct* params,
-                                                    float velocity_scale, const maths::Vec4* velocity,
-                                                    const maths::Vec4* rotational_velocity, maths::Vec4* offset)
+                                                   float velocity_scale, const maths::Vec4* velocity,
+                                                   const maths::Vec4* rotational_velocity, maths::Vec4* offset)
 {
     auto* skeleton = reinterpret_cast<BoneRigModule*>(entity_->fetch_module(kType));
     maths::Mat4 joint_mat;
@@ -265,8 +259,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     placed.row[0].w = 0.0f;
     placed.row[1].w = 0.0f;
     placed.row[2].w = 0.0f;
-    d3dx::matrix_multiply(
-        &joint_mat, &joint_mat, &placed);
+    d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
     params->put_vec3(0x7F261953, to_value(joint_mat.row[3])); // pos
     maths::Vec4 quat;
@@ -280,8 +273,8 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
                            velocity_scale * object_vel.w};
     maths::Vec4 turned;
     entity_->basis_frame_.rotate_vector(turned, *velocity);
-    params->put_vec3(0x0C4C809E, {carried.x + turned.x, carried.y + turned.y, carried.z + turned.z,
-                                   carried.w + turned.w}); // vel
+    params->put_vec3(0x0C4C809E,
+                     {carried.x + turned.x, carried.y + turned.y, carried.z + turned.z, carried.w + turned.w}); // vel
     entity_->basis_frame_.rotate_vector(turned, *rotational_velocity);
     params->put_vec3(0xFB1A83B2, to_value(turned)); // rotvel
     object_hub_slot()->spawn_entity_from_node(components, params, true);
@@ -343,7 +336,7 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
 // 0x00432860
 bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*script*/)
 {
-    bool trail = params->has_bare_flag(0x4D977A70);            // trail
+    bool trail = params->has_bare_flag(0x4D977A70);             // trail
     bool dropdown_vertical = params->has_bare_flag(0x7EE6C892); // dropdown_vertical
     // Not original: the size starts at 0 - the original's is left uninitialised (stack garbage) when not given.
     float size = 0.0f;
@@ -358,7 +351,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     params->fetch_float(0x12C62572, &dropdown_length, 0); // dropdown_length
     float angle = 180.0f;
     params->fetch_float(0x78AAF97F, &angle, 0);
-    uint32_t blend = 0x54628ED7; // blend
+    uint32_t blend = 0x54628ED7;                    // blend
     params->read_hash_value(0xDD6BB3D5, &blend, 0); // blendmode
     angle = angle * kRadiansPerDegree;
 
@@ -368,7 +361,8 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     uint32_t texture_checksum = 0; // (read into the parameters' own argument slot, cleared first)
     if (params->fetch_text(0xA1DC81F9u, &image_label, 0) || params->fetch_text(0x7D99F28Du, &image_label, 0))
         texture = texture_named(image_label);
-    else if (params->read_hash_value(0xA1DC81F9u, &texture_checksum, 0) || params->read_hash_value(0x7D99F28Du, &texture_checksum, 0))
+    else if (params->read_hash_value(0xA1DC81F9u, &texture_checksum, 0) ||
+             params->read_hash_value(0x7D99F28Du, &texture_checksum, 0))
         texture = texture_by_checksum(texture_checksum);
 
     // From the bone, or `forward` along the object's at (x's product unrounded).
@@ -413,8 +407,8 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     script::VectorValue vel = {};
     params->fetch_vec(0x0C4C809E, &vel, 1); // vel
     script::VectorValue rotvel = {};
-    params->fetch_vec(0xFB1A83B2, &rotvel, 1); // rotvel
-    float factor = 1.0f; // (read into the parameters' own argument slot)
+    params->fetch_vec(0xFB1A83B2, &rotvel, 1);   // rotvel
+    float factor = 1.0f;                         // (read into the parameters' own argument slot)
     params->fetch_float(0x8C6A6E08, &factor, 0); // object_vel_factor
     maths::Vec4 velocity = {vel.x, vel.y, vel.z, vel.w};
     maths::Vec4 rotation = {rotvel.x, rotvel.y, rotvel.z, rotvel.w};
@@ -423,25 +417,25 @@ bool BoneRigModule::skeleton_spawn_composite_object(script::Struct* params, scri
     return true;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
 static VtableSlot g_vtable_slots[] = {&objects::BoneRigModule::teardown,
-         &objects::ComponentWithoutUpdate::tick_frame,
-         &objects::BoneRigModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         &objects::ObjectModule::hold_off,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         &objects::ObjectModule::dispatch_script_method,
-         &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
+                                      &objects::ComponentWithoutUpdate::tick_frame,
+                                      &objects::BoneRigModule::configure_from_data,
+                                      stubs::do_nothing,
+                                      stubs::do_nothing,
+                                      objects::reapply_from_data,
+                                      stubs::ignore_arguments2,
+                                      &objects::ObjectModule::hold_off,
+                                      stubs::ignore_argument,
+                                      stubs::do_nothing,
+                                      stubs::ignore_argument,
+                                      &objects::ObjectModule::dispatch_script_method,
+                                      &objects::ComponentWithoutMemberFunctions::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

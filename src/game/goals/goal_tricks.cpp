@@ -23,42 +23,42 @@ using namespace goal_calls;
 using namespace goal_names;
 using objects::RiderIdentity;
 
-constexpr uint32_t kButtonSequences = 0x79704516;           // key_combos
-constexpr uint32_t kButtonSeqText = 0x52E2851E;      // key_combo_string
-constexpr uint32_t kKeyCombo = 0xACFDB27A;            // key_combo
-constexpr uint32_t kTrickMapping = 0xD544AA2D;        // trick_mapping
-constexpr uint32_t kGoalNoValidKeyCombos = 0xF3C20AF5; // goal_no_valid_key_combos
-constexpr uint32_t kTetrisTrickText = 0x8856C817;     // goal_tetris_trick_text
-constexpr uint32_t kName = 0xA1DC81F9;                // Name
-constexpr uint32_t kPremadeCats = 0xFFD7913F;         // Premade_CATS
-constexpr uint32_t kParams = 0x7031F10C;              // params
-constexpr uint32_t kShouldRemoveTrick = 0xBC678826;   // should_remove_trick
-constexpr uint32_t kTrickName = 0xEF6FB249;           // trick_name
-constexpr uint32_t kUnassigned = 0xF60C9090;          // Unassigned
-constexpr uint32_t kId = 0x40C698AF;                  // id
-constexpr uint32_t kPremadeCatIndex = 0x0B502200;     // premade_cat_index
-constexpr uint32_t kGoalDescription = 0x0C5D7E6B;     // goal_deScription
-constexpr uint32_t kViewGoalsText = 0x4BC5229D;       // view_goals_text
-constexpr uint32_t kViewGoalsTip = 0x63981D6F;        // view_goals_tip
-constexpr uint32_t kGoalText = 0xDA441D9A;            // goal_text
-constexpr uint32_t kKeyComboText = 0x1B3B4DD8;        // key_combo_text
+constexpr uint32_t kButtonSequences = 0x79704516;         // key_combos
+constexpr uint32_t kButtonSeqText = 0x52E2851E;           // key_combo_string
+constexpr uint32_t kKeyCombo = 0xACFDB27A;                // key_combo
+constexpr uint32_t kTrickMapping = 0xD544AA2D;            // trick_mapping
+constexpr uint32_t kGoalNoValidKeyCombos = 0xF3C20AF5;    // goal_no_valid_key_combos
+constexpr uint32_t kTetrisTrickText = 0x8856C817;         // goal_tetris_trick_text
+constexpr uint32_t kName = 0xA1DC81F9;                    // Name
+constexpr uint32_t kPremadeCats = 0xFFD7913F;             // Premade_CATS
+constexpr uint32_t kParams = 0x7031F10C;                  // params
+constexpr uint32_t kShouldRemoveTrick = 0xBC678826;       // should_remove_trick
+constexpr uint32_t kTrickName = 0xEF6FB249;               // trick_name
+constexpr uint32_t kUnassigned = 0xF60C9090;              // Unassigned
+constexpr uint32_t kId = 0x40C698AF;                      // id
+constexpr uint32_t kPremadeCatIndex = 0x0B502200;         // premade_cat_index
+constexpr uint32_t kGoalDescription = 0x0C5D7E6B;         // goal_deScription
+constexpr uint32_t kViewGoalsText = 0x4BC5229D;           // view_goals_text
+constexpr uint32_t kViewGoalsTip = 0x63981D6F;            // view_goals_tip
+constexpr uint32_t kGoalText = 0xDA441D9A;                // goal_text
+constexpr uint32_t kKeyComboText = 0x1B3B4DD8;            // key_combo_text
 constexpr uint32_t kOriginalGoalDescription = 0x01F238B1; // original_goal_description
 constexpr uint32_t kOriginalViewGoalsText = 0x89E9C617;   // original_view_goals_text
 constexpr uint32_t kOriginalViewGoalsTip = 0x988330D3;    // original_view_goals_tip
 constexpr uint32_t kOriginalGoalText = 0xB0D7628F;        // original_goal_text
 constexpr uint32_t kOriginalKeyComboText = 0xE0206064;    // original_key_combo_text
-constexpr uint32_t kCat = 0x61A1BC57;                 // cat
-constexpr uint32_t kAir = 0x439F4704;                 // AIR
-constexpr uint32_t kLip = 0xA549B57B;                 // lip
-constexpr uint32_t kManual = 0xEF24413B;              // Manual
-constexpr uint32_t kSpecialTricksAir = 0x4764231D;    // goal_special_tricks_air
-constexpr uint32_t kSpecialTricksGrind = 0xF481D0CD;  // goal_special_tricks_grind
-constexpr uint32_t kSpecialTricksManual = 0xD72D5CF7; // goal_special_tricks_manual
-constexpr uint32_t kSpecialTricksLip = 0xA1B2D162;    // goal_special_tricks_lip
-constexpr uint32_t kTrickslot = 0xA92A2280;           // trickslot
-constexpr uint32_t kIndex = 0x7F8C98FE;               // index
-constexpr uint32_t kSpecialTrickIndex = 0x7F264BE9;   // special_trick_index
-constexpr uint32_t kLoadPremadeCat = 0x466576C8;      // load_premade_cat
+constexpr uint32_t kCat = 0x61A1BC57;                     // cat
+constexpr uint32_t kAir = 0x439F4704;                     // AIR
+constexpr uint32_t kLip = 0xA549B57B;                     // lip
+constexpr uint32_t kManual = 0xEF24413B;                  // Manual
+constexpr uint32_t kSpecialTricksAir = 0x4764231D;        // goal_special_tricks_air
+constexpr uint32_t kSpecialTricksGrind = 0xF481D0CD;      // goal_special_tricks_grind
+constexpr uint32_t kSpecialTricksManual = 0xD72D5CF7;     // goal_special_tricks_manual
+constexpr uint32_t kSpecialTricksLip = 0xA1B2D162;        // goal_special_tricks_lip
+constexpr uint32_t kTrickslot = 0xA92A2280;               // trickslot
+constexpr uint32_t kIndex = 0x7F8C98FE;                   // index
+constexpr uint32_t kSpecialTrickIndex = 0x7F264BE9;       // special_trick_index
+constexpr uint32_t kLoadPremadeCat = 0x466576C8;          // load_premade_cat
 
 constexpr int kLabelPoints = 0x200; // the texts' buffer
 
@@ -142,7 +142,7 @@ int Objective::pick_key_combo(script::Array* combos)
 
 // 0x00555B50
 bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_texts, script::Array* trick_texts,
-                            int premade_cat)
+                                  int premade_cat)
 {
     script::Struct* combo_texts = script::read_sub_struct(kTetrisTrickText);
     void* skate = skate_calls::get_skate();
@@ -177,7 +177,8 @@ bool Objective::build_trick_texts(script::Array* key_combos, script::Array* key_
         if (in_slot) {
             objects::GameEntity* skater = static_cast<modules::Skate*>(skate)->get_home_rider();
             if (skater) {
-                auto* trick_object = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + slot * 4 + 0x17C);
+                auto* trick_object =
+                    *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(skater) + slot * 4 + 0x17C);
                 (*reinterpret_cast<script::Struct**>(trick_object + 4))->fetch_text(kName, &trick_text, 1);
             }
         } else if (premade_cat > -1) {
@@ -358,11 +359,20 @@ bool Objective::award_special_trick()
     script::Struct* free = nullptr;
     switch (type) {
     case kCat:
-    case kAir: free = script::read_sub_struct(kSpecialTricksAir); break;
-    case kGrind: free = script::read_sub_struct(kSpecialTricksGrind); break;
-    case kLip: free = script::read_sub_struct(kSpecialTricksLip); break;
-    case kManual: free = script::read_sub_struct(kSpecialTricksManual); break;
-    default: break;
+    case kAir:
+        free = script::read_sub_struct(kSpecialTricksAir);
+        break;
+    case kGrind:
+        free = script::read_sub_struct(kSpecialTricksGrind);
+        break;
+    case kLip:
+        free = script::read_sub_struct(kSpecialTricksLip);
+        break;
+    case kManual:
+        free = script::read_sub_struct(kSpecialTricksManual);
+        break;
+    default:
+        break;
     }
     RiderIdentity* profile = current_profile();
     int slots = profile->get_max_specials();
@@ -406,4 +416,4 @@ bool Objective::award_special_trick()
     return !had;
 }
 
-} // namespace Game
+} // namespace goals

@@ -34,4 +34,4 @@ extern void* g_pixel_shaders[kPixelShaderCount];
 // The vertex-format ids, in address order (0x00775B64 + 4 * index; a mesh's type t is index 6 - t).
 extern uint32_t g_vertex_shaders[6];
 
-} // namespace Nx
+} // namespace render

@@ -5,7 +5,7 @@
 namespace script {
 class Struct;
 class Script;
-} // namespace Script
+} // namespace script
 
 // "Pip" file loading: data files are loaded whole into memory, either one at a time (up to 200, reference
 // counted) or as .pre archives - packs of files loaded in one go (up to 100 at once). Files are found by
@@ -15,7 +15,7 @@ namespace packs {
 // A file inside a loaded .pre archive. The file's name (nameSize bytes) follows this header, then its data
 // (compressedSize bytes if compressed, else size), each padded.
 struct PreEntry {
-    int size;           // uncompressed
+    int size;             // uncompressed
     int compressed_size_; // 0 if stored uncompressed
     uint16_t name_size_;
     uint16_t use_count_; // how many packs::ReadIn calls are using it
@@ -71,4 +71,4 @@ bool __cdecl cfunc_load_pip_pre(script::Struct* params, script::Script* script);
 bool __cdecl cfunc_un_load_pip_pre(script::Struct* params, script::Script* script);
 bool __cdecl cfunc_dump_pip_pre_status(script::Struct* params, script::Script* script);
 
-} // namespace Pip
+} // namespace packs

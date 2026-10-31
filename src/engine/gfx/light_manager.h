@@ -20,9 +20,9 @@ struct DynamicLightBase;
 
 // The world lights (0x1C bytes: 0x0067DC98, and each of the stack's entries).
 struct LightingState {
-    uint32_t ambient;      // +0x00: RGBA
+    uint32_t ambient;        // +0x00: RGBA
     maths::Vec4* directions; // +0x04: one per light
-    uint32_t* colours;     // +0x08: one per light
+    uint32_t* colours;       // +0x08: one per light
     float ambient_low_;      // +0x0C: the ambient's range below the middle brightness
     float ambient_high_;     // +0x10: ... above it
     float* light_low_;       // +0x14: each light's
@@ -34,7 +34,8 @@ struct LightingState {
     // 0x0048EB00: the four arrays freed.
     void free_arrays();
 };
-static_assert(offsetof(LightingState, light_low_) == 0x14 && sizeof(LightingState) == 0x1C, "layout must match the original");
+static_assert(offsetof(LightingState, light_low_) == 0x14 && sizeof(LightingState) == 0x1C,
+              "layout must match the original");
 
 // 0x0048EB70: the manager set up for `max_lights` world lights (their arrays - the stack's zeroed - and the
 // intensities, all 1) and `max_model_lights` model lights.
@@ -86,7 +87,7 @@ struct DynamicLightBase {
     float pos[4];          // +0x04
     int type;              // +0x14
     float radius;          // +0x18
-    float inverse_radius_;   // +0x1C
+    float inverse_radius_; // +0x1C
     float intensity;       // +0x20
     uint32_t colour;       // +0x24
     uint32_t owner;        // +0x28
@@ -108,4 +109,4 @@ extern LightingState g_active_lighting;
 extern DynamicLightBase* g_dynamic_lights[256];
 extern float* g_intensities;
 extern uint32_t g_model_light_count;
-} // namespace Nx
+} // namespace render

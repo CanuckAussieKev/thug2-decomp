@@ -25,7 +25,7 @@ constexpr uint32_t kFence = 0x771994FF;           // "Sk4Ed_Fence_20x20"
 // 0x00417190 / 0x004171B0, tested by 0x004172F0; what it hit is held by a smart pointer.
 struct Feeler {
     uint8_t unknown00[0x78];
-    maths::Vec4 contact_pos_;              // +0x78: where it hit
+    maths::Vec4 contact_pos_; // +0x78: where it hit
     uint8_t unknown88[0x10];
     objects::SharedRef<objects::SharedBase> entity_; // +0x98
     uint8_t unknowna4_[0xC];
@@ -270,7 +270,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 
     // Keep what's there already, delete the rest of the inner shell in the cell.
     CellBox cell = CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
-                                   static_cast<uint8_t>(request->z), 1, 1, 1);
+                                     static_cast<uint8_t>(request->z), 1, 1, 1);
     MapListHolder metas(collect_pieces_in_region(cell));
     for (MapListNode* node = metas.list; node;) {
         PieceGroup* meta = node->get_placed_piece();
@@ -291,17 +291,17 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
     if (top) {
         PieceGroup* meta = make_placed_piece(find_piece_template(top), 0);
         place_meta_piece_in_park(CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(request->y),
-                                          static_cast<uint8_t>(request->z), 0, 0, 0),
-                           meta);
+                                                   static_cast<uint8_t>(request->z), 0, 0, 0),
+                                 meta);
     }
     if (below) {
         PieceGroup* meta = make_placed_piece(find_piece_template(below), 0);
-        if (request->x < build_area_.x || request->x >= build_area_.x + build_area_.w ||
-            request->z < build_area_.z || request->z >= build_area_.z + build_area_.l)
+        if (request->x < build_area_.x || request->x >= build_area_.x + build_area_.w || request->z < build_area_.z ||
+            request->z >= build_area_.z + build_area_.l)
             meta->flag_bits_ |= PieceGroup::kRiserBelow | PieceGroup::kFlag400;
         place_meta_piece_in_park(CellBox::get_make(static_cast<uint8_t>(request->x), static_cast<int8_t>(below_y),
-                                          static_cast<uint8_t>(request->z), 0, 0, 0),
-                           meta);
+                                                   static_cast<uint8_t>(request->z), 0, 0, 0),
+                                 meta);
     }
 }
 
@@ -360,15 +360,19 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     };
     for (int x = park.x; x < park.w + park.x; x += 2) {
         uint8_t px = static_cast<uint8_t>(x);
-        add_fence(CellBox::get_make(px, 0, park.z, 2, 1, 1), CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0), 0);
+        add_fence(CellBox::get_make(px, 0, park.z, 2, 1, 1),
+                  CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0), 0);
         uint8_t far = static_cast<uint8_t>(park.z + park.l);
-        add_fence(CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1), CellBox::get_make(px, 0, far, 0, 0, 0), 2);
+        add_fence(CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1),
+                  CellBox::get_make(px, 0, far, 0, 0, 0), 2);
     }
     for (int z = park.z; z < park.l + park.z; z += 2) {
         uint8_t pz = static_cast<uint8_t>(z);
-        add_fence(CellBox::get_make(park.x, 0, pz, 1, 1, 2), CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0), 1);
+        add_fence(CellBox::get_make(park.x, 0, pz, 1, 1, 2),
+                  CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0), 1);
         uint8_t far = static_cast<uint8_t>(park.w + park.x);
-        add_fence(CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2), CellBox::get_make(far, 0, pz, 0, 0, 0), 3);
+        add_fence(CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2),
+                  CellBox::get_make(far, 0, pz, 0, 0, 0), 3);
     }
     mark_progress("RebuildInnerShell-After adding fence pieces");
 
@@ -441,4 +445,4 @@ bool ParkLayout::regenerate_ground(CellBox* area, int /*unused*/)
     return true;
 }
 
-} // namespace Ed
+} // namespace park_editing

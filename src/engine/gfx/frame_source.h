@@ -10,9 +10,9 @@ namespace render {
 
 struct FrameSource {
     void** vtable;
-    uint32_t anim_;          // +0x04: the animation's checksum
+    uint32_t anim_; // +0x04: the animation's checksum
     uint8_t unknown8_[0x200];
-    bool is_finished_;              // +0x208
+    bool is_finished_; // +0x208
     uint8_t pad209[0xB];
 
     // 0x0048CF70: construct - everything after the vtable zeroed. Returns this.
@@ -30,4 +30,4 @@ static_assert(offsetof(FrameSource, is_finished_) == 0x208 && sizeof(FrameSource
 // 0x0048CF50: the asset manager's data for `checksum` (null for 0).
 void* __cdecl get_anim_data(uint32_t checksum, int unused);
 
-} // namespace Nx
+} // namespace render

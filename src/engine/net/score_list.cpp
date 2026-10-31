@@ -45,20 +45,20 @@ using namespace detail;
 namespace {
 
 // Names.
-constexpr uint32_t kSkaterScore = 0xD262802F;      // SkaterScore (the component)
-constexpr uint32_t kNetLobby = 0x1C471C60;         // netlobby
-constexpr uint32_t kNetKing = 0x6EF8FDA0;          // netking
-constexpr uint32_t kKing = 0x5D32129C;             // king
-constexpr uint32_t kNetScavengerHunt = 0xFC13B531; // netscavengerhunt
-constexpr uint32_t kNetGoalAttack = 0xEC200EAA;    // netgoalattack
-constexpr uint32_t kNetFirefight = 0xBFF33600;     // netfirefight
-constexpr uint32_t kScavenger = 0x1F3430CE;        // scavenger (the goal)
-constexpr uint32_t kClearScores = 0x7084400A;      // clear_scores
-constexpr uint32_t kUpdateScore = 0xAD022A2C;      // update_score
-constexpr uint32_t kKingAbbreviation = 0xA1DD0949; // player_str_king_abbreviation
-constexpr uint32_t kText = 0xC4745838;             // text
-constexpr uint32_t kId = 0x40C698AF;               // id
-constexpr uint32_t kTeamNames[4] = {0x3224348D, 0xB4B04623, 0x7FEC9586, 0x62E9A53E}; // team_1_name ... team_4_name
+constexpr uint32_t kSkaterScore = 0xD262802F;                                         // SkaterScore (the component)
+constexpr uint32_t kNetLobby = 0x1C471C60;                                            // netlobby
+constexpr uint32_t kNetKing = 0x6EF8FDA0;                                             // netking
+constexpr uint32_t kKing = 0x5D32129C;                                                // king
+constexpr uint32_t kNetScavengerHunt = 0xFC13B531;                                    // netscavengerhunt
+constexpr uint32_t kNetGoalAttack = 0xEC200EAA;                                       // netgoalattack
+constexpr uint32_t kNetFirefight = 0xBFF33600;                                        // netfirefight
+constexpr uint32_t kScavenger = 0x1F3430CE;                                           // scavenger (the goal)
+constexpr uint32_t kClearScores = 0x7084400A;                                         // clear_scores
+constexpr uint32_t kUpdateScore = 0xAD022A2C;                                         // update_score
+constexpr uint32_t kKingAbbreviation = 0xA1DD0949;                                    // player_str_king_abbreviation
+constexpr uint32_t kText = 0xC4745838;                                                // text
+constexpr uint32_t kId = 0x40C698AF;                                                  // id
+constexpr uint32_t kTeamNames[4] = {0x3224348D, 0xB4B04623, 0x7FEC9586, 0x62E9A53E};  // team_1_name ... team_4_name
 constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62CC86,  // net_score_1 ... 4
                                      0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}; // net_score_5 ... 8
 
@@ -167,7 +167,8 @@ void __cdecl score_broadcast_tick(void* task)
     bool hill_mode = get_game_type() == kNetKing || get_game_type() == kKing;
     bool scavenger_hunt = false;
     if (get_game_type() == kNetScavengerHunt) {
-        uint8_t* goal = get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), objective_board(), kScavenger, 0);
+        uint8_t* goal =
+            get_call<uint8_t*>(code_address(&goals::GoalManager::get_goal), objective_board(), kScavenger, 0);
         if (goal && reinterpret_cast<bool(__thiscall*)(void*)>((*reinterpret_cast<void***>(goal))[3])(goal))
             scavenger_hunt = true; // (the goal is active)
     }
@@ -183,7 +184,8 @@ void __cdecl score_broadcast_tick(void* task)
     if (not_lobby && manager->show_team_scores()) {
         // A line per team with players: the team's name, its players' marks.
         ScoreEntry* teams[4];
-        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()); ++team) {
+        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
+             ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
             uint32_t name = team < 4 ? kTeamNames[team] : 0;
@@ -214,7 +216,8 @@ void __cdecl score_broadcast_tick(void* task)
                 teams[p->team_]->flag_bits_ |= flag_bit(p);
             }
         }
-        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode()); ++team) {
+        for (int team = 0; team < get_call<int>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
+             ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
             ScoreEntry* entry = teams[team];
@@ -244,14 +247,16 @@ void __cdecl score_broadcast_tick(void* task)
             if (!not_lobby) {
                 get_append(&list, entry);
             } else {
-                entry->priority = scavenger_hunt ? 5 - p->unknown34_ : manager->get_entrant_points(get_skater_id(p->skater_));
+                entry->priority =
+                    scavenger_hunt ? 5 - p->unknown34_ : manager->get_entrant_points(get_skater_id(p->skater_));
                 list.append_vertex(entry);
             }
         }
     }
 
     // The lines, best first.
-    memory::ListNode* cursor = list.list_link_.next->data == reinterpret_cast<void*>(-1) ? nullptr : list.list_link_.next;
+    memory::ListNode* cursor =
+        list.list_link_.next->data == reinterpret_cast<void*>(-1) ? nullptr : list.list_link_.next;
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
     for (int line = 0; entry; ++line) {
         char prefix[64]; // (16 bytes in the original: a long crown abbreviation overran it)
@@ -279,8 +284,8 @@ void __cdecl score_broadcast_tick(void* task)
         } else if (hill_mode) {
             int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
-                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d", prefix, entry->shade_, entry->text_,
-                             entry->shade_, seconds / 60, seconds % 60);
+                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d", prefix, entry->shade_, entry->text_, entry->shade_,
+                             seconds / 60, seconds % 60);
             else
                 std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d:%.2d", prefix, entry->shade_, entry->text_,
                              entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
@@ -305,7 +310,8 @@ void __cdecl score_broadcast_tick(void* task)
                 element, params);
         get_run(kUpdateScore, params);
         delete_params(params);
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(entry->vtable[0])(entry, 1); // (deleted: out of the list)
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(entry->vtable[0])(entry,
+                                                                                    1); // (deleted: out of the list)
         entry = following;
     }
     list.list_link_.prev->next = list.list_link_.next; // (the head's destructor)

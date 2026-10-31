@@ -40,7 +40,7 @@ using script::Struct;
 constexpr uint32_t kOptions = 0x2FCA0578;                // "Options"
 constexpr uint32_t kSplitScreenPreferences = 0xF7720C3F; // "SplitScreenPreferences"
 constexpr uint32_t kSoundOptions = 0x89EB9738;           // "SoundOptions"
-constexpr uint32_t kMasterGainKey = 0x6F016DFB;             // "master_loudness"
+constexpr uint32_t kMasterGainKey = 0x6F016DFB;          // "master_loudness"
 constexpr uint32_t kMusicVolume = 0xABD4A575;            // "MusicVolume"
 constexpr uint32_t kMusicVolOutsideBox = 0xE3C22B01;     // "MusicVolOutsideBox"
 constexpr uint32_t kForbiddenTracks1 = 0x595D2C95;       // "PlayListForbiddenTrackFlags1"
@@ -49,7 +49,7 @@ constexpr uint32_t kForbiddenTracks3 = 0xB7534DB9;       // (name unknown) the s
 constexpr uint32_t kForbiddenTracks4 = 0x2937D81A;       // (name unknown) its low half
 constexpr uint32_t kCurrentSoundtrack = 0xE1F7C4AE;      // "current_soundtrack"
 constexpr uint32_t kRandomMode = 0x31C71B70;             // "RandomMode"
-constexpr uint32_t kPadSettingsKey = 0x37BDB853;  // "ControllerPreferences"
+constexpr uint32_t kPadSettingsKey = 0x37BDB853;         // "ControllerPreferences"
 constexpr uint32_t kVibrationOn = 0x73CEE124;            // "VibrationOn"
 constexpr uint32_t kAutokickOn = 0x1EEF7085;             // "AutokickOn"
 constexpr uint32_t kSpinTapsOn = 0xA483BA67;             // "SpinTapsOn"
@@ -68,13 +68,17 @@ modules::Skate* get_skate() { return modules::Skate::sole(); }
 objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
 highscores::BestResults* game_records() { return highscores::g_game_records; }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
-objects::RiderStoryProgress* get_career() { return *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(get_skate()) + 0x20); }
+objects::RiderStoryProgress* get_career()
+{
+    return *reinterpret_cast<objects::RiderStoryProgress**>(reinterpret_cast<uint8_t*>(get_skate()) + 0x20);
+}
 int os_layer() { return game_config::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
 prefs::Preferences* split_screen_preferences()
 {
-    return reinterpret_cast<prefs::Preferences*(__thiscall*)(modules::Skate*)>(code_address(&modules::Skate::get_split_view_settings))(get_skate());
+    return reinterpret_cast<prefs::Preferences*(__thiscall*)(modules::Skate*)>(
+        code_address(&modules::Skate::get_split_view_settings))(get_skate());
 }
 // A preferences object's structure (+4).
 Struct* preferences_structure(prefs::Preferences* preferences)
@@ -189,8 +193,10 @@ void read_save_header(Struct* global, Script* script)
         sound->fetch_int_value(kForbiddenTracks2, &tracks[1], 0);
         sound->fetch_int_value(kForbiddenTracks3, &tracks[2], 0);
         sound->fetch_int_value(kForbiddenTracks4, &tracks[3], 0);
-        uint64_t low = (static_cast<uint64_t>(static_cast<uint32_t>(tracks[0])) << 32) | static_cast<uint32_t>(tracks[1]);
-        uint64_t high = (static_cast<uint64_t>(static_cast<uint32_t>(tracks[2])) << 32) | static_cast<uint32_t>(tracks[3]);
+        uint64_t low =
+            (static_cast<uint64_t>(static_cast<uint32_t>(tracks[0])) << 32) | static_cast<uint32_t>(tracks[1]);
+        uint64_t high =
+            (static_cast<uint64_t>(static_cast<uint32_t>(tracks[2])) << 32) | static_cast<uint32_t>(tracks[3]);
         audio::set_tracks_off(low, high);
     }
     audio::set_random_mode(sound->has_bare_flag(kRandomMode) ? 1 : 0);
@@ -200,7 +206,7 @@ void read_save_header(Struct* global, Script* script)
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
             symbol->checksum = soundtrack;
         Struct* change = spawn_param_table();
-        change->put_name_key(0x8C465905u, soundtrack); // trackchecksum
+        change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum
         script::launch_script(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack
         delete_structure(change);
     }
@@ -241,7 +247,7 @@ void read_save_header(Struct* global, Script* script)
     // (0x00564F80, the overload taking the params - none: not fetch_account(int))
     auto* profile = get_skate()->fetch_account(static_cast<Struct*>(nullptr));
     if (!profile->is_pro()) {
-        const char* cas_file_name = "Unimplemented"; // "Unimplemented"
+        const char* cas_file_name = "Unimplemented";        // "Unimplemented"
         global->fetch_text(0xF36C1878u, &cas_file_name, 0); // CASFileName
         profile->set_string_f_36c_1878(cas_file_name);
     }
@@ -276,7 +282,8 @@ void write_save_contents(Struct* contents, uint32_t type)
         Struct* story = spawn_param_table();
         void* goal_manager = goals::get_objective_board();
         // the goal manager's parameters (a folded getter, +0x14)
-        story->put_sub_struct(kGoalManagerParams, reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(goal_manager));
+        story->put_sub_struct(kGoalManagerParams, reinterpret_cast<Struct*(__thiscall*)(void*)>(
+                                                      code_address(&gfx::Rig::get_num_bones))(goal_manager));
         contents->append_struct_ref(kStory, story);
         Struct* story_skater = spawn_param_table();
         auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));
@@ -316,7 +323,8 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             return;
         Struct* other = nullptr;
         contents->read_sub_struct("other_params", &other, 1);
-        reinterpret_cast<Struct*>(*reinterpret_cast<Struct**>(skater->trick_slots_[0] + 4))->append_structure_if_any(other);
+        reinterpret_cast<Struct*>(*reinterpret_cast<Struct**>(skater->trick_slots_[0] + 4))
+            ->append_structure_if_any(other);
         Array* rotation = nullptr;
         contents->fetch_list("rotation_info", &rotation, 1);
         script::duplicate_array(*reinterpret_cast<Array**>(skater->trick_slots_[0] + 8), rotation);
@@ -357,7 +365,8 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             contents->read_sub_struct(kCustomSkater, &custom_skater, 1);
             objects::ProfileRoster* profiles = get_profiles();
             // the stats kept unless the current skater is the first (the manager's +0x1C, 0x00553E90)
-            bool keep = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(profiles) != 0;
+            bool keep =
+                reinterpret_cast<int(__thiscall*)(void*)>(code_address(&goals::Objective::fetch_args))(profiles) != 0;
             profiles->read_custom_skater(custom_skater, keep);
             loaded_custom_skater = true;
         }
@@ -418,4 +427,4 @@ __declspec(naked) void apply_loaded_contents_stub()
     }
 }
 
-} // namespace Mc
+} // namespace save_cards

@@ -8,7 +8,7 @@
 
 namespace script {
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
@@ -51,20 +51,19 @@ public:
     // anything else.
     int score_taken();
 
-    uint8_t* suspend_;      // +0x18 the suspend component (Finalize)
-    float radius_;           // +0x1C radius
-    float size_factor_;            // +0x20 scale
-    uint32_t on_collide_script_;   // +0x24 death_script
-    uint32_t holder_key_;       // +0x28 owner_id (the skater who threw it)
-    uint32_t projectile_type_; // +0x2C projectile_type
-    maths::Vec4 vel_;        // +0x30 (0, 0, 1) normalised
-    bool hit_;               // +0x40
+    uint8_t* suspend_;           // +0x18 the suspend component (Finalize)
+    float radius_;               // +0x1C radius
+    float size_factor_;          // +0x20 scale
+    uint32_t on_collide_script_; // +0x24 death_script
+    uint32_t holder_key_;        // +0x28 owner_id (the skater who threw it)
+    uint32_t projectile_type_;   // +0x2C projectile_type
+    maths::Vec4 vel_;            // +0x30 (0, 0, 1) normalised
+    bool hit_;                   // +0x40
     uint8_t pad41[3];
 };
-static_assert(offsetof(ShotImpactModule, suspend_) == 0x18 &&
-                  offsetof(ShotImpactModule, projectile_type_) == 0x2C &&
-                  offsetof(ShotImpactModule, vel_) == 0x30 &&
-                  offsetof(ShotImpactModule, hit_) == 0x40 && sizeof(ShotImpactModule) == 0x44,
+static_assert(offsetof(ShotImpactModule, suspend_) == 0x18 && offsetof(ShotImpactModule, projectile_type_) == 0x2C &&
+                  offsetof(ShotImpactModule, vel_) == 0x30 && offsetof(ShotImpactModule, hit_) == 0x40 &&
+                  sizeof(ShotImpactModule) == 0x44,
               "layout must match the original");
 
 // The projectile proximity component (type 0x3618B878 "projectileproximity", vtable 0x0064B864, 0x24 bytes; made by
@@ -94,13 +93,13 @@ public:
     // component yet (and an object id), that is.
     void tick_frame();
 
-    float reach_squared_;                 // +0x18 2304 (48 squared)
-    Rider* rider_ref_;                // +0x1C the local skater
-    PedestrianBrainModule* ped_logic_;   // +0x20 the object's
+    float reach_squared_;              // +0x18 2304 (48 squared)
+    Rider* rider_ref_;                 // +0x1C the local skater
+    PedestrianBrainModule* ped_logic_; // +0x20 the object's
 };
 static_assert(offsetof(ProjectileProximityComponent, reach_squared_) == 0x18 &&
                   offsetof(ProjectileProximityComponent, ped_logic_) == 0x20 &&
                   sizeof(ProjectileProximityComponent) == 0x24,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

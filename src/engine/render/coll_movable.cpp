@@ -19,13 +19,27 @@ namespace render {
 
 namespace {
 
-static VtableSlot g_movable_vtable_slots[] = {&render::HitMovingMesh::scalar_delete, stubs::return_false,
-        &_purecall, &_purecall, &render::HitMesh::assign_shape_data, &render::ProbeRay::change_finish,
-        &render::HitMovingMesh::change_facing, &render::HitMovingMesh::get_absolute_point, &render::HitMovingMesh::fetch_facing,
-        &render::HitMovingMesh::read_vertex_point, &render::HitMovingMesh::get_value_a0, &render::HitMovingMesh::set_value_a0,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, stubs::return_zero};
+static VtableSlot g_movable_vtable_slots[] = {&render::HitMovingMesh::scalar_delete,
+                                              stubs::return_false,
+                                              &_purecall,
+                                              &_purecall,
+                                              &render::HitMesh::assign_shape_data,
+                                              &render::ProbeRay::change_finish,
+                                              &render::HitMovingMesh::change_facing,
+                                              &render::HitMovingMesh::get_absolute_point,
+                                              &render::HitMovingMesh::fetch_facing,
+                                              &render::HitMovingMesh::read_vertex_point,
+                                              &render::HitMovingMesh::get_value_a0,
+                                              &render::HitMovingMesh::set_value_a0,
+                                              &_purecall,
+                                              &_purecall,
+                                              &_purecall,
+                                              &_purecall,
+                                              &_purecall,
+                                              &_purecall,
+                                              &_purecall,
+                                              &_purecall,
+                                              stubs::return_zero};
 void** const kMovableVtable = reinterpret_cast<void**>(g_movable_vtable_slots);
 
 void set_identity(maths::Mat4& m)
@@ -45,15 +59,32 @@ void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t col
 
 } // namespace
 
-static VtableSlot g_scaled_vtable_slots[] = {&render::CollScaled::scalar_delete, stubs::return_false,
-        &_purecall, &_purecall, &render::HitMesh::assign_shape_data,
-        &render::CollScaled::place_at_absolute_point, &render::CollScaled::change_facing, &render::CollScaled::get_absolute_point,
-        &render::HitMovingMesh::fetch_facing, &render::CollScaled::read_vertex_point, stubs::return_zero, stubs::ignore_argument,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, &_purecall,
-        &_purecall, &_purecall, stubs::return_zero, &_purecall,
-        &_purecall, &_purecall, &render::CollScaled::change_scale,
-        &render::HitMovingMesh::get_absolute_point};
+static VtableSlot g_scaled_vtable_slots[] = {&render::CollScaled::scalar_delete,
+                                             stubs::return_false,
+                                             &_purecall,
+                                             &_purecall,
+                                             &render::HitMesh::assign_shape_data,
+                                             &render::CollScaled::place_at_absolute_point,
+                                             &render::CollScaled::change_facing,
+                                             &render::CollScaled::get_absolute_point,
+                                             &render::HitMovingMesh::fetch_facing,
+                                             &render::CollScaled::read_vertex_point,
+                                             stubs::return_zero,
+                                             stubs::ignore_argument,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             stubs::return_zero,
+                                             &_purecall,
+                                             &_purecall,
+                                             &_purecall,
+                                             &render::CollScaled::change_scale,
+                                             &render::HitMovingMesh::get_absolute_point};
 void** const kScaledVtable = reinterpret_cast<void**>(g_scaled_vtable_slots);
 
 // 0x00411FA0
@@ -112,16 +143,10 @@ void HitMovingMesh::change_facing(const maths::Mat4* orientation)
 }
 
 // 0x00412050
-maths::Vec4* HitMovingMesh::get_absolute_point()
-{
-    return &anchor_point_;
-}
+maths::Vec4* HitMovingMesh::get_absolute_point() { return &anchor_point_; }
 
 // 0x00412060
-maths::Mat4* HitMovingMesh::fetch_facing()
-{
-    return &orientation_;
-}
+maths::Mat4* HitMovingMesh::fetch_facing() { return &orientation_; }
 
 // 0x00412230
 maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
@@ -130,7 +155,8 @@ maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
     raw.w = 0.0f;
     maths::Vec4 turned;
     orientation_.rotate_vector(turned, raw);
-    return {turned.x + anchor_point_.x, turned.y + anchor_point_.y, turned.z + anchor_point_.z, turned.w + anchor_point_.w};
+    return {turned.x + anchor_point_.x, turned.y + anchor_point_.y, turned.z + anchor_point_.z,
+            turned.w + anchor_point_.w};
 }
 
 // 0x004122C0
@@ -151,16 +177,10 @@ void HitMovingMesh::box_to_local(const maths::BBox* box, maths::BBox* out) const
 }
 
 // 0x0040AE50
-int HitMovingMesh::get_value_a0() const
-{
-    return value_a0_;
-}
+int HitMovingMesh::get_value_a0() const { return value_a0_; }
 
 // 0x0040AE40
-void HitMovingMesh::set_value_a0(int value)
-{
-    value_a0_ = value;
-}
+void HitMovingMesh::set_value_a0(int value) { value_a0_ = value; }
 
 // 0x004120D0
 maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
@@ -241,16 +261,10 @@ void HitMovingBox::assign_shape_data(TriMeshSource* geometry)
 }
 
 // 0x0040AE60
-uint32_t HitMovingBox::get_triangle_attrs(int /*face*/) const
-{
-    return poly_attr_bits_;
-}
+uint32_t HitMovingBox::get_triangle_attrs(int /*face*/) const { return poly_attr_bits_; }
 
 // 0x0040AE70
-uint16_t HitMovingBox::get_face_terrain(int /*face*/) const
-{
-    return surface_type_;
-}
+uint16_t HitMovingBox::get_face_terrain(int /*face*/) const { return surface_type_; }
 
 // 0x00414BE0
 HitMovingBox* HitMovingBox::replicate(int)
@@ -298,10 +312,7 @@ CollScaled* CollScaled::construct_copy(const CollScaled* other)
 }
 
 // 0x00412460 (only the base's body)
-void CollScaled::destruct()
-{
-    destroy_base();
-}
+void CollScaled::destruct() { destroy_base(); }
 
 // 0x004135E0
 CollScaled* CollScaled::scalar_delete(uint8_t flags)
@@ -363,10 +374,7 @@ void CollScaled::update_inverse()
 }
 
 // 0x004109C0
-maths::Vec4* CollScaled::get_absolute_point()
-{
-    return &basis_frame_.row[3];
-}
+maths::Vec4* CollScaled::get_absolute_point() { return &basis_frame_.row[3]; }
 
 // 0x004109D0
 maths::Vec4 CollScaled::read_vertex_point(int index) const
@@ -378,4 +386,4 @@ maths::Vec4 CollScaled::read_vertex_point(int index) const
     return out;
 }
 
-} // namespace Nx
+} // namespace render

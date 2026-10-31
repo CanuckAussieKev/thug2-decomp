@@ -22,18 +22,18 @@ struct RiderIdentity {
     uint8_t look_data_[0x5C];
     uint8_t details_[8]; // +0x5C (a Scripts::CStruct)
 
-    RiderIdentity* make_new();                           // 0x00586D60
-    uint32_t fetch_title();                                    // 0x00586150 (its info's name)
-    bool is_pro();                                          // 0x00586170 (is_pro)
-    const char* fetch_shown_name();                          // 0x00586210 (display_name)
-    script::Struct* get_specials();                        // 0x00586130 (specials)
-    int get_max_specials();                                  // 0x005860A0 (max_specials)
-    int fetch_tally(uint32_t name);                            // 0x00585FB0
-    bool set_ability_level(uint32_t name, int value);                // 0x00585FD0 (0-10 only)
-    RiderIdentity* copy_from(RiderIdentity* other);       // 0x00585ED0
-    void read_from_save(uint32_t name, script::Struct* save); // 0x00585F00 (its part of a save, by name)
-    void write_to_save(script::Struct* save);               // 0x00586B00
-    bool get_reset(script::Struct* params);                   // 0x00586810 (its defaults, then `params`; true)
+    RiderIdentity* make_new();                                    // 0x00586D60
+    uint32_t fetch_title();                                       // 0x00586150 (its info's name)
+    bool is_pro();                                                // 0x00586170 (is_pro)
+    const char* fetch_shown_name();                               // 0x00586210 (display_name)
+    script::Struct* get_specials();                               // 0x00586130 (specials)
+    int get_max_specials();                                       // 0x005860A0 (max_specials)
+    int fetch_tally(uint32_t name);                               // 0x00585FB0
+    bool set_ability_level(uint32_t name, int value);             // 0x00585FD0 (0-10 only)
+    RiderIdentity* copy_from(RiderIdentity* other);               // 0x00585ED0
+    void read_from_save(uint32_t name, script::Struct* save);     // 0x00585F00 (its part of a save, by name)
+    void write_to_save(script::Struct* save);                     // 0x00586B00
+    bool get_reset(script::Struct* params);                       // 0x00586810 (its defaults, then `params`; true)
     void set_appearance(script::Struct* appearance, bool update); // 0x00488F40
     script::Struct* details_params() { return reinterpret_cast<script::Struct*>(details_); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
@@ -102,10 +102,10 @@ struct ProfileTable {
         RiderIdentity* item;
         Elem* next;
     };
-    uint32_t num_;  // +0x00
-    Elem* first_;     // +0x04
-    Elem* last_;      // +0x08
-    Elem* cursor_;    // +0x0C
+    uint32_t num_;     // +0x00
+    Elem* first_;      // +0x04
+    Elem* last_;       // +0x08
+    Elem* cursor_;     // +0x0C
     int cursor_index_; // +0x10
 
     RiderIdentity* get_by_index(int index, uint32_t* key);
@@ -167,20 +167,19 @@ public:
     static ProfileRoster* fabricate(bool create);
     static void get_release();
 
-    ProfileTable templates_;            // +0x00
-    RiderIdentity* profiles_[2];       // +0x14 (the first: a template; the second: a copy)
-    int cursor_pos_;                  // +0x1C
-    bool locked_;                       // +0x20
+    ProfileTable templates_;     // +0x00
+    RiderIdentity* profiles_[2]; // +0x14 (the first: a template; the second: a copy)
+    int cursor_pos_;             // +0x1C
+    bool locked_;                // +0x20
     uint8_t pad21[3];
-    int extra_count_;                    // +0x24
-    uint32_t extra_names_[3];            // +0x28
-    RiderIdentity* extra_profiles_[3];  // +0x34
+    int extra_count_;                  // +0x24
+    uint32_t extra_names_[3];          // +0x28
+    RiderIdentity* extra_profiles_[3]; // +0x34
 };
-static_assert(offsetof(ProfileRoster, profiles_) == 0x14 &&
-                  offsetof(ProfileRoster, extra_count_) == 0x24 &&
+static_assert(offsetof(ProfileRoster, profiles_) == 0x14 && offsetof(ProfileRoster, extra_count_) == 0x24 &&
                   offsetof(ProfileRoster, extra_profiles_) == 0x34 && sizeof(ProfileRoster) == 0x40,
               "layout must match the original");
 
 extern objects::ProfileRoster* g_profile_roster;
 
-} // namespace Obj
+} // namespace objects

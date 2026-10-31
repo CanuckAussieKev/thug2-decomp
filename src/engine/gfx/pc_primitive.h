@@ -13,15 +13,15 @@ namespace render {
 struct PcPrimitive {
     void** vtable;
     uint8_t engine04[4];
-    uint32_t flags;          // +0x08: 1 made, 2 set up, 4 ready to draw
-    uint32_t blend_mode_;      // +0x0C: a checksum
-    int owns_vertices_;        // +0x10: 1: the vertices are its own (freed with it)
+    uint32_t flags;       // +0x08: 1 made, 2 set up, 4 ready to draw
+    uint32_t blend_mode_; // +0x0C: a checksum
+    int owns_vertices_;   // +0x10: 1: the vertices are its own (freed with it)
     uint8_t engine14[0x10];
     uint8_t* vertices;       // +0x24
-    uint32_t vertex_format_;   // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
+    uint32_t vertex_format_; // +0x28: D3DFVF (2, 0x42, 0x102, 0x142, 0x152)
     uint32_t layout;         // +0x2C: as given to Init (1 colour, 2 texture, 4 normal)
     int type;                // +0x30: 0 lines, 2 triangles, 4 quads (also the sort key, Compare)
-    int vertex_count_;         // +0x34
+    int vertex_count_;       // +0x34
     int stride;              // +0x38
     uint8_t material[0x110]; // +0x3C (constructor 0x004D1A90)
     uint32_t colour;         // +0x14C
@@ -99,4 +99,4 @@ static_assert(offsetof(PcPrimitive, vertices) == 0x24 && offsetof(PcPrimitive, s
 // 3 less or equal, 4 less; anything else less or equal.
 void __cdecl set_primitive_depth_test(int state, int value);
 
-} // namespace Nx
+} // namespace render

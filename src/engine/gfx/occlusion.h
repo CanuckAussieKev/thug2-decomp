@@ -12,7 +12,7 @@ namespace render {
 
 // An occlusion polygon (0x00787360, up to 512).
 struct OccluderPolygon {
-    uint8_t in_use_;     // an occluder now
+    uint8_t in_use_; // an occluder now
     uint8_t enabled;
     uint8_t pad[2];
     uint32_t checksum; // its name
@@ -41,7 +41,7 @@ void __cdecl clear_occluder_polys();
 void __cdecl add_occluders();
 // 0x004D8D70: add a polygon (four corners; its normal from the first, second and fourth).
 void __cdecl insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2,
-                              const maths::Vec4* p3, uint32_t checksum);
+                                  const maths::Vec4* p3, uint32_t checksum);
 // 0x004D8ED0: the frame's occluders (`frame` 0 / 1) and their planes as seen from `eye`.
 void __cdecl collect_occluders(const maths::Vec4* eye, int frame);
 // 0x004D9AC0: whether a sphere (moved by the object's transform, 0x007CA968) is hidden by an occluder - which is
@@ -66,4 +66,4 @@ bool __cdecl beyond_clip_distance(const void* bounds);
 
 extern float g_last_sphere_distance;
 
-} // namespace Nx
+} // namespace render

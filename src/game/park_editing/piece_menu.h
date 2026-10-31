@@ -33,12 +33,11 @@ public:
     // 0x00595580: destroy both menus
     void turn_off_now();
 
-    ParkLayout* park_owner_; // +0x00
-    PieceFamily* point_group_;        // +0x04: the set shown
-    int set_number_;          // +0x08
-    int selected_;           // +0x0C: the entry focused
+    ParkLayout* park_owner_;   // +0x00
+    PieceFamily* point_group_; // +0x04: the set shown
+    int set_number_;           // +0x08
+    int selected_;             // +0x0C: the entry focused
 };
 static_assert(offsetof(TopBarMenus, selected_) == 0xC);
 
-
-} // namespace Ed
+} // namespace park_editing

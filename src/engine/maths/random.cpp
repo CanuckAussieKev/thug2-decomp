@@ -32,10 +32,7 @@ uint32_t get_next(RandomState& s)
     return s.value & 0xFFFF;
 }
 
-int scale_tool(uint32_t sample, int n)
-{
-    return static_cast<int>(sample * static_cast<uint32_t>(n)) >> 16;
-}
+int scale_tool(uint32_t sample, int n) { return static_cast<int>(sample * static_cast<uint32_t>(n)) >> 16; }
 
 } // namespace
 
@@ -47,16 +44,10 @@ void seed_random(uint32_t seed)
 }
 
 // 0x00403DE0
-int rnd(int n)
-{
-    return scale_tool(get_next(stream1()), n);
-}
+int rnd(int n) { return scale_tool(get_next(stream1()), n); }
 
 // 0x00403E30
-int roll_side_stream(int n)
-{
-    return scale_tool(get_next(stream2()), n);
-}
+int roll_side_stream(int n) { return scale_tool(get_next(stream2()), n); }
 
 // 0x00403E80
 float signed_spread(float range) { return static_cast<float>(plus_or_minus_exact(range)); }
@@ -69,4 +60,4 @@ double plus_or_minus_exact(float range)
     return centred * range * 0.0002f;
 }
 
-} // namespace Mth
+} // namespace maths

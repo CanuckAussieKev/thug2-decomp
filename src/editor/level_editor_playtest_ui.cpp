@@ -78,7 +78,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
     for (int m = 0; m < kMotions; ++m) {
         if (m % 5)
             ImGui::SameLine();
-        ImGui::TextColored(get_colour(motion_colour(static_cast<Motion>(m))), "%s", motion_name(static_cast<Motion>(m)));
+        ImGui::TextColored(get_colour(motion_colour(static_cast<Motion>(m))), "%s",
+                           motion_name(static_cast<Motion>(m)));
     }
     ImGui::TextColored(get_colour(0xFF40FF60), "o gap landed");
     ImGui::SameLine();
@@ -114,7 +115,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
                 for (int m = 0; m < kMotions; ++m) {
                     if (run.motion_seconds_[m] < 0.05f)
                         continue;
-                    std::snprintf(part, sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)), run.motion_seconds_[m]);
+                    std::snprintf(part, sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
+                                  run.motion_seconds_[m]);
                     text += part;
                 }
                 ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
@@ -169,7 +171,8 @@ void pane(float scale, ImFont* heading, ImFont* small)
             bool ok = gap_landed(g.name);
             if (g_untested_only && ok)
                 continue;
-            ImGui::TextColored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s", ok ? "landed  " : "untested");
+            ImGui::TextColored(ok ? get_colour(0xFF40FF60) : get_colour(0xFFFFB040), "%s",
+                               ok ? "landed  " : "untested");
             ImGui::SameLine();
             ImGui::Text("%s  (%d)", g.name.c_str(), g.score);
         }
@@ -194,4 +197,4 @@ void pane(float scale, ImFont* heading, ImFont* small)
         window_open() = false;
 }
 
-} // namespace MenuSystem::level_editor::play_test
+} // namespace frontend::level_editor::play_test

@@ -34,7 +34,7 @@ const char* keep_tail(const char* fmt, va_list args)
 
 // Not original - who else wants each line (the loading console - engine/gfx/loading_console.h).
 std::atomic<void (*)(const char*)> g_listener{nullptr};
-}
+} // namespace
 
 std::string game_folder_path(const char* file_name)
 {

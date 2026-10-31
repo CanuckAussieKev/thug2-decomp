@@ -22,18 +22,18 @@ uint32_t g_records_references;
 namespace {
 
 // Names.
-constexpr uint32_t kValue = 0xE288A7CB;           // value
-constexpr uint32_t kNumber = 0x696FE0AB;          // number
-constexpr uint32_t kInitials = 0xA226A990;        // initials
-constexpr uint32_t kRecordTable = 0xB1449176;     // recordtable
-constexpr uint32_t kHighScores = 0xFA60D92F;      // highscores
-constexpr uint32_t kBestCombos = 0xD91F1F72;      // bestcombos
-constexpr uint32_t kArcadeScores = 0xDBE683AF;    // arcadescores
-constexpr uint32_t kLongestCombo = 0x3F544EA0;    // longestcombo
-constexpr uint32_t kBestGrindKey = 0x54C9597A;    // longestgrind
-constexpr uint32_t kLongestLipTrick = 0x40590191; // longestliptrick
-constexpr uint32_t kLongestManual = 0x82883251;   // longestmanual
-constexpr uint32_t kGameRecordsArray = 0xE764EDF2; // (the game records' array, as written)
+constexpr uint32_t kValue = 0xE288A7CB;               // value
+constexpr uint32_t kNumber = 0x696FE0AB;              // number
+constexpr uint32_t kInitials = 0xA226A990;            // initials
+constexpr uint32_t kRecordTable = 0xB1449176;         // recordtable
+constexpr uint32_t kHighScores = 0xFA60D92F;          // highscores
+constexpr uint32_t kBestCombos = 0xD91F1F72;          // bestcombos
+constexpr uint32_t kArcadeScores = 0xDBE683AF;        // arcadescores
+constexpr uint32_t kLongestCombo = 0x3F544EA0;        // longestcombo
+constexpr uint32_t kBestGrindKey = 0x54C9597A;        // longestgrind
+constexpr uint32_t kLongestLipTrick = 0x40590191;     // longestliptrick
+constexpr uint32_t kLongestManual = 0x82883251;       // longestmanual
+constexpr uint32_t kGameRecordsArray = 0xE764EDF2;    // (the game records' array, as written)
 constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, as written)
 // The type the records' structures are added with (11: not one of Scripts::QbValueKind's named ones).
 constexpr uint32_t kStructureComponent = 11;
@@ -300,12 +300,14 @@ void StageBests::write_to_structure(script::Struct* params)
         arcade_scores_->write_to_structure(structure);
         params->add_component_of_type(kArcadeScores, kStructureComponent, reinterpret_cast<uint32_t>(structure));
     }
-    params->add_component_of_type(kLongestCombo, kStructureComponent, reinterpret_cast<uint32_t>(record_structure(biggest_chain_)));
-    params->add_component_of_type(kBestGrindKey, kStructureComponent, reinterpret_cast<uint32_t>(record_structure(grind_record_)));
+    params->add_component_of_type(kLongestCombo, kStructureComponent,
+                                  reinterpret_cast<uint32_t>(record_structure(biggest_chain_)));
+    params->add_component_of_type(kBestGrindKey, kStructureComponent,
+                                  reinterpret_cast<uint32_t>(record_structure(grind_record_)));
     params->add_component_of_type(kLongestLipTrick, kStructureComponent,
-                               reinterpret_cast<uint32_t>(record_structure(longest_lip_trick_)));
+                                  reinterpret_cast<uint32_t>(record_structure(longest_lip_trick_)));
     params->add_component_of_type(kLongestManual, kStructureComponent,
-                               reinterpret_cast<uint32_t>(record_structure(longest_manual_)));
+                                  reinterpret_cast<uint32_t>(record_structure(longest_manual_)));
 }
 
 // 0x0057EE70
@@ -405,7 +407,7 @@ bool update_records(bool edited_copy)
         if (skate)
             skate[0x384] = 0; // (no record new: as 0x00566F40 sets it before comparing)
         get_log("records: not updated - the level is the level editor's edited copy (nothing done in it reaches the "
-            "records or the save)");
+                "records or the save)");
         return true;
     }
     reinterpret_cast<modules::Skate*>(skate)->update_records();
@@ -440,4 +442,4 @@ bool __cdecl cfunc_update_initials(script::Struct*, script::Script*)
 // 0x005AFB30
 bool __cdecl cfunc_new_record(script::Struct*, script::Script*) { return skate_calls::skate_field<bool>(0x384); }
 
-} // namespace Records
+} // namespace highscores

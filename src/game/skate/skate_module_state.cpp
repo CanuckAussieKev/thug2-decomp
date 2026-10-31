@@ -56,29 +56,29 @@ float g_next_beep;
 
 namespace {
 
-constexpr uint32_t kInitLightManager = 0x7004771D;       // init_light_manager
-constexpr uint32_t kLoadPermanentPrefiles = 0x7690764F;  // load_permanent_prefiles
-constexpr uint32_t kNetworkDriverStartup = 0x6B1D08C3;   // network_driver_startup
-constexpr uint32_t kInitLoadingBar = 0x36932FCA;         // init_loading_bar
-constexpr uint32_t kStartupLoadingScreen = 0xAA37AEAE;   // startup_loading_screen
-constexpr uint32_t kLoadPermSounds = 0x565D0F63;         // LoadPermSounds
-constexpr uint32_t kLoadPermanentAssets = 0xAE754239;    // load_permanent_assets
-constexpr uint32_t kInitEnvironment = 0x63BBA6AD;        // init_environment
-constexpr uint32_t kDefaultSystemStartup = 0x738AB3D8;   // default_system_startup
-constexpr uint32_t kSkater = 0x5B8AB877;                 // skater
-constexpr uint32_t kLoadNothing = 0x3A8E4A31;            // (name unknown: the level that loads nothing)
-constexpr uint32_t kLevel = 0x651533EC;                  // level
-constexpr uint32_t kFromSettingsMarker = 0x547CB588;         // use_preferences
-constexpr uint32_t kShowWarning = 0xD8E34EDA;            // show_warning
-constexpr uint32_t kLoadSk5EdGameplay = 0xB664035D;      // load_sk5ed_gameplay
-constexpr uint32_t kFreeskate2p = 0x5C8F5D66;            // freeskate2p
-constexpr uint32_t kNetwork = 0x9F7B7843;                // network
-constexpr uint32_t kTaunt = 0x4839873C;                  // taunt
-constexpr uint32_t kSplitscreen = 0x06AB02F2;            // splitscreen
-constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;           // Load_MainMenu
-constexpr uint32_t kLoadCas = 0xA368B4F1;                // load_cas
-constexpr uint32_t kPrefs = 0xB58E6556;                  // prefs
-constexpr uint32_t kAbsentInNetGames = 0x68910AC6;       // AbsentInNetGames
+constexpr uint32_t kInitLightManager = 0x7004771D;      // init_light_manager
+constexpr uint32_t kLoadPermanentPrefiles = 0x7690764F; // load_permanent_prefiles
+constexpr uint32_t kNetworkDriverStartup = 0x6B1D08C3;  // network_driver_startup
+constexpr uint32_t kInitLoadingBar = 0x36932FCA;        // init_loading_bar
+constexpr uint32_t kStartupLoadingScreen = 0xAA37AEAE;  // startup_loading_screen
+constexpr uint32_t kLoadPermSounds = 0x565D0F63;        // LoadPermSounds
+constexpr uint32_t kLoadPermanentAssets = 0xAE754239;   // load_permanent_assets
+constexpr uint32_t kInitEnvironment = 0x63BBA6AD;       // init_environment
+constexpr uint32_t kDefaultSystemStartup = 0x738AB3D8;  // default_system_startup
+constexpr uint32_t kSkater = 0x5B8AB877;                // skater
+constexpr uint32_t kLoadNothing = 0x3A8E4A31;           // (name unknown: the level that loads nothing)
+constexpr uint32_t kLevel = 0x651533EC;                 // level
+constexpr uint32_t kFromSettingsMarker = 0x547CB588;    // use_preferences
+constexpr uint32_t kShowWarning = 0xD8E34EDA;           // show_warning
+constexpr uint32_t kLoadSk5EdGameplay = 0xB664035D;     // load_sk5ed_gameplay
+constexpr uint32_t kFreeskate2p = 0x5C8F5D66;           // freeskate2p
+constexpr uint32_t kNetwork = 0x9F7B7843;               // network
+constexpr uint32_t kTaunt = 0x4839873C;                 // taunt
+constexpr uint32_t kSplitscreen = 0x06AB02F2;           // splitscreen
+constexpr uint32_t kLoadMainMenu = 0xE92ECAFE;          // Load_MainMenu
+constexpr uint32_t kLoadCas = 0xA368B4F1;               // load_cas
+constexpr uint32_t kPrefs = 0xB58E6556;                 // prefs
+constexpr uint32_t kAbsentInNetGames = 0x68910AC6;      // AbsentInNetGames
 
 constexpr uint8_t kMsgParkMap = 0x6C;      // the park editor's map ("level data")
 constexpr uint8_t kMsgParkRails = 0x88;    // its rails ("rail data")
@@ -261,7 +261,8 @@ objects::RiderIdentity* Skate::fetch_account(int index) { return roster_handle()
 // 0x00564FD0
 void Skate::set_current_game_type()
 {
-    debug::printf("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n"); // "<<<...Changing Game Mode\n"
+    debug::printf(
+        "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<Changing Game Mode\n"); // "<<<...Changing Game Mode\n"
     get_game_mode()->apply_match_style(match_style_);
 }
 
@@ -272,7 +273,8 @@ void Skate::enter_stage(uint32_t level)
     memory::push_mem_profile("LaunchLevel"); // "LaunchLevel"
     if (net->in_net_game() && net->get_on_server()) {
         PlayerSearch search;
-        for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true))
+        for (void* player = net->begin_player_walk(&search, true); player;
+             player = net->step_player_walk(&search, true))
             as_player(player)->await_ready_response(0);
     }
     if (level != kLoadNothing)
@@ -364,12 +366,12 @@ bool __cdecl Skate::cfunc_change_level(script::Struct* params, script::Script*)
             void* map = park_editing::g_park_editor->get_packed_park_data(false);
             int handle = info->get_link_handle();
             server->send_bulk_message(handle, kMsgParkMap, 15000, map, "level data", kGroupGame, false,
-                                  true); // "level data"
+                                      true);     // "level data"
             park_editing::RailAuthoring::sole(); // (the rail editor; this first answer unused, as the original)
             void* rails = park_editing::RailAuthoring::sole()->get_packed();
             handle = info->get_link_handle();
             server->send_bulk_message(handle, kMsgParkRails, 0x1132, rails, "rail data", kGroupGame, false,
-                                  true); // "rail data"
+                                      true); // "rail data"
         }
         desc.content_ = &message;
         desc.byte_count_ = sizeof(message);
@@ -382,7 +384,7 @@ bool __cdecl Skate::cfunc_change_level(script::Struct* params, script::Script*)
             void* goals = net->get_created_goals_message();
             uint32_t size = net->get_created_goals_size();
             server->send_bulk_message(info->get_link_handle(), kMsgCreatedGoals, static_cast<uint16_t>(size), goals,
-                                  "goals data", kGroupGame, false, true); // "goals data"
+                                      "goals data", kGroupGame, false, true); // "goals data"
         }
         desc.content_ = &now;
         desc.byte_count_ = 4;
@@ -519,4 +521,4 @@ void** const kSkaterNodeVtable = reinterpret_cast<void**>(g_skater_node_vtable_s
 static VtableSlot g_skater_head_vtable_slots[] = {Skate::destroy_skater_head};
 void** const kSkaterHeadVtable = reinterpret_cast<void**>(g_skater_head_vtable_slots);
 
-} // namespace Mdl
+} // namespace modules

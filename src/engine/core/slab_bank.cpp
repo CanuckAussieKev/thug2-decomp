@@ -118,10 +118,7 @@ void* create_item(int index)
 }
 
 // 0x005BC3B0
-SlabBank* get_pool(int index)
-{
-    return pool_at(index);
-}
+SlabBank* get_pool(int index) { return pool_at(index); }
 
 // 0x005BC4A0
 void return_entry(int index, void* item)
@@ -153,7 +150,7 @@ void PoolPair::dealloc(void* item)
     memory::dealloc(item);
 }
 
-} // namespace Mem
+} // namespace memory
 
 namespace {
 

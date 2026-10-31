@@ -26,47 +26,44 @@ using script::Struct;
 
 namespace {
 
-constexpr uint32_t kParam = 0x5B058376;       // "param"
-constexpr uint32_t kTerrain = 0x3789AC4E;     // "terrain"
-constexpr uint32_t kTerrainIndex = 0x75D274BE; // (name unknown) the terrain as a number
-constexpr uint32_t kTheta = 0xF4E775F6;       // "theta"
-constexpr uint32_t kPhi = 0xCD0576EE;         // "phi"
-constexpr uint32_t kRadius = 0xC48391A5;      // "radius"
-constexpr uint32_t kSize = 0x083FDB95;        // "size"
-constexpr uint32_t kTexture = 0x7D99F28D;     // "texture"
+constexpr uint32_t kParam = 0x5B058376;         // "param"
+constexpr uint32_t kTerrain = 0x3789AC4E;       // "terrain"
+constexpr uint32_t kTerrainIndex = 0x75D274BE;  // (name unknown) the terrain as a number
+constexpr uint32_t kTheta = 0xF4E775F6;         // "theta"
+constexpr uint32_t kPhi = 0xCD0576EE;           // "phi"
+constexpr uint32_t kRadius = 0xC48391A5;        // "radius"
+constexpr uint32_t kSize = 0x083FDB95;          // "size"
+constexpr uint32_t kTexture = 0x7D99F28D;       // "texture"
 constexpr uint32_t kCoronaTexture = 0xEB1CCC76; // "corona_texture"
-constexpr uint32_t kEnable = 0x0C5F37CD;      // "enable"
-constexpr uint32_t kDisable = 0xB0BAB2AE;     // "disable"
-constexpr uint32_t kOn = 0xF649D637;          // "on"
-constexpr uint32_t kClear = 0x1A4E0EF9;       // "clear"
-constexpr uint32_t kRed = 0x059EA070;         // "red"
-constexpr uint32_t kGreen = 0x2F6511DE;       // "green"
-constexpr uint32_t kBlue = 0x61C9354B;        // "blue"
-constexpr uint32_t kValue = 0xE288A7CB;       // "value"
-constexpr uint32_t kValue2 = 0xC483C21F;      // "value2"
-constexpr uint32_t kAmbient = 0xBCEE1D37;     // "ambient"
-constexpr uint32_t kDirectional = 0xB8F8BBE6; // "directional"
-constexpr uint32_t kSector = 0xB45C2617;      // "sector"
-constexpr uint32_t kSeq = 0x69812EAC;         // "seq"
-constexpr uint32_t kKey = 0x756F5456;         // "key"
-constexpr uint32_t kTime = 0x906B67BA;        // "time"
-constexpr uint32_t kReset = 0xAF6240B2;       // "reset"
+constexpr uint32_t kEnable = 0x0C5F37CD;        // "enable"
+constexpr uint32_t kDisable = 0xB0BAB2AE;       // "disable"
+constexpr uint32_t kOn = 0xF649D637;            // "on"
+constexpr uint32_t kClear = 0x1A4E0EF9;         // "clear"
+constexpr uint32_t kRed = 0x059EA070;           // "red"
+constexpr uint32_t kGreen = 0x2F6511DE;         // "green"
+constexpr uint32_t kBlue = 0x61C9354B;          // "blue"
+constexpr uint32_t kValue = 0xE288A7CB;         // "value"
+constexpr uint32_t kValue2 = 0xC483C21F;        // "value2"
+constexpr uint32_t kAmbient = 0xBCEE1D37;       // "ambient"
+constexpr uint32_t kDirectional = 0xB8F8BBE6;   // "directional"
+constexpr uint32_t kSector = 0xB45C2617;        // "sector"
+constexpr uint32_t kSeq = 0x69812EAC;           // "seq"
+constexpr uint32_t kKey = 0x756F5456;           // "key"
+constexpr uint32_t kTime = 0x906B67BA;          // "time"
+constexpr uint32_t kReset = 0xAF6240B2;         // "reset"
 
 // Fog and clipping distances are left alone while distance clipping (the setting) is on.
 bool distance_clipping() { return render::g_distance_clipping; }
 
 // The world sector named `name` (null if the scene has none of that name).
-render::WorldCell* look_up_sector(uint32_t name) { return static_cast<render::WorldCell*>(render::engine::look_up_sector(name)); }
+render::WorldCell* look_up_sector(uint32_t name)
+{
+    return static_cast<render::WorldCell*>(render::engine::look_up_sector(name));
+}
 
 // The renderer's gamma (0x004B24D0 / 0x004B24C0 through the jumps 0x0048C140 / 0x0048C130).
-void get_gamma(float* red, float* green, float* blue)
-{
-    render::get_gamma(red, green, blue);
-}
-void set_gamma(float red, float green, float blue)
-{
-    render::set_gamma(red, green, blue);
-}
+void get_gamma(float* red, float* green, float* blue) { render::get_gamma(red, green, blue); }
+void set_gamma(float red, float green, float blue) { render::set_gamma(red, green, blue); }
 
 // Whether the frame buffer is cleared each frame - compiled out of this build (0x0048C1B0, a jump to the empty
 // function 0x005480A0).
@@ -74,15 +71,15 @@ inline void set_color_buffer_clear(bool /*clear*/) {}
 
 // The sun's settings as SetSunProps passes them (0x004426D0 copies the fields its mask names).
 struct SunProps {
-    float theta;               // +0x00 (mask 0x01)
-    float phi;                 // +0x04 (0x02)
-    float radius;              // +0x08 (0x04)
-    float size;                // +0x0C (0x08)
-    uint32_t texture;          // +0x10 (0x20)
-    uint32_t corona_texture_;    // +0x14 (0x40)
-    float colour[4];           // +0x18 (0x10: never set by the command)
+    float theta;              // +0x00 (mask 0x01)
+    float phi;                // +0x04 (0x02)
+    float radius;             // +0x08 (0x04)
+    float size;               // +0x0C (0x08)
+    uint32_t texture;         // +0x10 (0x20)
+    uint32_t corona_texture_; // +0x14 (0x40)
+    float colour[4];          // +0x18 (0x10: never set by the command)
     uint8_t unknown28[0x18];
-    bool enabled;              // +0x40 (0x80)
+    bool enabled; // +0x40 (0x80)
     uint8_t pad41[3];
 };
 static_assert(sizeof(SunProps) == 0x44, "layout must match the original");
@@ -192,7 +189,7 @@ bool __cdecl cfunc_apply_change_gamma(Struct* params, Script*)
 {
     float red, green, blue;
     get_gamma(&red, &green, &blue);
-    uint32_t color = 0;  // (uninitialised in the original: both are asserted)
+    uint32_t color = 0; // (uninitialised in the original: both are asserted)
     float change = 0.0f;
     params->read_hash_value("color", &color, 1);
     params->fetch_float("change", &change, 1);

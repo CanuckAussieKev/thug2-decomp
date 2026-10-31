@@ -22,10 +22,7 @@ Chars::Chars() : serial_(live_strings()++), octets_(nullptr), capacity_(0)
 }
 
 // 0x00401F50
-Chars::Chars(const char* text) : Chars()
-{
-    copy_range(text, 0, last_index(text));
-}
+Chars::Chars(const char* text) : Chars() { copy_range(text, 0, last_index(text)); }
 
 // 0x00401FA0
 Chars::Chars(const Chars& other) : serial_(0), octets_(nullptr), capacity_(0)
@@ -106,7 +103,7 @@ void Chars::copy_range(const char* text, int first, int last)
     octets_[out] = '\0';
 }
 
-} // namespace Str
+} // namespace text
 
 // --- replacements -------------------------------------------------------------------------------------
 namespace {

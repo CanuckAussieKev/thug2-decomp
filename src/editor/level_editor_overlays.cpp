@@ -262,4 +262,4 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
     }
 }
 
-} // namespace MenuSystem::level_editor::Overlays
+} // namespace frontend::level_editor::overlays

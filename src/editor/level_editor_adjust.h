@@ -27,11 +27,11 @@ struct ActStep {
     bool quarters = false; // (scenery: turns are whole quarter turns)
     V3 factor = {1.0f, 1.0f, 1.0f}; // Scale (along the world's axes)
     bool uniform = true;
-    int count = 1;         // Duplicate: the copies
-    bool grid = false;     // Move / Duplicate: the offset on the grid (the toolbar's size)
+    int count = 1;                         // Duplicate: the copies
+    bool grid = false;                     // Move / Duplicate: the offset on the grid (the toolbar's size)
     int axis = 0, edge = 0, reference = 0; // Align / Distribute (Arrange::Edge, Arrange::Reference)
     bool local = false, gaps = false;
-    V3 pos = {};           // Place: where it is
+    V3 pos = {}; // Place: where it is
 };
 
 // --- the pure parts ---------------------------------------------------------------------------------------------
@@ -67,4 +67,4 @@ void get_panel(float x, float y, float ui_scale);
 // The editor starting / a new level: forgotten.
 void get_forget();
 
-} // namespace MenuSystem::level_editor::Adjust
+} // namespace frontend::level_editor::adjust

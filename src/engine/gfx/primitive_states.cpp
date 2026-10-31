@@ -69,4 +69,4 @@ long __cdecl set_render_target_and_depth(void* surface, void* depth)
     return result;
 }
 
-} // namespace Nx
+} // namespace render

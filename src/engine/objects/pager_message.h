@@ -8,19 +8,19 @@
 namespace script {
 class Script;
 class Struct;
-} // namespace Script
+} // namespace script
 
 namespace objects {
 
 // The game's std::list of pointers (its allocator: the memory manager): a sentinel node and a count.
 struct PointerListNode {
-    void* data;              // +0x0
-    PointerListNode* next;   // +0x4
-    PointerListNode* prev;   // +0x8
+    void* data;            // +0x0
+    PointerListNode* next; // +0x4
+    PointerListNode* prev; // +0x8
 };
 struct PointerList {
-    PointerListNode* head;   // +0x0 the sentinel
-    int size;                // +0x4
+    PointerListNode* head; // +0x0 the sentinel
+    int size;              // +0x4
     // 0x004ECC30 (shared by every such list): the nodes from `first` up to `last` unlinked and freed (the sentinel
     // never); `*out` = `last`. Returns out.
     PointerListNode** get_erase(PointerListNode** out, PointerListNode* first, PointerListNode* last);
@@ -75,4 +75,4 @@ public:
 static_assert(offsetof(PagerMessageComponent, messages_) == 0x18 && sizeof(PagerMessageComponent) == 0x20,
               "layout must match the original");
 
-} // namespace Obj
+} // namespace objects

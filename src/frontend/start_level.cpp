@@ -87,25 +87,25 @@ bool scene_installed(const std::string& name)
     return file::is_present(path);
 }
 
-int s_frames;  // the front end's frames with the main menu's scripts loaded
+int s_frames; // the front end's frames with the main menu's scripts loaded
 bool s_done;
 
 // -edit: the editor opened once the level is up (edit_update).
-constexpr uint32_t kSkater = 0x5B8AB877;  // Skater (the local skater's alias)
-constexpr int kLevelSettleFrames = 90;     // (in the level, unpaused, before Start is pressed)
-constexpr int kPauseWaitFrames = 120;      // (for the pause menu, before Start is pressed again)
-constexpr int kPauseMenuFrames = 20;       // (the pause menu up this long before LEVEL EDITOR is chosen)
+constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
+constexpr int kLevelSettleFrames = 90;   // (in the level, unpaused, before Start is pressed)
+constexpr int kPauseWaitFrames = 120;    // (for the pause menu, before Start is pressed again)
+constexpr int kPauseMenuFrames = 20;     // (the pause menu up this long before LEVEL EDITOR is chosen)
 constexpr int kStartPresses = 5;
 enum class Edit { kDisengaged, kWaitLevel, kWaitPause, kDone };
 Edit s_edit = Edit::kDisengaged;
 int s_edit_frames;
 int s_presses;
 bool s_started;      // the requested level's load began
-bool s_pools_logged;  // its script pool use logged (Scripts::log_script_pool_use)
+bool s_pools_logged; // its script pool use logged (Scripts::log_script_pool_use)
 int s_pool_frames;
 
 // -at / start_at: the skater put there standing once the level is up (at_update).
-constexpr int kAtSettleFrames = 60;  // (in the level, unpaused, before the teleport)
+constexpr int kAtSettleFrames = 60; // (in the level, unpaused, before the teleport)
 enum class At { kDisengaged, kWaitLevel, kDone };
 At s_at = At::kDisengaged;
 int s_at_frames;
@@ -132,7 +132,7 @@ bool at_update(modules::FrontEnd* front_end)
         return true;
     s_at = At::kDone;
     Spot spot;
-    parse_spot(at_text(), &spot);  // (checked when it was asked for)
+    parse_spot(at_text(), &spot); // (checked when it was asked for)
     test_view::Vec3 at{};
     std::string failed = test_view::jump_to({spot.x, spot.y, spot.z}, spot.has_heading_, spot.heading, &at);
     if (!failed.empty())
@@ -152,14 +152,14 @@ void edit_update(modules::FrontEnd* front_end)
             return;
         if (!level_editor::is_switched_on()) {
             get_log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
-                get_requested());
+                    get_requested());
             s_edit = Edit::kDone;
             return;
         }
         if (!is_script(name_hash("level_editor_enter"))) {
             get_log("edit level: no level_editor_enter script (the data overlay isn't installed - "
-                "tools/pipeline/menu_level/make_menu_level.ts) - free skate in %s, as -level",
-                get_requested());
+                    "tools/pipeline/menu_level/make_menu_level.ts) - free skate in %s, as -level",
+                    get_requested());
             s_edit = Edit::kDone;
             return;
         }
@@ -192,8 +192,8 @@ void edit_update(modules::FrontEnd* front_end)
             return;
         if (s_presses >= kStartPresses) {
             get_log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
-                "LEVEL EDITOR opens the editor)",
-                s_presses, get_requested());
+                    "LEVEL EDITOR opens the editor)",
+                    s_presses, get_requested());
             s_edit = Edit::kDone;
             return;
         }
@@ -262,9 +262,9 @@ bool parse_spot(const std::string& text, Spot* out)
         if (at == std::string::npos)
             break;
         if (s[at] == ',')
-            ++at;  // (a comma, or only spaces, between two numbers)
+            ++at; // (a comma, or only spaces, between two numbers)
         else if (at > 0 && s[at - 1] != ' ' && s[at - 1] != '\t')
-            return false;  // (something glued to the number: "1x")
+            return false; // (something glued to the number: "1x")
     }
     if (count < 3)
         return false;
@@ -308,14 +308,15 @@ void tick_frame(modules::FrontEnd* front_end)
             }
         }
         if (at_update(front_end))
-            return;  // (-edit's editor once the skater stands there)
+            return; // (-edit's editor once the skater stands there)
         if (s_edit != Edit::kDisengaged && s_edit != Edit::kDone)
             edit_update(front_end);
         return;
     }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
-    if (render::current_level() != 0 || (front_end && front_end->is_halted_) || !is_script(name_hash("main_menu_skate_now")))
+    if (render::current_level() != 0 || (front_end && front_end->is_halted_) ||
+        !is_script(name_hash("main_menu_skate_now")))
         return;
     if (++s_frames < 60)
         return;
@@ -353,8 +354,8 @@ bool read_in(const char* name, std::string* why)
     }
     if (!scene_installed(level.substr(5))) {
         get_log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
-            "stays",
-            level.c_str());
+                "stays",
+                level.c_str());
         if (why)
             *why = level + ": the level's scene isn't installed";
         return false;
@@ -373,4 +374,4 @@ bool read_in(const char* name, std::string* why)
     return true;
 }
 
-} // namespace MenuSystem::begin_level
+} // namespace frontend::begin_level

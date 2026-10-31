@@ -67,4 +67,4 @@ static VtableSlot g_frame_source_vtable_slots[] = {&render::FrameSource::teardow
 void** const kFrameSourceVtable = reinterpret_cast<void**>(g_frame_source_vtable_slots);
 } // namespace
 
-} // namespace Nx
+} // namespace render

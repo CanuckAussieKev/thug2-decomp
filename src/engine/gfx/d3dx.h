@@ -14,11 +14,11 @@ namespace d3dx {
 
 // (defined in d3dx.cpp, which includes d3dx9.h)
 void vec3_normalize(float* out, const float* v);
-void vec3_transform(float* out, const float* v, const void* matrix);       // out: 4 floats, (v, 1) * matrix
+void vec3_transform(float* out, const float* v, const void* matrix);        // out: 4 floats, (v, 1) * matrix
 void vec3_transform_coord(float* out, const float* v, const void* matrix);  // out: 3 floats, divided by w
 void vec3_transform_normal(float* out, const float* v, const void* matrix); // out: 3 floats, no translation
-void vec4_transform(float* out, const float* v, const void* matrix);       // out, v: 4 floats
-void matrix_multiply(void* out, const void* a, const void* b);             // out may alias a or b
+void vec4_transform(float* out, const float* v, const void* matrix);        // out, v: 4 floats
+void matrix_multiply(void* out, const void* a, const void* b);              // out may alias a or b
 void matrix_transpose(void* out, const void* m);
 void matrix_inverse(void* out, float* determinant, const void* m);
 void matrix_scaling(void* out, float x, float y, float z);
@@ -31,4 +31,4 @@ long save_surface_to_jpg(const char* file, IDirect3DSurface9* surface); // the H
 // [3] GetBufferPointer); `errors` may be null.
 long assemble_shader(const char* source, uint32_t length, void** shader, void** errors);
 
-} // namespace D3dx
+} // namespace d3dx

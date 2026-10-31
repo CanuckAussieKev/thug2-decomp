@@ -38,8 +38,8 @@ struct PasteHooks {
     std::function<bool(uint32_t id)> id_taken_;
     std::function<std::string(uint32_t checksum)> label;
 };
-int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteHooks& hooks, std::vector<std::string>* missing,
-          std::vector<uint32_t>* copy_names);
+int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteHooks& hooks,
+          std::vector<std::string>* missing, std::vector<uint32_t>* copy_names);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
@@ -54,4 +54,4 @@ bool have_transform();
 int field_count();
 std::string describe();
 
-} // namespace MenuSystem::level_editor::Clip
+} // namespace frontend::level_editor::clip

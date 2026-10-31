@@ -61,8 +61,8 @@ public:
     void** vtable_;
     ObjectListHead entities_; // +0x04
     uint32_t walking_;        // +0x18 the bits of the walks in progress
-    uint32_t restart_walks_;   // +0x1C set to every bit when the list changes: the walks start again
-    uint32_t new_id_;          // +0x20 reassign_object_id: the id being given (for the tracker)
+    uint32_t restart_walks_;  // +0x1C set to every bit when the list changes: the walks start again
+    uint32_t new_id_;         // +0x20 reassign_object_id: the id being given (for the tracker)
     bool reassigning_;        // +0x24
     uint8_t unknown25[3];
 };
@@ -88,7 +88,7 @@ public:
     // (slot 6 0x004AAD40: the object list's head)
 
     ObjectListHead dead_objects_; // +0x28
-    void* flush_task_;             // +0x3C a tasks::Task (vtable 0x006476F0) running flush_dead_objects_task
+    void* flush_task_;            // +0x3C a tasks::Task (vtable 0x006476F0) running flush_dead_objects_task
 };
 static_assert(offsetof(MiscHub, dead_objects_) == 0x28 && offsetof(MiscHub, flush_task_) == 0x3C &&
                   sizeof(MiscHub) == 0x40,
@@ -112,7 +112,7 @@ struct ObjectSearch {
 
     void** vtable_;
     memory::ListNode* list_link_; // +0x04 the current node (null at the end)
-    uint32_t kind_tag_;       // +0x08
+    uint32_t kind_tag_;           // +0x08
 };
 
 // The object tracker (0x006F0FC0, tracker.h) is a reference-counted singleton (0x006F0FC4).
@@ -125,4 +125,4 @@ extern uint32_t g_tracker_references;
 // 0x00645DFC: objectSearchVtable (defined where the class's functions are).
 extern void** const kObjectSearchVtable;
 
-} // namespace Obj
+} // namespace objects

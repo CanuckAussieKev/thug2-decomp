@@ -81,8 +81,8 @@ uint32_t kind_colour(Kind kind); // ARGB
 // What a trigger's script calls (the calls found walking it and the scripts it calls).
 struct Calls {
     bool kill = false, water = false, teleport = false, start_gap_ = false, end_gap_ = false;
-    uint32_t target = 0; // a kill's / teleport's nodename=
-    uint32_t gap_id_ = 0;  // StartGap / EndGap GapID=
+    uint32_t target = 0;  // a kill's / teleport's nodename=
+    uint32_t gap_id_ = 0; // StartGap / EndGap GapID=
     std::string gap_text_;
     int gap_score_ = 0;
     // (the feature map) trigger_jump_boost (its speed= or multi=), Shatter / ShatterAndDie (a breakable), THAW's
@@ -102,17 +102,17 @@ const std::vector<const char*>& gap_option_labels();
 
 // A trigger volume the editor added (its node's place - pos, heading - is the node's).
 struct Spec {
-    std::string name;                // its node in the overlay ("ed_trigger01")
+    std::string name; // its node in the overlay ("ed_trigger01")
     Kind kind = Kind::kKill;
     V3 size = {400.0f, 200.0f, 400.0f}; // the box's extents, centred on the node, turned by its heading
-    bool water = false;              // Kill: SK3_KillSkater_Water (the splash)
-    std::string target;              // Kill: the restart; Teleport: the node it sends the skater to
-    std::string script;              // Script: the script it runs
-    std::string gap;                 // kGapStart / kGapEnd: the GapID (the two ends share it)
-    std::vector<std::string> flags;  // the gap's flags (StartGap's)
-    std::string text;                // the gap's name (EndGap's text - the gap list's)
-    int score = 100;                 // the gap's score
-    uint32_t replaces = 0;           // a level trigger this one stands in for (off while this one is there)
+    bool water = false;                 // Kill: SK3_KillSkater_Water (the splash)
+    std::string target;                 // Kill: the restart; Teleport: the node it sends the skater to
+    std::string script;                 // Script: the script it runs
+    std::string gap;                    // kGapStart / kGapEnd: the GapID (the two ends share it)
+    std::vector<std::string> flags;     // the gap's flags (StartGap's)
+    std::string text;                   // the gap's name (EndGap's text - the gap list's)
+    int score = 100;                    // the gap's score
+    uint32_t replaces = 0;              // a level trigger this one stands in for (off while this one is there)
     // Fires on the way out as well (the record's exit=1): the game's trigger component only reports a box where a line
     // enters it (a HitMovingBox is met on the way in), so leaving is seen by Play's inside test on the skater each
     // frame - its TriggerScript run on the skater as the trigger component runs it (0x00434A60).
@@ -205,7 +205,7 @@ struct ProximEdit {
     std::string enter, exit; // the scripts ("": the node's own, if any)
     bool shape = false;      // the shape is the editor's (else as the node has it)
     bool box = false;
-    float radius = 0.0f;     // (a sphere's)
+    float radius = 0.0f;       // (a sphere's)
     V3 size = {}, offset = {}; // (a box's: its extents and its middle from the node's place)
 };
 bool same_proxim(const ProximEdit& a, const ProximEdit& b);
@@ -235,11 +235,11 @@ struct LevelTrigger {
     std::vector<V3> faces; // their corners (3 a face; the first 64 faces)
     int face_count_ = 0;
     bool has_node_ = false;
-    uint32_t script = 0;   // its node's TriggerScript (0: none)
+    uint32_t script = 0; // its node's TriggerScript (0: none)
     Calls calls;
     Kind kind = Kind::kOther;
-    bool off = false;      // its collision switched off (by the editor, or while an editable copy stands in for it)
-    bool wall = false;     // collision only (no geometry): an invisible wall to level_editor_walls.h - movable there
+    bool off = false;  // its collision switched off (by the editor, or while an editable copy stands in for it)
+    bool wall = false; // collision only (no geometry): an invisible wall to level_editor_walls.h - movable there
     bool all_trigger_ = false; // every face of its collision a trigger's (switching it off takes nothing else)
     V3 bounds_low_ = {}, bounds_high_ = {}; // (its collision's box when read: moved since - read again)
 };
@@ -252,7 +252,7 @@ struct Added {
     V3 pos = {};
     float yaw = 0.0f;
     const char* problem = nullptr;
-    Calls calls;  // (Run a script: what the chosen script calls)
+    Calls calls;         // (Run a script: what the chosen script calls)
     bool broken = false; // (a breakable whose piece is gone - broken in play, hidden: no box until it's back)
 };
 const std::vector<Added>& added_triggers();
@@ -273,7 +273,7 @@ void set_shown(bool shown);
 // The volumes drawn over the view (lines, labels) - and the selected editor trigger's resize handles (`selected`: its
 // node's name, 0 none; the handle under the cursor or being dragged lit).
 void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
-                std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+                 std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
 void set_selected(uint32_t node);
 // The resize handles (drawn by the last add_overlay): the one within `radius` back buffer pixels of (x, y) (-1: none),
 // and dragging one - started with the mouse ray, followed each frame (`snap`: sizes on 25s), ended (one undo step).
@@ -377,8 +377,8 @@ bool is_proxim(uint32_t node);
 bool has_handles(uint32_t node);
 // The feature map's lines over the view, the trigger window shown or not: rail speed-ups' chevrons
 // (level_editor_chains.h), the selected / edited proximity nodes' shapes, breakables' cracks, boosts' arrows.
-void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z, int selected_node,
-               std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
+void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint32_t viewport[4], float near_z,
+                int selected_node, std::vector<ui::Seg>* lines, std::vector<ui::Overlay::text_tools>* texts);
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string describe();
@@ -387,6 +387,6 @@ std::string describe();
 // isn't the checklist they went into, or there are none) and the level's own gap names (a level gap of the same name
 // is the level's, not the editor's).
 bool get_editor_gaps(const goals::GapTally* checklist, std::vector<std::string>* names,
-                std::vector<std::string>* level_names);
+                     std::vector<std::string>* level_names);
 
-} // namespace MenuSystem::level_editor::Triggers
+} // namespace frontend::level_editor::triggers

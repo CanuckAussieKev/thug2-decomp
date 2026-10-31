@@ -44,7 +44,7 @@ float g_trick_goals_beat_milliseconds{15000.0f};
 namespace {
 
 // Names.
-constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;          // testing_goal
+constexpr uint32_t kTrialRunFlag = 0x54D3CAC1;         // testing_goal
 constexpr uint32_t kJustWonGoal = 0xC309CAD1;          // just_won_goal
 constexpr uint32_t kTricksAdded = 0xC93DA683;          // (the single combo's tricks have been added)
 constexpr uint32_t kCombo = 0x4EC3CFB5;                // combo
@@ -63,11 +63,11 @@ constexpr uint32_t kId = 0x40C698AF;                   // id
 constexpr uint32_t kResetContainer = 0x235BDE21;       // goal_tetris_reset_trick_container
 constexpr uint32_t kRedTricks = 0xD02AC196;            // (the tricks are red)
 constexpr uint32_t kTurnRedScript = 0xA39B24E0;        // (a script: a trick back from red)
-constexpr uint32_t kDropTrickScript = 0x23A6A456;          // goal_tetris_remove_trick
+constexpr uint32_t kDropTrickScript = 0x23A6A456;      // goal_tetris_remove_trick
 constexpr uint32_t kAccelerationInterval = 0x01181B29; // acceleration_interval
 constexpr uint32_t kAccelerationPercent = 0x076F65C8;  // acceleration_percent
 constexpr uint32_t kTetrisKeyCombos = 0x7BE1E689;      // goal_tetris_key_combos
-constexpr uint32_t kStackTrickList = 0xEB79FB49;         // goal_tetris_tricks
+constexpr uint32_t kStackTrickList = 0xEB79FB49;       // goal_tetris_tricks
 constexpr uint32_t kTrick = 0x270F56E1;                // trick
 constexpr uint32_t kGrind = 0x255ED86F;                // Grind
 constexpr uint32_t kText = 0xC4745838;                 // text
@@ -88,84 +88,166 @@ constexpr uint32_t kSmall = 0x8ABA15EC;                // small
 constexpr uint32_t kTrickTextDoubleTap = 0xE7ABFB95;   // goal_tetris_trick_text_double_tap
 constexpr uint32_t kTrickText = 0x8856C817;            // goal_tetris_trick_text
 constexpr uint32_t kNoKeyCombo = 0x7B716096;           // no_key_combo
-constexpr uint32_t kPushTrickScript = 0x668CC9E3;             // goal_tetris_add_trick
+constexpr uint32_t kPushTrickScript = 0x668CC9E3;      // goal_tetris_add_trick
 constexpr uint32_t kAddRedTrick = 0x8E68AFC2;          // goal_tetris_add_red_trick
 constexpr uint32_t kTurnTrickRed = 0xEB016D1E;         // goal_tetris_turn_trick_red
-constexpr uint32_t kChainLength = 0x67DD90CA;            // combo_size
+constexpr uint32_t kChainLength = 0x67DD90CA;          // combo_size
 constexpr uint32_t kTrickRemovedSound = 0xE4EA743A;    // goal_tetris_play_trick_removed_sound
-constexpr uint32_t kTrickAddDelay = 0x7824963C;      // wait_to_add_tricks
+constexpr uint32_t kTrickAddDelay = 0x7824963C;        // wait_to_add_tricks
 constexpr uint32_t kTimeToStop = 0xA6D96603;           // time_to_stop_adding_tricks
 constexpr uint32_t kTrickTrisTotal = 0xBFD3A831;       // tricktris_total_to_win
-constexpr uint32_t kStackBlockSize = 0x45A375C9;   // tricktris_block_size
+constexpr uint32_t kStackBlockSize = 0x45A375C9;       // tricktris_block_size
 // TrickBeat's.
-constexpr uint32_t kBeatPattern = 0x407CCE70;          // beat_pattern
-constexpr uint32_t kTempo = 0x8B4A1490;                // tempo
-constexpr uint32_t kBeatWindowTime = 0x5CCDD89D;       // beat_window_time
-constexpr uint32_t kTotalToWin = 0xD11D2F91;           // total_to_win
-constexpr uint32_t kBeatFadedAlpha = 0x465128A1;       // goal_trick_beat_faded_trick_alpha
-constexpr uint32_t kBeatUnfadedAlpha = 0xA02433CB;     // goal_trick_beat_unfaded_trick_alpha
-constexpr uint32_t kWaitTime = 0xEB7BBCCA;             // wait_time
-constexpr uint32_t kPulseTrick = 0x04CDC75C;           // goal_trick_beat_pulse_trick
-constexpr uint32_t kBeatResetContainer = 0xE721EEFD;   // goal_trick_beat_reset_trick_container
-constexpr uint32_t kBeatRemoveTrick = 0x0118FB06;      // goal_trick_beat_remove_trick
-constexpr uint32_t kSounds = 0x0EDCF90E;               // sounds
-constexpr uint32_t kVol = 0xF6A36814;                  // vol
-constexpr uint32_t kPitch = 0xD8604126;                // pitch
-constexpr uint32_t kPulse = 0xE4E93525;                // pulse
-constexpr uint32_t kBlockSize = 0xCE5189EE;            // block_size
-constexpr uint32_t kBeatKeyCombos = 0x548B4A38;        // goal_trick_beat_key_combos
-constexpr uint32_t kBeatTricks = 0x09381808;           // goal_trick_beat_tricks
-constexpr uint32_t kBeatMenu = 0xBF7DF8D6;             // trick_beat_tricks_menu
-constexpr uint32_t kBeatAddTrick = 0x635CFFDF;         // goal_trick_beat_add_trick
+constexpr uint32_t kBeatPattern = 0x407CCE70;        // beat_pattern
+constexpr uint32_t kTempo = 0x8B4A1490;              // tempo
+constexpr uint32_t kBeatWindowTime = 0x5CCDD89D;     // beat_window_time
+constexpr uint32_t kTotalToWin = 0xD11D2F91;         // total_to_win
+constexpr uint32_t kBeatFadedAlpha = 0x465128A1;     // goal_trick_beat_faded_trick_alpha
+constexpr uint32_t kBeatUnfadedAlpha = 0xA02433CB;   // goal_trick_beat_unfaded_trick_alpha
+constexpr uint32_t kWaitTime = 0xEB7BBCCA;           // wait_time
+constexpr uint32_t kPulseTrick = 0x04CDC75C;         // goal_trick_beat_pulse_trick
+constexpr uint32_t kBeatResetContainer = 0xE721EEFD; // goal_trick_beat_reset_trick_container
+constexpr uint32_t kBeatRemoveTrick = 0x0118FB06;    // goal_trick_beat_remove_trick
+constexpr uint32_t kSounds = 0x0EDCF90E;             // sounds
+constexpr uint32_t kVol = 0xF6A36814;                // vol
+constexpr uint32_t kPitch = 0xD8604126;              // pitch
+constexpr uint32_t kPulse = 0xE4E93525;              // pulse
+constexpr uint32_t kBlockSize = 0xCE5189EE;          // block_size
+constexpr uint32_t kBeatKeyCombos = 0x548B4A38;      // goal_trick_beat_key_combos
+constexpr uint32_t kBeatTricks = 0x09381808;         // goal_trick_beat_tricks
+constexpr uint32_t kBeatMenu = 0xBF7DF8D6;           // trick_beat_tricks_menu
+constexpr uint32_t kBeatAddTrick = 0x635CFFDF;       // goal_trick_beat_add_trick
 // TrickObjects'.
-constexpr uint32_t kRequiredScore = 0x1B35D319;        // Required_Score
-constexpr uint32_t kGoalObjects = 0x3CCE31F0;          // goal_objects
-constexpr uint32_t kClusterId = 0x3C95CCD7;            // cluster_id
-constexpr uint32_t kFlag = 0x2E0B1465;                 // flag
-constexpr uint32_t kSkaterState = 0x43686585;          // SkaterState (the component)
-constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore (the component)
+constexpr uint32_t kRequiredScore = 0x1B35D319; // Required_Score
+constexpr uint32_t kGoalObjects = 0x3CCE31F0;   // goal_objects
+constexpr uint32_t kClusterId = 0x3C95CCD7;     // cluster_id
+constexpr uint32_t kFlag = 0x2E0B1465;          // flag
+constexpr uint32_t kSkaterState = 0x43686585;   // SkaterState (the component)
+constexpr uint32_t kSkaterScore = 0xD262802F;   // SkaterScore (the component)
 
-static VtableSlot g_tetris_vtable_slots[] = {&goals::FallingTricksGoal::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
-                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::FallingTricksGoal::expire, &goals::Objective::restore_save_block,
-                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
-                 &goals::Objective::has_component_a_302d_7c_d, &goals::FallingTricksGoal::activate, &goals::Objective::change_live,
-                 &goals::FallingTricksGoal::disengage, &goals::Objective::clear_engaged_bit, &goals::FallingTricksGoal::get_win,
-                 &goals::Objective::lose, &goals::FallingTricksGoal::tick_frame, &goals::Objective::is_frozen, &goals::Objective::set_flag,
-                 &goals::Objective::stage_flag_set, &goals::Objective::has_won, &goals::Objective::net_stage_flag_set,
-                 &goals::Objective::has_won_goal_or_child, &goals::Objective::is_prepared, &goals::Objective::may_try_again,
-                 &goals::Objective::mark_won, &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag,
-                 &goals::Objective::un_beat};
+static VtableSlot g_tetris_vtable_slots[] = {&goals::FallingTricksGoal::teardown,
+                                             &goals::Objective::wants_to_end,
+                                             &goals::Objective::has_run_out,
+                                             &goals::Objective::is_operative,
+                                             render::virtual_slot3_jump,
+                                             &goals::FallingTricksGoal::expire,
+                                             &goals::Objective::restore_save_block,
+                                             &goals::Objective::capture_save_block,
+                                             &goals::Objective::has_time_limit,
+                                             stubs::return_true,
+                                             &goals::Objective::has_component_a_302d_7c_d,
+                                             &goals::FallingTricksGoal::activate,
+                                             &goals::Objective::change_live,
+                                             &goals::FallingTricksGoal::disengage,
+                                             &goals::Objective::clear_engaged_bit,
+                                             &goals::FallingTricksGoal::get_win,
+                                             &goals::Objective::lose,
+                                             &goals::FallingTricksGoal::tick_frame,
+                                             &goals::Objective::is_frozen,
+                                             &goals::Objective::set_flag,
+                                             &goals::Objective::stage_flag_set,
+                                             &goals::Objective::has_won,
+                                             &goals::Objective::net_stage_flag_set,
+                                             &goals::Objective::has_won_goal_or_child,
+                                             &goals::Objective::is_prepared,
+                                             &goals::Objective::may_try_again,
+                                             &goals::Objective::mark_won,
+                                             &goals::Objective::set_stage_flag,
+                                             &goals::Objective::set_net_stage_flag,
+                                             &goals::Objective::un_beat};
 void** const kTetrisVtable = reinterpret_cast<void**>(g_tetris_vtable_slots);
-static VtableSlot g_timed_score_run_vtable_slots[] = {&goals::TimedScoreRunGoal::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
-                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
-                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
-                 &goals::TimedScoreRunGoal::is_underway, &goals::Objective::activate, &goals::Objective::change_live,
-                 &goals::Objective::disengage, &goals::Objective::clear_engaged_bit, &goals::Objective::get_win, &goals::Objective::lose,
-                 &goals::Objective::tick_frame, &goals::Objective::is_frozen, &goals::Objective::set_flag, &goals::Objective::stage_flag_set,
-                 &goals::Objective::has_won, &goals::Objective::net_stage_flag_set, &goals::Objective::has_won_goal_or_child,
-                 &goals::Objective::is_prepared, &goals::Objective::may_try_again, &goals::Objective::mark_won,
-                 &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag, &goals::Objective::un_beat};
+static VtableSlot g_timed_score_run_vtable_slots[] = {&goals::TimedScoreRunGoal::teardown,
+                                                      &goals::Objective::wants_to_end,
+                                                      &goals::Objective::has_run_out,
+                                                      &goals::Objective::is_operative,
+                                                      render::virtual_slot3_jump,
+                                                      &goals::Objective::expire,
+                                                      &goals::Objective::restore_save_block,
+                                                      &goals::Objective::capture_save_block,
+                                                      &goals::Objective::has_time_limit,
+                                                      stubs::return_true,
+                                                      &goals::TimedScoreRunGoal::is_underway,
+                                                      &goals::Objective::activate,
+                                                      &goals::Objective::change_live,
+                                                      &goals::Objective::disengage,
+                                                      &goals::Objective::clear_engaged_bit,
+                                                      &goals::Objective::get_win,
+                                                      &goals::Objective::lose,
+                                                      &goals::Objective::tick_frame,
+                                                      &goals::Objective::is_frozen,
+                                                      &goals::Objective::set_flag,
+                                                      &goals::Objective::stage_flag_set,
+                                                      &goals::Objective::has_won,
+                                                      &goals::Objective::net_stage_flag_set,
+                                                      &goals::Objective::has_won_goal_or_child,
+                                                      &goals::Objective::is_prepared,
+                                                      &goals::Objective::may_try_again,
+                                                      &goals::Objective::mark_won,
+                                                      &goals::Objective::set_stage_flag,
+                                                      &goals::Objective::set_net_stage_flag,
+                                                      &goals::Objective::un_beat};
 void** const kTimedScoreRunVtable = reinterpret_cast<void**>(g_timed_score_run_vtable_slots);
-static VtableSlot g_trick_beat_vtable_slots[] = {&goals::TrickBeatGoal::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
-                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
-                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
-                 &goals::Objective::has_component_a_302d_7c_d, &goals::TrickBeatGoal::activate, &goals::Objective::change_live,
-                 &goals::TrickBeatGoal::disengage, &goals::Objective::clear_engaged_bit, &goals::FallingTricksGoal::get_win,
-                 &goals::Objective::lose, &goals::TrickBeatGoal::tick_frame, &goals::Objective::is_frozen, &goals::Objective::set_flag,
-                 &goals::Objective::stage_flag_set, &goals::Objective::has_won, &goals::Objective::net_stage_flag_set,
-                 &goals::Objective::has_won_goal_or_child, &goals::Objective::is_prepared, &goals::Objective::may_try_again,
-                 &goals::Objective::mark_won, &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag,
-                 &goals::Objective::un_beat};
+static VtableSlot g_trick_beat_vtable_slots[] = {&goals::TrickBeatGoal::teardown,
+                                                 &goals::Objective::wants_to_end,
+                                                 &goals::Objective::has_run_out,
+                                                 &goals::Objective::is_operative,
+                                                 render::virtual_slot3_jump,
+                                                 &goals::Objective::expire,
+                                                 &goals::Objective::restore_save_block,
+                                                 &goals::Objective::capture_save_block,
+                                                 &goals::Objective::has_time_limit,
+                                                 stubs::return_true,
+                                                 &goals::Objective::has_component_a_302d_7c_d,
+                                                 &goals::TrickBeatGoal::activate,
+                                                 &goals::Objective::change_live,
+                                                 &goals::TrickBeatGoal::disengage,
+                                                 &goals::Objective::clear_engaged_bit,
+                                                 &goals::FallingTricksGoal::get_win,
+                                                 &goals::Objective::lose,
+                                                 &goals::TrickBeatGoal::tick_frame,
+                                                 &goals::Objective::is_frozen,
+                                                 &goals::Objective::set_flag,
+                                                 &goals::Objective::stage_flag_set,
+                                                 &goals::Objective::has_won,
+                                                 &goals::Objective::net_stage_flag_set,
+                                                 &goals::Objective::has_won_goal_or_child,
+                                                 &goals::Objective::is_prepared,
+                                                 &goals::Objective::may_try_again,
+                                                 &goals::Objective::mark_won,
+                                                 &goals::Objective::set_stage_flag,
+                                                 &goals::Objective::set_net_stage_flag,
+                                                 &goals::Objective::un_beat};
 void** const kTrickBeatVtable = reinterpret_cast<void**>(g_trick_beat_vtable_slots);
-static VtableSlot g_trick_objects_vtable_slots[] = {&goals::TrickObjectsGoal::teardown, &goals::Objective::wants_to_end, &goals::Objective::has_run_out,
-                 &goals::Objective::is_operative, render::virtual_slot3_jump, &goals::Objective::expire, &goals::Objective::restore_save_block,
-                 &goals::Objective::capture_save_block, &goals::Objective::has_time_limit, stubs::return_true,
-                 &goals::Objective::has_component_a_302d_7c_d, &goals::Objective::activate, &goals::Objective::change_live,
-                 &goals::Objective::disengage, &goals::Objective::clear_engaged_bit, &goals::Objective::get_win, &goals::Objective::lose,
-                 &goals::Objective::tick_frame, &goals::Objective::is_frozen, &goals::Objective::set_flag, &goals::Objective::stage_flag_set,
-                 &goals::Objective::has_won, &goals::Objective::net_stage_flag_set, &goals::Objective::has_won_goal_or_child,
-                 &goals::Objective::is_prepared, &goals::Objective::may_try_again, &goals::Objective::mark_won,
-                 &goals::Objective::set_stage_flag, &goals::Objective::set_net_stage_flag, &goals::Objective::un_beat};
+static VtableSlot g_trick_objects_vtable_slots[] = {&goals::TrickObjectsGoal::teardown,
+                                                    &goals::Objective::wants_to_end,
+                                                    &goals::Objective::has_run_out,
+                                                    &goals::Objective::is_operative,
+                                                    render::virtual_slot3_jump,
+                                                    &goals::Objective::expire,
+                                                    &goals::Objective::restore_save_block,
+                                                    &goals::Objective::capture_save_block,
+                                                    &goals::Objective::has_time_limit,
+                                                    stubs::return_true,
+                                                    &goals::Objective::has_component_a_302d_7c_d,
+                                                    &goals::Objective::activate,
+                                                    &goals::Objective::change_live,
+                                                    &goals::Objective::disengage,
+                                                    &goals::Objective::clear_engaged_bit,
+                                                    &goals::Objective::get_win,
+                                                    &goals::Objective::lose,
+                                                    &goals::Objective::tick_frame,
+                                                    &goals::Objective::is_frozen,
+                                                    &goals::Objective::set_flag,
+                                                    &goals::Objective::stage_flag_set,
+                                                    &goals::Objective::has_won,
+                                                    &goals::Objective::net_stage_flag_set,
+                                                    &goals::Objective::has_won_goal_or_child,
+                                                    &goals::Objective::is_prepared,
+                                                    &goals::Objective::may_try_again,
+                                                    &goals::Objective::mark_won,
+                                                    &goals::Objective::set_stage_flag,
+                                                    &goals::Objective::set_net_stage_flag,
+                                                    &goals::Objective::un_beat};
 void** const kTrickObjectsVtable = reinterpret_cast<void**>(g_trick_objects_vtable_slots);
 
 // The red-tricks threshold (0x0064E918): three quarters of max_tricks.
@@ -179,7 +261,10 @@ R Virtual(GoalBase* goal, int offset, A... args)
 {
     return reinterpret_cast<R(__thiscall*)(GoalBase*, A...)>(goal->vtable_[offset / 4])(goal, args...);
 }
-void construct_goal(GoalBase* goal, script::Struct* params) { reinterpret_cast<GoalBase*>(reinterpret_cast<Objective*>(goal)->make_new(params)); }
+void construct_goal(GoalBase* goal, script::Struct* params)
+{
+    reinterpret_cast<GoalBase*>(reinterpret_cast<Objective*>(goal)->make_new(params));
+}
 void destroy_goal(GoalBase* goal) { reinterpret_cast<Objective*>(goal)->destroy_body(); }
 uint32_t get_goal_id(GoalBase* goal) { return reinterpret_cast<Objective*>(goal)->get_objective_key(); }
 bool base_update(GoalBase* goal) { return reinterpret_cast<Objective*>(goal)->tick_frame(); }
@@ -192,7 +277,10 @@ void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(mana
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
 uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
 uint8_t* local_skater() { return reinterpret_cast<uint8_t*>(modules::Skate::sole()->get_home_rider()); }
-uint8_t* get_score_of(uint8_t* skater) { return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total()); }
+uint8_t* get_score_of(uint8_t* skater)
+{
+    return static_cast<uint8_t*>(reinterpret_cast<objects::Rider*>(skater)->get_points_total());
+}
 int total_score(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score)->get_total_score(); }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
 int get_trick_count(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
@@ -217,10 +305,7 @@ frontend::UiWidget* element_by_id(void* manager, uint32_t id)
     element.get_release();
     return raw;
 }
-void change_opacity(frontend::UiWidget* element, float alpha)
-{
-    element->change_opacity(alpha, 1);
-}
+void change_opacity(frontend::UiWidget* element, float alpha) { element->change_opacity(alpha, 1); }
 void* new_container()
 {
     void* memory = memory::alloc_zeroed(0x17C);
@@ -380,7 +465,8 @@ bool FallingTricksGoal::is_trick_tris() { return integer_or_flag(args_, kTrickTr
 void FallingTricksGoal::disengage(int a, int b)
 {
     clear_tricks();
-    reinterpret_cast<Objective*>(this)->disengage(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
+    reinterpret_cast<Objective*>(this)->disengage(reinterpret_cast<bool&>(a),
+                                                  reinterpret_cast<bool&>(b)); // (the bytes as they are)
 }
 
 // 0x0056F2E0
@@ -579,7 +665,8 @@ void FallingTricksGoal::add_tricks(int count)
             // A random trick of goal_tetris_tricks.
             script::Array* tricks = nullptr;
             args_->fetch_list(kStackTrickList, &tricks, 1);
-            auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(maths::rnd(static_cast<int>(tricks->extent_))));
+            auto* trick =
+                reinterpret_cast<script::Struct*>(tricks->fetch_part(maths::rnd(static_cast<int>(tricks->extent_))));
             const char* name;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
@@ -946,7 +1033,8 @@ void TrickBeatGoal::clear_tricks()
 void TrickBeatGoal::disengage(int a, int b)
 {
     clear_tricks();
-    reinterpret_cast<Objective*>(this)->disengage(reinterpret_cast<bool&>(a), reinterpret_cast<bool&>(b)); // (the bytes as they are)
+    reinterpret_cast<Objective*>(this)->disengage(reinterpret_cast<bool&>(a),
+                                                  reinterpret_cast<bool&>(b)); // (the bytes as they are)
 }
 
 namespace {
@@ -1202,7 +1290,8 @@ void TrickBeatGoal::add_tricks(int count)
         if (!key_combos) {
             script::Array* tricks = nullptr;
             args_->fetch_list(kBeatTricks, &tricks, 1);
-            auto* trick = reinterpret_cast<script::Struct*>(tricks->fetch_part(maths::rnd(static_cast<int>(tricks->extent_))));
+            auto* trick =
+                reinterpret_cast<script::Struct*>(tricks->fetch_part(maths::rnd(static_cast<int>(tricks->extent_))));
             const char* name;
             trick->fetch_text(kTrick, &name, 1);
             if (trick->has_bare_flag(kGrind)) {
@@ -1429,7 +1518,8 @@ void TrickObjectsGoal::evaluate_points()
         return;
     uint8_t* score = get_score_of(skater);
     // The points of the trick in progress (+0x14, times the multiplier +0x60) count too.
-    int pending = ftol(static_cast<double>(*reinterpret_cast<int*>(score + 0x14)) * *reinterpret_cast<float*>(score + 0x60));
+    int pending =
+        ftol(static_cast<double>(*reinterpret_cast<int*>(score + 0x14)) * *reinterpret_cast<float*>(score + 0x60));
     if (total_score(score) + pending < required)
         fail_objective(manager, get_goal_id(this));
     else
@@ -1481,4 +1571,4 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
         Virtual<void>(this, 0x4C, flag, 1, 0);
 }
 
-} // namespace Game
+} // namespace goals

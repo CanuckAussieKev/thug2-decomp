@@ -22,7 +22,8 @@ void get_ask(std::vector<Request>* requests, int op, uint32_t arg = 0)
 }
 
 // A button that can be off (its tooltip says what it does, or why not).
-void op_button(const char* label, bool can, const char* what, const char* why_not, std::vector<Request>* requests, int op)
+void op_button(const char* label, bool can, const char* what, const char* why_not, std::vector<Request>* requests,
+               int op)
 {
     ImGui::BeginDisabled(!can);
     if (ImGui::Button(label))
@@ -90,23 +91,26 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         if (ImGui::Button("Turn Right"))
             get_ask(requests, chains::kOpTurn, 1u);
         ImGui::SameLine();
-        op_button("Revert Facing", chain.turned, "Restore original facing", "Already original", requests, chains::kOpFacingHome);
-        op_button("Delete Ladder", chain.can_delete_, "Delete the ladder  (Del)", "",
-                 requests, chains::kOpDelete);
+        op_button("Revert Facing", chain.turned, "Restore original facing", "Already original", requests,
+                  chains::kOpFacingHome);
+        op_button("Delete Ladder", chain.can_delete_, "Delete the ladder  (Del)", "", requests, chains::kOpDelete);
         ImGui::TextDisabled("Turn off Whole Ladder to move the foot or top");
         if (chain.waiting)
             ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
         return;
     }
-    op_button("Insert", chain.can_insert_, "Insert a point after this one  (Insert)", "Last point: use Extend", requests, chains::kOpInsert);
+    op_button("Insert", chain.can_insert_, "Insert a point after this one  (Insert)", "Last point: use Extend",
+              requests, chains::kOpInsert);
     ImGui::SameLine();
-    op_button("Delete", chain.can_delete_, "Delete this point  (Del)", "", requests,
-             chains::kOpDelete);
+    op_button("Delete", chain.can_delete_, "Delete this point  (Del)", "", requests, chains::kOpDelete);
     ImGui::SameLine();
-    op_button("Extend", chain.can_extend_, "Draw more points from this end  (End)", "Select an end point", requests, chains::kOpExtend);
-    op_button("Link To...", chain.can_link_, "Link to another chain's end  (J)", "Select an end point", requests, chains::kOpLinkArm);
+    op_button("Extend", chain.can_extend_, "Draw more points from this end  (End)", "Select an end point", requests,
+              chains::kOpExtend);
+    op_button("Link To...", chain.can_link_, "Link to another chain's end  (J)", "Select an end point", requests,
+              chains::kOpLinkArm);
     ImGui::SameLine();
-    op_button("Unlink", chain.can_unlink_, "Split the chain after this point  (U)", "No next point", requests, chains::kOpUnlink);
+    op_button("Unlink", chain.can_unlink_, "Split the chain after this point  (U)", "No next point", requests,
+              chains::kOpUnlink);
     if (chain.rail && !chain.terrains.empty()) {
         std::string current = chain.terrain >= 0 && chain.terrain < static_cast<int>(chain.terrains.size())
                                   ? terrain_label(chain.terrains[chain.terrain])
@@ -130,9 +134,8 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
             get_ask(requests, chains::kOpTrickObject, trick ? 1u : 0u);
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", chain.can_trick_object_
-                                        ? "Counts as a trick object for scoring and graffiti"
-                                  : "Original rails keep their setting");
+            ImGui::SetTooltip("%s", chain.can_trick_object_ ? "Counts as a trick object for scoring and graffiti"
+                                                            : "Original rails keep their setting");
         if (chain.trick_object_ && !chain.cluster.empty()) {
             ImGui::SameLine();
             ImGui::TextDisabled("cluster %s", chain.cluster.c_str());
@@ -162,7 +165,8 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
                                 static_cast<double>(chain.level_rate_ * 100.0f));
         bool on = chain.speed > 0.0f;
         if (ImGui::Checkbox("Speed-up", &on))
-            get_ask(requests, chains::kOpSpeed, on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
+            get_ask(requests, chains::kOpSpeed,
+                    on ? static_cast<uint32_t>(chains::kSpeedDefault * 10000.0f + 0.5f) : 0u);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("Speed up the skater while grinding uphill");
         if (on) {
@@ -196,4 +200,4 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
         ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
 }
 
-} // namespace MenuSystem::level_editor::Ui
+} // namespace frontend::level_editor::ui

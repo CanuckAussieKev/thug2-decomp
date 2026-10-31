@@ -52,7 +52,10 @@ double x87_sin(double angle)
 }
 
 // A skeleton component's skeleton (0x005480F0: its +0x18).
-void* skeleton_of(ObjectModule* component) { return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18); }
+void* skeleton_of(ObjectModule* component)
+{
+    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(component) + 0x18);
+}
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
 // data (+0x08), a bone's parent (0x004A2C50).
 bool skin_matrix_ptr(void* skeleton, uint32_t bone, maths::Mat4* out)
@@ -77,10 +80,7 @@ bool follow_model(ObjectModule* model, GameEntity* target)
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
-void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b)
-{
-    d3dx::matrix_multiply(out, a, b);
-}
+void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
 void set_product(maths::Mat4& out, const maths::Mat4& a, const maths::Mat4& b)
 {
@@ -133,7 +133,7 @@ void PinnedObjectModule::update_lock()
         if (!target)
             return;
     }
-    maths::Vec4 pos = entity_->at_point_;     // where it goes
+    maths::Vec4 pos = entity_->at_point_;         // where it goes
     maths::Vec4 extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
     maths::Vec4 local;
     if (bone_) {
@@ -230,25 +230,27 @@ void PinnedObjectModule::update_lock()
     entity_->display_matrix_ = entity_->basis_frame_;
 }
 
-} // namespace Obj
+} // namespace objects
 
 namespace objects {
 namespace {
 
-static VtableSlot g_vtable_slots[] = {&objects::PinnedObjectModule::teardown,
-         &objects::PinnedObjectModule::tick_frame,
-         &objects::PinnedObjectModule::configure_from_data,
-         stubs::do_nothing,
-         stubs::do_nothing,
-         objects::reapply_from_data,
-         stubs::ignore_arguments2,
-         stubs::ignore_argument,
-         stubs::ignore_argument,
-         stubs::do_nothing,
-         stubs::ignore_argument,
-         static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(&objects::ObjectModule::invoke_method_by_name),
-         &objects::PinnedObjectModule::invoke_method_by_name};
+static VtableSlot g_vtable_slots[] = {
+    &objects::PinnedObjectModule::teardown,
+    &objects::PinnedObjectModule::tick_frame,
+    &objects::PinnedObjectModule::configure_from_data,
+    stubs::do_nothing,
+    stubs::do_nothing,
+    objects::reapply_from_data,
+    stubs::ignore_arguments2,
+    stubs::ignore_argument,
+    stubs::ignore_argument,
+    stubs::do_nothing,
+    stubs::ignore_argument,
+    static_cast<int (objects::ObjectModule::*)(script::MemberFunctionEntry*, script::Struct*, script::Script*)>(
+        &objects::ObjectModule::invoke_method_by_name),
+    &objects::PinnedObjectModule::invoke_method_by_name};
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace Obj
+} // namespace objects

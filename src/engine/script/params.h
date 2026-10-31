@@ -28,13 +28,7 @@ inline bool read_hash_value(Struct* params, uint32_t name, uint32_t* out, bool a
 }
 
 // Whether the flag `name` (a bare name among the parameters) is present.
-inline bool has_bare_flag(Struct* params, uint32_t name)
-{
-    return params->has_bare_flag(name);
-}
-inline bool has_bare_flag(Struct* params, const char* name)
-{
-    return params->has_bare_flag(name);
-}
+inline bool has_bare_flag(Struct* params, uint32_t name) { return params->has_bare_flag(name); }
+inline bool has_bare_flag(Struct* params, const char* name) { return params->has_bare_flag(name); }
 
-} // namespace Script
+} // namespace script

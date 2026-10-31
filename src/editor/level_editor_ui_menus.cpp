@@ -31,7 +31,8 @@ void get_item(const char* id, const char* label = nullptr)
     if (ImGui::MenuItem(label ? label : action->name.c_str(), keys.empty() ? nullptr : keys.c_str(), checked == 1,
                         actions::is_switched_on(index)))
         actions::get_run(index);
-    if (!action->tip.empty() && ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
+    if (!action->tip.empty() &&
+        ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip | ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("%s", action->tip.c_str());
 }
 
@@ -191,4 +192,4 @@ void menu_bar(const ShapeMesh& model, const ux8::Fonts& fonts, std::vector<Reque
     help_menu();
 }
 
-} // namespace MenuSystem::level_editor::Ui
+} // namespace frontend::level_editor::ui

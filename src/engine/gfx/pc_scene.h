@@ -8,7 +8,6 @@
 // The PC scene and sector (Nx engine), and the PC screen effects object's setters.
 namespace render {
 
-
 struct SceneRef;
 
 // What the scene's PostLoad packs the sectors' vertices into (one vertex buffer).
@@ -24,11 +23,11 @@ struct VertexArena {
 struct PcSector {
     void** vtable;
     uint8_t engine04[0x10];
-    void* geom;    // +0x14
+    void* geom; // +0x14
     uint8_t engine18[4];
-    uint32_t flags; // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
+    uint32_t flags;     // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
     float unknown20[3]; // +0x20 (zero)
-    float unknown2c_;    // +0x2C (1)
+    float unknown2c_;   // +0x2C (1)
     uint8_t engine30[4];
 
     // 0x004C6550: construct. Returns this.
@@ -57,9 +56,9 @@ static_assert(offsetof(PcSector, geom) == 0x14 && offsetof(PcSector, unknown20) 
 struct PcScene {
     void** vtable;
     uint8_t engine04[0xCC];
-    void* sectors;           // +0xD0: lists::KeyMap of the sectors
+    void* sectors; // +0xD0: lists::KeyMap of the sectors
     uint8_t engine_0d_4_[0x1AC];
-    SceneRef* meshes;          // +0x280: its mesh list
+    SceneRef* meshes; // +0x280: its mesh list
 
     // 0x004C6130: construct (`arg` for the engine's constructor). Returns this.
     PcScene* make_new(int arg);
@@ -116,4 +115,4 @@ extern uint32_t g_bloom_alpha_first;
 extern uint32_t g_bloom_alpha_second;
 extern uint32_t g_bloom_cut_off;
 
-} // namespace Nx
+} // namespace render

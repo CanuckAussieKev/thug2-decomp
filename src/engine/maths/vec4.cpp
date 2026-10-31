@@ -19,10 +19,7 @@ Vec4& Vec4::operator=(const Vec4& other)
 }
 
 // 0x00402310
-float& Vec4::operator[](int index)
-{
-    return (&x)[index];
-}
+float& Vec4::operator[](int index) { return (&x)[index]; }
 
 // 0x00402340
 Vec4& Vec4::operator+=(const Vec4& other)
@@ -50,7 +47,8 @@ Vec4& Vec4::flatten_onto_plane(const Vec4& normal)
     // All products are taken before writing, so this also works when `normal` is this vector. As the original's x87
     // code: the dot product and x's part along the normal stay in double; the other parts are rounded to floats
     // first, each difference rounded once more.
-    double dot = (static_cast<double>(normal.x) * x + static_cast<double>(z) * normal.z) + static_cast<double>(y) * normal.y;
+    double dot =
+        (static_cast<double>(normal.x) * x + static_cast<double>(z) * normal.z) + static_cast<double>(y) * normal.y;
     double along_x = dot * normal.x;
     float along_y = static_cast<float>(dot * normal.y);
     float along_z = static_cast<float>(dot * normal.z);
@@ -100,10 +98,7 @@ Vec4& Vec4::project_onto(const Vec4& axis)
 }
 
 // 0x00405FA0
-void Vec4::echo_out() const
-{
-    debug::printf("[%f %f %f %f]\n", x, y, z, w);
-}
+void Vec4::echo_out() const { debug::printf("[%f %f %f %f]\n", x, y, z, w); }
 
 // 0x00406260
 float Vec4::dominant_axis_index(int* axis) const
@@ -129,16 +124,10 @@ Vec4& Vec4::operator*=(float scale)
 }
 
 // 0x004023A0
-float Vec4::magnitude_squared() const
-{
-    return x * x + y * y + z * z;
-}
+float Vec4::magnitude_squared() const { return x * x + y * y + z * z; }
 
 // 0x004023C0
-float Vec4::len_of() const
-{
-    return std::sqrt(magnitude_squared());
-}
+float Vec4::len_of() const { return std::sqrt(magnitude_squared()); }
 
 // 0x004023F0
 Vec4& Vec4::make_unit()
@@ -213,40 +202,22 @@ void Vec4::negate_x_rotate_x90()
 }
 
 // 0x00402440
-Vec4 operator+(const Vec4& a, const Vec4& b)
-{
-    return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w};
-}
+Vec4 operator+(const Vec4& a, const Vec4& b) { return {a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w}; }
 
 // 0x00402470
-Vec4 operator-(const Vec4& a, const Vec4& b)
-{
-    return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w};
-}
+Vec4 operator-(const Vec4& a, const Vec4& b) { return {a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w}; }
 
 // 0x004024A0
-Vec4 operator*(const Vec4& v, float scale)
-{
-    return {v.x * scale, v.y * scale, v.z * scale, v.w * scale};
-}
+Vec4 operator*(const Vec4& v, float scale) { return {v.x * scale, v.y * scale, v.z * scale, v.w * scale}; }
 
 // 0x004024D0
-Vec4 operator*(float scale, const Vec4& v)
-{
-    return v * scale;
-}
+Vec4 operator*(float scale, const Vec4& v) { return v * scale; }
 
 // 0x00402500
-Vec4 operator-(const Vec4& v)
-{
-    return {-v.x, -v.y, -v.z, -v.w};
-}
+Vec4 operator-(const Vec4& v) { return {-v.x, -v.y, -v.z, -v.w}; }
 
 // 0x00402530
-float dot_vec(const Vec4& a, const Vec4& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z;
-}
+float dot_vec(const Vec4& a, const Vec4& b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
 // 0x00402550 (each difference of products rounded once, as the original's x87 code does)
 Vec4 cross_vec(const Vec4& a, const Vec4& b)
@@ -261,16 +232,10 @@ Vec4 cross_vec(const Vec4& a, const Vec4& b)
 Seg::Seg(const Vec4& from, const Vec4& to) : start(from), end(to) {}
 
 // 0x004A86D0
-bool Vec4::operator!=(const Vec4& other) const
-{
-    return other.x != x || other.y != y || other.z != z || other.w != w;
-}
+bool Vec4::operator!=(const Vec4& other) const { return other.x != x || other.y != y || other.z != z || other.w != w; }
 
 // 0x0040AED0 (all four components exactly; NaN is unequal)
-bool Vec4::operator==(const Vec4& other) const
-{
-    return x == other.x && y == other.y && z == other.z && w == other.w;
-}
+bool Vec4::operator==(const Vec4& other) const { return x == other.x && y == other.y && z == other.z && w == other.w; }
 
 // 0x0040AF20 (x87: the reciprocal rounded to a float for x, y, z; w is multiplied by the unrounded one)
 Vec4 operator/(const Vec4& v, float divisor)
@@ -303,14 +268,14 @@ double get_distance(const Vec4& a, const Vec4& b)
 // 0x00406560
 bool is_angle_beyond(const Vec4& a, const Vec4& b, float degrees)
 {
-    double length_a = std::sqrt((static_cast<double>(a.x) * a.x + static_cast<double>(a.y) * a.y) +
-                               static_cast<double>(a.z) * a.z);
+    double length_a =
+        std::sqrt((static_cast<double>(a.x) * a.x + static_cast<double>(a.y) * a.y) + static_cast<double>(a.z) * a.z);
     if (length_a < 0.5)
         return false;
-    double cosine = ((static_cast<double>(a.x) * b.x + static_cast<double>(b.z) * a.z) +
-                     static_cast<double>(a.y) * b.y) / length_a;
-    double length_b = std::sqrt((static_cast<double>(b.y) * b.y + static_cast<double>(b.z) * b.z) +
-                               static_cast<double>(b.x) * b.x);
+    double cosine =
+        ((static_cast<double>(a.x) * b.x + static_cast<double>(b.z) * a.z) + static_cast<double>(a.y) * b.y) / length_a;
+    double length_b =
+        std::sqrt((static_cast<double>(b.y) * b.y + static_cast<double>(b.z) * b.z) + static_cast<double>(b.x) * b.x);
     if (length_b < 0.5)
         return false;
     cosine /= length_b;
@@ -407,7 +372,7 @@ double get_distance_squared(const Vec4& a, const Vec4& b)
     return dx * dx + dz * dz + dy * dy;
 }
 
-} // namespace Mth
+} // namespace maths
 
 // --- replacements -------------------------------------------------------------------------------------
 // Members are __thiscall (object in ECX, callee pops arguments) and return the object in EAX, matching the
@@ -425,10 +390,7 @@ struct VectorAdapter {
 };
 
 struct LineAdapter {
-    maths::Seg* make_new(const Vec4& start, const Vec4& end)
-    {
-        return new (this) maths::Seg(start, end);
-    }
+    maths::Seg* make_new(const Vec4& start, const Vec4& end) { return new (this) maths::Seg(start, end); }
 };
 
 } // namespace
