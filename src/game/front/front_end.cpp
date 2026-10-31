@@ -2,6 +2,7 @@
 // game. See front_end.h.
 
 #include "game/front/front_end.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 #include <new>
@@ -670,7 +671,7 @@ FrontEnd* FrontEnd::Construct()
     auto* task = static_cast<FrontEndTask*>(Mem::Calloc(sizeof(FrontEndTask)));
     if (task) {
         ConstructNode(task, -2000);
-        *reinterpret_cast<uint32_t*>(task) = 0x006476F0; // Tsk::Task<FrontEnd>
+        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // Tsk::Task<FrontEnd>
         task->m_code = &LogicTask;
         task->m_data = this;
     }
@@ -678,7 +679,7 @@ FrontEnd* FrontEnd::Construct()
     task = static_cast<FrontEndTask*>(Mem::Calloc(sizeof(FrontEndTask)));
     if (task) {
         ConstructNode(task, -1000);
-        *reinterpret_cast<uint32_t*>(task) = 0x006476F0;
+        *reinterpret_cast<uint32_t*>(task) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         task->m_code = &KeyboardTask;
         task->m_data = this;
     }
@@ -688,7 +689,7 @@ FrontEnd* FrontEnd::Construct()
         if (handler) {
             ConstructNode(handler, -1000);
             handler->m_index = i;
-            *reinterpret_cast<uint32_t*>(handler) = 0x0064D7D8; // Inp::Handler<FrontEnd>
+            *reinterpret_cast<uint32_t*>(handler) = reinterpret_cast<uint32_t>(GameCode::kInputHandlerVtable); // Inp::Handler<FrontEnd>
             handler->m_code = &InputLogic;
             handler->m_data = this;
         }

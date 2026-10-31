@@ -49,11 +49,11 @@ constexpr uint32_t kVelX = 0x6187906D, kVelY = 0x1680A0FB, kVelZ = 0x8F89F141; /
 // The network manager and its player lists (Lst::Search<PlayerInfo>, vtable 0x0064C1A8; NewPlayerInfo's 0x0064C82C).
 GameNet::Manager* NetManager() { return GameNet::g_gameNetManager; }
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 struct NewPlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C82C);
+    void** m_vtable = GameNet::kNewPlayerSearchVtable;
     void* m_node = nullptr;
 };
 PlayerInfo* FirstPlayer(GameNet::Manager* manager, PlayerSearch* search, bool observers)

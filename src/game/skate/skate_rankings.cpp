@@ -57,7 +57,7 @@ struct RankingList {
     Mem::ListNode m_head;
     RankingList()
     {
-        m_head.vtable = reinterpret_cast<void**>(0x0064CCF8);
+        m_head.vtable = GameNet::kScoreEntryVtable;
         m_head.data = reinterpret_cast<void*>(-1);
         m_head.priority = 0;
         m_head.next = &m_head;
@@ -85,7 +85,7 @@ GameNet::ScoreEntry* NewEntry()
     entry->priority = 0;
     entry->next = entry;
     entry->prev = entry;
-    entry->vtable = reinterpret_cast<void**>(0x0064CCF8);
+    entry->vtable = GameNet::kScoreEntryVtable;
     return entry;
 }
 void DeleteEntry(GameNet::ScoreEntry* entry)

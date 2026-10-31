@@ -4,6 +4,7 @@
 #include <winsock2.h>
 
 #include "game/sys/viewer.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstring>
@@ -92,8 +93,6 @@ constexpr uint32_t kReloadScene = 0x179BB868;            // ReloadScene (a scrip
 constexpr uint32_t kModelName = 0xB974F2FC;              // modelname
 constexpr uint32_t kSkeletonName = 0x09794932;           // skeletonName
 
-void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);    // Tsk::Task<Viewer>
-void** const kHandlerVtable = reinterpret_cast<void**>(0x0064D7D8); // Inp::Handler<Viewer>
 
 float& MovementVelocity() { return g_movementVelocity; }
 float& RotateVelocity() { return g_rotateVelocity; }
@@ -602,7 +601,7 @@ Viewer* Viewer::Construct()
     auto* freeCamera = static_cast<ViewerTask*>(Mem::Calloc(sizeof(ViewerTask)));
     if (freeCamera) {
         ConstructNode(freeCamera, 0);
-        *reinterpret_cast<void***>(freeCamera) = kTaskVtable;
+        *reinterpret_cast<void***>(freeCamera) = GameCode::kTaskVtable;
         freeCamera->m_code = &FreeCameraTask;
         freeCamera->m_data = this;
     }
@@ -611,7 +610,7 @@ Viewer* Viewer::Construct()
     if (input) {
         ConstructNode(input, 0);
         input->m_index = controller;
-        *reinterpret_cast<void***>(input) = kHandlerVtable;
+        *reinterpret_cast<void***>(input) = GameCode::kInputHandlerVtable;
         input->m_code = &HandleViewerInput;
         input->m_data = this;
     }
@@ -622,7 +621,7 @@ Viewer* Viewer::Construct()
     auto* combos = static_cast<ViewerTask*>(Mem::Calloc(sizeof(ViewerTask)));
     if (combos) {
         ConstructNode(combos, 0);
-        *reinterpret_cast<void***>(combos) = kTaskVtable;
+        *reinterpret_cast<void***>(combos) = GameCode::kTaskVtable;
         combos->m_code = &SelectComboTask;
         combos->m_data = this;
     }
@@ -631,7 +630,7 @@ Viewer* Viewer::Construct()
     if (shift) {
         ConstructNode(shift, 1000);
         shift->m_index = controller;
-        *reinterpret_cast<void***>(shift) = kHandlerVtable;
+        *reinterpret_cast<void***>(shift) = GameCode::kInputHandlerVtable;
         shift->m_code = &HandleViewerShift;
         shift->m_data = this;
     }

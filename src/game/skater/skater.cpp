@@ -1194,7 +1194,7 @@ CSkater* CSkater::Construct(int viewport, CCompositeObjectManager* manager, bool
     new (&m_displayName) Str::String();
     // Its node in the skater list (Lst::Node: vtable, data, priority, next, prev).
     auto* node = reinterpret_cast<uint32_t*>(m_block238);
-    node[0] = 0x0064E544;
+    node[0] = reinterpret_cast<uint32_t>(Mdl::kSkaterNodeVtable);
     node[1] = reinterpret_cast<uint32_t>(this);
     node[2] = 0;
     node[3] = reinterpret_cast<uint32_t>(node);
@@ -1597,7 +1597,7 @@ void CSkater::DestroyBody()
     }
     // Out of the skater list.
     auto* node = reinterpret_cast<uint32_t*>(m_block238);
-    node[0] = 0x0064E544;
+    node[0] = reinterpret_cast<uint32_t>(Mdl::kSkaterNodeVtable);
     reinterpret_cast<uint32_t*>(node[4])[3] = node[3];
     reinterpret_cast<uint32_t*>(node[3])[4] = node[4];
     node[3] = reinterpret_cast<uint32_t>(node);

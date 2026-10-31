@@ -8,6 +8,7 @@
 #include "game/core/mem.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_tri.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
@@ -18,7 +19,6 @@ namespace Nx {
 
 namespace {
 
-void** const kCollMultiVtable = reinterpret_cast<void**>(0x00645AA8);
 GAME_VTABLE(kHeadVtable, 0x00645D34, &Nx::CollObjListNodes::DestroyHead); // Lst::Head<CCollObj>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
@@ -131,7 +131,7 @@ CCollMulti* CCollMulti::Construct()
 {
     m_flags = 0;
     m_geometry = nullptr;
-    m_vtable = kCollMultiVtable;
+    m_vtable = Vt::kCollMulti;
     new (&m_box) Mth::BBox();
     Mem::ListNode* head = NewHead();
     m_value38 = 0;
@@ -148,7 +148,7 @@ CCollMulti* CCollMulti::ConstructCopy(const CCollMulti* other)
     m_flags = other->m_flags;
     m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
-    m_vtable = kCollMultiVtable;
+    m_vtable = Vt::kCollMulti;
     m_children = other->m_children;
     m_box = other->m_box;
     m_dirty = other->m_dirty;
@@ -160,7 +160,7 @@ CCollMulti* CCollMulti::ConstructCopy(const CCollMulti* other)
 // 0x00411B10
 void CCollMulti::Destruct()
 {
-    m_vtable = kCollMultiVtable;
+    m_vtable = Vt::kCollMulti;
     if (m_children) {
         Mem::ListNode* node = m_children->next;
         if (node->data != kHeadData && node) {

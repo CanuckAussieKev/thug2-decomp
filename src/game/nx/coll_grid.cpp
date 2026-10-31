@@ -11,6 +11,7 @@
 #include "game/nx/coll_obj.h"
 #include "game/nx/coll_static.h"
 #include "game/nx/coll_tri.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
@@ -19,8 +20,6 @@ namespace Nx {
 
 namespace {
 
-void** const kGridNodeVtable = reinterpret_cast<void**>(0x00645D7C);
-void** const kGridHeadVtable = reinterpret_cast<void**>(0x00645D80);
 
 // The queries' shared answer (2048 entries, null-terminated) and the mark of the current query (objects keep the
 // last one that listed them, so each is listed once).
@@ -100,7 +99,7 @@ struct CellUpdate {
         } else {
             auto* node = static_cast<Mem::ListNode*>(Mem::Calloc(sizeof(Mem::ListNode)));
             if (node) {
-                node->vtable = kGridNodeVtable;
+                node->vtable = Vt::kCollGridNode;
                 node->data = object;
                 node->priority = 0;
                 node->next = node;
@@ -260,7 +259,7 @@ void CCollGrid::Fill(CCollStatic* statics, int count)
 void CCollGrid::Update(Mem::ListNode* added, Mem::ListNode* removed, Mem::ListNode* moved)
 {
     Mem::ListNode pending;
-    pending.vtable = kGridHeadVtable;
+    pending.vtable = Vt::kCollGridHead;
     pending.data = reinterpret_cast<void*>(-1);
     pending.priority = 0;
     pending.next = &pending;
@@ -421,7 +420,7 @@ CCollObj** CCollGrid::ObjectsAlongLine(const Mth::Line* line, int* count)
 }
 
 // 0x00418ED0
-void CollGridListNodes::DestroyNodeBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(kGridNodeVtable); }
+void CollGridListNodes::DestroyNodeBody() { reinterpret_cast<Mem::ListNode*>(this)->UnlinkAs(Vt::kCollGridNode); }
 
 // 0x00418EF0
 Mem::ListNode* CollGridListNodes::DestroyNode(uint8_t flags)

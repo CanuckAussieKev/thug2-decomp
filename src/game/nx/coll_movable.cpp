@@ -9,6 +9,7 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_tri.h"
 #include "game/core/stubs.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/nx/coll_obj.h"
@@ -26,7 +27,6 @@ GAME_VTABLE(kMovableVtable, 0x00645B00, &Nx::CCollMovable::ScalarDelete, Stubs::
     GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
     GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771),
     GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), Stubs::ReturnZero);
-void** const kMovBBoxVtable = reinterpret_cast<void**>(0x00645BC0);
 
 void SetIdentity(Mth::Matrix& m)
 {
@@ -191,7 +191,7 @@ void MatrixTranspose::TransposeInPlace()
 CCollMovBBox* CCollMovBBox::Construct()
 {
     CCollMovable::Construct();
-    m_vtable = kMovBBoxVtable;
+    m_vtable = Vt::kCollMovBBox;
     new (&m_box) Mth::BBox();
     m_faceFlags = 0;
     m_terrain = 0;
@@ -204,7 +204,7 @@ CCollMovBBox* CCollMovBBox::Construct()
 CCollMovBBox* CCollMovBBox::ConstructCopy(const CCollMovBBox* other)
 {
     CCollMovable::ConstructCopy(other);
-    m_vtable = kMovBBoxVtable;
+    m_vtable = Vt::kCollMovBBox;
     m_box = other->m_box;
     m_faceFlags = other->m_faceFlags;
     m_terrain = other->m_terrain;
@@ -216,7 +216,7 @@ CCollMovBBox* CCollMovBBox::ConstructCopy(const CCollMovBBox* other)
 // 0x004125F0
 void CCollMovBBox::Destruct()
 {
-    m_vtable = kMovBBoxVtable;
+    m_vtable = Vt::kCollMovBBox;
     CCollMovable::Destruct();
 }
 

@@ -57,7 +57,7 @@ uint8_t s_changeMask[CTrickObjectManager::kMaxLoggedClusters];
 void* GameMode() { return static_cast<void*>(Game::g_gameMode); }
 void* NetManager() { return reinterpret_cast<void*>(GameNet::g_gameNetManager); }
 struct PlayerSearch {
-    void* m_vtable = reinterpret_cast<void*>(0x0064C1A8);
+    void* m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 uint8_t* FirstPlayer(PlayerSearch* search)

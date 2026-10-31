@@ -40,6 +40,8 @@
 
 namespace GameNet {
 
+GAME_VTABLE(kScoreEntryVtable, 0x0064CCF8, &GameNet::ScoreNode::DestroyCalling);
+
 using namespace Detail;
 
 namespace {
@@ -63,8 +65,6 @@ constexpr uint32_t kScoreLines[8] = {0x2B083809, 0xB20169B3, 0xC5065925, 0x5B62C
                                      0x2C65FC10, 0xB56CADAA, 0xC26B9D3C, 0x52D480AD}; // net_score_5 ... 8
 
 constexpr uint32_t kUpdateInterval = 1000; // ms
-GAME_VTABLE(kScoreEntryVtable, 0x0064CCF8, &GameNet::ScoreNode::DestroyCalling);
-
 GAME_GLOBAL(uint32_t, g_lastScoreUpdate, 0x007CE43C);
 
 uint32_t& LastScoreUpdate() { return g_lastScoreUpdate; }

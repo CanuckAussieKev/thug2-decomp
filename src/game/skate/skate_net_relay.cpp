@@ -1023,7 +1023,7 @@ int SkateNet::HandleProjectile(Net::MsgHandlerContext* context)
     uint32_t time = Field<uint32_t>(data, 0);
     if (!Net()->OnServer()) {
         // (a client: the server's latency added)
-        Net::ConnSearch search{reinterpret_cast<void**>(0x0064759C), nullptr};
+        Net::ConnSearch search{Net::kConnSearchVtable, nullptr};
         Net::Conn* conn = context->m_App->FirstConnection(&search);
         time += conn->IsLocal() ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency);
     }

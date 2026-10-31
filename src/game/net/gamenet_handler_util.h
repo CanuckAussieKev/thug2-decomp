@@ -105,7 +105,7 @@ inline int PlayerTeam(const uint8_t* player) { return Field<int>(player, 0x30); 
 // Lst::Search<PlayerInfo> (vtable 0x0064C1A8) for the manager's FirstPlayerInfo / NextPlayerInfo, and
 // Lst::Search<NewPlayerInfo> (0x0064C82C) for FirstNewPlayerInfo / NextNewPlayerInfo.
 struct PlayerSearch {
-    void** m_vtable = reinterpret_cast<void**>(0x0064C1A8);
+    void** m_vtable = Mdl::kPlayerSearchVtable;
     void* m_node = nullptr;
 };
 struct NewPlayerSearch {

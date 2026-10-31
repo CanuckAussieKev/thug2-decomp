@@ -18,6 +18,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/skater/thaw_bmx.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/game_global.h"
 #include "hook/hook.h"
@@ -67,7 +68,6 @@ namespace {
 
 extern void** const kVtable;
 extern void** const kHeadVtable;
-void** const kNodeVtable = reinterpret_cast<void**>(0x00645D84);
 
 constexpr uint32_t kId = 0x5CFCCF35; // SubsetId
 constexpr uint32_t kPlayAnim = 0x0B1E7291, kObjPlayAnim = 0x2CB9AD09;
@@ -161,7 +161,7 @@ void CAnimBlenderComponent::DestroyBody()
                     reinterpret_cast<Obj::PointerListNode*>(head));
     }
     Mem::Manager::Get()->Free(mp_observers);
-    m_channels.UnlinkAs(kNodeVtable);
+    m_channels.UnlinkAs(Vt::kBlenderChannelNode);
     CBaseComponent::DestroyBody();
 }
 
@@ -626,12 +626,12 @@ void CAnimBlenderComponent::GetTimes(float* start, float* current, float* end)
 }
 
 // 0x00419D70
-void BlendChannelLinks::DestroyBody() { m_link.UnlinkAs(kNodeVtable); }
+void BlendChannelLinks::DestroyBody() { m_link.UnlinkAs(Vt::kBlenderChannelNode); }
 
 // 0x00419D90
 BlendChannelLinks* BlendChannelLinks::DestroyNode(unsigned int flags)
 {
-    m_link.UnlinkAs(kNodeVtable);
+    m_link.UnlinkAs(Vt::kBlenderChannelNode);
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;

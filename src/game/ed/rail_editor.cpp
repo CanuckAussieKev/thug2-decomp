@@ -2,6 +2,10 @@
 // The sectors drawn for them: rail_editor_draw.cpp; the script side: rail_editor_script.cpp.
 
 #include "game/ed/rail_editor.h"
+#include "hook/game_code.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/core/stubs.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -51,7 +55,21 @@ GAME_GLOBAL(uint32_t, g_nextRailId, 0x0067EFFC, 1);
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B918);
+GAME_VTABLE(kVtable, 0x0064B918,
+    &Ed::CRailEditorComponent::Destroy,
+    &Ed::CRailEditorComponent::Update,
+    Stubs::IgnoreArgument,
+    &Ed::CRailEditorComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &Ed::CRailEditorComponent::Hide,
+    Stubs::DoNothing,
+    &Ed::CRailEditorComponent::GetDebugInfo,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(
+        &Obj::CBaseComponent::CallMemberFunction),
+    &Ed::CRailEditorComponent::CallMemberFunction);
 uint32_t& NextRailId() { return g_nextRailId; }
 
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;

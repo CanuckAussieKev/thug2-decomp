@@ -1,6 +1,7 @@
 // The input component (Obj::CInputComponent): see input_component.h. From the disassembly of 0x0041E6F0-0x0041F3FB.
 
 #include "game/obj/input_component.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -51,7 +52,6 @@ GAME_GLOBAL(uint32_t[90], g_inputComponentMemberFunctions, 0x00684C78,
 namespace {
 
 extern void** const kVtable;
-void** const kHandlerVtable = reinterpret_cast<void**>(0x0064D7D8);
 
 constexpr uint32_t kPlayer = 0x67E6859A;      // Player
 constexpr uint32_t kController = 0xB30D9965;  // controller
@@ -121,7 +121,7 @@ CInputComponent::Handler* NewHandler(int index, void(__cdecl* code)(CInputCompon
         return nullptr;
     handler->Construct(-1);
     handler->m_index = index;
-    handler->m_vtable = kHandlerVtable;
+    handler->m_vtable = GameCode::kInputHandlerVtable;
     handler->m_code = code;
     handler->m_component = component;
     return handler;

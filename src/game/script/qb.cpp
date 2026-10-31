@@ -399,15 +399,16 @@ void LogScriptPoolUse(const char* when)
     // Not original (log only).
     struct Named {
         const char* name;
-        uint32_t pair;
+        Mem::PoolPair* pair;
     };
-    static const Named kPools[] = {{"CComponent", 0x006F2338}, {"CStruct", 0x006F3614}, {"CVector", 0x006F3654},
-                                   {"CPair", 0x006F3644},      {"CArray", 0x006F22B4},  {"CSymbolTableEntry", 0x006F362C},
-                                   {"CScript", 0x006F3548}};
+    const Named kPools[] = {{"CComponent", &g_componentPools}, {"CStruct", &g_structPools},
+                            {"CVector", &g_vectorPools},       {"CPair", &g_pairPools},
+                            {"CArray", &g_arrayPools},         {"CSymbolTableEntry", &g_symbolPools},
+                            {"CScript", &g_scriptPools}};
     std::string line;
     for (const Named& p : kPools) {
         int used = 0, peak = 0, count = 0;
-        for (Mem::Pool* pool : GameVariable<Mem::PoolPair>(p.pair).pools) {
+        for (Mem::Pool* pool : p.pair->pools) {
             if (!pool)
                 continue;
             used += pool->m_used;
@@ -434,11 +435,18 @@ void LogScriptPoolUse(const char* when)
 namespace {
 
 // The per-class pool creators (cdecl: count, name).
-template <uint32_t Pools, int ItemSize>
-void CreatePoolOf(int count, const char* name)
-{
-    Script::CreatePool(GameVariable<Mem::PoolPair>(Pools), ItemSize, count, name);
-}
+#define POOL_CREATOR(function, pools, itemSize)                                                                \
+    void function(int count, const char* name) { Script::CreatePool(Script::pools, itemSize, count, name); }
+POOL_CREATOR(CreateCacheEntryPool, g_cacheEntryPools, 0x14)
+POOL_CREATOR(CreateComponentPool, g_componentPools, 0x10)
+POOL_CREATOR(CreateStructPool, g_structPools, 0x08)
+POOL_CREATOR(CreateVectorPool, g_vectorPools, 0x10)
+POOL_CREATOR(CreatePairPool, g_pairPools, 0x0C)
+POOL_CREATOR(CreateArrayPool, g_arrayPools, 0x0C)
+POOL_CREATOR(CreateSymbolPool, g_symbolPools, 0x14)
+POOL_CREATOR(CreateScriptPool, g_scriptPools, 0xF4)
+POOL_CREATOR(CreateStoredRandomPool, g_storedRandomPools, 0x60)
+#undef POOL_CREATOR
 
 } // namespace
 
@@ -459,15 +467,15 @@ REPLACE(0x0046F870, Script::ForgetStoredRandomsOf);
 REPLACE(0x0046F8A0, &Script::CStoredRandom::Shuffle);
 REPLACE(0x00476210, Script::AllocatePermanentStringHeap);
 REPLACE(0x0046F520, Script::CreateScriptPools);
-REPLACE(0x0046F090, &CreatePoolOf<0x006F3560, 0x14>);
-REPLACE(0x0046F110, &CreatePoolOf<0x006F2338, 0x10>);
-REPLACE(0x0046F190, &CreatePoolOf<0x006F3614, 0x08>);
-REPLACE(0x0046F210, &CreatePoolOf<0x006F3654, 0x10>);
-REPLACE(0x0046F290, &CreatePoolOf<0x006F3644, 0x0C>);
-REPLACE(0x0046F310, &CreatePoolOf<0x006F22B4, 0x0C>);
-REPLACE(0x0046F390, &CreatePoolOf<0x006F362C, 0x14>);
-REPLACE(0x0046F410, &CreatePoolOf<0x006F3548, 0xF4>);
-REPLACE(0x0046F4A0, &CreatePoolOf<0x006F2578, 0x60>);
+REPLACE(0x0046F090, CreateCacheEntryPool);
+REPLACE(0x0046F110, CreateComponentPool);
+REPLACE(0x0046F190, CreateStructPool);
+REPLACE(0x0046F210, CreateVectorPool);
+REPLACE(0x0046F290, CreatePairPool);
+REPLACE(0x0046F310, CreateArrayPool);
+REPLACE(0x0046F390, CreateSymbolPool);
+REPLACE(0x0046F410, CreateScriptPool);
+REPLACE(0x0046F4A0, CreateStoredRandomPool);
 
 // --- symbol bookkeeping for the loader --------------------------------------------------------------------
 

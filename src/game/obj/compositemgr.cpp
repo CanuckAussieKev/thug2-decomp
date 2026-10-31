@@ -1,6 +1,7 @@
 // The composite object manager and the COIM heap (compositemgr.h).
 
 #include "game/obj/compositemgr.h"
+#include "game/net/task_vtable.h"
 #include "game/obj/pager_message.h"
 
 #include <cstdint>
@@ -92,7 +93,6 @@ GAME_GLOBAL(uint32_t, g_compositeMgrReferences, 0x006F0FBC);
 namespace {
 
 extern void** const kManagerVtable;
-void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CCompositeObjectManager>
 constexpr uint32_t kCompositeObjectType = 0xCDEB9229;
 constexpr uint32_t kObjectMemberFunctionType = 0x57525413;    // the table at 0x00683550 (CObject's)
 constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x00683268 (CCompositeObject's)
@@ -184,7 +184,7 @@ CCompositeObjectManager* CCompositeObjectManager::Construct()
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
         ConstructTask(task, kLogicTaskPriority);
-        task[0] = reinterpret_cast<uint32_t>(kTaskVtable);
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
         task[6] = reinterpret_cast<uint32_t>(&CompositeObjectManagerTask);
         task[7] = reinterpret_cast<uint32_t>(this);
     }

@@ -2,6 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/sio/device.h"
+#include "game/net/task_vtable.h"
 
 #define DIRECTINPUT_VERSION 0x0800
 #include <windows.h>
@@ -720,7 +721,7 @@ Manager::Manager()
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
         reinterpret_cast<Tsk::BaseTask*>(task)->Construct(0);                 // Tsk::BaseTask(priority 0)
-        task[0] = 0x006476F0;                                             // Tsk::Task<Lst::Head<Device>>
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                             // Tsk::Task<Lst::Head<Device>>
         task[6] = reinterpret_cast<uint32_t>(&ProcessTask);
         task[7] = reinterpret_cast<uint32_t>(&m_devices);
     }

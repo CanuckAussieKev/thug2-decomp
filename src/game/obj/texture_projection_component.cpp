@@ -10,6 +10,7 @@
 #include "game/gfx/pc_texture_projection.h"
 #include "game/obj/movie_manager.h"
 #include "game/script/struct.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/core/stubs.h"
@@ -26,7 +27,6 @@ namespace {
 
 extern void** const kVtable;
 extern void** const kHeadVtable;     // the head as made
-void** const kDeadHeadVtable = reinterpret_cast<void**>(0x00646600); // the head's destructor's
 
 constexpr uint32_t kTextureProjections = 0xFF7E0DAD; // texture_projections
 
@@ -67,7 +67,7 @@ CBaseComponent* __cdecl CTextureProjectionComponent::Create()
 // 0x00434670
 CTextureProjectionComponent::ProjectionList* CTextureProjectionComponent::ProjectionList::Destroy(unsigned int flags)
 {
-    m_node.UnlinkAs(kDeadHeadVtable);
+    m_node.UnlinkAs(Vt::kProjectionNode);
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -78,7 +78,7 @@ void CTextureProjectionComponent::DestroyBody()
 {
     m_vtable = kVtable;
     reinterpret_cast<ListHead*>(&m_projections)->DeleteAllNodes();
-    m_projections.m_node.UnlinkAs(kDeadHeadVtable);
+    m_projections.m_node.UnlinkAs(Vt::kProjectionNode);
     CBaseComponent::DestroyBody();
 }
 

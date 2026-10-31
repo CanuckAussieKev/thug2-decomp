@@ -6,6 +6,10 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "hook/game_code.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/core/stubs.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/ed/goal_editor.h"
@@ -66,7 +70,20 @@ GAME_GLOBAL(uint32_t[216], g_goalEditorMemberFunctions, 0x00684270,
 
 namespace {
 
-void** const kVtable = reinterpret_cast<void**>(0x0064B534);
+GAME_VTABLE(kVtable, 0x0064B534,
+    &Ed::CGoalEditorComponent::Destroy,
+    &Ed::CGoalEditorComponent::Update,
+    Stubs::IgnoreArgument,
+    &Ed::CGoalEditorComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    &Ed::CGoalEditorComponent::Hide,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 constexpr uint32_t kGoalEditor = 0x81F01058;
 constexpr uint32_t kInput = 0x27D7CD28, kEditorCamera = 0xAC8946E2;
 constexpr uint32_t kGoalsArray = 0x38DBE1D0;

@@ -11,6 +11,7 @@
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
 #include "game/core/stubs.h"
+#include "game/core/game_vtables.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "game/nx/coll_obj.h"
@@ -25,7 +26,6 @@ GAME_GLOBAL(Mth::Matrix, g_sharedOrientation, 0x00691928);
 
 namespace {
 
-void** const kStaticVtable = reinterpret_cast<void**>(0x00645C18);
 GAME_VTABLE(kInstanceVtable, 0x00645C78, &Nx::CCollStaticInstance::ScalarDelete, Stubs::ReturnTrue,
     &Nx::CollFaceAccess::GetFaceFlags, &Nx::CollFaceAccess::GetFaceTerrain, &Nx::CCollObj::SetGeometry,
     &Nx::CCollStaticInstance::SetWorldPosition, &Nx::CCollStaticInstance::SetOrientation,
@@ -36,7 +36,6 @@ GAME_VTABLE(kInstanceVtable, 0x00645C78, &Nx::CCollStaticInstance::ScalarDelete,
     &Nx::CollGeometryForwarders::IsPointBehindFaces, &Nx::CCollStaticInstance::DebugRender, Stubs::ReturnZero,
     &Nx::CCollStaticInstance::GetWorldBBox, Stubs::IgnoreArguments2, &Nx::CCollStaticInstance::RescaleIfAt,
     &Nx::CCollStaticInstance::SetScale, &Nx::CCollMovable::GetWorldPosition);
-void** const kMovTriVtable = reinterpret_cast<void**>(0x00645CE0);
 
 // The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
 CCollObjTriData* CloneGeometry(CCollObjTriData* geometry, int a, int b) { return geometry->Clone(a, b != 0); }
@@ -70,7 +69,7 @@ CCollStatic* CCollStatic::Construct()
 {
     m_flags = 0;
     m_geometry = nullptr;
-    m_vtable = kStaticVtable;
+    m_vtable = Vt::kCollStatic;
     m_buffer = nullptr;
     m_unknown14 = 0;
     return this;
@@ -79,7 +78,7 @@ CCollStatic* CCollStatic::Construct()
 // 0x00412760
 void CCollStatic::Destruct()
 {
-    m_vtable = kStaticVtable;
+    m_vtable = Vt::kCollStatic;
     if ((m_flags & kOwnsGeometry) && m_buffer) {
         Mem::FreeMalloc(m_buffer);
         m_buffer = nullptr;
@@ -105,7 +104,7 @@ CCollObj* CCollStatic::Clone(bool instance)
         if (memory) {
             memory->m_flags = 0;
             memory->m_geometry = nullptr;
-            memory->m_vtable = kStaticVtable;
+            memory->m_vtable = Vt::kCollStatic;
             memory->m_buffer = nullptr;
             memory->m_unknown14 = 0;
         }
@@ -311,7 +310,7 @@ void CCollStaticInstance::DebugRender(int a, int b)
 CCollMovTri* CCollMovTri::Construct(CCollObjTriData* geometry)
 {
     CCollMovable::Construct();
-    m_vtable = kMovTriVtable;
+    m_vtable = Vt::kCollMovTri;
     new (&m_box) Mth::BBox();
     SetGeometry(geometry);
     m_unknownD0 = geometry->m_unknown3C;
@@ -323,7 +322,7 @@ CCollMovTri* CCollMovTri::Construct(CCollObjTriData* geometry)
 CCollMovTri* CCollMovTri::ConstructCopy(const CCollMovTri* other)
 {
     CCollMovable::ConstructCopy(other);
-    m_vtable = kMovTriVtable;
+    m_vtable = Vt::kCollMovTri;
     m_radius = other->m_radius;
     m_boxDirty = other->m_boxDirty;
     m_box = other->m_box;
@@ -335,7 +334,7 @@ CCollMovTri* CCollMovTri::ConstructCopy(const CCollMovTri* other)
 // 0x00413070
 void CCollMovTri::Destruct()
 {
-    m_vtable = kMovTriVtable;
+    m_vtable = Vt::kCollMovTri;
     CCollMovable::Destruct();
 }
 

@@ -40,6 +40,8 @@ namespace CFuncs {
 
 GAME_GLOBAL(char[16], g_networkId, 0x007CCBC4);
 GAME_GLOBAL(char[12], g_networkPassword, 0x007CCBD4);
+// The hosted game's name: "Beenox" unless -HOSTNAME gives another (winmain.cpp).
+GAME_GLOBAL(char[16], g_hostedGameName, 0x0067EFBC, "Beenox");
 
 namespace {
 
@@ -621,7 +623,7 @@ void __cdecl InitBeenoxPreferences()
 {
     GameNet::Manager* gameNet = GameNetManager();
     Prefs::Preferences* prefs = gameNet->GetNetworkPreferences();
-    SetStringPreference(prefs, GAME_TEXT(0x00650324, "server_name"), reinterpret_cast<const char*>(0x0067EFBC)); // "server_name": "Beenox"
+    SetStringPreference(prefs, GAME_TEXT(0x00650324, "server_name"), g_hostedGameName); // "server_name"
     SetStringPreference(prefs, GAME_TEXT(0x0064CE50, "password"), g_networkPassword);           // "password"
     if (g_networkId[0] != '\0')
         SetStringPreference(prefs, GAME_TEXT(0x0064CF0C, "network_id"), g_networkId); // "network_id"

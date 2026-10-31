@@ -1,6 +1,7 @@
 // Modules and the module manager (Mdl).
 
 #include "game/sys/module.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 
@@ -86,7 +87,7 @@ Manager* Manager::Construct()
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
         reinterpret_cast<Tsk::BaseTask*>(task)->Construct(-1000);             // Tsk::BaseTask
-        task[0] = 0x006476F0;                                                // Tsk::Task<Manager>
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);                                                // Tsk::Task<Manager>
         task[6] = reinterpret_cast<uint32_t>(&ProcessModules);
         task[7] = reinterpret_cast<uint32_t>(this);
     }

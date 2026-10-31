@@ -2,6 +2,7 @@
 // preferences, some network flags (see game_cfuncs.h).
 
 #include "game/script/game_cfuncs.h"
+#include "game/net/task_vtable.h"
 
 #include <windows.h>
 
@@ -571,7 +572,7 @@ bool __cdecl CFunc_SpawnSecondControllerCheck(Script::CStruct*, Script::CScript*
     auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
     if (task) {
         reinterpret_cast<Tsk::BaseTask*>(task)->Construct(0);
-        task[0] = 0x006476F0; // Tsk::Task vtable
+        task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable); // Tsk::Task vtable
         task[0x18 / 4] = reinterpret_cast<uint32_t>(&SecondControllerCheckTask);
         task[0x1C / 4] = 0;
     }

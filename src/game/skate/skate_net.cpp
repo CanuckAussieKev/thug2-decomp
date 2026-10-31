@@ -1,6 +1,7 @@
 // The skate module's network handlers and their registration (0x0056C920-0x0056F090). See skate_net.h.
 
 #include "game/skate/skate_net.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -228,7 +229,7 @@ uint8_t* NewTask(uint8_t* skate, uint32_t code)
     if (!task)
         return nullptr;
     reinterpret_cast<Tsk::BaseTask*>(task)->Construct(-1000);
-    Field<uint32_t>(task, 0) = 0x006476F0;
+    Field<uint32_t>(task, 0) = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     Field<uint32_t>(task, 0x18) = code;
     Field<uint8_t*>(task, 0x1C) = skate;
     return task;

@@ -131,7 +131,7 @@ long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t si
 {
     if (!BinkSoundSet()) {
         if (!BinkSetSoundSystem(BinkOpenDirectSound(), g_soundDevice))
-            Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
+            Dbg::Printf(GAME_TEXT(0x006472D4, "Bink can't use DSound\n")); // "Bink can't use DSound\n"
         BinkSoundSet() = true;
     }
     int slot = LoadStreamFile(key, path, offset, size);

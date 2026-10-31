@@ -1,6 +1,7 @@
 // The input manager: a server per controller, turning its device's control data into what the input handlers get.
 
 #include "game/sio/inpman.h"
+#include "game/net/task_vtable.h"
 
 #include <cstdint>
 #include <cstring>
@@ -54,7 +55,7 @@ void* NewTask(int priority, uint32_t code, void* data)
     if (!task)
         return nullptr;
     reinterpret_cast<Tsk::BaseTask*>(task)->Construct(priority);
-    task[0] = 0x006476F0;
+    task[0] = reinterpret_cast<uint32_t>(GameCode::kTaskVtable);
     task[6] = code;
     task[7] = reinterpret_cast<uint32_t>(data);
     return task;

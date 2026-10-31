@@ -36,9 +36,6 @@ struct CFloatKey {
 };
 static_assert(offsetof(CFloatKey, value) == 4, "layout must match the original");
 
-// The shared tables (256 entries of four shorts).
-inline constexpr uint32_t kQuatTable = 0x006F9AD8, kTransTable = 0x006F92D8;
-
 // 0x00482970 (cdecl): 256 entries of four shorts read from `file` into `table`; false at the first short short of
 // a read.
 bool __cdecl ReadKeyTable(void* file, int16_t* table);
