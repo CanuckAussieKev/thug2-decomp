@@ -795,16 +795,16 @@ void push_undo()
 
 // --- the goal manager (the skate module's - 0x005591B0 - through its script commands) ---
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+modules::Skate* skate_module() { return modules::g_skate_module; }
 
 // The current level as the goal editor keeps it (modules::Skate +0x378; Load_Sk5Ed_gameplay counts as Load_Sk5Ed - as
 // 0x004E7D00 / 0x004EC010 / 0x004EA6C0 do).
 uint32_t current_level()
 {
-    uint8_t* skate = skate_module();
+    modules::Skate* skate = skate_module();
     if (!skate)
         return 0;
-    uint32_t level = *reinterpret_cast<uint32_t*>(skate + 0x378);
+    uint32_t level = skate->level_;
     return level == 0xB664035D ? 0xE8B4B836 : level;
 }
 
@@ -920,9 +920,8 @@ node_create::LinkChain play_nodes(const Goal& g, int index)
 std::vector<int> gap_ordinals(const Goal& g)
 {
     std::vector<int> out;
-    uint8_t* skate = skate_module();
-    auto* list =
-        skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
+    modules::Skate* skate = skate_module();
+    auto* list = skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
     if (!list)
         return out;
     for (const std::string& gap : g.gaps) {
@@ -1360,9 +1359,8 @@ bool in_play() { return !g_in_play.empty(); }
 std::vector<std::string> get_level_gaps()
 {
     std::vector<std::string> out;
-    uint8_t* skate = skate_module();
-    auto* list =
-        skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
+    modules::Skate* skate = skate_module();
+    auto* list = skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
     if (!list)
         return out;
     int count = list->total_of();

@@ -20,6 +20,7 @@
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/gfx/sector.h"
 
 namespace frontend::level_editor::faces {
 
@@ -185,11 +186,11 @@ std::vector<std::function<void()>> g_queue;
 // The sector's collision geometry (its StaticCollider's), null for none.
 render::TriMeshSource* get_geometry(uint32_t checksum)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
     if (!render::is_static_collider(coll))
         return nullptr;
-    auto* tri = *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C);
+    auto* tri = coll->geometry_;
     return tri && tri->faces_ ? tri : nullptr;
 }
 

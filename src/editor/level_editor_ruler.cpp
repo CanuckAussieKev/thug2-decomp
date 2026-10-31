@@ -17,6 +17,7 @@
 #include "engine/maths/vec4.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
+#include "engine/gfx/sector.h"
 
 namespace frontend::level_editor::ruler {
 
@@ -83,13 +84,13 @@ bool cast_feeler(V3 from, V3 to, V3* hit, uint32_t* sector)
 std::vector<V3> corners_near(uint32_t checksum, V3 near, float reach)
 {
     std::vector<V3> corners;
-    uint8_t* sector = checksum ? scenery::sector_of(checksum) : nullptr;
+    render::WorldCell* sector = checksum ? scenery::sector_of(checksum) : nullptr;
     if (!sector)
         return corners;
-    uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
+    render::HitMesh* coll = sector->hit_body_;
     if (!render::is_static_collider(coll))
         return corners;
-    const auto* tri = *reinterpret_cast<const render::TriMeshSource* const*>(coll + 0x0C);
+    const auto* tri = coll->geometry_;
     if (!tri || !tri->vertices_)
         return corners;
     int count = tri->num_vertices_ < 20000 ? tri->num_vertices_ : 20000;

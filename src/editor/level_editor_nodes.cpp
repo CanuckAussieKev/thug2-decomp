@@ -632,10 +632,10 @@ std::vector<Prop> get_fields(const Elem& node)
 
 bool level_is_shared(const char** game)
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module); // the skate module
+    modules::Skate* skate = modules::g_skate_module; // the skate module
     if (!skate)
         return false;
-    uint32_t level = *reinterpret_cast<uint32_t*>(skate + 0x378); // its level's load script
+    uint32_t level = skate->level_; // its level's load script
     if (!level)
         return false;
     static const struct {

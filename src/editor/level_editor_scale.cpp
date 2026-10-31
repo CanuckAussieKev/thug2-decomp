@@ -24,6 +24,8 @@
 #include "engine/render/coll_line.h"
 #include "engine/gfx/viewport.h"
 #include "engine/objects/model_component.h"
+#include "engine/gfx/sector.h"
+#include "engine/gfx/geom.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -339,10 +341,10 @@ struct MeshCopy {
     std::vector<float> list_copy_;
 };
 
-uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
-render::TriMeshSource* collision_data(uint8_t* sector)
+render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+render::TriMeshSource* collision_data(render::WorldCell* sector)
 {
-    auto* coll = reinterpret_cast<render::HitMesh*>(coll_of(sector));
+    render::HitMesh* coll = coll_of(sector);
     return coll ? coll->geometry_ : nullptr;
 }
 
@@ -364,7 +366,7 @@ float get_largest(V3 s) { return std::max({s.x, s.y, s.z}); }
 } // namespace
 
 struct Original {
-    uint8_t* geom;
+    render::PcGeom* geom;
     render::MeshRef** mesh_list_;
     uint32_t mesh_count_;
     int quarters;
@@ -374,12 +376,12 @@ struct Original {
     CollisionCopy collision;
 };
 
-std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarters, V3 position)
+std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom* geom, int quarters, V3 position)
 {
     auto original = std::make_shared<Original>();
     original->geom = geom;
-    original->mesh_list_ = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    original->mesh_count_ = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    original->mesh_list_ = geom->meshes;
+    original->mesh_count_ = geom->mesh_count_;
     original->quarters = quarters;
     original->position = position;
     if (!original->mesh_list_ || original->mesh_count_ == 0 || original->mesh_count_ > 4096)
@@ -429,12 +431,11 @@ std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarte
     return original;
 }
 
-bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
-                int quarters0)
+bool reassemble(const Original& original, render::WorldCell* sector, render::PcGeom* geom, int quarters, V3 position,
+                V3 scale, int quarters0)
 {
     // (still the sector copied: its meshes, buffers and collision where and as they were)
-    if (geom != original.geom || *reinterpret_cast<render::MeshRef***>(geom + 0x3C) != original.mesh_list_ ||
-        *reinterpret_cast<uint32_t*>(geom + 0x40) != original.mesh_count_)
+    if (geom != original.geom || geom->meshes != original.mesh_list_ || geom->mesh_count_ != original.mesh_count_)
         return false;
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
         const MeshCopy& copy = original.meshes[i];
@@ -482,7 +483,7 @@ bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int qu
     return true;
 }
 
-V3 get_limit(uint8_t* sector, V3 world_scale)
+V3 get_limit(render::WorldCell* sector, V3 world_scale)
 {
     return sector ? collision_limit(collision_data(sector), world_scale) : get_uniform(kMax);
 }

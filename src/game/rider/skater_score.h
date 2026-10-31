@@ -15,6 +15,10 @@ class Struct;
 // CHEAT_ALWAYS_SPECIAL), and the scripts' questions about it. From the disassembly of 0x00518630-0x00518C6E.
 //
 // Vtable: 0 Destroy, 1 Update, 2 configure_from_data, 12 invoke_method_by_name.
+namespace modules {
+class PointTally;
+}
+
 namespace objects {
 
 class RiderPointKeeper final : public ObjectModule {
@@ -40,7 +44,7 @@ public:
     // 0x00518630: the score reset (0x00564A10, then 0x00563370 / 0x00563390 with zeros) - called by the skater.
     void reset_score();
 
-    uint8_t* points_held_; // +0x18 modules::PointTally
+    modules::PointTally* points_held_; // +0x18 the score
 };
 static_assert(offsetof(RiderPointKeeper, points_held_) == 0x18 && sizeof(RiderPointKeeper) == 0x1C,
               "layout must match the original (0x00518B60 allocates 0x1C bytes)");

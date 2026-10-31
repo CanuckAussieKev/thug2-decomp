@@ -42,15 +42,15 @@ T& prop(void* object, uint32_t offset)
 }
 
 // The score (modules::PointTally).
-modules::PointTally* get_score_of(uint8_t* score) { return reinterpret_cast<modules::PointTally*>(score); }
-int total_score(uint8_t* score) { return get_score_of(score)->get_total_score(); }
-// The score so far times the multiplier (+0x14 * +0x60), truncated as the original's _ftol.
-int score_pot(uint8_t* score)
+modules::PointTally* get_score_of(modules::PointTally* score) { return score; }
+int total_score(modules::PointTally* score) { return score->get_total_score(); }
+// The score so far times the multiplier, truncated as the original's _ftol.
+int score_pot(modules::PointTally* score)
 {
-    double pot = static_cast<double>(prop<int>(score, 0x14)) * prop<float>(score, 0x60);
+    double pot = static_cast<double>(score->pot_) * score->multiplier_;
     return static_cast<int>(static_cast<int64_t>(pot));
 }
-int last_score_landed(uint8_t* score) { return prop<int>(score, 0x20); }
+int last_score_landed(modules::PointTally* score) { return score->pot_score_; }
 
 // The career (the skate module 0x007CE478's +0x20; not rewritten here).
 uint8_t* get_career() { return prop<uint8_t*>(reinterpret_cast<uint8_t*>(modules::g_skate_module), 0x20); }
@@ -79,7 +79,7 @@ RiderPointKeeper::RiderPointKeeper()
 // 0x00518BE0 (0x00518C50 the deleting one)
 RiderPointKeeper::~RiderPointKeeper()
 {
-    if (uint8_t* score = points_held_) {
+    if (modules::PointTally* score = points_held_) {
         get_score_of(score)->destroy_body(); // (its destructor)
         memory::Hub::get_pull()->dealloc(score);
     }
@@ -91,8 +91,7 @@ void RiderPointKeeper::configure_from_data(script::Struct* /*params*/)
     if (points_held_)
         return;
     void* memory = memory::alloc_zeroed(0x1550);
-    points_held_ = memory ? reinterpret_cast<uint8_t*>(static_cast<modules::PointTally*>(memory)->make_new())
-                          : nullptr; // (its constructor)
+    points_held_ = memory ? static_cast<modules::PointTally*>(memory)->make_new() : nullptr; // (its constructor)
     get_score_of(points_held_)->set_rider_number(static_cast<int16_t>(entity_->ident_));
 }
 

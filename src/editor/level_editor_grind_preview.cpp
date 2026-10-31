@@ -127,8 +127,8 @@ namespace {
 // are now; not one on an object.
 objects::GrindRailHub* get_rails()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    auto* manager = skate ? *reinterpret_cast<objects::GrindRailHub**>(skate + 0x24) : nullptr;
+    modules::Skate* skate = modules::g_skate_module;
+    auto* manager = skate ? skate->rail_manager_ : nullptr;
     return manager && !manager->on_object_ && manager->nodes_ ? manager : nullptr;
 }
 

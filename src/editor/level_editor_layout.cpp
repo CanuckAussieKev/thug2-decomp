@@ -671,8 +671,8 @@ bool in_net_game()
 // The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).
 uint32_t current_load()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    return skate ? *reinterpret_cast<uint32_t*>(skate + 0x378) : 0;
+    modules::Skate* skate = modules::g_skate_module;
+    return skate ? skate->level_ : 0;
 }
 
 std::string get_folder() { return game_folder_path("thug2-decomp-layouts"); }
@@ -748,7 +748,7 @@ bool get_capture(FileLoad* file)
         PreviewHold() { entities::preview_suspend(); }
         ~PreviewHold() { entities::preview_resume(); }
     } hold;
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene)
         return false;
     *file = FileLoad{};
@@ -1089,7 +1089,7 @@ bool store_away(std::string* message)
 
 bool read_in(std::string* message)
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene) {
         *message = "Not in a level";
         return false;
@@ -1155,7 +1155,7 @@ void write_autosave_from_crash()
 
 bool autosave_offered()
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene || g_autosave_ours || get_refused())
         return false;
     uint32_t name = scenery::world_scene_key(scene);
@@ -1171,7 +1171,7 @@ bool autosave_offered()
 
 bool restore_autosave(std::string* message)
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene) {
         *message = "Not in a level";
         return false;
@@ -1191,7 +1191,7 @@ bool restore_autosave(std::string* message)
 
 bool discard_autosave(std::string* message)
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene) {
         *message = "Not in a level";
         return false;
@@ -1494,7 +1494,7 @@ bool editing_copy() { return g_edited_copy; }
 
 bool has_saved_layout()
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     uint64_t time = 0;
     return render::current_level() != 0 && scene && write_time(path_for(scenery::world_scene_key(scene)), &time);
 }
@@ -1591,7 +1591,7 @@ bool put_back(const std::string& before, std::string* message)
 {
     FileLoad file;
     int line = 0;
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (render::current_level() == 0 || !scene || !get_take_in(before, &file, &line) ||
         file.scene != scenery::world_scene_key(scene)) {
         *message = "Couldn't restore the changes";

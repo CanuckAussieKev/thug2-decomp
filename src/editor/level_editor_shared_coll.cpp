@@ -20,6 +20,9 @@
 #include "engine/script/names.h"
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
+#include "engine/gfx/sector.h"
+#include "engine/gfx/geom.h"
+#include "engine/gfx/engine_scene.h"
 
 namespace frontend::level_editor::shared_collision {
 
@@ -206,9 +209,12 @@ void Companion::update_box()
 
 namespace {
 
-uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-render::StaticCollider* coll_of(uint8_t* sector) { return *reinterpret_cast<render::StaticCollider**>(sector + 0x18); }
-void* grid_of(uint8_t* scene) { return *reinterpret_cast<void**>(scene + 0xD4); }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
+render::StaticCollider* coll_of(render::WorldCell* sector)
+{
+    return static_cast<render::StaticCollider*>(sector->hit_body_);
+}
+void* grid_of(render::WorldScene* scene) { return scene->coll_grid_; }
 
 // A face of a collision-only sector turned off for a companion, and its flags before.
 struct Taken {
@@ -218,9 +224,9 @@ struct Taken {
 };
 
 struct TableRow {
-    uint8_t* scene = nullptr;
-    uint8_t* sector = nullptr;
-    uint8_t* geom = nullptr;
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* sector = nullptr;
+    render::PcGeom* geom = nullptr;
     void* grid = nullptr;
     std::unique_ptr<Companion> companion; // (null: nothing belongs to it)
     std::vector<Taken> taken;
@@ -238,10 +244,10 @@ bool is_switched_on()
 
 // A piece's triangles as drawn: its meshes' first index buffer as a strip (billboards left out, as picking does).
 template <typename F>
-void for_each_strip(uint8_t* geom, F fn)
+void for_each_strip(render::PcGeom* geom, F fn)
 {
-    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
         render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
@@ -255,7 +261,7 @@ void for_each_strip(uint8_t* geom, F fn)
     }
 }
 
-float geom_distance(uint8_t* geom, V3 p, float best)
+float geom_distance(render::PcGeom* geom, V3 p, float best)
 {
     for_each_strip(geom, [&](const uint8_t* positions, uint32_t stride, uint32_t vertex_count, const uint16_t* indices,
                              uint32_t index_count) {
@@ -265,7 +271,7 @@ float geom_distance(uint8_t* geom, V3 p, float best)
 }
 
 // The farthest of a face's corners from a piece, found no farther than `limit` (past it: the limit's next float).
-float face_distance(uint8_t* geom, const FaceCopy& face, float limit)
+float face_distance(render::PcGeom* geom, const FaceCopy& face, float limit)
 {
     float worst = 0.0f;
     float over = std::nextafter(limit, std::numeric_limits<float>::infinity());
@@ -300,7 +306,7 @@ bool current_bounds(uint32_t checksum, float grow, V3* min, V3* max)
 }
 
 // A collision-only sector that can give faces: no geometry, collision on with geometry.
-render::TriMeshSource* get_collision_only(uint8_t* sector)
+render::TriMeshSource* get_collision_only(render::WorldCell* sector)
 {
     if (!sector || geom_of(sector))
         return nullptr;
@@ -340,10 +346,11 @@ std::vector<uint32_t> named_for(uint32_t checksum)
 const std::map<uint32_t, uint32_t>& get_named_objects()
 {
     static std::map<uint32_t, uint32_t> named;
-    static uint8_t* scene = nullptr;
+    static render::WorldScene* scene = nullptr;
     static int sectors = -1;
     int count = 0;
-    scenery::for_each_level_sector([](void* context, uint32_t, uint8_t*) { ++*static_cast<int*>(context); }, &count);
+    scenery::for_each_level_sector([](void* context, uint32_t, render::WorldCell*) { ++*static_cast<int*>(context); },
+                                   &count);
     if (scene == scenery::main_scene() && sectors == count)
         return named;
     scene = scenery::main_scene();
@@ -351,7 +358,7 @@ const std::map<uint32_t, uint32_t>& get_named_objects()
     named.clear();
     std::vector<uint32_t> pieces;
     scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, uint8_t* sector) {
+        [](void* context, uint32_t checksum, render::WorldCell* sector) {
             if (geom_of(sector))
                 static_cast<std::vector<uint32_t>*>(context)->push_back(checksum);
         },
@@ -365,7 +372,7 @@ const std::map<uint32_t, uint32_t>& get_named_objects()
 
 struct Other {
     uint32_t checksum;
-    uint8_t* geom;
+    render::PcGeom* geom;
     V3 min, max;
 };
 
@@ -373,8 +380,8 @@ struct Other {
 std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 {
     std::vector<FaceCopy> faces;
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* geom = sector ? geom_of(sector) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
     V3 min, max;
     if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksum, kNear, &min, &max))
         return faces;
@@ -386,16 +393,16 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         uint32_t self;
         V3 min, max;
         std::vector<Other> others;
-        std::vector<std::pair<uint32_t, uint8_t*>> sources;
+        std::vector<std::pair<uint32_t, render::WorldCell*>> sources;
     } context{checksum, min, max, {}, {}};
     scenery::for_each_level_sector(
-        [](void* raw, uint32_t other, uint8_t* sector) {
+        [](void* raw, uint32_t other, render::WorldCell* sector) {
             auto* c = static_cast<CtxInfo*>(raw);
             if (get_collision_only(sector)) {
                 c->sources.push_back({other, sector});
                 return;
             }
-            uint8_t* geom = geom_of(sector);
+            render::PcGeom* geom = geom_of(sector);
             if (other == c->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other))
                 return;
             V3 lo, hi;
@@ -521,8 +528,8 @@ TableRow* get_find(uint32_t checksum)
     return &it->second;
 }
 
-void append_one(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std::vector<FaceCopy> faces,
-                std::vector<Taken> taken)
+void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom,
+                std::vector<FaceCopy> faces, std::vector<Taken> taken)
 {
     TableRow& entry = g_entries[checksum];
     entry.scene = scene;
@@ -542,7 +549,7 @@ void append_one(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geo
 
 } // namespace
 
-void ensure(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom)
+void ensure(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom)
 {
     if (!is_switched_on() || get_find(checksum))
         return;
@@ -587,8 +594,8 @@ std::shared_ptr<std::vector<FaceCopy>> prepare_copy(uint32_t source)
     return faces->empty() ? nullptr : faces;
 }
 
-void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, uint8_t* scene, uint8_t* sector,
-                 uint8_t* geom)
+void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t copy, render::WorldScene* scene,
+                 render::WorldCell* sector, render::PcGeom* geom)
 {
     if (!faces || faces->empty() || !scene || !sector || !geom)
         return;
@@ -600,7 +607,7 @@ void finish_copy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t c
         get_log("level editor: shared collision of copy %08X: %u faces", copy, static_cast<unsigned>(faces->size()));
 }
 
-void finalise(uint8_t* scene)
+void finalise(render::WorldScene* scene)
 {
     std::vector<render::HitMesh*> added, moved;
     void* grid = nullptr;

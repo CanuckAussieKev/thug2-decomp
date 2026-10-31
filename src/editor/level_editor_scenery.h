@@ -7,6 +7,13 @@
 
 #include "editor/level_editor.h"
 
+namespace render {
+class HitMesh;
+class PcGeom;
+class WorldCell;
+struct WorldScene;
+} // namespace render
+
 // NOT ORIGINAL - the level editor's scenery (ours; see level_editor.h): picking, outlining and moving the level's
 // static scene sectors.
 //
@@ -173,11 +180,11 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
 // What the editor has changed in this level: sectors moved or hidden (copies left out), rails moved or turned off.
 std::vector<SectorState> changed_sectors();
 std::vector<RailState> changed_rails();
-// The level's main scene (the first that isn't a sky) and a scene's name (+0x84).
-uint8_t* main_scene();
+// The level's main scene (the first that isn't a sky) and a scene's name.
+render::WorldScene* main_scene();
 // Whether a scene is still one of the level's (in the scene list, not a sky).
-bool scene_live(uint8_t* scene);
-uint32_t world_scene_key(uint8_t* scene);
+bool scene_live(render::WorldScene* scene);
+uint32_t world_scene_key(render::WorldScene* scene);
 
 // Copies of sectors (Ctrl+D, the browser): a full copy (WorldScene::duplicate_scene_sector 0x0049DF30, as the park editor makes its
 // pieces) of the source as it is now, in its scene, ready to move like any sector. Its checksum (0: not made).
@@ -209,11 +216,11 @@ bool selection_moved(Placement* placement);
 void log_census();
 
 // The geometry of a sector (null: none).
-uint8_t* sector_geometry(uint32_t checksum);
+render::PcGeom* sector_geometry(uint32_t checksum);
 // The sector of that checksum (null: none), and every sector of the level's scenes (skies left out) - the view
 // options (level_editor_view.h) read their collision and visibility.
-uint8_t* sector_of(uint32_t checksum);
-void for_each_level_sector(void (*each)(void* context, uint32_t checksum, uint8_t* sector), void* context);
+render::WorldCell* sector_of(uint32_t checksum);
+void for_each_level_sector(void (*each)(void* context, uint32_t checksum, render::WorldCell* sector), void* context);
 
 // Highlighting: geometry tinted with the engine's own colour (CGeom::change_tint, vfunc +0x18 - what SetObjectColor uses
 // for graffiti: each mesh's colour, or an instance's), and put back exactly as it was when no longer wanted. Each

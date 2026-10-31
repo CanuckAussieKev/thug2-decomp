@@ -35,7 +35,11 @@
 #include "engine/objects/entity.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "game/rider/balance_trick.h"
+#include "game/rider/skater_score.h"
+#include "game/rider/skater_state.h"
 #include "game/skate/gap_checklist.h"
+#include "game/skate/point_tally.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/mlp.h"
 #include "platform/sdl_events.h"
@@ -441,18 +445,12 @@ constexpr uint32_t kSkaterScore = 0xD262802F;          // SkaterScore
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters)
 constexpr uint32_t kCamModuleName = 0xC4E311FA;        // (camera objects)
 
-template <typename T>
-T get_at(const void* base, uint32_t offset)
-{
-    return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(base) + offset);
-}
-
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); } // modules::Skate
+modules::Skate* get_skate() { return modules::g_skate_module; }
 
 goals::GapTally* get_checklist()
 {
-    uint8_t* skate = get_skate();
-    return skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
+    modules::Skate* skate = get_skate();
+    return skate ? static_cast<goals::GapTally*>(skate->fetch_gap_list()) : nullptr;
 }
 
 // The skater's state (the header's offsets).
@@ -467,19 +465,20 @@ bool read_skater(objects::GameEntity* skater, SkaterNow* out)
     objects::ObjectModule* state = skater->fetch_module(kSkaterState);
     if (!state)
         return false;
-    int physics = get_at<int>(state, 0x18);
-    bool bailing = get_at<uint8_t>(state, 0x70) != 0;
-    bool driving = get_at<uint8_t>(state, 0x118) != 0;
-    bool walking = !driving && get_at<int>(state, 0x1C) == 1;
+    const auto* pose = static_cast<const objects::RiderPoseState*>(state);
+    int physics = pose->cur_phase_;
+    bool bailing = pose->bailing_ != 0;
+    bool driving = pose->in_vehicle_ != 0;
+    bool walking = !driving && pose->physics_mode_ == 1;
     objects::ObjectModule* balance = skater->fetch_module(kSkaterBalanceTrick);
-    uint32_t trick = balance ? get_at<uint32_t>(balance, 0x18) : 0;
+    uint32_t trick = balance ? static_cast<const objects::RiderTeeterMoves*>(balance)->trick_ : 0;
     out->pos = {skater->at_point_.x, skater->at_point_.y, skater->at_point_.z};
     out->motion = get_classify(physics, bailing, trick, walking, driving);
     out->bailing = bailing;
     out->pending = 0;
     if (objects::ObjectModule* score = skater->fetch_module(kSkaterScore)) {
-        if (const uint8_t* s = get_at<const uint8_t*>(score, 0x18)) {
-            double points = static_cast<double>(get_at<int>(s, 0x14)) * get_at<float>(s, 0x60);
+        if (const modules::PointTally* s = static_cast<const objects::RiderPointKeeper*>(score)->points_held_) {
+            double points = static_cast<double>(s->pot_) * s->multiplier_;
             if (points > 0.0 && points < 2.0e9)
                 out->pending = static_cast<int>(points);
         }
@@ -732,16 +731,14 @@ void __cdecl snap_one(objects::Entity* object, void* data)
 // vtable +0x2C pauses one).
 void pause_skaters()
 {
-    uint8_t* skate = get_skate();
+    modules::Skate* skate = get_skate();
     if (!skate)
         return;
     uint32_t count = 0;
-    for (const memory::ListNode* node = reinterpret_cast<modules::Skate*>(skate)->riders_.list_link_.next;
-         node && !node->is_head(); node = node->next)
+    for (const memory::ListNode* node = skate->riders_.list_link_.next; node && !node->is_head(); node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
-        auto* skater =
-            static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
+        auto* skater = static_cast<objects::Rider*>(skate->get_rider_at(static_cast<int>(i)));
         if (skater)
             skater->get_freeze();
     }

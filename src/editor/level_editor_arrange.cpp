@@ -36,6 +36,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
+#include "engine/gfx/geom.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -752,7 +753,7 @@ struct GatherContext {
     std::vector<Aabb>* out;
 };
 
-void gather_sector(void* context, uint32_t checksum, uint8_t*)
+void gather_sector(void* context, uint32_t checksum, render::WorldCell*)
 {
     auto* c = static_cast<GatherContext*>(context);
     if (std::find(c->skip->begin(), c->skip->end(), checksum) != c->skip->end() || scenery::get_hidden(checksum))
@@ -822,11 +823,11 @@ int g_edge_hover = -1;
 // A sector's drawn triangles where it is now (its meshes' first index buffers as strips - as picking reads them).
 void sector_triangles(uint32_t checksum, std::vector<V3>* out)
 {
-    uint8_t* geom = scenery::sector_geometry(checksum);
+    render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return;
-    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096 && out->size() < 600000; ++i) {
         render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))

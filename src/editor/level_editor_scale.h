@@ -11,6 +11,8 @@
 
 namespace render {
 class HitMesh;
+class PcGeom;
+class WorldCell;
 struct TriMeshSource;
 struct HitTreeNode;
 struct MeshRef;
@@ -157,17 +159,17 @@ V3 collision_limit(const render::TriMeshSource* data, V3 scale);
 
 // A sector's meshes and collision as they were when it was first scaled, with the engine's state then.
 struct Original;
-// Kept for a sector (WorldCell) and its geometry (the PC CGeom) with the engine at `quarters` (WorldCell +0x10) and
+// Kept for a sector and its geometry with the engine at `quarters` (the sector's quarter turns) and
 // `position` (the geometry's world position); null if its meshes can't be copied.
-std::shared_ptr<Original> get_capture(uint8_t* sector, uint8_t* geom, int quarters, V3 position);
+std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom* geom, int quarters, V3 position);
 // The sector's meshes (uploaded) and collision written for the engine now at `quarters` / `position`, scaled by `scale`
 // (the placement's: along the piece's axes when first touched, the engine then at `quarters0`) about that position.
 // False (nothing written) when the sector no longer matches its copy (another level).
-bool reassemble(const Original& original, uint8_t* sector, uint8_t* geom, int quarters, V3 position, V3 scale,
-                int quarters0);
+bool reassemble(const Original& original, render::WorldCell* sector, render::PcGeom* geom, int quarters, V3 position,
+                V3 scale, int quarters0);
 // The largest scale along each world axis a sector's collision allows (kMax with none, or not compressed), its scale
 // along them now being `world_scale`.
-V3 get_limit(uint8_t* sector, V3 world_scale);
+V3 get_limit(render::WorldCell* sector, V3 world_scale);
 
 // --- the game side: objects --------------------------------------------------------------------------------------
 

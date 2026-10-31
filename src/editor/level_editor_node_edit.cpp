@@ -145,31 +145,25 @@ void store_node_vector(script::Struct* node, uint32_t name, V3 value)
 }
 
 // The light lists 0x00490570 fills (by the node's name; read in 0x0048FCA0, which takes a light away): the dynamic
-// lights - up to 256 pointers at 0x006FAAF0, the count at 0x006FAEF0, each with its place at +0x04 and its name at
-// +0x28 - and the level lights - up to 150 entries of 0x24 bytes at 0x006FAF80, the count at 0x006FAEF4, the place at
-// +0x00 and the name at +0x18.
+// lights (up to 256, by their owner) and the level lights (up to 150, by their label).
 void move_lights(uint32_t name, V3 pos)
 {
-    auto** dynamic = reinterpret_cast<uint8_t**>(render::g_dynamic_lights);
     int dynamic_count = render::g_dynamic_light_count;
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
-        uint8_t* light = dynamic[i];
-        if (light && *reinterpret_cast<uint32_t*>(light + 0x28) == name) {
-            auto* place = reinterpret_cast<maths::Vec4*>(light + 0x04);
-            place->x = pos.x;
-            place->y = pos.y;
-            place->z = pos.z;
+        render::DynamicLightBase* light = render::g_dynamic_lights[i];
+        if (light && light->owner == name) {
+            light->pos[0] = pos.x;
+            light->pos[1] = pos.y;
+            light->pos[2] = pos.z;
         }
     }
-    auto* level = reinterpret_cast<uint8_t*>(render::g_level_lamps);
     int level_count = render::g_scene_light_count;
     for (int i = 0; i < level_count && i < 150; ++i) {
-        uint8_t* entry = level + i * 0x24;
-        if (*reinterpret_cast<uint32_t*>(entry + 0x18) == name) {
-            auto* place = reinterpret_cast<maths::Vec4*>(entry);
-            place->x = pos.x;
-            place->y = pos.y;
-            place->z = pos.z;
+        render::LevelLamp& lamp = render::g_level_lamps[i];
+        if (lamp.label_ == name) {
+            lamp.at_point_.x = pos.x;
+            lamp.at_point_.y = pos.y;
+            lamp.at_point_.z = pos.z;
         }
     }
 }

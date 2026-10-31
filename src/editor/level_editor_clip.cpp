@@ -187,7 +187,7 @@ std::vector<uint32_t> selected_nodes()
 bool dup_from(std::string* message)
 {
     SelectionIds s = current_selection();
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (!scene) {
         *message = "Not in a level";
         return false;

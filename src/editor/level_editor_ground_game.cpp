@@ -34,29 +34,30 @@
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "platform/crt.h"
+#include "engine/gfx/geom.h"
+#include "engine/gfx/surface_material.h"
 
 namespace frontend::level_editor::ground {
 
 namespace {
 
-uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
-render::MeshRef** meshes_of(uint8_t* geom) { return *reinterpret_cast<render::MeshRef***>(geom + 0x3C); }
-uint32_t mesh_count_of(uint8_t* geom) { return *reinterpret_cast<uint32_t*>(geom + 0x40); }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
+render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+render::MeshRef** meshes_of(render::PcGeom* geom) { return geom->meshes; }
+uint32_t mesh_count_of(render::PcGeom* geom) { return geom->mesh_count_; }
 uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf; }
 
-uint8_t* lookup_sector(uint8_t* scene, uint32_t checksum)
+render::WorldCell* lookup_sector(render::WorldScene* scene, uint32_t checksum)
 {
-    return scene ? static_cast<uint8_t*>(reinterpret_cast<render::WorldScene*>(scene)->look_up_sector(checksum))
-                 : nullptr;
+    return scene ? static_cast<render::WorldCell*>(scene->look_up_sector(checksum)) : nullptr;
 }
 // WorldCell::change_live (0x0049E9B0) / is_operative (0x0049E9E0): drawn and collided with, or neither.
-void change_live(uint8_t* sector, bool on) { reinterpret_cast<render::WorldCell*>(sector)->change_live(on); }
-bool is_operative(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->is_operative(); }
+void change_live(render::WorldCell* sector, bool on) { sector->change_live(on); }
+bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }
 
-render::StaticCollider* static_of(uint8_t* sector)
+render::StaticCollider* static_of(render::WorldCell* sector)
 {
-    uint8_t* coll = coll_of(sector);
+    render::HitMesh* coll = coll_of(sector);
     if (!render::is_static_collider(coll))
         return nullptr;
     return reinterpret_cast<render::StaticCollider*>(coll);
@@ -99,7 +100,7 @@ struct Made {
 std::map<std::string, Made> g_made;   // (the pieces in place)
 std::set<uint32_t> g_pool;            // (every sector made this level - kept, hidden, when its piece goes)
 std::map<uint32_t, int> g_tile_hides; // (tiles hidden by pits, and by how many)
-uint8_t* g_scene;
+render::WorldScene* g_scene;
 uint32_t g_active_scene_key;
 
 uint32_t sector_key_from_spec(const Spec& spec)
@@ -112,7 +113,7 @@ uint32_t sector_key_from_spec(const Spec& spec)
 // A new level (another scene): what the editor knew of the last one forgotten (its sectors are gone).
 void note_level()
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     uint32_t name = scenery::world_scene_key(scene);
     if (scene == g_scene && name == g_active_scene_key)
         return;
@@ -127,7 +128,7 @@ void note_level()
 void hide_tiles(const std::vector<uint32_t>& tiles, bool hide)
 {
     for (uint32_t tile : tiles) {
-        uint8_t* sector = scenery::sector_of(tile);
+        render::WorldCell* sector = scenery::sector_of(tile);
         if (!sector)
             continue;
         int& count = g_tile_hides[tile];
@@ -152,9 +153,9 @@ struct GroundStep : ModuleStep {
 };
 
 // The generated piece written into a copy of its donor (see the header). False and why.
-bool emit_out(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why)
+bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std::string* why)
 {
-    uint8_t* geom = geom_of(sector);
+    render::PcGeom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom) || mesh_count_of(geom) == 0) {
         *why = "the copy has no drawn geometry";
         return false;
@@ -235,9 +236,8 @@ bool emit_out(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* 
         other->centre[0] = centre.x, other->centre[1] = centre.y, other->centre[2] = centre.z;
         other->radius = 1.0f;
     }
-    float* box = reinterpret_cast<float*>(geom + 0x14);
-    box[0] = mesh.min.x, box[1] = mesh.min.y, box[2] = mesh.min.z;
-    box[4] = mesh.max.x, box[5] = mesh.max.y, box[6] = mesh.max.z;
+    geom->bounds.min.x = mesh.min.x, geom->bounds.min.y = mesh.min.y, geom->bounds.min.z = mesh.min.z;
+    geom->bounds.max.x = mesh.max.x, geom->bounds.max.y = mesh.max.y, geom->bounds.max.z = mesh.max.z;
 
     // The collision: new arrays (memory::alloc - the game frees them with memory::Dealloc, TriMeshSource::destruct), floats,
     // 10-byte faces, one leaf listing every face.
@@ -300,7 +300,7 @@ bool emit_out(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* 
 // The piece put in place: its sector made (or one made before reused) and written, shown; its pit's tiles hidden.
 bool get_make(const Spec& spec, std::string* why)
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (!scene) {
         *why = "no level";
         return false;
@@ -311,7 +311,7 @@ bool get_make(const Spec& spec, std::string* why)
         return false;
     }
     uint32_t name = sector_key_from_spec(spec);
-    uint8_t* sector = lookup_sector(scene, name);
+    render::WorldCell* sector = lookup_sector(scene, name);
     if (sector && !g_pool.count(name)) {
         *why = "a sector of that name is the level's";
         return false;
@@ -321,8 +321,7 @@ bool get_make(const Spec& spec, std::string* why)
             *why = std::string("its material's piece can't be copied: ") + no;
             return false;
         }
-        uint32_t made = reinterpret_cast<render::WorldScene*>(scene)->clone_sector_named(
-            spec.material, reinterpret_cast<render::WorldScene*>(scene), 0, true, name);
+        uint32_t made = scene->clone_sector_named(spec.material, scene, 0, true, name);
         sector = made ? lookup_sector(scene, made) : nullptr;
         if (!sector) {
             *why = "the material's piece wasn't copied";
@@ -342,7 +341,7 @@ bool get_make(const Spec& spec, std::string* why)
     auto it = g_made.find(spec.name);
     if (it != g_made.end()) {
         if (it->second.sector != name)
-            if (uint8_t* old = lookup_sector(scene, it->second.sector))
+            if (render::WorldCell* old = lookup_sector(scene, it->second.sector))
                 change_live(old, false);
         hide_tiles(it->second.built.hides, false);
     }
@@ -360,7 +359,7 @@ void unmake(const std::string& piece_name)
     auto it = g_made.find(piece_name);
     if (it == g_made.end())
         return;
-    if (uint8_t* sector = lookup_sector(scenery::main_scene(), it->second.sector))
+    if (render::WorldCell* sector = lookup_sector(scenery::main_scene(), it->second.sector))
         change_live(sector, false);
     hide_tiles(it->second.built.hides, false);
     g_made.erase(it);
@@ -386,16 +385,16 @@ void halt() {}
 
 const char* why_not_donor(uint32_t checksum)
 {
-    uint8_t* scene = scenery::main_scene();
-    uint8_t* sector = lookup_sector(scene, checksum);
+    render::WorldScene* scene = scenery::main_scene();
+    render::WorldCell* sector = lookup_sector(scene, checksum);
     if (!sector)
         return "not a piece of the level's main scene";
     if (g_pool.count(checksum))
         return "a generated piece";
-    uint8_t* geom = geom_of(sector);
+    render::PcGeom* geom = geom_of(sector);
     if (!render::is_pc_geom(geom))
         return "nothing drawn";
-    if (*reinterpret_cast<void**>(geom + 0x4C))
+    if (geom->instance)
         return "an instance";
     uint32_t meshes = mesh_count_of(geom);
     if (!meshes_of(geom) || meshes == 0 || meshes > 64)
@@ -411,8 +410,8 @@ const char* why_not_donor(uint32_t checksum)
         return "its vertex buffers";
     if (first->per_vertex_data_)
         return "per-vertex data the editor can't make";
-    if (!first->material || picking::material_see_through(*reinterpret_cast<const uint32_t*>(first->material + 0x20),
-                                                          *reinterpret_cast<const uint32_t*>(first->material + 0x80)))
+    const auto* material = reinterpret_cast<const render::MaterialRef*>(first->material);
+    if (!material || picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
         return "a see-through material";
     render::StaticCollider* coll = static_of(sector);
     if (!coll || !coll->geometry_ || !coll->geometry_->tri_count_)
@@ -432,7 +431,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             float best_distance_ = 1e30f, best_floor_distance_ = 1e30f;
         } walk = {spec};
         scenery::for_each_level_sector(
-            [](void* context, uint32_t checksum, uint8_t* sector) {
+            [](void* context, uint32_t checksum, render::WorldCell* sector) {
                 auto* w = static_cast<Walk*>(context);
                 if (!is_operative(sector) || why_not_donor(checksum))
                     return;
@@ -459,7 +458,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     }
     spec->material = chosen;
     // What it looks like: its first mesh's average colour, how many units a texture repeat spans, its commonest terrain.
-    uint8_t* sector = lookup_sector(scenery::main_scene(), chosen);
+    render::WorldCell* sector = lookup_sector(scenery::main_scene(), chosen);
     render::MeshRef* mesh = meshes_of(geom_of(sector))[0];
     Layout layout;
     layout_for(vertex_format(mesh), mesh->stride, &layout);
@@ -521,7 +520,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
         std::string refused;
     } walk = {spec, {}, {}};
     scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, uint8_t* sector) {
+        [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             // (a tile a pit hides now still counts - the pit being edited)
             bool mine = g_tile_hides.count(checksum) && g_tile_hides[checksum] > 0;
@@ -681,7 +680,7 @@ void apply_records(const std::vector<std::string>& lines)
 void reset_all()
 {
     // (a new level: nothing of the old one touched - its sectors are gone)
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     if (scene == g_scene && scenery::world_scene_key(scene) == g_active_scene_key) {
         std::vector<std::string> names;
         for (const auto& made : g_made)

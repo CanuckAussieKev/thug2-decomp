@@ -12,6 +12,7 @@
 #include "engine/gfx/sub_mesh.h"
 #include "engine/maths/vec4.h"
 #include "engine/render/probe_ray.h"
+#include "engine/gfx/geom.h"
 
 namespace frontend::level_editor::snap {
 
@@ -89,8 +90,7 @@ bool get_cast(V3 from, V3 to, SurfaceHit* hit)
     const float* point = &ray->hit_.point.x;
     hit->normal = {normal[0], normal[1], normal[2]};
     hit->point = {point[0], point[1], point[2]};
-    hit->checksum =
-        ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+    hit->checksum = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
 
@@ -119,13 +119,13 @@ bool get_surface(V3 origin, V3 dir, float max_t, const std::vector<uint32_t>& sk
 std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
 {
     std::vector<V3> out;
-    uint8_t* geom = scenery::sector_geometry(checksum);
+    render::PcGeom* geom = scenery::sector_geometry(checksum);
     if (!geom)
         return out;
     // (the geometry's meshes, +0x3C / +0x40 - as level_editor_scenery.cpp's ray_meshes reads them: each vertex's
     // position its first 12 bytes, where the sector is now)
-    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096 && out.size() < limit; ++i) {
         render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))

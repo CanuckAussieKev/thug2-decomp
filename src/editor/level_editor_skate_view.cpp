@@ -22,6 +22,7 @@
 #include "frontend/screen_constants.h"
 #include "imgui.h"
 #include "game/skate/skate_module.h"
+#include "engine/gfx/sector.h"
 
 namespace frontend::level_editor::skate_view {
 
@@ -211,12 +212,12 @@ void add_overlay(const overlays::Painter& painter)
         std::vector<Candidate> found;
     } walk = {painter.camera, {}};
     scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, uint8_t* sector) {
+        [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
-            uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-            if (!render::is_static_collider(coll) || (coll[0x08] & 4))
+            render::HitMesh* coll = sector->hit_body_;
+            if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
                 return; // (no collision, or switched off)
-            const auto* tri = *reinterpret_cast<const render::TriMeshSource* const*>(coll + 0x0C);
+            const auto* tri = coll->geometry_;
             if (!tri || !tri->tri_count_ || view::hidden_sector(checksum))
                 return;
             float distance = view::distance_to_box(w->camera, to_v3(tri->lower_limit_), to_v3(tri->upper_limit_));
@@ -290,8 +291,8 @@ void add_overlay(const overlays::Painter& painter)
             painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    auto* rails = skate ? *reinterpret_cast<objects::GrindRailHub**>(skate + 0x24) : nullptr;
+    modules::Skate* skate = modules::g_skate_module;
+    auto* rails = skate ? skate->rail_manager_ : nullptr;
     if (rails && !rails->on_object_ && rails->nodes_) {
         int drawn = 0;
         for (int i = 0; i < rails->num_; ++i) {

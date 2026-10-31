@@ -158,15 +158,13 @@ void __cdecl count_one(objects::Entity* object, void* data)
     if (!model_box(composite, &box)) {
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
-            uint8_t* model =
-                component
-                    ? reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
-                    : nullptr;
+            render::RenderModel* model =
+                component ? static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_ : nullptr;
             get_log("level editor:   not pickable %s at (%.0f, %.0f, %.0f): flags %X, model component %p, model %p "
                     "(flags %02X)",
                     caption(composite->ident_).c_str(), composite->at_point_.x, composite->at_point_.y,
                     composite->at_point_.z, composite->composite_flags_, static_cast<void*>(component),
-                    static_cast<void*>(model), model ? model[0x44] : 0);
+                    static_cast<void*>(model), model ? model->flag_bits_ : 0);
         }
         return;
     }
@@ -180,10 +178,9 @@ void __cdecl count_one(objects::Entity* object, void* data)
 void* model_geometry(objects::GameEntity* object, int index)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    auto* model = component
-                      ? reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
-                      : nullptr;
-    return model ? reinterpret_cast<render::RenderModel*>(model)->fetch_geom(index) : nullptr;
+    render::RenderModel* model =
+        component ? static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_ : nullptr;
+    return model ? model->fetch_geom(index) : nullptr;
 }
 
 bool same_scale(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
@@ -223,17 +220,17 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
     if (!component)
         return false;
-    auto* model = reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    render::RenderModel* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
     if (!model)
         return false;
     // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
-    // flags), or one in use (flags +0x44: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
+    // flags), or one in use (its flags: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
     // off: they are placed through their skeletons, not 0x004219F0's matrix).
     bool cloned = static_cast<objects::MeshInstanceModule*>(component)->level_object_;
-    uint8_t flags = model[0x44];
+    uint8_t flags = model->flag_bits_;
     if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
-    void* geometry = reinterpret_cast<render::RenderModel*>(model)->get_geom_by_name(0);
+    void* geometry = model->get_geom_by_name(0);
     const maths::Vec4* box =
         geometry ? reinterpret_cast<const maths::Vec4*>(static_cast<render::Geom*>(geometry)->fetch_bounds()) : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
@@ -243,9 +240,9 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         max = {box[1].x, box[1].y, box[1].z};
     }
     if (flags & 8) {
-        const float* scale = reinterpret_cast<const float*>(model + 0x1C);
-        min = {min.x * scale[0], min.y * scale[1], min.z * scale[2]};
-        max = {max.x * scale[0], max.y * scale[1], max.z * scale[2]};
+        const maths::Vec4& scale = model->size_factor_;
+        min = {min.x * scale.x, min.y * scale.y, min.z * scale.z};
+        max = {max.x * scale.x, max.y * scale.y, max.z * scale.z};
         if (min.x > max.x)
             std::swap(min.x, max.x);
         if (min.y > max.y)

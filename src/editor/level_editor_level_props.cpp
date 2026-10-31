@@ -266,8 +266,8 @@ std::vector<Kept> g_kept;
 // The level structure of the level loaded now (Levels.qb's Level_<x>: its load_script is the skate module's level).
 script::Struct* current_level_structure()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    uint32_t load = skate ? *reinterpret_cast<uint32_t*>(skate + 0x378) : 0;
+    modules::Skate* skate = modules::g_skate_module;
+    uint32_t load = skate ? skate->level_ : 0;
     if (!load)
         return nullptr;
     static const uint32_t kLoadScript = checksums::hash_from_text("load_script");

@@ -415,7 +415,7 @@ std::string layouts_folder() { return game_folder_path("thug2-decomp-layouts"); 
 
 uint32_t scene_now()
 {
-    uint8_t* scene = scenery::main_scene();
+    render::WorldScene* scene = scenery::main_scene();
     return scene ? scenery::world_scene_key(scene) : 0;
 }
 

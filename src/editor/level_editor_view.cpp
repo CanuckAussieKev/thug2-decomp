@@ -193,25 +193,25 @@ std::vector<uint32_t> isolate_others(const std::vector<uint32_t>& all, const std
 
 namespace {
 
-uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
+render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
 
 // The sector's collision geometry, whether its collision is on or off (StaticCollider; `off`: its flag 4 - the game's
 // switch, level_editor_walls.h).
-render::TriMeshSource* any_tri_data_of(uint8_t* sector, bool* off)
+render::TriMeshSource* any_tri_data_of(render::WorldCell* sector, bool* off)
 {
-    uint8_t* coll = coll_of(sector);
+    render::HitMesh* coll = coll_of(sector);
     if (!render::is_static_collider(coll))
         return nullptr;
     if (off)
-        *off = (coll[0x08] & 4) != 0;
-    return *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C);
+        *off = (coll->flag_bits_ & 4) != 0;
+    return coll->geometry_;
 }
 
 // The collision drawn for a sector (null: none): on, or switched off by the editor's switch (an invisible wall, or a
 // drawn piece's collision by itself - shown faded so it can be switched on again). A piece hidden (its geometry off,
 // its collision with it) isn't drawn.
-render::TriMeshSource* drawn_tri_data_of(uint32_t checksum, uint8_t* sector, bool* off)
+render::TriMeshSource* drawn_tri_data_of(uint32_t checksum, render::WorldCell* sector, bool* off)
 {
     render::TriMeshSource* tri = any_tri_data_of(sector, off);
     if (tri && *off && geom_of(sector) && !walls::disengaged(checksum))
@@ -227,7 +227,7 @@ bool g_setting_read;
 // The collision cache: a sector's faces in world space (3 points each) and their flags, made again when its collision
 // geometry, its box or its first and last vertices change (moved, or turned - a quarter turn can keep the box).
 struct Cached {
-    uint8_t* sector = nullptr;
+    render::WorldCell* sector = nullptr;
     const render::TriMeshSource* tri = nullptr;
     V3 min = {}, max = {}, first = {}, last = {};
     int faces = 0;
@@ -240,7 +240,7 @@ struct Cached {
 };
 std::unordered_map<uint32_t, Cached> g_cache;
 
-const Cached* cache_of(uint32_t checksum, uint8_t* sector, const render::TriMeshSource* tri)
+const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const render::TriMeshSource* tri)
 {
     V3 min = to_v3(tri->lower_limit_), max = to_v3(tri->upper_limit_);
     V3 first = {}, last = {};
@@ -310,7 +310,7 @@ uint32_t g_wall;
 
 struct HiddenSectorRec {
     uint32_t checksum;
-    uint8_t* sector;
+    render::WorldCell* sector;
     uint32_t mask;
 };
 struct HiddenObjectRec {
@@ -321,8 +321,8 @@ std::vector<HiddenSectorRec> g_hidden_sectors;
 std::vector<HiddenObjectRec> g_concealed_records;
 
 // WorldCell::toggle_shown (0x0049E680, thiscall, RET 4) / fetch_shown (0x0049E690): the viewports it shows in.
-void toggle_shown(uint8_t* sector, uint32_t mask) { reinterpret_cast<render::WorldCell*>(sector)->toggle_shown(mask); }
-uint32_t fetch_shown(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->fetch_shown(); }
+void toggle_shown(render::WorldCell* sector, uint32_t mask) { sector->toggle_shown(mask); }
+uint32_t fetch_shown(render::WorldCell* sector) { return sector->fetch_shown(); }
 
 // A geometry's change_live (vfunc +0x34) / is_operative (vfunc +0x38).
 void set_geom_active(void* geom, bool on) { static_cast<render::Geom*>(geom)->change_live(on); }
@@ -338,7 +338,7 @@ bool hide_sector(uint32_t checksum)
 {
     if (hidden_sector(checksum))
         return false;
-    uint8_t* sector = scenery::sector_of(checksum);
+    render::WorldCell* sector = scenery::sector_of(checksum);
     if (!sector || !geom_of(sector))
         return false; // (collision only: nothing drawn to hide)
     g_hidden_sectors.push_back({checksum, sector, fetch_shown(sector)});
@@ -442,7 +442,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
     // The sectors near enough, nearest first (invisible walls before the rest: never left out by the cap).
     struct Candidate {
         uint32_t checksum;
-        uint8_t* sector;
+        render::WorldCell* sector;
         render::TriMeshSource* tri;
         float order;
         bool off;
@@ -454,7 +454,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         std::vector<Candidate> found;
     } walk = {camera_pos, &frame, near_z, {}};
     scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, uint8_t* sector) {
+        [](void* context, uint32_t checksum, render::WorldCell* sector) {
             auto* w = static_cast<Walk*>(context);
             bool off = false;
             render::TriMeshSource* tri = drawn_tri_data_of(checksum, sector, &off);
@@ -668,7 +668,7 @@ void clear_wall() { g_wall = 0; }
 
 std::string describe_wall(uint32_t checksum)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
+    render::WorldCell* sector = scenery::sector_of(checksum);
     render::TriMeshSource* tri = sector ? any_tri_data_of(sector, nullptr) : nullptr;
     if (!tri)
         return "(gone)";
@@ -731,7 +731,7 @@ int get_isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t
         std::vector<uint32_t> ids;
     } sector_walk;
     scenery::for_each_level_sector(
-        [](void* context, uint32_t checksum, uint8_t* sector) {
+        [](void* context, uint32_t checksum, render::WorldCell* sector) {
             if (geom_of(sector))
                 static_cast<SectorWalk*>(context)->ids.push_back(checksum);
         },
@@ -751,8 +751,8 @@ void show_all()
     g_hidden_sectors.clear();
     // (a copy made of a hidden piece - picked in the Outliner - copied its visibility too: shown as its source is)
     for (const scenery::Replicate& clone : scenery::get_clones()) {
-        uint8_t* copy = scenery::sector_of(clone.checksum);
-        uint8_t* source = scenery::sector_of(clone.source);
+        render::WorldCell* copy = scenery::sector_of(clone.checksum);
+        render::WorldCell* source = scenery::sector_of(clone.source);
         if (copy && source && geom_of(copy) && geom_of(source) && fetch_shown(copy) == 0 && fetch_shown(source) != 0)
             toggle_shown(copy, fetch_shown(source));
     }

@@ -23,6 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
+#include "engine/gfx/sector.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -336,13 +337,13 @@ void read_physics()
 // A sector's collision faces in world space (none: no collision, or it's switched off).
 void sector_faces(uint32_t checksum, std::vector<Face>* out)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
+    render::WorldCell* sector = scenery::sector_of(checksum);
     if (!sector)
         return;
-    uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
-    if (!render::is_static_collider(coll) || (coll[0x08] & 4))
+    render::HitMesh* coll = sector->hit_body_;
+    if (!render::is_static_collider(coll) || (coll->flag_bits_ & 4))
         return;
-    const auto* tri = *reinterpret_cast<const render::TriMeshSource* const*>(coll + 0x0C);
+    const auto* tri = coll->geometry_;
     if (!tri || !tri->faces_ || !tri->vertices_)
         return;
     for (int f = 0; f < tri->tri_count_ && out->size() < 20000; ++f) {

@@ -790,8 +790,8 @@ script::Struct* look_up_node_params(uint32_t name)
 // The level's rail manager (modules::Skate +0x24; null when there is none or its rails ride an object).
 objects::GrindRailHub* get_rails()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    auto* manager = skate ? *reinterpret_cast<objects::GrindRailHub**>(skate + 0x24) : nullptr;
+    modules::Skate* skate = modules::g_skate_module;
+    auto* manager = skate ? skate->rail_manager_ : nullptr;
     return manager && !manager->on_object_ ? manager : nullptr;
 }
 
@@ -2497,8 +2497,7 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
     *normal = {n[0], n[1], n[2]};
     *hit = {p[0], p[1], p[2]};
     if (sector)
-        *sector =
-            ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+        *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
 

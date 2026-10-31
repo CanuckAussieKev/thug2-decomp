@@ -82,10 +82,10 @@ std::chrono::steady_clock::time_point g_last_frame, g_last_drag;
 bool g_failed_logged;
 
 // The renderer's calls (not rewritten yet; thiscall / cdecl).
-void set_material(uint8_t* material) { reinterpret_cast<render::MaterialRef*>(material)->hand_in(); }
-void draw_mesh(uint8_t* mesh) { reinterpret_cast<render::MeshRef*>(mesh)->render(); }
+void set_material(render::MaterialRef* material) { material->hand_in(); }
+void draw_mesh(render::MeshRef* mesh) { mesh->render(); }
 // 0x004D16B0: one instance drawn (flag 8: not culled) - its world matrix, its bones, its lights.
-void draw_instance(uint8_t* instance) { render::draw_one_instance(reinterpret_cast<render::Singleton*>(instance), 8); }
+void draw_instance(render::Singleton* instance) { render::draw_one_instance(instance, 8); }
 // 0x004CDAA0 (thiscall on 0x00775B80): the view frustum from the camera's globals.
 void update_frustum() { render::g_billboard_pool.setup_axes(); }
 
@@ -134,23 +134,23 @@ struct SavedView {
 };
 
 // A geometry's meshes as the world pass draws them: shown and not hidden; opaque ones first, then the transparent.
-void draw_meshes(uint8_t* geom)
+void draw_meshes(render::PcGeom* geom)
 {
-    auto** meshes = *reinterpret_cast<uint8_t***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     if (!meshes)
         return;
-    uint8_t* current = nullptr;
+    render::MaterialRef* current = nullptr;
     for (int pass = 0; pass < 2; ++pass) {
         for (uint32_t i = 0; i < count && i < 4096; ++i) {
-            uint8_t* mesh = meshes[i];
+            render::MeshRef* mesh = meshes[i];
             if (!mesh)
                 continue;
-            uint32_t flags = *reinterpret_cast<uint32_t*>(mesh);
+            uint32_t flags = mesh->flags;
             if (!(flags & 0x40) || (flags & 0x210))
                 continue;
-            uint8_t* material = *reinterpret_cast<uint8_t**>(mesh + 0x14);
-            bool transparent = material && (material[0x20] & 0x40);
+            auto* material = reinterpret_cast<render::MaterialRef*>(mesh->material);
+            bool transparent = material && (material->pass_flags_[0] & 0x40);
             if (transparent != (pass == 1))
                 continue;
             if (material != current) {
@@ -162,10 +162,10 @@ void draw_meshes(uint8_t* geom)
     }
 }
 
-// An object's geometry: through its instance when it has one (+0x4C), else its meshes.
-void draw_geometry(uint8_t* geom)
+// An object's geometry: through its instance when it has one, else its meshes.
+void draw_geometry(render::PcGeom* geom)
 {
-    if (auto* instance = *reinterpret_cast<uint8_t**>(geom + 0x4C))
+    if (auto* instance = geom->instance)
         draw_instance(instance);
     else
         draw_meshes(geom);
@@ -186,13 +186,13 @@ bool subject_box(OrientedBox* box) { return box_of(g_kind, g_id, box); }
 void draw_subject(Kind kind, uint32_t id)
 {
     if (kind == Kind::kSector) {
-        if (uint8_t* geom = scenery::sector_geometry(id))
+        if (render::PcGeom* geom = scenery::sector_geometry(id))
             draw_meshes(geom);
         return;
     }
     auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
     for (int i = 0; object && i < 16; ++i) {
-        auto* geom = static_cast<uint8_t*>(object_edit::get_geometry(object, i));
+        auto* geom = static_cast<render::PcGeom*>(object_edit::get_geometry(object, i));
         if (!geom)
             break;
         if (scenery::tintable(geom)) // (the PC geometry class: its fields as read here)

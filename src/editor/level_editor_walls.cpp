@@ -15,6 +15,7 @@
 #include "engine/render/coll_tri.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/gfx/geom.h"
 
 namespace frontend::level_editor::walls {
 
@@ -85,21 +86,21 @@ int get_combined(const std::vector<bool>& offs)
 
 namespace {
 
-uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
 
 // The sector's level collision (StaticCollider) and its geometry, whether on or off.
-uint8_t* coll_of(uint8_t* sector)
+render::HitMesh* coll_of(render::WorldCell* sector)
 {
-    uint8_t* coll = *reinterpret_cast<uint8_t**>(sector + 0x18);
+    render::HitMesh* coll = sector->hit_body_;
     return render::is_static_collider(coll) ? coll : nullptr;
 }
-render::TriMeshSource* tri_of(uint8_t* coll) { return *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C); }
-bool flag_off(uint8_t* coll) { return (coll[0x08] & 4) != 0; }
+render::TriMeshSource* tri_of(render::HitMesh* coll) { return coll->geometry_; }
+bool flag_off(render::HitMesh* coll) { return (coll->flag_bits_ & 4) != 0; }
 
 // WorldCell::change_live (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
-void change_live(uint8_t* sector, bool active) { reinterpret_cast<render::WorldCell*>(sector)->change_live(active); }
+void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
 // The geometry's is_operative (0x0048DE70, as WorldCell::is_operative 0x0049E9E0 asks it).
-bool geom_active(uint8_t* geom) { return reinterpret_cast<render::Geom*>(geom)->is_operative(); }
+bool geom_active(render::PcGeom* geom) { return geom->is_operative(); }
 
 bool same_v(const maths::Vec4& a, const maths::Vec4& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
@@ -107,8 +108,8 @@ bool same_v(const maths::Vec4& a, const maths::Vec4& b) { return a.x == b.x && a
 // when first touched; the box after its last step (a wall's: anything else moving it - another level at the same
 // addresses - starts afresh).
 struct Track {
-    uint8_t* sector;
-    uint8_t* coll;
+    render::WorldCell* sector;
+    render::HitMesh* coll;
     render::TriMeshSource* tri;
     bool wall;
     Placement placement;
@@ -120,8 +121,8 @@ std::map<uint32_t, Track> g_tracks;
 // Whether a track is still of the sector that has that checksum now, as the editor left it.
 bool at_hand(uint32_t checksum, const Track& t)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* coll = sector ? coll_of(sector) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
     render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
@@ -133,8 +134,8 @@ bool at_hand(uint32_t checksum, const Track& t)
 
 Track* track_of(uint32_t checksum)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* coll = sector ? coll_of(sector) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
     render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return nullptr;
@@ -166,13 +167,13 @@ void put_switch(Track* t)
             change_live(t->sector, !t->off);
         return;
     }
-    uint8_t* geom = geom_of(t->sector);
+    render::PcGeom* geom = geom_of(t->sector);
     if (!geom || !geom_active(geom))
         return; // (hidden: off with the piece - shown again, Tick puts the switch back)
     if (t->off)
-        t->coll[0x08] |= 4;
+        t->coll->flag_bits_ |= 4;
     else if (t->off != t->off0 || flag_off(t->coll))
-        t->coll[0x08] &= static_cast<uint8_t>(~4);
+        t->coll->flag_bits_ &= static_cast<uint16_t>(~4);
 }
 
 void get_place(uint32_t checksum, Track* t, const Placement& to)
@@ -193,15 +194,15 @@ void get_place(uint32_t checksum, Track* t, const Placement& to)
 
 bool is_wall(uint32_t checksum)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* coll = sector ? coll_of(sector) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
     return coll && tri_of(coll) && geom_of(sector) == nullptr;
 }
 
 bool cuboid(uint32_t checksum, V3* min, V3* max)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* coll = sector ? coll_of(sector) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
     render::TriMeshSource* tri = coll ? tri_of(coll) : nullptr;
     if (!tri)
         return false;
@@ -263,8 +264,8 @@ bool disengaged(uint32_t checksum)
         if (t)
             return t->off;
     }
-    uint8_t* sector = scenery::sector_of(checksum);
-    uint8_t* coll = sector ? coll_of(sector) : nullptr;
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
     return coll && geom_of(sector) == nullptr && flag_off(coll);
 }
 
@@ -336,9 +337,9 @@ void tick()
         Track& t = entry.second;
         if (t.wall || !t.off || !at_hand(entry.first, t))
             continue;
-        uint8_t* geom = geom_of(t.sector);
+        render::PcGeom* geom = geom_of(t.sector);
         if (geom && geom_active(geom) && !flag_off(t.coll))
-            t.coll[0x08] |= 4;
+            t.coll->flag_bits_ |= 4;
     }
 }
 

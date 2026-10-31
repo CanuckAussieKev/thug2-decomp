@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -38,6 +39,11 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/engine.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/gfx/geom.h"
+#include "engine/gfx/surface_material.h"
+#include "engine/lists/key_map.h"
+#include "engine/objects/rail_manager.h"
+#include "engine/render/coll_obj.h"
 
 namespace frontend::level_editor {
 
@@ -169,7 +175,7 @@ constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject
 // The scenes (0x006FA7EC's list: nodes (memory::ListNode) {scene +0, priority, next +8}, ended by a node whose scene is -1), skies left
 // out (+0x8D: drawn in the sky pass).
 struct SceneNode {
-    uint8_t* scene;
+    render::WorldScene* scene;
     int priority;
     SceneNode* next;
 };
@@ -182,49 +188,44 @@ void for_each_scene(F fn)
     SceneNode* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
-        if (node->scene && !node->scene[0x8D])
+        if (node->scene && !node->scene->is_sky_)
             fn(node->scene);
         node = next;
     }
 }
 
-// A scene's sector table (+0xD0): {bits, entries}; 1 << bits entries {checksum, sector, next}.
-struct TableEntry {
-    uint32_t checksum;
-    uint8_t* sector;
-    TableEntry* next;
-};
+// A scene's sector table (its sectors_ key map: 1 << bits buckets, each an item with more chained from it).
 template <typename F>
-void for_each_sector(uint8_t* scene, F fn)
+void for_each_sector(render::WorldScene* scene, F fn)
 {
-    auto* table = *reinterpret_cast<uint32_t**>(scene + 0xD0);
-    if (!table || table[0] > 20)
+    const lists::KeyMap* table = scene->sectors_;
+    if (!table || table->bits_ > 20)
         return;
-    auto* entries = reinterpret_cast<TableEntry*>(table[1]);
-    if (!entries)
+    const lists::KeyMap::Item* buckets = table->buckets_;
+    if (!buckets)
         return;
-    uint32_t count = 1u << table[0];
+    uint32_t count = 1u << table->bits_;
     for (uint32_t i = 0; i < count; ++i) {
-        for (TableEntry* entry = &entries[i]; entry; entry = entry->next) {
-            if (entry->sector)
-                fn(entry->checksum, entry->sector);
+        for (const lists::KeyMap::Item* entry = &buckets[i]; entry; entry = entry->next) {
+            if (entry->value)
+                fn(entry->key, static_cast<render::WorldCell*>(entry->value));
         }
     }
 }
 
-uint8_t* lookup_sector(uint8_t* scene, uint32_t checksum)
+render::WorldCell* lookup_sector(render::WorldScene* scene, uint32_t checksum)
 {
-    return static_cast<uint8_t*>(reinterpret_cast<render::WorldScene*>(scene)->look_up_sector(checksum));
+    return static_cast<render::WorldCell*>(scene->look_up_sector(checksum));
 }
 
 // The sector of that checksum in the first (non-sky) scene having one.
-uint8_t* find_sector(uint32_t checksum, uint8_t** scene_out)
+render::WorldCell* find_sector(uint32_t checksum, render::WorldScene** scene_out)
 {
-    uint8_t* found = nullptr;
-    for_each_scene([&](uint8_t* scene) {
+    render::WorldCell* found = nullptr;
+    for_each_scene([&](render::WorldScene* scene) {
         if (found)
             return;
-        if (uint8_t* sector = lookup_sector(scene, checksum)) {
+        if (render::WorldCell* sector = lookup_sector(scene, checksum)) {
             found = sector;
             if (scene_out)
                 *scene_out = scene;
@@ -233,54 +234,55 @@ uint8_t* find_sector(uint32_t checksum, uint8_t** scene_out)
     return found;
 }
 
-uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
-uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
-uint32_t& flags_of(uint8_t* sector) { return *reinterpret_cast<uint32_t*>(sector + 0x08); }
-int quarters_of(uint8_t* sector) { return *reinterpret_cast<int*>(sector + 0x10); }
+// (On PC every sector's geometry is a PcGeom - as PcSector reads it.)
+render::PcGeom* geom_of(render::WorldCell* sector) { return static_cast<render::PcGeom*>(sector->geom_handle_); }
+render::HitMesh* coll_of(render::WorldCell* sector) { return sector->hit_body_; }
+uint32_t& flags_of(render::WorldCell* sector) { return sector->flag_bits_; }
+int quarters_of(render::WorldCell* sector) { return sector->rot_y_; }
 
 // The PC geometry of level scenery (not an instance), active.
-bool plain_geom(uint8_t* geom) { return render::is_pc_geom(geom) && !*reinterpret_cast<void**>(geom + 0x4C); }
+bool plain_geom(render::PcGeom* geom) { return render::is_pc_geom(geom) && !geom->instance; }
 
-// Its box as loaded (+0x14 min, +0x24 max).
-bool geom_box(uint8_t* geom, V3* min, V3* max)
+// Its box as loaded.
+bool geom_box(render::PcGeom* geom, V3* min, V3* max)
 {
-    const float* box = reinterpret_cast<const float*>(geom + 0x14);
-    *min = {box[0], box[1], box[2]};
-    *max = {box[4], box[5], box[6]};
+    const maths::BBox& box = geom->bounds;
+    *min = {box.min.x, box.min.y, box.min.z};
+    *max = {box.max.x, box.max.y, box.max.z};
     return min->x <= max->x && min->y <= max->y && min->z <= max->z;
 }
 
-// The geometry's world position (vfunc +0x4C, 0x004B46A0: the first mesh's; 0 when never moved).
-V3 geom_position(uint8_t* geom)
+// The geometry's world position (0x004B46A0: the first mesh's; 0 when never moved).
+V3 geom_position(render::PcGeom* geom)
 {
-    const maths::Vec4* v = reinterpret_cast<render::Geom*>(geom)->get_absolute_point();
+    const maths::Vec4* v = geom->get_absolute_point();
     return {v->x, v->y, v->z};
 }
 
-// The meshes' vertices can be moved: each vertex buffer has its own CPU copy (+0x0C) holding exactly the mesh's
-// vertices (+0x22 count, +0x18 stride) - what MeshRef::change_place walks and uploads.
-const char* meshes_movable(uint8_t* geom)
+// The meshes' vertices can be moved: each vertex buffer has its own CPU copy (data) holding exactly the mesh's
+// vertices (vertex_count_ of stride bytes) - what MeshRef::change_place walks and uploads.
+const char* meshes_movable(render::PcGeom* geom)
 {
-    auto** meshes = *reinterpret_cast<uint8_t***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    render::MeshRef** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     if (!meshes || count == 0)
         return "no meshes";
     if (count > 4096)
         return "odd mesh count";
     for (uint32_t i = 0; i < count; ++i) {
-        uint8_t* mesh = meshes[i];
+        render::MeshRef* mesh = meshes[i];
         if (!mesh)
             return "no mesh";
-        uint32_t buffers = mesh[0x1A];
-        uint32_t vertices = *reinterpret_cast<uint16_t*>(mesh + 0x22);
-        uint32_t stride = mesh[0x18];
-        if (buffers > 8)
+        uint32_t buffers = mesh->vertex_buffer_count_;
+        uint32_t vertices = mesh->vertex_count_;
+        uint32_t stride = mesh->stride;
+        if (buffers > std::size(mesh->vertex_buffers_))
             return "odd vertex buffers";
         for (uint32_t b = 0; b < buffers; ++b) {
-            auto* buffer = *reinterpret_cast<uint32_t**>(mesh + 0xCC + 4 * b);
-            if (!buffer || !buffer[3])
+            const render::VertexBuffer* buffer = mesh->vertex_buffers_[b];
+            if (!buffer || !buffer->data)
                 return "no vertex copy";
-            if (buffer[0] != vertices * stride)
+            if (buffer->size != vertices * stride)
                 return "shared vertex buffer";
         }
     }
@@ -291,9 +293,9 @@ const char* meshes_movable(uint8_t* geom)
 // state as we set it (checked again before each use: a level reloaded at the same addresses starts afresh).
 struct Track {
     uint32_t checksum;
-    uint8_t* scene;
-    uint8_t* sector;
-    uint8_t* geom;
+    render::WorldScene* scene;
+    render::WorldCell* sector;
+    render::PcGeom* geom;
     V3 min0, max0;
     int quarters0;
     V3 position0;
@@ -311,18 +313,18 @@ V3 g_pivot;
 float g_half_extent_y; // (the selection's bottom is this far below the pivot - quarter turns keep it)
 // The shadows groups have taken (level_editor_shadows.h): each with the member whose name it carries (0: by place).
 std::unordered_map<uint32_t, uint32_t> g_shadow_of;
-std::vector<uint8_t*> g_dirty_scenes;
+std::vector<render::WorldScene*> g_dirty_scenes;
 
 bool same_v3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 // The track of a sector (made when first touched); null when the sector can't be found or has no plain geometry.
 Track* track_of(uint32_t checksum)
 {
-    uint8_t* scene = nullptr;
-    uint8_t* sector = find_sector(checksum, &scene);
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* sector = find_sector(checksum, &scene);
     if (!sector)
         return nullptr;
-    uint8_t* geom = geom_of(sector);
+    render::PcGeom* geom = geom_of(sector);
     if (!plain_geom(geom))
         return nullptr;
     auto it = g_tracks.find(checksum);
@@ -349,7 +351,7 @@ Track* track_of(uint32_t checksum)
 }
 
 // A sector's box now, without making a track for it.
-bool current_box(uint32_t checksum, uint8_t* geom, OrientedBox* box)
+bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
 {
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end() && it->second.geom == geom) {
@@ -363,7 +365,7 @@ bool current_box(uint32_t checksum, uint8_t* geom, OrientedBox* box)
     return true;
 }
 
-void mark_dirty(uint8_t* scene)
+void mark_dirty(render::WorldScene* scene)
 {
     if (std::find(g_dirty_scenes.begin(), g_dirty_scenes.end(), scene) == g_dirty_scenes.end())
         g_dirty_scenes.push_back(scene);
@@ -392,21 +394,21 @@ void apply_track(Track* track)
     V3 position;
     engine_state(track->quarters0, track->position0, track->placement, &quarters, &position);
     if (quarters != track->quarters) {
-        reinterpret_cast<render::WorldCell*>(track->sector)->spin_around_up(quarters);
+        track->sector->spin_around_up(quarters);
         track->quarters = quarters;
     }
     if (!same_v3(position, track->position)) {
         maths::Vec4 to = {position.x, position.y, position.z, 1.0f};
-        reinterpret_cast<render::Geom*>(track->geom)->place_at_absolute_point(&to);
+        track->geom->place_at_absolute_point(&to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
         // drag) would let the tree drift away from its faces; on sixteenths every step is exact and moving back gives
         // the level's tree again (as level_editor_walls.h keeps walls). The collision is then within 1/32 unit of the
         // meshes.
         V3 collision_moved = walls::on_grid(position - track->position0);
-        uint8_t* coll = coll_of(track->sector);
+        render::HitMesh* coll = coll_of(track->sector);
         if (coll && !same_v3(collision_moved, track->collision_moved_)) {
-            auto* object = reinterpret_cast<render::HitMesh*>(coll);
+            render::HitMesh* object = coll;
             const maths::Vec4* origin = object->get_absolute_point();
             V3 change = collision_moved - track->collision_moved_;
             maths::Vec4 moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
@@ -468,32 +470,24 @@ uint32_t cluster_of(uint32_t checksum)
 // The level's rails: the rail manager of modules::Skate (0x007CE478, +0x24) - filled from the node array's rail_nodes and
 // ClimbingNodes by 0x0057E960 (from cfunc_parse_node_array 0x005A34E0): +0x40 its nodes, +0x48 their count, +0x50 set
 // when its rails ride an object (positions in the object's space, 0x0057CB60 - never the level's).
-// A node (0x54 bytes, 0x0057D090): +0x00 / +0x10 the box of its segment (to the next node; its own point when it has
-// none - 0x0057C260), +0x20 its position, +0x30 (climbing nodes), +0x40 the next node, +0x44 the previous, +0x48 flags
-// (4 active, 0x10 a climbing node), +0x4C its node's name, +0x50 its terrain. Skaters find rails by testing every
-// node's box (0x0057E2D0): moving one is its position and the boxes of its segment and the one before.
-struct RailNode {
-    float min[4], max[4], pos[4], climb[4];
-    RailNode* next;
-    RailNode* prev;
-    uint32_t flags;
-    uint32_t name;
-    uint8_t terrain[4];
-};
-static_assert(sizeof(RailNode) == 0x54, "a rail node is 0x54 bytes");
+// A node (objects::GrindPoint, 0x0057D090): the box of its segment (to the next node; its own point when it has none -
+// 0x0057C260), its position, the next and previous nodes, flags (4 active, 0x10 a climbing node), its node's name.
+// Skaters find rails by testing every node's box (0x0057E2D0): moving one is its position and the boxes of its segment
+// and the one before.
+using RailNode = objects::GrindPoint;
 
 bool rail_nodes(RailNode** nodes, int* count)
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    uint8_t* manager = skate ? *reinterpret_cast<uint8_t**>(skate + 0x24) : nullptr;
-    if (!manager || manager[0x50])
+    modules::Skate* skate = modules::g_skate_module;
+    objects::GrindRailHub* manager = skate ? skate->rail_manager_ : nullptr;
+    if (!manager || manager->on_object_)
         return false;
-    *nodes = *reinterpret_cast<RailNode**>(manager + 0x40);
-    *count = *reinterpret_cast<int*>(manager + 0x48);
+    *nodes = manager->nodes_;
+    *count = manager->num_;
     return *nodes && *count > 0 && *count < 100000;
 }
 
-V3 rail_pos(const RailNode* node) { return {node->pos[0], node->pos[1], node->pos[2]}; }
+V3 rail_pos(const RailNode* node) { return {node->at_point_.x, node->at_point_.y, node->at_point_.z}; }
 
 // What we've done to a rail node: where it was when first touched, the placement since, where we put it.
 struct RailTrack {
@@ -515,7 +509,7 @@ RailNode* find_rail(uint32_t name)
         return nullptr;
     // (a ladder's point too - its moves are tracked as a rail's: level_editor_chains.h)
     for (int i = 0; i < count; ++i) {
-        if (nodes[i].name == name)
+        if (nodes[i].label_ == name)
             return &nodes[i];
     }
     return nullptr;
@@ -532,7 +526,7 @@ RailTrack* rail_track_of(uint32_t name)
             return &it->second;
         g_rail_tracks.erase(it);
     }
-    RailTrack track = {node, (node->flags & 4) != 0, rail_pos(node), {0, {0.0f, 0.0f, 0.0f}}, rail_pos(node)};
+    RailTrack track = {node, (node->flag_bits_ & 4) != 0, rail_pos(node), {0, {0.0f, 0.0f, 0.0f}}, rail_pos(node)};
     return &g_rail_tracks.emplace(name, track).first->second;
 }
 
@@ -554,9 +548,9 @@ void apply_rails(const std::vector<uint32_t>& names)
             continue;
         RailTrack& track = it->second;
         V3 pos = get_apply(track.placement, track.pos0);
-        track.node->pos[0] = pos.x;
-        track.node->pos[1] = pos.y;
-        track.node->pos[2] = pos.z;
+        track.node->at_point_.x = pos.x;
+        track.node->at_point_.y = pos.y;
+        track.node->at_point_.z = pos.z;
         track.pos = pos;
         moved.push_back(track.node);
     }
@@ -565,12 +559,12 @@ void apply_rails(const std::vector<uint32_t>& names)
     };
     for (int i = 0; i < count; ++i) {
         RailNode* node = &nodes[i];
-        if (!is_moved(node) && !is_moved(node->next))
+        if (!is_moved(node) && !is_moved(node->succ_))
             continue;
         V3 min, max;
-        segment_box(rail_pos(node), node->next ? rail_pos(node->next) : rail_pos(node), &min, &max);
-        node->min[0] = min.x, node->min[1] = min.y, node->min[2] = min.z, node->min[3] = 1.0f;
-        node->max[0] = max.x, node->max[1] = max.y, node->max[2] = max.z, node->max[3] = 1.0f;
+        segment_box(rail_pos(node), node->succ_ ? rail_pos(node->succ_) : rail_pos(node), &min, &max);
+        node->lower_limit_ = {min.x, min.y, min.z, 1.0f};
+        node->upper_limit_ = {max.x, max.y, max.z, 1.0f};
     }
 }
 
@@ -631,19 +625,19 @@ void select_rails()
     auto listed = [&](uint32_t c) { return c && std::find(clusters.begin(), clusters.end(), c) != clusters.end(); };
     for (int i = 0; i < count; ++i) {
         const RailNode& node = nodes[i];
-        if (node.flags & 0x10)
+        if (node.flag_bits_ & 0x10)
             continue;
-        bool in = listed(node.name) || listed(cluster_of(node.name)) ||
-                  (within(rail_pos(&node)) && (!node.next || within(rail_pos(node.next))));
-        if (in && std::find(g_dropped_rails.begin(), g_dropped_rails.end(), node.name) != g_dropped_rails.end())
+        bool in = listed(node.label_) || listed(cluster_of(node.label_)) ||
+                  (within(rail_pos(&node)) && (!node.succ_ || within(rail_pos(node.succ_))));
+        if (in && std::find(g_dropped_rails.begin(), g_dropped_rails.end(), node.label_) != g_dropped_rails.end())
             in = false;
-        if (in && std::find(g_rails.begin(), g_rails.end(), node.name) == g_rails.end())
-            g_rails.push_back(node.name);
+        if (in && std::find(g_rails.begin(), g_rails.end(), node.label_) == g_rails.end())
+            g_rails.push_back(node.label_);
     }
 }
 
 // Where the editor has put a sector (none yet: where the level has it).
-Placement placement_of(uint32_t checksum, uint8_t* geom)
+Placement placement_of(uint32_t checksum, render::PcGeom* geom)
 {
     auto it = g_tracks.find(checksum);
     if (it != g_tracks.end() && it->second.geom == geom)
@@ -651,8 +645,8 @@ Placement placement_of(uint32_t checksum, uint8_t* geom)
     return {0, {0.0f, 0.0f, 0.0f}};
 }
 
-bool geom_see_through(uint8_t* geom); // (below)
-float geom_level_share(uint32_t checksum, uint8_t* geom);
+bool geom_see_through(render::PcGeom* geom); // (below)
+float geom_level_share(uint32_t checksum, render::PcGeom* geom);
 
 bool same_placement(const Placement& a, const Placement& b)
 {
@@ -673,8 +667,8 @@ bool same_placement(const Placement& a, const Placement& b)
 std::vector<uint32_t> group_of(uint32_t checksum)
 {
     std::vector<uint32_t> group;
-    uint8_t* scene = nullptr;
-    uint8_t* clicked = find_sector(checksum, &scene);
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* clicked = find_sector(checksum, &scene);
     if (why_not_movable(checksum) || !clicked)
         return group;
     Placement placement = placement_of(checksum, geom_of(clicked));
@@ -686,10 +680,10 @@ std::vector<uint32_t> group_of(uint32_t checksum)
         float level_share_; // (Picking::get_level_share: structure's low-and-flat rule)
     };
     std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
-    for_each_sector(scene, [&](uint32_t other, uint8_t* sector) {
-        uint8_t* geom = geom_of(sector);
+    for_each_sector(scene, [&](uint32_t other, render::WorldCell* sector) {
+        render::PcGeom* geom = geom_of(sector);
         V3 min, max;
-        if (!plain_geom(geom) || !geom[0x48] || !geom_box(geom, &min, &max) ||
+        if (!plain_geom(geom) || !geom->active || !geom_box(geom, &min, &max) ||
             !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement))
             return;
         pieces.push_back({other, min, max, false, geom_see_through(geom), geom_level_share(other, geom)});
@@ -854,10 +848,10 @@ namespace {
 // The ray against a geometry's meshes as drawn (their vertex copies are where the sector is now: moving it moves
 // them): each mesh's first index buffer as a triangle strip; a billboard (turned to the camera when drawn) by its
 // sphere.
-bool ray_meshes(uint8_t* geom, V3 origin, V3 dir, float max_t, float* t)
+bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
 {
-    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     bool found = false;
     float best = max_t;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
@@ -890,16 +884,15 @@ bool ray_meshes(uint8_t* geom, V3 origin, V3 dir, float max_t, float* t)
 
 // Whether a geometry's meshes are all see-through (Picking::material_see_through: the material's +0x20 - the first
 // pass's flags, 0x40 the scene's transparent sort - and +0x80, its blend mode; the scene loader 0x004D3390 fills both).
-bool geom_see_through(uint8_t* geom)
+bool geom_see_through(render::PcGeom* geom)
 {
-    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     if (!meshes || count == 0 || count > 4096)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
-        const uint8_t* material = meshes[i] ? meshes[i]->material : nullptr;
-        if (!material || !picking::material_see_through(*reinterpret_cast<const uint32_t*>(material + 0x20),
-                                                        *reinterpret_cast<const uint32_t*>(material + 0x80)))
+        const auto* material = meshes[i] ? reinterpret_cast<const render::MaterialRef*>(meshes[i]->material) : nullptr;
+        if (!material || !picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
             return false;
     }
     return true;
@@ -907,16 +900,16 @@ bool geom_see_through(uint8_t* geom)
 
 // The level part of a geometry's upward-facing surface (its meshes' first index buffers as strips, as ray_meshes reads
 // them; billboards left out), measured once a piece while the editor runs (moves and quarter turns don't change it).
-std::unordered_map<uint32_t, std::pair<uint8_t*, float>> g_level_shares;
+std::unordered_map<uint32_t, std::pair<render::PcGeom*, float>> g_level_shares;
 
-float geom_level_share(uint32_t checksum, uint8_t* geom)
+float geom_level_share(uint32_t checksum, render::PcGeom* geom)
 {
     auto it = g_level_shares.find(checksum);
     if (it != g_level_shares.end() && it->second.first == geom)
         return it->second.second;
     picking::TopArea area;
-    auto** meshes = *reinterpret_cast<render::MeshRef***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    auto** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
         render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
@@ -937,21 +930,21 @@ float geom_level_share(uint32_t checksum, uint8_t* geom)
 
 bool get_see_through(uint32_t checksum)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
+    render::WorldCell* sector = find_sector(checksum, nullptr);
     return sector && plain_geom(geom_of(sector)) && geom_see_through(geom_of(sector));
 }
 
 float get_level_share(uint32_t checksum)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
-    uint8_t* geom = sector ? geom_of(sector) : nullptr;
+    render::WorldCell* sector = find_sector(checksum, nullptr);
+    render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
     return plain_geom(geom) ? geom_level_share(checksum, geom) : 1.0f;
 }
 
 bool get_passed(uint32_t checksum, V3 camera)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
-    uint8_t* geom = sector ? geom_of(sector) : nullptr;
+    render::WorldCell* sector = find_sector(checksum, nullptr);
+    render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
     if (!plain_geom(geom))
         return false;
     OrientedBox box;
@@ -971,7 +964,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     // (without `layers`: nothing past the first occluding piece that isn't locked can matter - a plain click stops at
     // it, and Alt takes it or something nearer)
     float stop = max_t;
-    auto note = [&](uint32_t checksum, uint8_t* geom, float t, bool collision) {
+    auto note = [&](uint32_t checksum, render::PcGeom* geom, float t, bool collision) {
         if (view::hidden_sector(checksum)) // (H: level_editor_view.h - not shown, not met)
             return;
         bool locked = picking::latched(picking::kScenery, checksum);
@@ -990,17 +983,17 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
         float t = get_dot(point - origin, unit_dir);
         if (t >= stop)
             break;
-        uint8_t* sector = find_sector(checksum, nullptr);
+        render::WorldCell* sector = find_sector(checksum, nullptr);
         if (sector && geom_of(sector))
             note(checksum, geom_of(sector), t, true);
         from = point + unit_dir * 1.0f;
     }
     // Every shown piece by its triangles (the box only to skip the rest - a decal's box can fill a room): pieces without
     // collision, and the drawn parts of pieces with it that their collision doesn't cover.
-    for_each_scene([&](uint8_t* scene) {
-        for_each_sector(scene, [&](uint32_t checksum, uint8_t* sector) {
-            uint8_t* geom = geom_of(sector);
-            if (!plain_geom(geom) || !geom[0x48])
+    for_each_scene([&](render::WorldScene* scene) {
+        for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
+            render::PcGeom* geom = geom_of(sector);
+            if (!plain_geom(geom) || !geom->active)
                 return;
             OrientedBox box;
             if (!current_box(checksum, geom, &box))
@@ -1050,7 +1043,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
 
 bool cuboid(uint32_t checksum, OrientedBox* box)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
+    render::WorldCell* sector = find_sector(checksum, nullptr);
     if (!sector || !plain_geom(geom_of(sector)))
         return false;
     return current_box(checksum, geom_of(sector), box);
@@ -1058,17 +1051,17 @@ bool cuboid(uint32_t checksum, OrientedBox* box)
 
 const char* why_not_movable(uint32_t checksum)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
+    render::WorldCell* sector = find_sector(checksum, nullptr);
     if (!sector)
         return "not found";
     if (ground::is_piece(checksum))
         return "generated ground piece: edit with the Ground Tool"; // (UX9)
-    uint8_t* geom = geom_of(sector);
+    render::PcGeom* geom = geom_of(sector);
     if (!geom)
         return "collision only";
     if (!render::is_pc_geom(geom))
         return "odd geometry";
-    if (*reinterpret_cast<void**>(geom + 0x4C))
+    if (geom->instance)
         return "an instance";
     OrientedBox box;
     if (!current_box(checksum, geom, &box))
@@ -1183,20 +1176,22 @@ void log_meshes()
 {
     if (!debug_enabled() || g_selection.empty())
         return;
-    uint8_t* geom = sector_geometry(g_selection[0]);
-    auto** meshes = geom ? *reinterpret_cast<uint8_t***>(geom + 0x3C) : nullptr;
-    uint32_t count = geom ? *reinterpret_cast<uint32_t*>(geom + 0x40) : 0;
+    render::PcGeom* geom = sector_geometry(g_selection[0]);
+    render::MeshRef** meshes = geom ? geom->meshes : nullptr;
+    uint32_t count = geom ? geom->mesh_count_ : 0;
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
-        uint8_t* mesh = meshes[i];
-        uint8_t* material = *reinterpret_cast<uint8_t**>(mesh + 0x14);
-        const uint32_t* m = reinterpret_cast<const uint32_t*>(material);
-        const float* colour = reinterpret_cast<const float*>(mesh + 0x80);
+        const render::MeshRef* mesh = meshes[i];
+        const auto* material = reinterpret_cast<const render::MaterialRef*>(mesh->material);
+        const float* colour = mesh->color;
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
-                i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
-                *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material),
-                material ? m[2] & 0xFFFFFFF : 0, material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0,
-                material ? m[0x11] : 0, material ? m[0x12] : 0, static_cast<uint8_t>(render::g_shaders_available));
+                i, mesh->flags, colour[0], colour[1], colour[2], mesh->fvf, static_cast<const void*>(material),
+                material ? material->pass_count_ & 0xFFFFFFF : 0, material ? material->pass_flags_[0] : 0,
+                material ? material->pass_flags_[1] : 0,
+                material ? std::bit_cast<uint32_t>(material->pass_color_[0][0]) : 0,
+                material ? std::bit_cast<uint32_t>(material->pass_color_[0][1]) : 0,
+                material ? std::bit_cast<uint32_t>(material->pass_color_[0][2]) : 0,
+                static_cast<uint8_t>(render::g_shaders_available));
     }
 }
 
@@ -1289,7 +1284,7 @@ V3 selection_scale()
 {
     if (g_selection.empty())
         return {1.0f, 1.0f, 1.0f};
-    uint8_t* sector = find_sector(g_selection[0], nullptr);
+    render::WorldCell* sector = find_sector(g_selection[0], nullptr);
     return sector ? placement_of(g_selection[0], geom_of(sector)).scale : V3{1.0f, 1.0f, 1.0f};
 }
 
@@ -1297,7 +1292,7 @@ int selection_quarters()
 {
     if (g_selection.empty())
         return 0;
-    uint8_t* sector = find_sector(g_selection[0], nullptr);
+    render::WorldCell* sector = find_sector(g_selection[0], nullptr);
     return sector ? placement_of(g_selection[0], geom_of(sector)).quarters : 0;
 }
 
@@ -1345,8 +1340,8 @@ std::vector<std::pair<V3, V3>> selected_rails()
     std::vector<std::pair<V3, V3>> segments;
     for (uint32_t name : g_rails) {
         const RailNode* node = find_rail(name);
-        if (node && node->next)
-            segments.push_back({rail_pos(node), rail_pos(node->next)});
+        if (node && node->succ_)
+            segments.push_back({rail_pos(node), rail_pos(node->succ_)});
     }
     return segments;
 }
@@ -1358,7 +1353,7 @@ int selected_rail_count() { return static_cast<int>(g_rails.size()); }
 bool get_rail_point(uint32_t name, V3* pos, bool climbing)
 {
     const RailNode* node = find_rail(name);
-    if (!node || ((node->flags & 0x10) && !climbing))
+    if (!node || ((node->flag_bits_ & 0x10) && !climbing))
         return false;
     *pos = rail_pos(node);
     return true;
@@ -1396,15 +1391,15 @@ std::vector<uint32_t> rail_of(uint32_t name)
     names.push_back(name);
     // (back to its first point, then along to its last - a closed rail stops where it started)
     RailNode* first = node;
-    for (int steps = 0; first->prev && first->prev != node && steps < count; ++steps)
-        first = first->prev;
+    for (int steps = 0; first->last_value_ && first->last_value_ != node && steps < count; ++steps)
+        first = first->last_value_;
     int steps = 0;
-    for (RailNode* at = first; at && steps < count; at = at->next, ++steps) {
+    for (RailNode* at = first; at && steps < count; at = at->succ_, ++steps) {
         // (a rail's points, or a ladder's: not the other kind)
-        if (at != node && (at->flags & 0x10) == (node->flags & 0x10) &&
-            std::find(names.begin(), names.end(), at->name) == names.end())
-            names.push_back(at->name);
-        if (at->next == first)
+        if (at != node && (at->flag_bits_ & 0x10) == (node->flag_bits_ & 0x10) &&
+            std::find(names.begin(), names.end(), at->label_) == names.end())
+            names.push_back(at->label_);
+        if (at->succ_ == first)
             break;
     }
     return names;
@@ -1433,7 +1428,7 @@ void for_each_rail_point(void (*each)(void* context, uint32_t name, V3 pos), voi
     if (!rail_nodes(&nodes, &count))
         return;
     for (int i = 0; i < count; ++i)
-        each(context, nodes[i].name, rail_pos(&nodes[i]));
+        each(context, nodes[i].label_, rail_pos(&nodes[i]));
 }
 
 // --- the selection's state (undo / redo, reset, hiding) ---
@@ -1442,8 +1437,8 @@ namespace {
 
 // WorldCell::change_live (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
 // "off" flag 4) / is_operative (0x0049E9E0).
-void change_live(uint8_t* sector, bool active) { reinterpret_cast<render::WorldCell*>(sector)->change_live(active); }
-bool is_operative(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->is_operative(); }
+void change_live(render::WorldCell* sector, bool active) { sector->change_live(active); }
+bool is_operative(render::WorldCell* sector) { return sector->is_operative(); }
 
 } // namespace
 
@@ -1452,14 +1447,14 @@ State save_state()
     State state;
     state.selection = g_selection;
     for (uint32_t checksum : g_selection) {
-        uint8_t* sector = find_sector(checksum, nullptr);
+        render::WorldCell* sector = find_sector(checksum, nullptr);
         if (!sector)
             continue;
         state.sectors.push_back({checksum, placement_of(checksum, geom_of(sector)), !is_operative(sector)});
     }
     for (uint32_t name : g_rails) {
         if (RailTrack* track = rail_track_of(name))
-            state.rails.push_back({name, track->placement, track->active0 && !(track->node->flags & 4)});
+            state.rails.push_back({name, track->placement, track->active0 && !(track->node->flag_bits_ & 4)});
     }
     return state;
 }
@@ -1489,7 +1484,7 @@ void apply_states(const std::vector<SectorState>& sectors, const std::vector<Rai
         if (RailTrack* track = rail_track_of(saved.name)) {
             track->placement = saved.placement;
             bool active = track->active0 && !saved.hidden;
-            track->node->flags = active ? track->node->flags | 4u : track->node->flags & ~4u;
+            track->node->flag_bits_ = active ? track->node->flag_bits_ | 4u : track->node->flag_bits_ & ~4u;
             names.push_back(saved.name);
         }
     }
@@ -1532,7 +1527,7 @@ std::vector<RailState> changed_rails()
         const RailTrack& track = entry.second;
         if (find_rail(entry.first) != track.node)
             continue;
-        bool hidden = track.active0 && !(track.node->flags & 4);
+        bool hidden = track.active0 && !(track.node->flag_bits_ & 4);
         const Placement& p = track.placement;
         if (hidden || p.quarters || !is_unit_scale(p.scale) || p.offset.x != 0.0f || p.offset.y != 0.0f ||
             p.offset.z != 0.0f)
@@ -1541,24 +1536,24 @@ std::vector<RailState> changed_rails()
     return changed;
 }
 
-uint8_t* main_scene()
+render::WorldScene* main_scene()
 {
-    uint8_t* found = nullptr;
-    for_each_scene([&](uint8_t* scene) {
+    render::WorldScene* found = nullptr;
+    for_each_scene([&](render::WorldScene* scene) {
         if (!found)
             found = scene;
     });
     return found;
 }
 
-bool scene_live(uint8_t* scene)
+bool scene_live(render::WorldScene* scene)
 {
     bool live = false;
-    for_each_scene([&](uint8_t* s) { live |= s == scene; });
+    for_each_scene([&](render::WorldScene* s) { live |= s == scene; });
     return live && scene;
 }
 
-uint32_t world_scene_key(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0; }
+uint32_t world_scene_key(render::WorldScene* scene) { return scene ? scene->checksum_ : 0; }
 
 // --- copies of sectors ---
 //
@@ -1582,8 +1577,8 @@ bool is_clone(uint32_t checksum)
 
 uint32_t get_duplicate(uint32_t source)
 {
-    uint8_t* scene = nullptr;
-    uint8_t* sector = find_sector(source, &scene);
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* sector = find_sector(source, &scene);
     if (!sector || why_not_movable(source))
         return 0;
     OrientedBox box;
@@ -1594,21 +1589,19 @@ uint32_t get_duplicate(uint32_t source)
     Placement source_placement = placement_of(source, geom_of(sector));
     // (the source's shared collision gathered before the copy is there to tie with it)
     auto shared_faces = shared_collision::prepare_copy(source);
-    uint32_t made = reinterpret_cast<render::WorldScene*>(scene)->clone_sector_named(
-        source, reinterpret_cast<render::WorldScene*>(scene), 0, true, 0);
-    uint8_t* copy = made ? lookup_sector(scene, made) : nullptr;
-    uint8_t* geom = copy ? geom_of(copy) : nullptr;
-    if (!render::is_pc_geom(geom) || *reinterpret_cast<void**>(geom + 0x4C)) {
+    uint32_t made = scene->clone_sector_named(source, scene, 0, true, 0);
+    render::WorldCell* copy = made ? lookup_sector(scene, made) : nullptr;
+    render::PcGeom* geom = copy ? geom_of(copy) : nullptr;
+    if (!render::is_pc_geom(geom) || geom->instance) {
         get_log("level editor: copy of %s: %s", caption(source).c_str(), made ? "not a plain sector" : "not made");
         return 0;
     }
-    float* boxes = reinterpret_cast<float*>(geom + 0x14);
-    boxes[0] = min.x, boxes[1] = min.y, boxes[2] = min.z;
-    boxes[4] = max.x, boxes[5] = max.y, boxes[6] = max.z;
+    geom->bounds.min.x = min.x, geom->bounds.min.y = min.y, geom->bounds.min.z = min.z;
+    geom->bounds.max.x = max.x, geom->bounds.max.y = max.y, geom->bounds.max.z = max.z;
     // (the collision's flags are copied with it: a source whose collision is switched off by itself - level_editor_walls.h
     // - gives a copy with collision on, as a layout makes copies again)
-    if (uint8_t* coll = coll_of(copy); coll && is_operative(copy))
-        coll[0x08] &= static_cast<uint8_t>(~4);
+    if (render::HitMesh* coll = coll_of(copy); coll && is_operative(copy))
+        coll->flag_bits_ &= static_cast<uint16_t>(~4);
     shared_collision::finish_copy(shared_faces, made, scene, copy, geom);
     mark_dirty(scene);
     get_clones().push_back({made, source, source_placement});
@@ -1624,7 +1617,7 @@ uint32_t get_duplicate(uint32_t source)
 
 bool placement_now(uint32_t checksum, Placement* placement)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
+    render::WorldCell* sector = find_sector(checksum, nullptr);
     if (!sector)
         return false;
     *placement = placement_of(checksum, geom_of(sector));
@@ -1633,7 +1626,7 @@ bool placement_now(uint32_t checksum, Placement* placement)
 
 bool get_hidden(uint32_t checksum)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
+    render::WorldCell* sector = find_sector(checksum, nullptr);
     return sector && !is_operative(sector);
 }
 
@@ -1650,12 +1643,12 @@ void add_group(uint32_t checksum)
 std::vector<uint32_t> movable_pieces()
 {
     std::vector<uint32_t> pieces;
-    uint8_t* scene = main_scene();
+    render::WorldScene* scene = main_scene();
     if (!scene)
         return pieces;
-    for_each_sector(scene, [&](uint32_t checksum, uint8_t* sector) {
-        uint8_t* geom = geom_of(sector);
-        if (plain_geom(geom) && geom[0x48] && !is_clone(checksum) && !why_not_movable(checksum))
+    for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
+        render::PcGeom* geom = geom_of(sector);
+        if (plain_geom(geom) && geom->active && !is_clone(checksum) && !why_not_movable(checksum))
             pieces.push_back(checksum);
     });
     return pieces;
@@ -1690,7 +1683,7 @@ bool selection_moved(Placement* placement)
 {
     if (g_selection.empty())
         return false;
-    uint8_t* sector = find_sector(g_selection[0], nullptr);
+    render::WorldCell* sector = find_sector(g_selection[0], nullptr);
     if (!sector)
         return false;
     *placement = placement_of(g_selection[0], geom_of(sector));
@@ -1708,18 +1701,18 @@ void get_reset()
     g_level_shares.clear();
 }
 
-uint8_t* sector_geometry(uint32_t checksum)
+render::PcGeom* sector_geometry(uint32_t checksum)
 {
-    uint8_t* sector = find_sector(checksum, nullptr);
+    render::WorldCell* sector = find_sector(checksum, nullptr);
     return sector ? geom_of(sector) : nullptr;
 }
 
-uint8_t* sector_of(uint32_t checksum) { return find_sector(checksum, nullptr); }
+render::WorldCell* sector_of(uint32_t checksum) { return find_sector(checksum, nullptr); }
 
-void for_each_level_sector(void (*each)(void* context, uint32_t checksum, uint8_t* sector), void* context)
+void for_each_level_sector(void (*each)(void* context, uint32_t checksum, render::WorldCell* sector), void* context)
 {
-    for_each_scene([&](uint8_t* scene) {
-        for_each_sector(scene, [&](uint32_t checksum, uint8_t* sector) { each(context, checksum, sector); });
+    for_each_scene([&](render::WorldScene* scene) {
+        for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) { each(context, checksum, sector); });
     });
 }
 
@@ -1729,33 +1722,36 @@ bool tintable(void* geom) { return render::is_pc_geom(geom); }
 
 namespace {
 
-// How a geometry's colour was before we tinted it: an instance's (+0x4C: its flags' bit 4, the colour at +0x4D), or
-// each mesh's (+0x3C / +0x40: the mesh's flags' bit 4, its colour +0x80..+0x88) - what CGeom::change_tint (vfunc
-// +0x18, 0x004B48B0) writes.
+// How a geometry's colour was before we tinted it: an instance's (its flags' bit 4, its colour), or each mesh's (the
+// mesh's flags' bit 4, its colour) - what PcGeom::change_tint (0x004B48B0) writes.
 struct Saved {
     TintOwner owner;
-    uint8_t* geom;
-    uint8_t* instance;
+    render::PcGeom* geom;
+    render::Singleton* instance;
     uint32_t instance_flag_;
     uint8_t instance_colour_[4];
-    std::vector<std::array<uint32_t, 4>> meshes; // {flag bit 4, r, g, b (float bits)}
+    struct MeshColour {
+        uint32_t flag; // bit 4
+        float color[3];
+    };
+    std::vector<MeshColour> meshes;
     bool used;
 };
 std::vector<Saved> g_tinted;
 
-Saved save_colour(TintOwner owner, uint8_t* geom)
+Saved save_colour(TintOwner owner, render::PcGeom* geom)
 {
-    Saved saved = {owner, geom, *reinterpret_cast<uint8_t**>(geom + 0x4C), 0, {}, {}, true};
+    Saved saved = {owner, geom, geom->instance, 0, {}, {}, true};
     if (saved.instance) {
-        saved.instance_flag_ = *reinterpret_cast<uint32_t*>(saved.instance) & 4;
-        std::memcpy(saved.instance_colour_, saved.instance + 0x4D, 4);
+        saved.instance_flag_ = saved.instance->flags & 4;
+        std::memcpy(saved.instance_colour_, saved.instance->color, 4);
         return saved;
     }
-    auto** meshes = *reinterpret_cast<uint32_t***>(geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    render::MeshRef** meshes = geom->meshes;
+    uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
-        uint32_t* mesh = meshes[i];
-        saved.meshes.push_back({mesh[0] & 4, mesh[0x20], mesh[0x21], mesh[0x22]});
+        const render::MeshRef* mesh = meshes[i];
+        saved.meshes.push_back({mesh->flags & 4, {mesh->color[0], mesh->color[1], mesh->color[2]}});
     }
     return saved;
 }
@@ -1763,23 +1759,20 @@ Saved save_colour(TintOwner owner, uint8_t* geom)
 void restore_colour(const Saved& saved)
 {
     if (saved.instance) {
-        if (*reinterpret_cast<uint8_t**>(saved.geom + 0x4C) != saved.instance)
+        if (saved.geom->instance != saved.instance)
             return;
-        auto& flags = *reinterpret_cast<uint32_t*>(saved.instance);
-        flags = (flags & ~4u) | saved.instance_flag_;
-        std::memcpy(saved.instance + 0x4D, saved.instance_colour_, 4);
+        saved.instance->flags = (saved.instance->flags & ~4u) | saved.instance_flag_;
+        std::memcpy(saved.instance->color, saved.instance_colour_, 4);
         return;
     }
-    auto** meshes = *reinterpret_cast<uint32_t***>(saved.geom + 0x3C);
-    uint32_t count = *reinterpret_cast<uint32_t*>(saved.geom + 0x40);
+    render::MeshRef** meshes = saved.geom->meshes;
+    uint32_t count = saved.geom->mesh_count_;
     if (!meshes || count != saved.meshes.size())
         return;
     for (uint32_t i = 0; i < count; ++i) {
-        uint32_t* mesh = meshes[i];
-        mesh[0] = (mesh[0] & ~4u) | saved.meshes[i][0];
-        mesh[0x20] = saved.meshes[i][1];
-        mesh[0x21] = saved.meshes[i][2];
-        mesh[0x22] = saved.meshes[i][3];
+        render::MeshRef* mesh = meshes[i];
+        mesh->flags = (mesh->flags & ~4u) | saved.meshes[i].flag;
+        std::memcpy(mesh->color, saved.meshes[i].color, sizeof(mesh->color));
     }
 }
 
@@ -1789,7 +1782,7 @@ void get_tint(TintOwner owner, void* geom, uint32_t rgba)
 {
     if (!tintable(geom))
         return;
-    auto* g = static_cast<uint8_t*>(geom);
+    auto* g = static_cast<render::PcGeom*>(geom);
     auto it = std::find_if(g_tinted.begin(), g_tinted.end(), [&](const Saved& s) { return s.geom == g; });
     if (it == g_tinted.end())
         g_tinted.push_back(save_colour(owner, g));
@@ -1819,14 +1812,14 @@ void finalise()
     // As the park editor does (0x00592090): the scene's UpdateSuperSectors (thiscall, a list of sectors to add - none)
     // with the bottom-up heap current.
     memory::Hub* manager = memory::Hub::get_pull();
-    for (uint8_t* scene : g_dirty_scenes) {
+    for (render::WorldScene* scene : g_dirty_scenes) {
         bool live = false;
-        for_each_scene([&](uint8_t* s) { live |= s == scene; });
-        if (!live || !*reinterpret_cast<void**>(scene + 0xD4))
+        for_each_scene([&](render::WorldScene* s) { live |= s == scene; });
+        if (!live || !scene->coll_grid_)
             continue;
         if (manager)
             manager->enter_heap_scope(manager->bottom_up_heap_);
-        reinterpret_cast<render::WorldScene*>(scene)->get_update_super_sectors(nullptr);
+        scene->get_update_super_sectors(nullptr);
         if (manager)
             manager->leave_heap_scope();
         shared_collision::finalise(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
@@ -1839,8 +1832,8 @@ void finalise()
 
 void note_collision_moved(uint32_t checksum)
 {
-    uint8_t* scene = nullptr;
-    uint8_t* sector = find_sector(checksum, &scene);
+    render::WorldScene* scene = nullptr;
+    render::WorldCell* sector = find_sector(checksum, &scene);
     if (!sector)
         return;
     if (flags_of(sector) & 0x40)
@@ -1862,25 +1855,25 @@ void log_census()
     SceneNode* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         bool end = is_end(node);
-        uint8_t* scene = end ? nullptr : node->scene;
-        auto* table = scene ? *reinterpret_cast<uint32_t**>(scene + 0xD0) : nullptr;
+        render::WorldScene* scene = end ? nullptr : node->scene;
+        const lists::KeyMap* table = scene ? scene->sectors_ : nullptr;
         get_log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
                 static_cast<void*>(node), static_cast<void*>(node->scene), end ? " (end)" : "",
-                scene ? scene[0x8D] : -1, scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0,
-                static_cast<void*>(table), table ? table[0] : 0);
+                scene ? static_cast<int>(scene->is_sky_) : -1, scene ? scene->checksum_ : 0,
+                static_cast<const void*>(table), table ? static_cast<unsigned>(table->bits_) : 0u);
         if (end)
             break;
     }
-    for_each_scene([](uint8_t* scene) {
+    for_each_scene([](render::WorldScene* scene) {
         int sectors = 0, with_geometry = 0, with_collision = 0, movable = 0, see_through = 0;
-        for_each_sector(scene, [&](uint32_t checksum, uint8_t* sector) {
+        for_each_sector(scene, [&](uint32_t checksum, render::WorldCell* sector) {
             ++sectors;
             with_geometry += geom_of(sector) ? 1 : 0;
             with_collision += coll_of(sector) ? 1 : 0;
             movable += why_not_movable(checksum) ? 0 : 1;
             see_through += geom_of(sector) && plain_geom(geom_of(sector)) && geom_see_through(geom_of(sector)) ? 1 : 0;
         });
-        uint32_t name = *reinterpret_cast<uint32_t*>(scene + 0x84);
+        uint32_t name = scene->checksum_;
         get_log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable, %d "
                 "see-through",
                 name, get_name_of(name) ? get_name_of(name) : "?", sectors, with_geometry, with_collision, movable,

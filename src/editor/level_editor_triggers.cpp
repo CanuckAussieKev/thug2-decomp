@@ -1142,9 +1142,9 @@ Calls get_walk(uint32_t script)
 
 // --- the level's triggers ---
 
-uint8_t* coll_of(uint8_t* sector)
+render::HitMesh* coll_of(render::WorldCell* sector)
 {
-    uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
+    render::HitMesh* coll = sector ? sector->hit_body_ : nullptr;
     return render::is_static_collider(coll) ? coll : nullptr;
 }
 bool turned_off_by_us(uint32_t sector)
@@ -1156,16 +1156,16 @@ V3 to_v3(const maths::Vec4& v) { return {v.x, v.y, v.z}; }
 
 // A sector's trigger faces read into `t` (false: none) - its faces' box, the first ones' corners, whether every face is
 // a trigger's; where its collision is now (a wall moved: read again - RefreshMoved).
-bool read_faces(uint8_t* sector, LevelTrigger* t)
+bool read_faces(render::WorldCell* sector, LevelTrigger* t)
 {
-    uint8_t* coll = coll_of(sector);
-    auto* tri = coll ? *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C) : nullptr;
+    render::HitMesh* coll = coll_of(sector);
+    auto* tri = coll ? coll->geometry_ : nullptr;
     if (!tri || !tri->faces_ || !tri->vertices_ || tri->tri_count_ == 0)
         return false;
     t->faces.clear();
     t->face_count_ = 0;
     t->all_trigger_ = true;
-    t->wall = *reinterpret_cast<uint8_t**>(sector + 0x14) == nullptr; // (no geometry: collision only)
+    t->wall = static_cast<render::PcGeom*>(sector->geom_handle_) == nullptr; // (no geometry: collision only)
     t->bounds_low_ = {tri->lower_limit_.x, tri->lower_limit_.y, tri->lower_limit_.z};
     t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
     bool any = false;
@@ -1196,7 +1196,7 @@ bool read_faces(uint8_t* sector, LevelTrigger* t)
     return any;
 }
 
-void scan_sector(void*, uint32_t checksum, uint8_t* sector)
+void scan_sector(void*, uint32_t checksum, render::WorldCell* sector)
 {
     LevelTrigger t;
     if (!read_faces(sector, &t))
@@ -1348,12 +1348,12 @@ const char* game_problem(const Spec& spec)
 void refresh_level()
 {
     for (LevelTrigger& t : g_level) {
-        uint8_t* sector = scenery::sector_of(t.sector);
-        uint8_t* coll = sector ? coll_of(sector) : nullptr;
-        auto* tri = coll ? *reinterpret_cast<render::TriMeshSource**>(coll + 0x0C) : nullptr;
+        render::WorldCell* sector = scenery::sector_of(t.sector);
+        render::HitMesh* coll = sector ? coll_of(sector) : nullptr;
+        auto* tri = coll ? coll->geometry_ : nullptr;
         if (!tri)
             continue;
-        t.off = walls::disengaged(t.sector) || (*reinterpret_cast<uint16_t*>(coll + 0x08) & 4) != 0;
+        t.off = walls::disengaged(t.sector) || (coll->flag_bits_ & 4) != 0;
         if (tri->lower_limit_.x != t.bounds_low_.x || tri->lower_limit_.y != t.bounds_low_.y ||
             tri->lower_limit_.z != t.bounds_low_.z || tri->upper_limit_.x != t.bounds_high_.x ||
             tri->upper_limit_.y != t.bounds_high_.y || tri->upper_limit_.z != t.bounds_high_.z) {
@@ -1384,8 +1384,8 @@ int spec_index(const std::string& name)
 // the editor's hiding - else its collision's).
 bool is_sector_enabled(uint32_t checksum)
 {
-    uint8_t* sector = scenery::sector_of(checksum);
-    return sector && reinterpret_cast<render::WorldCell*>(sector)->is_operative();
+    render::WorldCell* sector = scenery::sector_of(checksum);
+    return sector && sector->is_operative();
 }
 
 // A breakable's box: the piece's box where it is now (axis-aligned), grown 6 each way so the skater meets it before
@@ -1885,9 +1885,9 @@ void kickoff()
     // (breakables broken while playing: their pieces back to edit - and to break again)
     for (const Spec& spec : g_specs) {
         uint32_t piece = spec.kind == Kind::kBreak ? checksum_of(spec.target) : 0;
-        uint8_t* sector = piece ? scenery::sector_of(piece) : nullptr;
+        render::WorldCell* sector = piece ? scenery::sector_of(piece) : nullptr;
         if (sector && node_alive(spec.name) && !is_sector_enabled(piece) && !scenery::get_hidden(piece)) {
-            reinterpret_cast<render::WorldCell*>(sector)->change_live(true);
+            sector->change_live(true);
             get_log("level editor: breakable %s's piece back (broken while playing)", spec.name.c_str());
         }
     }
@@ -3026,9 +3026,9 @@ void set_breakable(uint32_t sector, bool on)
     int i = spec_index(name);
     if (i >= 0)
         g_specs.erase(g_specs.begin() + i);
-    if (uint8_t* piece = scenery::sector_of(sector);
+    if (render::WorldCell* piece = scenery::sector_of(sector);
         piece && !is_sector_enabled(sector) && !scenery::get_hidden(sector))
-        reinterpret_cast<render::WorldCell*>(piece)->change_live(true);
+        piece->change_live(true);
     get_sync();
     hud::get_message("No longer breakable", 4.0);
 }

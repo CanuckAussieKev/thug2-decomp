@@ -41,6 +41,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/gfx/sector.h"
 
 namespace frontend::level_editor::checks {
 
@@ -262,8 +263,7 @@ bool get_cast(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector)
     if (normal)
         *normal = {n[0], n[1], n[2]};
     if (sector)
-        *sector =
-            ray->hit_.object ? ray->hit_.object_checksum_ : 0;
+        *sector = ray->hit_.object ? ray->hit_.object_checksum_ : 0;
     return true;
 }
 
@@ -523,7 +523,7 @@ void check_rails(std::vector<Issue>* out)
 void check_collision(std::vector<Issue>* out)
 {
     for (const scenery::SectorState& s : scenery::changed_sectors()) {
-        uint8_t* sector = scenery::sector_of(s.checksum);
+        render::WorldCell* sector = scenery::sector_of(s.checksum);
         if (!sector)
             continue;
         const shared_collision::Companion* companion = shared_collision::companion_of(s.checksum);
@@ -548,7 +548,7 @@ void check_collision(std::vector<Issue>* out)
         }
         bool moved = s.placement.quarters != 0 || !is_unit_scale(s.placement.scale) || s.placement.offset.x != 0.0f ||
                      s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
-        bool own = *reinterpret_cast<uint8_t**>(sector + 0x18) != nullptr; // (its collision object - WorldCell +0x18)
+        bool own = sector->hit_body_ != nullptr; // (its collision object - WorldCell +0x18)
         if (moved && !own && !companion && scenery::sector_geometry(s.checksum)) {
             issue.rule = Rule::kCollisionLeft;
             issue.severity = Severity::kDetailsOf;
