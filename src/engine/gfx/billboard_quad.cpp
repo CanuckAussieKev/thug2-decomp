@@ -259,7 +259,7 @@ void QuadSprite::open_sketch()
     if (texture) {
         set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
         set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
-        render::set_texture(0, *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(texture) + 0x10));
+        render::set_texture(0, texture->device_texture_);
     } else {
         set_texture_stage_state(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
         set_texture_stage_state(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);

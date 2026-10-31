@@ -420,7 +420,7 @@ bool BlendChannel::blend_pose(int index)
     Rig* skeleton = skeleton_of(bone_rig_);
     if (!skeleton)
         return false;
-    skeleton->set_lod(*reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(blender_) + 0x24)); // (its unknown24_)
+    skeleton->set_lod(blender_->distance_squared_);
     int count = count_list_items(&timelines_);
     RigData* data = skeleton->payload_;
     for (int i = 0; i < count; ++i) {

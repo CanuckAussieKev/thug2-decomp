@@ -181,8 +181,7 @@ void JointClipFrames::build_cache(int format)
     uint32_t size = manager->fetch_record_bytes(bone_count_, static_cast<int>(quat_key_count_),
                                                 static_cast<int>(trans_key_count_), format);
     int priority = static_cast<int16_t>(static_cast<int16_t>(bits_ << 7) >> 8);
-    if (*reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(manager) + 0xC8) == 0x32 ||
-        ClipStore::heap_available() < size) {
+    if (manager->num_ == 0x32 || ClipStore::heap_available() < size) {
         if (manager->free_oldest(priority, size))
             cache_slot_ = nullptr;
     }

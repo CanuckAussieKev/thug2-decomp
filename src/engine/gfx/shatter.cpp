@@ -36,14 +36,8 @@ lists::KeyMap* shatters() { return g_shatters; }
 uint16_t triangle_count(const PcShatter* shatter) { return shatter->triangle_count_; }
 
 // A mesh's fields the drawing uses: its vertex format (+0x38) and pixel shader (+0x44).
-uint32_t mesh_vertex_format(const MeshRef* mesh)
-{
-    return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38);
-}
-void* mesh_pixel_shader(const MeshRef* mesh)
-{
-    return *reinterpret_cast<void* const*>(reinterpret_cast<const uint8_t*>(mesh) + 0x44);
-}
+uint32_t mesh_vertex_format(const MeshRef* mesh) { return mesh->fvf; }
+void* mesh_pixel_shader(const MeshRef* mesh) { return mesh->pixel_shader_; }
 
 } // namespace
 

@@ -46,12 +46,9 @@ constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
 void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(reinterpret_cast<float*>(out)); }
 MaterialRef* material_of(MeshRef* mesh) { return reinterpret_cast<MaterialRef*>(mesh->material); }
-// A mesh's colour (flag 4): the floats at +0x80; its vertex shader at +0x38.
-float* mesh_tint_ptr(MeshRef* mesh) { return reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80); }
-uint32_t& mesh_vertex_shader(MeshRef* mesh)
-{
-    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(mesh) + 0x38);
-}
+// A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
+float* mesh_tint_ptr(MeshRef* mesh) { return mesh->color; }
+uint32_t& mesh_vertex_shader(MeshRef* mesh) { return mesh->fvf; }
 
 // The instance's meshes (its mesh list's).
 MeshRef** scene_meshes(SceneRef* scene) { return reinterpret_cast<MeshRef**>(scene->meshes); }

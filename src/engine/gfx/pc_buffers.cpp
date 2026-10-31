@@ -238,8 +238,7 @@ void MeshRef::set_pixel_shader_colored()
         c[2] = static_cast<float>(b * c[2]);
     }
     g_pixel_shader_changed = 1; // (the constants changed)
-    set_pixel_shader_with_constants(*reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(this) + 0x44),
-                                    *reinterpret_cast<uint32_t*>(material + 8));
+    set_pixel_shader_with_constants(pixel_shader_, *reinterpret_cast<uint32_t*>(material + 8));
     std::memcpy(constants, saved, bytes);
     g_pixel_shader_changed = 1;
 }

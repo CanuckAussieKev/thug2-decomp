@@ -23,6 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/code_address.h"
 #include "engine/gfx/weather.h"
+#include "engine/gfx/pc_texture.h"
 
 namespace render {
 
@@ -191,7 +192,7 @@ void WorldScene::fetch_diagnostics(script::Struct* info)
     info->put_int(0x1E3061EE, slot33_again);
     info->put_int(0x1E3061EE, slot33_again);
     info->put_int(0x78CAD2E8, count_c_6f_0);
-    info->put_int(0x5714C480, *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(texture_set_) + 0x10));
+    info->put_int(0x5714C480, static_cast<int>(static_cast<PcTexDict*>(texture_set_)->unknown10_));
 }
 
 // 0x0049D4E0

@@ -43,10 +43,7 @@ uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector +
 uint8_t* coll_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
 render::MeshRef** meshes_of(uint8_t* geom) { return *reinterpret_cast<render::MeshRef***>(geom + 0x3C); }
 uint32_t mesh_count_of(uint8_t* geom) { return *reinterpret_cast<uint32_t*>(geom + 0x40); }
-uint32_t vertex_format(const render::MeshRef* mesh)
-{
-    return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38);
-}
+uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf; }
 
 uint8_t* lookup_sector(uint8_t* scene, uint32_t checksum)
 {

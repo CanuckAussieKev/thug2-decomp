@@ -727,9 +727,8 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
     if ((whole_level || reset_light_group) && !part_only) {
         // The models: those of objects without a sector of their name, or an outdoor one, get the colour.
         for (objects::ObjectModule* model = objects::object_hub_slot()->find_first_module_of_kind(kModel); model;
-             model = *reinterpret_cast<objects::ObjectModule**>(reinterpret_cast<uint8_t*>(model) + 0x14)) {
-            uint8_t* object = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(model) + 0xC);
-            uint8_t* sector = look_up_sector(*reinterpret_cast<uint32_t*>(object + 0x14));
+             model = model->next_of_type_) {
+            uint8_t* sector = look_up_sector(model->entity_->ident_);
             if (!sector || *reinterpret_cast<uint32_t*>(sector + 0xC) == kOutdoor)
                 set_model_color(model, color);
             if (reset_light_group && sector && *reinterpret_cast<uint32_t*>(sector + 0xC) == reset_light_group)

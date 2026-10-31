@@ -25,6 +25,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/bitmap_texture.h"
 #include "engine/sys/startup_init.h"
+#include "engine/gfx/engine_scene.h"
 
 namespace render {
 
@@ -83,7 +84,7 @@ void __cdecl set_up_animated_grass_material(MaterialRef* m)
 // 0x004D0B60
 bool __cdecl make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 {
-    void* dictionary = *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(get_sky_scene()) + 0x88); // the sky's
+    void* dictionary = get_sky_scene()->texture_set_; // the sky's
     auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
     if (!entry)
         return false;

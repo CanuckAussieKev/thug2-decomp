@@ -128,7 +128,7 @@ public:
     ObjectModule* component18_;    // +0x18 the object's 0xCE0CA665 component
     ObjectModule* bone_rig_;       // +0x1C its 0x222756D5 component
     ObjectModule* mesh_instance_;  // +0x20 its 0x286A8D26 component
-    uint32_t unknown24_;           // +0x24 (given to the 0xCE0CA665 component's 0x00433EA0 each update)
+    float distance_squared_;       // +0x24 from the camera (the suspend component's 0x00433EA0, each update)
     memory::PaddedListNode lanes_; // +0x28 the channel list's head (data -1)
     void* observers_;         // +0x3C a std::list of observers (BlendObserver*): its sentinel node (+4 next, +8 prev)
     uint32_t observer_count_; // +0x40

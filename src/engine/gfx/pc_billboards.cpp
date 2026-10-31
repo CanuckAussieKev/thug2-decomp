@@ -39,11 +39,6 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 bool vertex_shaders() { return g_shaders_available; }
 void toggle_fog(bool on) { engine::enable_fog(on); }
 VertexBuffer* get_vertex_buffer(MeshRef* mesh, int index) { return mesh->fetch_vertex_store(index); }
-template <typename T>
-T& get_at(void* base, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(base) + offset);
-}
 
 bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
 // The node after `node` (null at the head).
@@ -134,7 +129,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         if (mesh->flags & 4)
             mesh->set_pixel_shader_colored();
         else
-            set_pixel_shader(get_at<void*>(mesh, 0x44), nullptr);
+            set_pixel_shader(mesh->pixel_shader_, nullptr);
     }
     D3DVIEWPORT9 viewport;
     input_port()->GetViewport(&viewport);
@@ -147,7 +142,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     input_port()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices;
     input_port()->GetIndices(&indices);
-    uint32_t primitives = primitive_count(get_at<uint32_t>(mesh, 0x50), mesh->index_counts_[0]);
+    uint32_t primitives = primitive_count(mesh->primitive_type_, mesh->index_counts_[0]);
     uint8_t* into;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
@@ -196,23 +191,19 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         from += rest;
     }
     get_vertex_buffer(mesh, 0)->get_unlock();
-    input_port()->SetStreamSource(
-        0, *reinterpret_cast<IDirect3DVertexBuffer9**>(reinterpret_cast<uint8_t*>(get_vertex_buffer(mesh, 0)) + 8), 0,
-        mesh->stride);
+    input_port()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer), 0,
+                                  mesh->stride);
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
     input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->index_buffers_[0]->buffer));
     DWORD format;
     input_port()->GetFVF(&format);
-    input_port()->SetFVF(get_at<uint32_t>(mesh, 0x38));
-    D3DPRIMITIVETYPE type = static_cast<D3DPRIMITIVETYPE>(get_at<uint32_t>(mesh, 0x50));
+    input_port()->SetFVF(mesh->fvf);
+    D3DPRIMITIVETYPE type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type_);
     if (vertex_shaders()) {
         input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
     } else {
         for (uint32_t pass = 0; pass < *reinterpret_cast<uint32_t*>(mesh->material + 8); ++pass) {
-            reinterpret_cast<MaterialRef*>(mesh->material)
-                ->submit_pass(pass, mesh->flags & 4
-                                        ? reinterpret_cast<const float*>(reinterpret_cast<uint8_t*>(mesh) + 0x80)
-                                        : nullptr);
+            reinterpret_cast<MaterialRef*>(mesh->material)->submit_pass(pass, mesh->flags & 4 ? mesh->color : nullptr);
             input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
         }
     }
@@ -368,7 +359,7 @@ void BillboardBatch::render()
             continue;
         memory::ListNode* node = head_of_scene_list(lists[i]);
         if (vertex_shaders())
-            set_pixel_shader(get_at<void*>(static_cast<BillboardRec*>(node->data)->mesh, 0x44), nullptr);
+            set_pixel_shader(static_cast<BillboardRec*>(node->data)->mesh->pixel_shader_, nullptr);
         break;
     }
     auto transpose = d3dx::matrix_transpose; // (D3DX)

@@ -14,6 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/profile_manager.h"
 #include "game/skate/skate_module.h"
+#include "engine/gfx/model_appearance.h"
 
 namespace commands {
 
@@ -54,7 +55,7 @@ render::BitmapTexture* find_texture(uint32_t name)
 void* get_face_texture()
 {
     auto* profile = modules::Skate::sole()->fetch_account(static_cast<Struct*>(nullptr));
-    return *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(profile) + 0x54);
+    return profile->appearance()->face_skin_;
 }
 
 // A colour as the textures take it: four bytes (the first in the low byte).

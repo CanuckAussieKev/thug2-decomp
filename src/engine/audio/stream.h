@@ -48,11 +48,8 @@ struct WadStream {
     // The destructor: empty (a call to 0x005480A0).
     void destruct() {}
 
-    // The status word at +0x2C + 4 * status_index_ (E_PENDING 0x8000000A: still going).
-    uint32_t get_standing() const
-    {
-        return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(this) + 0x2C + 4 * status_index_);
-    }
+    // The status word status_index_ picks (E_PENDING 0x8000000A: still going).
+    uint32_t get_standing() const { return cur_standing_[status_index_]; }
 
     Hdl file_ref_;           // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_;     // +0x04
@@ -132,12 +129,13 @@ struct BinkStream {
     bool shared_file_; // +0x18 file_ref_ isn't closed with the stream
     bool unknown19_;   // +0x19
     uint8_t unknown1a_[0xA];
-    int plays_;               // +0x24 plays left (counted down at the last frame; 0 after one: finished)
-    render::Bink* bink_;      // +0x28 null while paused
-    void* memory_;            // +0x2C freed with the stream
-    uint8_t unknown30_[0x30]; // +0x34: status words, indexed by status_index_ (see Status)
-    bool pause_requested_;    // +0x60
-    bool finished_;           // +0x61
+    int plays_;                 // +0x24 plays left (counted down at the last frame; 0 after one: finished)
+    render::Bink* bink_;        // +0x28 null while paused
+    void* memory_;              // +0x2C freed with the stream
+    uint32_t unknown30_;        // +0x30
+    uint32_t status_words_[11]; // +0x34: indexed by status_index_ (see Status)
+    bool pause_requested_;      // +0x60
+    bool finished_;             // +0x61
     uint8_t unknown62_[2];
     int status_index_; // +0x64
     uint8_t unknown68_[3];
@@ -153,11 +151,8 @@ struct BinkStream {
     bool stop_requested_; // +0x1BC freed by the update once ready_to_free
     uint8_t pad1bd_[3];
 
-    // The status word at +0x34 + 4 * status_index_ (0x8000000A: still fine).
-    uint32_t get_standing() const
-    {
-        return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(this) + 0x34 + 4 * status_index_);
-    }
+    // The status word status_index_ picks (0x8000000A: still fine).
+    uint32_t get_standing() const { return status_words_[status_index_]; }
 };
 static_assert(offsetof(BinkStream, wad_entry_) == 0x0C && offsetof(BinkStream, shared_file_) == 0x18 &&
                   offsetof(BinkStream, plays_) == 0x24 && offsetof(BinkStream, bink_) == 0x28 &&

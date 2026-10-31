@@ -347,10 +347,7 @@ render::TriMeshSource* collision_data(uint8_t* sector)
 }
 
 // The mesh's vertex format (+0x38: a Direct3D FVF, or a built-in vertex shader's handle).
-uint32_t vertex_format(const render::MeshRef* mesh)
-{
-    return *reinterpret_cast<const uint32_t*>(reinterpret_cast<const uint8_t*>(mesh) + 0x38);
-}
+uint32_t vertex_format(const render::MeshRef* mesh) { return mesh->fvf; }
 
 // The vertex buffer written back to the card (0x004D40E0 after the inlined lock of the whole buffer, as MeshRef::move_to).
 void upload(render::VertexBuffer* buffer)

@@ -14,6 +14,8 @@ struct SpriteTexture {
     uint32_t unknown0;
     uint16_t base_width_, base_height_;     // the texture's
     uint16_t actual_width_, actual_height_; // the image's, at the texture's top left
+    uint32_t unknownc_;
+    void* device_texture_; // +0x10 what the device is given
 };
 static_assert(offsetof(SpriteTexture, actual_width_) == 8, "layout must match the original");
 
@@ -38,8 +40,8 @@ public:
 
     // 0x004DFCF0 (vtable slot 2): draw the quad (2 triangles) on the device with the texture open_sketch set.
     void draw() override;
-    // 0x004DF990 (slot 1): the device made ready - format 0x144, no pixel shader, the texture (+0x10 of the
-    // sprite's texture) modulated by the vertex colour, or the vertex colour alone without one.
+    // 0x004DF990 (slot 1): the device made ready - format 0x144, no pixel shader, the texture (the sprite's
+    // texture's device texture) modulated by the vertex colour, or the vertex colour alone without one.
     void open_sketch() override;
     // 0x004DFA40 (slot 3): the first stage back to modulate.
     void close_sketch() override;

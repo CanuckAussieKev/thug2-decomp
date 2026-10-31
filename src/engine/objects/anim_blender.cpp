@@ -125,7 +125,7 @@ void AnimBlenderComponent::tick_frame()
     int count = 0;
     bool changed = false;
     Channel* channel = masked(lanes_.next);
-    bool ready = static_cast<DormancyModule*>(component18_)->wants_animating(reinterpret_cast<float*>(&unknown24_));
+    bool ready = static_cast<DormancyModule*>(component18_)->wants_animating(&distance_squared_);
     if (!channel)
         return;
     do {
