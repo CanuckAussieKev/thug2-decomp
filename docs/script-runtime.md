@@ -212,7 +212,7 @@ What the caller does with each result:
 | 2 WAITING | waiting with any other type (1, 2, 5-10, 11) | keep | Update again |
 | 5 FINISHED_INTERRUPT | a level entered as an interrupt (with bit 0 still set) returned | keep | Update again |
 
-3 and 4 (ERROR, STOPPED_IN_DEBUGGER) are never returned by this build.
+3 and 4 are never returned by this build.
 
 **The two flag bits.**
 - **WAIT_UPDATED (bit 1)** is set only by an Update that is returning because of a wait, and cleared at the

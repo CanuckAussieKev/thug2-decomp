@@ -37,8 +37,7 @@ enum EScriptReturnVal : int {
     ESCRIPTRETURNVAL_FINISHED = 0,           // no code left (the script has ended or was never set)
     ESCRIPTRETURNVAL_BLOCKED = 1,            // waiting with WAIT_TYPE_BLOCKED or WAIT_TYPE_REAL_TIMER
     ESCRIPTRETURNVAL_WAITING = 2,            // any other wait
-    ESCRIPTRETURNVAL_ERROR = 3,              // (never returned by this build)
-    ESCRIPTRETURNVAL_STOPPED_IN_DEBUGGER = 4, // (never returned by this build)
+    // (3 and 4 are never returned by this build)
     ESCRIPTRETURNVAL_FINISHED_INTERRUPT = 5, // an interrupt (Interrupt / OnExitRun script) returned
 };
 

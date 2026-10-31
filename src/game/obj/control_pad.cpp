@@ -166,49 +166,38 @@ int CControlButton::GetPressedTime()
     return Tmr::GameClockElapsed() + (g_clockOffset - pressed);
 }
 
+namespace {
+
+// Every button of the pad with the name scripts ask for it by (each name's checksum is what GetButton matches).
+struct PadButtonName {
+    CControlButton CControlPad::*button;
+    const char* name;
+};
+constexpr PadButtonName kPadButtons[] = {
+    {&CControlPad::m_up, "UP"},          {&CControlPad::m_down, "DOWN"},     {&CControlPad::m_left, "LEFT"},
+    {&CControlPad::m_right, "RIGHT"},    {&CControlPad::m_square, "SQUARE"}, {&CControlPad::m_circle, "CIRCLE"},
+    {&CControlPad::m_triangle, "TRIANGLE"}, {&CControlPad::m_x, "X"},       {&CControlPad::m_L1, "L1"},
+    {&CControlPad::m_L2, "L2"},          {&CControlPad::m_L3, "L3"},         {&CControlPad::m_R1, "R1"},
+    {&CControlPad::m_R2, "R2"},          {&CControlPad::m_R3, "R3"},         {&CControlPad::m_start, "START"},
+    {&CControlPad::m_select, "SELECT"},
+};
+
+} // namespace
+
 // 0x0046B940
 CControlPad* CControlPad::Init()
 {
-    m_up.SetName("UP");
-    m_down.SetName("DOWN");
-    m_left.SetName("LEFT");
-    m_right.SetName("RIGHT");
-    m_square.SetName("SQUARE");
-    m_circle.SetName("CIRCLE");
-    m_triangle.SetName("TRIANGLE");
-    m_x.SetName("X");
-    m_L1.SetName("L1");
-    m_L2.SetName("L2");
-    m_L3.SetName("L3");
-    m_R1.SetName("R1");
-    m_R2.SetName("R2");
-    m_R3.SetName("R3");
-    m_start.SetName("START");
-    m_select.SetName("SELECT");
-    m_lock[0] = 0;
-    m_lock[1] = 0;
+    for (const PadButtonName& entry : kPadButtons)
+        (this->*entry.button).SetName(entry.name);
+    m_lock[0] = m_lock[1] = 0;
     return this;
 }
 
-// 0x0046BB50
+// 0x0046BB50: every button let go (a held one records its release), the sticks centred.
 void CControlPad::Reset()
 {
-    m_up.Update(0);
-    m_down.Update(0);
-    m_left.Update(0);
-    m_right.Update(0);
-    m_L1.Update(0);
-    m_L2.Update(0);
-    m_L3.Update(0);
-    m_R1.Update(0);
-    m_R2.Update(0);
-    m_R3.Update(0);
-    m_square.Update(0);
-    m_circle.Update(0);
-    m_x.Update(0);
-    m_triangle.Update(0);
-    m_start.Update(0);
-    m_select.Update(0);
+    for (const PadButtonName& entry : kPadButtons)
+        (this->*entry.button).Update(0);
     for (float& f : m_stick)
         f = 0.0f;
     for (float& f : m_scaledStick)
