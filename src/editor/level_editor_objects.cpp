@@ -230,8 +230,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         return false;
     void* geometry = reinterpret_cast<render::RenderModel*>(model)->get_geom_by_name(0);
     const maths::Vec4* box =
-        geometry ? reinterpret_cast<const maths::Vec4*(__thiscall*)(void*)>(&render::virtual_slot15_jump)(geometry)
-                 : nullptr;
+        geometry ? reinterpret_cast<const maths::Vec4*>(static_cast<render::Geom*>(geometry)->fetch_bounds()) : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
     V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
     if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {

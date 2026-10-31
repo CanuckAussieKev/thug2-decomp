@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 
+#include "engine/gfx/engine_geom.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/file/packs.h"
@@ -147,14 +148,14 @@ void put_sector(WorldScene* scene, WorldCell* sector)
 }
 
 // A geom's counts (the engine's CGeom calls: 0x0048DF70, the slot-33 dispatcher, 0x0049C6F0).
-int geom_count70(void* geom) // (slot 36, through the jump 0x0048DF70)
+int geom_count70(void* geom) // (through the jump 0x0048DF70)
 {
-    return reinterpret_cast<int(__thiscall*)(void*)>((*static_cast<void***>(geom))[36])(geom);
+    return static_cast<int>(static_cast<Geom*>(geom)->fetch_vertex_tally());
 }
-int geom_slot33(void* geom) { return reinterpret_cast<int(__thiscall*)(void*)>(&virtual_slot33_jump)(geom); }
-int geom_count_c_6f_0(void* geom) // (slot 35, through the jump 0x0049C6F0)
+int geom_slot33(void* geom) { return static_cast<int>(static_cast<Geom*>(geom)->plat_get_num_render_polys()); }
+int geom_count_c_6f_0(void* geom) // (through the jump 0x0049C6F0)
 {
-    return reinterpret_cast<int(__thiscall*)(void*)>((*static_cast<void***>(geom))[35])(geom);
+    return static_cast<int>(static_cast<Geom*>(geom)->get_diagnostic_count());
 }
 
 } // namespace

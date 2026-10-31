@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine/gfx/engine_geom.h"
 #include "editor/level_editor_objects.h"
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_scenery.h"
@@ -332,8 +333,8 @@ void toggle_shown(uint8_t* sector, uint32_t mask) { reinterpret_cast<render::Wor
 uint32_t fetch_shown(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector)->fetch_shown(); }
 
 // A geometry's change_live (vfunc +0x34) / is_operative (vfunc +0x38).
-void set_geom_active(void* geom, bool on) { get_method<void(__thiscall*)(void*, bool)>(geom, 0x34)(geom, on); }
-bool geom_active(void* geom) { return get_method<bool(__thiscall*)(void*)>(geom, 0x38)(geom); }
+void set_geom_active(void* geom, bool on) { static_cast<render::Geom*>(geom)->change_live(on); }
+bool geom_active(void* geom) { return static_cast<render::Geom*>(geom)->is_operative(); }
 
 objects::GameEntity* live_object(uint32_t id)
 {

@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "engine/gfx/engine_geom.h"
 #include "engine/core/checksums.h"
 #include "engine/core/mem.h"
 #include "editor/level_editor_ground.h"
@@ -39,7 +40,6 @@ namespace frontend::level_editor::ground {
 
 namespace {
 
-void** const& g_pc_geom_vtable = vt::kPcGeom;
 void** const& g_coll_static_vtable = vt::kVtblStaticColl;
 
 uint8_t* geom_of(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
@@ -161,7 +161,7 @@ struct GroundStep : ModuleStep {
 bool emit_out(uint8_t* sector, const Spec& spec, const Mesh& mesh, std::string* why)
 {
     uint8_t* geom = geom_of(sector);
-    if (!geom || *reinterpret_cast<void***>(geom) != g_pc_geom_vtable || mesh_count_of(geom) == 0) {
+    if (!render::is_pc_geom(geom) || mesh_count_of(geom) == 0) {
         *why = "the copy has no drawn geometry";
         return false;
     }
@@ -399,7 +399,7 @@ const char* why_not_donor(uint32_t checksum)
     if (g_pool.count(checksum))
         return "a generated piece";
     uint8_t* geom = geom_of(sector);
-    if (!geom || *reinterpret_cast<void***>(geom) != g_pc_geom_vtable)
+    if (!render::is_pc_geom(geom))
         return "nothing drawn";
     if (*reinterpret_cast<void**>(geom + 0x4C))
         return "an instance";

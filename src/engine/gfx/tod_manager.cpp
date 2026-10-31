@@ -7,6 +7,7 @@
 #include <cstring>
 #include <new>
 
+#include "engine/gfx/engine_geom.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/park_editing/park_editor.h"
@@ -645,8 +646,7 @@ void apply_color_to_scene(uint8_t* scene, uint32_t color, uint32_t light_group, 
     auto colour = [](uint8_t* sector, uint32_t value) {
         void* geometry = *reinterpret_cast<void**>(sector + 0x14);
         if (geometry) {
-            auto** vtable = *reinterpret_cast<void***>(geometry);
-            reinterpret_cast<void(__thiscall*)(void*, uint32_t)>(vtable[6])(geometry, value);
+            static_cast<render::Geom*>(geometry)->change_tint(value);
         }
     };
     auto next = [table]() -> uint8_t* {

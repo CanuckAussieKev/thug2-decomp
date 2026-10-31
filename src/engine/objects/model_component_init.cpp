@@ -95,7 +95,7 @@ void* clone_model_geom(void* geom, render::RenderModel* to)
 void* clone_sector_geom(void* geom) { return static_cast<render::Geom*>(geom)->replicate(1, nullptr); }
 void activate_geom(void* geom)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int)>(&render::virtual_slot13_jump)(geom, 1);
+    static_cast<render::Geom*>(geom)->change_live(true); // (through the jump 0x0048DE60)
 }
 void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->add_geom(geom, name, true); }
 // The scale from a structure's scale parameters (0x00487B00, cdecl: false without any).

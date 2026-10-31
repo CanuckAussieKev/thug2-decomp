@@ -55,24 +55,4 @@ void BitmapTexture::pin_resident(bool permanent)
         flag_bits_ &= ~kTexturePermanent;
 }
 
-// --- the dispatchers --------------------------------------------------------------------------------------------
-
-// 0x0049F3C0
-__declspec(naked) void virtual_slot33_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0x84]
-    }
-}
-
-// 0x0049F420
-__declspec(naked) void virtual_slot41_jump()
-{
-    __asm {
-        mov eax, dword ptr [ecx]
-        jmp dword ptr [eax + 0xA4]
-    }
-}
-
 } // namespace render

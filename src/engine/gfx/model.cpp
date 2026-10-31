@@ -300,7 +300,7 @@ bool RenderModel::choose_uv_shift(uint32_t material, int pass, float u, float v)
 {
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
-        any |= geom_call<bool>(44, get_geom(node), material, pass, u, v);
+        any |= as_geom(get_geom(node))->set_material_uv_wibble_offsets(material, pass, u, v);
     return any;
 }
 
@@ -309,7 +309,7 @@ bool RenderModel::choose_uv_matrix(uint32_t material, int pass, const maths::Mat
 {
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
-        any |= geom_call<bool>(46, get_geom(node), material, pass, matrix);
+        any |= as_geom(get_geom(node))->choose_uv_matrix(material, pass, matrix);
     return any;
 }
 
@@ -318,7 +318,7 @@ bool RenderModel::create_uv_anim_params(uint32_t material, int pass)
 {
     bool any = false;
     for (ModelGeomNode* node = get_first(this); node != geoms_; node = node->next)
-        any |= geom_call<bool>(47, get_geom(node), material, pass);
+        any |= as_geom(get_geom(node))->create_uv_anim_params(material, pass);
     return any;
 }
 

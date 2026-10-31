@@ -106,7 +106,7 @@ float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fe
 // A geom's bounding box (0x0048DE80, thiscall).
 const maths::Vec4* geometry_bounding_box(void* geometry)
 {
-    return reinterpret_cast<const maths::Vec4*(__thiscall*)(void*)>(&render::virtual_slot15_jump)(geometry);
+    return reinterpret_cast<const maths::Vec4*>(static_cast<render::Geom*>(geometry)->fetch_bounds());
 }
 
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the

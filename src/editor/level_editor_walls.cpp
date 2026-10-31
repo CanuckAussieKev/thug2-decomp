@@ -101,10 +101,7 @@ bool flag_off(uint8_t* coll) { return (coll[0x08] & 4) != 0; }
 // WorldCell::change_live (0x0049E9B0: the collision's flag 4, the geometry's active flag when it has one).
 void change_live(uint8_t* sector, bool active) { reinterpret_cast<render::WorldCell*>(sector)->change_live(active); }
 // The geometry's is_operative (0x0048DE70, as WorldCell::is_operative 0x0049E9E0 asks it).
-bool geom_active(uint8_t* geom)
-{
-    return reinterpret_cast<bool(__thiscall*)(void*)>(&render::virtual_slot14_jump)(geom);
-}
+bool geom_active(uint8_t* geom) { return reinterpret_cast<render::Geom*>(geom)->is_operative(); }
 
 bool same_v(const maths::Vec4& a, const maths::Vec4& b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 

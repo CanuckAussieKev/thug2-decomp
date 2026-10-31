@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 
+#include "engine/gfx/engine_geom.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -131,12 +132,6 @@ void change_place(uint8_t* sector, const script::VectorValue* pos)
 {
     as_sector(sector)->place_at_absolute_point(reinterpret_cast<const maths::Vec4*>(pos));
 }
-// A geometry's virtual slot, called through its vtable.
-template <typename Fn>
-Fn geometry_slot(const uint8_t* geometry, int slot)
-{
-    return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
-}
 // A sector name's flag 0x4E549FE1 effect on or off (0x0048BF90, a jump to 0x004B22F0).
 void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on != 0); }
 
@@ -162,14 +157,15 @@ void __cdecl fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float
                 uint8_t* geometry = nullptr;
                 if (as_sector(sector)->is_operative()) // active
                     geometry = static_cast<uint8_t*>(as_sector(sector)->geom_handle_);
-                int count = geometry ? geometry_slot<int(__thiscall*)(void*)>(geometry, 36)(geometry) : 0;
+                auto* geom = reinterpret_cast<render::Geom*>(geometry);
+                int count = geom ? static_cast<int>(geom->fetch_vertex_tally()) : 0;
                 if (count) {
                     if (!memory::g_manager_ready) // (the memory manager set up, if it isn't)
                         memory::ensure_manager();
                     auto* vertices =
                         static_cast<maths::Vec4*>(mem_manager()->carve(count * sizeof(maths::Vec4), 1, nullptr));
                     // (the original runs the vertices' empty constructor over the block, 0x00401020 with 0x005902E0)
-                    geometry_slot<void(__thiscall*)(void*, maths::Vec4*)>(geometry, 37)(geometry, vertices);
+                    geom->get_vertices(vertices);
                     for (int i = 0; i < count; ++i)
                         box.append_spot(vertices[i]);
                     mem_manager()->dealloc(vertices);
@@ -751,7 +747,7 @@ bool __cdecl set_node_color(uint32_t name, script::Struct* params)
         return true;
     uint8_t* sector = find_scene_sector(section_id); // (not checked for null)
     if (auto* geometry = *reinterpret_cast<uint8_t**>(sector + 0x14))
-        reinterpret_cast<void(__thiscall*)(void*, uint32_t)>((*reinterpret_cast<void***>(geometry))[6])(geometry, rgba);
+        reinterpret_cast<render::Geom*>(geometry)->change_tint(rgba);
     return true;
 }
 

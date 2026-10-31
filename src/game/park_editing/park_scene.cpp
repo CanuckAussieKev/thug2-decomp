@@ -60,23 +60,16 @@ const maths::Vec4* get_local_bounds(void* sector)
     return reinterpret_cast<const maths::Vec4*>(static_cast<render::WorldCell*>(sector)->fetch_bounds());
 }
 void* fetch_shape(void* sector) { return static_cast<render::WorldCell*>(sector)->geom_handle_; }
-// The geometry's vertices (virtual calls through its vtable): how many (slot 36, 0x0048DF70), their positions
-// (slot 37), their colours set (slot 40) and read (slot 38, 0x0049F3E0), its collision (the word at +8, 0x0049E810)
-int get_vertex_count(void* geometry)
-{
-    return scene::geom_slot<int(__thiscall*)(void*)>(static_cast<uint8_t*>(geometry), 36)(geometry);
-}
-void get_vertex_positions(void* geometry, maths::Vec4* out)
-{
-    scene::geom_slot<void(__thiscall*)(void*, maths::Vec4*)>(static_cast<uint8_t*>(geometry), 37)(geometry, out);
-}
+// The geometry's vertices: how many (through 0x0048DF70), their positions, their colours set and read (0x0049F3E0), its collision (the word at +8, 0x0049E810)
+int get_vertex_count(void* geometry) { return static_cast<int>(scene::as_geom(geometry)->fetch_vertex_tally()); }
+void get_vertex_positions(void* geometry, maths::Vec4* out) { scene::as_geom(geometry)->get_vertices(out); }
 void set_vertex_colours(void* geometry, uint32_t* colours)
 {
-    scene::geom_slot<void(__thiscall*)(void*, uint32_t*)>(static_cast<uint8_t*>(geometry), 40)(geometry, colours);
+    scene::as_geom(geometry)->change_colors(reinterpret_cast<const uint8_t*>(colours));
 }
 void get_vertex_colours(void* geometry, uint32_t* out)
 {
-    scene::geom_slot<void(__thiscall*)(void*, uint32_t*)>(static_cast<uint8_t*>(geometry), 38)(geometry, out);
+    scene::as_geom(geometry)->plat_get_render_colors(reinterpret_cast<uint8_t*>(out));
 }
 render::TriMeshSource* get_hit_shape(void* geometry)
 {

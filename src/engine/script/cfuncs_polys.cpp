@@ -97,21 +97,17 @@ uint8_t* first_sky_scene() { return reinterpret_cast<uint8_t*>(render::get_sky_s
 // A sector's geometry (0x004A2BA0: +0x14) and the geometry's vertex count / positions / colours (0x0048DF70,
 // 0x0048DF80, 0x0048E150 into a buffer, 0x0048DFA0 back from one).
 void* sector_geometry(void* sector) { return static_cast<render::WorldCell*>(sector)->geom_handle_; }
-// (the geometry's virtual slots 36, 37 and 40, called through its vtable)
-template <typename Fn>
-Fn geometry_slot(const void* geometry, int slot)
-{
-    return reinterpret_cast<Fn>((*static_cast<void* const* const*>(geometry))[slot]);
-}
-int get_vertex_count(void* geometry) { return geometry_slot<int(__thiscall*)(void*)>(geometry, 36)(geometry); }
+// (the geometry's virtual functions)
+render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>(geometry); }
+int get_vertex_count(void* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
 void get_positions(void* geometry, script::VectorValue* out)
 {
-    geometry_slot<void(__thiscall*)(void*, script::VectorValue*)>(geometry, 37)(geometry, out);
+    as_geom(geometry)->get_vertices(reinterpret_cast<maths::Vec4*>(out)); // (x, y, z, w each)
 }
 void get_colours(void* geometry, uint32_t* out) { static_cast<render::Geom*>(geometry)->fetch_tints(out); }
 void set_colours(void* geometry, uint32_t* colours)
 {
-    geometry_slot<void(__thiscall*)(void*, uint32_t*)>(geometry, 40)(geometry, colours);
+    as_geom(geometry)->change_colors(reinterpret_cast<const uint8_t*>(colours));
 }
 
 // The CRT's _ftol (0x006236FC): truncation towards zero; callers keep the low bits.

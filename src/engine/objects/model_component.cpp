@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/model.h"
@@ -346,7 +347,7 @@ void MeshInstanceModule::change_tint(uint32_t color)
     if (!sector_model_)
         return;
     void** geom = model_geom(mesh_instance_, 0);
-    reinterpret_cast<void(__thiscall*)(void**, uint32_t)>((*reinterpret_cast<void***>(geom))[6])(geom, color);
+    reinterpret_cast<render::Geom*>(geom)->change_tint(color);
 }
 
 // 0x00420730

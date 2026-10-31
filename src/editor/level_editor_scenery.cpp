@@ -164,7 +164,6 @@ uint32_t get_pulse(uint32_t low, uint32_t high, double seconds)
 namespace scenery {
 namespace {
 
-void** const& g_pc_geom_vtable = vt::kPcGeom;
 constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
 constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
 
@@ -247,10 +246,7 @@ uint32_t& flags_of(uint8_t* sector) { return *reinterpret_cast<uint32_t*>(sector
 int quarters_of(uint8_t* sector) { return *reinterpret_cast<int*>(sector + 0x10); }
 
 // The PC geometry of level scenery (not an instance), active.
-bool plain_geom(uint8_t* geom)
-{
-    return geom && *reinterpret_cast<void***>(geom) == g_pc_geom_vtable && !*reinterpret_cast<void**>(geom + 0x4C);
-}
+bool plain_geom(uint8_t* geom) { return render::is_pc_geom(geom) && !*reinterpret_cast<void**>(geom + 0x4C); }
 
 // Its box as loaded (+0x14 min, +0x24 max).
 bool geom_box(uint8_t* geom, V3* min, V3* max)
@@ -264,7 +260,7 @@ bool geom_box(uint8_t* geom, V3* min, V3* max)
 // The geometry's world position (vfunc +0x4C, 0x004B46A0: the first mesh's; 0 when never moved).
 V3 geom_position(uint8_t* geom)
 {
-    const maths::Vec4* v = reinterpret_cast<const maths::Vec4*(__thiscall*)(void*)>(&render::virtual_slot19_jump)(geom);
+    const maths::Vec4* v = reinterpret_cast<render::Geom*>(geom)->get_absolute_point();
     return {v->x, v->y, v->z};
 }
 
@@ -408,7 +404,7 @@ void apply_track(Track* track)
     }
     if (!same_v3(position, track->position)) {
         maths::Vec4 to = {position.x, position.y, position.z, 1.0f};
-        reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*)>(&render::virtual_slot18_jump)(track->geom, &to);
+        reinterpret_cast<render::Geom*>(track->geom)->place_at_absolute_point(&to);
         // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
         // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
         // drag) would let the tree drift away from its faces; on sixteenths every step is exact and moving back gives
@@ -1076,7 +1072,7 @@ const char* why_not_movable(uint32_t checksum)
     uint8_t* geom = geom_of(sector);
     if (!geom)
         return "collision only";
-    if (*reinterpret_cast<void***>(geom) != g_pc_geom_vtable)
+    if (!render::is_pc_geom(geom))
         return "odd geometry";
     if (*reinterpret_cast<void**>(geom + 0x4C))
         return "an instance";
@@ -1608,7 +1604,7 @@ uint32_t get_duplicate(uint32_t source)
         source, reinterpret_cast<render::WorldScene*>(scene), 0, true, 0);
     uint8_t* copy = made ? lookup_sector(scene, made) : nullptr;
     uint8_t* geom = copy ? geom_of(copy) : nullptr;
-    if (!geom || *reinterpret_cast<void***>(geom) != g_pc_geom_vtable || *reinterpret_cast<void**>(geom + 0x4C)) {
+    if (!render::is_pc_geom(geom) || *reinterpret_cast<void**>(geom + 0x4C)) {
         get_log("level editor: copy of %s: %s", caption(source).c_str(), made ? "not a plain sector" : "not made");
         return 0;
     }
@@ -1735,7 +1731,7 @@ void for_each_level_sector(void (*each)(void* context, uint32_t checksum, uint8_
 
 // --- highlighting ---
 
-bool tintable(void* geom) { return geom && *static_cast<void***>(geom) == g_pc_geom_vtable; }
+bool tintable(void* geom) { return render::is_pc_geom(geom); }
 
 namespace {
 
@@ -1805,7 +1801,7 @@ void get_tint(TintOwner owner, void* geom, uint32_t rgba)
         g_tinted.push_back(save_colour(owner, g));
     else
         it->used = true;
-    get_method<void(__thiscall*)(void*, uint32_t)>(geom, 0x18)(geom, rgba);
+    static_cast<render::Geom*>(geom)->change_tint(rgba);
 }
 
 void end_tints(void* (*resolve)(TintOwner), bool all)

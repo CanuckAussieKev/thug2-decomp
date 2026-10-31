@@ -75,18 +75,9 @@ LevelLamp* find_scene_light(uint32_t name)
 }
 
 Geom* geom_of(const WorldCell* sector) { return static_cast<Geom*>(sector->geom_handle_); }
-uint32_t get_vertex_count(Geom* geom)
-{
-    return reinterpret_cast<uint32_t(__thiscall*)(Geom*)>(geom->vtable_[36])(geom);
-}
-void get_vertices(Geom* geom, maths::Vec4* out)
-{
-    reinterpret_cast<void(__thiscall*)(Geom*, maths::Vec4*)>(geom->vtable_[37])(geom, out);
-}
-void set_colours(Geom* geom, const uint32_t* in)
-{
-    reinterpret_cast<void(__thiscall*)(Geom*, const uint32_t*)>(geom->vtable_[40])(geom, in);
-}
+uint32_t get_vertex_count(Geom* geom) { return geom->fetch_vertex_tally(); }
+void get_vertices(Geom* geom, maths::Vec4* out) { geom->get_vertices(out); }
+void set_colours(Geom* geom, const uint32_t* in) { geom->change_colors(reinterpret_cast<const uint8_t*>(in)); }
 
 // What a light adds at a vertex: (radius - distance) / radius x its intensity - when the vertex is within its radius
 // (the squared distance rounded to a float first); its colour's bytes times that summed into r, g, b.

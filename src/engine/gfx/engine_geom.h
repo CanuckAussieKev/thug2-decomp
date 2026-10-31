@@ -3,113 +3,133 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/core/mem.h"
+
 namespace maths {
 class BBox;
 class Mat4;
 class Vec4;
 } // namespace maths
 
-// The engine's geom (render::CGeom - the platform-independent base of the PC geom, PcGeom in geom.h, its first 0x14
+// The engine's geom (render::Geom - the platform-independent base of the PC geom, PcGeom in geom.h, its first 0x14
 // bytes): what a geom keeps for itself - how it was made, its collision faces, a copy of its vertex colours, whether it
-// is multicoloured - and the base's platform calls, all stubs ("STUB: Plat...", vtable 0x00648EC8) that PcGeom
-// replaces. Its public calls are the dispatchers below (one jump to a slot each, linker-folded: other engine classes
-// call the same addresses for their own slots).
+// is multicoloured - and the platform's virtual functions, all stubs here ("STUB: Plat...", vtable 0x00648EC8) that
+// PcGeom overrides.
 namespace render {
 
-class Geom {
-public:
-    // 0x0048DD60: construct - nothing kept. Returns this.
-    Geom* make_new();
-    // 0x0048E130: the destructor's body - the colours' copy freed (not cleared).
-    void destroy_body();
-    // 0x0048E220 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    Geom* teardown(unsigned int flags);
+// What a geom is (the level editor only works on the PC's).
+enum class GeomKind {
+    kEngine, // the engine's base (only stubs)
+    kPc,     // PcGeom
+};
 
-    // 0x0048DD80: a copy (virtual [2]) - made with `instance` 1, else 2; given this one's collision faces (when it has
-    // some), no colours (the low byte of `instance` tested, its whole word passed on). The copy (or null).
+class Geom : public memory::HeapObject {
+public:
+    // 0x0048DD60: nothing kept.
+    Geom() = default;
+    // 0x0048E130 (0x0048E220 the scalar deleting destructor, vtable slot 0): the colours' copy freed (not cleared).
+    virtual ~Geom();
+    Geom(const Geom&) = delete;
+    Geom& operator=(const Geom&) = delete;
+
+    // What it is (NOT ORIGINAL: the original compared the vtable).
+    virtual GeomKind kind() const { return GeomKind::kEngine; }
+
+    // 0x0048DD80: a copy (plat_replicate) - made with `instance` 1, else 2; given this one's collision faces (when it
+    // has some), no colours (the low byte of `instance` tested, its whole word passed on). The copy (or null).
     Geom* replicate(int instance, void* scene);
-    // 0x0048DDC0: a copy for a model (virtual [1]) - made with `instance` 1, else 2; no colours. The copy (or null).
+    // 0x0048DDC0: a copy for a model (clone_instance) - made with `instance` 1, else 2; no colours. The copy (or
+    // null).
     Geom* clone_for_model(int instance, void* model);
-    // 0x0048DDF0: made an instance (1) of a mesh for a model, multicoloured or not (a jump to virtual [3] - the
-    // callee's arguments: `multicolour` is its third).
+    // 0x0048DDF0: made an instance (1) of a mesh for a model, multicoloured or not (a jump to plat_init_instance -
+    // the callee's arguments: `multicolour` is its third).
     bool init_instance(void* mesh, void* model, int multicolour);
-    // 0x0048DE10: the colour (virtual [7]) into `out`. Returns out.
+    // 0x0048DE10: the colour (plat_get_color) into `out`. Returns out.
     uint32_t* fetch_tint(uint32_t* out);
-    // 0x0048DE90 (not a Ghidra function): the bounding sphere (virtual [17]) into `out`. Returns out.
+    // 0x0048DE90 (not a Ghidra function): the bounding sphere (plat_get_bounding_sphere) into `out`. Returns out.
     maths::Vec4* fetch_bound_sphere(maths::Vec4* out);
     // 0x0048DF10 (folded with other classes' setters of the word at +8): the collision faces.
     void choose_tri_source(void* faces);
-    // 0x0048E150: the vertex colours (virtual [36] of them) copied to `out` - from a copy kept (virtual [38], made
-    // the first time with memory::alloc_block on the front end's heap).
+    // 0x0048E150: the vertex colours (fetch_vertex_tally of them) copied to `out` - from a copy kept
+    // (plat_get_render_colors, made the first time with memory::alloc_block on the front end's heap).
     void fetch_tints(uint32_t* out);
 
-    // The base's platform calls (virtual [3] - [47]; each prints its "STUB: ..." and does nothing):
-    bool plat_init_instance(void* mesh, void* model, int multicolour);             // 0x0048DA90 [3]: true
-    uint32_t plat_get_checksum();                                                  // 0x0048DAB0 [5]: 0
-    void plat_set_color(uint32_t rgba);                                            // 0x0048DAC0 [6]
-    uint32_t* plat_get_color(uint32_t* out);                                       // 0x0048E040 [7]: 0
-    void plat_clear_color();                                                       // 0x0048DAD0 [8]
-    bool plat_set_material_color(uint32_t checksum, int pass, uint32_t rgba);      // 0x0048DAE0 [9]: false
-    uint32_t* plat_get_material_color(uint32_t* out, uint32_t checksum, int pass); // 0x0048E070 [10]: 0
-    void plat_set_visibility(uint32_t mask);                                       // 0x0048DB00 [11]
-    uint32_t plat_get_visibility();                                                // 0x0048DB10 [12]: 0
-    void plat_set_active(bool active);                                             // 0x0048DB20 [13]
-    bool plat_is_active();                                                         // 0x0048DB30 [14]: false
-    maths::BBox* plat_get_bounding_box();                      // 0x0048DB40 [15]: a static empty box
-    void plat_set_bounding_sphere(const maths::Vec4* sphere);  // 0x0048DC30 [16]
-    maths::Vec4* plat_get_bounding_sphere(maths::Vec4* out);   // 0x0048E0A0 [17]: 0, radius 10000
-    void plat_set_world_position(const maths::Vec4* position); // 0x0048DBB0 [18]
-    maths::Vec4* plat_get_world_position();                    // 0x0048E0D0 [19]: a static vector
-    void plat_set_orientation(const maths::Mat4* orientation); // 0x0048DBC0 [20]
-    maths::Mat4* plat_get_orientation();                       // 0x0048E1C0 [21]: a static matrix
-    void plat_rotate_y(int turns);                             // 0x0048DBD0 [22]
-    void plat_set_transform(const maths::Mat4* transform);     // 0x0048DBE0 [23]
-    maths::Mat4* plat_get_transform();                         // 0x0048E1F0 [24]: a static matrix
-    void plat_set_scale(const maths::Vec4* scale);             // 0x0048DBF0 [25]
-    maths::Vec4* plat_get_scale(maths::Vec4* out);             // 0x0048E100 [26]: 0
-    void plat_set_model_lights(void* lights);                  // 0x0048DC00 [27]
-    bool plat_render_setup(const maths::Mat4* transform, const maths::Mat4* bones, int count, int a,
-                           int b);                     // 0x0048DC10 [28]: true
-    bool plat_hide_polys(uint32_t mask);               // 0x0048DC40 [31]: true
-    uint32_t plat_get_num_render_verts();              // 0x0048DC60 [36]: 0
-    void plat_get_render_verts(maths::Vec4* out);      // 0x0048DC70 [37] (not a Ghidra function)
-    uint32_t plat_get_num_render_polys();              // 0x0048DC80 [33]: 0
-    uint32_t plat_get_num_render_base_polys();         // 0x0048DC90 [34]: 0 (not a Ghidra function)
-    void plat_get_render_colors(uint32_t* out);        // 0x0048DCA0 [38] (not a Ghidra function)
-    void plat_set_render_verts(const maths::Vec4* in); // 0x0048DCB0 [39]
-    void plat_set_render_colors(const uint32_t* in);   // 0x0048DCC0 [40]
-    void plat_set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                                   float v_freq,
-                                   float v_phase);                                           // 0x0048DCE0 [42]
-    void plat_use_explicit_uv_wibble(int on);                                                // 0x0048DCF0 [43]
-    bool plat_set_material_uv_wibble_offsets(uint32_t checksum, int pass, float u, float v); // 0x0048DD10 [44]: false
-    void plat_set_uv_wibble_offsets(float u, float v);                                       // 0x0048DD00 [45]
-    bool plat_set_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix);         // 0x0048DD30 [46]: false
-    // ([29] / [30] are stubs::ignore_arguments2, [41] stubs::ignore_arguments3, [47] stubs::return_true2 - folded.)
+    // The platform's virtual functions (vtable slots 1 - 48; the base's bodies print their "STUB: ..." and do nothing
+    // - or return what the comment says). The slots the same in both tables are plain methods below.
+    // [1] / [2] 0x0049E8E0 (folded with WorldCell::plat_clone): null.
+    virtual Geom* clone_instance(int instance, void* model);
+    virtual Geom* plat_replicate(int instance, void* scene);
+    virtual bool plat_init_instance(void* mesh, void* model, int multicolour);     // [3] 0x0048DA90: true
+    virtual void clean_instance_strips() {}                                        // [4] (do_nothing)
+    virtual void change_tint(uint32_t rgba);                                       // [6] 0x0048DAC0 PlatSetColor
+    virtual uint32_t* plat_get_color(uint32_t* out);                               // [7] 0x0048E040: 0
+    virtual void wipe_tint();                                                      // [8] 0x0048DAD0 PlatClearColor
+    virtual bool change_material_tint(uint32_t checksum, int pass, uint32_t rgba); // [9] 0x0048DAE0: false
+    virtual void toggle_shown(uint32_t mask);                                      // [11] 0x0048DB00 PlatSetVisibility
+    virtual uint32_t fetch_shown();                                                // [12] 0x0048DB10: 0
+    virtual void change_live(bool active);                                         // [13] 0x0048DB20 PlatSetActive
+    virtual bool is_operative();                                                   // [14] 0x0048DB30: false
+    virtual maths::BBox* fetch_bounds();                               // [15] 0x0048DB40: a static empty box
+    virtual void change_bound_sphere(const maths::Vec4* sphere);       // [16] 0x0048DC30
+    virtual maths::Vec4* plat_get_bounding_sphere(maths::Vec4* out);   // [17] 0x0048E0A0: 0, radius 10000
+    virtual void place_at_absolute_point(const maths::Vec4* position); // [18] 0x0048DBB0
+    virtual maths::Vec4* get_absolute_point();                         // [19] 0x0048E0D0: a static vector
+    virtual void change_facing(const maths::Mat4* orientation);        // [20] 0x0048DBC0
+    virtual maths::Mat4* fetch_facing();                               // [21] 0x0048E1C0: a static matrix
+    virtual void rotate_y(int turns);                                  // [22] 0x0048DBD0
+    virtual void change_scale(const maths::Vec4* scale);               // [25] 0x0048DBF0
+    virtual maths::Vec4* fetch_magnification(maths::Vec4* out);        // [26] 0x0048E100: 0
+    virtual void set_model_lights(void* lights);                       // [27] 0x0048DC00
+    virtual bool upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int a,
+                                         int b);        // [28] 0x0048DC10 PlatRenderSetup: true
+    virtual void copy_bones(const maths::Mat4*, int) {} // [29] (ignores its two arguments)
+    virtual void set_bones(maths::Mat4*, int) {}        // [30] (the same)
+    virtual bool break_strips(uint32_t mask);           // [31] 0x0048DC40 PlatHidePolys: true
+    virtual uint32_t plat_get_num_render_polys();       // [33] 0x0048DC80: 0
+    virtual uint32_t fetch_vertex_tally();              // [36] 0x0048DC60: 0
+    virtual void get_vertices(maths::Vec4* out);        // [37] 0x0048DC70
+    virtual void plat_get_render_colors(uint8_t* out);  // [38] 0x0048DCA0
+    virtual void set_vertices(const maths::Vec4* in);   // [39] 0x0048DCB0
+    virtual void change_colors(const uint8_t* in);      // [40] 0x0048DCC0
+    virtual void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
+                                      float v_freq, float v_phase);                             // [42] 0x0048DCE0
+    virtual void enable_explicit_uv_wibble(int on);                                             // [43] 0x0048DCF0
+    virtual bool set_material_uv_wibble_offsets(uint32_t checksum, int pass, float u, float v); // [44] 0x0048DD10
+    virtual void set_uv_wibble_offsets(float u, float v);                                       // [45] 0x0048DD00
+    virtual bool choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix); // [46] 0x0048DD30: false
+    virtual bool create_uv_anim_params(uint32_t, int) { return true; }                     // [47] (return_true2)
+    virtual void reset_texture_anims() {}                                                  // [48] (do_nothing)
 
-    void** vtable_;
-    int clone_kind_;           // +0x04: 1 an instance / a copy made with `instance`, 2 a copy without
-    void* hit_triangles_;      // +0x08: the collision faces
-    uint32_t* render_colours_; // +0x0C: the vertex colours' copy (fetch_tints)
-    uint8_t multicolour_;      // +0x10 (init_instance's third argument's low byte)
+    // The slots the same in both tables (the base's bodies, or shared stubs).
+    uint32_t plat_get_checksum();                                                  // [5] 0x0048DAB0: 0
+    uint32_t* plat_get_material_color(uint32_t* out, uint32_t checksum, int pass); // [10] 0x0048E070: 0
+    void plat_set_transform(const maths::Mat4* transform);                         // [23] 0x0048DBE0
+    maths::Mat4* plat_get_transform();                                             // [24] 0x0048E1F0: a static matrix
+    bool set_shadow(bool) { return true; }              // [32] (SaveCard::always_true, folded)
+    uint32_t plat_get_num_render_base_polys();          // [34] 0x0048DC90: 0 (not a Ghidra function)
+    uint32_t get_diagnostic_count() { return 0; }       // [35] (return_zero; the scene's statistics count it)
+    void play_vc_wibble_from_keyframe(int, int, int) {} // [41] (ignores its three arguments)
+    void start_texture_anims(bool) {}                   // [49] (ignores its argument)
+    void stop_texture_anims() {}                        // [50] (do_nothing)
+
+    int clone_kind_ = 0;                 // +0x04: 1 an instance / a copy made with `instance`, 2 a copy without
+    void* hit_triangles_ = nullptr;      // +0x08: the collision faces
+    uint32_t* render_colours_ = nullptr; // +0x0C: the vertex colours' copy (fetch_tints)
+    uint8_t multicolour_ = 0;            // +0x10 (init_instance's third argument's low byte)
 };
 static_assert(offsetof(Geom, render_colours_) == 0xC && offsetof(Geom, multicolour_) == 0x10,
               "layout must match the original");
 
-// The dispatchers: `MOV EAX,[ECX]; JMP [EAX + 4 * slot]` - the callee's arguments, whatever the class (the geom's
-// slots named; the same addresses serve other engine classes: e.g. 0x0048D060 is the font's string size and the
-// geom's wipe_tint, 0x0048DE80 a texture's slot 15). Naked, registered unchecked.
-void virtual_slot8_jump();  // 0x0048D060 (the geom's wipe_tint, the font's read_string_param)
-void virtual_slot9_jump();  // 0x0048DE30 change_material_tint
-void virtual_slot10_jump(); // 0x0048E4C0
-void virtual_slot13_jump(); // 0x0048DE60 change_live
-void virtual_slot14_jump(); // 0x0048DE70 is_operative
-void virtual_slot15_jump(); // 0x0048DE80 fetch_bounds
-void virtual_slot16_jump(); // 0x0048DEB0 change_bound_sphere
-void virtual_slot18_jump(); // 0x0048DEC0 place_at_absolute_point
-void virtual_slot19_jump(); // 0x0048DED0 get_absolute_point
-void virtual_slot25_jump(); // 0x0048DF00 change_scale
-void virtual_slot27_jump(); // 0x0048DF20 SetModelLights
-void virtual_slot28_jump(); // 0x0048DF30 upload_skinning_palette
+// Whether `geom` (a sector's or a model's, or null) is a PC geom (NOT ORIGINAL: the level editor's check, which
+// compared the vtable).
+inline bool is_pc_geom(const void* geom) { return geom && static_cast<const Geom*>(geom)->kind() == GeomKind::kPc; }
+
+// The dispatchers: `MOV EAX,[ECX]; JMP [EAX + 4 * slot]` - the callee's arguments, whatever the class (the same
+// addresses served the geom's slots and other engine classes': e.g. 0x0048D060 is the font's string size and the
+// geom's wipe_tint). Naked, registered unchecked. Only the classes whose C++ virtual functions keep the original's
+// slot numbers (the fonts', the model lights') still go through them.
+void virtual_slot8_jump();  // 0x0048D060 (the font's read_string_param)
+void virtual_slot9_jump();  // 0x0048DE30 (the model lights' switch_ambient_light)
+void virtual_slot10_jump(); // 0x0048E4C0 (the model lights' switch_diffuse_light)
 
 } // namespace render

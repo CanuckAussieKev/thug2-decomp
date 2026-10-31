@@ -77,26 +77,16 @@ uint32_t flash_mask(int rate)
     return mask;
 }
 
-// The sector calls (the geometry's slots are virtual calls through its vtable; its collision is the word at +8).
-template <typename Fn>
-Fn geometry_slot(const uint8_t* geometry, int slot)
-{
-    return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
-}
+// The sector calls (the geometry's virtual functions; its collision is the word at +8).
+render::Geom* as_geom(uint8_t* geometry) { return reinterpret_cast<render::Geom*>(geometry); }
 uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
 uint8_t* fetch_shape(uint8_t* sector)
 {
     return static_cast<uint8_t*>(reinterpret_cast<render::WorldCell*>(sector)->geom_handle_);
 }
-int get_vertex_count(uint8_t* geometry) { return geometry_slot<int(__thiscall*)(uint8_t*)>(geometry, 36)(geometry); }
-void get_vertices(uint8_t* geometry, Vec4* out)
-{
-    geometry_slot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 37)(geometry, out);
-}
-void set_vertices(uint8_t* geometry, Vec4* vertices)
-{
-    geometry_slot<void(__thiscall*)(uint8_t*, Vec4*)>(geometry, 39)(geometry, vertices);
-}
+int get_vertex_count(uint8_t* geometry) { return static_cast<int>(as_geom(geometry)->fetch_vertex_tally()); }
+void get_vertices(uint8_t* geometry, Vec4* out) { as_geom(geometry)->get_vertices(out); }
+void set_vertices(uint8_t* geometry, Vec4* vertices) { as_geom(geometry)->set_vertices(vertices); }
 render::TriMeshSource* get_hit_shape(uint8_t* geometry)
 {
     return static_cast<render::TriMeshSource*>(reinterpret_cast<render::Geom*>(geometry)->hit_triangles_);

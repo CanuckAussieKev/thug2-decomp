@@ -18,14 +18,9 @@ namespace render {
 
 namespace {
 
-// The engine's CGeom calls (each a jump through the geom's vtable; not rewritten yet).
-template <typename R, typename... A>
-R geom_call(uint32_t slot, void* geom, A... args)
-{
-    // (the geom's virtual slot `slot`: the original goes through a jump stub for each)
-    return reinterpret_cast<R(__thiscall*)(void*, A...)>((*static_cast<void***>(geom))[slot])(geom, args...);
-}
-const maths::Vec4* geom_world_position(void* geom) { return geom_call<const maths::Vec4*>(19, geom); }
+// The geometry (the original's calls go through jumps to its virtual slots).
+Geom* geom_of(void* geom) { return static_cast<Geom*>(geom); }
+const maths::Vec4* geom_world_position(void* geom) { return geom_of(geom)->get_absolute_point(); }
 void set_geom_coll_tri_data(void* geom, TriMeshSource* faces) { static_cast<Geom*>(geom)->choose_tri_source(faces); }
 
 // The collision object's flag byte (+8): 2 not collided with, 4 inactive, 0x80 an occluder.
@@ -54,8 +49,7 @@ void WorldCell::destroy_body()
     vtable = reinterpret_cast<void**>(kSectorVtable);
     if (hit_body_ && (flag_bits_ & kSectorClone))
         hit_body_->get_call<void*>(0, 1u);
-    if (geom_handle_)
-        (*reinterpret_cast<void*(__thiscall***)(void*, unsigned int)>(geom_handle_))[0](geom_handle_, 1);
+    delete geom_of(geom_handle_);
 }
 
 // 0x0049E930
@@ -142,7 +136,7 @@ void WorldCell::clear_flags(uint32_t flags) { flag_bits_ &= ~flags; }
 void WorldCell::wipe_tint()
 {
     if (geom_handle_)
-        geom_call<void>(8, geom_handle_);
+        geom_of(geom_handle_)->wipe_tint();
 }
 
 // 0x0049E980
@@ -163,11 +157,11 @@ uint8_t* WorldCell::fetch_tint(uint8_t* out)
 void WorldCell::toggle_shown(uint32_t mask)
 {
     if (geom_handle_)
-        geom_call<void>(11, geom_handle_, mask);
+        geom_of(geom_handle_)->toggle_shown(mask);
 }
 
 // 0x0049E690
-uint32_t WorldCell::fetch_shown() { return geom_handle_ ? geom_call<uint32_t>(12, geom_handle_) : 0; }
+uint32_t WorldCell::fetch_shown() { return geom_handle_ ? geom_of(geom_handle_)->fetch_shown() : 0; }
 
 // 0x0049E9B0
 void WorldCell::change_live(bool active)
@@ -179,14 +173,14 @@ void WorldCell::change_live(bool active)
             coll_flags(hit_body_) |= 4;
     }
     if (geom_handle_)
-        geom_call<void>(13, geom_handle_, active);
+        geom_of(geom_handle_)->change_live(active);
 }
 
 // 0x0049E9E0 (no geometry and no collision: the original reads through null)
 bool WorldCell::is_operative()
 {
     if (geom_handle_)
-        return geom_call<bool>(14, geom_handle_);
+        return geom_of(geom_handle_)->is_operative();
     return !(coll_flags(hit_body_) & 4);
 }
 
@@ -224,7 +218,7 @@ void WorldCell::mark_as_occluder(bool occluder)
 const maths::BBox* WorldCell::fetch_bounds()
 {
     if (geom_handle_)
-        return geom_call<const maths::BBox*>(15, geom_handle_);
+        return reinterpret_cast<const maths::BBox*>(geom_of(geom_handle_)->fetch_bounds());
     return hit_body_->get_call<const maths::BBox*>(21);
 }
 
@@ -240,7 +234,7 @@ void WorldCell::place_at_absolute_point(const maths::Vec4* position)
             flag_bits_ |= kSectorMoved;
     }
     if (geom_handle_)
-        geom_call<void>(18, geom_handle_, position);
+        geom_of(geom_handle_)->place_at_absolute_point(position);
 }
 
 // 0x0049E700
@@ -252,7 +246,7 @@ void WorldCell::change_facing(const maths::Mat4* orientation)
             flag_bits_ |= kSectorMoved;
     }
     if (geom_handle_)
-        geom_call<void>(20, geom_handle_, orientation);
+        geom_of(geom_handle_)->change_facing(orientation);
 }
 
 // 0x0049E760 (the difference's remainder as C's: (turns - rot_y_ + 4) % 4 may be negative)
@@ -265,7 +259,7 @@ void WorldCell::spin_around_up(int turns)
         hit_body_->get_call<void>(22, about, delta);
     }
     if (geom_handle_)
-        geom_call<void>(22, geom_handle_, delta);
+        geom_of(geom_handle_)->rotate_y(delta);
     rot_y_ = turns;
 }
 
@@ -280,7 +274,7 @@ void WorldCell::change_scale(const maths::Vec4* scale)
             flag_bits_ |= kSectorMoved;
     }
     if (geom_handle_)
-        geom_call<void>(25, geom_handle_, scale);
+        geom_of(geom_handle_)->change_scale(scale);
 }
 
 // 0x0049EA00
@@ -294,12 +288,11 @@ void WorldCell::choose_raw_verts(const maths::Vec4* vertices)
         flag_bits_ |= kSectorMoved;
 }
 
-// 0x0049E820 (through the geom's slot 41, the dispatcher 0x0049F420)
+// 0x0049E820 (the geom's call through the dispatcher 0x0049F420)
 void WorldCell::play_vc_wibble_from_keyframe(int sequence, int keyframe, int time_ms)
 {
     if (geom_handle_)
-        reinterpret_cast<void(__thiscall*)(void*, int, int, int)>(&virtual_slot41_jump)(geom_handle_, sequence,
-                                                                                        keyframe, time_ms);
+        geom_of(geom_handle_)->play_vc_wibble_from_keyframe(sequence, keyframe, time_ms);
 }
 
 // 0x0049E830
@@ -307,42 +300,42 @@ void WorldCell::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, flo
                                      float v_freq, float v_phase)
 {
     if (geom_handle_)
-        geom_call<void>(42, geom_handle_, u_vel, u_amp, u_freq, u_phase, v_vel, v_amp, v_freq, v_phase);
+        geom_of(geom_handle_)->set_uv_wibble_params(u_vel, u_amp, u_freq, u_phase, v_vel, v_amp, v_freq, v_phase);
 }
 
 // 0x0049E840
 void WorldCell::force_uv_wobble(bool on)
 {
     if (geom_handle_)
-        geom_call<void>(43, geom_handle_, on);
+        geom_of(geom_handle_)->enable_explicit_uv_wibble(on);
 }
 
 // 0x0049E850
 void WorldCell::set_uv_wibble_offsets(float u, float v)
 {
     if (geom_handle_)
-        geom_call<void>(45, geom_handle_, u, v);
+        geom_of(geom_handle_)->set_uv_wibble_offsets(u, v);
 }
 
 // 0x0049E860
 void WorldCell::reset_texture_anim()
 {
     if (geom_handle_)
-        geom_call<void>(48, geom_handle_);
+        geom_of(geom_handle_)->reset_texture_anims();
 }
 
 // 0x0049E870
 void WorldCell::start_texture_anim(bool reset)
 {
     if (geom_handle_)
-        geom_call<void>(49, geom_handle_, reset);
+        geom_of(geom_handle_)->start_texture_anims(reset);
 }
 
 // 0x0049E880
 void WorldCell::stop_texture_anim()
 {
     if (geom_handle_)
-        geom_call<void>(50, geom_handle_);
+        geom_of(geom_handle_)->stop_texture_anims();
 }
 
 namespace {

@@ -63,7 +63,7 @@ inline void* clone_model_geom(void* geom, render::RenderModel* to)
 inline void* clone_sector_geom(void* geom) { return static_cast<render::Geom*>(geom)->replicate(1, nullptr); }
 inline void activate_geom(void* geom)
 {
-    reinterpret_cast<void(__thiscall*)(void*, int)>(&render::virtual_slot13_jump)(geom, 1);
+    static_cast<render::Geom*>(geom)->change_live(true); // (through the jump 0x0048DE60)
 }
 inline void add_geom(render::RenderModel* model, void* geom, uint32_t name) { model->add_geom(geom, name, true); }
 // The model loaded from an asset (0x004934A0: name, geom name, multicolour, 1).

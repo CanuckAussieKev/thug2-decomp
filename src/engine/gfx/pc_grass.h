@@ -6,7 +6,7 @@
 // layered by the material's +0x18 layer count and +0x14 height) gets it when the sector loads (PcSector's loaders).
 namespace render {
 
-struct PcGeom;
+class PcGeom;
 struct MaterialRef;
 struct MeshRef;
 

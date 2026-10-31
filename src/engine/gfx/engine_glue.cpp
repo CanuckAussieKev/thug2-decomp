@@ -235,11 +235,7 @@ bool __cdecl unload_scene(void* scene)
 RenderModel* __cdecl spawn_model() { return new PcModel; }
 
 // 0x004B2A20
-void* __cdecl create_geom()
-{
-    void* memory = memory::alloc_zeroed(0x64);
-    return memory ? static_cast<PcGeom*>(memory)->make_new() : nullptr;
-}
+Geom* __cdecl create_geom() { return new PcGeom; }
 
 // 0x004B2A80
 BillboardQuad* __cdecl build_sprite_quad() { return new PcSprite; }

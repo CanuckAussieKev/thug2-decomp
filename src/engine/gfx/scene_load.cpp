@@ -43,13 +43,12 @@ void set_up_sectors(uint8_t* scene, const char* name)
 // A PC geom for a scene's sector (0x64 bytes, zeroed; the scene at +0x34).
 uint8_t* new_sector_geom(uint8_t* scene)
 {
-    void* memory = memory::alloc_zeroed(0x64);
-    auto* geom = memory ? reinterpret_cast<uint8_t*>(static_cast<PcGeom*>(memory)->make_new()) : nullptr;
+    auto* geom = new PcGeom;
     // (no check: a failed allocation writes through null, as the original)
-    *reinterpret_cast<uint8_t**>(geom + 0x34) = scene;
-    return geom;
+    geom->scene = scene;
+    return reinterpret_cast<uint8_t*>(static_cast<Geom*>(geom));
 }
-void prepare_geometry(uint8_t* geom) { reinterpret_cast<PcGeom*>(geom)->start_mesh_list(); }
+void prepare_geometry(uint8_t* geom) { static_cast<PcGeom*>(reinterpret_cast<Geom*>(geom))->start_mesh_list(); }
 // The 2D clip rectangle off (0x004D3CE0).
 void clear_screen_clip() { clear_skin_scaling(); }
 

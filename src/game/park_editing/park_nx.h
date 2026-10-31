@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "engine/gfx/engine.h"
+#include "engine/gfx/engine_geom.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/sector.h"
@@ -15,12 +16,8 @@ namespace park_editing::scene {
 inline render::WorldCell* as_sector(uint8_t* sector) { return reinterpret_cast<render::WorldCell*>(sector); }
 inline render::WorldScene* as_scene(uint8_t* scene) { return reinterpret_cast<render::WorldScene*>(scene); }
 
-// A virtual call through a geometry's vtable (the engine's dispatchers `MOV EAX,[ECX]; JMP [EAX + 4 * slot]`).
-template <typename Fn>
-inline Fn geom_slot(const uint8_t* geometry, int slot)
-{
-    return reinterpret_cast<Fn>((*reinterpret_cast<void* const* const*>(geometry))[slot]);
-}
+// A geometry (the original's calls go through the engine's dispatchers `MOV EAX,[ECX]; JMP [EAX + 4 * slot]`).
+inline render::Geom* as_geom(void* geometry) { return static_cast<render::Geom*>(geometry); }
 
 // 0x0048C510: the sector named `name` in any scene (null if none)
 inline uint8_t* look_up_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
@@ -48,15 +45,12 @@ inline uint8_t* fetch_shape(uint8_t* sector) { return static_cast<uint8_t*>(as_s
 // 0x0048DEE0 (slot 20): its orientation (a 4 x 4 matrix)
 inline void change_facing(uint8_t* geometry, const void* matrix)
 {
-    geom_slot<void(__thiscall*)(void*, const void*)>(geometry, 20)(geometry, matrix);
+    as_geom(geometry)->change_facing(static_cast<const maths::Mat4*>(matrix));
 }
 // Vtable +0x18: a colour (r g b a in the bytes, low first) over the geometry
-inline void change_tint(uint8_t* geometry, uint32_t rgba)
-{
-    geom_slot<void(__thiscall*)(void*, uint32_t)>(geometry, 6)(geometry, rgba);
-}
+inline void change_tint(uint8_t* geometry, uint32_t rgba) { as_geom(geometry)->change_tint(rgba); }
 // 0x0048D060 (slot 8): the colour taken off
-inline void wipe_tint(uint8_t* geometry) { geom_slot<void(__thiscall*)(void*)>(geometry, 8)(geometry); }
+inline void wipe_tint(uint8_t* geometry) { as_geom(geometry)->wipe_tint(); }
 
 // WorldScene:
 // 0x0049DF30: a copy of the sector `name` (of this scene) in `destination`; its name

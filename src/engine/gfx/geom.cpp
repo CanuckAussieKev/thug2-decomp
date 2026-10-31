@@ -12,16 +12,13 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/core/code_address.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/sub_mesh.h"
 #include "engine/gfx/mesh_list.h"
 #include "engine/gfx/pc_scene.h"
-#include "engine/core/code_address.h"
-#include "engine/core/game_vtables.h"
 #include "engine/gfx/model.h"
-#include "game/save_cards/memcard.h"
 #include "engine/core/stubs.h"
-#include "engine/net/stats_man.h"
 #include "engine/gfx/shader_slots.h"
 
 namespace render {
@@ -30,7 +27,6 @@ using memory::ListNode;
 
 namespace {
 
-void** const& g_pc_geom_vtable = vt::kPcGeom;
 extern void** const kMeshNodeVtable;        // the load list's nodes (lists::Elem<MeshRef>)
 extern void** const kMeshHeadVtable;        // and its head
 constexpr float kPer255 = 1.0f / 255.0f;    // 0x00645D70 (0x3B808081)
@@ -82,11 +78,6 @@ void get_identity(maths::Mat4* m)
     auto* f = reinterpret_cast<float*>(m);
     for (int i = 0; i < 16; ++i)
         f[i] = (i % 5 == 0) ? 1.0f : 0.0f;
-}
-
-void call_virtual(PcGeom* geom, int slot, int argument)
-{
-    reinterpret_cast<void(__thiscall*)(PcGeom*, int)>(geom->vtable[slot])(geom, argument);
 }
 
 // A byte colour channel as the float the meshes keep (x87: the integer times the float 1/255, rounded once).
@@ -148,40 +139,25 @@ MeshListNode* MeshListNode::destroy_head(unsigned int flags)
 }
 
 // 0x004B4460
-PcGeom* PcGeom::make_new()
+PcGeom::PcGeom()
 {
-    reinterpret_cast<Geom*>(this)->Geom::make_new();
-    vtable = reinterpret_cast<void**>(g_pc_geom_vtable);
-    new (&bounds) maths::BBox();
     load_list_ = nullptr;
     meshes = nullptr;
     instance = nullptr;
     visibility = 0xDEADBEEF;
     scale = {1.0f, 1.0f, 1.0f, 1.0f};
     active = true;
-    return this;
 }
 
 // 0x004B5EE0
-void PcGeom::destroy_body()
+PcGeom::~PcGeom()
 {
-    vtable = reinterpret_cast<void**>(g_pc_geom_vtable);
     free_mesh_table();
     if (Singleton* inst = instance) {
         inst->destroy_body();
         memory::Hub::get_pull()->dealloc(inst);
         instance = nullptr;
     }
-    reinterpret_cast<Geom*>(this)->Geom::destroy_body();
-}
-
-// 0x004B5FC0
-PcGeom* PcGeom::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // 0x004B5F60
@@ -297,17 +273,18 @@ SceneRef* PcGeom::create_mesh_list()
 }
 
 // 0x004B58C0
-PcGeom* PcGeom::replicate(bool share, uint8_t* new_scene)
+Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
 {
-    void* memory = memory::alloc_zeroed(sizeof(PcGeom));
-    PcGeom* geom = memory ? static_cast<PcGeom*>(memory)->make_new() : nullptr;
+    bool share = static_cast<uint8_t>(instance_flag) != 0;
+    auto* new_scene = static_cast<uint8_t*>(scene_bytes);
+    auto* geom = new PcGeom;
     // (no check: a failed allocation writes through null, as the original)
     geom->meshes = static_cast<MeshRef**>(memory::alloc(4 * mesh_count_));
     geom->mesh_count_ = mesh_count_;
     for (uint32_t i = 0; i < geom->mesh_count_; ++i)
         geom->meshes[i] = meshes[i]->replicate(share);
     if (!share) {
-        call_virtual(geom, 13, 1); // change_live
+        geom->change_live(true);
         // into the scene's mesh list: its meshes kept aside, room made for these ones too, all added back
         auto* list = *reinterpret_cast<SceneRef**>(new_scene + 0x280);
         uint8_t** kept = list->mesh_count_ > 0 ? static_cast<uint8_t**>(memory::alloc(4 * list->mesh_count_)) : nullptr;
@@ -327,7 +304,7 @@ PcGeom* PcGeom::replicate(bool share, uint8_t* new_scene)
     } else {
         std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
         SceneRef* list = geom->create_mesh_list();
-        call_virtual(geom, 13, 1); // change_live
+        geom->change_live(true);
         maths::Mat4 identity;
         get_identity(&identity);
         Singleton* inst = new_instance(list, &identity, 1, nullptr);
@@ -338,13 +315,14 @@ PcGeom* PcGeom::replicate(bool share, uint8_t* new_scene)
 }
 
 // 0x004B5B80
-PcGeom* PcGeom::clone_instance(bool share, uint8_t* model)
+Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
 {
+    bool share = static_cast<uint8_t>(instance_flag) != 0;
+    auto* model = static_cast<uint8_t*>(model_bytes);
     auto* temp_scene = reinterpret_cast<uint8_t*>(new PcScene(10));
     SceneRef* source_list = instance->scene;
     *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = source_list;
-    void* memory = memory::alloc_zeroed(sizeof(PcGeom));
-    PcGeom* geom = memory ? static_cast<PcGeom*>(memory)->make_new() : nullptr;
+    auto* geom = new PcGeom;
     geom->scene = temp_scene;
     uint32_t count = static_cast<uint32_t>(instance->scene->mesh_count_);
     geom->meshes = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
@@ -355,9 +333,9 @@ PcGeom* PcGeom::clone_instance(bool share, uint8_t* model)
     SceneRef* list = geom->create_mesh_list();
     // the scene was only for the copy: destroyed without its mesh list
     *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = nullptr;
-    reinterpret_cast<void*(__thiscall*)(uint8_t*, int)>((*reinterpret_cast<void***>(temp_scene))[0])(temp_scene, 1);
+    delete reinterpret_cast<PcScene*>(temp_scene);
     geom->scene = nullptr;
-    call_virtual(geom, 13, 1); // change_live
+    geom->change_live(true);
     // bones: the model's count (room for one more), each the identity
     int bone_count = *reinterpret_cast<int*>(model + 8);
     auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
@@ -372,8 +350,10 @@ PcGeom* PcGeom::clone_instance(bool share, uint8_t* model)
 }
 
 // 0x004B54B0
-bool PcGeom::init_instance(uint8_t* mesh, uint8_t* model, int /*unused*/)
+bool PcGeom::plat_init_instance(void* mesh_bytes, void* model_bytes, int /*unused*/)
 {
+    auto* mesh = static_cast<uint8_t*>(mesh_bytes);
+    auto* model = static_cast<uint8_t*>(model_bytes);
     int bone_count = *reinterpret_cast<int*>(model + 8);
     source = mesh;
     maths::Mat4 identity;
@@ -405,7 +385,7 @@ void PcGeom::change_tint(uint32_t rgba)
 {
     uint8_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF;
     if ((r == 0x80 || r == 0x81) && g == 0x80 && b == 0x80) {
-        reinterpret_cast<void(__thiscall*)(PcGeom*)>(vtable[8])(this); // wipe_tint
+        wipe_tint();
         return;
     }
     if (instance) {
@@ -426,7 +406,7 @@ void PcGeom::change_tint(uint32_t rgba)
 }
 
 // 0x004B4B20
-uint32_t* PcGeom::fetch_tint(uint32_t* out)
+uint32_t* PcGeom::plat_get_color(uint32_t* out)
 {
     uint8_t color[4] = {0, 0, 0, 0};
     MeshRef* mesh = nullptr;
@@ -527,7 +507,7 @@ void PcGeom::change_bound_sphere(const maths::Vec4* sphere)
 }
 
 // 0x004B4760
-maths::Vec4* PcGeom::fetch_bound_sphere(maths::Vec4* out)
+maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 {
     if (instance && instance->scene) {
         SceneRef* list = instance->scene;
@@ -735,7 +715,7 @@ void PcGeom::set_vertices(const maths::Vec4* in)
 }
 
 // 0x004B4160
-void PcGeom::fetch_tints(uint8_t* out)
+void PcGeom::plat_get_render_colors(uint8_t* out)
 {
     if (!meshes)
         return;
@@ -829,7 +809,7 @@ void PcGeom::set_uv_wibble_offsets(float u, float v)
             if (UvOscillator* wibble = material->uv_wibble_[p]) {
                 wibble->offset[0] = u;
                 wibble->offset[1] = v;
-                call_virtual(this, 43, 1); // EnableExplicitUVWibble
+                enable_explicit_uv_wibble(1);
                 break;
             }
         }
@@ -912,59 +892,3 @@ void** const kMeshHeadVtable = reinterpret_cast<void**>(g_mesh_head_vtable_slots
 } // namespace
 
 } // namespace render
-
-namespace vt {
-// (slot 15, the bounding box getter, is the same code as online::RankingsManager::get_personal_stats: the linker folded them)
-static VtableSlot g_pc_geom_slots[] = {&render::PcGeom::teardown,
-                                       &render::PcGeom::clone_instance,
-                                       &render::PcGeom::replicate,
-                                       &render::PcGeom::init_instance,
-                                       &render::PcGeom::clean_instance_strips,
-                                       &render::Geom::plat_get_checksum,
-                                       &render::PcGeom::change_tint,
-                                       &render::PcGeom::fetch_tint,
-                                       &render::PcGeom::wipe_tint,
-                                       &render::PcGeom::change_material_tint,
-                                       &render::Geom::plat_get_material_color,
-                                       &render::PcGeom::toggle_shown,
-                                       &render::PcGeom::fetch_shown,
-                                       &render::PcGeom::change_live,
-                                       &render::PcGeom::is_operative,
-                                       &online::RankingsManager::get_personal_stats,
-                                       &render::PcGeom::change_bound_sphere,
-                                       &render::PcGeom::fetch_bound_sphere,
-                                       &render::PcGeom::place_at_absolute_point,
-                                       &render::PcGeom::get_absolute_point,
-                                       &render::PcGeom::change_facing,
-                                       &render::PcGeom::fetch_facing,
-                                       &render::PcGeom::rotate_y,
-                                       &render::Geom::plat_set_transform,
-                                       &render::Geom::plat_get_transform,
-                                       &render::PcGeom::change_scale,
-                                       &render::PcGeom::fetch_magnification,
-                                       stubs::ignore_argument,
-                                       &render::PcGeom::upload_skinning_palette,
-                                       &render::PcGeom::copy_bones,
-                                       &render::PcGeom::set_bones,
-                                       &render::PcGeom::break_strips,
-                                       &save_cards::SaveCard::always_true,
-                                       stubs::return_zero,
-                                       &render::Geom::plat_get_num_render_base_polys,
-                                       stubs::return_zero,
-                                       &render::PcGeom::fetch_vertex_tally,
-                                       &render::PcGeom::get_vertices,
-                                       &render::PcGeom::fetch_tints,
-                                       &render::PcGeom::set_vertices,
-                                       &render::PcGeom::change_colors,
-                                       stubs::ignore_arguments3,
-                                       &render::PcGeom::set_uv_wibble_params,
-                                       &render::PcGeom::enable_explicit_uv_wibble,
-                                       stubs::return_true4,
-                                       &render::PcGeom::set_uv_wibble_offsets,
-                                       &render::PcGeom::choose_uv_matrix,
-                                       &render::PcGeom::create_uv_anim_params,
-                                       &render::PcGeom::reset_texture_anims,
-                                       stubs::ignore_argument,
-                                       stubs::do_nothing};
-void** const kPcGeom = reinterpret_cast<void**>(g_pc_geom_slots);
-} // namespace vt

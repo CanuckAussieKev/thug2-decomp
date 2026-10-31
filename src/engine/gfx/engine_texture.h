@@ -85,13 +85,6 @@ public:
 static_assert(offsetof(BitmapTexture, checksum_) == 4 && sizeof(BitmapTexture) == 0xC,
               "layout must match the original");
 
-// The folded dispatchers: a tail jump to the object's virtual slot (its arguments left as they are) - written for
-// the texture's slots, shared by other classes' calls of the same slot (the geom's 33 and 41, ...).
-// 0x0049F360 [17], 0x0049F370 [21], 0x0049F380 [23], 0x0049F390 [24], 0x0049F3A0 [26], 0x0049F3B0 [32],
-// 0x0049F3C0 [33], 0x0049F3D0 [34], 0x0049F3E0 [38], 0x0049F420 [41].
-void virtual_slot33_jump();
-void virtual_slot41_jump();
-
 // A texture's image size.
 inline uint16_t texels_across(void* texture) { return static_cast<BitmapTexture*>(texture)->fetch_breadth(); }
 inline uint16_t texels_down(void* texture) { return static_cast<BitmapTexture*>(texture)->fetch_tallness(); }

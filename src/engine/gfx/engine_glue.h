@@ -16,6 +16,7 @@ namespace render {
 class WeatherSystem;
 class ScreenEffects;
 class RenderModel;
+class Geom;
 class BillboardQuad;
 class TexturedQuad;
 
@@ -62,7 +63,7 @@ bool __cdecl unload_scene(void* scene);
 // 0x004B29C0 / 0x004B2A20 / 0x004B2A80 / 0x004B2AF0: a new PC model (0x50 bytes, zeroed), geom (0x64, zeroed),
 // sprite (0x48) and textured quad (0x20) - null when out of memory.
 RenderModel* __cdecl spawn_model();
-void* __cdecl create_geom();
+Geom* __cdecl create_geom();
 BillboardQuad* __cdecl build_sprite_quad();
 TexturedQuad* __cdecl create_textured_quad();
 // 0x004B2B60: a new render target (0x14 bytes) with a texture of its own made a width x height render target.

@@ -21,8 +21,7 @@ maths::Vec4* get_geom_bounding_sphere(void* geom, maths::Vec4* out)
 }
 void set_geom_bounding_sphere(void* geom, const maths::Vec4* sphere)
 {
-    // (slot 16, through the jump 0x0048DEB0)
-    reinterpret_cast<void(__thiscall*)(void*, const maths::Vec4*)>((*static_cast<void***>(geom))[16])(geom, sphere);
+    static_cast<Geom*>(geom)->change_bound_sphere(sphere); // (through the jump 0x0048DEB0)
 }
 
 } // namespace

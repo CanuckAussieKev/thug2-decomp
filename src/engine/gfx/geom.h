@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/gfx/engine_geom.h"
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
@@ -70,29 +71,16 @@ struct MeshListNode : memory::ListNode {
     MeshListNode* destroy_head(unsigned int flags);
 };
 
-// The PC geom (0x64 bytes, vtable 0x0064A368; the engine's CGeom - constructor 0x0048DD60, vtable 0x00648EC8,
+// The PC geom (0x64 bytes, vtable 0x0064A368; the engine's Geom - constructor 0x0048DD60, vtable 0x00648EC8,
 // destructor body 0x0048E130 - for its first 0x14 bytes).
-struct PcGeom {
-    void** vtable;
-    uint8_t base[0x10];
-    maths::BBox bounds;           // +0x14 (as loaded)
-    uint8_t* scene;               // +0x34: the PC scene it's in
-    memory::ListNode* load_list_; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
-    MeshRef** meshes;             // +0x3C
-    uint32_t mesh_count_;         // +0x40
-    uint32_t visibility;          // +0x44: a viewport mask (0xDEADBEEF until set)
-    bool active;                  // +0x48
-    uint8_t pad49[3];
-    Singleton* instance; // +0x4C: an instance's (null for a sector's geometry)
-    uint8_t* source;     // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
-    maths::Vec4 scale;   // +0x54
+class PcGeom final : public Geom {
+public:
+    // 0x004B4460: no meshes, no instance, active, visible to all, scale 1.
+    PcGeom();
+    // 0x004B5EE0 (0x004B5FC0 the scalar deleting destructor): the meshes, then the instance, freed.
+    ~PcGeom() override;
 
-    // 0x004B4460: construct - no meshes, no instance, active, visible to all, scale 1. Returns this.
-    PcGeom* make_new();
-    // 0x004B5EE0: the destructor's body (the meshes, then the instance, freed).
-    void destroy_body();
-    // 0x004B5FC0 (virtual [0]): destroyed, and freed with flags & 1. Returns this.
-    PcGeom* teardown(unsigned int flags);
+    GeomKind kind() const override { return GeomKind::kPc; }
 
     // 0x004B5F60: an empty list (its head) for the meshes the load adds, on the top-down heap.
     void start_mesh_list();
@@ -108,83 +96,103 @@ struct PcGeom {
     // 0x004B4510: a new mesh list of its own meshes, sorted, with its bounds.
     SceneRef* create_mesh_list();
 
-    // 0x004B58C0 (virtual [2]): a copy - its meshes cloned (sharing buffers with `share`), else, without `share`,
-    // into `scene`'s mesh list instead of these ones, which stay; with `share` an instance of its own over a new
-    // mesh list.
-    PcGeom* replicate(bool share, uint8_t* scene);
-    // 0x004B5B80 (virtual [1]): a copy of an instance - its own scene and mesh list, the meshes cloned, a new
-    // instance with bones for each of `model`'s (+8).
-    PcGeom* clone_instance(bool share, uint8_t* model);
-    // 0x004B54B0 (virtual [3]): made an instance of `mesh` for `model` (its bones: +8 the count, +0xC the matrices).
-    bool init_instance(uint8_t* mesh, uint8_t* model, int unused);
-    // 0x004B45F0 (virtual [4]): the degenerate runs in the instance meshes' strips shortened (0x004D57D0).
-    void clean_instance_strips();
-    // 0x004B48B0 (virtual [6]): a colour (RGBA); 0x80/0x81, 0x80, 0x80: none (wipe_tint).
-    void change_tint(uint32_t rgba);
-    // 0x004B4B20 (virtual [7]): the colour (its first mesh's; alpha 0), into *out.
-    uint32_t* fetch_tint(uint32_t* out);
-    // 0x004B4970 (virtual [8]): no colour.
-    void wipe_tint();
-    // 0x004B49C0 (virtual [9]): the colour of a material's pass (the instance's meshes'). Whether any was set.
-    bool change_material_tint(uint32_t checksum, int pass, uint32_t rgba);
-    // 0x004B4870 (virtual [11]) / 0x004B4120 (virtual [12]): the viewport mask (each mesh's +0x1B gets its byte);
+    // 0x004B58C0 (vtable slot 2): a copy - its meshes cloned (sharing buffers with `share`, the low byte of
+    // `instance`), else, without `share`, into `scene`'s mesh list instead of these ones, which stay; with `share` an
+    // instance of its own over a new mesh list.
+    Geom* plat_replicate(int instance, void* scene) override;
+    // 0x004B5B80 (slot 1): a copy of an instance - its own scene and mesh list, the meshes cloned (sharing with the
+    // low byte of `instance`), a new instance with bones for each of `model`'s (+8).
+    Geom* clone_instance(int instance, void* model) override;
+    // 0x004B54B0 (slot 3): made an instance of `mesh` for `model` (its bones: +8 the count, +0xC the matrices).
+    bool plat_init_instance(void* mesh, void* model, int unused) override;
+    // 0x004B45F0 (slot 4): the degenerate runs in the instance meshes' strips shortened (0x004D57D0).
+    void clean_instance_strips() override;
+    // 0x004B48B0 (vtable slot 6): a colour (RGBA); 0x80/0x81, 0x80, 0x80: none (wipe_tint).
+    void change_tint(uint32_t rgba) override;
+    // 0x004B4B20 (vtable slot 7): the colour (its first mesh's; alpha 0), into *out.
+    uint32_t* plat_get_color(uint32_t* out) override;
+    // 0x004B4970 (vtable slot 8): no colour.
+    void wipe_tint() override;
+    // 0x004B49C0 (vtable slot 9): the colour of a material's pass (the instance's meshes'). Whether any was set.
+    bool change_material_tint(uint32_t checksum, int pass, uint32_t rgba) override;
+    // 0x004B4870 (vtable slot 11) / 0x004B4120 (vtable slot 12): the viewport mask (each mesh's +0x1B gets its byte);
     // read back as 0xFFFFFF00 | its low byte.
-    void toggle_shown(uint32_t mask);
-    uint32_t fetch_shown();
-    // 0x004B4630 (virtual [13]) / 0x004B4690 (virtual [14]): active (the meshes' flag 0x40), the instance's if any.
-    void change_live(bool active);
-    bool is_operative();
-    // 0x004B4730 (virtual [16]) / 0x004B4760 (virtual [17]): the instance's bounding sphere (none: radius 10000).
-    void change_bound_sphere(const maths::Vec4* sphere);
-    maths::Vec4* fetch_bound_sphere(maths::Vec4* out);
-    // 0x004B55D0 (virtual [18]) / 0x004B46A0 (virtual [19]): the position - the instance's, or every mesh moved;
+    void toggle_shown(uint32_t mask) override;
+    uint32_t fetch_shown() override;
+    // 0x004B4630 (vtable slot 13) / 0x004B4690 (vtable slot 14): active (the meshes' flag 0x40), the instance's if any.
+    void change_live(bool active) override;
+    bool is_operative() override;
+    // (vtable slot 15, folded with RankingsManager::get_personal_stats) its box as loaded.
+    maths::BBox* fetch_bounds() override { return &bounds; }
+    // 0x004B4730 (vtable slot 16) / 0x004B4760 (vtable slot 17): the instance's bounding sphere (none: radius 10000).
+    void change_bound_sphere(const maths::Vec4* sphere) override;
+    maths::Vec4* plat_get_bounding_sphere(maths::Vec4* out) override;
+    // 0x004B55D0 (vtable slot 18) / 0x004B46A0 (vtable slot 19): the position - the instance's, or every mesh moved;
     // read back from the instance or the first mesh's transform (a static vector, 0x00701610).
-    void place_at_absolute_point(const maths::Vec4* position);
-    maths::Vec4* get_absolute_point();
-    // 0x004B5650 (virtual [20]) / 0x004B56E0 (virtual [21]): the instance's rotation rows; read back with no
+    void place_at_absolute_point(const maths::Vec4* position) override;
+    maths::Vec4* get_absolute_point() override;
+    // 0x004B5650 (vtable slot 20) / 0x004B56E0 (vtable slot 21): the instance's rotation rows; read back with no
     // position (a static matrix, 0x00701628; the identity without an instance).
-    void change_facing(const maths::Mat4* orientation);
-    maths::Mat4* fetch_facing();
-    // 0x004B57C0 (virtual [22]): `turns` quarter turns about y (the instance's rotation, or every mesh's vertices).
-    void rotate_y(int turns);
-    // 0x004B4DB0 (virtual [25]) / 0x004B4ED0 (virtual [26]): the scale - each mesh's vertices scaled about its
+    void change_facing(const maths::Mat4* orientation) override;
+    maths::Mat4* fetch_facing() override;
+    // 0x004B57C0 (vtable slot 22): `turns` quarter turns about y (the instance's rotation, or every mesh's vertices).
+    void rotate_y(int turns) override;
+    // 0x004B4DB0 (vtable slot 25) / 0x004B4ED0 (vtable slot 26): the scale - each mesh's vertices scaled about its
     // transform's position by it.
-    void change_scale(const maths::Vec4* scale);
-    maths::Vec4* fetch_magnification(maths::Vec4* out);
-    // 0x004B47B0 (virtual [28]): the instance's transform and `count` bone matrices copied. Always true.
+    void change_scale(const maths::Vec4* scale) override;
+    maths::Vec4* fetch_magnification(maths::Vec4* out) override;
+    // (vtable slot 27: a stub ignoring its argument) the model's lights.
+    void set_model_lights(void*) override {}
+    // 0x004B47B0 (vtable slot 28): the instance's transform and `count` bone matrices copied. Always true.
     bool upload_skinning_palette(const maths::Mat4* transform, const maths::Mat4* bones, int count, int unused3,
-                                 int unused4);
-    // 0x004B47F0 (virtual [29]): `count` bone matrices copied into the instance's.
-    void copy_bones(const maths::Mat4* bones, int count);
-    // 0x004B4820 (virtual [30]): the instance's bones pointed at `bones`.
-    void set_bones(maths::Mat4* bones, int count);
-    // 0x004B4840 (virtual [31]): the instance's strips broken where the source mesh says (SceneRef::break_strips).
+                                 int unused4) override;
+    // 0x004B47F0 (vtable slot 29): `count` bone matrices copied into the instance's.
+    void copy_bones(const maths::Mat4* bones, int count) override;
+    // 0x004B4820 (vtable slot 30): the instance's bones pointed at `bones`.
+    void set_bones(maths::Mat4* bones, int count) override;
+    // 0x004B4840 (vtable slot 31): the instance's strips broken where the source mesh says (SceneRef::break_strips).
     // Always true.
-    bool break_strips(uint32_t mask);
-    // 0x004B4130 (virtual [36]): the vertices of all the meshes.
-    uint32_t fetch_vertex_tally();
-    // 0x004B4BB0 (virtual [37]) / 0x004B4C50 (virtual [39]): the vertices (x, y, z, 1 each), read and written -
+    bool break_strips(uint32_t mask) override;
+    // (vtable slot 33: return_zero) no count of its polygons.
+    uint32_t plat_get_num_render_polys() override { return 0; }
+    // 0x004B4130 (vtable slot 36): the vertices of all the meshes.
+    uint32_t fetch_vertex_tally() override;
+    // 0x004B4BB0 (vtable slot 37) / 0x004B4C50 (vtable slot 39): the vertices (x, y, z, 1 each), read and written -
     // each mesh's bounding sphere made again from the box of its new vertices.
-    void get_vertices(maths::Vec4* out);
-    void set_vertices(const maths::Vec4* in);
-    // 0x004B4160 (virtual [38]) / 0x004B4210 (virtual [40]): the vertex colours (RGBA; the buffers hold BGRA) read
+    void get_vertices(maths::Vec4* out) override;
+    void set_vertices(const maths::Vec4* in) override;
+    // 0x004B4160 (vtable slot 38) / 0x004B4210 (vtable slot 40): the vertex colours (RGBA; the buffers hold BGRA) read
     // from the first vertex buffers and written to all.
-    void fetch_tints(uint8_t* out);
-    void change_colors(const uint8_t* in);
-    // 0x004B4300 (virtual [42]): the UV wibble of each mesh's first pass that has one.
+    void plat_get_render_colors(uint8_t* out) override;
+    void change_colors(const uint8_t* in) override;
+    // 0x004B4300 (vtable slot 42): the UV wibble of each mesh's first pass that has one.
     void set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float u_phase, float v_vel, float v_amp,
-                              float v_freq, float v_phase);
-    // 0x004B4EF0 (virtual [43]): every instance pass with a UV wibble set to the explicit one (flag 0x4000).
-    void enable_explicit_uv_wibble(int unused);
-    // 0x004B43E0 (virtual [45]): the UV offsets of each mesh's first pass with a wibble (then explicit, [43]).
-    void set_uv_wibble_offsets(float u, float v);
-    // 0x004B4F60 (virtual [46]): an instance pass's UV matrix (a wibble made for it if it has none; the mesh's
+                              float v_freq, float v_phase) override;
+    // 0x004B4EF0 (vtable slot 43): every instance pass with a UV wibble set to the explicit one (flag 0x4000).
+    void enable_explicit_uv_wibble(int unused) override;
+    // (vtable slot 44, 0x00492DC0 - a shared "true" for four arguments) a material pass's UV offsets: nothing, true.
+    bool set_material_uv_wibble_offsets(uint32_t, int, float, float) override { return true; }
+    // 0x004B43E0 (vtable slot 45): the UV offsets of each mesh's first pass with a wibble (then explicit, [43]).
+    void set_uv_wibble_offsets(float u, float v) override;
+    // 0x004B4F60 (vtable slot 46): an instance pass's UV matrix (a wibble made for it if it has none; the mesh's
     // vertex shader swapped for its UV-transforming version). Always true.
-    bool choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix);
-    // 0x004B5130 (virtual [47]): a UV wibble made for an instance pass that has none. Whether one was.
-    bool create_uv_anim_params(uint32_t checksum, int pass);
-    // 0x004B52A0 (virtual [48]): the meshes' texture animations started again (not for an instance).
-    void reset_texture_anims();
+    bool choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* matrix) override;
+    // 0x004B5130 (vtable slot 47): a UV wibble made for an instance pass that has none. Whether one was.
+    bool create_uv_anim_params(uint32_t checksum, int pass) override;
+    // 0x004B52A0 (vtable slot 48): the meshes' texture animations started again (not for an instance).
+    void reset_texture_anims() override;
+
+    maths::BBox bounds;           // +0x14 (as loaded)
+    uint8_t* scene;               // +0x34: the PC scene it's in
+    memory::ListNode* load_list_; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
+    MeshRef** meshes;             // +0x3C
+    uint32_t mesh_count_;         // +0x40
+    uint32_t visibility;          // +0x44: a viewport mask (0xDEADBEEF until set)
+    bool active;                  // +0x48
+    uint8_t pad49[3];
+    Singleton* instance; // +0x4C: an instance's (null for a sector's geometry)
+    uint8_t* source;     // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
+    maths::Vec4 scale;   // +0x54
 };
 static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&
                   offsetof(PcGeom, instance) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,
