@@ -42,6 +42,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
+#include "engine/sys/mlp.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strncpy, kept)
 
@@ -106,7 +107,7 @@ Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 RoomManager* current_lobby(Hub* manager) { return static_cast<RoomManager*>(manager->lobby_service_); }
 

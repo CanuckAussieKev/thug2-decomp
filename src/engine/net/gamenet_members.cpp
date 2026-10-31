@@ -47,6 +47,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -127,7 +128,7 @@ bool mode_is_true(uint32_t property)
 
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 
 // The Function InSplitScreenGame (0x005A1180), called with no parameters.

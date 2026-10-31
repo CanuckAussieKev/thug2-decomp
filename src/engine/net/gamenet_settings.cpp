@@ -34,6 +34,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "engine/assets/resource_registry.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -109,8 +110,7 @@ const char* const kHashFieldName = "checksum";    // "checksum"
 
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) +
-                                            4 /* the main loop's task stacks (+4: the logic tasks) */);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 
 bool get_filled(const char* text) { return text && *text; }

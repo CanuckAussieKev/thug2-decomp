@@ -38,6 +38,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -142,8 +143,7 @@ static_assert(sizeof(StartGameInfo) == 0x48 && offsetof(StartGameInfo, stop_at_z
 
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(
-        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).

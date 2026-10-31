@@ -171,10 +171,7 @@ uint32_t& no_skeleton_counter() { return g_no_skeleton_counter; }
 // The input handler's auto-repeat count (a function static: its guard is bit 1 of 0x007CE58C).
 int& repeat_count() { return g_repeat_count; }
 uint32_t& repeat_count_guard() { return g_repeat_count_guard; }
-uint8_t* input_manager()
-{
-    return reinterpret_cast<uint8_t*>(pad_input::g_input_manager);
-} // pad_input::Hub (0x84 bytes a controller)
+pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
 PreviewEntity* object_of(net::InboundMsgCtx* context) { return static_cast<PreviewEntity*>(context->content_); }
 
@@ -573,14 +570,14 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     actions_ = 0;
     add_base_components(this);
     change_species(kObjectTypeComposite);
-    uint8_t* input = input_manager();
+    pad_input::Hub* input = input_manager();
     auto* handler = new ViewerObjectInputHandler(&handle_viewer_object_input, this, 0, 0);
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
-    uint8_t* controller = input + handler->ordinal_ * 0x84;
-    reinterpret_cast<tasks::PileUp*>(controller + 0x08)->queue_job(handler);
-    handler->control_data_ = reinterpret_cast<pad_input::Payload*>(controller + 0x44);
-    handler->dev_ = *reinterpret_cast<uint8_t**>(controller + 0x04);
+    pad_input::HostEnd& controller = input->hosts_[handler->ordinal_];
+    controller.handlers_.queue_job(handler);
+    handler->control_data_ = &controller.content_;
+    handler->dev_ = reinterpret_cast<uint8_t*>(controller.dev_);
     saved_speed_ = 0.0f;
     panel_shown_ = true;
     speed_ = 1.0f;

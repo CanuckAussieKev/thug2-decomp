@@ -31,6 +31,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/assets/resource_registry.h"
+#include "engine/sys/mlp.h"
 
 namespace modules {
 
@@ -101,8 +102,8 @@ bool& is_game_halted() { return objects::g_simulation_halted; }
 
 uint8_t* skate_bytes() { return reinterpret_cast<uint8_t*>(g_skate_module); } // modules::Skate
 void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }   // GameObjects::EventWaitBoard
-uint8_t* main_loop_manager() { return reinterpret_cast<uint8_t*>(assets::g_main_loop_manager); }
-uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); } // pad_input::Hub
+frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
+pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
 // The typed arrow keys (sio::get_keyboard_chars).
 constexpr char kKeyLeft = 0x14;
@@ -129,16 +130,13 @@ bool object_exists(script::Struct* params) // the script command ObjectExists
 }
 // The module base, and the tasks (the logic and input handlers) in the main loop's / input manager's stacks.
 
-void append_vertex(void* list, void* node)
-{
-    static_cast<tasks::PileUp*>(list)->queue_job(static_cast<tasks::SchedulerTask*>(node));
-}
+void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue_job(node); }
 void remove_node(void* node) { static_cast<tasks::SchedulerTask*>(node)->drop_out(); }
 
 // A reference to the input manager (single::LazyInstance<pad_input::Hub>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
-    uint8_t* supervisor_;
-    InputManagerRef() : supervisor_(reinterpret_cast<uint8_t*>(pad_input::create_manager(false))) {}
+    pad_input::Hub* supervisor_;
+    InputManagerRef() : supervisor_(pad_input::create_manager(false)) {}
     ~InputManagerRef() { pad_input::release_manager(); }
     InputManagerRef(const InputManagerRef&) = delete;
     InputManagerRef& operator=(const InputManagerRef&) = delete;
@@ -280,14 +278,14 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
 void FrontEnd::start_callback()
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
-    append_vertex(main_loop_manager() + 4, update_job_); // the logic tasks
-    uint8_t* input = input_manager();
+    append_vertex(main_loop_manager()->logic_tasks_, update_job_);
+    pad_input::Hub* input = input_manager();
     for (FrontEndInputHandler* handler : pad_listeners_) {
         // The controller's place in the input manager (see update_input_mappings).
-        append_vertex(input + handler->ordinal_ * 0x84 + 8, handler);
-        uint8_t* server = input + handler->ordinal_ * 0x84;
-        handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
-        handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
+        pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
+        append_vertex(server.handlers_, handler);
+        handler->control_data_ = &server.content_;
+        handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -304,7 +302,7 @@ void FrontEnd::stop_callback()
 void FrontEnd::register_key_listener(int device)
 {
     keyboard_device_ = device;
-    append_vertex(main_loop_manager() + 4, keyboard_task_); // the logic tasks
+    append_vertex(main_loop_manager()->logic_tasks_, keyboard_task_);
 }
 
 // 0x0054EF80
@@ -511,7 +509,7 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
 void FrontEnd::set_analog_stick_active_for_menus(bool active)
 {
     InputManagerRef input;
-    reinterpret_cast<pad_input::Hub*>(input.supervisor_)->change_pad_follows_stick(active);
+    input.supervisor_->change_pad_follows_stick(active);
 }
 
 // 0x0054F960
@@ -552,10 +550,10 @@ void FrontEnd::get_pause_game(bool pause)
     // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
     // (0x00406AC0 runs a task only when (mask & its kinds) == 0).
     if (pause) {
-        *reinterpret_cast<uint32_t*>(main_loop_manager() + 8) = 0xC;
+        main_loop_manager()->logic_tasks_.skip_bits_ = 0xC;
         report_pause_state();
     } else {
-        *reinterpret_cast<uint32_t*>(main_loop_manager() + 8) = 0;
+        main_loop_manager()->logic_tasks_.skip_bits_ = 0;
         reinterpret_cast<modules::Skate*>(skate_bytes())->get_freeze(false);
         report_pause_state();
     }
@@ -635,10 +633,10 @@ void FrontEnd::update_input_mappings()
         debug::printf("got a handler\n"); // "got a handler\n"
         remove_node(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
-        uint8_t* server = input.supervisor_ + device_server_map_[i] * 0x84;
-        append_vertex(server + 8, handler);
-        handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
-        handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
+        pad_input::HostEnd& server = input.supervisor_->hosts_[device_server_map_[i]];
+        append_vertex(server.handlers_, handler);
+        handler->control_data_ = &server.content_;
+        handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
     }
 }
 

@@ -41,6 +41,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -115,7 +116,7 @@ constexpr int kMaxCrownSpawns = 10;
 Hub* net_link() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 
 uint32_t g_last_team_request;

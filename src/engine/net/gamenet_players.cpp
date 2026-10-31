@@ -113,7 +113,7 @@ constexpr uint32_t kNewPlayerRejoining = 0x10; // (a pending player added back)
 
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 
 // The skater camera's / walk camera's calls not rewritten as members here.
@@ -269,7 +269,7 @@ uint8_t* Hub::new_player(objects::Entity* skater, net::Conn* conn, uint32_t flag
     prop<net::Conn*>(player, 0x18) = conn;
     if (is_own_player(player)) {
         if (is_observer(player)) {
-            uint8_t* input = reinterpret_cast<uint8_t*>(pad_input::g_input_manager);
+            pad_input::Hub* input = pad_input::g_input_manager;
             tasks::PileUp* tasks = get_logic_tasks();
             get_run(kHidePanelStuff);
             spectate_player(static_cast<uint8_t*>(next_cam_player())); // the first player to watch
@@ -520,7 +520,7 @@ void Hub::enter_observe_mode()
 {
     uint8_t* skate = get_skate();
     tasks::PileUp* tasks = get_logic_tasks();
-    uint8_t* input = reinterpret_cast<uint8_t*>(pad_input::g_input_manager);
+    pad_input::Hub* input = pad_input::g_input_manager;
     uint8_t* local = find_own_player_record(this);
     if (is_observer(local))
         return;

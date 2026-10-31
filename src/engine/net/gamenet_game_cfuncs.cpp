@@ -65,7 +65,7 @@ constexpr int kDropKicked = 4;
 Hub* net_session_slot() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 
 // The flag message (took / captured): the player's object id and the team, to every remote player through the server;
@@ -287,7 +287,7 @@ bool __cdecl cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();
-    uint8_t* input = reinterpret_cast<uint8_t*>(pad_input::g_input_manager); // the input manager
+    pad_input::Hub* input = pad_input::g_input_manager;
     uint8_t* local = find_own_player_record(manager);
     if (is_observer(local) || (prop<uint32_t>(local, 0x1D0) & kPlayerSurveying))
         return false;

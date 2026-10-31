@@ -33,10 +33,7 @@ void copy_if_different(char* out, const char* source)
 }
 
 // Adds a task to the main loop's logic tasks (frame_loop::Hub +0x04).
-void register_logic_task(uint8_t* mlp, tasks::SchedulerTask* task)
-{
-    reinterpret_cast<frame_loop::Hub*>(mlp)->logic_tasks_.queue_job(task);
-}
+void register_logic_task(frame_loop::Hub* mlp, tasks::SchedulerTask* task) { mlp->logic_tasks_.queue_job(task); }
 
 } // namespace
 
@@ -160,7 +157,7 @@ bool Hub::load_network_drivers(const char* /*ip*/, const char* /*subnet_mask*/, 
 // 0x00454CB0
 void Hub::add_app_tasks(AppHost* app)
 {
-    uint8_t* mlp = reinterpret_cast<uint8_t*>(assets::g_main_loop_manager); // the frame_loop::Hub
+    frame_loop::Hub* mlp = assets::g_main_loop_manager;
     register_logic_task(mlp, app->receive_task());
     register_logic_task(mlp, app->send_task());
     register_logic_task(mlp, app->process_task());

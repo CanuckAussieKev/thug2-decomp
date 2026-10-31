@@ -43,6 +43,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/sys/game_config.h"
+#include "engine/sys/mlp.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -250,7 +251,7 @@ void SkateNet::delete_network_tasks()
 // 0x0056DEE0
 void SkateNet::launch_host()
 {
-    uint8_t* mlp = reinterpret_cast<uint8_t*>(assets::g_main_loop_manager);
+    frame_loop::Hub* mlp = assets::g_main_loop_manager;
     uint8_t* net = net_session_slot();
     bool auto_serving = false;
     if (gn(net)->is_network_game() != 0) {
@@ -261,8 +262,8 @@ void SkateNet::launch_host()
     if (!server)
         return;
     auto* skate = reinterpret_cast<uint8_t*>(this);
-    reinterpret_cast<tasks::PileUp*>(mlp + 4)->queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[0]);
-    reinterpret_cast<tasks::PileUp*>(mlp + 4)->queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[1]);
+    mlp->logic_tasks_.queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[0]);
+    mlp->logic_tasks_.queue_job(reinterpret_cast<Skate*>(skate)->server_tasks_[1]);
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, this);
     append_listener(server, 0x86, handle_game_stats, 0, this);

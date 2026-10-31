@@ -38,6 +38,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
+#include "engine/sys/mlp.h"
 
 #pragma warning(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -82,8 +83,7 @@ constexpr uint32_t kNewPlayerObserver = 0x04;
 Hub* net_session_slot() { return g_online_hub; }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(
-        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 QueuedPacket* get_queue() { return g_queued_packets; }
 int& queued_count() { return g_queued_count; }

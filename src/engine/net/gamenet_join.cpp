@@ -142,7 +142,7 @@ char* join_password() { return g_join_password; }
 net::Hub* net_session_slot() { return net::Hub::sole(); }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 int milli_seconds() { return static_cast<int>(frame_clock::get_time()); }
 uint32_t current_local_address() { return crt::get_inet_addr(net_session_slot()->fetch_own_address()); }

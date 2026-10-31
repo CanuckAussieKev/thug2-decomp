@@ -32,6 +32,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -59,8 +60,7 @@ Hub* net_session_slot() { return g_online_hub; }
 RoomManager* current_lobby() { return static_cast<RoomManager*>(net_session_slot()->lobby_service_); }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(
-        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 void push_internet_heap()
 {

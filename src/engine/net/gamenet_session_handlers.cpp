@@ -37,6 +37,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "engine/sys/mlp.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf, kept)
 
@@ -391,7 +392,7 @@ int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
     if (!msg[4])
         return kContinue;
     auto* logic_tasks =
-        reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+        (&assets::g_main_loop_manager->logic_tasks_);
     auto* change_task = prop<tasks::SchedulerTask*>(manager, 0xEC);
     if (change_task->is_on_task_list()) {
         if (!manager->get_on_server())
@@ -425,7 +426,7 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
     PlayerSearch search;
     memory::Hub* memory = memory::Hub::get_pull();
     uint8_t* skate = get_skate();
-    memory->enter_heap_scope(prop<memory::MemSource*>(memory, 0x5D4));
+    memory->enter_heap_scope(memory->skater_info_heap_);
     const uint8_t* msg = get_message(context);
     Hub* manager = manager_of(context);
     auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };

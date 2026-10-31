@@ -48,6 +48,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/core/code_address.h"
 #include "engine/gfx/engine.h"
+#include "engine/sys/mlp.h"
 
 namespace modules {
 
@@ -186,11 +187,11 @@ void Skate::start_callback()
     script::launch_script(kInitLightManager, nullptr, nullptr, false, nullptr);
     script::launch_script(kLoadPermanentPrefiles, nullptr, nullptr, false, nullptr);
     unknown3d0_ = 0;
-    auto* main_loop = reinterpret_cast<uint8_t*>(assets::g_main_loop_manager);
+    frame_loop::Hub* main_loop = assets::g_main_loop_manager;
     objects::nearby_zone_startup();
     objects::emitter_init();
     update_job_->skip_bits_ = 2;
-    reinterpret_cast<tasks::PileUp*>(main_loop + 4)->queue_job(update_job_); // the logic tasks
+    main_loop->logic_tasks_.queue_job(update_job_);
     get_game_mode()->get_reset();
     script::launch_script(kNetworkDriverStartup, nullptr, nullptr, false, nullptr);
     script::launch_script(kInitLoadingBar, nullptr, nullptr, false, nullptr);

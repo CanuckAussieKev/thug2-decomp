@@ -48,8 +48,6 @@ DigitalToAnalog g_digital_to_analog[18]{{0x200, 16},   {0x400, 17},   {0x1, 14},
                                         {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
 const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog; }
 
-void construct_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->make_new(); }
-void run_task_list(uint8_t* list) { reinterpret_cast<tasks::PileUp*>(list)->work_on(nullptr); }
 
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
@@ -145,7 +143,7 @@ void Payload::pad_follows_stick()
 // 0x0044E9E0
 HostEnd* HostEnd::make_new()
 {
-    construct_task_list(handlers_);
+    handlers_.make_new();
     std::memset(content_.incident_, 0, sizeof(content_.incident_));
     content_.buttons_ = 0;
     content_.ongoing_ = 0;
@@ -164,7 +162,7 @@ void HostEnd::poll_input_sinks()
     if (data_in_ && data_in_->is_usable_) {
         set_buttons(content_, data_in_->buttons_);
         std::memcpy(content_.incident_, data_in_->incident_, sizeof(content_.incident_));
-        run_task_list(handlers_);
+        handlers_.work_on(nullptr);
         ++data_in_;
         return;
     }
@@ -213,7 +211,7 @@ void HostEnd::poll_input_sinks()
         device_makes()[dev_->ordinal_] = content_.makes_;
         device_breaks()[dev_->ordinal_] = content_.breaks_;
     }
-    run_task_list(handlers_);
+    handlers_.work_on(nullptr);
 }
 
 // 0x0044E700
@@ -264,7 +262,7 @@ void release_manager()
 }
 
 // 0x0044E520
-void HostEnd::destruct() { reinterpret_cast<tasks::PileUp*>(handlers_)->destruct(); }
+void HostEnd::destruct() { handlers_.destruct(); }
 
 // 0x0044E530
 void Hub::destruct()

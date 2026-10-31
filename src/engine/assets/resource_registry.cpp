@@ -13,6 +13,7 @@
 #include "engine/file/async.h"
 #include "engine/lists/key_map.h"
 #include "engine/script/param_struct.h"
+#include "engine/sys/mlp.h"
 
 namespace assets {
 
@@ -154,7 +155,7 @@ ResourceRegistry::~ResourceRegistry()
 // 0x00407E90
 void ResourceRegistry::start_callback()
 {
-    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(g_main_loop_manager) + 0x04)
+    (&g_main_loop_manager->logic_tasks_)
         ->queue_job(task_); // the logic tasks
 }
 

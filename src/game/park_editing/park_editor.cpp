@@ -28,6 +28,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
+#include "engine/sys/mlp.h"
 
 namespace park_editing {
 
@@ -84,10 +85,7 @@ constexpr double kMaxTilt = 90.0;                 // 0x0064F340
 constexpr double kFullTurn = 360.0;               // 0x0064F348 (and 360.0f, 0x00645EA8)
 
 uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
-uint8_t* get_main_loop()
-{
-    return reinterpret_cast<uint8_t*>(assets::g_main_loop_manager);
-} // +0x04 the logic tasks, +0x40 the display tasks
+frame_loop::Hub* get_main_loop() { return assets::g_main_loop_manager; }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
 ParkLayout* hub() { return ParkLayout::singleton(); }
@@ -187,14 +185,14 @@ ParkBuilderMode::~ParkBuilderMode() { ParkLayout::discard_occurrence(); }
 // 0x0058DAD0
 void ParkBuilderMode::start_callback()
 {
-    uint8_t* main_loop = get_main_loop();
-    reinterpret_cast<tasks::PileUp*>(main_loop + 4)->queue_job(editor_update_job_);
+    frame_loop::Hub* main_loop = get_main_loop();
+    main_loop->logic_tasks_.queue_job(editor_update_job_);
     ParkEditorInputHandler* handler = editor_pad_listener_;
     pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
-    reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(handler);
+    server.handlers_.queue_job(handler);
     handler->control_data_ = &input_manager()->hosts_[handler->ordinal_].content_;
     handler->dev_ = reinterpret_cast<uint8_t*>(input_manager()->hosts_[handler->ordinal_].dev_);
-    reinterpret_cast<tasks::PileUp*>(main_loop + 0x40)->queue_job(draw_job_);
+    main_loop->display_tasks_.queue_job(draw_job_);
 }
 
 // 0x0058D340
@@ -640,7 +638,7 @@ void ParkBuilderMode::link_to_pad(int controller)
     ParkEditorInputHandler* handler = editor_pad_listener_;
     handler->drop_out();
     pad_input::HostEnd& server = input->hosts_[controller];
-    reinterpret_cast<tasks::PileUp*>(server.handlers_)->queue_job(handler);
+    server.handlers_.queue_job(handler);
     handler->control_data_ = &server.content_;
     handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
     pad_input::release_manager();

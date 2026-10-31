@@ -242,7 +242,7 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
     Hub* manager = manager_of(context);
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         memory::Hub* memory = memory::Hub::get_pull();
-        memory->enter_heap_scope(prop<memory::MemSource*>(memory, 0x114));
+        memory->enter_heap_scope(memory->bottom_up_heap_);
         get_call(code_address(&park_editing::RailAuthoring::set_packed), get_rail_editor(),
                  context->body_); // the rails read
         park_editing::g_rail_editor_flag = false;

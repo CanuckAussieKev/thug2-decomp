@@ -84,7 +84,7 @@ float& movement_velocity() { return g_movement_velocity; }
 float& rotate_velocity() { return g_rotate_velocity; }
 uint32_t& last_time() { return g_last_time; }
 bool debug_checks() { return game_config::g_from_cd; }
-uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); } // pad_input::Hub
+pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
 
 void append_vertex(tasks::PileUp& list, tasks::SchedulerTask* node) { list.queue_job(node); }
@@ -124,10 +124,10 @@ void get_roll(objects::GameEntity* object, float angle)
 
 void add_input_handler(ViewerInputHandler* handler)
 {
-    uint8_t* server = input_manager() + handler->ordinal_ * 0x84;
-    append_vertex(*reinterpret_cast<tasks::PileUp*>(server + 8), handler); // (the server's handler list)
-    handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
-    handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
+    pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
+    append_vertex(server.handlers_, handler);
+    handler->control_data_ = &server.content_;
+    handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
 }
 
 } // namespace

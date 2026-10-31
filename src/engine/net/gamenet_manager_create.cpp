@@ -35,6 +35,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -77,8 +78,7 @@ Hub* Hub::make_new()
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x158)); // the servers
     setup_list_sentinel(&prop<memory::ListNode>(this, 0x16C));
     script_flag_bits_ = 0;
-    tasks::PileUp* tasks = reinterpret_cast<tasks::PileUp*>(
-        reinterpret_cast<uint8_t*>(reinterpret_cast<void*>(assets::g_main_loop_manager)) + 4);
+    tasks::PileUp* tasks = (&assets::g_main_loop_manager->logic_tasks_);
     net::Hub::sole()->set_msg_options(0x23, 1); // (the object update message's)
     client_app_ = nullptr;
     client1_ = nullptr;

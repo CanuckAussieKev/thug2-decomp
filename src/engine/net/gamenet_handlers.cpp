@@ -43,6 +43,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -277,7 +278,7 @@ int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
 int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
 {
     auto* logic_tasks =
-        reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+        (&assets::g_main_loop_manager->logic_tasks_);
     Hub* manager = manager_of(context);
     manager->set_ready_state(true); // (cleared_to_start_ set, the skaters told)
     if (!context->receiver_app_->is_host_local())

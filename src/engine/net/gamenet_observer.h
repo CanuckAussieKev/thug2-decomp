@@ -16,7 +16,7 @@ namespace online::detail {
 
 // `tasks`: the logic tasks; `input`: the input manager (0x00696D40), both read by the callers before anything else.
 // The handler's priority: -1000 (EnterSurveyorMode, NewPlayer), -1 (enter_observe_mode).
-inline void add_observer_controls(Hub* manager, uint8_t* player, tasks::PileUp* tasks, uint8_t* input,
+inline void add_observer_controls(Hub* manager, uint8_t* player, tasks::PileUp* tasks, pad_input::Hub* input,
                                   int handler_priority = -1000)
 {
     auto* task = new tasks::Task<uint8_t>(&Hub::observer_task, player, 0);
@@ -25,10 +25,10 @@ inline void add_observer_controls(Hub* manager, uint8_t* player, tasks::PileUp* 
     auto* handler = new pad_input::Responder<Hub>(&Hub::observer_input, manager, handler_priority, 0);
     manager->spectator_pad_listener_ = handler;
     // (a null handler is read through, as in the original)
-    uint8_t* server = input + handler->ordinal_ * 0x84;
-    reinterpret_cast<tasks::PileUp*>(server + 8)->queue_job(handler);
-    handler->control_data_ = reinterpret_cast<pad_input::Payload*>(server + 0x44);
-    handler->dev_ = *reinterpret_cast<uint8_t**>(server + 4);
+    pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
+    server.handlers_.queue_job(handler);
+    handler->control_data_ = &server.content_;
+    handler->dev_ = reinterpret_cast<uint8_t*>(server.dev_);
 }
 
 } // namespace online::detail

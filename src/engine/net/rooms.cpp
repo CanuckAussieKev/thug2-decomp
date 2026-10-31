@@ -39,6 +39,7 @@
 #include "engine/net/gamespy.h"
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
+#include "engine/sys/mlp.h"
 
 #pragma warning(disable : 4996) // (the original's sprintf / strcpy, kept)
 
@@ -604,8 +605,7 @@ bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script)
     (void)params;
     (void)script;
     Hub* manager = the_manager();
-    auto* logic = reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) +
-                                                   0x04); // (the logic tasks)
+    auto* logic = (&assets::g_main_loop_manager->logic_tasks_); // (the logic tasks)
     DWORD thread_id = 0;
     BOOL ping_rooms[3] = {FALSE, TRUE, FALSE};
     BOOL cross_ping_rooms[3] = {FALSE, FALSE, FALSE};

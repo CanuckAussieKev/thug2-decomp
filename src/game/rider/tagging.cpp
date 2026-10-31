@@ -98,7 +98,7 @@ void free_texture(void*& texture)
 void* load_on_texture_heap(const char* name, bool c)
 {
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(prop<memory::MemSource*>(memory, 0x110));
+    memory->enter_heap_scope(memory->top_down_heap_);
     void* texture = ingest_skin(name, true, true, c);
     memory::Hub::get_pull()->leave_heap_scope();
     return texture;

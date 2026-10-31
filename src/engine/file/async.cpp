@@ -15,6 +15,7 @@
 #include "frontend/data_overlay.h"
 #include "engine/sys/game_module.h"
 #include "engine/assets/resource_registry.h"
+#include "engine/sys/mlp.h"
 
 namespace file {
 
@@ -603,8 +604,7 @@ uint32_t& loader_module_refs() { return g_loader_module_refs; }
 void register_logic_task(tasks::SchedulerTask* task)
 {
     // The main loop manager's logic task list.
-    auto* manager = reinterpret_cast<uint8_t*>(assets::g_main_loop_manager);
-    reinterpret_cast<tasks::PileUp*>(manager + 4)->queue_job(task);
+    assets::g_main_loop_manager->logic_tasks_.queue_job(task);
 }
 
 } // namespace

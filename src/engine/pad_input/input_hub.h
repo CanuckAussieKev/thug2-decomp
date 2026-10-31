@@ -105,7 +105,8 @@ static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
 // A controller's server (0x84 bytes).
 struct HostEnd {
     sio::InputPort* dev_;
-    uint8_t handlers_[0x3C];  // +0x04: the handler list (tasks::LinkChain: 0x00406E80 makes it, 0x004070A0 runs it)
+    tasks::PileUp handlers_;  // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
+    uint8_t pad38_[0x08];     // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
     Payload content_;         // +0x40
     PadFrameRecord* data_in_; // +0x74: the recording played back (null: none)
     PadFrameRecord* in_buf_limit_;  // +0x78
@@ -121,7 +122,7 @@ struct HostEnd {
     // 0x0044E520: the destructor: the handler list destroyed (0x004070E0).
     void destruct();
 };
-static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, content_) == 0x40 &&
+static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 && offsetof(HostEnd, content_) == 0x40 &&
               offsetof(HostEnd, out_buf_limit_) == 0x80);
 
 struct Hub {

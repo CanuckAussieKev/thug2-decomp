@@ -22,6 +22,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/sys/mlp.h"
 
 namespace objects {
 
@@ -242,7 +243,7 @@ SuspendTaskHolder* SuspendTaskHolder::make_new()
 {
     auto* task = new tasks::Task<SuspendTaskHolder>(&suspend_task, this, kTaskPriority);
     job_handle_ = task;
-    reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04)
+    (&assets::g_main_loop_manager->logic_tasks_)
         ->queue_job(task); // the logic tasks
     return this;
 }

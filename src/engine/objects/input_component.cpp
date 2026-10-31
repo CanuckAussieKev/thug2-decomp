@@ -80,21 +80,18 @@ const EventButton kEventButtons[] = {
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// The input manager (0x00696D40): its controller servers (0x84 bytes each from +4: the device, then the handler list
-// - a tasks::PileUp - at +4, the data at +0x40), and a player's controller (0x0044E630).
-uint8_t* input_manager() { return reinterpret_cast<uint8_t*>(pad_input::g_input_manager); }
-tasks::PileUp* server_handlers(uint8_t* manager, int server)
+// The input manager (0x00696D40): its controller servers (the device, the handler list, the data), and a player's
+// controller (0x0044E630).
+pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
+tasks::PileUp* server_handlers(pad_input::Hub* manager, int server) { return &manager->hosts_[server].handlers_; }
+void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, int server)
 {
-    return reinterpret_cast<tasks::PileUp*>(manager + server * 0x84 + 8);
-}
-void place_handler(PadInputModule::Responder* handler, uint8_t* manager, int server)
-{
-    handler->control_data_ = reinterpret_cast<pad_input::Payload*>(manager + server * 0x84 + 0x44);
-    handler->dev_ = *reinterpret_cast<uint8_t**>(manager + server * 0x84 + 4);
+    handler->control_data_ = &manager->hosts_[server].content_;
+    handler->dev_ = reinterpret_cast<uint8_t*>(manager->hosts_[server].dev_);
 }
 int player_controller(int player)
 {
-    return reinterpret_cast<pad_input::Hub*>(input_manager())->get_player_controller(player);
+    return input_manager()->get_player_controller(player);
 }
 
 // A new handler (on the current heap).
@@ -164,7 +161,7 @@ void PadInputModule::link_to_pad(int controller)
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->skater_info_heap_);
         handler_ = new_handler(0, handler_code, this);
-        uint8_t* manager = input_manager();
+        pad_input::Hub* manager = input_manager();
         server_handlers(manager, handler_->ordinal_)->queue_job(handler_);
         place_handler(handler_, manager, handler_->ordinal_);
         handler2_ = new_handler(1, handler_code2, this);
@@ -174,7 +171,7 @@ void PadInputModule::link_to_pad(int controller)
         memory::Hub::get_pull()->leave_heap_scope();
     }
     Responder* handler = handler_;
-    uint8_t* manager = input_manager();
+    pad_input::Hub* manager = input_manager();
     handler->drop_out();
     server_handlers(manager, controller)->queue_job(handler);
     place_handler(handler, manager, controller);

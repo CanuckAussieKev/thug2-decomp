@@ -27,6 +27,7 @@
 #include "engine/core/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "platform/crt.h"
+#include "engine/sys/mlp.h"
 
 namespace online {
 
@@ -56,7 +57,7 @@ void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bott
 void pop_heap() { ram_stats()->leave_heap_scope(); }
 tasks::PileUp* get_logic_tasks()
 {
-    return reinterpret_cast<tasks::PileUp*>(reinterpret_cast<uint8_t*>(assets::g_main_loop_manager) + 0x04);
+    return (&assets::g_main_loop_manager->logic_tasks_);
 }
 
 uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name); }
