@@ -79,7 +79,7 @@ interface Ref {
     strong: boolean;
 }
 type Kind = "function" | "missed" | "data" | "padding" | "filler";
-// The 5 bytes ("RLD!" 0) that follow many functions (linker filler, not code - as in code_coverage.ts).
+// The 5 bytes that follow many functions (linker filler, not code - as in code_coverage.ts).
 const FILLER = [0x52, 0x4c, 0x44, 0x21, 0x00];
 interface Unit {
     start: number;
