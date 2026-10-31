@@ -144,14 +144,11 @@ void read_server_players(HostListing* server, void* sb)
 }
 
 // The listed server whose SBServer is `sb` (the original walks it with a lists::Hunt<HostListing>; its first item is
-// the searches' shared code, VaultSearch::head_element - the same layout).
+// the searches' shared code, VaultSearch::head_element).
 HostListing* find_by_sb(Hub* manager, void* sb)
 {
-    ServerSearch search;
-    search.vtable_ = kServerSearchVtable;
-    search.list_link_ = nullptr;
-    auto* server = static_cast<HostListing*>(
-        reinterpret_cast<VaultSearch*>(&search)->head_element(foremost(manager, kServers))); // (the first)
+    VaultSearch search;
+    auto* server = static_cast<HostListing*>(search.head_element(foremost(manager, kServers))); // (the first)
     while (server) {
         memory::ListNode* next = search.list_link_->next;
         memory::ListNode* node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;

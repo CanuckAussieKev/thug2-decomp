@@ -215,14 +215,8 @@ void* clear_update_records(void* records);
 
 // The list types of the score lines (score_list.cpp) - their vtables hold only the scalar deleting destructor:
 // lists::Hunt<ScoreEntry> (0x0064CCE0): 0x00543170 the destructor body (the vtable reset), 0x00543580 the scalar
-// deleting one; lists::Elem<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
+// deleting one - not kept; lists::Elem<ScoreEntry> (0x0064CCE4): 0x00544700 the body (out of its list), 0x005435B0 / 0x00544720
 // the scalar deleting ones (inlined / calling it - two node types folded onto one vtable).
-struct ScoreSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-    void destroy_body();
-    ScoreSearch* teardown(unsigned int flags);
-};
 struct ScoreNode : memory::ListNode {
     void destroy_body();
     ScoreNode* teardown(unsigned int flags);

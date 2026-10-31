@@ -56,12 +56,6 @@ static VtableSlot g_level_node_vtable_slots[] = {&online::StatsNode::delete_leve
 void** const kLevelNodeVtable = reinterpret_cast<void**>(g_level_node_vtable_slots); // lists::Elem<LevelScores>
 static VtableSlot g_sort_node_vtable_slots[] = {&online::StatsNode::delete_sort_node};
 void** const kSortNodeVtable = reinterpret_cast<void**>(g_sort_node_vtable_slots); // lists::Elem<SortEntry>
-static VtableSlot g_sort_search_vtable_slots[] = {&online::StatsSearch::delete_sort_search};
-void** const kSortSearchVtable = reinterpret_cast<void**>(g_sort_search_vtable_slots);
-static VtableSlot g_entry_search_vtable_slots[] = {&online::StatsSearch::delete_entry_search};
-void** const kEntrySearchVtable = reinterpret_cast<void**>(g_entry_search_vtable_slots);
-static VtableSlot g_level_search_vtable_slots[] = {&online::StatsSearch::delete_level_search};
-void** const kLevelSearchVtable = reinterpret_cast<void**>(g_level_search_vtable_slots);
 
 constexpr uint32_t kLoginTimeout = 10000;   // ms
 constexpr uint32_t kReportInterval = 60000; // ms between reports of a game
@@ -272,38 +266,6 @@ StatsNode* StatsNode::delete_sort_node(unsigned int flags)
 StatsNode* StatsNode::delete_levels_head(unsigned int flags)
 {
     destroy_level_node();
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054CA90 / 0x0054CAA0 / 0x0054CAB0
-void StatsSearch::destroy_sort_search() { vtable_ = kSortSearchVtable; }
-void StatsSearch::destroy_entry_search() { vtable_ = kEntrySearchVtable; }
-void StatsSearch::destroy_level_search() { vtable_ = kLevelSearchVtable; }
-
-// 0x0054D370
-StatsSearch* StatsSearch::delete_sort_search(unsigned int flags)
-{
-    vtable_ = kSortSearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054D3A0
-StatsSearch* StatsSearch::delete_entry_search(unsigned int flags)
-{
-    vtable_ = kEntrySearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054D3D0
-StatsSearch* StatsSearch::delete_level_search(unsigned int flags)
-{
-    vtable_ = kLevelSearchVtable;
     if (flags & 1)
         ram_stats()->dealloc(this);
     return this;

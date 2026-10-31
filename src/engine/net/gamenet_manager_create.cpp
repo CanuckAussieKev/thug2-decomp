@@ -147,7 +147,7 @@ Hub* Hub::make_new()
     prop<bool>(this, 0xFE09) = false;
     void* memory = carve(0x154);
     lobby_service_ = memory ? static_cast<RoomManager*>(memory)->make_new() : nullptr;
-    memory = carve(0x3C8);
+    memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
     vault_man_ = memory ? static_cast<VaultMan*>(memory)->make_new() : nullptr;
     memory = carve(0x3C);
     presence_service_ = memory ? static_cast<FriendsManager*>(memory)->make_new() : nullptr;

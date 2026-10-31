@@ -168,7 +168,7 @@ void __cdecl Hub::guest_player_intake_tick(void* task)
     memory->enter_heap_scope(memory->skater_info_heap_);
     Hub* manager = task_manager(task);
     uint8_t* skate = skate_module();
-    net::ConnSearch search = {net::kConnSearchVtable, nullptr};
+    net::ConnSearch search;
     auto* node = prop<memory::ListNode*>(manager, 0x13C);
     bool added = false;
     if (node->data != reinterpret_cast<void*>(-1) && node) {

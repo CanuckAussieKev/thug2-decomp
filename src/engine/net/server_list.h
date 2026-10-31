@@ -19,8 +19,6 @@ struct InboundMsgCtx;
 // the day) with their state (the manager's +0x1B8).
 namespace online {
 
-extern void** const kServerSearchVtable; // 0x0064CD70: lists::Hunt<HostListing>
-
 // A server found (0xA8 bytes, vtable 0x0064CDFC): a node of the manager's server list (+0x158) or of the servers
 // waiting to be shown (+0x16C).
 struct HostListing : memory::ListNode {
@@ -71,14 +69,7 @@ static_assert(offsetof(HostListing, remote_ip_) == 0x24 && offsetof(HostListing,
                   offsetof(HostListing, participants_) == 0x94 && sizeof(HostListing) == 0xA8,
               "layout must match the original");
 
-// lists::Hunt<HostListing> (vtable 0x0064CD70): 0x005451D0 the destructor body (the vtable reset), 0x00545460 the
-// scalar deleting one.
-struct ServerSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-    void destroy_body();
-    ServerSearch* teardown(unsigned int flags);
-};
+// (lists::Hunt<HostListing>'s vtable, 0x0064CD70, holds only a destructor that resets it: 0x005451D0 / 0x00545460.)
 
 // 0x00547440 (the task's callback, the manager at its +0x1C; made by 0x0053EE90): every 3 seconds the clock
 // restarts; within them, if a refresh asked for it (0x007CE44C) and more than 500 ms after the refresh, the waiting

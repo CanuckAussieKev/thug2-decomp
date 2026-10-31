@@ -103,33 +103,6 @@ void __cdecl get_cd_key(char* key)
     key[length] = '\0';
 }
 
-static VtableSlot g_player_search_vtable_slots[] = {&online::PlayerSearchDestructors::teardown};
-void** const kPlayerSearchVtable = reinterpret_cast<void**>(g_player_search_vtable_slots);
-static VtableSlot g_new_player_search_vtable_slots[] = {&online::NewPlayerSearchDestructors::teardown};
-void** const kNewPlayerSearchVtable = reinterpret_cast<void**>(g_new_player_search_vtable_slots);
-
-// 0x0052DB60 / 0x0052DB70
-void PlayerSearchDestructors::destroy_body() { vtable_ = kPlayerSearchVtable; }
-void NewPlayerSearchDestructors::destroy_body() { vtable_ = kNewPlayerSearchVtable; }
-
-// 0x0052F730
-PlayerSearchDestructors* PlayerSearchDestructors::teardown(unsigned int flags)
-{
-    vtable_ = kPlayerSearchVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x0052F760
-NewPlayerSearchDestructors* NewPlayerSearchDestructors::teardown(unsigned int flags)
-{
-    vtable_ = kNewPlayerSearchVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x0052D7B0
 int __cdecl on_ready_ask_msg(net::InboundMsgCtx* context)
 {

@@ -160,10 +160,7 @@ ObjectiveNpc* new_goal_ped(script::Struct* params)
 inline void destroy_goal_ped_body(ObjectiveNpc*) {}
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 objects::GameEntity* player_skater(void* player)
 {
     return *reinterpret_cast<objects::GameEntity**>(static_cast<uint8_t*>(player) + 0x14);

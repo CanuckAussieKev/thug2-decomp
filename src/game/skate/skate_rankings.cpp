@@ -48,10 +48,7 @@ bool is_crown_rule_active()
     return get_game_mode()->get_name_key() == kNetKing || get_game_mode()->get_name_key() == kKing;
 }
 
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
 // The ranking's list (lists::Foremost<ScoreEntry>, the entries' vtable 0x0064CCF8): highest priority (score) first.

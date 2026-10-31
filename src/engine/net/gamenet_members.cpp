@@ -283,8 +283,6 @@ void Hub::destroy_match_client()
 bool Hub::send_custom_tag_texture()
 {
     net::ConnSearch search;
-    search.vtable_ = net::kConnSearchVtable;
-    search.list_link_ = nullptr;
     bool on_server = (flag_bits_ & kFlagsServer) != 0;
     uint8_t* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)

@@ -14,11 +14,9 @@ namespace tasks {
 namespace {
 
 extern void** const kBaseTaskVtable;
-extern void** const kTaskNodeVtable;        // lists::Elem<SchedulerTask>
-extern void** const kTaskSearchVtable;      // lists::Hunt<SchedulerTask>
-extern void** const kStackListSearchVtable; // lists::Hunt<StackList>
-extern void** const kStackListNodeVtable;   // lists::Elem<StackList>
-extern void** const kStackListHeadVtable;   // lists::Foremost<StackList>
+extern void** const kTaskNodeVtable;      // lists::Elem<SchedulerTask>
+extern void** const kStackListNodeVtable; // lists::Elem<StackList>
+extern void** const kStackListHeadVtable; // lists::Foremost<StackList>
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
@@ -86,31 +84,6 @@ struct StackListNode : memory::ListNode {
     StackListNode* destroy_head(uint8_t flags)
     {
         destroy_body();
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-};
-struct Hunt {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    // 0x004069C0
-    void destroy_task_search_body() { vtable_ = kTaskSearchVtable; }
-    // 0x004069D0 (scalar deleting)
-    Hunt* destroy_task_search(uint8_t flags)
-    {
-        vtable_ = kTaskSearchVtable;
-        if (flags & 1)
-            memory::Hub::get_pull()->dealloc(this);
-        return this;
-    }
-    // 0x00406CA0
-    void destroy_stack_list_search_body() { vtable_ = kStackListSearchVtable; }
-    // 0x00406CD0 (scalar deleting)
-    Hunt* destroy_stack_list_search(uint8_t flags)
-    {
-        vtable_ = kStackListSearchVtable;
         if (flags & 1)
             memory::Hub::get_pull()->dealloc(this);
         return this;
@@ -365,10 +338,6 @@ static VtableSlot g_base_task_vtable_slots[] = {&_purecall, &_purecall, &tasks::
 void** const kBaseTaskVtable = reinterpret_cast<void**>(g_base_task_vtable_slots);
 static VtableSlot g_task_node_vtable_slots[] = {&tasks::TaskNode::teardown};
 void** const kTaskNodeVtable = reinterpret_cast<void**>(g_task_node_vtable_slots);
-static VtableSlot g_task_search_vtable_slots[] = {&tasks::Hunt::destroy_task_search};
-void** const kTaskSearchVtable = reinterpret_cast<void**>(g_task_search_vtable_slots);
-static VtableSlot g_stack_list_search_vtable_slots[] = {&tasks::Hunt::destroy_stack_list_search};
-void** const kStackListSearchVtable = reinterpret_cast<void**>(g_stack_list_search_vtable_slots);
 static VtableSlot g_stack_list_node_vtable_slots[] = {&tasks::StackListNode::teardown};
 void** const kStackListNodeVtable = reinterpret_cast<void**>(g_stack_list_node_vtable_slots);
 static VtableSlot g_stack_list_head_vtable_slots[] = {&tasks::StackListNode::destroy_head};

@@ -88,17 +88,6 @@ public:
 };
 static_assert(sizeof(RiderFrameLog) == 0x18, "fields are reached by offset");
 
-// The destructors behind lists::Hunt<PlayerRecord>'s vtable (0x0064C1A8: the network manager's player searches).
-struct PlayerSearchDestructors {
-    void** vtable_;
-    void* list_link_;
-
-    // 0x00519830 (only resets the vtable)
-    void destroy_body();
-    // 0x0051A120 (scalar deleting)
-    PlayerSearchDestructors* teardown(unsigned int flags);
-};
-
 // 0x0064C174: stateHistoryVtable (defined where the class's functions are).
 extern void** const kStateHistoryVtable;
 

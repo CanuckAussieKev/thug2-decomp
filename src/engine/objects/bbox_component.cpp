@@ -270,8 +270,6 @@ bool CbBoxComponent::any_object_near(script::Struct* params, script::Script* scr
         return false;
     }
     ObjectSearch search;
-    search.vtable_ = kObjectSearchVtable;
-    search.list_link_ = nullptr;
     for (auto* object = static_cast<GameEntity*>(
              search.first_item_of_type(manager_object_list(entity_->park_owner_), object_type));
          object; object = static_cast<GameEntity*>(search.next_item_of_type())) {
@@ -357,11 +355,4 @@ static VtableSlot g_vtable_slots[] = {
 void** const kVtable = reinterpret_cast<void**>(g_vtable_slots);
 
 } // namespace
-} // namespace objects
-
-namespace objects {
-
-static VtableSlot g_object_search_vtable_slots[] = {&objects::ObjectSearch::teardown};
-void** const kObjectSearchVtable = reinterpret_cast<void**>(g_object_search_vtable_slots);
-
 } // namespace objects

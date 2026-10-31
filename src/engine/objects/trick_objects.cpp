@@ -52,10 +52,7 @@ uint8_t s_dirty_clusters[TrickSpotHub::kMaxLoggedClusters];
 // skater's object id), +0x30 its team. Walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
 void* net_session_slot() { return reinterpret_cast<void*>(online::g_online_hub); }
-struct PlayerSearch {
-    void* vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 uint8_t* start_roster_sweep(PlayerSearch* search)
 {
     return static_cast<uint8_t*>(static_cast<online::Hub*>(net_session_slot())->begin_player_walk(search, false));

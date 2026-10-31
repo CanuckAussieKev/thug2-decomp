@@ -11,7 +11,6 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
-#include "engine/core/code_address.h"
 
 namespace net {
 
@@ -92,37 +91,6 @@ void MsgNormalNode::destroy_body() { unlink_as(kMsgNormalNodeVtable); }
 void MsgImpNode::destroy_body() { unlink_as(kMsgImpNodeVtable); }
 void MsgSeqNode::destroy_body() { unlink_as(kMsgSeqNodeVtable); }
 void StreamLinkNode::destroy_body() { unlink_as(kStreamLinkNodeVtable); }
-
-// 0x004559D0 / 0x004559E0 / 0x004559F0 / 0x00455A00
-template <void** const& SearchVtable>
-void ConnListSearch<SearchVtable>::destroy_body()
-{
-    vtable_ = SearchVtable;
-}
-
-// 0x00455A80 / 0x00455AB0 / 0x00455AE0 / 0x00455B10
-template <void** const& SearchVtable>
-ConnListSearch<SearchVtable>* ConnListSearch<SearchVtable>::teardown(unsigned int flags)
-{
-    vtable_ = SearchVtable;
-    if (flags & 1)
-        memory::dealloc(this);
-    return this;
-}
-
-static VtableSlot g_msg_seq_link_search_vtable_slots[] = {&net::MsgSeqLinkSearch::teardown};
-void** const kMsgSeqLinkSearchVtable = reinterpret_cast<void**>(g_msg_seq_link_search_vtable_slots);
-static VtableSlot g_msg_link_search_vtable_slots[] = {&net::MsgLinkSearch::teardown};
-void** const kMsgLinkSearchVtable = reinterpret_cast<void**>(g_msg_link_search_vtable_slots);
-static VtableSlot g_msg_imp_link_search_vtable_slots[] = {&net::MsgImpLinkSearch::teardown};
-void** const kMsgImpLinkSearchVtable = reinterpret_cast<void**>(g_msg_imp_link_search_vtable_slots);
-static VtableSlot g_stream_link_search_vtable_slots[] = {&net::StreamLinkSearch::teardown};
-void** const kStreamLinkSearchVtable = reinterpret_cast<void**>(g_stream_link_search_vtable_slots);
-
-template struct ConnListSearch<kMsgSeqLinkSearchVtable>;
-template struct ConnListSearch<kMsgLinkSearchVtable>;
-template struct ConnListSearch<kMsgImpLinkSearchVtable>;
-template struct ConnListSearch<kStreamLinkSearchVtable>;
 
 // 0x00455C80
 Conn* Conn::make_new(int flags)

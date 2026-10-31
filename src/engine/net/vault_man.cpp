@@ -47,10 +47,6 @@ static VtableSlot g_item_node_vtable_slots[] = {&online::VaultNode::delete_item_
 void** const kItemNodeVtable = reinterpret_cast<void**>(g_item_node_vtable_slots); // lists::Elem<VaultItem>
 static VtableSlot g_category_node_vtable_slots[] = {&online::VaultNode::delete_category_node};
 void** const kCategoryNodeVtable = reinterpret_cast<void**>(g_category_node_vtable_slots); // lists::Elem<VaultCategory>
-static VtableSlot g_category_search_vtable_slots[] = {&online::VaultSearch::destroy_category_search_and_free};
-void** const kCategorySearchVtable = reinterpret_cast<void**>(g_category_search_vtable_slots);
-static VtableSlot g_item_search_vtable_slots[] = {&online::VaultSearch::destroy_item_search_and_free};
-void** const kItemSearchVtable = reinterpret_cast<void**>(g_item_search_vtable_slots);
 
 constexpr uint32_t kTimeout = 25000; // ms without progress
 constexpr uint32_t kListBufferSize = 100000;
@@ -332,35 +328,12 @@ void* VaultSearch::following_item()
     return list_link_ ? list_link_->data : nullptr;
 }
 
-// 0x0054A770 / 0x0054A760
-void VaultSearch::destroy_category_search() { vtable_ = kCategorySearchVtable; }
-void VaultSearch::destroy_item_search() { vtable_ = kItemSearchVtable; }
-
-// 0x0054A780
-VaultSearch* VaultSearch::destroy_category_search_and_free(unsigned int flags)
-{
-    vtable_ = kCategorySearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
-// 0x0054B280
-VaultSearch* VaultSearch::destroy_item_search_and_free(unsigned int flags)
-{
-    vtable_ = kItemSearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
 // --- the vault ---
 
 // 0x0054C1D0
 VaultMan* VaultMan::make_new()
 {
     setup_list_sentinel(&categories_, kCategoriesHeadVtable);
-    search_.vtable_ = kCategorySearchVtable;
     search_.list_link_ = nullptr;
     transfer_ = kNone;
     progress_ = 0;
@@ -383,7 +356,6 @@ void VaultMan::destroy_body()
     get_release(semaphore_);
     if (task_) // (its scalar deleting destructor, vtable slot 2)
         reinterpret_cast<void*(__thiscall*)(tasks::SchedulerTask*, unsigned int)>(task_->vtable_[2])(task_, 1);
-    search_.vtable_ = kCategorySearchVtable;
     categories_.unlink_as(kCategoryNodeVtable);
 }
 

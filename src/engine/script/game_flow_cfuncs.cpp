@@ -609,7 +609,7 @@ bool __cdecl cfunc_clear_omnigons(script::Struct*, script::Script*)
 bool __cdecl cfunc_broadcast_omnigon(script::Struct* params, script::Script*)
 {
     online::Hub* game_net = online_hub_handle();
-    net::ConnSearch search = {net::kConnSearchVtable, nullptr};
+    net::ConnSearch search;
     uint32_t omnigon = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kOmnigon, &omnigon, true);
     bool flag = params->has_entry_named(kOmnigonFlag);

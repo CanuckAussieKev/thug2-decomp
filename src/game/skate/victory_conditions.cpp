@@ -65,10 +65,7 @@ int current_num_teams() { return static_cast<MatchRules*>(get_game_mode())->curr
 // The network manager's players (0x007CCE14): PlayerRecord +0x14 the skater, +0x30 the team, +0x34 the objects
 // collected. Walked with a lists::Hunt<PlayerRecord> (vtable 0x0064C1A8).
 online::Hub* net_session_slot() { return online::g_online_hub; }
-struct PlayerSearch {
-    void* vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 uint8_t* start_roster_sweep(PlayerSearch* search)
 {
     return static_cast<uint8_t*>(net_session_slot()->begin_player_walk(search, false));

@@ -25,10 +25,6 @@
 
 namespace online {
 
-static VtableSlot g_lobby_search_a_vtable_slots[] = {&online::LobbySearchA::teardown};
-void** const kLobbySearchAVtable = reinterpret_cast<void**>(g_lobby_search_a_vtable_slots);
-static VtableSlot g_lobby_search_b_vtable_slots[] = {&online::LobbySearchB::teardown};
-void** const kLobbySearchBVtable = reinterpret_cast<void**>(g_lobby_search_b_vtable_slots);
 static VtableSlot g_lobby_list_node_vtable_slots[] = {&online::LobbyListNode::teardown};
 void** const kLobbyListNodeVtable = reinterpret_cast<void**>(g_lobby_list_node_vtable_slots);
 static VtableSlot g_lobby_node_vtable_slots[] = {&online::LobbyNode::teardown};
@@ -354,24 +350,6 @@ LobbyListNode* LobbyListNode::teardown(unsigned int flags)
 
 // 0x00540F80
 LobbyNode* LobbyNode::destroy_other(unsigned int flags) { return teardown(flags); }
-
-// 0x005407E0
-LobbySearchA* LobbySearchA::teardown(unsigned int flags)
-{
-    vtable_ = kLobbySearchAVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x00540810
-LobbySearchB* LobbySearchB::teardown(unsigned int flags)
-{
-    vtable_ = kLobbySearchBVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
 
 // 0x005407B0
 tasks::SchedulerTask* TaskDeleter::teardown(unsigned int flags)

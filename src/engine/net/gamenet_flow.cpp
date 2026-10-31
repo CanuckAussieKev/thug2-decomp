@@ -451,7 +451,7 @@ void __cdecl Hub::connection_task(void* task)
         return;
     }
     // A client: the server silent too long while joining or joined.
-    net::ConnSearch search = {net::kConnSearchVtable, nullptr};
+    net::ConnSearch search;
     net::AppHost* client = manager->client_app_;
     if (!client)
         return;

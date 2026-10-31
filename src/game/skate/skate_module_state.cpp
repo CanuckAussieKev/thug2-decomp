@@ -93,16 +93,7 @@ objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
 int& get_refs() { return g_skate_module_references; }
 float& next_beep() { return g_next_beep; }
 
-// A walk over the players (online::Hub::begin_player_walk / step_player_walk).
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
-// A walk over an app's connections (NetLink::AppHost::begin_conn_walk / step_conn_walk).
-struct ConnSearch {
-    void** vtable_ = net::kConnSearchVtable;
-    void* list_link_ = nullptr;
-};
+using online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
 } // namespace
@@ -283,24 +274,20 @@ void Skate::enter_stage(uint32_t level)
     level_ = level;
     if (net->in_net_game()) {
         for (int i = 0; i < 2; ++i) {
-            ConnSearch search;
+            net::ConnSearch search;
             if (net::AppHost* client = net->fetch_patron(i)) {
-                if (net::Conn* conn = client->begin_conn_walk(reinterpret_cast<net::ConnSearch*>(&search)))
+                if (net::Conn* conn = client->begin_conn_walk(&search))
                     conn->stamp_last_heard(12000);
             }
         }
         if (net->get_on_server()) {
-            ConnSearch search;
+            net::ConnSearch search;
             if (net::AppHost* server = net->host_) { // (0x005480C0)
-                for (net::Conn* conn = server->begin_conn_walk(reinterpret_cast<net::ConnSearch*>(&search)); conn;
-                     conn = server->step_conn_walk(reinterpret_cast<net::ConnSearch*>(&search)))
+                for (net::Conn* conn = server->begin_conn_walk(&search); conn; conn = server->step_conn_walk(&search))
                     conn->stamp_last_heard(8000);
             }
         } else {
-            struct NewPlayerSearch {
-                void** vtable_ = online::kNewPlayerSearchVtable;
-                void* list_link_ = nullptr;
-            } search;
+            online::NewPlayerSearch search;
             if (!net->begin_joiner_walk(&search))
                 net->send_ready_response();
         }
@@ -512,8 +499,6 @@ int __stdcall Skate::should_be_absent(script::Struct* params)
 // 0x00565730: the head's destructor body (the node's).
 void __fastcall skater_head_destroy_body(memory::ListNode* head) { head->unlink_as(kSkaterNodeVtable); }
 
-static VtableSlot g_player_search_vtable_slots[] = {&objects::PlayerSearchDestructors::teardown};
-void** const kPlayerSearchVtable = reinterpret_cast<void**>(g_player_search_vtable_slots);
 static VtableSlot g_skate_vtable_slots[] = {&Skate::teardown, &Skate::start_callback, &Skate::stop_callback};
 void** const kSkateVtable = reinterpret_cast<void**>(g_skate_vtable_slots);
 static VtableSlot g_skater_node_vtable_slots[] = {Skate::destroy_skater_node};

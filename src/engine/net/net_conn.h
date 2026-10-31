@@ -30,24 +30,8 @@ struct MsgSeqLinkHead : memory::ListNode {
 // The same for the other heads Conn's constructor makes (inline there).
 void init_conn_list_head(memory::ListNode* head, void** vtable);
 
-// A local lists::Hunt<T> over one of Conn's lists: its vtable (only a virtual destructor, which resets it).
-template <void** const& SearchVtable>
-struct ConnListSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    void destroy_body();
-    // The scalar deleting destructor.
-    ConnListSearch* teardown(unsigned int flags);
-};
-extern void** const kMsgSeqLinkSearchVtable;
-extern void** const kMsgLinkSearchVtable;
-extern void** const kMsgImpLinkSearchVtable;
-extern void** const kStreamLinkSearchVtable;
-using MsgSeqLinkSearch = ConnListSearch<kMsgSeqLinkSearchVtable>; // 0x004559D0 / 0x00455A80
-using MsgLinkSearch = ConnListSearch<kMsgLinkSearchVtable>;       // 0x004559E0 / 0x00455AB0
-using MsgImpLinkSearch = ConnListSearch<kMsgImpLinkSearchVtable>; // 0x004559F0 / 0x00455AE0
-using StreamLinkSearch = ConnListSearch<kStreamLinkSearchVtable>; // 0x00455A00 / 0x00455B10
+// (The local searches over Conn's lists have vtables holding only a destructor that resets it - 0x004559D0 /
+// 0x00455A80, 0x004559E0 / 0x00455AB0, 0x004559F0 / 0x00455AE0, 0x00455A00 / 0x00455B10: not kept.)
 
 // NetLink::Conn: one end of a connection, as an App keeps it (0x3D20 bytes). Its methods: net_conn.cpp.
 // (Formerly `Conn`, a view of its fields at their offsets.)

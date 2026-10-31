@@ -32,11 +32,6 @@ constexpr uint32_t kString = 0x61414D56;   // string
 constexpr int kStatusOnline = 1;
 constexpr int kStatusChatting = 4;
 
-static VtableSlot g_buddy_search_vtable_slots[] = {&online::BuddySearch::teardown};
-void** const kBuddySearchVtable = reinterpret_cast<void**>(g_buddy_search_vtable_slots);
-static VtableSlot g_message_search_vtable_slots[] = {&online::BuddyMessageSearch::teardown};
-void** const kMessageSearchVtable = reinterpret_cast<void**>(g_message_search_vtable_slots);
-
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 FriendsManager* get_buddies() { return static_cast<FriendsManager*>(the_manager()->presence_service_); }
@@ -127,24 +122,6 @@ void FriendsManager::change_standing(int status, const char* text, const char* l
 
 // --- The list types ---
 
-// 0x005480D0 / 0x00548440
-void BuddySearch::destroy_body() { vtable_ = kBuddySearchVtable; }
-BuddySearch* BuddySearch::teardown(unsigned int flags)
-{
-    vtable_ = kBuddySearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-// 0x005480E0 / 0x00548470
-void BuddyMessageSearch::destroy_body() { vtable_ = kMessageSearchVtable; }
-BuddyMessageSearch* BuddyMessageSearch::teardown(unsigned int flags)
-{
-    vtable_ = kMessageSearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
 // 0x005484A0 / 0x005484E0
 void BuddyNode::destroy_body()
 {

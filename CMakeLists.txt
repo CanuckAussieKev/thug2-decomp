@@ -510,7 +510,6 @@ add_executable(thug2 WIN32
     src/engine/lists/key_map.cpp
     src/engine/lists/chain_start.cpp
     src/engine/lists/lookup_table.cpp
-    src/engine/lists/list_walk.cpp
     src/engine/render/coll_cache.cpp
     src/engine/render/coll_capsule.cpp
     src/engine/render/coll_obj.cpp

@@ -12,14 +12,12 @@
 
 namespace net {
 
-extern void** const kConnNodeVtable;         // lists::Elem<Conn>
-extern void** const kConnHeadVtable;         // lists::Foremost<Conn>
-extern void** const kBannedConnNodeVtable;   // lists::Elem<BlockedConnEntry>
-extern void** const kBannedConnVtable;       // BlockedConnEntry, lists::Foremost<BlockedConnEntry>
-extern void** const kMsgHandlerNodeVtable;   // lists::Elem<NoteHandler>
-extern void** const kMsgHandlerHeadVtable;   // lists::Foremost<NoteHandler>
-extern void** const kConnSearchVtable;       // lists::Hunt<Conn>
-extern void** const kBannedConnSearchVtable; // lists::Hunt<BlockedConnEntry>
+extern void** const kConnNodeVtable;       // lists::Elem<Conn>
+extern void** const kConnHeadVtable;       // lists::Foremost<Conn>
+extern void** const kBannedConnNodeVtable; // lists::Elem<BlockedConnEntry>
+extern void** const kBannedConnVtable;     // BlockedConnEntry, lists::Foremost<BlockedConnEntry>
+extern void** const kMsgHandlerNodeVtable; // lists::Elem<NoteHandler>
+extern void** const kMsgHandlerHeadVtable; // lists::Foremost<NoteHandler>
 
 // A node (or head) of a Dispatcher's handler lists (lists::Elem<NoteHandler>).
 struct MsgHandlerNode : memory::ListNode {
@@ -70,25 +68,11 @@ struct BlockedConnEntry : BannedConnNode {
 static_assert(offsetof(BlockedConnEntry, remote_ip_) == 0x14 && sizeof(BlockedConnEntry) == 0x18,
               "layout must match the original");
 
-// A list search as the game lays it out: the vtable (its virtual destructor), then the current node (see
-// lists::Hunt). The destructors only reset the vtable.
+// A walk over an App's connections (AppHost::begin_conn_walk): the current node (see lists::Hunt). The original's
+// searches have a vtable holding only a destructor that resets it (lists::Hunt<Conn>'s 0x00456B80 / 0x00456FB0,
+// lists::Hunt<BlockedConnEntry>'s 0x00456B90 / 0x00456FE0) - not kept.
 struct ConnSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    // 0x00456B80
-    void destroy_body();
-    // 0x00456FB0 (scalar deleting)
-    ConnSearch* teardown(unsigned int flags);
-};
-struct BannedConnSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    // 0x00456B90
-    void destroy_body();
-    // 0x00456FE0 (scalar deleting)
-    BannedConnSearch* teardown(unsigned int flags);
+    memory::ListNode* list_link_ = nullptr;
 };
 
 } // namespace net

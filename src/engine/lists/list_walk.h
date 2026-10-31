@@ -4,9 +4,9 @@
 
 namespace lists {
 
-// Walks the items of an intrusive list, from the list's head node (whose data is
-// -1). Fetch the next item before deleting the current one. The original also has a vtable (0x00658AA4: a
-// virtual destructor, see SearchDestructors) that it stores in each local search; it changes nothing.
+// Walks the items of an intrusive list, from the list's head node (whose data is -1). Fetch the next item before
+// deleting the current one. (The original's searches each have a vtable holding only a destructor that resets it -
+// this one's 0x00658AA4: 0x005BDE30 / 0x005BDE40; it changes nothing, so it isn't kept.)
 template <typename T>
 class Hunt {
 public:
@@ -24,17 +24,6 @@ public:
 
 private:
     memory::ListNode* list_link_ = nullptr;
-};
-
-// The destructors behind Search's vtable.
-struct SearchDestructors {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    // 0x005BDE30 (only resets the vtable)
-    void destroy_body();
-    // 0x005BDE40 (scalar deleting)
-    SearchDestructors* teardown(unsigned int flags);
 };
 
 } // namespace lists

@@ -66,16 +66,7 @@ struct NoteHandler {
 };
 static_assert(sizeof(NoteHandler) == 0x20);
 
-// The destructors behind lists::Hunt<NoteHandler>'s vtable (0x006475E4), like lists::SearchDestructors.
-struct MsgHandlerSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    // 0x0045A500 (only resets the vtable)
-    void destroy_body();
-    // 0x0045A510 (scalar deleting)
-    MsgHandlerSearch* teardown(unsigned int flags);
-};
+// (lists::Hunt<NoteHandler>'s vtable, 0x006475E4, holds only a destructor that resets it: 0x0045A500 / 0x0045A510.)
 
 // (Its handler lists, HandlerLists, and its destructor 0x00457260 are in net_lists.h.)
 class Router : public HandlerLists {

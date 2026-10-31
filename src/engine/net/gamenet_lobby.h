@@ -20,8 +20,6 @@ class SchedulerTask;
 
 namespace online {
 
-extern void** const kLobbySearchAVtable;  // 0x0064CB6C
-extern void** const kLobbySearchBVtable;  // 0x0064CB70
 extern void** const kLobbyListNodeVtable; // 0x0064CBDC: lists::Elem<LobbyPlayer>
 extern void** const kLobbyNodeVtable;     // 0x0064CBE0: lists::Elem<LobbyRoom>
 
@@ -293,21 +291,8 @@ struct QueuedPacket {
 };
 static_assert(sizeof(QueuedPacket) == 0x1C);
 
-// The destructor bodies of two list searches the lobby's code keeps on its stack (vtables 0x0064CB6C / 0x0064CB70;
-// called by the exception unwinding): 0x0053F8B0 / 0x0053F8C0 put the vtable back.
-// 0x005407E0 / 0x00540810: their scalar deleting destructors.
-struct LobbySearchA {
-    void** vtable_;
-    void* list_link_;
-    void destroy_body();                        // 0x0053F8B0
-    LobbySearchA* teardown(unsigned int flags); // 0x005407E0
-};
-struct LobbySearchB {
-    void** vtable_;
-    void* list_link_;
-    void destroy_body();                        // 0x0053F8C0
-    LobbySearchB* teardown(unsigned int flags); // 0x00540810
-};
+// (Two list searches the lobby's code keeps on its stack have vtables, 0x0064CB6C / 0x0064CB70, holding only
+// destructors that put them back - 0x0053F8B0 / 0x005407E0, 0x0053F8C0 / 0x00540810 - not kept.)
 
 // 0x0053F8A0 (ResetConnectionTimer): the connection timer (0x007CCE3C) restarted now. True.
 bool __cdecl cfunc_reset_connection_timer(script::Struct* params, script::Script* script);

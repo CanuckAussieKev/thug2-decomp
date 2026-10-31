@@ -310,7 +310,7 @@ inline void print_message_stat(int /*id*/, int /*value*/) {}
 // and sent totals read - twice each (the printing is compiled out). Always true.
 bool __cdecl cfunc_dump_net_message_stats(script::Struct*, script::Script*)
 {
-    net::ConnSearch search = {net::kConnSearchVtable, nullptr};
+    net::ConnSearch search;
     online::Hub* game_net = online_hub_handle();
     net::AppHost* app = game_net->host_;
     if (!app) {

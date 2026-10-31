@@ -150,10 +150,7 @@ uint32_t active_ruleset_label() { return g_game_mode->get_name_key(); }
 // whatever ECX holds - it doesn't use its object).
 bool goals_completed() { return CompleteGoalsVictoryCondition::all_goals_complete(); }
 
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 
 script::Struct* spawn_param_table()
 {

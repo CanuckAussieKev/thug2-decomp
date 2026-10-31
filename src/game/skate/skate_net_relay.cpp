@@ -144,10 +144,8 @@ PlayerRecord* by_object_id(int id)
 // An object id from a message byte (signed, as the original reads it).
 int id_byte(const uint8_t* data, int offset) { return static_cast<int8_t>(data[offset]); }
 
-// lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
+// A walk over the network manager's players (begin_player_walk / step_player_walk).
+struct PlayerSearch : online::PlayerSearch {
     PlayerRecord* get_first(bool observers)
     {
         return static_cast<PlayerRecord*>(net_link()->begin_player_walk(this, observers));
@@ -1043,7 +1041,7 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     uint32_t time = prop<uint32_t>(data, 0);
     if (!net_link()->get_on_server()) {
         // (a client: the server's latency added)
-        net::ConnSearch search{net::kConnSearchVtable, nullptr};
+        net::ConnSearch search;
         net::Conn* conn = context->receiver_app_->begin_conn_walk(&search);
         time += conn->is_host_local() ? 0 : static_cast<uint32_t>(conn->ping_probe_.average_latency_);
     }

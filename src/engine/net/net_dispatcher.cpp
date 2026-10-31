@@ -20,8 +20,6 @@ void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(g_msg_handler_head
 
 namespace {
 
-static VtableSlot g_msg_handler_search_vtable_slots[] = {&net::MsgHandlerSearch::teardown};
-void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(g_msg_handler_search_vtable_slots);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
 void construct_context(InboundMsgCtx* context) { context->make_new(); }
@@ -32,18 +30,6 @@ void construct_context(InboundMsgCtx* context) { context->make_new(); }
 NoteHandler* NoteHandler::teardown(unsigned int flags)
 {
     static_cast<MsgHandlerNode*>(&list_link_)->destroy_body(); // (lists::Elem<NoteHandler>: unlinks it)
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x0045A500
-void MsgHandlerSearch::destroy_body() { vtable_ = kMsgHandlerSearchVtable; }
-
-// 0x0045A510
-MsgHandlerSearch* MsgHandlerSearch::teardown(unsigned int flags)
-{
-    vtable_ = kMsgHandlerSearchVtable;
     if (flags & 1)
         memory::Hub::get_pull()->dealloc(this);
     return this;

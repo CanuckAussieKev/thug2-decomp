@@ -47,8 +47,6 @@ constexpr uint32_t kHitWindow = 5000; // ms
 
 static VtableSlot g_player_vtable_slots[] = {&PlayerRecord::teardown};
 void** const kPlayerVtable = reinterpret_cast<void**>(g_player_vtable_slots); // PlayerRecord
-static VtableSlot g_score_search_vtable_slots[] = {&online::ScoreSearch::teardown};
-void** const kScoreSearchVtable = reinterpret_cast<void**>(g_score_search_vtable_slots);
 static VtableSlot g_score_node_vtable_slots[] = {&online::ScoreNode::teardown};
 void** const kScoreNodeVtable = reinterpret_cast<void**>(g_score_node_vtable_slots);
 
@@ -326,16 +324,6 @@ uint32_t PlayerRecord::get_skater_value_2b_c() { return prop<uint32_t>(skater_, 
 int PlayerRecord::is_pending_observer() { return (flag_bits_ >> 3) & 1; }
 
 // --- The score lines' list types ---
-
-// 0x00543170 / 0x00543580
-void ScoreSearch::destroy_body() { vtable_ = kScoreSearchVtable; }
-ScoreSearch* ScoreSearch::teardown(unsigned int flags)
-{
-    vtable_ = kScoreSearchVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
 
 // 0x00544700 / 0x005435B0 / 0x00544720
 void ScoreNode::destroy_body()

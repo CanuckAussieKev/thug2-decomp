@@ -133,10 +133,7 @@ script::Struct*& stat_goal_params_ref() { return g_stat_target_info; }
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 memory::Arena* rider_heap_at(int index) { return memory::Hub::get_pull()->skater_heaps_[index]; }
 
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 
 script::Struct* spawn_param_table()

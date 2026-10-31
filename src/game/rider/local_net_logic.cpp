@@ -147,8 +147,6 @@ void RiderHostSync::send_update()
     if (!on_server && static_cast<uint32_t>(app->frame_count_) % 15 != 0) {
         // Between the 15th frames: only once the connection's send interval has gone by.
         net::ConnSearch search;
-        search.vtable_ = net::kConnSearchVtable;
-        search.list_link_ = nullptr;
         net::Conn* conn = app->begin_conn_walk(&search);
         if (app->clock_ - last_transmit_at_ < conn->get_transmit_period())
             return;

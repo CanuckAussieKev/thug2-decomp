@@ -27,10 +27,7 @@ namespace {
 const char* const kTrickObjBuffer = "TrickObj Buffer"; // "TrickObj Buffer"
 
 // A walk over the players (online::Hub::begin_player_walk / step_player_walk).
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
 

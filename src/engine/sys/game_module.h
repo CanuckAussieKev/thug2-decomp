@@ -75,9 +75,7 @@ struct ModuleListDestructors {
     memory::ListNode* node_destroy(unsigned int flags);
     // 0x0044F410: lists::Foremost<Module>'s scalar deleting destructor (the node's body, then freed if flags & 1).
     memory::ListNode* head_destroy(unsigned int flags);
-    // 0x0044F300 / 0x0044F330: lists::Hunt<Module>'s (only its vtable, 0x00647280, set).
-    void search_destroy_body();
-    ModuleListDestructors* search_destroy(unsigned int flags);
+    // (lists::Hunt<Module>'s, 0x0044F300 / 0x0044F330 - vtable 0x00647280 - only reset its vtable: not kept.)
 };
 
 } // namespace modules

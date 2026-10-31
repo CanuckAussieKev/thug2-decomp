@@ -89,21 +89,15 @@ struct VaultNode {
     VaultNode* delete_categories_head(unsigned int flags);
 };
 
-// lists::Hunt<VaultCategory> (vtable 0x0064D29C) / lists::Hunt<VaultItem> (0x0064D2A0): the walk's node.
+// A walk over a list (lists::Hunt<VaultCategory> / <VaultItem>: their vtables, 0x0064D29C / 0x0064D2A0, hold only
+// destructors that reset them - 0x0054A770 / 0x0054A780, 0x0054A760 / 0x0054B280 - not kept): the walk's node.
 struct VaultSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
+    memory::ListNode* list_link_ = nullptr;
 
     // 0x0054B6B0: the first item of the list `head` (null if none).
     void* head_element(memory::ListNode* head);
     // 0x0054B640: the next item (null at the end).
     void* following_item();
-    // 0x0054A770 / 0x0054A760: the destructor bodies (the vtable reset).
-    void destroy_category_search();
-    void destroy_item_search();
-    // 0x0054A780 / 0x0054B280: the scalar deleting destructors.
-    VaultSearch* destroy_category_search_and_free(unsigned int flags);
-    VaultSearch* destroy_item_search_and_free(unsigned int flags);
 };
 
 // A file to download (Download: the top stats and DownloadFile build it on the stack).
@@ -209,11 +203,12 @@ public:
     uint32_t error_script_;       // +0x3C0
     const void* callback_;        // +0x3C4 Download's completed callback
 };
+// (The offsets in the comments are the original's: its search_ has a vtable too, so from category_ on they're 4
+// more than here.)
 static_assert(offsetof(VaultMan, url_) == 0x20 && offsetof(VaultMan, semaphore_) == 0x320 &&
                   offsetof(VaultMan, content_) == 0x328 && offsetof(VaultMan, categories_) == 0x350 &&
-                  offsetof(VaultMan, search_) == 0x364 && offsetof(VaultMan, kind_tag_) == 0x370 &&
-                  offsetof(VaultMan, fail_script_) == 0x3B4 && offsetof(VaultMan, callback_) == 0x3C4,
-              "layout must match the original");
+                  offsetof(VaultMan, search_) == 0x364 && sizeof(VaultMan) == 0x3C4,
+              "the original's layout less the search's vtable");
 
 // The script commands.
 bool __cdecl download_file(script::Struct* params, script::Script* script);           // 0x0054AA10

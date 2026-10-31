@@ -75,11 +75,11 @@ uint8_t* find_player_slot_by_obj(int id)
 {
     return net_session_slot()->find_player_slot_by_obj(static_cast<uint16_t>(id));
 }
-uint8_t* start_roster_sweep(PlayerSearchDestructors* search)
+uint8_t* start_roster_sweep(online::PlayerSearch* search)
 {
     return static_cast<uint8_t*>(net_session_slot()->begin_player_walk(search, true));
 }
-uint8_t* step_roster_sweep(PlayerSearchDestructors* search)
+uint8_t* step_roster_sweep(online::PlayerSearch* search)
 {
     return static_cast<uint8_t*>(net_session_slot()->step_player_walk(search, true));
 }
@@ -180,20 +180,6 @@ void StateHistoryMessage::change_moment(uint32_t time)
 {
     clock_ = static_cast<uint16_t>(time);
     time_high_ = static_cast<uint16_t>(time >> 16);
-}
-
-// --- PlayerSearchDestructors ---
-
-// 0x00519830
-void PlayerSearchDestructors::destroy_body() { vtable_ = modules::kPlayerSearchVtable; }
-
-// 0x0051A120
-PlayerSearchDestructors* PlayerSearchDestructors::teardown(unsigned int flags)
-{
-    vtable_ = modules::kPlayerSearchVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
 }
 
 // --- RiderFrameLog ---
@@ -416,7 +402,7 @@ void RiderFrameLog::check_for_collisions(int first)
             if (!is_it(me))
                 continue;
             make_it(them, true);
-            PlayerSearchDestructors search{modules::kPlayerSearchVtable, nullptr};
+            online::PlayerSearch search;
             for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
                 if (is_host_local(player))
                     continue;
@@ -430,7 +416,6 @@ void RiderFrameLog::check_for_collisions(int first)
                 msg.group_id_ = 8;
                 app->put_on_outbox(get_connection(player), &msg);
             }
-            search.vtable_ = modules::kPlayerSearchVtable;
         } else if (get_game_type() == kGameTeamTag) {
             if (manager_flag_3a())
                 return;
@@ -442,7 +427,7 @@ void RiderFrameLog::check_for_collisions(int first)
             tagged[0] = static_cast<uint8_t>(skater->ident_);
             tagged[1] = static_cast<uint8_t>(get_team(me));
             bool same_team = get_team(me) == prop<int>(them, 0x30);
-            PlayerSearchDestructors search{modules::kPlayerSearchVtable, nullptr};
+            online::PlayerSearch search;
             for (uint8_t* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
                 if (is_host_local(player)) {
                     if (same_team)
@@ -458,7 +443,6 @@ void RiderFrameLog::check_for_collisions(int first)
                 msg.byte_count_ = 2;
                 app->put_on_outbox(get_connection(player), &msg);
             }
-            search.vtable_ = modules::kPlayerSearchVtable;
         }
     }
 }

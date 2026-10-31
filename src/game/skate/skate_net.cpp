@@ -192,10 +192,7 @@ void goal_virtual(uint8_t* goal, int offset)
 }
 
 // lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the network manager's begin_player_walk / step_player_walk.
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
+using PlayerSearch = online::PlayerSearch;
 
 // A skater's state history (+0x27C): the newest of 20 entries at count % 20.
 struct StateEntry {

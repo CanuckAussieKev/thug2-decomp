@@ -311,19 +311,6 @@ int HostListing::get_entrant_rank(int index)
     return 0;
 }
 
-// 0x005451D0 / 0x00545460
-static VtableSlot g_server_search_vtable_slots[] = {&online::ServerSearch::teardown};
-void** const kServerSearchVtable = reinterpret_cast<void**>(g_server_search_vtable_slots);
-
-void ServerSearch::destroy_body() { vtable_ = kServerSearchVtable; }
-ServerSearch* ServerSearch::teardown(unsigned int flags)
-{
-    vtable_ = kServerSearchVtable;
-    if (flags & 1)
-        ram_stats()->dealloc(this);
-    return this;
-}
-
 // --- The manager's server list ---
 
 // 0x005451B0 / 0x005451C0

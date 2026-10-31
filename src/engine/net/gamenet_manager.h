@@ -95,6 +95,17 @@ enum EntryPhase : int {
     kJoinStateRefused = 9, // (the join-state task shows the refusal: CreateJoinRefusedDialog with refused_reason_)
 };
 
+// A walk over the players (Hub::begin_player_walk / step_player_walk) and over the joining players
+// (begin_joiner_walk / step_joiner_walk): the current node. The original's searches (lists::Hunt<PlayerRecord> /
+// <JoinerRecord>) have vtables holding only a destructor that resets them - 0x0064C1A8 (0x00519830 / 0x0051A120),
+// 0x0064C828 (0x0052DB60 / 0x0052F730), 0x0064C82C (0x0052DB70 / 0x0052F760) - not kept.
+struct PlayerSearch {
+    memory::ListNode* list_link_ = nullptr;
+};
+struct NewPlayerSearch {
+    memory::ListNode* list_link_ = nullptr;
+};
+
 class Hub {
 public:
     // 0x005369A0: the current network level's name - the `text` of its entry in the level select's list
@@ -318,15 +329,15 @@ public:
     // 0x00536B10: the joining player `player` removed (its connection terminated on the server, or on client 0 if it
     // has one).
     void remove_new_player(void* player);
-    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search` (a lists::Hunt -
-    // {vtable, node}); without `observers`, observers are skipped. Null at the end.
-    void* begin_player_walk(void* search, bool observers);
-    void* step_player_walk(void* search, bool observers);
+    // 0x005372C0 / 0x00537010: the first / next player of the list (+0x11C) through `search`; without `observers`,
+    // observers are skipped. Null at the end.
+    void* begin_player_walk(PlayerSearch* search, bool observers);
+    void* step_player_walk(PlayerSearch* search, bool observers);
     // 0x00537070: the first joining player (+0x130) through `search` (then the lists' generic next, 0x004573D0).
-    void* begin_joiner_walk(void* search);
+    void* begin_joiner_walk(NewPlayerSearch* search);
     // The next joining player through `search` (null at the end). No address of its own: the original calls the lists'
     // generic next, folded at 0x004573D0 (NetLink::AppHost::step_conn_walk), with the manager as its unused `this`.
-    void* step_joiner_walk(void* search);
+    void* step_joiner_walk(NewPlayerSearch* search);
     // 0x005370A0: the joining player whose object id (+0x10, a signed byte) is `id`.
     void* fetch_incoming_player_by_obj(uint16_t id);
     // 0x00537140: ready to play (cleared_to_start_) or not; when it changes, every skater of the skate module (+0x28's

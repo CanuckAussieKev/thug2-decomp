@@ -90,11 +90,6 @@ void* RoomManager::get_lobby_handle() { return remote_; }
 // 0x0053F890
 bool RoomManager::in_group_room() { return in_group_room_; }
 
-// 0x0053F8B0
-void LobbySearchA::destroy_body() { vtable_ = kLobbySearchAVtable; }
-// 0x0053F8C0
-void LobbySearchB::destroy_body() { vtable_ = kLobbySearchBVtable; }
-
 // 0x0053F8A0
 bool __cdecl cfunc_reset_connection_timer(script::Struct*, script::Script*)
 {

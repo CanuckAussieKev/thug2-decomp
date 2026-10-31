@@ -19,7 +19,6 @@ namespace {
 extern void** const kModuleVtable;
 extern void** const kNodeVtable;
 extern void** const kHeadVtable;
-extern void** const kSearchVtable;
 
 Hub*& sole() { return commands::g_module_manager; }
 
@@ -235,18 +234,6 @@ memory::ListNode* ModuleListDestructors::head_destroy(unsigned int flags)
     return reinterpret_cast<memory::ListNode*>(this);
 }
 
-// 0x0044F300
-void ModuleListDestructors::search_destroy_body() { *reinterpret_cast<void***>(this) = kSearchVtable; }
-
-// 0x0044F330
-ModuleListDestructors* ModuleListDestructors::search_destroy(unsigned int flags)
-{
-    *reinterpret_cast<void***>(this) = kSearchVtable;
-    if (flags & 1)
-        free_memory(this);
-    return this;
-}
-
 namespace {
 static VtableSlot g_module_vtable_slots[] = {&modules::PartUnit::teardown, &_purecall, &_purecall};
 void** const kModuleVtable = reinterpret_cast<void**>(g_module_vtable_slots);
@@ -254,8 +241,6 @@ static VtableSlot g_node_vtable_slots[] = {&modules::ModuleListDestructors::node
 void** const kNodeVtable = reinterpret_cast<void**>(g_node_vtable_slots);
 static VtableSlot g_head_vtable_slots[] = {&modules::ModuleListDestructors::head_destroy};
 void** const kHeadVtable = reinterpret_cast<void**>(g_head_vtable_slots);
-static VtableSlot g_search_vtable_slots[] = {&modules::ModuleListDestructors::search_destroy};
-void** const kSearchVtable = reinterpret_cast<void**>(g_search_vtable_slots);
 } // namespace
 
 } // namespace modules

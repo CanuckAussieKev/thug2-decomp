@@ -807,8 +807,6 @@ bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 GameEntity* GameEntity::find_nearest_object_of_type(uint32_t type)
 {
     ObjectSearch search;
-    search.vtable_ = kObjectSearchVtable;
-    search.list_link_ = nullptr;
     auto* object = static_cast<GameEntity*>(search.first_item_of_type(manager_object_list(park_owner_), type));
     if (object == this)
         object = static_cast<GameEntity*>(search.next_item_of_type());

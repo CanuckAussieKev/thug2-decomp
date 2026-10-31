@@ -17,10 +17,6 @@ static VtableSlot g_banned_conn_vtable_slots[] = {&net::BlockedConnEntry::destro
 void** const kBannedConnVtable = reinterpret_cast<void**>(g_banned_conn_vtable_slots);
 static VtableSlot g_msg_handler_node_vtable_slots[] = {&net::MsgHandlerNode::teardown};
 void** const kMsgHandlerNodeVtable = reinterpret_cast<void**>(g_msg_handler_node_vtable_slots);
-static VtableSlot g_conn_search_vtable_slots[] = {&net::ConnSearch::teardown};
-void** const kConnSearchVtable = reinterpret_cast<void**>(g_conn_search_vtable_slots);
-static VtableSlot g_banned_conn_search_vtable_slots[] = {&net::BannedConnSearch::teardown};
-void** const kBannedConnSearchVtable = reinterpret_cast<void**>(g_banned_conn_search_vtable_slots);
 
 namespace {
 
@@ -95,30 +91,6 @@ BannedConnNode* BannedConnNode::teardown(unsigned int flags)
 BlockedConnEntry* BlockedConnEntry::destroy_banned(unsigned int flags)
 {
     destroy_body();
-    if (flags & 1)
-        dealloc(this);
-    return this;
-}
-
-// 0x00456B80
-void ConnSearch::destroy_body() { vtable_ = kConnSearchVtable; }
-
-// 0x00456FB0
-ConnSearch* ConnSearch::teardown(unsigned int flags)
-{
-    vtable_ = kConnSearchVtable;
-    if (flags & 1)
-        dealloc(this);
-    return this;
-}
-
-// 0x00456B90
-void BannedConnSearch::destroy_body() { vtable_ = kBannedConnSearchVtable; }
-
-// 0x00456FE0
-BannedConnSearch* BannedConnSearch::teardown(unsigned int flags)
-{
-    vtable_ = kBannedConnSearchVtable;
     if (flags & 1)
         dealloc(this);
     return this;

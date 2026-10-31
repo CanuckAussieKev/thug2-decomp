@@ -98,20 +98,8 @@ struct StatsNode {
     StatsNode* delete_sort_node(unsigned int flags);
     StatsNode* delete_levels_head(unsigned int flags);
 };
-// lists::Hunt<SortEntry> (vtable 0x0064D580), <TopEntry> (0x0064D584), <LevelScores> (0x0064D588).
-struct StatsSearch {
-    void** vtable_;
-    memory::ListNode* list_link_;
-
-    // 0x0054CA90 / 0x0054CAA0 / 0x0054CAB0: the destructor bodies (the vtable reset).
-    void destroy_sort_search();
-    void destroy_entry_search();
-    void destroy_level_search();
-    // 0x0054D370 / 0x0054D3A0 / 0x0054D3D0: the scalar deleting destructors.
-    StatsSearch* delete_sort_search(unsigned int flags);
-    StatsSearch* delete_entry_search(unsigned int flags);
-    StatsSearch* delete_level_search(unsigned int flags);
-};
+// (lists::Hunt<SortEntry>'s, <TopEntry>'s and <LevelScores>'s vtables - 0x0064D580 / 0x0064D584 / 0x0064D588 - hold
+// only destructors that reset them: 0x0054CA90 / 0x0054D370, 0x0054CAA0 / 0x0054D3A0, 0x0054CAB0 / 0x0054D3D0.)
 
 // The player's own stats from persistent storage (RankingsManager +0x14).
 struct PersonalStats {

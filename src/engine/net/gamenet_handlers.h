@@ -20,21 +20,6 @@ namespace online {
 // HKEY_CURRENT_USER's key opens but has no value, it is never closed.
 void __cdecl get_cd_key(char* key);
 
-// The lists::Hunt<PlayerRecord> / lists::Hunt<JoinerRecord> destructors (vtables 0x0064C828 / 0x0064C82C):
-// 0x0052DB60 / 0x0052DB70 reset the vtable, 0x0052F730 / 0x0052F760 the scalar deleting ones.
-struct PlayerSearchDestructors {
-    void** vtable_;
-    void* list_link_;
-    void destroy_body();                                   // 0x0052DB60
-    PlayerSearchDestructors* teardown(unsigned int flags); // 0x0052F730
-};
-struct NewPlayerSearchDestructors {
-    void** vtable_;
-    void* list_link_;
-    void destroy_body();                                      // 0x0052DB70
-    NewPlayerSearchDestructors* teardown(unsigned int flags); // 0x0052F760
-};
-
 // --- The client's handlers (gamenet_handlers.cpp) ---
 // 0x0052D7B0 (0x25): the server's ready query: its id (the message's word) kept in last_ready_probe_id_, for
 // send_ready_response. 1.

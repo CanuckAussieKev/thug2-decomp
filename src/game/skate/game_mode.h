@@ -15,15 +15,6 @@ namespace script {
 class Script;
 } // namespace script
 
-// The virtual table of the player lists' search objects (lists::Hunt<PlayerRecord>, 0x0064C1A8; defined in skate_module_state.cpp).
-namespace modules {
-extern void** const kPlayerSearchVtable;
-} // namespace modules
-// (lists::Hunt<JoinerRecord>, 0x0064C82C; defined in gamenet_handlers.cpp.)
-namespace online {
-extern void** const kNewPlayerSearchVtable;
-} // namespace online
-
 namespace goals {
 
 class WinRule;

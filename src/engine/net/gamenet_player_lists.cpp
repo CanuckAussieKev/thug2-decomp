@@ -236,10 +236,10 @@ void Hub::remove_new_player(void* player)
 }
 
 // 0x00537010
-void* Hub::step_player_walk(void* search, bool observers)
+void* Hub::step_player_walk(PlayerSearch* search, bool observers)
 {
-    auto* s = static_cast<PlayerSearch*>(search);
-    auto* node = get_next_node(static_cast<memory::ListNode*>(s->list_link_));
+    PlayerSearch* s = search;
+    auto* node = get_next_node(s->list_link_);
     s->list_link_ = node;
     uint8_t* player = data_of(node);
     if (!observers && player && is_observer(player))
@@ -248,9 +248,9 @@ void* Hub::step_player_walk(void* search, bool observers)
 }
 
 // 0x005372C0
-void* Hub::begin_player_walk(void* search, bool observers)
+void* Hub::begin_player_walk(PlayerSearch* search, bool observers)
 {
-    auto* s = static_cast<PlayerSearch*>(search);
+    PlayerSearch* s = search;
     memory::ListNode* head = player_list(this);
     s->list_link_ = head;
     memory::ListNode* node = get_next_node(head);
@@ -262,9 +262,9 @@ void* Hub::begin_player_walk(void* search, bool observers)
 }
 
 // 0x00537070
-void* Hub::begin_joiner_walk(void* search)
+void* Hub::begin_joiner_walk(NewPlayerSearch* search)
 {
-    auto* s = static_cast<NewPlayerSearch*>(search);
+    NewPlayerSearch* s = search;
     memory::ListNode* head = new_player_list(this);
     s->list_link_ = head;
     memory::ListNode* node = get_next_node(head);
@@ -273,10 +273,10 @@ void* Hub::begin_joiner_walk(void* search)
 }
 
 // (no address: the lists' generic next, folded at 0x004573D0 - see the header)
-void* Hub::step_joiner_walk(void* search)
+void* Hub::step_joiner_walk(NewPlayerSearch* search)
 {
-    auto* s = static_cast<NewPlayerSearch*>(search);
-    memory::ListNode* next = static_cast<memory::ListNode*>(s->list_link_)->next;
+    NewPlayerSearch* s = search;
+    memory::ListNode* next = s->list_link_->next;
     s->list_link_ = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
     return s->list_link_ ? next->data : nullptr;
 }
@@ -665,8 +665,6 @@ bool Hub::prepare_local_face()
         get_call(code_address(&gfx::FaceSkin::write_to), face, prop<uint8_t*>(local, kPlayerFace) + 1, kFaceSize);
     } else {
         net::ConnSearch search;
-        search.vtable_ = net::kConnSearchVtable;
-        search.list_link_ = nullptr;
         if (client_app_->begin_conn_walk(&search)->get_link_speed_class() != 0)
             return false;
         memory->enter_heap_scope(memory->network_heap_);

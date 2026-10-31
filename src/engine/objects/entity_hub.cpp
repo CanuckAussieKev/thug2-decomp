@@ -25,7 +25,6 @@ namespace {
 extern void** const kManagerVtable;
 extern void** const kGeneralManagerVtable;
 extern void** const kListHeadVtable;
-extern void** const kObjectSearchBaseVtable;
 constexpr int kFlushTaskPriority = 1000;
 
 // The tracker's reference count.
@@ -311,27 +310,6 @@ Entity* ObjectSearch::next_item_of_type()
     return object;
 }
 
-// 0x0041AA90
-void ObjectSearch::destroy_body() { vtable_ = kObjectSearchBaseVtable; }
-
-// 0x0041AAA0
-ObjectSearch* ObjectSearch::teardown(unsigned int flags)
-{
-    destroy_body();
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
-// 0x0041A850
-ObjectSearch* ObjectSearch::destroy_as_base(unsigned int flags)
-{
-    vtable_ = kObjectSearchBaseVtable;
-    if (flags & 1)
-        memory::Hub::get_pull()->dealloc(this);
-    return this;
-}
-
 // 0x00461FA0
 void release_tracker()
 {
@@ -376,15 +354,6 @@ static VtableSlot g_general_manager_vtable_slots[] = {&objects::MiscHub::teardow
                                                       &objects::MiscHub::remove_entity,
                                                       &frontend::UiTree::fetch_object_set};
 void** const kGeneralManagerVtable = reinterpret_cast<void**>(g_general_manager_vtable_slots);
-
-} // namespace
-} // namespace objects
-
-namespace objects {
-namespace {
-
-static VtableSlot g_object_search_base_vtable_slots[] = {&objects::ObjectSearch::destroy_as_base};
-void** const kObjectSearchBaseVtable = reinterpret_cast<void**>(g_object_search_base_vtable_slots);
 
 } // namespace
 } // namespace objects

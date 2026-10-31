@@ -97,22 +97,17 @@ static_assert(offsetof(MiscHub, dead_objects_) == 0x28 && offsetof(MiscHub, flus
 // 0x00461BB0: the task's code: FlushDeadObjects on its data (the manager).
 void __cdecl flush_dead_objects_task(void* task);
 
-// A walk over the objects of one type in a manager's list (vtable 0x00645DFC, lists::Hunt's).
+// A walk over the objects of one type in a manager's list. (The original's has a vtable, 0x00645DFC, and its base
+// lists::Hunt<Entity> another, 0x00645DF8, holding only destructors that reset them - 0x0041AA90 / 0x0041AAA0,
+// 0x0041A850 - not kept.)
 struct ObjectSearch {
     // 0x00461F30: the first object of `type` after `head`, or null.
     Entity* first_item_of_type(memory::ListNode* head, uint32_t type);
     // 0x00461ED0: the next one, or null.
     Entity* next_item_of_type();
-    // 0x0041AA90: the destructor body (only its base's vtable, lists::Hunt<Entity>'s 0x00645DF8, put back).
-    void destroy_body();
-    // 0x0041AAA0: the scalar deleting destructor (vtable slot 0).
-    ObjectSearch* teardown(unsigned int flags);
-    // 0x0041A850: its base's scalar deleting destructor (slot 0 of 0x00645DF8; the vtable put back).
-    ObjectSearch* destroy_as_base(unsigned int flags);
 
-    void** vtable_;
-    memory::ListNode* list_link_; // +0x04 the current node (null at the end)
-    uint32_t kind_tag_;           // +0x08
+    memory::ListNode* list_link_ = nullptr; // the current node (null at the end)
+    uint32_t kind_tag_ = 0;
 };
 
 // The object tracker (0x006F0FC0, tracker.h) is a reference-counted singleton (0x006F0FC4).
@@ -121,8 +116,5 @@ struct ObjectSearch {
 void release_tracker();
 
 extern uint32_t g_tracker_references;
-
-// 0x00645DFC: objectSearchVtable (defined where the class's functions are).
-extern void** const kObjectSearchVtable;
 
 } // namespace objects

@@ -873,8 +873,6 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
             code_address(static_cast<objects::RiderIdentity* (modules::Skate::*)(int)>(&modules::Skate::fetch_account)),
             reinterpret_cast<void*>(modules::g_skate_module), 0);
         net::ConnSearch search;
-        search.vtable_ = net::kConnSearchVtable;
-        search.list_link_ = nullptr;
         if (context->receiver_app_->begin_conn_walk(&search)->get_link_speed_class() == Conn::kBandwidthModem)
             narrowband = true; // (a narrowband server gets no face)
         size = profile->emit_into_buffer(info->appearance, kAppearanceSize, narrowband);

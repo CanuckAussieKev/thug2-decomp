@@ -23,11 +23,10 @@ namespace objects {
 class Entity;
 } // namespace objects
 
-namespace online {
-extern void** const kNewPlayerSearchVtable; // 0x0064C82C: lists::Hunt<JoinerRecord> (gamenet_handlers.cpp)
-} // namespace online
-
 namespace online::detail {
+
+using online::NewPlayerSearch;
+using online::PlayerSearch;
 
 // Handler results.
 constexpr int kContinue = net::kResultPassOn;
@@ -110,16 +109,6 @@ inline uint32_t get_skater_id(const void* skater) { return prop<uint32_t>(skater
 inline const char* player_name(uint8_t* player) { return reinterpret_cast<const char*>(player + 0x38); }
 inline int player_team(const uint8_t* player) { return prop<int>(player, 0x30); }
 
-// lists::Hunt<PlayerRecord> (vtable 0x0064C1A8) for the manager's begin_player_walk / step_player_walk, and
-// lists::Hunt<JoinerRecord> (0x0064C82C) for begin_joiner_walk / step_joiner_walk.
-struct PlayerSearch {
-    void** vtable_ = modules::kPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
-struct NewPlayerSearch {
-    void** vtable_ = kNewPlayerSearchVtable;
-    void* list_link_ = nullptr;
-};
 inline uint8_t* start_roster_sweep(Hub* manager, PlayerSearch* search, bool observers)
 {
     return static_cast<uint8_t*>(manager->begin_player_walk(search, observers));
