@@ -20,6 +20,7 @@
 #include "game/obj/object.h"
 #include "hook/game_code.h"
 #include "game/obj/camera_lookaround.h"
+#include "game/skater/vehicle_sound.h"
 
 namespace Obj {
 
@@ -284,7 +285,11 @@ GAME_VTABLE(kVtable, 0x0064B6C4,
     Obj::RefreshFromStructure,
     Stubs::IgnoreArguments2,
     &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument);
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

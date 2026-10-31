@@ -23,7 +23,7 @@
 namespace GameCode {
 
 // Inp::Handler<T>'s vtable, shared by the park editor's, the viewer's and the observer's input handlers.
-GAME_VTABLE(kInputHandlerVtable, 0x0064D7D8, &Mdl::ViewerInputHandler::Handle, Stubs::ReturnZero);
+GAME_VTABLE(kInputHandlerVtable, 0x0064D7D8, &Mdl::ViewerInputHandler::Handle, Stubs::ReturnZero, &Mdl::ViewerInputHandler::Destroy);
 
 } // namespace GameCode
 

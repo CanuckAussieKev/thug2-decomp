@@ -404,7 +404,14 @@ GAME_VTABLE(kVtable, 0x0064BA30,
     &Obj::CSkaterBalanceTrickComponent::InitFromStructure,
     &Obj::CSkaterBalanceTrickComponent::Finalize,
     Stubs::DoNothing,
-    Obj::RefreshFromStructure);
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    &Obj::CBaseComponent::RunMemberFunction,
+    &Obj::CSkaterBalanceTrickComponent::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

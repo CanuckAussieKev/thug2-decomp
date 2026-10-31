@@ -183,6 +183,7 @@ add_library(thug2_code OBJECT
     src/game/sys/log.cpp
     src/hook/game_global.cpp
     src/hook/game_code.cpp
+    src/hook/vtable_extents.cpp
     src/game/sys/crash.cpp
     src/hook/crash_game.cpp
     src/hook/shadow.cpp

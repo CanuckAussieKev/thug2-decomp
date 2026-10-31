@@ -360,7 +360,8 @@ GAME_VTABLE(kCSpriteElementVtable, 0x0064A228, &CSpriteElement::Destroy, &CSprit
 GAME_VTABLE(kCWindowElementVtable, 0x0064A2C0, &CWindowElement::Destroy, &CScreenElement::SetProperties,
             static_cast<bool (Obj::CObject::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CObject::CallMemberFunction),
             &CScreenElement::CallMemberFunction, Stubs::IgnoreArgument, &Obj::CObject::PassEventToScript,
-            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph);
+            &Obj::CObject::MarkAsDead, Stubs::ReturnTrue, &CScreenElement::GetProperties, &CScreenElement::SetMorph,
+            &CWindowElement::Update);
 } // namespace
 
 } // namespace Front

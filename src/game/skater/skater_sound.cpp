@@ -233,7 +233,11 @@ GAME_VTABLE(kVtable, 0x0064C0C4,
     Obj::RefreshFromStructure,
     Stubs::IgnoreArguments2,
     &Obj::CBaseComponent::Suspend,
-    Stubs::IgnoreArgument);
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::CSkaterSoundComponent::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

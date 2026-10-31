@@ -27,6 +27,10 @@
 #include "hook/game_global.h"
 #include "hook/hook.h"
 #include "hook/game_code.h"
+#include "game/core/stubs.h"
+#include "game/obj/camera_lookaround.h"
+#include "game/skater/vehicle_sound.h"
+#include "game/skater/skater_camera_component.h"
 
 namespace Obj {
 
@@ -326,7 +330,18 @@ namespace {
 
 GAME_VTABLE(kVtable, 0x0064BEF0,
     &Obj::CSkaterLocalNetLogicComponent::Destroy,
-    &Obj::CSkaterLocalNetLogicComponent::Update);
+    &Obj::CSkaterLocalNetLogicComponent::Update,
+    &CSkaterCleanupStateComponent::InitFromStructure,
+    &Obj::CSkaterLocalNetLogicComponent::Finalize,
+    Stubs::DoNothing,
+    Obj::RefreshFromStructure,
+    Stubs::IgnoreArguments2,
+    &Obj::CBaseComponent::Suspend,
+    Stubs::IgnoreArgument,
+    Stubs::DoNothing,
+    Stubs::IgnoreArgument,
+    static_cast<int (Obj::CBaseComponent::*)(Script::CMemberFunctionEntry*, Script::CStruct*, Script::CScript*)>(&Obj::CBaseComponent::CallMemberFunction),
+    &Obj::ComponentWithoutMemberFunctions::CallMemberFunction);
 
 } // namespace
 } // namespace Obj

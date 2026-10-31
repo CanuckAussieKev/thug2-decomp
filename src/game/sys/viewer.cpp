@@ -641,7 +641,7 @@ Viewer* Viewer::Construct()
 
 namespace {
 GAME_VTABLE(kVtable, 0x0064EBC4, &Mdl::Viewer::Destroy, &Mdl::Viewer::StartCallback, &Mdl::Viewer::StopCallback);
-GAME_VTABLE(kBaseHandlerVtable, 0x00646090, GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771));
+GAME_VTABLE(kBaseHandlerVtable, 0x00646090, GAME_LIBRARY_SLOT(0x00623771), GAME_LIBRARY_SLOT(0x00623771), &Mdl::ViewerInputHandler::Destroy);
 } // namespace
 
 } // namespace Mdl

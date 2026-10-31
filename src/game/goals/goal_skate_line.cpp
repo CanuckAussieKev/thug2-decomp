@@ -33,7 +33,9 @@ GAME_VTABLE(kSkateLineVtable, 0x0064E790,
             &Game::CGoal::Update, &Game::CGoal::IsPaused, &Game::CSkateLineGoal::SetFlag,
             &Game::CGoal::StageFlagSet, &Game::CGoal::HasWon, &Game::CGoal::NetStageFlagSet,
             &Game::CGoal::HasWonGoalOrChild, &Game::CGoal::IsInitialized, &Game::CGoal::CanRetry,
-            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag);
+            &Game::CGoal::MarkWon, &Game::CGoal::SetStageFlag,
+            &Game::CGoal::SetNetStageFlag,
+            &Game::CGoal::UnBeat);
 
 Script::CStruct* NewStructure()
 {

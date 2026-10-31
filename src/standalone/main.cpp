@@ -13,6 +13,7 @@
 
 #include <cstring>
 
+#include "game/sys/log.h"
 #include "game/sys/startup_init.h"
 #include "game/sys/winmain.h"
 
@@ -37,6 +38,10 @@ void LoadSystemDirectInput()
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, int show)
 {
+    // NOT ORIGINAL: thug2-decomp.log next to the exe and the crash handling (a crash logged with its call stack, never
+    // a dialog), as the hooked build opens them when it loads.
+    LogOpen();
+    Log("thug2-decomp standalone");
     LoadSystemDirectInput();
     Sys::RunStartupInitialisers();
     return Sys::WinMain(instance, previous, commandLine, show);

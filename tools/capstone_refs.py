@@ -8,7 +8,8 @@
         decodes there)
     uv run ... capstone_refs.py sweep <lo> <hi> [exe] < ranges
         a linear sweep of each "<from> <to>" range read from stdin, printing only the instructions whose branch
-        target, immediate or displacement lies in [lo, hi): "<addr> <kind> <value>" (kind: call, jmp, jcc, operand)
+        target, immediate or displacement lies in [lo, hi): "<addr> <kind> <value>" (kind: call, jmp, jcc, operand
+        (an immediate), memory (a displacement alone: [value]), indexed (a displacement with a register: [value + reg]))
 """
 import json
 import os
@@ -98,9 +99,17 @@ elif mode == "sweep":
             flow, target, values = describe(ins)
             if target is not None and low <= target < high:
                 out.write(f"{ins.address:x} {'call' if flow == 'c' else 'jmp' if flow == 'j' else 'jcc'} {target:x}\n")
-            for v in values:
-                if low <= v < high:
-                    out.write(f"{ins.address:x} operand {v:x}\n")
+            for op in ins.operands:
+                if op.type == x86.X86_OP_IMM:
+                    v, kind = op.imm & 0xFFFFFFFF, "operand"
+                elif op.type == x86.X86_OP_MEM:
+                    # memory: [value] alone (that word read / written); indexed: [value + register(s)]
+                    v = op.mem.disp & 0xFFFFFFFF
+                    kind = "indexed" if op.mem.base or op.mem.index else "memory"
+                else:
+                    continue
+                if low <= v < high and v != target:
+                    out.write(f"{ins.address:x} {kind} {v:x}\n")
             a += ins.size
 else:
     raise SystemExit(f"unknown mode {mode}")

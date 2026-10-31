@@ -105,6 +105,23 @@ int CheckGameCode(int* checked)
         }
     }
     for (const Vtable& v : Vtables()) {
+        ++*checked;
+        const GameTableExtent* extent = nullptr;
+        for (int i = 0; i < kGameTableExtentCount; ++i)
+            if (kGameTableExtents[i].address == v.address)
+                extent = &kGameTableExtents[i];
+        if (!extent) {
+            ++differ;
+            std::printf("GAME_VTABLE 0x%08X %s (%s): not a table the original's code or data refers to "
+                        "(tools/vtable_extents.ts --write after adding one)\n",
+                        v.address, v.name, v.file);
+        } else if (v.slots.size() < extent->slots) {
+            ++differ;
+            std::printf("GAME_VTABLE 0x%08X %s (%s): lists %u slots, the original's table has %u "
+                        "(tools/vtable_extents.ts --complete)\n",
+                        v.address, v.name, v.file, static_cast<unsigned>(v.slots.size()),
+                        static_cast<unsigned>(extent->slots));
+        }
         for (size_t i = 0; i < v.slots.size(); ++i) {
             ++*checked;
             uint32_t original = *reinterpret_cast<const uint32_t*>(static_cast<uintptr_t>(v.address + 4 * i));
