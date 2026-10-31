@@ -799,9 +799,9 @@ public:
     float model_rotation_left_; // +0x2E0 ... its frames left
     uint8_t flip_spin_started_; // +0x2E4 a flip spin started this air (the trick component's sequence check)
     uint8_t pad2e5_[3];
-    float model_rotation_step_; // +0x2E8 a frame of it (1; SetSlomo)
-    uint8_t point_rail_spin_;   // +0x2EC in a point rail spin
-    uint8_t on_vehicle_;        // +0x2ED SkaterVehicleOn / Off
+    float slomo_speed_; // +0x2E8 SetSlomo's speed (1): the model rotation's step a frame, the trick windows' stretch
+    uint8_t point_rail_spin_; // +0x2EC in a point rail spin
+    uint8_t on_vehicle_;      // +0x2ED SkaterVehicleOn / Off
     uint8_t pad2ee_[2];
     uint32_t vehicle_;       // +0x2F0 SetSkaterVehicle
     uint8_t projectiles_on_; // +0x2F4 ProjectilesOn / Off
@@ -934,7 +934,7 @@ static_assert(
         offsetof(SkaterPhysicsModule, model_flipped_) == 0x2DC &&
         offsetof(SkaterPhysicsModule, model_rotation_left_) == 0x2E0 &&
         offsetof(SkaterPhysicsModule, flip_spin_started_) == 0x2E4 &&
-        offsetof(SkaterPhysicsModule, model_rotation_step_) == 0x2E8 &&
+        offsetof(SkaterPhysicsModule, slomo_speed_) == 0x2E8 &&
         offsetof(SkaterPhysicsModule, point_rail_spin_) == 0x2EC &&
         offsetof(SkaterPhysicsModule, on_vehicle_) == 0x2ED && offsetof(SkaterPhysicsModule, vehicle_) == 0x2F0 &&
         offsetof(SkaterPhysicsModule, projectiles_on_) == 0x2F4 && offsetof(SkaterPhysicsModule, ammo_) == 0x2F8 &&

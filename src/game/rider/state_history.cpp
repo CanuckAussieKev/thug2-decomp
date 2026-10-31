@@ -124,7 +124,7 @@ void set_points_total(void* score, int value) { static_cast<modules::PointTally*
 // Knocked over by `other`: a bail on the core physics, or the walk component's when walking or driving.
 void knock_down(ObjectModule* physics, GameEntity* other)
 {
-    reinterpret_cast<skater::SkaterPhysicsModule*>(physics)->reset_to_air(other);
+    static_cast<skater::SkaterPhysicsModule*>(physics)->reset_to_air(other);
 }
 void knock_down_walking(ObjectModule* walk, GameEntity* other)
 {

@@ -704,7 +704,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
     case 0x823B8342: { // Press: the button pressed (the event gets the flags itself, nothing marked)
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
-            float rate = core_physics_->model_rotation_step_;
+            float rate = core_physics_->slomo_speed_;
             if (rate < 1.0f)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }
@@ -724,7 +724,7 @@ bool MoveExecutor::check_trigger(script::Struct* trigger, uint32_t mark_flags, u
             return fail();
         uint32_t ms = read_trigger(node, 1, buttons);
         if (scaled) {
-            float rate = core_physics_->model_rotation_step_;
+            float rate = core_physics_->slomo_speed_;
             if (rate < 1.0f)
                 ms = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(ms) / rate));
         }

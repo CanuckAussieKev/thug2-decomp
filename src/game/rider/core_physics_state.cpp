@@ -109,7 +109,7 @@ SkaterPhysicsModule::SkaterPhysicsModule()
     manual_turnaround_ = 0;
     kind_tag_ = kSkaterCorePhysics;
     projectile_input_ = -1;
-    model_rotation_step_ = 1.0f;
+    slomo_speed_ = 1.0f;
     // Not original - a component made where an old one was starts off THAW's bike (game/rider/thaw_bmx.h).
     if (thaw_bmx::is_switched_on())
         thaw_bmx::get_forget(this);
@@ -258,7 +258,7 @@ void SkaterPhysicsModule::update_model_rotation()
     if (!model_rotating_)
         return;
     auto* model = static_cast<objects::MeshInstanceModule*>(skater_object(this)->fetch_module(kModel));
-    double left = static_cast<double>(model_rotation_left_) - model_rotation_step_;
+    double left = static_cast<double>(model_rotation_left_) - slomo_speed_;
     model_rotation_left_ = static_cast<float>(left); // (compared below unrounded)
     auto reset_rotations = [model] { model->cancel_rotate_display(); };
     if (get_at<int>(flags_of(this), kState) != 1) {

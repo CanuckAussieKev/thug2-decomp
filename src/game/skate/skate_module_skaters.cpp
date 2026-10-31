@@ -63,6 +63,7 @@
 #include "engine/gfx/viewport.h"
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/settings.h"
+#include "game/rider/core_physics.h"
 
 namespace modules {
 
@@ -739,7 +740,7 @@ void Skate::set_turn_tap_count(int player, bool on)
 {
     participants_[player].spin_taps_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
-        reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics))[0x2DA] = on;
+        static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = on;
 }
 
 // 0x00567C00
@@ -747,7 +748,7 @@ void Skate::set_auto_eject(int player, bool on)
 {
     participants_[player].auto_kick_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
-        reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics))[0x2D9] = on;
+        static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = on;
 }
 
 // 0x00567C30
@@ -1013,10 +1014,10 @@ Skate::Skate()
         participants_[i].vibration_ = true;
         participants_[i].auto_kick_ = true;
         if (objects::Rider* skater = get_skater_at(i))
-            reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics))[0x2D9] = 1;
+            static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = 1;
         participants_[i].spin_taps_ = false;
         if (objects::Rider* skater = get_skater_at(i))
-            reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics))[0x2DA] = 0;
+            static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = 0;
     }
     own_script_ = nullptr;
 }

@@ -19,6 +19,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/objects/control_pad.h"
 #include "engine/objects/trigger_events.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -813,13 +814,13 @@ void DrivableModule::update_skater()
     skater->at_point_.y = static_cast<float>(static_cast<double>(object->at_point_.y) + place.y);
     skater->basis_frame_ = object->basis_frame_;
     // The skater's core physics keeps its own copy of its object's matrix (+0x18).
-    uint8_t* core = reinterpret_cast<uint8_t*>(skater_core_physics_);
-    *reinterpret_cast<maths::Mat4*>(core + 0x18) = reinterpret_cast<ObjectModule*>(core)->entity_->basis_frame_;
+    auto* core = static_cast<skater::SkaterPhysicsModule*>(skater_core_physics_);
+    core->display_matrix_ = core->entity_->basis_frame_;
     skater->vel_ = object->vel_;
     if (!rider_shown_)
         return;
     // The steering animation's frame follows the smoothed steering (mirrored unless the skater's flag 0x28 is set).
-    uint8_t* flags = *reinterpret_cast<uint8_t**>(core + 0x1528);
+    uint8_t* flags = reinterpret_cast<uint8_t*>(core->state_);
     float steering = flags[0x28] ? display_steering_ : -display_steering_;
     auto* blender = reinterpret_cast<AnimBlenderComponent*>(anim_blender_ptr_);
     double duration = blender->fetch_value(rider_anim_name_);

@@ -33,6 +33,7 @@
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
 #include "engine/assets/resource_registry.h"
+#include "game/rider/core_physics.h"
 
 namespace commands {
 
@@ -279,7 +280,7 @@ bool __cdecl cfunc_set_slomo(script::Struct* params, script::Script*)
     frame_clock::set_game_clock_speed(speed);
     if (get_home_rider()) {
         if (objects::ObjectModule* component = get_home_rider()->fetch_module(kSlomoComponent))
-            *reinterpret_cast<float*>(reinterpret_cast<uint8_t*>(component) + 0x2E8) = speed;
+            static_cast<skater::SkaterPhysicsModule*>(component)->slomo_speed_ = speed;
     }
     return true;
 }

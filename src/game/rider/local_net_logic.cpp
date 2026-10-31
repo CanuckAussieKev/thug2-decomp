@@ -26,6 +26,8 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/vehicle_sound.h"
 #include "game/rider/skater_camera_component.h"
+#include "engine/objects/rail_manager.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -84,8 +86,8 @@ static void read_update_state(RiderHostSync* self, ObjectModule* component_6c, U
     out.flag74 = prop<uint8_t>(core, 0xE0);
     out.flag75 = prop<int>(core, 0x1C) == 1 ? 1 : 0;
     out.flag76 = prop<uint8_t>(core, 0x118);
-    uint8_t* board = prop<uint8_t*>(self->board_, 0x22C);
-    out.value80 = board ? prop<uint32_t>(board, 0x4C) : 0;
+    objects::GrindPoint* rail = self->board_->rail_node_;
+    out.value80 = rail ? rail->label_ : 0;
     // A bit per control (the core component's 24, 8 bytes apart from +0x20): set while it's held.
     uint32_t controls = 0;
     for (int k = 0; k < 24; ++k) {
@@ -238,7 +240,7 @@ RiderHostSync::~RiderHostSync() {}
 void RiderHostSync::seal()
 {
     core_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterState));
-    board_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kSkaterCorePhysics));
+    board_ = static_cast<skater::SkaterPhysicsModule*>(entity_->fetch_module(kSkaterCorePhysics));
 }
 
 // 0x005136C0

@@ -31,6 +31,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/camera_lookaround.h"
+#include "game/rider/core_physics.h"
 
 namespace objects {
 
@@ -280,9 +281,9 @@ void ProjectileProximityComponent::tick_frame()
         params->put_name_key(kPedId, entity_->ident_);
         params->put_name_key(kProjectileId, projectile.name);
         script::launch_script(kProjectileHitPed, params, find_object(rider_ref_->ident_), false, nullptr);
-        params->put_name_key(kAmmoType,
-                             *reinterpret_cast<uint32_t*>(
-                                 reinterpret_cast<uint8_t*>(rider_ref_->fetch_module(kSkaterCorePhysics)) + 0x2FC));
+        params->put_name_key(
+            kAmmoType,
+            static_cast<skater::SkaterPhysicsModule*>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type_);
         script::launch_script(kHitPedScript, params, entity_, false, nullptr);
         delete_params(params);
         projectile.active = false;

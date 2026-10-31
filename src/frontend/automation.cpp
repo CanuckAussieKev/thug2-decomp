@@ -39,6 +39,7 @@
 #include "engine/objects/tracker.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "game/rider/core_physics.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/sys/mlp.h"
@@ -901,9 +902,9 @@ void trace_frame()
         float multiplier = score ? *reinterpret_cast<float*>(score + 0x60) : 0.0f;
         int landed = score ? *reinterpret_cast<int*>(score + 0x20) : -1;
         // the core physics' last ground hit (its feeler copy at +0x158): the face's flags and the object's checksum
-        auto* core = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysicsComponent));
-        unsigned ground_flags = core ? *reinterpret_cast<uint16_t*>(core + 0x158 + 0x50) : 0;
-        unsigned ground_object = core ? *reinterpret_cast<uint32_t*>(core + 0x158 + 0x58) : 0;
+        auto* core = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysicsComponent));
+        unsigned ground_flags = core ? core->floor_feeler_.hit_.face_flags_ : 0;
+        unsigned ground_object = core ? core->floor_feeler_.hit_.object_checksum_ : 0;
         std::fprintf(trace.file, "%u %.2f %.2f %.2f %.2f %.2f %.2f %.3f %d %d %d %d %d %.2f %d 0x%04X 0x%08X\n",
                      frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
                      static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),

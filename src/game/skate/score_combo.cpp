@@ -26,6 +26,7 @@
 #include "game/rider/stats_manager.h"
 #include "game/rider/trick_component.h"
 #include "platform/stopwatch.h"
+#include "game/rider/core_physics.h"
 
 namespace modules {
 
@@ -363,9 +364,9 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     auto* stats = static_cast<objects::AttributeTracker*>(skater->fetch_module(kStatsManager));
     if (text[0])
         trick_component[0x13A8] = 1;
-    auto* physics = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterCorePhysics));
-    auto* physics_skater = *reinterpret_cast<objects::Rider**>(physics + 0xC);
-    uint8_t flipped = (*reinterpret_cast<uint8_t**>(physics + 0x1528))[0x28];
+    auto* physics = static_cast<skater::SkaterPhysicsModule*>(skater->fetch_module(kSkaterCorePhysics));
+    auto* physics_skater = static_cast<objects::Rider*>(physics->entity_);
+    uint8_t flipped = reinterpret_cast<uint8_t*>(physics->state_)[0x28];
     int stance = physics_skater->goofy_ ? flipped : !flipped;
     stats->set10(static_cast<int>(reinterpret_cast<uintptr_t>(text)), score, stance);
     if (tricks_ > 249) {
