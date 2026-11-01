@@ -17,6 +17,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -127,8 +128,8 @@ ProfileRoster::ProfileRoster()
     templates_.num_ = 0;
     templates_.first_ = nullptr;
     templates_.cursor_ = nullptr;
-    profiles_[0] = nullptr;
-    profiles_[1] = nullptr;
+    core::at(profiles_, 0) = nullptr;
+    core::at(profiles_, 1) = nullptr;
 }
 
 // 0x0057BC20
@@ -142,28 +143,28 @@ ProfileRoster::~ProfileRoster()
         templates_.drop_out(key);
     }
     // The second player's copy (the first player's is a template), and the extras.
-    if (RiderIdentity* copy = profiles_[1])
+    if (RiderIdentity* copy = core::at(profiles_, 1))
         copy->erase_one();
-    profiles_[1] = nullptr;
+    core::at(profiles_, 1) = nullptr;
     for (int i = 0; i < extra_count_; ++i) {
-        if (RiderIdentity* extra = extra_profiles_[i])
+        if (RiderIdentity* extra = core::at(extra_profiles_, i))
             extra->erase_one();
-        extra_profiles_[i] = nullptr;
+        core::at(extra_profiles_, i) = nullptr;
     }
     templates_.get_clear();
 }
 
 // 0x0057B620 / 0x0057B630 / 0x0057B640
 void ProfileRoster::set_current_index(int index) { cursor_pos_ = index; }
-RiderIdentity* ProfileRoster::fetch_active_account() { return profiles_[cursor_pos_]; }
-RiderIdentity* ProfileRoster::fetch_account(int index) { return profiles_[index]; }
+RiderIdentity* ProfileRoster::fetch_active_account() { return core::at(profiles_, cursor_pos_); }
+RiderIdentity* ProfileRoster::fetch_account(int index) { return core::at(profiles_, index); }
 
 // 0x0057B650
 RiderIdentity* ProfileRoster::get_extra_profile(uint32_t name)
 {
     for (int i = 0; i < extra_count_; ++i) {
-        if (extra_names_[i] == name)
-            return extra_profiles_[i];
+        if (core::at(extra_names_, i) == name)
+            return core::at(extra_profiles_, i);
     }
     return nullptr;
 }
@@ -177,10 +178,10 @@ void ProfileRoster::prepare_all()
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
     script::launch_script(kInitProSkaters, nullptr, nullptr, false, nullptr);
     uint32_t key = 0;
-    profiles_[0] = templates_.get_by_index(0, &key);
+    core::at(profiles_, 0) = templates_.get_by_index(0, &key);
     for (int i = 1; i < 2; ++i) {
-        profiles_[i] = new_profile();
-        profiles_[i]->copy_from(templates_.get_by_index(i, &key));
+        core::at(profiles_, i) = new_profile();
+        core::at(profiles_, i)->copy_from(templates_.get_by_index(i, &key));
     }
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -197,7 +198,7 @@ uint32_t ProfileRoster::get_template_name(int index)
 void ProfileRoster::reset_second_profile()
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
-    RiderIdentity* copy = profiles_[1];
+    RiderIdentity* copy = core::at(profiles_, 1);
     copy->copy_from(templates_.get_pull(copy->fetch_title()));
     memory::Hub::get_pull()->leave_heap_scope();
 }
@@ -225,8 +226,8 @@ void ProfileRoster::write_pros(script::Struct* save)
         if (profile->is_pro())
             profile->write_to_save(save);
     }
-    save->add_component_of_type(kCurrentSkater, script::kQbvalName, profiles_[cursor_pos_]->fetch_title());
-    const text::Chars display_name(profiles_[cursor_pos_]->fetch_shown_name());
+    save->add_component_of_type(kCurrentSkater, script::kQbvalName, core::at(profiles_, cursor_pos_)->fetch_title());
+    const text::Chars display_name(core::at(profiles_, cursor_pos_)->fetch_shown_name());
     save->append_word(kDisplayName, script::kQbvalString, display_name.c_str());
 }
 
@@ -245,8 +246,8 @@ void ProfileRoster::write_custom_skaters(script::Struct* save)
 // 0x0057B970
 bool ProfileRoster::add_extra_profile(uint32_t name)
 {
-    extra_profiles_[extra_count_] = new_profile();
-    extra_names_[extra_count_] = name;
+    core::at(extra_profiles_, extra_count_) = new_profile();
+    core::at(extra_names_, extra_count_) = name;
     ++extra_count_;
     return true;
 }
@@ -256,9 +257,9 @@ void ProfileRoster::set_current_skater(uint32_t name)
 {
     memory::Hub::get_pull()->enter_heap_scope(profile_heap());
     if (cursor_pos_ == 0)
-        profiles_[cursor_pos_] = templates_.get_pull(name);
+        core::at(profiles_, cursor_pos_) = templates_.get_pull(name);
     else
-        profiles_[cursor_pos_]->copy_from(templates_.get_pull(name));
+        core::at(profiles_, cursor_pos_)->copy_from(templates_.get_pull(name));
     memory::Hub::get_pull()->leave_heap_scope();
 }
 
@@ -296,7 +297,7 @@ bool ProfileRoster::add_template(script::Struct* params)
 bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_stats)
 {
     set_current_skater(kCustom);
-    RiderIdentity* profile = profiles_[cursor_pos_];
+    RiderIdentity* profile = core::at(profiles_, cursor_pos_);
     script::Struct* custom = nullptr;
     save->read_sub_struct(kCustom, &custom, 0);
     int version = 0;
@@ -323,7 +324,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     // put back.
     std::array<int, 10> stats{};
     for (int i = 0; i < 10; ++i)
-        stats[i] = profile->fetch_tally(kStats[i]);
+        core::at(stats, i) = profile->fetch_tally(core::at(kStats, i));
     const int max_specials = profile->get_max_specials();
     script::Struct* memory = script::spawn_param_bag();
     script::Struct* specials = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
@@ -334,7 +335,7 @@ bool ProfileRoster::read_custom_skater(script::Struct* save, bool keep_saved_sta
     profile->details_params()->append_structure_if_any(info);
     if (!keep_saved_stats) {
         for (int i = 0; i < 10; ++i)
-            profile->set_ability_level(kStats[i], stats[i]);
+            profile->set_ability_level(core::at(kStats, i), core::at(stats, i));
         profile->set_ability_level(kMaxSpecials, max_specials);
         profile->get_specials()->get_clear();
         profile->get_specials()->append_structure_if_any(specials);

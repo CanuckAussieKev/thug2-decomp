@@ -40,6 +40,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 // The command line's values, kept in globals other files own (the e-mail and the password: buddy_status.cpp, the
 // player's name and password: net_state_cfuncs.cpp).
@@ -307,7 +308,7 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     // line's first word - not the program's name.
     std::array<char*, 21> argv{};
     int argc = 1;
-    argv[0] = command_line;
+    core::at(argv, 0) = command_line;
     char* p = command_line;
     for (;;) {
         while (*p != '\0' && *p != ' ')
@@ -316,18 +317,18 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
             *p++ = '\0';
         if (*p == '\0')
             break;
-        argv[argc++] = p;
+        core::at(argv, argc++) = p;
         if (argc >= 20)
             break;
     }
-    argv[argc] = nullptr;
+    core::at(argv, argc) = nullptr;
 
     find_cd_drive("THUG CD2");
     init_direct_sound(game_window());
     for (int device = 0; device < 3; ++device) {
         for (int i = 0; i < 24; ++i) {
             std::array<char, 8> name = {};
-            std::snprintf(name.data(), sizeof(name), "%s%d", kBindingPrefixes[device], i);
+            std::snprintf(name.data(), sizeof(name), "%s%d", core::at(kBindingPrefixes, device), i);
             write_default_setting(name.data(), kDefaultBindings[device].data()[i]);
         }
     }
@@ -338,10 +339,10 @@ int WINAPI win_main(HINSTANCE instance, HINSTANCE /*previous*/, char* command_li
     for (unsigned scan_code = 0; scan_code < 256; ++scan_code) {
         std::array<char, 2> name = {{static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan_code, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR)),
                         0}};
-        if (static_cast<uint8_t>(name[0]) == 0xB4)
-            name[0] = '\'';
-        else if (name[0] == ';')
-            name[0] = ':';
+        if (static_cast<uint8_t>(core::at(name, 0)) == 0xB4)
+            core::at(name, 0) = '\'';
+        else if (core::at(name, 0) == ';')
+            core::at(name, 0) = ':';
         std::array<wchar_t, 10> wide{};
         size_t converted = 0;
         mbstowcs_s(&converted, wide.data(), wide.size(), name.data(), _TRUNCATE);

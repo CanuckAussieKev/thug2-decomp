@@ -17,6 +17,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/gfx/model_appearance.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -71,15 +72,15 @@ uint32_t pack_colour(int c0, int c1, int c2, int c3)
 uint32_t read_colour(Struct* params, bool* given)
 {
     std::array<int, 4> c = {{0x80, 0x80, 0x80, 0x80}};
-    bool any = params->fetch_int_value(kColour0, &c[0], 0);
-    if (params->fetch_int_value(kColour1, &c[1], 0))
+    bool any = params->fetch_int_value(kColour0, &core::at(c, 0), 0);
+    if (params->fetch_int_value(kColour1, &core::at(c, 1), 0))
         any = true;
-    if (params->fetch_int_value(kColour2, &c[2], 0))
+    if (params->fetch_int_value(kColour2, &core::at(c, 2), 0))
         any = true;
-    if (params->fetch_int_value(kColour3, &c[3], 0))
+    if (params->fetch_int_value(kColour3, &core::at(c, 3), 0))
         any = true;
     *given = any;
-    return pack_colour(c[0], c[1], c[2], c[3]);
+    return pack_colour(core::at(c, 0), core::at(c, 1), core::at(c, 2), core::at(c, 3));
 }
 
 // The C runtime's _ftol (0x006236FC): truncated to a 64-bit integer, the low half kept.

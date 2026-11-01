@@ -19,6 +19,7 @@
 #include "engine/gfx/loading_bar.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -115,7 +116,7 @@ int Contest::Leader::best_two(int count) const
     int best = 0;
     int second = 0;
     for (int i = 0; i < count; ++i) {
-        const int score = scores_[i];
+        const int score = core::at(scores_, i);
         if (score > best) {
             second = best;
             best = score;
@@ -161,14 +162,14 @@ bool Contest::is_leading_scorer(int judge)
     std::array<int, kJudges> order = {{0, 1, 2, 3, 4}};
     for (int i = 0; i < kJudges; ++i) {
         for (int j = i; j < kJudges; ++j) {
-            if (judge_scores_[order[i]] < judge_scores_[order[j]]) {
-                const int swap = order[i];
-                order[i] = order[j];
-                order[j] = swap;
+            if (core::at(judge_scores_, core::at(order, i)) < core::at(judge_scores_, core::at(order, j))) {
+                const int swap = core::at(order, i);
+                core::at(order, i) = core::at(order, j);
+                core::at(order, j) = swap;
             }
         }
     }
-    return order[0] == judge || order[1] == judge || order[2] == judge;
+    return core::at(order, 0) == judge || core::at(order, 1) == judge || core::at(order, 2) == judge;
 }
 
 // 0x005501A0
@@ -190,28 +191,28 @@ void Contest::sort_leaders()
     for (int i = 0; i < kLeaders - 1; ++i) {
         int best = i;
         for (int j = i + 1; j < kLeaders; ++j) {
-            const int score = leaders_[j].best_two(count);
-            const int best_score = leaders_[best].best_two(count);
-            if (score > best_score || (leaders_[j].ident_ == 0 && score == best_score))
+            const int score = core::at(leaders_, j).best_two(count);
+            const int best_score = core::at(leaders_, best).best_two(count);
+            if (score > best_score || (core::at(leaders_, j).ident_ == 0 && score == best_score))
                 best = j;
         }
         if (best != i) {
             // (a leader's copy: the name, the id, the scores and unknown1c_ - not the padding)
-            Leader& a = leaders_[best];
-            Leader& b = leaders_[i];
+            Leader& a = core::at(leaders_, best);
+            Leader& b = core::at(leaders_, i);
             const text::Chars name(a.label_);
             const int id = a.ident_;
-            const std::array<int, kRuns> scores = {{a.scores_[0], a.scores_[1], a.scores_[2]}};
+            const std::array<int, kRuns> scores = {{core::at(a.scores_, 0), core::at(a.scores_, 1), core::at(a.scores_, 2)}};
             const bool unknown = a.unknown1c_;
             a.label_ = b.label_;
             a.ident_ = b.ident_;
             for (int k = 0; k < kRuns; ++k)
-                a.scores_[k] = b.scores_[k];
+                core::at(a.scores_, k) = core::at(b.scores_, k);
             a.unknown1c_ = b.unknown1c_;
             b.label_ = name;
             b.ident_ = id;
             for (int k = 0; k < kRuns; ++k)
-                b.scores_[k] = scores[k];
+                core::at(b.scores_, k) = core::at(scores, k);
             b.unknown1c_ = unknown;
         }
     }
@@ -236,7 +237,7 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
     ended_ = false;
 
     objects::ProfileRoster* manager = roster_handle();
-    leaders_[0].label_ = manager->fetch_active_account()->fetch_shown_name();
+    core::at(leaders_, 0).label_ = manager->fetch_active_account()->fetch_shown_name();
 
     // The pros that can compete: not hidden (0xF3149AC5) and not the player, in a random order.
     std::array<int, 96> pros{}; // (the original's stack room)
@@ -246,25 +247,25 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         objects::RiderIdentity* profile = template_at(manager, i);
         if (profile->is_pro() && !profile->has_flag_f_3149a_c5() &&
             checksums::hash_from_text(profile->fetch_shown_name()) !=
-                checksums::hash_from_text(leaders_[0].label_.c_str()))
-            pros[pro_count++] = i;
+                checksums::hash_from_text(core::at(leaders_, 0).label_.c_str()))
+            core::at(pros, pro_count++) = i;
     }
     for (int i = 0; i < pro_count; ++i) {
         const int other = maths::roll_side_stream(pro_count);
-        const int swap = pros[i];
-        pros[i] = pros[other];
-        pros[other] = swap;
+        const int swap = core::at(pros, i);
+        core::at(pros, i) = core::at(pros, other);
+        core::at(pros, other) = swap;
     }
     std::array<int, kLeaders - 1> ids = {{1, 2, 3, 4, 5, 6, 7}};
     for (int& id : ids) {
         const int other = maths::roll_side_stream(kLeaders - 1);
         const int swap = id;
-        id = ids[other];
-        ids[other] = swap;
+        id = core::at(ids, other);
+        core::at(ids, other) = swap;
     }
 
-    leaders_[0].ident_ = 0;
-    for (int& score : leaders_[0].scores_)
+    core::at(leaders_, 0).ident_ = 0;
+    for (int& score : core::at(leaders_, 0).scores_)
         score = 0;
     bronze = static_cast<float>(maths::plus_or_minus_exact(two()) + bronze);
     silver = static_cast<float>(maths::plus_or_minus_exact(two()) + silver);
@@ -275,14 +276,14 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         bronze = static_cast<float>(static_cast<double>(silver) - tenth());
 
     for (int i = 0; i < kLeaders - 1; ++i) {
-        Leader& leader = leaders_[i + 1];
-        leader.ident_ = ids[i];
+        Leader& leader = core::at(leaders_, i + 1);
+        leader.ident_ = core::at(ids, i);
         script::Array* names = nullptr;
         const char* name = nullptr;
         if (args_->fetch_list(kLeaderBoardNames, &names, 0))
             name = names->find_inline_text(static_cast<uint32_t>(i));
         else
-            name = manager->get_template(manager->get_template_name(pros[i]))->fetch_shown_name();
+            name = manager->get_template(manager->get_template_name(core::at(pros, i)))->fetch_shown_name();
         leader.label_ = name;
 
         // The first three pros near the medal points, the others near the bronze.
@@ -314,28 +315,28 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         const float base = low - two();
         for (int& score : leader.scores_)
             score = truncate(maths::plus_or_minus_exact(kScoreSpread) + base + nearly_half());
-        leader.scores_[first] = current_round(high);
-        leader.scores_[second] = current_round(mirrored);
+        core::at(leader.scores_, first) = current_round(high);
+        core::at(leader.scores_, second) = current_round(mirrored);
     }
 
     debug::printf("\n\n");
     for (int i = 0; i < kLeaders; ++i) {
-        const Leader& leader = leaders_[i];
+        const Leader& leader = core::at(leaders_, i);
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     sort_leaders();
     const char* first_place = nullptr;
     if (args_->fetch_text(kFirstPlaceName, &first_place, 0))
-        leaders_[0].label_ = first_place;
+        core::at(leaders_, 0).label_ = first_place;
     debug::printf("\nSorted\n");
     for (int i = 0; i < kLeaders; ++i) {
-        const Leader& leader = leaders_[i];
+        const Leader& leader = core::at(leaders_, i);
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < kJudges; ++i)
-        judge_names_[i] = script::fetch_text(kJudgeNames[i]);
+        core::at(judge_names_, i) = script::fetch_text(core::at(kJudgeNames, i));
     runs_ = -1;
 }
 
@@ -349,12 +350,12 @@ void Contest::show_leader_board()
     board->configure_size_kind(5, script::kQbvalStruct);
     debug::printf("\nSetupJudgeText\n");
     for (int i = 0; i < kLeaders; ++i) {
-        const Leader& leader = leaders_[i];
+        const Leader& leader = core::at(leaders_, i);
         debug::printf("%d: pos %d, name %12s, %3d, %3d, %3d, %3d\n", i, leader.ident_, leader.label_.c_str(),
                       leader.get_word(0), leader.get_word(1), leader.get_word(2), leader.best_two_of_four_words());
     }
     for (int i = 0; i < 5; ++i) {
-        const Leader& leader = leaders_[i];
+        const Leader& leader = core::at(leaders_, i);
         script::Struct* entry = spawn_param_table();
         entry->append_word(kName, leader.label_.c_str());
         debug::printf("m_current_round: %i\n", runs_);
@@ -449,18 +450,18 @@ void Contest::end_run(int score)
         truncate((static_cast<double>(judges[1]) + judges[2] + judges[0]) * get_third() + nearly_half()));
     if (!(path_vertices_ <= limit))
         path_vertices_ = limit;
-    run_totals_[runs_] = truncate(path_vertices_);
+    core::at(run_totals_, runs_) = truncate(path_vertices_);
     debug::printf("3 scores are %f,%f,%f, total is %f\n", static_cast<double>(judges[0]),
                   static_cast<double>(judges[1]), static_cast<double>(judges[2]), static_cast<double>(path_vertices_));
 
     // The player's score of the run, the standings, the place.
     for (Leader& leader : leaders_) {
         if (leader.ident_ == 0)
-            leader.scores_[runs_] = run_totals_[runs_];
+            core::at(leader.scores_, runs_) = core::at(run_totals_, runs_);
     }
     sort_leaders();
     for (int i = 0; i < kLeaders; ++i) {
-        if (leaders_[i].ident_ == 0)
+        if (core::at(leaders_, i).ident_ == 0)
             standing_ = i + 1;
     }
 

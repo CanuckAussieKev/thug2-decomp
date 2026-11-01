@@ -29,6 +29,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -118,9 +119,9 @@ void apply_bar_style(bool select)
         return;
     if (select) {
         s_saved_bar_width = g_progress_width;
-        std::memcpy(s_saved_colors[0].data(), g_progress_from_color.data(), 4);
-        std::memcpy(s_saved_colors[1].data(), g_progress_to_color.data(), 4);
-        std::memcpy(s_saved_colors[2].data(), g_progress_edge_color.data(), 4);
+        std::memcpy(core::at(s_saved_colors, 0).data(), g_progress_from_color.data(), 4);
+        std::memcpy(core::at(s_saved_colors, 1).data(), g_progress_to_color.data(), 4);
+        std::memcpy(core::at(s_saved_colors, 2).data(), g_progress_edge_color.data(), 4);
         g_progress_width = 300;
         const uint8_t start[4] = {0xB9, 0xB5, 0xAC, 0x80}, end[4] = {0xF2, 0xE2, 0x05, 0x80},
                       track[4] = {0x3A, 0x3A, 0x38, 0x80};
@@ -129,9 +130,9 @@ void apply_bar_style(bool select)
         std::memcpy(g_progress_edge_color.data(), track, 4);
     } else {
         g_progress_width = s_saved_bar_width;
-        std::memcpy(g_progress_from_color.data(), s_saved_colors[0].data(), 4);
-        std::memcpy(g_progress_to_color.data(), s_saved_colors[1].data(), 4);
-        std::memcpy(g_progress_edge_color.data(), s_saved_colors[2].data(), 4);
+        std::memcpy(g_progress_from_color.data(), core::at(s_saved_colors, 0).data(), 4);
+        std::memcpy(g_progress_to_color.data(), core::at(s_saved_colors, 1).data(), 4);
+        std::memcpy(g_progress_edge_color.data(), core::at(s_saved_colors, 2).data(), 4);
     }
     s_bar_styled = select;
     update_loading_bar_colors();
@@ -248,7 +249,7 @@ void show_loading_screen(const char* name, bool keep, bool black)
                 const size_t length = std::strlen(picked.data());
                 const size_t tail = std::strlen(suffix);
                 if (length > tail && std::strcmp(picked.data() + length - tail, suffix) == 0)
-                    picked[length - tail] = '\0';
+                    core::at(picked, length - tail) = '\0';
             }
             name = picked.data();
         }

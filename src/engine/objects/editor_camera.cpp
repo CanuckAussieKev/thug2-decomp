@@ -32,6 +32,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -360,7 +361,7 @@ void EditorViewModule::tick_frame()
     const PadSnapshot& pad = input_ptr_->pad_primary_;
 
     // Heading, wrapped into 0..2 pi (the comparison on the unrounded sum, as the original).
-    const double heading = static_cast<double>(get_global(0x8242D878)) * pad.scaled_stick_[0] + heading_;
+    const double heading = static_cast<double>(get_global(0x8242D878)) * core::at(pad.scaled_stick_, 0) + heading_;
     heading_ = static_cast<float>(heading);
     if (heading > kTwoPi) {
         double h = heading_;
@@ -377,7 +378,7 @@ void EditorViewModule::tick_frame()
         heading_ = static_cast<float>(h);
     }
     // Tilt, within the globals' range.
-    const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * pad.scaled_stick_[1]) + lean_angle_;
+    const double tilt = -(static_cast<double>(get_global(0x3CFA3A72)) * core::at(pad.scaled_stick_, 1)) + lean_angle_;
     lean_angle_ = static_cast<float>(tilt);
     if (tilt > max_tilt_)
         lean_angle_ = max_tilt_;
@@ -496,8 +497,8 @@ void EditorViewModule::tick_frame()
         speed = 1.0f;
 
     // The left stick (or the d-pad) moves the cursor along the axes.
-    auto side = static_cast<float>(static_cast<double>(pad.stick_[2]) * kStickScale);
-    double ahead = static_cast<double>(pad.stick_[3]) * kStickScale;
+    auto side = static_cast<float>(static_cast<double>(core::at(pad.stick_, 2)) * kStickScale);
+    double ahead = static_cast<double>(core::at(pad.stick_, 3)) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
         if (pad.left_side_.held_down_)
             side = -0.5f;
@@ -542,14 +543,14 @@ void EditorViewModule::tick_frame()
     auto at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
     auto at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
     maths::Mat4 look;
-    look.row[0] = {right_side_.x, right_side_.y, right_side_.z, 0.0f};
-    look.row[1] = {
+    core::at(look.row, 0) = {right_side_.x, right_side_.y, right_side_.z, 0.0f};
+    core::at(look.row, 1) = {
         static_cast<float>(static_cast<double>(at_y) * right_side_.z - static_cast<double>(at_z) * right_side_.y),
         static_cast<float>(static_cast<double>(at_z) * right_side_.x - static_cast<double>(at_x) * right_side_.z),
         static_cast<float>(static_cast<double>(at_x) * right_side_.y - static_cast<double>(at_y) * right_side_.x),
         0.0f};
-    look.row[2] = {at_x, at_y, at_z, 0.0f};
-    look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(look.row, 2) = {at_x, at_y, at_z, 0.0f};
+    core::at(look.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     entity_->basis_frame_ = look;
     const float zoom_now = zoom_;
     const float off_w = previous.w * zoom_now; // (the cursor's w from before the move, as the original reuses it)

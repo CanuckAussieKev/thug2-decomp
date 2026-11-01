@@ -21,6 +21,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/util/com_ptr.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui_backend {
 
@@ -237,7 +238,7 @@ bool begin_offscreen(int size, uint32_t argb)
     device->GetDepthStencilSurface(&o.saved_depth_);
     device->GetViewport(&o.saved_viewport_);
     for (int i = 0; i < 3; ++i)
-        device->GetTransform(kSavedTransforms[i], &o.saved_transforms_[i]);
+        device->GetTransform(core::at(kSavedTransforms, i), &core::at(o.saved_transforms_, i));
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(o.depth);
@@ -258,7 +259,7 @@ void end_offscreen()
     device->SetDepthStencilSurface(o.saved_depth_);
     device->SetViewport(&o.saved_viewport_); // (after the target: setting one resets the viewport)
     for (int i = 0; i < 3; ++i)
-        device->SetTransform(kSavedTransforms[i], &o.saved_transforms_[i]);
+        device->SetTransform(core::at(kSavedTransforms, i), &core::at(o.saved_transforms_, i));
     if (o.saved_target_)
         o.saved_target_->Release();
     if (o.saved_depth_)
@@ -360,7 +361,7 @@ bool begin_atlas_cell(int atlas_size, int x, int y, int size, uint32_t argb)
     device->GetDepthStencilSurface(&a.saved_depth_);
     device->GetViewport(&a.saved_viewport_);
     for (int i = 0; i < 3; ++i)
-        device->GetTransform(kSavedTransforms[i], &a.saved_transforms_[i]);
+        device->GetTransform(core::at(kSavedTransforms, i), &core::at(a.saved_transforms_, i));
     device->SetRenderTarget(0, surface);
     surface->Release();
     device->SetDepthStencilSurface(a.depth);
@@ -383,7 +384,7 @@ void end_atlas_cell()
     device->SetDepthStencilSurface(a.saved_depth_);
     device->SetViewport(&a.saved_viewport_);
     for (int i = 0; i < 3; ++i)
-        device->SetTransform(kSavedTransforms[i], &a.saved_transforms_[i]);
+        device->SetTransform(core::at(kSavedTransforms, i), &core::at(a.saved_transforms_, i));
     if (a.saved_target_)
         a.saved_target_->Release();
     if (a.saved_depth_)

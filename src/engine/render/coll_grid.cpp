@@ -14,6 +14,7 @@
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/arena_alloc.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -215,7 +216,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
         cells_of(&statics[i], x0, x1, z0, z1);
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z)
-                ++cells_[x][z].count;
+                ++core::at(core::at(cells_, x), z).count;
         }
     }
     for (auto& column : cells_) {
@@ -323,7 +324,7 @@ HitMesh** CollGrid::objects_in_box(const maths::BBox* box)
     int found = 0;
     for (int x = x0; x <= x1; ++x) {
         for (int z = z0; z <= z1; ++z) {
-            const CollGridCell& cell = cells_[x][z];
+            const CollGridCell& cell = core::at(core::at(cells_, x), z);
             for (int i = 0; i < cell.count; ++i) {
                 HitMesh* object = cell.objects[i];
                 if (listable(object) && object->visit_stamp_ != stamp) {
@@ -384,7 +385,7 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     }
     int found = 0;
     if (x0 == x1 && z0 == z1) {
-        const CollGridCell& cell = cells_[x0][z0];
+        const CollGridCell& cell = core::at(core::at(cells_, x0), z0);
         for (int i = 0; i < cell.count; ++i) {
             if (listable(cell.objects[i]))
                 kFound[found++] = cell.objects[i];
@@ -393,7 +394,7 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
         const uint8_t stamp = ++s_stamp;
         for (int x = x0; x <= x1; ++x) {
             for (int z = z0; z <= z1; ++z) {
-                const CollGridCell& cell = cells_[x][z];
+                const CollGridCell& cell = core::at(core::at(cells_, x), z);
                 for (int i = 0; i < cell.count; ++i) {
                     HitMesh* object = cell.objects[i];
                     if (listable(object) && object->visit_stamp_ != stamp && found < kMostFound) {

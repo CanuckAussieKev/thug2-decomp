@@ -13,6 +13,7 @@
 #include <array>
 
 #include "engine/core/parse_number.h"
+#include "engine/core/checked_index.h"
 
 namespace {
 
@@ -74,7 +75,7 @@ int main(int argc, char** argv)
         std::string text;
         const int n = length(random);
         for (int k = 0; k < n; ++k)
-            text += alphabet[pick(random)];
+            text += core::at(alphabet, pick(random));
         check(text);
     }
     std::printf("parse check: %d texts, %d differences\n", g_checked, g_failures);

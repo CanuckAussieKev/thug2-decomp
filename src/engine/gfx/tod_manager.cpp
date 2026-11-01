@@ -44,6 +44,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -314,7 +315,7 @@ uint32_t previous_tod_state(uint32_t state)
 int CtodManager::current_system() const
 {
     int index = 0;
-    while (index < kSystems && systems_[index].sky)
+    while (index < kSystems && core::at(systems_, index).sky)
         ++index;
     return index;
 }
@@ -580,7 +581,7 @@ void CtodManager::next_state(int index)
 // 0x005724D0
 void CtodManager::update_sun()
 {
-    const TodSystem& system = systems_[0];
+    const TodSystem& system = core::at(systems_, 0);
     double t = 0.0;
     if (system.transitioning)
         t = get_fraction(system.time + system.state_length_, system.transition_length_ + system.state_length_);
@@ -592,10 +593,10 @@ void CtodManager::update_sun()
     SunParams sun = {};
     sun.theta = blend(a.sun_theta_, b.sun_theta_);
     sun.phi = blend(a.sun_phi_, b.sun_phi_);
-    sun.color[0] = blend(a.sun_red_, b.sun_red_);
-    sun.color[1] = blend(a.sun_green_, b.sun_green_);
-    sun.color[2] = blend(a.sun_blue_, b.sun_blue_);
-    sun.color[3] = 128.0f;
+    core::at(sun.color, 0) = blend(a.sun_red_, b.sun_red_);
+    core::at(sun.color, 1) = blend(a.sun_green_, b.sun_green_);
+    core::at(sun.color, 2) = blend(a.sun_blue_, b.sun_blue_);
+    core::at(sun.color, 3) = 128.0f;
     sun.shown = system.state != kNight;
     set_sun(&sun, kSunAngles | kSunColor | kSunShown);
 }
@@ -714,15 +715,15 @@ void set_light_direction(int index, float heading, float pitch)
     const double sin_pitch = std::sin(p);
     const double cos_pitch = std::cos(p);
     std::array<float, 4> direction{};
-    direction[3] = 0.0f;
-    direction[1] = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
+    core::at(direction, 3) = 0.0f;
+    core::at(direction, 1) = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
     const double horizontal = cos_pitch + sin_pitch * get_zero();
     const double h = static_cast<double>(heading) * degree_to_radian_conv();
     auto sin_heading = static_cast<float>(std::sin(h));
     const double cos_heading = std::cos(h);
     auto cos_heading_float = static_cast<float>(std::cos(h));
-    direction[2] = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
-    direction[0] = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
+    core::at(direction, 2) = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
+    core::at(direction, 0) = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
     set_light_direction_vector(index, direction.data());
 }
 
@@ -1097,7 +1098,7 @@ void CtodManager::tick_frame()
     full_length_ += elapsed;
     update_sun();
     for (int index = 0; index < kSystems; ++index) {
-        TodSystem& system = systems_[index];
+        TodSystem& system = core::at(systems_, index);
         system.time += elapsed;
         if (!system.transitioning && system.time > system.state_length_) {
             system.time = 0;
@@ -1127,7 +1128,7 @@ void CtodManager::set_tod_instant(uint32_t state)
     }
     // Every system moved on by that long.
     for (int index = 0; index < kSystems; ++index) {
-        TodSystem& system = systems_[index];
+        TodSystem& system = core::at(systems_, index);
         int left = remaining;
         while (left > 0) {
             if (system.transitioning) {
@@ -1156,7 +1157,7 @@ void CtodManager::set_tod_instant(uint32_t state)
 uint32_t CtodManager::current_state() const
 {
     const int index = current_system();
-    return index < kSystems ? systems_[index].state : 0;
+    return index < kSystems ? core::at(systems_, index).state : 0;
 }
 
 // NOT ORIGINAL (engine/net/thugpro_peer.h): set_tod_instant's walk, without moving - at most once round the four states:
@@ -1166,7 +1167,7 @@ bool CtodManager::can_set_tod_instant(uint32_t state) const
     const int index = current_system();
     if (index >= kSystems)
         return false;
-    const TodSystem& current = systems_[index];
+    const TodSystem& current = core::at(systems_, index);
     if (!current.params)
         return false;
     uint32_t s = next_tod_state(current.state);
@@ -1289,7 +1290,7 @@ bool cfunc_tod_manager_get_current_tod_params(script::Struct* params, script::Sc
     script::Struct* out = spawn_param_table();
     out->put_int(kActive, manager->active_);
     int current = 0;
-    while (current < CtodManager::kSystems && manager->systems_[current].sky)
+    while (current < CtodManager::kSystems && core::at(manager->systems_, current).sky)
         ++current;
     out->put_name_key(kCurrentStateName, system_at(manager, current).state);
     out->put_int(kLevRed, p.lev_red_);
@@ -1429,7 +1430,7 @@ bool cfunc_tod_manager_advance_tod_state(script::Struct* /*params*/, script::Scr
     if (!manager)
         return false;
     int current = 0;
-    while (current < CtodManager::kSystems && manager->systems_[current].sky)
+    while (current < CtodManager::kSystems && core::at(manager->systems_, current).sky)
         ++current;
     manager->set_tod_instant(next_tod_state(system_at(manager, current).state));
     return true;

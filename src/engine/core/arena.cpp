@@ -7,6 +7,7 @@
 #include "engine/core/mem.h"
 #include "engine/script/cfuncs_engine.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace memory {
 
@@ -88,8 +89,8 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         if (use_fallbacks_ && !heap_busy()) {
             heap_busy() = 1;
             for (int i = 0; i < 5; ++i) {
-                Arena* other = fallbacks_[i];
-                if (other && other->region_->free_byte_count() > fallback_reserve_[i] + static_cast<int>(size)) {
+                Arena* other = core::at(fallbacks_, i);
+                if (other && other->region_->free_byte_count() > core::at(fallback_reserve_, i) + static_cast<int>(size)) {
                     if (void* block = other->carve(size, false)) {
                         heap_busy() = 0;
                         return block;

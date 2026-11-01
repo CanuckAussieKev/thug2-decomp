@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::restart_tester {
 
@@ -140,7 +141,7 @@ void get_next()
     if (visited_state().size() >= restarts.size())
         visited_state().clear(); // (a new round)
     for (size_t i = 0; i < restarts.size(); ++i) {
-        const Relaunch& r = restarts[i];
+        const Relaunch& r = core::at(restarts, i);
         if (visited_state().count(r.name))
             continue;
         visited_state().insert(r.name);

@@ -11,6 +11,7 @@
 #include "engine/core/mem.h"
 #include "platform/run_log.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace memory {
 
@@ -46,10 +47,10 @@ void* SlabBank::carve()
         static int g_reported_count;
         bool seen = false;
         for (int i = 0; i < g_reported_count; ++i)
-            seen = seen || reported[i] == this;
+            seen = seen || core::at(reported, i) == this;
         // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
-        if (!seen && g_reported_count < 16 && label_[0] != '\0') {
-            reported[g_reported_count++] = this;
+        if (!seen && g_reported_count < 16 && core::at(label_, 0) != '\0') {
+            core::at(reported, g_reported_count++) = this;
             get_log("pool %s full: all %d items (%d bytes each) in use", label_.data(), num_, slot_bytes_);
         }
         return nullptr;
@@ -60,14 +61,14 @@ void* SlabBank::carve()
         // Not original either - a pool reaching 80 % is logged once per pool (which pools a big level comes near:
         // the script pools' sizes are ours, engine/core/memory_sizes.h).
         if (static_cast<int64_t>(taken_count_) * 5 == static_cast<int64_t>(num_) * 4 && num_ >= 50 &&
-            label_[0] != '\0') {
+            core::at(label_, 0) != '\0') {
             static std::array<const SlabBank*, 32> g_nearly_full;
             static int g_nearly_full_count;
             bool seen = false;
             for (int i = 0; i < g_nearly_full_count; ++i)
-                seen = seen || g_nearly_full[i] == this;
+                seen = seen || core::at(g_nearly_full, i) == this;
             if (!seen && g_nearly_full_count < 32) {
-                g_nearly_full[g_nearly_full_count++] = this;
+                core::at(g_nearly_full, g_nearly_full_count++) = this;
                 get_log("pool %s 80%% full: %d of %d items in use", label_.data(), taken_count_, num_);
             }
         }
@@ -96,7 +97,7 @@ namespace slot_pool_setup {
 namespace {
 std::array<SlabBank*, 2> g_pools; // (the memory card's path buffer follows)
 
-SlabBank*& pool_at(int index) { return g_pools[index]; }
+SlabBank*& pool_at(int index) { return core::at(g_pools, index); }
 } // namespace
 
 // 0x005BC3C0
@@ -133,7 +134,7 @@ void return_entry(int index, void* item)
 
 void* PoolPair::carve(unsigned int size)
 {
-    if (SlabBank* pool = pools[current])
+    if (SlabBank* pool = core::at(pools, current))
         return pool->carve();
     return alloc(size);
 }
@@ -141,7 +142,7 @@ void* PoolPair::carve(unsigned int size)
 void PoolPair::dealloc(void* item)
 {
     for (const int which : {current, current ^ 1}) {
-        SlabBank* pool = pools[which];
+        SlabBank* pool = core::at(pools, which);
         if (pool && pool->get_holds(item)) {
             pool->dealloc(item);
             return;

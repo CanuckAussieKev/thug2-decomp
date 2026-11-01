@@ -4,6 +4,7 @@
 #include <array>
 
 #include "formats/lzss.h"
+#include "engine/core/checked_index.h"
 
 namespace lzss {
 
@@ -37,7 +38,7 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
             }
             const uint8_t c = in[read++];
             out[put++] = c;
-            window[r] = c;
+            core::at(window, r) = c;
             r = (r + 1) & (kWindow - 1);
         } else {
             if (read == in_size)
@@ -54,9 +55,9 @@ bool unpack(const uint8_t* in, size_t in_size, uint8_t* out, size_t out_capacity
                 break;
             }
             for (int k = 0; k <= last; ++k) {
-                const uint8_t c = window[(position + k) & (kWindow - 1)];
+                const uint8_t c = core::at(window, (position + k) & (kWindow - 1));
                 out[put++] = c;
-                window[r] = c;
+                core::at(window, r) = c;
                 r = (r + 1) & (kWindow - 1);
             }
         }

@@ -17,6 +17,7 @@
 #include "editor/level_editor_modules.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::notes {
 
@@ -47,15 +48,15 @@ bool decode(const std::string& encoded, std::string* text)
 {
     text->clear();
     for (size_t i = 0; i < encoded.size(); ++i) {
-        const char c = encoded[i];
+        const char c = core::at(encoded, i);
         if (c == '"' || c == '#')
             return false;
         if (c != '%') {
             *text += c;
             continue;
         }
-        if (i + 2 >= encoded.size() || !std::isxdigit(static_cast<unsigned char>(encoded[i + 1])) ||
-            !std::isxdigit(static_cast<unsigned char>(encoded[i + 2])))
+        if (i + 2 >= encoded.size() || !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 1))) ||
+            !std::isxdigit(static_cast<unsigned char>(core::at(encoded, i + 2))))
             return false;
         *text += static_cast<char>(std::strtol(encoded.substr(i + 1, 2).c_str(), nullptr, 16));
         i += 2;
@@ -84,8 +85,8 @@ bool read_triple(const std::string& text, V3* out)
     const char* at = text.c_str();
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
-        v[i] = std::strtof(at, &end);
-        if (end == at || !std::isfinite(v[i]))
+        core::at(v, i) = std::strtof(at, &end);
+        if (end == at || !std::isfinite(core::at(v, i)))
             return false;
         at = end;
         if (i < 2) {
@@ -96,7 +97,7 @@ bool read_triple(const std::string& text, V3* out)
     }
     if (*at)
         return false;
-    *out = {v[0], v[1], v[2]};
+    *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
     return true;
 }
 
@@ -132,7 +133,7 @@ bool read_record(std::istringstream& in, Note* out)
         if (key.find(' ') != std::string::npos)
             return false;
         if (key == "text") {
-            if (equals + 1 >= rest.size() || rest[equals + 1] != '"')
+            if (equals + 1 >= rest.size() || core::at(rest, equals + 1) != '"')
                 return false;
             const size_t close = rest.find('"', equals + 2);
             if (close == std::string::npos || !decode(rest.substr(equals + 2, close - equals - 2), &out->text))
@@ -352,7 +353,7 @@ void outliner_section(ImFont* mono, const char* search)
     if (g_notes.empty())
         ImGui::TextDisabled("No notes");
     for (size_t i = 0; i < g_notes.size(); ++i) {
-        const Note& note = g_notes[i];
+        const Note& note = core::at(g_notes, i);
         if (!get_matches(note.name + " " + note.text, search))
             continue;
         ImGui::PushID(static_cast<int>(i));
@@ -414,7 +415,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
             g_queue.emplace_back([] {
                 bool same = g_before.size() == g_notes.size();
                 for (size_t i = 0; same && i < g_notes.size(); ++i)
-                    same = get_same(g_before[i], g_notes[i]);
+                    same = get_same(core::at(g_before, i), core::at(g_notes, i));
                 if (!same)
                     push_module_undo(std::make_shared<NotesStep>(g_before));
             });
@@ -433,11 +434,11 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     for (int c = 0; c < kColourCount; ++c) {
         ImGui::SameLine();
         ImGui::PushID(c);
-        const bool on = note->colour == kColours[c];
-        const ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(kColours[c]));
+        const bool on = note->colour == core::at(kColours, c);
+        const ImVec4 colour = ImGui::ColorConvertU32ToFloat4(get_colour(core::at(kColours, c)));
         if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2(18.0f * scale, 18.0f * scale))) {
-            const uint32_t rgb = kColours[c];
+            const uint32_t rgb = core::at(kColours, c);
             g_queue.emplace_back([name, rgb] {
                 Note* n = get_find(name);
                 if (!n || n->colour == rgb)
@@ -458,7 +459,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     std::array<float, 3> pos = {{note->pos.x, note->pos.y, note->pos.z}};
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::DragFloat3("##pos", pos.data(), 5.0f, 0.0f, 0.0f, "%.0f")) {
-        const V3 to = {pos[0], pos[1], pos[2]};
+        const V3 to = {core::at(pos, 0), core::at(pos, 1), core::at(pos, 2)};
         g_queue.emplace_back([name, to] {
             if (Note* n = get_find(name))
                 n->pos = to;

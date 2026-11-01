@@ -23,6 +23,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -140,10 +141,10 @@ void DrivableModule::refresh_hit_cache()
         box.append_spot(wheels_[i].feeler_end_);
     }
     for (int i = 1; i >= 0; --i) {
-        const Collider& c = colliders_[i];
+        const Collider& c = core::at(colliders_, i);
         const maths::Vec4& o = c.world_corner_;
-        const maths::Vec4& a = c.world_edges_[0];
-        const maths::Vec4& b = c.world_edges_[1];
+        const maths::Vec4& a = core::at(c.world_edges_, 0);
+        const maths::Vec4& b = core::at(c.world_edges_, 1);
         box.append_spot(o);
         maths::Vec4 p;
         p = {static_cast<float>(static_cast<double>(o.x) + a.x), static_cast<float>(static_cast<double>(a.y) + o.y),
@@ -213,7 +214,7 @@ void DrivableModule::apply_damping()
         rotmom_.w = static_cast<float>(static_cast<double>(rotmom_.w) - dw);
     }
     // Upright on three or more wheels and not steering: the turning about up damped towards 0.
-    if (steering_ == 0.0f && static_cast<uint32_t>(wheels_in_contact_) > 2 && basis_frame_.row[1].y > kHalf) {
+    if (steering_ == 0.0f && static_cast<uint32_t>(wheels_in_contact_) > 2 && core::at(basis_frame_.row, 1).y > kHalf) {
         double yaw = static_cast<double>(yaw_damping_) * step_length_;
         if (std::fabs(static_cast<double>(rotmom_.y)) < std::fabs(yaw)) {
             rotmom_.y = 0.0f;
@@ -251,13 +252,13 @@ void DrivableModule::apply_suspension()
         Wheel& wheel = wheels_[i];
         if (wheel.state == kWheelInAir) {
             // (In the air the history gets an even share of the weight; the average isn't updated.)
-            wheel.load_history_[load_index_] =
+            core::at(wheel.load_history_, load_index_) =
                 static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
             continue;
         }
         // The spring (by how far the suspension is compressed along the ground's normal) and the damper.
         const maths::Vec4& n = wheel.normal;
-        const maths::Vec4& up = basis_frame_.row[1];
+        const maths::Vec4& up = core::at(basis_frame_.row, 1);
         const double up_along_normal =
             (static_cast<double>(up.z) * n.z + static_cast<double>(up.y) * n.y) + static_cast<double>(up.x) * n.x;
         const double spring = -(up_along_normal * (static_cast<double>(wheel.rest_y_) - wheel.y) * wheel.spring_rate_);
@@ -270,11 +271,11 @@ void DrivableModule::apply_suspension()
                                static_cast<float>(static_cast<double>(force_rounded) * n.z),
                                static_cast<float>(static_cast<double>(force_rounded) * n.w)};
         add_force_at_point(&push, &wheel.pos, 0xFF006464);
-        wheel.load_history_[load_index_] = force_rounded;
+        core::at(wheel.load_history_, load_index_) = force_rounded;
         // The load: the average of the last ten.
         wheel.load = 0.0f;
         for (int k = 9; k >= 0; --k)
-            wheel.load = static_cast<float>(static_cast<double>(wheel.load_history_[k]) + wheel.load);
+            wheel.load = static_cast<float>(static_cast<double>(core::at(wheel.load_history_, k)) + wheel.load);
         wheel.load = static_cast<float>(static_cast<double>(wheel.load) * kTenth);
     }
     auto next = static_cast<int8_t>(load_index_ + 1);
@@ -358,7 +359,7 @@ void DrivableModule::apply_engine_braking()
         if (!wheel.drive || wheel.state == kWheelInAir)
             continue;
         const int gear = get_gear(static_cast<float>(std::fabs(static_cast<double>(wheel.spin))));
-        const double ratio = transmission_ratios_[gear];
+        const double ratio = core::at(transmission_ratios_, gear);
         double braking = ratio * engine_braking_ * ratio / as_unsigned(drive_wheel_count_);
         const float stop = brake_turn_force(static_cast<double>(wheel.inv_moment_) * step_length_, wheel.spin);
         if (braking > stop)
@@ -373,7 +374,7 @@ void DrivableModule::apply_engine_braking()
 void DrivableModule::apply_drive_torque()
 {
     // Less drive on a slope (up.y squared / 0.9, at most 1).
-    const double upright = static_cast<double>(basis_frame_.row[1].y) * basis_frame_.row[1].y * kUprightBoost;
+    const double upright = static_cast<double>(core::at(basis_frame_.row, 1).y) * core::at(basis_frame_.row, 1).y * kUprightBoost;
     const float grip = upright > 1.0 ? 1.0f : static_cast<float>(upright);
     if (!(throttle_ || reverse_) || brake_)
         return;
@@ -387,7 +388,7 @@ void DrivableModule::apply_drive_torque()
         else
             spin = wheel.spin < 0.0f ? -wheel.spin : 0.0f;
         const int gear = get_gear(spin);
-        double torque = static_cast<double>(transmission_ratios_[gear]) * final_drive_ratio_ * engine_torque_ /
+        double torque = static_cast<double>(core::at(transmission_ratios_, gear)) * final_drive_ratio_ * engine_torque_ /
                         as_unsigned(drive_wheel_count_) * grip;
         if (reverse_)
             torque = -(torque * reverse_ratio_);
@@ -461,12 +462,12 @@ void DrivableModule::update_inertia()
 {
     // R * diag(inverse moments) * R^T.
     for (int r = 0; r < 3; ++r) {
-        (&inv_inertia_.row[r].x)[0] =
-            static_cast<float>(static_cast<double>((&basis_frame_.row[r].x)[0]) * inv_moments_[0]);
-        (&inv_inertia_.row[r].x)[1] =
-            static_cast<float>(static_cast<double>((&basis_frame_.row[r].x)[1]) * inv_moments_[1]);
-        (&inv_inertia_.row[r].x)[2] =
-            static_cast<float>(static_cast<double>((&basis_frame_.row[r].x)[2]) * inv_moments_[2]);
+        (&core::at(inv_inertia_.row, r).x)[0] =
+            static_cast<float>(static_cast<double>((&core::at(basis_frame_.row, r).x)[0]) * core::at(inv_moments_, 0));
+        (&core::at(inv_inertia_.row, r).x)[1] =
+            static_cast<float>(static_cast<double>((&core::at(basis_frame_.row, r).x)[1]) * core::at(inv_moments_, 1));
+        (&core::at(inv_inertia_.row, r).x)[2] =
+            static_cast<float>(static_cast<double>((&core::at(basis_frame_.row, r).x)[2]) * core::at(inv_moments_, 2));
     }
     render::MatrixTranspose transposed;
     transposed.transpose_from(&basis_frame_);
@@ -506,7 +507,7 @@ void DrivableModule::apply_wheel_forces()
 void DrivableModule::update_dependents()
 {
     quat_to_matrix(&orientation_, &basis_frame_);
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 turned;
     com_offset_ = basis_frame_.rotate_vector(turned, balance_point_);
     update_inertia();
@@ -543,7 +544,7 @@ void DrivableModule::update_dependents()
         wheel.feeler_end_.y = static_cast<float>(static_cast<double>(yy) + at_point_.y);
     }
     for (int i = 1; i >= 0; --i) {
-        Collider& c = colliders_[i];
+        Collider& c = core::at(colliders_, i);
         // The corner turned and moved; the edges turned (each with its own order of sums, as the original).
         const maths::Vec4& o = c.corner;
         const double x =
@@ -557,33 +558,33 @@ void DrivableModule::update_dependents()
         c.world_corner_.w = static_cast<float>(static_cast<double>(w) + at_point_.w);
         c.world_corner_.x = static_cast<float>(x + at_point_.x);
         c.world_corner_.y = static_cast<float>(static_cast<double>(y) + at_point_.y);
-        const maths::Vec4& a = c.edges[0];
-        c.world_edges_[0].z =
+        const maths::Vec4& a = core::at(c.edges, 0);
+        core::at(c.world_edges_, 0).z =
             static_cast<float>((static_cast<double>(r[2].z) * a.z + static_cast<double>(r[0].z) * a.x) +
                                static_cast<double>(r[1].z) * a.y);
-        c.world_edges_[0].w = a.w;
-        c.world_edges_[0].x =
+        core::at(c.world_edges_, 0).w = a.w;
+        core::at(c.world_edges_, 0).x =
             static_cast<float>((static_cast<double>(r[2].x) * a.z + static_cast<double>(r[1].x) * a.y) +
                                static_cast<double>(a.x) * r[0].x);
-        c.world_edges_[0].y =
+        core::at(c.world_edges_, 0).y =
             static_cast<float>((static_cast<double>(r[2].y) * a.z + static_cast<double>(r[0].y) * a.x) +
                                static_cast<double>(r[1].y) * a.y);
-        const maths::Vec4& b = c.edges[1];
+        const maths::Vec4& b = core::at(c.edges, 1);
         const float bw = b.w;
-        c.world_edges_[1].z =
+        core::at(c.world_edges_, 1).z =
             static_cast<float>((static_cast<double>(r[2].z) * b.z + static_cast<double>(r[1].z) * b.y) +
                                static_cast<double>(b.x) * r[0].z);
-        c.world_edges_[1].x =
+        core::at(c.world_edges_, 1).x =
             static_cast<float>((static_cast<double>(r[0].x) * b.x + static_cast<double>(r[2].x) * b.z) +
                                static_cast<double>(b.y) * r[1].x);
-        c.world_edges_[1].w = bw;
-        c.world_edges_[1].y =
+        core::at(c.world_edges_, 1).w = bw;
+        core::at(c.world_edges_, 1).y =
             static_cast<float>((static_cast<double>(r[1].y) * b.y + static_cast<double>(r[2].y) * b.z) +
                                static_cast<double>(r[0].y) * b.x);
         for (int k = 0; k < 2; ++k) {
-            const double inverse = 1.0 / c.lengths[k];
-            const maths::Vec4& edge = c.world_edges_[k];
-            c.directions[k] = {static_cast<float>(inverse * edge.x), static_cast<float>(inverse * edge.y),
+            const double inverse = 1.0 / core::at(c.lengths, k);
+            const maths::Vec4& edge = core::at(c.world_edges_, k);
+            core::at(c.directions, k) = {static_cast<float>(inverse * edge.x), static_cast<float>(inverse * edge.y),
                                static_cast<float>(inverse * edge.z), static_cast<float>(inverse * edge.w)};
         }
     }
@@ -705,7 +706,7 @@ void DrivableModule::read_controls()
 {
     const PadSnapshot& input = input_ptr_->pad_primary_;
     // The stick squared (its sign kept); else the d-pad's left / right.
-    const float stick = input.scaled_stick_[2];
+    const float stick = core::at(input.scaled_stick_, 2);
     const double steering = std::fabs(static_cast<double>(stick)) * stick;
     steering_ = static_cast<float>(steering);
     if (steering == 0.0) {
@@ -731,7 +732,7 @@ void DrivableModule::read_controls()
     }
     if (pressed) {
         bool brake = false;
-        const maths::Vec4& at = basis_frame_.row[2];
+        const maths::Vec4& at = core::at(basis_frame_.row, 2);
         if (!reverse_ && (!((static_cast<double>(vel_.z) * at.z + static_cast<double>(vel_.y) * at.y) +
                                 static_cast<double>(at.x) * vel_.x <
                             kReverseSpeed) ||

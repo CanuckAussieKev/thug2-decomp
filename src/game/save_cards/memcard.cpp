@@ -9,6 +9,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "game/save_cards/save_types.h"
+#include "engine/core/checked_index.h"
 
 namespace save_cards {
 
@@ -196,8 +197,8 @@ Hub::Hub()
 {
     for (int port = 0; port < 4; ++port) {
         for (int slot = 0; slot < 2; ++slot) {
-            slots_[port][slot].slot = slot;
-            slots_[port][slot].port = port;
+            core::at(core::at(slots_, port), slot).slot = slot;
+            core::at(core::at(slots_, port), slot).port = port;
         }
     }
     save_device_.present_ = 0x75;

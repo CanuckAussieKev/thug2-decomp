@@ -16,6 +16,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -574,10 +575,10 @@ std::array<char, 128> g_no_script_string;
 char* script_string_slot(int index)
 {
     if (index < 0 || index >= kScriptStringSlots) {
-        g_no_script_string[0] = 0;
+        core::at(g_no_script_string, 0) = 0;
         return g_no_script_string.data();
     }
-    return g_script_strings[index].data();
+    return core::at(g_script_strings, index).data();
 }
 } // namespace
 

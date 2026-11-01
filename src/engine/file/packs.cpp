@@ -22,6 +22,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/checked_index.h"
 
 namespace packs {
 
@@ -237,9 +238,9 @@ void load_pre(const char* name)
     bool loaded = false;
     const char letter = game_config::g_language == 3 ? 'f' : game_config::g_language == 5 ? 'd' : '\0';
     if (letter) {
-        path[length - 1] = letter;
+        core::at(path, length - 1) = letter;
         if (!file::is_present(path.data())) {
-            path[length - 2] = 'p';
+            core::at(path, length - 2) = 'p';
             if (file::is_present(path.data())) {
                 file::Hdl file = file::unseal(path.data(), "rb");
                 file_size = file::get_file_size(file);
@@ -247,8 +248,8 @@ void load_pre(const char* name)
                 patch = static_cast<uint32_t*>(memory::alloc(file_size));
                 file::get_take_in(patch, 1, static_cast<int>(file_size), file);
                 file::shut(file);
-                path[length - 2] = 'r';
-                path[length - 1] = 'e';
+                core::at(path, length - 2) = 'r';
+                core::at(path, length - 1) = 'e';
                 patched = true;
                 if (file_size != 0) {
                     // A leftover from the console versions' disc cache: always fails on PC, and the original
@@ -264,8 +265,8 @@ void load_pre(const char* name)
                     loaded = true;
                 }
             } else {
-                path[length - 2] = 'r';
-                path[length - 1] = 'e';
+                core::at(path, length - 2) = 'r';
+                core::at(path, length - 1) = 'e';
             }
         }
     }

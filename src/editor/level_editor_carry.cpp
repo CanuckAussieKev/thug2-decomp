@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::carry {
 
@@ -56,19 +57,19 @@ bool over_footprint(const OrientedBox& box, V3 p, float margin, float above)
     const V3 d = p - box.origin;
     std::array<float, 3> local{};
     for (int i = 0; i < 3; ++i) {
-        const float length2 = get_dot(box.axes[i], box.axes[i]);
+        const float length2 = get_dot(core::at(box.axes, i), core::at(box.axes, i));
         if (!(length2 > 0.0f))
             return false;
         // (local units are the box's: a margin in world units is margin / |axis| of them)
-        local[i] = get_dot(d, box.axes[i]) / length2;
+        core::at(local, i) = get_dot(d, core::at(box.axes, i)) / length2;
     }
-    const std::array<float, 3> lengths = {{std::sqrt(get_dot(box.axes[0], box.axes[0])),
-                              std::sqrt(get_dot(box.axes[1], box.axes[1])),
-                              std::sqrt(get_dot(box.axes[2], box.axes[2]))}};
+    const std::array<float, 3> lengths = {{std::sqrt(get_dot(core::at(box.axes, 0), core::at(box.axes, 0))),
+                              std::sqrt(get_dot(core::at(box.axes, 1), core::at(box.axes, 1))),
+                              std::sqrt(get_dot(core::at(box.axes, 2), core::at(box.axes, 2)))}};
     auto within = [](float v, float lo, float hi) { return v >= lo && v <= hi; };
-    return within(local[0], box.min.x - margin / lengths[0], box.max.x + margin / lengths[0]) &&
-           within(local[2], box.min.z - margin / lengths[2], box.max.z + margin / lengths[2]) &&
-           within(local[1], box.min.y - margin / lengths[1], box.max.y + above / lengths[1]);
+    return within(core::at(local, 0), box.min.x - margin / core::at(lengths, 0), box.max.x + margin / core::at(lengths, 0)) &&
+           within(core::at(local, 2), box.min.z - margin / core::at(lengths, 2), box.max.z + margin / core::at(lengths, 2)) &&
+           within(core::at(local, 1), box.min.y - margin / core::at(lengths, 1), box.max.y + above / core::at(lengths, 1));
 }
 
 Attachment attached(uint32_t cluster, const std::vector<uint32_t>& links, uint32_t ground_hit,
@@ -143,7 +144,7 @@ script::Struct* look_up_node_params(uint32_t name, const nodes::Elem** out)
     const int index = name ? nodes::get_find(name) : -1;
     if (index < 0)
         return nullptr;
-    const nodes::Elem& node = nodes::get_all()[index];
+    const nodes::Elem& node = core::at(nodes::get_all(), index);
     if (out)
         *out = &node;
     return nodes::struct_of(node);
@@ -165,7 +166,7 @@ std::vector<uint32_t> link_names(const nodes::Elem* node)
     const std::vector<nodes::Elem>& all = nodes::get_all();
     for (const int link : node->links) {
         if (link >= 0 && std::cmp_less(link, all.size()))
-            names.push_back(all[link].name);
+            names.push_back(core::at(all, link).name);
     }
     return names;
 }

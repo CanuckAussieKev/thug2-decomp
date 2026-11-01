@@ -17,6 +17,7 @@
 
 #include "engine/maths/trig.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/checked_index.h"
 
 #if defined(_MSC_VER) && defined(_M_IX86)
 #include <cfloat>
@@ -71,7 +72,7 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* 
     const double rest = 1.0 - f;
     uint32_t color = 0;
     for (int k = 0; k < 4; ++k) {
-        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(to[kOrder[k]] * f + from[kOrder[k]] * rest));
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(to[core::at(kOrder, k)] * f + from[core::at(kOrder, k)] * rest));
         color = k ? (color << 8 | value) : value;
     }
     return color;
@@ -575,8 +576,8 @@ uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* 
     }
     for (int k = 0; k < 4; ++k)
     {
-        int a = to[kOrder[k]];
-        int b = from[kOrder[k]];
+        int a = to[core::at(kOrder, k)];
+        int b = from[core::at(kOrder, k)];
         int64_t value = 0;
         __asm {
             fild a
@@ -1318,8 +1319,8 @@ void run(int count, std::mt19937_64& random)
         compare(t_atan2_qt, fresh::atan2_less_quarter_turn(y, x), ref::atan2_less_quarter_turn(y, x), y);
         uint8_t from[4], to[4];
         for (int k = 0; k < 4; ++k) {
-            from[k] = static_cast<uint8_t>(byte(random));
-            to[k] = static_cast<uint8_t>(byte(random));
+            core::at(from, k) = static_cast<uint8_t>(byte(random));
+            core::at(to, k) = static_cast<uint8_t>(byte(random));
         }
         const int den = key_time(random) + 1, num = key_time(random) % den;
         {
@@ -1399,15 +1400,15 @@ void run(int count, std::mt19937_64& random)
         compare(t_versine, vs_fresh, vs_ref, fa);
         fresh::Skin skin{};
         for (int k = 0; k < 4; ++k) {
-            skin.e0[k] = weight(random) + 0.5f;
-            skin.e1[k] = weight(random) + 0.5f;
-            skin.e2[k] = weight(random) + 0.5f;
-            skin.a[k] = small(random) * 20.0f;
-            skin.b[k] = small(random) * 20.0f;
-            skin.c[k] = small(random) * 20.0f;
-            skin.p[k] = small(random) * 50.0f;
-            skin.q[k] = small(random) * 50.0f;
-            skin.r[k] = small(random) * 50.0f;
+            core::at(skin.e0, k) = weight(random) + 0.5f;
+            core::at(skin.e1, k) = weight(random) + 0.5f;
+            core::at(skin.e2, k) = weight(random) + 0.5f;
+            core::at(skin.a, k) = small(random) * 20.0f;
+            core::at(skin.b, k) = small(random) * 20.0f;
+            core::at(skin.c, k) = small(random) * 20.0f;
+            core::at(skin.p, k) = small(random) * 50.0f;
+            core::at(skin.q, k) = small(random) * 50.0f;
+            core::at(skin.r, k) = small(random) * 50.0f;
         }
         skin.s[0] = weight(random);
         skin.s[1] = weight(random) * (1.0f - skin.s[0]);
@@ -1416,11 +1417,11 @@ void run(int count, std::mt19937_64& random)
         fresh::skin(skin, out_fresh);
         ref::skin_memory(skin, out_ref);
         for (int k = 0; k < 3; ++k)
-            compare(t_skin_m, out_fresh[k], out_ref[k], k);
+            compare(t_skin_m, core::at(out_fresh, k), core::at(out_ref, k), k);
         fresh::skin(skin, out_fresh);
         ref::skin_file(skin, out_ref);
         for (int k = 0; k < 3; ++k)
-            compare(t_skin_f, out_fresh[k], out_ref[k], k);
+            compare(t_skin_f, core::at(out_fresh, k), core::at(out_ref, k), k);
     }
     // The edges: +-1, 0, NaN, outside [-1, 1] for asin / acos.
     const auto edges = std::to_array<double>({1.0, -1.0, 0.0, -0.0, 1.0000001, -1.5, 2.0, NAN, INFINITY, -static_cast<double>(INFINITY)});

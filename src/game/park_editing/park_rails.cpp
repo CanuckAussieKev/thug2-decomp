@@ -12,6 +12,7 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -36,16 +37,16 @@ void delete_pool(memory::SlabBank* pool)
 // `pool` lent to `pair` as its current pool (not owned).
 void lend_pool(memory::PoolPair& pair, memory::SlabBank* pool)
 {
-    pair.pools[pair.current] = pool;
+    core::at(pair.pools, pair.current) = pool;
     pool_owned(pair) = 0;
 }
 // The current pool taken away again (deleted if the pair made it).
 void take_back_pool(memory::PoolPair& pair)
 {
-    if (memory::SlabBank* pool = pair.pools[pair.current]) {
+    if (memory::SlabBank* pool = core::at(pair.pools, pair.current)) {
         if (pool_owned(pair))
             delete_pool(pool);
-        pair.pools[pair.current] = nullptr;
+        core::at(pair.pools, pair.current) = nullptr;
     }
 }
 

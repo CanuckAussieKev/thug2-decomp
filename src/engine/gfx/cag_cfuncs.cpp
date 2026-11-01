@@ -18,6 +18,7 @@
 #include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -264,14 +265,14 @@ bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
     }
     std::array<void*, 4> has{};
     for (int i = 0; i < 4; ++i)
-        has[i] = profile->appearance()->get_part(kHeadBoneGroups[i]);
+        core::at(has, i) = profile->appearance()->get_part(core::at(kHeadBoneGroups, i));
     Struct* appearance = &profile->appearance()->structure_;
     for (int i = 0; i < 4; ++i) {
-        if (has[i])
+        if (core::at(has, i))
             continue;
         Struct* group = nullptr;
-        if (head->read_sub_struct(kHeadBoneGroups[i], &group, 0))
-            appearance->put_sub_struct(kHeadBoneGroups[i], group);
+        if (head->read_sub_struct(core::at(kHeadBoneGroups, i), &group, 0))
+            appearance->put_sub_struct(core::at(kHeadBoneGroups, i), group);
     }
     return true;
 }

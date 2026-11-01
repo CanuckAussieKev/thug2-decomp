@@ -17,6 +17,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -249,11 +250,11 @@ gsl::owner<UserClipKey*> create_custom_anim_key(util::ByteReader& reader)
         return nullptr;
     switch (key.kind) {
     case 1:
-        return new CameraFovKey(key.frame, key.values[0]);
+        return new CameraFovKey(key.frame, core::at(key.values, 0));
     case 2:
     case 7: {
-        const maths::Vec4 pos = {key.values[0], key.values[1], key.values[2], key.values[3]};
-        const maths::QuatRotation rotation = {key.values[4], key.values[5], key.values[6], key.values[7]};
+        const maths::Vec4 pos = {core::at(key.values, 0), core::at(key.values, 1), core::at(key.values, 2), core::at(key.values, 3)};
+        const maths::QuatRotation rotation = {core::at(key.values, 4), core::at(key.values, 5), core::at(key.values, 6), core::at(key.values, 7)};
         return new CameraKey(key.frame, &rotation, &pos, key.kind == 7);
     }
     case 3:

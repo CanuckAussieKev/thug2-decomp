@@ -18,6 +18,7 @@
 #include "platform/run_log.h"
 #include "platform/code_address.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::test_view {
 
@@ -119,7 +120,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     if (!skater)
         return "no local skater";
     if (!has_heading) {
-        const maths::Vec4& at = skater->basis_frame_.row[2];
+        const maths::Vec4& at = core::at(skater->basis_frame_.row, 2);
         heading_degrees =
             static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     }
@@ -134,10 +135,10 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     const maths::Mat4 saved_matrix = skater->custom_restart_matrix_;
     const bool saved_walking = skater->custom_restart_walking_;
     skater->custom_restart_pos_ = get_row(position, 1.0f);
-    skater->custom_restart_matrix_.row[0] = get_row(right, 0.0f);
-    skater->custom_restart_matrix_.row[1] = get_row(up, 0.0f);
-    skater->custom_restart_matrix_.row[2] = get_row(at, 0.0f);
-    skater->custom_restart_matrix_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(skater->custom_restart_matrix_.row, 0) = get_row(right, 0.0f);
+    core::at(skater->custom_restart_matrix_.row, 1) = get_row(up, 0.0f);
+    core::at(skater->custom_restart_matrix_.row, 2) = get_row(at, 0.0f);
+    core::at(skater->custom_restart_matrix_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     skater->custom_restart_walking_ = !on_board;
     skater->skip_to_custom_restart();
     skater->custom_restart_pos_ = saved_pos;
@@ -181,9 +182,9 @@ void place_camera(gfx::ViewCam* camera, int viewport)
     camera->at_point_ = get_row({g_lock.pos.x + g_lock.drift.x * frames, g_lock.pos.y + g_lock.drift.y * frames,
                                  g_lock.pos.z + g_lock.drift.z * frames},
                                 1.0f);
-    camera->basis_frame_.row[0] = get_row(g_lock.right, 0.0f);
-    camera->basis_frame_.row[1] = get_row(g_lock.up, 0.0f);
-    camera->basis_frame_.row[2] = get_row(g_lock.back, 0.0f);
+    core::at(camera->basis_frame_.row, 0) = get_row(g_lock.right, 0.0f);
+    core::at(camera->basis_frame_.row, 1) = get_row(g_lock.up, 0.0f);
+    core::at(camera->basis_frame_.row, 2) = get_row(g_lock.back, 0.0f);
 }
 
 void register_script_functions()
@@ -191,7 +192,7 @@ void register_script_functions()
     static const auto kFunctions = std::to_array<script::NativeCommand>({
         {"TeleportSkaterStanding", code_address(&cfunc_teleport_skater_standing)},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }
 
 } // namespace frontend::test_view

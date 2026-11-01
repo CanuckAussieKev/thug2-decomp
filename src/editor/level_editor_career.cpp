@@ -11,6 +11,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::career {
 
@@ -105,8 +106,8 @@ void get_edited_copy(bool on)
         for (const Gap& gap : g_baseline.gaps) {
             checklist->register_gap_entry(gap.name.c_str(), gap.count, gap.score);
             if (gap.count)
-                checklist->set_gap_positions(gap.name.c_str(), {gap.pos[0], gap.pos[1], gap.pos[2], gap.pos[3]},
-                                             {gap.dir[0], gap.dir[1], gap.dir[2], gap.dir[3]});
+                checklist->set_gap_positions(gap.name.c_str(), {core::at(gap.pos, 0), core::at(gap.pos, 1), core::at(gap.pos, 2), core::at(gap.pos, 3)},
+                                             {core::at(gap.dir, 0), core::at(gap.dir, 1), core::at(gap.dir, 2), core::at(gap.dir, 3)});
         }
         checklist->built_ = g_baseline.built; // (register_gap_entry marks it built)
         get_log(

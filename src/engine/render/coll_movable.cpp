@@ -13,6 +13,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -20,10 +21,10 @@ namespace {
 
 void set_identity(maths::Mat4& m)
 {
-    m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
 // 0x0048D090: a box drawn with a transform (debug rendering; not rewritten yet).
@@ -51,9 +52,9 @@ HitMovingMesh::~HitMovingMesh() { remove_movable_from_caches(this); }
 // 0x00412070
 void HitMovingMesh::change_facing(const maths::Mat4* orientation)
 {
-    orientation_.row[0] = orientation->row[0];
-    orientation_.row[1] = orientation->row[1];
-    orientation_.row[2] = orientation->row[2];
+    core::at(orientation_.row, 0) = core::at(orientation->row, 0);
+    core::at(orientation_.row, 1) = core::at(orientation->row, 1);
+    core::at(orientation_.row, 2) = core::at(orientation->row, 2);
     core::down_cast<MatrixTranspose>(&inverse_)->transpose_from(&orientation_);
 }
 
@@ -100,7 +101,7 @@ maths::Mat4* MatrixTranspose::transpose_from(const maths::Mat4* source)
     }
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c)
-            (&row[r].x)[c] = (&source->row[c].x)[r];
+            (&core::at(row, r).x)[c] = (&core::at(source->row, c).x)[r];
     }
     return this;
 }
@@ -110,9 +111,9 @@ void MatrixTranspose::transpose_in_place()
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = r + 1; c < 4; ++c) {
-            const float swap = (&row[r].x)[c];
-            (&row[r].x)[c] = (&row[c].x)[r];
-            (&row[c].x)[r] = swap;
+            const float swap = (&core::at(row, r).x)[c];
+            (&core::at(row, r).x)[c] = (&core::at(row, c).x)[r];
+            (&core::at(row, c).x)[r] = swap;
         }
     }
 }
@@ -129,7 +130,7 @@ HitMovingBox::HitMovingBox(const HitMovingBox& other)
     : HitMovingMesh(other), box_(other.box_), poly_attr_bits_(other.poly_attr_bits_), surface_type_(other.surface_type_)
 {
     for (int i = 0; i < 4; ++i)
-        unknownca_[i] = other.unknownca_[i];
+        core::at(unknownca_, i) = core::at(other.unknownca_, i);
 }
 
 // 0x00412600
@@ -161,7 +162,7 @@ HitMovingBox* HitMovingBox::replicate(int)
 void HitMovingBox::draw_diagnostic(int /*a*/, int /*b*/)
 {
     maths::Mat4 transform = orientation_;
-    transform.row[3] = anchor_point_;
+    core::at(transform.row, 3) = anchor_point_;
     draw_box(&box_, &transform, 0x80808080, 1);
 }
 
@@ -178,16 +179,16 @@ CollScaled::CollScaled(const CollScaled& other) = default;
 // 0x00413610
 void CollScaled::place_at_absolute_point(const maths::Vec4* position)
 {
-    basis_frame_.row[3] = *position;
+    core::at(basis_frame_.row, 3) = *position;
     update_inverse();
 }
 
 // 0x00413640
 void CollScaled::change_facing(const maths::Mat4* orientation)
 {
-    basis_frame_.row[0] = orientation->row[0];
-    basis_frame_.row[1] = orientation->row[1];
-    basis_frame_.row[2] = orientation->row[2];
+    core::at(basis_frame_.row, 0) = core::at(orientation->row, 0);
+    core::at(basis_frame_.row, 1) = core::at(orientation->row, 1);
+    core::at(basis_frame_.row, 2) = core::at(orientation->row, 2);
     update_inverse();
 }
 
@@ -213,20 +214,20 @@ void CollScaled::update_inverse()
 {
     for (int r = 0; r < 3; ++r) {
         const double inverse = 1.0 / (&size_factor_.x)[r];
-        (&inverse_.row[0].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].x);
-        (&inverse_.row[1].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].y);
-        (&inverse_.row[2].x)[r] = static_cast<float>(inverse * basis_frame_.row[r].z);
+        (&core::at(inverse_.row, 0).x)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).x);
+        (&core::at(inverse_.row, 1).x)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).y);
+        (&core::at(inverse_.row, 2).x)[r] = static_cast<float>(inverse * core::at(basis_frame_.row, r).z);
     }
-    maths::Vec4& back = inverse_.row[3];
-    back.x = -basis_frame_.row[3].x;
-    back.y = -basis_frame_.row[3].y;
-    back.z = -basis_frame_.row[3].z;
+    maths::Vec4& back = core::at(inverse_.row, 3);
+    back.x = -core::at(basis_frame_.row, 3).x;
+    back.y = -core::at(basis_frame_.row, 3).y;
+    back.z = -core::at(basis_frame_.row, 3).z;
     maths::Vec4 turned{};
     back = inverse_.rotate_vector(turned, back);
 }
 
 // 0x004109C0
-maths::Vec4* CollScaled::get_absolute_point() { return &basis_frame_.row[3]; }
+maths::Vec4* CollScaled::get_absolute_point() { return &core::at(basis_frame_.row, 3); }
 
 // 0x004109D0
 maths::Vec4 CollScaled::read_vertex_point(int index) const

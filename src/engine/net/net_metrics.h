@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <array>
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -30,9 +31,9 @@ struct Gauges {
     // 0x00454520: what calculate_usage found.
     int get_throughput() { return throughput_; }
     // 0x00454530: the bytes of the messages of `msg_id`.
-    int get_msg_byte_total(int msg_id) { return message_data_[msg_id]; }
+    int get_msg_byte_total(int msg_id) { return core::at(message_data_, msg_id); }
     // 0x00454540: how many messages of `msg_id`.
-    int get_msg_count_for_type(int msg_id) { return per_kind_counts_[msg_id]; }
+    int get_msg_count_for_type(int msg_id) { return core::at(per_kind_counts_, msg_id); }
 
     std::array<Packet, kTallyWindow> packet_tally_{}; // +0x0000 the newest at (packets_seen_ - 1) % 256
     int packets_seen_{0};                 // +0x0800 every packet added

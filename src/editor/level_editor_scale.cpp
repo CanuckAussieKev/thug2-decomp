@@ -32,6 +32,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -67,27 +68,27 @@ V3 allowed_factor(V3 factor, const std::vector<V3>& scales, const std::vector<V3
     for (int a = 0; a < 3; ++a) {
         const double f = get_axis(factor, a);
         if (!(f > 0.0) || !std::isfinite(f)) {
-            out[a] = 1.0;
+            core::at(out, a) = 1.0;
             continue;
         }
         double low = 0.0, high = 1e30;
         for (size_t i = 0; i < scales.size(); ++i) {
-            const double scale = get_axis(scales[i], a) > 0.0f ? get_axis(scales[i], a) : 1.0;
-            const double limit = i < limits.size() ? std::min<double>(get_axis(limits[i], a), kMax) : kMax;
+            const double scale = get_axis(core::at(scales, i), a) > 0.0f ? get_axis(core::at(scales, i), a) : 1.0;
+            const double limit = i < limits.size() ? std::min<double>(get_axis(core::at(limits, i), a), kMax) : kMax;
             low = std::max(low, kMin / scale);
             high = std::min(high, limit / scale);
         }
-        out[a] = allowed_on_axis(f, low, high);
+        core::at(out, a) = allowed_on_axis(f, low, high);
     }
     if (uniform) {
         // (the factor asked for is the same on every axis: the one nearest 1 is what all of them allow)
         const double f = get_axis(factor, 0);
-        double common = out[0];
+        double common = core::at(out, 0);
         for (int a = 1; a < 3; ++a)
-            common = f >= 1.0 ? std::min(common, out[a]) : std::max(common, out[a]);
-        out[0] = out[1] = out[2] = common;
+            common = f >= 1.0 ? std::min(common, core::at(out, a)) : std::max(common, core::at(out, a));
+        core::at(out, 0) = core::at(out, 1) = core::at(out, 2) = common;
     }
-    return {static_cast<float>(out[0]), static_cast<float>(out[1]), static_cast<float>(out[2])};
+    return {static_cast<float>(core::at(out, 0)), static_cast<float>(core::at(out, 1)), static_cast<float>(core::at(out, 2))};
 }
 
 float compressed_limit(float extent)
@@ -216,12 +217,12 @@ bool read_token(const std::string& field, V3* scale)
         const float value = std::strtof(at, &end);
         if (end == at || !(value > 0.0f) || !std::isfinite(value))
             return false;
-        values[count++] = value;
+        core::at(values, count++) = value;
         if (*end == '\0') {
             if (count == 1)
-                *scale = get_uniform(values[0]);
+                *scale = get_uniform(core::at(values, 0));
             else if (count == 3)
-                *scale = {values[0], values[1], values[2]};
+                *scale = {core::at(values, 0), core::at(values, 1), core::at(values, 2)};
             return count == 1 || count == 3;
         }
         if (*end != ',' || count == 3)
@@ -400,22 +401,22 @@ std::shared_ptr<Original> get_capture(render::WorldCell* sector, render::PcGeom*
                          {},
                          {},
                          {},
-                         {mesh->centre[0], mesh->centre[1], mesh->centre[2]},
+                         {core::at(mesh->centre, 0), core::at(mesh->centre, 1), core::at(mesh->centre, 2)},
                          mesh->radius,
                          mesh->position_count_,
                          mesh->positions,
                          {}};
         for (int b = 0; std::cmp_less(b, mesh->vertex_buffer_count_); ++b) {
-            render::VertexBuffer* buffer = mesh->vertex_buffers_[b];
+            render::VertexBuffer* buffer = core::at(mesh->vertex_buffers_, b);
             if (!buffer || !buffer->data || buffer->size < static_cast<uint32_t>(mesh->vertex_count_) * mesh->stride)
                 return nullptr;
             std::vector<float> positions(3u * mesh->vertex_count_);
             std::vector<float> normals(copy.normal_offset_ >= 0 ? 3u * mesh->vertex_count_ : 0u);
             const uint8_t* vertex = buffer->data;
             for (uint32_t v = 0; v < mesh->vertex_count_; ++v, vertex += mesh->stride) {
-                std::memcpy(&positions[3u * v], vertex, 12);
+                std::memcpy(&core::at(positions, 3u * v), vertex, 12);
                 if (copy.normal_offset_ >= 0)
-                    std::memcpy(&normals[3u * v], vertex + copy.normal_offset_, 12);
+                    std::memcpy(&core::at(normals, 3u * v), vertex + copy.normal_offset_, 12);
             }
             copy.buffers.emplace_back(buffer);
             copy.data.push_back(buffer->data);
@@ -440,14 +441,14 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
     if (geom != original.geom || geom->meshes != original.mesh_list_ || geom->mesh_count_ != original.mesh_count_)
         return false;
     for (uint32_t i = 0; i < original.mesh_count_; ++i) {
-        const MeshCopy& copy = original.meshes[i];
+        const MeshCopy& copy = core::at(original.meshes, i);
         const render::MeshRef* mesh = original.mesh_list_[i];
         if (mesh != copy.mesh || mesh->vertex_count_ != copy.vertex_count_ || mesh->stride != copy.stride ||
             mesh->vertex_buffer_count_ != copy.buffers.size() || mesh->positions != copy.list ||
             mesh->position_count_ != copy.list_count_)
             return false;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            if (mesh->vertex_buffers_[b] != copy.buffers[b] || copy.buffers[b]->data != copy.data[b])
+            if (core::at(mesh->vertex_buffers_, b) != core::at(copy.buffers, b) || core::at(copy.buffers, b)->data != core::at(copy.data, b))
                 return false;
         }
     }
@@ -459,21 +460,21 @@ bool reassemble(const Original& original, render::WorldCell* sector, render::PcG
     for (const MeshCopy& copy : original.meshes) {
         render::MeshRef* mesh = copy.mesh;
         for (size_t b = 0; b < copy.buffers.size(); ++b) {
-            rewrite_positions(copy.buffers[b]->data, copy.stride, copy.vertex_count_, copy.positions[b].data(), f.from,
+            rewrite_positions(core::at(copy.buffers, b)->data, copy.stride, copy.vertex_count_, core::at(copy.positions, b).data(), f.from,
                               f.to, f.turns, f.copy_scale_);
             if (copy.normal_offset_ >= 0)
-                rewrite_normals(copy.buffers[b]->data, copy.stride, copy.vertex_count_,
-                                static_cast<uint32_t>(copy.normal_offset_), copy.normals[b].data(), scale,
+                rewrite_normals(core::at(copy.buffers, b)->data, copy.stride, copy.vertex_count_,
+                                static_cast<uint32_t>(copy.normal_offset_), core::at(copy.normals, b).data(), scale,
                                 f.normal_turns_);
-            upload(copy.buffers[b]);
+            upload(core::at(copy.buffers, b));
         }
         const V3 centre = get_rebuilt(copy.centre, f.from, f.to, f.turns, f.copy_scale_);
-        mesh->centre[0] = centre.x;
-        mesh->centre[1] = centre.y;
-        mesh->centre[2] = centre.z;
+        core::at(mesh->centre, 0) = centre.x;
+        core::at(mesh->centre, 1) = centre.y;
+        core::at(mesh->centre, 2) = centre.z;
         mesh->radius = copy.radius * get_largest(scale);
         for (uint32_t k = 0; k < copy.list_count_ && !copy.list_copy_.empty(); ++k) {
-            const V3 p = get_rebuilt({copy.list_copy_[3 * k], copy.list_copy_[3 * k + 1], copy.list_copy_[3 * k + 2]},
+            const V3 p = get_rebuilt({core::at(copy.list_copy_, 3 * k), core::at(copy.list_copy_, 3 * k + 1), core::at(copy.list_copy_, 3 * k + 2)},
                                      f.from, f.to, 0, f.copy_scale_);
             mesh->positions[3 * k + 0] = p.x;
             mesh->positions[3 * k + 1] = p.y;
@@ -542,7 +543,7 @@ bool get_alive(objects::GameEntity* object)
 ObjectEntry* entry_of(objects::GameEntity* object)
 {
     for (size_t i = 0; i < g_objects.size(); ++i) {
-        ObjectEntry& entry = g_objects[i];
+        ObjectEntry& entry = core::at(g_objects, i);
         if (entry.id != object->ident_)
             continue;
         bool same = entry.object == object && get_alive(object) && collision_of(object) == entry.collision;

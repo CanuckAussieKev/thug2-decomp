@@ -22,6 +22,7 @@
 #include "engine/objects/walk_hang.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -153,11 +154,11 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
         // Uncompressed: three shorts (or three bytes moved up).
         if (flags & 0x8000) {
             for (int i = 0; i < 3; ++i)
-                out->value[i] = static_cast<int16_t>(data[i] << 8);
+                core::at(out->value, i) = static_cast<int16_t>(data[i] << 8);
             data += 3;
         } else {
             for (int i = 0; i < 3; ++i)
-                out->value[i] = static_cast<int16_t>(get_word(data + 2 * i));
+                core::at(out->value, i) = static_cast<int16_t>(get_word(data + 2 * i));
             data += 6;
         }
     } else {
@@ -166,15 +167,15 @@ const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t 
             const uint8_t b = *data++;
             if (flags & 0x2000) {
                 for (int i = 0; i < 3; ++i)
-                    out->value[i] = static_cast<int16_t>(get_word(table + b * 6 + 2 * i));
+                    core::at(out->value, i) = static_cast<int16_t>(get_word(table + b * 6 + 2 * i));
             } else {
                 for (int i = 0; i < 3; ++i)
-                    out->value[i] = shared[b * 4 + i];
+                    core::at(out->value, i) = shared[b * 4 + i];
             }
         } else {
-            out->value[0] = value(0x2000);
-            out->value[1] = value(0x1000);
-            out->value[2] = value(0x0800);
+            core::at(out->value, 0) = value(0x2000);
+            core::at(out->value, 1) = value(0x1000);
+            core::at(out->value, 2) = value(0x0800);
         }
         // The time: 11 bits here (and the sign).
         out->time = static_cast<uint16_t>((out->time & 0x8000) | (out->time & 0x7FF));
@@ -197,10 +198,10 @@ const uint8_t* decompress_trans_key(const uint8_t* data, ShortKey* out)
     if (head & 0x80) {
         const int16_t* entry = g_trans_table.data() + *data++ * 4;
         for (int i = 0; i < 3; ++i)
-            out->value[i] = entry[i];
+            core::at(out->value, i) = entry[i];
     } else {
         for (int i = 0; i < 3; ++i)
-            out->value[i] = static_cast<int16_t>(get_word(data + 2 * i));
+            core::at(out->value, i) = static_cast<int16_t>(get_word(data + 2 * i));
         data += 6;
     }
     return data;
@@ -211,26 +212,26 @@ void expand_quat_key(FloatKey* out, const ShortKey* in)
 {
     out->time = time_word(out->time, in->time);
     for (int i = 0; i < 3; ++i)
-        out->value[i] = get_scaled(in->value[i], kQuatUnit);
+        core::at(out->value, i) = get_scaled(core::at(in->value, i), kQuatUnit);
 }
 
 // 0x00483D00
 void expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
 {
     out->time = time_word(out->time, in->time);
-    if (!in->value[0] && !in->value[1] && !in->value[2]) {
-        out->value[0] = out->value[1] = out->value[2] = 0.0f;
-        out->value[3] = 1.0f;
+    if (!core::at(in->value, 0) && !core::at(in->value, 1) && !core::at(in->value, 2)) {
+        core::at(out->value, 0) = core::at(out->value, 1) = core::at(out->value, 2) = 0.0f;
+        core::at(out->value, 3) = 1.0f;
         return;
     }
-    const float x = get_scaled(in->value[0], kQuatUnit);
-    const float y = get_scaled(in->value[1], kQuatUnit);
-    const float z = get_scaled(in->value[2], kQuatUnit);
+    const float x = get_scaled(core::at(in->value, 0), kQuatUnit);
+    const float y = get_scaled(core::at(in->value, 1), kQuatUnit);
+    const float z = get_scaled(core::at(in->value, 2), kQuatUnit);
     const float w = quat_w(x, y, z, in->time, false);
-    out->value[0] = x;
-    out->value[1] = y;
-    out->value[2] = z;
-    out->value[3] = w;
+    core::at(out->value, 0) = x;
+    core::at(out->value, 1) = y;
+    core::at(out->value, 2) = z;
+    core::at(out->value, 3) = w;
 }
 
 // --- a key's value ------------------------------------------------------------------------------------------
@@ -262,14 +263,14 @@ void get_trans(const void* key, float* out, bool floats)
 // 0x00483A00
 void get_short_quat(const ShortKey* key, float* out)
 {
-    if (!key->value[0] && !key->value[1] && !key->value[2]) {
+    if (!core::at(key->value, 0) && !core::at(key->value, 1) && !core::at(key->value, 2)) {
         out[0] = out[1] = out[2] = 0.0f;
         out[3] = 1.0f;
         return;
     }
-    const float x = get_scaled(key->value[0], kQuatUnit);
-    const float y = get_scaled(key->value[1], kQuatUnit);
-    const float z = get_scaled(key->value[2], kQuatUnit);
+    const float x = get_scaled(core::at(key->value, 0), kQuatUnit);
+    const float y = get_scaled(core::at(key->value, 1), kQuatUnit);
+    const float z = get_scaled(core::at(key->value, 2), kQuatUnit);
     out[0] = x;
     out[1] = y;
     out[2] = z;
@@ -280,7 +281,7 @@ void get_short_quat(const ShortKey* key, float* out)
 void get_short_trans(const ShortKey* key, float* out)
 {
     for (int i = 0; i < 3; ++i)
-        out[i] = get_scaled(key->value[i], kTransUnit);
+        out[i] = get_scaled(core::at(key->value, i), kTransUnit);
     out[3] = 1.0f;
 }
 
@@ -382,7 +383,7 @@ void interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t)
     dot += static_cast<double>(p[1]) * q[1];
     if (dot < 0.0) {
         for (int i = 0; i < 4; ++i)
-            a->value[i] = -b->value[i];
+            core::at(a->value, i) = -core::at(b->value, i);
     }
     // x and w stay unrounded; y and z are rounded to floats on the way.
     const double x = (static_cast<double>(q[0]) - p[0]) * t + p[0];
@@ -412,7 +413,7 @@ void interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, f
         return;
     }
     for (int i = 0; i < 3; ++i)
-        out[i] = static_cast<float>((static_cast<double>(b->value[i]) - a->value[i]) * t + a->value[i]);
+        out[i] = static_cast<float>((static_cast<double>(core::at(b->value, i)) - core::at(a->value, i)) * t + core::at(a->value, i));
     out[3] = 1.0f;
 }
 
@@ -506,7 +507,7 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
         return -2;
     flag_bits_ |= 0x4000;
     const int stride = quat_stride_;
-    uint8_t* start = quat_keys_ + quat_offsets_[bone];
+    uint8_t* start = quat_keys_ + core::at(quat_offsets_, bone);
     const uint8_t* end = nullptr;
     if (bone == bone_count_ - 1) {
         if (!(start + stride < trans_keys_)) {
@@ -516,12 +517,12 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
         }
         end = trans_keys_;
     } else {
-        if (!(quat_offsets_[bone] + stride < quat_offsets_[bone + 1])) {
+        if (!(core::at(quat_offsets_, bone) + stride < core::at(quat_offsets_, bone + 1))) {
             *second = *first = start;
             flag_bits_ &= ~0x4000;
             return cursor;
         }
-        end = quat_keys_ + quat_offsets_[bone + 1];
+        end = quat_keys_ + core::at(quat_offsets_, bone + 1);
     }
     // From the cursor: its pair still around the frame, or the next one.
     if (cursor != -1 && cursors_[cursor] && cursors_[cursor][bone]) {
@@ -561,7 +562,7 @@ int FrameCacheEntry::find_quat_keys(int bone, float frame, uint8_t** first, uint
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && cursors_[cursor])
+    if (cursor != -1 && core::at(cursors_, cursor))
         cursors_[cursor][bone] = key;
     flag_bits_ &= ~0x4000;
     return cursor;
@@ -574,7 +575,7 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
         return -2;
     flag_bits_ |= 0x4000;
     const int stride = trans_stride_;
-    uint8_t* start = trans_keys_ + trans_offsets_[bone];
+    uint8_t* start = trans_keys_ + core::at(trans_offsets_, bone);
     const uint8_t* end = nullptr;
     if (bone == bone_count_ - 1) {
         end = quat_keys_ + extent_;
@@ -584,12 +585,12 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
             return cursor;
         }
     } else {
-        if (!(trans_offsets_[bone] + stride < trans_offsets_[bone + 1])) {
+        if (!(core::at(trans_offsets_, bone) + stride < core::at(trans_offsets_, bone + 1))) {
             *second = *first = start;
             flag_bits_ &= ~0x4000;
             return cursor;
         }
-        end = trans_keys_ + trans_offsets_[bone + 1];
+        end = trans_keys_ + core::at(trans_offsets_, bone + 1);
     }
     if (cursor != -1 && cursors_[cursor] && cursors_[cursor][60 + bone]) {
         uint8_t* key = cursors_[cursor][60 + bone];
@@ -630,7 +631,7 @@ int FrameCacheEntry::find_trans_keys(int bone, float frame, uint8_t** first, uin
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && cursors_[cursor])
+    if (cursor != -1 && core::at(cursors_, cursor))
         cursors_[cursor][60 + bone] = key;
     flag_bits_ &= ~0x4000;
     return cursor;
@@ -643,8 +644,8 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
         return -2;
     flag_bits_ |= 0x4000;
     // (the last bone's keys end where they start here: always one key)
-    const int offset = quat_offsets_[bone];
-    const int end_offset = quat_offsets_[bone == bone_count_ - 1 ? bone : bone + 1];
+    const int offset = core::at(quat_offsets_, bone);
+    const int end_offset = core::at(quat_offsets_, bone == bone_count_ - 1 ? bone : bone + 1);
     const int stride = quat_stride_;
     if (!(offset + stride < end_offset)) {
         *second = *first = quat_keys_ + offset;
@@ -673,7 +674,7 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
             }
         }
     }
-    uint8_t* key = quat_keys_ + quat_offsets_[bone];
+    uint8_t* key = quat_keys_ + core::at(quat_offsets_, bone);
     uint8_t* next = key + stride;
     if (static_cast<float>(quat_key_time(next)) <= frame) {
         const uint8_t* end = quat_keys_ + end_offset;
@@ -694,7 +695,7 @@ int FrameCacheEntry::find_quat_keys_backwards(int bone, float frame, uint8_t** f
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && cursors_[cursor])
+    if (cursor != -1 && core::at(cursors_, cursor))
         cursors_[cursor][bone] = key;
     flag_bits_ &= ~0x4000;
     return cursor;
@@ -706,8 +707,8 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
     if (flag_bits_ & 0x8000)
         return -2;
     flag_bits_ |= 0x4000;
-    const int offset = trans_offsets_[bone];
-    const int end_offset = trans_offsets_[bone == bone_count_ - 1 ? bone : bone + 1];
+    const int offset = core::at(trans_offsets_, bone);
+    const int end_offset = core::at(trans_offsets_, bone == bone_count_ - 1 ? bone : bone + 1);
     const int stride = trans_stride_;
     if (!(offset + stride < end_offset)) {
         *second = *first = trans_keys_ + offset;
@@ -725,7 +726,7 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
                 return cursor;
             }
             uint8_t* before = key - stride;
-            if (!(before < trans_keys_ + trans_offsets_[bone]) && static_cast<float>(trans_key_time(before)) <= frame &&
+            if (!(before < trans_keys_ + core::at(trans_offsets_, bone)) && static_cast<float>(trans_key_time(before)) <= frame &&
                 static_cast<float>(trans_key_time(key)) >= frame) {
                 cursors_[cursor][60 + bone] = before;
                 *first = before;
@@ -735,7 +736,7 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
             }
         }
     }
-    uint8_t* key = trans_keys_ + trans_offsets_[bone];
+    uint8_t* key = trans_keys_ + core::at(trans_offsets_, bone);
     uint8_t* next = key + stride;
     if (static_cast<float>(trans_key_time(next)) <= frame) {
         const uint8_t* end = trans_keys_ + end_offset;
@@ -754,7 +755,7 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
     }
     *first = key;
     *second = next;
-    if (cursor != -1 && cursors_[cursor])
+    if (cursor != -1 && core::at(cursors_, cursor))
         cursors_[cursor][60 + bone] = key;
     flag_bits_ &= ~0x4000;
     return cursor;
@@ -957,13 +958,13 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                     // Decompressing: from the bone's start (or where the source left it) to the pair around the frame.
                     const uint8_t* end = quat_data + *quat_size;
                     const uint8_t* at = quat_data;
-                    if (source && source->resume_ && source->quat_at_[bone])
-                        at = source->quat_at_[bone];
+                    if (source && source->resume_ && core::at(source->quat_at_, bone))
+                        at = core::at(source->quat_at_, bone);
                     ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            source->quat_at_[bone] = at;
+                            core::at(source->quat_at_, bone) = at;
                         at = decompress_quat_key(at, &a, flag_bits_, key_table_);
                         if (at >= end) {
                             b = a;
@@ -1016,13 +1017,13 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                 if (!done) {
                     const uint8_t* end = trans_data + *trans_size;
                     const uint8_t* at = trans_data;
-                    if (source && source->resume_ && source->trans_at_[bone])
-                        at = source->trans_at_[bone];
+                    if (source && source->resume_ && core::at(source->trans_at_, bone))
+                        at = core::at(source->trans_at_, bone);
                     ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
-                            source->trans_at_[bone] = at;
+                            core::at(source->trans_at_, bone) = at;
                         at = decompress_trans_key(at, &a);
                         if (at >= end) {
                             b = a;
@@ -1046,7 +1047,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                     interpolate_short_trans(translations, &a, &b, t);
                     if ((flag_bits_ & 0x4000) && (flag_bits_ & 0x20000)) {
                         for (int i = 0; i < 4; ++i)
-                            translations[i] = before[i] + translations[i];
+                            translations[i] = core::at(before, i) + translations[i];
                     }
                 }
             }

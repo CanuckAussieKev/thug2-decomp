@@ -44,6 +44,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace sio {
 
@@ -75,8 +76,8 @@ InputPort::InputPort(int index, int port, int slot)
     is_usable_ = 0;
     std::memset(rumble_raw_.data(), 0, sizeof(rumble_raw_));
     std::memset(align_data_.data(), 0xFF, sizeof(align_data_));
-    align_data_[0] = 0;
-    align_data_[1] = 1;
+    core::at(align_data_, 0) = 0;
+    core::at(align_data_, 1) = 1;
     std::memset(control_data_.data(), 0, sizeof(control_data_));
     octets_ = (buffer_raw_ + 63) & ~63u; // (buffer_raw_ is never set: as in the original)
     // NOLINTNEXTLINE(misc-predictable-rand): the game's own rand(), as the original
@@ -115,8 +116,8 @@ void InputPort::detect()
     disconnected_ticks_ = 0;
     kind_tag_ = 7;
     capabilities_ |= kAnalog;
-    rumble_cap_[0] = 0xFF;
-    rumble_cap_[1] = 0xFF;
+    core::at(rumble_cap_, 0) = 0xFF;
+    core::at(rumble_cap_, 1) = 0xFF;
     rumble_motor_count_ = 2;
     capabilities_ |= kHasActuators;
     cur_phase_ = kSettle;
@@ -142,13 +143,13 @@ void InputPort::fire_actuator(int actuator, int percent)
     if (actuator < 0 || actuator >= rumble_motor_count_)
         return;
     // (x87: max * percent * 0.01f, truncated for the level; the same value * 256 for the motor)
-    const double level = static_cast<double>(rumble_cap_[actuator]) * percent * static_cast<double>(0.01f);
-    rumble_raw_[actuator] = static_cast<uint8_t>(static_cast<int>(level));
+    const double level = static_cast<double>(core::at(rumble_cap_, actuator)) * percent * static_cast<double>(0.01f);
+    core::at(rumble_raw_, actuator) = static_cast<uint8_t>(static_cast<int>(level));
     const int motor = static_cast<int>(level * 256.0) & 0xFFFF;
     if (actuator == 0)
-        set_actuators(port_no_, motor, rumble_raw_[1] << 8);
+        set_actuators(port_no_, motor, core::at(rumble_raw_, 1) << 8);
     else
-        set_actuators(port_no_, rumble_raw_[0] << 8, motor);
+        set_actuators(port_no_, core::at(rumble_raw_, 0) << 8, motor);
 }
 
 // 0x005BDAD0
@@ -158,7 +159,7 @@ void InputPort::stop_rumble()
         return;
     if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i)
-            rumble_raw_[i] = 0;
+            core::at(rumble_raw_, i) = 0;
         set_actuators(port_no_, 0, 0);
     }
     rumble_off_ = 1;
@@ -182,8 +183,8 @@ void InputPort::pause_actuators()
 {
     if (pause_count_ == 0 && cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
-            actuator_saved_[i] = rumble_raw_[i];
-            rumble_raw_[i] = 0;
+            core::at(actuator_saved_, i) = core::at(rumble_raw_, i);
+            core::at(rumble_raw_, i) = 0;
         }
         set_actuators(port_no_, 0, 0);
     }
@@ -198,8 +199,8 @@ void InputPort::unpause_actuators()
         return;
     if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i)
-            rumble_raw_[i] = actuator_saved_[i];
-        set_actuators(port_no_, rumble_raw_[0] << 8, rumble_raw_[1] << 8);
+            core::at(rumble_raw_, i) = core::at(actuator_saved_, i);
+        set_actuators(port_no_, core::at(rumble_raw_, 0) << 8, core::at(rumble_raw_, 1) << 8);
     }
 }
 
@@ -208,8 +209,8 @@ void InputPort::stop_actuators()
 {
     if (cur_phase_ == kReady && (capabilities_ & kHasActuators)) {
         for (int i = 0; i < rumble_motor_count_; ++i) {
-            rumble_raw_[i] = 0;
-            actuator_saved_[i] = 0;
+            core::at(rumble_raw_, i) = 0;
+            core::at(actuator_saved_, i) = 0;
         }
         set_actuators(port_no_, 0, 0);
     }
@@ -249,13 +250,13 @@ void read_keyboard()
     if (!keyboard)
         return;
     keyboard_buffer() = keyboard_buffer() == 0 ? 1 : 0;
-    const HRESULT result = keyboard->GetDeviceState(256, keyboard_state()[keyboard_buffer()].data());
+    const HRESULT result = keyboard->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
     if (result != DIERR_INPUTLOST && result != DIERR_NOTACQUIRED)
         return;
     if (SUCCEEDED(keyboard_device()->Acquire()))
-        keyboard_device()->GetDeviceState(256, keyboard_state()[keyboard_buffer()].data());
+        keyboard_device()->GetDeviceState(256, core::at(keyboard_state(), keyboard_buffer()).data());
     else
-        std::memset(keyboard_state()[keyboard_buffer()].data(), 0, 256);
+        std::memset(core::at(keyboard_state(), keyboard_buffer()).data(), 0, 256);
 }
 
 // 0x005BDD30
@@ -263,7 +264,7 @@ int get_keyboard_chars(char* out)
 {
     uint32_t i = 0;
     for (; i < keyboard_char_count(); ++i)
-        out[i] = static_cast<char>(keyboard_chars()[i]);
+        out[i] = static_cast<char>(core::at(keyboard_chars(), i));
     return static_cast<int>(keyboard_char_count());
 }
 
@@ -330,7 +331,7 @@ void key_input(int key, int flags)
         break;
     }
     if (queue)
-        keyboard_chars()[keyboard_char_count()++] = key;
+        core::at(keyboard_chars(), keyboard_char_count()++) = key;
     if (keyboard_char_count() == 16)
         keyboard_char_count() = 15; // (full: the last one is overwritten)
 }
@@ -342,7 +343,7 @@ namespace {
 bool& menu_active() { return modules::g_menus_active; }
 bool& quit_requested() { return render::g_quit_requested; }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
-int key_binding(int action) { return os_layer::g_input_map[action]; }
+int key_binding(int action) { return core::at(os_layer::g_input_map, action); }
 // The platform layer's key names.
 const wchar_t* key_name_w(int code) { return os_layer::get_key_name(code); }
 std::array<char, 256>& name_buffer() { return g_name_buffer; }
@@ -352,7 +353,7 @@ void convert_key_name(int code)
 {
     THUG2_MSVC_WARNING(suppress : 4996) // (as the original: the C runtime's conversion, at most 256 bytes)
     std::wcstombs(name_buffer().data(), key_name_w(code), 256);
-    name_buffer()[255] = '\0';
+    core::at(name_buffer(), 255) = '\0';
 }
 
 // The character a key (by scan code) types, for the menu hints.
@@ -502,16 +503,16 @@ const char* get_button_key_name(int button)
         if (length > sizeof(key_name_result()) - 1 - used)
             length = sizeof(key_name_result()) - 1 - used;
         std::memcpy(key_name_result().data() + used, name_buffer().data(), length);
-        key_name_result()[used + length] = '\0';
+        core::at(key_name_result(), used + length) = '\0';
     }
     if (menu_keys && (button == 0x14 || button == 0x13)) {
         // the two keys' characters: "S/X" or "Z/C" on a QWERTY keyboard
         const char first = key_char(button == 0x14 ? 0x1F : 0x2C);
         const char second = key_char(button == 0x14 ? 0x2D : 0x2E);
-        key_name_result()[0] = first;
-        key_name_result()[1] = '/';
-        key_name_result()[2] = second;
-        key_name_result()[3] = '\0';
+        core::at(key_name_result(), 0) = first;
+        core::at(key_name_result(), 1) = '/';
+        core::at(key_name_result(), 2) = second;
+        core::at(key_name_result(), 3) = '\0';
     }
     return key_name_result().data();
 }
@@ -569,7 +570,7 @@ void special_key_input(int key, int flags)
         }
     }
     if (queued)
-        keyboard_chars()[keyboard_char_count()++] = queued;
+        core::at(keyboard_chars(), keyboard_char_count()++) = queued;
     if (keyboard_char_count() == 16)
         keyboard_char_count() = 15;
 }
@@ -685,11 +686,11 @@ void InputPort::pull_data(int)
     is_usable_ = 1;
     is_connected_ = true;
     // Two bytes of button bits, each set while the button is up.
-    control_data_[0] = 0;
-    control_data_[1] = 0x70;
+    core::at(control_data_, 0) = 0;
+    core::at(control_data_, 1) = 0x70;
     uint8_t first = keyboard_menu ? 0xFF : static_cast<uint8_t>(~(((buttons & 0xFF) >> 1) & 8));
     first ^= (buttons >> 5) & 7;
-    control_data_[2] = first;
+    core::at(control_data_, 2) = first;
     uint8_t second = static_cast<uint8_t>(~(p[1] >= 0x20 ? 0x20 : 0)) ^ (p[3] >= 0x20 ? 0x10 : 0);
     if (!keyboard_menu)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
@@ -711,37 +712,37 @@ void InputPort::pull_data(int)
         second = buttons_so_far ^ if_above(p[6], 0x80, 1) ^ if_above(p[7], 0x80, 2) ^ if_above(p[6], 0x20, 4) ^
                  if_above(p[7], 0x20, 8);
     }
-    control_data_[3] = second;
+    core::at(control_data_, 3) = second;
     // Pressures (dead zone 0x20).
-    control_data_[12] = pressure_or_zero(p[3]);
-    control_data_[13] = pressure_or_zero(p[1]);
-    control_data_[14] = keyboard_menu ? 0 : pressure_or_zero(p[0]);
-    control_data_[15] = pressure_or_zero(p[2]);
-    control_data_[16] = pressure_or_zero(p[6]);
-    control_data_[17] = pressure_or_zero(p[7]);
-    control_data_[18] = 0;
-    control_data_[19] = 0;
-    control_data_[20] = 0;
+    core::at(control_data_, 12) = pressure_or_zero(p[3]);
+    core::at(control_data_, 13) = pressure_or_zero(p[1]);
+    core::at(control_data_, 14) = keyboard_menu ? 0 : pressure_or_zero(p[0]);
+    core::at(control_data_, 15) = pressure_or_zero(p[2]);
+    core::at(control_data_, 16) = pressure_or_zero(p[6]);
+    core::at(control_data_, 17) = pressure_or_zero(p[7]);
+    core::at(control_data_, 18) = 0;
+    core::at(control_data_, 19) = 0;
+    core::at(control_data_, 20) = 0;
     // The d-pad: pressures, and its bits in the first byte.
-    control_data_[10] = all_or_nothing(buttons & 1);
-    control_data_[8] = all_or_nothing(buttons & 8);
-    control_data_[11] = all_or_nothing(buttons & 2);
+    core::at(control_data_, 10) = all_or_nothing(buttons & 1);
+    core::at(control_data_, 8) = all_or_nothing(buttons & 8);
+    core::at(control_data_, 11) = all_or_nothing(buttons & 2);
     auto low = static_cast<uint8_t>(buttons);
     auto dpad = static_cast<uint8_t>((low & 0xFE) << 1);
     dpad = static_cast<uint8_t>((dpad ^ (low & 1)) << 2);
     dpad = static_cast<uint8_t>((dpad ^ (low & 8)) << 2);
-    control_data_[2] ^= dpad;
-    control_data_[9] = all_or_nothing(buttons & 4);
+    core::at(control_data_, 2) ^= dpad;
+    core::at(control_data_, 9) = all_or_nothing(buttons & 4);
     // The sticks (y inverted).
-    control_data_[4] = get_stick(pad.sticks[2] + 0x7FFF);
-    control_data_[5] = get_stick(0x7FFF - pad.sticks[3]);
-    control_data_[6] = get_stick(pad.sticks[0] + 0x7FFF);
-    control_data_[7] = get_stick(0x7FFF - pad.sticks[1]);
+    core::at(control_data_, 4) = get_stick(core::at(pad.sticks, 2) + 0x7FFF);
+    core::at(control_data_, 5) = get_stick(0x7FFF - core::at(pad.sticks, 3));
+    core::at(control_data_, 6) = get_stick(core::at(pad.sticks, 0) + 0x7FFF);
+    core::at(control_data_, 7) = get_stick(0x7FFF - core::at(pad.sticks, 1));
     if (p[4] > 0x20)
-        control_data_[20] = 1;
+        core::at(control_data_, 20) = 1;
     if (p[5] > 0x20)
-        control_data_[20] |= 2;
-    held_down_ = ((control_data_[2] << 8 | control_data_[3]) ^ 0xFFFF) != 0;
+        core::at(control_data_, 20) |= 2;
+    held_down_ = ((core::at(control_data_, 2) << 8 | core::at(control_data_, 3)) ^ 0xFFFF) != 0;
 
     // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
     bool enter_typed = false;
@@ -749,7 +750,7 @@ void InputPort::pull_data(int)
         std::array<char, 256> typed{};
         const int count = get_keyboard_chars(typed.data());
         for (int i = 0; i < count; ++i) {
-            if (typed[i] == 0x19) {
+            if (core::at(typed, i) == 0x19) {
                 enter_typed = true;
                 break;
             }

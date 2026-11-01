@@ -17,6 +17,7 @@
 #include "engine/maths/random.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -67,10 +68,10 @@ double get_dot(const maths::Vec4& a, const maths::Vec4& b)
 // 0x0046A1D0
 PathFollower::PathFollower(GameEntity* owner) : owner_(owner)
 {
-    tick_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    tick_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    tick_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    tick_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(tick_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(tick_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(tick_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(tick_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     segment_origin_ = {0.0f, 0.0f, 0.0f, 1.0f};
     unknown84_ = {0.0f, 0.0f, 0.0f, 1.0f};
     end_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -153,7 +154,7 @@ bool PathFollower::start_segment()
     byte_count_ = static_cast<float>(span_to(segment_origin_, end_point_));
     along_ = static_cast<float>(along + carry_);
     carry_ = 0.0f;
-    maths::Vec4& heading = tick_.row[2];
+    maths::Vec4& heading = core::at(tick_.row, 2);
     heading = {end_point_.x - segment_origin_.x, end_point_.y - segment_origin_.y, end_point_.z - segment_origin_.z,
                end_point_.w - segment_origin_.w};
     heading.make_unit();
@@ -223,9 +224,9 @@ int PathFollower::compute_arc()
     center_ += segment_origin_;
 
     // the frame: from the centre to the position, its axis, and the heading
-    maths::Vec4& out = tick_.row[0];
-    maths::Vec4& axis = tick_.row[1];
-    maths::Vec4& heading = tick_.row[2];
+    maths::Vec4& out = core::at(tick_.row, 0);
+    maths::Vec4& axis = core::at(tick_.row, 1);
+    maths::Vec4& heading = core::at(tick_.row, 2);
     out = center_ - at_point_;
     heading = center_ - bend_point_;
     if (len_of(out) == 0.0 || len_of(heading) == 0.0)
@@ -255,10 +256,10 @@ void PathFollower::arc_step(float distance)
     step_ = static_cast<float>(step);
     maths::Mat4 turn;
     d3dx_multiply(tick_, maths::make_yaw_matrix(turn, static_cast<float>(step)), tick_);
-    if (tick_.row[1].y > 0.0f)
+    if (core::at(tick_.row, 1).y > 0.0f)
         step_ = step_ * -1.0f;
     const double out = -static_cast<double>(radius_);
-    const maths::Vec4& from_center = tick_.row[0];
+    const maths::Vec4& from_center = core::at(tick_.row, 0);
     at_point_.z = static_cast<float>(out * from_center.z);
     at_point_.w = static_cast<float>(out * from_center.w);
     at_point_.x = static_cast<float>(out * from_center.x);
@@ -313,7 +314,7 @@ void PathFollower::kickoff(uint32_t node, const maths::Vec4* position)
         if (!get_next_node())
             return;
     }
-    maths::Vec4& heading = tick_.row[2];
+    maths::Vec4& heading = core::at(tick_.row, 2);
     heading = {end_point_.x - at_point_.x, end_point_.y - at_point_.y, end_point_.z - at_point_.z,
                end_point_.w - at_point_.w};
     heading.make_unit();
@@ -325,7 +326,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     if (cur_phase_ == kStateDone)
         return true;
     if (direction) {
-        const double along = get_dot(tick_.row[2], *direction);
+        const double along = get_dot(core::at(tick_.row, 2), *direction);
         distance = along == 0.0 ? 1.0f : static_cast<float>(along * distance);
     }
     switch (cur_phase_) {
@@ -418,7 +419,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
             start_segment();
             cur_phase_ = kStateStraight;
         }
-        maths::Vec4& heading = tick_.row[2];
+        maths::Vec4& heading = core::at(tick_.row, 2);
         heading = into * static_cast<float>(1.0 - blend);
         heading += next * blend;
         heading.make_unit();
@@ -430,6 +431,6 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
 }
 
 // 0x0046A1B0
-void PathFollower::get_heading(maths::Vec4* out) { *out = tick_.row[2]; }
+void PathFollower::get_heading(maths::Vec4* out) { *out = core::at(tick_.row, 2); }
 
 } // namespace objects

@@ -20,6 +20,7 @@
 #include "engine/script/nodes.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -170,7 +171,7 @@ ParkAssembler::ParkAssembler()
 
 void ParkAssembler::move_light_source(const maths::Vec4* position, int index)
 {
-    maths::Vec4& light = lights_[index];
+    maths::Vec4& light = core::at(lights_, index);
     light.x = position->x;
     light.y = position->y;
     light.z = position->z;
@@ -179,13 +180,13 @@ void ParkAssembler::move_light_source(const maths::Vec4* position, int index)
 
 void ParkAssembler::sample_light_colour(const maths::Vec4* position, uint8_t* rgba)
 {
-    const auto red = static_cast<float>(rgba[0] * static_cast<double>(ambient_[0]));
-    const auto green = static_cast<float>(rgba[1] * static_cast<double>(ambient_[1]));
-    const double blue = rgba[2] * static_cast<double>(ambient_[2]); // (kept unrounded)
+    const auto red = static_cast<float>(rgba[0] * static_cast<double>(core::at(ambient_, 0)));
+    const auto green = static_cast<float>(rgba[1] * static_cast<double>(core::at(ambient_, 1)));
+    const double blue = rgba[2] * static_cast<double>(core::at(ambient_, 2)); // (kept unrounded)
     double sum = 0.0;
     for (int i = 0; i < light_total_; ++i) {
-        const double dx = static_cast<double>(position->x) - lights_[i].x;
-        const double dz = static_cast<double>(position->z) - lights_[i].z;
+        const double dx = static_cast<double>(position->x) - core::at(lights_, i).x;
+        const double dz = static_cast<double>(position->z) - core::at(lights_, i).z;
         sum += 1.0 / (dz * dz + dx * dx + kLightDistance);
     }
     sum *= 255.0;
@@ -193,9 +194,9 @@ void ParkAssembler::sample_light_colour(const maths::Vec4* position, uint8_t* rg
     auto channel = [](double value) {
         return value > 255.0 ? static_cast<uint8_t>(0xFF) : static_cast<uint8_t>(static_cast<int>(value));
     };
-    rgba[0] = channel(sum * falloff_[0] + red);
-    rgba[1] = channel(sum * falloff_[1] + green);
-    rgba[2] = channel(sum * falloff_[2] + blue);
+    rgba[0] = channel(sum * core::at(falloff_, 0) + red);
+    rgba[1] = channel(sum * core::at(falloff_, 1) + green);
+    rgba[2] = channel(sum * core::at(falloff_, 2) + blue);
 }
 
 void ParkAssembler::light_piece(ParkTile* p)
@@ -225,7 +226,7 @@ void ParkAssembler::light_piece(ParkTile* p)
         std::array<uint8_t, 4> rgba = {{grey, grey, grey, 0xFF}};
         const maths::Vec4 position = collision->read_stored_vertex(i);
         sample_light_colour(&position, rgba.data());
-        collision->vertex_bytes_[i] = static_cast<uint8_t>((rgba[0] + rgba[1] + rgba[2]) / 3);
+        collision->vertex_bytes_[i] = static_cast<uint8_t>((core::at(rgba, 0) + core::at(rgba, 1) + core::at(rgba, 2)) / 3);
     }
 }
 
@@ -241,7 +242,7 @@ bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox*
         if (first > last)
             return false;
         for (int i = first; i <= last; ++i) {
-            const RestartPoint& restart = restarts_[i];
+            const RestartPoint& restart = core::at(restarts_, i);
             if (restart.kind_tag_ == type && !restart.automatic_) {
                 pos = restart.at_point_;
                 cells = restart.edit_span_;
@@ -249,7 +250,7 @@ bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox*
         }
     }
     for (int i = first; i <= last; ++i) {
-        RestartPoint& restart = restarts_[i];
+        RestartPoint& restart = core::at(restarts_, i);
         if (restart.kind_tag_ == RestartPoint::kFree || (restart.automatic_ && !is_automatic)) {
             restart.at_point_ = pos;
             restart.quarter_turns_ = rot;
@@ -268,7 +269,7 @@ int ParkAssembler::count_restarts(int type)
     spawn_slot_array(this, type, &first, &last);
     int count = 0;
     for (int i = first; i <= last; ++i) {
-        if (restarts_[i].kind_tag_)
+        if (core::at(restarts_, i).kind_tag_)
             ++count;
     }
     return count;
@@ -281,7 +282,7 @@ void ParkAssembler::unplant_restart_point(CellBox* area, int player)
     int first = 0, last = 0;
     spawn_slot_array(this, player, &first, &last);
     for (int i = first; i <= last; ++i) {
-        RestartPoint& restart = restarts_[i];
+        RestartPoint& restart = core::at(restarts_, i);
         if (restart.edit_span_.x == area->x && restart.edit_span_.y == area->y && restart.edit_span_.z == area->z)
             restart.kind_tag_ = RestartPoint::kFree;
     }

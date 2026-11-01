@@ -29,6 +29,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -140,10 +141,10 @@ void init_direct_3d()
     graphics_options::choose_multisample(d3d, D3DFMT_X8R8G8B8, D3DFMT_D24X8, sys::get_windowed());
     if (graphics_options::chosen_samples())
         multisample = true;
-    device_width() = widths[first];
-    device_height() = heights[first];
-    pp.BackBufferWidth = widths[first];
-    pp.BackBufferHeight = heights[first];
+    device_width() = core::at(widths, first);
+    device_height() = core::at(heights, first);
+    pp.BackBufferWidth = core::at(widths, first);
+    pp.BackBufferHeight = core::at(heights, first);
     if (multisample)
         pp.MultiSampleType = D3DMULTISAMPLE_2_SAMPLES;
     pp.PresentationInterval = D3DPRESENT_INTERVAL_DEFAULT;
@@ -159,9 +160,9 @@ void init_direct_3d()
         if (static_cast<int>(first) >= 4)
             continue;
         for (unsigned i = first; i < 4; ++i) {
-            device_width() = widths[i];
-            device_height() = heights[i];
-            if (create_device(widths[i], heights[i], attempts[attempt][0], attempts[attempt][1]) >= 0) {
+            device_width() = core::at(widths, i);
+            device_height() = core::at(heights, i);
+            if (create_device(core::at(widths, i), core::at(heights, i), core::at(core::at(attempts, attempt), 0), core::at(core::at(attempts, attempt), 1)) >= 0) {
                 created = true;
                 break;
             }
@@ -302,7 +303,7 @@ void create_render_targets()
     static const std::array<uint32_t, 9> kDivisors = {{1, 1, 4, 4, 4, 8, 8, 16, 16}};
     const D3DPRESENT_PARAMETERS& pp = present_parameters();
     for (int i = 0; i < 9; ++i) {
-        input_port()->CreateTexture(pp.BackBufferWidth / kDivisors[i], pp.BackBufferHeight / kDivisors[i], 1,
+        input_port()->CreateTexture(pp.BackBufferWidth / core::at(kDivisors, i), pp.BackBufferHeight / core::at(kDivisors, i), 1,
                                     D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT, &screen_textures()[i],
                                     nullptr);
         screen_textures()[i]->GetSurfaceLevel(0, &screen_surfaces()[i]);

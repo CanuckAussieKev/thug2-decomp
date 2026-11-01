@@ -18,6 +18,7 @@
 #include "game/skate/skate_module.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's copies of the gap names)
 
@@ -51,8 +52,8 @@ GapRegistry::Gap* new_gap()
     auto* gap = static_cast<GapRegistry::Gap*>(memory::alloc_zeroed(sizeof(GapRegistry::Gap)));
     if (gap) {
         new (&gap->details_) GapDetails;
-        gap->pieces_[0] = gap->pieces_[1] = nullptr;
-        gap->metas_[0] = gap->metas_[1] = nullptr;
+        core::at(gap->pieces_, 0) = core::at(gap->pieces_, 1) = nullptr;
+        core::at(gap->metas_, 0) = core::at(gap->metas_, 1) = nullptr;
         gap->details_.cancel_flags_ = 0;
     }
     return gap;
@@ -82,15 +83,15 @@ void GapRegistry::update_checklist()
 // 0x0058CDA0
 void GapRegistry::store_gap_details(int index, GapDetails* info)
 {
-    std::sprintf(gaps_ptr_[index]->label_.data(), "%s", info->text_.data());
-    gaps_ptr_[index]->details_ = *info;
+    std::sprintf(core::at(gaps_ptr_, index)->label_.data(), "%s", info->text_.data());
+    core::at(gaps_ptr_, index)->details_ = *info;
     update_checklist();
 }
 
 // 0x0058CDF0
 void GapRegistry::drop_gap_entry(int index, bool forget)
 {
-    Gap* gap = gaps_ptr_[index];
+    Gap* gap = core::at(gaps_ptr_, index);
     for (ParkTile* piece : gap->pieces_) {
         if (piece)
             park_owner_->builder_->destroy_piece(piece);
@@ -111,7 +112,7 @@ void GapRegistry::drop_gap_entry(int index, bool forget)
 void GapRegistry::clear_gap_entries()
 {
     for (int i = 0; i < kMaxGaps; ++i) {
-        if (gaps_ptr_[i])
+        if (core::at(gaps_ptr_, i))
             drop_gap_entry(i, false);
     }
 }
@@ -124,9 +125,9 @@ void GapRegistry::set_trigger_length(ParkTile* piece)
         if (!gap)
             continue;
         int half = 0;
-        if (gap->pieces_[0] == piece)
+        if (core::at(gap->pieces_, 0) == piece)
             half = 0;
-        else if (gap->pieces_[1] == piece)
+        else if (core::at(gap->pieces_, 1) == piece)
             half = 1;
         else
             continue;
@@ -149,20 +150,20 @@ void GapRegistry::copy_from(GapRegistry* other)
 {
     next_id_ = other->next_id_;
     for (int i = 0; i < kMaxGaps; ++i) {
-        const Gap* source = other->gaps_ptr_[i];
+        const Gap* source = core::at(other->gaps_ptr_, i);
         if (source) {
             Gap* gap = new_gap();
-            gap->ids_[0] = source->ids_[0];
-            gap->ids_[1] = source->ids_[1];
-            gap->pieces_[0] = gap->pieces_[1] = nullptr;
-            gap->metas_[0] = gap->metas_[1] = nullptr;
+            core::at(gap->ids_, 0) = core::at(source->ids_, 0);
+            core::at(gap->ids_, 1) = core::at(source->ids_, 1);
+            core::at(gap->pieces_, 0) = core::at(gap->pieces_, 1) = nullptr;
+            core::at(gap->metas_, 0) = core::at(gap->metas_, 1) = nullptr;
             std::strcpy(gap->label_.data(), source->label_.data());
             gap->details_ = source->details_;
-            gaps_ptr_[i] = gap;
+            core::at(gaps_ptr_, i) = gap;
         } else {
-            gaps_ptr_[i] = nullptr;
+            core::at(gaps_ptr_, i) = nullptr;
         }
-        started_first_[i] = other->started_first_[i];
+        core::at(started_first_, i) = core::at(other->started_first_, i);
     }
     park_owner_ = nullptr;
 }
@@ -171,28 +172,28 @@ void GapRegistry::copy_from(GapRegistry* other)
 void GapRegistry::start_gap(void* piece, PieceGroup* meta, int index)
 {
     Gap* gap = new_gap();
-    gaps_ptr_[index] = gap;
-    gap->ids_[0] = next_id_++;
-    gaps_ptr_[index]->pieces_[0] = static_cast<ParkTile*>(piece);
-    gaps_ptr_[index]->metas_[0] = meta;
-    gaps_ptr_[index]->details_.slot_index_ = index;
-    started_first_[index] = true;
+    core::at(gaps_ptr_, index) = gap;
+    core::at(gap->ids_, 0) = next_id_++;
+    core::at(core::at(gaps_ptr_, index)->pieces_, 0) = static_cast<ParkTile*>(piece);
+    core::at(core::at(gaps_ptr_, index)->metas_, 0) = meta;
+    core::at(gaps_ptr_, index)->details_.slot_index_ = index;
+    core::at(started_first_, index) = true;
 }
 
 // 0x0058D120
 void GapRegistry::fire_gap(int index, script::Script* script)
 {
     for (int i = 0; i < 2; ++i) {
-        const int half = started_first_[index] ? i : 1 - i;
+        const int half = core::at(started_first_, index) ? i : 1 - i;
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
-        const Gap* gap = gaps_ptr_[index];
-        params->put_name_key(kGapId, gap->ids_[half]);
-        params->put_int(kScore, gaps_ptr_[index]->details_.points_held_);
-        params->append_word(kText, gaps_ptr_[index]->label_.data());
+        const Gap* gap = core::at(gaps_ptr_, index);
+        params->put_name_key(kGapId, core::at(gap->ids_, half));
+        params->put_int(kScore, core::at(gaps_ptr_, index)->details_.points_held_);
+        params->append_word(kText, core::at(gaps_ptr_, index)->label_.data());
         uint32_t name = kEndGap;
         if (i == 0) {
-            uint32_t flags = gaps_ptr_[index]->details_.cancel_flags_;
+            uint32_t flags = core::at(gaps_ptr_, index)->details_.cancel_flags_;
             if (!flags)
                 flags = static_cast<uint32_t>(script::fetch_int_value(kCancelGround));
             params->put_name_key(kCombinedFlags, flags);

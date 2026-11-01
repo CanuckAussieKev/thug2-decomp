@@ -25,6 +25,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::nodes {
 
@@ -43,7 +44,7 @@ const char* family_name(Family family)
                                                   "Paths",     "Objects",  "Scenery", "Lights", "Sounds",
                                                   "Particles", "Triggers", "Other"}};
     const int i = static_cast<int>(family);
-    return i >= 0 && i < kFamilies ? kNames[i] : "?";
+    return i >= 0 && i < kFamilies ? core::at(kNames, i) : "?";
 }
 
 Family get_classify(uint32_t cls, uint32_t type)
@@ -147,7 +148,7 @@ uint32_t team_colour(const char* text)
         // (a whole word: _red, _red_base, _red01 - not "_reduce")
         for (size_t at = lower.find(colour); at != std::string::npos; at = lower.find(colour, at + 1)) {
             const size_t end = at + std::strlen(colour);
-            if (end == lower.size() || lower[end] == '_' || (lower[end] >= '0' && lower[end] <= '9'))
+            if (end == lower.size() || core::at(lower, end) == '_' || (core::at(lower, end) >= '0' && core::at(lower, end) <= '9'))
                 return true;
         }
         return false;
@@ -207,7 +208,7 @@ std::vector<uint32_t> get_signature()
     if (!manager)
         return signature;
     for (uint32_t i = 0; i < manager->num_ && i < level_nodes::NodeManager::kMaxArrays; ++i) {
-        const level_nodes::NodeArrayEntry& entry = manager->arrays_[i];
+        const level_nodes::NodeArrayEntry& entry = core::at(manager->arrays_, i);
         signature.push_back(entry.label_);
         signature.push_back(entry.node_entries_ ? entry.node_entries_->extent_ : 0);
         signature.push_back(static_cast<uint32_t>(cell::address(entry.node_entries_)));
@@ -227,13 +228,13 @@ script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 V3 get_heading_of(V3 angles)
 {
     maths::Mat4 matrix{};
-    matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(matrix.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     const maths::Vec4 vector = {angles.x, angles.y, angles.z, 1.0f};
     matrix.init_from_angles(vector);
-    const V3 at = {matrix.row[2].x, 0.0f, matrix.row[2].z};
+    const V3 at = {core::at(matrix.row, 2).x, 0.0f, core::at(matrix.row, 2).z};
     const float length = std::sqrt(at.x * at.x + at.z * at.z);
     return length > 1e-4f ? V3{at.x / length, 0.0f, at.z / length} : V3{0.0f, 0.0f, 1.0f};
 }
@@ -253,7 +254,7 @@ void get_scan()
     int crowns = 0, restarts = 0;
     ++g_generation;
     for (uint32_t a = 0; a < manager->num_ && a < level_nodes::NodeManager::kMaxArrays; ++a) {
-        script::Array* nodes = manager->arrays_[a].node_entries_;
+        script::Array* nodes = core::at(manager->arrays_, a).node_entries_;
         if (!nodes || nodes->kind_tag_ != script::kQbvalStruct)
             continue;
         for (uint32_t i = 0; i < nodes->extent_; ++i) {
@@ -266,7 +267,7 @@ void get_scan()
             s->read_hash_value(kName, &node.name, 0);
             s->read_hash_value(kClass, &node.cls, 0);
             s->read_hash_value(kType, &node.type, 0);
-            node.added = manager->arrays_[a].label_ == overlay_array();
+            node.added = core::at(manager->arrays_, a).label_ == overlay_array();
             if (node.cls == hidden_marker()) {
                 // (hidden by the editor: its own class and type kept beside the marker)
                 node.hidden = true;
@@ -360,7 +361,7 @@ void get_scan()
                 break;
             }
             node.trigger_script_ = s->has_entry_named(kTriggerScript);
-            ++g_counts[static_cast<int>(node.family)];
+            ++core::at(g_counts, static_cast<int>(node.family));
             if (node.name)
                 by_name().emplace(node.name, static_cast<int>(g_nodes.size()));
             g_nodes.push_back(std::move(node));
@@ -370,7 +371,7 @@ void get_scan()
     g_walked_spawns = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - resolve_links).
     for (Elem& node : g_nodes) {
-        script::Struct* s = get_node_at(manager->arrays_[node.array].node_entries_, static_cast<uint32_t>(node.index));
+        script::Struct* s = get_node_at(core::at(manager->arrays_, node.array).node_entries_, static_cast<uint32_t>(node.index));
         script::Array* links = nullptr;
         if (!s || !s->fetch_list(kLinks, &links, 0) || !links)
             continue;
@@ -441,7 +442,7 @@ int walked(Family family)
     get_refresh();
     return family == Family::kCrown   ? g_walked_crowns
            : family == Family::kSpawn ? g_walked_spawns
-                                      : g_counts[static_cast<int>(family)];
+                                      : core::at(g_counts, static_cast<int>(family));
 }
 
 uint32_t get_generation()
@@ -486,14 +487,14 @@ script::Struct* struct_of(const Elem& node)
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
         return nullptr;
-    return get_node_at(manager->arrays_[node.array].node_entries_, static_cast<uint32_t>(node.index));
+    return get_node_at(core::at(manager->arrays_, node.array).node_entries_, static_cast<uint32_t>(node.index));
 }
 
 void reread(int index)
 {
     if (index < 0 || std::cmp_greater_equal(index, g_nodes.size()))
         return;
-    Elem& node = g_nodes[index];
+    Elem& node = core::at(g_nodes, index);
     script::Struct* s = struct_of(node);
     if (!s)
         return;
@@ -519,7 +520,7 @@ uint32_t get_array_name(const Elem& node)
     const level_nodes::NodeManager* manager = level_nodes::node_manager_instance();
     if (!manager || node.array < 0 || ints::as_unsigned(node.array) >= manager->num_)
         return 0;
-    return manager->arrays_[node.array].label_;
+    return core::at(manager->arrays_, node.array).label_;
 }
 
 std::string caption(uint32_t checksum) { return object_edit::caption(checksum); }

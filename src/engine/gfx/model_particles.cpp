@@ -18,6 +18,7 @@
 #include "engine/maths/quat_rotation.h"
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -149,10 +150,10 @@ void ModelParticles::render()
                           static_cast<uint8_t>(colour >> 16), static_cast<uint8_t>(colour >> 24));
         // the rotation moved by the velocity (w by its x too), then normalised
         maths::QuatRotation& q = rotations[p];
-        q.x = static_cast<float>(static_cast<double>(particle.velocity[0]) + q.x);
-        q.y = static_cast<float>(static_cast<double>(particle.velocity[1]) + q.y);
-        q.z = static_cast<float>(static_cast<double>(particle.velocity[2]) + q.z);
-        q.w = static_cast<float>(static_cast<double>(particle.velocity[0]) + q.w);
+        q.x = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + q.x);
+        q.y = static_cast<float>(static_cast<double>(core::at(particle.velocity, 1)) + q.y);
+        q.z = static_cast<float>(static_cast<double>(core::at(particle.velocity, 2)) + q.z);
+        q.w = static_cast<float>(static_cast<double>(core::at(particle.velocity, 0)) + q.w);
         const double x = q.x;
         const double y = q.y;
         const double z = q.z;
@@ -171,9 +172,9 @@ void ModelParticles::render()
                 matrix.row[r][c] = r == c ? 1.0f : 0.0f;
         q.fetch_mat(&matrix);
         const float* position = position_array_ + p * 3;
-        matrix.row[3] = {position[0], position[1], position[2], 1.0f};
+        core::at(matrix.row, 3) = {position[0], position[1], position[2], 1.0f};
         const double shrink = static_cast<double>(p % 4) * kSizeStep;
-        const double size = static_cast<double>(particle.start_size_[0]) - shrink;
+        const double size = static_cast<double>(core::at(particle.start_size_, 0)) - shrink;
         for (int k = 0; k < 3; ++k)
             matrix.row[k][k] = static_cast<float>(size * matrix.row[k][k]);
         model(static_cast<unsigned int>(p))->render(&matrix, true, nullptr);

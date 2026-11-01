@@ -55,6 +55,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -67,7 +68,7 @@ bool same_text(const std::string& a, const std::string& b)
     if (a.size() != b.size())
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = a[i], y = b[i];
+        char x = core::at(a, i), y = core::at(b, i);
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')
@@ -153,11 +154,11 @@ void put_name_value(std::vector<uint8_t>* out, uint32_t key, uint32_t value)
 // "0x" and 8 hex digits.
 bool is_hex_form(const std::string& name, uint32_t* value)
 {
-    if (name.size() != 10 || name[0] != '0' || (name[1] != 'x' && name[1] != 'X'))
+    if (name.size() != 10 || core::at(name, 0) != '0' || (core::at(name, 1) != 'x' && core::at(name, 1) != 'X'))
         return false;
     uint32_t v = 0;
     for (size_t i = 2; i < 10; ++i) {
-        const char c = name[i];
+        const char c = core::at(name, i);
         const int d = c >= '0' && c <= '9'   ? c - '0'
                       : c >= 'a' && c <= 'f' ? c - 'a' + 10
                       : c >= 'A' && c <= 'F' ? c - 'A' + 10
@@ -187,11 +188,11 @@ bool read_triple(const std::string& text, V3* out)
         const size_t comma = i < 2 ? text.find(',', at) : text.size();
         if (comma == std::string::npos)
             return false;
-        if (!read_number(text.substr(at, comma - at), &v[i]))
+        if (!read_number(text.substr(at, comma - at), &core::at(v, i)))
             return false;
         at = comma + 1;
     }
-    *out = {v[0], v[1], v[2]};
+    *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
     return true;
 }
 
@@ -421,9 +422,9 @@ OrientedBox box_of(V3 pos, float yaw, V3 size)
 {
     OrientedBox box{};
     box.origin = pos;
-    box.axes[0] = turn_about_up({1.0f, 0.0f, 0.0f}, yaw);
-    box.axes[1] = {0.0f, 1.0f, 0.0f};
-    box.axes[2] = turn_about_up({0.0f, 0.0f, 1.0f}, yaw);
+    core::at(box.axes, 0) = turn_about_up({1.0f, 0.0f, 0.0f}, yaw);
+    core::at(box.axes, 1) = {0.0f, 1.0f, 0.0f};
+    core::at(box.axes, 2) = turn_about_up({0.0f, 0.0f, 1.0f}, yaw);
     box.min = size * -0.5f;
     box.max = size * 0.5f;
     return box;
@@ -432,9 +433,9 @@ OrientedBox box_of(V3 pos, float yaw, V3 size)
 bool get_inside(const OrientedBox& box, V3 p)
 {
     const V3 d = p - box.origin;
-    const float x = get_dot(d, box.axes[0]);
-    const float y = get_dot(d, box.axes[1]);
-    const float z = get_dot(d, box.axes[2]);
+    const float x = get_dot(d, core::at(box.axes, 0));
+    const float y = get_dot(d, core::at(box.axes, 1));
+    const float z = get_dot(d, core::at(box.axes, 2));
     return x >= box.min.x && x <= box.max.x && y >= box.min.y && y <= box.max.y && z >= box.min.z && z <= box.max.z;
 }
 
@@ -496,7 +497,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
             for (size_t i = 0; i < spec.flags.size(); ++i) {
                 if (i)
                     out.push_back(0x09);
-                put_name(&out, checksum_of(spec.flags[i]));
+                put_name(&out, checksum_of(core::at(spec.flags, i)));
             }
             out.push_back(0x06);
         }
@@ -658,7 +659,7 @@ std::string link_record(const Placed& placed)
     if (!s.flags.empty()) {
         out << " flags=";
         for (size_t i = 0; i < s.flags.size(); ++i)
-            out << (i ? "," : "") << s.flags[i];
+            out << (i ? "," : "") << core::at(s.flags, i);
     }
     if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd)
         out << " score=" << s.score;
@@ -788,7 +789,7 @@ int partner(const std::vector<Spec>& specs, int index)
 {
     if (index < 0 || std::cmp_greater_equal(index, specs.size()))
         return -1;
-    const Spec& s = specs[index];
+    const Spec& s = core::at(specs, index);
     Kind other{};
     if (s.kind == Kind::kGapStart)
         other = Kind::kGapEnd;
@@ -797,7 +798,7 @@ int partner(const std::vector<Spec>& specs, int index)
     else
         return -1;
     for (size_t i = 0; i < specs.size(); ++i) {
-        if (ints::as_signed(i) != index && specs[i].kind == other && !s.gap.empty() && same_text(specs[i].gap, s.gap))
+        if (ints::as_signed(i) != index && core::at(specs, i).kind == other && !s.gap.empty() && same_text(core::at(specs, i).gap, s.gap))
             return static_cast<int>(i);
     }
     return -1;
@@ -930,13 +931,13 @@ std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own)
     out.push_back(0);
     out.push_back(0x01);
     auto to_else = static_cast<uint16_t>(else_offset + 2 - if_offset);
-    out[if_offset] = static_cast<uint8_t>(to_else);
-    out[if_offset + 1] = static_cast<uint8_t>(to_else >> 8);
+    core::at(out, if_offset) = static_cast<uint8_t>(to_else);
+    core::at(out, if_offset + 1) = static_cast<uint8_t>(to_else >> 8);
     branch(exit);
     out.push_back(0x28);
     auto to_end = static_cast<uint16_t>(out.size() - else_offset);
-    out[else_offset] = static_cast<uint8_t>(to_end);
-    out[else_offset + 1] = static_cast<uint8_t>(to_end >> 8);
+    core::at(out, else_offset) = static_cast<uint8_t>(to_end);
+    core::at(out, else_offset + 1) = static_cast<uint8_t>(to_end >> 8);
     out.push_back(0x01);
     return out;
 }
@@ -1189,7 +1190,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
             const uint32_t index = tri->face_vertex(f, k);
             ok = index < tri->num_vertices_;
             if (ok)
-                p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+                core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
@@ -1292,8 +1293,8 @@ void place_box(Cuboid* b, V3 pos, float yaw, V3 size)
     b->coll->anchor_point_ = {pos.x, pos.y, pos.z, 1.0f};
     maths::Mat4 m;
     for (int r = 0; r < 3; ++r)
-        m.row[r] = {placed.axes[r].x, placed.axes[r].y, placed.axes[r].z, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+        core::at(m.row, r) = {core::at(placed.axes, r).x, core::at(placed.axes, r).y, core::at(placed.axes, r).z, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     b->coll->change_facing(&m);
     b->pos = pos;
     b->yaw = yaw;
@@ -1380,7 +1381,7 @@ void refresh_level()
 int spec_index(const std::string& name)
 {
     for (size_t i = 0; i < g_specs.size(); ++i) {
-        if (same_text(g_specs[i].name, name))
+        if (same_text(core::at(g_specs, i).name, name))
             return static_cast<int>(i);
     }
     return -1;
@@ -1431,7 +1432,7 @@ bool have_proxim_manager() { return objects::g_proximity_hub != nullptr; }
 int proxim_index(uint32_t node)
 {
     for (size_t i = 0; i < g_proxims.size(); ++i) {
-        if (g_proxims[i].node == node)
+        if (core::at(g_proxims, i).node == node)
             return static_cast<int>(i);
     }
     return -1;
@@ -1563,11 +1564,11 @@ void get_sync()
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_added.size(); ++k) {
-            if (g_added[k].alive && !g_added[k].broken && hash_of_name(g_added[k].spec.name) == g_boxes[i].name)
+            if (core::at(g_added, k).alive && !core::at(g_added, k).broken && hash_of_name(core::at(g_added, k).spec.name) == core::at(g_boxes, i).name)
                 at = static_cast<int>(k);
         }
         if (at < 0 || network) {
-            free_box(g_boxes[i].coll);
+            free_box(core::at(g_boxes, i).coll);
             g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
@@ -1598,8 +1599,8 @@ void get_sync()
             replaced.push_back(a.spec.replaces);
     }
     for (size_t i = 0; i < g_turned_off.size();) {
-        if (std::ranges::find(replaced, g_turned_off[i]) == replaced.end()) {
-            walls::set_off(g_turned_off[i], false);
+        if (std::ranges::find(replaced, core::at(g_turned_off, i)) == replaced.end()) {
+            walls::set_off(core::at(g_turned_off, i), false);
             g_turned_off.erase(g_turned_off.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
@@ -1701,7 +1702,7 @@ void on_array_removed(uint32_t name)
 bool array_loaded(level_nodes::NodeManager* manager, uint32_t name)
 {
     for (uint32_t i = 0; i < manager->num_ && i < static_cast<uint32_t>(level_nodes::NodeManager::kMaxArrays); ++i) {
-        if (manager->arrays_[i].label_ == name)
+        if (core::at(manager->arrays_, i).label_ == name)
             return true;
     }
     return false;
@@ -1827,7 +1828,7 @@ void fabricate(const std::vector<Placed>& made, const char* what)
     }
     get_sync();
     if (first >= 0) {
-        g_select = nodes::get_find(hash_of_name(g_specs[first].name));
+        g_select = nodes::get_find(hash_of_name(core::at(g_specs, first).name));
         hud::get_message(std::string("Added ") + what, 4.0);
     }
 }
@@ -1841,14 +1842,14 @@ void get_guard()
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_specs.size(); ++k) {
-            if (g_specs[k].kind == Kind::kBreak && hash_of_name(g_specs[k].name) == g_boxes[i].name)
+            if (core::at(g_specs, k).kind == Kind::kBreak && hash_of_name(core::at(g_specs, k).name) == core::at(g_boxes, i).name)
                 at = static_cast<int>(k);
         }
-        if (at >= 0 && !is_sector_enabled(checksum_of(g_specs[at].target))) {
-            free_box(g_boxes[i].coll);
+        if (at >= 0 && !is_sector_enabled(checksum_of(core::at(g_specs, at).target))) {
+            free_box(core::at(g_boxes, i).coll);
             g_boxes.erase(g_boxes.begin() + static_cast<std::ptrdiff_t>(i));
             get_log("level editor: breakable %s broken - its box taken out until the piece is back",
-                    g_specs[at].name.c_str());
+                    core::at(g_specs, at).name.c_str());
         } else {
             ++i;
         }
@@ -2019,13 +2020,13 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
     if (undo)
         note_undo();
     Spec s = spec;
-    s.name = g_specs[i].name;
+    s.name = core::at(g_specs, i).name;
     s.size = clamp_size(s.size);
     s.text = clean_text(s.text);
     // (a gap's name, score and flags are the same at both ends)
     if (s.kind == Kind::kGapStart || s.kind == Kind::kGapEnd) {
         for (Spec& other : g_specs) {
-            if (&other != &g_specs[i] && !s.gap.empty() && same_text(other.gap, g_specs[i].gap) &&
+            if (&other != &core::at(g_specs, i) && !s.gap.empty() && same_text(other.gap, core::at(g_specs, i).gap) &&
                 (other.kind == Kind::kGapStart || other.kind == Kind::kGapEnd)) {
                 other.gap = s.gap;
                 other.text = s.text;
@@ -2034,7 +2035,7 @@ void set_spec(const std::string& name, const Spec& spec, bool undo)
             }
         }
     }
-    g_specs[i] = s;
+    core::at(g_specs, i) = s;
 }
 
 void begin_edit() { note_undo(); }
@@ -2103,7 +2104,7 @@ void select_partner(const std::string& name)
     const int i = spec_index(name);
     const int other = partner(g_specs, i);
     if (other >= 0)
-        g_select = nodes::get_find(hash_of_name(g_specs[other].name));
+        g_select = nodes::get_find(hash_of_name(core::at(g_specs, other).name));
 }
 
 void select_node_named(uint32_t name)
@@ -2146,7 +2147,7 @@ bool get_pick(V3 origin, V3 unit_dir, int* node, uint32_t* sector, float max_t)
         bool found = l.face_count_ > kMaxFacesKept;
         for (size_t f = 0; !found && f + 2 < l.faces.size(); f += 3) {
             float ft = 0.0f;
-            if (picking::ray_triangle(origin, unit_dir, l.faces[f], l.faces[f + 1], l.faces[f + 2], &ft) && ft < best) {
+            if (picking::ray_triangle(origin, unit_dir, core::at(l.faces, f), core::at(l.faces, f + 1), core::at(l.faces, f + 2), &ft) && ft < best) {
                 hit = ft;
                 found = true;
             }
@@ -2196,7 +2197,7 @@ struct Painter {
         for (int i = 0; i < 8; ++i) {
             for (const int bit : {1, 2, 4}) {
                 if (!(i & bit))
-                    get_seg(c[i], c[i | bit], argb, thickness);
+                    get_seg(core::at(c, i), core::at(c, i | bit), argb, thickness);
             }
         }
     }
@@ -2322,9 +2323,9 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         const float thickness = inspected ? 2.5f : 1.0f;
         if (l.face_count_ <= kMaxFacesKept) {
             for (size_t f = 0; f + 2 < l.faces.size(); f += 3) {
-                paint.get_seg(l.faces[f], l.faces[f + 1], colour, thickness);
-                paint.get_seg(l.faces[f + 1], l.faces[f + 2], colour, thickness);
-                paint.get_seg(l.faces[f + 2], l.faces[f], colour, thickness);
+                paint.get_seg(core::at(l.faces, f), core::at(l.faces, f + 1), colour, thickness);
+                paint.get_seg(core::at(l.faces, f + 1), core::at(l.faces, f + 2), colour, thickness);
+                paint.get_seg(core::at(l.faces, f + 2), core::at(l.faces, f), colour, thickness);
             }
         } else {
             const OrientedBox box = {
@@ -2358,7 +2359,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             const int other = partner(g_specs, spec_index(a.spec.name));
             if (other >= 0) {
                 for (const Added& b : g_added) {
-                    if (b.alive && same_text(b.spec.name, g_specs[other].name))
+                    if (b.alive && same_text(b.spec.name, core::at(g_specs, other).name))
                         paint.get_arrow(a.pos, b.pos, get_dim(kind_colour(Kind::kGapEnd), 0xB0));
                 }
             }
@@ -2422,7 +2423,7 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
     // Proximity nodes: the edited ones and the selected one - a sphere's three rings, a box's edges.
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     const uint32_t selected =
-        selected_node >= 0 && std::cmp_less(selected_node, nodes.size()) ? nodes[selected_node].name : 0;
+        selected_node >= 0 && std::cmp_less(selected_node, nodes.size()) ? core::at(nodes, selected_node).name : 0;
     auto draw_proxim = [&](uint32_t node, bool is_selected) {
         const objects::ProximNode* p = is_proxim(node) ? objects::proxim_get_node(node) : nullptr;
         if (!p)
@@ -2437,11 +2438,11 @@ void add_extras(V3 camera, const TickCycle& frame, const Lens& lens, const uint3
             constexpr int kSides = 32;
             const std::array<std::array<V3, 2>, 3> axes = {{{{{1, 0, 0}, {0, 0, 1}}}, {{{1, 0, 0}, {0, 1, 0}}}, {{{0, 1, 0}, {0, 0, 1}}}}};
             for (const auto& plane : axes) {
-                V3 previous = at + plane[0] * p->radius_;
+                V3 previous = at + core::at(plane, 0) * p->radius_;
                 for (int i = 1; i <= kSides; ++i) {
                     const float angle = 2.0f * 3.14159265f * static_cast<float>(i) / kSides;
                     const V3 next =
-                        at + plane[0] * (p->radius_ * std::cos(angle)) + plane[1] * (p->radius_ * std::sin(angle));
+                        at + core::at(plane, 0) * (p->radius_ * std::cos(angle)) + core::at(plane, 1) * (p->radius_ * std::sin(angle));
                     paint.get_seg(previous, next, colour, 1.0f);
                     previous = next;
                 }
@@ -2560,7 +2561,7 @@ void remember_view(V3 camera, const TickCycle& frame, const Lens& lens, const ui
     g_last_view.frame = frame;
     g_last_view.lens = lens;
     for (int i = 0; i < 4; ++i)
-        g_last_view.viewport[i] = viewport[i];
+        core::at(g_last_view.viewport, i) = viewport[i];
     g_last_view.near_z_ = near_z;
 }
 
@@ -2646,7 +2647,7 @@ void add_handles(std::vector<ui::Overlay::Circle>* circles)
             continue;
         ndc_to_pixel(g_last_view.viewport.data(), nx, ny, &x, &y);
         const bool lit = h == g_hover_handle || (g_resize.on && h == g_resize.handle);
-        const uint32_t colour = lit ? 0xFFFFFF40u : kHandleColours[h >> 1];
+        const uint32_t colour = lit ? 0xFFFFFF40u : core::at(kHandleColours, h >> 1);
         circles->push_back({x, y, lit ? 7.0f : 5.5f, colour, true, 1.0f});
         circles->push_back({x, y, lit ? 7.0f : 5.5f, 0xFF101010u, false, 1.0f});
         g_drawn_handles.push_back({h, x, y});
@@ -2736,7 +2737,7 @@ void rescale(V3 origin, V3 dir, bool snap)
         g_resize.on = false;
         return;
     }
-    Spec spec = g_specs[i];
+    Spec spec = core::at(g_specs, i);
     if (spec.size.x != size.x || spec.size.y != size.y || spec.size.z != size.z) {
         spec.size = size;
         set_spec(g_resize.name, spec, false);
@@ -2961,7 +2962,7 @@ int apply_proxims(const std::vector<ProximEdit>& edits)
     for (const ProximEdit& e : edits) {
         const int i = proxim_index(e.node);
         if (i >= 0)
-            g_proxims[i] = e;
+            core::at(g_proxims, i) = e;
         else
             g_proxims.push_back(e);
         found += have_proxim_manager() && objects::proxim_get_node(e.node) ? 1 : 0;
@@ -3056,7 +3057,7 @@ void set_breakable(uint32_t sector, bool on)
 const ProximEdit* proxim_of(uint32_t node)
 {
     const int i = proxim_index(node);
-    return i >= 0 ? &g_proxims[i] : nullptr;
+    return i >= 0 ? &core::at(g_proxims, i) : nullptr;
 }
 
 void set_proxim(const ProximEdit& edit, bool undo)
@@ -3073,7 +3074,7 @@ void set_proxim(const ProximEdit& edit, bool undo)
         if (i >= 0)
             g_proxims.erase(g_proxims.begin() + i);
     } else if (i >= 0) {
-        g_proxims[i] = e;
+        core::at(g_proxims, i) = e;
     } else {
         g_proxims.push_back(e);
     }

@@ -13,6 +13,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -60,8 +61,8 @@ void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap
                 node = node ? new (node) script::Struct : nullptr;
             }
             static const std::array<uint32_t, 3> kKinds = {{0x8F0F67D7, 0xC9119673, 0x000B52B3}};
-            node->append_structure_if_any(script::read_sub_struct(kKinds[which < 2 ? which : 2]));
-            name[0] = '\0';
+            node->append_structure_if_any(script::read_sub_struct(core::at(kKinds, which < 2 ? which : 2)));
+            core::at(name, 0) = '\0';
             if (which == 0)
                 get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
             else if (which == 1)

@@ -13,6 +13,7 @@
 #include "editor/level_editor_ui.h"
 #include "engine/script/param_struct.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui {
 
@@ -21,7 +22,7 @@ void spawn_section(int node_index, std::vector<Request>* requests)
     const std::vector<nodes::Elem>& all = nodes::get_all();
     if (node_index < 0 || std::cmp_greater_equal(node_index, all.size()))
         return;
-    const nodes::Elem& node = all[node_index];
+    const nodes::Elem& node = core::at(all, node_index);
     if (node.family != nodes::Family::kSpawn || node.hidden)
         return;
     static const uint32_t kHorse = fields::hash_of_name("Horse");

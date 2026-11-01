@@ -22,6 +22,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -255,13 +256,13 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     }
     objects::RiderIdentity* profile = fetch_account(profile_index);
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->skater_geom_heaps_[skater->get_skater_number()]);
+    manager->enter_heap_scope(core::at(manager->skater_geom_heaps_, skater->get_skater_number()));
     model_build_hook();
     auto* model = core::down_cast<objects::MeshInstanceModule>(skater->fetch_module(kModel));
     model->set_up_mesh_from_profile(profile, false, skater->get_skater_number(), 0);
     memory::Hub::get_pull()->leave_heap_scope();
     manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->skater_heaps_[skater->get_skater_number()]);
+    manager->enter_heap_scope(core::at(manager->skater_heaps_, skater->get_skater_number()));
     skater->set_stats_from_profile(profile);
     core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick))->apply_trick_bindings(profile);
     skater->update_from_profile(profile);

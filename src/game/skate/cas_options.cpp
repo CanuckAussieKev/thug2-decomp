@@ -8,6 +8,7 @@
 #include "engine/maths/random.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/model_appearance.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -104,30 +105,30 @@ Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
         }
         if (!allow)
             continue;
-        options[count] = option;
+        core::at(options, count) = option;
         option->fetch_int_value(kAlreadySelected, &already_picked, 1);
-        selected[count] = already_picked != 0;
+        core::at(selected, count) = already_picked != 0;
         ++count;
     }
     // Every one selected already: all of them again
     int fresh = 0;
     for (int i = 0; i < count; ++i) {
-        if (!selected[i])
+        if (!core::at(selected, i))
             ++fresh;
     }
     if (count > 0 && fresh == 0) {
         for (int i = 0; i < count; ++i)
-            selected[i] = false;
+            core::at(selected, i) = false;
     }
     int candidates = 0;
     for (int i = 0; i < count; ++i) {
-        if (!selected[i]) {
-            options[candidates] = options[i];
-            selected[candidates] = false;
+        if (!core::at(selected, i)) {
+            core::at(options, candidates) = core::at(options, i);
+            core::at(selected, candidates) = false;
             ++candidates;
         }
     }
-    Struct* option = options[maths::rnd(candidates)];
+    Struct* option = core::at(options, maths::rnd(candidates));
     option->put_int(kAlreadySelected, 1);
     return option;
 }

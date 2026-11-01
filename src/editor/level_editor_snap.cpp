@@ -16,6 +16,7 @@
 #include "engine/gfx/geom.h"
 #include "engine/core/raw_view.h"
 #include "gpu/vertex_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::snap {
 
@@ -24,7 +25,7 @@ int get_nearest(const std::vector<V3>& points, V3 to)
     int best = -1;
     float best_d = 0.0f;
     for (size_t i = 0; i < points.size(); ++i) {
-        const V3 d = points[i] - to;
+        const V3 d = core::at(points, i) - to;
         const float dd = get_dot(d, d);
         if (best < 0 || dd < best_d) {
             best = static_cast<int>(i);
@@ -41,7 +42,7 @@ int nearest_on_screen(const std::vector<V3>& points, const std::function<bool(V3
     float best_d = 0.0f;
     for (size_t i = 0; i < points.size(); ++i) {
         float px = 0.0f, py = 0.0f;
-        if (!project(points[i], &px, &py))
+        if (!project(core::at(points, i), &px, &py))
             continue;
         const float dd = (px - x) * (px - x) + (py - y) * (py - y);
         if (best < 0 || dd < best_d) {
@@ -60,19 +61,19 @@ bool align_rows(V3 rows[3], V3 normal)
     const V3 up = normal * (1.0f / std::sqrt(n2));
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
-        lengths[i] = std::sqrt(get_dot(rows[i], rows[i]));
-    if (lengths[2] < 1e-6f)
+        core::at(lengths, i) = std::sqrt(get_dot(rows[i], rows[i]));
+    if (core::at(lengths, 2) < 1e-6f)
         return false;
     // (the at row's heading kept: its part across the surface)
-    V3 at = rows[2] * (1.0f / lengths[2]);
+    V3 at = rows[2] * (1.0f / core::at(lengths, 2));
     const V3 flat = at - up * get_dot(at, up);
     if (get_dot(flat, flat) < 1e-6f)
         return false;
     at = make_unit(flat);
     const V3 right = perpendicular(up, at); // (right = up x at, as the game's rows are)
-    rows[0] = right * lengths[0];
-    rows[1] = up * lengths[1];
-    rows[2] = at * lengths[2];
+    rows[0] = right * core::at(lengths, 0);
+    rows[1] = up * core::at(lengths, 1);
+    rows[2] = at * core::at(lengths, 2);
     return true;
 }
 
@@ -133,12 +134,12 @@ std::vector<V3> sector_vertices(uint32_t checksum, size_t limit)
         const render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
         if (!vertices || !vertices->data || mesh->stride < 12)
             continue;
         for (uint32_t v = 0; v < mesh->vertex_count_ && out.size() < limit; ++v) {
             const auto p = gpu::VertexView(vertices->data, mesh->stride).float3(v);
-            out.push_back({p[0], p[1], p[2]});
+            out.push_back({core::at(p, 0), core::at(p, 1), core::at(p, 2)});
         }
     }
     return out;

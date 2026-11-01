@@ -6,6 +6,7 @@
 
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::xform {
 
@@ -20,7 +21,7 @@ void options_menu_items()
             if (ImGui::MenuItem(pivot_name(pivot), nullptr, settings.pivot == pivot))
                 settings.pivot = pivot;
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", kTips[i]);
+                ImGui::SetTooltip("%s", core::at(kTips, i));
             ++i;
         }
         ImGui::EndMenu();
@@ -39,7 +40,7 @@ void options_menu_items()
         int i = 0;
         for (const SnapTarget target :
              {SnapTarget::kGrid, SnapTarget::kWorldGrid, SnapTarget::kSurface, SnapTarget::kVertex}) {
-            if (ImGui::MenuItem(target_name(target), kKeys[i], settings.target == target))
+            if (ImGui::MenuItem(target_name(target), core::at(kKeys, i), settings.target == target))
                 settings.target = target;
             ++i;
         }

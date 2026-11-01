@@ -1,6 +1,7 @@
 #include "formats/anim_format.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace anim_format {
 
@@ -155,7 +156,7 @@ bool read_custom_key(util::ByteReader& reader, CustomKey* out)
     out->size = reader.u32();
     switch (out->kind) {
     case 1:
-        out->values[0] = reader.f32();
+        core::at(out->values, 0) = reader.f32();
         break;
     case 2:
     case 7:

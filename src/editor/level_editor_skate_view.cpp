@@ -26,6 +26,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::skate_view {
 
@@ -177,12 +178,12 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
             const uint32_t index = tri->face_vertex(f, k);
             ok = index < tri->num_vertices_;
             if (ok)
-                p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+                core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
         const uint16_t flags = tri->face_flags(f);
-        const V3 n = perpendicular(p[1] - p[0], p[2] - p[0]);
+        const V3 n = perpendicular(core::at(p, 1) - core::at(p, 0), core::at(p, 2) - core::at(p, 0));
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0f ? n.y / length : 0.0f;
         Kind kind = get_classify(flags, ny, threshold, (flags & 0x40) ? trigger : 0);
@@ -254,7 +255,7 @@ void add_overlay(const overlays::Painter& painter)
             }
             std::array<V3, 4> clipped{};
             const int count =
-                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &c.points[f * 3], clipped.data());
+                view::clip_triangle_to_near(painter.camera, painter.frame, painter.near_z_, &core::at(c.points, f * 3), clipped.data());
             if (!count)
                 continue;
             Polygon poly = {};
@@ -263,19 +264,19 @@ void add_overlay(const overlays::Painter& painter)
             float depth = 0.0f;
             for (int k = 0; k < count; ++k) {
                 float nx = 0.0f, ny = 0.0f;
-                cast_onto(painter.camera, painter.frame, painter.lens, clipped[k], painter.near_z_ * 0.5f, &nx, &ny);
+                cast_onto(painter.camera, painter.frame, painter.lens, core::at(clipped, k), painter.near_z_ * 0.5f, &nx, &ny);
                 left = left && nx < -1.0f, right = right && nx > 1.0f, below = below && ny < -1.0f;
                 above = above && ny > 1.0f;
-                ndc_to_pixel(painter.viewport.data(), nx, ny, &poly.x[k], &poly.y[k]);
-                depth += -get_dot(clipped[k] - painter.camera, painter.frame.back);
+                ndc_to_pixel(painter.viewport.data(), nx, ny, &core::at(poly.x, k), &core::at(poly.y, k));
+                depth += -get_dot(core::at(clipped, k) - painter.camera, painter.frame.back);
             }
             if (left || right || below || above)
                 continue;
-            const Kind kind = static_cast<Kind>(c.kinds[f]);
+            const Kind kind = static_cast<Kind>(core::at(c.kinds, f));
             poly.depth = depth / static_cast<float>(count);
             poly.argb = get_colour(kind);
             polygons.push_back(poly);
-            ++g_counts[c.kinds[f]];
+            ++core::at(g_counts, core::at(c.kinds, f));
         }
         if (g_capped)
             break;
@@ -298,7 +299,7 @@ void add_overlay(const overlays::Painter& painter)
                                   {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
         const uint32_t colour = (get_colour(a.spec.water ? Kind::kWater : Kind::kKill) & 0x00FFFFFF) | 0xFF000000;
         for (const auto& e : edges)
-            (void)painter.get_seg(corner[e[0]], corner[e[1]], colour, 2.0f);
+            (void)painter.get_seg(core::at(corner, core::at(e, 0)), core::at(corner, core::at(e, 1)), colour, 2.0f);
     }
     // Grind rails: the rail manager's active segments near the camera.
     const modules::Skate* skate = modules::g_skate_module;
@@ -349,7 +350,7 @@ void get_legend(float view_x, float view_y, float view_width, float view_height,
             ImGui::TextUnformatted(name);
     };
     for (int k = 1; k < kKinds; ++k)
-        row(get_colour(static_cast<Kind>(k)), get_name(static_cast<Kind>(k)), g_counts[k]);
+        row(get_colour(static_cast<Kind>(k)), get_name(static_cast<Kind>(k)), core::at(g_counts, k));
     row(kRail, "Grind rail (the rail manager's)", g_rail_segments);
     ImGui::TextDisabled("Slope limit: normal y %.2f", game_threshold());
     if (g_capped)

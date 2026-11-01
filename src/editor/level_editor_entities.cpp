@@ -41,6 +41,7 @@
 #include "engine/sound/sfx.h"
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::entities {
 
@@ -49,9 +50,9 @@ namespace frontend::level_editor::entities {
 std::string set_stem(const std::string& name)
 {
     size_t end = name.size();
-    while (end > 0 && std::isdigit(static_cast<unsigned char>(name[end - 1])))
+    while (end > 0 && std::isdigit(static_cast<unsigned char>(core::at(name, end - 1))))
         --end;
-    while (end > 0 && name[end - 1] == '_')
+    while (end > 0 && core::at(name, end - 1) == '_')
         --end;
     return end == 0 ? name : name.substr(0, end);
 }
@@ -60,7 +61,7 @@ V3 pin_anchor_point(const std::vector<V3>& places)
 {
     if (places.empty())
         return {0.0f, 0.0f, 0.0f};
-    float min_x = places[0].x, max_x = places[0].x, min_z = places[0].z, max_z = places[0].z, min_y = places[0].y;
+    float min_x = core::at(places, 0).x, max_x = core::at(places, 0).x, min_z = core::at(places, 0).z, max_z = core::at(places, 0).z, min_y = core::at(places, 0).y;
     for (const V3& p : places) {
         min_x = std::min(min_x, p.x);
         max_x = std::max(max_x, p.x);
@@ -91,8 +92,8 @@ ParticleEmitter turn_particle(const ParticleEmitter& origin, V3 from, V3 pos, fl
     if (origin.has_end_)
         out.end = pos + turn_about_up(origin.end - from, turn);
     for (int i = 0; i < 3; ++i) {
-        if (origin.has_box_[i])
-            out.box[i] = turn_box_extents(origin.box[i], turn);
+        if (core::at(origin.has_box_, i))
+            core::at(out.box, i) = turn_box_extents(core::at(origin.box, i), turn);
     }
     return out;
 }
@@ -105,7 +106,7 @@ float path_length(const std::vector<V3>& points, bool closed)
 {
     float total = 0.0f;
     for (size_t i = 0; i + 1 < points.size(); ++i)
-        total += len_of(points[i + 1] - points[i]);
+        total += len_of(core::at(points, i + 1) - core::at(points, i));
     if (closed && points.size() > 2)
         total += len_of(points.front() - points.back());
     return total;
@@ -121,8 +122,8 @@ bool path_sample(const std::vector<V3>& points, bool closed, float distance, V3*
         d += total;
     const size_t segments = points.size() - 1 + (closed && points.size() > 2 ? 1 : 0);
     for (size_t i = 0; i < segments; ++i) {
-        const V3 a = points[i];
-        const V3 b = points[(i + 1) % points.size()];
+        const V3 a = core::at(points, i);
+        const V3 b = core::at(points, (i + 1) % points.size());
         const float length = len_of(b - a);
         if (length <= 0.0f)
             continue;
@@ -152,11 +153,11 @@ bool same_state(const State& a, const State& b)
     if (a.speeds.size() != b.speeds.size() || a.emitters.size() != b.emitters.size())
         return false;
     for (size_t i = 0; i < a.speeds.size(); ++i) {
-        if (a.speeds[i].name != b.speeds[i].name || a.speeds[i].mph != b.speeds[i].mph)
+        if (core::at(a.speeds, i).name != core::at(b.speeds, i).name || core::at(a.speeds, i).mph != core::at(b.speeds, i).mph)
             return false;
     }
     for (size_t i = 0; i < a.emitters.size(); ++i) {
-        const EmitterSound &x = a.emitters[i], &y = b.emitters[i];
+        const EmitterSound &x = core::at(a.emitters, i), &y = core::at(b.emitters, i);
         if (x.name != y.name || x.sound != y.sound || x.volume != y.volume || x.radius != y.radius)
             return false;
     }
@@ -307,7 +308,7 @@ bool read_record(const std::string& kind, std::istringstream& in, State* state)
     std::set<std::string> seen;
     std::string word;
     while (in >> word) {
-        if (word[0] == '#')
+        if (core::at(word, 0) == '#')
             break; // (a comment: the rest of the line)
         const size_t eq = word.find('=');
         if (eq == std::string::npos || eq == 0)
@@ -828,7 +829,7 @@ float preview_mph(uint32_t name)
 
 float current_heading(const objects::GameEntity* object)
 {
-    const maths::Vec4& at = object->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
     return std::atan2(at.x, at.z);
 }
 
@@ -1096,7 +1097,7 @@ void tick(bool editor_active, uint32_t selected, bool dragging)
 void node_moved(uint32_t name, V3 pos, V3 angles)
 {
     const int index = nodes::get_find(name);
-    if (index < 0 || nodes::get_all()[index].family != nodes::Family::kParticle)
+    if (index < 0 || core::at(nodes::get_all(), index).family != nodes::Family::kParticle)
         return;
     script::Struct* node = look_up_node_params(name);
     if (!node)
@@ -1119,8 +1120,8 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
             o.emitter.end = {v.x, v.y, v.z};
         for (int i = 0; i < 3; ++i) {
             // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
-            if ((o.emitter.has_box_[i] = node->fetch_vec(kBoxes[i], &v, 0)))
-                o.emitter.box[i] = {v.x, v.y, v.z};
+            if ((core::at(o.emitter.has_box_, i) = node->fetch_vec(core::at(kBoxes, i), &v, 0)))
+                core::at(o.emitter.box, i) = {v.x, v.y, v.z};
         }
         o.at = o.from;
         o.at_yaw_ = o.from_yaw_;
@@ -1141,7 +1142,7 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
     put(kMid, now.has_mid_, now.mid);
     put(kEnd, now.has_end_, now.end);
     for (int i = 0; i < 3; ++i)
-        put(kBoxes[i], now.has_box_[i], now.box[i]);
+        put(core::at(kBoxes, i), core::at(now.has_box_, i), core::at(now.box, i));
     o.at = pos;
     o.at_yaw_ = angles.y;
     queue_remake(name, false, 0.3); // (once the drag rests)
@@ -1151,7 +1152,7 @@ bool picked_node_index(uint32_t name, int family)
 {
     auto f = static_cast<nodes::Family>(family);
     const int index = nodes::get_find(name);
-    if (index < 0 || deleted_copy(nodes::get_all()[index]))
+    if (index < 0 || deleted_copy(core::at(nodes::get_all(), index)))
         return false;
     if (f == nodes::Family::kParticle)
         return true;
@@ -1193,7 +1194,7 @@ Placed get_place(int index, V3 at, float yaw)
     Placed placed;
     if (index < 0 || std::cmp_greater_equal(index, g_sources.size()))
         return placed;
-    const Source& source = g_sources[index];
+    const Source& source = core::at(g_sources, index);
     if (source.kind == SourceKind::kSound) {
         placed.emitter = true;
         placed.sound = source.sound;
@@ -1221,7 +1222,7 @@ Placed get_place(int index, V3 at, float yaw)
     }
     const V3 anchor = pin_anchor_point(places);
     for (size_t i = 0; i < source.names.size(); ++i) {
-        if (const objects::GameEntity* copy = object_edit::make_copy(source.names[i], at + (places[i] - anchor)))
+        if (const objects::GameEntity* copy = object_edit::make_copy(core::at(source.names, i), at + (core::at(places, i) - anchor)))
             placed.copies.push_back(copy->ident_);
     }
     std::array<char, 96> text{};
@@ -1262,7 +1263,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     // The previewed path.
     if (g_preview.id) {
         for (size_t i = 0; i + 1 < g_preview.points.size(); ++i)
-            line(g_preview.points[i], g_preview.points[i + 1], 0xFF60FF90, 2.0f);
+            line(core::at(g_preview.points, i), core::at(g_preview.points, i + 1), 0xFF60FF90, 2.0f);
         if (g_preview.closed && g_preview.points.size() > 2)
             line(g_preview.points.back(), g_preview.points.front(), 0xFF60FF90, 2.0f);
     }
@@ -1291,7 +1292,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
-                    line(corners[i], corners[i | bit], kGhost, 1.0f);
+                    line(core::at(corners, i), core::at(corners, i | bit), kGhost, 1.0f);
             }
         }
         line(n->pos, n->pos + at * 30.0f, kGhost, 1.5f);

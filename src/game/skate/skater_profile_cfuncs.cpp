@@ -16,6 +16,7 @@
 #include "game/goals/goal_manager.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -53,7 +54,7 @@ int player_of(script::Struct* params)
 }
 bool get_option(script::Struct* params, Option option)
 {
-    const modules::Skate::PlayerSettings& player = modules::g_skate_module->participants_[player_of(params)];
+    const modules::Skate::PlayerSettings& player = core::at(modules::g_skate_module->participants_, player_of(params));
     return option == kVibration ? player.vibration_ : option == kAutoKick ? player.auto_kick_ : player.spin_taps_;
 }
 bool set_option(script::Struct* params, Option option, bool on)

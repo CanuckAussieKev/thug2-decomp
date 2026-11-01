@@ -22,6 +22,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -92,8 +93,8 @@ LabelWidget* as_text(UiWidget* e) { return core::down_cast<LabelWidget>(e); }
 // 0x004B0810
 ParagraphWidget::ParagraphWidget()
 {
-    shadow_rgba_[0] = shadow_rgba_[1] = shadow_rgba_[2] = 0;
-    shadow_rgba_[3] = 0x80;
+    core::at(shadow_rgba_, 0) = core::at(shadow_rgba_, 1) = core::at(shadow_rgba_, 2) = 0;
+    core::at(shadow_rgba_, 3) = 0x80;
     change_species(kTextBlockElement);
 }
 
@@ -283,10 +284,10 @@ bool ParagraphWidget::backspace()
         return false;
     std::array<char, 0x200> text{};
     fetch_caption(text.data(), sizeof(text));
-    if (length > 1 && text[length - 1] == '\\' && text[length - 2] == '\\')
-        text[length - 2] = 0;
+    if (length > 1 && core::at(text, length - 1) == '\\' && core::at(text, length - 2) == '\\')
+        core::at(text, length - 2) = 0;
     std::array<const char*, 1> texts = {{text.data()}};
-    text[length - 1] = 0;
+    core::at(text, length - 1) = 0;
     change_caption(texts.data(), 1);
     return true;
 }
@@ -362,12 +363,12 @@ void ParagraphWidget::change_traits(Struct* params)
         may_grow_ = true;
     std::array<const char*, kMaxTexts> texts{};
     script::Array* array = nullptr;
-    if (params->fetch_text(kText, &texts[0], 0)) {
+    if (params->fetch_text(kText, &core::at(texts, 0), 0)) {
         change_caption(texts.data(), 1);
     } else if (params->fetch_list(kText, &array, 0)) {
         const int count = static_cast<int>(array->extent_);
         for (int i = 0; i < count && i < kMaxTexts; ++i)
-            texts[i] = array->fetch_text(static_cast<uint32_t>(i));
+            core::at(texts, i) = array->fetch_text(static_cast<uint32_t>(i));
         change_caption(texts.data(), count < kMaxTexts ? count : kMaxTexts);
     }
     if (params->has_bare_flag(kBlurEffect) && !blur_) {
@@ -425,8 +426,8 @@ void ParagraphWidget::blend_towards(Struct* params)
             child->fetch_location(&x, &y);
             y = static_cast<float>(static_cast<double>(child->level_y_) * get_half() + y);
             const double offset = static_cast<double>(level_y_) * get_half() - y;
-            settings.max_displacement_[1] =
-                static_cast<float>(offset * target->bottom_scales_[1] - offset + settings.max_displacement_[1]);
+            core::at(settings.max_displacement_, 1) =
+                static_cast<float>(offset * core::at(target->bottom_scales_, 1) - offset + core::at(settings.max_displacement_, 1));
             as_text(child.owner_object_)->blur_->set_target(&settings, ms);
             child.assign_value(child->following_.owner_object_);
         }

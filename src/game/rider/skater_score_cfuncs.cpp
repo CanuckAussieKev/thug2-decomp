@@ -17,6 +17,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -64,7 +65,7 @@ bool cfunc_reinsert_skaters(script::Struct*, script::Script*)
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->skater_heaps_[skater->get_skater_number()]);
+        manager->enter_heap_scope(core::at(manager->skater_heaps_, skater->get_skater_number()));
         skater->show_skater();
         memory::Hub::get_pull()->leave_heap_scope();
     }

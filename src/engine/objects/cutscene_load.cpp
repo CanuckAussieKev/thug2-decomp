@@ -30,6 +30,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -132,7 +133,7 @@ void CinematicTable::refresh_objects()
     script::Struct* params = make_struct();
     params->put_name_key(kUnnamed, kFlagParam);
     for (int i = 0; i < object_count_; ++i) {
-        GameEntity* object = entities_[i].object;
+        GameEntity* object = core::at(entities_, i).object;
         if (object->fetch_module(kModelModuleName))
             script::launch_script(kRefreshScript, params, object, false, nullptr);
     }
@@ -240,7 +241,7 @@ void CinematicTable::add_objects(script::Struct* params)
                 params2->put_name_key(kSkeleton, skeleton);
                 params2->put_int(kSkeletonParam, 0);
             }
-            ObjectEntry& entry = entities_[object_count_];
+            ObjectEntry& entry = core::at(entities_, object_count_);
             entry.object = create_object(params2);
             ObjectModule* stand_in = entry.object->fetch_module(kModelModuleName);
             if (stand_in) {
@@ -286,9 +287,9 @@ void CinematicTable::add_objects(script::Struct* params)
             entry.anim_index_ = -1;
             if (anim) {
                 for (int j = 0; j < animation_count_; ++j) {
-                    if (animations_[j].name != anim)
+                    if (core::at(animations_, j).name != anim)
                         continue;
-                    AnimationEntry* animation = &animations_[j];
+                    AnimationEntry* animation = &core::at(animations_, j);
                     entry.animation = animation;
                     animation->source = new render::FrameSource;
                     static_cast<render::FrameSource*>(animation->source)->play_clip(anim);
@@ -305,7 +306,7 @@ void CinematicTable::add_objects(script::Struct* params)
 
     // the objects that stand in for level objects (and their children) take those's skeletons
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        ObjectEntry& entry = core::at(entities_, i);
         if (entry.active)
             copy_skeleton(entry, entry);
         if (ObjectEntry* parent = find_entry(entry.name - 1)) {
@@ -315,7 +316,7 @@ void CinematicTable::add_objects(script::Struct* params)
     }
     // their models' flags 0x00493B30 merged with their parents' level objects'
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        ObjectEntry& entry = core::at(entities_, i);
         ObjectModule* component = entry.object->fetch_module(kModelModuleName);
         if (!component)
             continue;
@@ -331,7 +332,7 @@ void CinematicTable::add_objects(script::Struct* params)
     }
     // children: their parent, the skater's look (colours from its appearance parts), their animation index
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        ObjectEntry& entry = core::at(entities_, i);
         const ObjectEntry* parent = find_entry(entry.name - 1);
         if (parent) {
             entry.parent = parent->object;
@@ -352,8 +353,8 @@ void CinematicTable::add_objects(script::Struct* params)
 CinematicTable::ObjectEntry* CinematicTable::find_entry(uint32_t name)
 {
     for (int i = 0; i < object_count_; ++i) {
-        if (entities_[i].name == name)
-            return &entities_[i];
+        if (core::at(entities_, i).name == name)
+            return &core::at(entities_, i);
     }
     return nullptr;
 }

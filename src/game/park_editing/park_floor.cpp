@@ -13,6 +13,7 @@
 #include "engine/core/checksums.h"
 #include "engine/render/probe_ray.h"
 #include "engine/objects/smtptr.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -175,7 +176,7 @@ void ParkLayout::rebuild_floor_piece(FloorPieceRequest* request)
 {
     const int x = request->x;
     const int z = request->z;
-    FloorCell* cells = &floor_[0][0];
+    FloorCell* cells = &core::at(core::at(floor_, 0), 0);
     auto height_at = [&](int cx, int cz) { return cells[cx * kFloorSize + cz].level_y_; };
 
     // The lowest neighbour (outside the shell counts as 0).
@@ -293,22 +294,22 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     build_area_ = bounds;
     const CellBox& park = build_area_;
     // The four strips round the park (where the walls go).
-    blocked_areas_[0].x = static_cast<uint8_t>(park.x - 1);
-    blocked_areas_[0].z = static_cast<uint8_t>(park.z - 1);
-    blocked_areas_[0].w = 1;
-    blocked_areas_[0].l = static_cast<uint8_t>(park.l + 2);
-    blocked_areas_[1].x = static_cast<uint8_t>(park.w + park.x);
-    blocked_areas_[1].z = static_cast<uint8_t>(park.z - 1);
-    blocked_areas_[1].w = 1;
-    blocked_areas_[1].l = static_cast<uint8_t>(park.l + 2);
-    blocked_areas_[2].x = static_cast<uint8_t>(park.x - 1);
-    blocked_areas_[2].z = static_cast<uint8_t>(park.z - 1);
-    blocked_areas_[2].w = static_cast<uint8_t>(park.w + 2);
-    blocked_areas_[2].l = 1;
-    blocked_areas_[3].x = static_cast<uint8_t>(park.x - 1);
-    blocked_areas_[3].z = static_cast<uint8_t>(park.l + park.z);
-    blocked_areas_[3].w = static_cast<uint8_t>(park.w + 2);
-    blocked_areas_[3].l = 1;
+    core::at(blocked_areas_, 0).x = static_cast<uint8_t>(park.x - 1);
+    core::at(blocked_areas_, 0).z = static_cast<uint8_t>(park.z - 1);
+    core::at(blocked_areas_, 0).w = 1;
+    core::at(blocked_areas_, 0).l = static_cast<uint8_t>(park.l + 2);
+    core::at(blocked_areas_, 1).x = static_cast<uint8_t>(park.w + park.x);
+    core::at(blocked_areas_, 1).z = static_cast<uint8_t>(park.z - 1);
+    core::at(blocked_areas_, 1).w = 1;
+    core::at(blocked_areas_, 1).l = static_cast<uint8_t>(park.l + 2);
+    core::at(blocked_areas_, 2).x = static_cast<uint8_t>(park.x - 1);
+    core::at(blocked_areas_, 2).z = static_cast<uint8_t>(park.z - 1);
+    core::at(blocked_areas_, 2).w = static_cast<uint8_t>(park.w + 2);
+    core::at(blocked_areas_, 2).l = 1;
+    core::at(blocked_areas_, 3).x = static_cast<uint8_t>(park.x - 1);
+    core::at(blocked_areas_, 3).z = static_cast<uint8_t>(park.l + park.z);
+    core::at(blocked_areas_, 3).w = static_cast<uint8_t>(park.w + 2);
+    core::at(blocked_areas_, 3).l = 1;
 
     // Out go the fences and the player's metapieces no longer (wholly) in the park.
     for (MapListNode* node = concrete_metas_; node;) {
@@ -362,7 +363,7 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
     for (int x = 0; x < 56; ++x) {
         for (int z = 0; z < 56; ++z) {
             if (std::cmp_less(x, park.x) || std::cmp_less(z, park.z) || x >= park.w + park.x || z >= park.l + park.z)
-                floor_[x][z].level_y_ = 0;
+                core::at(core::at(floor_, x), z).level_y_ = 0;
         }
     }
     builder_->update_bounds((flag_bits_ & kMapLoaded) ? map_.shell_size_ : 0);
@@ -412,7 +413,7 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
         area = &build_area_;
     }
     // Every cell of the area and the ring round it.
-    const FloorCell* cells = &floor_[0][0];
+    const FloorCell* cells = &core::at(core::at(floor_, 0), 0);
     for (int x = area->x - 1; x < area->w + 1 + area->x; ++x) {
         for (int z = area->z - 1; z < area->l + 1 + area->z; ++z) {
             FloorPieceRequest request{};

@@ -5,6 +5,7 @@
 #include <memory>
 
 #include "engine/core/task_list.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -153,8 +154,8 @@ struct Hub {
     bool pad_follows_stick() { return stick_replaces_pad_; }
     // 0x0044E630 / 0x0044E640: unknown110_[`player`] (the controller a player uses: Construct gives player 0
     // controller 0, player 1 none).
-    int get_player_controller(int player) { return unknown110_[player]; }
-    void set_player_controller(int player, int controller) { unknown110_[player] = controller; }
+    int get_player_controller(int player) { return core::at(unknown110_, player); }
+    void set_player_controller(int player, int controller) { core::at(unknown110_, player) = controller; }
     // 0x0044E660: the task's code (`task` its tasks::Task<Manager>: the manager at +0x1C): for each server, a
     // recording played back or made that reached its end stops; then the server's frame (poll_input_sinks).
     static void service_task(tasks::Task<Hub>* task);

@@ -16,6 +16,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -202,11 +203,11 @@ void FollowTrail::tick_frame()
     aim_point_ = object->at_point_;
     if (num_ == 0) {
         head_ = 0;
-        path_vertices_[0] = aim_point_;
+        core::at(path_vertices_, 0) = aim_point_;
         num_ = 1;
         return;
     }
-    const maths::Vec4& last = path_vertices_[head_];
+    const maths::Vec4& last = core::at(path_vertices_, head_);
     const float dx = last.x - aim_point_.x;
     const float dy = last.y - aim_point_.y;
     const float dz = last.z - aim_point_.z;
@@ -217,7 +218,7 @@ void FollowTrail::tick_frame()
         return;
     if (++head_ >= 64)
         head_ = 0;
-    path_vertices_[head_] = aim_point_;
+    core::at(path_vertices_, head_) = aim_point_;
     if (num_ < 64)
         ++num_;
 }
@@ -235,7 +236,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     int index = head_;
     float dx = 0.0f, dy = 0.0f, dz = 0.0f, dw = 0.0f, length = 0.0f;
     for (;;) {
-        const maths::Vec4& point = path_vertices_[index];
+        const maths::Vec4& point = core::at(path_vertices_, index);
         dx = static_cast<float>(static_cast<double>(point.x) - previous.x);
         dy = point.y - previous.y;
         dz = point.z - previous.z;
@@ -271,7 +272,7 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     position->w = 1.0f;
 
     // the facing: the old front x10 plus the direction (x unrounded before the add, as the original)
-    maths::Vec4& front = matrix->row[2];
+    maths::Vec4& front = core::at(matrix->row, 2);
     const float fy = front.y * kFacingWeight;
     const float fz = front.z * kFacingWeight;
     const float fw = front.w * kFacingWeight;
@@ -283,15 +284,15 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
         front.w = 1.0f;
         front.make_unit();
         const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
-        matrix->row[0] = maths::cross_vec(up, front);
-        matrix->row[0].make_unit();
-        matrix->row[1] = maths::cross_vec(front, matrix->row[0]);
+        core::at(matrix->row, 0) = maths::cross_vec(up, front);
+        core::at(matrix->row, 0).make_unit();
+        core::at(matrix->row, 1) = maths::cross_vec(front, core::at(matrix->row, 0));
     } else {
         front.y = 0.0f;
         front.w = 1.0f;
         front.make_unit();
-        matrix->row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
-        matrix->row[0] = maths::cross_vec(matrix->row[1], front);
+        core::at(matrix->row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+        core::at(matrix->row, 0) = maths::cross_vec(core::at(matrix->row, 1), front);
     }
 }
 

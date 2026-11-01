@@ -9,6 +9,7 @@
 #include "editor/level_editor_overlays.h"
 #include "editor/level_editor_triggers.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::overlays {
 
@@ -35,7 +36,7 @@ void view_mode_items()
         std::snprintf(keys.data(), sizeof(keys), "Alt+%d", mode + 1);
         if (ImGui::MenuItem(view_mode_name(mode), keys.data(), view_mode() == mode))
             change_view_mode(mode);
-        get_tip(kTips[mode]);
+        get_tip(core::at(kTips, mode));
     }
 }
 

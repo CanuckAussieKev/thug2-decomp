@@ -26,6 +26,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -145,27 +146,27 @@ void EmitterInstance::get_reset()
     at_point_ = maths::Vec4{2048.0f, 144.0f, -928.0f, 0.0f};
     last_pos_ = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
     size_scale_ = 1.0f;
-    emit_range_[0] = 1.0f;
-    emit_range_[1] = 1.0f;
-    emit_target_[1] = 1.0f;
-    speed_[0] = 1.0f;
+    core::at(emit_range_, 0) = 1.0f;
+    core::at(emit_range_, 1) = 1.0f;
+    core::at(emit_target_, 1) = 1.0f;
+    core::at(speed_, 0) = 1.0f;
     brightness_ = 1.0f;
-    emit_range_[2] = 0.0f;
+    core::at(emit_range_, 2) = 0.0f;
     angle_spread_ = 0.5f;
-    force_[0] = 0.0f;
-    force_[1] = -0.02f;
-    force_[2] = 0.0f;
-    emit_target_[0] = 0.0f;
-    emit_target_[2] = 0.0f;
-    orientation_turn_[0] = 0.0f;
-    orientation_turn_[1] = 0.0f;
-    orientation_turn_[2] = 0.0f;
+    core::at(force_, 0) = 0.0f;
+    core::at(force_, 1) = -0.02f;
+    core::at(force_, 2) = 0.0f;
+    core::at(emit_target_, 0) = 0.0f;
+    core::at(emit_target_, 2) = 0.0f;
+    core::at(orientation_turn_, 0) = 0.0f;
+    core::at(orientation_turn_, 1) = 0.0f;
+    core::at(orientation_turn_, 2) = 0.0f;
     rank_ = 0;
     for (float& size : extent_)
         size = 2.0f;
-    age_left_[0] = 2.0f;
-    age_left_[1] = 2.0f;
-    speed_[1] = 2.0f;
+    core::at(age_left_, 0) = 2.0f;
+    core::at(age_left_, 1) = 2.0f;
+    core::at(speed_, 1) = 2.0f;
     flag_bits_ &= ~1u;
     for (float& scale : colour_scale_)
         scale = 1.0f;
@@ -223,33 +224,33 @@ void EmitterInstance::render() { debug::printf("STUB: plat_render\n"); }
 // 0x004968B0
 void EmitterInstance::set_emit_range(float width, float height, float depth)
 {
-    emit_range_[0] = width;
-    emit_range_[1] = height;
-    emit_range_[2] = depth;
+    core::at(emit_range_, 0) = width;
+    core::at(emit_range_, 1) = height;
+    core::at(emit_range_, 2) = depth;
 }
 
 // 0x004968E0
 void EmitterInstance::set_force(float x, float y, float z)
 {
-    force_[0] = x;
-    force_[1] = y;
-    force_[2] = z;
+    core::at(force_, 0) = x;
+    core::at(force_, 1) = y;
+    core::at(force_, 2) = z;
 }
 
 // 0x00496910
 void EmitterInstance::set_emit_target(float x, float y, float z)
 {
-    emit_target_[0] = x;
-    emit_target_[1] = y;
-    emit_target_[2] = z;
+    core::at(emit_target_, 0) = x;
+    core::at(emit_target_, 1) = y;
+    core::at(emit_target_, 2) = z;
 }
 
 // 0x00496940
 void EmitterInstance::change_spin(float x, float y, float z)
 {
-    orientation_turn_[0] = x;
-    orientation_turn_[1] = y;
-    orientation_turn_[2] = z;
+    core::at(orientation_turn_, 0) = x;
+    core::at(orientation_turn_, 1) = y;
+    core::at(orientation_turn_, 2) = z;
 }
 
 // 0x00496970
@@ -277,12 +278,12 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
         *out = *xform_ref_;
         return;
     }
-    out->row[0] = maths::Vec4{1.0f, 0.0f, 0.0f, 0.0f};
-    out->row[1] = maths::Vec4{0.0f, 1.0f, 0.0f, 0.0f};
-    out->row[2] = maths::Vec4{0.0f, 0.0f, 1.0f, 0.0f};
-    out->row[3] = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Vec4& at = out->row[2];
-    at = maths::Vec4{emit_target_[0], emit_target_[1], emit_target_[2], 1.0f};
+    core::at(out->row, 0) = maths::Vec4{1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(out->row, 1) = maths::Vec4{0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(out->row, 2) = maths::Vec4{0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(out->row, 3) = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
+    maths::Vec4& at = core::at(out->row, 2);
+    at = maths::Vec4{core::at(emit_target_, 0), core::at(emit_target_, 1), core::at(emit_target_, 2), 1.0f};
     at.make_unit();
     // across: up x the target (along x when the target is nearly up); then the second row across both (x87, 53 bits)
     double up = 1.0, along = 0.0;
@@ -290,13 +291,13 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
         up = 0.0;
         along = 1.0;
     }
-    maths::Vec4& across = out->row[0];
+    maths::Vec4& across = core::at(out->row, 0);
     across.w = 0.0f;
     auto z = static_cast<float>(along * at.y - up * at.x);
     across.x = static_cast<float>(up * at.z - static_cast<double>(at.y) * 0.0);
     across.y = static_cast<float>(static_cast<double>(at.x) * 0.0 - along * at.z);
     across.z = z;
-    maths::Vec4& second = out->row[1];
+    maths::Vec4& second = core::at(out->row, 1);
     second.w = 0.0f;
     auto second_z = static_cast<float>(static_cast<double>(at.y) * across.x - static_cast<double>(at.x) * across.y);
     second.x = static_cast<float>(static_cast<double>(across.y) * at.z - static_cast<double>(across.z) * at.y);
@@ -329,19 +330,19 @@ int EmitterInstance::lod_particle_count(int count)
 // 0x00496C30
 void EmitterInstance::update_bounds()
 {
-    float force = std::fabs(force_[2]);
-    if (std::fabs(force_[1]) > force)
-        force = std::fabs(force_[1]);
-    if (std::fabs(force_[0]) > force)
-        force = std::fabs(force_[0]);
-    const double travel = static_cast<double>(force) * age_left_[1] + speed_[1];
+    float force = std::fabs(core::at(force_, 2));
+    if (std::fabs(core::at(force_, 1)) > force)
+        force = std::fabs(core::at(force_, 1));
+    if (std::fabs(core::at(force_, 0)) > force)
+        force = std::fabs(core::at(force_, 0));
+    const double travel = static_cast<double>(force) * core::at(age_left_, 1) + core::at(speed_, 1);
     bounds_ = at_point_;
-    float range = emit_range_[2];
-    if (emit_range_[1] > range)
-        range = emit_range_[1];
-    if (emit_range_[0] > range)
-        range = emit_range_[0];
-    bounds_.w = static_cast<float>(travel * age_left_[1] * kFramesPerSecond + range);
+    float range = core::at(emit_range_, 2);
+    if (core::at(emit_range_, 1) > range)
+        range = core::at(emit_range_, 1);
+    if (core::at(emit_range_, 0) > range)
+        range = core::at(emit_range_, 0);
+    bounds_.w = static_cast<float>(travel * core::at(age_left_, 1) * kFramesPerSecond + range);
 }
 
 // 0x00496CE0
@@ -349,7 +350,7 @@ void EmitterInstance::set_colour_scale(const float* rgba)
 {
     if (flag_bits_ & 0x10000) {
         for (int i = 0; i < 4; ++i)
-            colour_scale_[i] = rgba[i];
+            core::at(colour_scale_, i) = rgba[i];
     }
 }
 
@@ -419,7 +420,7 @@ void EmitterInstance::set_wants_time(uint8_t on)
 // 0x00497AB0
 maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
 {
-    const maths::Vec4 angles{orientation_turn_[0], orientation_turn_[1], orientation_turn_[2], 1.0f};
+    const maths::Vec4 angles{core::at(orientation_turn_, 0), core::at(orientation_turn_, 1), core::at(orientation_turn_, 2), 1.0f};
     maths::Mat4 rotation{};
     rotation.init_from_angles(angles);
     *out = rotation;

@@ -29,6 +29,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -116,7 +117,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             case 'S':
             case 's':
                 ++p;
-                glyph = &chars[special_map_[text::hex_digit_value(p)]];
+                glyph = &chars[core::at(special_map_, text::hex_digit_value(p))];
                 done = true;
                 break;
             case 'B':
@@ -127,7 +128,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
                 const int button = glyph_for_button_tag(tag, p);
                 if (use_button_glyph(button)) {
                     font = pad_glyph_typeface();
-                    glyph = &font->chars[font->special_map_[button]];
+                    glyph = &font->chars[core::at(font->special_map_, button)];
                 } else {
                     // the key's name, in this font (the map indexed by signed chars)
                     const uint8_t* name_map = map.data();
@@ -160,7 +161,7 @@ void TypefaceData::read_string_param(const char* text, float* out_width, float* 
             else if (*p == ' ')
                 w = blank_gap_;
             else
-                w = font->chars[font->map[static_cast<uint8_t>(*p)]].w;
+                w = font->chars[core::at(font->map, static_cast<uint8_t>(*p))].w;
             total += w + glyph_gap_;
         }
         ++p;
@@ -179,7 +180,7 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
         *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
         return;
     }
-    const Char* glyph = &font->chars[font->map[static_cast<uint8_t>(c)]];
+    const Char* glyph = &font->chars[core::at(font->map, static_cast<uint8_t>(c))];
     // (x87: top and bottom stay at double precision until stored)
     const double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
     const float left = *pen_x;
@@ -244,7 +245,7 @@ void GlyphRun::draw()
             case 'S':
             case 's':
                 ++p;
-                glyph = &font->chars[font->special_map_[text::hex_digit_value(p)]];
+                glyph = &font->chars[core::at(font->special_map_, text::hex_digit_value(p))];
                 done = true;
                 break;
             case 'B':
@@ -256,7 +257,7 @@ void GlyphRun::draw()
                 if (use_button_glyph(button)) {
                     // drawn with the button font's texture: draw what's buffered first
                     TypefaceData* buttons = pad_glyph_typeface();
-                    glyph = &buttons->chars[buttons->special_map_[button]];
+                    glyph = &buttons->chars[core::at(buttons->special_map_, button)];
                     char_font = buttons;
                     close_sketch();
                     open_sketch();
@@ -294,7 +295,7 @@ void GlyphRun::draw()
                 continue;
             }
             if (!glyph)
-                glyph = &char_font->chars[char_font->map[static_cast<uint8_t>(*p)]];
+                glyph = &char_font->chars[core::at(char_font->map, static_cast<uint8_t>(*p))];
             auto top =
                 static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
@@ -519,33 +520,33 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     if (font->format == 1) {
         // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index).
         for (int i = 0; i < count; ++i) {
-            font->chars[i].baseline = entries[i].baseline;
-            const int16_t code = entries[i].code();
+            font->chars[i].baseline = core::at(entries, i).baseline;
+            const int16_t code = core::at(entries, i).code();
             if (code >= 0) {
-                font->map[code & 0xFF] = static_cast<uint8_t>(i);
+                core::at(font->map, code & 0xFF) = static_cast<uint8_t>(i);
             } else {
                 const int special = 0xFF - (code & 0xFF);
                 if (special < font_format::kSpecialGlyphs)
-                    font->special_map_[special] = static_cast<uint8_t>(i);
+                    core::at(font->special_map_, special) = static_cast<uint8_t>(i);
             }
         }
     } else if (font->format == 2) {
         // Each glyph: its baseline, then up to four characters (0xFF ends them early).
         for (int i = 0; i < count; ++i) {
-            font->chars[i].baseline = entries[i].baseline;
-            const uint8_t* codes = entries[i].codes.data();
-            font->map[codes[0]] = static_cast<uint8_t>(i);
+            font->chars[i].baseline = core::at(entries, i).baseline;
+            const uint8_t* codes = core::at(entries, i).codes.data();
+            core::at(font->map, codes[0]) = static_cast<uint8_t>(i);
             for (int c = 1; c < 4 && codes[c] != 0xFF; ++c)
-                font->map[codes[c]] = static_cast<uint8_t>(i);
+                core::at(font->map, codes[c]) = static_cast<uint8_t>(i);
         }
     }
     // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
-    if (font->special_map_[0x1F]) {
+    if (core::at(font->special_map_, 0x1F)) {
         for (int c = 0; c < 256; ++c) {
-            if (!font->map[c] && c != 'A' && c != 'a')
-                font->map[c] = font->special_map_[0x1F];
-            if (c < 0x1F && !font->special_map_[c])
-                font->special_map_[c] = font->special_map_[0x1F];
+            if (!core::at(font->map, c) && c != 'A' && c != 'a')
+                core::at(font->map, c) = core::at(font->special_map_, 0x1F);
+            if (c < 0x1F && !core::at(font->special_map_, c))
+                core::at(font->special_map_, c) = core::at(font->special_map_, 0x1F);
         }
     }
 
@@ -601,7 +602,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     const double texels_wide = static_cast<int>(width / hd_scale);
     const double texels_high = static_cast<int>(height / hd_scale);
     for (int i = 0; i < count; ++i) {
-        const font_format::GlyphRect& rect = rects[i];
+        const font_format::GlyphRect& rect = core::at(rects, i);
         Char& glyph = font->chars[i];
         glyph.w = rect.w;
         glyph.h = rect.h;
@@ -615,7 +616,7 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 
     font->next = typeface_chain();
     typeface_chain() = font;
-    font->blank_gap_ = static_cast<int16_t>(font->chars[font->map['I']].w);
+    font->blank_gap_ = static_cast<int16_t>(font->chars[core::at(font->map, 'I')].w);
     return font;
 }
 

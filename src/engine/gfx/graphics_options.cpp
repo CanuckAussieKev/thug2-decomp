@@ -16,6 +16,7 @@
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace render::graphics_options {
 
@@ -34,7 +35,7 @@ bool s_unresolved = false;
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 D3DPRESENT_PARAMETERS& present_parameters() { return g_present_parameters; }
-IDirect3DTexture9* screen_copy(int index) { return g_screen_textures[index]; }
+IDirect3DTexture9* screen_copy(int index) { return core::at(g_screen_textures, index); }
 
 constexpr float kMinScale = 0.25f;
 constexpr float kMaxScale = 8.0f;

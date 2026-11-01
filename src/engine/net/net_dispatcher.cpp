@@ -16,6 +16,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -173,7 +174,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
         for (int i = 0; i < context.num_sequences_to_ack_; ++i) {
             NetMessageInfo desc;
             construct_msg_desc(&desc);
-            auto sequence = static_cast<uint16_t>(context.sequences_to_ack_[i]);
+            auto sequence = static_cast<uint16_t>(core::at(context.sequences_to_ack_, i));
             desc.content_ = &sequence;
             desc.byte_count_ = sizeof(sequence);
             desc.ident_ = kMsgAck;

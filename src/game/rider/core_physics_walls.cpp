@@ -28,6 +28,7 @@
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -122,8 +123,8 @@ bool SkaterPhysicsModule::vert_wallplant()
     // The wall within reach below the skater's up axis.
     objects::GameEntity* object = object_of(this);
     const float snap = tuning_float_lookup(kGroundSnapUp, object);
-    probe_start_ = object->basis_frame_.row[1] * snap;
-    probe_end_ = entity_->basis_frame_.row[1] * kFeelerDepth;
+    probe_start_ = core::at(object->basis_frame_.row, 1) * snap;
+    probe_end_ = core::at(entity_->basis_frame_.row, 1) * kFeelerDepth;
     probe_start_ += entity_->at_point_;
     probe_end_ += entity_->at_point_;
     if (!probe_touches_zone(0x10, 0))
@@ -184,7 +185,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     auto reach = static_cast<float>(length * (static_cast<double>(seconds) / push_time));
     const double height = script::fetch_float(kLeanPushHeight);
     objects::GameEntity* object = object_of(this);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const maths::Vec4& position = entity_->at_point_;
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
@@ -195,7 +196,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     start.w = static_cast<float>(hw + position.w);
     start.x = hx + position.x;
     start.y = hy + position.y;
-    const maths::Vec4& side = entity_->basis_frame_.row[0];
+    const maths::Vec4& side = core::at(entity_->basis_frame_.row, 0);
     auto ry = static_cast<float>(static_cast<double>(reach) * side.y),
          rz = static_cast<float>(static_cast<double>(reach) * side.z),
          rw = static_cast<float>(static_cast<double>(reach) * side.w);
@@ -211,7 +212,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
     maths::Vec4 along = {point.x - end.x, point.y - end.y, point.z - end.z, point.w - end.w};
     along.project_onto(normal);
     object = object_of(this);
-    const maths::Vec4& up2 = object->basis_frame_.row[1];
+    const maths::Vec4& up2 = core::at(object->basis_frame_.row, 1);
     const maths::Vec4& position2 = object->at_point_;
     start = {up2.x + position2.x, up2.y + position2.y, up2.z + position2.z, up2.w + position2.w};
     end = {along.x + start.x, along.y + start.y, along.z + start.z, along.w + start.w};
@@ -219,7 +220,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
         return;
     object = object_of(this);
     maths::Vec4& p = object->at_point_;
-    const maths::Vec4& u = object->basis_frame_.row[1];
+    const maths::Vec4& u = core::at(object->basis_frame_.row, 1);
     p = {end.x - u.x, end.y - u.y, end.z - u.z, end.w - u.w};
 }
 
@@ -227,7 +228,7 @@ void SkaterPhysicsModule::lean_push_off_wall()
 bool SkaterPhysicsModule::keep_off_ceiling()
 {
     objects::GameEntity* object = object_of(this);
-    if (object->basis_frame_.row[1].y < 0.0f)
+    if (core::at(object->basis_frame_.row, 1).y < 0.0f)
         return false;
     // A feeler up the skater's height (just 6 for a while after a wall plant).
     const float head_height = tuning_float_lookup(kEyeLevelStat, object);
@@ -235,7 +236,7 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     const double reach =
         elapsed > ints::as_unsigned(script::fetch_int_value(kIgnoreCeilings)) ? head_height : kNoHeadHeight;
     object = object_of(this);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const double x = reach * up.x;
     const double y = reach * up.y;
     auto z = static_cast<float>(reach * up.z), w = static_cast<float>(reach * up.w);
@@ -327,7 +328,7 @@ void SkaterPhysicsModule::check_wall_ahead()
     move.make_unit();
     object = object_of(this);
     const double height = tuning_float_lookup(kForwardHeight, object);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const maths::Vec4 lift = {static_cast<float>(height * up.x), static_cast<float>(height * up.y),
                               static_cast<float>(height * up.z), static_cast<float>(height * up.w)};
     const maths::Vec4& last = entity_->old_pos_;
@@ -391,7 +392,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     direction.make_unit();
     object = object_of(this);
     const double height = tuning_float_lookup(kForwardHeight, object);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const maths::Vec4 lift = {static_cast<float>(height * up.x), static_cast<float>(height * up.y),
                               static_cast<float>(height * up.z), static_cast<float>(height * up.w)};
     float turn = 0.0f;

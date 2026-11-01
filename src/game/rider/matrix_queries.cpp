@@ -18,6 +18,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -73,18 +74,18 @@ void RiderFrameLookups::tick_frame() { basis_frame_ = core_physics_->display_mat
 // 0x00514040
 int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    const maths::Vec4& right = basis_frame_.row[0];
-    const maths::Vec4& up = basis_frame_.row[1];
-    const maths::Vec4& at = basis_frame_.row[2];
+    const maths::Vec4& right = core::at(basis_frame_.row, 0);
+    const maths::Vec4& up = core::at(basis_frame_.row, 1);
+    const maths::Vec4& at = core::at(basis_frame_.row, 2);
     switch (name) {
     case kGetHeading: {
-        const maths::Vec4& facing = entity_->basis_frame_.row[2];
+        const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
         auto heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
         script->args_->push_float(kHeading, heading);
-        script->args_->push_float(kCosine, entity_->basis_frame_.row[2].x);
-        script->args_->push_float(kSine, entity_->basis_frame_.row[2].z);
+        script->args_->push_float(kCosine, core::at(entity_->basis_frame_.row, 2).x);
+        script->args_->push_float(kSine, core::at(entity_->basis_frame_.row, 2).z);
         return 1;
     }
     case kAbsolutePitchGreaterThan: {
@@ -93,11 +94,11 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     }
     case kGetSlope: {
         // The at row's angle from its own flattened copy (negative when it points down).
-        const maths::Vec4& facing = entity_->basis_frame_.row[2];
+        const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
         maths::Vec4 flat = facing;
         flat.y = 0.0f;
         auto slope = static_cast<float>(maths::read_turn_angle(facing, flat));
-        if (entity_->basis_frame_.row[2].y < 0.0f)
+        if (core::at(entity_->basis_frame_.row, 2).y < 0.0f)
             slope = -slope;
         script->args_->push_float(kSlope, slope);
         script->args_->push_float(kChangeInSlope, slope - prev_gradient_);

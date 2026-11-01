@@ -38,6 +38,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -160,9 +161,9 @@ void copy_name(std::array<char, 0x20>& name, const char* from)
 {
     size_t i = 0;
     for (; i < sizeof(name) && from[i]; ++i)
-        name[i] = from[i];
+        core::at(name, i) = from[i];
     for (; i < sizeof(name); ++i)
-        name[i] = 0;
+        core::at(name, i) = 0;
 }
 
 // Both handlers' event: the other's name (and what the caller adds) to the skater.
@@ -362,10 +363,10 @@ void RiderFrameLog::check_for_collisions(int first)
             online::RanInto ran_into; // (wire/play_messages.h)
             ran_into.object_id = static_cast<uint8_t>(their_driving * 0x80 | static_cast<uint8_t>(skater->ident_));
             const maths::Vec4 push = my_point - their_point;
-            ran_into.push[0] = push.x;
-            ran_into.push[1] = push.y;
-            ran_into.push[2] = push.z;
-            ran_into.push[3] = push.w;
+            core::at(ran_into.push, 0) = push.x;
+            core::at(ran_into.push, 1) = push.y;
+            core::at(ran_into.push, 2) = push.z;
+            core::at(ran_into.push, 3) = push.w;
             std::array<uint8_t, online::kRanIntoSize> ran_into_bytes{};
             util::ByteWriter ran_into_writer(ran_into_bytes.data(), sizeof(ran_into_bytes));
             online::write_ran_into(ran_into_writer, ran_into);
@@ -417,8 +418,8 @@ void RiderFrameLog::check_for_collisions(int first)
                 continue;
             net::NetMessageInfo msg;
             std::array<uint8_t, 2> tagged{};
-            tagged[0] = static_cast<uint8_t>(skater->ident_);
-            tagged[1] = static_cast<uint8_t>(get_team(me));
+            core::at(tagged, 0) = static_cast<uint8_t>(skater->ident_);
+            core::at(tagged, 1) = static_cast<uint8_t>(get_team(me));
             const bool same_team = get_team(me) == them->team_;
             online::PlayerSearch search;
             for (online::PlayerRecord* player = start_roster_sweep(&search); player;
@@ -545,25 +546,25 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
             const double dy = static_cast<double>(skater->at_point_.y) - other->at_point_.y;
             std::array<float, 4> away = {{get_difference(skater->at_point_.x, other->at_point_.x), static_cast<float>(dy),
                              static_cast<float>(dz), static_cast<float>(dw)}};
-            const double length = std::sqrt((static_cast<double>(away[0]) * away[0] + dy * dy) + dz * dz);
+            const double length = std::sqrt((static_cast<double>(core::at(away, 0)) * core::at(away, 0) + dy * dy) + dz * dz);
             double w = 0.0, z = 0.0;
             if (!(length < kTooClose)) {
                 // (0x00423650: each component times 1 / the length rounded to a float)
                 const double inverse = 1.0 / static_cast<float>(length);
                 for (float& c : away)
                     c = static_cast<float>(inverse * c);
-                z = away[2];
-                w = away[3];
+                z = core::at(away, 2);
+                w = core::at(away, 3);
             } else {
-                away[0] = 1.0f;
-                away[1] = 0.0f;
+                core::at(away, 0) = 1.0f;
+                core::at(away, 1) = 0.0f;
                 z = 1.0;
                 w = 1.0;
             }
             const double wk = w * kKnockBack; // (kept unrounded)
             auto zk = static_cast<float>(z * kKnockBack);
-            const float yk = away[1] * kKnockBack;
-            const float xk = away[0] * kKnockBack;
+            const float yk = core::at(away, 1) * kKnockBack;
+            const float xk = core::at(away, 0) * kKnockBack;
             skater->vel_.x = xk * kKnockScale;
             skater->vel_.y = yk * kKnockScale;
             skater->vel_.z = zk * kKnockScale;
@@ -578,7 +579,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
         }
         copy_name(name, get_skater_name(player_object(player)));
     }
-    const script::VectorValue push = {ran_into.push[0], ran_into.push[1], ran_into.push[2], ran_into.push[3]};
+    const script::VectorValue push = {core::at(ran_into.push, 0), core::at(ran_into.push, 1), core::at(ran_into.push, 2), core::at(ran_into.push, 3)};
     send_event(skater, 0x915E5E39, name.data(), 0x2F679251, other_driving, &push);
     return net::kResultPassOn;
 }
@@ -588,9 +589,9 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
 namespace objects {
 
 // 0x00569680
-SkaterStateHistoryFrame* RiderFrameLog::fetch_newest_snapshot() { return &states_[(state_count_ + 19) % kEntries]; }
+SkaterStateHistoryFrame* RiderFrameLog::fetch_newest_snapshot() { return &core::at(states_, (state_count_ + 19) % kEntries); }
 
 // 0x005696A0
-StateHistoryMessage* RiderFrameLog::get_latest_message() { return &messages_[message_count_ % kEntries]; }
+StateHistoryMessage* RiderFrameLog::get_latest_message() { return &core::at(messages_, message_count_ % kEntries); }
 
 } // namespace objects

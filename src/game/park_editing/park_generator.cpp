@@ -18,6 +18,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -123,12 +124,12 @@ void ParkAssembler::configure_lighting(int count, float ambient_r, float ambient
                                        float falloff_g, float falloff_b, float cursor_ambience)
 {
     light_total_ = count;
-    ambient_[0] = ambient_r;
-    ambient_[1] = ambient_g;
-    ambient_[2] = ambient_b;
-    falloff_[0] = falloff_r;
-    falloff_[1] = falloff_g;
-    falloff_[2] = falloff_b;
+    core::at(ambient_, 0) = ambient_r;
+    core::at(ambient_, 1) = ambient_g;
+    core::at(ambient_, 2) = ambient_b;
+    core::at(falloff_, 0) = falloff_r;
+    core::at(falloff_, 1) = falloff_g;
+    core::at(falloff_, 2) = falloff_b;
     std::memcpy(&field_43c_, &cursor_ambience, 4); // (the cursor's ambience)
 }
 
@@ -169,7 +170,7 @@ bool ParkAssembler::has_free_restart_slot(int type)
     int last = 0;
     fetch_spawn_slots(type, &first, &last);
     for (int i = first; i <= last; ++i) {
-        if (!restarts_[i].kind_tag_ || restarts_[i].automatic_)
+        if (!core::at(restarts_, i).kind_tag_ || core::at(restarts_, i).automatic_)
             return true;
     }
     return false;

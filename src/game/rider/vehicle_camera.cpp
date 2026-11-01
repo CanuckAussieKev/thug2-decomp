@@ -28,6 +28,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -61,7 +62,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // `position` (x with the product unrounded, as the original).
 maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths::Mat4& orientation)
 {
-    const maths::Vec4& at = orientation.row[2];
+    const maths::Vec4& at = core::at(orientation.row, 2);
     const double x = static_cast<double>(distance) * at.x;
     const float y = distance * at.y;
     const float z = distance * at.z;
@@ -141,7 +142,7 @@ void CarView::update_target_direction()
     double scale = static_cast<double>(speed) * kSpeedScale;
     if (scale > 1.0)
         scale = 1.0;
-    const maths::Vec4& at = subject_->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(subject_->basis_frame_.row, 2);
     const double a = -at.x;
     const double b = -at.y;
     const double c = -at.z;
@@ -162,9 +163,9 @@ void CarView::update_target_direction()
 void CarView::apply_to_camera()
 {
     anchor_point_.w = 1.0f;
-    orientation_.row[0].w = 0.0f;
-    orientation_.row[1].w = 0.0f;
-    orientation_.row[2].w = 0.0f;
+    core::at(orientation_.row, 0).w = 0.0f;
+    core::at(orientation_.row, 1).w = 0.0f;
+    core::at(orientation_.row, 2).w = 0.0f;
     entity_->at_point_ = anchor_point_;
     entity_->basis_frame_ = orientation_;
     entity_->display_matrix_ = orientation_;
@@ -178,10 +179,10 @@ void CarView::update_orientation()
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     auto right = static_cast<float>(rotated_z);
     auto forward = static_cast<float>(rotated_x);
-    orientation_.row[0] = {right, 0.0f, -forward, 1.0f};
-    orientation_.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
-    orientation_.row[2] = {forward, direction_.y, right, direction_.w};
-    orientation_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(orientation_.row, 0) = {right, 0.0f, -forward, 1.0f};
+    core::at(orientation_.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(orientation_.row, 2) = {forward, direction_.y, right, direction_.w};
+    core::at(orientation_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     const maths::Vec4& subject = subject_->at_point_;
     const float back = right * reach_;
     anchor_point_.x = static_cast<float>(static_cast<double>(forward) * reach_ + subject.x);
@@ -199,7 +200,7 @@ void CarView::get_reset()
     free_look_->heading_ = 0.0f;
     free_look_->lean_angle_ = 0.0f;
     free_look_->locked_ = false;
-    const maths::Vec4& at = subject_->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(subject_->basis_frame_.row, 2);
     target_direction_ = {-at.x, -at.y, -at.z, -at.w};
     target_direction_.y = 0.0f;
     target_direction_.make_unit();

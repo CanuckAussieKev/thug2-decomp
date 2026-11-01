@@ -13,6 +13,7 @@
 #include "engine/gfx/device.h"
 #include "engine/audio/music_player.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace os_layer {
 
@@ -58,7 +59,7 @@ char find_cd_drive(const char* volume)
     if (drives) {
         for (char letter = 'A'; letter <= 'Z'; ++letter) {
             if (drives & 1) {
-                root[0] = letter;
+                core::at(root, 0) = letter;
                 std::array<char, 0x100> name{};
                 DWORD serial = 0;
                 if (GetDriveTypeA(root.data()) == DRIVE_CDROM &&
@@ -151,12 +152,12 @@ void decode_adpcm(int16_t* out, const uint8_t* in, int count)
     for (int i = 0; i < count; ++i) {
         const int nibble = (i & 1) ? *in++ >> 4 : *in & 0xF;
         const int magnitude = nibble & 7;
-        index += kIndexSteps[magnitude];
+        index += core::at(kIndexSteps, magnitude);
         if (index < 0)
             index = 0;
         else if (index > 88)
             index = 88;
-        const int step = kSteps[index];
+        const int step = core::at(kSteps, index);
         int change = (step * magnitude >> 2) + (step >> 3);
         if (nibble >> 3)
             change = -change;

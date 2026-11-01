@@ -27,6 +27,7 @@
 #include "engine/objects/trigger_events.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -158,7 +159,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
         tense = max_tense;
     const bool from_vert =
         bit_mark(this, PoseFlag::kVertAir) || (state_of(this) == kGround && bit_mark(this, PoseFlag::kOnVert));
-    const uint32_t* names = kJumpSpeed[params->has_bare_flag(kBonelessHeight)][from_vert].data();
+    const uint32_t* names = core::at(core::at(kJumpSpeed, params->has_bare_flag(kBonelessHeight)), from_vert).data();
     objects::GameEntity* object = object_of(this);
     const float most = scaled_physics(object, names[0]);
     const float least = scaled_physics(object_of(this), names[1]);
@@ -188,11 +189,11 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     if (bike)
         thaw_bmx::jump_boost(this);
     object = object_of(this);
-    if (object->basis_frame_.row[1].y < kSteepUp) {
+    if (core::at(object->basis_frame_.row, 1).y < kSteepUp) {
         // A ramp too steep (upside down): less up, and lifted off it along the up.
         maths::Vec4& v = object->vel_;
         v.y = static_cast<float>(v.y - static_cast<double>(speed) * kSteepDrop);
-        const maths::Vec4& up = object->basis_frame_.row[1];
+        const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
         maths::Vec4& position = object->at_point_;
         const float z = up.z * kFeelerAhead;
         const float w = up.w * kFeelerAhead;
@@ -260,8 +261,8 @@ void SkaterPhysicsModule::step_wallplant()
         set_physics_state(kAir);
         maths::Vec4& start = probe_start_;
         maths::Vec4& end = probe_end_;
-        start = entity_->basis_frame_.row[2] * kFeelerAhead;
-        end = entity_->basis_frame_.row[2] * kFeelerBehind;
+        start = core::at(entity_->basis_frame_.row, 2) * kFeelerAhead;
+        end = core::at(entity_->basis_frame_.row, 2) * kFeelerBehind;
         start += entity_->at_point_;
         end += entity_->at_point_;
         if (get_feel(this, 0x10, 0))

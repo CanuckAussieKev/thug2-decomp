@@ -62,6 +62,7 @@ namespace {
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"
@@ -95,7 +96,7 @@ std::string get_lower(std::string text)
 
 bool is_identifier(const std::string& text)
 {
-    if (text.empty() || std::isdigit(static_cast<unsigned char>(text[0])))
+    if (text.empty() || std::isdigit(static_cast<unsigned char>(::core::at(text, 0))))
         return false;
     for (const char c : text)
         if (!std::isalnum(static_cast<unsigned char>(c)) && c != '_')
@@ -105,33 +106,33 @@ bool is_identifier(const std::string& text)
 
 bool is_hex(const std::string& text)
 {
-    if (text.size() < 3 || text.size() > 10 || text[0] != '0' || (text[1] != 'x' && text[1] != 'X'))
+    if (text.size() < 3 || text.size() > 10 || ::core::at(text, 0) != '0' || (::core::at(text, 1) != 'x' && ::core::at(text, 1) != 'X'))
         return false;
     for (size_t i = 2; i < text.size(); ++i)
-        if (!std::isxdigit(static_cast<unsigned char>(text[i])))
+        if (!std::isxdigit(static_cast<unsigned char>(::core::at(text, i))))
             return false;
     return true;
 }
 
 bool is_integer(const std::string& text)
 {
-    const size_t start = text[0] == '-' ? 1 : 0;
+    const size_t start = ::core::at(text, 0) == '-' ? 1 : 0;
     if (start >= text.size())
         return false;
     for (size_t i = start; i < text.size(); ++i)
-        if (!std::isdigit(static_cast<unsigned char>(text[i])))
+        if (!std::isdigit(static_cast<unsigned char>(::core::at(text, i))))
             return false;
     return true;
 }
 
 bool is_float(const std::string& text)
 {
-    const size_t start = text[0] == '-' ? 1 : 0;
+    const size_t start = ::core::at(text, 0) == '-' ? 1 : 0;
     bool digits = false, point = false;
     for (size_t i = start; i < text.size(); ++i) {
-        if (std::isdigit(static_cast<unsigned char>(text[i])))
+        if (std::isdigit(static_cast<unsigned char>(::core::at(text, i))))
             digits = true;
-        else if (text[i] == '.' && !point)
+        else if (::core::at(text, i) == '.' && !point)
             point = true;
         else
             return false;
@@ -159,9 +160,9 @@ bool read_numbers(const std::vector<std::string>& tokens, size_t first, std::vec
 {
     out->clear();
     for (size_t i = first; i < tokens.size(); ++i) {
-        if (!is_integer(tokens[i]) && !is_float(tokens[i]))
+        if (!is_integer(::core::at(tokens, i)) && !is_float(::core::at(tokens, i)))
             return false;
-        out->push_back(static_cast<float>(text::to_double(tokens[i].c_str())));
+        out->push_back(static_cast<float>(text::to_double(::core::at(tokens, i).c_str())));
     }
     return true;
 }
@@ -331,7 +332,7 @@ std::string json_list(const std::vector<std::string>& items)
 {
     std::string out = "[";
     for (size_t i = 0; i < items.size(); ++i)
-        out += (i ? ", " : "") + json_string(items[i]);
+        out += (i ? ", " : "") + json_string(::core::at(items, i));
     return out + "]";
 }
 
@@ -347,65 +348,65 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
     if (tokens.empty())
         return CommandLineOutcome::kVacant;
     OrderCode command = {Op::kEcho, "", {}, Condition::kNone, 0, 0};
-    const std::string keyword = get_lower(tokens[0]);
+    const std::string keyword = get_lower(::core::at(tokens, 0));
     const size_t count = tokens.size();
     auto fail = [error](const std::string& why) {
         *error = why;
         return CommandLineOutcome::kError;
     };
     if (keyword == "run") {
-        if (count < 2 || !is_identifier(tokens[1]))
+        if (count < 2 || !is_identifier(::core::at(tokens, 1)))
             return fail("run <script> [name=value | flag]...");
         command.op = Op::kRun;
-        command.target = tokens[1];
+        command.target = ::core::at(tokens, 1);
         for (size_t i = 2; i < count; ++i) {
             Param param;
-            if (!parse_param(tokens[i], &param, error))
+            if (!parse_param(::core::at(tokens, i), &param, error))
                 return CommandLineOutcome::kError;
             command.params.push_back(param);
         }
     } else if (keyword == "choose" || keyword == "focus") {
         command.op = keyword == "choose" ? Op::kChoose : Op::kFocus;
         command.seconds = kDefaultChooseSeconds;
-        if (count < 2 || count > 3 || !is_id(tokens[1]) ||
-            (count == 3 && !read_count(tokens[2], 1, 3600, &command.seconds)))
+        if (count < 2 || count > 3 || !is_id(::core::at(tokens, 1)) ||
+            (count == 3 && !read_count(::core::at(tokens, 2), 1, 3600, &command.seconds)))
             return fail(keyword + " <id> [seconds]");
-        command.target = tokens[1];
+        command.target = ::core::at(tokens, 1);
     } else if (keyword == "hold") {
         // (test tooling: press's button held without waiting - the next commands run while it's down)
         command.op = Op::kHold;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !read_count(tokens[2], 1, 3600, &command.frames)))
+        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, 3600, &command.frames)))
             return fail("hold <button> [frames]");
-        const Button* button = find_button(tokens[1]);
+        const Button* button = find_button(::core::at(tokens, 1));
         if (!button)
-            return fail("no such button: " + tokens[1]);
+            return fail("no such button: " + ::core::at(tokens, 1));
         command.target = button->name;
     } else if (keyword == "press") {
         command.op = Op::kPress;
         command.frames = kDefaultPressFrames;
-        if (count < 2 || count > 3 || (count == 3 && !read_count(tokens[2], 1, 600, &command.frames)))
+        if (count < 2 || count > 3 || (count == 3 && !read_count(::core::at(tokens, 2), 1, 600, &command.frames)))
             return fail("press <button> [frames]");
-        const Button* button = find_button(tokens[1]);
+        const Button* button = find_button(::core::at(tokens, 1));
         if (!button)
-            return fail("no such button: " + tokens[1]);
+            return fail("no such button: " + ::core::at(tokens, 1));
         command.target = button->name;
     } else if (keyword == "wait") {
         command.op = Op::kStall;
-        if (count != 2 || !read_count(tokens[1], 0, 36000, &command.frames))
+        if (count != 2 || !read_count(::core::at(tokens, 1), 0, 36000, &command.frames))
             return fail("wait <frames>");
     } else if (keyword == "waitfor") {
         command.op = Op::kWaitFor;
         command.seconds = kDefaultWaitSeconds;
         if (count < 2)
             return fail("waitfor ready | frontend | ingame | level <name> | menu <id> | focus <id> [seconds]");
-        const std::string what = get_lower(tokens[1]);
+        const std::string what = get_lower(::core::at(tokens, 1));
         size_t next = 2;
         if (what == "fe") {
             command.condition = Condition::kNewFrontend;
-            if (count < 3 || !is_identifier(tokens[2]))
+            if (count < 3 || !is_identifier(::core::at(tokens, 2)))
                 return fail("waitfor fe <screen> [seconds]");
-            command.target = get_lower(tokens[2]);
+            command.target = get_lower(::core::at(tokens, 2));
             next = 3;
         } else if (what == "ready")
             command.condition = Condition::kReady;
@@ -417,20 +418,20 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
             command.condition = what == "level"  ? Condition::kStageMap
                                 : what == "menu" ? Condition::kMenu
                                                  : Condition::kFocus;
-            if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(tokens[2]) : is_id(tokens[2])))
+            if (count < 3 || !(command.condition == Condition::kStageMap ? is_identifier(::core::at(tokens, 2)) : is_id(::core::at(tokens, 2))))
                 return fail("waitfor " + what + " <" + (what == "level" ? "name" : "id") + "> [seconds]");
-            command.target = tokens[2];
+            command.target = ::core::at(tokens, 2);
             next = 3;
         } else {
-            return fail("no such condition: " + tokens[1]);
+            return fail("no such condition: " + ::core::at(tokens, 1));
         }
-        if (count > next + 1 || (count == next + 1 && !read_count(tokens[next], 1, 3600, &command.seconds)))
+        if (count > next + 1 || (count == next + 1 && !read_count(::core::at(tokens, next), 1, 3600, &command.seconds)))
             return fail("waitfor: a timeout is whole seconds (1-3600)");
     } else if (keyword == "level") {
         command.op = Op::kStageMap;
-        if (count != 2 || !is_identifier(tokens[1]))
+        if (count != 2 || !is_identifier(::core::at(tokens, 1)))
             return fail("level <name>");
-        command.target = tokens[1];
+        command.target = ::core::at(tokens, 1);
     } else if (keyword == "teleport") {
         command.op = Op::kJumpTo;
         // (a last word `board`: the skater put on its board instead of standing - test_view::JumpTo's on_board)
@@ -443,18 +444,18 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
             return fail("teleport <x> <y> <z> [heading] [board]");
     } else if (keyword == "camera") {
         command.op = Op::kViewCam;
-        if (count == 2 && get_lower(tokens[1]) == "off")
+        if (count == 2 && get_lower(::core::at(tokens, 1)) == "off")
             command.target = "off";
         else if ((count != 7 && count != 10) || !read_numbers(tokens, 1, &command.numbers))
             return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
-        else if (command.numbers[3] == 0.0f && command.numbers[4] == 0.0f && command.numbers[5] == 0.0f)
+        else if (::core::at(command.numbers, 3) == 0.0f && ::core::at(command.numbers, 4) == 0.0f && ::core::at(command.numbers, 5) == 0.0f)
             return fail("camera: the direction is zero");
     } else if (keyword == "capture") {
         command.op = Op::kCapture;
-        if (count < 2 || count > 3 || !read_count(tokens[1], 1, kMaxCaptureFrames, &command.frames))
+        if (count < 2 || count > 3 || !read_count(::core::at(tokens, 1), 1, kMaxCaptureFrames, &command.frames))
             return fail("capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
         if (count == 3) {
-            std::string folder = tokens[2];
+            std::string folder = ::core::at(tokens, 2);
             if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"')
                 folder = folder.substr(1, folder.size() - 2);
             if (folder.empty() || folder.find("..") != std::string::npos)
@@ -463,12 +464,12 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         }
     } else if (keyword == "trace") {
         command.op = Op::kTrace;
-        if (count != 2 || !read_count(tokens[1], 1, kMaxTraceFrames, &command.frames))
+        if (count != 2 || !read_count(::core::at(tokens, 1), 1, kMaxTraceFrames, &command.frames))
             return fail("trace <frames 1-" + std::to_string(kMaxTraceFrames) + ">");
     } else if (keyword == "logtricks") {
         command.op = Op::kLogTricks;
         command.frames = 0; // (every trick object)
-        if (count > 2 || (count == 2 && !read_count(tokens[1], 1, 100000, &command.frames)))
+        if (count > 2 || (count == 2 && !read_count(::core::at(tokens, 1), 1, 100000, &command.frames)))
             return fail("logtricks [count]");
     } else if (keyword == "fe") {
         command.op = Op::kFrontend;
@@ -477,16 +478,16 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         if (count < 2)
             return fail("fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>");
         // (select / focus: a last number is the timeout - the front end ignores it)
-        if (count == 4 && (get_lower(tokens[1]) == "select" || get_lower(tokens[1]) == "focus") &&
-            !read_count(tokens[3], 1, 3600, &command.seconds))
-            return fail("fe " + get_lower(tokens[1]) + ": a timeout is whole seconds (1-3600)");
+        if (count == 4 && (get_lower(::core::at(tokens, 1)) == "select" || get_lower(::core::at(tokens, 1)) == "focus") &&
+            !read_count(::core::at(tokens, 3), 1, 3600, &command.seconds))
+            return fail("fe " + get_lower(::core::at(tokens, 1)) + ": a timeout is whole seconds (1-3600)");
     } else if (keyword == "echo") {
         command.op = Op::kEcho;
         command.target = get_rest(line);
     } else if (keyword == "crash") {
         command.op = Op::kCrash;
         TestFault fault{};
-        if (count != 2 || !parse_test_fault(tokens[1], &fault))
+        if (count != 2 || !parse_test_fault(::core::at(tokens, 1), &fault))
             return fail(std::string("crash <kind>: ") + test_fault_names());
         command.target = test_fault_name(fault);
     } else if (keyword == "quit") {
@@ -494,7 +495,7 @@ CommandLineOutcome parse_command(const std::string& line, OrderCode* out, std::s
         if (count != 1)
             return fail("quit takes nothing");
     } else {
-        return fail("no such command: " + tokens[0]);
+        return fail("no such command: " + ::core::at(tokens, 0));
     }
     *out = command;
     return CommandLineOutcome::kOrderCode;
@@ -607,7 +608,7 @@ std::string describe(const OrderCode& command)
         return "wait " + std::to_string(command.frames);
     case Op::kWaitFor: {
         static const auto kConditions = std::to_array<const char*>({"?", "ready", "frontend", "ingame", "level", "menu", "focus", "fe"});
-        std::string text = std::string("waitfor ") + kConditions[static_cast<int>(command.condition)];
+        std::string text = std::string("waitfor ") + ::core::at(kConditions, static_cast<int>(command.condition));
         if (!command.target.empty())
             text += " " + command.target;
         return text;
@@ -811,7 +812,7 @@ void focused_elements(std::vector<UiWidget*>* focused, std::vector<UiWidget*>* s
     if (!manager)
         return;
     int guard = 0;
-    for (const UiTree::FocusEntry* entry = manager->focus_lists_[0]; entry && guard < 64;
+    for (const UiTree::FocusEntry* entry = ::core::at(manager->focus_lists_, 0); entry && guard < 64;
          entry = entry->next, ++guard) {
         UiWidget* element = entry->element.get_pull();
         if (!element)
@@ -921,7 +922,7 @@ void trace_frame()
                      frame_loop::frames_run(), static_cast<double>(skater->at_point_.x),
                      static_cast<double>(skater->at_point_.y), static_cast<double>(skater->at_point_.z),
                      static_cast<double>(skater->vel_.x), static_cast<double>(skater->vel_.y),
-                     static_cast<double>(skater->vel_.z), static_cast<double>(skater->basis_frame_.row[1].y), where,
+                     static_cast<double>(skater->vel_.z), static_cast<double>(::core::at(skater->basis_frame_.row, 1).y), where,
                      physics, bailing, trick, pot, static_cast<double>(multiplier), landed, ground_flags,
                      ground_object);
         std::fflush(trace.file.get());
@@ -1056,7 +1057,7 @@ void poll_file(Runner& runner)
         size - runner.offset < (1u << 20)) {
         data.resize(static_cast<size_t>(size - runner.offset));
         DWORD read = 0;
-        if (!ReadFile(file.get(), &data[0], static_cast<DWORD>(data.size()), &read, nullptr))
+        if (!ReadFile(file.get(), &::core::at(data, 0), static_cast<DWORD>(data.size()), &read, nullptr))
             read = 0;
         data.resize(read);
     }
@@ -1168,9 +1169,9 @@ void send_step(void* context, int direction)
 // mapping inactive, menu input blocked, no input device.
 bool menu_input_blocked(modules::FrontEnd* front_end)
 {
-    if (!front_end || front_end->pad_mappings_[0].mapping_ == 0 || front_end->block_menu_input_)
+    if (!front_end || ::core::at(front_end->pad_mappings_, 0).mapping_ == 0 || front_end->block_menu_input_)
         return true;
-    const modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0].get();
+    const modules::FrontEndInputHandler* handler = ::core::at(front_end->pad_listeners_, 0).get();
     return !handler || !handler->dev_;
 }
 
@@ -1377,7 +1378,7 @@ std::string log_tricks(int count, std::string* failed)
     std::array<uint8_t, 0x100> stolen = {};
     const uint32_t changed =
         manager->log_trick_objects(static_cast<uint32_t>(asked), objects.data(), stolen.data(), 0, 1000000);
-    if (objects[asked] != 0xEEEEEEEE) {
+    if (::core::at(objects, asked) != 0xEEEEEEEE) {
         *failed = "the word past the list was changed";
         return "";
     }
@@ -1468,7 +1469,7 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         const std::vector<float>& n = command.numbers;
         frontend::test_view::Vec3 at = {};
         const std::string failed = frontend::test_view::jump_to(
-            {n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at, command.target == "board");
+            {::core::at(n, 0), ::core::at(n, 1), ::core::at(n, 2)}, n.size() > 3, n.size() > 3 ? ::core::at(n, 3) : 0.0f, &at, command.target == "board");
         if (!failed.empty()) {
             get_fail(runner, failed, false);
             return true;
@@ -1486,10 +1487,10 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         if (command.target == "off")
             frontend::test_view::unlock_camera();
         else if (!frontend::test_view::lock_camera(
-                     {command.numbers[0], command.numbers[1], command.numbers[2]},
-                     {command.numbers[3], command.numbers[4], command.numbers[5]},
+                     {::core::at(command.numbers, 0), ::core::at(command.numbers, 1), ::core::at(command.numbers, 2)},
+                     {::core::at(command.numbers, 3), ::core::at(command.numbers, 4), ::core::at(command.numbers, 5)},
                      command.numbers.size() > 6
-                         ? frontend::test_view::Vec3{command.numbers[6], command.numbers[7], command.numbers[8]}
+                         ? frontend::test_view::Vec3{::core::at(command.numbers, 6), ::core::at(command.numbers, 7), ::core::at(command.numbers, 8)}
                          : frontend::test_view::Vec3{0.0f, 0.0f, 0.0f})) {
             get_fail(runner, "the direction has no horizon (straight up / down)", false);
             return true;

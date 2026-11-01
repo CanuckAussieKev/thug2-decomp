@@ -22,6 +22,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -141,7 +142,7 @@ void SkaterPhysicsModule::get_skitch()
         double next = 0.0;
         do {
             const objects::GameEntity* object = object_of(this);
-            const maths::Vec4& side = object->basis_frame_.row[0];
+            const maths::Vec4& side = core::at(object->basis_frame_.row, 0);
             const maths::Vec4& position = object->at_point_;
             const float scale = reach * direction;
             auto x = static_cast<float>(static_cast<double>(side.x) * scale);

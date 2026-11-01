@@ -30,6 +30,7 @@
 #include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -156,10 +157,10 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
         cz = static_cast<double>(static_cast<float>(static_cast<double>(z2) * mid)) - z1_end;
     }
     auto cw = static_cast<float>(static_cast<double>(w2_mid) - w1_end);
-    fit.c[0] = static_cast<float>(static_cast<double>(cx) * inverse);
-    fit.c[1] = static_cast<float>(static_cast<double>(cy) * inverse);
-    fit.c[2] = static_cast<float>(cz * inverse);
-    fit.c[3] = static_cast<float>(static_cast<double>(cw) * inverse);
+    core::at(fit.c, 0) = static_cast<float>(static_cast<double>(cx) * inverse);
+    core::at(fit.c, 1) = static_cast<float>(static_cast<double>(cy) * inverse);
+    core::at(fit.c, 2) = static_cast<float>(cz * inverse);
+    core::at(fit.c, 3) = static_cast<float>(static_cast<double>(cw) * inverse);
     return fit;
 }
 
@@ -172,9 +173,9 @@ float get_mid_time(const PcParticleSystem* system)
 // and u = r x (a, b, c), each normalised when it has a length.
 void camera_axes(float r[3], float u[3])
 {
-    const double a = g_view_matrix.row[0].z;
-    const double b = g_view_matrix.row[1].z;
-    const double c = g_view_matrix.row[2].z;
+    const double a = core::at(g_view_matrix.row, 0).z;
+    const double b = core::at(g_view_matrix.row, 1).z;
+    const double c = core::at(g_view_matrix.row, 2).z;
     const double b0 = b * 0.0f;
     r[0] = static_cast<float>(b0 - c);
     r[1] = static_cast<float>(c * 0.0f - a * 0.0f);
@@ -206,7 +207,7 @@ static_assert(sizeof(ParticleVertex) == 0x18, "layout must match the original");
 // 0x004BB040
 void ParticleBurst::get_skip(int particles)
 {
-    uint32_t a = seed[0], b = seed[1], c = seed[2];
+    uint32_t a = core::at(seed, 0), b = core::at(seed, 1), c = core::at(seed, 2);
     random_a() = a;
     random_b() = b;
     random_c() = c;
@@ -218,9 +219,9 @@ void ParticleBurst::get_skip(int particles)
         random_b() = b;
         random_a() = a;
     }
-    seed[2] = c;
-    seed[0] = a;
-    seed[1] = b;
+    core::at(seed, 2) = c;
+    core::at(seed, 0) = a;
+    core::at(seed, 1) = b;
 }
 
 // 0x004BCE90
@@ -241,52 +242,52 @@ void PcParticleSystem::initialise()
     material = memory ? construct_material(memory) : nullptr;
     // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation): the original's whole-object clear / copy
     std::memset(material, 0, sizeof(MaterialRef));
-    material->pass_flags_[0] = 0x44; // (its flags)
+    core::at(material->pass_flags_, 0) = 0x44; // (its flags)
     material->pass_count_ = 1;       // (a pass)
     material->alpha_ref_ = 1;
     material->two_sided_ = 1;
     for (int k = 0; k < 3; ++k)
-        material->pass_color_[0][k] = 0.5f;
-    material->pass_color_[0][3] = static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
-    material->address_modes_[0] = 0x10001;
-    material->unknownc0_[0] = 0x10001;
-    material->blend_modes_[0] = blend_mode_from_name(args_.blend_mode_);
-    material->textures[0] = nullptr;
+        core::at(core::at(material->pass_color_, 0), k) = 0.5f;
+    core::at(core::at(material->pass_color_, 0), 3) = static_cast<float>(static_cast<double>(args_.alpha_cut_off_) * (1.0f / 128.0f));
+    core::at(material->address_modes_, 0) = 0x10001;
+    core::at(material->unknownc0_, 0) = 0x10001;
+    core::at(material->blend_modes_, 0) = blend_mode_from_name(args_.blend_mode_);
+    core::at(material->textures, 0) = nullptr;
     if (const uint8_t* found = find_texture(args_.texture_))
-        material->textures[0] = texture_key(found);
+        core::at(material->textures, 0) = texture_key(found);
 
     // The spread: the boxes and their radii.
-    std::array<float, 4> start = {{args_.box_[0].x, args_.box_[0].y, args_.box_[0].z, args_.radius_[0]}};
-    std::array<float, 4> middle = {{args_.box_[1].x, args_.box_[1].y, args_.box_[1].z, args_.radius_[1]}};
-    std::array<float, 4> last = {{args_.box_[2].x, args_.box_[2].y, args_.box_[2].z, args_.radius_[2]}};
+    std::array<float, 4> start = {{core::at(args_.box_, 0).x, core::at(args_.box_, 0).y, core::at(args_.box_, 0).z, core::at(args_.radius_, 0)}};
+    std::array<float, 4> middle = {{core::at(args_.box_, 1).x, core::at(args_.box_, 1).y, core::at(args_.box_, 1).z, core::at(args_.radius_, 1)}};
+    std::array<float, 4> last = {{core::at(args_.box_, 2).x, core::at(args_.box_, 2).y, core::at(args_.box_, 2).z, core::at(args_.radius_, 2)}};
     const Fit fit = get_fit(start.data(), middle.data(), last.data(), args_.lifetime_, get_mid_time(this), args_.use_mid_, true);
-    spread.a = {start[0], start[1], start[2], start[3]};
+    spread.a = {core::at(start, 0), core::at(start, 1), core::at(start, 2), core::at(start, 3)};
     spread.b = {static_cast<float>(fit.bx), fit.by, fit.bz, fit.bw};
-    spread.c = {fit.c[0], fit.c[1], fit.c[2], fit.c[3]};
+    spread.c = {core::at(fit.c, 0), core::at(fit.c, 1), core::at(fit.c, 2), core::at(fit.c, 3)};
     // The path (the original works it out here as well, then again in update_path to the same values).
     update_path();
     std::memset(&matrix, 0, sizeof(matrix));
-    matrix.row[0].x = matrix.row[1].y = matrix.row[2].z = matrix.row[3].w = 1.0f;
+    core::at(matrix.row, 0).x = core::at(matrix.row, 1).y = core::at(matrix.row, 2).z = core::at(matrix.row, 3).w = 1.0f;
 }
 
 // 0x004BBD20
 void PcParticleSystem::update_path()
 {
-    std::array<float, 4> start = {{args_.at_point_[0].x, args_.at_point_[0].y, args_.at_point_[0].z, args_.extent_[0]}};
-    std::array<float, 4> middle = {{args_.at_point_[1].x, args_.at_point_[1].y, args_.at_point_[1].z, args_.extent_[1]}};
-    std::array<float, 4> last = {{args_.at_point_[2].x, args_.at_point_[2].y, args_.at_point_[2].z, args_.extent_[2]}};
+    std::array<float, 4> start = {{core::at(args_.at_point_, 0).x, core::at(args_.at_point_, 0).y, core::at(args_.at_point_, 0).z, core::at(args_.extent_, 0)}};
+    std::array<float, 4> middle = {{core::at(args_.at_point_, 1).x, core::at(args_.at_point_, 1).y, core::at(args_.at_point_, 1).z, core::at(args_.extent_, 1)}};
+    std::array<float, 4> last = {{core::at(args_.at_point_, 2).x, core::at(args_.at_point_, 2).y, core::at(args_.at_point_, 2).z, core::at(args_.extent_, 2)}};
     const Fit fit = get_fit(start.data(), middle.data(), last.data(), args_.lifetime_, get_mid_time(this), args_.use_mid_, false);
     // Less 1.5 times the spread: its x and w products unrounded, its y and z rounded first.
     auto less = [](double value, float spread_value, bool rounded) {
         const double offset = static_cast<double>(spread_value) * 1.5f;
         return static_cast<float>(value - (rounded ? static_cast<double>(static_cast<float>(offset)) : offset));
     };
-    path.a = {less(start[0], spread.a.x, false), less(start[1], spread.a.y, true), less(start[2], spread.a.z, true),
-              less(start[3], spread.a.w, false)};
+    path.a = {less(core::at(start, 0), spread.a.x, false), less(core::at(start, 1), spread.a.y, true), less(core::at(start, 2), spread.a.z, true),
+              less(core::at(start, 3), spread.a.w, false)};
     path.b = {less(fit.bx, spread.b.x, false), less(fit.by, spread.b.y, true), less(fit.bz, spread.b.z, true),
               less(fit.bw, spread.b.w, false)};
-    path.c = {less(fit.c[0], spread.c.x, false), less(fit.c[1], spread.c.y, true), less(fit.c[2], spread.c.z, true),
-              less(fit.c[3], spread.c.w, false)};
+    path.c = {less(core::at(fit.c, 0), spread.c.x, false), less(core::at(fit.c, 1), spread.c.y, true), less(core::at(fit.c, 2), spread.c.z, true),
+              less(core::at(fit.c, 3), spread.c.w, false)};
 }
 
 // 0x004BC240
@@ -323,9 +324,9 @@ void PcParticleSystem::draw(bool advance)
         newest->period = static_cast<float>(1.0f / static_cast<double>(args_.rate_));
         newest->age = 0.0f;
         newest->count = 0;
-        newest->seed[0] = static_cast<uint32_t>(get_rand());
-        newest->seed[1] = 0x12B9B0A1;
-        newest->seed[2] = 0x0AA2FB3F;
+        core::at(newest->seed, 0) = static_cast<uint32_t>(get_rand());
+        core::at(newest->seed, 1) = 0x12B9B0A1;
+        core::at(newest->seed, 2) = 0x0AA2FB3F;
         emitting = true;
     } else {
         emitting = false;
@@ -369,11 +370,11 @@ void PcParticleSystem::draw(bool advance)
     float r[3], u[3];
     camera_axes(r, u);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-    set_pixel_shader(g_pixel_shaders[kPixelShader964], nullptr);
+    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), nullptr);
     std::array<std::array<float, 4>, 3> colour_table{};
     for (int i = 0; i < 3; ++i)
         for (int k = 0; k < 4; ++k)
-            colour_table[i][k] = static_cast<float>(static_cast<double>(args_.shade_[i][k]) * (1.0f / 255.0f));
+            core::at(core::at(colour_table, i), k) = static_cast<float>(static_cast<double>(core::at(core::at(args_.shade_, i), k)) * (1.0f / 255.0f));
 
     const ParticleBurst* burst = oldest;
     for (int b = 0; b < live; ++b, ++burst) {
@@ -381,9 +382,9 @@ void PcParticleSystem::draw(bool advance)
             burst = bursts;
         auto colour_mid = static_cast<float>(static_cast<double>(args_.colour_mid_percent_) * 0.01f * args_.lifetime_);
         float age = burst->age;
-        random_a() = burst->seed[0];
-        random_b() = burst->seed[1];
-        random_c() = burst->seed[2];
+        random_a() = core::at(burst->seed, 0);
+        random_b() = core::at(burst->seed, 1);
+        random_c() = core::at(burst->seed, 2);
         int remaining = burst->count;
         int index = 0;
         while (remaining != 0) {
@@ -413,16 +414,16 @@ void PcParticleSystem::draw(bool advance)
                     random_c() = c;
 
                     // The colour: start to end, or through the mid.
-                    const float* from = colour_table[0].data();
-                    const float* to = colour_table[2].data();
+                    const float* from = core::at(colour_table, 0).data();
+                    const float* to = core::at(colour_table, 2).data();
                     double fraction = 0.0;
                     if (args_.colour_use_mid_) {
                         if (t > colour_mid) {
                             fraction = (t - colour_mid) / (static_cast<double>(args_.lifetime_) - colour_mid);
-                            from = colour_table[1].data();
+                            from = core::at(colour_table, 1).data();
                         } else {
                             fraction = t / colour_mid;
-                            to = colour_table[1].data();
+                            to = core::at(colour_table, 1).data();
                         }
                     } else {
                         fraction = t / args_.lifetime_;

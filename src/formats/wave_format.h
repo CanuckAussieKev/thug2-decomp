@@ -5,6 +5,7 @@
 #include <array>
 
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 // NOT ORIGINAL - the sound effects' files ("data\sounds\...\x.snd": RIFF / WAVE, IMA ADPCM samples), read through
 // util::ByteReader.
@@ -34,10 +35,10 @@ struct Wave {
     // the format's fields
     [[nodiscard]] uint32_t samples_per_second() const { return word(4); }
     [[nodiscard]] uint32_t bytes_per_second() const { return word(8); }
-    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(format[0xC] | format[0xD] << 8); }
+    [[nodiscard]] uint16_t block_align() const { return static_cast<uint16_t>(core::at(format, 0xC) | core::at(format, 0xD) << 8); }
     [[nodiscard]] uint32_t word(size_t at) const
     {
-        return format[at] | format[at + 1] << 8 | format[at + 2] << 16 | static_cast<uint32_t>(format[at + 3]) << 24;
+        return core::at(format, at) | core::at(format, at + 1) << 8 | core::at(format, at + 2) << 16 | static_cast<uint32_t>(core::at(format, at + 3)) << 24;
     }
 };
 // NOLINTEND(readability-identifier-naming)

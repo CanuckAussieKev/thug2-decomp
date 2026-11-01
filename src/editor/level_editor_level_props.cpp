@@ -20,6 +20,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::level_props {
 
@@ -34,7 +35,7 @@ bool read_ints(const std::string& text, int* out, int count)
     if (!fields::parse(fields::Kind::kIntegers, text, &v, &error) || std::cmp_not_equal(v.list.size(), count))
         return false;
     for (int i = 0; i < count; ++i)
-        out[i] = static_cast<int32_t>(v.list[i]);
+        out[i] = static_cast<int32_t>(core::at(v.list, i));
     return true;
 }
 
@@ -48,12 +49,12 @@ fields::Value int_field(int value)
 
 } // namespace
 
-const char* tod_name(int tod) { return tod >= 0 && tod < kStates ? kTimeOfDayLabels[tod] : nullptr; }
+const char* tod_name(int tod) { return tod >= 0 && tod < kStates ? core::at(kTimeOfDayLabels, tod) : nullptr; }
 
 bool tod_from_name(const std::string& name, int* tod)
 {
     for (int i = 0; i < kStates; ++i) {
-        if (_stricmp(name.c_str(), kTimeOfDayLabels[i]) == 0) {
+        if (_stricmp(name.c_str(), core::at(kTimeOfDayLabels, i)) == 0) {
             *tod = i;
             return true;
         }
@@ -105,12 +106,12 @@ std::string write_record(const Props& props)
     if (props.time == 0 || props.time == 1)
         line += props.time ? " time=1" : " time=0";
     if (props.has_ambient_) {
-        std::snprintf(text.data(), sizeof(text), " ambient=%d,%d,%d", props.ambient[0], props.ambient[1], props.ambient[2]);
+        std::snprintf(text.data(), sizeof(text), " ambient=%d,%d,%d", core::at(props.ambient, 0), core::at(props.ambient, 1), core::at(props.ambient, 2));
         line += text.data();
     }
     if (props.has_fog_) {
-        std::snprintf(text.data(), sizeof(text), " fog=%d,%d,%d,%d,%d", props.fog[0], props.fog[1], props.fog[2], props.fog[3],
-                      props.fog[4]);
+        std::snprintf(text.data(), sizeof(text), " fog=%d,%d,%d,%d,%d", core::at(props.fog, 0), core::at(props.fog, 1), core::at(props.fog, 2), core::at(props.fog, 3),
+                      core::at(props.fog, 4));
         line += text.data();
     }
     if (!props.sky.empty())
@@ -181,8 +182,8 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
         fields::Value v;
         v.kind = fields::Kind::kIntegers;
         for (int i = 0; i < 4; ++i)
-            v.list.push_back(static_cast<uint32_t>(get_channel(props.fog[i])));
-        v.list.push_back(static_cast<uint32_t>(span_to(props.fog[4])));
+            v.list.push_back(static_cast<uint32_t>(get_channel(core::at(props.fog, i))));
+        v.list.push_back(static_cast<uint32_t>(span_to(core::at(props.fog, 4))));
         out.emplace_back("ed_fog", v);
     }
     if (valid_sky(props.sky)) {
@@ -198,18 +199,18 @@ bool get_override(const Props& edited, const Props& level, gfx::TodParams* param
 {
     const Props* ambient = edited.has_ambient_ ? &edited : level.has_ambient_ ? &level : nullptr;
     if (ambient) {
-        params->ambient_red_ = get_channel(ambient->ambient[0]);
-        params->ambient_green_ = get_channel(ambient->ambient[1]);
-        params->ambient_blue_ = get_channel(ambient->ambient[2]);
+        params->ambient_red_ = get_channel(core::at(ambient->ambient, 0));
+        params->ambient_green_ = get_channel(core::at(ambient->ambient, 1));
+        params->ambient_blue_ = get_channel(core::at(ambient->ambient, 2));
     }
     const Props* fog = edited.has_fog_ ? &edited : level.has_fog_ ? &level : nullptr;
     if (!fog)
         return false;
-    params->fog_red_ = get_channel(fog->fog[0]);
-    params->fog_green_ = get_channel(fog->fog[1]);
-    params->fog_blue_ = get_channel(fog->fog[2]);
-    params->fog_alpha_ = get_channel(fog->fog[3]);
-    params->fog_dist_ = span_to(fog->fog[4]);
+    params->fog_red_ = get_channel(core::at(fog->fog, 0));
+    params->fog_green_ = get_channel(core::at(fog->fog, 1));
+    params->fog_blue_ = get_channel(core::at(fog->fog, 2));
+    params->fog_alpha_ = get_channel(core::at(fog->fog, 3));
+    params->fog_dist_ = span_to(core::at(fog->fog, 4));
     return true;
 }
 
@@ -364,7 +365,7 @@ bool level_defaults(Props* props)
     p.tod = 1; // (load_level: afternoon when the level names none)
     if (level->read_hash_value(checksums::hash_from_text("tod_state"), &state, 0)) {
         for (int i = 0; i < kStates; ++i)
-            p.tod = state == checksums::hash_from_text(kTimeOfDayLabels[i]) ? i : p.tod;
+            p.tod = state == checksums::hash_from_text(core::at(kTimeOfDayLabels, i)) ? i : p.tod;
     }
     int value = 1;
     p.time = level->fetch_int_value(checksums::hash_from_text("tod_manager_active"), &value, 0) && value == 0 ? 0 : 1;
@@ -375,9 +376,9 @@ bool level_defaults(Props* props)
         gfx::TodParams now = manager->get_tod_params(-1);
         get_override(Props{}, g_level, &now);
         p.has_ambient_ = true;
-        p.ambient[0] = now.ambient_red_;
-        p.ambient[1] = now.ambient_green_;
-        p.ambient[2] = now.ambient_blue_;
+        core::at(p.ambient, 0) = now.ambient_red_;
+        core::at(p.ambient, 1) = now.ambient_green_;
+        core::at(p.ambient, 2) = now.ambient_blue_;
         p.has_fog_ = true;
         std::array<int, 5> fog = {{now.fog_red_, now.fog_green_, now.fog_blue_, now.fog_alpha_, now.fog_dist_}};
         std::memcpy(p.fog.data(), fog.data(), sizeof(fog));

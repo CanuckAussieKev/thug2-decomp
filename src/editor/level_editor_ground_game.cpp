@@ -42,6 +42,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ground {
 
@@ -210,11 +211,11 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         }
         std::memcpy(buffer->data, data.data(), data.size());
         upload_vertices(buffer);
-        first->vertex_buffers_[b] = buffer;
+        core::at(first->vertex_buffers_, b) = buffer;
     }
     first->vertex_count_ = static_cast<uint16_t>(count);
     for (int k = 0; k < 8; ++k) {
-        if (k > 0 && !first->index_counts_[k])
+        if (k > 0 && !core::at(first->index_counts_, k))
             continue;
         render::IdxStore* buffer = new_index_buffer(static_cast<uint32_t>(strip.size() * 2));
         if (!buffer || !buffer->indices) {
@@ -223,8 +224,8 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         }
         std::memcpy(buffer->indices, strip.data(), strip.size() * 2);
         upload_indices(buffer);
-        first->index_buffers_[k] = buffer;
-        first->index_counts_[k] = static_cast<uint16_t>(strip.size());
+        core::at(first->index_buffers_, k) = buffer;
+        core::at(first->index_counts_, k) = static_cast<uint16_t>(strip.size());
     }
     if (first->per_vertex_bytes_) {
         first->per_vertex_bytes_ = static_cast<uint8_t*>(memory::alloc(count));
@@ -235,7 +236,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     first->triangle_count_ = 0;
     const V3 centre = (mesh.min + mesh.max) * 0.5f;
     const V3 half = mesh.max - centre;
-    first->centre[0] = centre.x, first->centre[1] = centre.y, first->centre[2] = centre.z;
+    core::at(first->centre, 0) = centre.x, core::at(first->centre, 1) = centre.y, core::at(first->centre, 2) = centre.z;
     first->radius = std::sqrt(get_dot(half, half));
     // The other meshes: nothing drawn (their strips all one index - degenerate).
     for (uint32_t i = 1; i < mesh_count_of(geom); ++i) {
@@ -243,16 +244,16 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         if (!other)
             continue;
         for (int k = 0; k < 8; ++k) {
-            render::IdxStore* buffer = other->index_buffers_[k];
-            if (!other->index_counts_[k] || !buffer || !buffer->indices)
+            render::IdxStore* buffer = core::at(other->index_buffers_, k);
+            if (!core::at(other->index_counts_, k) || !buffer || !buffer->indices)
                 continue;
-            if (std::any_of(buffer->indices, buffer->indices + other->index_counts_[k],
+            if (std::any_of(buffer->indices, buffer->indices + core::at(other->index_counts_, k),
                             [](uint16_t v) { return v != 0; })) {
-                std::memset(buffer->indices, 0, other->index_counts_[k] * 2u);
+                std::memset(buffer->indices, 0, core::at(other->index_counts_, k) * 2u);
                 upload_indices(buffer);
             }
         }
-        other->centre[0] = centre.x, other->centre[1] = centre.y, other->centre[2] = centre.z;
+        core::at(other->centre, 0) = centre.x, core::at(other->centre, 1) = centre.y, core::at(other->centre, 2) = centre.z;
         other->radius = 1.0f;
     }
     geom->bounds.min.x = mesh.min.x, geom->bounds.min.y = mesh.min.y, geom->bounds.min.z = mesh.min.z;
@@ -272,9 +273,9 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         return false;
     }
     for (uint32_t v = 0; v < count; ++v)
-        std::memcpy(vertices + 3 * v, &mesh.vertices[v].pos, 12);
+        std::memcpy(vertices + 3 * v, &core::at(mesh.vertices, v).pos, 12);
     for (uint32_t f = 0; f < faces; ++f) {
-        const Face& face = mesh.faces[f];
+        const Face& face = core::at(mesh.faces, f);
         std::array<uint16_t, 5> words = {{face.flags, spec.terrain, face.a, face.b, face.c}};
         std::memcpy(face_data + 10 * f, words.data(), 10);
         leaf_faces[f] = static_cast<uint16_t>(f);
@@ -424,13 +425,13 @@ const char* why_not_donor(uint32_t checksum)
         return "a billboard or shared mesh";
     if (!layout_for(vertex_format(first), first->stride, &layout) || layout.tex_count_ < 1)
         return "its vertex format (no plain positions and texture coordinates)";
-    if (first->vertex_buffer_count_ < 1 || first->vertex_buffer_count_ > 3 || !first->vertex_buffers_[0] ||
-        !first->vertex_buffers_[0]->data)
+    if (first->vertex_buffer_count_ < 1 || first->vertex_buffer_count_ > 3 || !core::at(first->vertex_buffers_, 0) ||
+        !core::at(first->vertex_buffers_, 0)->data)
         return "its vertex buffers";
     if (first->per_vertex_data_)
         return "per-vertex data the editor can't make";
     const render::MaterialRef* material = first->material;
-    if (!material || picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
+    if (!material || picking::material_see_through(core::at(material->pass_flags_, 0), core::at(material->blend_modes_, 0)))
         return "a see-through material";
     const render::StaticCollider* coll = static_of(sector);
     if (!coll || !coll->geometry_ || !coll->geometry_->tri_count_)
@@ -482,25 +483,25 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     const render::MeshRef* mesh = meshes_of(geom_of(sector))[0];
     Layout layout;
     layout_for(vertex_format(mesh), mesh->stride, &layout);
-    const uint8_t* data = mesh->vertex_buffers_[0]->data;
+    const uint8_t* data = core::at(mesh->vertex_buffers_, 0)->data;
     if (layout.diffuse >= 0 && mesh->vertex_count_) {
         std::array<double, 4> sum = {};
         for (uint32_t v = 0; v < mesh->vertex_count_; ++v) {
             uint32_t c = 0;
             std::memcpy(&c, data + v * mesh->stride + layout.diffuse, 4);
             for (int k = 0; k < 4; ++k)
-                sum[k] += (c >> (8 * k)) & 0xFF;
+                core::at(sum, k) += (c >> (8 * k)) & 0xFF;
         }
         uint32_t colour = 0;
         for (int k = 0; k < 4; ++k)
             // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-            colour |= static_cast<uint32_t>(sum[k] / mesh->vertex_count_ + 0.5) << (8 * k);
+            colour |= static_cast<uint32_t>(core::at(sum, k) / mesh->vertex_count_ + 0.5) << (8 * k);
         spec->colour = colour;
     }
-    const render::IdxStore* indices = mesh->index_buffers_[0];
-    if (indices && indices->indices && mesh->index_counts_[0] >= 3) {
+    const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
+    if (indices && indices->indices && core::at(mesh->index_counts_, 0) >= 3) {
         double world = 0.0, texture = 0.0;
-        for (uint32_t i = 0; i + 1 < mesh->index_counts_[0]; ++i) {
+        for (uint32_t i = 0; i + 1 < core::at(mesh->index_counts_, 0); ++i) {
             const uint16_t a = indices->indices[i];
             const uint16_t b = indices->indices[i + 1];
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
@@ -509,11 +510,11 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const auto pb = gpu::VertexView(data, mesh->stride).float3(b);
             const auto ta = gpu::VertexView(data, mesh->stride).float2(a, layout.tex);
             const auto tb = gpu::VertexView(data, mesh->stride).float2(b, layout.tex);
-            const double dw = std::sqrt(static_cast<double>(pa[0] - pb[0]) * (pa[0] - pb[0]) +
-                                        static_cast<double>(pa[1] - pb[1]) * (pa[1] - pb[1]) +
-                                        static_cast<double>(pa[2] - pb[2]) * (pa[2] - pb[2]));
-            const double dt = std::sqrt(static_cast<double>(ta[0] - tb[0]) * (ta[0] - tb[0]) +
-                                        static_cast<double>(ta[1] - tb[1]) * (ta[1] - tb[1]));
+            const double dw = std::sqrt(static_cast<double>(core::at(pa, 0) - core::at(pb, 0)) * (core::at(pa, 0) - core::at(pb, 0)) +
+                                        static_cast<double>(core::at(pa, 1) - core::at(pb, 1)) * (core::at(pa, 1) - core::at(pb, 1)) +
+                                        static_cast<double>(core::at(pa, 2) - core::at(pb, 2)) * (core::at(pa, 2) - core::at(pb, 2)));
+            const double dt = std::sqrt(static_cast<double>(core::at(ta, 0) - core::at(tb, 0)) * (core::at(ta, 0) - core::at(tb, 0)) +
+                                        static_cast<double>(core::at(ta, 1) - core::at(tb, 1)) * (core::at(ta, 1) - core::at(tb, 1)));
             if (dt > 1e-4 && std::isfinite(dt) && std::isfinite(dw)) {
                 world += dw;
                 texture += dt;
@@ -573,7 +574,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
                     ok = index < tri->num_vertices_;
                     if (ok) {
                         const maths::Vec4 p = tri->read_stored_vertex(static_cast<int>(index));
-                        c[k] = {p.x, p.y, p.z};
+                        core::at(c, k) = {p.x, p.y, p.z};
                     }
                 }
                 ground = ok && ground_face_under(c.data(), s, 30.0f);
@@ -726,10 +727,10 @@ void add_preview(const overlays::Painter& painter, const Spec& spec, uint32_t ar
     Mesh mesh = get_build(spec);
     const size_t faces = std::min<size_t>(mesh.faces.size(), 3000);
     for (size_t f = 0; f < faces; ++f) {
-        const Face& face = mesh.faces[f];
-        const V3 a = mesh.vertices[face.a].pos;
-        const V3 b = mesh.vertices[face.b].pos;
-        const V3 c = mesh.vertices[face.c].pos;
+        const Face& face = core::at(mesh.faces, f);
+        const V3 a = core::at(mesh.vertices, face.a).pos;
+        const V3 b = core::at(mesh.vertices, face.b).pos;
+        const V3 c = core::at(mesh.vertices, face.c).pos;
         (void)painter.get_seg(a, b, argb);
         (void)painter.get_seg(b, c, argb);
         (void)painter.get_seg(c, a, argb);

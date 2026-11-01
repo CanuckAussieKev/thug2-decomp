@@ -19,6 +19,7 @@
 #include "formats/byte_stream.h"
 #include "formats/rail_buffer_format.h"
 #include "platform/compiler.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy into the test messages' fixed fields)
 
@@ -195,9 +196,9 @@ void check_graffiti_messages()
     message->player = 3;
     message->score = 12345;
     message->count = 3;
-    message->objects[0] = 0x11111111;
-    message->objects[1] = 0x22222222;
-    message->objects[2] = 0x33333333;
+    core::at(message->objects, 0) = 0x11111111;
+    core::at(message->objects, 1) = 0x22222222;
+    core::at(message->objects, 2) = 0x33333333;
     ReferenceTrickObjects ref = {1, {}, 9, 0, 3, 12345, 3, {0x11111111, 0x22222222, 0x33333333}};
     check_message("trick objects 0x3B", *message, ref, online::write_trick_objects, online::read_trick_objects);
     const ReferenceObservedTrickObjects observed = {9, {}, 3, 3, {0x11111111, 0x22222222, 0x33333333}};
@@ -209,7 +210,7 @@ void check_graffiti_messages()
     check(!online::read_trick_objects(reader, message.get()) && message->count == 0,
           "trick objects 0x3B: a count past the end refused");
     std::vector<uint8_t> big(online::kTrickObjectsHeaderSize + 4 * (online::kMaxTrickObjects + 1), 0);
-    big[0] = 1;
+    core::at(big, 0) = 1;
     uint32_t too_many = online::kMaxTrickObjects + 1;
     std::memcpy(big.data() + 0x14, &too_many, 4);
     util::ByteReader big_reader(big.data(), big.size());
@@ -313,7 +314,7 @@ void check_play_messages()
         online::read_hunt_placements(reader, &back);
         online::read_hunt_position(reader, at.data());
         online::read_hunt_position(reader, at.data());
-        check(reader.ok() && at[1] == 5.5f && back.count == 2, "hunt placements 0x8F: the positions read");
+        check(reader.ok() && core::at(at, 1) == 5.5f && back.count == 2, "hunt placements 0x8F: the positions read");
         const std::array<float, 4> one = {{7, 8, 9, 1}};
         std::array<uint8_t, 16> bytes{};
         util::ByteWriter writer(bytes.data(), sizeof(bytes));
@@ -676,7 +677,7 @@ void check_chat_messages()
         check_message("chat 0x4C", m, ref, online::write_chat, online::read_chat, 17);
         // a text without its NUL: cut at the message's end
         ReferenceChat open = ref;
-        open.text[8] = '!';
+        core::at(open.text, 8) = '!';
         util::ByteReader reader(&open, sizeof(open));
         online::Chat back;
         check(online::read_chat(reader, &back) && std::strcmp(back.text.data(), "hi there!") == 0,
@@ -700,7 +701,7 @@ void check_chat_messages()
         online::thugpro::ChatMessage back;
         check(!online::thugpro::read_chat_message(name_reader, &back), "THUGPRO chat 76: an unended name dropped");
         bad = ref;
-        bad.text[5] = '!';
+        core::at(bad.text, 5) = '!';
         util::ByteReader text_reader(&bad, sizeof(bad));
         check(!online::thugpro::read_chat_message(text_reader, &back), "THUGPRO chat 76: an unended text dropped");
     }
@@ -734,7 +735,7 @@ void check_news()
     int32_t size = 12;
     std::memcpy(file.data() + 4, &size, 4);
     std::memcpy(file.data() + 8, text.data(), sizeof(text));
-    file[16] = 0xAB; // (the data after it)
+    core::at(file, 16) = 0xAB; // (the data after it)
     {
         util::ByteReader reader(file.data(), sizeof(file));
         online::News news;
@@ -792,12 +793,12 @@ void check_rails()
 {
     park_editing::RailBuffer sent{};
     sent.rail_count_ = 3;
-    sent.point_counts_[0] = 2;
-    sent.point_counts_[1] = 0;
-    sent.point_counts_[2] = 398;
+    core::at(sent.point_counts_, 0) = 2;
+    core::at(sent.point_counts_, 1) = 0;
+    core::at(sent.point_counts_, 2) = 398;
     for (int i = 0; i < 400; ++i)
         for (int k = 0; k < 5; ++k)
-            sent.records_[i][k] = static_cast<uint16_t>(i * 5 + k - 7);
+            core::at(core::at(sent.records_, i), k) = static_cast<uint16_t>(i * 5 + k - 7);
     std::vector<uint8_t> bytes(sizeof(sent));
     std::memcpy(bytes.data(), &sent, sizeof(sent));
     auto read = std::make_unique<park_editing::RailBuffer>();
@@ -808,11 +809,11 @@ void check_rails()
     util::ByteReader cut(bytes.data(), bytes.size() - 1);
     check(!park_editing::rail_buffer_format::read_rail_buffer(cut, read.get()) && read->rail_count_ == 0,
           "rails 0x7A: cut short");
-    bytes[0] = 201;
+    core::at(bytes, 0) = 201;
     util::ByteReader rails(bytes.data(), bytes.size());
     check(!park_editing::rail_buffer_format::read_rail_buffer(rails, read.get()), "rails 0x7A: 201 rails");
-    bytes[0] = 3;
-    bytes[2 + 2 * 2] = 143; // the third rail's 398 points + 1 (0x18E -> 0x18F): 401 in all
+    core::at(bytes, 0) = 3;
+    core::at(bytes, 2 + 2 * 2) = 143; // the third rail's 398 points + 1 (0x18E -> 0x18F): 401 in all
     util::ByteReader points(bytes.data(), bytes.size());
     check(!park_editing::rail_buffer_format::read_rail_buffer(points, read.get()), "rails 0x7A: 401 points");
 }

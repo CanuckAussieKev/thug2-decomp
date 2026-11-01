@@ -32,6 +32,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -331,16 +332,16 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
     int count = 0;
     matching_options(part, 0, matching.data(), &count);
     if (count) {
-        get_choose(matching[maths::rnd(count)], wanted - 1);
+        get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
     } else {
         matching_options(part, kLight, matching.data(), &count);
-        get_choose(matching[maths::rnd(count)], wanted - 1);
+        get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
         --wanted;
         matching_options(part, kTan, matching.data(), &count);
-        get_choose(matching[maths::rnd(count)], wanted - 1);
+        get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
         --wanted;
         matching_options(part, kDark, matching.data(), &count);
-        get_choose(matching[maths::rnd(count)], wanted - 1);
+        get_choose(core::at(matching, maths::rnd(count)), wanted - 1);
     }
     --wanted;
     for (int n = 0; n < wanted; ++n) {
@@ -374,11 +375,11 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
                 cell::address(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
             bool found = false;
             for (int k = 0; k < seen_count; ++k) {
-                if (seen[k] == textures)
+                if (core::at(seen, k) == textures)
                     found = true;
             }
             if (!found && seen_count < 32) {
-                seen[seen_count++] = textures;
+                core::at(seen, seen_count++) = textures;
                 added = true;
             }
         }

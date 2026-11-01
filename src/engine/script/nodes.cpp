@@ -20,6 +20,7 @@
 #include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace level_nodes {
 
@@ -134,7 +135,7 @@ void fetch_facing(Struct* node, maths::Mat4* out)
     VectorValue v;
     if (!node->fetch_vec(kOrientation, &v, 0)) {
         for (int r = 0; r < 4; ++r)
-            out->row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
+            core::at(out->row, r) = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
         return;
     }
     // (x87, 53-bit: the squares summed z, y, x in double, w = sqrt(1 - min(sum, 1)) rounded once)

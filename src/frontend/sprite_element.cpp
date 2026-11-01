@@ -22,6 +22,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -119,7 +120,7 @@ void TextureElement::get_properties(Struct* out)
         array = new (array) script::Array;
     array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 4; ++i)
-        array->set_element(i, rgba[i]);
+        array->set_element(i, core::at(rgba, i));
     out->append_array_value(kRgba, array);
     if (array) {
         array->get_clear();

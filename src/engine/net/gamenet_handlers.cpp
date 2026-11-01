@@ -48,6 +48,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -359,7 +360,7 @@ int handle_team_object(net::InboundMsgCtx* context)
     if (!player)
         return kDone;
     const uint32_t object = message_word(context, 0);
-    uint32_t* objects = manager->team_objects_[player->team_].data(); // five per team
+    uint32_t* objects = core::at(manager->team_objects_, player->team_).data(); // five per team
     for (int i = 0; i < 5; ++i) {
         if (!objects[i]) {
             objects[i] = object;

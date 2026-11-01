@@ -33,6 +33,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace save_cards {
 
@@ -95,7 +96,7 @@ objects::ObjectModule* goal_editor_component()
 // The skate module's controller settings: each controller's three flags (vibration, autokick, spin taps).
 const modules::Skate::PlayerSettings& controller_flags(int controller)
 {
-    return get_skate()->participants_[controller];
+    return core::at(get_skate()->participants_, controller);
 }
 
 Struct* spawn_param_table()
@@ -126,11 +127,11 @@ void write_global_info(Struct* global)
     sound->push_float(kMasterGainKey, sound::fetch_master_loudness());
     sound->push_float(kMusicVolume, script::fetch_float(kMusicVolOutsideBox));
     std::array<uint64_t, 2> tracks_off{};
-    audio::get_tracks_off(&tracks_off[0], &tracks_off[1]);
-    sound->put_int(kForbiddenTracks1, static_cast<int>(tracks_off[0] >> 32));
-    sound->put_int(kForbiddenTracks2, static_cast<int>(tracks_off[0]));
-    sound->put_int(kForbiddenTracks3, static_cast<int>(tracks_off[1] >> 32));
-    sound->put_int(kForbiddenTracks4, static_cast<int>(tracks_off[1]));
+    audio::get_tracks_off(&core::at(tracks_off, 0), &core::at(tracks_off, 1));
+    sound->put_int(kForbiddenTracks1, static_cast<int>(core::at(tracks_off, 0) >> 32));
+    sound->put_int(kForbiddenTracks2, static_cast<int>(core::at(tracks_off, 0)));
+    sound->put_int(kForbiddenTracks3, static_cast<int>(core::at(tracks_off, 1) >> 32));
+    sound->put_int(kForbiddenTracks4, static_cast<int>(core::at(tracks_off, 1)));
     if (os_layer() == 4)
         sound->put_name_key(kCurrentSoundtrack, script::get_symbol_value("current_soundtrack"));
     if (audio::random_track_order())
@@ -190,14 +191,14 @@ void read_save_header(Struct* global, Script* script)
         delete_structure(change);
     }
     std::array<int, 4> tracks = {};
-    if (sound->fetch_int_value(kForbiddenTracks1, &tracks[0], 0)) {
-        sound->fetch_int_value(kForbiddenTracks2, &tracks[1], 0);
-        sound->fetch_int_value(kForbiddenTracks3, &tracks[2], 0);
-        sound->fetch_int_value(kForbiddenTracks4, &tracks[3], 0);
+    if (sound->fetch_int_value(kForbiddenTracks1, &core::at(tracks, 0), 0)) {
+        sound->fetch_int_value(kForbiddenTracks2, &core::at(tracks, 1), 0);
+        sound->fetch_int_value(kForbiddenTracks3, &core::at(tracks, 2), 0);
+        sound->fetch_int_value(kForbiddenTracks4, &core::at(tracks, 3), 0);
         const uint64_t low =
-            (static_cast<uint64_t>(static_cast<uint32_t>(tracks[0])) << 32) | static_cast<uint32_t>(tracks[1]);
+            (static_cast<uint64_t>(static_cast<uint32_t>(core::at(tracks, 0))) << 32) | static_cast<uint32_t>(core::at(tracks, 1));
         const uint64_t high =
-            (static_cast<uint64_t>(static_cast<uint32_t>(tracks[2])) << 32) | static_cast<uint32_t>(tracks[3]);
+            (static_cast<uint64_t>(static_cast<uint32_t>(core::at(tracks, 2))) << 32) | static_cast<uint32_t>(core::at(tracks, 3));
         audio::set_tracks_off(low, high);
     }
     audio::set_random_mode(sound->has_bare_flag(kRandomMode) ? 1 : 0);
@@ -265,7 +266,7 @@ void write_save_contents(Struct* contents, uint32_t type)
         return;
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(0));
-        const goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
+        const goals::CreateATrick* trick_record = core::at(skater->trick_slots_, 0).get();
         contents->put_sub_struct("other_params", trick_record->other_params_);
         contents->append_array_value("rotation_info", trick_record->spin_list_);
         contents->append_array_value("animation_info", trick_record->animations_);
@@ -323,7 +324,7 @@ void apply_loaded_contents(uint32_t type, Struct* contents, Script* script, Stru
             return;
         // (its fields by name: these were the original's byte offsets +4 / +8 / +0xC on a CreateATrick*, which
         // stepped whole objects past it - and the class has no vtable word here)
-        goals::CreateATrick* trick_record = skater->trick_slots_[0].get();
+        goals::CreateATrick* trick_record = core::at(skater->trick_slots_, 0).get();
         Struct* other = nullptr;
         contents->read_sub_struct("other_params", &other, 1);
         trick_record->other_params_->append_structure_if_any(other);

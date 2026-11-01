@@ -61,6 +61,7 @@
 #include "engine/gfx/tod_manager.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -233,8 +234,8 @@ void SkateNet::server_task(tasks::Task<Skate>* /*task*/)
             const int states = history->state_count_;
             if (!states)
                 continue;
-            const uint16_t newest = history->states_[(states - 1) % objects::RiderFrameLog::kEntries].time;
-            if (newest == player->sent_.time_[skater->ident_])
+            const uint16_t newest = core::at(history->states_, (states - 1) % objects::RiderFrameLog::kEntries).time;
+            if (newest == core::at(player->sent_.time_, skater->ident_))
                 continue;
             mask |= 1u << id;
             if (++count >= player->get_skaters_per_update())
@@ -521,9 +522,9 @@ int SkateNet::handle_scavenger_collected(net::InboundMsgCtx* context)
             if (count) {
                 desc = net::NetMessageInfo();
                 net::AppHost* server = server_app();
-                left[0] = get_game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
+                core::at(left, 0) = get_game_mode()->is_squad_match() ? static_cast<uint8_t>(collector->team_)
                                                             : get_skater_id(skater_of(collector));
-                left[1] = count;
+                core::at(left, 1) = count;
                 desc.content_ = left.data();
                 desc.ident_ = 0x95;
                 get_sequence(desc, 8);
@@ -564,7 +565,7 @@ int SkateNet::handle_scavenger_dropped(net::InboundMsgCtx* context)
     if (!online::read_hunt_position(reader, position.data())) // NOT ORIGINAL: too short - dropped
         return 4;
     if (!dropper->is_own_player())
-        dropper->placed_[dropper->num_placed_] = {position[0], position[1], position[2], position[3]};
+        core::at(dropper->placed_, dropper->num_placed_) = {core::at(position, 0), core::at(position, 1), core::at(position, 2), core::at(position, 3)};
     if (!dropper->is_own_player())
         ++dropper->num_placed_;
     int dropped = 0;
@@ -851,17 +852,17 @@ int SkateNet::handle_skater_messages(net::InboundMsgCtx* context)
         static const std::array<float, 4> kFirst = {{std::bit_cast<float>(0x3D4CCCCDu), std::bit_cast<float>(0x3DCCCCCDu),
                                         std::bit_cast<float>(0x4121999Au),
                                         0.0f}}; // 0.05, 0.1, 10.1, 0 (0x00645D6C, 0x00645D74, 0x006486B8, 0x0066D520)
-        message->wobble_details_[0] = kFirst[bits & 3];
-        message->wobble_details_[1] = (bits >> 2 & 1)
+        core::at(message->wobble_details_, 0) = core::at(kFirst, bits & 3);
+        core::at(message->wobble_details_, 1) = (bits >> 2 & 1)
                                           ? std::bit_cast<float>(0x4121999Au)
                                           : std::bit_cast<float>(0x3D23D70Au); // 10.1 / 0.04 (0x006486B8 / 0x006486B4)
-        message->wobble_details_[2] = (bits >> 3 & 1)
+        core::at(message->wobble_details_, 2) = (bits >> 3 & 1)
                                           ? std::bit_cast<float>(0x41A00000u)
                                           : std::bit_cast<float>(0x3B102DE0u); // 20 / 0.0022 (0x006486AC / 0x006486B0)
-        message->wobble_details_[3] = (bits >> 4 & 1)
+        core::at(message->wobble_details_, 3) = (bits >> 4 & 1)
                                           ? std::bit_cast<float>(0x41200000u)
                                           : std::bit_cast<float>(0x3ADED289u); // 10 / 0.0017 (0x00646710 / 0x006486A8)
-        message->wobble_details_[4] = (bits >> 5 & 1)
+        core::at(message->wobble_details_, 4) = (bits >> 5 & 1)
                                           ? std::bit_cast<float>(0x3F800000u)
                                           : std::bit_cast<float>(0x3FC00000u); // 1 / 1.5 (0x006453A8 / 0x00646744)
         break;
@@ -1036,7 +1037,7 @@ int SkateNet::handle_graffiti_objects(net::InboundMsgCtx* context)
         owner = message->player;
     }
     for (uint32_t i = 0; i < message->count; ++i)
-        objects::g_trick_spot_hub->set_object_graffiti_color(message->objects[i], owner);
+        objects::g_trick_spot_hub->set_object_graffiti_color(core::at(message->objects, i), owner);
     return 1;
 }
 
@@ -1053,8 +1054,8 @@ int SkateNet::handle_place_tag(net::InboundMsgCtx* context)
     auto* tagging = core::down_cast<objects::TaggingComponent>(skater_of(player)->fetch_module(kTagging));
     if (!tagging)
         return 4;
-    const maths::Vec4 start = {message.start[0], message.start[1], message.start[2], message.start[3]};
-    const maths::Vec4 end = {message.end[0], message.end[1], message.end[2], message.end[3]};
+    const maths::Vec4 start = {core::at(message.start, 0), core::at(message.start, 1), core::at(message.start, 2), core::at(message.start, 3)};
+    const maths::Vec4 end = {core::at(message.end, 0), core::at(message.end, 1), core::at(message.end, 2), core::at(message.end, 3)};
     tagging->place_tag(message.sticker, start, end, message.size, false);
     return 1;
 }
@@ -1138,8 +1139,8 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     objects::Rider* skater = skate->get_rider_by_number(static_cast<uint32_t>(message.owner_id));
     if (!skater)
         return 4;
-    maths::Vec4 velocity = {message.velocity[0], message.velocity[1], message.velocity[2], message.velocity[3]};
-    maths::Vec4 position = {message.position[0], message.position[1], message.position[2], message.position[3]};
+    maths::Vec4 velocity = {core::at(message.velocity, 0), core::at(message.velocity, 1), core::at(message.velocity, 2), core::at(message.velocity, 3)};
+    maths::Vec4 position = {core::at(message.position, 0), core::at(message.position, 1), core::at(message.position, 2), core::at(message.position, 3)};
     velocity.make_unit();
     uint32_t time = message.time;
     if (!net_link()->get_on_server()) {
@@ -1159,13 +1160,13 @@ int SkateNet::on_projectile_msg(net::InboundMsgCtx* context)
     params->put_int(kX, static_cast<int>(position.x));
     params->put_int(kY, static_cast<int>(position.y));
     params->put_int(kZ, static_cast<int>(position.z));
-    params->put_int(kScaledX, static_cast<int>(message.velocity[0]));
-    params->put_int(kScaledY, static_cast<int>(message.velocity[1]));
-    params->put_int(kScaledZ, static_cast<int>(message.velocity[2]));
+    params->put_int(kScaledX, static_cast<int>(core::at(message.velocity, 0)));
+    params->put_int(kScaledY, static_cast<int>(core::at(message.velocity, 1)));
+    params->put_int(kScaledZ, static_cast<int>(core::at(message.velocity, 2)));
     params->put_int(kRadius, message.radius);
     params->push_float(kScale, message.scale);
-    params->put_vec3(kPos, {message.position[0], message.position[1], message.position[2], message.position[3]});
-    params->put_vec3(kVel, {message.velocity[0], message.velocity[1], message.velocity[2], message.velocity[3]});
+    params->put_vec3(kPos, {core::at(message.position, 0), core::at(message.position, 1), core::at(message.position, 2), core::at(message.position, 3)});
+    params->put_vec3(kVel, {core::at(message.velocity, 0), core::at(message.velocity, 1), core::at(message.velocity, 2), core::at(message.velocity, 3)});
     const uint32_t launch = message.type == kFireball ? kClientLaunchFireball : kClientLaunchProjectile;
     script::launch_script(launch, params, static_cast<objects::Entity*>(skater), false, nullptr);
     delete_structure(params);
@@ -1184,7 +1185,7 @@ int SkateNet::on_cheat_state_msg(net::InboundMsgCtx* context)
     for (int i = 0; i < message.count; ++i) {
         Struct* params = spawn_param_table();
         params->put_name_key(kOn, 0);
-        params->put_name_key(kCheatFlag, message.cheats[i]);
+        params->put_name_key(kCheatFlag, core::at(message.cheats, i));
         script::launch_script(kClientToggleCheat, params, nullptr, false, nullptr);
         delete_structure(params);
     }
@@ -1247,8 +1248,8 @@ void Skate::leave_server()
         server->put_on_outbox(0xFF, &desc);
         server->transmit(false);
         net->destroy_server();
-        server_tasks_[0]->drop_out();
-        server_tasks_[1]->drop_out();
+        core::at(server_tasks_, 0)->drop_out();
+        core::at(server_tasks_, 1)->drop_out();
         net->remove_players_and_apps();
         return;
     }
@@ -1272,7 +1273,7 @@ void Skate::send_cheats(online::PlayerRecord* player)
     online::Cheats message;
     for (const uint32_t cheat : kSentCheats) {
         if (career_->is_code_on(cheat))
-            message.cheats[message.count++] = cheat;
+            core::at(message.cheats, message.count++) = cheat;
     }
     std::array<uint8_t, 4 + 4 * online::kMaxCheats> data{};
     util::ByteWriter writer(data.data(), sizeof(data));
@@ -1314,8 +1315,8 @@ void Skate::broadcast_points(bool final)
                 score = net->get_entrant_points(skater_of(other)->ident_);
             if (count >= kMaxSent) // (NOT ORIGINAL: the original wrote on past its buffer)
                 continue;
-            message->entries[count].id = static_cast<int8_t>(id);
-            message->entries[count].score = score;
+            core::at(message->entries, count).id = static_cast<int8_t>(id);
+            core::at(message->entries, count).score = score;
             ++count;
         }
         if (static_cast<int8_t>(count) <= 0)

@@ -24,6 +24,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 class Entity;
@@ -142,7 +143,7 @@ inline void team_name_key(char* out, int team)
     if (negative)
         value = 0u - value;
     do {
-        digits[length++] = static_cast<char>('0' + value % 10);
+        core::at(digits, length++) = static_cast<char>('0' + value % 10);
         value /= 10;
     } while (value);
     // NOLINTNEXTLINE(bugprone-not-null-terminated-result): the terminator follows with the next copy
@@ -151,7 +152,7 @@ inline void team_name_key(char* out, int team)
     if (negative)
         *p++ = '-';
     while (length)
-        *p++ = digits[--length];
+        *p++ = core::at(digits, --length);
     std::memcpy(p, "_name", 6);
 }
 

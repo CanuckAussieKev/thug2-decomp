@@ -21,6 +21,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -634,9 +635,9 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
         characters = new (characters) script::Array;
     characters->configure_size_kind(length, script::kQbvalString);
     std::array<char, 2> one{};
-    one[1] = '\0';
+    core::at(one, 1) = '\0';
     for (uint32_t i = 0; i < length; ++i) {
-        one[0] = string[i];
+        core::at(one, 0) = string[i];
         characters->set_element(i, cell::of(script::spawn_text(one.data())));
     }
     script->args_->append_array_ref(kCharArray, characters);

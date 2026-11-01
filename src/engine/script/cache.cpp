@@ -17,6 +17,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -152,7 +153,7 @@ void ScriptStore::make_room(int size, uint32_t /*name*/)
 {
     while (size > static_cast<int>(memory::Hub::get_pull()->script_heap_->largest_free()) - 0x80)
         delete_entry(oldest_unused_); // (null when nothing is left to drop: the original crashes too)
-    while (entry_pools().pools[entry_pools().current]->taken_count_ >= 100 && oldest_unused_)
+    while (core::at(entry_pools().pools, entry_pools().current)->taken_count_ >= 100 && oldest_unused_)
         delete_entry(oldest_unused_);
 }
 

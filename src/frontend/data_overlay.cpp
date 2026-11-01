@@ -15,6 +15,7 @@
 #include "engine/gfx/hd_ui.h"
 #include "game/skate/thugpro_cas.h"
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::data_overlay {
 
@@ -43,8 +44,8 @@ void overlay_name(const char* name, std::array<char, 260>& out)
 {
     int length = 0;
     for (const char* c = name; *c && length < 259; ++c)
-        out[length++] = *c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
-    out[length] = '\0';
+        core::at(out, length++) = *c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
+    core::at(out, length) = '\0';
     // Without anything up to the last "data\" (the development machine's paths, or the game's own "data\" prefix).
     const char* rest = out.data();
     for (const char* found = std::strstr(out.data(), "data\\"); found; found = std::strstr(found + 1, "data\\")) {
@@ -59,12 +60,12 @@ int search_folders(bool anteara, bool front_end, std::array<const char*, 4>& fol
 {
     int count = 0;
     if (anteara && front_end)
-        folders[count++] = "anteara\\front_end\\";
+        core::at(folders, count++) = "anteara\\front_end\\";
     if (anteara)
-        folders[count++] = "anteara\\";
+        core::at(folders, count++) = "anteara\\";
     if (front_end)
-        folders[count++] = "front_end\\";
-    folders[count++] = "";
+        core::at(folders, count++) = "front_end\\";
+    core::at(folders, count++) = "";
     return count;
 }
 
@@ -104,7 +105,7 @@ bool get_overlay_path(const char* name, std::array<char, 260>& path)
     const int count =
         kOverlay && full.empty() ? search_folders(anteara_mod(), new_frontend::is_switched_on(), folders) : 0;
     for (int i = 0; i < count && full.empty(); ++i) {
-        const std::string candidate = get_folder() + "\\" + folders[i] + relative.data();
+        const std::string candidate = get_folder() + "\\" + core::at(folders, i) + relative.data();
         if (is_file(candidate))
             full = candidate;
     }

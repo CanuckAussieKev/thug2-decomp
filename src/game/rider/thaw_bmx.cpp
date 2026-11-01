@@ -30,6 +30,7 @@
 #include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace skater::thaw_bmx {
 
@@ -304,7 +305,7 @@ int invoke_method_by_name(SkaterPhysicsModule* core, uint32_t name, script::Stru
     if (name == kOn) { // 0x005C98E0
         state.on = true;
         const objects::GameEntity* skater = core->entity_;
-        set_wheel_points(state, skater->at_point_, skater->basis_frame_.row[2]);
+        set_wheel_points(state, skater->at_point_, core::at(skater->basis_frame_.row, 2));
         return 1;
     }
     if (name == kOff) { // 0x005C74C0 (THAW clears only the flag; ours the bike's other states too)
@@ -376,10 +377,10 @@ void register_script_functions()
         {"ThawBmx_Available", code_address(&cfunc_available)},
         {"ThawBmx_LoadTexture", code_address(&cfunc_load_texture)},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
     if (!is_switched_on())
         return;
-    script::publish_method_table(kMembers.data(), sizeof(kMembers) / sizeof(kMembers[0]));
+    script::publish_method_table(kMembers.data(), sizeof(kMembers) / sizeof(core::at(kMembers, 0)));
     register_parked_functions(); // (the parked bikes: thaw_bmx_parked.h)
     render::set_shadow_companion(&shadow_companion);
     std::array<char, 64> setting = {""};

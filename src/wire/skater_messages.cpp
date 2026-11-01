@@ -3,6 +3,7 @@
 #include "wire/skater_messages.h"
 
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -131,7 +132,7 @@ bool read_names(util::ByteReader& reader, TrickObjectsMessage* message)
         return false;
     }
     for (uint32_t i = 0; i < message->count; ++i)
-        message->objects[i] = reader.u32();
+        core::at(message->objects, i) = reader.u32();
     return reader.ok();
 }
 
@@ -140,7 +141,7 @@ bool write_names(util::ByteWriter& writer, const TrickObjectsMessage& message)
     if (message.count > kMaxTrickObjects)
         return writer.seek(writer.capacity() + 1); // (fails the writer)
     for (uint32_t i = 0; i < message.count; ++i)
-        writer.u32(message.objects[i]);
+        writer.u32(core::at(message.objects, i));
     return writer.ok();
 }
 

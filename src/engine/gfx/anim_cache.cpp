@@ -15,6 +15,7 @@
 #include "platform/stopwatch.h"
 #include "engine/script/script_startup.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -193,15 +194,15 @@ void AnimCacheEntry::destroy_body()
 int AnimCacheEntry::new_slot()
 {
     for (int i = 0; i < kSlots; ++i) {
-        if (slots_ptr_[i])
+        if (core::at(slots_ptr_, i))
             continue;
         auto* slot = slot_pools().allocate<AnimCacheSlot>();
         if (slot)
             slot->clock_ = 0x8000;
-        slots_ptr_[i] = slot;
+        core::at(slots_ptr_, i) = slot;
         slot->clock_ &= 0x7FFF; // (null: a crash, as the original)
-        std::memset(slots_ptr_[i]->rotation_keys_.data(), 0, sizeof(slot->rotation_keys_));
-        std::memset(slots_ptr_[i]->translation_keys_.data(), 0, sizeof(slot->translation_keys_));
+        std::memset(core::at(slots_ptr_, i)->rotation_keys_.data(), 0, sizeof(slot->rotation_keys_));
+        std::memset(core::at(slots_ptr_, i)->translation_keys_.data(), 0, sizeof(slot->translation_keys_));
         return i;
     }
     return -1;
@@ -214,12 +215,12 @@ void AnimCacheEntry::free_slot(int index)
         return;
     // (the original reads slots_ptr_[index] first - with -1, a user that never had a slot, the field before it - and
     // then ignores it unless index > 0)
-    AnimCacheSlot* slot = index > 0 && std::cmp_less(index, slots_ptr_.size()) ? slots_ptr_[index] : nullptr;
+    AnimCacheSlot* slot = index > 0 && std::cmp_less(index, slots_ptr_.size()) ? core::at(slots_ptr_, index) : nullptr;
     if (slot) {
         slot->get_clear();
-        if (slots_ptr_[index])
-            AnimCacheSlot::dealloc(slots_ptr_[index]);
-        slots_ptr_[index] = nullptr;
+        if (core::at(slots_ptr_, index))
+            AnimCacheSlot::dealloc(core::at(slots_ptr_, index));
+        core::at(slots_ptr_, index) = nullptr;
     }
     flag_bits_ = with_users(flag_bits_, -1);
 }
@@ -227,7 +228,7 @@ void AnimCacheEntry::free_slot(int index)
 // 0x00480590
 int16_t AnimCacheEntry::set_slot_time(int index, int16_t time)
 {
-    AnimCacheSlot* slot = slots_ptr_[index];
+    AnimCacheSlot* slot = core::at(slots_ptr_, index);
     if (!slot)
         return 0;
     const uint16_t old = slot->clock_;
@@ -352,7 +353,7 @@ AnimCacheEntry* ClipStore::add_row(uint32_t key, int16_t bones, int rotation_key
 {
     int i = 0;
     for (;; ++i) {
-        const AnimCacheEntry* entry = slot_array_[i];
+        const AnimCacheEntry* entry = core::at(slot_array_, i);
         if (entry->lookup_key_ == key)
             return nullptr;
         if (entry->kind_tag_ == 0)
@@ -360,12 +361,12 @@ AnimCacheEntry* ClipStore::add_row(uint32_t key, int16_t bones, int rotation_key
         if (i + 1 >= kEntries)
             return nullptr;
     }
-    const uint32_t allocated = slot_array_[i]->carve(key, bones, rotation_keys, translation_keys, type);
+    const uint32_t allocated = core::at(slot_array_, i)->carve(key, bones, rotation_keys, translation_keys, type);
     taken_count_ += allocated;
     if (!allocated)
         return nullptr;
     ++num_;
-    return slot_array_[i];
+    return core::at(slot_array_, i);
 }
 
 // 0x004806C0

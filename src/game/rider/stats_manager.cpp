@@ -32,6 +32,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -156,12 +157,12 @@ AttributeTracker::AttributeTracker()
 AttributeTracker::~AttributeTracker() = default;
 
 // 0x0051C470
-int AttributeTracker::get_goal_status(int index) { return goals_[index].cur_standing_; }
+int AttributeTracker::get_goal_status(int index) { return core::at(goals_, index).cur_standing_; }
 
 // 0x0051C480
 void AttributeTracker::set_goal_status(int index, int status)
 {
-    goals_[index].cur_standing_ = status;
+    core::at(goals_, index).cur_standing_ = status;
     if (status == 1)
         goal_done_ = true;
 }
@@ -201,7 +202,7 @@ void AttributeTracker::configure_from_data(script::Struct*)
     const int count = static_cast<int>(goals->extent_);
     for (int i = 0; i < count; ++i) {
         auto* source = goals->struct_at(static_cast<uint32_t>(i));
-        Goal& goal = goals_[i];
+        Goal& goal = core::at(goals_, i);
         uint32_t checksum = 0;
         if (source->has_entry_named(0x0FFD7BBEu)) {
             source->read_hash_value(0x0FFD7BBEu, &checksum, 1);
@@ -385,7 +386,7 @@ void AttributeTracker::meet_goal(int index)
     if (!is_operative())
         return;
     script::Struct* params = new_params();
-    Goal& goal = goals_[index];
+    Goal& goal = core::at(goals_, index);
     params->append_word(0x61414D56u, goal.label_);
     params->put_int(0xE288A7CBu, goal.aim_point_);
     if (goal.text_)
@@ -475,7 +476,7 @@ void AttributeTracker::tick_frame()
     // The open goals.
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
-        const Goal& goal = goals_[i];
+        const Goal& goal = core::at(goals_, i);
         if (goal.cur_standing_ != 0 || goal.met_)
             continue;
         bool meets = false;
@@ -571,7 +572,7 @@ void AttributeTracker::check_balance_time(uint32_t trick_type, float time, int)
         return;
     bool met = false;
     for (int i = 0; i < kGoals; ++i) {
-        const Goal& goal = goals_[i];
+        const Goal& goal = core::at(goals_, i);
         if (goal.cur_standing_ != 0 || goal.met_)
             continue;
         const int target = goal.aim_point_;
@@ -630,7 +631,7 @@ bool AttributeTracker::get_goal_status_member(script::Struct* params, script::Sc
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 1);
-    script->args_->put_int(0x84FF9AE3u, goals_[index].cur_standing_);
+    script->args_->put_int(0x84FF9AE3u, core::at(goals_, index).cur_standing_);
     return true;
 }
 

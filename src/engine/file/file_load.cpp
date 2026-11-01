@@ -11,6 +11,7 @@
 #include "frontend/data_overlay.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/loading_console.h"
+#include "engine/core/checked_index.h"
 
 namespace file {
 
@@ -84,8 +85,8 @@ void make_disk_path(std::span<char, 256> path, const char* name)
         name += 15;
     int length = 5;
     for (; *name && length < 255; ++name)
-        path[length++] = *name == '/' ? '\\' : *name;
-    path[length] = '\0';
+        core::at(path, length++) = *name == '/' ? '\\' : *name;
+    core::at(path, length) = '\0';
 
     char* end = path.data() + length;
     const char last = end[-1];
@@ -103,7 +104,7 @@ Hdl open_on_disk(const char* name)
 
     HANDLE file = INVALID_HANDLE_VALUE;
     if (use_alternate_drive()) {
-        path[0] = 'Z';
+        core::at(path, 0) = 'Z';
         file = CreateFileA(path.data(), GENERIC_READ, 0, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     }
     if (file == INVALID_HANDLE_VALUE)

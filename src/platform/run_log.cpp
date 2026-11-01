@@ -15,6 +15,7 @@
 
 #include "platform/crash.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace {
 FILE* g_log = nullptr;
@@ -30,8 +31,8 @@ std::atomic<unsigned> g_tail_count{0};
 const char* keep_tail(const char* line)
 {
     const unsigned slot = g_tail_count.fetch_add(1) % kTailLines;
-    std::snprintf(g_tail[slot].data(), kTailWidth, "%s", line);
-    return g_tail[slot].data();
+    std::snprintf(core::at(g_tail, slot).data(), kTailWidth, "%s", line);
+    return core::at(g_tail, slot).data();
 }
 
 // Not original - who else wants each line (the loading console - engine/gfx/loading_console.h).
@@ -108,7 +109,7 @@ std::vector<std::string> get_log_tail(size_t lines)
     std::vector<std::string> out;
     out.reserve(n);
     for (size_t i = n; i > 0; --i) {
-        const char* line = g_tail[(count - i) % kTailLines].data();
+        const char* line = core::at(g_tail, (count - i) % kTailLines).data();
         out.emplace_back(line, strnlen(line, kTailWidth));
     }
     return out;

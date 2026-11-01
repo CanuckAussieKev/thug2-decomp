@@ -18,6 +18,7 @@
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui {
 
@@ -120,7 +121,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     if (node_index < 0 || std::cmp_greater_equal(node_index, nodes.size()))
         return;
-    const nodes::Elem& node = nodes[node_index];
+    const nodes::Elem& node = core::at(nodes, node_index);
     if (typing().node != node_index || typing().generation != nodes::get_generation()) {
         if (typing().node != node_index) {
             typing().buffers.clear();
@@ -255,9 +256,9 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::InputTextWithHint("##newname", "name", typing().new_name_.data(), typing().new_name_.size());
         ImGui::SameLine();
         ImGui::SetNextItemWidth(90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##newkind", fields::kind_name(kAddKinds[typing().new_kind_]))) {
-            for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(kAddKinds[0])); ++i) {
-                if (ImGui::Selectable(fields::kind_name(kAddKinds[i]), i == typing().new_kind_))
+        if (ImGui::BeginCombo("##newkind", fields::kind_name(core::at(kAddKinds, typing().new_kind_)))) {
+            for (int i = 0; i < ints::as_signed(sizeof(kAddKinds) / sizeof(core::at(kAddKinds, 0))); ++i) {
+                if (ImGui::Selectable(fields::kind_name(core::at(kAddKinds, i)), i == typing().new_kind_))
                     typing().new_kind_ = i;
             }
             ImGui::EndCombo();
@@ -270,8 +271,8 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         fields::Value value;
         std::string error;
         std::string name = typing().new_name_.data();
-        const bool name_ok = fields::parse_name(name, &key) && name[0] != '#' && name[0] != '0';
-        const bool value_ok = fields::parse(kAddKinds[typing().new_kind_], typing().new_value_.data(), &value, &error);
+        const bool name_ok = fields::parse_name(name, &key) && core::at(name, 0) != '#' && core::at(name, 0) != '0';
+        const bool value_ok = fields::parse(core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), &value, &error);
         bool exists = false;
         for (const fields::Row& row : rows)
             exists = exists || row.key == key;
@@ -287,7 +288,7 @@ void fields_section(int node_index, ImFont* mono, ImFont* small_font, std::vecto
         ImGui::SameLine();
         ImGui::BeginDisabled(why != nullptr);
         if (ImGui::Button("Add")) {
-            set_field(requests, node.name, key, kAddKinds[typing().new_kind_], typing().new_value_.data(), name);
+            set_field(requests, node.name, key, core::at(kAddKinds, typing().new_kind_), typing().new_value_.data(), name);
             typing().new_name_ = {};
             typing().new_value_ = {};
         }
@@ -417,13 +418,13 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                       level.have_defaults_ && level_props::tod_name(own.tod) ? level_props::tod_name(own.tod)
                                                                              : "afternoon");
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? kStates[props.tod] : own_state.data())) {
+        if (ImGui::BeginCombo("##tod", props.tod >= 0 ? core::at(kStates, props.tod) : own_state.data())) {
             if (ImGui::Selectable(own_state.data(), props.tod < 0)) {
                 props.tod = -1;
                 send_props(requests, props, true);
             }
             for (int i = 0; i < 4; ++i) {
-                if (ImGui::Selectable(kStates[i], props.tod == i)) {
+                if (ImGui::Selectable(core::at(kStates, i), props.tod == i)) {
                     props.tod = i;
                     send_props(requests, props, true);
                 }
@@ -440,7 +441,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : own_time)) {
             const auto labels = std::to_array<const char*>({own_time, "no", "yes"});
             for (int i = -1; i <= 1; ++i) {
-                if (ImGui::Selectable(labels[i + 1], props.time == i)) {
+                if (ImGui::Selectable(core::at(labels, i + 1), props.time == i)) {
                     props.time = i;
                     send_props(requests, props, true);
                 }
@@ -493,7 +494,7 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
         if (ImGui::ColorEdit3("##ambientcolour", colour.data(), ImGuiColorEditFlags_Uint8 | ImGuiColorEditFlags_DisplayRGB)) {
             for (int i = 0; i < 3; ++i)
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                props.ambient[i] = level_props::get_channel(static_cast<int>(colour[i] * 255.0f + 0.5f));
+                core::at(props.ambient, i) = level_props::get_channel(static_cast<int>(core::at(colour, i) * 255.0f + 0.5f));
             send_props(requests, props, false);
         }
         if (ImGui::IsItemDeactivatedAfterEdit())
@@ -524,14 +525,14 @@ void level_section(const ShapeMesh::LevelView& level, ImFont* mono, ImFont* smal
                                   ImGuiColorEditFlags_AlphaBar)) {
             for (int i = 0; i < 4; ++i)
                 // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                props.fog[i] = level_props::get_channel(static_cast<int>(fog_colour[i] * 255.0f + 0.5f));
+                core::at(props.fog, i) = level_props::get_channel(static_cast<int>(core::at(fog_colour, i) * 255.0f + 0.5f));
             changed = true;
         }
         bool done = ImGui::IsItemDeactivatedAfterEdit();
         int distance = f[4];
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::DragInt("##fogdist", &distance, 10.0f, 0, 100000, "distance %d")) {
-            props.fog[4] = level_props::span_to(distance);
+            core::at(props.fog, 4) = level_props::span_to(distance);
             changed = true;
         }
         done = done || ImGui::IsItemDeactivatedAfterEdit();

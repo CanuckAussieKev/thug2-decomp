@@ -7,6 +7,7 @@
 #include <array>
 
 #include "platform/debug_log.h"
+#include "engine/core/checked_index.h"
 
 namespace bps {
 
@@ -24,13 +25,13 @@ uint32_t crc32(const uint8_t* data, size_t size)
             uint32_t c = i;
             for (int bit = 0; bit < 8; ++bit)
                 c = c & 1 ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-            table[i] = c;
+            core::at(table, i) = c;
         }
         made = true;
     }
     uint32_t crc = 0xFFFFFFFF;
     while (size--)
-        crc = table[(crc ^ *data++) & 0xFF] ^ (crc >> 8);
+        crc = core::at(table, (crc ^ *data++) & 0xFF) ^ (crc >> 8);
     return crc ^ 0xFFFFFFFF;
 }
 
@@ -95,8 +96,8 @@ bool get_apply(const uint8_t* patch, size_t patch_size, const uint8_t* input, si
     size_t at = 0;
     std::array<char, 5> magic{};
     for (int i = 0; i < 4; ++i)
-        magic[i] = static_cast<char>(read_byte(patch, &at));
-    magic[4] = '\0';
+        core::at(magic, i) = static_cast<char>(read_byte(patch, &at));
+    core::at(magic, 4) = '\0';
     if (std::strcmp(magic.data(), "BPS1") != 0) {
         debug_log::printf(StageMap::kError, "BPS magic number doesn't match expected: %s\n", magic.data());
         return false;

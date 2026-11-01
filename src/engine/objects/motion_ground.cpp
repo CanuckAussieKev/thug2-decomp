@@ -17,6 +17,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -128,13 +129,13 @@ bool KinematicsModule::stick_to_ground()
     maths::Vec4& pos = entity_->at_point_;
     if (ground_height_only_) {
         // The right axis from up and at, then the ground under it: the height to make up (Update eases it in).
-        const maths::Vec4& up = matrix.row[1];
-        const maths::Vec4& at = matrix.row[2];
+        const maths::Vec4& up = core::at(matrix.row, 1);
+        const maths::Vec4& at = core::at(matrix.row, 2);
         auto right_x = static_cast<float>(static_cast<double>(at.z) * up.y - static_cast<double>(at.y) * up.z);
         auto right_y = static_cast<float>(static_cast<double>(up.z) * at.x - static_cast<double>(at.z) * up.x);
         auto right_z = static_cast<float>(static_cast<double>(at.y) * up.x - static_cast<double>(up.y) * at.x);
-        matrix.row[0] = {right_x, right_y, right_z, 0.0f};
-        matrix.row[0].make_unit();
+        core::at(matrix.row, 0) = {right_x, right_y, right_z, 0.0f};
+        core::at(matrix.row, 0).make_unit();
         auto above = static_cast<float>(std::fabs(static_cast<double>(ground_above_)) * 12.0f);
         const float below = -static_cast<float>(std::fabs(static_cast<double>(ground_below_)) * 12.0f);
         auto w = static_cast<float>(static_cast<double>(pos.w) + 1.0f);
@@ -150,9 +151,9 @@ bool KinematicsModule::stick_to_ground()
     // Three feelers - behind on the right, behind on the left, ahead in the middle (72 back or ahead, 30 to the
     // side): the ground's points give the height and the orientation.
     const render::ProbeRay feeler; // (made and never used)
-    maths::Vec4& right = matrix.row[0];
-    maths::Vec4& up = matrix.row[1];
-    maths::Vec4& at = matrix.row[2];
+    maths::Vec4& right = core::at(matrix.row, 0);
+    maths::Vec4& up = core::at(matrix.row, 1);
+    maths::Vec4& at = core::at(matrix.row, 2);
     up = {0.0f, 1.0f, 0.0f, 1.0f};
     {
         auto z = static_cast<float>(static_cast<double>(up.x) * at.y - static_cast<double>(up.y) * at.x);
@@ -186,11 +187,11 @@ bool KinematicsModule::stick_to_ground()
     move(ahead.data(), -1.0);
     move(side.data(), 1.0);
     line(&start, &end);
-    const bool hit_right = get_ground_hit(ground_triangles_[0].data(), &end, &start, &back_right);
+    const bool hit_right = get_ground_hit(core::at(ground_triangles_, 0).data(), &end, &start, &back_right);
     move(side.data(), -2.0);
     line(&start, &end);
     bool hit_left = false;
-    if (get_ground_hit(ground_triangles_[1].data(), &end, &start, &back_left)) {
+    if (get_ground_hit(core::at(ground_triangles_, 1).data(), &end, &start, &back_left)) {
         hit_left = true;
         if (hit_right) {
             right = {static_cast<float>(static_cast<double>(back_right.x) - back_left.x),
@@ -204,7 +205,7 @@ bool KinematicsModule::stick_to_ground()
     move(side.data(), 1.0);
     line(&start, &end);
     move(ahead.data(), -1.0); // (back where it was)
-    if (!get_ground_hit(ground_triangles_[2].data(), &end, &start, &front) || !hit_left || !hit_right)
+    if (!get_ground_hit(core::at(ground_triangles_, 2).data(), &end, &start, &front) || !hit_left || !hit_right)
         return false;
     // The height: half way between the back's middle and the front; at: towards the front from the back's
     // middle, half way from the old at; up: at x right.
@@ -389,14 +390,14 @@ bool KinematicsModule::obj_move_to_pos_stored(script::Struct* params, script::Sc
 // 0x00427320
 bool KinematicsModule::obj_move_forward(script::Struct* params, script::Script* script)
 {
-    move_along(params, script, entity_->basis_frame_.row[2]);
+    move_along(params, script, core::at(entity_->basis_frame_.row, 2));
     return true;
 }
 
 // 0x004273D0
 bool KinematicsModule::obj_move_left(script::Struct* params, script::Script* script)
 {
-    move_along(params, script, entity_->basis_frame_.row[0]);
+    move_along(params, script, core::at(entity_->basis_frame_.row, 0));
     return true;
 }
 

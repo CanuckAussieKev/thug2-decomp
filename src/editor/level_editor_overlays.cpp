@@ -21,6 +21,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::overlays {
 
@@ -36,11 +37,11 @@ std::vector<GridLine> grid_lines(V3 centre, float y, float radius, float spacing
                            static_cast<long>(std::ceil((centre.z - radius) / spacing))}};
     const std::array<long, 2> last = {{static_cast<long>(std::floor((centre.x + radius) / spacing)),
                           static_cast<long>(std::floor((centre.z + radius) / spacing))}};
-    for (long i = first[0]; i <= last[0]; ++i) {
+    for (long i = core::at(first, 0); i <= core::at(last, 0); ++i) {
         float x = static_cast<float>(i) * spacing;
         lines.push_back({{x, y, centre.z - radius}, {x, y, centre.z + radius}, i % 5 == 0});
     }
-    for (long i = first[1]; i <= last[1]; ++i) {
+    for (long i = core::at(first, 1); i <= core::at(last, 1); ++i) {
         float z = static_cast<float>(i) * spacing;
         lines.push_back({{centre.x - radius, y, z}, {centre.x + radius, y, z}, i % 5 == 0});
     }
@@ -197,7 +198,7 @@ bool painter_now(ui::Overlay* overlay, Painter* painter)
     painter->frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     painter->lens = view.lens;
     for (int i = 0; i < 4; ++i)
-        painter->viewport[i] = view.viewport[i];
+        core::at(painter->viewport, i) = core::at(view.viewport, i);
     painter->near_z_ = view.near_z_;
     painter->overlay = overlay;
     return true;
@@ -253,14 +254,14 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
             static const std::array<std::array<int, 2>, 12> kEdges = {{{0, 1}, {2, 3}, {4, 5}, {6, 7}, {0, 2}, {1, 3},
                                               {4, 6}, {5, 7}, {0, 4}, {1, 5}, {2, 6}, {3, 7}}};
             for (const auto& e : kEdges)
-                (void)painter.get_seg(corners[e[0]], corners[e[1]], kCarried, 1.25f);
+                (void)painter.get_seg(core::at(corners, core::at(e, 0)), core::at(corners, core::at(e, 1)), kCarried, 1.25f);
         }
         const std::vector<nodes::Elem>& all = nodes::get_all();
         for (const uint32_t name : carry::carried_nodes()) {
             const int index = nodes::get_find(name);
-            if (index < 0 || !all[index].has_pos_)
+            if (index < 0 || !core::at(all, index).has_pos_)
                 continue;
-            painter.get_dot(all[index].pos, 5.0f, kCarried, false);
+            painter.get_dot(core::at(all, index).pos, 5.0f, kCarried, false);
         }
     }
 }

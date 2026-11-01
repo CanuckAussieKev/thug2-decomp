@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -37,18 +38,18 @@ void get_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) 
 
 void set_identity(maths::Mat4& m)
 {
-    m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 // A bone collapsed to a point: the identity's rotation rows replaced by (0, 0, 0, 1).
 void set_collapsed(maths::Mat4& m)
 {
     set_identity(m);
-    m.row[0] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m.row[1] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m.row[2] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 1) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 bool zero_scale(const maths::Vec4& scale) { return scale.x == 0.0f && scale.y == 0.0f && scale.z == 0.0f; }
 
@@ -101,7 +102,7 @@ maths::Mat4 bone_space(Rig* skeleton, int index)
 } // namespace
 
 // 0x004A2C20
-RigData::RigData() { memory::bits_as<uint32_t>(lod_distances_[0]) = 0x7F7FC99E; }
+RigData::RigData() { memory::bits_as<uint32_t>(core::at(lod_distances_, 0)) = 0x7F7FC99E; }
 
 // 0x004A3950
 RigData::~RigData()
@@ -120,14 +121,14 @@ RigData::~RigData()
 int RigData::fetch_slot_no(uint32_t name)
 {
     for (int i = 0; i < num_; ++i) {
-        if (names_[i] == name)
+        if (core::at(names_, i) == name)
             return i;
     }
     return 0;
 }
 
 // 0x004A30D0
-int RigData::fetch_parent_slot(int index) { return fetch_slot_no(parent_names_[index]); }
+int RigData::fetch_parent_slot(int index) { return fetch_slot_no(core::at(parent_names_, index)); }
 
 // 0x004A3100
 bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
@@ -161,35 +162,35 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
     inverse_bind_ = static_cast<maths::Mat4*>(memory::alloc(static_cast<uint32_t>(num_) << 6));
     bind_translations_ = static_cast<maths::Vec4*>(memory::alloc(static_cast<uint32_t>(num_) << 4));
     for (int i = 0; i < num_; ++i) {
-        const skeleton_format::BindPose& bind = skeleton->poses[i];
-        std::array<float, 4> rotation = {{bind.rotation[0], bind.rotation[1], bind.rotation[2], bind.rotation[3]}};
-        const maths::Vec4 translation = {bind.translation[0], bind.translation[1], bind.translation[2],
-                                         bind.translation[3]};
+        const skeleton_format::BindPose& bind = core::at(skeleton->poses, i);
+        std::array<float, 4> rotation = {{core::at(bind.rotation, 0), core::at(bind.rotation, 1), core::at(bind.rotation, 2), core::at(bind.rotation, 3)}};
+        const maths::Vec4 translation = {core::at(bind.translation, 0), core::at(bind.translation, 1), core::at(bind.translation, 2),
+                                         core::at(bind.translation, 3)};
         bind_translations_[i] = translation;
         maths::Mat4 matrix{};
-        objects::quat_to_matrix(rotation.data(), &translation.x, &matrix.row[0].x);
+        objects::quat_to_matrix(rotation.data(), &translation.x, &core::at(matrix.row, 0).x);
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
             maths::Mat4 parent{};
-            parent = inverse_bind_[fetch_slot_no(parent_names_[i])];
+            parent = inverse_bind_[fetch_slot_no(core::at(parent_names_, i))];
             parent.invert_orthonormal();
             get_multiply(&matrix, &matrix, &parent);
-            matrix.row[0].w = 0.0f;
-            matrix.row[1].w = 0.0f;
-            matrix.row[2].w = 0.0f;
-            matrix.row[3].w = 1.0f;
+            core::at(matrix.row, 0).w = 0.0f;
+            core::at(matrix.row, 1).w = 0.0f;
+            core::at(matrix.row, 2).w = 0.0f;
+            core::at(matrix.row, 3).w = 1.0f;
         }
         matrix.invert_orthonormal();
         inverse_bind_[i] = matrix;
     }
     for (int i = 0; i < num_; ++i) {
-        if (!flip_names_[i]) {
-            flip_indices_[i] = -1;
+        if (!core::at(flip_names_, i)) {
+            core::at(flip_indices_, i) = -1;
             continue;
         }
-        const int mirror = fetch_slot_no(flip_names_[i]);
-        flip_indices_[i] = mirror;
-        flip_indices_[mirror] = i;
+        const int mirror = fetch_slot_no(core::at(flip_names_, i));
+        core::at(flip_indices_, i) = mirror;
+        core::at(flip_indices_, mirror) = i;
     }
     return true;
 }
@@ -205,7 +206,7 @@ Rig::Rig(RigData* data)
         set_identity(matrix_array_[i]);
     bone_total_ = data->num_;
     for (int i = 0; i < data->num_; ++i)
-        bone_array_[i].name = data->names_[i]; // (no check for bones without memory, as the original)
+        bone_array_[i].name = core::at(data->names_, i); // (no check for bones without memory, as the original)
     link_bones(data);
     payload_ = data;
     max_lod_ = 0x1F;
@@ -220,7 +221,7 @@ Rig* Rig::construct_copy(const Rig* other)
     for (int i = 0; i < bone_total_; ++i)
         std::memcpy(&matrix_array_[i], &other->matrix_array_[i], sizeof(maths::Mat4));
     for (int i = 0; i < other->payload_->num_; ++i)
-        bone_array_[i].name = other->payload_->names_[i];
+        bone_array_[i].name = core::at(other->payload_->names_, i);
     link_bones(other->payload_);
     for (int i = 0; i < bone_total_; ++i) {
         bone_array_[i].flags = other->bone_array_[i].flags;
@@ -302,7 +303,7 @@ void Rig::copy_bone_scales(const Rig* other, bool check_list)
 {
     const RigData* data = other->payload_;
     for (int i = 0; i < data->num_; ++i) {
-        const uint32_t name = data->names_[i];
+        const uint32_t name = core::at(data->names_, i);
         if (!find_bone(this, name))
             continue;
         maths::Vec4 scale{};
@@ -346,7 +347,7 @@ void Rig::set_lod(float distance)
 {
     if (payload_) {
         for (uint32_t i = 0; i <= max_lod_; ++i) {
-            if (distance < payload_->lod_distances_[i]) {
+            if (distance < core::at(payload_->lod_distances_, i)) {
                 lod_ = i;
                 return;
             }
@@ -359,7 +360,7 @@ void Rig::set_lod(float distance)
 void Rig::link_bones(RigData* data)
 {
     for (int i = 0; i < data->num_; ++i) {
-        const uint32_t parent = data->parent_names_[i];
+        const uint32_t parent = core::at(data->parent_names_, i);
         const int index = parent ? data->fetch_slot_no(parent) : 0;
         bone_array_[i].parent = &matrix_array_[index];
         bone_array_[i].flags = 0;
@@ -375,12 +376,12 @@ bool Rig::read_joint_matrix(uint32_t name, maths::Mat4* out)
     for (int i = 0; i < bone_total_; ++i) {
         if (bone_array_[i].name != kTurnBone)
             continue;
-        const maths::Vec4 translation = result.row[3];
-        result.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+        const maths::Vec4 translation = core::at(result.row, 3);
+        core::at(result.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
         maths::Mat4 turn{};
         turn = payload_->inverse_bind_[i];
         get_multiply(&result, &turn, &result);
-        result.row[3] = translation;
+        core::at(result.row, 3) = translation;
         break;
     }
     *out = result;
@@ -393,7 +394,7 @@ bool Rig::get_bone_position(uint32_t name, maths::Vec4* out)
     if (!find_bone(this, name))
         return false;
     const maths::Mat4 result = bone_space(this, fetch_bone_slot(name));
-    *out = result.row[3];
+    *out = core::at(result.row, 3);
     return true;
 }
 
@@ -416,7 +417,7 @@ void Rig::blit(const maths::Mat4* world, uint32_t start_colour, uint32_t end_col
         parent.invert_orthonormal();
         get_multiply(&parent, &parent, &matrix);
         get_multiply(&parent, &parent, world);
-        push_diag_line(&bone.row[3], &parent.row[3], start_colour, end_colour, frames);
+        push_diag_line(&core::at(bone.row, 3), &core::at(parent.row, 3), start_colour, end_colour, frames);
     }
 }
 
@@ -436,7 +437,7 @@ void quat_to_bone_matrix(maths::Mat4* out, const maths::Vec4* translation, const
     const double xw = static_cast<float>(-(x * w)); // (stored as floats)
     const double yw = static_cast<float>(-(y * w));
     const double zw = -(z * w); // (kept)
-    auto* m = &out->row[0].x;
+    auto* m = &core::at(out->row, 0).x;
     m[0] = static_cast<float>(1.0 - ((zz + yy) + (zz + yy)));
     m[1] = static_cast<float>((zw + yx) + (zw + yx));
     m[2] = static_cast<float>((zx - yw) + (zx - yw));
@@ -477,7 +478,7 @@ void Rig::tick_frame(const std::array<float, 4>* rotations, const std::array<flo
         maths::Mat4& matrix = matrix_array_[i];
         if (bone.flags & Joint::kInactive)
             continue;
-        if (payload_->lod_masks_[i] & lod_bit) { // (collapsed into its parent at this LOD)
+        if (core::at(payload_->lod_masks_, i) & lod_bit) { // (collapsed into its parent at this LOD)
             matrix = *bone.parent;
             continue;
         }
@@ -485,7 +486,7 @@ void Rig::tick_frame(const std::array<float, 4>* rotations, const std::array<flo
         if (bone.flags & Joint::kScaled) {
             matrix.scale_tool(bone.scale);
             if (zero_scale(bone.scale)) {
-                matrix.row[3] = bone.parent->row[3];
+                core::at(matrix.row, 3) = core::at(bone.parent->row, 3);
                 continue;
             }
         }
@@ -501,20 +502,20 @@ void Rig::tick_frame(const std::array<float, 4>* rotations, const std::array<flo
         bool collapsed = false;
         if (bone.flags & Joint::kScaledLocal) {
             for (int k = 0; k < 4; ++k) {
-                (&matrix.row[0].x)[k] *= bone.scale.x;
-                (&matrix.row[1].x)[k] *= bone.scale.y;
-                (&matrix.row[2].x)[k] *= bone.scale.z;
+                (&core::at(matrix.row, 0).x)[k] *= bone.scale.x;
+                (&core::at(matrix.row, 1).x)[k] *= bone.scale.y;
+                (&core::at(matrix.row, 2).x)[k] *= bone.scale.z;
             }
             if (zero_scale(bone.scale)) {
-                matrix.row[3] = inverse_bind[i].row[3];
+                core::at(matrix.row, 3) = core::at(inverse_bind[i].row, 3);
                 collapsed = true;
             }
         }
         if (!collapsed)
             get_multiply(&matrix, &inverse_bind[i], &matrix);
-        matrix.row[0].w = 0.0f;
-        matrix.row[1].w = 0.0f;
-        matrix.row[2].w = 0.0f;
+        core::at(matrix.row, 0).w = 0.0f;
+        core::at(matrix.row, 1).w = 0.0f;
+        core::at(matrix.row, 2).w = 0.0f;
     }
     collapse_zero_scaled_bones();
 }
@@ -540,13 +541,13 @@ void Rig::collapse_zero_scaled_bones()
     if (!scaled) // (the original checks the address)
         return;
     set_collapsed(*root);
-    root->row[3] = scaled->row[3];
-    get_bone_position(bone_array_[first].name, &matrix_array_[0].row[3]);
+    core::at(root->row, 3) = core::at(scaled->row, 3);
+    get_bone_position(bone_array_[first].name, &core::at(matrix_array_[0].row, 3));
     for (int i = 0; i < bone_total_; ++i) {
         if (!zero_scale(bone_array_[i].scale))
             continue;
         set_collapsed(matrix_array_[i]);
-        matrix_array_[i].row[3] = matrix_array_[0].row[3];
+        core::at(matrix_array_[i].row, 3) = core::at(matrix_array_[0].row, 3);
     }
 }
 

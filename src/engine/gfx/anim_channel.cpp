@@ -45,6 +45,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -557,12 +558,12 @@ void BlendChannel::choose_wobble_goal(float target, bool send)
             else if (target > 1.0f)
                 target = 1.0f;
             std::array<uint8_t, 2> data{};
-            data[1] = static_cast<uint8_t>(get_truncated(target * 255.0)); // (0x00646B88)
-            data[0] = static_cast<uint8_t>(get_owner(this)->ident_);
-            if (last_wobble_target() != data[1]) {
+            core::at(data, 1) = static_cast<uint8_t>(get_truncated(target * 255.0)); // (0x00646B88)
+            core::at(data, 0) = static_cast<uint8_t>(get_owner(this)->ident_);
+            if (last_wobble_target() != core::at(data, 1)) {
                 net::NetMessageInfo message;
                 post_out(app, message, kMsgWobbleTarget, data.data(), 2, true);
-                last_wobble_target() = data[1];
+                last_wobble_target() = core::at(data, 1);
             }
         }
     }
@@ -593,12 +594,12 @@ void BlendChannel::set_wobble_details(const float* details, bool send)
             const uint8_t b3 = details[3] == 0.0017f ? 0 : details[3] == 10.0f ? 1 : 0;
             const uint8_t b4 = details[4] == 1.5f ? 0 : details[4] == 1.0f ? 1 : 0;
             std::array<uint8_t, 2> data{};
-            data[0] = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
-            data[1] = static_cast<uint8_t>(get_owner(this)->ident_);
-            if (last_wobble_details() != data[0]) {
+            core::at(data, 0) = static_cast<uint8_t>(bits | b1 << 2 | b2 << 3 | b3 << 4 | b4 << 5);
+            core::at(data, 1) = static_cast<uint8_t>(get_owner(this)->ident_);
+            if (last_wobble_details() != core::at(data, 0)) {
                 net::NetMessageInfo message;
                 post_out(app, message, kMsgWobbleDetails, data.data(), 2, true);
-                last_wobble_details() = data[0];
+                last_wobble_details() = core::at(data, 0);
             }
         }
     }
@@ -1171,10 +1172,10 @@ std::array<float, 256> g_spare_rotations;
 void construct_spare_rotations()
 {
     for (int i = 0; i < 64; ++i) {
-        g_spare_rotations[4 * i + 0] = 0.0f;
-        g_spare_rotations[4 * i + 1] = 0.0f;
-        g_spare_rotations[4 * i + 2] = 0.0f;
-        g_spare_rotations[4 * i + 3] = 1.0f;
+        core::at(g_spare_rotations, 4 * i + 0) = 0.0f;
+        core::at(g_spare_rotations, 4 * i + 1) = 0.0f;
+        core::at(g_spare_rotations, 4 * i + 2) = 0.0f;
+        core::at(g_spare_rotations, 4 * i + 3) = 1.0f;
     }
 }
 

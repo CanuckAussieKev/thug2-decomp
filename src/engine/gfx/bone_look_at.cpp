@@ -21,6 +21,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -216,7 +217,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
         if (index == -1)
             continue;
         const maths::Vec4& pos = object->at_point_;
-        const maths::Vec4& at = object->basis_frame_.row[2];
+        const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
         // The direction to the target, and the turn from the object's own
         float dx = bone.look_goal_.x - pos.x;
         float dy = bone.look_goal_.y - pos.y;
@@ -311,14 +312,14 @@ void BoneLookAt::configure(bool all, int index, Struct* params)
         if (all)
             activate_all();
         else
-            bones_[index].active_ = true;
+            core::at(bones_, index).active_ = true;
     } else if (params->has_entry_named(kOffFlag)) {
         if (all)
             deactivate_all();
         else
-            bones_[index].active_ = false;
+            core::at(bones_, index).active_ = false;
     }
-    Bone& bone = bones_[index];
+    Bone& bone = core::at(bones_, index);
     params->read_hash_value(kBone, &bone.bone_, 0);
     if (params->read_hash_value(kTargetObject, &bone.aim_point_, 0)) {
         bone.fixed_pos_ = false;
@@ -367,18 +368,18 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
         if (all)
             activate_all();
         else
-            bones_[index].active_ = true;
+            core::at(bones_, index).active_ = true;
         return 1;
     }
     if (name == kOff) {
         if (all)
             deactivate_all();
         else
-            bones_[index].active_ = false;
+            core::at(bones_, index).active_ = false;
         return 1;
     }
     if (name == kIsOn)
-        return all ? (all_active() ? 1 : 0) : (bones_[index].active_ ? 1 : 0);
+        return all ? (all_active() ? 1 : 0) : (core::at(bones_, index).active_ ? 1 : 0);
     configure(all, index, params);
     return 1;
 }
@@ -387,7 +388,7 @@ int BoneLookAt::invoke_method_by_name(uint32_t name, Struct* params, script::Scr
 int BoneLookAt::find_bone(uint32_t bone)
 {
     for (int i = 0; i < 4; ++i) {
-        if (bones_[i].bone_ == bone)
+        if (core::at(bones_, i).bone_ == bone)
             return i;
     }
     return -1;

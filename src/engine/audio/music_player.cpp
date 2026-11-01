@@ -26,6 +26,7 @@
 #include "platform/compiler.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace audio {
 
@@ -101,13 +102,13 @@ uint64_t get_bit(int n)
 }
 bool is_off(const Playlist& list, int track)
 {
-    return track < 64 ? (get_bit(track) & list.off[0]) != 0 : (get_bit(track - 64) & list.off[1]) != 0;
+    return track < 64 ? (get_bit(track) & core::at(list.off, 0)) != 0 : (get_bit(track - 64) & core::at(list.off, 1)) != 0;
 }
 
 // The track's start: the stream played, and the script told which track it is.
 void start_track(Playlist& list, int track)
 {
-    play_track(raw::chars(list.tracks[track].data()), false);
+    play_track(raw::chars(core::at(list.tracks, track).data()), false);
     current_track() = track;
     script::Struct* params = script::spawn_param_bag();
     params = params ? new (params) script::Struct : nullptr;
@@ -132,7 +133,7 @@ bool& music_header_loaded() { return g_music_header_loaded; }
 uint8_t& random_order() { return g_random_order; }
 bool& shuffle_user_flag() { return g_shuffle_user; }
 // Playlist 0's track titles, by the track's index (100 characters each).
-char* get_title(int track) { return g_track_titles[track].data(); }
+char* get_title(int track) { return core::at(g_track_titles, track).data(); }
 // A global empty_queue clears (just past the three streams; nothing else uses it).
 int& cleared_by_clear_playlist() { return g_cleared_by_clear_playlist; }
 
@@ -205,7 +206,7 @@ void queue_track(const char* name, int list, const char* title)
     Playlist& playlist = get_playlists()[list];
     if (playlist.count >= 80)
         return;
-    char* track = raw::chars(playlist.tracks[playlist.count].data());
+    char* track = raw::chars(core::at(playlist.tracks, playlist.count).data());
     THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
     std::strcpy(track, name);
     for (size_t i = 0; i < std::strlen(track); ++i) {
@@ -237,10 +238,10 @@ void empty_queue(int list)
     Playlist& playlist = get_playlists()[list];
     playlist.count = 0;
     playlist.unknownca8_ = 1;
-    playlist.off[0] = 0;
-    playlist.off[1] = 0;
-    playlist.played[0] = 0;
-    playlist.played[1] = 0;
+    core::at(playlist.off, 0) = 0;
+    core::at(playlist.off, 1) = 0;
+    core::at(playlist.played, 0) = 0;
+    core::at(playlist.played, 1) = 0;
     cleared_by_clear_playlist() = 0;
 }
 
@@ -264,8 +265,8 @@ void set_random_mode(int mode)
         user_track() = user_order()[0];
     }
     Playlist& playlist = get_playlists()[current_playlist()];
-    playlist.played[0] = 0;
-    playlist.played[1] = 0;
+    core::at(playlist.played, 0) = 0;
+    core::at(playlist.played, 1) = 0;
 }
 
 // 0x00451400
@@ -296,7 +297,7 @@ int track_total(int list) { return music_on() ? get_playlists()[list].count : 0;
 const char* track_label_at(int track, int list)
 {
     if (!music_on()) {
-        char* first = raw::chars(get_playlists()[0].tracks[0].data());
+        char* first = raw::chars(core::at(get_playlists()[0].tracks, 0).data());
         std::memcpy(first, "Empty.", 7); // "Empty."
         return first;
     }
@@ -337,23 +338,23 @@ void change_track_state(int track, bool off, int list)
     reshuffle() = true;
     if (!off) {
         if (track < 64)
-            playlist.off[0] &= ~get_bit(track);
+            core::at(playlist.off, 0) &= ~get_bit(track);
         else
-            playlist.off[1] &= ~get_bit(track - 64);
+            core::at(playlist.off, 1) &= ~get_bit(track - 64);
         playlist.unknownca8_ = 0;
         return;
     }
     if (track < 64)
-        playlist.off[0] |= get_bit(track);
+        core::at(playlist.off, 0) |= get_bit(track);
     else
-        playlist.off[1] |= get_bit(track - 64);
+        core::at(playlist.off, 1) |= get_bit(track - 64);
     if (is_track_playing(list, track))
         stop_music();
     // Original quirk: every track is tested against both masks (1 << (i - 64) is 0 for i < 64), so any track at
     // all counts as one that's on - only an empty playlist is marked.
-    const uint64_t low = playlist.off[0];
+    const uint64_t low = core::at(playlist.off, 0);
     for (int i = 0; i < playlist.count; ++i) {
-        if ((get_bit(i) & low) == 0 || (get_bit(i - 64) & playlist.off[1]) == 0) {
+        if ((get_bit(i) & low) == 0 || (get_bit(i - 64) & core::at(playlist.off, 1)) == 0) {
             playlist.unknownca8_ = 0;
             return;
         }
@@ -378,7 +379,7 @@ void play_track(const char* name, bool loop)
     // It doesn't play: switch it off.
     Playlist& playlist = get_playlists()[list];
     for (int i = 0; i < playlist.count; ++i) {
-        const uint32_t crc = checksums::hash_from_text(raw::chars(playlist.tracks[i].data()));
+        const uint32_t crc = checksums::hash_from_text(raw::chars(core::at(playlist.tracks, i).data()));
         if (checksums::hash_from_text(name) == crc) {
             change_track_state(i, true, list);
             return;
@@ -454,8 +455,8 @@ void play_next_track()
         }
         order_position() = 0;
         reshuffle() = false;
-        list.played[0] = 0;
-        list.played[1] = 0;
+        core::at(list.played, 0) = 0;
+        core::at(list.played, 1) = 0;
         position = 0;
     } else {
         position = ++order_position();
@@ -467,11 +468,11 @@ void play_next_track()
     // The track at that position, unless it's off or already played (then nothing). (The original repeats
     // this same test list.count times.)
     const int track = get_order()[position];
-    if ((get_bit(track) & list.off[0]) == 0 && track < 64 && (get_bit(track) & list.played[0]) == 0) {
-        list.played[0] |= get_bit(track);
+    if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < 64 && (get_bit(track) & core::at(list.played, 0)) == 0) {
+        core::at(list.played, 0) |= get_bit(track);
         start_track(list, track);
-    } else if ((get_bit(track - 64) & list.off[1]) == 0 && track >= 64 && (get_bit(track - 64) & list.played[1]) == 0) {
-        list.played[1] |= get_bit(track - 64);
+    } else if ((get_bit(track - 64) & core::at(list.off, 1)) == 0 && track >= 64 && (get_bit(track - 64) & core::at(list.played, 1)) == 0) {
+        core::at(list.played, 1) |= get_bit(track - 64);
         start_track(list, track);
     }
 }
@@ -493,19 +494,19 @@ void play_next_track_in_order()
         return;
     }
     for (int track = 0; track < list.count; ++track) {
-        if ((get_bit(track) & list.off[0]) == 0 && track < 64 && (get_bit(track) & list.played[0]) == 0) {
-            list.played[0] |= get_bit(track);
+        if ((get_bit(track) & core::at(list.off, 0)) == 0 && track < 64 && (get_bit(track) & core::at(list.played, 0)) == 0) {
+            core::at(list.played, 0) |= get_bit(track);
             start_track(list, track);
             return;
         }
-        if ((get_bit(track - 64) & list.off[1]) == 0 && track >= 64 && (get_bit(track - 64) & list.played[1]) == 0) {
-            list.played[1] |= get_bit(track - 64);
+        if ((get_bit(track - 64) & core::at(list.off, 1)) == 0 && track >= 64 && (get_bit(track - 64) & core::at(list.played, 1)) == 0) {
+            core::at(list.played, 1) |= get_bit(track - 64);
             start_track(list, track);
             return;
         }
     }
-    list.played[0] = 0;
-    list.played[1] = 0;
+    core::at(list.played, 0) = 0;
+    core::at(list.played, 1) = 0;
 }
 
 // 0x00452910
@@ -648,7 +649,7 @@ const char* get_soundtrack_name(int index)
             std::array<char, 12> converted{};
             wsprintfA(converted.data(), "%ls", one.data());
             if (length < 99) {
-                *out++ = converted[0] ? converted[0] : '~';
+                *out++ = core::at(converted, 0) ? core::at(converted, 0) : '~';
                 ++length;
             }
         }
@@ -683,15 +684,15 @@ void set_music_looping(bool loop) { get_looping() = loop; }
 // 0x00450480
 void get_tracks_off(uint64_t* low, uint64_t* high)
 {
-    *low = get_playlists()[0].off[0];
-    *high = get_playlists()[0].off[1];
+    *low = core::at(get_playlists()[0].off, 0);
+    *high = core::at(get_playlists()[0].off, 1);
 }
 
 // 0x004504B0
 void set_tracks_off(uint64_t low, uint64_t high)
 {
-    get_playlists()[0].off[0] = low;
-    get_playlists()[0].off[1] = high;
+    core::at(get_playlists()[0].off, 0) = low;
+    core::at(get_playlists()[0].off, 1) = high;
 }
 
 // 0x004504E0

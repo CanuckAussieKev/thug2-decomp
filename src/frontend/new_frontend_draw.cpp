@@ -19,6 +19,7 @@
 #include "imgui_internal.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::new_frontend::paint {
 
@@ -59,7 +60,7 @@ constexpr auto kBakes = std::to_array<Bake>({
     {Face::kMono, 12.0f},     {Face::kMono, 13.0f},        {Face::kBody, 14.0f},         {Face::kMono, 20.0f},
     {Face::kBody, 48.0f}, // (the restyled keyboard's keys and the text typed)
 });
-constexpr int kBakeCount = static_cast<int>(sizeof(kBakes) / sizeof(kBakes[0]));
+constexpr int kBakeCount = static_cast<int>(sizeof(kBakes) / sizeof(core::at(kBakes, 0)));
 
 struct FaceLayout {
     std::vector<uint8_t> file; // (kept: the atlas doesn't own it - several sizes share it)
@@ -127,7 +128,7 @@ const Baked* font_for(Face face, float css)
     return best;
 }
 
-const FaceLayout& data_of(Face face) { return g_faces[static_cast<int>(face)]; }
+const FaceLayout& data_of(Face face) { return core::at(g_faces, static_cast<int>(face)); }
 
 // --- text ---
 
@@ -276,7 +277,7 @@ void xform(ImDrawList* dl, int start, float px, float py, float radians, float d
     const float c = std::cos(radians);
     const float s = std::sin(radians);
     for (int i = start; i < dl->VtxBuffer.Size; ++i) {
-        ImVec2& p = dl->VtxBuffer[i].pos;
+        ImVec2& p = core::at(dl->VtxBuffer, i).pos;
         const float x = p.x - px;
         const float y = p.y - py;
         p.x = px + dx + x * c - y * s;
@@ -347,8 +348,8 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
         dl->PushTextureID(static_cast<ImTextureID>(art.texture));
         dl->PushClipRect(ImVec2(f.get_x(0.0f), f.get_y(0.0f)), ImVec2(f.get_x(x1), f.get_y(720.0f)), true);
         for (int i = 0; i < 9; ++i) {
-            const float dx = f.current_s(kOffsets[i][0]);
-            const float dy = f.current_s(kOffsets[i][1]);
+            const float dx = f.current_s(core::at(kOffsets, i)[0]);
+            const float dy = f.current_s(core::at(kOffsets, i)[1]);
             // (copy i at 1 / (i + 1): the result is the copies' average; across the feather it fades to the art)
             const ImU32 full = get_col(0xFFFFFFFF, alpha / static_cast<float>(i + 1));
             const ImU32 none = get_col(0xFFFFFFFF, 0.0f);
@@ -583,7 +584,7 @@ float big_name(Ctx& c, const std::string& name, float css, float left, float rig
         for (size_t i = 0; i < lines.size(); ++i) {
             const float line_top = top + line_h * static_cast<float>(i);
             const float base = datum(s, c.f, c.f.get_y(line_top), 0.85f);
-            draw_text(c.dl, s, c.f, c.f.get_x(left), base + dy, lines[i].c_str());
+            draw_text(c.dl, s, c.f, c.f.get_x(left), base + dy, core::at(lines, i).c_str());
         }
         if (slice > 0.0f)
             c.dl->PopClipRect();
@@ -625,10 +626,10 @@ float get_hints(Ctx& c, const std::vector<std::string>& hints, float left, float
         hints.size() > 1 ? (c.f.current_s(right - left) - total) / static_cast<float>(hints.size() - 1) : 0.0f;
     float x = c.f.get_x(left);
     for (size_t i = 0; i < hints.size(); ++i) {
-        draw_text(c.dl, s, c.f, x, base, hints[i].c_str());
+        draw_text(c.dl, s, c.f, x, base, core::at(hints, i).c_str());
         if (spans) // (design x: each hint's left and right)
-            spans->emplace_back(c.f.design_x(x), c.f.design_x(x + widths[i]));
-        x += widths[i] + gap;
+            spans->emplace_back(c.f.design_x(x), c.f.design_x(x + core::at(widths, i)));
+        x += core::at(widths, i) + gap;
     }
     const float rule = top - 10.0f - 1.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule)),
@@ -670,7 +671,7 @@ float records_row(Ctx& c, const std::vector<std::string>& cols, float left, floa
     const float col_w = (right - left) / 3.0f;
     for (size_t i = 0; i < cols.size() && i < 3; ++i)
         draw_text(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)), datum(s, c.f, c.f.get_y(top), 1.3f),
-                  cols[i].c_str());
+                  core::at(cols, i).c_str());
     const float rule_y = top - 10.0f - 1.0f;
     c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule_y)),
                         ImVec2(c.f.get_x(right), c.f.get_y(rule_y) + std::max(1.0f, c.f.current_s(1.0f))),
@@ -695,7 +696,7 @@ std::string thousands(int n)
     for (size_t i = 0; i < digits.size(); ++i) {
         if (i > 0 && (digits.size() - i) % 3 == 0)
             out += ',';
-        out += digits[i];
+        out += core::at(digits, i);
     }
     return n < 0 ? "-" + out : out;
 }
@@ -732,18 +733,18 @@ float get_tabs(Ctx& c, const std::vector<std::pair<std::string, uint32_t>>& tabs
     float x = 48.0f;
     const float tab_h = 13.0f * 1.3f + 8.0f;
     for (int i = 0; std::cmp_less(i, tabs.size()); ++i) {
-        const float w = get_measure(tab, c.f, tabs[i].first.c_str()) / c.f.scale;
+        const float w = get_measure(tab, c.f, core::at(tabs, i).first.c_str()) / c.f.scale;
         if (x > 48.0f && x + w > kColumnInner) {
             x = 48.0f;
             y += tab_h + 4.0f;
         }
         const bool on = i == selected;
-        tab.colour = on ? tabs[i].second : kMuted;
+        tab.colour = on ? core::at(tabs, i).second : kMuted;
         const float base = datum(tab, c.f, c.f.get_y(y + 4.0f), 1.3f);
-        draw_text(c.dl, tab, c.f, c.f.get_x(x), base, tabs[i].first.c_str());
+        draw_text(c.dl, tab, c.f, c.f.get_x(x), base, core::at(tabs, i).first.c_str());
         if (on)
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), base + c.f.current_s(5.0f)),
-                                ImVec2(c.f.get_x(x + w), base + c.f.current_s(6.0f)), get_col(tabs[i].second));
+                                ImVec2(c.f.get_x(x + w), base + c.f.current_s(6.0f)), get_col(core::at(tabs, i).second));
         c.get_hit(Hit::Kind::kTab, i, x - 4.0f, y, x + w + 4.0f, y + tab_h);
         x += w + 16.0f;
     }
@@ -809,11 +810,11 @@ void options_screen(Ctx& c, float window_width, float window_height)
     for (int i = 0; i < count; ++i) {
         const float top = list_top + static_cast<float>(i) * row_h;
         const bool action = std::cmp_equal(i, rows.size());
-        const char* label = action ? text_tools::kGameOptions : specs[rows[i]].label;
+        const char* label = action ? text_tools::kGameOptions : core::at(specs, core::at(rows, i)).label;
         // (a short label for the row: the design's 40 px type in a 470 px column)
         get_row(c, rs, top, pad2(i + 1).c_str(), label, menu.row_amount(i), Menu::kHouseYellow, false);
         const std::string shown = action ? std::string(text_tools::kGameOptionsValue)
-                                         : specs[rows[i]].choices[menu.option_choice(rows[i])].label;
+                                         : core::at(core::at(specs, core::at(rows, i)).choices, menu.option_choice(core::at(rows, i))).label;
         const float base = datum(rs.name, c.f, c.f.get_y(top), rs.line_height_);
         value.colour = i == menu.option_row() ? Menu::kHouseYellow : kMuted;
         // (the value at the column's right, where the label leaves room for it)
@@ -836,7 +837,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
     body.css = 14.0f;
     body.colour = kMuted;
     std::string name,
-        kicker = std::string(groups[menu.option_group()].name) + " \xE2\x80\x94 " + pad2(menu.option_row() + 1);
+        kicker = std::string(core::at(groups, menu.option_group()).name) + " \xE2\x80\x94 " + pad2(menu.option_row() + 1);
     if (action) {
         get_button(c, left, bottom, text_tools::kOpen, Menu::kHouseYellow, true, Hit::Kind::kSkate, 1.0f);
         bottom -= 30.0f * 1.15f + 12.0f + 14.0f;
@@ -845,8 +846,8 @@ void options_screen(Ctx& c, float window_width, float window_height)
         bottom -= 21.0f + 10.0f;
         name = text_tools::kGameOptions;
     } else {
-        const int option = rows[menu.option_row()];
-        const options::Spec& spec = specs[option];
+        const int option = core::at(rows, menu.option_row());
+        const options::Spec& spec = core::at(specs, option);
         // The choices: a segmented control (mono 13; the chosen one filled).
         Style seg = mono12(kPaper, false);
         seg.css = 13.0f;
@@ -854,7 +855,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         float x = left, y0 = bottom - h;
         const int chosen = menu.option_choice(option);
         for (size_t i = 0; i < spec.choices.size(); ++i) {
-            const float w = get_measure(seg, c.f, spec.choices[i].label) / c.f.scale + 28.0f;
+            const float w = get_measure(seg, c.f, core::at(spec.choices, i).label) / c.f.scale + 28.0f;
             const bool on = ints::as_signed(i) == chosen;
             if (on)
                 get_cut(c.dl, c.f.get_x(x), c.f.get_y(y0), c.f.get_x(x + w), c.f.get_y(bottom), c.f.current_s(6.0f),
@@ -864,7 +865,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
                               get_col(kRule), 0.0f, 0, std::max(1.0f, c.f.current_s(1.0f)));
             seg.colour = on ? kGround : kPaper;
             draw_text(c.dl, seg, c.f, c.f.get_x(x + 14.0f), datum(seg, c.f, c.f.get_y(y0 + 8.0f), 1.3f),
-                      spec.choices[i].label);
+                      core::at(spec.choices, i).label);
             c.get_hit(Hit::Kind::kChoice, menu.option_row() * 16 + static_cast<int>(i), x, y0, x + w, bottom);
             x += w + 6.0f;
         }
@@ -872,7 +873,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
         // When it's seen ("Restart to apply" - yellow once changed; nothing for a live one), its ini key only behind
         // [frontend] show_ini_keys=1, what it does (when it has a line).
         const bool pending =
-            std::cmp_less(option, c.extras.restart_pending_.size()) && c.extras.restart_pending_[option];
+            std::cmp_less(option, c.extras.restart_pending_.size()) && core::at(c.extras.restart_pending_, option);
         const std::string when =
             spec.apply == options::Apply::kLive ? std::string() : std::string(text_tools::kRestartToApply);
         const std::string where =
@@ -911,7 +912,7 @@ void levels_screen(Ctx& c, int* visible_rows)
     const SectionView* view = menu.get_view();
     const int section_index = menu.get_section_index();
     const Section* section = data && section_index >= 0 && std::cmp_less(section_index, data->sections.size())
-                                 ? &data->sections[section_index]
+                                 ? &core::at(data->sections, section_index)
                                  : nullptr;
     const uint32_t colour = section ? section->colour : Menu::kHouseYellow;
     const StageMap* level = menu.selected_level();
@@ -935,7 +936,7 @@ void levels_screen(Ctx& c, int* visible_rows)
         // The game tabs (mono 13, wrapping; the selected one in its colour, underlined).
         std::vector<std::pair<std::string, uint32_t>> tabs;
         for (int i = 0; data && std::cmp_less(i, data->sections.size()); ++i)
-            tabs.emplace_back(data->sections[i].tab, data->sections[i].colour);
+            tabs.emplace_back(core::at(data->sections, i).tab, core::at(data->sections, i).colour);
         const float tabs_bottom = get_tabs(c, tabs, section_index, rule + 14.0f);
         const float tab_h = 0.0f;
         const float y = tabs_bottom;              // The list.
@@ -952,9 +953,9 @@ void levels_screen(Ctx& c, int* visible_rows)
         const int first = std::max(0, static_cast<int>(std::floor(scroll)) - 1);
         const int last = std::min(count - 1, static_cast<int>(std::ceil(scroll)) + fit + 1);
         for (int row = first; row <= last; ++row) {
-            const StageMap& l = section->levels[view->levels[row]];
+            const StageMap& l = core::at(section->levels, core::at(view->levels, row));
             const float top = list_top + (static_cast<float>(row) - scroll) * kLevelRowHeight;
-            const bool locked = std::cmp_less(row, view->locked.size()) && view->locked[row];
+            const bool locked = std::cmp_less(row, view->locked.size()) && core::at(view->locked, row);
             get_row(c, rs, top, pad2(row + 1).c_str(), l.name.c_str(), menu.row_amount(row), colour, locked);
             if (top >= list_top - 1.0f && top + kLevelRowHeight <= list_bottom + 1.0f)
                 c.get_hit(Hit::Kind::kStageMap, row, 48.0f, top, kColumnInner + 20.0f, top + kLevelRowHeight);
@@ -980,7 +981,7 @@ void levels_screen(Ctx& c, int* visible_rows)
     if (level && level->art_variants_.size() > 1 && grow < 0.999f) {
         std::array<char, 64> text{};
         if (level->variant >= 0 && std::cmp_less(level->variant, level->art_labels_.size()))
-            std::snprintf(text.data(), sizeof(text), "Q  %s  E", level->art_labels_[level->variant].c_str());
+            std::snprintf(text.data(), sizeof(text), "Q  %s  E", core::at(level->art_labels_, level->variant).c_str());
         else
             std::snprintf(text.data(), sizeof(text), "Q  %d / %d  E", level->variant + 1,
                           static_cast<int>(level->art_variants_.size()));
@@ -1044,7 +1045,7 @@ void levels_screen(Ctx& c, int* visible_rows)
             const float col_w = (right - left) / 3.0f;
             for (size_t i = 0; i < cols.size(); ++i)
                 draw_text(c.dl, s, c.f, c.f.get_x(left + col_w * static_cast<float>(i)),
-                          datum(s, c.f, c.f.get_y(top), 1.3f), cols[i].c_str());
+                          datum(s, c.f, c.f.get_y(top), 1.3f), core::at(cols, i).c_str());
             const float rule_y = top - 10.0f - 1.0f;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(left), c.f.get_y(rule_y)),
                                 ImVec2(c.f.get_x(right), c.f.get_y(rule_y) + std::max(1.0f, c.f.current_s(1.0f))),
@@ -1165,7 +1166,7 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
         const int start = dl->VtxBuffer.Size;
         const float e = t.row_amount(i);
         const float base = datum(rs.name, c.f, c.f.get_y(row_top), rs.line_height_);
-        const float width = get_measure(rs.name, c.f, v.rows[i].label.c_str());
+        const float width = get_measure(rs.name, c.f, core::at(v.rows, i).label.c_str());
         if (e > 0.001f) {
             const float x0 = c.f.get_x(rs.cut_left_);
             float x1 = c.f.get_x(rs.text_x_) + width + c.f.current_s(rs.cut_right_pad_);
@@ -1175,13 +1176,13 @@ void dialog_screen(Ctx& c, const mirror::Tracker& t, float window_width, float w
                     c.f.current_s(rs.top_inset_), c.f.current_s(rs.bottom_inset_), get_col(Menu::kHouseYellow));
         }
         Style name = rs.name;
-        name.colour = get_mix(v.rows[i].focusable ? kPaper : kMuted2, kGround, e);
-        draw_text(dl, name, c.f, c.f.get_x(rs.text_x_), base, v.rows[i].label.c_str());
+        name.colour = get_mix(core::at(v.rows, i).focusable ? kPaper : kMuted2, kGround, e);
+        draw_text(dl, name, c.f, c.f.get_x(rs.text_x_), base, core::at(v.rows, i).label.c_str());
         draw_text(dl, rs.number, c.f, c.f.get_x(rows_left), base, pad2(i + 1).c_str());
         if (e > 0.001f)
             xform(dl, start, c.f.get_x(rows_left), c.f.get_y(row_top + kLevelRowHeight * 0.5f),
                   -3.0f * 3.14159265f / 180.0f * e, c.f.current_s(24.0f) * e, 0.0f);
-        if (v.rows[i].focusable)
+        if (core::at(v.rows, i).focusable)
             c.get_hit(Hit::Kind::kItem, i, rows_left, row_top, 1240.0f, row_top + kLevelRowHeight);
     }
     std::vector<std::string> hints = {text_tools::kHintSelect, text_tools::kHintBack};
@@ -1222,7 +1223,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     std::vector<float> widths;
     float total = 0.0f, selected_centre = 0.0f;
     for (size_t i = 0; i < v.rows.size(); ++i) {
-        widths.push_back(get_measure(name, c.f, v.rows[i].label.c_str()) / c.f.scale);
+        widths.push_back(get_measure(name, c.f, core::at(v.rows, i).label.c_str()) / c.f.scale);
         if (ints::as_signed(i) == v.selected)
             selected_centre = total + widths.back() * 0.5f;
         total += widths.back() + gap;
@@ -1243,19 +1244,19 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
         const float line_h = 28.0f * 1.05f;
         if (e > 0.001f)
             get_cut(dl, c.f.get_x(x - 10.0f), c.f.get_y(strip_top + line_h * 0.12f),
-                    c.f.get_x(x - 10.0f) + (c.f.current_s(widths[i] + 26.0f)) * e,
+                    c.f.get_x(x - 10.0f) + (c.f.current_s(core::at(widths, i) + 26.0f)) * e,
                     c.f.get_y(strip_top + line_h * 0.98f), c.f.current_s(7.0f), c.f.current_s(10.0f),
                     get_col(Menu::kHouseYellow));
         Style s = name;
-        s.colour = get_mix(v.rows[i].focusable ? kPaper : kMuted2, kGround, e);
-        draw_text(dl, s, c.f, c.f.get_x(x), datum(s, c.f, c.f.get_y(strip_top), 1.05f), v.rows[i].label.c_str());
+        s.colour = get_mix(core::at(v.rows, i).focusable ? kPaper : kMuted2, kGround, e);
+        draw_text(dl, s, c.f, c.f.get_x(x), datum(s, c.f, c.f.get_y(strip_top), 1.05f), core::at(v.rows, i).label.c_str());
         if (e > 0.001f)
             xform(dl, start, c.f.get_x(x), c.f.get_y(strip_top + line_h * 0.5f), -3.0f * 3.14159265f / 180.0f * e, 0.0f,
                   -c.f.current_s(4.0f) * e);
-        if (v.rows[i].focusable && x + widths[i] > 0.0f && x < 1280.0f)
-            c.get_hit(Hit::Kind::kItem, static_cast<int>(i), x - 10.0f, strip_top - 6.0f, x + widths[i] + 16.0f,
+        if (core::at(v.rows, i).focusable && x + core::at(widths, i) > 0.0f && x < 1280.0f)
+            c.get_hit(Hit::Kind::kItem, static_cast<int>(i), x - 10.0f, strip_top - 6.0f, x + core::at(widths, i) + 16.0f,
                       strip_top + line_h + 6.0f);
-        x += widths[i] + gap;
+        x += core::at(widths, i) + gap;
     }
     c.dl->PopClipRect();
     // (a rule under the strip)
@@ -1281,8 +1282,8 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     for (int i = 0; i < stats; ++i) {
         const float top = table_top + row_h * static_cast<float>(i);
         const float base = datum(label, c.f, c.f.get_y(top + 4.0f), 1.3f);
-        draw_text(c.dl, label, c.f, c.f.get_x(left), base, v.stats[i].first.c_str());
-        const int value = std::clamp(v.stats[i].second, 0, 10);
+        draw_text(c.dl, label, c.f, c.f.get_x(left), base, core::at(v.stats, i).first.c_str());
+        const int value = std::clamp(core::at(v.stats, i).second, 0, 10);
         const float bar_left = left + 110.0f;
         const float bar_right = right - 40.0f;
         const float seg = (bar_right - bar_left) / 10.0f;
@@ -1291,7 +1292,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
             get_cut(c.dl, c.f.get_x(sx), c.f.get_y(top + 7.0f), c.f.get_x(sx + seg - 4.0f), c.f.get_y(top + 19.0f),
                     c.f.current_s(3.0f), c.f.current_s(3.0f), get_col(k < value ? Menu::kHouseYellow : kRule));
         }
-        const std::string text = std::to_string(v.stats[i].second);
+        const std::string text = std::to_string(core::at(v.stats, i).second);
         draw_text(c.dl, number, c.f, c.f.get_x(right) - get_measure(number, c.f, text.c_str()), base, text.c_str());
     }
     if (stats > 0) {
@@ -1303,7 +1304,7 @@ void skaters_screen(Ctx& c, const mirror::Tracker& t, float window_width, float 
     }
     const float name_top = big_name(c, v.big_name_, 84.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     std::string kicker = text_tools::kSkater;
-    if (v.selected >= 0 && !v.rows[v.selected].focusable)
+    if (v.selected >= 0 && !core::at(v.rows, v.selected).focusable)
         kicker += std::string(" \xC2\xB7 ") + text_tools::kLocked;
     get_kicker(c, kicker, left, name_top - 8.0f, Menu::kHouseYellow);
 }
@@ -1317,9 +1318,9 @@ ImU32 skater_col(float hue, float sat, float val)
     std::array<float, 3> rgb{};
     mirror::skater_colour(hue, sat, val, rgb.data());
     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-    return IM_COL32(static_cast<int>(rgb[0] * 255.0f + 0.5f), static_cast<int>(rgb[1] * 255.0f + 0.5f),
+    return IM_COL32(static_cast<int>(core::at(rgb, 0) * 255.0f + 0.5f), static_cast<int>(core::at(rgb, 1) * 255.0f + 0.5f),
                     // NOLINTNEXTLINE(bugprone-incorrect-roundings): rounds a value that is never negative
-                    static_cast<int>(rgb[2] * 255.0f + 0.5f), 255);
+                    static_cast<int>(core::at(rgb, 2) * 255.0f + 0.5f), 255);
 }
 
 void colour_track(Ctx& c, const mirror::View& v, const mirror::Row& r, bool selected, float x0, float x1, float y_mid)
@@ -1412,7 +1413,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         const float top = list_top + (static_cast<float>(i) - first) * row_h;
         if (top < list_top - row_h || top > list_bottom)
             continue;
-        const mirror::Row& r = v.rows[i];
+        const mirror::Row& r = core::at(v.rows, i);
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), t.row_amount(i), Menu::kHouseYellow, !r.focusable);
         if (!r.value.empty()) {
             const float base = datum(rs.name, c.f, c.f.get_y(top + rs.row_pad_top_), rs.line_height_);
@@ -1463,7 +1464,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
     }
     if (v.editor) {
         // (an editor's view - the skater, the park - keeps the right: only the selected item's value over the hints)
-        const mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;
+        const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;
         if (sel && !sel->value.empty()) {
             Style d = mono12(Menu::kHouseYellow, false);
             d.css = 13.0f;
@@ -1472,7 +1473,7 @@ void list_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float w
         }
         return;
     }
-    const mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;
+    const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;
     if (sel && !sel->value.empty()) {
         Style d = mono12(Menu::kHouseYellow, false);
         d.css = 13.0f;
@@ -1525,7 +1526,7 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
         const float top = list_top + (static_cast<float>(i) - first) * row_h;
         if (top < list_top - row_h || top > list_bottom)
             continue;
-        const mirror::Row& r = v.rows[i];
+        const mirror::Row& r = core::at(v.rows, i);
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), t.row_amount(i), Menu::kHouseYellow, !r.focusable);
         if (r.focusable && top >= list_top - 1.0f && top + row_h <= list_bottom + 1.0f)
             c.get_hit(Hit::Kind::kItem, i, 48.0f, top, kColumnInner + 20.0f, top + row_h);
@@ -1548,7 +1549,7 @@ void pause_of_items(Ctx& c, const mirror::Tracker& t, float window_width, float 
 void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
 {
     const mirror::View& v = t.get_shown();
-    const mirror::Row* sel = v.selected >= 0 ? &v.rows[v.selected] : nullptr;
+    const mirror::Row* sel = v.selected >= 0 ? &core::at(v.rows, v.selected) : nullptr;
     std::string art = sel && !sel->art.empty() ? art_by_id(c.extras.catalogue, sel->art) : std::string();
     if (art.empty())
         art = art_by_id(c.extras.catalogue, v.screen_art_);
@@ -1584,7 +1585,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
         const float top = list_top + (static_cast<float>(i) - first) * row_h;
         if (top < list_top - row_h || top > list_bottom)
             continue;
-        const mirror::Row& r = v.rows[i];
+        const mirror::Row& r = core::at(v.rows, i);
         get_row(c, rs, top, pad2(i + 1).c_str(), r.label.c_str(), t.row_amount(i), Menu::kHouseYellow, !r.focusable);
         if (!r.tag.empty()) {
             const Style tag = mono12(kMuted2);
@@ -1622,8 +1623,8 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
     std::vector<std::pair<float, float>> spans;
     const float bottom = get_hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
     if (resume_hint >= 0 && std::cmp_less(resume_hint, spans.size()))
-        c.get_hit(Hit::Kind::kContinue, 0, spans[resume_hint].first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f,
-                  spans[resume_hint].second + 6.0f, 688.0f + 6.0f);
+        c.get_hit(Hit::Kind::kContinue, 0, core::at(spans, resume_hint).first - 6.0f, 688.0f - 12.0f * 1.3f - 6.0f,
+                  core::at(spans, resume_hint).second + 6.0f, 688.0f + 6.0f);
     const float name_top = big_name(c, v.big_name_, 120.0f, left, right, bottom, 0.0f, Menu::kHouseYellow);
     get_kicker(c, v.kicker, left, name_top - 8.0f, Menu::kHouseYellow, 1.0f);
 }
@@ -1669,8 +1670,8 @@ void keyboard_screen(Ctx& c, const mirror::Tracker& t, float window_width, float
     float top = line + 36.0f, h = 44.0f, gap = 8.0f;
     for (size_t r = 0; r < v.keys.size(); ++r) {
         float x = 48.0f;
-        for (size_t k = 0; k < v.keys[r].size(); ++k) {
-            const std::string& label = v.keys[r][k];
+        for (size_t k = 0; k < core::at(v.keys, r).size(); ++k) {
+            const std::string& label = core::at(core::at(v.keys, r), k);
             const float w = std::max(52.0f, get_measure(key, c.f, label.c_str()) / c.f.scale + 28.0f);
             const bool sel = ints::as_signed(r) == v.key_row_ && ints::as_signed(k) == v.key_col_;
             c.dl->AddRectFilled(ImVec2(c.f.get_x(x), c.f.get_y(top)), ImVec2(c.f.get_x(x + w), c.f.get_y(top + h)),
@@ -1774,11 +1775,11 @@ bool build_fonts(const FontFiles& files, float scale)
     const std::array<const std::string*, 3> paths = {{&files.display, &files.mono, &files.body}};
     bool all = true;
     for (int i = 0; i < 3; ++i) {
-        FaceLayout& face = g_faces[i];
+        FaceLayout& face = core::at(g_faces, i);
         face = FaceLayout{};
-        if (paths[i]->empty() || !read_file(*paths[i], &face.file) ||
+        if (core::at(paths, i)->empty() || !read_file(*core::at(paths, i), &face.file) ||
             !read_font_metrics(face.file.data(), face.file.size(), &face.ascent, &face.descent)) {
-            get_log("new front end: can't read the font %s", paths[i]->empty() ? "(none)" : paths[i]->c_str());
+            get_log("new front end: can't read the font %s", core::at(paths, i)->empty() ? "(none)" : core::at(paths, i)->c_str());
             face.file.clear();
             all = false;
             continue;
@@ -1786,23 +1787,23 @@ bool build_fonts(const FontFiles& files, float scale)
         face.ok = true;
     }
     for (int i = 0; i < kBakeCount; ++i) {
-        FaceLayout& face = g_faces[static_cast<int>(kBakes[i].face)];
+        FaceLayout& face = core::at(g_faces, static_cast<int>(core::at(kBakes, i).face));
         if (!face.ok)
             continue;
-        const float em = std::max(4.0f, std::round(kBakes[i].css * scale));
+        const float em = std::max(4.0f, std::round(core::at(kBakes, i).css * scale));
         ImFontConfig config;
         config.FontDataOwnedByAtlas = false;
         const bool big = em > 32.0f;
         config.OversampleH = big ? 1 : 2;
         config.OversampleV = 1;
         config.PixelSnapH = big;
-        std::snprintf(config.Name, sizeof(config.Name), "fe %d %.0f", static_cast<int>(kBakes[i].face), kBakes[i].css);
+        std::snprintf(config.Name, sizeof(config.Name), "fe %d %.0f", static_cast<int>(core::at(kBakes, i).face), core::at(kBakes, i).css);
         // (stb_truetype's size is ascent - descent: the em asked for times that)
         const float pixel_height = em * (face.ascent - face.descent);
         ImFont* font =
             atlas->AddFontFromMemoryTTF(face.file.data(), static_cast<int>(face.file.size()), pixel_height, &config,
-                                        kBakes[i].face == Face::kDisplay ? kDisplayRanges.data() : kTextRanges.data());
-        g_baked[i] = {font, kBakes[i].face, em};
+                                        core::at(kBakes, i).face == Face::kDisplay ? kDisplayRanges.data() : kTextRanges.data());
+        core::at(g_baked, i) = {font, core::at(kBakes, i).face, em};
     }
     g_scale = scale;
     g_atlas = atlas;

@@ -8,6 +8,7 @@
 
 #include "editor/level_editor.h"
 #include "editor/level_editor_ui.h"
+#include "engine/core/checked_index.h"
 
 struct ImFont;
 
@@ -30,12 +31,12 @@ constexpr size_t kMaxText = 500;
 constexpr const char* kStem = "ed_note";
 // The colours offered (RGB) - the first is the default.
 constexpr auto kColours = std::to_array<uint32_t>({0xFFD84A, 0xFF7A59, 0x5AC8FA, 0x7BD88F, 0xC18CFF, 0xF2F2F2});
-constexpr int kColourCount = static_cast<int>(sizeof(kColours) / sizeof(kColours[0]));
+constexpr int kColourCount = static_cast<int>(sizeof(kColours) / sizeof(core::at(kColours, 0)));
 
 struct Note {
     std::string name; // ed_note01...
     V3 pos = {};
-    uint32_t colour = kColours[0]; // RGB
+    uint32_t colour = core::at(kColours, 0); // RGB
     std::string text;
 };
 bool get_same(const Note& a, const Note& b);

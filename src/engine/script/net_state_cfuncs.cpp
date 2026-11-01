@@ -37,6 +37,7 @@
 #include "game/rider/core_physics.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -244,7 +245,7 @@ bool cfunc_enable_actuators(script::Struct* params, script::Script*)
     params->fetch_int_value(0u, &enable, 0);
     auto* input = pad_input::g_input_manager;
     for (int i = 0; i < 2; ++i) {
-        if (get_skate()->participants_[i].vibration_) {
+        if (core::at(get_skate()->participants_, i).vibration_) {
             if (enable)
                 input->enable_actuators(i);
             else
@@ -619,7 +620,7 @@ void init_beenox_preferences()
     prefs::Preferences* prefs = game_net->get_online_settings();
     set_string_preference(prefs, "server_name", g_hosted_game_name.data()); // "server_name"
     set_string_preference(prefs, "password", g_network_password.data());    // "password"
-    if (g_network_id[0] != '\0')
+    if (core::at(g_network_id, 0) != '\0')
         set_string_preference(prefs, "network_id", g_network_id.data()); // "network_id"
     game_net->set_max_players_preference(online::g_net_max_players);
     script::Struct* teams = new_preference();

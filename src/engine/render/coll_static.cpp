@@ -16,6 +16,7 @@
 #include "engine/render/coll_movable.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -165,7 +166,7 @@ void CollStaticInstance::set_shared_geometry(TriMeshSource* geometry)
 // 0x00413F00
 void CollStaticInstance::place_at_absolute_point(const maths::Vec4* position)
 {
-    basis_frame_.row[3] = *position;
+    core::at(basis_frame_.row, 3) = *position;
     update_inverse();
     recompute_world_bounds();
 }
@@ -211,7 +212,7 @@ maths::BBox* CollStaticInstance::get_world_bounds() { return &world_box_; }
 // 0x00411330 (the position compared exactly; NaN is unequal)
 void CollStaticInstance::scale_about(const maths::Vec4* position, const maths::Vec4* scale)
 {
-    const maths::Vec4& at = basis_frame_.row[3];
+    const maths::Vec4& at = core::at(basis_frame_.row, 3);
     if (!(position->x == at.x) || !(position->y == at.y) || !(position->z == at.z))
         return;
     const maths::Vec4 scaled{scale->x * size_factor_.x, scale->y * size_factor_.y, scale->z * size_factor_.z,
@@ -308,7 +309,7 @@ void HitMovingTriangles::update_b_box()
 void HitMovingTriangles::draw_diagnostic(int a, int b)
 {
     maths::Mat4 transform = orientation_;
-    transform.row[3] = anchor_point_;
+    core::at(transform.row, 3) = anchor_point_;
     draw_geometry(geometry_, &transform, a, b);
 }
 

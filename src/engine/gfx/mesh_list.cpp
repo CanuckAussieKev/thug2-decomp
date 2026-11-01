@@ -19,6 +19,7 @@
 #include "engine/lists/key_map.h"
 #include "platform/crt.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -26,10 +27,10 @@ namespace {
 
 // A mesh's material and what the list looks at.
 MaterialRef* material_of(const MeshRef* mesh) { return mesh->material; }
-bool get_transparent(const MaterialRef* material) { return material && (material->pass_flags_[0] & 0x40); }
+bool get_transparent(const MaterialRef* material) { return material && (core::at(material->pass_flags_, 0) & 0x40); }
 uint16_t& load_index(MeshRef* mesh) { return mesh->load_index_; }
-uint16_t& get_index_count(MeshRef* mesh) { return mesh->index_counts_[0]; }
-IdxStore*& index_buffer_of(MeshRef* mesh) { return mesh->index_buffers_[0]; }
+uint16_t& get_index_count(MeshRef* mesh) { return core::at(mesh->index_counts_, 0); }
+IdxStore*& index_buffer_of(MeshRef* mesh) { return core::at(mesh->index_buffers_, 0); }
 
 // The index buffers (not rewritten yet; thiscall): Lock gives the indices (a copy kept in memory).
 uint16_t* lock_indices(void* buffer)
@@ -100,8 +101,8 @@ int compare_meshes(const void* a, const void* b)
         return material_a->sort_flag_ != 0 ? 1 : -1;
     if (material_a == material_b)
         return 0;
-    const bool flag_a = (material_a->pass_flags_[0] & 0x10) != 0;
-    const bool flag_b = (material_b->pass_flags_[0] & 0x10) != 0;
+    const bool flag_a = (core::at(material_a->pass_flags_, 0) & 0x10) != 0;
+    const bool flag_b = (core::at(material_b->pass_flags_, 0) & 0x10) != 0;
     if (flag_a != flag_b)
         return flag_a ? 1 : -1;
     // (then by pixel shader, as the original: its address)
@@ -151,9 +152,9 @@ void SceneRef::update_sphere()
     auto size_z = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
     auto half_x_float = static_cast<float>(half_x);
     const double half_z = static_cast<double>(size_z) * 0.5;
-    centre[0] = static_cast<float>(static_cast<double>(half_x_float) + bounds.min.x);
-    centre[1] = static_cast<float>(half_y + bounds.min.y);
-    centre[2] = static_cast<float>(half_z + bounds.min.z);
+    core::at(centre, 0) = static_cast<float>(static_cast<double>(half_x_float) + bounds.min.x);
+    core::at(centre, 1) = static_cast<float>(half_y + bounds.min.y);
+    core::at(centre, 2) = static_cast<float>(half_z + bounds.min.z);
     radius = static_cast<float>(
         std::sqrt((half_z * half_z + half_y * half_y) + static_cast<double>(half_x_float) * half_x_float));
 }
@@ -287,7 +288,7 @@ void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t cou
             const uint32_t third = indices[i] & 0x7FFF;
             if (first == a && second == c && third == b) {
                 if (mesh_index < 64)
-                    ++breaks[mesh_index];
+                    ++core::at(breaks, mesh_index);
                 indices[i - 1] |= 0x8000;
                 break;
             }
@@ -299,7 +300,7 @@ void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t cou
     for (int m = 0; m < mesh_count_; ++m) {
         MeshRef* mesh = meshes[m];
         const uint32_t index = load_index(mesh);
-        if (index >= 64 || breaks[index] <= 0)
+        if (index >= 64 || core::at(breaks, index) <= 0)
             continue;
         const uint16_t* indices = lock_indices(index_buffer_of(mesh));
         uint32_t n = 0;

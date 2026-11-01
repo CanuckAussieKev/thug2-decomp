@@ -26,6 +26,7 @@
 #include "engine/script/game_cfuncs.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -550,7 +551,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 restart_type = kCrown;
             if (flag) {
                 restart_type = kCtf;
-                node_name = kCtfRestarts[type - RestartPoint::kRedFlag];
+                node_name = core::at(kCtfRestarts, type - RestartPoint::kRedFlag);
             }
             if (restart_type) {
                 Struct* node = elem(nodes, *index);
@@ -596,7 +597,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 continue;
 
             // the flag: the flag itself, its CTF node and its base
-            const char* colour = kFlagColours[type - RestartPoint::kRedFlag];
+            const char* colour = core::at(kFlagColours, type - RestartPoint::kRedFlag);
             char flag_type[256], model[256], script[256], flag_name[256];
             auto add_flag_node = [&](bool with_script) {
                 Struct* node = elem(nodes, *index);
@@ -634,7 +635,7 @@ void ParkAssembler::build_node_array(MapListNode* metas)
     std::array<int, 6> counts{};
     get_node_counts(counts.data());
     const int rail_editor_points = get_rail_editor_points();
-    int total = counts[0] + (goal_editor_constant82() + rail_editor_points);
+    int total = core::at(counts, 0) + (goal_editor_constant82() + rail_editor_points);
     build_rails(metas);
     total += rails_.rail_point_total();
     level_nodes::NodeManager* manager = level_nodes::node_manager_instance();

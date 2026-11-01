@@ -20,6 +20,7 @@
 #include "engine/pad_input/device.h"
 #include "formats/byte_stream.h"
 #include "wire/play_messages.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -197,7 +198,7 @@ bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 {
     std::array<char, 256> typed{};
-    if (sio::get_keyboard_chars(typed.data()) > 0 && typed[0] == ' ') {
+    if (sio::get_keyboard_chars(typed.data()) > 0 && core::at(typed, 0) == ' ') {
         Struct* check = online::detail::new_params();
         check->put_name_key(kId, kKeyboardAnchor);
         if (!objects::cfunc_object_exists(check, nullptr)) {
@@ -237,10 +238,10 @@ bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
             // (NOT ORIGINAL: no more than the message holds - the original wrote a player's sixth on past it)
             for (int i = 0; i < placed_count(player) && i < online::kHuntPlacements; ++i) {
                 const script::VectorValue& at = placed_positions(player)[i];
-                msg.positions[i][0] = at.x;
-                msg.positions[i][1] = at.y;
-                msg.positions[i][2] = at.z;
-                msg.positions[i][3] = at.w;
+                core::at(core::at(msg.positions, i), 0) = at.x;
+                core::at(core::at(msg.positions, i), 1) = at.y;
+                core::at(core::at(msg.positions, i), 2) = at.z;
+                core::at(core::at(msg.positions, i), 3) = at.w;
             }
             util::ByteWriter writer(data.data(), sizeof(data));
             online::write_hunt_placements(writer, msg);
@@ -300,14 +301,14 @@ bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
     params->fetch_int_value(kRadius, &radius, 0);
     online::Projectile msg;
     msg.owner_id = static_cast<int8_t>(id);
-    msg.position[0] = pos.x;
-    msg.position[1] = pos.y;
-    msg.position[2] = pos.z;
-    msg.position[3] = pos.w;
-    msg.velocity[0] = vel.x;
-    msg.velocity[1] = vel.y;
-    msg.velocity[2] = vel.z;
-    msg.velocity[3] = vel.w;
+    core::at(msg.position, 0) = pos.x;
+    core::at(msg.position, 1) = pos.y;
+    core::at(msg.position, 2) = pos.z;
+    core::at(msg.position, 3) = pos.w;
+    core::at(msg.velocity, 0) = vel.x;
+    core::at(msg.velocity, 1) = vel.y;
+    core::at(msg.velocity, 2) = vel.z;
+    core::at(msg.velocity, 3) = vel.w;
     msg.radius = radius;
     msg.scale = scale;
     msg.type = type;

@@ -36,6 +36,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -224,7 +225,7 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
         std::array<char, 256> keys{};
         const int count = sio::get_keyboard_chars(keys.data());
         for (int i = 0; i < count; ++i) {
-            const char key = keys[i];
+            const char key = core::at(keys, i);
             if (key == kKeyLeft) {
                 event = kPadLeft;
                 break;
@@ -244,7 +245,7 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
         }
     }
 
-    PadMapping& pad = pad_mappings_[device_index];
+    PadMapping& pad = core::at(pad_mappings_, device_index);
     if (pad.repeat_state_ == 0) {
         if (event) { // first held: sent now, repeated after the delay
             pad.repeat_timer_ = static_cast<uint32_t>(hold_repeat_ms_);
@@ -283,7 +284,7 @@ void FrontEnd::start_callback()
     pad_input::Hub* input = input_manager();
     for (const std::unique_ptr<FrontEndInputHandler>& handler : pad_listeners_) {
         // The controller's place in the input manager (see update_input_mappings).
-        pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
+        pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal_);
         append_vertex(server.handlers_, handler.get());
         handler->control_data_ = &server.content_;
         handler->dev_ = server.dev_;
@@ -318,7 +319,7 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
         const uint32_t event = pair->fetch_part(1);
         uint32_t button = 0;
         for (; button < 18; ++button) {
-            if (pad_button_label == checksums::hash_from_text(kXboxButtonNames[button]) || pad_button_label == kNull)
+            if (pad_button_label == checksums::hash_from_text(core::at(kXboxButtonNames, button)) || pad_button_label == kNull)
                 break;
         }
         if (button == 18)
@@ -369,7 +370,7 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
             else if (mapping == kUseAsFirst)
                 value = 2;
         }
-        front_end->pad_mappings_[i].mapping_ = value;
+        core::at(front_end->pad_mappings_, i).mapping_ = value;
     }
     return true;
 }
@@ -393,17 +394,17 @@ void FrontEnd::keyboard_task(FrontEndTask* task)
     std::array<char, 256> keys{};
     const int count = sio::get_keyboard_chars(keys.data());
     for (int i = 0; i < count; ++i) {
-        const char key = keys[i];
+        const char key = core::at(keys, i);
         // Printable (and the high half), Enter and Backspace.
         if (!(key >= 0x20 || key < 0 || key == kKeyEnter || key == kKeyBackspace))
             continue;
         script::Struct* params = new_params();
-        if (keys[i] == kKeyEnter) {
+        if (core::at(keys, i) == kKeyEnter) {
             params->put_name_key(0u, kEnterKey);
-        } else if (keys[i] == kKeyBackspace) {
+        } else if (core::at(keys, i) == kKeyBackspace) {
             params->put_name_key(0u, kBackspaceKey);
         } else {
-            std::array<char, 2> text = {{keys[i], '\0'}};
+            std::array<char, 2> text = {{core::at(keys, i), '\0'}};
             params->append_word(kText, text.data());
         }
         params->put_int(kKeyboardDeviceParam, front_end->keyboard_device_);
@@ -480,7 +481,7 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
     uint32_t event = 0;
     const int count = sio::get_keyboard_chars(keys.data());
     for (int i = 0; i < count; ++i) {
-        const char key = keys[i];
+        const char key = core::at(keys, i);
         if (key == kKeyEscape) {
             script::Struct* params = new_params();
             event = anchor_exists(params, kCurrentMenuAnchor, false) ? kPadBack : kPadStart;
@@ -492,7 +493,7 @@ uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_inde
             continue;
         script::Struct* params = new_params();
         if (!anchor_exists(params, kKeyboardAnchor, false)) {
-            if (anchor_exists(params, 0x487FBC86) && keys[i] == ' ')
+            if (anchor_exists(params, 0x487FBC86) && core::at(keys, i) == ' ')
                 return 0; // (the original leaks params here)
             if (anchor_exists(params, kCurrentMenuAnchor) || anchor_exists(params, kDialogBoxAnchor)) {
                 event = kPadChoose;
@@ -598,7 +599,7 @@ void FrontEnd::input_logic(FrontEndInputHandler* handler)
             event = pressed;
         if (!event)
             return;
-        if (front_end->pad_mappings_[handler->ordinal_].mapping_ == 0 || front_end->block_menu_input_)
+        if (core::at(front_end->pad_mappings_, handler->ordinal_).mapping_ == 0 || front_end->block_menu_input_)
             continue;
         script::Struct params;
         params.put_int(kDeviceNum, handler->dev_->port_no_);
@@ -623,14 +624,14 @@ void FrontEnd::update_input_mappings()
 {
     const InputManagerRef input;
     for (int i = 0; i < 2; ++i) {
-        debug::printf("m_device_server_map[%i] = %i\n", i, device_server_map_[i]); // "m_device_server_map[%i] = %i\n"
-        FrontEndInputHandler* handler = pad_listeners_[i].get();
+        debug::printf("m_device_server_map[%i] = %i\n", i, core::at(device_server_map_, i)); // "m_device_server_map[%i] = %i\n"
+        FrontEndInputHandler* handler = core::at(pad_listeners_, i).get();
         if (!handler)
             continue;
         debug::printf("got a handler\n"); // "got a handler\n"
         remove_node(handler);
         // The controller's place in the input manager: its device, its handler list, its control data.
-        pad_input::HostEnd& server = input.supervisor_->hosts_[device_server_map_[i]];
+        pad_input::HostEnd& server = core::at(input.supervisor_->hosts_, core::at(device_server_map_, i));
         append_vertex(server.handlers_, handler);
         handler->control_data_ = &server.content_;
         handler->dev_ = server.dev_;
@@ -652,9 +653,9 @@ FrontEnd::FrontEnd()
     update_job_ = std::make_unique<FrontEndTask>(&front_end_tick, this, -2000);
     keyboard_task_ = std::make_unique<FrontEndTask>(&keyboard_task, this, -1000);
     for (int i = 0; i < 2; ++i) {
-        pad_listeners_[i] = std::make_unique<FrontEndInputHandler>(&input_logic, this, -1000, i);
-        pad_mappings_[i].repeat_state_ = 0;
-        pad_mappings_[i].mapping_ = 1;
+        core::at(pad_listeners_, i) = std::make_unique<FrontEndInputHandler>(&input_logic, this, -1000, i);
+        core::at(pad_mappings_, i).repeat_state_ = 0;
+        core::at(pad_mappings_, i).mapping_ = 1;
     }
     is_halted_ = false;
     hold_repeat_ms_ = 300;
@@ -665,8 +666,8 @@ FrontEnd::FrontEnd()
     startup_script_id_ = 0;
     for (PadPressRecord& entry : pad_event_queue_)
         entry.incident_ = 0;
-    device_server_map_[0] = 0;
-    device_server_map_[1] = 1;
+    core::at(device_server_map_, 0) = 0;
+    core::at(device_server_map_, 1) = 1;
 }
 
 // 0x0054FF80

@@ -27,6 +27,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -126,7 +127,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
 
     if (!walking) {
         const objects::GameEntity* object = object_of(this);
-        if (object->basis_frame_.row[1].y < kMinUp)
+        if (core::at(object->basis_frame_.row, 1).y < kMinUp)
             return false;
         const int elapsed = static_cast<int>(get_since(wallplant_time_));
         double since_plant = elapsed;
@@ -189,7 +190,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             maths::Vec4 move = {position.x - old.x, position.y - old.y, position.z - old.z, position.w - old.w};
             move.make_unit();
             const double height = tuning_float_lookup(kForwardHeight, o);
-            const maths::Vec4& up = o->basis_frame_.row[1];
+            const maths::Vec4& up = core::at(o->basis_frame_.row, 1);
             auto hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
                  hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
             const maths::Vec4& last = entity_->old_pos_;
@@ -211,11 +212,11 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     } else {
         // Walking: a feeler 36 the other way from the facing, at the forward collision height.
         objects::GameEntity* object = object_of(this);
-        const maths::Vec4& facing = object->basis_frame_.row[2];
+        const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
         maths::Vec4 direction = {-facing.x, facing.y, -facing.z, facing.w};
         direction.make_unit();
         const float height = tuning_float_lookup(kForwardHeight, object);
-        const maths::Vec4 lift = object->basis_frame_.row[1] * height;
+        const maths::Vec4 lift = core::at(object->basis_frame_.row, 1) * height;
         probe_start_ = entity_->at_point_ + lift;
         const maths::Vec4 reach = direction * kWalkReach;
         const maths::Vec4 base = entity_->at_point_ + lift;
@@ -304,13 +305,13 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     }
     // Upright, facing along the new velocity.
     object = object_of(this);
-    maths::Vec4& forward = object->basis_frame_.row[2];
+    maths::Vec4& forward = core::at(object->basis_frame_.row, 2);
     forward = object->vel_;
-    entity_->basis_frame_.row[2].y = 0.0f;
-    entity_->basis_frame_.row[2].make_unit();
-    entity_->basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(entity_->basis_frame_.row, 2).y = 0.0f;
+    core::at(entity_->basis_frame_.row, 2).make_unit();
+    core::at(entity_->basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
     object = object_of(this);
-    object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[1], object->basis_frame_.row[2]);
+    core::at(object->basis_frame_.row, 0) = maths::cross_vec(core::at(object->basis_frame_.row, 1), core::at(object->basis_frame_.row, 2));
     display_matrix_ = entity_->basis_frame_;
     wallplant_time_ = get_now();
     skater_object(this)->post_own_event(kWallplant, nullptr);
@@ -365,7 +366,7 @@ bool SkaterPhysicsModule::start_wall_ride()
         return false;
     object = object_of(this);
     if (!(std::cos(static_cast<double>(script::fetch_float(kMaxTilt)) * kRadiansPerDegree) <
-          object->basis_frame_.row[1].y))
+          core::at(object->basis_frame_.row, 1).y))
         return false;
     objects::MoveExecutor* skater = trick_;
     if (!skater->trick_objects_on_)
@@ -388,12 +389,12 @@ bool SkaterPhysicsModule::start_wall_ride()
     entity_->at_point_ = hit;
     entity_->at_point_ += wall;
     entity_->vel_.align_to_plane(wall);
-    entity_->basis_frame_.row[2] = entity_->vel_;
-    entity_->basis_frame_.row[2].make_unit();
-    entity_->basis_frame_.row[1] = wall;
+    core::at(entity_->basis_frame_.row, 2) = entity_->vel_;
+    core::at(entity_->basis_frame_.row, 2).make_unit();
+    core::at(entity_->basis_frame_.row, 1) = wall;
     object = object_of(this);
-    object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[1], object->basis_frame_.row[2]);
-    entity_->basis_frame_.row[0].make_unit();
+    core::at(object->basis_frame_.row, 0) = maths::cross_vec(core::at(object->basis_frame_.row, 1), core::at(object->basis_frame_.row, 2));
+    core::at(entity_->basis_frame_.row, 0).make_unit();
     display_matrix_ = entity_->basis_frame_;
     const maths::Vec4& velocity = entity_->vel_;
     const double side = static_cast<double>(wall.x) * velocity.z + -static_cast<double>(wall.z) * velocity.x +

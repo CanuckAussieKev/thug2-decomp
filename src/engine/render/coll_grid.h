@@ -10,6 +10,7 @@
 
 #include "engine/core/arena_alloc.h"
 #include "engine/maths/shape_tests.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -58,7 +59,7 @@ public:
     // objects as they are; more: each once, 2047 at most. The number found goes to `count` if it's given.
     HitMesh** objects_along_line(const maths::Seg* line, int* count);
 
-    CollGridCell* get_cell(int x, int z) { return &cells_[x][z]; }
+    CollGridCell* get_cell(int x, int z) { return &core::at(core::at(cells_, x), z); }
 
     maths::BBox box_;                  // +0x00
     float cell_span_x_{};              // +0x20 on x

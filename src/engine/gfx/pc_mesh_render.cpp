@@ -24,6 +24,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -57,10 +58,10 @@ void add_bone(float* blended, const SkinVertex& v, uint8_t bone, float weight)
     std::array<float, 3> other{};
     transform_coord(other.data(), v.position.data(), skin_matrix_ptr(bone));
     for (int k = 0; k < 3; ++k)
-        blended[k] = static_cast<float>(static_cast<double>(other[k]) * weight + blended[k]);
+        blended[k] = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + blended[k]);
     transform_normal(other.data(), v.normal.data(), skin_matrix_ptr(bone));
     for (int k = 0; k < 3; ++k)
-        blended[3 + k] = static_cast<float>(static_cast<double>(other[k]) * weight + blended[3 + k]);
+        blended[3 + k] = static_cast<float>(static_cast<double>(core::at(other, k)) * weight + blended[3 + k]);
 }
 
 // The vertices skinned with up to `bones` bones each: the first bone's transform, then - unless its weight is
@@ -70,20 +71,20 @@ void get_skin(MeshRef* mesh, uint8_t* out, int bones)
     const auto* v = raw::as<const SkinVertex>(mesh->per_vertex_data_);
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i, ++v) {
         std::array<float, 6> blended{};
-        transform_coord(blended.data(), v->position.data(), skin_matrix_ptr(v->bones[0]));
-        transform_normal(blended.data() + 3, v->normal.data(), skin_matrix_ptr(v->bones[0]));
-        if (bones > 1 && !(v->weights[0] == 1.0f)) {
+        transform_coord(blended.data(), v->position.data(), skin_matrix_ptr(core::at(v->bones, 0)));
+        transform_normal(blended.data() + 3, v->normal.data(), skin_matrix_ptr(core::at(v->bones, 0)));
+        if (bones > 1 && !(core::at(v->weights, 0) == 1.0f)) {
             for (float& value : blended)
-                value = static_cast<float>(static_cast<double>(value) * v->weights[0]);
-            add_bone(blended.data(), *v, v->bones[1], v->weights[1]);
-            if (bones > 2 && !(v->weights[2] == 0.0f))
-                add_bone(blended.data(), *v, v->bones[2], v->weights[2]);
+                value = static_cast<float>(static_cast<double>(value) * core::at(v->weights, 0));
+            add_bone(blended.data(), *v, core::at(v->bones, 1), core::at(v->weights, 1));
+            if (bones > 2 && !(core::at(v->weights, 2) == 0.0f))
+                add_bone(blended.data(), *v, core::at(v->bones, 2), core::at(v->weights, 2));
         }
         auto* vertex = raw::as<uint32_t>(out);
         std::memcpy(vertex, blended.data(), sizeof(blended));
         vertex[6] = v->color;
         for (uint32_t k = 0; k < 2 * mesh->unknowna4_; ++k)
-            raw::as<float>(vertex)[7 + k] = v->uv[k];
+            raw::as<float>(vertex)[7 + k] = core::at(v->uv, k);
         out += mesh->stride;
     }
 }
@@ -127,7 +128,7 @@ void MeshRef::render()
         input_port()->SetRenderState(D3DRS_FOGEND, *raw::as<DWORD>(&end));
         input_port()->SetRenderState(D3DRS_FOGCOLOR, g_fog_colour);
     }
-    if (!index_counts_[0])
+    if (!core::at(index_counts_, 0))
         return;
     D3DMATRIX world;
     if (unknown98 != -1) { // (one bone: its matrix before the world's)
@@ -159,7 +160,7 @@ void MeshRef::render()
         if (z_write == 1)
             render::set_render_state(D3DRS_ZWRITEENABLE, 0);
     }
-    VertexBuffer* vb = vertex_buffers_[current_vertex_buffer_];
+    VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     if (per_vertex_data_ &&
         (unknown9c_ != g_frames_rendered ||
          unknowna0_ != memory::bits_as<uint32_t>(g_current_instance))) { // (once a frame per instance)
@@ -192,7 +193,7 @@ void MeshRef::render()
         sphere_in_view(raw::as<const maths::Vec4>(centre.data()), radius);
         const float distance = last_sphere_distance();
         for (; level < 8; ++level) {
-            if (!index_buffers_[level]) {
+            if (!core::at(index_buffers_, level)) {
                 if (level > 0)
                     --level;
                 break;
@@ -213,7 +214,7 @@ void MeshRef::render()
             const float* tint = nullptr;
             if (g_instance_colour_on) {
                 for (int k = 0; k < 3; ++k)
-                    instance[k] = static_cast<float>(g_instance_colour[k] * static_cast<double>(1.0f / 255));
+                    core::at(instance, k) = static_cast<float>(core::at(g_instance_colour, k) * static_cast<double>(1.0f / 255));
                 tint = instance.data();
             } else if (flags & 4) {
                 tint = color.data();

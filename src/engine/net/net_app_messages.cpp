@@ -20,6 +20,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -380,7 +381,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
         return kResultConsumed;
     const uint32_t sequence = header.sequence;
     const uint8_t group = header.group;
-    if (sequence < conn->sequence_numbers_[group])
+    if (sequence < core::at(conn->sequence_numbers_, group))
         return kResultPassOn; // handled already
 
     memory::Hub* manager = memory::Hub::get_pull();
@@ -402,7 +403,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     link->order_index_ = sequence;
     memory::Hub::get_pull()->leave_heap_scope();
 
-    auto& buffer = memory::bits_as<lists::Foremost>(context->sender_conn_->received_queues_[group]);
+    auto& buffer = memory::bits_as<lists::Foremost>(core::at(context->sender_conn_->received_queues_, group));
     if (!buffer.insert_by_unique_order(&link->list_link_)) { // a duplicate
         if (SeqQueuedMsg* duplicate = link->shared_msg_) {
             destroy_queued_msg(duplicate);
@@ -523,7 +524,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         // (the original copied the description with no limit: 32 bytes and a terminator here, the field's size)
         static_assert(sizeof(desc->desc_) == wire::kStreamDescSize);
         std::memcpy(desc->desc_.data(), start.desc.data(), sizeof(desc->desc_));
-        desc->desc_[sizeof(desc->desc_) - 1] = '\0';
+        core::at(desc->desc_, sizeof(desc->desc_) - 1) = '\0';
         desc->extent_ = start.total_size;
         desc->stream_id_ = start.stream_id;
         desc->checksum_ = start.checksum;

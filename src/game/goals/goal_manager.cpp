@@ -37,6 +37,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace goals {
 
@@ -579,7 +580,7 @@ void GoalManager::test_tagged_props()
     const objects::HitClusterLog objects = trick->trick_objects_;
     const int count = objects.num_ > 512 ? 512 : objects.num_;
     for (int i = 0; i < count; ++i)
-        kill_cluster(objects.items_[i], player);
+        kill_cluster(core::at(objects.items_, i), player);
 }
 
 // 0x00558ED0
@@ -652,7 +653,7 @@ bool GoalManager::is_group_locked(int group, int level)
         return false;
     if (level == -1)
         level = skate_calls::get_career()->fetch_stage();
-    return group_unlocked_[level * kGroupsPerLevel + group - 1] == 0;
+    return core::at(group_unlocked_, level * kGroupsPerLevel + group - 1) == 0;
 }
 
 // 0x00559150

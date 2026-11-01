@@ -13,6 +13,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ground {
 
@@ -53,7 +54,7 @@ bool normalise(Spec* s)
 
 float ramp_length(const Spec& s, int side)
 {
-    const Ramp ramp = s.ramps[side];
+    const Ramp ramp = core::at(s.ramps, side);
     if (ramp == Ramp::kNone)
         return 0.0f;
     float length = s.length > 0.0f ? s.length : (ramp == Ramp::kKicker ? 2.0f * s.height : s.height);
@@ -62,7 +63,7 @@ float ramp_length(const Spec& s, int side)
         // (a pit: the ramp opposite takes its share of the width)
         const float across = side == kMinusX || side == kPlusX ? s.x1 - s.x0 : s.z1 - s.z0;
         const int opposite = side ^ 1;
-        const float room = s.ramps[opposite] != Ramp::kNone ? across * 0.5f - 10.0f : across - 10.0f;
+        const float room = core::at(s.ramps, opposite) != Ramp::kNone ? across * 0.5f - 10.0f : across - 10.0f;
         length = std::max(10.0f, std::min(length, room));
     }
     return length;
@@ -172,10 +173,10 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, float foot, float top
     else
         profile = quarter_profile(length, rise, kQuarterSegments);
     for (size_t i = 0; i + 1 < profile.size(); ++i) {
-        const float d0 = profile[i].first;
-        const float y0 = foot + profile[i].second;
-        const float d1 = profile[i + 1].first;
-        const float y1 = foot + profile[i + 1].second;
+        const float d0 = core::at(profile, i).first;
+        const float y0 = foot + core::at(profile, i).second;
+        const float d1 = core::at(profile, i + 1).first;
+        const float y1 = foot + core::at(profile, i + 1).second;
         const float dd = d1 - d0;
         const float dy = y1 - y0;
         // (the surface's normal: out by the rise, up by the run)
@@ -192,8 +193,8 @@ void add_ramp(Builder* b, Ramp ramp, V3 out, V3 e0, V3 e1, float foot, float top
         const V3 away = end ? along : along * -1.0f;
         const V3 corner = get_at(e, foot);
         for (size_t i = 0; i + 1 < profile.size(); ++i) {
-            const V3 p = get_at(e + out * profile[i].first, foot + profile[i].second);
-            const V3 q = get_at(e + out * profile[i + 1].first, foot + profile[i + 1].second);
+            const V3 p = get_at(e + out * core::at(profile, i).first, foot + core::at(profile, i).second);
+            const V3 q = get_at(e + out * core::at(profile, i + 1).first, foot + core::at(profile, i + 1).second);
             b->get_tri(corner, p, q, away, kFlagWall);
         }
     }
@@ -215,10 +216,10 @@ Mesh get_build(const Spec& spec)
         for (int side = 0; side < 4; ++side) {
             V3 out{}, e0{}, e1{};
             side_frame(s, side, &out, &e0, &e1);
-            if (s.ramps[side] == Ramp::kNone)
+            if (core::at(s.ramps, side) == Ramp::kNone)
                 b.get_quad(get_at(e0, bottom), get_at(e1, bottom), get_at(e1, top), get_at(e0, top), out, kFlagWall);
             else
-                add_ramp(&b, s.ramps[side], out, e0, e1, s.base, top, ramp_length(s, side), true);
+                add_ramp(&b, core::at(s.ramps, side), out, e0, e1, s.base, top, ramp_length(s, side), true);
         }
     } else {
         const float floor = s.base - s.height;
@@ -228,15 +229,15 @@ Mesh get_build(const Spec& spec)
             V3 out{}, e0{}, e1{};
             side_frame(s, side, &out, &e0, &e1);
             const V3 in = out * -1.0f;
-            if (s.ramps[side] == Ramp::kNone)
+            if (core::at(s.ramps, side) == Ramp::kNone)
                 b.get_quad(get_at(e0, floor), get_at(e1, floor), get_at(e1, s.base), get_at(e0, s.base), in, kFlagWall);
             else
-                add_ramp(&b, s.ramps[side], in, e0, e1, floor, s.base, ramp_length(s, side), false);
+                add_ramp(&b, core::at(s.ramps, side), in, e0, e1, floor, s.base, ramp_length(s, side), false);
         }
     }
     Mesh& m = b.mesh;
     if (!m.vertices.empty()) {
-        m.min = m.max = m.vertices[0].pos;
+        m.min = m.max = core::at(m.vertices, 0).pos;
         for (const Vertex& v : m.vertices) {
             m.min = {std::min(m.min.x, v.pos.x), std::min(m.min.y, v.pos.y), std::min(m.min.z, v.pos.z)};
             m.max = {std::max(m.max.x, v.pos.x), std::max(m.max.y, v.pos.y), std::max(m.max.z, v.pos.z)};
@@ -274,7 +275,7 @@ std::vector<std::array<uint16_t, 3>> strip_triangles(const std::vector<uint16_t>
 {
     std::vector<std::array<uint16_t, 3>> triangles;
     for (size_t i = 0; i + 2 < strip.size(); ++i) {
-        uint16_t a = strip[i], b = strip[i + 1], c = strip[i + 2];
+        uint16_t a = core::at(strip, i), b = core::at(strip, i + 1), c = core::at(strip, i + 2);
         if (a == b || b == c || a == c)
             continue;
         if (i % 2)
@@ -362,7 +363,7 @@ std::vector<std::string> split_commas(const std::string& text)
 
 bool is_hex8(const std::string& text, uint32_t* value)
 {
-    if (text.size() != 10 || text[0] != '0' || (text[1] != 'x' && text[1] != 'X'))
+    if (text.size() != 10 || core::at(text, 0) != '0' || (core::at(text, 1) != 'x' && core::at(text, 1) != 'X'))
         return false;
     char* end = nullptr;
     const unsigned long v = std::strtoul(text.c_str() + 2, &end, 16);
@@ -409,15 +410,15 @@ std::string link_record(const Spec& s, const char* material_name)
             : std::string(material.data());
     out << s.name << (s.lower ? " lower" : " raise") << " rect=" << get_number(s.x0) << ',' << get_number(s.z0) << ','
         << get_number(s.x1) << ',' << get_number(s.z1) << " base=" << get_number(s.base)
-        << " height=" << get_number(s.height) << " ramps=" << ramp_letter(s.ramps[0]) << ',' << ramp_letter(s.ramps[1])
-        << ',' << ramp_letter(s.ramps[2]) << ',' << ramp_letter(s.ramps[3]) << " length=" << get_number(s.length)
+        << " height=" << get_number(s.height) << " ramps=" << ramp_letter(core::at(s.ramps, 0)) << ',' << ramp_letter(core::at(s.ramps, 1))
+        << ',' << ramp_letter(core::at(s.ramps, 2)) << ',' << ramp_letter(core::at(s.ramps, 3)) << " length=" << get_number(s.length)
         << " material=" << material_text << " uv=" << get_number(s.uv) << " color=" << colour.data()
         << " terrain=" << s.terrain;
     if (!s.hides.empty()) {
         out << " hides=";
         for (size_t i = 0; i < s.hides.size(); ++i) {
             std::array<char, 16> hex{};
-            std::snprintf(hex.data(), sizeof(hex), "0x%08X", s.hides[i]);
+            std::snprintf(hex.data(), sizeof(hex), "0x%08X", core::at(s.hides, i));
             out << (i ? "," : "") << hex.data();
         }
     }
@@ -454,8 +455,8 @@ bool read_record(const std::string& text, Spec* out)
         bool ok = true;
         if (key == "rect") {
             std::vector<std::string> parts = split_commas(value);
-            ok = once(&have_rect) && parts.size() == 4 && read_float(parts[0], &s.x0) && read_float(parts[1], &s.z0) &&
-                 read_float(parts[2], &s.x1) && read_float(parts[3], &s.z1);
+            ok = once(&have_rect) && parts.size() == 4 && read_float(core::at(parts, 0), &s.x0) && read_float(core::at(parts, 1), &s.z0) &&
+                 read_float(core::at(parts, 2), &s.x1) && read_float(core::at(parts, 3), &s.z1);
         } else if (key == "base") {
             ok = once(&have_base) && read_float(value, &s.base);
         } else if (key == "height") {
@@ -464,13 +465,13 @@ bool read_record(const std::string& text, Spec* out)
             std::vector<std::string> parts = split_commas(value);
             ok = once(&have_ramps) && parts.size() == 4;
             for (size_t i = 0; ok && i < 4; ++i) {
-                const std::string& p = parts[i];
+                const std::string& p = core::at(parts, i);
                 if (p == "-")
-                    s.ramps[i] = Ramp::kNone;
+                    core::at(s.ramps, i) = Ramp::kNone;
                 else if (p == "k")
-                    s.ramps[i] = Ramp::kKicker;
+                    core::at(s.ramps, i) = Ramp::kKicker;
                 else if (p == "q")
-                    s.ramps[i] = Ramp::kQuarter;
+                    core::at(s.ramps, i) = Ramp::kQuarter;
                 else
                     ok = false;
             }

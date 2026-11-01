@@ -8,6 +8,7 @@
 #include "editor/level_editor.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 class PcGeom;
@@ -98,7 +99,7 @@ public:
     [[nodiscard]] const render::TriMeshSource& get_geometry() const { return geometry_; }
     [[nodiscard]] int face_count() const { return geometry_.tri_count_; }
     [[nodiscard]] int get_vertex_count() const { return geometry_.num_vertices_; }
-    [[nodiscard]] V3 base_vertex(int i) const { return base_[i]; }
+    [[nodiscard]] V3 base_vertex(int i) const { return core::at(base_, i); }
     [[nodiscard]] V3 get_vertex(int i) const;
 
 private:

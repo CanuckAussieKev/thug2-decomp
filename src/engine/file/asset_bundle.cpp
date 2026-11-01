@@ -10,6 +10,7 @@
 #include "formats/bundle_format.h"
 #include "engine/file/packs.h"
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 namespace file {
 
@@ -65,16 +66,16 @@ bool AssetBundle::get_split(int /*unused*/, int size)
         return false;
     num_ = count;
     for (int i = 0; i < num_; ++i)
-        entries_[i] = {table[i].offset, table[i].size, table[i].name, table[i].type};
+        core::at(entries_, i) = {core::at(table, i).offset, core::at(table, i).size, core::at(table, i).name, core::at(table, i).type};
 
     for (int i = 0; i < num_; ++i)
-        assets_[i] = loaded_data_ + entries_[i].offset;
+        core::at(assets_, i) = loaded_data_ + core::at(entries_, i).offset;
     for (int i = num_ - 1; i >= 0; --i) {
-        const uint32_t asset_size = entries_[i].size;
-        const void* source = assets_[i];
+        const uint32_t asset_size = core::at(entries_, i).size;
+        const void* source = core::at(assets_, i);
         memory::enter_heap_scope(asset_heap_);
-        assets_[i] = memory::alloc_block(asset_size);
-        std::memcpy(assets_[i], source, asset_size);
+        core::at(assets_, i) = memory::alloc_block(asset_size);
+        std::memcpy(core::at(assets_, i), source, asset_size);
         memory::leave_heap_scope();
 
         // The asset has its own copy: give the end of the file's block back.
@@ -93,17 +94,17 @@ bool AssetBundle::get_split(int /*unused*/, int size)
 bool AssetBundle::is_loaded() { return ready_flag_; }
 
 // 0x005B6D60
-void* AssetBundle::obtain_loaded_item(int index) { return assets_[index]; }
+void* AssetBundle::obtain_loaded_item(int index) { return core::at(assets_, index); }
 
 // 0x005B6D70
-AssetBundle::TableRow* AssetBundle::get_entry(int index) { return &entries_[index]; }
+AssetBundle::TableRow* AssetBundle::get_entry(int index) { return &core::at(entries_, index); }
 
 // 0x005B6D80
 AssetBundle::TableRow* AssetBundle::find_entry(uint32_t name, uint32_t type, int /*unused*/)
 {
     for (int i = 0; i < num_; ++i) {
-        if (entries_[i].name == name && entries_[i].type == type)
-            return &entries_[i];
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type)
+            return &core::at(entries_, i);
     }
     return nullptr;
 }
@@ -112,8 +113,8 @@ AssetBundle::TableRow* AssetBundle::find_entry(uint32_t name, uint32_t type, int
 void* AssetBundle::find_asset(uint32_t name, uint32_t type, int /*unused*/)
 {
     for (int i = 0; i < num_; ++i) {
-        if (entries_[i].name == name && entries_[i].type == type)
-            return assets_[i];
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type)
+            return core::at(assets_, i);
     }
     return nullptr;
 }
@@ -122,7 +123,7 @@ void* AssetBundle::find_asset(uint32_t name, uint32_t type, int /*unused*/)
 bool AssetBundle::has_asset(uint32_t name, uint32_t type)
 {
     for (int i = 0; i < num_; ++i) {
-        if (entries_[i].name == name && entries_[i].type == type)
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type)
             return true;
     }
     return false;
@@ -133,9 +134,9 @@ bool AssetBundle::free_asset(uint32_t name, uint32_t type)
 {
     bool found = false;
     for (int i = 0; i < num_; ++i) {
-        if (entries_[i].name == name && entries_[i].type == type) {
-            memory::free_malloc(assets_[i]);
-            assets_[i] = nullptr;
+        if (core::at(entries_, i).name == name && core::at(entries_, i).type == type) {
+            memory::free_malloc(core::at(assets_, i));
+            core::at(assets_, i) = nullptr;
             found = true;
         }
     }

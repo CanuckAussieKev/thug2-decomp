@@ -18,6 +18,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -221,7 +222,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                 stored->num_ = static_cast<uint16_t>(count);
                 stored->ordinal_ = 0;
                 for (uint16_t i = 0; i < stored->num_; ++i)
-                    stored->order_[i] = static_cast<uint8_t>(i);
+                    core::at(stored->order_, i) = static_cast<uint8_t>(i);
                 stored->shuffle(false);
             }
             stored->owner_ = cell::of(get_running_script());
@@ -229,7 +230,7 @@ const uint8_t* resolve_random_jumps(const uint8_t* token)
                 stored->shuffle(true);
                 stored->ordinal_ = 0;
             }
-            const uint8_t* offset = table + 4 * stored->order_[stored->ordinal_];
+            const uint8_t* offset = table + 4 * core::at(stored->order_, stored->ordinal_);
             token = offset + fetch_word32(offset) + 4;
             break;
         }

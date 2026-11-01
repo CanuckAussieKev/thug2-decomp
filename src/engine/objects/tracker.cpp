@@ -27,6 +27,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -184,7 +185,7 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
         names_ptr_ = new_hash_table(8);
         script::Array* names = script::fetch_list(kEventNames);
         for (int i = 0; i < ints::as_signed(names->extent_); ++i) {
-            char* name = names_[i].data();
+            char* name = core::at(names_, i).data();
             const char* string = names->find_inline_text(i);
             std::memcpy(name, string, std::strlen(string) + 1);
             const uint32_t checksum = checksums::hash_from_text(names->find_inline_text(i));
@@ -195,14 +196,14 @@ void SignalTrace::add_row(uint32_t type, uint32_t target, uint32_t source, uint3
     if (last < 0)
         last = kLogSize - 1;
     if (kind == kFrame) {
-        if (entries_[last].kind == kFrame) {
-            ++entries_[last].type;
+        if (core::at(entries_, last).kind == kFrame) {
+            ++core::at(entries_, last).type;
             return;
         }
     } else if (kind == kHandled) {
         --layer_;
     }
-    TableRow& entry = entries_[ordinal_];
+    TableRow& entry = core::at(entries_, ordinal_);
     entry.kind = kind;
     entry.type = kind == kFrame ? 0 : type;
     entry.target = target;
@@ -444,7 +445,7 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
 {
     int slot = -1;
     for (int i = 0; i < kWaiters; ++i) {
-        if (waiters_[i].type == 0) {
+        if (core::at(waiters_, i).type == 0) {
             slot = i;
             break;
         }
@@ -452,7 +453,7 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
     if (slot < 0) {
         // A slot whose script has gone.
         for (int i = 0; i < kWaiters; ++i) {
-            if (!script::find_script_with_unique_id(waiters_[i].script_id_)) {
+            if (!script::find_script_with_unique_id(core::at(waiters_, i).script_id_)) {
                 slot = i;
                 break;
             }
@@ -460,7 +461,7 @@ void EventWaitBoard::wait_for_event(script::Script* script, uint32_t type)
         if (slot < 0)
             return;
     }
-    Waiter& waiter = waiters_[slot];
+    Waiter& waiter = core::at(waiters_, slot);
     waiter.script_id_ = script->unique_id_;
     waiter.object_id_ = script->entity_ ? current_object_id(script->entity_.get_pull()) : 0;
     waiter.type = type;

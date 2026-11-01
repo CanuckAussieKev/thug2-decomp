@@ -11,6 +11,7 @@
 #include <array>
 
 #include "engine/sys/game_config.h"
+#include "engine/core/checked_index.h"
 
 namespace frame_clock {
 
@@ -136,7 +137,7 @@ void once_every_draw()
     ++render_frame();
     previous_frame_vblank() = last_frame_vblank();
     last_frame_vblank() = get_vblanks();
-    get_history()[history_index()] =
+    core::at(get_history(), history_index()) =
         static_cast<int>(static_cast<uint32_t>(get_vblanks()) - static_cast<uint32_t>(previous_frame_vblank()));
     if (++history_index() == 4)
         history_index() = 0;
@@ -146,8 +147,8 @@ void once_every_draw()
 void update_frame_length()
 {
     const std::array<int, 4>& h = get_history();
-    const int clamped = get_clamped(h[0]) + get_clamped(h[1]) + get_clamped(h[2]) + get_clamped(h[3]);
-    const int raw = static_cast<int>(static_cast<uint32_t>(h[0]) + h[1] + h[2] + h[3]); // (wraps, as the original)
+    const int clamped = get_clamped(core::at(h, 0)) + get_clamped(core::at(h, 1)) + get_clamped(core::at(h, 2)) + get_clamped(core::at(h, 3));
+    const int raw = static_cast<int>(static_cast<uint32_t>(core::at(h, 0)) + core::at(h, 1) + core::at(h, 2) + core::at(h, 3)); // (wraps, as the original)
     get_slomo() = next_slomo();
     get_frame_length() = static_cast<float>(clamped) * 0.25f;
     if (clamped * 0.25 < 1.0)

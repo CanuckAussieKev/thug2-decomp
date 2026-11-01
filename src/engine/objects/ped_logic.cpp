@@ -31,6 +31,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -129,7 +130,7 @@ script::Struct* new_params()
 GroundTriangle& GroundTriangle::get_assign(const GroundTriangle& source)
 {
     for (int i = 0; i < 3; ++i)
-        corners[i] = source.corners[i];
+        core::at(corners, i) = core::at(source.corners, i);
     return *this;
 }
 
@@ -199,7 +200,7 @@ void PedestrianBrainModule::configure_from_data(script::Struct* params)
     params->read_hash_value(kName, &list_link_, 1);
     level_nodes::fetch_place(list_link_, &node_pos_);
     up_blend_ = 0.0f;
-    up_target_ = entity_->basis_frame_.row[1];
+    up_target_ = core::at(entity_->basis_frame_.row, 1);
     up_dir_ = up_target_;
     up_shown_ = up_dir_;
     params->fetch_float(kDistAbove, &stick_above_, 0);
@@ -229,8 +230,8 @@ void PedestrianBrainModule::no_move_update()
 void PedestrianBrainModule::push_position()
 {
     for (int i = 0; i < 4; ++i)
-        past_frames_[i] = past_frames_[i + 1];
-    past_frames_[4] = entity_->at_point_;
+        core::at(past_frames_, i) = core::at(past_frames_, i + 1);
+    core::at(past_frames_, 4) = entity_->at_point_;
 }
 
 // 0x004EDC60

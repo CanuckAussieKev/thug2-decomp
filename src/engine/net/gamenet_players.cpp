@@ -51,6 +51,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -360,8 +361,8 @@ void Hub::evict_player(PlayerRecord* player, int reason)
         player->conn_->mark_stale();
         player->conn_->drop_queued_traffic();
     }
-    const uint32_t text = reason >= 0 && reason < ints::as_signed(sizeof(kDropTexts) / sizeof(kDropTexts[0]))
-                              ? kDropTexts[reason]
+    const uint32_t text = reason >= 0 && reason < ints::as_signed(sizeof(kDropTexts) / sizeof(core::at(kDropTexts, 0)))
+                              ? core::at(kDropTexts, reason)
                               : kNetMessagePlayerTimedOut;
     if (!is_own_player(player))
         build_net_notice(true, text, name.data(), nullptr, nullptr, nullptr, false, kPanelTime);
@@ -544,7 +545,7 @@ void Hub::enter_observe_mode()
     static_cast<modules::Skate*>(skate)->drop_skater_from_roster(core::down_cast<objects::Rider>(player_skater(local)));
     local->skater_ = nullptr;
     memory::Hub* memory = memory::Hub::get_pull();
-    memory->enter_heap_scope(memory->skater_heaps_[0]);
+    memory->enter_heap_scope(core::at(memory->skater_heaps_, 0));
     spectate_player(next_cam_player()); // the first player to watch
     add_observer_controls(this, local, tasks, input, -1);
     spectate_request_ = 0;

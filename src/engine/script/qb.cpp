@@ -25,6 +25,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -67,7 +68,7 @@ void create_pool(memory::PoolPair& pools, int item_size, int count, const char* 
         memory::ensure_manager();
     void* memory = memory::Hub::get_pull()->carve(sizeof(memory::SlabBank), 1, nullptr);
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
-    pools.pools[pools.current] = pool;
+    core::at(pools.pools, pools.current) = pool;
     raw::bytes(&pools.unknown4)[pools.current] = 1;
 }
 
@@ -368,19 +369,19 @@ void forget_stored_randoms_of(uint32_t owner)
 // 0x0046F8A0
 void StoredRandom::shuffle(bool avoid_repeat)
 {
-    const uint8_t last = order_[num_ - 1];
+    const uint8_t last = core::at(order_, num_ - 1);
     for (int swaps = num_ * 10; swaps; --swaps) {
         const int a = maths::rnd(num_);
         const int b = maths::rnd(num_);
-        const uint8_t swapped = order_[a];
-        order_[a] = order_[b];
-        order_[b] = swapped;
+        const uint8_t swapped = core::at(order_, a);
+        core::at(order_, a) = core::at(order_, b);
+        core::at(order_, b) = swapped;
     }
-    if (avoid_repeat && order_[0] == last) {
+    if (avoid_repeat && core::at(order_, 0) == last) {
         const int other = maths::rnd(num_ - 1) + 1;
-        const uint8_t swapped = order_[0];
-        order_[0] = order_[other];
-        order_[other] = swapped;
+        const uint8_t swapped = core::at(order_, 0);
+        core::at(order_, 0) = core::at(order_, other);
+        core::at(order_, other) = swapped;
     }
 }
 

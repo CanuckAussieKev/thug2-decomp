@@ -16,6 +16,7 @@
 #include "game/skate/career.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -32,7 +33,7 @@ float g_angle_factor{1.0f};
 namespace {
 
 // Whether the device can do the blur (its render-target textures were made).
-auto& blur_available() { return memory::bits_as<uint32_t>(g_screen_surfaces[0]); }
+auto& blur_available() { return memory::bits_as<uint32_t>(core::at(g_screen_surfaces, 0)); }
 auto& screen_blur() { return g_screen_blur; }
 // The last amount the script asked for (kept even when the blur is off).
 auto& script_screen_blur() { return g_script_screen_blur; }

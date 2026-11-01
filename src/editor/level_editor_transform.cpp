@@ -9,6 +9,7 @@
 #include <array>
 
 #include "editor/level_editor_prefs.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::xform {
 
@@ -116,7 +117,7 @@ void unit_axes(const V3 rows[3], V3 out[3])
 {
     static const std::array<V3, 3> kWorld = {{{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}}};
     for (int i = 0; i < 3; ++i)
-        out[i] = get_dot(rows[i], rows[i]) > 1e-12f ? make_unit(rows[i]) : kWorld[i];
+        out[i] = get_dot(rows[i], rows[i]) > 1e-12f ? make_unit(rows[i]) : core::at(kWorld, i);
 }
 
 float turn_around_axis(V3 pivot, V3 point) { return std::atan2(point.x - pivot.x, point.z - pivot.z); }
@@ -177,7 +178,7 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
     switch (gizmo.mode) {
     case Mode::kShiftBy:
         for (int axis = 0; axis < 3; ++axis)
-            out.push_back({p, p + gizmo.axes[axis] * length, axis, true});
+            out.push_back({p, p + core::at(gizmo.axes, axis) * length, axis, true});
         break;
     case Mode::kSpinBy: {
         if (!gizmo.rotates)
@@ -185,8 +186,8 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         // (the heading ring, and a spoke towards the local z: which way it faces)
         std::vector<V3> ring = get_ring(p, length * 0.8f, 48);
         for (size_t i = 0; i < ring.size(); ++i)
-            out.push_back({ring[i], ring[(i + 1) % ring.size()], 1, false});
-        const V3 forward = {gizmo.axes[2].x, 0.0f, gizmo.axes[2].z};
+            out.push_back({core::at(ring, i), core::at(ring, (i + 1) % ring.size()), 1, false});
+        const V3 forward = {core::at(gizmo.axes, 2).x, 0.0f, core::at(gizmo.axes, 2).z};
         if (get_dot(forward, forward) > 1e-6f)
             out.push_back({p, p + make_unit(forward) * (length * 0.8f), 1, false});
         break;
@@ -196,16 +197,16 @@ std::vector<Segment> gizmo_segments(const Gizmo& gizmo)
         auto add_cube = [&](V3 c, int handle) {
             std::array<V3, 8> corners{};
             for (int i = 0; i < 8; ++i)
-                corners[i] = c + V3{(i & 1) ? cube : -cube, (i & 2) ? cube : -cube, (i & 4) ? cube : -cube};
+                core::at(corners, i) = c + V3{(i & 1) ? cube : -cube, (i & 2) ? cube : -cube, (i & 4) ? cube : -cube};
             for (int i = 0; i < 8; ++i) {
                 for (int bit = 1; bit < 8; bit <<= 1) {
                     if (!(i & bit))
-                        out.push_back({corners[i], corners[i | bit], handle, false});
+                        out.push_back({core::at(corners, i), core::at(corners, i | bit), handle, false});
                 }
             }
         };
         for (int axis = 0; axis < 3; ++axis) {
-            const V3 end = p + gizmo.axes[axis] * length;
+            const V3 end = p + core::at(gizmo.axes, axis) * length;
             out.push_back({p, end, axis, false});
             add_cube(end, axis);
         }
@@ -275,7 +276,7 @@ bool type_key(Typed* typed, char c)
         return true;
     }
     if (c == '-') {
-        if (!typed->text.empty() && typed->text[0] == '-')
+        if (!typed->text.empty() && core::at(typed->text, 0) == '-')
             typed->text.erase(0, 1);
         else
             typed->text.insert(typed->text.begin(), '-');
@@ -314,13 +315,13 @@ std::string describe(Mode mode, const Typed& typed, int default_axis)
     std::string text;
     switch (mode) {
     case Mode::kShiftBy:
-        text = std::string("Move along ") + kAxisNames[axis >= 0 && axis < 3 ? axis : 0];
+        text = std::string("Move along ") + core::at(kAxisNames, axis >= 0 && axis < 3 ? axis : 0);
         break;
     case Mode::kSpinBy:
         text = "Turn (degrees of heading)";
         break;
     case Mode::kScale:
-        text = axis >= 0 && axis < 3 ? std::string("Scale along ") + kAxisNames[axis] : std::string("Scale (all axes)");
+        text = axis >= 0 && axis < 3 ? std::string("Scale along ") + core::at(kAxisNames, axis) : std::string("Scale (all axes)");
         break;
     }
     text += ": ";

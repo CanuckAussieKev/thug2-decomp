@@ -57,6 +57,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -203,7 +204,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
         distance = 1000.0f;
     maths::Mat4& m = camera->basis_frame_;
     for (int row = 0; row < 4; ++row) {
-        float* r = &m.row[row].x;
+        float* r = &core::at(m.row, row).x;
         for (int column = 0; column < 4; ++column)
             r[column] = row == column ? 1.0f : 0.0f;
     }
@@ -217,7 +218,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
     turn(&maths::make_yaw_matrix, angle_y);
     turn(&maths::make_roll_matrix, angle_z);
     const double back = static_cast<double>(distance) * scale * scale;
-    const float* at = &m.row[2].x;
+    const float* at = &core::at(m.row, 2).x;
     auto bx = static_cast<float>(back * at[0]);
     auto by = static_cast<float>(back * at[1]);
     auto bz = static_cast<float>(back * at[2]);

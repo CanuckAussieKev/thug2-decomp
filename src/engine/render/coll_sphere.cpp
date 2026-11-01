@@ -16,6 +16,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -231,7 +232,7 @@ bool swept_sphere_hits_corner(const maths::Vec4* corner, const CollSphere* spher
     std::array<maths::Vec4, 2> touched{};
     if (!swept_sphere_hits_edge(&line, edge_motion, sphere, motion, t, limit, count, touched.data()))
         return false;
-    *point = touched[0];
+    *point = core::at(touched, 0);
     return true;
 }
 
@@ -293,7 +294,7 @@ bool swept_sphere_hits_triangle(const CollSphere* sphere, const maths::Vec4* v0,
         std::array<maths::Vec4, 2> hit{};
         if (!swept_sphere_hits_edge(&line, &zero, sphere, motion, t, limit, &touched, hit.data()))
             return false;
-        *point = hit[0];
+        *point = core::at(hit, 0);
         return true;
     };
     auto corner = [&](const maths::Vec4* at, maths::Vec4* cross, maths::Vec4* e) {
@@ -457,7 +458,7 @@ bool HitMesh::collide_faces_with_sphere(const CollSphere* sphere, const maths::B
             continue;
         if (hits->count == SphereHits::kMost)
             return true;
-        SphereHit& entry = hits->hits[hits->count];
+        SphereHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.face_flag40_ = static_cast<uint8_t>(flags & 0x40);
         entry.checksum = checksum_;
@@ -503,7 +504,7 @@ bool collide_sphere_with_statics(const CollSphere* sphere, SphereHits* hits, Hit
     hits->count = 0;
     if (use_cache) {
         for (int i = 0; i < cache->statics_; ++i) {
-            const HitMeshCache::TableRow& entry = cache->entries_[i];
+            const HitMeshCache::TableRow& entry = core::at(cache->entries_, i);
             if (grown.intersects(*entry.bounds))
                 collide_with_sphere(entry.object, sphere, &grown, hits);
         }

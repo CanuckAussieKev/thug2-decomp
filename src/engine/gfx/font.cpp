@@ -18,6 +18,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/sys/startup_init.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -139,7 +140,7 @@ bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
             uint32_t packed = 0;
             for (int j = 0; j < ints::as_signed(color->extent_); ++j)
                 packed |= (color->fetch_part(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)
-            colors[i] = packed;
+            core::at(colors, i) = packed;
         }
     }
 

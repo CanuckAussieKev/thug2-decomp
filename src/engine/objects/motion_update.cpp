@@ -21,6 +21,7 @@
 #include "platform/stopwatch.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -186,22 +187,22 @@ void KinematicsModule::update_path()
     update_path_speed(this);
     if (!(path_speed_ == 0.0f)) {
         maths::Mat4& matrix = entity_->basis_frame_;
-        const maths::Vec4* along = (motion_flags2_ & kMotion2NoPathHeading) ? nullptr : &matrix.row[2];
+        const maths::Vec4* along = (motion_flags2_ & kMotion2NoPathHeading) ? nullptr : &core::at(matrix.row, 2);
         if (path_follower_->tick_frame(static_cast<float>(static_cast<double>(step_seconds_) * path_speed_), along)) {
             motion_flags_ &= ~kMotionFollowingPath;
             path_speed_ = 0.0f;
         }
         if (!(motion_flags2_ & kMotion2NoPathHeading)) {
-            path_follower_->get_heading(&matrix.row[2]);
-            if ((motion_flags2_ & kMotion2LevelHeading) && !(matrix.row[2].y == 0.0f)) {
-                matrix.row[2].y = 0.0f;
-                matrix.row[2].make_unit();
+            path_follower_->get_heading(&core::at(matrix.row, 2));
+            if ((motion_flags2_ & kMotion2LevelHeading) && !(core::at(matrix.row, 2).y == 0.0f)) {
+                core::at(matrix.row, 2).y = 0.0f;
+                core::at(matrix.row, 2).make_unit();
             }
             if (!(motion_flags2_ & kMotion2StickToGround)) {
-                matrix.row[0] = maths::cross_vec(matrix.row[1], matrix.row[2]);
-                matrix.row[0].make_unit();
-                matrix.row[2] = maths::cross_vec(matrix.row[0], matrix.row[1]);
-                matrix.row[2].make_unit();
+                core::at(matrix.row, 0) = maths::cross_vec(core::at(matrix.row, 1), core::at(matrix.row, 2));
+                core::at(matrix.row, 0).make_unit();
+                core::at(matrix.row, 2) = maths::cross_vec(core::at(matrix.row, 0), core::at(matrix.row, 1));
+                core::at(matrix.row, 2).make_unit();
             }
         }
         const float height = entity_->at_point_.y;
@@ -286,8 +287,8 @@ GameEntity* KinematicsModule::get_next_obj_on_path(float range)
         auto* other = core::down_cast<GameEntity>(slot->owner_object_);
         if (!other || other == entity_)
             continue;
-        const maths::Vec4& at = entity_->basis_frame_.row[2];
-        const maths::Vec4& other_at = other->basis_frame_.row[2];
+        const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
+        const maths::Vec4& other_at = core::at(other->basis_frame_.row, 2);
         // (facing the same way, and ahead)
         const double facing = (static_cast<double>(at.z) * other_at.z + static_cast<double>(at.y) * other_at.y) +
                               static_cast<double>(at.x) * other_at.x;

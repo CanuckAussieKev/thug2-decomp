@@ -30,6 +30,7 @@
 #include "platform/crt.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -55,7 +56,7 @@ struct ScaledVertex {
 };
 static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
-bool skin_scaling_on() { return g_skin_scaling_on && memory::bits_as<float*>(g_skin_settings[3]); }
+bool skin_scaling_on() { return g_skin_scaling_on && memory::bits_as<float*>(core::at(g_skin_settings, 3)); }
 
 // A bone's scale (four floats: x, then z, then y as the loaders apply them, and w); 1 without a bone.
 void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
@@ -64,7 +65,7 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
         e0 = e4 = e8 = e12 = 1.0f;
         return;
     }
-    const float* scale = memory::bits_as<float*>(g_skin_settings[3]) + 4 * bone;
+    const float* scale = memory::bits_as<float*>(core::at(g_skin_settings, 3)) + 4 * bone;
     e0 = scale[0];
     e4 = scale[1];
     e8 = scale[2];
@@ -78,9 +79,9 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
 void scaled_position(const ScaledVertex& v, float* out)
 {
     float e0[4], e1[4], e2[4];
-    bone_scale_terms(v.bones[0], e0[0], e0[1], e0[2], e0[3]);
-    bone_scale_terms(v.bones[1], e1[0], e1[1], e1[2], e1[3]);
-    bone_scale_terms(v.bones[2], e2[0], e2[1], e2[2], e2[3]);
+    bone_scale_terms(core::at(v.bones, 0), e0[0], e0[1], e0[2], e0[3]);
+    bone_scale_terms(core::at(v.bones, 1), e1[0], e1[1], e1[2], e1[3]);
+    bone_scale_terms(core::at(v.bones, 2), e2[0], e2[1], e2[2], e2[3]);
     const float ax = v.p[0] + e0[0] * v.a[0], ay = v.p[1] + e0[2] * v.a[1], az = v.p[2] + e0[1] * v.a[2];
     const float bx = v.q[0] + e1[0] * v.b[0], by = v.q[1] + e1[2] * v.b[1], bz = v.q[2] + e1[1] * v.b[2];
     const float cx = v.r[0] + e2[0] * v.c[0], cy = v.r[1] + e2[2] * v.c[1], cz = v.r[2] + e2[1] * v.c[2];
@@ -96,7 +97,7 @@ uint32_t vertex_format(uint32_t type)
     if (type > 6)
         return type;
     // (type t is the table's word 6 - t)
-    return type ? g_vertex_shaders[6 - type] : 0;
+    return type ? core::at(g_vertex_shaders, 6 - type) : 0;
 }
 
 // The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file
@@ -122,21 +123,21 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     // per-vertex bytes and levels past the end, more than 3 vertex buffers (the original's arrays), or scaled
     // positions past their buffer end the load (the original read and wrote past them).
     scene_format::MeshBody body;
-    if (!scene_format::read_mesh_body(in, &body) || (body.vertex_types[0] && !scene_format::offsets_fit(body))) {
+    if (!scene_format::read_mesh_body(in, &body) || (core::at(body.vertex_types, 0) && !scene_format::offsets_fit(body))) {
         // (a vertex's offsets past its stride: the colour animations wrote past the buffer, grass / splats read past)
         debug::printf("scene mesh damaged: cut short or doesn't fit\n");
         in.fail();
         return false;
     }
     for (int i = 0; i < scene_format::kIndexBuffers; ++i) {
-        mesh->index_counts_[i] = body.index_counts[i];
-        const uint16_t count = body.index_counts[i];
+        core::at(mesh->index_counts_, i) = core::at(body.index_counts, i);
+        const uint16_t count = core::at(body.index_counts, i);
         if (!count)
             continue;
         void* memory = alloc_block(sizeof(IdxStore));
         IdxStore* ib = memory ? memory::construct_in<IdxStore>(memory, count * 2u, 0, D3DFMT_INDEX16) : nullptr;
-        mesh->index_buffers_[i] = ib;
-        std::memcpy(ib->indices, body.indices[i].data(), count * 2u);
+        core::at(mesh->index_buffers_, i) = ib;
+        std::memcpy(ib->indices, core::at(body.indices, i).data(), count * 2u);
         ib->get_unlock();
     }
     mesh->stride = body.stride;
@@ -144,11 +145,11 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     mesh->vertex_buffer_count_ = body.vertex_buffer_count;
     if (!body.scaled.empty())
         apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
-    mesh->fvf = vertex_format(body.vertex_types[0]);
-    *raw::as<uint32_t>(mesh->unknown3c_.data()) = vertex_format(body.vertex_types[1]);
-    mesh->unknown1c_[1] = body.offsets[0];
-    mesh->unknown1c_[0] = body.offsets[1];
-    mesh->unknown1c_[2] = body.offsets[2];
+    mesh->fvf = vertex_format(core::at(body.vertex_types, 0));
+    *raw::as<uint32_t>(mesh->unknown3c_.data()) = vertex_format(core::at(body.vertex_types, 1));
+    core::at(mesh->unknown1c_, 1) = core::at(body.offsets, 0);
+    core::at(mesh->unknown1c_, 0) = core::at(body.offsets, 1);
+    core::at(mesh->unknown1c_, 2) = core::at(body.offsets, 2);
     mesh->buffer_usage_ = 0;
     mesh->buffer_flags_ = 0;
     if (body.has_vertex_bytes) {
@@ -166,7 +167,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     }
     auto* material = static_cast<MaterialRef*>(scene->find_material(material_checksum));
     mesh->material = material;
-    if (material && (material->pass_flags_[0] & 0x10))
+    if (material && (core::at(material->pass_flags_, 0) & 0x10))
         mesh->flags |= 0x100;
     mesh->vertex_buffer_count_ = 1;
     // Not original - the vertices the mesh draws (or, without a vertex format, unpacks) within its buffer: a count
@@ -211,7 +212,7 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
     auto* out = static_cast<uint8_t*>(alloc_block(vertex_count_ * 0x4Cu));
     per_vertex_data_ = out;
     uint32_t bones = 1;
-    const bool suspect = vertex_count_ == 0x280 && index_counts_[0] == 0x6A3; // (a debugging check the original kept)
+    const bool suspect = vertex_count_ == 0x280 && core::at(index_counts_, 0) == 0x6A3; // (a debugging check the original kept)
     auto unpack11 = [](uint32_t bits) {
         return static_cast<int>(bits & 0x400 ? (bits & 0x7FF) - 0x800 : bits & 0x7FF);
     };
@@ -244,10 +245,10 @@ void MeshRef::set_up_skinning(const uint8_t* packed, uint32_t /*bytes*/, VertexA
     }
     unknowna4_ = sets;
     unknowna8_ = bones;
-    fvf = g_fvf_by_set_count[sets] | 0x52;
+    fvf = core::at(g_fvf_by_set_count, sets) | 0x52;
     stride = static_cast<uint8_t>(sets * 8 + 0x1C);
     buffer_flags_ |= 1;
-    vertex_buffers_[0] = new_vertex_buffer(stride * vertex_count_, buffer_usage_, buffer_flags_);
+    core::at(vertex_buffers_, 0) = new_vertex_buffer(stride * vertex_count_, buffer_usage_, buffer_flags_);
     if (arena)
         arena->size += (stride * vertex_count_ + 0x1Fu) & ~0x1Fu;
 }
@@ -269,9 +270,9 @@ bool MeshRef::ingest_from_file(scene_format::FileStream& in, uint32_t material_c
 // 0x004D6530
 void MeshRef::build_collision()
 {
-    if (position_count_ || !index_counts_[0])
+    if (position_count_ || !core::at(index_counts_, 0))
         return;
-    VertexBuffer* vb = vertex_buffers_[0];
+    VertexBuffer* vb = core::at(vertex_buffers_, 0);
     const uint8_t* vertex = vb->data; // (locked read-only, inline)
     vb->lock_offset_ = 0;
     vb->lock_size_ = vb->size;
@@ -282,12 +283,12 @@ void MeshRef::build_collision()
         std::memcpy(positions + 3 * i, vertex, 12);
         vertex += stride;
     }
-    vertex_buffers_[0]->get_unlock();
-    const uint16_t* strip = index_buffers_[0]->indices;
-    auto* found = static_cast<uint16_t*>(memory::alloc((index_counts_[0] - 2u) * 6));
+    core::at(vertex_buffers_, 0)->get_unlock();
+    const uint16_t* strip = core::at(index_buffers_, 0)->indices;
+    auto* found = static_cast<uint16_t*>(memory::alloc((core::at(index_counts_, 0) - 2u) * 6));
     uint32_t count = 0;
     uint16_t* out = found;
-    for (uint32_t k = 0; k < index_counts_[0] - 2u; ++k, ++strip) {
+    for (uint32_t k = 0; k < core::at(index_counts_, 0) - 2u; ++k, ++strip) {
         const uint16_t a = strip[0];
         const uint16_t b = strip[1];
         const uint16_t c = strip[2];
@@ -304,7 +305,7 @@ void MeshRef::build_collision()
         out += 3;
         ++count;
     }
-    index_buffers_[0]->get_unlock();
+    core::at(index_buffers_, 0)->get_unlock();
     if (count) {
         triangles = static_cast<uint16_t*>(alloc_block(count * 6u));
         std::memcpy(triangles, found, count * 6u);

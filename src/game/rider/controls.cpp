@@ -20,6 +20,7 @@
 #include "game/rider/physics_control.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -104,7 +105,7 @@ bool try_acid_drop(objects::FootMovement* walk)
         return false;
     std::array<float, 4> velocity = {{walk->vel_.x, walk->vel_.y, walk->vel_.z, walk->vel_.w}};
     // (a physics value, 0xC0491D2E, as the second component)
-    velocity[1] = objects::FootMovement::get_param(0xC0491D2E);
+    core::at(velocity, 1) = objects::FootMovement::get_param(0xC0491D2E);
     if (!find_acid_drop(walk, velocity.data()))
         return false;
     if (walk->feeler_hit_) {

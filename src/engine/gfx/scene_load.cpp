@@ -28,6 +28,7 @@
 #include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -152,7 +153,7 @@ uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
 HierarchyNode::HierarchyNode()
 {
     for (int i = 0; i < 16; ++i)
-        matrix[i] = (i % 5 == 0) ? 1.0f : 0.0f;
+        core::at(matrix, i) = (i % 5 == 0) ? 1.0f : 0.0f;
 }
 
 // 0x004B3490

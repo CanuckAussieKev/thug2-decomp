@@ -24,6 +24,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -36,7 +37,7 @@ std::array<void*, kPixelShaderCount> g_pixel_shaders;
 namespace {
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
-void*& hdl(int slot) { return g_pixel_shaders[slot]; }
+void*& hdl(int slot) { return core::at(g_pixel_shaders, slot); }
 // The cache of generated shaders (a hash table kept in place at 0x007CA9C0), by configuration key.
 lists::KeyMap g_shader_cache{lists::KeyMap::Unconstructed{}}; // (the exe makes it with KeyMap(8) at start-up)
 lists::KeyMap& get_cache() { return g_shader_cache; }
@@ -157,12 +158,12 @@ void* generated_pixel_shader(const void* material)
     std::array<uint32_t, 4> modes{};
     for (uint32_t pass = 0; pass < passes; ++pass) {
         present |= 1u << pass;
-        modes[pass] = get_blend_mode(material, pass);
+        core::at(modes, pass) = get_blend_mode(material, pass);
     }
     // The key: the pass count less one, each pass's mode (5 bits from bit 2), the passes and the flags at the top.
     uint32_t key = passes - 1;
     for (uint32_t pass = 0; pass < passes; ++pass)
-        key |= modes[pass] << (2 + 5 * pass);
+        key |= core::at(modes, pass) << (2 + 5 * pass);
     const uint32_t alpha_flags = pass_alpha_flags(material);
     key |= (present * 8 | alpha_flags) << 22;
     // In the cache? (the first item with the key and a shader)
@@ -195,7 +196,7 @@ void* generated_pixel_shader(const void* material)
     static const std::array<std::array<char, 3>, 5> kRegisters = {{"r0", "t1", "t2", "t3", "r1"}};
     uint32_t reg = 0;
     for (int pass = 1; pass < ints::as_signed(passes); ++pass) {
-        const uint32_t mode = modes[pass];
+        const uint32_t mode = core::at(modes, pass);
         const bool brighten = mode == 0xC || mode == 0xD;
         const uint32_t previous = reg;
         reg = 4;
@@ -216,8 +217,8 @@ void* generated_pixel_shader(const void* material)
         } else {
             reg = pass; // the texture itself
         }
-        const char* r = kRegisters[reg].data();
-        const char* p = kRegisters[previous].data();
+        const char* r = core::at(kRegisters, reg).data();
+        const char* p = core::at(kRegisters, previous).data();
         switch (mode) {
         case 1:
             text.append_one("mad r0.rgb,%s,%s.a,r0\n", r, r);

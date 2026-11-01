@@ -32,6 +32,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -194,10 +195,10 @@ float ModelSpinAxis::bearing()
 void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
 {
     *out = entity_->display_matrix_;
-    out->row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(out->row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     if (flip_) {
-        out->row[2] = {-out->row[2].x, -out->row[2].y, -out->row[2].z, -out->row[2].w};
-        out->row[0] = {-out->row[0].x, -out->row[0].y, -out->row[0].z, -out->row[0].w};
+        core::at(out->row, 2) = {-core::at(out->row, 2).x, -core::at(out->row, 2).y, -core::at(out->row, 2).z, -core::at(out->row, 2).w};
+        core::at(out->row, 0) = {-core::at(out->row, 0).x, -core::at(out->row, 0).y, -core::at(out->row, 0).z, -core::at(out->row, 0).w};
     }
     // The spins: about X, then Y, then Z (each one that isn't 0 multiplied in).
     maths::Mat4 rotation;
@@ -205,16 +206,16 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
     using CreateFn = maths::Mat4& (*)(maths::Mat4&, float);
     static const std::array<CreateFn, 3> kCreate = {{maths::make_pitch_matrix, maths::make_yaw_matrix, maths::make_roll_matrix}};
     for (int axis = 0; axis < 3; ++axis) {
-        if (!twist_rate_[axis].active_)
+        if (!core::at(twist_rate_, axis).active_)
             continue;
-        const float angle = twist_rate_[axis].bearing();
+        const float angle = core::at(twist_rate_, axis).bearing();
         if (angle == 0.0f)
             continue;
         if (none)
             rotation.reset_to_identity();
         none = false;
         maths::Mat4 turn;
-        const CreateFn create = kCreate[axis];
+        const CreateFn create = core::at(kCreate, axis);
         matrix_multiply(&rotation, &rotation, &create(turn, angle * kRadiansPerDegree));
     }
     maths::Vec4 shift = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -228,7 +229,7 @@ void MeshInstanceModule::get_draw_matrix(maths::Mat4* out)
         }
         matrix_multiply(out, &rotation, out);
     }
-    maths::Vec4& pos = out->row[3];
+    maths::Vec4& pos = core::at(out->row, 3);
     pos = entity_->at_point_;
     pos.x = shift.x + pos.x;
     pos.y = shift.y + pos.y;
@@ -268,7 +269,7 @@ void MeshInstanceModule::conceal(bool hide)
 void MeshInstanceModule::set_color_value(int index, float value)
 {
     if (mesh_instance_ && index >= 1 && index <= color_value_count_)
-        color_values_[index - 1] = value;
+        core::at(color_values_, index - 1) = value;
 }
 
 // 0x004200C0
@@ -343,9 +344,9 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
     uint8_t axes = 0;
     const std::array<bool, 3> flags = {{x, y, z}};
     for (int axis = 0; axis < 3; ++axis) {
-        if (!flags[axis])
+        if (!core::at(flags, axis))
             continue;
-        twist_rate_[axis].append_one(period, now, start, end - start, power, hold, false);
+        core::at(twist_rate_, axis).append_one(period, now, start, end - start, power, hold, false);
         axes |= static_cast<uint8_t>(1 << axis);
     }
     online::SpinModelMessage sent;

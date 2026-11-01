@@ -13,6 +13,7 @@
 #include "game/park/park_memory.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -55,16 +56,16 @@ ParkLayout::ParkLayout()
     for (int i = 1; i <= 8; ++i) {
         std::array<char, 128> name{};
         std::snprintf(name.data(), sizeof(name), "floor_wall_block%d", i);
-        shell_blocks_[i - 1][0] = checksums::hash_from_text(name.data());
+        core::at(core::at(shell_blocks_, i - 1), 0) = checksums::hash_from_text(name.data());
         std::snprintf(name.data(), sizeof(name), "wall_block%d", i);
-        shell_blocks_[i - 1][1] = checksums::hash_from_text(name.data());
+        core::at(core::at(shell_blocks_, i - 1), 1) = checksums::hash_from_text(name.data());
         std::snprintf(name.data(), sizeof(name), "floor_block%d", i);
-        shell_blocks_[i - 1][2] = checksums::hash_from_text(name.data());
+        core::at(core::at(shell_blocks_, i - 1), 2) = checksums::hash_from_text(name.data());
     }
     shell_size_ = 0;
     clear_compressed_map();
     riser_list_ = nullptr;
-    park_name_[0] = '\0';
+    core::at(park_name_, 0) = '\0';
     field_74_ = 0;
     field_78_ = nullptr;
 }
@@ -128,7 +129,7 @@ void ParkLayout::place_meta_piece_in_park(CellBox pos, PieceGroup* meta)
     set_meta_in_cells(meta, 1);
     add_meta_to_cells(meta);
     for (int player = 1; player < 9; ++player) {
-        if (meta->name_key_ == restart_pieces_[player - 1]) {
+        if (meta->name_key_ == core::at(restart_pieces_, player - 1)) {
             builder_->plant_restart_point(&origin, meta->quarter_turns_, &pos, player, 0, 0);
             break;
         }
@@ -197,7 +198,7 @@ void ParkLayout::free_placed_piece(PieceGroup* meta, uint32_t flags)
     remove_meta_from_cells(meta);
     remove_meta_from_list(meta, &concrete_metas_);
     for (int player = 1; player < 9; ++player) {
-        if (meta->name_key_ == restart_pieces_[player - 1]) {
+        if (meta->name_key_ == core::at(restart_pieces_, player - 1)) {
             builder_->unplant_restart_point(&meta->cell_footprint_, player);
             break;
         }
@@ -242,7 +243,7 @@ PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int
         moved = *gap;
         had_gap = true;
         drop_gap_entry(gap);
-        CellBox& end = moved.at_point_[half];
+        CellBox& end = core::at(moved.at_point_, half);
         end.x = static_cast<uint8_t>(end.x + dx);
         end.y = static_cast<int8_t>(end.y + dy);
         end.z = static_cast<uint8_t>(end.z + dz);

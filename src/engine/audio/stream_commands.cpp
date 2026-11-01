@@ -20,6 +20,7 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/viewport.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace audio {
 
@@ -113,7 +114,7 @@ void set_up_stream(Stream& stream, uint32_t checksum, int option)
     stream.unknown1c_ = 0;
     stream.name_count_ = 1;
     stream.option = option;
-    stream.names[0].checksum = checksum;
+    core::at(stream.names, 0).checksum = checksum;
 }
 
 } // namespace
@@ -243,7 +244,7 @@ uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int opt
         return 0;
     Stream& stream = get_streams()[channel];
     set_up_stream(stream, checksum, option);
-    stream.names[0].frame_amp_ = fetch_stream_amp_curve(checksum);
+    core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
     last_stream() = channel;
     return stream.id;
 }
@@ -261,7 +262,7 @@ uint32_t prime_stream(uint32_t checksum, int priority)
     if (channel != -1) {
         Stream& stream = get_streams()[channel];
         set_up_stream(stream, checksum, 0);
-        stream.names[0].frame_amp_ = fetch_stream_amp_curve(checksum);
+        core::at(stream.names, 0).frame_amp_ = fetch_stream_amp_curve(checksum);
         id = stream.id;
     }
     destroy_volume(&volume);
@@ -291,8 +292,8 @@ bool add_stream(uint32_t stream, uint32_t name, void* owner)
     }
     Stream& playing = get_streams()[found];
     const int n = playing.name_count_++;
-    playing.names[n].checksum = name;
-    playing.names[n].frame_amp_ = fetch_stream_amp_curve(name);
+    core::at(playing.names, n).checksum = name;
+    core::at(playing.names, n).frame_amp_ = fetch_stream_amp_curve(name);
     return true;
 }
 
@@ -327,8 +328,8 @@ uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff
             }
         }
     } else {
-        std::memcpy(&stream_volume.lanes_[0], &volume, 4);
-        std::memcpy(&stream_volume.lanes_[1], &volume, 4);
+        std::memcpy(&core::at(stream_volume.lanes_, 0), &volume, 4);
+        std::memcpy(&core::at(stream_volume.lanes_, 1), &volume, 4);
     }
     const uint32_t playing = play_stream(checksum, &stream_volume, pitch, option, priority, id);
     if (playing) {

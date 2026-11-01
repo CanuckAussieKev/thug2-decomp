@@ -65,6 +65,7 @@
 #include "engine/script/qb.h"
 #include "platform/run_log.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace collision_overlay {
 
@@ -144,8 +145,8 @@ bool should_log(uintptr_t what, int face)
             return true;
         }
     }
-    g_recent[g_next_recent] = {what, face, now};
-    g_next_recent = static_cast<int>((g_next_recent + 1) % (sizeof(g_recent) / sizeof(g_recent[0])));
+    core::at(g_recent, g_next_recent) = {what, face, now};
+    g_next_recent = static_cast<int>((g_next_recent + 1) % (sizeof(g_recent) / sizeof(core::at(g_recent, 0))));
     ++g_lines_this_second;
     return true;
 }
@@ -184,7 +185,7 @@ void log_hit(const void* feeler, uint32_t caller)
     std::array<char, 64> skater = {""};
     std::array<float, 3> position{};
     if (get_skater_position(skater_feeler, position.data()))
-        std::snprintf(skater.data(), sizeof(skater), " skater (%.1f %.1f %.1f)", position[0], position[1], position[2]);
+        std::snprintf(skater.data(), sizeof(skater), " skater (%.1f %.1f %.1f)", core::at(position, 0), core::at(position, 1), core::at(position, 2));
 
     get_log("collision: %s face %d flags %04X terrain %u at (%.1f %.1f %.1f) normal (%.2f %.2f %.2f) line (%.1f %.1f "
             "%.1f) -> (%.1f %.1f %.1f)%s caller %08X",

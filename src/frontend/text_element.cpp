@@ -22,6 +22,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -151,7 +152,7 @@ void delete_blur(SmearEffect* blur)
 // --- the blur effect ------------------------------------------------------------------------------------------
 
 // 0x004A5770
-SmearEffect::DupFrom* SmearEffect::get_copy(int i) { return &copies_[i]; }
+SmearEffect::DupFrom* SmearEffect::get_copy(int i) { return &core::at(copies_, i); }
 
 // 0x004A5780
 void SmearEffect::start_morph(int ms)
@@ -174,8 +175,8 @@ void SmearEffect::tick_frame()
     else
         remaining_ = 0;
     last_time_ = now;
-    float* current = &ongoing_.alpha[0];
-    const float* target = &aim_point_.alpha[0];
+    float* current = &core::at(ongoing_.alpha, 0);
+    const float* target = &core::at(aim_point_.alpha, 0);
     if (remaining_) {
         for (int i = 0; i < 6; ++i)
             current[i] = static_cast<float>((static_cast<double>(target[i]) - current[i]) * k + current[i]);
@@ -184,13 +185,13 @@ void SmearEffect::tick_frame()
     }
     for (int n = 0; n < 16; ++n) {
         const double f = static_cast<double>(n) * sixteenth();
-        DupFrom& c = copies_[n];
-        c.dx = static_cast<float>(f * ongoing_.max_displacement_[0]);
-        c.dy = static_cast<float>(f * ongoing_.max_displacement_[1]);
-        c.scale_y_ = static_cast<float>((static_cast<double>(ongoing_.bottom_scales_[1]) - get_one()) * f + get_one());
-        c.scale_x_ = static_cast<float>((static_cast<double>(ongoing_.bottom_scales_[0]) - get_one()) * f + get_one());
+        DupFrom& c = core::at(copies_, n);
+        c.dx = static_cast<float>(f * core::at(ongoing_.max_displacement_, 0));
+        c.dy = static_cast<float>(f * core::at(ongoing_.max_displacement_, 1));
+        c.scale_y_ = static_cast<float>((static_cast<double>(core::at(ongoing_.bottom_scales_, 1)) - get_one()) * f + get_one());
+        c.scale_x_ = static_cast<float>((static_cast<double>(core::at(ongoing_.bottom_scales_, 0)) - get_one()) * f + get_one());
         c.alpha = static_cast<float>(
-            ((static_cast<double>(ongoing_.alpha[1]) - ongoing_.alpha[0]) * f + ongoing_.alpha[0]) * sixteenth());
+            ((static_cast<double>(core::at(ongoing_.alpha, 1)) - core::at(ongoing_.alpha, 0)) * f + core::at(ongoing_.alpha, 0)) * sixteenth());
     }
 }
 
@@ -206,18 +207,18 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
 {
     script::Pair pair;
     if (params->fetch_pair(kBlurAlphaPair, &pair, false)) {
-        aim_point_.alpha[0] = pair.x;
-        aim_point_.alpha[1] = pair.y;
+        core::at(aim_point_.alpha, 0) = pair.x;
+        core::at(aim_point_.alpha, 1) = pair.y;
     }
     pair = script::Pair{};
     if (params->fetch_pair(kBlurBottomScales, &pair, false)) {
-        aim_point_.bottom_scales_[0] = pair.x;
-        aim_point_.bottom_scales_[1] = pair.y;
+        core::at(aim_point_.bottom_scales_, 0) = pair.x;
+        core::at(aim_point_.bottom_scales_, 1) = pair.y;
     }
     pair = script::Pair{};
     if (params->fetch_pair(kBlurMaxDisplacement, &pair, false)) {
-        aim_point_.max_displacement_[0] = pair.x;
-        aim_point_.max_displacement_[1] = pair.y;
+        core::at(aim_point_.max_displacement_, 0) = pair.x;
+        core::at(aim_point_.max_displacement_, 1) = pair.y;
     }
     float seconds = 0.0f;
     int ms = 0;
@@ -234,8 +235,8 @@ SmearEffect::Settings* SmearEffect::set_from_params(Struct* params, int* out_ms)
 // 0x004B0920
 LabelWidget::LabelWidget()
 {
-    shadow_rgba_[0] = shadow_rgba_[1] = shadow_rgba_[2] = 0;
-    shadow_rgba_[3] = 0x80;
+    core::at(shadow_rgba_, 0) = core::at(shadow_rgba_, 1) = core::at(shadow_rgba_, 2) = 0;
+    core::at(shadow_rgba_, 3) = 0x80;
     make_text_objects(1, false);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     inner_align_h_ = 0.0f;
@@ -381,7 +382,7 @@ bool LabelWidget::join_onto(const char* text)
     if (total + 1 >= 0x60 || total <= 0)
         return false;
     std::array<char, 0x60> joined{};
-    joined[0] = 0;
+    core::at(joined, 0) = 0;
     if (chars_)
         copy_text(joined.data(), chars_);
     append_text(joined.data(), text);
@@ -399,9 +400,9 @@ bool LabelWidget::backspace()
         return false;
     std::array<char, 0x60> shorter{};
     copy_text(shorter.data(), chars_);
-    if (length > 1 && shorter[length - 1] == '\\' && shorter[length - 2] == '\\')
-        shorter[length - 2] = 0;
-    shorter[length - 1] = 0;
+    if (length > 1 && core::at(shorter, length - 1) == '\\' && core::at(shorter, length - 2) == '\\')
+        core::at(shorter, length - 2) = 0;
+    core::at(shorter, length - 1) = 0;
     change_caption(shorter.data());
     return true;
 }
@@ -584,7 +585,7 @@ void LabelWidget::tick_frame()
             void* s = shadows_[0];
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
-            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
+            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed_.alpha));
             text_override_alpha(s, override_alpha_);
             text_font(s, typeface_);
             text_pos(s, static_cast<float>(static_cast<double>(shadow_x_) + summed_.left),
@@ -634,7 +635,7 @@ void LabelWidget::tick_frame()
             uint32_t shadow = 0;
             std::memcpy(&shadow, shadow_rgba_.data(), 4);
             text_override_alpha(s, override_alpha_);
-            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(shadow_rgba_[3], summed_.alpha));
+            const uint32_t shadow_rgba = with_alpha(shadow, get_faded(core::at(shadow_rgba_, 3), summed_.alpha));
             text_pos(s, static_cast<float>(static_cast<double>(scale_x) * shadow_x_ + x),
                      static_cast<float>(static_cast<double>(scale_y) * shadow_y_ + y));
             text_colour(s, shadow_rgba, override_rgba_);

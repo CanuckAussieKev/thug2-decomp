@@ -10,6 +10,7 @@
 #include "engine/gfx/loading_screen.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -60,7 +61,7 @@ void set_loading_bar_time(float seconds)
 // 0x004907A0
 bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, g_bar_position[0], g_bar_position[1]);
+    return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, core::at(g_bar_position, 0), core::at(g_bar_position, 1));
 }
 
 // 0x004907F0
@@ -72,7 +73,7 @@ bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script
 // 0x00490840
 bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
 {
-    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_bar_border[0], g_bar_border[1]);
+    return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, core::at(g_bar_border, 0), core::at(g_bar_border, 1));
 }
 
 // 0x004908E0

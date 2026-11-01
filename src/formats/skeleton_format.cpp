@@ -1,4 +1,5 @@
 #include "formats/skeleton_format.h"
+#include "engine/core/checked_index.h"
 
 namespace skeleton_format {
 
@@ -11,15 +12,15 @@ bool read_skeleton(util::ByteReader& reader, Skeleton* out)
         return false;
     out->count = static_cast<int>(count);
     for (uint32_t i = 0; i < count; ++i)
-        out->names[i] = reader.u32();
+        core::at(out->names, i) = reader.u32();
     for (uint32_t i = 0; i < count; ++i)
-        out->parents[i] = reader.u32();
+        core::at(out->parents, i) = reader.u32();
     for (uint32_t i = 0; i < count; ++i)
-        out->mirrors[i] = reader.u32();
+        core::at(out->mirrors, i) = reader.u32();
     for (uint32_t i = 0; i < count; ++i) {
-        for (float& value : out->poses[i].rotation)
+        for (float& value : core::at(out->poses, i).rotation)
             value = reader.f32();
-        for (float& value : out->poses[i].translation)
+        for (float& value : core::at(out->poses, i).translation)
             value = reader.f32();
     }
     return reader.ok();

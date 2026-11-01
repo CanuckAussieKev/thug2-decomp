@@ -23,6 +23,7 @@
 #include "game/rider/state_history.h"
 #include "engine/objects/control_pad.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -71,7 +72,7 @@ gsl::owner<ObjectModule*> RiderPoseState::fabricate() { return new RiderPoseStat
 RiderPoseState::RiderPoseState()
 {
     kind_tag_ = kSkaterState;
-    boost_items_[0] = 0;
+    core::at(boost_items_, 0) = 0;
 }
 
 // 0x00519430
@@ -125,7 +126,7 @@ void RiderPoseState::set_surface_kind(uint8_t terrain)
 }
 
 // 0x00519470
-void RiderPoseState::clear_powerups() { boost_items_[0] = 0; }
+void RiderPoseState::clear_powerups() { core::at(boost_items_, 0) = 0; }
 
 // 0x00519650
 void RiderPoseState::clear_doing_trick() { in_trick_move_ = 0; }
@@ -167,7 +168,7 @@ bool RiderPoseState::in_air_move(script::Struct*, script::Script*) { return in_t
 bool RiderPoseState::has_powerup(script::Struct* params, script::Script*)
 {
     const int index = find_powerup(params);
-    return index != -1 && boost_items_[index] != 0;
+    return index != -1 && core::at(boost_items_, index) != 0;
 }
 
 // 0x005195B0
@@ -175,7 +176,7 @@ bool RiderPoseState::picked_up_powerup(script::Struct* params, script::Script*)
 {
     const int index = find_powerup(params);
     if (index != -1)
-        boost_items_[index] = 1;
+        core::at(boost_items_, index) = 1;
     return true;
 }
 

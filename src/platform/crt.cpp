@@ -5,6 +5,7 @@
 
 #include "platform/crt.h"
 #include "platform/code_address.h"
+#include "engine/core/checked_index.h"
 
 #include <climits>
 #include <cstdarg>
@@ -59,7 +60,7 @@ double game_atof(const char* text)
     size_t n = 0;
     auto take = [&](char c) {
         if (n + 1 < sizeof(number))
-            number[n++] = c;
+            core::at(number, n++) = c;
     };
     auto digits = [&]() {
         size_t count = 0;
@@ -81,7 +82,7 @@ double game_atof(const char* text)
             take(*text++);
         digits();
     }
-    number[n] = 0;
+    core::at(number, n) = 0;
     return mantissa ? std::strtod(number.data(), nullptr) : 0.0;
 }
 
@@ -175,8 +176,8 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
             }
             if (hi_guy - lo >= hi - lo_guy) {
                 if (lo < hi_guy) {
-                    lo_stack[depth] = lo;
-                    hi_stack[depth] = hi_guy;
+                    core::at(lo_stack, depth) = lo;
+                    core::at(hi_stack, depth) = hi_guy;
                     ++depth;
                 }
                 if (lo_guy < hi) {
@@ -185,8 +186,8 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
                 }
             } else {
                 if (lo_guy < hi) {
-                    lo_stack[depth] = lo_guy;
-                    hi_stack[depth] = hi;
+                    core::at(lo_stack, depth) = lo_guy;
+                    core::at(hi_stack, depth) = hi;
                     ++depth;
                 }
                 if (lo < hi_guy) {
@@ -197,8 +198,8 @@ void game_qsort(void* base, size_t count, size_t width, Weigh compare)
         }
         if (--depth < 0)
             return;
-        lo = lo_stack[depth];
-        hi = hi_stack[depth];
+        lo = core::at(lo_stack, depth);
+        hi = core::at(hi_stack, depth);
     }
 }
 

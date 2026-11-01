@@ -32,6 +32,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -171,10 +172,10 @@ void ParkBuilderMode::start_callback()
     frame_loop::Hub* main_loop = get_main_loop();
     main_loop->logic_tasks_.queue_job(editor_update_job_.get());
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
-    pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
+    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal_);
     server.handlers_.queue_job(handler);
-    handler->control_data_ = &input_manager()->hosts_[handler->ordinal_].content_;
-    handler->dev_ = input_manager()->hosts_[handler->ordinal_].dev_;
+    handler->control_data_ = &core::at(input_manager()->hosts_, handler->ordinal_).content_;
+    handler->dev_ = core::at(input_manager()->hosts_, handler->ordinal_).dev_;
     main_loop->display_tasks_.queue_job(draw_job_.get());
 }
 
@@ -364,7 +365,7 @@ void process_pad_input(ParkEditorInputHandler* handler)
     ParkBuilderMode* editor = handler->content_;
     editor->actions_ = 0;
     const pad_input::Payload* data = handler->control_data_;
-    auto stick = [data](int event) { return static_cast<float>(static_cast<int>(data->incident_[event]) - 0x80); };
+    auto stick = [data](int event) { return static_cast<float>(static_cast<int>(core::at(data->incident_, event)) - 0x80); };
     editor->pad_rx_ = stick(pad_input::Payload::kRightX);
     editor->pad_ry_ = stick(pad_input::Payload::kRightY);
     editor->pad_lx_ = stick(pad_input::Payload::kLeftX);
@@ -428,10 +429,10 @@ void ParkBuilderMode::tick_frame()
 {
     // The camera: (0, 0, distance) tilted down, turned round y, put over the cursor 300 up.
     maths::Mat4 camera{};
-    camera.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    camera.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    camera.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    camera.row[3] = {0.0f, 0.0f, orbit_radius_, 1.0f};
+    core::at(camera.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(camera.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(camera.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(camera.row, 3) = {0.0f, 0.0f, orbit_radius_, 1.0f};
     maths::Mat4 rotation{};
     matrix_multiply(
         &camera, &camera,
@@ -440,12 +441,12 @@ void ParkBuilderMode::tick_frame()
         &camera, &camera,
         &maths::make_yaw_matrix(rotation, static_cast<float>(camera_angle_ * static_cast<double>(kAngleScaleToRad))));
     const maths::Vec4& cursor_pos = get_cursor()->at_point_;
-    camera.row[3].x = static_cast<float>(static_cast<double>(camera.row[3].x) + get_cursor()->at_point_.x);
-    camera.row[3].y = static_cast<float>(static_cast<double>(camera.row[3].y) + kCameraHeight);
-    camera.row[3].z = static_cast<float>(static_cast<double>(cursor_pos.z) + camera.row[3].z);
+    core::at(camera.row, 3).x = static_cast<float>(static_cast<double>(core::at(camera.row, 3).x) + get_cursor()->at_point_.x);
+    core::at(camera.row, 3).y = static_cast<float>(static_cast<double>(core::at(camera.row, 3).y) + kCameraHeight);
+    core::at(camera.row, 3).z = static_cast<float>(static_cast<double>(cursor_pos.z) + core::at(camera.row, 3).z);
     auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
     if (auto* cam = core::down_cast<objects::GameEntity>(objects->look_up_entity(kParkedCam))) {
-        cam->at_point_ = camera.row[3];
+        cam->at_point_ = core::at(camera.row, 3);
         cam->basis_frame_ = camera;
     }
     if (flag_bits_ & kFlagPaused)
@@ -621,7 +622,7 @@ void ParkBuilderMode::link_to_pad(int controller)
     pad_input::Hub* input = pad_input::create_manager(false); // (a single::LazyInstance<pad_input::Hub>)
     ParkEditorInputHandler* handler = editor_pad_listener_.get();
     handler->drop_out();
-    pad_input::HostEnd& server = input->hosts_[controller];
+    pad_input::HostEnd& server = core::at(input->hosts_, controller);
     server.handlers_.queue_job(handler);
     handler->control_data_ = &server.content_;
     handler->dev_ = server.dev_;

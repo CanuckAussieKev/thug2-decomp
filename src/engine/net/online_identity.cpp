@@ -26,6 +26,7 @@
 
 #include "platform/platform_config.h"
 #include "platform/debug_log.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -64,7 +65,7 @@ const char* read_game_name()
 {
     build_info::prepare_all(); // (WinMain needs the name before the PC set-up has read the settings)
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameName", "", s_name_setting.data(), sizeof(s_name_setting));
-    return s_name_setting[0] != '\0' && valid_name(s_name_setting.data()) ? s_name_setting.data() : kOwnName;
+    return core::at(s_name_setting, 0) != '\0' && valid_name(s_name_setting.data()) ? s_name_setting.data() : kOwnName;
 }
 
 std::array<char, 64> s_key_setting;
@@ -74,7 +75,7 @@ const char* read_game_key()
 {
     build_info::prepare_all();
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", s_key_setting.data(), sizeof(s_key_setting));
-    return s_key_setting[0] != '\0' && valid_key(s_key_setting.data()) ? s_key_setting.data() : kOwnKey;
+    return core::at(s_key_setting, 0) != '\0' && valid_key(s_key_setting.data()) ? s_key_setting.data() : kOwnKey;
 }
 
 } // namespace
@@ -94,13 +95,13 @@ const char* game_key()
 void set_up_online_identity()
 {
     const char* name = get_game_name();
-    if (s_name_setting[0] != '\0' && name != s_name_setting.data())
+    if (core::at(s_name_setting, 0) != '\0' && name != s_name_setting.data())
         debug_log::printf(debug_log::StageMap::kWarn, "OnlineGameName \"%s\" ignored (1-31 letters or digits)\n",
                           s_name_setting.data());
     std::array<char, 64> key{};
     build_info::fetch_text(build_info::kMiscellaneous, "OnlineGameKey", "", key.data(), sizeof(key));
     const char* use_key = nullptr;
-    if (key[0] != '\0') {
+    if (core::at(key, 0) != '\0') {
         if (valid_key(key.data()))
             use_key = key.data();
         else

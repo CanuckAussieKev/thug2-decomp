@@ -46,6 +46,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -242,8 +243,8 @@ void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 en
     tag.object_id = static_cast<int8_t>(entity_->ident_);
     tag.sticker = sticker != 0;
     for (int i = 0; i < 4; ++i) {
-        tag.start[i] = (&start.x)[i];
-        tag.end[i] = (&end.x)[i];
+        core::at(tag.start, i) = (&start.x)[i];
+        core::at(tag.end, i) = (&end.x)[i];
     }
     tag.size = size;
     std::array<uint8_t, online::kPlaceTagSize> data{};
@@ -335,7 +336,7 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
         }
     } else {
         settings->fetch_float(0x7B5E76C4u, &reach, 1);
-        const maths::Vec4& up = skater->basis_frame_.row[1];
+        const maths::Vec4& up = core::at(skater->basis_frame_.row, 1);
         facing.x = -up.x;
         facing.z = -up.z;
         facing.w = up.w;
@@ -452,12 +453,12 @@ bool TaggingControlComponent::try_tagging()
         feeler.line_.end = {joint_world.x + ahead_x, joint_world.y + rise, joint_world.z + ahead_z,
                             static_cast<float>(static_cast<double>(reach) + joint_world.w)};
         if (feeler.get_hit_shape(true, false)) {
-            hits[i] = feeler.contact_pos_;
-            distances[i] = std::fabs(feeler.reach_);
+            core::at(hits, i) = feeler.contact_pos_;
+            core::at(distances, i) = std::fabs(feeler.reach_);
             found = true;
             core::down_cast<ActivationZoneModule>(trigger_)->probe_touches_zone(kTaggingEvents.data(), &feeler);
         } else {
-            distances[i] = 1000.0f;
+            core::at(distances, i) = 1000.0f;
         }
     }
     if (!found) {
@@ -469,8 +470,8 @@ bool TaggingControlComponent::try_tagging()
     int nearest = 0;
     double nearest_distance = 999.0f; // 0x0064C410
     for (int i = 0; i < 6; ++i) {
-        if (nearest_distance > distances[i]) {
-            nearest_distance = distances[i];
+        if (nearest_distance > core::at(distances, i)) {
+            nearest_distance = core::at(distances, i);
             nearest = i;
         }
     }

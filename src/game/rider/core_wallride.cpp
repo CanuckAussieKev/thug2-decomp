@@ -16,6 +16,7 @@
 #include "game/rider/skater_sound.h"
 #include "game/rider/matrix_queries.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -160,12 +161,12 @@ void SkaterPhysicsModule::step_wall_ride()
 
     // Turned towards up the wall when not heading up it enough (a turn's cosine at most).
     float turn = script::fetch_float(kWallRideTurnSpeed);
-    const maths::Vec4& facing = entity_->basis_frame_.row[2];
+    const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
     const double heading = (static_cast<double>(up_wall.z) * facing.z + static_cast<double>(up_wall.y) * facing.y) +
                            static_cast<double>(up_wall.x) * facing.x;
     const bool turning = !(heading > kHeadingUp) && !(heading > 0.0 && heading > std::cos(static_cast<double>(turn)));
     if (turning) {
-        const maths::Vec4& right = entity_->basis_frame_.row[0];
+        const maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
         const double side = (static_cast<double>(up_wall.z) * right.z + static_cast<double>(up_wall.y) * right.y) +
                             static_cast<double>(up_wall.x) * right.x;
         if (side <= 0.0)
@@ -174,13 +175,13 @@ void SkaterPhysicsModule::step_wall_ride()
         o->vel_.w = 1.0f;
         entity_->vel_.rotate_about_axis(wall_normal_, turn); // (about the wall)
         o = object_of(this);
-        o->basis_frame_.row[2] = o->vel_;
-        entity_->basis_frame_.row[2].make_unit();
+        core::at(o->basis_frame_.row, 2) = o->vel_;
+        core::at(entity_->basis_frame_.row, 2).make_unit();
         o = object_of(this);
-        o->basis_frame_.row[1] = wall_normal_;
-        const maths::Vec4& f = o->basis_frame_.row[2];
-        const maths::Vec4& u = o->basis_frame_.row[1];
-        maths::Vec4& r = o->basis_frame_.row[0];
+        core::at(o->basis_frame_.row, 1) = wall_normal_;
+        const maths::Vec4& f = core::at(o->basis_frame_.row, 2);
+        const maths::Vec4& u = core::at(o->basis_frame_.row, 1);
+        maths::Vec4& r = core::at(o->basis_frame_.row, 0);
         auto rx = static_cast<float>(static_cast<double>(f.z) * u.y - static_cast<double>(f.y) * u.z);
         auto ry = static_cast<float>(static_cast<double>(f.x) * u.z - static_cast<double>(f.z) * u.x);
         auto rz = static_cast<float>(static_cast<double>(f.y) * u.x - static_cast<double>(f.x) * u.y);
@@ -188,7 +189,7 @@ void SkaterPhysicsModule::step_wall_ride()
         r.z = rz;
         r.x = rx;
         r.y = ry;
-        entity_->basis_frame_.row[0].make_unit();
+        core::at(entity_->basis_frame_.row, 0).make_unit();
         display_matrix_ = entity_->basis_frame_;
     }
 
@@ -240,20 +241,20 @@ void SkaterPhysicsModule::step_wall_ride()
             // Onto the top: the ground (a grind first), upright on it, heading along the velocity.
             objects::GameEntity* o = object_of(this);
             o->at_point_ = feeler_.contact_pos_;
-            o->basis_frame_.row[2] = o->vel_;
-            entity_->basis_frame_.row[2].flatten_onto_plane(hit);
-            entity_->basis_frame_.row[2].make_unit();
-            entity_->basis_frame_.row[1] = hit;
+            core::at(o->basis_frame_.row, 2) = o->vel_;
+            core::at(entity_->basis_frame_.row, 2).flatten_onto_plane(hit);
+            core::at(entity_->basis_frame_.row, 2).make_unit();
+            core::at(entity_->basis_frame_.row, 1) = hit;
             objects::GameEntity* s = object_of(this);
-            s->basis_frame_.row[0] = maths::cross_vec(s->basis_frame_.row[1], s->basis_frame_.row[2]);
-            entity_->basis_frame_.row[0].make_unit();
+            core::at(s->basis_frame_.row, 0) = maths::cross_vec(core::at(s->basis_frame_.row, 1), core::at(s->basis_frame_.row, 2));
+            core::at(entity_->basis_frame_.row, 0).make_unit();
             display_matrix_ = entity_->basis_frame_;
             auto* queries = core::down_cast<objects::RiderFrameLookups>(
                 static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kMatrixQueries));
             queries->basis_frame_ = queries->entity_->basis_frame_;
-            old_normal_ = entity_->basis_frame_.row[1];
-            drawn_normal_ = entity_->basis_frame_.row[1];
-            floor_normal_ = entity_->basis_frame_.row[1];
+            old_normal_ = core::at(entity_->basis_frame_.row, 1);
+            drawn_normal_ = core::at(entity_->basis_frame_.row, 1);
+            floor_normal_ = core::at(entity_->basis_frame_.row, 1);
             try_grind(true);
             if (state_of(this) == kRail)
                 return;
@@ -271,13 +272,13 @@ void SkaterPhysicsModule::step_wall_ride()
     {
         void* o = object;
         const float snap = tuning_float_lookup(kGroundSnapUp, o);
-        const maths::Vec4& up = entity_->basis_frame_.row[1];
+        const maths::Vec4& up = core::at(entity_->basis_frame_.row, 1);
         maths::Vec4& start = probe_start_;
         start = {snap * up.x, snap * up.y, snap * up.z, snap * up.w};
         const maths::Vec4& p = entity_->at_point_;
         start.x = start.x + p.x, start.y = p.y + start.y, start.z = p.z + start.z, start.w = p.w + start.w;
         const float down = script::fetch_float(kDownCheckLength);
-        const maths::Vec4& up2 = entity_->basis_frame_.row[1];
+        const maths::Vec4& up2 = core::at(entity_->basis_frame_.row, 1);
         maths::Vec4& end = probe_end_;
         end = {down * up2.x, down * up2.y, down * up2.z, down * up2.w};
         const maths::Vec4& q = entity_->at_point_;
@@ -347,11 +348,11 @@ void SkaterPhysicsModule::step_wall_ride()
         v.w = ww + v.w;
         float& vy = entity_->vel_.y;
         vy = script::fetch_float(kJumpUpSpeed) + vy;
-        entity_->basis_frame_.row[1] = kUpAxis;
+        core::at(entity_->basis_frame_.row, 1) = kUpAxis;
         entity_->basis_frame_.square_up_axes(1);
         display_matrix_ = entity_->basis_frame_;
         normal_blend_ = 0.0f;
-        drawn_normal_ = entity_->basis_frame_.row[1];
+        drawn_normal_ = core::at(entity_->basis_frame_.row, 1);
         floor_normal_ = drawn_normal_;
         old_normal_ = drawn_normal_;
     }

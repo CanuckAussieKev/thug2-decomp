@@ -50,6 +50,7 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
+#include "engine/core/checked_index.h"
 
 namespace sys::screenshot {
 
@@ -179,8 +180,8 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
         GetModuleFileNameA(dll, dll_path.data(), MAX_PATH);
     build.fields.push_back(
         {"dll",
-         dll_path[0] ? std::string(std::strrchr(dll_path.data(), '\\') ? std::strrchr(dll_path.data(), '\\') + 1 : dll_path.data()) : ""});
-    build.fields.push_back({"dll file", dll_path[0] ? file_time(dll_path.data()) : ""});
+         core::at(dll_path, 0) ? std::string(std::strrchr(dll_path.data(), '\\') ? std::strrchr(dll_path.data(), '\\') + 1 : dll_path.data()) : ""});
+    build.fields.push_back({"dll file", core::at(dll_path, 0) ? file_time(dll_path.data()) : ""});
     build.fields.push_back({"dll commit", THUG2_BUILD_COMMIT});
     sections.push_back(build);
 
@@ -206,7 +207,7 @@ std::vector<Section> gather_sections(const TickCycle& frame, const std::string& 
         if (const objects::GameEntity* s = local_skater()) {
             std::array<float, 3> pos = {{s->at_point_.x, s->at_point_.y, s->at_point_.z}};
             skater.fields.push_back({"position", vec(pos.data())});
-            const maths::Vec4& at = s->basis_frame_.row[2];
+            const maths::Vec4& at = core::at(s->basis_frame_.row, 2);
             const double heading =
                 std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / 3.14159265358979;
             std::snprintf(text.data(), sizeof(text), "%.1f degrees (0 = +z, 90 = +x)", heading);
@@ -321,7 +322,7 @@ std::string folder_path()
         folder.pop_back();
     if (folder.empty())
         folder = "Screenshots";
-    const bool absolute = folder.size() >= 2 && (folder[1] == ':' || (folder[0] == '\\' && folder[1] == '\\'));
+    const bool absolute = folder.size() >= 2 && (core::at(folder, 1) == ':' || (core::at(folder, 0) == '\\' && core::at(folder, 1) == '\\'));
     if (!absolute)
         folder = game_folder_path(folder.c_str());
     for (char& c : folder)
@@ -560,11 +561,11 @@ void prepare_all()
     const int fallback = default_key(snipping);
     auto by_name = [](const std::string& name) { return static_cast<int>(SDL_GetScancodeFromName(name.c_str())); };
     g_key = parse_key(setting.data(), fallback, by_name);
-    if (setting[0] && parse_key(setting.data(), 0, by_name) == 0)
+    if (core::at(setting, 0) && parse_key(setting.data(), 0, by_name) == 0)
         get_log("screenshot key: [Keybinds] Screenshot=%s isn't a key - using the default", setting.data());
     get_log("screenshot key: %s (scan code %d%s) - saves to %s", SDL_GetScancodeName(static_cast<SDL_Scancode>(g_key)),
             g_key,
-            setting[0] ? ", [Keybinds] Screenshot"
+            core::at(setting, 0) ? ", [Keybinds] Screenshot"
             : snipping ? ", F12: Windows' Snipping Tool takes Print Screen"
                        : "",
             folder_path().c_str());
@@ -626,7 +627,7 @@ std::string start_series(int frames, const std::string& folder)
         path = series_folder_name(
             {local.tm_year + 1900, local.tm_mon + 1, local.tm_mday, local.tm_hour, local.tm_min, local.tm_sec});
     }
-    const bool absolute = path.size() >= 2 && (path[1] == ':' || (path[0] == '\\' && path[1] == '\\'));
+    const bool absolute = path.size() >= 2 && (core::at(path, 1) == ':' || (core::at(path, 0) == '\\' && core::at(path, 1) == '\\'));
     if (!absolute)
         path = base + path;
     if (path.back() != '\\')
@@ -670,8 +671,8 @@ bool last_view(float position[3], float forward[3])
     if (!g_view.noted || frame_loop::frames_run() - g_view.frame >= 10)
         return false;
     for (int i = 0; i < 3; ++i) {
-        position[i] = g_view.pos[i];
-        forward[i] = g_view.forward[i];
+        position[i] = core::at(g_view.pos, i);
+        forward[i] = core::at(g_view.forward, i);
     }
     return true;
 }
@@ -681,8 +682,8 @@ void note_view(int viewport, const float position[3], const float forward[3])
     if (viewport != 0)
         return;
     for (int i = 0; i < 3; ++i) {
-        g_view.pos[i] = position[i];
-        g_view.forward[i] = forward[i];
+        core::at(g_view.pos, i) = position[i];
+        core::at(g_view.forward, i) = forward[i];
     }
     g_view.frame = frame_loop::frames_run();
     g_view.noted = true;

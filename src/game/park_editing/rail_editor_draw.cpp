@@ -24,6 +24,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -268,11 +269,11 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
         uz_f = static_cast<float>(uz_f * inverse);
     }
     maths::Mat4 m;
-    m.row[0] = {x, y, z, direction->w};
-    m.row[1] = {static_cast<float>(ux), static_cast<float>(uy), uz_f, 0.0f};
-    m.row[2] = {side.x, side.y, side.z, side_w};
+    core::at(m.row, 0) = {x, y, z, direction->w};
+    core::at(m.row, 1) = {static_cast<float>(ux), static_cast<float>(uy), uz_f, 0.0f};
+    core::at(m.row, 2) = {side.x, side.y, side.z, side_w};
     // (the original leaves the last row's x, y, z unset - only its w is written; here 0)
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int i = 0; i < count; ++i) {
         Vec4& v = vertices[indices[i]];
         Vec4 offset = {static_cast<float>(static_cast<double>(v.x) - origin.x),
@@ -320,7 +321,7 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
             static_cast<Vec4*>(memory::alloc_block(static_cast<uint32_t>(get_vertex_count(previous_geometry)) << 4));
         get_vertices(previous_geometry, previous_vertices);
         for (int i = 0; i < 10; ++i)
-            previous_vertices[kEndVertices[i]] = vertices[kStartVertices[i]];
+            previous_vertices[core::at(kEndVertices, i)] = vertices[core::at(kStartVertices, i)];
         set_vertices(previous_geometry, previous_vertices);
         memory::free_malloc(previous_vertices);
     } else {

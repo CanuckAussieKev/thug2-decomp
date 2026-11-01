@@ -5,6 +5,7 @@
 #include <array>
 
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTNEXTLINE(bugprone-reserved-identifier, readability-identifier-naming): Win32's own name
 struct _OVERLAPPED;
@@ -53,7 +54,7 @@ struct WadStream {
     void destruct() {}
 
     // The status word status_index_ picks (E_PENDING 0x8000000A: still going).
-    [[nodiscard]] uint32_t get_standing() const { return cur_standing_[status_index_]; }
+    [[nodiscard]] uint32_t get_standing() const { return core::at(cur_standing_, status_index_); }
 
     Hdl file_ref_{cell::pointer<void>(0xFFFFFFFFu)}; // +0x00 INVALID_HANDLE_VALUE when closed
     uint32_t unknown04_{0};                   // +0x04
@@ -162,7 +163,7 @@ struct BinkStream {
     std::array<uint8_t, 3> pad1bd_{};
 
     // The status word status_index_ picks (0x8000000A: still fine).
-    [[nodiscard]] uint32_t get_standing() const { return status_words_[status_index_]; }
+    [[nodiscard]] uint32_t get_standing() const { return core::at(status_words_, status_index_); }
 };
 static_assert(offsetof(BinkStream, wad_entry_) == 0x0C && offsetof(BinkStream, shared_file_) == 0x18 &&
                   offsetof(BinkStream, plays_) == 0x24 && offsetof(BinkStream, bink_) == 0x28 &&

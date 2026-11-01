@@ -34,6 +34,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -149,16 +150,16 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     const uint32_t color =
         static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * g_float255)) << 24 | 0x808080;
     std::array<MovieVertex, 4> vertices{};
-    vertices[0] = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
-    vertices[1] = vertices[0];
-    vertices[1].x = static_cast<float>(static_cast<double>(g_movie_back_buffer_width) * width + x);
-    vertices[1].u = 1.0f;
-    vertices[2] = vertices[0];
-    vertices[2].y = static_cast<float>(static_cast<double>(g_movie_back_buffer_height) * height + y);
-    vertices[2].v = 1.0f;
-    vertices[3] = vertices[1];
-    vertices[3].y = vertices[2].y;
-    vertices[3].v = 1.0f;
+    core::at(vertices, 0) = {x, y, 0.0f, 1.0f, color, 0.0f, 0.0f};
+    core::at(vertices, 1) = core::at(vertices, 0);
+    core::at(vertices, 1).x = static_cast<float>(static_cast<double>(g_movie_back_buffer_width) * width + x);
+    core::at(vertices, 1).u = 1.0f;
+    core::at(vertices, 2) = core::at(vertices, 0);
+    core::at(vertices, 2).y = static_cast<float>(static_cast<double>(g_movie_back_buffer_height) * height + y);
+    core::at(vertices, 2).v = 1.0f;
+    core::at(vertices, 3) = core::at(vertices, 1);
+    core::at(vertices, 3).y = core::at(vertices, 2).y;
+    core::at(vertices, 3).v = 1.0f;
     if (g_d3d_device->TestCooperativeLevel() == D3D_OK) // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
         draw_movie_quad(g_d3d_device, D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(MovieVertex));
@@ -437,10 +438,10 @@ void play_movie_file(const char* name)
                     continue;
                 const uint8_t* data = device->control_data_.data();
                 if (data[2] << 8 & kStart)
-                    seen_up[port] |= kStart;
-                else if (seen_up[port] & kStart)
+                    core::at(seen_up, port) |= kStart;
+                else if (core::at(seen_up, port) & kStart)
                     skip = true;
-                if (!skip && button_pressed_again(data, &seen_up[port], kCross))
+                if (!skip && button_pressed_again(data, &core::at(seen_up, port), kCross))
                     skip = true;
             }
             if (skip)

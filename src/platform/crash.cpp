@@ -26,6 +26,7 @@
 #include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
 #include "platform/crt.h"
+#include "engine/core/checked_index.h"
 
 namespace {
 
@@ -136,9 +137,9 @@ void log_backtrace()
     const USHORT count = CaptureStackBackTrace(2, 24, frames.data(), nullptr);
     for (USHORT i = 0; i < count; ++i) {
         std::array<char, MAX_PATH> name = {"?"};
-        auto offset = cell::address(frames[i]);
-        module_of(cell::address(frames[i]), name, &offset);
-        get_log("    at %s+0x%X (%p)", name.data(), static_cast<unsigned>(offset), frames[i]);
+        auto offset = cell::address(core::at(frames, i));
+        module_of(cell::address(core::at(frames, i)), name, &offset);
+        get_log("    at %s+0x%X (%p)", name.data(), static_cast<unsigned>(offset), core::at(frames, i));
     }
 }
 
@@ -249,8 +250,8 @@ int crt_report_hook(int type, char* message, int* return_value)
 {
     std::array<char, 1024> text{};
     strncpy_s(text.data(), text.size(), message ? message : "", _TRUNCATE);
-    for (size_t n = strlen(text.data()); n && (text[n - 1] == '\n' || text[n - 1] == '\r'); --n)
-        text[n - 1] = '\0';
+    for (size_t n = strlen(text.data()); n && (core::at(text, n - 1) == '\n' || core::at(text, n - 1) == '\r'); --n)
+        core::at(text, n - 1) = '\0';
     get_log("DEBUG CRT REPORT (type %d): %s", type, text.data());
     if (type == _CRT_WARN)
         return TRUE;

@@ -81,6 +81,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::new_frontend {
 
@@ -467,10 +468,10 @@ paint::Art load_image_file(const std::string& name)
     std::vector<uint8_t> bgra(count * 4);
     for (size_t i = 0; i < count; ++i) {
         const uint8_t* px = palettized ? palette + rows_data[i] * 4 : rows_data + i * 4;
-        bgra[i * 4 + 0] = px[0];
-        bgra[i * 4 + 1] = px[1];
-        bgra[i * 4 + 2] = px[2];
-        bgra[i * 4 + 3] = 0xFF; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
+        core::at(bgra, i * 4 + 0) = px[0];
+        core::at(bgra, i * 4 + 1) = px[1];
+        core::at(bgra, i * 4 + 2) = px[2];
+        core::at(bgra, i * 4 + 3) = 0xFF; // (a full-bleed picture: opaque - the files' alpha is the PS2's half scale)
     }
     art.texture =
         ui_backend::create_texture(static_cast<int>(width), static_cast<int>(height), ui_backend::PixelLayout::kBgra32,
@@ -549,7 +550,7 @@ std::vector<SectionView> get_views()
     for (const Section& section : s_catalogue.sections) {
         SectionView view;
         for (size_t i = 0; i < section.levels.size(); ++i) {
-            const StageMap& level = section.levels[i];
+            const StageMap& level = core::at(section.levels, i);
             const bool unlocked = get_unlocked(level);
             // (the game's select drops hide_when_locked outside a career when it uses the seen flags: listed, locked)
             if (!unlocked && level.hide_when_locked_ && level.seen_flag_.empty())
@@ -661,10 +662,10 @@ void load_option_values()
     }
     for (size_t i = 0; i < specs.size(); ++i) {
         std::string value;
-        const bool present = options::ini_get(text, specs[i].section, specs[i].key, &value);
-        choices[i] = options::choice_of(specs[i], value, present);
+        const bool present = options::ini_get(text, core::at(specs, i).section, core::at(specs, i).key, &value);
+        core::at(choices, i) = options::choice_of(core::at(specs, i), value, present);
         if (first)
-            s_start_values[i] = specs[i].choices[choices[i]].value;
+            core::at(s_start_values, i) = core::at(core::at(specs, i).choices, core::at(choices, i)).value;
     }
     menu_state().set_option_values(std::move(choices));
 }
@@ -674,8 +675,8 @@ void apply_option(int option, int choice)
     const std::vector<options::Spec>& specs = options::get_specs();
     if (option < 0 || std::cmp_greater_equal(option, specs.size()))
         return;
-    const options::Spec& spec = specs[option];
-    const char* value = spec.choices[choice].value;
+    const options::Spec& spec = core::at(specs, option);
+    const char* value = core::at(spec.choices, choice).value;
     const std::string path = ini_path();
     const std::string text = read_text(path);
     const std::string changed = options::ini_set(text, spec.section, spec.key, value);
@@ -697,7 +698,7 @@ void apply_option(int option, int choice)
         else if (std::strcmp(spec.key, "respect_locks") == 0)
             menu_state().set_views(get_views());
     } else if (std::cmp_less(option, s_restart_pending.size())) {
-        s_restart_pending[option] = s_start_values[option] != value;
+        core::at(s_restart_pending, option) = core::at(s_start_values, option) != value;
     }
 }
 
@@ -785,7 +786,7 @@ bool element_hidden(const UiWidget* element)
 }
 bool get_visible(const UiWidget* element)
 {
-    return !element_hidden(element) && element->aim_point_.alpha > 0.02f && element->aim_point_.rgba[3] > 2;
+    return !element_hidden(element) && element->aim_point_.alpha > 0.02f && core::at(element->aim_point_.rgba, 3) > 2;
 }
 
 uint32_t text_type()
@@ -897,7 +898,7 @@ bool has_visible_sprite(const UiWidget* element, int* budget)
 {
     if (!element || --*budget <= 0 || element_hidden(element) || element->aim_point_.alpha <= 0.02f)
         return false;
-    if (type_of(element) == sprite_type() && element->aim_point_.rgba[3] > 2 &&
+    if (type_of(element) == sprite_type() && core::at(element->aim_point_.rgba, 3) > 2 &&
         std::fabs(element->aim_point_.scale_x_) > 0.001f)
         return true;
     for (const UiWidget* child = first_child(element); child; child = get_next(child))
@@ -939,10 +940,10 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->adjustable = true;
                 item->slider_at_ = std::clamp((e->aim_point_.x - left) / (right - left), 0.0f, 1.0f);
                 item->slider_hue_ = id == kHueArrow;
-                item->slider_kind_ = id == kColourArrows[0]   ? 1
-                                     : id == kColourArrows[1] ? 2
-                                     : id == kColourArrows[2] ? 3
-                                     : id == kColourArrows[3] ? 4
+                item->slider_kind_ = id == core::at(kColourArrows, 0)   ? 1
+                                     : id == core::at(kColourArrows, 1) ? 2
+                                     : id == core::at(kColourArrows, 2) ? 3
+                                     : id == core::at(kColourArrows, 3) ? 4
                                                               : 0;
             }
             if (texture == kCheckbox && get_visible(e)) {
@@ -1044,7 +1045,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
             if (type_of(name) == text_type() && core::down_cast<LabelWidget>(name)->chars_)
                 read.skater_name_ = core::down_cast<LabelWidget>(name)->chars_;
         if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size()))
-            read.stats = skater_stats(read.items[read.selected_index_].id);
+            read.stats = skater_stats(core::at(read.items, read.selected_index_).id);
         return read;
     }
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
@@ -1082,18 +1083,18 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         // (the nearest row, within half the rows' spacing)
         float spacing = 24.0f;
         for (size_t i = 1; i < row_y.size(); ++i)
-            if (row_y[i] - row_y[i - 1] > 2.0f)
-                spacing = std::min(spacing, row_y[i] - row_y[i - 1]);
+            if (core::at(row_y, i) - core::at(row_y, i - 1) > 2.0f)
+                spacing = std::min(spacing, core::at(row_y, i) - core::at(row_y, i - 1));
         for (const auto& [text, y] : beside) {
             size_t row = row_y.size();
             float best = spacing * 0.5f;
             for (size_t i = 0; i < row_y.size() && i < read.items.size(); ++i)
-                if (std::fabs(row_y[i] - y) < best && read.items[i].focusable) {
-                    best = std::fabs(row_y[i] - y);
+                if (std::fabs(core::at(row_y, i) - y) < best && core::at(read.items, i).focusable) {
+                    best = std::fabs(core::at(row_y, i) - y);
                     row = i;
                 }
             if (row < row_y.size())
-                read.items[row].texts.push_back(text);
+                core::at(read.items, row).texts.push_back(text);
             else
                 read.extra_texts_.push_back(text);
         }
@@ -1145,7 +1146,7 @@ void dump_left_menu(UiWidget* menu, const std::string& why)
     collect_texts(menu, &texts, {}, &text_budget, false);
     std::string key = std::to_string(id_of_element(menu));
     for (size_t i = 0; i < texts.size() && i < 6; ++i)
-        key += "|" + texts[i];
+        key += "|" + core::at(texts, i);
     if (!kOn || !menu || !logged.insert(key).second)
         return;
     const UiWidget* root = root_element();
@@ -1233,7 +1234,7 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
             collect_texts(key, &texts, {}, &budget, false);
             std::string label;
             for (const std::string& t : texts)
-                if (!(t.size() >= 2 && t[0] == '\\'))
+                if (!(t.size() >= 2 && core::at(t, 0) == '\\'))
                     label = t;
             key_row.push_back(label);
         }
@@ -1421,7 +1422,7 @@ bool step_to(modules::FrontEnd* front_end, int row)
     const UiWidget* menu = active_menu();
     if (!menu || row < 0 || std::cmp_greater_equal(row, v.rows.size()))
         return false;
-    const int target = v.rows[row].index;
+    const int target = core::at(v.rows, row).index;
     StepContext context{front_end, v.horizontal};
     mouse_menus::step_selection(target, mouse_menus::child_count(menu), mouse_menus::menu_wraps(menu), read_selection,
                                 send_step, &context);
@@ -1504,7 +1505,7 @@ void mirror_mouse(modules::FrontEnd* front_end)
                         const float width = hit->x1 - hit->x0;
                         int side = 0;
                         if (shown.kind == mirror::Kind::kLinkChain && hit->index >= 0 &&
-                            std::cmp_less(hit->index, shown.rows.size()) && shown.rows[hit->index].adjustable)
+                            std::cmp_less(hit->index, shown.rows.size()) && core::at(shown.rows, hit->index).adjustable)
                             side = click_x < hit->x0 + width * 0.3f ? -1 : click_x >= hit->x1 - width * 0.3f ? 1 : 0;
                         mouse_menus::send_menu_pad_event(front_end, side < 0   ? modules::FrontEnd::kPadLeft
                                                                     : side > 0 ? modules::FrontEnd::kPadRight
@@ -2339,7 +2340,7 @@ std::string continue_level_name()
     int section = -1, level = -1;
     if (s_saved.last_level_.empty() || !s_catalogue_ok || !s_catalogue.get_find(s_saved.last_level_, &section, &level))
         return {};
-    return s_catalogue.sections[section].levels[level].name;
+    return core::at(core::at(s_catalogue.sections, section).levels, level).name;
 }
 
 // Continue (the restyled main menu's X / R, or its hint clicked): the last level played, in free skate.
@@ -2430,7 +2431,7 @@ void register_script_functions()
         {"NewFrontend_Item", code_address(&cfunc_item)},
         {"NewFrontend_Open", code_address(&cfunc_show_new_frontend)},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }
 
 void blit()
@@ -2543,19 +2544,19 @@ std::string automation_command(const std::string& line, bool* done)
     }
     if (words.empty())
         return "error: fe select <screen>/<item> | fe focus <screen>/<item> | fe back | fe press <input>";
-    std::string verb = words[0];
+    std::string verb = core::at(words, 0);
     for (char& ch : verb)
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     if (verb == "select" || verb == "focus") {
-        if (words.size() < 2 || words[1].find('/') == std::string::npos)
+        if (words.size() < 2 || core::at(words, 1).find('/') == std::string::npos)
             return "error: fe " + verb + " <screen>/<item> [seconds]";
-        const std::string screen_name = words[1].substr(0, words[1].find('/'));
-        const std::string item = words[1].substr(words[1].find('/') + 1);
+        const std::string screen_name = core::at(words, 1).substr(0, core::at(words, 1).find('/'));
+        const std::string item = core::at(words, 1).substr(core::at(words, 1).find('/') + 1);
         Screen screen{};
         if (!screen_from_name(screen_name, &screen))
             return "error: no screen " + screen_name;
         if (get_refused(screen, item))
-            return "refused: online (" + words[1] + ")";
+            return "refused: online (" + core::at(words, 1) + ")";
         s_pending = {};
         s_pending.active = true;
         s_pending.confirm = verb == "select";
@@ -2578,7 +2579,7 @@ std::string automation_command(const std::string& line, bool* done)
         if (words.size() < 2)
             return "error: fe press <up|down|left|right|confirm|back|resume|prevtab|nexttab>";
         for (const auto& [name, input] : kInputs)
-            if (_stricmp(words[1].c_str(), name) == 0) {
+            if (_stricmp(core::at(words, 1).c_str(), name) == 0) {
                 if (s_state != State::kShown || menu_state().occupied())
                     return "error: the new front end isn't up";
                 if (input == Intake::kConfirm && get_refused(menu_state().get_shown(), menu_state().chosen_item_id()))
@@ -2586,7 +2587,7 @@ std::string automation_command(const std::string& line, bool* done)
                 run_action(the_front_end(), menu_state().get_press(input));
                 return "ok";
             }
-        return "error: no input " + words[1];
+        return "error: no input " + core::at(words, 1);
     }
     return "error: fe " + verb + "? (select, focus, back, press)";
 }
@@ -2627,7 +2628,7 @@ std::string automation_status()
         const mirror::View& v = s_mirror.get_shown();
         text += std::string(", restyled ") + mirror::kind_name(v.kind) + " \"" + v.title + "\"";
         if (v.selected >= 0 && std::cmp_less(v.selected, v.rows.size()))
-            text += " on \"" + v.rows[v.selected].label + "\"";
+            text += " on \"" + core::at(v.rows, v.selected).label + "\"";
     }
     return text;
 }

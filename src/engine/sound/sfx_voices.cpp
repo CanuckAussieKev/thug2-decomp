@@ -40,6 +40,7 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace sound {
 
@@ -341,7 +342,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         // which way the sound is: in front of the camera, to its side
         maths::Vec4 to_sound = *position - *viewer_location(camera);
         to_sound.make_unit();
-        const maths::Vec4 front = -cam_orientation(camera)->row[0];
+        const maths::Vec4 front = -core::at(cam_orientation(camera)->row, 0);
         const double facing = static_cast<double>(front.z) * to_sound.z + static_cast<double>(front.y) * to_sound.y +
                               static_cast<double>(front.x) * to_sound.x;
         const double side = (facing + 1.0f) * 0.5f;
@@ -350,27 +351,27 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         if (volume->kind_tag_ == VolumeRef::kTypePositional) {
             // (never: the type was just set to 3D)
             bool louder = false;
-            if (left > volume->lanes_[0]) {
-                volume->lanes_[0] = static_cast<float>(left);
+            if (left > core::at(volume->lanes_, 0)) {
+                core::at(volume->lanes_, 0) = static_cast<float>(left);
                 louder = true;
             }
-            if (right > volume->lanes_[1]) {
-                volume->lanes_[1] = right;
+            if (right > core::at(volume->lanes_, 1)) {
+                core::at(volume->lanes_, 1) = right;
                 louder = true;
             }
             if (louder) {
-                const maths::Vec4 behind = -cam_orientation(camera)->row[2];
+                const maths::Vec4 behind = -core::at(cam_orientation(camera)->row, 2);
                 const double ahead = static_cast<double>(behind.z) * to_sound.z +
                                      static_cast<double>(behind.y) * to_sound.y +
                                      static_cast<double>(behind.x) * to_sound.x;
                 if (ahead < 0.0)
-                    volume->lanes_[0] = volume->lanes_[0] * -1.0f;
+                    core::at(volume->lanes_, 0) = core::at(volume->lanes_, 0) * -1.0f;
             }
         } else {
-            if (left > volume->lanes_[0])
-                volume->lanes_[0] = static_cast<float>(left);
-            if (right > volume->lanes_[1])
-                volume->lanes_[1] = right;
+            if (left > core::at(volume->lanes_, 0))
+                core::at(volume->lanes_, 0) = static_cast<float>(left);
+            if (right > core::at(volume->lanes_, 1))
+                core::at(volume->lanes_, 1) = right;
         }
     }
     volume->dropoff_ = dropoff;
@@ -747,14 +748,14 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         void* viewport = viewport_camera(0);
         maths::Vec4 relative = volume->anchor_point_ - *viewer_location(camera);
         if (camera != viewport && viewport) {
-            const maths::Vec4 front = -cam_orientation(viewport)->row[2];
+            const maths::Vec4 front = -core::at(cam_orientation(viewport)->row, 2);
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
-            const maths::Vec4 heard = -cam_orientation(camera)->row[2];
-            const maths::Vec4 seen = -cam_orientation(viewport)->row[2];
+            const maths::Vec4 heard = -core::at(cam_orientation(camera)->row, 2);
+            const maths::Vec4 seen = -core::at(cam_orientation(viewport)->row, 2);
             const double angle = maths::read_turn_angle(heard, seen);
             relative.rotate_about_y(static_cast<float>(angle * 0.017453292f));
         } else {
-            const maths::Vec4 front = -cam_orientation(camera)->row[2];
+            const maths::Vec4 front = -core::at(cam_orientation(camera)->row, 2);
             listener()->SetOrientation(front.x, front.y, front.z, 0.0f, -1.0f, 0.0f, DS3D_DEFERRED);
         }
         const float range = volume->dropoff_;
@@ -771,7 +772,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             else if (attenuation > 0)
                 attenuation = 0;
         }
-        const bool audible = volume->lanes_[0] > 0.0f || volume->lanes_[1] > 0.0f;
+        const bool audible = core::at(volume->lanes_, 0) > 0.0f || core::at(volume->lanes_, 1) > 0.0f;
         buffer_of(voice.buffer)
             ->SetVolume(output_attenuation(audible ? attenuation : -10000)); // (NOT ORIGINAL: mute_audio)
         if (get_listener())
@@ -781,8 +782,8 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
     // stereo: the louder channel's level and the balance between the two as decibels
     int pan = 0;
     int attenuation = -10000;
-    const float left = volume->lanes_[0];
-    const float right = volume->lanes_[1];
+    const float left = core::at(volume->lanes_, 0);
+    const float right = core::at(volume->lanes_, 1);
     if (left > 0.0f || right > 0.0f) {
         double louder = 0.0;
         double ratio = 0.0;

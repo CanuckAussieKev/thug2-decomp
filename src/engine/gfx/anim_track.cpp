@@ -23,6 +23,7 @@
 #include "engine/script/script_startup.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -110,14 +111,14 @@ void AnimTrack::insert_controller(AnimDriver* controller, int priority)
     const int count = controller_count_;
     int at = 0;
     if (count > 0) {
-        while (at < controller_count_ && priority <= controller_list_[at]->rank_)
+        while (at < controller_count_ && priority <= core::at(controller_list_, at)->rank_)
             ++at;
         if (at < controller_count_) {
             for (int i = count; i > at; --i)
-                controller_list_[i] = controller_list_[i - 1];
+                core::at(controller_list_, i) = core::at(controller_list_, i - 1);
         }
     }
-    controller_list_[at] = controller;
+    core::at(controller_list_, at) = controller;
     ++controller_count_;
 }
 
@@ -125,8 +126,8 @@ void AnimTrack::insert_controller(AnimDriver* controller, int priority)
 AnimDriver* AnimTrack::find_controller(uint32_t id)
 {
     for (int i = 0; i < controller_count_; ++i) {
-        if (controller_list_[i]->ident_ == id)
-            return controller_list_[i];
+        if (core::at(controller_list_, i)->ident_ == id)
+            return core::at(controller_list_, i);
     }
     return nullptr;
 }
@@ -147,7 +148,7 @@ void AnimTrack::tick_frame()
     }
     if (cur_phase_ == kPlaying || cur_phase_ == kFading) {
         for (int i = 0; i < controller_count_; ++i)
-            controller_list_[i]->tick_frame();
+            core::at(controller_list_, i)->tick_frame();
     }
 }
 
@@ -321,7 +322,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         advance_clock(current);
     }
     for (int i = 0; i < controller_count_; ++i) {
-        const int result = controller_list_[i]->invoke_method_by_name(name, params, script);
+        const int result = core::at(controller_list_, i)->invoke_method_by_name(name, params, script);
         if (result != kNotMine)
             return result;
     }
@@ -370,7 +371,7 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     settings = new_params();
     settings->push_float(kFraction, 0.0f);
     for (int i = 0; i < controller_count_; ++i)
-        controller_list_[i]->invoke_method_by_name(kSetTarget, settings, nullptr);
+        core::at(controller_list_, i)->invoke_method_by_name(kSetTarget, settings, nullptr);
     delete_params(settings);
 
     settings = new_params();
@@ -383,7 +384,7 @@ void AnimTrack::play_anim(uint32_t anim, float start, float end, int loop_type, 
     settings->put_name_key(kWeightedAnim, weighted_anim);
     settings->push_float(kWeight, weight);
     for (int i = 0; i < controller_count_; ++i)
-        controller_list_[i]->invoke_method_by_name(kPlayAnim, settings, nullptr);
+        core::at(controller_list_, i)->invoke_method_by_name(kPlayAnim, settings, nullptr);
     delete_params(settings);
 }
 

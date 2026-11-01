@@ -22,6 +22,7 @@
 #include "engine/gfx/viewport_list.h"
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace lists {
 
@@ -141,7 +142,7 @@ uint32_t created_trick_name(int index)
     if (!skater)
         return 0;
     const char* name = nullptr;
-    skater->trick_slots_[index]->other_params_->fetch_text(kName, &name, 1);
+    core::at(skater->trick_slots_, index)->other_params_->fetch_text(kName, &name, 1);
     return checksums::hash_from_text(name);
 }
 
@@ -210,7 +211,7 @@ void PointTally::set_special_bar_colors()
     for (uint32_t i = 0; i < 3; ++i) {
         auto* color = colors->array_at(i);
         for (uint32_t c = 0; c < 4; ++c)
-            bar_colors_[i][c] = static_cast<uint8_t>(color->fetch_part(c));
+            core::at(core::at(bar_colors_, i), c) = static_cast<uint8_t>(color->fetch_part(c));
     }
     special_rate_ = script::fetch_float(kSpecialBarInterpolatorRate);
 }
@@ -284,7 +285,7 @@ void PointTally::dispatch_trick_sequence(bool clear)
     std::array<const char*, 0xFD> lines{};
     if (!clear) {
         for (int i = 0; i < log_.num_; ++i)
-            lines[i] = get_trick(i)->shown_.data();
+            core::at(lines, i) = get_trick(i)->shown_.data();
         text->change_caption(lines.data(), log_.num_);
     } else {
         text->change_caption(lines.data(), 0);
@@ -300,8 +301,8 @@ void PointTally::setup_balance_meter()
     info->fetch_list(kArrowPositions, &arrows, 0);
     arrow_count_ = static_cast<int>(arrows->extent_); // (no check: as the original)
     for (int i = 0; i < arrow_count_; ++i)
-        arrows_[i] = *arrows->pair_at(static_cast<uint32_t>(i));
-    arrows_[arrow_count_] = arrows_[arrow_count_ - 1];
+        core::at(arrows_, i) = *arrows->pair_at(static_cast<uint32_t>(i));
+    core::at(arrows_, arrow_count_) = core::at(arrows_, arrow_count_ - 1);
     arrow_step_ = static_cast<float>(1.0 / arrow_count_);
     script::Array* bars = nullptr;
     uint32_t name = kBarPositions;
@@ -310,7 +311,7 @@ void PointTally::setup_balance_meter()
         name = screen_mode() == 1 ? kBarPositionsMpV : kBarPositionsMpH;
     info->fetch_list(name, &bars, 0);
     for (uint32_t i = 0; i < 2; ++i)
-        bars_[i] = *bars->pair_at(i);
+        core::at(bars_, i) = *bars->pair_at(i);
 }
 
 // 0x00561890
@@ -321,8 +322,8 @@ void PointTally::dispatch_score_pot(int points, float multiplier)
     auto* text = core::down_cast<frontend::LabelWidget>(find_element(kTheScorePotText + static_cast<uint32_t>(number)));
     std::array<char, 0x80> shown{};
     if (!points) {
-        shown[0] = ' ';
-        shown[1] = 0;
+        core::at(shown, 0) = ' ';
+        core::at(shown, 1) = 0;
     } else if (multiplier == 0.0f) {
         std::snprintf(shown.data(), sizeof(shown), "%s", text::format_with_separators(points)); // "%s"
     } else {
@@ -503,7 +504,7 @@ bool PointTally::last_trick_is(uint32_t name, int spin, bool perfect, int taps)
         if (index <= 0)
             return false;
         --index;
-    } while (!get_trick(index)->text_[0]);
+    } while (!core::at(get_trick(index)->text_, 0));
     const uint32_t trick = taps > 1 ? trick_name_after_taps(name, taps) : name;
     return is_trick_at(index, trick, spin, perfect);
 }
@@ -516,7 +517,7 @@ bool PointTally::last_trick_is_key_combo(uint32_t key_combo, int spin, bool perf
         if (index <= 0)
             return false;
         --index;
-    } while (!get_trick(index)->text_[0]);
+    } while (!core::at(get_trick(index)->text_, 0));
     uint32_t trick = 0;
     if (!key_combo_name(key_combo, taps, &trick))
         return false;
@@ -606,14 +607,14 @@ void PointTally::refresh_bot_check(int line)
     }
     ++robot_lines_;
     ++robot_combo_lines_;
-    uint8_t& count = line_counts_[line];
+    uint8_t& count = core::at(line_counts_, line);
     if (!count) {
         ++robot_new_lines_;
         ++robot_combo_new_lines_;
     }
     if (count < 0xFF)
         ++count;
-    uint8_t& combo_count = combo_line_counts_[line];
+    uint8_t& combo_count = core::at(combo_line_counts_, line);
     if (!combo_count)
         ++robot_combo_first_lines_;
     if (combo_count < 0xFF)
@@ -635,7 +636,7 @@ void PointTally::trim_log()
     std::memcpy(merged.shown_.data(), "...\\_+\\_", 9); // "...\_+\_"
     int end = log_.num_;
     for (int i = 0; i < log_.num_; ++i) {
-        if (i != 0 && !get_trick(i)->text_[0]) {
+        if (i != 0 && !core::at(get_trick(i)->text_, 0)) {
             end = i;
             break;
         }

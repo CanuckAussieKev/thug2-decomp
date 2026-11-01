@@ -13,6 +13,7 @@
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -161,7 +162,7 @@ PadSnapshot::PadSnapshot()
 {
     for (const PadButtonName& entry : kPadButtons)
         (this->*entry.button).change_title(entry.name);
-    lock_[0] = lock_[1] = 0;
+    core::at(lock_, 0) = core::at(lock_, 1) = 0;
 }
 
 // 0x0046BB50: every button let go (a held one records its release), the sticks centred.
@@ -173,8 +174,8 @@ void PadSnapshot::get_reset()
         f = 0.0f;
     for (float& f : scaled_stick_)
         f = 0.0f;
-    polar_[0] = {0.0f, 0.0f};
-    polar_[1] = {0.0f, 0.0f};
+    core::at(polar_, 0) = {0.0f, 0.0f};
+    core::at(polar_, 1) = {0.0f, 0.0f};
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's stick buttons beside the pad up too.
     if (skater::thaw_bmx::is_switched_on())
         skater::thaw_bmx::update_pad_sticks(this, nullptr);
@@ -224,22 +225,22 @@ void PadSnapshot::tick_frame(const uint8_t* data)
     // (START isn't read here)
 
     for (int i = 0; i < 4; ++i)
-        scale_stick(data[i], &scaled_stick_[i]);
+        scale_stick(data[i], &core::at(scaled_stick_, i));
     for (int i = 0; i < 4; ++i)
-        stick_[i] = static_cast<float>(data[0x12 + i] - 0x80);
+        core::at(stick_, i) = static_cast<float>(data[0x12 + i] - 0x80);
 
-    double x = stick_[0], y = stick_[1];
-    polar_[0].length = static_cast<float>(std::sqrt(x * x + y * y));
-    polar_[0].angle = static_cast<float>(std::atan2(static_cast<double>(stick_[0]), -static_cast<double>(stick_[1])));
+    double x = core::at(stick_, 0), y = core::at(stick_, 1);
+    core::at(polar_, 0).length = static_cast<float>(std::sqrt(x * x + y * y));
+    core::at(polar_, 0).angle = static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 0)), -static_cast<double>(core::at(stick_, 1))));
 
-    x = stick_[2];
-    y = stick_[3];
+    x = core::at(stick_, 2);
+    y = core::at(stick_, 3);
     const double length = std::sqrt(y * y + x * x);
-    polar_[1].length = static_cast<float>(length);
+    core::at(polar_, 1).length = static_cast<float>(length);
     // (compared unrounded, as the original's)
     if (length > float_from_bits(0x3A83126F)) {
-        polar_[1].angle =
-            static_cast<float>(std::atan2(static_cast<double>(stick_[2]), -static_cast<double>(stick_[3])));
+        core::at(polar_, 1).angle =
+            static_cast<float>(std::atan2(static_cast<double>(core::at(stick_, 2)), -static_cast<double>(core::at(stick_, 3))));
     } else {
         // the d-pad stands in for a centred stick
         const uint8_t up = data[6] != 0;
@@ -247,17 +248,17 @@ void PadSnapshot::tick_frame(const uint8_t* data)
         const uint8_t left = data[5] != 0;
         const uint8_t right = data[4] != 0;
         if (up || down || left || right) {
-            polar_[1].angle = d_pad_angle(up, down, left, right);
-            polar_[1].length = 127.0f;
+            core::at(polar_, 1).angle = d_pad_angle(up, down, left, right);
+            core::at(polar_, 1).length = 127.0f;
         } else {
-            polar_[1].angle = 0.0f;
-            polar_[1].length = 0.0f;
+            core::at(polar_, 1).angle = 0.0f;
+            core::at(polar_, 1).length = 0.0f;
         }
     }
 
-    const double angle = std::fabs(static_cast<double>(polar_[1].angle));
-    update_lock(lock_[0], polar_[1].length, angle < kQuarterPi);
-    update_lock(lock_[1], polar_[1].length, static_cast<double>(kPi) - angle < kQuarterPi);
+    const double angle = std::fabs(static_cast<double>(core::at(polar_, 1).angle));
+    update_lock(core::at(lock_, 0), core::at(polar_, 1).length, angle < kQuarterPi);
+    update_lock(core::at(lock_, 1), core::at(polar_, 1).length, static_cast<double>(kPi) - angle < kQuarterPi);
     // NOT ORIGINAL - THAW's BMX (the feature on): THAW's pad's eight stick buttons (its 0x596CA0), beside the pad -
     // game/rider/thaw_bmx.h. Original behaviour: none.
     if (skater::thaw_bmx::is_switched_on())
@@ -288,7 +289,7 @@ int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 {
     // (0x0067D8C8)
     static constexpr std::array<int, 16> kDirections = {{0, 1, 2, 2, 3, 5, 7, 7, 4, 6, 8, 8, 4, 6, 8, 8}};
-    return kDirections[up + 2 * (down + 2 * (left + 2 * right))];
+    return core::at(kDirections, up + 2 * (down + 2 * (left + 2 * right)));
 }
 
 // 0x0046BA80
@@ -314,7 +315,7 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
         kThreeQuarterPi,
         kThreeQuarterPi,
     }};
-    return kAngles[up + 2 * (down + 2 * (left + 2 * right))];
+    return core::at(kAngles, up + 2 * (down + 2 * (left + 2 * right)));
 }
 
 // 0x0046C370

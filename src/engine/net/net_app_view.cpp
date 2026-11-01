@@ -25,6 +25,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -120,7 +121,7 @@ bool AppHost::decrypt(const uint8_t* packet, uint8_t* out, int length)
     std::array<uint8_t, kMaxPacketSize> buffer{}; // (a longer packet overruns it, as in the original)
     std::memcpy(buffer.data(), packet + 2, length);
     for (int i = 0; i < length; ++i)
-        buffer[i] ^= static_cast<uint8_t>(checksum);
+        core::at(buffer, i) ^= static_cast<uint8_t>(checksum);
     if (name_hash(buffer.data(), length) != checksum)
         return false;
     std::memcpy(out, buffer.data(), length);
@@ -272,7 +273,7 @@ bool AppHost::prepare_all()
 bool AppHost::deliver_to(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
 {
     std::array<uint8_t, kMaxPacketSize> packet{};
-    packet[0] = id;
+    core::at(packet, 0) = id;
     std::memcpy(packet.data() + 1, &length, sizeof(length));
     if (length > 0)
         std::memcpy(packet.data() + 3, data, length);
@@ -330,7 +331,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
         for (OrderedMsgNode *link = search.head_element(&queue), *next = nullptr; link; link = next) {
             next = search.following_item();
             const uint8_t group = link->bundle_id_;
-            if (link->order_index_ != conn->sequence_numbers_[group])
+            if (link->order_index_ != core::at(conn->sequence_numbers_, group))
                 break; // not its turn yet
             SeqQueuedMsg* msg = link->shared_msg_;
             context.sender_conn_ = static_cast<Conn*>(conn);
@@ -339,7 +340,7 @@ bool AppHost::dispatch_queued_sequenced_messages(Conn* conn)
             context.wire_options_ = 0;
             context.type_code_ = msg->ident_;
             context.body_size_ = msg->byte_count_;
-            ++conn->sequence_numbers_[group];
+            ++core::at(conn->sequence_numbers_, group);
             const int result = DispatchMessage(&dispatcher_, &context);
             if (result == kHandlerKeep)
                 return true;

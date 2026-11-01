@@ -5,6 +5,7 @@
 #include "frontend/new_frontend_text.h"
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -67,7 +68,7 @@ private:
     }
     void get_space()
     {
-        while (look_at_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[look_at_])))
+        while (look_at_ < text_.size() && std::isspace(static_cast<unsigned char>(core::at(text_, look_at_))))
             ++look_at_;
     }
     bool literal(const char* word)
@@ -95,7 +96,7 @@ private:
     {
         ++look_at_; // (the opening quote)
         while (look_at_ < text_.size()) {
-            const char c = text_[look_at_++];
+            const char c = core::at(text_, look_at_++);
             if (c == '"')
                 return true;
             if (c != '\\') {
@@ -104,7 +105,7 @@ private:
             }
             if (look_at_ >= text_.size())
                 break;
-            const char e = text_[look_at_++];
+            const char e = core::at(text_, look_at_++);
             switch (e) {
             case '"':
             case '\\':
@@ -148,24 +149,24 @@ private:
         get_space();
         if (look_at_ >= text_.size())
             return get_fail("the end of the text where a value should be");
-        const char c = text_[look_at_];
+        const char c = core::at(text_, look_at_);
         if (c == '{') {
             out->kind = Json::Kind::kObject;
             ++look_at_;
             get_space();
-            if (look_at_ < text_.size() && text_[look_at_] == '}') {
+            if (look_at_ < text_.size() && core::at(text_, look_at_) == '}') {
                 ++look_at_;
                 return true;
             }
             for (;;) {
                 get_space();
-                if (look_at_ >= text_.size() || text_[look_at_] != '"')
+                if (look_at_ >= text_.size() || core::at(text_, look_at_) != '"')
                     return get_fail("an object's key isn't a string");
                 std::string key;
                 if (!string_value(&key))
                     return false;
                 get_space();
-                if (look_at_ >= text_.size() || text_[look_at_] != ':')
+                if (look_at_ >= text_.size() || core::at(text_, look_at_) != ':')
                     return get_fail("no ':' after a key");
                 ++look_at_;
                 Json value;
@@ -173,11 +174,11 @@ private:
                     return false;
                 out->members.emplace_back(std::move(key), std::move(value));
                 get_space();
-                if (look_at_ < text_.size() && text_[look_at_] == ',') {
+                if (look_at_ < text_.size() && core::at(text_, look_at_) == ',') {
                     ++look_at_;
                     continue;
                 }
-                if (look_at_ < text_.size() && text_[look_at_] == '}') {
+                if (look_at_ < text_.size() && core::at(text_, look_at_) == '}') {
                     ++look_at_;
                     return true;
                 }
@@ -188,7 +189,7 @@ private:
             out->kind = Json::Kind::kArray;
             ++look_at_;
             get_space();
-            if (look_at_ < text_.size() && text_[look_at_] == ']') {
+            if (look_at_ < text_.size() && core::at(text_, look_at_) == ']') {
                 ++look_at_;
                 return true;
             }
@@ -198,11 +199,11 @@ private:
                     return false;
                 out->items.push_back(std::move(value));
                 get_space();
-                if (look_at_ < text_.size() && text_[look_at_] == ',') {
+                if (look_at_ < text_.size() && core::at(text_, look_at_) == ',') {
                     ++look_at_;
                     continue;
                 }
-                if (look_at_ < text_.size() && text_[look_at_] == ']') {
+                if (look_at_ < text_.size() && core::at(text_, look_at_) == ']') {
                     ++look_at_;
                     return true;
                 }
@@ -272,8 +273,8 @@ std::string Catalogue::menu_art(const std::string& id) const
 bool Catalogue::get_find(const std::string& load, int* section, int* level) const
 {
     for (size_t s = 0; s < sections.size(); ++s)
-        for (size_t l = 0; l < sections[s].levels.size(); ++l)
-            if (same_text(sections[s].levels[l].load, load)) {
+        for (size_t l = 0; l < core::at(sections, s).levels.size(); ++l)
+            if (same_text(core::at(core::at(sections, s).levels, l).load, load)) {
                 if (section)
                     *section = static_cast<int>(s);
                 if (level)
@@ -285,10 +286,10 @@ bool Catalogue::get_find(const std::string& load, int* section, int* level) cons
 
 uint32_t parse_colour(const std::string& text, uint32_t fallback)
 {
-    if (text.size() != 7 || text[0] != '#')
+    if (text.size() != 7 || core::at(text, 0) != '#')
         return fallback;
     for (size_t i = 1; i < 7; ++i)
-        if (!std::isxdigit(static_cast<unsigned char>(text[i])))
+        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
             return fallback;
     return 0xFF000000u | static_cast<uint32_t>(std::strtoul(text.c_str() + 1, nullptr, 16));
 }
@@ -375,7 +376,7 @@ bool Catalogue::cycle_art(const std::string& load, int step)
     int s = 0, l = 0;
     if (!get_find(load, &s, &l))
         return false;
-    StageMap& level = sections[s].levels[l];
+    StageMap& level = core::at(core::at(sections, s).levels, l);
     const int count = static_cast<int>(level.art_variants_.size());
     if (count < 2)
         return false;
@@ -389,7 +390,7 @@ void Catalogue::apply_art_choices(const std::vector<std::pair<std::string, int>>
         int s = 0, l = 0;
         if (!get_find(load, &s, &l))
             continue;
-        StageMap& level = sections[s].levels[l];
+        StageMap& level = core::at(core::at(sections, s).levels, l);
         if (variant >= 0 && std::cmp_less(variant, level.art_variants_.size()))
             level.variant = variant;
     }
@@ -413,7 +414,7 @@ std::vector<std::pair<std::string, int>> parse_art_choices(const std::string& te
         const size_t end = text.find('\n', at);
         std::string line = get_trim(text.substr(at, end == std::string::npos ? std::string::npos : end - at));
         at = end == std::string::npos ? text.size() + 1 : end + 1;
-        if (line.empty() || line[0] == '#')
+        if (line.empty() || core::at(line, 0) == '#')
             continue;
         const size_t gap = line.find_first_of(" \t");
         if (gap == std::string::npos)
@@ -445,7 +446,7 @@ SavedState parse_state(const std::string& text)
         const size_t end = text.find('\n', at);
         std::string line = get_trim(text.substr(at, end == std::string::npos ? std::string::npos : end - at));
         at = end == std::string::npos ? text.size() + 1 : end + 1;
-        if (line.empty() || line[0] == '#')
+        if (line.empty() || core::at(line, 0) == '#')
             continue;
         const size_t eq = line.find('=');
         if (eq == std::string::npos)
@@ -531,13 +532,13 @@ constexpr std::array<const char*, kScreens> kScreenNames = {{"main", "options", 
 const char* get_screen_name(Screen screen)
 {
     const int i = static_cast<int>(screen);
-    return i >= 0 && i < kScreens ? kScreenNames[i] : "";
+    return i >= 0 && i < kScreens ? core::at(kScreenNames, i) : "";
 }
 
 bool screen_from_name(const std::string& name, Screen* out)
 {
     for (int i = 0; i < kScreens; ++i)
-        if (_stricmp(name.c_str(), kScreenNames[i]) == 0) {
+        if (_stricmp(name.c_str(), core::at(kScreenNames, i)) == 0) {
             if (out)
                 *out = static_cast<Screen>(i);
             return true;
@@ -587,11 +588,11 @@ void Menu::get_reset(const Catalogue* catalogue, std::vector<SectionView> views,
     int section = 0, level = 0;
     if (catalogue_ && !last_level_.empty() && catalogue_->get_find(last_level_, &section, &level) &&
         std::cmp_less(section, views_.size())) {
-        const std::vector<int>& rows = views_[section].levels;
+        const std::vector<int>& rows = core::at(views_, section).levels;
         auto it = std::ranges::find(rows, level);
         if (it != rows.end()) {
             section_ = section;
-            row_in_section_[section] = static_cast<int>(it - rows.begin());
+            core::at(row_in_section_, section) = static_cast<int>(it - rows.begin());
         }
     }
     get_show(pile_.back());
@@ -632,7 +633,7 @@ const std::vector<int>& Menu::option_rows() const
 {
     static const std::vector<int> kNone;
     const std::vector<options::GroupSet>& groups = options::bunches();
-    return bundle_ >= 0 && std::cmp_less(bundle_, groups.size()) ? groups[bundle_].rows : kNone;
+    return bundle_ >= 0 && std::cmp_less(bundle_, groups.size()) ? core::at(groups, bundle_).rows : kNone;
 }
 
 int Menu::option_choice(int option) const
@@ -640,8 +641,8 @@ int Menu::option_choice(int option) const
     const std::vector<options::Spec>& specs = options::get_specs();
     if (option < 0 || std::cmp_greater_equal(option, specs.size()))
         return 0;
-    const int n = static_cast<int>(specs[option].choices.size());
-    const int value = std::cmp_less(option, options_.size()) ? options_[option] : specs[option].fallback;
+    const int n = static_cast<int>(core::at(specs, option).choices.size());
+    const int value = std::cmp_less(option, options_.size()) ? core::at(options_, option) : core::at(specs, option).fallback;
     return std::clamp(value, 0, std::max(0, n - 1));
 }
 
@@ -656,7 +657,7 @@ int Menu::list_count() const
 
 const SectionView* Menu::get_view() const
 {
-    return section_ >= 0 && std::cmp_less(section_, views_.size()) ? &views_[section_] : nullptr;
+    return section_ >= 0 && std::cmp_less(section_, views_.size()) ? &core::at(views_, section_) : nullptr;
 }
 
 int Menu::level_row() const
@@ -664,7 +665,7 @@ int Menu::level_row() const
     const SectionView* view = get_view();
     if (!view || view->levels.empty())
         return -1;
-    return std::clamp(row_in_section_[section_], 0, static_cast<int>(view->levels.size()) - 1);
+    return std::clamp(core::at(row_in_section_, section_), 0, static_cast<int>(view->levels.size()) - 1);
 }
 
 const StageMap* Menu::selected_level() const
@@ -672,20 +673,20 @@ const StageMap* Menu::selected_level() const
     const int row = level_row();
     if (row < 0 || !catalogue_ || std::cmp_greater_equal(section_, catalogue_->sections.size()))
         return nullptr;
-    const int index = get_view()->levels[row];
-    const std::vector<StageMap>& levels = catalogue_->sections[section_].levels;
-    return index >= 0 && std::cmp_less(index, levels.size()) ? &levels[index] : nullptr;
+    const int index = core::at(get_view()->levels, row);
+    const std::vector<StageMap>& levels = core::at(catalogue_->sections, section_).levels;
+    return index >= 0 && std::cmp_less(index, levels.size()) ? &core::at(levels, index) : nullptr;
 }
 
 bool Menu::selected_locked() const
 {
     const int row = level_row();
-    return row >= 0 && std::cmp_less(row, get_view()->locked.size()) && get_view()->locked[row];
+    return row >= 0 && std::cmp_less(row, get_view()->locked.size()) && core::at(get_view()->locked, row);
 }
 
 float Menu::row_amount(int row) const
 {
-    return row >= 0 && std::cmp_less(row, rows_.size()) ? rows_[row].get_eased() : 0.0f;
+    return row >= 0 && std::cmp_less(row, rows_.size()) ? core::at(rows_, row).get_eased() : 0.0f;
 }
 
 float Menu::get_pan() const
@@ -698,7 +699,7 @@ float Menu::get_pan() const
 uint32_t Menu::accent_colour() const
 {
     if (shown_ == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
-        return catalogue_->sections[section_].colour;
+        return core::at(catalogue_->sections, section_).colour;
     return kHouseYellow;
 }
 
@@ -708,7 +709,7 @@ void Menu::reset_rows()
     rows_.assign(static_cast<size_t>(std::max(0, count)), RowAnim{});
     const int selected = get_selected();
     if (selected >= 0 && selected < count)
-        rows_[selected].value = 1.0f; // (a new list: its selection drawn at once)
+        core::at(rows_, selected).value = 1.0f; // (a new list: its selection drawn at once)
 }
 
 void Menu::get_show(Screen screen)
@@ -724,7 +725,7 @@ void Menu::get_go(Screen screen)
     pile_.push_back(screen);
     uint32_t colour = kHouseYellow;
     if (screen == Screen::kLevels && catalogue_ && std::cmp_less(section_, catalogue_->sections.size()))
-        colour = catalogue_->sections[section_].colour;
+        colour = core::at(catalogue_->sections, section_).colour;
     wipe_ = 0.0f;
     switched_ = false;
     wipe_colour_ = colour;
@@ -778,9 +779,9 @@ ActStep Menu::move_level(int row)
     if (!view || view->levels.empty())
         return {};
     row = std::clamp(row, 0, static_cast<int>(view->levels.size()) - 1);
-    if (row_in_section_[section_] == row)
+    if (core::at(row_in_section_, section_) == row)
         return {};
-    row_in_section_[section_] = row;
+    core::at(row_in_section_, section_) = row;
     clamp_scroll(false);
     return {ActionKind::kMoveSound};
 }
@@ -804,8 +805,8 @@ ActStep Menu::change_option(int step, bool wrap)
     const std::vector<int>& rows = option_rows();
     if (option_row_ < 0 || std::cmp_greater_equal(option_row_, rows.size()))
         return {};
-    const int option = rows[option_row_];
-    const int n = static_cast<int>(options::get_specs()[option].choices.size());
+    const int option = core::at(rows, option_row_);
+    const int n = static_cast<int>(core::at(options::get_specs(), option).choices.size());
     if (n <= 1)
         return {};
     const int current = option_choice(option);
@@ -816,9 +817,9 @@ ActStep Menu::change_option(int step, bool wrap)
         const size_t old = options_.size();
         options_.resize(options::get_specs().size());
         for (size_t i = old; i < options_.size(); ++i)
-            options_[i] = options::get_specs()[i].fallback;
+            core::at(options_, i) = core::at(options::get_specs(), i).fallback;
     }
-    options_[option] = next;
+    core::at(options_, option) = next;
     ActStep a{ActionKind::kOption};
     a.option = option;
     a.value = next;
@@ -985,7 +986,7 @@ ActStep Menu::click_choice(int row, int choice)
     if (occupied() || shown_ != Screen::kOptions || row < 0 || std::cmp_greater_equal(row, option_rows().size()))
         return {};
     option_row_ = row;
-    const int current = option_choice(option_rows()[row]);
+    const int current = option_choice(core::at(option_rows(), row));
     return choice == current ? ActStep{} : change_option(choice - current, false);
 }
 
@@ -1008,8 +1009,8 @@ bool Menu::select_id(const std::string& id)
     if (shown_ == Screen::kLevels) {
         if (id.starts_with("tab:")) {
             for (size_t s = 0; catalogue_ && s < catalogue_->sections.size() && s < views_.size(); ++s)
-                if (same_text(catalogue_->sections[s].id, id.substr(4)) ||
-                    same_text(catalogue_->sections[s].tab, id.substr(4))) {
+                if (same_text(core::at(catalogue_->sections, s).id, id.substr(4)) ||
+                    same_text(core::at(catalogue_->sections, s).tab, id.substr(4))) {
                     set_section(static_cast<int>(s));
                     return true;
                 }
@@ -1018,9 +1019,9 @@ bool Menu::select_id(const std::string& id)
         for (size_t s = 0; catalogue_ && s < catalogue_->sections.size() && s < views_.size(); ++s) {
             // (the section shown first: a name in two games - Airport - picks the one there)
             const size_t section = (s + static_cast<size_t>(section_)) % views_.size();
-            const std::vector<int>& rows = views_[section].levels;
+            const std::vector<int>& rows = core::at(views_, section).levels;
             for (size_t r = 0; r < rows.size(); ++r) {
-                const StageMap& level = catalogue_->sections[section].levels[rows[r]];
+                const StageMap& level = core::at(core::at(catalogue_->sections, section).levels, core::at(rows, r));
                 if (same_text(level.load, id) || same_text(level.name, id)) {
                     set_section(static_cast<int>(section));
                     move_level(static_cast<int>(r));
@@ -1034,7 +1035,7 @@ bool Menu::select_id(const std::string& id)
         const std::vector<options::GroupSet>& groups = options::bunches();
         if (id.starts_with("group:")) {
             for (size_t g = 0; g < groups.size(); ++g)
-                if (same_text(groups[g].id, id.substr(6))) {
+                if (same_text(core::at(groups, g).id, id.substr(6))) {
                     set_option_group(static_cast<int>(g));
                     reset_rows();
                     return true;
@@ -1047,8 +1048,8 @@ bool Menu::select_id(const std::string& id)
         }
         const size_t dot = id.find('.');
         for (size_t g = 0; g < groups.size(); ++g)
-            for (size_t r = 0; r < groups[g].rows.size(); ++r) {
-                const options::Spec& spec = options::get_specs()[groups[g].rows[r]];
+            for (size_t r = 0; r < core::at(groups, g).rows.size(); ++r) {
+                const options::Spec& spec = core::at(options::get_specs(), core::at(core::at(groups, g).rows, r));
                 const bool match = dot == std::string::npos ? same_text(spec.key, id)
                                                             : same_text(spec.section, id.substr(0, dot)) &&
                                                                   same_text(spec.key, id.substr(dot + 1));
@@ -1076,7 +1077,7 @@ std::string Menu::chosen_item_id() const
         const std::vector<int>& rows = option_rows();
         if (std::cmp_greater_equal(option_row_, rows.size()))
             return "game_options";
-        const options::Spec& spec = options::get_specs()[rows[option_row_]];
+        const options::Spec& spec = core::at(options::get_specs(), core::at(rows, option_row_));
         return std::string(spec.section) + "." + spec.key;
     }
     return {};
@@ -1098,7 +1099,7 @@ ActStep Menu::tick(float dt)
     }
     const int selected = get_selected();
     for (size_t i = 0; i < rows_.size(); ++i)
-        rows_[i].tick(ints::as_signed(i) == selected, dt);
+        core::at(rows_, i).tick(ints::as_signed(i) == selected, dt);
     // The list's scroll eases toward its target (about a tenth of a second).
     const float k = 1.0f - std::exp(-dt * 18.0f);
     scroll_ += (scroll_target_ - scroll_) * k;

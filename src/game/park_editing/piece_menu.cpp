@@ -12,6 +12,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -106,7 +107,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     }
     void* tracker = get_tracker();
     if (point_group_) {
-        const uint32_t id = point_group_->entries_[selected_].checksum;
+        const uint32_t id = core::at(point_group_->entries_, selected_).checksum;
         if (object_exists(tracker, id))
             launch_event(tracker, kUnfocus, id, kSystem);
     }
@@ -115,7 +116,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     if (set != point_group_) {
         launch_script(kMakePieceMenu);
         for (int i = 0; i < set->entry_total_; ++i) {
-            const uint32_t checksum = set->entries_[i].checksum;
+            const uint32_t checksum = core::at(set->entries_, i).checksum;
             script::Struct params;
             params.put_name_key(kMetapieceId, checksum);
             if (clipboards) {
@@ -151,7 +152,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
         params.get_clear();
     }
 
-    const uint32_t id = set->entries_[set->selected_].checksum;
+    const uint32_t id = core::at(set->entries_, set->selected_).checksum;
     if (object_exists(tracker, id))
         launch_event(tracker, kFocus, id, kSystem);
     selected_ = set->selected_;
@@ -183,7 +184,7 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
 
     frontend::ElementPtr text;
     fetch_part(elements, &text, kPieceMenuName);
-    const char* name = set->entries_[selected_].name;
+    const char* name = core::at(set->entries_, selected_).name;
     change_caption(text.get_pull(), name ? name : "---");
 }
 

@@ -7,6 +7,7 @@
 
 #include "engine/render/probe_ray.h"
 #include "engine/objects/smtptr.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -120,7 +121,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     if (!sideways)
         return;
     // Off a wall 8 to the right, else to the left.
-    const maths::Vec4& right = matrix->row[0];
+    const maths::Vec4& right = core::at(matrix->row, 0);
     maths::Vec4 probe = {right.x, 0.0f, right.z, 0.0f};
     set_length(probe, kSideProbe);
     probe.x += pos.x;
@@ -161,9 +162,9 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     if (!refocus || !hit)
         return;
     // Look from the new position at the focus.
-    maths::Vec4& at = matrix->row[2];
-    maths::Vec4& up = matrix->row[1];
-    maths::Vec4& across = matrix->row[0];
+    maths::Vec4& at = core::at(matrix->row, 2);
+    maths::Vec4& up = core::at(matrix->row, 1);
+    maths::Vec4& across = core::at(matrix->row, 0);
     at = {focus->x - pos.x, focus->y - pos.y, focus->z - pos.z, 1.0f};
     at.make_unit();
     across = perpendicular(up, at);
@@ -175,7 +176,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     across.w = 0.0f;
     up.w = 0.0f;
     at.w = 0.0f;
-    matrix->row[3].w = 1.0f;
+    core::at(matrix->row, 3).w = 1.0f;
 }
 
 } // namespace objects

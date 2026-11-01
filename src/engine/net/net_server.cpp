@@ -11,6 +11,7 @@
 #include "platform/stopwatch.h"
 #include "engine/net/net_client.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -213,7 +214,7 @@ int HostEnd::on_clock_sync_msg(InboundMsgCtx* context)
     if (context->wire_options_ & kPacketForeign)
         return kResultConsumed;
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
-    context->sequences_to_ack_[context->num_sequences_to_ack_] = *raw::as<uint16_t>(context->body_);
+    core::at(context->sequences_to_ack_, context->num_sequences_to_ack_) = *raw::as<uint16_t>(context->body_);
     ++context->num_sequences_to_ack_;
     return kResultPassOn;
 }

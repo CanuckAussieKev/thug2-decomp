@@ -12,6 +12,7 @@
 #include "engine/core/slab_bank.h"
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -358,13 +359,13 @@ void BuildPointer::switch_to_clipboard()
     for (int i = 0; i < sets; ++i) {
         int menu_index = 0;
         for (int j = 0; j < i; ++j) {
-            if (park_owner_->sets_[j].is_displayed_)
+            if (core::at(park_owner_->sets_, j).is_displayed_)
                 ++menu_index;
         }
         menu_index_ = menu_index;
-        if (park_owner_->sets_[i].is_clipboard_) {
+        if (core::at(park_owner_->sets_, i).is_clipboard_) {
             paste_set_index_ = i;
-            set = &park_owner_->sets_[i];
+            set = &core::at(park_owner_->sets_, i);
             break;
         }
     }
@@ -436,7 +437,7 @@ BuildPointer::BuildPointer()
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     park_owner_ = ParkLayout::sole();
     const PieceFamily* set = park_owner_->get_piece_family(0, &menu_index_);
-    change_piece(set->entries_[set->selected_].checksum);
+    change_piece(core::at(set->entries_, set->selected_).checksum);
     gap_counter_ = 1;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }

@@ -20,6 +20,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "engine/script/game_cfuncs.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -489,7 +490,7 @@ bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script)
     std::array<char, 0x40> shortened{};
     if (length > 0)
         std::memcpy(shortened.data(), name, static_cast<size_t>(length));
-    shortened[length] = 0;
+    core::at(shortened, length) = 0;
     script->args_->append_word("name", shortened.data());
     return true;
 }

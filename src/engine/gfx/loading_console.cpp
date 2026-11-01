@@ -32,6 +32,7 @@
 #include "engine/util/com_ptr.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx::loading_console {
 
@@ -86,14 +87,14 @@ bool interesting_log_line(const char* line)
 void Ring::append_one(const char* text, double time)
 {
     if (count != 0) {
-        Seg& newest = lines[(count - 1) % kRingLines];
+        Seg& newest = core::at(lines, (count - 1) % kRingLines);
         if (std::strncmp(newest.text.data(), text, kLineWidth - 1) == 0) {
             ++newest.repeat;
             newest.time = time;
             return;
         }
     }
-    Seg& line = lines[count % kRingLines];
+    Seg& line = core::at(lines, count % kRingLines);
     strncpy_s(line.text.data(), line.text.size(), text, _TRUNCATE);
     line.time = time;
     line.repeat = 1;
@@ -106,7 +107,7 @@ std::vector<std::string> Ring::final_one(size_t n) const
     std::vector<std::string> out;
     out.reserve(shown);
     for (size_t i = shown; i > 0; --i) {
-        const Seg& line = lines[(count - i) % kRingLines];
+        const Seg& line = core::at(lines, (count - i) % kRingLines);
         std::array<char, kLineWidth + 32> text{};
         if (line.repeat > 1)
             std::snprintf(text.data(), sizeof(text), "[%6.1f] %s (x%u)", line.time, line.text.data(), line.repeat);
@@ -214,10 +215,10 @@ void build_font()
         const ImFontGlyph* glyph = font->FindGlyph(static_cast<ImWchar>(c));
         if (!glyph)
             continue;
-        g_glyphs[c] = {glyph->X0, glyph->Y0, glyph->X1, glyph->Y1,       glyph->U0,
+        core::at(g_glyphs, c) = {glyph->X0, glyph->Y0, glyph->X1, glyph->Y1,       glyph->U0,
                        glyph->V0, glyph->U1, glyph->V1, glyph->AdvanceX, glyph->Visible != 0};
     }
-    g_advance = g_glyphs['M'].advance;
+    g_advance = core::at(g_glyphs, 'M').advance;
     g_line_height = std::round(pixels * 1.2f);
     g_white_u = atlas.TexUvWhitePixel.x;
     g_white_v = atlas.TexUvWhitePixel.y;
@@ -251,7 +252,7 @@ void draw_text(float x, float y, const char* text, size_t columns, uint32_t colo
 {
     for (size_t i = 0; text[i] && i < columns; ++i) {
         auto c = static_cast<unsigned char>(text[i]);
-        const Glyph& glyph = g_glyphs[c < 0x80 ? c : '?'];
+        const Glyph& glyph = core::at(g_glyphs, c < 0x80 ? c : '?');
         if (glyph.visible) {
             const float x0 = x + glyph.x0 - 0.5f;
             const float y0 = y + glyph.y0 - 0.5f;
@@ -318,7 +319,7 @@ void get_layout(double now)
     for (size_t i = 0; i < lines.size(); ++i) {
         const bool newest = i + 1 == lines.size();
         const uint32_t color = newest ? (stalled ? 0xFFFFC080u : 0xFFFFFFFFu) : 0xFFB8B8B8u;
-        draw_text(x0 + pad, y, lines[i].c_str(), columns, color);
+        draw_text(x0 + pad, y, core::at(lines, i).c_str(), columns, color);
         y += g_line_height;
     }
 }

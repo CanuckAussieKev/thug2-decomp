@@ -15,6 +15,7 @@
 #include "engine/gfx/pc_lights.h"
 #include "engine/maths/vec4.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -278,9 +279,9 @@ uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, Dyna
         DynamicLightBase* light = dynamic_lights()[i]; // (not checked for null, as the original)
         if (!(light->intensity > 0.0f) || !light->owner)
             continue;
-        const double dx = static_cast<double>(position->x) - light->pos[0];
-        const double dy = static_cast<double>(position->y) - light->pos[1];
-        const double dz = static_cast<double>(position->z) - light->pos[2];
+        const double dx = static_cast<double>(position->x) - core::at(light->pos, 0);
+        const double dy = static_cast<double>(position->y) - core::at(light->pos, 1);
+        const double dz = static_cast<double>(position->z) - core::at(light->pos, 2);
         const double distance_squared = dz * dz + dy * dy + dx * dx;
         const double radius = light->radius;
         if (distance_squared > radius * radius) // (NaN: within reach)

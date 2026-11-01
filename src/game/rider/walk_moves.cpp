@@ -47,6 +47,7 @@
 #include "game/rider/tagging.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -173,8 +174,8 @@ void put_off(maths::Vec4* position, const render::ProbeRay* feeler, float gap)
 // One of the eight contacts (+0xA0, 0xCC each): what feeler 0-6 (around it, a seventh of a turn apart from the facing)
 // or 7 (along the fall) found.
 using Contact = WalkContact;
-Contact& contact_at(FootMovement* walk, int index) { return walk->contacts_[index]; }
-const Contact& contact_at(const FootMovement* walk, int index) { return walk->contacts_[index]; }
+Contact& contact_at(FootMovement* walk, int index) { return core::at(walk->contacts_, index); }
+const Contact& contact_at(const FootMovement* walk, int index) { return core::at(walk->contacts_, index); }
 
 // Where it hangs along the hang's facing (+0x18B4): (the position plus the ride check's offset) . that facing.
 float hang_plane(const FootMovement* walk)
@@ -880,7 +881,7 @@ void FootMovement::get_begin(bool on_ground)
         // Off a vert ramp (the skater's flag +0x30) with a turn under way: thrown out along the object's forward
         // axis turned on (by +0x730 about +0x734) times initial_vert_vel_boost.
         if (core_physics_->state_->flag(PoseFlag::kVertAir).on && !(upright_time_ == 0.0f)) {
-            maths::Vec4 forward = entity_->basis_frame_.row[2];
+            maths::Vec4 forward = core::at(entity_->basis_frame_.row, 2);
             forward.rotate_about_axis(upright_axis_, upright_angle_);
             const double boost = walk_parameter(kInitialVertVelBoost);
             maths::Vec4& velocity = entity_->vel_;
@@ -902,13 +903,13 @@ void FootMovement::get_begin(bool on_ground)
             std::sqrt((static_cast<double>(heading.x) * heading.x + static_cast<double>(heading.y) * heading.y) +
                       static_cast<double>(heading.z) * heading.z);
         if (length < kMinHeadingLength) {
-            heading = entity_->basis_frame_.row[2];
+            heading = core::at(entity_->basis_frame_.row, 2);
             heading.y = 0.0f;
             length =
                 std::sqrt((static_cast<double>(heading.z) * heading.z + static_cast<double>(heading.x) * heading.x) +
                           static_cast<double>(heading.y) * heading.y);
             if (length < kMinHeadingLength) {
-                heading = -entity_->basis_frame_.row[1];
+                heading = -core::at(entity_->basis_frame_.row, 1);
                 heading.y = 0.0f;
                 length = std::sqrt(
                     (static_cast<double>(heading.x) * heading.x + static_cast<double>(heading.y) * heading.y) +

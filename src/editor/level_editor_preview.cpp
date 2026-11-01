@@ -28,6 +28,7 @@
 #include "engine/gfx/pc_instance.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::preview {
 
@@ -153,7 +154,7 @@ void draw_meshes(render::PcGeom* geom)
             if (!(flags & 0x40) || (flags & 0x210))
                 continue;
             render::MaterialRef* material = mesh->material;
-            const bool transparent = material && (material->pass_flags_[0] & 0x40);
+            const bool transparent = material && (core::at(material->pass_flags_, 0) & 0x40);
             if (transparent != (pass == 1))
                 continue;
             if (material != current) {
@@ -267,10 +268,10 @@ bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
     SavedView saved{};
     saved.store_away();
     maths::Mat4 orientation = {};
-    orientation.row[0] = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
-    orientation.row[1] = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
-    orientation.row[2] = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
-    orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(orientation.row, 0) = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
+    core::at(orientation.row, 1) = {eye.frame.up.x, eye.frame.up.y, eye.frame.up.z, 0.0f};
+    core::at(orientation.row, 2) = {eye.frame.back.x, eye.frame.back.y, eye.frame.back.z, 0.0f};
+    core::at(orientation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     const maths::Vec4 position = {eye.pos.x, eye.pos.y, eye.pos.z, 1.0f};
     render::choose_camera(&orientation, &position, kAngle, kSquareAspect, 1.0f, false);
     render::set_world_transform(nullptr);
@@ -302,7 +303,7 @@ void tick_cycle(ui::ShapeMesh* model)
             conceal();
         return;
     }
-    const uint32_t id = (*items)[view.index].id;
+    const uint32_t id = core::at((*items), view.index).id;
     get_show(model->browser_tab_ == 0 ? Kind::kSector : Kind::kObject, id);
     view.name = object_edit::caption(id);
     OrientedBox box{};

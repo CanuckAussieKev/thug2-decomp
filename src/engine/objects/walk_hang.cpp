@@ -41,6 +41,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace {
 
@@ -317,8 +318,8 @@ maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths:
 // 0x0043DA20
 int walk::turned_round(const objects::PadSnapshot* pad)
 {
-    if (pad->lock_[1] == 0 && pad->polar_[1].length != 0.0f &&
-        3.1415927410125732 - std::fabs(static_cast<double>(pad->polar_[1].angle)) < 0.78539818525314331)
+    if (core::at(pad->lock_, 1) == 0 && core::at(pad->polar_, 1).length != 0.0f &&
+        3.1415927410125732 - std::fabs(static_cast<double>(core::at(pad->polar_, 1).angle)) < 0.78539818525314331)
         return 1;
     return 0;
 }
@@ -1098,8 +1099,8 @@ void objects::FootMovement::update_hang()
     const maths::Vec4& facing = facing_;
     const objects::PadInputModule* input = input_;
     if (control_full_) {
-        if (input->pad_primary_.lock_[0] == 0 && input->pad_primary_.polar_[1].length != 0.0f &&
-            std::fabs(input->pad_primary_.polar_[1].angle) < 0.78539818525314331f) {
+        if (core::at(input->pad_primary_.lock_, 0) == 0 && core::at(input->pad_primary_.polar_, 1).length != 0.0f &&
+            std::fabs(core::at(input->pad_primary_.polar_, 1).angle) < 0.78539818525314331f) {
             // pushed forward: a pull-up, pull_up_offset_forward ahead - then half that
             const float forward = get_param(kPullUpOffsetForward);
             maths::Vec4 target = {static_cast<float>(static_cast<double>(forward) * facing.x + pos.x),
@@ -1127,11 +1128,11 @@ void objects::FootMovement::update_hang()
     }
 
     // the shimmy's speed: the control's sideways part (within hang_vert_control_tolerance of straight sideways)
-    auto sideways = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
+    auto sideways = static_cast<float>(1.5707963705062866 - std::fabs(core::at(input->pad_primary_.polar_, 1).angle));
     const float tolerance = get_param(kHangVertControlTolerance);
     float wanted = 0.0f;
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
-        const float direction = input->pad_primary_.polar_[1].angle > 0.0f ? 1.0f : -1.0f;
+        const float direction = core::at(input->pad_primary_.polar_, 1).angle > 0.0f ? 1.0f : -1.0f;
         const float speed = get_param(kHangMoveSpeedParam);
         wanted = static_cast<float>(static_cast<double>(direction) * stick_deflection_ * speed);
     }
@@ -1242,7 +1243,7 @@ bool objects::FootMovement::check_ladder_top(const maths::Vec4* bottom, const ma
     ladder->point = {static_cast<float>(top->x - static_cast<double>(offset) * up.x), top->y - oy, top->z - oz,
                      top->w - ow};
     const float climb = get_param(kLadderClimbOffset);
-    const maths::Vec4& at = orientation->row[2];
+    const maths::Vec4& at = core::at(orientation->row, 2);
     const float cz = climb * at.z;
     const float cw = climb * at.w;
     ladder->point.x = static_cast<float>(ladder->point.x - static_cast<double>(climb) * at.x);
@@ -1276,7 +1277,7 @@ bool objects::FootMovement::check_ladder_line(const maths::Vec4* bottom, const m
     // the point ladder_climb_offset out of it there, if nothing is in the way
     auto* ladder = raw::as<FoundLadder>(record);
     const float climb = get_param(kLadderClimbOffset);
-    const maths::Vec4& at = orientation->row[2];
+    const maths::Vec4& at = core::at(orientation->row, 2);
     const float cx = climb * at.x;
     const float cy = climb * at.y;
     const float cz = climb * at.z;
@@ -1336,7 +1337,7 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
         return false;
     // faced (within max_onto_ladder_angle)
     const float max_angle = get_param(kMaxOntoLadderAngle);
-    const maths::Vec4& at = orientation->row[2];
+    const maths::Vec4& at = core::at(orientation->row, 2);
     const maths::Vec4& facing = facing_;
     const double dot = static_cast<double>(at.z) * facing.z + static_cast<double>(at.y) * facing.y +
                        static_cast<double>(at.x) * facing.x;
@@ -1481,7 +1482,7 @@ void objects::FootMovement::climb_ladder()
     // the control's up / down part (its angle's cosine) at ladder_move_speed
     const float speed = get_param(kLadderMoveSpeed);
     const objects::PadInputModule* input = input_;
-    const double move_speed = std::cos(static_cast<double>(input->pad_primary_.polar_[1].angle)) * stick_deflection_ *
+    const double move_speed = std::cos(static_cast<double>(core::at(input->pad_primary_.polar_, 1).angle)) * stick_deflection_ *
                               static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
     auto move = static_cast<float>(move_speed * frame_length_);
@@ -1547,7 +1548,7 @@ void objects::FootMovement::update_ladder()
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
     const objects::PadInputModule* input = input_;
-    auto upright = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
+    auto upright = static_cast<float>(1.5707963705062866 - std::fabs(core::at(input->pad_primary_.polar_, 1).angle));
     const float tolerance = get_param(kLadderControlTolerance);
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
         climb_ladder();

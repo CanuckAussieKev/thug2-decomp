@@ -35,6 +35,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace format_check_files {
 
@@ -122,7 +123,7 @@ uint8_t* reference_decode(const uint8_t* in, uint8_t* out, int size)
             --size;
             const uint8_t c = *in++;
             *out++ = c;
-            window[r] = c;
+            core::at(window, r) = c;
             r = (r + 1) & 4095;
         } else {
             if (size == 0)
@@ -132,9 +133,9 @@ uint8_t* reference_decode(const uint8_t* in, uint8_t* out, int size)
             in += 2;
             size -= 2;
             for (int k = 0; k <= last; ++k) {
-                const uint8_t c = window[(position + k) & 4095];
+                const uint8_t c = core::at(window, (position + k) & 4095);
                 *out++ = c;
-                window[r] = c;
+                core::at(window, r) = c;
                 r = (r + 1) & 4095;
             }
         }
@@ -194,7 +195,7 @@ void check_archive(const std::string& name, const std::vector<uint8_t>& archive,
         }
         const std::string what = name + ": " + record.name;
         if (static_cast<size_t>(i) < reference.size()) {
-            const WalkedFile& old = reference[static_cast<size_t>(i)];
+            const WalkedFile& old = core::at(reference, static_cast<size_t>(i));
             check(old.offset == record.offset && old.size == record.size &&
                       old.compressed_size == record.compressed_size && old.checksum == record.checksum &&
                       old.name == record.name,
@@ -283,7 +284,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
     check(size >= 8 && words[0] == 1 && words[1] == ints::as_unsigned(count), name + ": version 1, the count");
     for (int i = 0; ok && i < count; ++i) {
         const uint32_t* row = words + 2 + i * 4;
-        const bundle_format::Entry& entry = table[static_cast<size_t>(i)];
+        const bundle_format::Entry& entry = core::at(table, static_cast<size_t>(i));
         check(row[0] == entry.offset && row[1] == entry.size && row[2] == entry.name && row[3] == entry.type,
               name + ": entry " + std::to_string(i) + " as in place");
         check(entry.offset >= bundle_format::kHeaderSize + static_cast<size_t>(count) * bundle_format::kEntrySize,
@@ -291,7 +292,7 @@ void check_bundle(const std::string& name, const uint8_t* data, size_t size)
     }
     // the skinned models' colour assets: their tables within the asset (the original took the count as it came)
     for (int i = 0; ok && i < count; ++i) {
-        const bundle_format::Entry& entry = table[static_cast<size_t>(i)];
+        const bundle_format::Entry& entry = core::at(table, static_cast<size_t>(i));
         if (entry.type != 0x2CD4107Du)
             continue;
         util::ByteReader colours(data + entry.offset, entry.size);
@@ -485,21 +486,21 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
     const int count = static_cast<int>(words[2]);
     bool same = words[1] == skeleton->flags && count == skeleton->count;
     for (int i = 0; same && i < count; ++i) {
-        same = words[3 + i] == skeleton->names[i] && words[3 + count + i] == skeleton->parents[i] &&
-               words[3 + 2 * count + i] == skeleton->mirrors[i];
+        same = words[3 + i] == core::at(skeleton->names, i) && words[3 + count + i] == core::at(skeleton->parents, i) &&
+               words[3 + 2 * count + i] == core::at(skeleton->mirrors, i);
         const auto* bind = raw::as<const float>(words + 3 + 3 * count) + i * 8;
         // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-        same = same && std::memcmp(bind, skeleton->poses[i].rotation.data(), 16) == 0 &&
+        same = same && std::memcmp(bind, core::at(skeleton->poses, i).rotation.data(), 16) == 0 &&
                // NOLINTNEXTLINE(bugprone-suspicious-memory-comparison): compares the bits, as the original
-               std::memcmp(bind + 4, skeleton->poses[i].translation.data(), 16) == 0;
+               std::memcmp(bind + 4, core::at(skeleton->poses, i).translation.data(), 16) == 0;
     }
     check(same, name + ": as read in place");
     // every parent and mirror is one of the bones (the game looks them up: 0 when not found)
     for (int i = 0; i < count; ++i) {
-        bool parent = i == 0 || skeleton->parents[i] == 0, mirror = skeleton->mirrors[i] == 0;
+        bool parent = i == 0 || core::at(skeleton->parents, i) == 0, mirror = core::at(skeleton->mirrors, i) == 0;
         for (int j = 0; j < count; ++j) {
-            parent = parent || skeleton->names[j] == skeleton->parents[i];
-            mirror = mirror || skeleton->names[j] == skeleton->mirrors[i];
+            parent = parent || core::at(skeleton->names, j) == core::at(skeleton->parents, i);
+            mirror = mirror || core::at(skeleton->names, j) == core::at(skeleton->mirrors, i);
         }
         check(parent && mirror, name + ": bone " + std::to_string(i) + "'s parent and mirror are bones");
     }
@@ -661,7 +662,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
             vertex_bytes += body.vertices.size();
             // the vertices the loader draws or unpacks are within the first buffer
             uint32_t vertex_size = body.stride;
-            if (!body.vertex_types[0]) {
+            if (!core::at(body.vertex_types, 0)) {
                 ++g_scenes.skinned_meshes;
                 auto found = passes.find(mesh.material);
                 check(found != passes.end(), name + ": a skinned mesh's material is in the scene");
@@ -670,7 +671,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
             check(scene_format::vertices_fit(body, vertex_size),
                   name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s vertices fit");
             // the offsets in a vertex (the normal's, the colour's, the texture coordinates') within the stride
-            check(!body.vertex_types[0] || scene_format::offsets_fit(body),
+            check(!core::at(body.vertex_types, 0) || scene_format::offsets_fit(body),
                   name + ": sector " + std::to_string(i) + " mesh " + std::to_string(j) + "'s offsets in a vertex");
         }
     }
@@ -760,13 +761,13 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     g_fonts.hd_pages += hd;
     check(reader.remaining() == 0, name + ": the rectangles end at the file's end");
     for (int i = 0; i < header.glyph_count; ++i) {
-        if (header.format == 1 && entries[i].code() < 0) {
+        if (header.format == 1 && core::at(entries, i).code() < 0) {
             ++g_fonts.specials;
-            if (0xFF - (entries[i].code() & 0xFF) >= font_format::kSpecialGlyphs)
+            if (0xFF - (core::at(entries, i).code() & 0xFF) >= font_format::kSpecialGlyphs)
                 ++g_fonts.specials_past_map;
         }
-        check(static_cast<uint32_t>(rects[i].x + rects[i].w) <= page.width / scale &&
-                  static_cast<uint32_t>(rects[i].y + rects[i].h) <= page.height / scale,
+        check(static_cast<uint32_t>(core::at(rects, i).x + core::at(rects, i).w) <= page.width / scale &&
+                  static_cast<uint32_t>(core::at(rects, i).y + core::at(rects, i).h) <= page.height / scale,
               name + ": glyph " + std::to_string(i) + " within the page");
     }
     // the original's reading in place: the count at +8, the map from +0x14, the page header after it, the
@@ -777,7 +778,7 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     const uint8_t* rect = p + 0x10 + ((width * height + 3) & ~3u) + 0x400 + 4;
     bool same = width == page.width && height == page.height && data[4] == header.format;
     for (int i = 0; same && i < header.glyph_count; ++i)
-        same = std::memcmp(rect + 8 * i, &rects[i], 8) == 0 && std::memcmp(data + 0x14 + 6 * i + 2, entries[i].codes.data(), 4) == 0;
+        same = std::memcmp(rect + 8 * i, &core::at(rects, i), 8) == 0 && std::memcmp(data + 0x14 + 6 * i + 2, core::at(entries, i).codes.data(), 4) == 0;
     check(hd || same, name + ": as read in place");
     util::ByteReader cut(data, size - 1);
     font_format::read_header(cut, &header);
@@ -835,7 +836,7 @@ void check_wave(const std::string& name, const uint8_t* data, size_t size)
         } else if (id == wave_format::kSamplerId) {
             std::array<uint32_t, 9> sampler = {};
             std::memcpy(sampler.data(), data + at, chunk < 0x24 ? chunk : 0x24);
-            if (sampler[7] > 0)
+            if (core::at(sampler, 7) > 0)
                 looping = true;
         }
         at += chunk;

@@ -27,6 +27,7 @@
 #include "engine/gfx/engine_geom.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -112,11 +113,11 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
             break;
         case kHeapSkaterGeom:
             params->fetch_int_value(kSkaterIndex, &index, 0);
-            chosen = memory->skater_geom_heaps_[index];
+            chosen = core::at(memory->skater_geom_heaps_, index);
             break;
         case kHeapSkater:
             params->fetch_int_value(kSkaterIndex, &index, 0);
-            chosen = memory->skater_heaps_[index];
+            chosen = core::at(memory->skater_heaps_, index);
             break;
         case kHeapDebug:
             chosen = memory->debug_heap_;
@@ -322,9 +323,9 @@ bool cfunc_get_screen_element_props(script::Struct* params, script::Script* scri
     element.owner_object_->get_properties(script->args_);
     if (element->kind_tag_ == kElement3d) {
         auto* e3d = core::down_cast<ModelWidget>(objects::get_tracker()->look_up_object(id));
-        script->args_->push_float(kAngleX, e3d->angle_[0]);
-        script->args_->push_float(kAngleY, e3d->angle_[1]);
-        script->args_->push_float(kAngleZ, e3d->angle_[2]);
+        script->args_->push_float(kAngleX, core::at(e3d->angle_, 0));
+        script->args_->push_float(kAngleY, core::at(e3d->angle_, 1));
+        script->args_->push_float(kAngleZ, core::at(e3d->angle_, 2));
     }
     return true;
 }

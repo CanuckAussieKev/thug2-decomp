@@ -14,6 +14,7 @@
 #include "engine/audio/stream.h"
 #include "engine/audio/stream_files.h"
 #include "platform/crt.h"
+#include "engine/core/checked_index.h"
 
 namespace audio {
 
@@ -119,7 +120,7 @@ int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
 // 0x00452C00
 BinkStream::BinkStream(bool unknown19, int plays) : unknown19_(unknown19), plays_(plays)
 {
-    status_words_[9] = 0; // (+0x58)
+    core::at(status_words_, 9) = 0; // (+0x58)
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
     async_ctl_ = static_cast<_OVERLAPPED*>(next_stream_buffer());
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

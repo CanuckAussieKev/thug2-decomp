@@ -30,6 +30,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/cscript.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::budget {
 
@@ -63,9 +64,9 @@ int get_worst(const std::vector<Meter>& meters)
     int worst = -1;
     double fill = -1.0;
     for (size_t i = 0; i < meters.size(); ++i) {
-        if (meters[i].limit <= 0.0)
+        if (core::at(meters, i).limit <= 0.0)
             continue;
-        const double f = get_fill(meters[i].used, meters[i].limit);
+        const double f = get_fill(core::at(meters, i).used, core::at(meters, i).limit);
         if (f > fill) {
             fill = f;
             worst = static_cast<int>(i);
@@ -144,11 +145,11 @@ constexpr auto kPools = std::to_array<PoolInfo>({
     {[]() -> memory::PoolPair& { return script::g_script_pools; }, "Running scripts",
      "CScript pool 0x006F3548 (CreateScriptPools; ini [memory] script_pool, original 300)"},
 });
-constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(kPools[0]));
+constexpr int kPoolCount = static_cast<int>(sizeof(kPools) / sizeof(core::at(kPools, 0)));
 
 bool pool_use(memory::PoolPair& pools, int* used, int* count)
 {
-    const memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? pools.pools[pools.current] : nullptr;
+    const memory::SlabBank* pool = pools.current == 0 || pools.current == 1 ? core::at(pools.pools, pools.current) : nullptr;
     if (!pool)
         return false;
     *used = pool->taken_count_;
@@ -197,7 +198,7 @@ void take_baseline()
     }
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, count = 0;
-        g_base.pools[i] = pool_use(kPools[i].pair(), &used, &count) ? used : 0;
+        core::at(g_base.pools, i) = pool_use(core::at(kPools, i).pair(), &used, &count) ? used : 0;
     }
     g_base.taken = true;
 }
@@ -273,15 +274,15 @@ std::vector<Meter> get_meters()
           static_cast<double>(object_edit::get_copies().size()), "objects made from copies of their nodes");
     for (int i = 0; i < kPoolCount; ++i) {
         int used = 0, total = 0;
-        if (!pool_use(kPools[i].pair(), &used, &total))
+        if (!pool_use(core::at(kPools, i).pair(), &used, &total))
             continue;
         Meter m;
-        m.name = kPools[i].name;
+        m.name = core::at(kPools, i).name;
         m.used = used;
         m.limit = total;
-        m.added = g_base.taken ? used - g_base.pools[i] : 0.0;
+        m.added = g_base.taken ? used - core::at(g_base.pools, i) : 0.0;
         m.approximate = true;
-        m.where = kPools[i].where;
+        m.where = core::at(kPools, i).where;
         meters.push_back(m);
     }
     if (const memory::Hub* manager = memory::Hub::get_pull()) {
@@ -340,7 +341,7 @@ bool strip_meter(float* fill, uint32_t* argb)
     const int worst = get_worst(meters);
     if (worst < 0)
         return false;
-    const Meter& w = meters[worst];
+    const Meter& w = core::at(meters, worst);
     *fill = static_cast<float>(std::min(1.0, get_fill(w.used, w.limit)));
     *argb = level_colour(get_level_of(w.used, w.limit));
     return true;
@@ -353,7 +354,7 @@ void tooltip()
     if (worst < 0)
         return;
     ImGui::BeginTooltip();
-    ImGui::Text("Budget: %s %s (click for details)", meters[worst].name, used_text(meters[worst]).c_str());
+    ImGui::Text("Budget: %s %s (click for details)", core::at(meters, worst).name, used_text(core::at(meters, worst)).c_str());
     ImGui::Separator();
     for (const Meter& m : meters) {
         const StageMap l = get_level_of(m.used, m.limit);

@@ -31,6 +31,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -89,11 +90,11 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 // The input manager (0x00696D40): its controller servers (the device, the handler list, the data), and a player's
 // controller (0x0044E630).
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
-tasks::PileUp* server_handlers(pad_input::Hub* manager, int server) { return &manager->hosts_[server].handlers_; }
+tasks::PileUp* server_handlers(pad_input::Hub* manager, int server) { return &core::at(manager->hosts_, server).handlers_; }
 void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, int server)
 {
-    handler->control_data_ = &manager->hosts_[server].content_;
-    handler->dev_ = manager->hosts_[server].dev_;
+    handler->control_data_ = &core::at(manager->hosts_, server).content_;
+    handler->dev_ = core::at(manager->hosts_, server).dev_;
 }
 int player_controller(int player) { return input_manager()->get_player_controller(player); }
 
@@ -388,14 +389,14 @@ int PadInputModule::down_pressed(script::Struct*, script::Script*)
 // 0x0041EA60
 int PadInputModule::get_sticks(script::Struct*, script::Script* script)
 {
-    script->args_->push_float(0x737F15CF, pad_primary_.polar_[1].angle * kDegreesPerRadian);
+    script->args_->push_float(0x737F15CF, core::at(pad_primary_.polar_, 1).angle * kDegreesPerRadian);
     script->args_->push_float(
         0x686AD1C2,
-        static_cast<float>(stick_length(pad_primary_.stick_[2], pad_primary_.stick_[3], pad_primary_.polar_[1].angle)));
-    script->args_->push_float(0xD6030CEA, pad_primary_.polar_[0].angle * kDegreesPerRadian);
+        static_cast<float>(stick_length(core::at(pad_primary_.stick_, 2), core::at(pad_primary_.stick_, 3), core::at(pad_primary_.polar_, 1).angle)));
+    script->args_->push_float(0xD6030CEA, core::at(pad_primary_.polar_, 0).angle * kDegreesPerRadian);
     script->args_->push_float(
         0xC94777AC,
-        static_cast<float>(stick_length(pad_primary_.stick_[0], pad_primary_.stick_[1], pad_primary_.polar_[0].angle)));
+        static_cast<float>(stick_length(core::at(pad_primary_.stick_, 0), core::at(pad_primary_.stick_, 1), core::at(pad_primary_.polar_, 0).angle)));
     return 1;
 }
 

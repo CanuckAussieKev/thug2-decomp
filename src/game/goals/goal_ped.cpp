@@ -27,6 +27,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace goals {
 
@@ -269,7 +270,7 @@ bool ObjectiveNpc::get_voice_clip_key(uint32_t* out, int index, bool success, co
     uint32_t found = 0;
     bool lip = false;
     for (int i = index >= 0 ? 4 : 0; i < 8; ++i) {
-        const char* name = candidates[i];
+        const char* name = core::at(candidates, i);
         if (!std::strlen(name))
             continue;
         std::array<char, 0x100> lip_name{};

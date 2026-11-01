@@ -12,6 +12,7 @@
 #include "engine/core/checksums.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::hud {
 namespace {
@@ -112,7 +113,7 @@ void show_panel(const std::vector<std::string>& lines, float x, float y, float w
     for (size_t i = 0; i < lines.size(); ++i) {
         std::array<char, 32> id{};
         std::snprintf(id.data(), sizeof(id), "level_editor_panel_%u", static_cast<unsigned>(i));
-        change_caption(id.data(), lines[i]);
+        change_caption(id.data(), core::at(lines, i));
     }
 }
 

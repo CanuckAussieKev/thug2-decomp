@@ -8,6 +8,7 @@
 #include <array>
 
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui_strip {
 
@@ -23,17 +24,17 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
         float total = 0.0f;
         bool first_left = true, first_right = true;
         for (size_t i = 0; i < n; ++i) {
-            if (!plan.shown[i])
+            if (!core::at(plan.shown, i))
                 continue;
-            bool& first = slots[i].right ? first_right : first_left;
-            total += slots[i].width + (first ? 0.0f : slots[i].gap);
+            bool& first = core::at(slots, i).right ? first_right : first_left;
+            total += core::at(slots, i).width + (first ? 0.0f : core::at(slots, i).gap);
             first = false;
         }
         // (the two groups apart by the right-hand group's first gap)
         if (!first_left && !first_right) {
             for (size_t i = 0; i < n; ++i) {
-                if (plan.shown[i] && slots[i].right) {
-                    total += slots[i].gap;
+                if (core::at(plan.shown, i) && core::at(slots, i).right) {
+                    total += core::at(slots, i).gap;
                     break;
                 }
             }
@@ -47,12 +48,12 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     while (needed(hidden) > room) {
         int drop = -1;
         for (size_t i = 0; i < n; ++i) {
-            if (plan.shown[i] && (drop < 0 || slots[i].priority <= slots[drop].priority))
+            if (core::at(plan.shown, i) && (drop < 0 || core::at(slots, i).priority <= core::at(slots, drop).priority))
                 drop = static_cast<int>(i);
         }
         if (drop < 0)
             break;
-        plan.shown[drop] = false;
+        core::at(plan.shown, drop) = false;
         hidden = true;
     }
     plan.overflow = hidden;
@@ -60,12 +61,12 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     float x = left;
     bool first = true;
     for (size_t i = 0; i < n; ++i) {
-        if (!plan.shown[i] || slots[i].right)
+        if (!core::at(plan.shown, i) || core::at(slots, i).right)
             continue;
         if (!first)
-            x += slots[i].gap;
-        plan.x[i] = x;
-        x += slots[i].width;
+            x += core::at(slots, i).gap;
+        core::at(plan.x, i) = x;
+        x += core::at(slots, i).width;
         first = false;
     }
     // The overflow button at the end, the right-hand slots before it (placed from the last; a slot's gap is the space
@@ -76,13 +77,13 @@ Plan get_fit(const std::vector<Bay>& slots, float left, float right, float overf
     float next_gap = 0.0f;
     bool any = false;
     for (size_t k = n; k-- > 0;) {
-        if (!plan.shown[k] || !slots[k].right)
+        if (!core::at(plan.shown, k) || !core::at(slots, k).right)
             continue;
         if (any)
             end -= next_gap;
-        plan.x[k] = end - slots[k].width;
-        end = plan.x[k];
-        next_gap = slots[k].gap;
+        core::at(plan.x, k) = end - core::at(slots, k).width;
+        end = core::at(plan.x, k);
+        next_gap = core::at(slots, k).gap;
         any = true;
     }
     return plan;
@@ -98,7 +99,7 @@ std::string elide(const std::string& text, float max_width)
     // The longest prefix that fits with the ellipsis, cut at a character's start (UTF-8 continuation bytes are
     // 10xxxxxx) and trimmed of trailing spaces. (Status and strip texts are short: a plain scan.)
     for (size_t length = text.size(); length > 0; --length) {
-        if ((static_cast<unsigned char>(text[length]) & 0xC0) == 0x80 && length < text.size())
+        if ((static_cast<unsigned char>(core::at(text, length)) & 0xC0) == 0x80 && length < text.size())
             continue;
         std::string cut = text.substr(0, length);
         while (!cut.empty() && cut.back() == ' ')
@@ -290,10 +291,10 @@ void draw_item(ItemId id, const State& s, float scale, Output* out)
         for (int t = 0; t < 3; ++t) {
             if (t)
                 ImGui::SameLine(0.0f, inner);
-            if (flip_over(kLabels[t], s.tool == t))
+            if (flip_over(core::at(kLabels, t), s.tool == t))
                 out->events.push_back({Occurrence::Kind::kTool, static_cast<float>(t)});
-            get_tip(kTips[t], get_key_of(s, kIds[t]));
-            get_note(kLabels[t]);
+            get_tip(core::at(kTips, t), get_key_of(s, core::at(kIds, t)));
+            get_note(core::at(kLabels, t));
         }
         break;
     }
@@ -427,11 +428,11 @@ void blit(const State& state, float x, float y, float width, float scale, Output
     const float more_width = button_width(more);
     Plan plan = get_fit(slots, x, x + width, more_width, 10.0f * scale);
     for (size_t i = 0; i < items.size(); ++i) {
-        if (!plan.shown[i])
+        if (!core::at(plan.shown, i))
             continue;
-        ImGui::SetCursorScreenPos(ImVec2(plan.x[i], y));
-        ImGui::PushID(static_cast<int>(items[i].id));
-        draw_item(items[i].id, state, scale, out);
+        ImGui::SetCursorScreenPos(ImVec2(core::at(plan.x, i), y));
+        ImGui::PushID(static_cast<int>(core::at(items, i).id));
+        draw_item(core::at(items, i).id, state, scale, out);
         ImGui::PopID();
     }
     if (!plan.overflow)
@@ -446,10 +447,10 @@ void blit(const State& state, float x, float y, float width, float scale, Output
         std::vector<Cuboid>* boxes = g_boxes;
         g_boxes = nullptr;
         for (size_t i = 0; i < items.size(); ++i) {
-            if (plan.shown[i])
+            if (core::at(plan.shown, i))
                 continue;
-            ImGui::PushID(static_cast<int>(items[i].id));
-            draw_item(items[i].id, state, scale, out);
+            ImGui::PushID(static_cast<int>(core::at(items, i).id));
+            draw_item(core::at(items, i).id, state, scale, out);
             ImGui::PopID();
         }
         g_boxes = boxes;

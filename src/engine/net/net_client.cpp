@@ -14,6 +14,7 @@
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -243,7 +244,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
         return kResultConsumed;
     auto* stamp = raw::as<uint16_t>(context->body_);
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
-    context->sequences_to_ack_[context->num_sequences_to_ack_] = *stamp;
+    core::at(context->sequences_to_ack_, context->num_sequences_to_ack_) = *stamp;
     ++context->num_sequences_to_ack_;
     Conn* conn = context->sender_conn_;
     uint32_t& newest = conn->last_timestamp_in_;

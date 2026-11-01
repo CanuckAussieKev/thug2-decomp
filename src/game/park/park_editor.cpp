@@ -10,6 +10,7 @@
 #include "game/park/park_memory.h"
 #include "game/park_editing/rail_editor.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -159,12 +160,12 @@ void ParkLayout::clear_area(CellBox area)
         shift_placed_piece(static_cast<PieceGroup*>(meta), 0, -at.y, 0);
         for (int x = at.x; x < at.x + at.w; ++x) {
             for (int z = at.z; z < at.z + at.l; ++z)
-                floor_[x][z].level_y_ = 0;
+                core::at(core::at(floor_, x), z).level_y_ = 0;
         }
     }
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z)
-            floor_[x][z].level_y_ = 0;
+            core::at(core::at(floor_, x), z).level_y_ = 0;
     }
     current_flags() &= ~5u;
     rebuild_floor_and_pieces(this, &area, 0);
@@ -217,7 +218,7 @@ void BuildPointer::step_piece_choice(int dir)
     if (set->is_clipboard_)
         select_clipboard(selected);
     else
-        change_piece(set->entries_[selected].checksum);
+        change_piece(core::at(set->entries_, selected).checksum);
 }
 
 // 0x0059C9B0
@@ -245,7 +246,7 @@ void BuildPointer::step_piece_family(int dir)
     count_visible();
     const TileFamilyRef& set = get_sets(hub())[set_index()];
     if (!set.is_clipboard_) {
-        change_piece(set.entries_[set.selected_].checksum);
+        change_piece(core::at(set.entries_, set.selected_).checksum);
         return;
     }
     const int selected = set.selected_;

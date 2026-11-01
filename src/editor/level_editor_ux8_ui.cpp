@@ -15,6 +15,7 @@
 #include "editor/level_editor_ux3.h"
 #include "editor/level_editor_ux8_pie.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ux8 {
 
@@ -155,7 +156,7 @@ float hint_width(const std::pair<std::string, std::string>& hint, const Fonts& f
     for (size_t t = 0; t < tokens.size(); ++t) {
         if (t)
             width += 2.0f * s + ImGui::CalcTextSize("+").x;
-        width += token_width(tokens[t], fonts);
+        width += token_width(core::at(tokens, t), fonts);
     }
     if (fonts.small)
         ImGui::PushFont(fonts.small);
@@ -176,7 +177,7 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
         // (what doesn't fit is left out, an ellipsis in its place - never drawn over the right-hand text)
         if (max_width > 0.0f) {
             const float gap = i ? 12.0f * s : 0.0f;
-            const float width = hint_width(hints[i], fonts);
+            const float width = hint_width(core::at(hints, i), fonts);
             const bool last = i + 1 == hints.size();
             const float reserve = last ? 0.0f : 12.0f * s + ImGui::CalcTextSize(ellipsis).x;
             if (used + gap + width + reserve > max_width) {
@@ -193,19 +194,19 @@ void hint_row(const std::vector<std::pair<std::string, std::string>>& hints, con
         if (i)
             ImGui::SameLine(0.0f, 12.0f * s);
         ImGui::BeginGroup();
-        std::vector<std::string> tokens = hints::get_tokens(hints[i].first);
+        std::vector<std::string> tokens = hints::get_tokens(core::at(hints, i).first);
         for (size_t t = 0; t < tokens.size(); ++t) {
             if (t) {
                 ImGui::SameLine(0.0f, 1.0f * s);
                 ImGui::TextDisabled("+");
                 ImGui::SameLine(0.0f, 1.0f * s);
             }
-            token_glyph(tokens[t], fonts);
+            token_glyph(core::at(tokens, t), fonts);
         }
         ImGui::SameLine(0.0f, 4.0f * s);
         if (fonts.small)
             ImGui::PushFont(fonts.small);
-        ImGui::TextUnformatted(hints[i].second.c_str());
+        ImGui::TextUnformatted(core::at(hints, i).second.c_str());
         if (fonts.small)
             ImGui::PopFont();
         ImGui::EndGroup();
@@ -259,7 +260,7 @@ void get_windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         draw->AddLine(c, ImVec2(c.x + dx * pie::kDeadzone * s, c.y + dy * pie::kDeadzone * s), kLit, 3.0f * s);
     }
     for (int i = 0; i < n; ++i) {
-        const pie::Item& item = pie.items[i];
+        const pie::Item& item = core::at(pie.items, i);
         float dx = 0.0f, dy = 0.0f;
         nav::slice_direction(i, n, &dx, &dy);
         const ImVec2 at(c.x + dx * radius, c.y + dy * radius);
@@ -299,7 +300,7 @@ void sets_menu(const Fonts& fonts)
         ImGui::PushID(i);
         std::array<char, 64> label{};
         std::snprintf(label.data(), sizeof(label), "%s  %s", name.c_str(),
-                      at >= 0 ? ("(" + std::to_string(state.groups[at].members.size()) + ")").c_str() : "-");
+                      at >= 0 ? ("(" + std::to_string(core::at(state.groups, at).members.size()) + ")").c_str() : "-");
         ImGui::TextUnformatted(label.data());
         ImGui::SameLine(110.0f * s);
         if (ImGui::SmallButton("Store"))
@@ -324,8 +325,8 @@ void sets_menu(const Fonts& fonts)
     // The other groups (named in the Outliner: Ctrl+G). (Clicks queued: done in the next Update, as UX3's panels.)
     bool any = false;
     for (int g = 0; std::cmp_less(g, state.groups.size()); ++g) {
-        const organize::GroupSet& group = state.groups[g];
-        if (group.name.starts_with("Set ") && group.name.size() == 5 && group.name[4] >= '1' && group.name[4] <= '9')
+        const organize::GroupSet& group = core::at(state.groups, g);
+        if (group.name.starts_with("Set ") && group.name.size() == 5 && core::at(group.name, 4) >= '1' && core::at(group.name, 4) <= '9')
             continue;
         if (!any) {
             ImGui::Separator();

@@ -20,6 +20,7 @@
 #include "game/rider/flip_and_rotate.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -80,8 +81,8 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         const int from = mirror == -1 ? i : mirror;
         auto* rotation = raw::field_at<float>(pose, 0x10 * i);
         auto* translation = raw::field_at<float>(pose, 0x400 + 0x10 * i);
-        std::memcpy(rotation, rotations[from], 16);
-        std::memcpy(translation, translations[from], 16);
+        std::memcpy(rotation, core::at(rotations, from), 16);
+        std::memcpy(translation, core::at(translations, from), 16);
         rotation[0] = -rotation[0];
         rotation[3] = -rotation[3];
         translation[0] = -translation[0];

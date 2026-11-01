@@ -19,6 +19,7 @@
 #include "engine/script/node_manager.h"
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::fields {
 
@@ -62,11 +63,11 @@ bool same_value(const Value& a, const Value& b)
     case Kind::kInteger:
         return a.integer == b.integer;
     case Kind::kFloat:
-        return a.numbers[0] == b.numbers[0];
+        return core::at(a.numbers, 0) == core::at(b.numbers, 0);
     case Kind::kPair:
-        return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1];
+        return core::at(a.numbers, 0) == core::at(b.numbers, 0) && core::at(a.numbers, 1) == core::at(b.numbers, 1);
     case Kind::kVec4:
-        return a.numbers[0] == b.numbers[0] && a.numbers[1] == b.numbers[1] && a.numbers[2] == b.numbers[2];
+        return core::at(a.numbers, 0) == core::at(b.numbers, 0) && core::at(a.numbers, 1) == core::at(b.numbers, 1) && core::at(a.numbers, 2) == core::at(b.numbers, 2);
     case Kind::kName:
         return a.checksum == b.checksum;
     case Kind::kChars:
@@ -96,7 +97,7 @@ bool is_identifier(const std::string& text)
     if (text.empty() || text.size() > 120)
         return false;
     for (size_t i = 0; i < text.size(); ++i) {
-        if (!identifier_char(text[i], i == 0))
+        if (!identifier_char(core::at(text, i), i == 0))
             return false;
     }
     return true;
@@ -181,7 +182,7 @@ std::string get_join(const std::vector<std::string>& parts, const char* separato
 {
     std::string text;
     for (size_t i = 0; i < parts.size(); ++i)
-        text += (i ? separator : "") + parts[i];
+        text += (i ? separator : "") + core::at(parts, i);
     return text;
 }
 
@@ -207,9 +208,9 @@ bool parse_name(const std::string& typed, uint32_t* checksum)
 {
     std::string text = get_trim(typed);
     std::string hex;
-    if (text.size() == 9 && text[0] == '#')
+    if (text.size() == 9 && core::at(text, 0) == '#')
         hex = text.substr(1);
-    else if (text.size() == 10 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X'))
+    else if (text.size() == 10 && core::at(text, 0) == '0' && (core::at(text, 1) == 'x' || core::at(text, 1) == 'X'))
         hex = text.substr(2);
     if (!hex.empty()) {
         uint32_t value = 0;
@@ -237,11 +238,11 @@ std::string get_format(const Value& value, const NameLookup& names)
     case Kind::kInteger:
         return std::to_string(value.integer);
     case Kind::kFloat:
-        return float_text(value.numbers[0]);
+        return float_text(core::at(value.numbers, 0));
     case Kind::kPair:
-        return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]);
+        return float_text(core::at(value.numbers, 0)) + ", " + float_text(core::at(value.numbers, 1));
     case Kind::kVec4:
-        return float_text(value.numbers[0]) + ", " + float_text(value.numbers[1]) + ", " + float_text(value.numbers[2]);
+        return float_text(core::at(value.numbers, 0)) + ", " + float_text(core::at(value.numbers, 1)) + ", " + float_text(core::at(value.numbers, 2));
     case Kind::kName:
         return get_name_text(value.checksum, names);
     case Kind::kChars:
@@ -288,7 +289,7 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
         }
         break;
     case Kind::kFloat:
-        if (!parse_float(text, &v.numbers[0])) {
+        if (!parse_float(text, &core::at(v.numbers, 0))) {
             *error = "not a number";
             return false;
         }
@@ -301,8 +302,8 @@ bool parse(Kind kind, const std::string& text, Value* value, std::string* error)
             return false;
         }
         for (size_t i = 0; i < want; ++i) {
-            if (!parse_float(parts[i], &v.numbers[i])) {
-                *error = "'" + parts[i] + "' isn't a number";
+            if (!parse_float(core::at(parts, i), &core::at(v.numbers, i))) {
+                *error = "'" + core::at(parts, i) + "' isn't a number";
                 return false;
             }
         }
@@ -402,7 +403,7 @@ bool unescape(const std::string& text, std::string* out)
 {
     out->clear();
     for (size_t i = 0; i < text.size(); ++i) {
-        const char c = text[i];
+        const char c = core::at(text, i);
         if (c != '%') {
             out->push_back(c);
             continue;
@@ -411,7 +412,7 @@ bool unescape(const std::string& text, std::string* out)
             return false;
         int value = 0;
         for (int k = 1; k <= 2; ++k) {
-            const char h = text[i + k];
+            const char h = core::at(text, i + k);
             const int digit = h >= '0' && h <= '9'   ? h - '0'
                               : h >= 'A' && h <= 'F' ? h - 'A' + 10
                               : h >= 'a' && h <= 'f' ? h - 'a' + 10
@@ -435,15 +436,15 @@ std::string encode_value(const Value& value, const NameLookup& names)
     case Kind::kInteger:
         return "i:" + std::to_string(value.integer);
     case Kind::kFloat:
-        std::snprintf(text.data(), sizeof(text), "f:%.9g", static_cast<double>(value.numbers[0]));
+        std::snprintf(text.data(), sizeof(text), "f:%.9g", static_cast<double>(core::at(value.numbers, 0)));
         return text.data();
     case Kind::kPair:
-        std::snprintf(text.data(), sizeof(text), "p:%.9g,%.9g", static_cast<double>(value.numbers[0]),
-                      static_cast<double>(value.numbers[1]));
+        std::snprintf(text.data(), sizeof(text), "p:%.9g,%.9g", static_cast<double>(core::at(value.numbers, 0)),
+                      static_cast<double>(core::at(value.numbers, 1)));
         return text.data();
     case Kind::kVec4:
-        std::snprintf(text.data(), sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(value.numbers[0]),
-                      static_cast<double>(value.numbers[1]), static_cast<double>(value.numbers[2]));
+        std::snprintf(text.data(), sizeof(text), "v:%.9g,%.9g,%.9g", static_cast<double>(core::at(value.numbers, 0)),
+                      static_cast<double>(core::at(value.numbers, 1)), static_cast<double>(core::at(value.numbers, 2)));
         return text.data();
     case Kind::kName:
         return "n:" + record_name(value.checksum, names);
@@ -522,7 +523,7 @@ std::string get_token(const Edit& edit, const NameLookup& names)
            (edit.removed ? std::string("del") : encode_value(edit.value, names));
 }
 
-bool is_field_key(const std::string& key) { return key.size() > 2 && key[0] == 'f' && key[1] == '.'; }
+bool is_field_key(const std::string& key) { return key.size() > 2 && core::at(key, 0) == 'f' && core::at(key, 1) == '.'; }
 
 bool read_token(const std::string& key, const std::string& value, Edit* edit)
 {
@@ -613,17 +614,17 @@ bool valid_links(const std::vector<uint32_t>& links, uint32_t self, const std::f
                  const NameLookup& names, std::string* error)
 {
     for (size_t i = 0; i < links.size(); ++i) {
-        if (links[i] == self) {
+        if (core::at(links, i) == self) {
             *error = "a node can't link to itself";
             return false;
         }
-        if (!exists(links[i])) {
-            *error = "no node named " + get_name_text(links[i], names) + " in this level";
+        if (!exists(core::at(links, i))) {
+            *error = "no node named " + get_name_text(core::at(links, i), names) + " in this level";
             return false;
         }
         for (size_t j = 0; j < i; ++j) {
-            if (links[j] == links[i]) {
-                *error = get_name_text(links[i], names) + " is linked twice";
+            if (core::at(links, j) == core::at(links, i)) {
+                *error = get_name_text(core::at(links, i), names) + " is linked twice";
                 return false;
             }
         }
@@ -706,7 +707,7 @@ Value value_of(const script::Component* c)
     case script::kQbvalFloat:
         v.kind = Kind::kFloat;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        v.numbers[0] = c->float_value_;
+        core::at(v.numbers, 0) = c->float_value_;
         break;
     case script::kQbvalName:
         v.kind = Kind::kName;
@@ -728,9 +729,9 @@ Value value_of(const script::Component* c)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->pair) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            v.numbers[0] = c->pair->x;
+            core::at(v.numbers, 0) = c->pair->x;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            v.numbers[1] = c->pair->y;
+            core::at(v.numbers, 1) = c->pair->y;
         }
         break;
     case script::kQbvalVector:
@@ -738,11 +739,11 @@ Value value_of(const script::Component* c)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
         if (c->vector) {
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            v.numbers[0] = c->vector->x;
+            core::at(v.numbers, 0) = c->vector->x;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            v.numbers[1] = c->vector->y;
+            core::at(v.numbers, 1) = c->vector->y;
             // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-            v.numbers[2] = c->vector->z;
+            core::at(v.numbers, 2) = c->vector->z;
         }
         break;
     case script::kQbvalArray:
@@ -794,7 +795,7 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         s->put_int(key, v.integer);
         break;
     case Kind::kFloat:
-        s->push_float(key, v.numbers[0]);
+        s->push_float(key, core::at(v.numbers, 0));
         break;
     case Kind::kName:
         s->put_name_key(key, v.checksum);
@@ -806,10 +807,10 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
         s->append_inline_text(key, v.text.c_str());
         break;
     case Kind::kPair:
-        s->insert_pair(key, v.numbers[0], v.numbers[1]);
+        s->insert_pair(key, core::at(v.numbers, 0), core::at(v.numbers, 1));
         break;
     case Kind::kVec4:
-        s->put_vec3(key, v.numbers[0], v.numbers[1], v.numbers[2]);
+        s->put_vec3(key, core::at(v.numbers, 0), core::at(v.numbers, 1), core::at(v.numbers, 2));
         break;
     case Kind::kBitMark:
         if (v.on)
@@ -825,9 +826,9 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
                                                                      : script::kQbvalFloat);
         for (uint32_t i = 0; i < size; ++i) {
             if (v.kind == Kind::kFloats)
-                array->change_float(i, v.floats[i]);
+                array->change_float(i, core::at(v.floats, i));
             else
-                array->set_element(i, v.list[i]);
+                array->set_element(i, core::at(v.list, i));
         }
         s->append_array_ref(key, array);
         break;
@@ -946,7 +947,7 @@ bool same_own(const Own& a, const Own& b, bool flag)
 const nodes::Elem* layer_node(uint32_t name)
 {
     const int index = nodes::get_find(name);
-    return index >= 0 ? &nodes::get_all()[index] : nullptr;
+    return index >= 0 ? &core::at(nodes::get_all(), index) : nullptr;
 }
 
 } // namespace

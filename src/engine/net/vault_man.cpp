@@ -33,6 +33,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -194,12 +195,12 @@ int number_field(char** rest)
 VaultItem::VaultItem()
 {
     init_node(&list_link_);
-    url_[0] = '\0';
-    label_[0] = '\0';
-    creator_[0] = '\0';
-    extent_[0] = '\0';
-    unknowncc_[0] = '\0';
-    summary_text_[0] = '\0';
+    core::at(url_, 0) = '\0';
+    core::at(label_, 0) = '\0';
+    core::at(creator_, 0) = '\0';
+    core::at(extent_, 0) = '\0';
+    core::at(unknowncc_, 0) = '\0';
+    core::at(summary_text_, 0) = '\0';
 }
 
 // 0x0054B5E0

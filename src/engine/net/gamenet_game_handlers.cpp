@@ -39,6 +39,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -386,9 +387,9 @@ int handle_joined_team(net::InboundMsgCtx* context)
     PlayerRecord* player = find_player_slot_by_obj(manager, msg.data());
     if (!player)
         return kContinue;
-    player->team_ = int{static_cast<int8_t>(msg[1])};
+    player->team_ = int{static_cast<int8_t>(core::at(msg, 1))};
     std::array<char, 64> name{};
-    team_name_key(name.data(), static_cast<int8_t>(msg[1]));
+    team_name_key(name.data(), static_cast<int8_t>(core::at(msg, 1)));
     script::Struct* params = new_params();
     if (is_own_player(player)) {
         if (is_squad_match()) {
@@ -409,7 +410,7 @@ int handle_joined_team(net::InboundMsgCtx* context)
         if (other == player)
             continue;
         ++others;
-        if (static_cast<int8_t>(msg[1]) != player_team(other))
+        if (static_cast<int8_t>(core::at(msg, 1)) != player_team(other))
             same_team = false;
     }
     if (same_team && others > 0 && get_game_mode()->current_num_teams() > 0)

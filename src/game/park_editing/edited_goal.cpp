@@ -19,6 +19,7 @@
 #include "platform/crt.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's inline copies of the texts)
 
@@ -52,10 +53,10 @@ EditedGoal::EditedGoal() { init_edited_goal(raw::bytes(this)); }
 void EditedGoal::drop_gap_entry(uint8_t gap)
 {
     for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
-        if (gaps_[i] != gap)
+        if (core::at(gaps_, i) != gap)
             continue;
         for (int j = i; j < num_gaps_ - 1; ++j)
-            gaps_[j] = gaps_[j + 1];
+            core::at(gaps_, j) = core::at(gaps_, j + 1);
         --num_gaps_;
         return;
     }
@@ -66,8 +67,8 @@ void EditedGoal::remove_gap_and_renumber(uint8_t gap)
 {
     drop_gap_entry(gap);
     for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
-        if (gaps_[i] > gap)
-            --gaps_[i];
+        if (core::at(gaps_, i) > gap)
+            --core::at(gaps_, i);
     }
 }
 
@@ -76,14 +77,14 @@ void EditedGoal::register_gap_entry(uint8_t gap)
 {
     const uint8_t count = num_gaps_;
     for (int i = 0; std::cmp_less(i, num_gaps_); ++i) {
-        if (gaps_[i] == gap)
+        if (core::at(gaps_, i) == gap)
             return;
     }
     if (count >= 10) {
         debug::printf("Warning! MAX_GAPS limit reached!\n");
         return;
     }
-    gaps_[count] = gap;
+    core::at(gaps_, count) = gap;
     ++num_gaps_;
 }
 
@@ -93,7 +94,7 @@ void EditedGoal::add_key_combo_set(int set, int must_be_flawless, int spin, int 
     int index = num_key_combo_sets_;
     bool found = false;
     for (int i = 0; i < num_key_combo_sets_; ++i) {
-        if (std::cmp_equal(key_combo_sets_[i].set, set)) {
+        if (std::cmp_equal(core::at(key_combo_sets_, i).set, set)) {
             index = i;
             found = true;
             break;
@@ -101,7 +102,7 @@ void EditedGoal::add_key_combo_set(int set, int must_be_flawless, int spin, int 
     }
     if (!found)
         num_key_combo_sets_ = index + 1;
-    KeyComboSet& entry = key_combo_sets_[index];
+    KeyComboSet& entry = core::at(key_combo_sets_, index);
     entry.tap_total_ = static_cast<uint8_t>(tap_total);
     entry.must_be_flawless_ = static_cast<uint8_t>(must_be_flawless);
     entry.set = static_cast<uint8_t>(set);
@@ -112,10 +113,10 @@ void EditedGoal::add_key_combo_set(int set, int must_be_flawless, int spin, int 
 void EditedGoal::remove_key_combo_set(int set)
 {
     for (int i = 0; i < num_key_combo_sets_; ++i) {
-        if (std::cmp_not_equal(key_combo_sets_[i].set, set))
+        if (std::cmp_not_equal(core::at(key_combo_sets_, i).set, set))
             continue;
         for (int j = i; j < num_key_combo_sets_ - 1; ++j)
-            key_combo_sets_[j] = key_combo_sets_[j + 1];
+            core::at(key_combo_sets_, j) = core::at(key_combo_sets_, j + 1);
         --num_key_combo_sets_;
         return;
     }
@@ -126,8 +127,8 @@ KeyComboSet* EditedGoal::find_key_combo_set(int set)
 {
     const int count = num_key_combo_sets_;
     for (int i = 0; i < count; ++i) {
-        if (std::cmp_equal(key_combo_sets_[i].set, set))
-            return &key_combo_sets_[i];
+        if (std::cmp_equal(core::at(key_combo_sets_, i).set, set))
+            return &core::at(key_combo_sets_, i);
     }
     return nullptr;
 }
@@ -136,34 +137,34 @@ KeyComboSet* EditedGoal::find_key_combo_set(int set)
 void EditedGoal::change_species(uint32_t type)
 {
     kind_tag_ = type;
-    path_vertices_[0].kind = kPointPro;
-    path_vertices_[0].height = 0.0f;
-    path_vertices_[1].kind = kPointStart;
-    path_vertices_[1].height = 0.0f;
+    core::at(path_vertices_, 0).kind = kPointPro;
+    core::at(path_vertices_, 0).height = 0.0f;
+    core::at(path_vertices_, 1).kind = kPointStart;
+    core::at(path_vertices_, 1).height = 0.0f;
     script::Struct* defaults = goal_type_structure(type);
     switch (kind_tag_) {
     case kGoalTypeRace:
         min_points_ = 4;
         max_points_ = 12;
         for (int i = 2; i < 13; ++i) {
-            path_vertices_[i].kind = kPointCheckpoint;
-            path_vertices_[i].height = 0.0f;
+            core::at(path_vertices_, i).kind = kPointCheckpoint;
+            core::at(path_vertices_, i).height = 0.0f;
         }
         break;
     case kGoalTypeCombo:
         min_points_ = 7;
         max_points_ = 7;
         for (int i = 2; std::cmp_less(i, min_points_); ++i) {
-            path_vertices_[i].kind = kPointObject;
-            path_vertices_[i].height = 0.0f;
+            core::at(path_vertices_, i).kind = kPointObject;
+            core::at(path_vertices_, i).height = 0.0f;
         }
         break;
     case kGoalTypeSkate:
         min_points_ = 7;
         max_points_ = 7;
         for (int i = 2; i < 13; ++i) {
-            path_vertices_[i].kind = kPointObject;
-            path_vertices_[i].height = 0.0f;
+            core::at(path_vertices_, i).kind = kPointObject;
+            core::at(path_vertices_, i).height = 0.0f;
         }
         break;
     case kGoalTypeComboTricks:
@@ -204,7 +205,7 @@ void EditedGoal::set_countdown_seconds(int seconds)
 void EditedGoal::place_goal_marker(int index)
 {
     script::Struct params;
-    switch (path_vertices_[index].kind) {
+    switch (core::at(path_vertices_, index).kind) {
     case kPointPro:
         params.put_name_key(0x7321A8D6, 0x061A741E);
         break;
@@ -226,7 +227,7 @@ void EditedGoal::place_goal_marker(int index)
     }
     get_sprintf(name_buffer(), "GoalEditorMarkerObject%d", index);
     params.put_name_key(0xA1DC81F9, checksums::hash_from_text(name_buffer()));
-    const EditedGoalPoint& point = path_vertices_[index];
+    const EditedGoalPoint& point = core::at(path_vertices_, index);
     params.put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
     params.push_float(0xFF7EBAF6, point.angle * kDegreesPerRadian);
     script::launch_script(0xEFC08BAE, &params, nullptr, false, nullptr);
@@ -252,8 +253,8 @@ bool EditedGoal::near_other_point(const maths::Vec4& pos)
     for (int i = 0; i < count; ++i) {
         if (i == current)
             continue;
-        const EditedGoalPoint& point = path_vertices_[i];
-        const int current_kind = path_vertices_[current].kind;
+        const EditedGoalPoint& point = core::at(path_vertices_, i);
+        const int current_kind = core::at(path_vertices_, current).kind;
         double within = radius;
         if ((current_kind == kPointObject && point.kind == kPointStart) ||
             (current_kind == kPointStart && point.kind == kPointObject))
@@ -285,10 +286,10 @@ bool EditedGoal::place_point(const maths::Vec4& pos, float height, float angle)
     last_point_placed_ = false;
     if (!can_place_point(pos, height))
         return false;
-    EditedGoalPoint& point = path_vertices_[current_point_];
+    EditedGoalPoint& point = core::at(path_vertices_, current_point_);
     point.pos = pos;
-    path_vertices_[current_point_].height = height;
-    path_vertices_[current_point_].angle = angle;
+    core::at(path_vertices_, current_point_).height = height;
+    core::at(path_vertices_, current_point_).angle = angle;
     if (current_point_ == max_points_ - 1)
         last_point_placed_ = true;
     if (current_point_ == 0)
@@ -304,11 +305,11 @@ bool EditedGoal::place_point(const maths::Vec4& pos, float height, float angle)
         return true;
     }
     // The next point starts where this one is.
-    path_vertices_[current_point_].pos = pos;
-    path_vertices_[current_point_].height = height;
-    path_vertices_[current_point_].angle = angle;
+    core::at(path_vertices_, current_point_).pos = pos;
+    core::at(path_vertices_, current_point_).height = height;
+    core::at(path_vertices_, current_point_).angle = angle;
     if ((kind_tag_ == kGoalTypeCombo || kind_tag_ == kGoalTypeSkate) && current_point_ == 2) {
-        float& next = path_vertices_[2].height;
+        float& next = core::at(path_vertices_, 2).height;
         next = static_cast<float>(static_cast<double>(script::fetch_float(0x71EC75E9)) + next);
     }
     return true;
@@ -317,9 +318,9 @@ bool EditedGoal::place_point(const maths::Vec4& pos, float height, float angle)
 // 0x004E7960
 bool EditedGoal::get_current_point(maths::Vec4* pos, float* height, float* angle)
 {
-    *pos = path_vertices_[current_point_].pos;
-    *height = path_vertices_[current_point_].height;
-    *angle = path_vertices_[current_point_].angle;
+    *pos = core::at(path_vertices_, current_point_).pos;
+    *height = core::at(path_vertices_, current_point_).height;
+    *angle = core::at(path_vertices_, current_point_).angle;
     return true;
 }
 
@@ -327,7 +328,7 @@ bool EditedGoal::get_current_point(maths::Vec4* pos, float* height, float* angle
 void EditedGoal::write_node_position(int index, uint32_t node_name)
 {
     script::Struct* node = level_nodes::fetch_vertex(node_name, true);
-    const EditedGoalPoint& point = path_vertices_[index];
+    const EditedGoalPoint& point = core::at(path_vertices_, index);
     node->put_vec3(0x7F261953, point.pos.x, point.height + point.pos.y, point.pos.z);
     node->put_vec3(0x9D2D0915, 0.0f, point.angle - kPi, 0.0f);
     if (static_cast<uint32_t>(index) >= 2) {
@@ -341,7 +342,7 @@ void EditedGoal::emit_node_coords()
 {
     std::array<char, 100> name{};
     for (int i = 0; std::cmp_less(i, vertex_total_); ++i) {
-        name[0] = '\0';
+        core::at(name, 0) = '\0';
         if (i == 0)
             get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", level_goal_number_);
         else if (i == 1)
@@ -361,7 +362,7 @@ void EditedGoal::read_key_combo_sets(script::Struct* params)
     num_key_combo_sets_ = static_cast<int>(sets->extent_);
     for (int i = 0; i < num_key_combo_sets_; ++i) {
         auto* entry = sets->struct_at(static_cast<uint32_t>(i));
-        KeyComboSet& set = key_combo_sets_[i];
+        KeyComboSet& set = core::at(key_combo_sets_, i);
         int value = 0;
         entry->fetch_int_value(0xEB7D6498, &value, 0);
         set.set = static_cast<uint8_t>(value);
@@ -411,7 +412,7 @@ void EditedGoal::read_specific_params(script::Struct* params)
             break;
         num_gaps_ = static_cast<uint8_t>(gaps->extent_);
         for (int i = 0; std::cmp_less(i, num_gaps_); ++i)
-            gaps_[i] = static_cast<uint8_t>(gaps->fetch_part(static_cast<uint32_t>(i)));
+            core::at(gaps_, i) = static_cast<uint8_t>(gaps->fetch_part(static_cast<uint32_t>(i)));
         break;
     }
     case kGoalTypeScore:

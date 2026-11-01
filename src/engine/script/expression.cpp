@@ -3,6 +3,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 #include <bit>
 #include <cmath>
@@ -32,7 +33,7 @@ std::array<int, 74> g_operator_precedence{{-1, -1, -1, -1, -1, 100, -1, 76, 100,
                               79, 78, 77, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, 58, 60,  59, 90, 89, -1, -1,
                               -1, -1, -1, -1, -1, -1,  -1, -1, -1,  -1, -1, -1, -1, -1,  -1, -1, -1}};
-int precedence(int op) { return g_operator_precedence[op]; }
+int precedence(int op) { return core::at(g_operator_precedence, op); }
 
 // Where an operation's result is built (a global component: only its type and value are taken).
 Component& get_result() { return g_eval_result; }
@@ -319,7 +320,7 @@ void ValueResolver::get_clear()
 // 0x0046D220
 void ValueResolver::reset_if_dirty()
 {
-    if (value_top_ || (values_[0].type_and_flag_ & 0xFE) || operator_top_ || fault_)
+    if (value_top_ || (core::at(values_, 0).type_and_flag_ & 0xFE) || operator_top_ || fault_)
         get_clear();
 }
 
@@ -338,8 +339,8 @@ void ValueResolver::push_operator(int op)
         fault_ = "Operator stack overflow"; // "Operator stack overflow"
         return;
     }
-    operators_[operator_top_].op = op;
-    operators_[operator_top_].open_parentheses_ = 0;
+    core::at(operators_, operator_top_).op = op;
+    core::at(operators_, operator_top_).open_parentheses_ = 0;
     has_operators_ = true;
 }
 
@@ -347,25 +348,25 @@ void ValueResolver::push_operator(int op)
 void ValueResolver::intake(const Component* value)
 {
     // (the first value goes in the bottom slot)
-    if (value_top_ || (values_[0].type_and_flag_ & 0xFE)) {
+    if (value_top_ || (core::at(values_, 0).type_and_flag_ & 0xFE)) {
         if (++value_top_ >= 20) {
             get_clear();
             fault_ = "Value stack overflow"; // "Value stack overflow"
             return;
         }
     }
-    duplicate_component(&values_[value_top_], value, 0);
+    duplicate_component(&core::at(values_, value_top_), value, 0);
 }
 
 // 0x0046D370
-void ValueResolver::open_bracket() { ++operators_[operator_top_].open_parentheses_; }
+void ValueResolver::open_bracket() { ++core::at(operators_, operator_top_).open_parentheses_; }
 
 // 0x0046EB70
 void ValueResolver::intake(int op)
 {
     if (has_operators_) {
-        while (operators_[operator_top_].open_parentheses_ == 0) {
-            const int pending = operators_[operator_top_].op;
+        while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
+            const int pending = core::at(operators_, operator_top_).op;
             if (op != pending && precedence(op) > precedence(pending))
                 break;
             execute();
@@ -379,33 +380,33 @@ void ValueResolver::intake(int op)
 // 0x0046EBF0
 void ValueResolver::close_bracket()
 {
-    while (operators_[operator_top_].open_parentheses_ == 0) {
+    while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
         execute();
         if (fault_)
             return;
     }
-    --operators_[operator_top_].open_parentheses_;
+    --core::at(operators_, operator_top_).open_parentheses_;
 }
 
 // 0x0046EC40
 bool ValueResolver::fetch_verdict(Component* result)
 {
-    while (operators_[operator_top_].open_parentheses_ == 0) {
+    while (core::at(operators_, operator_top_).open_parentheses_ == 0) {
         if (value_top_ == 0) {
-            if (operators_[0].op != kOperatorNone || operator_top_ != 0) {
+            if (core::at(operators_, 0).op != kOperatorNone || operator_top_ != 0) {
                 get_clear();
                 fault_ = "Too many operators in expression"; // "Too many operators in expression"
                 return false;
             }
             // A reference result is copied as what it refers to.
-            if (is_reference(&values_[0])) {
-                make_owning(&values_[0]);
-                duplicate_component(result, &values_[0], 0);
-                make_reference(&values_[0]);
+            if (is_reference(&core::at(values_, 0))) {
+                make_owning(&core::at(values_, 0));
+                duplicate_component(result, &core::at(values_, 0), 0);
+                make_reference(&core::at(values_, 0));
             } else {
-                duplicate_component(result, &values_[0], 0);
+                duplicate_component(result, &core::at(values_, 0), 0);
             }
-            release_component(&values_[0]);
+            release_component(&core::at(values_, 0));
             return true;
         }
         execute();
@@ -425,19 +426,19 @@ void ValueResolver::execute()
         fault_ = "Not enough values in stack to execute operation"; // "Not enough values in stack to execute operation"
         return;
     }
-    if (operators_[operator_top_].open_parentheses_ != 0) {
+    if (core::at(operators_, operator_top_).open_parentheses_ != 0) {
         get_clear();
         fault_ = "Non-zero parentheses count"; // "Non-zero parentheses count"
         return;
     }
-    const int op = operators_[operator_top_].op;
+    const int op = core::at(operators_, operator_top_).op;
     if (op == kOperatorNone) {
         get_clear();
         fault_ = "Tried to execute with no operator"; // "Tried to execute with no operator"
         return;
     }
 
-    Component* b = &values_[value_top_];
+    Component* b = &core::at(values_, value_top_);
     Component* a = b - 1;
     Component& result = get_result();
     result.type_and_flag_ &= 1;
@@ -883,7 +884,7 @@ void ValueResolver::execute()
     result.type_and_flag_ &= 1;
     result.raw = 0;
     --value_top_;
-    operators_[operator_top_].op = kOperatorNone;
+    core::at(operators_, operator_top_).op = kOperatorNone;
     if (operator_top_ == 0)
         has_operators_ = false;
     else

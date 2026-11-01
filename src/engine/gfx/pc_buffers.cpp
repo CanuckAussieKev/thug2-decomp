@@ -20,6 +20,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -30,15 +31,15 @@ std::array<uint8_t, 64> g_saved_pixel_shader_constants; // (4 passes of 16 bytes
 } // namespace
 
 // 0x004D3FC0
-VertexBuffer* MeshRef::fetch_vertex_store(int index) { return vertex_buffers_[index]; }
+VertexBuffer* MeshRef::fetch_vertex_store(int index) { return core::at(vertex_buffers_, index); }
 
 // 0x004D3FD0
-void MeshRef::set_vertex_buffer(int index, VertexBuffer* vb) { vertex_buffers_[index] = vb; }
+void MeshRef::set_vertex_buffer(int index, VertexBuffer* vb) { core::at(vertex_buffers_, index) = vb; }
 
 // 0x004D3E50
 void MeshRef::move_into_arena(VertexArena* arena)
 {
-    VertexBuffer* vb = vertex_buffers_[0];
+    VertexBuffer* vb = core::at(vertex_buffers_, 0);
     if (vb->buffer)
         return; // (the original adds 0x1F & ~0x1F - nothing - to the arena's offset)
     vb->buffer = arena->buffer;
@@ -57,16 +58,16 @@ void MeshRef::set_pixel_shader_colored()
     std::memcpy(saved, constants, bytes);
     double r = 0.0, g = 0.0, b = 0.0;
     if (g_instance_colour_on) {
-        r = g_instance_colour[0] * static_cast<double>(1.0f / 128);
-        g = g_instance_colour[1] * static_cast<double>(1.0f / 128);
-        b = g_instance_colour[2] * static_cast<double>(1.0f / 128);
+        r = core::at(g_instance_colour, 0) * static_cast<double>(1.0f / 128);
+        g = core::at(g_instance_colour, 1) * static_cast<double>(1.0f / 128);
+        b = core::at(g_instance_colour, 2) * static_cast<double>(1.0f / 128);
     } else {
-        r = static_cast<double>(color[0]) + color[0];
-        g = static_cast<double>(color[1]) + color[1];
-        b = static_cast<double>(color[2]) + color[2];
+        r = static_cast<double>(core::at(color, 0)) + core::at(color, 0);
+        g = static_cast<double>(core::at(color, 1)) + core::at(color, 1);
+        b = static_cast<double>(core::at(color, 2)) + core::at(color, 2);
     }
     for (uint32_t pass = 0; pass < material->pass_count_; ++pass) {
-        if (material->pass_flags_[pass] & 0x80) // (the colour isn't to be changed)
+        if (core::at(material->pass_flags_, pass) & 0x80) // (the colour isn't to be changed)
             continue;
         float* c = constants + 4 * pass;
         c[0] = static_cast<float>(r * c[0]);
@@ -83,22 +84,22 @@ void MeshRef::set_pixel_shader_colored()
 void set_skin_scaling(const uint32_t* settings)
 {
     g_skin_scaling_on = 1;
-    g_skin_settings[1] = settings[1];
-    g_skin_settings[0] = settings[0];
-    g_skin_settings[3] = settings[3];
-    g_skin_settings[2] = settings[2];
-    g_skin_settings[4] = 0;
+    core::at(g_skin_settings, 1) = settings[1];
+    core::at(g_skin_settings, 0) = settings[0];
+    core::at(g_skin_settings, 3) = settings[3];
+    core::at(g_skin_settings, 2) = settings[2];
+    core::at(g_skin_settings, 4) = 0;
 }
 
 // 0x004D3CE0
 void clear_skin_scaling()
 {
     g_skin_scaling_on = 0;
-    g_skin_settings[1] = 0;
-    g_skin_settings[0] = 0;
-    g_skin_settings[3] = 0;
-    g_skin_settings[2] = 0;
-    g_skin_settings[4] = 0;
+    core::at(g_skin_settings, 1) = 0;
+    core::at(g_skin_settings, 0) = 0;
+    core::at(g_skin_settings, 3) = 0;
+    core::at(g_skin_settings, 2) = 0;
+    core::at(g_skin_settings, 4) = 0;
 }
 
 // 0x004D3ED0
@@ -126,7 +127,7 @@ void* pixel_shader_from_index(uint32_t index)
                                        kPixelShader920}};
     if (index > 0x12)
         return cell::pointer<void>(index); // (the original returns the index itself)
-    return kShaders[index] >= 0 ? g_pixel_shaders[kShaders[index]] : nullptr;
+    return core::at(kShaders, index) >= 0 ? core::at(g_pixel_shaders, core::at(kShaders, index)) : nullptr;
 }
 
 } // namespace render

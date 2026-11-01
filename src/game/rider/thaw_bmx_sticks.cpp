@@ -13,6 +13,7 @@
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/trick_component.h"
 #include "engine/objects/input_component.h"
+#include "engine/core/checked_index.h"
 
 namespace skater::thaw_bmx {
 
@@ -47,8 +48,8 @@ PadSticks& sticks_of(const void* pad)
 {
     PadSticks& sticks = get_pads()[pad];
     for (int i = 0; i < 8; ++i)
-        if (!sticks.buttons[i].label_)
-            sticks.buttons[i].label_ = stick_button_name(i);
+        if (!core::at(sticks.buttons, i).label_)
+            core::at(sticks.buttons, i).label_ = stick_button_name(i);
     return sticks;
 }
 
@@ -69,7 +70,7 @@ BikeState* riding_state(const objects::MoveExecutor* trick)
 void add_stick_event(objects::MoveExecutor* trick, uint32_t name, bool pressed)
 {
     for (int i = 0; i < trick->ignored_count_; ++i)
-        if (trick->ignored_[i] == name)
+        if (core::at(trick->ignored_, i) == name)
             return;
     trick->append_incident(pressed ? 1 : 2)->button = name;
 }
@@ -104,9 +105,9 @@ uint32_t stick_directions(const uint8_t* data)
 uint32_t stick_button_name(int index)
 {
     static std::array<uint32_t, 8> names = {};
-    if (!names[index])
-        names[index] = get_name(kPadNames[index]);
-    return names[index];
+    if (!core::at(names, index))
+        core::at(names, index) = get_name(core::at(kPadNames, index));
+    return core::at(names, index);
 }
 
 void update_pad_sticks(const void* pad, const uint8_t* data)
@@ -117,14 +118,14 @@ void update_pad_sticks(const void* pad, const uint8_t* data)
     const uint32_t bits = data ? stick_directions(data) : 0;
     // (THAW 0x596CA0: each a button down while its byte is set - full pressure)
     for (int i = 0; i < 8; ++i)
-        sticks.buttons[i].tick_frame((bits >> i) & 1 ? 0xFF : 0);
+        core::at(sticks.buttons, i).tick_frame((bits >> i) & 1 ? 0xFF : 0);
 }
 
 void* pad_stick_button(const void* pad, uint32_t name)
 {
     for (int i = 0; i < 8; ++i)
         if (stick_button_name(i) == name)
-            return &sticks_of(pad).buttons[i];
+            return &core::at(sticks_of(pad).buttons, i);
     return nullptr;
 }
 
@@ -140,9 +141,9 @@ uint32_t trick_stick_name(bool right, int direction)
     static std::array<std::array<uint32_t, 8>, 2> names = {};
     if (direction < 1 || direction > 8)
         return 0;
-    uint32_t& name = names[right ? 1 : 0][direction - 1];
+    uint32_t& name = core::at(core::at(names, right ? 1 : 0), direction - 1);
     if (!name)
-        name = get_name(kStickTrickTable[right ? 1 : 0][direction - 1]);
+        name = get_name(core::at(core::at(kStickTrickTable, right ? 1 : 0), direction - 1));
     return name;
 }
 
@@ -158,15 +159,15 @@ void update_trick_sticks(void* trick_component)
     if (riding) {
         const PadSticks& sticks = sticks_of(trick_pad(trick));
         for (int i = 0; i < 8; ++i)
-            if (sticks.buttons[i].held_down_)
+            if (core::at(sticks.buttons, i).held_down_)
                 bits |= 1u << i;
     }
     for (int s = 0; s < 2; ++s) {
-        const int was = state->trick_stick_[s];
+        const int was = core::at(state->trick_stick_, s);
         const int now = stick_direction(bits, s == 1);
         if (now == was)
             continue;
-        state->trick_stick_[s] = now;
+        core::at(state->trick_stick_, s) = now;
         // (off the bike: forgotten, no events - THUG2's buffer as before)
         if (!riding)
             continue;
@@ -189,7 +190,7 @@ int trick_stick_held(const void* trick_component, uint32_t name)
             const BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
             if (!state)
                 return -1;
-            return state->trick_stick_[s] == d ? 1 : 0;
+            return core::at(state->trick_stick_, s) == d ? 1 : 0;
         }
     }
     return -1;
@@ -200,7 +201,7 @@ void end_trick_update(void* trick_component)
     // THAW 0x4723D0 (the end of the trick component's update): centred while none of the right stick's eight is down
     BikeState* state = riding_state(static_cast<const objects::MoveExecutor*>(trick_component));
     if (state)
-        state->right_stick_centred_ = state->trick_stick_[1] == 0;
+        state->right_stick_centred_ = core::at(state->trick_stick_, 1) == 0;
 }
 
 bool bike_press_may_count(uint32_t last_button, uint32_t button, bool right_stick_centred)

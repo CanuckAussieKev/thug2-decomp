@@ -14,6 +14,7 @@
 #include "engine/net/thugpro_peer.h"
 #include "engine/util/lzss.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -65,21 +66,21 @@ int rle_compress(const uint8_t* in, int size, uint8_t* out, int /*out_size*/)
         } else {
             // A literal: bytes up to where two in a row are equal (they start a run) or the most.
             std::array<uint8_t, kMaxLiteral + 4> bytes{};
-            bytes[0] = current;
-            bytes[1] = next;
+            core::at(bytes, 0) = current;
+            core::at(bytes, 1) = next;
             int count = 2;
-            while (size != 0 && bytes[count - 2] != bytes[count - 1] && count < kMaxLiteral) {
-                bytes[count++] = *in++;
+            while (size != 0 && core::at(bytes, count - 2) != core::at(bytes, count - 1) && count < kMaxLiteral) {
+                core::at(bytes, count++) = *in++;
                 --size;
             }
-            if (bytes[count - 2] == bytes[count - 1]) {
+            if (core::at(bytes, count - 2) == core::at(bytes, count - 1)) {
                 // The last two start a run.
                 *out++ = static_cast<uint8_t>(count - 3);
                 if (count - 2 > 0) {
                     std::memcpy(out, bytes.data(), count - 2);
                     out += count - 2;
                 }
-                current = next = bytes[count - 2];
+                current = next = core::at(bytes, count - 2);
                 continue;
             }
             *out++ = static_cast<uint8_t>(count - 1);

@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -67,7 +68,7 @@ void ParkedVehicleModule::seal()
     // The wheels: the hierarchy's objects 1-4 (their matrices' translations).
     std::array<maths::Vec4, 4> wheels{};
     for (int k = 0; k < 4; ++k)
-        wheels[k] = from_model(raw::field_at<const float>(hierarchy, 0xE0 + 0x50 * k));
+        core::at(wheels, k) = from_model(raw::field_at<const float>(hierarchy, 0xE0 + 0x50 * k));
     // The body: the root's (object 0's) translation.
     const maths::Vec4 body = from_model(raw::field_at<const float>(hierarchy, 0x90));
 
@@ -79,17 +80,17 @@ void ParkedVehicleModule::seal()
         if (i == 0)
             continue;
         if (i == 1) {
-            bone.row[0].x = 1.0f;
-            bone.row[1].z = -1.0f;
-            bone.row[2].y = 1.0f;
-            bone.row[3] = body;
+            core::at(bone.row, 0).x = 1.0f;
+            core::at(bone.row, 1).z = -1.0f;
+            core::at(bone.row, 2).y = 1.0f;
+            core::at(bone.row, 3) = body;
         } else {
-            bone.row[0].x = -1.0f;
-            bone.row[1].z = 1.0f;
-            bone.row[2].y = 1.0f;
+            core::at(bone.row, 0).x = -1.0f;
+            core::at(bone.row, 1).z = 1.0f;
+            core::at(bone.row, 2).y = 1.0f;
             // Not original - a seventh bone or more would be a fifth wheel: the original reads it from past the end of
             // its four (its own stack - garbage); ours stands it at the origin.
-            bone.row[3] = i - 2 < 4 ? wheels[i - 2] : maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+            core::at(bone.row, 3) = i - 2 < 4 ? core::at(wheels, i - 2) : maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         }
     }
 }

@@ -11,6 +11,7 @@
 #include "engine/lists/chain_start.h"
 #include "engine/net/net_lists.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -74,7 +75,7 @@ class Router : public HandlerLists {
 public:
     static constexpr int kNumMessageIds = HandlerLists::kCount;
 
-    lists::Foremost& link_chain(int id) { return memory::bits_as<lists::Foremost>(lists_[id]); }
+    lists::Foremost& link_chain(int id) { return memory::bits_as<lists::Foremost>(core::at(lists_, id)); }
 
     // 0x0045A640: every handler deleted (each list walked node by node).
     void prepare_all();

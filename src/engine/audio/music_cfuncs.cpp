@@ -15,6 +15,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
 #include "platform/crt.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -346,8 +347,8 @@ bool cfunc_play_stream(Struct* params, Script*)
         return false;
     sound::VolumeRef volume;
     volume.change_species(sound::VolumeRef::kTypeStereo); // (the channels as they were, the first two set below)
-    volume.lanes_[0] = left;
-    volume.lanes_[1] = right;
+    core::at(volume.lanes_, 0) = left;
+    core::at(volume.lanes_, 1) = right;
     audio::play_stream(stream, &volume, pitch, option, priority, id); // (the original pushes a seventh argument, 1)
     return true;
 }
@@ -374,8 +375,8 @@ bool cfunc_set_stream_params(Struct* params, Script*)
     if (got_volume) {
         sound::VolumeRef volume;
         volume.change_muted();
-        volume.lanes_[0] = left;
-        volume.lanes_[1] = right;
+        core::at(volume.lanes_, 0) = left;
+        core::at(volume.lanes_, 1) = right;
         ok = audio::change_stream_loudness(stream, &volume);
     }
     float pitch = 0.0f;
@@ -428,8 +429,8 @@ bool cfunc_start_pre_loaded_stream(Struct* params, Script*)
     auto* volume = static_cast<sound::VolumeRef*>(memory::alloc(sizeof(sound::VolumeRef)));
     if (volume)
         volume = new (volume) sound::VolumeRef;
-    volume->lanes_[0] = level;
-    volume->lanes_[1] = level;
+    core::at(volume->lanes_, 0) = level;
+    core::at(volume->lanes_, 1) = level;
     const bool started = audio::start_pre_loaded_stream(stream, volume, 100.0f, 0);
     memory::Hub::get_pull()->dealloc(volume);
     return started;

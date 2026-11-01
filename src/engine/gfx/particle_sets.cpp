@@ -18,6 +18,7 @@
 #include "engine/gfx/particle_maths.h"
 #include "engine/objects/movie_manager.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -55,13 +56,13 @@ float current_round(double value) { return static_cast<float>(value); }
 SparkleConfig::SparkleConfig()
 {
     for (int i = 0; i < 3; ++i) {
-        extent_[i] = 1.0f;
-        radius_[i] = 0.0f;
-        at_point_[i] = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
-        box_[i] = maths::Vec4{20.0f, 20.0f, 20.0f, 0.0f};
-        offset_pos_[i] = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        core::at(extent_, i) = 1.0f;
+        core::at(radius_, i) = 0.0f;
+        core::at(at_point_, i) = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
+        core::at(box_, i) = maths::Vec4{20.0f, 20.0f, 20.0f, 0.0f};
+        core::at(offset_pos_, i) = maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f};
         for (int k = 0; k < 4; ++k)
-            shade_[i][k] = 0x80;
+            core::at(core::at(shade_, i), k) = 0x80;
     }
     colour_use_mid_ = false;
     texture_ = 0;
@@ -112,22 +113,22 @@ void Sparkle::update_bounds()
     const SparkleConfig& p = args_;
     float hb[3][3], hr[3], s[3];
     for (int i = 0; i < 3; ++i) {
-        hb[i][0] = p.box_[i].x * 0.5f;
-        hb[i][1] = p.box_[i].y * 0.5f;
-        hb[i][2] = p.box_[i].z * 0.5f;
-        hr[i] = p.radius_[i] * 0.5f;
-        s[i] = p.extent_[i];
+        core::at(hb, i)[0] = core::at(p.box_, i).x * 0.5f;
+        core::at(hb, i)[1] = core::at(p.box_, i).y * 0.5f;
+        core::at(hb, i)[2] = core::at(p.box_, i).z * 0.5f;
+        core::at(hr, i) = core::at(p.radius_, i) * 0.5f;
+        core::at(s, i) = core::at(p.extent_, i);
     }
     maths::Vec4 lo[3], hi[3];
     for (int i = 0; i < 3; ++i) {
-        const maths::Vec4& at = p.at_point_[i];
-        lo[i].x = current_round(current_round(current_round(static_cast<double>(at.x) - hb[i][0]) - s[i]) - hr[i]);
-        lo[i].y = current_round(current_round(current_round(static_cast<double>(at.y) - hb[i][1]) - s[i]) - hr[i]);
-        lo[i].z = current_round(current_round(current_round(static_cast<double>(at.z) - hb[i][2]) - s[i]) - hr[i]);
-        lo[i].w = current_round(current_round(current_round(static_cast<double>(s[i]) - hr[i]) - s[i]) - hr[i]);
+        const maths::Vec4& at = core::at(p.at_point_, i);
+        core::at(lo, i).x = current_round(current_round(current_round(static_cast<double>(at.x) - core::at(hb, i)[0]) - core::at(s, i)) - core::at(hr, i));
+        core::at(lo, i).y = current_round(current_round(current_round(static_cast<double>(at.y) - core::at(hb, i)[1]) - core::at(s, i)) - core::at(hr, i));
+        core::at(lo, i).z = current_round(current_round(current_round(static_cast<double>(at.z) - core::at(hb, i)[2]) - core::at(s, i)) - core::at(hr, i));
+        core::at(lo, i).w = current_round(current_round(current_round(static_cast<double>(core::at(s, i)) - core::at(hr, i)) - core::at(s, i)) - core::at(hr, i));
     }
     {
-        const maths::Vec4& at = p.at_point_[0];
+        const maths::Vec4& at = core::at(p.at_point_, 0);
         hi[0].x =
             current_round((static_cast<double>(current_round(static_cast<double>(hb[0][0]) + at.x)) + s[0]) + hr[0]);
         hi[0].y = current_round(((static_cast<double>(at.y) + hb[0][1]) + s[0]) + hr[0]);
@@ -139,12 +140,12 @@ void Sparkle::update_bounds()
                                 hr[0]);
     }
     for (int i = 1; i < 3; ++i) {
-        const maths::Vec4& at = p.at_point_[i];
-        hi[i].x = current_round(current_round(current_round(static_cast<double>(hb[i][0]) + at.x) + s[i]) + hr[i]);
-        hi[i].y = current_round(current_round(current_round(static_cast<double>(at.y) + hb[i][1]) + s[i]) + hr[i]);
-        hi[i].z =
-            current_round((s[i] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
-        hi[i].w = current_round(static_cast<double>(current_round(s[i] + (static_cast<double>(hr[i]) + s[i]))) + hr[i]);
+        const maths::Vec4& at = core::at(p.at_point_, i);
+        core::at(hi, i).x = current_round(current_round(current_round(static_cast<double>(core::at(hb, i)[0]) + at.x) + core::at(s, i)) + core::at(hr, i));
+        core::at(hi, i).y = current_round(current_round(current_round(static_cast<double>(at.y) + core::at(hb, i)[1]) + core::at(s, i)) + core::at(hr, i));
+        core::at(hi, i).z =
+            current_round((core::at(s, i) + static_cast<double>(current_round(static_cast<double>(at.z) + core::at(hb, i)[2]))) + core::at(hr, i));
+        core::at(hi, i).w = current_round(static_cast<double>(current_round(core::at(s, i) + (static_cast<double>(core::at(hr, i)) + core::at(s, i)))) + core::at(hr, i));
     }
     maths::Vec4 low{}, high{}, curve{};
     low = *min_of(&lo[0], &lo[2], &curve);
@@ -173,23 +174,23 @@ void Sparkle::update_bounds()
 }
 
 // 0x00496030
-void Sparkle::change_place(int which, const maths::Vec4* pos) { args_.at_point_[which] = *pos; }
+void Sparkle::change_place(int which, const maths::Vec4* pos) { core::at(args_.at_point_, which) = *pos; }
 
 // 0x00496160
-void Sparkle::set_box(int which, const maths::Vec4* box) { args_.box_[which] = *box; }
+void Sparkle::set_box(int which, const maths::Vec4* box) { core::at(args_.box_, which) = *box; }
 
 // 0x00496060
 void Sparkle::spin_by(int which, const maths::Mat4* matrix)
 {
-    const maths::Vec4 start = args_.at_point_[0];
-    maths::Vec4& pos = args_.at_point_[which];
+    const maths::Vec4 start = core::at(args_.at_point_, 0);
+    maths::Vec4& pos = core::at(args_.at_point_, which);
     pos.x -= start.x;
     pos.y -= start.y;
     pos.z -= start.z;
     pos.w -= start.w;
     maths::Vec4 turned{};
     pos = matrix->xform(turned, pos);
-    maths::Vec4& box = args_.box_[which];
+    maths::Vec4& box = core::at(args_.box_, which);
     box = matrix->xform(turned, box);
     pos.x = start.x + pos.x;
     pos.y = start.y + pos.y;
@@ -207,7 +208,7 @@ void Sparkle::change_colour(const uint8_t* rgba)
     }
     if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
-            args_.colour_scale_[i] = static_cast<float>(rgba[i]) * kByteToUnit;
+            core::at(args_.colour_scale_, i) = static_cast<float>(rgba[i]) * kByteToUnit;
         on_colour_changed();
     }
 }
@@ -217,7 +218,7 @@ void Sparkle::set_colour_scale(const float* rgba)
 {
     if (args_.flag158_) {
         for (int i = 0; i < 4; ++i)
-            args_.colour_scale_[i] = rgba[i];
+            core::at(args_.colour_scale_, i) = rgba[i];
         on_colour_changed();
     }
 }
@@ -273,7 +274,7 @@ Sparkle* EffectsDirector::spawn_particle(const SparkleConfig* params)
         particle->prepare_all(params);
         if (particle->args_.flag158_) {
             for (int i = 0; i < 4; ++i)
-                particle->args_.colour_scale_[i] = shade_[i];
+                core::at(particle->args_.colour_scale_, i) = core::at(shade_, i);
             particle->set_colour_scale(shade_.data());
         }
         systems_.splice(systems_.head, raw::as<void* const>(&particle));
@@ -332,7 +333,7 @@ void EffectsDirector::change_colour(const float* rgba)
          node = node->next)
         static_cast<Sparkle*>(node->data)->set_colour_scale(rgba);
     for (int i = 0; i < 4; ++i)
-        shade_[i] = rgba[i];
+        core::at(shade_, i) = rgba[i];
 }
 
 // 0x00496700

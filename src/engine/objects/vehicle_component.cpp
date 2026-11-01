@@ -45,6 +45,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -130,10 +131,10 @@ int DrivableModule::get_gear(float spin)
 {
     const float upshift = upshift_speed_;
     int gear = 0;
-    if (!(static_cast<double>(transmission_ratios_[0]) * final_drive_ratio_ * spin > upshift))
+    if (!(static_cast<double>(core::at(transmission_ratios_, 0)) * final_drive_ratio_ * spin > upshift))
         return gear;
     while (gear < gear_count_ - 1) {
-        const double engine = static_cast<double>(transmission_ratios_[gear + 1]) * final_drive_ratio_ * spin;
+        const double engine = static_cast<double>(core::at(transmission_ratios_, gear + 1)) * final_drive_ratio_ * spin;
         ++gear;
         if (!(engine > upshift))
             break;
@@ -281,7 +282,7 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
-    auto moment = static_cast<float>(1.0 / inv_moments_[0]);
+    auto moment = static_cast<float>(1.0 / core::at(inv_moments_, 0));
     auto turn_z = static_cast<float>(static_cast<double>(spin_z) * moment);
     auto rot_w = static_cast<float>(static_cast<double>(spin_w) * moment);
     rotmom_.x = static_cast<float>(spin_x * moment + rotmom_.x);
@@ -323,7 +324,7 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script*)
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
-    const double moment = 1.0 / inv_moments_[0];
+    const double moment = 1.0 / core::at(inv_moments_, 0);
     auto spin_about_y = static_cast<float>(angular.y * moment), turn_z = static_cast<float>(angular.z * moment);
     auto rot_w = static_cast<float>(angular.w * moment);
     rotmom_.x = static_cast<float>(angular.x * moment + rotmom_.x);
@@ -508,7 +509,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         float sum = 0.0f;
         for (int k = count - 1; k >= 0; --k) {
             auto* points = colliders->array_at(static_cast<uint32_t>(k));
-            Collider& c = colliders_[k];
+            Collider& c = core::at(colliders_, k);
             auto point = [points](int i) {
                 return cell::pointer<const float>(points->fetch_part(static_cast<uint32_t>(i))) + 1; // (x, y, z)
             };
@@ -518,7 +519,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
             c.corner.z = p[2];
             for (int e = 0; e < 2; ++e) {
                 p = point(1 + e);
-                maths::Vec4& edge = c.edges[e];
+                maths::Vec4& edge = core::at(c.edges, e);
                 edge.x = p[0];
                 edge.y = p[1];
                 edge.z = p[2];
@@ -529,16 +530,16 @@ void DrivableModule::configure_from_data(script::Struct* params)
             }
             auto length_squared = [](double x, double y, double z) { return (x * x + y * y) + z * z; };
             const maths::Vec4& o = c.corner;
-            const maths::Vec4& a = c.edges[0];
-            const maths::Vec4& b = c.edges[1];
+            const maths::Vec4& a = core::at(c.edges, 0);
+            const maths::Vec4& b = core::at(c.edges, 1);
             const double s0 = length_squared(o.x, o.y, o.z);
             const double s1 = length_squared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y,
                                              static_cast<double>(a.z) + o.z);
             auto s2 = static_cast<float>(length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y,
                                                         static_cast<double>(b.z) + o.z));
             sum = static_cast<float>(((std::sqrt(s0) + sum) + std::sqrt(s1)) + std::sqrt(static_cast<double>(s2)));
-            c.lengths[0] = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
-            c.lengths[1] = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
+            core::at(c.lengths, 0) = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
+            core::at(c.lengths, 1) = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
         }
         auto distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
         core::down_cast<Rider>(local_skater())->set_42b_d60(distance);
@@ -568,7 +569,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
             engine->fetch_list(0xC023FA75, &ratios, 1);
             gear_count_ = static_cast<int>(ratios->extent_);
             for (int i = 0; i < gear_count_; ++i)
-                transmission_ratios_[i] = ratios->fetch_float(static_cast<uint32_t>(i));
+                core::at(transmission_ratios_, i) = ratios->fetch_float(static_cast<uint32_t>(i));
         }
     }
 
@@ -621,7 +622,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         orientation_.z = saved.z;
         quat_normalize(&orientation_, 1.0f);
         quat_to_matrix(&orientation_, &basis_frame_);
-        clear_to_w1(basis_frame_.row[3]);
+        clear_to_w1(core::at(basis_frame_.row, 3));
         entity_->basis_frame_ = basis_frame_;
         entity_->display_matrix_ = basis_frame_;
     }
@@ -653,7 +654,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         wheel.display_steering_ = 0.0f;
         wheel.torque = 0.0f;
         for (int k = 9; k >= 0; --k)
-            wheel.load_history_[k] =
+            core::at(wheel.load_history_, k) =
                 static_cast<float>(static_cast<double>(kGravity) / inv_mass_ / as_unsigned(wheel_count_));
     }
     load_index_ = 0;
@@ -675,7 +676,7 @@ void DrivableModule::seal()
         wheels_[i].offset = {-place[0], place[2], -place[1], 1.0f};
     }
     const maths::Mat4 bone = *raw::field_at<const maths::Mat4>(geometry, 0x60);
-    skater_bone_ = {-bone.row[3].x, bone.row[3].z, -bone.row[3].y, 1.0f};
+    skater_bone_ = {-core::at(bone.row, 3).x, core::at(bone.row, 3).z, -core::at(bone.row, 3).y, 1.0f};
     // The wheelbase (a left wheel to a fixed one) and the track (left to right), from the lowest-numbered wheel of
     // each kind (-1 when there's none - read before the first, as the original).
     int fixed = -1, left = -1, right = -1;
@@ -710,9 +711,9 @@ void DrivableModule::seal()
                                                   (as_unsigned(wheel_count_) * wheel.spring_rate_ * inv_mass_));
     }
     // The colliders' lowest point.
-    float lowest = colliders_[0].corner.y;
+    float lowest = core::at(colliders_, 0).corner.y;
     for (int i = 1; i >= 0; --i) {
-        const Collider& c = colliders_[i];
+        const Collider& c = core::at(colliders_, i);
         if (c.corner.y < lowest)
             lowest = c.corner.y;
         for (const maths::Vec4& edge : c.edges) {
@@ -746,7 +747,7 @@ void DrivableModule::seal()
     for (int i = wheel_count_ - 1; i >= 0; --i)
         recentre(wheels_[i].offset);
     for (int i = 1; i >= 0; --i)
-        recentre(colliders_[i].corner);
+        recentre(core::at(colliders_, i).corner);
     recentre(skater_bone_);
     recentre(skater_pos_);
     update_dependents();
@@ -863,23 +864,23 @@ void DrivableModule::refresh_bone_rig()
         if (b == 0)
             return;
         if (b == 1) {
-            bone.row[0].x = 1.0f;
-            bone.row[1].z = -1.0f;
-            bone.row[2].y = 1.0f;
-            bone.row[3] = skater_bone_;
+            core::at(bone.row, 0).x = 1.0f;
+            core::at(bone.row, 1).z = -1.0f;
+            core::at(bone.row, 2).y = 1.0f;
+            core::at(bone.row, 3) = skater_bone_;
             continue;
         }
         const Wheel& wheel = wheels_[b - 2];
-        bone.row[0].x = -1.0f;
-        bone.row[1].z = 1.0f;
-        bone.row[2].y = 1.0f;
+        core::at(bone.row, 0).x = -1.0f;
+        core::at(bone.row, 1).z = 1.0f;
+        core::at(bone.row, 2).y = 1.0f;
         maths::Mat4 turn;
         matrix_multiply(&bone, &maths::make_roll_matrix(turn, wheel.display_steering_), &bone);
         matrix_multiply(&bone, &maths::make_pitch_matrix(turn, -wheel.rotation), &bone);
-        bone.row[3] = wheel.offset;
+        core::at(bone.row, 3) = wheel.offset;
         const float drop = wheel.y > wheel.max_drawn_y_ ? wheel.max_drawn_y_ : wheel.y;
-        bone.row[3].y = static_cast<float>(static_cast<double>(drop) + bone.row[3].y);
-        bone.row[3].w = 1.0f;
+        core::at(bone.row, 3).y = static_cast<float>(static_cast<double>(drop) + core::at(bone.row, 3).y);
+        core::at(bone.row, 3).w = 1.0f;
     }
 }
 
@@ -960,14 +961,14 @@ void DrivableModule::debug_draw()
             std::array<maths::Vec4, 2> ends{};
             for (int e = 0; e < 2; ++e) {
                 const float side = e ? kBelow : -kBelow;
-                const maths::Vec4 local{steer.row[0].x * side + wheel.offset.x,
-                                        steer.row[0].y * side + wheel.offset.y + wheel.y,
-                                        steer.row[0].z * side + wheel.offset.z, 1.0f};
+                const maths::Vec4 local{core::at(steer.row, 0).x * side + wheel.offset.x,
+                                        core::at(steer.row, 0).y * side + wheel.offset.y + wheel.y,
+                                        core::at(steer.row, 0).z * side + wheel.offset.z, 1.0f};
                 maths::Vec4 world;
                 basis_frame_.rotate_vector(world, local);
-                ends[e] = {world.x + at_point_.x, world.y + at_point_.y, world.z + at_point_.z, world.w + at_point_.w};
+                core::at(ends, e) = {world.x + at_point_.x, world.y + at_point_.y, world.z + at_point_.z, world.w + at_point_.w};
             }
-            gfx::push_diag_line(&ends[0], &ends[1], 0xFF000000, 0xFF000000, 1);
+            gfx::push_diag_line(&core::at(ends, 0), &core::at(ends, 1), 0xFF000000, 0xFF000000, 1);
         }
     }
 }
@@ -1008,7 +1009,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
         }
     }
     const double back = wheels_[fixed].offset.z;
-    const maths::Vec4& at = matrix.row[2];
+    const maths::Vec4& at = core::at(matrix.row, 2);
     at_point_.x = pos.x = static_cast<float>(pos.x - at.x * back);
     at_point_.y = pos.y = static_cast<float>(pos.y - at.y * back);
     at_point_.z = pos.z = static_cast<float>(pos.z - at.z * back);
@@ -1075,7 +1076,7 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     const maths::Mat4& view = *static_cast<gfx::ViewCam*>(camera)->fetch_mat();
     at_point_ = eye;
     // 144 along the camera's up, then 144 back along its at (12 feet each, scaled twice - as the original).
-    const maths::Vec4& up = view.row[1];
+    const maths::Vec4& up = core::at(view.row, 1);
     const double up_x = static_cast<double>(up.x) * kFeet;
     const double up_y = static_cast<double>(up.y) * kFeet;
     auto up_z = static_cast<float>(static_cast<double>(up.z) * kFeet);
@@ -1085,7 +1086,7 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     at_point_.z = static_cast<float>(static_cast<double>(up_z) * kFeet + at_point_.z);
     at_point_.w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(up_w) * kFeet)) + at_point_.w);
-    const maths::Vec4& at = view.row[2];
+    const maths::Vec4& at = core::at(view.row, 2);
     const double at_x = static_cast<double>(at.x) * kFeet;
     const double at_y = static_cast<double>(at.y) * kFeet;
     auto at_z = static_cast<float>(static_cast<double>(at.z) * kFeet);
@@ -1097,15 +1098,15 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
         static_cast<float>(static_cast<double>(at_point_.w) - static_cast<float>(static_cast<double>(at_w) * kFeet));
     entity_->at_point_ = at_point_;
     // Facing away from the camera.
-    basis_frame_.row[0] = {-view.row[0].x, -view.row[0].y, -view.row[0].z, -view.row[0].w};
-    basis_frame_.row[1] = view.row[1];
-    basis_frame_.row[2] = {-view.row[2].x, -view.row[2].y, -view.row[2].z, -view.row[2].w};
+    core::at(basis_frame_.row, 0) = {-core::at(view.row, 0).x, -core::at(view.row, 0).y, -core::at(view.row, 0).z, -core::at(view.row, 0).w};
+    core::at(basis_frame_.row, 1) = core::at(view.row, 1);
+    core::at(basis_frame_.row, 2) = {-core::at(view.row, 2).x, -core::at(view.row, 2).y, -core::at(view.row, 2).z, -core::at(view.row, 2).w};
     maths::Vec4 quat;
     matrix_to_quat(&quat, &basis_frame_);
     orientation_ = quat;
     quat_normalize(&orientation_, 1.0f);
     quat_to_matrix(&orientation_, &basis_frame_);
-    clear_to_w1(basis_frame_.row[3]);
+    clear_to_w1(core::at(basis_frame_.row, 3));
     entity_->basis_frame_ = basis_frame_;
     update_dependents();
     return true;

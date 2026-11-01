@@ -25,6 +25,7 @@
 #include "engine/script/struct_buffer.h"
 #include "engine/sys/game_config.h"
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 namespace save_cards {
 
@@ -140,7 +141,7 @@ bool load_from_memory_card(script::Struct* params, script::Script* script)
         params->fetch_text("Name", &name, 0);
         params->read_hash_value("Type", &type, 0);
         std::array<char, 104> path{};
-        path[0] = '\0';
+        core::at(path, 0) = '\0';
         bool named = true;
         switch (os_layer()) {
         case 1:
@@ -369,8 +370,8 @@ bool switch_to_temp_pools_if_they_exist(script::Struct*, script::Script*)
     ++component_pools().current;
     ++struct_pools().current;
     ++vector_pools().current;
-    if (component_pools().pools[component_pools().current] && struct_pools().pools[struct_pools().current] &&
-        vector_pools().pools[vector_pools().current])
+    if (core::at(component_pools().pools, component_pools().current) && core::at(struct_pools().pools, struct_pools().current) &&
+        core::at(vector_pools().pools, vector_pools().current))
         return true;
     --component_pools().current;
     --struct_pools().current;

@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -93,7 +94,7 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 {
     if (object->fetch_module(kSkaterCorePhysics)) {
         memory::Hub* manager = memory::Hub::get_pull();
-        manager->enter_heap_scope(manager->skater_heaps_[skater->get_skater_number()]);
+        manager->enter_heap_scope(core::at(manager->skater_heaps_, skater->get_skater_number()));
         shadow->build_blob_shadow(1, kPedShadow);
         memory::Hub::get_pull()->leave_heap_scope();
     } else {

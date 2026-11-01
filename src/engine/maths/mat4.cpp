@@ -9,21 +9,22 @@
 #include "engine/core/dbg.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/trig.h"
+#include "engine/core/checked_index.h"
 
 namespace maths {
 
 // 0x00404080
-Vec4& Mat4::operator[](int index) { return row[index]; }
+Vec4& Mat4::operator[](int index) { return core::at(row, index); }
 
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
 Mat4& make_pitch_matrix(Mat4& m, float angle)
 {
     const float s = std::sin(angle);
     const float c = std::cos(angle);
-    m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, c, s, 0.0f};
-    m.row[2] = {0.0f, -s, c, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(m.row, 1) = {0.0f, c, s, 0.0f};
+    core::at(m.row, 2) = {0.0f, -s, c, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
 
@@ -32,10 +33,10 @@ Mat4& make_yaw_matrix(Mat4& m, float angle)
 {
     const float s = std::sin(angle);
     const float c = std::cos(angle);
-    m.row[0] = {c, 0.0f, -s, 0.0f};
-    m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    m.row[2] = {s, 0.0f, c, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {c, 0.0f, -s, 0.0f};
+    core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(m.row, 2) = {s, 0.0f, c, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
 
@@ -44,10 +45,10 @@ Mat4& make_roll_matrix(Mat4& m, float angle)
 {
     const float s = std::sin(angle);
     const float c = std::cos(angle);
-    m.row[0] = {c, s, 0.0f, 0.0f};
-    m.row[1] = {-s, c, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0) = {c, s, 0.0f, 0.0f};
+    core::at(m.row, 1) = {-s, c, 0.0f, 0.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
 
@@ -55,11 +56,11 @@ Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
 {
     Mat4 result{};
     for (int i = 0; i < 4; ++i) {
-        const float* ra = &a.row[i].x;
-        float* rr = &result.row[i].x;
+        const float* ra = &core::at(a.row, i).x;
+        float* rr = &core::at(result.row, i).x;
         for (int j = 0; j < 4; ++j)
-            rr[j] = ra[0] * (&b.row[0].x)[j] + ra[1] * (&b.row[1].x)[j] + ra[2] * (&b.row[2].x)[j] +
-                    ra[3] * (&b.row[3].x)[j];
+            rr[j] = ra[0] * (&core::at(b.row, 0).x)[j] + ra[1] * (&core::at(b.row, 1).x)[j] + ra[2] * (&core::at(b.row, 2).x)[j] +
+                    ra[3] * (&core::at(b.row, 3).x)[j];
     }
     out = result;
     return out;
@@ -110,10 +111,10 @@ Mat4& Mat4::init_from_angles(const Vec4& angles)
 // 0x0041A640
 Mat4& Mat4::reset_to_identity()
 {
-    row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return *this;
 }
 
@@ -132,10 +133,10 @@ Mat4& Mat4::scale_tool(const Vec4& scale)
 // 0x0048A230
 Mat4& Mat4::get_slide(const Vec4& offset)
 {
-    row[3].x += offset.x;
-    row[3].y += offset.y;
-    row[3].z += offset.z;
-    row[3].w += offset.w;
+    core::at(row, 3).x += offset.x;
+    core::at(row, 3).y += offset.y;
+    core::at(row, 3).z += offset.z;
+    core::at(row, 3).w += offset.w;
     return *this;
 }
 
@@ -143,10 +144,10 @@ Mat4& Mat4::get_slide(const Vec4& offset)
 // (row 1 + row 0) + row 2, then the old value.
 Mat4& Mat4::offset_local(const Vec4& offset)
 {
-    auto term = [&](int r, int c) { return static_cast<double>((&row[r].x)[c]) * (&offset.x)[r]; };
-    row[3].x = static_cast<float>(term(1, 0) + term(2, 0) + term(0, 0) + row[3].x);
-    row[3].y = static_cast<float>(term(1, 1) + term(0, 1) + term(2, 1) + row[3].y);
-    row[3].z = static_cast<float>(term(1, 2) + term(0, 2) + term(2, 2) + row[3].z);
+    auto term = [&](int r, int c) { return static_cast<double>((&core::at(row, r).x)[c]) * (&offset.x)[r]; };
+    core::at(row, 3).x = static_cast<float>(term(1, 0) + term(2, 0) + term(0, 0) + core::at(row, 3).x);
+    core::at(row, 3).y = static_cast<float>(term(1, 1) + term(0, 1) + term(2, 1) + core::at(row, 3).y);
+    core::at(row, 3).z = static_cast<float>(term(1, 2) + term(0, 2) + term(2, 2) + core::at(row, 3).z);
     return *this;
 }
 
@@ -154,7 +155,7 @@ Mat4& Mat4::offset_local(const Vec4& offset)
 // first, then z's, then y's (for x: w, z, y, then x's term last).
 Vec4 operator*(const Vec4& v, const Mat4& m)
 {
-    auto term = [&](int r, int c) { return static_cast<double>((&m.row[r].x)[c]) * (&v.x)[r]; };
+    auto term = [&](int r, int c) { return static_cast<double>((&core::at(m.row, r).x)[c]) * (&v.x)[r]; };
     Vec4 out{};
     out.w = static_cast<float>(term(3, 3) + term(0, 3) + term(2, 3) + term(1, 3));
     out.z = static_cast<float>(term(3, 2) + term(0, 2) + term(2, 2) + term(1, 2));
@@ -203,12 +204,12 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
     auto xs = static_cast<float>(x * s);
     const double ys = y * s;
     const double zs = static_cast<double>(z) * s;
-    m.row[0] = {static_cast<float>(1.0 - xx_t), static_cast<float>(xy_t + zs), static_cast<float>(zx_t - ys), 0.0f};
-    m.row[1] = {static_cast<float>(xy_t - zs), static_cast<float>(1.0 - yy_t),
+    core::at(m.row, 0) = {static_cast<float>(1.0 - xx_t), static_cast<float>(xy_t + zs), static_cast<float>(zx_t - ys), 0.0f};
+    core::at(m.row, 1) = {static_cast<float>(xy_t - zs), static_cast<float>(1.0 - yy_t),
                 static_cast<float>(zy_t + static_cast<double>(xs)), 0.0f};
-    m.row[2] = {static_cast<float>(zx_t + ys), static_cast<float>(zy_t - static_cast<double>(xs)),
+    core::at(m.row, 2) = {static_cast<float>(zx_t + ys), static_cast<float>(zy_t - static_cast<double>(xs)),
                 static_cast<float>(1.0 - zz_t), 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return m;
 }
 
@@ -226,10 +227,10 @@ Vec4& Mat4::xform(Vec4& out, const Vec4& in) const
     const double y = in.y;
     const double z = in.z;
     const double w = in.w;
-    const double rx = ((row[3].x * w + row[1].x * y) + row[2].x * z) + x * row[0].x;
-    const double ry = ((row[3].y * w + row[1].y * y) + row[0].y * x) + row[2].y * z;
-    const double rz = ((row[3].z * w + row[1].z * y) + row[0].z * x) + row[2].z * z;
-    const double rw = ((row[3].w * w + row[1].w * y) + row[0].w * x) + row[2].w * z;
+    const double rx = ((core::at(row, 3).x * w + core::at(row, 1).x * y) + core::at(row, 2).x * z) + x * core::at(row, 0).x;
+    const double ry = ((core::at(row, 3).y * w + core::at(row, 1).y * y) + core::at(row, 0).y * x) + core::at(row, 2).y * z;
+    const double rz = ((core::at(row, 3).z * w + core::at(row, 1).z * y) + core::at(row, 0).z * x) + core::at(row, 2).z * z;
+    const double rw = ((core::at(row, 3).w * w + core::at(row, 1).w * y) + core::at(row, 0).w * x) + core::at(row, 2).w * z;
     out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), static_cast<float>(rw)};
     return out;
 }
@@ -240,10 +241,10 @@ Vec4& Mat4::carry_point_through(Vec4& out, const Vec4& in) const
     const double x = in.x;
     const double y = in.y;
     const double z = in.z;
-    const double rx = ((row[2].x * z + row[1].x * y) + x * row[0].x) + row[3].x;
-    const double ry = ((row[2].y * z + row[1].y * y) + row[0].y * x) + row[3].y;
-    const double rz = ((row[2].z * z + row[1].z * y) + row[0].z * x) + row[3].z;
-    const double rw = ((row[2].w * z + row[1].w * y) + row[0].w * x) + row[3].w;
+    const double rx = ((core::at(row, 2).x * z + core::at(row, 1).x * y) + x * core::at(row, 0).x) + core::at(row, 3).x;
+    const double ry = ((core::at(row, 2).y * z + core::at(row, 1).y * y) + core::at(row, 0).y * x) + core::at(row, 3).y;
+    const double rz = ((core::at(row, 2).z * z + core::at(row, 1).z * y) + core::at(row, 0).z * x) + core::at(row, 3).z;
+    const double rw = ((core::at(row, 2).w * z + core::at(row, 1).w * y) + core::at(row, 0).w * x) + core::at(row, 3).w;
     out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), static_cast<float>(rw)};
     return out;
 }
@@ -255,9 +256,9 @@ Vec4& Mat4::rotate_vector(Vec4& out, const Vec4& in) const
     const double y = in.y;
     const double z = in.z;
     const float w = in.w;
-    const double rx = (row[2].x * z + row[1].x * y) + x * row[0].x;
-    const double ry = (row[2].y * z + row[1].y * y) + row[0].y * x;
-    const double rz = (row[2].z * z + row[1].z * y) + row[0].z * x;
+    const double rx = (core::at(row, 2).x * z + core::at(row, 1).x * y) + x * core::at(row, 0).x;
+    const double ry = (core::at(row, 2).y * z + core::at(row, 1).y * y) + core::at(row, 0).y * x;
+    const double rz = (core::at(row, 2).z * z + core::at(row, 1).z * y) + core::at(row, 0).z * x;
     out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), w};
     return out;
 }
@@ -266,8 +267,8 @@ Vec4& Mat4::rotate_vector(Vec4& out, const Vec4& in) const
 bool Mat4::operator==(const Mat4& other) const
 {
     for (int i = 0; i < 4; ++i) {
-        const float* mine = &row[i].x;
-        const float* theirs = &other.row[i].x;
+        const float* mine = &core::at(row, i).x;
+        const float* theirs = &core::at(other.row, i).x;
         for (int j = 0; j < 4; ++j) {
             if (!(mine[j] == theirs[j]))
                 return false;
@@ -281,10 +282,10 @@ Mat4& Mat4::scale_rows(const Vec4& scale)
 {
     const std::array<float, 3> factors = {{scale.x, scale.y, scale.z}};
     for (int i = 0; i < 3; ++i) {
-        row[i].x *= factors[i];
-        row[i].y *= factors[i];
-        row[i].z *= factors[i];
-        row[i].w *= factors[i];
+        core::at(row, i).x *= core::at(factors, i);
+        core::at(row, i).y *= core::at(factors, i);
+        core::at(row, i).z *= core::at(factors, i);
+        core::at(row, i).w *= core::at(factors, i);
     }
     return *this;
 }
@@ -292,8 +293,8 @@ Mat4& Mat4::scale_rows(const Vec4& scale)
 // 0x004062D0
 float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_axis)
 {
-    const Vec4& normal = m.row[normal_axis];
-    const Vec4& ref = m.row[ref_axis];
+    const Vec4& normal = core::at(m.row, normal_axis);
+    const Vec4& ref = core::at(m.row, ref_axis);
 
     Vec4 in_plane = v;
     in_plane.flatten_onto_plane(normal);
@@ -321,10 +322,10 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
 // difference squared against its float - and the angle is FPATAN's)
 void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
 {
-    const double trace = ((static_cast<double>(row[1].y) + row[0].x) + row[2].z) - 1.0; // 2 cos(angle)
-    const auto x = static_cast<float>(static_cast<double>(row[1].z) - row[2].y);
-    const auto y = static_cast<float>(static_cast<double>(row[2].x) - row[0].z);
-    const double z_difference = static_cast<double>(row[0].y) - row[1].x;
+    const double trace = ((static_cast<double>(core::at(row, 1).y) + core::at(row, 0).x) + core::at(row, 2).z) - 1.0; // 2 cos(angle)
+    const auto x = static_cast<float>(static_cast<double>(core::at(row, 1).z) - core::at(row, 2).y);
+    const auto y = static_cast<float>(static_cast<double>(core::at(row, 2).x) - core::at(row, 0).z);
+    const double z_difference = static_cast<double>(core::at(row, 0).y) - core::at(row, 1).x;
     const auto z = static_cast<float>(z_difference);
     const double length = // 2 sin(angle)
         std::sqrt((z_difference * z + static_cast<double>(x) * x) + static_cast<double>(y) * y);
@@ -343,10 +344,10 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
 
     // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
     // (Compared as in the original, so NaNs choose the same case.)
-    const float m00 = row[0].x, m11 = row[1].y, m22 = row[2].z;
-    const Vec4 y_largest{row[1].x + row[0].y, m11 + 1.0f + m11 + 1.0f, row[1].z + row[2].y, 1.0f};
-    const Vec4 x_largest{m00 + 1.0f + m00 + 1.0f, row[1].x + row[0].y, row[0].z + row[2].x, 1.0f};
-    const Vec4 z_largest{row[0].z + row[2].x, row[1].z + row[2].y, m22 + 1.0f + m22 + 1.0f, 1.0f};
+    const float m00 = core::at(row, 0).x, m11 = core::at(row, 1).y, m22 = core::at(row, 2).z;
+    const Vec4 y_largest{core::at(row, 1).x + core::at(row, 0).y, m11 + 1.0f + m11 + 1.0f, core::at(row, 1).z + core::at(row, 2).y, 1.0f};
+    const Vec4 x_largest{m00 + 1.0f + m00 + 1.0f, core::at(row, 1).x + core::at(row, 0).y, core::at(row, 0).z + core::at(row, 2).x, 1.0f};
+    const Vec4 z_largest{core::at(row, 0).z + core::at(row, 2).x, core::at(row, 1).z + core::at(row, 2).y, m22 + 1.0f + m22 + 1.0f, 1.0f};
     if (!(m00 > m11))
         axis = m11 > m22 ? y_largest : z_largest;
     else
@@ -383,9 +384,9 @@ Mat4& Mat4::square_up_axes(int axis)
     int c_index = best_index + 1;
     if (c_index == 3)
         c_index = 0;
-    const Vec4& a = row[axis];
-    Vec4& b = row[best_index];
-    Vec4& c = row[c_index];
+    const Vec4& a = core::at(row, axis);
+    Vec4& b = core::at(row, best_index);
+    Vec4& c = core::at(row, c_index);
 
     // b = c x a and c = a x b, written out in the original's operand order.
     auto rebuild_b = [&] {
@@ -415,14 +416,14 @@ bool Mat4::restore_right_angles()
 {
     constexpr float kMinLength = 0.99f;
     const double length1 = static_cast<float>(
-        std::sqrt((static_cast<double>(row[1].x) * row[1].x + static_cast<double>(row[1].y) * row[1].y) +
-                  static_cast<double>(row[1].z) * row[1].z));
+        std::sqrt((static_cast<double>(core::at(row, 1).x) * core::at(row, 1).x + static_cast<double>(core::at(row, 1).y) * core::at(row, 1).y) +
+                  static_cast<double>(core::at(row, 1).z) * core::at(row, 1).z));
     const double length2 =
-        std::sqrt((static_cast<double>(row[2].x) * row[2].x + static_cast<double>(row[2].y) * row[2].y) +
-                  static_cast<double>(row[2].z) * row[2].z);
+        std::sqrt((static_cast<double>(core::at(row, 2).x) * core::at(row, 2).x + static_cast<double>(core::at(row, 2).y) * core::at(row, 2).y) +
+                  static_cast<double>(core::at(row, 2).z) * core::at(row, 2).z);
     const double length0 =
-        std::sqrt((static_cast<double>(row[0].z) * row[0].z + static_cast<double>(row[0].x) * row[0].x) +
-                  static_cast<double>(row[0].y) * row[0].y);
+        std::sqrt((static_cast<double>(core::at(row, 0).z) * core::at(row, 0).z + static_cast<double>(core::at(row, 0).x) * core::at(row, 0).x) +
+                  static_cast<double>(core::at(row, 0).y) * core::at(row, 0).y);
     const bool short0 = length0 < kMinLength;
     const bool short1 = length1 < kMinLength;
     const bool short2 = length2 < kMinLength;
@@ -436,11 +437,11 @@ bool Mat4::restore_right_angles()
         return true;
     }
     if (short0)
-        rebuild(row[0], row[1], row[2]);
+        rebuild(core::at(row, 0), core::at(row, 1), core::at(row, 2));
     else if (short1)
-        rebuild(row[1], row[2], row[0]);
+        rebuild(core::at(row, 1), core::at(row, 2), core::at(row, 0));
     else if (short2)
-        rebuild(row[2], row[0], row[1]);
+        rebuild(core::at(row, 2), core::at(row, 0), core::at(row, 1));
     else
         return false;
     return true;
@@ -453,14 +454,14 @@ Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle)
     const float c = std::cos(angle);
     const int a = (axis + 1) % 3;
     const int b = (axis + 2) % 3;
-    m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    (&m.row[a].x)[a] = c;
-    (&m.row[a].x)[b] = s;
-    (&m.row[b].x)[a] = -s;
-    (&m.row[b].x)[b] = c;
+    core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    (&core::at(m.row, a).x)[a] = c;
+    (&core::at(m.row, a).x)[b] = s;
+    (&core::at(m.row, b).x)[a] = -s;
+    (&core::at(m.row, b).x)[b] = c;
     return m;
 }
 
@@ -483,10 +484,10 @@ Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const 
     const float uy = rz * fx - rx * fz;
     const float uz = rx * fy - ry * fx;
 
-    m.row[0] = {rx, ux, fx, 0.0f};
-    m.row[1] = {ry, uy, fy, 0.0f};
-    m.row[2] = {rz, uz, fz, 0.0f};
-    m.row[3] = {-(rz * eye.z + ry * eye.y + rx * eye.x), -(uz * eye.z + uy * eye.y + ux * eye.x),
+    core::at(m.row, 0) = {rx, ux, fx, 0.0f};
+    core::at(m.row, 1) = {ry, uy, fy, 0.0f};
+    core::at(m.row, 2) = {rz, uz, fz, 0.0f};
+    core::at(m.row, 3) = {-(rz * eye.z + ry * eye.y + rx * eye.x), -(uz * eye.z + uy * eye.y + ux * eye.x),
                 -(fy * eye.y + fx * eye.x + fz * eye.z), 1.0f};
     return m;
 }
@@ -494,10 +495,10 @@ Mat4& create_look_at_matrix(Mat4& m, const Vec4& eye, const Vec4& target, const 
 // 0x00405080
 Mat4& create_orthographic_matrix(Mat4& m, float width, float height, float near_depth, float far_depth)
 {
-    m.row[0] = {2.0f / width, 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, 2.0f / height, 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, 2.0f / (far_depth - near_depth), 0.0f};
-    m.row[3] = {0.0f, 0.0f, -((near_depth + far_depth) / (far_depth - near_depth)), 1.0f};
+    core::at(m.row, 0) = {2.0f / width, 0.0f, 0.0f, 0.0f};
+    core::at(m.row, 1) = {0.0f, 2.0f / height, 0.0f, 0.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, 2.0f / (far_depth - near_depth), 0.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, -((near_depth + far_depth) / (far_depth - near_depth)), 1.0f};
     return m;
 }
 
@@ -508,10 +509,10 @@ Mat4& create_perspective_matrix(Mat4& m, float fov, float aspect, float near_dep
     const double q = far_depth / (static_cast<double>(far_depth) - near_depth);
     const double half_fov = static_cast<double>(fov) * 0.5f;
     const double cot = std::cos(half_fov) / std::sin(half_fov);
-    m.row[0] = {static_cast<float>(aspect * cot), 0.0f, 0.0f, 0.0f};
-    m.row[1] = {0.0f, static_cast<float>(cot), 0.0f, 0.0f};
-    m.row[2] = {0.0f, 0.0f, static_cast<float>(q), 1.0f};
-    m.row[3] = {0.0f, 0.0f, static_cast<float>(-(q * near_depth)), 0.0f};
+    core::at(m.row, 0) = {static_cast<float>(aspect * cot), 0.0f, 0.0f, 0.0f};
+    core::at(m.row, 1) = {0.0f, static_cast<float>(cot), 0.0f, 0.0f};
+    core::at(m.row, 2) = {0.0f, 0.0f, static_cast<float>(q), 1.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, static_cast<float>(-(q * near_depth)), 0.0f};
     return m;
 }
 
@@ -554,20 +555,20 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
     auto cxsy = static_cast<float>(std::sin(static_cast<double>(y)) * cx);
     const double sysx = std::sin(static_cast<double>(y)) * std::sin(static_cast<double>(x));
     auto f = [](double v) { return static_cast<float>(v); };
-    row[0] = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -std::sin(y), 0.0f};
-    row[1] = {f(static_cast<double>(sz) * cx - sysx * cz), f(sysx * sz + static_cast<double>(cz) * cx),
+    core::at(row, 0) = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -std::sin(y), 0.0f};
+    core::at(row, 1) = {f(static_cast<double>(sz) * cx - sysx * cz), f(sysx * sz + static_cast<double>(cz) * cx),
               f(-(std::sin(static_cast<double>(x)) * cy)), 0.0f};
-    row[2] = {f(static_cast<double>(cxsy) * cz + std::sin(static_cast<double>(x)) * sz),
+    core::at(row, 2) = {f(static_cast<double>(cxsy) * cz + std::sin(static_cast<double>(x)) * sz),
               f(std::sin(static_cast<double>(x)) * cz - static_cast<double>(cxsy) * sz),
               f(static_cast<double>(cy) * cx), 0.0f};
-    row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return *this;
 }
 
 namespace {
 
 // Element (r, c), treating the four row vectors as a 4x4 array.
-float get_at(const Mat4& m, int r, int c) { return (&m.row[r].x)[c]; }
+float get_at(const Mat4& m, int r, int c) { return (&core::at(m.row, r).x)[c]; }
 
 // Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
 // first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg) - on the FPU (53 bits; the
@@ -577,10 +578,10 @@ double minor(const Mat4& m, int skip_row, int skip_col)
     int r[3], c[3];
     for (int i = 0, n = 0; i < 4; ++i)
         if (i != skip_row)
-            r[n++] = i;
+            core::at(r, n++) = i;
     for (int i = 0, n = 0; i < 4; ++i)
         if (i != skip_col)
-            c[n++] = i;
+            core::at(c, n++) = i;
     const double a = get_at(m, r[0], c[0]);
     const double b = get_at(m, r[0], c[1]);
     const double cc = get_at(m, r[0], c[2]);
@@ -608,7 +609,7 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
             auto cofactor = static_cast<float>(minor(source, c, r));
-            (&row[r].x)[c] = ((r + c) & 1) ? -cofactor : cofactor;
+            (&core::at(row, r).x)[c] = ((r + c) & 1) ? -cofactor : cofactor;
         }
     }
     return *this;
@@ -617,13 +618,13 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
 // 0x00416DF0 (the dot products summed in double precision)
 Mat4& Mat4::invert_orthonormal()
 {
-    const double tx = row[3].x, ty = row[3].y, tz = row[3].z;
-    row[3].x = static_cast<float>(-((ty * row[0].y + tz * row[0].z) + tx * row[0].x));
-    row[3].y = static_cast<float>(-((tz * row[1].z + ty * row[1].y) + tx * row[1].x));
-    row[3].z = static_cast<float>(-((tz * row[2].z + ty * row[2].y) + tx * row[2].x));
-    std::swap(row[0].y, row[1].x);
-    std::swap(row[0].z, row[2].x);
-    std::swap(row[1].z, row[2].y);
+    const double tx = core::at(row, 3).x, ty = core::at(row, 3).y, tz = core::at(row, 3).z;
+    core::at(row, 3).x = static_cast<float>(-((ty * core::at(row, 0).y + tz * core::at(row, 0).z) + tx * core::at(row, 0).x));
+    core::at(row, 3).y = static_cast<float>(-((tz * core::at(row, 1).z + ty * core::at(row, 1).y) + tx * core::at(row, 1).x));
+    core::at(row, 3).z = static_cast<float>(-((tz * core::at(row, 2).z + ty * core::at(row, 2).y) + tx * core::at(row, 2).x));
+    std::swap(core::at(row, 0).y, core::at(row, 1).x);
+    std::swap(core::at(row, 0).z, core::at(row, 2).x);
+    std::swap(core::at(row, 1).z, core::at(row, 2).y);
     return *this;
 }
 
@@ -642,7 +643,7 @@ Mat4& Mat4::upend()
 // 0x00404AB0
 Vec4& Mat4::get_euler_angles(Vec4& out) const
 {
-    float sin_y = row[0].z;
+    float sin_y = core::at(row, 0).z;
     if (sin_y > 1.0f) // (a NaN passes, as in the original: its asin is NaN)
         sin_y = 1.0f;
     else if (sin_y < -1.0f)
@@ -657,12 +658,12 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     if (above) {
         auto inv = static_cast<float>(inverse);
         auto neg_inv = static_cast<float>(neg_inverse);
-        x = fast_atan2(neg_inv * row[1].z, inv * row[2].z);
-        z = fast_atan2(neg_inv * row[0].y, inv * row[0].x);
+        x = fast_atan2(neg_inv * core::at(row, 1).z, inv * core::at(row, 2).z);
+        z = fast_atan2(neg_inv * core::at(row, 0).y, inv * core::at(row, 0).x);
     } else {
         // Gimbal lock: X and Z rotate about the same axis, so put it all in Z.
         x = 0.0f;
-        z = fast_atan2(row[1].x, row[1].y);
+        z = fast_atan2(core::at(row, 1).x, core::at(row, 1).y);
     }
     out = {x, y, z, 1.0f};
     return out;

@@ -37,6 +37,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -112,12 +113,12 @@ PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
     std::sprintf(label_.data(), "<No Name>"); // (0x0064CCE8)
     for (int i = 0; i < kMaxPlayers; ++i) {
-        sent_.value68_[i] = 0xFFFFFFFF;
-        sent_.state_[i] = 0xFF;
-        sent_.flag74_[i] = 0xFF;
+        core::at(sent_.value68_, i) = 0xFFFFFFFF;
+        core::at(sent_.state_, i) = 0xFF;
+        core::at(sent_.flag74_, i) = 0xFF;
         for (int j = 0; j < 3; ++j) {
-            sent_.pos_[i][j] = -1;
-            sent_.angles_[i][j] = -1;
+            core::at(core::at(sent_.pos_, i), j) = -1;
+            core::at(core::at(sent_.angles_, i), j) = -1;
         }
     }
     flag_bits_ = flags;

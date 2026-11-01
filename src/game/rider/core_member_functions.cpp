@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -149,7 +150,7 @@ uint32_t time_aloft(SkaterPhysicsModule* component)
 // as the end of a feeler from `start` `distance` long.
 void feel_along_facing(render::ProbeRay& feeler, objects::GameEntity* object, float distance)
 {
-    const maths::Vec4& facing = object->basis_frame_.row[2];
+    const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
     double x = facing.x;
     double y = facing.y;
     float z = facing.z;
@@ -609,7 +610,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
     const int profile = core::down_cast<objects::Rider>(entity_)->view_slot_;
-    auto_kick_ = modules::g_skate_module->participants_[profile].auto_kick_;
+    auto_kick_ = core::at(modules::g_skate_module->participants_, profile).auto_kick_;
     return 1;
 }
 
@@ -627,7 +628,7 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
     // Along the horizontal velocity; slower than 10: the facing; that barely anything either: (1, 0, 1).
     maths::Vec4 direction(velocity.x, 0.0f, velocity.z, velocity.w);
     if (static_cast<double>(velocity.z) * velocity.z + static_cast<double>(velocity.x) * velocity.x < kSlowSquared) {
-        const maths::Vec4& facing = object->basis_frame_.row[2];
+        const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
         direction = maths::Vec4(facing.x, 0.0f, facing.z, facing.w);
         const double flat = static_cast<double>(facing.z) * facing.z + static_cast<double>(facing.x) * facing.x;
         if (flat < kStillSquared)
@@ -702,9 +703,9 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     const double length_squared = (x * x + y * y) + z * z;
     if (length_squared < kStillSquared)
         return 1;
-    maths::Vec4& right = object->basis_frame_.row[0];
-    maths::Vec4& up = object->basis_frame_.row[1];
-    maths::Vec4& facing = object->basis_frame_.row[2];
+    maths::Vec4& right = core::at(object->basis_frame_.row, 0);
+    maths::Vec4& up = core::at(object->basis_frame_.row, 1);
+    maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
     facing = object->vel_;
     facing.make_unit();
     // right = up x facing
@@ -786,9 +787,9 @@ int SkaterPhysicsModule::set_special_friction(script::Struct* params, script::Sc
 // 0x004FD580
 int SkaterPhysicsModule::get_matrix_normal(script::Struct*, script::Script* script)
 {
-    results_of(script)->push_float(kX, entity_->basis_frame_.row[1].x);
-    results_of(script)->push_float(kY, entity_->basis_frame_.row[1].y);
-    results_of(script)->push_float(kZ, entity_->basis_frame_.row[1].z);
+    results_of(script)->push_float(kX, core::at(entity_->basis_frame_.row, 1).x);
+    results_of(script)->push_float(kY, core::at(entity_->basis_frame_.row, 1).y);
+    results_of(script)->push_float(kZ, core::at(entity_->basis_frame_.row, 1).z);
     return 1;
 }
 // 0x004FD5E0
@@ -841,7 +842,7 @@ int SkaterPhysicsModule::turn_from_wall(script::Struct* params, script::Script*)
     if (!feel_ahead(this, params, feeler, false) || !hit_wall(feeler))
         return 0;
     entity_->vel_.change_heading(feeler.surface_dir_);
-    entity_->basis_frame_.row[2].change_heading(feeler.surface_dir_);
+    core::at(entity_->basis_frame_.row, 2).change_heading(feeler.surface_dir_);
     core::down_cast<objects::RiderSpinAndFlip>(
         static_cast<objects::GameEntity*>(object_of(this))->fetch_module(kSkaterFlipAndRotate))
         ->get_flip();

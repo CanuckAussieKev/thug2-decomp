@@ -15,6 +15,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "frontend/screen_element_cfuncs.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -79,17 +80,17 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     lag_max_ = 1.0f;
     if (params->fetch_pair(kLagRange, &lag_min_, &lag_max_, 0))
         lock_flags_ |= kLockFlagLag;
-    wobble_[0] = 0.0f;
-    wobble_[1] = 0.0f;
-    if (params->fetch_pair(kLagWobble, &wobble_[0], &wobble_[1], 0))
+    core::at(wobble_, 0) = 0.0f;
+    core::at(wobble_, 1) = 0.0f;
+    if (params->fetch_pair(kLagWobble, &core::at(wobble_, 0), &core::at(wobble_, 1), 0))
         lock_flags_ |= kLockFlagLag;
     wobble_seed_ = maths::rnd(0x400);
     // (the masked time is never negative: the original's 2^32 correction for a negative one never applies)
     const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
     auto time = static_cast<double>(t);
     auto step = static_cast<double>(wobble_step());
-    const double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
-                          std::sin(time * static_cast<double>(wobble_[0]) * step);
+    const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
+                          std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
     lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * 0.5 +
                               static_cast<double>(lag_min_));
     if (params->has_entry_named(kAngles))

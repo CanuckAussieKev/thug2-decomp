@@ -50,6 +50,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strncpy, kept)
 
@@ -227,7 +228,7 @@ void HostListing::enroll_player(const char* name, int rating)
     PlayerRecord* player = block ? memory::construct_in<PlayerRecord>(block, 0) : nullptr;
     player->skill_points_ = rating;
     std::strncpy(player->label_.data(), name, 15);
-    player->label_[15] = '\0';
+    core::at(player->label_, 15) = '\0';
     get_append(&participants_, player);
     ram_stats()->leave_heap_scope();
 }

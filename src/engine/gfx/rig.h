@@ -8,6 +8,7 @@
 
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/checked_index.h"
 
 namespace script {
 class Struct;
@@ -36,9 +37,9 @@ public:
     // original; 0: not known) bounds the reader - a damaged skeleton has no bones. Always true.
     bool read_in(const uint32_t* buffer, uint32_t size, bool unused);
     // 0x004A2C50: bone `index`'s parent's name (0: none).
-    uint32_t fetch_parent_hash(int index) { return parent_names_[index]; }
+    uint32_t fetch_parent_hash(int index) { return core::at(parent_names_, index); }
     // 0x004A2C60 (not a Ghidra function): bone `index`'s mirror bone (-1: none).
-    int fetch_mirror_slot(int index) { return flip_indices_[index]; }
+    int fetch_mirror_slot(int index) { return core::at(flip_indices_, index); }
     // 0x004A2C70: the index of the bone named `name` (0 when there's none).
     int fetch_slot_no(uint32_t name);
     // 0x004A30D0: bone `index`'s parent's index (0 when it has none).

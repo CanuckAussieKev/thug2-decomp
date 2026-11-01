@@ -43,6 +43,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -52,7 +53,7 @@ Span span_along(const std::vector<V3>& points, V3 axis)
 {
     Span span;
     for (size_t i = 0; i < points.size(); ++i) {
-        const float d = get_dot(points[i], axis);
+        const float d = get_dot(core::at(points, i), axis);
         if (i == 0 || d < span.lo)
             span.lo = d;
         if (i == 0 || d > span.hi)
@@ -87,7 +88,7 @@ std::vector<float> align_moves(const std::vector<Span>& spans, Edge edge, Refere
     }
     const float target = edge_of(bounds, edge);
     for (size_t i = 0; i < spans.size(); ++i)
-        moves[i] = target - edge_of(spans[i], edge);
+        core::at(moves, i) = target - edge_of(core::at(spans, i), edge);
     return moves;
 }
 
@@ -99,17 +100,17 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
         return moves;
     std::vector<size_t> order(n);
     for (size_t i = 0; i < n; ++i)
-        order[i] = i;
+        core::at(order, i) = i;
     std::ranges::stable_sort(
-        order, [&](size_t a, size_t b) { return edge_of(spans[a], Edge::kCentre) < edge_of(spans[b], Edge::kCentre); });
-    const Span& first = spans[order.front()];
-    const Span& last = spans[order.back()];
+        order, [&](size_t a, size_t b) { return edge_of(core::at(spans, a), Edge::kCentre) < edge_of(core::at(spans, b), Edge::kCentre); });
+    const Span& first = core::at(spans, order.front());
+    const Span& last = core::at(spans, order.back());
     if (!gaps) {
         const float c0 = edge_of(first, Edge::kCentre);
         const float c1 = edge_of(last, Edge::kCentre);
         for (size_t k = 1; k + 1 < n; ++k) {
             const float target = c0 + (c1 - c0) * static_cast<float>(k) / static_cast<float>(n - 1);
-            moves[order[k]] = target - edge_of(spans[order[k]], Edge::kCentre);
+            core::at(moves, core::at(order, k)) = target - edge_of(core::at(spans, core::at(order, k)), Edge::kCentre);
         }
         return moves;
     }
@@ -119,8 +120,8 @@ std::vector<float> distribute_moves(const std::vector<Span>& spans, bool gaps)
     const float gap = (last.hi - first.lo - sizes) / static_cast<float>(n - 1);
     float at = first.hi + gap;
     for (size_t k = 1; k + 1 < n; ++k) {
-        const Span& s = spans[order[k]];
-        moves[order[k]] = at - s.lo;
+        const Span& s = core::at(spans, core::at(order, k));
+        core::at(moves, core::at(order, k)) = at - s.lo;
         at += (s.hi - s.lo) + gap;
     }
     return moves;
@@ -151,7 +152,7 @@ V3 edge_snap(const Aabb& moving, V3 delta, const std::vector<Aabb>& others, floa
             }
         };
         for (size_t i = 0; i < others.size(); ++i) {
-            const Aabb& o = others[i];
+            const Aabb& o = core::at(others, i);
             const int index = static_cast<int>(i);
             if (axis != 1) {
                 // (side by side: at the same height, across within reach)
@@ -249,24 +250,24 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
     };
     std::map<std::pair<int, int>, EdgeUse> edges;
     for (size_t t = 0; t + 2 < triangles.size(); t += 3) {
-        const std::array<int, 3> v = {{id(triangles[t]), id(triangles[t + 1]), id(triangles[t + 2])}};
-        if (v[0] == v[1] || v[1] == v[2] || v[0] == v[2])
+        const std::array<int, 3> v = {{id(core::at(triangles, t)), id(core::at(triangles, t + 1)), id(core::at(triangles, t + 2))}};
+        if (core::at(v, 0) == core::at(v, 1) || core::at(v, 1) == core::at(v, 2) || core::at(v, 0) == core::at(v, 2))
             continue;
-        const V3 n = perpendicular(points[v[1]] - points[v[0]], points[v[2]] - points[v[0]]);
+        const V3 n = perpendicular(core::at(points, core::at(v, 1)) - core::at(points, core::at(v, 0)), core::at(points, core::at(v, 2)) - core::at(points, core::at(v, 0)));
         const float length = std::sqrt(get_dot(n, n));
         if (length < 1e-6f)
             continue;
         const bool top = std::fabs(n.y / length) >= kTopNormalY;
         for (int e = 0; e < 3; ++e) {
-            const int a = v[e];
-            const int b = v[(e + 1) % 3];
-            const int c = v[(e + 2) % 3];
+            const int a = core::at(v, e);
+            const int b = core::at(v, (e + 1) % 3);
+            const int c = core::at(v, (e + 2) % 3);
             EdgeUse& use = edges[{std::min(a, b), std::max(a, b)}];
             if (top) {
                 ++use.top;
                 continue;
             }
-            const float dy = points[c].y - (points[a].y + points[b].y) * 0.5f;
+            const float dy = core::at(points, c).y - (core::at(points, a).y + core::at(points, b).y) * 0.5f;
             if (dy < -1.0f)
                 ++use.down;
             else if (dy > 1.0f)
@@ -287,7 +288,7 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
         at[entry.first.first].push_back(index);
         at[entry.first.second].push_back(index);
     }
-    auto direction = [&](int from, int to) { return make_unit(points[to] - points[from]); };
+    auto direction = [&](int from, int to) { return make_unit(core::at(points, to) - core::at(points, from)); };
     auto joins = [&](int prev, int mid, int next) {
         const float c = get_dot(direction(prev, mid), direction(mid, next));
         return c >= std::cos(kJoinDegrees * 3.14159265f / 180.0f);
@@ -299,9 +300,9 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
         if (list.size() != 2)
             return -1;
         for (const int e : list) {
-            if (used[e])
+            if (core::at(used, e))
                 continue;
-            const int o = lips[e].first == point ? lips[e].second : lips[e].first;
+            const int o = core::at(lips, e).first == point ? core::at(lips, e).second : core::at(lips, e).first;
             if (!joins(prev, point, o))
                 return -1;
             *other = o;
@@ -310,21 +311,21 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
         return -1;
     };
     for (size_t start = 0; start < lips.size(); ++start) {
-        if (used[start])
+        if (core::at(used, start))
             continue;
-        used[start] = true;
-        std::vector<int> chain = {lips[start].first, lips[start].second};
+        core::at(used, start) = true;
+        std::vector<int> chain = {core::at(lips, start).first, core::at(lips, start).second};
         // forward from the second point, then backward from the first
         for (int pass = 0; pass < 2; ++pass) {
             for (;;) {
                 const int n = static_cast<int>(chain.size());
-                const int prev = chain[n - 2];
-                const int point = chain[n - 1];
+                const int prev = core::at(chain, n - 2);
+                const int point = core::at(chain, n - 1);
                 int other = -1;
                 const int e = next(prev, point, &other);
                 if (e < 0)
                     break;
-                used[e] = true;
+                core::at(used, e) = true;
                 chain.push_back(other);
                 if (other == chain.front())
                     break; // (a closed loop)
@@ -334,16 +335,16 @@ std::vector<Run> top_edges(const std::vector<V3>& triangles, float weld, float m
         }
         // Straight stretches as one segment (a point kept where the run turns more than 2 degrees).
         Run run;
-        run.points.push_back(points[chain.front()]);
+        run.points.push_back(core::at(points, chain.front()));
         for (size_t i = 1; i + 1 < chain.size(); ++i) {
-            const V3 a = make_unit(points[chain[i]] - run.points.back());
-            const V3 b = make_unit(points[chain[i + 1]] - points[chain[i]]);
+            const V3 a = make_unit(core::at(points, core::at(chain, i)) - run.points.back());
+            const V3 b = make_unit(core::at(points, core::at(chain, i + 1)) - core::at(points, core::at(chain, i)));
             if (get_dot(a, b) < std::cos(2.0f * 3.14159265f / 180.0f))
-                run.points.push_back(points[chain[i]]);
+                run.points.push_back(core::at(points, core::at(chain, i)));
         }
-        run.points.push_back(points[chain.back()]);
+        run.points.push_back(core::at(points, chain.back()));
         for (size_t i = 1; i < run.points.size(); ++i) {
-            const V3 d = run.points[i] - run.points[i - 1];
+            const V3 d = core::at(run.points, i) - core::at(run.points, i - 1);
             run.length += std::sqrt(get_dot(d, d));
         }
         if (run.length >= min_length)
@@ -360,9 +361,9 @@ int run_at(const std::vector<Run>& runs, const std::function<bool(V3, float*, fl
     int best = -1;
     float best_d = grab;
     for (size_t r = 0; r < runs.size(); ++r) {
-        for (size_t i = 1; i < runs[r].points.size(); ++i) {
+        for (size_t i = 1; i < core::at(runs, r).points.size(); ++i) {
             float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f;
-            if (!project(runs[r].points[i - 1], &ax, &ay) || !project(runs[r].points[i], &bx, &by))
+            if (!project(core::at(core::at(runs, r).points, i - 1), &ax, &ay) || !project(core::at(core::at(runs, r).points, i), &bx, &by))
                 continue;
             const float d = distance_to_segment(x, y, ax, ay, bx, by);
             if (d <= best_d) {
@@ -462,19 +463,19 @@ std::vector<Unit> units_of(const edit::Selected& selection)
 void axes_of(const std::vector<Unit>& units, bool local, V3 out[3])
 {
     for (int i = 0; i < 3; ++i)
-        out[i] = kWorld[i];
+        out[i] = core::at(kWorld, i);
     if (!local || units.empty())
         return;
     if (const objects::GameEntity* object = units.front().object) {
         for (int i = 0; i < 3; ++i)
             out[i] = make_unit(
-                {object->basis_frame_.row[i].x, object->basis_frame_.row[i].y, object->basis_frame_.row[i].z});
+                {core::at(object->basis_frame_.row, i).x, core::at(object->basis_frame_.row, i).y, core::at(object->basis_frame_.row, i).z});
         return;
     }
     Placement placement = {0, {0.0f, 0.0f, 0.0f}};
     scenery::placement_now(units.front().sectors.front(), &placement);
     for (int i = 0; i < 3; ++i)
-        out[i] = get_quarter_turn(kWorld[i], placement.quarters);
+        out[i] = get_quarter_turn(core::at(kWorld, i), placement.quarters);
 }
 
 // Each unit moved by its own amount along `axis` (one undo step).
@@ -485,16 +486,16 @@ void move_units(const edit::Selected& selection, const std::vector<Unit>& units,
     if (selection.kind == edit::Kind::kScenery) {
         carry::disarm(); // (each piece moves by its own amount: nothing is carried along)
         for (size_t i = 0; i < units.size(); ++i) {
-            if (std::fabs(moves[i]) < 1e-4f)
+            if (std::fabs(core::at(moves, i)) < 1e-4f)
                 continue;
-            scenery::set_selection(units[i].sectors);
-            scenery::move_to(scenery::get_pivot() + axis * moves[i]);
+            scenery::set_selection(core::at(units, i).sectors);
+            scenery::move_to(scenery::get_pivot() + axis * core::at(moves, i));
         }
         scenery::set_selection(selection.ids);
     } else {
         for (size_t i = 0; i < units.size(); ++i) {
-            if (units[i].object && std::fabs(moves[i]) >= 1e-4f)
-                object_edit::get_place(units[i].object, object_edit::pos_of(units[i].object) + axis * moves[i]);
+            if (core::at(units, i).object && std::fabs(core::at(moves, i)) >= 1e-4f)
+                object_edit::get_place(core::at(units, i).object, object_edit::pos_of(core::at(units, i).object) + axis * core::at(moves, i));
         }
     }
     edit::get_end();
@@ -518,9 +519,9 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     std::vector<Span> spans;
     spans.reserve(units.size());
     for (const Unit& unit : units)
-        spans.push_back(span_along(unit.corners, axes[axis]));
+        spans.push_back(span_along(unit.corners, core::at(axes, axis)));
     const std::vector<float> moves = align_moves(spans, edge, reference);
-    move_units(selection, units, axes[axis], moves);
+    move_units(selection, units, core::at(axes, axis), moves);
     std::array<char, 128> text{};
     std::snprintf(text.data(), sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)", static_cast<int>(units.size()),
                   edge == Edge::kMin   ? "min"
@@ -553,8 +554,8 @@ bool distribute(int axis, bool gaps, bool local)
     std::vector<Span> spans;
     spans.reserve(units.size());
     for (const Unit& unit : units)
-        spans.push_back(span_along(unit.corners, axes[axis]));
-    move_units(selection, units, axes[axis], distribute_moves(spans, gaps));
+        spans.push_back(span_along(unit.corners, core::at(axes, axis)));
+    move_units(selection, units, core::at(axes, axis), distribute_moves(spans, gaps));
     std::array<char, 128> text{};
     std::snprintf(text.data(), sizeof(text), "Distributed %d pieces along %s (%s)", static_cast<int>(units.size()),
                   get_axis_name(axis), gaps ? "equal gaps" : "evenly spaced centres");
@@ -599,7 +600,7 @@ uint32_t key_model() { return checksums::hash_from_text("model"); }
 std::string model_of(uint32_t name)
 {
     const int index = nodes::get_find(name);
-    script::Struct* s = index >= 0 ? nodes::struct_of(nodes::get_all()[index]) : nullptr;
+    script::Struct* s = index >= 0 ? nodes::struct_of(core::at(nodes::get_all(), index)) : nullptr;
     const char* model = nullptr;
     if (!s || !s->fetch_text(key_model(), &model, 0) || !model)
         return {};
@@ -844,16 +845,16 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
         render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
-        const render::IdxStore* indices = mesh->index_buffers_[0];
+        render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {
             const auto f = gpu::VertexView(vertices->data, mesh->stride).float3(k);
-            return V3{f[0], f[1], f[2]};
+            return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
         };
         const uint16_t* index = indices->indices;
-        for (uint32_t k = 2; k < mesh->index_counts_[0]; ++k) {
+        for (uint32_t k = 2; k < core::at(mesh->index_counts_, 0); ++k) {
             const uint16_t a = index[k - 2];
             const uint16_t b = index[k - 1];
             const uint16_t c = index[k];
@@ -931,12 +932,12 @@ bool edge_click(float x, float y)
     const std::vector<Run>& runs = edge_runs();
     const int pick = run_at(
         runs, [&](V3 p, float* px, float* py) { return pixel_of(view, p, px, py); }, x, y,
-        12.0f * static_cast<float>(view.viewport[3]) / 720.0f);
+        12.0f * static_cast<float>(core::at(view.viewport, 3)) / 720.0f);
     if (pick < 0) {
         hud::get_message("Rail Along Edge: click a highlighted edge");
         return true;
     }
-    const Run& run = runs[pick];
+    const Run& run = core::at(runs, pick);
     chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;
@@ -1000,8 +1001,8 @@ const std::vector<Segment>& current_segments()
             if (link < 0 || std::cmp_greater_equal(link, nodes.size()))
                 continue;
             V3 b{};
-            if (place(nodes[link], &b))
-                g_segments.push_back({a, b, n.name, nodes[link].name, ledge});
+            if (place(core::at(nodes, link), &b))
+                g_segments.push_back({a, b, n.name, core::at(nodes, link).name, ledge});
         }
     }
     return g_segments;
@@ -1079,8 +1080,8 @@ void register_actions()
     static const char* const kAxes = "xyz";
     for (int axis = 0; axis < 3; ++axis) {
         for (int edge = 0; edge < 3; ++edge) {
-            const std::string key = std::string("align_") + kAxes[axis] + "_" + kEdges[edge];
-            const std::string name = std::string("Align ") + get_axis_name(axis) + " " + kEdges[edge];
+            const std::string key = std::string("align_") + kAxes[axis] + "_" + core::at(kEdges, edge);
+            const std::string name = std::string("Align ") + get_axis_name(axis) + " " + core::at(kEdges, edge);
             add_action(key.c_str(), name.c_str(), "Arrange", "Align the selection", {},
                        [axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
         }
@@ -1168,7 +1169,7 @@ struct Painter {
         for (int i = 0; i < 8; ++i) {
             for (int bit = 1; bit < 8; bit <<= 1) {
                 if (!(i & bit))
-                    get_seg(c[i], c[i | bit], argb, 1.5f);
+                    get_seg(core::at(c, i), core::at(c, i | bit), argb, 1.5f);
             }
         }
         if (!fill)
@@ -1180,7 +1181,7 @@ struct Painter {
             float x[4], y[4];
             bool ok = true;
             for (int k = 0; k < 4 && ok; ++k)
-                ok = get_pixel(c[f[k]], &x[k], &y[k]);
+                ok = get_pixel(core::at(c, core::at(f, k)), &core::at(x, k), &core::at(y, k));
             if (!ok)
                 continue;
             overlay->triangles.push_back({x[0], y[0], x[1], y[1], x[2], y[2], fill});
@@ -1225,19 +1226,19 @@ bool surface_normal(V3* normal)
 // The box turned so its up axis lies along `normal` (its heading kept) about the bottom-centre point `at`.
 void tilt_box(OrientedBox* box, V3 at, V3 normal)
 {
-    std::array<V3, 3> rows = {{box->axes[0], box->axes[1], box->axes[2]}};
+    std::array<V3, 3> rows = {{core::at(box->axes, 0), core::at(box->axes, 1), core::at(box->axes, 2)}};
     if (!snap::align_rows(rows.data(), normal))
         return;
     // (each corner's offset from `at`, in the box's frame, put back along the new rows)
     const V3 origin = box->origin - at;
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
-        lengths[i] = std::max(1e-6f, get_dot(box->axes[i], box->axes[i]));
-    const V3 local = {get_dot(origin, box->axes[0]) / lengths[0], get_dot(origin, box->axes[1]) / lengths[1],
-                      get_dot(origin, box->axes[2]) / lengths[2]};
+        core::at(lengths, i) = std::max(1e-6f, get_dot(core::at(box->axes, i), core::at(box->axes, i)));
+    const V3 local = {get_dot(origin, core::at(box->axes, 0)) / core::at(lengths, 0), get_dot(origin, core::at(box->axes, 1)) / core::at(lengths, 1),
+                      get_dot(origin, core::at(box->axes, 2)) / core::at(lengths, 2)};
     for (int i = 0; i < 3; ++i)
-        box->axes[i] = rows[i];
-    box->origin = at + rows[0] * local.x + rows[1] * local.y + rows[2] * local.z;
+        core::at(box->axes, i) = core::at(rows, i);
+    box->origin = at + core::at(rows, 0) * local.x + core::at(rows, 1) * local.y + core::at(rows, 2) * local.z;
 }
 
 void add_ghost(const Painter& p)
@@ -1333,7 +1334,7 @@ void add_readout(const Painter& p)
         lines.erase(lines.begin()); // (a node: no size)
     for (size_t i = 0; i < lines.size(); ++i)
         p.draw_label(x + 22.0f * line / 17.0f, y + 18.0f * line / 17.0f + line * static_cast<float>(i), 0xFFE8F0FF,
-                     lines[i]);
+                     core::at(lines, i));
 }
 
 void add_contacts(const Painter& p)
@@ -1344,7 +1345,7 @@ void add_contacts(const Painter& p)
         if (c.other < 0 || std::cmp_greater_equal(c.other, g_snap.boxes.size()))
             continue;
         // (the face met: the neighbour's rectangle on that plane where the two boxes meet)
-        const Aabb& o = g_snap.boxes[c.other];
+        const Aabb& o = core::at(g_snap.boxes, c.other);
         const Aabb& m = g_snap.moving;
         const int u = c.axis == 0 ? 1 : 0;
         const int v = c.axis == 2 ? 1 : 2;
@@ -1359,12 +1360,12 @@ void add_contacts(const Painter& p)
         std::array<V3, 4> corner{};
         const float us[4] = {u0, u1, u1, u0}, vs[4] = {v0, v0, v1, v1};
         for (int k = 0; k < 4; ++k) {
-            component_ref(corner[k], c.axis) = c.at;
-            component_ref(corner[k], u) = us[k];
-            component_ref(corner[k], v) = vs[k];
+            component_ref(core::at(corner, k), c.axis) = c.at;
+            component_ref(core::at(corner, k), u) = core::at(us, k);
+            component_ref(core::at(corner, k), v) = core::at(vs, k);
         }
         for (int k = 0; k < 4; ++k)
-            p.get_seg(corner[k], corner[(k + 1) % 4], 0xFF40FF70, 2.5f);
+            p.get_seg(core::at(corner, k), core::at(corner, (k + 1) % 4), 0xFF40FF70, 2.5f);
     }
 }
 
@@ -1380,13 +1381,13 @@ void add_edges(const Painter& p)
         12.0f * static_cast<float>(p.viewport[3]) / 720.0f);
     for (size_t r = 0; r < runs.size(); ++r) {
         const bool lit = ints::as_signed(r) == g_edge_hover;
-        for (size_t i = 1; i < runs[r].points.size(); ++i)
-            p.get_seg(runs[r].points[i - 1], runs[r].points[i], lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
+        for (size_t i = 1; i < core::at(runs, r).points.size(); ++i)
+            p.get_seg(core::at(core::at(runs, r).points, i - 1), core::at(core::at(runs, r).points, i), lit ? 0xFFFFE040 : 0xD040E0F0, lit ? 3.5f : 2.0f);
         if (lit) {
             std::array<char, 48> text{};
-            std::snprintf(text.data(), sizeof(text), "rail here: %.0f long", runs[r].length);
+            std::snprintf(text.data(), sizeof(text), "rail here: %.0f long", core::at(runs, r).length);
             float px = 0.0f, py = 0.0f;
-            if (p.get_pixel(runs[r].points.front(), &px, &py))
+            if (p.get_pixel(core::at(runs, r).points.front(), &px, &py))
                 p.draw_label(px + 8.0f, py - 20.0f, 0xFFFFE040, text.data());
         }
     }
@@ -1423,13 +1424,13 @@ bool place_click(bool more)
             for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
                 std::array<V3, 3> rows{};
                 for (int i = 0; i < 3; ++i)
-                    rows[i] = {m->row[i].x, m->row[i].y, m->row[i].z};
+                    core::at(rows, i) = {core::at(m->row, i).x, core::at(m->row, i).y, core::at(m->row, i).z};
                 if (!snap::align_rows(rows.data(), normal))
                     continue;
                 for (int i = 0; i < 3; ++i) {
-                    m->row[i].x = rows[i].x;
-                    m->row[i].y = rows[i].y;
-                    m->row[i].z = rows[i].z;
+                    core::at(m->row, i).x = core::at(rows, i).x;
+                    core::at(m->row, i).y = core::at(rows, i).y;
+                    core::at(m->row, i).z = core::at(rows, i).z;
                 }
             }
         }

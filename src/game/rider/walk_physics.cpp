@@ -44,6 +44,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -88,7 +89,7 @@ constexpr float kHalf = 0.5f;                       // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
 const std::array<uint32_t, 5> kWalkStateNames{{0x8CF3CB28, 0x9D1F1A2C, 0x74FFC46D, 0x1CB1F465, 0x79BE4637}};
-uint32_t get_state_name(int state) { return kWalkStateNames[state]; }
+uint32_t get_state_name(int state) { return core::at(kWalkStateNames, state); }
 
 // The skate module's career (0x007CE478's +0x20).
 RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
@@ -190,10 +191,10 @@ void FootMovement::change_phase(int state)
             objects::PadSnapshot* pad = &input_->pad_primary_;
             float debounce = walk_parameter(kHangControlDebounceTime);
             uint32_t now = frame_clock::get_time();
-            pad->lock_[0] = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            core::at(pad->lock_, 0) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
             debounce = walk_parameter(kHangControlDebounceTime);
             now = frame_clock::get_time();
-            pad->lock_[1] = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
+            core::at(pad->lock_, 1) = now - truncate(static_cast<double>(debounce) * kHangDebounceScale);
         }
     }
 }
@@ -205,7 +206,7 @@ void FootMovement::clear_model_offset() { model_->shift_ = {0.0f, 0.0f, 0.0f, 1.
 bool FootMovement::using_dpad()
 {
     const objects::PadInputModule* input = input_;
-    if (!(input->pad_primary_.stick_[2] == 0.0f) || !(input->pad_primary_.stick_[3] == 0.0f))
+    if (!(core::at(input->pad_primary_.stick_, 2) == 0.0f) || !(core::at(input->pad_primary_.stick_, 3) == 0.0f))
         return false;
     return control_full_;
 }

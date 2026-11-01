@@ -32,6 +32,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 

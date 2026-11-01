@@ -11,6 +11,7 @@
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/viewport_list.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -65,10 +66,10 @@ void draw_flash(const Flash* flash)
     g_drawn_triangles += 2; // triangles
     // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
-    const FlashVertex first = vertices[0];
-    vertices[0] = vertices[1];
-    vertices[1] = vertices[2];
-    vertices[2] = first;
+    const FlashVertex first = core::at(vertices, 0);
+    core::at(vertices, 0) = core::at(vertices, 1);
+    core::at(vertices, 1) = core::at(vertices, 2);
+    core::at(vertices, 2) = first;
     g_draw_device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices.data(), sizeof(FlashVertex));
 }
 

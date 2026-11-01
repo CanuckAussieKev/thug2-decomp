@@ -28,6 +28,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -70,27 +71,27 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
     std::vector<DetailsOf> info(faces.size());
     float up_area = 0.0f, down_area = 0.0f;
     for (size_t i = 0; i < faces.size(); ++i) {
-        const Face& f = faces[i];
+        const Face& f = core::at(faces, i);
         const V3 n = perpendicular(f.b - f.a, f.c - f.a);
         const float length = len_of(n);
-        info[i] = {length > 1e-6f ? n * (1.0f / length) : V3{}, length * 0.5f, length > 1e-6f && eligible(f.flags)};
-        if (!info[i].use)
+        core::at(info, i) = {length > 1e-6f ? n * (1.0f / length) : V3{}, length * 0.5f, length > 1e-6f && eligible(f.flags)};
+        if (!core::at(info, i).use)
             continue;
-        const float y = info[i].n.y;
+        const float y = core::at(info, i).n.y;
         if (std::fabs(y) > kSteepNormalY && std::fabs(y) < kFlatNormalY)
-            (y > 0.0f ? up_area : down_area) += info[i].area;
+            (y > 0.0f ? up_area : down_area) += core::at(info, i).area;
     }
     const float convention = down_area > up_area ? -1.0f : 1.0f;
     // The sloped faces in groups by their uphill heading (largest first).
     std::vector<int> order;
     for (size_t i = 0; i < faces.size(); ++i)
-        if (info[i].use)
+        if (core::at(info, i).use)
             order.push_back(static_cast<int>(i));
-    std::ranges::sort(order, [&](int a, int b) { return info[a].area > info[b].area; });
+    std::ranges::sort(order, [&](int a, int b) { return core::at(info, a).area > core::at(info, b).area; });
     std::vector<GroupSet> groups;
     auto heading_of = [](V3 n) { return make_unit({-n.x, 0.0f, -n.z}); };
     for (const int i : order) {
-        const V3 n = info[i].n * convention;
+        const V3 n = core::at(info, i).n * convention;
         if (!(n.y > kSteepNormalY && n.y < kFlatNormalY))
             continue;
         const V3 h = heading_of(n);
@@ -105,22 +106,22 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             groups.push_back({});
             into = &groups.back();
         }
-        into->heading = into->heading + h * info[i].area;
-        into->area += info[i].area;
+        into->heading = into->heading + h * core::at(info, i).area;
+        into->area += core::at(info, i).area;
         into->faces.push_back(i);
     }
     for (GroupSet& g : groups)
         g.heading = make_unit(g.heading);
     // Near-vertical faces join the group whose front they face.
     for (const int i : order) {
-        const V3 n = info[i].n * convention;
+        const V3 n = core::at(info, i).n * convention;
         if (std::fabs(n.y) > kSteepNormalY)
             continue;
         const V3 h = heading_of(n);
         for (GroupSet& g : groups) {
             if (get_dot(g.heading, h) > kHeadingTolerance) {
                 g.faces.push_back(i);
-                g.area += info[i].area;
+                g.area += core::at(info, i).area;
                 break;
             }
         }
@@ -132,7 +133,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             break;
         float top = -1e30f, bottom = 1e30f;
         for (const int i : g.faces) {
-            for (const V3 p : {faces[i].a, faces[i].b, faces[i].c}) {
+            for (const V3 p : {core::at(faces, i).a, core::at(faces, i).b, core::at(faces, i).c}) {
                 top = std::max(top, p.y);
                 bottom = std::min(bottom, p.y);
             }
@@ -150,7 +151,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
         int count = 0;
         bool vert_flag = false;
         for (const int i : g.faces) {
-            const Face& f = faces[i];
+            const Face& f = core::at(faces, i);
             bool at_top = false;
             for (const V3 p : {f.a, f.b, f.c}) {
                 if (p.y < top - kTop)
@@ -165,9 +166,9 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
             }
             if (!at_top)
                 continue;
-            const V3 n = info[i].n * convention;
+            const V3 n = core::at(info, i).n * convention;
             const V3 t = make_unit(kUp - n * n.y);
-            tangent = tangent + t * info[i].area;
+            tangent = tangent + t * core::at(info, i).area;
             vert_flag |= (f.flags & 0x08) != 0;
         }
         if (count == 0 || get_dot(tangent, tangent) < 1e-12f)
@@ -202,22 +203,22 @@ Physics arcs_fallback()
     p.air_gravity_ = -1350.0f / 1.0f;
     p.vert_gravity_ = -1350.0f / 1.1f;
     p.jump = scaled_stat(414.0f, 450.0f, 5.0f, false, 0.0f);
-    p.speeds[0] = scaled_stat(532.0f, 675.0f, 5.0f, true, 900.0f);
-    p.speeds[1] = scaled_stat(757.0f, 900.0f, 5.0f, false, 0.0f);
-    p.speeds[2] = scaled_stat(957.0f, 1100.0f, 5.0f, false, 0.0f);
+    core::at(p.speeds, 0) = scaled_stat(532.0f, 675.0f, 5.0f, true, 900.0f);
+    core::at(p.speeds, 1) = scaled_stat(757.0f, 900.0f, 5.0f, false, 0.0f);
+    core::at(p.speeds, 2) = scaled_stat(957.0f, 1100.0f, 5.0f, false, 0.0f);
     return p;
 }
 
 const char* speed_name(int index)
 {
     static const std::array<const char*, kSpeeds> kNames = {{"push", "top", "max"}};
-    return index >= 0 && index < kSpeeds ? kNames[index] : "?";
+    return index >= 0 && index < kSpeeds ? core::at(kNames, index) : "?";
 }
 
 uint32_t speed_colour(int index)
 {
     static const std::array<uint32_t, kSpeeds> kColours = {{0xFF50E070, 0xFFFFD040, 0xFFFF5040}};
-    return index >= 0 && index < kSpeeds ? kColours[index] : 0xFFFFFFFF;
+    return index >= 0 && index < kSpeeds ? core::at(kColours, index) : 0xFFFFFFFF;
 }
 
 V3 launch_velocity(const Lip& lip, float speed, float jump)
@@ -334,9 +335,9 @@ void read_physics()
         p.vert_gravity_ = vert_hang > 0.0f ? gravity / vert_hang : gravity;
     }
     stat_value(physics, kJumpSpeed, p.ollie_stat_, &p.jump);
-    stat_value(physics, kKickSpeed, p.speed_stat_, &p.speeds[0]);
-    stat_value(physics, kMaxSpeed, p.speed_stat_, &p.speeds[1]);
-    stat_value(physics, kSpeedCapStat, p.speed_stat_, &p.speeds[2]);
+    stat_value(physics, kKickSpeed, p.speed_stat_, &core::at(p.speeds, 0));
+    stat_value(physics, kMaxSpeed, p.speed_stat_, &core::at(p.speeds, 1));
+    stat_value(physics, kSpeedCapStat, p.speed_stat_, &core::at(p.speeds, 2));
     std::array<char, 96> source{};
     std::snprintf(source.data(), sizeof(source), "%s, speed stat %.1f, ollie stat %.1f",
                   skater ? "the skater's physics" : "skater_physics", p.speed_stat_, p.ollie_stat_);
@@ -366,12 +367,12 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
                 break;
             }
             const maths::Vec4 v = tri->read_stored_vertex(static_cast<int>(index));
-            p[k] = {v.x, v.y, v.z};
+            core::at(p, k) = {v.x, v.y, v.z};
         }
         if (!ok)
             continue;
         const uint16_t flags = tri->face_flags(f);
-        out->push_back({p[0], p[1], p[2], flags});
+        out->push_back({core::at(p, 0), core::at(p, 1), core::at(p, 2), flags});
     }
 }
 
@@ -429,7 +430,7 @@ bool same_boxes(const std::vector<V3>& a, const std::vector<V3>& b)
     if (a.size() != b.size())
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        const V3 d = a[i] - b[i];
+        const V3 d = core::at(a, i) - core::at(b, i);
         if (get_dot(d, d) > 0.01f)
             return false;
     }
@@ -452,14 +453,14 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
         LipArcs arcs;
         arcs.lip = lip;
         for (int i = 0; i < kSpeeds; ++i) {
-            const V3 v = launch_velocity(lip, physics_state().speeds[i], physics_state().jump);
+            const V3 v = launch_velocity(lip, core::at(physics_state().speeds, i), physics_state().jump);
             if (lip.vert) {
-                arcs.rise[i] = rise_height(v.y, physics_state().vert_gravity_);
+                core::at(arcs.rise, i) = rise_height(v.y, physics_state().vert_gravity_);
                 continue;
             }
-            uint32_t* landed_on = &arcs.landed_on_[i];
+            uint32_t* landed_on = &core::at(arcs.landed_on_, i);
             // (from just off the lip: 2 units up, so the lip's own edge isn't the first thing met)
-            arcs.flights[i] = get_fly(lip.point + V3{0.0f, 2.0f, 0.0f}, v, physics_state().air_gravity_, 1.0f / 60.0f,
+            core::at(arcs.flights, i) = get_fly(lip.point + V3{0.0f, 2.0f, 0.0f}, v, physics_state().air_gravity_, 1.0f / 60.0f,
                                       6.0f, 1.0f / 60.0f, [landed_on](V3 from, V3 to, V3* hit, V3* normal) {
                                           return cast_feeler(from, to, hit, normal, landed_on);
                                       });
@@ -469,8 +470,8 @@ void get_remake(const std::vector<uint32_t>& sectors, const std::vector<V3>& box
     if (debug_enabled())
         get_log("level editor: jump arcs - %d lips (%s; g %.0f / vert %.0f, jump %.0f, speeds %.0f / %.0f / %.0f)",
                 static_cast<int>(g_cache.arcs.size()), physics_state().source.c_str(), physics_state().air_gravity_,
-                physics_state().vert_gravity_, physics_state().jump, physics_state().speeds[0],
-                physics_state().speeds[1], physics_state().speeds[2]);
+                physics_state().vert_gravity_, physics_state().jump, core::at(physics_state().speeds, 0),
+                core::at(physics_state().speeds, 1), core::at(physics_state().speeds, 2));
 }
 
 } // namespace
@@ -511,15 +512,15 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
                 // (straight up and back down: how high)
                 const V3 side = lip.across * (lip.width * (0.15f * static_cast<float>(i - 1)));
                 const V3 base = lip.point + side;
-                const V3 apex = base + V3{0.0f, arcs.rise[i], 0.0f};
+                const V3 apex = base + V3{0.0f, core::at(arcs.rise, i), 0.0f};
                 (void)painter.get_seg(base, apex, colour, 2.0f);
                 (void)painter.get_seg(apex - lip.across * 12.0f, apex + lip.across * 12.0f, colour, 2.0f);
-                painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(arcs.rise[i]));
+                painter.draw_label(apex, colour, std::string(speed_name(i)) + ": rises " + span_to(core::at(arcs.rise, i)));
                 continue;
             }
-            const Flight& flight = arcs.flights[i];
+            const Flight& flight = core::at(arcs.flights, i);
             for (size_t k = 1; k < flight.points.size(); ++k)
-                (void)painter.get_seg(flight.points[k - 1], flight.points[k], colour, 2.0f);
+                (void)painter.get_seg(core::at(flight.points, k - 1), core::at(flight.points, k), colour, 2.0f);
             if (!flight.landed) {
                 if (!flight.points.empty())
                     painter.draw_label(flight.points.back(), colour,
@@ -535,9 +536,9 @@ void add_overlay(const overlays::Painter& painter, const std::vector<uint32_t>& 
             text += drop.data();
             if (std::fabs(flight.normal.y) < 0.5f)
                 text += " - hits a wall";
-            if (arcs.landed_on_[i] && std::ranges::find(sectors, arcs.landed_on_[i]) == sectors.end() &&
-                scenery::sector_geometry(arcs.landed_on_[i]))
-                text += " on " + object_edit::caption(arcs.landed_on_[i]);
+            if (core::at(arcs.landed_on_, i) && std::ranges::find(sectors, core::at(arcs.landed_on_, i)) == sectors.end() &&
+                scenery::sector_geometry(core::at(arcs.landed_on_, i)))
+                text += " on " + object_edit::caption(core::at(arcs.landed_on_, i));
             painter.draw_label(flight.landing, colour, text, 8.0f, -10.0f - 14.0f * static_cast<float>(i));
         }
     }
@@ -553,14 +554,14 @@ std::string describe()
     const LipArcs& first = g_cache.arcs.front();
     if (first.lip.vert)
         std::snprintf(text.data(), sizeof(text), "jump arcs: %d lips; vert - rises %.0f at top speed",
-                      static_cast<int>(g_cache.arcs.size()), first.rise[1]);
-    else if (first.flights[1].landed)
+                      static_cast<int>(g_cache.arcs.size()), core::at(first.rise, 1));
+    else if (core::at(first.flights, 1).landed)
         std::snprintf(
             text.data(), sizeof(text), "jump arcs: %d lips; lands %.0f out at top speed",
             static_cast<int>(g_cache.arcs.size()),
             std::sqrt(
-                (first.flights[1].landing.x - first.lip.point.x) * (first.flights[1].landing.x - first.lip.point.x) +
-                (first.flights[1].landing.z - first.lip.point.z) * (first.flights[1].landing.z - first.lip.point.z)));
+                (core::at(first.flights, 1).landing.x - first.lip.point.x) * (core::at(first.flights, 1).landing.x - first.lip.point.x) +
+                (core::at(first.flights, 1).landing.z - first.lip.point.z) * (core::at(first.flights, 1).landing.z - first.lip.point.z)));
     else
         std::snprintf(text.data(), sizeof(text), "jump arcs: %d lips", static_cast<int>(g_cache.arcs.size()));
     return text.data();

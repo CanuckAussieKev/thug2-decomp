@@ -94,6 +94,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -164,7 +165,7 @@ void Rider::set_stat_override(int index, float value)
         else if (value < 0.0f)
             value = 0.0f;
     }
-    stat_overrides_[index] = value;
+    core::at(stat_overrides_, index) = value;
 }
 
 // 0x0057FEB0 / 0x0057FEC0
@@ -221,7 +222,7 @@ void Rider::load_cat_info(script::Struct* params)
     params->fetch_list(kTricks, &tricks, 0);
     for (int i = 0; i < 11; ++i) {
         auto* trick = tricks->struct_at(i);
-        goals::CreateATrick* info = trick_slots_[i].get();
+        goals::CreateATrick* info = core::at(trick_slots_, i).get();
         script::Struct* other = nullptr;
         trick->read_sub_struct(kOther, &other, 1);
         info->other_params_->append_structure_if_any(other);
@@ -337,8 +338,8 @@ float Rider::fetch_tally(int index)
     float stat = get_skate()->forced_stat_; // (forced by the skate module unless 0)
     if (stat == 0.0f) {
         uint32_t bits = 0;
-        std::memcpy(&bits, &stat_overrides_[index], 4);
-        stat = bits == 0xBF800000 ? script::fetch_float(kSkaterDefaultStats) : stat_overrides_[index];
+        std::memcpy(&bits, &core::at(stat_overrides_, index), 4);
+        stat = bits == 0xBF800000 ? script::fetch_float(kSkaterDefaultStats) : core::at(stat_overrides_, index);
     }
     // Online: the server's rules for this player.
     if (net_link()->in_net_game()) {
@@ -580,18 +581,18 @@ void Rider::set_stats_from_profile(RiderIdentity* profile)
     RiderStoryProgress* classic_stats = get_skate()->career_.get();
     if (goals::g_game_mode->is_true(kIsClassic)) {
         for (int i = 0; i < 10; ++i)
-            set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(kStatNames[i])));
+            set_stat_override(i, static_cast<float>(classic_stats->get_info_integer(core::at(kStatNames, i))));
         return;
     }
     for (int i = 0; i < 10; ++i)
-        set_stat_override(i, static_cast<float>(profile->fetch_tally(kStatNames[i])));
+        set_stat_override(i, static_cast<float>(profile->fetch_tally(core::at(kStatNames, i))));
 }
 
 // 0x00580EB0
 void Rider::update_from_profile(RiderIdentity* profile)
 {
     memory::Hub* manager = memory::Hub::get_pull();
-    manager->enter_heap_scope(manager->skater_heaps_[skater_number_]);
+    manager->enter_heap_scope(core::at(manager->skater_heaps_, skater_number_));
     auto checksum = [profile](uint32_t name) { return profile->get_name_key_field(name); };
     stroke_kind_ = checksum(kPushStyle);
     goofy_ = checksum(kStance) == kGoofy;
@@ -603,7 +604,7 @@ void Rider::update_from_profile(RiderIdentity* profile)
     info->read_hash_value(kSkateStyle, &style_, 0);
     const char* first_name = nullptr;
     info->fetch_text(kFirstName, &first_name, 1);
-    for (int i = 0; (given_name_[i] = first_name[i]) != 0; ++i) { // (copied inline, unchecked)
+    for (int i = 0; (core::at(given_name_, i) = first_name[i]) != 0; ++i) { // (copied inline, unchecked)
     }
     label_ = profile->fetch_title();
     if (is_local_skater_) {
@@ -651,7 +652,7 @@ void Rider::reset_state()
     if (vibration_)
         vibration_->stop_all();
     shadow_->change_place(&at_point_);
-    shadow_->set_normal(&basis_frame_.row[1]);
+    shadow_->set_normal(&core::at(basis_frame_.row, 1));
     core::down_cast<RiderStanceDisplay>(fetch_module(0x21FC3301))->shown_ = -1;
 }
 
@@ -777,10 +778,10 @@ const char* Rider::fetch_shown_name()
 // 0x005815C0
 void Rider::glide_to_node(uint32_t name)
 {
-    basis_frame_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    basis_frame_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(basis_frame_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     if (!name)
         return;
     script::Struct* node = level_nodes::fetch_vertex(name, !net_link()->in_net_game());
@@ -795,11 +796,11 @@ void Rider::glide_to_node(uint32_t name)
     basis_frame_.init_from_angles(angles);
     auto* object = core_physics_->entity_;
     core_physics_->display_matrix_ = object->basis_frame_;
-    core_physics_->floor_normal_ = basis_frame_.row[1];
+    core_physics_->floor_normal_ = core::at(basis_frame_.row, 1);
     core_physics_->old_normal_ = core_physics_->floor_normal_;
     core_physics_->drawn_normal_ = core_physics_->old_normal_;
     static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
-    static_cast<GroundShadowModule*>(shadow_)->set_normal(&basis_frame_.row[1]);
+    static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame_.row, 1));
     display_matrix_ = core_physics_->display_matrix_;
 }
 
@@ -913,7 +914,7 @@ void Rider::prepare_all(RiderIdentity* profile)
     });
     model_component_ = core::down_cast<MeshInstanceModule>(fetch_module(kModelModuleName));
     // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
-    memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->skater_geom_heaps_[skater_number_]);
+    memory::Hub::get_pull()->enter_heap_scope(core::at(memory::Hub::get_pull()->skater_geom_heaps_, skater_number_));
     auto* assets = assets::g_asset_manager;
     const bool flag = assets->get_permanent_by_default();
     assets->set_permanent_by_default(false);
@@ -944,9 +945,9 @@ void Rider::prepare_all(RiderIdentity* profile)
     seal(); // (Finalize)
     if (is_local_skater_) {
         // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
-        core_physics_->auto_kick_ = skate->participants_[view_slot_].auto_kick_;
-        core_physics_->tap_spin_ = skate->participants_[view_slot_].spin_taps_;
-        vibration_->change_live(skate->participants_[view_slot_].vibration_ != 0);
+        core_physics_->auto_kick_ = core::at(skate->participants_, view_slot_).auto_kick_;
+        core_physics_->tap_spin_ = core::at(skate->participants_, view_slot_).spin_taps_;
+        vibration_->change_live(core::at(skate->participants_, view_slot_).vibration_ != 0);
         if (is_local_skater_)
             own_script_->bind_script("SkaterInit", nullptr, this);
     }
@@ -983,8 +984,8 @@ void Rider::prepare_all(RiderIdentity* profile)
         for (int i = 0; i < 5; ++i) {
             std::array<char, 32> name{};
             std::snprintf(name.data(), sizeof(name), "projectile_%i", i);
-            projectiles_[i].name = checksums::hash_from_text(name.data());
-            projectiles_[i].active = false;
+            core::at(projectiles_, i).name = checksums::hash_from_text(name.data());
+            core::at(projectiles_, i).active = false;
         }
     }
     add_rigid_body_pusher(this);
@@ -1029,10 +1030,10 @@ void Rider::init_from_profile(RiderIdentity* profile)
     }
     // Never suspended (its suspend component's distances).
     if (auto* suspend = core::down_cast<DormancyModule>(fetch_module(0xCE0CA665))) {
-        suspend->lod_distances_[0] = 3000.0f;
-        suspend->lod_distances_[1] = 5000.0f;
-        suspend->lod_distances_[2] = 10000000.0f;
-        suspend->lod_distances_[3] = 10000000.0f;
+        core::at(suspend->lod_distances_, 0) = 3000.0f;
+        core::at(suspend->lod_distances_, 1) = 5000.0f;
+        core::at(suspend->lod_distances_, 2) = 10000000.0f;
+        core::at(suspend->lod_distances_, 3) = 10000000.0f;
     }
 }
 
@@ -1081,7 +1082,7 @@ void Rider::write_cat_info(script::Struct* save)
     for (int i = 0; i < 11; ++i) {
         script::Struct* struct_memory = script::spawn_param_bag();
         script::Struct* trick = struct_memory ? memory::construct_in<script::Struct>(struct_memory) : nullptr;
-        const goals::CreateATrick* info = trick_slots_[i].get();
+        const goals::CreateATrick* info = core::at(trick_slots_, i).get();
         trick->put_sub_struct(kOther, info->other_params_);
         trick->append_array_value(kAnimations, info->animations_);
         trick->append_array_value(kRotations, info->spin_list_);
@@ -1105,7 +1106,7 @@ void Rider::write_list_44b_66a_9f(script::Struct* save)
 void Rider::launch_projectile()
 {
     // Its flat heading.
-    float heading_x = basis_frame_.row[2].x, heading_y = 0.0f, heading_z = basis_frame_.row[2].z;
+    float heading_x = core::at(basis_frame_.row, 2).x, heading_y = 0.0f, heading_z = core::at(basis_frame_.row, 2).z;
     float best = 1000.0f;
     const GameEntity* target = nullptr;
     const double length =
@@ -1378,11 +1379,11 @@ void Rider::skip_to_custom_restart()
     old_pos_ = at_point_;
     mark_jumped_ahead(true);
     core_physics_->display_matrix_ = core_physics_->entity_->basis_frame_;
-    core_physics_->floor_normal_ = basis_frame_.row[1];
+    core_physics_->floor_normal_ = core::at(basis_frame_.row, 1);
     core_physics_->old_normal_ = core_physics_->floor_normal_;
     core_physics_->drawn_normal_ = core_physics_->old_normal_;
     static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
-    static_cast<GroundShadowModule*>(shadow_)->set_normal(&basis_frame_.row[1]);
+    static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame_.row, 1));
 }
 
 // 0x005835D0
@@ -1503,18 +1504,18 @@ bool Rider::invoke_method_by_name(uint32_t name, script::Struct* params, script:
         const maths::Mat4* camera_matrix = camera->fetch_mat();
         basis_frame_.reset_to_identity();
         at_point_ = *camera_pos;
-        at_point_ -= camera_matrix->row[2] * 144.0f;
+        at_point_ -= core::at(camera_matrix->row, 2) * 144.0f;
         old_pos_ = at_point_;
         core_physics_->safe_pos_ = at_point_;
         basis_frame_ = *camera_matrix;
-        basis_frame_.row[2] = -basis_frame_.row[2];
-        basis_frame_.row[0] = -basis_frame_.row[0];
+        core::at(basis_frame_.row, 2) = -core::at(basis_frame_.row, 2);
+        core::at(basis_frame_.row, 0) = -core::at(basis_frame_.row, 0);
         core_physics_->display_matrix_ = core_physics_->entity_->basis_frame_;
-        core_physics_->floor_normal_ = basis_frame_.row[1];
+        core_physics_->floor_normal_ = core::at(basis_frame_.row, 1);
         core_physics_->old_normal_ = core_physics_->floor_normal_;
         core_physics_->drawn_normal_ = core_physics_->old_normal_;
         static_cast<GroundShadowModule*>(shadow_)->change_place(&at_point_);
-        static_cast<GroundShadowModule*>(shadow_)->set_normal(&basis_frame_.row[1]);
+        static_cast<GroundShadowModule*>(shadow_)->set_normal(&core::at(basis_frame_.row, 1));
         vel_ = -*camera_pos;
         vel_.y = 0.0f;
         vel_.set_length(10.0f);

@@ -37,6 +37,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater::thaw_bmx {
 
@@ -328,7 +329,7 @@ void start_tire_tap(SkaterPhysicsModule* core, BikeState& state)
     const objects::GameEntity* object = object_of(core);
     auto* physics = static_cast<SkaterPhysicsModule*>(core);
     const maths::Vec4 position = object->at_point_;
-    const maths::Vec4 up = object->basis_frame_.row[1];
+    const maths::Vec4 up = core::at(object->basis_frame_.row, 1);
     bool found = false;
     float best = kTapFar;
     if (!not_vert) {
@@ -572,7 +573,7 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
         return -1;
     if (kind == BikeSound::kAir)
         return 0;
-    script::Array* table = script::fetch_list(name_hash(kSoundTables[static_cast<int>(kind)]));
+    script::Array* table = script::fetch_list(name_hash(core::at(kSoundTables, static_cast<int>(kind))));
     if (!table || table->extent_ == 0)
         return -1;
     auto* entry = table->struct_at(0);
@@ -581,9 +582,9 @@ int bike_sound_of(const void* skater, BikeSound kind, void* info)
     // (the first of each kind logged: the bike's sounds can be checked from the log)
     static std::array<bool, 8> s_logged = {};
     const int k = static_cast<int>(kind);
-    if (!s_logged[k]) {
-        s_logged[k] = true;
-        get_log("thaw_bmx: bike sound %s -> %s", kSoundTables[k], static_cast<surface_kind::SoundInfo*>(info)->name.data());
+    if (!core::at(s_logged, k)) {
+        core::at(s_logged, k) = true;
+        get_log("thaw_bmx: bike sound %s -> %s", core::at(kSoundTables, k), static_cast<surface_kind::SoundInfo*>(info)->name.data());
     }
     return 1;
 }
@@ -606,7 +607,7 @@ int call_trick_member(SkaterPhysicsModule* core, uint32_t name, script::Struct* 
         float degrees = 0.0f;
         if (params)
             params->fetch_float(static_cast<uint32_t>(0), &degrees, 0);
-        return bike::display_pitch_beyond(core->display_matrix_.row[1], core->floor_normal_, degrees) ? 1 : 0;
+        return bike::display_pitch_beyond(core::at(core->display_matrix_.row, 1), core->floor_normal_, degrees) ? 1 : 0;
     }
     if (name == kLandedFromTap) { // 0x005C7AF0
         const BikeState* state = state_of(core, false);

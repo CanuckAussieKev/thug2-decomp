@@ -25,6 +25,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -115,10 +116,10 @@ int AudioEmitterModule::invoke_method_by_name(uint32_t name, script::Struct* par
         uint32_t sound = 0; // (read into the name's argument slot, cleared first)
         params->read_hash_value(0u, &sound, 0);
         audio_mixer_handle()->halt_object_sound(this, sound);
-        if (waiting_[0].props.checksum == sound)
-            waiting_[0].props.checksum = 0;
-        if (waiting_[1].props.checksum == sound)
-            waiting_[1].props.checksum = 0;
+        if (core::at(waiting_, 0).props.checksum == sound)
+            core::at(waiting_, 0).props.checksum = 0;
+        if (core::at(waiting_, 1).props.checksum == sound)
+            core::at(waiting_, 1).props.checksum = 0;
         return 1;
     }
     if (name == kObjSetSound) {
@@ -264,7 +265,7 @@ void AudioEmitterModule::emit_sound(script::Struct* params)
         params->fetch_int_value("Type", &type, 0);
         if (type == -1 || type > 8)
             return;
-        sound = sound_cues_[type]; // (type 8 reads the first waiting sound's checksum, as the original)
+        sound = core::at(sound_cues_, type); // (type 8 reads the first waiting sound's checksum, as the original)
         if (!sound)
             return;
     }
@@ -311,7 +312,7 @@ void AudioEmitterModule::assign_sound_cue(script::Struct* params)
     params->fetch_int_value(0x7321A8D6, &type, 0); // type
     params->read_hash_value(0u, &sound, 0);
     if (type != -1 && sound && type <= 8)
-        sound_cues_[type] = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
+        core::at(sound_cues_, type) = sound; // (8 is the first waiting sound's checksum; a negative type writes before the slots)
 }
 
 // 0x00433630

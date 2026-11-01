@@ -63,6 +63,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -317,7 +318,7 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script*)
         return false;
     int controller = 0;
     if (params->fetch_int_value(0u, &controller, 0))
-        return controller_pressed(front_end->pad_listeners_[controller].get(), button);
+        return controller_pressed(core::at(front_end->pad_listeners_, controller).get(), button);
     for (const auto& pad_listener : front_end->pad_listeners_) {
         if (controller_pressed(pad_listener.get(), button))
             return true;
@@ -332,16 +333,16 @@ bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
     const modules::FrontEnd* front_end = modules::front_end_instance();
     int controller = 0;
     params->fetch_int_value(kController, &controller, 0);
-    const modules::FrontEndInputHandler* handler = front_end->pad_listeners_[controller].get();
+    const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners_, controller).get();
     objects::PadSnapshot pad;
     pad.tick_frame(raw::bytes(handler->control_data_));
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return false;
-    script->args_->push_float(kLeftX, pad.scaled_stick_[2]);
-    script->args_->push_float(kLeftY, pad.scaled_stick_[3]);
-    script->args_->push_float(kRightX, pad.scaled_stick_[0]);
-    script->args_->push_float(kRightY, pad.scaled_stick_[1]);
+    script->args_->push_float(kLeftX, core::at(pad.scaled_stick_, 2));
+    script->args_->push_float(kLeftY, core::at(pad.scaled_stick_, 3));
+    script->args_->push_float(kRightX, core::at(pad.scaled_stick_, 0));
+    script->args_->push_float(kRightY, core::at(pad.scaled_stick_, 1));
     return true;
 }
 
@@ -718,7 +719,7 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
     for (const uint8_t* at = data; at < data + size; ++at) {
         static const auto kTracking = std::to_array("\nTracking");
         int matched = 0; // (compared a byte at a time: never past the first difference)
-        while (matched < 9 && at[matched] == static_cast<uint8_t>(kTracking[matched]))
+        while (matched < 9 && at[matched] == static_cast<uint8_t>(core::at(kTracking, matched)))
             ++matched;
         if (matched < 9)
             continue;
@@ -731,8 +732,8 @@ bool cfunc_show_tracking(script::Struct* params, script::Script*)
                 ++at;
             ++at;
         }
-        maths::Vec4 from = {values[0], values[1], values[2], 1.0f};
-        const maths::Vec4 to = {values[3], values[4], values[5], 1.0f};
+        maths::Vec4 from = {core::at(values, 0), core::at(values, 1), core::at(values, 2), 1.0f};
+        const maths::Vec4 to = {core::at(values, 3), core::at(values, 4), core::at(values, 5), 1.0f};
         --at;
         uint32_t colour = 0;
         switch (type) {
@@ -927,7 +928,7 @@ bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
             std::memcpy(file.data(), found.cFileName, std::strlen(found.cFileName) + 1);
             std::memcpy(name.data(), found.cFileName, std::strlen(found.cFileName) + 1);
             if (std::strlen(name.data()) > 4)
-                name[std::strlen(name.data()) - 4] = '\0';
+                core::at(name, std::strlen(name.data()) - 4) = '\0';
             script::Struct* item = spawn_param_table();
             item->append_word("name", name.data());                                      // "name"
             item->append_word("file", file.data());                                      // "file"

@@ -33,6 +33,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -137,9 +138,9 @@ void AutomobileDynamicsModule::seal()
     matrix_multiply(&a, &a, &bones[0].matrix);
     maths::Mat4 b = bones[4].matrix;
     matrix_multiply(&b, &b, &bones[0].matrix);
-    const double dx = static_cast<double>(a.row[3].x) - b.row[3].x;
-    const double dy = static_cast<double>(a.row[3].y) - b.row[3].y;
-    const double dz = static_cast<double>(a.row[3].z) - b.row[3].z;
+    const double dx = static_cast<double>(core::at(a.row, 3).x) - core::at(b.row, 3).x;
+    const double dy = static_cast<double>(core::at(a.row, 3).y) - core::at(b.row, 3).y;
+    const double dz = static_cast<double>(core::at(a.row, 3).z) - core::at(b.row, 3).z;
     wheel_base_ = static_cast<float>(std::fabs(std::sqrt(dz * dz + dy * dy + dx * dx)));
 }
 

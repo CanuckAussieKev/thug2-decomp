@@ -45,6 +45,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -198,14 +199,14 @@ bool cfunc_spawn_crown(Struct*, Script*)
         uint32_t type = 0;
         node->read_hash_value(kType, &type, 0);
         if (type == kCrownSpawnType) {
-            names[count] = level_nodes::get_node_name(node); // (kept, never used)
-            nodes[count] = node;
+            core::at(names, count) = level_nodes::get_node_name(node); // (kept, never used)
+            core::at(nodes, count) = node;
             ++count;
         }
     }
     level_nodes::end_node_walk();
     (void)names;
-    Struct* node = nodes[spawn % count]; // (no node of the type divides by zero, as in the original)
+    Struct* node = core::at(nodes, spawn % count); // (no node of the type divides by zero, as in the original)
     maths::Vec4 position;
     level_nodes::fetch_place(node, &position);
     manager->crown_->init_from_node(objects::g_composite_registry, node);
@@ -249,7 +250,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         net::NetMessageInfo desc;
         auto* goals = objective_board();
         net::AppHost* server = manager->host_;
-        buffer[0] = 1;
+        core::at(buffer, 0) = 1;
         uint8_t* end = buffer.data() + 1;
         const int count = goals
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
@@ -368,8 +369,8 @@ bool cfunc_set_num_teams(Struct* params, Script*)
          player = manager->step_player_walk(&search, false)) {
         if (player_team(player) < teams)
             continue;
-        change[1] = 0;
-        change[0] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
+        core::at(change, 1) = 0;
+        core::at(change, 0) = static_cast<uint8_t>(get_skater_id(player_skater(player)));
         send_to_players(manager, server, &desc, Recipients::kRemote);
         player->team_ = 0;
     }
@@ -388,8 +389,8 @@ bool cfunc_join_team(Struct* params, Script*)
     uint32_t color = 0; // (uninitialised in the original: without one, its slot decides - most likely team 3)
     params->read_hash_value(0u, &color, 0);
     std::array<uint8_t, 2> request{};
-    request[1] = color == kBlue ? 1 : color == kRed ? 0 : color == kGreen ? 2 : 3;
-    request[0] = static_cast<uint8_t>(get_skater_id(player_skater(local)));
+    core::at(request, 1) = color == kBlue ? 1 : color == kRed ? 0 : color == kGreen ? 2 : 3;
+    core::at(request, 0) = static_cast<uint8_t>(get_skater_id(player_skater(local)));
     net::AppHost* client = manager->client_app_;
     if (frame_clock::get_time() - last_team_request() >= kJoinTeamInterval) {
         last_team_request() = frame_clock::get_time();

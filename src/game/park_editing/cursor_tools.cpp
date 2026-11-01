@@ -10,6 +10,7 @@
 #include "engine/core/slab_bank.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -37,8 +38,8 @@ void BuildPointer::set_gap_label_and_points(const char* name, int score)
 {
     if (name) {
         if (*name == '\0') {
-            gap_.text_[0] = 'x';
-            gap_.text_[1] = '\0';
+            core::at(gap_.text_, 0) = 'x';
+            core::at(gap_.text_, 1) = '\0';
         } else {
             text::copy_unbounded(gap_.text_.data(), name); // (no length limit, as in the original)
         }
@@ -201,8 +202,8 @@ void BuildPointer::forget_gap_at(PieceGroup* meta)
     if (!gap)
         return;
     if (gap_.halves_placed_ != 1 ||
-        (gap->at_point_[0].x == gap_.at_point_[0].x && gap->at_point_[0].y == gap_.at_point_[0].y &&
-         gap->at_point_[0].z == gap_.at_point_[0].z))
+        (core::at(gap->at_point_, 0).x == core::at(gap_.at_point_, 0).x && core::at(gap->at_point_, 0).y == core::at(gap_.at_point_, 0).y &&
+         core::at(gap->at_point_, 0).z == core::at(gap_.at_point_, 0).z))
         gap_.halves_placed_ = 0;
 }
 

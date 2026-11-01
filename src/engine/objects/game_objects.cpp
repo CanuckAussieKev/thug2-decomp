@@ -35,6 +35,7 @@
 #include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -219,8 +220,8 @@ void CrownObject::own_update()
     maths::get_multiply(basis_frame_, maths::make_pitch_matrix(turn, 90.0f), basis_frame_);
     const maths::Vec4 raise = {0.0f, 0.0f, -18.0f, 0.0f};
     basis_frame_.offset_local(raise);
-    const maths::Vec4 offset = basis_frame_.row[3];
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    const maths::Vec4 offset = core::at(basis_frame_.row, 3);
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::get_multiply(basis_frame_, basis_frame_, skater_->basis_frame_);
     maths::Vec4 moved;
     at_point_ = skater_->basis_frame_.xform(moved, offset); // (the matrix times the offset, w too)
@@ -243,10 +244,10 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
     add_node_components(this, node);
     change_serial(kCrownObject);
     auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend));
-    suspend->lod_distances_[0] = 1000000.0f;
-    suspend->lod_distances_[1] = 1000001.0f;
-    suspend->lod_distances_[2] = 1000002.0f;
-    suspend->lod_distances_[3] = 1000003.0f;
+    core::at(suspend->lod_distances_, 0) = 1000000.0f;
+    core::at(suspend->lod_distances_, 1) = 1000001.0f;
+    core::at(suspend->lod_distances_, 2) = 1000002.0f;
+    core::at(suspend->lod_distances_, 3) = 1000003.0f;
     text::Chars file;
     {
         // The model's path (0x004879D0 returns a String: made in `storage`).

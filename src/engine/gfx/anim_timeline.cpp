@@ -15,6 +15,7 @@
 #include "platform/stopwatch.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -183,8 +184,8 @@ void AnimTrack::get_reset()
 void AnimTrack::delete_controllers()
 {
     for (int i = 0; i < controller_count_; ++i) {
-        delete controller_list_[i];
-        controller_list_[i] = nullptr;
+        delete core::at(controller_list_, i);
+        core::at(controller_list_, i) = nullptr;
     }
     controller_count_ = 0;
 }
@@ -196,13 +197,13 @@ void AnimTrack::detach_anim_driver(AnimDriver* controller)
     for (;; ++i) {
         if (i >= controller_count_)
             return;
-        if (controller_list_[i] == controller)
+        if (core::at(controller_list_, i) == controller)
             break;
     }
-    delete controller_list_[i];
-    controller_list_[i] = nullptr;
+    delete core::at(controller_list_, i);
+    core::at(controller_list_, i) = nullptr;
     for (; i < controller_count_ - 1; ++i)
-        controller_list_[i] = controller_list_[i + 1];
+        core::at(controller_list_, i) = core::at(controller_list_, i + 1);
     --controller_count_;
 }
 
@@ -210,7 +211,7 @@ void AnimTrack::detach_anim_driver(AnimDriver* controller)
 bool AnimTrack::get_poses(void* pose)
 {
     for (int i = 0; i < controller_count_; ++i) {
-        AnimDriver* controller = controller_list_[i];
+        AnimDriver* controller = core::at(controller_list_, i);
         controller->fetch_pose(static_cast<uint8_t*>(pose));
     }
     return true;

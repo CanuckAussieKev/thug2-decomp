@@ -33,6 +33,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -225,8 +226,8 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     const double steps = 1.0 / arrow_step_;
     const int index = ftol(steps * size);
     const double part = size - index * static_cast<double>(arrow_step_);
-    const script::Pair& from = arrows_[index];
-    const script::Pair& to = arrows_[index + 1];
+    const script::Pair& from = core::at(arrows_, index);
+    const script::Pair& to = core::at(arrows_, index + 1);
     meter_offset_.x = static_cast<float>((static_cast<double>(to.x) - from.x) * steps * part + from.x);
     meter_offset_.y = static_cast<float>((static_cast<double>(to.y) - from.y) * steps * part + from.y);
     meter_rotation_ = static_cast<float>(static_cast<double>(lean) * -45.0);
@@ -235,12 +236,12 @@ void PointTally::place_balance_gauge(bool on, float lean, bool manual)
     double x = 0.0;
     double y = 0.0;
     if (manual) {
-        meter->change_location(bars_[1].x, bars_[1].y, 1);
+        meter->change_location(core::at(bars_, 1).x, core::at(bars_, 1).y, 1);
         meter->set_sprite_rotation(-90.0f, 1);
         y = static_cast<double>(meter->level_y_) * 0.5 + meter_offset_.y + 50.0;
         x = static_cast<double>(meter->span_) * 0.5 - 80.0;
     } else {
-        meter->change_location(bars_[0].x, bars_[0].y, 1);
+        meter->change_location(core::at(bars_, 0).x, core::at(bars_, 0).y, 1);
         meter->set_sprite_rotation(0.0f, 1);
         y = static_cast<double>(meter->level_y_) * 0.5 + meter_offset_.y;
         x = static_cast<double>(meter->span_) * 0.5;
@@ -326,13 +327,13 @@ void PointTally::tick_frame()
     frontend::UiWidget* element = bar.owner_object_; // (no check: as the original)
     element->change_scale(size, element->shown_.scale_y_, false, 0);
     std::array<uint8_t, 4> rgba{};
-    std::memcpy(rgba.data(), bar_colors_[0].data(), 4);
+    std::memcpy(rgba.data(), core::at(bar_colors_, 0).data(), 4);
     if (special_active_) {
         const double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
         special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
         for (int c = 0; c < 4; ++c) {
-            const int from = bar_colors_[1][c];
-            rgba[c] = static_cast<uint8_t>(ftol((bar_colors_[2][c] - from) * flash + from));
+            const int from = core::at(core::at(bar_colors_, 1), c);
+            core::at(rgba, c) = static_cast<uint8_t>(ftol((core::at(core::at(bar_colors_, 2), c) - from) * flash + from));
         }
     }
     uint32_t color = 0;
@@ -382,8 +383,8 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
     trick->kind_ = kind;
     trick->flag_bits_ = flags;
     trick->twist_rate_ = 0;
-    trick->text_[0] = 0;
-    trick->shown_[0] = 0;
+    core::at(trick->text_, 0) = 0;
+    core::at(trick->shown_, 0) = 0;
     trick->rotation_deg_ = 0;
     if (!unnamed) {
         escape_spaces(trick->text_.data(), text);
@@ -421,8 +422,8 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             seen = static_cast<TrickSeen*>(memory::alloc(sizeof(TrickSeen)));
             seen_.store_entry(&name, seen);
             for (int k = 0; k < 4; ++k) {
-                seen->landed_[k] = 0;
-                seen->ongoing_[k] = 0;
+                core::at(seen->landed_, k) = 0;
+                core::at(seen->ongoing_, k) = 0;
             }
         }
         int* counts = seen->landed_.data(); // (landed_ then ongoing_; the kind can reach past them, as the original)
@@ -436,7 +437,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
         ++combo_tricks_;
         bool add_one = true;
         if (multiplier_ != 0.0f && !not_counted) {
-            const int times = seen->landed_[kind + 4];
+            const int times = core::at(seen->landed_, kind + 4);
             if (times >= degrade_start) {
                 add_one = false;
                 const double added = 1.0 - (times - degrade_start + 1) * 0.5;
@@ -505,7 +506,7 @@ void PointTally::change_spin_degrees(int degrees)
             std::memcpy(get_trick(spin_trick_)->text_.data(), "Cabalerial", 11); // "Cabalerial"
             renamed = true;
         } else if (half_turns > 2) {
-            get_trick(spin_trick_)->text_[0] = 0;
+            core::at(get_trick(spin_trick_)->text_, 0) = 0;
             if (side == "FS")
                 side = "FS Cab"; // "FS Cab"
             if (side == "BS")
@@ -565,7 +566,7 @@ void PointTally::tweak_trick(int points)
     if (tricks_ <= 0)
         return;
     const TrickLog* trick = get_trick(tricks_ - 1);
-    if (!trick->text_[0])
+    if (!core::at(trick->text_, 0))
         return;
     if (tricks_since_no_spin(this) > 10)
         return;
@@ -619,8 +620,8 @@ void PointTally::land()
         for (int i = 0; i < seen_.num_; ++i) {
             auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
             for (int k = 0; k < 4; ++k) {
-                seen->landed_[k] = 0;
-                seen->ongoing_[k] = 0;
+                core::at(seen->landed_, k) = 0;
+                core::at(seen->ongoing_, k) = 0;
             }
         }
         reset_robot(this, true);
@@ -628,8 +629,8 @@ void PointTally::land()
         for (int i = 0; i < seen_.num_; ++i) {
             auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr));
             for (int k = 0; k < 4; ++k) {
-                seen->landed_[k] += seen->ongoing_[k];
-                seen->ongoing_[k] = 0;
+                core::at(seen->landed_, k) += core::at(seen->ongoing_, k);
+                core::at(seen->ongoing_, k) = 0;
             }
         }
     }

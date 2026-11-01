@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 #include <array>
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 class ViewCam;
@@ -273,8 +274,8 @@ inline V3 box_size(const OrientedBox& box)
     const V3 extent = box.max - box.min;
     std::array<float, 3> lengths{};
     for (int i = 0; i < 3; ++i)
-        lengths[i] = std::sqrt(get_dot(box.axes[i], box.axes[i]));
-    return {extent.x * lengths[0], extent.y * lengths[1], extent.z * lengths[2]};
+        core::at(lengths, i) = std::sqrt(get_dot(core::at(box.axes, i), core::at(box.axes, i)));
+    return {extent.x * core::at(lengths, 0), extent.y * core::at(lengths, 1), extent.z * core::at(lengths, 2)};
 }
 
 // --- scenery (the static scene sectors; level_editor_scenery.cpp) ------------------------------------------------

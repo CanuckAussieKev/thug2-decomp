@@ -19,6 +19,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -76,7 +77,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     // The feeler: from `from` raised to the collision height, to the new position raised, plus the length along the
     // move.
     const float height = tuning_float_lookup(kForwardHeight, object);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const maths::Vec4 raise = {height * up.x, height * up.y, height * up.z, height * up.w};
     maths::Vec4& start = probe_start_;
     start.x = raise.x + from->x;
@@ -133,7 +134,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
     // A ledge: snap up onto it (going up, upright, against a flat-topped wall) - the feeler raised by the snap height,
     // then lowered 2 at a time until it hits (the snap height going down with it, to 4).
     const objects::GameEntity* o = object_of(this);
-    if (o->basis_frame_.row[1].y > 0.5f && o->vel_.y > 0.0f && normal.y < 0.01f) {
+    if (core::at(o->basis_frame_.row, 1).y > 0.5f && o->vel_.y > 0.0f && normal.y < 0.01f) {
         float snap = tuning_float_lookup(kAirSnapUp, object);
         hit->line_.start.y = hit->line_.start.y + snap;
         hit->line_.end.y = hit->line_.end.y + snap;
@@ -226,14 +227,14 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         late_wall_normal_ = normal;
         // The facing turned a little away from the wall; the matrix made square again around it.
         objects::GameEntity* s = object_of(this);
-        s->basis_frame_.row[2] += 0.05f * normal;
-        entity_->basis_frame_.row[2].make_unit();
+        core::at(s->basis_frame_.row, 2) += 0.05f * normal;
+        core::at(entity_->basis_frame_.row, 2).make_unit();
         s = object_of(this);
-        s->basis_frame_.row[0] = maths::cross_vec(s->basis_frame_.row[1], s->basis_frame_.row[2]);
-        entity_->basis_frame_.row[0].make_unit();
+        core::at(s->basis_frame_.row, 0) = maths::cross_vec(core::at(s->basis_frame_.row, 1), core::at(s->basis_frame_.row, 2));
+        core::at(entity_->basis_frame_.row, 0).make_unit();
         s = object_of(this);
-        s->basis_frame_.row[1] = maths::cross_vec(s->basis_frame_.row[2], s->basis_frame_.row[0]);
-        entity_->basis_frame_.row[1].make_unit();
+        core::at(s->basis_frame_.row, 1) = maths::cross_vec(core::at(s->basis_frame_.row, 2), core::at(s->basis_frame_.row, 0));
+        core::at(entity_->basis_frame_.row, 1).make_unit();
         // A moving object that was hit pushes the skater along (when it's moving into the skater).
         auto& feeler = feeler_;
         if (feeler.hit_object_alive()) {
@@ -261,7 +262,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
         return false;
     const objects::GameEntity* object = object_of(this);
     const float height = script::fetch_float(kSideHeight);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const float raise_w = height * up.w;
     const float raise_z = height * up.z;
     const float raise_y = height * up.y;
@@ -276,7 +277,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     if (state_of(this) == kAir)
         reach = script::fetch_float(kAirExtraSide) + length;
     // Out along the right (z and w from the unrounded side products, as the original).
-    const maths::Vec4& right = entity_->basis_frame_.row[0];
+    const maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
     const float out_y = (side * right.y) * reach;
     const float out_x = (side * right.x) * reach;
     auto out_w = static_cast<float>(static_cast<double>(side) * right.w * reach);
@@ -341,7 +342,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     }
     objects::GameEntity* skater = object_of(this);
     const float lower = script::fetch_float(kSideHeight);
-    skater->at_point_ = feeler->line_.end - skater->basis_frame_.row[1] * lower;
+    skater->at_point_ = feeler->line_.end - core::at(skater->basis_frame_.row, 1) * lower;
     destroy_feeler(feeler.get());
     return true;
 }

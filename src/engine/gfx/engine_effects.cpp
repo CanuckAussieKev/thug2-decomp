@@ -34,6 +34,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -129,10 +130,10 @@ void VertexStack::stack_off(uint8_t* out)
 // 0x00490E40
 SplatParams::SplatParams()
 {
-    start[0] = start[1] = start[2] = 0.0f;
-    start[3] = 1.0f;
-    end[0] = end[1] = end[2] = 0.0f;
-    end[3] = 1.0f;
+    core::at(start, 0) = core::at(start, 1) = core::at(start, 2) = 0.0f;
+    core::at(start, 3) = 1.0f;
+    core::at(end, 0) = core::at(end, 1) = core::at(end, 2) = 0.0f;
+    core::at(end, 3) = 1.0f;
 }
 
 // --- the engine's shatter ---
@@ -181,7 +182,7 @@ void Shatter::get_step(int index, float step)
         axis.make_unit();
         maths::Mat4& rotation = rotations[index];
         std::memset(&rotation, 0, sizeof(rotation));
-        rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
+        core::at(rotation.row, 0).x = core::at(rotation.row, 1).y = core::at(rotation.row, 2).z = core::at(rotation.row, 3).w = 1.0f;
         auto turn_angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
         maths::Mat4 turn{};
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
@@ -262,13 +263,13 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
     int living = 0;
     splats->last = -1;
     for (int i = 0; i < 0x100; ++i) {
-        int left = static_cast<int>(splats->alive[i]);
+        int left = static_cast<int>(core::at(splats->alive, i));
         if (left < 0)
             continue;
         left -= elapsed;
-        splats->alive[i] = static_cast<uint32_t>(left);
+        core::at(splats->alive, i) = static_cast<uint32_t>(left);
         if (left <= 0) {
-            splats->alive[i] = 0;
+            core::at(splats->alive, i) = 0;
             collapse_splat_triangle(splats, i);
         } else {
             splats->last = i;
@@ -280,10 +281,10 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
     // Nearly full: the triangle furthest through its life (of those with a time and a lifetime; the first one's
     // difference the bar to reach, whatever it is - the last of equals wins).
     int furthest = -1;
-    int best = splats->correction_steps_[0] - static_cast<int>(splats->alive[0]);
+    int best = core::at(splats->correction_steps_, 0) - static_cast<int>(core::at(splats->alive, 0));
     for (int i = 0; i < 0x100; ++i) {
-        if (splats->correction_steps_[i] != 0 && splats->alive[i] != 0) {
-            const int done = splats->correction_steps_[i] - static_cast<int>(splats->alive[i]);
+        if (core::at(splats->correction_steps_, i) != 0 && core::at(splats->alive, i) != 0) {
+            const int done = core::at(splats->correction_steps_, i) - static_cast<int>(core::at(splats->alive, i));
             if (done >= best) {
                 best = done;
                 furthest = i;
@@ -295,16 +296,16 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
     // Every triangle with the same time and lifetime (as that one has now) fades: its base colours' and its
     // vertices' alphas; once all six are 0 it's dead.
     for (int i = 0; i < 0x100; ++i) {
-        if (splats->alive[i] != splats->alive[furthest] ||
-            splats->correction_steps_[i] != splats->correction_steps_[furthest])
+        if (core::at(splats->alive, i) != core::at(splats->alive, furthest) ||
+            core::at(splats->correction_steps_, i) != core::at(splats->correction_steps_, furthest))
             continue;
         const int fade = g_splat_fade;
-        const std::array<uint8_t*, 6> alphas = {{raw::bytes(&splats->base_colors_[i][0]) + 3,
-                              raw::bytes(&splats->base_colors_[i][1]) + 3,
-                              raw::bytes(&splats->base_colors_[i][2]) + 3,
-                              splats->vertices[i][0].data() + 0xF,
-                              splats->vertices[i][1].data() + 0xF,
-                              splats->vertices[i][2].data() + 0xF}};
+        const std::array<uint8_t*, 6> alphas = {{raw::bytes(&core::at(core::at(splats->base_colors_, i), 0)) + 3,
+                              raw::bytes(&core::at(core::at(splats->base_colors_, i), 1)) + 3,
+                              raw::bytes(&core::at(core::at(splats->base_colors_, i), 2)) + 3,
+                              core::at(core::at(splats->vertices, i), 0).data() + 0xF,
+                              core::at(core::at(splats->vertices, i), 1).data() + 0xF,
+                              core::at(core::at(splats->vertices, i), 2).data() + 0xF}};
         int gone = 0;
         for (uint8_t* alpha : alphas) {
             if (*alpha == 0) {
@@ -315,7 +316,7 @@ void age_texture_splats(TextureSplats* splats, int elapsed)
             }
         }
         if (gone == 6)
-            splats->alive[i] = 0;
+            core::at(splats->alive, i) = 0;
     }
 }
 
@@ -570,8 +571,8 @@ void update_flashes()
                 uint8_t* now = &flash->red;
                 for (int i = 0; i < 4; ++i) {
                     const int change = static_cast<int>(
-                        static_cast<int64_t>(static_cast<double>(flash->start[i] - flash->end[i]) * t));
-                    now[i] = static_cast<uint8_t>(flash->end[i] + change);
+                        static_cast<int64_t>(static_cast<double>(core::at(flash->start, i) - core::at(flash->end, i)) * t));
+                    now[i] = static_cast<uint8_t>(core::at(flash->end, i) + change);
                 }
             }
         }

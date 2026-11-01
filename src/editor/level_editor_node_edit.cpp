@@ -24,6 +24,7 @@
 #include "engine/gfx/light_manager.h"
 #include "engine/gfx/scene_lights.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::node_edit {
 
@@ -163,16 +164,16 @@ void move_lights(uint32_t name, V3 pos)
 {
     const int dynamic_count = render::g_dynamic_light_count;
     for (int i = 0; i < dynamic_count && i < 256; ++i) {
-        render::DynamicLightBase* light = render::g_dynamic_lights[i];
+        render::DynamicLightBase* light = core::at(render::g_dynamic_lights, i);
         if (light && light->owner == name) {
-            light->pos[0] = pos.x;
-            light->pos[1] = pos.y;
-            light->pos[2] = pos.z;
+            core::at(light->pos, 0) = pos.x;
+            core::at(light->pos, 1) = pos.y;
+            core::at(light->pos, 2) = pos.z;
         }
     }
     const int level_count = render::g_scene_light_count;
     for (int i = 0; i < level_count && i < 150; ++i) {
-        render::LevelLamp& lamp = render::g_level_lamps[i];
+        render::LevelLamp& lamp = core::at(render::g_level_lamps, i);
         if (lamp.label_ == name) {
             lamp.at_point_.x = pos.x;
             lamp.at_point_.y = pos.y;
@@ -205,7 +206,7 @@ void apply_live(const nodes::Elem* node, uint32_t name, const Values& values)
         const maths::Vec4 angles = {values.angles.x, values.angles.y, values.angles.z, 1.0f};
         matrix.init_from_angles(angles);
         for (int r = 0; r < 3; ++r)
-            state.matrix.row[r] = state.draw_matrix_.row[r] = matrix.row[r];
+            core::at(state.matrix.row, r) = core::at(state.draw_matrix_.row, r) = core::at(matrix.row, r);
         object_edit::get_restore(state);
     }
 }
@@ -219,7 +220,7 @@ script::Struct* struct_named(uint32_t name)
 const nodes::Elem* node_named(uint32_t name)
 {
     const int index = nodes::get_find(name);
-    return index >= 0 ? &nodes::get_all()[index] : nullptr;
+    return index >= 0 ? &core::at(nodes::get_all(), index) : nullptr;
 }
 
 } // namespace
@@ -345,7 +346,7 @@ const Values* get_origin(uint32_t name)
         return &values;
     }
     auto it = touched_index().find(name);
-    return it == touched_index().end() ? nullptr : &g_touched[it->second].origin;
+    return it == touched_index().end() ? nullptr : &core::at(g_touched, it->second).origin;
 }
 
 bool assign_value(uint32_t name, const Values& values)
@@ -399,7 +400,7 @@ void get_forget(uint32_t name)
     g_touched.erase(g_touched.begin() + static_cast<std::ptrdiff_t>(it->second));
     touched_index().clear();
     for (size_t i = 0; i < g_touched.size(); ++i)
-        touched_index()[g_touched[i].name] = i;
+        touched_index()[core::at(g_touched, i).name] = i;
 }
 
 void reset_all()

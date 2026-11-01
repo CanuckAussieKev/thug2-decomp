@@ -3,6 +3,7 @@
 #include "wire/play_messages.h"
 
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -167,7 +168,7 @@ bool read_cheats(util::ByteReader& reader, Cheats* message)
     }
     message->count = count;
     for (int i = 0; i < count; ++i)
-        message->cheats[i] = reader.u32();
+        core::at(message->cheats, i) = reader.u32();
     return reader.ok();
 }
 
@@ -177,7 +178,7 @@ bool write_cheats(util::ByteWriter& writer, const Cheats& message)
         return writer.seek(writer.capacity() + 1); // (fails the writer)
     writer.i32(message.count);
     for (int i = 0; i < message.count; ++i)
-        writer.u32(message.cheats[i]);
+        writer.u32(core::at(message.cheats, i));
     return writer.ok();
 }
 

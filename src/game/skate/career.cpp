@@ -17,6 +17,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/net/gamenet_manager.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -40,7 +41,7 @@ int pop_count(uint32_t word)
 } // namespace
 
 // 0x00584110 / 0x00584130
-goals::GapTally* RiderStoryProgress::fetch_gap_list(int level) { return gaps_[level == -1 ? level_ : level]; }
+goals::GapTally* RiderStoryProgress::fetch_gap_list(int level) { return core::at(gaps_, level == -1 ? level_ : level); }
 int RiderStoryProgress::fetch_stage() { return level_; }
 
 // 0x00584140
@@ -58,7 +59,7 @@ void RiderStoryProgress::un_set_goal(int goal, int level)
         level = level_;
     const uint32_t mask = ~get_bit(goal);
     goal_words()[level * 8 + get_word(goal)] &= mask;
-    start_goals_[get_word(goal)] &= mask;
+    core::at(start_goals_, get_word(goal)) &= mask;
 }
 
 // 0x005841D0
@@ -72,7 +73,7 @@ bool RiderStoryProgress::get_goal(int goal, int level)
 // 0x00584210
 bool RiderStoryProgress::just_got_goal(int goal)
 {
-    return ((start_goals_[get_word(goal)] ^ goal_words()[level_ * 8 + get_word(goal)]) & get_bit(goal)) != 0;
+    return ((core::at(start_goals_, get_word(goal)) ^ goal_words()[level_ * 8 + get_word(goal)]) & get_bit(goal)) != 0;
 }
 
 // 0x00584250
@@ -80,7 +81,7 @@ int RiderStoryProgress::count_goals(int level)
 {
     if (level == -1)
         level = level_;
-    return pop_count(goals_[level][0]) + pop_count(goals_[level][1]);
+    return pop_count(core::at(core::at(goals_, level), 0)) + pop_count(core::at(core::at(goals_, level), 1));
 }
 
 // 0x005842A0
@@ -89,7 +90,7 @@ int RiderStoryProgress::count_total_goals()
     int total = 0;
     for (int level = 0; level < kLevels; ++level) {
         if (!left_out()[level])
-            total += pop_count(goals_[level][1]) + pop_count(goals_[level][0]);
+            total += pop_count(core::at(core::at(goals_, level), 1)) + pop_count(core::at(core::at(goals_, level), 0));
     }
     return total;
 }
@@ -100,15 +101,15 @@ int RiderStoryProgress::count_levels_with_goals()
     int count = 0;
     for (int level = 0; level < kLevels; ++level) {
         if (left_out()[level])
-            count += pop_count(goals_[level][1]) + pop_count(goals_[level][0]) > 0 ? 1 : 0;
+            count += pop_count(core::at(core::at(goals_, level), 1)) + pop_count(core::at(core::at(goals_, level), 0)) > 0 ? 1 : 0;
     }
     return count;
 }
 
 // 0x005843A0 / 0x005843D0 / 0x00584400
-void RiderStoryProgress::set_global_flag(int flag) { global_flags_[get_word(flag)] |= get_bit(flag); }
-void RiderStoryProgress::un_set_global_flag(int flag) { global_flags_[get_word(flag)] &= ~get_bit(flag); }
-bool RiderStoryProgress::get_global_flag(int flag) { return (global_flags_[get_word(flag)] & get_bit(flag)) != 0; }
+void RiderStoryProgress::set_global_flag(int flag) { core::at(global_flags_, get_word(flag)) |= get_bit(flag); }
+void RiderStoryProgress::un_set_global_flag(int flag) { core::at(global_flags_, get_word(flag)) &= ~get_bit(flag); }
+bool RiderStoryProgress::get_global_flag(int flag) { return (core::at(global_flags_, get_word(flag)) & get_bit(flag)) != 0; }
 
 // 0x00584430
 void RiderStoryProgress::set_flag(int flag, int level)
@@ -125,7 +126,7 @@ void RiderStoryProgress::un_set_flag(int flag, int level)
         level = level_;
     const uint32_t mask = ~get_bit(flag);
     flag_words()[level * 8 + get_word(flag)] &= mask;
-    start_flags_[get_word(flag)] &= mask;
+    core::at(start_flags_, get_word(flag)) &= mask;
 }
 
 // 0x005844C0
@@ -139,7 +140,7 @@ bool RiderStoryProgress::fetch_marker(int flag, int level)
 // 0x00584500
 bool RiderStoryProgress::just_got_flag(int flag)
 {
-    return ((start_flags_[get_word(flag)] ^ flag_words()[level_ * 8 + get_word(flag)]) & get_bit(flag)) != 0;
+    return ((core::at(start_flags_, get_word(flag)) ^ flag_words()[level_ * 8 + get_word(flag)]) & get_bit(flag)) != 0;
 }
 
 // 0x00584540 / 0x00584560
@@ -167,14 +168,14 @@ void RiderStoryProgress::add_to_info_471f_c_4d_d(int amount)
 uint16_t* RiderStoryProgress::deposit_money(int amount)
 {
     lifetime_funds_ = static_cast<uint16_t>(lifetime_funds_ + amount);
-    funds_[level_] = static_cast<uint16_t>(funds_[level_] + amount);
-    return &funds_[level_];
+    core::at(funds_, level_) = static_cast<uint16_t>(core::at(funds_, level_) + amount);
+    return &core::at(funds_, level_);
 }
 
 // 0x005845F0
 void RiderStoryProgress::set_level_amount(int amount)
 {
-    uint16_t& level = amount_[level_];
+    uint16_t& level = core::at(amount_, level_);
     total_amount_ = static_cast<uint16_t>(total_amount_ + static_cast<uint16_t>(amount - level));
     level = static_cast<uint16_t>(amount);
 }
@@ -182,12 +183,12 @@ void RiderStoryProgress::set_level_amount(int amount)
 // 0x00584620 / 0x00584640 / 0x00584650
 uint8_t* RiderStoryProgress::increment_counter()
 {
-    uint8_t* counter = &counter_[level_];
+    uint8_t* counter = &core::at(counter_, level_);
     ++*counter;
     ++total_counter_;
     return counter;
 }
-uint8_t RiderStoryProgress::get_counter(int level) { return counter_[level]; }
+uint8_t RiderStoryProgress::get_counter(int level) { return core::at(counter_, level); }
 void RiderStoryProgress::set_flag_5e_f(uint8_t value) { flag_5e_f_ = value; }
 
 // 0x00584660
@@ -212,20 +213,20 @@ bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
         un_set_flag(bit, level);
         const uint32_t mask = ~get_bit(bit);
         goal_words()[level * 8 + get_word(bit)] &= mask;
-        start_goals_[get_word(bit)] &= mask;
+        core::at(start_goals_, get_word(bit)) &= mask;
     };
     if (part == 0 || part == 0x4DA4937B) {
         for (int level = 0; level < kLevels; ++level) {
             for (int bit = 0; bit < 200; ++bit)
                 clear(bit, level);
             left_out()[level] = false;
-            funds_[level] = 0;
-            amount_[level] = 1000;
+            core::at(funds_, level) = 0;
+            core::at(amount_, level) = 1000;
         }
-        start_goals_[0] = 0;
-        start_flags_[0] = 0;
-        start_goals_[1] = 0;
-        start_flags_[1] = 0;
+        core::at(start_goals_, 0) = 0;
+        core::at(start_flags_, 0) = 0;
+        core::at(start_goals_, 1) = 0;
+        core::at(start_flags_, 1) = 0;
         lifetime_funds_ = 0;
         value634_ = 0;
         max_value634_ = 0;
@@ -233,7 +234,7 @@ bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
     }
     if (part == 0 || part == 0x4C10DE52) {
         for (int level = 0; level < 18; ++level) {
-            counter_[level] = 0;
+            core::at(counter_, level) = 0;
             for (int bit = 200; bit < 256; ++bit)
                 clear(bit, level);
         }
@@ -264,7 +265,7 @@ bool RiderStoryProgress::all_gaps_got()
         }
         if (i == count)
             continue; // (not listed)
-        if (!visited_[level] || !gaps_[level]->all_got())
+        if (!core::at(visited_, level) || !core::at(gaps_, level)->all_got())
             return false;
     }
     return true;
@@ -277,18 +278,18 @@ void RiderStoryProgress::begin_level(int level)
         level = level_;
     else
         level_ = level;
-    visited_[level_] = true;
-    start_goals_[0] = goals_[level][0];
-    start_goals_[1] = goals_[level][1];
-    start_flags_[0] = flag_bits_[level][0];
-    start_flags_[1] = flag_bits_[level][1];
+    core::at(visited_, level_) = true;
+    core::at(start_goals_, 0) = core::at(core::at(goals_, level), 0);
+    core::at(start_goals_, 1) = core::at(core::at(goals_, level), 1);
+    core::at(start_flags_, 0) = core::at(core::at(flag_bits_, level), 0);
+    core::at(start_flags_, 1) = core::at(core::at(flag_bits_, level), 1);
 }
 
 // 0x00584CC0
 bool RiderStoryProgress::is_code_on(uint32_t name)
 {
     const int flag = script::fetch_int_value(name);
-    const bool on = (global_flags_[get_word(flag)] & get_bit(flag)) != 0;
+    const bool on = (core::at(global_flags_, get_word(flag)) & get_bit(flag)) != 0;
     online::g_cheat_flag = on;
     return on;
 }
@@ -341,8 +342,8 @@ RiderStoryProgress::RiderStoryProgress()
 {
     for (int level = 0; level < kLevels; ++level) {
         void* memory = memory::alloc(sizeof(goals::GapTally));
-        gaps_[level] = memory ? memory::construct_in<goals::GapTally>(memory) : nullptr;
-        visited_[level] = false;
+        core::at(gaps_, level) = memory ? memory::construct_in<goals::GapTally>(memory) : nullptr;
+        core::at(visited_, level) = false;
     }
     details_ = spawn_param_table();
     get_reset(true, 0);
@@ -381,13 +382,13 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
     script::Array* globals = nullptr;
     career->fetch_list(kGlobalFlagsArray, &globals, 0);
     for (uint32_t i = 0; i < 16; ++i)
-        global_flags_[i] = globals->fetch_part(i);
+        core::at(global_flags_, i) = globals->fetch_part(i);
     // The gap checklists.
     script::Array* gap_levels = nullptr;
     career->fetch_list(kGapLevelList, &gap_levels, 0);
     if (gap_levels) {
         for (int level = 0; level < kLevels; ++level) {
-            goals::GapTally* checklist = gaps_[level];
+            goals::GapTally* checklist = core::at(gaps_, level);
             checklist->get_clear();
             auto* entry = gap_levels->struct_at(level);
             int saved_level = 0, built = 0;
@@ -419,15 +420,15 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
     career->fetch_list(kVisitedArray, &visited, 0);
     if (visited) {
         for (int level = 0; level < kLevels; ++level)
-            visited_[level] = visited->fetch_part(level) != 0;
+            core::at(visited_, level) = visited->fetch_part(level) != 0;
     }
     script::Array* cash = nullptr;
     script::Array* amounts = nullptr;
     career->fetch_list(kCashArray, &cash, 0);
     career->fetch_list(kAmountArray, &amounts, 0);
     for (int level = 0; level < kLevels; ++level) {
-        funds_[level] = static_cast<uint16_t>(cash->fetch_part(level));
-        amount_[level] = static_cast<uint16_t>(amounts->fetch_part(level));
+        core::at(funds_, level) = static_cast<uint16_t>(cash->fetch_part(level));
+        core::at(amount_, level) = static_cast<uint16_t>(amounts->fetch_part(level));
     }
     int value = 0; // (the original's is left as it was when a value is missing)
     career->fetch_int_value(kCashBalanceKey, &value, 0);
@@ -437,7 +438,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
     script::Array* counters = nullptr;
     career->fetch_list(kCounterArray, &counters, 0);
     for (int level = 0; level < 18; ++level)
-        counter_[level] = static_cast<uint8_t>(counters->fetch_part(level));
+        core::at(counter_, level) = static_cast<uint8_t>(counters->fetch_part(level));
     if (career->fetch_int_value(kTotalCounter, &value, 0)) {
         total_counter_ = static_cast<uint8_t>(value);
         career->fetch_int_value(kFlag5eF, &value, 0);
@@ -475,10 +476,10 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     }
     script::Array* globals = alloc_script_array(16, script::kQbvalInteger);
     for (uint32_t i = 0; i < 16; ++i)
-        globals->set_element(i, global_flags_[i]);
+        globals->set_element(i, core::at(global_flags_, i));
     script::Array* gap_levels = alloc_script_array(kLevels, script::kQbvalStruct);
     for (int level = 0; level < kLevels; ++level) {
-        goals::GapTally* checklist = gaps_[level];
+        goals::GapTally* checklist = core::at(gaps_, level);
         script::Struct* entry = spawn_param_table();
         entry->put_int(kGapLevel, level);
         // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
@@ -489,13 +490,13 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
             if (view.built) {
                 script::Array* list = alloc_script_array(static_cast<uint32_t>(view.gaps.size()), script::kQbvalStruct);
                 for (size_t i = 0; i < view.gaps.size(); ++i) {
-                    const frontend::level_editor::career::Gap& g = view.gaps[i];
+                    const frontend::level_editor::career::Gap& g = core::at(view.gaps, i);
                     script::Struct* gap = spawn_param_table();
                     gap->append_word(kGapName, g.name.c_str());
                     gap->put_int(kGapCount, g.count);
                     gap->put_int(kGapScore, g.score);
-                    gap->put_vec3(kGapPos, g.pos[0], g.pos[1], g.pos[2]);
-                    gap->put_vec3(kGapDir, g.dir[0], g.dir[1], g.dir[2]);
+                    gap->put_vec3(kGapPos, core::at(g.pos, 0), core::at(g.pos, 1), core::at(g.pos, 2));
+                    gap->put_vec3(kGapDir, core::at(g.dir, 0), core::at(g.dir, 1), core::at(g.dir, 2));
                     list->set_element(static_cast<uint32_t>(i), cell::of(gap));
                 }
                 entry->append_array_ref(kGapList, list);
@@ -524,7 +525,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     }
     script::Array* visited = alloc_script_array(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level)
-        visited->set_element(static_cast<uint32_t>(level), visited_[level]);
+        visited->set_element(static_cast<uint32_t>(level), core::at(visited_, level));
     script::Struct* career = spawn_param_table();
     career->add_component_of_type(kGoalListName, script::kQbvalArray, cell::of(goals));
     career->add_component_of_type(kFlagsArray, script::kQbvalArray, cell::of(flags));
@@ -541,8 +542,8 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     cash->configure_size_kind(kLevels, script::kQbvalInteger);
     amounts->configure_size_kind(kLevels, script::kQbvalInteger);
     for (int level = 0; level < kLevels; ++level) {
-        cash->set_element(static_cast<uint32_t>(level), funds_[level]);
-        amounts->set_element(static_cast<uint32_t>(level), amount_[level]);
+        cash->set_element(static_cast<uint32_t>(level), core::at(funds_, level));
+        amounts->set_element(static_cast<uint32_t>(level), core::at(amount_, level));
     }
     career->append_array_ref(kCashArray, cash);
     career->append_array_ref(kAmountArray, amounts);
@@ -550,7 +551,7 @@ void RiderStoryProgress::write_to_structure(script::Struct* save)
     career->put_int(kTotalAmount, total_amount_);
     script::Array* counters = alloc_script_array(18, script::kQbvalInteger);
     for (int level = 0; level < 18; ++level)
-        counters->set_element(static_cast<uint32_t>(level), counter_[level]);
+        counters->set_element(static_cast<uint32_t>(level), core::at(counter_, level));
     career->append_array_ref(kCounterArray, counters);
     career->put_int(kTotalCounter, total_counter_);
     career->put_int(kFlag5eF, flag_5e_f_);

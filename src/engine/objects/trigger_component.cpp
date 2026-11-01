@@ -23,6 +23,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 // The event lists (trigger_events.h).
 const std::array<int, 3> kWheelLeavesEvents{{1, 4, 0}};
@@ -231,13 +232,13 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
     const render::RectHits& hits = feeler->hits_;
     const int count = hits.count;
     for (int i = count - 1; i >= 0; --i) {
-        if (!hits.hits[i].face_flag40_)
+        if (!core::at(hits.hits, i).face_flag40_)
             continue;
-        const uint32_t name = hits.hits[i].checksum;
+        const uint32_t name = core::at(hits.hits, i).checksum;
         // (the count is read again: get_trigger_node may run scripts)
         const int total = hits.count;
         int later = i + 1;
-        while (later < total && name != hits.hits[later].checksum)
+        while (later < total && name != core::at(hits.hits, later).checksum)
             ++later;
         if (later == total)
             get_trigger_node(events, name, nullptr, nullptr);

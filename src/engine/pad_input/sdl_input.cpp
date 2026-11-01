@@ -28,6 +28,7 @@
 #include "platform/screenshot.h"
 #include "platform/sdl_events.h"
 #include "platform/platform_input.h"
+#include "engine/core/checked_index.h"
 
 namespace sio {
 
@@ -168,14 +169,14 @@ void enroll_player(SDL_GameController* controller)
         return;
     }
     int slot = 0;
-    while (slot < kMaxPlayers && s_players[slot].controller)
+    while (slot < kMaxPlayers && core::at(s_players, slot).controller)
         ++slot;
     if (slot == kMaxPlayers)
         return;
     SDL_GameControllerSetPlayerIndex(controller, slot);
-    s_players[slot].controller = controller;
+    core::at(s_players, slot).controller = controller;
     if (s_seats_in_use > 0) {
-        s_players[slot].locked_out_ = 1;
+        core::at(s_players, slot).locked_out_ = 1;
         SDL_JoystickRumble(SDL_GameControllerGetJoystick(controller), 0x7FFF, 0x7FFF, 250);
     }
     ++s_seats_in_use;
@@ -185,9 +186,9 @@ void enroll_player(SDL_GameController* controller)
 void prune_players()
 {
     for (int i = 0; i < kMaxPlayers; ++i) {
-        if (s_players[i].controller && !SDL_GameControllerGetAttached(s_players[i].controller)) {
+        if (core::at(s_players, i).controller && !SDL_GameControllerGetAttached(core::at(s_players, i).controller)) {
             debug_log::printf(StageMap::kInfo, "Pruned player %d\n", i + 1);
-            s_players[i].controller = nullptr;
+            core::at(s_players, i).controller = nullptr;
             --s_seats_in_use;
             debug_log::printf(StageMap::kInfo, "Remaining players: %d\n", s_seats_in_use);
         }
@@ -208,7 +209,7 @@ void detach_anim_driver(SDL_GameController* controller)
     SDL_GameControllerClose(controller);
     if (player != -1) {
         debug_log::printf(StageMap::kInfo, "Removed player %d\n", player + 1);
-        s_players[player].controller = nullptr;
+        core::at(s_players, player).controller = nullptr;
         --s_seats_in_use;
     }
     prune_players();
@@ -778,16 +779,16 @@ void handle_input_event(SDL_Event* event)
         const int player = SDL_GameControllerGetPlayerIndex(controller);
         if (player == -1)
             enroll_player(controller);
-        else if (s_players[player].locked_out_)
-            ++s_players[player].locked_out_;
+        else if (core::at(s_players, player).locked_out_)
+            ++core::at(s_players, player).locked_out_;
         s_using_keyboard = false;
         return;
     }
     case SDL_CONTROLLERBUTTONUP: {
         SDL_GameController* controller = SDL_GameControllerFromInstanceID(event->cdevice.which);
         const int player = SDL_GameControllerGetPlayerIndex(controller);
-        if (player != -1 && s_players[player].locked_out_)
-            --s_players[player].locked_out_;
+        if (player != -1 && core::at(s_players, player).locked_out_)
+            --core::at(s_players, player).locked_out_;
         return;
     }
     case SDL_CONTROLLERAXISMOTION:
@@ -842,7 +843,7 @@ const std::array<uint32_t, 256> kDirectInputKeys = {{
 int32_t direct_input_key(SDL_Scancode scan_code)
 {
     if (static_cast<int>(scan_code) < 256)
-        return static_cast<int32_t>(kDirectInputKeys[scan_code]);
+        return static_cast<int32_t>(core::at(kDirectInputKeys, scan_code));
     return -1;
 }
 
@@ -1028,8 +1029,8 @@ void process_sdl_device(InputPort* device)
 
     device->capabilities_ = 3;
     device->rumble_motor_count_ = 2;
-    device->rumble_cap_[0] = 255;
-    device->rumble_cap_[1] = 255;
+    core::at(device->rumble_cap_, 0) = 255;
+    core::at(device->rumble_cap_, 1) = 255;
     device->cur_phase_ = InputPort::kReady;
 
     os_layer::pump_sdl_events();
@@ -1062,8 +1063,8 @@ void process_sdl_device(InputPort* device)
             poll_keyboard(device);
     }
     auto port = static_cast<uint32_t>(device->port_no_);
-    if (port < kMaxPlayers && s_players[port].controller && !s_players[port].locked_out_ && !new_frontend)
-        poll_controller(device, s_players[port].controller);
+    if (port < kMaxPlayers && core::at(s_players, port).controller && !core::at(s_players, port).locked_out_ && !new_frontend)
+        poll_controller(device, core::at(s_players, port).controller);
     // (not original: the buttons the test-automation channel presses - frontend/automation.h)
     frontend::automation::add_pad_buttons(device->port_no_, data);
 

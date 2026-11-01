@@ -21,6 +21,7 @@
 #include "engine/net/buddy_status.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -128,11 +129,11 @@ maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
 {
     maths::Mat4 placement{};
     placement = entity_->basis_frame_;
-    placement.row[0].w = 0.0f;
-    placement.row[1].w = 0.0f;
-    placement.row[2].w = 0.0f;
+    core::at(placement.row, 0).w = 0.0f;
+    core::at(placement.row, 1).w = 0.0f;
+    core::at(placement.row, 2).w = 0.0f;
     const maths::Vec4& pos = entity_->at_point_;
-    placement.row[3] = {pos.x, pos.y, pos.z, 1.0f};
+    core::at(placement.row, 3) = {pos.x, pos.y, pos.z, 1.0f};
     rail_groups_->change_body_transform(placement);
     *out = placement;
     return out;

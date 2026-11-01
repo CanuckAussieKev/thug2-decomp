@@ -27,6 +27,7 @@
 #include "game/rider/walk_physics.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -111,10 +112,10 @@ void SkaterPhysicsModule::configure_from_data(script::Struct*)
     objects::GameEntity* object = object_of(this);
     object->at_point_ = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     maths::Mat4& matrix = entity_->basis_frame_;
-    matrix.row[0] = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
-    matrix.row[1] = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
-    matrix.row[2] = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
-    matrix.row[3] = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
+    core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
+    core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
+    core::at(matrix.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     display_matrix_ = entity_->basis_frame_;
     drawn_normal_ = maths::Vec4(0.0f, 1.0f, 0.0f, 1.0f);
     floor_normal_ = drawn_normal_;
@@ -222,9 +223,9 @@ void SkaterPhysicsModule::set_physics_state(int state)
 void SkaterPhysicsModule::turn_around()
 {
     objects::GameEntity* object = object_of(this);
-    maths::Vec4& facing = object->basis_frame_.row[2];
+    maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
     facing = maths::Vec4(-facing.x, -facing.y, -facing.z, -facing.w);
-    maths::Vec4& right = entity_->basis_frame_.row[0];
+    maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
     right = maths::Vec4(-right.x, -right.y, -right.z, -right.w);
     display_matrix_ = entity_->basis_frame_;
     rail_backwards_ = rail_backwards_ ? 0 : 1;

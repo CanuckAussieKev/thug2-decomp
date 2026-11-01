@@ -22,6 +22,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -74,7 +75,7 @@ void MeshLightingModule::get_sample(bool lerp, float rate)
     maths::Vec4& end = down.line_.end;
     start = object->at_point_;
     end = object->at_point_;
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const double step_x = static_cast<double>(up.x) * kUpNudge;
     const double step_y = static_cast<double>(up.y) * kUpNudge;
     const double step_z = static_cast<double>(up.z) * kUpNudge;

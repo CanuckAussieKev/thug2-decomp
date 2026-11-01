@@ -28,6 +28,7 @@
 #include "platform/run_log.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::view {
 
@@ -101,16 +102,16 @@ int clip_triangle_to_near(V3 camera_pos, const TickCycle& frame, float near_z, c
     // (Sutherland-Hodgman against one plane: depth = (p - camera) . -back)
     std::array<float, 3> depth{};
     for (int i = 0; i < 3; ++i)
-        depth[i] = -get_dot(in[i] - camera_pos, frame.back);
+        core::at(depth, i) = -get_dot(in[i] - camera_pos, frame.back);
     int count = 0;
     for (int i = 0; i < 3; ++i) {
         const int j = (i + 1) % 3;
-        const bool in_i = depth[i] >= near_z;
-        const bool in_j = depth[j] >= near_z;
+        const bool in_i = core::at(depth, i) >= near_z;
+        const bool in_j = core::at(depth, j) >= near_z;
         if (in_i)
             out[count++] = in[i];
         if (in_i != in_j) {
-            const float s = (near_z - depth[i]) / (depth[j] - depth[i]);
+            const float s = (near_z - core::at(depth, i)) / (core::at(depth, j) - core::at(depth, i));
             out[count++] = in[i] + (in[j] - in[i]) * s;
         }
     }
@@ -294,7 +295,7 @@ const Cached* cache_of(uint32_t checksum, render::WorldCell* sector, const rende
                 ok = false;
                 break;
             }
-            p[k] = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
+            core::at(p, k) = to_v3(tri->read_stored_vertex(static_cast<int>(index)));
         }
         if (!ok)
             continue;
@@ -420,7 +421,7 @@ void tick()
 {
     // (the model's suspend pass turns its geometries on when its decision changes: off again)
     for (size_t i = 0; i < g_concealed_records.size();) {
-        const HiddenObjectRec& rec = g_concealed_records[i];
+        const HiddenObjectRec& rec = core::at(g_concealed_records, i);
         objects::GameEntity* object = live_object(rec.id);
         if (!object) {
             g_concealed_records.erase(g_concealed_records.begin() + static_cast<long>(i));
@@ -513,7 +514,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         float depth = 0.0f;
         for (int k = 0; k < count; ++k) {
             float nx = 0.0f, ny = 0.0f;
-            if (!cast_onto(camera_pos, frame, lens, clipped[k], near_z * 0.5f, &nx, &ny)) {
+            if (!cast_onto(camera_pos, frame, lens, core::at(clipped, k), near_z * 0.5f, &nx, &ny)) {
                 nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
             }
             left = left && nx < -1.0f;
@@ -521,7 +522,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             below = below && ny < -1.0f;
             above = above && ny > 1.0f;
             ndc_to_pixel(viewport, nx, ny, &poly.x[k], &poly.y[k]);
-            depth += -get_dot(clipped[k] - camera_pos, frame.back);
+            depth += -get_dot(core::at(clipped, k) - camera_pos, frame.back);
         }
         if (left || right || below || above)
             return false;
@@ -568,15 +569,15 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         facts.trigger_colour_ = trigger == trigger_colours.end() ? 0 : trigger->second;
         bool any = false;
         for (size_t f = 0; f < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
-            const V3* p = &cached->points[f * 3];
-            facts.flags = cached->flags[f];
-            facts.taken = cached->taken[f] != 0;
+            const V3* p = &core::at(cached->points, f * 3);
+            facts.flags = core::at(cached->flags, f);
+            facts.taken = core::at(cached->taken, f) != 0;
             if (!add_face(p, facts))
                 continue;
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
             if ((cached->collision_only_ || !candidate.off) && !facts.taken)
-                g_drawn.push_back({candidate.checksum, cached->collision_only_, p[0], p[1], p[2], cached->index[f]});
+                g_drawn.push_back({candidate.checksum, cached->collision_only_, p[0], p[1], p[2], core::at(cached->index, f)});
             any = true;
             g_stats.taken += facts.taken ? 1 : 0;
             g_stats.triggers += (facts.flags & 0x40) && facts.trigger_colour_ ? 1 : 0;
@@ -612,14 +613,14 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
                 const uint32_t index = tri.face_vertex(f, k);
                 ok = index < tri.num_vertices_;
                 if (ok)
-                    p[k] = entry.second->get_vertex(static_cast<int>(index));
+                    core::at(p, k) = entry.second->get_vertex(static_cast<int>(index));
             }
             FaceFacts facts;
             facts.flags = tri.face_flags(f);
             facts.companion = true;
             const bool drawn = ok && add_face(p.data(), facts);
             if (drawn)
-                g_drawn.push_back({entry.first, false, p[0], p[1], p[2], f, true});
+                g_drawn.push_back({entry.first, false, core::at(p, 0), core::at(p, 1), core::at(p, 2), f, true});
             any = drawn || any;
         }
         g_stats.companions += any ? 1 : 0;
@@ -707,7 +708,7 @@ std::string describe_wall(uint32_t checksum)
         tri->upper_limit_.y - tri->lower_limit_.y, tri->upper_limit_.z - tri->lower_limit_.z);
     std::string out = text.data();
     for (size_t i = 0; i < counts.size() && i < 8; ++i) {
-        std::snprintf(text.data(), sizeof(text), " 0x%04X x%d", counts[i].first, counts[i].second);
+        std::snprintf(text.data(), sizeof(text), " 0x%04X x%d", core::at(counts, i).first, core::at(counts, i).second);
         out += text.data();
     }
     if (counts.size() > 8)
@@ -773,8 +774,8 @@ void show_all()
         objects::GameEntity* object = live_object(rec.id);
         for (int g = 0; object && std::cmp_less(g, rec.geoms.size()); ++g) {
             void* geom = object_edit::get_geometry(object, g);
-            if (geom && geom == rec.geoms[g].first)
-                set_geom_active(geom, rec.geoms[g].second);
+            if (geom && geom == core::at(rec.geoms, g).first)
+                set_geom_active(geom, core::at(rec.geoms, g).second);
         }
     }
     g_concealed_records.clear();
@@ -801,8 +802,8 @@ int get_show(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& 
         objects::GameEntity* object = live_object(it->id);
         for (int g = 0; object && std::cmp_less(g, it->geoms.size()); ++g) {
             void* geom = object_edit::get_geometry(object, g);
-            if (geom && geom == it->geoms[g].first)
-                set_geom_active(geom, it->geoms[g].second);
+            if (geom && geom == core::at(it->geoms, g).first)
+                set_geom_active(geom, core::at(it->geoms, g).second);
         }
         it = g_concealed_records.erase(it);
         ++shown;

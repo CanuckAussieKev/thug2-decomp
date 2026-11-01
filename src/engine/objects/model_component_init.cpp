@@ -32,6 +32,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -313,7 +314,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
             auto* source = core::down_cast<MeshInstanceModule>(object->fetch_module(kModel));
             color_value_count_ = source->color_value_count_;
             for (int i = 0; i < color_value_count_; ++i)
-                color_values_[i] = source->color_values_[i];
+                core::at(color_values_, i) = core::at(source->color_values_, i);
             uint32_t mesh_label = 0;
             script::Array* geoms = nullptr;
             if (params->read_hash_value(kGeom, &mesh_label, 0)) {

@@ -3,6 +3,7 @@
 #include "engine/net/net_lists.h"
 
 #include "engine/core/manager.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -16,7 +17,7 @@ void dealloc(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 void HandlerLists::teardown()
 {
     for (int i = kCount - 1; i >= 0; --i)
-        lists_[i].uncouple();
+        core::at(lists_, i).uncouple();
 }
 
 // 0x00457460

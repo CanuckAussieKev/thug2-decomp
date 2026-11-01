@@ -8,6 +8,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -124,8 +125,8 @@ public:
     bool set_sparks_pos(script::Struct* params, script::Script* script);   // 0x00519600 (the unnamed checksum)
 
     // The timed flags (+0x20): a byte each and the time (the game clock plus g_clock_offset) it last changed.
-    TimedFlag& flag(PoseFlag f) { return timed_flags_[static_cast<int>(f)]; }
-    [[nodiscard]] const TimedFlag& flag(PoseFlag f) const { return timed_flags_[static_cast<int>(f)]; }
+    TimedFlag& flag(PoseFlag f) { return core::at(timed_flags_, static_cast<int>(f)); }
+    [[nodiscard]] const TimedFlag& flag(PoseFlag f) const { return core::at(timed_flags_, static_cast<int>(f)); }
     [[nodiscard]] uint8_t is_on(PoseFlag f) const { return flag(f).on; }
     // The flag set to `value`; its time noted if it changes.
     void set_flag(PoseFlag f, uint8_t value);

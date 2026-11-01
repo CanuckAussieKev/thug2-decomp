@@ -9,6 +9,7 @@
 #include "editor/level_editor_goals.h"
 #include "editor/level_editor_hud.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -213,7 +214,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     // The point: its height (letters float above their node).
     if (point >= 2) {
         Goal changed = g;
-        float height = changed.points[point].height;
+        float height = core::at(changed.points, point).height;
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(150.0f * ImGui::GetFontSize() / 13.0f);
         const bool dragged =
@@ -221,7 +222,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
         const bool done = ImGui::IsItemDeactivated();
         ImGui::PopFont();
         if (dragged) {
-            changed.points[point].height = height;
+            core::at(changed.points, point).height = height;
             get_apply(changed, done);
         } else if (done) {
             get_queue([] { end_drag(); });

@@ -71,6 +71,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -137,7 +138,7 @@ script::Struct*& cat_info() { return g_cat_info; }
 script::Struct*& stat_goal_params_ref() { return g_stat_target_info; }
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-memory::Arena* rider_heap_at(int index) { return memory::Hub::get_pull()->skater_heaps_[index]; }
+memory::Arena* rider_heap_at(int index) { return core::at(memory::Hub::get_pull()->skater_heaps_, index); }
 
 using PlayerSearch = online::PlayerSearch;
 online::PlayerRecord* as_player(void* player) { return static_cast<online::PlayerRecord*>(player); }
@@ -422,7 +423,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
             auto* local = as_player(net->get_own_player());
             if (!local || static_cast<uint32_t>(local->team_) > 3)
                 return generic();
-            return kTeamRestarts[local->team_];
+            return core::at(kTeamRestarts, local->team_);
         }
         if (get_game_mode()->get_name_key() == kNetScavengerHunt) {
             auto* local = as_player(net->get_own_player());
@@ -433,7 +434,7 @@ uint32_t Skate::warp_to_restart(uint32_t skater_id)
                 hunt->is_operative() ? local->team_ : (local->team_ + 1) % get_game_mode()->current_num_teams();
             if (static_cast<uint32_t>(team) > 3)
                 return generic();
-            return kTeamRestarts[team];
+            return core::at(kTeamRestarts, team);
         }
         return multiplayer(skater_id);
     }
@@ -744,7 +745,7 @@ bool Skate::first_trick_completed()
 // 0x00567BD0
 void Skate::set_turn_tap_count(int player, bool on)
 {
-    participants_[player].spin_taps_ = on;
+    core::at(participants_, player).spin_taps_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
         core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = on;
 }
@@ -752,7 +753,7 @@ void Skate::set_turn_tap_count(int player, bool on)
 // 0x00567C00
 void Skate::set_auto_eject(int player, bool on)
 {
-    participants_[player].auto_kick_ = on;
+    core::at(participants_, player).auto_kick_ = on;
     if (objects::GameEntity* skater = get_rider_at(player))
         core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = on;
 }
@@ -760,7 +761,7 @@ void Skate::set_auto_eject(int player, bool on)
 // 0x00567C30
 void Skate::change_rumble(int player, int on)
 {
-    participants_[player].vibration_ = static_cast<uint8_t>(on) != 0;
+    core::at(participants_, player).vibration_ = static_cast<uint8_t>(on) != 0;
     if (objects::GameEntity* skater = get_rider_at(player)) {
         if (auto* vibration = core::down_cast<objects::PadRumbleModule>(skater->fetch_module(kVibration)))
             vibration->change_live(static_cast<uint8_t>(on) != 0); // (the whole word passed: only its low byte read)
@@ -802,11 +803,11 @@ void Skate::debug_rails()
         objects::GameEntity* object = component->entity_;
         std::array<float, 16> matrix{};
         std::memcpy(matrix.data(), &object->basis_frame_, sizeof(matrix));
-        matrix[3] = 0.0f;
-        matrix[7] = 0.0f;
-        matrix[11] = 0.0f;
+        core::at(matrix, 3) = 0.0f;
+        core::at(matrix, 7) = 0.0f;
+        core::at(matrix, 11) = 0.0f;
         std::memcpy(matrix.data() + 12, &object->at_point_, 12);
-        matrix[15] = 1.0f;
+        core::at(matrix, 15) = 1.0f;
         const void* rails = core::down_cast<objects::GrindPathLinkModule>(component)->get_rail_groups();
         if (rails)
             stubs::ignore_argument(static_cast<int>(cell::address(matrix.data())));
@@ -1009,12 +1010,12 @@ Skate::Skate()
     object_movies_ = std::make_unique<objects::VideoHub>();
     highscores::g_game_records->init_levels(0x15);
     for (uint32_t i = 0; i < 8; ++i) {
-        participants_[i].unknown0_ = static_cast<int>(i); // (its index)
-        participants_[i].vibration_ = true;
-        participants_[i].auto_kick_ = true;
+        core::at(participants_, i).unknown0_ = static_cast<int>(i); // (its index)
+        core::at(participants_, i).vibration_ = true;
+        core::at(participants_, i).auto_kick_ = true;
         if (objects::Rider* skater = get_skater_at(i))
             core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->auto_kick_ = 1;
-        participants_[i].spin_taps_ = false;
+        core::at(participants_, i).spin_taps_ = false;
         if (objects::Rider* skater = get_skater_at(i))
             core::down_cast<skater::SkaterPhysicsModule>(skater->fetch_module(kSkaterCorePhysics))->tap_spin_ = 0;
     }

@@ -2,6 +2,7 @@
 
 #include "editor/level_editor_ui_layout.h"
 #include "editor/level_editor_ui.h"
+#include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cmath>
@@ -108,9 +109,9 @@ const std::array<MarkInfo, kMaxMarkers> kMarks = {{
 }};
 } // namespace
 
-char mark_letter(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].letter : '?'; }
-uint32_t mark_colour(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].colour : 0xFFFFFFFFu; }
-const char* mark_name(int bit) { return bit >= 0 && bit < kMaxMarkers ? kMarks[bit].name : ""; }
+char mark_letter(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).letter : '?'; }
+uint32_t mark_colour(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).colour : 0xFFFFFFFFu; }
+const char* mark_name(int bit) { return bit >= 0 && bit < kMaxMarkers ? core::at(kMarks, bit).name : ""; }
 
 bool mark_shown(uint8_t marks, bool changed_only) { return !changed_only || (marks & ((1u << kMaxMarkers) - 1)) != 0; }
 
@@ -119,7 +120,7 @@ std::string mark_letters(uint8_t marks)
     std::string letters;
     for (int bit = 0; bit < kMaxMarkers; ++bit) {
         if (marks & (1u << bit))
-            letters.push_back(kMarks[bit].letter);
+            letters.push_back(core::at(kMarks, bit).letter);
     }
     return letters;
 }

@@ -40,6 +40,7 @@
 #include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -264,7 +265,7 @@ void aim_texture_shadow_caster(const uint8_t* texture, gfx::ViewCam* camera)
     std::array<float, 3> position = {{pos.x, pos.y, pos.z}};
     const maths::Mat4& m = *camera->fetch_mat();
     // the point it looks at: the position plus the matrix's third row
-    std::array<float, 3> target = {{m.row[2].x + position[0], m.row[2].y + position[1], m.row[2].z + position[2]}};
+    std::array<float, 3> target = {{core::at(m.row, 2).x + core::at(position, 0), core::at(m.row, 2).y + core::at(position, 1), core::at(m.row, 2).z + core::at(position, 2)}};
     aim_shadow_caster(cell::of(caster_key(texture)), position.data(), target.data());
 }
 

@@ -27,6 +27,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -367,23 +368,23 @@ void SkaterPhysicsModule::start_acid_drop(const AcidDrop* drop)
     const maths::Vec4 up = normal;
     drop_heading_ = along;
     maths::Mat4 wall;
-    wall.row[0] = {static_cast<float>(static_cast<double>(up.y) * along.z - static_cast<double>(up.z) * along.y),
+    core::at(wall.row, 0) = {static_cast<float>(static_cast<double>(up.y) * along.z - static_cast<double>(up.z) * along.y),
                    static_cast<float>(static_cast<double>(up.z) * along.x - static_cast<double>(up.x) * along.z),
                    static_cast<float>(static_cast<double>(up.x) * along.y - static_cast<double>(up.y) * along.x), 0.0f};
-    wall.row[1] = up;
-    wall.row[2] = along;
-    wall.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(wall.row, 1) = up;
+    core::at(wall.row, 2) = along;
+    core::at(wall.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Mat4& stored = drop_matrix_;
     stored = wall;
-    if (stored.row[2].y > 0.0f) { // (along the drop pointing up: turned round, across with it)
-        stored.row[2] *= -1.0f;
-        stored.row[0] *= -1.0f;
+    if (core::at(stored.row, 2).y > 0.0f) { // (along the drop pointing up: turned round, across with it)
+        core::at(stored.row, 2) *= -1.0f;
+        core::at(stored.row, 0) *= -1.0f;
     }
     // Turned to face the way the skater faces (flattened) relative to the drop.
     object = object_of(this);
-    maths::Vec4 facing = object->basis_frame_.row[2];
+    maths::Vec4 facing = core::at(object->basis_frame_.row, 2);
     facing.y = 0.0f;
-    auto turn = static_cast<float>(-maths::get_turn_around_axis(facing, direction, object->basis_frame_.row[1]));
+    auto turn = static_cast<float>(-maths::get_turn_around_axis(facing, direction, core::at(object->basis_frame_.row, 1)));
     wall.yaw_locally(turn);
     drop_slerp_.set_matrices(start, wall);
     drop_time_ = 0.0f;
@@ -433,7 +434,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     // The skater's up, flattened and normalised (the wall's way out), and the way back down the wall: against the
     // velocity, turned a quarter round about the horizontal across the wall.
     objects::GameEntity* object = object_of(this);
-    const maths::Vec4& up_row = object->basis_frame_.row[1];
+    const maths::Vec4& up_row = core::at(object->basis_frame_.row, 1);
     maths::Vec4 out = {up_row.x, 0.0f, up_row.z, 0.0f};
     {
         const double length = std::sqrt(static_cast<double>(out.x) * out.x + static_cast<double>(out.z) * out.z);
@@ -568,12 +569,12 @@ bool SkaterPhysicsModule::try_spine_transfer()
     forward.flatten_onto_plane(target_normal);
     forward.make_unit();
     maths::Mat4 end;
-    end.row[0] = maths::cross_vec(target_normal, forward);
-    end.row[1] = target_normal;
-    end.row[2] = forward;
-    end.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(end.row, 0) = maths::cross_vec(target_normal, forward);
+    core::at(end.row, 1) = target_normal;
+    core::at(end.row, 2) = forward;
+    core::at(end.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     drop_heading_ = forward;
-    double turn = maths::get_turn_around_axis(object->basis_frame_.row[2], old_velocity, object->basis_frame_.row[1]);
+    double turn = maths::get_turn_around_axis(core::at(object->basis_frame_.row, 2), old_velocity, core::at(object->basis_frame_.row, 1));
     if (std::fabs(turn) < kLeastTurn)
         turn = 0.0;
     end.yaw_locally(static_cast<float>(-turn));
@@ -584,7 +585,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     drop_last_matrix_ = start;
     maths::Mat4 halfway;
     slerp.fetch_mat(halfway, 0.5f);
-    if (halfway.row[1].y < 0.0f) // (the short way round turns upside down: the long way)
+    if (core::at(halfway.row, 1).y < 0.0f) // (the short way round turns upside down: the long way)
         slerp.flip_heading();
 
     // The arc there in the fall's time: its horizontal velocity into the flags block, as the acid drop's.

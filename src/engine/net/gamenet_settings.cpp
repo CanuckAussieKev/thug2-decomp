@@ -39,6 +39,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -128,7 +129,7 @@ void Hub::use_network_preferences()
     net::Hub* net = net::Hub::sole();
     auto* servers = master_servers_.data();
     for (int i = 0; i < kMasterServerCount; ++i)
-        servers[i][0] = 0;
+        core::at(servers[i], 0) = 0;
     prefs::Preferences* preferences = get_online_settings();
 
     // (the original's locals, each reused as it reuses its stack slots: a missing value leaves the last one read -
@@ -216,7 +217,7 @@ void Hub::use_network_preferences()
     // Dial-up.
     const char* number = nullptr;
     for (int i = 0; i < 3; ++i) {
-        preferences->fetch_setting(kDialupNumber[i])->fetch_text(kUiString, &number, 1);
+        preferences->fetch_setting(core::at(kDialupNumber, i))->fetch_text(kUiString, &number, 1);
         net->set_dialup_number(i, number);
     }
     const char* username = nullptr;
@@ -387,8 +388,8 @@ void Hub::find_server_at(uint32_t ip)
     }
     if (browser_client_) {
         std::array<uint32_t, 3> request{}; // (the time; the rest is the original's stack)
-        request[0] = frame_clock::get_time();
-        request[1] = request[2] = 0;
+        core::at(request, 0) = frame_clock::get_time();
+        core::at(request, 1) = core::at(request, 2) = 0;
         g_asked_for = ip;
         browser_client_->deliver_to(kMsgServerQuery, sizeof(request), request.data(), ip, kLanPort, 0);
     }

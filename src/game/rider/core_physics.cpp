@@ -37,6 +37,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -116,7 +117,7 @@ void stack_on(maths::Vec4& velocity, const maths::Vec4& direction, float scale)
 int SkaterPhysicsModule::lip_push_off(script::Struct*, script::Script*)
 {
     objects::GameEntity* object = entity_;
-    const maths::Vec4& facing = object->basis_frame_.row[2];
+    const maths::Vec4& facing = core::at(object->basis_frame_.row, 2);
     maths::Vec4 forward = {facing.x, 0.0f, facing.z, facing.w};
     const double length =
         std::sqrt(static_cast<double>(forward.z) * forward.z + static_cast<double>(forward.x) * forward.x);
@@ -192,7 +193,7 @@ void log_rail_boost(script::Script* script, float before, float after, float hei
         return;
     static const auto kLoops = std::to_array<uint32_t>({checksums::hash_from_text("RailAccelerate2"),
                                       checksums::hash_from_text("ed_RailSpeedLoop")});
-    if (script->script_title_ != kLoops[0] && script->script_title_ != kLoops[1])
+    if (script->script_title_ != core::at(kLoops, 0) && script->script_title_ != core::at(kLoops, 1))
         return;
     static RailBoostLog log;
     auto now = std::chrono::steady_clock::now();
@@ -201,7 +202,7 @@ void log_rail_boost(script::Script* script, float before, float after, float hei
         float rate = 0.0f;
         script->args_->fetch_float(checksums::hash_from_text("rate"), &rate, 0);
         get_log("rail speed-up: %s boosting (rate %.3f): speed %.0f -> %.0f, height %.0f",
-                script->script_title_ == kLoops[0] ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after,
+                script->script_title_ == core::at(kLoops, 0) ? "RailAccelerate2" : "ed_RailSpeedLoop", rate, before, after,
                 height);
         log.script = script;
         log.window_start_ = now;
@@ -241,7 +242,7 @@ int SkaterPhysicsModule::set_speed(script::Struct* params, script::Script* scrip
                               static_cast<double>(velocity.z) * velocity.z;
     auto before = static_cast<float>(std::sqrt(length_sqr));
     if (length_sqr < static_cast<double>(0.001f)) {                             // (not taken for a NaN)
-        std::memcpy(&velocity, &object->basis_frame_.row[2], sizeof(velocity)); // (moved, not loaded as floats)
+        std::memcpy(&velocity, &core::at(object->basis_frame_.row, 2), sizeof(velocity)); // (moved, not loaded as floats)
     } else {
         const double scale = 1.0 / std::sqrt(length_sqr);
         velocity.x = static_cast<float>(scale * velocity.x);
@@ -275,15 +276,15 @@ void SkaterPhysicsModule::check_for_ground()
         const float above = tuning_float_lookup(0xE4D79235, object);
         maths::Vec4& start = probe_start_;
         maths::Vec4& end = probe_end_;
-        start = object->basis_frame_.row[1] * above;
-        end = object->basis_frame_.row[1] * -200.0f;
+        start = core::at(object->basis_frame_.row, 1) * above;
+        end = core::at(object->basis_frame_.row, 1) * -200.0f;
         start += object->at_point_;
         end += object->at_point_;
 
         if (probe_touches_zone(0x10, 0)) {
             const maths::Vec4& position = object->at_point_;
             const maths::Vec4& point = feeler_.contact_pos_;
-            const maths::Vec4& up = object->basis_frame_.row[1];
+            const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
             const double dx = static_cast<double>(position.x) - point.x;
             const double dy = static_cast<double>(position.y) - point.y;
             const double dz = static_cast<double>(position.z) - point.z;
@@ -311,7 +312,7 @@ void SkaterPhysicsModule::check_for_ground()
                 // an angle to the current ground (cos of a physics angle - one value with button +0x20 held,
                 // another without), or too far away for how fast the skater moves, isn't kept to.
                 const maths::Vec4 normal = feeler_.surface_dir_;
-                maths::Vec4 facing = object->basis_frame_.row[2];
+                maths::Vec4 facing = core::at(object->basis_frame_.row, 2);
                 if (bike &&
                     thaw_bmx::rolling_backwards(this)) // (not original: THAW 0x005DEB08, rolling back on the bike)
                     facing = {-facing.x, -facing.y, -facing.z, -facing.w};
@@ -489,8 +490,8 @@ void SkaterPhysicsModule::do_air_physics()
         thaw_bmx::tire_tap(this);
     {
         // (the rotate component's turns about x and z)
-        if (!bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop) && !rotate_->turns_[0].active &&
-            !rotate_->turns_[2].active && !(bike && thaw_bmx::tire_tapping(this)))
+        if (!bit_mark(this, PoseFlag::kVertAir) && !bit_mark(this, PoseFlag::kAcidDrop) && !core::at(rotate_->turns_, 0).active &&
+            !core::at(rotate_->turns_, 2).active && !(bike && thaw_bmx::tire_tapping(this)))
             keep_upright();
     }
     if (special_friction_time_ != 0.0f)
@@ -503,7 +504,7 @@ void SkaterPhysicsModule::do_air_physics()
         if (wall_plant(true, false, false))
             countdown = 0;
         else if (countdown == 0)
-            entity_->basis_frame_.row[2].align_to_plane(late_wall_normal_);
+            core::at(entity_->basis_frame_.row, 2).align_to_plane(late_wall_normal_);
     }
     flags = state_;
     if (flags->flag(PoseFlag::kAcidDrop).on) {
@@ -567,7 +568,7 @@ void SkaterPhysicsModule::do_air_physics()
     if (flags->flag(PoseFlag::kLeftVert).on) {
         if (flags->flag(PoseFlag::kVertWall).on && flags->flag(PoseFlag::kVertAir).on) {
             // On a wall: a feeler from the skater's up (+1) to 23 below; off it, break out of vert.
-            const maths::Vec4& up = object->basis_frame_.row[1];
+            const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
             const maths::Vec4& position = object->at_point_;
             maths::Vec4& start = probe_start_;
             maths::Vec4& end = probe_end_;
@@ -688,7 +689,7 @@ void SkaterPhysicsModule::do_air_physics()
 
     {
         if (!bit_mark(this, PoseFlag::kVertAir) || bit_mark(this, PoseFlag::kAcidDrop) || model_rotating_ ||
-            rotate_->turns_[0].active || rotate_->turns_[2].active)
+            core::at(rotate_->turns_, 0).active || core::at(rotate_->turns_, 2).active)
             display_matrix_ = entity_->basis_frame_;
         else
             update_ground_normal();
@@ -722,7 +723,7 @@ void SkaterPhysicsModule::do_air_physics()
             }
             // Not something to land on: turn along it and push off it.
             entity_->vel_.align_to_plane(normal);
-            entity_->basis_frame_.row[2].align_to_plane(normal);
+            core::at(entity_->basis_frame_.row, 2).align_to_plane(normal);
             entity_->basis_frame_.square_up_axes(2);
             display_matrix_ = entity_->basis_frame_;
             const float push = tuning_float_lookup(0x23410C14, object);
@@ -814,7 +815,7 @@ void SkaterPhysicsModule::land_from_air()
             // bike's own up as the display / ground normal, the display matrix the skater's as it landed, and then
             // sets the ground normal to the hit's (0x004FE860: the skater's up turned to it, the display normal's
             // lerp started) - the bike eases into the landing instead of snapping to the ground.
-            const maths::Vec4 up = entity_->basis_frame_.row[1];
+            const maths::Vec4 up = core::at(entity_->basis_frame_.row, 1);
             const maths::Vec4 hit = normal;
             drawn_normal_ = up;
             floor_normal_ = up;
@@ -830,7 +831,7 @@ void SkaterPhysicsModule::land_from_air()
         floor_normal_ = ground;
         old_normal_ = ground;
         find_nearest_wall_side();
-        entity_->basis_frame_.row[1] = ground;
+        core::at(entity_->basis_frame_.row, 1) = ground;
         entity_->basis_frame_.square_up_axes(1);
         display_matrix_ = entity_->basis_frame_;
     }

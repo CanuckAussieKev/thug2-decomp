@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::clip {
 
@@ -227,9 +228,9 @@ bool dup_from(std::string* message)
         }
         layout::CopyRecord record = {0, source, {object->at_point_.x, object->at_point_.y, object->at_point_.z}, {}};
         for (int r = 0; r < 3; ++r) {
-            record.rows[r * 3 + 0] = object->basis_frame_.row[r].x;
-            record.rows[r * 3 + 1] = object->basis_frame_.row[r].y;
-            record.rows[r * 3 + 2] = object->basis_frame_.row[r].z;
+            core::at(record.rows, r * 3 + 0) = core::at(object->basis_frame_.row, r).x;
+            core::at(record.rows, r * 3 + 1) = core::at(object->basis_frame_.row, r).y;
+            core::at(record.rows, r * 3 + 2) = core::at(object->basis_frame_.row, r).z;
         }
         record.scale = scale_tool::get_object_scale(object);
         fragment.copies.push_back(record);
@@ -254,7 +255,7 @@ bool dup_from(std::string* message)
             }
         } else if (index >= 0) {
             node_create::Spec spec;
-            if (spec_of_level_node(nodes::get_all()[index], &spec)) {
+            if (spec_of_level_node(core::at(nodes::get_all(), index), &spec)) {
                 fragment.added.push_back(spec);
                 done = true;
             }
@@ -343,7 +344,7 @@ bool copy_props(std::string* message)
     if (!nodes.empty()) {
         const int index = nodes::get_find(nodes.front());
         props.from = nodes::caption(nodes.front());
-        for (const fields::Row& row : fields::rows_of(nodes::get_all()[index])) {
+        for (const fields::Row& row : fields::rows_of(core::at(nodes::get_all(), index))) {
             // (its own editable fields - not those of a shared structure; pos / angles go with the transform)
             if (!row.editable || row.included || row.key == fields::key_pos() || row.key == fields::key_angles() ||
                 row.key == fields::key_links())

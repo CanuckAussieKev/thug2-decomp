@@ -31,6 +31,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::node_create {
 
@@ -41,7 +42,7 @@ bool same_text(const std::string& a, const char* b)
     if (a.size() != std::strlen(b))
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        char x = a[i], y = b[i];
+        char x = core::at(a, i), y = b[i];
         if (x >= 'A' && x <= 'Z')
             x = static_cast<char>(x - 'A' + 'a');
         if (y >= 'A' && y <= 'Z')
@@ -71,7 +72,7 @@ int team_of(const std::string& text)
     if (ends_with(t, "_Base"))
         t.resize(t.size() - 5);
     for (int i = 0; i < kTeams; ++i) {
-        const std::string suffix = std::string("_") + kTeamNames[i];
+        const std::string suffix = std::string("_") + core::at(kTeamNames, i);
         if (ends_with(t, suffix.c_str()))
             return i;
     }
@@ -124,20 +125,20 @@ const char* kind_name(Kind kind)
 const char* get_team_name(Team team)
 {
     const int i = static_cast<int>(team);
-    return i >= 0 && i < kTeams ? kTeamNames[i] : "?";
+    return i >= 0 && i < kTeams ? core::at(kTeamNames, i) : "?";
 }
 
 bool same_spec(const Spec& a, const Spec& b)
 {
     return a.name == b.name && a.cls == b.cls && a.type == b.type && a.pos.x == b.pos.x && a.pos.y == b.pos.y &&
            a.pos.z == b.pos.z && a.angles.x == b.angles.x && a.angles.y == b.angles.y && a.angles.z == b.angles.z &&
-           a.types == b.types && a.colour[0] == b.colour[0] && a.colour[1] == b.colour[1] &&
-           a.colour[2] == b.colour[2] && a.brightness == b.brightness && a.inner == b.inner && a.outer == b.outer &&
+           a.types == b.types && core::at(a.colour, 0) == core::at(b.colour, 0) && core::at(a.colour, 1) == core::at(b.colour, 1) &&
+           core::at(a.colour, 2) == core::at(b.colour, 2) && a.brightness == b.brightness && a.inner == b.inner && a.outer == b.outer &&
            a.radius == b.radius && a.like == b.like && a.terrain == b.terrain && a.links == b.links &&
            a.owned == b.owned && a.extra.size() == b.extra.size() &&
            std::equal(a.extra.begin(), a.extra.end(), b.extra.begin(), [](const Prop& x, const Prop& y) {
-               return x.type == y.type && x.key == y.key && x.text == y.text && x.value[0] == y.value[0] &&
-                      x.value[1] == y.value[1] && x.value[2] == y.value[2] && x.integer == y.integer &&
+               return x.type == y.type && x.key == y.key && x.text == y.text && core::at(x.value, 0) == core::at(y.value, 0) &&
+                      core::at(x.value, 1) == core::at(y.value, 1) && core::at(x.value, 2) == core::at(y.value, 2) && x.integer == y.integer &&
                       x.list == y.list && x.integers == y.integers;
            });
 }
@@ -191,9 +192,9 @@ Spec default_spec(Kind kind, Team team, V3 pos, float yaw, const std::string& na
         break;
     case Kind::kLight:
         s.cls = "LevelLight";
-        s.colour[0] = 255;
-        s.colour[1] = 214;
-        s.colour[2] = 170;
+        core::at(s.colour, 0) = 255;
+        core::at(s.colour, 1) = 214;
+        core::at(s.colour, 2) = 170;
         s.brightness = 100.0f;
         s.inner = 150.0f;
         s.outer = 400.0f;
@@ -290,14 +291,14 @@ std::vector<Prop> get_fields(const Spec& spec)
     };
     auto vector = [&](const char* key, V3 v) {
         Prop f = {Prop::kVector, key};
-        f.value[0] = v.x;
-        f.value[1] = v.y;
-        f.value[2] = v.z;
+        core::at(f.value, 0) = v.x;
+        core::at(f.value, 1) = v.y;
+        core::at(f.value, 2) = v.z;
         fields.push_back(f);
     };
     auto number = [&](const char* key, float v) {
         Prop f = {Prop::kFloat, key};
-        f.value[0] = v;
+        core::at(f.value, 0) = v;
         fields.push_back(f);
     };
     auto integer = [&](const char* key, int v) {
@@ -335,7 +336,7 @@ std::vector<Prop> get_fields(const Spec& spec)
         return fields;
     }
     const int team = team_of(kind == Kind::kFlagSet ? spec.type : spec.name);
-    const std::string colour = team >= 0 ? kTeamNames[team] : "";
+    const std::string colour = team >= 0 ? core::at(kTeamNames, team) : "";
     switch (kind) {
     case Kind::kSpawn:
     case Kind::kTeamSpawn: {
@@ -368,7 +369,7 @@ std::vector<Prop> get_fields(const Spec& spec)
         number("InnerRadius", spec.inner);
         number("OuterRadius", spec.outer);
         Prop c = {Prop::kIntegers, "Color"};
-        c.integers = {spec.colour[0], spec.colour[1], spec.colour[2]};
+        c.integers = {core::at(spec.colour, 0), core::at(spec.colour, 1), core::at(spec.colour, 2)};
         fields.push_back(c);
         break;
     }
@@ -412,7 +413,7 @@ bool hide_leaves_no_restart(uint32_t types, uint32_t others)
 int get_index_of(const LinkChain& list, const std::string& name)
 {
     for (size_t i = 0; i < list.size(); ++i) {
-        if (same_text(list[i].name, name.c_str()))
+        if (same_text(core::at(list, i).name, name.c_str()))
             return static_cast<int>(i);
     }
     return -1;
@@ -429,7 +430,7 @@ bool get_take(LinkChain* list, const std::string& name, Spec* spec, int* index)
     const int i = get_index_of(*list, name);
     if (i < 0)
         return false;
-    *spec = (*list)[i];
+    *spec = core::at((*list), i);
     *index = i;
     list->erase(list->begin() + i);
     return true;
@@ -462,11 +463,11 @@ std::vector<std::string> crown_order(const LinkChain& list)
 bool move_crown(LinkChain* list, const std::string& name, int delta)
 {
     const int at = get_index_of(*list, name);
-    if (at < 0 || !is_crown((*list)[at]) || (delta != -1 && delta != 1))
+    if (at < 0 || !is_crown(core::at((*list), at)) || (delta != -1 && delta != 1))
         return false;
     for (int i = at + delta; i >= 0 && i < ints::as_signed(list->size()); i += delta) {
-        if (is_crown((*list)[i])) {
-            std::swap((*list)[at], (*list)[i]);
+        if (is_crown(core::at((*list), i))) {
+            std::swap(core::at((*list), at), core::at((*list), i));
             return true;
         }
     }
@@ -478,28 +479,28 @@ void apply_crown_order(LinkChain* list, const std::vector<std::string>& order)
     std::vector<int> slots;
     std::vector<Spec> crowns;
     for (size_t i = 0; i < list->size(); ++i) {
-        if (is_crown((*list)[i])) {
+        if (is_crown(core::at((*list), i))) {
             slots.push_back(static_cast<int>(i));
-            crowns.push_back((*list)[i]);
+            crowns.push_back(core::at((*list), i));
         }
     }
     std::vector<Spec> ordered;
     std::vector<bool> used(crowns.size(), false);
     for (const std::string& name : order) {
         for (size_t c = 0; c < crowns.size(); ++c) {
-            if (!used[c] && same_text(crowns[c].name, name.c_str())) {
-                used[c] = true;
-                ordered.push_back(crowns[c]);
+            if (!core::at(used, c) && same_text(core::at(crowns, c).name, name.c_str())) {
+                core::at(used, c) = true;
+                ordered.push_back(core::at(crowns, c));
                 break;
             }
         }
     }
     for (size_t c = 0; c < crowns.size(); ++c) {
-        if (!used[c])
-            ordered.push_back(crowns[c]);
+        if (!core::at(used, c))
+            ordered.push_back(core::at(crowns, c));
     }
     for (size_t i = 0; i < slots.size(); ++i)
-        (*list)[slots[i]] = ordered[i];
+        core::at((*list), core::at(slots, i)) = core::at(ordered, i);
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -592,10 +593,10 @@ script::Struct* get_build(const Spec& spec)
             node->put_int(key, f.integer);
             break;
         case Prop::kFloat:
-            node->push_float(key, f.value[0]);
+            node->push_float(key, core::at(f.value, 0));
             break;
         case Prop::kVector:
-            node->put_vec3(key, f.value[0], f.value[1], f.value[2]);
+            node->put_vec3(key, core::at(f.value, 0), core::at(f.value, 1), core::at(f.value, 2));
             break;
         case Prop::kNames:
         case Prop::kIntegers: {
@@ -607,7 +608,7 @@ script::Struct* get_build(const Spec& spec)
             auto count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
             array->configure_size_kind(count, names ? script::kQbvalName : script::kQbvalInteger);
             for (uint32_t i = 0; i < count; ++i)
-                array->set_element(i, names ? name_hash(f.list[i]) : static_cast<uint32_t>(f.integers[i]));
+                array->set_element(i, names ? name_hash(core::at(f.list, i)) : static_cast<uint32_t>(core::at(f.integers, i)));
             node->append_array_ref(key, array);
             break;
         }
@@ -638,7 +639,7 @@ void write_links(script::Struct* node, const std::vector<uint32_t>& links)
     new (array) script::Array;
     array->configure_size_kind(static_cast<uint32_t>(links.size()), script::kQbvalName);
     for (size_t i = 0; i < links.size(); ++i)
-        array->set_element(static_cast<uint32_t>(i), links[i]);
+        array->set_element(static_cast<uint32_t>(i), core::at(links, i));
     node->append_array_ref(kLinks, array);
 }
 
@@ -678,13 +679,13 @@ bool get_sync()
     g_level_array = manager->get_last_node_array_name(); // (the overlay passed over: the level's)
     g_array->configure_size_kind(static_cast<uint32_t>(g_structs.size()), script::kQbvalStruct);
     for (size_t i = 0; i < g_structs.size(); ++i) {
-        g_array->set_element(static_cast<uint32_t>(i), cell::of(g_structs[i]));
+        g_array->set_element(static_cast<uint32_t>(i), cell::of(core::at(g_structs, i)));
         // (links= are names already: kept out of AddNodeArray's resolve_links, which reads indices - put on after)
-        g_structs[i]->erase_module(kLinks);
+        core::at(g_structs, i)->erase_module(kLinks);
     }
     g_registered = manager->add_node_array(nodes::overlay_array(), false);
     for (size_t i = 0; i < g_structs.size(); ++i)
-        write_links(g_structs[i], g_list[i].links);
+        write_links(core::at(g_structs, i), core::at(g_list, i).links);
     nodes::mark_stale();
     return g_registered;
 }
@@ -785,7 +786,7 @@ LinkChain at_hand()
 {
     LinkChain list;
     for (size_t i = 0; i < g_list.size(); ++i)
-        list.push_back(with_place(g_list[i], g_structs[i]));
+        list.push_back(with_place(core::at(g_list, i), core::at(g_structs, i)));
     return list;
 }
 
@@ -921,11 +922,11 @@ int create_all(const LinkChain& specs, std::string* message)
 bool drop_out(uint32_t name, Spec* spec, int* index)
 {
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (name_hash(g_list[i].name) != name)
+        if (name_hash(core::at(g_list, i).name) != name)
             continue;
-        *spec = with_place(g_list[i], g_structs[i]);
+        *spec = with_place(core::at(g_list, i), core::at(g_structs, i));
         *index = static_cast<int>(i);
-        script::Struct* node = g_structs[i];
+        script::Struct* node = core::at(g_structs, i);
         kill_live(*spec); // (the light lists by name - before the node goes)
         g_list.erase(g_list.begin() + static_cast<std::ptrdiff_t>(i));
         g_structs.erase(g_structs.begin() + static_cast<std::ptrdiff_t>(i));
@@ -941,10 +942,10 @@ bool drop_out(uint32_t name, Spec* spec, int* index)
 bool set_links(uint32_t name, const std::vector<uint32_t>& links)
 {
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (name_hash(g_list[i].name) != name)
+        if (name_hash(core::at(g_list, i).name) != name)
             continue;
-        g_list[i].links = links;
-        write_links(g_structs[i], links);
+        core::at(g_list, i).links = links;
+        write_links(core::at(g_structs, i), links);
         nodes::mark_stale();
         return true;
     }
@@ -966,16 +967,16 @@ void set_order(const std::vector<std::string>& names)
     std::vector<bool> used(g_list.size(), false);
     for (const std::string& name : names) {
         const int i = get_index_of(g_list, name);
-        if (i >= 0 && !used[i]) {
-            used[i] = true;
-            list.push_back(g_list[i]);
-            structs.push_back(g_structs[i]);
+        if (i >= 0 && !core::at(used, i)) {
+            core::at(used, i) = true;
+            list.push_back(core::at(g_list, i));
+            structs.push_back(core::at(g_structs, i));
         }
     }
     for (size_t i = 0; i < g_list.size(); ++i) {
-        if (!used[i]) {
-            list.push_back(g_list[i]);
-            structs.push_back(g_structs[i]);
+        if (!core::at(used, i)) {
+            list.push_back(core::at(g_list, i));
+            structs.push_back(core::at(g_structs, i));
         }
     }
     g_list.swap(list);

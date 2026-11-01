@@ -27,6 +27,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -131,10 +132,10 @@ WorldScene::WorldScene(int bits)
     coll_grid_ = nullptr;
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     sectors_ = memory ? memory::construct_in<lists::KeyMap>(memory, bits) : nullptr;
-    label_[0] = '\0';
-    pip_name_[0] = '\0';
+    core::at(label_, 0) = '\0';
+    core::at(pip_name_, 0) = '\0';
     coll_grid_ = nullptr;
-    add_name_[0] = '\0';
+    core::at(add_name_, 0) = '\0';
     hidden_sectors_ = new_head();
     add_scene_sectors_ = new_head();
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)

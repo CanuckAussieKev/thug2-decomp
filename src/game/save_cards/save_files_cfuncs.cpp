@@ -34,6 +34,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace save_cards {
 
@@ -73,12 +74,12 @@ void create_reserve_pool(memory::PoolPair& pools, int item_size, int count, cons
 void delete_reserve_pool(memory::PoolPair& pools)
 {
     ++pools.current;
-    if (memory::SlabBank* pool = pools.pools[pools.current]) {
+    if (memory::SlabBank* pool = core::at(pools.pools, pools.current)) {
         if (raw::bytes(&pools.unknown4)[pools.current]) {
             memory::Hub::get_pull()->dealloc(pool->outset_); // (its destructor body, 0x005BA4E0)
             memory::Hub::get_pull()->dealloc(pool);
         }
-        pools.pools[pools.current] = nullptr;
+        core::at(pools.pools, pools.current) = nullptr;
     }
     --pools.current;
 }
@@ -128,11 +129,11 @@ bool delete_mem_card_file(Struct* params, Script*)
         const uint32_t file_type = type_from_letter(path[std::strlen(path) - 1]);
         // the folder: the first character, then up to the next '/'
         std::array<char, 100> directory{};
-        directory[0] = path[0];
+        core::at(directory, 0) = path[0];
         int length = 1;
         for (const char* p = path + 1; *p && *p != '/'; ++p)
-            directory[length++] = *p;
-        directory[length] = '\0';
+            core::at(directory, length++) = *p;
+        core::at(directory, length) = '\0';
         if (!delete_card_file(card, path))
             deleted = false;
         std::array<char, 104> icon{};
@@ -226,7 +227,7 @@ bool mem_card_file_exists(Struct* params, Script* script)
         return false;
     const char* type_file_name = nullptr; // (only made on the PC and platform 7)
     std::array<char, 100> path{};
-    path[0] = '\0';
+    core::at(path, 0) = '\0';
     switch (os_layer()) {
     case 4:
     case 7: {
@@ -281,7 +282,7 @@ bool clear_mem_card_data_for_upload(Struct*, Script*)
 // 0x005A8DA0
 bool create_temporary_mem_card_pools(Struct*, Script*)
 {
-    if (component_pools().pools[component_pools().current + 1])
+    if (core::at(component_pools().pools, component_pools().current + 1))
         return true;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
@@ -362,7 +363,7 @@ uint32_t listed_file_type(const FileLoad* file, int folder_length)
     case 2:
     case 3:
     case 5:
-        return type_from_letter(file->label_[folder_length + 7]);
+        return type_from_letter(core::at(file->label_, folder_length + 7));
     case 4:
     case 7:
     case 8: {
@@ -420,7 +421,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
 
     // into the temporary component and structure pools, if they exist
     bool switched = false;
-    if (component_pools().pools[component_pools().current + 1]) {
+    if (core::at(component_pools().pools, component_pools().current + 1)) {
         ++component_pools().current;
         ++struct_pools().current;
         switched = true;
@@ -496,7 +497,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             opened->shut();
             DeleteFile(opened);
         }
-        entries[listed++] = entry;
+        core::at(entries, listed++) = entry;
     }
     if (switched) {
         --component_pools().current;
@@ -520,10 +521,10 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
         do {
             swapped = false;
             for (int j = 0; j < listed - 1; ++j) {
-                if (is_later(entries[j + 1], entries[j])) {
-                    Struct* later = entries[j + 1];
-                    entries[j + 1] = entries[j];
-                    entries[j] = later;
+                if (is_later(core::at(entries, j + 1), core::at(entries, j))) {
+                    Struct* later = core::at(entries, j + 1);
+                    core::at(entries, j + 1) = core::at(entries, j);
+                    core::at(entries, j) = later;
                     swapped = true;
                 }
             }
@@ -533,7 +534,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
             listing = new (listing) script::Array;
         listing->configure_size_kind(static_cast<uint32_t>(listed), script::kQbvalStruct);
         for (int j = 0; j < listed; ++j)
-            listing->set_element(static_cast<uint32_t>(j), cell::of(entries[j]));
+            listing->set_element(static_cast<uint32_t>(j), cell::of(core::at(entries, j)));
         result_params(script)->append_array_ref(kDirectoryListing, listing);
     }
     // the head unlinked (its destructor's body)
@@ -574,7 +575,7 @@ bool save_to_memory_card(Struct* params, Script*)
     }
     // into the temporary pools, if they exist
     bool switched = false;
-    if (component_pools().pools[component_pools().current + 1]) {
+    if (core::at(component_pools().pools, component_pools().current + 1)) {
         ++component_pools().current;
         ++struct_pools().current;
         ++vector_pools().current;
@@ -621,7 +622,7 @@ bool save_to_memory_card(Struct* params, Script*)
         }
         case 4:
         case 7: {
-            path[0] = '\0';
+            core::at(path, 0) = '\0';
             text::copy_unbounded(path.data(), get_type_file_name(type, name));
             break;
         }

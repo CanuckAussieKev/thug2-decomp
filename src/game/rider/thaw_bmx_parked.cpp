@@ -22,6 +22,7 @@
 #include "game/rider/core_physics.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater::thaw_bmx {
 
@@ -146,9 +147,9 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
     const double h = static_cast<double>(heading) * kPi / 180.0;
     auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
-        m->row[0] = {c, 0.0f, -s, 0.0f};
-        m->row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-        m->row[2] = {s, 0.0f, c, 0.0f};
+        core::at(m->row, 0) = {c, 0.0f, -s, 0.0f};
+        core::at(m->row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+        core::at(m->row, 2) = {s, 0.0f, c, 0.0f};
     }
     if (skater->core_physics_)
         skater->core_physics_->display_matrix_ = skater->basis_frame_; // (its display matrix)
@@ -184,10 +185,10 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
         return true;
     const Point from = point_of(skater->at_point_);
     const Point to = point_of(bike->at_point_);
-    const float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
+    const float heading = get_heading_of(core::at(skater->basis_frame_.row, 2).x, core::at(skater->basis_frame_.row, 2).z);
     Point next{};
     if (step_toward(from, to, kWalkStep, &next)) {
-        place_skater(skater, to, get_heading_of(bike->basis_frame_.row[2].x, bike->basis_frame_.row[2].z));
+        place_skater(skater, to, get_heading_of(core::at(bike->basis_frame_.row, 2).x, core::at(bike->basis_frame_.row, 2).z));
         return true;
     }
     // (turned towards it first, then walked)
@@ -272,7 +273,7 @@ void register_parked_functions()
         {"ThawBmx_WalkToBike", code_address(&cfunc_walk_to_bike)},
         {"ThawBmx_BikeReachable", code_address(&cfunc_bike_reachable)},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }
 
 void update_parked(modules::FrontEnd* front_end)
@@ -295,7 +296,7 @@ void update_parked(modules::FrontEnd* front_end)
             return;
         // (where the skater is now: where the level started it)
         const Point pos = point_of(skater->at_point_);
-        const float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
+        const float heading = get_heading_of(core::at(skater->basis_frame_.row, 2).x, core::at(skater->basis_frame_.row, 2).z);
         g_level.start = find_start_spot(pos, heading);
         g_level.noted = true;
         if (!g_level.start.valid)

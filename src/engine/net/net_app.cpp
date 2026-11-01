@@ -29,6 +29,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -62,7 +63,7 @@ constexpr uint32_t kConnReady = Conn::kConnReady;
 constexpr uint32_t kConnClosing = 8;
 AppHost*& owner_app(Conn* conn) { return conn->owner_app_; }
 // The next sequence id of each message group.
-uint32_t& next_sequence_id(Conn* conn, uint8_t group) { return conn->next_sequence_ids_[group]; }
+uint32_t& next_sequence_id(Conn* conn, uint8_t group) { return core::at(conn->next_sequence_ids_, group); }
 int& alloc_stream_key(Conn* conn) { return conn->stream_counter_; }
 ListNode* get_streams(Conn* conn) { return &conn->send_streams_; } // lists::Foremost<BulkStreamNode>
 void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::Gauges (0x100C bytes)
@@ -204,7 +205,7 @@ AppHost::AppHost(int flags)
     metrics_task_ = new_task(kMetricsTaskPriority, &AppHost::network_metrics, this);
     receive_task_ = new_task(kReceiveTaskPriority, &AppHost::receive_network_data, this);
     process_task_ = new_task(kProcessTaskPriority, &AppHost::pump_incoming_traffic, this);
-    unknown1f00_[0] = unknown1f00_[1] = 0; // the double 0.0
+    core::at(unknown1f00_, 0) = core::at(unknown1f00_, 1) = 0; // the double 0.0
     flag_bits_ = static_cast<uint32_t>(flags);
     clock_ = 0;
     unknown_packet_sink_ = nullptr;

@@ -1,4 +1,5 @@
 #include "engine/maths/rotation_blend.h"
+#include "engine/core/checked_index.h"
 
 #include <cstddef>
 #include <new>
@@ -54,8 +55,8 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     }
 
     // The translation is read first, as in the original (so `out` may be one of the stored matrices).
-    const Vec4 from = start.row[3];
-    const Vec4 to = end.row[3];
+    const Vec4 from = core::at(start.row, 3);
+    const Vec4 to = core::at(end.row, 3);
     auto lerp = [t](const Vec4& a, const Vec4& b) {
         return Vec4{(b.x - a.x) * t + a.x, (b.y - a.y) * t + a.y, (b.z - a.z) * t + a.z, (b.w - a.w) * t + a.w};
     };
@@ -63,19 +64,19 @@ void ArcRotationBlender::fetch_mat(Mat4& out, float t) const
     if (small_rotation_) {
         // Too small to rotate accurately: blend the rotation rows and renormalise them.
         for (int i = 0; i < 3; ++i)
-            out.row[i] = lerp(start.row[i], end.row[i]);
+            core::at(out.row, i) = lerp(core::at(start.row, i), core::at(end.row, i));
         for (int i = 0; i < 3; ++i)
-            out.row[i].make_unit();
-        out.row[0].w = out.row[1].w = out.row[2].w = 0.0f;
-        out.row[3] = lerp(from, to);
+            core::at(out.row, i).make_unit();
+        core::at(out.row, 0).w = core::at(out.row, 1).w = core::at(out.row, 2).w = 0.0f;
+        core::at(out.row, 3) = lerp(from, to);
         return;
     }
 
     out = start;
-    out.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(out.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     out.spin_by(axis, t * angle);
-    out.row[3] = lerp(from, to);
-    out.row[3].w = 1.0f;
+    core::at(out.row, 3) = lerp(from, to);
+    core::at(out.row, 3).w = 1.0f;
 }
 
 } // namespace maths

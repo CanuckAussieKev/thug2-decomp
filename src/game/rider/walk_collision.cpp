@@ -32,6 +32,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -408,7 +409,7 @@ void FootMovement::try_wallplant()
     static const std::array<int, 7> kOrder = {{0, 1, 6, 2, 5, 3, 4}};
     WalkContact* contact = nullptr;
     for (const int index : kOrder) {
-        WalkContact* candidate = &contacts_[index];
+        WalkContact* candidate = &core::at(contacts_, index);
         if (candidate->hit) {
             contact = candidate;
             break;

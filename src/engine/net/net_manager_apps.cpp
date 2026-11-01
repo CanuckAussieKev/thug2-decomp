@@ -17,6 +17,7 @@
 #include "engine/net/net_server.h"
 #include <gsl/pointers>
 #include "platform/compiler.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -67,9 +68,9 @@ Hub::Hub()
     setup_list_sentinel(&hosts_);
     setup_list_sentinel(&clients_);
     for (int id = 0; id < kMsgIdSpace; ++id)
-        message_flags_[id] = 0;
-    message_flags_[kMsgClockStamp] = kMsgNoLength;
-    message_flags_[kMsgAck] = kMsgNoLength;
+        core::at(message_flags_, id) = 0;
+    core::at(message_flags_, kMsgClockStamp) = kMsgNoLength;
+    core::at(message_flags_, kMsgAck) = kMsgNoLength;
     copy_string(local_ip_.data(), "<Unknown>");
     copy_string(router_addr_.data(), "192.168.55.99");
     copy_string(subnet_mask_.data(), "255.255.0.0");
@@ -82,7 +83,7 @@ Hub::Hub()
     dialup_phase_ = 5;
     unknown2ec_ = 0;
     for (std::array<char, 0x10>& server : resolver_ips_)
-        server[0] = '\0';
+        core::at(server, 0) = '\0';
     dialup_number_index_ = 0;
     link_speed_ = 400000;
 }

@@ -14,6 +14,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -166,7 +167,7 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         return;
     }
     for (uint32_t j = 0; j < count; ++j) {
-        DynamicLightBase* light = dynamic[j];
+        DynamicLightBase* light = core::at(dynamic, j);
         const float* at = light->pos.data();
         double dx = static_cast<double>(position->x) - at[0];
         double dy = static_cast<double>(position->y) - at[1];

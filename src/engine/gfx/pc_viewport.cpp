@@ -22,6 +22,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -50,7 +51,7 @@ void begin_query_draw(uint32_t fvf)
 {
     choose_blend_mode(0);
     set_texture(0, nullptr);
-    set_pixel_shader(g_pixel_shaders[kPixelShader94c], nullptr);
+    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader94c), nullptr);
     set_vertex_format(fvf);
     os_layer::begin_occlusion_query();
 }
@@ -146,9 +147,9 @@ uint32_t occlusion_pixels()
     if (radeon8500())
         return 0;
     DWORD pixels = 0;
-    const HRESULT result = os_layer::get_occlusion_result(g_occlusion_requests[0].slot, &pixels);
+    const HRESULT result = os_layer::get_occlusion_result(core::at(g_occlusion_requests, 0).slot, &pixels);
     if (result == S_OK) {
-        g_occlusion_slots[g_occlusion_requests[0].slot] = 0;
+        core::at(g_occlusion_slots, core::at(g_occlusion_requests, 0).slot) = 0;
         pop_occlusion_request(); // (the requests moved on)
         g_occlusion_pixels = pixels;
         return pixels;

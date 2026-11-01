@@ -13,6 +13,7 @@
 #include "engine/core/dbg.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace game_config {
 
@@ -66,7 +67,7 @@ bool argument_starts_with(const char* argument, const char* option)
     if (std::strlen(argument) < length)
         return false;
     copy_string(copy.data(), argument);
-    copy[length] = '\0';
+    core::at(copy, length) = '\0';
     return std::strcmp(copy.data(), option) == 0;
 }
 
@@ -104,10 +105,10 @@ bool got_argument(const char* option, int argc, char** argv)
     if (!option)
         return false;
     for (size_t i = 0; i < std::strlen(option) + 1; ++i)
-        wanted[i] = get_lower(option[i]);
+        core::at(wanted, i) = get_lower(option[i]);
     for (int i = 0; i < argc; ++i) {
         for (size_t j = 0; j < std::strlen(argv[i]) + 1; ++j)
-            argument[j] = get_lower(argv[i][j]);
+            core::at(argument, j) = get_lower(argv[i][j]);
         if (std::strcmp(argument.data(), wanted.data()) == 0)
             return true;
     }

@@ -23,6 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace sun {
 
@@ -388,9 +389,9 @@ void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths
         corner.z += position->z;
     }
     for (int i = 0; i < 4; ++i) {
-        corners[i * 3 + 0] = quad_corners[i].x;
-        corners[i * 3 + 1] = quad_corners[i].y;
-        corners[i * 3 + 2] = quad_corners[i].z;
+        corners[i * 3 + 0] = core::at(quad_corners, i).x;
+        corners[i * 3 + 1] = core::at(quad_corners, i).y;
+        corners[i * 3 + 2] = core::at(quad_corners, i).z;
     }
     quad->blend_mode_ = kBlend;
     quad->prepare_all(3, 4, 4);
@@ -464,7 +465,7 @@ void render(gfx::ViewCam* camera)
     std::array<float, 12> corners = {};
     const std::array<float, 8> uvs = {{0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f}};
     build_sun_quad(camera, &sun, &sun_pos, corners.data());
-    blit_quad(&sun, corners.data(), &colors[0][0], uvs.data());
+    blit_quad(&sun, corners.data(), &core::at(core::at(colors, 0), 0), uvs.data());
     QueryRequest request;
     request.callback = query_sun_visibility;
     request.data = nullptr;
@@ -489,7 +490,7 @@ void render(gfx::ViewCam* camera)
                 corona.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
             set_prim_state(1, 2);
             set_prim_state(4, 0);
-            blit_quad(&corona, corona_corners.data(), &colors[0][0], corona_uvs.data());
+            blit_quad(&corona, corona_corners.data(), &core::at(core::at(colors, 0), 0), corona_uvs.data());
         }
         if (!flare_hidden()) {
             Struct* params = new_params();
@@ -510,7 +511,7 @@ void render(gfx::ViewCam* camera)
         if (get_corona_texture())
             sun.set_texture(static_cast<const uint8_t*>(get_corona_texture()), 0, 0);
         sun.blend_mode_ = kAdd;
-        blit_quad(&sun, corners.data(), &colors[0][0], uvs.data());
+        blit_quad(&sun, corners.data(), &core::at(core::at(colors, 0), 0), uvs.data());
         if (static_cast<double>(morph_in_time()) * 1000.0f < static_cast<double>(unseen))
             show_flare(&screen, 0.0f);
         else

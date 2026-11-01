@@ -12,6 +12,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -74,8 +75,8 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
         for (HitMesh** object = objects_along(*lists, &line); *object; ++object) {
             if (!(*object)->inside_bounds(&grown))
                 continue;
-            entries_[num_].bounds = (*object)->get_world_bounds();
-            entries_[num_].object = *object;
+            core::at(entries_, num_).bounds = (*object)->get_world_bounds();
+            core::at(entries_, num_).object = *object;
             ++num_;
             ++statics_;
         }
@@ -85,8 +86,8 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
         auto* object = static_cast<HitMesh*>(node->data);
         if (!object || (object->flag_bits_ & 6) || !object->inside_bounds(&grown))
             continue;
-        entries_[num_].bounds = object->get_local_bounds();
-        entries_[num_].object = object;
+        core::at(entries_, num_).bounds = object->get_local_bounds();
+        core::at(entries_, num_).object = object;
         ++num_;
         ++movables_;
     }
@@ -96,10 +97,10 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
 void HitMeshCache::remove_static(HitMesh* object)
 {
     for (int i = 0; i < statics_; ++i) {
-        if (entries_[i].object != object)
+        if (core::at(entries_, i).object != object)
             continue;
         for (int k = i + 1; k < num_; ++k)
-            entries_[k - 1] = entries_[k];
+            core::at(entries_, k - 1) = core::at(entries_, k);
         --statics_;
         --num_;
         return;
@@ -110,10 +111,10 @@ void HitMeshCache::remove_static(HitMesh* object)
 void HitMeshCache::remove_movable(HitMesh* object)
 {
     for (int i = statics_; i < num_; ++i) {
-        if (entries_[i].object != object)
+        if (core::at(entries_, i).object != object)
             continue;
         --num_;
-        entries_[i] = entries_[num_];
+        core::at(entries_, i) = core::at(entries_, num_);
         --movables_;
         return;
     }

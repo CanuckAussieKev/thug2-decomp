@@ -19,6 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -112,7 +113,7 @@ bool BuildPointer::commit_tile_placement()
     // A restart point needs a free slot of its type.
     const uint32_t type = meta_type(get_meta());
     for (int slot = 1; slot < 9; ++slot) {
-        if (type == manager->restart_pieces_[slot - 1]) {
+        if (type == core::at(manager->restart_pieces_, slot - 1)) {
             if (!as_generator(manager->get_generator())->has_free_restart_slot(slot)) {
                 debug::printf(
                     "No free slots exist for this type of restart point\n"); // "No free slots exist for this type of restart point\n"
@@ -167,10 +168,10 @@ bool BuildPointer::add_gap_half()
             else
                 gap.halves_placed_ = 0;
             const int n = gap.halves_placed_;
-            gap.at_point_[n] = meta_footprint(meta);
-            gap.quarter_turns_[n] = 0;
-            gap.reach_left_[n] = 0;
-            gap.reach_right_[n] = 0;
+            core::at(gap.at_point_, n) = meta_footprint(meta);
+            core::at(gap.quarter_turns_, n) = 0;
+            core::at(gap.reach_left_, n) = 0;
+            core::at(gap.reach_right_, n) = 0;
             gap.points_held_ = 100;
             gap.halves_placed_ = n + 1;
             gap.slot_index_ = -1;
@@ -232,47 +233,47 @@ bool BuildPointer::change_gap(int turn, int left, int right)
         return false;
     // A gap being made: only its own first half.
     if (current_gap().halves_placed_ == 1 &&
-        (gap->at_point_[0].x != current_gap().at_point_[0].x || gap->at_point_[0].y != current_gap().at_point_[0].y ||
-         gap->at_point_[0].z != current_gap().at_point_[0].z))
+        (core::at(gap->at_point_, 0).x != core::at(current_gap().at_point_, 0).x || core::at(gap->at_point_, 0).y != core::at(current_gap().at_point_, 0).y ||
+         core::at(gap->at_point_, 0).z != core::at(current_gap().at_point_, 0).z))
         return false;
     GapRecord copy = *gap;
     bool changed = false;
     if (turn) {
-        copy.quarter_turns_[half] -= turn;
-        copy.reach_left_[half] = 0;
-        copy.reach_right_[half] = 0;
+        core::at(copy.quarter_turns_, half) -= turn;
+        core::at(copy.reach_left_, half) = 0;
+        core::at(copy.reach_right_, half) = 0;
         changed = true;
     }
     if (left) {
-        copy.reach_left_[half] += left;
-        if (copy.reach_left_[half] < 0)
-            copy.reach_left_[half] = 0;
-        else if (copy.reach_left_[half] > 6)
-            copy.reach_left_[half] = 6;
+        core::at(copy.reach_left_, half) += left;
+        if (core::at(copy.reach_left_, half) < 0)
+            core::at(copy.reach_left_, half) = 0;
+        else if (core::at(copy.reach_left_, half) > 6)
+            core::at(copy.reach_left_, half) = 6;
         changed = true;
     }
     if (right) {
-        copy.reach_right_[half] += right;
-        if (copy.reach_right_[half] < 0)
-            copy.reach_right_[half] = 0;
-        if (copy.reach_right_[half] > 6)
-            copy.reach_right_[half] = 6;
+        core::at(copy.reach_right_, half) += right;
+        if (core::at(copy.reach_right_, half) < 0)
+            core::at(copy.reach_right_, half) = 0;
+        if (core::at(copy.reach_right_, half) > 6)
+            core::at(copy.reach_right_, half) = 6;
     } else if (!changed) {
         return true;
     }
     drop_gap_entry(hub(), gap);
-    copy.quarter_turns_[half] &= 3;
+    core::at(copy.quarter_turns_, half) &= 3;
     const CellBox park = hub()->park_dims();
-    const CellBox& at = copy.at_point_[half];
-    int* m_reach_left = &copy.reach_left_[half];
-    int* m_reach_right = &copy.reach_right_[half];
+    const CellBox& at = core::at(copy.at_point_, half);
+    int* m_reach_left = &core::at(copy.reach_left_, half);
+    int* m_reach_right = &core::at(copy.reach_right_, half);
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
     // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-    switch (copy.quarter_turns_[half]) {
+    switch (core::at(copy.quarter_turns_, half)) {
     case 0:
     case 2: {
-        int* behind = copy.quarter_turns_[half] == 0 ? m_reach_right : m_reach_left;
-        int* ahead = copy.quarter_turns_[half] == 0 ? m_reach_left : m_reach_right;
+        int* behind = core::at(copy.quarter_turns_, half) == 0 ? m_reach_right : m_reach_left;
+        int* ahead = core::at(copy.quarter_turns_, half) == 0 ? m_reach_left : m_reach_right;
         if (at.z - *behind < park.z)
             --*behind;
         if (at.z + at.l + *ahead > park.z + park.l)
@@ -281,8 +282,8 @@ bool BuildPointer::change_gap(int turn, int left, int right)
     }
     case 1:
     case 3: {
-        int* behind = copy.quarter_turns_[half] == 1 ? m_reach_right : m_reach_left;
-        int* ahead = copy.quarter_turns_[half] == 1 ? m_reach_left : m_reach_right;
+        int* behind = core::at(copy.quarter_turns_, half) == 1 ? m_reach_right : m_reach_left;
+        int* ahead = core::at(copy.quarter_turns_, half) == 1 ? m_reach_left : m_reach_right;
         if (at.x - *behind < park.x)
             --*behind;
         if (at.x + at.w + *ahead > park.x + park.w)
@@ -457,12 +458,12 @@ void ParkLayout::commission(uint32_t level)
                         break;
                     }
                 }
-                set.entries_[entry].checksum = meta_type(meta); // (no check for a missing piece, as in the original)
+                core::at(set.entries_, entry).checksum = meta_type(meta); // (no check for a missing piece, as in the original)
                 auto* piece_description =
                     standard->struct_at(static_cast<uint32_t>(piece));
                 if (!piece_description->fetch_text("text_name", // "text_name"
-                                                   &set.entries_[entry].name, 0))
-                    set.entries_[entry].name = nullptr;
+                                                   &core::at(set.entries_, entry).name, 0))
+                    core::at(set.entries_, entry).name = nullptr;
             }
         }
         set.is_clipboard_ = false;
@@ -473,8 +474,8 @@ void ParkLayout::commission(uint32_t level)
             for (int k = 0; k < 6; ++k) {
                 std::array<char, 100> name{};
                 std::snprintf(name.data(), sizeof(name), "Clipboard%d", k); // "Clipboard%d"
-                set.entries_[k].name = text;
-                set.entries_[k].checksum = checksums::hash_from_text(name.data());
+                core::at(set.entries_, k).name = text;
+                core::at(set.entries_, k).checksum = checksums::hash_from_text(name.data());
             }
         }
         set.is_displayed_ = !description->has_bare_flag("hidden"); // "hidden"

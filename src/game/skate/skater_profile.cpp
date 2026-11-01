@@ -20,6 +20,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -290,11 +291,11 @@ void ChecksumSet::get_fill()
         const uint32_t item = array->fetch_part(i);
         int j = 0;
         for (; j < num_; ++j) {
-            if (item == items_[j])
+            if (item == core::at(items_, j))
                 break;
         }
         if (j == num_) // (not there yet)
-            items_[num_++] = item;
+            core::at(items_, num_++) = item;
     }
 }
 

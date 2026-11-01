@@ -40,6 +40,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -578,7 +579,7 @@ PreviewEntity::PreviewEntity(net::AppHost* app)
     auto* handler = new ViewerObjectInputHandler(&handle_viewer_object_input, this, 0, 0);
     task_ = handler;
     // Onto its controller's handlers (not null-checked: as the original).
-    pad_input::HostEnd& controller = input->hosts_[handler->ordinal_];
+    pad_input::HostEnd& controller = core::at(input->hosts_, handler->ordinal_);
     controller.handlers_.queue_job(handler);
     handler->control_data_ = &controller.content_;
     handler->dev_ = controller.dev_;

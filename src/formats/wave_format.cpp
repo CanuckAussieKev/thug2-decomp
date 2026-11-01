@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the sound effects' file reader: see wave_format.h.
 
 #include "formats/wave_format.h"
+#include "engine/core/checked_index.h"
 
 namespace wave_format {
 
@@ -17,7 +18,7 @@ bool read_wave(util::ByteReader& reader, Wave* out)
         if (id == kFormatId) {
             out->format_size = size;
             for (size_t i = 0; i < kFormatSize && i < size; ++i)
-                out->format[i] = body[i];
+                core::at(out->format, i) = body[i];
         } else if (id == kDataId) {
             out->samples = body;
             out->sample_bytes = size;

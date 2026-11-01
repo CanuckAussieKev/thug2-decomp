@@ -17,6 +17,7 @@
 #include "game/rider/rider.h"
 #include "game/park_editing/park_editor.h"
 #include "game/rider/skater_state.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -95,7 +96,7 @@ bool SkaterPhysicsModule::should_brake()
         return true;
     const objects::GameEntity* object = object_of(this);
     const maths::Vec4& v = object->vel_;
-    const maths::Vec4& f = object->basis_frame_.row[2];
+    const maths::Vec4& f = core::at(object->basis_frame_.row, 2);
     const double along =
         (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
     return along < 0.0;
@@ -137,11 +138,11 @@ void SkaterPhysicsModule::push_off()
         const double speed = std::sqrt((static_cast<double>(v.z) * v.z + static_cast<double>(v.y) * v.y) +
                                        static_cast<double>(v.x) * v.x);
         if (speed < kLockedSlow)
-            direction = object->basis_frame_.row[2];
+            direction = core::at(object->basis_frame_.row, 2);
         else
             direction.make_unit();
     } else {
-        direction = object->basis_frame_.row[2];
+        direction = core::at(object->basis_frame_.row, 2);
     }
     const bool crouched = is_crouched(this) || crouch_stats_;
     auto push = static_cast<float>(stat_value(object, crouched ? kPushCrouched : kPush));
@@ -220,7 +221,7 @@ void SkaterPhysicsModule::turn_to_normal(maths::Vec4 normal)
         floor_normal_ = normal;
         old_normal_ = drawn_normal_;
         normal_blend_ = 1.0f;
-        entity_->basis_frame_.row[1] = normal;
+        core::at(entity_->basis_frame_.row, 1) = normal;
         entity_->basis_frame_.square_up_axes(1);
     }
 }
@@ -248,12 +249,12 @@ void SkaterPhysicsModule::update_ground_normal()
             }
         }
     }
-    if (display_matrix_.row[1] != drawn_normal_) {
-        display_matrix_.row[1] = drawn_normal_;
+    if (core::at(display_matrix_.row, 1) != drawn_normal_) {
+        core::at(display_matrix_.row, 1) = drawn_normal_;
         maths::Mat4& display = display_matrix_;
         display.square_up_axes(1);
-        display.row[0] = entity_->basis_frame_.row[0];
-        display_matrix_.row[2] = entity_->basis_frame_.row[2];
+        core::at(display.row, 0) = core::at(entity_->basis_frame_.row, 0);
+        core::at(display_matrix_.row, 2) = core::at(entity_->basis_frame_.row, 2);
     }
 }
 
@@ -278,7 +279,7 @@ void SkaterPhysicsModule::start_vert_air()
     across.make_unit();
     entity_->vel_.align_to_plane(across);
     turn_to_normal(across);
-    vert_facing_ = entity_->basis_frame_.row[2];
+    vert_facing_ = core::at(entity_->basis_frame_.row, 2);
     vert_facing_.y = -vert_facing_.y;
     const double out = script::fetch_float(kVertPushOut);
     maths::Vec4& position = entity_->at_point_;

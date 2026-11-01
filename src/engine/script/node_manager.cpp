@@ -23,6 +23,7 @@
 #include <array>
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace level_nodes {
 
@@ -50,10 +51,10 @@ void log_missing_node(uint32_t name)
     static std::array<uint32_t, 32> logged;
     static int count = 0;
     for (int i = 0; i < count; ++i)
-        if (logged[i] == name)
+        if (core::at(logged, i) == name)
             return;
     if (count < 32)
-        logged[count++] = name;
+        core::at(logged, count++) = name;
     const char* text = script::look_up_hash_name(name);
     get_log(
         "nodes: no node named 0x%08X%s%s%s in the level's node arrays - the caller expected one (it may crash on it)",
@@ -179,7 +180,7 @@ void NodeManager::unhash_node_array(uint32_t array)
         const uint32_t moved_array = slots.get_array(i);
         const int moved_node = slots.elem(i);
         slots.get_clear(i);
-        auto* node = arrays_[moved_array].node_entries_->struct_at(moved_node);
+        auto* node = core::at(arrays_, moved_array).node_entries_->struct_at(moved_node);
         uint32_t name = 0;
         node->read_hash_value(kName, &name, 1);
         uint32_t to = name & slots.get_mask();
@@ -198,7 +199,7 @@ Struct* NodeManager::fetch_vertex(uint32_t name, bool assert)
     for (uint32_t slot = name & slots.get_mask(); tries-- && !slots.vacant(slot);
          slot = (slot + 1) & slots.get_mask()) {
         auto* node =
-            arrays_[slots.get_array(slot)].node_entries_->struct_at(slots.elem(slot));
+            core::at(arrays_, slots.get_array(slot)).node_entries_->struct_at(slots.elem(slot));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
         if (node_name == name)
@@ -228,7 +229,7 @@ void NodeManager::start_walk(uint32_t name)
     uint32_t slot = name & slots.get_mask();
     for (;;) {
         auto* node =
-            arrays_[slots.get_array(slot)].node_entries_->struct_at(slots.elem(slot));
+            core::at(arrays_, slots.get_array(slot)).node_entries_->struct_at(slots.elem(slot));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);
         if (node_name == name)
@@ -252,7 +253,7 @@ Struct* NodeManager::get_next_node()
     if (walk.elem() == -1)
         return nullptr;
     uint32_t array = walk.get_array();
-    Array* nodes = arrays_[array].node_entries_;
+    Array* nodes = core::at(arrays_, array).node_entries_;
     auto* node = nodes->struct_at(walk.elem());
     int next = walk.elem() + 1;
     if (!walk.big)
@@ -272,9 +273,9 @@ Array* NodeManager::get_last_node_array()
 {
     // NOT ORIGINAL: the level editor's overlay array (set_editor_node_array) is passed over - callers mean the level's.
     uint32_t i = num_;
-    while (i && g_editor_array && arrays_[i - 1].label_ == g_editor_array)
+    while (i && g_editor_array && core::at(arrays_, i - 1).label_ == g_editor_array)
         --i;
-    return i ? arrays_[i - 1].node_entries_ : nullptr;
+    return i ? core::at(arrays_, i - 1).node_entries_ : nullptr;
 }
 
 // 0x0045D150
@@ -282,9 +283,9 @@ uint32_t NodeManager::get_last_node_array_name()
 {
     // NOT ORIGINAL: as get_last_node_array, the editor's overlay array passed over.
     uint32_t i = num_;
-    while (i && g_editor_array && arrays_[i - 1].label_ == g_editor_array)
+    while (i && g_editor_array && core::at(arrays_, i - 1).label_ == g_editor_array)
         --i;
-    return i ? arrays_[i - 1].label_ : 0;
+    return i ? core::at(arrays_, i - 1).label_ : 0;
 }
 
 // 0x0045D140
@@ -301,7 +302,7 @@ uint32_t NodeManager::get_owner_value58()
 bool NodeManager::has_node_array(uint32_t name)
 {
     for (uint32_t i = 0; i < num_; ++i) {
-        if (arrays_[i].label_ == name)
+        if (core::at(arrays_, i).label_ == name)
             return true;
     }
     return false;
@@ -311,7 +312,7 @@ bool NodeManager::has_node_array(uint32_t name)
 bool NodeManager::hash_node_in(uint32_t name, uint32_t a, uint32_t b)
 {
     for (uint32_t i = 0; i < num_; ++i) {
-        if (arrays_[i].label_ == name) {
+        if (core::at(arrays_, i).label_ == name) {
             hash_node(i, a, cell::pointer<Struct>(b));
             return true;
         }
@@ -322,7 +323,7 @@ bool NodeManager::hash_node_in(uint32_t name, uint32_t a, uint32_t b)
 // 0x0045D3A0
 void NodeManager::hash_nodes(uint32_t index)
 {
-    Array* nodes = arrays_[index].node_entries_;
+    Array* nodes = core::at(arrays_, index).node_entries_;
     for (uint32_t i = 0; i < nodes->extent_; ++i)
         hash_node(index, i, nodes->struct_at(i));
 }
@@ -351,9 +352,9 @@ bool NodeManager::add_node_array(uint32_t name, bool flag)
     if (has_node_array(name))
         return false;
     Array* nodes = script::fetch_list(name);
-    arrays_[num_].label_ = name;
-    arrays_[num_].node_entries_ = nodes;
-    arrays_[num_].flag_ = flag;
+    core::at(arrays_, num_).label_ = name;
+    core::at(arrays_, num_).node_entries_ = nodes;
+    core::at(arrays_, num_).flag_ = flag;
     ++num_;
     hash_nodes(num_ - 1);
     add_node_array_prefixes(name);
@@ -381,14 +382,14 @@ bool NodeManager::remove_node_array(uint32_t name)
 {
     remove_node_array_prefixes(name);
     uint32_t index = 0;
-    while (index < num_ && arrays_[index].label_ != name)
+    while (index < num_ && core::at(arrays_, index).label_ != name)
         ++index;
     if (index >= num_)
         return false;
     unhash_node_array(index);
     --num_;
     if (index != num_) {
-        arrays_[index] = arrays_[num_];
+        core::at(arrays_, index) = core::at(arrays_, num_);
         Slots slots(this);
         for (uint32_t i = 0; i <= slots.get_mask(); ++i) {
             if (slots.get_array(i) == num_)

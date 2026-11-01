@@ -22,6 +22,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -428,7 +429,7 @@ uint32_t get_spawn_node(uint32_t type, int index, uint32_t start)
     if (count <= 0)
         return 0;
     // (a negative index reads before the list, as the original)
-    return index >= count ? names[index % count] : names[index];
+    return index >= count ? core::at(names, index % count) : core::at(names, index);
 }
 
 } // namespace objects

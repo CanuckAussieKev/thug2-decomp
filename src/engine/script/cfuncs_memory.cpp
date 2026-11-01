@@ -21,6 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/cfuncs_scene.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -198,7 +199,7 @@ void dump_pool_usage(bool to_dump_file, bool print)
         emit();
     };
     auto current = [](const memory::PoolPair& pools) {
-        return pools.pools[pools.current]; // (not checked: the pools are set up by then)
+        return core::at(pools.pools, pools.current); // (not checked: the pools are set up by then)
     };
     text("\nScript pool usage:\n"); // "\nScript pool usage:\n"
     pool("CStruct:           %5d of %5d, max %5d\n",

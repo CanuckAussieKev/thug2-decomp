@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -437,10 +438,10 @@ bool KinematicsModule::look_at_object(script::Struct* params, script::Script*)
 void KinematicsModule::face_node(script::Struct* node)
 {
     maths::Mat4& matrix = entity_->basis_frame_;
-    matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(matrix.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 angles;
     level_nodes::read_turn_angles(node, &angles);
     if (!(angles.x == 0.0f) || !(angles.y == 0.0f) || !(angles.z == 0.0f)) {

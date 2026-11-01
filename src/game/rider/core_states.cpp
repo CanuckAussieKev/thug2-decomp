@@ -27,6 +27,7 @@
 #include "game/rider/walk_physics.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -119,7 +120,7 @@ void SkaterPhysicsModule::resume_skating(bool on_ground, const objects::FootMove
     state_changed_at_ = get_now();
     display_matrix_ = entity_->basis_frame_;
     // The ground normals from the up (+0x68, +0x78, +0x58), the position kept as the last.
-    floor_normal_ = entity_->basis_frame_.row[1];
+    floor_normal_ = core::at(entity_->basis_frame_.row, 1);
     old_normal_ = floor_normal_;
     drawn_normal_ = old_normal_;
     safe_pos_ = entity_->at_point_;

@@ -29,6 +29,7 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_score.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -174,8 +175,8 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     direction.make_unit();
     maths::Vec4& v = entity_->vel_;
     if (v.x == 0.0f && v.z == 0.0f) {
-        v.x = entity_->basis_frame_.row[2].x;
-        entity_->vel_.z = entity_->basis_frame_.row[2].z;
+        v.x = core::at(entity_->basis_frame_.row, 2).x;
+        entity_->vel_.z = core::at(entity_->basis_frame_.row, 2).z;
     }
     maths::Vec4& velocity = entity_->vel_;
     const float sign = maths::get_sign(static_cast<float>(dot3(direction, velocity)));
@@ -410,33 +411,33 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     // to it, the display and the object's matrices built around them (level rights).
     const float way = rail_backwards_ ? -sign : sign;
     const maths::Vec4 facing = {direction.x * way, direction.y * way, direction.z * way, way * direction.w};
-    maths::Vec4& display = display_matrix_.row[2];
+    maths::Vec4& display = core::at(display_matrix_.row, 2);
     maths::Vec4 turned;
     walk::get_lerp(&turned, &display, &facing, kTurnFacing);
     display = turned;
     display.make_unit();
-    maths::Vec4& right = display_matrix_.row[0];
-    right.x = display_matrix_.row[2].z;
+    maths::Vec4& right = core::at(display_matrix_.row, 0);
+    right.x = core::at(display_matrix_.row, 2).z;
     right.z = -display.x;
     right.y = 0.0f;
     right.w = 0.0f;
     right.make_unit();
-    display_matrix_.row[1] = maths::cross_vec(display, right);
-    display_matrix_.row[1].make_unit();
+    core::at(display_matrix_.row, 1) = maths::cross_vec(display, right);
+    core::at(display_matrix_.row, 1).make_unit();
     objects::GameEntity* object = object_of(this);
-    object->basis_frame_.row[2] = facing;
-    entity_->basis_frame_.row[2].make_unit();
+    core::at(object->basis_frame_.row, 2) = facing;
+    core::at(entity_->basis_frame_.row, 2).make_unit();
     object = object_of(this);
-    maths::Vec4& object_right = object->basis_frame_.row[0];
-    const float fz = object->basis_frame_.row[2].z;
-    object_right.z = -object->basis_frame_.row[2].x;
+    maths::Vec4& object_right = core::at(object->basis_frame_.row, 0);
+    const float fz = core::at(object->basis_frame_.row, 2).z;
+    object_right.z = -core::at(object->basis_frame_.row, 2).x;
     object_right.x = fz;
     object_right.y = 0.0f;
     object_right.w = 0.0f;
-    entity_->basis_frame_.row[0].make_unit();
+    core::at(entity_->basis_frame_.row, 0).make_unit();
     object = object_of(this);
-    object->basis_frame_.row[1] = maths::cross_vec(object->basis_frame_.row[2], object->basis_frame_.row[0]);
-    entity_->basis_frame_.row[1].make_unit();
+    core::at(object->basis_frame_.row, 1) = maths::cross_vec(core::at(object->basis_frame_.row, 2), core::at(object->basis_frame_.row, 0));
+    core::at(entity_->basis_frame_.row, 1).make_unit();
 
     // What went past the last segment's end is only carried on when this segment is longer.
     const maths::Vec4 a = grind_point_in_world(this, node);
@@ -508,9 +509,9 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     end.y = static_cast<float>(extend_y + end.y);
     end.z = static_cast<float>(extend_z + end.z);
     end.w = extend_w + end.w;
-    const maths::Vec4& up = entity_->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(entity_->basis_frame_.row, 1);
     start.x = up.x + start.x, start.y = up.y + start.y, start.z = up.z + start.z, start.w = up.w + start.w;
-    const maths::Vec4& up2 = entity_->basis_frame_.row[1];
+    const maths::Vec4& up2 = core::at(entity_->basis_frame_.row, 1);
     end.x = end.x + up2.x, end.y = end.y + up2.y, end.z = end.z + up2.z, end.w = end.w + up2.w;
     if (!get_feel(this, 0x10, 0))
         return;
@@ -531,7 +532,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
 // time (0x00564270, +0x3A8 scaled), the node's Name.
 void SkaterPhysicsModule::finish_rail()
 {
-    floor_normal_ = entity_->basis_frame_.row[1];
+    floor_normal_ = core::at(entity_->basis_frame_.row, 1);
     modules::PointTally* score = score_->points_held_;
     const int time = static_cast<int>(static_cast<double>(rail_adjust_) * score->robot_factor_);
     score->tweak_trick(time);
@@ -583,32 +584,32 @@ void SkaterPhysicsModule::do_bike_stall_physics()
             maths::Vec4 direction = {to.x - from.x, to.y - from.y, to.z - from.z, to.w - from.w};
             direction.make_unit();
             rail_time_ = get_now();
-            const maths::Vec4 facing = thaw_bmx::bike::stall_facing(entity_->basis_frame_.row[2], direction);
-            maths::Vec4& display = display_matrix_.row[2];
+            const maths::Vec4 facing = thaw_bmx::bike::stall_facing(core::at(entity_->basis_frame_.row, 2), direction);
+            maths::Vec4& display = core::at(display_matrix_.row, 2);
             maths::Vec4 turned;
             walk::get_lerp(&turned, &display, &facing, kTurnFacing);
             display = turned;
             display.make_unit();
-            maths::Vec4& right = display_matrix_.row[0];
-            right.x = display_matrix_.row[2].z;
+            maths::Vec4& right = core::at(display_matrix_.row, 0);
+            right.x = core::at(display_matrix_.row, 2).z;
             right.z = -display.x;
             right.y = 0.0f;
             right.w = 0.0f;
             right.make_unit();
-            display_matrix_.row[1] = maths::cross_vec(display, right);
-            display_matrix_.row[1].make_unit();
+            core::at(display_matrix_.row, 1) = maths::cross_vec(display, right);
+            core::at(display_matrix_.row, 1).make_unit();
             objects::GameEntity* object = object_of(this);
-            object->basis_frame_.row[2] = facing;
-            object->basis_frame_.row[2].make_unit();
-            maths::Vec4& object_right = object->basis_frame_.row[0];
-            const float fz = object->basis_frame_.row[2].z;
-            object_right.z = -object->basis_frame_.row[2].x;
+            core::at(object->basis_frame_.row, 2) = facing;
+            core::at(object->basis_frame_.row, 2).make_unit();
+            maths::Vec4& object_right = core::at(object->basis_frame_.row, 0);
+            const float fz = core::at(object->basis_frame_.row, 2).z;
+            object_right.z = -core::at(object->basis_frame_.row, 2).x;
             object_right.x = fz;
             object_right.y = 0.0f;
             object_right.w = 0.0f;
             object_right.make_unit();
-            object->basis_frame_.row[1] = maths::cross_vec(object->basis_frame_.row[2], object_right);
-            object->basis_frame_.row[1].make_unit();
+            core::at(object->basis_frame_.row, 1) = maths::cross_vec(core::at(object->basis_frame_.row, 2), object_right);
+            core::at(object->basis_frame_.row, 1).make_unit();
             object->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
         }
     }

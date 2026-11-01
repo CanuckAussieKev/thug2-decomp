@@ -35,6 +35,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -94,8 +95,8 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     const double fraction = left / shake_length_;
     const double across = std::sin(shake_rate_x_ * left * kTwoPi) * shake_amp_x_ * fraction;
     const double up = std::sin(shake_rate_y_ * left * kTwoPi) * shake_amp_y_ * fraction;
-    const maths::Vec4& row0 = orientation->row[0];
-    const maths::Vec4& row1 = orientation->row[1];
+    const maths::Vec4& row0 = core::at(orientation->row, 0);
+    const maths::Vec4& row1 = core::at(orientation->row, 1);
     auto y0 = static_cast<float>(up * row0.y);
     auto z0 = static_cast<float>(up * row0.z);
     auto w0 = static_cast<float>(up * row0.w);
@@ -228,7 +229,7 @@ void RiderChaseView::bind_rider(GameEntity* skater)
 void RiderChaseView::save_state(WalkCameraState* state)
 {
     std::memcpy(&state->orientation, orientation_.data(), sizeof(orientation_));
-    state->orientation.row[3] = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    core::at(state->orientation.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     state->target = aim_point_;
     state->turn_cosine_ = turn_cosine_;
     state->zoom = zoom_;
@@ -260,10 +261,10 @@ RiderChaseView::RiderChaseView()
 void RiderChaseView::configure_from_data(script::Struct* params)
 {
     maths::Mat4& matrix = entity_->basis_frame_;
-    matrix.row[0] = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
-    matrix.row[1] = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
-    matrix.row[2] = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
-    matrix.row[3] = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    core::at(matrix.row, 0) = maths::Vec4(1.0f, 0.0f, 0.0f, 0.0f);
+    core::at(matrix.row, 1) = maths::Vec4(0.0f, 1.0f, 0.0f, 0.0f);
+    core::at(matrix.row, 2) = maths::Vec4(0.0f, 0.0f, 1.0f, 0.0f);
+    core::at(matrix.row, 3) = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
     std::memcpy(orientation_.data(), &matrix, sizeof(orientation_));
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);

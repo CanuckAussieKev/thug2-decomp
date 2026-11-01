@@ -24,6 +24,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -105,7 +106,7 @@ struct Sums {
         auto* bytes = raw::bytes(&colour);
         const std::array<double, 3> sums = {{r, static_cast<float>(g), static_cast<float>(b)}};
         for (int i = 0; i < 3; ++i) {
-            double v = bytes[i] + sums[i];
+            double v = bytes[i] + core::at(sums, i);
             if (v > 255.0)
                 v = 255.0;
             bytes[i] = static_cast<uint8_t>(static_cast<int64_t>(v));
@@ -224,7 +225,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     for (int i = 0; i < scene_light_count(); ++i) {
         LevelLamp& light = scene_light_array()[i];
         if (light.strength_ > 0.0f && light.touches_sector(sector)) {
-            lights[found] = i;
+            core::at(lights, found) = i;
             if (++found >= 8)
                 break;
         }
@@ -246,7 +247,7 @@ void apply_scene_lights_to_sector(WorldCell* sector)
     for (int v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = scene_light_array()[lights[l]];
+            const LevelLamp& light = scene_light_array()[core::at(lights, l)];
             sums.append_one(light, offset_squared_zxy(&vertices[v].x, light.at_point_));
         }
         if (sums.lit)
@@ -278,7 +279,7 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
         const double d2 = offset_squared_zyx(&positions->x, light.at_point_);
         if (!(rr >= d2) || !facing)
             continue;
-        lights[found++] = i;
+        core::at(lights, found++) = i;
     }
     if (found == 0) {
         std::memcpy(out, in, count * 4);
@@ -287,7 +288,7 @@ void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* 
     for (uint32_t v = 0; v < count; ++v) {
         Sums sums;
         for (int l = 0; l < found; ++l) {
-            const LevelLamp& light = scene_light_array()[lights[l]];
+            const LevelLamp& light = scene_light_array()[core::at(lights, l)];
             sums.append_one(light, offset_squared_zyx(&positions[v].x, light.at_point_));
         }
         if (sums.lit)

@@ -17,6 +17,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -34,13 +35,13 @@ void place_nodes(ClassNodeList* nodes, GameEntity* object)
 {
     maths::Mat4 transform{};
     transform = object->basis_frame_;
-    transform.row[3].x = object->at_point_.x;
-    transform.row[3].z = object->at_point_.z;
-    transform.row[0].w = 0.0f;
-    transform.row[1].w = 0.0f;
-    transform.row[2].w = 0.0f;
-    transform.row[3].y = object->at_point_.y;
-    transform.row[3].w = 1.0f;
+    core::at(transform.row, 3).x = object->at_point_.x;
+    core::at(transform.row, 3).z = object->at_point_.z;
+    core::at(transform.row, 0).w = 0.0f;
+    core::at(transform.row, 1).w = 0.0f;
+    core::at(transform.row, 2).w = 0.0f;
+    core::at(transform.row, 3).y = object->at_point_.y;
+    core::at(transform.row, 3).w = 1.0f;
     nodes->set_transform(&transform);
 }
 
@@ -89,7 +90,7 @@ int TowRideHandler::get_nearest_hook_point(maths::Vec4* out, const maths::Vec4* 
         point.y -= pos.y;
         point.z -= pos.z;
         point.w -= pos.w;
-        point.flatten_onto_plane(object->basis_frame_.row[1]);
+        point.flatten_onto_plane(core::at(object->basis_frame_.row, 1));
         point.x += pos.x;
         point.y += pos.y;
         point.z += pos.z;
@@ -125,7 +126,7 @@ bool TowRideHandler::get_hook_point(maths::Vec4* out, int index)
         maths::Vec4 point;
         nodes->xform(&point, &node->pos);
         point -= object->at_point_;
-        point.flatten_onto_plane(object->basis_frame_.row[1]);
+        point.flatten_onto_plane(core::at(object->basis_frame_.row, 1));
         point += object->at_point_;
         *out = point;
         return true;

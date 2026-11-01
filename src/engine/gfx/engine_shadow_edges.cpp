@@ -15,6 +15,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -63,26 +64,26 @@ void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const 
     int i = 0;
     for (; i < count; ++i) {
         ShadowSilhouetteEdge& edge = all[i];
-        if (edge.corners[0].vertex == from && edge.corners[2].vertex == to) {
-            edge.corners[1].vertex = from;
-            edge.corners[3].vertex = to;
-        } else if (edge.corners[2].vertex == from && edge.corners[0].vertex == to) {
-            edge.corners[3].vertex = from;
-            edge.corners[1].vertex = to;
+        if (core::at(edge.corners, 0).vertex == from && core::at(edge.corners, 2).vertex == to) {
+            core::at(edge.corners, 1).vertex = from;
+            core::at(edge.corners, 3).vertex = to;
+        } else if (core::at(edge.corners, 2).vertex == from && core::at(edge.corners, 0).vertex == to) {
+            core::at(edge.corners, 3).vertex = from;
+            core::at(edge.corners, 1).vertex = to;
         } else {
             continue;
         }
-        edge.corners[1].normal = normal;
-        edge.corners[3].normal = normal;
+        core::at(edge.corners, 1).normal = normal;
+        core::at(edge.corners, 3).normal = normal;
         break;
     }
     if (i != count)
         return;
     ShadowSilhouetteEdge& edge = all[count++];
     for (int k = 0; k < 4; ++k) {
-        edge.corners[k].vertex = k < 2 ? from : to;
-        edge.corners[k].pad = 0;
-        edge.corners[k].normal = normal;
+        core::at(edge.corners, k).vertex = k < 2 ? from : to;
+        core::at(edge.corners, k).pad = 0;
+        core::at(edge.corners, k).normal = normal;
     }
 }
 

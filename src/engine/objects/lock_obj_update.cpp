@@ -25,6 +25,7 @@
 #include "engine/objects/skeleton_component.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -109,16 +110,16 @@ void PinnedObjectModule::update_lock()
             maths::Mat4 parent{};
             skin_matrix_ptr(skeleton, parent_bone(skeleton, bone_index(skeleton, bone_)), &parent);
             GameEntity* object = entity_;
-            const maths::Vec4 joint_world = object->basis_frame_.row[3];
-            maths::Vec4 owner_pos = parent.row[3];
-            object->basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-            parent.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+            const maths::Vec4 joint_world = core::at(object->basis_frame_.row, 3);
+            maths::Vec4 owner_pos = core::at(parent.row, 3);
+            core::at(object->basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+            core::at(parent.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
             ObjectModule* model = target->fetch_module(kModel);
             if (model && follow_model(model, target)) {
                 maths::Mat4 frame{};
                 compose_object_transform(model, &frame);
-                extra = frame.row[3] - target->at_point_;
-                frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+                extra = core::at(frame.row, 3) - target->at_point_;
+                core::at(frame.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
                 set_product(entity_->basis_frame_, entity_->basis_frame_, frame);
                 set_product(parent, parent, frame);
                 pos = frame.xform(local, joint_world);
@@ -135,14 +136,14 @@ void PinnedObjectModule::update_lock()
                 owner_pos += target->at_point_ + shift_ * parent;
             }
             object = entity_;
-            maths::Vec4& at = object->basis_frame_.row[2];
+            maths::Vec4& at = core::at(object->basis_frame_.row, 2);
             at = {owner_pos.x - pos.x, owner_pos.y - pos.y, owner_pos.z - pos.z, owner_pos.w - pos.w};
-            entity_->basis_frame_.row[2].make_unit();
-            const maths::Vec4 up = target->display_matrix_.row[1];
+            core::at(entity_->basis_frame_.row, 2).make_unit();
+            const maths::Vec4 up = core::at(target->display_matrix_.row, 1);
             object = entity_;
-            object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[2], up);
+            core::at(object->basis_frame_.row, 0) = maths::cross_vec(core::at(object->basis_frame_.row, 2), up);
             object = entity_;
-            object->basis_frame_.row[1] = maths::cross_vec(object->basis_frame_.row[2], object->basis_frame_.row[0]);
+            core::at(object->basis_frame_.row, 1) = maths::cross_vec(core::at(object->basis_frame_.row, 2), core::at(object->basis_frame_.row, 0));
             entity_->display_matrix_ = entity_->basis_frame_;
         }
     } else {
@@ -152,7 +153,7 @@ void PinnedObjectModule::update_lock()
             maths::Mat4 frame{};
             compose_object_transform(model, &frame);
             pos = shift_ * frame;
-            frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+            core::at(frame.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
             entity_->basis_frame_ = frame;
         } else {
             entity_->basis_frame_ = target->display_matrix_;
@@ -183,8 +184,8 @@ void PinnedObjectModule::update_lock()
         const int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
         auto time = static_cast<double>(t);
         const double step = update_wobble_step();
-        const double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
-                              std::sin(time * static_cast<double>(wobble_[0]) * step);
+        const double wobble = std::sin(time * static_cast<double>(core::at(wobble_, 1)) * step) *
+                              std::sin(time * static_cast<double>(core::at(wobble_, 0)) * step);
         lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
     } else {
         object->at_point_ = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};

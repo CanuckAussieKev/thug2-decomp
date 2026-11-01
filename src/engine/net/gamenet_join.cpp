@@ -58,6 +58,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -427,7 +428,7 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
         std::strcpy(join_password(), pending_password());
     } else {
         std::memset(join_password(), 0, kPasswordSize);
-        info.password[0] = '\0';
+        core::at(info.password, 0) = '\0';
     }
     if (!client->is_host_local())
         std::memset(pending_password(), 0, kPasswordSize);
@@ -455,7 +456,7 @@ void Hub::retry_entry(AppHost* client)
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
     info.can_queue_up_ = true;
-    info.password[0] = '\0';
+    core::at(info.password, 0) = '\0';
     info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
     if (in_internet_mode())
         info.rank = current_rank(this);
@@ -592,7 +593,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     int reason = 0;
     if (!manager->joins_accepted(reason, msg, conn, true, true, true)) {
         std::array<char, 32> refused = {}; // (10 sent: the reason, and the challenge for kRefusedCdKey)
-        refused[0] = static_cast<char>(reason);
+        core::at(refused, 0) = static_cast<char>(reason);
         if (reason == kRefusedCdKey)
             std::strcpy(refused.data() + 1, manager->challenge_.data());
         send_refused(context->receiver_app_, conn, refused.data());
@@ -625,7 +626,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
         proceed.public_ip_ = manager->join_ip_;
     }
     std::strncpy(proceed.server_name_.data(), preference_text(manager, kServerName), kServerNameSize - 1);
-    proceed.server_name_[kServerNameSize - 1] = '\0';
+    core::at(proceed.server_name_, kServerNameSize - 1) = '\0';
     std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
     util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
     write_proceed_info(writer, proceed);
@@ -642,7 +643,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         return;
     if (!authenticated) {
         std::array<char, kJoinRefusedSize> refused = {};
-        refused[0] = kRefusedCdKey;
+        core::at(refused, 0) = kRefusedCdKey;
         send_refused(instance->app, instance->conn, refused.data());
         instance->conn->mark_stale();
     } else {
@@ -657,7 +658,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
             proceed.public_ip_ = manager->join_ip_;
         }
         std::strncpy(proceed.server_name_.data(), preference_text(manager, kServerName), kServerNameSize - 1);
-        proceed.server_name_[kServerNameSize - 1] = '\0';
+        core::at(proceed.server_name_, kServerNameSize - 1) = '\0';
         std::array<uint8_t, kProceedInfoSize> proceed_bytes{};
         util::ByteWriter writer(proceed_bytes.data(), sizeof(proceed_bytes));
         write_proceed_info(writer, proceed);
@@ -684,7 +685,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     if (conn->is_off_machine() && !manager->joins_accepted(reason, msg, conn, false, false, false)) {
         NetMessageInfo desc = new_desc();
         std::array<char, kJoinRefusedSize> refused = {};
-        refused[0] = static_cast<char>(reason);
+        core::at(refused, 0) = static_cast<char>(reason);
         desc.content_ = refused.data();
         desc.byte_count_ = kJoinRefusedSize;
         desc.ident_ = kMsgJoinRefused;
@@ -695,7 +696,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     void* memory = memory::alloc_zeroed(kPlayerInfoSize);
     auto* player = memory ? memory::construct_in<JoinerRecord>(memory) : nullptr;
     std::strncpy(player->label_.data(), msg->name.data(), kNameSize - 1);
-    player->label_[kNameSize - 1] = '\0';
+    core::at(player->label_, kNameSize - 1) = '\0';
     player->entity_key_ = static_cast<uint8_t>(manager->reserve_obj_id_for_player());
     player->conn_ = context->sender_conn_;
     player->flag_bits_ = 0;
@@ -798,7 +799,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
         info->broadband = true;
     }
     std::strncpy(info->name.data(), name, kNameSize - 1);
-    info->name[kNameSize - 1] = '\0';
+    core::at(info->name, kNameSize - 1) = '\0';
     std::strcpy(info->password.data(), join_password());
     int size = 0;
     if (!info->observer) {

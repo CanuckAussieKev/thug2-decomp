@@ -6,6 +6,7 @@
 #include <utility>
 
 #include "frontend/new_frontend_text.h"
+#include "engine/core/checked_index.h"
 
 // NOT ORIGINAL - the new front end's pure parts (ours; see new_frontend.h): its data file, its small state file, the
 // layout's frame, and the menus' state machine with their animation - no game, no renderer: they run
@@ -26,7 +27,7 @@ struct StageMap {
     // The picture shown: the chosen variant, else `art`.
     [[nodiscard]] const std::string& current_art() const
     {
-        return variant >= 0 && std::cmp_less(variant, art_variants_.size()) ? art_variants_[variant] : art;
+        return variant >= 0 && std::cmp_less(variant, art_variants_.size()) ? core::at(art_variants_, variant) : art;
     }
     std::string level_num_name_; // level_num as a script name ("LevelNum_BO"), or empty when it was a number
     int level_index_ = -1;       // level_num as a number (-1: a name - resolved by the game)

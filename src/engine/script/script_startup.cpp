@@ -17,6 +17,7 @@
 #include "engine/script/qb.h"
 #include "engine/script/script_tables.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 
 namespace script {
 
@@ -94,10 +95,10 @@ void load_startup_qb_files()
         std::array<char, 200> line{};
         int length = 0;
         while (p < end && *p != '\r' && *p != '\n')
-            line[length++] = *p++;
-        line[length] = '\0';
+            core::at(line, length++) = *p++;
+        core::at(line, length) = '\0';
         ++p;
-        if (line[0] == '\0')
+        if (core::at(line, 0) == '\0')
             continue;
         if (const char* data = std::strstr(line.data(), "data\\"))
             std::memmove(line.data(), data + 5, std::strlen(data + 5) + 1);

@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the packed rails' reader: see rail_buffer_format.h.
 
 #include "formats/rail_buffer_format.h"
+#include "engine/core/checked_index.h"
 
 #include <cstring>
 #include <utility>
@@ -13,7 +14,7 @@ bool counts_fit(const RailBuffer& buffer)
         return false;
     int points = 0;
     for (int i = 0; std::cmp_less(i, buffer.rail_count_); ++i)
-        points += buffer.point_counts_[i];
+        points += core::at(buffer.point_counts_, i);
     return points <= kMaxPoints;
 }
 

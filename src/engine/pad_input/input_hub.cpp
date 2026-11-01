@@ -10,6 +10,7 @@
 #include "engine/core/mem.h"
 #include "engine/core/task_list.h"
 #include "engine/pad_input/device.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -90,7 +91,7 @@ void Payload::block_stick_input(uint32_t mask)
             continue;
         const bool stick = i == kRightX || i == kRightY || i == kLeftX || i == kLeftY || i == kRawRightX ||
                            i == kRawRightY || i == kRawLeftX || i == kRawLeftY;
-        incident_[i] = stick ? 0x80 : 0;
+        core::at(incident_, i) = stick ? 0x80 : 0;
     }
 }
 
@@ -98,24 +99,24 @@ void Payload::block_stick_input(uint32_t mask)
 void Payload::digital_as_stick()
 {
     for (const DigitalToAnalog* entry = digital_to_analog_table(); entry->mask > 0; ++entry)
-        incident_[entry->event] = (buttons_ & entry->mask) ? 0xFF : 0;
+        core::at(incident_, entry->event) = (buttons_ & entry->mask) ? 0xFF : 0;
 }
 
 // 0x0044E900
 void Payload::apply_deadzone_rules()
 {
-    incident_[kRawRightX] = incident_[kRightX];
-    incident_[kRawLeftX] = incident_[kLeftX];
-    incident_[kRawRightY] = incident_[kRightY];
-    incident_[kRawLeftY] = incident_[kLeftY];
+    core::at(incident_, kRawRightX) = core::at(incident_, kRightX);
+    core::at(incident_, kRawLeftX) = core::at(incident_, kLeftX);
+    core::at(incident_, kRawRightY) = core::at(incident_, kRightY);
+    core::at(incident_, kRawLeftY) = core::at(incident_, kLeftY);
     for (int i = kRightX; i <= kLeftY; ++i) {
-        if (get_centred(incident_[i]))
-            incident_[i] = 0x80;
+        if (get_centred(core::at(incident_, i)))
+            core::at(incident_, i) = 0x80;
     }
-    if (get_centred(incident_[kRawRightX]) && get_centred(incident_[kRawRightY]))
-        incident_[kRawRightX] = incident_[kRawRightY] = 0x80;
-    if (get_centred(incident_[kRawLeftX]) && get_centred(incident_[kRawLeftY]))
-        incident_[kRawLeftX] = incident_[kRawLeftY] = 0x80;
+    if (get_centred(core::at(incident_, kRawRightX)) && get_centred(core::at(incident_, kRawRightY)))
+        core::at(incident_, kRawRightX) = core::at(incident_, kRawRightY) = 0x80;
+    if (get_centred(core::at(incident_, kRawLeftX)) && get_centred(core::at(incident_, kRawLeftY)))
+        core::at(incident_, kRawLeftX) = core::at(incident_, kRawLeftY) = 0x80;
 }
 
 // 0x0044EA30
@@ -123,20 +124,20 @@ void Payload::pad_follows_stick()
 {
     if (buttons_ & (kReleaseEdge | kButtonRight | kPressEdge | kButtonLeft))
         return;
-    const uint8_t x = incident_[kLeftX];
+    const uint8_t x = core::at(incident_, kLeftX);
     if (x > 0x80) {
-        incident_[kPadRight] = static_cast<uint8_t>(x + 0x80);
+        core::at(incident_, kPadRight) = static_cast<uint8_t>(x + 0x80);
         buttons_ |= kButtonRight;
     } else if (x < 0x80) {
-        incident_[kPadLeft] = static_cast<uint8_t>(span_to(x));
+        core::at(incident_, kPadLeft) = static_cast<uint8_t>(span_to(x));
         buttons_ |= kButtonLeft;
     }
-    const uint8_t y = incident_[kLeftY];
+    const uint8_t y = core::at(incident_, kLeftY);
     if (y < 0x80) {
-        incident_[kPadUp] = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
+        core::at(incident_, kPadUp) = static_cast<uint8_t>(y + 0x80); // (not the distance from the centre, as the others)
         buttons_ |= kReleaseEdge;
     } else if (y > 0x80) {
-        incident_[kPadDown] = static_cast<uint8_t>(span_to(y));
+        core::at(incident_, kPadDown) = static_cast<uint8_t>(span_to(y));
         buttons_ |= kPressEdge;
     }
 }
@@ -218,12 +219,12 @@ Hub::Hub()
     sio::Hub* devices = sio::g_manager;
     task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
-        hosts_[i].dev_ = devices->get_pad_at_slot(i);
+        core::at(hosts_, i).dev_ = devices->get_pad_at_slot(i);
     stick_replaces_pad_ = true;
     unknown10d_ = false;
-    unknown110_[0] = -1;
-    unknown110_[1] = -1;
-    unknown110_[0] = 0;
+    core::at(unknown110_, 0) = -1;
+    core::at(unknown110_, 1) = -1;
+    core::at(unknown110_, 0) = 0;
 }
 
 // 0x0044E7F0
@@ -266,14 +267,14 @@ Hub::~Hub()
 // 0x0044E5D0
 void Hub::stop_rumble(int index)
 {
-    if (sio::InputPort* device = hosts_[index].dev_)
+    if (sio::InputPort* device = core::at(hosts_, index).dev_)
         device->stop_rumble();
 }
 
 // 0x0044E5F0
 void Hub::enable_actuators(int index)
 {
-    if (sio::InputPort* device = hosts_[index].dev_)
+    if (sio::InputPort* device = core::at(hosts_, index).dev_)
         device->enable_actuators();
 }
 
@@ -291,7 +292,7 @@ void Hub::service_task(tasks::Task<Hub>* task)
 }
 
 // 0x0044E590
-uint32_t button_hash(int index) { return g_pad_button_keys[index]; }
+uint32_t button_hash(int index) { return core::at(g_pad_button_keys, index); }
 
 // 0x0044E5A0
 int glyph_for_button_tag(uint32_t checksum)

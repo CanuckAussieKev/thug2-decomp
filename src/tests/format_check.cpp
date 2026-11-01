@@ -31,6 +31,7 @@
 #include "wire/skate_net_messages.h"
 #include "tests/format_check_files.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace {
 
@@ -103,8 +104,8 @@ std::unique_ptr<Value> read_element(util::ByteReader& reader, uint8_t type)
         break;
     }
     case kPair:
-        value->floats[0] = reader.f32();
-        value->floats[1] = reader.f32();
+        core::at(value->floats, 0) = reader.f32();
+        core::at(value->floats, 1) = reader.f32();
         break;
     case kVector:
         for (float& f : value->floats)
@@ -196,8 +197,8 @@ void write_element(util::ByteWriter& writer, const Value& value)
         writer.c_string(value.text.c_str());
         break;
     case kPair:
-        writer.f32(value.floats[0]);
-        writer.f32(value.floats[1]);
+        writer.f32(core::at(value.floats, 0));
+        writer.f32(core::at(value.floats, 1));
         break;
     case kVector:
         for (const float f : value.floats)
@@ -313,7 +314,7 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     // the game's conversions between the map and its words
     std::vector<uint32_t> word_values(kParkMapWords);
     for (uint32_t i = 0; i < kParkMapWords; ++i)
-        word_values[i] = array.elements[i]->bits;
+        core::at(word_values, i) = core::at(array.elements, i)->bits;
     std::vector<uint8_t> from_words(kParkMapBytes, 0xEE);
     park_map_from_words(from_words.data(), word_values.data(), kParkMapWords);
     std::vector<uint32_t> back_to_words(kParkMapWords);
@@ -321,7 +322,7 @@ void check_park_map(const ArrayValue& array, const std::string& what)
     check(from_words == map && back_to_words == word_values, what + ": park map to / from its words");
     std::vector<uint8_t> short_map(kParkMapBytes, 0xEE);
     park_map_from_words(short_map.data(), word_values.data(), 10);
-    check(std::memcmp(short_map.data(), map.data(), 40) == 0 && short_map[40] == 0 && short_map.back() == 0,
+    check(std::memcmp(short_map.data(), map.data(), 40) == 0 && core::at(short_map, 40) == 0 && short_map.back() == 0,
           what + ": park map from too few words: the rest zeroed");
     util::ByteReader reader(map.data(), map.size());
     ParkMapHeader header;
@@ -436,7 +437,7 @@ void check_save_file(const std::filesystem::path& path)
     check_park_maps_in(tree, name);
     check(contents_used == contents.size(), name + ": contents end at the header's size");
     for (size_t i = size; i < file.size(); ++i) {
-        if (file[i] != save_cards::kSaveFileMask) {
+        if (core::at(file, i) != save_cards::kSaveFileMask) {
             check(false, name + ": padding");
             break;
         }
@@ -493,7 +494,7 @@ void check_wire_messages()
     for (const size_t piece_size : {size_t{0}, size_t{1}, size_t{100}, size_t{0x100}}) {
         std::vector<uint8_t> piece(piece_size);
         for (size_t i = 0; i < piece_size; ++i)
-            piece[i] = static_cast<uint8_t>(i * 7 + 3);
+            core::at(piece, i) = static_cast<uint8_t>(i * 7 + 3);
         ReferenceStreamStart reference = {};
         std::snprintf(reference.desc.data(), sizeof(reference.desc), "%s", "Appearance");
         reference.total_size = 0x1234;
@@ -547,7 +548,7 @@ void check_wire_messages()
     std::array<uint8_t, net::wire::kStreamStartMaxSize> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
     net::wire::write_stream_start(writer, long_desc, nullptr, 0);
-    check(writer.position() == 0x30 && bytes[31] == 'x' && bytes[32] == 0, "stream start: a 32-character description");
+    check(writer.position() == 0x30 && core::at(bytes, 31) == 'x' && core::at(bytes, 32) == 0, "stream start: a 32-character description");
 
     // the sequenced wrapper: group, sequence, id
     const auto sequenced = std::to_array<uint8_t>({0x03, 0x78, 0x56, 0x34, 0x12, 0x2A});
@@ -647,8 +648,8 @@ void check_server_info()
     reference.time = info.time = 123456;
     const std::array<const char*, 3> names = {{"one", "fifteen_chars__", "x"}};
     for (int i = 0; i < 3; ++i) {
-        std::snprintf(reference.players[i].data(), sizeof(reference.players[i]), "%s", names[i]);
-        std::snprintf(info.players[i].data(), sizeof(info.players[i]), "%s", names[i]);
+        std::snprintf(core::at(reference.players, i).data(), sizeof(core::at(reference.players, i)), "%s", core::at(names, i));
+        std::snprintf(core::at(info.players, i).data(), sizeof(core::at(info.players, i)), "%s", core::at(names, i));
     }
     std::array<uint8_t, 0xE0> bytes{};
     util::ByteWriter writer(bytes.data(), sizeof(bytes));
@@ -662,7 +663,7 @@ void check_server_info()
     util::ByteWriter again_writer(again.data(), sizeof(again));
     online::write_server_info(again_writer, *back);
     check(reader.ok() && std::memcmp(again.data(), bytes.data(), sizeof(bytes)) == 0 &&
-              std::strcmp(back->players[1].data(), "fifteen_chars__") == 0,
+              std::strcmp(core::at(back->players, 1).data(), "fifteen_chars__") == 0,
           "server info: decoded and encoded again");
     // a name filling its field without a terminator: cut there when read
     std::memset(bytes.data() + 8, 'n', 16);
@@ -692,7 +693,7 @@ void check_session_messages()
     brief_ref.time_limit = brief.time_limit = 300;
     brief_ref.target_score = brief.target_score = 1000000;
     for (int i = 0; i < 8; ++i)
-        brief_ref.start_points[i] = brief.start_points[i] = static_cast<uint32_t>(i * 5 + 1);
+        core::at(brief_ref.start_points, i) = core::at(brief.start_points, i) = static_cast<uint32_t>(i * 5 + 1);
     brief_ref.round = brief.round = 4;
     brief_ref.variant = brief.variant = 2;
     std::array<uint8_t, 0x50> bytes{};
@@ -726,7 +727,7 @@ void check_session_messages()
     start_ref.team_graffiti_mode = start.team_graffiti_mode = 0;
     start_ref.crown_start_slot = start.crown_start_slot = -1;
     for (int i = 0; i < 8; ++i)
-        start_ref.start_points[i] = start.start_points[i] = static_cast<uint32_t>(7 - i);
+        core::at(start_ref.start_points, i) = core::at(start.start_points, i) = static_cast<uint32_t>(7 - i);
     std::array<uint8_t, 0x48> start_bytes{};
     util::ByteWriter start_writer(start_bytes.data(), sizeof(start_bytes));
     online::write_start_game(start_writer, start);
@@ -759,10 +760,10 @@ void check_skate_messages()
         message->final = true;
         message->count = count;
         for (int i = 0; i < count; ++i) {
-            reference.entries[i].id = static_cast<uint8_t>(i * 3 + 1);
-            reference.entries[i].score = i == 1 ? -5 : 100000 * (i + 1);
-            message->entries[i].id = static_cast<int8_t>(i * 3 + 1);
-            message->entries[i].score = i == 1 ? -5 : 100000 * (i + 1);
+            core::at(reference.entries, i).id = static_cast<uint8_t>(i * 3 + 1);
+            core::at(reference.entries, i).score = i == 1 ? -5 : 100000 * (i + 1);
+            core::at(message->entries, i).id = static_cast<int8_t>(i * 3 + 1);
+            core::at(message->entries, i).score = i == 1 ? -5 : 100000 * (i + 1);
         }
         auto reference_size = static_cast<size_t>((count + 2) * 5);
         std::array<uint8_t, sizeof(ReferenceScores)> bytes{};

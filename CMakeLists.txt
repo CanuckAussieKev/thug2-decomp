@@ -927,12 +927,14 @@ target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w1445
 # assembly over many inputs (src/tests/maths_check.cpp; the reference half needs MSVC for 32-bit x86).
 add_executable(thug2_maths_check src/tests/maths_check.cpp)
 target_include_directories(thug2_maths_check PRIVATE src)
+target_link_libraries(thug2_maths_check PRIVATE Microsoft.GSL::GSL)
 target_compile_options(thug2_maths_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 
 # NOT ORIGINAL - thug2_parse_check.exe: the number parsing that replaced atoi / atol / atof (engine/core/
 # parse_number.h) compared with the C runtime's over many texts (src/tests/parse_check.cpp).
 add_executable(thug2_parse_check src/tests/parse_check.cpp)
 target_include_directories(thug2_parse_check PRIVATE src)
+target_link_libraries(thug2_parse_check PRIVATE Microsoft.GSL::GSL)
 target_compile_options(thug2_parse_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 
 # THUG2_GAME_DIR is the folder holding the game. A stock install keeps the game in a Game subfolder

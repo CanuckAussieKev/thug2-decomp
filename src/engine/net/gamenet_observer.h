@@ -12,6 +12,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/player_info.h"
 #include "engine/pad_input/input_hub.h"
+#include "engine/core/checked_index.h"
 
 namespace online::detail {
 
@@ -26,7 +27,7 @@ inline void add_observer_controls(Hub* manager, PlayerRecord* player, tasks::Pil
     auto* handler = new pad_input::Responder<Hub>(&Hub::observer_input, manager, handler_priority, 0);
     manager->spectator_pad_listener_ = handler;
     // (a null handler is read through, as in the original)
-    pad_input::HostEnd& server = input->hosts_[handler->ordinal_];
+    pad_input::HostEnd& server = core::at(input->hosts_, handler->ordinal_);
     server.handlers_.queue_job(handler);
     handler->control_data_ = &server.content_;
     handler->dev_ = server.dev_;

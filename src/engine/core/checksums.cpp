@@ -1,4 +1,5 @@
 #include "engine/core/checksums.h"
+#include "engine/core/checked_index.h"
 
 #include <array>
 #include <cstdint>
@@ -15,14 +16,14 @@ constexpr std::array<uint32_t, 256> make_table()
         uint32_t c = i;
         for (int bit = 0; bit < 8; ++bit)
             c = (c & 1) ? 0xEDB88320u ^ (c >> 1) : c >> 1;
-        table[i] = c;
+        core::at(table, i) = c;
     }
     return table;
 }
 
 constexpr std::array<uint32_t, 256> kTable = make_table();
 
-uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> 8) ^ kTable[(crc ^ byte) & 0xFF]; }
+uint32_t get_step(uint32_t crc, uint8_t byte) { return (crc >> 8) ^ core::at(kTable, (crc ^ byte) & 0xFF); }
 
 // Names are case-insensitive and treat '/' and '\' as the same character.
 uint8_t name_char(char c)

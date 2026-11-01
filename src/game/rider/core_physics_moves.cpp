@@ -34,6 +34,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -262,7 +263,7 @@ void SkaterPhysicsModule::get_along_facing(maths::Vec4* velocity)
     velocity->y = static_cast<float>(inverse * velocity->y);
     velocity->z = static_cast<float>(inverse * velocity->z);
     velocity->w = static_cast<float>(inverse * velocity->w);
-    const maths::Vec4& facing = entity_->basis_frame_.row[2];
+    const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
     const double along = (static_cast<double>(facing.y) * velocity->y + static_cast<double>(facing.z) * velocity->z) +
                          static_cast<double>(facing.x) * velocity->x;
     const double scale = (along < 0.0 ? -1.0 : 1.0) * length;
@@ -282,7 +283,7 @@ bool SkaterPhysicsModule::wall_push_off()
     if (script::fetch_float(kPushOffWait) > since_last)
         return false;
     const double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
-    const maths::Vec4& facing = entity_->basis_frame_.row[2];
+    const maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
     const maths::Vec4& wall = feeler_.surface_dir_;
     const double into = (static_cast<double>(facing.z) * wall.z + static_cast<double>(facing.y) * wall.y) +
                         static_cast<double>(facing.x) * wall.x;
@@ -307,15 +308,15 @@ bool SkaterPhysicsModule::wall_push_off()
         const float least = script::fetch_float(kPushOffSpeed);
         v *= static_cast<float>(objects::larger_of(least, slower) / static_cast<double>(speed));
     } else {
-        v = -script::fetch_float(kPushOffSpeed) * entity_->basis_frame_.row[2];
+        v = -script::fetch_float(kPushOffSpeed) * core::at(entity_->basis_frame_.row, 2);
     }
     entity_->vel_.align_to_plane(floor_normal_);
     objects::GameEntity* object = object_of(this);
-    object->basis_frame_.row[2] = object->vel_;
-    entity_->basis_frame_.row[2].make_unit();
-    entity_->basis_frame_.row[1] = floor_normal_;
+    core::at(object->basis_frame_.row, 2) = object->vel_;
+    core::at(entity_->basis_frame_.row, 2).make_unit();
+    core::at(entity_->basis_frame_.row, 1) = floor_normal_;
     object = object_of(this);
-    object->basis_frame_.row[0] = maths::cross_vec(object->basis_frame_.row[1], object->basis_frame_.row[2]);
+    core::at(object->basis_frame_.row, 0) = maths::cross_vec(core::at(object->basis_frame_.row, 1), core::at(object->basis_frame_.row, 2));
     display_matrix_ = entity_->basis_frame_;
     last_push_off_ = get_now();
     return true;
@@ -329,7 +330,7 @@ void SkaterPhysicsModule::turn_round_if_backwards()
     if (flags->flag(PoseFlag::kBailing).on || flags->flag(PoseFlag::kSkitching).on || braking_)
         return;
     const maths::Vec4& v = object->vel_;
-    const maths::Vec4& f = object->basis_frame_.row[2];
+    const maths::Vec4& f = core::at(object->basis_frame_.row, 2);
     const double along =
         (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(v.x) * f.x;
     if (!(along < 0.0))
@@ -356,13 +357,13 @@ void SkaterPhysicsModule::turn_round_if_backwards()
             return;
         }
     }
-    maths::Vec4& facing = entity_->basis_frame_.row[2];
+    maths::Vec4& facing = core::at(entity_->basis_frame_.row, 2);
     facing = -facing;
-    maths::Vec4& right = entity_->basis_frame_.row[0];
+    maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
     right = -right;
-    maths::Vec4& display_facing = display_matrix_.row[2];
+    maths::Vec4& display_facing = core::at(display_matrix_.row, 2);
     display_facing = -display_facing;
-    maths::Vec4& display_right = display_matrix_.row[0];
+    maths::Vec4& display_right = core::at(display_matrix_.row, 0);
     display_right = -display_right;
     if (!script::fetch_int_value(kNoTurnRoundScript))
         script::launch_script(kTurnRoundScript, nullptr, static_cast<objects::Entity*>(object_of(this)), false,
@@ -402,9 +403,9 @@ void SkaterPhysicsModule::check_flip_spin()
     for (int i = 0; i < count; ++i) {
         spin = spins->struct_at(static_cast<uint32_t>(i));
         std::array<uint32_t, 3> sequence{}; // (an entry without the two buttons leaves them unset, as the original does)
-        spin->read_hash_value(kSpinButton1, &sequence[0], 0);
-        spin->read_hash_value(kSpinButton2, &sequence[1], 0);
-        sequence[2] = input->pad_primary_.button_round_.held_down_ ? 0x2B489A86u : 0x321C9756u;
+        spin->read_hash_value(kSpinButton1, &core::at(sequence, 0), 0);
+        spin->read_hash_value(kSpinButton2, &core::at(sequence, 1), 0);
+        core::at(sequence, 2) = input->pad_primary_.button_round_.held_down_ ? 0x2B489A86u : 0x321C9756u;
         if (trick->check_spin_sequence(sequence.data(), flip_spin_started_ != 0)) {
             found = true;
             break;

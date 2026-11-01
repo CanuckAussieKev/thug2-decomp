@@ -65,6 +65,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -482,12 +483,12 @@ bool cfunc_do_flash(script::Struct* params, script::Script* script)
     static const std::array<const char*, 4> kStart = {{"start_r", "start_g", "start_b", "start_a"}}; // "start_r" ... "start_a"
     static const std::array<const char*, 4> kEnd = {{"end_r", "end_g", "end_b", "end_a"}};           // "end_r" ... "end_a"
     for (int i = 0; i < 4; ++i) {
-        params->fetch_int_value(kStart[i], &value, 0);
-        start[i] = static_cast<uint8_t>(value);
+        params->fetch_int_value(core::at(kStart, i), &value, 0);
+        core::at(start, i) = static_cast<uint8_t>(value);
     }
     for (int i = 0; i < 4; ++i) {
-        params->fetch_int_value(kEnd[i], &value, 0);
-        end[i] = static_cast<uint8_t>(value);
+        params->fetch_int_value(core::at(kEnd, i), &value, 0);
+        core::at(end, i) = static_cast<uint8_t>(value);
     }
     uint32_t start_colour = 0;
     uint32_t end_colour = 0;
@@ -710,7 +711,7 @@ bool cfunc_try_cheat_string(script::Struct* params, script::Script*)
     int sum = 0;
     for (int round = 0; round < 100000; ++round) {
         std::sprintf(buffer.data(), "%d", static_cast<int>(round + checksum));
-        buffer[std::strlen(buffer.data())] = 'X';
+        core::at(buffer, std::strlen(buffer.data())) = 'X';
         for (const char* c = buffer.data(); *c; ++c)
             sum += static_cast<signed char>(*c) * 0x3FF;
         checksum = checksums::hash_from_text(buffer.data());

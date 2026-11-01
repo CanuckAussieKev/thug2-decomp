@@ -26,6 +26,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -49,7 +50,7 @@ void get_unlock(VertexBuffer* buffer) { buffer->get_unlock(); }
 constexpr uint32_t kReadOnly = 0x10; // D3DLOCK_READONLY
 
 // A mesh's per-vertex colour's offset in a vertex, and the position its transform says (0x004D4D30).
-uint8_t color_offset(const MeshRef* mesh) { return mesh->unknown1c_[0]; }
+uint8_t color_offset(const MeshRef* mesh) { return core::at(mesh->unknown1c_, 0); }
 void mesh_position(MeshRef* mesh, maths::Vec4* out) { mesh->fetch_place(raw::as<float>(out)); }
 MaterialRef* material_of(MeshRef* mesh) { return mesh->material; }
 // A mesh's colour (flag 4) and its vertex shader (its vertex format's place).
@@ -371,9 +372,9 @@ uint32_t* PcGeom::plat_get_color(uint32_t* out)
         mesh = meshes[0];
     }
     if (mesh && (mesh->flags & 4)) {
-        color[0] = float_to_channel(mesh_tint_ptr(mesh)[0]);
-        color[1] = float_to_channel(mesh_tint_ptr(mesh)[1]);
-        color[2] = float_to_channel(mesh_tint_ptr(mesh)[2]);
+        core::at(color, 0) = float_to_channel(mesh_tint_ptr(mesh)[0]);
+        core::at(color, 1) = float_to_channel(mesh_tint_ptr(mesh)[1]);
+        core::at(color, 2) = float_to_channel(mesh_tint_ptr(mesh)[2]);
     }
     std::memcpy(out, color.data(), 4);
     return out;
@@ -406,12 +407,12 @@ bool PcGeom::change_material_tint(uint32_t checksum, int pass, uint32_t rgba)
         const int index = pass_from_checksum(material, checksum, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count_)
             continue;
-        if (static_cast<int8_t>(material->pass_flags_[index] & 0xFF) < 0) // (the colour is fixed)
+        if (static_cast<int8_t>(core::at(material->pass_flags_, index) & 0xFF) < 0) // (the colour is fixed)
             continue;
         found = true;
-        material->pass_color_[index][0] = channel_to_float(rgba & 0xFF);
-        material->pass_color_[index][1] = channel_to_float((rgba >> 8) & 0xFF);
-        material->pass_color_[index][2] = channel_to_float((rgba >> 16) & 0xFF);
+        core::at(core::at(material->pass_color_, index), 0) = channel_to_float(rgba & 0xFF);
+        core::at(core::at(material->pass_color_, index), 1) = channel_to_float((rgba >> 8) & 0xFF);
+        core::at(core::at(material->pass_color_, index), 2) = channel_to_float((rgba >> 16) & 0xFF);
     }
     return found;
 }
@@ -465,7 +466,7 @@ maths::Vec4* PcGeom::plat_get_bounding_sphere(maths::Vec4* out)
 {
     if (instance && instance->scene) {
         const SceneRef* list = instance->scene;
-        *out = {list->centre[0], list->centre[1], list->centre[2], list->radius};
+        *out = {core::at(list->centre, 0), core::at(list->centre, 1), core::at(list->centre, 2), list->radius};
     } else {
         *out = {0.0f, 0.0f, 0.0f, 10000.0f};
     }
@@ -477,7 +478,7 @@ void PcGeom::place_at_absolute_point(const maths::Vec4* position)
 {
     const maths::Vec4 pos = {position->x, position->y, position->z, 1.0f};
     if (instance) {
-        instance->transform.row[3] = pos;
+        core::at(instance->transform.row, 3) = pos;
         return;
     }
     for (uint32_t i = 0; i < mesh_count_; ++i)
@@ -489,7 +490,7 @@ maths::Vec4* PcGeom::get_absolute_point()
 {
     maths::Vec4& pos = static_position();
     if (instance) {
-        pos = instance->transform.row[3];
+        pos = core::at(instance->transform.row, 3);
         return &pos;
     }
     pos = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -505,9 +506,9 @@ void PcGeom::change_facing(const maths::Mat4* orientation)
         return;
     maths::Mat4 m{};
     m = instance->transform;
-    m.row[0] = orientation->row[0];
-    m.row[1] = orientation->row[1];
-    m.row[2] = orientation->row[2];
+    core::at(m.row, 0) = core::at(orientation->row, 0);
+    core::at(m.row, 1) = core::at(orientation->row, 1);
+    core::at(m.row, 2) = core::at(orientation->row, 2);
     instance->transform = m;
 }
 
@@ -519,7 +520,7 @@ maths::Mat4* PcGeom::fetch_facing()
         m = instance->transform;
     else
         get_identity(&m);
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return &m;
 }
 
@@ -535,12 +536,12 @@ void PcGeom::rotate_y(int turns)
     }
     maths::Mat4 m{};
     m = instance->transform;
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Mat4 rotation{};
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
     d3dx::matrix_multiply(&rotation, &m, &rotation);
-    rotation.row[3] = instance->transform.row[3];
+    core::at(rotation.row, 3) = core::at(instance->transform.row, 3);
     instance->transform = rotation;
 }
 
@@ -658,9 +659,9 @@ void PcGeom::set_vertices(const maths::Vec4* in)
         auto cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
         auto cy = static_cast<float>(dy * 0.5 + box.min.y);
         const double cz = static_cast<double>(dz) * 0.5 + box.min.z;
-        mesh->centre[0] = cx;
-        mesh->centre[1] = cy;
-        mesh->centre[2] = static_cast<float>(cz);
+        core::at(mesh->centre, 0) = cx;
+        core::at(mesh->centre, 1) = cy;
+        core::at(mesh->centre, 2) = static_cast<float>(cz);
         const double ex = static_cast<double>(box.max.x) - cx;
         const double ey = static_cast<double>(box.max.y) - cy;
         const double ez = static_cast<double>(box.max.z) - cz;
@@ -719,15 +720,15 @@ void PcGeom::set_uv_wibble_params(float u_vel, float u_amp, float u_freq, float 
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->pass_count_; ++p) {
-            if (UvOscillator* wibble = material->uv_wibble_[p]) {
-                wibble->velocity[0] = u_vel;
-                wibble->velocity[1] = v_vel;
-                wibble->amplitude[0] = u_amp;
-                wibble->amplitude[1] = v_amp;
-                wibble->frequency[0] = u_freq;
-                wibble->frequency[1] = v_freq;
-                wibble->phase[0] = u_phase;
-                wibble->phase[1] = v_phase;
+            if (UvOscillator* wibble = core::at(material->uv_wibble_, p)) {
+                core::at(wibble->velocity, 0) = u_vel;
+                core::at(wibble->velocity, 1) = v_vel;
+                core::at(wibble->amplitude, 0) = u_amp;
+                core::at(wibble->amplitude, 1) = v_amp;
+                core::at(wibble->frequency, 0) = u_freq;
+                core::at(wibble->frequency, 1) = v_freq;
+                core::at(wibble->phase, 0) = u_phase;
+                core::at(wibble->phase, 1) = v_phase;
                 break;
             }
         }
@@ -744,8 +745,8 @@ void PcGeom::enable_explicit_uv_wibble(int /*unused*/)
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->pass_count_; ++p) {
-            if (material->uv_wibble_[p])
-                material->pass_flags_[p] |= 0x4000;
+            if (core::at(material->uv_wibble_, p))
+                core::at(material->pass_flags_, p) |= 0x4000;
         }
     }
 }
@@ -760,9 +761,9 @@ void PcGeom::set_uv_wibble_offsets(float u, float v)
         if (!material)
             continue;
         for (uint32_t p = 0; p < material->pass_count_; ++p) {
-            if (UvOscillator* wibble = material->uv_wibble_[p]) {
-                wibble->offset[0] = u;
-                wibble->offset[1] = v;
+            if (UvOscillator* wibble = core::at(material->uv_wibble_, p)) {
+                core::at(wibble->offset, 0) = u;
+                core::at(wibble->offset, 1) = v;
                 enable_explicit_uv_wibble(1);
                 break;
             }
@@ -783,24 +784,24 @@ bool PcGeom::choose_uv_matrix(uint32_t checksum, int pass, const maths::Mat4* ma
         const int index = pass_from_checksum(material, checksum, pass);
         if (index < 0 || ints::as_unsigned(index) >= material->pass_count_)
             continue;
-        if (!material->uv_wibble_[index]) {
-            material->uv_wibble_[index] = new_uv_wibble();
+        if (!core::at(material->uv_wibble_, index)) {
+            core::at(material->uv_wibble_, index) = new_uv_wibble();
             material->has_uv_wibble_ = true;
-            material->pass_flags_[index] |= 0x4001;
+            core::at(material->pass_flags_, index) |= 0x4001;
         }
         // the vertex shader for the UV matrix (0x00775B70-78 -> 0x00775B58-60)
         uint32_t& shader = mesh_vertex_shader(mesh);
-        if (shader == g_vertex_shaders[5])
+        if (shader == core::at(g_vertex_shaders, 5))
             shader = g_vertex_shader_uv60;
-        else if (shader == g_vertex_shaders[4])
+        else if (shader == core::at(g_vertex_shaders, 4))
             shader = g_vertex_shader_uv_5c;
-        else if (shader == g_vertex_shaders[3])
+        else if (shader == core::at(g_vertex_shaders, 3))
             shader = g_vertex_shader_uv58;
-        UvOscillator* wibble = material->uv_wibble_[index];
-        wibble->matrix[0] = matrix->row[0].x;
-        wibble->matrix[1] = matrix->row[0].y;
-        wibble->offset[0] = matrix->row[3].x;
-        wibble->offset[1] = matrix->row[3].y;
+        UvOscillator* wibble = core::at(material->uv_wibble_, index);
+        core::at(wibble->matrix, 0) = core::at(matrix->row, 0).x;
+        core::at(wibble->matrix, 1) = core::at(matrix->row, 0).y;
+        core::at(wibble->offset, 0) = core::at(matrix->row, 3).x;
+        core::at(wibble->offset, 1) = core::at(matrix->row, 3).y;
     }
     return true;
 }
@@ -816,11 +817,11 @@ bool PcGeom::create_uv_anim_params(uint32_t checksum, int pass)
         if (!material)
             continue;
         const int index = pass_from_checksum(material, checksum, pass);
-        if (index < 0 || ints::as_unsigned(index) >= material->pass_count_ || material->uv_wibble_[index])
+        if (index < 0 || ints::as_unsigned(index) >= material->pass_count_ || core::at(material->uv_wibble_, index))
             continue;
-        material->uv_wibble_[index] = new_uv_wibble();
+        core::at(material->uv_wibble_, index) = new_uv_wibble();
         material->has_uv_wibble_ = true;
-        material->pass_flags_[index] |= 0x4001;
+        core::at(material->pass_flags_, index) |= 0x4001;
         made = true;
     }
     return made;

@@ -13,6 +13,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -327,8 +328,8 @@ void TriMeshSource::add_occlusion_polys()
                 auto corner = static_cast<uint16_t>(face_vertex(i, k));
                 for (int m = 0; m < 3; ++m) {
                     if (corner == static_cast<uint16_t>(face_vertex(j, m))) {
-                        shared[k] = corner;
-                        other[m] = static_cast<int>(face_vertex(j, m));
+                        core::at(shared, k) = corner;
+                        core::at(other, m) = static_cast<int>(face_vertex(j, m));
                         ++matches;
                         break;
                     }
@@ -352,9 +353,9 @@ void TriMeshSource::add_occlusion_polys()
             const maths::Vec4 a2 = read_stored_vertex(static_cast<int>(face_vertex(j, 0)));
             const maths::Vec4 b2 = read_stored_vertex(static_cast<int>(face_vertex(j, 1)));
             const maths::Vec4 c2 = read_stored_vertex(static_cast<int>(face_vertex(j, 2)));
-            points[0] = a2;
-            points[1] = b2;
-            points[2] = c2;
+            core::at(points, 0) = a2;
+            core::at(points, 1) = b2;
+            core::at(points, 2) = c2;
             auto difference = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
             const float cx2 = difference(c2.x, a2.x);
             const float cy2 = difference(c2.y, a2.y);
@@ -389,27 +390,27 @@ void TriMeshSource::add_occlusion_polys()
             // the quad: face i's corners with face j's other corner between the two shared ones
             int extra = -1;
             for (int m = 0; m < 3; ++m) {
-                if (other[m] == -1) {
+                if (core::at(other, m) == -1) {
                     extra = static_cast<int>(face_vertex(j, m));
                     break;
                 }
             }
             auto corner = [this, i](int k) { return read_stored_vertex(static_cast<int>(face_vertex(i, k))); };
-            if (shared[0] >= 0 && shared[1] >= 0) {
-                points[0] = corner(0);
-                points[1] = read_stored_vertex(extra);
-                points[2] = corner(1);
-                points[3] = corner(2);
-            } else if (shared[0] < 0 && shared[1] >= 0 && shared[2] >= 0) {
-                points[0] = corner(0);
-                points[1] = corner(1);
-                points[2] = read_stored_vertex(extra);
-                points[3] = corner(2);
-            } else if (shared[0] >= 0 && shared[2] >= 0) {
-                points[0] = corner(0);
-                points[1] = corner(1);
-                points[2] = corner(2);
-                points[3] = read_stored_vertex(extra);
+            if (core::at(shared, 0) >= 0 && core::at(shared, 1) >= 0) {
+                core::at(points, 0) = corner(0);
+                core::at(points, 1) = read_stored_vertex(extra);
+                core::at(points, 2) = corner(1);
+                core::at(points, 3) = corner(2);
+            } else if (core::at(shared, 0) < 0 && core::at(shared, 1) >= 0 && core::at(shared, 2) >= 0) {
+                core::at(points, 0) = corner(0);
+                core::at(points, 1) = corner(1);
+                core::at(points, 2) = read_stored_vertex(extra);
+                core::at(points, 3) = corner(2);
+            } else if (core::at(shared, 0) >= 0 && core::at(shared, 2) >= 0) {
+                core::at(points, 0) = corner(0);
+                core::at(points, 1) = corner(1);
+                core::at(points, 2) = corner(2);
+                core::at(points, 3) = read_stored_vertex(extra);
             }
             // (otherwise - not possible with two shared corners - face j's corners as they are)
             add_debug_shape(4, points.data(), checksum_);

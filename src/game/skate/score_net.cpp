@@ -23,6 +23,7 @@
 #include "game/skate/skate_module.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -86,7 +87,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
         if (!count)
             return;
         for (int victim = 0; victim < 8; ++victim) {
-            if (!stolen[victim])
+            if (!core::at(stolen, victim))
                 continue;
             online::TagStolenMessage stolen_message;
             stolen_message.thief_id = static_cast<uint32_t>(skater_id);

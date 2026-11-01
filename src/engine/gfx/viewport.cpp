@@ -16,6 +16,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -60,12 +61,12 @@ constexpr uint32_t kScaleNumerator = 0x33AA4915;
 constexpr uint32_t kMaxScale = 0xA0A0DB70; // max_scale
 constexpr uint32_t kMinScale = 0x774B6931; // min_scale
 
-ViewRegion*& get_viewport(int index) { return g_viewports[index]; }
+ViewRegion*& get_viewport(int index) { return core::at(g_viewports, index); }
 // The screen mode's map of views onto viewports (4 per mode at 0x00649CE0; -1: not shown).
 const int*& mode_map() { return g_mode_map; }
 int& screen_mode() { return g_screen_mode; }
 int& active_viewport_count() { return modules::g_viewport_count; }
-int mode_viewport_count(int mode) { return g_mode_viewport_counts[mode]; }
+int mode_viewport_count(int mode) { return core::at(g_mode_viewport_counts, mode); }
 const int* mode_map_of(int mode) { return g_mode_maps.data() + 4 * mode; }
 
 // The n-th mapped entry's viewport - the map's ten words are scanned (past the mode's four: the next modes'),
@@ -328,7 +329,7 @@ bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args_;
     auto mode = static_cast<uint32_t>(screen_mode());
-    results->put_name_key(kScreenMode, mode <= 5 ? kModeNames[mode] : 0u);
+    results->put_name_key(kScreenMode, mode <= 5 ? core::at(kModeNames, mode) : 0u);
     return true;
 }
 
@@ -338,7 +339,7 @@ bool cfunc_set_screen_mode(script::Struct* params, script::Script*)
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
     params->read_hash_value(0u, &name, 1);
     for (int mode = 0; mode < 6; ++mode) {
-        if (name == kModeNames[mode]) {
+        if (name == core::at(kModeNames, mode)) {
             set_screen_mode(mode);
             break;
         }

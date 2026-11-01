@@ -29,6 +29,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/trick_component.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -167,7 +168,7 @@ float SkaterPhysicsModule::deflect_from_wall(const maths::Vec4* normal, float* t
         entity_->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
         return 0.0f;
     }
-    const maths::Vec4& side = entity_->basis_frame_.row[0];
+    const maths::Vec4& side = core::at(entity_->basis_frame_.row, 0);
     auto cosine = static_cast<float>(static_cast<double>(side.z) * normal->z + static_cast<double>(side.y) * normal->y +
                                      static_cast<double>(normal->x) * side.x);
     if (cosine > 1.0f)
@@ -193,11 +194,11 @@ bool SkaterPhysicsModule::turn_down_slope()
     objects::GameEntity* object = object_of(this);
     // Along the velocity, or the facing when hardly moving: turned towards straight down the slope.
     const maths::Vec4 heading =
-        length_unrounded(object->vel_) < kSlopeTurnSpeed ? object->basis_frame_.row[2] : object->vel_;
+        length_unrounded(object->vel_) < kSlopeTurnSpeed ? core::at(object->basis_frame_.row, 2) : object->vel_;
     maths::Vec4 down = {0.0f, -1.0f, 0.0f, 1.0f};
     down.flatten_onto_plane(floor_normal_);
     object = object_of(this);
-    const double off = maths::get_turn_around_axis(heading, down, object->basis_frame_.row[1]);
+    const double off = maths::get_turn_around_axis(heading, down, core::at(object->basis_frame_.row, 1));
     auto angle = static_cast<float>(off);
     const float sign = off < 0.0 ? -1.0f : 1.0f;
     const double turn = static_cast<double>(tuning_float_lookup(kSlowTurnOnSlopes, object)) * frame_length_ * sign;
@@ -329,12 +330,12 @@ void SkaterPhysicsModule::recover_in_air()
     }
     set_timed_flag(this, PoseFlag::kRecoverInAir, 1);
     objects::GameEntity* object = object_of(this);
-    if (object->basis_frame_.row[1].y > kRecoverUpright)
+    if (core::at(object->basis_frame_.row, 1).y > kRecoverUpright)
         return;
     // Tipped over: turned back upright about the horizontal axis across the up vector.
     auto rate = static_cast<float>(stat_value(object, kRecoverRateStat));
     object = object_of(this);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     maths::Vec4 flat = {up.x, 0.0f, up.z, up.w};
     flat.make_unit();
     const maths::Vec4 axis = {-flat.z, 0.0f, flat.x, 0.0f};
@@ -346,8 +347,8 @@ void SkaterPhysicsModule::recover_in_air()
 void SkaterPhysicsModule::keep_upright()
 {
     const objects::GameEntity* object = object_of(this);
-    const maths::Vec4& forward = object->basis_frame_.row[2];
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& forward = core::at(object->basis_frame_.row, 2);
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     if (std::fabs(forward.y) > kUprightMaxTilt)
         return;
     // Leaning sideways (the up vector across the facing): rolled back at skater_upright_sideways_speed.

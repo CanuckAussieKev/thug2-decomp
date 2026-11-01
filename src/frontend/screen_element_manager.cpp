@@ -24,6 +24,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -72,8 +73,8 @@ UiTree::UiTree()
 {
     listener_.enter_wait_board(nullptr);
     for (int i = 0; i < 2; ++i) {
-        focus_lists_[i] = nullptr;
-        focus_dirty_[i] = false;
+        core::at(focus_lists_, i) = nullptr;
+        core::at(focus_dirty_, i) = false;
     }
     for (FocusEntry& entry : focus_entries_) {
         entry.element.get_release();
@@ -92,9 +93,9 @@ UiTree::UiTree()
 UiTree::~UiTree()
 {
     for (int i = kPriorities - 1; i >= 0; --i)
-        priorities_[i].element.get_release();
+        core::at(priorities_, i).element.get_release();
     for (int i = kFocusEntries - 1; i >= 0; --i)
-        focus_entries_[i].element.get_release();
+        core::at(focus_entries_, i).element.get_release();
     resolving_.get_release();
     tree_root_.get_release();
 }
@@ -313,18 +314,18 @@ void UiTree::lock_tree(int lock)
     if (!tree_root_)
         return;
     std::array<UiWidget*, 32> stack{};
-    stack[0] = tree_root_.owner_object_;
+    core::at(stack, 0) = tree_root_.owner_object_;
     int count = 1;
     while (count) {
-        UiWidget* element = stack[--count];
+        UiWidget* element = core::at(stack, --count);
         if (lock == 1)
             ++element->alias_count_;
         else if (static_cast<int>(element->alias_count_) > 0)
             --element->alias_count_;
         if (element->following_)
-            stack[count++] = element->following_.owner_object_;
+            core::at(stack, count++) = element->following_.owner_object_;
         if (element->eldest_)
-            stack[count++] = element->eldest_.owner_object_;
+            core::at(stack, count++) = element->eldest_.owner_object_;
     }
 }
 
@@ -352,7 +353,7 @@ void UiTree::add_focus_entry(ElementPtr* element, int list)
 {
     FocusEntry* last = nullptr;
     for (int i = 0; i < 2; ++i) {
-        for (FocusEntry* entry = focus_lists_[i]; entry; entry = entry->next) {
+        for (FocusEntry* entry = core::at(focus_lists_, i); entry; entry = entry->next) {
             if (entry->element.owner_object_ == element->owner_object_ && list == i) {
                 entry->marked = false;
                 return;
@@ -361,11 +362,11 @@ void UiTree::add_focus_entry(ElementPtr* element, int list)
         }
     }
     int free = 0;
-    while (focus_entries_[free].element) {
+    while (core::at(focus_entries_, free).element) {
         if (++free == kFocusEntries)
             return;
     }
-    FocusEntry* entry = &focus_entries_[free];
+    FocusEntry* entry = &core::at(focus_entries_, free);
     entry->element.assign_value(element->owner_object_);
     entry->id = element->owner_object_->ident_;
     entry->next = nullptr;
@@ -373,8 +374,8 @@ void UiTree::add_focus_entry(ElementPtr* element, int list)
     if (last)
         last->next = entry;
     else
-        focus_lists_[list] = entry;
-    focus_dirty_[list] = true;
+        core::at(focus_lists_, list) = entry;
+    core::at(focus_dirty_, list) = true;
 }
 
 // 0x004AB330
@@ -382,7 +383,7 @@ void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool ma
 {
     for (int i = 0; i < 2; ++i) {
         FocusEntry* previous = nullptr;
-        FocusEntry* entry = focus_lists_[i];
+        FocusEntry* entry = core::at(focus_lists_, i);
         while (entry) {
             FocusEntry* next = entry->next;
             ElementPtr walk;
@@ -403,9 +404,9 @@ void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool ma
                     if (previous)
                         previous->next = next;
                     else
-                        focus_lists_[i] = next;
+                        core::at(focus_lists_, i) = next;
                     entry->element.get_release();
-                    focus_dirty_[i] = true;
+                    core::at(focus_dirty_, i) = true;
                     entry = previous;
                 }
             }
@@ -448,12 +449,12 @@ void UiTree::listener_receive(objects::Signal* event)
         script::Array* types = script::fetch_list(pad_event_types_name()); // (the original passes 1 as well: unused)
         manager->pad_event_kind_count_ = static_cast<int>(types->extent_);
         for (int i = 0; i < manager->pad_event_kind_count_; ++i)
-            manager->pad_event_types_[i] = types->fetch_part(i);
+            core::at(manager->pad_event_types_, i) = types->fetch_part(i);
     }
     bool pad_event = false;
     if (manager->num_priorities_ > 0) {
         for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
-            if (event->kind_tag_ == manager->pad_event_types_[i]) {
+            if (event->kind_tag_ == core::at(manager->pad_event_types_, i)) {
                 pad_event = true;
                 break;
             }
@@ -501,7 +502,7 @@ void UiTree::listener_receive(objects::Signal* event)
     // change of the list starts the round again with the elements not offered it yet)
     bool is_pad_type = false;
     for (int i = 0; i < manager->pad_event_kind_count_; ++i) {
-        if (event->kind_tag_ == manager->pad_event_types_[i]) {
+        if (event->kind_tag_ == core::at(manager->pad_event_types_, i)) {
             is_pad_type = true;
             break;
         }
@@ -509,12 +510,12 @@ void UiTree::listener_receive(objects::Signal* event)
     if (!is_pad_type || event->aim_point_ != kSystem)
         return;
     const int controller = objects::event_controller(event);
-    for (FocusEntry* entry = manager->focus_lists_[controller]; entry; entry = entry->next)
+    for (FocusEntry* entry = core::at(manager->focus_lists_, controller); entry; entry = entry->next)
         entry->tried = false;
-    manager->focus_dirty_[controller] = true;
+    core::at(manager->focus_dirty_, controller) = true;
     do {
-        manager->focus_dirty_[controller] = false;
-        for (FocusEntry* entry = manager->focus_lists_[controller]; entry; entry = entry->next) {
+        core::at(manager->focus_dirty_, controller) = false;
+        for (FocusEntry* entry = core::at(manager->focus_lists_, controller); entry; entry = entry->next) {
             if (!entry->tried && !entry->marked && !entry->element->input_suppressed()) {
                 if (pad_event && (!entry->element->has_priority() || !manager->has_top_precedence(entry->id)))
                     continue;
@@ -525,10 +526,10 @@ void UiTree::listener_receive(objects::Signal* event)
                 }
                 entry->tried = true;
             }
-            if (manager->focus_dirty_[controller])
+            if (core::at(manager->focus_dirty_, controller))
                 break;
         }
-    } while (manager->focus_dirty_[controller]);
+    } while (core::at(manager->focus_dirty_, controller));
 }
 
 // --- pad-event priorities -------------------------------------------------------------------------------------
@@ -540,7 +541,7 @@ bool UiTree::has_priorities() const { return num_priorities_ > 0; }
 bool UiTree::is_pad_event(uint32_t type) const
 {
     for (int i = 0; i < pad_event_kind_count_; ++i)
-        if (type == pad_event_types_[i])
+        if (type == core::at(pad_event_types_, i))
             return true;
     return false;
 }
@@ -565,7 +566,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
     int slot = -1, highest_slot = -1;
     bool free = false;
     for (int i = 0; i < kPriorities; ++i) {
-        const PriorityEntry& entry = priorities_[i];
+        const PriorityEntry& entry = core::at(priorities_, i);
         if (entry.active) {
             if (entry.priority < lowest || lowest == 0) {
                 lowest = entry.priority;
@@ -582,7 +583,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
     }
     if (!free && priority < lowest)
         return false;
-    PriorityEntry& entry = priorities_[slot];
+    PriorityEntry& entry = core::at(priorities_, slot);
     entry.id = id;
     entry.active = true;
     ElementPtr element;
@@ -596,7 +597,7 @@ bool UiTree::push_priority(uint32_t id, uint32_t priority)
             params = new (params) script::Struct;
         params->put_name_key(0u, kHide);
         if (priority > highest)
-            priorities_[highest_slot].element.owner_object_->change_traits(params);
+            core::at(priorities_, highest_slot).element.owner_object_->change_traits(params);
         else
             element.owner_object_->change_traits(params);
         if (params) {
@@ -616,7 +617,7 @@ void UiTree::update_priorities()
     if (num_priorities_ <= 0)
         return;
     for (int i = 0; i < kPriorities; ++i) {
-        PriorityEntry& entry = priorities_[i];
+        PriorityEntry& entry = core::at(priorities_, i);
         if (!entry.active)
             continue;
         const UiWidget* element = nullptr;
@@ -636,7 +637,7 @@ void UiTree::update_priorities()
     }
     if (num_priorities_ <= 0)
         return;
-    set_flag_property(priorities_[top].element.owner_object_, kUnHide);
+    set_flag_property(core::at(priorities_, top).element.owner_object_, kUnHide);
 }
 
 // --- the singleton --------------------------------------------------------------------------------------------

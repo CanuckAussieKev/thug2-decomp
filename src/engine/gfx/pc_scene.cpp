@@ -35,6 +35,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -235,8 +236,8 @@ bool read_sector(PcSector* sector, Stream& in, LoadBody load_body)
     sector->flags = record.flags;
     geometry->mesh_count_ = read ? record.mesh_count : 0;
     // (the box's corners kept: the meshes' are read over them, their w still 1)
-    maths::Vec4 min = {record.box[0], record.box[1], record.box[2], 1.0f};
-    maths::Vec4 max = {record.box[3], record.box[4], record.box[5], 1.0f};
+    maths::Vec4 min = {core::at(record.box, 0), core::at(record.box, 1), core::at(record.box, 2), 1.0f};
+    maths::Vec4 max = {core::at(record.box, 3), core::at(record.box, 4), core::at(record.box, 5), 1.0f};
     geometry->bounds.min = min;
     geometry->bounds.max = max;
     const uint32_t billboard_type = record.billboard_type;

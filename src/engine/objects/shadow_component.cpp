@@ -23,6 +23,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -119,7 +120,7 @@ void GroundShadowModule::refresh_shadow()
     switch (shadow_kind_of(shadow_handle_.get())) {
     case kShadowDetailed: {
         const GameEntity* object = entity_;
-        const maths::Vec4 above = object->at_point_ + object->basis_frame_.row[1] * kDetailedHeight;
+        const maths::Vec4 above = object->at_point_ + core::at(object->basis_frame_.row, 1) * kDetailedHeight;
         // (the model's lights' first direction - their slot 5 -, turned round - and not used)
         if (auto* lights =
                 raw::as<render::ModelLights>(raw::as<render::RenderModel>(model)->lights_ptr_)) {
@@ -262,7 +263,7 @@ void GroundShadowModule::tick_frame()
                 matrix = maths::MatrixProduct{raw::field_at<const maths::Mat4>(hierarchy_of(model), 0x10),
                                               &entity_->display_matrix_};
             }
-            matrix.row[3] = pos;
+            core::at(matrix.row, 3) = pos;
             shadow_handle_->change_mat(&matrix);
         }
     }

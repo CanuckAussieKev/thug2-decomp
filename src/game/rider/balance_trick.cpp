@@ -23,6 +23,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -241,8 +242,8 @@ void RiderTeeterMoves::set_wobble(script::Struct* wobble)
     std::array<float, 5> values{};
     script::Struct* value = nullptr; // (not cleared again: a missing one leaves the last found)
     for (int i = 0; i < 5; ++i) {
-        wobble->read_sub_struct(kWobbleNames[i], &value, 1);
-        values[i] = skater_of(entity_)->get_scaled_value(value);
+        wobble->read_sub_struct(core::at(kWobbleNames, i), &value, 1);
+        core::at(values, i) = skater_of(entity_)->get_scaled_value(value);
     }
     anim_blender_ptr_->first_channel_47e_450(values.data(), 1);
 }

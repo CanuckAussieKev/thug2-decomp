@@ -2,6 +2,7 @@
 
 #include "frontend/new_frontend_options.h"
 #include "frontend/new_frontend_text.h"
+#include "engine/core/checked_index.h"
 
 #include <cctype>
 #include <cstdlib>
@@ -53,7 +54,7 @@ std::vector<Seg> get_lines(const std::string& text)
     while (at < text.size()) {
         const size_t nl = text.find('\n', at);
         const size_t end = nl == std::string::npos ? text.size() : nl;
-        const size_t content = end > at && text[end - 1] == '\r' ? end - 1 : end;
+        const size_t content = end > at && core::at(text, end - 1) == '\r' ? end - 1 : end;
         lines.push_back({at, content, nl == std::string::npos ? text.size() : nl + 1});
         at = nl == std::string::npos ? text.size() : nl + 1;
     }
@@ -77,7 +78,7 @@ bool section_of(const std::string& line, std::string* name)
 bool get_key_of(const std::string& line, std::string* key, size_t* equals)
 {
     std::string t = get_trim(line);
-    if (t.empty() || t[0] == ';' || t[0] == '#' || t[0] == '[')
+    if (t.empty() || core::at(t, 0) == ';' || core::at(t, 0) == '#' || core::at(t, 0) == '[')
         return false;
     const size_t eq = line.find('=');
     if (eq == std::string::npos)
@@ -186,7 +187,7 @@ int get_find(const std::string& section, const std::string& key)
 {
     const std::vector<Spec>& specs = get_specs();
     for (size_t i = 0; i < specs.size(); ++i)
-        if (get_same(specs[i].section, section) && get_same(specs[i].key, key))
+        if (get_same(core::at(specs, i).section, section) && get_same(core::at(specs, i).key, key))
             return static_cast<int>(i);
     return -1;
 }
@@ -199,7 +200,7 @@ int choice_of(const Spec& spec, const std::string& value, bool present)
     double number = 0.0;
     const bool is_number = get_number(v, &number);
     for (size_t i = 0; i < spec.choices.size(); ++i) {
-        const char* choice = spec.choices[i].value;
+        const char* choice = core::at(spec.choices, i).value;
         double c = 0.0;
         if (is_number && get_number(choice, &c) ? number == c : get_same(v, choice))
             return static_cast<int>(i);

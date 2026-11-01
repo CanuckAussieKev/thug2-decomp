@@ -20,6 +20,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "game/rider/core_physics.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -69,7 +70,7 @@ RiderTurning::~RiderTurning() = default;
 void RiderTurning::configure_from_data(script::Struct* /*params*/)
 {
     for (int axis = 2; axis >= 0; --axis)
-        turns_[axis].active = false;
+        core::at(turns_, axis).active = false;
 }
 
 // 0x00517D20
@@ -82,7 +83,7 @@ void RiderTurning::seal()
 void RiderTurning::tick_frame()
 {
     for (int axis = 0; axis < 3; ++axis) {
-        Turn& turn = turns_[axis];
+        Turn& turn = core::at(turns_, axis);
         if (!turn.active)
             continue;
         const double exact = frame_clock::get_slomo_frame_seconds() * turn.rate;
@@ -100,7 +101,7 @@ void RiderTurning::tick_frame()
         turn_by(entity_->basis_frame_, rotation);
         turn_by(core_matrix(core_physics_), rotation);
     }
-    if (!turns_[0].active && !turns_[1].active && !turns_[2].active)
+    if (!core::at(turns_, 0).active && !core::at(turns_, 1).active && !core::at(turns_, 2).active)
         hold_off(true);
 }
 
@@ -118,12 +119,12 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
             else
                 duration = static_cast<float>(static_cast<double>(duration) * kSecondsPerMs);
         }
-        if (params->fetch_float(kX, &turns_[0].remaining, 0))
-            start_turn(turns_[0], turns_[0].remaining, duration);
-        if (params->fetch_float(kY, &turns_[1].remaining, 0))
-            start_turn(turns_[1], turns_[1].remaining, duration);
-        if (params->fetch_float(kZ, &turns_[2].remaining, 0))
-            start_turn(turns_[2], turns_[2].remaining, duration);
+        if (params->fetch_float(kX, &core::at(turns_, 0).remaining, 0))
+            start_turn(core::at(turns_, 0), core::at(turns_, 0).remaining, duration);
+        if (params->fetch_float(kY, &core::at(turns_, 1).remaining, 0))
+            start_turn(core::at(turns_, 1), core::at(turns_, 1).remaining, duration);
+        if (params->fetch_float(kZ, &core::at(turns_, 2).remaining, 0))
+            start_turn(core::at(turns_, 2), core::at(turns_, 2).remaining, duration);
         // To face a node: about y by the angle to it in the skater's plane.
         uint32_t node = 0;
         if (params->read_hash_value(kNode, &node, 0)) {
@@ -134,7 +135,7 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
             const double degrees =
                 static_cast<double>(maths::get_angle_in_plane(entity_->basis_frame_, to_node, 2, 1)) *
                 kDegreesPerRadian;
-            start_turn(turns_[1], degrees, duration);
+            start_turn(core::at(turns_, 1), degrees, duration);
         }
         hold_off(false);
         return 1;
@@ -151,11 +152,11 @@ int RiderTurning::invoke_method_by_name(uint32_t name, script::Struct* params, s
         entity_->basis_frame_.roll_in_own_frame(static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     } else {
         // Turned round: the at and right rows reversed (their w kept), and the core physics' flag at +0x34C flipped.
-        maths::Vec4& at_row = entity_->basis_frame_.row[2];
+        maths::Vec4& at_row = core::at(entity_->basis_frame_.row, 2);
         at_row.x = -at_row.x;
         at_row.y = -at_row.y;
         at_row.z = -at_row.z;
-        maths::Vec4& right = entity_->basis_frame_.row[0];
+        maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
         right.x = -right.x;
         right.y = -right.y;
         right.z = -right.z;

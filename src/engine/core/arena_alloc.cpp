@@ -5,6 +5,7 @@
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
+#include "engine/core/checked_index.h"
 
 namespace memory {
 
@@ -43,25 +44,25 @@ void Zone::operator delete(void* memory) { memory::dealloc(memory); }
 // 0x005BC5F0
 Zone::Zone(uint8_t* start, uint8_t* end) : outset_(start), min_available_(static_cast<int>(end - start)), finish_(end)
 {
-    allocators_[1] = nullptr;
-    allocators_[0] = nullptr;
+    core::at(allocators_, 1) = nullptr;
+    core::at(allocators_, 0) = nullptr;
 }
 
 // 0x005BC4E0
 void Zone::add_allocator(MemSource* allocator)
 {
-    allocators_[(allocator->direction_ >> 1) & 1] = allocator;
+    core::at(allocators_, (allocator->direction_ >> 1) & 1) = allocator;
     allocator->top_side_ = allocator->direction_ == MemSource::kGrowUp ? outset_ : finish_;
 }
 
 // 0x005BC510
-void Zone::remove_allocator(MemSource* allocator) { allocators_[(allocator->direction_ >> 1) & 1] = nullptr; }
+void Zone::remove_allocator(MemSource* allocator) { core::at(allocators_, (allocator->direction_ >> 1) & 1) = nullptr; }
 
 // 0x005BC530
 int Zone::free_byte_count()
 {
-    const uint8_t* bottom = allocators_[0] ? allocators_[0]->top_side_ : outset_;
-    const uint8_t* top = allocators_[1] ? allocators_[1]->top_side_ : finish_;
+    const uint8_t* bottom = core::at(allocators_, 0) ? core::at(allocators_, 0)->top_side_ : outset_;
+    const uint8_t* top = core::at(allocators_, 1) ? core::at(allocators_, 1)->top_side_ : finish_;
     return static_cast<int>(top - bottom);
 }
 
@@ -69,7 +70,7 @@ int Zone::free_byte_count()
 uint8_t* Zone::carve(MemSource* allocator, int size, int /*unused*/)
 {
     const int side = (allocator->direction_ >> 1) & 1; // 0 growing up, 1 growing down
-    const MemSource* other = allocators_[side ^ 1];
+    const MemSource* other = core::at(allocators_, side ^ 1);
     uint8_t* new_top = allocator->top_side_ + allocator->direction_ * size;
     uint8_t* result = new_top;
     if (side) {
@@ -98,8 +99,8 @@ MemoryArena::MemoryArena(uint32_t size)
         finish_ = start + rounded;
         outset_ = start;
         min_available_ = static_cast<int>(finish_ - start);
-        allocators_[1] = nullptr;
-        allocators_[0] = nullptr;
+        core::at(allocators_, 1) = nullptr;
+        core::at(allocators_, 0) = nullptr;
     }
 }
 

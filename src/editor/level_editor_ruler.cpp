@@ -18,6 +18,7 @@
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ruler {
 
@@ -38,8 +39,8 @@ int nearest_within(const std::vector<std::pair<float, float>>& pixels, float x, 
     int best = -1;
     float best_d2 = radius * radius;
     for (size_t i = 0; i < pixels.size(); ++i) {
-        const float dx = pixels[i].first - x;
-        const float dy = pixels[i].second - y;
+        const float dx = core::at(pixels, i).first - x;
+        const float dy = core::at(pixels, i).second - y;
         const float d2 = dx * dx + dy * dy;
         if (d2 <= best_d2) {
             best_d2 = d2;
@@ -153,7 +154,7 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
     }
     const int nearest = nearest_within(pixels, x, y, kSnapPixels);
     if (nearest >= 0) {
-        g_hover = shown[nearest];
+        g_hover = core::at(shown, nearest);
         g_hover_snapped = true;
     }
 }

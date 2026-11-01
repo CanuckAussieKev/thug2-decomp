@@ -29,6 +29,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -53,33 +54,33 @@ void* look_up_texture(void* dictionary, uint32_t checksum)
 // 0x004D08A0
 void set_up_animated_grass_material(MaterialRef* m)
 {
-    m->textures[0] = g_grass_texture0.data();
-    m->textures[1] = g_grass_texture1.data();
-    m->blend_modes_[0] = 0x40000006;
-    m->pass_color_[0][3] = 0.5f;
+    core::at(m->textures, 0) = g_grass_texture0.data();
+    core::at(m->textures, 1) = g_grass_texture1.data();
+    core::at(m->blend_modes_, 0) = 0x40000006;
+    core::at(core::at(m->pass_color_, 0), 3) = 0.5f;
     m->pass_count_ = 2;
-    m->pass_flags_[1] = 0x400;
+    core::at(m->pass_flags_, 1) = 0x400;
     m->has_uv_wibble_ = false;
-    m->mip_lod_bias_[0] = 0;
-    m->mip_lod_bias_[1] = 0;
-    m->address_modes_[0] = 0;
-    m->address_modes_[1] = 0;
+    core::at(m->mip_lod_bias_, 0) = 0;
+    core::at(m->mip_lod_bias_, 1) = 0;
+    core::at(m->address_modes_, 0) = 0;
+    core::at(m->address_modes_, 1) = 0;
     m->sort_flag_ = 0;
     m->sort_key_ = 1501.0f;
     m->has_texture_anim_ = true;
-    m->pass_flags_[0] = (m->pass_flags_[0] & ~9u) | 0xA40;
+    core::at(m->pass_flags_, 0) = (core::at(m->pass_flags_, 0) & ~9u) | 0xA40;
     auto* anim = static_cast<TextureAnim*>(memory::alloc(sizeof(TextureAnim)));
     m->texture_anim_ = anim;
-    anim->key_counts_[0] = 18;
-    m->texture_anim_->phases[0] = 0;
-    m->texture_anim_->loops[0] = 0;
-    m->texture_anim_->keys[0] = static_cast<TextureKey*>(memory::alloc(18 * sizeof(TextureKey)));
-    m->texture_anim_->keys[1] = nullptr;
-    m->texture_anim_->keys[2] = nullptr;
-    m->texture_anim_->keys[3] = nullptr;
+    core::at(anim->key_counts_, 0) = 18;
+    core::at(m->texture_anim_->phases, 0) = 0;
+    core::at(m->texture_anim_->loops, 0) = 0;
+    core::at(m->texture_anim_->keys, 0) = static_cast<TextureKey*>(memory::alloc(18 * sizeof(TextureKey)));
+    core::at(m->texture_anim_->keys, 1) = nullptr;
+    core::at(m->texture_anim_->keys, 2) = nullptr;
+    core::at(m->texture_anim_->keys, 3) = nullptr;
     for (int k = 0; k < 18; ++k) { // (a frame every 1000 / 30 ms, through 17 textures)
-        m->texture_anim_->keys[0][k].time = k * 1000 / 30;
-        m->texture_anim_->keys[0][k].texture = g_grass_texture_animation.data() + (k % 17) * 0x20;
+        core::at(m->texture_anim_->keys, 0)[k].time = k * 1000 / 30;
+        core::at(m->texture_anim_->keys, 0)[k].texture = g_grass_texture_animation.data() + (k % 17) * 0x20;
     }
 }
 
@@ -94,7 +95,7 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     if (entry[8] & 1)
         texture = *raw::as<uint8_t*>(texture);
     std::memcpy(g_grass_texture1.data(), texture, 0x20);
-    if ((mesh->stride - mesh->unknown1c_[2]) / 8 == 1) { // (one texture coordinate set: room made for a second)
+    if ((mesh->stride - core::at(mesh->unknown1c_, 2)) / 8 == 1) { // (one texture coordinate set: room made for a second)
         VertexBuffer* wider = new_vertex_buffer((mesh->stride + 8u) * mesh->vertex_count_, 0, 0);
         uint8_t* from = nullptr;
         uint8_t* to = nullptr;
@@ -113,12 +114,12 @@ bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
     }
     set_up_animated_grass_material(mesh->material);
     mesh->flags |= 0x402;
-    mesh->pixel_shader_ = g_pixel_shaders[kPixelShader924];
+    mesh->pixel_shader_ = core::at(g_pixel_shaders, kPixelShader924);
     uint8_t* vertices = nullptr;
     mesh->fetch_vertex_store(0)->get_lock(0, 0, &vertices, 0); // (not unlocked: the copy is what's changed)
     for (uint32_t i = 0; i < mesh->vertex_count_; ++i) {
         auto* v = raw::field_at<float>(vertices, mesh->stride * i);
-        auto* uv = raw::field_at<float>(vertices, mesh->stride * i + mesh->unknown1c_[2]);
+        auto* uv = raw::field_at<float>(vertices, mesh->stride * i + core::at(mesh->unknown1c_, 2));
         const float x = v[0];
         const float z = v[2];
         uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_uv_scale);
@@ -135,7 +136,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
     MaterialRef* m = mesh->material;
     if (!m)
         return false;
-    if (m->pass_flags_[0] & kAnimatedGrass)
+    if (core::at(m->pass_flags_, 0) & kAnimatedGrass)
         return make_animated_grass(geom, mesh);
     int layers = static_cast<int>(m->unknown18);
     if (!layers)
@@ -156,8 +157,8 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         copy->material = material;
         material_pixel_shader(material, &copy->pixel_shader_);
         auto height = static_cast<float>(layer) * 0.1f + 1100.0f; // (drawn after the ground, in order)
-        material->pass_flags_[0] |= 0x40;
-        material->mip_lod_bias_[0] = 0xC0000000; // (-2)
+        core::at(material->pass_flags_, 0) |= 0x40;
+        core::at(material->mip_lod_bias_, 0) = 0xC0000000; // (-2)
         material->sort_flag_ = 0;
         material->sort_key_ = height;
         uint8_t* vertices = nullptr;
@@ -166,7 +167,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         for (uint32_t i = 0; i < copy->vertex_count_; ++i) {
             auto* v = raw::field_at<float>(vertices, copy->stride * i);
             v[1] = static_cast<float>(lift + v[1]);
-            auto* uv = raw::field_at<float>(vertices, copy->stride * i + copy->unknown1c_[2]);
+            auto* uv = raw::field_at<float>(vertices, copy->stride * i + core::at(copy->unknown1c_, 2));
             const float x = v[0];
             const float z = v[2];
             uv[0] = static_cast<float>(static_cast<double>(x) * g_grass_copy_uv_scale);

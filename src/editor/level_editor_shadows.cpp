@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's shadows and the selection's parts (ours; level_editor_shadows.h).
 
 #include "editor/level_editor_shadows.h"
+#include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cctype>
@@ -51,16 +52,16 @@ std::vector<std::string> owner_names(const char* name)
     if (at == std::string::npos || at == 0)
         return owners;
     size_t i = at + 4;
-    while (i < text.size() && get_letter(text[i]))
+    while (i < text.size() && get_letter(core::at(text, i)))
         ++i;
     size_t number_at = i;
-    if (i < text.size() && text[i] == '_' && i + 1 < text.size() && get_digit(text[i + 1]))
+    if (i < text.size() && core::at(text, i) == '_' && i + 1 < text.size() && get_digit(core::at(text, i + 1)))
         number_at = ++i;
-    while (i < text.size() && get_digit(text[i]))
+    while (i < text.size() && get_digit(core::at(text, i)))
         ++i;
     std::string number = text.substr(number_at, i - number_at);
-    if (!number.empty() && i < text.size() && get_letter(text[i]))
-        number += text[i++];
+    if (!number.empty() && i < text.size() && get_letter(core::at(text, i)))
+        number += core::at(text, i++);
     if (i != text.size())
         return owners; // (not at the end: "Shadow" is part of the name)
     std::string prefix = text.substr(0, at);
@@ -139,9 +140,9 @@ int drop_target(const std::vector<bool>& passed, const std::vector<bool>& select
 {
     const size_t count = std::min(passed.size(), selected.size());
     for (size_t i = 0; i < count; ++i) {
-        if (selected[i])
+        if (core::at(selected, i))
             return static_cast<int>(i);
-        if (!passed[i])
+        if (!core::at(passed, i))
             break;
     }
     return -1;

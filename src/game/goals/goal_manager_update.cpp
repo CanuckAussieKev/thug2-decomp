@@ -24,6 +24,7 @@
 #include "game/skate/trick_goals.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace goals {
 
@@ -81,7 +82,7 @@ int count_active(memory::ListNode* head)
 void GoalManager::update_time_display()
 {
     std::array<char, 64> text{};
-    text[0] = 0;
+    core::at(text, 0) = 0;
     const int count = count_active(&active_goals_.list_link_);
     for (int i = 0; i < count; ++i) {
         Objective* goal = get_engaged_objective(i);

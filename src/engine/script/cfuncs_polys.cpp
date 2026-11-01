@@ -22,6 +22,7 @@
 #include "engine/gfx/engine_scene.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -169,8 +170,8 @@ bool cfunc_spawn_poly(Struct* params, Script*)
     script::VectorValue vector2 = {0.0f, 1.0f, 0.0f, 1.0f};
     params->fetch_vec(kSpawnVector1, &vector1, 0);
     params->fetch_vec(kSpawnVector2, &vector2, 0);
-    params->fetch_pair(kStartDims, &details->start_dims_[0], &details->start_dims_[1], 1);
-    params->fetch_pair(kEndDims, &details->end_dims_[0], &details->end_dims_[1], 1);
+    params->fetch_pair(kStartDims, &core::at(details->start_dims_, 0), &core::at(details->start_dims_, 1), 1);
+    params->fetch_pair(kEndDims, &core::at(details->end_dims_, 0), &core::at(details->end_dims_, 1), 1);
     params->fetch_float(kLifetime, &details->lifetime, 1);
     Array* start = nullptr; // (uninitialised in the original)
     Array* end = nullptr;
@@ -181,18 +182,18 @@ bool cfunc_spawn_poly(Struct* params, Script*)
             auto* start_colour = start->array_at(corner);
             auto* end_colour = end->array_at(corner);
             for (uint32_t i = 0; i < 4; ++i)
-                details->start_colours_[corner][i] = static_cast<uint8_t>(start_colour->fetch_part(i));
+                core::at(core::at(details->start_colours_, corner), i) = static_cast<uint8_t>(start_colour->fetch_part(i));
             for (uint32_t i = 0; i < 4; ++i)
-                details->end_colours_[corner][i] = static_cast<uint8_t>(end_colour->fetch_part(i));
+                core::at(core::at(details->end_colours_, corner), i) = static_cast<uint8_t>(end_colour->fetch_part(i));
         }
     } else if (params->fetch_list(kStartColor, &start, 0)) {
         // one colour for every corner
         params->fetch_list(kEndColor, &end, 1);
         for (uint32_t corner = 0; corner < 4; ++corner) {
             for (uint32_t i = 0; i < 4; ++i)
-                details->start_colours_[corner][i] = static_cast<uint8_t>(start->fetch_part(i));
+                core::at(core::at(details->start_colours_, corner), i) = static_cast<uint8_t>(start->fetch_part(i));
             for (uint32_t i = 0; i < 4; ++i)
-                details->end_colours_[corner][i] = static_cast<uint8_t>(end->fetch_part(i));
+                core::at(core::at(details->end_colours_, corner), i) = static_cast<uint8_t>(end->fetch_part(i));
         }
     }
     if (params->has_bare_flag(kSpawnFlag2))

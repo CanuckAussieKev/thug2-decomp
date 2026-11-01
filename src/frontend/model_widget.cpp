@@ -33,6 +33,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/maths/shape_tests.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -141,8 +142,8 @@ ModelWidget::ModelWidget()
 {
     for (ShapeMesh& model : models_)
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    angle_[0] = angle_[1] = angle_[2] = 0.0f;
-    angular_velocity_[0] = angular_velocity_[1] = angular_velocity_[2] = 0.0f;
+    core::at(angle_, 0) = core::at(angle_, 1) = core::at(angle_, 2) = 0.0f;
+    core::at(angular_velocity_, 0) = core::at(angular_velocity_, 1) = core::at(angular_velocity_, 2) = 0.0f;
     target_position_ = {0.0f, 0.0f, 0.0f, 1.0f};
     basis_frame_.reset_to_identity();
     pivot_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -172,8 +173,8 @@ void ModelWidget::apply_viewport()
 {
     const uint32_t mask = 1u << (view_slot_ & 31);
     for (int i = 0; i < model_total_; ++i) {
-        if (models_[i].object)
-            set_model_viewports(models_[i].object->fetch_module(kModelModuleName), mask);
+        if (core::at(models_, i).object)
+            set_model_viewports(core::at(models_, i).object->fetch_module(kModelModuleName), mask);
     }
 }
 
@@ -181,11 +182,11 @@ void ModelWidget::apply_viewport()
 void ModelWidget::attach_model(Struct* params, maths::Vec4 offset)
 {
     objects::GameEntity* object = objects::object_hub_slot()->create_composite_object();
-    models_[model_total_].object.assign_value(object);
-    script::launch_script(kAddComponentsScript, params, models_[model_total_].object.get_pull(), false, nullptr);
-    seal(models_[model_total_].object.get_pull());
-    script::launch_script(kInitModelScript, params, models_[model_total_].object.get_pull(), false, nullptr);
-    models_[model_total_].offset = offset;
+    core::at(models_, model_total_).object.assign_value(object);
+    script::launch_script(kAddComponentsScript, params, core::at(models_, model_total_).object.get_pull(), false, nullptr);
+    seal(core::at(models_, model_total_).object.get_pull());
+    script::launch_script(kInitModelScript, params, core::at(models_, model_total_).object.get_pull(), false, nullptr);
+    core::at(models_, model_total_).offset = offset;
     ++model_total_;
 }
 
@@ -197,7 +198,7 @@ void ModelWidget::scale_to_screen_dims()
     // (left uninitialised by the original when the first slot is empty)
     float min_x = 0, min_y = 0, min_z = 0, max_x = 0, max_y = 0, max_z = 0;
     for (int i = 0; i < model_total_; ++i) {
-        const ShapeMesh& model = models_[i];
+        const ShapeMesh& model = core::at(models_, i);
         if (!model.object)
             continue;
         const maths::BBox* box = model_bounding_box(model.object->fetch_module(kModelModuleName));
@@ -280,14 +281,14 @@ void ModelWidget::change_traits(Struct* params)
     }
 
     params->fetch_float(kCameraZ, &camera_z_, 0);
-    params->fetch_float(kAngleX, &angle_[0], 0);
-    params->fetch_float(kAngleY, &angle_[1], 0);
-    params->fetch_float(kAngleZ, &angle_[2], 0);
-    params->fetch_float(kAngVelX, &angular_velocity_[0], 0);
-    params->fetch_float(kAngVelY, &angular_velocity_[1], 0);
-    params->fetch_float(kAngVelZ, &angular_velocity_[2], 0);
+    params->fetch_float(kAngleX, &core::at(angle_, 0), 0);
+    params->fetch_float(kAngleY, &core::at(angle_, 1), 0);
+    params->fetch_float(kAngleZ, &core::at(angle_, 2), 0);
+    params->fetch_float(kAngVelX, &core::at(angular_velocity_, 0), 0);
+    params->fetch_float(kAngVelY, &core::at(angular_velocity_, 1), 0);
+    params->fetch_float(kAngVelZ, &core::at(angular_velocity_, 2), 0);
     for (int order = 0; order < 6; ++order) {
-        if (params->has_bare_flag(kAngleOrders[order]))
+        if (params->has_bare_flag(core::at(kAngleOrders, order)))
             euler_sequence_ = order;
     }
     if (params->has_bare_flag(kPointAtNothingFlag))
@@ -415,16 +416,16 @@ void screen_to_world(const maths::Vec4* centre, maths::Mat4* out, int viewport, 
     if (!camera)
         return;
     maths::Mat4 rotation = *cam_orientation(camera);
-    rotation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(rotation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 place = point * rotation;
     const maths::Vec4* position = viewer_location(camera);
     place.x = position->x + place.x;
     place.y = place.y + position->y;
     place.z = place.z + position->z;
     maths::get_multiply(*out, *out, rotation);
-    out->row[3].x = place.x + out->row[3].x;
-    out->row[3].y = place.y + out->row[3].y;
-    out->row[3].z = place.z + out->row[3].z;
+    core::at(out->row, 3).x = place.x + core::at(out->row, 3).x;
+    core::at(out->row, 3).y = place.y + core::at(out->row, 3).y;
+    core::at(out->row, 3).z = place.z + core::at(out->row, 3).z;
 }
 
 // The widescreen front end's rule for Element3d (thug2-decomp.ini [features] widescreen_menus, not in the original).
@@ -503,7 +504,7 @@ void ModelWidget::tick_frame()
         objects::Entity* parent = manager->look_up_entity(anchor_object_);
         if (parent) {
             basis_frame_.reset_to_identity();
-            basis_frame_.row[3] =
+            core::at(basis_frame_.row, 3) =
                 core::down_cast<objects::GameEntity>(parent)->at_point_ + anchor_shift_ * basis_frame_;
         } else {
             script::Script* script =
@@ -516,10 +517,10 @@ void ModelWidget::tick_frame()
         node_position(node_structure(attach_to_name_), &position);
         basis_frame_.reset_to_identity();
         const maths::Vec4 offset = anchor_shift_ * basis_frame_;
-        basis_frame_.row[3].z = position.z + offset.z;
-        basis_frame_.row[3].w = position.w + offset.w;
-        basis_frame_.row[3].x = position.x + offset.x;
-        basis_frame_.row[3].y = position.y + offset.y;
+        core::at(basis_frame_.row, 3).z = position.z + offset.z;
+        core::at(basis_frame_.row, 3).w = position.w + offset.w;
+        core::at(basis_frame_.row, 3).x = position.x + offset.x;
+        core::at(basis_frame_.row, 3).y = position.y + offset.y;
     } else {
         const maths::Vec4 centre = {static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
                                     static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
@@ -539,40 +540,40 @@ void ModelWidget::tick_frame()
         if (point_at_ != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the
             // across axis by the tilt plus the tilt times the direction's height (degrees).
-            const maths::Vec4 from = basis_frame_.row[3];
+            const maths::Vec4 from = core::at(basis_frame_.row, 3);
             basis_frame_.reset_to_identity();
             maths::Vec4 direction = target - from;
             direction.make_unit();
-            basis_frame_.row[2] = direction;
-            basis_frame_.row[0].z = -direction.x;
-            basis_frame_.row[0].x = direction.z;
-            basis_frame_.row[0].y = 0.0f;
-            basis_frame_.row[0].w = 1.0f;
-            basis_frame_.row[0].make_unit();
+            core::at(basis_frame_.row, 2) = direction;
+            core::at(basis_frame_.row, 0).z = -direction.x;
+            core::at(basis_frame_.row, 0).x = direction.z;
+            core::at(basis_frame_.row, 0).y = 0.0f;
+            core::at(basis_frame_.row, 0).w = 1.0f;
+            core::at(basis_frame_.row, 0).make_unit();
             basis_frame_.square_up_axes(2);
             const double tilt = lean_angle_;
-            basis_frame_.pitch_locally(static_cast<float>((tilt - -(tilt * basis_frame_.row[2].y)) * get_degrees()));
+            basis_frame_.pitch_locally(static_cast<float>((tilt - -(tilt * core::at(basis_frame_.row, 2).y)) * get_degrees()));
             basis_frame_.get_slide(from);
         }
     }
 
     // The models' own turn about the pivot.
     maths::Mat4 local;
-    local.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    local.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    local.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    local.row[3] = {-pivot_.x, -pivot_.y, -pivot_.z, static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
-    const double angle_x = static_cast<double>(angular_velocity_[0]) + angle_[0];
-    const double angle_y = static_cast<double>(angular_velocity_[1]) + angle_[1];
-    auto angle_z = static_cast<float>(static_cast<double>(angular_velocity_[2]) + angle_[2]);
-    angle_[0] = wrapped(angle_x);
-    angle_[1] = wrapped(angle_y);
-    angle_[2] = wrapped(angle_z);
-    apply_angles(&local, angle_[0], angle_[1], angle_[2], euler_sequence_);
-    local.row[3].x += pivot_.x;
-    local.row[3].y += pivot_.y;
-    local.row[3].z += pivot_.z;
-    local.row[3].w += pivot_.w;
+    core::at(local.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(local.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(local.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(local.row, 3) = {-pivot_.x, -pivot_.y, -pivot_.z, static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
+    const double angle_x = static_cast<double>(core::at(angular_velocity_, 0)) + core::at(angle_, 0);
+    const double angle_y = static_cast<double>(core::at(angular_velocity_, 1)) + core::at(angle_, 1);
+    auto angle_z = static_cast<float>(static_cast<double>(core::at(angular_velocity_, 2)) + core::at(angle_, 2));
+    core::at(angle_, 0) = wrapped(angle_x);
+    core::at(angle_, 1) = wrapped(angle_y);
+    core::at(angle_, 2) = wrapped(angle_z);
+    apply_angles(&local, core::at(angle_, 0), core::at(angle_, 1), core::at(angle_, 2), euler_sequence_);
+    core::at(local.row, 3).x += pivot_.x;
+    core::at(local.row, 3).y += pivot_.y;
+    core::at(local.row, 3).z += pivot_.z;
+    core::at(local.row, 3).w += pivot_.w;
 
     auto scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * fit_scale_);
     maths::Vec4 scale = {scale_x, static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), scale_x,
@@ -580,7 +581,7 @@ void ModelWidget::tick_frame()
     void* camera = nullptr;
     // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
     if (size_follows_range_ && (camera = viewport_camera(view_slot_)) != nullptr) {
-        const maths::Vec4 away = basis_frame_.row[3] - *viewer_location(camera);
+        const maths::Vec4 away = core::at(basis_frame_.row, 3) - *viewer_location(camera);
         double distance = std::sqrt(static_cast<double>(away.x) * away.x + static_cast<double>(away.z) * away.z +
                                     static_cast<double>(away.y) * away.y) *
                           distance_scale_;
@@ -602,20 +603,20 @@ void ModelWidget::tick_frame()
             std::array<maths::Vec4, 8 * kMaxModels> corners{};
             int count = 0;
             for (int i = 0; i < model_total_; ++i) {
-                if (!models_[i].object)
+                if (!core::at(models_, i).object)
                     continue;
-                objects::ObjectModule* component = models_[i].object->fetch_module(kModelModuleName);
+                objects::ObjectModule* component = core::at(models_, i).object->fetch_module(kModelModuleName);
                 const maths::BBox* box = component ? model_bounding_box_if_any(component) : nullptr;
                 if (!box) {
                     count = 0; // (a model without a box yet: left as it is this frame)
                     break;
                 }
                 for (int c = 0; c < 8; ++c) {
-                    const maths::Vec4 corner = {(c & 1 ? box->max.x : box->min.x) + models_[i].offset.x,
-                                                (c & 2 ? box->max.y : box->min.y) + models_[i].offset.y,
-                                                (c & 4 ? box->max.z : box->min.z) + models_[i].offset.z, 1.0f};
+                    const maths::Vec4 corner = {(c & 1 ? box->max.x : box->min.x) + core::at(models_, i).offset.x,
+                                                (c & 2 ? box->max.y : box->min.y) + core::at(models_, i).offset.y,
+                                                (c & 4 ? box->max.z : box->min.z) + core::at(models_, i).offset.z, 1.0f};
                     const maths::Vec4 e = corner * local;
-                    corners[count++] = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
+                    core::at(corners, count++) = {e.x * scale.x, e.y * scale.y, e.z * scale.z, 1.0f};
                 }
             }
             const double tan_half_angle =
@@ -634,14 +635,14 @@ void ModelWidget::tick_frame()
         const uint32_t phase = frame_clock::get_time() % period * 2;
         const double s =
             std::sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
-        hover.x = static_cast<float>(s * basis_frame_.row[1].x);
-        hover.y = static_cast<float>(s * basis_frame_.row[1].y);
-        hover.z = static_cast<float>(s * basis_frame_.row[1].z);
-        hover.w = static_cast<float>(s * basis_frame_.row[1].w);
+        hover.x = static_cast<float>(s * core::at(basis_frame_.row, 1).x);
+        hover.y = static_cast<float>(s * core::at(basis_frame_.row, 1).y);
+        hover.z = static_cast<float>(s * core::at(basis_frame_.row, 1).z);
+        hover.w = static_cast<float>(s * core::at(basis_frame_.row, 1).w);
     }
     const bool visible = summed_.alpha >= visible_alpha();
     for (int i = 0; i < model_total_; ++i) {
-        const ShapeMesh& model = models_[i];
+        const ShapeMesh& model = core::at(models_, i);
         if (!model.object)
             continue;
         objects::ObjectModule* component = model.object->fetch_module(kModelModuleName);

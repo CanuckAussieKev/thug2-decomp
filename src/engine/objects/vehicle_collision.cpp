@@ -24,6 +24,7 @@
 #include "engine/objects/trigger_events.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -75,11 +76,11 @@ double DrivableModule::get_penetration(const Contact* contact, const Collider* c
     const double dx = static_cast<double>(contact->point.x) - collider->world_corner_.x;
     const double dy = static_cast<double>(contact->point.y) - collider->world_corner_.y;
     const double dz = static_cast<double>(contact->point.z) - collider->world_corner_.z;
-    const maths::Vec4& a = collider->directions[0];
-    const maths::Vec4& b = collider->directions[1];
+    const maths::Vec4& a = core::at(collider->directions, 0);
+    const maths::Vec4& b = core::at(collider->directions, 1);
     int side = 0;
     auto nearest = static_cast<float>((dz * a.z + dy * a.y) + dx * a.x);
-    double distance = static_cast<double>(collider->lengths[0]) - nearest;
+    double distance = static_cast<double>(core::at(collider->lengths, 0)) - nearest;
     if (distance < nearest) {
         nearest = static_cast<float>(distance);
         side = 1;
@@ -89,7 +90,7 @@ double DrivableModule::get_penetration(const Contact* contact, const Collider* c
         nearest = static_cast<float>(distance);
         side = 2;
     }
-    distance = collider->lengths[1] - distance;
+    distance = core::at(collider->lengths, 1) - distance;
     if (distance < nearest) {
         nearest = static_cast<float>(distance);
         side = 3;
@@ -122,9 +123,9 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
     for (int k = rect->joined_count_ - 1; k >= 0; --k) {
         if (k == hit)
             continue;
-        const render::RectHit& other = rect->joined_[k];
+        const render::RectHit& other = core::at(rect->joined_, k);
         for (int e = 1; e >= 0; --e) {
-            const maths::Vec4& p = other.ends[e].point;
+            const maths::Vec4& p = core::at(other.ends, e).point;
             if (!(std::fabs(static_cast<double>(contact->point.x) - p.x) < kSameEnd))
                 continue;
             if (!(std::fabs(static_cast<double>(contact->point.y) - p.y) < kSameEnd))
@@ -137,7 +138,7 @@ bool DrivableModule::find_edge_contact(Contact* contact, render::BoxProbe* rect,
                   kOpposite))
                 continue;
             // On the edge between them: the normal across the hit's triangle edge, and the depth.
-            const maths::Vec4& edge = rect->joined_[hit].ends[end].edge;
+            const maths::Vec4& edge = core::at(core::at(rect->joined_, hit).ends, end).edge;
             const double x = static_cast<double>(edge.y) * n.z - static_cast<double>(edge.z) * n.y;
             const double y = static_cast<double>(edge.z) * n.x - static_cast<double>(edge.x) * n.z;
             contact->normal.w = 0.0f;
@@ -276,8 +277,8 @@ double DrivableModule::get_impulse_denominator(const maths::Vec4* offset, const 
 void DrivableModule::update_righting()
 {
     quat_to_matrix(&orientation_, &basis_frame_);
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    if (basis_frame_.row[1].y > kRightingUp) {
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (core::at(basis_frame_.row, 1).y > kRightingUp) {
         righting_ = false;
         return;
     }
@@ -290,8 +291,8 @@ void DrivableModule::update_righting()
     const double sz = rotvel_.z;
     const bool stuck = (vx * vx + vy * vy) + vz * vz < kRightingSpeed &&
                        (sx * sx + sy * sy) + sz * sz < kRightingSpin && collision_impulse_ > 0.0f &&
-                       basis_frame_.row[1].y < kRightingTilt &&
-                       (wheels_in_contact_ == 0 || basis_frame_.row[1].y < 0.0f) && throttle_;
+                       core::at(basis_frame_.row, 1).y < kRightingTilt &&
+                       (wheels_in_contact_ == 0 || core::at(basis_frame_.row, 1).y < 0.0f) && throttle_;
     if (!righting_) {
         if (!stuck)
             return;
@@ -313,13 +314,13 @@ void DrivableModule::update_righting()
         300)
         return;
     // After 300 ms, turned towards upright facing the same way.
-    maths::Vec4 forward{basis_frame_.row[2].x, 0.0f, basis_frame_.row[2].z, basis_frame_.row[2].w};
+    maths::Vec4 forward{core::at(basis_frame_.row, 2).x, 0.0f, core::at(basis_frame_.row, 2).z, core::at(basis_frame_.row, 2).w};
     forward.make_unit();
     maths::Mat4 target;
-    target.row[0] = {forward.z, 0.0f, -forward.x, 1.0f};
-    target.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
-    target.row[2] = forward;
-    target.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the original leaves its stack there)
+    core::at(target.row, 0) = {forward.z, 0.0f, -forward.x, 1.0f};
+    core::at(target.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(target.row, 2) = forward;
+    core::at(target.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f}; // (the original leaves its stack there)
     SlerpStorage storage{};
     maths::ArcRotationBlender* slerp = storage.get_pull();
     slerp->set_matrices(basis_frame_, target);
@@ -343,16 +344,16 @@ void DrivableModule::align_in_air()
     if (slow && !align_when_slow_)
         return;
     quat_to_matrix(&orientation_, &basis_frame_);
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     // Slow: towards its facing (level); fast: towards where it's going.
     maths::Vec4 at{};
     if (slow)
-        at = {basis_frame_.row[2].x, 0.0f, basis_frame_.row[2].z, basis_frame_.row[2].w};
+        at = {core::at(basis_frame_.row, 2).x, 0.0f, core::at(basis_frame_.row, 2).z, core::at(basis_frame_.row, 2).w};
     else
         at = vel_;
     at.make_unit();
-    if ((static_cast<double>(at.z) * basis_frame_.row[2].z + static_cast<double>(at.y) * basis_frame_.row[2].y) +
-            static_cast<double>(at.x) * basis_frame_.row[2].x <
+    if ((static_cast<double>(at.z) * core::at(basis_frame_.row, 2).z + static_cast<double>(at.y) * core::at(basis_frame_.row, 2).y) +
+            static_cast<double>(at.x) * core::at(basis_frame_.row, 2).x <
         0.0) {
         at.x = at.x * -1.0f;
         at.y = at.y * -1.0f;
@@ -361,10 +362,10 @@ void DrivableModule::align_in_air()
     }
     const maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
     maths::Mat4 target;
-    target.row[0] = maths::cross_vec(up, at);
-    target.row[1] = maths::cross_vec(at, target.row[0]);
-    target.row[2] = at;
-    target.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(target.row, 0) = maths::cross_vec(up, at);
+    core::at(target.row, 1) = maths::cross_vec(at, core::at(target.row, 0));
+    core::at(target.row, 2) = at;
+    core::at(target.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     SlerpStorage storage{};
     maths::ArcRotationBlender* slerp = storage.get_pull();
     slerp->set_matrices(basis_frame_, target);
@@ -457,23 +458,23 @@ void DrivableModule::collide()
     // Each collider's face against the world: where it crosses the world's faces, and lines from the body's
     // position to its four corners.
     for (int i = 1; i >= 0; --i) {
-        const Collider& collider = colliders_[i];
+        const Collider& collider = core::at(colliders_, i);
         rect.rect_.origin = collider.world_corner_;
-        rect.rect_.side_a_ = collider.world_edges_[0];
-        rect.rect_.side_b_ = collider.world_edges_[1];
+        rect.rect_.side_a_ = core::at(collider.world_edges_, 0);
+        rect.rect_.side_b_ = core::at(collider.world_edges_, 1);
         if (rect.get_query(0)) {
             trigger_rect(trigger_ptr_, kCrossingEvents.data(), &rect);
             if (get_interrupted(this))
                 return;
             rect.join_hits();
             for (int k = rect.joined_count_ - 1; k >= 0; --k) {
-                const render::RectHit& hit = rect.joined_[k];
+                const render::RectHit& hit = core::at(rect.joined_, k);
                 for (int e = 1; e >= 0; --e) {
                     Contact& contact = contacts[contact_count_];
-                    contact.point = hit.ends[e].point;
+                    contact.point = core::at(hit.ends, e).point;
                     contact.normal = hit.normal;
                     contact.from_feeler_ = false;
-                    const bool on_edge = hit.ends[e].on_triangle_edge_;
+                    const bool on_edge = core::at(hit.ends, e).on_triangle_edge_;
                     if (!normal_faces_away(&contact)) {
                         contact.depth = on_edge ? static_cast<float>(get_penetration(&contact, &collider)) : 0.0f;
                         ++contact_count_;
@@ -592,7 +593,7 @@ void DrivableModule::collide()
 
     // Friction against the sliding at each contact that took an impulse (on the velocities as they were, updated
     // by each friction impulse in turn); at most the friction coefficient times that impulse.
-    const float friction = basis_frame_.row[1].y > kUpright ? drag_factor_ : tipped_friction_;
+    const float friction = core::at(basis_frame_.row, 1).y > kUpright ? drag_factor_ : tipped_friction_;
     for (int n = contact_count_ - 1; n >= 0; --n) {
         const Contact& contact = contacts[n];
         if (contact.impulse == 0.0f)
@@ -671,7 +672,7 @@ void DrivableModule::collide()
                             static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
                             static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
         const maths::Vec4& nrm = contact.normal;
-        const maths::Vec4& at = basis_frame_.row[2];
+        const maths::Vec4& at = core::at(basis_frame_.row, 2);
         auto strength = static_cast<float>(((static_cast<double>(at.x) * nrm.x + static_cast<double>(at.z) * nrm.z) +
                                             static_cast<double>(nrm.y) * at.y) *
                                            contact.impulse * wall_steering_ * steering_);

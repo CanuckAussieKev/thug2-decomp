@@ -27,6 +27,7 @@
 #include "engine/util/unique_handle.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects::thugpro_cas {
 
@@ -199,7 +200,7 @@ std::string install_folder()
     std::array<char, MAX_PATH> folder = {};
     GetPrivateProfileStringA("features", "thugpro_folder", "", folder.data(), sizeof(folder),
                              game_folder_path("thug2-decomp.ini").c_str());
-    if (folder[0])
+    if (core::at(folder, 0))
         return folder.data();
     std::array<char, MAX_PATH> local = {};
     const DWORD length = GetEnvironmentVariableA("LOCALAPPDATA", local.data(), sizeof(local));
@@ -228,7 +229,7 @@ std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
                 break;
             const uint8_t c = in[i++];
             out.push_back(c);
-            window[r] = c;
+            core::at(window, r) = c;
             r = (r + 1) & 4095;
         } else {
             if (i + 1 >= length)
@@ -237,9 +238,9 @@ std::vector<uint8_t> expand_lzss(const uint8_t* in, size_t length, size_t size)
             const uint32_t last = (in[i + 1] & 0x0Fu) + 2;
             i += 2;
             for (uint32_t k = 0; k <= last && out.size() < size; ++k) {
-                const uint8_t c = window[(position + k) & 4095];
+                const uint8_t c = core::at(window, (position + k) & 4095);
                 out.push_back(c);
-                window[r] = c;
+                core::at(window, r) = c;
                 r = (r + 1) & 4095;
             }
         }
@@ -480,8 +481,8 @@ void load_once()
             target.ours->rescale(old + static_cast<uint32_t>(picked.size()));
             uint32_t* elements = theirs->find_array_value();
             for (size_t k = 0; k < picked.size(); ++k) {
-                auto* part = cell::pointer<script::Struct>(elements[picked[k]]);
-                elements[picked[k]] = 0; // (now ours: not freed with THUGPRO's array)
+                auto* part = cell::pointer<script::Struct>(elements[core::at(picked, k)]);
+                elements[core::at(picked, k)] = 0; // (now ours: not freed with THUGPRO's array)
                 if (setting == 1 && !part->has_bare_flag(kHidden))
                     part->put_name_key(0u, kHidden);
                 if (setting == 1 && !part->has_bare_flag(kNoRandom))

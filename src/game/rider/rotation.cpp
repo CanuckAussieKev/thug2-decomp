@@ -25,6 +25,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -111,7 +112,7 @@ void face_along_velocity(objects::GameEntity* object)
 {
     maths::Vec4 direction = object->vel_;
     direction.make_unit();
-    maths::Vec4& forward = object->basis_frame_.row[2];
+    maths::Vec4& forward = core::at(object->basis_frame_.row, 2);
     forward.x = direction.x;
     forward.z = direction.z;
     forward.make_unit();
@@ -214,13 +215,13 @@ void SkaterPhysicsModule::get_spin()
         // Not spinning: turn the skater to face along the ramp while it's allowed and they're tilted far enough.
         flags = state_;
         if (flags->flag(PoseFlag::kVertAir).on && flags->flag(PoseFlag::kSpin).on) {
-            const float tilt = maths::confine(object->basis_frame_.row[2].y, -1.0f, 1.0f);
+            const float tilt = maths::confine(core::at(object->basis_frame_.row, 2).y, -1.0f, 1.0f);
             auto angle = static_cast<float>(std::acos(static_cast<double>(tilt))); // (the C runtime's, 0x00623630)
             if (tuning_float_lookup(kFaceRampMaxTilt, 1, object) * kRadiansPerDegree > angle) {
                 clear_flag(this, PoseFlag::kSpin);
             } else {
-                auto off = static_cast<float>(maths::get_turn_around_axis(object->basis_frame_.row[2], vert_facing_,
-                                                                          object->basis_frame_.row[1]));
+                auto off = static_cast<float>(maths::get_turn_around_axis(core::at(object->basis_frame_.row, 2), vert_facing_,
+                                                                          core::at(object->basis_frame_.row, 1)));
                 auto rate = static_cast<float>(tuning_float_lookup(kFaceRampSpeed, 1, object));
                 const double turn = static_cast<double>(maths::get_sign(off)) * rate;
                 speed = static_cast<float>(turn);

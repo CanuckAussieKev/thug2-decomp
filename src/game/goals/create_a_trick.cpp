@@ -14,6 +14,7 @@
 #include "game/rider/rider.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace goals {
 
@@ -36,7 +37,7 @@ const char* const kTotalX = "total_X_angle";               // "total_X_angle"
 const char* const kTotalZ = "total_Z_angle";               // "total_Z_angle"
 
 objects::Rider* local_skater() { return core::down_cast<objects::Rider>(skate_calls::get_home_rider()); }
-CreateATrick* created_trick(objects::Rider* skater, int index) { return skater->trick_slots_[index].get(); }
+CreateATrick* created_trick(objects::Rider* skater, int index) { return core::at(skater->trick_slots_, index).get(); }
 // The editor's state on the skater.
 template <typename T>
 T& prop(objects::Rider* skater, uint32_t offset)
@@ -150,7 +151,7 @@ bool cfunc_set_create_a_trick_params(script::Struct* params, script::Script*)
         return false;
     int index = 0;
     params->fetch_int_value(kTrickIndex, &index, 1);
-    if (!skater->trick_slots_[1]) {
+    if (!core::at(skater->trick_slots_, 1)) {
         debug::printf("Skater has no created tricks!!\n"); // "Skater has no created tricks!!\n"
         return false;
     }

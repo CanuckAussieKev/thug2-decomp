@@ -2,6 +2,7 @@
 
 #include "engine/objects/ride_tracker.h"
 #include "engine/gfx/d3dx.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -12,10 +13,10 @@ float get_difference(float a, float b) { return static_cast<float>(static_cast<d
 // The rotation part only: no translation (the fourth row 0, 0, 0, 1) and a zero fourth column.
 void keep_rotation(maths::Mat4& m)
 {
-    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    m.row[0].w = 0.0f;
-    m.row[1].w = 0.0f;
-    m.row[2].w = 0.0f;
+    core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(m.row, 0).w = 0.0f;
+    core::at(m.row, 1).w = 0.0f;
+    core::at(m.row, 2).w = 0.0f;
 }
 
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).

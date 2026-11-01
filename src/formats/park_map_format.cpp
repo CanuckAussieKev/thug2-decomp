@@ -4,6 +4,7 @@
 
 #include "engine/core/checksums.h"
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 #include <array>
 
 namespace park_editing {
@@ -73,13 +74,13 @@ bool read_park_map_gap(util::ByteReader& reader, ParkMapGap* gap, bool current)
     std::array<uint8_t, kParkMapGapSize> bytes = {};
     reader.bytes(bytes.data(), current ? kParkMapGapSize : kOldParkMapGapSize);
     for (int end = 0; end < 2; ++end) {
-        ParkMapGap::End& e = gap->ends[end];
-        e.x = bytes[end];
-        e.y = static_cast<int8_t>(bytes[2 + end] - 8);
-        e.z = bytes[4 + end];
-        e.quarter_turns = static_cast<uint8_t>((bytes[8] >> (end * 4)) & 0xF);
-        e.reach_left = static_cast<uint8_t>(bytes[6 + end] >> 4);
-        e.reach_right = static_cast<uint8_t>(bytes[6 + end] & 0xF);
+        ParkMapGap::End& e = core::at(gap->ends, end);
+        e.x = core::at(bytes, end);
+        e.y = static_cast<int8_t>(core::at(bytes, 2 + end) - 8);
+        e.z = core::at(bytes, 4 + end);
+        e.quarter_turns = static_cast<uint8_t>((core::at(bytes, 8) >> (end * 4)) & 0xF);
+        e.reach_left = static_cast<uint8_t>(core::at(bytes, 6 + end) >> 4);
+        e.reach_right = static_cast<uint8_t>(core::at(bytes, 6 + end) & 0xF);
     }
     util::ByteReader fields(bytes.data() + 0xA, kParkMapGapSize - 0xA);
     fields.fixed_string(gap->text.data(), sizeof(gap->text), kParkMapGapTextSize);

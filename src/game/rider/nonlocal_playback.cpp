@@ -35,6 +35,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -63,7 +64,7 @@ constexpr float kRadiansPerDegree = 0.01745329238474369f; // 0x00645464
 // A state the history keeps (0x84 bytes, 20 at the history's +0x1C): +0x08 the matrix (+0x28 its at row), +0x48 the
 // position, +0x68 the timed flags as bits, +0x6C the end run flags, +0x70 the state, +0x74 doing a trick, +0x75 the
 // physics mode, +0x76 driving, +0x78 the time, +0x7C the terrain.
-SkaterStateHistoryFrame* history_frame(RiderFrameLog* history, int index) { return &history->states_[index]; }
+SkaterStateHistoryFrame* history_frame(RiderFrameLog* history, int index) { return &core::at(history->states_, index); }
 uint32_t history_frame_stamp(SkaterStateHistoryFrame* frame) { return frame->get_time(); }
 maths::Mat4& snapshot_orientation(SkaterStateHistoryFrame* frame) { return frame->matrix; }
 maths::Vec4& frame_position(SkaterStateHistoryFrame* frame) { return frame->position; }
@@ -170,7 +171,7 @@ void RiderRemoteSync::interpolate()
     last_play_pos_ = play_pos_;
 
     // The orientation: slerped, unless the at rows are far apart (then the earlier state's).
-    const maths::Vec4 turn = to->matrix.row[2] - from->matrix.row[2];
+    const maths::Vec4 turn = core::at(to->matrix.row, 2) - core::at(from->matrix.row, 2);
     const double turned = std::sqrt((static_cast<double>(turn.x) * turn.x + static_cast<double>(turn.z) * turn.z) +
                                     static_cast<double>(turn.y) * turn.y);
     if (turned > kTurnSnap) {
@@ -197,23 +198,23 @@ void RiderRemoteSync::interpolate()
         move = frame_position(from) + move * t; // (the move's storage now holds the position)
         skater->at_point_ = move;
         skater->vel_ = (skater->at_point_ - last_play_pos_) / frame_seconds_;
-        moves_[updates_ % kHistory] = skater->vel_;
+        core::at(moves_, updates_ % kHistory) = skater->vel_;
         // The velocity: the average of the moves kept - quirk kept: the sum starts from the position, not zero.
         std::array<double, 4> sum = {{move.x, move.y, move.z, move.w}};
         int n = 0;
         for (; n < updates_ && n < kHistory; ++n) {
-            sum[0] += moves_[n].x;
-            sum[1] += moves_[n].y;
-            sum[2] += moves_[n].z;
-            sum[3] += moves_[n].w;
+            core::at(sum, 0) += core::at(moves_, n).x;
+            core::at(sum, 1) += core::at(moves_, n).y;
+            core::at(sum, 2) += core::at(moves_, n).z;
+            core::at(sum, 3) += core::at(moves_, n).w;
         }
         if (n > 0) {
             const double inverse = static_cast<double>(kOne) / n;
             auto rounded = static_cast<float>(inverse);
-            skater->vel_.x = static_cast<float>(inverse * sum[0]);
-            skater->vel_.y = static_cast<float>(sum[1] * rounded);
-            skater->vel_.z = static_cast<float>(sum[2] * rounded);
-            skater->vel_.w = static_cast<float>(sum[3] * rounded);
+            skater->vel_.x = static_cast<float>(inverse * core::at(sum, 0));
+            skater->vel_.y = static_cast<float>(core::at(sum, 1) * rounded);
+            skater->vel_.z = static_cast<float>(core::at(sum, 2) * rounded);
+            skater->vel_.w = static_cast<float>(core::at(sum, 3) * rounded);
         }
     }
 
@@ -263,19 +264,19 @@ void RiderRemoteSync::get_extrapolate()
     }
     const double squared = (static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz;
     auto squared_rounded = static_cast<float>(squared);
-    speeds_[slot] =
+    core::at(speeds_, slot) =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
-    lags_[slot] = lag;
-    alignments_[slot] = static_cast<float>(alignment);
+    core::at(lags_, slot) = lag;
+    core::at(alignments_, slot) = static_cast<float>(alignment);
     ++updates_;
 
     // The averages over the updates kept.
     double speeds = 0.0, lags = 0.0, alignments = 0.0;
     int n = 0;
     for (; n < updates_ && n < kHistory; ++n) {
-        speeds += speeds_[n];
-        lags += lags_[n];
-        alignments += alignments_[n];
+        speeds += core::at(speeds_, n);
+        lags += core::at(lags_, n);
+        alignments += core::at(alignments_, n);
     }
     const double inverse = static_cast<double>(kOne) / n;
     auto rounded = static_cast<float>(inverse);
@@ -300,7 +301,7 @@ void RiderRemoteSync::get_extrapolate()
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
     GameEntity* skater = entity_;
     auto height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
-    const maths::Vec4& up = skater->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(skater->basis_frame_.row, 1);
     const float raise_w = height * up.w;
     const float raise_z = height * up.z;
     const float raise_y = height * up.y;
@@ -444,17 +445,17 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     vel.w *= sign;
     const maths::Vec4 heading = {segment.x * sign, segment.y * sign, segment.z * sign, segment.w * sign};
     maths::Mat4& m = skater->basis_frame_;
-    m.row[2] = heading;
-    m.row[2].make_unit();
-    m.row[0] = {m.row[2].z, 0.0f, -m.row[2].x, 0.0f};
-    m.row[0].make_unit();
-    const maths::Vec4& r = m.row[0];
-    const maths::Vec4& at = m.row[2];
+    core::at(m.row, 2) = heading;
+    core::at(m.row, 2).make_unit();
+    core::at(m.row, 0) = {core::at(m.row, 2).z, 0.0f, -core::at(m.row, 2).x, 0.0f};
+    core::at(m.row, 0).make_unit();
+    const maths::Vec4& r = core::at(m.row, 0);
+    const maths::Vec4& at = core::at(m.row, 2);
     auto up_x = static_cast<float>(static_cast<double>(r.z) * at.y - static_cast<double>(r.y) * at.z);
     auto up_y = static_cast<float>(static_cast<double>(r.x) * at.z - static_cast<double>(at.x) * r.z);
     auto up_z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
-    m.row[1] = {up_x, up_y, up_z, 0.0f};
-    m.row[1].make_unit();
+    core::at(m.row, 1) = {up_x, up_y, up_z, 0.0f};
+    core::at(m.row, 1).make_unit();
     maths::Vec4& p = skater->at_point_;
     p.x = static_cast<float>(static_cast<double>(seconds) * vel.x + p.x);
     p.y = static_cast<float>(static_cast<double>(seconds) * vel.y + p.y);
@@ -492,16 +493,16 @@ void RiderRemoteSync::extrapolate_on_rail()
                     kHalf;
     }
     const double squared = (static_cast<double>(dz) * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
-    speeds_[slot] =
+    core::at(speeds_, slot) =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
-    lags_[slot] = lag;
-    alignments_[slot] = static_cast<float>(alignment);
+    core::at(lags_, slot) = lag;
+    core::at(alignments_, slot) = static_cast<float>(alignment);
     ++updates_;
     double lags = 0.0, alignments = 0.0;
     int n = 0;
     for (; n < updates_ && n < kHistory; ++n) {
-        lags += lags_[n];
-        alignments += alignments_[n];
+        lags += core::at(lags_, n);
+        alignments += core::at(alignments_, n);
     }
     const double inverse = static_cast<double>(kOne) / n;
     // How far along the rail: the frame's length times the average alignment and lag (at most one second's worth).
@@ -579,7 +580,7 @@ void RiderRemoteSync::play_history_events()
                 const int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
-                        mesh_set_->twist_rate_[bit].append_one(
+                        core::at(mesh_set_->twist_rate_, bit).append_one(
                             static_cast<float>(msg->spin_period_), static_cast<uint32_t>(time), msg->spin_start_,
                             msg->spin_range_, msg->spin_power_, msg->spin_hold_, false);
                 }

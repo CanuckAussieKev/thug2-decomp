@@ -20,6 +20,7 @@
 #include <array>
 
 #include "engine/script/names.h"
+#include "engine/core/checked_index.h"
 
 namespace sys {
 
@@ -31,10 +32,10 @@ std::array<uint32_t, 4> g_null_member_function_67d_6c_0;
 // 0x006408A0
 void set_null_member_function()
 {
-    g_null_member_function_67d_6c_0[0] = 0;
-    g_null_member_function_67d_6c_0[1] = 0;
-    g_null_member_function_67d_6c_0[2] = 0;
-    g_null_member_function_67d_6c_0[3] = 0xFFFFFFFFu;
+    core::at(g_null_member_function_67d_6c_0, 0) = 0;
+    core::at(g_null_member_function_67d_6c_0, 1) = 0;
+    core::at(g_null_member_function_67d_6c_0, 2) = 0;
+    core::at(g_null_member_function_67d_6c_0, 3) = 0xFFFFFFFFu;
 }
 
 } // namespace

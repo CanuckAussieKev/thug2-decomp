@@ -13,6 +13,7 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -120,7 +121,7 @@ Conn::~Conn()
     send_streams_.uncouple();
     received_streams_.uncouple();
     for (int group = kChannelGroups - 1; group >= 0; --group)
-        received_queues_[group].uncouple();
+        core::at(received_queues_, group).uncouple();
     sequenced_msgs_.uncouple();
     important_msgs_.uncouple();
     normal_msgs_.uncouple();

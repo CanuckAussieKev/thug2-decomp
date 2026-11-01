@@ -30,6 +30,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -86,7 +87,7 @@ Colour colour_of(script::Array* array)
 {
     Colour colour{};
     for (uint32_t i = 0; i < 4; ++i)
-        colour.rgba[i] = static_cast<uint8_t>(array->fetch_part(i));
+        core::at(colour.rgba, i) = static_cast<uint8_t>(array->fetch_part(i));
     return colour;
 }
 
@@ -306,47 +307,47 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.use_mid_ = params->has_bare_flag(0xA7A5BFFBu);
     p.cull_outside_ = params->has_bare_flag(0x5446AF14u);
     params->fetch_float(0x13B9DA7Bu, &scale, 0);
-    params->fetch_float(0x3BEE67C8u, &p.extent_[0], 0);
-    params->fetch_float(0x8E39913Du, &p.extent_[1], 0);
-    params->fetch_float(0x3F243A3Cu, &p.extent_[2], 0);
+    params->fetch_float(0x3BEE67C8u, &core::at(p.extent_, 0), 0);
+    params->fetch_float(0x8E39913Du, &core::at(p.extent_, 1), 0);
+    params->fetch_float(0x3F243A3Cu, &core::at(p.extent_, 2), 0);
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
     maths::Mat4 orient{};
-    orient.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    orient.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    orient.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    orient.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(orient.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(orient.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(orient.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(orient.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->has_bare_flag(0x7045843Au)) {
         maths::Vec4 at{};
         params->fetch_vec(0x0C4C809Eu, &at, 1);
         at.make_unit();
-        orient.row[2] = at;
+        core::at(orient.row, 2) = at;
         const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
-        orient.row[0].w = 0.0f;
-        if (orient.row[2] == up) {
+        core::at(orient.row, 0).w = 0.0f;
+        if (core::at(orient.row, 2) == up) {
             // (straight up: across from (0, 0, -1))
             auto t = static_cast<float>(static_cast<double>(at.z) * 0.0);
-            orient.row[0].x = static_cast<float>(static_cast<double>(at.y) * -1.0 - t);
-            orient.row[0].y = static_cast<float>(t - static_cast<double>(at.x) * -1.0);
-            orient.row[0].z = static_cast<float>(static_cast<double>(at.x) * 0.0 - static_cast<double>(at.y) * 0.0);
+            core::at(orient.row, 0).x = static_cast<float>(static_cast<double>(at.y) * -1.0 - t);
+            core::at(orient.row, 0).y = static_cast<float>(t - static_cast<double>(at.x) * -1.0);
+            core::at(orient.row, 0).z = static_cast<float>(static_cast<double>(at.x) * 0.0 - static_cast<double>(at.y) * 0.0);
         } else {
             // (across from (0, 1, 0))
             const double y0 = static_cast<double>(at.y) * 0.0;
-            orient.row[0].x = static_cast<float>(y0 - at.z);
-            orient.row[0].y = static_cast<float>(static_cast<double>(at.z) * 0.0 - static_cast<double>(at.x) * 0.0);
-            orient.row[0].z = static_cast<float>(at.x - y0);
+            core::at(orient.row, 0).x = static_cast<float>(y0 - at.z);
+            core::at(orient.row, 0).y = static_cast<float>(static_cast<double>(at.z) * 0.0 - static_cast<double>(at.x) * 0.0);
+            core::at(orient.row, 0).z = static_cast<float>(at.x - y0);
         }
-        const maths::Vec4& r = orient.row[0];
-        orient.row[1].w = 0.0f;
-        orient.row[1].x = static_cast<float>(static_cast<double>(at.y) * r.z - static_cast<double>(at.z) * r.y);
-        orient.row[1].y = static_cast<float>(static_cast<double>(at.z) * r.x - static_cast<double>(at.x) * r.z);
-        orient.row[1].z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(at.y) * r.x);
+        const maths::Vec4& r = core::at(orient.row, 0);
+        core::at(orient.row, 1).w = 0.0f;
+        core::at(orient.row, 1).x = static_cast<float>(static_cast<double>(at.y) * r.z - static_cast<double>(at.z) * r.y);
+        core::at(orient.row, 1).y = static_cast<float>(static_cast<double>(at.z) * r.x - static_cast<double>(at.x) * r.z);
+        core::at(orient.row, 1).z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(at.y) * r.x);
     }
     for (float& size : p.extent_)
         size = static_cast<float>(static_cast<double>(size) * scale);
-    params->fetch_float(0x05400A25u, &p.radius_[0], 0);
-    params->fetch_float(0xFF7D9AA9u, &p.radius_[1], 0);
-    params->fetch_float(0x5539FCEEu, &p.radius_[2], 0);
+    params->fetch_float(0x05400A25u, &core::at(p.radius_, 0), 0);
+    params->fetch_float(0xFF7D9AA9u, &core::at(p.radius_, 1), 0);
+    params->fetch_float(0x5539FCEEu, &core::at(p.radius_, 2), 0);
     for (float& radius : p.radius_)
         radius = static_cast<float>(static_cast<double>(radius) * scale);
     params->fetch_int_value(0x9E52A20Fu, &p.unknown24_, 0);
@@ -370,13 +371,13 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     auto vector = [&](uint32_t name, maths::Vec4* out) {
         params->fetch_vec(name, out, 0);
     };
-    vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &p.at_point_[0]);
-    vector(0x004B51A2u, &p.at_point_[1]);
-    vector(0x5854AB9Eu, &p.at_point_[2]);
+    vector(params->has_bare_flag(0x64F194EDu) ? 0x3D5EA6A4u : 0x7F261953u, &core::at(p.at_point_, 0));
+    vector(0x004B51A2u, &core::at(p.at_point_, 1));
+    vector(0x5854AB9Eu, &core::at(p.at_point_, 2));
     scale_and_turn(p.at_point_.data());
-    vector(0x9656F775u, &p.box_[0]);
-    vector(0xC3CD20A2u, &p.box_[1]);
-    vector(0x829FE7DDu, &p.box_[2]);
+    vector(0x9656F775u, &core::at(p.box_, 0));
+    vector(0xC3CD20A2u, &core::at(p.box_, 1));
+    vector(0x829FE7DDu, &core::at(p.box_, 2));
     scale_and_turn(p.box_.data());
     p.colour_use_mid_ = params->has_bare_flag(0x454962EFu);
     params->fetch_float(0x59463C93u, &p.mid_percent_, 0);
@@ -386,13 +387,13 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     script::Array* array = nullptr;
     static const std::array<uint32_t, 3> kColours = {{0xDAB75B6Cu, 0x0444769Au, 0x5A3728E7u}};
     for (int i = 0; i < 3; ++i)
-        if (params->fetch_list(kColours[i], &array, 0))
-            get_rgb(array, p.shade_[i].data(), &value);
+        if (params->fetch_list(core::at(kColours, i), &array, 0))
+            get_rgb(array, core::at(p.shade_, i).data(), &value);
     static const std::array<uint32_t, 3> kAlphas = {{0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu}};
     for (int i = 0; i < 3; ++i) {
-        if (params->fetch_int_value(kAlphas[i], raw::as<int>(&value), 0)) {
+        if (params->fetch_int_value(core::at(kAlphas, i), raw::as<int>(&value), 0)) {
             auto alpha = static_cast<uint8_t>(value);
-            p.shade_[i][3] = alpha > 0x80 ? 0x80 : alpha;
+            core::at(core::at(p.shade_, i), 3) = alpha > 0x80 ? 0x80 : alpha;
         }
     }
     params->read_hash_value(0xDD6BB3D5u, &p.blend_mode_, 0);
@@ -407,10 +408,10 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.unknown150_ = static_cast<uint8_t>(byte_value);
 
     // The rotation: X, Y, then Z.
-    p.orientation_turn_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    p.orientation_turn_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    p.orientation_turn_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    p.orientation_turn_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(p.orientation_turn_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(p.orientation_turn_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(p.orientation_turn_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(p.orientation_turn_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 angles = {0.0f, 0.0f, 0.0f, 1.0f};
     params->fetch_vec(0x9D2D0915u, &angles, 0);
     maths::Mat4 rotation{};
@@ -421,7 +422,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.local_positions_ = params->has_bare_flag(0xB7B7240Du);
     if (p.local_positions_)
         for (int i = 0; i < 3; ++i)
-            p.offset_pos_[i] = p.at_point_[i];
+            core::at(p.offset_pos_, i) = core::at(p.at_point_, i);
     p.orient_with_object_ = params->has_bare_flag(0xA2487CC3u);
     p.flag158_ = params->has_bare_flag(0xA0E585B0u);
     effect_handle_ = g_particle_hub->spawn_particle(&p);
@@ -464,14 +465,14 @@ void EffectsEmitterModule::tick_frame()
     if (!args.local_positions_)
         return;
     for (int i = 0; i < 3; ++i) {
-        const float* local = &args.offset_pos_[i].x;
+        const float* local = &core::at(args.offset_pos_, i).x;
         const maths::Vec4& at = entity_->at_point_;
         const maths::Vec4 pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
             maths::Mat4 orientation{};
             orientation = entity_->basis_frame_;
-            orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+            core::at(orientation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
             effect_handle_->spin_by(i, &orientation);
         }
     }
@@ -488,7 +489,7 @@ int EffectsEmitterModule::invoke_method_by_name(uint32_t name, script::Struct*, 
         // doubled (1 without a hit).
         float value = 1.0f;
         render::ProbeRay feeler;
-        const float* at = &effect_handle_->args_.at_point_[0].x;
+        const float* at = &core::at(effect_handle_->args_.at_point_, 0).x;
         feeler.line_.start = {at[0], static_cast<float>(at[1] + 1.0f), at[2], at[3]};
         feeler.line_.end = {at[0], static_cast<float>(static_cast<double>(at[1]) - 4800.0), at[2], at[3]};
         if (feeler.get_hit_shape(true, false))
@@ -524,23 +525,23 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
         array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 3; ++i)
         for (uint32_t j = 0; j < 4; ++j)
-            colours[i]->set_element(j, colour[i][j]);
-    result->append_array_value(0x7E6BCBE6u, colours[0]);
-    result->append_array_value(0x2A6B6FE2u, colours[1]);
-    result->append_array_value(0x0481113Du, colours[2]);
+            core::at(colours, i)->set_element(j, core::at(core::at(colour, i), j));
+    result->append_array_value(0x7E6BCBE6u, core::at(colours, 0));
+    result->append_array_value(0x2A6B6FE2u, core::at(colours, 1));
+    result->append_array_value(0x0481113Du, core::at(colours, 2));
     auto get = [this] { return &effect_handle_->args_; };
     auto add_vector = [&](uint32_t name, const maths::Vec4& v) {
         result->put_vec3(name, script::VectorValue{v.x, v.y, v.z, v.w});
     };
-    add_vector(0x7B5A25F8u, get()->at_point_[0]);
-    add_vector(0xA5A9080Eu, get()->at_point_[1]);
-    add_vector(0xFBDA5673u, get()->at_point_[2]);
-    result->push_float(0x3BEE67C8u, get()->extent_[0]);
-    result->push_float(0x8E39913Du, get()->extent_[1]);
-    result->push_float(0x3F243A3Cu, get()->extent_[2]);
-    add_vector(0x9656F775u, get()->box_[0]);
-    add_vector(0xC3CD20A2u, get()->box_[1]);
-    add_vector(0x829FE7DDu, get()->box_[2]);
+    add_vector(0x7B5A25F8u, core::at(get()->at_point_, 0));
+    add_vector(0xA5A9080Eu, core::at(get()->at_point_, 1));
+    add_vector(0xFBDA5673u, core::at(get()->at_point_, 2));
+    result->push_float(0x3BEE67C8u, core::at(get()->extent_, 0));
+    result->push_float(0x8E39913Du, core::at(get()->extent_, 1));
+    result->push_float(0x3F243A3Cu, core::at(get()->extent_, 2));
+    add_vector(0x9656F775u, core::at(get()->box_, 0));
+    add_vector(0xC3CD20A2u, core::at(get()->box_, 1));
+    add_vector(0x829FE7DDu, core::at(get()->box_, 2));
     script->args_->put_sub_struct(0xB91EE381u, result);
     for (script::Array* array : colours) {
         if (array) {

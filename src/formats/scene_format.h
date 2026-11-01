@@ -7,6 +7,7 @@
 #include <array>
 
 #include "formats/byte_stream.h"
+#include "engine/core/checked_index.h"
 
 // NOT ORIGINAL - the PC scene format (scenes "x.scn.xbx", models "x.mdl.xbx", skinned models "x.skin.xbx", the same
 // records) and the skin's strip breaks ("x.cas.xbx"), read record by record into plain structs.
@@ -153,7 +154,7 @@ bool read_material(Stream& in, Material* m)
     if (m->specular_power > 0.0f)
         in.take(m->specular.data(), sizeof(m->specular));
     for (uint32_t index = 0; index < m->pass_count && in.ok(); ++index) {
-        MaterialPass& pass = m->passes[index];
+        MaterialPass& pass = core::at(m->passes, index);
         pass.texture = take<uint32_t>(in);
         pass.flags = take<uint32_t>(in);
         take<uint8_t>(in);
@@ -193,7 +194,7 @@ bool read_material(Stream& in, Material* m)
                 key.texture = take<uint32_t>(in);
             }
             if (!pass.texture_keys.empty())
-                pass.texture = pass.texture_keys[0].texture;
+                pass.texture = core::at(pass.texture_keys, 0).texture;
         }
         if (!pass.texture) {
             in.skip(0x10);
@@ -297,14 +298,14 @@ bool read_mesh_body(Stream& in, MeshBody* body)
 {
     for (int i = 0; i < kIndexBuffers; ++i) {
         auto count = take<uint16_t>(in);
-        body->index_counts[i] = count;
-        body->indices[i].clear();
+        core::at(body->index_counts, i) = count;
+        core::at(body->indices, i).clear();
         if (!count)
             continue;
         if (!in.fits(count * 2u))
             return false;
-        body->indices[i].resize(count);
-        in.take(body->indices[i].data(), count * 2u);
+        core::at(body->indices, i).resize(count);
+        in.take(core::at(body->indices, i).data(), count * 2u);
     }
     body->stride = take<uint8_t>(in);
     body->vertex_count = take<uint16_t>(in);
@@ -338,8 +339,8 @@ bool read_mesh_body(Stream& in, MeshBody* body)
             in.skip(static_cast<size_t>(count) * kScaledVertexSize);
         }
     }
-    body->vertex_types[0] = take<uint32_t>(in);
-    body->vertex_types[1] = take<uint32_t>(in);
+    core::at(body->vertex_types, 0) = take<uint32_t>(in);
+    core::at(body->vertex_types, 1) = take<uint32_t>(in);
     in.take(body->offsets.data(), sizeof(body->offsets));
     body->has_vertex_bytes = take<uint8_t>(in) != 0;
     body->vertex_bytes.clear();
@@ -379,8 +380,8 @@ inline bool vertices_fit(const MeshBody& body, uint32_t vertex_bytes)
 // colour animations write it each frame, splats and projections read it) and the texture coordinates (8 - grass).
 inline bool offsets_fit(const MeshBody& body)
 {
-    return body.offsets[0] + 12u <= body.stride && body.offsets[1] + 4u <= body.stride &&
-           body.offsets[2] + 8u <= body.stride;
+    return core::at(body.offsets, 0) + 12u <= body.stride && core::at(body.offsets, 1) + 4u <= body.stride &&
+           core::at(body.offsets, 2) + 8u <= body.stride;
 }
 
 // --- skins (.cas) ---

@@ -9,6 +9,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/sound/sfx.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -48,8 +49,8 @@ void set_stereo(sound::VolumeRef& volume, float left, float right)
 {
     new (&volume) sound::VolumeRef;
     volume.change_muted();
-    volume.lanes_[0] = left;
-    volume.lanes_[1] = right;
+    core::at(volume.lanes_, 0) = left;
+    core::at(volume.lanes_, 1) = right;
 }
 
 } // namespace

@@ -16,6 +16,7 @@
 #include "game/rider/rider.h"
 #include "game/skate/point_tally.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -112,10 +113,10 @@ text::Chars LetterMatch::get_letter_string(int player)
     std::array<char, 0x100> word{};
     dup_from(word.data(), word_.data());
     if (std::strlen(word.data())) {
-        auto letters = static_cast<uint32_t>(letters_[player]);
+        auto letters = static_cast<uint32_t>(core::at(letters_, player));
         for (uint32_t i = 0; i < std::strlen(word.data()); ++i)
             if (i >= letters)
-                word[i] = '-';
+                core::at(word, i) = '-';
     }
     return {word.data()};
 }
@@ -139,7 +140,7 @@ void LetterMatch::choose_next_spawn()
 bool LetterMatch::is_over()
 {
     for (int i = 0; i < kPlayers; ++i)
-        if (get_skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(letters_[i]) >= std::strlen(word_.data()))
+        if (get_skater(static_cast<uint32_t>(i)) && static_cast<uint32_t>(core::at(letters_, i)) >= std::strlen(word_.data()))
             return true;
     return false;
 }
@@ -178,7 +179,7 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
         dup_from(text.data(), panel_.data());
         break;
     case kYouAreA: {
-        const char first = get_upper(word_[0]);
+        const char first = get_upper(core::at(word_, 0));
         const bool vowel = first == 'A' || first == 'E' || first == 'I' || first == 'O' || first == 'U';
         const char* article = script::fetch_text(vowel ? kIsAn : kIsA);
         const text::Chars name = fetch_text(kPlayerName);
@@ -221,14 +222,14 @@ void LetterMatch::end_run()
     }
     if (total < points_target_) {
         points_target_ = 0;
-        ++letters_[skater_];
+        ++core::at(letters_, skater_);
         choose_next_spawn();
         if (is_over()) {
             std::snprintf(panel_.data(), sizeof(panel_), "You are a %s!", word_.data()); // "You are a %s!"
             cur_standing_ = statuses()[kMatchEnded];
             return;
         }
-        std::array<char, 2> letter = {{get_upper(word_[letters_[skater_] - 1]), 0}};
+        std::array<char, 2> letter = {{get_upper(core::at(word_, core::at(letters_, skater_) - 1)), 0}};
         std::snprintf(panel_.data(), sizeof(panel_), "%s %s", script::fetch_text(kGetsTheLetter), letter.data()); // "%s %s"
         cur_standing_ = statuses()[kGotLetter];
         return;

@@ -38,6 +38,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -174,9 +175,9 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
-            const uint32_t name = team < 4 ? kTeamNames[team] : 0;
+            const uint32_t name = team < 4 ? core::at(kTeamNames, team) : 0;
             ScoreEntry* entry = new_entry();
-            teams[team] = entry;
+            core::at(teams, team) = entry;
             std::strcpy(entry->text_.data(), script::fetch_text(name));
             entry->king_ = false;
             entry->local_ = false;
@@ -190,22 +191,22 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
                 continue;
             if (p->flag_bits_ & kPlayerLocal) {
                 std::array<char, 64> marked{};
-                std::sprintf(marked.data(), "> %s", teams[p->team_]->text_.data());
-                std::strcpy(teams[p->team_]->text_.data(), marked.data());
+                std::sprintf(marked.data(), "> %s", core::at(teams, p->team_)->text_.data());
+                std::strcpy(core::at(teams, p->team_)->text_.data(), marked.data());
             }
             if (p->flag_bits_ & kPlayerKing)
-                teams[p->team_]->king_ = true;
+                core::at(teams, p->team_)->king_ = true;
             if (p->flag_bits_ & kPlayerLocal)
-                teams[p->team_]->local_ = true;
+                core::at(teams, p->team_)->local_ = true;
             if (p->flag_bits_ & kPlayerCarryingFlags) {
-                teams[p->team_]->has_flag_ = true;
-                teams[p->team_]->flag_bits_ |= flag_bit(p);
+                core::at(teams, p->team_)->has_flag_ = true;
+                core::at(teams, p->team_)->flag_bits_ |= flag_bit(p);
             }
         }
         for (int team = 0; team < get_game_mode()->current_num_teams(); ++team) {
             if (manager->count_team_players(team) <= 0)
                 continue;
-            ScoreEntry* entry = teams[team];
+            ScoreEntry* entry = core::at(teams, team);
             entry->priority = entry->team_score_;
             list.append_vertex(entry); // (inlined in the original)
         }
@@ -245,7 +246,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
     for (int line = 0; entry; ++line) {
         std::array<char, 64> prefix{}; // (16 bytes in the original: a long crown abbreviation overran it)
-        prefix[0] = '\0';
+        core::at(prefix, 0) = '\0';
         if (entry->king_) {
             std::sprintf(prefix.data(), script::fetch_text(kKingAbbreviation)); // (the text is the format, as the original)
         } else if (entry->has_flag_) {
@@ -258,7 +259,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             if (entry->flag_bits_ & 8)
                 std::strcat(prefix.data(), "\\s3");
         } else {
-            prefix[0] = '\0';
+            core::at(prefix, 0) = '\0';
         }
         cursor = cursor->next->data == memory::ListNode::head_marker() ? nullptr : cursor->next;
         auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
@@ -280,7 +281,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
             std::sprintf(text.data(), "%s\\c%d %s \\c%d %d", prefix.data(), entry->shade_, entry->text_.data(), entry->shade_,
                          entry->priority);
         }
-        const uint32_t id = line < 8 ? kScoreLines[line] : 0;
+        const uint32_t id = line < 8 ? core::at(kScoreLines, line) : 0;
         script::Struct* params = new_params();
         params->append_word(kText, script::kQbvalString, text.data());
         params->add_component_of_type(kId, script::kQbvalName, id);

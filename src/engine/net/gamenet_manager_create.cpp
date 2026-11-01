@@ -38,6 +38,7 @@
 #include "engine/sys/mlp.h"
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -131,9 +132,9 @@ Hub::Hub()
     crt::get_srand(crt::get_instant());
     for (int i = 0; i < kChallengeLength; ++i) {
         const int c = crt::get_rand() % 62;
-        challenge_[i] = static_cast<char>(c < 10 ? '0' + c : c < 36 ? 'A' + c - 10 : 'a' + c - 36);
+        core::at(challenge_, i) = static_cast<char>(c < 10 ? '0' + c : c < 36 ? 'A' + c - 10 : 'a' + c - 36);
     }
-    challenge_[kChallengeLength] = '\0';
+    core::at(challenge_, kChallengeLength) = '\0';
 }
 
 uint32_t g_game_net_references;

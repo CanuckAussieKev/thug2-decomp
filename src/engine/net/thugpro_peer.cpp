@@ -48,6 +48,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace script {
 class Struct;
@@ -253,7 +254,7 @@ bool pro_set_level(uint32_t level_load)
 void apply_pro_set(int index, bool on, uint32_t level_load, Effects& effects)
 {
     // THUGPRO's toggle_geo_nomenu (its KillAllTextureSplats first left out: decals only).
-    const ProSetPrefixes& p = kProSets[index];
+    const ProSetPrefixes& p = core::at(kProSets, index);
     effects.kill_prefix(p.geo);
     effects.kill_prefix(p.trg);
     if (p.trg2)

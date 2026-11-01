@@ -15,6 +15,7 @@
 #include "engine/sys/mlp.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -56,7 +57,7 @@ bool Hub::disconnect_from_internet()
 }
 
 // 0x004545D0
-void Hub::set_dialup_number(int index, const char* number) { copy_string(dialup_numbers_[index].data(), number); }
+void Hub::set_dialup_number(int index, const char* number) { copy_string(core::at(dialup_numbers_, index).data(), number); }
 
 // 0x00454600
 void Hub::set_dialup_user_name(const char* name) { copy_string(dialup_user_name_.data(), name); }
@@ -110,13 +111,13 @@ void Hub::set_auto_address(bool use_dhcp)
 }
 
 // 0x00454820
-void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(resolver_ips_[index].data(), ip); }
+void Hub::set_name_resolver(int index, const char* ip) { copy_if_different(core::at(resolver_ips_, index).data(), ip); }
 
 // 0x00454890
 void Hub::set_machine_label(const char* name)
 {
     if (!name)
-        host_name_[0] = '\0'; // (and the copy below still reads from the null pointer, as in the original)
+        core::at(host_name_, 0) = '\0'; // (and the copy below still reads from the null pointer, as in the original)
     copy_string(host_name_.data(), name);
 }
 
@@ -124,7 +125,7 @@ void Hub::set_machine_label(const char* name)
 void Hub::set_network_domain(const char* name)
 {
     if (!name)
-        domain_name_[0] = '\0'; // (likewise)
+        core::at(domain_name_, 0) = '\0'; // (likewise)
     copy_string(domain_name_.data(), name);
 }
 
@@ -171,7 +172,7 @@ const char* Hub::get_dialup_number()
 {
     if (connection_type_ == kConnection3)
         return "";
-    return dialup_numbers_[dialup_number_index_].data();
+    return core::at(dialup_numbers_, dialup_number_index_).data();
 }
 
 } // namespace net

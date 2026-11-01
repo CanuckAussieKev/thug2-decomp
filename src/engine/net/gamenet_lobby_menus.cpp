@@ -23,6 +23,7 @@
 #include "engine/gfx/loading_bar.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strncpy: the original's own)
 
@@ -273,7 +274,7 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
     void* block = memory::alloc_zeroed(sizeof(LobbyRoom));
     auto* room = block ? memory::construct_in<LobbyRoom>(block) : nullptr;
     std::strncpy(room->label_.data(), name, sizeof(room->label_) - 1);
-    room->label_[sizeof(room->label_) - 1] = '\0';
+    core::at(room->label_, sizeof(room->label_) - 1) = '\0';
     room->num_players_ = num_games;
     room->group_id_ = group_id;
     room->max_players_ = max_waiting;

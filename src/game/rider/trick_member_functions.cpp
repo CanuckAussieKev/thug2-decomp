@@ -24,6 +24,7 @@
 #include "game/rider/stats_manager.h"
 #include "game/rider/skater_state.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -133,7 +134,7 @@ bool spin_counts(MoveExecutor* self, bool full_turn)
 // Whether the score shows the trick named (its 0x00561640 against the name's checksum, taken first).
 bool same_trick_shown(MoveExecutor* self, void* score)
 {
-    const uint32_t name = checksums::hash_from_text(&self->trick_name_[0]);
+    const uint32_t name = checksums::hash_from_text(&core::at(self->trick_name_, 0));
     return static_cast<modules::PointTally*>(score)->fetch_newest_trick_key() == name;
 }
 
@@ -156,7 +157,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kUseEventsX:
         // Every event of the button x marked used (+0x14), in the buffer's order.
         for (int i = 0; std::cmp_less(i, event_count_); ++i) {
-            TrickEvent* event = &events_[i];
+            TrickEvent* event = &core::at(events_, i);
             if (event->button == kX)
                 event->flags = 1;
         }
@@ -164,7 +165,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
     case kClearPanelLanded: {
         modules::PointTally* score = score_;
         if (entity_->is_local_skater_) {
-            char* deferred = &deferred_name_[0];
+            char* deferred = &core::at(deferred_name_, 0);
             if (*deferred) {
                 const bool on_rail = core_physics_->landed_from_air_vert_ != 0;
                 if (spin_counts(this, on_rail)) {
@@ -198,7 +199,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         script->args_->push_float(kSpin, static_cast<float>(truncate(std::fabs(spin_total_))));
         return 1;
     case kSetManualTricks:
-        collect_names(params, manual_.count_, &manual_.arrays_[0]);
+        collect_names(params, manual_.count_, &core::at(manual_.arrays_, 0));
         manual_.special_ = 0;
         params->read_hash_value(kSpecial, &manual_.special_, 0);
         return 1;
@@ -219,9 +220,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         const char* text = nullptr;
         params->fetch_text(0u, &text, 0);
         if (text)
-            copy_text(&trick_name_[0], text);
+            copy_text(&core::at(trick_name_, 0), text);
         else
-            trick_name_[0] = 0;
+            core::at(trick_name_, 0) = 0;
         return 1;
     }
     case kGetSpin: {
@@ -261,7 +262,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         }
         int index = event_head_;
         for (int i = 0; std::cmp_less(i, event_count_); ++i) {
-            TrickEvent* event = &events_[index];
+            TrickEvent* event = &core::at(events_, index);
             if (frame_clock::get_time() - event->time >= static_cast<uint32_t>(duration))
                 break;
             if (event->flags & mask)
@@ -272,7 +273,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         return 1;
     }
     case kSetExtraGrindTricks:
-        collect_names(params, grind_.count_, &grind_.arrays_[0]);
+        collect_names(params, grind_.count_, &core::at(grind_.arrays_, 0));
         grind_.special_ = 0;
         params->read_hash_value(kSpecial, &grind_.special_, 0);
         return 1;
@@ -370,9 +371,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         clear_event_buffer();
         return 1;
     case kSetQueueTricks:
-        collect_names(params, extra_list_count_, &extra_lists_[0]);
-        if (extra_list_count_ == 1 && !script::fetch_list(extra_lists_[0]))
-            extra_lists_[0] = kNoQueue;
+        collect_names(params, extra_list_count_, &core::at(extra_lists_, 0));
+        if (extra_list_count_ == 1 && !script::fetch_list(core::at(extra_lists_, 0)))
+            core::at(extra_lists_, 0) = kNoQueue;
         manual_list_ = 0;
         params->read_hash_value(kSpecial, &manual_list_, 0);
         return 1;
@@ -398,7 +399,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                         continue;
                     }
                 }
-                if (btn_down_[pad_input::glyph_for_button_tag(buttons->fetch_part(i))])
+                if (core::at(btn_down_, pad_input::glyph_for_button_tag(buttons->fetch_part(i))))
                     return 1;
             }
             return 0;
@@ -416,7 +417,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
         modules::PointTally* score = score_;
         int add_spin = 0;
         if (params->has_bare_flag(kDeferred)) {
-            copy_text(&deferred_name_[0], &trick_name_[0]);
+            copy_text(&core::at(deferred_name_, 0), &core::at(trick_name_, 0));
             deferred_score_ = trick_score_;
             if (is_switch(this))
                 deferred_flags_ |= 4;
@@ -459,7 +460,7 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
                         trick_score_ = truncate(static_cast<double>(trick_score_) * multiplier);
                     }
                 }
-                const char* trick_name = &trick_name_[0];
+                const char* trick_name = &core::at(trick_name_, 0);
                 score_trick(this, trick_name, trick_score_, flags);
                 if (*trick_name) {
                     entity_->announce(kSkaterTrickDisplayed, nullptr, 0.0f);
@@ -470,9 +471,9 @@ int MoveExecutor::invoke_method_by_name(uint32_t name, script::Struct* params, s
             }
             if (params->has_bare_flag(kBlockspin))
                 spin_total_ = 0.0f;
-            deferred_name_[0] = 0;
+            core::at(deferred_name_, 0) = 0;
         }
-        if (trick_name_[0])
+        if (core::at(trick_name_, 0))
             starting_special_ = false;
         return 1;
     }

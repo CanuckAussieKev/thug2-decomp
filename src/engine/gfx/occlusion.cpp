@@ -14,6 +14,7 @@
 #include "engine/gfx/settings.h"
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -126,17 +127,17 @@ int compare_occluders(const void* a, const void* b)
     Occluder* first = mutable_within(occluder_array(), static_cast<const Occluder*>(a));
     Occluder* second = mutable_within(occluder_array(), static_cast<const Occluder*>(b));
     if (!first->poly->enabled)
-        first->hidden[0] = 0;
+        core::at(first->hidden, 0) = 0;
     if (!second->poly->enabled)
-        second->hidden[0] = 0;
-    const int first_hidden0 = first->hidden[0];
-    const int second_hidden0 = second->hidden[0];
+        core::at(second->hidden, 0) = 0;
+    const int first_hidden0 = core::at(first->hidden, 0);
+    const int second_hidden0 = core::at(second->hidden, 0);
     if (!first->poly->enabled)
-        first->hidden[1] = 0;
+        core::at(first->hidden, 1) = 0;
     if (!second->poly->enabled)
-        second->hidden[1] = 0;
-    const int first_sum = first_hidden0 + first->hidden[1];
-    const int second_sum = second_hidden0 + second->hidden[1];
+        core::at(second->hidden, 1) = 0;
+    const int first_sum = first_hidden0 + core::at(first->hidden, 1);
+    const int second_sum = second_hidden0 + core::at(second->hidden, 1);
     if (first_sum < second_sum)
         return 1;
     return first_sum <= second_sum ? 0 : -1;
@@ -151,12 +152,12 @@ void sort_occluders()
     get_qsort(occluder_array(), count, sizeof(Occluder), &compare_occluders);
     for (int i = static_cast<int>(occluder_count()) - 1; i >= 0; --i) {
         Occluder& occluder = occluder_array()[i];
-        if (occluder.hidden[1] + occluder.hidden[0] == 0) {
+        if (core::at(occluder.hidden, 1) + core::at(occluder.hidden, 0) == 0) {
             // Hid nothing: its polygon is free again (the list is sorted, so it's at the end).
             occluder.poly->in_use_ = 0;
             --occluder_count();
         } else {
-            occluder.hidden[tick_cycle()] = 0;
+            core::at(occluder.hidden, tick_cycle()) = 0;
         }
     }
 }
@@ -194,8 +195,8 @@ void add_occluders()
                 Occluder& occluder = occluder_array()[occluders++];
                 occluder.poly = &poly;
                 poly.in_use_ = 1;
-                occluder.hidden[0] = 0;
-                occluder.hidden[1] = 0;
+                core::at(occluder.hidden, 0) = 0;
+                core::at(occluder.hidden, 1) = 0;
             }
             ++added; // (counted even when there's no room)
         }
@@ -219,10 +220,10 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     poly.checksum = checksum;
     const std::array<const maths::Vec4*, 4> corners = {{p0, p1, p2, p3}};
     for (int i = 0; i < 4; ++i) {
-        poly.corners[i][0] = corners[i]->x;
-        poly.corners[i][1] = corners[i]->y;
-        poly.corners[i][2] = corners[i]->z;
-        poly.corners[i][3] = corners[i]->w;
+        core::at(core::at(poly.corners, i), 0) = core::at(corners, i)->x;
+        core::at(core::at(poly.corners, i), 1) = core::at(corners, i)->y;
+        core::at(core::at(poly.corners, i), 2) = core::at(corners, i)->z;
+        core::at(core::at(poly.corners, i), 3) = core::at(corners, i)->w;
     }
     // The normal: (p1 - p0) x (p3 - p0), the first component of p3 - p0 kept in double precision.
     const double a0 = static_cast<double>(p3->x) - p0->x;
@@ -231,10 +232,10 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     auto b0 = static_cast<float>(static_cast<double>(p1->x) - p0->x);
     auto b1 = static_cast<float>(static_cast<double>(p1->y) - p0->y);
     auto b2 = static_cast<float>(static_cast<double>(p1->z) - p0->z);
-    poly.normal[0] = static_cast<float>(static_cast<double>(b1) * a2 - static_cast<double>(b2) * a1);
-    poly.normal[1] = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
-    poly.normal[2] = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
-    poly.normal[3] = 0.0f;
+    core::at(poly.normal, 0) = static_cast<float>(static_cast<double>(b1) * a2 - static_cast<double>(b2) * a1);
+    core::at(poly.normal, 1) = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
+    core::at(poly.normal, 2) = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);
+    core::at(poly.normal, 3) = 0.0f;
     raw::as<maths::Vec4>(poly.normal.data())->make_unit();
     ++poly_count();
 }
@@ -251,26 +252,26 @@ void collect_occluders(const maths::Vec4* eye, int frame)
     for (uint32_t i = 0; i < occluder_count(); ++i) {
         Occluder& occluder = occluder_array()[i];
         const OccluderPolygon& poly = *occluder.poly;
-        const float* p0 = poly.corners[0].data();
-        const float* p1 = poly.corners[1].data();
-        const float* p2 = poly.corners[2].data();
-        const float* p3 = poly.corners[3].data();
+        const float* p0 = core::at(poly.corners, 0).data();
+        const float* p1 = core::at(poly.corners, 1).data();
+        const float* p2 = core::at(poly.corners, 2).data();
+        const float* p3 = core::at(poly.corners, 3).data();
         // Which side of the polygon the eye is on decides the corners' order.
-        const double facing = ((static_cast<double>(e[2]) - p0[2]) * poly.normal[2] +
-                               (static_cast<double>(e[1]) - p0[1]) * poly.normal[1]) +
-                              (static_cast<double>(e[0]) - p0[0]) * poly.normal[0];
+        const double facing = ((static_cast<double>(e[2]) - p0[2]) * core::at(poly.normal, 2) +
+                               (static_cast<double>(e[1]) - p0[1]) * core::at(poly.normal, 1)) +
+                              (static_cast<double>(e[0]) - p0[0]) * core::at(poly.normal, 0);
         if (facing >= 0.0) {
-            set_plane(occluder.planes[0].data(), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
-            set_plane(occluder.planes[1].data(), e, p0, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[2].data(), e, p2, p3, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[3].data(), e, p1, p2, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[4].data(), e, p3, p0, L::kZyx, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 0).data(), p0, p2, p3, L::kXzy, false, p0, D::kZyx);
+            set_plane(core::at(occluder.planes, 1).data(), e, p0, p1, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 2).data(), e, p2, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 3).data(), e, p1, p2, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 4).data(), e, p3, p0, L::kZyx, false, e, D::kXyz);
         } else { // (also when it's not a number)
-            set_plane(occluder.planes[0].data(), p0, p3, p2, L::kXzy, false, p0, D::kZyx);
-            set_plane(occluder.planes[1].data(), e, p1, p0, L::kZyx, true, e, D::kXyz);
-            set_plane(occluder.planes[2].data(), e, p3, p2, L::kZyx, false, e, D::kXyz);
-            set_plane(occluder.planes[3].data(), e, p2, p1, L::kXzy, false, e, D::kXyz);
-            set_plane(occluder.planes[4].data(), e, p0, p3, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 0).data(), p0, p3, p2, L::kXzy, false, p0, D::kZyx);
+            set_plane(core::at(occluder.planes, 1).data(), e, p1, p0, L::kZyx, true, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 2).data(), e, p3, p2, L::kZyx, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 3).data(), e, p2, p1, L::kXzy, false, e, D::kXyz);
+            set_plane(core::at(occluder.planes, 4).data(), e, p0, p3, L::kXzy, false, e, D::kXyz);
         }
     }
 }
@@ -297,13 +298,13 @@ bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
         Occluder& occluder = occluder_array()[i];
         int plane = 0;
         for (; plane < 5; ++plane) {
-            const float* p = occluder.planes[plane].data();
+            const float* p = core::at(occluder.planes, plane).data();
             const double distance = ((z * p[2] + x * p[0]) + y * p[1]) - p[3];
             if (distance >= limit) // (not a number counts as behind)
                 break;
         }
         if (plane == 5) {
-            occluder.hidden[tick_cycle()] += weight;
+            core::at(occluder.hidden, tick_cycle()) += weight;
             return true;
         }
     }
@@ -324,14 +325,14 @@ bool sphere_in_view(const maths::Vec4* centre, float radius)
     std::array<float, 4> moved{};
     const float* point = &centre->x;
     if (const float* world = world_transform()) {
-        moved[0] = world[12] + centre->x;
-        moved[1] = world[13] + centre->y;
-        moved[2] = world[14] + centre->z;
+        core::at(moved, 0) = world[12] + centre->x;
+        core::at(moved, 1) = world[13] + centre->y;
+        core::at(moved, 2) = world[14] + centre->z;
         point = moved.data();
     }
     std::array<float, 4> view{};
     xform(view.data(), point, view_matrix());
-    g_last_sphere_distance = static_cast<float>(-static_cast<double>(view[2]) - radius);
+    g_last_sphere_distance = static_cast<float>(-static_cast<double>(core::at(view, 2)) - radius);
     return inside_frustum(view.data(), radius);
 }
 
@@ -346,16 +347,16 @@ bool beyond_clip_distance(const void* bounds)
     std::array<float, 3> moved{};
     const float* point = centre.data();
     if (const float* world = world_transform()) {
-        moved[0] = centre[0] + world[12];
-        moved[1] = centre[1] + world[13];
-        moved[2] = centre[2] + world[14];
+        core::at(moved, 0) = core::at(centre, 0) + world[12];
+        core::at(moved, 1) = core::at(centre, 1) + world[13];
+        core::at(moved, 2) = core::at(centre, 2) + world[14];
         point = moved.data();
     }
     std::array<float, 4> view{};
     xform(view.data(), point, view_matrix());
     const double distance =
-        std::sqrt((static_cast<double>(view[2]) * view[2] + static_cast<double>(view[1]) * view[1]) +
-                  static_cast<double>(view[0]) * view[0]);
+        std::sqrt((static_cast<double>(core::at(view, 2)) * core::at(view, 2) + static_cast<double>(core::at(view, 1)) * core::at(view, 1)) +
+                  static_cast<double>(core::at(view, 0)) * core::at(view, 0));
     return distance - radius > far_clip();
 }
 

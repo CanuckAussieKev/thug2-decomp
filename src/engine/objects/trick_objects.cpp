@@ -38,6 +38,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -132,8 +133,8 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
         if (!cluster)
             continue;
         goals::get_objective_board()->kill_cluster(cluster->label_, static_cast<int>(score));
-        if (score > cluster->scores_[player])
-            cluster->scores_[player] = score;
+        if (score > core::at(cluster->scores_, player))
+            core::at(cluster->scores_, player) = score;
         uint32_t total = score;
         if (team_scoring()) {
             if (PlayerRecord* me = find_player_slot_by_obj(player)) {
@@ -143,7 +144,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
                 PlayerSearch search;
                 for (PlayerRecord* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
                     if (skater_of(other) && get_team(other) == team)
-                        total += cluster->scores_[current_object_id(skater_of(other))];
+                        total += core::at(cluster->scores_, current_object_id(skater_of(other)));
                 }
             }
         }
@@ -159,7 +160,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
                 PlayerSearch search;
                 for (PlayerRecord* other = start_roster_sweep(&search); other; other = step_roster_sweep(&search)) {
                     if (skater_of(other) && get_team(other) == team &&
-                        score > cluster->scores_[current_object_id(skater_of(other))]) {
+                        score > core::at(cluster->scores_, current_object_id(skater_of(other)))) {
                         changed = true;
                         break;
                     }
@@ -167,7 +168,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
             }
         }
         if (!cluster->owned_ || changed)
-            s_dirty_clusters[i] = 1;
+            core::at(s_dirty_clusters, i) = 1;
         if (cluster->owned_ && changed)
             stolen[cluster->owner_] = 1;
         if (changed)
@@ -178,7 +179,7 @@ uint32_t TrickSpotHub::log_trick_objects(uint32_t count, uint32_t* objects, uint
     // The list compacted to the objects whose cluster changed hands.
     uint32_t kept = 0;
     for (uint32_t i = 0; i < count; ++i) {
-        if (s_dirty_clusters[i])
+        if (core::at(s_dirty_clusters, i))
             objects[kept++] = objects[i];
     }
     return kept;
@@ -214,10 +215,10 @@ bool TrickSpot::set_graffiti_color(int index)
     uint8_t* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
     std::array<uint8_t, 4> rgba{};
-    rgba[0] = static_cast<uint8_t>(color->fetch_part(0));
-    rgba[1] = static_cast<uint8_t>(color->fetch_part(1));
-    rgba[2] = static_cast<uint8_t>(color->fetch_part(2));
-    rgba[3] = 0x80;
+    core::at(rgba, 0) = static_cast<uint8_t>(color->fetch_part(0));
+    core::at(rgba, 1) = static_cast<uint8_t>(color->fetch_part(1));
+    core::at(rgba, 2) = static_cast<uint8_t>(color->fetch_part(2));
+    core::at(rgba, 3) = 0x80;
     if (auto* geom = static_cast<render::Geom*>(raw::as<render::WorldCell>(sector)->geom_handle_)) {
         uint32_t packed = 0;
         std::memcpy(&packed, rgba.data(), 4);
@@ -238,7 +239,7 @@ bool TrickSpot::clear_graffiti_color(int index)
     get_sector_color(sector, &packed);
     std::array<uint8_t, 4> current{};
     std::memcpy(current.data(), &packed, 4);
-    if (current[0] == r && current[1] == g && current[2] == b)
+    if (core::at(current, 0) == r && core::at(current, 1) == g && core::at(current, 2) == b)
         clear_sector_color(sector);
     return true;
 }
@@ -362,11 +363,11 @@ bool HitClusterLog::append_one(uint32_t object_name)
     if (!cluster || !cluster->label_)
         return false;
     for (uint32_t i = 0; i < listed; ++i) {
-        if (items_[i] == cluster->label_)
+        if (core::at(items_, i) == cluster->label_)
             return false;
     }
     goals::get_objective_board()->trick_object_hit(cluster->label_);
-    items_[num_ & (kCapacity - 1)] = cluster->label_;
+    core::at(items_, num_ & (kCapacity - 1)) = cluster->label_;
     ++num_;
     return false;
 }
@@ -378,9 +379,9 @@ uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
     const TrickSpotHub* manager = g_trick_spot_hub;
     uint32_t bytes = 0;
     for (uint32_t i = 0; i < listed; ++i) {
-        auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters_.fetch_entry(items_[i]));
+        auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters_.fetch_entry(core::at(items_, i)));
         if (cluster && cluster->label_) {
-            *out++ = items_[i];
+            *out++ = core::at(items_, i);
             bytes += 4;
         }
         if (bytes >= max_bytes)
@@ -538,14 +539,14 @@ void release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* relea
     cluster->record_points_ = 0;
     for (uint32_t& score : cluster->scores_)
         score = 0;
-    release->names[release->count++] = cluster->label_;
+    core::at(release->names, release->count++) = cluster->label_;
 }
 
 // 0x00588350
 void list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list)
 {
     if (list->count < 32 && !cluster->owned_)
-        list->names[list->count++] = cluster->label_;
+        core::at(list->names, list->count++) = cluster->label_;
 }
 
 // 0x005890B0
@@ -626,7 +627,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
         if (count == 0)
             return;
         for (int victim = 0; victim < 8; ++victim) {
-            if (!stolen[victim])
+            if (!core::at(stolen, victim))
                 continue;
             net::NetMessageInfo stolen_desc;
             online::TagStolenMessage message;

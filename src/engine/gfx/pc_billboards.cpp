@@ -28,6 +28,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -144,7 +145,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     input_port()->GetVertexShader(&vertex_shader);
     IDirect3DIndexBuffer9* indices = nullptr;
     input_port()->GetIndices(&indices);
-    const uint32_t primitives = primitive_count(mesh->primitive_type_, mesh->index_counts_[0]);
+    const uint32_t primitives = primitive_count(mesh->primitive_type_, core::at(mesh->index_counts_, 0));
     uint8_t* into = nullptr;
     get_vertex_buffer(mesh, 0)->get_lock(0, 0, &into, D3DLOCK_DISCARD);
     const uint8_t* from = get_vertex_buffer(mesh, 0)->data;
@@ -198,7 +199,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     input_port()->SetStreamSource(0, static_cast<IDirect3DVertexBuffer9*>(get_vertex_buffer(mesh, 0)->buffer), 0,
                                   mesh->stride);
     // (the index buffer's Direct3D buffer, +0xC: through the getter 0x00492E50 folded with others)
-    input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(mesh->index_buffers_[0]->buffer));
+    input_port()->SetIndices(static_cast<IDirect3DIndexBuffer9*>(core::at(mesh->index_buffers_, 0)->buffer));
     DWORD format = 0;
     input_port()->GetFVF(&format);
     input_port()->SetFVF(mesh->fvf);
@@ -228,8 +229,8 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
 BillboardBatch* BillboardSet::get_find(const MaterialRef* material)
 {
     for (int i = 0; i < count; ++i) {
-        if (batches[i]->material == material)
-            return batches[i];
+        if (core::at(batches, i)->material == material)
+            return core::at(batches, i);
     }
     return nullptr;
 }
@@ -239,15 +240,15 @@ void BillboardSet::setup_axes()
 {
     const auto* m = raw::as<float>(&g_view_matrix);
     const float vz = m[10];
-    view[0] = m[2];
-    view[1] = m[6];
-    view[3] = 1.0f;
-    view[2] = vz;
+    core::at(view, 0) = m[2];
+    core::at(view, 1) = m[6];
+    core::at(view, 3) = 1.0f;
+    core::at(view, 2) = vz;
     // right = forward x (0, 1, 0)
-    auto zero = static_cast<float>(static_cast<double>(view[1]) * 0.0f);
-    double rx = zero - static_cast<double>(view[2]);
-    double ry = static_cast<double>(view[2]) * 0.0f - static_cast<double>(view[0]) * 0.0f;
-    auto rz = static_cast<float>(static_cast<double>(view[0]) - zero);
+    auto zero = static_cast<float>(static_cast<double>(core::at(view, 1)) * 0.0f);
+    double rx = zero - static_cast<double>(core::at(view, 2));
+    double ry = static_cast<double>(core::at(view, 2)) * 0.0f - static_cast<double>(core::at(view, 0)) * 0.0f;
+    auto rz = static_cast<float>(static_cast<double>(core::at(view, 0)) - zero);
     {
         const double length = std::sqrt(static_cast<double>(rz) * rz + ry * ry + rx * rx);
         if (length > 0.0f) {
@@ -257,14 +258,14 @@ void BillboardSet::setup_axes()
             rz = static_cast<float>(rz * inverse);
         }
     }
-    right[2] = rz;
-    right[0] = static_cast<float>(rx);
-    right[3] = 0.0f;
-    right[1] = static_cast<float>(ry);
+    core::at(right, 2) = rz;
+    core::at(right, 0) = static_cast<float>(rx);
+    core::at(right, 3) = 0.0f;
+    core::at(right, 1) = static_cast<float>(ry);
     // up = forward x right... as the original orders it
-    double ux = static_cast<double>(view[2]) * right[1] - static_cast<double>(view[1]) * right[2];
-    double uy = static_cast<double>(right[2]) * view[0] - static_cast<double>(view[2]) * right[0];
-    const double uz_wide = static_cast<double>(view[1]) * right[0] - static_cast<double>(right[1]) * view[0];
+    double ux = static_cast<double>(core::at(view, 2)) * core::at(right, 1) - static_cast<double>(core::at(view, 1)) * core::at(right, 2);
+    double uy = static_cast<double>(core::at(right, 2)) * core::at(view, 0) - static_cast<double>(core::at(view, 2)) * core::at(right, 0);
+    const double uz_wide = static_cast<double>(core::at(view, 1)) * core::at(right, 0) - static_cast<double>(core::at(right, 1)) * core::at(view, 0);
     auto uz = static_cast<float>(uz_wide);
     {
         const double length = std::sqrt(uz_wide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
@@ -275,10 +276,10 @@ void BillboardSet::setup_axes()
             uz = static_cast<float>(uz * inverse);
         }
     }
-    up[2] = uz;
-    up[0] = static_cast<float>(ux);
-    up[3] = 0.0f;
-    up[1] = static_cast<float>(uy);
+    core::at(up, 2) = uz;
+    core::at(up, 0) = static_cast<float>(ux);
+    core::at(up, 3) = 0.0f;
+    core::at(up, 1) = static_cast<float>(uy);
     // the forward and right along the ground
     auto flatten = [](float x, float z, float* out) {
         double fx = x, fz = z;
@@ -295,16 +296,16 @@ void BillboardSet::setup_axes()
         out[3] = 1.0f;
         out[2] = static_cast<float>(fz);
     };
-    flatten(view[0], view[2], flat_forward_.data());
-    flatten(right[0], right[2], flat_right_.data());
+    flatten(core::at(view, 0), core::at(view, 2), flat_forward_.data());
+    flatten(core::at(right, 0), core::at(right, 2), flat_right_.data());
 }
 
 // 0x004CEB30
 BillboardBatch::BillboardBatch(MaterialRef* new_material) : material(new_material)
 {
-    lists[0] = new_head();
-    lists[1] = new_head();
-    lists[2] = new_head();
+    core::at(lists, 0) = new_head();
+    core::at(lists, 1) = new_head();
+    core::at(lists, 2) = new_head();
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set twice, as the original does
     vertex_bytes_ = 0x40;
     vertex_bytes_ = (new_material->pass_count_ + 2) * 0x20;
@@ -321,7 +322,7 @@ void BillboardBatch::add_row(MeshRef* mesh)
     }
     memory::ListNode* node = memory::ListNode::create(entry);
     // at the end of its list (no checks: written through null, as the original)
-    memory::ListNode* head = lists[entry->type];
+    memory::ListNode* head = core::at(lists, entry->type);
     node->prev = head->prev;
     node->next = head;
     head->prev->next = node;
@@ -391,7 +392,7 @@ void BillboardBatch::render()
         std::memcpy(x_axis, constants, 12);
         std::memcpy(y_axis, constants + 4, 12);
         std::memcpy(z_axis, constants + 8, 12);
-        draw_list(lists[0], y_axis, x_axis, z_axis);
+        draw_list(core::at(lists, 0), y_axis, x_axis, z_axis);
     }
     {
         const std::array<float, 3> flat_up = {{0.0f, 1.0f, 0.0f}};
@@ -399,10 +400,10 @@ void BillboardBatch::render()
         float x_axis[3], y_axis[3] = {0.0f, 1.0f, 0.0f}, z_axis[3];
         std::memcpy(x_axis, manager->flat_right_.data(), 12);
         std::memcpy(z_axis, manager->flat_forward_.data(), 12);
-        draw_list(lists[1], y_axis, x_axis, z_axis);
+        draw_list(core::at(lists, 1), y_axis, x_axis, z_axis);
     }
     // About each mesh's own axis: across = forward x axis, out = across x axis, both normalised.
-    for (const memory::ListNode* node = head_of_scene_list(lists[2]); node;) {
+    for (const memory::ListNode* node = head_of_scene_list(core::at(lists, 2)); node;) {
         const memory::ListNode* next = get_next_node(node);
         MeshRef* mesh = static_cast<BillboardRec*>(node->data)->mesh;
         if (mesh->flags & 0x40) {
@@ -444,13 +445,13 @@ void BillboardBatch::render()
 // 0x004CEBE0
 void BillboardSet::append_mesh(MeshRef* mesh)
 {
-    if (!mesh->material || !mesh->material->textures[0])
+    if (!mesh->material || !core::at(mesh->material->textures, 0))
         return;
     BillboardBatch* batch = get_find(mesh->material);
     if (!batch) {
         void* memory = memory::alloc(sizeof(BillboardBatch));
         batch = memory ? memory::construct_in<BillboardBatch>(memory, mesh->material) : nullptr;
-        batches[count] = batch;
+        core::at(batches, count) = batch;
         ++count;
         order_batches(this);
     }
@@ -471,13 +472,13 @@ void BillboardSet::remove_mesh(MeshRef* mesh)
             return;
     }
     for (int i = 0; i < count; ++i) {
-        if (batches[i] != batch)
+        if (core::at(batches, i) != batch)
             continue;
         for (memory::ListNode* head : batch->lists) {
             memory::ListNode::destroy(head); // (0x004CE9A0)
         }
         memory::Hub::get_pull()->dealloc(batch);
-        batches[i] = nullptr;
+        core::at(batches, i) = nullptr;
         break;
     }
     order_batches(this);
@@ -489,14 +490,14 @@ void BillboardSet::render(unsigned int which)
 {
     if (which & 1) {
         for (int i = 0; i < count; ++i) {
-            if (!(batches[i]->material->pass_flags_[0] & 0x40))
-                batches[i]->render();
+            if (!(core::at(core::at(batches, i)->material->pass_flags_, 0) & 0x40))
+                core::at(batches, i)->render();
         }
     }
     if (which & 2) {
         for (int i = 0; i < count; ++i) {
-            if (batches[i]->material->pass_flags_[0] & 0x40)
-                batches[i]->render();
+            if (core::at(core::at(batches, i)->material->pass_flags_, 0) & 0x40)
+                core::at(batches, i)->render();
         }
     }
 }

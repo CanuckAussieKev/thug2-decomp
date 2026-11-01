@@ -38,6 +38,7 @@
 #include "frontend/menu_element.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace mouse_menus {
 
@@ -131,8 +132,8 @@ Rect2 turned_box_rect(const Cuboid& box)
     Rect2 rect = {box.x, box.y, box.x, box.y};
     const std::array<std::array<float, 2>, 3> corners = {{{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}}};
     for (const auto& corner : corners) {
-        auto x = static_cast<float>(box.x + c * corner[0] - s * corner[1]);
-        auto y = static_cast<float>(box.y + s * corner[0] + c * corner[1]);
+        auto x = static_cast<float>(box.x + c * core::at(corner, 0) - s * core::at(corner, 1));
+        auto y = static_cast<float>(box.y + s * core::at(corner, 0) + c * core::at(corner, 1));
         rect = union_of(rect, Rect2{x, y, x, y});
     }
     return rect;
@@ -539,7 +540,7 @@ bool menu_takes_pad_events(UiWidget* menu)
         bool listed = false;
         const int count = manager->pad_event_kind_count_;
         for (int i = 0; i < count; ++i)
-            if (manager->pad_event_types_[i] == kPadChoose)
+            if (core::at(manager->pad_event_types_, i) == kPadChoose)
                 listed = true;
         if (listed) {
             if (!flag_in_chain(menu, kFlagPriority))
@@ -618,8 +619,8 @@ void log_element(const char* what, const UiWidget* element)
 void send_pad_event(modules::FrontEnd* front_end, uint32_t event)
 {
     const char* not_sent = nullptr;
-    const modules::FrontEndInputHandler* handler = front_end->pad_listeners_[0].get();
-    if (front_end->pad_mappings_[0].mapping_ == 0)
+    const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners_, 0).get();
+    if (core::at(front_end->pad_mappings_, 0).mapping_ == 0)
         not_sent = "the first controller's pad mapping is inactive";
     else if (front_end->block_menu_input_)
         not_sent = "menu input is blocked (SetButtonEventMappings block_menu_input)";

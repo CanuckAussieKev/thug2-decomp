@@ -10,6 +10,7 @@
 #include "editor/level_editor_chains.h"
 #include "editor/level_editor_ui.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui {
 
@@ -41,7 +42,7 @@ std::string terrain_label(const std::string& name)
     const std::string prefix = "TERRAIN_GRIND";
     std::string label = name.starts_with(prefix) ? name.substr(prefix.size()) : name;
     for (size_t i = 1; i < label.size(); ++i)
-        label[i] = static_cast<char>(label[i] >= 'A' && label[i] <= 'Z' ? label[i] - 'A' + 'a' : label[i]);
+        core::at(label, i) = static_cast<char>(core::at(label, i) >= 'A' && core::at(label, i) <= 'Z' ? core::at(label, i) - 'A' + 'a' : core::at(label, i));
     return label;
 }
 
@@ -115,13 +116,13 @@ void chain_section(const chains::View& chain, std::vector<Request>* requests)
               chains::kOpUnlink);
     if (chain.rail && !chain.terrains.empty()) {
         const std::string current = chain.terrain >= 0 && std::cmp_less(chain.terrain, chain.terrains.size())
-                                        ? terrain_label(chain.terrains[chain.terrain])
+                                        ? terrain_label(core::at(chain.terrains, chain.terrain))
                                         : std::string("(other)");
         ImGui::SetNextItemWidth(-1.0f);
         if (ImGui::BeginCombo("##terrain", ("Terrain: " + current).c_str())) {
             for (int i = 0; std::cmp_less(i, chain.terrains.size()); ++i) {
-                if (ImGui::Selectable(terrain_label(chain.terrains[i]).c_str(), i == chain.terrain))
-                    get_ask(requests, chains::kOpTerrain, checksums::hash_from_text(chain.terrains[i].c_str()));
+                if (ImGui::Selectable(terrain_label(core::at(chain.terrains, i)).c_str(), i == chain.terrain))
+                    get_ask(requests, chains::kOpTerrain, checksums::hash_from_text(core::at(chain.terrains, i).c_str()));
             }
             ImGui::EndCombo();
         }

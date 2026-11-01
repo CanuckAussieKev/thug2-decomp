@@ -40,6 +40,7 @@
 #include "game/rider/skater_score.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -169,8 +170,8 @@ void prepare_velocity(SkaterPhysicsModule* component, bool exactly_still, bool f
     maths::Vec4& v = object->vel_;
     const bool still = exactly_still ? v.x == 0.0f && v.z == 0.0f : std::fabs(v.x) < 0.01f && std::fabs(v.z) < 0.01f;
     if (still) {
-        v.x = object->basis_frame_.row[2].x;
-        object_of(component)->vel_.z = object_of(component)->basis_frame_.row[2].z;
+        v.x = core::at(object->basis_frame_.row, 2).x;
+        object_of(component)->vel_.z = core::at(object_of(component)->basis_frame_.row, 2).z;
     }
     if (!from_object) {
         maths::Vec4& w = object_of(component)->vel_;
@@ -183,7 +184,7 @@ void prepare_velocity(SkaterPhysicsModule* component, bool exactly_still, bool f
 bool moving_against_facing(objects::GameEntity* object)
 {
     const maths::Vec4& v = object->vel_;
-    const maths::Vec4& f = object->basis_frame_.row[2];
+    const maths::Vec4& f = core::at(object->basis_frame_.row, 2);
     const double dot =
         (static_cast<double>(v.z) * f.z + static_cast<double>(v.y) * f.y) + static_cast<double>(f.x) * v.x;
     return dot < 0.0;
@@ -240,7 +241,7 @@ void kick_off_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool 
             (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
         if (static_cast<double>(adjust) * adjust > speed) {
             object_of(c)->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
-            along = object_of(c)->basis_frame_.row[2];
+            along = core::at(object_of(c)->basis_frame_.row, 2);
             along.y = 0.0f;
             along.make_unit();
         }
@@ -307,10 +308,10 @@ void start_lip_trick(SkaterPhysicsModule* c, const maths::Vec4* point)
     maths::Vec4 up = {ground.x, 0.0f, ground.z, ground.w};
     up.make_unit();
     objects::GameEntity* object = object_of(c);
-    object->basis_frame_.row[1] = up;
-    object_of(c)->basis_frame_.row[2] = kUpAxis;
-    maths::Vec4& right = object_of(c)->basis_frame_.row[0];
-    const maths::Vec4& u = object_of(c)->basis_frame_.row[1];
+    core::at(object->basis_frame_.row, 1) = up;
+    core::at(object_of(c)->basis_frame_.row, 2) = kUpAxis;
+    maths::Vec4& right = core::at(object_of(c)->basis_frame_.row, 0);
+    const maths::Vec4& u = core::at(object_of(c)->basis_frame_.row, 1);
     right.y = 0.0f;
     right.w = 0.0f;
     right.x = -u.z;
@@ -398,7 +399,7 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
             (static_cast<double>(w.z) * w.z + static_cast<double>(w.x) * w.x) + static_cast<double>(w.y) * w.y;
         if (adjust * adjust > speed) {
             object_of(c)->vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
-            const maths::Vec4& f = object_of(c)->basis_frame_.row[2];
+            const maths::Vec4& f = core::at(object_of(c)->basis_frame_.row, 2);
             sign = maths::get_sign(
                 static_cast<float>((static_cast<double>(direction.z) * f.z + static_cast<double>(direction.y) * f.y) +
                                    static_cast<double>(direction.x) * f.x));
@@ -460,8 +461,8 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
 
     // Grinding sideways (across the skater's right) or which way round.
     const objects::GameEntity* o = object_of(c);
-    const maths::Vec4& right = o->basis_frame_.row[0];
-    const maths::Vec4& facing = o->basis_frame_.row[2];
+    const maths::Vec4& right = core::at(o->basis_frame_.row, 0);
+    const maths::Vec4& facing = core::at(o->basis_frame_.row, 2);
     auto across_right =
         static_cast<float>((static_cast<double>(direction.z) * right.z + static_cast<double>(direction.y) * right.y) +
                            static_cast<double>(direction.x) * right.x);
@@ -542,9 +543,9 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
     bool lip = true;
     if (!allow_lip_no_grind_) {
         const objects::GameEntity* object = object_of(this);
-        lip = object->vel_.y > 0.0f && std::fabs(object->basis_frame_.row[1].y) < horizontal &&
-              object->basis_frame_.row[2].y > 0.0f && std::fabs(floor_normal_.y) < ramp_vert &&
-              std::fabs(object->basis_frame_.row[0].y) < allow;
+        lip = object->vel_.y > 0.0f && std::fabs(core::at(object->basis_frame_.row, 1).y) < horizontal &&
+              core::at(object->basis_frame_.row, 2).y > 0.0f && std::fabs(floor_normal_.y) < ramp_vert &&
+              std::fabs(core::at(object->basis_frame_.row, 0).y) < allow;
     }
     // (not original: THAW 0x005E1B31 - no lip trick on the bike)
     if (lip && !no_lip_trick && !on_vehicle_ && !thaw_bmx::live_now(this))

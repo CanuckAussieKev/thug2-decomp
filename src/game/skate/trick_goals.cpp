@@ -37,6 +37,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -268,7 +269,7 @@ void FallingTricksGoal::clear_tricks()
     trick_total_ = 0;
     stopwatch_ = 0;
     for (int i = 0; i < kMaxTricks; ++i) {
-        StackedTrickEntry& t = tricks_[i];
+        StackedTrickEntry& t = core::at(tricks_, i);
         t.free = false;
         t.trick = 0;
         t.trick2 = 0;
@@ -276,7 +277,7 @@ void FallingTricksGoal::clear_tricks()
         t.spin = 0;
         t.taps = 1;
         t.perfect = false;
-        group_used_[i] = false;
+        core::at(group_used_, i) = false;
     }
     args_->remove_flag(kTricksAdded);
 }
@@ -326,7 +327,7 @@ void FallingTricksGoal::prepare_all()
     // The first trick comes 200 ms in (at once for a single combo).
     stopwatch_ = integer_or_flag(args_, kSingleCombo) ? 0 : combo_time - 200;
     for (int i = 0; i < kMaxTricks; ++i) {
-        StackedTrickEntry& t = tricks_[i];
+        StackedTrickEntry& t = core::at(tricks_, i);
         t.free = true;
         t.trick = 0;
         t.trick2 = 0;
@@ -334,7 +335,7 @@ void FallingTricksGoal::prepare_all()
         t.spin = 0;
         t.taps = 1;
         t.perfect = false;
-        group_used_[i] = false;
+        core::at(group_used_, i) = false;
     }
 }
 
@@ -386,12 +387,12 @@ void FallingTricksGoal::clear_tricks_and_menu()
     trick_total_ = 0;
     stopwatch_ = 0;
     for (int i = 0; i < kMaxTricks; ++i) {
-        StackedTrickEntry& t = tricks_[i];
+        StackedTrickEntry& t = core::at(tricks_, i);
         t.free = true;
         t.trick = 0;
         t.trick2 = 0;
         t.key_combo_ = 0;
-        group_used_[i] = false;
+        core::at(group_used_, i) = false;
     }
     args_->remove_flag(kTricksAdded);
     hub(ui_tree_handle())->dismantle_part(kTetrisMenu, 1, 1, nullptr);
@@ -411,7 +412,7 @@ void FallingTricksGoal::drop_move_entry(int index)
 {
     int max_tricks = 0;
     args_->fetch_int_value(kMaxTricksName, &max_tricks, 1);
-    const uint32_t id = tricks_[index].element;
+    const uint32_t id = core::at(tricks_, index).element;
     void* manager = ui_tree_handle();
     ElementPtr element;
     hub(manager)->fetch_part(&element, id, 1);
@@ -455,7 +456,7 @@ void FallingTricksGoal::drop_move_entry(int index)
     }
     args_->put_int(kTricksDoneCount, completed);
     --trick_total_;
-    tricks_[index].free = true;
+    core::at(tricks_, index).free = true;
 }
 
 // 0x0056FA30
@@ -473,8 +474,8 @@ void FallingTricksGoal::add_tricks(int count)
     int group = 0;
     if (combo) {
         for (int i = 0; i < kMaxTricks; ++i) {
-            if (!group_used_[i]) {
-                group_used_[i] = true;
+            if (!core::at(group_used_, i)) {
+                core::at(group_used_, i) = true;
                 group = i;
                 break;
             }
@@ -488,8 +489,8 @@ void FallingTricksGoal::add_tricks(int count)
         uint32_t trick_name = 0;
         int slot = 0;
         for (int i = 0; i < kMaxTricks; ++i) {
-            if (tricks_[i].free) {
-                StackedTrickEntry& t = tricks_[i];
+            if (core::at(tricks_, i).free) {
+                StackedTrickEntry& t = core::at(tricks_, i);
                 slot = i;
                 t.free = false;
                 t.group = group;
@@ -502,7 +503,7 @@ void FallingTricksGoal::add_tricks(int count)
                 break;
             }
         }
-        StackedTrickEntry& t = tricks_[slot];
+        StackedTrickEntry& t = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
         std::array<char, 512> text{};
@@ -584,7 +585,7 @@ void FallingTricksGoal::add_tricks(int count)
                 }
                 trick_params->fetch_text(kName, &trick_text, true);
             }
-            text[0] = '\0';
+            core::at(text, 0) = '\0';
             if (t.spin) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
@@ -669,7 +670,7 @@ void FallingTricksGoal::check_combos()
     int combo_size = 0;
     args_->fetch_int_value(kChainLength, &combo_size, 1);
     for (int group = 0; group < kMaxTricks; ++group) {
-        if (!group_used_[group])
+        if (!core::at(group_used_, group))
             continue;
         bool sound_played = false;
         int done = 0;
@@ -689,14 +690,14 @@ void FallingTricksGoal::check_combos()
         if (done < combo_size)
             continue;
         for (int i = 0; i < kMaxTricks; ++i) {
-            if (!tricks_[i].free && tricks_[i].group == group) {
+            if (!core::at(tricks_, i).free && core::at(tricks_, i).group == group) {
                 if (!sound_played)
                     get_run(kTrickRemovedSound, nullptr);
                 sound_played = true;
                 drop_move_entry(i);
             }
         }
-        group_used_[group] = false;
+        core::at(group_used_, group) = false;
         if (integer_or_flag(args_, kSingleCombo)) {
             void* manager = objective_board();
             complete_objective(manager, get_goal_id(this));
@@ -798,7 +799,7 @@ void FallingTricksGoal::check_tricks()
     }
     bool sound_played = false;
     for (int i = 0; i < kMaxTricks; ++i) {
-        const StackedTrickEntry& t = tricks_[i];
+        const StackedTrickEntry& t = core::at(tricks_, i);
         if (t.free)
             continue;
         bool done = false;
@@ -842,7 +843,7 @@ void TrickBeatGoal::clear_tricks()
     trick_total_ = 0;
     beat_time_ = 0;
     for (int i = 0; i < kMaxTricks; ++i) {
-        BeatTrick& t = tricks_[i];
+        BeatTrick& t = core::at(tricks_, i);
         t.free = true; // (overwritten below: the original stores both)
         t.trick = 0;
         t.trick2 = 0;
@@ -852,7 +853,7 @@ void TrickBeatGoal::clear_tricks()
         t.taps = 1;
         t.perfect = false;
         t.free = false;
-        unknown45c_[i] = false;
+        core::at(unknown45c_, i) = false;
     }
     args_->remove_flag(kTricksAdded);
 }
@@ -879,7 +880,7 @@ void TrickBeatGoal::prepare_all()
     args_->fetch_int_value(kTotalToWin, &total_to_win_, 1);
     args_->put_int(kTricksDoneCount, 0);
     for (int i = 0; i < kMaxTricks; ++i) {
-        BeatTrick& t = tricks_[i];
+        BeatTrick& t = core::at(tricks_, i);
         t.free = true;
         t.trick = 0;
         t.trick2 = 0;
@@ -888,7 +889,7 @@ void TrickBeatGoal::prepare_all()
         t.spin = 0;
         t.taps = 1;
         t.perfect = false;
-        unknown45c_[i] = false;
+        core::at(unknown45c_, i) = false;
     }
 }
 
@@ -971,7 +972,7 @@ void TrickBeatGoal::pulse_tricks()
 // 0x00574F00
 void TrickBeatGoal::drop_move_entry(int index)
 {
-    const uint32_t id = tricks_[index].element;
+    const uint32_t id = core::at(tricks_, index).element;
     ElementPtr element;
     hub(ui_tree_handle())->fetch_part(&element, id, 1);
     script::Struct* params = spawn_param_table();
@@ -991,7 +992,7 @@ void TrickBeatGoal::drop_move_entry(int index)
     args_->fetch_int_value(kAccelerationInterval, &interval, 0); // (unused)
     args_->put_int(kTricksDoneCount, completed);
     --trick_total_;
-    tricks_[index].free = true;
+    core::at(tricks_, index).free = true;
 }
 
 namespace {
@@ -1050,8 +1051,8 @@ void TrickBeatGoal::update_beat()
                 auto* volume_of = raw::as<sound::VolumeRef>(&level);
                 new (volume_of) sound::VolumeRef;
                 volume_of->change_muted();
-                level.channels[0] = volume;
-                level.channels[1] = volume;
+                core::at(level.channels, 0) = volume;
+                core::at(level.channels, 1) = volume;
                 sound::g_audio_mixer->emit_sound(name, volume_of, pitch, 0, nullptr, 0);
                 destroy_sound_volume(&level);
             }
@@ -1089,8 +1090,8 @@ void TrickBeatGoal::add_tricks(int count)
         uint32_t trick_name = 0;
         int slot = 0;
         for (int i = 0; i < kMaxTricks; ++i) {
-            if (tricks_[i].free) {
-                BeatTrick& t = tricks_[i];
+            if (core::at(tricks_, i).free) {
+                BeatTrick& t = core::at(tricks_, i);
                 slot = i;
                 t.free = true;
                 t.trick = 0;
@@ -1105,7 +1106,7 @@ void TrickBeatGoal::add_tricks(int count)
                 break;
             }
         }
-        BeatTrick& t = tricks_[slot];
+        BeatTrick& t = core::at(tricks_, slot);
         const char* key_combo_text = nullptr;
         int taps = 1;
         std::array<char, 512> text{};
@@ -1183,7 +1184,7 @@ void TrickBeatGoal::add_tricks(int count)
                 }
                 trick_params->fetch_text(kName, &trick_text, true);
             }
-            text[0] = '\0';
+            core::at(text, 0) = '\0';
             if (t.spin) {
                 THUG2_MSVC_WARNING(suppress : 4996)
                 if (t.perfect)
@@ -1247,7 +1248,7 @@ void TrickBeatGoal::add_tricks(int count)
 void TrickBeatGoal::remove_landed_tricks()
 {
     for (int i = 0; i < kMaxTricks; ++i) {
-        if (!tricks_[i].free && tricks_[i].landed) {
+        if (!core::at(tricks_, i).free && core::at(tricks_, i).landed) {
             ++completed_;
             drop_move_entry(i);
         }

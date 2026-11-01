@@ -29,6 +29,7 @@
 #include <gsl/pointers>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -232,9 +233,9 @@ bool WorldScene::unload_collision()
         delete[] coll_statics_; // (0x0049CE00, the array's deleting destructor)
         coll_statics_ = nullptr;
     }
-    if (pip_name_[0]) {
+    if (core::at(pip_name_, 0)) {
         packs::offload(pip_name_.data());
-        pip_name_[0] = 0;
+        core::at(pip_name_, 0) = 0;
     }
     return true;
 }

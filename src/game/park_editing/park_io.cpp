@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -99,7 +100,7 @@ void ParkLayout::set_up_abstract_metas()
             }
             meta->insert_tile(source, &pos, 0, false);
             const uint32_t name = source->sector_; // the source's name
-            piece_names[num_piece_names++] = name;
+            core::at(piece_names, num_piece_names++) = name;
             meta->flag_bits_ |= PieceGroup::kSector;
             meta->name_key_ = name;
             uint32_t special = 0;                                 // (left unset if there's none, as in the original)
@@ -116,31 +117,31 @@ void ParkLayout::set_up_abstract_metas()
                     meta->flag_bits_ |= PieceGroup::kRailPlacement;
                     break;
                 case 0x48FA9C7B: // restart_1
-                    restart_pieces_[0] = single;
+                    core::at(restart_pieces_, 0) = single;
                     break;
                 case 0x419183B2: // restart_multi
-                    restart_pieces_[1] = single;
+                    core::at(restart_pieces_, 1) = single;
                     break;
                 case 0xE69AEFAF: // restart_horse
-                    restart_pieces_[2] = single;
+                    core::at(restart_pieces_, 2) = single;
                     break;
                 case 0xA091CE25: // king_of_hill
-                    restart_pieces_[3] = single;
+                    core::at(restart_pieces_, 3) = single;
                     break;
                 case 0x74B0F4E9: // red_flag
-                    restart_pieces_[4] = single;
+                    core::at(restart_pieces_, 4) = single;
                     meta->flag_bits_ |= PieceGroup::kRestartFlag;
                     break;
                 case 0xC893ACF8: // green_flag
-                    restart_pieces_[5] = single;
+                    core::at(restart_pieces_, 5) = single;
                     meta->flag_bits_ |= PieceGroup::kRestartFlag;
                     break;
                 case 0x40BDFA7E: // blue_flag
-                    restart_pieces_[6] = single;
+                    core::at(restart_pieces_, 6) = single;
                     meta->flag_bits_ |= PieceGroup::kRestartFlag;
                     break;
                 case 0x3AE047FC: // yellow_flag
-                    restart_pieces_[7] = single;
+                    core::at(restart_pieces_, 7) = single;
                     meta->flag_bits_ |= PieceGroup::kRestartFlag;
                     break;
                 }
@@ -155,7 +156,7 @@ void ParkLayout::set_up_abstract_metas()
                 script::Array* at = nullptr;
                 entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
                 TileTemplate* source = piece_source(builder_, name);
-                piece_names[num_piece_names++] = name;
+                core::at(piece_names, num_piece_names++) = name;
                 CellBox pos{};
                 pos.assign_value(0, 0, 0, 0, 0, 0);
                 get_footprint_size(source, &pos);
@@ -211,7 +212,7 @@ void ParkLayout::set_up_abstract_metas()
 
     // a single-piece palette metapiece for every piece used that hasn't one
     for (uint32_t i = 0; i < num_piece_names; ++i) {
-        const uint32_t name = piece_names[i];
+        const uint32_t name = core::at(piece_names, i);
         bool found = false;
         for (const MapListNode* node = abstract_metas_; node; node = node->following_) {
             if (node->get_piece_group()->get_cast()->name_key_ == name) {
@@ -258,7 +259,7 @@ void ParkLayout::write_compressed_map()
     text::copy_unbounded(map.label_.data(), park_name_.data());
     for (int x = 0; x < kFloorSize; ++x)
         for (int z = 0; z < kFloorSize; ++z)
-            map.floor_heights_[x * kFloorSize + z] = static_cast<int8_t>(floor_[x][z].level_y_);
+            core::at(map.floor_heights_, x * kFloorSize + z) = static_cast<int8_t>(core::at(core::at(floor_, x), z).level_y_);
     // the records after the header and the floor (park_map_format.h). NOT ORIGINAL: no further than the map's end
     // (the original wrote on past it)
     util::ByteWriter out(&map, sizeof(map));
@@ -294,23 +295,23 @@ void ParkLayout::write_compressed_map()
         int half = 0;
         GapDetails* gap = gap_registry_->get_gap_info(i, &half);
         if (gap && half == 0 && gap->halves_placed_ == 2)
-            gaps[num_gaps++] = gap;
+            core::at(gaps, num_gaps++) = gap;
     }
     int gaps_written = 0;
     for (int i = 0; i < num_gaps; ++i) {
-        const GapDetails* gap = gaps[i];
+        const GapDetails* gap = core::at(gaps, i);
         ParkMapGap record;
         for (int end = 0; end < 2; ++end) {
-            record.ends[end].x = gap->at_point_[end].x;
-            record.ends[end].y = gap->at_point_[end].y;
-            record.ends[end].z = gap->at_point_[end].z;
-            record.ends[end].quarter_turns = static_cast<uint8_t>(gap->quarter_turns_[end]);
-            record.ends[end].reach_left = static_cast<uint8_t>(gap->reach_left_[end]);
-            record.ends[end].reach_right = static_cast<uint8_t>(gap->reach_right_[end]);
+            core::at(record.ends, end).x = core::at(gap->at_point_, end).x;
+            core::at(record.ends, end).y = core::at(gap->at_point_, end).y;
+            core::at(record.ends, end).z = core::at(gap->at_point_, end).z;
+            core::at(record.ends, end).quarter_turns = static_cast<uint8_t>(core::at(gap->quarter_turns_, end));
+            core::at(record.ends, end).reach_left = static_cast<uint8_t>(core::at(gap->reach_left_, end));
+            core::at(record.ends, end).reach_right = static_cast<uint8_t>(core::at(gap->reach_right_, end));
         }
         // (the name cut to its 32 bytes: the original's copy ran on into the points, written after it)
         std::memcpy(record.text.data(), gap->text_.data(), sizeof(gap->text_));
-        record.text[sizeof(gap->text_)] = '\0';
+        core::at(record.text, sizeof(gap->text_)) = '\0';
         record.points = static_cast<uint16_t>(gap->points_held_);
         record.cancel_flags = gap->cancel_flags_;
         if (!write_park_map_gap(out, record))
@@ -341,7 +342,7 @@ void ParkLayout::set_up_road_mask()
     // original does)
     for (uint32_t i = 4; i < num_blocked_areas_ + 4; ++i) {
         auto* rect = roads->array_at(i);
-        CellBox& mask = (&blocked_areas_[0])[i]; // (past the eighth: over the length itself, as in the original)
+        CellBox& mask = (&core::at(blocked_areas_, 0))[i]; // (past the eighth: over the length itself, as in the original)
         *mask.get_byte(0) = byte_at(rect, 0);
         *mask.get_byte(2) = byte_at(rect, 1);
         *mask.get_byte(3) = byte_at(rect, 2);
@@ -473,7 +474,7 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
     // the previous half's position is used again (the original's are left unset before the first half).
     maths::Vec4 at = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int half = 0; half < gap->halves_placed_; ++half) {
-        CellBox& pos = gap->at_point_[half];
+        CellBox& pos = core::at(gap->at_point_, half);
         pos.w = 1;
         pos.h = 1;
         pos.l = 1;
@@ -491,26 +492,26 @@ bool ParkLayout::register_gap_entry(GapDetails* gap)
         float x = at.x;
         double z = at.z;
         // NOLINTNEXTLINE(bugprone-switch-missing-default-case): the other values do nothing, as the original's
-        switch (gap->quarter_turns_[half]) {
+        switch (core::at(gap->quarter_turns_, half)) {
         case 0:
             along_x = 1;
             x = static_cast<float>((static_cast<double>(d.w + d.x) * w - w * 0.5) - 1.0);
-            z = (static_cast<double>(d.z - gap->reach_right_[half]) * l + length * 0.5) - l;
+            z = (static_cast<double>(d.z - core::at(gap->reach_right_, half)) * l + length * 0.5) - l;
             at.y = static_cast<float>(y);
             break;
         case 1:
-            x = static_cast<float>((static_cast<double>(d.x - gap->reach_right_[half]) * w + length * 0.5) - w);
+            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_right_, half)) * w + length * 0.5) - w);
             z = (static_cast<double>(d.z) * l - l * 0.5) + 1.0;
             at.y = static_cast<float>(y);
             break;
         case 2:
             along_x = 1;
             x = static_cast<float>((static_cast<double>(d.x) * w - w * 0.5) + 1.0);
-            z = (static_cast<double>(d.z - gap->reach_left_[half]) * l + length * 0.5) - l;
+            z = (static_cast<double>(d.z - core::at(gap->reach_left_, half)) * l + length * 0.5) - l;
             at.y = static_cast<float>(y);
             break;
         case 3:
-            x = static_cast<float>((static_cast<double>(d.x - gap->reach_left_[half]) * w + length * 0.5) - w);
+            x = static_cast<float>((static_cast<double>(d.x - core::at(gap->reach_left_, half)) * w + length * 0.5) - w);
             z = (static_cast<double>(d.l + d.z) * l - l * 0.5) - 1.0;
             at.y = static_cast<float>(y);
             break;
@@ -534,23 +535,23 @@ void ParkLayout::drop_gap_entry(GapDetails* gap)
 {
     std::array<PieceGroup*, 2> halves{}; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->halves_placed_; ++half) {
-        const MapListHolder metas(get_intersecting_metas(gap->at_point_[half], 0, nullptr, true));
+        const MapListHolder metas(get_intersecting_metas(core::at(gap->at_point_, half), 0, nullptr, true));
         if (metas.list->following_)
             print_map_list(metas.list);
         for (const MapListNode* node = metas.list; node; node = node->following_) {
             PieceGroup* meta = node->get_piece_group()->get_cast();
-            halves[half] = meta;
+            core::at(halves, half) = meta;
             const CellBox& d = meta->cell_footprint_;
-            if (d.x == gap->at_point_[half].x && d.y == gap->at_point_[half].y && d.z == gap->at_point_[half].z)
+            if (d.x == core::at(gap->at_point_, half).x && d.y == core::at(gap->at_point_, half).y && d.z == core::at(gap->at_point_, half).z)
                 break;
         }
-        PieceGroup* meta = halves[half];
+        PieceGroup* meta = core::at(halves, half);
         meta->spotlight(false, 0);
         meta->flag_bits_ &= ~PieceGroup::kHighlightable;
     }
     int index = 0;
     // The gap of the first half, removed
-    if (gap_registry_->get_gap_index(halves[0], &index))
+    if (gap_registry_->get_gap_index(core::at(halves, 0), &index))
         gap_registry_->drop_gap_entry(index, true);
     gap->slot_index_ = -1;
     gap->cancel_flags_ = static_cast<uint32_t>(script::fetch_int_value(0x9A27E74Du)); // CANCEL_GROUND

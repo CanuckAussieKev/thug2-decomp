@@ -29,6 +29,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -220,7 +221,7 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
     for (const EditedGoal& goal : goals_) {
         if (!goal.taken_count_ || goal.level_ != level || std::cmp_less_equal(goal.vertex_total_, index))
             continue;
-        const EditedGoalPoint& point = goal.path_vertices_[index];
+        const EditedGoalPoint& point = core::at(goal.path_vertices_, index);
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
         auto dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         const double dy = (static_cast<double>(point.pos.y) + point.height) - y;
@@ -265,7 +266,7 @@ bool ObjectiveAuthoring::any_park_goal_outside(float x0, float z0, float x1, flo
 {
     for (const EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == kParkEditorLevel && goal.vertex_total_ > 1 &&
-            get_outside(goal.path_vertices_[1].pos.x, goal.path_vertices_[1].pos.z, x0, z0, x1, z1))
+            get_outside(core::at(goal.path_vertices_, 1).pos.x, core::at(goal.path_vertices_, 1).pos.z, x0, z0, x1, z1))
             return true;
     }
     return false;
@@ -276,7 +277,7 @@ void ObjectiveAuthoring::remove_park_goals_outside(float x0, float z0, float x1,
 {
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == kParkEditorLevel && goal.vertex_total_ > 1 &&
-            get_outside(goal.path_vertices_[1].pos.x, goal.path_vertices_[1].pos.z, x0, z0, x1, z1))
+            get_outside(core::at(goal.path_vertices_, 1).pos.x, core::at(goal.path_vertices_, 1).pos.z, x0, z0, x1, z1))
             drop_objective(&goal);
     }
 }
@@ -307,7 +308,7 @@ void ObjectiveAuthoring::drop_objective(EditedGoal* goal)
 void ObjectiveAuthoring::update_camera_collision()
 {
     const EditedGoal* goal = active_node_;
-    const int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
+    const int kind = goal->vertex_total_ ? core::at(goal->path_vertices_, goal->current_point_).kind : kPointPro;
     if (kind != kPointPro && kind != kPointStart) {
         view_cam(view_camera_)->simple_collision_ = true;
         return;
@@ -318,7 +319,7 @@ void ObjectiveAuthoring::update_camera_collision()
 // 0x004E7F30
 void ObjectiveAuthoring::move_cursor_to_current_point()
 {
-    const EditedGoalPoint& point = active_node_->path_vertices_[active_node_->current_point_];
+    const EditedGoalPoint& point = core::at(active_node_->path_vertices_, active_node_->current_point_);
     objects::EditorViewModule* camera = view_cam(view_camera_);
     camera->level_y_ = point.height;
     camera->heading_ = point.angle;
@@ -341,7 +342,7 @@ void ObjectiveAuthoring::run_cursor_script()
 void ObjectiveAuthoring::refresh_cursor()
 {
     const EditedGoal* goal = active_node_;
-    int kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
+    int kind = goal->vertex_total_ ? core::at(goal->path_vertices_, goal->current_point_).kind : kPointPro;
     const char* model = nullptr;
     if (kind == kPointStart) {
         model = "gameobjects\\p1_cursor\\p1_cursor.mdl";
@@ -355,7 +356,7 @@ void ObjectiveAuthoring::refresh_cursor()
     }
     script::Struct params;
     goal = active_node_;
-    kind = goal->vertex_total_ ? goal->path_vertices_[goal->current_point_].kind : kPointPro;
+    kind = goal->vertex_total_ ? core::at(goal->path_vertices_, goal->current_point_).kind : kPointPro;
     if (kind == kPointPro)
         params.put_name_key(0x7321A8D6, 0x061A741E);
     else if (kind == kPointCheckpoint)
@@ -535,11 +536,11 @@ namespace {
 bool near_other_goals(ObjectiveAuthoring* editor, const maths::Vec4& pos, float height)
 {
     const EditedGoal* goal = editor->active_node_;
-    if (goal->vertex_total_ && goal->path_vertices_[goal->current_point_].kind == kPointStart &&
+    if (goal->vertex_total_ && core::at(goal->path_vertices_, goal->current_point_).kind == kPointStart &&
         editor->point_near_any_goal(pos, height, goal->level_, 0))
         return true;
     goal = editor->active_node_;
-    if (!goal->vertex_total_ || goal->path_vertices_[goal->current_point_].kind == kPointPro)
+    if (!goal->vertex_total_ || core::at(goal->path_vertices_, goal->current_point_).kind == kPointPro)
         return editor->point_near_any_goal(pos, height, goal->level_, 1);
     return false;
 }

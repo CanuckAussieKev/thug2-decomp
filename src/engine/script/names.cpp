@@ -14,6 +14,7 @@
 #include "platform/code_address.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -126,8 +127,8 @@ void parse_checksum_names(const char* text, int size, void (*add)(uint32_t check
         std::array<char, 256> name{};
         int length = 0;
         while (*text != '\r')
-            name[length++] = *text++;
-        name[length] = 0;
+            core::at(name, length++) = *text++;
+        core::at(name, length) = 0;
         add(checksum, name.data());
         text += 2; // "\r\n"
     }

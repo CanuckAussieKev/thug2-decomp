@@ -17,6 +17,7 @@
 #include "game/rider/debug_collision.h"
 #include "platform/compiler.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -169,14 +170,14 @@ double ProbeRay::get_hit_vertex_value() const
     for (int k = 0; k < 3; ++k) {
         const uint32_t vertex = geometry->face_vertex(static_cast<int>(hit_.face), k);
         const maths::Vec4 position = object->read_vertex_point(static_cast<int>(vertex));
-        corner[k] = {get_difference(position.x, at.x), get_difference(position.y, at.y),
+        core::at(corner, k) = {get_difference(position.x, at.x), get_difference(position.y, at.y),
                      get_difference(position.z, at.z), 1.0f};
-        value[k] = static_cast<float>(geometry->vertex_bytes_[vertex]) * kByteScale;
+        core::at(value, k) = static_cast<float>(geometry->vertex_bytes_[vertex]) * kByteScale;
     }
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
     const maths::Vec4 hit_point{0.0f, 0.0f, 0.0f, 1.0f};
-    const maths::Seg from_corner(corner[0], hit_point);
-    const maths::Seg opposite(corner[1], corner[2]);
+    const maths::Seg from_corner(core::at(corner, 0), hit_point);
+    const maths::Seg opposite(core::at(corner, 1), core::at(corner, 2));
     maths::Vec4 on_line{0.0f, 0.0f, 0.0f, 0.0f},
         on_edge{}; // (the original's are left unset when the lines are parallel)
     float s = 0.0f, t = 0.0f;
@@ -187,17 +188,17 @@ double ProbeRay::get_hit_vertex_value() const
         *z = static_cast<double>(a.z) - b.z;
     };
     double x = 0.0, y = 0.0, z = 0.0;
-    minus(on_line, corner[1], &x, &y, &z);
+    minus(on_line, core::at(corner, 1), &x, &y, &z);
     const auto along_edge_squared = static_cast<float>(get_length_squared(x, y, z));
-    minus(corner[2], corner[1], &x, &y, &z);
+    minus(core::at(corner, 2), core::at(corner, 1), &x, &y, &z);
     const auto edge_squared = static_cast<float>(get_length_squared(x, y, z));
-    minus(on_line, corner[0], &x, &y, &z);
+    minus(on_line, core::at(corner, 0), &x, &y, &z);
     const double to_edge = std::sqrt(get_length_squared(x, y, z));
-    const double to_hit = std::sqrt(get_length_squared(corner[0].x, corner[0].y, corner[0].z));
+    const double to_hit = std::sqrt(get_length_squared(core::at(corner, 0).x, core::at(corner, 0).y, core::at(corner, 0).z));
     const double fraction =
         std::sqrt(static_cast<double>(along_edge_squared)) / std::sqrt(static_cast<double>(edge_squared));
-    const double on_edge_value = (static_cast<double>(value[2]) - value[1]) * fraction + value[1];
-    return (on_edge_value - value[0]) * (to_hit / to_edge) + value[0];
+    const double on_edge_value = (static_cast<double>(core::at(value, 2)) - core::at(value, 1)) * fraction + core::at(value, 1);
+    return (on_edge_value - core::at(value, 0)) * (to_hit / to_edge) + core::at(value, 0);
 }
 
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)

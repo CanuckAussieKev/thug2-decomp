@@ -24,6 +24,7 @@
 #include "frontend/screen_constants.h"
 #include "engine/gfx/weather.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -153,13 +154,13 @@ UiWidget::UiWidget()
     shown_.x = shown_.y = 0.0f;
     shown_.angle = 0.0f;
     shown_.pos3d = {0.0f, 0.0f, 0.0f, 1.0f};
-    shown_.rgba[0] = shown_.rgba[1] = shown_.rgba[2] = shown_.rgba[3] = 0x80;
+    core::at(shown_.rgba, 0) = core::at(shown_.rgba, 1) = core::at(shown_.rgba, 2) = core::at(shown_.rgba, 3) = 0x80;
     shown_.alpha = 1.0f;
     aim_point_.get_assign(&shown_);
     summed_.get_assign(&shown_);
     object_flags_ |= kNew | kDirty;
     span_ = level_y_ = 0.0f;
-    rgba168_[0] = rgba168_[1] = rgba168_[2] = rgba168_[3] = 0x80;
+    core::at(rgba168_, 0) = core::at(rgba168_, 1) = core::at(rgba168_, 2) = core::at(rgba168_, 3) = 0x80;
 }
 
 // 0x004AAB30
@@ -650,9 +651,9 @@ void UiWidget::update_layout()
             place_top_left(&s);
             std::array<uint8_t, 4> rgba{};
             for (int i = 0; i < 4; ++i) {
-                const int from = s.rgba[i];
-                rgba[i] = static_cast<uint8_t>(
-                    get_truncated(static_cast<double>(aim_point_.rgba[i] - from) * kt + static_cast<double>(from)));
+                const int from = core::at(s.rgba, i);
+                core::at(rgba, i) = static_cast<uint8_t>(
+                    get_truncated(static_cast<double>(core::at(aim_point_.rgba, i) - from) * kt + static_cast<double>(from)));
             }
             std::memcpy(s.rgba.data(), rgba.data(), 4);
             morph_curve_done_ = curve;
@@ -742,14 +743,14 @@ bool UiWidget::read_alignment_param(script::Struct* params, uint32_t name, float
         for (int i = 0; i < 2; ++i) {
             const uint32_t side = array->fetch_part(i);
             if (side == kLeft || side == kTop)
-                just[i] = -1.0f;
+                core::at(just, i) = -1.0f;
             else if (side == kRight || side == kBottom)
-                just[i] = 1.0f;
+                core::at(just, i) = 1.0f;
             else
-                just[i] = 0.0f;
+                core::at(just, i) = 0.0f;
         }
-        *x = just[0];
-        *y = just[1];
+        *x = core::at(just, 0);
+        *y = core::at(just, 1);
     }
     return true;
 }
@@ -899,7 +900,7 @@ void UiWidget::get_properties(script::Struct* out)
         array = new (array) script::Array;
     array->configure_size_kind(4, script::kQbvalInteger);
     for (int i = 0; i < 4; ++i)
-        array->set_element(i, rgba[i]);
+        array->set_element(i, core::at(rgba, i));
     out->append_array_value(kRgba, array);
     script::release_array_storage(array);
     if (array) {

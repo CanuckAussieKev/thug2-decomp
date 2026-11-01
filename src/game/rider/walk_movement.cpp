@@ -22,6 +22,7 @@
 #include "engine/objects/input_component.h"
 #include "engine/objects/model_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -230,9 +231,9 @@ void FootMovement::copy_from_object()
     vel.y = 0.0f;
     up_speed_ = object->vel_.y;
     maths::Vec4& up = up_;
-    up = object->basis_frame_.row[1];
+    up = core::at(object->basis_frame_.row, 1);
     maths::Vec4& facing = facing_;
-    facing = object->basis_frame_.row[2];
+    facing = core::at(object->basis_frame_.row, 2);
     facing_y_ = facing.y;
     facing.y = 0.0f;
     const double length =
@@ -240,7 +241,7 @@ void FootMovement::copy_from_object()
                   static_cast<double>(facing.z) * facing.z);
     if (length < kMinFacingLength) {
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
-        const maths::Vec4& object_up = object->basis_frame_.row[1];
+        const maths::Vec4& object_up = core::at(object->basis_frame_.row, 1);
         facing = {-object_up.x, -object_up.y, -object_up.z, -object_up.w};
         facing.y = 0.0f;
         facing.make_unit();
@@ -260,7 +261,7 @@ void FootMovement::update_control()
 {
     // The camera's flat forward (its at-row backwards), turned by the stick's angle - straight ahead within
     // forward_tolerance degrees.
-    const maths::Vec4& at = camera_->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(camera_->basis_frame_.row, 2);
     auto* pad = &input_->pad_primary_;
     float forward_x = -at.x;
     float forward_z = -at.z;
@@ -271,7 +272,7 @@ void FootMovement::update_control()
         forward_x = static_cast<float>(forward_x * inverse);
         forward_z = static_cast<float>(forward_z * inverse);
     }
-    float angle = pad->polar_[1].angle;
+    float angle = core::at(pad->polar_, 1).angle;
     if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
         angle = 0.0f;
     double turned_z = 0.0, turned_x = 0.0;
@@ -282,10 +283,10 @@ void FootMovement::update_control()
 
     float& magnitude = stick_deflection_;
     bool& full = control_full_;
-    if (!(pad->stick_[2] == 0.0f) || !(pad->stick_[3] == 0.0f)) {
+    if (!(core::at(pad->stick_, 2) == 0.0f) || !(core::at(pad->stick_, 3) == 0.0f)) {
         // The stick: its push, full from 85 %.
         stick_steers_ = true;
-        const double push = stick_length(pad->stick_[2], pad->stick_[3], pad->polar_[1].angle) * kStickScale;
+        const double push = stick_length(core::at(pad->stick_, 2), core::at(pad->stick_, 3), core::at(pad->polar_, 1).angle) * kStickScale;
         magnitude = static_cast<float>(push);
         if (push < kOne || std::isnan(push)) {
             full = false;
@@ -296,7 +297,7 @@ void FootMovement::update_control()
     } else {
         // The d-pad: on the ground without X held, walk_point (the original calls 0x0043DA70 for it); else full.
         stick_steers_ = false;
-        if (pad->polar_[1].length == 0.0f) {
+        if (core::at(pad->polar_, 1).length == 0.0f) {
             magnitude = 0.0f;
             full = false;
         } else if (state_ == 0 && !pad->pos_x_.held_down_) {
@@ -553,10 +554,10 @@ void FootMovement::apply_transition()
     // Upright, facing the transition's facing (row 0's w 1, as the original).
     const maths::Vec4& facing = transition_facing_;
     maths::Mat4 matrix{};
-    matrix.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
-    matrix.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
-    matrix.row[2] = facing;
-    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {facing.z, 0.0f, -facing.x, 1.0f};
+    core::at(matrix.row, 1) = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 2) = facing;
+    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     object->basis_frame_ = matrix;
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
@@ -579,17 +580,17 @@ void FootMovement::copy_to_object()
     // The orientation from the up vector and the facing.
     const maths::Vec4& up = up_;
     maths::Mat4 matrix{};
-    maths::Vec4& right = matrix.row[0];
+    maths::Vec4& right = core::at(matrix.row, 0);
     right = {static_cast<float>(static_cast<double>(up.y) * facing.z - static_cast<double>(up.z) * facing.y),
              static_cast<float>(static_cast<double>(up.z) * facing.x - static_cast<double>(up.x) * facing.z),
              static_cast<float>(static_cast<double>(up.x) * facing.y - static_cast<double>(up.y) * facing.x), 0.0f};
     right.make_unit();
-    matrix.row[1] = up;
-    matrix.row[2] = {static_cast<float>(static_cast<double>(up.z) * right.y - static_cast<double>(up.y) * right.z),
+    core::at(matrix.row, 1) = up;
+    core::at(matrix.row, 2) = {static_cast<float>(static_cast<double>(up.z) * right.y - static_cast<double>(up.y) * right.z),
                      static_cast<float>(static_cast<double>(up.x) * right.z - static_cast<double>(up.z) * right.x),
                      static_cast<float>(static_cast<double>(up.y) * right.x - static_cast<double>(up.x) * right.y),
                      0.0f};
-    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     auto* object = static_cast<GameEntity*>(entity_);
     object->at_point_ = pos_;
     object->basis_frame_ = matrix;
@@ -616,8 +617,8 @@ void FootMovement::copy_to_object()
     }
     // The model raised along the up vector by the display offset.
     const float offset = model_lift_;
-    model_->shift_ = {matrix.row[1].x * offset, matrix.row[1].y * offset, matrix.row[1].z * offset,
-                      matrix.row[1].w * offset};
+    model_->shift_ = {core::at(matrix.row, 1).x * offset, core::at(matrix.row, 1).y * offset, core::at(matrix.row, 1).z * offset,
+                      core::at(matrix.row, 1).w * offset};
 }
 
 } // namespace objects

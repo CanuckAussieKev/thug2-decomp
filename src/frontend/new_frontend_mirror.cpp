@@ -11,6 +11,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/core/ints.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::new_frontend::mirror {
 
@@ -148,9 +149,9 @@ std::string clean_text(const std::string& raw, bool newlines)
     std::string out;
     out.reserve(raw.size());
     for (size_t i = 0; i < raw.size(); ++i) {
-        const char c = raw[i];
+        const char c = core::at(raw, i);
         if (c == '\\' && i + 1 < raw.size()) {
-            const char e = raw[i + 1];
+            const char e = core::at(raw, i + 1);
             if (e == 'n' || e == 'N') {
                 out += newlines ? '\n' : ' ';
                 ++i;
@@ -169,12 +170,12 @@ std::string clean_text(const std::string& raw, bool newlines)
             }
             if ((e == 'b' || e == 'B' || e == 'm' || e == 'M') && i + 2 < raw.size()) {
                 // (a button: the key's name as the game spells it, between spaces when words touch it)
-                const std::string name = g_button_namer ? g_button_namer(e, raw[i + 2]) : std::string();
+                const std::string name = g_button_namer ? g_button_namer(e, core::at(raw, i + 2)) : std::string();
                 if (!name.empty()) {
                     if (!out.empty() && out.back() != ' ' && out.back() != '/')
                         out += ' ';
                     out += name;
-                    if (i + 3 < raw.size() && raw[i + 3] != ' ' && raw[i + 3] != '/' && raw[i + 3] != '=')
+                    if (i + 3 < raw.size() && core::at(raw, i + 3) != ' ' && core::at(raw, i + 3) != '/' && core::at(raw, i + 3) != '=')
                         out += ' ';
                 }
                 i += 2;
@@ -227,7 +228,7 @@ View get_build(const MenuRead& read, const Policy& policy)
     auto rows_from = [&](bool dialog) {
         bool skipped_title = false;
         for (size_t i = 0; i < read.items.size(); ++i) {
-            const ItemRead& item = read.items[i];
+            const ItemRead& item = core::at(read.items, i);
             if (dialog && !item.focusable && !skipped_title) {
                 skipped_title = true; // (the title text)
                 continue;
@@ -247,17 +248,17 @@ View get_build(const MenuRead& read, const Policy& policy)
             // value.
             size_t label_at = texts.empty() ? 0 : texts.size();
             for (size_t k = 0; k < texts.size() && label_at == texts.size(); ++k)
-                for (const char ch : texts[k])
+                for (const char ch : core::at(texts, k))
                     if (std::isalpha(static_cast<unsigned char>(ch))) {
                         label_at = k;
                         break;
                     }
             if (label_at >= texts.size())
                 label_at = 0;
-            row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : caption(texts[label_at]);
+            row.label = !item.display.empty() ? item.display : texts.empty() ? std::string() : caption(core::at(texts, label_at));
             for (size_t k = 0; k < texts.size(); ++k)
                 if (!item.display.empty() || k != label_at)
-                    row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + texts[k];
+                    row.value += (row.value.empty() ? "" : " \xC2\xB7 ") + core::at(texts, k);
             if (item.checkbox >= 0)
                 row.value += (row.value.empty() ? "" : " \xC2\xB7 ") +
                              std::string(item.checkbox ? text_tools::kOn : text_tools::kOff);
@@ -318,11 +319,11 @@ View get_build(const MenuRead& read, const Policy& policy)
         view.kind = Kind::kFreeze;
         view.title = text_tools::kTitlePaused;
         for (size_t i = 0; i < read.items.size(); ++i) {
-            const ItemRead& item = read.items[i];
+            const ItemRead& item = core::at(read.items, i);
             const char* ours = pause_label(item.id);
             std::string label = *ours ? std::string(ours) : std::string();
             for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
-                label = caption(clean_text(item.texts[k]));
+                label = caption(clean_text(core::at(item.texts, k)));
             if (label.empty())
                 continue;
             Row row;
@@ -337,7 +338,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             view.kind = Kind::kNone;
             view.unsettled = true;
         }
-        view.big_name_ = view.selected >= 0 ? view.rows[view.selected].label : view.title;
+        view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
         return view;
     }
     if (front_end_menu(read.menu_id_) && !(policy.editor && read.menu_id_ == name_hash("main_menu"))) {
@@ -369,7 +370,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             view.screen_art_ = "freeskate";
         }
         for (size_t i = 0; i < read.items.size(); ++i) {
-            const ItemRead& item = read.items[i];
+            const ItemRead& item = core::at(read.items, i);
             const ItemStyle* style = menu_item_style(item.id);
             std::string label;
             if (style && style->label)
@@ -377,7 +378,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             else if (style && item.id == name_hash("ss_new_story"))
                 label = classic ? text_tools::kNewClassic : text_tools::kNewStory;
             for (size_t k = 0; label.empty() && k < item.texts.size(); ++k)
-                label = caption(clean_text(item.texts[k]));
+                label = caption(clean_text(core::at(item.texts, k)));
             if (label.empty())
                 continue;
             Row row;
@@ -403,7 +404,7 @@ View get_build(const MenuRead& read, const Policy& policy)
                           (view.selected + 1 < 10 ? "0" : "") + std::to_string(view.selected + 1);
         else
             view.kicker = view.title;
-        view.big_name_ = view.selected >= 0 ? view.rows[view.selected].label : view.title;
+        view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
         return view;
     }
     if (read.keyboard) {
@@ -434,7 +435,7 @@ View get_build(const MenuRead& read, const Policy& policy)
         view.kind = Kind::kSkaters;
         view.horizontal = true;
         for (size_t i = 0; i < read.items.size(); ++i) {
-            const ItemRead& item = read.items[i];
+            const ItemRead& item = core::at(read.items, i);
             Row row;
             row.label = item.display.empty() ? std::string("?") : clean_text(item.display);
             row.focusable = item.focusable;
@@ -444,7 +445,7 @@ View get_build(const MenuRead& read, const Policy& policy)
             view.rows.push_back(std::move(row));
         }
         const std::string name = clean_text(read.skater_name_);
-        view.big_name_ = !name.empty() ? name : view.selected >= 0 ? view.rows[view.selected].label : std::string();
+        view.big_name_ = !name.empty() ? name : view.selected >= 0 ? core::at(view.rows, view.selected).label : std::string();
         view.stats = read.stats;
         view.title = text_tools::kTitleSkaters;
         return view;
@@ -500,19 +501,19 @@ View get_build(const MenuRead& read, const Policy& policy)
     }
     if (view.lines.size() > 12)
         view.lines.resize(12);
-    view.big_name_ = view.selected >= 0 ? view.rows[view.selected].label : view.title;
+    view.big_name_ = view.selected >= 0 ? core::at(view.rows, view.selected).label : view.title;
     // A colour menu: hue, saturation and value all there - the numbers back from the markers' places.
     {
         std::array<float, 4> at = {{-1.0f, -1.0f, -1.0f, -1.0f}};
         for (const Row& r : view.rows)
             if (r.track >= 1 && r.track <= 3)
-                at[r.track] = r.track_at_;
-        if (at[1] >= 0.0f && at[2] >= 0.0f && at[3] >= 0.0f) {
+                core::at(at, r.track) = r.track_at_;
+        if (core::at(at, 1) >= 0.0f && core::at(at, 2) >= 0.0f && core::at(at, 3) >= 0.0f) {
             const float low = read.graphic_editor_ ? 0.0f : kValMinCas;
             view.has_colour_ = true;
-            view.hue = std::min(at[1] * 360.0f, 359.0f);
-            view.sat = at[2] * kSatMax;
-            view.val = low + at[3] * (kValMax - low);
+            view.hue = std::min(core::at(at, 1) * 360.0f, 359.0f);
+            view.sat = core::at(at, 2) * kSatMax;
+            view.val = low + core::at(at, 3) * (kValMax - low);
         }
     }
     return view;
@@ -585,14 +586,14 @@ bool Tracker::tick_frame(const View& now, float dt)
     if (up_dir_) {
         rows_.resize(camera_view_.rows.size());
         for (size_t i = 0; i < rows_.size(); ++i)
-            rows_[i].tick(ints::as_signed(i) == camera_view_.selected, dt);
+            core::at(rows_, i).tick(ints::as_signed(i) == camera_view_.selected, dt);
     }
     return up_dir_;
 }
 
 float Tracker::row_amount(int row) const
 {
-    return row >= 0 && std::cmp_less(row, rows_.size()) ? rows_[row].get_eased() : 0.0f;
+    return row >= 0 && std::cmp_less(row, rows_.size()) ? core::at(rows_, row).get_eased() : 0.0f;
 }
 
 void Tracker::get_reset()

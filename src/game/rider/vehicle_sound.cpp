@@ -27,6 +27,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -159,10 +160,10 @@ void SkaterVehicleSoundComponent::read_settings()
     gear_count_ = static_cast<int>(gears->extent_);
     for (int i = 0; i < gear_count_; ++i) {
         auto* gear = gears->struct_at(static_cast<uint32_t>(i));
-        gear->fetch_float(0xFAD20901, &gear_steps_[i].up_at_, 1);
-        gear->fetch_float(0xFCF5C8A2, &gear_steps_[i].down_at_, 1);
-        gear->fetch_float(0x735B5CE4, &gear_steps_[i].low_rpm_, 1);
-        gear->fetch_float(0xE59A89A6, &gear_steps_[i].high_rpm_, 1);
+        gear->fetch_float(0xFAD20901, &core::at(gear_steps_, i).up_at_, 1);
+        gear->fetch_float(0xFCF5C8A2, &core::at(gear_steps_, i).down_at_, 1);
+        gear->fetch_float(0x735B5CE4, &core::at(gear_steps_, i).low_rpm_, 1);
+        gear->fetch_float(0xE59A89A6, &core::at(gear_steps_, i).high_rpm_, 1);
     }
     settings_->read_sub_struct(0xBF8E0ACE, &extra_, 1);
     if (park_editor_level_) {
@@ -205,10 +206,10 @@ void SkaterVehicleSoundComponent::tick_engine()
             gear_ = 0;
     } else {
         const int gear = gear_;
-        if (gear < gear_count_ - 1 && speed_ > gear_steps_[gear].up_at_) {
+        if (gear < gear_count_ - 1 && speed_ > core::at(gear_steps_, gear).up_at_) {
             gear_ = gear + 1;
             shift_time_ = get_now(get_clock(), clock_offset());
-        } else if (gear > 0 && speed_ < gear_steps_[gear].down_at_) {
+        } else if (gear > 0 && speed_ < core::at(gear_steps_, gear).down_at_) {
             gear_ = gear - 1;
             shift_time_ = get_now(get_clock(), clock_offset());
         }
@@ -226,11 +227,11 @@ void SkaterVehicleSoundComponent::tick_engine()
     // The engine's speed: where the speed is between the last gear's shift point and this one's, across this gear's
     // pitch range; eased.
     const int gear = gear_;
-    const double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
-    const double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
+    const double low = gear ? core::at(gear_steps_, gear - 1).up_at_ : 0.0;
+    const double across = (static_cast<double>(speed_) - low) / (static_cast<double>(core::at(gear_steps_, gear).up_at_) - low);
     auto target =
-        static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
-                           gear_steps_[gear].low_rpm_);
+        static_cast<float>((static_cast<double>(core::at(gear_steps_, gear).high_rpm_) - core::at(gear_steps_, gear).low_rpm_) * across +
+                           core::at(gear_steps_, gear).low_rpm_);
     const double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
     rpm_ = static_cast<float>((static_cast<double>(target) - rpm_) * ease + rpm_);
     const float high_rpm = get_setting(settings_, 0x95DF9449);

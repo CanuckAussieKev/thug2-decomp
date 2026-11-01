@@ -48,6 +48,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -68,19 +69,19 @@ float len_of(V3 v) { return std::sqrt(get_dot(v, v)); }
 const char* motion_name(Motion motion)
 {
     const int i = static_cast<int>(motion);
-    return i >= 0 && i < kMotions ? kMotionNames[i] : "?";
+    return i >= 0 && i < kMotions ? core::at(kMotionNames, i) : "?";
 }
 
 uint32_t motion_colour(Motion motion)
 {
     const int i = static_cast<int>(motion);
-    return i >= 0 && i < kMotions ? kMotionColours[i] : 0xFFFFFFFF;
+    return i >= 0 && i < kMotions ? core::at(kMotionColours, i) : 0xFFFFFFFF;
 }
 
 bool motion_from_name(const std::string& name, Motion* motion)
 {
     for (int i = 0; i < kMotions; ++i) {
-        if (name == kMotionNames[i]) {
+        if (name == core::at(kMotionNames, i)) {
             *motion = static_cast<Motion>(i);
             return true;
         }
@@ -152,7 +153,7 @@ void Recorder::feed(V3 pos, Motion motion)
         if (distance >= kMaxStep) {
             keep = true;
         } else if (distance >= kMinStep && samples.size() >= 2 && !kept.jump) {
-            const V3 before = kept.pos - samples[samples.size() - 2].pos;
+            const V3 before = kept.pos - core::at(samples, samples.size() - 2).pos;
             const float lb = len_of(before);
             if (lb > 0.001f) {
                 const float c = get_dot(before, d) / (lb * distance);
@@ -367,7 +368,7 @@ bool parse(const std::string& text, LevelTrails* trails)
                                           : GapStatus::kAwaiting;
             std::string rest;
             std::getline(fields, rest);
-            if (!rest.empty() && rest[0] == ' ')
+            if (!rest.empty() && core::at(rest, 0) == ' ')
                 rest.erase(0, 1);
             e.name = rest;
             run->events.push_back(e);
@@ -659,7 +660,7 @@ void link_record(modules::FrontEnd* front_end)
     g_rec.last_ticks_ = ticks;
     Run& run = g_rec.run;
     run.seconds += dt;
-    run.motion_seconds_[static_cast<int>(now.motion)] += dt;
+    core::at(run.motion_seconds_, static_cast<int>(now.motion)) += dt;
     g_rec.recorder.feed(now.pos, now.motion);
     if (now.bailing && !g_rec.was_bailing_)
         run.events.push_back({EventKind::kBail, now.pos, "", 0, GapStatus::kLost});
@@ -960,8 +961,8 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         const uint32_t alpha = latest ? 0xFF000000u : 0xA0000000u;
         const float thickness = latest ? 2.0f : 1.25f;
         for (size_t i = 1; i < run.samples.size() && budget; ++i) {
-            const Sample& a = run.samples[i - 1];
-            const Sample& b = run.samples[i];
+            const Sample& a = core::at(run.samples, i - 1);
+            const Sample& b = core::at(run.samples, i);
             if (b.jump)
                 continue;
             const V3 da = a.pos - camera;

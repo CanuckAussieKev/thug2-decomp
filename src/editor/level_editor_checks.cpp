@@ -44,6 +44,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::checks {
 
@@ -148,14 +149,14 @@ std::vector<int> lonely_points(const std::vector<std::vector<int>>& links)
     for (const std::vector<int>& out : links) {
         for (const int to : out) {
             if (to >= 0 && std::cmp_less(to, links.size()))
-                ++incoming[to];
+                ++core::at(incoming, to);
         }
     }
     std::vector<int> lonely;
     for (size_t i = 0; i < links.size(); ++i) {
-        const bool links_out = std::any_of(links[i].begin(), links[i].end(),
+        const bool links_out = std::any_of(core::at(links, i).begin(), core::at(links, i).end(),
                                            [&](int to) { return to >= 0 && std::cmp_less(to, links.size()); });
-        if (!links_out && incoming[i] == 0)
+        if (!links_out && core::at(incoming, i) == 0)
             lonely.push_back(static_cast<int>(i));
     }
     return lonely;
@@ -188,7 +189,7 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
         return out;
     }
     for (int team = 0; team < 4; ++team) {
-        const TeamNodes& t = counts.teams[team];
+        const TeamNodes& t = core::at(counts.teams, team);
         const bool any = t.flag || t.base || t.restart;
         // (Red and Blue always play; Green and Yellow only with 3 / 4 teams - complete or not there at all)
         if (team >= 2 && !any)
@@ -200,7 +201,7 @@ std::vector<MpProblem> multiplayer_problems(const MpCounts& counts)
             if (!have)
                 missing += (missing.empty() ? "" : ", ") + what;
         };
-        const std::string colour = kTeamNames[team];
+        const std::string colour = core::at(kTeamNames, team);
         add(t.flag, "its flag (TRG_CTF_" + colour + ")");
         add(t.base, "its base (TRG_CTF_" + colour + "_Base)");
         add(t.restart, "its team restart (TRG_CTF_Restart_" + colour + ")");
@@ -282,7 +283,7 @@ const std::array<V3, 6> kDirections = {{{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1
 void probe_each(V3 point, const float reach[6], Probe probes[6])
 {
     for (int i = 0; i < 6; ++i) {
-        const V3 far = point + kDirections[i] * reach[i];
+        const V3 far = point + core::at(kDirections, i) * reach[i];
         V3 hit{};
         probes[i] = {};
         if (get_cast(point, far, &hit))
@@ -432,9 +433,9 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     placed.point = point;
     placed.world = world;
     placed.place = get_judge(probes.data());
-    placed.up_in_ = probes[2].in;
+    placed.up_in_ = core::at(probes, 2).in;
     V3 hit{};
-    placed.ground = probes[3].out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
+    placed.ground = core::at(probes, 3).out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
     return placed;
 }
 
@@ -489,20 +490,20 @@ void check_rails(std::vector<Issue>* out)
     std::vector<int> rails;
     std::vector<int> index(nodes.size(), -1);
     for (size_t i = 0; i < nodes.size(); ++i) {
-        if (nodes[i].family == nodes::Family::kRail && !nodes[i].hidden) {
-            index[i] = static_cast<int>(rails.size());
+        if (core::at(nodes, i).family == nodes::Family::kRail && !core::at(nodes, i).hidden) {
+            core::at(index, i) = static_cast<int>(rails.size());
             rails.push_back(static_cast<int>(i));
         }
     }
     std::vector<std::vector<int>> links(rails.size());
     for (size_t r = 0; r < rails.size(); ++r) {
-        for (const int to : nodes[rails[r]].links) {
-            if (to >= 0 && std::cmp_less(to, nodes.size()) && index[to] >= 0)
-                links[r].push_back(index[to]);
+        for (const int to : core::at(nodes, core::at(rails, r)).links) {
+            if (to >= 0 && std::cmp_less(to, nodes.size()) && core::at(index, to) >= 0)
+                core::at(links, r).push_back(core::at(index, to));
         }
     }
     for (const int r : lonely_points(links)) {
-        const nodes::Elem& n = nodes[rails[r]];
+        const nodes::Elem& n = core::at(nodes, core::at(rails, r));
         Issue issue;
         issue.rule = Rule::kLonelyRail;
         issue.severity = Severity::kWarning;
@@ -515,7 +516,7 @@ void check_rails(std::vector<Issue>* out)
     }
     // Floating: the rail points the editor moved or added.
     for (const int i : rails) {
-        const nodes::Elem& n = nodes[i];
+        const nodes::Elem& n = core::at(nodes, i);
         if (!n.added && !get_marked(n.name, ui::kMarkMoved | ui::kMarkAdded))
             continue;
         V3 pos = n.pos;
@@ -609,7 +610,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
         specs.push_back(a.spec);
     const std::vector<triggers::LevelTrigger>& level = triggers::level_triggers();
     for (size_t i = 0; i < added.size(); ++i) {
-        const triggers::Added& a = added[i];
+        const triggers::Added& a = core::at(added, i);
         Issue issue;
         issue.node = triggers::checksum_of(a.spec.name);
         issue.has_pos_ = a.alive;
@@ -754,10 +755,10 @@ MpCounts count_multiplayer(bool shipped)
     static bool made = false;
     if (!made) {
         for (int t = 0; t < 4; ++t) {
-            const std::string colour = kTeamNames[t];
-            g_names[t][0] = get_checksums("TRG_CTF_" + colour);
-            g_names[t][1] = get_checksums("TRG_CTF_" + colour + "_Base");
-            g_names[t][2] = get_checksums("TRG_CTF_Restart_" + colour);
+            const std::string colour = core::at(kTeamNames, t);
+            core::at(core::at(g_names, t), 0) = get_checksums("TRG_CTF_" + colour);
+            core::at(core::at(g_names, t), 1) = get_checksums("TRG_CTF_" + colour + "_Base");
+            core::at(core::at(g_names, t), 2) = get_checksums("TRG_CTF_Restart_" + colour);
         }
         made = true;
     }
@@ -775,9 +776,9 @@ MpCounts count_multiplayer(bool shipped)
         if (n.type == kCrown)
             ++counts.crowns;
         for (int t = 0; t < 4; ++t) {
-            counts.teams[t].flag = counts.teams[t].flag || n.name == g_names[t][0];
-            counts.teams[t].base = counts.teams[t].base || n.name == g_names[t][1];
-            counts.teams[t].restart = counts.teams[t].restart || n.name == g_names[t][2];
+            core::at(counts.teams, t).flag = core::at(counts.teams, t).flag || n.name == core::at(core::at(g_names, t), 0);
+            core::at(counts.teams, t).base = core::at(counts.teams, t).base || n.name == core::at(core::at(g_names, t), 1);
+            core::at(counts.teams, t).restart = core::at(counts.teams, t).restart || n.name == core::at(core::at(g_names, t), 2);
         }
     }
     return counts;
@@ -1259,7 +1260,7 @@ void problems_tab(float scale, ImFont* mono)
     ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, 150.0f * scale);
     ImGui::TableHeadersRow();
     for (size_t i = 0; i < g_issues.size(); ++i) {
-        const Issue& issue = g_issues[i];
+        const Issue& issue = core::at(g_issues, i);
         if (!get_shown(issue))
             continue;
         const bool is_ignored = ignored_state().count(issue.key) != 0;

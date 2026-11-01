@@ -64,6 +64,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -518,7 +519,7 @@ int Hub::count_players()
          node = get_next_node(node)) {
         if (!is_observer(player) || (player->flag_bits_ & 8)) {
             if (const objects::Entity* skater = player_skater(player))
-                ids[noted++] = static_cast<uint8_t>(get_skater_id(skater));
+                core::at(ids, noted++) = static_cast<uint8_t>(get_skater_id(skater));
             ++count;
         }
     }
@@ -528,7 +529,7 @@ int Hub::count_players()
             continue;
         bool listed = false;
         for (int i = 0; i < noted && !listed; ++i)
-            listed = info->entity_key_ == ids[noted]; // (ids[noted], as in the original)
+            listed = info->entity_key_ == core::at(ids, noted); // (ids[noted], as in the original)
         if (!listed)
             ++count;
     }
@@ -811,8 +812,8 @@ void carried_flags_task(tasks::Task<Hub>*)
         maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
         matrix->offset_local(maths::Vec4{0.0f, 12.0f, 0.0f, 0.0f}); // (moved along its own axes)
-        const maths::Vec4 offset = matrix->row[3];                  // its translation row, taken out
-        matrix->row[3] = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        const maths::Vec4 offset = core::at(matrix->row, 3);                  // its translation row, taken out
+        core::at(matrix->row, 3) = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
         const maths::Mat4* skater_matrix = &skater->basis_frame_;
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};

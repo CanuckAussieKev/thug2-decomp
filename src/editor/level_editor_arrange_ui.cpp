@@ -13,6 +13,7 @@
 #include "editor/level_editor_modules.h"
 #include "editor/level_editor_transform.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::arrange {
 
@@ -55,7 +56,7 @@ void pane(float ui_scale)
     for (int axis = 0; axis < 3; ++axis) {
         if (axis)
             ImGui::SameLine();
-        ImGui::RadioButton(kAxes[axis], &s.axis, axis);
+        ImGui::RadioButton(core::at(kAxes, axis), &s.axis, axis);
     }
     ImGui::SameLine(0.0f, 14.0f * ui_scale);
     ImGui::Checkbox("Local", &s.local);
@@ -70,7 +71,7 @@ void pane(float ui_scale)
         if (edge)
             ImGui::SameLine();
         std::array<char, 32> label{};
-        std::snprintf(label.data(), sizeof(label), "Align %s", kEdges[edge]);
+        std::snprintf(label.data(), sizeof(label), "Align %s", core::at(kEdges, edge));
         if (ImGui::Button(label.data())) {
             const int axis = s.axis;
             get_later([axis, edge] { justify(axis, static_cast<Edge>(edge), at_hand().reference, at_hand().local); });
@@ -191,14 +192,14 @@ void get_panel(float x, float y, float ui_scale)
         for (int axis = 0; axis < 3; ++axis) {
             if (axis)
                 ImGui::SameLine();
-            track(ImGui::RadioButton(kAxes[axis], &edit.axis, axis));
+            track(ImGui::RadioButton(core::at(kAxes, axis), &edit.axis, axis));
         }
         if (edit.kind == Kind::kJustify) {
             static const auto kEdges = std::to_array<const char*>({"Min", "Centre", "Max"});
             for (int e = 0; e < 3; ++e) {
                 if (e)
                     ImGui::SameLine();
-                track(ImGui::RadioButton(kEdges[e], &edit.edge, e));
+                track(ImGui::RadioButton(core::at(kEdges, e), &edit.edge, e));
             }
             track(ImGui::RadioButton("Bounds", &edit.reference, 0));
             ImGui::SameLine();

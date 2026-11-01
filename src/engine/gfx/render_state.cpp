@@ -23,6 +23,7 @@
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -119,7 +120,7 @@ bool has_border_addressing() { return g_border_addressing_supported; }
 bool has_blend_factor() { return g_blend_factor_supported; }
 
 // The pixel shaders (handles made at start-up) the stand-in texture stages know.
-void* get_shader(int slot) { return g_pixel_shaders[slot]; }
+void* get_shader(int slot) { return core::at(g_pixel_shaders, slot); }
 
 void set_tss(DWORD stage, D3DTEXTURESTAGESTATETYPE type, DWORD value)
 {
@@ -612,20 +613,20 @@ void reset_render_state()
         mip_lod_biases()[i] = 0;
         get_textures()[i] = nullptr;
         filters()[i] = 0x10000;
-        g_border_colours[i] = 0;
+        core::at(g_border_colours, i) = 0;
     }
     // (none of these is a mode: the next one is always sent)
     get_blend_mode() = 0xDEADBABE;
     blend_op() = 0xDEADBABE;
     src_blend() = 0xDEADBABE;
     dest_blend() = 0xDEADBABE;
-    g_pending_screen_shot[0] = 0;
+    core::at(g_pending_screen_shot, 0) = 0;
     memory::bits_as<uint8_t>(g_screen_shot_name_exact) = 0;
     // Pixel shader constant 4: (0, 0.5, 0, 0.5).
-    memory::bits_as<uint32_t>(g_ps_constant_bank[16]) = 0;
-    g_ps_constant_bank[17] = 0.5f;
-    memory::bits_as<uint32_t>(g_ps_constant_bank[18]) = 0;
-    g_ps_constant_bank[19] = 0.5f;
+    memory::bits_as<uint32_t>(core::at(g_ps_constant_bank, 16)) = 0;
+    core::at(g_ps_constant_bank, 17) = 0.5f;
+    memory::bits_as<uint32_t>(core::at(g_ps_constant_bank, 18)) = 0;
+    core::at(g_ps_constant_bank, 19) = 0.5f;
     pixel_shader_locked() = 0;
     current_pixel_shader() = nullptr;
     pixel_shader_changed() = 0;
@@ -644,11 +645,11 @@ void reset_render_state()
         0x3F800000, 0x3F800000, 0, 0, 0,          0,          0,          0,          0x3F800000,
     });
     for (int i = 0; i < 24; ++i)
-        memory::bits_as<uint32_t>(g_light_constants[4 + i]) = kLight[i];
-    memory::bits_as<uint32_t>(g_light_constants[0]) = 0x3F1624DD; // the ambient colour
-    memory::bits_as<uint32_t>(g_light_constants[1]) = 0x3F1624DD;
-    memory::bits_as<uint32_t>(g_light_constants[2]) = 0x3F1624DD;
-    memory::bits_as<uint32_t>(g_light_constants[3]) = 0x3F800000;
+        memory::bits_as<uint32_t>(core::at(g_light_constants, 4 + i)) = core::at(kLight, i);
+    memory::bits_as<uint32_t>(core::at(g_light_constants, 0)) = 0x3F1624DD; // the ambient colour
+    memory::bits_as<uint32_t>(core::at(g_light_constants, 1)) = 0x3F1624DD;
+    memory::bits_as<uint32_t>(core::at(g_light_constants, 2)) = 0x3F1624DD;
+    memory::bits_as<uint32_t>(core::at(g_light_constants, 3)) = 0x3F800000;
     get_fog() = 0;
     fog_color() = 0;
     memory::bits_as<uint32_t>(g_fog_begin_distance) = 0xC3700000; // fog start and end, as bit patterns (-240, -24600)
@@ -676,7 +677,7 @@ void apply_render_state()
         mip_lod_biases()[sampler] = 0;
         get_textures()[sampler] = nullptr;
         filters()[sampler] = 0x10000;
-        g_border_colours[sampler] = 0;
+        core::at(g_border_colours, sampler) = 0;
         input_port()->SetSamplerState(sampler, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
         input_port()->SetSamplerState(sampler, D3DSAMP_MIPFILTER, D3DTEXF_LINEAR);
         // NOT ORIGINAL - [Graphics] anisotropy (engine/gfx/graphics_options.h): anisotropic minification on every

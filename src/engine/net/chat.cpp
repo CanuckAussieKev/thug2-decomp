@@ -33,6 +33,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -70,7 +71,7 @@ uint32_t g_prev_taunt_stamp;
 ParamBag* new_script_struct()
 {
     const int current = script::g_struct_pools.current;
-    memory::SlabBank* pool = script::g_struct_pools.pools[current];
+    memory::SlabBank* pool = core::at(script::g_struct_pools.pools, current);
     void* memory = pool ? pool->carve() : memory::alloc(8);
     return memory ? memory::construct_in<script::Struct>(memory) : nullptr;
 }
@@ -136,7 +137,7 @@ void post_out(Hub* manager, const char* name, uint8_t color, const char* text)
         desc.byte_count_ = static_cast<uint16_t>(
             thugpro::encode_chat(thugpro_bytes.data(), thugpro::get_machine_id(), color, packet.name.data(), packet.text.data()));
         desc.content_ = thugpro_bytes.data();
-        packet.text[thugpro::kChatMessageTextSize - 1] = '\0'; // (what was sent, shown below)
+        core::at(packet.text, thugpro::kChatMessageTextSize - 1) = '\0'; // (what was sent, shown below)
     }
     send_to_server(manager, &desc);
 
@@ -247,7 +248,7 @@ bool handle_chat_command(Hub* manager, const char* text)
             const maths::Mat4& m = skater->basis_frame_;
             get_log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
             for (int row = 0; row < 3; ++row)
-                get_log("where: skater matrix row %d %.6f %.6f %.6f", row, m.row[row].x, m.row[row].y, m.row[row].z);
+                get_log("where: skater matrix row %d %.6f %.6f %.6f", row, core::at(m.row, row).x, core::at(m.row, row).y, core::at(m.row, row).z);
         } else {
             get_log("where: no local skater");
         }
@@ -273,7 +274,7 @@ void keyboard_task(tasks::Task<Hub>* /*task*/)
     std::array<char, 256> keys{};
     if (sio::get_keyboard_chars(keys.data()) <= 0)
         return;
-    const char key = keys[0];
+    const char key = core::at(keys, 0);
     if (key == kKeyEnter) {
         // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
         // never freed: the original leaks them, 8 bytes a time.)

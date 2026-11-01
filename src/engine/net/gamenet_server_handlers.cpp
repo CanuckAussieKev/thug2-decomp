@@ -36,6 +36,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -223,7 +224,7 @@ int on_switch_squad_msg(net::InboundMsgCtx* context)
         return kDone;
     if (get_game_type() != kNetLobby && !manager->has_match_ended())
         return kDone;
-    std::array<uint8_t, 2> change = {{msg[0], msg[1]}};
+    std::array<uint8_t, 2> change = {{core::at(msg, 0), core::at(msg, 1)}};
     net::AppHost* server = manager->host_;
     desc.content_ = change.data();
     desc.byte_count_ = 2;

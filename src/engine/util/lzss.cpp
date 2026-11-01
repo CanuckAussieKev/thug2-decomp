@@ -6,6 +6,7 @@
 
 #include "engine/core/dbg.h"
 #include "engine/core/mem.h"
+#include "engine/core/checked_index.h"
 
 namespace lzss {
 
@@ -173,7 +174,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
 
     // code[0] holds the flag bits for up to 8 items; each item takes 1 byte (literal) or 2 (reference).
     std::array<uint8_t, 17> code{};
-    code[0] = 0;
+    core::at(code, 0) = 0;
     int code_size = 1;
     uint8_t mask = 1;
     int s = 0;
@@ -198,11 +199,11 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
             longest_run_ref() = length;
         if (longest_run_ref() <= kLiteralRunLimit) {
             longest_run_ref() = 1;
-            code[0] |= mask;
-            code[code_size++] = window[r];
+            core::at(code, 0) |= mask;
+            core::at(code, code_size++) = window[r];
         } else {
-            code[code_size++] = static_cast<uint8_t>(window_match_offset());
-            code[code_size++] = static_cast<uint8_t>(((window_match_offset() >> 4) & 0xF0) |
+            core::at(code, code_size++) = static_cast<uint8_t>(window_match_offset());
+            core::at(code, code_size++) = static_cast<uint8_t>(((window_match_offset() >> 4) & 0xF0) |
                                                      (longest_run_ref() - (kLiteralRunLimit + 1)));
         }
 
@@ -212,7 +213,7 @@ int pack_up(const uint8_t* in, uint8_t* out, int size, bool print_stats)
             std::memcpy(out, code.data(), code_size);
             out += code_size;
             bytes_out() += code_size;
-            code[0] = 0;
+            core::at(code, 0) = 0;
             code_size = 1;
             mask = 1;
         }

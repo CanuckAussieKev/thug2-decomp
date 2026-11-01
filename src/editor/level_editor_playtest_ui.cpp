@@ -11,6 +11,7 @@
 #include "editor/level_editor_nodes.h"
 #include "editor/level_editor_playtest.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -46,7 +47,7 @@ void restart_section(int node_index)
     const std::vector<nodes::Elem>& all = nodes::get_all();
     if (node_index < 0 || std::cmp_greater_equal(node_index, all.size()))
         return;
-    const nodes::Elem& node = all[node_index];
+    const nodes::Elem& node = core::at(all, node_index);
     if (node.family != nodes::Family::kSpawn || node.hidden)
         return;
     const uint32_t name = node.name;
@@ -115,10 +116,10 @@ void pane(float scale, ImFont* heading, ImFont* small)
                 std::string text;
                 std::array<char, 64> part{};
                 for (int m = 0; m < kMotions; ++m) {
-                    if (run.motion_seconds_[m] < 0.05f)
+                    if (core::at(run.motion_seconds_, m) < 0.05f)
                         continue;
                     std::snprintf(part.data(), sizeof(part), "%s %.1f s\n", motion_name(static_cast<Motion>(m)),
-                                  run.motion_seconds_[m]);
+                                  core::at(run.motion_seconds_, m));
                     text += part.data();
                 }
                 ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),

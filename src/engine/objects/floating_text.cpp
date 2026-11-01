@@ -26,6 +26,7 @@
 #include "engine/gfx/model.h"
 #include "engine/core/ints.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend {
 
@@ -87,7 +88,7 @@ gsl::owner<ObjectModule*> FloatingTextComponent::fabricate() { return new Floati
 // (the constructor: inlined in fabricate in the original)
 FloatingTextComponent::FloatingTextComponent()
 {
-    text_[0] = 0;
+    core::at(text_, 0) = 0;
     kind_tag_ = kType;
 }
 
@@ -136,10 +137,10 @@ void FloatingTextComponent::tick_frame()
         static_cast<render::RenderModel*>(core::down_cast<objects::MeshInstanceModule>(mesh_instance_)->mesh_instance_);
     if (!model || !(model->flag_bits_ & 2) || (model->flag_bits_ & 4))
         return;
-    if (!text_[0])
+    if (!core::at(text_, 0))
         return;
     if (end_time_ && end_time_ < ints::as_unsigned(frame_clock::game_clock_elapsed() + g_clock_offset)) {
-        text_[0] = 0;
+        core::at(text_, 0) = 0;
         end_time_ = 0;
     }
     script::Struct* params = new_params();

@@ -23,6 +23,7 @@
 #include "game/rider/rider.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -129,7 +130,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             z = turned.z;
         }
     } else {
-        const maths::Vec4& at = object->basis_frame_.row[2];
+        const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
         x = at.x;
         y = at.y;
         z = at.z;
@@ -137,9 +138,9 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             maths::Mat4 m{};
             m = object->basis_frame_;
             turn_about_y(m, skew, true);
-            x = m.row[2].x;
-            y = m.row[2].y;
-            z = m.row[2].z;
+            x = core::at(m.row, 2).x;
+            y = core::at(m.row, 2).y;
+            z = core::at(m.row, 2).z;
         }
     }
     script->args_->put_int(kScaledX, ftol(static_cast<double>(x) * scale));
@@ -156,7 +157,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
 {
     std::array<char, 128> voice{};
-    voice[0] = 0; // (left as the stack had it in the original when the voice is not found)
+    core::at(voice, 0) = 0; // (left as the stack had it in the original when the voice is not found)
     std::array<char, 128> stream{};
     std::array<char, 128> first_name{};
     auto* skater = core::down_cast<objects::Rider>(script->entity_.owner_object_);

@@ -25,6 +25,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::faces {
 
@@ -56,7 +57,7 @@ int hex_digit(char c)
 
 } // namespace
 
-const FlagInfo& bit_mark(int index) { return kFlags[std::clamp(index, 0, kFlagCount - 1)]; }
+const FlagInfo& bit_mark(int index) { return core::at(kFlags, std::clamp(index, 0, kFlagCount - 1)); }
 
 uint16_t get_applied(uint16_t flags, uint16_t set, uint16_t clear)
 {
@@ -98,8 +99,8 @@ std::string write_records(const std::vector<SectorFaces>& sectors)
         std::snprintf(text.data(), sizeof(text), "faces %08X ", s.checksum);
         out += text.data();
         for (size_t i = 0; i < s.faces.size(); ++i) {
-            std::snprintf(text.data(), sizeof(text), "%s%u:%04X", i ? "," : "", static_cast<unsigned>(s.faces[i].first),
-                          static_cast<unsigned>(s.faces[i].second));
+            std::snprintf(text.data(), sizeof(text), "%s%u:%04X", i ? "," : "", static_cast<unsigned>(core::at(s.faces, i).first),
+                          static_cast<unsigned>(core::at(s.faces, i).second));
             out += text.data();
         }
         out += '\n';
@@ -130,15 +131,15 @@ bool read_record(std::istringstream& in, SectorFaces* out)
             return false;
         uint32_t face = 0;
         for (size_t i = 0; i < colon; ++i) {
-            if (item[i] < '0' || item[i] > '9' || face > 6553)
+            if (core::at(item, i) < '0' || core::at(item, i) > '9' || face > 6553)
                 return false;
-            face = face * 10 + static_cast<uint32_t>(item[i] - '0');
+            face = face * 10 + static_cast<uint32_t>(core::at(item, i) - '0');
         }
         if (face > 0xFFFF)
             return false;
         uint32_t flags = 0;
         for (size_t i = colon + 1; i < item.size(); ++i) {
-            const int d = hex_digit(item[i]);
+            const int d = hex_digit(core::at(item, i));
             if (d < 0)
                 return false;
             flags = flags << 4 | static_cast<uint32_t>(d);
@@ -557,7 +558,7 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         if (!get_corners(key, p.data()))
             return;
         for (int k = 0; k < 3; ++k) {
-            V3 a = p[k], b = p[(k + 1) % 3];
+            V3 a = core::at(p, k), b = core::at(p, (k + 1) % 3);
             if (!clip_to_near(camera_pos, frame, near_z + 0.01f, &a, &b))
                 continue;
             float ax = 0.0f, ay = 0.0f, bx = 0.0f, by = 0.0f, nx = 0.0f, ny = 0.0f;
@@ -617,14 +618,14 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     }
     ImGui::PushFont(mono);
     if (g_selection.size() == 1 && !flags.empty())
-        ImGui::Text("face %u of %s: 0x%04X", static_cast<unsigned>(g_selection[0].face),
-                    piece_label(g_selection[0].checksum).c_str(), flags[0]);
+        ImGui::Text("face %u of %s: 0x%04X", static_cast<unsigned>(core::at(g_selection, 0).face),
+                    piece_label(core::at(g_selection, 0).checksum).c_str(), core::at(flags, 0));
     else
         ImGui::Text("%u faces in %u piece%s", static_cast<unsigned>(g_selection.size()),
                     static_cast<unsigned>(pieces.size()), pieces.size() == 1 ? "" : "s");
     ImGui::PopFont();
     for (int i = 0; i < kFlagCount; ++i) {
-        const FlagInfo& info = kFlags[i];
+        const FlagInfo& info = core::at(kFlags, i);
         const int state = get_combined(flags, info.bit);
         bool on = state == 1;
         std::array<char, 64> label{};

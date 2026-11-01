@@ -26,6 +26,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -106,8 +107,8 @@ gsl::owner<ObjectModule*> PickupItemHandler::fabricate() { return new PickupItem
 PickupItemHandler::PickupItemHandler()
 {
     kind_tag_ = kType;
-    items_[0] = nullptr;
-    items_[1] = nullptr;
+    core::at(items_, 0) = nullptr;
+    core::at(items_, 1) = nullptr;
 }
 
 // 0x0051BF20 (0x0051C130 the deleting one)
@@ -120,16 +121,16 @@ PickupItemHandler::~PickupItemHandler()
 // 0x0051BE00
 void PickupItemHandler::destroy_item(int slot)
 {
-    if (!items_[slot])
+    if (!core::at(items_, slot))
         return;
     script::Struct* tags = new_params();
-    items_[slot]->copy_tags_to(tags);
+    core::at(items_, slot)->copy_tags_to(tags);
     uint32_t script = 0;
     if (tags->read_hash_value(kOnDestroyScript, &script, 0))
-        script::launch_script(script, nullptr, items_[slot], false, nullptr);
+        script::launch_script(script, nullptr, core::at(items_, slot), false, nullptr);
     delete_params(tags);
-    flag_as_dead(items_[slot]);
-    items_[slot] = nullptr;
+    flag_as_dead(core::at(items_, slot));
+    core::at(items_, slot) = nullptr;
 }
 
 // 0x0051BF00
@@ -142,7 +143,7 @@ void PickupItemHandler::destroy_items()
 // 0x0051BF80
 GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
 {
-    if (items_[slot])
+    if (core::at(items_, slot))
         destroy_item(slot);
     uint32_t id = 0;
     if (params->read_hash_value(kId, &id, 0)) {
@@ -152,14 +153,14 @@ GameEntity* PickupItemHandler::create_item(int slot, script::Struct* params)
     memory::push_mem_profile("Game Objects");
     GameEntity* item = create_game_object_from_node(params);
     memory::pop_mem_profile();
-    items_[slot] = item;
+    core::at(items_, slot) = item;
 
     script::Struct* tags = new_params();
     tags->put_name_key(kOwner, entity_->ident_);
     uint32_t script = 0;
     if (params->read_hash_value(kOnDestroyScript, &script, 0))
         tags->put_name_key(kOnDestroyScript, script);
-    items_[slot]->set_tags_from_struct(tags);
+    core::at(items_, slot)->set_tags_from_struct(tags);
     delete_params(tags);
 
     // In the object's colour.
@@ -215,7 +216,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
     case kSpecialItemExists: {
         int slot = 0;
         if (params->fetch_int_value(kIndex, &slot, 0))
-            return items_[slot] != nullptr;
+            return core::at(items_, slot) != nullptr;
         for (const GameEntity* item : items_)
             if (item)
                 return 1;

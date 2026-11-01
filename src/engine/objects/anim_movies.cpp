@@ -31,6 +31,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -221,14 +222,14 @@ void CameraAnimMovie::load_target(script::Struct* params)
     has_goal_ = params->read_hash_value(0x531E4D28, &aim_point_, 0);
     if (!has_goal_)
         return;
-    goal_shift_[0] = goal_shift_[1] = goal_shift_[2] = 0.0f;
-    goal_shift_[3] = 1.0f;
+    core::at(goal_shift_, 0) = core::at(goal_shift_, 1) = core::at(goal_shift_, 2) = 0.0f;
+    core::at(goal_shift_, 3) = 1.0f;
     params->fetch_vec(0x906642BF, raw::as<script::VectorValue>(goal_shift_.data()), 0);
     const float zero = g_float_zero;
     // (not equal, or unordered: a NaN counts as set)
-    target_offset_set_ = !(goal_shift_[0] == zero) || !(goal_shift_[1] == zero) || !(goal_shift_[2] == zero);
-    look_offset_[0] = look_offset_[1] = look_offset_[2] = 0.0f;
-    look_offset_[3] = 1.0f;
+    target_offset_set_ = !(core::at(goal_shift_, 0) == zero) || !(core::at(goal_shift_, 1) == zero) || !(core::at(goal_shift_, 2) == zero);
+    core::at(look_offset_, 0) = core::at(look_offset_, 1) = core::at(look_offset_, 2) = 0.0f;
+    core::at(look_offset_, 3) = 1.0f;
     look_offset_set_ = params->fetch_vec(0xA00D3D6E, raw::as<script::VectorValue>(look_offset_.data()), 0);
 }
 
@@ -302,7 +303,7 @@ void CameraAnimMovie::place_camera()
         bool flag = false;
         static_cast<gfx::JointClipFrames*>(anim_)->get_float_key_pose(quat.data(), at.data(), &flag, timeline_.ongoing_, 0);
         for (int i = 0; i < 4; ++i)
-            pos[i] = at[i];
+            pos[i] = core::at(at, i);
         std::array<float, 4> origin = {{0.0f, 0.0f, 0.0f, 1.0f}};
         quat_to_matrix(quat.data(), origin.data(), m);
     } else {
@@ -328,41 +329,41 @@ void CameraAnimMovie::place_camera()
         std::array<float, 16> frame{};
         auto moved = [&](float* offset) {
             *raw::as<maths::Mat4>(frame.data()) = object->basis_frame_;
-            frame[12] = target[0];
-            frame[13] = target[1];
-            frame[14] = target[2];
-            frame[15] = 1.0f;
+            core::at(frame, 12) = core::at(target, 0);
+            core::at(frame, 13) = core::at(target, 1);
+            core::at(frame, 14) = core::at(target, 2);
+            core::at(frame, 15) = 1.0f;
             raw::as<maths::Mat4>(frame.data())->offset_local(*raw::as<const maths::Vec4>(offset));
         };
         if (target_offset_set_) {
             moved(goal_shift_.data());
             for (int i = 0; i < 4; ++i)
-                target[i] = frame[12 + i];
+                core::at(target, i) = core::at(frame, 12 + i);
         }
         if (look_offset_set_) {
             for (int i = 0; i < 4; ++i)
-                pos[i] = target[i];
+                pos[i] = core::at(target, i);
             moved(look_offset_.data());
             for (int i = 0; i < 4; ++i)
-                pos[i] = frame[12 + i];
+                pos[i] = core::at(frame, 12 + i);
         }
         for (int i = 0; i < 4; ++i)
-            dir[i] = pos[i] - target[i];
+            core::at(dir, i) = pos[i] - core::at(target, i);
         raw::as<maths::Vec4>(dir.data())->make_unit();
         set_identity(m);
         for (int i = 0; i < 4; ++i)
-            m[8 + i] = dir[i];
+            m[8 + i] = core::at(dir, i);
         cross_into(m, m + 4, m + 8); // the right axis: up x at
         m[3] = 0.0f;
         raw::as<maths::Vec4>(m)->make_unit();
     } else {
         // A fixed point (the target offset), seen from the look offset.
         for (int i = 0; i < 4; ++i)
-            pos[i] = look_offset_[i];
+            pos[i] = core::at(look_offset_, i);
         // (x and y stay unrounded; z is stored and squared as its unrounded value times the stored one)
-        double x = static_cast<double>(pos[0]) - goal_shift_[0];
-        double y = static_cast<double>(pos[1]) - goal_shift_[1];
-        const double z_exact = static_cast<double>(pos[2]) - goal_shift_[2];
+        double x = static_cast<double>(pos[0]) - core::at(goal_shift_, 0);
+        double y = static_cast<double>(pos[1]) - core::at(goal_shift_, 1);
+        const double z_exact = static_cast<double>(pos[2]) - core::at(goal_shift_, 2);
         auto z = static_cast<float>(z_exact);
         const double length = std::sqrt(z_exact * z + y * y + x * x);
         if (length > g_float_zero) {

@@ -24,6 +24,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -680,13 +681,13 @@ bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
     maths::Mat4 uv{};
     uv.reset_to_identity();
     // about the texture's middle: moved there, scaled, turned, moved back
-    uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) - kHalf);
-    uv.row[3].y = static_cast<float>(static_cast<double>(uv.row[3].y) - kHalf);
+    core::at(uv.row, 3).x = static_cast<float>(static_cast<double>(core::at(uv.row, 3).x) - kHalf);
+    core::at(uv.row, 3).y = static_cast<float>(static_cast<double>(core::at(uv.row, 3).y) - kHalf);
     const float size = percent_of(scale);
     uv.scale_tool(maths::Vec4{size, size, size, 1.0f});
     uv.spin_by(maths::Vec4{0.0f, 0.0f, 1.0f, 1.0f}, static_cast<float>(static_cast<double>(rotation) * kDegrees));
-    uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) + kHalf);
-    uv.row[3].y = static_cast<float>(static_cast<double>(uv.row[3].y) + kHalf);
+    core::at(uv.row, 3).x = static_cast<float>(static_cast<double>(core::at(uv.row, 3).x) + kHalf);
+    core::at(uv.row, 3).y = static_cast<float>(static_cast<double>(core::at(uv.row, 3).y) + kHalf);
     uv.offset_local(maths::Vec4{static_cast<float>(static_cast<double>(u) * kPercent),
                                 static_cast<float>(static_cast<double>(v) * kPercent), 0.0f, 0.0f});
     built_model()->choose_uv_matrix(material, pass, &uv);

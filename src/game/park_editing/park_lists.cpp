@@ -11,6 +11,7 @@
 #include "game/park/park_memory.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -172,7 +173,7 @@ void ParkLayout::add_meta_to_cells(PieceGroup* meta)
         for (int j = 0; std::cmp_less(j, meta->cell_footprint_.l); ++j) {
             MapListNode* node = MapListNode::fabricate();
             node->piece_group_ = meta; // (out of memory crashes, as in the original)
-            MapListNode*& bucket = cell_metas_[meta->cell_footprint_.x + i][meta->cell_footprint_.z + j];
+            MapListNode*& bucket = core::at(core::at(cell_metas_, meta->cell_footprint_.x + i), meta->cell_footprint_.z + j);
             node->following_ = bucket;
             bucket = node;
         }
@@ -183,7 +184,7 @@ void ParkLayout::remove_meta_from_cells(PieceGroup* meta)
 {
     for (int i = 0; std::cmp_less(i, meta->cell_footprint_.w); ++i) {
         for (int j = 0; std::cmp_less(j, meta->cell_footprint_.l); ++j) {
-            MapListNode*& bucket = cell_metas_[meta->cell_footprint_.x + i][meta->cell_footprint_.z + j];
+            MapListNode*& bucket = core::at(core::at(cell_metas_, meta->cell_footprint_.x + i), meta->cell_footprint_.z + j);
             MapListNode* previous = nullptr;
             for (MapListNode* node = bucket; node; previous = node, node = node->following_) {
                 if (node->piece_group_ != meta)
@@ -206,7 +207,7 @@ MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGrou
     if (!meta) {
         for (int x = area.x; x < area.x + area.w; ++x) {
             for (int z = area.z; z < area.z + area.l; ++z) {
-                for (const MapListNode* node = cell_metas_[x][z]; node; node = node->following_) {
+                for (const MapListNode* node = core::at(core::at(cell_metas_, x), z); node; node = node->following_) {
                     if (precise && (node->get_piece_group()->flag_bits_ & PieceGroup::kBuiltShell))
                         continue;
                     if (node->get_piece_group()->get_cast()->intersects(area, skip_inner_shell))
@@ -245,7 +246,7 @@ MapListNode* ParkLayout::collect_pieces_in_region(CellBox area)
     MapListNode* list = nullptr;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            for (const MapListNode* node = cell_metas_[x][z]; node; node = node->following_)
+            for (const MapListNode* node = core::at(core::at(cell_metas_, x), z); node; node = node->following_)
                 add_meta_to_list(node->get_piece_group(), &list);
         }
     }
@@ -288,7 +289,7 @@ bool ParkLayout::build_riser_list(CellBox area, int y, int height, uint32_t flag
         area.stretch_vertically();
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            FloorCell& cell = floor_[x][z];
+            FloorCell& cell = core::at(core::at(floor_, x), z);
             if (!cell.touched_) {
                 const int amount = scroll_offset(flags, cell.level_y_, height);
                 cell.level_y_ += amount;
@@ -333,7 +334,7 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
         const int z_end = dims.z + dims.l;
         for (int x = dims.x; x < dims.x + dims.w; ++x) {
             for (int z = dims.z; z < z_end; ++z) {
-                FloorCell& cell = floor_[x][z];
+                FloorCell& cell = core::at(core::at(floor_, x), z);
                 if (add) {
                     const int top = dims.y + dims.h;
                     if (cell.level_y_ < top)

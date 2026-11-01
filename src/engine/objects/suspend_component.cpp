@@ -29,6 +29,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -61,7 +62,7 @@ int& interleave4_count() { return g_suspend_interleave4_count; }
 void set_no_lod(float* distances)
 {
     for (int i = 0; i < 4; ++i)
-        raw::as<uint32_t>(distances)[i] = kNoLodBits[i];
+        raw::as<uint32_t>(distances)[i] = core::at(kNoLodBits, i);
 }
 
 // The model component's model (+0x208) and what it's asked (not rewritten yet): drawn or not (0x00493C60), its
@@ -106,7 +107,7 @@ void DormancyModule::tick_frame() { ObjectModule::hold_off(true); }
 void DormancyModule::configure_from_data(script::Struct* params)
 {
     if (params->fetch_float(kSuspendDistance, &suspend_distance_, 0)) {
-        if (suspend_distance_ == 0.0f && !params->fetch_float(kLodDist[0], &suspend_distance_, 0))
+        if (suspend_distance_ == 0.0f && !params->fetch_float(core::at(kLodDist, 0), &suspend_distance_, 0))
             suspend_distance_ = script::fetch_float(kDefaultSuspendDistance);
         never_suspend_ = false;
         const double distance = static_cast<double>(suspend_distance_) * kInchesPerFoot;
@@ -121,13 +122,13 @@ void DormancyModule::configure_from_data(script::Struct* params)
     }
     float* lod = lod_distances_.data();
     lod[0] = 50.0f;
-    raw::as<uint32_t>(lod)[2] = kNoLodBits[1];
-    raw::as<uint32_t>(lod)[3] = kNoLodBits[2];
-    params->fetch_float(kLodDist[0], &lod[0], 0);
+    raw::as<uint32_t>(lod)[2] = core::at(kNoLodBits, 1);
+    raw::as<uint32_t>(lod)[3] = core::at(kNoLodBits, 2);
+    params->fetch_float(core::at(kLodDist, 0), &lod[0], 0);
     lod[1] = lod[0] + kLod2Beyond1;
-    params->fetch_float(kLodDist[1], &lod[1], 0);
-    params->fetch_float(kLodDist[2], &lod[2], 0);
-    params->fetch_float(kLodDist[3], &lod[3], 0);
+    params->fetch_float(core::at(kLodDist, 1), &lod[1], 0);
+    params->fetch_float(core::at(kLodDist, 2), &lod[2], 0);
+    params->fetch_float(core::at(kLodDist, 3), &lod[3], 0);
     const double first = static_cast<double>(lod[0]) * kInchesPerFoot;
     const double second = static_cast<double>(lod[1]) * kInchesPerFoot;
     lod[0] = static_cast<float>(first);
@@ -172,7 +173,7 @@ bool DormancyModule::wants_animating(float* distance_squared)
     if (distance_squared)
         *distance_squared = d;
     bool animate = true;
-    const double lod = lod_distances_[0];
+    const double lod = core::at(lod_distances_, 0);
     if (d > lod * lod) { // (not a number: as within)
         animate = false;
     } else {
@@ -196,23 +197,23 @@ void DormancyModule::refresh_shown_state()
     if (!(entity_->object_flags_ & kEntityHiddenBit)) {
         uint8_t* model = model_of(mesh_instance_);
         // NOLINTNEXTLINE(bugprone-branch-clone): the original's, as written
-        if (raw::as<const uint32_t>(lod_distances_.data())[2] == kNoLodBits[2]) {
+        if (raw::as<const uint32_t>(lod_distances_.data())[2] == core::at(kNoLodBits, 2)) {
             visible = true;
         } else if (modules::g_viewport_count > 1) {
             visible = true;
         } else if (core::down_cast<MeshInstanceModule>(mesh_instance_)->level_object_) {
             visible = true;
         } else {
-            const double lod = lod_distances_[1];
+            const double lod = core::at(lod_distances_, 1);
             if (distance_squared_ < lod * lod) {
                 // In view: its bounding sphere where the object is.
                 std::array<float, 4> sphere{};
                 raw::as<render::RenderModel>(model)->fetch_bound_sphere(
                     raw::as<maths::Vec4>(sphere.data()));
-                maths::Vec4 centre = {sphere[0], sphere[1], sphere[2], 1.0f};
+                maths::Vec4 centre = {core::at(sphere, 0), core::at(sphere, 1), core::at(sphere, 2), 1.0f};
                 centre.multiply_by(entity_->basis_frame_);
                 centre += entity_->at_point_;
-                visible = render::engine::sphere_visible_in_one_viewport(&centre, sphere[3]) == 0;
+                visible = render::engine::sphere_visible_in_one_viewport(&centre, core::at(sphere, 3)) == 0;
             }
         }
     }

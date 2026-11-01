@@ -21,6 +21,7 @@
 #include "editor/level_editor_ui.h"
 #include "editor/level_editor_ux8_pie.h"
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ux8 {
 
@@ -185,9 +186,9 @@ void register_actions()
         const std::string recall_id = "quick_set_" + n;
         const std::string store_name = "Store Set " + n;
         const std::string recall_name = "Select Set " + n;
-        g_ids.store[i] = append_one(store_id.c_str(), store_name.c_str(), "Select", Kind::kPress,
+        core::at(g_ids.store, i) = append_one(store_id.c_str(), store_name.c_str(), "Select", Kind::kPress,
                                     {get_k(SDL_SCANCODE_1 + i, kCtrl | kAlt)}, "Store the selection as Set n");
-        g_ids.recall[i] = append_one(recall_id.c_str(), recall_name.c_str(), "Select", Kind::kPress,
+        core::at(g_ids.recall, i) = append_one(recall_id.c_str(), recall_name.c_str(), "Select", Kind::kPress,
                                      {get_k(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
         for (const int index : {g_ids.store[i], g_ids.recall[i]}) {
             if (actions::ActStep* a = actions::get_pull(index)) {
@@ -319,7 +320,7 @@ const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad)
             return;
         for (const actions::Chord& c : a->keys) {
             if (c.scancode > 0 && c.scancode < SDL_NUM_SCANCODES && c.mods == 0) {
-                merged[c.scancode] = 1;
+                core::at(merged, c.scancode) = 1;
                 return;
             }
         }
@@ -333,7 +334,7 @@ const uint8_t* pad_keys(const uint8_t* keys, const Pad& pad)
     if (pad.right)
         hold(actions::kNudgeRight);
     if (pad.fast)
-        merged[SDL_SCANCODE_LSHIFT] = 1;
+        core::at(merged, SDL_SCANCODE_LSHIFT) = 1;
     return merged.data();
 }
 
@@ -393,11 +394,11 @@ void run_slice()
     const int at = g_pie.hovered;
     std::vector<pie::Item> items = g_pie.items;
     g_pie.open = false;
-    if (at < 0 || std::cmp_greater_equal(at, items.size()) || !items[at].enabled())
+    if (at < 0 || std::cmp_greater_equal(at, items.size()) || !core::at(items, at).enabled())
         return;
-    if (items[at].edits)
+    if (core::at(items, at).edits)
         stop_simulation();
-    items[at].run();
+    core::at(items, at).run();
 }
 
 } // namespace
@@ -408,9 +409,9 @@ void tick_frame(TickCycle& f)
     // Quick sets: Ctrl+Alt+n stores, Alt+Shift+n selects (not while dragging: digits are typed values then).
     if (!f.dragging) {
         for (int i = 0; i < nav::kQuickSets; ++i) {
-            if (squeezed(g_ids.store[i]))
+            if (squeezed(core::at(g_ids.store, i)))
                 store_set(nav::quick_set_name(i + 1));
-            if (squeezed(g_ids.recall[i]))
+            if (squeezed(core::at(g_ids.recall, i)))
                 recall_set(nav::quick_set_name(i + 1));
         }
     }

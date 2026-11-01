@@ -17,6 +17,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::entities {
 
@@ -70,14 +71,14 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
     if (ImGui::BeginCombo("##modelswap", short_name(now))) {
         for (size_t i = 0; i < models.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
-            const bool same = _stricmp(models[i].c_str(), now.c_str()) == 0;
-            if (ImGui::Selectable(short_name(models[i]), same) && !same) {
-                const std::string& chosen = models[i];
+            const bool same = _stricmp(core::at(models, i).c_str(), now.c_str()) == 0;
+            if (ImGui::Selectable(short_name(core::at(models, i)), same) && !same) {
+                const std::string& chosen = core::at(models, i);
                 get_queue([id, now] { detail::watch_model(id, now); });
                 field_request(requests, id, kModel, fields::Kind::kChars, chosen);
             }
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", models[i].c_str());
+                ImGui::SetTooltip("%s", core::at(models, i).c_str());
             ImGui::PopID();
         }
         ImGui::EndCombo();
@@ -94,7 +95,7 @@ void physics_section(uint32_t name, script::Struct* s, std::vector<ui::Request>*
         return;
     ImGui::Spacing();
     ImGui::SeparatorText("Physics");
-    std::vector<fields::Row> rows = fields::rows_of(nodes::get_all()[index]);
+    std::vector<fields::Row> rows = fields::rows_of(core::at(nodes::get_all(), index));
     if (ImGui::BeginTable("##physics", 2, ImGuiTableFlags_SizingStretchProp)) {
         for (const char* field : kPhysics) {
             uint32_t key = checksums::hash_from_text(field);
@@ -194,9 +195,9 @@ void sound_section(uint32_t name)
         }
         for (size_t i = 0; i < sounds.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
-            if (ImGui::Selectable(sounds[i].second.c_str(), sounds[i].first == e.sound) && sounds[i].first != e.sound) {
+            if (ImGui::Selectable(core::at(sounds, i).second.c_str(), core::at(sounds, i).first == e.sound) && core::at(sounds, i).first != e.sound) {
                 EmitterSound changed = e;
-                changed.sound = sounds[i].first;
+                changed.sound = core::at(sounds, i).first;
                 get_queue([changed] { detail::change_emitter(changed); });
             }
             ImGui::PopID();
@@ -239,10 +240,10 @@ void inspector_section(int node, uint32_t object, ImFont* mono, std::vector<ui::
     uint32_t name = object;
     int family = -1;
     if (!name && node >= 0 && std::cmp_less(node, all.size()))
-        name = all[node].name;
+        name = core::at(all, node).name;
     const int index = name ? nodes::get_find(name) : -1;
     if (index >= 0)
-        family = static_cast<int>(all[index].family);
+        family = static_cast<int>(core::at(all, index).family);
     if (!name)
         return;
     script::Struct* s = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;

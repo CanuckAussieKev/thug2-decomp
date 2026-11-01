@@ -26,6 +26,7 @@
 #include "engine/render/probe_ray.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ux9 {
 
@@ -137,17 +138,17 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, ground::kMinHeight, ground::kCeilingY, "%.0f");
     std::array<float, 4> rect = {{d.x0, d.z0, d.x1, d.z1}};
     if (ImGui::DragFloat4("x0 z0 x1 z1", rect.data(), 1.0f, 0.0f, 0.0f, "%.0f")) {
-        d.x0 = rect[0], d.z0 = rect[1], d.x1 = rect[2], d.z1 = rect[3];
+        d.x0 = core::at(rect, 0), d.z0 = core::at(rect, 1), d.x1 = core::at(rect, 2), d.z1 = core::at(rect, 3);
     }
     ImGui::DragFloat("Ground at", &d.base, 1.0f, 0.0f, 0.0f, "%.1f");
     static const std::array<const char*, 4> kSideNames = {{"-X side", "+X side", "-Z side", "+Z side"}};
     for (int side = 0; side < 4; ++side) {
         ImGui::PushID(side);
-        if (ImGui::BeginCombo(kSideNames[side], ramp_name(d.ramps[side]))) {
+        if (ImGui::BeginCombo(core::at(kSideNames, side), ramp_name(core::at(d.ramps, side)))) {
             for (int r = 0; r < 3; ++r) {
                 auto ramp = static_cast<ground::Ramp>(r);
-                if (ImGui::Selectable(ramp_name(ramp), d.ramps[side] == ramp))
-                    d.ramps[side] = ramp;
+                if (ImGui::Selectable(ramp_name(ramp), core::at(d.ramps, side) == ramp))
+                    core::at(d.ramps, side) = ramp;
             }
             ImGui::EndCombo();
         }
@@ -165,9 +166,9 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
             ground::Spec spec = g_draft;
             if (selection.empty())
                 g_form_message = "Select a scenery piece to copy its material";
-            else if (const char* no = ground::why_not_donor(selection[0]))
+            else if (const char* no = ground::why_not_donor(core::at(selection, 0)))
                 g_form_message = std::string("Can't use this material: ") + no;
-            else if (ground::choose_material(selection[0], &spec, &why))
+            else if (ground::choose_material(core::at(selection, 0), &spec, &why))
                 g_draft.material = spec.material, g_draft.uv = spec.uv, g_draft.colour = spec.colour,
                 g_draft.terrain = spec.terrain, g_form_message.clear();
         });
@@ -393,7 +394,7 @@ void add_overlay(const overlays::Painter& painter)
         float y = g_first.y + 2.0f;
         const std::array<V3, 4> c = {{{g_first.x, y, g_first.z}, {b.x, y, g_first.z}, {b.x, y, b.z}, {g_first.x, y, b.z}}};
         for (int i = 0; i < 4; ++i)
-            (void)painter.get_seg(c[i], c[(i + 1) % 4], kRect, 2.0f);
+            (void)painter.get_seg(core::at(c, i), core::at(c, (i + 1) % 4), kRect, 2.0f);
         std::array<char, 64> text{};
         std::snprintf(text.data(), sizeof(text), "%.0f x %.0f", std::fabs(b.x - g_first.x), std::fabs(b.z - g_first.z));
         painter.draw_label(b, kRect, text.data());

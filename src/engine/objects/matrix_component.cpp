@@ -9,6 +9,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
+#include "engine/core/checked_index.h"
 #include <gsl/pointers>
 
 namespace objects {
@@ -23,7 +24,7 @@ MatrixComponent::MatrixComponent()
 {
     kind_tag_ = kType;
     for (int r = 0; r < 4; ++r)
-        basis_frame_.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
+        core::at(basis_frame_.row, r) = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
 }
 
 // 0x0041CA60 (0x0041CA70 the deleting one)

@@ -17,6 +17,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/qb.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/checked_index.h"
 
 namespace level_nodes {
 
@@ -246,7 +247,7 @@ uint32_t* collect_nodes_by_prefix(const char* prefix, uint16_t* count)
     const size_t length = std::strlen(prefix);
     if (length && prefix[length - 1] == '_') {
         std::memcpy(buffer.data(), prefix, length + 1); // (unchecked: the original's too)
-        buffer[length - 1] = '\0';
+        core::at(buffer, length - 1) = '\0';
         prefix = buffer.data();
     }
     return node_prefixes()->get_nodes(checksums::hash_from_text(prefix), count);

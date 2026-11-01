@@ -20,6 +20,7 @@
 #include "platform/crt.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -67,7 +68,7 @@ FlexibleParticleManager::FlexibleParticleManager()
     temp_region_ = nullptr;
     temp_heap_ = nullptr;
     systems_ptr_ = memory::ListNode::create_head();
-    colour_scale_[0] = colour_scale_[1] = colour_scale_[2] = colour_scale_[3] = 1.0f;
+    core::at(colour_scale_, 0) = core::at(colour_scale_, 1) = core::at(colour_scale_, 2) = core::at(colour_scale_, 3) = 1.0f;
     const float rate = script::fetch_float(kFrameRateSymbol);
     // (0 gives 60; anything else, NaN too, 60 / it)
     frame_time_scale() =
@@ -139,7 +140,7 @@ void FlexibleParticleManager::render_systems(bool force)
     int count = 0;
     for (EmitterInstance* system = first_system(systems_ptr_); system; system = next_system(system)) {
         if (system->wants_time_)
-            systems[count++] = system; // (no bound, as the original)
+            core::at(systems, count++) = system; // (no bound, as the original)
     }
     if (!count)
         return;
@@ -147,7 +148,7 @@ void FlexibleParticleManager::render_systems(bool force)
                    &compare_distance); // (the game's qsort)
     const bool always = force || is_game_halted();
     for (int i = 0; i < count; ++i)
-        systems[i]->render_if_visible(always);
+        core::at(systems, i)->render_if_visible(always);
 }
 
 // 0x0049AC20
@@ -255,7 +256,7 @@ void FlexibleParticleManager::set_colour_scale(const float* rgba)
             system->set_colour_scale(rgba);
     }
     for (int i = 0; i < 4; ++i)
-        colour_scale_[i] = rgba[i];
+        core::at(colour_scale_, i) = rgba[i];
 }
 
 } // namespace render

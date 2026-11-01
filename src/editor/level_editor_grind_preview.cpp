@@ -17,6 +17,7 @@
 #include "editor/level_editor_overlays.h"
 #include "engine/objects/rail_manager.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::grind_preview {
 
@@ -31,26 +32,26 @@ Rail rail_of(const Graph& graph, int start)
     for (const auto& link : graph.links) {
         if (link.first < 0 || link.second < 0 || link.first >= graph.count || link.second >= graph.count)
             continue;
-        around[link.first].push_back(link.second);
-        around[link.second].push_back(link.first);
+        core::at(around, link.first).push_back(link.second);
+        core::at(around, link.second).push_back(link.first);
     }
     std::vector<uint8_t> seen(graph.count, 0);
     std::vector<int> stack = {start};
-    seen[start] = 1;
+    core::at(seen, start) = 1;
     while (!stack.empty()) {
         const int p = stack.back();
         stack.pop_back();
         rail.points.push_back(p);
-        for (const int q : around[p]) {
-            if (!seen[q]) {
-                seen[q] = 1;
+        for (const int q : core::at(around, p)) {
+            if (!core::at(seen, q)) {
+                core::at(seen, q) = 1;
                 stack.push_back(q);
             }
         }
     }
     std::ranges::sort(rail.points);
     for (const auto& link : graph.links) {
-        if (link.first >= 0 && link.first < graph.count && seen[link.first] && link.second >= 0 &&
+        if (link.first >= 0 && link.first < graph.count && core::at(seen, link.first) && link.second >= 0 &&
             link.second < graph.count && link.first != link.second)
             rail.links.push_back(link);
     }
@@ -115,7 +116,7 @@ float len_of(const Rail& rail, const std::vector<V3>& positions)
         if (link.first < 0 || link.second < 0 || std::cmp_greater_equal(link.first, positions.size()) ||
             std::cmp_greater_equal(link.second, positions.size()))
             continue;
-        const V3 d = positions[link.second] - positions[link.first];
+        const V3 d = core::at(positions, link.second) - core::at(positions, link.first);
         total += std::sqrt(get_dot(d, d));
     }
     return total;
@@ -149,13 +150,13 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         return;
     const std::vector<nodes::Elem>& all = nodes::get_all();
     auto rail_node = [&](int index) {
-        return index >= 0 && std::cmp_less(index, all.size()) && all[index].family == nodes::Family::kRail;
+        return index >= 0 && std::cmp_less(index, all.size()) && core::at(all, index).family == nodes::Family::kRail;
     };
     const int index = rail_node(hovered) ? hovered : rail_node(selected) ? selected : -1;
     const objects::GrindRailHub* rails = get_rails();
     if (index < 0 || !rails)
         return;
-    const uint32_t name = all[index].name;
+    const uint32_t name = core::at(all, index).name;
     // The rail manager's graph (a point to its next), and the point named.
     Graph graph;
     graph.count = rails->num_;
@@ -163,7 +164,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     int start = -1;
     for (int i = 0; i < rails->num_; ++i) {
         const objects::GrindPoint& node = rails->nodes_[i];
-        positions[i] = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
+        core::at(positions, i) = {node.at_point_.x, node.at_point_.y, node.at_point_.z};
         if (node.label_ == name && !(node.flag_bits_ & objects::kRailFlagClimbing))
             start = i;
         if (node.succ_ && !(node.flag_bits_ & objects::kRailFlagClimbing)) {
@@ -180,8 +181,8 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     constexpr uint32_t kSegment = 0xF0FFFFFF, kChevron = 0xFF40E0FF, kInactive = 0xA0909090;
     const uint32_t segment_colour = active ? kSegment : kInactive;
     for (const auto& link : rail.links) {
-        const V3 a = positions[link.first];
-        const V3 b = positions[link.second];
+        const V3 a = core::at(positions, link.first);
+        const V3 b = core::at(positions, link.second);
         (void)painter.get_seg(a, b, segment_colour, 3.0f);
         const V3 d = b - a;
         const float length = std::sqrt(get_dot(d, d));
@@ -201,21 +202,21 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         }
     }
     for (const int p : rail.points)
-        painter.get_dot(positions[p], p == start ? 6.0f : 3.5f, p == start ? 0xFFFFF060 : 0xFFE0F0FF);
+        painter.get_dot(core::at(positions, p), p == start ? 6.0f : 3.5f, p == start ? 0xFFFFF060 : 0xFFE0F0FF);
     const std::vector<int> ends = get_ends(rail);
     for (const int e : ends)
-        painter.get_dot(positions[e], 8.0f, 0xFFFFFFFF, false);
+        painter.get_dot(core::at(positions, e), 8.0f, 0xFFFFFFFF, false);
     for (const int b : get_branches(rail)) {
-        painter.get_dot(positions[b], 9.0f, 0xFFFFC040, false);
-        painter.draw_label(positions[b], 0xFFFFC040, "branch");
+        painter.get_dot(core::at(positions, b), 9.0f, 0xFFFFC040, false);
+        painter.draw_label(core::at(positions, b), 0xFFFFC040, "branch");
     }
     // Speed-ups on it (the level's and the editor's).
     int speed_ups = 0;
-    const V3 near = positions[start];
+    const V3 near = core::at(positions, start);
     for (const chains::SpeedSegment& s : chains::speed_segments(near, 50000.0f)) {
         for (const auto& link : rail.links) {
-            const V3 da = s.a - positions[link.first];
-            const V3 db = s.b - positions[link.second];
+            const V3 da = s.a - core::at(positions, link.first);
+            const V3 db = s.b - core::at(positions, link.second);
             if (get_dot(da, da) > 1.0f || get_dot(db, db) > 1.0f)
                 continue;
             ++speed_ups;
@@ -229,34 +230,34 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
     // Transfers: other rails' ends near this one's ends.
     std::vector<uint8_t> in_rail(graph.count, 0);
     for (const int p : rail.points)
-        in_rail[p] = 1;
+        core::at(in_rail, p) = 1;
     std::vector<int> degree(graph.count, 0);
     for (const auto& link : graph.links) {
-        ++degree[link.first];
-        ++degree[link.second];
+        ++core::at(degree, link.first);
+        ++core::at(degree, link.second);
     }
     int transfers = 0;
     for (const int e : ends) {
         for (int q = 0; q < graph.count && transfers < 24; ++q) {
-            if (in_rail[q] || degree[q] != 1 || (rails->nodes_[q].flag_bits_ & objects::kRailFlagClimbing))
+            if (core::at(in_rail, q) || core::at(degree, q) != 1 || (rails->nodes_[q].flag_bits_ & objects::kRailFlagClimbing))
                 continue;
-            const V3 d = positions[q] - positions[e];
+            const V3 d = core::at(positions, q) - core::at(positions, e);
             const float distance = std::sqrt(get_dot(d, d));
             if (distance > kTransferReach)
                 continue;
             ++transfers;
-            (void)painter.get_seg(positions[e], positions[q], 0xC0FF80FF, 1.5f);
-            painter.get_dot(positions[q], 6.0f, 0xFFFF80FF, false);
+            (void)painter.get_seg(core::at(positions, e), core::at(positions, q), 0xC0FF80FF, 1.5f);
+            painter.get_dot(core::at(positions, q), 6.0f, 0xFFFF80FF, false);
             std::array<char, 48> text{};
             std::snprintf(text.data(), sizeof(text), "transfer %.0f", distance);
-            painter.draw_label((positions[e] + positions[q]) * 0.5f, 0xFFFF80FF, text.data());
+            painter.draw_label((core::at(positions, e) + core::at(positions, q)) * 0.5f, 0xFFFF80FF, text.data());
         }
     }
     // The label at the point: the rail, its size, terrain, speed-ups, connections.
     if (g_terrain_for != name) {
         g_terrain_for = name;
         chains::View view = chains::view_of(name);
-        g_terrain = view.terrain >= 0 && std::cmp_less(view.terrain, view.terrains.size()) ? view.terrains[view.terrain]
+        g_terrain = view.terrain >= 0 && std::cmp_less(view.terrain, view.terrains.size()) ? core::at(view.terrains, view.terrain)
                                                                                            : std::string("terrain ?");
     }
     std::array<char, 256> text{};
@@ -264,12 +265,12 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
                   static_cast<int>(rail.points.size()), static_cast<int>(rail.links.size()), len_of(rail, positions),
                   g_terrain.c_str(), active ? "" : ", off", speed_ups ? ", speed-ups" : "",
                   rail.links.empty() ? ", a single point (not grindable)" : "");
-    painter.draw_label(positions[start], 0xFFFFF060, text.data(), 10.0f, -24.0f);
+    painter.draw_label(core::at(positions, start), 0xFFFFF060, text.data(), 10.0f, -24.0f);
     g_describe = text.data();
     if (transfers || !get_branches(rail).empty()) {
         std::snprintf(text.data(), sizeof(text), "%d transfers within %.0f, %d branches", transfers, kTransferReach,
                       static_cast<int>(get_branches(rail).size()));
-        painter.draw_label(positions[start], 0xFFFF80FF, text.data(), 10.0f, -8.0f);
+        painter.draw_label(core::at(positions, start), 0xFFFF80FF, text.data(), 10.0f, -8.0f);
         g_describe += std::string("; ") + text.data();
     }
 }

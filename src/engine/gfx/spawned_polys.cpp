@@ -18,6 +18,7 @@
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_effects.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -85,37 +86,37 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     poly->primitive = new PcPrimitive(1);
     maths::Mat4& m = poly->matrix;
     std::memset(&m, 0, sizeof(m));
-    m.row[0].x = m.row[1].y = m.row[2].z = m.row[3].w = 1.0f;
+    core::at(m.row, 0).x = core::at(m.row, 1).y = core::at(m.row, 2).z = core::at(m.row, 3).w = 1.0f;
     direction->make_unit();
     up->make_unit();
-    m.row[0] = *direction;
+    core::at(m.row, 0) = *direction;
     // Row 2 across the direction and up, row 1 across row 2 and the direction.
-    const maths::Vec4& r0 = m.row[0];
+    const maths::Vec4& r0 = core::at(m.row, 0);
     const double s0 = static_cast<double>(r0.z) * up->y - static_cast<double>(r0.y) * up->z;
     const double s1 = static_cast<double>(up->z) * r0.x - static_cast<double>(r0.z) * up->x;
     const double s2 = static_cast<double>(r0.y) * up->x - static_cast<double>(up->y) * r0.x;
-    m.row[2].w = 0.0f;
-    m.row[2].z = static_cast<float>(s2);
-    m.row[2].x = static_cast<float>(s0);
-    m.row[2].y = static_cast<float>(s1);
-    const maths::Vec4& r2 = m.row[2];
+    core::at(m.row, 2).w = 0.0f;
+    core::at(m.row, 2).z = static_cast<float>(s2);
+    core::at(m.row, 2).x = static_cast<float>(s0);
+    core::at(m.row, 2).y = static_cast<float>(s1);
+    const maths::Vec4& r2 = core::at(m.row, 2);
     const double t0 = static_cast<double>(r2.y) * r0.z - static_cast<double>(r2.z) * r0.y;
     const double t1 = static_cast<double>(r0.x) * r2.z - static_cast<double>(r2.x) * r0.z;
     const double t2 = static_cast<double>(r2.x) * r0.y - static_cast<double>(r0.x) * r2.y;
-    m.row[1].w = 0.0f;
-    m.row[1].z = static_cast<float>(t2);
-    m.row[1].x = static_cast<float>(t0);
-    m.row[1].y = static_cast<float>(t1);
+    core::at(m.row, 1).w = 0.0f;
+    core::at(m.row, 1).z = static_cast<float>(t2);
+    core::at(m.row, 1).x = static_cast<float>(t0);
+    core::at(m.row, 1).y = static_cast<float>(t1);
     uint32_t layout = 1; // (colours; 3: and texture coordinates)
     if (poly->texture) {
         poly->primitive->set_texture(poly->texture, 0, 0); // (through the jump 0x004A1090)
         layout = 3;
     }
     std::memcpy(poly->colours.data(), poly->start_colours_.data(), sizeof(poly->colours));
-    const float height = poly->start_dims_[1];
-    poly->dims[1] = height;
-    const float width = poly->start_dims_[0];
-    poly->dims[0] = width;
+    const float height = core::at(poly->start_dims_, 1);
+    core::at(poly->dims, 1) = height;
+    const float width = core::at(poly->start_dims_, 0);
+    core::at(poly->dims, 0) = width;
     poly->age = 0.0f;
     // The corners about the centre (w: see the header).
     const double left = width * -0.5;
@@ -132,10 +133,10 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     primitive->prepare_all(layout, 4, 4); // (through the jump 0x004A10A0)
     const std::array<std::array<float, 2>, 4> uvs = {{{0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 1.0f}}};
     for (int i = 0; i < 4; ++i) {
-        set_corner_colour(poly->primitive, i, poly->colours[i].data());
+        set_corner_colour(poly->primitive, i, core::at(poly->colours, i).data());
         if (layout & 2)
-            poly->primitive->set_uv(i, uvs[i][0], uvs[i][1]);
-        set_corner(poly->primitive, i, corners[i]);
+            poly->primitive->set_uv(i, core::at(core::at(uvs, i), 0), core::at(core::at(uvs, i), 1));
+        set_corner(poly->primitive, i, core::at(corners, i));
     }
     poly->primitive->unknown14 = (poly->flags >> 1) & 1;
     poly->primitive->get_ready();
@@ -171,35 +172,35 @@ void update_spawned_polys()
         for (int c = 0; c < 4; ++c) {
             for (int k = 0; k < 4; ++k) {
                 const int change = static_cast<int>(static_cast<int64_t>(
-                    static_cast<double>(poly->end_colours_[c][k] - poly->start_colours_[c][k]) * t));
-                poly->colours[c][k] = static_cast<uint8_t>(poly->start_colours_[c][k] + change);
+                    static_cast<double>(core::at(core::at(poly->end_colours_, c), k) - core::at(core::at(poly->start_colours_, c), k)) * t));
+                core::at(core::at(poly->colours, c), k) = static_cast<uint8_t>(core::at(core::at(poly->start_colours_, c), k) + change);
             }
         }
         for (int i = 0; i < 2; ++i)
-            poly->dims[i] = static_cast<float>((static_cast<double>(poly->end_dims_[i]) - poly->start_dims_[i]) * t +
-                                               poly->start_dims_[i]);
+            core::at(poly->dims, i) = static_cast<float>((static_cast<double>(core::at(poly->end_dims_, i)) - core::at(poly->start_dims_, i)) * t +
+                                               core::at(poly->start_dims_, i));
         for (int c = 0; c < 4; ++c)
-            set_corner_colour(poly->primitive, c, poly->colours[c].data());
+            set_corner_colour(poly->primitive, c, core::at(poly->colours, c).data());
         // Where the corners go, by the justification: right / bottom of the position, centred, or left / top.
         float x_offset = 0.0f;
         if (poly->align_h_ > 0.0f)
-            x_offset = poly->dims[0];
+            x_offset = core::at(poly->dims, 0);
         else if (poly->align_h_ == 0.0f)
-            x_offset = static_cast<float>(poly->dims[0] * 0.5);
+            x_offset = static_cast<float>(core::at(poly->dims, 0) * 0.5);
         double y_offset = 0.0;
         if (poly->align_v_ > 0.0f)
-            y_offset = poly->dims[1];
+            y_offset = core::at(poly->dims, 1);
         else if (poly->align_v_ == 0.0f)
-            y_offset = poly->dims[1] * 0.5;
+            y_offset = core::at(poly->dims, 1) * 0.5;
         float left = -x_offset;
         auto top = static_cast<float>(-y_offset);
-        auto right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
-        auto bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
+        auto right = static_cast<float>(static_cast<double>(left) + core::at(poly->dims, 0));
+        auto bottom = static_cast<float>(static_cast<double>(top) + core::at(poly->dims, 1));
         std::array<maths::Vec4, 4> corners = {{
             {left, top, 0.0f, 0.0f}, {right, top, 0.0f, 0.0f}, {right, bottom, 0.0f, 0.0f}, {left, bottom, 0.0f, 0.0f}}};
         place_corners(poly, corners.data());
         for (int c = 0; c < 4; ++c)
-            set_corner(poly->primitive, c, corners[c]);
+            set_corner(poly->primitive, c, core::at(corners, c));
         value = next_value(spawned_polys());
     }
 }

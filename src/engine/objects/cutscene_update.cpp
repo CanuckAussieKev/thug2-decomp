@@ -34,6 +34,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -167,7 +168,7 @@ void CinematicTable::update_time(int /*unused*/)
         static_cast<gfx::JointClipFrames*>(anim_list_)->arm_events();
     }
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        ObjectEntry& entry = core::at(entities_, i);
         ++entry.part;
         if (entry.animation && entry.animation->source) {
             delete_source(entry.animation->source);
@@ -176,8 +177,8 @@ void CinematicTable::update_time(int /*unused*/)
         const uint32_t anim = entry.name + entry.part * 10;
         entry.animation = nullptr;
         for (int j = 0; j < animation_count_; ++j) {
-            if (animations_[j].name == anim) {
-                entry.animation = &animations_[j];
+            if (core::at(animations_, j).name == anim) {
+                entry.animation = &core::at(animations_, j);
                 break;
             }
         }
@@ -238,7 +239,7 @@ void CinematicTable::update_object_transforms()
         const uint32_t name = static_cast<gfx::JointClipFrames*>(anim_list_)->fetch_joint_name(j);
         bool own = false;
         for (int k = object_count_ - 1; k >= 0; --k) {
-            if (entities_[k].name == name)
+            if (core::at(entities_, k).name == name)
                 own = true;
         }
         if (own)
@@ -253,7 +254,7 @@ void CinematicTable::update_object_transforms()
         std::memcpy(&object->at_point_, get_translations() + 4 * j, 16);
     }
     for (int i = 0; i < object_count_; ++i) {
-        const ObjectEntry& entry = entities_[i];
+        const ObjectEntry& entry = core::at(entities_, i);
         GameEntity* object = entry.object;
         if (GameEntity* parent = entry.parent) {
             // hanging from the parent's bone 0x5A0E0860
@@ -275,16 +276,16 @@ void CinematicTable::update_object_transforms()
             std::array<float, 16> owner_mat{};
             std::memcpy(owner_mat.data(), &parent->display_matrix_, 64);
             std::memcpy(owner_mat.data() + 12, at, 16);
-            owner_mat[3] = 0.0f;
-            owner_mat[7] = 0.0f;
-            owner_mat[11] = 0.0f;
+            core::at(owner_mat, 3) = 0.0f;
+            core::at(owner_mat, 7) = 0.0f;
+            core::at(owner_mat, 11) = 0.0f;
             d3dx::matrix_multiply(joint_mat.data(), joint_mat.data(), owner_mat.data());
             std::array<float, 16> matrix{};
             std::memcpy(matrix.data(), joint_mat.data(), 48);
-            matrix[12] = 0.0f;
-            matrix[13] = 0.0f;
-            matrix[14] = 0.0f;
-            matrix[15] = 1.0f;
+            core::at(matrix, 12) = 0.0f;
+            core::at(matrix, 13) = 0.0f;
+            core::at(matrix, 14) = 0.0f;
+            core::at(matrix, 15) = 1.0f;
             set_matrices(object, matrix.data());
             update_stand_in(object);
         } else if (entry.anim_index_ != -1) {
@@ -320,7 +321,7 @@ CinematicEntry::CinematicEntry(const uint32_t* settings)
     args_ = block ? memory::construct_in<script::Struct>(block) : nullptr;
     std::memcpy(settings_.data(), settings, 12);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): values made by calls: the original's order
-    owns_data_ = static_cast<uint8_t>(settings_[2] & 0xFF);
+    owns_data_ = static_cast<uint8_t>(core::at(settings_, 2) & 0xFF);
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
 }
 

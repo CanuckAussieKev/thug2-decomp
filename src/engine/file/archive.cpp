@@ -26,6 +26,7 @@
 #include "engine/gfx/loading_console.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace pre {
 
@@ -209,8 +210,8 @@ void normalise_name(std::array<char, 128>& out, const char* name)
 {
     size_t i = 0;
     for (; name[i] && i < sizeof(out) - 1; ++i)
-        out[i] = name[i] == '/' ? '\\' : name[i];
-    out[i] = '\0';
+        core::at(out, i) = name[i] == '/' ? '\\' : name[i];
+    core::at(out, i) = '\0';
 }
 
 // Calls `visit` for each loaded archive, in table order, until it returns something non-null (returned), or
@@ -310,12 +311,12 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
     std::array<char, 256> path{};
     std::snprintf(path.data(), sizeof(path), "pre\\%s", name);
     if (std::strrchr(name, '.') && std::strlen(path.data()) > 4)
-        path[std::strlen(path.data()) - 1] = 'x'; // .pre -> .prx
+        core::at(path, std::strlen(path.data()) - 1) = 'x'; // .pre -> .prx
     const int start = time_milliseconds();
 
     if (async) {
         if (file::AsyncFileRef* file = file::async_open(path.data())) {
-            PendingLoad& pending = pending_[queued_archive_count_];
+            PendingLoad& pending = core::at(pending_, queued_archive_count_);
             // The original copies with no limit; the field holds 63 characters.
             strncpy_s(pending.name.data(), pending.name.size(), name, _TRUNCATE);
             pending.handle = static_cast<int>(cell::of(file));
@@ -350,9 +351,9 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
         bool patched = false;
         const char letter = get_language() == 3 ? 'f' : get_language() == 5 ? 'd' : '\0';
         if (letter) {
-            path[length - 1] = letter;
+            core::at(path, length - 1) = letter;
             if (!file::is_present(path.data())) {
-                path[length - 2] = 'p';
+                core::at(path, length - 2) = 'p';
                 if (file::is_present(path.data())) {
                     file::Hdl file = file::unseal(path.data(), "rb");
                     patch_size = file::get_file_size(file);
@@ -361,8 +362,8 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
                     file::shut(file);
                     patched = true;
                 }
-                path[length - 2] = 'r'; // back to .pre (opened as .prx)
-                path[length - 1] = 'e';
+                core::at(path, length - 2) = 'r'; // back to .pre (opened as .prx)
+                core::at(path, length - 1) = 'e';
             }
         }
 
@@ -433,7 +434,7 @@ ArchiveFile::FileInfo* ArchiveManager::open_file(const char* name)
     if (length > 11 && std::strcmp(path.data() + length - 11, "scripts.pre") == 0) {
         static const auto kLetters = std::to_array<char>({'f', 's', 'd', 'i'}); // languages 3 to 6
         const int language = get_language();
-        path[length - 1] = language >= 3 && language <= 6 ? kLetters[language - 3] : 'e';
+        core::at(path, length - 1) = language >= 3 && language <= 6 ? core::at(kLetters, language - 3) : 'e';
     }
     return for_each_pre(pres_, [&](ArchiveFile* pre) -> ArchiveFile::FileInfo* {
         ArchiveFile::FileInfo* handle = pre->find_entry_in_archive(path.data());
@@ -477,7 +478,7 @@ bool ArchiveManager::is_loaded(const char* name)
 bool ArchiveManager::has_finished_loading(const char* name)
 {
     for (int i = 0; i < queued_archive_count_; ++i) {
-        if (std::strcmp(pending_[i].name.data(), name) == 0)
+        if (std::strcmp(core::at(pending_, i).name.data(), name) == 0)
             return false;
     }
     return true;
@@ -487,7 +488,7 @@ bool ArchiveManager::has_finished_loading(const char* name)
 void ArchiveManager::finish_load(int handle, uint8_t* data, int size)
 {
     int i = 0;
-    while (i < queued_archive_count_ && pending_[i].handle != handle)
+    while (i < queued_archive_count_ && core::at(pending_, i).handle != handle)
         ++i;
     if (i == queued_archive_count_)
         return;
@@ -496,9 +497,9 @@ void ArchiveManager::finish_load(int handle, uint8_t* data, int size)
     ArchiveFile* pre =
         memory ? memory::construct_in<ArchiveFile>(memory, data, size > 0 ? static_cast<size_t>(size) : 0, false)
                : nullptr;
-    pres_->store_entry(checksums::hash_from_text(pending_[i].name.data()), pre);
+    pres_->store_entry(checksums::hash_from_text(core::at(pending_, i).name.data()), pre);
     --queued_archive_count_;
-    pending_[i] = pending_[queued_archive_count_]; // the last pending load takes this one's place
+    core::at(pending_, i) = core::at(pending_, queued_archive_count_); // the last pending load takes this one's place
 }
 
 // 0x005B9570

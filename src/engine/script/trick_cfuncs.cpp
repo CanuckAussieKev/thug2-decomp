@@ -29,6 +29,7 @@
 #include "game/goals/goal_manager.h"
 #include "game/goals/create_a_trick.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -308,7 +309,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
         trick->read_sub_struct(kParams, &trick_params, 1);
         if (trick_params->has_bare_flag(kIsSpecial) != special)
             continue;
-        tricks[trick_count++] = name;
+        core::at(tricks, trick_count++) = name;
     }
     if (type == kGrabTrick || type == kFlipTrick) {
         objects::GameEntity* skater = local_skater();
@@ -318,7 +319,7 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
             for (int slot = 1; slot < 11; ++slot) {
                 int full = 0;
                 if (created[slot]->other_params_->fetch_int_value(kFull, &full, 0) && full)
-                    cats[cat_count++] = slot;
+                    core::at(cats, cat_count++) = slot;
             }
         }
     }
@@ -327,13 +328,13 @@ bool cfunc_get_configurable_tricks_from_type(script::Struct* params, script::Scr
     Array* trick_array = alloc_script_array();
     trick_array->configure_size_kind(trick_count, script::kQbvalName);
     for (int i = 0; i < trick_count; ++i)
-        trick_array->set_element(i, tricks[i]);
+        trick_array->set_element(i, core::at(tricks, i));
     script->args_->append_array_ref(kEditableTrickList, trick_array);
     if (cat_count > 0) {
         Array* cat_array = alloc_script_array();
         cat_array->configure_size_kind(cat_count, script::kQbvalInteger);
         for (int i = 0; i < cat_count; ++i)
-            cat_array->set_element(i, static_cast<uint32_t>(cats[i]));
+            cat_array->set_element(i, static_cast<uint32_t>(core::at(cats, i)));
         script->args_->append_array_ref(kEditableCategoryList, cat_array);
     }
     return true;

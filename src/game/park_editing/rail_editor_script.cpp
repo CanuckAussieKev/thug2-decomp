@@ -17,6 +17,7 @@
 #include "engine/core/stubs.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -85,7 +86,7 @@ void free_struct(script::Struct* structure)
 int rail_pool_used()
 {
     const memory::PoolPair& pools = rail_pools();
-    return pools.pools[pools.current]->taken_count_;
+    return core::at(pools.pools, pools.current)->taken_count_;
 }
 
 // The editor camera's (0xAC8946E2) target: +0x3C its position, +0x78 its heading (radians), +0x88 the height over it.

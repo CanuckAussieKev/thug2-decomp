@@ -13,6 +13,7 @@
 #include "engine/gfx/shader_slots.h"
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -75,24 +76,24 @@ SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint3
             (entry[8] & 1) ? **raw::field_at<uint8_t**>(entry, 0x10) : *raw::field_at<uint8_t*>(entry, 0x10);
     void* memory = memory::alloc(sizeof(MaterialRef));
     MaterialRef* m = memory ? construct_material(memory) : nullptr; // (a failed allocation would crash below)
-    m->pass_flags_[0] = (texture ? 4 : 0) | 0x40;
+    core::at(m->pass_flags_, 0) = (texture ? 4 : 0) | 0x40;
     const int first = get_rand();
     m->checksum = static_cast<uint32_t>(first * get_rand()); // the sort key
     m->pass_count_ = 1;                                      // one pass
-    m->textures[0] = texture;
-    m->blend_modes_[0] = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
-    m->pass_color_[0][0] = 0.5f; // the colour
-    m->pass_color_[0][1] = 0.5f;
-    m->pass_color_[0][2] = 0.5f;
-    m->pass_color_[0][3] = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
-    m->address_modes_[0] = 0;
-    m->mip_lod_bias_[0] = 0;
+    core::at(m->textures, 0) = texture;
+    core::at(m->blend_modes_, 0) = blend_mode_from_name(blend_checksum) | static_cast<uint32_t>(fixed_alpha) << 24;
+    core::at(core::at(m->pass_color_, 0), 0) = 0.5f; // the colour
+    core::at(core::at(m->pass_color_, 0), 1) = 0.5f;
+    core::at(core::at(m->pass_color_, 0), 2) = 0.5f;
+    core::at(core::at(m->pass_color_, 0), 3) = static_cast<float>(static_cast<double>(fixed_alpha) * (1.0 / 128)); // 0x0064A2FC
+    core::at(m->address_modes_, 0) = 0;
+    core::at(m->mip_lod_bias_, 0) = 0;
     m->alpha_ref_ = 1;
     m->two_sided_ = 1;
     m->has_uv_wibble_ = false;
     material = m;
-    const uint32_t mode = m->blend_modes_[0] & 0xFFFFFF;
-    shader = g_pixel_shaders[mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964];
+    const uint32_t mode = core::at(m->blend_modes_, 0) & 0xFFFFFF;
+    shader = core::at(g_pixel_shaders, mode == 9 || mode == 10 ? kPixelShader944 : kPixelShader964);
 }
 
 // 0x004D9CD0

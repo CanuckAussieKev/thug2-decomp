@@ -16,6 +16,7 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/thaw_bmx.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -75,7 +76,7 @@ void RiderPhysicsTweaks::keep_above_ground()
     maths::Vec4& end = core->probe_end_;
     start = position;
     end = position;
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     start.x = static_cast<float>(static_cast<double>(up.x) * kUpNudge + start.x);
     start.y = static_cast<float>(static_cast<double>(up.y) * kUpNudge + start.y);
     start.z = static_cast<float>(static_cast<double>(up.z) * kUpNudge + start.z);
@@ -97,7 +98,7 @@ void RiderPhysicsTweaks::keep_above_ground()
         if (!((state == 4 || state == 3) && park_editor->cur_phase_ == kParkEditorTestPlay)) {
             uber_frigged_ = 1;
             if (uber_frig_tries_ < 5) {
-                const float* offset = kUberFrigOffsets[uber_frig_tries_++].data();
+                const float* offset = core::at(kUberFrigOffsets, uber_frig_tries_++).data();
                 const maths::Vec4& from = core->safe_pos_;
                 position = {offset[0] + from.x, from.y + offset[1], from.z + offset[2], from.w + offset[3]};
             } else {

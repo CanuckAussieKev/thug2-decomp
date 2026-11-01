@@ -12,6 +12,7 @@
 #include "engine/render/coll_tri.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -112,7 +113,7 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
             continue;
         if (hits->count == CapsuleHits::kMost)
             return true;
-        CapsuleHit& entry = hits->hits[hits->count];
+        CapsuleHit& entry = core::at(hits->hits, hits->count);
         entry.normal = normal;
         entry.offset = offset;
         entry.face_flag40_ = static_cast<uint8_t>(flags & 0x40);

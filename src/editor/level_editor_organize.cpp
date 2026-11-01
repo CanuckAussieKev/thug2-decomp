@@ -26,6 +26,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::organize {
 
@@ -64,7 +65,7 @@ bool same_groups(const std::vector<GroupSet>& a, const std::vector<GroupSet>& b)
     if (a.size() != b.size())
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        if (a[i].name != b[i].name || a[i].members != b[i].members)
+        if (core::at(a, i).name != core::at(b, i).name || core::at(a, i).members != core::at(b, i).members)
             return false;
     }
     return true;
@@ -87,8 +88,8 @@ std::string write_records(const State& state)
             out += "-";
         for (size_t i = 0; i < g.members.size(); ++i) {
             out += i ? "," : "";
-            out += g.members[i].kind;
-            out += ":" + hex_text(g.members[i].id);
+            out += core::at(g.members, i).kind;
+            out += ":" + hex_text(core::at(g.members, i).id);
         }
         out += "\n";
     }
@@ -125,10 +126,10 @@ bool read_record(const std::string& line, State* state)
             std::string item;
             while (std::getline(list, item, ',')) {
                 Member m;
-                if (item.size() != 10 || item[1] != ':' || (item[0] != 'o' && item[0] != 's' && item[0] != 'n') ||
+                if (item.size() != 10 || core::at(item, 1) != ':' || (core::at(item, 0) != 'o' && core::at(item, 0) != 's' && core::at(item, 0) != 'n') ||
                     !parse_hex8(item.substr(2), &m.id))
                     return false;
-                m.kind = item[0];
+                m.kind = core::at(item, 0);
                 if (std::ranges::find(g.members, m) == g.members.end())
                     g.members.push_back(m);
             }
@@ -518,7 +519,7 @@ Thing thing_of(uint32_t id, bool sector)
         t.model = object_edit::get_model_file(source);
     }
     if (index >= 0) {
-        const nodes::Elem& n = nodes::get_all()[index];
+        const nodes::Elem& n = core::at(nodes::get_all(), index);
         t.family = n.family;
         t.cls = n.cls;
         t.type = n.type;
@@ -708,7 +709,7 @@ void select_group(int index)
     SelectionIds ids;
     uint32_t node = 0;
     int missing = 0;
-    for (const Member& m : g_state.groups[index].members) {
+    for (const Member& m : core::at(g_state.groups, index).members) {
         if (m.kind == 'o') {
             if (live_object(m.id))
                 ids.objects.push_back(m.id);
@@ -736,7 +737,7 @@ void select_group(int index)
         ids.node = node;
     }
     set_selection(ids);
-    show_message("Group \"" + g_state.groups[index].name + "\" selected" + note +
+    show_message("Group \"" + core::at(g_state.groups, index).name + "\" selected" + note +
                  (missing ? " - " + std::to_string(missing) + " missing" : ""));
 }
 
@@ -755,13 +756,13 @@ void rename_group(int index, const std::string& wanted)
     if (index < 0 || std::cmp_greater_equal(index, g_state.groups.size()) || !clean_name(wanted, &name))
         return;
     for (int i = 0; std::cmp_less(i, g_state.groups.size()); ++i) {
-        if (i != index && g_state.groups[i].name == name) {
+        if (i != index && core::at(g_state.groups, i).name == name) {
             show_message("Group name already in use");
             return;
         }
     }
     State next = g_state;
-    next.groups[index].name = name;
+    core::at(next.groups, index).name = name;
     get_change(next, "Rename group");
 }
 
@@ -771,7 +772,7 @@ void add_to_group(int index)
         return;
     const SelectionIds s = current_selection();
     State next = g_state;
-    std::vector<Member>& members = next.groups[index].members;
+    std::vector<Member>& members = core::at(next.groups, index).members;
     auto add = [&](char kind, uint32_t id) {
         const Member m = {kind, id};
         if (std::ranges::find(members, m) == members.end())
@@ -952,7 +953,7 @@ void select_similar(Similar by)
         const int index = nodes::get_find(s.node);
         if (index < 0)
             return;
-        const nodes::Elem& n = nodes::get_all()[index];
+        const nodes::Elem& n = core::at(nodes::get_all(), index);
         int count = 0;
         for (const nodes::Elem& m : nodes::get_all()) {
             Thing a, b;

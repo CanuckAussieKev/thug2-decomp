@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -319,7 +320,7 @@ void FlexibleParticleComponent::tick_frame()
         if (update) {
             if (rotate_) {
                 maths::Mat4 orientation = entity_->display_matrix_;
-                orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+                core::at(orientation.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
                 maths::Mat4 rotation{};
                 matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation),
                                 &orientation);

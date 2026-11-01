@@ -24,6 +24,7 @@
 #include "engine/gfx/pc_texture_projection.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -57,10 +58,10 @@ void** projected_collision() { return g_projected_collision.data(); }
 TextureProjection::TextureProjection()
 {
     list_link_.make_node(this);
-    projection_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    projection_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    projection_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    projection_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(projection_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(projection_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(projection_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(projection_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     direction_ = {0.0f, 0.0f, 0.0f, 1.0f};
     anchor_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
     shift_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -152,17 +153,17 @@ void TextureProjection::tick_frame(objects::GameEntity* object)
     double ox = shift_.x, oy = shift_.y, oz = shift_.z;
     // the position: the object's plus the offset through its matrix (x kept at 53 bits but for the third row's
     // term; y, z, w rounded at each step; w's third term unrounded)
-    double x = static_cast<double>(m.row[0].x) * ox + pos.x;
-    x += static_cast<double>(m.row[1].x) * oy;
-    x += get_f(static_cast<double>(m.row[2].x) * oz);
+    double x = static_cast<double>(core::at(m.row, 0).x) * ox + pos.x;
+    x += static_cast<double>(core::at(m.row, 1).x) * oy;
+    x += get_f(static_cast<double>(core::at(m.row, 2).x) * oz);
     auto rounded = [&](int c) {
-        const float a = get_f(get_f(get_f((&m.row[0].x)[c] * ox) + static_cast<double>((&pos.x)[c])) +
-                              static_cast<double>(get_f((&m.row[1].x)[c] * oy)));
+        const float a = get_f(get_f(get_f((&core::at(m.row, 0).x)[c] * ox) + static_cast<double>((&pos.x)[c])) +
+                              static_cast<double>(get_f((&core::at(m.row, 1).x)[c] * oy)));
         return a;
     };
-    const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(m.row[2].y) * oz));
-    const float z = get_f(static_cast<double>(rounded(2)) + get_f(static_cast<double>(m.row[2].z) * oz));
-    const float w = get_f(static_cast<double>(rounded(3)) + static_cast<double>(m.row[2].w) * oz);
+    const float y = get_f(static_cast<double>(rounded(1)) + get_f(static_cast<double>(core::at(m.row, 2).y) * oz));
+    const float z = get_f(static_cast<double>(rounded(2)) + get_f(static_cast<double>(core::at(m.row, 2).z) * oz));
+    const float w = get_f(static_cast<double>(rounded(3)) + static_cast<double>(core::at(m.row, 2).w) * oz);
     anchor_point_ = {get_f(x), y, z, w};
     world_direction_ = direction_ * m;
 

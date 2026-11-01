@@ -29,6 +29,7 @@
 #include "game/rider/skater_state.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -209,7 +210,7 @@ int SkaterPhysicsModule::near_ground(script::Struct* params, script::Script*)
 {
     const bool right = params->find_component(kRight) != nullptr;
     const objects::GameEntity* object = object_of(this);
-    const maths::Vec4& side = object->basis_frame_.row[0];
+    const maths::Vec4& side = core::at(object->basis_frame_.row, 0);
     const maths::Vec4& position = object->at_point_;
     const double x = static_cast<double>(side.x) * kNearGroundReach; // (left unrounded)
     const float y = side.y * kNearGroundReach;
@@ -251,7 +252,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
         float down = tuning_float_lookup(kLipDownOffset, object);
         end = entity_->at_point_;
         end.y = end.y - down;
-        const maths::Vec4& up = entity_->basis_frame_.row[1];
+        const maths::Vec4& up = core::at(entity_->basis_frame_.row, 1);
         start.x = static_cast<float>(end.x - static_cast<double>(back) * up.x);
         start.y = end.y - back * up.y;
         start.z = end.z - back * up.z;
@@ -260,7 +261,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
             back = tuning_float_lookup(kLipExtraHorizOffset, object);
             down = tuning_float_lookup(kLipExtraDownOffset, object);
             const maths::Vec4& position = entity_->at_point_;
-            const maths::Vec4& up2 = entity_->basis_frame_.row[1];
+            const maths::Vec4& up2 = core::at(entity_->basis_frame_.row, 1);
             start.x = static_cast<float>(position.x - static_cast<double>(back) * up2.x);
             start.y = position.y - back * up2.y;
             start.z = position.z - back * up2.z;
@@ -274,7 +275,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
     }
     // Across the skater: from `across` to one side (lowered) to as far to the other.
     const float across = tuning_float_lookup(kSidewaysShift, object);
-    const maths::Vec4& side = entity_->basis_frame_.row[0];
+    const maths::Vec4& side = core::at(entity_->basis_frame_.row, 0);
     const maths::Vec4& position = entity_->at_point_;
     maths::Vec4 near_side;
     near_side.x = static_cast<float>(static_cast<double>(across) * side.x + position.x);
@@ -283,7 +284,7 @@ int SkaterPhysicsModule::skate_in_able(script::Struct* params, script::Script*)
     near_side.w = across * side.w + position.w;
     const float down = tuning_float_lookup(kDownOffset, object);
     near_side.y = near_side.y - down;
-    const maths::Vec4& side2 = entity_->basis_frame_.row[0];
+    const maths::Vec4& side2 = core::at(entity_->basis_frame_.row, 0);
     const double twice = static_cast<double>(across) + across;
     maths::Vec4 far_side;
     far_side.x = static_cast<float>(near_side.x - twice * side2.x);
@@ -377,7 +378,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
     display_matrix_ = entity_->basis_frame_;
     auto* shadow = core::down_cast<objects::GroundShadowModule>(skater_object(this)->fetch_module(kShadow));
     shadow->change_place(&entity_->at_point_);
-    shadow->set_normal(&entity_->basis_frame_.row[1]);
+    shadow->set_normal(&core::at(entity_->basis_frame_.row, 1));
     safe_pos_ = entity_->at_point_;
     entity_->old_pos_ = entity_->at_point_;
     skater_object(this)->mark_jumped_ahead(true);
@@ -401,7 +402,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         velocity.y = 0.0f;
         objects::GameEntity* o = object_of(this);
         auto speed = static_cast<float>(length_unrounded(o->vel_));
-        o->vel_ = o->basis_frame_.row[2] * speed;
+        o->vel_ = core::at(o->basis_frame_.row, 2) * speed;
         entity_->vel_.y = upward;
     }
     return moved ? 1 : 0;
@@ -421,7 +422,7 @@ void SkaterPhysicsModule::find_nearest_wall_side()
         float distance;
     } kSides[4] = {{kNose, kAxisZ, 12.0f}, {kTail, kAxisZ, -12.0f}, {kLeft, kAxisX, 12.0f}, {kRight, kAxisX, -12.0f}};
     for (const auto& side : kSides) {
-        const maths::Vec4& row = side.axis == kAxisX ? entity_->basis_frame_.row[0] : entity_->basis_frame_.row[2];
+        const maths::Vec4& row = side.axis == kAxisX ? core::at(entity_->basis_frame_.row, 0) : core::at(entity_->basis_frame_.row, 2);
         const maths::Vec4& start = feeler.line_.start;
         const double distance = side.distance;
         maths::Vec4& end = feeler.line_.end;
@@ -441,7 +442,7 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
 {
     // (The original's loop over the other three sides checks the opposite side's time each time round.)
     for (uint32_t other = 0; other < 4; ++other) {
-        if (other != side && get_since(static_cast<uint32_t>(side_hit_times_[side ^ 1])) > 500)
+        if (other != side && get_since(static_cast<uint32_t>(core::at(side_hit_times_, side ^ 1))) > 500)
             return;
     }
     probe_start_ = *start;
@@ -456,7 +457,7 @@ void SkaterPhysicsModule::check_side_feeler(const maths::Vec4* start, const math
     sum.w = normal.w + sum.w;
     if (feeler_.reach_ < side_nearest_)
         side_nearest_ = feeler_.reach_;
-    side_hit_times_[side] = get_now();
+    core::at(side_hit_times_, side) = get_now();
 }
 
 // 0x005055B0
@@ -469,7 +470,7 @@ void SkaterPhysicsModule::check_side_feelers()
     // The feelers start at the side collision height up the skater.
     const objects::GameEntity* object = object_of(this);
     const double height = script::fetch_float(kSideCollideHeight);
-    const maths::Vec4& up = object->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
     const maths::Vec4& position = entity_->at_point_;
     maths::Vec4 base;
     base.x = static_cast<float>(height * up.x + position.x);
@@ -479,7 +480,7 @@ void SkaterPhysicsModule::check_side_feelers()
     const maths::Vec4 start = base;
     // Sides 0 and 1: along the side row and back; 2 and 3: along the forward row and back.
     for (uint32_t side = 0; side < 4; ++side) {
-        const maths::Vec4& row = side < 2 ? entity_->basis_frame_.row[0] : entity_->basis_frame_.row[2];
+        const maths::Vec4& row = side < 2 ? core::at(entity_->basis_frame_.row, 0) : core::at(entity_->basis_frame_.row, 2);
         const double reach = side_reach_;
         auto x = static_cast<float>(reach * row.x), y = static_cast<float>(reach * row.y),
              z = static_cast<float>(reach * row.z);
@@ -510,7 +511,7 @@ void SkaterPhysicsModule::check_side_feelers()
     velocity.w = push.w + velocity.w;
     entity_->vel_.align_to_plane(floor_normal_);
     object = object_of(this);
-    const maths::Vec4& forward = object->basis_frame_.row[2];
+    const maths::Vec4& forward = core::at(object->basis_frame_.row, 2);
     const maths::Vec4& normal = feeler_.surface_dir_;
     const double into = static_cast<double>(forward.z) * normal.z + static_cast<double>(forward.y) * normal.y +
                         static_cast<double>(forward.x) * normal.x;
@@ -519,7 +520,7 @@ void SkaterPhysicsModule::check_side_feelers()
     maths::Vec4 along = forward;
     along.align_to_plane(normal);
     auto angle = static_cast<float>(
-        maths::get_turn_around_axis(entity_->basis_frame_.row[2], along, entity_->basis_frame_.row[1]));
+        maths::get_turn_around_axis(core::at(entity_->basis_frame_.row, 2), along, core::at(entity_->basis_frame_.row, 1)));
     const double turn = static_cast<double>(maths::get_sign(angle)) * side_turn_ * frame_length_;
     auto step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
@@ -532,12 +533,12 @@ void SkaterPhysicsModule::check_side_feelers()
 bool SkaterPhysicsModule::apply_model_rotations()
 {
     auto* model = core::down_cast<objects::MeshInstanceModule>(skater_object(this)->fetch_module(0x286A8D26)); // (Model)
-    if (!model->twist_rate_[0].active_ && !model->twist_rate_[1].active_ && !model->twist_rate_[2].active_)
+    if (!core::at(model->twist_rate_, 0).active_ && !core::at(model->twist_rate_, 1).active_ && !core::at(model->twist_rate_, 2).active_)
         return false;
     objects::GameEntity* object = object_of(this);
-    maths::Vec4 axis = object->basis_frame_.row[1];
+    maths::Vec4 axis = core::at(object->basis_frame_.row, 1);
     model->get_draw_matrix(&object->basis_frame_);
-    objects::ModelSpinAxis* y_rotation = &model->twist_rate_[1];
+    objects::ModelSpinAxis* y_rotation = &core::at(model->twist_rate_, 1);
     const float angle = y_rotation->bearing();
     if (angle != 0.0f) {
         // The velocity turned with the model about the up axis.
@@ -548,9 +549,9 @@ bool SkaterPhysicsModule::apply_model_rotations()
         velocity = *quat->spin_by(&axis, velocity);
     }
     display_matrix_ = entity_->basis_frame_;
-    model->twist_rate_[0].get_clear();
+    core::at(model->twist_rate_, 0).get_clear();
     y_rotation->get_clear();
-    model->twist_rate_[2].get_clear();
+    core::at(model->twist_rate_, 2).get_clear();
     return true;
 }
 

@@ -17,6 +17,7 @@
 #include "editor/level_editor_hud.h"
 #include "editor/level_editor_prefs.h"
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::view_cam {
 
@@ -487,7 +488,7 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             continue;
         std::array<char, 96> text{};
         if (store) {
-            Bookmark& m = g_marks[i];
+            Bookmark& m = core::at(g_marks, i);
             m.set = true;
             m.pose = {*rig.pos, *rig.yaw, *rig.pitch};
             m.view = g_ortho.view;
@@ -498,8 +499,8 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
             std::snprintf(text.data(), sizeof(text), "Camera bookmark %d stored%s", i + 1,
                           saved ? "" : " (not saved: the file)");
             hud::get_message(text.data(), 2.0);
-        } else if (g_marks[i].set) {
-            const Bookmark& m = g_marks[i];
+        } else if (core::at(g_marks, i).set) {
+            const Bookmark& m = core::at(g_marks, i);
             if (rig.deselect)
                 rig.deselect();
             Rig free = rig;
@@ -525,8 +526,8 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
                                    {actions::kPanRightAction, actions::kPanLeftAction},
                                    {actions::kViewOrtho, actions::kViewOrtho}}};
     for (int i = 0; i < 4; ++i) {
-        const bool opposite = actions::squeezed(kPad[i][1]) && i != 3;
-        if (!opposite && !actions::squeezed(kPad[i][0]))
+        const bool opposite = actions::squeezed(core::at(core::at(kPad, i), 1)) && i != 3;
+        if (!opposite && !actions::squeezed(core::at(core::at(kPad, i), 0)))
             continue;
         g_flight.on = false;
         if (i == 3) {
@@ -541,7 +542,7 @@ void get_keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browser_open)
         }
         static const std::array<std::array<View, 2>, 3> kViews = {{
             {View::kTop, View::kBottom}, {View::kMenuSystem, View::kBack}, {View::kRight, View::kLeft}}};
-        const View view = kViews[i][opposite ? 1 : 0];
+        const View view = core::at(core::at(kViews, i), opposite ? 1 : 0);
         const V3 pivot = ortho() ? (rig.have_selection_ ? rig.target : g_ortho.pivot) : look_point(rig);
         const V3 d = pivot - *rig.pos;
         const float equivalent = ortho() ? g_ortho.equivalent : std::clamp(std::sqrt(get_dot(d, d)), 200.0f, 20000.0f);

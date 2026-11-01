@@ -33,6 +33,7 @@
 #include "game/goals/create_a_trick.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace save_cards {
 
@@ -86,7 +87,7 @@ SaveDate read_stamped_date(Struct* summary)
     }};
     SaveDate date = {};
     for (int i = 0; i < 6; ++i)
-        summary->fetch_int_value(kNames[i], &date.fields[i], 0);
+        summary->fetch_int_value(core::at(kNames, i), &core::at(date.fields, i), 0);
     return date;
 }
 
@@ -246,8 +247,8 @@ bool is_later(Struct* first, Struct* second)
     const SaveDate a = read_stamped_date(first);
     const SaveDate b = read_stamped_date(second);
     for (int i = 0; i < 6; ++i) {
-        if (a.fields[i] != b.fields[i])
-            return a.fields[i] > b.fields[i];
+        if (core::at(a.fields, i) != core::at(b.fields, i))
+            return core::at(a.fields, i) > core::at(b.fields, i);
     }
     return false;
 }
@@ -423,7 +424,7 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
     switch (type) {
     case kSaveCat: {
         auto* skater = core::down_cast<objects::Rider>(modules::Skate::sole()->get_rider_at(0));
-        Struct* trick_record = skater->trick_slots_[0]->other_params_;
+        Struct* trick_record = core::at(skater->trick_slots_, 0)->other_params_;
         const char* name = empty;
         trick_record->fetch_text(kName, &name, 1);
         summary->append_word(kName, name);

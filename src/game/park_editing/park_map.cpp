@@ -21,6 +21,7 @@
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
 #include "platform/code_address.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -204,8 +205,8 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
     builder_->set_player_cap(map_.max_players_);
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
-            floor_[x][z].level_y_ = int{map_.floor_heights_[x * kFloorSize + z]};
-            floor_[x][z].heights_used_ = 0;
+            core::at(core::at(floor_, x), z).level_y_ = int{core::at(map_.floor_heights_, x * kFloorSize + z)};
+            core::at(core::at(floor_, x), z).heights_used_ = 0;
         }
     }
 
@@ -237,13 +238,13 @@ void ParkLayout::read_compressed_map(script::Array* names, bool current)
             break;
         GapDetails info = {};
         for (int end = 0; end < 2; ++end) {
-            info.at_point_[end] = CellBox::get_make(0, 0, 0, 0, 0, 0);
-            info.at_point_[end].x = record.ends[end].x;
-            info.at_point_[end].y = record.ends[end].y;
-            info.at_point_[end].z = record.ends[end].z;
-            info.quarter_turns_[end] = record.ends[end].quarter_turns;
-            info.reach_left_[end] = record.ends[end].reach_left;
-            info.reach_right_[end] = record.ends[end].reach_right;
+            core::at(info.at_point_, end) = CellBox::get_make(0, 0, 0, 0, 0, 0);
+            core::at(info.at_point_, end).x = core::at(record.ends, end).x;
+            core::at(info.at_point_, end).y = core::at(record.ends, end).y;
+            core::at(info.at_point_, end).z = core::at(record.ends, end).z;
+            core::at(info.quarter_turns_, end) = core::at(record.ends, end).quarter_turns;
+            core::at(info.reach_left_, end) = core::at(record.ends, end).reach_left;
+            core::at(info.reach_right_, end) = core::at(record.ends, end).reach_right;
         }
         // (the name cut to the field: the original copied up to a terminator, past 32 bytes when there was none)
         std::snprintf(info.text_.data(), sizeof(info.text_), "%s", record.text.data());
@@ -262,7 +263,7 @@ void ParkLayout::reset_park()
     destroy_concrete_metas(0);
     for (int z = 0; z < kFloorSize; ++z) {
         for (auto& column : floor_) {
-            FloorCell& cell = column[z];
+            FloorCell& cell = core::at(column, z);
             cell.level_y_ = 0;
             cell.heights_used_ = 0;
             cell.touched_ = false;

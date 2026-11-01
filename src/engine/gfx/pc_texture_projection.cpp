@@ -33,6 +33,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -110,19 +111,19 @@ ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
     }
     ProjectionBatch* batch = &get_batches()[count];
     MaterialRef* material = &batch->material;
-    material->pass_flags_[0] = 0x44; // (the pass's flags)
+    core::at(material->pass_flags_, 0) = 0x44; // (the pass's flags)
     const int a = get_rand();
     const int b = get_rand();
     material->checksum = a * b;                                  // a random checksum
     material->pass_count_ = 1;                                   // one pass
-    material->textures[0] = cell::pointer<uint8_t>(texture); // (the texture's key: its PC texture's address)
+    core::at(material->textures, 0) = cell::pointer<uint8_t>(texture); // (the texture's key: its PC texture's address)
     material->two_sided_ = 1;
     material->depth_bias_ = 4;
-    material->blend_modes_[0] = blend_mode_from_name(blend_name);
+    core::at(material->blend_modes_, 0) = blend_mode_from_name(blend_name);
     for (int k = 0; k < 3; ++k)
-        material->pass_color_[0][k] = 128.0f; // its colour
-    material->address_modes_[0] = 0x20002;
-    material->mip_lod_bias_[0] = 0;
+        core::at(core::at(material->pass_color_, 0), k) = 128.0f; // its colour
+    core::at(material->address_modes_, 0) = 0x20002;
+    core::at(material->mip_lod_bias_, 0) = 0;
     material->alpha_ref_ = 1;
     material_pixel_shader(material, &batch->pixel_shader_);
     batch->texture = texture;
@@ -166,11 +167,11 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
             if (mesh->flags & 2)
                 continue;
             uint8_t* vertices = nullptr;
-            mesh->vertex_buffers_[0]->get_lock(0, 0, &vertices, 0x10);
+            core::at(mesh->vertex_buffers_, 0)->get_lock(0, 0, &vertices, 0x10);
             uint16_t* indices = nullptr;
-            mesh->index_buffers_[0]->get_lock(0, 0, &indices, 0x10);
+            core::at(mesh->index_buffers_, 0)->get_lock(0, 0, &indices, 0x10);
             uint32_t a = indices[0], b = indices[1];
-            for (uint32_t strip = 2; strip < mesh->index_counts_[0]; ++strip) {
+            for (uint32_t strip = 2; strip < core::at(mesh->index_counts_, 0); ++strip) {
                 const uint32_t c = indices[strip];
                 const uint32_t ia = a;
                 const uint32_t ib = b;
@@ -210,7 +211,7 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 get_uv(v1)[1] = to_uv(t1[1]);
                 get_uv(v2)[0] = to_uv(t2[0]);
                 get_uv(v2)[1] = to_uv(t2[1]);
-                const uint32_t colour_offset = mesh->unknown1c_[0];
+                const uint32_t colour_offset = core::at(mesh->unknown1c_, 0);
                 get_colour(v0) = opaque(*raw::field_at<uint32_t>(vertices, stride * ia + colour_offset));
                 get_colour(v1) = opaque(*raw::field_at<uint32_t>(vertices, stride * ib + colour_offset));
                 get_colour(v2) = opaque(*raw::field_at<uint32_t>(vertices, stride * ic + colour_offset));
@@ -283,8 +284,8 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 if (full)
                     return; // (the buffers left locked, as the original)
             }
-            mesh->index_buffers_[0]->get_unlock(); // (unlocked)
-            mesh->vertex_buffers_[0]->get_unlock();
+            core::at(mesh->index_buffers_, 0)->get_unlock(); // (unlocked)
+            core::at(mesh->vertex_buffers_, 0)->get_unlock();
         }
     }
 }

@@ -21,6 +21,7 @@
 #include <array>
 #include "platform/compiler.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace file {
 
@@ -241,8 +242,8 @@ bool async_free_handle(AsyncFileHandle* file)
 void async_add_callback(AsyncFileHandle* file, int event, int value)
 {
     const int list = current_list();
-    const int index = callback_counts()[list]++;
-    callback_lists()[list][index] = {file, event, value};
+    const int index = core::at(callback_counts(), list)++;
+    core::at(core::at(callback_lists(), list), index) = {file, event, value};
 }
 
 // 0x005B9770 (platform: start filling the other list)
@@ -257,9 +258,9 @@ void async_execute_callbacks()
 {
     async_swap_callback_lists();
     const int list = current_list() ^ 1; // the one that was being filled
-    const int count = callback_counts()[list];
+    const int count = core::at(callback_counts(), list);
     for (int i = 0; i < count; ++i) {
-        const PendingCallback& pending = callback_lists()[list][i];
+        const PendingCallback& pending = core::at(core::at(callback_lists(), list), i);
         AsyncFileHandle* file = pending.file;
         file->callback_(file, pending.event, pending.value, file->arg0_, file->arg1_);
         pending_io_counter() = pending_io_counter() - 1;
@@ -267,7 +268,7 @@ void async_execute_callbacks()
         if ((file->in_flight_ops_ = file->in_flight_ops_ - 1) == 0)
             file->operation_ = kAsyncIdle;
     }
-    callback_counts()[list] = 0;
+    core::at(callback_counts(), list) = 0;
 }
 
 // 0x005B6A50

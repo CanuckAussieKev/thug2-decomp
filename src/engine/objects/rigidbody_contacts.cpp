@@ -12,6 +12,7 @@
 #include "engine/render/probe_ray.h"
 #include "engine/objects/rigidbody_component.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -89,7 +90,7 @@ bool BodyDynamicsModule::find_contacts()
         if (!feeler.get_query(0))
             continue;
         for (int k = feeler.hits_.count - 1; k >= 0; --k) {
-            const render::SphereHit& hit = feeler.hits_.hits[k];
+            const render::SphereHit& hit = core::at(feeler.hits_.hits, k);
             Contact& contact = get_contacts()[contacts_hit_];
             const maths::Vec4& c = feeler.bound_ball_.centre;
             const double ox = get_wide(hit.point.x) - at_point_.x;

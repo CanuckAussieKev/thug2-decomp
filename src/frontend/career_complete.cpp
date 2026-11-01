@@ -20,6 +20,7 @@
 #include "engine/core/ints.h"
 #include "platform/code_address.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::career_complete {
 
@@ -86,7 +87,7 @@ void store_beaten_goal(script::Struct* saved, uint32_t name, int level, uint32_t
 // direction. Gaps already landed keep their count and positions. Returns the checklist's gap count.
 int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::Array* gaps)
 {
-    goals::GapTally* checklist = career->gaps_[level];
+    goals::GapTally* checklist = core::at(career->gaps_, level);
     if (!checklist)
         return 0;
     const maths::Vec4 facing = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -114,7 +115,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
             gap->skater_start_dir_ = facing;
         }
     }
-    career->visited_[level] = true;
+    core::at(career->visited_, level) = true;
     return count;
 }
 
@@ -155,10 +156,10 @@ bool cfunc_apply(script::Struct* params, script::Script*)
         if (level->fetch_int_value(name_hash("points"), &points, 0)) {
             level->fetch_int_value(name_hash("total"), &total, 0);
             career->lifetime_funds_ =
-                static_cast<uint16_t>(career->lifetime_funds_ + (points - career->funds_[number]));
-            career->funds_[number] = static_cast<uint16_t>(points);
-            career->total_amount_ = static_cast<uint16_t>(career->total_amount_ + (total - career->amount_[number]));
-            career->amount_[number] = static_cast<uint16_t>(total);
+                static_cast<uint16_t>(career->lifetime_funds_ + (points - core::at(career->funds_, number)));
+            core::at(career->funds_, number) = static_cast<uint16_t>(points);
+            career->total_amount_ = static_cast<uint16_t>(career->total_amount_ + (total - core::at(career->amount_, number)));
+            core::at(career->amount_, number) = static_cast<uint16_t>(total);
         }
         script::Array* goals = nullptr;
         if (level->fetch_list(name_hash("goals"), &goals, 0) && goals) {
@@ -173,7 +174,7 @@ bool cfunc_apply(script::Struct* params, script::Script*)
             for (uint32_t g = 0; g < classic->extent_; ++g, ++classic_count)
                 store_beaten_goal(saved, classic->fetch_part(g), number, kClassic);
             if (number < ints::as_signed(sizeof(career->counter_)))
-                career->counter_[number] = static_cast<uint8_t>(classic->extent_);
+                core::at(career->counter_, number) = static_cast<uint8_t>(classic->extent_);
         }
         script::Array* gaps = nullptr;
         if (level->fetch_list(name_hash("gaps"), &gaps, 0) && gaps) {
@@ -201,7 +202,7 @@ void register_script_functions()
         {"Career100_Available", code_address(&cfunc_available)},
         {"Career100_Apply", code_address(&cfunc_apply)},
     });
-    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(kFunctions[0]));
+    script::install_script_functions(kFunctions.data(), sizeof(kFunctions) / sizeof(core::at(kFunctions, 0)));
 }
 
 } // namespace frontend::career_complete

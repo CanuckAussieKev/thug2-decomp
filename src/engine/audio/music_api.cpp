@@ -20,6 +20,7 @@
 #include "engine/sys/game_config.h"
 #include "engine/objects/anim_movies.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace audio {
 
@@ -316,10 +317,10 @@ bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
     StreamFields* stream = stream_at(index);
     if (stream->queue_count_ <= 0)
         return false;
-    if (stream->queue[0].first != entry)
+    if (core::at(stream->queue, 0).first != entry)
         return true;
     for (int i = 1; i < stream->queue_count_; ++i)
-        stream->queue[i - 1] = stream->queue[i];
+        core::at(stream->queue, i - 1) = core::at(stream->queue, i);
     const int count = --stream->queue_count_;
     // NOLINTNEXTLINE(bugprone-inc-dec-in-conditions): the original's, as written
     if (stream->queue_position_ >= 0 && --stream->queue_position_ < 0) {
@@ -366,8 +367,8 @@ bool update_stream_volume(int slot)
             volume.change_muted();
         }
     } else {
-        std::memcpy(&volume.lanes_[0], &stream->volume, 4);
-        std::memcpy(&volume.lanes_[1], &stream->volume, 4);
+        std::memcpy(&core::at(volume.lanes_, 0), &stream->volume, 4);
+        std::memcpy(&core::at(volume.lanes_, 1), &stream->volume, 4);
     }
     if (stream->volume != kHundredPercent)
         volume.percent_tweak(std::bit_cast<float>(stream->volume));
@@ -392,8 +393,8 @@ void prepare_all()
         for (int i = 0; i < 2; ++i) { // (the first two of the three)
             Playlist& list = playlists[i];
             list.count = 0;
-            list.off[0] = list.off[1] = 0;
-            list.played[0] = list.played[1] = 0;
+            core::at(list.off, 0) = core::at(list.off, 1) = 0;
+            core::at(list.played, 0) = core::at(list.played, 1) = 0;
             list.unknownca8_ = 1;
         }
         for (int i = 0; i < kStreams; ++i) {

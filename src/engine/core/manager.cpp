@@ -13,6 +13,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace memory {
 
@@ -94,7 +95,7 @@ uint32_t Hub::obtainable() { return current_heap(this)->largest_free(); }
 // 0x005BB0E0
 void Hub::enter_heap_scope(MemSource* heap)
 {
-    ongoing_ = &alloc_source_stack_[context_depth_];
+    ongoing_ = &core::at(alloc_source_stack_, context_depth_);
     *ongoing_ = heap;
     ++context_depth_;
 }
@@ -103,22 +104,22 @@ void Hub::enter_heap_scope(MemSource* heap)
 void Hub::leave_heap_scope()
 {
     --context_depth_;
-    alloc_source_stack_[context_depth_] = cell::pointer<MemSource>(-1);
-    ongoing_ = context_depth_ ? &alloc_source_stack_[context_depth_ - 1] : nullptr;
+    core::at(alloc_source_stack_, context_depth_) = cell::pointer<MemSource>(-1);
+    ongoing_ = context_depth_ ? &core::at(alloc_source_stack_, context_depth_ - 1) : nullptr;
 }
 
 // 0x005BB150
 const char* Hub::current_heap_name() { return current_heap(this)->label_; }
 
 // 0x005BAC10
-MemSource* Hub::first_zone() { return heap_count_ ? heaps_[0] : nullptr; }
+MemSource* Hub::first_zone() { return heap_count_ ? core::at(heaps_, 0) : nullptr; }
 
 // 0x005BAC20 (the last heap is never found, so its "next" is null too)
 MemSource* Hub::following_zone(MemSource* heap)
 {
     for (int i = 0; i < heap_count_ - 1; ++i) {
-        if (heaps_[i] == heap)
-            return heaps_[i + 1];
+        if (core::at(heaps_, i) == heap)
+            return core::at(heaps_, i + 1);
     }
     return nullptr;
 }
@@ -127,9 +128,9 @@ MemSource* Hub::following_zone(MemSource* heap)
 void Hub::delete_heap(MemSource* heap)
 {
     for (int i = 0; i < heap_count_; ++i) {
-        if (heaps_[i] == heap) {
+        if (core::at(heaps_, i) == heap) {
             --heap_count_;
-            heaps_[i] = heaps_[heap_count_];
+            core::at(heaps_, i) = core::at(heaps_, heap_count_);
             break;
         }
     }
@@ -228,21 +229,21 @@ Arena* Hub::get_memory_pool(uint32_t name)
     case kDebugHeap:
         return debug_heap_;
     case kSkater0:
-        return skater_heaps_[0];
+        return core::at(skater_heaps_, 0);
     case kSkater1:
-        return skater_heaps_[1];
+        return core::at(skater_heaps_, 1);
     case kSkater2:
-        return skater_heaps_[2];
+        return core::at(skater_heaps_, 2);
     case kSkater3:
-        return skater_heaps_[3];
+        return core::at(skater_heaps_, 3);
     case kSkaterGeom0:
-        return skater_geom_heaps_[0];
+        return core::at(skater_geom_heaps_, 0);
     case kSkaterGeom1:
-        return skater_geom_heaps_[1];
+        return core::at(skater_geom_heaps_, 1);
     case kSkaterGeom2:
-        return skater_geom_heaps_[2];
+        return core::at(skater_geom_heaps_, 2);
     case kSkaterGeom3:
-        return skater_geom_heaps_[3];
+        return core::at(skater_geom_heaps_, 3);
     case kSkaterInfo:
         return skater_info_heap_;
     case kThemeHeap:
@@ -337,21 +338,21 @@ void Hub::delete_cutscene_heaps()
 void Hub::delete_extra_skater_heaps()
 {
     for (int i = 1; i < kSkaterSlots; ++i) {
-        if (skater_regions_[i]) {
+        if (core::at(skater_regions_, i)) {
             debug::printf("DELETING SKATER HEAP %d\n", i);
-            delete_heap(skater_heaps_[i]);
-            if (skater_regions_[i])
-                delete_region(skater_regions_[i]);
-            skater_heaps_[i] = nullptr;
-            skater_regions_[i] = nullptr;
+            delete_heap(core::at(skater_heaps_, i));
+            if (core::at(skater_regions_, i))
+                delete_region(core::at(skater_regions_, i));
+            core::at(skater_heaps_, i) = nullptr;
+            core::at(skater_regions_, i) = nullptr;
         }
-        if (skater_geom_regions_[i]) {
+        if (core::at(skater_geom_regions_, i)) {
             debug::printf("DELETING SKATER GEOM HEAP %d\n", i);
-            delete_heap(skater_geom_heaps_[i]);
-            if (skater_geom_regions_[i])
-                delete_region(skater_geom_regions_[i]);
-            skater_geom_heaps_[i] = nullptr;
-            skater_geom_regions_[i] = nullptr;
+            delete_heap(core::at(skater_geom_heaps_, i));
+            if (core::at(skater_geom_regions_, i))
+                delete_region(core::at(skater_geom_regions_, i));
+            core::at(skater_geom_heaps_, i) = nullptr;
+            core::at(skater_geom_regions_, i) = nullptr;
         }
     }
 }
@@ -371,12 +372,12 @@ void Hub::delete_standard_heaps()
     delete_heap(skater_info_heap_);
     if (skater_info_region_)
         delete_region(skater_info_region_);
-    delete_heap(skater_heaps_[0]);
-    if (skater_regions_[0])
-        delete_region(skater_regions_[0]);
-    delete_heap(skater_geom_heaps_[0]);
-    if (skater_geom_regions_[0])
-        delete_region(skater_geom_regions_[0]);
+    delete_heap(core::at(skater_heaps_, 0));
+    if (core::at(skater_regions_, 0))
+        delete_region(core::at(skater_regions_, 0));
+    delete_heap(core::at(skater_geom_heaps_, 0));
+    if (core::at(skater_geom_regions_, 0))
+        delete_region(core::at(skater_geom_regions_, 0));
     delete_extra_skater_heaps();
 }
 
@@ -501,8 +502,8 @@ Hub::Hub()
     void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);
     bottom_up_heap_ =
         bottom ? memory::construct_in<Arena>(bottom, primary_zone_, MemSource::kGrowUp, "BottomUp") : nullptr;
-    heaps_[1] = bottom_up_heap_;
-    heaps_[0] = top_down_heap_;
+    core::at(heaps_, 1) = bottom_up_heap_;
+    core::at(heaps_, 0) = top_down_heap_;
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     heap_count_ = 2;
 
@@ -528,7 +529,7 @@ Hub::Hub()
 Arena* Hub::add_heap(Zone* region, int direction, const char* name)
 {
     auto* heap = new Arena(region, direction, name);
-    heaps_[heap_count_++] = heap;
+    core::at(heaps_, heap_count_++) = heap;
     return heap;
 }
 
@@ -560,21 +561,21 @@ void Hub::init_standard_heaps()
     theme_heap_ = add_heap(theme_region_, MemSource::kGrowUp, "theme");
     debug::printf("Setup mp_theme_heap at %p\n", theme_heap_);
 
-    skater_regions_[0] = new_alloc_region(0x1AFA4);
-    debug::printf("allocated mp_skater_region at %p\n", skater_regions_[0]);
-    skater_heaps_[0] = add_heap(skater_regions_[0], MemSource::kGrowUp, "skater");
-    debug::printf("Setup mp_skater_heap at %p\n", skater_heaps_[0]);
+    core::at(skater_regions_, 0) = new_alloc_region(0x1AFA4);
+    debug::printf("allocated mp_skater_region at %p\n", core::at(skater_regions_, 0));
+    core::at(skater_heaps_, 0) = add_heap(core::at(skater_regions_, 0), MemSource::kGrowUp, "skater");
+    debug::printf("Setup mp_skater_heap at %p\n", core::at(skater_heaps_, 0));
 
-    skater_geom_regions_[0] = new_alloc_region(0x73F78);
-    debug::printf("allocated mp_skater_geom_region at %p\n", skater_geom_regions_[0]);
-    skater_geom_heaps_[0] = add_heap(skater_geom_regions_[0], MemSource::kGrowUp, "skater_geom");
-    debug::printf("Setup mp_skater_geom_heap at %p\n", skater_geom_heaps_[0]);
+    core::at(skater_geom_regions_, 0) = new_alloc_region(0x73F78);
+    debug::printf("allocated mp_skater_geom_region at %p\n", core::at(skater_geom_regions_, 0));
+    core::at(skater_geom_heaps_, 0) = add_heap(core::at(skater_geom_regions_, 0), MemSource::kGrowUp, "skater_geom");
+    debug::printf("Setup mp_skater_geom_heap at %p\n", core::at(skater_geom_heaps_, 0));
 
     for (int i = 1; i < kSkaterSlots; ++i) {
-        skater_regions_[i] = nullptr;
-        skater_heaps_[i] = nullptr;
-        skater_geom_regions_[i] = nullptr;
-        skater_geom_heaps_[i] = nullptr;
+        core::at(skater_regions_, i) = nullptr;
+        core::at(skater_heaps_, i) = nullptr;
+        core::at(skater_geom_regions_, i) = nullptr;
+        core::at(skater_geom_heaps_, i) = nullptr;
     }
     create_labeled_zone(0x0B1BA9DE, 0x16800, "PermanentTextureHeap", 0);
     create_labeled_zone(0x33B42C96, 0x49C00, "UnloadableTextureHeap", 0);
@@ -622,14 +623,14 @@ void Hub::init_extra_skater_heaps(int count)
     if (count > kSkaterSlots)
         count = kSkaterSlots;
     for (int i = 1; i < count; ++i) {
-        skater_regions_[i] = new_alloc_region(0x1AFA4);
-        debug::printf("EXTRA: allocated mp_skater_region at %p\n", skater_regions_[i]);
-        skater_heaps_[i] = add_heap(skater_regions_[i], MemSource::kGrowUp, "skaterX");
-        debug::printf("EXTRA: Setup mp_skater_heap at %p\n", skater_heaps_[i]);
-        skater_geom_regions_[i] = new_alloc_region(0x73F78);
-        debug::printf("EXTRA: allocated mp_skater_geom_region at %p\n", skater_geom_regions_[i]);
-        skater_geom_heaps_[i] = add_heap(skater_geom_regions_[i], MemSource::kGrowUp, "skaterGeomX");
-        debug::printf("EXTRA: Setup mp_skater_geom_heap at %p\n", skater_geom_heaps_[i]);
+        core::at(skater_regions_, i) = new_alloc_region(0x1AFA4);
+        debug::printf("EXTRA: allocated mp_skater_region at %p\n", core::at(skater_regions_, i));
+        core::at(skater_heaps_, i) = add_heap(core::at(skater_regions_, i), MemSource::kGrowUp, "skaterX");
+        debug::printf("EXTRA: Setup mp_skater_heap at %p\n", core::at(skater_heaps_, i));
+        core::at(skater_geom_regions_, i) = new_alloc_region(0x73F78);
+        debug::printf("EXTRA: allocated mp_skater_geom_region at %p\n", core::at(skater_geom_regions_, i));
+        core::at(skater_geom_heaps_, i) = add_heap(core::at(skater_geom_regions_, i), MemSource::kGrowUp, "skaterGeomX");
+        debug::printf("EXTRA: Setup mp_skater_geom_heap at %p\n", core::at(skater_geom_heaps_, i));
     }
     debug::printf("END Init Skater Heaps\n");
 }

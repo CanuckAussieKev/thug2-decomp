@@ -26,6 +26,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -145,12 +146,12 @@ Chain::Chain() { start_offset_ = {0.0f, 0.0f, 0.0f, 1.0f}; }
 void Chain::update_lines()
 {
     for (uint32_t i = 1; i < ints::as_unsigned(links_); ++i) {
-        render::PcPrimitive* line = chain_link_[i - 1].line_ptr_;
+        render::PcPrimitive* line = core::at(chain_link_, i - 1).line_ptr_;
         line->ready_ = true;
         set_line_colour(line, 0, kLineBlack);
-        set_line_vertex(line, 0, chain_link_[i - 1].at_point_);
+        set_line_vertex(line, 0, core::at(chain_link_, i - 1).at_point_);
         set_line_colour(line, 1, kLineBlack);
-        set_line_vertex(line, 1, chain_link_[i].at_point_);
+        set_line_vertex(line, 1, core::at(chain_link_, i).at_point_);
     }
 }
 
@@ -189,7 +190,7 @@ ChainComponent::~ChainComponent()
         for (Elem* node = get_first(chains_.head); node != chains_.head;) {
             if (Chain* chain = node->chain) {
                 for (int i = Chain::kMaxLinks - 1; i >= 0; --i)
-                    chain->chain_link_[i].destroy_body();
+                    core::at(chain->chain_link_, i).destroy_body();
                 memory::Hub::get_pull()->dealloc(chain);
                 node->chain = nullptr;
             }
@@ -263,7 +264,7 @@ void ChainComponent::configure_from_data(script::Struct* params)
         description->fetch_int_value(kCollideEnd, &value, 0);
         chain->collide_end_ = value;
         for (int j = 0; j < chain->links_; ++j) {
-            ChainLink& link = chain->chain_link_[j];
+            ChainLink& link = core::at(chain->chain_link_, j);
             link.value40_ = 3.0f;
             link.byte_count_ = static_cast<float>(static_cast<double>(length) / segments);
             link.at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -332,7 +333,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
                 else if (!params->has_bare_flag(kNotLastLink))
                     index = chain->links_ - 1;
             }
-            chain->chain_link_[index].at_point_ = pos;
+            core::at(chain->chain_link_, index).at_point_ = pos;
         }
         return 1;
     }
@@ -371,16 +372,16 @@ void ChainComponent::tick_frame()
     const double axis_length = std::sqrt((az * az + static_cast<double>(ay) * ay) + ax * ax);
     if (axis_length > 0.0) {
         const double inverse = 1.0 / axis_length;
-        axis[0] = get_rounded(ax * inverse);
-        axis[1] = get_rounded(static_cast<double>(ay) * inverse);
-        axis[2] = get_rounded(az * inverse);
+        core::at(axis, 0) = get_rounded(ax * inverse);
+        core::at(axis, 1) = get_rounded(static_cast<double>(ay) * inverse);
+        core::at(axis, 2) = get_rounded(az * inverse);
     }
 
     for (const Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
         Chain* chain = node->chain;
         // The steps.
         for (int i = chain->links_ - 1; i >= 0; --i) {
-            ChainLink& link = chain->chain_link_[i];
+            ChainLink& link = core::at(chain->chain_link_, i);
             if (chain->move_with_object_) {
                 const double vx = static_cast<double>(velocity.x) * frame;
                 const double vy = static_cast<double>(velocity.y) * frame;
@@ -431,7 +432,7 @@ void ChainComponent::tick_frame()
         bone_position(bone_rig_, chain->bone_start_, &start);
         maths::Mat4 bone{};
         skin_matrix_ptr(bone_rig_, chain->bone_start_, &bone);
-        bone.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
+        core::at(bone.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
         const maths::Vec4 turned = chain->start_offset_ * bone;
         start = {
             get_rounded(static_cast<double>(start.x) + turned.x), get_rounded(static_cast<double>(start.y) + turned.y),
@@ -439,13 +440,13 @@ void ChainComponent::tick_frame()
         {
             const maths::Mat4& m = entity_->display_matrix_;
             const maths::Vec4& at = entity_->at_point_;
-            const double x = (static_cast<double>(start.z) * m.row[2].x + static_cast<double>(start.y) * m.row[1].x) +
-                             static_cast<double>(start.x) * m.row[0].x;
-            const double y = (static_cast<double>(start.z) * m.row[2].y + static_cast<double>(start.y) * m.row[1].y) +
-                             static_cast<double>(start.x) * m.row[0].y;
+            const double x = (static_cast<double>(start.z) * core::at(m.row, 2).x + static_cast<double>(start.y) * core::at(m.row, 1).x) +
+                             static_cast<double>(start.x) * core::at(m.row, 0).x;
+            const double y = (static_cast<double>(start.z) * core::at(m.row, 2).y + static_cast<double>(start.y) * core::at(m.row, 1).y) +
+                             static_cast<double>(start.x) * core::at(m.row, 0).y;
             const float z =
-                get_rounded((static_cast<double>(start.z) * m.row[2].z + static_cast<double>(start.y) * m.row[1].z) +
-                            static_cast<double>(start.x) * m.row[0].z);
+                get_rounded((static_cast<double>(start.z) * core::at(m.row, 2).z + static_cast<double>(start.y) * core::at(m.row, 1).z) +
+                            static_cast<double>(start.x) * core::at(m.row, 0).z);
             start.x = get_rounded(x + at.x);
             start.y = get_rounded(y + at.y);
             start.z = get_rounded(static_cast<double>(z) + at.z);
@@ -458,13 +459,13 @@ void ChainComponent::tick_frame()
             bone_position(other->fetch_module(kSkeleton), chain->bone_end_, &end);
             const maths::Mat4& m = other->display_matrix_;
             const maths::Vec4& at = other->at_point_;
-            const double x = (static_cast<double>(end.y) * m.row[1].x + static_cast<double>(end.z) * m.row[2].x) +
-                             static_cast<double>(end.x) * m.row[0].x;
-            const double y = (static_cast<double>(end.y) * m.row[1].y + static_cast<double>(end.z) * m.row[2].y) +
-                             static_cast<double>(end.x) * m.row[0].y;
+            const double x = (static_cast<double>(end.y) * core::at(m.row, 1).x + static_cast<double>(end.z) * core::at(m.row, 2).x) +
+                             static_cast<double>(end.x) * core::at(m.row, 0).x;
+            const double y = (static_cast<double>(end.y) * core::at(m.row, 1).y + static_cast<double>(end.z) * core::at(m.row, 2).y) +
+                             static_cast<double>(end.x) * core::at(m.row, 0).y;
             const float z =
-                get_rounded((static_cast<double>(end.y) * m.row[1].z + static_cast<double>(end.z) * m.row[2].z) +
-                            static_cast<double>(end.x) * m.row[0].z);
+                get_rounded((static_cast<double>(end.y) * core::at(m.row, 1).z + static_cast<double>(end.z) * core::at(m.row, 2).z) +
+                            static_cast<double>(end.x) * core::at(m.row, 0).z);
             end.x = get_rounded(x + at.x);
             end.y = get_rounded(y + at.y);
             end.z = get_rounded(static_cast<double>(z) + at.z);
@@ -560,9 +561,9 @@ void ChainComponent::tick_frame()
             for (int i = chain->collide_first_; i < chain->collide_end_; ++i) {
                 link[i].value40_ = 255.0f;
                 const double offset = chain->plane_offset_;
-                const double px = static_cast<double>(axis[0]) * offset + plane_point.x;
-                const double py = static_cast<double>(plane_point.y) + get_rounded(offset * axis[1]);
-                const float pz = get_rounded(static_cast<double>(plane_point.z) + get_rounded(offset * axis[2]));
+                const double px = static_cast<double>(core::at(axis, 0)) * offset + plane_point.x;
+                const double py = static_cast<double>(plane_point.y) + get_rounded(offset * core::at(axis, 1));
+                const float pz = get_rounded(static_cast<double>(plane_point.z) + get_rounded(offset * core::at(axis, 2)));
                 maths::Vec4& cur = link[i].next_pos_;
                 const float dx = get_rounded(static_cast<double>(cur.x) - px);
                 const float dy = get_rounded(static_cast<double>(cur.y) - py);
@@ -578,16 +579,16 @@ void ChainComponent::tick_frame()
                     uy = get_rounded(dy * inverse);
                     uz = inverse * dz;
                 }
-                const double side = (static_cast<double>(axis[2]) * uz + static_cast<double>(uy) * axis[1]) +
-                                    static_cast<double>(ux) * axis[0];
+                const double side = (static_cast<double>(core::at(axis, 2)) * uz + static_cast<double>(uy) * core::at(axis, 1)) +
+                                    static_cast<double>(ux) * core::at(axis, 0);
                 const bool push = chain->collide_below_ ? side > 0.0 : side < 0.0;
                 if (!push)
                     continue;
-                const double along = (static_cast<double>(dz) * axis[2] + static_cast<double>(dy) * axis[1]) +
-                                     static_cast<double>(dx) * axis[0];
-                const double out_x = static_cast<double>(axis[0]) * along;
-                const float out_y = get_rounded(along * axis[1]);
-                const float out_z = get_rounded(along * axis[2]);
+                const double along = (static_cast<double>(dz) * core::at(axis, 2) + static_cast<double>(dy) * core::at(axis, 1)) +
+                                     static_cast<double>(dx) * core::at(axis, 0);
+                const double out_x = static_cast<double>(core::at(axis, 0)) * along;
+                const float out_y = get_rounded(along * core::at(axis, 1));
+                const float out_z = get_rounded(along * core::at(axis, 2));
                 const float out_w = get_rounded(along * aw);
                 cur.x = get_rounded(static_cast<double>(cur.x) - out_x);
                 cur.y = get_rounded(static_cast<double>(cur.y) - out_y);
@@ -598,7 +599,7 @@ void ChainComponent::tick_frame()
 
         // Each link moved to its step.
         for (int i = chain->links_ - 1; i >= 0; --i) {
-            ChainLink& link = chain->chain_link_[i];
+            ChainLink& link = core::at(chain->chain_link_, i);
             link.last_pos_ = link.at_point_;
             link.at_point_ = link.next_pos_;
         }
@@ -606,7 +607,7 @@ void ChainComponent::tick_frame()
             chain->update_lines();
         } else {
             for (uint32_t i = 1; i < ints::as_unsigned(chain->links_); ++i)
-                chain->chain_link_[i - 1].line_ptr_->ready_ = false;
+                core::at(chain->chain_link_, i - 1).line_ptr_->ready_ = false;
         }
     }
     final_frame_ = frame;

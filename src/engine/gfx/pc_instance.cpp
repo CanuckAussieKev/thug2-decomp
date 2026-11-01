@@ -29,6 +29,7 @@
 #include "platform/crt.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -100,24 +101,24 @@ void refresh_instance_lighting(Singleton* instance)
 void send_lights()
 {
     D3DLIGHT9& lamp_a = g_device_light0;
-    lamp_a.Diffuse.r = g_light_constants[8];
-    lamp_a.Diffuse.g = g_light_constants[9];
-    lamp_a.Diffuse.b = g_light_constants[10];
-    lamp_a.Direction.x = g_light_constants[4];
-    lamp_a.Direction.y = g_light_constants[5];
-    lamp_a.Direction.z = g_light_constants[6];
+    lamp_a.Diffuse.r = core::at(g_light_constants, 8);
+    lamp_a.Diffuse.g = core::at(g_light_constants, 9);
+    lamp_a.Diffuse.b = core::at(g_light_constants, 10);
+    lamp_a.Direction.x = core::at(g_light_constants, 4);
+    lamp_a.Direction.y = core::at(g_light_constants, 5);
+    lamp_a.Direction.z = core::at(g_light_constants, 6);
     input_port()->SetLight(0, &lamp_a);
     D3DLIGHT9& lamp_b = g_device_light1;
-    lamp_b.Diffuse.r = g_light_constants[16];
-    lamp_b.Diffuse.g = g_light_constants[17];
-    lamp_b.Diffuse.b = g_light_constants[18];
-    lamp_b.Direction.x = g_light_constants[12];
-    lamp_b.Direction.y = g_light_constants[13];
-    lamp_b.Direction.z = g_light_constants[14];
+    lamp_b.Diffuse.r = core::at(g_light_constants, 16);
+    lamp_b.Diffuse.g = core::at(g_light_constants, 17);
+    lamp_b.Diffuse.b = core::at(g_light_constants, 18);
+    lamp_b.Direction.x = core::at(g_light_constants, 12);
+    lamp_b.Direction.y = core::at(g_light_constants, 13);
+    lamp_b.Direction.z = core::at(g_light_constants, 14);
     input_port()->SetLight(1, &lamp_b);
-    const uint32_t r = get_channel(g_light_constants[0]);
-    const uint32_t g = get_channel(g_light_constants[1]);
-    const uint32_t b = get_channel(g_light_constants[2]);
+    const uint32_t r = get_channel(core::at(g_light_constants, 0));
+    const uint32_t g = get_channel(core::at(g_light_constants, 1));
+    const uint32_t b = get_channel(core::at(g_light_constants, 2));
     input_port()->SetRenderState(D3DRS_AMBIENT, 0xFF000000u | r << 16 | g << 8 | b);
 }
 
@@ -224,7 +225,7 @@ void Singleton::render(uint32_t draw_bits)
                 input_port()->SetTransform(D3DTS_WORLD, raw::as<const D3DMATRIX>(&world));
                 for (int i = 0; i < scene->mesh_count_; ++i) {
                     MeshRef* mesh = scene->meshes[i];
-                    if (static_cast<int8_t>(mesh->unknown1c_[3]) == bone) // (its bone)
+                    if (static_cast<int8_t>(core::at(mesh->unknown1c_, 3)) == bone) // (its bone)
                         mesh_flags_ref(mesh) |= kMeshShown;
                     else
                         mesh_flags_ref(mesh) &= ~kMeshShown;
@@ -278,7 +279,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
                 continue;
             const auto* position = raw::as<const float>(get_position(instance));
             for (int k = 0; k < 4; ++k)
-                culling[12 + k] = position[k];
+                core::at(culling, 12 + k) = position[k];
             set_world_transform(culling.data());
             float radius = instance->scene->radius;
             if (instance->bones && bones_on_device(instance->scene) == 0 && radius < 72.0f)
@@ -303,15 +304,15 @@ void draw_instance_batch(uint32_t flags, int viewport)
                     instance->render(flags);
             }
             clear_flag_786e_b4();
-            const std::array<float, 3> camera = {{g_camera.position[0], g_camera.position[1], g_camera.position[2]}};
+            const std::array<float, 3> camera = {{core::at(g_camera.position, 0), core::at(g_camera.position, 1), core::at(g_camera.position, 2)}};
             const double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
             auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
                 Singleton* instance = get_visible()[i];
                 const auto* position = raw::as<const float>(get_position(instance));
-                const double dx = static_cast<double>(position[0]) - camera[0];
-                const double dy = static_cast<double>(position[1]) - camera[1];
-                const double dz = static_cast<double>(position[2]) - camera[2];
+                const double dx = static_cast<double>(position[0]) - core::at(camera, 0);
+                const double dy = static_cast<double>(position[1]) - core::at(camera, 1);
+                const double dz = static_cast<double>(position[2]) - core::at(camera, 2);
                 g_near_camera = !(dz * dz + dy * dy + dx * dx > near_squared); // near the camera
                 if ((flags & kRenderOpaque) || ((flags & kRenderTransparent) && (flags & 0x100)))
                     instance->render(flags);
@@ -363,13 +364,13 @@ int compare_instances(const void* a, const void* b)
 // 0x004D1A60
 UvOscillator::UvOscillator()
 {
-    velocity[0] = velocity[1] = 0;
-    frequency[0] = frequency[1] = 0;
-    amplitude[0] = amplitude[1] = 0;
-    phase[0] = phase[1] = 0;
-    matrix[0] = 1.0f;
-    matrix[1] = 0;
-    offset[0] = offset[1] = 0;
+    core::at(velocity, 0) = core::at(velocity, 1) = 0;
+    core::at(frequency, 0) = core::at(frequency, 1) = 0;
+    core::at(amplitude, 0) = core::at(amplitude, 1) = 0;
+    core::at(phase, 0) = core::at(phase, 1) = 0;
+    core::at(matrix, 0) = 1.0f;
+    core::at(matrix, 1) = 0;
+    core::at(offset, 0) = core::at(offset, 1) = 0;
 }
 
 // 0x004D1A80

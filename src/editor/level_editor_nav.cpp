@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's navigation pieces (ours). See level_editor_nav.h.
 
 #include "editor/level_editor_nav.h"
+#include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cmath>
@@ -187,7 +188,7 @@ std::string quick_set_name(int number) { return "Set " + std::to_string(number);
 int find_group(const organize::State& state, const std::string& name)
 {
     for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
-        if (state.groups[i].name == name)
+        if (core::at(state.groups, i).name == name)
             return i;
     }
     return -1;
@@ -199,7 +200,7 @@ bool store_group(organize::State* state, const std::string& name, const std::vec
         return false;
     const int at = find_group(*state, name);
     if (at >= 0) {
-        state->groups[at].members = members;
+        core::at(state->groups, at).members = members;
     } else {
         organize::GroupSet g;
         g.name = name;
@@ -213,7 +214,7 @@ bool remove_from_group(organize::State* state, int index, const std::vector<orga
 {
     if (index < 0 || std::cmp_greater_equal(index, state->groups.size()))
         return false;
-    std::vector<organize::Member>& in = state->groups[index].members;
+    std::vector<organize::Member>& in = core::at(state->groups, index).members;
     const size_t before = in.size();
     std::erase_if(in, [&](const organize::Member& m) { return std::ranges::find(members, m) != members.end(); });
     return in.size() != before;

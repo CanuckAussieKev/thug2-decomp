@@ -15,6 +15,7 @@
 #include "engine/sys/startup_init.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -118,7 +119,7 @@ bool collide_with_statics(const maths::Seg* line, CollisionHit* hit, CollisionHi
     bool any = false;
     if (query.use_cache_) {
         for (int i = 0; i < cache->statics_; ++i) {
-            const HitMeshCache::TableRow& entry = cache->entries_[i];
+            const HitMeshCache::TableRow& entry = core::at(cache->entries_, i);
             if (query.box.intersects(*entry_box(entry)) &&
                 collide_with_line(entry.object, line, &query.direction, hit, &query.box))
                 any = true;
@@ -163,7 +164,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         hit->distance = g_want_farthest ? kFarthestStart : kNearestStart;
     LineQuery query(line, cache);
     if (query.use_cache_) {
-        const HitMeshCache::TableRow* entries = &cache->entries_[cache->statics_];
+        const HitMeshCache::TableRow* entries = &core::at(cache->entries_, cache->statics_);
         for (int i = 0; i < cache->movables_; ++i) {
             if (entry_box(entries[i]) && query.box.intersects(*entry_box(entries[i])))
                 owner = test_movable(entries[i].object, line, query, hit, owner);

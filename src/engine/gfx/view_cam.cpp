@@ -12,6 +12,7 @@
 #include "engine/gfx/settings.h"
 #include "engine/script/param_struct.h"
 #include "engine/objects/entity.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -36,10 +37,10 @@ int g_draw_distance_setting;
 ViewCam::ViewCam() : h_fov_(render::get_screen_angle())
 {
     refresh_effective_h_fov();
-    basis_frame_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    basis_frame_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(basis_frame_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     near_dist_ = 12.0f;
     far_clip_ = 12000.0f;

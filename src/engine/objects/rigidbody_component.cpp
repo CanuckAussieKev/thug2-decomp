@@ -29,6 +29,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -258,7 +259,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     rot_vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     for (int r = 0; r < 4; ++r)
-        basis_frame_.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
+        core::at(basis_frame_.row, r) = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
     at_point_ = entity_->at_point_;
     maths::QuatRotation orientation{};
     orientation.from_matrix(entity_->basis_frame_);
@@ -421,7 +422,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         level_nodes::read_turn_angles(params, &angles);
         maths::Mat4 turn;
         turn.init_from_angles(angles);
-        auto m = [&turn](int r, int c) { return static_cast<double>(raw::as<const float>(&turn.row[r])[c]); };
+        auto m = [&turn](int r, int c) { return static_cast<double>(raw::as<const float>(&core::at(turn.row, r))[c]); };
         for (int i = contact_count_; i != 0;) {
             maths::Vec4& p = contacts_[--i];
             const double x = p.x;
@@ -527,7 +528,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
 
     // The position is the centre of mass: moved by the (turned) model offset.
     auto r = [this](int row, int c) {
-        return static_cast<double>(raw::as<const float>(&basis_frame_.row[row])[c]);
+        return static_cast<double>(raw::as<const float>(&core::at(basis_frame_.row, row))[c]);
     };
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
     const double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
@@ -666,7 +667,7 @@ void add_rigid_body_pusher(GameEntity* object)
         if (pushers[i].owner_object_)
             continue;
         pushers[i].assign_value(object);
-        g_rigid_body_pusher_reach[i] = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)
+        core::at(g_rigid_body_pusher_reach, i) = 0.0f; // (its extra reach: set_rigid_body_pusher_reach)
         return;
     }
 }

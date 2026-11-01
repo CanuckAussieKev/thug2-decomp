@@ -40,6 +40,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -153,7 +154,7 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 {
     int index = self->event_head_;
     for (int i = 0; std::cmp_less(i, self->event_count_); ++i) {
-        TrickEvent* event = &self->events_[index];
+        TrickEvent* event = &core::at(self->events_, index);
         if (frame_clock::get_time() - event->time >= period)
             break;
         visit(event);
@@ -367,7 +368,7 @@ void MoveExecutor::do_next_trick(uint32_t first, script::Struct* params, script:
     uint32_t index = 0;
     for (;;) {
         const int entry = head;
-        const QueuedTrick* queued = &queue_[entry];
+        const QueuedTrick* queued = &core::at(queue_, entry);
         array = queued->list;
         index = static_cast<uint32_t>(queued->index);
         starting_special_ = queued->flag;
@@ -525,7 +526,7 @@ void MoveExecutor::update_manual_tricks()
             return;
     }
     for (int i = 0; i < manual_.count_; ++i)
-        check_manual_tricks(this, manual_.arrays_[i], -1, false);
+        check_manual_tricks(this, core::at(manual_.arrays_, i), -1, false);
 }
 
 // 0x00521C10
@@ -561,7 +562,7 @@ void MoveExecutor::update_extra_grind_tricks()
     if (special && score_->special_active_)
         check_extra_grind_tricks(special, true);
     for (int i = 0; i < grind_.count_; ++i)
-        check_extra_grind_tricks(grind_.arrays_[i], false);
+        check_extra_grind_tricks(core::at(grind_.arrays_, i), false);
 }
 
 // 0x00521D80
@@ -581,7 +582,7 @@ uint32_t MoveExecutor::fetch_skip_mask(uint32_t array, uint32_t ignore)
 void MoveExecutor::ignore_tricks(uint32_t ignore)
 {
     for (int i = 0; i < extra_.count_; ++i)
-        extra_.masks_[i] |= fetch_skip_mask(extra_.arrays_[i], ignore);
+        core::at(extra_.masks_, i) |= fetch_skip_mask(core::at(extra_.arrays_, i), ignore);
     if (const uint32_t special = extra_.special_)
         extra_.special_mask_ |= fetch_skip_mask(special, ignore);
 }
@@ -647,7 +648,7 @@ void MoveExecutor::update_extra_tricks()
         }
     }
     for (int i = 0; i < extra_.count_; ++i) {
-        if (try_extra_tricks(extra_.arrays_[i], extra_.masks_[i]))
+        if (try_extra_tricks(core::at(extra_.arrays_, i), core::at(extra_.masks_, i)))
             starting_special_ = false;
         if (!extra_.on_)
             return;
@@ -670,12 +671,12 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     uint32_t tricks = 0;
     if (params->read_hash_value(kTricks, &tricks, 0)) {
         count = 1;
-        extra_.arrays_[0] = tricks;
+        core::at(extra_.arrays_, 0) = tricks;
     } else {
         for (script::Component* c = params->step_to_entry(nullptr); c; c = params->step_to_entry(c)) {
             if (c->name == 0 && (c->type_and_flag_ & 0xFE) == script::kQbvalName << 1)
                 // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-                extra_.arrays_[count++] = c->checksum;
+                core::at(extra_.arrays_, count++) = c->checksum;
         }
     }
     uint32_t& special = extra_.special_;
@@ -736,7 +737,7 @@ void MoveExecutor::tick_frame()
         return;
     }
     update_buttons();
-    balance_trick_->get_buttons(&ignored_count_, &ignored_[0]);
+    balance_trick_->get_buttons(&ignored_count_, &core::at(ignored_, 0));
     update_extra_tricks();
     queue_all_done_tricks();
     update_manual_tricks();

@@ -17,18 +17,19 @@
 #include "engine/render/coll_tri.h"
 #include "formats/collision_format.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
 // 0x00490A60
-SubMesh::SubMesh() { collision_name_[0] = 0; }
+SubMesh::SubMesh() { core::at(collision_name_, 0) = 0; }
 
 // 0x00490A90
 void SubMesh::detach_hit_mesh()
 {
-    if (collision_name_[0]) {
+    if (core::at(collision_name_, 0)) {
         packs::offload(collision_name_.data());
-        collision_name_[0] = 0;
+        core::at(collision_name_, 0) = 0;
     }
 }
 
@@ -82,11 +83,11 @@ void skin_collision_file_name(char* out, const char* name)
 int SplatSlots::oldest_slot(uint32_t count)
 {
     int oldest = 0;
-    int most = steps[0] - static_cast<int>(alive[0]);
+    int most = core::at(steps, 0) - static_cast<int>(core::at(alive, 0));
     for (uint32_t i = 0; i < count; ++i) {
-        if (!alive[i])
+        if (!core::at(alive, i))
             return static_cast<int>(i);
-        const int age = steps[i] - static_cast<int>(alive[i]);
+        const int age = core::at(steps, i) - static_cast<int>(core::at(alive, i));
         if (age > most) {
             most = age;
             oldest = static_cast<int>(i);

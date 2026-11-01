@@ -32,6 +32,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -170,7 +171,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     const GameEntity* skater = local_skater();
     // The skater's heading (its at row) flat and normalised; across it (x up), as the original's cross product
     // with (0, 1, 0) - the zero terms multiplied out.
-    const maths::Vec4& at = skater->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(skater->basis_frame_.row, 2);
     double x = at.x, z = at.z, y = 0.0;
     auto length = static_cast<float>(std::sqrt(z * z + x * x));
     if (length > 0.0f) {
@@ -219,12 +220,12 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
     const maths::Vec4 probe = {0.0f, 10.0f, distance + 15.0f, 1.0f};
     maths::Vec4 probe_end;
     xform(out, probe_end, probe);
-    if (line_collides(start.row[3], probe_end))
+    if (line_collides(core::at(start.row, 3), probe_end))
         return false;
     const maths::Vec4 landing = {0.0f, 0.0f, distance, 1.0f};
     maths::Vec4 end;
     xform(out, end, landing);
-    out.row[3] = end;
+    core::at(out.row, 3) = end;
     const maths::Vec4& s = local_skater()->at_point_;
     const double dx = static_cast<double>(end.x) - s.x;
     const double dy = static_cast<double>(end.y) - s.y;
@@ -278,7 +279,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
 {
     // From where it stands, as its display matrix shows it.
     maths::Mat4 start = entity_->display_matrix_;
-    start.row[3] = entity_->at_point_;
+    core::at(start.row, 3) = entity_->at_point_;
     float max_distance = 100.0f;
     params->fetch_float("maxHerdDistance", &max_distance, 0);
     maths::Mat4 end{};
@@ -294,7 +295,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     }
     if (!found) {
         // Away from the herd point (this angle in radians, as the original passes it).
-        const maths::Vec4& pos = start.row[3];
+        const maths::Vec4& pos = core::at(start.row, 3);
         const maths::Vec4 away = {herd_point_.x - pos.x, herd_point_.y - pos.y, herd_point_.z - pos.z,
                                   herd_point_.w - pos.w};
         const float angle = angle_in_plane(entity_->basis_frame_, away);
@@ -303,12 +304,12 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     if (!found)
         return false;
     // The landing keeps the start's rows; the slerp from the start to it.
-    const maths::Vec4 landing = end.row[3];
+    const maths::Vec4 landing = core::at(end.row, 3);
     end = start;
-    end.row[3] = landing;
+    core::at(end.row, 3) = landing;
     slerp_.set_matrices(start, end);
     progress_ = 0.0f;
-    const maths::Vec4& pos = start.row[3];
+    const maths::Vec4& pos = core::at(start.row, 3);
     const maths::Vec4 move = {landing.x - pos.x, landing.y - pos.y, landing.z - pos.z, landing.w - pos.w};
     play_jump(angle_in_plane(entity_->basis_frame_, move), params);
     return true;
@@ -330,9 +331,9 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
                                    progress_);
     maths::Mat4 now{};
     slerp_.fetch_mat(now, progress_);
-    entity_->at_point_ = now.row[3];
+    entity_->at_point_ = core::at(now.row, 3);
     entity_->basis_frame_ = now;
-    entity_->basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(entity_->basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return true;
 }
 

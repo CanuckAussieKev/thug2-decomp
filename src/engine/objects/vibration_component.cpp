@@ -21,6 +21,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -50,7 +51,7 @@ PadRumbleModule::PadRumbleModule()
 {
     kind_tag_ = kType;
     for (int i = kActuators - 1; i >= 0; --i)
-        timers_[i].running = false;
+        core::at(timers_, i).running = false;
 }
 
 // 0x0043D490
@@ -83,7 +84,7 @@ void PadRumbleModule::tick_frame()
 void PadRumbleModule::update_timers()
 {
     for (int i = kActuators - 1; i >= 0; --i) {
-        Stopwatch& timer = timers_[i];
+        Stopwatch& timer = core::at(timers_, i);
         if (!timer.running)
             continue;
         const int start = timer.start;
@@ -104,7 +105,7 @@ void PadRumbleModule::stop_all()
         return;
     for (int i = kActuators - 1; i >= 0; --i) {
         pad_dev_->fire_actuator(i, 0);
-        timers_[i].running = false;
+        core::at(timers_, i).running = false;
     }
 }
 
@@ -155,18 +156,18 @@ bool PadRumbleModule::vibrate(script::Struct* params, script::Script*)
     if (params->has_bare_flag(kOff)) {
         pad_dev_->stop_actuators();
         for (int i = kActuators - 1; i >= 0; --i)
-            timers_[i].running = false;
+            core::at(timers_, i).running = false;
     } else {
         pad_dev_->fire_actuator(actuator, ftol(percent));
     }
     float duration = 0.0f;
     if (params->fetch_float(kDuration, &duration, 0)) {
-        timers_[actuator].running = true;
-        timers_[actuator].duration = static_cast<uint32_t>(ftol(static_cast<double>(duration) * kMilliseconds));
+        core::at(timers_, actuator).running = true;
+        core::at(timers_, actuator).duration = static_cast<uint32_t>(ftol(static_cast<double>(duration) * kMilliseconds));
         const int clock = frame_clock::game_clock_elapsed();
-        timers_[actuator].start = clock + g_clock_offset;
+        core::at(timers_, actuator).start = clock + g_clock_offset;
     } else {
-        timers_[actuator].running = false;
+        core::at(timers_, actuator).running = false;
     }
     return true;
 }

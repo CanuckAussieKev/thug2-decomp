@@ -36,6 +36,7 @@
 #include "engine/gfx/model.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -124,7 +125,7 @@ void RiderRemoteSync::update_ground_lighting()
 {
     render::ProbeRay feeler;
     const maths::Vec4& pos = entity_->at_point_;
-    const maths::Vec4& up = entity_->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(entity_->basis_frame_.row, 1);
     maths::Vec4& start = feeler.line_.start;
     maths::Vec4& end = feeler.line_.end;
     start = pos;
@@ -159,7 +160,7 @@ void RiderRemoteSync::settle_onto_floor()
 {
     render::ProbeRay feeler;
     GameEntity* skater = entity_;
-    const maths::Vec4& up = skater->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(skater->basis_frame_.row, 1);
     const maths::Vec4& pos = skater->at_point_;
     // From Physics_Ground_Snap_Up above (the product unrounded) to 200 below (rounded first).
     const double snap_up = get_physics(skater, kGroundSnapUp);
@@ -198,7 +199,7 @@ void RiderRemoteSync::settle_onto_floor()
         !(std::sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree) > normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
         const maths::Vec4 ground = normal;
-        const maths::Vec4& at_row = skater->basis_frame_.row[2];
+        const maths::Vec4& at_row = core::at(skater->basis_frame_.row, 2);
         maths::Vec4 on_ground = at_row;
         auto facing =
             static_cast<float>((static_cast<double>(normal.x) * at_row.x + static_cast<double>(normal.z) * at_row.z) +
@@ -230,7 +231,7 @@ void RiderRemoteSync::settle_onto_floor()
                 return;
         }
         surface_up_ = ground;
-        skater->basis_frame_.row[1] = ground;
+        core::at(skater->basis_frame_.row, 1) = ground;
         skater->basis_frame_.square_up_axes(1);
         skater->at_point_ = point;
         return;
@@ -247,7 +248,7 @@ void RiderRemoteSync::settle_onto_floor()
 // 0x00514D10
 double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
 {
-    const maths::Vec4& right = entity_->basis_frame_.row[0];
+    const maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
     auto cosine = static_cast<float>((static_cast<double>(dir.z) * right.z + static_cast<double>(dir.y) * right.y) +
                                      static_cast<double>(dir.x) * right.x);
     if (cosine > 1.0f)
@@ -284,7 +285,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     render::ProbeRay feeler;
     // The collision height up the up row (the products rounded).
     const double height = get_physics(skater, kFirstForwardCollisionHeight);
-    const maths::Vec4& up = skater->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(skater->basis_frame_.row, 1);
     auto raise_w = static_cast<float>(height * up.w);
     auto raise_z = static_cast<float>(height * up.z);
     auto raise_y = static_cast<float>(height * up.y);
@@ -391,8 +392,8 @@ void RiderRemoteSync::tick_frame()
     const bool was_lip = state == kStateLip;
     if (state != kStateAir) {
         // (on the ground the state's two vectors follow the up row)
-        pose_->drawn_normal_ = entity_->basis_frame_.row[1];
-        pose_->floor_normal_ = entity_->basis_frame_.row[1];
+        pose_->drawn_normal_ = core::at(entity_->basis_frame_.row, 1);
+        pose_->floor_normal_ = core::at(entity_->basis_frame_.row, 1);
     }
     update_ground_lighting();
     last_pos_ = entity_->at_point_;

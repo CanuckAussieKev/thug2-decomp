@@ -17,6 +17,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -76,7 +77,7 @@ uint32_t preference_checksum(Hub* manager, uint32_t name)
 int number_of(uint32_t value, int first, int last, int bias, int otherwise)
 {
     for (int n = first; n <= last; ++n) {
-        if (value == kNum[n])
+        if (value == core::at(kNum, n))
             return n + bias;
     }
     return otherwise;
@@ -183,7 +184,7 @@ prefs::Preferences* Hub::get_taunt_settings() { return raw::as<prefs::Preference
 void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_.data(), words, 8 * sizeof(uint32_t)); }
 
 // 0x00532FD0
-uint32_t Hub::get_start_info_word(int index) { return (start_points_)[index]; }
+uint32_t Hub::get_start_info_word(int index) { return core::at((start_points_), index); }
 
 // 0x00532FE0
 bool Hub::is_untimed_game()

@@ -50,6 +50,7 @@
 #include "editor/level_editor_view.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ui {
 
@@ -90,7 +91,7 @@ ImVec4 get_accent(float alpha)
 {
     std::array<float, 3> rgb{};
     prefs::get_accent_rgb(prefs::get_pull().accent, rgb.data());
-    return {rgb[0], rgb[1], rgb[2], alpha};
+    return {core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), alpha};
 }
 int g_style_generation = -1; // (the preferences' scale / accent the style was built for)
 
@@ -459,8 +460,8 @@ void update_cache()
     for (std::vector<int>& list : g_cache.by_family_)
         list.clear();
     for (size_t i = 0; i < nodes.size(); ++i) {
-        g_cache.labels.push_back(nodes[i].name ? nodes::caption(nodes[i].name) : "(no name)");
-        g_cache.by_family_[static_cast<int>(nodes[i].family)].push_back(static_cast<int>(i));
+        g_cache.labels.push_back(core::at(nodes, i).name ? nodes::caption(core::at(nodes, i).name) : "(no name)");
+        core::at(g_cache.by_family_, static_cast<int>(core::at(nodes, i).family)).push_back(static_cast<int>(i));
     }
 }
 
@@ -581,20 +582,20 @@ void get_outliner(const ShapeMesh& model)
     static std::vector<int> shown;
     for (int f = 0; f < nodes::kFamilies; ++f) {
         auto family = static_cast<nodes::Family>(f);
-        const std::vector<int>& members = g_cache.by_family_[f];
+        const std::vector<int>& members = core::at(g_cache.by_family_, f);
         if (members.empty() || !(model.nodes.families & nodes::get_bit(family)))
             continue;
         shown.clear();
         for (const int i : members) {
-            auto found = model.marks.find(nodes[i].name);
-            if (ux3::row_passes(nodes[i], g_cache.labels[i], g_outliner_search.data()) &&
+            auto found = model.marks.find(core::at(nodes, i).name);
+            if (ux3::row_passes(core::at(nodes, i), core::at(g_cache.labels, i), g_outliner_search.data()) &&
                 mark_shown(found == model.marks.end() ? 0 : found->second, g_changed_only))
                 shown.push_back(i);
         }
         if (shown.empty())
             continue;
-        const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && nodes[selected].family == family;
-        if (holds_selected || g_outliner_search[0] || g_changed_only)
+        const bool holds_selected = follow && std::cmp_less(selected, nodes.size()) && core::at(nodes, selected).family == family;
+        if (holds_selected || core::at(g_outliner_search, 0) || g_changed_only)
             ImGui::SetNextItemOpen(true, holds_selected ? ImGuiCond_Always : ImGuiCond_Once);
         std::array<char, 64> header{};
         std::snprintf(header.data(), sizeof(header), "%s###family%d", nodes::family_name(family), f);
@@ -619,8 +620,8 @@ void get_outliner(const ShapeMesh& model)
             clipper.IncludeItemByIndex(scroll_to);
         while (clipper.Step()) {
             for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
-                const int i = shown[row];
-                const nodes::Elem& node = nodes[i];
+                const int i = core::at(shown, row);
+                const nodes::Elem& node = core::at(nodes, i);
                 ImGui::PushID(i);
                 const bool is_selected = i == selected;
                 // (the gizmo's colour as a small swatch)
@@ -635,7 +636,7 @@ void get_outliner(const ShapeMesh& model)
                 // (the user's label beside the name - level_editor_organize.h)
                 const std::string user_label = ux3::row_label(node.name);
                 const std::string row_text =
-                    user_label.empty() ? g_cache.labels[i] : g_cache.labels[i] + "  \xE2\x80\x94 " + user_label;
+                    user_label.empty() ? core::at(g_cache.labels, i) : core::at(g_cache.labels, i) + "  \xE2\x80\x94 " + user_label;
                 const bool clicked =
                     ImGui::Selectable(row_text.c_str(), is_selected,
                                       ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns |
@@ -723,7 +724,7 @@ void node_section(const ShapeMesh& model, int index)
     const std::vector<nodes::Elem>& nodes = nodes::get_all();
     if (index < 0 || std::cmp_greater_equal(index, nodes.size()))
         return;
-    const nodes::Elem& node = nodes[index];
+    const nodes::Elem& node = core::at(nodes, index);
     if (model.nodes.node_only_) {
         ImGui::PushFont(g_heading);
         ImGui::TextWrapped("%s", node.name ? nodes::caption(node.name).c_str() : "(no name)");
@@ -802,9 +803,9 @@ void node_section(const ShapeMesh& model, int index)
             if (moved || turned) {
                 const V3 angles = turned ? node_edit::with_heading(model.nodes.angles, heading) : model.nodes.angles;
                 Request request = {Request::Kind::kNodeSet};
-                request.a[0] = pos[0];
-                request.a[1] = pos[1];
-                request.a[2] = pos[2];
+                request.a[0] = core::at(pos, 0);
+                request.a[1] = core::at(pos, 1);
+                request.a[2] = core::at(pos, 2);
                 request.b[0] = angles.x;
                 request.b[1] = angles.y;
                 request.b[2] = angles.z;
@@ -895,7 +896,7 @@ void node_section(const ShapeMesh& model, int index)
             ImGui::PushFont(g_mono);
             for (const int link : node.links) {
                 ImGui::PushID(link);
-                if (ImGui::SmallButton(nodes::caption(nodes[link].name).c_str()))
+                if (ImGui::SmallButton(nodes::caption(core::at(nodes, link).name).c_str()))
                     get_ask(Request::Kind::kSelectNode, link);
                 ImGui::PopID();
             }
@@ -963,7 +964,7 @@ void lock_list(const ShapeMesh& model)
     if (!ImGui::CollapsingHeader(title.data(), ImGuiTreeNodeFlags_DefaultOpen))
         return;
     for (size_t i = 0; i < model.locks.size(); ++i) {
-        const ShapeMesh::LockView& lock = model.locks[i];
+        const ShapeMesh::LockView& lock = core::at(model.locks, i);
         ImGui::PushID(static_cast<int>(i));
         if (ImGui::SmallButton("Unlock"))
             get_ask(Request::Kind::kUnlock, static_cast<int>(lock.kind), lock.id);
@@ -986,7 +987,7 @@ void member_list(const std::vector<ShapeMesh::Selection::Member>& members)
     const float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
     ImGui::BeginChild("##members", ImVec2(0.0f, rows * ImGui::GetFrameHeightWithSpacing() + 4.0f * g_scale), false);
     for (size_t i = 0; i < members.size(); ++i) {
-        const ShapeMesh::Selection::Member& member = members[i];
+        const ShapeMesh::Selection::Member& member = core::at(members, i);
         ImGui::PushID(static_cast<int>(i));
         const int rail = member.rail ? 1 : 0;
         if (ImGui::SmallButton("x"))
@@ -1026,9 +1027,9 @@ void get_inspector(const ShapeMesh& model)
         entities::inspector_section(model.nodes.selected, 0, g_mono, &g_requests); // (sound, particles, ghosts)
         // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
         if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
-            cameras::inspector_section(nodes::get_all()[model.nodes.selected].name, g_mono, g_small);
+            cameras::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, g_mono, g_small);
         if (model.nodes.selected >= 0 && std::cmp_less(model.nodes.selected, nodes::get_all().size()))
-            goal_edit::inspector_section(nodes::get_all()[model.nodes.selected].name, g_mono,
+            goal_edit::inspector_section(core::at(nodes::get_all(), model.nodes.selected).name, g_mono,
                                          g_small); // (a goal's point)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextDisabled("Nothing selected");
@@ -1068,21 +1069,21 @@ void get_inspector(const ShapeMesh& model)
                 ImGui::PushFont(g_mono);
                 for (int axis = 0; axis < 3; ++axis) {
                     ImGui::SetNextItemWidth(110.0f * g_scale);
-                    float value = values[axis];
-                    if (ImGui::DragFloat(kIds[axis], &value, 0.005f, scale_tool::kMin, scale_tool::kMax, kFormats[axis],
+                    float value = core::at(values, axis);
+                    if (ImGui::DragFloat(core::at(kIds, axis), &value, 0.005f, scale_tool::kMin, scale_tool::kMax, core::at(kFormats, axis),
                                          ImGuiSliderFlags_AlwaysClamp)) {
                         Request request = {Request::Kind::kScaleSet};
                         for (int a = 0; a < 3; ++a)
-                            request.a[a] = values[a];
-                        if (g_scale_locked && values[axis] > 0.0f) {
+                            core::at(request.a, a) = core::at(values, a);
+                        if (g_scale_locked && core::at(values, axis) > 0.0f) {
                             // (every axis by the same ratio, clamped so none leaves 0.25..4)
-                            float ratio = value / values[axis];
+                            float ratio = value / core::at(values, axis);
                             for (const float limit : values)
                                 ratio = std::clamp(ratio, scale_tool::kMin / limit, scale_tool::kMax / limit);
                             for (int a = 0; a < 3; ++a)
-                                request.a[a] = values[a] * ratio;
+                                core::at(request.a, a) = core::at(values, a) * ratio;
                         } else {
-                            request.a[axis] = value;
+                            core::at(request.a, axis) = value;
                         }
                         g_requests.push_back(request);
                     }
@@ -1143,7 +1144,7 @@ void get_inspector(const ShapeMesh& model)
     get_muted("Under Cursor");
     const std::vector<nodes::Elem>& all = nodes::get_all();
     if (model.nodes.hovered >= 0 && std::cmp_less(model.nodes.hovered, all.size())) {
-        const nodes::Elem& node = all[model.nodes.hovered];
+        const nodes::Elem& node = core::at(all, model.nodes.hovered);
         ImGui::TextWrapped("%s (%s)", nodes::caption(node.name).c_str(), nodes::caption(node.cls).c_str());
     } else {
         ImGui::TextWrapped("%s", model.hover.c_str());
@@ -1456,7 +1457,7 @@ void get_place(const ShapeMesh& model)
                  std::max(160.0f * g_scale, g_layout.viewport.height * 0.6f));
     ImGui::BeginChild("##placelist", ImVec2(0.0f, list_height));
     for (int i = 0; std::cmp_less(i, entries.size()); ++i) {
-        const ShapeMesh::PlaceView::TableRow& e = entries[i];
+        const ShapeMesh::PlaceView::TableRow& e = core::at(entries, i);
         if (!get_matches(e.label, g_place_search.data()))
             continue;
         ImGui::PushID(i);
@@ -1483,7 +1484,7 @@ void get_place(const ShapeMesh& model)
     ImGui::PushFont(g_small);
     if (model.place.armed >= 0 && std::cmp_less(model.place.armed, entries.size()))
         ImGui::TextWrapped("Click to place %s. Shift+click: place more. Esc: cancel.",
-                           entries[model.place.armed].label.c_str());
+                           core::at(entries, model.place.armed).label.c_str());
     else
         get_muted("Choose an item, then click in the view.");
     ImGui::PopFont();

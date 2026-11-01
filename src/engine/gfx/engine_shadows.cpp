@@ -20,6 +20,7 @@
 #include "engine/lists/key_map.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -51,10 +52,10 @@ gfx::ViewCam* new_shadow_camera()
 void look_along(gfx::ViewCam* camera, maths::Vec4 v)
 {
     maths::Mat4 matrix{};
-    matrix.row[0] = {v.z, -v.x, -v.y, 0.0f};
-    matrix.row[1] = {v.y, -v.z, -v.x, 0.0f};
-    matrix.row[2] = v;
-    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 0) = {v.z, -v.x, -v.y, 0.0f};
+    core::at(matrix.row, 1) = {v.y, -v.z, -v.x, 0.0f};
+    core::at(matrix.row, 2) = v;
+    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     camera->change_mat(matrix);
 }
 // The camera's place for a shadow at `position`: `distance` back along the light (the x product left unrounded).
@@ -141,22 +142,22 @@ void BlobShadow::load_mesh(const char* name)
 // 0x004A1CD0
 void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matrix, maths::Vec4 normal)
 {
-    const maths::Vec4& forward = matrix->row[2];
+    const maths::Vec4& forward = core::at(matrix->row, 2);
     maths::Mat4 placed{};
-    placed.row[0] = {
+    core::at(placed.row, 0) = {
         static_cast<float>(static_cast<double>(forward.z) * normal.y - static_cast<double>(forward.y) * normal.z),
         static_cast<float>(static_cast<double>(forward.x) * normal.z - static_cast<double>(forward.z) * normal.x),
         static_cast<float>(static_cast<double>(forward.y) * normal.x - static_cast<double>(forward.x) * normal.y),
         0.0f};
-    placed.row[1] = normal;
-    placed.row[2] = forward;
-    placed.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(placed.row, 1) = normal;
+    core::at(placed.row, 2) = forward;
+    core::at(placed.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     placed.scale_tool(maths::Vec4{size_factor_, size_factor_, size_factor_, 1.0f});
     const double offset = shift_;
     auto dx = static_cast<float>(normal.x * offset);
     auto dy = static_cast<float>(normal.y * offset);
     auto dz = static_cast<float>(normal.z * offset);
-    placed.row[3] = {static_cast<float>(static_cast<double>(dx) + position->x),
+    core::at(placed.row, 3) = {static_cast<float>(static_cast<double>(dx) + position->x),
                      static_cast<float>(static_cast<double>(dy) + position->y),
                      static_cast<float>(static_cast<double>(dz) + position->z),
                      static_cast<float>(offset * normal.w + position->w)};

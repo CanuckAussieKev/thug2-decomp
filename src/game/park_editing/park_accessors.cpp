@@ -13,6 +13,7 @@
 #include "engine/core/mem.h"
 #include "game/park/park_memory.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -112,18 +113,18 @@ uint32_t ParkLayout::get_shell_checksum()
     return checksums::hash_from_text(name.data());
 }
 
-MapListNode* ParkLayout::get_cell_chain(int x, int z) { return cell_metas_[x][z]; }
+MapListNode* ParkLayout::get_cell_chain(int x, int z) { return core::at(core::at(cell_metas_, x), z); }
 
 PieceFamily* ParkLayout::get_piece_family(int index, int* used_before)
 {
     int used = 0;
     for (int i = 0; i < index; ++i) {
-        if (sets_[i].is_displayed_)
+        if (core::at(sets_, i).is_displayed_)
             ++used;
     }
     if (used_before)
         *used_before = used;
-    return &sets_[index];
+    return &core::at(sets_, index);
 }
 
 void ParkLayout::get_map_info(const CompressedMap* map, int* num_gaps, int* num_metas, uint16_t* theme,
@@ -156,7 +157,7 @@ void ParkLayout::restore_floor_heights()
 int ParkLayout::get_restart_index(uint32_t name)
 {
     for (int i = 1; i <= kNumRestartPieces; ++i) {
-        if (restart_pieces_[i - 1] == name)
+        if (core::at(restart_pieces_, i - 1) == name)
             return i;
     }
     return 0;
@@ -186,11 +187,11 @@ int ParkLayout::get_ground_level(CellBox area, bool* uniform)
 {
     if (uniform)
         *uniform = true;
-    const int first = floor_[area.x][area.z].level_y_;
+    const int first = core::at(core::at(floor_, area.x), area.z).level_y_;
     int highest = -10000;
     for (int x = area.x; x < area.x + area.w; ++x) {
         for (int z = area.z; z < area.z + area.l; ++z) {
-            const int height = floor_[x][z].level_y_;
+            const int height = core::at(core::at(floor_, x), z).level_y_;
             if (uniform && height != first)
                 *uniform = false;
             if (height > highest)
@@ -216,7 +217,7 @@ maths::Vec4 ParkLayout::cell_to_world_pos(const CellBox& area, maths::Vec4* dime
 bool ParkLayout::is_area_blocked(CellBox area)
 {
     for (uint32_t i = 0; i < num_blocked_areas_; ++i) {
-        const CellBox& mask = blocked_areas_[i];
+        const CellBox& mask = core::at(blocked_areas_, i);
         if (area.x + area.w > mask.x && area.x < mask.x + mask.w && area.z + area.l > mask.z &&
             area.z < mask.z + mask.l)
             return true;
@@ -274,8 +275,8 @@ void ParkLayout::clear_floor_change_marks()
 {
     for (int x = shell_bounds_.x; x < shell_bounds_.x + shell_bounds_.w; ++x) {
         for (int z = shell_bounds_.z; z < shell_bounds_.z + shell_bounds_.l; ++z) {
-            floor_[x][z].touched_ = false;
-            floor_[x][z].delta_ = 0;
+            core::at(core::at(floor_, x), z).touched_ = false;
+            core::at(core::at(floor_, x), z).delta_ = 0;
         }
     }
     for (const MapListNode* node = concrete_metas_; node; node = node->following_)

@@ -15,6 +15,7 @@
 #include "engine/gfx/text.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -54,7 +55,7 @@ void PcFont::change_spacings(int glyph_gap, int blank_gap)
 void PcFont::change_colors(const uint32_t* colors)
 {
     for (int i = 0; i < 16; ++i)
-        font->colors[i] = colors[i];
+        core::at(font->colors, i) = colors[i];
 }
 
 // 0x004B3CB0

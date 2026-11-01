@@ -20,6 +20,7 @@
 #include <array>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace goals {
 
@@ -106,7 +107,7 @@ bool ScoreReachedVictoryCondition::rule_satisfied()
         for (PlayerRecord* player = start_roster_sweep(&search); player; player = step_roster_sweep(&search)) {
             modules::PointTally* score = get_score_of(player->skater_);
             const int team = player->team_;
-            totals[team] += total_score(score);
+            core::at(totals, team) += total_score(score);
         }
         for (const int total : totals) {
             if (total >= points_held_)

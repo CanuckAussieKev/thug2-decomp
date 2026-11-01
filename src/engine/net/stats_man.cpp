@@ -37,6 +37,7 @@
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -361,7 +362,7 @@ void PersonalStats::get_fill()
     const uint32_t* levels = g_level_checksums.data();
     SortedList sorted;
     for (int i = 0; i < 15; ++i) {
-        const int score = high_scores_[i];
+        const int score = core::at(high_scores_, i);
         if (score == 0)
             continue;
         SortEntry* line = new_sort_entry();
@@ -552,7 +553,7 @@ void RankingsManager::read_skill_ratings(char* text)
     push_top_down();
     for (const char* token = text_tools::get_token(text, ":"); token; token = text_tools::get_token(nullptr, ":")) {
         TopEntry* entry = new_entry();
-        get_append(&top_lists_[4].entries_, &entry->list_link_);
+        get_append(&core::at(top_lists_, 4).entries_, &entry->list_link_);
         entry->points_held_ = text::to_int(token);
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): the original's, as written
         if (!(token = text_tools::get_token(nullptr, ":")))
@@ -569,7 +570,7 @@ void RankingsManager::read_skill_ratings(char* text)
 // 0x0054D910
 void RankingsManager::parse_top_list(int index, char* text, bool titled)
 {
-    TopList& list = top_lists_[index];
+    TopList& list = core::at(top_lists_, index);
     push_top_down();
     if (titled) {
         text_tools::dup_from(list.title_.data(), text_tools::get_token(text, "\n"));
@@ -841,19 +842,19 @@ bool fill_stats_arrays(script::Struct* params, script::Script*)
     TopList* list = nullptr;
     switch (which) {
     case 0xEF20D3A1:
-        list = &stats->top_lists_[0];
+        list = &core::at(stats->top_lists_, 0);
         break;
     case 0x9FE64312:
-        list = &stats->top_lists_[1];
+        list = &core::at(stats->top_lists_, 1);
         break;
     case 0xCB95928F:
-        list = &stats->top_lists_[2];
+        list = &core::at(stats->top_lists_, 2);
         break;
     case 0x67F1AE8A:
-        list = &stats->top_lists_[3];
+        list = &core::at(stats->top_lists_, 3);
         break;
     case 0x5299291B:
-        stats->top_lists_[4].fill_sorted_scores(true);
+        core::at(stats->top_lists_, 4).fill_sorted_scores(true);
         return true;
     case 0xFEF84FFF:
         stats->personal_.get_fill();

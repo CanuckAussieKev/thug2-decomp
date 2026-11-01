@@ -15,6 +15,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/device.h"
 #include "platform/stopwatch.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -85,7 +86,7 @@ void CinematicTable::check_skip()
 {
     if (script::fetch_int_value(kNoSkipping) != 0 || !can_skip_ || clock_ == 0.0f)
         return;
-    const modules::FrontEndInputHandler* handler = modules::front_end_instance()->pad_listeners_[0].get();
+    const modules::FrontEndInputHandler* handler = core::at(modules::front_end_instance()->pad_listeners_, 0).get();
     auto* device = handler->dev_;
     if (!device->is_attached() || !device->is_usable_)
         return;

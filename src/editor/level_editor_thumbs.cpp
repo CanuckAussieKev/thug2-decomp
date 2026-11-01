@@ -19,6 +19,7 @@
 #include "editor/level_editor_ui_backend.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::thumbs {
 
@@ -29,7 +30,7 @@ int CellCache::get_find(uint64_t key) const
     if (!key)
         return -1;
     for (size_t i = 0; i < keys.size(); ++i)
-        if (keys[i] == key)
+        if (core::at(keys, i) == key)
             return static_cast<int>(i);
     return -1;
 }
@@ -41,22 +42,22 @@ int CellCache::get_take(uint64_t key, uint64_t frame)
         // (a free cell, else the one shown longest ago - not one on screen this frame)
         int best = -1;
         for (size_t i = 0; i < keys.size(); ++i) {
-            if (!keys[i]) {
+            if (!core::at(keys, i)) {
                 best = static_cast<int>(i);
                 break;
             }
-            if (shown[i] >= frame)
+            if (core::at(shown, i) >= frame)
                 continue;
-            if (best < 0 || shown[i] < shown[best])
+            if (best < 0 || core::at(shown, i) < core::at(shown, best))
                 best = static_cast<int>(i);
         }
         if (best < 0)
             return -1;
         cell = best;
-        keys[cell] = key;
-        drawn[cell] = 0;
+        core::at(keys, cell) = key;
+        core::at(drawn, cell) = 0;
     }
-    shown[cell] = frame;
+    core::at(shown, cell) = frame;
     return cell;
 }
 
@@ -94,12 +95,12 @@ std::string get_entry_name(int tab, uint32_t id)
 
 bool parse_entry(const std::string& text, int* tab, uint32_t* id)
 {
-    if (text.size() != 10 || text[1] != ':' || (text[0] != 's' && text[0] != 'o'))
+    if (text.size() != 10 || core::at(text, 1) != ':' || (core::at(text, 0) != 's' && core::at(text, 0) != 'o'))
         return false;
     for (size_t i = 2; i < text.size(); ++i)
-        if (!std::isxdigit(static_cast<unsigned char>(text[i])))
+        if (!std::isxdigit(static_cast<unsigned char>(core::at(text, i))))
             return false;
-    *tab = text[0] == 's' ? 0 : 1;
+    *tab = core::at(text, 0) == 's' ? 0 : 1;
     *id = static_cast<uint32_t>(std::strtoul(text.c_str() + 2, nullptr, 16));
     return true;
 }
@@ -238,7 +239,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         if (drawn_now >= kPerFrame)
             break;
         const int cell = cells_state().get_find(key);
-        if (cell < 0 || cells_state().drawn[cell])
+        if (cell < 0 || core::at(cells_state().drawn, cell))
             continue;
         auto failed = failed_state().find(key);
         if (failed != failed_state().end() && g_frame - failed->second < 300)
@@ -252,7 +253,7 @@ void tick_cycle(const ui::ShapeMesh& model)
         const bool drew =
             preview::draw_view(tab == 0 ? preview::Kind::kSector : preview::Kind::kObject, id, preview::Orbit{});
         ui_backend::end_atlas_cell();
-        cells_state().drawn[cell] = 1;
+        core::at(cells_state().drawn, cell) = 1;
         if (!drew)
             failed_state()[key] = g_frame;
         ++drawn_now;
@@ -325,14 +326,14 @@ void star(ImDrawList* draw, ImVec2 centre, float radius, ImU32 colour, bool fill
     for (int i = 0; i < 10; ++i) {
         const float angle = -1.5707963f + 0.62831853f * static_cast<float>(i);
         const float r = (i & 1) ? radius * 0.45f : radius;
-        points[i] = ImVec2(centre.x + std::cos(angle) * r, centre.y + std::sin(angle) * r);
+        core::at(points, i) = ImVec2(centre.x + std::cos(angle) * r, centre.y + std::sin(angle) * r);
     }
     if (filled) {
         // (the inner pentagon and the five points' triangles: ImGui fills convex shapes only)
-        std::array<ImVec2, 5> inner = {{points[1], points[3], points[5], points[7], points[9]}};
+        std::array<ImVec2, 5> inner = {{core::at(points, 1), core::at(points, 3), core::at(points, 5), core::at(points, 7), core::at(points, 9)}};
         draw->AddConvexPolyFilled(inner.data(), 5, colour);
         for (int i = 0; i < 5; ++i)
-            draw->AddTriangleFilled(points[(2 * i + 9) % 10], points[2 * i], points[2 * i + 1], colour);
+            draw->AddTriangleFilled(core::at(points, (2 * i + 9) % 10), core::at(points, 2 * i), core::at(points, 2 * i + 1), colour);
     } else {
         draw->AddPolyline(points.data(), 10, colour, ImDrawFlags_Closed, 1.2f);
     }
@@ -405,21 +406,21 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
     if (g_list_mode == 1) {
         std::unordered_map<uint32_t, int> by_id;
         for (int i = 0; std::cmp_less(i, items.size()); ++i)
-            by_id.emplace(items[i].id, i);
+            by_id.emplace(core::at(items, i).id, i);
         for (const std::string& entry : g_recent) {
             int entry_tab = 0;
             uint32_t id = 0;
             if (!parse_entry(entry, &entry_tab, &id) || entry_tab != tab)
                 continue;
             auto found = by_id.find(id);
-            if (found != by_id.end() && get_matches(items[found->second].label, filter))
+            if (found != by_id.end() && get_matches(core::at(items, found->second).label, filter))
                 shown.push_back(found->second);
         }
     } else {
         for (int i = 0; std::cmp_less(i, items.size()); ++i) {
-            if (!get_matches(items[i].label, filter))
+            if (!get_matches(core::at(items, i).label, filter))
                 continue;
-            if (g_list_mode == 2 && !favourite(tab, items[i].id))
+            if (g_list_mode == 2 && !favourite(tab, core::at(items, i).id))
                 continue;
             shown.push_back(i);
         }
@@ -448,7 +449,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
             const float row_y = ImGui::GetCursorScreenPos().y;
             const float row_right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
             ImGui::SetNextItemAllowOverlap();
-            if (ImGui::Selectable(items[i].label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+            if (ImGui::Selectable(core::at(items, i).label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
                 request(ui::Request::Kind::kBrowserIndex, i);
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                     request(ui::Request::Kind::kBrowserPlace, 0);
@@ -459,8 +460,8 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 ImGui::SetScrollHereY(0.5f);
             const float right = row_right - star_radius - 2.0f;
             if (star_button("##star", ImVec2(right, row_y + ImGui::GetTextLineHeight() * 0.5f), star_radius,
-                            favourite(tab, items[i].id)))
-                toggle_favourite(tab, items[i].id);
+                            favourite(tab, core::at(items, i).id)))
+                toggle_favourite(tab, core::at(items, i).id);
             ImGui::PopID();
         }
         ImGui::PopFont();
@@ -498,7 +499,7 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const int n = row * columns + column;
                 if (std::cmp_greater_equal(n, shown.size()))
                     break;
-                const int i = shown[n];
+                const int i = core::at(shown, n);
                 if (column)
                     ImGui::SameLine(0.0f, spacing);
                 ImGui::PushID(i);
@@ -515,13 +516,13 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 const bool hover = ImGui::IsItemHovered();
                 if (hover) {
                     hovered = i;
-                    ImGui::SetTooltip("%s\nDouble-click to place", items[i].label.c_str());
+                    ImGui::SetTooltip("%s\nDouble-click to place", core::at(items, i).label.c_str());
                 }
                 ImDrawList* draw = ImGui::GetWindowDrawList();
-                const uint64_t key = get_key(tab, items[i].id);
+                const uint64_t key = get_key(tab, core::at(items, i).id);
                 const int c = cells_state().get_take(key, g_frame);
                 wanted.push_back(key);
-                if (c >= 0 && texture && cells_state().drawn[c]) {
+                if (c >= 0 && texture && core::at(cells_state().drawn, c)) {
                     float u0 = 0.0f, v0 = 0.0f, u1 = 0.0f, v1 = 0.0f;
                     cell_uv(c, &u0, &v0, &u1, &v1);
                     draw->AddImage(static_cast<ImTextureID>(texture), a, b, ImVec2(u0, v0), ImVec2(u1, v1));
@@ -538,11 +539,11 @@ int items_panel(const ui::ShapeMesh& model, const char* filter, bool follow, flo
                 draw->AddRect(a, b, border, 2.0f, 0, selected ? 2.5f : 1.0f);
                 // (the star in the top right corner)
                 const float r = 7.0f * scale;
-                if (star_button("##star", ImVec2(b.x - r - 3.0f, a.y + r + 3.0f), r, favourite(tab, items[i].id)))
-                    toggle_favourite(tab, items[i].id);
+                if (star_button("##star", ImVec2(b.x - r - 3.0f, a.y + r + 3.0f), r, favourite(tab, core::at(items, i).id)))
+                    toggle_favourite(tab, core::at(items, i).id);
                 // The name, cut to the cell.
                 ImGui::SetCursorScreenPos(ImVec2(a.x, b.y + 1.0f));
-                std::string label = items[i].label;
+                std::string label = core::at(items, i).label;
                 while (label.size() > 3 && ImGui::CalcTextSize(label.c_str()).x > cell) {
                     label.resize(label.size() - 4);
                     label += "..";

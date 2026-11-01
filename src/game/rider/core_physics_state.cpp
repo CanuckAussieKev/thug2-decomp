@@ -38,6 +38,7 @@
 #include <gsl/pointers>
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -314,8 +315,8 @@ int SkaterPhysicsModule::can_kick(script::Struct*, script::Script*) { return can
 // 0x00500E90
 int SkaterPhysicsModule::orient_to_normal(script::Struct*, script::Script*)
 {
-    drawn_normal_ = entity_->basis_frame_.row[1];
-    floor_normal_ = entity_->basis_frame_.row[1];
+    drawn_normal_ = core::at(entity_->basis_frame_.row, 1);
+    floor_normal_ = core::at(entity_->basis_frame_.row, 1);
     turn_to_normal(feeler_.surface_dir_);
     return 1;
 }

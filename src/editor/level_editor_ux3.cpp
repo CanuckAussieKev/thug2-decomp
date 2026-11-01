@@ -20,6 +20,7 @@
 #include "editor/level_editor_picking.h"
 #include "editor/level_editor_ui.h"
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -65,7 +66,7 @@ void get_ask(ui::Request::Kind kind, int value = 0, uint32_t id = 0)
 
 void get_queue(std::function<void()> task) { g_tasks.push_back(std::move(task)); }
 
-bool& unseal(Pane window) { return g_open[window]; }
+bool& unseal(Pane window) { return core::at(g_open, window); }
 
 bool take_similar_menu()
 {
@@ -97,19 +98,19 @@ void prepare_all()
     set_enabled(kPasteTransform, [] { return clip::have_transform(); });
     set_enabled(kPasteFields, [] { return clip::field_count() > 0; });
     // (the windows: their own flags, switched at once - nothing of the level changes)
-    set_run(kPalette, [] { g_open[kPaletteWindow] = !g_open[kPaletteWindow]; });
-    set_run(kHistory, [] { g_open[kHistoryWindow] = !g_open[kHistoryWindow]; });
+    set_run(kPalette, [] { core::at(g_open, kPaletteWindow) = !core::at(g_open, kPaletteWindow); });
+    set_run(kHistory, [] { core::at(g_open, kHistoryWindow) = !core::at(g_open, kHistoryWindow); });
     set_run(kChanges, [] {
-        g_open[kChangesWindow] = !g_open[kChangesWindow];
+        core::at(g_open, kChangesWindow) = !core::at(g_open, kChangesWindow);
         g_refresh_asked = true;
     });
-    set_run(kKeys, [] { g_open[kKeysWindow] = !g_open[kKeysWindow]; });
-    set_run(kSnapshots, [] { g_open[kSnapshotsWindow] = !g_open[kSnapshotsWindow]; });
-    set_checked(kPalette, [] { return g_open[kPaletteWindow] ? 1 : 0; });
-    set_checked(kHistory, [] { return g_open[kHistoryWindow] ? 1 : 0; });
-    set_checked(kChanges, [] { return g_open[kChangesWindow] ? 1 : 0; });
-    set_checked(kKeys, [] { return g_open[kKeysWindow] ? 1 : 0; });
-    set_checked(kSnapshots, [] { return g_open[kSnapshotsWindow] ? 1 : 0; });
+    set_run(kKeys, [] { core::at(g_open, kKeysWindow) = !core::at(g_open, kKeysWindow); });
+    set_run(kSnapshots, [] { core::at(g_open, kSnapshotsWindow) = !core::at(g_open, kSnapshotsWindow); });
+    set_checked(kPalette, [] { return core::at(g_open, kPaletteWindow) ? 1 : 0; });
+    set_checked(kHistory, [] { return core::at(g_open, kHistoryWindow) ? 1 : 0; });
+    set_checked(kChanges, [] { return core::at(g_open, kChangesWindow) ? 1 : 0; });
+    set_checked(kKeys, [] { return core::at(g_open, kKeysWindow) ? 1 : 0; });
+    set_checked(kSnapshots, [] { return core::at(g_open, kSnapshotsWindow) ? 1 : 0; });
     set_checked(kCollision, [] { return settings_now().collision ? 1 : 0; });
     add_toggle(
         "snap25", "Snap", "Snap moves to the grid", [] { return settings_now().snap_always_ ? 1 : 0; },
@@ -241,7 +242,7 @@ void refresh_changes()
         return std::string(name ? name : "");
     };
     for (const changes::TableRow& e : changes::link_chain(text, label))
-        g_changes.push_back({e, e.line >= 0 && std::cmp_less(e.line, lines.size()) ? lines[e.line] : ""});
+        g_changes.push_back({e, e.line >= 0 && std::cmp_less(e.line, lines.size()) ? core::at(lines, e.line) : ""});
 }
 
 void go_to(const ChangeRow& row)

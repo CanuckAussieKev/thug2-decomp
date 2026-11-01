@@ -34,6 +34,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -116,10 +117,10 @@ void quat_to_matrix(float* quat, const float* translation, float* matrix)
 // 0x00464340
 void IdentityQuat::assign_value()
 {
-    q[0] = 0.0f;
-    q[1] = 0.0f;
-    q[2] = 0.0f;
-    q[3] = 1.0f;
+    core::at(q, 0) = 0.0f;
+    core::at(q, 1) = 0.0f;
+    core::at(q, 2) = 0.0f;
+    core::at(q, 3) = 1.0f;
 }
 
 // 0x00463BA0
@@ -209,7 +210,7 @@ void set_up_cutscene_heaps()
 void CinematicTable::destroy_objects()
 {
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        ObjectEntry& entry = core::at(entities_, i);
         if (entry.active) {
             // the level's object it stood in for gets its model's settings back
             ObjectModule* stand_in = static_cast<GameEntity*>(entry.object)->fetch_module(kModelModuleName);
@@ -236,16 +237,16 @@ void CinematicTable::destroy_objects()
 void CinematicTable::load_asset(uint32_t name, uint32_t a2, uint32_t a3)
 {
     load_asset_file(name, a2, a3);
-    assets_[asset_count_] = name;
+    core::at(assets_, asset_count_) = name;
     ++asset_count_;
 }
 
 // 0x00463F70
 void CinematicTable::load_animation(uint32_t name, uint32_t a2, uint32_t a3)
 {
-    AnimationEntry& entry = animations_[animation_count_];
+    AnimationEntry& entry = core::at(animations_, animation_count_);
     load_asset_file(name, a2, a3);
-    assets_[asset_count_] = name;
+    core::at(assets_, asset_count_) = name;
     ++asset_count_;
     void* data = render::get_anim_data(name, 1);
     entry.source = nullptr;
@@ -322,7 +323,7 @@ void CinematicTable::update_object_poses()
     float* rotations = g_cutscene_rotations.data();
     float* translations = g_cutscene_translations.data();
     for (int i = 0; i < object_count_; ++i) {
-        ObjectEntry& entry = entities_[i];
+        ObjectEntry& entry = core::at(entities_, i);
         if (!entry.animation)
             continue;
         ObjectModule* component = entry.object->fetch_module(kSkeletonModuleName);
@@ -359,10 +360,10 @@ namespace objects {
 void construct_cutscene_rotations()
 {
     for (int i = 0; i < 128; ++i) {
-        g_cutscene_rotations[4 * i + 0] = 0.0f;
-        g_cutscene_rotations[4 * i + 1] = 0.0f;
-        g_cutscene_rotations[4 * i + 2] = 0.0f;
-        g_cutscene_rotations[4 * i + 3] = 1.0f;
+        core::at(g_cutscene_rotations, 4 * i + 0) = 0.0f;
+        core::at(g_cutscene_rotations, 4 * i + 1) = 0.0f;
+        core::at(g_cutscene_rotations, 4 * i + 2) = 0.0f;
+        core::at(g_cutscene_rotations, 4 * i + 3) = 1.0f;
     }
 }
 

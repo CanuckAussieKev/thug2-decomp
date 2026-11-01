@@ -12,6 +12,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -70,8 +71,8 @@ bool cfunc_get_career_level_score(script::Struct* params, script::Script* script
     objects::RiderStoryProgress* career = get_career();
     int level = career->fetch_stage();
     params->fetch_int_value(kLevel, &level, 0);
-    script->args_->put_int(kLevelScore, career->funds_[level]);
-    script->args_->put_int(kLevelScoreTotal, career->amount_[level]);
+    script->args_->put_int(kLevelScore, core::at(career->funds_, level));
+    script->args_->put_int(kLevelScoreTotal, core::at(career->amount_, level));
     if (params->has_bare_flag(kGetTotal)) {
         script->args_->put_int(kTotalScore, career->lifetime_funds_);
         script->args_->put_int(kTotalScorePotential, career->total_amount_);

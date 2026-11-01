@@ -23,6 +23,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace surface_kind {
 
@@ -192,7 +193,7 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
     info->floor_loudness_ = 0.0f;
     info->load_pitch_ = kHundred;
     info->load_vol_ = kHundred;
-    info->name[0] = '\0';
+    core::at(info->name, 0) = '\0';
     info->checksum = 0;
     info->max_pitch_ = kHundred;
     const char* sound = "";
@@ -200,12 +201,12 @@ bool get_sound_info(Struct* sound_action, SoundInfo* info)
         return false;
     // (copied unchecked, as the original)
     int length = 0;
-    while ((info->name[length] = sound[length]) != '\0')
+    while ((core::at(info->name, length) = sound[length]) != '\0')
         ++length;
     // the checksum of the name without its folders
     const char* base = info->name.data();
     for (int i = 0; i < length; ++i) {
-        if (info->name[i] == '\\' || info->name[i] == '/')
+        if (core::at(info->name, i) == '\\' || core::at(info->name, i) == '/')
             base = info->name.data() + i + 1;
     }
     info->checksum = checksums::hash_from_text(base);

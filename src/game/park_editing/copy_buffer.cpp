@@ -10,6 +10,7 @@
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -376,7 +377,7 @@ bool Clipboard::add_row(PieceGroup* meta, int dy)
             return true;
     }
     memory::PoolPair& pools = entry_pools();
-    const memory::SlabBank* pool = pools.pools[pools.current]; // (not null-checked: as the original)
+    const memory::SlabBank* pool = core::at(pools.pools, pools.current); // (not null-checked: as the original)
     if (pool->taken_count_ == pool->num_)
         return false;
     auto* entry = pools.allocate<ClipboardEntry>();

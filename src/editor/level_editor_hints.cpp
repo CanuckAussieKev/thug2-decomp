@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's status bar hints (ours). See level_editor_hints.h.
 
 #include "editor/level_editor_hints.h"
+#include "engine/core/checked_index.h"
 #include <array>
 
 namespace frontend::level_editor::hints {
@@ -55,7 +56,7 @@ std::vector<std::string> get_tokens(const std::string& keys)
     std::vector<std::string> out;
     std::string current;
     for (size_t i = 0; i < keys.size(); ++i) {
-        const char c = keys[i];
+        const char c = core::at(keys, i);
         // ('+' separates tokens - unless it ends one with nothing after it: "Keypad+", or stands alone)
         if (c == '+' && !current.empty() && i + 1 < keys.size()) {
             out.push_back(current);

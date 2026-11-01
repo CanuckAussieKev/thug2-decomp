@@ -21,6 +21,7 @@
 #include "engine/objects/entity.h"
 #include "platform/run_log.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::links {
 
@@ -31,10 +32,10 @@ bool same_state(const State& a, const State& b)
     if (a.size() != b.size())
         return false;
     for (size_t i = 0; i < a.size(); ++i) {
-        if (a[i].scenery != b[i].scenery || a[i].source != b[i].source || a[i].members.size() != b[i].members.size())
+        if (core::at(a, i).scenery != core::at(b, i).scenery || core::at(a, i).source != core::at(b, i).source || core::at(a, i).members.size() != core::at(b, i).members.size())
             return false;
-        for (size_t k = 0; k < a[i].members.size(); ++k) {
-            if (a[i].members[k].id != b[i].members[k].id || a[i].members[k].quarters != b[i].members[k].quarters)
+        for (size_t k = 0; k < core::at(a, i).members.size(); ++k) {
+            if (core::at(core::at(a, i).members, k).id != core::at(core::at(b, i).members, k).id || core::at(core::at(a, i).members, k).quarters != core::at(core::at(b, i).members, k).quarters)
                 return false;
         }
     }
@@ -44,12 +45,12 @@ bool same_state(const State& a, const State& b)
 int group_of(const State& state, uint32_t id, bool* is_source)
 {
     for (size_t i = 0; i < state.size(); ++i) {
-        if (state[i].source == id) {
+        if (core::at(state, i).source == id) {
             if (is_source)
                 *is_source = true;
             return static_cast<int>(i);
         }
-        for (const Member& m : state[i].members) {
+        for (const Member& m : core::at(state, i).members) {
             if (m.id == id) {
                 if (is_source)
                     *is_source = false;
@@ -65,12 +66,12 @@ void get_join(State* state, bool scenery, uint32_t source, const std::vector<Mem
     bool is_source = false;
     int index = group_of(*state, source, &is_source);
     if (index >= 0 && !is_source)
-        source = (*state)[index].source; // (a copy of a linked copy: its group's source)
+        source = core::at((*state), index).source; // (a copy of a linked copy: its group's source)
     if (index < 0) {
         state->push_back({scenery, source, {}});
         index = static_cast<int>(state->size()) - 1;
     }
-    GroupSet& group = (*state)[index];
+    GroupSet& group = core::at((*state), index);
     for (const Member& m : copies) {
         if (m.id == source || group_of(*state, m.id) >= 0)
             continue;
@@ -86,7 +87,7 @@ bool uncouple(State* state, uint32_t id)
     const int index = group_of(*state, id, &is_source);
     if (index < 0)
         return false;
-    GroupSet& group = (*state)[index];
+    GroupSet& group = core::at((*state), index);
     if (!is_source) {
         std::erase_if(group.members, [&](const Member& m) { return m.id == id; });
     }
@@ -118,12 +119,12 @@ bool parse_ref(const std::string& text, bool member, bool scenery, RefTo* ref)
     std::string body = text;
     const size_t at = text.find('@');
     if (at != std::string::npos) {
-        if (!member || !scenery || at + 2 != text.size() || text[at + 1] < '0' || text[at + 1] > '3')
+        if (!member || !scenery || at + 2 != text.size() || core::at(text, at + 1) < '0' || core::at(text, at + 1) > '3')
             return false;
-        ref->quarters = text[at + 1] - '0';
+        ref->quarters = core::at(text, at + 1) - '0';
         body = text.substr(0, at);
     }
-    if (body.size() >= 2 && body[0] == 'c') {
+    if (body.size() >= 2 && core::at(body, 0) == 'c') {
         if (!scenery)
             return false;
         char* end = nullptr;
@@ -154,7 +155,7 @@ std::string write_record(const LinkRecord& record)
     for (size_t i = 0; i < record.members.size(); ++i) {
         if (i)
             out += ',';
-        out += ref_text(record.members[i], true, record.scenery);
+        out += ref_text(core::at(record.members, i), true, record.scenery);
     }
     return out;
 }
@@ -230,7 +231,7 @@ int relative_quarters(uint32_t sector)
     bool is_source = false;
     const int index = group_of(g_state, sector, &is_source);
     if (index >= 0 && !is_source) {
-        for (const Member& m : g_state[index].members) {
+        for (const Member& m : core::at(g_state, index).members) {
             if (m.id == sector)
                 q += m.quarters;
         }
@@ -347,7 +348,7 @@ void propagate_objects(const GroupSet& group)
 void run_remakes()
 {
     for (size_t i = 0; i < g_remakes.size();) {
-        Remake& r = g_remakes[i];
+        Remake& r = core::at(g_remakes, i);
         ++r.frames;
         const bool gone = objects::find_object(r.name) == nullptr;
         if (gone) {
@@ -432,7 +433,7 @@ std::string describe()
     const int index = group_of(g_state, selection.ids.front(), &is_source);
     if (index < 0)
         return {};
-    const GroupSet& group = g_state[index];
+    const GroupSet& group = core::at(g_state, index);
     std::array<char, 160> text{};
     if (is_source)
         std::snprintf(text.data(), sizeof(text), "Linked: the source of %d cop%s", static_cast<int>(group.members.size()),
@@ -504,7 +505,7 @@ int get_apply(const std::vector<LinkRecord>& records, const std::vector<uint32_t
     auto resolve = [&](const RefTo& ref) -> uint32_t {
         if (ref.clone < 0)
             return ref.id;
-        return std::cmp_less(ref.clone, made.size()) ? made[ref.clone] : 0;
+        return std::cmp_less(ref.clone, made.size()) ? core::at(made, ref.clone) : 0;
     };
     int groups = 0;
     for (const LinkRecord& record : records) {

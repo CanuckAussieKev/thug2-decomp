@@ -23,6 +23,7 @@
 #include "game/skate/point_tally.h"
 #include "game/rider/skater_camera_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -239,7 +240,7 @@ bool cfunc_only_one_player_left(script::Struct*, script::Script* script)
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
              player = step_roster_sweep(manager, &search, false)) {
             if (!player->is_eliminated())
-                ++teams[player->team_];
+                ++core::at(teams, player->team_);
         }
         int with_players = 0;
         for (const int count : teams)
@@ -270,7 +271,7 @@ bool cfunc_any_skater_total_score_at_least(script::Struct* params, script::Scrip
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
              player = step_roster_sweep(manager, &search, false)) {
             modules::PointTally* score = get_score_of(player->skater_);
-            teams[player->team_] += total_score(score);
+            core::at(teams, player->team_) += total_score(score);
         }
         for (const int total : teams) {
             if (total >= target)
@@ -300,7 +301,7 @@ bool cfunc_only_one_skater_left(script::Struct*, script::Script*)
         for (PlayerRecord* player = start_roster_sweep(manager, &search, false); player;
              player = step_roster_sweep(manager, &search, false)) {
             modules::PointTally* score = get_score_of(player->skater_);
-            teams[player->team_] += total_score(score);
+            core::at(teams, player->team_) += total_score(score);
         }
         for (const int total : teams)
             scored += total > 0 ? 1 : 0;

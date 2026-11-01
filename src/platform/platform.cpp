@@ -13,6 +13,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace os_layer {
 
@@ -55,27 +56,27 @@ bool init_input(HINSTANCE instance, HWND window, int config)
         return true;
     // Per port: the joysticks (0x007D6318), their device state, the force-feedback effects (0x007D6668) and
     // the motors' ranges and kinds; the key bindings (-1: none); the graphics options (0x007D6434...).
-    g_joysticks[0] = nullptr;
+    core::at(g_joysticks, 0) = nullptr;
     std::memset(os_layer::g_joystick_states.data(), 0, sizeof(os_layer::g_joystick_states));
-    g_joysticks[1] = nullptr;
+    core::at(g_joysticks, 1) = nullptr;
     std::memset(os_layer::g_last_joystick_states.data(), 0, sizeof(os_layer::g_last_joystick_states));
-    g_effects[0] = nullptr;
-    g_force_resolutions[0] = 0;
-    g_effects[1] = nullptr;
-    g_force_resolutions[1] = 0;
-    g_force_resolutions[2] = 0;
-    g_force_resolutions[3] = 0;
+    core::at(g_effects, 0) = nullptr;
+    core::at(g_force_resolutions, 0) = 0;
+    core::at(g_effects, 1) = nullptr;
+    core::at(g_force_resolutions, 1) = 0;
+    core::at(g_force_resolutions, 2) = 0;
+    core::at(g_force_resolutions, 3) = 0;
     std::memset(os_layer::g_input_map.data(), 0xFF, sizeof(os_layer::g_input_map));
     render::g_antialiasing = false;
     render::g_hq_shadows = 0;
     render::g_fog_setting = false;
     g_option37 = 0;
-    g_force_axis_counts[0] = 0;
+    core::at(g_force_axis_counts, 0) = 0;
     // (the original clears dwords here across byte-sized settings; each is written by name)
     g_options38_and39 = 0;
     render::g_distance_clipping = false;
     g_unknown643b = 0;
-    g_force_axis_counts[1] = 0;
+    core::at(g_force_axis_counts, 1) = 0;
     memory::bits_as<uint32_t>(render::g_resolution_setting) = 0;
     g_distance_setting = 0;
     memory::bits_as<uint32_t>(gfx::g_draw_distance_setting) = 0;

@@ -23,6 +23,7 @@
 #include "game/rider/vehicle_sound.h"
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -82,7 +83,7 @@ void RiderOverheadTag::configure_from_data(script::Struct* /*params*/)
 {
     const uint32_t id = entity_->ident_;
     if (id < 8)
-        label_id_ = kLabelIds[id];
+        label_id_ = core::at(kLabelIds, id);
 }
 
 // 0x00511870

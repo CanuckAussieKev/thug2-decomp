@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "editor/level_editor_playtest.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -169,7 +170,7 @@ void proxim_section(uint32_t node)
         if (ImGui::DragFloat3("Size##proxim", size.data(), 5.0f, kProximMin, kProximMax, "%.0f",
                               ImGuiSliderFlags_AlwaysClamp)) {
             ProximEdit sized = e;
-            sized.size = {size[0], size[1], size[2]};
+            sized.size = {core::at(size, 0), core::at(size, 1), core::at(size, 2)};
             get_queue([sized] { set_proxim(sized, false); });
         }
         if (ImGui::IsItemActivated())
@@ -345,7 +346,7 @@ void inspector_section(int index)
     const std::vector<nodes::Elem>& all = nodes::get_all();
     if (index < 0 || std::cmp_greater_equal(index, all.size()))
         return;
-    const uint32_t name = all[index].name;
+    const uint32_t name = core::at(all, index).name;
     if (const LevelTrigger* l = level_named(name)) {
         ImGui::Spacing();
         ImGui::SeparatorText("Trigger Volume");
@@ -391,7 +392,7 @@ void inspector_section(int index)
     std::array<float, 3> size = {{s.size.x, s.size.y, s.size.z}};
     if (ImGui::DragFloat3("Size", size.data(), 5.0f, 10.0f, 50000.0f, "%.0f")) {
         Spec sized = s;
-        sized.size = {size[0], size[1], size[2]};
+        sized.size = {core::at(size, 0), core::at(size, 1), core::at(size, 2)};
         get_queue([key, sized] { set_spec(key, sized, false); });
     }
     if (ImGui::IsItemActivated())

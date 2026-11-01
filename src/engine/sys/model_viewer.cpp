@@ -44,6 +44,7 @@
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace modules {
 
@@ -129,7 +130,7 @@ void get_roll(objects::GameEntity* object, float angle)
 
 void add_input_handler(ViewerInputHandler* handler)
 {
-    pad_input::HostEnd& server = input_manager()->hosts_[handler->ordinal_];
+    pad_input::HostEnd& server = core::at(input_manager()->hosts_, handler->ordinal_);
     append_vertex(server.handlers_, handler);
     handler->control_data_ = &server.content_;
     handler->dev_ = server.dev_;
@@ -222,7 +223,7 @@ void handle_viewer_input(ViewerInputHandler* handler)
     if (!view_mode_value())
         return;
     auto stick = [handler](int event) {
-        return static_cast<float>(static_cast<int>(handler->control_data_->incident_[event]) - 0x80);
+        return static_cast<float>(static_cast<int>(core::at(handler->control_data_->incident_, event)) - 0x80);
     };
     viewer->pad_rx_ = stick(pad_input::Payload::kRawRightX);
     viewer->pad_ry_ = stick(pad_input::Payload::kRawRightY);
@@ -404,10 +405,10 @@ bool Viewer::place_camera(script::Struct* params)
     if (!camera)
         return true;
     maths::Mat4 identity{};
-    identity.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    identity.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    identity.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    identity.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(identity.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(identity.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(identity.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(identity.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     camera->basis_frame_ = identity;
     script::VectorValue at{};
     float x = 0.0f, y = 0.0f, z = 0.0f;

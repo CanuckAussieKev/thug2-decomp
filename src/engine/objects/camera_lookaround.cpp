@@ -19,6 +19,7 @@
 #include "engine/objects/entity.h"
 #include "engine/objects/input_component.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -121,10 +122,10 @@ void FreeLookModule::tick_frame()
         get_ease(lean_angle_, tilt, frame);
         get_ease(heading_, in.heading, frame);
     } else if (!locked_ && !turning_) {
-        const float stick_y = pad->scaled_stick_[1];
+        const float stick_y = core::at(pad->scaled_stick_, 1);
         const double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, tilt, frame);
-        const double heading = static_cast<double>(pad->scaled_stick_[0]) * kHeadingScale;
+        const double heading = static_cast<double>(core::at(pad->scaled_stick_, 0)) * kHeadingScale;
         get_ease(heading_, heading, frame);
     }
     auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds());

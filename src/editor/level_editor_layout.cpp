@@ -41,6 +41,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::layout {
 
@@ -175,7 +176,7 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
         } else if (key == "pos" || key == "angles") {
             if (!read_triple(value, v.data()))
                 return false;
-            (key == "pos" ? spec->pos : spec->angles) = {v[0], v[1], v[2]};
+            (key == "pos" ? spec->pos : spec->angles) = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
         } else if (key == "types") {
             std::istringstream list(value);
             std::string type;
@@ -188,9 +189,9 @@ bool read_node(std::istringstream& in, node_create::Spec* spec)
             if (!read_triple(value, v.data()))
                 return false;
             for (int i = 0; i < 3; ++i) {
-                if (v[i] < 0.0f || v[i] > 255.0f || v[i] != static_cast<float>(static_cast<int>(v[i])))
+                if (core::at(v, i) < 0.0f || core::at(v, i) > 255.0f || core::at(v, i) != static_cast<float>(static_cast<int>(core::at(v, i))))
                     return false;
-                spec->colour[i] = static_cast<int>(v[i]);
+                core::at(spec->colour, i) = static_cast<int>(core::at(v, i));
             }
         } else if (key == "brightness" || key == "inner" || key == "outer" || key == "radius") {
             const float number = std::strtof(value.c_str(), &end);
@@ -267,11 +268,11 @@ std::string emit_out(const FileLoad& file)
         if (!a.types.empty()) {
             out << " types=";
             for (size_t i = 0; i < a.types.size(); ++i)
-                out << (i ? "," : "") << a.types[i];
+                out << (i ? "," : "") << core::at(a.types, i);
         }
         node_create::Kind kind{};
         if (node_create::kind_of(a, &kind) && kind == node_create::Kind::kLight) {
-            out << " color=" << a.colour[0] << ',' << a.colour[1] << ',' << a.colour[2];
+            out << " color=" << core::at(a.colour, 0) << ',' << core::at(a.colour, 1) << ',' << core::at(a.colour, 2);
             std::array<char, 96> text{};
             std::snprintf(text.data(), sizeof(text), " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
             out << text.data();
@@ -596,7 +597,7 @@ bool saved_layout_scene(const std::string& file_name, uint32_t* scene)
         return false;
     uint32_t value = 0;
     for (int i = 0; i < 8; ++i) {
-        const char c = file_name[i];
+        const char c = core::at(file_name, i);
         const int digit = c >= '0' && c <= '9'   ? c - '0'
                           : c >= 'A' && c <= 'F' ? c - 'A' + 10
                           : c >= 'a' && c <= 'f' ? c - 'a' + 10
@@ -724,9 +725,9 @@ bool write_whole(const char* folder, const char* path, const char* data, size_t 
 void rows_of(const maths::Mat4& m, float rows[9])
 {
     for (int r = 0; r < 3; ++r) {
-        rows[r * 3 + 0] = m.row[r].x;
-        rows[r * 3 + 1] = m.row[r].y;
-        rows[r * 3 + 2] = m.row[r].z;
+        rows[r * 3 + 0] = core::at(m.row, r).x;
+        rows[r * 3 + 1] = core::at(m.row, r).y;
+        rows[r * 3 + 2] = core::at(m.row, r).z;
     }
 }
 
@@ -737,10 +738,10 @@ object_edit::State state_of(uint32_t id, const float pos[3], const float rows[9]
     state.scale = scale;
     state.pos = {pos[0], pos[1], pos[2], 1.0f};
     for (int r = 0; r < 3; ++r) {
-        state.matrix.row[r] = {rows[r * 3 + 0], rows[r * 3 + 1], rows[r * 3 + 2], 0.0f};
-        state.draw_matrix_.row[r] = state.matrix.row[r];
+        core::at(state.matrix.row, r) = {rows[r * 3 + 0], rows[r * 3 + 1], rows[r * 3 + 2], 0.0f};
+        core::at(state.draw_matrix_.row, r) = core::at(state.matrix.row, r);
     }
-    state.matrix.row[3] = state.draw_matrix_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(state.matrix.row, 3) = core::at(state.draw_matrix_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     return state;
 }
 
@@ -897,7 +898,7 @@ std::string get_apply(const FileLoad& file)
     for (const CopyRecord& record : file.copies) {
         const bool there = object_edit::is_copy(record.name) && live_object(record.name);
         if ((there ||
-             object_edit::make_copy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name)) &&
+             object_edit::make_copy(record.source, {core::at(record.pos, 0), core::at(record.pos, 1), core::at(record.pos, 2)}, record.name)) &&
             object_edit::get_restore(state_of(record.name, record.pos.data(), record.rows.data(), record.scale)))
             ++copies;
     }
@@ -918,9 +919,9 @@ std::string get_apply(const FileLoad& file)
         if (!node_edit::get_take_in(record.name, &values))
             continue;
         if (record.has_pos_)
-            values.pos = {record.pos[0], record.pos[1], record.pos[2]};
+            values.pos = {core::at(record.pos, 0), core::at(record.pos, 1), core::at(record.pos, 2)};
         if (record.has_angles_)
-            values.angles = {record.angles[0], record.angles[1], record.angles[2]};
+            values.angles = {core::at(record.angles, 0), core::at(record.angles, 1), core::at(record.angles, 2)};
         if ((record.has_pos_ || record.has_angles_) && node_edit::assign_value(record.name, values))
             ++nodes;
     }
@@ -1704,7 +1705,7 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     auto* array = new (script::alloc_script_array()) script::Array;
     array->configure_size_kind(static_cast<uint32_t>(entries.size()), script::kQbvalStruct);
     for (size_t i = 0; i < entries.size(); ++i)
-        array->set_element(static_cast<uint32_t>(i), cell::of(entries[i]));
+        array->set_element(static_cast<uint32_t>(i), cell::of(core::at(entries, i)));
     script->args_->append_array_ref("edited_list", array);
     script->args_->put_int("edited_count", static_cast<int>(entries.size()));
     return true;

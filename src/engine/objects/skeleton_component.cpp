@@ -30,6 +30,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -154,7 +155,7 @@ bool BoneRigModule::get_bone_position(uint32_t bone, maths::Vec4* out)
         *out = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Mat4 placed = entity_->basis_frame_;
     const maths::Vec4& pos = entity_->at_point_;
-    placed.row[3] = {pos.x, pos.y, pos.z, 1.0f};
+    core::at(placed.row, 3) = {pos.x, pos.y, pos.z, 1.0f};
     maths::Vec4 world;
     placed.xform(world, *out);
     *out = world;
@@ -172,7 +173,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     else
         get_bone_position(bone, &from);
     const float length = dropdown_length * kInchesPerFoot;
-    const maths::Vec4& up = entity_->basis_frame_.row[1];
+    const maths::Vec4& up = core::at(entity_->basis_frame_.row, 1);
     maths::Vec4 to;
     bool raise = true;
     if (dropdown) {
@@ -204,8 +205,8 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
         const float twice = spread + spread;
         const auto across = static_cast<float>(static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread);
         const double along = static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread;
-        const maths::Vec4& right = entity_->basis_frame_.row[0];
-        const maths::Vec4& at = entity_->basis_frame_.row[2];
+        const maths::Vec4& right = core::at(entity_->basis_frame_.row, 0);
+        const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
         to.x = static_cast<float>(to.x + static_cast<double>(across) * right.x);
         to.y = static_cast<float>(to.y + static_cast<double>(across) * right.y);
         to.z = to.z + across * right.z;
@@ -229,21 +230,21 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
     skeleton_bone_matrix(skeleton->bone_rig_, bone, &joint_mat);
     // The object's matrix at its position (the rows' w cleared).
     maths::Mat4 placed = entity_->basis_frame_;
-    placed.row[3] = entity_->at_point_;
+    core::at(placed.row, 3) = entity_->at_point_;
     // The bone's matrix in the game's axes: y and z swapped, the new z turned round; moved by the offset.
-    const maths::Vec4 up = joint_mat.row[1];
-    joint_mat.row[1] = joint_mat.row[2];
-    joint_mat.row[2] = {-up.x, -up.y, -up.z, -up.w};
+    const maths::Vec4 up = core::at(joint_mat.row, 1);
+    core::at(joint_mat.row, 1) = core::at(joint_mat.row, 2);
+    core::at(joint_mat.row, 2) = {-up.x, -up.y, -up.z, -up.w};
     offset->w = 0.0f;
-    joint_mat.row[3].x = joint_mat.row[3].x + offset->x;
-    joint_mat.row[3].y = joint_mat.row[3].y + offset->y;
-    joint_mat.row[3].z = joint_mat.row[3].z + offset->z;
-    placed.row[0].w = 0.0f;
-    placed.row[1].w = 0.0f;
-    placed.row[2].w = 0.0f;
+    core::at(joint_mat.row, 3).x = core::at(joint_mat.row, 3).x + offset->x;
+    core::at(joint_mat.row, 3).y = core::at(joint_mat.row, 3).y + offset->y;
+    core::at(joint_mat.row, 3).z = core::at(joint_mat.row, 3).z + offset->z;
+    core::at(placed.row, 0).w = 0.0f;
+    core::at(placed.row, 1).w = 0.0f;
+    core::at(placed.row, 2).w = 0.0f;
     d3dx::matrix_multiply(&joint_mat, &joint_mat, &placed);
 
-    params->put_vec3(0x7F261953, to_value(joint_mat.row[3])); // pos
+    params->put_vec3(0x7F261953, to_value(core::at(joint_mat.row, 3))); // pos
     maths::Vec4 quat;
     raw::as<maths::QuatRotation>(&quat)->from_matrix(joint_mat);
     if (quat.w > 0.0f)
@@ -355,7 +356,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
         float forward = 0.0f;
         if (params->fetch_float(0x186ED079, &forward, 0)) { // forward
             const maths::Vec4& pos = entity_->at_point_;
-            const maths::Vec4& at = entity_->basis_frame_.row[2];
+            const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
             start = {static_cast<float>(static_cast<double>(forward) * at.x + pos.x), forward * at.y + pos.y,
                      forward * at.z + pos.z, forward * at.w + pos.w};
         }
@@ -365,7 +366,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     auto spin = static_cast<float>(static_cast<double>(get_rand()) * kTwoPi * kOneOverRandMax);
     if (params->has_bare_flag(0x744E673F)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
-        const maths::Vec4& at = entity_->basis_frame_.row[2];
+        const maths::Vec4& at = core::at(entity_->basis_frame_.row, 2);
         const float side = at.x < 0.0f ? -1.0f : 1.0f;
         spin = static_cast<float>(std::acos(static_cast<double>(at.z)) * side);
     }

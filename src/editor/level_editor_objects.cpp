@@ -30,6 +30,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -83,7 +84,7 @@ bool add_copy_node(script::Struct* node)
     const uint32_t name = copy_nodes_name();
     int index = -1;
     for (uint32_t i = 0; i < manager->num_; ++i) {
-        if (manager->arrays_[i].label_ == name)
+        if (core::at(manager->arrays_, i).label_ == name)
             index = static_cast<int>(i);
     }
     if (index < 0) {
@@ -92,16 +93,16 @@ bool add_copy_node(script::Struct* node)
         g_copy_nodes = new (script::alloc_script_array()) script::Array;
         g_copy_node_list.clear();
         index = static_cast<int>(manager->num_);
-        manager->arrays_[index].label_ = name;
-        manager->arrays_[index].node_entries_ = g_copy_nodes;
-        manager->arrays_[index].flag_ = false;
+        core::at(manager->arrays_, index).label_ = name;
+        core::at(manager->arrays_, index).node_entries_ = g_copy_nodes;
+        core::at(manager->arrays_, index).flag_ = false;
         ++manager->num_;
     }
     g_copy_node_list.push_back(node);
     auto count = static_cast<uint32_t>(g_copy_node_list.size());
     g_copy_nodes->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
-        g_copy_nodes->set_element(i, cell::of(g_copy_node_list[i]));
+        g_copy_nodes->set_element(i, cell::of(core::at(g_copy_node_list, i)));
     return manager->hash_node_in(name, count - 1, cell::of(node));
 }
 
@@ -261,16 +262,16 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
     out->max = max;
     if (box_looks_world_space(min, max, pos)) {
         out->origin = {0.0f, 0.0f, 0.0f};
-        out->axes[0] = {1.0f, 0.0f, 0.0f};
-        out->axes[1] = {0.0f, 1.0f, 0.0f};
-        out->axes[2] = {0.0f, 0.0f, 1.0f};
+        core::at(out->axes, 0) = {1.0f, 0.0f, 0.0f};
+        core::at(out->axes, 1) = {0.0f, 1.0f, 0.0f};
+        core::at(out->axes, 2) = {0.0f, 0.0f, 1.0f};
         return true;
     }
     // (the model is drawn with the display matrix's rows and the object's position: 0x004215F0)
     out->origin = pos;
     for (int i = 0; i < 3; ++i) {
-        const maths::Vec4& row = object->display_matrix_.row[i];
-        out->axes[i] = {row.x, row.y, row.z};
+        const maths::Vec4& row = core::at(object->display_matrix_.row, i);
+        core::at(out->axes, i) = {row.x, row.y, row.z};
     }
     return true;
 }
@@ -313,7 +314,7 @@ V3 current_centre(objects::GameEntity* object)
     OrientedBox box{};
     if (model_box(object, &box)) {
         const V3 mid = (box.min + box.max) * 0.5f;
-        return box.origin + box.axes[0] * mid.x + box.axes[1] * mid.y + box.axes[2] * mid.z;
+        return box.origin + core::at(box.axes, 0) * mid.x + core::at(box.axes, 1) * mid.y + core::at(box.axes, 2) * mid.z;
     }
     const V3 pos = pos_of(object);
     return {pos.x, pos.y + 40.0f, pos.z};
@@ -330,7 +331,7 @@ void turn_about(objects::GameEntity* object, V3 pivot, float angle)
 {
     for (int i = 0; i < 3; ++i) {
         for (maths::Mat4* m : {&object->basis_frame_, &object->display_matrix_}) {
-            maths::Vec4& row = m->row[i];
+            maths::Vec4& row = core::at(m->row, i);
             const V3 turned = turn_about_up({row.x, row.y, row.z}, angle);
             row.x = turned.x;
             row.y = turned.y;
@@ -367,7 +368,7 @@ std::string describe(objects::GameEntity* object)
 {
     if (!object)
         return "-";
-    const maths::Vec4& at = object->basis_frame_.row[2];
+    const maths::Vec4& at = core::at(object->basis_frame_.row, 2);
     std::array<char, 200> text{};
     std::snprintf(text.data(), sizeof(text), "%s %s  at (%.0f, %.0f, %.0f)  heading %.0f", class_of(object->ident_),
                   caption(object->ident_).c_str(), object->at_point_.x, object->at_point_.y, object->at_point_.z,
@@ -558,7 +559,7 @@ std::vector<TableRow> copyable()
         return entries;
     static const uint32_t kModel = checksums::hash_from_text("model");
     for (uint32_t a = 0; a < manager->num_ && a < level_nodes::NodeManager::kMaxArrays; ++a) {
-        script::Array* nodes = manager->arrays_[a].node_entries_;
+        script::Array* nodes = core::at(manager->arrays_, a).node_entries_;
         if (!nodes || nodes->kind_tag_ != script::kQbvalStruct)
             continue;
         for (uint32_t i = 0; i < nodes->extent_; ++i) {

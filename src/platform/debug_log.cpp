@@ -10,6 +10,7 @@
 
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace debug_log {
 
@@ -37,8 +38,8 @@ void write_message(const char* message)
     std::array<char, 1024> text{};
     std::snprintf(text.data(), sizeof(text), "%s", message);
     size_t length = std::strlen(text.data());
-    while (length > 0 && (text[length - 1] == '\n' || text[length - 1] == '\r'))
-        text[--length] = '\0';
+    while (length > 0 && (core::at(text, length - 1) == '\n' || core::at(text, length - 1) == '\r'))
+        core::at(text, --length) = '\0';
     get_log("pc: %s", text.data());
 }
 

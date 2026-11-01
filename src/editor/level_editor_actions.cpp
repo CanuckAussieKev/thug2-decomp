@@ -12,6 +12,7 @@
 #include <array>
 
 #include "platform/run_log.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::actions {
 
@@ -233,7 +234,7 @@ bool parse_keys(const std::string& text, std::vector<Chord>* keys)
     while (start <= all.size()) {
         size_t comma = all.find(',', start);
         // ("Ctrl+," would be a chord ending in a comma: a comma right after '+' belongs to the chord)
-        while (comma != std::string::npos && comma > 0 && all[comma - 1] == '+')
+        while (comma != std::string::npos && comma > 0 && core::at(all, comma - 1) == '+')
             comma = all.find(',', comma + 1);
         const std::string part = all.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
         Chord c;
@@ -272,7 +273,7 @@ std::vector<int> settle_up(const std::vector<std::vector<Chord>>& bound, int sca
     int best_specificity = -1;
     for (int i = 0; std::cmp_less(i, bound.size()); ++i) {
         int specificity = -1;
-        for (const Chord& c : bound[i]) {
+        for (const Chord& c : core::at(bound, i)) {
             if (chord_matches(c, scancode, held))
                 specificity = std::max(specificity, get_specificity(c));
         }
@@ -313,11 +314,11 @@ int fuzzy_score(const std::string& query, const std::string& text)
     size_t qi = 0;
     int run = 0;
     for (size_t ti = 0; ti < t.size() && qi < q.size(); ++ti) {
-        if (t[ti] != q[qi]) {
+        if (core::at(t, ti) != core::at(q, qi)) {
             run = 0;
             continue;
         }
-        const bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(t[ti - 1]));
+        const bool word_start = ti == 0 || !std::isalnum(static_cast<unsigned char>(core::at(t, ti - 1)));
         score += 1 + (word_start ? 8 : 0) + run * 4 + (ti == 0 ? 6 : 0);
         ++run;
         ++qi;
@@ -650,14 +651,14 @@ const std::vector<ActStep>& get_all() { return get_registry(); }
 ActStep* get_pull(int index)
 {
     std::vector<ActStep>& r = get_registry();
-    return index >= 0 && std::cmp_less(index, r.size()) ? &r[index] : nullptr;
+    return index >= 0 && std::cmp_less(index, r.size()) ? &core::at(r, index) : nullptr;
 }
 
 int get_find(const std::string& id)
 {
     const std::vector<ActStep>& r = get_registry();
     for (int i = 0; std::cmp_less(i, r.size()); ++i) {
-        if (r[i].id == id)
+        if (core::at(r, i).id == id)
             return i;
     }
     return -1;
@@ -668,9 +669,9 @@ int enrol(const ActStep& action)
     std::vector<ActStep>& r = get_registry();
     const int at = get_find(action.id);
     if (at >= 0) {
-        const std::vector<Chord> keys = r[at].keys;
-        r[at] = action;
-        r[at].keys = keys;
+        const std::vector<Chord> keys = core::at(r, at).keys;
+        core::at(r, at) = action;
+        core::at(r, at).keys = keys;
         return at;
     }
     r.push_back(action);
@@ -678,7 +679,7 @@ int enrol(const ActStep& action)
     std::array<char, 160> text = {""};
     GetPrivateProfileStringA("editor_keys", action.id.c_str(), "", text.data(), sizeof(text), ini_path().c_str());
     std::vector<Chord> keys;
-    if (text[0] && parse_keys(text.data(), &keys))
+    if (core::at(text, 0) && parse_keys(text.data(), &keys))
         r.back().keys = keys;
     return static_cast<int>(r.size()) - 1;
 }
@@ -738,14 +739,14 @@ std::vector<int> conflicts(int index)
         return out;
     const std::vector<ActStep>& r = get_registry();
     for (int i = 0; std::cmp_less(i, r.size()); ++i) {
-        if (i == index || r[i].kind == Kind::kDetailsOf)
+        if (i == index || core::at(r, i).kind == Kind::kDetailsOf)
             continue;
         // (a key held and a key pressed may share a key: flying's E and nudging's E are one key in two modes)
-        if ((r[i].kind == Kind::kHold) != (a->kind == Kind::kHold))
+        if ((core::at(r, i).kind == Kind::kHold) != (a->kind == Kind::kHold))
             continue;
         bool clash = false;
         for (const Chord& x : a->keys) {
-            for (const Chord& y : r[i].keys)
+            for (const Chord& y : core::at(r, i).keys)
                 clash = clash || same_binding(x, y);
         }
         if (clash)
@@ -760,17 +761,17 @@ void begin_frame(const uint8_t* keys)
     g_fired.assign(r.size(), false);
     g_triggered.resize(r.size(), false);
     for (size_t i = 0; i < r.size(); ++i) {
-        if (g_triggered[i]) {
-            g_fired[i] = true;
-            g_triggered[i] = false;
+        if (core::at(g_triggered, i)) {
+            core::at(g_fired, i) = true;
+            core::at(g_triggered, i) = false;
         }
     }
     const uint8_t held = held_mods(keys);
     std::vector<std::vector<Chord>> bound(r.size());
     bool have_bound = false;
     for (int s = 0; s < SDL_NUM_SCANCODES; ++s) {
-        const bool pressed = keys[s] && !g_was[s];
-        g_was[s] = keys[s];
+        const bool pressed = keys[s] && !core::at(g_was, s);
+        core::at(g_was, s) = keys[s];
         if (!pressed || is_modifier(s))
             continue;
         if (g_capture >= 0) {
@@ -783,7 +784,7 @@ void begin_frame(const uint8_t* keys)
                         get_log("level editor: key %d can't be bound (not one the keymap names)", s);
                     } else {
                         if (std::cmp_less(g_capture_slot, next.size()))
-                            next[g_capture_slot] = chord;
+                            core::at(next, g_capture_slot) = chord;
                         else
                             next.push_back(chord);
                         set_keys(g_capture, next);
@@ -795,13 +796,13 @@ void begin_frame(const uint8_t* keys)
         }
         if (!have_bound) {
             for (size_t i = 0; i < r.size(); ++i) {
-                if (r[i].kind == Kind::kPress || r[i].kind == Kind::kFlipOver)
-                    bound[i] = r[i].keys;
+                if (core::at(r, i).kind == Kind::kPress || core::at(r, i).kind == Kind::kFlipOver)
+                    core::at(bound, i) = core::at(r, i).keys;
             }
             have_bound = true;
         }
         for (const int i : settle_up(bound, s, held))
-            g_fired[i] = true;
+            core::at(g_fired, i) = true;
     }
 }
 
@@ -811,7 +812,7 @@ void seed_keys(const uint8_t* keys)
     g_triggered.assign(g_triggered.size(), false);
 }
 
-bool squeezed(int index) { return index >= 0 && std::cmp_less(index, g_fired.size()) && g_fired[index]; }
+bool squeezed(int index) { return index >= 0 && std::cmp_less(index, g_fired.size()) && core::at(g_fired, index); }
 
 bool get_held(const uint8_t* keys, int index)
 {
@@ -832,7 +833,7 @@ void fire_off(int index)
     if (index < 0 || std::cmp_greater_equal(index, r.size()))
         return;
     g_triggered.resize(r.size(), false);
-    g_triggered[index] = true;
+    core::at(g_triggered, index) = true;
 }
 
 void get_run(int index)
@@ -874,7 +875,7 @@ void load_keys()
             continue;
         std::array<char, 160> text = {""};
         GetPrivateProfileStringA("editor_keys", a.id.c_str(), "", text.data(), sizeof(text), path.c_str());
-        if (!text[0])
+        if (!core::at(text, 0))
             continue;
         std::vector<Chord> keys;
         if (parse_keys(text.data(), &keys))

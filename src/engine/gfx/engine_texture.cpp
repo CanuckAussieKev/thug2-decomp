@@ -9,6 +9,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/gfx/viewport.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -24,7 +25,7 @@ bool BitmapTexture::load_by_name(const char* name, int in_images, int argument)
             std::snprintf(path.data(), sizeof(path), "images/%s", name);
     }
     int start = static_cast<int>(std::strlen(path.data()));
-    while (start > 0 && path[start - 1] != '\\' && path[start - 1] != '/')
+    while (start > 0 && core::at(path, start - 1) != '\\' && core::at(path, start - 1) != '/')
         --start;
     checksum_ = checksums::hash_from_text(path.data() + start);
     return ingest_file(path.data(), in_images, argument);

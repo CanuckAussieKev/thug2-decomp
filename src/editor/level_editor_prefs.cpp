@@ -10,6 +10,7 @@
 #include "editor/level_editor_ux8.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::prefs {
 
@@ -37,7 +38,7 @@ void get_accent_rgb(int accent, float rgb[3])
         {0.80f, 0.22f, 0.26f}, // red
         {0.10f, 0.60f, 0.62f}, // teal
     }};
-    const float* c = kRgb[std::clamp(accent, 0, kAccentCount - 1)].data();
+    const float* c = core::at(kRgb, std::clamp(accent, 0, kAccentCount - 1)).data();
     rgb[0] = c[0];
     rgb[1] = c[1];
     rgb[2] = c[2];
@@ -46,7 +47,7 @@ void get_accent_rgb(int accent, float rgb[3])
 const char* accent_name(int accent)
 {
     static const std::array<const char*, kAccentCount> kNames = {{"Orange", "Blue", "Green", "Purple", "Red", "Teal"}};
-    return kNames[std::clamp(accent, 0, kAccentCount - 1)];
+    return core::at(kNames, std::clamp(accent, 0, kAccentCount - 1));
 }
 
 namespace {
@@ -216,7 +217,7 @@ void pane(float scale, ImFont* heading, ImFont* small)
         get_accent_rgb(i, rgb.data());
         ImGui::SameLine(0.0f, 6.0f * scale);
         ImGui::PushID(i);
-        const ImVec4 colour(rgb[0], rgb[1], rgb[2], 1.0f);
+        const ImVec4 colour(core::at(rgb, 0), core::at(rgb, 1), core::at(rgb, 2), 1.0f);
         if (ImGui::ColorButton(accent_name(i), colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2((i == v.accent ? 22.0f : 16.0f) * scale, 16.0f * scale))) {
             v.accent = i;

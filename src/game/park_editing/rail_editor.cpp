@@ -24,6 +24,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -67,7 +68,7 @@ uint8_t& get_owned(memory::PoolPair& pair, int which) { return raw::bytes(&pair.
 void make_pool(memory::PoolPair& pair, int item_size, int count, const char* name)
 {
     void* memory = memory::alloc(sizeof(memory::SlabBank));
-    pair.pools[pair.current] =
+    core::at(pair.pools, pair.current) =
         memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
     get_owned(pair, pair.current) = 1;
 }
@@ -75,14 +76,14 @@ void make_pool(memory::PoolPair& pair, int item_size, int count, const char* nam
 // The current pool freed if it was made here; the slot cleared.
 void free_pool(memory::PoolPair& pair)
 {
-    memory::SlabBank* pool = pair.pools[pair.current];
+    memory::SlabBank* pool = core::at(pair.pools, pair.current);
     if (!pool)
         return;
     if (get_owned(pair, pair.current)) {
         memory::dealloc(pool->outset_);
         memory::Hub::get_pull()->dealloc(pool);
     }
-    pair.pools[pair.current] = nullptr;
+    core::at(pair.pools, pair.current) = nullptr;
 }
 
 // A rail taken out of the editor's list (the head and the current rail moved on past it).
@@ -285,7 +286,7 @@ bool EditedRail::any_point_outside(float x0, float z0, float x1, float z1) const
 EditedRailPoint* EditedRail::append_rail_vertex()
 {
     memory::PoolPair& pools = point_pools();
-    if (pools.pools[pools.current]->taken_count_ == RailAuthoring::kMaxPoints)
+    if (core::at(pools.pools, pools.current)->taken_count_ == RailAuthoring::kMaxPoints)
         return nullptr;
     auto* point = pools.allocate<EditedRailPoint>();
     if (point) {
@@ -324,7 +325,7 @@ EditedRailPoint* EditedRail::cut_at(EditedRailPoint* point)
     EditedRailPoint* prev = point->preceding_;
     if (prev && point->following_) {
         const memory::PoolPair& rails = rail_pools();
-        if (rails.pools[rails.current]->taken_count_ == RailAuthoring::kMaxRails)
+        if (core::at(rails.pools, rails.current)->taken_count_ == RailAuthoring::kMaxRails)
             return nullptr;
     }
     if (point == point_chain_) {
@@ -452,7 +453,7 @@ void RailAuthoring::free_point(void* point) { point_pools().dealloc(point); }
 int RailAuthoring::free_points()
 {
     const memory::PoolPair& pools = point_pools();
-    return kMaxPoints - pools.pools[pools.current]->taken_count_;
+    return kMaxPoints - core::at(pools.pools, pools.current)->taken_count_;
 }
 
 // 0x004F7550
@@ -735,7 +736,7 @@ void RailAuthoring::get_pack()
     while (rail->following_)
         rail = rail->following_;
     uint16_t* count = packed_.point_counts_.data();
-    uint16_t* record = packed_.records_[0].data();
+    uint16_t* record = core::at(packed_.records_, 0).data();
     // From the first rail laid (the tail) back to the head, each rail's points from its first laid.
     for (; rail; rail = rail->preceding_) {
         uint16_t points = 0;
@@ -780,7 +781,7 @@ void RailAuthoring::unpack()
     if (!rail_buffer_format::counts_fit(packed_)) // Not original - counts past the arrays: no rails
         return;
     const uint16_t* count = packed_.point_counts_.data();
-    const uint16_t* record = packed_.records_[0].data();
+    const uint16_t* record = core::at(packed_.records_, 0).data();
     for (unsigned int rails = packed_.rail_count_; rails != 0; --rails) {
         const uint16_t points = *count++;
         EditedRail* rail = get_new_rail();

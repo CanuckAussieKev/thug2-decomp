@@ -18,6 +18,7 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace assets {
 
@@ -306,13 +307,13 @@ void ResourceRegistry::unload_assets_of_type(Resource* head, bool all, int type)
             break;
         Resource* previous = asset->last_value_;
         if ((all || !asset->pinned_) && type == asset->fetch_kind())
-            found[count++] = asset;
+            core::at(found, count++) = asset;
         if (asset == head)
             break;
         asset = previous;
     }
     for (int i = 0; i < count; ++i)
-        discard_loaded_item(found[i]);
+        discard_loaded_item(core::at(found, i));
 }
 
 // 0x00407F20

@@ -19,6 +19,7 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -51,7 +52,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
                   const maths::Vec4* points, const int* kinds, uint16_t face_flags, uint32_t checksum,
                   const CollScaled* placed)
 {
-    RectHit& hit = hits->hits[hits->count];
+    RectHit& hit = core::at(hits->hits, hits->count);
     const double e2x = static_cast<double>(v2.x) - v0.x;
     const double e2y = static_cast<double>(v2.y) - v0.y;
     const double e2z = static_cast<double>(v2.z) - v0.z;
@@ -68,8 +69,8 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         return;
     hit.face_flag40_ = static_cast<uint8_t>(face_flags & 0x40);
     hit.checksum = checksum;
-    hit.ends[0].point = points[0];
-    hit.ends[1].point = points[1];
+    core::at(hit.ends, 0).point = points[0];
+    core::at(hit.ends, 1).point = points[1];
     if (placed) {
         for (RectHitEnd& end : hit.ends) {
             const maths::Vec4 scaled{end.point.x * placed->size_factor_.x, placed->size_factor_.y * end.point.y,
@@ -81,7 +82,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         hit.normal = turned;
     }
     for (int e = 1; e >= 0; --e) {
-        RectHitEnd& end = hit.ends[e];
+        RectHitEnd& end = core::at(hit.ends, e);
         end.on_triangle_edge_ = kinds[e] != 0;
         maths::Vec4 edge{};
         switch (kinds[e]) {
@@ -167,9 +168,9 @@ double dot3(float ax, float ay, float az, float bx, float by, float bz)
 RectHit* RectHit::copy_from(const RectHit* other)
 {
     for (int e = 0; e < 2; ++e) {
-        ends[e].point = other->ends[e].point;
-        ends[e].edge = other->ends[e].edge;
-        ends[e].on_triangle_edge_ = other->ends[e].on_triangle_edge_;
+        core::at(ends, e).point = core::at(other->ends, e).point;
+        core::at(ends, e).edge = core::at(other->ends, e).edge;
+        core::at(ends, e).on_triangle_edge_ = core::at(other->ends, e).on_triangle_edge_;
     }
     normal = other->normal;
     checksum = other->checksum;
@@ -204,7 +205,7 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
     hits->count = 0;
     if (use_cache) {
         for (int i = 0; i < cache->statics_; ++i) {
-            const HitMeshCache::TableRow& entry = cache->entries_[i];
+            const HitMeshCache::TableRow& entry = core::at(cache->entries_, i);
             if (grown.intersects(*entry.bounds))
                 collide_with_rect(entry.object, rect, &grown, hits);
         }
@@ -307,10 +308,10 @@ void BoxProbe::join_hits()
     std::array<maths::Vec4, RectHits::kMost> direction{};
     // each hit's direction (x, y, z made unit when they have a length; w as it is)
     for (int i = count - 1; i >= 0; --i) {
-        used[i] = false;
-        const maths::Vec4& p0 = hits[i].ends[0].point;
-        const maths::Vec4& p1 = hits[i].ends[1].point;
-        maths::Vec4& d = direction[i];
+        core::at(used, i) = false;
+        const maths::Vec4& p0 = core::at(hits[i].ends, 0).point;
+        const maths::Vec4& p1 = core::at(hits[i].ends, 1).point;
+        maths::Vec4& d = core::at(direction, i);
         d = {get_difference(p1.x, p0.x), get_difference(p1.y, p0.y), get_difference(p1.z, p0.z),
              get_difference(p1.w, p0.w)};
         const double length = std::sqrt((static_cast<double>(d.y) * d.y + static_cast<double>(d.x) * d.x) +
@@ -324,18 +325,18 @@ void BoxProbe::join_hits()
     }
     // duplicates of a later hit (the same ends, either way round, the normals within 0.99) dropped
     for (int j = count - 1; j > 0; --j) {
-        if (used[j])
+        if (core::at(used, j))
             continue;
         const RectHit& later = hits[j];
         for (int k = j - 1; k >= 0; --k) {
             const RectHit& earlier = hits[k];
-            const bool same = (same_point(later.ends[0].point, earlier.ends[0].point) &&
-                               same_point(later.ends[1].point, earlier.ends[1].point)) ||
-                              (same_point(later.ends[0].point, earlier.ends[1].point) &&
-                               same_point(later.ends[1].point, earlier.ends[0].point));
+            const bool same = (same_point(core::at(later.ends, 0).point, core::at(earlier.ends, 0).point) &&
+                               same_point(core::at(later.ends, 1).point, core::at(earlier.ends, 1).point)) ||
+                              (same_point(core::at(later.ends, 0).point, core::at(earlier.ends, 1).point) &&
+                               same_point(core::at(later.ends, 1).point, core::at(earlier.ends, 0).point));
             if (same && dot3(earlier.normal.z, earlier.normal.y, earlier.normal.x, later.normal.z, later.normal.y,
                              later.normal.x) > kParallel)
-                used[k] = true;
+                core::at(used, k) = true;
         }
     }
     // each hit left, extended by the earlier ones it lines up with
@@ -343,36 +344,36 @@ void BoxProbe::join_hits()
     for (int j = count - 1; j >= 0; --j) {
         RectHit joined{};
         joined.copy_from(&hits[j]);
-        if (used[j])
+        if (core::at(used, j))
             continue;
         for (int k = j - 1; k >= 0; --k) {
-            if (used[k])
+            if (core::at(used, k))
                 continue;
             const RectHit& other = hits[k];
             if (dot3(joined.normal.z, joined.normal.x, joined.normal.y, other.normal.z, other.normal.x,
                      other.normal.y) < kParallel)
                 continue;
-            if (std::fabs(dot3(direction[j].x, direction[j].z, direction[k].y, direction[k].x, direction[k].z,
-                               direction[j].y)) < kParallel)
+            if (std::fabs(dot3(core::at(direction, j).x, core::at(direction, j).z, core::at(direction, k).y, core::at(direction, k).x, core::at(direction, k).z,
+                               core::at(direction, j).y)) < kParallel)
                 continue;
-            const RectHitEnd& near0 = other.ends[0];
-            const RectHitEnd& close_a = other.ends[1];
-            const maths::Vec4& start = joined.ends[0].point;
-            const maths::Vec4& end = joined.ends[1].point;
+            const RectHitEnd& near0 = core::at(other.ends, 0);
+            const RectHitEnd& close_a = core::at(other.ends, 1);
+            const maths::Vec4& start = core::at(joined.ends, 0).point;
+            const maths::Vec4& end = core::at(joined.ends, 1).point;
             if (same_point(start, near0.point)) {
-                joined.ends[0] = close_a;
+                core::at(joined.ends, 0) = close_a;
             } else if (same_point(start, close_a.point)) {
-                joined.ends[0] = near0;
+                core::at(joined.ends, 0) = near0;
             } else if (same_point(end, near0.point)) {
-                joined.ends[1] = close_a;
+                core::at(joined.ends, 1) = close_a;
             } else if (same_point(end, close_a.point)) {
-                joined.ends[1] = near0;
+                core::at(joined.ends, 1) = near0;
             } else {
                 continue;
             }
-            used[k] = true;
+            core::at(used, k) = true;
         }
-        joined_[joined_count_++].get_assign(&joined);
+        core::at(joined_, joined_count_++).get_assign(&joined);
     }
 }
 
@@ -397,7 +398,7 @@ void BoxProbe::debug_draw(uint32_t r, uint32_t g, uint32_t b, int frames)
         g += 0x63;
         r += 0xC9;
         const uint32_t hit_colour = ((((b | 0xFFFFFF00u) << 8) | g) << 8) | r;
-        gfx::push_diag_line(&hits[i].ends[0].point, &hits[i].ends[1].point, hit_colour, hit_colour, 1);
+        gfx::push_diag_line(&core::at(hits[i].ends, 0).point, &core::at(hits[i].ends, 1).point, hit_colour, hit_colour, 1);
     }
 }
 

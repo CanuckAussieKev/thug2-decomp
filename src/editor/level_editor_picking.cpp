@@ -1,6 +1,7 @@
 #include "editor/level_editor_picking.h"
 #include "engine/core/raw_view.h"
 #include "gpu/vertex_view.h"
+#include "engine/core/checked_index.h"
 
 #include <algorithm>
 #include <cmath>
@@ -18,12 +19,12 @@ bool is_structure(V3 min, V3 max, V3 camera, float level_share)
         camera.y <= max.y + kInsideMargin && camera.z >= min.z - kInsideMargin && camera.z <= max.z + kInsideMargin)
         return true;
     std::array<float, 3> e = {{max.x - min.x, max.y - min.y, max.z - min.z}};
-    if (e[1] <= kLowHeight && std::min(e[0], e[2]) >= kLowSpan && level_share >= kLevelTopShare)
+    if (core::at(e, 1) <= kLowHeight && std::min(core::at(e, 0), core::at(e, 2)) >= kLowSpan && level_share >= kLevelTopShare)
         return true;
     std::sort(e.begin(), e.begin() + 3); // e[0] thinnest .. e[2] longest
-    if (e[1] >= kWideSpan)
+    if (core::at(e, 1) >= kWideSpan)
         return true;
-    return e[1] >= kSlabSpan && e[0] <= e[1] * kSlabThickness;
+    return core::at(e, 1) >= kSlabSpan && core::at(e, 0) <= core::at(e, 1) * kSlabThickness;
 }
 
 void add_top_triangle(TopArea* area, V3 a, V3 b, V3 c)
@@ -45,7 +46,7 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
 {
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride).float3(i);
-        return V3{f[0], f[1], f[2]};
+        return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
         const uint16_t a = indices[i - 2];
@@ -174,9 +175,9 @@ int get_index_of(const std::vector<TableRow>& order, Choice kind, uint32_t id)
 {
     // (a passed piece taken by Alt is the same piece as in the passed part)
     for (size_t i = 0; i < order.size(); ++i)
-        if (order[i].id == id &&
-            (order[i].kind == kind || ((kind == Choice::kScenery || kind == Choice::kPassed) &&
-                                       (order[i].kind == Choice::kScenery || order[i].kind == Choice::kPassed))))
+        if (core::at(order, i).id == id &&
+            (core::at(order, i).kind == kind || ((kind == Choice::kScenery || kind == Choice::kPassed) &&
+                                       (core::at(order, i).kind == Choice::kScenery || core::at(order, i).kind == Choice::kPassed))))
             return static_cast<int>(i);
     return -1;
 }
@@ -218,7 +219,7 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
     float best = max_t;
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride).float3(i);
-        return V3{f[0], f[1], f[2]};
+        return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
         const uint16_t a = indices[i - 2];

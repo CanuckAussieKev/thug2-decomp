@@ -22,6 +22,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -178,7 +179,7 @@ maths::Mat4& GrindRailHub::change_body_transform(const maths::Mat4& matrix)
 Record24* Record24::get_assign(const Record24* other)
 {
     for (int i = 0; i < 9; ++i)
-        words[i] = other->words[i];
+        core::at(words, i) = core::at(other->words, i);
     return this;
 }
 
@@ -186,7 +187,7 @@ Record24* Record24::get_assign(const Record24* other)
 Record34* Record34::get_assign(const Record34* other)
 {
     for (int i = 0; i < 13; ++i)
-        words[i] = other->words[i];
+        core::at(words, i) = core::at(other->words, i);
     return this;
 }
 
@@ -400,10 +401,10 @@ maths::Mat4* GrindRailHub::get_climb_matrix(maths::Mat4* out, const GrindPoint* 
 {
     maths::Mat4 local;
     raw::as<const maths::QuatRotation>(&node->climb_)->fetch_mat(&local); // the quaternion's
-    local.row[0].w = 0.0f;
-    local.row[1].w = 0.0f;
-    local.row[2].w = 0.0f;
-    local.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(local.row, 0).w = 0.0f;
+    core::at(local.row, 1).w = 0.0f;
+    core::at(local.row, 2).w = 0.0f;
+    core::at(local.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     if (!on_object_) {
         *out = local;
     } else {
@@ -754,7 +755,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
         if (!rail_clear(node_world, next_world))
             continue;
         Record34 record;
-        record.words[12] = cell::of(node);
+        core::at(record.words, 12) = cell::of(node);
         maths::Vec4 line_world, rail_world, next_at, node_at;
         const maths::Vec4* line_at = to_world(&line_world, &on_line);
         const maths::Vec4* rail_at = to_world(&rail_world, &on_rail);

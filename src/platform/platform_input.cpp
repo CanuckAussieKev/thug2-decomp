@@ -17,6 +17,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / wcscpy: the original's own, into its fixed buffers)
 
@@ -117,7 +118,7 @@ GUID parse_joystick_guid(const char* text, DWORD size)
     const char* group = cursor + 1;
     std::array<char, 5> four{};
     std::memcpy(four.data(), group, 4);
-    four[4] = 0;
+    core::at(four, 4) = 0;
     const char* four_cursor = four.data();
     value = parse_hex(&four_cursor);
     guid.Data4[2] = static_cast<uint8_t>(value >> 8);
@@ -533,7 +534,7 @@ double mouse_axis_stick(const DIMOUSESTATE2* state, int control)
 }
 
 // One of the pad's eight pressure buttons held.
-void get_press(sio::PadSnapshot* pad, int button) { pad->pressure[button] = 0xFF; }
+void get_press(sio::PadSnapshot* pad, int button) { core::at(pad->pressure, button) = 0xFF; }
 
 } // namespace
 
@@ -541,7 +542,7 @@ void get_press(sio::PadSnapshot* pad, int button) { pad->pressure[button] = 0xFF
 bool joystick_control_down(const DIJOYSTATE2* state, int control)
 {
     if (control >= 11 && control <= 39)
-        return state->rgbButtons[control - 11] != 0;
+        return core::at(state->rgbButtons, control - 11) != 0;
     if (control >= 1 && control <= 10) {
         const int value = joystick_axis(state, control);
         return value > 200 || value < -200;
@@ -553,7 +554,7 @@ bool joystick_control_down(const DIJOYSTATE2* state, int control)
 bool mouse_control_down(const DIMOUSESTATE2* state, int control)
 {
     if (control >= 4 && control <= 11)
-        return (state->rgbButtons[control - 4] >> 7) != 0;
+        return (core::at(state->rgbButtons, control - 4) >> 7) != 0;
     if (control >= 1 && control <= 3) {
         const LONG value = control == 1 ? state->lX : control == 2 ? state->lY : state->lZ;
         return value > 3 || value < -3;
@@ -566,13 +567,13 @@ double mouse_stick_value(const DIMOUSESTATE2* state, int negative, int positive)
 {
     double value = 0.0;
     if (negative >= 4 && negative <= 11) {
-        if (state->rgbButtons[negative - 4] & 0x80)
+        if (core::at(state->rgbButtons, negative - 4) & 0x80)
             value = -1.0;
     } else if (negative >= 1 && negative <= 3) {
         value = mouse_axis_stick(state, negative);
     }
     if (positive >= 4 && positive <= 11)
-        return (state->rgbButtons[positive - 4] & 0x80) ? value + 1.0 : value;
+        return (core::at(state->rgbButtons, positive - 4) & 0x80) ? value + 1.0 : value;
     if (positive >= 1 && positive <= 3)
         return mouse_axis_stick(state, positive); // (in place of the first)
     return value;
@@ -583,13 +584,13 @@ double joystick_stick_value(const DIJOYSTATE2* state, int negative, int positive
 {
     double value = 0.0;
     if (negative >= 11 && negative <= 39) {
-        if (state->rgbButtons[negative - 11])
+        if (core::at(state->rgbButtons, negative - 11))
             value = -1.0;
     } else if (negative >= 1 && negative <= 10) {
         value = joystick_axis(state, negative) * static_cast<double>(kJoystickStickScale);
     }
     if (positive >= 11 && positive <= 39)
-        return state->rgbButtons[positive - 11] ? value + 1.0 : value;
+        return core::at(state->rgbButtons, positive - 11) ? value + 1.0 : value;
     if (positive >= 1 && positive <= 10)
         return joystick_axis(state, positive) * static_cast<double>(kJoystickStickScale); // (in place of the first)
     return value;
@@ -617,7 +618,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
         auto stick = [&](int index, int negative, int positive, bool reversed) {
             auto value = static_cast<int16_t>(truncate(mouse_stick_value(mouse, negative, positive) * kStickMax));
             if (value != 0)
-                pad->sticks[index] = static_cast<int16_t>(reversed ? -value : value);
+                core::at(pad->sticks, index) = static_cast<int16_t>(reversed ? -value : value);
         };
         stick(0, m[2], m[3], mouse_invert_x());
         stick(1, m[0], m[1], mouse_invert_y());
@@ -651,8 +652,8 @@ int read_pad(int port, sio::PadSnapshot* pad)
         const int32_t* g = controls.gamepad.data();
         auto stick = [&](int index, int negative, int positive, float scale) {
             auto value = static_cast<int16_t>(truncate(joystick_stick_value(joystick, negative, positive) * scale));
-            if (value != 0 && std::abs(static_cast<int>(pad->sticks[index])) < std::abs(static_cast<int>(value)))
-                pad->sticks[index] = value;
+            if (value != 0 && std::abs(static_cast<int>(core::at(pad->sticks, index))) < std::abs(static_cast<int>(value)))
+                core::at(pad->sticks, index) = value;
         };
         stick(0, g[2], g[3], kStickMax);
         stick(1, g[0], g[1], kStickMaxReversed);
@@ -689,7 +690,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
         return 0;
     auto stick = [&](int index, int key, int16_t value) {
         if (get_key_down(key))
-            pad->sticks[index] = value;
+            core::at(pad->sticks, index) = value;
     };
     if (mode != kPadDefaultKeys && !(mode == kPadDefaultKeysPort0 && port == 0)) {
         // The port's keys (action 12 has none: Escape is the button 0x10, on port 0 only).
@@ -734,7 +735,7 @@ int read_pad(int port, sio::PadSnapshot* pad)
         if (setting == 0x20 || setting == 0x10)
             pad->buttons |= static_cast<uint16_t>(setting);
         else
-            pad->pressure[setting] = 0xFF;
+            core::at(pad->pressure, setting) = 0xFF;
     };
     stick(0, DIK_LEFT, -kStickFull);
     stick(0, DIK_RIGHT, kStickFull);
@@ -750,19 +751,19 @@ int read_pad(int port, sio::PadSnapshot* pad)
     stick(2, DIK_C, kStickFull);
     const auto dpad = std::to_array<int>({DIK_HOME, DIK_END, DIK_DELETE, DIK_NEXT});
     for (int i = 0; i < 4; ++i) {
-        if (get_key_down(dpad[i]))
+        if (get_key_down(core::at(dpad, i)))
             pad->buttons |= static_cast<uint16_t>(1 << i);
     }
     const auto pressure = std::to_array<int>({DIK_Q, DIK_W, DIK_E, DIK_R});
     for (int i = 0; i < 4; ++i) {
-        if (get_key_down(pressure[i]))
+        if (get_key_down(core::at(pressure, i)))
             get_press(pad, i);
     }
     if (get_key_down(DIK_BACK))
         pad->buttons |= 0x20;
     const auto more_pressure = std::to_array<int>({DIK_MINUS, DIK_EQUALS, DIK_1, DIK_2});
     for (int i = 0; i < 4; ++i) {
-        if (get_key_down(more_pressure[i]))
+        if (get_key_down(core::at(more_pressure, i)))
             get_press(pad, 4 + i);
     }
     if (get_key_down(DIK_3))

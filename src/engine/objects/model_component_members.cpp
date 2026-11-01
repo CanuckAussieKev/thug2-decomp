@@ -23,6 +23,7 @@
 #include "formats/byte_stream.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -255,9 +256,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         break;
     }
     case kCancelRotateDisplay: {
-        twist_rate_[0].get_clear();
-        twist_rate_[1].get_clear();
-        twist_rate_[2].get_clear();
+        core::at(twist_rate_, 0).get_clear();
+        core::at(twist_rate_, 1).get_clear();
+        core::at(twist_rate_, 2).get_clear();
         void* manager = net_session_slot();
         void* player = find_player_slot_by_obj(manager, entity_->ident_);
         if (player && is_own_player(player)) {
@@ -293,9 +294,9 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         uint8_t axes = 0;
         static const std::array<uint32_t, 3> kAxes = {{kX, kY, kZ}};
         for (int axis = 0; axis < 3; ++axis) {
-            if (!params->has_bare_flag(kAxes[axis]))
+            if (!params->has_bare_flag(core::at(kAxes, axis)))
                 continue;
-            twist_rate_[axis].append_one(duration, now, start, end - start, power, hold, dont_pause);
+            core::at(twist_rate_, axis).append_one(duration, now, start, end - start, power, hold, dont_pause);
             axes |= static_cast<uint8_t>(1 << axis);
         }
         void* manager = net_session_slot();
@@ -381,8 +382,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         float u_scale = 1.0f, v_scale = 1.0f;
         const bool scaled = params->fetch_float(kUScale, &u_scale, 0);
         if (params->fetch_float(kVScale, &v_scale, 0) || scaled) {
-            uv.row[0].x *= u_scale;
-            uv.row[1].y *= v_scale;
+            core::at(uv.row, 0).x *= u_scale;
+            core::at(uv.row, 1).y *= v_scale;
         }
         float rot = 0.0f;
         if (params->fetch_float(kRot, &rot, 0))
@@ -390,8 +391,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         float u_off = 0.0f, v_off = 0.0f;
         const bool offset = params->fetch_float(kUOff, &u_off, 0);
         if (params->fetch_float(kVOff, &v_off, 0) || offset) {
-            uv.row[3].x = u_off;
-            uv.row[3].y = v_off;
+            core::at(uv.row, 3).x = u_off;
+            core::at(uv.row, 3).y = v_off;
         }
         mesh_instance_->choose_uv_matrix(material, pass, &uv);
         break;
@@ -487,8 +488,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
             script::Struct* line_params = nullptr;
             if (params->read_sub_struct(kLine, &line_params, false)) {
                 std::array<maths::Vec4, 2> line{};
-                line_params->fetch_vec(kStart, &line[0], 1);
-                line_params->fetch_vec(kEnd, &line[1], 1);
+                line_params->fetch_vec(kStart, &core::at(line, 0), 1);
+                line_params->fetch_vec(kEnd, &core::at(line, 1), 1);
                 const int hit = test_collision(line.data(), arg, 0, 0, 0);
                 if (hit)
                     script->args_->put_name_key(kCollisionResult, static_cast<uint32_t>(hit));

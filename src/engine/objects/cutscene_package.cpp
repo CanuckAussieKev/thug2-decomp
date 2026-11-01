@@ -43,6 +43,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -277,15 +278,15 @@ CinematicTable::~CinematicTable()
         delete_source(object_source_);
     object_source_ = nullptr;
     for (int i = 0; i < animation_count_; ++i) {
-        if (animations_[i].source)
-            delete_source(animations_[i].source);
-        animations_[i].data = nullptr; // (the source's pointer left as it is, as the original)
+        if (core::at(animations_, i).source)
+            delete_source(core::at(animations_, i).source);
+        core::at(animations_, i).data = nullptr; // (the source's pointer left as it is, as the original)
     }
     destroy_objects();
     remove_cutscene_lights();
     for (int i = 0; i < asset_count_; ++i) {
-        discard_loaded_item(assets_[i]);
-        assets_[i] = 0;
+        discard_loaded_item(core::at(assets_, i));
+        core::at(assets_, i) = 0;
     }
     if (flag_34b_0_) {
         audio::stop_music();
@@ -357,7 +358,7 @@ void CinematicTable::load_from_bundle()
         case kTypeImage: {
             const uint32_t name = entry->name;
             load_asset_data(name, 6, 0, data, entry->size, nullptr);
-            assets_[asset_count_] = name;
+            core::at(assets_, asset_count_) = name;
             ++asset_count_;
             break;
         }
@@ -422,8 +423,8 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
         skin[0] = skin[1] = skin[2] = skin[3] = 1.0f;
         for (int k = 0; k < 4; ++k) {
             std::array<float, 4> colour{};
-            script::Struct* from = part1->has_entry_named(kColourNames[k]) ? part1 : part2;
-            std::memcpy(skin + 4 * (k + 1), read_colour(colour.data(), from, kColourNames[k]), 16);
+            script::Struct* from = part1->has_entry_named(core::at(kColourNames, k)) ? part1 : part2;
+            std::memcpy(skin + 4 * (k + 1), read_colour(colour.data(), from, core::at(kColourNames, k)), 16);
         }
         // Not original - the colours read within their asset (bundle_format.h): a count past it reads none (the
         // original's table ran past the asset).
@@ -469,9 +470,9 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             textures_name, 3, 0, texture_data, texture_size, false, true, &texture_params, 0);
         static_cast<assets::ResourceRegistry*>(assets)->read_resource_from_stream(model_name, 7, textures_name, data,
                                                                                   entry->size, false, true, &params, 0);
-        assets_[asset_count_] = model_name;
+        core::at(assets_, asset_count_) = model_name;
         ++asset_count_;
-        assets_[asset_count_] = textures_name;
+        core::at(assets_, asset_count_) = textures_name;
         ++asset_count_;
     }
     bundle_ptr_->free_asset(entry->name, entry->type);

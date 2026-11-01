@@ -22,6 +22,7 @@
 #include "platform/run_log.h"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::ux3 {
 
@@ -87,7 +88,7 @@ void get_palette()
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize);
     if (!g_palette_was_open) {
-        g_query[0] = 0;
+        core::at(g_query, 0) = 0;
         g_highlight = 0;
         ImGui::SetKeyboardFocusHere();
         g_palette_was_open = true;
@@ -106,7 +107,7 @@ void get_palette()
     const std::vector<actions::ActStep>& all = actions::get_all();
     std::vector<std::pair<int, int>> found; // (score, index)
     for (int i = 0; std::cmp_less(i, all.size()); ++i) {
-        const actions::ActStep& a = all[i];
+        const actions::ActStep& a = core::at(all, i);
         const int score = std::max({actions::fuzzy_score(g_query.data(), a.name) * 2,
                                     actions::fuzzy_score(g_query.data(), a.category + " " + a.name),
                                     std::strlen(g_query.data()) >= 3 ? actions::fuzzy_score(g_query.data(), a.tip) / 2 : 0,
@@ -123,8 +124,8 @@ void get_palette()
                          8.0f * current_s()));
     int run = -1;
     for (int r = 0; std::cmp_less(r, found.size()); ++r) {
-        const int i = found[r].second;
-        const actions::ActStep& a = all[i];
+        const int i = core::at(found, r).second;
+        const actions::ActStep& a = core::at(all, i);
         const bool enabled = actions::is_switched_on(i);
         ImGui::PushID(i);
         const int checked = actions::get_checked(i);
@@ -157,16 +158,16 @@ void get_palette()
         ImGui::TextDisabled("Nothing matches");
     ImGui::EndChild();
     if (enter && !found.empty())
-        run = found[g_highlight].second;
+        run = core::at(found, g_highlight).second;
     ImGui::End();
     if (run >= 0) {
         open = false;
         if (actions::is_switched_on(run)) {
             get_queue([run] { actions::get_run(run); });
         } else {
-            const std::string why = all[run].kind == actions::Kind::kDetailsOf
-                                        ? all[run].name + ": " + actions::get_keys_text(run)
-                                        : all[run].name + " is unavailable";
+            const std::string why = core::at(all, run).kind == actions::Kind::kDetailsOf
+                                        ? core::at(all, run).name + ": " + actions::get_keys_text(run)
+                                        : core::at(all, run).name + " is unavailable";
             get_queue([why] { show_message(why); });
         }
     }
@@ -198,11 +199,11 @@ void history_window()
         ImGui::PushID(i);
         const bool current = i == static_cast<int>(undo.size()) - 1;
         std::array<char, 200> text{};
-        std::snprintf(text.data(), sizeof(text), "%2d  %s", i + 1, undo[i].label.c_str());
+        std::snprintf(text.data(), sizeof(text), "%2d  %s", i + 1, core::at(undo, i).label.c_str());
         if (ImGui::Selectable(text.data(), current))
             jump = -(static_cast<int>(undo.size()) - 1 - i), any = true;
-        if (ImGui::IsItemHovered() && !undo[i].detail.empty())
-            ImGui::SetTooltip("Selection: %s", undo[i].detail.c_str());
+        if (ImGui::IsItemHovered() && !core::at(undo, i).detail.empty())
+            ImGui::SetTooltip("Selection: %s", core::at(undo, i).detail.c_str());
         if (current)
             ImGui::SetItemDefaultFocus();
         ImGui::PopID();
@@ -211,13 +212,13 @@ void history_window()
         ImGui::PushID(1000 + j);
         std::array<char, 200> text{};
         std::snprintf(text.data(), sizeof(text), "%2d  %s  (undone)", static_cast<int>(undo.size()) + j + 1,
-                      redo[j].label.c_str());
+                      core::at(redo, j).label.c_str());
         ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
         if (ImGui::Selectable(text.data(), false))
             jump = j + 1, any = true;
         ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered() && !redo[j].detail.empty())
-            ImGui::SetTooltip("Selection: %s", redo[j].detail.c_str());
+        if (ImGui::IsItemHovered() && !core::at(redo, j).detail.empty())
+            ImGui::SetTooltip("Selection: %s", core::at(redo, j).detail.c_str());
         ImGui::PopID();
     }
     ImGui::EndChild();
@@ -345,14 +346,14 @@ void snapshots_window()
     const bool enter = ImGui::InputTextWithHint("##name", "Name", g_snapshot_name.data(), sizeof(g_snapshot_name),
                                                 ImGuiInputTextFlags_EnterReturnsTrue);
     ImGui::SameLine();
-    if ((ImGui::Button("Save Snapshot") || enter) && g_snapshot_name[0]) {
+    if ((ImGui::Button("Save Snapshot") || enter) && core::at(g_snapshot_name, 0)) {
         const std::string name = g_snapshot_name.data();
         get_queue([name] {
             std::string message;
             organize::save_snapshot(name, &message);
             show_message(message, 5.0);
         });
-        g_snapshot_name[0] = 0;
+        core::at(g_snapshot_name, 0) = 0;
         g_snapshots_stale = true;
     }
     ImGui::BeginChild("##snapshots");
@@ -509,7 +510,7 @@ void get_menus()
 // The Inspector's foldable sections (their ### ids - the windows' root, where they're drawn).
 constexpr auto kSections = std::to_array<const char*>({"###fields",    "###levelprops", "###camera",  "###cameras", "###clusters",
                                  "###faceflags", "###locks",      "###ux3clip", "###ux3multi"});
-constexpr int kSectionCount = sizeof(kSections) / sizeof(kSections[0]);
+constexpr int kSectionCount = sizeof(kSections) / sizeof(core::at(kSections, 0));
 std::array<int, kSectionCount> g_section_state;
 bool g_sections_loaded;
 ImGuiID g_sections_window;
@@ -559,7 +560,7 @@ void help_from_registry()
     for (const std::string& category : categories) {
         bool first = true;
         for (int i = 0; std::cmp_less(i, all.size()); ++i) {
-            const actions::ActStep& a = all[i];
+            const actions::ActStep& a = core::at(all, i);
             if (a.category != category)
                 continue;
             ImGui::TableNextRow();
@@ -610,7 +611,7 @@ void keys_section()
         ImGui::TableSetupColumn("##reset", ImGuiTableColumnFlags_WidthFixed, 60.0f * current_s());
         std::string category;
         for (int i = 0; std::cmp_less(i, all.size()); ++i) {
-            const actions::ActStep& a = all[i];
+            const actions::ActStep& a = core::at(all, i);
             if (!a.rebindable ||
                 actions::fuzzy_score(g_keys_filter.data(), a.category + " " + a.name + " " + actions::get_keys_text(i)) == 0)
                 continue;
@@ -631,7 +632,7 @@ void keys_section()
             for (int k = 0; std::cmp_less(k, a.keys.size()); ++k) {
                 ImGui::PushID(k);
                 const bool capturing = actions::get_capturing() && actions::capturing_index() == i;
-                const std::string text = capturing ? "..." : actions::format_chord(a.keys[k]);
+                const std::string text = capturing ? "..." : actions::format_chord(core::at(a.keys, k));
                 if (ImGui::SmallButton(text.c_str()))
                     actions::begin_capture(i, k);
                 if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
@@ -651,7 +652,7 @@ void keys_section()
             std::vector<int> clashes = actions::conflicts(i);
             if (!clashes.empty()) {
                 ImGui::SameLine();
-                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "also: %s%s", all[clashes.front()].name.c_str(),
+                ImGui::TextColored(ImVec4(1.0f, 0.45f, 0.35f, 1.0f), "also: %s%s", core::at(all, clashes.front()).name.c_str(),
                                    clashes.size() > 1 ? " ..." : "");
             }
             ImGui::TableNextColumn();
@@ -705,7 +706,7 @@ void bunches()
     if (!open)
         return;
     for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
-        const organize::GroupSet& g = state.groups[i];
+        const organize::GroupSet& g = core::at(state.groups, i);
         ImGui::PushID(i);
         std::array<char, 96> text{};
         std::snprintf(text.data(), sizeof(text), "%s  (%d)", g.name.c_str(), static_cast<int>(g.members.size()));
@@ -755,7 +756,7 @@ void row_toggles(const nodes::Elem& node, float x)
     const float step = ImGui::CalcTextSize("W").x + 6.0f * current_s();
     for (int t = 0; t < 3; ++t) {
         ImGui::SameLine(x + 6.0f * current_s() + step * static_cast<float>(t));
-        const FlipOver& toggle = toggles[t];
+        const FlipOver& toggle = core::at(toggles, t);
         // (lit when on: the lock orange; the eye and selectable light; off: dim)
         ImGui::PushID(t);
         ImGui::PushStyleColor(
@@ -809,7 +810,7 @@ void row_menu(const nodes::Elem& node)
     const organize::State& state = organize::at_hand();
     if (!state.groups.empty() && ImGui::BeginMenu("Add Selection to")) {
         for (int i = 0; std::cmp_less(i, state.groups.size()); ++i) {
-            if (ImGui::MenuItem(state.groups[i].name.c_str()))
+            if (ImGui::MenuItem(core::at(state.groups, i).name.c_str()))
                 get_queue([i] { organize::add_to_group(i); });
         }
         ImGui::EndMenu();
@@ -877,7 +878,7 @@ void inspector_section(const ui::ShapeMesh& model)
     std::vector<std::vector<fields::Row>> rows;
     rows.reserve(nodes.size());
     for (const uint32_t id : nodes)
-        rows.push_back(fields::rows_of(nodes::get_all()[nodes::get_find(id)]));
+        rows.push_back(fields::rows_of(core::at(nodes::get_all(), nodes::get_find(id))));
     struct Shared {
         uint32_t key;
         fields::Kind kind;
@@ -893,8 +894,8 @@ void inspector_section(const ui::ShapeMesh& model)
         bool all = true, mixed = false;
         for (size_t n = 1; n < rows.size() && all; ++n) {
             auto it =
-                std::find_if(rows[n].begin(), rows[n].end(), [&](const fields::Row& r) { return r.key == row.key; });
-            all = it != rows[n].end() && it->editable && it->value.kind == row.value.kind;
+                std::find_if(core::at(rows, n).begin(), core::at(rows, n).end(), [&](const fields::Row& r) { return r.key == row.key; });
+            all = it != core::at(rows, n).end() && it->editable && it->value.kind == row.value.kind;
             mixed = mixed || (all && !fields::same_value(it->value, row.value));
         }
         if (all)
@@ -912,13 +913,13 @@ void inspector_section(const ui::ShapeMesh& model)
     if (g_shared.size() != shared.size())
         g_shared.assign(shared.size(), SharedEdit{});
     for (size_t i = 0; i < shared.size(); ++i) {
-        const Shared& f = shared[i];
+        const Shared& f = core::at(shared, i);
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("%s", fields::get_name_text(f.key, fields::get_name_of).c_str());
         ImGui::TableNextColumn();
         ImGui::PushID(static_cast<int>(f.key));
-        SharedEdit& edit = g_shared[i];
+        SharedEdit& edit = core::at(g_shared, i);
         const ImGuiID id = ImGui::GetID("##value");
         // (the value shown afresh unless it's being typed in)
         if (g_shared_active != id || edit.key != f.key) {
@@ -969,19 +970,19 @@ void remember_sections()
         g_sections_window = window->ID;
         for (int i = 0; i < kSectionCount; ++i) {
             const int value =
-                static_cast<int>(GetPrivateProfileIntA("editor_sections", kSections[i] + 3, -1, ini.c_str()));
-            g_section_state[i] = value;
+                static_cast<int>(GetPrivateProfileIntA("editor_sections", core::at(kSections, i) + 3, -1, ini.c_str()));
+            core::at(g_section_state, i) = value;
             if (value == 0 || value == 1)
-                window->StateStorage.SetInt(window->GetID(kSections[i]), value);
+                window->StateStorage.SetInt(window->GetID(core::at(kSections, i)), value);
         }
         return;
     }
     for (int i = 0; i < kSectionCount; ++i) {
-        const int value = window->StateStorage.GetInt(window->GetID(kSections[i]), -1);
-        if (value < 0 || value == g_section_state[i])
+        const int value = window->StateStorage.GetInt(window->GetID(core::at(kSections, i)), -1);
+        if (value < 0 || value == core::at(g_section_state, i))
             continue;
-        g_section_state[i] = value;
-        WritePrivateProfileStringA("editor_sections", kSections[i] + 3, value ? "1" : "0", ini.c_str());
+        core::at(g_section_state, i) = value;
+        WritePrivateProfileStringA("editor_sections", core::at(kSections, i) + 3, value ? "1" : "0", ini.c_str());
     }
 }
 

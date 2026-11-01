@@ -20,6 +20,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/rider.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -37,7 +38,7 @@ constexpr int kFeelers = 8;
 constexpr int kRestFrames = 10;
 
 // (a seat of -1 - no slot named for the object - reaches before the slots, as the original)
-bool& slot_taken(Rider* skater, int slot) { return skater->projectiles_[slot].active; }
+bool& slot_taken(Rider* skater, int slot) { return core::at(skater->projectiles_, slot).active; }
 
 // One feeler's end x / z: the cosine of the angle as computed (in double), the sine of it rounded to float; z adds
 // (sin + float(cos)) * 12 rounded to float first.
@@ -70,7 +71,7 @@ void ProjectileComponent::configure_from_data(script::Struct* /*params*/)
     const uint32_t name = entity_->ident_;
     seat_ = -1;
     for (int i = 0; i < kSlotCount; ++i) {
-        if (name == skater->projectiles_[i].name) {
+        if (name == core::at(skater->projectiles_, i).name) {
             seat_ = i;
             break;
         }
@@ -89,7 +90,7 @@ void ProjectileComponent::seal()
 // 0x004F3A90
 void ProjectileComponent::tick_frame()
 {
-    rider_ref_->projectiles_[seat_].pos = entity_->at_point_;
+    core::at(rider_ref_->projectiles_, seat_).pos = entity_->at_point_;
     check_triggers();
 }
 

@@ -18,6 +18,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -68,7 +69,7 @@ bool PieceGroup::is_spawn_marker()
     }
 }
 
-PieceGroupDesc* PieceGroup::get_descriptor(int index) { return index < 2 ? &desc_[index] : &extra_desc_[index - 2]; }
+PieceGroupDesc* PieceGroup::get_descriptor(int index) { return index < 2 ? &core::at(desc_, index) : &extra_desc_[index - 2]; }
 
 void PieceGroup::toggle_shown(bool visible)
 {
@@ -114,10 +115,10 @@ void PieceGroup::set_quarter_turns(int rot)
     // Every descriptor turned about the metapiece's corner, into new storage.
     PieceGroupDesc* extra = extra_desc_ ? allocate_descriptors(slot_limit_ - 2) : nullptr;
     // (the original leaves the unused ones of these two as stack leftovers; here they keep what they were)
-    std::array<PieceGroupDesc, 2> first = {{desc_[0], desc_[1]}};
+    std::array<PieceGroupDesc, 2> first = {{core::at(desc_, 0), core::at(desc_, 1)}};
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        PieceGroupDesc* to = i < 2 ? &first[i] : &extra[i - 2];
-        const PieceGroupDesc* from = i < 2 ? &desc_[i] : &extra_desc_[i - 2];
+        PieceGroupDesc* to = i < 2 ? &core::at(first, i) : &extra[i - 2];
+        const PieceGroupDesc* from = i < 2 ? &core::at(desc_, i) : &extra_desc_[i - 2];
         *to = *from;
         // The entry's own size in cells, as it lies (x, z).
         uint8_t across = 0;
@@ -167,8 +168,8 @@ void PieceGroup::set_quarter_turns(int rot)
     if (extra_desc_)
         memory::dealloc(extra_desc_);
     extra_desc_ = extra;
-    desc_[0] = first[0];
-    desc_[1] = first[1];
+    core::at(desc_, 0) = core::at(first, 0);
+    core::at(desc_, 1) = core::at(first, 1);
 }
 
 maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
@@ -320,16 +321,16 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
         maths::Mat4 place{};
         place.reset_to_identity();
-        place.row[3].x =
+        core::at(place.row, 3).x =
             static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * 0.5 - half_w);
-        place.row[3].y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
-        place.row[3].z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong +
+        core::at(place.row, 3).y = static_cast<float>(static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp);
+        core::at(place.row, 3).z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong +
                                             static_cast<double>(size.z) * 0.5 - half_l);
-        place.row[3].w = 1.0f;
+        core::at(place.row, 3).w = 1.0f;
         maths::Mat4 turn{};
         maths::make_yaw_matrix(turn, radians);
         multiply_matrices(&place, &place, &turn);
-        maths::Vec4& at = place.row[3];
+        maths::Vec4& at = core::at(place.row, 3);
         at.x = static_cast<float>(static_cast<double>(position.x) + at.x);
         at.y = static_cast<float>(static_cast<double>(position.y) + at.y);
         at.z = static_cast<float>(static_cast<double>(position.z) + at.z);

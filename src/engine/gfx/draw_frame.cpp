@@ -53,6 +53,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -224,17 +225,17 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     auto& view = g_view_matrix;
     auto& projection = g_projection_matrix;
 
-    camera.position[0] = position->x;
-    camera.position[1] = position->y;
-    camera.position[2] = position->z;
-    camera.backward[0] = orientation->row[2].x;
-    camera.backward[1] = orientation->row[2].y;
-    camera.backward[2] = orientation->row[2].z;
-    camera.up[0] = orientation->row[1].x;
-    camera.up[1] = orientation->row[1].y;
-    camera.up[2] = orientation->row[1].z;
-    std::array<float, 3> target = {{camera.position[0] - camera.backward[0], camera.position[1] - camera.backward[1],
-                       camera.position[2] - camera.backward[2]}};
+    core::at(camera.position, 0) = position->x;
+    core::at(camera.position, 1) = position->y;
+    core::at(camera.position, 2) = position->z;
+    core::at(camera.backward, 0) = core::at(orientation->row, 2).x;
+    core::at(camera.backward, 1) = core::at(orientation->row, 2).y;
+    core::at(camera.backward, 2) = core::at(orientation->row, 2).z;
+    core::at(camera.up, 0) = core::at(orientation->row, 1).x;
+    core::at(camera.up, 1) = core::at(orientation->row, 1).y;
+    core::at(camera.up, 2) = core::at(orientation->row, 1).z;
+    std::array<float, 3> target = {{core::at(camera.position, 0) - core::at(camera.backward, 0), core::at(camera.position, 1) - core::at(camera.backward, 1),
+                       core::at(camera.position, 2) - core::at(camera.backward, 2)}};
     world = maths::Mat4{{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}}};
     matrix_look_at(&view, camera.position.data(), target.data(), camera.up.data());
 
@@ -265,8 +266,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     camera.near_height_ = height;
     camera.near_width_ = width;
     if (infinite) {
-        projection.row[2].z = -0.999999f;
-        projection.row[3].z = 1e-6f;
+        core::at(projection.row, 2).z = -0.999999f;
+        core::at(projection.row, 3).z = 1e-6f;
     }
     set_transform(0x100, &world); // D3DTS_WORLD
     set_transform(2, &view);      // D3DTS_VIEW
@@ -283,7 +284,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     shape.cos_y_ = static_cast<float>(1.0 / std::sqrt(tan_y2 + 1.0));
 
     // The camera's heading: a rotation about the vertical axis (0x00786C50).
-    matrix_rotation_y(&g_heading_matrix, atan2_less_quarter_turn(-camera.backward[2], -camera.backward[0]));
+    matrix_rotation_y(&g_heading_matrix, atan2_less_quarter_turn(-core::at(camera.backward, 2), -core::at(camera.backward, 0)));
     // The view frustum (0x00775B80) follows the new view.
     g_billboard_pool.setup_axes();
 }
@@ -311,11 +312,11 @@ void draw_screen_blur()
     // Linear filtering on all four samplers (put back at the end).
     uint32_t min_filter[4], mag_filter[4];
     for (int i = 0; i < 4; ++i) {
-        min_filter[i] = get_sampler_state(i, 6); // D3DSAMP_MINFILTER
-        if (min_filter[i] != 2)                  // D3DTEXF_LINEAR
+        core::at(min_filter, i) = get_sampler_state(i, 6); // D3DSAMP_MINFILTER
+        if (core::at(min_filter, i) != 2)                  // D3DTEXF_LINEAR
             set_sampler_state(i, 6, 2);
-        mag_filter[i] = get_sampler_state(i, 5); // D3DSAMP_MAGFILTER
-        if (mag_filter[i] != 2)
+        core::at(mag_filter, i) = get_sampler_state(i, 5); // D3DSAMP_MAGFILTER
+        if (core::at(mag_filter, i) != 2)
             set_sampler_state(i, 5, 2);
     }
     if (g_bloom_on)
@@ -328,8 +329,8 @@ void draw_screen_blur()
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
     const int current = g_screen_copy_index;
-    IDirect3DTexture9* texture = g_screen_textures[current];
-    IDirect3DTexture9* other = g_screen_textures[(current + 1) % 2];
+    IDirect3DTexture9* texture = core::at(g_screen_textures, current);
+    IDirect3DTexture9* other = core::at(g_screen_textures, (current + 1) % 2);
     D3DSURFACE_DESC desc;
     texture->GetLevelDesc(0, &desc);
     const uint32_t texels_wide = desc.Width;
@@ -400,8 +401,8 @@ void draw_screen_blur()
     ++g_draw_calls;
     g_drawn_triangles += 2;
     for (int i = 0; i < 4; ++i) {
-        set_sampler_state(i, 6, min_filter[i]);
-        set_sampler_state(i, 5, mag_filter[i]);
+        set_sampler_state(i, 6, core::at(min_filter, i));
+        set_sampler_state(i, 5, core::at(mag_filter, i));
     }
     g_screen_copy_index = (g_screen_copy_index + 1) % 2;
     change_fog(true);
@@ -550,7 +551,7 @@ void draw_viewport(int index)
         // Not original - the screenshot key's sidecar (platform/screenshot.h): the camera noted.
         const maths::Mat4* frame = cam_orientation(camera);
         const std::array<float, 3> at = {{position->x, position->y, position->z}};
-        const std::array<float, 3> forward = {{-frame->row[2].x, -frame->row[2].y, -frame->row[2].z}};
+        const std::array<float, 3> forward = {{-core::at(frame->row, 2).x, -core::at(frame->row, 2).y, -core::at(frame->row, 2).z}};
         sys::screenshot::note_view(index, at.data(), forward.data());
     }
     for_each_scene([&](Scene* scene) {

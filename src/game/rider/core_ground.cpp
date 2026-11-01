@@ -24,6 +24,7 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_sound.h"
 #include "engine/core/bits_as.h"
+#include "engine/core/checked_index.h"
 
 namespace skater {
 
@@ -75,9 +76,9 @@ void SkaterPhysicsModule::do_ground_physics()
 
     // The heading (+0x348, degrees round from the facing).
     objects::GameEntity* object = object_of(this);
-    const double heading = static_cast<double>(maths::fast_a_cos(object->basis_frame_.row[2].x)) * kDegreesPerRadian;
+    const double heading = static_cast<double>(maths::fast_a_cos(core::at(object->basis_frame_.row, 2).x)) * kDegreesPerRadian;
     last_heading_ = static_cast<float>(heading);
-    if (object->basis_frame_.row[2].z < 0.0f)
+    if (core::at(object->basis_frame_.row, 2).z < 0.0f)
         last_heading_ = static_cast<float>(kFullTurn - heading);
     if (thaw_bmx::live_now(
             this)) // (not original: THAW 0x005E4579, the time on vert ground noted - thaw_bmx_physics.cpp)
@@ -224,7 +225,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         if (bit_mark(this, PoseFlag::kSkitching)) {
             // Skitching: a feeler from 36 above to 200 below, along the up, for the ground's terrain.
             const objects::GameEntity* object = object_of(this);
-            const maths::Vec4& up = object->basis_frame_.row[1];
+            const maths::Vec4& up = core::at(object->basis_frame_.row, 1);
             const maths::Vec4& position = object->at_point_;
             const float up_y = up.y * kSkitchFeelUp;
             const float up_z = up.z * kSkitchFeelUp;

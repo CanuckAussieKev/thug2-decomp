@@ -12,6 +12,7 @@
 
 #include "engine/gfx/device.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -45,12 +46,12 @@ void build_gamma_ramp()
 {
     std::array<float, 3> exponent{};
     for (int k = 0; k < 3; ++k)
-        exponent[k] = static_cast<float>(1.0f / static_cast<double>(gammas()[k]));
+        core::at(exponent, k) = static_cast<float>(1.0f / static_cast<double>(gammas()[k]));
     for (int i = 0; i < 0x100; ++i) {
         auto level = static_cast<float>(i) * (1.0f / 256.0f);
         for (int k = 0; k < 3; ++k)
             get_ramp()[0x100 * k + i] =
-                static_cast<uint16_t>(static_cast<int>(std::pow(static_cast<double>(level), exponent[k]) * 65536.0f));
+                static_cast<uint16_t>(static_cast<int>(std::pow(static_cast<double>(level), core::at(exponent, k)) * 65536.0f));
     }
 }
 

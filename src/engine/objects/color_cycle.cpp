@@ -21,6 +21,7 @@
 #include "engine/objects/camera_lookaround.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -79,7 +80,7 @@ void ColorCycleComponent::change_colors(script::Array* colors)
     color_count_ = count;
     for (int i = 0; i < count; ++i) {
         auto* vector = cell::pointer<const float>(colors->fetch_part(static_cast<uint32_t>(i)));
-        colors_[i] = {vector[1], vector[2], vector[3], 1.0f}; // (a CVector: its coordinates from +4)
+        core::at(colors_, i) = {vector[1], vector[2], vector[3], 1.0f}; // (a CVector: its coordinates from +4)
     }
     ongoing_ = 0;
 }
@@ -111,7 +112,7 @@ void ColorCycleComponent::tick_frame()
     if (!on_)
         return;
     script::Struct* params = new_params();
-    const maths::Vec4& color = colors_[ongoing_];
+    const maths::Vec4& color = core::at(colors_, ongoing_);
     uint32_t rgb = static_cast<uint32_t>(get_truncated(color.z)) << 8;
     rgb = (rgb + static_cast<uint32_t>(get_truncated(color.y))) << 8;
     rgb += static_cast<uint32_t>(get_truncated(color.x));

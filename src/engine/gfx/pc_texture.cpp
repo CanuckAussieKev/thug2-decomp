@@ -32,6 +32,7 @@
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -601,10 +602,10 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
     const int y_max = static_cast<int>(height * 1024 - 1024);
     const int x_max = static_cast<int>(width * 1024 - 1024);
     // the image's axes turned (each a float, as the original stores them), in 1024ths
-    auto xx = static_cast<float>(static_cast<double>(m[2]) * 0.0f + m[0]);
-    auto xy = static_cast<float>(static_cast<double>(m[3]) * 0.0f + m[1]);
-    auto yx = static_cast<float>(static_cast<double>(m[0]) * 0.0f + m[2]);
-    auto yy = static_cast<float>(static_cast<double>(m[1]) * 0.0f + m[3]);
+    auto xx = static_cast<float>(static_cast<double>(core::at(m, 2)) * 0.0f + core::at(m, 0));
+    auto xy = static_cast<float>(static_cast<double>(core::at(m, 3)) * 0.0f + core::at(m, 1));
+    auto yx = static_cast<float>(static_cast<double>(core::at(m, 0)) * 0.0f + core::at(m, 2));
+    auto yy = static_cast<float>(static_cast<double>(core::at(m, 1)) * 0.0f + core::at(m, 3));
     const int xx_step = ftol(static_cast<double>(xx) * 1024.0f);
     const int xy_step = ftol(static_cast<double>(xy) * 1024.0f);
     const int yx_step = ftol(static_cast<double>(yx) * 1024.0f);
@@ -612,8 +613,8 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
     // where the top left comes from: the centre moved back through the turn
     const double nx = -static_cast<double>(centre_x);
     const double ny = -static_cast<double>(centre_y);
-    auto ox = static_cast<float>(m[2] * ny + nx * m[0]);
-    auto oy = static_cast<float>(ny * m[3] + m[1] * nx);
+    auto ox = static_cast<float>(core::at(m, 2) * ny + nx * core::at(m, 0));
+    auto oy = static_cast<float>(ny * core::at(m, 3) + core::at(m, 1) * nx);
     const double origin_coord_x = static_cast<double>(ox) + centre_x; // (kept in the register, unrounded)
     auto origin_coord_y = static_cast<float>(static_cast<double>(oy) + centre_y);
     int row_x = ftol(origin_coord_x * 1024.0f);
@@ -766,9 +767,9 @@ bool PcTexture::shift_hue_sat_value(float hue, float saturation, float value, bo
         scaled = static_cast<double>(v) * value;
         v = scaled < 1.0f ? static_cast<float>(scaled) : 1.0f;
         std::array<float, 3> rgb{};
-        hsv_to_rgb(&rgb[0], &rgb[1], &rgb[2], h, s, v);
+        hsv_to_rgb(&core::at(rgb, 0), &core::at(rgb, 1), &core::at(rgb, 2), h, s, v);
         for (int k = 0; k < 3; ++k)
-            into[k] = static_cast<uint8_t>(ftol(static_cast<double>(rgb[k]) * 255.0f + 0.5f));
+            into[k] = static_cast<uint8_t>(ftol(static_cast<double>(core::at(rgb, k)) * 255.0f + 0.5f));
     }
     return true;
 }

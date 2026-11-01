@@ -52,6 +52,7 @@
 #include "engine/core/parse_number.h"
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace online {
 
@@ -209,7 +210,7 @@ Buddy* alloc_friend_entry()
         init_node(&buddy->list_link_);
         buddy->pending_ = false;
         buddy->cur_standing_ = 0;
-        buddy->location_[0] = '\0';
+        core::at(buddy->location_, 0) = '\0';
         std::snprintf(buddy->status_text_.data(), sizeof(buddy->status_text_), "%s", "Offline");
     }
     return buddy;
@@ -246,7 +247,7 @@ FriendNote::FriendNote()
 {
     init_node(&list_link_);
     std::snprintf(nick_.data(), sizeof(nick_), "%s", "Proskater");
-    text_[0] = '\0';
+    core::at(text_, 0) = '\0';
 }
 
 // 0x00548CF0

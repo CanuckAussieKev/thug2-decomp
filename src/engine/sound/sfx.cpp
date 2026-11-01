@@ -18,6 +18,7 @@
 #include <array>
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace sound {
 
@@ -111,14 +112,14 @@ VolumeRef* VolumeRef::change_species(int type)
 void VolumeRef::percent_tweak(float percent)
 {
     for (int i = 0; i < channel_count(); ++i)
-        lanes_[i] = static_cast<float>(static_cast<double>(percent) * lanes_[i] * 0.0099999998f);
+        core::at(lanes_, i) = static_cast<float>(static_cast<double>(percent) * core::at(lanes_, i) * 0.0099999998f);
 }
 
 // 0x0047ACF0
 bool VolumeRef::is_audio_off()
 {
     for (int i = 0; i < channel_count(); ++i) {
-        if (lanes_[i] != 0.0f)
+        if (core::at(lanes_, i) != 0.0f)
             return false;
     }
     return kind_tag_ != kType3d;
@@ -134,10 +135,10 @@ void VolumeRef::change_muted()
 // 0x0047B080
 float VolumeRef::find_peak_channel()
 {
-    float loudest = lanes_[0];
+    float loudest = core::at(lanes_, 0);
     for (int i = 1; i < channel_count(); ++i) {
-        if (std::fabs(loudest) < std::fabs(lanes_[i]))
-            loudest = lanes_[i];
+        if (std::fabs(loudest) < std::fabs(core::at(lanes_, i)))
+            loudest = core::at(lanes_, i);
     }
     return loudest;
 }

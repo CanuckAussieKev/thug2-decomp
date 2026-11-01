@@ -13,6 +13,7 @@
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 namespace online::thugpro {
 
@@ -89,14 +90,14 @@ const char* refused_reason_words(int reason)
 {
     if (reason < kRefusedVersionLow || reason > kRefusedTest)
         return nullptr;
-    return kReasons[reason - kRefusedVersionLow].words;
+    return core::at(kReasons, reason - kRefusedVersionLow).words;
 }
 
 uint32_t refused_reason_text(int reason)
 {
     if (reason < kRefusedVersionLow || reason > kRefusedTest)
         return 0;
-    const ReasonText& text = kReasons[reason - kRefusedVersionLow];
+    const ReasonText& text = core::at(kReasons, reason - kRefusedVersionLow);
     if (!script::find_symbol(text.name)) {
         script::SymbolTableEntry* symbol = script::create_symbol(text.name);
         symbol->type = script::kQbvalString;

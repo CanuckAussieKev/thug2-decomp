@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "engine/net/net_latency.h"
+#include "engine/core/checked_index.h"
 
 namespace net {
 
@@ -16,7 +17,7 @@ PingProbe::PingProbe()
 // 0x004569B0
 void PingProbe::input_delay_amount(int latency)
 {
-    times_[succ_] = latency;
+    core::at(times_, succ_) = latency;
     succ_ = (succ_ + 1) % kNumTimes;
     uint32_t total = 0; // (wraps like the original's int sum)
     int count = 0;

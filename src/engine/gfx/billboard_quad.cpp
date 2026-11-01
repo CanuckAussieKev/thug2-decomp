@@ -21,6 +21,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -155,10 +156,10 @@ void QuadSprite::draw()
             if (layout_x1 >= kLayoutWidth && layout_x0 < kLayoutWidth)
                 x1 = screen_right;
         }
-        vertices[0].x = vertices[1].x = x0;
-        vertices[2].x = vertices[3].x = x1;
-        vertices[0].y = vertices[2].y = y0;
-        vertices[1].y = vertices[3].y = static_cast<float>(y1);
+        core::at(vertices, 0).x = core::at(vertices, 1).x = x0;
+        core::at(vertices, 2).x = core::at(vertices, 3).x = x1;
+        core::at(vertices, 0).y = core::at(vertices, 2).y = y0;
+        core::at(vertices, 1).y = core::at(vertices, 3).y = static_cast<float>(y1);
     } else {
         std::array<Vector4, 4> corners = {{{static_cast<float>(left), top, 0.0f, 0.0f},
                               {static_cast<float>(left), bottom, 0.0f, 0.0f},
@@ -166,7 +167,7 @@ void QuadSprite::draw()
                               {right, bottom, 0.0f, 0.0f}}};
         // (in the original's order: top left, top right, bottom left, bottom right)
         for (const int i : {0, 2, 1, 3})
-            spin_around_z(corners[i], rotation);
+            spin_around_z(core::at(corners, i), rotation);
         // Still (nearly) upright or on its side: within 0.01 radians of a multiple of 90 degrees. (The menus' bottom
         // band is turned by pi + 0.001, so its corners don't line up exactly.)
         const double quarter_turns = static_cast<double>(rotation) / 1.5707963267948966;
@@ -176,11 +177,11 @@ void QuadSprite::draw()
         std::array<double, 4> layout_x{};
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)
-            layout_x[i] = static_cast<double>(corners[i].x) + x;
-            vertices[i].x =
-                static_cast<float>(static_cast<int32_t>(get_truncated(layout_x[i] * horiz_screen_ratio() + offset_x)));
-            vertices[i].y = static_cast<float>(static_cast<int32_t>(
-                get_truncated((static_cast<double>(corners[i].y) + y) * vert_screen_ratio() + offset_y)));
+            core::at(layout_x, i) = static_cast<double>(core::at(corners, i).x) + x;
+            core::at(vertices, i).x =
+                static_cast<float>(static_cast<int32_t>(get_truncated(core::at(layout_x, i) * horiz_screen_ratio() + offset_x)));
+            core::at(vertices, i).y = static_cast<float>(static_cast<int32_t>(
+                get_truncated((static_cast<double>(core::at(corners, i).y) + y) * vert_screen_ratio() + offset_y)));
         }
         if (front_end_widescreen && upright) {
             // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
@@ -189,13 +190,13 @@ void QuadSprite::draw()
             std::array<int, 4> order = {{0, 1, 2, 3}};
             for (int a = 0; a < 4; ++a)
                 for (int b = a + 1; b < 4; ++b)
-                    if (layout_x[order[b]] < layout_x[order[a]])
-                        std::swap(order[a], order[b]);
+                    if (core::at(layout_x, core::at(order, b)) < core::at(layout_x, core::at(order, a)))
+                        std::swap(core::at(order, a), core::at(order, b));
             // (again only when the sprite overlaps the layout)
-            if (layout_x[order[0]] <= 0.0 && layout_x[order[3]] > 0.0)
-                vertices[order[0]].x = vertices[order[1]].x = 0.0f;
-            if (layout_x[order[3]] >= kLayoutWidth && layout_x[order[0]] < kLayoutWidth)
-                vertices[order[2]].x = vertices[order[3]].x = screen_right;
+            if (core::at(layout_x, core::at(order, 0)) <= 0.0 && core::at(layout_x, core::at(order, 3)) > 0.0)
+                core::at(vertices, core::at(order, 0)).x = core::at(vertices, core::at(order, 1)).x = 0.0f;
+            if (core::at(layout_x, core::at(order, 3)) >= kLayoutWidth && core::at(layout_x, core::at(order, 0)) < kLayoutWidth)
+                core::at(vertices, core::at(order, 2)).x = core::at(vertices, core::at(order, 3)).x = screen_right;
         }
     }
     // Diagnostic: thug2-decomp.ini [features] debug_sprites=1 logs, in the front end, each sprite (once per position)
@@ -214,24 +215,24 @@ void QuadSprite::draw()
                              static_cast<uint32_t>(width) << 20;
         bool seen = false;
         for (int i = 0; i < tally; ++i)
-            seen |= s_seen[i] == key;
+            seen |= core::at(s_seen, i) == key;
         if (!seen && tally < 256 && (reach_left <= 0.0 || reach_right >= kLayoutWidth)) {
-            s_seen[tally++] = key;
+            core::at(s_seen, tally++) = key;
             get_log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x "
                     "%.1f %.1f "
                     "%.1f %.1f, y %.1f %.1f",
-                    x, y, width, height, xscale, yscale, hot_x_, hot_y_, rotation, flip_u_, flip_v_, vertices[0].x,
-                    vertices[1].x, vertices[2].x, vertices[3].x, vertices[0].y, vertices[1].y);
+                    x, y, width, height, xscale, yscale, hot_x_, hot_y_, rotation, flip_u_, flip_v_, core::at(vertices, 0).x,
+                    core::at(vertices, 1).x, core::at(vertices, 2).x, core::at(vertices, 3).x, core::at(vertices, 0).y, core::at(vertices, 1).y);
         }
     }
     const std::array<float, 4> u = {{u0, u0, u1, u1}};
     const std::array<float, 4> v = {{v_top, v_bottom, v_top, v_bottom}};
     for (int i = 0; i < 4; ++i) {
-        vertices[i].z = 0.0f;
-        vertices[i].rhw = 1.0f;
-        vertices[i].color = argb;
-        vertices[i].u = u[i];
-        vertices[i].v = v[i];
+        core::at(vertices, i).z = 0.0f;
+        core::at(vertices, i).rhw = 1.0f;
+        core::at(vertices, i).color = argb;
+        core::at(vertices, i).u = core::at(u, i);
+        core::at(vertices, i).v = core::at(v, i);
     }
 
     set_vertex_format(0x144);         // position (pre-transformed), colour, one texture coordinate

@@ -37,6 +37,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
 
@@ -338,7 +339,7 @@ int on_server_reply_msg(net::InboundMsgCtx* context)
     server->skill_level_ = static_cast<int8_t>(reply->skill_level);
     server->port_no_ = kPort;
     for (int i = 0; i < server->num_players_ && i < kServerInfoPlayers; ++i)
-        server->enroll_player(reply->players[i].data(), 0);
+        server->enroll_player(core::at(reply->players, i).data(), 0);
     get_append(&manager->waiting_servers_, server);
     ram_stats()->leave_heap_scope();
     return kContinue;
@@ -367,7 +368,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         HostListing* server = block ? memory::construct_in<HostListing>(block) : nullptr;
         server->sb_server_ = sb;
         std::strncpy(server->label_.data(), name, 15);
-        server->label_[15] = '\0';
+        core::at(server->label_, 15) = '\0';
         server->ping_ = game_spy::server_get_ping(sb); // (its ping)
         bool same_network = false;
         if (game_spy::server_direct_connect(sb)) {                             // (it answered directly)
@@ -422,7 +423,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         if (!server)
             break;
         std::strncpy(server->label_.data(), name, 15);
-        server->label_[15] = '\0';
+        core::at(server->label_, 15) = '\0';
         if (server->can_reach_)
             server->ping_ = game_spy::server_get_ping(sb);
         read_server_keys(server, sb);

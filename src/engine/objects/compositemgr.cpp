@@ -25,6 +25,7 @@
 #include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -72,7 +73,7 @@ constexpr uint32_t kCompositeMemberFunctionType = 0x0ADA4E74; // the table at 0x
 uint32_t& ref_tally() { return g_composite_mgr_references; }
 
 // The components of each type (index = the type's index in components_), linked through their +0x14.
-ObjectModule*& component_list(uint32_t index) { return g_component_list[index]; }
+ObjectModule*& component_list(uint32_t index) { return core::at(g_component_list, index); }
 // A component's type and its link to the next of its type.
 uint32_t type_of(ObjectModule* component) { return component->kind_tag_; }
 ObjectModule*& next_of_type(ObjectModule* component) { return component->next_of_type_; }
@@ -161,8 +162,8 @@ EntityHub::~EntityHub()
 // 0x0045F270
 void EntityHub::enrol_module(uint32_t type, ComponentCreateFunction create, ComponentRegisterFunction register_function)
 {
-    components_[component_types_].type = type;
-    components_[component_types_].create = create;
+    core::at(components_, component_types_).type = type;
+    core::at(components_, component_types_).create = create;
     ++component_types_;
     if (register_function)
         register_function();
@@ -172,8 +173,8 @@ void EntityHub::enrol_module(uint32_t type, ComponentCreateFunction create, Comp
 ObjectModule* EntityHub::spawn_module(uint32_t type)
 {
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (components_[i].type == type)
-            return components_[i].create();
+        if (core::at(components_, i).type == type)
+            return core::at(components_, i).create();
     }
     return nullptr;
 }
@@ -182,7 +183,7 @@ ObjectModule* EntityHub::spawn_module(uint32_t type)
 ObjectModule* EntityHub::find_first_module_of_kind(uint32_t type)
 {
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (components_[i].type == type)
+        if (core::at(components_, i).type == type)
             return component_list(i);
     }
     return nullptr;
@@ -193,7 +194,7 @@ void EntityHub::attach_module_of_kind(ObjectModule* component)
 {
     const uint32_t type = type_of(component);
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (components_[i].type == type) {
+        if (core::at(components_, i).type == type) {
             next_of_type(component) = component_list(i);
             component_list(i) = component;
             return;
@@ -206,7 +207,7 @@ void EntityHub::detach_module_of_kind(ObjectModule* component)
 {
     const uint32_t type = type_of(component);
     for (uint32_t i = 0; i < component_types_; ++i) {
-        if (components_[i].type != type)
+        if (core::at(components_, i).type != type)
             continue;
         ObjectModule* previous = component_list(i);
         if (previous == component) {

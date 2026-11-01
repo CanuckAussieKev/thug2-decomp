@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -304,7 +305,7 @@ void RiderRollingAudio::tick_frame()
     }
     // Playing: updated when the volume (its first channel) or the pitch moved by more than a half.
     if (!force_update_ &&
-        !(std::fabs(static_cast<double>(volume.lanes_[0]) - prev_levels_.lanes_[0]) > kChangeThreshold) &&
+        !(std::fabs(static_cast<double>(core::at(volume.lanes_, 0)) - core::at(prev_levels_.lanes_, 0)) > kChangeThreshold) &&
         !(std::fabs(static_cast<double>(pitch) - prev_pitch_value_) > kChangeThreshold))
         return;
     core::down_cast<LoopingSoundVolume>(&prev_levels_)->get_assign(&volume);

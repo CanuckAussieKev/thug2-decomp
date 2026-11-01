@@ -36,6 +36,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -97,7 +98,7 @@ void read_update_state(RiderHostSync* self, ObjectModule* component_6c, UpdateSt
     // A bit per state flag (the state component's 24 timed flags): set while it's on.
     uint32_t controls = 0;
     for (int k = 0; k < 24; ++k) {
-        if (core->timed_flags_[k].on)
+        if (core::at(core->timed_flags_, k).on)
             controls |= 1u << k;
         else
             controls &= ~(1u << k);
@@ -121,13 +122,13 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
-        if (value != sent_pos_[k] || force)
+        if (value != core::at(sent_pos_, k) || force)
             flags |= 1u << k;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle((&now.angles.x)[k]);
-        if (value != sent_angles_[k] || force) {
-            sent_angles_[k] = value;
+        if (value != core::at(sent_angles_, k) || force) {
+            core::at(sent_angles_, k) = value;
             flags |= 8u << k;
         }
     }
@@ -177,13 +178,13 @@ void RiderHostSync::send_update()
             k == 1 ? thugpro::pack_height(entity_->at_point_.y) : thugpro::pack_horizontal((&entity_->at_point_.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
-        sent_pos_[k] = value;
+        core::at(sent_pos_, k) = value;
     }
     for (int k = 0; k < 3; ++k) {
         const int16_t value = pack_angle((&now.angles.x)[k]);
         if (flags & (8u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
-        sent_angles_[k] = value;
+        core::at(sent_angles_, k) = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
     auto signed_byte = [](uint8_t value) {

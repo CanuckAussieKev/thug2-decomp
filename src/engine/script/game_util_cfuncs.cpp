@@ -26,6 +26,7 @@
 #include "game/skate/point_tally.h"
 #include "engine/gfx/cag_cfuncs.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -186,7 +187,7 @@ bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
         if (path[i] == '/' || path[i] == '\\')
             break;
     for (int from = i + 1; from <= length; ++from)
-        name[from - (i + 1)] = path[from];
+        core::at(name, from - (i + 1)) = path[from];
     script->args_->append_word(kTexture, name.data());
     return true;
 }

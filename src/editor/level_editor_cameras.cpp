@@ -29,6 +29,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::cameras {
 
@@ -62,7 +63,7 @@ bool read_triple(const std::string& text, V3* out)
     std::array<float, 3> v{};
     if (!read_numbers(text, v.data(), 3))
         return false;
-    *out = {v[0], v[1], v[2]};
+    *out = {core::at(v, 0), core::at(v, 1), core::at(v, 2)};
     return true;
 }
 
@@ -202,9 +203,9 @@ node_create::Spec spec_of(const ViewCam& c)
     n.angles = c.angles;
     auto vector = [&](const char* key, V3 v) {
         node_create::Prop f = {node_create::Prop::kVector, key};
-        f.value[0] = v.x;
-        f.value[1] = v.y;
-        f.value[2] = v.z;
+        core::at(f.value, 0) = v.x;
+        core::at(f.value, 1) = v.y;
+        core::at(f.value, 2) = v.z;
         n.extra.push_back(f);
     };
     vector("targetOffset", target_of(c.pos, c.angles, c.distance));
@@ -281,17 +282,17 @@ void keep_offsets(const ViewCam& c)
                          {fields::hash_of_name("positionOffset"), position_offset(c.pos, c.angles, c.distance)}}};
     for (const Key& k : keys) {
         const fields::Own own = fields::own_in(node, k.key, false);
-        const bool same = own.present && own.value.kind == fields::Kind::kVec4 && own.value.numbers[0] == k.value.x &&
-                          own.value.numbers[1] == k.value.y && own.value.numbers[2] == k.value.z;
+        const bool same = own.present && own.value.kind == fields::Kind::kVec4 && core::at(own.value.numbers, 0) == k.value.x &&
+                          core::at(own.value.numbers, 1) == k.value.y && core::at(own.value.numbers, 2) == k.value.z;
         if (same)
             continue;
         fields::Own put = own;
         put.present = true;
         put.value = fields::Value{};
         put.value.kind = fields::Kind::kVec4;
-        put.value.numbers[0] = k.value.x;
-        put.value.numbers[1] = k.value.y;
-        put.value.numbers[2] = k.value.z;
+        core::at(put.value.numbers, 0) = k.value.x;
+        core::at(put.value.numbers, 1) = k.value.y;
+        core::at(put.value.numbers, 2) = k.value.z;
         fields::put_in(node, k.key, false, put);
     }
 }
@@ -592,16 +593,16 @@ void add_overlay(V3 camera_pos, const TickCycle& frame, const Lens& lens, const 
         std::array<V3, 4> corners{};
         frustum_corners(c.pos, c.angles, lens.tan_x_, lens.tan_y_, 120.0f, corners.data());
         for (int i = 0; i < 4; ++i) {
-            line(c.pos, corners[i], colour, thickness);
-            line(corners[i], corners[(i + 1) % 4], colour, thickness);
+            line(c.pos, core::at(corners, i), colour, thickness);
+            line(core::at(corners, i), core::at(corners, (i + 1) % 4), colour, thickness);
         }
         // (its up: a small triangle over the top edge; what it looks at: a line to the target and a cross there)
-        const V3 top = (corners[0] + corners[1]) * 0.5f;
+        const V3 top = (core::at(corners, 0) + core::at(corners, 1)) * 0.5f;
         float yaw = 0.0f, pitch = 0.0f;
         yaw_pitch_of(c.angles, &yaw, &pitch);
         const V3 up = frame_from_yaw_pitch(yaw, pitch).up * 30.0f;
-        line(corners[0] * 0.75f + corners[1] * 0.25f, top + up, colour, thickness);
-        line(corners[1] * 0.75f + corners[0] * 0.25f, top + up, colour, thickness);
+        line(core::at(corners, 0) * 0.75f + core::at(corners, 1) * 0.25f, top + up, colour, thickness);
+        line(core::at(corners, 1) * 0.75f + core::at(corners, 0) * 0.25f, top + up, colour, thickness);
         const V3 target = target_of(c.pos, c.angles, c.distance);
         line(c.pos, target, lit ? 0xC0FFF060 : 0x60FF9030, 1.0f);
         const float s = lit ? 25.0f : 15.0f;

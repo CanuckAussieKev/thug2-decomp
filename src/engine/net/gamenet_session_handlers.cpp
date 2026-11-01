@@ -50,6 +50,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -179,8 +180,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
         if (named >= kServerInfoPlayers)
             break;
         if (player_skater(player))
-            ids[id_count++] = static_cast<uint8_t>(get_skater_id(player_skater(player)));
-        copy_name(info.players[named].data(), player_name(player));
+            core::at(ids, id_count++) = static_cast<uint8_t>(get_skater_id(player_skater(player)));
+        copy_name(core::at(info.players, named).data(), player_name(player));
         ++named;
     }
     for (const JoinerRecord* added = first_new_player(manager, &new_players); added && named < kServerInfoPlayers;
@@ -190,14 +191,14 @@ int on_server_query_msg(net::InboundMsgCtx* context)
             continue;
         bool known = false;
         for (int i = 0; i < id_count; ++i) {
-            if (ids[i] == added->entity_key_)
+            if (core::at(ids, i) == added->entity_key_)
                 known = true;
         }
         if (known)
             continue;
         // NOT ORIGINAL: the name copied as text (the original used it as sprintf's format: a name with a % in it
         // read arguments that weren't there)
-        copy_name(info.players[named].data(), raw::chars(added));
+        copy_name(core::at(info.players, named).data(), raw::chars(added));
         ++named;
     }
     std::array<uint8_t, kServerInfoSize> bytes{};
@@ -351,8 +352,8 @@ int handle_host_options(net::InboundMsgCtx* context)
         static const auto kTexts = std::to_array<const char*>({"None", nullptr, "2", "3", "4"});
         static const auto kTeams = std::to_array<uint32_t>({kTeamsNone, 0, kTeamsTwo, kTeamsThree, kTeamsFour});
         if (teams >= 0 && teams <= 4 && teams != 1) {
-            params->append_word(kUiString, kTexts[teams]);
-            params->put_name_key(kChecksum, kTeams[teams]);
+            params->append_word(kUiString, core::at(kTexts, teams));
+            params->put_name_key(kChecksum, core::at(kTeams, teams));
         }
         net_game_options(manager)->change_setting(kTeamMode, params);
         delete_params(params);
@@ -626,7 +627,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         desc = net::NetMessageInfo();
         auto* goals = objective_board();
         static std::array<uint8_t, 0x1000> selected;
-        selected[0] = 0;
+        core::at(selected, 0) = 0;
         uint8_t* out = selected.data() + 1;
         const int count = raw::as<goals::GoalManager>(goals)
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)

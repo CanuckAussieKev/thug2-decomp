@@ -2,13 +2,14 @@
 
 #include "engine/gfx/viewport_list.h"
 #include "engine/gfx/viewport.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
 namespace {
 
 // The ten viewports (0x00701350).
-ViewRegion* get_viewport(int index) { return g_viewports[index]; }
+ViewRegion* get_viewport(int index) { return core::at(g_viewports, index); }
 
 } // namespace
 

@@ -21,6 +21,7 @@
 #include "platform/crt.h"
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -61,21 +62,21 @@ IDirect3DVertexBuffer9*& arena_buffer(SceneRef* meshes)
 MeshRef::MeshRef()
 {
     for (int i = 0; i < 3; ++i) {
-        extra_buffers_[i] = nullptr;
-        vertex_buffers_[i] = nullptr;
+        core::at(extra_buffers_, i) = nullptr;
+        core::at(vertex_buffers_, i) = nullptr;
     }
     for (int i = 0; i < 8; ++i) {
-        index_buffers_[i] = nullptr;
-        index_counts_[i] = 0;
+        core::at(index_buffers_, i) = nullptr;
+        core::at(index_counts_, i) = 0;
     }
     last_buffer_ = nullptr;
     per_vertex_bytes_ = nullptr;
     unknown48 = nullptr;
     billboard = nullptr;
     transform = nullptr;
-    unknown1c_[0] = 0;
-    unknown1c_[2] = 0;
-    unknown1c_[1] = 0;
+    core::at(unknown1c_, 0) = 0;
+    core::at(unknown1c_, 2) = 0;
+    core::at(unknown1c_, 1) = 0;
     stride = 0;
     fvf = 0;
     pixel_shader_ = nullptr;
@@ -85,7 +86,7 @@ MeshRef::MeshRef()
     triangles = nullptr;
     per_vertex_data_ = nullptr;
     unknowna0_ = 0;
-    unknown1c_[3] = 0xFF;
+    core::at(unknown1c_, 3) = 0xFF;
     unknown9c_ = -1;
     unknown98 = -1;
     flags |= 0x40;
@@ -98,12 +99,12 @@ long MeshRef::apply_vertex_colors()
 {
     if (!per_vertex_bytes_)
         return 0;
-    VertexBuffer* vb = vertex_buffers_[current_vertex_buffer_];
+    VertexBuffer* vb = core::at(vertex_buffers_, current_vertex_buffer_);
     uint8_t* data = vb->data; // (locked whole, inline)
     vb->lock_size_ = vb->size;
     vb->lock_offset_ = 0;
     vb->lock_flags_ = 0;
-    uint8_t* out = data + unknown1c_[0];
+    uint8_t* out = data + core::at(unknown1c_, 0);
     const uint32_t* colors = material->anim_colors_;
     for (uint32_t i = 0; i < vertex_count_; ++i) {
         const int index = int{static_cast<int8_t>(per_vertex_bytes_[i])};
@@ -111,7 +112,7 @@ long MeshRef::apply_vertex_colors()
             *raw::as<uint32_t>(out) = colors[index - 1];
         out += stride;
     }
-    return vertex_buffers_[current_vertex_buffer_]->get_unlock();
+    return core::at(vertex_buffers_, current_vertex_buffer_)->get_unlock();
 }
 
 // 0x004D4D30
@@ -135,10 +136,10 @@ VertexBuffer* new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 // 0x004D57D0
 void MeshRef::clean_strip()
 {
-    uint16_t* strip = index_buffers_[0]->indices;
+    uint16_t* strip = core::at(index_buffers_, 0)->indices;
     uint32_t a = strip[0], b = strip[1];
     uint32_t run = 0; // degenerate triangles in a row
-    for (uint32_t i = 2; i < index_counts_[0]; ++i) {
+    for (uint32_t i = 2; i < core::at(index_counts_, 0); ++i) {
         const uint32_t c = strip[i];
         if (a == b || a == c || b == c) {
             ++run;
@@ -151,30 +152,30 @@ void MeshRef::clean_strip()
                 strip[start] = last;
                 uint32_t kept = 0;
                 if (!(run & 1)) {
-                    std::memmove(&strip[start + 1], from, (index_counts_[0] - i) * 2 + 6);
+                    std::memmove(&strip[start + 1], from, (core::at(index_counts_, 0) - i) * 2 + 6);
                     kept = 4;
                 } else {
                     strip[start + 1] = last;
-                    std::memmove(&strip[start + 2], from, (index_counts_[0] - i) * 2 + 6);
+                    std::memmove(&strip[start + 2], from, (core::at(index_counts_, 0) - i) * 2 + 6);
                     kept = 5;
                 }
                 i = start + kept;
-                index_counts_[0] = static_cast<uint16_t>(index_counts_[0] + kept - run);
+                core::at(index_counts_, 0) = static_cast<uint16_t>(core::at(index_counts_, 0) + kept - run);
             }
             run = 0;
         }
         a = b;
         b = c;
     }
-    index_buffers_[0]->get_unlock();
+    core::at(index_buffers_, 0)->get_unlock();
 }
 
 // 0x004D5900
 void MeshRef::change_bound_sphere(const float* centre_in, float radius_in, int, int)
 {
-    centre[0] = centre_in[0];
-    centre[1] = centre_in[1];
-    centre[2] = centre_in[2];
+    core::at(centre, 0) = centre_in[0];
+    core::at(centre, 1) = centre_in[1];
+    core::at(centre, 2) = centre_in[2];
     radius = radius_in;
 }
 
@@ -183,16 +184,16 @@ void MeshRef::create_vertex_buffer(const void* vertices, uint32_t bytes, VertexA
 {
     if (arena)
         buffer_flags_ |= 4; // (a share of the arena's buffer)
-    vertex_buffers_[0] = new_vertex_buffer(bytes, buffer_usage_, buffer_flags_);
+    core::at(vertex_buffers_, 0) = new_vertex_buffer(bytes, buffer_usage_, buffer_flags_);
     if (arena)
         arena->size += (bytes + 0x1F) & ~0x1Fu;
-    VertexBuffer* vb = vertex_buffers_[0];
+    VertexBuffer* vb = core::at(vertex_buffers_, 0);
     uint8_t* data = vb->data; // (locked whole, inline)
     vb->lock_offset_ = 0;
     vb->lock_size_ = vb->size;
     vb->lock_flags_ = 0;
     std::memcpy(data, vertices, bytes);
-    vertex_buffers_[0]->get_unlock();
+    core::at(vertex_buffers_, 0)->get_unlock();
 }
 
 
@@ -299,16 +300,16 @@ MeshRef::~MeshRef()
         if (stream)
             stream->Release(); // (only compared with below)
         for (uint32_t i = 0; i < vertex_buffer_count_; ++i) {
-            if (vertex_buffers_[i]) {
-                if (stream == vertex_buffers_[i]->buffer)
+            if (core::at(vertex_buffers_, i)) {
+                if (stream == core::at(vertex_buffers_, i)->buffer)
                     input_port()->SetStreamSource(0, nullptr, 0, 0);
-                vertex_buffers_[i]->teardown();
-                vertex_buffers_[i] = nullptr;
+                core::at(vertex_buffers_, i)->teardown();
+                core::at(vertex_buffers_, i) = nullptr;
             }
-            if (extra_buffers_[i]) {
-                if (stream == extra_buffers_[i]->buffer)
+            if (core::at(extra_buffers_, i)) {
+                if (stream == core::at(extra_buffers_, i)->buffer)
                     input_port()->SetStreamSource(0, nullptr, 0, 0);
-                extra_buffers_[i]->teardown(); // (left pointing at it: cleared with the rest below)
+                core::at(extra_buffers_, i)->teardown(); // (left pointing at it: cleared with the rest below)
             }
         }
         if (last_buffer_) {

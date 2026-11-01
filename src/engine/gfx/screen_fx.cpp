@@ -20,6 +20,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine_glue.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -31,11 +32,11 @@ std::array<float, 4> g_blur_tap_offsets{{-0.022857143f, -0.005714286f, 0.0057142
 
 IDirect3DDevice9* input_port() { return g_d3d_device; }
 IDirect3DDevice9* device_copy() { return g_draw_device; } // (the same device)
-IDirect3DTexture9* screen_copy(int index) { return g_screen_textures[index]; }
+IDirect3DTexture9* screen_copy(int index) { return core::at(g_screen_textures, index); }
 IDirect3DTexture9* current_screen_copy() { return screen_copy(g_screen_copy_index); }
 IDirect3DSurface9* z_buffer_surface() { return g_z_buffer_surface; }
 bool& screen_copy_in_use() { return g_screen_copy_in_use; }
-void* get_shader(int slot) { return g_pixel_shaders[slot]; }
+void* get_shader(int slot) { return core::at(g_pixel_shaders, slot); }
 
 // Fog on or off (not rewritten yet; the request kept, the device's state following).
 void change_fog(bool on) { engine::enable_fog(on); }
@@ -74,8 +75,8 @@ struct FlatVertex {
 };
 
 // The blur's four taps (texel offsets and weights) at 0x0067EF98 / 0x0067EF88.
-float tap_offset(int tap) { return g_blur_tap_offsets[tap]; }
-float tap_weight(int tap) { return g_blur_tap_weights[tap]; }
+float tap_offset(int tap) { return core::at(g_blur_tap_offsets, tap); }
+float tap_weight(int tap) { return core::at(g_blur_tap_weights, tap); }
 
 // A grey of 0-255 at half alpha: 0x80 then the value three times (from _ftol: a bigger value spills over).
 uint32_t tap_colour(float weight)

@@ -25,6 +25,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -220,14 +221,14 @@ GameEntity::GameEntity()
 {
     vel_ = {0.0f, 0.0f, 0.0f, 1.0f};
     at_point_ = {0.0f, 0.0f, 0.0f, 1.0f};
-    basis_frame_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    basis_frame_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    basis_frame_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    display_matrix_.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-    display_matrix_.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-    display_matrix_.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
-    display_matrix_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(basis_frame_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(basis_frame_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(basis_frame_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(basis_frame_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
+    core::at(display_matrix_.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+    core::at(display_matrix_.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+    core::at(display_matrix_.row, 2) = {0.0f, 0.0f, 1.0f, 0.0f};
+    core::at(display_matrix_.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     object_flags_ |= kObjectFlagHasPosition;
 }
 
@@ -492,13 +493,13 @@ bool GameEntity::obj_move_local(Struct* params, Script* /*script*/)
 {
     float distance = 0.0f;
     params->fetch_float(kX, &distance, 0);
-    add_scaled(at_point_, basis_frame_.row[0], distance);
+    add_scaled(at_point_, core::at(basis_frame_.row, 0), distance);
     distance = 0.0f;
     params->fetch_float(kY, &distance, 0);
-    add_scaled(at_point_, basis_frame_.row[1], distance);
+    add_scaled(at_point_, core::at(basis_frame_.row, 1), distance);
     distance = 0.0f;
     params->fetch_float(kZ, &distance, 0);
-    add_scaled(at_point_, basis_frame_.row[2], distance);
+    add_scaled(at_point_, core::at(basis_frame_.row, 2), distance);
     return true;
 }
 
@@ -534,7 +535,7 @@ bool GameEntity::obj_get_distance_to_object(Struct* params, Script* script)
 // 0x0045E260: whether the velocity points backwards (against its matrix's at row).
 bool GameEntity::obj_moving_backward(Struct* /*params*/, Script* /*script*/)
 {
-    const maths::Vec4& at = basis_frame_.row[2];
+    const maths::Vec4& at = core::at(basis_frame_.row, 2);
     double along = static_cast<double>(vel_.z) * at.z + static_cast<double>(vel_.y) * at.y;
     along += static_cast<double>(vel_.x) * at.x;
     return along < 0.0;
@@ -594,9 +595,9 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     float shift = 0.0f;
     params->fetch_float(kShift, &shift, 0);
     shift *= feet_as_inches();
-    const maths::Vec4& right = basis_frame_.row[0];
-    const maths::Vec4& up = basis_frame_.row[1];
-    const maths::Vec4& at = basis_frame_.row[2];
+    const maths::Vec4& right = core::at(basis_frame_.row, 0);
+    const maths::Vec4& up = core::at(basis_frame_.row, 1);
+    const maths::Vec4& at = core::at(basis_frame_.row, 2);
     // The start: pos + up * height + at * distance + right * shift (x87: some sums kept at 53 bits, as below).
     const float offset_cell_x = shift * right.x;
     const float shift_y = shift * right.y;
@@ -651,9 +652,9 @@ bool GameEntity::obj_unpause(Struct* /*params*/, Script* /*script*/)
 // 0x0045DF70: x, y, z = its display matrix's at row, made unit length (left as it is if its length is 0).
 bool GameEntity::obj_get_orientation(Struct* /*params*/, Script* script)
 {
-    float x = display_matrix_.row[2].x;
-    float y = display_matrix_.row[2].y;
-    float z = display_matrix_.row[2].z;
+    float x = core::at(display_matrix_.row, 2).x;
+    float y = core::at(display_matrix_.row, 2).y;
+    float z = core::at(display_matrix_.row, 2).z;
     const double length =
         std::sqrt(static_cast<double>(z) * z + static_cast<double>(y) * y + static_cast<double>(x) * x);
     if (length > 0.0) {
@@ -692,7 +693,7 @@ bool GameEntity::obj_get_orientation_to_object(Struct* params, Script* script)
     float dot = 0.0f;
     float angle = 0.0f;
     if (other) {
-        maths::Vec4 right = {basis_frame_.row[0].x, basis_frame_.row[0].y, basis_frame_.row[0].z, 0.0f};
+        maths::Vec4 right = {core::at(basis_frame_.row, 0).x, core::at(basis_frame_.row, 0).y, core::at(basis_frame_.row, 0).z, 0.0f};
         right.make_unit();
         maths::Vec4 to_other = {other->at_point_.x - at_point_.x, other->at_point_.y - at_point_.y,
                                 other->at_point_.z - at_point_.z, 0.0f};
@@ -714,17 +715,17 @@ bool GameEntity::obj_set_orientation(Struct* params, Script* /*script*/)
     script::VectorValue value = {0.0f, 0.0f, 1.0f, 1.0f};
     if (params->fetch_vec(kDir, &value, 0)) {
         maths::Mat4 m;
-        m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
-        m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
-        m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+        core::at(m.row, 0) = {1.0f, 0.0f, 0.0f, 0.0f};
+        core::at(m.row, 1) = {0.0f, 1.0f, 0.0f, 0.0f};
+        core::at(m.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
         if (std::fabs(value.y) > kNearlyVertical)
-            m.row[1] = {1.0f, 0.0f, 0.0f, 1.0f};
-        m.row[2] = {value.x, value.y, value.z, 0.0f};
-        m.row[2].make_unit();
-        m.row[0] = perpendicular(m.row[1], m.row[2]);
-        m.row[0].make_unit();
-        m.row[1] = perpendicular(m.row[2], m.row[0]);
-        m.row[1].make_unit();
+            core::at(m.row, 1) = {1.0f, 0.0f, 0.0f, 1.0f};
+        core::at(m.row, 2) = {value.x, value.y, value.z, 0.0f};
+        core::at(m.row, 2).make_unit();
+        core::at(m.row, 0) = perpendicular(core::at(m.row, 1), core::at(m.row, 2));
+        core::at(m.row, 0).make_unit();
+        core::at(m.row, 1) = perpendicular(core::at(m.row, 2), core::at(m.row, 0));
+        core::at(m.row, 1).make_unit();
         basis_frame_ = m;
         display_matrix_ = m;
         return true;
@@ -758,12 +759,12 @@ bool GameEntity::obj_get_quat(Struct* /*params*/, Script* script)
 {
     std::array<float, 4> quat{};
     matrix_to_quat(quat.data(), &basis_frame_);
-    if (quat[3] < 0.0f) {
-        quat[0] = -quat[0];
-        quat[1] = -quat[1];
-        quat[2] = -quat[2];
+    if (core::at(quat, 3) < 0.0f) {
+        core::at(quat, 0) = -core::at(quat, 0);
+        core::at(quat, 1) = -core::at(quat, 1);
+        core::at(quat, 2) = -core::at(quat, 2);
     }
-    script->args_->put_vec3(kQuat, quat[0], quat[1], quat[2]);
+    script->args_->put_vec3(kQuat, core::at(quat, 0), core::at(quat, 1), core::at(quat, 2));
     return true;
 }
 

@@ -22,6 +22,7 @@
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace objects {
 
@@ -169,8 +170,8 @@ void PedestrianBrainModule::choose_node_after()
                                       next_node_pos_.z - node_pos_.z, next_node_pos_.w - node_pos_.w};
         int lows[20], normals[20];
         for (int i = 0; i < count; ++i) {
-            normals[i] = i;
-            lows[i] = i;
+            core::at(normals, i) = i;
+            core::at(lows, i) = i;
         }
         int low_count = 0, normal_count = 0;
         const int min_angle = script::fetch_int_value(kMinInnerPathAngle);
@@ -205,9 +206,9 @@ void PedestrianBrainModule::choose_node_after()
             uint32_t priority = 0;
             linked->read_hash_value(kPriority, &priority, 1);
             if (priority == kLow)
-                lows[low_count++] = i;
+                core::at(lows, low_count++) = i;
             else if (priority == kNormal)
-                normals[normal_count++] = i;
+                core::at(normals, normal_count++) = i;
         }
         if (normal_count == 0 && low_count == 0) {
             chosen = level_nodes::fetch_link(next_node_, best);
@@ -222,9 +223,9 @@ void PedestrianBrainModule::choose_node_after()
                 }
             }
             if (low)
-                chosen = level_nodes::fetch_link(next_node_, lows[maths::rnd(low_count)]);
+                chosen = level_nodes::fetch_link(next_node_, core::at(lows, maths::rnd(low_count)));
             else
-                chosen = level_nodes::fetch_link(next_node_, normals[maths::rnd(normal_count)]);
+                chosen = level_nodes::fetch_link(next_node_, core::at(normals, maths::rnd(normal_count)));
         }
     }
     if (chosen) {
@@ -356,7 +357,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
     if (turn) {
         flag_bits_ |= kPedFlagVertRotating;
         const maths::Vec4 up = {0.0f, 1.0f, 0.0f, 1.0f};
-        auto angle = static_cast<float>(maths::read_turn_angle(saved_matrix_.row[2], up));
+        auto angle = static_cast<float>(maths::read_turn_angle(core::at(saved_matrix_.row, 2), up));
         vert_rotation_target_ = static_cast<float>(static_cast<double>(script::fetch_float(kSpineSlop)) + angle);
     }
     if (flag_bits_ & (kPedFlagSpinning | kPedFlagVertRotating)) {
@@ -373,7 +374,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
 void PedestrianBrainModule::lip_trick_update()
 {
     maths::Mat4 matrix = entity_->display_matrix_;
-    matrix.row[2] = {0.0f, 1.0f, 0.0f, 1.0f};
+    core::at(matrix.row, 2) = {0.0f, 1.0f, 0.0f, 1.0f};
     const maths::Vec4& up = up_dir_.make_unit();
     // Across: up x (0, 1, 0), normalised (x and z kept as floats too).
     auto zero = static_cast<float>(static_cast<double>(up.y) * 0.0f);
@@ -392,7 +393,7 @@ void PedestrianBrainModule::lip_trick_update()
         sz *= inverse;
         side_z = static_cast<float>(sz);
     }
-    matrix.row[0] = {static_cast<float>(sx), static_cast<float>(sy), static_cast<float>(sz), 0.0f};
+    core::at(matrix.row, 0) = {static_cast<float>(sx), static_cast<float>(sy), static_cast<float>(sz), 0.0f};
     // Up: (0, 1, 0) x across, normalised.
     auto zero_y = static_cast<float>(sy * 0.0f);
     double a = static_cast<double>(side_z) - zero_y;
@@ -406,7 +407,7 @@ void PedestrianBrainModule::lip_trick_update()
         b *= inverse;
         up_row_z = static_cast<float>(up_row_z * inverse);
     }
-    matrix.row[1] = {static_cast<float>(a), static_cast<float>(b), up_row_z, 0.0f};
+    core::at(matrix.row, 1) = {static_cast<float>(a), static_cast<float>(b), up_row_z, 0.0f};
     entity_->display_matrix_ = matrix;
 }
 
@@ -691,7 +692,7 @@ bool PedestrianBrainModule::ped_init_path(script::Struct*, script::Script*)
         dz = static_cast<float>(dz * inverse);
     }
     maths::Mat4 matrix = entity_->display_matrix_;
-    matrix.row[2] = {dx, dy, dz, dw};
+    core::at(matrix.row, 2) = {dx, dy, dz, dw};
     matrix.square_up_axes(2);
     entity_->display_matrix_ = matrix;
     saved_matrix_ = matrix;

@@ -46,6 +46,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor {
 
@@ -99,9 +100,9 @@ OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
 {
     OrientedBox box{};
     box.origin = placement.offset;
-    box.axes[0] = get_quarter_turn({placement.scale.x, 0.0f, 0.0f}, placement.quarters);
-    box.axes[1] = {0.0f, placement.scale.y, 0.0f};
-    box.axes[2] = get_quarter_turn({0.0f, 0.0f, placement.scale.z}, placement.quarters);
+    core::at(box.axes, 0) = get_quarter_turn({placement.scale.x, 0.0f, 0.0f}, placement.quarters);
+    core::at(box.axes, 1) = {0.0f, placement.scale.y, 0.0f};
+    core::at(box.axes, 2) = get_quarter_turn({0.0f, 0.0f, placement.scale.z}, placement.quarters);
     box.min = min;
     box.max = max;
     return box;
@@ -130,7 +131,7 @@ void bounds_of(const OrientedBox& box, V3* min, V3* max)
     std::array<V3, 8> corners{};
     box_corners(box.origin, box.axes.data(), box.min, box.max, corners.data());
     for (int i = 0; i < 8; ++i)
-        grow_box(min, max, i != 0, corners[i], corners[i]);
+        grow_box(min, max, i != 0, core::at(corners, i), core::at(corners, i));
 }
 
 bool piece_fits(V3 min, V3 max, V3 group_min, V3 group_max)
@@ -284,7 +285,7 @@ const char* meshes_movable(render::PcGeom* geom)
         if (buffers > std::size(mesh->vertex_buffers_))
             return "odd vertex buffers";
         for (uint32_t b = 0; b < buffers; ++b) {
-            const render::VertexBuffer* buffer = mesh->vertex_buffers_[b];
+            const render::VertexBuffer* buffer = core::at(mesh->vertex_buffers_, b);
             if (!buffer || !buffer->data)
                 return "no vertex copy";
             if (buffer->size != vertices * stride)
@@ -878,19 +879,19 @@ bool ray_meshes(render::PcGeom* geom, V3 origin, V3 dir, float max_t, float* t)
             continue;
         float hit = 0.0f;
         if (mesh->billboard || (mesh->flags & 0x10)) {
-            if (ray_sphere(origin, dir, {mesh->centre[0], mesh->centre[1], mesh->centre[2]}, mesh->radius, &hit) &&
+            if (ray_sphere(origin, dir, {core::at(mesh->centre, 0), core::at(mesh->centre, 1), core::at(mesh->centre, 2)}, mesh->radius, &hit) &&
                 hit < best) {
                 best = hit;
                 found = true;
             }
             continue;
         }
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
-        const render::IdxStore* indices = mesh->index_buffers_[0];
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         if (picking::ray_strip(origin, dir, vertices->data, mesh->stride, mesh->vertex_count_, indices->indices,
-                               mesh->index_counts_[0], best, &hit)) {
+                               core::at(mesh->index_counts_, 0), best, &hit)) {
             best = hit;
             found = true;
         }
@@ -910,7 +911,7 @@ bool geom_see_through(render::PcGeom* geom)
         return false;
     for (uint32_t i = 0; i < count; ++i) {
         const render::MaterialRef* material = meshes[i] ? meshes[i]->material : nullptr;
-        if (!material || !picking::material_see_through(material->pass_flags_[0], material->blend_modes_[0]))
+        if (!material || !picking::material_see_through(core::at(material->pass_flags_, 0), core::at(material->blend_modes_, 0)))
             return false;
     }
     return true;
@@ -936,12 +937,12 @@ float geom_level_share(uint32_t checksum, render::PcGeom* geom)
         const render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
-        const render::IdxStore* indices = mesh->index_buffers_[0];
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         picking::add_top_strip(&area, vertices->data, mesh->stride, mesh->vertex_count_, indices->indices,
-                               mesh->index_counts_[0]);
+                               core::at(mesh->index_counts_, 0));
     }
     const float share = picking::get_level_share(area);
     level_shares()[checksum] = {geom, share};
@@ -1118,11 +1119,11 @@ std::string describe_selection()
 {
     if (g_selection.empty())
         return "-";
-    std::string text = "scenery " + caption(g_selection[0]);
+    std::string text = "scenery " + caption(core::at(g_selection, 0));
     std::array<char, 160> more{};
     int quarters = 0;
     V3 scale = {1.0f, 1.0f, 1.0f};
-    auto it = tracks_state().find(g_selection[0]);
+    auto it = tracks_state().find(core::at(g_selection, 0));
     if (it != tracks_state().end()) {
         quarters = it->second.placement.quarters;
         scale = it->second.placement.scale;
@@ -1196,7 +1197,7 @@ void log_meshes()
 {
     if (!debug_enabled() || g_selection.empty())
         return;
-    const render::PcGeom* geom = sector_geometry(g_selection[0]);
+    const render::PcGeom* geom = sector_geometry(core::at(g_selection, 0));
     render::MeshRef* const* meshes = geom ? geom->meshes : nullptr;
     const uint32_t count = geom ? geom->mesh_count_ : 0;
     for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
@@ -1206,11 +1207,11 @@ void log_meshes()
         get_log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
                 "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
                 i, mesh->flags, colour[0], colour[1], colour[2], mesh->fvf, static_cast<const void*>(material),
-                material ? material->pass_count_ & 0xFFFFFFF : 0, material ? material->pass_flags_[0] : 0,
-                material ? material->pass_flags_[1] : 0,
-                material ? std::bit_cast<uint32_t>(material->pass_color_[0][0]) : 0,
-                material ? std::bit_cast<uint32_t>(material->pass_color_[0][1]) : 0,
-                material ? std::bit_cast<uint32_t>(material->pass_color_[0][2]) : 0,
+                material ? material->pass_count_ & 0xFFFFFFF : 0, material ? core::at(material->pass_flags_, 0) : 0,
+                material ? core::at(material->pass_flags_, 1) : 0,
+                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 0)) : 0,
+                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 1)) : 0,
+                material ? std::bit_cast<uint32_t>(core::at(core::at(material->pass_color_, 0), 2)) : 0,
                 static_cast<uint8_t>(render::g_shaders_available));
     }
 }
@@ -1305,16 +1306,16 @@ V3 selection_scale()
 {
     if (g_selection.empty())
         return {1.0f, 1.0f, 1.0f};
-    render::WorldCell* sector = find_sector(g_selection[0], nullptr);
-    return sector ? placement_of(g_selection[0], geom_of(sector)).scale : V3{1.0f, 1.0f, 1.0f};
+    render::WorldCell* sector = find_sector(core::at(g_selection, 0), nullptr);
+    return sector ? placement_of(core::at(g_selection, 0), geom_of(sector)).scale : V3{1.0f, 1.0f, 1.0f};
 }
 
 int selection_quarters()
 {
     if (g_selection.empty())
         return 0;
-    render::WorldCell* sector = find_sector(g_selection[0], nullptr);
-    return sector ? placement_of(g_selection[0], geom_of(sector)).quarters : 0;
+    render::WorldCell* sector = find_sector(core::at(g_selection, 0), nullptr);
+    return sector ? placement_of(core::at(g_selection, 0), geom_of(sector)).quarters : 0;
 }
 
 V3 scale_selection(V3 factor, bool uniform)
@@ -1704,10 +1705,10 @@ bool selection_moved(Placement* placement)
 {
     if (g_selection.empty())
         return false;
-    render::WorldCell* sector = find_sector(g_selection[0], nullptr);
+    render::WorldCell* sector = find_sector(core::at(g_selection, 0), nullptr);
     if (!sector)
         return false;
-    *placement = placement_of(g_selection[0], geom_of(sector));
+    *placement = placement_of(core::at(g_selection, 0), geom_of(sector));
     return placement->quarters != 0 || !is_unit_scale(placement->scale) || placement->offset.x != 0.0f ||
            placement->offset.y != 0.0f || placement->offset.z != 0.0f;
 }
@@ -1772,7 +1773,7 @@ Saved save_colour(TintOwner owner, render::PcGeom* geom)
     const uint32_t count = geom->mesh_count_;
     for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
         const render::MeshRef* mesh = meshes[i];
-        saved.meshes.push_back({mesh->flags & 4, {mesh->color[0], mesh->color[1], mesh->color[2]}});
+        saved.meshes.push_back({mesh->flags & 4, {core::at(mesh->color, 0), core::at(mesh->color, 1), core::at(mesh->color, 2)}});
     }
     return saved;
 }
@@ -1792,8 +1793,8 @@ void restore_colour(const Saved& saved)
         return;
     for (uint32_t i = 0; i < count; ++i) {
         render::MeshRef* mesh = meshes[i];
-        mesh->flags = (mesh->flags & ~4u) | saved.meshes[i].flag;
-        std::memcpy(mesh->color.data(), saved.meshes[i].color.data(), sizeof(mesh->color));
+        mesh->flags = (mesh->flags & ~4u) | core::at(saved.meshes, i).flag;
+        std::memcpy(mesh->color.data(), core::at(saved.meshes, i).color.data(), sizeof(mesh->color));
     }
 }
 

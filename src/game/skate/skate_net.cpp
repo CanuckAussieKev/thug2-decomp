@@ -56,6 +56,7 @@
 #include "engine/core/raw_view.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf into its fixed buffers, kept)
 
@@ -215,8 +216,8 @@ void append_listener(net::AppHost* app, int id, uint32_t code, uint32_t flags, v
 // 0x0056E2B0
 void SkateNet::create_network_tasks(Skate* skate)
 {
-    skate->server_tasks_[0] = new tasks::Task<Skate>(&SkateNet::server_task, skate, -1000);
-    skate->server_tasks_[1] = new tasks::Task<Skate>(&SkateNet::score_task, skate, -1000);
+    core::at(skate->server_tasks_, 0) = new tasks::Task<Skate>(&SkateNet::server_task, skate, -1000);
+    core::at(skate->server_tasks_, 1) = new tasks::Task<Skate>(&SkateNet::score_task, skate, -1000);
 }
 
 // 0x00569530
@@ -239,8 +240,8 @@ void SkateNet::launch_host(Skate* skate)
     auto* server = net->start_host_session(!auto_serving, true);
     if (!server)
         return;
-    mlp->logic_tasks_.queue_job(skate->server_tasks_[0]);
-    mlp->logic_tasks_.queue_job(skate->server_tasks_[1]);
+    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 0));
+    mlp->logic_tasks_.queue_job(core::at(skate->server_tasks_, 1));
     append_listener(server, 0x3B, handle_trick_objects, 0, nullptr);
     append_listener(server, 0x52, handle_combo_score, 0, skate);
     append_listener(server, 0x86, handle_game_stats, 0, skate);
@@ -399,8 +400,8 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
     // Objects left (wire/play_messages.h): [0] the player (or the team), [1] how many.
     util::ByteReader reader(context->body_, context->body_size_);
     std::array<int8_t, 2> data{};
-    data[0] = reader.i8();
-    data[1] = reader.i8();
+    core::at(data, 0) = reader.i8();
+    core::at(data, 1) = reader.i8();
     if (!reader.ok()) // NOT ORIGINAL: too short - dropped
         return 4;
     online::Hub* net = net_session_slot();
@@ -413,24 +414,24 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
             local_team = local->team_;
         params = spawn_param_table();
         params->append_word(kName, local->label_.data()); // (no local player: read through null, as the original)
-        if (data[1] == 1 || data[1] == 5) {
-            const bool one = data[1] == 1;
-            if (data[0] == local_team) {
+        if (core::at(data, 1) == 1 || core::at(data, 1) == 5) {
+            const bool one = core::at(data, 1) == 1;
+            if (core::at(data, 0) == local_team) {
                 get_run(one ? kOneLeftYou : kFiveLeftYou);
             } else {
-                std::sprintf(text.data(), "team_%d_name", data[0] + 1);
+                std::sprintf(text.data(), "team_%d_name", core::at(data, 0) + 1);
                 params->append_word(kName, script::fetch_text(text.data()));
                 get_run(one ? kOneLeftOtherTeam : kFiveLeftOtherTeam, params);
             }
         }
     } else {
-        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(data[0])));
+        PlayerRecord* player = net->find_player_slot_by_obj(static_cast<uint16_t>(static_cast<int16_t>(core::at(data, 0))));
         if (!player)
             return 1;
         params = spawn_param_table();
         params->append_word(kName, player->label_.data());
-        if (data[1] == 1 || data[1] == 5) {
-            const bool one = data[1] == 1;
+        if (core::at(data, 1) == 1 || core::at(data, 1) == 5) {
+            const bool one = core::at(data, 1) == 1;
             if (is_own_player(player))
                 get_run(one ? kOneLeftYou : kFiveLeftYou);
             else
@@ -471,7 +472,7 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
         // NOT ORIGINAL: no positions past the message's end (the original read on)
         if (!online::read_hunt_position(reader, at.data()))
             break;
-        const script::VectorValue position = {at[0], at[1], at[2], at[3]};
+        const script::VectorValue position = {core::at(at, 0), core::at(at, 1), core::at(at, 2), core::at(at, 3)};
         Struct* params = spawn_param_table();
         params->put_int(kIndex, i);
         params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
@@ -535,8 +536,8 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         get_game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
     // Each skater's score: the object's id, its score.
     for (int i = 0; i < message->count; ++i) {
-        const int8_t id = message->entries[i].id;
-        const int value = message->entries[i].score;
+        const int8_t id = core::at(message->entries, i).id;
+        const int value = core::at(message->entries, i).score;
         objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(static_cast<int>(id)));
         if (!object)
             continue;
@@ -794,11 +795,11 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         uint32_t value68 = 0, value_6c = 0, value80 = 0;
         for (int k = 0; k < 3; ++k) {
             if (fields & (1u << k))
-                pos[k] = static_cast<int16_t>(stream.read_signed_bits(16));
+                core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(16));
         }
         for (int k = 0; k < 3; ++k) {
             if (fields & (8u << k))
-                angles[k] = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(16)) * (1.0 / 4096.0));
+                core::at(angles, k) = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(16)) * (1.0 / 4096.0));
         }
         if (fields & 0x40) {
             const uint32_t bits = stream.read_bits(4);
@@ -829,38 +830,38 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             matrix = skater->basis_frame_;
             maths::Vec4 eulers{};
             matrix.get_euler_angles(eulers);
-            StateEntry& first = history->states_[0];
+            StateEntry& first = core::at(history->states_, 0);
             for (int k = 0; k < 3; ++k) {
                 // (TP-R6: in a big level as sent there; THUGPRO's own left this one in halves / quarters)
                 if (k == 1)
-                    first.pos[1] = thugpro::pack_height(skater->at_point_.y);
+                    core::at(first.pos, 1) = thugpro::pack_height(skater->at_point_.y);
                 else
-                    first.pos[k] = thugpro::pack_horizontal((&skater->at_point_.x)[k]);
-                first.angles[k] = (&eulers.x)[k];
+                    core::at(first.pos, k) = thugpro::pack_horizontal((&skater->at_point_.x)[k]);
+                core::at(first.angles, k) = (&eulers.x)[k];
             }
             previous = 0;
         }
-        const StateEntry& prev = history->states_[previous];
-        StateEntry& cur = history->states_[history->state_count_ % 20];
+        const StateEntry& prev = core::at(history->states_, previous);
+        StateEntry& cur = core::at(history->states_, history->state_count_ % 20);
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (1u << k)))
-                pos[k] = prev.pos[k];
+                core::at(pos, k) = core::at(prev.pos, k);
         }
         for (int k = 0; k < 3; ++k)
-            cur.pos[k] = pos[k];
+            core::at(cur.pos, k) = core::at(pos, k);
         // (TP-R6: whole units in a big level)
-        const std::array<float, 3> position = {{thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
-                                   thugpro::unpack_horizontal(pos[2])}};
+        const std::array<float, 3> position = {{thugpro::unpack_horizontal(core::at(pos, 0)), thugpro::unpack_height(core::at(pos, 1)),
+                                   thugpro::unpack_horizontal(core::at(pos, 2))}};
         for (int k = 0; k < 3; ++k) {
             if (!(fields & (8u << k)))
-                angles[k] = prev.angles[k];
+                core::at(angles, k) = core::at(prev.angles, k);
         }
         for (int k = 0; k < 3; ++k)
-            cur.angles[k] = angles[k];
+            core::at(cur.angles, k) = core::at(angles, k);
         maths::Mat4 matrix{};
-        matrix.set_from_euler_angles(angles[0], angles[1], angles[2]);
+        matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
         cur.matrix = matrix;
-        cur.position = {position[0], position[1], position[2], 0.0f};
+        cur.position = {core::at(position, 0), core::at(position, 1), core::at(position, 2), 0.0f};
         if (!(fields & 0x40)) {
             state = static_cast<uint8_t>(prev.state);
             flag74 = prev.flag74;
@@ -916,30 +917,30 @@ uint32_t SkateNet::get_relay_flags(void* sent_record, void* state_entry, uint8_t
     uint32_t flags = 0;
     // Everything again once 60 of the server's frames have gone by.
     const uint32_t frame = server_frame();
-    const uint32_t since = frame > sent->forced_frame_[index] ? server_frame() - sent->forced_frame_[index]
-                                                              : sent->forced_frame_[index] - server_frame();
+    const uint32_t since = frame > core::at(sent->forced_frame_, index) ? server_frame() - core::at(sent->forced_frame_, index)
+                                                              : core::at(sent->forced_frame_, index) - server_frame();
     const bool force = since >= 60;
     if (force)
-        sent->forced_frame_[index] = server_frame();
-    const std::array<float, 3> angles = {{entry->angles[0], entry->angles[1], entry->angles[2]}};
+        core::at(sent->forced_frame_, index) = server_frame();
+    const std::array<float, 3> angles = {{core::at(entry->angles, 0), core::at(entry->angles, 1), core::at(entry->angles, 2)}};
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
         const int16_t value =
             k == 1 ? thugpro::pack_height((&entry->position.x)[1]) : thugpro::pack_horizontal((&entry->position.x)[k]);
-        if (value != sent->pos_[index][k] || force)
+        if (value != core::at(core::at(sent->pos_, index), k) || force)
             flags |= 1u << k;
     }
     for (int k = 0; k < 3; ++k) {
-        if (pack_angle(angles[k]) != sent->angles_[index][k] || force)
+        if (pack_angle(core::at(angles, k)) != core::at(core::at(sent->angles_, index), k) || force)
             flags |= 8u << k;
     }
-    if (static_cast<uint8_t>(entry->state) != sent->state_[index] || entry->flag74 != sent->flag74_[index] ||
-        entry->value_7c_ != sent->value_7c_[index] || entry->flag75 != sent->flag75_[index] ||
-        entry->flag76 != sent->flag76_[index] || force)
+    if (static_cast<uint8_t>(entry->state) != core::at(sent->state_, index) || entry->flag74 != core::at(sent->flag74_, index) ||
+        entry->value_7c_ != core::at(sent->value_7c_, index) || entry->flag75 != core::at(sent->flag75_, index) ||
+        entry->flag76 != core::at(sent->flag76_, index) || force)
         flags |= 0x40;
-    if (entry->value68 != sent->value68_[index] || entry->value_6c_ != sent->value_6c_[index] || force)
+    if (entry->value68 != core::at(sent->value68_, index) || entry->value_6c_ != core::at(sent->value_6c_, index) || force)
         flags |= 0x80;
-    if (entry->value80 != sent->value80_[index] || force)
+    if (entry->value80 != core::at(sent->value80_, index) || force)
         flags |= 0x100;
     return flags;
 }
@@ -951,11 +952,11 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
     objects::Entity* skater = player_skater(player);
     auto index = static_cast<uint8_t>(skater->ident_);
     objects::RiderFrameLog* history = history_of(skater);
-    StateEntry& entry = history->states_[(history->state_count_ - 1) % 20];
+    StateEntry& entry = core::at(history->states_, (history->state_count_ - 1) % 20);
     online::SentSkaterUpdates* sent = &static_cast<PlayerRecord*>(out->sent_)->sent_;
     util::PackedBitBuffer& stream = out->feed_;
-    sent->time_[index] = entry_time(entry);
-    const std::array<float, 3> angles = {{entry.angles[0], entry.angles[1], entry.angles[2]}};
+    core::at(sent->time_, index) = entry_time(entry);
+    const std::array<float, 3> angles = {{core::at(entry.angles, 0), core::at(entry.angles, 1), core::at(entry.angles, 2)}};
     stream.write_bits(entry.time, 16);
     const uint32_t flags = get_relay_flags(sent, &entry, index);
     stream.write_bits(flags, 9);
@@ -965,13 +966,13 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
             k == 1 ? thugpro::pack_height(entry.position.y) : thugpro::pack_horizontal((&entry.position.x)[k]);
         if (flags & (1u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
-        sent->pos_[index][k] = value;
+        core::at(core::at(sent->pos_, index), k) = value;
     }
     for (int k = 0; k < 3; ++k) {
-        const int16_t value = pack_angle(angles[k]);
+        const int16_t value = pack_angle(core::at(angles, k));
         if (flags & (8u << k))
             stream.write_bits(static_cast<uint32_t>(static_cast<int>(value)), 16);
-        sent->angles_[index][k] = value;
+        core::at(core::at(sent->angles_, index), k) = value;
     }
     // (the bytes go out sign-extended: write_bits doesn't mask them, as the original)
     auto signed_byte = [](uint8_t value) {
@@ -987,20 +988,20 @@ void SkateNet::write_object_update(objects::Entity* object, RelayStream* out)
         stream.write_bits(signed_byte(value_7c), 6);
         stream.write_bits(signed_byte(flag75), 1);
         stream.write_bits(signed_byte(flag76), 1);
-        sent->state_[index] = state;
-        sent->flag74_[index] = flag74;
-        sent->value_7c_[index] = value_7c;
-        sent->flag75_[index] = flag75;
-        sent->flag76_[index] = flag76;
+        core::at(sent->state_, index) = state;
+        core::at(sent->flag74_, index) = flag74;
+        core::at(sent->value_7c_, index) = value_7c;
+        core::at(sent->flag75_, index) = flag75;
+        core::at(sent->flag76_, index) = flag76;
     }
     if (flags & 0x80) {
-        sent->value68_[index] = entry.value68;
-        sent->value_6c_[index] = entry.value_6c_;
+        core::at(sent->value68_, index) = entry.value68;
+        core::at(sent->value_6c_, index) = entry.value_6c_;
         stream.write_bits(entry.value68, 5);
         stream.write_bits(entry.value_6c_, 3);
     }
     if (flags & 0x100) {
-        sent->value80_[index] = entry.value80;
+        core::at(sent->value80_, index) = entry.value80;
         stream.write_bits(entry.value80, 32);
     }
 }
@@ -1032,7 +1033,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         return 1;
     }
     objects::RiderFrameLog* history = history_of(object);
-    StateEntry& cur = history->states_[history->state_count_ % 20];
+    StateEntry& cur = core::at(history->states_, history->state_count_ % 20);
     // What isn't sent stays as it was (nothing yet: zero).
     const StateEntry* prev = nullptr;
     std::array<int16_t, 3> pos = {};
@@ -1040,7 +1041,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     uint8_t state = 0, flag74 = 0, value_7c = 0, flag75 = 0, flag76 = 0;
     uint32_t value68 = 0, value_6c = 0, value80 = 0;
     if (history->state_count_ > 0) {
-        prev = &history->states_[(history->state_count_ + 19) % 20];
+        prev = &core::at(history->states_, (history->state_count_ + 19) % 20);
         value68 = prev->value68;
         flag74 = prev->flag74;
         value_6c = prev->value_6c_;
@@ -1050,8 +1051,8 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
         value80 = prev->value80;
         flag76 = prev->flag76;
         for (int k = 0; k < 3; ++k) {
-            pos[k] = prev->pos[k];
-            angles[k] = prev->angles[k];
+            core::at(pos, k) = core::at(prev->pos, k);
+            core::at(angles, k) = core::at(prev->angles, k);
         }
     }
     stream.change_intake_contents(context->body_, 0x400);
@@ -1059,11 +1060,11 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     const uint32_t fields = stream.read_bits(9);
     for (int k = 0; k < 3; ++k) {
         if (fields & (1u << k))
-            pos[k] = static_cast<int16_t>(stream.read_signed_bits(16));
+            core::at(pos, k) = static_cast<int16_t>(stream.read_signed_bits(16));
     }
     for (int k = 0; k < 3; ++k) {
         if (fields & (8u << k))
-            angles[k] = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(16)) * (1.0 / 4096.0));
+            core::at(angles, k) = static_cast<float>(static_cast<int16_t>(stream.read_signed_bits(16)) * (1.0 / 4096.0));
     }
     if (fields & 0x40) {
         const uint32_t bits = stream.read_bits(4);
@@ -1083,16 +1084,16 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     if (history->state_count_ > 0 && time < entry_time(*prev))
         return 4; // (an older update: dropped)
     maths::Mat4 matrix{};
-    matrix.set_from_euler_angles(angles[0], angles[1], angles[2]);
+    matrix.set_from_euler_angles(core::at(angles, 0), core::at(angles, 1), core::at(angles, 2));
     cur.matrix = matrix;
     // (TP-R6: whole units in a big level)
-    cur.position = {thugpro::unpack_horizontal(pos[0]), thugpro::unpack_height(pos[1]),
-                    thugpro::unpack_horizontal(pos[2]), 0.0f};
+    cur.position = {thugpro::unpack_horizontal(core::at(pos, 0)), thugpro::unpack_height(core::at(pos, 1)),
+                    thugpro::unpack_horizontal(core::at(pos, 2)), 0.0f};
     cur.time = static_cast<uint16_t>(time);
     cur.wraps = static_cast<uint16_t>(time >> 16);
     for (int k = 0; k < 3; ++k) {
-        cur.pos[k] = pos[k];
-        cur.angles[k] = angles[k];
+        core::at(cur.pos, k) = core::at(pos, k);
+        core::at(cur.angles, k) = core::at(angles, k);
     }
     cur.flag74 = flag74;
     cur.value68 = value68;

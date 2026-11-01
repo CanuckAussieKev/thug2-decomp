@@ -18,6 +18,7 @@
 #include "engine/gfx/device.h"
 #include "engine/gfx/engine.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render::view_mode {
 
@@ -32,8 +33,8 @@ std::string unlit_shader_source(const std::string& source)
     auto is_name = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
     const std::string constant = "c" + std::to_string(kUnlitConstant);
     for (size_t at = source.find(constant); at != std::string::npos; at = source.find(constant, at + 1)) {
-        const bool before = at == 0 || !is_name(source[at - 1]);
-        const bool after = at + constant.size() >= source.size() || !is_name(source[at + constant.size()]);
+        const bool before = at == 0 || !is_name(core::at(source, at - 1));
+        const bool after = at + constant.size() >= source.size() || !is_name(core::at(source, at + constant.size()));
         if (before && after)
             return {};
     }
@@ -42,16 +43,16 @@ std::string unlit_shader_source(const std::string& source)
     out.reserve(source.size() + 32);
     bool changed = false, comment = false;
     for (size_t i = 0; i < source.size(); ++i) {
-        const char c = source[i];
+        const char c = core::at(source, i);
         if (c == '\n')
             comment = false;
         else if (c == ';')
             comment = true;
-        const bool v0 = !comment && c == 'v' && i + 1 < source.size() && source[i + 1] == '0' &&
-                        (i == 0 || !is_name(source[i - 1])) && (i + 2 >= source.size() || !is_name(source[i + 2]));
+        const bool v0 = !comment && c == 'v' && i + 1 < source.size() && core::at(source, i + 1) == '0' &&
+                        (i == 0 || !is_name(core::at(source, i - 1))) && (i + 2 >= source.size() || !is_name(core::at(source, i + 2)));
         if (v0) {
             const bool alpha =
-                i + 3 < source.size() && source[i + 2] == '.' && (source[i + 3] == 'a' || source[i + 3] == 'w');
+                i + 3 < source.size() && core::at(source, i + 2) == '.' && (core::at(source, i + 3) == 'a' || core::at(source, i + 3) == 'w');
             if (!alpha) {
                 out += constant;
                 ++i; // (the '0')

@@ -31,6 +31,7 @@
 #include "engine/gfx/glow.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -163,13 +164,13 @@ void project_shadow_vertices(const float* positions, uint32_t count, const void*
         transform_coord(vertex->projected.data(), positions, matrix);
         // The clip flags from the float bits: a bit for each of x < 0, x > 1, y < 0, y > 1, z (on the sign and
         // the exponent's top bit after adding 1 to the exponent).
-        const uint32_t x = std::bit_cast<uint32_t>(vertex->projected[0]) + 0x800000;
-        const uint32_t y = std::bit_cast<uint32_t>(vertex->projected[1]) + 0x800000;
-        const uint32_t z = std::bit_cast<uint32_t>(vertex->projected[2]) + 0x800000;
+        const uint32_t x = std::bit_cast<uint32_t>(core::at(vertex->projected, 0)) + 0x800000;
+        const uint32_t y = std::bit_cast<uint32_t>(core::at(vertex->projected, 1)) + 0x800000;
+        const uint32_t z = std::bit_cast<uint32_t>(core::at(vertex->projected, 2)) + 0x800000;
         const uint32_t bits = (((y & 0xC0000003) | ((x >> 2) & 0x30000000)) >> 2) | (z & 0xC0000000);
-        vertex->position[0] = positions[0];
-        vertex->position[1] = positions[1];
-        vertex->position[2] = positions[2];
+        core::at(vertex->position, 0) = positions[0];
+        core::at(vertex->position, 1) = positions[1];
+        core::at(vertex->position, 2) = positions[2];
         vertex->clip = ~((bits >> 1) & 0x54000000) & bits;
     }
 }
@@ -184,16 +185,16 @@ int clip_shadow_triangles(const uint16_t* indices, uint32_t count)
         const ProjectedVertex& v2 = get_projected()[indices[2]];
         if (v0.clip & v1.clip & v2.clip)
             continue; // all outside the same side
-        const double facing = (static_cast<double>(v2.projected[1]) - v1.projected[1]) *
-                                  (static_cast<double>(v1.projected[0]) - v0.projected[0]) -
-                              (static_cast<double>(v2.projected[0]) - v1.projected[0]) *
-                                  (static_cast<double>(v1.projected[1]) - v0.projected[1]);
+        const double facing = (static_cast<double>(core::at(v2.projected, 1)) - core::at(v1.projected, 1)) *
+                                  (static_cast<double>(core::at(v1.projected, 0)) - core::at(v0.projected, 0)) -
+                              (static_cast<double>(core::at(v2.projected, 0)) - core::at(v1.projected, 0)) *
+                                  (static_cast<double>(core::at(v1.projected, 1)) - core::at(v0.projected, 1));
         if (facing > kFacingLimit)
             continue;
         for (const ProjectedVertex* v : {&v0, &v1, &v2}) {
             std::memcpy(out->position.data(), v->position.data(), sizeof(out->position));
-            out->u = v->projected[0];
-            out->v = v->projected[1];
+            out->u = core::at(v->projected, 0);
+            out->v = core::at(v->projected, 1);
             ++out;
         }
     }
@@ -209,12 +210,12 @@ void shadow_texture_matrix(const float* a, const float* b, float* out, const flo
     matrix_inverse(inverse.data(), nullptr, view.data()); // (not used)
     // The shadow viewport (0x0067EF4C: x, y, width, height) as a scale and offset of the -1..1 range; depth 0..2^24.
     std::array<float, 16> scale_bias = {};
-    scale_bias[0] = static_cast<float>(static_cast<double>(g_shadow_viewport[3]) * 0.5);
-    scale_bias[5] = static_cast<float>(static_cast<double>(g_shadow_viewport[2]) * -0.5);
-    scale_bias[10] = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
-    scale_bias[12] = static_cast<float>((static_cast<double>(g_shadow_viewport[1]) + 1.0) * 0.5);
-    scale_bias[13] = static_cast<float>((static_cast<double>(g_shadow_viewport[0]) + 1.0) * 0.5);
-    scale_bias[15] = 1.0f;
+    core::at(scale_bias, 0) = static_cast<float>(static_cast<double>(core::at(g_shadow_viewport, 3)) * 0.5);
+    core::at(scale_bias, 5) = static_cast<float>(static_cast<double>(core::at(g_shadow_viewport, 2)) * -0.5);
+    core::at(scale_bias, 10) = std::bit_cast<float>(0x4B7FFFFFu); // 16777215
+    core::at(scale_bias, 12) = static_cast<float>((static_cast<double>(core::at(g_shadow_viewport, 1)) + 1.0) * 0.5);
+    core::at(scale_bias, 13) = static_cast<float>((static_cast<double>(core::at(g_shadow_viewport, 0)) + 1.0) * 0.5);
+    core::at(scale_bias, 15) = 1.0f;
     std::array<float, 16> m{};
     if (first) {
         std::memcpy(m.data(), first, sizeof(m));
@@ -229,7 +230,7 @@ void shadow_texture_matrix(const float* a, const float* b, float* out, const flo
 // 0x004DB9D0
 void draw_shadow_volumes(const void* scene, int /*viewport*/)
 {
-    void* vertex_colour = g_pixel_shaders[kPixelShader94c];
+    void* vertex_colour = core::at(g_pixel_shaders, kPixelShader94c);
     set_pixel_shader(vertex_colour, nullptr);
     pixel_shader_locked() = cell::of(vertex_colour);
     set_texture(0, nullptr);
@@ -452,8 +453,8 @@ void aim_shadow_caster(uint32_t key, const float* position, const float* target)
     // Up is y, or z when looking straight up or down.
     std::array<float, 3> up = {{0.0f, 1.0f, 0.0f}};
     if (position[0] == target[0] && position[2] == target[2]) {
-        up[1] = 0.0f;
-        up[2] = 1.0f;
+        core::at(up, 1) = 0.0f;
+        core::at(up, 2) = 1.0f;
     }
     matrix_look_at(caster->view.data(), position, target, up.data());
     matrix_ortho(caster->projection.data(), 120.0f, 120.0f, 5.0f, 500.0f);

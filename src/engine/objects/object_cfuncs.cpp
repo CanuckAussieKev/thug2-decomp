@@ -26,6 +26,7 @@
 #include "engine/gfx/particle_sets.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace commands {
 
@@ -325,7 +326,7 @@ bool cfunc_orient(script::Struct* params, script::Script*)
 
     maths::Mat4& matrix = object->basis_frame_;
     angles_to_matrix(&matrix, &angles);
-    matrix.row[3] = {offset.x, offset.y, offset.z, offset.w};
+    core::at(matrix.row, 3) = {offset.x, offset.y, offset.z, offset.w};
     if (bone) {
         maths::Mat4 joint_mat;
         read_joint_matrix(skeleton_of(relative_to->fetch_module(kSkeleton)), bone, &joint_mat);
@@ -334,11 +335,11 @@ bool cfunc_orient(script::Struct* params, script::Script*)
     if (relative_to) {
         maths::Mat4 relative;
         relative = relative_to->display_matrix_;
-        relative.row[3] = relative_to->at_point_;
+        core::at(relative.row, 3) = relative_to->at_point_;
         matrix_multiply(&matrix, &matrix, &relative);
     }
-    object->at_point_ = matrix.row[3];
-    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    object->at_point_ = core::at(matrix.row, 3);
+    core::at(matrix.row, 3) = {0.0f, 0.0f, 0.0f, 1.0f};
     object->display_matrix_ = matrix;
     return true;
 }

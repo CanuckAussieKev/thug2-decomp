@@ -29,6 +29,7 @@
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
 #include "platform/winmain.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::begin_level {
 
@@ -223,12 +224,12 @@ std::string option_value(const std::string& line, const char* option)
     for (const std::string& form : {"--" + name + "=", "--" + name + " ", "-" + name + " "}) {
         for (size_t at = line.find(form); at != std::string::npos; at = line.find(form, at + 1)) {
             // (a word of its own: at the start, or after a space or a quote - not inside a path such as C:\my-level x)
-            if (at > 0 && line[at - 1] != ' ' && line[at - 1] != '\t' && line[at - 1] != '"')
+            if (at > 0 && core::at(line, at - 1) != ' ' && core::at(line, at - 1) != '\t' && core::at(line, at - 1) != '"')
                 continue;
             const size_t start = line.find_first_not_of(' ', at + form.size());
             if (start == std::string::npos)
                 return {};
-            if (line[start] == '"') {
+            if (core::at(line, start) == '"') {
                 const size_t end = line.find('"', start + 1);
                 return line.substr(start + 1, end == std::string::npos ? std::string::npos : end - start - 1);
             }
@@ -262,25 +263,25 @@ bool parse_spot(const std::string& text, Spot* out)
         const double v = std::strtod(start, &end);
         if (end == start || !std::isfinite(v))
             return false;
-        values[count++] = static_cast<float>(v);
+        core::at(values, count++) = static_cast<float>(v);
         at = static_cast<size_t>(end - s.c_str());
         at = s.find_first_not_of(" \t", at);
         if (at == std::string::npos)
             break;
-        if (s[at] == ',')
+        if (core::at(s, at) == ',')
             ++at; // (a comma, or only spaces, between two numbers)
-        else if (at > 0 && s[at - 1] != ' ' && s[at - 1] != '\t')
+        else if (at > 0 && core::at(s, at - 1) != ' ' && core::at(s, at - 1) != '\t')
             return false; // (something glued to the number: "1x")
     }
     if (count < 3)
         return false;
     if (out) {
         *out = {};
-        out->x = values[0];
-        out->y = values[1];
-        out->z = values[2];
+        out->x = core::at(values, 0);
+        out->y = core::at(values, 1);
+        out->z = core::at(values, 2);
         out->has_heading_ = count == 4;
-        out->heading = count == 4 ? values[3] : 0.0f;
+        out->heading = count == 4 ? core::at(values, 3) : 0.0f;
     }
     return true;
 }

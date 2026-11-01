@@ -28,6 +28,7 @@
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "gpu/vertex_view.h"
+#include "engine/core/checked_index.h"
 
 namespace frontend::level_editor::shared_collision {
 
@@ -72,7 +73,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
 {
     auto at = [&](uint16_t i) {
         const auto f = gpu::VertexView(positions, stride).float3(i);
-        return V3{f[0], f[1], f[2]};
+        return V3{core::at(f, 0), core::at(f, 1), core::at(f, 2)};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
         const uint16_t a = indices[i - 2];
@@ -106,8 +107,8 @@ FaceCopy read_face(const render::TriMeshSource* geometry, int face)
         const uint32_t vertex = geometry->face_vertex(face, k);
         maths::Vec4 v;
         geometry->read_stored_vertex(static_cast<int>(vertex), &v);
-        copy.v[k] = {v.x, v.y, v.z};
-        copy.bytes[k] = geometry->vertex_bytes_ ? geometry->vertex_bytes_[vertex] : 0x80;
+        core::at(copy.v, k) = {v.x, v.y, v.z};
+        core::at(copy.bytes, k) = geometry->vertex_bytes_ ? geometry->vertex_bytes_[vertex] : 0x80;
     }
     return copy;
 }
@@ -117,23 +118,23 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
     const size_t count = std::min(faces.size(), static_cast<size_t>(kMostFaces));
     faces_.resize(count * 10);
     for (size_t f = 0; f < count; ++f) {
-        const FaceCopy& face = faces[f];
-        uint8_t* out = &faces_[f * 10];
+        const FaceCopy& face = core::at(faces, f);
+        uint8_t* out = &core::at(faces_, f * 10);
         std::memcpy(out, &face.flags, 2);
         std::memcpy(out + 2, &face.terrain, 2);
         for (int k = 0; k < 3; ++k) {
             // (corners shared where exactly equal, with the same byte)
             size_t index = base_.size();
             for (size_t i = 0; i < base_.size(); ++i) {
-                if (base_[i].x == face.v[k].x && base_[i].y == face.v[k].y && base_[i].z == face.v[k].z &&
-                    bytes_[i] == face.bytes[k]) {
+                if (core::at(base_, i).x == core::at(face.v, k).x && core::at(base_, i).y == core::at(face.v, k).y && core::at(base_, i).z == core::at(face.v, k).z &&
+                    core::at(bytes_, i) == core::at(face.bytes, k)) {
                     index = i;
                     break;
                 }
             }
             if (index == base_.size()) {
-                base_.push_back(face.v[k]);
-                bytes_.push_back(face.bytes[k]);
+                base_.push_back(core::at(face.v, k));
+                bytes_.push_back(core::at(face.bytes, k));
             }
             auto index16 = static_cast<uint16_t>(index);
             std::memcpy(out + 4 + 2 * k, &index16, 2);
@@ -167,10 +168,10 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
 void Companion::get_place(const Placement& placement)
 {
     for (size_t i = 0; i < base_.size(); ++i) {
-        const V3 v = get_apply(placement, base_[i]);
-        vertices_[i * 3] = v.x;
-        vertices_[i * 3 + 1] = v.y;
-        vertices_[i * 3 + 2] = v.z;
+        const V3 v = get_apply(placement, core::at(base_, i));
+        core::at(vertices_, i * 3) = v.x;
+        core::at(vertices_, i * 3 + 1) = v.y;
+        core::at(vertices_, i * 3 + 2) = v.z;
     }
     update_box();
 }
@@ -178,16 +179,16 @@ void Companion::get_place(const Placement& placement)
 void Companion::rebase()
 {
     for (size_t i = 0; i < base_.size(); ++i)
-        base_[i] = get_vertex(static_cast<int>(i));
+        core::at(base_, i) = get_vertex(static_cast<int>(i));
 }
 
-V3 Companion::get_vertex(int i) const { return {vertices_[i * 3], vertices_[i * 3 + 1], vertices_[i * 3 + 2]}; }
+V3 Companion::get_vertex(int i) const { return {core::at(vertices_, i * 3), core::at(vertices_, i * 3 + 1), core::at(vertices_, i * 3 + 2)}; }
 
 std::vector<FaceCopy> Companion::get_faces() const
 {
     std::vector<FaceCopy> faces(geometry_.tri_count_);
     for (int f = 0; std::cmp_less(f, geometry_.tri_count_); ++f)
-        faces[f] = read_face(&geometry_, f);
+        core::at(faces, f) = read_face(&geometry_, f);
     return faces;
 }
 
@@ -201,7 +202,7 @@ bool Companion::live_now() const { return !(entity_.flag_bits_ & 4); }
 void Companion::change_tri_flags(int face, uint16_t flags)
 {
     if (face >= 0 && std::cmp_less(face, geometry_.tri_count_))
-        std::memcpy(&faces_[static_cast<size_t>(face) * 10], &flags, 2);
+        std::memcpy(&core::at(faces_, static_cast<size_t>(face) * 10), &flags, 2);
 }
 
 void Companion::update_box()
@@ -268,12 +269,12 @@ void for_each_strip(render::PcGeom* geom, F fn)
         const render::MeshRef* mesh = meshes[i];
         if (!mesh || mesh->billboard || (mesh->flags & 0x10))
             continue;
-        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? mesh->vertex_buffers_[0] : nullptr;
-        const render::IdxStore* indices = mesh->index_buffers_[0];
+        const render::VertexBuffer* vertices = mesh->vertex_buffer_count_ ? core::at(mesh->vertex_buffers_, 0) : nullptr;
+        const render::IdxStore* indices = core::at(mesh->index_buffers_, 0);
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         fn(vertices->data, static_cast<uint32_t>(mesh->stride), static_cast<uint32_t>(mesh->vertex_count_),
-           indices->indices, static_cast<uint32_t>(mesh->index_counts_[0]));
+           indices->indices, static_cast<uint32_t>(core::at(mesh->index_counts_, 0)));
     }
 }
 
@@ -306,7 +307,7 @@ bool get_inside(V3 p, V3 min, V3 max)
 }
 bool face_inside(const FaceCopy& face, V3 min, V3 max)
 {
-    return get_inside(face.v[0], min, max) && get_inside(face.v[1], min, max) && get_inside(face.v[2], min, max);
+    return get_inside(core::at(face.v, 0), min, max) && get_inside(core::at(face.v, 1), min, max) && get_inside(core::at(face.v, 2), min, max);
 }
 
 // Where a piece is now, grown by `grow` (false: no box).
@@ -484,8 +485,8 @@ struct GridList {
     {
         head.make_head();
         for (size_t i = 0; i < objects.size(); ++i) {
-            memory::ListNode& node = nodes[i];
-            node.data = objects[i];
+            memory::ListNode& node = core::at(nodes, i);
+            node.data = core::at(objects, i);
             node.priority = 0;
             node.prev = head.prev;
             node.next = &head;
@@ -692,13 +693,13 @@ bool taken_face(const render::TriMeshSource* geometry, int face, uint32_t* piece
     for (const auto& entry : entries()) {
         const std::vector<Taken>& taken = entry.second.taken;
         for (size_t i = 0; i < taken.size(); ++i) {
-            if (taken[i].geometry == geometry && taken[i].face == face) {
+            if (core::at(taken, i).geometry == geometry && core::at(taken, i).face == face) {
                 if (piece)
                     *piece = entry.first;
                 if (index)
                     *index = static_cast<int>(i);
                 if (flags)
-                    *flags = taken[i].flags;
+                    *flags = core::at(taken, i).flags;
                 return true;
             }
         }
@@ -712,8 +713,8 @@ bool origin_of(uint32_t piece, int index, render::TriMeshSource** geometry, int*
     // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
     if (!entry || !entry->companion || index < 0 || std::cmp_greater_equal(index, entry->taken.size()))
         return false;
-    *geometry = entry->taken[index].geometry;
-    *face = entry->taken[index].face;
+    *geometry = core::at(entry->taken, index).geometry;
+    *face = core::at(entry->taken, index).face;
     return true;
 }
 
@@ -728,12 +729,12 @@ bool set_taken_flags(const render::TriMeshSource* geometry, int face, uint16_t f
     for (auto& entry : entries()) {
         std::vector<Taken>& taken = entry.second.taken;
         for (size_t i = 0; i < taken.size(); ++i) {
-            if (taken[i].geometry != geometry || taken[i].face != face)
+            if (core::at(taken, i).geometry != geometry || core::at(taken, i).face != face)
                 continue;
-            taken[i].flags = flags;
+            core::at(taken, i).flags = flags;
             if (entry.second.companion)
                 entry.second.companion->change_tri_flags(static_cast<int>(i), flags);
-            taken[i].geometry->set_face_flags(taken[i].face, static_cast<uint16_t>(flags | 0x10));
+            core::at(taken, i).geometry->set_face_flags(core::at(taken, i).face, static_cast<uint16_t>(flags | 0x10));
             ++g_generation;
             return true;
         }

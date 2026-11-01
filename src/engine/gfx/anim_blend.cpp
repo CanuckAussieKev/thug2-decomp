@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "engine/script/param_struct.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -36,18 +37,18 @@ void copy4(float* to, const float* from) { std::memcpy(to, from, 16); }
 void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
 {
     for (int k = 0; k < bones; ++k) {
-        if (to.valid[k]) {
-            if (from.valid[k]) {
+        if (core::at(to.valid, k)) {
+            if (core::at(from.valid, k)) {
                 std::array<float, 4> blended{};
-                copy4(to.rotations[k].data(), interpolate_rotation(blended.data(), to.rotations[k].data(), from.rotations[k].data(), t));
-                lerp_vector(blended.data(), to.translations[k].data(), from.translations[k].data(), t);
-                copy4(to.translations[k].data(), blended.data());
+                copy4(core::at(to.rotations, k).data(), interpolate_rotation(blended.data(), core::at(to.rotations, k).data(), core::at(from.rotations, k).data(), t));
+                lerp_vector(blended.data(), core::at(to.translations, k).data(), core::at(from.translations, k).data(), t);
+                copy4(core::at(to.translations, k).data(), blended.data());
             }
-        } else if (from.valid[k]) {
-            copy4(to.rotations[k].data(), from.rotations[k].data());
+        } else if (core::at(from.valid, k)) {
+            copy4(core::at(to.rotations, k).data(), core::at(from.rotations, k).data());
             if (mark_copied)
-                to.valid[k] = 1;
-            copy4(to.translations[k].data(), from.translations[k].data());
+                core::at(to.valid, k) = 1;
+            copy4(core::at(to.translations, k).data(), core::at(from.translations, k).data());
         }
     }
 }
@@ -155,7 +156,7 @@ void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;
     info->put_name_key(kAnim, timeline->anim_);
     info->push_float(kSpeed, timeline->speed_);
-    info->put_name_key(kRepeatMode, (g_loop_type_checksums)[timeline->repeat_mode_]);
+    info->put_name_key(kRepeatMode, core::at((g_loop_type_checksums), timeline->repeat_mode_));
     float start = 0.0f, current = 0.0f, end = 0.0f;
     timeline->get_times(&start, &current, &end);
     info->push_float(kStartTime, start);

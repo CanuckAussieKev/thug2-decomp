@@ -17,6 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace gfx {
 
@@ -166,45 +167,45 @@ bool write_face_points(const FaceAnchors* points, Struct* params)
 bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour, uint32_t colour)
 {
     FaceAnchors face = *points;
-    if (face.left_eye_[0] > face.right_eye_[0]) {
-        const int x = face.left_eye_[0];
-        face.left_eye_[0] = face.right_eye_[0];
-        face.right_eye_[0] = x;
+    if (core::at(face.left_eye_, 0) > core::at(face.right_eye_, 0)) {
+        const int x = core::at(face.left_eye_, 0);
+        core::at(face.left_eye_, 0) = core::at(face.right_eye_, 0);
+        core::at(face.right_eye_, 0) = x;
     }
-    const int nose_y = face.nose_slot_[1];
-    if (face.left_eye_[1] > nose_y)
-        face.left_eye_[1] = nose_y - 1;
-    if (face.right_eye_[1] >= nose_y)
-        face.right_eye_[1] = nose_y - 2;
-    if (face.mouth_part_[1] <= nose_y)
-        face.mouth_part_[1] = nose_y + 2;
+    const int nose_y = core::at(face.nose_slot_, 1);
+    if (core::at(face.left_eye_, 1) > nose_y)
+        core::at(face.left_eye_, 1) = nose_y - 1;
+    if (core::at(face.right_eye_, 1) >= nose_y)
+        core::at(face.right_eye_, 1) = nose_y - 2;
+    if (core::at(face.mouth_part_, 1) <= nose_y)
+        core::at(face.mouth_part_, 1) = nose_y + 2;
 
     const FaceAnchors& model = active_face_anchors();
-    const int model_nose_x = model.nose_slot_[0];
-    const int model_nose_y = model.nose_slot_[1];
-    const int dx = model_nose_x - face.nose_slot_[0];
+    const int model_nose_x = core::at(model.nose_slot_, 0);
+    const int model_nose_y = core::at(model.nose_slot_, 1);
+    const int dx = model_nose_x - core::at(face.nose_slot_, 0);
     const int dy = model_nose_y - nose_y;
     get_offset(texture, dx, dy, false, kNoColour);
 
-    const int model_eyes_y = (model.left_eye_[1] + model.right_eye_[1]) >> 1;
-    const int eyes_y = ((face.left_eye_[1] + face.right_eye_[1]) >> 1) + dy;
+    const int model_eyes_y = (core::at(model.left_eye_, 1) + core::at(model.right_eye_, 1)) >> 1;
+    const int eyes_y = ((core::at(face.left_eye_, 1) + core::at(face.right_eye_, 1)) >> 1) + dy;
     // The scales of the sides right of, above and below the nose (x87 quotients rounded to floats).
-    auto scale_right = static_cast<float>(static_cast<double>(get_width(texture) - face.nose_slot_[0] - dx) /
-                                          static_cast<double>(face.right_eye_[0] - face.nose_slot_[0]));
+    auto scale_right = static_cast<float>(static_cast<double>(get_width(texture) - core::at(face.nose_slot_, 0) - dx) /
+                                          static_cast<double>(core::at(face.right_eye_, 0) - core::at(face.nose_slot_, 0)));
     auto scale_up = static_cast<float>(static_cast<double>(dy + nose_y) / static_cast<double>(dy - eyes_y + nose_y));
     auto scale_down = static_cast<float>(static_cast<double>(get_height(texture) - dy - nose_y) /
-                                         static_cast<double>(face.mouth_part_[1] - nose_y));
+                                         static_cast<double>(core::at(face.mouth_part_, 1) - nose_y));
 
     // Left of the nose (its quotient kept at the x87's precision)
     const double scale_left =
-        static_cast<double>(face.nose_slot_[0] + dx) / static_cast<double>(face.nose_slot_[0] - face.left_eye_[0]);
-    int amount = ftol(scale_left * (model.left_eye_[0] - dx - face.left_eye_[0]) + 0.5f);
+        static_cast<double>(core::at(face.nose_slot_, 0) + dx) / static_cast<double>(core::at(face.nose_slot_, 0) - core::at(face.left_eye_, 0));
+    int amount = ftol(scale_left * (core::at(model.left_eye_, 0) - dx - core::at(face.left_eye_, 0)) + 0.5f);
     if (amount < 0)
         get_stretch(texture, model_nose_x, 0, amount);
     else
         stack_on(texture, model_nose_x, 0, amount, use_colour, colour);
     // Right of it
-    amount = ftol(static_cast<double>(model.right_eye_[0] - dx - face.right_eye_[0]) * scale_right + 0.5f);
+    amount = ftol(static_cast<double>(core::at(model.right_eye_, 0) - dx - core::at(face.right_eye_, 0)) * scale_right + 0.5f);
     if (amount >= 0)
         get_stretch(texture, model_nose_x, 0, amount);
     else
@@ -216,7 +217,7 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
     else
         stack_on(texture, model_nose_y, 1, amount, use_colour, colour);
     // Below it
-    amount = ftol(static_cast<double>(model.mouth_part_[1] - dy - face.mouth_part_[1]) * scale_down + 0.5f);
+    amount = ftol(static_cast<double>(core::at(model.mouth_part_, 1) - dy - core::at(face.mouth_part_, 1)) * scale_down + 0.5f);
     if (amount >= 0)
         get_stretch(texture, model_nose_y, 1, amount);
     else

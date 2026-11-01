@@ -18,6 +18,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/core/ints.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -58,7 +59,7 @@ memory::PoolPair& array_pools() { return script::g_array_pools; }
 memory::PoolPair& clipboard_entry_pools() { return g_clipboard_entry_pools; }
 memory::PoolPair& map_list_node_pools() { return g_node_pools; }
 uint8_t& pool_made_here(memory::PoolPair& pair) { return raw::bytes(&pair.unknown4)[pair.current]; }
-memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return pair.pools[pair.current]; }
+memory::SlabBank* active_slab_pool(memory::PoolPair& pair) { return core::at(pair.pools, pair.current); }
 
 int& unknown_7c_e_68c() { return g_park_memory_unknown_7c_e_68c; }
 
@@ -73,7 +74,7 @@ void make_pool(memory::PoolPair& pair, int item_size, int count, const char* nam
 {
     void* memory = memory::alloc(sizeof(memory::SlabBank));
     memory::SlabBank* pool = memory ? memory::construct_in<memory::SlabBank>(memory, item_size, count, name) : nullptr;
-    pair.pools[pair.current] = pool;
+    core::at(pair.pools, pair.current) = pool;
     pool_made_here(pair) = 1;
 }
 
@@ -86,7 +87,7 @@ void delete_pool(memory::PoolPair& pair)
         memory::dealloc(pool->outset_); // ~Pool (0x005BA4E0)
         memory::Hub::get_pull()->dealloc(pool);
     }
-    pair.pools[pair.current] = nullptr;
+    core::at(pair.pools, pair.current) = nullptr;
 }
 
 // 1 - used fraction style figures: the x87 code rounds the free amount to a float, divides in double.

@@ -23,6 +23,7 @@
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
 #include "engine/core/pointer_cell.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -249,8 +250,8 @@ void Script::run_sub_script(uint32_t name, const uint8_t* code, Struct* params, 
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
         frame_records_ = static_cast<CallFrame*>(memory::alloc_block(16 * sizeof(CallFrame)));
         memory::leave_heap_scope();
-        frame_records_[0] = inline_return_addresses_[0];
-        frame_records_[1] = inline_return_addresses_[1];
+        frame_records_[0] = core::at(inline_return_addresses_, 0);
+        frame_records_[1] = core::at(inline_return_addresses_, 1);
     }
     // The caller's state (the frame's other wait-type and flag bits are left as they were).
     CallFrame& frame = frame_records_[call_depth_++];

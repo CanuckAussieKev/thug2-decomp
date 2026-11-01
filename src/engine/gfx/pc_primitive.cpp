@@ -25,6 +25,7 @@
 #include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -81,17 +82,17 @@ PcPrimitive::PcPrimitive(int own) : Primitive(own)
     // (material_ made first by its constructor)
     const uint32_t made = flag_bits_ | 1;
     flag_bits_ = made;
-    material_.pass_flags_[0] = 0;
+    core::at(material_.pass_flags_, 0) = 0;
     const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand()); // (a sort key)
     material_.pass_count_ = 1;
-    material_.textures[0] = nullptr;
+    core::at(material_.textures, 0) = nullptr;
     material_.two_sided_ = 1;
     material_.depth_bias_ = 4;
-    material_.blend_modes_[0] = blend_mode_from_name(0x54628ED7);
-    material_.pass_color_[0][0] = material_.pass_color_[0][1] = material_.pass_color_[0][2] = 0.5f;
-    material_.address_modes_[0] = 0;
-    material_.mip_lod_bias_[0] = 0;
+    core::at(material_.blend_modes_, 0) = blend_mode_from_name(0x54628ED7);
+    core::at(core::at(material_.pass_color_, 0), 0) = core::at(core::at(material_.pass_color_, 0), 1) = core::at(core::at(material_.pass_color_, 0), 2) = 0.5f;
+    core::at(material_.address_modes_, 0) = 0;
+    core::at(material_.mip_lod_bias_, 0) = 0;
     material_.has_uv_wibble_ = false;
     material_.alpha_ref_ = 1;
 }
@@ -110,18 +111,18 @@ void PcPrimitive::set_texture(const uint8_t* texture, int, int)
     // (the engine texture's +0x10: its PC texture, or with flag 1 a pointer to it)
     uint8_t* pc_texture = texture[8] & 1 ? **raw::field_at<uint8_t** const>(texture, 0x10)
                                          : *raw::field_at<uint8_t* const>(texture, 0x10);
-    material_.pass_flags_[0] = pc_texture ? 4 : 0;
+    core::at(material_.pass_flags_, 0) = pc_texture ? 4 : 0;
     const int r = get_rand();
     material_.checksum = static_cast<uint32_t>(r * get_rand());
     material_.pass_count_ = 1;
-    material_.textures[0] = pc_texture;
+    core::at(material_.textures, 0) = pc_texture;
     material_.two_sided_ = 1;
     material_.depth_bias_ = 4;
-    material_.blend_modes_[0] = blend_mode_from_name(blend_mode_);
-    material_.pass_color_[0][0] = material_.pass_color_[0][1] = material_.pass_color_[0][2] = 0.5f;
+    core::at(material_.blend_modes_, 0) = blend_mode_from_name(blend_mode_);
+    core::at(core::at(material_.pass_color_, 0), 0) = core::at(core::at(material_.pass_color_, 0), 1) = core::at(core::at(material_.pass_color_, 0), 2) = 0.5f;
     material_.alpha_ref_ = 1;
-    material_.address_modes_[0] = 0;
-    material_.mip_lod_bias_[0] = 0;
+    core::at(material_.address_modes_, 0) = 0;
+    core::at(material_.mip_lod_bias_, 0) = 0;
     material_.has_uv_wibble_ = false;
 }
 
@@ -174,19 +175,19 @@ void PcPrimitive::prepare_all(uint32_t layout_flags, int primitive_type, int cou
 // 0x004C5320
 void PcPrimitive::end_setup()
 {
-    if (!(vertex_format_ & 0x100) || material_.textures[0] != nullptr)
+    if (!(vertex_format_ & 0x100) || core::at(material_.textures, 0) != nullptr)
         flag_bits_ = (flag_bits_ & ~2u) | 4;
 }
 
 // 0x004C5370
 void PcPrimitive::render()
 {
-    material_.blend_modes_[0] = blend_mode_from_name(blend_mode_);
+    core::at(material_.blend_modes_, 0) = blend_mode_from_name(blend_mode_);
     material_.hand_in(); // (its set-up)
     IDirect3DVertexBuffer9* buffer = nullptr;
     uint32_t first_vertex = 0, room = 0;
     set_vertex_format(vertex_format_);
-    set_pixel_shader(g_pixel_shaders[kPixelShader964], nullptr);
+    set_pixel_shader(core::at(g_pixel_shaders, kPixelShader964), nullptr);
     if (type_ != 0 && type_ != 2 && type_ != 4)
         return;
     void* out = os_layer::lock_dynamic_vertices(vertex_count_, stride_, &buffer, &first_vertex, &room);

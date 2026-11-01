@@ -11,6 +11,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/crt.h"
 #include "engine/core/raw_view.h"
+#include "engine/core/checked_index.h"
 
 namespace park_editing {
 
@@ -107,7 +108,7 @@ uint32_t goal_object_name(uint32_t type, int index)
 uint32_t edited_goal_node_name(int which, int goal)
 {
     std::array<char, 100> name{};
-    name[0] = '\0';
+    core::at(name, 0) = '\0';
     if (which == 0)
         get_sprintf(name.data(), "TRG_EditedGoal%d_Pro", goal);
     else if (which == 1)

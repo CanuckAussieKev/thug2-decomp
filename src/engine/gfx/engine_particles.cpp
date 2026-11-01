@@ -6,6 +6,7 @@
 
 #include "engine/gfx/particle_sets.h"
 #include "engine/script/cscript.h"
+#include "engine/core/checked_index.h"
 
 namespace render {
 
@@ -62,12 +63,12 @@ void Sparkle::set_rate(float value) { args_.rate_ = value; }
 void Sparkle::set_lifespan(float value) { args_.lifetime_ = value; }
 
 // 0x00494EB0
-void Sparkle::change_extent(int which, float size) { args_.extent_[which] = through_x87(size); }
+void Sparkle::change_extent(int which, float size) { core::at(args_.extent_, which) = through_x87(size); }
 
 // 0x00494EC0
 void Sparkle::change_colour(int which, const uint32_t* colour)
 {
-    std::memcpy(args_.shade_[which].data(), colour, 4);
+    std::memcpy(core::at(args_.shade_, which).data(), colour, 4);
     on_colour_changed();
 }
 

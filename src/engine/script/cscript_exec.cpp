@@ -55,6 +55,7 @@
 #include "engine/core/pointer_cell.h"
 #include "platform/code_address.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 // NOLINTBEGIN(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
 
@@ -514,10 +515,10 @@ ScriptOutcome Script::tick_frame()
             static int tally;
             bool seen = false;
             for (int i = 0; i < tally; ++i)
-                seen = seen || s_logged[i] == script_title_;
+                seen = seen || core::at(s_logged, i) == script_title_;
             if (!seen) {
                 if (tally < 16)
-                    s_logged[tally++] = script_title_;
+                    core::at(s_logged, tally++) = script_title_;
                 const objects::Entity* object = entity_.owner_object_;
                 // (the object's id as a number: find_checksum_name_or_unknown's text for an unknown name is one buffer)
                 get_log("script: %s (object id %08X) has run %u steps in one frame without waiting - a loop that never "

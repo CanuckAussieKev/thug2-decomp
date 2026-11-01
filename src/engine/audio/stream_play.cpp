@@ -14,6 +14,7 @@
 #include "engine/sound/sfx.h"
 #include "engine/sys/game_config.h"
 #include "platform/crt.h"
+#include "engine/core/checked_index.h"
 
 namespace audio {
 
@@ -222,16 +223,16 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
             std::array<float, 5> level{};
             double last = 0;
             for (int i = 0; i < 5; ++i) {
-                const double scaled = static_cast<double>(sound_volume()) * volume->level[i] * kPercent;
-                level[i] = static_cast<float>(scaled);
+                const double scaled = static_cast<double>(sound_volume()) * core::at(volume->level, i) * kPercent;
+                core::at(level, i) = static_cast<float>(scaled);
                 last = scaled;
             }
-            const double sum = last + level[3] + level[2] + level[1] + level[0];
+            const double sum = last + core::at(level, 3) + core::at(level, 2) + core::at(level, 1) + core::at(level, 0);
             slot.volume = static_cast<float>(sum * kFifth);
             if (slot.wad)
-                slot.wad->set_channel_volumes(level[0], level[1], level[2], level[3], level[4]);
+                slot.wad->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
             else if (slot.bink)
-                slot.bink->set_channel_volumes(level[0], level[1], level[2], level[3], level[4]);
+                slot.bink->set_channel_volumes(core::at(level, 0), core::at(level, 1), core::at(level, 2), core::at(level, 3), core::at(level, 4));
             break;
         }
         case 0:
@@ -239,8 +240,8 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
         case 3: {
             // Left and right (the original has this twice: through StreamSlot::set_volume_and_pan for 1, inline
             // for 0 and 3).
-            auto left = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[0] * kPercent);
-            auto right = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[1] * kPercent);
+            auto left = static_cast<float>(static_cast<double>(sound_volume()) * core::at(volume->level, 0) * kPercent);
+            auto right = static_cast<float>(static_cast<double>(sound_volume()) * core::at(volume->level, 1) * kPercent);
             slot.volume = left;
             slot.set_volume_and_pan(left, right);
             break;

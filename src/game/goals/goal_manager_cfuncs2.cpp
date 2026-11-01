@@ -19,6 +19,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module_calls.h"
 #include "engine/core/down_cast.h"
+#include "engine/core/checked_index.h"
 
 namespace goals {
 
@@ -227,15 +228,15 @@ bool cfunc_goal_manager_get_proset_not_prefix(script::Struct* params, script::Sc
     const char* prefix = nullptr;
     params->fetch_text(0u, &prefix, 1);
     std::array<char, 128> text{};
-    text[0] = 0;
+    core::at(text, 0) = 0;
     int length = 0;
     if (prefix[1]) {
         do {
-            text[length] = prefix[length];
+            core::at(text, length) = prefix[length];
             ++length;
         } while (prefix[length + 1]);
     }
-    text[length] = 0;
+    core::at(text, length) = 0;
     get_append(text.data(), "NOT_"); // "NOT_"
     script->args_->append_word(kProsetNotPrefix, text.data());
     return true;
