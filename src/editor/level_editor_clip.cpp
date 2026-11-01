@@ -60,6 +60,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         ++added;
     }
     std::vector<uint32_t> used_ids;
+    used_ids.reserve(into->copies.size());
     for (const layout::CopyRecord& c : into->copies)
         used_ids.push_back(c.name);
     unsigned counter = 0;

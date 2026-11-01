@@ -21,8 +21,8 @@ namespace level_nodes {
 using script::Array;
 using script::Struct;
 
-uint32_t g_node_names[1000];
-PrefixTables* g_node_prefixes;
+static uint32_t g_node_names[1000];
+static PrefixTables* g_node_prefixes;
 
 namespace {
 

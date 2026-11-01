@@ -13,9 +13,9 @@
 
 namespace script {
 
-char g_checksum_name_buffer[100];
-char* g_names_start;
-char* g_names_next;
+static char g_checksum_name_buffer[100];
+static char* g_names_start;
+static char* g_names_next;
 
 namespace {
 

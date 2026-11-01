@@ -17,10 +17,10 @@ namespace game_config {
 bool g_from_cd{true};
 int g_frame_rate{60};
 int g_language;
-int g_territory;
+static int g_territory;
 int g_platform;
 bool g_config_bootstrap;
-bool g_ntsc_flag;
+static bool g_ntsc_flag;
 
 int& get_language() { return g_language; }
 int& territory() { return g_territory; }

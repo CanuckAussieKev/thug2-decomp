@@ -99,18 +99,18 @@ void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* v
 }
 
 float g_one_percent{0.01f};
-float g_float255{255.0f};
-float g_float16384{16384.0f};
-uint32_t g_movie_surface_type{3};
-float g_movie_back_buffer_width{640.0f};
-float g_movie_back_buffer_height{480.0f};
-float g_movie_picture_width{640.0f};
-float g_movie_picture_height{480.0f};
-float g_movie_draw_width{1.0f};
-float g_movie_draw_height{1.0f};
-uint32_t g_saved_min_filter;
-uint32_t g_saved_antialias;
-uint32_t g_saved_cull_mode;
+static float g_float255{255.0f};
+static float g_float16384{16384.0f};
+static uint32_t g_movie_surface_type{3};
+static float g_movie_back_buffer_width{640.0f};
+static float g_movie_back_buffer_height{480.0f};
+static float g_movie_picture_width{640.0f};
+static float g_movie_picture_height{480.0f};
+static float g_movie_draw_width{1.0f};
+static float g_movie_draw_height{1.0f};
+static uint32_t g_saved_min_filter;
+static uint32_t g_saved_antialias;
+static uint32_t g_saved_cull_mode;
 bool g_movie_playing;
 int g_movie_dump_count;
 bool g_device_lost;

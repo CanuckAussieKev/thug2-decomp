@@ -19,7 +19,7 @@
 
 namespace park_editing {
 
-int g_cloning_piece;
+static int g_cloning_piece;
 
 namespace {
 

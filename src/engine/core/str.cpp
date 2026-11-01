@@ -49,7 +49,7 @@ const char* find_caseless(const char* haystack, const char* needle)
     return nullptr;
 }
 
-char g_separated_number[16];
+static char g_separated_number[16];
 
 // 0x00402200
 const char* format_with_separators(int value)

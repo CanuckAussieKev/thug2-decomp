@@ -26,7 +26,7 @@
 namespace objects {
 
 uint32_t g_fam_member_functions[18]{0xE5894C80, 0x0301D67C, 0, 0, 0,          0, 0x48AC2139, 0x0301D67C, 0,
-                                    0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0};
+                                           0,          0,          0, 0, 0x0301D67C, 0, 0,          0,          0};
 
 namespace {
 

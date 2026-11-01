@@ -110,7 +110,7 @@ void level_change_task(tasks::Task<Hub>* task)
     manager->level_change_job_->drop_out();
 }
 
-uint32_t g_modem_dialog_end;
+static uint32_t g_modem_dialog_end;
 
 // 0x00533810
 void dialup_progress_tick(tasks::Task<Hub>* task)

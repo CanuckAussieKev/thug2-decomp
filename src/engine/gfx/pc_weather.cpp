@@ -32,7 +32,7 @@ namespace render {
 // columns' height indices (a 16-bit offset into them).
 // (the grid, then the rows' spans and their columns - no fixed bound: all the bytes up to the next thing the original
 // refers to, 0x00775B58)
-uint8_t g_weather_grid[0x11828];
+static uint8_t g_weather_grid[0x11828];
 
 namespace {
 
@@ -42,7 +42,8 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol)
 uint32_t get_argb(const uint8_t* rgba)
 {
-    return uint32_t(rgba[3]) << 24 | uint32_t(rgba[0]) << 16 | uint32_t(rgba[1]) << 8 | rgba[2];
+    return static_cast<uint32_t>(rgba[3]) << 24 | static_cast<uint32_t>(rgba[0]) << 16 |
+           static_cast<uint32_t>(rgba[1]) << 8 | rgba[2];
 }
 
 // The frame's draw counts.
@@ -403,7 +404,8 @@ void PcWeather::render_splashes(float x, float z)
         uint8_t c[4];
         for (int k = 0; k < 4; ++k)
             c[k] = static_cast<uint8_t>(splash_colour_[k] * frames / splash_life_); // (fading with its frames)
-        uint32_t colour = uint32_t(c[3]) << 24 | uint32_t(c[2]) << 16 | uint32_t(c[1]) << 8 | c[0];
+        uint32_t colour = static_cast<uint32_t>(c[3]) << 24 | static_cast<uint32_t>(c[2]) << 16 |
+                          static_cast<uint32_t>(c[1]) << 8 | c[0];
         float y = splash_y_[i];
         out[0] = {x0, y, z0, colour, 0.0f, 0.0f};
         out[1] = {x1, y, z0, colour, 1.0f, 0.0f};

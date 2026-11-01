@@ -52,7 +52,7 @@ bool int_field(const char* label, int* value, float speed, int low, int high, co
 
 void get_apply(const Goal& g, bool done)
 {
-    Goal changed = g;
+    const Goal& changed = g;
     get_queue([changed, done] { get_edit(changed.id, changed, done); });
 }
 

@@ -1381,6 +1381,7 @@ UndoStep at_hand(const UndoStep& step)
                 now.carried_objects_.push_back(object_edit::store_away(object));
         }
         std::vector<uint32_t> names;
+        names.reserve(step.carried_nodes_.nodes.size());
         for (const auto& node : step.carried_nodes_.nodes)
             names.push_back(node.first);
         now.carried_nodes_ = node_edit::get_capture(names, node_edit::get_take_in);
@@ -1394,6 +1395,7 @@ UndoStep at_hand(const UndoStep& step)
         break;
     case UndoStep::kNodes: {
         std::vector<uint32_t> names;
+        names.reserve(step.nodes.nodes.size());
         for (const auto& node : step.nodes.nodes)
             names.push_back(node.first);
         now.nodes = node_edit::get_capture(names, node_edit::get_take_in);
@@ -1438,6 +1440,7 @@ UndoStep at_hand(const UndoStep& step)
         break;
     case UndoStep::kWalls: {
         std::vector<uint32_t> checksums;
+        checksums.reserve(step.walls.size());
         for (const walls::WallState& state : step.walls)
             checksums.push_back(state.checksum);
         now.walls = walls::store_away(checksums);
@@ -1677,6 +1680,7 @@ void apply_scale_to(V3 wanted, bool uniform)
     std::vector<objects::GameEntity*> objects = selected_objects();
     if (!objects.empty()) {
         std::vector<V3> before;
+        before.reserve(objects.size());
         for (objects::GameEntity* object : objects)
             before.push_back(object_edit::pos_of(object));
         if (local) {
@@ -4150,6 +4154,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
     }
     push_undo(step, repeat ? "Repeat duplicate" : "Duplicate");
     std::vector<uint32_t> made;
+    made.reserve(step.copies.size());
     for (const MadeCopy& copy : step.copies)
         made.push_back(copy.name);
     for (uint32_t sector : step.sectors)
@@ -6663,6 +6668,7 @@ void push_module_undo(std::shared_ptr<ModuleStep> before) { push_module_undo_lab
 std::vector<EditorUndoRecord> undo_history()
 {
     std::vector<EditorUndoRecord> out;
+    out.reserve(g_undo.size());
     for (const UndoStep& step : g_undo)
         out.push_back({step.label, step.detail});
     return out;

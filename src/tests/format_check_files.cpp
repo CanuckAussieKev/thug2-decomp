@@ -416,7 +416,8 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
 {
     // (the game's files are loaded 16-byte aligned: a copy so)
     std::vector<uint8_t> copy(size + 16);
-    auto* base = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~uintptr_t(15));
+    auto* base =
+        reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
     std::memcpy(base, data, size);
     collision_format::CollisionHeader header;
     collision_format::CollisionLayout layout;
@@ -831,7 +832,8 @@ void check_animation(const std::string& name, const uint8_t* data, size_t size)
 {
     ++g_anims.files;
     std::vector<uint8_t> copy(size + 16);
-    auto* base = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~uintptr_t(15));
+    auto* base =
+        reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~static_cast<uintptr_t>(15));
     std::memcpy(base, data, size);
     anim_format::AnimHeader header;
     anim_format::AnimLayout layout;

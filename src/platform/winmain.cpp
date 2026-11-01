@@ -50,7 +50,7 @@ extern char g_hosted_game_name[16];
 
 namespace sys {
 
-char g_command_line_server_name[256]; // "-connect"'s value
+static char g_command_line_server_name[256]; // "-connect"'s value
 
 namespace {
 

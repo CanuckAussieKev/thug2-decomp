@@ -18,14 +18,14 @@
 
 namespace park_editing {
 
-double g_park_memory_full_usage{0.95};
-double g_park_memory_nearly_full_usage{0.9};
-MemoryStats g_park_memory_stats;
-memory::Zone* g_park_region;
+static double g_park_memory_full_usage{0.95};
+static double g_park_memory_nearly_full_usage{0.9};
+static MemoryStats g_park_memory_stats;
+static memory::Zone* g_park_region;
 memory::Arena* g_park_heap;
-int g_park_memory_unknown_7c_e_68c;
-int g_dma_pieces;
-bool g_counts_dirty;
+static int g_park_memory_unknown_7c_e_68c;
+static int g_dma_pieces;
+static bool g_counts_dirty;
 
 namespace {
 

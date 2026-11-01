@@ -7,7 +7,6 @@ namespace util {
 
 // 0x00401050
 PackedBitBuffer::PackedBitBuffer()
-    : cursor_(nullptr), outset_(nullptr), octets_(0), free_bits_in_word_(32), extent_(0), bits_used_(0)
 {
     // The original leaves outset_ uninitialised; zeroing it here is harmless.
 }

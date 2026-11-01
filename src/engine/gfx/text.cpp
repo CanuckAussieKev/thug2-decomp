@@ -31,15 +31,15 @@
 namespace render {
 
 // The vertices' store (0x7000 bytes, as words) and the quads' triangle indices (256 quads of six).
-uint32_t g_text_vertex_store[0x1C00];
-uint16_t g_text_quad_indices[0x100 * 6];
+static uint32_t g_text_vertex_store[0x1C00];
+static uint16_t g_text_quad_indices[0x100 * 6];
 
-TypefaceData* g_typeface_head;
+static TypefaceData* g_typeface_head;
 TypefaceData* g_glyph_typeface;
-TypefaceData* g_texture_font;
-uint32_t g_text_vertex_count;
-TextVertex* g_text_vertex_buffer;
-bool g_quad_indices_made;
+static TypefaceData* g_texture_font;
+static uint32_t g_text_vertex_count;
+static TextVertex* g_text_vertex_buffer;
+static bool g_quad_indices_made;
 
 namespace {
 

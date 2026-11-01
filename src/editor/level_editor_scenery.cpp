@@ -1171,7 +1171,7 @@ const std::vector<uint32_t>& hover_group(uint32_t checksum)
 
 // [features] debug_editor: how the first selected sector's meshes are drawn (whether the material lets a colour
 // through).
-void log_meshes()
+static void log_meshes()
 {
     if (!debug_enabled() || g_selection.empty())
         return;

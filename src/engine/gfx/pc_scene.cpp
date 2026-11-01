@@ -37,19 +37,19 @@ namespace render {
 namespace {} // namespace
 
 uint32_t g_bloom_on;
-uint32_t g_screen_effect_unknown5724;
-uint32_t g_screen_effect_unknown5728;
+static uint32_t g_screen_effect_unknown5724;
+static uint32_t g_screen_effect_unknown5728;
 // The empty bounding box (all zero at start, as the original's) and its guard.
-maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
-uint32_t g_empty_bounding_box_guard;
+static maths::BBox g_empty_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
+static uint32_t g_empty_bounding_box_guard;
 
 uint32_t g_bloom_alpha_first{0x10};
 uint32_t g_bloom_alpha_second{0x10};
-uint32_t g_screen_effect_unknown984{0x42A00000};
-uint32_t g_screen_effect_unknown988{0x43000000};
+static uint32_t g_screen_effect_unknown984{0x42A00000};
+static uint32_t g_screen_effect_unknown988{0x43000000};
 uint32_t g_bloom_cut_off{0x80808080};
-uint32_t g_screen_effect_unknown990{0x80808080};
-uint32_t g_screen_effect_unknown994{0x80808080};
+static uint32_t g_screen_effect_unknown990{0x80808080};
+static uint32_t g_screen_effect_unknown994{0x80808080};
 
 namespace {
 

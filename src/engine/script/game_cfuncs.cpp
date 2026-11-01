@@ -61,9 +61,9 @@ namespace commands {
 
 bool g_trying_to_join;
 char g_node_list_name[128];
-tasks::Task<void>* g_second_controller_check;
-int g_view_mode_cfunc;
-char g_password_stars[32];
+static tasks::Task<void>* g_second_controller_check;
+static int g_view_mode_cfunc;
+static char g_password_stars[32];
 bool g_got_extra_memory;
 
 namespace {
@@ -248,7 +248,7 @@ bool cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script*)
 }
 
 // 0x0059F820
-void second_pad_watch_tick(tasks::Task<void>*)
+static void second_pad_watch_tick(tasks::Task<void>*)
 {
     sio::Hub* devices = sio::manager_instance();
     sio::InputPort* first = devices->get_pad_at_slot(0);

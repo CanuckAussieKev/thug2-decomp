@@ -55,7 +55,7 @@
 
 namespace commands {
 
-float g_node_object_minimum_area{5000.0f};
+static float g_node_object_minimum_area{5000.0f};
 gfx::CtodManager* g_tod_manager;
 
 namespace {
@@ -621,7 +621,7 @@ namespace {
 constexpr uint32_t kColor = 0x99A9B716;   // (name unknown) SetObjectColor's colour (0xBBGGRR)
 constexpr uint32_t kTerrain = 0x9655CFF7; // (name unknown) the terrain a node's sector gets
 
-// flag_command_by_name's walk data (game_flow_cfuncs.cpp): {id, value, action, result, found}.
+// flag_command_by_name's walk data (game_flow_cfuncs.cpp) {id, value, action, result, found}.
 struct NodeFlagCommand {
     uint32_t id;
     uint32_t value;

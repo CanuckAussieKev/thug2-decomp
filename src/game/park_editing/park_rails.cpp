@@ -14,8 +14,8 @@
 
 namespace park_editing {
 
-memory::PoolPair g_park_string_pools;
-memory::PoolPair g_park_point_pools;
+static memory::PoolPair g_park_string_pools;
+static memory::PoolPair g_park_point_pools;
 
 namespace {
 

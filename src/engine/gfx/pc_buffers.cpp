@@ -24,7 +24,7 @@ uint8_t g_skin_scaling_on;
 void* g_vertex_buffer_list; // the first node of each list (SBufferNode)
 void* g_index_buffer_list;
 uint32_t g_skin_settings[5];
-uint8_t g_saved_pixel_shader_constants[64]; // (4 passes of 16 bytes: the adapter identifier follows)
+static uint8_t g_saved_pixel_shader_constants[64]; // (4 passes of 16 bytes: the adapter identifier follows)
 
 namespace {
 

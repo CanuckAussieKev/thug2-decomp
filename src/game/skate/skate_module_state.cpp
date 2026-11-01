@@ -52,8 +52,8 @@
 
 namespace modules {
 
-int g_skate_module_references;
-float g_next_beep;
+static int g_skate_module_references;
+static float g_next_beep;
 
 namespace {
 

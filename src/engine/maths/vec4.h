@@ -13,7 +13,8 @@ public:
     // The original also has a Vec4(x, y, z) constructor (0x004022F0) that sets w = 1. Vector stays an
     // aggregate here so it can be written as {x, y, z, w}; use {x, y, z, 1.0f} for that constructor.
 
-    Vec4& operator=(const Vec4& other);
+    // 0x00402320 (defaulted in the class: Vec4 stays trivially copyable)
+    Vec4& operator=(const Vec4& other) = default;
     float& operator[](int index);
     Vec4& operator+=(const Vec4& other);
     Vec4& operator-=(const Vec4& other);

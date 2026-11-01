@@ -637,7 +637,7 @@ void UiTree::update_priorities()
 
 // --- the singleton --------------------------------------------------------------------------------------------
 
-uint32_t g_screen_element_manager_uses;
+static uint32_t g_screen_element_manager_uses;
 
 // 0x004ACAF0
 void create_screen_element_manager(bool create)

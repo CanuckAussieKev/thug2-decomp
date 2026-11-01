@@ -27,12 +27,12 @@ namespace render {
 int g_scene_light_count;
 LevelLamp g_level_lamps[150]; // (kMaxSceneLights)
 
-uint32_t* g_queued_nodes;
-int g_queued_count;
-int g_queue_done;
-int g_queue_frames;
-int g_queue_frame;
-script::Struct* g_queue_params;
+static uint32_t* g_queued_nodes;
+static int g_queued_count;
+static int g_queue_done;
+static int g_queue_frames;
+static int g_queue_frame;
+static script::Struct* g_queue_params;
 
 namespace {
 

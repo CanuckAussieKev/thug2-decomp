@@ -14,8 +14,8 @@
 
 namespace commands {
 
-bool g_cutscene_list_flushing;
-PointerList g_cutscene_destroy_list;
+static bool g_cutscene_list_flushing;
+static PointerList g_cutscene_destroy_list;
 
 namespace {
 

@@ -26,8 +26,8 @@
 
 namespace commands {
 
-char g_level_name[64];
-uint32_t g_debounce_times[22];
+static char g_level_name[64];
+static uint32_t g_debounce_times[22];
 
 namespace {
 

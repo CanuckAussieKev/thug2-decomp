@@ -415,6 +415,7 @@ void blit(const State& state, float x, float y, float width, float scale, Output
 {
     std::vector<Item> items = get_items(state, scale);
     std::vector<Bay> slots;
+    slots.reserve(items.size());
     for (const Item& item : items)
         slots.push_back(item.slot);
     const char* more = "\xC2\xBB###stripmore"; // ("»")

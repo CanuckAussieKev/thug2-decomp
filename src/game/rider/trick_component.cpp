@@ -25,8 +25,9 @@
 
 namespace objects {
 
-uint32_t g_trick_component_member_functions[24]{0xE4AB4785, 0x270F56E1, 0, 0, 0, 0, 0x46D49242, 0x270F56E1, 0, 0, 0, 0,
-                                                0x1FC98415, 0x270F56E1, 0, 0, 0, 0, 0,          0x270F56E1, 0, 0, 0, 0};
+uint32_t g_trick_component_member_functions[24]{
+    0xE4AB4785, 0x270F56E1, 0, 0, 0, 0, 0x46D49242, 0x270F56E1, 0, 0, 0, 0,
+    0x1FC98415, 0x270F56E1, 0, 0, 0, 0, 0,          0x270F56E1, 0, 0, 0, 0};
 
 namespace {
 

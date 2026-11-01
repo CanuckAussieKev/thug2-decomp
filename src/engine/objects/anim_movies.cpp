@@ -262,7 +262,7 @@ bool CameraAnimMovie::is_finished()
 bool CameraAnimMovie::is_held_and_complete() { return flag18_ && is_accomplished(&timeline_); }
 
 // 0x00587590
-bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
+bool CameraAnimMovie::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == 0xA8D5A188) {
         load_target(params);

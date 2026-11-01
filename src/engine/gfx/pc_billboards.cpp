@@ -27,11 +27,11 @@
 
 namespace render {
 
-bool g_billboards_ready;
+static bool g_billboards_ready;
 BillboardSet g_billboard_pool;
 uint8_t g_billboard_flag;
 
-float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+static float g_billboard_constants[12]{0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
 namespace {
 

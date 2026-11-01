@@ -32,8 +32,8 @@
 
 namespace render {
 
-uint32_t g_projection_batch_count;
-ProjectionBatch g_projection_batches[10]; // (kBatchLimit)
+static uint32_t g_projection_batch_count;
+static ProjectionBatch g_projection_batches[10]; // (kBatchLimit)
 
 namespace {
 

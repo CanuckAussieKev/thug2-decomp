@@ -13,7 +13,7 @@
 
 namespace objects {
 
-PathManager* g_path_manager;
+static PathManager* g_path_manager;
 
 namespace {
 

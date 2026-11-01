@@ -766,7 +766,7 @@ void row_toggles(const nodes::Elem& node, float x)
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", toggle.tip);
         if (clicked) {
-            nodes::Elem copy = node;
+            const nodes::Elem& copy = node;
             bool value = !toggle.state;
             if (t == 0)
                 get_queue([copy, value] { organize::set_hidden_in_editor(copy, !value); });
@@ -790,7 +790,7 @@ void row_menu(const nodes::Elem& node)
         std::snprintf(g_label_text, sizeof(g_label_text), "%s", row_label(node.name).c_str());
         g_label_asked = true;
     }
-    nodes::Elem copy = node;
+    const nodes::Elem& copy = node;
     bool hidden = organize::hidden_in_editor(node), locked = organize::latched(node.name),
          selectable = organize::get_selectable(node);
     if (ImGui::MenuItem("Hidden in Editor", nullptr, hidden))
@@ -871,6 +871,7 @@ void inspector_section(const ui::ShapeMesh& model)
         return;
     // (the fields every selected node has and can edit; a value where they agree, "mixed" where not)
     std::vector<std::vector<fields::Row>> rows;
+    rows.reserve(nodes.size());
     for (uint32_t id : nodes)
         rows.push_back(fields::rows_of(nodes::get_all()[nodes::get_find(id)]));
     struct Shared {
@@ -938,7 +939,7 @@ void inspector_section(const ui::ShapeMesh& model)
             set.key = f.key;
             set.kind = static_cast<int>(f.kind);
             set.text = edit.text;
-            std::vector<uint32_t> targets = nodes;
+            const std::vector<uint32_t>& targets = nodes;
             get_queue([targets, set] {
                 std::string message;
                 int n = set_fields_on_nodes(targets, {set}, "Field (all selected)", &message);

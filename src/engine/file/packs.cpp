@@ -60,7 +60,8 @@ PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(h
 PreEntry* next_entry(PreEntry* entry)
 {
     auto stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
-    uintptr_t after_name = (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~uintptr_t(0xF);
+    uintptr_t after_name =
+        (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
     return reinterpret_cast<PreEntry*>(after_name + ((stored + 3) & ~3u));
 }
 
@@ -96,7 +97,8 @@ void* read_in(const char* name, bool async, void* callback, void* hook_user_a, v
     // Already loaded?
     if (PreEntry* entry = overlay ? nullptr : find_pre_entry(checksum)) {
         ++entry->use_count_;
-        auto after_name = (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~uintptr_t(0xF);
+        auto after_name =
+            (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~static_cast<uintptr_t>(0xF);
         return reinterpret_cast<void*>(after_name);
     }
     for (int i = 0; i < kMaxLoadedFiles; ++i) {
@@ -216,7 +218,7 @@ void load_pre(const char* name)
     char path[500];
     std::snprintf(path, sizeof(path), "pre\\%s", name);
     // The block starts with the archive's name, padded to 16 bytes.
-    auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~size_t(0xF));
+    auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~static_cast<size_t>(0xF));
     size_t length = std::strlen(path);
 
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
@@ -311,7 +313,7 @@ void load_pre(const char* name)
             pre_format::FileRecord record;
             if (!pre_format::read_file_record(sizing, &record))
                 break;
-            new_size = ((record.name_size + new_size + 0x1F) & ~uintptr_t(0xF)) +
+            new_size = ((record.name_size + new_size + 0x1F) & ~static_cast<uintptr_t>(0xF)) +
                        ((static_cast<uint32_t>(record.size) + 3) & ~3u);
         }
         if (count != old_header.file_count)
@@ -335,8 +337,8 @@ void load_pre(const char* name)
         to->name_size_ = from.name_size;
         std::memcpy(to + 1, from.name, from.name_size);
 
-        auto* target =
-            reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) & ~uintptr_t(0xF));
+        auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->name_size_ + 0x1F) &
+                                                  ~static_cast<uintptr_t>(0xF));
         uint8_t* end;
         if (from.compressed_size) {
             // Not original - unpacked bounded by the file's size (lzss::unpack: decode's bytes for a valid file).

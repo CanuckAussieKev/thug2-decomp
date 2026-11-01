@@ -40,8 +40,8 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf 
 
 namespace goals {
 
-double g_trick_goals_three_quarters{0.75};
-float g_trick_goals_beat_milliseconds{15000.0f};
+static double g_trick_goals_three_quarters{0.75};
+static float g_trick_goals_beat_milliseconds{15000.0f};
 
 namespace {
 

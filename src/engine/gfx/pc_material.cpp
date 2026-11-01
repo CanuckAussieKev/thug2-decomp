@@ -24,12 +24,13 @@
 
 namespace render {
 
-float g_billboard_uv_matrix[8]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_wibble_matrix_pass[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_environment_matrix_pass[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
-                                    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f};
-float g_wibble_matrix[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
-float g_environment_matrix[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f, 0.5f};
+static float g_billboard_uv_matrix[8]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+static float g_wibble_matrix_pass[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+static float g_environment_matrix_pass[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
+                                           0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f};
+static float g_wibble_matrix[16]{1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
+static float g_environment_matrix[16]{0.5f, 0.0f, 0.0f, 0.0f, 0.0f, -0.5f, 0.0f,
+                                      0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.5f,  0.5f};
 
 namespace {
 

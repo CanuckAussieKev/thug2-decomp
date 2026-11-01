@@ -136,9 +136,8 @@ void ParkLayout::get_map_info(const CompressedMap* map, int* num_gaps, int* num_
 
 void ParkLayout::restore_floor_heights()
 {
-    for (auto& x : floor_) {
-        for (int z = 0; z < kFloorSize; ++z) {
-            FloorCell& cell = x[z];
+    for (auto& column : floor_) {
+        for (auto& cell : column) {
             if (cell.touched_) {
                 cell.touched_ = false;
                 cell.level_y_ -= cell.delta_;

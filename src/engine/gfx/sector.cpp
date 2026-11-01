@@ -31,10 +31,7 @@ constexpr uint32_t kOutdoorLightGroup = 0xE3714DC1; // outdoor
 } // namespace
 
 // 0x0049E900
-WorldCell::WorldCell()
-    : flag_bits_(kSectorCollidable), light_group_(kOutdoorLightGroup), rot_y_(0), geom_handle_(nullptr),
-      hit_body_(nullptr)
-{}
+WorldCell::WorldCell() : light_group_(kOutdoorLightGroup) {}
 
 // 0x0049E630
 WorldCell::~WorldCell()

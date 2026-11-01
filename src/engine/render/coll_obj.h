@@ -108,14 +108,14 @@ public:
     void add_occlusion_polys();
 
     uint32_t checksum_;   // +0x04
-    uint16_t flag_bits_;  // +0x08
+    uint16_t flag_bits_{0}; // +0x08
     uint8_t visit_stamp_; // +0x0A the grid queries' mark (0x00693998): already listed this query
     uint8_t pad0b_;
-    TriMeshSource* geometry_; // +0x0C
+    TriMeshSource* geometry_{nullptr}; // +0x0C
 
 protected:
     // No flags or geometry (the checksum and the grid mark left as they were).
-    HitMesh() : flag_bits_(0), geometry_(nullptr) {}
+    HitMesh() {}
     // The base's copy: checksum, flags, grid mark and geometry.
     HitMesh(const HitMesh& other)
         : checksum_(other.checksum_), flag_bits_(other.flag_bits_), visit_stamp_(other.visit_stamp_),
@@ -186,10 +186,10 @@ public:
 
     memory::ListNode* sub_nodes_; // +0x10 the head (lists::Foremost<HitMesh>)
     maths::BBox box_;             // +0x14
-    bool dirty_;                  // +0x34
+    bool dirty_{true};            // +0x34
     bool box_valid_;              // +0x35
     uint8_t pad36[2];
-    int owner_; // +0x38
+    int owner_{0}; // +0x38
 };
 static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");
 

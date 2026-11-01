@@ -506,6 +506,7 @@ bool justify(int axis, Edge edge, Reference reference, bool local)
     V3 axes[3];
     axes_of(units, local, axes);
     std::vector<Span> spans;
+    spans.reserve(units.size());
     for (const Unit& unit : units)
         spans.push_back(span_along(unit.corners, axes[axis]));
     std::vector<float> moves = align_moves(spans, edge, reference);
@@ -540,6 +541,7 @@ bool distribute(int axis, bool gaps, bool local)
     V3 axes[3];
     axes_of(units, local, axes);
     std::vector<Span> spans;
+    spans.reserve(units.size());
     for (const Unit& unit : units)
         spans.push_back(span_along(unit.corners, axes[axis]));
     move_units(selection, units, axes[axis], distribute_moves(spans, gaps));
@@ -922,7 +924,7 @@ bool edge_click(float x, float y)
         hud::get_message("Rail Along Edge: click a highlighted edge");
         return true;
     }
-    Run run = runs[pick];
+    const Run& run = runs[pick];
     chains::State before = chains::at_hand();
     std::string message;
     uint32_t select = 0;

@@ -91,8 +91,8 @@ void complete_from_archive(AsyncFileHandle* file)
 } // namespace
 
 // The platform (PC) side, below.
-void platform_init();
-DWORD WINAPI async_io_thread(void*);
+static void platform_init();
+static DWORD WINAPI async_io_thread(void*);
 
 // 0x005B69A0 (the constructor: in it the base's own init runs, a debug stub - as the original's call through the
 // base's table)
@@ -623,7 +623,7 @@ void async_poll_handles()
 }
 
 // 0x005B6990: the module's task, every frame
-void async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
+static void async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
 {
     async_poll_handles();
     async_execute_callbacks();

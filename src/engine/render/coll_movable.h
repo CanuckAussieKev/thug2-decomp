@@ -38,7 +38,7 @@ public:
     maths::Vec4 anchor_point_; // +0x10
     maths::Mat4 orientation_;  // +0x20
     maths::Mat4 inverse_;      // +0x60 the orientation's transpose
-    int owner_;                // +0xA0
+    int owner_{0};             // +0xA0
 
 protected:
     // 0x00411FA0: at the origin, unrotated.
@@ -82,8 +82,8 @@ public:
     void draw_diagnostic(int a, int b) override;
 
     maths::BBox box_;         // +0xA4
-    uint32_t poly_attr_bits_; // +0xC4
-    uint16_t surface_type_;   // +0xC8
+    uint32_t poly_attr_bits_{0}; // +0xC4
+    uint16_t surface_type_{0};   // +0xC8
     uint8_t unknownca_[4];    // +0xCA (copied, not otherwise used here)
     uint8_t padce_[2];
 };

@@ -26,7 +26,7 @@
 
 namespace park_editing {
 
-int g_rail_search_start;
+static int g_rail_search_start;
 
 namespace {
 

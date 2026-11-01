@@ -29,11 +29,11 @@
 
 namespace objects {
 
-uint32_t g_stats_manager_member_functions[60]{0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0, 0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0,
-                                              0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0, 0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0,
-                                              0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0, 0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
-                                              0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0, 0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0,
-                                              0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0, 0,          0x4FF8DAC6, 0, 0, 0, 0};
+uint32_t g_stats_manager_member_functions[60]{
+    0x82CE30CE, 0x4FF8DAC6, 0, 0, 0, 0, 0x57879C96, 0x4FF8DAC6, 0, 0, 0, 0, 0xEE59073C, 0x4FF8DAC6, 0, 0, 0, 0,
+    0xF1745991, 0x4FF8DAC6, 0, 0, 0, 0, 0x78E7D855, 0x4FF8DAC6, 0, 0, 0, 0, 0xB341B5A5, 0x4FF8DAC6, 0, 0, 0, 0,
+    0xB7FAC894, 0x4FF8DAC6, 0, 0, 0, 0, 0x629D29FA, 0x4FF8DAC6, 0, 0, 0, 0, 0xB1652DEC, 0x4FF8DAC6, 0, 0, 0, 0,
+    0,          0x4FF8DAC6, 0, 0, 0, 0};
 
 namespace {
 

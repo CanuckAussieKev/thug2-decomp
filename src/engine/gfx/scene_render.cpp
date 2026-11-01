@@ -20,7 +20,7 @@
 
 namespace render {
 
-MeshRef* g_drawn_meshes[4096];
+static MeshRef* g_drawn_meshes[4096];
 
 namespace {
 

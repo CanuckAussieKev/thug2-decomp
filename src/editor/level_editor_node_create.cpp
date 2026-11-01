@@ -1058,6 +1058,7 @@ bool get_hidden(uint32_t name)
 std::vector<uint32_t> hidden_names()
 {
     std::vector<uint32_t> names;
+    names.reserve(g_hidden.size());
     for (const HiddenNode& h : g_hidden)
         names.push_back(h.name);
     return names;

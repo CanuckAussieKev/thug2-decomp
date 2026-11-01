@@ -129,7 +129,7 @@ static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x3
 class AnimScriptKey final : public UserClipKey {
 public:
     // 0x00481A20: no parameters (the frame and the flag left as they are).
-    AnimScriptKey() : call_args_(nullptr) {}
+    AnimScriptKey() {}
     // 0x00486560 / 0x00481DB0: the structure freed.
     ~AnimScriptKey() override;
     // 0x004865D0: at `frame`, sending `event` with a copy of `params` (a new structure: the old one isn't freed).
@@ -138,11 +138,11 @@ public:
     bool work_on(void* object) override;
 
     uint32_t kind_tag_;         // +0x0C
-    script::Struct* call_args_; // +0x10
+    script::Struct* call_args_{nullptr}; // +0x10
 };
 static_assert(sizeof(AnimScriptKey) == 0x14, "the original's size");
 
-// 0x00486680 (cdecl): the next key from a frame data's key list (`*cursor` moved past it): {frame, kind, size} then
+// 0x00486680 (cdecl): the next key from a frame data's key list (`*cursor` moved past it) {frame, kind, size} then
 // the kind's data. Unknown kinds are skipped (by size); null for them and when memory runs out.
 memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor);
 // NOT ORIGINAL - the same read through util::ByteReader (anim_format.h), within its bounds.

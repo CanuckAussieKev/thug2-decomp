@@ -16,8 +16,8 @@ static_assert(offsetof(ValueResolver, token_) == 0x1EC, "layout must match the o
 static_assert(offsetof(ValueResolver, fault_) == 0x1F0, "layout must match the original");
 static_assert(offsetof(ValueResolver, unknown1f4_) == 0x1F4, "layout must match the original");
 
-float g_eval_divisor_minimum{0.000001f};
-Component g_eval_result;
+static float g_eval_divisor_minimum{0.000001f};
+static Component g_eval_result;
 
 namespace {
 

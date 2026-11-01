@@ -9,11 +9,11 @@
 
 namespace objects {
 
-uint32_t g_vehicle_wheel_member_functions[60]{0x93B713A6, 0xE47F1B79, 0, 0, 0, 0, 0xA80A0D36, 0xE47F1B79, 0, 0, 0, 0,
-                                              0x4B0B27DD, 0xE47F1B79, 0, 0, 0, 0, 0xC33608E4, 0xE47F1B79, 0, 0, 0, 0,
-                                              0xDB35AAD8, 0xE47F1B79, 0, 0, 0, 0, 0x5008B253, 0xE47F1B79, 0, 0, 0, 0,
-                                              0x279602ED, 0xE47F1B79, 0, 0, 0, 0, 0x4C73526B, 0xE47F1B79, 0, 0, 0, 0,
-                                              0x81FAAC21, 0xE47F1B79, 0, 0, 0, 0, 0,          0xE47F1B79, 0, 0, 0, 0};
+uint32_t g_vehicle_wheel_member_functions[60]{
+    0x93B713A6, 0xE47F1B79, 0, 0, 0, 0, 0xA80A0D36, 0xE47F1B79, 0, 0, 0, 0, 0x4B0B27DD, 0xE47F1B79, 0, 0, 0, 0,
+    0xC33608E4, 0xE47F1B79, 0, 0, 0, 0, 0xDB35AAD8, 0xE47F1B79, 0, 0, 0, 0, 0x5008B253, 0xE47F1B79, 0, 0, 0, 0,
+    0x279602ED, 0xE47F1B79, 0, 0, 0, 0, 0x4C73526B, 0xE47F1B79, 0, 0, 0, 0, 0x81FAAC21, 0xE47F1B79, 0, 0, 0, 0,
+    0,          0xE47F1B79, 0, 0, 0, 0};
 
 namespace {
 

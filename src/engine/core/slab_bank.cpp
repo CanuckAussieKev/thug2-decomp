@@ -91,7 +91,7 @@ bool SlabBank::get_holds(const void* pointer) const
 
 namespace slot_pool_setup {
 
-SlabBank* g_pools[2]; // (the memory card's path buffer follows)
+static SlabBank* g_pools[2]; // (the memory card's path buffer follows)
 
 static SlabBank*& pool_at(int index) { return g_pools[index]; }
 

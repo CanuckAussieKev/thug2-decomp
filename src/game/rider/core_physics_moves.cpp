@@ -36,7 +36,7 @@ namespace skater {
 
 using namespace physics;
 
-int g_grind_counter;
+static int g_grind_counter;
 
 namespace {
 

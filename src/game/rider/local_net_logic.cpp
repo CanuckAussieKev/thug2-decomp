@@ -34,8 +34,8 @@
 
 namespace objects {
 
-maths::Vec4 g_local_net_position;
-uint32_t g_local_net_guard;
+static maths::Vec4 g_local_net_position;
+static uint32_t g_local_net_guard;
 
 namespace {
 

@@ -28,7 +28,7 @@ namespace park_editing {
 using namespace rail_editor_internal;
 using maths::Vec4;
 
-int g_rail_flash_counter;
+static int g_rail_flash_counter;
 
 namespace {
 

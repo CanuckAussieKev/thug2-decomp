@@ -90,9 +90,9 @@ public:
     void hide() override;
     void show() override;
 
-    RenderModel* mesh_instance_; // +0x08
-    float size_factor_;          // +0x0C
-    float shift_;                // +0x10
+    RenderModel* mesh_instance_{nullptr}; // +0x08
+    float size_factor_{1.0f};             // +0x0C
+    float shift_{1.0f};                   // +0x10
 };
 static_assert(sizeof(BlobShadow) == 0x14, "the original's size");
 

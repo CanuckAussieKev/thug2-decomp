@@ -22,7 +22,7 @@
 
 namespace script {
 
-uint32_t g_loading_file;
+static uint32_t g_loading_file;
 
 namespace {
 

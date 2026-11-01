@@ -11,14 +11,6 @@
 
 namespace maths {
 
-// 0x00404090
-Mat4& Mat4::operator=(const Mat4& other)
-{
-    for (int i = 0; i < 4; ++i)
-        row[i] = other.row[i];
-    return *this;
-}
-
 // 0x00404080
 Vec4& Mat4::operator[](int index) { return row[index]; }
 

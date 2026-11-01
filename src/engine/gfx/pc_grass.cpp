@@ -29,12 +29,12 @@
 
 namespace render {
 
-float g_grass_detail_uv_scale{0.010416667f};
-float g_grass_uv_scale{0.0052083335f};
-float g_grass_copy_uv_scale{0.020833334f};
-uint8_t g_grass_texture0[0x20]; // the grass materials' texture slots (0x20 bytes each)
-uint8_t g_grass_texture1[0x20];
-uint8_t g_grass_texture_animation[17 * 0x20]; // (17 slots of 0x20)
+static float g_grass_detail_uv_scale{0.010416667f};
+static float g_grass_uv_scale{0.0052083335f};
+static float g_grass_copy_uv_scale{0.020833334f};
+static uint8_t g_grass_texture0[0x20]; // the grass materials' texture slots (0x20 bytes each)
+static uint8_t g_grass_texture1[0x20];
+static uint8_t g_grass_texture_animation[17 * 0x20]; // (17 slots of 0x20)
 
 namespace {
 

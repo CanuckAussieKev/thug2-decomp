@@ -26,7 +26,7 @@ memory::owner<level_nodes::NodeManager*> g_node_manager;
 using script::Array;
 using script::Struct;
 
-uint32_t g_node_manager_references;
+static uint32_t g_node_manager_references;
 
 namespace {
 

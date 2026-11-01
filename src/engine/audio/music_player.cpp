@@ -38,9 +38,9 @@ char g_track_titles[80][100];
 Stream g_streams[3];
 void* g_stream_owners[3];
 int g_user_order[600];
-int g_track_order[600]; // the shuffled order (the word before it, 0x00696D9C, is read once)
-char g_special_track[44];
-char g_soundtrack_name[100];
+static int g_track_order[600]; // the shuffled order (the word before it, 0x00696D9C, is read once)
+static char g_special_track[44];
+static char g_soundtrack_name[100];
 
 namespace {
 

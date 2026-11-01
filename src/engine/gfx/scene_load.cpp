@@ -118,7 +118,7 @@ template <typename Stream, typename LoadSector>
 uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool flag_8d, LoadSector load_sector)
 {
     int sectors = scene_format::take<int>(in);
-    if (sectors < 0 || !in.fits(uint64_t(sectors) * 0x38)) // (each sector at least its fields)
+    if (sectors < 0 || !in.fits(static_cast<uint64_t>(sectors) * 0x38)) // (each sector at least its fields)
         sectors = 0;
     uint8_t* scene = build_world_scene(sectors, with_super_sectors, flag_8d, list);
     for (int i = sectors; i > 0 && in.ok(); --i) {
@@ -131,7 +131,7 @@ uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
     }
     list->update_sphere();
     int nodes = scene_format::take<int>(in);
-    if (nodes > 0 && in.fits(uint64_t(nodes) * sizeof(HierarchyNode))) {
+    if (nodes > 0 && in.fits(static_cast<uint64_t>(nodes) * sizeof(HierarchyNode))) {
         HierarchyNode* hierarchy = new_hierarchy(nodes);
         list->extra = reinterpret_cast<uint8_t*>(hierarchy);
         // (no check: a failed allocation reads into null, as the original)

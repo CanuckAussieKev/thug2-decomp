@@ -70,8 +70,8 @@
 namespace modules {
 
 int g_viewport_count;
-script::Struct* g_cat_info;
-script::Struct* g_stat_target_info;
+static script::Struct* g_cat_info;
+static script::Struct* g_stat_target_info;
 
 namespace {
 

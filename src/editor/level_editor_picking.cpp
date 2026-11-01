@@ -76,6 +76,7 @@ bool material_see_through(uint32_t pass_flags, uint32_t blend_mode)
 Resolved settle_up(const std::vector<Met>& met)
 {
     std::vector<const Met*> order;
+    order.reserve(met.size());
     for (const Met& m : met)
         order.push_back(&m);
     std::stable_sort(order.begin(), order.end(), [](const Met* a, const Met* b) { return a->t < b->t; });

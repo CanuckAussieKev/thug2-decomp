@@ -85,7 +85,7 @@ bool quit_requested() { return render::g_quit_requested; }
 
 } // namespace
 
-bool g_demo_mode;
+static bool g_demo_mode;
 
 // 0x004E1EF0
 int game_main(int argc, char** argv)

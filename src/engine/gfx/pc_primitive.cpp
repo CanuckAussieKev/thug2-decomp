@@ -25,7 +25,7 @@
 namespace render {
 
 // The game's buffer for the vertices of a primitive drawn without one of its own.
-uint8_t g_primitive_vertex_buffer[0x100];
+static uint8_t g_primitive_vertex_buffer[0x100];
 
 namespace {
 

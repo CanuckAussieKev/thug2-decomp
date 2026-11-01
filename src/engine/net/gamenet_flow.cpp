@@ -164,8 +164,8 @@ void Hub::reset_to_lobby()
 }
 
 uint32_t g_auto_serve_start;
-bool g_waiting_shown;
-uint32_t g_auto_serve_checked;
+static bool g_waiting_shown;
+static uint32_t g_auto_serve_checked;
 bool g_cheat_flag;
 
 // 0x0053B0D0

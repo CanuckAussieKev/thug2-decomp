@@ -32,11 +32,11 @@
 
 namespace objects {
 
-uint32_t g_editor_camera_skip_names[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
-uint32_t g_editor_camera_name{0x43BFAB74};
-uint32_t g_editor_camera_seen[20];
-uint8_t g_editor_camera_flagged;
-int g_editor_camera_seen_count;
+static uint32_t g_editor_camera_skip_names[4]{0x0B38ED6B, 0xDEA3057B, 0x9FBBD5F0, 0x8F308205};
+static uint32_t g_editor_camera_name{0x43BFAB74};
+static uint32_t g_editor_camera_seen[20];
+static uint8_t g_editor_camera_flagged;
+static int g_editor_camera_seen_count;
 
 namespace {
 

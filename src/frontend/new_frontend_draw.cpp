@@ -767,6 +767,7 @@ void options_screen(Ctx& c, float window_width, float window_height)
     }
     float rule = get_header(c, 36.0f, kColumnInner, text_tools::kTitleOptions, true, nullptr);
     std::vector<std::pair<std::string, uint32_t>> tabs;
+    tabs.reserve(groups.size());
     for (const options::GroupSet& g : groups)
         tabs.emplace_back(g.name, Menu::kHouseYellow);
     float list_top = get_tabs(c, tabs, menu.option_group(), rule + 14.0f) + 18.0f;

@@ -218,7 +218,7 @@ void HiddenModels::get_show()
 }
 
 // The models hidden for a cutscene (the original's one instance).
-HiddenModels g_hidden_models;
+static HiddenModels g_hidden_models;
 
 // 0x00487D20
 void hide_models_for_cutscene() { g_hidden_models.conceal(); }

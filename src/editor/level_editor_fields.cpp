@@ -251,18 +251,21 @@ std::string get_format(const Value& value, const NameLookup& names)
         return value.on ? "on" : "off";
     case Kind::kNames: {
         std::vector<std::string> parts;
+        parts.reserve(value.list.size());
         for (uint32_t c : value.list)
             parts.push_back(get_name_text(c, names));
         return get_join(parts, ", ");
     }
     case Kind::kIntegers: {
         std::vector<std::string> parts;
+        parts.reserve(value.list.size());
         for (uint32_t i : value.list)
             parts.push_back(std::to_string(static_cast<int32_t>(i)));
         return get_join(parts, ", ");
     }
     case Kind::kFloats: {
         std::vector<std::string> parts;
+        parts.reserve(value.floats.size());
         for (float f : value.floats)
             parts.push_back(float_text(f));
         return get_join(parts, ", ");
@@ -451,12 +454,14 @@ std::string encode_value(const Value& value, const NameLookup& names)
         return value.on ? "flag:1" : "flag:0";
     case Kind::kNames: {
         std::vector<std::string> parts;
+        parts.reserve(value.list.size());
         for (uint32_t c : value.list)
             parts.push_back(record_name(c, names));
         return "an:" + get_join(parts, ",");
     }
     case Kind::kIntegers: {
         std::vector<std::string> parts;
+        parts.reserve(value.list.size());
         for (uint32_t i : value.list)
             parts.push_back(std::to_string(static_cast<int32_t>(i)));
         return "ai:" + get_join(parts, ",");

@@ -286,7 +286,7 @@ memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_
 } // namespace
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
-void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
+static void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
         static_cast<ArchiveManager*>(manager)->finish_load(reinterpret_cast<int>(file), static_cast<uint8_t*>(data),

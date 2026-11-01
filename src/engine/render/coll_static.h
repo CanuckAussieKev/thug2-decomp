@@ -28,7 +28,7 @@ class StaticCollider final : public HitMesh {
 public:
     // 0x00412730 (as `new StaticCollider[n]` builds each): no flags, geometry or buffer, +0x14 0 (the checksum and
     // the grid mark left as they were).
-    StaticCollider() : octets_(nullptr), unknown14_(0) {}
+    StaticCollider() {}
     // 0x00412760: the buffer freed if this object owns it, the base.
     ~StaticCollider() override;
 
@@ -87,8 +87,8 @@ public:
     // geometry's rejection scale kept (+0x14). The block's next free byte.
     uint8_t* take_buffer(uint8_t* block, const TriMeshSource* geometry);
 
-    uint8_t* octets_; // +0x10
-    int unknown14_;   // +0x14
+    uint8_t* octets_{nullptr}; // +0x10
+    int unknown14_{0};         // +0x14
 };
 static_assert(sizeof(StaticCollider) == 0x18, "layout must match the original");
 
@@ -97,7 +97,7 @@ static_assert(sizeof(StaticCollider) == 0x18, "layout must match the original");
 class CollStaticInstance final : public CollScaled {
 public:
     // 0x004127C0
-    CollStaticInstance() : octets_(nullptr), unknownc4_(0) {}
+    CollStaticInstance() {}
     // 0x00414C30: a copy.
     CollStaticInstance(const CollStaticInstance& other) = default;
     // 0x00412840 (0x00413ED0 the deleting destructor)
@@ -146,8 +146,8 @@ public:
     void draw_diagnostic(int a, int b) override;
 
     maths::BBox world_box_; // +0xA0
-    uint8_t* octets_;       // +0xC0
-    int unknownc4_;         // +0xC4
+    uint8_t* octets_{nullptr}; // +0xC0
+    int unknownc4_{0};         // +0xC4
 };
 static_assert(sizeof(CollStaticInstance) == 0xC8 && offsetof(CollStaticInstance, world_box_) == 0xA0, "layout");
 

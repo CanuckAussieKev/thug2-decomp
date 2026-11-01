@@ -24,12 +24,12 @@
 namespace render {
 
 uint8_t g_occlusion_slots[1024]{1};
-uint32_t g_occlusion_pixels;
-float g_query_rect_strip[20];
-uint32_t g_query_point_strip[16];
+static uint32_t g_occlusion_pixels;
+static float g_query_rect_strip[20];
+static uint32_t g_query_point_strip[16];
 
-float g_virtual_screen_height{448.0f};
-float g_virtual_screen_width{640.0f};
+static float g_virtual_screen_height{448.0f};
+static float g_virtual_screen_width{640.0f};
 float g_scale_2d_in_3d_numerator{300.0f};
 float g_scale_2d_in_3d_max{3.0f};
 float g_scale_2d_in_3d_min;

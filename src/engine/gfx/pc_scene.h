@@ -34,7 +34,7 @@ struct VertexArena {
 class PcSector final : public WorldCell {
 public:
     // 0x004C6550
-    PcSector() : flags(0), unknown20{0.0f, 0.0f, 0.0f}, unknown2c_(1.0f) {}
+    PcSector() {}
     // 0x004C65B0 (0x004C6580 the deleting destructor): a jump to the engine's.
     ~PcSector() override = default;
     // 0x004C6530 (slot 1): with `on`, its geometry given to the engine's 0x00490DC0.
@@ -50,9 +50,9 @@ public:
     // 0x004C64E0 (slot 9, never called): an empty box (a static one, made the first time).
     static const maths::BBox* fetch_empty_bounds();
 
-    uint32_t flags;     // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
-    float unknown20[3]; // +0x20 (zero)
-    float unknown2c_;   // +0x2C (1)
+    uint32_t flags{0};                    // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
+    float unknown20[3]{0.0f, 0.0f, 0.0f}; // +0x20 (zero)
+    float unknown2c_{1.0f};               // +0x2C (1)
     uint8_t unknown30_[4];
 };
 static_assert(offsetof(PcSector, geom_handle_) == 0x14 && offsetof(PcSector, unknown20) == 0x20 &&

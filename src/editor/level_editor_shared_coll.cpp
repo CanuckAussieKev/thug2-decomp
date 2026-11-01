@@ -499,7 +499,7 @@ bool get_live(const TableRow& entry, uint32_t checksum)
 
 // An entry dropped: out of its grid and the originals back on while its piece is still there (a level gone: its grid
 // and geometries are gone with it - nothing touched); out of every collision cache.
-void get_drop(std::map<uint32_t, TableRow>::iterator it)
+void get_drop(const std::map<uint32_t, TableRow>::iterator& it)
 {
     TableRow& entry = it->second;
     if (entry.companion) {
@@ -529,7 +529,7 @@ TableRow* get_find(uint32_t checksum)
 }
 
 void append_one(uint32_t checksum, render::WorldScene* scene, render::WorldCell* sector, render::PcGeom* geom,
-                std::vector<FaceCopy> faces, std::vector<Taken> taken)
+                const std::vector<FaceCopy>& faces, std::vector<Taken> taken)
 {
     TableRow& entry = g_entries[checksum];
     entry.scene = scene;

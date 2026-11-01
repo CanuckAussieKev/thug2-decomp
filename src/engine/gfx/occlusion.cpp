@@ -14,13 +14,13 @@
 
 namespace render {
 
-OccluderPolygon g_occluder_quads[512];
-Occluder g_occluders[8];
+static OccluderPolygon g_occluder_quads[512];
+static Occluder g_occluders[8];
 
-uint32_t g_occlusion_poly_count;
-uint32_t g_occlusion_next_poly;
-int g_occlusion_frame;
-uint32_t g_occluder_count;
+static uint32_t g_occlusion_poly_count;
+static uint32_t g_occlusion_next_poly;
+static int g_occlusion_frame;
+static uint32_t g_occluder_count;
 float g_last_sphere_distance;
 
 namespace {

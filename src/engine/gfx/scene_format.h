@@ -178,7 +178,7 @@ bool read_material(Stream& in, Material* m)
             take<uint32_t>(in);
             pass.texture_loops = take<int>(in);
             pass.texture_phase = take<uint32_t>(in);
-            if (pass.texture_key_count < 0 || !in.fits(uint64_t(pass.texture_key_count) * 8))
+            if (pass.texture_key_count < 0 || !in.fits(static_cast<uint64_t>(pass.texture_key_count) * 8))
                 return false;
             pass.texture_keys.resize(static_cast<size_t>(pass.texture_key_count));
             for (TextureFrame& key : pass.texture_keys) {
@@ -314,9 +314,9 @@ bool read_mesh_body(Stream& in, MeshBody* body)
         if (!scaled)
             continue;
         int count = take<int>(in);
-        if (count < 0 || !in.fits(uint64_t(count) * kScaledVertexSize))
+        if (count < 0 || !in.fits(static_cast<uint64_t>(count) * kScaledVertexSize))
             return false;
-        if (count && uint64_t(count - 1) * body->stride + 12 > size)
+        if (count && static_cast<uint64_t>(count - 1) * body->stride + 12 > size)
             return false;
         if (v == 0) {
             body->scaled.resize(static_cast<size_t>(count) * kScaledVertexSize);
@@ -339,7 +339,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     body->level_count = take<int>(in);
     body->levels.clear();
     if (body->level_count > 1) {
-        if (!in.fits(uint64_t(body->level_count) * 4))
+        if (!in.fits(static_cast<uint64_t>(body->level_count) * 4))
             return false;
         body->levels.resize(static_cast<size_t>(body->level_count));
         in.take(body->levels.data(), body->levels.size() * 4);
@@ -359,7 +359,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
 inline bool vertices_fit(const MeshBody& body, uint32_t vertex_bytes)
 {
     return body.vertex_count == 0 ||
-           uint64_t(body.vertex_count - 1) * body.stride + vertex_bytes <= body.vertices.size();
+           static_cast<uint64_t>(body.vertex_count - 1) * body.stride + vertex_bytes <= body.vertices.size();
 }
 
 // Whether a mesh with a vertex format has its offsets inside a vertex: the normal (12 bytes), the colour (4 - the
@@ -432,7 +432,7 @@ bool walk_scene(Stream& in, SceneCounts* counts)
     if (!in.ok())
         return false;
     if (nodes > 0) {
-        if (!in.fits(uint64_t(nodes) * kHierarchyNodeSize))
+        if (!in.fits(static_cast<uint64_t>(nodes) * kHierarchyNodeSize))
             return false;
         in.skip(static_cast<size_t>(nodes) * kHierarchyNodeSize);
         counts->hierarchy = static_cast<uint32_t>(nodes);

@@ -94,9 +94,9 @@
 
 namespace objects {
 
-float g_skater_down_light_colour;
-float g_skater_light_colour;
-uint32_t g_skater_lights_made;
+static float g_skater_down_light_colour;
+static float g_skater_light_colour;
+static uint32_t g_skater_lights_made;
 
 namespace {
 

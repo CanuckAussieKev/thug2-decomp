@@ -109,7 +109,7 @@ void FullShadow::set_light_direction(const maths::Vec4* direction)
 }
 
 // 0x004A1750
-BlobShadow::BlobShadow() : ShadowBase(2), mesh_instance_(nullptr), size_factor_(1.0f), shift_(1.0f) {}
+BlobShadow::BlobShadow() : ShadowBase(2) {}
 
 // 0x004A1780
 BlobShadow::~BlobShadow()

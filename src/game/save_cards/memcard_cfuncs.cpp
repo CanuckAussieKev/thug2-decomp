@@ -110,7 +110,7 @@ constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 bool g_out_of_space;
 script::Struct* g_kept_params;
 uint32_t g_kept_type;
-uint32_t g_sections_to_apply_when_loading;
+static uint32_t g_sections_to_apply_when_loading;
 bool g_loaded_custom_skater;
 
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and

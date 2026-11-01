@@ -267,7 +267,7 @@ void tick_message()
 
 // --- taking and writing ---
 
-void emit_out(std::shared_ptr<Job> job)
+void emit_out(const std::shared_ptr<Job>& job)
 {
     LARGE_INTEGER start, end, frequency;
     QueryPerformanceCounter(&start);
@@ -428,7 +428,7 @@ bool write_new_file(const std::string& path, const void* data, size_t size)
     return WriteFile(file.get(), data, static_cast<DWORD>(size), &written, nullptr) && written == size;
 }
 
-void write_series_frame(std::shared_ptr<Series> series, TickCycle frame, int number)
+void write_series_frame(const std::shared_ptr<Series>& series, const TickCycle& frame, int number)
 {
     std::vector<uint8_t> rgb, png;
     std::string error;
@@ -442,7 +442,7 @@ void write_series_frame(std::shared_ptr<Series> series, TickCycle frame, int num
     if (error.empty()) {
         ++series->written;
     } else {
-        std::lock_guard<std::mutex> lock(series->mutex);
+        std::scoped_lock lock(series->mutex);
         if (series->error.empty())
             series->error = error;
     }
@@ -456,7 +456,7 @@ void take_series_frame()
     TickCycle frame;
     std::string error;
     if (!gfx::screenshot_capture::capture_back_buffer(&frame, &error)) {
-        std::lock_guard<std::mutex> lock(series->mutex);
+        std::scoped_lock lock(series->mutex);
         if (series->error.empty())
             series->error = "frame " + std::to_string(series->taken + 1) + " not taken - " + error;
         series->taken = series->total; // (no more)
@@ -503,7 +503,7 @@ void tick_series(bool rendering)
     std::string text = series->sidecar + "\n[frames]\nframe  game frame     vblanks  clock (ms)\n" + series->times;
     write_new_file(series->folder + kSeriesSidecar, text.data(), text.size());
     {
-        std::lock_guard<std::mutex> lock(series->mutex);
+        std::scoped_lock lock(series->mutex);
         if (series->error.empty())
             g_series_result = "ok: " + std::to_string(series->written.load()) + " frames in " + series->folder;
         else

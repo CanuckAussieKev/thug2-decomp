@@ -15,7 +15,7 @@
 
 namespace objects {
 
-char g_cutscene_name_buffer[256];
+static char g_cutscene_name_buffer[256];
 
 namespace {
 

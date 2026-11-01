@@ -31,8 +31,8 @@
 
 namespace objects {
 
-uint32_t g_car_physics_member_functions[18]{0xA2331896, 0xC695136D, 0, 0, 0,          0, 0xC9F0DB4B, 0xC695136D, 0,
-                                            0,          0,          0, 0, 0xC695136D, 0, 0,          0,          0};
+uint32_t g_car_physics_member_functions[18]{
+    0xA2331896, 0xC695136D, 0, 0, 0, 0, 0xC9F0DB4B, 0xC695136D, 0, 0, 0, 0, 0, 0xC695136D, 0, 0, 0, 0};
 
 namespace {
 

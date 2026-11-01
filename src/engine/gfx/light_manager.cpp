@@ -24,7 +24,7 @@ float* g_intensities;
 uint32_t g_model_light_count;
 float g_ambient_intensity{1.0f};
 LightingState g_active_lighting{0, nullptr, nullptr, 0.5f, 0.0f, nullptr, nullptr};
-LightingState g_world_light_stack[4]; // (the saved ones: PushLights / PopLights)
+static LightingState g_world_light_stack[4]; // (the saved ones: PushLights / PopLights)
 namespace {
 
 constexpr int kSavedLightLevels = 4;

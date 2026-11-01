@@ -17,8 +17,8 @@
 
 namespace render {
 
-maths::Vec4 g_shared_origin; // the origin and orientation every static object reports
-maths::Mat4 g_shared_orientation;
+static maths::Vec4 g_shared_origin; // the origin and orientation every static object reports
+static maths::Mat4 g_shared_orientation;
 
 namespace {
 

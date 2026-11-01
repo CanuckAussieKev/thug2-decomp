@@ -23,7 +23,7 @@
 
 namespace objects {
 
-uint32_t g_powerup_names[1]{0xD039432C};
+static uint32_t g_powerup_names[1]{0xD039432C};
 uint32_t g_skater_state_member_functions[114]{
     0x5EA287F2, 0x43686585, 0, 0, 0, 0, 0x3527FC07, 0x43686585, 0, 0, 0, 0, 0xA32C1A15, 0x43686585, 0, 0, 0, 0,
     0x5CB1FBD8, 0x43686585, 0, 0, 0, 0, 0xE9851E62, 0x43686585, 0, 0, 0, 0, 0xA64DCF8B, 0x43686585, 0, 0, 0, 0,

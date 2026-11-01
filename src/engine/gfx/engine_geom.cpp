@@ -16,12 +16,12 @@
 namespace render {
 
 // The function-local statics of the stubs below (the boxes they return, and their guards).
-maths::Vec4 g_position_box;
-uint32_t g_position_guard;
-maths::Mat4 g_orientation_box;
-uint32_t g_orientation_guard;
-maths::Mat4 g_transform_box;
-uint32_t g_transform_guard;
+static maths::Vec4 g_position_box;
+static uint32_t g_position_guard;
+static maths::Mat4 g_orientation_box;
+static uint32_t g_orientation_guard;
+static maths::Mat4 g_transform_box;
+static uint32_t g_transform_guard;
 
 namespace {
 
@@ -176,8 +176,8 @@ bool Geom::is_operative()
     return false;
 }
 // (all zero at start, as the original's: the first PlatGetBoundingBox makes it empty)
-maths::BBox g_plat_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
-uint32_t g_plat_bounding_box_guard; // (bit 0: made)
+static maths::BBox g_plat_bounding_box{maths::BBox(maths::Vec4{0.0f, 0.0f, 0.0f, 0.0f})};
+static uint32_t g_plat_bounding_box_guard; // (bit 0: made)
 
 // 0x0048DB40 (the box 0x006FAA08, its guard 0x006FAA28: made empty the first time)
 maths::BBox* Geom::fetch_bounds()

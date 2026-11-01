@@ -587,6 +587,7 @@ void check_triggers(std::vector<Issue>* out, uint32_t world)
     // The editor's trigger volumes.
     const std::vector<triggers::Added>& added = triggers::added_triggers();
     std::vector<triggers::Spec> specs;
+    specs.reserve(added.size());
     for (const triggers::Added& a : added)
         specs.push_back(a.spec);
     const std::vector<triggers::LevelTrigger>& level = triggers::level_triggers();

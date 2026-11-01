@@ -302,7 +302,7 @@ bool is_menu(const UiWidget* element)
     return type == kVMenu || type == kHMenu;
 }
 
-const MenuBase* as_menu(const UiWidget* menu) { return static_cast<const MenuBase*>(menu); }
+static const MenuBase* as_menu(const UiWidget* menu) { return static_cast<const MenuBase*>(menu); }
 bool menu_runs_top_to_bottom(const UiWidget* menu) { return as_menu(menu)->vertical_; }
 int selected_index(const UiWidget* menu) { return as_menu(menu)->selected_index_; }
 bool menu_has_focus(const UiWidget* menu) { return as_menu(menu)->focused_; }

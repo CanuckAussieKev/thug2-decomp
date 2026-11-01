@@ -22,9 +22,9 @@
 namespace render {
 
 bool g_screen_copy_in_use;
-bool g_blur_second_pass{true};
-float g_blur_tap_weights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
-float g_blur_tap_offsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
+static bool g_blur_second_pass{true};
+static float g_blur_tap_weights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
+static float g_blur_tap_offsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
 
 namespace {
 

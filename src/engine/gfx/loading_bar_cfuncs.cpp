@@ -44,7 +44,7 @@ bool& loading_screen_shown() { return reinterpret_cast<bool&>(g_loading_screen_s
 
 } // namespace
 
-float g_loading_bar_seconds;
+static float g_loading_bar_seconds;
 
 // 0x00490770
 void set_loading_bar_time(float seconds)

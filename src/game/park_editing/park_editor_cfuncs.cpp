@@ -23,8 +23,8 @@
 namespace park_editing {
 
 bool g_collision_allowed{true};
-CellBox g_saved_grid_dims;
-uint32_t g_saved_grid_guard;
+static CellBox g_saved_grid_dims;
+static uint32_t g_saved_grid_guard;
 
 namespace {
 

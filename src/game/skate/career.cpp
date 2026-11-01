@@ -19,7 +19,7 @@
 namespace objects {
 
 // Levels left out of the totals (a byte each, up to the cheat flag at 0x007CE4FD).
-bool g_career_left_out[RiderStoryProgress::kLevels];
+static bool g_career_left_out[RiderStoryProgress::kLevels];
 
 namespace {
 

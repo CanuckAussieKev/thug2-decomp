@@ -487,9 +487,11 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const auto* pb = reinterpret_cast<const float*>(data + b * mesh->stride);
             const auto* ta = reinterpret_cast<const float*>(data + a * mesh->stride + layout.tex);
             const auto* tb = reinterpret_cast<const float*>(data + b * mesh->stride + layout.tex);
-            double dw = std::sqrt(double(pa[0] - pb[0]) * (pa[0] - pb[0]) + double(pa[1] - pb[1]) * (pa[1] - pb[1]) +
-                                  double(pa[2] - pb[2]) * (pa[2] - pb[2]));
-            double dt = std::sqrt(double(ta[0] - tb[0]) * (ta[0] - tb[0]) + double(ta[1] - tb[1]) * (ta[1] - tb[1]));
+            double dw = std::sqrt(static_cast<double>(pa[0] - pb[0]) * (pa[0] - pb[0]) +
+                                  static_cast<double>(pa[1] - pb[1]) * (pa[1] - pb[1]) +
+                                  static_cast<double>(pa[2] - pb[2]) * (pa[2] - pb[2]));
+            double dt = std::sqrt(static_cast<double>(ta[0] - tb[0]) * (ta[0] - tb[0]) +
+                                  static_cast<double>(ta[1] - tb[1]) * (ta[1] - tb[1]));
             if (dt > 1e-4 && std::isfinite(dt) && std::isfinite(dw)) {
                 world += dw;
                 texture += dt;
@@ -654,6 +656,7 @@ int apply_to_each(const std::vector<Spec>& specs, std::string* message)
 std::vector<std::string> capture_records()
 {
     std::vector<std::string> lines;
+    lines.reserve(g_specs.size());
     for (const Spec& s : g_specs)
         lines.push_back("ground " + link_record(s, object_edit::caption(s.material).c_str()));
     return lines;
@@ -683,6 +686,7 @@ void reset_all()
     render::WorldScene* scene = scenery::main_scene();
     if (scene == g_scene && scenery::world_scene_key(scene) == g_active_scene_key) {
         std::vector<std::string> names;
+        names.reserve(g_made.size());
         for (const auto& made : g_made)
             names.push_back(made.first);
         for (const std::string& name : names)

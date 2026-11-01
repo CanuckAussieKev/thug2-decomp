@@ -9,7 +9,7 @@ static_assert(offsetof(ArcRotationBlender, axis) == 0x80 && offsetof(ArcRotation
                   offsetof(ArcRotationBlender, small_rotation_) == 0x94,
               "layout must match the original");
 
-float g_slerp_small_rotation_threshold{0.034906585f};
+static float g_slerp_small_rotation_threshold{0.034906585f};
 
 namespace {
 

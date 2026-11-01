@@ -23,7 +23,7 @@
 
 namespace park_editing {
 
-memory::PoolPair g_rail_point_pools;
+static memory::PoolPair g_rail_point_pools;
 
 namespace rail_editor_internal {
 
@@ -47,7 +47,7 @@ void remove_scene_sector(uint8_t*& sector)
 
 using namespace rail_editor_internal;
 
-uint32_t g_next_rail_id{1};
+static uint32_t g_next_rail_id{1};
 
 namespace {
 

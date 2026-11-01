@@ -802,6 +802,7 @@ int hidden_count() { return static_cast<int>(g_hidden_sectors.size() + g_conceal
 std::vector<uint32_t> hidden_ids()
 {
     std::vector<uint32_t> ids;
+    ids.reserve(g_hidden_sectors.size());
     for (const HiddenSectorRec& rec : g_hidden_sectors)
         ids.push_back(rec.checksum);
     for (const HiddenObjectRec& rec : g_concealed_records)

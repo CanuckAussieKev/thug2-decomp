@@ -38,7 +38,7 @@ public:
     // 0x00560190: the status is the one of the table that `params` has as a flag (false if it has none).
     bool state_matches(script::Struct* params);
     // 0x005601F0: the word set (copied from `word`, which is destroyed here - passed by value).
-    void set_letters(text::Chars word);
+    void set_letters(const text::Chars& word);
     // 0x00560260: the word as `player` has it: the letters earned, dashes for the rest.
     text::Chars get_letter_string(int player);
     // 0x00560310: the restart the next run starts from (the restarts looked up and not used, as the original).

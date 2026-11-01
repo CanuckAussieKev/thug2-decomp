@@ -290,6 +290,7 @@ bool get_home(const std::vector<uint32_t>& sectors)
 std::vector<Membership> get_changed()
 {
     std::vector<Membership> out;
+    out.reserve(g_set.size());
     for (const auto& entry : g_set)
         out.push_back(entry.second);
     return out;
@@ -310,6 +311,7 @@ int get_apply(const std::vector<Membership>& records)
 void reset_all()
 {
     std::vector<Membership> set;
+    set.reserve(g_set.size());
     for (const auto& entry : g_set)
         set.push_back(entry.second);
     for (const Membership& m : set)
@@ -378,7 +380,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     ImGui::PushFont(mono);
     ImGui::InputTextWithHint("##clustername", "Cluster name", g_typed, sizeof(g_typed));
     ImGui::PopFont();
-    std::vector<uint32_t> pieces = sectors;
+    const std::vector<uint32_t>& pieces = sectors;
     std::string typed = g_typed;
     bool valid = !typed.empty();
     for (char c : typed)

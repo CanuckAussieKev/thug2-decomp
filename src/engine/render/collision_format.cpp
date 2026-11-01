@@ -102,7 +102,7 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
     layout->faces = align(layout->vertex_bytes + header->vertex_byte_count, 4);
     layout->face_buffers = layout->faces + 10 * header->large_face_count + 8 * header->small_face_count;
     layout->node_size_word = layout->faces + align(static_cast<uintptr_t>(face_size), 4);
-    layout->end = known ? start + size : ~uintptr_t(0);
+    layout->end = known ? start + size : ~static_cast<uintptr_t>(0);
     if (layout->node_size_word + 4 > layout->end || layout->node_size_word < start)
         return false;
     uint32_t node_size = util::ByteReader(reinterpret_cast<const uint8_t*>(layout->node_size_word), 4).u32();
@@ -113,7 +113,7 @@ bool lay_out_collision(const uint8_t* base, size_t size, CollisionHeader* header
 
 bool check_collision_objects(const uint8_t* base, const CollisionHeader& header, const CollisionLayout& layout)
 {
-    if (layout.end == ~uintptr_t(0))
+    if (layout.end == ~static_cast<uintptr_t>(0))
         return true;
     uint64_t vertex_section = layout.vertex_bytes - layout.vertices;
     uint64_t face_section = layout.face_buffers - layout.faces;

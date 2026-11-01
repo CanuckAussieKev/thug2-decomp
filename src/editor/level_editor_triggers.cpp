@@ -1795,12 +1795,12 @@ V3 place_ahead(V3 size, float ahead)
 }
 
 // New triggers made (their nodes in the overlay); the first selected. One undo step.
-void fabricate(std::vector<Placed> made, const char* what)
+void fabricate(const std::vector<Placed>& made, const char* what)
 {
     note_undo();
     std::string message;
     int first = -1;
-    for (Placed& p : made) {
+    for (const Placed& p : made) {
         if (!node_create::fabricate(node_spec(p.spec, p.pos, p.yaw), -1, &message)) {
             hud::get_message(message, 5.0);
             break;

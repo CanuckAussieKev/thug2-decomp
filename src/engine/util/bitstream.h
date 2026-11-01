@@ -27,12 +27,12 @@ public:
     // any negative value comes back as -1.)
     int32_t read_signed_bits(int count);
 
-    uint32_t* cursor_;      // next word to read/write
-    uint32_t* outset_;      // start of the data
-    uint32_t octets_;       // bits waiting to be written / not yet read
-    int free_bits_in_word_; // writing: free bits in octets_ (32 = empty); reading: unread bits (0 = empty)
-    int extent_;            // size of the data in bytes
-    int bits_used_;         // bits read or written so far
+    uint32_t* cursor_{nullptr}; // next word to read/write
+    uint32_t* outset_{nullptr}; // start of the data
+    uint32_t octets_{0};        // bits waiting to be written / not yet read
+    int free_bits_in_word_{32}; // writing: free bits in octets_ (32 = empty); reading: unread bits (0 = empty)
+    int extent_{0};             // size of the data in bytes
+    int bits_used_{0};          // bits read or written so far
 };
 
 } // namespace util

@@ -30,8 +30,8 @@ static_assert(offsetof(StoredRandom, last_) == 0x54 && offsetof(StoredRandom, su
 static_assert(sizeof(StoredRandom) == 0x60, "layout must match the original");
 
 memory::PoolPair g_stored_random_pools;
-int g_pending_symbol_count;
-uint32_t g_permanent_strings_free;
+static int g_pending_symbol_count;
+static uint32_t g_permanent_strings_free;
 
 namespace {
 

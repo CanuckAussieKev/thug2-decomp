@@ -70,7 +70,7 @@ void model_section(uint32_t id, script::Struct* s, std::vector<ui::Request>* req
             ImGui::PushID(static_cast<int>(i));
             bool same = _stricmp(models[i].c_str(), now.c_str()) == 0;
             if (ImGui::Selectable(short_name(models[i]), same) && !same) {
-                std::string chosen = models[i];
+                const std::string& chosen = models[i];
                 get_queue([id, now] { detail::watch_model(id, now); });
                 field_request(requests, id, kModel, fields::Kind::kChars, chosen);
             }

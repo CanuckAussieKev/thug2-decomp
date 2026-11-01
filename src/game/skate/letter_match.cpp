@@ -94,7 +94,7 @@ bool LetterMatch::state_matches(script::Struct* params)
 }
 
 // 0x005601F0
-void LetterMatch::set_letters(text::Chars word)
+void LetterMatch::set_letters(const text::Chars& word)
 {
     dup_from(word_, word.c_str());
     debug::printf("New word = %s\n", word_); // "New word = %s\n"

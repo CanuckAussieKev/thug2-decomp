@@ -20,7 +20,7 @@
 namespace goals {
 
 goals::MatchRules* g_game_mode;
-uint32_t g_game_mode_references;
+static uint32_t g_game_mode_references;
 
 namespace {
 

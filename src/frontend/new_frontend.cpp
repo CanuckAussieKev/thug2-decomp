@@ -76,7 +76,7 @@
 
 namespace frontend::new_frontend {
 
-void continue_last_level(modules::FrontEnd* front_end); // (below)
+static void continue_last_level(modules::FrontEnd* front_end); // (below)
 
 namespace {
 
@@ -2285,7 +2285,7 @@ void before_screen_layout()
 }
 
 // The pause menus' level and session (the level as the data names it; the session so far).
-paint::Extras pause_extras()
+static paint::Extras pause_extras()
 {
     paint::Extras extras;
     const Section* section = nullptr;
@@ -2304,7 +2304,7 @@ paint::Extras pause_extras()
 }
 
 // The last level played, as the data names it ("": none, or not in the data) - the main menu's Continue.
-std::string continue_level_name()
+static std::string continue_level_name()
 {
     int section = -1, level = -1;
     if (s_saved.last_level_.empty() || !s_catalogue_ok || !s_catalogue.get_find(s_saved.last_level_, &section, &level))
@@ -2328,7 +2328,7 @@ void continue_last_level(modules::FrontEnd* front_end)
 
 // What a restyled screen needs besides the menu read: the pause menus' level and session, the levels' data for the
 // items' art, the main menu's Continue level.
-paint::Extras restyle_extras()
+static paint::Extras restyle_extras()
 {
     paint::Extras extras = pause_extras();
     extras.art = art_for;
@@ -2344,7 +2344,7 @@ paint::Extras restyle_extras()
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
 // EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
 // network games: the menus as they were.
-bool cfunc_item(script::Struct* params, script::Script*)
+static bool cfunc_item(script::Struct* params, script::Script*)
 {
     if (!is_switched_on() || game_screens::net_session())
         return false;
@@ -2370,7 +2370,7 @@ bool cfunc_item(script::Struct* params, script::Script*)
 // NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
 // sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
 // `back` spawned (its menu went: the skate shop's).
-bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
+static bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 {
     uint32_t screen = 0, back = 0;
     if (!is_switched_on() || !params || !params->read_hash_value(name_hash("screen"), &screen, 0))

@@ -285,7 +285,7 @@ void propagate_scenery(const GroupSet& group)
         return;
     V3 f = get_ratio(scale, w.scale);
     w.scale = scale;
-    std::vector<uint32_t> saved = scenery::get_selection();
+    const std::vector<uint32_t>& saved = scenery::get_selection();
     int done = 0;
     for (const Member& m : group.members) {
         if (!scenery::sector_of(m.id) || scenery::get_hidden(m.id))

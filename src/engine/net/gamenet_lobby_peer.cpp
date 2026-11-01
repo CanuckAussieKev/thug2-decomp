@@ -131,12 +131,12 @@ void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function
 
 } // namespace
 
-bool g_not_posted_shown;
+static bool g_not_posted_shown;
 uint32_t g_connection_timer;
-uint32_t g_last_report_time;
-uint32_t g_hosting_since;
+static uint32_t g_last_report_time;
+static uint32_t g_hosting_since;
 bool g_game_posted;
-uint32_t g_connected_time;
+static uint32_t g_connected_time;
 
 // 0x0053F570
 void RoomManager::disconnected_callback(void*, const char* reason, void* param)

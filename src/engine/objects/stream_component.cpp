@@ -23,9 +23,9 @@
 
 namespace objects {
 
-uint32_t g_stream_component_member_functions[30]{0xDB05A233, 0x0F1641E3, 0, 0, 0, 0, 0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0,
-                                                 0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0, 0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0,
-                                                 0,          0x0F1641E3, 0, 0, 0, 0};
+uint32_t g_stream_component_member_functions[30]{
+    0xDB05A233, 0x0F1641E3, 0, 0, 0, 0, 0xC66E1B17, 0x0F1641E3, 0, 0, 0, 0, 0x82EC1DDD, 0x0F1641E3, 0, 0, 0, 0,
+    0xA738AEB8, 0x0F1641E3, 0, 0, 0, 0, 0,          0x0F1641E3, 0, 0, 0, 0};
 
 namespace {
 

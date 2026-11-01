@@ -20,9 +20,9 @@
 
 namespace objects {
 
-uint32_t g_color_cycle_member_functions[30]{0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0, 0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0,
-                                            0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0, 0x80D5F732, 0xCDC76A22, 0, 0, 0, 0,
-                                            0,          0xCDC76A22, 0, 0, 0, 0};
+uint32_t g_color_cycle_member_functions[30]{
+    0x4AF8B9AE, 0xCDC76A22, 0, 0, 0, 0, 0x1DE2F35B, 0xCDC76A22, 0, 0, 0, 0, 0x4A752AAE, 0xCDC76A22, 0, 0, 0, 0,
+    0x80D5F732, 0xCDC76A22, 0, 0, 0, 0, 0,          0xCDC76A22, 0, 0, 0, 0};
 
 namespace {
 

@@ -546,8 +546,8 @@ void stop_voice(int voice)
 // 0x0047C7C0
 void set_voice_volume(float volume) { g_voice_volume = volume; }
 
-float g_voice_pitch{1.0f};
-char g_wave_file_name[256]{"data\\sounds\\"};
+static float g_voice_pitch{1.0f};
+static char g_wave_file_name[256]{"data\\sounds\\"};
 
 // 0x0047C7D0
 void set_voice_pitch(float pitch) { g_voice_pitch = pitch; }

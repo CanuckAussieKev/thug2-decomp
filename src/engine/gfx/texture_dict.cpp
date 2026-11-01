@@ -21,7 +21,7 @@
 
 namespace render {
 
-int g_key_multipliers[8]{2, 3, 4, 6, 12, 8, 24, -1};
+static int g_key_multipliers[8]{2, 3, 4, 6, 12, 8, 24, -1};
 
 // The game's texture dictionaries: the textures every level shares, and the particles'.
 TextureSet* g_game_texture_dict;

@@ -35,7 +35,7 @@
 
 namespace objects {
 
-int g_nonlocal_lag;
+static int g_nonlocal_lag;
 
 namespace {
 

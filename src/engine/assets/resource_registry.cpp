@@ -20,7 +20,7 @@
 namespace assets {
 
 assets::ResourceRegistry* g_asset_manager;
-int g_ass_man_references;
+static int g_ass_man_references;
 memory::owner<frame_loop::Hub*> g_main_loop_manager;
 
 namespace {

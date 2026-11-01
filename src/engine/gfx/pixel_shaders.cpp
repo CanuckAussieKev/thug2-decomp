@@ -24,7 +24,7 @@
 namespace render {
 
 lists::KeyMap* g_shadow_casters;
-bool g_pixel_shaders_made;
+static bool g_pixel_shaders_made;
 void* g_pixel_shaders[kPixelShaderCount];
 
 namespace {

@@ -21,8 +21,8 @@ public:
     // A zero-size box at `point`.
     explicit BBox(const Vec4& point);
 
-    // 0x0040AB00
-    BBox& operator=(const BBox& other);
+    // 0x0040AB00 (defaulted in the class: BBox stays trivially copyable)
+    BBox& operator=(const BBox& other) = default;
     // Grow the box to include `point` (x, y, z only).
     void append_spot(const Vec4& point);
     // 0x0040B170: whether the boxes overlap (edges touching counts; NaN doesn't rule it out).
@@ -78,10 +78,10 @@ public:
 // the value 0) is known; the object built by 0x00418330 starts with one and then sets both. Assumed to be a
 // sphere (centre, radius) until its users are decompiled.
 struct Sphere {
-    Sphere() : radius(0.0f) {}
+    Sphere() {}
 
     Vec4 center;
-    float radius;
+    float radius{0.0f};
 };
 
 // 0x004817D0 (cdecl): whether `point` is no further than `max` and no nearer than `min` on x, y and z (edges

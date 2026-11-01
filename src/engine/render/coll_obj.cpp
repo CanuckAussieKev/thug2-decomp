@@ -57,7 +57,7 @@ HitMesh::~HitMesh()
 }
 
 // 0x004133E0
-HitMeshGroup::HitMeshGroup() : sub_nodes_(new_head()), dirty_(true), owner_(0) {}
+HitMeshGroup::HitMeshGroup() : sub_nodes_(new_head()) {}
 
 // 0x00411D10
 HitMeshGroup::HitMeshGroup(const HitMeshGroup& other)

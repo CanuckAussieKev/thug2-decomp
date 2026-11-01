@@ -25,7 +25,7 @@
 
 namespace objects {
 
-float g_lock_obj_update_wobble_step{0.0061359233f};
+static float g_lock_obj_update_wobble_step{0.0061359233f};
 
 namespace {
 

@@ -19,11 +19,11 @@
 
 namespace objects {
 
-uint32_t g_run_timer_state_names[4]{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA};
+static uint32_t g_run_timer_state_names[4]{0x742CF11F, 0x5392CA8E, 0x26776873, 0xDEF417FA};
 uint32_t g_run_timer_member_functions[42]{0x82445966, 0x8BCE7E66, 0, 0, 0, 0, 0x956236B1, 0x8BCE7E66, 0, 0, 0, 0,
-                                          0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0, 0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
-                                          0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0, 0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
-                                          0,          0x8BCE7E66, 0, 0, 0, 0};
+                                                 0xAB04CBF9, 0x8BCE7E66, 0, 0, 0, 0, 0x96D81D8E, 0x8BCE7E66, 0, 0, 0, 0,
+                                                 0x81AAA6DD, 0x8BCE7E66, 0, 0, 0, 0, 0x37CC7691, 0x8BCE7E66, 0, 0, 0, 0,
+                                                 0,          0x8BCE7E66, 0, 0, 0, 0};
 
 namespace {
 

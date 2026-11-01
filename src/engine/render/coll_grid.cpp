@@ -165,8 +165,8 @@ void CollGrid::prepare_all(const maths::BBox* bounds)
     double x = bounds->min.x;
     for (auto& column : cells_) {
         double z = bounds->min.z;
-        for (int j = 0; j < kSize; ++j) {
-            maths::BBox& box = column[j].box;
+        for (auto& cell : column) {
+            maths::BBox& box = cell.box;
             box.min = {static_cast<float>(x), -1e12f, static_cast<float>(z), 0.0f};
             box.max = {static_cast<float>(x + cell_span_x_), 1e12f, static_cast<float>(z + cell_depth_), 0.0f};
             z += cell_depth_;
@@ -249,8 +249,8 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
     pending.make_head();
     int added_count = len_of(added), removed_count = len_of(removed), moved_count = len_of(moved);
     for (auto& column : cells_) {
-        for (int z = 0; z < kSize; ++z) {
-            CellUpdate update{&column[z], &pending};
+        for (auto& grid_cell : column) {
+            CellUpdate update{&grid_cell, &pending};
             CollGridCell* cell = update.cell;
             memory::enter_heap_scope(memory::top_down_heap());
             memory::ListNode* node = masked(removed->next);

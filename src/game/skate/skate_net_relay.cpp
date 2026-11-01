@@ -64,8 +64,8 @@ extern float g_one_over255; // 0x00645D70 (defined in tod_manager.cpp)
 
 namespace modules {
 
-uint8_t g_net_relay_object_id;
-float g_relay_time_scale{0.000244140625f}; // (2^-12: the relayed times and positions)
+static uint8_t g_net_relay_object_id;
+static float g_relay_time_scale{0.000244140625f}; // (2^-12: the relayed times and positions)
 
 namespace {
 

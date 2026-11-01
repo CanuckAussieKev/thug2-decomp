@@ -32,10 +32,10 @@
 
 namespace objects {
 
-float g_balance_roll_scale{-0.00012783174f};
-float g_air_tilt_rate{0.011635667f};
-float g_tilt_recovery{0.046542667f};
-float g_lip_turn;
+static float g_balance_roll_scale{-0.00012783174f};
+static float g_air_tilt_rate{0.011635667f};
+static float g_tilt_recovery{0.046542667f};
+static float g_lip_turn;
 
 namespace {
 

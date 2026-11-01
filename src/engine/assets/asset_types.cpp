@@ -31,7 +31,7 @@
 
 namespace assets {
 
-uint32_t g_params_in_use;
+static uint32_t g_params_in_use;
 
 namespace {
 
@@ -228,7 +228,7 @@ int AnimResource::fetch_kind() const { return kAnimation; }
 const char* AnimResource::fetch_title() const { return "Animation"; }
 
 // 0x004071C0
-int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
+int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* /*params*/, void* /*structure*/)
 {
     memory::push_mem_profile("Animation Sequence processing");
     start_loading();
@@ -243,7 +243,7 @@ int AnimResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 }
 
 // 0x00407300
-int AnimResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int AnimResource::read_in(const char* name, bool async, bool use_archive, void* /*params*/, void* /*structure*/)
 {
     start_loading();
     script::fetch_int_value(0x25DC7904u); // (a debug leftover: looked up and not used)
@@ -353,7 +353,7 @@ int NodeTableResource::fetch_kind() const { return owned_ ? kOwnedNodeArray : kN
 const char* NodeTableResource::fetch_title() const { return "Node Array"; }
 
 // 0x00408EA0
-int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
+int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool /*copy*/, void* params, void* /*structure*/)
 {
     start_loading();
     args_ = static_cast<char*>(alloc_load_params(0x40));
@@ -364,7 +364,7 @@ int NodeTableResource::load_from_buffer(void* data, uint32_t size, bool copy, vo
 }
 
 // 0x00408D10
-int NodeTableResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int NodeTableResource::read_in(const char* name, bool async, bool use_archive, void* params, void* /*structure*/)
 {
     start_loading();
     args_ = static_cast<char*>(alloc_load_params(0x40));
@@ -488,7 +488,7 @@ int SceneAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* par
 }
 
 // 0x004093F0
-int SceneAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
     set_up_params(params, structure);
@@ -563,7 +563,7 @@ int SceneCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, 
 }
 
 // 0x00409760
-int SceneCollisionAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
     set_up_params(params, structure);
@@ -610,7 +610,7 @@ int RigResource::fetch_kind() const { return kSkeleton; }
 const char* RigResource::fetch_title() const { return "Skeleton"; }
 
 // 0x00409990 (the data isn't copied, whatever `copy` says)
-int RigResource::load_from_buffer(void* data, uint32_t size, bool copy, void* params, void* structure)
+int RigResource::load_from_buffer(void* data, uint32_t size, bool /*copy*/, void* /*params*/, void* /*structure*/)
 {
     memory::push_mem_profile("Skeleton processing");
     start_loading();
@@ -620,7 +620,7 @@ int RigResource::load_from_buffer(void* data, uint32_t size, bool copy, void* pa
 }
 
 // 0x00409A50
-int RigResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int RigResource::read_in(const char* name, bool async, bool /*use_archive*/, void* /*params*/, void* /*structure*/)
 {
     start_loading();
     char file[256];
@@ -711,7 +711,7 @@ int SkinResource::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 }
 
 // 0x00409EB0
-int SkinResource::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int SkinResource::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
     set_up_params(params, structure);
@@ -859,7 +859,7 @@ int SkinCollisionAsset::load_from_buffer(void* data, uint32_t size, bool copy, v
 }
 
 // 0x0040A2A0
-int SkinCollisionAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
     args_ = skin_collision_params(params, structure);
@@ -936,7 +936,7 @@ int TexDictAsset::load_from_buffer(void* data, uint32_t size, bool copy, void* p
 }
 
 // 0x0040A720
-int TexDictAsset::read_in(const char* name, bool async, bool use_archive, void* params, void* structure)
+int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, void* params, void* structure)
 {
     start_loading();
     set_up_params(params, structure);

@@ -18,8 +18,8 @@
 
 namespace objects {
 
-GameEntity* g_proximity_skater;
-float g_proximity_skater_radius;
+static GameEntity* g_proximity_skater;
+static float g_proximity_skater_radius;
 
 namespace {
 

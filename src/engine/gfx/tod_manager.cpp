@@ -41,7 +41,7 @@
 
 namespace gfx {
 
-uint32_t g_tod_references;
+static uint32_t g_tod_references;
 
 float g_two_to32{4294967300.0f};
 float g_half{0.5f};
@@ -596,8 +596,8 @@ void CtodManager::update_sun()
 }
 
 // 0x005725F0
-void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t light_group, uint32_t reset_light_group,
-                          int start_percent, int end_percent)
+static void apply_color_to_scene(render::WorldScene* scene, uint32_t color, uint32_t light_group,
+                                 uint32_t reset_light_group, int start_percent, int end_percent)
 {
     // The scene's sectors: their light group and geometry (change_tint: its colour).
     lists::KeyMap* table = scene->sectors_;

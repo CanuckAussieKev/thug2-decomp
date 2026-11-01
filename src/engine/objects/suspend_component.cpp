@@ -29,10 +29,10 @@
 namespace objects {
 
 uint32_t g_suspend_component_member_functions[12]{0xA0B7E09B, 0xCE0CA665, 0, 0, 0, 0, 0, 0xCE0CA665, 0, 0, 0, 0};
-int g_suspend_frame_count;
-int g_suspend_interleave2_count;
-int g_suspend_interleave4_count;
-memory::owner<SuspendTaskHolder*> g_suspend_task_holder;
+static int g_suspend_frame_count;
+static int g_suspend_interleave2_count;
+static int g_suspend_interleave4_count;
+static memory::owner<SuspendTaskHolder*> g_suspend_task_holder;
 
 namespace {
 

@@ -19,7 +19,7 @@
 namespace objects {
 
 memory::owner<objects::ProfileRoster*> g_profile_roster;
-uint32_t g_profile_manager_references;
+static uint32_t g_profile_manager_references;
 
 namespace {
 

@@ -64,7 +64,7 @@ void stop_simulation()
 actions::Chord get_k(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
 
 int append_one(const char* id, const char* name, const char* category, actions::Kind kind,
-               std::vector<actions::Chord> keys, const char* tip, std::function<void()> run = nullptr,
+               const std::vector<actions::Chord>& keys, const char* tip, std::function<void()> run = nullptr,
                std::function<int()> checked = nullptr)
 {
     actions::ActStep a;
@@ -98,6 +98,7 @@ std::vector<organize::Member> selection_members()
 {
     SelectionIds s = current_selection();
     std::vector<organize::Member> members;
+    members.reserve(s.objects.size());
     for (uint32_t id : s.objects)
         members.push_back({'o', id});
     for (uint32_t id : s.sectors)

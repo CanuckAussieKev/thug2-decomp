@@ -22,7 +22,7 @@ class Entity;
 class ObjectGroup {
 public:
     // 0x00414D70: no slots.
-    ObjectGroup() : slots_(nullptr), extent_(0) {}
+    ObjectGroup() {}
     // 0x004694A0 (not a Ghidra function: only the array helpers point at it): the slots' smart pointers let go
     // (last first) and the array freed.
     ~ObjectGroup();
@@ -37,8 +37,8 @@ public:
     // 0x004695D0: `object` into the first empty slot (nothing if they're all taken).
     void append_one(Entity* object);
 
-    SharedRef<Entity>* slots_;
-    int extent_;
+    SharedRef<Entity>* slots_{nullptr};
+    int extent_{0};
 };
 
 class PathManager {

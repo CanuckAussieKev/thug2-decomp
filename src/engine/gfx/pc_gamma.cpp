@@ -13,8 +13,8 @@
 
 namespace render {
 
-float g_gammas[3]{1.0f, 1.0f, 1.0f};
-uint16_t g_gamma_ramp[768];
+static float g_gammas[3]{1.0f, 1.0f, 1.0f};
+static uint16_t g_gamma_ramp[768];
 
 namespace {
 

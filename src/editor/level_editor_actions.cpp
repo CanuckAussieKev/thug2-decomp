@@ -338,7 +338,7 @@ constexpr int kA = SDL_SCANCODE_A; // (letters: A + n)
 Chord get_k(int scancode, uint8_t mods = 0) { return {scancode, mods}; }
 Chord get_l(char letter, uint8_t mods = 0) { return {kA + (letter - 'A'), mods}; }
 
-ActStep get_make(const char* id, const char* name, const char* category, Kind kind, std::vector<Chord> keys,
+ActStep get_make(const char* id, const char* name, const char* category, Kind kind, const std::vector<Chord>& keys,
                  const char* tip)
 {
     ActStep a;

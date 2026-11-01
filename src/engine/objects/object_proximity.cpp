@@ -20,10 +20,10 @@
 
 namespace objects {
 
-uint32_t g_object_proximity_member_functions[42]{0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0, 0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0,
-                                                 0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0, 0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0,
-                                                 0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0, 0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
-                                                 0,          0x1D5B1AE6, 0, 0, 0, 0};
+uint32_t g_object_proximity_member_functions[42]{
+    0x82A0A873, 0x1D5B1AE6, 0, 0, 0, 0, 0x8CB5D0C0, 0x1D5B1AE6, 0, 0, 0, 0, 0x50F28D36, 0x1D5B1AE6, 0, 0, 0, 0,
+    0x2D703B94, 0x1D5B1AE6, 0, 0, 0, 0, 0x13C0D8DC, 0x1D5B1AE6, 0, 0, 0, 0, 0x9522F906, 0x1D5B1AE6, 0, 0, 0, 0,
+    0,          0x1D5B1AE6, 0, 0, 0, 0};
 
 namespace {
 

@@ -24,7 +24,7 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
               "layout must match the original");
 
 memory::owner<script::ScriptStore*> g_script_store;
-uint32_t g_cache_references;
+static uint32_t g_cache_references;
 memory::PoolPair g_cache_entry_pools;
 
 namespace {

@@ -25,8 +25,9 @@
 
 namespace objects {
 
-uint32_t g_vehicle_sound_member_functions[24]{0xB8451886, 0x1859F772, 0, 0, 0, 0, 0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
-                                              0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0};
+uint32_t g_vehicle_sound_member_functions[24]{
+    0xB8451886, 0x1859F772, 0, 0, 0, 0, 0x0F6E8120, 0x1859F772, 0, 0, 0, 0,
+    0xF876FAE9, 0x1859F772, 0, 0, 0, 0, 0,          0x1859F772, 0, 0, 0, 0};
 
 namespace {
 

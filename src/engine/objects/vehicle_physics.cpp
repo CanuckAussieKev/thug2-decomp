@@ -27,7 +27,7 @@ namespace objects {
 
 using namespace vehicle;
 
-int g_vehicle_net_update_counter;
+static int g_vehicle_net_update_counter;
 
 namespace {
 

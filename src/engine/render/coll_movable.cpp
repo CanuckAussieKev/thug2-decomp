@@ -34,7 +34,7 @@ void draw_box(const maths::BBox* box, const maths::Mat4* transform, uint32_t col
 } // namespace
 
 // 0x00411FA0
-HitMovingMesh::HitMovingMesh() : anchor_point_{0.0f, 0.0f, 0.0f, 1.0f}, owner_(0)
+HitMovingMesh::HitMovingMesh() : anchor_point_{0.0f, 0.0f, 0.0f, 1.0f}
 {
     set_identity(orientation_);
     set_identity(inverse_);
@@ -116,7 +116,7 @@ void MatrixTranspose::transpose_in_place()
 }
 
 // 0x00412550
-HitMovingBox::HitMovingBox() : poly_attr_bits_(0), surface_type_(0)
+HitMovingBox::HitMovingBox()
 {
     box_.min = {-50.0f, -20.0f, -90.0f, 1.0f};
     box_.max = {30.0f, 36.0f, 90.0f, 1.0f};

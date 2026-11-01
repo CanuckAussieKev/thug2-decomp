@@ -19,9 +19,9 @@
 
 namespace objects {
 
-uint32_t g_pager_message_member_functions[36]{0x4824484A, 0xD1515392, 0, 0, 0, 0, 0xD65B2BB5, 0xD1515392, 0, 0, 0, 0,
-                                              0x5B64BFEC, 0xD1515392, 0, 0, 0, 0, 0xAF88BE7A, 0xD1515392, 0, 0, 0, 0,
-                                              0xE7DF996D, 0xD1515392, 0, 0, 0, 0, 0,          0xD1515392, 0, 0, 0, 0};
+uint32_t g_pager_message_member_functions[36]{
+    0x4824484A, 0xD1515392, 0, 0, 0, 0, 0xD65B2BB5, 0xD1515392, 0, 0, 0, 0, 0x5B64BFEC, 0xD1515392, 0, 0, 0, 0,
+    0xAF88BE7A, 0xD1515392, 0, 0, 0, 0, 0xE7DF996D, 0xD1515392, 0, 0, 0, 0, 0,          0xD1515392, 0, 0, 0, 0};
 
 namespace {
 

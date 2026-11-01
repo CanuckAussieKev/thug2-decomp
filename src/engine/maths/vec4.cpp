@@ -7,9 +7,6 @@
 
 namespace maths {
 
-// 0x00402320
-Vec4& Vec4::operator=(const Vec4& other) = default;
-
 // 0x00402310
 float& Vec4::operator[](int index) { return (&x)[index]; }
 

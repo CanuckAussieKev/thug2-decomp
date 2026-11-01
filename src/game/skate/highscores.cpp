@@ -18,7 +18,7 @@
 namespace highscores {
 
 memory::owner<highscores::BestResults*> g_game_records;
-uint32_t g_records_references;
+static uint32_t g_records_references;
 
 namespace {
 

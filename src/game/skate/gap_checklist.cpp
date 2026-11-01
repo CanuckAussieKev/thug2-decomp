@@ -20,7 +20,7 @@
 
 namespace goals {
 
-GapTally* g_building_gap_checklist;
+static GapTally* g_building_gap_checklist;
 
 namespace {
 

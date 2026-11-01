@@ -20,7 +20,7 @@
 namespace park_editing {
 
 uint32_t g_park_editor_references;
-uint32_t g_editor_clock;
+static uint32_t g_editor_clock;
 
 namespace {
 

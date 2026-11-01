@@ -19,7 +19,7 @@
 
 namespace objects {
 
-uint32_t g_stance_textures[5]{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1};
+static uint32_t g_stance_textures[5]{0x33A15296, 0xBE91F3B6, 0x9F9D3907, 0xB793EF40, 0x4E304FA1};
 
 namespace {
 

@@ -21,7 +21,8 @@
 
 namespace objects {
 
-uint32_t g_vibration_component_member_functions[12]{0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0, 0, 0x404EB936, 0, 0, 0, 0};
+uint32_t g_vibration_component_member_functions[12]{0xDF8A5F0A, 0x404EB936, 0, 0, 0, 0,
+                                                           0,          0x404EB936, 0, 0, 0, 0};
 
 namespace {
 

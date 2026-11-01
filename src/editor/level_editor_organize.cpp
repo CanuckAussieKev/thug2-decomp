@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <utility>
 
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_fields.h"
@@ -406,7 +407,7 @@ struct BoxDrag {
 
 struct OrganizeStep : ModuleStep {
     State state;
-    explicit OrganizeStep(const State& s) : state(s) {}
+    explicit OrganizeStep(State s) : state(std::move(s)) {}
     void get_restore() override { g_state = state; }
     std::shared_ptr<ModuleStep> get_now() const override { return std::make_shared<OrganizeStep>(g_state); }
 };

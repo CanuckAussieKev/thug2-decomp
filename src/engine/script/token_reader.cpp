@@ -19,12 +19,12 @@
 namespace script {
 
 float g_parse_nudge{0.1f};
-float g_parse_random_scale{0.000030525032f};
+static float g_parse_random_scale{0.000030525032f};
 StoredRandom* g_stored_randoms_newest;
-StoredRandom* g_stored_randoms_oldest;
-int g_stored_random_count;
+static StoredRandom* g_stored_randoms_oldest;
+static int g_stored_random_count;
 ValueResolver g_evaluator;
-Component g_parse_scratch;
+static Component g_parse_scratch;
 
 namespace {
 

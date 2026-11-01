@@ -977,7 +977,10 @@ ElementPtr& target_menu()
     return *menu;
 }
 
-uint64_t file_time_value(const FILETIME& time) { return (uint64_t(time.dwHighDateTime) << 32) | time.dwLowDateTime; }
+uint64_t file_time_value(const FILETIME& time)
+{
+    return (static_cast<uint64_t>(time.dwHighDateTime) << 32) | time.dwLowDateTime;
+}
 
 uint64_t process_start()
 {
@@ -1003,7 +1006,7 @@ void poll_file(Runner& runner)
         runner.looked = true;
         return;
     }
-    uint64_t size = (uint64_t(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+    uint64_t size = (static_cast<uint64_t>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
     uint64_t time = file_time_value(info.ftLastWriteTime);
     if (!runner.looked) {
         runner.looked = true;

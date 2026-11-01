@@ -62,8 +62,7 @@ void ParkLayout::rebuild_park(uint32_t how)
     if (how == kNewPark || !(current_flags() & 2)) {
         // An empty grid.
         for (auto& column : floor_) {
-            for (int z = 0; z < kGridSize; ++z) {
-                FloorCell& cell = column[z];
+            for (auto& cell : column) {
                 cell.level_y_ = 0;
                 cell.heights_used_ = 0;
                 cell.touched_ = false;

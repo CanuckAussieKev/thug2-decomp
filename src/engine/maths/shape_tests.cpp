@@ -36,9 +36,6 @@ void BBox::append_spot(const Vec4& point)
         max.z = point.z;
 }
 
-// 0x0040AB00
-BBox& BBox::operator=(const BBox& other) = default;
-
 // 0x0040B170 (x, then z, then y; each failing only when strictly beyond)
 bool BBox::intersects(const BBox& other) const
 {

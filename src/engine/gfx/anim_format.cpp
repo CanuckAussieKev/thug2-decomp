@@ -4,7 +4,7 @@ namespace anim_format {
 
 namespace {
 
-uintptr_t align4(uintptr_t at) { return (at + 3) & ~uintptr_t(3); }
+uintptr_t align4(uintptr_t at) { return (at + 3) & ~static_cast<uintptr_t>(3); }
 
 // The partial-animation bits' size at `at` (a count, then a word per 32 bones - one too many, as the game reads it).
 bool partial_bits_size(uintptr_t at, uintptr_t end, uintptr_t* size)
@@ -48,7 +48,7 @@ bool lay_out_animation(const uint8_t* base, size_t size, AnimHeader* header, Ani
     if (static_cast<int32_t>(header->bone_count) < 0 || rotations < 0 || translations < 0 ||
         static_cast<int16_t>(header->custom_key_count) < 0)
         return false;
-    uintptr_t end = known ? reinterpret_cast<uintptr_t>(base) + size : ~uintptr_t(0);
+    uintptr_t end = known ? reinterpret_cast<uintptr_t>(base) + size : ~static_cast<uintptr_t>(0);
     uint32_t flags = header->flags;
     uint64_t bones = header->bone_count;
     *layout = {};

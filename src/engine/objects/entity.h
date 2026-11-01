@@ -218,7 +218,7 @@ public:
     static void operator delete(void*, void*) noexcept {}
 
     // 0x0045D730: no flags (the rest is the zeroed memory it is made in).
-    ObjectModule() : flag_bits_(0) {}
+    ObjectModule() {}
     // 0x0045D740 (0x0045D780 the deleting one): if a script waited on it, every script lets go of it
     // (component_destroyed_all_scripts).
     virtual ~ObjectModule();
@@ -267,7 +267,7 @@ public:
                                      script::Script* script);
 
     uint32_t kind_tag_;          // +0x04 its component type (a checksum)
-    uint32_t flag_bits_;         // +0x08 COMPONENT_FLAG_*
+    uint32_t flag_bits_{0};      // +0x08 COMPONENT_FLAG_*
     GameEntity* entity_;         // +0x0C
     ObjectModule* following_;    // +0x10 the next of its object's components
     ObjectModule* next_of_type_; // +0x14 the next of the manager's components of its type
