@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -52,6 +53,8 @@
 #include "engine/core/code_address.h"
 #include "game/rider/skater_score.h"
 #include "engine/objects/model_component.h"
+#include "engine/util/byte_stream.h"
+#include "game/skate/skate_net_messages.h"
 
 namespace gfx {
 extern float g_one_over255; // 0x00645D70 (defined in tod_manager.cpp)
@@ -1176,26 +1179,13 @@ void Skate::broadcast_points(bool final)
     online::Hub* net = net_link();
     PlayerSearch players;
     PlayerSearch others;
-    // the message (0x40): the time left in seconds, the cheats, final, the count, then 5 bytes a skater (its id and
-    // score)
-#pragma pack(push, 1)
-    struct ScoreMessage {
-        uint32_t time_left_;
-        uint32_t cheats;
-        uint8_t final;
-        uint8_t count;
-        struct {
-            uint8_t id;
-            int score;
-        } entries[52];
-    };
-#pragma pack(pop)
-    static_assert(sizeof(ScoreMessage) == 0x10E, "the message's layout");
+    // the message (0x40, skate_net_messages.h): the time left in seconds, the cheats, final, the count, then 5 bytes
+    // a skater (its id and score) - at most 52 skaters (the original's buffer)
+    constexpr int kMaxSent = 52;
     for (PlayerRecord* player = players.get_first(true); player; player = players.get_next(true)) {
-        ScoreMessage message;
-        message.cheats = 0;
-        message.final = final;
-        message.time_left_ = final ? 0u : static_cast<uint32_t>(get_game_mode()->get_goal_time_left()) / 1000u;
+        auto message = std::make_unique<skate_net::ScoresMessage>();
+        message->final = final;
+        message->time_left = final ? 0u : static_cast<uint32_t>(get_game_mode()->get_goal_time_left()) / 1000u;
         uint8_t count = 0;
         for (PlayerRecord* other = others.get_first(false); other; other = others.get_next(false)) {
             // (its own score too, when it isn't the trick score the player keeps itself)
@@ -1210,8 +1200,10 @@ void Skate::broadcast_points(bool final)
                     goals::get_objective_board()->count_cleared_by_player(static_cast<int>(skater_of(other)->ident_));
             else
                 score = net->get_entrant_points(skater_of(other)->ident_);
-            message.entries[count].id = id;
-            message.entries[count].score = score;
+            if (count >= kMaxSent) // (NOT ORIGINAL: the original wrote on past its buffer)
+                continue;
+            message->entries[count].id = static_cast<int8_t>(id);
+            message->entries[count].score = score;
             ++count;
         }
         if (static_cast<int8_t>(count) <= 0)
@@ -1219,20 +1211,23 @@ void Skate::broadcast_points(bool final)
         net::NetMessageInfo desc;
         desc.make_new();
         uint32_t cheats = get_cheats();
-        desc.content_ = &message;
-        message.count = count;
-        message.cheats = cheats;
-        desc.ident_ = 0x40;
-        desc.byte_count_ = static_cast<uint16_t>((static_cast<int8_t>(count) + 2) * 5);
+        message->count = count;
+        message->cheats = cheats;
+        uint8_t bytes[skate_net::kScoresHeaderSize + kMaxSent * skate_net::kScoreEntrySize];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        skate_net::write_scores(writer, *message);
+        desc.content_ = bytes;
+        desc.ident_ = skate_net::kMsgScores;
+        desc.byte_count_ = static_cast<uint16_t>(writer.position());
         if (final || cheats)
             get_sequence(desc, 8);
         enqueue(server_app(), player, &desc);
         if (player->is_own_player() || !player->has_finished_joining())
             continue;
         // the cheats' check (0x80): 8 bytes, the second word whatever the stack held (zero here)
-        uint32_t check[2] = {get_cheats() ^ 0xDEADFACEu, 0};
+        uint32_t check[2] = {get_cheats() ^ skate_net::kCheatsCheckMask, 0};
         desc.content_ = check;
-        desc.ident_ = 0x80;
+        desc.ident_ = skate_net::kMsgCheatsCheck;
         get_sequence(desc, 8);
         desc.byte_count_ = 8;
         enqueue(server_app(), player, &desc);

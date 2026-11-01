@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <memory>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -39,6 +40,8 @@
 #include "game/skate/point_tally.h"
 #include "engine/core/code_address.h"
 #include "game/skate/skate_module.h"
+#include "game/skate/skate_net_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/movie_manager.h"
@@ -437,9 +440,12 @@ int SkateNet::handle_scavenger_hunt(net::InboundMsgCtx* context)
 // 0x0056CDF0
 int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 {
-    auto* data = reinterpret_cast<const uint32_t*>(context->body_);
+    util::ByteReader reader(context->body_, context->body_size_);
+    uint32_t id = reader.u32();
+    if (!reader.ok()) // NOT ORIGINAL: too short - dropped
+        return 4;
     Struct* params = spawn_param_table();
-    params->put_name_key(kId, data[0]);
+    params->put_name_key(kId, id);
     get_run(kRemoveHuntItem, params);
     delete_structure(params);
     return 1;
@@ -448,18 +454,24 @@ int SkateNet::handle_scavenger_kill_object(net::InboundMsgCtx* context)
 // 0x0056CEC0
 int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
 {
-    auto* data = reinterpret_cast<const uint8_t*>(context->body_);
-    PlayerRecord* player =
-        find_player_slot_by_obj(static_cast<uint32_t>(static_cast<int16_t>(static_cast<int8_t>(data[0]))));
+    util::ByteReader reader(context->body_, context->body_size_);
+    skate_net::HuntDropMessage message;
+    if (!skate_net::read_hunt_drop(reader, &message)) // NOT ORIGINAL: too short - dropped
+        return 4;
+    PlayerRecord* player = find_player_slot_by_obj(static_cast<uint32_t>(static_cast<int16_t>(message.player_id)));
     if (!player)
         return 4;
-    player->num_placed_ = *reinterpret_cast<const int*>(data + 4);
-    auto* positions = reinterpret_cast<const script::VectorValue*>(data + 8);
+    player->num_placed_ = message.count;
     for (int i = 0; i < player->num_placed_; ++i) {
+        float at[4];
+        // NOT ORIGINAL: no positions past the message's end (the original read on)
+        if (!skate_net::read_hunt_drop_position(reader, at))
+            break;
+        script::VectorValue position = {at[0], at[1], at[2], at[3]};
         Struct* params = spawn_param_table();
         params->put_int(kIndex, i);
         params->put_int(kObjId, static_cast<int>(player_skater(player)->ident_));
-        params->put_vec3(kPos, positions[i]);
+        params->put_vec3(kPos, position);
         params->put_name_key(kShowNow, kShowNow);
         get_run(kDropObject, params, player_skater(player));
         delete_structure(params);
@@ -470,23 +482,27 @@ int SkateNet::handle_scavenger_drop_objects(net::InboundMsgCtx* context)
 // 0x0056D030
 int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
 {
-    auto* data = reinterpret_cast<const uint8_t*>(context->body_);
+    util::ByteReader reader(context->body_, context->body_size_);
+    skate_net::GraffitiColorsMessage message;
     if (!get_game_mode()->is_true(kShouldModulateColor)) {
         debug::printf("No need to continue cause we're not in graffiti mode");
         return 4;
     }
-    const uint8_t* colors = data + 8;
+    if (!skate_net::read_graffiti_colors(reader, &message)) // NOT ORIGINAL: too short - dropped
+        return 4;
+    const uint8_t* counts = message.counts;
     objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub;
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     Struct* params = spawn_param_table();
-    for (int i = 0; i < 8; ++i) {
-        if (!data[i])
+    for (int i = 0; i < skate_net::kGraffitiSkaters; ++i) {
+        if (!counts[i])
             continue;
         Array* array = new_array_init();
-        array->configure_size_kind(data[i], static_cast<script::QbValueKind>(kSymbolChecksum));
-        for (int j = 0; j < static_cast<int>(data[i]); ++j)
-            array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(*colors++));
+        array->configure_size_kind(counts[i], static_cast<script::QbValueKind>(kSymbolChecksum));
+        // (NOT ORIGINAL: past the message's end the indexes read as 0 - the original read on)
+        for (int j = 0; j < static_cast<int>(counts[i]); ++j)
+            array->set_element(static_cast<uint32_t>(j), trick_objects->get_cluster_name(reader.u8()));
         char name[32];
         std::sprintf(name, "Skater%d", i);
         params->append_array_value(checksums::hash_from_text(name),
@@ -502,17 +518,21 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
 // 0x0056D250
 int SkateNet::handle_scores(net::InboundMsgCtx* context)
 {
-    auto* data = reinterpret_cast<const uint8_t*>(context->body_);
+    util::ByteReader reader(context->body_, context->body_size_);
+    auto message = std::make_unique<skate_net::ScoresMessage>();
+    // NOT ORIGINAL: a message too short for its header is dropped; the entries of one cut short are taken as far as
+    // they go (the original read on past its end)
+    skate_net::read_scores(reader, message.get());
+    if (reader.position() < skate_net::kScoresHeaderSize)
+        return 4;
     auto* skate = static_cast<Skate*>(context->content_);
     online::Hub* net = net_session_slot();
     if (!net->get_on_server())
-        get_game_mode()->set_goal_time_left(static_cast<int>(*reinterpret_cast<const uint32_t*>(data)));
-    // Each skater's score: [9] entries of 5 bytes from [10] - the object's id, its score.
-    const uint8_t* entry = data + 10;
-    for (int i = 0; i < static_cast<int8_t>(data[9]); ++i) {
-        int8_t id = static_cast<int8_t>(entry[0]);
-        int value = *reinterpret_cast<const int*>(entry + 1);
-        entry += 5;
+        get_game_mode()->set_goal_time_left(static_cast<int>(message->time_left));
+    // Each skater's score: the object's id, its score.
+    for (int i = 0; i < message->count; ++i) {
+        int8_t id = message->entries[i].id;
+        int value = message->entries[i].score;
         objects::Entity* object = entity_hub_handle()->look_up_entity(static_cast<uint32_t>(static_cast<int>(id)));
         if (!object)
             continue;
@@ -538,13 +558,13 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         }
         score->set_grand_total(value);
     }
-    if (data[8])
+    if (message->final)
         net->set_final_scores_received(true);
-    if (*reinterpret_cast<const int*>(data + 4) != static_cast<int>(skate->get_cheats()) && !net->cheating_noted()) {
+    if (message->cheats != skate->get_cheats() && !net->cheating_noted()) {
         get_run(kNotifyCheating);
         net->note_cheating();
     }
-    bool final = data[8] != 0;
+    bool final = message->final;
     char text[128];
     if ((get_game_mode()->is_squad_match() != 0) && get_game_mode()->get_name_key() != kNetElimiskate) {
         // The leading team (none on a tie).

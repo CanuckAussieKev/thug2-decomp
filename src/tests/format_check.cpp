@@ -22,6 +22,7 @@
 #include "engine/net/net_wire.h"
 #include "engine/util/byte_stream.h"
 #include "game/save_cards/save_file_format.h"
+#include "game/skate/skate_net_messages.h"
 
 namespace {
 
@@ -455,12 +456,79 @@ void check_wire_messages()
     util::ByteReader short_reader(sequenced, 5);
     check(!net::wire::read_sequenced_header(short_reader, &header), "sequenced header: too short fails");
 }
+
+// --- the skate module's messages -------------------------------------------------------------------------------------
+
+// The scores message as the original built it (a packed struct, sent as its first (count + 2) * 5 bytes).
+#pragma pack(push, 1)
+struct ReferenceScores {
+    uint32_t time_left;
+    uint32_t cheats;
+    uint8_t final;
+    uint8_t count;
+    struct {
+        uint8_t id;
+        int32_t score;
+    } entries[52];
+};
+#pragma pack(pop)
+static_assert(sizeof(ReferenceScores) == 0x10E, "the wire layout of the original's struct");
+
+void check_skate_messages()
+{
+    std::printf("skate messages\n");
+    for (int count : {1, 3, 8}) {
+        ReferenceScores reference = {};
+        reference.time_left = 95;
+        reference.cheats = 0x10;
+        reference.final = 1;
+        reference.count = static_cast<uint8_t>(count);
+        auto message = std::make_unique<skate_net::ScoresMessage>();
+        message->time_left = 95;
+        message->cheats = 0x10;
+        message->final = true;
+        message->count = count;
+        for (int i = 0; i < count; ++i) {
+            reference.entries[i].id = static_cast<uint8_t>(i * 3 + 1);
+            reference.entries[i].score = i == 1 ? -5 : 100000 * (i + 1);
+            message->entries[i].id = static_cast<int8_t>(i * 3 + 1);
+            message->entries[i].score = i == 1 ? -5 : 100000 * (i + 1);
+        }
+        size_t reference_size = static_cast<size_t>((count + 2) * 5);
+        uint8_t bytes[sizeof(ReferenceScores)];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        skate_net::write_scores(writer, *message);
+        std::string what = "scores, " + std::to_string(count);
+        check(writer.ok() && writer.position() == reference_size && std::memcmp(bytes, &reference, reference_size) == 0,
+              what + ": as the original's struct");
+        util::ByteReader reader(bytes, writer.position());
+        auto back = std::make_unique<skate_net::ScoresMessage>();
+        check(skate_net::read_scores(reader, back.get()) && back->count == count && back->final &&
+                  back->time_left == 95 && back->cheats == 0x10 && reader.remaining() == 0,
+              what + ": decoded");
+        uint8_t again[sizeof(ReferenceScores)];
+        util::ByteWriter again_writer(again, sizeof(again));
+        skate_net::write_scores(again_writer, *back);
+        check(again_writer.position() == reference_size && std::memcmp(again, bytes, reference_size) == 0,
+              what + ": encoded again");
+        util::ByteReader short_reader(bytes, reference_size - 1);
+        check(!skate_net::read_scores(short_reader, back.get()) && back->count == count - 1,
+              what + ": cut short keeps the whole entries");
+    }
+    const uint8_t steal[] = {7, 0xCC, 0xCC, 0xCC, 2, 0, 0, 0, 5, 0, 0, 0};
+    util::ByteReader reader(steal, sizeof(steal));
+    skate_net::GraffitiStealMessage message;
+    check(skate_net::read_graffiti_steal(reader, &message) && message.run == 7 && message.victim_id == 2 &&
+              message.thief_id == 5,
+          "graffiti steal decoded");
+}
 } // namespace
 
 int main(int argc, char** argv)
 {
     check_byte_stream();
     check_wire_messages();
+    check_skate_messages();
     for (int i = 1; i < argc; ++i) {
         std::filesystem::path path(argv[i]);
         if (std::filesystem::is_directory(path)) {

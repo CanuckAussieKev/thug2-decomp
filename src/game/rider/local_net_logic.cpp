@@ -18,6 +18,8 @@
 #include "engine/net/net_lists.h"
 #include "engine/net/thugpro_compat.h"
 #include "engine/script/cscript.h"
+#include "engine/util/byte_stream.h"
+#include "game/skate/skate_net_messages.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/end_run.h"
 #include "game/rider/rider.h"
@@ -254,11 +256,13 @@ void RiderHostSync::tick_frame()
 // 0x005136F0
 int __cdecl RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
 {
-    const char* message = context->body_;
-    if (static_cast<uint8_t>(message[0]) != run_count())
+    util::ByteReader reader(context->body_, context->body_size_);
+    skate_net::GraffitiStealMessage message;
+    // (NOT ORIGINAL: too short - dropped)
+    if (!skate_net::read_graffiti_steal(reader, &message) || message.run != run_count())
         return net::kResultConsumed;
-    uint32_t victim_id = *reinterpret_cast<const uint32_t*>(message + 4);
-    uint32_t thief_id = *reinterpret_cast<const uint32_t*>(message + 8);
+    uint32_t victim_id = message.victim_id;
+    uint32_t thief_id = message.thief_id;
     auto* skater = static_cast<Rider*>(context->content_);
     Rider* victim = rider_for_slot(victim_id);
     if (!victim)
