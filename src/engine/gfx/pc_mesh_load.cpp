@@ -47,7 +47,7 @@ struct ScaledVertex {
     float a[4], b[4], c[4];
     int bones[3];
 };
-static_assert(sizeof(ScaledVertex) == 0x84, "layout must match the original");
+static_assert(sizeof(ScaledVertex) == scene_format::kScaledVertexSize, "file format: a bone-scaled position record");
 
 bool skin_scaling_on() { return g_skin_scaling_on && reinterpret_cast<float*&>(g_skin_settings[3]); }
 
