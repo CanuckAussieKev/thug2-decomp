@@ -1,6 +1,7 @@
 # Builds NeverScript's `ns` (QB compiler / decompiler - see docs/neverscript.md) into out/neverscript/ns.exe.
-# NeverScript is not kept in this repo: the script clones violetvandal/NeverScript at the pinned commit into
-# out/neverscript/src (skipped when it is there already), applies our own changes (tools/neverscript.patch) and builds.
+# NeverScript is not kept in this repo: the script clones our fork CanuckAussieKev/NeverScript (violetvandal's THUG2
+# fork + our -lenient) at the pinned commit of its `thug2` branch into out/neverscript/src (skipped when it is there
+# already) and builds.
 # Uses `go` from PATH if there is one, otherwise downloads a portable Go 1.22.12 into out/neverscript/go (checked
 # against its SHA-256). NeverScript's one dependency (github.com/pmezard/go-difflib, MIT) is fetched by Go's module
 # proxy and checked against go.sum. Needs git.
@@ -11,9 +12,8 @@ $repo = Split-Path -Parent $PSScriptRoot
 if ($Out -eq '') { $out = Join-Path $repo 'out\neverscript' } else { $out = $Out }
 New-Item -ItemType Directory -Force $out | Out-Null
 
-$upstream = 'https://github.com/violetvandal/NeverScript.git'
-$pin = '73fe0f9'
-$patch = Join-Path $PSScriptRoot 'neverscript.patch'
+$upstream = 'https://github.com/CanuckAussieKev/NeverScript.git'
+$pin = 'a7f32ac0a9f0fa8263e37990cb6c1bd7dc420ef6'
 $src = Join-Path $out 'src'
 
 # Run git, stop on a failure (Windows PowerShell 5.1 turns native stderr into errors, so go through cmd-style checks).
@@ -24,16 +24,17 @@ function Invoke-Git {
     if ($LASTEXITCODE -ne 0) { throw "git $($args -join ' ') failed ($LASTEXITCODE)" }
 }
 
-$patchHash = (Get-FileHash $patch -Algorithm SHA256).Hash.ToLower()
-$stamp = Join-Path $src '.thug2-patch-sha256'
 $ready = $false
-if ((Test-Path (Join-Path $src '.git')) -and (Test-Path $stamp)) {
+if (Test-Path (Join-Path $src '.git')) {
     $head = (& git -C $src rev-parse HEAD 2>$null)
-    if ($LASTEXITCODE -eq 0 -and $head.StartsWith($pin) -and ((Get-Content $stamp -Raw).Trim() -eq $patchHash)) { $ready = $true }
+    $dirty = (& git -C $src status --porcelain 2>$null)
+    if ($LASTEXITCODE -eq 0 -and $head -eq $pin -and -not $dirty) { $ready = $true }
 }
 if (-not $ready) {
     if (Test-Path (Join-Path $src '.git')) {
-        # present but at another commit / patch: put it back to the pin
+        # present but at another commit, changed, or a clone of the old upstream: put it back to the pin
+        Invoke-Git -C $src remote set-url origin $upstream
+        Invoke-Git -C $src fetch -q origin
         Invoke-Git -C $src reset --hard -q
         Invoke-Git -C $src clean -fdq
     } else {
@@ -41,8 +42,6 @@ if (-not $ready) {
         Invoke-Git -c core.autocrlf=false clone -q $upstream $src
     }
     Invoke-Git -C $src -c advice.detachedHead=false checkout -q $pin
-    Invoke-Git -C $src apply --ignore-whitespace $patch
-    Set-Content -Path $stamp -Value $patchHash -Encoding ascii
 }
 
 $go = (Get-Command go -ErrorAction SilentlyContinue).Source
