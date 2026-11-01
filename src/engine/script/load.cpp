@@ -17,6 +17,7 @@
 #include "engine/script/precompiled.h"
 #include "engine/script/qb.h"
 #include "engine/util/lzss.h"
+#include "engine/util/byte_stream.h"
 #include "engine/sys/game_config.h"
 
 namespace script {
@@ -92,7 +93,10 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
 {
     SymbolTableEntry* symbol = create_symbol(name);
     symbol->type = kQbvalScriptBody;
-    auto* buffer = static_cast<uint8_t*>(memory::alloc_block(20000));
+    // (not original: room for LZSS's worst case - the original's 20000 bytes overflowed for a script past ~17.7 KB
+    // that doesn't compress)
+    uint32_t room = size + size / 8 + 2 > 20000 ? size + size / 8 + 2 : 20000;
+    auto* buffer = static_cast<uint8_t*>(memory::alloc_block(room));
     int stored = lzss::pack_up(code, buffer, static_cast<int>(size), false);
     if (stored >= static_cast<int>(size)) {
         // (no smaller: kept as it is)
@@ -100,14 +104,13 @@ SymbolTableEntry* define_script_symbol(uint32_t size, const uint8_t* code, uint3
             buffer[i] = code[i];
         stored = static_cast<int>(size);
     }
-    // {checksum, size, stored size, the code}
-    auto* block = static_cast<uint32_t*>(memory::alloc_block(static_cast<unsigned int>(stored + 12)));
-    block[0] = checksum;
-    block[1] = size;
-    block[2] = static_cast<uint32_t>(stored);
-    auto* bytes = reinterpret_cast<uint8_t*>(block + 3);
-    for (int i = 0; i < stored; ++i)
-        bytes[i] = buffer[i];
+    // {checksum, size, stored size, the code} (the script cache's StoredScript; the same in pre-compiled images)
+    auto* block = static_cast<uint8_t*>(memory::alloc_block(static_cast<unsigned int>(stored + 12)));
+    util::ByteWriter writer(block, static_cast<size_t>(stored) + 12);
+    writer.u32(checksum);
+    writer.u32(size);
+    writer.u32(static_cast<uint32_t>(stored));
+    writer.bytes(buffer, static_cast<size_t>(stored));
     symbol->raw = reinterpret_cast<uint32_t>(block);
     memory::free_malloc(buffer);
     if (script_store_instance())

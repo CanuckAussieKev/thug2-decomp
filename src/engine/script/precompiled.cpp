@@ -5,6 +5,7 @@
 
 #include "engine/core/checksums.h"
 #include "engine/script/qb.h"
+#include "engine/util/byte_stream.h"
 
 namespace script {
 
@@ -162,18 +163,24 @@ uint8_t* relocate_symbol(SymbolTableEntry* symbol, uint32_t base)
 void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,
                                   uint32_t flag)
 {
-    uint8_t* end = file + *reinterpret_cast<const uint32_t*>(file + 4);
-    uint8_t* p = file + 0x1C;
-    if (p == end)
+    // The header's size word (read through util::ByteReader); the symbols are relocated in place - the image is
+    // its own in-memory form (precompiled.h).
+    util::ByteReader header(file, kPrecompiledHeaderSize);
+    header.u32(); // the magic
+    uint32_t size = header.u32();
+    // Not original - a size short of the header is refused, and the walk stops at the file's end: the original
+    // walked until a symbol ended exactly there (a damaged image walked on past it).
+    if (size < kPrecompiledHeaderSize)
         return;
-    // (the symbols must end exactly at the file's end: there's no other check)
-    do {
+    uint8_t* end = file + size;
+    uint8_t* p = file + kPrecompiledHeaderSize;
+    while (p < end) {
         auto* symbol = reinterpret_cast<SymbolTableEntry*>(p);
         uint8_t* next = relocate_symbol(symbol, base);
         if (callback)
             callback(symbol, argument, flag);
         p = next;
-    } while (p != end);
+    }
 }
 
 // 0x00478DE0

@@ -21,6 +21,9 @@
 //       values: strings one after another (padded once at the end), pairs, vectors, or nested structures/arrays
 namespace script {
 
+// The image's header (magic, size, and 0x14 bytes not used by the loader).
+constexpr uint32_t kPrecompiledHeaderSize = 0x1C;
+
 // Load the pre-compiled .qb image `data` (named `filename`): relocate it and define its symbols, replacing
 // symbols of the same names. `unused` is passed on as a flag no one reads.
 void parse_precompiled_qb(const char* filename, uint8_t* data, int unused);

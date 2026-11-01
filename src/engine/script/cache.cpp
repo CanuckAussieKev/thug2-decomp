@@ -161,7 +161,8 @@ uint8_t* ScriptStore::fetch_script(uint32_t name)
     auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
     memory::Hub::get_pull()->leave_heap_scope();
     if (stored_size < size) {
-        lzss::decode(stored->code, code, static_cast<int>(stored_size));
+        // (not original: bounded by the script's size - lzss::unpack, decode's bytes for valid code)
+        lzss::unpack(stored->code, stored_size, code, size, nullptr);
     } else {
         for (uint32_t i = 0; i < size; ++i)
             code[i] = stored->code[i];
