@@ -18,6 +18,7 @@
 #include "imgui.h"
 #include "engine/gfx/device.h"
 #include "engine/gfx/draw_frame.h"
+#include "engine/util/com_ptr.h"
 
 namespace frontend::level_editor::ui_backend {
 
@@ -179,22 +180,21 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
     IDirect3DDevice9* device = input_port();
     if (!device || width <= 0 || height <= 0 || !data)
         return 0;
-    IDirect3DTexture9* texture = nullptr;
+    util::ComPtr<IDirect3DTexture9> texture;
     // (managed: Direct3D keeps a copy, so a device reset doesn't lose it)
     D3DFORMAT d3d_format = format == PixelLayout::kDxt1 ? D3DFMT_DXT1 : D3DFMT_A8R8G8B8;
-    if (FAILED(device->CreateTexture(width, height, 1, 0, d3d_format, D3DPOOL_MANAGED, &texture, nullptr)) || !texture)
+    if (FAILED(device->CreateTexture(width, height, 1, 0, d3d_format, D3DPOOL_MANAGED, texture.put(), nullptr)) ||
+        !texture)
         return 0;
     D3DLOCKED_RECT locked;
-    if (FAILED(texture->LockRect(0, &locked, nullptr, 0))) {
-        texture->Release();
+    if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return 0;
-    }
     const uint8_t* from = static_cast<const uint8_t*>(data);
     uint8_t* to = static_cast<uint8_t*>(locked.pBits);
     for (int row = 0; row < rows; ++row)
         std::memcpy(to + row * locked.Pitch, from + row * row_bytes, static_cast<size_t>(row_bytes));
     texture->UnlockRect(0);
-    return get_texture_id(texture);
+    return get_texture_id(texture.detach()); // (released by release_texture)
 }
 
 void release_texture(uint64_t id)

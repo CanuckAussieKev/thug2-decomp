@@ -28,6 +28,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/util/com_ptr.h"
 
 #pragma comment(lib, "winmm.lib") // timeSetEvent / timeKillEvent
 
@@ -192,17 +193,15 @@ void build_font()
         return;
     }
     atlas.GetTexDataAsRGBA32(&rgba, &width, &height);
-    IDirect3DTexture9* texture = nullptr;
+    util::ComPtr<IDirect3DTexture9> texture;
     if (FAILED(device->CreateTexture(static_cast<UINT>(width), static_cast<UINT>(height), 1, 0, D3DFMT_A8R8G8B8,
-                                     D3DPOOL_MANAGED, &texture, nullptr))) {
+                                     D3DPOOL_MANAGED, texture.put(), nullptr))) {
         get_log("loading console: no texture for the font - no panel");
         return;
     }
     D3DLOCKED_RECT locked;
-    if (FAILED(texture->LockRect(0, &locked, nullptr, 0))) {
-        texture->Release();
+    if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return;
-    }
     for (int y = 0; y < height; ++y) {
         auto* row = reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(locked.pBits) + y * locked.Pitch);
         const unsigned char* in = rgba + static_cast<size_t>(y) * width * 4;
@@ -221,7 +220,7 @@ void build_font()
     g_line_height = std::round(pixels * 1.2f);
     g_white_u = atlas.TexUvWhitePixel.x;
     g_white_v = atlas.TexUvWhitePixel.y;
-    g_texture = texture;
+    g_texture = texture.detach();
     get_log("loading console: on ([features] loading_console=0 turns it off) - JetBrains Mono %.0f px", pixels);
 }
 
