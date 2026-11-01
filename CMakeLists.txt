@@ -852,6 +852,7 @@ add_executable(thug2 WIN32
     src/engine/render/collision_format.cpp
     src/engine/gfx/skeleton_format.cpp
     src/engine/gfx/anim_format.cpp
+    src/engine/gfx/font_format.cpp
     src/engine/util/bps.cpp
 )
 set_target_properties(thug2 PROPERTIES OUTPUT_NAME thug2-decomp)
@@ -894,6 +895,7 @@ add_executable(thug2_format_check
     src/engine/render/collision_format.cpp
     src/engine/gfx/skeleton_format.cpp
     src/engine/gfx/anim_format.cpp
+    src/engine/gfx/font_format.cpp
     src/engine/util/lzss_unpack.cpp)
 target_include_directories(thug2_format_check PRIVATE src)
 target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)

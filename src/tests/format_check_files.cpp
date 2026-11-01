@@ -19,6 +19,8 @@
 #include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
 #include "engine/gfx/anim_format.h"
+#include "engine/gfx/font_format.h"
+#include "engine/gfx/hd_ui.h"
 #include "engine/gfx/image_format.h"
 #include "engine/gfx/scene_format.h"
 #include "engine/gfx/skeleton_format.h"
@@ -680,6 +682,62 @@ void check_skin(const std::string& name, const uint8_t* data, size_t size)
     check(!scene_format::read_skin(cut, &skin), name + ": cut short");
 }
 
+// --- fonts (.fnt) -------------------------------------------------------------------------------------------------
+
+struct FontStats {
+    int files = 0, glyphs = 0, specials = 0, specials_past_map = 0, hd_pages = 0;
+} g_fonts;
+
+void check_font(const std::string& name, const uint8_t* data, size_t size)
+{
+    ++g_fonts.files;
+    util::ByteReader reader(data, size);
+    font_format::Header header;
+    if (!font_format::read_header(reader, &header)) {
+        check(false, name + ": font header");
+        return;
+    }
+    std::vector<font_format::GlyphEntry> entries(font_format::kMaxGlyphs);
+    check(font_format::read_glyph_entries(reader, header.glyph_count, entries.data()), name + ": character map");
+    font_format::Page page;
+    check(font_format::read_page(reader, &page), name + ": page");
+    uint32_t scale = render::hd_ui::font_scale(page.hd_mark, page.hd_scale); // (an upscaled page: not in the game's data)
+    bool hd = scale != 1;
+    uint64_t texels = font_format::texel_count(page);
+    reader.skip(static_cast<size_t>(hd ? texels * 4 : texels + font_format::kPaletteSize));
+    std::vector<font_format::GlyphRect> rects(font_format::kMaxGlyphs);
+    check(font_format::read_glyph_rects(reader, header.glyph_count, rects.data()), name + ": glyph rectangles");
+    if (!reader.ok())
+        return;
+    g_fonts.glyphs += header.glyph_count;
+    g_fonts.hd_pages += hd;
+    check(reader.remaining() == 0, name + ": the rectangles end at the file's end");
+    for (int i = 0; i < header.glyph_count; ++i) {
+        if (header.format == 1 && entries[i].code() < 0) {
+            ++g_fonts.specials;
+            if (0xFF - (entries[i].code() & 0xFF) >= font_format::kSpecialGlyphs)
+                ++g_fonts.specials_past_map;
+        }
+        check(rects[i].x + rects[i].w <= page.width / scale && rects[i].y + rects[i].h <= page.height / scale,
+              name + ": glyph " + std::to_string(i) + " within the page");
+    }
+    // the original's reading in place: the count at +8, the map from +0x14, the page header after it, the
+    // rectangles after the texels and palette
+    const uint8_t* p = data + 0x14 + header.glyph_count * 6;
+    uint32_t width = p[4] | p[5] << 8, height = p[6] | p[7] << 8;
+    const uint8_t* rect = p + 0x10 + ((width * height + 3) & ~3u) + 0x400 + 4;
+    bool same = width == page.width && height == page.height && data[4] == header.format;
+    for (int i = 0; same && i < header.glyph_count; ++i)
+        same = std::memcmp(rect + 8 * i, &rects[i], 8) == 0 && std::memcmp(data + 0x14 + 6 * i + 2, entries[i].codes, 4) == 0;
+    check(hd || same, name + ": as read in place");
+    util::ByteReader cut(data, size - 1);
+    font_format::read_header(cut, &header);
+    font_format::read_glyph_entries(cut, header.glyph_count, entries.data());
+    font_format::read_page(cut, &page);
+    cut.skip(static_cast<size_t>(hd ? texels * 4 : texels + font_format::kPaletteSize));
+    check(!font_format::read_glyph_rects(cut, header.glyph_count, rects.data()), name + ": cut short");
+}
+
 // --- animations (.ska) ---------------------------------------------------------------------------------------------
 
 struct AnimStats {
@@ -792,6 +850,7 @@ int run(const std::filesystem::path& data)
     register_check(".mdl", check_scene);
     register_check(".skin", check_scene);
     register_check(".cas", check_skin);
+    register_check(".fnt", check_font);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -832,6 +891,8 @@ int run(const std::filesystem::path& data)
                 "skins %d (%d strip breaks)\n",
                 g_scenes.files, g_scenes.materials, g_scenes.sectors, g_scenes.meshes, g_scenes.skinned_meshes,
                 g_scenes.trailing, g_scenes.skins, g_scenes.breaks);
+    std::printf("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", g_fonts.files,
+                g_fonts.glyphs, g_fonts.specials, g_fonts.specials_past_map, g_fonts.hd_pages);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());

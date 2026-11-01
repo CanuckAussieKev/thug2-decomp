@@ -9,12 +9,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
+#include "engine/core/dbg.h"
 #include "engine/core/mem.h"
 #include "engine/core/str.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/draw2d.h"
 #include "engine/gfx/font.h"
+#include "engine/gfx/font_format.h"
 #include "engine/gfx/glyphs.h"
 #include "engine/gfx/hd_ui.h"
 #include "engine/gfx/draw_frame.h"
@@ -499,66 +502,82 @@ void GlyphRun::close_sketch()
     get_texture_font() = nullptr;
 }
 
-// 0x004CF0F0. The file: a header (+4 the character map format, +8 the number of glyphs, +0xC the height, +0x10
-// the base), the glyphs' character map entries (6 bytes each), the texture's header (+4 width, +6 height, 16-bit),
-// its pixels (one byte each, rounded up to 4), its palette (256 RGBA, PS2 alpha: 0x80 = opaque), and the glyphs'
-// rectangles in the texture (after 4 bytes: x, y, width, height, 16-bit).
+// 0x004CF0F0. The file's format: engine/gfx/font_format.h (a header, the glyphs' character map entries, the page's
+// header, its texels and palette, the glyphs' rectangles).
 TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 {
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(name); // (from memory: the next bytes)
-    file::Hdl file = nullptr;
+    // Not original - the whole file read first and parsed through font_format's readers (the original read it piece
+    // by piece into a 0x808-byte stack buffer: a font of more than 256 glyphs overflowed it); a font cut short, with
+    // more than 256 glyphs or no file is not loaded (null); a special glyph past the special map's 0x20 is left
+    // unmapped (the original wrote it past the map, as far as the font's next pointer and colours).
+    std::vector<uint8_t> contents;
+    util::ByteReader reader(name, util::ByteReader::kUnknownSize); // (from memory: the next bytes)
     if (!from_memory) {
         char path[128]; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
         std::snprintf(path, sizeof(path), "fonts/%s.fnt.xbx", name);
-        file = file::unseal(path, "rb");
-    }
-    // The next size * count bytes into `to` (as the original reads them: the header as 0x14 of 1 byte, the rest
-    // as one block each; from memory, the glyph rectangles - read last - don't move on).
-    auto read = [&](void* to, int size, int count, bool advance) {
-        if (from_memory) {
-            std::memcpy(to, data, static_cast<size_t>(size) * count);
-            if (advance)
-                data += size * count;
-        } else {
-            file::get_take_in(to, size, count, file);
+        file::Hdl file = file::unseal(path, "rb");
+        if (!file) {
+            debug::printf("font %s: no file\n", path);
+            return nullptr;
         }
-    };
-    uint8_t buffer[0x808]; // (the original's: the tables of more than 256 glyphs overflow it)
+        contents.resize(file::get_file_size(file));
+        int read = contents.empty() ? 0 : file::get_take_in(contents.data(), static_cast<int>(contents.size()), 1, file);
+        file::shut(file);
+        contents.resize(read > 0 ? static_cast<size_t>(read) : 0);
+        reader = util::ByteReader(contents.data(), contents.size());
+    }
+    font_format::Header header;
+    font_format::GlyphEntry entries[font_format::kMaxGlyphs];
+    font_format::Page page;
+    if (!font_format::read_header(reader, &header) ||
+        !font_format::read_glyph_entries(reader, header.glyph_count, entries) ||
+        !font_format::read_page(reader, &page)) {
+        debug::printf("font %s damaged: cut short or %d glyphs\n", from_memory ? "(memory)" : name, header.glyph_count);
+        return nullptr;
+    }
+    // Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled page has 32-bit BGRA texels and no palette; its
+    // glyph rectangles are in the original page's pixels.
+    uint32_t hd_scale = hd_ui::font_scale(page.hd_mark, page.hd_scale);
+    uint32_t size = font_format::texel_count(page);
+    const uint8_t* texels = reader.cursor();
+    const uint8_t* palette_bytes = texels + size;
+    reader.skip(hd_scale != 1 ? static_cast<size_t>(size) * 4 : size + font_format::kPaletteSize);
+    font_format::GlyphRect rects[font_format::kMaxGlyphs];
+    if (!font_format::read_glyph_rects(reader, header.glyph_count, rects)) {
+        debug::printf("font %s damaged: its page or rectangles cut short\n", from_memory ? "(memory)" : name);
+        return nullptr;
+    }
+    int count = header.glyph_count;
 
     auto* font = static_cast<TypefaceData*>(memory::alloc(sizeof(TypefaceData)));
     if (font)
         std::memset(font, 0, sizeof(TypefaceData));
-    read(buffer, 1, 0x14, true);
-    font->format = buffer[4];
-    int count = static_cast<int>(get_u32(buffer + 8));
-    font->height = get_u32(buffer + 0xC);
-    font->base = get_u32(buffer + 0x10);
+    font->format = header.format;
+    font->height = header.height;
+    font->base = header.base;
     std::memset(font->map, 0, sizeof(font->map));
     std::memset(font->special_map_, 0, sizeof(font->special_map_));
     font->chars = static_cast<Char*>(memory::alloc(static_cast<uint32_t>(count) * sizeof(Char)));
 
     // The character map: which glyph each character (and special glyph) is.
-    read(buffer, count * 6, 1, true);
-    uint8_t* font_bytes = reinterpret_cast<uint8_t*>(font);
     if (font->format == 1) {
-        // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index; past the special map
-        // for indexes over 0x1F, as in the original).
+        // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index).
         for (int i = 0; i < count; ++i) {
-            const uint8_t* entry = buffer + 6 * i;
-            font->chars[i].baseline = u16(entry);
-            int16_t code = static_cast<int16_t>(u16(entry + 2));
-            if (code >= 0)
+            font->chars[i].baseline = entries[i].baseline;
+            int16_t code = entries[i].code();
+            if (code >= 0) {
                 font->map[code & 0xFF] = static_cast<uint8_t>(i);
-            else
-                font_bytes[offsetof(TypefaceData, special_map_) + static_cast<uint8_t>(0xFF - (code & 0xFF))] =
-                    static_cast<uint8_t>(i);
+            } else {
+                int special = 0xFF - (code & 0xFF);
+                if (special < font_format::kSpecialGlyphs)
+                    font->special_map_[special] = static_cast<uint8_t>(i);
+            }
         }
     } else if (font->format == 2) {
         // Each glyph: its baseline, then up to four characters (0xFF ends them early).
         for (int i = 0; i < count; ++i) {
-            const uint8_t* entry = buffer + 6 * i;
-            font->chars[i].baseline = u16(entry);
-            const uint8_t* codes = entry + 2;
+            font->chars[i].baseline = entries[i].baseline;
+            const uint8_t* codes = entries[i].codes;
             font->map[codes[0]] = static_cast<uint8_t>(i);
             for (int c = 1; c < 4 && codes[c] != 0xFF; ++c)
                 font->map[codes[c]] = static_cast<uint8_t>(i);
@@ -576,12 +595,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 
     // The texture: created on the device, its palette's colours (RGBA, PS2 alpha) made ARGB with alpha doubled
     // (0x80 and over: opaque), and the pixels written through it (the rows packed: the pitch isn't used).
-    read(buffer, 0x10, 1, true);
-    uint32_t width = u16(buffer + 4);
-    uint32_t height = u16(buffer + 6);
-    // Not original - HD menu UI (engine/gfx/hd_ui.h): an upscaled page (marked at +8, the scale at +0xC) has 32-bit
-    // BGRA texels and no palette; its glyph rectangles are in the original page's pixels.
-    uint32_t hd_scale = hd_ui::font_scale(get_u32(buffer + 8), get_u32(buffer + 0xC));
+    uint32_t width = page.width;
+    uint32_t height = page.height;
     if (hd_scale != 1)
         hd_ui::note_font(from_memory ? nullptr : name, hd_scale, width, height);
     using CreateTexture =
@@ -589,19 +604,18 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     if (device_method<CreateTexture>(0x5C)(input_port(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
                                            &font->texture, nullptr) != 0)
         return nullptr;
-    uint32_t size = (height * width + 3) & ~3u;
     uint8_t* indices = nullptr;
     uint32_t* pixels;
     if (hd_scale != 1) {
         // (not original - HD menu UI: the texels as they are, in a buffer from the C runtime's heap - 4-16 MB, more
         // than the game's heap may have free while the front end loads)
         pixels = static_cast<uint32_t*>(std::malloc(size * 4));
-        read(pixels, static_cast<int>(size * 4), 1, true);
+        std::memcpy(pixels, texels, size * 4);
     } else {
         indices = static_cast<uint8_t*>(memory::alloc(size));
         uint32_t palette[256];
-        read(indices, static_cast<int>(size), 1, true);
-        read(palette, 0x400, 1, true);
+        std::memcpy(indices, texels, size);
+        std::memcpy(palette, palette_bytes, font_format::kPaletteSize);
         for (uint32_t& color : palette) {
             uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
             uint32_t alpha = argb >> 24;
@@ -629,17 +643,16 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     }
 
     // The glyphs' rectangles: texture coordinates (the right/bottom ones from the unrounded left/top) and sizes.
-    read(buffer, count * 8 + 4, 1, false);
     // (not original - HD menu UI: an upscaled page's size divided by its scale, the rectangles' own pixels)
     double texels_wide = static_cast<int>(width / hd_scale);
     double texels_high = static_cast<int>(height / hd_scale);
     for (int i = 0; i < count; ++i) {
-        const uint8_t* rect = buffer + 4 + 8 * i;
+        const font_format::GlyphRect& rect = rects[i];
         Char& glyph = font->chars[i];
-        glyph.w = u16(rect + 4);
-        glyph.h = u16(rect + 6);
-        double u0 = u16(rect) / texels_wide;
-        double v0 = u16(rect + 2) / texels_high;
+        glyph.w = rect.w;
+        glyph.h = rect.h;
+        double u0 = rect.x / texels_wide;
+        double v0 = rect.y / texels_high;
         glyph.u0 = static_cast<float>(u0);
         glyph.v0 = static_cast<float>(v0);
         glyph.u1 = static_cast<float>(glyph.w / texels_wide + u0);
@@ -648,8 +661,6 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
 
     font->next = typeface_chain();
     typeface_chain() = font;
-    if (!from_memory)
-        file::shut(file);
     font->blank_gap_ = static_cast<int16_t>(font->chars[font->map['I']].w);
     return font;
 }
