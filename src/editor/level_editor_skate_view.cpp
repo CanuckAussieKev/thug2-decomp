@@ -24,6 +24,7 @@
 #include "imgui.h"
 #include "game/skate/skate_module.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::skate_view {
 
@@ -179,7 +180,7 @@ const Cached& cache_of(uint32_t checksum, const render::TriMeshSource* tri, int 
         }
         if (!ok)
             continue;
-        const uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+        const uint16_t flags = *raw::as<const uint16_t>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         const V3 n = perpendicular(p[1] - p[0], p[2] - p[0]);
         const float length = std::sqrt(get_dot(n, n));
         const float ny = length > 0.0f ? n.y / length : 0.0f;

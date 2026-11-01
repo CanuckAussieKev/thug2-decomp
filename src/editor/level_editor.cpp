@@ -82,6 +82,7 @@
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
 #include "engine/gfx/device.h"
+#include "platform/code_address.h"
 
 namespace frontend::level_editor {
 
@@ -2811,12 +2812,12 @@ bool cfunc_stop(script::Struct*, script::Script*)
 void register_script_functions()
 {
     static const script::NativeCommand kFunctions[] = {
-        {"LevelEditor_Available", reinterpret_cast<void*>(&cfunc_available)},
-        {"LevelEditor_Start", reinterpret_cast<void*>(&cfunc_start)},
-        {"LevelEditor_Stop", reinterpret_cast<void*>(&cfunc_stop)},
-        {"LevelEditor_PickLevel", reinterpret_cast<void*>(&layout::cfunc_pick_level)},
-        {"LevelEditor_EditedLevels", reinterpret_cast<void*>(&layout::cfunc_edited_levels)},
-        {"LevelEditor_PlayCamera", reinterpret_cast<void*>(&cameras::cfunc_play_camera)}, // (map4)
+        {"LevelEditor_Available", code_address(&cfunc_available)},
+        {"LevelEditor_Start", code_address(&cfunc_start)},
+        {"LevelEditor_Stop", code_address(&cfunc_stop)},
+        {"LevelEditor_PickLevel", code_address(&layout::cfunc_pick_level)},
+        {"LevelEditor_EditedLevels", code_address(&layout::cfunc_edited_levels)},
+        {"LevelEditor_PlayCamera", code_address(&cameras::cfunc_play_camera)}, // (map4)
     };
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }

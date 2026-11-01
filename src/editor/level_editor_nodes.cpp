@@ -23,6 +23,7 @@
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_module.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 namespace frontend::level_editor::nodes {
 
@@ -208,7 +209,7 @@ std::vector<uint32_t> get_signature()
         const level_nodes::NodeArrayEntry& entry = manager->arrays_[i];
         signature.push_back(entry.label_);
         signature.push_back(entry.node_entries_ ? entry.node_entries_->extent_ : 0);
-        signature.push_back(static_cast<uint32_t>(reinterpret_cast<uintptr_t>(entry.node_entries_)));
+        signature.push_back(static_cast<uint32_t>(cell::address(entry.node_entries_)));
     }
     return signature;
 }
@@ -217,7 +218,7 @@ script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 {
     if (!nodes || index >= nodes->extent_ || nodes->kind_tag_ != script::kQbvalStruct)
         return nullptr;
-    return reinterpret_cast<script::Struct*>(nodes->fetch_part(index));
+    return nodes->struct_at(index);
 }
 
 // The heading the game gives a node of these angles (0x0041A730: the identity turned by them - the skater's restart,
@@ -674,7 +675,7 @@ bool level_is_shared(const char** game)
         if (!levels || levels->kind_tag_ != script::kQbvalStruct)
             continue;
         for (uint32_t i = 0; i < levels->extent_; ++i) {
-            auto* info = reinterpret_cast<script::Struct*>(levels->fetch_part(i));
+            auto* info = levels->struct_at(i);
             uint32_t load = 0;
             if (info && info->read_hash_value(kLevel, &load, 0) && load == level) {
                 const char* tag = entry.game;

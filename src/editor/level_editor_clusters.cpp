@@ -26,6 +26,7 @@
 #include "engine/sys/game_config.h"
 #include "platform/run_log.h"
 #include "imgui.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::clusters {
 
@@ -117,15 +118,15 @@ std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept 
 // The Inspector's typed cluster name.
 char g_typed[64];
 
-uint8_t* hub() { return reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub); }
+uint8_t* hub() { return raw::bytes(objects::g_trick_spot_hub); }
 
 script::Struct* node_of(uint32_t sector) { return level_nodes::fetch_vertex(sector, false); }
 
-objects::TrickSpotHub* get_trick_objects(uint8_t* manager) { return reinterpret_cast<objects::TrickSpotHub*>(manager); }
+objects::TrickSpotHub* get_trick_objects(uint8_t* manager) { return raw::as<objects::TrickSpotHub>(manager); }
 // The manager's cluster of that name, null for none.
 uint8_t* cluster_object(uint8_t* manager, uint32_t cluster)
 {
-    return reinterpret_cast<uint8_t*>(get_trick_objects(manager)->get_cluster(cluster));
+    return raw::bytes(get_trick_objects(manager)->get_cluster(cluster));
 }
 
 // Registered as the load registers a TrickObject node (0x005A37A9-0x005A37C9).
@@ -147,7 +148,7 @@ void unregister(uint32_t name, uint32_t cluster)
     if (!manager || !cluster)
         return;
     if (uint8_t* object = cluster_object(manager, cluster)) {
-        const memory::ListNode* head = &reinterpret_cast<objects::TrickObjectCluster*>(object)->entities_;
+        const memory::ListNode* head = &raw::as<objects::TrickObjectCluster>(object)->entities_;
         memory::ListNode* node = head->next;
         for (int guard = 0; node && node != head && guard < 100000; ++guard) {
             memory::ListNode* next = node->next;

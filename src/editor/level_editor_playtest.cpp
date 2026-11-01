@@ -44,6 +44,8 @@
 #include "engine/sys/mlp.h"
 #include "platform/sdl_events.h"
 #include "platform/run_log.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::play_test {
 
@@ -582,9 +584,9 @@ std::vector<GapRead> read_gaps()
     // (the list's nodes: the head's data is -1 - gap_checklist.cpp)
     int guard = 0;
     for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096; node = node->next) {
-        if (node->data == reinterpret_cast<void*>(-1))
+        if (node->data == memory::ListNode::head_marker())
             break;
-        auto* gap = reinterpret_cast<goals::GapEntry*>(node);
+        auto* gap = raw::as<goals::GapEntry>(node);
         out.push_back({gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
     }
     return out;

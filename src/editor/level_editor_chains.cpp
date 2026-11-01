@@ -45,6 +45,7 @@
 #include "engine/sound/surface_kind.h"
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::chains {
 
@@ -953,7 +954,7 @@ bool known_terrain(uint32_t terrain)
     if (!types || types->kind_tag_ != script::kQbvalStruct)
         return false;
     for (uint32_t i = 0; i < types->extent_; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(types->fetch_part(i));
+        auto* entry = types->struct_at(i);
         uint32_t value = 0;
         if (entry && entry->read_hash_value(kChecksumKey, &value, 0) && value == terrain)
             return true;
@@ -1154,7 +1155,7 @@ maths::Vec4 climb_of(float facing)
     const maths::Vec4 angles = {0.0f, facing, 0.0f, 1.0f};
     const maths::Mat4* built = &matrix.init_from_angles(angles);
     maths::Vec4 quat = {};
-    reinterpret_cast<maths::QuatRotation*>(&quat)->from_matrix(*built);
+    raw::as<maths::QuatRotation>(&quat)->from_matrix(*built);
     return quat;
 }
 
@@ -1162,7 +1163,7 @@ maths::Vec4 climb_of(float facing)
 float heading_of_climb(const maths::Vec4& climb)
 {
     maths::Mat4 matrix;
-    reinterpret_cast<const maths::QuatRotation*>(&climb)->fetch_mat(&matrix);
+    raw::as<const maths::QuatRotation>(&climb)->fetch_mat(&matrix);
     return std::atan2(matrix.row[2].x, matrix.row[2].z);
 }
 
@@ -1223,7 +1224,7 @@ void get_remake(uint32_t name)
 // wanted (or of another cluster now) taken out of its name map (the manager's object_clusters_).
 void register_trick_objects()
 {
-    auto* manager = reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub);
+    auto* manager = raw::bytes(objects::g_trick_spot_hub);
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;
@@ -1234,7 +1235,7 @@ void register_trick_objects()
             rail_node_named(name))
             want[name] = extras->second.cluster;
     }
-    lists::KeyMap* objects = &reinterpret_cast<objects::TrickSpotHub*>(manager)->object_clusters_;
+    lists::KeyMap* objects = &raw::as<objects::TrickSpotHub>(manager)->object_clusters_;
     for (const auto& entry : trick_state()) {
         auto it = want.find(entry.first);
         if (it == want.end() || it->second != entry.second)
@@ -1244,7 +1245,7 @@ void register_trick_objects()
         auto it = trick_state().find(entry.first);
         if (it != trick_state().end() && it->second == entry.second)
             continue;
-        auto* trick_objects = reinterpret_cast<objects::TrickSpotHub*>(manager);
+        auto* trick_objects = raw::as<objects::TrickSpotHub>(manager);
         trick_objects->add_cluster(entry.second); // (false: there already)
         trick_objects->add_object_to_cluster(entry.first, entry.second);
     }

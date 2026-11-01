@@ -10,6 +10,7 @@
 #include "game/skate/gap_checklist.h"
 #include "game/skate/skate_module.h"
 #include "platform/run_log.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::career {
 
@@ -42,8 +43,8 @@ Checklist g_baseline;
 
 goals::GapTally* current_checklist()
 {
-    void* skate = reinterpret_cast<void*>(modules::g_skate_module);
-    return skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
+    void* skate = raw::as<void>(modules::g_skate_module);
+    return skate ? static_cast<goals::GapTally*>(static_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
 }
 
 int get_landed(const Checklist& list)

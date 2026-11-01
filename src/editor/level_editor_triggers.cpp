@@ -52,6 +52,7 @@
 #include "engine/core/owner.h"
 #include "engine/core/ints.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::triggers {
 
@@ -1175,7 +1176,7 @@ bool read_faces(render::WorldCell* sector, LevelTrigger* t)
     t->bounds_high_ = {tri->upper_limit_.x, tri->upper_limit_.y, tri->upper_limit_.z};
     bool any = false;
     for (int f = 0; std::cmp_less(f, tri->tri_count_); ++f) {
-        const uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+        const uint16_t flags = *raw::as<const uint16_t>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         if (!(flags & 0x40)) {
             t->all_trigger_ = false;
             continue;
@@ -1308,8 +1309,8 @@ void drop_boxes()
 
 goals::GapTally* get_checklist()
 {
-    void* skate = reinterpret_cast<void*>(modules::g_skate_module);
-    return skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
+    void* skate = raw::as<void>(modules::g_skate_module);
+    return skate ? static_cast<goals::GapTally*>(static_cast<modules::Skate*>(skate)->fetch_gap_list()) : nullptr;
 }
 
 bool level_gap(const std::string& name)

@@ -25,6 +25,7 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/gfx/sector.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::arcs {
 
@@ -367,7 +368,7 @@ void sector_faces(uint32_t checksum, std::vector<Face>* out)
         }
         if (!ok)
             continue;
-        const uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+        const uint16_t flags = *raw::as<const uint16_t>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         out->push_back({p[0], p[1], p[2], flags});
     }
 }

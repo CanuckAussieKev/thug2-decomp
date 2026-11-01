@@ -37,6 +37,8 @@
 #include "platform/crt.h"
 #include "engine/gfx/geom.h"
 #include "engine/gfx/surface_material.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::ground {
 
@@ -61,7 +63,7 @@ render::StaticCollider* static_of(render::WorldCell* sector)
     render::HitMesh* coll = coll_of(sector);
     if (!render::is_static_collider(coll))
         return nullptr;
-    return reinterpret_cast<render::StaticCollider*>(coll);
+    return static_cast<render::StaticCollider*>(coll);
 }
 
 // The buffers as MeshRef::Replicate (sub_mesh.cpp) makes them: a vertex buffer (0x004D5760: its memory copy and the card's) and
@@ -295,9 +297,9 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     tri->unknown3c_ = 0; // (no face skipped by its distance)
     // (new HitTreeNode[1]: the count, then one leaf - axis bits 3, its face count at +2, its faces at +4)
     node_memory[0] = 1;
-    auto* leaf = reinterpret_cast<render::HitTreeNode*>(node_memory + 1);
+    auto* leaf = raw::as<render::HitTreeNode>(node_memory + 1);
     leaf->axis_tag_ = 3 | static_cast<int32_t>(faces << 16);
-    leaf->chain_link_ = reinterpret_cast<uint32_t>(leaf_faces);
+    leaf->chain_link_ = cell::of(leaf_faces);
     tri->bsp_ = leaf;
     tri->set_up_all_faces();
     // (the face-rejection bytes: one a face, on the bottom-up heap as StaticCollider::Replicate keeps them)
@@ -500,10 +502,10 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             const uint16_t b = indices->indices[i + 1];
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
                 continue;
-            const auto* pa = reinterpret_cast<const float*>(data + a * mesh->stride);
-            const auto* pb = reinterpret_cast<const float*>(data + b * mesh->stride);
-            const auto* ta = reinterpret_cast<const float*>(data + a * mesh->stride + layout.tex);
-            const auto* tb = reinterpret_cast<const float*>(data + b * mesh->stride + layout.tex);
+            const auto* pa = raw::as<const float>(data + a * mesh->stride);
+            const auto* pb = raw::as<const float>(data + b * mesh->stride);
+            const auto* ta = raw::as<const float>(data + a * mesh->stride + layout.tex);
+            const auto* tb = raw::as<const float>(data + b * mesh->stride + layout.tex);
             const double dw = std::sqrt(static_cast<double>(pa[0] - pb[0]) * (pa[0] - pb[0]) +
                                         static_cast<double>(pa[1] - pb[1]) * (pa[1] - pb[1]) +
                                         static_cast<double>(pa[2] - pb[2]) * (pa[2] - pb[2]));
@@ -520,7 +522,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     const render::TriMeshSource* tri = static_of(sector)->geometry_;
     std::map<uint16_t, int> terrains;
     for (int f = 0; std::cmp_less(f, tri->tri_count_) && tri->faces_; ++f)
-        ++terrains[reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10))[1]];
+        ++terrains[raw::as<const uint16_t>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10))[1]];
     int most = -1;
     for (const auto& t : terrains) {
         if (t.second > most)
@@ -558,7 +560,7 @@ bool find_pit_tiles(Spec* spec, std::string* why)
             const int faces = std::min<int>(tri->tri_count_, 60000);
             for (int f = 0; f < faces && !ground; ++f) {
                 const uint16_t flags =
-                    *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
+                    *raw::as<const uint16_t>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
                 if (flags & 0x10)
                     continue;
                 V3 c[3];

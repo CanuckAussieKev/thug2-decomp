@@ -27,6 +27,8 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/sector.h"
 #include "engine/gfx/geom.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::scale_tool {
 
@@ -155,7 +157,7 @@ void rewrite_positions(uint8_t* data, uint32_t stride, uint32_t count, const flo
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         const V3 p = get_rebuilt({original[0], original[1], original[2]}, from, to, quarters, scale);
-        auto* out = reinterpret_cast<float*>(data);
+        auto* out = raw::as<float>(data);
         out[0] = p.x;
         out[1] = p.y;
         out[2] = p.z;
@@ -177,7 +179,7 @@ void rewrite_normals(uint8_t* data, uint32_t stride, uint32_t count, uint32_t of
 {
     for (uint32_t v = 0; v < count; ++v, data += stride, original += 3) {
         const V3 n = scaled_normal({original[0], original[1], original[2]}, scale, quarters);
-        auto* out = reinterpret_cast<float*>(data + offset);
+        auto* out = raw::as<float>(data + offset);
         out[0] = n.x;
         out[1] = n.y;
         out[2] = n.z;
@@ -496,7 +498,7 @@ V3 get_limit(render::WorldCell* sector, V3 world_scale)
 namespace {
 
 constexpr uint32_t kModelModuleName = 0x286A8D26;
-void* const kListHeadData = reinterpret_cast<void*>(-1);
+void* const kListHeadData = memory::ListNode::head_marker();
 
 // A scaled object: its collision object then, its triangle objects' own geometries (copied, as they were unscaled)
 // and its boxes as they were, and the scale.
@@ -522,7 +524,7 @@ std::vector<ObjectEntry> g_objects;
 uint8_t* model_of(objects::GameEntity* object)
 {
     objects::ObjectModule* component = object->fetch_module(kModelModuleName);
-    return component ? reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
+    return component ? raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_)
                      : nullptr;
 }
 
@@ -685,7 +687,7 @@ bool set_object_scale(objects::GameEntity* object, V3 scale)
     entry->scale = scale;
     // The model drawn scaled (RenderModel::change_scale: the scale at +0x1C, flag 8 of +0x44 unless 1, 1, 1).
     const maths::Vec4 factor = {scale.x, scale.y, scale.z, 1.0f};
-    reinterpret_cast<render::RenderModel*>(model_of(object))->change_scale(&factor);
+    raw::as<render::RenderModel>(model_of(object))->change_scale(&factor);
     apply_collision(*entry);
     object->mark_jumped_ahead(true); // (its components placed again at once)
     return true;

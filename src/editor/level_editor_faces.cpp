@@ -23,6 +23,7 @@
 #include "imgui.h"
 #include "engine/gfx/sector.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::faces {
 
@@ -202,7 +203,7 @@ render::TriMeshSource* get_geometry(uint32_t checksum)
 
 uint16_t* get_raw(render::TriMeshSource* tri, int face)
 {
-    return reinterpret_cast<uint16_t*>(tri->faces_ + face * (tri->small_faces_ ? 8 : 10));
+    return raw::as<uint16_t>(tri->faces_ + face * (tri->small_faces_ ? 8 : 10));
 }
 
 // The face's flags written (a taken face: in its companion - the original keeps 0x10); its level's flags noted first.

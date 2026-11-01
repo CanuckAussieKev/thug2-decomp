@@ -34,6 +34,7 @@
 #include "platform/run_log.h"
 #include "engine/objects/compositemgr.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::goal_edit {
 
@@ -532,8 +533,8 @@ void fill_image(const Goal& goal, uint32_t level, int level_goal_index, const st
 {
     uint8_t* b = out->bytes;
     std::memset(b, 0, kTexelEdge);
-    auto u32 = [b](uint32_t offset) -> uint32_t& { return *reinterpret_cast<uint32_t*>(b + offset); };
-    auto f32 = [b](uint32_t offset) -> float& { return *reinterpret_cast<float*>(b + offset); };
+    auto u32 = [b](uint32_t offset) -> uint32_t& { return *raw::as<uint32_t>(b + offset); };
+    auto f32 = [b](uint32_t offset) -> float& { return *raw::as<float>(b + offset); };
     auto text = [b](uint32_t offset, const std::string& value, size_t room) {
         const size_t n = std::min(value.size(), room - 1);
         std::memcpy(b + offset, value.data(), n);
@@ -1000,7 +1001,7 @@ void put_in_play()
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
         GoalImage image{};
         fill_image(*goal, level, index, gap_ordinals(*goal), &image);
-        reinterpret_cast<park_editing::EditedGoal*>(image.bytes)->add_to_goal_manager(true);
+        raw::as<park_editing::EditedGoal>(image.bytes)->add_to_goal_manager(true);
         const uint32_t id = get_checksums(get_goal_id(index));
         if (!goal_exists(id)) {
             get_log("level editor: goal %s - the goal manager didn't take it", goal->id.c_str());
@@ -1226,7 +1227,7 @@ bool export_goal(const std::string& id, std::string* message)
     }
     // The goal editor's component (the object GoalEditor, CreateGoalEditor at start-up: its goaleditor 0x81F01058).
     auto* editor = static_cast<objects::GameEntity*>(objects::find_object(get_checksums("GoalEditor")));
-    uint8_t* component = editor ? reinterpret_cast<uint8_t*>(editor->fetch_module(0x81F01058)) : nullptr;
+    uint8_t* component = editor ? raw::bytes(editor->fetch_module(0x81F01058)) : nullptr;
     const uint32_t level = current_level();
     if (!component || !level) {
         *message = "Goal editor unavailable";
@@ -1238,8 +1239,8 @@ bool export_goal(const std::string& id, std::string* message)
     constexpr uint32_t kSlotSize = 0x338;
     uint8_t* slots = component + 0x18;
     auto used = [&](int s) { return slots[s * kSlotSize + 0x28A] != 0; };
-    auto level_of = [&](int s) { return *reinterpret_cast<uint32_t*>(slots + s * kSlotSize); };
-    auto index_of = [&](int s) { return *reinterpret_cast<int*>(slots + s * kSlotSize + 0x28C); };
+    auto level_of = [&](int s) { return *raw::as<uint32_t>(slots + s * kSlotSize); };
+    auto index_of = [&](int s) { return *raw::as<int>(slots + s * kSlotSize + 0x28C); };
     int index = -1;
     for (int candidate = 0; candidate < kMaxGoals && index < 0; ++candidate) {
         bool taken = false;

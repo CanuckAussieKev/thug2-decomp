@@ -26,6 +26,8 @@
 #include "platform/run_log.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::object_edit {
 namespace {
@@ -97,8 +99,8 @@ bool add_copy_node(script::Struct* node)
     auto count = static_cast<uint32_t>(g_copy_node_list.size());
     g_copy_nodes->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
-        g_copy_nodes->set_element(i, reinterpret_cast<uint32_t>(g_copy_node_list[i]));
-    return manager->hash_node_in(name, count - 1, reinterpret_cast<uint32_t>(node));
+        g_copy_nodes->set_element(i, cell::of(g_copy_node_list[i]));
+    return manager->hash_node_in(name, count - 1, cell::of(node));
 }
 
 void forget_copy_nodes()
@@ -232,7 +234,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
         return false;
     void* geometry = model->get_geom_by_name(0);
     const maths::Vec4* box =
-        geometry ? reinterpret_cast<const maths::Vec4*>(static_cast<render::Geom*>(geometry)->fetch_bounds()) : nullptr;
+        geometry ? raw::as<const maths::Vec4>(static_cast<render::Geom*>(geometry)->fetch_bounds()) : nullptr;
     // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
     V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
     if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {
@@ -558,7 +560,7 @@ std::vector<TableRow> copyable()
         if (!nodes || nodes->kind_tag_ != script::kQbvalStruct)
             continue;
         for (uint32_t i = 0; i < nodes->extent_; ++i) {
-            auto* node = reinterpret_cast<script::Struct*>(nodes->fetch_part(i));
+            auto* node = nodes->struct_at(i);
             const uint32_t cls = node_class_hash(node);
             uint32_t name = 0;
             if ((cls != kLevelObject && cls != kGameObject && cls != kPedestrian && cls != kVehicle) ||

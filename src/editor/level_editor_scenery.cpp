@@ -44,6 +44,8 @@
 #include "engine/lists/key_map.h"
 #include "engine/objects/rail_manager.h"
 #include "engine/render/coll_obj.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor {
 
@@ -183,12 +185,12 @@ struct SceneNode {
     SceneNode* next;
 };
 static_assert(sizeof(SceneNode) == 0x0C, "memory::ListNode's data, priority and next");
-bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
+bool is_end(const SceneNode* node) { return static_cast<intptr_t>(cell::address(node->scene)) == -1; }
 
 template <typename F>
 void for_each_scene(F fn)
 {
-    auto* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
+    auto* node = raw::as<SceneNode>(render::g_scene_list.next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (node->scene && !node->scene->is_sky_)
@@ -1871,7 +1873,7 @@ int get_moved_count()
 void log_census()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    auto* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
+    auto* node = raw::as<SceneNode>(render::g_scene_list.next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         const bool end = is_end(node);
         const render::WorldScene* scene = end ? nullptr : node->scene;

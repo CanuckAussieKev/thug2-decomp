@@ -37,6 +37,8 @@
 #include "platform/run_log.h"
 #include "game/skate/skate_module.h"
 #include "engine/util/unique_handle.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::level_editor::layout {
 
@@ -1450,7 +1452,7 @@ ModeFlags current_mode()
                           kIsParkEditor = checksums::hash_from_text("is_parkeditor"),
                           kIsNet = checksums::hash_from_text("is_net");
     ModeFlags flags;
-    void* mode = reinterpret_cast<void*>(goals::g_game_mode);
+    void* mode = raw::as<void>(goals::g_game_mode);
     if (!mode)
         return flags;
     // (0x00553220: the mode's structure's integer `property`, non-zero)
@@ -1668,7 +1670,7 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
         if (!array || array->kind_tag_ != script::kQbvalStruct)
             continue;
         for (uint32_t i = 0; i < array->extent_; ++i) {
-            auto* entry = reinterpret_cast<script::Struct*>(array->fetch_part(i));
+            auto* entry = array->struct_at(i);
             uint32_t load = 0;
             if (!entry || !entry->read_hash_value(kLevel, &load, 0))
                 continue;
@@ -1700,7 +1702,7 @@ bool cfunc_edited_levels(script::Struct*, script::Script* script)
     auto* array = new (script::alloc_script_array()) script::Array;
     array->configure_size_kind(static_cast<uint32_t>(entries.size()), script::kQbvalStruct);
     for (size_t i = 0; i < entries.size(); ++i)
-        array->set_element(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entries[i]));
+        array->set_element(static_cast<uint32_t>(i), cell::of(entries[i]));
     script->args_->append_array_ref("edited_list", array);
     script->args_->put_int("edited_count", static_cast<int>(entries.size()));
     return true;
