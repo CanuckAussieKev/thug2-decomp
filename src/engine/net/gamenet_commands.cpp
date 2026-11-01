@@ -125,7 +125,7 @@ void send_request(Hub* manager, uint8_t id, void* data, uint16_t length)
 // 0x00535DA0: StartCTFGame - capture the flag's task into the logic tasks.
 bool __cdecl cfunc_start_ctf_game(Struct*, Script*)
 {
-    get_logic_tasks()->queue_job(net_link()->flag_carry_job_);
+    get_logic_tasks()->queue_job(net_link()->flag_carry_job_.get());
     return true;
 }
 

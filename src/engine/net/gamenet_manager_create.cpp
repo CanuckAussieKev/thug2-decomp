@@ -49,9 +49,9 @@ constexpr uint32_t kTauntSettingsKey = 0x878CB88F;
 constexpr int kGameSpyGameId = 1003;
 constexpr int kChallengeLength = 8;
 
-memory::owner<tasks::SchedulerTask*> new_task(Hub* manager, tasks::Task<Hub>::Code code, int priority)
+std::unique_ptr<tasks::SchedulerTask> new_task(Hub* manager, tasks::Task<Hub>::Code code, int priority)
 {
-    return new tasks::Task<Hub>(code, manager, priority);
+    return std::make_unique<tasks::Task<Hub>>(code, manager, priority);
 }
 
 // A list head (lists::Foremost<T>; 0x14 bytes at its offset): empty.
@@ -68,7 +68,7 @@ void* carve(uint32_t size)
 } // namespace
 
 // 0x0053EE90
-Hub* Hub::make_new()
+Hub::Hub()
 {
     flag_bits_ = 0; // the flags (a word in the original: the three bytes after them are zero already)
     new (net_options_) prefs::Preferences;
@@ -110,20 +110,20 @@ Hub* Hub::make_new()
     start_game_job_ = new_task(this, &Hub::start_game_task, 0);
     level_change_job_ = new_task(this, &level_change_task, 0);
     flag_carry_job_ = new_task(this, &carried_flags_task, 0);
-    tasks->queue_job(connection_job_);
+    tasks->queue_job(connection_job_.get());
     modem_state_shown_ = 5;  // the modem state shown last
     created_goals_size_ = 0; // the created goals' message
     created_goals_level_ = 0;
     join_mode_ = 0;
     motd_received_ = false;
     void* memory = carve(sizeof(RoomManager));
-    lobby_service_ = memory ? new (memory) RoomManager : nullptr;
+    lobby_service_.reset(memory ? new (memory) RoomManager : nullptr);
     memory = carve(sizeof(VaultMan)); // (the original's is 0x3C8 bytes: its search has a vtable)
-    vault_man_ = memory ? new (memory) VaultMan : nullptr;
+    vault_man_.reset(memory ? new (memory) VaultMan : nullptr);
     memory = carve(sizeof(FriendsManager));
-    presence_service_ = memory ? new (memory) FriendsManager : nullptr;
+    presence_service_.reset(memory ? new (memory) FriendsManager : nullptr);
     memory = carve(sizeof(RankingsManager));
-    rating_service_ = memory ? new (memory) RankingsManager : nullptr;
+    rating_service_.reset(memory ? new (memory) RankingsManager : nullptr);
     game_spy::cd_key_init(kGameSpyGameId); // the CD-key SDK (gcd_init)
     // The CD-key challenge: eight random letters or digits (the game's C runtime srand(time(0)) / rand).
     crt::get_srand(crt::get_instant());
@@ -132,7 +132,6 @@ Hub* Hub::make_new()
         challenge_[i] = static_cast<char>(c < 10 ? '0' + c : c < 36 ? 'A' + c - 10 : 'a' + c - 36);
     }
     challenge_[kChallengeLength] = '\0';
-    return this;
 }
 
 uint32_t g_game_net_references;
@@ -143,7 +142,7 @@ Hub* __cdecl Hub::fabricate(bool create)
     Hub*& instance = g_online_hub;
     if (!instance && create) {
         void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1);
-        instance = memory ? static_cast<Hub*>(memory)->make_new() : nullptr;
+        instance = memory ? new (memory) Hub : nullptr;
     }
     ++g_game_net_references; // (the references)
     return instance;

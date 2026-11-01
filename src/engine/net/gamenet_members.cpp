@@ -391,7 +391,7 @@ void Hub::toggle_net_metrics()
     tasks::PileUp* tasks = get_logic_tasks();
     show_metrics_ = !show_metrics_;
     if (show_metrics_)
-        tasks->queue_job(metrics_job_);
+        tasks->queue_job(metrics_job_.get());
     else
         metrics_job_->drop_out();
 }
@@ -435,7 +435,7 @@ void __fastcall Hub::unlink_all_nodes(memory::ListNode* head)
 bool g_query_reporting;
 
 // 0x00536D70
-void Hub::destroy_body()
+Hub::~Hub()
 {
     // GameSpy shut down (the SDK's), its reporting if it's up.
     game_spy::cd_key_disconnect_all(1003);
@@ -444,28 +444,18 @@ void Hub::destroy_body()
         game_spy::get_qr2_shutdown(nullptr);
         g_query_reporting = false;
     }
-    // The lobby, the vault, the presence and the stats: each one's destructor, then freed.
-    if (auto* lobby = lobby_service_) {
-        lobby->~RoomManager();
-        memory::Hub::get_pull()->dealloc(lobby);
-    }
-    if (auto* vault = vault_man_) {
-        vault->~VaultMan();
-        memory::Hub::get_pull()->dealloc(vault);
-    }
-    if (auto* buddies = presence_service_) {
-        buddies->~FriendsManager();
-        memory::Hub::get_pull()->dealloc(buddies);
-    }
-    if (auto* stats = rating_service_) {
-        stats->~RankingsManager();
-        memory::Hub::get_pull()->dealloc(stats);
-    }
-    // The tasks, in the original's order.
-    for (tasks::SchedulerTask* job :
-         {guest_admit_job_, host_admit_job_, connection_job_, metrics_job_, keyboard_job_, service_job_,
-          join_phase_job_, start_game_job_, level_change_job_, server_list_job_})
-        delete job;
+    // The lobby, the vault, the presence and the stats: each one's destructor, then freed (each while the hub still
+    // points at it).
+    memory::destroy_then_clear(lobby_service_);
+    memory::destroy_then_clear(vault_man_);
+    memory::destroy_then_clear(presence_service_);
+    memory::destroy_then_clear(rating_service_);
+    // The tasks, in the original's order. (NOT ORIGINAL: the five the original never deleted - score broadcast,
+    // dial-up, join expiry, auto serve, flag carry - go with the hub's members after.)
+    for (std::unique_ptr<tasks::SchedulerTask>* job :
+         {&guest_admit_job_, &host_admit_job_, &connection_job_, &metrics_job_, &keyboard_job_, &service_job_,
+          &join_phase_job_, &start_game_job_, &level_change_job_, &server_list_job_})
+        memory::destroy_then_clear(*job);
     // The lists: the players' nodes unlinked, then each head's destructor.
     unlink_all_nodes(&players_);
     waiting_servers_.uncouple();

@@ -491,9 +491,9 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
         as_client(client)->dial_server(ip, port);
         client->opened_link(static_cast<int>(ip), port, Conn::kFlagRemote);
         join_began_at_ = milli_seconds();
-        get_logic_tasks()->queue_job(join_expiry_job_);
+        get_logic_tasks()->queue_job(join_expiry_job_.get());
         join_phase_ = kJoinStateConnecting;
-        get_logic_tasks()->queue_job(join_phase_job_);
+        get_logic_tasks()->queue_job(join_phase_job_.get());
         join_port_ = port;
         join_ip_ = ip;
         info.rank = current_rank(this);
@@ -541,7 +541,7 @@ void Hub::retry_entry(AppHost* client)
     send_connection_request(as_client(client), info, &request);
     client->transmit(false);
     join_began_at_ = milli_seconds();
-    get_logic_tasks()->queue_job(join_expiry_job_);
+    get_logic_tasks()->queue_job(join_expiry_job_.get());
     join_phase_ = kJoinStateJoining;
 }
 
@@ -562,7 +562,7 @@ void Hub::retry_entry_with_key(const char* password)
     thugpro::ConnectRequest request;
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
-    get_logic_tasks()->queue_job(join_expiry_job_);
+    get_logic_tasks()->queue_job(join_expiry_job_.get());
     join_phase_ = kJoinStateJoiningWithPassword;
 }
 
@@ -620,7 +620,7 @@ AppHost* Hub::start_host_session(bool local, bool secure)
     if (host_mode_ != 0)
         host_mode_ = 0; // serve
     if (server) {
-        get_logic_tasks()->queue_job(host_admit_job_);
+        get_logic_tasks()->queue_job(host_admit_job_.get());
         add_handlers(host_, this, kServerHandlers);
         score_synced_at_ = 0;
         awaiting_start_ = false;

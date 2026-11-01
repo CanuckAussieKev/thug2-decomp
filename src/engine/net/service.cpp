@@ -54,7 +54,7 @@ const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(o
 void change_phase(online::Hub* manager, int state) { manager->set_service_state(state); }
 // Take this task out of the task list (tasks::SchedulerTask::drop_out).
 void remove_service_task(online::Hub* manager) { manager->service_job_->drop_out(); }
-online::RoomManager* lobby_list(online::Hub* manager) { return manager->lobby_service_; }
+online::RoomManager* lobby_list(online::Hub* manager) { return manager->lobby_service_.get(); }
 
 void push_internet_heap()
 {

@@ -144,7 +144,7 @@ void init_desc(net::NetMessageInfo& desc, uint8_t id)
 // game is on / off (once, as `on` changes).
 void report_game_state(Hub* manager, bool on)
 {
-    auto* lobby = manager->lobby_service_;
+    auto* lobby = manager->lobby_service_.get();
     void* peer = lobby->get_lobby_handle();
     if (peer && game_spy::peer_is_connected(peer) && lobby->is_hosting())
         game_spy::peer_state_changed(peer);
@@ -228,7 +228,7 @@ bool __cdecl cfunc_start_network_game(Struct*, Script*)
         net_game_start_time() = frame_clock::get_time() + 8000;
     else
         net_game_start_time() = frame_clock::get_time() + 3000;
-    tasks->queue_job(manager->start_game_job_);
+    tasks->queue_job(manager->start_game_job_.get());
     if (manager->in_net_game()) {
         uint32_t text = manager->host_mode_ == 1 ? kAutoStarting : kStarting;
         manager->build_net_notice(true, text, manager->get_game_type_name(), nullptr, nullptr, kNetStatusProps, true,

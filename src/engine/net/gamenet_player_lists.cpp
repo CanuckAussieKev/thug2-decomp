@@ -823,7 +823,7 @@ void __cdecl release_manager()
     }
     Hub* manager = g_online_hub;
     if (manager) {
-        manager->destroy_body();
+        manager->~Hub();
         memory::Hub::get_pull()->dealloc(manager);
     }
     g_online_hub = nullptr;

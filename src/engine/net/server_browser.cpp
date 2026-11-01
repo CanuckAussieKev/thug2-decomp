@@ -85,7 +85,7 @@ enum ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove 
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_; }
+RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
 void get_append(memory::ListNode* head, memory::ListNode* node)
 {

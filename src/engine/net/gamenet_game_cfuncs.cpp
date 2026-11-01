@@ -242,9 +242,9 @@ bool __cdecl cfunc_entered_network_game(script::Struct*, script::Script*)
     if (g_online_active) // (on the internet: the server's GameSpy reporting)
         start_query_reporting(false);
     tasks::PileUp* tasks = get_logic_tasks();
-    tasks->queue_job(manager->keyboard_job_);
+    tasks->queue_job(manager->keyboard_job_.get());
     g_text_entry = true;
-    tasks->queue_job(manager->score_broadcast_job_);
+    tasks->queue_job(manager->score_broadcast_job_.get());
     manager->show_scores_ = true;
     return true;
 }

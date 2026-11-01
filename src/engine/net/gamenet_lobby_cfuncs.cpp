@@ -57,7 +57,7 @@ constexpr int kHostProfiles[] = {0x01A7665B, 0x01A76689, 0x01A766AB, 0x01A76701,
                                  0x01A7672E, 0x01A7675B, 0x01A76773, 0x01A76794, 0x01A767B1};
 
 Hub* net_session_slot() { return g_online_hub; }
-RoomManager* current_lobby() { return net_session_slot()->lobby_service_; }
+RoomManager* current_lobby() { return net_session_slot()->lobby_service_.get(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 void push_internet_heap()
 {
@@ -81,7 +81,7 @@ bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*
     const char* address = nullptr;
     int port = 0;
     push_internet_heap();
-    auto* lobby = manager->lobby_service_;
+    auto* lobby = manager->lobby_service_.get();
     params->fetch_text(0u, &address, 0);
     params->fetch_int_value(0u, &port, 0);
     params->read_hash_value(kCookie, reinterpret_cast<uint32_t*>(&lobby->nat_cookie_), 0);
@@ -124,8 +124,8 @@ bool __cdecl cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
     push_internet_heap();
     Hub* manager = net_session_slot();
-    auto* lobby = manager->lobby_service_;
-    FriendsManager* buddy = manager->presence_service_;
+    auto* lobby = manager->lobby_service_.get();
+    FriendsManager* buddy = manager->presence_service_.get();
     game_spy::peer_leave_room(lobby->remote_, kRoomGroupKind, nullptr); // the group room left
     lobby->in_group_room_ = false;
     if (buddy->authenticated_ && !params->has_entry_named(kPreserveStatus)) {
@@ -162,7 +162,7 @@ bool __cdecl cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 bool __cdecl cfunc_can_host_game(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
-    RoomManager* lobby = manager->lobby_service_;
+    RoomManager* lobby = manager->lobby_service_.get();
     if (!lobby->restricted_hosting_)
         return lobby->unknown30_ < lobby->unknown2c_;
     if (!manager->presence_service_->authenticated_) // (logged in to the presence)

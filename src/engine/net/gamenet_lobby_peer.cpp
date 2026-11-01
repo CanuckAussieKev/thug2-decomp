@@ -227,7 +227,7 @@ void __cdecl RoomManager::player_key_callback(void*, int key, int index, void* b
 void __cdecl RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
 {
     Hub* manager = net_session_slot();
-    FriendsManager* buddy = manager->presence_service_;
+    FriendsManager* buddy = manager->presence_service_.get();
     if (!manager->get_on_server())
         return;
     auto* lobby = static_cast<RoomManager*>(param);
@@ -369,7 +369,7 @@ void __cdecl RoomManager::nat_negotiation_completed(int result, int, const void*
         uint16_t port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
         manager->join_server(ip, port, 0);
     }
-    auto* lobby = manager->lobby_service_;
+    auto* lobby = manager->lobby_service_.get();
     if (manager->get_on_server()) {
         if (--lobby->negotiations_ == 0)
             lobby->nat_task_->drop_out();
@@ -432,7 +432,7 @@ void __cdecl RoomManager::hole_punch_result_fn(void*, int cookie, void*)
         pop_heap();
         return;
     }
-    auto* lobby = manager->lobby_service_;
+    auto* lobby = manager->lobby_service_.get();
     if (lobby->negotiations_ == 0)
         tasks->queue_job(lobby->nat_task_.get());
     ++lobby->negotiations_;

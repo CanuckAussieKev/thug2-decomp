@@ -50,7 +50,7 @@ constexpr uint32_t kProgressScript = 0x4B85EE64;
 constexpr uint32_t kErrorScript = 0xCF040665;
 
 Hub* net_session_slot() { return g_online_hub; }
-VaultMan* get_vault() { return net_session_slot()->vault_man_; }
+VaultMan* get_vault() { return net_session_slot()->vault_man_.get(); }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 void push_top_down() { ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_); }
 void push_bottom_up() { ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_); }
@@ -766,8 +766,8 @@ bool __cdecl cancel_file_transfer(script::Struct*, script::Script*)
 bool __cdecl download_directory_list(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
-    VaultMan* vault = manager->vault_man_;
-    FriendsManager* buddies = manager->presence_service_;
+    VaultMan* vault = manager->vault_man_.get();
+    FriendsManager* buddies = manager->presence_service_.get();
     params->read_hash_value(0u, &vault->kind_tag_, 1);
     if (const char* folder = type_folder(vault->kind_tag_)) // (an unknown type keeps the folder)
         std::snprintf(vault->folder_, sizeof(vault->folder_), "%s", folder);

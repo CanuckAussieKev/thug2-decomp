@@ -557,7 +557,7 @@ void Hub::set_host_mode(int mode)
     if (mode == kHostModeAutoServe) {
         send_observe_request();
         g_auto_serve_start = frame_clock::get_time(); // (the auto-serve task waits 2 s from here)
-        get_logic_tasks()->queue_job(auto_serve_job_);
+        get_logic_tasks()->queue_job(auto_serve_job_.get());
     } else if (mode == kHostModeFcfs) {
         send_observe_request();
         assign_first_come_first_served();

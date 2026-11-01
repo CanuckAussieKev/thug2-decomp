@@ -34,7 +34,7 @@ constexpr int kStatusChatting = 4;
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
-FriendsManager* get_buddies() { return the_manager()->presence_service_; }
+FriendsManager* get_buddies() { return the_manager()->presence_service_.get(); }
 
 void unlink_node(memory::ListNode* node)
 {
@@ -156,7 +156,7 @@ bool __cdecl set_lobby_status(script::Struct* params, script::Script* script)
     Hub* manager = the_manager();
     const char* lobby = manager->lobby_service_->room_name_; // (0x0053F820)
     const char* text = script::fetch_text("homie_status_chatting");
-    FriendsManager* buddies = manager->presence_service_;
+    FriendsManager* buddies = manager->presence_service_.get();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     game_spy::gp_set_status(buddies, kStatusChatting, text, lobby); // (gpSetStatus)
     ram_stats()->leave_heap_scope();

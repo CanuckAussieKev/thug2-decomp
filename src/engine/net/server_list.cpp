@@ -92,7 +92,7 @@ constexpr uint32_t kNewsBufferSize = 0x6400; // bytes
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
-RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_; }
+RoomManager* current_lobby(Hub* manager) { return manager->lobby_service_.get(); }
 
 uint32_t g_last_refresh;
 bool g_show_pending;
@@ -293,7 +293,7 @@ void Hub::set_service_state(int state)
 {
     service_state_ = state;
     if (state == kStateWake) {
-        get_logic_tasks()->queue_job(service_job_);
+        get_logic_tasks()->queue_job(service_job_.get());
         set_service_state(next_service_state_);
         g_news_message_count = 0;
     } else if (state == kStateStopped) {
@@ -336,7 +336,7 @@ bool Hub::start_server_list()
     ram_stats()->leave_heap_scope();
     if (!client)
         return false;
-    tasks::SchedulerTask* task = server_list_job_;
+    tasks::SchedulerTask* task = server_list_job_.get();
     if (!task->is_on_task_list())
         logic->queue_job(task);
     return true;

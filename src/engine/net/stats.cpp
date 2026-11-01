@@ -54,7 +54,7 @@ const char* stats_file(int index)
 bool __cdecl retrieve_top_stats(script::Struct* params, script::Script*)
 {
     online::Hub* manager = online::g_online_hub;
-    online::RankingsManager* stats = manager->rating_service_;
+    online::RankingsManager* stats = manager->rating_service_.get();
     int& current = stats->top_file_;
     int index = 0;
     if (params->fetch_int_value(0x7360C9EF, &index, 0))

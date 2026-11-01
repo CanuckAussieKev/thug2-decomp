@@ -377,7 +377,7 @@ int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
     if (!message.flag)
         return kContinue;
     auto* logic_tasks = (&assets::g_main_loop_manager->logic_tasks_);
-    auto* change_task = manager->level_change_job_;
+    auto* change_task = manager->level_change_job_.get();
     if (change_task->is_on_task_list()) {
         if (!manager->get_on_server())
             manager->level_ = message.level;

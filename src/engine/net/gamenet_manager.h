@@ -2,8 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 #include "engine/net/gamenet_messages.h"
 
 namespace net {
@@ -387,7 +389,9 @@ public:
     // 0x00536D70: the destructor body: GameSpy shut down (0x005F9900 with 1003, 0x005F9BE0, its reporting if up), the
     // lobby, +0x14, the presence and the stats deleted, the tasks (+0xC0 ... +0xF0) deleted, the lists emptied, the
     // two preference sets destroyed.
-    void destroy_body();
+    ~Hub();
+    Hub(const Hub&) = delete;
+    Hub& operator=(const Hub&) = delete;
     // Every node after `head` taken out of its list (each linked to itself; none freed). No address of its own: the
     // original calls the list code folded at 0x00588B70 (GameObjects::TrickObjectHead::unlink_all).
     // (__fastcall: `head` in ECX, as the original's call passes it.)
@@ -590,8 +594,8 @@ public:
     static void __cdecl host_player_intake_tick(tasks::Task<Hub>* task);
     // 0x0053EE90 (gamenet_manager_create.cpp): the constructor: the preferences (loaded), the player lists, fifteen
     // tasks (the connection task started), the lobby / vault / presence / stats managers, the CD-key challenge (eight
-    // random letters and digits). Returns this.
-    Hub* make_new();
+    // random letters and digits).
+    Hub();
     // 0x0053F520: the manager (made if `create` and there's none, 0xFE0C bytes); a reference counted (0x007CCE18).
     static Hub* __cdecl fabricate(bool create);
     // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
@@ -607,10 +611,10 @@ public:
     net::AppHost* host_;                   // +0x04
     net::AppHost* client_app_;             // +0x08 client 0 (the game's)
     net::AppHost* client1_;                // +0x0C client 1
-    RoomManager* lobby_service_;           // +0x10 the GameSpy lobby
-    VaultMan* vault_man_;                  // +0x14 the content vault and HTTP transfers
-    FriendsManager* presence_service_;     // +0x18 the GameSpy presence
-    RankingsManager* rating_service_;      // +0x1C the player's rating and stats
+    memory::HeapUnique<RoomManager> lobby_service_; // +0x10 the GameSpy lobby
+    memory::HeapUnique<VaultMan> vault_man_; // +0x14 the content vault and HTTP transfers
+    memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
+    memory::HeapUnique<RankingsManager> rating_service_; // +0x1C the player's rating and stats
     char challenge_[12];                   // +0x20 the host's CD-key challenge
     net::AppHost* browser_client_;         // +0x2C the server list's client
     uint32_t game_type_;                   // +0x30 the game_type preference's checksum when the game started
@@ -629,21 +633,21 @@ public:
     int crown_start_;                      // +0x68 the crown's starting point (sent as a signed byte)
     objects::CrownObject* crown_;          // +0x6C king of the hill's crown
     uint32_t team_objects_[4][5];          // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
-    tasks::SchedulerTask* connection_job_; // +0xC0 connection_task
-    tasks::SchedulerTask* metrics_job_;    // +0xC4 the net metrics' task
-    tasks::SchedulerTask* score_broadcast_job_;       // +0xC8 score_broadcast_tick
-    tasks::SchedulerTask* host_admit_job_;            // +0xCC
-    tasks::SchedulerTask* guest_admit_job_;           // +0xD0
-    tasks::SchedulerTask* keyboard_job_;              // +0xD4 the chat keyboard's task
-    tasks::SchedulerTask* dialup_job_;                // +0xD8 the online state task (dialup_progress_tick)
-    tasks::SchedulerTask* join_expiry_job_;           // +0xDC
-    tasks::SchedulerTask* service_job_;               // +0xE0 the online service task (net::service_task)
-    tasks::SchedulerTask* join_phase_job_;            // +0xE4
-    tasks::SchedulerTask* start_game_job_;            // +0xE8 start_game_task
-    tasks::SchedulerTask* level_change_job_;          // +0xEC level_change_task
-    tasks::SchedulerTask* server_list_job_;           // +0xF0 server_list_task (the server-list client's)
-    tasks::SchedulerTask* auto_serve_job_;            // +0xF4 auto_serve_task
-    tasks::SchedulerTask* flag_carry_job_;            // +0xF8 carried_flags_task
+    std::unique_ptr<tasks::SchedulerTask> connection_job_; // +0xC0 connection_task
+    std::unique_ptr<tasks::SchedulerTask> metrics_job_; // +0xC4 the net metrics' task
+    std::unique_ptr<tasks::SchedulerTask> score_broadcast_job_; // +0xC8 score_broadcast_tick
+    std::unique_ptr<tasks::SchedulerTask> host_admit_job_; // +0xCC
+    std::unique_ptr<tasks::SchedulerTask> guest_admit_job_; // +0xD0
+    std::unique_ptr<tasks::SchedulerTask> keyboard_job_; // +0xD4 the chat keyboard's task
+    std::unique_ptr<tasks::SchedulerTask> dialup_job_; // +0xD8 the online state task (dialup_progress_tick)
+    std::unique_ptr<tasks::SchedulerTask> join_expiry_job_; // +0xDC
+    std::unique_ptr<tasks::SchedulerTask> service_job_; // +0xE0 the online service task (net::service_task)
+    std::unique_ptr<tasks::SchedulerTask> join_phase_job_; // +0xE4
+    std::unique_ptr<tasks::SchedulerTask> start_game_job_; // +0xE8 start_game_task
+    std::unique_ptr<tasks::SchedulerTask> level_change_job_; // +0xEC level_change_task
+    std::unique_ptr<tasks::SchedulerTask> server_list_job_; // +0xF0 server_list_task (the server-list client's)
+    std::unique_ptr<tasks::SchedulerTask> auto_serve_job_; // +0xF4 auto_serve_task
+    std::unique_ptr<tasks::SchedulerTask> flag_carry_job_; // +0xF8 carried_flags_task
     pad_input::InputHandler* spectator_pad_listener_; // +0xFC
     int spectate_request_;                            // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
