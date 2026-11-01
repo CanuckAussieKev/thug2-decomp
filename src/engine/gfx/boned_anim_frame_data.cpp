@@ -11,11 +11,13 @@
 #include "engine/core/mem.h"
 #include "engine/file/file_load.h"
 #include "engine/gfx/anim_blend.h"
+#include "engine/gfx/anim_format.h"
 #include "engine/gfx/anim_cache.h"
 #include "engine/gfx/custom_anim_key.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/maths/maths.h"
 #include "engine/maths/vec4.h"
+#include "engine/util/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 
 namespace gfx {
@@ -770,102 +772,61 @@ int FrameCacheEntry::find_trans_keys_backwards(int bone, float frame, uint8_t** 
 
 // --- setting up and reading the frame data ------------------------------------------------------------------
 
-namespace {
-
-uint8_t* get_aligned(uint8_t* p)
+// The custom keys after the keys (the header's count), then their count - not when one fails. Not original - read
+// through anim_format's reader within the animation (create_custom_anim_key's reader form).
+bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout)
 {
-    uintptr_t misaligned = reinterpret_cast<uintptr_t>(p) & 3;
-    return misaligned ? p + (4 - misaligned) : p;
-}
-// Past the partial-animation bits at `p` (a count, then a word per 32 bones - one too many, as the original).
-uint8_t* past_bone_bits(uint8_t* p)
-{
-    int count = *reinterpret_cast<int32_t*>(p);
-    return p + ((count - 1) / 32) * 4 + 8;
-}
-// An event made from the data at `*at` (0x00486680, not rewritten here), which it moves past.
-UserClipKey* read_event(uint8_t** at) { return create_custom_anim_key(const_cast<const uint8_t**>(at)); }
-
-} // namespace
-
-// The events after the keys, then their count (not when one fails).
-bool JointClipFrames::read_events(const uint32_t* header, uint8_t* at)
-{
-    if (!header[3]) {
+    if (!header.custom_key_count) {
         events_ptr_ = nullptr;
-        event_count_ = static_cast<int16_t>(header[3]);
+        event_count_ = static_cast<int16_t>(header.custom_key_count);
         return true;
     }
-    events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header[3] * 4));
-    for (uint32_t i = 0; i < header[3]; ++i) {
-        UserClipKey* event = read_event(&at);
+    events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
+    util::ByteReader reader(reinterpret_cast<const uint8_t*>(layout.custom_keys),
+                            layout.end - layout.custom_keys);
+    for (uint32_t i = 0; i < header.custom_key_count; ++i) {
+        UserClipKey* event = create_custom_anim_key(reader);
         if (!event)
             return false;
         events_ptr_[i] = event;
     }
-    event_count_ = static_cast<int16_t>(header[3]);
+    event_count_ = static_cast<int16_t>(header.custom_key_count);
     return true;
 }
 
-// 0x00484200
-bool JointClipFrames::set_up_compressed(uint8_t* data)
+// 0x00484200 (the sections from anim_format's layout)
+bool JointClipFrames::set_up_compressed(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout)
 {
-    const auto* header = reinterpret_cast<const uint32_t*>(data);
-    bone_count_ = static_cast<int>(header[0]);
-    quat_key_count_ = static_cast<int16_t>(header[1]);
-    trans_key_count_ = static_cast<int16_t>(header[2]);
-    uint32_t quat_size = header[4];
-    uint32_t trans_size = header[5];
-    uint8_t* p = data + 0x18;
-    quat_sizes_ = reinterpret_cast<uint16_t*>(p);
-    p += bone_count_ * 2;
-    trans_sizes_ = reinterpret_cast<uint16_t*>(p);
-    p = get_aligned(p + bone_count_ * 2);
-    uint32_t flags = flag_bits_;
+    bone_count_ = static_cast<int>(header.bone_count);
+    quat_key_count_ = static_cast<int16_t>(header.rotation_key_count);
+    trans_key_count_ = static_cast<int16_t>(header.translation_key_count);
+    quat_sizes_ = reinterpret_cast<uint16_t*>(layout.rotation_sizes);
+    trans_sizes_ = reinterpret_cast<uint16_t*>(layout.translation_sizes);
     bone_labels_ = nullptr;
-    if (flags & 0x2000) {
-        key_table_ = p;
-        p += 0x600;
+    if (layout.key_table)
+        key_table_ = reinterpret_cast<uint8_t*>(layout.key_table);
+    if (layout.partial_bones)
+        partial_bones_ = reinterpret_cast<uint32_t*>(layout.partial_bones);
+    if (layout.rotation_keys) {
+        quat_keys_ = reinterpret_cast<uint8_t*>(layout.rotation_keys);
+        trans_keys_ = reinterpret_cast<uint8_t*>(layout.translation_keys);
     }
-    if (flags & 0x80000) {
-        partial_bones_ = reinterpret_cast<uint32_t*>(p);
-        p = past_bone_bits(p);
-    }
-    p = get_aligned(p);
-    if (!(flags & 0x8000000) && !(flags & 0x1000000)) {
-        quat_keys_ = p;
-        trans_keys_ = p + quat_size;
-        p += quat_size + trans_size;
-    }
-    return read_events(header, get_aligned(p));
+    return read_events(header, layout);
 }
 
-// 0x00484370
-bool JointClipFrames::set_up_float_keys(uint8_t* data)
+// 0x00484370 (the sections from anim_format's layout)
+bool JointClipFrames::set_up_float_keys(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout)
 {
-    const auto* header = reinterpret_cast<const uint32_t*>(data);
-    bone_count_ = static_cast<int>(header[0]);
-    uint32_t flags = flag_bits_;
-    quat_key_count_ = static_cast<int16_t>(header[1]);
-    trans_key_count_ = static_cast<int16_t>(header[2]);
-    uint8_t* p = data + 0x10;
-    if (flags & 0x1000000) {
-        bone_labels_ = reinterpret_cast<uint32_t*>(p);
-        p += bone_count_ * 4;
-    } else {
-        bone_labels_ = nullptr;
-    }
-    if (flags & 0x80000) {
-        partial_bones_ = reinterpret_cast<uint32_t*>(p);
-        p = past_bone_bits(p);
-    }
-    key_counts_ = p;
-    p = get_aligned(p + bone_count_ * ((flags & 0x400000) ? 4 : 2));
-    int key_size = (flags & 0x8000000) || (flags & 0x1000000) ? 16 : 8;
-    quat_keys_ = p;
-    trans_keys_ = p + quat_key_count_ * key_size;
-    p = trans_keys_ + trans_key_count_ * key_size;
-    return read_events(header, get_aligned(p));
+    bone_count_ = static_cast<int>(header.bone_count);
+    quat_key_count_ = static_cast<int16_t>(header.rotation_key_count);
+    trans_key_count_ = static_cast<int16_t>(header.translation_key_count);
+    bone_labels_ = reinterpret_cast<uint32_t*>(layout.bone_names); // (null without them)
+    if (layout.partial_bones)
+        partial_bones_ = reinterpret_cast<uint32_t*>(layout.partial_bones);
+    key_counts_ = reinterpret_cast<uint8_t*>(layout.key_counts);
+    quat_keys_ = reinterpret_cast<uint8_t*>(layout.rotation_keys);
+    trans_keys_ = reinterpret_cast<uint8_t*>(layout.translation_keys);
+    return read_events(header, layout);
 }
 
 // 0x004844C0

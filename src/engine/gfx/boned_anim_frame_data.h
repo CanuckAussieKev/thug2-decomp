@@ -11,6 +11,8 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "engine/gfx/anim_format.h"
+
 namespace maths {
 class QuatRotation;
 class Vec4;
@@ -123,13 +125,13 @@ static_assert(offsetof(FrameCacheEntry, cursors_) == 0x28 && offsetof(FrameCache
 
 class JointClipFrames {
 public:
-    // 0x00484200: the pointers into a compressed animation's data (`data`: the header - bones, key counts, events,
-    // the two key blocks' sizes -, each bone's key sizes, the own table, the partial bones, the keys, the events,
-    // each part 4-aligned); false if an event can't be made (0x00486680).
-    bool set_up_compressed(uint8_t* data);
+    // 0x00484200: the pointers into a compressed animation's data (the format and its layout: anim_format.h - each
+    // bone's key sizes, the own table, the partial bones, the keys, the events); false if an event can't be made
+    // (0x00486680).
+    bool set_up_compressed(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout);
     // 0x00484370: the same for an animation of float keys (bone names with flag 0x1000000, each bone's key counts -
     // bytes, or shorts with 0x400000 -, keys of 16 bytes with 0x8000000 / 0x1000000, else 8).
-    bool set_up_float_keys(uint8_t* data);
+    bool set_up_float_keys(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout);
     // 0x004844C0: each bone's rotation and translation at `time` (seconds) from float keys (a key list's last key
     // alone; between two; a bone where neither fits keeps the previous bone's pair). True. `unused` / `unused2` are
     // the callers' (valid flags, a cache index) - not read.
@@ -158,8 +160,8 @@ public:
     // 0x00482B90 (cdecl; the frame cache's callback when it drops `data`'s entry): no cache entry.
     static void __cdecl forget_cache_entry(JointClipFrames* data);
 
-    // The events after the keys (`header`'s fourth word: how many), then their count - not when one fails.
-    bool read_events(const uint32_t* header, uint8_t* at);
+    // The events after the keys (the header's custom key count), then their count - not when one fails.
+    bool read_events(const anim_format::AnimHeader& header, const anim_format::AnimLayout& layout);
 
     // 0x00484EB0: an additive pose: each bone not masked out - by `mask` (a skeleton's bone mask: +0x208 on, +0x20C the
     // bones' masks, +0x210 the bit) or by the frames' own bit array (flag 0x80000) - gets its first rotation key added

@@ -6,6 +6,7 @@
 #include "engine/gfx/custom_anim_key.h"
 
 #include "engine/core/mem.h"
+#include "engine/gfx/anim_format.h"
 #include "engine/gfx/anim_track.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/objects/cutscene.h"
@@ -229,6 +230,36 @@ UserClipKey* __cdecl create_custom_anim_key(const uint8_t** cursor)
     }
     default:
         *cursor = reinterpret_cast<const uint8_t*>(data) + size;
+        return nullptr;
+    }
+}
+
+// NOT ORIGINAL - create_custom_anim_key in its reader form (the animation loader's): the key read through
+// anim_format::read_custom_key within the animation; null when it runs past the end, for unknown kinds (skipped) and
+// when memory runs out.
+UserClipKey* create_custom_anim_key(util::ByteReader& reader)
+{
+    anim_format::CustomKey key;
+    if (!anim_format::read_custom_key(reader, &key))
+        return nullptr;
+    switch (key.kind) {
+    case 1:
+        return new CameraFovKey(key.frame, key.values[0]);
+    case 2:
+    case 7: {
+        maths::Vec4 pos = {key.values[0], key.values[1], key.values[2], key.values[3]};
+        maths::QuatRotation rotation = {key.values[4], key.values[5], key.values[6], key.values[7]};
+        return new CameraKey(key.frame, &rotation, &pos, key.kind == 7);
+    }
+    case 3:
+        return new MarkerKey(key.frame);
+    case 4:
+        return new ScriptKey(key.frame, key.value);
+    case 5:
+        return new StructureScriptKey(key.frame, key.value);
+    case 6:
+        return new KillObjectKey(key.frame, key.value);
+    default:
         return nullptr;
     }
 }

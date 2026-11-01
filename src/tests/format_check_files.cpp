@@ -18,6 +18,7 @@
 #include "engine/core/checksums.h"
 #include "engine/file/bundle_format.h"
 #include "engine/file/pre_format.h"
+#include "engine/gfx/anim_format.h"
 #include "engine/gfx/image_format.h"
 #include "engine/gfx/skeleton_format.h"
 #include "engine/gfx/texture_format.h"
@@ -466,6 +467,97 @@ void check_skeleton(const std::string& name, const uint8_t* data, size_t size)
     check(!skeleton_format::read_skeleton(cut, skeleton.get()), name + ": cut short");
 }
 
+// --- animations (.ska) ---------------------------------------------------------------------------------------------
+
+struct AnimStats {
+    int files = 0, float_keys = 0, compressed = 0, custom_keys = 0, neither = 0;
+} g_anims;
+
+uint8_t* reference_aligned(uint8_t* p)
+{
+    uintptr_t misaligned = reinterpret_cast<uintptr_t>(p) & 3;
+    return misaligned ? p + (4 - misaligned) : p;
+}
+uint8_t* reference_past_bone_bits(uint8_t* p) { return p + ((*reinterpret_cast<int32_t*>(p) - 1) / 32) * 4 + 8; }
+
+void check_animation(const std::string& name, const uint8_t* data, size_t size)
+{
+    ++g_anims.files;
+    std::vector<uint8_t> copy(size + 16);
+    auto* base = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(copy.data()) + 15) & ~uintptr_t(15));
+    std::memcpy(base, data, size);
+    anim_format::AnimHeader header;
+    anim_format::AnimLayout layout;
+    uint32_t flags = reinterpret_cast<const uint32_t*>(base)[1];
+    if (!(flags & anim_format::kFloatKeys) && !(flags & anim_format::kCompressed)) {
+        ++g_anims.neither; // (the frame data loads nothing of it)
+        return;
+    }
+    if (!anim_format::lay_out_animation(base, size, &header, &layout)) {
+        check(false, name + ": animation layout");
+        return;
+    }
+    // the original's arithmetic (JointClipFrames::set_up_float_keys / set_up_compressed)
+    uint8_t* keys = base + 0xC;
+    const auto* words = reinterpret_cast<const uint32_t*>(keys);
+    int bones = static_cast<int>(words[0]);
+    uint8_t* events;
+    if (flags & anim_format::kFloatKeys) {
+        ++g_anims.float_keys;
+        uint8_t* p = keys + 0x10;
+        if (flags & 0x1000000)
+            p += bones * 4;
+        if (flags & 0x80000)
+            p = reference_past_bone_bits(p);
+        uint8_t* counts = p;
+        p = reference_aligned(p + bones * ((flags & 0x400000) ? 4 : 2));
+        int key_size = (flags & 0x8000000) || (flags & 0x1000000) ? 16 : 8;
+        uint8_t* rotation = p;
+        uint8_t* translation = p + static_cast<int16_t>(words[1]) * key_size;
+        p = translation + static_cast<int16_t>(words[2]) * key_size;
+        events = reference_aligned(p);
+        check(layout.key_counts == reinterpret_cast<uintptr_t>(counts) &&
+                  layout.rotation_keys == reinterpret_cast<uintptr_t>(rotation) &&
+                  layout.translation_keys == reinterpret_cast<uintptr_t>(translation),
+              name + ": float keys as the original's arithmetic");
+    } else {
+        ++g_anims.compressed;
+        uint8_t* p = keys + 0x18 + bones * 2;
+        p = reference_aligned(p + bones * 2);
+        if (flags & 0x2000)
+            p += 0x600;
+        if (flags & 0x80000)
+            p = reference_past_bone_bits(p);
+        p = reference_aligned(p);
+        if (!(flags & 0x8000000) && !(flags & 0x1000000)) {
+            check(layout.rotation_keys == reinterpret_cast<uintptr_t>(p) &&
+                      layout.translation_keys == reinterpret_cast<uintptr_t>(p + words[4]),
+                  name + ": compressed keys as the original's arithmetic");
+            p += words[4] + words[5];
+        }
+        events = reference_aligned(p);
+    }
+    check(layout.custom_keys == reinterpret_cast<uintptr_t>(events),
+          name + ": custom keys as the original's arithmetic");
+    check(anim_format::check_bone_keys(header, layout), name + ": the bones' keys within the totals");
+    util::ByteReader reader(reinterpret_cast<const uint8_t*>(layout.custom_keys), layout.end - layout.custom_keys);
+    for (uint32_t i = 0; i < header.custom_key_count; ++i) {
+        anim_format::CustomKey key;
+        if (!anim_format::read_custom_key(reader, &key)) {
+            check(false, name + ": custom key " + std::to_string(i));
+            break;
+        }
+        ++g_anims.custom_keys;
+    }
+    anim_format::AnimHeader again;
+    anim_format::AnimLayout cut;
+    if (layout.custom_keys > reinterpret_cast<uintptr_t>(base) + 0x24)
+        check(!anim_format::lay_out_animation(base, layout.custom_keys - reinterpret_cast<uintptr_t>(base) - 1, &again,
+                                              &cut) ||
+                  layout.custom_keys - 3 <= layout.translation_keys,
+              name + ": cut short");
+}
+
 } // namespace
 
 void register_check(const std::string& extension, FileCheck check_function)
@@ -482,6 +574,7 @@ int run(const std::filesystem::path& data)
     register_check(".img", check_image);
     register_check(".col", check_collision);
     register_check(".ske", check_skeleton);
+    register_check(".ska", check_animation);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -516,6 +609,8 @@ int run(const std::filesystem::path& data)
                 g_images.memory_size_as_loaded);
     std::printf("collision objects: %d\n", g_collision_objects);
     std::printf("skeleton bones: %d\n", g_bones);
+    std::printf("animations: %d (%d float keys, %d compressed, %d neither); custom keys %d\n", g_anims.files,
+                g_anims.float_keys, g_anims.compressed, g_anims.neither, g_anims.custom_keys);
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());

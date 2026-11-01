@@ -10,6 +10,7 @@
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
 #include "engine/maths/x87_math.h"
+#include "engine/util/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"
 
@@ -294,17 +295,26 @@ void JointClipFrames::build_cache(int format)
 }
 
 // 0x004856C0
-bool JointClipFrames::read_in(const uint8_t* data, uint32_t, bool)
+bool JointClipFrames::read_in(const uint8_t* data, uint32_t size, bool)
 {
-    auto* header = reinterpret_cast<const uint32_t*>(data);
-    unknown00_ = header[2];
-    flag_bits_ = header[1];
+    // The headers read and the sections laid out through anim_format.h. Not original - bounded by the animation's
+    // size (0: not known): one whose sections or keys run past it isn't loaded (the original used whatever its
+    // counts and sizes said).
+    anim_format::AnimHeader header;
+    anim_format::AnimLayout layout;
+    bool valid = anim_format::lay_out_animation(data, size, &header, &layout) &&
+                 (size == 0 || anim_format::check_bone_keys(header, layout));
+    util::ByteReader words(data, 0xC);
+    words.u32();
+    flag_bits_ = words.u32();
+    unknown00_ = words.u32();
     bool loaded = false;
-    const uint8_t* keys = data + 0xC;
-    if (header[1] & kCompressedB)
-        loaded = set_up_float_keys(const_cast<uint8_t*>(keys));
-    else if (header[1] & kCompressed)
-        loaded = set_up_compressed(const_cast<uint8_t*>(keys));
+    if (!valid)
+        flag_bits_ &= ~(kCompressedB | kCompressed | kCacheOnLoad); // (nothing to read or cache)
+    if (flag_bits_ & kCompressedB)
+        loaded = set_up_float_keys(header, layout);
+    else if (flag_bits_ & kCompressed)
+        loaded = set_up_compressed(header, layout);
     if (flag_bits_ & kCacheOnLoad)
         build_cache(cache_format(cache_manager()));
     return loaded;
