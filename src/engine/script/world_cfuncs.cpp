@@ -50,8 +50,6 @@ bool& viewer_launched() { return g_viewer_launched; }
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
 render::WeatherSystem* get_weather() { return render::g_weather; }
 render::ScreenEffects* screen_effects() { return render::g_screen_effects; }
-using Setter = bool(__thiscall*)(void*, Struct*, Script*);
-
 } // namespace
 
 // 0x005A5360

@@ -165,7 +165,7 @@ void destroy_buddy_node(Buddy* buddy) { buddy->list_link_.uncouple(); }         
 void destroy_message_node(FriendNote* message) { message->list_link_.uncouple(); } // (0x005484C0)
 // 0x00548100: GP's buddy request callback (the request accepted); 0x00548140: the login thread.
 const void* const kOnBuddyRequest = code_address(FriendsManager::on_buddy_request);
-const auto kLoginThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(FriendsManager::login_thread));
+const auto kLoginThread = &FriendsManager::login_thread;
 // The lobby (lobby_service_): its peer (0x0053F880), and the peer SDK's public address of this machine (0x005FC940).
 void* lobby_peer(void* lobby) { return static_cast<RoomManager*>(lobby)->get_lobby_handle(); }
 uint32_t peer_public_ip(void* peer) { return game_spy::peer_get_public_ip(peer); }

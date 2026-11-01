@@ -18,7 +18,6 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -48,8 +47,8 @@ constexpr uint32_t kMotdTimeout = 15000;
 constexpr uint32_t kText = 0x4942CF80; // "text"
 
 // The two download threads (stdcall, the manager as their argument).
-const auto kNewsThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::news_thread));
-const auto kMotdThread = reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::motd_thread));
+const auto kNewsThread = &online::news_thread;
+const auto kMotdThread = &online::motd_thread;
 
 void change_phase(online::Hub* manager, int state) { manager->set_service_state(state); }
 // Take this task out of the task list (tasks::SchedulerTask::drop_out).

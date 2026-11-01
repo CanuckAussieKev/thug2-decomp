@@ -6,6 +6,7 @@
 
 #include "engine/objects/smtptr.h"
 #include "engine/script/param_struct.h"
+#include "engine/script/member_code.h"
 #include "engine/core/slab_bank.h"
 
 // A running script (Scripts::CScript, 0xF4 bytes, pool 0x006F3548 of 300 - ours 1200, engine/core/memory_sizes.h) and the list of all of them.
@@ -114,9 +115,9 @@ static_assert(sizeof(ParamScript) == 8, "allocated as 8 bytes by 0x0048B200");
 struct MemberFunctionEntry {
     uint32_t callsign_;
     uint32_t owner_kind_; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
-    // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
-    // CStruct* params, CScript* script)`; null: the object looks the name up (Entity::invoke_method_by_name 0x0045D850).
-    void* method_code_;
+    // +0x08: the member function (the original's: a 16-byte virtual-inheritance member function pointer; ours: its
+    // call_member_function, member_code.h); null: the object looks the name up (Entity::invoke_method_by_name 0x0045D850).
+    MemberCode method_code_;
     int this_adjustment_;         // +0x0C
     int virtual_base_offsets_[2]; // +0x10 (unused by single-inheritance classes)
 };

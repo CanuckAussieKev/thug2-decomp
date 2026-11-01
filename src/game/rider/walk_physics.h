@@ -8,6 +8,7 @@
 #include "engine/objects/entity.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/probe_ray.h"
+#include "engine/script/member_code.h"
 #include "game/rider/core_physics.h"
 #include "engine/core/owner.h"
 
@@ -47,10 +48,10 @@ struct WalkContact {
     render::ProbeRay feeler; // +0x1C
 };
 
-// An animated move's end callback (+0x1948): a member function pointer as the original's compiler lays out one with
-// virtual bases - the code, `this`'s adjustment, then two words the calls don't use.
+// An animated move's end callback (+0x1948): laid out as the original's member function pointer with virtual bases
+// - the code (ours: script::object_callback's function), `this`'s adjustment, then two words the calls don't use.
 struct AnimDoneCallback {
-    void* code_;
+    script::ObjectCallback code_;
     int this_adjust_;
     uint32_t unknown8_;
     uint32_t unknownc_;

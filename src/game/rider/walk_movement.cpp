@@ -554,7 +554,7 @@ void FootMovement::apply_transition()
     object->basis_frame_ = matrix;
     model_lift_ = transition_display_offset_;
     // Then the transition's member function, if any (+0x1948, this adjusted by +0x194C).
-    auto callback = reinterpret_cast<void(__thiscall*)(void*)>(anim_done_.code_);
+    script::ObjectCallback callback = anim_done_.code_;
     if (callback)
         callback(reinterpret_cast<uint8_t*>(this) + anim_done_.this_adjust_);
 }

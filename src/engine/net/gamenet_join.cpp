@@ -40,7 +40,6 @@
 #include "engine/sys/game_config.h"
 #include "engine/sys/mlp.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
 #include "platform/run_log.h"
 #include "engine/assets/resource_registry.h"
 #include "game/skate/game_mode.h"
@@ -233,163 +232,101 @@ net::Guest* as_client(AppHost* app) { return static_cast<net::Guest*>(app); }
 // The handlers a joining client adds (0x00534480): on every client, then on client 0 only.
 struct HandlerEntry {
     uint8_t id;
-    uint32_t code; // (an address: a game handler, or one of ours - Responder() maps those)
+    HandlerSlotValue code;
     uint32_t flags;
     bool manager_data_;
     int priority;
 };
-constexpr uint32_t kOurs = 0x80000000; // (+ an index into our_handler)
-HandlerSlotValue our_handler(uint32_t code)
-{
-    switch (code) {
-    case kOurs + 0:
-        return &Hub::on_turned_away_msg;
-    case kOurs + 1:
-        return &Hub::on_go_ahead_msg;
-    case kOurs + 2:
-        return &online::on_chat_msg;
-    case kOurs + 3:
-        return &Hub::on_link_established;
-    case kOurs + 4:
-        return &Hub::on_admission_ask_msg;
-    default:
-        return reinterpret_cast<HandlerSlotValue>(code);
-    }
-}
 const HandlerEntry kClientHandlers[] = {
-    {0x42, reinterpret_cast<uint32_t>(code_address(online::handle_ready_to_play)), kRunWhenLate, true,
-     kMidPriority}, // proceed to play
-    {0x4D, reinterpret_cast<uint32_t>(code_address(online::on_spectate_msg)), kRunWhenLate, true,
-     kMidPriority}, // observe proceed
-    {0x4E, reinterpret_cast<uint32_t>(code_address(online::handle_observers_full)), kRunWhenLate, true,
-     kMidPriority}, // observe refused
-    {kMsgJoinRefused, kOurs + 0, kRunWhenLate, true, kMidPriority},
-    {kMsgJoinProceed, kOurs + 1, kRunWhenLate, true, kMidPriority},
-    {0x25, reinterpret_cast<uint32_t>(code_address(online::on_ready_ask_msg)), kRunWhenLate, true,
-     kMidPriority}, // ready query
-    {0x26, reinterpret_cast<uint32_t>(code_address(online::on_ready_reply_msg)), kRunWhenLate, true,
-     kMidPriority}, // ready response
-    {0x53, reinterpret_cast<uint32_t>(code_address(online::on_admitted_msg)), kRunWhenLate, true,
-     kMidPriority}, // player info ack request
-    {0x58, reinterpret_cast<uint32_t>(code_address(online::handle_crown_spawn)), 0, true,
-     kMidPriority}, // the king dropped the crown
-    {0x75, reinterpret_cast<uint32_t>(code_address(online::handle_flag_returned)), 0, true,
-     kMidPriority}, // a player dropped a flag
-    {0x3F, reinterpret_cast<uint32_t>(code_address(online::on_hud_notice_msg)), kRunWhenLate, true,
-     kMidPriority}, // panel message
-    {0x5E, reinterpret_cast<uint32_t>(code_address(online::handle_auto_server_notice)), kRunWhenLate, true,
-     kMidPriority}, // auto server notification
-    {0x5F, reinterpret_cast<uint32_t>(code_address(online::handle_fcfs_notice)), kRunWhenLate, true,
-     kMidPriority}, // first-come-first-served assignment
-    {0x68, reinterpret_cast<uint32_t>(code_address(online::handle_joined_team)), kRunWhenLate, true,
-     kMidPriority}, // team change
-    {0x69, reinterpret_cast<uint32_t>(code_address(online::handle_choose_team)), kRunWhenLate, true,
-     kMidPriority},                                       // number of teams
-    {0x4C, kOurs + 2, kRunWhenLate, false, kMidPriority}, // chat
-    {0x7C, reinterpret_cast<uint32_t>(code_address(online::handle_cd_key_challenge)), kRunWhenLate, true,
-     kMidPriority}, // challenge
+    {0x42, &online::handle_ready_to_play, kRunWhenLate, true, kMidPriority},  // proceed to play
+    {0x4D, &online::on_spectate_msg, kRunWhenLate, true, kMidPriority},       // observe proceed
+    {0x4E, &online::handle_observers_full, kRunWhenLate, true, kMidPriority}, // observe refused
+    {kMsgJoinRefused, &Hub::on_turned_away_msg, kRunWhenLate, true, kMidPriority},
+    {kMsgJoinProceed, &Hub::on_go_ahead_msg, kRunWhenLate, true, kMidPriority},
+    {0x25, &online::on_ready_ask_msg, kRunWhenLate, true, kMidPriority},          // ready query
+    {0x26, &online::on_ready_reply_msg, kRunWhenLate, true, kMidPriority},        // ready response
+    {0x53, &online::on_admitted_msg, kRunWhenLate, true, kMidPriority},           // player info ack request
+    {0x58, &online::handle_crown_spawn, 0, true, kMidPriority},                   // the king dropped the crown
+    {0x75, &online::handle_flag_returned, 0, true, kMidPriority},                 // a player dropped a flag
+    {0x3F, &online::on_hud_notice_msg, kRunWhenLate, true, kMidPriority},         // panel message
+    {0x5E, &online::handle_auto_server_notice, kRunWhenLate, true, kMidPriority}, // auto server notification
+    {0x5F, &online::handle_fcfs_notice, kRunWhenLate, true, kMidPriority},        // first-come-first-served assignment
+    {0x68, &online::handle_joined_team, kRunWhenLate, true, kMidPriority},        // team change
+    {0x69, &online::handle_choose_team, kRunWhenLate, true, kMidPriority},        // number of teams
+    {0x4C, &online::on_chat_msg, kRunWhenLate, false, kMidPriority},              // chat
+    {0x7C, &online::handle_cd_key_challenge, kRunWhenLate, true, kMidPriority},   // challenge
 };
 const HandlerEntry kGameClientHandlers[] = {
-    {0x6D, reinterpret_cast<uint32_t>(code_address(online::handle_selected_goals)), 0, true,
-     kMidPriority}, // selected goals
-    {0x34, reinterpret_cast<uint32_t>(code_address(online::handle_start_game)), 0, true, kMidPriority}, // game info
-    {0x7A, reinterpret_cast<uint32_t>(code_address(online::handle_kill_team_flags)), 0, true,
-     kMidPriority}, // kill the team flags
-    {0x6E, reinterpret_cast<uint32_t>(code_address(online::handle_goal_completed)), 0, true,
-     kMidPriority}, // a goal beaten (relayed)
-    {0x6F, reinterpret_cast<uint32_t>(code_address(online::handle_goal_started)), 0, true,
-     kMidPriority}, // a goal started (relayed)
-    {0x70, reinterpret_cast<uint32_t>(code_address(online::handle_nothing)), 0, true,
-     kMidPriority}, // toggle pro set (nothing)
-    {0x46, reinterpret_cast<uint32_t>(code_address(online::on_level_switch_msg)), 0, true, kTopRank}, // change level
-    {0x46, reinterpret_cast<uint32_t>(code_address(online::handle_nothing)), 0, true, kTopRank},      // (and nothing)
-    {0x6C, reinterpret_cast<uint32_t>(code_address(online::handle_park_map)), 0, true, kTopRank},     // level data
-    {0x88, reinterpret_cast<uint32_t>(code_address(online::handle_rails_data)), kRunOnBadCrc, true,
-     kTopRank}, // rail data
-    {0x87, reinterpret_cast<uint32_t>(code_address(online::on_goal_sync_msg)), kRunOnBadCrc, true,
-     kTopRank}, // goals data
-    {0x80, reinterpret_cast<uint32_t>(code_address(online::handle_checksum_request)), 0, true,
-     kMidPriority}, // cheat checksum request
+    {0x6D, &online::handle_selected_goals, 0, true, kMidPriority},    // selected goals
+    {0x34, &online::handle_start_game, 0, true, kMidPriority},        // game info
+    {0x7A, &online::handle_kill_team_flags, 0, true, kMidPriority},   // kill the team flags
+    {0x6E, &online::handle_goal_completed, 0, true, kMidPriority},    // a goal beaten (relayed)
+    {0x6F, &online::handle_goal_started, 0, true, kMidPriority},      // a goal started (relayed)
+    {0x70, &online::handle_nothing, 0, true, kMidPriority},           // toggle pro set (nothing)
+    {0x46, &online::on_level_switch_msg, 0, true, kTopRank},          // change level
+    {0x46, &online::handle_nothing, 0, true, kTopRank},               // (and nothing)
+    {0x6C, &online::handle_park_map, 0, true, kTopRank},              // level data
+    {0x88, &online::handle_rails_data, kRunOnBadCrc, true, kTopRank}, // rail data
+    {0x87, &online::on_goal_sync_msg, kRunOnBadCrc, true, kTopRank},  // goals data
+    {0x80, &online::handle_checksum_request, 0, true, kMidPriority},  // cheat checksum request
 };
 const HandlerEntry kRemoteGameClientHandlers[] = {
-    {0x22, reinterpret_cast<uint32_t>(code_address(online::on_player_added_msg)), 0, true,
-     kMidPriority}, // player create
-    {0x79, reinterpret_cast<uint32_t>(code_address(online::handle_flush_important)), 0, true,
-     kMidPriority}, // join accepted
+    {0x22, &online::on_player_added_msg, 0, true, kMidPriority},    // player create
+    {0x79, &online::handle_flush_important, 0, true, kMidPriority}, // join accepted
 };
 const HandlerEntry kGameClientHandlers2[] = {
-    {0x7B, reinterpret_cast<uint32_t>(code_address(online::handle_keep_alive)), 0, true,
-     kMidPriority}, // wait n seconds
-    {0x55, reinterpret_cast<uint32_t>(code_address(online::on_crown_change_msg)), 0, true, kMidPriority}, // new king
-    {0x72, reinterpret_cast<uint32_t>(code_address(online::on_flag_scored_msg)), 0, true,
-     kMidPriority}, // captured flag
-    {0x74, reinterpret_cast<uint32_t>(code_address(online::on_flag_swiped_msg)), 0, true, kMidPriority},  // stole flag
-    {0x71, reinterpret_cast<uint32_t>(code_address(online::on_flag_grabbed_msg)), 0, true, kMidPriority}, // took flag
-    {0x73, reinterpret_cast<uint32_t>(code_address(online::on_flag_returned_msg)), 0, true,
-     kMidPriority},                                                                                    // retrieved flag
-    {0x5A, reinterpret_cast<uint32_t>(code_address(online::on_match_end_msg)), 0, true, kMidPriority}, // game over
-    {0x6A, reinterpret_cast<uint32_t>(code_address(online::handle_game_ended)), 0, true, kMidPriority}, // end game
-    {0x23, reinterpret_cast<uint32_t>(code_address(online::handle_object_update_length)), kRunForForeign | kRunWhenLate,
-     true, kTopRank}, // object updates (their length)
-    {0x8D, reinterpret_cast<uint32_t>(code_address(online::handle_eliminated)), 0, true,
-     kMidPriority}, // a skater eliminated
-    {0x8E, reinterpret_cast<uint32_t>(code_address(online::handle_eliminated)), 0, true, kMidPriority},
+    {0x7B, &online::handle_keep_alive, 0, true, kMidPriority},    // wait n seconds
+    {0x55, &online::on_crown_change_msg, 0, true, kMidPriority},  // new king
+    {0x72, &online::on_flag_scored_msg, 0, true, kMidPriority},   // captured flag
+    {0x74, &online::on_flag_swiped_msg, 0, true, kMidPriority},   // stole flag
+    {0x71, &online::on_flag_grabbed_msg, 0, true, kMidPriority},  // took flag
+    {0x73, &online::on_flag_returned_msg, 0, true, kMidPriority}, // retrieved flag
+    {0x5A, &online::on_match_end_msg, 0, true, kMidPriority},     // game over
+    {0x6A, &online::handle_game_ended, 0, true, kMidPriority},    // end game
+    {0x23, &online::handle_object_update_length, kRunForForeign | kRunWhenLate, true,
+     kTopRank},                                                // object updates (their length)
+    {0x8D, &online::handle_eliminated, 0, true, kMidPriority}, // a skater eliminated
+    {0x8E, &online::handle_eliminated, 0, true, kMidPriority},
 };
 // The server's lobby handlers (0x0053C380; taken out once the game starts).
 const HandlerEntry kServerHandlers[] = {
-    {kMsgConnectionRequest, kOurs + 3, kRunForForeign | kRunWhenLate, true, kBottomRank},
-    {0x90, reinterpret_cast<uint32_t>(code_address(online::handle_team_object)), 0, true,
-     kTopRank}, // a scavenger-hunt object picked up
-    {kMsgJoinRequest, kOurs + 4, kRunWhenLate, true, kMidPriority},
-    {0x11, reinterpret_cast<uint32_t>(code_address(online::on_server_query_msg)), kRunForForeign | kRunWhenLate, true,
-     kMidPriority}, // find server
-    {0x0B, reinterpret_cast<uint32_t>(code_address(online::on_peer_left_msg)), kRunWhenLate, true,
-     kMidPriority}, // disconnection request
-    {0x4A, reinterpret_cast<uint32_t>(code_address(online::handle_observe_request)), kRunWhenLate, true,
-     kMidPriority}, // observe
-    {0x26, reinterpret_cast<uint32_t>(code_address(online::on_ready_reply_msg)), kRunWhenLate, true,
-     kMidPriority}, // ready response
-    {0x54, reinterpret_cast<uint32_t>(code_address(online::handle_send_game_state)), 0, true,
-     kMidPriority}, // player info ack
-    {0x57, reinterpret_cast<uint32_t>(code_address(online::handle_drop_carried)), 0, true,
-     kMidPriority}, // moved to a restart
-    {0x59, reinterpret_cast<uint32_t>(code_address(online::handle_game_ended_report)), 0, true,
-     kMidPriority}, // the run ended
-    {0x60, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true,
+    {kMsgConnectionRequest, &Hub::on_link_established, kRunForForeign | kRunWhenLate, true, kBottomRank},
+    {0x90, &online::handle_team_object, 0, true, kTopRank}, // a scavenger-hunt object picked up
+    {kMsgJoinRequest, &Hub::on_admission_ask_msg, kRunWhenLate, true, kMidPriority},
+    {0x11, &online::on_server_query_msg, kRunForForeign | kRunWhenLate, true, kMidPriority}, // find server
+    {0x0B, &online::on_peer_left_msg, kRunWhenLate, true, kMidPriority},                     // disconnection request
+    {0x4A, &online::handle_observe_request, kRunWhenLate, true, kMidPriority},               // observe
+    {0x26, &online::on_ready_reply_msg, kRunWhenLate, true, kMidPriority},                   // ready response
+    {0x54, &online::handle_send_game_state, 0, true, kMidPriority},                          // player info ack
+    {0x57, &online::handle_drop_carried, 0, true, kMidPriority},                             // moved to a restart
+    {0x59, &online::handle_game_ended_report, 0, true, kMidPriority},                        // the run ended
+    {0x60, &online::handle_host_options, kRunWhenLate, true,
      kMidPriority}, // first-come-first-served requests: start game,
-    {0x61, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true,
+    {0x61, &online::handle_host_options, kRunWhenLate, true,
      kMidPriority}, // ban player, change level, toggle pro set, goal
-    {0x62, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true,
-     kMidPriority}, // selection, end game, number of teams
-    {0x63, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true, kMidPriority},
-    {0x64, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true, kMidPriority},
-    {0x65, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true, kMidPriority},
-    {0x66, reinterpret_cast<uint32_t>(code_address(online::handle_host_options)), kRunWhenLate, true, kMidPriority},
-    {0x67, reinterpret_cast<uint32_t>(code_address(online::on_switch_squad_msg)), kRunWhenLate, true,
-     kMidPriority}, // team change request
-    {0x6B, reinterpret_cast<uint32_t>(code_address(online::handle_request_game_data)), kRunWhenLate, true,
-     kMidPriority}, // level request
-    {0x6E, reinterpret_cast<uint32_t>(code_address(online::handle_goal_completed_report)), kRunWhenLate, true,
-     kMidPriority}, // a goal beaten
-    {0x6F, reinterpret_cast<uint32_t>(code_address(online::handle_goal_started_report)), kRunWhenLate, true,
-     kMidPriority},                                                                                 // a goal started
-    {0x6C, reinterpret_cast<uint32_t>(code_address(online::handle_park_map)), 0, true, kTopRank},   // level data
-    {0x88, reinterpret_cast<uint32_t>(code_address(online::handle_rails_data)), 0, true, kTopRank}, // rail data
-    {0x7D, reinterpret_cast<uint32_t>(code_address(online::handle_cd_key_answer)), 0, true,
-     kMidPriority}, // challenge response
-    {0x81, reinterpret_cast<uint32_t>(code_address(online::handle_checksum_response)), 0, true,
-     kMidPriority}, // cheat checksum response
-    {0x8B, reinterpret_cast<uint32_t>(code_address(online::handle_created_data_request)), 0, true,
-     kMidPriority}, // rails / goals data requests
-    {0x8A, reinterpret_cast<uint32_t>(code_address(online::handle_created_data_request)), 0, true, kMidPriority},
+    {0x62, &online::handle_host_options, kRunWhenLate, true, kMidPriority}, // selection, end game, number of teams
+    {0x63, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
+    {0x64, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
+    {0x65, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
+    {0x66, &online::handle_host_options, kRunWhenLate, true, kMidPriority},
+    {0x67, &online::on_switch_squad_msg, kRunWhenLate, true, kMidPriority},          // team change request
+    {0x6B, &online::handle_request_game_data, kRunWhenLate, true, kMidPriority},     // level request
+    {0x6E, &online::handle_goal_completed_report, kRunWhenLate, true, kMidPriority}, // a goal beaten
+    {0x6F, &online::handle_goal_started_report, kRunWhenLate, true, kMidPriority},   // a goal started
+    {0x6C, &online::handle_park_map, 0, true, kTopRank},                             // level data
+    {0x88, &online::handle_rails_data, 0, true, kTopRank},                           // rail data
+    {0x7D, &online::handle_cd_key_answer, 0, true, kMidPriority},                    // challenge response
+    {0x81, &online::handle_checksum_response, 0, true, kMidPriority},                // cheat checksum response
+    {0x8B, &online::handle_created_data_request, 0, true, kMidPriority},             // rails / goals data requests
+    {0x8A, &online::handle_created_data_request, 0, true, kMidPriority},
 };
 
 template <size_t N>
 void add_handlers(AppHost* app, Hub* manager, const HandlerEntry (&entries)[N])
 {
     for (const HandlerEntry& entry : entries)
-        app->dispatcher_.append_listener(entry.id, our_handler(entry.code), entry.flags,
-                                         entry.manager_data_ ? manager : nullptr, entry.priority);
+        app->dispatcher_.append_listener(entry.id, entry.code, entry.flags, entry.manager_data_ ? manager : nullptr,
+                                         entry.priority);
 }
 
 void send_refused(AppHost* app, Conn* conn, const char* data)

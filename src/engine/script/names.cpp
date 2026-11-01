@@ -181,7 +181,7 @@ void register_member_function_table(void*, const uint32_t* records, int stride)
     }
 }
 
-void fill_member_function_code(uint32_t* records, void* const* code, int count)
+void fill_member_function_code(uint32_t* records, const MemberCode* code, int count)
 {
     for (int i = 0; i < count; ++i) {
         uint32_t* record = records + 6 * i;

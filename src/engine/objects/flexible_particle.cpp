@@ -365,9 +365,8 @@ int ObjectModule::dispatch_named_script_method(script::MemberFunctionEntry* entr
                                                script::Script* script)
 {
     if (entry->method_code_) {
-        using Member = int(__thiscall*)(void*, uint32_t, script::Struct*, script::Script*);
-        return reinterpret_cast<Member>(entry->method_code_)(reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_,
-                                                             entry->callsign_, params, script);
+        return entry->method_code_(reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_, entry->callsign_, params,
+                                   script);
     }
     return invoke_method_by_name(entry->callsign_, params, script);
 }

@@ -75,7 +75,6 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/skater_camera_component.h"
 #include "game/park_editing/park_editor.h"
-#include "engine/core/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/objects/car_physics.h"
 #include "game/rider/state_history.h"
@@ -1012,16 +1011,13 @@ void Rider::init_from_profile(RiderIdentity* profile)
         net::Router* dispatcher = &client->dispatcher_;
         const struct {
             uint8_t id;
-            void* code;
-        } handlers[] = {{0x3B, code_address(&modules::PointTally::on_score_msg)},
-                        {0x44, code_address(&RiderFrameLog::handle_collision_messages)},
-                        {0x43, code_address(&RiderFrameLog::handle_collision_messages)},
-                        {0x85, code_address(&RiderFrameLog::handle_hit_messages)},
-                        {0x84, code_address(&RiderFrameLog::handle_hit_messages)},
-                        {0x4B, code_address(&RiderHostSync::handle_graffiti_steal)}};
+            net::HandlerSlotValue code;
+        } handlers[] = {
+            {0x3B, &modules::PointTally::on_score_msg},        {0x44, &RiderFrameLog::handle_collision_messages},
+            {0x43, &RiderFrameLog::handle_collision_messages}, {0x85, &RiderFrameLog::handle_hit_messages},
+            {0x84, &RiderFrameLog::handle_hit_messages},       {0x4B, &RiderHostSync::handle_graffiti_steal}};
         for (const auto& handler : handlers)
-            dispatcher->append_listener(handler.id, reinterpret_cast<net::HandlerSlotValue>(handler.code), 0, this,
-                                        0x80);
+            dispatcher->append_listener(handler.id, handler.code, 0, this, 0x80);
     }
     // Never suspended (its suspend component's distances).
     if (auto* suspend = static_cast<DormancyModule*>(fetch_module(0xCE0CA665))) {

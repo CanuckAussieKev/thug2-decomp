@@ -38,7 +38,6 @@
 #include "engine/script/game_cfuncs.h"
 #include "game/skate/game_mode.h"
 #include "game/skate/point_tally.h"
-#include "engine/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_net_messages.h"
 #include "engine/net/gamenet_messages.h"
@@ -317,9 +316,7 @@ void SkateNet::add_client_handlers(net::AppHost* client, int index)
             static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(this)->get_rider_at(static_cast<int>(i)));
         if (!skater || !skater->is_local_skater_ || skater->get_skater_number() != index)
             continue;
-        append_listener(client, 0x3B,
-                        reinterpret_cast<net::HandlerSlotValue>(code_address(modules::PointTally::on_score_msg)), 0,
-                        skater);
+        append_listener(client, 0x3B, &modules::PointTally::on_score_msg, 0, skater);
         append_listener(client, 0x44, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
         append_listener(client, 0x43, &objects::RiderFrameLog::handle_collision_messages, 0, skater);
         append_listener(client, 0x85, &objects::RiderFrameLog::handle_hit_messages, 0, skater);

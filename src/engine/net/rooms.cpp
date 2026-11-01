@@ -604,9 +604,8 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
     const char* name = net::get_game_name();
     game_spy::peer_set_title(manager->lobby_service_->remote_, name, key, name, key, 6, 15, 1, ping_rooms,
                              cross_ping_rooms);
-    HANDLE thread = CreateThread(
-        nullptr, 0x8000, reinterpret_cast<LPTHREAD_START_ROUTINE>(code_address(online::RoomManager::connect_thread)),
-        manager->lobby_service_.get(), CREATE_SUSPENDED, &thread_id);
+    HANDLE thread = CreateThread(nullptr, 0x8000, &online::RoomManager::connect_thread, manager->lobby_service_.get(),
+                                 CREATE_SUSPENDED, &thread_id);
     manager->set_room_id(thread_id);
     ResumeThread(thread);
     logic->queue_job(manager->lobby_service_->think_task_.get());

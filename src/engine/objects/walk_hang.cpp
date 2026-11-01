@@ -198,18 +198,11 @@ const maths::Vec4* facing_away(objects::FootMovement* walk, maths::Vec4* buffer)
 }
 const maths::Vec4* current_facing(objects::FootMovement* walk, maths::Vec4*) { return &walk->facing_; }
 
-// The animation-end callback (+0x1948): a member function pointer as the compiler lays it out - the code address
-// and three words of adjustment.
-template <typename Method>
-uint32_t member_code_address(Method method)
-{
-    static_assert(sizeof(Method) == sizeof(uint32_t), "a plain member function pointer: just the code address");
-    return std::bit_cast<uint32_t>(method);
-}
-void set_anim_done(objects::FootMovement* walk, uint32_t code)
+// The animation-end callback (+0x1948): the code, no adjustment.
+void set_anim_done(objects::FootMovement* walk, script::ObjectCallback code)
 {
     objects::AnimDoneCallback& callback = walk->anim_done_;
-    callback.code_ = reinterpret_cast<void*>(code);
+    callback.code_ = code;
     callback.this_adjust_ = 0;
     callback.unknown8_ = 0;
     callback.unknownc_ = 0;
@@ -605,12 +598,12 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 
     // the animated move: walking at the end (the ledge's feeler kept), or in the air with no ground
     if (found) {
-        set_anim_done(this, member_code_address(&objects::FootMovement::end_pull_up));
+        set_anim_done(this, script::object_callback<&objects::FootMovement::end_pull_up>());
         assign_feeler(&feeler_, &ledge);
         feeler_hit_ = true;
         floor_normal_ = ledge.surface_dir_;
     } else {
-        set_anim_done(this, member_code_address(&objects::FootMovement::end_drop_from_hang));
+        set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_from_hang>());
     }
     transition_start_ = pos;
     transition_pos_ = ground;
@@ -660,7 +653,7 @@ bool objects::FootMovement::drop_to_hang()
     tagging->blocked_ = true;
     transition_start_ = pos_;
     transition_pos_ = rail.point;
-    set_anim_done(this, member_code_address(&objects::FootMovement::end_drop_to_hang));
+    set_anim_done(this, script::object_callback<&objects::FootMovement::end_drop_to_hang>());
     set_transition_facing(&rail.facing, get_param(kDropToHangRotateFactor));
     anim_waiting_ = 1;
     float horiz = get_param(kHangCriticalPointHorizOffset);
@@ -1308,7 +1301,7 @@ void objects::FootMovement::climb_off_bottom()
     // the animated move there
     transition_start_ = pos;
     transition_pos_ = target;
-    set_anim_done(this, member_code_address(&objects::FootMovement::end_ladder_off_bottom));
+    set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_bottom>());
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = 0.0f;
     set_transition_facing(&facing, 1.0f);
@@ -1376,12 +1369,12 @@ void objects::FootMovement::climb_off_top()
     transition_start_ = pos;
     transition_pos_ = target;
     if (found) {
-        set_anim_done(this, member_code_address(&objects::FootMovement::end_ladder_off_top));
+        set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top>());
         assign_feeler(&feeler_, &ledge);
         feeler_hit_ = true;
         floor_normal_ = feeler_.surface_dir_;
     } else {
-        set_anim_done(this, member_code_address(&objects::FootMovement::end_ladder_off_top_to_air));
+        set_anim_done(this, script::object_callback<&objects::FootMovement::end_ladder_off_top_to_air>());
     }
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = 0.0f;
@@ -1407,7 +1400,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
     grabbed_ladder(this);
     transition_start_ = pos_;
     transition_pos_ = ladder.point;
-    set_anim_done(this, member_code_address(&objects::FootMovement::end_onto_ladder_bottom));
+    set_anim_done(this, script::object_callback<&objects::FootMovement::end_onto_ladder_bottom>());
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = 0.0f;
     set_transition_facing(&ladder.facing, 1.0f);
@@ -1433,7 +1426,7 @@ bool objects::FootMovement::climb_onto_top()
     grabbed_ladder(this);
     transition_start_ = pos_;
     transition_pos_ = ladder.point;
-    set_anim_done(this, member_code_address(&objects::FootMovement::end_onto_ladder_top));
+    set_anim_done(this, script::object_callback<&objects::FootMovement::end_onto_ladder_top>());
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = 0.0f;
     set_transition_facing(&ladder.facing, 1.0f);

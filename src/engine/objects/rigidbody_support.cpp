@@ -87,8 +87,7 @@ int ObjectModule::dispatch_script_method(script::MemberFunctionEntry* entry, scr
 {
     if (entry->method_code_) {
         void* self = reinterpret_cast<uint8_t*>(this) + entry->this_adjustment_;
-        return reinterpret_cast<int(__thiscall*)(void*, script::Struct*, script::Script*)>(entry->method_code_)(
-            self, params, script);
+        return entry->method_code_(self, entry->callsign_, params, script);
     }
     return invoke_method_by_name(entry->callsign_, params, script);
 }

@@ -11,7 +11,6 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 #include "engine/objects/control_pad.h"
-#include "engine/core/code_address.h"
 #include "engine/core/checksums.h"
 #include "engine/script/names.h"
 #include "engine/sys/startup_init.h"
@@ -150,10 +149,10 @@ void fill_proximity_member_functions()
     records[18] = 0;
     for (int i = 0; i < 4; ++i)
         records[6 * i + 1] = kProximityType;
-    void* const code[] = {
-        code_address(&objects::ProximityComponent::proximity_init),
-        code_address(&objects::ProximityComponent::proximity_set_active),
-        code_address(&objects::ProximityComponent::proximity_enter_proximity_not_handled),
+    const script::MemberCode code[] = {
+        script::member_code<&objects::ProximityComponent::proximity_init>(),
+        script::member_code<&objects::ProximityComponent::proximity_set_active>(),
+        script::member_code<&objects::ProximityComponent::proximity_enter_proximity_not_handled>(),
     };
     script::fill_member_function_code(records, code, 3);
 }

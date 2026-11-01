@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "engine/script/member_code.h"
+
 // The names behind checksums (a debug aid, kept only while the lookup is switched on) and the registration
 // of the game's script functions as global symbols.
 namespace script {
@@ -38,7 +40,7 @@ void register_member_function_table(void* unused, const uint32_t* records, int s
 // pointer), as the original's static initialisers write it: record i's function `code[i]` followed by three zero words,
 // and after the `count` records the terminator's {0, 0, 0, -1}. (NOT ORIGINAL as a function: each initialiser has
 // the stores written out.)
-void fill_member_function_code(uint32_t* records, void* const* code, int count);
+void fill_member_function_code(uint32_t* records, const MemberCode* code, int count);
 // Every table's code, in the original's initialiser order (0x00640E30 - 0x006448C0; generated:
 // member_function_code.cpp). Run at start-up.
 void fill_member_function_tables();
