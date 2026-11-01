@@ -263,7 +263,7 @@ void let_go_of_ride(objects::MovingSurfaceModule* contact)
     if (!tracker)
         return;
     contact->last_object_ = tracker->entity_.get_pull(); // (the object last ridden)
-    tracker->~RideTracker(); // (its smart pointer lets go)
+    tracker->~RideTracker();                             // (its smart pointer lets go)
     memory::dealloc(tracker);
     contact->ride_ = nullptr;
     contact->stop_time_ = get_now();
@@ -277,28 +277,6 @@ void set_physics_flag_a0(objects::FootMovement* walk)
         flags->flag(objects::PoseFlag::kWallplanted).on = 1;
         flags->flag(objects::PoseFlag::kWallplanted).changed_at = get_now();
     }
-}
-
-// The x87's cosine (the original's FCOS), rounded to a double.
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
 }
 
 // What find_ladder / find_ladder_on_line find (their 0x24-byte record, filled by the ladder checkers): the point to climb
@@ -494,7 +472,7 @@ void objects::FootMovement::face_hang_rail(float distance, bool from_end, const 
     }
     double dot = static_cast<double>(across.z) * facing.z + static_cast<double>(across.y) * facing.y +
                  static_cast<double>(across.x) * facing.x;
-    if (x87_cos(kSixtyDegrees) > dot)
+    if (std::cos(kSixtyDegrees) > dot)
         walk_camera_->apply_queued_change();
     facing_ = {across.x, across.y, across.z, 1.0f};
     set_hang_offset(this);
@@ -600,8 +578,8 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     const maths::Vec4& facing = facing_;
     for (int i = 0; i < 7; ++i) {
         double angle = static_cast<double>(i) * 0.89759790897369385;
-        double c = x87_cos(angle);
-        double s = x87_sin(angle);
+        double c = std::cos(angle);
+        double s = std::sin(angle);
         probe.line_.start = {ground.x, static_cast<float>(static_cast<double>(ground.y) + height), ground.z, ground.w};
         float dx = static_cast<float>(c * facing.x - s * facing.z);
         double dz = s * facing.x + c * facing.z;
@@ -1037,7 +1015,7 @@ bool objects::FootMovement::check_rail(const maths::Vec4* start, const maths::Ve
     float dx = end->x - start->x;
     maths::Vec4 direction = {dx, end->y - start->y, dz, end->w - start->w};
     direction.make_unit();
-    if (std::fabs(direction.y) > x87_sin(static_cast<double>(get_param(kHangMaxRailAscent)) * 0.017453292384743690))
+    if (std::fabs(direction.y) > std::sin(static_cast<double>(get_param(kHangMaxRailAscent)) * 0.017453292384743690))
         return false;
 
     // the facing: across the rail, flat - towards the skater's facing (or away)
@@ -1153,7 +1131,7 @@ void objects::FootMovement::update_hang()
     float sideways = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
     float tolerance = get_param(kHangVertControlTolerance);
     float wanted = 0.0f;
-    if (x87_cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
+    if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
         float direction = input->pad_primary_.polar_[1].angle > 0.0f ? 1.0f : -1.0f;
         float speed = get_param(kHangMoveSpeedParam);
         wanted = static_cast<float>(static_cast<double>(direction) * stick_deflection_ * speed);
@@ -1357,7 +1335,7 @@ bool objects::FootMovement::check_ladder_bottom(const maths::Vec4* bottom, const
     const maths::Vec4& facing = facing_;
     double dot = static_cast<double>(at.z) * facing.z + static_cast<double>(at.y) * facing.y +
                  static_cast<double>(at.x) * facing.x;
-    if (dot < x87_cos(static_cast<double>(max_angle) * 0.017453292384743690))
+    if (dot < std::cos(static_cast<double>(max_angle) * 0.017453292384743690))
         return false;
     // ladder_bottom_offset_up above the bottom, ladder_climb_offset out of the ladder
     auto* ladder = reinterpret_cast<FoundLadder*>(record);
@@ -1492,7 +1470,8 @@ void objects::FootMovement::climb_ladder()
     // the control's up / down part (its angle's cosine) at ladder_move_speed
     float speed = get_param(kLadderMoveSpeed);
     objects::PadInputModule* input = input_;
-    double move_speed = x87_cos(input->pad_primary_.polar_[1].angle) * stick_deflection_ * static_cast<double>(speed);
+    double move_speed = std::cos(static_cast<double>(input->pad_primary_.polar_[1].angle)) * stick_deflection_ *
+                        static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
     float move = static_cast<float>(move_speed * frame_length_);
     GrindPoint* node = hang_node_;
@@ -1559,7 +1538,7 @@ void objects::FootMovement::update_ladder()
     objects::PadInputModule* input = input_;
     float upright = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
     float tolerance = get_param(kLadderControlTolerance);
-    if (x87_cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
+    if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
         climb_ladder();
         return;
     }

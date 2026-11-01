@@ -1,5 +1,6 @@
 #include "engine/gfx/view_cam.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -61,52 +62,19 @@ ViewCam::ViewCam()
     old_pos_ = {0.0f, 0.0f, 0.0f, 1.0f};
 }
 
-// 0x00485AA0 (x87 as the original, so results round the same): the angle as drawn is the 4:3 one widened by the
-// screen's angle factor (and divided by unknownc0_); unknownb4_ is tan(half that) over tan(half the cameras'
-// default angle).
+// 0x00485AA0: the angle as drawn is the 4:3 one widened by the screen's angle factor (and divided by unknownc0_);
+// unknownb4_ is tan(half that) over tan(half the cameras' default angle). (Rounded to float where the original's
+// x87 code stores.)
 void ViewCam::refresh_effective_h_fov()
 {
-    const float to_half_radians = kDegreesToHalfRadians, to_degrees = kHalfRadiansToDegrees, half = kHalf,
-                to_radians = kRadiansPerDegree;
-    float half_angle;
-    float h_fov = h_fov_;
-    __asm {
-        fld h_fov
-        fmul to_half_radians
-        fstp half_angle
-    }
-    float factor = render::fetch_fov_ratio();
-    float divisor = unknownc0_;
-    float adjusted, tan_adjusted;
-    __asm {
-        fld factor
-        fld half_angle
-        fptan
-        fstp st(0)
-        fdiv divisor
-        fmulp st(1), st(0)
-        fld1
-        fpatan
-        fmul to_degrees
-        fst adjusted
-        fmul to_half_radians
-        fptan
-        fstp st(0)
-        fstp tan_adjusted
-    }
-    corrected_horiz_fov_ = adjusted;
-    float default_angle = render::get_screen_angle();
-    float ratio;
-    __asm {
-        fld default_angle
-        fmul half
-        fmul to_radians
-        fptan
-        fstp st(0)
-        fdivr tan_adjusted
-        fstp ratio
-    }
-    unknownb4_ = ratio;
+    const float half_angle = static_cast<float>(static_cast<double>(h_fov_) * kDegreesToHalfRadians);
+    const double factor = render::fetch_fov_ratio();
+    const double angle =
+        std::atan(factor * (std::tan(static_cast<double>(half_angle)) / unknownc0_)) * kHalfRadiansToDegrees;
+    corrected_horiz_fov_ = static_cast<float>(angle);
+    const float tan_adjusted = static_cast<float>(std::tan(angle * kDegreesToHalfRadians));
+    const double default_angle = render::get_screen_angle();
+    unknownb4_ = static_cast<float>(tan_adjusted / std::tan(default_angle * kHalf * kRadiansPerDegree));
 }
 
 // 0x00485B40

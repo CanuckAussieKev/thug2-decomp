@@ -2,6 +2,7 @@
 // palette piece, its cell relative to the park, its turn and size) and its rails (the rail editor's) - shown at the
 // cursor, turned with it, and pasted. See park.h.
 
+#include <cmath>
 #include <cstdint>
 
 #include "engine/core/mem.h"
@@ -9,7 +10,6 @@
 #include "game/park_editing/park.h"
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/maths/x87_math.h"
 
 namespace park_editing {
 
@@ -217,8 +217,8 @@ void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t cent
     const float x = static_cast<float>(((w_ - 1) * 0.5 + dx) * kGridPitch);
     const double z = ((l_ - 1) * 0.5 + dz) * kGridStepAlong;
     const double radians = static_cast<double>(angle) * kRadiansPerDegree;
-    const float sine = static_cast<float>(x87::get_sin(radians));
-    const double cosine = x87::get_cos(radians);
+    const float sine = static_cast<float>(std::sin(radians));
+    const double cosine = std::cos(radians);
     const float turned_x = static_cast<float>(z * sine + x * cosine);
     const double turned_z = z * cosine - static_cast<double>(x) * sine;
     // (The original adds an offset whose w it never sets - stack garbage - to the position's: the position's w kept.)

@@ -15,7 +15,6 @@
 #include "engine/core/mem.h"
 #include "frontend/sprite_element.h"
 #include "game/goals/goal_manager.h"
-#include "engine/maths/x87_math.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_client.h"
 #include "engine/net/skater_messages.h"
@@ -334,7 +333,7 @@ void PointTally::tick_frame()
     uint8_t rgba[4];
     std::memcpy(rgba, bar_colors_[0], 4);
     if (special_active_) {
-        double flash = (x87::get_cos(special_phase_) + 1.0) * 0.5;
+        double flash = (std::cos(static_cast<double>(special_phase_)) + 1.0) * 0.5;
         special_phase_ = static_cast<float>(static_cast<double>(special_rate_) + special_phase_);
         for (int c = 0; c < 4; ++c) {
             int from = bar_colors_[1][c];

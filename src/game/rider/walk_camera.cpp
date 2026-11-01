@@ -17,7 +17,6 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/walk_physics.h"
-#include "engine/maths/x87_math.h"
 #include "platform/stopwatch.h"
 #include "game/rider/physics_control.h"
 #include "game/rider/skater_state.h"
@@ -51,34 +50,15 @@ constexpr float kTiltBase = 0.4000000059604645f;  // 0x0064BAF8
 // D3DXMatrixMultiply (linked later; 0x005BFA8C).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
-// The right stick's turn of the facing (0x00525468-): the sine rounded to float, the cosine kept at full
-// precision: x' = z * sin + cos * x, z' = -(sin * x) + z * cos.
+// The right stick's turn of the facing (0x00525468-): the sine rounded to float: x' = z * sin + cos * x,
+// z' = -(sin * x) + z * cos.
 void turn_by_stick(double angle, float* x, float* z)
 {
-    float sine;
-    __asm {
-        mov ecx, x
-        mov edx, z
-        fld angle
-        fld st(0)
-        fsin
-        fstp sine
-        fcos
-        fld sine
-        fmul dword ptr [ecx]
-        fchs
-        fld dword ptr [edx]
-        fmul st, st(2)
-        faddp st(1), st
-        fld dword ptr [edx]
-        fmul sine
-        fxch st(2)
-        fmul dword ptr [ecx]
-        faddp st(2), st
-        fxch st(1)
-        fstp dword ptr [ecx]
-        fstp dword ptr [edx]
-    }
+    const double sine = static_cast<float>(std::sin(angle));
+    const double cosine = std::cos(angle);
+    const double old_x = *x, old_z = *z;
+    *x = static_cast<float>(old_z * sine + cosine * old_x);
+    *z = static_cast<float>(old_z * cosine - sine * old_x);
 }
 
 } // namespace
@@ -307,7 +287,7 @@ void FootView::tick_frame()
             float cosine = static_cast<float>(static_cast<double>(skater_facing.x) * facing.x +
                                               static_cast<double>(skater_facing.z) * facing.z +
                                               static_cast<double>(skater_facing.y) * facing.y);
-            if (!x87::cos_above(static_cast<double>(get_param(kLockAngle)) * kDegrees, cosine)) {
+            if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
                 float full, least;
                 if (!walk_->using_dpad()) {
                     full = get_param(kFullSlerpSpeed);
@@ -317,8 +297,8 @@ void FootView::tick_frame()
                     least = get_param(kDpadMinSlerpSpeed);
                 }
                 const maths::Vec4& velocity = skater_->vel_;
-                double speed = x87::get_sqrt(static_cast<double>(velocity.x) * velocity.x +
-                                             static_cast<double>(velocity.z) * velocity.z);
+                double speed = std::sqrt(static_cast<double>(velocity.x) * velocity.x +
+                                         static_cast<double>(velocity.z) * velocity.z);
                 float speed_f = static_cast<float>(speed);
                 if (!(speed < full)) {
                     swing = true;
@@ -340,8 +320,8 @@ void FootView::tick_frame()
         facing.z = forced_heading_.z;
         facing.w = forced_heading_.w;
         double heading = free_look_->heading_;
-        float s = x87::get_sin_f(heading);
-        float c = x87::cos_f(heading);
+        float s = static_cast<float>(std::sin(heading));
+        float c = static_cast<float>(std::cos(heading));
         float z = facing.z;
         float turned_z = static_cast<float>(-(static_cast<double>(s) * x) + static_cast<double>(z) * c);
         facing.x = static_cast<float>(static_cast<double>(z) * s + static_cast<double>(c) * x);

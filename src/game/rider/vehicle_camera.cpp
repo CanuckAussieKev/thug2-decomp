@@ -4,6 +4,7 @@
 #include "game/rider/vehicle_camera.h"
 #include "engine/gfx/d3dx.h"
 
+#include <cmath>
 #include <cstdint>
 
 #include "engine/core/manager.h"
@@ -14,7 +15,7 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/script/names.h"
 #include "engine/script/param_struct.h"
-#include "engine/maths/x87_math.h"
+#include "engine/maths/trig.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
@@ -125,7 +126,7 @@ void CarView::update_target_direction()
     float y = 0.0f;
     float z = -velocity[2];
     float w = -velocity[3];
-    double length = x87::get_sqrt(static_cast<double>(z) * z + static_cast<double>(x) * x);
+    double length = std::sqrt(static_cast<double>(z) * z + static_cast<double>(x) * x);
     float speed = static_cast<float>(length);
     if (length > 0.0) {
         double inverse = 1.0 / length;
@@ -173,7 +174,7 @@ void CarView::update_orientation()
 {
     double heading = free_look_->heading_;
     double rotated_x, rotated_z;
-    x87::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
+    maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
     float right = static_cast<float>(rotated_z);
     float forward = static_cast<float>(rotated_x);
     orientation_.row[0] = {right, 0.0f, -forward, 1.0f};
@@ -222,7 +223,7 @@ void CarView::tick_frame()
     else if (cosine < -1.0f)
         cosine = -1.0f;
     bool obtuse;
-    float angle = x87::acos_f(cosine, kHalfPi, &obtuse);
+    float angle = maths::acos_f(cosine, kHalfPi, &obtuse);
     if (obtuse)
         angle = kPi - angle;
     bool left = static_cast<double>(direction_.z) * target_direction_.x -
@@ -233,7 +234,7 @@ void CarView::tick_frame()
         step = angle;
     double turn = (left ? 1.0f : -1.0f) * step;
     double x, z;
-    x87::spin_by(turn, direction_.x, direction_.z, &x, &z);
+    maths::spin_by(turn, direction_.x, direction_.z, &x, &z);
     direction_.x = static_cast<float>(x);
     direction_.z = static_cast<float>(z);
     direction_.make_unit();

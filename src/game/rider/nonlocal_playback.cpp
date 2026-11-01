@@ -26,7 +26,6 @@
 #include "game/rider/rider.h"
 #include "game/rider/skater_state.h"
 #include "game/rider/special_item.h"
-#include "game/rider/skater_x87.h"
 #include "game/rider/state_history.h"
 #include "platform/game_clock.h"
 #include "engine/gfx/anim_blend.h"
@@ -376,8 +375,8 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         float cosine =
             static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
                                static_cast<double>(there.x) * here.x);
-        double limit = skater::x87_cos(static_cast<double>(read_tuning_float(kRailCornerLeaveAngle, 1, skater)) *
-                                       kRadiansPerDegree);
+        double limit =
+            std::cos(static_cast<double>(read_tuning_float(kRailCornerLeaveAngle, 1, skater)) * kRadiansPerDegree);
         if (limit > cosine)
             stopped = true;
     }
@@ -569,17 +568,15 @@ void RiderRemoteSync::play_history_events()
                 int time = get_now();
                 for (uint32_t bit = 0; bit < 3; ++bit) {
                     if (msg->spin_axes_ & (1u << bit))
-                        mesh_set_->twist_rate_[bit].append_one(static_cast<float>(msg->spin_period_),
-                                                               static_cast<uint32_t>(time), msg->spin_start_,
-                                                               msg->spin_range_, msg->spin_power_, msg->spin_hold_,
-                                                               false);
+                        mesh_set_->twist_rate_[bit].append_one(
+                            static_cast<float>(msg->spin_period_), static_cast<uint32_t>(time), msg->spin_start_,
+                            msg->spin_range_, msg->spin_power_, msg->spin_hold_, false);
                 }
                 break;
             }
             case 0x77: { // a special item made: its +0x5CB5CB7E component told its name and owner
                 auto* items = static_cast<PickupItemHandler*>(entity_->fetch_module(PickupItemHandler::kType));
-                script::Struct* structure =
-                    script::read_sub_struct(msg->name_); // (the original also passes 1)
+                script::Struct* structure = script::read_sub_struct(msg->name_); // (the original also passes 1)
                 GameEntity* item = items->create_item(msg->item_slot_, structure);
                 script::Struct* params = script::spawn_param_bag();
                 if (params)

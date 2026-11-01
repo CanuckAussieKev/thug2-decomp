@@ -127,28 +127,6 @@ void delete_params(script::Struct* params)
     }
 }
 
-// x87 FSIN / FCOS, as the original takes them.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
@@ -457,7 +435,7 @@ bool TaggingControlComponent::try_tagging()
     auto direction = [&](int index, float& dx, float& dz) {
         double angle = index * static_cast<double>(std::bit_cast<float>(0x3EF1463Au)) -
                        std::bit_cast<float>(0x3F96CBE4u); // 0x0064C438 / 0x0064C434
-        double c = x87_cos(angle), s = x87_sin(angle);
+        double c = std::cos(angle), s = std::sin(angle);
         dx = static_cast<float>(c * heading.x - s * heading.z);
         dz = static_cast<float>(s * heading.x + c * heading.z);
     };

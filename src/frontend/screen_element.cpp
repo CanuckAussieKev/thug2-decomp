@@ -72,27 +72,6 @@ float convert_to_degrees() { return ::commands::g_script_radians_to_degrees; }
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-
 void launch_event(uint32_t type, uint32_t target)
 {
     objects::get_tracker()->launch_event(type, target, kSystem, nullptr, false, -1.0f);
@@ -694,8 +673,8 @@ void UiWidget::update_layout()
             summed_.scale_y_ = static_cast<float>(static_cast<double>(parent->summed_.scale_y_) * shown_.scale_y_);
             parent = container_.owner_object_;
             summed_.angle = static_cast<float>(static_cast<double>(shown_.angle) + parent->summed_.angle);
-            double c = x87_cos(parent->summed_.angle);
-            double s = x87_sin(parent->summed_.angle);
+            double c = std::cos(static_cast<double>(parent->summed_.angle));
+            double s = std::sin(static_cast<double>(parent->summed_.angle));
             get_rotated(parent, shown_.x, shown_.y, c, s, &summed_.x, &summed_.y);
             parent = container_.owner_object_;
             summed_.alpha = static_cast<float>(static_cast<double>(parent->summed_.alpha) * shown_.alpha);

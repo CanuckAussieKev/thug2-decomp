@@ -8,6 +8,7 @@
 #include "game/rider/physics_control.h"
 
 #include <bit>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -37,7 +38,6 @@ namespace objects {
 namespace {
 
 using skater::physics::get_at;
-using skater::physics::x87_sin;
 
 constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
@@ -90,8 +90,8 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
 {
     double left = shake_left_;
     double fraction = left / shake_length_;
-    double across = x87_sin(shake_rate_x_ * left * kTwoPi) * shake_amp_x_ * fraction;
-    double up = x87_sin(shake_rate_y_ * left * kTwoPi) * shake_amp_y_ * fraction;
+    double across = std::sin(shake_rate_x_ * left * kTwoPi) * shake_amp_x_ * fraction;
+    double up = std::sin(shake_rate_y_ * left * kTwoPi) * shake_amp_y_ * fraction;
     const maths::Vec4& row0 = orientation->row[0];
     const maths::Vec4& row1 = orientation->row[1];
     float y0 = static_cast<float>(up * row0.y);

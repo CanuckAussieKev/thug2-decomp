@@ -29,7 +29,6 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
-#include "game/rider/skater_x87.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/park_editor.h"
 #include "engine/core/code_address.h"
@@ -893,8 +892,8 @@ maths::Vec4* DrivableModule::get_wheel_rim_point(maths::Vec4* out, const Wheel* 
     maths::Vec4 point;
     point.x = static_cast<float>((outer ? 1.0f : -1.0f) * static_cast<double>(kRimHalfWidth));
     double angle = static_cast<double>(spoke) * kSpokeAngle + wheel->rotation;
-    point.y = static_cast<float>(skater::x87_cos(angle) * wheel->radius);
-    point.z = static_cast<float>(skater::x87_sin(angle) * wheel->radius);
+    point.y = static_cast<float>(std::cos(angle) * wheel->radius);
+    point.z = static_cast<float>(std::sin(angle) * wheel->radius);
     point.w = 1.0f;
     maths::Vec4 up{0.0f, 1.0f, 0.0f, 1.0f};
     maths::Mat4 steer;

@@ -236,7 +236,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     wall.y = 0.0f;
     wall.make_unit();
     if (!walking) {
-        double limit = x87_sin(static_cast<double>(script::fetch_float(kMinApproachAngle)) * kRadiansPerDegree);
+        double limit = std::sin(static_cast<double>(script::fetch_float(kMinApproachAngle)) * kRadiansPerDegree);
         double approach = static_cast<double>(heading.x) * wall.x + static_cast<double>(heading.z) * wall.z +
                           static_cast<double>(wall.y) * heading.y;
         if (-limit < approach)
@@ -353,13 +353,13 @@ bool SkaterPhysicsModule::start_wall_ride()
     float facing =
         static_cast<float>(static_cast<double>(heading.x) * flat_wall.x + static_cast<double>(heading.z) * flat_wall.z +
                            static_cast<double>(heading.y) * flat_wall.y);
-    if (!(-x87_sin(static_cast<double>(script::fetch_float(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))
+    if (!(-std::sin(static_cast<double>(script::fetch_float(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))
         return false;
     float head_on = std::fabs(facing);
-    if (!(x87_sin(static_cast<double>(script::fetch_float(kMaxIncidentAngle)) * kRadiansPerDegree) > head_on))
+    if (!(std::sin(static_cast<double>(script::fetch_float(kMaxIncidentAngle)) * kRadiansPerDegree) > head_on))
         return false;
     object = object_of(this);
-    if (!(x87_cos(static_cast<double>(script::fetch_float(kMaxTilt)) * kRadiansPerDegree) <
+    if (!(std::cos(static_cast<double>(script::fetch_float(kMaxTilt)) * kRadiansPerDegree) <
           object->basis_frame_.row[1].y))
         return false;
     objects::MoveExecutor* skater = trick_;

@@ -37,18 +37,6 @@ constexpr uint32_t kFirstNonSkaterId = 8; // (objects with smaller ids are the s
 // smaller).
 float update_wobble_step() { return g_lock_obj_update_wobble_step; }
 
-// x87 FSIN, as the original takes the wobble's sines.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-
 // A skeleton component's skeleton (0x005480F0: its +0x18).
 void* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
 // The skeleton's matrix of `bone` (0x004A36E0; false if it hasn't the bone), its bone index (0x004A2B60) and, from its
@@ -193,8 +181,8 @@ void PinnedObjectModule::update_lock()
         int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
         double time = static_cast<double>(t);
         double step = update_wobble_step();
-        double wobble = x87_sin(time * static_cast<double>(wobble_[1]) * step) *
-                        x87_sin(time * static_cast<double>(wobble_[0]) * step);
+        double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
+                        std::sin(time * static_cast<double>(wobble_[0]) * step);
         lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - lag_min_) * 0.5 + lag_min_);
     } else {
         object->at_point_ = {extra.x + pos.x, extra.y + pos.y, extra.z + pos.z, extra.w + pos.w};

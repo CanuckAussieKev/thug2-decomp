@@ -3,6 +3,7 @@
 
 #include "engine/script/cfuncs_engine.h"
 
+#include <cmath>
 #include <cstdint>
 
 #include "engine/core/mem.h"
@@ -143,51 +144,6 @@ void for_each_sector_geometry(uint8_t* scene, uint32_t light_group, Fn fn)
             break;
         sector = static_cast<uint8_t*>(sectors->iter_item_->value);
     }
-}
-
-// The x87's own FSIN / FCOS (the CRT's round differently); products with the result kept at extended precision,
-// as the original keeps it on the x87 stack.
-float x87_sin(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-float x87_cos(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-double x87_sin_times(double angle, float value)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fmul value
-        fstp result
-    }
-    return result;
-}
-double x87_cos_times(double angle, float value)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fmul value
-        fstp result
-    }
-    return result;
 }
 
 } // namespace
@@ -394,11 +350,11 @@ bool __cdecl cfunc_set_light_direction(Struct* params, Script*)
         double p = static_cast<double>(pitch) * kRadiansPerDegree;
         float y = direction.y;
         float z = direction.z;
-        direction.y = static_cast<float>(x87_cos_times(p, y) - x87_sin_times(p, z));
-        double turned_z = x87_cos_times(p, z) + x87_sin_times(p, y);
+        direction.y = static_cast<float>(std::cos(p) * y - std::sin(p) * z);
+        double turned_z = std::cos(p) * z + std::sin(p) * y;
         double h = static_cast<double>(heading) * kRadiansPerDegree;
-        float s = x87_sin(h);
-        float c = x87_cos(h);
+        float s = static_cast<float>(std::sin(h));
+        float c = static_cast<float>(std::cos(h));
         float x = direction.x;
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turned_z * c);
         direction.x = static_cast<float>(turned_z * s + static_cast<double>(c) * x);

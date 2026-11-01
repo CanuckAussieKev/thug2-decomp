@@ -6,6 +6,7 @@
 #include "engine/objects/model_component.h"
 #include "engine/gfx/d3dx.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -37,19 +38,6 @@ constexpr float kFramesToMs = 16.666666f;          // 0x006460DC (1000 / 60)
 constexpr float kRadiansPerDegree = 0.0174532924f; // 0x00645464
 constexpr float kLerpRateScale = 0.02f;            // 0x00646124
 constexpr double kTwoTo32 = 4294967296.0;          // 0x006453B4
-
-
-// The x87 FSIN, as the originals take it.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -147,8 +135,8 @@ double ModelSpin::bearing()
         return static_cast<double>(range_) / period_ * t + base_;
     double phase = t / period_ * kHalfPi;
     if (power_ < 0)
-        return (1.0 - x87_sin(kHalfPi - phase)) * range_ + base_;
-    double s = x87_sin(phase);
+        return (1.0 - std::sin(kHalfPi - phase)) * range_ + base_;
+    double s = std::sin(phase);
     for (int i = power_ - 1; i > 0; --i)
         s *= s;
     return s * range_ + base_;

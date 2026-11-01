@@ -65,266 +65,23 @@ void bone_scale_terms(int bone, float& e0, float& e4, float& e8, float& e12)
     e12 = scale[3];
 }
 
-// The memory loader's arithmetic (the original's x87 code: what it keeps in registers stays there): each bone's
-// offset scaled - x by the scale's first value, y by its third, z by its second - and moved by the bone's position,
-// then blended by the weights.
-void scaled_position_in_memory(ScaledVertex v, float* out)
+// A vertex's position as the bone scales move it: each bone's offset scaled - x by the scale's first value, y by its
+// third, z by its second - and moved by the bone's position, then blended by the weights. (The original's memory and
+// file loaders compute it in x87 code that rounds different sums and products to float; in plain float arithmetic
+// they are the same formula.)
+void scaled_position(const ScaledVertex& v, float* out)
 {
-    float e0_0, e0_4, e0_8, e0_c, e1_0, e1_4, e1_8, e1_c, e2_0, e2_4, e2_8, e2_c;
-    bone_scale_terms(v.bones[0], e0_0, e0_4, e0_8, e0_c);
-    bone_scale_terms(v.bones[1], e1_0, e1_4, e1_8, e1_c);
-    bone_scale_terms(v.bones[2], e2_0, e2_4, e2_8, e2_c);
-    float ax_ = v.a[0], ay = v.a[1], az = v.a[2], bx_ = v.b[0], by = v.b[1], bz = v.b[2];
-    float cx_ = v.c[0], cy = v.c[1], cz = v.c[2];
-    float px = v.p[0], py = v.p[1], pz = v.p[2], qx = v.q[0], qy = v.q[1], qz = v.q[2];
-    float rx = v.r[0], ry = v.r[1], rz = v.r[2];
-    float s0 = v.weights[0], s1 = v.weights[1], s2 = v.weights[2];
-    float t0, t1, v2, w1, w2, x1, y1, z1, out_x, out_y, out_z;
-    __asm {
-        fld e0_0
-        fld e0_8
-        fxch st(1)
-        fmul ax_
-        fstp ax_
-        fmul ay
-        fld az
-        fmul e0_4
-        fstp az
-        fld e1_0
-        fld e1_8
-        fxch st(1)
-        fmul bx_
-        fstp bx_
-        fmul by
-        fld bz
-        fmul e1_4
-        fstp bz
-        fld e2_0
-        fld e2_8
-        fxch st(1)
-        fmul cx_
-        fstp cx_
-        fmul cy
-        fld cz
-        fmul e2_4
-        fld px
-        fadd ax_
-        fstp ax_
-        fld py
-        fadd st(0), st(4)
-        fstp ay
-        fld pz
-        fadd az
-        fstp az
-        fld qx
-        fadd bx_
-        fstp bx_
-        fld qy
-        fadd st(0), st(3)
-        fstp by
-        fld qz
-        fadd bz
-        fstp bz
-        fld rx
-        fadd cx_
-        fstp cx_
-        fld ry
-        fadd st(0), st(2)
-        fstp cy
-        fld rz
-        fadd st(0), st(1)
-        fstp st(4)
-        fstp st(0)
-        fstp st(0)
-        fstp st(0)
-        fld cx_
-        fmul s2
-        fstp t0
-        fld cy
-        fmul s2
-        fstp t1
-        fmul s2
-        fld bx_
-        fmul s1
-        fld by
-        fmul s1
-        fld bz
-        fmul s1
-        fstp v2
-        fld ax_
-        fmul s0
-        fld ay
-        fmul s0
-        fstp w1
-        fld az
-        fmul s0
-        fstp w2
-        fadd st(0), st(2)
-        fstp x1
-        fld w1
-        fadd st(0), st(1)
-        fstp y1
-        fstp st(0)
-        fstp st(0)
-        fld w2
-        fadd v2
-        fstp z1
-        fld x1
-        fadd t0
-        fld y1
-        fadd t1
-        fld z1
-        fadd st(0), st(3)
-        fstp out_z
-        fxch st(1)
-        fstp out_x
-        fstp out_y
-        fstp st(0)
-    }
-    out[0] = out_x;
-    out[1] = out_y;
-    out[2] = out_z;
-}
-
-// The file loader's (the w components scaled and moved too; other values rounded than the memory loader's).
-void scaled_position_in_file(ScaledVertex v, float* out)
-{
-    float e0_0, e0_4, e0_8, e0_c, e1_0, e1_4, e1_8, e1_c, e2_0, e2_4, e2_8, e2_c;
-    bone_scale_terms(v.bones[0], e0_0, e0_4, e0_8, e0_c);
-    bone_scale_terms(v.bones[1], e1_0, e1_4, e1_8, e1_c);
-    bone_scale_terms(v.bones[2], e2_0, e2_4, e2_8, e2_c);
-    float ax_ = v.a[0], ay = v.a[1], az = v.a[2], aw = v.a[3], bx_ = v.b[0], by = v.b[1], bz = v.b[2], bw = v.b[3];
-    float cx_ = v.c[0], cy = v.c[1], cz = v.c[2], cw = v.c[3];
-    float px = v.p[0], py = v.p[1], pz = v.p[2], pw = v.p[3], qx = v.q[0], qy = v.q[1], qz = v.q[2], qw = v.q[3];
-    float rx = v.r[0], ry = v.r[1], rz = v.r[2], rw = v.r[3];
-    float s0 = v.weights[0], s1 = v.weights[1], s2 = v.weights[2];
-    float cyw, czw, bzw, ayw, azw, x1, y1, z1, out_x, out_y, out_z;
-    __asm {
-        fld e0_0
-        fld e0_8
-        fxch st(1)
-        fmul ax_
-        fstp ax_
-        fld ay
-        fmul st(0), st(1)
-        fstp ay
-        fstp st(0)
-        fld az
-        fmul e0_4
-        fstp az
-        fld aw
-        fmul e0_c
-        fstp aw
-        fld e1_0
-        fld e1_8
-        fxch st(1)
-        fmul bx_
-        fstp bx_
-        fld by
-        fmul st(0), st(1)
-        fstp by
-        fstp st(0)
-        fld bz
-        fmul e1_4
-        fstp bz
-        fld bw
-        fmul e1_c
-        fstp bw
-        fld e2_0
-        fld e2_8
-        fxch st(1)
-        fmul cx_
-        fstp cx_
-        fmul cy
-        fld cz
-        fmul e2_4
-        fld cw
-        fmul e2_c
-        fstp cw
-        fld px
-        fadd ax_
-        fstp ax_
-        fld py
-        fadd ay
-        fstp ay
-        fld pz
-        fadd az
-        fstp az
-        fld pw
-        fadd aw
-        fstp aw
-        fld qx
-        fadd bx_
-        fstp bx_
-        fld qy
-        fadd by
-        fstp by
-        fld qz
-        fadd bz
-        fstp bz
-        fld qw
-        fadd bw
-        fstp bw
-        fld rx
-        fadd cx_
-        fstp cx_
-        fld ry
-        fadd st(0), st(2)
-        fstp cy
-        fld rz
-        fadd st(0), st(1)
-        fstp cz
-        fstp st(0)
-        fstp st(0)
-        fld rw
-        fadd cw
-        fstp cw
-        fld cx_
-        fmul s2
-        fld cy
-        fmul s2
-        fstp cyw
-        fld cz
-        fmul s2
-        fstp czw
-        fld bx_
-        fmul s1
-        fld by
-        fmul s1
-        fld bz
-        fmul s1
-        fstp bzw
-        fld ax_
-        fmul s0
-        fld ay
-        fmul s0
-        fstp ayw
-        fld az
-        fmul s0
-        fstp azw
-        fadd st(0), st(2)
-        fstp x1
-        fld ayw
-        fadd st(0), st(1)
-        fstp y1
-        fstp st(0)
-        fstp st(0)
-        fld azw
-        fadd bzw
-        fstp z1
-        fadd x1
-        fld y1
-        fadd cyw
-        fld z1
-        fadd czw
-        fstp out_z
-        fxch st(1)
-        fstp out_x
-        fstp out_y
-    }
-    out[0] = out_x;
-    out[1] = out_y;
-    out[2] = out_z;
+    float e0[4], e1[4], e2[4];
+    bone_scale_terms(v.bones[0], e0[0], e0[1], e0[2], e0[3]);
+    bone_scale_terms(v.bones[1], e1[0], e1[1], e1[2], e1[3]);
+    bone_scale_terms(v.bones[2], e2[0], e2[1], e2[2], e2[3]);
+    const float ax = v.p[0] + e0[0] * v.a[0], ay = v.p[1] + e0[2] * v.a[1], az = v.p[2] + e0[1] * v.a[2];
+    const float bx = v.q[0] + e1[0] * v.b[0], by = v.q[1] + e1[2] * v.b[1], bz = v.q[2] + e1[1] * v.b[2];
+    const float cx = v.r[0] + e2[0] * v.c[0], cy = v.r[1] + e2[2] * v.c[1], cz = v.r[2] + e2[1] * v.c[2];
+    const float* s = v.weights;
+    out[0] = ax * s[0] + bx * s[1] + cx * s[2];
+    out[1] = ay * s[0] + by * s[1] + cy * s[2];
+    out[2] = az * s[0] + bz * s[1] + cz * s[2];
 }
 
 // The vertex formats a scene file's type numbers name (0x00775B64-78; 0: none; past 6: the number itself).
@@ -336,26 +93,22 @@ uint32_t vertex_format(uint32_t type)
     return type ? g_vertex_shaders[6 - type] : 0;
 }
 
-// The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file loader's: their arithmetic differs in what x87 keeps in
-// registers) - only while the skin scaling is on.
-void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertices, uint32_t stride, bool in_memory)
+// The bone-scaled positions written into a vertex buffer (0x004D47F0 / 0x004D4350: the memory loader's and the file
+// loader's) - only while the skin scaling is on.
+void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertices, uint32_t stride)
 {
     size_t count = records.size() / scene_format::kScaledVertexSize;
     for (size_t i = 0; i < count; ++i) {
         ScaledVertex v;
         std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
-        if (skin_scaling_on()) {
-            if (in_memory)
-                scaled_position_in_memory(v, reinterpret_cast<float*>(vertices));
-            else
-                scaled_position_in_file(v, reinterpret_cast<float*>(vertices));
-        }
+        if (skin_scaling_on())
+            scaled_position(v, reinterpret_cast<float*>(vertices));
         vertices += stride;
     }
 }
 
-// The mesh made from its body record (scene_format.h), as both of the original's loaders do; `in_memory` picks the
-// memory loader's arithmetic for the scaled positions. False if the stream failed (nothing is made).
+// The mesh made from its body record (scene_format.h), as both of the original's loaders do. False if the stream
+// failed (nothing is made).
 template <typename Stream>
 bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* scene, VertexArena* arena, bool dynamic)
 {
@@ -384,7 +137,7 @@ bool read_mesh(MeshRef* mesh, Stream& in, uint32_t material_checksum, SceneRef* 
     mesh->vertex_count_ = body.vertex_count;
     mesh->vertex_buffer_count_ = body.vertex_buffer_count;
     if (!body.scaled.empty())
-        apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride, Stream::kInMemory);
+        apply_scaled_positions(body.scaled, body.vertices.data(), mesh->stride);
     mesh->fvf = vertex_format(body.vertex_types[0]);
     *reinterpret_cast<uint32_t*>(mesh->unknown3c_) = vertex_format(body.vertex_types[1]);
     mesh->unknown1c_[1] = body.offsets[0];

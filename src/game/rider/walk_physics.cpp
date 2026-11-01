@@ -4,6 +4,7 @@
 
 #include "game/rider/walk_physics.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -27,7 +28,6 @@
 #include "game/rider/skater_state.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/tagging.h"
-#include "engine/maths/x87_math.h"
 #include "platform/game_clock.h"
 #include "platform/stopwatch.h"
 #include "engine/objects/control_pad.h"
@@ -90,50 +90,20 @@ uint32_t get_state_name(int state) { return kWalkStateNames[state]; }
 // The skate module's career (0x007CE478's +0x20).
 RiderStoryProgress* get_career() { return modules::g_skate_module->career_.get(); }
 
-// asin (the game's C runtime) of `value` in degrees (x 57.29578), negated when `negate` - the result kept in the
-// register until it is rounded to float, as the original.
+// asin of `value` in degrees (x 57.29578), negated when `negate`, rounded to float once.
 float asin_degrees(double value, bool negate)
 {
-    float result;
-    void* function = crt::asin_x87();
-    float degrees = kDegrees;
-    __asm {
-        fld value
-        call function
-        cmp negate, 0
-        je positive
-        fchs
-    positive:
-        fmul degrees
-        fstp result
-    }
-    return result;
+    const double angle = std::asin(value);
+    return static_cast<float>((negate ? -angle : angle) * kDegrees);
 }
 
-// get_turned_facing's turn (0x00528220): the cosine rounded to float, the sine kept in the register.
+// get_turned_facing's turn (0x00528220): the cosine rounded to float.
 void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 {
-    float cosine, rx, rz;
-    __asm {
-        fld angle
-        fld st(0)
-        fcos
-        fstp cosine
-        fsin // sin
-        fld cosine
-        fmul x // c*x, sin
-        fld st(1)
-        fmul z // sin*z, c*x, sin
-        fsubp st(1), st // c*x - sin*z, sin
-        fstp rx // sin
-        fmul x // sin*x
-        fld cosine
-        fmul z // c*z, sin*x
-        faddp st(1), st
-        fstp rz
-    }
-    *turned_x = rx;
-    *turned_z = rz;
+    const double cosine = static_cast<float>(std::cos(angle));
+    const double sine = std::sin(angle);
+    *turned_x = static_cast<float>(cosine * x - sine * z);
+    *turned_z = static_cast<float>(sine * x + cosine * z);
 }
 
 } // namespace
@@ -441,7 +411,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     double dz_full = static_cast<double>(b->z) - a->z;
     float dz = static_cast<float>(dz_full);
     // (z's square from its unrounded difference times its rounded one, as the original's x87 code)
-    double length = x87::get_sqrt((dz_full * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
+    double length = std::sqrt((dz_full * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         dx = static_cast<float>(dx * inverse);

@@ -8,8 +8,8 @@
 
 // The C runtime and the system libraries (Windows, DirectX, Winsock, Bink) the game calls: the linked library, or -
 // where the compiler's library behaves differently from the game's - our own version of the game's (qsort's order of
-// equal elements, rand's sequence, _stricmp's result, _CIasin / _CIacos on the x87). Bink has no import library: its
-// functions are looked up by name (library_function).
+// equal elements, rand's sequence, _stricmp's result). Bink has no import library: its functions are
+// looked up by name (library_function).
 
 namespace crt {
 
@@ -78,9 +78,6 @@ struct GameRandom {
 };
 void game_srand(unsigned seed);
 int game_rand();
-// Its _CIasin / _CIacos: the argument and the result in ST0 (call them with CALL from x87 code).
-void game_asin_x87();
-void game_acos_x87();
 
 inline void get_qsort(void* base, size_t count, size_t width, Weigh compare)
 {
@@ -89,8 +86,5 @@ inline void get_qsort(void* base, size_t count, size_t width, Weigh compare)
 inline int stricmp(const char* a, const char* b) { return game_stricmp(a, b); }
 inline void get_srand(unsigned seed) { game_srand(seed); }
 inline int get_rand() { return game_rand(); }
-// The addresses x87 code calls (fld value; call [function]).
-inline void* asin_x87() { return reinterpret_cast<void*>(game_asin_x87); }
-inline void* acos_x87() { return reinterpret_cast<void*>(game_acos_x87); }
 
 } // namespace crt

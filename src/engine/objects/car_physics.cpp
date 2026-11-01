@@ -63,19 +63,6 @@ constexpr float kRadiansPerDegree = 0.0174532924f;     // 0x00645464
 // out = a * b (the statically linked D3DXMatrixMultiply, 0x005BFA8C: a library function, not decompiled).
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
-// The game's C runtime asin (_CIasin: the argument and result on the FPU stack - platform/crt.h).
-double game_asin(double value)
-{
-    double result;
-    void* function = crt::asin_x87();
-    __asm {
-        fld value
-        call function
-        fstp result
-    }
-    return result;
-}
-
 // The model's skeleton description (0x00493040, no source yet).
 AutomobileDynamicsModule::BoneDesc* model_bones(void* model)
 {
@@ -202,7 +189,7 @@ void AutomobileDynamicsModule::update_angles()
                 clamped = 1.0f;
             else if (clamped < -1.0f)
                 clamped = -1.0f;
-            double target = game_asin(clamped) * kMinusRadiansToDegrees;
+            double target = std::asin(static_cast<double>(clamped)) * kMinusRadiansToDegrees;
             target_steer_ = static_cast<float>(target);
             if (turn < 0.0f)
                 target_steer_ = static_cast<float>(-target);

@@ -139,46 +139,11 @@ void matrix_scaling(maths::Mat4* out, float x, float y, float z) { d3dx::matrix_
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 void matrix_rotation_y(maths::Mat4* out, float angle) { d3dx::matrix_rotation_y(out, angle); }
 
-// --- x87 instructions the original uses, so results round exactly as there ---------------------------------------
-
-// FPTAN of `angle` (unrounded), times `factor`, rounded once to float.
-float tan_times(double angle, float factor)
-{
-    float result;
-    __asm {
-        fld angle
-        fptan
-        fstp st(0)
-        fmul factor
-        fstp result
-    }
-    return result;
-}
-// FPTAN rounded once to float.
-float get_tan(float angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fptan
-        fstp st(0)
-        fstp result
-    }
-    return result;
-}
-// FPATAN: atan2(y, x) - pi/2 (the pi/2 a float), rounded once to float.
+// atan2(y, x) - pi/2 (the pi/2 a float), rounded once to float.
 float atan2_less_quarter_turn(float y, float x)
 {
-    const float quarter_turn = 1.5707963705062866f;
-    float result;
-    __asm {
-        fld y
-        fld x
-        fpatan
-        fsub quarter_turn
-        fstp result
-    }
-    return result;
+    constexpr float kQuarterTurn = 1.5707963705062866f;
+    return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)) - kQuarterTurn);
 }
 
 float float_from_bits(uint32_t bits)
@@ -297,7 +262,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
     double half_angle = static_cast<double>(angle) * 0.008726646f;
-    float width = tan_times(half_angle, 4.0f);
+    float width = static_cast<float>(std::tan(half_angle) * 4.0f);
     float height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
     float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
@@ -317,7 +282,7 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
     set_transform(3, &projection);
 
     auto& shape = g_view_shape;
-    shape.tan_x_ = get_tan(static_cast<float>(half_angle));
+    shape.tan_x_ = std::tan(static_cast<float>(half_angle));
     shape.tan_y_ = -(height_factor * shape.tan_x_);
     double tan_x2 = static_cast<double>(shape.tan_x_) * shape.tan_x_;
     double tan_y2 = static_cast<double>(shape.tan_y_) * shape.tan_y_;

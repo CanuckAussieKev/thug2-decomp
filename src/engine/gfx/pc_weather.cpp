@@ -8,6 +8,7 @@
 #include <d3d9.h>
 
 #include <bit>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -22,7 +23,6 @@
 #include "engine/gfx/weather.h"
 #include "engine/maths/random.h"
 #include "engine/maths/vec4.h"
-#include "engine/maths/x87_math.h"
 #include "engine/render/probe_ray.h"
 #include "engine/gfx/device.h"
 
@@ -288,7 +288,7 @@ void PcWeather::render_snow(float x, float z)
     for (int i = 0; i < 0x100; ++i)
         spread[i] = static_cast<float>(static_cast<double>(i) * 64.0f * (1.0f / 255.0f));
     for (int i = 0; i < 0x100; ++i)
-        sway[i] = static_cast<float>(x87::get_sin(static_cast<double>(i) * (1.0f / 256.0f) * 6.28318548f) * 64.0f);
+        sway[i] = static_cast<float>(std::sin(static_cast<double>(i) * (1.0f / 256.0f) * 6.28318548f) * 64.0f);
     uint32_t colour = get_argb(snow_colour_);
     float points[0x7FC + 4];
     float* out = nullptr;

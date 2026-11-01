@@ -56,23 +56,9 @@ constexpr float kFrame = 0.03333333507180214f;   // (0x00646430: a 30th of a sec
 constexpr float kStep = 0.01666666753590107f;    // (0x006463B8: a 60th)
 constexpr float kPartEnd = 0.03343333676457405f; // (0x0064791C)
 
-// The vblank count since the cutscene started, minus the time it was paused, in seconds (x87: the count as an
-// unsigned 64-bit number - the low 63 bits plus 2^63 - over the rate, as the original).
-float vblank_seconds(uint64_t vblanks, int rate)
-{
-    uint64_t low_part[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
-    uint64_t high_part[1] = {vblanks & 0x8000000000000000ull};
-    float result;
-    __asm {
-        fild qword ptr [low_part]
-        fild qword ptr [high_part]
-        fchs
-        faddp st(1), st
-        fidiv dword ptr [rate]
-        fstp dword ptr [result]
-    }
-    return result;
-}
+// The vblank count since the cutscene started, minus the time it was paused, in seconds (the count as an unsigned
+// 64-bit number, over the rate).
+float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(static_cast<double>(vblanks) / rate); }
 
 memory::owner<void*> new_anim_source() { return new render::FrameSource; }
 void delete_source(void* source) { delete static_cast<render::FrameSource*>(source); }

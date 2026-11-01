@@ -14,7 +14,6 @@ namespace scene_format {
 class FileStream {
 public:
     explicit FileStream(file::Hdl file) : file_(file), size_(file::get_file_size(file)) {}
-    static constexpr bool kInMemory = false;
 
     bool take(void* out, size_t bytes)
     {

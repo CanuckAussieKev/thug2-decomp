@@ -2,6 +2,7 @@
 
 #include "engine/objects/projectile_component.h"
 
+#include <cmath>
 #include <cstdint>
 
 #include "engine/core/manager.h"
@@ -36,38 +37,16 @@ constexpr int kRestFrames = 10;
 // (a seat of -1 - no slot named for the object - reaches before the slots, as the original)
 bool& slot_taken(Rider* skater, int slot) { return skater->projectiles_[slot].active; }
 
-// One feeler's end x / z, as the original's x87 code: the cosine of the angle as computed (53 bits), the sine of it
-// rounded to float; z adds (sin + float(cos)) * 12 rounded to float first.
+// One feeler's end x / z: the cosine of the angle as computed (in double), the sine of it rounded to float; z adds
+// (sin + float(cos)) * 12 rounded to float first.
 void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 {
-    float angle_f;
-    float slot;
-    float step = kStep;
-    float reach = kReach;
-    __asm {
-        fild index
-        fmul step
-        fst angle_f
-        fcos
-        fld angle_f
-        fsin
-        fxch st(1)
-        fst slot
-        fsub st(0), st(1)
-        fxch st(1)
-        fadd slot
-        fmul reach
-        fstp slot
-        fmul reach
-        fld z
-        fadd slot
-        fxch st(1)
-        fadd x
-        mov eax, last_column
-        fstp dword ptr [eax]
-        mov eax, end_z
-        fstp dword ptr [eax]
-    }
+    const double angle = static_cast<double>(index) * kStep;
+    const double cosine = std::cos(angle);
+    const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
+    const float side = static_cast<float>((sine + static_cast<float>(cosine)) * kReach);
+    *last_column = static_cast<float>((cosine - sine) * kReach + x);
+    *end_z = static_cast<float>(z + static_cast<double>(side));
 }
 
 } // namespace

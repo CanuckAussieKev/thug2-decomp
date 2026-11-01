@@ -2,6 +2,7 @@
 
 #include "engine/gfx/tod_manager.h"
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
@@ -128,49 +129,6 @@ float thousand() { return g_thousand; }                // 1000.0
 
 // The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-
-// The x87's own FSIN / FCOS, which the original uses (the C runtime's sin and cos round differently).
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-// The same, stored straight to a float (rounded once).
-float x87_sin_float(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-float x87_cos_float(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
 
 // An unsigned millisecond count over an int length, as the original divides (FILD, + 2^32 if negative, FIDIV).
 double get_fraction(int time, int length)
@@ -746,16 +704,16 @@ void CtodManager::apply_color(uint32_t color, uint32_t sky_color, bool sky, uint
 void set_light_direction(int index, float heading, float pitch)
 {
     double p = static_cast<double>(pitch) * degree_to_radian_conv();
-    double sin_pitch = x87_sin(p);
-    double cos_pitch = x87_cos(p);
+    double sin_pitch = std::sin(p);
+    double cos_pitch = std::cos(p);
     float direction[4];
     direction[3] = 0.0f;
     direction[1] = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
     double horizontal = cos_pitch + sin_pitch * get_zero();
     double h = static_cast<double>(heading) * degree_to_radian_conv();
-    float sin_heading = x87_sin_float(h);
-    double cos_heading = x87_cos(h);
-    float cos_heading_float = x87_cos_float(h);
+    float sin_heading = static_cast<float>(std::sin(h));
+    double cos_heading = std::cos(h);
+    float cos_heading_float = static_cast<float>(std::cos(h));
     direction[2] = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
     direction[0] = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
     set_light_direction_vector(index, direction);

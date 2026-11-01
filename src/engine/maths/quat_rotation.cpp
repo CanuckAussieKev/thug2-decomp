@@ -7,7 +7,6 @@
 #include <cmath>
 
 #include "engine/maths/mat4.h"
-#include "engine/maths/x87_math.h"
 
 namespace maths {
 
@@ -25,11 +24,11 @@ QuatRotation* QuatRotation::init_from_axis_angle(const Vec4& axis, float angle)
     float length = static_cast<float>(std::sqrt(ax * ax + ay * ay + az * az));
     double half = static_cast<double>(angle) * 0.5;
     double inverse = length > 0.0f ? 1.0 / length : 0.0;
-    float s = static_cast<float>(x87::get_sin(half) * inverse);
+    float s = static_cast<float>(std::sin(half) * inverse);
     z = s * axis.z;
     y = s * axis.y;
     x = s * axis.x;
-    w = static_cast<float>(x87::get_cos(half));
+    w = static_cast<float>(std::cos(half));
     return this;
 }
 
@@ -66,8 +65,8 @@ Vec4* QuatRotation::spin_by(Vec4* out, const Vec4& v) const
 // 0x00420A50
 Vec4& Vec4::rotate_about_x(float angle)
 {
-    double s = x87::get_sin(angle);
-    double c = x87::get_cos(angle);
+    double s = std::sin(static_cast<double>(angle));
+    double c = std::cos(static_cast<double>(angle));
     double old_y = y;
     y = static_cast<float>(c * y - s * z);
     z = static_cast<float>(c * z + old_y * s);
@@ -77,8 +76,8 @@ Vec4& Vec4::rotate_about_x(float angle)
 // 0x00420A90
 Vec4& Vec4::rotate_about_y(float angle)
 {
-    double s = x87::get_sin(angle);
-    double c = x87::get_cos(angle);
+    double s = std::sin(static_cast<double>(angle));
+    double c = std::cos(static_cast<double>(angle));
     double old_x = x;
     x = static_cast<float>(s * z + c * x);
     z = static_cast<float>(-(old_x * s) + c * z);

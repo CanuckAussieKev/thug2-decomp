@@ -62,22 +62,8 @@ script::Struct* make_struct()
     return memory ? new (memory) script::Struct : nullptr;
 }
 
-// The vblank count since a time, in seconds (the x87's unsigned 64-bit conversion).
-float vblank_seconds(uint64_t vblanks, int rate)
-{
-    uint64_t low_part[1] = {vblanks & 0x7FFFFFFFFFFFFFFFull};
-    uint64_t high_part[1] = {vblanks & 0x8000000000000000ull};
-    float result;
-    __asm {
-        fild qword ptr [low_part]
-        fild qword ptr [high_part]
-        fchs
-        faddp st(1), st
-        fidiv dword ptr [rate]
-        fstp dword ptr [result]
-    }
-    return result;
-}
+// The vblank count since a time, in seconds (the count as an unsigned 64-bit number).
+float vblank_seconds(uint64_t vblanks, int rate) { return static_cast<float>(static_cast<double>(vblanks) / rate); }
 
 } // namespace
 

@@ -321,28 +321,6 @@ namespace {
 int get_rand() { return crt::get_rand(); } // (the game's C runtime's)
 const float* get_at(const uint8_t* vertex) { return reinterpret_cast<const float*>(vertex); }
 
-// The x87's sine and cosine (as the original: FSIN / FCOS of the unrounded value).
-double get_sine(double a)
-{
-    double result;
-    __asm {
-        fld a
-        fsin
-        fstp result
-    }
-    return result;
-}
-double get_cosine(double a)
-{
-    double result;
-    __asm {
-        fld a
-        fcos
-        fstp result
-    }
-    return result;
-}
-
 // D3DX (linked library code).
 void transform_coord(float* out, const float* v, const maths::Mat4* m) { d3dx::vec3_transform_coord(out, v, m); }
 void normalize3(float* v) { d3dx::vec3_normalize(v, v); }
@@ -426,7 +404,7 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
         direction[1] = static_cast<float>(dyf * inverse);
         direction[2] = static_cast<float>(dz * inverse);
     }
-    float cone = static_cast<float>(get_cosine(params->cone_angle_));
+    float cone = std::cos(params->cone_angle_);
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     float up[4];
@@ -457,9 +435,9 @@ TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, Spla
             if (0.0f == params->angle)
                 a = get_rand() * static_cast<double>(std::bit_cast<float>(0x40C90FDBu)) *
                     std::bit_cast<float>(0x38000100u); // (2 pi, 1 / 32767)
-            up[0] = static_cast<float>(get_sine(a));
+            up[0] = static_cast<float>(std::sin(a));
             up[1] = 0.0f;
-            up[2] = static_cast<float>(get_cosine(a));
+            up[2] = static_cast<float>(std::cos(a));
         } else {
             up[0] = 0.0f;
             up[1] = 1.0f;

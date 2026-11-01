@@ -54,7 +54,6 @@ constexpr uint32_t kPassUvWibble = 1, kPassColorAnims = 2, kPassTextureAnim = 0x
 class MemoryStream {
 public:
     MemoryStream(const void* data, size_t size) : in_(data, size) {}
-    static constexpr bool kInMemory = true;
 
     bool take(void* out, size_t bytes)
     {

@@ -18,7 +18,6 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/render_state.h"
 #include "engine/gfx/simple_material.h"
-#include "engine/maths/x87_math.h"
 #include "platform/platform_d3d.h"
 #include "engine/gfx/shader_slots.h"
 #include "engine/gfx/device.h"
@@ -253,9 +252,7 @@ PcNewFlatParticles::PcNewFlatParticles(uint32_t name, int particle_cap, uint32_t
     : NewFlatParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segments, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material =
-        memory ? new (memory) SimpleMaterial(particle_cap, 1, texture, blend_mode, fixed_alpha, 0, 0)
-               : nullptr;
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 1, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
 }
 
 // 0x004BD610
@@ -412,8 +409,8 @@ PcFlatRibbonParticles::PcFlatRibbonParticles(uint32_t name, int particle_cap, ui
     : FlatRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, ribbon_width, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 0xB, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, history)
+    material = memory ? new (memory)
+                            SimpleMaterial(particle_cap, 0xB, texture, blend_mode, fixed_alpha, segment_count, history)
                       : nullptr;
     width = ribbon_width;
 }
@@ -619,8 +616,7 @@ PcGlowParticles::PcGlowParticles(uint32_t name, int particle_cap, uint32_t textu
     : GlowParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 4, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, 0)
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 4, texture, blend_mode, fixed_alpha, segment_count, 0)
                       : nullptr;
 }
 
@@ -673,7 +669,7 @@ void PcGlowParticles::render()
             double w = glow_width_;
 
             // The rings' points at angle 0: outer (r sin, u cos, times the width), inner.
-            double s = x87::get_sin(0.0), c = x87::get_cos(0.0);
+            double s = std::sin(0.0), c = std::cos(0.0);
             float outer[3], inner[3];
             {
                 double ry_s = static_cast<float>(ry * s), rz_s = static_cast<float>(rz * s);
@@ -694,7 +690,7 @@ void PcGlowParticles::render()
             float step = static_cast<float>(6.28318548f / static_cast<double>(segments_)); // (0x0064545C)
             for (int i = 1; i <= segments_; ++i) {
                 double angle = static_cast<double>(i) * step;
-                double si = x87::get_sin(angle), ci = x87::get_cos(angle);
+                double si = std::sin(angle), ci = std::cos(angle);
                 float next_outer[3], next_inner[3];
                 double rsw = rx * si * w;
                 double r1 = static_cast<double>(static_cast<float>(ry * si)) * w;
@@ -752,9 +748,7 @@ PcLineParticles::PcLineParticles(uint32_t name, int particle_cap, uint32_t textu
     : LineParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material =
-        memory ? new (memory) SimpleMaterial(particle_cap, 0, texture, blend_mode, fixed_alpha, 0, 0)
-               : nullptr;
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 0, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
 }
 
 // 0x004C0AC0
@@ -814,8 +808,7 @@ PcRibbonParticles::PcRibbonParticles(uint32_t name, int particle_cap, uint32_t t
     : RibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 7, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, 0)
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 7, texture, blend_mode, fixed_alpha, segment_count, 0)
                       : nullptr;
 }
 
@@ -951,8 +944,8 @@ PcRibbonTrailParticles::PcRibbonTrailParticles(uint32_t name, int particle_cap, 
     : RibbonTrailParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 9, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, history)
+    material = memory ? new (memory)
+                            SimpleMaterial(particle_cap, 9, texture, blend_mode, fixed_alpha, segment_count, history)
                       : nullptr;
 }
 
@@ -1081,9 +1074,7 @@ PcShadedParticles::PcShadedParticles(uint32_t name, int particle_cap, uint32_t t
     : ShadedParticles(name, particle_cap, texture, blend_mode, fixed_alpha, 0, 0, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material =
-        memory ? new (memory) SimpleMaterial(particle_cap, 2, texture, blend_mode, fixed_alpha, 0, 0)
-               : nullptr;
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 2, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
 }
 
 // 0x004C2260
@@ -1218,9 +1209,7 @@ PcSmoothParticles::PcSmoothParticles(uint32_t name, int particle_cap, uint32_t t
     : SmoothParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material =
-        memory ? new (memory) SimpleMaterial(particle_cap, 3, texture, blend_mode, fixed_alpha, 0, 0)
-               : nullptr;
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 3, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
 }
 
 // 0x004C2C00
@@ -1323,9 +1312,7 @@ PcSmoothRibbonParticles::PcSmoothRibbonParticles(uint32_t name, int particle_cap
     : SmoothRibbonParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material =
-        memory ? new (memory) SimpleMaterial(particle_cap, 8, texture, blend_mode, fixed_alpha, 0, 0)
-               : nullptr;
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 8, texture, blend_mode, fixed_alpha, 0, 0) : nullptr;
 }
 
 // 0x004C3620
@@ -1445,8 +1432,7 @@ PcSmoothStarParticles::PcSmoothStarParticles(uint32_t name, int particle_cap, ui
     : SmoothStarParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 6, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, 0)
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 6, texture, blend_mode, fixed_alpha, segment_count, 0)
                       : nullptr;
 }
 
@@ -1474,7 +1460,7 @@ void PcSmoothStarParticles::render()
         auto* vertex = static_cast<TrailVertex*>(
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
-            float sin0 = static_cast<float>(x87::get_sin(0.0)), cos0 = static_cast<float>(x87::get_cos(0.0));
+            float sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
             for (;;) {
                 float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
@@ -1520,7 +1506,7 @@ void PcSmoothStarParticles::render()
                     float step = static_cast<float>(360.0f / (static_cast<double>(segments_) + segments_));
                     // The point between this segment's two outer points, out at the star's width.
                     double angle1 = static_cast<double>(k) * step * kDegrees;
-                    double s1 = x87::get_sin(angle1), c1 = x87::get_cos(angle1);
+                    double s1 = std::sin(angle1), c1 = std::cos(angle1);
                     float s1f = static_cast<float>(s1);
                     float tip[3];
                     {
@@ -1539,7 +1525,7 @@ void PcSmoothStarParticles::render()
                     }
                     // The next outer point.
                     double angle2 = static_cast<double>(k + 1) * step * kDegrees;
-                    double s2 = x87::get_sin(angle2), c2 = x87::get_cos(angle2);
+                    double s2 = std::sin(angle2), c2 = std::cos(angle2);
                     float next[3];
                     double next_y;
                     {
@@ -1616,8 +1602,7 @@ PcStarParticles::PcStarParticles(uint32_t name, int particle_cap, uint32_t textu
     : StarParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, 0)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 5, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, 0)
+    material = memory ? new (memory) SimpleMaterial(particle_cap, 5, texture, blend_mode, fixed_alpha, segment_count, 0)
                       : nullptr;
 }
 
@@ -1645,7 +1630,7 @@ void PcStarParticles::render()
         auto* vertex = static_cast<TrailVertex*>(
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
-            float sin0 = static_cast<float>(x87::get_sin(0.0)), cos0 = static_cast<float>(x87::get_cos(0.0));
+            float sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
             for (;;) {
                 float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
@@ -1689,7 +1674,7 @@ void PcStarParticles::render()
                 for (int k = 1; k <= segments_; ++k) {
                     // The next outer point (out at the width) and the inner one between (unscaled).
                     double angle_a = 360.0f / static_cast<double>(segments_) * k * kDegrees;
-                    double a = x87::get_sin(angle_a), c_a = x87::get_cos(angle_a);
+                    double a = std::sin(angle_a), c_a = std::cos(angle_a);
                     float next[3];
                     {
                         double x = rv[0] * a * w;
@@ -1706,7 +1691,7 @@ void PcStarParticles::render()
                         next[2] = static_cast<float>(static_cast<double>(uz) + nz);
                     }
                     double angle_b = 360.0f / (static_cast<double>(segments_) + segments_) * (2 * k - 1) * kDegrees;
-                    double b = x87::get_sin(angle_b), c_b = x87::get_cos(angle_b);
+                    double b = std::sin(angle_b), c_b = std::cos(angle_b);
                     float inner[3];
                     {
                         double x = rv[0] * b + p[0];
@@ -1774,8 +1759,8 @@ PcGlowRibbonTrailParticles::PcGlowRibbonTrailParticles(uint32_t name, int partic
     : GlowRibbonTrailParticles(name, particle_cap, texture, blend_mode, fixed_alpha, segment_count, unknown, history)
 {
     void* memory = memory::alloc(sizeof(SimpleMaterial));
-    material = memory ? new (memory) SimpleMaterial(particle_cap, 10, texture, blend_mode,
-                                                                       fixed_alpha, segment_count, history)
+    material = memory ? new (memory)
+                            SimpleMaterial(particle_cap, 10, texture, blend_mode, fixed_alpha, segment_count, history)
                       : nullptr;
 }
 
@@ -1956,7 +1941,7 @@ void PcGlowRibbonTrailParticles::render()
             }
             for (int i = 1; i <= segments_; ++i) {
                 double angle = static_cast<double>(i) * glow_step_ * 0.0174532924f;
-                float s = static_cast<float>(x87::get_sin(angle)), cs = static_cast<float>(x87::get_cos(angle));
+                float s = static_cast<float>(std::sin(angle)), cs = static_cast<float>(std::cos(angle));
                 double r0s = static_cast<double>(rr[0]) * s, r1s = static_cast<double>(s) * rr[1],
                        r2s = static_cast<double>(s) * rr[2];
                 float next_outer[3], next_inner[3];

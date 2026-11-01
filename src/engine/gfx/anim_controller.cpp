@@ -62,17 +62,6 @@ float two_pi() { return frontend::g_two_pi; }
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-
 // The base controller.
 void base_init(AnimDriver* c, Struct* params) { c->AnimDriver::configure_from_data(params); }
 // The object (the blend timeline's +0x64) and its skeleton (the Skeleton component's +0x18, or null).
@@ -131,7 +120,8 @@ void set_bones(void* source, const uint8_t* skeleton)
 }
 void set_bone_count(void* source, const uint8_t* skeleton)
 {
-    static_cast<render::FrameSource*>(source)->mask_bit_ = static_cast<int>(reinterpret_cast<const Rig*>(skeleton)->lod_);
+    static_cast<render::FrameSource*>(source)->mask_bit_ =
+        static_cast<int>(reinterpret_cast<const Rig*>(skeleton)->lod_);
 }
 
 // The game clock (ms) plus its offset.
@@ -442,10 +432,10 @@ float WobbleDriver::wobble_time()
 
     double cycles = static_cast<double>(get_clock()) * k1;
     double phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
-    float amplitude = static_cast<float>(x87_sin(phase) * b + a);
+    float amplitude = static_cast<float>(std::sin(phase) * b + a);
     cycles = static_cast<double>(get_clock()) * k2;
     phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
-    double time = x87_sin(phase) * amplitude + target;
+    double time = std::sin(phase) * amplitude + target;
     if (time < t->outset_)
         time = t->outset_;
     if (time > t->finish_)

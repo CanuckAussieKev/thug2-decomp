@@ -2,6 +2,7 @@
 
 #include "game/rider/matrix_queries.h"
 
+#include <cmath>
 #include <cstdint>
 
 #include "engine/core/manager.h"
@@ -10,7 +11,6 @@
 #include "engine/maths/vec4.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "game/rider/skater_x87.h"
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
@@ -46,7 +46,7 @@ float angle_parameter(script::Struct* params)
     return angle;
 }
 // The cosine of `degrees`, as the original's x87.
-double cos_degrees(float degrees) { return skater::x87_cos(static_cast<double>(degrees) * kRadiansPerDegree); }
+double cos_degrees(float degrees) { return std::cos(static_cast<double>(degrees) * kRadiansPerDegree); }
 
 } // namespace
 

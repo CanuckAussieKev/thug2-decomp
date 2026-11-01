@@ -102,28 +102,6 @@ inline int time_since_press(objects::ControlButton* button) { return button->get
 inline int time_since_release(objects::ControlButton* button) { return button->read_let_go_time(); }
 inline void take_press(objects::ControlButton* button) { button->reset_activation(); }
 
-// x87 sine and cosine (fsin / fcos), as the original computes them inline.
-inline double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-inline double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-
 // A vector's squared length and length as the original's Vec4::magnitude_squared (0x004023A0) / Length (0x004023C0)
 // leave them on the x87 stack: x * x + y * y + z * z, unrounded.
 inline double length_sqr_unrounded(const maths::Vec4& v)

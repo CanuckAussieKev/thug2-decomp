@@ -9,7 +9,6 @@
 #include "engine/gfx/anim_cache.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
-#include "engine/maths/x87_math.h"
 #include "engine/util/byte_stream.h"
 #include "engine/objects/walk_hang.h"
 #include "platform/stopwatch.h"
@@ -90,7 +89,7 @@ void find_keys(uint8_t* keys, int count, float time, int (*keyframe_time)(const 
             continue;
         from = key;
         to = key + 8;
-        fraction = static_cast<float>(x87::divide(time - t0, t1 - t0));
+        fraction = static_cast<float>((time - t0) / (t1 - t0));
         return;
     }
 }

@@ -55,7 +55,6 @@ constexpr uint32_t kFlailRight = 0x756A7535;             // FlailRight (an event
 constexpr uint32_t kMaxMaxSpeedStat = 0xCC5F87AA;        // Skater_Max_Max_Speed_Stat
 constexpr uint32_t kVehicleLandSound = 0xD478C96D;       // vehicle_play_land_sound (a script)
 
-
 constexpr float kToMilliseconds = 1000.0f;         // 0x006453C0
 constexpr float kFeelerDepth = -200.0f;            // (0xC3480000)
 constexpr float kMinWallplantHeight = 60.0f;       // 0x00645EA0
@@ -90,7 +89,7 @@ bool trigger_took_over(SkaterPhysicsModule* component) { return component->physi
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
 {
-    double s = x87_sin(angle), c = x87_cos(angle);
+    double s = std::sin(angle), c = std::cos(angle);
     double x = velocity.x, z = velocity.z;
     velocity.x = static_cast<float>(c * x + s * z);
     velocity.z = static_cast<float>(c * z + -(x * s));

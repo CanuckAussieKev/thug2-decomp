@@ -20,7 +20,6 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/looping_sound.h"
 #include "game/rider/rider.h"
-#include "game/rider/skater_x87.h"
 #include "platform/stopwatch.h"
 #include "engine/gfx/engine_model_lights.h"
 #include "engine/gfx/light_manager.h"
@@ -81,25 +80,6 @@ double get_physics(GameEntity* skater, uint32_t name) { return read_tuning_float
 
 // m = rotation * m (D3DXMatrixMultiply, linked library code).
 void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multiply(&m, &rotation, &m); }
-
-// The C runtime's acos (0x00623630) as its x87 code computes it: atan2(sqrt((1 + x)(1 - x)), x).
-double x87_acos(double x)
-{
-    double result;
-    __asm {
-        fld x
-        fld1
-        fadd st, st(1)
-        fld1
-        fsub st, st(2)
-        fmulp st(1), st
-        fsqrt
-        fxch st(1)
-        fpatan
-        fstp result
-    }
-    return result;
-}
 
 } // namespace
 
@@ -221,8 +201,8 @@ void RiderRemoteSync::settle_onto_floor()
     uint8_t flags = static_cast<uint8_t>(feeler.hit_.face_flags_);
     bool skatable =
         (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) && !(flags & kFaceWallride);
-    if (skatable && !(skater::x87_sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) *
-                                      kRadiansPerDegree) > normal.y)) {
+    if (skatable &&
+        !(std::sin(static_cast<double>(script::fetch_float(kWallNonSkatableAngle)) * kRadiansPerDegree) > normal.y)) {
         // Ground: unless it turns the skater's heading too far from its last ground's, close enough to snap to.
         const maths::Vec4 ground = normal;
         const maths::Vec4& at_row = skater->basis_frame_.row[2];
@@ -236,16 +216,15 @@ void RiderRemoteSync::settle_onto_floor()
         float turn = static_cast<float>(
             (static_cast<double>(on_last.x) * on_ground.x + static_cast<double>(on_last.z) * on_ground.z) +
             static_cast<double>(on_last.y) * on_ground.y);
-        float stick =
-            static_cast<float>(skater::x87_cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
+        float stick = static_cast<float>(std::cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
         if (facing > 0.0f && turn > 0.0f && turn < stick)
             return;
         if (height > 0.0f) {
             // Above it: only within this frame's move times the slope between the two grounds (at least
             // Physics_Ground_Snap_Down).
-            float angle = static_cast<float>(x87_acos(turn));
+            float angle = std::acos(turn);
             maths::Vec4 move = skater->at_point_ - last_pos_;
-            float slope = static_cast<float>(skater::x87_tan(angle));
+            float slope = std::tan(angle);
             // (its length unrounded, as Vec4::len_of's x87 code leaves it)
             double length = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
                                       static_cast<double>(move.z) * move.z);
@@ -281,14 +260,14 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
         cosine = 1.0f;
     else if (cosine < -1.0f)
         cosine = -1.0f;
-    double exact = x87_acos(cosine);
+    double exact = std::acos(static_cast<double>(cosine));
     float angle = static_cast<float>(exact);
     if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
         angle = static_cast<float>(static_cast<double>(angle) - kPi);
     double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
     *turn = static_cast<float>(rotation);
     // The velocity turned about y (sine / cosine unrounded), then the matrix by the rounded turn.
-    double s = skater::x87_sin(rotation), c = skater::x87_cos(rotation);
+    double s = std::sin(rotation), c = std::cos(rotation);
     maths::Vec4& vel = entity_->vel_;
     double vx = vel.x, vz = vel.z;
     vel.x = static_cast<float>(s * vz + c * vx);
@@ -388,8 +367,8 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
     double around = static_cast<double>(kPi) - turn;
-    float s = static_cast<float>(skater::x87_sin(around));
-    float c = static_cast<float>(skater::x87_cos(around));
+    float s = static_cast<float>(std::sin(around));
+    float c = static_cast<float>(std::cos(around));
     maths::Vec4& vel = skater->vel_;
     double vx = vel.x, vz = vel.z;
     double nx = vx * c + vz * s;

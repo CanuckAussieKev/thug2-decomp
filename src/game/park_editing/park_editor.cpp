@@ -5,6 +5,7 @@
 #include "game/park_editing/park_editor.h"
 #include "engine/gfx/d3dx.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -131,32 +132,13 @@ double dead_zone(float value)
 }
 
 // The left stick's move turned by the camera's angle (radians): x = cos * b + sin * a, z = cos * a - sin * b,
-// the sine stored as a float first and the cosine kept in the FPU - as the original computes them.
+// the sine rounded to float first - as the original computes them.
 void turn_move(double angle, double a, double b, float* x, float* z)
 {
-    float sine;
-    float result_x;
-    float result_z;
-    __asm {
-        fld angle
-        fld st(0)
-        fsin
-        fstp sine
-        fcos
-        fld st(0)
-        fmul b
-        fld sine
-        fmul a
-        faddp st(1), st
-        fstp result_x
-        fmul a
-        fld sine
-        fmul b
-        fsubp st(1), st
-        fstp result_z
-    }
-    *x = result_x;
-    *z = result_z;
+    const double sine = static_cast<float>(std::sin(angle));
+    const double cosine = std::cos(angle);
+    *x = static_cast<float>(cosine * b + sine * a);
+    *z = static_cast<float>(cosine * a - sine * b);
 }
 
 // D3DXMatrixMultiply (the statically linked library's, 0x005BFA8C).

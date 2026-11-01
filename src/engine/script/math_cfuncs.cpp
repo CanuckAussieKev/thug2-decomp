@@ -46,50 +46,6 @@ constexpr uint32_t kRz = 0x13FF6E56;         // "rz"
 float degree_to_radian_conv() { return g_degree_to_radian_ratio; } // pi / 180
 float convert_to_degrees() { return g_script_radians_to_degrees; } // 180 / pi
 
-// The x87 instructions the originals use (53-bit precision), so the results match bit for bit.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-double x87_tan(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fptan
-        fstp st(0)
-        fstp result
-    }
-    return result;
-}
-double x87_atan(double value)
-{
-    double result;
-    __asm {
-        fld value
-        fld1
-        fpatan
-        fstp result
-    }
-    return result;
-}
-
 // D3DX's matrix product (linked library code; stdcall): out = a * b.
 void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* b) { d3dx::matrix_multiply(out, a, b); }
 
@@ -107,7 +63,7 @@ float get_argument(script::Struct* params)
 bool __cdecl cfunc_sin(script::Struct* params, script::Script* script)
 {
     float angle = get_argument(params);
-    script->args_->push_float(kSin, static_cast<float>(x87_sin(static_cast<double>(angle) * degree_to_radian_conv())));
+    script->args_->push_float(kSin, static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
@@ -115,7 +71,7 @@ bool __cdecl cfunc_sin(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_cos(script::Struct* params, script::Script* script)
 {
     float angle = get_argument(params);
-    script->args_->push_float(kCos, static_cast<float>(x87_cos(static_cast<double>(angle) * degree_to_radian_conv())));
+    script->args_->push_float(kCos, static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
@@ -123,7 +79,7 @@ bool __cdecl cfunc_cos(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_tan(script::Struct* params, script::Script* script)
 {
     float angle = get_argument(params);
-    script->args_->push_float(kTan, static_cast<float>(x87_tan(static_cast<double>(angle) * degree_to_radian_conv())));
+    script->args_->push_float(kTan, static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
     return true;
 }
 
@@ -147,7 +103,7 @@ bool __cdecl cfunc_a_cos(script::Struct* params, script::Script* script)
 bool __cdecl cfunc_a_tan(script::Struct* params, script::Script* script)
 {
     float value = get_argument(params);
-    script->args_->push_float(kATan, static_cast<float>(x87_atan(value) * convert_to_degrees()));
+    script->args_->push_float(kATan, static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
     return true;
 }
 

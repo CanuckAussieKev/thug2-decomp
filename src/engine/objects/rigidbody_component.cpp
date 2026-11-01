@@ -51,51 +51,6 @@ constexpr float kAlmostTwoPi = 6.2829999923706055f;       // 0x006463EC
 constexpr float kBigShape = 30.0f;                        // 0x00646240
 constexpr float kShapeScale = 0.03333333507180214f;       // 0x00646430
 
-// The x87's own FCOS / FSIN (the original's; the C runtime's round differently), the result stored as a float.
-float x87_cos(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-float x87_sin(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-// cos(angle) * value / sin(angle) * value, the cosine or sine kept at the x87's precision.
-float x87_cos_times(double angle, float value)
-{
-    float result;
-    __asm {
-        fld angle
-        fcos
-        fmul value
-        fstp result
-    }
-    return result;
-}
-float x87_sin_times(double angle, float value)
-{
-    float result;
-    __asm {
-        fld angle
-        fsin
-        fmul value
-        fstp result
-    }
-    return result;
-}
-
 // The quaternion's matrix.
 void quat_to_matrix(const maths::QuatRotation* quat, maths::Mat4* matrix) { quat->fetch_mat(matrix); }
 
@@ -150,8 +105,8 @@ BodyDynamicsModule::BodyDynamicsModule()
     skater_radius_ = 48.0f;
     skater_application_radius_ = 12.0f;
     push_cooldown_time_ = 0.0833333358168602f;
-    skater_assent_cos_ = x87_cos(kAssent);
-    skater_assent_sin_ = x87_sin(kAssent);
+    skater_assent_cos_ = static_cast<float>(std::cos(kAssent));
+    skater_assent_sin_ = static_cast<float>(std::sin(kAssent));
     model_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};
     script_d0_ = 0;
     settle_script_ = 0;
@@ -232,8 +187,8 @@ void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, flo
             --i;
             double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
             float rounded = static_cast<float>(angle);
-            contacts_[n++] = {x87_cos_times(angle, radius), upper ? half_height : -half_height,
-                              x87_sin_times(rounded, radius), 1.0f};
+            contacts_[n++] = {static_cast<float>(std::cos(angle) * radius), upper ? half_height : -half_height,
+                              static_cast<float>(std::sin(static_cast<double>(rounded)) * radius), 1.0f};
         }
     }
 }
@@ -353,8 +308,8 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         float degrees;
         params->fetch_float(0xE9156E6D, &degrees, 0);
         double radians = static_cast<double>(degrees) * kRadiansPerDegree;
-        skater_assent_cos_ = x87_cos(radians);
-        skater_assent_sin_ = x87_sin(radians);
+        skater_assent_cos_ = static_cast<float>(std::cos(radians));
+        skater_assent_sin_ = static_cast<float>(std::sin(radians));
     }
     params->fetch_float(0x1F4D0CA5, &push_cooldown_time_, 0);
     params->read_hash_value(0x58CDC0F0, &collide_script_, 0); // CollideScript

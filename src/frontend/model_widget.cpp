@@ -124,18 +124,6 @@ void seal(objects::GameEntity* object) { object->seal(); }
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 
-// x87 FSIN, as the original takes the hover's sine.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-
 // An angle plus its velocity, brought within one turn (the turns truncated towards zero, so the sign is kept).
 float wrapped(double angle)
 {
@@ -653,7 +641,7 @@ void ModelWidget::tick_frame()
     if (bob_height_ > 0.0f) {
         uint32_t period = static_cast<uint32_t>(bob_period_);
         uint32_t phase = frame_clock::get_time() % period * 2;
-        double s = x87_sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
+        double s = std::sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
         hover.x = static_cast<float>(s * basis_frame_.row[1].x);
         hover.y = static_cast<float>(s * basis_frame_.row[1].y);
         hover.z = static_cast<float>(s * basis_frame_.row[1].z);

@@ -55,7 +55,10 @@ src/
 - Prefer what the Guidelines prefer: `enum class`, `constexpr`, `nullptr`, RAII and `std::unique_ptr` for ownership,
   `std::array` / `std::span` over raw arrays, `std::bit_cast` over type punning, explicit readers / writers for
   file and network formats.
-- Where a rule can't be kept (for example exact x87 floating point), the code says so with a
+- Standard C++ only, buildable by MSVC and GCC: no inline assembly (the original's x87 maths is plain `<cmath>` -
+  results may differ from the original's in the last bits, which is accepted), no compiler-specific keywords outside
+  `src/platform/compiler.h`.
+- Where a rule can't be kept (for example a layout a file format fixes), the code says so with a
   `// NOLINT(<check>)` naming the rule and a reason; the list of such places is kept short.
 
 ## Tools

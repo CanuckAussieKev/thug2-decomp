@@ -4,6 +4,7 @@
 #include "engine/gfx/text.h"
 
 #include <bit>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -91,41 +92,6 @@ uint32_t get_vertex_color(uint32_t c) { return (c & 0xFF) << 16 | (c & 0xFF00FF0
 
 // The CRT's _ftol (0x006236FC): truncation; the low 32 bits of the 64-bit result.
 int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-
-// The x87's own FSIN / FCOS, which the original uses (the CRT's sin/cos round differently). A result stored as
-// a float is rounded once, from the x87's extended precision.
-float x87_cos(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-float x87_sin(double angle)
-{
-    float result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-// sin(angle) * value, with the sine kept at extended precision as the original keeps it on the x87 stack.
-double x87_sin_times(double angle, float value)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fmul value
-        fstp result
-    }
-    return result;
-}
 
 } // namespace
 
@@ -246,8 +212,8 @@ void GlyphRun::draw()
     float blank_gap = static_cast<float>(font->blank_gap_ * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
         return;
-    float cos_a = x87_cos(angle);
-    float sin_a = x87_sin(angle);
+    float cos_a = std::cos(angle);
+    float sin_a = std::sin(angle);
     uint32_t vertex_color = get_vertex_color(color);
     int effect = 0; // byte offset of this character's effect record
     const char* p = text;
@@ -369,7 +335,7 @@ void GlyphRun::draw()
                 // negated and offset by the pivot's x on both axes, then turned by the text's angle, and the
                 // corners are turned by (angle - 90 degrees) mirrored. Kept as it is.
                 double a = e->rotation * static_cast<double>(kEffectScale);
-                float cos_r = x87_cos(a);
+                float cos_r = static_cast<float>(std::cos(a));
                 int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
                 double oy = static_cast<float>(-pivot_xi - cy);
                 int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
@@ -379,8 +345,8 @@ void GlyphRun::draw()
                 auto turn = [&](int& px, int& py) {
                     float dx = static_cast<float>(px - centre_x);
                     float dy = static_cast<float>(py - centre_y);
-                    px = ftol(x87_sin_times(a, dx) - static_cast<double>(dy) * cos_r) + centre_x;
-                    py = ftol(x87_sin_times(a, dy) + static_cast<double>(dx) * cos_r) + centre_y;
+                    px = ftol(std::sin(a) * dx - static_cast<double>(dy) * cos_r) + centre_x;
+                    py = ftol(std::sin(a) * dy + static_cast<double>(dx) * cos_r) + centre_y;
                 };
                 turn(x0, y0);
                 turn(x1, y1);
@@ -521,7 +487,8 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
             return nullptr;
         }
         contents.resize(file::get_file_size(file));
-        int read = contents.empty() ? 0 : file::get_take_in(contents.data(), static_cast<int>(contents.size()), 1, file);
+        int read =
+            contents.empty() ? 0 : file::get_take_in(contents.data(), static_cast<int>(contents.size()), 1, file);
         file::shut(file);
         contents.resize(read > 0 ? static_cast<size_t>(read) : 0);
         reader = util::ByteReader(contents.data(), contents.size());

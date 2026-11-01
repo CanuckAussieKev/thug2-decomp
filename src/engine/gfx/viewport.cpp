@@ -256,24 +256,9 @@ void __cdecl set_screen_field_of_view(float degrees)
     if (degrees == 0.0f)
         degrees = get_screen_angle();
     g_screen_angle = degrees;
-    // tan(degrees / 2) / tan(default / 2), as the original's x87 code (FPTAN at its precision)
-    float half_degree_radians = g_half_degree_radians;
-    float default_angle = g_base_fov_angle;
-    float factor;
-    __asm {
-        fld degrees
-        fmul half_degree_radians
-        fptan
-        fstp st(0)
-        fld default_angle
-        fmul half_degree_radians
-        fptan
-        fstp st(0)
-        _emit 0xDE // fdivp: st(1) = st(1) / st(0), popped
-        _emit 0xF9
-        fstp factor
-    }
-    g_angle_factor = factor;
+    // tan(degrees / 2) / tan(default / 2)
+    g_angle_factor = static_cast<float>(std::tan(static_cast<double>(degrees) * g_half_degree_radians) /
+                                        std::tan(static_cast<double>(g_base_fov_angle) * g_half_degree_radians));
     for (int i = 0; i < active_viewport_count(); ++i) {
         ViewRegion* viewport = current_view_slot(i);
         if (viewport && viewport->viewer_.get_pull())

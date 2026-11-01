@@ -177,7 +177,7 @@ void KinematicsModule::update_hover()
     if (doubled < 0)
         phase += 4294967296.0; // (the count taken as unsigned)
     phase = phase * static_cast<double>(get_bits(0x40490FDB)) / static_cast<double>(bob_period_); // (pi)
-    float offset = static_cast<float>(x87_sin(phase) * static_cast<double>(bob_height_));
+    float offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
     float height = entity_->at_point_.y;
     hover_base_ = height;

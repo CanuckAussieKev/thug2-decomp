@@ -3,6 +3,7 @@
 
 #include "engine/objects/lock_obj.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
@@ -36,18 +37,6 @@ constexpr uint32_t kKeepOrientation = 0xD74A6981; // no_rotate
 // The wobble's step: 2 pi / 1024 as the float the original multiplies by (0x00646118; the update's own, 0x0064611C,
 // is one bit larger).
 float wobble_step() { return g_lock_obj_wobble_step; }
-
-// x87 FSIN, as the original takes the wobble's sines.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -100,8 +89,8 @@ void PinnedObjectModule::configure_from_data(script::Struct* params)
     int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
     double time = static_cast<double>(t);
     double step = static_cast<double>(wobble_step());
-    double wobble =
-        x87_sin(time * static_cast<double>(wobble_[1]) * step) * x87_sin(time * static_cast<double>(wobble_[0]) * step);
+    double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
+                    std::sin(time * static_cast<double>(wobble_[0]) * step);
     lag_ = static_cast<float>((wobble + 1.0) * (static_cast<double>(lag_max_) - static_cast<double>(lag_min_)) * 0.5 +
                               static_cast<double>(lag_min_));
     if (params->has_entry_named(kAngles))

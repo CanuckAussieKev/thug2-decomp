@@ -33,18 +33,6 @@ constexpr uint32_t kLockObj = 0x5CB5CB7E;           // the lockobj component
 // --- the original's arithmetic ---
 constexpr float get_bits(uint32_t bits) { return std::bit_cast<float>(bits); }
 
-// x87 FSIN, as the original takes its sines.
-inline double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits of the 64-bit result.
 inline int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 

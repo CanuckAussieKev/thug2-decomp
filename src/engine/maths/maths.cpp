@@ -4,8 +4,6 @@
 #include <cmath>
 #include <cstdint>
 
-#include "engine/maths/x87_math.h"
-
 namespace maths {
 
 namespace {
@@ -79,13 +77,12 @@ float fast_a_cos(float value)
 float fast_atan2(float y, float x)
 {
     if (std::fabs(x) < std::fabs(y))
-        return x87::atan_2f(y, x);
+        return static_cast<float>(std::atan2(static_cast<double>(y), static_cast<double>(x)));
 
     // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
     bool x_below_zero = x < 0.0f;
     bool y_not_positive = y <= 0.0f;
-    double ratio =
-        x87::divide(y_not_positive ? -static_cast<double>(y) : y, x_below_zero ? -static_cast<double>(x) : x);
+    double ratio = (y_not_positive ? -static_cast<double>(y) : y) / (x_below_zero ? -static_cast<double>(x) : x);
     double t = (ratio - 1.0) / (ratio + 1.0);
     double t2 = t * t;
     double p = (t * kAtanC15 * t2 + t * kAtanC13) * t2 - t * kAtanC11;
@@ -117,8 +114,8 @@ float keep_within(float value, float target, float distance)
 // 0x004058B0
 void create_rotate_2d(float out[4], float angle)
 {
-    float s = x87::get_sin_f(angle);
-    float c = x87::cos_f(angle);
+    float s = std::sin(angle);
+    float c = std::cos(angle);
     out[0] = c;
     out[1] = s;
     out[2] = -s;
@@ -156,8 +153,8 @@ void fill_sine_table()
     SinCosEntry* table = sin_table();
     for (int i = 0; i < kSinTableSize; ++i) {
         double angle = static_cast<double>(i) * kSinTableStep; // (the FPU's product, not rounded to float)
-        table[i].sin = x87::get_sin_f(angle);
-        table[i].cos = x87::cos_f(angle);
+        table[i].sin = static_cast<float>(std::sin(angle));
+        table[i].cos = static_cast<float>(std::cos(angle));
     }
     for (int i = 0; i < kSinTableSize - 1; ++i) {
         table[i].sin_delta_ = table[i + 1].sin - table[i].sin;

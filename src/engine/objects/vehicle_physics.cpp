@@ -51,51 +51,6 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;
 // An unsigned count as the original's FILD (and its 2^32 fix for negatives).
 double Unsigned(int value) { return value < 0 ? value + kTwoTo32 : value; }
 
-// x87 instructions the original uses, so the results round exactly as there.
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-double x87_tan(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fptan
-        fstp st(0)
-        fstp result
-    }
-    return result;
-}
-// FPATAN: the angle of (x, y) - atan2(y, x).
-double x87_atan2(double y, double x)
-{
-    double result;
-    __asm {
-        fld y
-        fld x
-        fpatan
-        fstp result
-    }
-    return result;
-}
-
 // The cap on a brake-like torque: what stops the wheel in this step, |(-1 / (dt * inv_moment_)) * spin| as a float.
 float brake_turn_force(double per_step, float spin) { return static_cast<float>(std::fabs(-1.0 / per_step * spin)); }
 
@@ -115,15 +70,15 @@ void steering_angles(const DrivableModule* vehicle, float steering, float* inner
         *outer = 0.0;
         return;
     }
-    double radius = vehicle->wheelbase_ / x87_tan(static_cast<double>(vehicle->max_steering_angle_) * steering);
+    double radius = vehicle->wheelbase_ / std::tan(static_cast<double>(vehicle->max_steering_angle_) * steering);
     double half_track = static_cast<double>(vehicle->track_) * kHalf;
     double wheelbase = vehicle->wheelbase_;
     if (radius > 0.0) {
-        *inner = static_cast<float>(-x87_atan2(wheelbase, radius - half_track));
-        *outer = -x87_atan2(wheelbase, half_track + radius);
+        *inner = static_cast<float>(-std::atan2(wheelbase, radius - half_track));
+        *outer = -std::atan2(wheelbase, half_track + radius);
     } else {
-        *inner = static_cast<float>(x87_atan2(wheelbase, half_track - radius));
-        *outer = x87_atan2(wheelbase, -radius - half_track);
+        *inner = static_cast<float>(std::atan2(wheelbase, half_track - radius));
+        *outer = std::atan2(wheelbase, -radius - half_track);
     }
 }
 
@@ -140,8 +95,8 @@ void DrivableModule::update_wheel_friction()
         maths::Vec4 vel = wheel.vel;
         vel.flatten_onto_plane(wheel.normal);
         // The tyre's sideways direction: the body's right turned by the steering, along the ground, unit.
-        double c = x87_cos(wheel.steering);
-        float s = static_cast<float>(x87_sin(wheel.steering));
+        double c = std::cos(static_cast<double>(wheel.steering));
+        float s = std::sin(wheel.steering);
         const maths::Vec4* rows = basis_frame_.row;
         maths::Vec4 sideways;
         sideways.x = static_cast<float>((c * rows[2].x + static_cast<double>(s) * rows[0].x) + rows[1].x * 0.0);

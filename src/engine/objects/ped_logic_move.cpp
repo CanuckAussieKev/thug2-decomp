@@ -14,7 +14,7 @@
 #include "engine/maths/maths.h"
 #include "engine/maths/mat4.h"
 #include "engine/maths/vec4.h"
-#include "engine/maths/x87_math.h"
+#include "engine/maths/trig.h"
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
@@ -125,30 +125,6 @@ int truncate(double value)
     return static_cast<int>(static_cast<uint32_t>(static_cast<uint64_t>(static_cast<int64_t>(value))));
 }
 
-// FCOS then FMUL / FADD on the 64-bit cosine (the product / sum rounded to 53 bits).
-double cos_times(double angle, double factor)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fmul factor
-        fstp result
-    }
-    return result;
-}
-double cos_plus(double angle, double addend)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fadd addend
-        fstp result
-    }
-    return result;
-}
-
 script::Struct* new_params()
 {
     script::Struct* memory = script::spawn_param_bag();
@@ -217,7 +193,7 @@ void PedestrianBrainModule::add_avoidance(float angle, float strength, float dis
         double size = std::fabs(offset);
         if (!(size < kQuarterTurn) && !(size > kThreeQuarterTurns || std::isnan(size)))
             continue;
-        double value = cos_times(offset, weight) + bias_[i];
+        double value = std::cos(offset) * weight + bias_[i];
         bias_[i] = static_cast<float>(value);
         if (value > 1.0)
             bias_[i] = 1.0f;
@@ -234,7 +210,7 @@ void PedestrianBrainModule::add_steer(float angle, float weight)
         double size = std::fabs(offset);
         if (!(size < kQuarterTurn) && !(size > kThreeQuarterTurns || std::isnan(size)))
             continue;
-        double value = cos_times(offset, weight) + avoid_[i];
+        double value = std::cos(offset) * weight + avoid_[i];
         avoid_[i] = static_cast<float>(value);
         if (value > 1.0)
             avoid_[i] = 1.0f;
@@ -252,7 +228,7 @@ float PedestrianBrainModule::steer_sideways()
         double weight = static_cast<double>(bias_[i]) + avoid_[i];
         if (weight > 1.0)
             weight = 1.0;
-        sum = sum - x87::sin_times(quarter, weight);
+        sum = sum - std::sin(static_cast<double>(quarter)) * weight;
         if (sum >= 1.0)
             return 1.0f;
         if (sum <= -1.0)
@@ -275,7 +251,7 @@ float PedestrianBrainModule::steer_forward()
             weight = 1.0;
         else if (weight < -1.0)
             weight = -1.0;
-        sum = cos_times(quarter, weight) + sum;
+        sum = std::cos(static_cast<double>(quarter)) * weight + sum;
         if (sum >= 1.0)
             return 1.0f;
         if (sum <= -1.0)
@@ -358,7 +334,7 @@ bool PedestrianBrainModule::avoid_peds()
                                      static_cast<double>(at.z) * at.z);
         float cosine = maths::confine(static_cast<float>(heading_dot / (other_length * my_length)), -1.0f, 1.0f);
         bool above;
-        float angle = x87::acos_f(cosine, kFullTurn, &above);
+        float angle = maths::acos_f(cosine, kFullTurn, &above);
         if (above)
             angle = static_cast<float>(
                 angle - static_cast<double>(truncate(static_cast<double>(angle) * kInverseFullTurn)) * kFullTurn);
@@ -508,7 +484,7 @@ bool PedestrianBrainModule::turn_towards_node_after()
                 maths::Vec4 out = after - next;
                 double corner = maths::read_turn_angle(in, out) * kToRadians;
                 double reach =
-                    std::sqrt(std::sqrt(cos_plus(corner, 1.0) * (static_cast<double>(distance_sqr) + distance_sqr)));
+                    std::sqrt(std::sqrt((std::cos(corner) + 1.0) * (static_cast<double>(distance_sqr) + distance_sqr)));
                 turn_frames_ = truncate(reach / motion->path_max_speed_ * kFramesPerSecond);
                 if (turn_frames_ <= 0)
                     turn_frames_ = 1;
@@ -550,7 +526,7 @@ void PedestrianBrainModule::face_movement(maths::Vec4 old_pos)
         else if (dot < kMinCos)
             dot = kMinCos;
         bool unused;
-        float turn = std::fabs(x87::acos_f(dot, 0.0f, &unused));
+        float turn = std::fabs(maths::acos_f(dot, 0.0f, &unused));
         if (!(static_cast<double>(step_seconds_) * kTurnPerSecond >= turn)) {
             static float g_max_turn = 0.69813174f; // (40 degrees)
             float t = kTurnTime;
@@ -1077,9 +1053,9 @@ void PedestrianBrainModule::blocker_update()
     // Across the path, on the skater's side.
     double side = static_cast<double>(path_x) * sz - static_cast<double>(path_z) * toward_player.x;
     double turn = side < 0.0 ? kBlockerTurn : -kBlockerTurn;
-    float sine = x87::get_sin_f(turn);
-    float cosine = x87::cos_f(turn);
-    double across_x = cos_times(turn, path_x) + static_cast<double>(path_z) * sine;
+    float sine = static_cast<float>(std::sin(turn));
+    float cosine = static_cast<float>(std::cos(turn));
+    double across_x = std::cos(turn) * path_x + static_cast<double>(path_z) * sine;
     double across_z = -(static_cast<double>(path_x) * sine) + static_cast<double>(cosine) * path_z;
     maths::Vec4 across = {static_cast<float>(across_x), 0.0f, static_cast<float>(across_z), 0.0f};
     across.make_unit();

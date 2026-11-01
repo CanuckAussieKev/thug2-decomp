@@ -4,7 +4,6 @@
 #include <new>
 
 #include "engine/core/dbg.h"
-#include "engine/maths/x87_math.h"
 
 namespace maths {
 
@@ -279,7 +278,7 @@ bool is_angle_beyond(const Vec4& a, const Vec4& b, float degrees)
     if (length_b < 0.5)
         return false;
     cosine /= length_b;
-    double limit = x87::get_cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
+    double limit = std::cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
     if (!(cosine >= 0.0) && limit >= 0.0) // (more than 90 degrees apart, a limit of 90 or less)
         return true;
     return cosine < limit;

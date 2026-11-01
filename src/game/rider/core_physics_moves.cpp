@@ -279,7 +279,7 @@ bool SkaterPhysicsModule::wall_push_off()
     float since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
     if (script::fetch_float(kPushOffWait) > since_last)
         return false;
-    double angle = x87_sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
+    double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
     const maths::Vec4& facing = entity_->basis_frame_.row[2];
     const maths::Vec4& wall = feeler_.surface_dir_;
     double into = (static_cast<double>(facing.z) * wall.z + static_cast<double>(facing.y) * wall.y) +

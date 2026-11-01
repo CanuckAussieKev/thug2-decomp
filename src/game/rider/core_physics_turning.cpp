@@ -49,7 +49,6 @@ constexpr uint32_t kAirRampLeanTime = 0x12CD2D14;      // Physics_Air_Ramp_Lean_
 constexpr uint32_t kRecoverRateStat = 0xE7116A96;      // Physics_recover_rate_stat
 constexpr uint32_t kUprightSidewaysSpeed = 0xABD57877; // skater_upright_sideways_speed (degrees a second)
 
-
 constexpr float kRadiansPerDegree = 0.0174532924f;       // 0x00645464
 constexpr float kMinusDegreesToRadians = -0.0174532924f; // 0x0064BCCC
 constexpr float kDegreesPerRadian = 57.2957764f;         // 0x00645468
@@ -72,7 +71,7 @@ constexpr float kUprightLeft = -1.2f;                    // 0x0064BD3C
 // The velocity turned by `angle` about the y axis, as the original's inline x87 code.
 void turn_velocity(maths::Vec4& velocity, double angle)
 {
-    double s = x87_sin(angle), c = x87_cos(angle);
+    double s = std::sin(angle), c = std::cos(angle);
     double x = velocity.x, z = velocity.z;
     velocity.x = static_cast<float>(c * x + s * z);
     velocity.z = static_cast<float>(c * z + -(x * s));

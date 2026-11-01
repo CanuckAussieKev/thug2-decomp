@@ -122,30 +122,6 @@ const maths::Vec4* object_position(objects::AudioEmitterModule* object) { return
 // The CRT's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
 int ftol(double x) { return static_cast<int>(static_cast<int64_t>(x)); }
 
-// The FPU's logarithms (FYL2X with FLDLG2 / FLDLN2), unrounded.
-double x87_log10(double x)
-{
-    double result;
-    __asm {
-        fldlg2
-        fld x
-        fyl2x
-        fstp result
-    }
-    return result;
-}
-double x87_ln(double x)
-{
-    double result;
-    __asm {
-        fldln2
-        fld x
-        fyl2x
-        fstp result
-    }
-    return result;
-}
-
 void get_report_missing()
 {
     if (!quiet_misses())
@@ -778,7 +754,7 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
         int attenuation = -10000;
         double level = static_cast<double>(voice_volume()) * 0.0099999998f;
         if (level > 0.0) {
-            attenuation = ftol(x87_ln(level) * 14.42695045f) * 100;
+            attenuation = ftol(std::log(level) * 14.42695045f) * 100;
             if (attenuation < -10000)
                 attenuation = -10000;
             else if (attenuation > 0)
@@ -806,10 +782,10 @@ void apply_voice_settings(int index, VolumeRef* volume, float pitch)
             louder = right;
             ratio = static_cast<double>(right) / left;
         }
-        pan = ftol(x87_log10(ratio) * 1000.0f);
+        pan = ftol(std::log10(ratio) * 1000.0f);
         double level = louder * voice_volume() * 0.0099999998f;
         if (level > 0.0) {
-            attenuation = ftol(x87_log10(level * 0.0099999998f) * 2000.0f);
+            attenuation = ftol(std::log10(level * 0.0099999998f) * 2000.0f);
             if (attenuation < -10000)
                 attenuation = -10000;
             else if (attenuation > 0)

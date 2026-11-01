@@ -171,28 +171,6 @@ void put_off(maths::Vec4* position, const render::ProbeRay* feeler, float gap)
 using Contact = WalkContact;
 Contact& contact_at(const FootMovement* walk, int index) { return const_cast<FootMovement*>(walk)->contacts_[index]; }
 
-// The x87's FSIN / FCOS (the C runtime's differ in the last bits).
-double x87_sin(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fsin
-        fstp result
-    }
-    return result;
-}
-double x87_cos(double angle)
-{
-    double result;
-    __asm {
-        fld angle
-        fcos
-        fstp result
-    }
-    return result;
-}
-
 // Where it hangs along the hang's facing (+0x18B4): (the position plus the ride check's offset) . that facing.
 float hang_plane(const FootMovement* walk)
 {
@@ -263,8 +241,8 @@ void FootMovement::update_camera_override()
     }
     case kHangMoveRight: {
         // The facing turned 0.95 radians about y (sin / cos stored as floats, the sums rounded once).
-        auto sine = static_cast<float>(x87_sin(kHangTurn));
-        auto cosine = static_cast<float>(x87_cos(kHangTurn));
+        auto sine = static_cast<float>(std::sin(kHangTurn));
+        auto cosine = static_cast<float>(std::cos(kHangTurn));
         camera->override_ = true;
         maths::Vec4& target = camera->forced_heading_;
         float x = facing.x;
@@ -721,8 +699,8 @@ void FootMovement::update_anim_wait()
     double angle = turn * turn_part - turn;
     maths::Vec4& facing = facing_;
     facing = transition_facing_;
-    double sine = x87_sin(angle);
-    double cosine = x87_cos(angle);
+    double sine = std::sin(angle);
+    double cosine = std::cos(angle);
     double x = facing.x;
     facing.x = static_cast<float>(cosine * x + sine * facing.z);
     facing.z = static_cast<float>(-(x * sine) + cosine * facing.z);
@@ -1098,7 +1076,7 @@ bool FootMovement::try_barrier_jump()
         auto& contact = contact_at(this, index);
         if (!contact.hit || (contact.feeler.hit_.face_flags_ & kFaceWall))
             continue;
-        double limit = x87_cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
+        double limit = std::cos(walk_parameter(kBarrierJumpMaxAngle) * kDegrees);
         const maths::Vec4& control = stick_heading_;
         double facing_it =
             (static_cast<double>(control.z) * contact.normal.z + static_cast<double>(control.y) * contact.normal.y) +
@@ -1137,8 +1115,8 @@ bool FootMovement::try_barrier_jump()
         start = position;
         start.y = position.y + highest;
         double angle = index * kSeventhTurn;
-        double c = x87_cos(angle);
-        double s = x87_sin(angle);
+        double c = std::cos(angle);
+        double s = std::sin(angle);
         auto x = static_cast<float>(c * facing.x - s * facing.z);
         maths::Vec4& end = feeler->line_.end;
         end.x = static_cast<float>(static_cast<double>(x) * reach) + start.x;
@@ -1222,8 +1200,8 @@ bool FootMovement::update_contacts()
             start = position;
             start.y = position.y + feeler_height;
             double angle = i * kSeventhTurn;
-            double c = x87_cos(angle);
-            double s = x87_sin(angle);
+            double c = std::cos(angle);
+            double s = std::sin(angle);
             auto x = static_cast<float>(c * facing.x - s * facing.z);
             auto z = static_cast<float>((s * facing.x + c * facing.z) * reach);
             float y = static_cast<float>(static_cast<double>(reach) * 0.0) + position.y;

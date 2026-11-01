@@ -16,7 +16,7 @@
 #include "engine/objects/walk_hang.h"
 #include "game/rider/walk_fields.h"
 #include "game/rider/walk_physics.h"
-#include "engine/maths/x87_math.h"
+#include "engine/maths/trig.h"
 #include "platform/stopwatch.h"
 #include "platform/crt.h"
 #include "engine/objects/input_component.h"
@@ -55,21 +55,10 @@ constexpr float kMinMoveSpeed = 0.01f;             // 0x0064544C
 constexpr float kNoFlat = 9.99999975e-05f;         // 0x006453D4
 constexpr float kDegrees = 57.2957763671875f;      // 0x00645468
 
-// |acos(value)| in degrees (the game's C runtime's _CIacos, 0x00623630), kept in the register until rounded to
-// float, as the original.
+// |acos(value)| in degrees, rounded to float once.
 float acos_degrees(float value)
 {
-    float result;
-    void* function = crt::acos_x87();
-    float degrees = kDegrees;
-    __asm {
-        fld value
-        call function
-        fmul degrees
-        fabs
-        fstp result
-    }
-    return result;
+    return static_cast<float>(std::fabs(std::acos(static_cast<double>(value)) * kDegrees));
 }
 
 // a + (b - a) * t.
@@ -87,8 +76,8 @@ void FootMovement::turn_facing_to_velocity()
 {
     const maths::Vec4& vel = vel_;
     float speed =
-        static_cast<float>(x87::get_sqrt((static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
-                                         static_cast<double>(vel.z) * vel.z));
+        static_cast<float>(std::sqrt((static_cast<double>(vel.x) * vel.x + static_cast<double>(vel.y) * vel.y) +
+                                     static_cast<double>(vel.z) * vel.z));
     if (speed < walk_parameter(kWallTurnSpeedThreshold))
         return;
     maths::Vec4 direction = vel;
@@ -157,7 +146,8 @@ void FootMovement::update_upright()
 void FootMovement::set_transition_facing(const maths::Vec4* facing, float rate)
 {
     const maths::Vec4& current = facing_;
-    double turn = x87::atan2_difference(facing->x, facing->z, current.x, current.z);
+    double turn = std::atan2(static_cast<double>(facing->x), static_cast<double>(facing->z)) -
+                  std::atan2(static_cast<double>(current.x), static_cast<double>(current.z));
     transition_turn_ = static_cast<float>(turn);
     if (std::fabs(turn) > kPi) // the shorter way round
         transition_turn_ = static_cast<float>(turn - (turn < 0.0 ? -1.0f : kOne) * kTwoPi);
@@ -244,9 +234,8 @@ void FootMovement::copy_from_object()
     facing = object->basis_frame_.row[2];
     facing_y_ = facing.y;
     facing.y = 0.0f;
-    double length =
-        x87::get_sqrt((static_cast<double>(facing.x) * facing.x + static_cast<double>(facing.y) * facing.y) +
-                      static_cast<double>(facing.z) * facing.z);
+    double length = std::sqrt((static_cast<double>(facing.x) * facing.x + static_cast<double>(facing.y) * facing.y) +
+                              static_cast<double>(facing.z) * facing.z);
     if (length < kMinFacingLength) {
         // Facing straight up or down: the way the up row leans, backwards; the up row nudged upright.
         const maths::Vec4& object_up = object->basis_frame_.row[1];
@@ -273,8 +262,7 @@ void FootMovement::update_control()
     auto* pad = &input_->pad_primary_;
     float forward_x = -at.x;
     float forward_z = -at.z;
-    double length =
-        x87::get_sqrt(static_cast<double>(forward_z) * forward_z + static_cast<double>(forward_x) * forward_x);
+    double length = std::sqrt(static_cast<double>(forward_z) * forward_z + static_cast<double>(forward_x) * forward_x);
     if (length > 0.0) {
         double inverse = kOne / length;
         forward_x = static_cast<float>(forward_x * inverse);
@@ -284,7 +272,7 @@ void FootMovement::update_control()
     if (walk_parameter(kForwardTolerance) * static_cast<double>(kRadiansPerDegree) > std::fabs(angle))
         angle = 0.0f;
     double turned_z, turned_x;
-    x87::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
+    maths::spin_by(angle, forward_z, forward_x, &turned_z, &turned_x);
     maths::Vec4& control = stick_heading_;
     control.x = static_cast<float>(turned_x);
     control.z = static_cast<float>(turned_z);
@@ -463,7 +451,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                 turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             } else {
                 double turned_x, turned_z;
-                x87::spin_by(left ? turn : -turn, facing.x, facing.z, &turned_x, &turned_z);
+                maths::spin_by(left ? turn : -turn, facing.x, facing.z, &turned_x, &turned_z);
                 float ahead_x = static_cast<float>(turned_x), ahead_z = static_cast<float>(turned_z);
                 render::ProbeRay feeler;
                 maths::Vec4& start = feeler.line_.start;
@@ -478,7 +466,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
                     turn = static_cast<float>(static_cast<double>(walk_parameter(kWallRotateFactor)) * turn);
             }
             double new_x, new_z;
-            x87::spin_by(left ? turn : -turn, facing.x, facing.z, &new_x, &new_z);
+            maths::spin_by(left ? turn : -turn, facing.x, facing.z, &new_x, &new_z);
             facing.z = static_cast<float>(new_z);
             facing.x = static_cast<float>(new_x);
             // Turned past the push: onto it.
@@ -623,7 +611,7 @@ void FootMovement::copy_to_object()
     // The model raised along the up vector by the display offset.
     float offset = model_lift_;
     model_->shift_ = {matrix.row[1].x * offset, matrix.row[1].y * offset, matrix.row[1].z * offset,
-                                          matrix.row[1].w * offset};
+                      matrix.row[1].w * offset};
 }
 
 } // namespace objects

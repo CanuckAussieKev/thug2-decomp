@@ -1,16 +1,18 @@
 // The PC materials (MaterialRef, surface_material.h): constructed and destroyed, their animations (UV wibbles, colours,
 // textures) brought up to date, and set up on the device for drawing - all passes (for the pixel shaders) or one pass
-// through the fixed-function texture stages. The animations' arithmetic is the original's x87 code (in registers,
-// rounded where it stores), so it is written in x87 here too.
+// through the fixed-function texture stages. The animations' arithmetic keeps the original's: values its x87 code
+// kept in registers are doubles, rounded to float where it stores.
 
 #include <windows.h>
 
 #include <d3d9.h>
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 
 #include "engine/core/manager.h"
+#include "engine/maths/trig.h"
 #include "engine/gfx/surface_material.h"
 #include "engine/gfx/pc_billboards.h"
 #include "engine/gfx/primitive_states.h"
@@ -51,104 +53,35 @@ constexpr uint32_t kPassTextureAlpha = 0x1000; // alpha from the texture only
 constexpr uint32_t kPassExplicitUv = 0x4000;   // the UV wibble's matrix is set, not animated
 
 // (t - from) / (to - from) between two keys' colours, channel by channel in the order a, r, g, b (the bytes 3, 0, 1,
-// 2), each the x87's to * f + from * (1 - f) truncated - and not masked: the four values are shifted and or'd as
-// they come.
+// 2), each to * f + from * (1 - f) truncated - and not masked: the four values are shifted and or'd as they come.
 uint32_t blend_key_colors(int num, int den, const uint8_t* from, const uint8_t* to)
 {
     static const int kOrder[4] = {3, 0, 1, 2};
+    const double f = static_cast<double>(num) / den;
+    const double rest = 1.0 - f;
     uint32_t color = 0;
-    double scratch = 0;
-    __asm {
-        fild num
-        fild den
-        fdivp st(1), st(0)
-        fld1
-        fsub st(0), st(1)
-    }
-    for (int k = 0; k < 4; ++k)
-    {
-        int a = to[kOrder[k]];
-        int b = from[kOrder[k]];
-        int64_t value;
-        __asm {
-            fild a
-            fmul st(0), st(2)
-            fild b
-            fmul st(0), st(2)
-            faddp st(1), st(0)
-            fisttp value
-        }
-        color = k ? (color << 8 | static_cast<uint32_t>(value)) : static_cast<uint32_t>(value);
-    }
-    __asm {
-        fstp scratch
-        fstp scratch
+    for (int k = 0; k < 4; ++k) {
+        const auto value = static_cast<uint32_t>(maths::truncate_to_i64(to[kOrder[k]] * f + from[kOrder[k]] * rest));
+        color = k ? (color << 8 | value) : value;
     }
     return color;
 }
 
 // The time in seconds the UV wibbles use: the milliseconds (unsigned) times 0.001, stored as a float.
-float wibble_time(uint32_t milliseconds)
-{
-    float result;
-    float scale = 0.001f;
-    float wrap = 4294967296.0f;
-    __asm {
-        fild milliseconds
-        test milliseconds, 0x80000000
-        jz positive
-        fadd wrap
-    positive:
-        fmul scale
-        fstp result
-    }
-    return result;
-}
+float wibble_time(uint32_t milliseconds) { return static_cast<float>(static_cast<double>(milliseconds) * 0.001f); }
 
 // One axis of a UV wibble's offset: the phase-shifted sine times the amplitude plus the velocity's travel, plus 8,
 // less its whole part rounded down to a multiple of 16 - then 8 back the other way (added below 0, taken off
 // otherwise). The v axis is stored as a float before that last step, the u axis isn't.
 float wibble_offset(float t, float frequency, float phase, float amplitude, float velocity, bool store_first)
 {
-    float result;
-    float eight = 8.0f;
-    float zero = 0.0f;
-    int64_t whole;
-    int truncated;
-    float stored;
-    __asm {
-        fld t
-        fmul frequency
-        fadd phase
-        fsin
-        fmul amplitude
-        fld t
-        fmul velocity
-        faddp st(1), st(0)
-        fadd eight
-        fld st(0)
-        fisttp whole
-        mov eax, dword ptr [whole]
-        and eax, 0xFFFFFFF0
-        mov truncated, eax
-        fisub truncated
-        cmp store_first, 0
-        je compare
-        fstp stored
-        fld stored
-    compare:
-        fcom zero
-        fnstsw ax
-        test ah, 5
-        jp notBelow
-        fadd eight
-        jmp done
-    notBelow:
-        fsub eight
-    done:
-        fstp result
-    }
-    return result;
+    double value =
+        std::sin(static_cast<double>(t) * frequency + phase) * amplitude + static_cast<double>(t) * velocity + 8.0;
+    const auto whole = static_cast<int32_t>(static_cast<uint32_t>(maths::truncate_to_i64(value)) & 0xFFFFFFF0u);
+    value -= whole;
+    if (store_first)
+        value = static_cast<float>(value);
+    return static_cast<float>(value < 0.0 ? value + 8.0 : value - 8.0);
 }
 
 // What both set-ups share: the alpha reference, culling, depth bias, the animations, and the specular material

@@ -4,6 +4,7 @@
 
 #include "game/park_editing/rail_editor.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <initializer_list>
@@ -13,7 +14,6 @@
 #include "game/park_editing/park_editor.h"
 #include "game/park_editing/rail_editor_internal.h"
 #include "engine/maths/mat4.h"
-#include "engine/maths/x87_math.h"
 #include "engine/render/coll_tri.h"
 #include "engine/render/probe_ray.h"
 #include "game/park/park_memory.h"
@@ -100,51 +100,19 @@ void set_collision_vertices(uint8_t* sector, Vec4* vertices)
     reinterpret_cast<render::WorldCell*>(sector)->choose_raw_verts(vertices);
 }
 
-// One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the 53-bit differences, the sine rounded to
-// float and the cosine at full precision, as the original's x87 code does it (x' rounded to float, z' to 53 bits).
+// One point turned about y: x' = x cos + z sin, z' = z cos - x sin from the differences (in double), the sine
+// rounded to float, as the original computes it (x' rounded to float, z' kept in double).
 void turn_about_y(double delta_x, double delta_z, float angle, float* out_x, double* out_z)
 {
-    float sine;
-    float x;
-    double z;
-    float degree_factor = kAngleScaleToRad;
-    __asm {
-        fld angle
-        fmul degree_factor
-        fld st(0)
-        fsin
-        fstp sine
-        fcos
-        fld delta_x
-        fmul st(0), st(1)
-        fld delta_z
-        fmul sine
-        faddp st(1), st(0)
-        fstp x
-        fld delta_z
-        fmul st(0), st(1)
-        fld delta_x
-        fmul sine
-        fsubp st(1), st(0)
-        fstp z
-        fstp st(0)
-    }
-    *out_x = x;
-    *out_z = z;
+    const double radians = static_cast<double>(angle) * kAngleScaleToRad;
+    const double sine = static_cast<float>(std::sin(radians));
+    const double cosine = std::cos(radians);
+    *out_x = static_cast<float>(delta_x * cosine + delta_z * sine);
+    *out_z = delta_z * cosine - delta_x * sine;
 }
 
-// Whether sin(angle) (at full precision) is at least `value` (or either isn't a number).
-bool sin_at_least(double angle, float value)
-{
-    uint16_t status;
-    __asm {
-        fld angle
-        fsin
-        fcomp value
-        fnstsw status
-    }
-    return (status & 0x0500) != 0x0100;
-}
+// Whether sin(angle) is at least `value` (or either isn't a number).
+bool sin_at_least(double angle, float value) { return !(std::sin(angle) < value); }
 
 // The clone of a source sector made for the park (its pieces' counts marked dirty, the collision rebuilt).
 uint8_t* duplicate_scene_sector(uint32_t source)
@@ -197,7 +165,7 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
         *x = static_cast<double>(to->x) - from->x;
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;
-        double exact = x87::get_sqrt(*z * *z + *x * *x);
+        double exact = std::sqrt(*z * *z + *x * *x);
         float length = static_cast<float>(exact);
         if (exact > 0.0) {
             float inverse = static_cast<float>(1.0 / length);
@@ -210,7 +178,7 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
     float dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
-    return !x87::cos_above(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kAngleScaleToRad, dot);
+    return !(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kAngleScaleToRad) > dot);
 }
 
 namespace {
@@ -220,7 +188,7 @@ double span_to(const Vec4* a, const Vec4* b)
     double dx = static_cast<double>(a->x) - b->x;
     double dy = static_cast<double>(a->y) - b->y;
     double dz = static_cast<double>(a->z) - b->z;
-    return x87::get_sqrt((dz * dz + dx * dx) + dy * dy);
+    return std::sqrt((dz * dz + dx * dx) + dy * dy);
 }
 // The same summed z, y, then x (as move_point does).
 double distance_zyx(const Vec4* a, const Vec4* b)
@@ -228,7 +196,7 @@ double distance_zyx(const Vec4* a, const Vec4* b)
     double dx = static_cast<double>(a->x) - b->x;
     double dy = static_cast<double>(a->y) - b->y;
     double dz = static_cast<double>(a->z) - b->z;
-    return x87::get_sqrt((dz * dz + dy * dy) + dx * dx);
+    return std::sqrt((dz * dz + dy * dy) + dx * dx);
 }
 } // namespace
 
@@ -244,12 +212,12 @@ bool rail_segment_valid(const Vec4* a, const Vec4* b)
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
     double dz = static_cast<double>(b->z) - a->z;
-    if (x87::get_sqrt((dz * dz + dy * dy) + dx * dx) > kMaxSegment)
+    if (std::sqrt((dz * dz + dy * dy) + dx * dx) > kMaxSegment)
         return false;
     Vec4 d = {static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz),
               static_cast<float>(static_cast<double>(b->w) - a->w)};
-    float length = static_cast<float>(x87::get_sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) +
-                                                    static_cast<double>(d.x) * d.x));
+    float length = static_cast<float>(
+        std::sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) + static_cast<double>(d.x) * d.x));
     if (script::fetch_float(kMinimumSeparation) > length)
         return false;
     d.make_unit();
@@ -262,8 +230,7 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
 {
     const Vec4 origin = vertices[indices[0]];
     float x = direction->x, y = direction->y, z = direction->z;
-    double length =
-        x87::get_sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
+    double length = std::sqrt((static_cast<double>(z) * z + static_cast<double>(y) * y) + static_cast<double>(x) * x);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
@@ -288,7 +255,7 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
     double uy = static_cast<double>(z) * side.x - static_cast<double>(side.z) * x;
     double uz = static_cast<double>(side.y) * x - static_cast<double>(y) * side.x;
     float uz_f = static_cast<float>(uz);
-    double up_length = x87::get_sqrt((uz * uz_f + uy * uy) + ux * ux);
+    double up_length = std::sqrt((uz * uz_f + uy * uy) + ux * ux);
     if (up_length > 0.0) {
         double inverse = 1.0 / up_length;
         ux *= inverse;
@@ -426,7 +393,7 @@ void EditedRailPoint::draw_segment(const Vec4* origin, const Vec4* position, flo
         float dot =
             static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                static_cast<double>(here.x) * before.x);
-        bool join = !x87::cos_above(static_cast<double>(script::fetch_float(kMaxJoinAngle)) * kAngleScaleToRad, dot);
+        bool join = !(std::cos(static_cast<double>(script::fetch_float(kMaxJoinAngle)) * kAngleScaleToRad) > dot);
         Vec4 c, b, a;
         transform_rail_point(&c, &next_next->at_point_, origin, position, angle);
         transform_rail_point(&b, &next->at_point_, origin, position, angle);
@@ -478,7 +445,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         Vec4 along = {static_cast<float>(static_cast<double>(sx) * 0.5f), static_cast<float>(sy * 0.5f),
                       static_cast<float>(sz * 0.5f), static_cast<float>(static_cast<double>(sw) * 0.5f)};
         along.make_unit();
-        width = static_cast<float>(x87::get_sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
+        width = static_cast<float>(std::sqrt(1.0f - static_cast<double>(along.y) * along.y) * kPostWidth);
     }
     Vec4 at;
     transform_rail_point(&at, &at_point_, origin, position, angle);
@@ -499,7 +466,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
         // Turned to face along the rail.
         double dx = static_cast<double>(at_point_.x) - following_->at_point_.x;
         double dz = static_cast<double>(at_point_.z) - following_->at_point_.z;
-        double length = x87::get_sqrt(dz * dz + dx * dx);
+        double length = std::sqrt(dz * dz + dx * dx);
         if (length > 0.0) {
             double inverse = 1.0 / length;
             dx *= inverse;

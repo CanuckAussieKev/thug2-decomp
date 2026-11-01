@@ -37,33 +37,6 @@ const float kHalfPi = float_from_bits(0x3FC90FDB);
 const float kQuarterPi = float_from_bits(0x3F490FDB);
 const float kThreeQuarterPi = float_from_bits(0x4016CBE4);
 
-// The FPU's own cosine and arctangent (as the original's FCOS / FPATAN).
-// `factor` x |cos(angle)|, the cosine kept at the FPU's full precision (only the product is rounded).
-double times_abs_cos(double factor, double angle)
-{
-    double result;
-    __asm {
-        fld factor
-        fld angle
-        fcos
-        fabs
-        fmulp st(1), st
-        fstp result
-    }
-    return result;
-}
-double x87_atan2(double y, double x)
-{
-    double result;
-    __asm {
-        fld y
-        fld x
-        fpatan
-        fstp result
-    }
-    return result;
-}
-
 // A stick's data byte with 0x80 as the centre, moved 50 towards 0 (crossing it: there's no dead band) and / 77;
 // exactly centred is 0. (-0x80 counts as -0x7F.)
 void scale_stick(uint8_t byte, float* out)
@@ -259,7 +232,7 @@ void PadSnapshot::tick_frame(const uint8_t* data)
 
     double x = stick_[0], y = stick_[1];
     polar_[0].length = static_cast<float>(std::sqrt(x * x + y * y));
-    polar_[0].angle = static_cast<float>(x87_atan2(stick_[0], -static_cast<double>(stick_[1])));
+    polar_[0].angle = static_cast<float>(std::atan2(static_cast<double>(stick_[0]), -static_cast<double>(stick_[1])));
 
     x = stick_[2];
     y = stick_[3];
@@ -267,7 +240,8 @@ void PadSnapshot::tick_frame(const uint8_t* data)
     polar_[1].length = static_cast<float>(length);
     // (compared unrounded, as the original's)
     if (length > float_from_bits(0x3A83126F)) {
-        polar_[1].angle = static_cast<float>(x87_atan2(stick_[2], -static_cast<double>(stick_[3])));
+        polar_[1].angle =
+            static_cast<float>(std::atan2(static_cast<double>(stick_[2]), -static_cast<double>(stick_[3])));
     } else {
         // the d-pad stands in for a centred stick
         uint8_t up = data[6] != 0, down = data[7] != 0, left = data[5] != 0, right = data[4] != 0;
@@ -359,7 +333,7 @@ double __stdcall stick_length(float x, float y, float angle)
     else
         to_gate = a + kHalfPi;
     double length =
-        times_abs_cos(std::sqrt(ny * ny + nx * nx), to_gate) * static_cast<double>(float_from_bits(0x3F969696));
+        std::sqrt(ny * ny + nx * nx) * std::fabs(std::cos(to_gate)) * static_cast<double>(float_from_bits(0x3F969696));
     return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
 }
 

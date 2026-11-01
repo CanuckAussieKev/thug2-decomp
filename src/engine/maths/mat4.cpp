@@ -7,7 +7,7 @@
 
 #include "engine/core/dbg.h"
 #include "engine/maths/maths.h"
-#include "engine/maths/x87_math.h"
+#include "engine/maths/trig.h"
 
 namespace maths {
 
@@ -25,8 +25,8 @@ Vec4& Mat4::operator[](int index) { return row[index]; }
 // 0x00404DD0 (the FPU's FSIN / FCOS, as for Y, Z and the axis number below)
 Mat4& make_pitch_matrix(Mat4& m, float angle)
 {
-    float s = x87::get_sin_f(angle);
-    float c = x87::cos_f(angle);
+    float s = std::sin(angle);
+    float c = std::cos(angle);
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, c, s, 0.0f};
     m.row[2] = {0.0f, -s, c, 0.0f};
@@ -37,8 +37,8 @@ Mat4& make_pitch_matrix(Mat4& m, float angle)
 // 0x00404E20
 Mat4& make_yaw_matrix(Mat4& m, float angle)
 {
-    float s = x87::get_sin_f(angle);
-    float c = x87::cos_f(angle);
+    float s = std::sin(angle);
+    float c = std::cos(angle);
     m.row[0] = {c, 0.0f, -s, 0.0f};
     m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     m.row[2] = {s, 0.0f, c, 0.0f};
@@ -49,8 +49,8 @@ Mat4& make_yaw_matrix(Mat4& m, float angle)
 // 0x00404E70
 Mat4& make_roll_matrix(Mat4& m, float angle)
 {
-    float s = x87::get_sin_f(angle);
-    float c = x87::cos_f(angle);
+    float s = std::sin(angle);
+    float c = std::cos(angle);
     m.row[0] = {c, s, 0.0f, 0.0f};
     m.row[1] = {-s, c, 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -198,18 +198,8 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
         y *= inverse;
         z = static_cast<float>(z * inverse);
     }
-    double t;
-    float s;
-    const float one = 1.0f;
-    __asm {
-        fld angle
-        fld st(0)
-        fcos
-        fsubr one
-        fstp t
-        fsin
-        fstp s
-    }
+    const double t = 1.0 - std::cos(static_cast<double>(angle));
+    const float s = static_cast<float>(std::sin(static_cast<double>(angle)));
     float zz = static_cast<float>(1.0 - static_cast<double>(z) * z);
     float xx_t = static_cast<float>((1.0 - x * x) * t);
     float yy_t = static_cast<float>((1.0 - y * y) * t);
@@ -332,7 +322,7 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
     const double z_difference = static_cast<double>(row[0].y) - row[1].x;
     const float z = static_cast<float>(z_difference);
     const double length = // 2 sin(angle)
-        x87::get_sqrt((z_difference * z + static_cast<double>(x) * x) + static_cast<double>(y) * y);
+        std::sqrt((z_difference * z + static_cast<double>(x) * x) + static_cast<double>(y) * y);
 
     if (length > 0.0) {
         double inv = 1.0 / length;
@@ -341,7 +331,7 @@ void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
     } else { // (also a NaN length)
         axis = {0.0f, 0.0f, 0.0f, 1.0f};
     }
-    angle = x87::atan_2f(length, trace);
+    angle = static_cast<float>(std::atan2(length, trace));
 
     if (!(length <= 0.01f) || !(trace <= 0.0))
         return;
@@ -420,14 +410,14 @@ bool Mat4::restore_right_angles()
 {
     constexpr float kMinLength = 0.99f;
     const double length1 = static_cast<float>(
-        x87::get_sqrt((static_cast<double>(row[1].x) * row[1].x + static_cast<double>(row[1].y) * row[1].y) +
-                      static_cast<double>(row[1].z) * row[1].z));
+        std::sqrt((static_cast<double>(row[1].x) * row[1].x + static_cast<double>(row[1].y) * row[1].y) +
+                  static_cast<double>(row[1].z) * row[1].z));
     const double length2 =
-        x87::get_sqrt((static_cast<double>(row[2].x) * row[2].x + static_cast<double>(row[2].y) * row[2].y) +
-                      static_cast<double>(row[2].z) * row[2].z);
+        std::sqrt((static_cast<double>(row[2].x) * row[2].x + static_cast<double>(row[2].y) * row[2].y) +
+                  static_cast<double>(row[2].z) * row[2].z);
     const double length0 =
-        x87::get_sqrt((static_cast<double>(row[0].z) * row[0].z + static_cast<double>(row[0].x) * row[0].x) +
-                      static_cast<double>(row[0].y) * row[0].y);
+        std::sqrt((static_cast<double>(row[0].z) * row[0].z + static_cast<double>(row[0].x) * row[0].x) +
+                  static_cast<double>(row[0].y) * row[0].y);
     const bool short0 = length0 < kMinLength;
     const bool short1 = length1 < kMinLength;
     const bool short2 = length2 < kMinLength;
@@ -454,8 +444,8 @@ bool Mat4::restore_right_angles()
 // 0x00404EC0
 Mat4& build_axis_angle_matrix(Mat4& m, int axis, float angle)
 {
-    float s = x87::get_sin_f(angle);
-    float c = x87::cos_f(angle);
+    float s = std::sin(angle);
+    float c = std::cos(angle);
     int a = (axis + 1) % 3;
     int b = (axis + 2) % 3;
     m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -507,7 +497,8 @@ Mat4& create_perspective_matrix(Mat4& m, float fov, float aspect, float near_dep
 {
     // (x87: q and the cotangent of FSIN / FCOS kept on the FPU until stored)
     double q = far_depth / (static_cast<double>(far_depth) - near_depth);
-    double cot = x87::get_cot(static_cast<double>(fov) * 0.5f);
+    const double half_fov = static_cast<double>(fov) * 0.5f;
+    double cot = std::cos(half_fov) / std::sin(half_fov);
     m.row[0] = {static_cast<float>(aspect * cot), 0.0f, 0.0f, 0.0f};
     m.row[1] = {0.0f, static_cast<float>(cot), 0.0f, 0.0f};
     m.row[2] = {0.0f, 0.0f, static_cast<float>(q), 1.0f};
@@ -535,7 +526,7 @@ Mat4& Mat4::operator*=(float scale)
     if (scale != 1.0f) {
         for (Vec4& r : row) {
             for (float* e : {&r.x, &r.y, &r.z, &r.w})
-                *e = x87::multiply_f(scale, *e);
+                *e = scale * *e;
         }
     }
     return *this;
@@ -547,15 +538,16 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
     // As the original's x87 code: the cosines and sin z stored as floats, sin x and sin y kept on the FPU at full
     // precision (their products rounded to 53 bits), the sums too until each element is stored; cos x * sin y stored
     // once and reused.
-    float cx = x87::cos_f(x), cy = x87::cos_f(y), cz = x87::cos_f(z), sz = x87::get_sin_f(z);
-    float cxsy = static_cast<float>(x87::sin_times(y, cx));
-    double sysx = x87::sin_product(y, x);
+    float cx = std::cos(x), cy = std::cos(y), cz = std::cos(z), sz = std::sin(z);
+    float cxsy = static_cast<float>(std::sin(static_cast<double>(y)) * cx);
+    double sysx = std::sin(static_cast<double>(y)) * std::sin(static_cast<double>(x));
     auto f = [](double v) { return static_cast<float>(v); };
-    row[0] = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -x87::get_sin_f(y), 0.0f};
+    row[0] = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -std::sin(y), 0.0f};
     row[1] = {f(static_cast<double>(sz) * cx - sysx * cz), f(sysx * sz + static_cast<double>(cz) * cx),
-              f(-x87::sin_times(x, cy)), 0.0f};
-    row[2] = {f(static_cast<double>(cxsy) * cz + x87::sin_times(x, sz)),
-              f(x87::sin_times(x, cz) - static_cast<double>(cxsy) * sz), f(static_cast<double>(cy) * cx), 0.0f};
+              f(-(std::sin(static_cast<double>(x)) * cy)), 0.0f};
+    row[2] = {f(static_cast<double>(cxsy) * cz + std::sin(static_cast<double>(x)) * sz),
+              f(std::sin(static_cast<double>(x)) * cz - static_cast<double>(cxsy) * sz),
+              f(static_cast<double>(cy) * cx), 0.0f};
     row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     return *this;
 }
@@ -642,7 +634,7 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     // until stored)
     bool above;
     double inverse, neg_inverse;
-    float y = x87::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
+    float y = maths::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
     float x, z;
     if (above) {
         float inv = static_cast<float>(inverse);
