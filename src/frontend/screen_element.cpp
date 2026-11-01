@@ -16,11 +16,12 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/weather.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend {
 
@@ -443,8 +444,8 @@ ElementPtr* UiWidget::get_parent(ElementPtr* out) const
     out->following_ = nullptr;
     out->owner_object_ = container_.owner_object_;
     if (out->owner_object_)
-        reinterpret_cast<objects::SharedBase*>(out->owner_object_)
-            ->attach_shared_ref(reinterpret_cast<objects::SharedRef<objects::SharedBase>*>(out));
+        static_cast<objects::SharedBase*>(out->owner_object_)
+            ->attach_shared_ref(raw::as<objects::SharedRef<objects::SharedBase>>(out));
     return out;
 }
 
@@ -590,7 +591,7 @@ void UiWidget::update_layout()
         render::ViewRegion* camera = render::fetch_current_view(0);
         float x = 0.0f, y = 0.0f, z = 0.0f;
         // (the depth written as an integer into z, as the original)
-        const float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, reinterpret_cast<int*>(&z));
+        const float scale = camera->project_to_screen(&aim_point_.pos3d, &x, &y, raw::as<int>(&z));
         if (scale < 0.0f) {
             aim_point_.x = -320.0f;
             aim_point_.y = -224.0f;
@@ -779,7 +780,7 @@ void UiWidget::change_traits(script::Struct* params)
     script::VectorValue pos3d{};
     if (params->fetch_vec(kPos3dName, &pos3d, 0)) {
         pos3d.w = 1.0f;
-        set_pos3d(reinterpret_cast<const maths::Vec4*>(&pos3d), 1);
+        set_pos3d(&pos3d, 1);
     }
     if (params->has_bare_flag(kKeepScaleName))
         object_flags_ |= kKeepScale;

@@ -12,10 +12,11 @@
 #include "frontend/screen_element_manager.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend {
 
@@ -171,7 +172,7 @@ bool WindowedList::pass_event_to_script(objects::Signal* event)
 // (The original's listener filter is 0x004AE7E0 itself, `this` the listener: the element is 0x178 before it.)
 void WindowedList::MenuListener::receive(objects::Signal* event)
 {
-    auto* self = reinterpret_cast<WindowedList*>(reinterpret_cast<uint8_t*>(this) - offsetof(WindowedList, listener_));
+    auto* self = raw::owner_of<WindowedList>(this, offsetof(WindowedList, listener_));
     self->listener_receive(event);
 }
 

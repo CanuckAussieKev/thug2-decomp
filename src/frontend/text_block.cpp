@@ -14,11 +14,12 @@
 #include "frontend/text_element.h"
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend {
 
@@ -389,7 +390,7 @@ void ParagraphWidget::change_traits(Struct* params)
         shadow_ = true;
     if (params->has_bare_flag(kShadowOffFlag))
         shadow_ = false;
-    read_colour_param(params, kShadowRgba, reinterpret_cast<uint32_t*>(shadow_rgba_));
+    read_colour_param(params, kShadowRgba, raw::as<uint32_t>(shadow_rgba_));
     if (params->has_bare_flag(kRememberOverrideRgbaState))
         remembered_override_ = override_rgba_;
     if (params->has_bare_flag(kRestoreOverrideRgbaState))

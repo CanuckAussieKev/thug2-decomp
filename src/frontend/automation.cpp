@@ -58,6 +58,8 @@ namespace frontend::automation {
 namespace {
 
 #include "frontend/automation_tables.inc"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 constexpr uint32_t kSystem = 0x36B2EE74;     // "system" (the menus' pad events' target and source)
 constexpr uint32_t kFocusEvent = 0x9D3FB516; // "focus"
@@ -679,7 +681,7 @@ using mouse_menus::child_count;
 using mouse_menus::is_menu;
 using mouse_menus::selected_index;
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
 // The level loaded (its load script's checksum, the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
@@ -736,10 +738,10 @@ bool value_denied(uint32_t type, uint32_t value, int depth)
         return checksum_denied(value);
     case script::kQbvalStruct:
     case script::kQbvalStructRef:
-        return struct_denied(reinterpret_cast<script::Struct*>(value), depth + 1);
+        return struct_denied(cell::pointer<script::Struct>(value), depth + 1);
     case script::kQbvalArray:
     case script::kEsymboltypeArraypointer: {
-        auto* array = reinterpret_cast<script::Array*>(value);
+        auto* array = cell::pointer<script::Array>(value);
         if (!array || depth > 8)
             return false;
         const uint32_t* elements = array->find_array_value();
@@ -827,7 +829,7 @@ std::string net_refusal()
     if (void* game_net = online::g_online_hub)
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return "a network game runs";
-    if (void* mode = reinterpret_cast<void*>(goals::g_game_mode)) {
+    if (void* mode = raw::as<void>(goals::g_game_mode)) {
         const std::string name = get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key());
         if (name.starts_with("net"))
             return "the game mode is a network one (" + name + ")";
@@ -837,7 +839,7 @@ std::string net_refusal()
 
 std::string active_ruleset_label()
 {
-    void* mode = reinterpret_cast<void*>(goals::g_game_mode);
+    void* mode = raw::as<void>(goals::g_game_mode);
     return mode ? get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key()) : "";
 }
 
@@ -903,9 +905,9 @@ void trace_frame()
         const int bailing = state ? state->is_on(objects::PoseFlag::kBailing) : -1;
         const int trick = state ? state->in_trick_move_ : -1;
         // the score: the combo so far (+0x14) and its multiplier (+0x60), the last score landed (+0x20)
-        auto* score_component = reinterpret_cast<uint8_t*>(skater->fetch_module(kScoreModuleKey));
+        auto* score_component = raw::bytes(skater->fetch_module(kScoreModuleKey));
         const modules::PointTally* score =
-            score_component ? reinterpret_cast<objects::RiderPointKeeper*>(score_component)->points_held_ : nullptr;
+            score_component ? raw::as<objects::RiderPointKeeper>(score_component)->points_held_ : nullptr;
         const int pot = score ? score->pot_ : -1;
         const float multiplier = score ? score->multiplier_ : 0.0f;
         const int landed = score ? score->pot_score_ : -1;

@@ -14,11 +14,12 @@
 #include "engine/gfx/font.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "frontend/screen_element.h"
 #include "frontend/screen_constants.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend {
 
@@ -350,7 +351,7 @@ void LabelWidget::set_char_properties(script::Array* chars)
 {
     change_glyph_text(texts_[0], chars_);
     for (uint32_t i = 0; i < chars->extent_; ++i) {
-        auto* c = reinterpret_cast<Struct*>(chars->fetch_part(i));
+        auto* c = chars->struct_at(i);
         int index = 0;
         c->fetch_int_value(kIndex, &index, 1);
         float degrees = 0.0f;
@@ -500,7 +501,7 @@ void LabelWidget::change_traits(Struct* params)
         shadow_ = false;
         free_text_objects(true);
     }
-    read_colour_param(params, kShadowRgba, reinterpret_cast<uint32_t*>(shadow_rgba_));
+    read_colour_param(params, kShadowRgba, raw::as<uint32_t>(shadow_rgba_));
     if (params->has_bare_flag(kRememberOverrideRgbaState))
         remembered_override_ = override_rgba_;
     if (params->has_bare_flag(kRestoreOverrideRgbaState))

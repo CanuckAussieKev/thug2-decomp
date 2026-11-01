@@ -20,6 +20,7 @@
 #include "game/skate/game_mode.h"
 #include "game/skate/skate_module.h"
 #include "engine/pad_input/device.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::new_frontend::game_screens {
 
@@ -32,10 +33,10 @@ constexpr uint32_t kMenuEvent = 0x36B2EE74;    // the pad events' target and sou
 constexpr uint32_t kDeviceNum = 0xC9428A08;    // "device_num"
 constexpr uint32_t kController = 0xB30D9965;   // "controller"
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 
-uint32_t id_of(UiWidget* element) { return reinterpret_cast<objects::Entity*>(element)->ident_; }
+uint32_t id_of(UiWidget* element) { return static_cast<objects::Entity*>(element)->ident_; }
 
 bool get_paused(modules::FrontEnd* front_end) { return front_end && front_end->is_halted_; }
 
@@ -62,7 +63,7 @@ const char* anchor_name(Anchor anchor)
 
 std::string active_ruleset_label()
 {
-    void* mode = reinterpret_cast<void*>(goals::g_game_mode);
+    void* mode = raw::as<void>(goals::g_game_mode);
     if (!mode)
         return {};
     const uint32_t name = static_cast<goals::MatchRules*>(mode)->get_name_key();

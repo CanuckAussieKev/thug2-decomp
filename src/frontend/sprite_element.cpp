@@ -14,7 +14,7 @@
 #include "engine/gfx/texture_dict.h"
 #include "engine/gfx/window2d.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
@@ -279,10 +279,10 @@ void PanelWidget::tick_frame()
         return;
     const int top = get_truncated(summed_.y - (static_cast<double>(just_y_) + get_one()) * get_half() * level_y_);
     const int left = get_truncated(summed_.x - (static_cast<double>(just_x_) + get_one()) * get_half() * span_);
-    reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_location(left, top);
+    static_cast<render::ScreenWindow*>(screen_region_)->change_location(left, top);
     const int height = get_truncated(level_y_);
     const int width = get_truncated(span_);
-    reinterpret_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
+    static_cast<render::ScreenWindow*>(screen_region_)->change_extent(width, height);
 }
 
 } // namespace frontend

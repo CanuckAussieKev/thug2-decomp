@@ -24,6 +24,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/gfx/engine_geom.h"
+#include "engine/core/pointer_cell.h"
 
 namespace frontend {
 
@@ -102,7 +103,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
             chosen = memory->top_down_heap_;
             break;
         case kHeap3c84a59:
-            chosen = reinterpret_cast<memory::MemSource*>(memory->unknown158_[1]);
+            chosen = cell::pointer<memory::MemSource>(memory->unknown158_[1]);
             break;
         case kHeapDefault:
             push_heap = false;

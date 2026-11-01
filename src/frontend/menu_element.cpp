@@ -10,7 +10,7 @@
 #include "engine/objects/signal.h"
 #include "engine/objects/tracker.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/objects/entity.h"
 #include "engine/core/stubs.h"
 #include "frontend/screen_element.h"

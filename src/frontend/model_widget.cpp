@@ -21,7 +21,7 @@
 #include "engine/script/nodes.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "platform/run_log.h"
 #include "engine/core/stubs.h"
 #include "frontend/screen_element.h"
@@ -29,6 +29,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "engine/gfx/engine_geom.h"
 #include "engine/objects/model_component.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend {
 
@@ -85,7 +86,7 @@ float camera_angle(void* camera) { return static_cast<gfx::ViewCam*>(camera)->fe
 // A geom's bounding box (0x0048DE80, thiscall).
 const maths::Vec4* geometry_bounding_box(void* geometry)
 {
-    return reinterpret_cast<const maths::Vec4*>(static_cast<render::Geom*>(geometry)->fetch_bounds());
+    return raw::as<const maths::Vec4>(static_cast<render::Geom*>(geometry)->fetch_bounds());
 }
 
 // A model's model (the model component's +0x208) and that model's bounding box (min x y z w, max x y z w): the
@@ -267,11 +268,11 @@ void ModelWidget::change_traits(Struct* params)
         script::Array* sectors = nullptr;
         params->fetch_list(kSectors, &sectors, 0);
         for (uint32_t i = 0; i < sectors->extent_; ++i) {
-            auto* entry = reinterpret_cast<Struct*>(sectors->fetch_part(i));
+            auto* entry = sectors->struct_at(i);
             uint32_t sector = 0;
             entry->read_hash_value(0u, &sector, 0);
             params->put_name_key(kName, sector);
-            entry->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&offset), 0);
+            entry->fetch_vec(0u, &offset, 0);
             attach_model(params, offset);
         }
     }
@@ -317,7 +318,7 @@ void ModelWidget::change_traits(Struct* params)
     Struct* parent = nullptr;
     if (params->read_sub_struct(kOwnerArgs, &parent, 0)) {
         parent->read_hash_value(kName, &anchor_object_, 0);
-        parent->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&anchor_shift_), 0);
+        parent->fetch_vec(0u, &anchor_shift_, 0);
         if (parent->fetch_int_value(kSkater, &parent_integer_, 0))
             anchor_object_ = kSkater;
         parent->read_hash_value(kNode, &attach_to_name_, 0);
@@ -325,7 +326,7 @@ void ModelWidget::change_traits(Struct* params)
 
     if (params->has_bare_flag(kScaleToScreenDims)) {
         scale_to_screen_dims();
-    } else if (params->fetch_vec("PivotPoint", reinterpret_cast<script::VectorValue*>(&pivot_), 0)) {
+    } else if (params->fetch_vec("PivotPoint", &pivot_, 0)) {
         pivot_.w = 1.0f;
     }
     size_follows_range_ = params->has_bare_flag(kShrinkWithRange);
@@ -496,16 +497,16 @@ void ModelWidget::tick_frame()
     bool on_layout = false;
     maths::Vec4 place = {};
     if (anchor_object_) {
-        auto* manager = reinterpret_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+        auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
         objects::Entity* parent = manager->look_up_entity(anchor_object_);
         if (parent) {
             basis_frame_.reset_to_identity();
             basis_frame_.row[3] =
-                reinterpret_cast<objects::GameEntity*>(parent)->at_point_ + anchor_shift_ * basis_frame_;
+                static_cast<objects::GameEntity*>(parent)->at_point_ + anchor_shift_ * basis_frame_;
         } else {
             script::Script* script =
                 script::spawn_script(kKillScript, nullptr, 0, nullptr, 0, 0, false, false, false, false);
-            script->entity_.assign_value(reinterpret_cast<objects::Entity*>(this));
+            script->entity_.assign_value(static_cast<objects::Entity*>(this));
             is_dead_ = true;
         }
     } else if (attach_to_name_) {
@@ -531,7 +532,7 @@ void ModelWidget::tick_frame()
             target = target_position_;
         } else if (point_at_ == kPointAtObject) {
             if (objects::Entity* object = objects::find_object(target_object_))
-                target = reinterpret_cast<objects::GameEntity*>(object)->at_point_;
+                target = static_cast<objects::GameEntity*>(object)->at_point_;
         }
         if (point_at_ != kPointAtNothing) {
             // Facing the target (row 2 the direction to it, row 0 across, w 1 - sic), then tilted about the

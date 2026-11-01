@@ -34,6 +34,7 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace modules {
 
@@ -102,8 +103,8 @@ bool& menu_on_screen() { return sio::g_in_menu_flag; } // a menu, dialog box or 
 bool& pending_script() { return g_pending_script; }    // set elsewhere: run 0xFB11E6CD next frame
 bool& is_game_halted() { return objects::g_simulation_halted; }
 
-uint8_t* skate_bytes() { return reinterpret_cast<uint8_t*>(g_skate_module); } // modules::Skate
-void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }   // GameObjects::EventWaitBoard
+uint8_t* skate_bytes() { return raw::bytes(g_skate_module); } // modules::Skate
+void* get_tracker() { return raw::as<void>(objects::g_tracker); }   // GameObjects::EventWaitBoard
 frame_loop::Hub* main_loop_manager() { return assets::g_main_loop_manager; }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
@@ -312,7 +313,7 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
     if (!params->fetch_list("xbox", &mappings, 0))
         return;
     for (uint32_t i = 0; i < mappings->extent_; ++i) {
-        auto* pair = reinterpret_cast<script::Array*>(mappings->fetch_part(i));
+        auto* pair = mappings->array_at(i);
         const uint32_t pad_button_label = pair->fetch_part(0);
         const uint32_t event = pair->fetch_part(1);
         uint32_t button = 0;
@@ -450,11 +451,11 @@ void FrontEnd::tick_frame(bool game_paused)
     }
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->bottom_up_heap_);
     script::tick_child_scripts();
-    reinterpret_cast<modules::Skate*>(skate_bytes())->advance_match_flow();
+    raw::as<modules::Skate>(skate_bytes())->advance_match_flow();
     if (pending_script()) {
         pending_script() = false;
         auto* object =
-            static_cast<objects::Entity*>(reinterpret_cast<modules::Skate*>(skate_bytes())->get_home_rider());
+            static_cast<objects::Entity*>(raw::as<modules::Skate>(skate_bytes())->get_home_rider());
         script::launch_script(0xFB11E6CD, nullptr, object, false, nullptr);
     }
     memory::Hub::get_pull()->leave_heap_scope();
@@ -519,7 +520,7 @@ void FrontEnd::get_pause_game(bool pause)
     uint8_t* skate = skate_bytes();
     auto* devices = sio::g_manager;
     if (pause) {
-        reinterpret_cast<modules::Skate*>(skate)->get_freeze(true);
+        raw::as<modules::Skate>(skate)->get_freeze(true);
         devices->pause_devices();
     } else {
         devices->unpause_devices();
@@ -528,12 +529,12 @@ void FrontEnd::get_pause_game(bool pause)
 
     // The skaters: their list's nodes (the head's data is -1; its data read before the null check, as the original).
     uint32_t count = 0;
-    for (const memory::ListNode* node = reinterpret_cast<modules::Skate*>(skate)->riders_.list_link_.next;
+    for (const memory::ListNode* node = raw::as<modules::Skate>(skate)->riders_.list_link_.next;
          !node->is_head() && node; node = node->next)
         ++count;
     for (uint32_t i = 0; i < count; ++i) {
         auto* skater =
-            static_cast<objects::Rider*>(reinterpret_cast<modules::Skate*>(skate)->get_rider_at(static_cast<int>(i)));
+            static_cast<objects::Rider*>(raw::as<modules::Skate>(skate)->get_rider_at(static_cast<int>(i)));
         if (!skater)
             continue;
         if (pause)
@@ -553,10 +554,10 @@ void FrontEnd::get_pause_game(bool pause)
         report_pause_state();
     } else {
         main_loop_manager()->logic_tasks_.skip_bits_ = 0;
-        reinterpret_cast<modules::Skate*>(skate_bytes())->get_freeze(false);
+        raw::as<modules::Skate>(skate_bytes())->get_freeze(false);
         report_pause_state();
     }
-    if (is_halted_ || !reinterpret_cast<modules::Skate*>(skate)->get_home_rider())
+    if (is_halted_ || !raw::as<modules::Skate>(skate)->get_home_rider())
         return;
     // Back in the game with a skater: the camera's view mode back to the global's.
     script::Struct* params = new_params();

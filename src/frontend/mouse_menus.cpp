@@ -35,6 +35,7 @@
 #include "engine/gfx/device.h"
 #include "engine/pad_input/device.h"
 #include "frontend/menu_element.h"
+#include "engine/core/raw_view.h"
 
 namespace mouse_menus {
 
@@ -74,7 +75,7 @@ constexpr uint32_t kFlagPriority = 0x10000000;  // priority > 0 (pad events with
 // An element below this alpha (its summed alpha, its parents' included) isn't seen.
 constexpr float kMinAlpha = 0.01f;
 
-const objects::Entity* as_object(const UiWidget* element) { return reinterpret_cast<const objects::Entity*>(element); }
+const objects::Entity* as_object(const UiWidget* element) { return static_cast<const objects::Entity*>(element); }
 uint32_t current_flags(const UiWidget* element) { return as_object(element)->object_flags_; }
 uint32_t kind_tag(const UiWidget* element) { return as_object(element)->kind_tag_; }
 uint32_t ident_no(const UiWidget* element) { return as_object(element)->ident_; }
@@ -513,7 +514,7 @@ void handle_mouse_event(SDL_Event* event)
 
 void* ui_tree_handle() { return frontend::g_ui_element_hub; }
 UiWidget* root_element(void* manager) { return static_cast<UiTree*>(manager)->tree_root_.get_pull(); }
-void* get_tracker() { return reinterpret_cast<void*>(objects::g_tracker); }
+void* get_tracker() { return raw::as<void>(objects::g_tracker); }
 
 bool in_park_editor()
 {

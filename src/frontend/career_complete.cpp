@@ -15,6 +15,8 @@
 #include "game/rider/rider.h"
 #include "platform/run_log.h"
 #include "engine/core/ints.h"
+#include "platform/code_address.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::career_complete {
 
@@ -33,7 +35,7 @@ constexpr uint32_t kRecord = 0xC22A2B72;
 constexpr uint32_t kCareer = 0x4DA4937B;  // career
 constexpr uint32_t kClassic = 0x4C10DE52; // classic
 
-uint8_t* get_skate() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* get_skate() { return raw::bytes(modules::g_skate_module); }
 
 // The local skater's stats manager (component 0x4FF8DAC6, the skater's story stat challenges - stats_goals): its 70
 // challenges from +0x1C, 0x24 bytes each, the status at +0x10 of each (0 open, 1 done - the stat point given -,
@@ -46,12 +48,12 @@ constexpr int kStatGoalJustDone = 0x1C + 0x0C;
 
 int complete_stat_goals()
 {
-    objects::GameEntity* skater = reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider(); // (the local one)
-    auto* stats = skater ? reinterpret_cast<uint8_t*>(skater->fetch_module(0x4FF8DAC6)) : nullptr;
+    objects::GameEntity* skater = raw::as<modules::Skate>(get_skate())->get_home_rider(); // (the local one)
+    auto* stats = skater ? raw::bytes(skater->fetch_module(0x4FF8DAC6)) : nullptr;
     if (!stats)
         return 0;
     for (int i = 0; i < kGoalStatCount; ++i) {
-        *reinterpret_cast<int*>(stats + kStatGoalStatus + i * kStatGoalSize) = 1;
+        *raw::as<int>(stats + kStatGoalStatus + i * kStatGoalSize) = 1;
         stats[kStatGoalJustDone + i * kStatGoalSize] = 0;
     }
     return kGoalStatCount;
@@ -92,7 +94,7 @@ int fill_gap_checklist(objects::RiderStoryProgress* career, int level, script::A
         return 0;
     const maths::Vec4 facing = {0.0f, 0.0f, 1.0f, 0.0f};
     for (uint32_t i = 0; i < gaps->extent_; ++i) {
-        auto* gap = reinterpret_cast<script::Struct*>(gaps->fetch_part(i));
+        auto* gap = gaps->struct_at(i);
         const char* name = nullptr;
         int score = 0;
         if (!gap || !gap->fetch_text(name_hash("name"), &name, 0) || !name || !*name ||
@@ -139,14 +141,14 @@ bool cfunc_apply(script::Struct* params, script::Script*)
     script::Array* levels = nullptr;
     if (!skate || !params || !params->fetch_list(name_hash("levels"), &levels, 0) || !levels)
         return false;
-    objects::RiderStoryProgress* career = reinterpret_cast<modules::Skate*>(skate)->career_.get();
-    const goals::GoalManager* goal_manager = reinterpret_cast<modules::Skate*>(skate)->goal_manager_.get();
+    objects::RiderStoryProgress* career = raw::as<modules::Skate>(skate)->career_.get();
+    const goals::GoalManager* goal_manager = raw::as<modules::Skate>(skate)->goal_manager_.get();
     script::Struct* saved = goal_manager ? goal_manager->goal_data_ : nullptr;
     if (!career || !saved)
         return false;
     int goal_count = 0, classic_count = 0, gap_levels = 0, gap_count = 0;
     for (uint32_t i = 0; i < levels->extent_; ++i) {
-        auto* level = reinterpret_cast<script::Struct*>(levels->fetch_part(i));
+        auto* level = levels->struct_at(i);
         int number = -1;
         if (!level || !level->fetch_int_value(name_hash("level"), &number, 0) || number < 0 ||
             number >= objects::RiderStoryProgress::kLevels)
@@ -199,8 +201,8 @@ bool cfunc_apply(script::Struct* params, script::Script*)
 void register_script_functions()
 {
     static const script::NativeCommand kFunctions[] = {
-        {"Career100_Available", reinterpret_cast<void*>(&cfunc_available)},
-        {"Career100_Apply", reinterpret_cast<void*>(&cfunc_apply)},
+        {"Career100_Available", code_address(&cfunc_available)},
+        {"Career100_Apply", code_address(&cfunc_apply)},
     };
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }

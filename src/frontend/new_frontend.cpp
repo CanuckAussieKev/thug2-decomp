@@ -75,6 +75,10 @@
 #include "game/skate/point_tally.h"
 #include "engine/util/unique_handle.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/arena_alloc.h"
+#include "platform/code_address.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::new_frontend {
 
@@ -93,7 +97,7 @@ constexpr uint32_t kSkaterScore = 0xD262802F;  // SkaterScore
 
 // --- the game's state ---
 
-uint8_t* skate_module() { return reinterpret_cast<uint8_t*>(modules::g_skate_module); }
+uint8_t* skate_module() { return raw::bytes(modules::g_skate_module); }
 // The level loaded: its load script's checksum (the skate module's +0x378; load_mainmenu in the front end).
 uint32_t current_load_state() { return skate_module() ? modules::g_skate_module->level_ : 0; }
 bool in_front_end() { return current_load_state() == kLoadMainMenu; }
@@ -322,7 +326,7 @@ SessionState& session_state()
 template <typename T>
 T get_at(const void* base, uint32_t offset)
 {
-    return *reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(base) + offset);
+    return *raw::field_at<const T>(base, offset);
 }
 
 void update_session(float dt)
@@ -356,14 +360,14 @@ void update_session(float dt)
     std::vector<level_editor::play_test::GapRead> read;
     uint8_t* skate = skate_module();
     if (goals::GapTally* list =
-            skate ? static_cast<goals::GapTally*>(reinterpret_cast<modules::Skate*>(skate)->fetch_gap_list())
+            skate ? static_cast<goals::GapTally*>(raw::as<modules::Skate>(skate)->fetch_gap_list())
                   : nullptr) {
         int guard = 0;
         for (memory::ListNode* node = list->gaps_.next; node && node != &list->gaps_ && ++guard < 4096;
              node = node->next) {
-            if (node->data == reinterpret_cast<void*>(-1))
+            if (node->data == memory::ListNode::head_marker())
                 break;
-            auto* gap = reinterpret_cast<goals::GapEntry*>(node);
+            auto* gap = raw::as<goals::GapEntry>(node);
             read.push_back(
                 {gap->label_.c_str() ? gap->label_.c_str() : "", gap->pending_, gap->num_, gap->points_held_});
         }
@@ -775,13 +779,13 @@ void keep_root_hidden()
 
 // --- phase 3: the original screens restyled (new_frontend_mirror.h) ---
 
-uint32_t type_of(const UiWidget* element) { return reinterpret_cast<const objects::Entity*>(element)->kind_tag_; }
-uint32_t id_of_element(const UiWidget* element) { return reinterpret_cast<const objects::Entity*>(element)->ident_; }
+uint32_t type_of(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->kind_tag_; }
+uint32_t id_of_element(const UiWidget* element) { return static_cast<const objects::Entity*>(element)->ident_; }
 UiWidget* first_child(const UiWidget* element) { return element->eldest_.get_pull(); }
 UiWidget* get_next(const UiWidget* element) { return element->following_.get_pull(); }
 bool element_hidden(const UiWidget* element)
 {
-    return (reinterpret_cast<const objects::Entity*>(element)->object_flags_ & UiWidget::kHidden) != 0;
+    return (static_cast<const objects::Entity*>(element)->object_flags_ & UiWidget::kHidden) != 0;
 }
 bool get_visible(const UiWidget* element)
 {
@@ -857,7 +861,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
     if (visible_only && !get_visible(element))
         return;
     if (type_of(element) == text_type()) {
-        const char* text = reinterpret_cast<const LabelWidget*>(element)->chars_;
+        const char* text = static_cast<const LabelWidget*>(element)->chars_;
         if (text && *text)
             out->emplace_back(text);
     }
@@ -884,7 +888,7 @@ void collect_texts_at(const UiWidget* element, std::vector<std::pair<std::string
     if (std::ranges::find(skip, element) != skip.end())
         return;
     if (type_of(element) == text_type()) {
-        const char* text = reinterpret_cast<const LabelWidget*>(element)->chars_;
+        const char* text = static_cast<const LabelWidget*>(element)->chars_;
         if (text && *text)
             out->emplace_back(text, absolute_y(element));
     }
@@ -923,7 +927,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                                              name_hash("value_up_arrow"), name_hash("alpha_up_arrow")};
     for (const UiWidget* e = element; e && --*budget > 0; e = get_next(e)) {
         if (type_of(e) == sprite_type()) {
-            const uint32_t texture = reinterpret_cast<const ImageWidget*>(e)->texture_;
+            const uint32_t texture = static_cast<const ImageWidget*>(e)->texture_;
             if (texture == kLeft || texture == kRight)
                 item->adjustable = true;
             if (texture == kUp) {
@@ -949,7 +953,7 @@ void read_value_sprites(const UiWidget* element, mirror::ItemRead* item, int* bu
                 item->checkbox = 0;
                 for (const UiWidget* mark = first_child(e); mark; mark = get_next(mark))
                     if (type_of(mark) == sprite_type() && get_visible(mark) &&
-                        reinterpret_cast<const ImageWidget*>(mark)->texture_ == kCheckmark)
+                        static_cast<const ImageWidget*>(mark)->texture_ == kCheckmark)
                         item->checkbox = 1;
             }
         }
@@ -970,7 +974,7 @@ std::vector<std::pair<std::string, int>> skater_stats(uint32_t name)
     if (!profile || !names || names->kind_tag_ != script::kQbvalStruct)
         return stats;
     for (uint32_t i = 0; i < names->extent_ && i < 16; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(names->fetch_part(i));
+        auto* entry = names->struct_at(i);
         uint32_t stat = 0;
         const char* label = nullptr;
         if (!entry || !entry->read_hash_value(name_hash("name"), &stat, 0))
@@ -989,7 +993,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         return read;
     read.found = true;
     read.menu_id_ = id_of_element(menu);
-    read.menu_key_ = reinterpret_cast<uintptr_t>(menu);
+    read.menu_key_ = cell::address(menu);
     read.vertical = mouse_menus::menu_runs_top_to_bottom(menu);
     read.selected_index_ = mouse_menus::selected_index(menu);
     read.in_dialog_ = in_dialog;
@@ -1026,7 +1030,7 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
         static const uint32_t kTextBlock = name_hash("TextBlockElement");
         for (UiWidget* child = first_child(menu); child; child = get_next(child)) {
             if (read.dialog_title_.empty() && type_of(child) == text_type()) {
-                const char* text = reinterpret_cast<LabelWidget*>(child)->chars_;
+                const char* text = static_cast<LabelWidget*>(child)->chars_;
                 read.dialog_title_ = text ? text : "";
             } else if (type_of(child) == kTextBlock) {
                 std::vector<std::string> lines;
@@ -1041,8 +1045,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     }
     if (skaters) {
         if (UiWidget* name = game_screens::get_find(name_hash("select_skater_name")))
-            if (type_of(name) == text_type() && reinterpret_cast<LabelWidget*>(name)->chars_)
-                read.skater_name_ = reinterpret_cast<LabelWidget*>(name)->chars_;
+            if (type_of(name) == text_type() && static_cast<LabelWidget*>(name)->chars_)
+                read.skater_name_ = static_cast<LabelWidget*>(name)->chars_;
         if (read.selected_index_ >= 0 && std::cmp_less(read.selected_index_, read.items.size()))
             read.stats = skater_stats(read.items[read.selected_index_].id);
         return read;
@@ -1050,8 +1054,8 @@ mirror::MenuRead read_menu(UiWidget* menu, bool in_dialog)
     // A list: its title (title_text, the themed menus'), the other words on its screen (under the same child of the
     // root: not the menu, its title or the helper text).
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && reinterpret_cast<LabelWidget*>(title)->chars_ && get_visible(title))
-            read.title = reinterpret_cast<LabelWidget*>(title)->chars_;
+        if (type_of(title) == text_type() && static_cast<LabelWidget*>(title)->chars_ && get_visible(title))
+            read.title = static_cast<LabelWidget*>(title)->chars_;
     const UiWidget* root = root_element();
     const UiWidget* screen = menu;
     for (int guard = 0; screen && guard < 64; ++guard) {
@@ -1123,11 +1127,11 @@ void dump_tree(const UiWidget* element, int depth, int* budget)
                                      id_of_element(element), element->aim_point_.x, element->aim_point_.y,
                                      get_visible(element) ? "" : " hidden");
         if (type_of(element) == text_type()) {
-            const char* text = reinterpret_cast<const LabelWidget*>(element)->chars_;
+            const char* text = static_cast<const LabelWidget*>(element)->chars_;
             std::snprintf(line + at, sizeof(line) - at, " \"%.80s\"", text ? text : "");
         } else if (type_of(element) == sprite_type()) {
             std::snprintf(line + at, sizeof(line) - at, " texture %08X",
-                          reinterpret_cast<const ImageWidget*>(element)->texture_);
+                          static_cast<const ImageWidget*>(element)->texture_);
         }
         get_log("new front end: debug_restyle %s", line);
         if (depth < 8)
@@ -1210,7 +1214,7 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
     read.found = true;
     read.keyboard = true;
     read.menu_id_ = id_of_element(keys);
-    read.menu_key_ = reinterpret_cast<uintptr_t>(keys);
+    read.menu_key_ = cell::address(keys);
     read.in_level_ = !in_front_end();
     int row = 0;
     bool entry_read = false;
@@ -1245,8 +1249,8 @@ mirror::MenuRead read_keyboard(UiWidget* keys, UiWidget* active)
         ++row;
     }
     if (UiWidget* title = game_screens::get_find(name_hash("title_text")))
-        if (type_of(title) == text_type() && reinterpret_cast<LabelWidget*>(title)->chars_ && get_visible(title))
-            read.title = reinterpret_cast<LabelWidget*>(title)->chars_;
+        if (type_of(title) == text_type() && static_cast<LabelWidget*>(title)->chars_ && get_visible(title))
+            read.title = static_cast<LabelWidget*>(title)->chars_;
     return read;
 }
 
@@ -1617,7 +1621,7 @@ void update_cover(float dt)
     now.target_ready_ = s_mirror.get_up();
     now.gameplay = !current_load_state() || loading_screen_up() || level_editor::live_now() ||
                    (!in_front_end() && !get_paused() && !active);
-    now.screen = reinterpret_cast<uintptr_t>(active);
+    now.screen = cell::address(active);
     now.left_original_ = active && !s_mirror_would_restyle;
     const char* why = nullptr;
     if (!s_cover.tick_frame(now, dt, &why))
@@ -2427,8 +2431,8 @@ bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 void register_script_functions()
 {
     static const script::NativeCommand kFunctions[] = {
-        {"NewFrontend_Item", reinterpret_cast<void*>(&cfunc_item)},
-        {"NewFrontend_Open", reinterpret_cast<void*>(&cfunc_show_new_frontend)},
+        {"NewFrontend_Item", code_address(&cfunc_item)},
+        {"NewFrontend_Open", code_address(&cfunc_show_new_frontend)},
     };
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }

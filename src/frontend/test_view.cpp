@@ -15,6 +15,8 @@
 #include "game/rider/rider.h"
 #include "engine/sys/mlp.h"
 #include "platform/run_log.h"
+#include "platform/code_address.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend::test_view {
 
@@ -39,8 +41,8 @@ maths::Vec4 get_row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 // The local skater (the skate module's 0x00566520; null with none).
 objects::Rider* local_skater()
 {
-    auto* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    return skate ? reinterpret_cast<modules::Skate*>(skate)->get_home_rider() : nullptr;
+    auto* skate = raw::bytes(modules::g_skate_module);
+    return skate ? raw::as<modules::Skate>(skate)->get_home_rider() : nullptr;
 }
 
 // The game's collision ray (render::ProbeRay: static collision, the nearest hit) from `from` to `to`.
@@ -186,7 +188,7 @@ void place_camera(gfx::ViewCam* camera, int viewport)
 void register_script_functions()
 {
     static const script::NativeCommand kFunctions[] = {
-        {"TeleportSkaterStanding", reinterpret_cast<void*>(&cfunc_teleport_skater_standing)},
+        {"TeleportSkaterStanding", code_address(&cfunc_teleport_skater_standing)},
     };
     script::install_script_functions(kFunctions, sizeof(kFunctions) / sizeof(kFunctions[0]));
 }

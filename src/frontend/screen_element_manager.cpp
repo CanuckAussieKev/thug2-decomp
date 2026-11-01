@@ -17,9 +17,11 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity_hub.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace frontend {
 
@@ -102,7 +104,7 @@ void UiTree::drop_entity_registration(objects::Entity* object)
     element.assign_value(as_element(object));
     if (element && tree_root_.owner_object_ == element.owner_object_) {
         tree_root_.get_release();
-        for (const memory::ListNode* node = entities_.next; node->data != reinterpret_cast<void*>(-1);
+        for (const memory::ListNode* node = entities_.next; node->data != memory::ListNode::head_marker();
              node = node->next) {
             ElementPtr candidate;
             candidate.assign_value(static_cast<UiWidget*>(node->data));
@@ -328,14 +330,14 @@ void UiTree::lock_tree(int lock)
 void UiTree::set_paused_all(bool pause)
 {
     const memory::ListNode* node = entities_.next;
-    if (node->data == reinterpret_cast<void*>(-1))
+    if (node->data == memory::ListNode::head_marker())
         return;
     while (node) {
         ElementPtr element;
         element.assign_value(static_cast<UiWidget*>(node->data));
         element->set_frozen(pause);
         node = node->next;
-        if (node->data == reinterpret_cast<void*>(-1))
+        if (node->data == memory::ListNode::head_marker())
             node = nullptr;
     }
 }
@@ -433,7 +435,7 @@ void UiTree::clear_marks(ElementPtr* element)
 // (The original's listener filter is 0x004ABD40 itself, `this` the listener: the manager is 0x28 before it.)
 void UiTree::TreeListener::receive(objects::Signal* event)
 {
-    auto* manager = reinterpret_cast<UiTree*>(reinterpret_cast<uint8_t*>(this) - offsetof(UiTree, listener_));
+    auto* manager = raw::owner_of<UiTree>(this, offsetof(UiTree, listener_));
     manager->listener_receive(event);
 }
 
