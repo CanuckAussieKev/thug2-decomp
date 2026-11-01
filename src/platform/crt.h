@@ -45,11 +45,15 @@ inline size_t get_fread(void* buffer, size_t size, size_t count, FILE* file)
 }
 inline int get_fseek(FILE* file, long offset, int origin) { return std::fseek(file, offset, origin); }
 inline long get_ftell(FILE* file) { return std::ftell(file); }
-// exit(): the atexit functions, the streams flushed, the process ended.
-[[noreturn]] inline void get_exit(int code)
+// The game's exit() at a fatal error (no Direct3D device, a texture that can't be made) - not original: the C
+// streams flushed and the process ended without the C runtime's shutdown (std::quick_exit). The original's exit() ran
+// its atexit functions, which freed nothing the game still used; ours would run the static owners' destructors (the
+// singletons held by std::unique_ptr / memory::HeapUnique) under the game's live objects and its other threads - as
+// the normal end does (sys::fast_exit), the process ends with everything in place.
+[[noreturn]] inline void exit_fatal(int code)
 {
-    std::exit(code);
-    std::abort(); // (never reached)
+    std::fflush(nullptr);
+    std::quick_exit(code);
 }
 // _cexit(): exit()'s clean-up without ending the process.
 void c_exit();

@@ -270,7 +270,7 @@ bool PcTexture::copy_from(const BitmapTexture* source_texture)
     from_texture->GetLevelDesc(0, &desc);
     if (input_port()->CreateTexture(desc.Width, desc.Height, levels, 0, desc.Format, D3DPOOL_MANAGED, into, nullptr) !=
         D3D_OK)
-        crt::get_exit(0); // (the game's exit())
+        crt::exit_fatal(0); // (the game's exit(), without the static owners' teardown)
     for (DWORD level = 0; level < levels; ++level) {
         static_cast<IDirect3DTexture9*>(from->texture)->GetLevelDesc(level, &desc);
         uint32_t row_bytes = 0, rows = desc.Height;

@@ -170,7 +170,7 @@ void init_direct_3d()
         }
     }
     if (!created)
-        crt::get_exit(0); // the game's exit()
+        crt::exit_fatal(0); // the game's exit() (without the static owners' teardown)
     // Originally from PartyMod Fixes (its NOPs at 0x004D8891): the window is left where it is. The original:
     //   SetWindowPos(Pane(), HWND_TOP, 0, 0, device_width(), device_height(), SWP_NOZORDER);
 
