@@ -590,6 +590,7 @@ add_executable(thug2 WIN32
     src/engine/net/net_server.cpp
     src/engine/net/net_app.cpp
     src/engine/net/net_wire.cpp
+    src/engine/net/gamenet_messages.cpp
     src/engine/net/net_app_view.cpp
     src/engine/net/net_latency.cpp
     src/engine/net/net_lists.cpp
@@ -870,7 +871,8 @@ add_executable(thug2_format_check
     src/game/save_cards/save_file_format.cpp
     src/engine/net/net_wire.cpp
     src/game/skate/skate_net_messages.cpp
-    src/game/park_editing/park_map_format.cpp)
+    src/game/park_editing/park_map_format.cpp
+    src/engine/net/gamenet_messages.cpp)
 target_include_directories(thug2_format_check PRIVATE src)
 target_compile_options(thug2_format_check PRIVATE /W3 /permissive- /utf-8 /w14456 /w14457 /w14458)
 

@@ -15,6 +15,8 @@
 #include "engine/net/gamenet_commands.h"
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/net/gamenet_lobby.h"
 #include "engine/net/gamenet_observer.h"
 #include "engine/net/net_app.h"
@@ -47,7 +49,6 @@ using namespace detail;
 
 namespace {
 
-constexpr uint8_t kMsgStartGame = 0x34;
 constexpr uint32_t kRootWindow = 0x56A1EAE3; // root_window (a screen element)
 constexpr uint32_t kMenuState = 0xCDC00E63;  // menu_state (a tag)
 constexpr uint32_t kOn = 0xF649D637;         // on
@@ -121,27 +122,6 @@ constexpr uint32_t kPlayerCaptureBlocked = 0x8000;
 constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;
 
-// The start of a game (message 0x34, 0x48 bytes; read by the client's handle_start_game 0x005313C0).
-struct StartGameInfo {
-    uint32_t game_type_;      // +0x00
-    uint32_t time_limit_;     // +0x04 (0: none)
-    uint32_t target_score_;   // +0x08
-    uint32_t fireball_level_; // +0x0C
-    uint32_t unused10;        // +0x10 (never written: the stack's)
-    bool stop_at_zero_;       // +0x14 is_untimed_game
-    bool reset_scores_;       // +0x15
-    uint8_t game_id_;         // +0x16 (1-255, not the last game's)
-    uint8_t unused17;
-    uint32_t teams;           // +0x18
-    uint32_t goals;           // +0x1C the goals preference's checksum
-    uint32_t value20;         // +0x20 (0x00535AD0)
-    int8_t crown_start_slot_; // +0x24
-    uint8_t unused25[3];
-    uint32_t start_info_[8]; // +0x28 the manager's start info words (+0x48)
-};
-static_assert(sizeof(StartGameInfo) == 0x48 && offsetof(StartGameInfo, stop_at_zero_) == 0x14 &&
-              offsetof(StartGameInfo, teams) == 0x18 && offsetof(StartGameInfo, start_info_) == 0x28);
-
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
 prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
@@ -205,33 +185,38 @@ void Hub::start_network_game()
     uint32_t game_type = game_type_;
     uint32_t time_limit = prefs->get_setting_value(game_type == kHorse ? kHorseTimeLimit : kTimeLimit, kTime);
     level_ = preference_checksum(net_game_options(this), kLevel, kChecksum);
-    StartGameInfo info;
-    info.game_type_ = game_type_;
-    info.fireball_level_ = static_cast<uint32_t>(get_fireball_level());
+    // (the message: gamenet_messages.h; the original left its unused word at +0x10 as the stack held it)
+    StartGame info;
+    info.game_type = game_type_;
+    info.fireball_level = static_cast<uint32_t>(get_fireball_level());
     bool untimed = false;
     for (uint32_t type : kUntimedTypes)
-        untimed = untimed || info.game_type_ == type;
+        untimed = untimed || info.game_type == type;
     if (untimed)
-        info.time_limit_ = 0;
-    else if (info.game_type_ == kNetCtf) // (capture the flag: only the timed kind)
-        info.time_limit_ = prefs->get_preference_checksum(kCtfGameType, kChecksum) == kTimedCtf ? time_limit : 0;
+        info.time_limit = 0;
+    else if (info.game_type == kNetCtf) // (capture the flag: only the timed kind)
+        info.time_limit = prefs->get_preference_checksum(kCtfGameType, kChecksum) == kTimedCtf ? time_limit : 0;
     else
-        info.time_limit_ = time_limit;
-    info.reset_scores_ = prefs->get_preference_checksum(kScoreReset, kChecksum) == kBooleanTrue;
-    info.stop_at_zero_ = is_untimed_game();
-    info.target_score_ = prefs->get_setting_value(kTargetScore, kScore);
+        info.time_limit = time_limit;
+    info.reset_scores = prefs->get_preference_checksum(kScoreReset, kChecksum) == kBooleanTrue ? 1 : 0;
+    info.stop_at_zero = is_untimed_game() ? 1 : 0;
+    info.target_score = prefs->get_setting_value(kTargetScore, kScore);
     info.teams = static_cast<uint32_t>(get_num_teams());
     uint32_t value = 0;
     game_preferences(this)->fetch_setting(kGoals)->read_hash_value("checksum", &value, 1);
     info.goals = value;
-    info.value20 = get_team_graffiti_mode();
+    info.team_graffiti_mode = get_team_graffiti_mode();
     do
-        info.game_id_ = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
-    while (info.game_id_ == ended_game_id_);
-    info.crown_start_slot_ = static_cast<int8_t>(crown_start_);
-    std::memcpy(info.start_info_, start_points_, sizeof(info.start_info_));
-    desc.content_ = &info;
-    desc.byte_count_ = sizeof(info);
+        info.game_id = static_cast<uint8_t>(maths::rnd(0xFF) + 1);
+    while (info.game_id == ended_game_id_);
+    info.crown_start_slot = static_cast<int8_t>(crown_start_);
+    static_assert(sizeof(info.start_points) == sizeof(start_points_));
+    std::memcpy(info.start_points, start_points_, sizeof(info.start_points));
+    uint8_t bytes[kStartGameSize];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    write_start_game(writer, info);
+    desc.content_ = bytes;
+    desc.byte_count_ = static_cast<uint16_t>(writer.position());
     desc.ident_ = kMsgStartGame;
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;

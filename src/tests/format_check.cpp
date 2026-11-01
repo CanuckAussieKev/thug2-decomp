@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "engine/core/checksums.h"
+#include "engine/net/gamenet_messages.h"
 #include "engine/net/net_wire.h"
 #include "engine/util/byte_stream.h"
 #include "game/park_editing/park_map_format.h"
@@ -559,6 +560,100 @@ struct ReferenceScores {
 #pragma pack(pop)
 static_assert(sizeof(ReferenceScores) == 0x10E, "the wire layout of the original's struct");
 
+// The session messages as the original built them (structs on the stack, sent whole; padding zeroed here).
+struct ReferenceSessionBrief {
+    uint8_t crown_start_slot, not_lan, game_id, pro_option_bits, max_players, pad5[3];
+    uint32_t time_left, game_type, level, teams, goals, team_graffiti_mode, time_limit, target_score;
+    uint32_t start_points[8];
+    uint32_t round;
+    uint8_t variant, pad4d[3];
+};
+static_assert(sizeof(ReferenceSessionBrief) == 0x50 && offsetof(ReferenceSessionBrief, start_points) == 0x28 &&
+              offsetof(ReferenceSessionBrief, variant) == 0x4C);
+struct ReferenceStartGame {
+    uint32_t game_type, time_limit, target_score, fireball_level, unused10;
+    int8_t stop_at_zero, reset_scores;
+    uint8_t game_id, unused17;
+    uint32_t teams, goals, team_graffiti_mode;
+    int8_t crown_start_slot;
+    uint8_t unused25[3];
+    uint32_t start_points[8];
+};
+static_assert(sizeof(ReferenceStartGame) == 0x48 && offsetof(ReferenceStartGame, stop_at_zero) == 0x14 &&
+              offsetof(ReferenceStartGame, crown_start_slot) == 0x24 &&
+              offsetof(ReferenceStartGame, start_points) == 0x28);
+
+void check_session_messages()
+{
+    ReferenceSessionBrief brief_ref = {};
+    online::SessionBrief brief;
+    brief_ref.crown_start_slot = brief.crown_start_slot = 3;
+    brief_ref.not_lan = 1;
+    brief.not_lan = true;
+    brief_ref.game_id = brief.game_id = 200;
+    brief_ref.pro_option_bits = brief.pro_option_bits = 0x45;
+    brief_ref.max_players = brief.max_players = 8;
+    brief_ref.time_left = brief.time_left = 299;
+    brief_ref.game_type = brief.game_type = 0x1C471C60;
+    brief_ref.level = brief.level = 0xDEAD1234;
+    brief_ref.teams = brief.teams = 2;
+    brief_ref.goals = brief.goals = 0x11223344;
+    brief_ref.team_graffiti_mode = brief.team_graffiti_mode = 1;
+    brief_ref.time_limit = brief.time_limit = 300;
+    brief_ref.target_score = brief.target_score = 1000000;
+    for (int i = 0; i < 8; ++i)
+        brief_ref.start_points[i] = brief.start_points[i] = static_cast<uint32_t>(i * 5 + 1);
+    brief_ref.round = brief.round = 4;
+    brief_ref.variant = brief.variant = 2;
+    uint8_t bytes[0x50];
+    util::ByteWriter writer(bytes, sizeof(bytes));
+    online::write_session_brief(writer, brief);
+    check(writer.ok() && writer.position() == sizeof(brief_ref) && std::memcmp(bytes, &brief_ref, sizeof(bytes)) == 0,
+          "session brief: as the original's struct");
+    util::ByteReader reader(bytes, sizeof(bytes));
+    online::SessionBrief brief_back;
+    online::read_session_brief(reader, &brief_back);
+    uint8_t again[0x50];
+    util::ByteWriter again_writer(again, sizeof(again));
+    online::write_session_brief(again_writer, brief_back);
+    check(reader.ok() && reader.remaining() == 0 && std::memcmp(again, bytes, sizeof(bytes)) == 0,
+          "session brief: decoded and encoded again");
+    uint32_t mode = 0;
+    std::memcpy(&mode, bytes + online::kSessionBriefGameTypeAt, 4);
+    check(mode == brief.game_type, "session brief: the guards' game type offset");
+
+    ReferenceStartGame start_ref = {};
+    online::StartGame start;
+    start_ref.game_type = start.game_type = 0x1C471C60;
+    start_ref.time_limit = start.time_limit = 120;
+    start_ref.target_score = start.target_score = 50000;
+    start_ref.fireball_level = start.fireball_level = 3;
+    start_ref.stop_at_zero = start.stop_at_zero = 1;
+    start_ref.reset_scores = start.reset_scores = 0;
+    start_ref.game_id = start.game_id = 77;
+    start_ref.teams = start.teams = 4;
+    start_ref.goals = start.goals = 0x55667788;
+    start_ref.team_graffiti_mode = start.team_graffiti_mode = 0;
+    start_ref.crown_start_slot = start.crown_start_slot = -1;
+    for (int i = 0; i < 8; ++i)
+        start_ref.start_points[i] = start.start_points[i] = static_cast<uint32_t>(7 - i);
+    uint8_t start_bytes[0x48];
+    util::ByteWriter start_writer(start_bytes, sizeof(start_bytes));
+    online::write_start_game(start_writer, start);
+    check(start_writer.ok() && start_writer.position() == sizeof(start_ref) &&
+              std::memcmp(start_bytes, &start_ref, sizeof(start_bytes)) == 0,
+          "start game: as the original's struct");
+    util::ByteReader start_reader(start_bytes, sizeof(start_bytes));
+    online::StartGame start_back;
+    online::read_start_game(start_reader, &start_back);
+    uint8_t start_again[0x48];
+    util::ByteWriter start_again_writer(start_again, sizeof(start_again));
+    online::write_start_game(start_again_writer, start_back);
+    check(start_reader.ok() && std::memcmp(start_again, start_bytes, sizeof(start_bytes)) == 0 &&
+              start_back.crown_start_slot == -1,
+          "start game: decoded and encoded again");
+}
+
 void check_skate_messages()
 {
     std::printf("skate messages\n");
@@ -600,6 +695,7 @@ void check_skate_messages()
         check(!skate_net::read_scores(short_reader, back.get()) && back->count == count - 1,
               what + ": cut short keeps the whole entries");
     }
+    check_session_messages();
     const uint8_t steal[] = {7, 0xCC, 0xCC, 0xCC, 2, 0, 0, 0, 5, 0, 0, 0};
     util::ByteReader reader(steal, sizeof(steal));
     skate_net::GraffitiStealMessage message;

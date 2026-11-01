@@ -41,6 +41,7 @@
 #include "engine/core/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/skate_net_messages.h"
+#include "engine/net/gamenet_messages.h"
 #include "engine/util/byte_stream.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/objects/compositemgr.h"
@@ -654,36 +655,39 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     online::Hub* net = net_session_slot();
     net->set_entry_phase(8);
     net->empty_server_listing();
-    auto* data = reinterpret_cast<const uint8_t*>(context->body_);
+    // (the message: engine/net/gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the
+    // original read on past it)
+    util::ByteReader reader(context->body_, context->body_size_);
+    online::SessionBrief brief;
+    online::read_session_brief(reader, &brief);
     auto* skate = static_cast<Skate*>(context->content_);
-    auto u32 = [data](uint32_t offset) { return *reinterpret_cast<const uint32_t*>(data + offset); };
     net::Conn* conn = context->sender_conn_; // (the server's connection)
-    conn->set_link_speed_class(data[1] == 0 ? 1 : 0);
+    conn->set_link_speed_class(brief.not_lan ? 0 : 1);
     conn->set_transmit_period(static_cast<uint32_t>((1000 / game_config::g_frame_rate) << 1));
-    net->set_game_id(data[2]);
-    net->change_arena(u32(0x10));
-    net->set_crown_start_spot(static_cast<char>(data[0]));
-    net->set_start_info_words(reinterpret_cast<const uint32_t*>(data + 0x28));
+    net->set_game_id(brief.game_id);
+    net->change_arena(brief.level);
+    net->set_crown_start_spot(static_cast<char>(brief.crown_start_slot));
+    net->set_start_info_words(brief.start_points);
     Struct* params = spawn_param_table();
     params->get_clear();
-    params->add_component_of_type(kLevel, kSymbolChecksum, u32(0x10));
+    params->add_component_of_type(kLevel, kSymbolChecksum, brief.level);
     get_run(kRequestLevel, params);
     delete_structure(params);
     get_run(kLeaveFrontEnd);
     get_run(kCleanupBeforeLoading);
     conn->stamp_last_heard(0);
-    get_game_mode()->set_rider_ceiling(static_cast<int>(static_cast<int8_t>(data[4])));
-    get_game_mode()->apply_match_style(u32(0xC));
+    get_game_mode()->set_rider_ceiling(static_cast<int>(static_cast<int8_t>(brief.max_players)));
+    get_game_mode()->apply_match_style(brief.game_type);
     skate->launch_game();
-    get_game_mode()->apply_match_style(u32(0xC));
-    get_game_mode()->set_num_teams(static_cast<int>(u32(0x14)));
-    get_game_mode()->set_goals_mode(u32(0x18));
-    get_game_mode()->set_team_graffiti_mode(u32(0x1C));
-    get_game_mode()->set_round(static_cast<int>(u32(0x48)));
-    net->set_preset_option_bits(static_cast<char>(data[3]));
+    get_game_mode()->apply_match_style(brief.game_type);
+    get_game_mode()->set_num_teams(static_cast<int>(brief.teams));
+    get_game_mode()->set_goals_mode(brief.goals);
+    get_game_mode()->set_team_graffiti_mode(brief.team_graffiti_mode);
+    get_game_mode()->set_round(static_cast<int>(brief.round));
+    net->set_preset_option_bits(static_cast<char>(brief.pro_option_bits));
     // The pro set geometry flags.
     for (int i = 0; i < 7; ++i) {
-        if (!(static_cast<int>(static_cast<int8_t>(data[3])) & (1 << i)))
+        if (!(static_cast<int>(static_cast<int8_t>(brief.pro_option_bits)) & (1 << i)))
             continue;
         Struct* flag = spawn_param_table();
         flag->put_int(kFlag, script::fetch_int_value(kProSetGeoFlag) + i);
@@ -692,27 +696,27 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
     }
     // The victory conditions.
     Struct* victory = spawn_param_table();
-    uint32_t mode = u32(0xC);
+    uint32_t mode = brief.game_type;
     if (mode != kNetLobby) {
-        if (u32(0x20) == 0 && mode != kNetCtf && mode != kNetGoalAttack) {
+        if (brief.time_limit == 0 && mode != kNetCtf && mode != kNetGoalAttack) {
             if (mode != kFirefight && mode != kNetFirefight) {
                 Array* conditions = new_array_init();
                 script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
                 auto* condition = reinterpret_cast<Struct*>(conditions->fetch_part(0));
-                condition->add_component_of_type(kScore, script::kQbvalInteger, u32(0x24));
+                condition->add_component_of_type(kScore, script::kQbvalInteger, brief.target_score);
                 victory->append_array_value(kVictoryConditions, conditions);
             }
             victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
             skate->set_unknown370(static_cast<int>(0));
         } else {
-            victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, u32(0x20));
-            if (u32(0xC) == kNetCtf) {
+            victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, brief.time_limit);
+            if (brief.game_type == kNetCtf) {
                 Array* conditions = new_array_init();
                 script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
                 victory->append_array_value(kVictoryConditions, conditions);
             }
-            skate->set_unknown370(static_cast<int>(u32(0x20)));
-            get_game_mode()->set_goal_time_left(static_cast<int>(u32(8)));
+            skate->set_unknown370(static_cast<int>(brief.time_limit));
+            get_game_mode()->set_goal_time_left(static_cast<int>(brief.time_left));
         }
         get_game_mode()->force_match_settings(victory);
     }
@@ -723,20 +727,20 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         auto* type = reinterpret_cast<Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
         uint32_t checksum;
         type->read_hash_value(kChecksum, &checksum, 1);
-        if (checksum != u32(0xC))
+        if (checksum != brief.game_type)
             continue;
         Struct* goal_params = spawn_param_table();
-        goal_params->put_int(kTime, static_cast<int>(u32(0x20)));
-        goal_params->put_int(kScore, static_cast<int>(u32(0x24)));
-        goal_params->put_int(kUnlimitedTime, u32(0x20) == 0);
+        goal_params->put_int(kTime, static_cast<int>(brief.time_limit));
+        goal_params->put_int(kScore, static_cast<int>(brief.target_score));
+        goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
         uint32_t script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
-        uint8_t variant = data[0x4C];
+        uint8_t variant = brief.variant;
         if (!variant)
             type->read_hash_value("goal_script", &script, 1);
-        else if (u32(0xC) == kNetElimiskate)
+        else if (brief.game_type == kNetElimiskate)
             script = variant == 1 ? kElimiskateInterval : kElimiskateBreak;
-        else if (u32(0xC) == kNetScavengerHunt)
+        else if (brief.game_type == kNetScavengerHunt)
             script = variant == 1 ? kScavengerIntervalGoal : kScavengerCollectGoal;
         get_run(script, goal_params);
         delete_structure(goal_params);

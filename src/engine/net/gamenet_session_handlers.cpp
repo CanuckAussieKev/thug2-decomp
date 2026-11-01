@@ -12,6 +12,8 @@
 #include "engine/net/gamenet_handler_util.h"
 #include "engine/net/gamenet_handlers.h"
 #include "engine/net/gamenet_manager.h"
+#include "engine/net/gamenet_messages.h"
+#include "engine/util/byte_stream.h"
 #include "engine/net/net_app.h"
 #include "engine/net/net_conn.h"
 #include "engine/net/net_manager.h"
@@ -101,7 +103,6 @@ constexpr uint32_t kMpGameTypeInfo = 0x4DA72272;     // mp_game_type_info
 
 // Messages.
 constexpr uint8_t kMsgServerInfo = 0x10;
-constexpr uint8_t kMsgSessionBrief = 0x33;
 constexpr uint8_t kMsgGameStateSent = 0x42;
 constexpr uint8_t kMsgSpawnedScript = 0x49;
 constexpr uint8_t kMsgKing = 0x55;
@@ -131,29 +132,6 @@ struct HostListing {
 };
 #pragma pack(pop)
 static_assert(sizeof(HostListing) == 0xE0);
-
-// A joining player's game information (message 0x33, 0x50 bytes).
-struct GameInfo {
-    uint8_t crown_start_slot_; // +0x00
-    bool not_lan_;             // +0x01 (the connection type isn't 1)
-    uint8_t game_id_;          // +0x02
-    uint8_t pro_option_bits_;  // +0x03
-    uint8_t max_players_;      // +0x04
-    uint8_t pad05[3];
-    uint32_t time_limit_;    // +0x08 seconds
-    uint32_t game_type_;     // +0x0C
-    uint32_t level;          // +0x10
-    uint32_t teams;          // +0x14
-    uint32_t value18;        // +0x18 (0x00535B20)
-    uint32_t value_1c_;      // +0x1C (0x00535AD0)
-    uint32_t value20;        // +0x20 (the game mode's 0x00553170)
-    uint32_t target_score_;  // +0x24
-    uint32_t start_info_[8]; // +0x28 the manager's start info words
-    uint32_t value48;        // +0x48 (the game mode's 0x00553270)
-    uint8_t variant;         // +0x4C scavenger hunt / elimiskate: which of its three goals is running
-    uint8_t pad4d_[3];
-};
-static_assert(sizeof(GameInfo) == 0x50);
 
 // strncpy(dest, source, 15) and the 16th byte zeroed.
 void copy_name(char* dest, const char* source)
@@ -428,11 +406,14 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
     memory::Hub* memory = memory::Hub::get_pull();
     uint8_t* skate = get_skate();
     memory->enter_heap_scope(memory->skater_info_heap_);
-    const uint8_t* msg = get_message(context);
     Hub* manager = manager_of(context);
-    auto word = [msg](uint32_t offset) { return prop<uint32_t>(msg, offset); };
-    manager->set_start_info_words(reinterpret_cast<const uint32_t*>(msg + 0x28));
-    manager->crown_start_ = static_cast<int8_t>(msg[0x24]); // the crown's spawn point
+    // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is read as zeros past its end - the original read
+    // on past it)
+    util::ByteReader reader(context->body_, context->body_size_);
+    StartGame start;
+    read_start_game(reader, &start);
+    manager->set_start_info_words(start.start_points);
+    manager->crown_start_ = start.crown_start_slot; // the crown's spawn point
     manager->awaiting_start_ = false;
     for (PlayerRecord* p = start_roster_sweep(manager, &search, false); p;
          p = step_roster_sweep(manager, &search, false)) {
@@ -441,41 +422,40 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
             static_cast<objects::Rider*>(player_skater(p))->reset_27c();
         }
     }
-    get_call(code_address(&goals::MatchRules::apply_match_style), get_game_mode(), word(0));
+    get_call(code_address(&goals::MatchRules::apply_match_style), get_game_mode(), start.game_type);
     get_call(code_address(&goals::GoalManager::disengage_every_objective),
              get_call<void*>(code_address(&modules::Skate::get_objective_board), skate, 0));
     script::Array* types = script::fetch_list(manager->in_net_game() ? kNetGameTypeInfo : kMpGameTypeInfo);
     // The victory conditions.
     script::Struct* victory = new_params();
-    if (word(4) == 0 && word(0) != kNetGoalAttack) {
+    if (start.time_limit == 0 && start.game_type != kNetGoalAttack) {
         victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, 0);
-        if (word(0) != kFirefight && word(0) != kNetFirefight) {
+        if (start.game_type != kFirefight && start.game_type != kNetFirefight) {
             script::Array* conditions = script::alloc_script_array();
             conditions = conditions ? conditions->prepare_all() : nullptr;
             script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
             auto* condition = reinterpret_cast<script::Struct*>(conditions->fetch_part(0));
-            condition->add_component_of_type(kScore, script::kQbvalInteger, word(8));
+            condition->add_component_of_type(kScore, script::kQbvalInteger, start.target_score);
             victory->append_array_value(kVictoryConditions, conditions);
         }
     } else {
-        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, word(4));
-        if (word(0) == kNetCtf) {
+        victory->add_component_of_type(kDefaultTimeLimit, script::kQbvalInteger, start.time_limit);
+        if (start.game_type == kNetCtf) {
             script::Array* conditions = script::alloc_script_array();
             conditions = conditions ? conditions->prepare_all() : nullptr;
             script::duplicate_array(conditions, script::fetch_list(kHighestScoreArray));
             victory->append_array_value(kVictoryConditions, conditions);
         }
     }
-    victory->add_component_of_type(kFireballLevel, script::kQbvalInteger, word(0xC));
-    victory->add_component_of_type(kStopAtZero, script::kQbvalInteger,
-                                   static_cast<uint32_t>(static_cast<int8_t>(msg[0x14])));
+    victory->add_component_of_type(kFireballLevel, script::kQbvalInteger, start.fireball_level);
+    victory->add_component_of_type(kStopAtZero, script::kQbvalInteger, static_cast<uint32_t>(start.stop_at_zero));
     victory->add_component_of_type(kShouldResetScores, script::kQbvalInteger,
-                                   static_cast<uint32_t>(static_cast<int8_t>(msg[0x15])));
-    get_call(code_address(&modules::Skate::set_unknown370), skate, word(4));
+                                   static_cast<uint32_t>(start.reset_scores));
+    get_call(code_address(&modules::Skate::set_unknown370), skate, start.time_limit);
     get_call(code_address(&goals::MatchRules::force_match_settings), get_game_mode(), victory);
-    get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), word(0x18));
-    get_call(code_address(&goals::MatchRules::set_goals_mode), get_game_mode(), word(0x1C));
-    get_call(code_address(&goals::MatchRules::set_team_graffiti_mode), get_game_mode(), word(0x20));
+    get_call(code_address(&goals::MatchRules::set_num_teams), get_game_mode(), start.teams);
+    get_call(code_address(&goals::MatchRules::set_goals_mode), get_game_mode(), start.goals);
+    get_call(code_address(&goals::MatchRules::set_team_graffiti_mode), get_game_mode(), start.team_graffiti_mode);
     delete_params(victory);
     get_run(kStartingNewNetGame);
     get_call(code_address(&modules::Skate::launch_game), skate);
@@ -487,8 +467,8 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
     // The last leading team (+0x1D4) none: the original calls the setter folded at 0x005430D0 (PlayerRecord's
     // set_ready_query_owed, the same offset) on the manager.
     manager->last_leading_team_ = -1;
-    manager->set_game_id(msg[0x16]);
-    if (word(0) == kNetGoalAttack)
+    manager->set_game_id(start.game_id);
+    if (start.game_type == kNetGoalAttack)
         get_run(kInitSelectedGoals);
     manager->match_ended_ = false;
     // Every player's flags and score reset.
@@ -511,12 +491,12 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
     for (int i = 0; i < static_cast<int>(types->extent_); ++i) {
         auto* type = reinterpret_cast<script::Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
         type->read_hash_value(kChecksum, &checksum, 1);
-        if (checksum != word(0))
+        if (checksum != start.game_type)
             continue;
         script::Struct* params = new_params();
-        params->put_int(kTime, static_cast<int>(word(4)));
-        params->put_int(kScore, static_cast<int>(word(8)));
-        params->put_int(kUnlimitedTime, word(4) == 0 ? 1 : 0);
+        params->put_int(kTime, static_cast<int>(start.time_limit));
+        params->put_int(kScore, static_cast<int>(start.target_score));
+        params->put_int(kUnlimitedTime, start.time_limit == 0 ? 1 : 0);
         // (with no goal_script the original runs whatever its local held: the skate module's address)
         auto script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
         type->read_hash_value(kGoalScript, &script, 1);
@@ -541,26 +521,26 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
     desc.make_new();
     frame_clock::get_time();    // (not used)
     player->flag_bits_ |= 0x40; // told
-    GameInfo info;
-    std::memset(&info, 0, sizeof(info));
-    info.max_players_ = static_cast<uint8_t>(manager->get_player_limit());
-    info.value48 = get_call<uint32_t>(code_address(&goals::MatchRules::get_round), get_game_mode());
+    // (the message: gamenet_messages.h)
+    SessionBrief info;
+    info.max_players = static_cast<uint8_t>(manager->get_player_limit());
+    info.round = get_call<uint32_t>(code_address(&goals::MatchRules::get_round), get_game_mode());
     info.variant = 0;
     net::AppHost* server = manager->host_;
     if (is_own_player(player)) {
         manager->set_ready_state(true); // (ready to play)
     } else {
         if (manager->has_match_ended()) {
-            info.game_type_ = kNetLobby;
-            info.time_limit_ = 0;
-            info.value20 = 0;
-            info.target_score_ = 0;
+            info.game_type = kNetLobby;
+            info.time_left = 0;
+            info.time_limit = 0;
+            info.target_score = 0;
         } else {
-            info.game_type_ = get_game_type();
-            info.time_limit_ =
+            info.game_type = get_game_type();
+            info.time_left =
                 get_call<uint32_t>(code_address(&goals::MatchRules::get_goal_time_left), get_game_mode()) / 1000;
-            info.value20 = get_call<uint32_t>(code_address(&goals::MatchRules::get_time_limit), get_game_mode());
-            info.target_score_ =
+            info.time_limit = get_call<uint32_t>(code_address(&goals::MatchRules::get_time_limit), get_game_mode());
+            info.target_score =
                 static_cast<uint32_t>(manager->get_online_settings()->get_setting_value(kTargetScore, kScore));
             if (get_game_type() == kNetScavengerHunt || get_game_type() == kNetElimiskate) {
                 bool scavenger = get_game_type() == kNetScavengerHunt;
@@ -573,17 +553,21 @@ int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
                     info.variant = 2;
             }
         }
-        info.game_id_ = manager->get_game_id();
+        info.game_id = manager->get_game_id();
         info.level = manager->fetch_stage();
         info.teams = get_call<uint32_t>(code_address(&goals::MatchRules::current_num_teams), get_game_mode());
-        info.value18 = manager->get_goals_preference();
-        info.value_1c_ = manager->get_team_graffiti_mode();
-        info.pro_option_bits_ = static_cast<uint8_t>(manager->script_flag_bits_);
-        info.crown_start_slot_ = static_cast<uint8_t>(manager->crown_start_);
-        std::memcpy(info.start_info_, manager->start_points_, sizeof(info.start_info_));
-        info.not_lan_ = net->get_net_link_kind() != 1;
-        desc.content_ = &info;
-        desc.byte_count_ = sizeof(info);
+        info.goals = manager->get_goals_preference();
+        info.team_graffiti_mode = manager->get_team_graffiti_mode();
+        info.pro_option_bits = static_cast<uint8_t>(manager->script_flag_bits_);
+        info.crown_start_slot = static_cast<uint8_t>(manager->crown_start_);
+        static_assert(sizeof(info.start_points) == sizeof(manager->start_points_));
+        std::memcpy(info.start_points, manager->start_points_, sizeof(info.start_points));
+        info.not_lan = net->get_net_link_kind() != 1;
+        uint8_t bytes[kSessionBriefSize];
+        util::ByteWriter writer(bytes, sizeof(bytes));
+        write_session_brief(writer, info);
+        desc.content_ = bytes;
+        desc.byte_count_ = static_cast<uint16_t>(writer.position());
         desc.ident_ = kMsgSessionBrief;
         desc.queue_ = net::NetMessageInfo::kLaneOrdered;
         desc.group_id_ = kGroupGame;

@@ -6,6 +6,7 @@
 #include <cstring>
 #include <unordered_set>
 
+#include "engine/net/gamenet_messages.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/script/param_struct.h"
 #include "game/skate/skate_net.h"
@@ -16,8 +17,6 @@ namespace online::guards {
 
 namespace {
 
-constexpr uint8_t kMsgLobbyDetails = 0x33;
-constexpr uint8_t kMsgSessionBrief = 0x34;
 constexpr uint8_t kMsgPrimaryAnim = 0x29;
 constexpr uint8_t kMsgLevelSwitch = 0x46;
 constexpr uint8_t kMsgCreateSpecialItem = 0x77;
@@ -32,10 +31,8 @@ constexpr uint32_t kNetLobby = 0x1C471C60;    // netlobby
 
 // Where each message keeps what's checked (THUG2's layouts: the handlers 0x0056A450, 0x0056D810, 0x005313C0,
 // 0x005311F0 / 0x00569560 read them there).
-constexpr uint32_t kAnimOffset = 2;      // 0x29: looping type, object id, then the animation
-constexpr uint32_t kStartInfoMode = 0xC; // 0x33
-constexpr uint32_t kStartInfoLevel = 0x10;
-constexpr uint32_t kGameInfoMode = 0;       // 0x34
+constexpr uint32_t kAnimOffset = 2; // 0x29: looping type, object id, then the animation
+// 0x33 / 0x34: gamenet_messages.h (kSessionBrief... / kStartGameTypeAt)
 constexpr uint32_t kChangeLevelLevel = 0;   // 0x46
 constexpr uint32_t kSpecialItemDetails = 0; // 0x77 / 0x78
 
@@ -117,11 +114,11 @@ int check_received_message(net::InboundMsgCtx* context)
     case kMsgDestroySpecialItem:
         needed = kSpecialItemDetails + 4;
         break;
-    case kMsgLobbyDetails:
-        needed = kStartInfoLevel + 4;
-        break;
     case kMsgSessionBrief:
-        needed = kGameInfoMode + 4;
+        needed = kSessionBriefLevelAt + 4;
+        break;
+    case kMsgStartGame:
+        needed = kStartGameTypeAt + 4;
         break;
     case kMsgLevelSwitch:
         needed = kChangeLevelLevel + 4;
@@ -152,24 +149,24 @@ int check_received_message(net::InboundMsgCtx* context)
         }
         return kDispatch;
     }
-    case kMsgLobbyDetails: {
-        uint32_t level = read32(context, kStartInfoLevel);
+    case kMsgSessionBrief: {
+        uint32_t level = read32(context, kSessionBriefLevelAt);
         if (!s_lookups.script_exists_(level)) {
             log_once(id, level, "names a level we haven't, leaving the server: load script");
             return s_lookups.leave_server_(context);
         }
-        uint32_t mode = read32(context, kStartInfoMode);
+        uint32_t mode = read32(context, kSessionBriefGameTypeAt);
         if (!s_lookups.game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
-            write32(context, kStartInfoMode, kNetLobby);
+            write32(context, kSessionBriefGameTypeAt, kNetLobby);
         }
         return kDispatch;
     }
-    case kMsgSessionBrief: {
-        uint32_t mode = read32(context, kGameInfoMode);
+    case kMsgStartGame: {
+        uint32_t mode = read32(context, kStartGameTypeAt);
         if (!s_lookups.game_mode_exists_(mode)) {
             log_once(id, mode, "names a game mode we haven't, played as free skate:");
-            write32(context, kGameInfoMode, kNetLobby);
+            write32(context, kStartGameTypeAt, kNetLobby);
         }
         return kDispatch;
     }
