@@ -25,7 +25,7 @@
 #include "game/rider/rider.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -45,6 +45,9 @@
 #include "wire/play_messages.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -192,7 +195,7 @@ int on_server_query_msg(net::InboundMsgCtx* context)
             continue;
         // NOT ORIGINAL: the name copied as text (the original used it as sprintf's format: a name with a % in it
         // read arguments that weren't there)
-        copy_name(info.players[named], reinterpret_cast<const char*>(added));
+        copy_name(info.players[named], raw::chars(added));
         ++named;
     }
     uint8_t bytes[kServerInfoSize];
@@ -441,7 +444,7 @@ int handle_start_game(net::InboundMsgCtx* context)
             script::Array* conditions = script::alloc_script_array();
             conditions = conditions ? new (conditions) script::Array : nullptr;
             script::duplicate_array(conditions, script::fetch_list(kTargetScoreArray));
-            auto* condition = reinterpret_cast<script::Struct*>(conditions->fetch_part(0));
+            auto* condition = conditions->struct_at(0);
             condition->add_component_of_type(kScore, script::kQbvalInteger, start.target_score);
             victory->append_array_value(kVictoryConditions, conditions);
         }
@@ -494,9 +497,9 @@ int handle_start_game(net::InboundMsgCtx* context)
         king->give_crown(false);
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
-    auto checksum = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(types));
+    auto checksum = static_cast<uint32_t>(cell::address(types));
     for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
-        auto* type = reinterpret_cast<script::Struct*>(types->fetch_part(static_cast<uint32_t>(i)));
+        auto* type = types->struct_at(static_cast<uint32_t>(i));
         type->read_hash_value(kChecksum, &checksum, 1);
         if (checksum != start.game_type)
             continue;
@@ -505,7 +508,7 @@ int handle_start_game(net::InboundMsgCtx* context)
         params->put_int(kScore, static_cast<int>(start.target_score));
         params->put_int(kUnlimitedTime, start.time_limit == 0 ? 1 : 0);
         // (with no goal_script the original runs whatever its local held: the skate module's address)
-        auto script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
+        auto script = static_cast<uint32_t>(cell::address(skate));
         type->read_hash_value(kGoalScript, &script, 1);
         get_run(script, params);
         delete_params(params);
@@ -586,7 +589,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         }
         // The scripts spawned so far (the list at +0x144): 0x49 each.
         auto* node = manager->queued_scripts_.next; // (the queued scripts' first node)
-        node = node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
+        node = node->data == memory::ListNode::head_marker() ? nullptr : node;
         for (auto* item = node ? static_cast<PendingScriptItem*>(node->data) : nullptr; item;) {
             desc = net::NetMessageInfo();
             online::SpawnScript queued; // (not permanent: the joiner runs it once)
@@ -602,7 +605,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
             desc.queue_ = net::NetMessageInfo::kLaneOrdered;
             desc.group_id_ = kGroupGame;
             server->put_on_outbox(player_handle(player), &desc);
-            node = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
+            node = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
             if (!node)
                 break;
             item = static_cast<PendingScriptItem*>(node->data);
@@ -623,7 +626,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         static uint8_t selected[0x1000];
         selected[0] = 0;
         uint8_t* out = selected + 1;
-        const int count = reinterpret_cast<goals::GoalManager*>(goals)
+        const int count = raw::as<goals::GoalManager>(goals)
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);

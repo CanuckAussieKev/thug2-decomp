@@ -28,7 +28,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -45,6 +45,8 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -72,7 +74,7 @@ modules::Skate* skate_module() { return modules::g_skate_module; }
 int skater_count(modules::Skate* skate)
 {
     int count = 0;
-    for (auto* node = skate->riders_.list_link_.next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (auto* node = skate->riders_.list_link_.next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;
@@ -98,8 +100,8 @@ void Hub::add_new_player(JoinerRecord* info)
             skater =
                 static_cast<modules::Skate*>(skate)->spawn_skater_entity(profile, true, static_cast<int>(obj_id), 0);
         } else {
-            auto* skaters = reinterpret_cast<modules::Skate*>(skate);
-            const int count = reinterpret_cast<modules::Skate*>(skate)->get_home_rider()
+            auto* skaters = raw::as<modules::Skate>(skate);
+            const int count = raw::as<modules::Skate>(skate)->get_home_rider()
                                   ? skaters->count_riders()
                                   : (skaters->count_riders() + 1) & 7;
             skater = static_cast<modules::Skate*>(skate)->spawn_skater_entity(info->account_, false,
@@ -130,7 +132,7 @@ void Hub::add_new_player(JoinerRecord* info)
         player->accumulated_score_ = static_cast<int>(info->accumulated_score_);
         player->eliminated_time_ = info->eliminated_time_;
         auto* head = &players_;
-        auto* node = reinterpret_cast<memory::ListNode*>(player);
+        auto* node = raw::as<memory::ListNode>(player);
         node->prev = head->prev;
         node->next = head;
         head->prev->next = node;
@@ -163,9 +165,9 @@ void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
     net::ConnSearch search;
     auto* node = manager->joiners_.next; // (the joining players' first node)
     bool added = false;
-    if (node->data != reinterpret_cast<void*>(-1) && node) {
+    if (node->data != memory::ListNode::head_marker() && node) {
         while (node) {
-            memory::ListNode* next = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
+            memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
             auto* info = static_cast<JoinerRecord*>(node->data);
             if (info->add_at_frame_ > manager->client_app_->frame_count_)
                 break; // (its time hasn't come: the rest wait too)
@@ -282,10 +284,10 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
     desc.queue_ = net::NetMessageInfo::kLaneOrdered;
     desc.group_id_ = kGroupGame;
     auto* node = manager->joiners_.next; // (the joining players' first node)
-    if (node->data != reinterpret_cast<void*>(-1) && node) {
+    if (node->data != memory::ListNode::head_marker() && node) {
         while (node) {
             PlayerSearch search;
-            memory::ListNode* next = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
+            memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
             auto* info = static_cast<JoinerRecord*>(node->data);
             net::AppHost* server = manager->host_;
             if (info->add_at_frame_ > server->frame_count_)
@@ -304,7 +306,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             player->accumulated_score_ = 0;
             player->eliminated_time_ = 0;
             auto* head = &manager->players_;
-            auto* player_node = reinterpret_cast<memory::ListNode*>(player);
+            auto* player_node = raw::as<memory::ListNode>(player);
             player_node->prev = head->prev;
             player_node->next = head;
             head->prev->next = player_node;

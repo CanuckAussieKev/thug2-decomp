@@ -4,7 +4,7 @@
 
 #include <cstdint>
 #include <initializer_list>
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/engine_texture.h"
 #include "platform/compiler.h"
 #include <cstdio>
@@ -51,6 +51,8 @@ THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -222,7 +224,7 @@ const char* Hub::fetch_secret()
 {
     script::Struct* preference = get_online_settings()->fetch_setting(kPassword);
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
-    auto password = reinterpret_cast<const char*>(this);
+    const char* password = raw::chars(this);
     preference->fetch_text(kUiString, &password, 1);
     return password;
 }
@@ -281,7 +283,7 @@ bool Hub::send_custom_tag_texture()
     auto* skate = detail::get_skate();
     if (net::Hub::sole()->get_net_link_kind() == net::Hub::kConnectionModem || on_server)
         return false;
-    auto* skater = reinterpret_cast<modules::Skate*>(skate)->get_home_rider(); // the local skater
+    auto* skater = raw::as<modules::Skate>(skate)->get_home_rider(); // the local skater
     if (!skater)
         return false;
     auto* tagging = static_cast<objects::TaggingComponent*>(skater->fetch_module(objects::TaggingComponent::kType));
@@ -298,7 +300,7 @@ bool Hub::send_custom_tag_texture()
             logos |= 4;
         if (profile_has_part(profile, kDeckGraphic))
             logos |= 8;
-        void* texture = reinterpret_cast<goals::Objective*>(tagging)->fetch_args(); // the custom tag texture
+        void* texture = raw::as<goals::Objective>(tagging)->fetch_args(); // the custom tag texture
         if (texture) {
             net::NetMessageInfo desc;
             desc.ident_ = kMsgTagLogos;
@@ -330,7 +332,7 @@ const char* Hub::get_choice_name(uint32_t list, uint32_t choice)
     // first the list's own name).
     uint32_t checksum = list;
     for (int i = 0; i < ints::as_signed(choices->extent_); ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(choices->fetch_part(i));
+        auto* entry = choices->struct_at(i);
         entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
             entry->fetch_text(kName, &name, 1);
@@ -346,7 +348,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
     // (as above, the checksum goes into `choice`'s slot: an entry without one matches)
     uint32_t checksum = choice;
     for (int i = 0; i < ints::as_signed(choices->extent_); ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(choices->fetch_part(i));
+        auto* entry = choices->struct_at(i);
         entry->read_hash_value(kChecksum, &checksum, 1);
         if (checksum == choice)
             entry->fetch_int_value(field, &value, 1);
@@ -357,7 +359,7 @@ int Hub::get_choice_integer(uint32_t list, uint32_t choice, uint32_t field)
 // 0x005359F0
 void Hub::choose_start_points()
 {
-    int* points = reinterpret_cast<int*>(start_points_);
+    int* points = raw::as<int>(start_points_);
     int offset = maths::rnd(256);
     int count = 0;
     if (in_net_game()) {
@@ -422,7 +424,7 @@ void Hub::set_preset_option_bits(char flags) { script_flag_bits_ = static_cast<u
 void Hub::unlink_all_nodes(memory::ListNode* head)
 {
     memory::ListNode* node = head->next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return;
     while (node) {
         memory::ListNode* following = node->next;
@@ -430,7 +432,7 @@ void Hub::unlink_all_nodes(memory::ListNode* head)
         following->prev = node->prev;
         node->next = node;
         node->prev = node;
-        node = following->data == reinterpret_cast<void*>(-1) ? nullptr : following;
+        node = following->data == memory::ListNode::head_marker() ? nullptr : following;
     }
 }
 

@@ -22,7 +22,7 @@
 #include "engine/net/stats_man.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/loading_bar.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/stubs.h"
@@ -43,6 +43,8 @@
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy, kept)
 
@@ -85,12 +87,12 @@ memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
 memory::ListNode* head_of_scene_list(memory::ListNode* head)
 {
     memory::ListNode* node = head->next;
-    return node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
+    return node->data == memory::ListNode::head_marker() ? nullptr : node;
 }
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 template <typename T>
 T* data_of(memory::ListNode* node)
@@ -215,23 +217,23 @@ void RoomManager::init_peer()
     // The SDK's callbacks (0x74 bytes; those not set stay null).
     uint32_t callbacks[0x1D] = {};
     callbacks[0x00 / 4] =
-        reinterpret_cast<uint32_t>(code_address(online::RoomManager::disconnected_callback)); // disconnected
+        cell::of(code_address(online::RoomManager::disconnected_callback)); // disconnected
     callbacks[0x04 / 4] =
-        reinterpret_cast<uint32_t>(code_address(online::RoomManager::room_message_callback)); // roomMessage
-    callbacks[0x14 / 4] = reinterpret_cast<uint32_t>(code_address(stubs::do_nothing)); // (nothing: the empty function)
-    callbacks[0x24 / 4] = reinterpret_cast<uint32_t>(&player_joined_callback);
-    callbacks[0x28 / 4] = reinterpret_cast<uint32_t>(&player_left_callback);
-    callbacks[0x38 / 4] = reinterpret_cast<uint32_t>(&player_info_callback);
-    callbacks[0x30 / 4] = reinterpret_cast<uint32_t>(&new_player_list_callback);
-    callbacks[0x4C / 4] = reinterpret_cast<uint32_t>(&room_key_changed_callback);
-    callbacks[0x68 / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::hole_punch_result_fn));
-    callbacks[0x5C / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::key_list_callback));
-    callbacks[0x50 / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::server_key_callback));
-    callbacks[0x54 / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::player_key_callback));
-    callbacks[0x60 / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::count_callback));
-    callbacks[0x64 / 4] = reinterpret_cast<uint32_t>(code_address(stubs::do_nothing));
-    callbacks[0x6C / 4] = reinterpret_cast<uint32_t>(code_address(online::RoomManager::public_address_callback));
-    callbacks[0x70 / 4] = reinterpret_cast<uint32_t>(this); // (their parameter)
+        cell::of(code_address(online::RoomManager::room_message_callback)); // roomMessage
+    callbacks[0x14 / 4] = cell::of(code_address(stubs::do_nothing)); // (nothing: the empty function)
+    callbacks[0x24 / 4] = cell::of(&player_joined_callback);
+    callbacks[0x28 / 4] = cell::of(&player_left_callback);
+    callbacks[0x38 / 4] = cell::of(&player_info_callback);
+    callbacks[0x30 / 4] = cell::of(&new_player_list_callback);
+    callbacks[0x4C / 4] = cell::of(&room_key_changed_callback);
+    callbacks[0x68 / 4] = cell::of(code_address(online::RoomManager::hole_punch_result_fn));
+    callbacks[0x5C / 4] = cell::of(code_address(online::RoomManager::key_list_callback));
+    callbacks[0x50 / 4] = cell::of(code_address(online::RoomManager::server_key_callback));
+    callbacks[0x54 / 4] = cell::of(code_address(online::RoomManager::player_key_callback));
+    callbacks[0x60 / 4] = cell::of(code_address(online::RoomManager::count_callback));
+    callbacks[0x64 / 4] = cell::of(code_address(stubs::do_nothing));
+    callbacks[0x6C / 4] = cell::of(code_address(online::RoomManager::public_address_callback));
+    callbacks[0x70 / 4] = cell::of(this); // (their parameter)
     remote_ = game_spy::peer_initialize(callbacks);         // (the peer made)
     in_group_room_ = false;
     drop_is_expected_ = true;

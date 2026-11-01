@@ -17,7 +17,7 @@
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "frontend/screen_element_manager.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -34,6 +34,8 @@
 #include "engine/net/stats_man.h"
 #include "game/rider/skater_score.h"
 #include "platform/compiler.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -69,7 +71,7 @@ uint32_t& score_sync_stamp_slot() { return g_score_refresh_stamp; }
 // A player's SkaterScore's score object (no null checks: as the original).
 void* get_score_of(PlayerRecord* player)
 {
-    auto* skater = reinterpret_cast<objects::GameEntity*>(player->skater_);
+    auto* skater = raw::as<objects::GameEntity>(player->skater_);
     return static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
 }
 int points_of(void* score) { return static_cast<modules::PointTally*>(score)->get_total_score(); }
@@ -84,7 +86,7 @@ bool has_score_line(PlayerRecord* p)
         return false;
     if (get_game_type() != kNetFirefight || !p->skater_)
         return true;
-    objects::ObjectModule* score = reinterpret_cast<objects::GameEntity*>(p->skater_)->fetch_module(kSkaterScore);
+    objects::ObjectModule* score = raw::as<objects::GameEntity>(p->skater_)->fetch_module(kSkaterScore);
     return !score || points_of(static_cast<objects::RiderPointKeeper*>(score)->points_held_) != 0;
 }
 
@@ -237,7 +239,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
 
     // The lines, best first.
     const memory::ListNode* cursor =
-        list.list_link_.next->data == reinterpret_cast<void*>(-1) ? nullptr : list.list_link_.next;
+        list.list_link_.next->data == memory::ListNode::head_marker() ? nullptr : list.list_link_.next;
     auto* entry = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
     for (int line = 0; entry; ++line) {
         char prefix[64]; // (16 bytes in the original: a long crown abbreviation overran it)
@@ -256,7 +258,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         } else {
             prefix[0] = '\0';
         }
-        cursor = cursor->next->data == reinterpret_cast<void*>(-1) ? nullptr : cursor->next;
+        cursor = cursor->next->data == memory::ListNode::head_marker() ? nullptr : cursor->next;
         auto* following = cursor ? static_cast<ScoreEntry*>(cursor->data) : nullptr;
 
         char text[128]; // (64 in the original: the longest king of the hill lines overran it)

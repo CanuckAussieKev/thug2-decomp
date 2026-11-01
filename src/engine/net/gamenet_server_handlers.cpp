@@ -17,7 +17,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -33,6 +33,7 @@
 #include "engine/net/stats_man.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/arena_alloc.h"
 
 namespace online {
 
@@ -342,10 +343,10 @@ int on_peer_left_msg(net::InboundMsgCtx* context)
     }
     // Not a player yet: one of the new players waiting to be added - dropped with its connection.
     auto* node = manager->joiners_.next; // (the new players' list, its first node)
-    if (node->data == reinterpret_cast<void*>(-1))
+    if (node->data == memory::ListNode::head_marker())
         return kHalt;
     for (; node;) {
-        memory::ListNode* next = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
+        memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
         auto* info = static_cast<JoinerRecord*>(node->data);
         if (info->conn_ == context->sender_conn_) {
             context->receiver_app_->sever_link(info->conn_);

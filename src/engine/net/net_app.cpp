@@ -24,6 +24,9 @@
 #include "formats/byte_stream.h"
 #include "platform/stopwatch.h"
 #include "engine/core/owner.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -49,8 +52,8 @@ ListNode* normal_queue(Conn* conn) { return &conn->normal_msgs_; }
 ListNode* important_queue(Conn* conn) { return &conn->important_msgs_; }
 ListNode* sequenced_queue(Conn* conn) { return &conn->sequenced_msgs_; }
 // The receive buffer's read and write positions (its start and end).
-uint8_t*& read_position(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->read_buffer_); }
-uint8_t*& write_position(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->read_ptr_); }
+uint8_t*& read_position(Conn* conn) { return memory::bits_as<uint8_t*>(conn->read_buffer_); }
+uint8_t*& write_position(Conn* conn) { return memory::bits_as<uint8_t*>(conn->read_ptr_); }
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
 uint32_t& get_standing(Conn* conn) { return conn->cur_standing_; }
 constexpr uint32_t kConnReady = Conn::kConnReady;
@@ -64,8 +67,8 @@ void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::G
 void* out_metrics(Conn* conn) { return &conn->send_metrics_; }
 // The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
 // in this process) straight into its own receive buffer.
-uint8_t*& send_buffer_start(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->outgoing_bytes_); }
-uint8_t*& send_buffer_end(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->write_ptr_); }
+uint8_t*& send_buffer_start(Conn* conn) { return memory::bits_as<uint8_t*>(conn->outgoing_bytes_); }
+uint8_t*& send_buffer_end(Conn* conn) { return memory::bits_as<uint8_t*>(conn->write_ptr_); }
 
 // Conn's methods (net_conn.cpp).
 Conn* construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
@@ -117,7 +120,7 @@ OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
 BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
-StreamDesc* stream_of(ListNode* link) { return reinterpret_cast<BulkStreamNode*>(link)->msg_meta_; }
+StreamDesc* stream_of(ListNode* link) { return raw::as<BulkStreamNode>(link)->msg_meta_; }
 StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
 void destroy_stream_desc_body(StreamDesc* stream) { stream->~StreamDesc(); }
@@ -169,7 +172,7 @@ struct StreamPieceMessage {
 
 // --- The rest of the library ------------------------------------------------------------------------------
 // A message link into a queue: lists::Foremost::append_node (0x00457350).
-void add_link(ListNode* queue, ListNode* link) { reinterpret_cast<lists::Foremost*>(queue)->append_node(link); }
+void add_link(ListNode* queue, ListNode* link) { raw::as<lists::Foremost>(queue)->append_node(link); }
 // conn's received messages to their handlers (Router::invoke_handlers_for_msg); 2 = halted, 3 = stop
 int dispatch_messages(HandlerLists* dispatcher, Conn* conn, int flags)
 {
@@ -423,7 +426,7 @@ Conn* AppHost::begin_conn_walk(ConnSearch* search)
 {
     search->list_link_ = &circuits_;
     ListNode* next = circuits_.next;
-    search->list_link_ = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    search->list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
     return search->list_link_ ? static_cast<Conn*>(search->list_link_->data) : nullptr;
 }
 
@@ -536,7 +539,7 @@ void AppHost::pump_stream_traffic()
             max_per_frame = 1;
         }
         unsigned int streams = 0;
-        for (ListNode* node = get_streams(conn)->next; node->data != reinterpret_cast<void*>(-1) && node;
+        for (ListNode* node = get_streams(conn)->next; node->data != memory::ListNode::head_marker() && node;
              node = node->next)
             ++streams;
         if (streams == 0)

@@ -17,6 +17,9 @@
 #include "formats/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "engine/core/ints.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -43,7 +46,7 @@ util::ByteReader body_reader(const InboundMsgCtx* context) { return {context->bo
 // Method 1's decompressor: 0 when it worked; `size` gets the expanded size.
 int decompress(const char* in, int in_size, char* out, int* size)
 {
-    return rle_decompress(reinterpret_cast<const uint8_t*>(in), in_size, reinterpret_cast<uint8_t*>(out), size);
+    return rle_decompress(raw::bytes(in), in_size, raw::bytes(out), size);
 }
 
 // NOT ORIGINAL: the received streams' bounds (a compressed message comes from the network - THUGPRO's players among
@@ -107,8 +110,8 @@ bool append_message(AppHost* app, Conn* conn, PendingMsg* msg)
     char*& write_ptr = conn->write_ptr_;
     const uint8_t flags = message_flags(static_cast<uint8_t*>(app->supervisor_), msg->ident_);
     auto size = static_cast<uint16_t>(msg->byte_count_ + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->outgoing_bytes_) +
-                         reinterpret_cast<uint32_t>(write_ptr)) >= static_cast<int>(kMaxPacketSize))
+    if (static_cast<int>(size - cell::of(conn->outgoing_bytes_) +
+                         cell::of(write_ptr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     util::ByteWriter writer(write_ptr, packet_space_left(conn));
     writer.u8(msg->ident_);
@@ -127,8 +130,8 @@ bool append_sequenced_message(Conn* conn, OrderedMsgNode* link)
     const SeqQueuedMsg* msg = link->shared_msg_;
     const uint16_t length = msg->byte_count_;
     auto size = static_cast<uint16_t>(length + 9);
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->outgoing_bytes_) +
-                         reinterpret_cast<uint32_t>(write_ptr)) >= static_cast<int>(kMaxPacketSize))
+    if (static_cast<int>(size - cell::of(conn->outgoing_bytes_) +
+                         cell::of(write_ptr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     util::ByteWriter writer(write_ptr, packet_space_left(conn));
     writer.u8(kMsgSequenced);
@@ -311,7 +314,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     const int expected_size = size;
     if (method == 1) {
         if (!rle_stream_fits(stream, stream_size) ||
-            decompress(reinterpret_cast<const char*>(stream), stream_size, data, &size) != 0 || expected_size != size) {
+            decompress(raw::chars(stream), stream_size, data, &size) != 0 || expected_size != size) {
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
@@ -320,8 +323,8 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
             memory::Hub::get_pull()->dealloc(data);
             return kResultConsumed;
         }
-        size = static_cast<int>(reinterpret_cast<char*>(lzss::decode(stream,
-                                                                     reinterpret_cast<uint8_t*>(data), stream_size)) -
+        size = static_cast<int>(raw::chars(lzss::decode(stream,
+                                                                     raw::bytes(data), stream_size)) -
                                 data);
         if (expected_size != size) {
             memory::Hub::get_pull()->dealloc(data);
@@ -330,7 +333,7 @@ int AppHost::handle_compressed_messages(InboundMsgCtx* context)
     } else if (method == lzham::kMethod) {
         // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11), expanded into the header's size and no further.
         size_t expanded = 0;
-        if (!lzham::decompress(stream, static_cast<size_t>(stream_size), reinterpret_cast<uint8_t*>(data),
+        if (!lzham::decompress(stream, static_cast<size_t>(stream_size), raw::bytes(data),
                                static_cast<size_t>(expected_size), &expanded) ||
             expanded != ints::as_unsigned(expected_size)) {
             memory::Hub::get_pull()->dealloc(data);
@@ -386,7 +389,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     auto length = static_cast<uint16_t>(reader.remaining());
     void* memory = memory::alloc(sizeof(SeqQueuedMsg));
     SeqQueuedMsg* seq_msg =
-        memory ? construct_seq_msg(memory, id, length, reinterpret_cast<char*>(context->body_) + reader.position(),
+        memory ? construct_seq_msg(memory, id, length, context->body_ + reader.position(),
                                    group, false)
                : nullptr;
     void* link_memory = memory::alloc_zeroed(sizeof(OrderedMsgNode));
@@ -399,7 +402,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     link->order_index_ = sequence;
     memory::Hub::get_pull()->leave_heap_scope();
 
-    auto& buffer = reinterpret_cast<lists::Foremost&>(context->sender_conn_->received_queues_[group]);
+    auto& buffer = memory::bits_as<lists::Foremost>(context->sender_conn_->received_queues_[group]);
     if (!buffer.insert_by_unique_order(&link->list_link_)) { // a duplicate
         if (SeqQueuedMsg* duplicate = link->shared_msg_) {
             destroy_queued_msg(duplicate);

@@ -29,7 +29,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "game/rider/skater_camera_component.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -48,6 +48,7 @@
 #include "game/rider/skater_state.h"
 #include "platform/compiler.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies of a player's name)
 
@@ -145,7 +146,7 @@ void Hub::spectate_player(PlayerRecord* player)
         viewed_player_ = nullptr;
         return;
     }
-    auto* skater = reinterpret_cast<objects::GameEntity*>(player_skater(player));
+    auto* skater = raw::as<objects::GameEntity>(player_skater(player));
     if (player != find_own_player_record(g_online_hub)) {
         // Someone else's skater: the skater camera onto it.
         set_camera_skater(skater_camera, skater);
@@ -196,7 +197,7 @@ void Hub::assign_first_come_first_served()
             continue;
         player->set_host_player(); // (its flag 0x200: first come, first served)
         uint32_t text = 0;
-        reinterpret_cast<prefs::Preferences*>(net_options_)
+        raw::as<prefs::Preferences>(net_options_)
             ->fetch_setting(kFcfsPreference)
             ->read_hash_value("Checksum", &text, 1);
         desc.content_ = &text;

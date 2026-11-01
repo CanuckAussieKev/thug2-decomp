@@ -9,6 +9,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/lists/chain_start.h"
 #include "engine/net/net_lists.h"
+#include "engine/core/bits_as.h"
 
 namespace net {
 
@@ -72,7 +73,7 @@ class Router : public HandlerLists {
 public:
     static constexpr int kNumMessageIds = HandlerLists::kCount;
 
-    lists::Foremost& link_chain(int id) { return reinterpret_cast<lists::Foremost&>(lists_[id]); }
+    lists::Foremost& link_chain(int id) { return memory::bits_as<lists::Foremost>(lists_[id]); }
 
     // 0x0045A640: every handler deleted (each list walked node by node).
     void prepare_all();

@@ -21,7 +21,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "engine/script/game_cfuncs.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/stubs.h"
 #include "game/goals/objective.h"
@@ -41,6 +41,8 @@
 #include "engine/sys/mlp.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strcpy: the original's own)
 
@@ -125,7 +127,7 @@ void nat_free_negotiations() { game_spy::nat_free_negotiations(); }
 int nat_begin(uint32_t socket, int cookie, int client_index, void* progress, game_spy::HookFn completed, int user_data)
 {
     return game_spy::nat_begin_with_socket(socket, cookie, client_index, progress, completed,
-                                           reinterpret_cast<void*>(static_cast<intptr_t>(user_data)));
+                                           cell::pointer<void>(static_cast<intptr_t>(user_data)));
 }
 void* const kNoProgress = code_address(stubs::do_nothing); // (an empty function: no progress callback)
 
@@ -165,7 +167,7 @@ void RoomManager::queue_packet(char* data, int length, const void* from)
 {
     if (queued_count() >= kMaxQueued)
         return;
-    const auto* bytes = reinterpret_cast<const uint8_t*>(data);
+    const auto* bytes = raw::bytes(data);
     int type = 0;
     if ((bytes[0] == 0xFE && bytes[1] == 0xFD) || bytes[0] == '\\')
         type = kPacketQuery;
@@ -344,7 +346,7 @@ void RoomManager::start_hosting()
 {
     tasks::PileUp* tasks = get_logic_tasks();
     net::AppHost* server = net_session_slot()->host_;
-    server->set_outside_packet_hook(reinterpret_cast<net::UnknownPacketCallback>(&RoomManager::queue_packet));
+    server->set_outside_packet_hook([](char* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     clear_queue();
     if (game_spy::peer_start_reporting_with_socket(remote_, server->get_socket(), static_cast<int>(kHostPort)) ==
         1) // reporting on its socket
@@ -379,7 +381,7 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
             lobby->nat_task_->drop_out();
         return;
     }
-    nat_cancel(static_cast<int>(reinterpret_cast<intptr_t>(user_data)));
+    nat_cancel(static_cast<int>(static_cast<intptr_t>(cell::address(user_data))));
     nat_think();
     nat_free_negotiations();
     manager->fetch_patron(0)->set_outside_packet_hook(nullptr);

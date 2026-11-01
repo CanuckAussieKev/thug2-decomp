@@ -20,7 +20,7 @@
 #include "engine/net/online_identity.h"
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -36,6 +36,7 @@
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the level's name)
 
@@ -77,7 +78,7 @@ void buffer_add(void* buffer, const char* text) { game_spy::call_qr2_buffer_add(
 void buffer_add_int(void* buffer, int value) { game_spy::get_qr2_buffer_add_int(buffer, value); }
 
 Hub* net_session_slot() { return g_online_hub; }
-prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
+prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_); }
 
 char g_fallback_map_name[128]{"Boston"};
 

@@ -5,6 +5,9 @@
 // game passes (FriendsManager's first word). Callbacks are passed as code pointers with the SDK's cdecl signatures.
 #pragma once
 
+#include "engine/core/pointer_cell.h"
+#include "platform/code_address.h"
+
 #include <cstddef>
 #include <cstdint>
 
@@ -16,11 +19,11 @@ using PeerCallbacks = uint32_t[0x1D];
 
 // A callback given to the SDK: any function (its signature the SDK's) or code address (GAME_CODE), or null.
 struct HookFn {
-    uintptr_t code; // (as an integer: a function's or a data pointer's address alike)
+    const void* code; // (a function's address)
     template <typename F>
-    HookFn(F* function) : code(reinterpret_cast<uintptr_t>(function))
+    HookFn(F* function) : code(code_address(function))
     {}
-    HookFn(std::nullptr_t) : code(0) {}
+    HookFn(std::nullptr_t) : code(nullptr) {}
 };
 
 // peerFixNick with the rules of the SDK the game was built with: a '_' before a leading digit or '-', and every

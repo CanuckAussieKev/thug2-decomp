@@ -33,7 +33,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -49,6 +49,8 @@
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
 
 namespace online {
 
@@ -191,7 +193,7 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 int total_of(const memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = head->next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;
@@ -271,12 +273,12 @@ FriendsManager::FriendsManager()
     messages_.make_head();
     ram_stats()->enter_heap_scope(ram_stats()->network_heap_);
     gp_initialize(this, 0x2880, 0);
-    gp_set_callback(this, 0, reinterpret_cast<const void*>(&on_error), this);
+    gp_set_callback(this, 0, code_address(&on_error), this);
     gp_set_callback(this, 1, kOnBuddyRequest, this);
-    gp_set_callback(this, 2, reinterpret_cast<const void*>(&on_buddy_status), this);
-    gp_set_callback(this, 3, reinterpret_cast<const void*>(&on_buddy_message), this);
-    gp_set_callback(this, 4, reinterpret_cast<const void*>(&stubs::do_nothing), this);
-    gp_set_callback(this, 5, reinterpret_cast<const void*>(&stubs::do_nothing), this);
+    gp_set_callback(this, 2, code_address(&on_buddy_status), this);
+    gp_set_callback(this, 3, code_address(&on_buddy_message), this);
+    gp_set_callback(this, 4, code_address(&stubs::do_nothing), this);
+    gp_set_callback(this, 5, code_address(&stubs::do_nothing), this);
     task_ = std::make_unique<tasks::Task<FriendsManager>>(&buddy_task, this, 0);
     // NOLINTBEGIN(cppcoreguidelines-prefer-member-initializer): set after calls that may see it: the original's order
     authenticated_ = false;
@@ -552,15 +554,15 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             buddies->configure_size_kind(old->extent_ + 1, script::kQbvalStruct);
             uint32_t i = 0;
             for (; i < old->extent_; ++i) {
-                auto* entry = reinterpret_cast<script::Struct*>(old->fetch_part(i));
+                auto* entry = old->struct_at(i);
                 script::Struct* copy = new_params();
                 copy->get_assign(entry);
-                buddies->set_element(i, reinterpret_cast<uint32_t>(copy));
+                buddies->set_element(i, cell::of(copy));
             }
             script::Struct* entry = new_params();
             entry->put_int("profile", buddy->account_);
             entry->append_word("nick", buddy->nick_);
-            buddies->set_element(i, reinterpret_cast<uint32_t>(entry));
+            buddies->set_element(i, cell::of(entry));
             prefs->change_option_list(get_checksums("buddy_array"), buddies);
         }
         script::Struct* params = new_params();
@@ -597,7 +599,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
     script::Array* buddies = prefs->get_setting_list(get_checksums("buddy_array"));
     if (buddies) {
         for (uint32_t i = 0; i < buddies->extent_; ++i) {
-            auto* entry = reinterpret_cast<script::Struct*>(buddies->fetch_part(i));
+            auto* entry = buddies->struct_at(i);
             int profile = 0;
             entry->fetch_int_value("profile", &profile, 1);
             if (profile == status.profile) {
@@ -702,7 +704,7 @@ unsigned long __stdcall FriendsManager::create_profile_thread(void* parameter)
     const char* password = prefs->get_preference_string(get_checksums("profile_password"), get_checksums("ui_string"));
     creating_profile() = true;
     gp_connect_new_user(man, "proskater", nullptr, email, password, nullptr, 1, 0,
-                        reinterpret_cast<const void*>(&on_connect_new_user), man);
+                        code_address(&on_connect_new_user), man);
     pop_heap();
     return 0;
 }

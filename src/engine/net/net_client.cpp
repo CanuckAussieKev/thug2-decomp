@@ -13,6 +13,7 @@
 #include "engine/lists/list_walk.h"
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -61,13 +62,13 @@ bool Guest::prepare_all()
 // 0x00459F40
 bool Guest::dial_server(uint32_t ip, uint16_t port)
 {
-    auto& address = *reinterpret_cast<sockaddr_in*>(host_sock_addr_);
+    auto& address = *raw::as<sockaddr_in>(host_sock_addr_);
     std::memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = ip;
     std::memset(address.sin_zero, 0, sizeof(address.sin_zero));
-    while (connect(sock_, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR) {
+    while (connect(sock_, raw::as<sockaddr>(&address), sizeof(address)) == SOCKET_ERROR) {
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             report_socket_error(this);
             return false;
@@ -105,7 +106,7 @@ void Guest::pull_inbound()
         const SOCKET socket = sock_;
         if (!linked_up_)
             received =
-                recvfrom(socket, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);
+                recvfrom(socket, buffer, kReceiveBufferSize, 0, raw::as<sockaddr>(&from), &from_length);
         else
             received = recv(socket, buffer, kReceiveBufferSize, 0);
         if (received < 0) {
@@ -114,7 +115,7 @@ void Guest::pull_inbound()
         }
         inbound_byte_total_ += received;
         const int size = (flag_bits_ & kAppSecure) ? received - 2 : received;
-        auto& server = *reinterpret_cast<sockaddr_in*>(host_sock_addr_);
+        auto& server = *raw::as<sockaddr_in>(host_sock_addr_);
         if (Conn* conn = net::find_conn_at_address(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& read_ptr = conn->read_ptr_;
             if (read_ptr + size < conn->read_buffer_ + kConnReceiveBufferSize) {
@@ -125,7 +126,7 @@ void Guest::pull_inbound()
                     if (time > conn->last_heard_from_)
                         conn->last_heard_from_ = time;
                 } else if (auto handler = unknown_packet_sink_) {
-                    handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
+                    handler(buffer, received, raw::as<sockaddr>(&from));
                 }
             }
         } else if (!linked_up_) {
@@ -137,7 +138,7 @@ void Guest::pull_inbound()
                     mark_new_connection(fresh);
                 } else {
                     if (auto handler = unknown_packet_sink_)
-                        handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
+                        handler(buffer, received, raw::as<sockaddr>(&from));
                     destroy_conn(fresh);
                     memory::Hub::get_pull()->dealloc(fresh);
                 }
@@ -240,7 +241,7 @@ int Guest::on_clock_sync_msg(InboundMsgCtx* context)
     context->body_size_ = sizeof(uint16_t);
     if (context->wire_options_ & kPacketForeign)
         return kResultConsumed;
-    auto* stamp = reinterpret_cast<uint16_t*>(context->body_);
+    auto* stamp = raw::as<uint16_t>(context->body_);
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
     context->sequences_to_ack_[context->num_sequences_to_ack_] = *stamp;
     ++context->num_sequences_to_ack_;

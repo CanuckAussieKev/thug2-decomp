@@ -31,6 +31,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/buddy_man.h"
 #include "engine/net/stats_man.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -97,7 +98,7 @@ void start_thread(online::Hub* manager, LPTHREAD_START_ROUTINE thread)
 {
     DWORD id = 0;
     HANDLE handle = CreateThread(nullptr, 0x8000, thread, manager, CREATE_SUSPENDED, &id);
-    reinterpret_cast<online::Hub*>(manager)->set_room_id(id); // (+0x9950 = id)
+    manager->set_room_id(id); // (+0x9950 = id)
     ResumeThread(handle);
 }
 
@@ -211,7 +212,7 @@ void service_task(tasks::Task<online::Hub>* task)
     case 9: { // show the message of the day
         ghttp_cleanup();
         script::Struct* params = new_params();
-        params->append_word(kText, reinterpret_cast<const char*>(manager->motd_text_));
+        params->append_word(kText, raw::chars(manager->motd_text_));
         launch_script(0xF17B894C, params);
         delete_params(params);
         manager->service_state_ = 0;

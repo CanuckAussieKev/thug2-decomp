@@ -26,7 +26,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/gfx/texture_cfuncs.h"
 #include "engine/net/gamenet_lists.h"
@@ -46,6 +46,9 @@
 #include "engine/sys/mlp.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strncpy, kept)
 
@@ -108,12 +111,12 @@ uint32_t& list_clock() { return g_list_clock; }
 memory::ListNode* head_of_scene_list(memory::ListNode* head)
 {
     memory::ListNode* node = head->next;
-    return node->data == reinterpret_cast<void*>(-1) ? nullptr : node;
+    return node->data == memory::ListNode::head_marker() ? nullptr : node;
 }
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 template <typename T>
 T* data_of(memory::ListNode* node)
@@ -125,7 +128,7 @@ T* data_of(memory::ListNode* node)
 int total_of(memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = head->next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;
@@ -162,8 +165,8 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 // A server's id in the menu and in fetch_host: its SBServer on the internet, itself on the LAN.
 uint32_t server_id(Hub* manager, HostListing* server)
 {
-    return manager->in_internet_mode() ? reinterpret_cast<uint32_t>(server->sb_server_)
-                                       : reinterpret_cast<uint32_t>(server);
+    return manager->in_internet_mode() ? cell::of(server->sb_server_)
+                                       : cell::of(server);
 }
 
 // The waiting servers moved to the list (and the menu), after the "none found" message.
@@ -513,7 +516,7 @@ unsigned long __stdcall news_thread(void* argument)
     std::sprintf(url, commands::g_texture_flag_ce441 ? "http://www.thug2online.com/testmotd.dat"
                                                      : "http://www.thug2online.com/motd.dat");
     manager->request_ =
-        game_spy::http_get_ex(url, nullptr, reinterpret_cast<char*>(buffer), static_cast<int>(kNewsBufferSize), nullptr,
+        game_spy::http_get_ex(url, nullptr, raw::chars(buffer), static_cast<int>(kNewsBufferSize), nullptr,
                               0, 0, code_address(stubs::do_nothing), &news_callback, manager); // (the download started)
     ram_stats()->leave_heap_scope();
     return 0;
@@ -554,7 +557,7 @@ int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low,
     util::ByteReader reader(buffer, static_cast<size_t>(size));
     News news;
     if (!read_news(reader, &news) ||
-        news.checksum != checksums::generate_crc_caseless(reinterpret_cast<const char*>(news.data), news.size)) {
+        news.checksum != checksums::generate_crc_caseless(raw::chars(news.data), news.size)) {
         manager->service_state_ = kStateNewsFailed;
         return 1;
     }

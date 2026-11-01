@@ -16,7 +16,7 @@
 #include "engine/objects/entity.h"
 #include "game/skate/profile_manager.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/net/gamenet_lists.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -35,6 +35,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/tagging.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -54,7 +55,7 @@ Hub* the_manager() { return g_online_hub; }
 
 objects::ObjectModule* skater_component(objects::Rider* skater, uint32_t type)
 {
-    return reinterpret_cast<objects::GameEntity*>(skater)->fetch_module(type);
+    return raw::as<objects::GameEntity>(skater)->fetch_module(type);
 }
 
 // A new skater profile on the skater info heap (null if out of memory).

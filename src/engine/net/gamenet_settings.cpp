@@ -3,7 +3,7 @@
 // and connecting to / disconnecting from the internet.
 
 #include <cstdint>
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "platform/compiler.h"
 #include <cstring>
 
@@ -37,6 +37,7 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copies into its fi
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/ints.h"
+#include "engine/core/pointer_cell.h"
 
 namespace online {
 
@@ -148,7 +149,7 @@ void Hub::use_network_preferences()
     }
     // (no bounds check: more than 10 names run over what follows, as in the original)
     for (int i = 0; i < ints::as_signed(defaults->extent_); ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(defaults->fetch_part(i));
+        auto* entry = defaults->struct_at(i);
         entry->fetch_text(kName, &text, 1);
         std::strcpy(servers[next + i], text);
     }
@@ -286,7 +287,7 @@ prefs::Preferences* Hub::get_game_preferences()
 uint32_t Hub::get_goals_preference()
 {
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
-    auto goals = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this));
+    auto goals = static_cast<uint32_t>(cell::address(this));
     get_game_preferences()->fetch_setting(kGoals)->read_hash_value(kHashFieldName, &goals, 1);
     return goals;
 }
@@ -294,7 +295,7 @@ uint32_t Hub::get_goals_preference()
 // 0x00535B70
 uint32_t Hub::get_game_type_preference()
 {
-    auto type = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this)); // (as above)
+    auto type = static_cast<uint32_t>(cell::address(this)); // (as above)
     get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
     return type;
 }
@@ -408,11 +409,11 @@ const char* Hub::get_game_type_name()
     uint32_t type = 0;
     uint32_t mode = 0;
     for (int i = 0; i < ints::as_signed(modes->extent_); ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(modes->fetch_part(i));
+        auto* entry = modes->struct_at(i);
         get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
         entry->read_hash_value(kChecksum, &mode, 0);
         if (type == mode) {
-            const char* name = reinterpret_cast<const char*>(type);
+            const char* name = cell::pointer<const char>(type);
             entry->fetch_text(kName, &name, 1);
             return name;
         }

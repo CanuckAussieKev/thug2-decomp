@@ -8,6 +8,7 @@
 #include "game/park_editing/park.h"
 #include "engine/net/net_app.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/pointer_cell.h"
 
 namespace online {
 
@@ -30,7 +31,7 @@ constexpr const char* kPortedLevelLists[] = {
 script::Struct* find_level(script::Array* levels, uint32_t level, uint32_t& entry_level)
 {
     for (uint32_t i = 0; i < levels->extent_; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(levels->fetch_part(i));
+        auto* entry = levels->struct_at(i);
         entry->read_hash_value(kLevel, &entry_level, 0);
         if (entry_level == level)
             return entry;
@@ -44,7 +45,7 @@ script::Struct* find_level(script::Array* levels, uint32_t level, uint32_t& entr
 const char* Hub::get_map_name(bool park_name)
 {
     // (like the original, THUG2's own list is taken to exist)
-    auto entry_level = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(this));
+    auto entry_level = static_cast<uint32_t>(cell::address(this));
     script::Struct* entry = find_level(script::fetch_list(kLevelSelectMenuLevelInfo), level_, entry_level);
     for (const char* list : kPortedLevelLists) {
         if (entry)

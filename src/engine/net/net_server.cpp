@@ -10,6 +10,7 @@
 #include "engine/net/net_access_c.h"
 #include "platform/stopwatch.h"
 #include "engine/net/net_client.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -53,7 +54,7 @@ void HostEnd::pull_inbound()
     int received = 0;
     do {
         char* buffer = receive_buffer_;
-        received = recvfrom(sock_, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &from_length);
+        received = recvfrom(sock_, buffer, kReceiveBufferSize, 0, raw::as<sockaddr>(&from), &from_length);
         if (received < 0) {
             WSAGetLastError();
             return;
@@ -70,7 +71,7 @@ void HostEnd::pull_inbound()
                     conn->last_heard_from_ = frame_clock::get_time();
                 } else if (auto handler = unknown_packet_sink_) {
                     // (given the connection's read pointer, not the packet - as in the original)
-                    handler(read_ptr, received, reinterpret_cast<sockaddr*>(&from));
+                    handler(read_ptr, received, raw::as<sockaddr>(&from));
                 }
             }
         } else if (Conn* fresh = net::opened_link(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
@@ -80,7 +81,7 @@ void HostEnd::pull_inbound()
                 mark_new_connection(fresh);
             } else {
                 if (auto handler = unknown_packet_sink_)
-                    handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
+                    handler(buffer, received, raw::as<sockaddr>(&from));
                 destroy_conn(fresh);
                 memory::Hub::get_pull()->dealloc(fresh);
             }
@@ -212,7 +213,7 @@ int HostEnd::on_clock_sync_msg(InboundMsgCtx* context)
     if (context->wire_options_ & kPacketForeign)
         return kResultConsumed;
     // (no bounds check: more than 32 timestamps in a packet would overrun the list)
-    context->sequences_to_ack_[context->num_sequences_to_ack_] = *reinterpret_cast<uint16_t*>(context->body_);
+    context->sequences_to_ack_[context->num_sequences_to_ack_] = *raw::as<uint16_t>(context->body_);
     ++context->num_sequences_to_ack_;
     return kResultPassOn;
 }

@@ -3,7 +3,7 @@
 // client sends the server (start the game, change the level, toggle a pro set flag or a goal).
 
 #include <cstdint>
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 
 #include "engine/core/arena_alloc.h"
 #include "engine/net/gamespy.h"
@@ -37,6 +37,7 @@
 #include "engine/sys/mlp.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/pointer_cell.h"
 
 namespace online {
 
@@ -348,7 +349,7 @@ bool cfunc_found_servers(Struct*, Script*)
     const memory::ListNode* node = net_link()->servers_.next; // (the list's first node)
     int count = 0;
     // (the head's mark tested before a null node, as in the original)
-    while (reinterpret_cast<intptr_t>(node->data) != -1 && node) {
+    while (static_cast<intptr_t>(cell::address(node->data)) != -1 && node) {
         node = node->next;
         ++count;
     }

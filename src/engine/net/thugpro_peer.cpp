@@ -24,7 +24,7 @@
 #include "game/skate/skate_net.h"
 #include "platform/platform_config.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "platform/run_log.h"
 #include "engine/gfx/engine_glue.h"
 #include "game/skate/skate_module.h"
@@ -45,6 +45,8 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace script {
 class Struct;
@@ -354,15 +356,15 @@ public:
     }
     void kill_prefix(const char* prefix) override
     {
-        object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kPrefix, prefix, 0);
+        object_command(&commands::cfunc_kill, kPrefix, prefix, 0);
     }
     void create_prefix(const char* prefix) override
     {
-        object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_create)), kPrefix, prefix, 0);
+        object_command(&commands::cfunc_create, kPrefix, prefix, 0);
     }
     void kill_name(uint32_t name) override
     {
-        object_command(reinterpret_cast<uint32_t>(code_address(commands::cfunc_kill)), kName, nullptr, name);
+        object_command(&commands::cfunc_kill, kName, nullptr, name);
     }
 
 private:
@@ -380,7 +382,8 @@ private:
     }
     // The script commands Kill (0x005A5030) and Create (0x005A4FF0) - prefix= or name= - run from a spawned
     // NullScript (Kill reads its script's object for some classes: it needs a real script).
-    static void object_command(uint32_t command, uint32_t key, const char* text, uint32_t checksum)
+    static void object_command(bool (*command)(script::Struct*, script::Script*), uint32_t key, const char* text,
+                               uint32_t checksum)
     {
         if (!script::script_exists(kNullScript)) {
             get_log("thugpro: no NullScript - pro sets not changed");
@@ -395,7 +398,7 @@ private:
             params->append_word(key, text);
         else
             params->put_name_key(key, checksum);
-        reinterpret_cast<bool (*)(script::Struct*, script::Script*)>(command)(params, script);
+        command(params, script);
         delete_params(params);
         script::kill_spawned_script(script);
     }
@@ -404,7 +407,7 @@ private:
 // The level structure being played: its `level` (the skate module's +0x380: the structure's name).
 const char* current_level_prefix()
 {
-    auto* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    auto* skate = raw::bytes(modules::g_skate_module);
     if (!skate)
         return nullptr;
     script::Struct* structure = script::read_sub_struct(modules::g_skate_module->level_params_);
@@ -564,7 +567,7 @@ int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) ||
-        !decode_server_info(reinterpret_cast<const uint8_t*>(context->body_), context->body_size_, &info))
+        !decode_server_info(raw::bytes(context->body_), context->body_size_, &info))
         return 1;
     g_session.have = true;
     g_session.applied = false;

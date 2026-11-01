@@ -21,7 +21,7 @@
 #include "game/skate/profile_manager.h"
 #include "game/park_editing/rail_editor.h"
 #include "game/park_editing/goal_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/park_editing/park.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -269,7 +269,7 @@ int handle_rails_data(net::InboundMsgCtx* context)
         return kContinue;
     }
     net::NetMessageInfo desc;
-    if (reinterpret_cast<modules::Skate*>(skate)->level_ == kLoadMainMenu) {
+    if (skate->level_ == kLoadMainMenu) {
         cancel_join(manager, true);
         return kKeep;
     }

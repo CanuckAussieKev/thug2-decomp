@@ -15,11 +15,13 @@
 #include "engine/net/player_info.h"
 #include "engine/script/cscript.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/skate/skate_module.h"
 #include "game/skate/game_mode.h"
 #include "game/rider/rider.h"
 #include "engine/objects/entity.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 class Entity;
@@ -41,17 +43,17 @@ constexpr uint8_t kGroupGame = 8; // the sequenced group of the game's messages
 template <typename T>
 T& prop(const void* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(object) + offset);
+    return *cell::pointer<T>(cell::address(object) + offset);
 }
 
 inline Hub* manager_of(net::InboundMsgCtx* context) { return static_cast<Hub*>(context->content_); }
 inline const uint8_t* get_message(net::InboundMsgCtx* context)
 {
-    return reinterpret_cast<const uint8_t*>(context->body_);
+    return raw::bytes(context->body_);
 }
 inline uint32_t message_word(net::InboundMsgCtx* context, uint32_t offset)
 {
-    return *reinterpret_cast<const uint32_t*>(context->body_ + offset);
+    return *raw::as<const uint32_t>(context->body_ + offset);
 }
 inline void get_run(uint32_t name, script::Struct* params = nullptr, objects::Entity* object = nullptr)
 {

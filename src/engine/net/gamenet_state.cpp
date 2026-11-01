@@ -13,6 +13,8 @@
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
 #include "game/park_editing/goal_editor.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -63,7 +65,7 @@ constexpr uint32_t kNetCtf = 0x6C5FF266;            // netctf
 uint32_t preference_checksum(Hub* manager, uint32_t name)
 {
     script::Struct* preference = manager->get_online_settings()->fetch_setting(name);
-    auto value = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(manager));
+    auto value = static_cast<uint32_t>(cell::address(manager));
     preference->read_hash_value(kChecksum, &value, 1);
     return value;
 }
@@ -172,8 +174,8 @@ void Hub::scan_local_network()
 }
 
 // 0x00532F70 / 0x00532F80
-prefs::Preferences* Hub::get_online_settings() { return reinterpret_cast<prefs::Preferences*>(net_options_); }
-prefs::Preferences* Hub::get_taunt_settings() { return reinterpret_cast<prefs::Preferences*>(taunt_options_); }
+prefs::Preferences* Hub::get_online_settings() { return raw::as<prefs::Preferences>(net_options_); }
+prefs::Preferences* Hub::get_taunt_settings() { return raw::as<prefs::Preferences>(taunt_options_); }
 
 // 0x00532F90
 void Hub::set_start_info_words(const uint32_t* words) { std::memcpy(start_points_, words, 8 * sizeof(uint32_t)); }

@@ -13,6 +13,8 @@
 #include "engine/net/net_app_messages.h"
 #include "engine/net/net_guards.h"
 #include "formats/byte_stream.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -39,11 +41,11 @@ void Router::prepare_all()
     for (int id = 0; id < kNumMessageIds; ++id) {
         const memory::ListNode* node = link_chain(id).list_link_.next;
         // (the head check comes before the null check)
-        if (node->data == reinterpret_cast<void*>(-1) || !node)
+        if (node->data == memory::ListNode::head_marker() || !node)
             continue;
         do {
             const memory::ListNode* next = node->next;
-            if (next->data == reinterpret_cast<void*>(-1))
+            if (next->data == memory::ListNode::head_marker())
                 next = nullptr;
             static_cast<NoteHandler*>(node->data)->teardown(1); // (the handler is its node)
             node = next;
@@ -77,7 +79,7 @@ NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t
         handler->mode_bits_ = flags;
     }
     // (a failed allocation reaches append_vertex as null and crashes there, as in the original)
-    link_chain(id).append_vertex(reinterpret_cast<memory::ListNode*>(handler));
+    link_chain(id).append_vertex(raw::as<memory::ListNode>(handler));
     memory::Hub::get_pull()->leave_heap_scope();
     return handler;
 }
@@ -140,7 +142,7 @@ int Router::invoke_handlers_for_msg(Conn* conn, uint32_t flags)
             if (!packet.ok() || context.body_size_ > packet.remaining())
                 break;
         } // (else the length stays what the previous message had)
-        const char* p = reinterpret_cast<const char*>(packet.cursor());
+        const char* p = raw::chars(packet.cursor());
         if (context.type_code_ == kMsgSequenced) // counted by the message inside
             add_message_metric(metrics, static_cast<uint8_t>(p[5]), context.body_size_);
         if (has_length) {

@@ -25,11 +25,13 @@
 #include "engine/script/struct_buffer.h"
 #include "platform/stopwatch.h"
 #include "game/save_cards/save_types.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -114,7 +116,7 @@ const char* game_spy_unique_id() { return game_spy::get_unique_id(); }
 // 0x005A8EB0: a downloaded item (`size` bytes) loaded from `buffer` by the type's script.
 void load_downloaded_item(char* buffer, size_t size, uint32_t script)
 {
-    save_cards::keep_loaded_contents(reinterpret_cast<const uint8_t*>(buffer), size, script);
+    save_cards::keep_loaded_contents(raw::bytes(buffer), size, script);
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).
@@ -163,7 +165,7 @@ void prepend(memory::ListNode* head, memory::ListNode* node)
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 
 // The next field of a list line: the text up to the next ':' (which is cut there), and `*rest` moved past it.
@@ -522,8 +524,8 @@ unsigned long __stdcall VaultMan::list_thread(void* param)
     vault->octets_ = buffer;
     std::memset(buffer, 0, kListBufferSize);
     vault->req_ = ghttp_get_ex(vault->url_, nullptr, vault->octets_, kListBufferSize, nullptr, 0, 0,
-                               reinterpret_cast<const void*>(&on_progress),
-                               reinterpret_cast<const void*>(&on_transfer_done), vault);
+                               code_address(&on_progress),
+                               code_address(&on_transfer_done), vault);
     pop_heap();
     get_release(vault->semaphore_);
     return 0;
@@ -540,7 +542,7 @@ unsigned long __stdcall VaultMan::download_thread(void* url)
     auto* buffer = static_cast<char*>(memory::alloc(size));
     vault->octets_ = buffer;
     const int request = ghttp_get_ex(static_cast<const char*>(url), nullptr, buffer, size, nullptr, 0, 0,
-                                     reinterpret_cast<const void*>(&on_progress), vault->callback_, vault);
+                                     code_address(&on_progress), vault->callback_, vault);
     manager->vault_man_->req_ = request;
     pop_heap();
     get_release(manager->vault_man_->semaphore_);
@@ -567,7 +569,7 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
     auto write_data = [&]() {
         size = script::measure_buffer_bytes(vault->content_, kListBufferSize);
         buffer = static_cast<char*>(memory::alloc(size));
-        script::emit_into_buffer(vault->content_, reinterpret_cast<uint8_t*>(buffer), size, 1, nullptr);
+        script::emit_into_buffer(vault->content_, raw::bytes(buffer), size, 1, nullptr);
         const uint32_t checksum = checksums::generate_crc_caseless(buffer, static_cast<int>(size));
         text_tools::dup_from(file_name, vault->source_path_);
         return checksum;
@@ -623,8 +625,8 @@ unsigned long __stdcall VaultMan::upload_thread(void* param)
         ghttp_post_add_string(post, "filetype", file_type);
     ghttp_post_add_string(post, "dblog", "1");
     vault->req_ = ghttp_post_ex("http://www.thugonline.com/cgi-bin/upload2.pl", nullptr, post, 0, 0,
-                                reinterpret_cast<const void*>(&on_progress),
-                                reinterpret_cast<const void*>(&on_transfer_done), vault);
+                                code_address(&on_progress),
+                                code_address(&on_transfer_done), vault);
     pop_heap();
     get_release(vault->semaphore_);
     return 0;
@@ -699,7 +701,7 @@ bool download_file(script::Struct* params, script::Script*)
     request.buffer_size_ = kDownloadFileSize;
     // (the original uses the URL as sprintf's format)
     std::snprintf(request.url, sizeof(request.url), "%s", file);
-    request.callback = reinterpret_cast<const void*>(&VaultMan::on_file_downloaded);
+    request.callback = code_address(&VaultMan::on_file_downloaded);
     get_vault()->download(&request);
     return true;
 }
@@ -850,12 +852,12 @@ void move_category(script::Script* script, bool forward)
     VaultMan* vault = get_vault();
     memory::ListNode*& node = vault->search_.list_link_;
     memory::ListNode* step = forward ? node->next : node->prev;
-    node = step->data == reinterpret_cast<void*>(-1) ? nullptr : step;
+    node = step->data == memory::ListNode::head_marker() ? nullptr : step;
     vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
     if (!vault->category_) {
         node = &vault->categories_;
         step = forward ? node->next : node->prev;
-        node = step->data == reinterpret_cast<void*>(-1) ? nullptr : step;
+        node = step->data == memory::ListNode::head_marker() ? nullptr : step;
         vault->category_ = node ? static_cast<VaultCategory*>(node->data) : nullptr;
     }
     script->args_->append_word("category", vault->category_->label_);

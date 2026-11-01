@@ -21,6 +21,8 @@
 #include "engine/net/net_app_messages.h"
 #include "engine/net/net_dispatcher.h"
 #include "engine/net/net_messages.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -157,20 +159,20 @@ bool AppHost::get_bind(uint32_t /*address*/, uint16_t port)
     // INADDR_ANY already either way.)
     if (static_cast<Hub*>(supervisor_)->get_net_link_kind() != Hub::kConnectionModem)
         local.sin_addr.s_addr = INADDR_ANY;
-    if (bind(sock_, reinterpret_cast<sockaddr*>(&local), sizeof(local)) < 0) {
+    if (bind(sock_, raw::as<sockaddr>(&local), sizeof(local)) < 0) {
         if (WSAGetLastError() != WSAEADDRINUSE) {
             raise_fault();
             return false;
         }
         raise_fault();
         local.sin_port = htons(0);
-        if (bind(sock_, reinterpret_cast<sockaddr*>(&local), sizeof(local)) < 0) {
+        if (bind(sock_, raw::as<sockaddr>(&local), sizeof(local)) < 0) {
             raise_fault();
             return false;
         }
     }
     int length = sizeof(sockaddr_in);
-    if (getsockname(sock_, reinterpret_cast<sockaddr*>(local_address_), &length) < 0) {
+    if (getsockname(sock_, raw::as<sockaddr>(local_address_), &length) < 0) {
         raise_fault();
         return false;
     }
@@ -197,10 +199,10 @@ bool AppHost::transmit_to(uint32_t ip, uint16_t port, const uint8_t* data, int l
     int result = 0;
     if (flag_bits_ & kSecure) {
         encrypt(data, scrambled_, length, &length);
-        result = sendto(sock_, reinterpret_cast<const char*>(scrambled_), length, flags,
-                        reinterpret_cast<sockaddr*>(&to), sizeof(to));
+        result = sendto(sock_, raw::chars(scrambled_), length, flags,
+                        raw::as<sockaddr>(&to), sizeof(to));
     } else {
-        result = sendto(sock_, reinterpret_cast<const char*>(data), length, flags, reinterpret_cast<sockaddr*>(&to),
+        result = sendto(sock_, raw::chars(data), length, flags, raw::as<sockaddr>(&to),
                         sizeof(to));
     }
     if (result == SOCKET_ERROR) {
@@ -218,9 +220,9 @@ bool AppHost::post_out(const uint8_t* data, int length, int flags)
         return false;
     if (flag_bits_ & kSecure) {
         encrypt(data, scrambled_, length, &length);
-        return send(sock_, reinterpret_cast<const char*>(scrambled_), length, flags) != SOCKET_ERROR;
+        return send(sock_, raw::chars(scrambled_), length, flags) != SOCKET_ERROR;
     }
-    return send(sock_, reinterpret_cast<const char*>(data), length, flags) != SOCKET_ERROR;
+    return send(sock_, raw::chars(data), length, flags) != SOCKET_ERROR;
 }
 
 // 0x00457110
@@ -239,7 +241,7 @@ bool AppHost::prepare_all()
             raise_fault();
             return false;
         }
-        if ((flag_bits_ & kBroadcast) && setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, reinterpret_cast<const char*>(&on),
+        if ((flag_bits_ & kBroadcast) && setsockopt(sock_, SOL_SOCKET, SO_BROADCAST, raw::chars(&on),
                                                     sizeof(on)) == SOCKET_ERROR) {
             raise_fault();
             return false;
@@ -286,7 +288,7 @@ void AppHost::sever_link(Conn* conn)
 Conn* AppHost::step_conn_walk(ConnSearch* search)
 {
     memory::ListNode* next = search->list_link_->next;
-    search->list_link_ = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    search->list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
     return search->list_link_ ? static_cast<Conn*>(search->list_link_->data) : nullptr;
 }
 
@@ -455,10 +457,10 @@ void AppHost::free_messages(Conn* conn, int queue, uint8_t id)
     // The link's message (each queue's link type keeps it at its own place).
     auto message_of = [queue](TimedMsgNode* link) -> void* {
         if (queue == 0)
-            return reinterpret_cast<MsgNormalLink*>(link)->shared_msg_;
+            return raw::as<MsgNormalLink>(link)->shared_msg_;
         if (queue == 1)
-            return reinterpret_cast<ReliableMsgNode*>(link)->shared_msg_;
-        return reinterpret_cast<OrderedMsgNode*>(link)->shared_msg_;
+            return raw::as<ReliableMsgNode>(link)->shared_msg_;
+        return raw::as<OrderedMsgNode>(link)->shared_msg_;
     };
     lists::Hunt<TimedMsgNode> search;
     for (TimedMsgNode *link = search.head_element(list), *next = nullptr; link; link = next) {

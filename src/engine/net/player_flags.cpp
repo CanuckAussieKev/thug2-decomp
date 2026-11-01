@@ -14,7 +14,7 @@
 #include "engine/script/param_struct.h"
 #include "game/rider/rider.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
 #include "game/goals/goal_ped.h"
@@ -32,6 +32,7 @@
 #include "game/rider/skater_score.h"
 #include "game/rider/state_history.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf, kept)
 
@@ -109,7 +110,7 @@ bool PlayerRecord::is_invulnerable()
     if (frame_clock::get_time() - join_time_ < kJoinSettleTime)
         return true;
     if (get_game_type() == kNetFirefight) {
-        auto* skater = reinterpret_cast<objects::GameEntity*>(skater_);
+        auto* skater = raw::as<objects::GameEntity>(skater_);
         if (static_cast<modules::PointTally*>(
                 static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_)
                 ->get_total_score() <= 0)

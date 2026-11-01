@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <initializer_list>
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/engine_texture.h"
 #include "engine/gfx/d3dx.h"
 #include "platform/compiler.h"
@@ -58,6 +58,10 @@ THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strcat: the original's own copie
 #include "engine/net/stats_man.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/bits_as.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -86,7 +90,7 @@ const char* const kStringSlot = "%s0"; // "%s0"
 memory::ListNode* player_list(Hub* manager) { return &manager->players_; }
 memory::ListNode* new_player_list(Hub* manager) { return &manager->joiners_; }
 memory::ListNode* queued_script_list(Hub* manager) { return &manager->queued_scripts_; }
-bool is_head(const memory::ListNode* node) { return reinterpret_cast<intptr_t>(node->data) == -1; }
+bool is_head(const memory::ListNode* node) { return static_cast<intptr_t>(cell::address(node->data)) == -1; }
 // The node after `node`; null at the list's end (the head).
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 template <typename T>
@@ -264,7 +268,7 @@ JoinerRecord* Hub::step_joiner_walk(NewPlayerSearch* search)
 {
     NewPlayerSearch* s = search;
     memory::ListNode* next = s->list_link_->next;
-    s->list_link_ = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    s->list_link_ = next->data == memory::ListNode::head_marker() ? nullptr : next;
     return s->list_link_ ? static_cast<JoinerRecord*>(next->data) : nullptr;
 }
 
@@ -283,7 +287,7 @@ JoinerRecord* Hub::fetch_incoming_player_by_obj(uint16_t id)
 // 0x00537140
 void Hub::set_ready_state(bool ready)
 {
-    if (static_cast<uint8_t>(ready) == *reinterpret_cast<uint8_t*>(&cleared_to_start_))
+    if (static_cast<uint8_t>(ready) == *raw::bytes(&cleared_to_start_))
         return;
     cleared_to_start_ = ready;
     modules::Skate* skate = modules::g_skate_module;
@@ -329,7 +333,7 @@ void Hub::clear_roster()
         player->accumulated_score_ = 0;
         player->eliminated_time_ = 0;
         player->num_placed_ = 0;
-        auto* skater = reinterpret_cast<objects::GameEntity*>(player_skater(player));
+        auto* skater = raw::as<objects::GameEntity>(player_skater(player));
         if (skater) {
             // (not checked for null, as in the original)
             auto* score = static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore));
@@ -446,7 +450,7 @@ void Hub::launch_queued_scripts()
         auto* next = data_of<PendingScriptItem>(node);
         script::Script* script = script::spawn_script(queued->own_script_, nullptr, 0, nullptr, queued->list_link_, 0,
                                                       false, false, false, false);
-        objects::Entity* object = reinterpret_cast<objects::ObjectHubBase*&>(objects::g_composite_registry)
+        objects::Entity* object = memory::bits_as<objects::ObjectHubBase*>(objects::g_composite_registry)
                                       ->look_up_entity(queued->entity_key_);
         script->entity_.assign_value(object);
         while (script->tick_frame() != script::kScriptOutcomeFinished) {
@@ -799,8 +803,7 @@ void carried_flags_task(tasks::Task<Hub>*)
         if (!flag)
             return;
         auto* skater = static_cast<objects::GameEntity*>(player_skater(player));
-        auto* skeleton = reinterpret_cast<gfx::Rig*>(
-            static_cast<objects::BoneRigModule*>(skater->fetch_module(kSkeleton))->bone_rig_);
+        auto* skeleton = raw::as<gfx::Rig>(static_cast<objects::BoneRigModule*>(skater->fetch_module(kSkeleton))->bone_rig_);
         maths::Mat4* matrix = &flag->basis_frame_;
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
         maths::Mat4 turn{};
@@ -812,9 +815,9 @@ void carried_flags_task(tasks::Task<Hub>*)
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
         maths::Vec4 moved{};
         const maths::Vec4& out = skater_matrix->xform(moved, offset);
-        auto* position = reinterpret_cast<float*>(&flag->at_point_);
+        auto* position = raw::as<float>(&flag->at_point_);
         std::memcpy(position, &out, 16);
-        const auto* skater_position = reinterpret_cast<const float*>(&skater->at_point_);
+        const auto* skater_position = raw::as<const float>(&skater->at_point_);
         for (int i = 0; i < 4; ++i)
             position[i] = skater_position[i] + position[i];
     }

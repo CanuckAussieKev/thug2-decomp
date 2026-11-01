@@ -27,7 +27,7 @@
 #include "engine/script/preferences.h"
 #include "engine/script/param_struct.h"
 #include "platform/stopwatch.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -42,6 +42,7 @@
 #include "engine/net/server_list.h"
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -123,7 +124,7 @@ constexpr uint32_t kNewPlayerLocal = 1;
 constexpr uint32_t kNewPlayerObserver = 4;
 
 tasks::PileUp* get_logic_tasks() { return (&assets::g_main_loop_manager->logic_tasks_); }
-prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
+prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_); }
 // The preferences of the game being set up: the network game's, else the skate module's (split screen, 0x00564D80).
 prefs::Preferences* game_preferences(Hub* m)
 {
@@ -323,7 +324,7 @@ void Hub::join_progress_tick(tasks::Task<Hub>* task)
         }
         if (info && (info->flag_bits_ & kNewPlayerObserver)) { // the local player joined to observe
             get_skate()->drop_skater_from_roster(
-                reinterpret_cast<modules::Skate*>(get_skate())->get_home_rider()); // the local skater removed
+                get_skate()->get_home_rider()); // the local skater removed
             manager->spectate_player(nullptr);
         }
         get_run(kEnteredNetworkGame);
@@ -439,7 +440,7 @@ void Hub::connection_task(tasks::Task<Hub>* task)
     if (!conn || !(manager->join_phase_ == 8 || manager->join_phase_ == 7 || manager->join_phase_ == 6) ||
         conn->get_silence_duration() <= kSilentTimeout)
         return;
-    if (reinterpret_cast<modules::Skate*>(skate)->level_ == kLoadMainMenu) {
+    if (skate->level_ == kLoadMainMenu) {
         get_run(kShowJoinTimeoutNotice);
         manager->join_phase_job_->drop_out();
         manager->join_phase_ = 10;

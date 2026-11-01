@@ -2,7 +2,7 @@
 // starting and ending a network game, teams, the host, readiness, and the player list menu with its options dialog.
 
 #include <cstdint>
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include <cstring>
 
 #include "engine/core/manager.h"
@@ -42,6 +42,7 @@
 #include "engine/net/score_list.h"
 #include "engine/net/stats_man.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/pointer_cell.h"
 
 namespace online {
 
@@ -114,7 +115,7 @@ uint32_t& last_team_request() { return g_last_team_request; }
 uint32_t& net_game_start_time() { return g_net_game_start_time; }
 uint8_t& game_reported() { return g_game_reported; } // GameSpy told a game is on
 
-bool is_head(const memory::ListNode* node) { return reinterpret_cast<intptr_t>(node->data) == -1; }
+bool is_head(const memory::ListNode* node) { return static_cast<intptr_t>(cell::address(node->data)) == -1; }
 memory::ListNode* get_next_node(const memory::ListNode* node) { return is_head(node->next) ? nullptr : node->next; }
 PlayerRecord* data_of(const memory::ListNode* node) { return node ? static_cast<PlayerRecord*>(node->data) : nullptr; }
 memory::ListNode* first_player_node(Hub* manager) { return get_next_node(&manager->players_); }
@@ -207,7 +208,7 @@ bool cfunc_spawn_crown(Struct*, Script*)
     level_nodes::fetch_place(node, &position);
     manager->crown_->init_from_node(objects::g_composite_registry, node);
     if (auto* king = manager->get_hill_ruler())
-        manager->crown_->put_on(reinterpret_cast<objects::GameEntity*>(player_skater(king)));
+        manager->crown_->put_on(static_cast<objects::GameEntity*>(player_skater(king)));
     return true;
 }
 
@@ -248,7 +249,7 @@ bool cfunc_start_network_game(Struct*, Script*)
         net::AppHost* server = manager->host_;
         buffer[0] = 1;
         uint8_t* end = buffer + 1;
-        const int count = reinterpret_cast<goals::GoalManager*>(goals)
+        const int count = goals
                               ->goals_.num_; // (its first word, read by the getter folded at 0x00469490)
         for (int i = 0; i < count; ++i) {
             goals::Objective* goal = static_cast<goals::GoalManager*>(goals)->get_objective_at(i);
@@ -339,10 +340,10 @@ bool cfunc_set_num_teams(Struct* params, Script*)
         get_game_mode()->set_num_teams(teams);
     } else {
         get_game_mode()->set_num_teams(teams);
-        if (reinterpret_cast<modules::Skate*>(skate)->get_home_rider()) { // the local skater
-            get_run(kPrepareSkaterForMove, nullptr, reinterpret_cast<modules::Skate*>(skate)->get_home_rider());
+        if (skate->get_home_rider()) { // the local skater
+            get_run(kPrepareSkaterForMove, nullptr, skate->get_home_rider());
             static_cast<modules::Skate*>(skate)->teleport_to_spawn(
-                reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
+                skate->get_home_rider(), 0, 0);
         }
     }
     net::AppHost* server = manager->host_;

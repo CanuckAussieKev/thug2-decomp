@@ -55,6 +55,7 @@
 #include "engine/net/score_list.h"
 #include "platform/crt.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy / strncpy: the original's own copies into its fixed fields)
 
@@ -169,7 +170,7 @@ int32_t get_rating(Hub* m)
 }
 bool match_underway(Hub* m) { return active_ruleset_label() != kNetLobby && !m->match_ended_; }
 
-prefs::Preferences* net_game_options(Hub* m) { return reinterpret_cast<prefs::Preferences*>(m->net_options_); }
+prefs::Preferences* net_game_options(Hub* m) { return raw::as<prefs::Preferences>(m->net_options_); }
 const char* preference_text(Hub* m, uint32_t name)
 {
     const char* text = nullptr;
@@ -669,7 +670,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
 {
     Conn* conn = context->sender_conn_;
     auto* manager = static_cast<Hub*>(context->content_);
-    void* skate = reinterpret_cast<void*>(modules::g_skate_module);
+    void* skate = raw::as<void>(modules::g_skate_module);
     context->acknowledge_ = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body_, context->body_size_);

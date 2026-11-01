@@ -11,6 +11,7 @@
 #include "formats/byte_stream.h"
 #include "platform/platform_config.h"
 #include "platform/run_log.h"
+#include "engine/core/pointer_cell.h"
 
 namespace online::thugpro {
 
@@ -99,7 +100,7 @@ uint32_t refused_reason_text(int reason)
         script::SymbolTableEntry* symbol = script::create_symbol(text.name);
         symbol->type = script::kQbvalString;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-        symbol->raw = reinterpret_cast<uint32_t>(script::spawn_text(text.words));
+        symbol->raw = cell::of(script::spawn_text(text.words));
     }
     get_log("THUGPRO join refused (TP-R13): reason %d - %s", reason, text.words);
     return text.name;

@@ -21,7 +21,7 @@
 #include "engine/net/vault_man.h"
 #include "engine/script/preferences.h"
 #include "platform/crt.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -37,6 +37,7 @@
 #include "engine/net/score_list.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/owner.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -93,7 +94,7 @@ Hub::Hub()
     host_mode_ = 0;
     service_state_ = 2;
     next_service_state_ = 2;
-    reinterpret_cast<prefs::Preferences*>(net_options_)->read_in(kNetSettingsKey);
+    raw::as<prefs::Preferences>(net_options_)->read_in(kNetSettingsKey);
     taunts->read_in(kTauntSettingsKey);
     connection_job_ = new_task(this, &Hub::connection_task, -2000);
     metrics_job_ = new_task(this, &net_metrics_task, 0);

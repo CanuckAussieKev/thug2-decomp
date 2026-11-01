@@ -48,7 +48,7 @@ bool game_mode_exists(uint32_t mode)
     if (!modes)
         return false;
     for (uint32_t i = 0; i < modes->extent_; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(modes->fetch_part(i));
+        auto* entry = modes->struct_at(i);
         uint32_t checksum = 0;
         if (entry && entry->read_hash_value(kChecksum, &checksum, 0) && checksum == mode)
             return true;

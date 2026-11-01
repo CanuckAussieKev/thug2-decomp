@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -31,7 +32,7 @@ struct SeqQueuedMsg {
     // 0x00455040: as PendingMsg's, with the +0x08 byte.
     SeqQueuedMsg(uint8_t id, uint16_t length, const void* data, uint8_t byte8, uint8_t compression);
     // (0x004550F0: PendingMsg's destructor - the data is at the same place)
-    ~SeqQueuedMsg() { reinterpret_cast<PendingMsg*>(this)->~PendingMsg(); }
+    ~SeqQueuedMsg() { raw::as<PendingMsg>(this)->~PendingMsg(); }
     SeqQueuedMsg(const SeqQueuedMsg&) = delete;
     SeqQueuedMsg& operator=(const SeqQueuedMsg&) = delete;
 

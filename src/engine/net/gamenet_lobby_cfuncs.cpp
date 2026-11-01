@@ -16,7 +16,7 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/net_app.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "engine/core/stubs.h"
 #include "game/goals/objective.h"
@@ -34,6 +34,8 @@
 #include "engine/net/stats_man.h"
 #include "platform/crt.h"
 #include "engine/sys/mlp.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -85,21 +87,21 @@ bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
     auto* lobby = manager->lobby_service_.get();
     params->fetch_text(0u, &address, 0);
     params->fetch_int_value(0u, &port, 0);
-    params->read_hash_value(kCookie, reinterpret_cast<uint32_t*>(&lobby->nat_cookie_), 0);
+    params->read_hash_value(kCookie, raw::as<uint32_t>(&lobby->nat_cookie_), 0);
     net::AppHost* client = manager->start_client_session(false, false, true, 0);
     game_spy::peer_send_nat_negotiate_cookie(lobby->remote_, static_cast<uint32_t>(inet_addr(address)), port,
                                              lobby->nat_cookie_); // the cookie to the host
     const int error = game_spy::nat_begin_with_socket(
         client->get_socket(), lobby->nat_cookie_, kClientNatIndex,
         code_address(stubs::do_nothing) /* no progress callback */, &RoomManager::nat_negotiation_completed,
-        reinterpret_cast<void*>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
+        cell::pointer<void>(static_cast<intptr_t>(lobby->nat_cookie_))); // negotiation on the client's socket
     if (error) {
         nat_free_negotiations();
         pop_heap();
         return false;
     }
     tasks->queue_job(lobby->nat_task_.get());
-    client->set_outside_packet_hook(reinterpret_cast<net::UnknownPacketCallback>(&RoomManager::queue_packet));
+    client->set_outside_packet_hook([](char* data, int size, sockaddr* from) { RoomManager::queue_packet(data, size, from); });
     tasks->queue_job(lobby->hosting_task_.get());
     for (int i = 0; i < queued_count(); ++i)
         crt::dealloc(get_queue()[i].data); // (the game's C runtime free)

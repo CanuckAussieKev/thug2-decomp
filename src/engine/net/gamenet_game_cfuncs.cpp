@@ -19,7 +19,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/mlp.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -39,6 +39,7 @@
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (strcpy: the original's copy of the player's name)
 
@@ -152,7 +153,7 @@ bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
         return true;
     int team = capturer->get_flag_team(); // the flag it carries
     send_flag_message(manager, kMsgCapturedFlag, player, team, [&] {
-        auto* skater = reinterpret_cast<objects::GameEntity*>(player_skater(capturer));
+        auto* skater = raw::as<objects::GameEntity>(player_skater(capturer));
         modules::PointTally* score =
             static_cast<objects::RiderPointKeeper*>(skater->fetch_module(kSkaterScore))->points_held_;
         score->set_grand_total(score->get_total_score() + 1); // its captures

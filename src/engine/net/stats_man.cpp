@@ -32,6 +32,9 @@
 #include "engine/assets/resource_registry.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/parse_number.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
+#include "platform/code_address.h"
 
 namespace online {
 
@@ -136,7 +139,7 @@ void get_append(memory::ListNode* head, memory::ListNode* node)
 memory::ListNode* get_next_node(memory::ListNode* node)
 {
     memory::ListNode* next = node->next;
-    return next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+    return next->data == memory::ListNode::head_marker() ? nullptr : next;
 }
 // Delete every item of a list (each one's next fetched first; the item's scalar deleting destructor, flag 1).
 template <typename Item>
@@ -152,7 +155,7 @@ void delete_all(memory::ListNode* head)
 int total_of(const memory::ListNode* head)
 {
     int count = 0;
-    for (const memory::ListNode* node = head->next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = head->next; node->data != memory::ListNode::head_marker() && node;
          node = node->next)
         ++count;
     return count;
@@ -181,7 +184,7 @@ struct SortedList {
     SortedList& operator=(const SortedList&) = delete;
     memory::ListNode head{};
     SortedList() { head.make_head(); }
-    void append_one(SortEntry* entry) { reinterpret_cast<lists::Foremost*>(&head)->append_vertex(&entry->list_link_); }
+    void append_one(SortEntry* entry) { raw::as<lists::Foremost>(&head)->append_vertex(&entry->list_link_); }
     ~SortedList()
     {
         delete_all<SortEntry>(&head);
@@ -501,7 +504,7 @@ void RankingsManager::raise_tallies(bool final)
     push_bottom_up();
     for (const PlayerRecord* player = detail::start_roster_sweep(manager, &search, false); player;
          player = detail::step_roster_sweep(manager, &search, false)) {
-        auto* skater = reinterpret_cast<objects::GameEntity*>(detail::player_skater(player));
+        auto* skater = static_cast<objects::GameEntity*>(detail::player_skater(player));
         skater->fetch_module(0xD262802F); // (unused)
         const int id = static_cast<int>(detail::get_skater_id(skater));
         set_player_int(game_, "score", player_points(manager, id), id);
@@ -737,7 +740,7 @@ const char* RankingsManager::get_level_name(uint32_t level)
     // the level asked for)
     uint32_t found = level;
     for (uint32_t i = 0; i < levels->extent_; ++i) {
-        auto* entry = reinterpret_cast<script::Struct*>(levels->fetch_part(i));
+        auto* entry = levels->struct_at(i);
         entry->read_hash_value(0x651533ECu, &found, 0);
         if (found == level) {
             const char* name = nullptr;
@@ -778,7 +781,7 @@ bool stats_log_off(script::Struct*, script::Script*)
 bool retrieve_personal_stats(script::Struct*, script::Script*)
 {
     const Hub* manager = net_session_slot();
-    const void* callback = reinterpret_cast<const void*>(&RankingsManager::on_personal_stats);
+    const void* callback = code_address(&RankingsManager::on_personal_stats);
     int profile = manager->presence_service_->account_;
     get_persist_data_values(0, profile, 2, 0, "\\THUG2Rating", callback, nullptr);
     for (int index = 1; index <= kPersonalStatsLevels; ++index) { // (1-15: the answer to 14 ends the wait)

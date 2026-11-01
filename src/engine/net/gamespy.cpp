@@ -37,6 +37,8 @@ THUG2_MSVC_WARNING(disable : 4005) // (gsPlatform.h defines WIN32_LEAN_AND_MEAN 
 #include "pt/pt.h"
 #include "qr2/qr2.h"
 #include "serverbrowsing/sb_serverbrowsing.h"
+#include "engine/core/raw_view.h"
+#include "platform/code_address.h"
 THUG2_MSVC_WARNING(pop)
 
 // Host-name overrides the SDK keeps without declaring them in a header (pt/ptMain.c), and the one the build adds
@@ -67,7 +69,7 @@ char s_domain[64] = "gamespy.com";
 template <typename Fn>
 Fn as(HookFn callback)
 {
-    return reinterpret_cast<Fn>(callback.code);
+    return function_at<Fn>(callback.code);
 }
 
 void set_host(char* out, size_t size, const char* format, const char* name)
@@ -213,9 +215,9 @@ int peer_set_title(void* peer, const char* title, const char* qr_secret_key, con
     return static_cast<int>(peerSetTitle(peer, title, qr_secret_key, sb_name, sb_secret_key, sb_game_version,
                                          sb_max_updates, static_cast<PEERBool>(nat_negotiate),
                                          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the SDK's PEERBool arrays, only read
-                                         reinterpret_cast<PEERBool*>(const_cast<int*>(ping_rooms)),
+                                         raw::as<PEERBool>(const_cast<int*>(ping_rooms)),
                                          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast): the SDK's PEERBool arrays, only read
-                                         reinterpret_cast<PEERBool*>(const_cast<int*>(cross_ping_rooms))));
+                                         raw::as<PEERBool>(const_cast<int*>(cross_ping_rooms))));
 }
 void peer_clear_title(void* peer) { peerClearTitle(peer); }
 void peer_connect(void* peer, const char* nick, int profile, HookFn nick_error, HookFn connected, void* param,
@@ -269,7 +271,7 @@ void peer_enum_players(void* peer, int room_type, HookFn callback, void* param)
 }
 int peer_get_player_info_no_wait(void* peer, const char* nick, uint32_t* ip, int* profile)
 {
-    return static_cast<int>(peerGetPlayerInfoNoWait(peer, nick, reinterpret_cast<unsigned int*>(ip), profile));
+    return static_cast<int>(peerGetPlayerInfoNoWait(peer, nick, ip, profile));
 }
 void peer_set_room_keys(void* peer, int room_type, const char* nick, int count, const char** keys, const char** values)
 {

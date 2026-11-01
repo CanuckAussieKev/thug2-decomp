@@ -18,9 +18,10 @@
 #include "engine/net/gamenet_manager.h"
 #include "engine/net/stats_man.h"
 #include "engine/script/param_struct.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/loading_bar.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (sprintf / strncpy: the original's own)
 
@@ -304,8 +305,8 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
         room->neversoft_ = true;
     if (room->num_players_ > room->max_players_)
         room->max_players_ = room->num_players_;
-    reinterpret_cast<memory::ListNode*>(room)->priority = -group_id;
-    static_cast<lists::Foremost*>(param)->append_vertex(reinterpret_cast<memory::ListNode*>(room));
+    raw::as<memory::ListNode>(room)->priority = -group_id;
+    static_cast<lists::Foremost*>(param)->append_vertex(raw::as<memory::ListNode>(room));
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

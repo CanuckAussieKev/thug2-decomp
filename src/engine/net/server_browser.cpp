@@ -33,6 +33,9 @@
 #include "engine/gfx/anim_blend.h"
 #include "engine/gfx/loading_bar.h"
 #include "platform/compiler.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's sprintf / strcpy / strncpy, kept)
 
@@ -155,7 +158,7 @@ HostListing* find_by_sb(Hub* manager, void* sb)
     auto* server = static_cast<HostListing*>(search.head_element(&manager->servers_)); // (the first)
     while (server) {
         memory::ListNode* next = search.list_link_->next;
-        memory::ListNode* node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+        memory::ListNode* node = next->data == memory::ListNode::head_marker() ? nullptr : next;
         search.list_link_ = node;
         auto* following = node ? static_cast<HostListing*>(node->data) : nullptr;
         if (server->sb_server_ == sb)
@@ -198,7 +201,7 @@ bool cfunc_describe_server(script::Struct* params, script::Script* script)
     });
     const char* skill = nullptr;
     script::Array* skills = script::fetch_list(kSkillLevelInfo);
-    reinterpret_cast<script::Struct*>(skills->fetch_part(server->skill_level_))->fetch_text(kName, &skill, 0);
+    skills->struct_at(server->skill_level_)->fetch_text(kName, &skill, 0);
     info_line(kTitleSkill, [skill](char* text) {
         std::sprintf(text, "%s", skill);
         return text;
@@ -389,7 +392,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         memory::ListNode* list = &manager->servers_;
         get_append(list, server);
         if (game_spy::server_has_basic_keys(sb)) {                                       // (it has its basic keys)
-            const int index = reinterpret_cast<gfx::AnimListHead*>(list)->tally_entries() - 1; // (the list's count)
+            const int index = raw::as<gfx::AnimListHead>(list)->tally_entries() - 1; // (the list's count)
             manager->show_server_in_menu(server, index);
             get_run(kUpdateServerList);
             server->in_list_ = true;
@@ -399,7 +402,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
     }
     case kListingRemove: {
         script::Struct* params = new_params();
-        params->put_name_key(kServerId, reinterpret_cast<uint32_t>(sb));
+        params->put_name_key(kServerId, cell::of(sb));
         get_run(kDestroyLobbyServer, params);
         delete_params(params);
         if (HostListing* server = find_by_sb(manager, sb))
@@ -433,7 +436,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
             server->detailed_ = true;
             if (server->chosen_) {
                 script::Struct* params = new_params();
-                params->put_name_key(kId, reinterpret_cast<uint32_t>(sb));
+                params->put_name_key(kId, cell::of(sb));
                 get_run(kDescribeSelectedServer, params);
                 delete_params(params);
             }

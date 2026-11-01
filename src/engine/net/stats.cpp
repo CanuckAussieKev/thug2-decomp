@@ -2,7 +2,7 @@
 // Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "engine/net/stats.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 
 #include <cstdint>
 #include <cstdio>
@@ -72,7 +72,7 @@ bool retrieve_top_stats(script::Struct* params, script::Script*)
     request.fail_script_ = 0x1C049404;
     request.progress_script_ = 0x74E0CD35;
     request.buffer_size_ = 0x25800;
-    request.callback = reinterpret_cast<const void*>(code_address(online::RankingsManager::on_top_stats));
+    request.callback = code_address(online::RankingsManager::on_top_stats);
     request.done_script_ = current == 4 ? 0x7346E8E7 : 0xD932B07B; // (which reply: ratings or scores)
     manager->vault_man_->download(&request);                       // (the vault, +0x14)
     // (the original's +0x1FC: need_top_stats_ - this cleared a byte past it, our layout lacking the lists' table words)

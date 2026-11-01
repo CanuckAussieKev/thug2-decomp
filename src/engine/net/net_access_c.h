@@ -13,6 +13,7 @@
 #include "engine/net/net_manager.h"
 #include "engine/net/net_metrics.h"
 #include "engine/net/net_messages.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -20,7 +21,7 @@ namespace net {
 template <typename T, typename O>
 T& prop(O* object, uint32_t offset)
 {
-    return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(object) + offset);
+    return *raw::field_at<T>(object, offset);
 }
 
 // The network manager (NetLink::Hub, App +0x1440) keeps a flags byte per message id (at +0x28).
@@ -93,11 +94,11 @@ inline bool timestamp_due(AppHost* app, Conn* conn) { return app->important_mess
 // A packet to ip:port (sendto) / on the connected socket.
 inline bool transmit_to(AppHost* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
 {
-    return app->transmit_to(ip, port, reinterpret_cast<const uint8_t*>(data), size, flags);
+    return app->transmit_to(ip, port, raw::bytes(data), size, flags);
 }
 inline bool post_out(AppHost* app, char* data, int size, int flags)
 {
-    return app->post_out(reinterpret_cast<const uint8_t*>(data), size, flags);
+    return app->post_out(raw::bytes(data), size, flags);
 }
 // App flag 0x8: the App has no socket of its own (nothing to receive).
 inline bool has_no_socket(AppHost* app) { return app->is_host_local(); }
@@ -114,7 +115,7 @@ inline Conn* opened_link(AppHost* app, uint32_t ip, uint16_t port, int flags)
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
 inline bool pull_datagram(AppHost* app, char* packet, char* to, int size)
 {
-    return app->decrypt(reinterpret_cast<const uint8_t*>(packet), reinterpret_cast<uint8_t*>(to), size);
+    return app->decrypt(raw::bytes(packet), raw::bytes(to), size);
 }
 // A message straight to ip:port, not through a connection.
 inline void deliver_to(AppHost* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
@@ -128,7 +129,7 @@ inline uint8_t* fetch_hub(AppHost* app) { return static_cast<uint8_t*>(app->net_
 // NetLink::Hub's flags for a message id (0x00454980).
 inline uint8_t message_flags(uint8_t* manager, uint8_t id)
 {
-    return static_cast<uint8_t>(reinterpret_cast<Hub*>(manager)->get_msg_options(id));
+    return static_cast<uint8_t>(raw::as<Hub>(manager)->get_msg_options(id));
 }
 
 // Conn's methods (net_conn.cpp). Its flags (+0x64): 1 local (the App's own client/server in this process),

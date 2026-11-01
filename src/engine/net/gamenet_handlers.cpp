@@ -28,7 +28,7 @@
 #include "engine/util/bitstream.h"
 #include "engine/script/game_cfuncs.h"
 #include "game/park_editing/rail_editor.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/assets/resource_registry.h"
 #include "game/goals/objective.h"
 #include "game/goals/goal_manager.h"
@@ -46,6 +46,7 @@
 #include "engine/sys/mlp.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -87,10 +88,10 @@ void get_cd_key(char* key)
     DWORD size = sizeof(value);
     DWORD type = 0;
     HKEY handle = nullptr;
-    auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size); };
+    auto query = [&] { RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value), &size); };
     bool opened = false;
     if (RegCreateKeyA(HKEY_CURRENT_USER, kPath, &handle) == ERROR_SUCCESS &&
-        RegQueryValueExA(handle, "key", nullptr, &type, reinterpret_cast<BYTE*>(value), &size) == ERROR_SUCCESS) {
+        RegQueryValueExA(handle, "key", nullptr, &type, raw::bytes(value), &size) == ERROR_SUCCESS) {
         opened = true;
     } else {
         // (an opened HKEY_CURRENT_USER key without the value is left open: the original's)
@@ -263,7 +264,7 @@ int on_admitted_msg(net::InboundMsgCtx* context)
     if (!manager->get_on_server()) {
         for (int i = 0; i < 2; ++i) {
             if (net::AppHost* client = manager->fetch_patron(i))
-                reinterpret_cast<modules::SkateNet*>(skate)->add_client_handlers(
+                raw::as<modules::SkateNet>(skate)->add_client_handlers(
                     client, i); // the skate module's handlers for that client
         }
     }
@@ -288,7 +289,7 @@ int handle_park_map(net::InboundMsgCtx* context)
     if (context->body_size_ < static_cast<uint32_t>(kParkMapSize))
         return kContinue;
     park_editing::ParkBuilderMode::sole()->set_packed_park_data(
-        reinterpret_cast<const park_editing::CompressedMap*>(context->body_), true);
+        raw::as<const park_editing::CompressedMap>(context->body_), true);
     const void* map = park_editing::ParkBuilderMode::sole()->get_packed_park_data(false);
     checksums::generate_crc_from_buffer(map, kParkMapSize); // (not used)
     return kContinue;
@@ -324,10 +325,10 @@ int handle_choose_team(net::InboundMsgCtx* context)
     }
     get_game_mode()->set_num_teams(teams);
     get_run(kChooseTeamMessage);
-    if (reinterpret_cast<modules::Skate*>(skate)->get_home_rider()) { // the local skater
-        get_run(kPrepareSkaterForMove, nullptr, reinterpret_cast<modules::Skate*>(skate)->get_home_rider());
+    if (skate->get_home_rider()) { // the local skater
+        get_run(kPrepareSkaterForMove, nullptr, skate->get_home_rider());
         static_cast<modules::Skate*>(skate)->teleport_to_spawn(
-            reinterpret_cast<modules::Skate*>(skate)->get_home_rider(), 0, 0);
+            skate->get_home_rider(), 0, 0);
     }
     return kContinue;
 }
@@ -338,7 +339,7 @@ int handle_checksum_request(net::InboundMsgCtx* context)
     auto* skate = get_skate();
     net::NetMessageInfo desc;
     char* msg = context->body_;
-    *reinterpret_cast<uint32_t*>(msg + 4) = static_cast<modules::Skate*>(skate)->get_cheats();
+    *raw::as<uint32_t>(msg + 4) = static_cast<modules::Skate*>(skate)->get_cheats();
     desc.group_id_ = kGroupGame;
     desc.byte_count_ = 8;
     desc.ident_ = kMsgDigest;

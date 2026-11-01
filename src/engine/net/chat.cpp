@@ -30,6 +30,7 @@
 #include "engine/gfx/draw_frame.h"
 #include "wire/gamenet_messages.h"
 #include "formats/byte_stream.h"
+#include "engine/core/raw_view.h"
 
 namespace online {
 
@@ -178,7 +179,7 @@ int on_chat_msg(net::InboundMsgCtx* context)
     if (thugpro::peer_mode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
         thugpro::ChatLine chat{};
-        if (!thugpro::decode_chat(reinterpret_cast<const uint8_t*>(message), context->body_size_, true, &chat))
+        if (!thugpro::decode_chat(raw::bytes(message), context->body_size_, true, &chat))
             return 1;
         std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name, chat.text);
     } else {
@@ -249,7 +250,7 @@ bool handle_chat_command(Hub* manager, const char* text)
             get_log("where: no local skater");
         }
         // The camera of the last frame drawn (choose_camera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
-        const auto* camera = reinterpret_cast<const float*>(&render::g_camera);
+        const auto* camera = raw::as<const float>(&render::g_camera);
         get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
                 camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
         char line[128];
@@ -356,7 +357,7 @@ bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
 namespace {
 
 struct ManagerAdapter {
-    void send_chat_message(const char* text) { online::send_chat_message(reinterpret_cast<online::Hub*>(this), text); }
+    void send_chat_message(const char* text) { online::send_chat_message(raw::as<online::Hub>(this), text); }
 };
 
 } // namespace

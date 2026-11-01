@@ -11,6 +11,7 @@
 #include "engine/net/net_access_c.h"
 #include "engine/net/net_app_view.h"
 #include "engine/net/net_compress.h"
+#include "engine/core/raw_view.h"
 
 namespace net {
 
@@ -22,7 +23,7 @@ void release_memory(void* memory) { memory::Hub::get_pull()->dealloc(memory); }
 // nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)
 char* compress_message(uint8_t* id, uint16_t* length, const void* data, uint8_t method)
 {
-    return reinterpret_cast<char*>(net::compress_message(id, length, data, static_cast<char>(method)));
+    return raw::chars(net::compress_message(id, length, data, static_cast<char>(method)));
 }
 
 // The data a queued message keeps: a copy, compressed if asked and smaller (then the id and length change).
