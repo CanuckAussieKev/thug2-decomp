@@ -294,7 +294,7 @@ void MaterialRef::hand_in()
         if (flags & kPassBumpEnv)
             change_bump_map_matrix(pass);
         flags = pass_flags_[pass];
-        D3DTRANSFORMSTATETYPE texture_matrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
+        auto texture_matrix = static_cast<D3DTRANSFORMSTATETYPE>(D3DTS_TEXTURE0 + pass);
         if ((flags & kPassEnvironment) && g_near_camera) {
             float* matrix = g_environment_matrix_pass;
             matrix[0] = static_cast<float>(reflection_tiling_[pass][0] * 0.5);

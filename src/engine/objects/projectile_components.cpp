@@ -116,7 +116,7 @@ ShotImpactModule::ShotImpactModule()
 }
 
 // 0x004F2F10 (0x004F2F50 the deleting one)
-ShotImpactModule::~ShotImpactModule() {}
+ShotImpactModule::~ShotImpactModule() = default;
 
 // 0x004F2F80
 void ShotImpactModule::configure_from_data(script::Struct* params)
@@ -147,11 +147,11 @@ void ShotImpactModule::tick_frame()
     online::Hub* net = net_session_slot();
     if (net->in_net_game() && projectile_type_ != kFireball && !net->players_can_collide())
         return;
-    float reach = static_cast<float>(static_cast<double>(radius_) + kReach);
+    auto reach = static_cast<float>(static_cast<double>(radius_) + kReach);
     if (reinterpret_cast<DormancyModule*>(suspend_)->is_far() || hit_)
         return;
     modules::Skate* skate = skate_module();
-    uint32_t count = static_cast<uint32_t>(skate->count_riders());
+    auto count = static_cast<uint32_t>(skate->count_riders());
     bool team_game = goals::g_game_mode->is_squad_match() != 0;
     for (uint32_t i = 0; i < count; ++i) {
         GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
@@ -238,7 +238,7 @@ memory::owner<ObjectModule*> ProjectileProximityComponent::fabricate() { return 
 ProjectileProximityComponent::ProjectileProximityComponent() { kind_tag_ = kType; }
 
 // 0x004F34E0 (0x004F34F0 the deleting one)
-ProjectileProximityComponent::~ProjectileProximityComponent() {}
+ProjectileProximityComponent::~ProjectileProximityComponent() = default;
 
 // 0x004F3520
 void ProjectileProximityComponent::configure_from_data(script::Struct*)
@@ -263,14 +263,13 @@ void ProjectileProximityComponent::tick_frame()
     }
     if (ped_logic_->get_logic_state() == kShot)
         return;
-    for (int i = 0; i < 5; ++i) {
-        Rider::Projectile& projectile = rider_ref_->projectiles_[i];
+    for (auto& projectile : rider_ref_->projectiles_) {
         if (!projectile.active)
             continue;
         const float* pos = &projectile.pos.x;
         const maths::Vec4& at = entity_->at_point_;
         double middle = static_cast<double>(at.y) + kAbovePed;
-        float dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
+        auto dz = static_cast<float>(static_cast<double>(pos[2]) - at.z);
         double dy = pos[1] - middle;
         double dx = static_cast<double>(pos[0]) - at.x;
         if (!(dx * dx + dy * dy + static_cast<double>(dz) * dz <= reach_squared_))

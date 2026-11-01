@@ -72,7 +72,7 @@ ModelParticles::ModelParticles(uint32_t name, int particle_cap, const char* mode
             return;
         each->drop_geoms();
         int percent = get_rand() % 100;
-        float scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
+        auto scale = static_cast<float>(static_cast<double>(percent) * kScaleStep * 2.0 + 1.0);
         maths::Vec4 scales = {scale, scale, scale, 1.0f};
         each->change_scale(&scales);
         if (!each->add_file_geom(file_name, 0, true, 0, false, true, assert_flag() != 0, true))
@@ -118,7 +118,7 @@ void ModelParticles::render()
         return;
     }
     // (from the last particle's model: it's shown again below)
-    for (unsigned int i = static_cast<unsigned int>(count - 1); i < drawn_models_; ++i)
+    for (auto i = static_cast<unsigned int>(count - 1); i < drawn_models_; ++i)
         model(i)->change_live(0);
     auto* rotations = static_cast<maths::QuatRotation*>(unknown_13c_ptr_);
     for (int p = 0; p < count; ++p) {

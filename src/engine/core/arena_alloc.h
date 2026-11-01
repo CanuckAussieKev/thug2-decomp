@@ -70,7 +70,7 @@ public:
     MemSource* allocators_[2]; // growing up, growing down
 
 protected:
-    Zone() {} // fields left as they are (MemoryArena sets them, unless its size is 0)
+    Zone() = default; // fields left as they are (MemoryArena sets them, unless its size is 0)
 };
 
 // A region whose memory is itself allocated from the memory manager.

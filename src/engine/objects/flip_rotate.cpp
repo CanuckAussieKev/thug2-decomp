@@ -59,7 +59,7 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
             auto* rotation = reinterpret_cast<float*>(pose + 0x10 * bone);
             const float turn[4] = {0.0f, 0.0f, 1.0f, 0.0f};
             float product[4];
-            const float* result = reinterpret_cast<const float*>(
+            const auto* result = reinterpret_cast<const float*>(
                 quat_product(reinterpret_cast<maths::Vec4*>(product), reinterpret_cast<const maths::Vec4*>(turn),
                              reinterpret_cast<const maths::Vec4*>(rotation)));
             std::memcpy(rotation, result, 16);

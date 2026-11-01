@@ -159,7 +159,7 @@ bool parse_bookmarks(const std::string& text, Bookmark marks[kBookmarks])
         marks[i] = Bookmark{};
     std::istringstream in(text);
     std::string line;
-    if (!std::getline(in, line) || line.rfind("thug2-decomp camera bookmarks ", 0) != 0)
+    if (!std::getline(in, line) || !line.starts_with("thug2-decomp camera bookmarks "))
         return false;
     while (std::getline(in, line)) {
         int n = 0, view = 0;

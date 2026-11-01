@@ -88,7 +88,7 @@ AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_so
 // 0x00432CA0
 void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
-    uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
+    auto node = reinterpret_cast<uint32_t>(params);     // (read into the parameters' own argument slot)
     if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
@@ -174,13 +174,13 @@ bool AudioEmitterModule::get_sound_extent(void* camera, maths::Vec4* out)
 void AudioEmitterModule::update_props(sound::PlaybackProps* props)
 {
     if (props->pitch3 != props->pitch) { // (not a number: moved too)
-        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
-                                        reinterpret_cast<float&>(props->unknown20));
+        auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
+                                       reinterpret_cast<float&>(props->unknown20));
         props->pitch = maths::keep_within(props->pitch3, props->pitch, step);
     }
     if (props->volume3 != props->volume) {
-        float step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
-                                        reinterpret_cast<float&>(props->unknown24));
+        auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds() * kFramesPerSecond *
+                                       reinterpret_cast<float&>(props->unknown24));
         props->volume = maths::keep_within(props->volume3, props->volume, step);
     }
 }
@@ -275,7 +275,7 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
 {
     float loudness_percent = 100.0f, pitch_percent = 100.0f;
     // (read into the parameters' own argument slot: none, the pointer's value)
-    uint32_t sound = reinterpret_cast<uint32_t>(params);
+    auto sound = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(0u, &sound, 0);
     sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(this, sound, true);
     if (!props) {

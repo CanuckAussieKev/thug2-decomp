@@ -277,7 +277,7 @@ void CinematicTable::add_objects(script::Struct* params)
                     void* model2 = model_of(level_model);
                     if (!lent_saved_) {
                         float saved[4];
-                        const float* settings = reinterpret_cast<const float*>(
+                        const auto* settings = reinterpret_cast<const float*>(
                             static_cast<render::RenderModel*>(model2)->fetch_bound_sphere(
                                 reinterpret_cast<maths::Vec4*>(saved)));
                         std::memcpy(lent_2c_, settings, 16);
@@ -291,9 +291,9 @@ void CinematicTable::add_objects(script::Struct* params)
                     model_set_offset(model2, offset2);
                     static_cast<render::RenderModel*>(model2)->conceal(0);
                     static_cast<render::RenderModel*>(model2)->allow_resizing(0);
-                    uint32_t mine =
+                    auto mine =
                         reinterpret_cast<uint32_t>(static_cast<render::RenderModel*>(model2)->fetch_skinning_palette());
-                    uint32_t theirs = reinterpret_cast<uint32_t>(
+                    auto theirs = reinterpret_cast<uint32_t>(
                         static_cast<render::RenderModel*>(model_of(stand_in))->fetch_skinning_palette());
                     static_cast<render::RenderModel*>(model2)->upload_skinning_palette(
                         reinterpret_cast<uint8_t*>(theirs));

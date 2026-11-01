@@ -378,9 +378,9 @@ void resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height
 {
     if (bits_per_pixel == 8) { // (nearest, the bytes cleared first - as many as the source has)
         std::memset(into, 0, static_cast<uint32_t>(from_height) * from_width);
-        float width = static_cast<float>(static_cast<int>(from_width));
-        float x_scale = static_cast<float>(static_cast<double>(width) / static_cast<int>(into_width));
-        float y_scale =
+        auto width = static_cast<float>(static_cast<int>(from_width));
+        auto x_scale = static_cast<float>(static_cast<double>(width) / static_cast<int>(into_width));
+        auto y_scale =
             static_cast<float>(static_cast<double>(static_cast<int>(from_height)) / static_cast<int>(into_height));
         for (int y = 0; y < into_height; ++y) {
             double row = static_cast<double>(y) * width * y_scale;
@@ -450,7 +450,7 @@ uint8_t PcTexture::nearest_palette_index(uint32_t colour)
 bool PcTexture::modulate(uint32_t colour, bool cumulative)
 {
     // (the edit's fields read without checking it is one, as the original)
-    uint8_t* into = reinterpret_cast<uint8_t*>(get_edit(this)->pixels);
+    auto* into = reinterpret_cast<uint8_t*>(get_edit(this)->pixels);
     const uint8_t* from = get_edit(this)->original && !cumulative
                               ? reinterpret_cast<const uint8_t*>(get_edit(this)->original)
                               : reinterpret_cast<const uint8_t*>(get_edit(this)->pixels);
@@ -576,18 +576,18 @@ bool PcTexture::spin_by(float angle, float centre_x, float centre_y)
     memory::Hub::get_pull()->leave_heap_scope();
     int y_max = static_cast<int>(height * 1024 - 1024), x_max = static_cast<int>(width * 1024 - 1024);
     // the image's axes turned (each a float, as the original stores them), in 1024ths
-    float xx = static_cast<float>(static_cast<double>(m[2]) * 0.0f + m[0]);
-    float xy = static_cast<float>(static_cast<double>(m[3]) * 0.0f + m[1]);
-    float yx = static_cast<float>(static_cast<double>(m[0]) * 0.0f + m[2]);
-    float yy = static_cast<float>(static_cast<double>(m[1]) * 0.0f + m[3]);
+    auto xx = static_cast<float>(static_cast<double>(m[2]) * 0.0f + m[0]);
+    auto xy = static_cast<float>(static_cast<double>(m[3]) * 0.0f + m[1]);
+    auto yx = static_cast<float>(static_cast<double>(m[0]) * 0.0f + m[2]);
+    auto yy = static_cast<float>(static_cast<double>(m[1]) * 0.0f + m[3]);
     int xx_step = ftol(static_cast<double>(xx) * 1024.0f), xy_step = ftol(static_cast<double>(xy) * 1024.0f);
     int yx_step = ftol(static_cast<double>(yx) * 1024.0f), yy_step = ftol(static_cast<double>(yy) * 1024.0f);
     // where the top left comes from: the centre moved back through the turn
     double nx = -static_cast<double>(centre_x), ny = -static_cast<double>(centre_y);
-    float ox = static_cast<float>(m[2] * ny + nx * m[0]);
-    float oy = static_cast<float>(ny * m[3] + m[1] * nx);
+    auto ox = static_cast<float>(m[2] * ny + nx * m[0]);
+    auto oy = static_cast<float>(ny * m[3] + m[1] * nx);
     double origin_coord_x = static_cast<double>(ox) + centre_x; // (kept in the register, unrounded)
-    float origin_coord_y = static_cast<float>(static_cast<double>(oy) + centre_y);
+    auto origin_coord_y = static_cast<float>(static_cast<double>(oy) + centre_y);
     int row_x = ftol(origin_coord_x * 1024.0f);
     int row_y = ftol(static_cast<double>(origin_coord_y) * 1024.0f);
     uint32_t* out = rotated;
@@ -614,7 +614,7 @@ bool PcTexture::get_stretch(uint16_t position, int vertical, int amount)
     int at = position;
     if (at + amount <= 0)
         amount = 1 - at;
-    uint32_t end = static_cast<uint32_t>(at + amount);
+    auto end = static_cast<uint32_t>(at + amount);
     uint16_t read_x = 0, read_y = 0, read_width, read_height, new_width, new_height;
     int offset;
     if (!vertical) { // (the part left of the column stretched by -amount, or the part from it by amount)
@@ -1282,7 +1282,7 @@ void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
     if (r > high)
         high = r;
     *v = high;
-    float delta = static_cast<float>(static_cast<double>(high) - low);
+    auto delta = static_cast<float>(static_cast<double>(high) - low);
     if (high == 0.0f) {
         *s = 0.0f;
         *h = -1.0f;
@@ -1317,9 +1317,9 @@ void hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v)
     double sector = static_cast<double>(h) * (1.0f / 60.0f);
     int i = static_cast<int>(sector);
     double f = sector - i;
-    float p = static_cast<float>((1.0f - static_cast<double>(s)) * v);
-    float q = static_cast<float>((1.0f - s * f) * v);
-    float t = static_cast<float>((1.0f - (1.0f - f) * s) * v);
+    auto p = static_cast<float>((1.0f - static_cast<double>(s)) * v);
+    auto q = static_cast<float>((1.0f - s * f) * v);
+    auto t = static_cast<float>((1.0f - (1.0f - f) * s) * v);
     switch (static_cast<uint32_t>(i)) {
     case 0:
         *r = v, *g = t, *b = p;

@@ -99,7 +99,7 @@ void Ring::append_one(const char* text, double time)
 
 std::vector<std::string> Ring::final_one(size_t n) const
 {
-    size_t shown = std::min<size_t>({n, count, kRingLines});
+    auto shown = std::min<size_t>({n, count, kRingLines});
     std::vector<std::string> out;
     out.reserve(shown);
     for (size_t i = shown; i > 0; --i) {
@@ -247,7 +247,7 @@ void rect2(float x0, float y0, float x1, float y1, uint32_t color)
 void text_tools(float x, float y, const char* text, size_t columns, uint32_t color)
 {
     for (size_t i = 0; text[i] && i < columns; ++i) {
-        unsigned char c = static_cast<unsigned char>(text[i]);
+        auto c = static_cast<unsigned char>(text[i]);
         const Glyph& glyph = g_glyphs[c < 0x80 ? c : '?'];
         if (glyph.visible) {
             float x0 = x + glyph.x0 - 0.5f, y0 = y + glyph.y0 - 0.5f, x1 = x + glyph.x1 - 0.5f,
@@ -273,7 +273,7 @@ void get_layout(double now)
     last = g_last_activity;
     ReleaseSRWLockShared(&g_lock);
 
-    float width = static_cast<float>(get_screen_width()), height = static_cast<float>(get_screen_height());
+    auto width = static_cast<float>(get_screen_width()), height = static_cast<float>(get_screen_height());
     float margin = std::max(8.0f, std::round(height * 0.02f));
     float pad = std::round(g_line_height * 0.4f);
     // Left of the loading bar (centred, progress_bar_pixels wide, its frame 5/640 of the screen wider each side), at most 45%.

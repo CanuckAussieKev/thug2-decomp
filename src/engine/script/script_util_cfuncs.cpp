@@ -622,7 +622,7 @@ bool cfunc_string_to_char_array(Struct* params, Script* script)
 {
     const char* string = nullptr;
     params->fetch_text(kString, &string, 1);
-    uint32_t length = static_cast<uint32_t>(std::strlen(string));
+    auto length = static_cast<uint32_t>(std::strlen(string));
     Array* characters = script::alloc_script_array();
     if (characters)
         characters = new (characters) script::Array;

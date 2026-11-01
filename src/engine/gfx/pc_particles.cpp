@@ -62,7 +62,7 @@ const uint8_t* find_texture(uint32_t checksum)
 // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
 uint8_t* texture_key(const uint8_t* texture)
 {
-    uint8_t* const* key = reinterpret_cast<uint8_t* const*>(texture + 0x10);
+    auto* const* key = reinterpret_cast<uint8_t* const*>(texture + 0x10);
     return texture[8] & 1 ? *reinterpret_cast<uint8_t* const*>(*key) : *key;
 }
 
@@ -103,47 +103,47 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
     Fit fit{};
     double dx2 = static_cast<double>(p2[0]) - p0[0];
     double dy2 = static_cast<double>(p2[1]) - p0[1];
-    float z2 = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
-    float w2 = static_cast<float>(static_cast<double>(p2[3]) - p0[3]);
+    auto z2 = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
+    auto w2 = static_cast<float>(static_cast<double>(p2[3]) - p0[3]);
     if (!use_mid) {
-        float inverse = static_cast<float>(1.0f / static_cast<double>(end));
+        auto inverse = static_cast<float>(1.0f / static_cast<double>(end));
         fit.bx = dx2 * inverse;
         fit.by = static_cast<float>(static_cast<double>(static_cast<float>(dy2)) * inverse);
         fit.bz = static_cast<float>(static_cast<double>(z2) * inverse);
         fit.bw = static_cast<float>(static_cast<double>(w2) * inverse);
         return fit;
     }
-    float dx2f = static_cast<float>(dx2), dy2f = static_cast<float>(dy2);
-    float mid2 = static_cast<float>(static_cast<double>(mid) * mid);
-    float dx2_mid2 = static_cast<float>(dx2 * mid2);
+    auto dx2f = static_cast<float>(dx2), dy2f = static_cast<float>(dy2);
+    auto mid2 = static_cast<float>(static_cast<double>(mid) * mid);
+    auto dx2_mid2 = static_cast<float>(dx2 * mid2);
     double dy2_mid2 = dy2 * mid2;
     double z2_mid2 = static_cast<double>(z2) * mid2;
-    float w2_mid2 = static_cast<float>(static_cast<double>(w2) * mid2);
+    auto w2_mid2 = static_cast<float>(static_cast<double>(w2) * mid2);
     double dx1 = static_cast<double>(p1[0]) - p0[0];
     double dy1 = static_cast<double>(p1[1]) - p0[1];
-    float z1 = static_cast<float>(static_cast<double>(p1[2]) - p0[2]);
-    float w1 = static_cast<float>(static_cast<double>(p1[3]) - p0[3]);
-    float dx1f = static_cast<float>(dx1), dy1f = static_cast<float>(dy1);
-    float end2 = static_cast<float>(static_cast<double>(end) * end);
-    float dx1_end2 = static_cast<float>(dx1 * end2);
+    auto z1 = static_cast<float>(static_cast<double>(p1[2]) - p0[2]);
+    auto w1 = static_cast<float>(static_cast<double>(p1[3]) - p0[3]);
+    auto dx1f = static_cast<float>(dx1), dy1f = static_cast<float>(dy1);
+    auto end2 = static_cast<float>(static_cast<double>(end) * end);
+    auto dx1_end2 = static_cast<float>(dx1 * end2);
     double dy1_end2 = dy1 * end2;
-    float z1_end2 = static_cast<float>(static_cast<double>(z1) * end2);
-    float w1_end2 = static_cast<float>(static_cast<double>(w1) * end2);
-    float ax = static_cast<float>(static_cast<double>(dx1_end2) - dx2_mid2);
-    float ay = static_cast<float>(dy1_end2 - dy2_mid2);
+    auto z1_end2 = static_cast<float>(static_cast<double>(z1) * end2);
+    auto w1_end2 = static_cast<float>(static_cast<double>(w1) * end2);
+    auto ax = static_cast<float>(static_cast<double>(dx1_end2) - dx2_mid2);
+    auto ay = static_cast<float>(dy1_end2 - dy2_mid2);
     double az = static_cast<double>(z1_end2) - z2_mid2;
-    float aw = static_cast<float>(static_cast<double>(w1_end2) - w2_mid2);
-    float inverse = static_cast<float>(1.0f / ((static_cast<double>(end) - mid) * end * mid));
+    auto aw = static_cast<float>(static_cast<double>(w1_end2) - w2_mid2);
+    auto inverse = static_cast<float>(1.0f / ((static_cast<double>(end) - mid) * end * mid));
     fit.bx = static_cast<double>(ax) * inverse;
     fit.by = static_cast<float>(static_cast<double>(ay) * inverse);
     fit.bz = static_cast<float>(az * inverse);
     fit.bw = static_cast<float>(static_cast<double>(aw) * inverse);
-    float dx1_end = static_cast<float>(static_cast<double>(dx1f) * end);
+    auto dx1_end = static_cast<float>(static_cast<double>(dx1f) * end);
     double dy1_end = static_cast<double>(dy1f) * end;
     double z1_end = static_cast<double>(z1) * end;
-    float w1_end = static_cast<float>(static_cast<double>(w1) * end);
-    float dx2_mid = static_cast<float>(static_cast<double>(dx2f) * mid);
-    float w2_mid = static_cast<float>(static_cast<double>(w2) * mid);
+    auto w1_end = static_cast<float>(static_cast<double>(w1) * end);
+    auto dx2_mid = static_cast<float>(static_cast<double>(dx2f) * mid);
+    auto w2_mid = static_cast<float>(static_cast<double>(w2) * mid);
     float cx = static_cast<float>(static_cast<double>(dx2_mid) - dx1_end), cy;
     double cz;
     if (spread_rounding) {
@@ -153,7 +153,7 @@ Fit get_fit(const float* p0, const float* p1, const float* p2, float end, float 
         cy = static_cast<float>(static_cast<double>(dy2f) * mid - dy1_end);
         cz = static_cast<double>(static_cast<float>(static_cast<double>(z2) * mid)) - z1_end;
     }
-    float cw = static_cast<float>(static_cast<double>(w2_mid) - w1_end);
+    auto cw = static_cast<float>(static_cast<double>(w2_mid) - w1_end);
     fit.c[0] = static_cast<float>(static_cast<double>(cx) * inverse);
     fit.c[1] = static_cast<float>(static_cast<double>(cy) * inverse);
     fit.c[2] = static_cast<float>(cz * inverse);
@@ -376,7 +376,7 @@ void PcParticleSystem::draw(bool advance)
     for (int b = 0; b < live; ++b, ++burst) {
         if (burst == bursts + capacity)
             burst = bursts;
-        float colour_mid = static_cast<float>(static_cast<double>(args_.colour_mid_percent_) * 0.01f * args_.lifetime_);
+        auto colour_mid = static_cast<float>(static_cast<double>(args_.colour_mid_percent_) * 0.01f * args_.lifetime_);
         float age = burst->age;
         random_a() = burst->seed[0];
         random_b() = burst->seed[1];
@@ -395,16 +395,16 @@ void PcParticleSystem::draw(bool advance)
             if (index < burst->count) {
                 double t = age;
                 for (;;) {
-                    float t2 = static_cast<float>(t * t);
+                    auto t2 = static_cast<float>(t * t);
                     uint32_t a = random_a(), bb = random_b(), c = random_c();
                     random_step(a, bb, c);
                     double s1 = random_scale(a);
                     random_step(a, bb, c);
-                    float s2 = static_cast<float>(random_scale(a));
+                    auto s2 = static_cast<float>(random_scale(a));
                     random_step(a, bb, c);
                     double s3 = random_scale(a);
                     random_step(a, bb, c);
-                    float s4 = static_cast<float>(random_scale(a));
+                    auto s4 = static_cast<float>(random_scale(a));
                     random_a() = a;
                     random_b() = bb;
                     random_c() = c;
@@ -433,45 +433,45 @@ void PcParticleSystem::draw(bool advance)
                     uint32_t colour = alpha << 24 | red << 16 | green << 8 | blue;
 
                     // The spread at t, times its random numbers.
-                    float spread_x =
+                    auto spread_x =
                         static_cast<float>(static_cast<double>(static_cast<float>(t * spread.b.x + spread.a.x)) +
                                            static_cast<double>(t2) * spread.c.x);
                     double spread_y = t * spread.b.y + spread.a.y + t2 * static_cast<double>(spread.c.y);
                     double spread_z = static_cast<double>(static_cast<float>(
                                           static_cast<double>(static_cast<float>(t * spread.b.z)) + spread.a.z)) +
                                       static_cast<float>(t2 * static_cast<double>(spread.c.z));
-                    float spread_w =
+                    auto spread_w =
                         static_cast<float>(static_cast<double>(static_cast<float>(
                                                static_cast<double>(static_cast<float>(t * spread.b.w)) + spread.a.w)) +
                                            static_cast<float>(t2 * static_cast<double>(spread.c.w)));
-                    float offset_x = static_cast<float>(spread_x * s1);
-                    float offset_y = static_cast<float>(spread_y * s2);
+                    auto offset_x = static_cast<float>(spread_x * s1);
+                    auto offset_y = static_cast<float>(spread_y * s2);
                     double offset_z = spread_z * s3;
                     double offset_w = static_cast<double>(spread_w) * s4;
                     // The path at t.
-                    float path_x = static_cast<float>(static_cast<double>(static_cast<float>(t * path.b.x + path.a.x)) +
-                                                      static_cast<double>(t2) * path.c.x);
+                    auto path_x = static_cast<float>(static_cast<double>(static_cast<float>(t * path.b.x + path.a.x)) +
+                                                     static_cast<double>(t2) * path.c.x);
                     double path_y = t * path.b.y + path.a.y + t2 * static_cast<double>(path.c.y);
                     double path_z = static_cast<double>(static_cast<float>(
                                         static_cast<double>(static_cast<float>(t * path.b.z)) + path.a.z)) +
                                     static_cast<float>(t2 * static_cast<double>(path.c.z));
-                    float path_w =
+                    auto path_w =
                         static_cast<float>(static_cast<double>(static_cast<float>(
                                                static_cast<double>(static_cast<float>(t * path.b.w)) + path.a.w)) +
                                            static_cast<float>(t2 * static_cast<double>(path.c.w)));
-                    float centre_x = static_cast<float>(static_cast<double>(path_x) + offset_x);
-                    float centre_y = static_cast<float>(path_y + offset_y);
-                    float centre_z = static_cast<float>(path_z + offset_z);
+                    auto centre_x = static_cast<float>(static_cast<double>(path_x) + offset_x);
+                    auto centre_y = static_cast<float>(path_y + offset_y);
+                    auto centre_z = static_cast<float>(path_z + offset_z);
                     double size = static_cast<double>(path_w) + offset_w;
 
                     // The quad: (centre - r - ... ) corners, its texture 0..1.
                     double across_x = r[0] * size;
-                    float across_y = static_cast<float>(r[1] * size), across_z = static_cast<float>(r[2] * size);
-                    float up_x = static_cast<float>(u[0] * size), up_y = static_cast<float>(u[1] * size),
-                          up_z = static_cast<float>(u[2] * size);
-                    float left_x = static_cast<float>(centre_x - across_x);
-                    float left_y = static_cast<float>(static_cast<double>(centre_y) - across_y);
-                    float left_z = static_cast<float>(static_cast<double>(centre_z) - across_z);
+                    auto across_y = static_cast<float>(r[1] * size), across_z = static_cast<float>(r[2] * size);
+                    auto up_x = static_cast<float>(u[0] * size), up_y = static_cast<float>(u[1] * size),
+                         up_z = static_cast<float>(u[2] * size);
+                    auto left_x = static_cast<float>(centre_x - across_x);
+                    auto left_y = static_cast<float>(static_cast<double>(centre_y) - across_y);
+                    auto left_z = static_cast<float>(static_cast<double>(centre_z) - across_z);
                     vertex[0] = {static_cast<float>(static_cast<double>(up_x) + left_x),
                                  static_cast<float>(static_cast<double>(up_y) + left_y),
                                  static_cast<float>(static_cast<double>(up_z) + left_z),

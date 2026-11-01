@@ -182,7 +182,7 @@ std::vector<Lip> find_lips(const std::vector<Face>& faces, int max_lips)
 
 float scaled_stat(float low, float high, float stat, bool has_limit, float limit)
 {
-    float result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
+    auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     if (!has_limit)
         return result;
     if (low < high)

@@ -530,7 +530,7 @@ std::vector<uint8_t> speed_body(uint32_t original, float rate)
     put_name(&out, checksums::hash_from_text("rate"));
     out.push_back(0x07);
     out.push_back(0x1A);
-    uint32_t bits = std::bit_cast<uint32_t>(rate);
+    auto bits = std::bit_cast<uint32_t>(rate);
     get_put4(&out, bits);
     out.push_back(0x01);
     return out;
@@ -1170,7 +1170,7 @@ void get_remake(uint32_t name)
 // wanted (or of another cluster now) taken out of its name map (the manager's object_clusters_).
 void register_trick_objects()
 {
-    uint8_t* manager = reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub);
+    auto* manager = reinterpret_cast<uint8_t*>(objects::g_trick_spot_hub);
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;
@@ -1227,7 +1227,7 @@ void rebuild_rails()
         for (int i : kept)
             there = there || old[i].label_ == name;
         if (!there)
-            added.push_back({name, node});
+            added.emplace_back(name, node);
     }
     int count = static_cast<int>(kept.size() + added.size());
     objects::GrindPoint* nodes = nullptr;
@@ -1693,7 +1693,7 @@ std::vector<SpeedSegment> speed_segments(V3 near, float radius)
                 script = applied->second.original_script_; // (the level's own script, under ours)
             triggers::Calls calls = triggers::script_calls(script);
             if (calls.rail_speed_)
-                g_level_speed_cache.found.push_back({node->label_, calls.rail_rate_});
+                g_level_speed_cache.found.emplace_back(node->label_, calls.rail_rate_);
         }
     }
     float r2 = radius * radius;

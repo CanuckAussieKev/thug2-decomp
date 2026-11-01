@@ -105,7 +105,7 @@ RiderRemoteSync::RiderRemoteSync()
 }
 
 // 0x005144B0 (0x00514550 the deleting one)
-RiderRemoteSync::~RiderRemoteSync() {}
+RiderRemoteSync::~RiderRemoteSync() = default;
 
 // 0x00514580
 void RiderRemoteSync::seal()
@@ -175,10 +175,10 @@ void RiderRemoteSync::settle_onto_floor()
     start.y = static_cast<float>(snap_up * up.y + pos.y);
     start.z = static_cast<float>(snap_up * up.z + pos.z);
     start.w = static_cast<float>(snap_up * up.w + pos.w);
-    float down_w = static_cast<float>(static_cast<double>(up.w) * kSnapBelow);
-    float down_z = static_cast<float>(static_cast<double>(up.z) * kSnapBelow);
-    float down_y = static_cast<float>(static_cast<double>(up.y) * kSnapBelow);
-    float down_x = static_cast<float>(static_cast<double>(up.x) * kSnapBelow);
+    auto down_w = static_cast<float>(static_cast<double>(up.w) * kSnapBelow);
+    auto down_z = static_cast<float>(static_cast<double>(up.z) * kSnapBelow);
+    auto down_y = static_cast<float>(static_cast<double>(up.y) * kSnapBelow);
+    auto down_x = static_cast<float>(static_cast<double>(up.x) * kSnapBelow);
     end.x = static_cast<float>(static_cast<double>(down_x) + pos.x);
     end.y = static_cast<float>(static_cast<double>(down_y) + pos.y);
     end.z = static_cast<float>(static_cast<double>(down_z) + pos.z);
@@ -193,12 +193,12 @@ void RiderRemoteSync::settle_onto_floor()
     double dz = static_cast<double>(pos.z) - point.z;
     double dy = static_cast<double>(pos.y) - point.y;
     double dx = static_cast<double>(pos.x) - point.x;
-    float distance = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
+    auto distance = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
     // How far above the hit the skater is, along its up row.
-    float height = static_cast<float>((dy * up.y + dz * up.z) + dx * up.x);
+    auto height = static_cast<float>((dy * up.y + dz * up.z) + dx * up.x);
 
     // (only its low byte is tested: skatable, vert, not "not skatable" and not wallride)
-    uint8_t flags = static_cast<uint8_t>(feeler.hit_.face_flags_);
+    auto flags = static_cast<uint8_t>(feeler.hit_.face_flags_);
     bool skatable =
         (flags & kFaceSkatable) && !(flags & kFaceNotSkatable) && (flags & kFaceVert) && !(flags & kFaceWallride);
     if (skatable &&
@@ -207,16 +207,16 @@ void RiderRemoteSync::settle_onto_floor()
         const maths::Vec4 ground = normal;
         const maths::Vec4& at_row = skater->basis_frame_.row[2];
         maths::Vec4 on_ground = at_row;
-        float facing =
+        auto facing =
             static_cast<float>((static_cast<double>(normal.x) * at_row.x + static_cast<double>(normal.z) * at_row.z) +
                                static_cast<double>(at_row.y) * normal.y);
         maths::Vec4 on_last = at_row;
         on_ground.align_to_plane(ground);
         on_last.align_to_plane(surface_up_);
-        float turn = static_cast<float>(
+        auto turn = static_cast<float>(
             (static_cast<double>(on_last.x) * on_ground.x + static_cast<double>(on_last.z) * on_ground.z) +
             static_cast<double>(on_last.y) * on_ground.y);
-        float stick = static_cast<float>(std::cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
+        auto stick = static_cast<float>(std::cos(get_physics(skater, kGroundStickAngleForward) * kRadiansPerDegree));
         if (facing > 0.0f && turn > 0.0f && turn < stick)
             return;
         if (height > 0.0f) {
@@ -228,7 +228,7 @@ void RiderRemoteSync::settle_onto_floor()
             // (its length unrounded, as Vec4::len_of's x87 code leaves it)
             double length = std::sqrt((static_cast<double>(move.x) * move.x + static_cast<double>(move.y) * move.y) +
                                       static_cast<double>(move.z) * move.z);
-            float reach = static_cast<float>(length * slope);
+            auto reach = static_cast<float>(length * slope);
             double snap_down = get_physics(skater, kGroundSnapDown);
             if (reach < snap_down)
                 reach = static_cast<float>(snap_down);
@@ -254,14 +254,14 @@ void RiderRemoteSync::settle_onto_floor()
 double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
 {
     const maths::Vec4& right = entity_->basis_frame_.row[0];
-    float cosine = static_cast<float>((static_cast<double>(dir.z) * right.z + static_cast<double>(dir.y) * right.y) +
-                                      static_cast<double>(dir.x) * right.x);
+    auto cosine = static_cast<float>((static_cast<double>(dir.z) * right.z + static_cast<double>(dir.y) * right.y) +
+                                     static_cast<double>(dir.x) * right.x);
     if (cosine > 1.0f)
         cosine = 1.0f;
     else if (cosine < -1.0f)
         cosine = -1.0f;
     double exact = std::acos(static_cast<double>(cosine));
-    float angle = static_cast<float>(exact);
+    auto angle = static_cast<float>(exact);
     if (exact > kHalfPi) // (the unrounded angle compared; the rounded one adjusted)
         angle = static_cast<float>(static_cast<double>(angle) - kPi);
     double rotation = static_cast<double>(script::fetch_float(kWallBounceAngleMultiplier)) * angle;
@@ -282,19 +282,19 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
 void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::Vec4* point)
 {
     GameEntity* skater = entity_;
-    float away_z = static_cast<float>(static_cast<double>(skater->at_point_.z) - last_pos_.z);
-    float away_y = static_cast<float>(static_cast<double>(skater->at_point_.y) - last_pos_.y);
-    float away_x = static_cast<float>(static_cast<double>(skater->at_point_.x) - last_pos_.x);
+    auto away_z = static_cast<float>(static_cast<double>(skater->at_point_.z) - last_pos_.z);
+    auto away_y = static_cast<float>(static_cast<double>(skater->at_point_.y) - last_pos_.y);
+    auto away_x = static_cast<float>(static_cast<double>(skater->at_point_.x) - last_pos_.x);
     render::ProbeRay feeler;
     // The collision height up the up row (the products rounded).
     double height = get_physics(skater, kFirstForwardCollisionHeight);
     const maths::Vec4& up = skater->basis_frame_.row[1];
-    float raise_w = static_cast<float>(height * up.w);
-    float raise_z = static_cast<float>(height * up.z);
-    float raise_y = static_cast<float>(height * up.y);
-    float raise_x = static_cast<float>(height * up.x);
+    auto raise_w = static_cast<float>(height * up.w);
+    auto raise_z = static_cast<float>(height * up.z);
+    auto raise_y = static_cast<float>(height * up.y);
+    auto raise_x = static_cast<float>(height * up.x);
     float turn;
-    float angle = static_cast<float>(turn_towards(*normal, &turn));
+    auto angle = static_cast<float>(turn_towards(*normal, &turn));
     // Slowed by how far past Wall_Bounce_Dont_Slow_Angle it turned (to nothing at a right angle).
     double dont_slow = static_cast<double>(script::fetch_float(kWallBounceDontSlowAngle)) * kRadiansPerDegree;
     double magnitude = std::fabs(static_cast<double>(angle));
@@ -330,26 +330,26 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
         dir.y = static_cast<float>(dir.y * inverse);
         dir.z = static_cast<float>(dir.z * inverse);
     }
-    float ahead_w = static_cast<float>(dir.w * moved);
-    float ahead_z = static_cast<float>(dir.z * moved);
-    float ahead_y = static_cast<float>(dir.y * moved);
-    float ahead_x = static_cast<float>(dir.x * moved);
+    auto ahead_w = static_cast<float>(dir.w * moved);
+    auto ahead_z = static_cast<float>(dir.z * moved);
+    auto ahead_y = static_cast<float>(dir.y * moved);
+    auto ahead_x = static_cast<float>(dir.x * moved);
     maths::Vec4 from;
     from.x = static_cast<float>((static_cast<double>(raise_x) + pos.x) + raise_x);
     from.y = static_cast<float>((static_cast<double>(raise_y) + pos.y) + raise_y);
     from.z = static_cast<float>((static_cast<double>(raise_z) + pos.z) + raise_z);
     from.w = static_cast<float>((static_cast<double>(raise_w) + pos.w) + raise_w);
     double length = get_physics(skater, kFirstForwardCollisionLength);
-    float reach_w = static_cast<float>(dir.w * length);
-    float reach_z = static_cast<float>(dir.z * length);
-    float reach_y = static_cast<float>(dir.y * length);
-    float reach_x = static_cast<float>(length * dir.x);
-    float base_y = static_cast<float>(static_cast<double>(raise_y) + pos.y);
-    float base_x = static_cast<float>(static_cast<double>(raise_x) + pos.x);
-    float mid_w = static_cast<float>((static_cast<double>(raise_w) + pos.w) + ahead_w);
-    float mid_z = static_cast<float>((static_cast<double>(raise_z) + pos.z) + ahead_z);
-    float mid_y = static_cast<float>(static_cast<double>(base_y) + ahead_y);
-    float mid_x = static_cast<float>(static_cast<double>(base_x) + ahead_x);
+    auto reach_w = static_cast<float>(dir.w * length);
+    auto reach_z = static_cast<float>(dir.z * length);
+    auto reach_y = static_cast<float>(dir.y * length);
+    auto reach_x = static_cast<float>(length * dir.x);
+    auto base_y = static_cast<float>(static_cast<double>(raise_y) + pos.y);
+    auto base_x = static_cast<float>(static_cast<double>(raise_x) + pos.x);
+    auto mid_w = static_cast<float>((static_cast<double>(raise_w) + pos.w) + ahead_w);
+    auto mid_z = static_cast<float>((static_cast<double>(raise_z) + pos.z) + ahead_z);
+    auto mid_y = static_cast<float>(static_cast<double>(base_y) + ahead_y);
+    auto mid_x = static_cast<float>(static_cast<double>(base_x) + ahead_x);
     maths::Vec4 to;
     double to_w = static_cast<double>(mid_w) + reach_w;
     double to_z = static_cast<double>(mid_z) + reach_z;
@@ -367,8 +367,8 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
         return;
     // Another wall: turned round by what's left of a half turn, and halved.
     double around = static_cast<double>(kPi) - turn;
-    float s = static_cast<float>(std::sin(around));
-    float c = static_cast<float>(std::cos(around));
+    auto s = static_cast<float>(std::sin(around));
+    auto c = static_cast<float>(std::cos(around));
     maths::Vec4& vel = skater->vel_;
     double vx = vel.x, vz = vel.z;
     double nx = vx * c + vz * s;

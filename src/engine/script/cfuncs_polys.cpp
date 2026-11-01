@@ -353,8 +353,8 @@ bool cfunc_set_light_direction(Struct* params, Script*)
         direction.y = static_cast<float>(std::cos(p) * y - std::sin(p) * z);
         double turned_z = std::cos(p) * z + std::sin(p) * y;
         double h = static_cast<double>(heading) * kRadiansPerDegree;
-        float s = static_cast<float>(std::sin(h));
-        float c = static_cast<float>(std::cos(h));
+        auto s = static_cast<float>(std::sin(h));
+        auto c = static_cast<float>(std::cos(h));
         float x = direction.x;
         direction.z = static_cast<float>(-(static_cast<double>(s) * x) + turned_z * c);
         direction.x = static_cast<float>(turned_z * s + static_cast<double>(c) * x);

@@ -50,7 +50,7 @@ public:
 
 protected:
     // The animation events' constructor (0x00481A20) leaves the frame and the flag as they were.
-    UserClipKey() {}
+    UserClipKey() = default;
 };
 static_assert(sizeof(UserClipKey) == 0xC, "the original's size");
 

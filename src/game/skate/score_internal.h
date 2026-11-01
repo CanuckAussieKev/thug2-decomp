@@ -16,8 +16,7 @@
 #include "game/skate/skate_module_calls.h"
 #include "game/rider/rider.h"
 
-namespace modules {
-namespace score_internal {
+namespace modules::score_internal {
 
 constexpr uint32_t kTheTrickText = 0x44727DAE;        // the_trick_text (+ the skater's number)
 constexpr uint32_t kTheScorePotText = 0xF4D3A70E;     // the_score_pot_text
@@ -65,5 +64,4 @@ inline frontend::UiWidget* find_element(uint32_t id)
 script::Struct* spawn_param_table();
 void delete_structure(script::Struct* structure);
 
-} // namespace score_internal
-} // namespace modules
+} // namespace modules::score_internal

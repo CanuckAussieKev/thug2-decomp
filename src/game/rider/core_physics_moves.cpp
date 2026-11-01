@@ -118,9 +118,9 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
     for (float out : {kTargetFirst, kTargetLast}) {
         const maths::Vec4& position = entity_->at_point_;
         double w = static_cast<double>(direction->w) * out;
-        float z = static_cast<float>(direction->z * static_cast<double>(out));
-        float y = static_cast<float>(direction->y * static_cast<double>(out));
-        float x = static_cast<float>(direction->x * static_cast<double>(out));
+        auto z = static_cast<float>(direction->z * static_cast<double>(out));
+        auto y = static_cast<float>(direction->y * static_cast<double>(out));
+        auto x = static_cast<float>(direction->x * static_cast<double>(out));
         maths::Vec4 corner(x + position.x, y + position.y, z + position.z, static_cast<float>(w + position.w));
         box.append_spot(corner);
         corner.y = static_cast<float>(corner.y - static_cast<double>(kTargetDrop));
@@ -135,9 +135,9 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
     do {
         const maths::Vec4& position = entity_->at_point_;
         double w = static_cast<double>(distance) * direction->w;
-        float z = static_cast<float>(static_cast<double>(distance) * direction->z);
-        float y = static_cast<float>(static_cast<double>(distance) * direction->y);
-        float x = static_cast<float>(static_cast<double>(distance) * direction->x);
+        auto z = static_cast<float>(static_cast<double>(distance) * direction->z);
+        auto y = static_cast<float>(static_cast<double>(distance) * direction->y);
+        auto x = static_cast<float>(static_cast<double>(distance) * direction->x);
         float at_y = y + position.y;
         maths::Vec4 at(x + position.x, at_y, z + position.z, static_cast<float>(w + position.w));
         feeler.line_.start = at;
@@ -177,9 +177,9 @@ void SkaterPhysicsModule::update_speed_override()
     objects::GameEntity* object = object_of(this);
     float& factor = speed_override_;
     if (frame_began_in_drop_ && !state_->flag(PoseFlag::kAcidDrop).on && !state_->flag(PoseFlag::kBailing).on) {
-        float stat = static_cast<float>(stat_value(object, kOverrideStat));
+        auto stat = static_cast<float>(stat_value(object, kOverrideStat));
         double speed = length_unrounded(entity_->vel_);
-        float speed_rounded = static_cast<float>(speed);
+        auto speed_rounded = static_cast<float>(speed);
         if (speed < static_cast<double>(stat) * kOverrideStart)
             return;
         float most = tuning_float_lookup(kOverrideMaxFactor, object);
@@ -194,12 +194,12 @@ void SkaterPhysicsModule::update_speed_override()
     double left = factor - static_cast<double>(tuning_float_lookup(kOverrideRunDown, object)) * frame_length_;
     factor = static_cast<float>(left);
     if (left >= 1.0 || left != left) {
-        float stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));
-        float max = static_cast<float>(static_cast<double>(stat) * factor);
+        auto stat = static_cast<float>(stat_value(object_of(this), kOverrideStat));
+        auto max = static_cast<float>(static_cast<double>(stat) * factor);
         object = object_of(this);
         float limit;
         if (state_->cur_phase_ != 1) {
-            float speed = static_cast<float>(length_unrounded(object->vel_) * kAirBoostFactor);
+            auto speed = static_cast<float>(length_unrounded(object->vel_) * kAirBoostFactor);
             limit = least_of(max, speed, limits_max_);
         } else {
             float current = limits_max_;
@@ -207,8 +207,8 @@ void SkaterPhysicsModule::update_speed_override()
         }
         if (limit >= stat || limit != limit) {
             limits_max_ = limit;
-            float inverse = static_cast<float>(1.0 / stat);
-            float share =
+            auto inverse = static_cast<float>(1.0 / stat);
+            auto share =
                 static_cast<float>(static_cast<double>(stat_value(object, kOverrideStat)) * inverse * limits_max_);
             int& counter = g_grind_counter;
             counter = (counter + 1) % 10;
@@ -235,7 +235,7 @@ double SkaterPhysicsModule::get_gravity()
     objects::RiderPoseState* flags = state_;
     float gravity = tuning_float_lookup(kGravity, object);
     bool vert = flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on;
-    float result = static_cast<float>(
+    auto result = static_cast<float>(
         gravity / static_cast<double>(script::fetch_float(vert ? kGravityScaleVert : kGravityScale)));
     auto* career = modules::g_skate_module->career_.get();
     if (career->is_code_on(kMoonCheat)) {
@@ -276,7 +276,7 @@ bool SkaterPhysicsModule::wall_push_off()
 {
     if (!input_->pad_primary_.button_wedge_.held_down_)
         return false;
-    float since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
+    auto since_last = static_cast<float>(get_seconds(get_since(last_push_off_)));
     if (script::fetch_float(kPushOffWait) > since_last)
         return false;
     double angle = std::sin((script::fetch_float(kPushOffAngle) - 1.0) * kDegrees);
@@ -286,7 +286,7 @@ bool SkaterPhysicsModule::wall_push_off()
                   static_cast<double>(facing.x) * wall.x;
     if (-angle <= into)
         return false;
-    float since_start = static_cast<float>(get_seconds(get_since(wallplant_time_)));
+    auto since_start = static_cast<float>(get_seconds(get_since(wallplant_time_)));
     if (script::fetch_float(kPushOffWait) > since_start)
         return false;
     static_cast<objects::Entity*>(object_of(this))->post_own_event(kPushOffEvent, nullptr);
@@ -298,10 +298,10 @@ bool SkaterPhysicsModule::wall_push_off()
     float bounce = maths::dot_vec(velocity, wall);
     velocity -= 2.0f * (bounce * wall);
     double speed_unrounded = length_unrounded(entity_->vel_);
-    float speed = static_cast<float>(speed_unrounded);
+    auto speed = static_cast<float>(speed_unrounded);
     maths::Vec4& v = entity_->vel_;
     if (speed_unrounded > kPushOffStill) {
-        float slower = static_cast<float>(speed - static_cast<double>(script::fetch_float(kPushOffSlowing)));
+        auto slower = static_cast<float>(speed - static_cast<double>(script::fetch_float(kPushOffSlowing)));
         float least = script::fetch_float(kPushOffSpeed);
         v *= static_cast<float>(objects::larger_of(least, slower) / static_cast<double>(speed));
     } else {
@@ -451,10 +451,10 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
     if (!(feeler.surface_dir_.y > kStepUpGround))
         return false;
     // Across from above the point to above the hit (the normal added): nothing in the way.
-    float w = static_cast<float>(static_cast<double>(feeler.surface_dir_.w) + feeler.contact_pos_.w);
-    float z = static_cast<float>(static_cast<double>(feeler.surface_dir_.z) + feeler.contact_pos_.z);
-    float y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) + feeler.surface_dir_.y);
-    float x = static_cast<float>(static_cast<double>(feeler.surface_dir_.x) + feeler.contact_pos_.x);
+    auto w = static_cast<float>(static_cast<double>(feeler.surface_dir_.w) + feeler.contact_pos_.w);
+    auto z = static_cast<float>(static_cast<double>(feeler.surface_dir_.z) + feeler.contact_pos_.z);
+    auto y = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) + feeler.surface_dir_.y);
+    auto x = static_cast<float>(static_cast<double>(feeler.surface_dir_.x) + feeler.contact_pos_.x);
     feeler.line_.start =
         maths::Vec4(point->x, static_cast<float>(static_cast<double>(point->y) + height), point->z, point->w);
     feeler.line_.end = maths::Vec4(x, static_cast<float>(static_cast<double>(y) + height), z, w);
@@ -468,4 +468,3 @@ bool SkaterPhysicsModule::step_up(const maths::Vec4* point)
 
 } // namespace skater
 
-using skater::SkaterPhysicsModule;

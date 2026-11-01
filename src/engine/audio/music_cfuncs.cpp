@@ -50,7 +50,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 // 0 from 64 on (a negative track's bit too).
 uint64_t track_bit(int bit)
 {
-    uint8_t count = static_cast<uint8_t>(bit);
+    auto count = static_cast<uint8_t>(bit);
     return count >= 64 ? 0 : uint64_t{1} << count;
 }
 
@@ -122,7 +122,7 @@ bool cfunc_play_track(Struct* params, Script*)
     if (!params->fetch_text(0u, &name, 0)) {
         params->fetch_int_value(0u, &track, 0);
         name = audio::track_label_at(track, 0);
-        get_sprintf(path, "MUSIC\\VAG\\SONGS\\%s", name); // "MUSIC\VAG\SONGS\%s"
+        get_sprintf(path, R"(MUSIC\VAG\SONGS\%s)", name); // "MUSIC\VAG\SONGS\%s"
         name = path;
     }
     params->fetch_int_value(kLoop, &loop, 0);

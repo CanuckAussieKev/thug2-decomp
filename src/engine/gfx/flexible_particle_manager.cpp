@@ -114,10 +114,10 @@ int FlexibleParticleManager::compare_distance(const void* a, const void* b)
     const EmitterInstance* first = *static_cast<EmitterInstance* const*>(a);
     const EmitterInstance* second = *static_cast<EmitterInstance* const*>(b);
     // (the original keeps some differences as floats and others at 53 bits)
-    float x1 = static_cast<float>(static_cast<double>(first->at_point_.x) - at.x);
-    float y1 = static_cast<float>(static_cast<double>(first->at_point_.y) - at.y);
-    float z1 = static_cast<float>(static_cast<double>(first->at_point_.z) - at.z);
-    float x2 = static_cast<float>(static_cast<double>(second->at_point_.x) - at.x);
+    auto x1 = static_cast<float>(static_cast<double>(first->at_point_.x) - at.x);
+    auto y1 = static_cast<float>(static_cast<double>(first->at_point_.y) - at.y);
+    auto z1 = static_cast<float>(static_cast<double>(first->at_point_.z) - at.z);
+    auto x2 = static_cast<float>(static_cast<double>(second->at_point_.x) - at.x);
     double y2 = static_cast<double>(second->at_point_.y) - at.y;
     double z2 = static_cast<double>(second->at_point_.z) - at.z;
     double distance2 = (z2 * z2 + y2 * y2) + static_cast<double>(x2) * x2;

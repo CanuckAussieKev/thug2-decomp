@@ -135,14 +135,14 @@ void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
     }
     poly->primitive->unknown14 = (poly->flags >> 1) & 1;
     poly->primitive->get_ready();
-    uint32_t key = reinterpret_cast<uint32_t>(poly);
+    auto key = reinterpret_cast<uint32_t>(poly);
     spawned_polys()->store_entry(key, poly);
 }
 
 // 0x004919C0
 void update_spawned_polys()
 {
-    float elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     for (void* value = get_first_value(spawned_polys()); value;) {
         auto* poly = static_cast<SpawnedPoly*>(value);
         if (poly->flags & 1) {
@@ -158,7 +158,7 @@ void update_spawned_polys()
             value = next_value(spawned_polys());
             delete poly->primitive;
             poly->primitive = nullptr;
-            uint32_t key = reinterpret_cast<uint32_t>(poly);
+            auto key = reinterpret_cast<uint32_t>(poly);
             spawned_polys()->erase_entry(key);
             commands::free_spawned_poly_details(poly);
             continue;
@@ -188,9 +188,9 @@ void update_spawned_polys()
         else if (poly->align_v_ == 0.0f)
             y_offset = poly->dims[1] * 0.5;
         float left = -x_offset;
-        float top = static_cast<float>(-y_offset);
-        float right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
-        float bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
+        auto top = static_cast<float>(-y_offset);
+        auto right = static_cast<float>(static_cast<double>(left) + poly->dims[0]);
+        auto bottom = static_cast<float>(static_cast<double>(top) + poly->dims[1]);
         maths::Vec4 corners[4] = {
             {left, top, 0.0f, 0.0f}, {right, top, 0.0f, 0.0f}, {right, bottom, 0.0f, 0.0f}, {left, bottom, 0.0f, 0.0f}};
         place_corners(poly, corners);
@@ -208,7 +208,7 @@ void kill_all_spawned_polys()
         value = next_value(spawned_polys());
         delete poly->primitive;
         poly->primitive = nullptr;
-        uint32_t key = reinterpret_cast<uint32_t>(poly);
+        auto key = reinterpret_cast<uint32_t>(poly);
         spawned_polys()->erase_entry(key);
         g_spawned_poly_pools.dealloc(poly);
     }

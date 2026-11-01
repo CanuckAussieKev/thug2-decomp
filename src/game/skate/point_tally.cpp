@@ -219,8 +219,7 @@ uint32_t PointTally::trick_name_after_taps(uint32_t trick, int taps)
     script::Struct* params;
     script::read_sub_struct(trick)->read_sub_struct(kParams, &params, 1);
     if (taps > 1) {
-        uint32_t extra =
-            static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
+        auto extra = static_cast<uint32_t>(taps); // (the slot the original reuses: kept when ExtraTricks is missing)
         for (int left = taps - 1; left; --left) {
             params->read_hash_value(kExtraTricks, &extra, 0);
             reinterpret_cast<script::Struct*>(script::fetch_list(extra)->fetch_part(0))

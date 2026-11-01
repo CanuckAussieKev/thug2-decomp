@@ -525,7 +525,7 @@ int AppHost::drain_stream_msgs(InboundMsgCtx* context)
         desc->msg_id_ = start.msg_id;
         desc->content_ = static_cast<uint8_t*>(memory::alloc(static_cast<uint32_t>(start.total_size)));
         desc->succ_ = desc->content_;
-        size_t size = static_cast<size_t>(start.total_size);
+        auto size = static_cast<size_t>(start.total_size);
         if (size >= kMaxStreamStartData)
             size = kMaxStreamStartData;
         // NOT ORIGINAL: no more than the message holds (the original copied on past its end)

@@ -10,7 +10,7 @@
 namespace sys {
 
 namespace {
-const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Settings";
+const char kSettingsKey[] = R"(Software\Activision\Tony Hawk's Underground 2\Settings)";
 } // namespace
 
 // 0x004E1810

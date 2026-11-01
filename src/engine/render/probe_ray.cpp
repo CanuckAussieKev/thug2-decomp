@@ -188,9 +188,9 @@ double ProbeRay::get_hit_vertex_value() const
     };
     double x, y, z;
     minus(on_line, corner[1], &x, &y, &z);
-    const float along_edge_squared = static_cast<float>(get_length_squared(x, y, z));
+    const auto along_edge_squared = static_cast<float>(get_length_squared(x, y, z));
     minus(corner[2], corner[1], &x, &y, &z);
-    const float edge_squared = static_cast<float>(get_length_squared(x, y, z));
+    const auto edge_squared = static_cast<float>(get_length_squared(x, y, z));
     minus(on_line, corner[0], &x, &y, &z);
     const double to_edge = std::sqrt(get_length_squared(x, y, z));
     const double to_hit = std::sqrt(get_length_squared(corner[0].x, corner[0].y, corner[0].z));

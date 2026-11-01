@@ -226,7 +226,7 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
         // Driving: on the ground while the vehicle (PlayerVehicle) has wheels down (+0x114), else in the air.
         *cancel = kGapDriving;
         *require |= kGapDriving << kRequireShift;
-        GameEntity* vehicle = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(kPlayerVehicle));
+        auto* vehicle = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(kPlayerVehicle));
         auto* physics = static_cast<DrivableModule*>(vehicle->fetch_module(kVehicle));
         set(physics->wheels_in_contact_ != 0 ? kGapGround : kGapAir);
         return;
@@ -289,13 +289,12 @@ void RiderGapTracker::fetch_gap_condition_masks(uint32_t* cancel, uint32_t* requ
 // 0x00511F60
 void RiderGapTracker::scan_for_gaps(uint32_t cancel, uint32_t require)
 {
-    for (TrickListEntry* gap = get_first<TrickListEntry>(gaps_); gap;) {
+    for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
         gap_option_labels(gap) &= ~require;
         if (gap_option_labels(gap) & cancel) {
             if (uint32_t script = gap_trick_script(gap)) {
-                for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;
-                     trick = get_next(trick)) {
+                for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
                     if (!trick_done(trick) && trick_gap_id(trick) == get_gap_id(gap) &&
                         get_trick_script(trick) == script && trick_node(trick) == gap_node(gap)) {
                         erase_one(trick);
@@ -338,7 +337,7 @@ void RiderGapTracker::start_gap_trick(script::Struct* params, script::Script* sc
 // 0x00512140
 void RiderGapTracker::check_gap_tricks(script::Struct* /*params*/)
 {
-    for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
+    for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
         TrickNameEntry* next = get_next(trick);
         if (trick_done(trick))
             entity_->start_script_task(get_trick_script(trick), trick_node(trick), false, false, nullptr);
@@ -350,7 +349,7 @@ void RiderGapTracker::check_gap_tricks(script::Struct* /*params*/)
 void RiderGapTracker::clear_gap_tricks(script::Struct* params)
 {
     bool not_this_frame = params->has_bare_flag(kNotInSameFrame);
-    for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
+    for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;) {
         TrickNameEntry* next = get_next(trick);
         if (!not_this_frame || trick_frame(trick) != tick_)
             erase_one(trick);
@@ -366,7 +365,7 @@ void RiderGapTracker::start_gap(script::Struct* params, script::Script* script)
     uint32_t gap_id = 0;
     params->read_hash_value(kGapId, &gap_id, 0);
     // A gap of the same GapID and node is started again.
-    for (TrickListEntry* gap = get_first<TrickListEntry>(gaps_); gap;) {
+    for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
         if (get_gap_id(gap) == gap_id && gap_node(gap) == script->list_link_)
             erase_one(gap);
@@ -454,7 +453,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         return;
     uint32_t gap_id = 0;
     params->read_hash_value(kGapId, &gap_id, 0);
-    for (TrickListEntry* gap = get_first<TrickListEntry>(gaps_); gap;) {
+    for (auto* gap = get_first<TrickListEntry>(gaps_); gap;) {
         TrickListEntry* next = get_next(gap);
         // Its GapID - without one, a gap started at a node that links to this script's.
         if (get_gap_id(gap) != gap_id ||
@@ -511,8 +510,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
                     done = true;
             }
             if (done) {
-                for (TrickNameEntry* trick = get_first<TrickNameEntry>(gap_move_chain_); trick;
-                     trick = get_next(trick)) {
+                for (auto* trick = get_first<TrickNameEntry>(gap_move_chain_); trick; trick = get_next(trick)) {
                     if (trick_gap_id(trick) == get_gap_id(gap)) {
                         trick->set_flag(); // (0x00578670: the gap trick's done)
                         break;
@@ -540,7 +538,7 @@ void RiderGapTracker::end_gap(script::Struct* params, script::Script* script)
         uint32_t success = checksums::fold_text_into_checksum(gap_id, "_Success");
         get_tracker()->launch_event(success, 0xFFFFFFFF, entity_->ident_, params, true, -1.0f);
         // The gap deleted if it's still in the list; then the walk begins again.
-        for (TrickListEntry* other = get_first<TrickListEntry>(gaps_); other; other = get_next(other)) {
+        for (auto* other = get_first<TrickListEntry>(gaps_); other; other = get_next(other)) {
             if (other == gap) {
                 erase_one(gap);
                 break;

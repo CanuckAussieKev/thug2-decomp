@@ -66,19 +66,19 @@ void set_plane(float* plane, const float* origin, const float* u_end, const floa
     double u0 = static_cast<double>(u_end[0]) - origin[0];
     double u1 = static_cast<double>(u_end[1]) - origin[1];
     double u2 = static_cast<double>(u_end[2]) - origin[2];
-    float v0 = static_cast<float>(static_cast<double>(v_end[0]) - origin[0]);
-    float v1 = static_cast<float>(static_cast<double>(v_end[1]) - origin[1]);
+    auto v0 = static_cast<float>(static_cast<double>(v_end[0]) - origin[0]);
+    auto v1 = static_cast<float>(static_cast<double>(v_end[1]) - origin[1]);
     double v2 = static_cast<double>(v_end[2]) - origin[2];
-    float nx = static_cast<float>(v2 * u1 - v1 * u2);
-    float ny = static_cast<float>(u2 * v0 - v2 * u0);
-    float nz = static_cast<float>(v1 * u0 - u1 * v0);
+    auto nx = static_cast<float>(v2 * u1 - v1 * u2);
+    auto ny = static_cast<float>(u2 * v0 - v2 * u0);
+    auto nz = static_cast<float>(v1 * u0 - u1 * v0);
     double xx = static_cast<double>(nx) * nx, yy = static_cast<double>(ny) * ny, zz = static_cast<double>(nz) * nz;
     double length = std::sqrt(length_order == LengthOrder::kXzy ? (xx + zz) + yy : (zz + yy) + xx);
     double x = nx;
     float y = ny, z = nz;
     if (length > 0.0) {
         double inverse = 1.0 / static_cast<float>(length);
-        float inverse_float = static_cast<float>(inverse);
+        auto inverse_float = static_cast<float>(inverse);
         x = (exact_inverse_for_x ? inverse : inverse_float) * static_cast<double>(nx);
         y = static_cast<float>(static_cast<double>(inverse_float) * ny);
         z = static_cast<float>(static_cast<double>(inverse_float) * nz);
@@ -216,11 +216,11 @@ void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const ma
     }
     // The normal: (p1 - p0) x (p3 - p0), the first component of p3 - p0 kept in double precision.
     double a0 = static_cast<double>(p3->x) - p0->x;
-    float a1 = static_cast<float>(static_cast<double>(p3->y) - p0->y);
-    float a2 = static_cast<float>(static_cast<double>(p3->z) - p0->z);
-    float b0 = static_cast<float>(static_cast<double>(p1->x) - p0->x);
-    float b1 = static_cast<float>(static_cast<double>(p1->y) - p0->y);
-    float b2 = static_cast<float>(static_cast<double>(p1->z) - p0->z);
+    auto a1 = static_cast<float>(static_cast<double>(p3->y) - p0->y);
+    auto a2 = static_cast<float>(static_cast<double>(p3->z) - p0->z);
+    auto b0 = static_cast<float>(static_cast<double>(p1->x) - p0->x);
+    auto b1 = static_cast<float>(static_cast<double>(p1->y) - p0->y);
+    auto b2 = static_cast<float>(static_cast<double>(p1->z) - p0->z);
     poly.normal[0] = static_cast<float>(static_cast<double>(b1) * a2 - static_cast<double>(b2) * a1);
     poly.normal[1] = static_cast<float>(b2 * a0 - static_cast<double>(a2) * b0);
     poly.normal[2] = static_cast<float>(static_cast<double>(b0) * a1 - b1 * a0);

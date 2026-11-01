@@ -125,7 +125,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
         }
         m->textures[pass] = find_texture(textures, in.texture);
         double lod = static_cast<double>(in.mip_lod_bias) + 8.0f;
-        float stored = static_cast<float>(lod);
+        auto stored = static_cast<float>(lod);
         std::memcpy(&m->mip_lod_bias_[pass], &stored, 4);
         if (lod > 0.0)
             m->mip_lod_bias_[pass] = 0; // (no more than 0)
@@ -140,7 +140,7 @@ MaterialRef* make_material(const scene_format::Material& record, const lists::Ke
 template <typename Stream>
 lists::KeyMap* read_materials(Stream& in, const lists::KeyMap* textures)
 {
-    uint32_t count = scene_format::take<uint32_t>(in);
+    auto count = scene_format::take<uint32_t>(in);
     void* memory = memory::alloc(sizeof(lists::KeyMap));
     auto* table = memory ? new (memory) lists::KeyMap(table_bits(count)) : nullptr;
     scene_format::Material record;

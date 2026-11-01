@@ -189,7 +189,7 @@ void PlayerRecord::set_face_texture_data(const uint8_t* bytes, uint32_t size)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->net_misc_heap_);
-    uint8_t id = static_cast<uint8_t>(skater_->ident_); // (the skater's object id)
+    auto id = static_cast<uint8_t>(skater_->ident_); // (the skater's object id)
     face_texture_data_ = static_cast<uint8_t*>(memory::alloc(size + 1));
     face_texture_data_[0] = id;
     std::memcpy(face_texture_data_ + 1, bytes, size);
@@ -326,5 +326,3 @@ ScoreEntry* ScoreEntry::teardown(unsigned int flags)
 
 } // namespace online
 
-using online::JoinerRecord;
-using online::PlayerRecord;

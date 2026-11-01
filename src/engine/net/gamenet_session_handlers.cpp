@@ -197,8 +197,8 @@ int on_server_query_msg(net::InboundMsgCtx* context)
     uint8_t bytes[kServerInfoSize];
     util::ByteWriter writer(bytes, sizeof(bytes));
     write_server_info(writer, info);
-    server->deliver_to(kMsgServerInfo, static_cast<int>(writer.position()), bytes, context->sender_conn_->remote_ip_,
-                       context->sender_conn_->port_no_, 0);
+    server->deliver_to(kMsgServerInfo, static_cast<uint16_t>(writer.position()), bytes,
+                       context->sender_conn_->remote_ip_, context->sender_conn_->port_no_, 0);
     return kContinue;
 }
 
@@ -641,7 +641,7 @@ int handle_send_game_state(net::InboundMsgCtx* context)
         server->put_on_outbox(player_handle(player), &desc);
         if (PlayerRecord* king = is_crown_rule_active(manager)) {
             desc = net::NetMessageInfo();
-            uint8_t id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
+            auto id = static_cast<uint8_t>(get_skater_id(player_skater(king)));
             desc.content_ = &id;
             desc.byte_count_ = 1;
             desc.ident_ = kMsgKing;

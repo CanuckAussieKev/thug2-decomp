@@ -341,7 +341,7 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
     }
     case kGetCursorPosition: {
         const Vec4& target = viewer_location(view_camera_);
-        float y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
+        auto y = static_cast<float>(static_cast<double>(target.y) + camera_height(view_camera_));
         script::Struct* results = get_results(script);
         results->put_vec3(kPos, target.x, y, target.z);
         results->push_float(kAngle,

@@ -32,7 +32,7 @@ constexpr uint32_t kSkeleton = 0x222756D5;
 // bytes from +0x50, each with its matrix at +0x10.
 const uint8_t* hierarchy_of(ObjectModule* model)
 {
-    uint8_t* m = reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
+    auto* m = reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(model)->mesh_instance_);
     return reinterpret_cast<const uint8_t*>(reinterpret_cast<render::RenderModel*>(m)->get_asset_hierarchy());
 }
 
@@ -53,7 +53,7 @@ memory::owner<ObjectModule*> ParkedVehicleModule::fabricate() { return new Parke
 ParkedVehicleModule::ParkedVehicleModule() { kind_tag_ = kType; }
 
 // 0x00433650 (0x00433660 the deleting one)
-ParkedVehicleModule::~ParkedVehicleModule() {}
+ParkedVehicleModule::~ParkedVehicleModule() = default;
 
 // 0x004336F0
 void ParkedVehicleModule::seal()

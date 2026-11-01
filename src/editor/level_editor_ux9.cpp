@@ -123,7 +123,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
-            g_queue.push_back([] { change_stage(Stage::kDisengaged); });
+            g_queue.emplace_back([] { change_stage(Stage::kDisengaged); });
         return;
     }
     ground::Spec& d = g_draft;
@@ -157,7 +157,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     ImGui::DragFloat("Grid", &g_grid, 1.0f, 0.0f, 500.0f, g_grid > 0.0f ? "%.0f" : "off");
     ImGui::TextDisabled("Material: %s", d.material ? object_edit::caption(d.material).c_str() : "(automatic)");
     if (ImGui::Button("Use Selected Material"))
-        g_queue.push_back([] {
+        g_queue.emplace_back([] {
             const std::vector<uint32_t>& selection = scenery::get_selection();
             std::string why;
             ground::Spec spec = g_draft;
@@ -175,11 +175,11 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
         ImGui::TextWrapped("%s", g_form_message.c_str());
     ImGui::Separator();
     if (ImGui::Button(g_editing ? "Apply" : "Make"))
-        g_queue.push_back([] { get_apply(); });
+        g_queue.emplace_back([] { get_apply(); });
     if (g_editing) {
         ImGui::SameLine();
         if (ImGui::Button("Remove"))
-            g_queue.push_back([] {
+            g_queue.emplace_back([] {
                 ground::drop_out(g_draft.name);
                 show_message("Removed ground piece " + g_draft.name);
                 change_stage(Stage::kDisengaged);
@@ -187,10 +187,10 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     }
     ImGui::SameLine();
     if (ImGui::Button("New Rectangle"))
-        g_queue.push_back([] { change_stage(Stage::kFirst); });
+        g_queue.emplace_back([] { change_stage(Stage::kFirst); });
     ImGui::SameLine();
     if (ImGui::Button("Close"))
-        g_queue.push_back([] { change_stage(Stage::kDisengaged); });
+        g_queue.emplace_back([] { change_stage(Stage::kDisengaged); });
     // (the pieces of this level)
     if (!ground::get_all().empty() && ImGui::CollapsingHeader("Pieces in this level")) {
         for (const ground::Spec& s : ground::get_all()) {
@@ -199,7 +199,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
                           s.x1 - s.x0, s.z1 - s.z0, s.height);
             if (ImGui::Selectable(row, g_editing && s.name == d.name)) {
                 std::string name = s.name;
-                g_queue.push_back([name] {
+                g_queue.emplace_back([name] {
                     if (const ground::Spec* found = ground::get_find(name)) {
                         open_form(*found, true);
                         go_to_point({(found->x0 + found->x1) * 0.5f, found->base, (found->z0 + found->z1) * 0.5f},
@@ -211,7 +211,7 @@ void ground_form(float view_x, float view_y, float view_width, float scale)
     }
     ImGui::End();
     if (!open)
-        g_queue.push_back([] { change_stage(Stage::kDisengaged); });
+        g_queue.emplace_back([] { change_stage(Stage::kDisengaged); });
 }
 
 void ground_hover(V3 origin, V3 unit_dir)

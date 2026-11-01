@@ -178,7 +178,7 @@ void resolved_value(const Component* component, uint32_t* type, uint32_t* value)
 
 double get_as_float(uint32_t bits)
 {
-    float value = std::bit_cast<float>(bits);
+    auto value = std::bit_cast<float>(bits);
     return value;
 }
 double get_as_integer(uint32_t bits) { return static_cast<double>(static_cast<int32_t>(bits)); }
@@ -887,7 +887,6 @@ void ValueResolver::execute()
 
 namespace {
 
-using script::ValueResolver;
 
 struct ComponentAdapters {
     bool less_than(script::Component* other)

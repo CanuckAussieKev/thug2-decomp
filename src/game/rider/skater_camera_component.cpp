@@ -37,7 +37,6 @@ namespace objects {
 
 namespace {
 
-using skater::physics::get_at;
 
 constexpr uint32_t kSkaterCamera = 0x5E43A604;   // skatercamera (the component type)
 constexpr uint32_t kCleanupState = 0xD8CC3428;   // SkaterCleanupState (the component type)
@@ -94,10 +93,10 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     double up = std::sin(shake_rate_y_ * left * kTwoPi) * shake_amp_y_ * fraction;
     const maths::Vec4& row0 = orientation->row[0];
     const maths::Vec4& row1 = orientation->row[1];
-    float y0 = static_cast<float>(up * row0.y);
-    float z0 = static_cast<float>(up * row0.z);
-    float w0 = static_cast<float>(up * row0.w);
-    float x = static_cast<float>(up * row0.x + position->x);
+    auto y0 = static_cast<float>(up * row0.y);
+    auto z0 = static_cast<float>(up * row0.z);
+    auto w0 = static_cast<float>(up * row0.w);
+    auto x = static_cast<float>(up * row0.x + position->x);
     position->x = x;
     float y = y0 + position->y;
     position->y = y;
@@ -105,9 +104,9 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
     position->z = z;
     float w = w0 + position->w;
     position->w = w;
-    float x1 = static_cast<float>(across * row1.x);
-    float y1 = static_cast<float>(across * row1.y);
-    float z1 = static_cast<float>(across * row1.z);
+    auto x1 = static_cast<float>(across * row1.x);
+    auto y1 = static_cast<float>(across * row1.y);
+    auto z1 = static_cast<float>(across * row1.z);
     position->x = x + x1;
     position->y = y + y1;
     position->z = z + z1;
@@ -121,7 +120,7 @@ void RiderChaseView::apply_shake(maths::Vec4* position, const maths::Mat4* orien
 // 0x004FA020
 void RiderChaseView::fetch_goal(maths::Vec4* out, bool instant)
 {
-    float seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     GameEntity* skater = rider_ref_;
     if (!skater) {
         *out = maths::Vec4(0.0f, 0.0f, 0.0f, 1.0f);
@@ -315,7 +314,7 @@ memory::owner<ObjectModule*> RiderChaseView::fabricate() { return new RiderChase
 // --- the cleanup state ---
 
 // 0x004FBD90 (0x004FBDB0 the deleting one)
-RiderStateReset::~RiderStateReset() {}
+RiderStateReset::~RiderStateReset() = default;
 
 // 0x004FBDA0
 void RiderStateReset::configure_from_data(script::Struct*) { state_ref_ = nullptr; }
@@ -339,7 +338,5 @@ RiderStateReset::RiderStateReset() { kind_tag_ = kCleanupState; }
 
 } // namespace objects
 
-using objects::RiderChaseView;
-using objects::RiderStateReset;
 
 namespace objects {} // namespace objects

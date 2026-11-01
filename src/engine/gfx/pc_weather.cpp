@@ -119,7 +119,7 @@ void PcWeather::tick_frame(float /*frame_seconds*/)
     int frames = rain_on_ ? rain_frames_ : snow_frames_;
     float rate = rain_on_ ? rain_rate_ : snow_rate_;
     float& due = rain_on_ ? rain_due_ : snow_due_;
-    float most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
+    auto most = static_cast<float>(0x400 / frames); // (no more than the slots free up)
     double amount = rate > most ? most : rate;
     float before = due;
     double total = amount + due;
@@ -227,10 +227,10 @@ void PcWeather::render_rain(float x, float z)
                 uint8_t at = stage[cell];
                 if (at == 0xFF)
                     continue;
-                float px = static_cast<float>((spread[offset_x_[cell]] + column_x) * 0.0625f);
-                float py = static_cast<float>((fall[at] + ground) * 0.0625f);
-                float pz = static_cast<float>((spread[offset_z_[cell]] + row_z) * 0.0625f);
-                float py2 = static_cast<float>(length * 0.0625f + py);
+                auto px = static_cast<float>((spread[offset_x_[cell]] + column_x) * 0.0625f);
+                auto py = static_cast<float>((fall[at] + ground) * 0.0625f);
+                auto pz = static_cast<float>((spread[offset_z_[cell]] + row_z) * 0.0625f);
+                auto py2 = static_cast<float>(length * 0.0625f + py);
                 if (!out)
                     out = lines;
                 out[0] = px, out[1] = py, out[2] = pz;
@@ -298,23 +298,23 @@ void PcWeather::render_snow(float x, float z)
         const WeatherRow& row = rows[row_index];
         if (row.first == 0x4000)
             continue;
-        float column_x = static_cast<float>(static_cast<double>(min_x) * 128.0f + base_x);
+        auto column_x = static_cast<float>(static_cast<double>(min_x) * 128.0f + base_x);
         int cell_row = (row_index & 0xF) << 4;
         int height_at = row.offset - row.first + min_x;
-        float row_z = static_cast<float>(static_cast<double>(row_index) * 128.0f + base_z);
+        auto row_z = static_cast<float>(static_cast<double>(row_index) * 128.0f + base_z);
         for (int gx = min_x; gx <= max_x; ++gx, ++height_at) {
             int column = clamp_column(rows[row_index], gx);
             column_x = static_cast<float>(static_cast<double>(column_x) + 128.0f);
             int cell = (column & 0xF) + cell_row;
-            float ground = static_cast<float>(heights[columns[height_at]] >> 4);
+            auto ground = static_cast<float>(heights[columns[height_at]] >> 4);
             for (int k = 0; k < 4; ++k, cell += 0x100) {
                 uint8_t at = stage[cell];
                 if (at == 0xFF)
                     continue;
                 int zb = offset_z_[cell], xb = offset_x_[cell];
-                float px = static_cast<float>(static_cast<double>(sway[(at + zb) & 0xFF]) + spread[xb] + column_x);
-                float py = static_cast<float>(static_cast<double>(fall[at]) + snow_size_ + ground);
-                float pz = static_cast<float>(static_cast<double>(sway[(xb + at) & 0xFF]) + spread[zb] + row_z);
+                auto px = static_cast<float>(static_cast<double>(sway[(at + zb) & 0xFF]) + spread[xb] + column_x);
+                auto py = static_cast<float>(static_cast<double>(fall[at]) + snow_size_ + ground);
+                auto pz = static_cast<float>(static_cast<double>(sway[(xb + at) & 0xFF]) + spread[zb] + row_z);
                 if (!out)
                     out = points;
                 out[0] = px, out[1] = py, out[2] = pz;
@@ -353,7 +353,7 @@ void PcWeather::render_splashes(float x, float z)
                                static_cast<float>(static_cast<double>(z) - camera[2]), 1.0f};
         maths::Vec4 at = {camera[0], 50000.0f, camera[2], 1.0f};
         heading.make_unit();
-        float along = static_cast<float>(maths::rnd(0x8000) * (1.0 / 32768.0));
+        auto along = static_cast<float>(maths::rnd(0x8000) * (1.0 / 32768.0));
         double out = static_cast<double>(along) * 2048.0f;
         at.x = static_cast<float>(heading.x * out + at.x);
         at.y = static_cast<float>(at.y + heading.y * out);
@@ -361,7 +361,7 @@ void PcWeather::render_splashes(float x, float z)
         at.w = static_cast<float>(at.w + heading.w * out);
         double side = (1.0 - maths::rnd(0x8000) * (1.0 / 32768.0)) * along;
         side *= next_splash_ & 1 ? 2048.0f : -2048.0f;
-        float across = static_cast<float>(-static_cast<double>(heading.x)); // (stored, as the original)
+        auto across = static_cast<float>(-static_cast<double>(heading.x)); // (stored, as the original)
         at.x = static_cast<float>(heading.z * side + at.x);
         at.y = static_cast<float>(at.y + side * 0.0f);
         at.z = static_cast<float>(at.z + across * side);
@@ -398,8 +398,8 @@ void PcWeather::render_splashes(float x, float z)
         if (!frames)
             continue;
         double half = static_cast<double>(splash_size_) * 0.5f;
-        float x0 = static_cast<float>(splash_x_[i] - half), x1 = static_cast<float>(half + splash_x_[i]);
-        float z0 = static_cast<float>(splash_z_[i] - half), z1 = static_cast<float>(half + splash_z_[i]);
+        auto x0 = static_cast<float>(splash_x_[i] - half), x1 = static_cast<float>(half + splash_x_[i]);
+        auto z0 = static_cast<float>(splash_z_[i] - half), z1 = static_cast<float>(half + splash_z_[i]);
         uint8_t c[4];
         for (int k = 0; k < 4; ++k)
             c[k] = static_cast<uint8_t>(splash_colour_[k] * frames / splash_life_); // (fading with its frames)
@@ -460,7 +460,7 @@ void PcWeather::tick_grid()
     int levels = 0;
     int* level = heights; // (no limit on the levels, as the original: past 256 they run on over the fields after)
     for (int z = min_z, r = 0; z <= max_z; ++z, ++r) {
-        float at_z = static_cast<float>(z << 7);
+        auto at_z = static_cast<float>(z << 7);
         for (int x = min_x; x <= max_x; ++x) {
             int index = width * r - min_x + x;
             maths::Vec4 at = {static_cast<float>(x << 7), 50000.0f, at_z, 1.0f};

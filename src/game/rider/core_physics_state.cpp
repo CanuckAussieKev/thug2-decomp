@@ -200,7 +200,7 @@ void SkaterPhysicsModule::update_free_revert()
 {
     if (!special_friction_index_)
         return;
-    uint32_t start = static_cast<uint32_t>(special_friction_start_);
+    auto start = static_cast<uint32_t>(special_friction_start_);
     uint32_t wait = ftol(static_cast<double>(script::fetch_float(kTimeBeforeFreeRevert)) * kMillisecondsPerSecond);
     if (get_since(start) <= wait)
         return;
@@ -308,7 +308,7 @@ int SkaterPhysicsModule::get_air_time_left(script::Struct*, script::Script* scri
 {
     objects::GameEntity* object = object_of(this);
     float y = object->at_point_.y;
-    float drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground_));
+    auto drop = static_cast<float>(y - (static_cast<double>(y) - state_->height_above_ground_));
     float upward = object->vel_.y;
     double down = -current_gravity(this);
     // Solving y + upward * t - down * t^2 / 2 = the take-off height.

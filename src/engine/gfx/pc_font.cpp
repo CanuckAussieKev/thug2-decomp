@@ -133,7 +133,7 @@ void PcText::update_priority()
 void allocate_text_pool(uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
-        PcText* text = new PcText;
+        auto* text = new PcText;
         // (no check: a failed allocation writes through null, as the original)
         text->next_free_ = free_texts();
         free_texts() = text;

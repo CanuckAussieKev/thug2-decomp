@@ -37,7 +37,7 @@ void op_button(const char* label, bool can, const char* what, const char* why_no
 std::string terrain_label(const std::string& name)
 {
     const std::string prefix = "TERRAIN_GRIND";
-    std::string label = name.compare(0, prefix.size(), prefix) == 0 ? name.substr(prefix.size()) : name;
+    std::string label = name.starts_with(prefix) ? name.substr(prefix.size()) : name;
     for (size_t i = 1; i < label.size(); ++i)
         label[i] = static_cast<char>(label[i] >= 'A' && label[i] <= 'Z' ? label[i] - 'A' + 'a' : label[i]);
     return label;

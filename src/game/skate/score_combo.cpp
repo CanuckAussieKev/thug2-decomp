@@ -166,7 +166,7 @@ void PointTally::bank_combo_score()
         debug::printf("   total %d\n", pot_); // "   total %d\n"
     if (script::fetch_int_value(kNewSpecial)) {
         double points = static_cast<double>(pot_) * multiplier_;
-        double counted = static_cast<double>(pot_special_);
+        auto counted = static_cast<double>(pot_special_);
         if (points > counted) {
             special_ += ftol(points - counted);
             if (special_ < 0) {
@@ -292,7 +292,7 @@ PointTally::~PointTally()
 void PointTally::tick_frame()
 {
     if (special_) {
-        float special = static_cast<float>(special_);
+        auto special = static_cast<float>(special_);
         double rate = special_active_ ? static_cast<double>(0.2f) : static_cast<double>(0.05f);
         special_ = ftol(special - frame_clock::get_slomo_frame_seconds() * rate);
         if (special_ <= 0) {
@@ -323,7 +323,7 @@ void PointTally::tick_frame()
         bar = *frontend::UiTree::sole()->fetch_part(&found, id, 0);
     }
     double full = static_cast<double>(special_) * static_cast<double>(1.0f / 3000.0f); // (0x0064E334)
-    float size = static_cast<float>(full);
+    auto size = static_cast<float>(full);
     if (full > 1.0)
         size = 1.0f;
     else if (size < 0.0f)
@@ -445,7 +445,7 @@ void PointTally::fire_off(const char* text, int score, uint32_t flags)
             if (times >= degrade_start) {
                 add_one = false;
                 double added = 1.0 - (times - degrade_start + 1) * 0.5;
-                float added_f = static_cast<float>(added);
+                auto added_f = static_cast<float>(added);
                 if (added > 0.0 && !(flags & kTrickNoMultiplier))
                     multiplier_ = static_cast<float>(static_cast<double>(added_f) + multiplier_);
             } else if (flags & kTrickNoMultiplier) {
@@ -534,22 +534,22 @@ void PointTally::change_spin_degrees(int degrees)
     }
     int shown_degrees = half_turns * 180;
     bool joined = log_.num_ - 1 > spin_trick_;
-    uint8_t flags = static_cast<uint8_t>(trick->flag_bits_);
+    auto flags = static_cast<uint8_t>(trick->flag_bits_);
     if (!renamed) {
         const char* format;
         if (flags & kTrickColour3)
-            format = (joined ? "\\c3%s\\_%d\\_%s\\c0\\_+ " : "\\c3%s\\_%d\\_%s\\c0"); // "\c3%s\_%d\_%s\c0[\_+ ]"
+            format = (joined ? R"(\c3%s\_%d\_%s\c0\_+ )" : R"(\c3%s\_%d\_%s\c0)"); // "\c3%s\_%d\_%s\c0[\_+ ]"
         else if (flags & kTrickSpecial)
-            format = (joined ? "\\c2%s\\_%d\\_%s\\c0\\_+ " : "\\c2%s\\_%d\\_%s\\c0"); // "\c2%s\_%d\_%s\c0[\_+ ]"
+            format = (joined ? R"(\c2%s\_%d\_%s\c0\_+ )" : R"(\c2%s\_%d\_%s\c0)"); // "\c2%s\_%d\_%s\c0[\_+ ]"
         else
-            format = (joined ? "%s\\_%d\\_%s\\_+ " : "%s\\_%d\\_%s"); // "%s\_%d\_%s[\_+ ]"
+            format = (joined ? R"(%s\_%d\_%s\_+ )" : "%s\\_%d\\_%s"); // "%s\_%d\_%s[\_+ ]"
         std::snprintf(trick->shown_, sizeof(trick->shown_), format, side, shown_degrees, trick->text_);
     } else {
         const char* format;
         if (flags & kTrickColour3)
-            format = (joined ? "\\c3%s\\_%s\\c0\\_+ " : "\\c3%s\\_%s\\c0"); // "\c3%s\_%s\c0[\_+ ]"
+            format = (joined ? R"(\c3%s\_%s\c0\_+ )" : R"(\c3%s\_%s\c0)"); // "\c3%s\_%s\c0[\_+ ]"
         else if (flags & kTrickSpecial)
-            format = (joined ? "\\c2%s\\_%s\\c0\\_+ " : "\\c2%s\\_%s\\c0"); // "\c2%s\_%s\c0[\_+ ]"
+            format = (joined ? R"(\c2%s\_%s\c0\_+ )" : R"(\c2%s\_%s\c0)"); // "\c2%s\_%s\c0[\_+ ]"
         else
             format = (joined ? "%s\\_%s\\_+ " : "%s\\_%s"); // "%s\_%s[\_+ ]"
         std::snprintf(trick->shown_, sizeof(trick->shown_), format, side, trick->text_);
@@ -669,8 +669,8 @@ void PointTally::get_bail(bool clear)
 {
     for (int i = 0; i < seen_.num_; ++i) {
         auto* seen = static_cast<TrickSeen*>(seen_.fetch_entry_at(&i, nullptr)); // (inlined there)
-        for (int k = 0; k < 4; ++k)
-            seen->ongoing_[k] = 0;
+        for (int& k : seen->ongoing_)
+            k = 0;
     }
     if (tricks_) {
         pot_state_ = 0;

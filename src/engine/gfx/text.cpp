@@ -171,7 +171,7 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
 {
     double scale_x = horiz_screen_ratio();
     double scale_y = vert_screen_ratio();
-    float spacing = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
+    auto spacing = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
     if (c == ' ') {
         *pen_x = static_cast<float>((font->blank_gap_ * static_cast<double>(xscale) + spacing) * scale_x + *pen_x);
         return;
@@ -180,7 +180,7 @@ void GlyphRun::draw_key_char(char c, float* pen_x, float pen_y)
     // (x87: top and bottom stay at double precision until stored)
     double top = static_cast<double>(font->base - glyph->baseline) * yscale * scale_y + pen_y;
     float left = *pen_x;
-    float right = static_cast<float>(glyph->w * scale_x * xscale + left);
+    auto right = static_cast<float>(glyph->w * scale_x * xscale + left);
     double bottom = glyph->h * scale_y * yscale + top;
     uint32_t vertex_color = get_vertex_color(color);
     TextVertex* v = get_vertex_buffer() + get_vertex_count();
@@ -204,12 +204,12 @@ void GlyphRun::draw()
     double offset_x = screen_offset_x();
     double offset_y = screen_offset_y();
     // Screen positions (x87: each sum rounded to float once, when stored).
-    float pos_x = static_cast<float>(scale_x * x + offset_x);
-    float pos_y = static_cast<float>(scale_y * y + offset_y);
-    float pivot_screen_x = static_cast<float>((static_cast<double>(pivot_x_) + x) * scale_x + offset_x);
-    float pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y) * scale_y + offset_y);
-    float glyph_gap = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
-    float blank_gap = static_cast<float>(font->blank_gap_ * static_cast<double>(xscale));
+    auto pos_x = static_cast<float>(scale_x * x + offset_x);
+    auto pos_y = static_cast<float>(scale_y * y + offset_y);
+    auto pivot_screen_x = static_cast<float>((static_cast<double>(pivot_x_) + x) * scale_x + offset_x);
+    auto pivot_screen_y = static_cast<float>((static_cast<double>(pivot_y_) + y) * scale_y + offset_y);
+    auto glyph_gap = static_cast<float>(font->glyph_gap_ * static_cast<double>(xscale));
+    auto blank_gap = static_cast<float>(font->blank_gap_ * static_cast<double>(xscale));
     if (xscale == 0.0f || yscale == 0.0f) // (0x0066D520)
         return;
     float cos_a = std::cos(angle);
@@ -292,7 +292,7 @@ void GlyphRun::draw()
             }
             if (!glyph)
                 glyph = &char_font->chars[char_font->map[static_cast<uint8_t>(*p)]];
-            float top =
+            auto top =
                 static_cast<float>(static_cast<double>(char_font->base - glyph->baseline) * yscale * scale_y + pos_y);
             const TextEffect* e =
                 effects ? reinterpret_cast<const TextEffect*>(reinterpret_cast<const uint8_t*>(effects) + effect)
@@ -335,7 +335,7 @@ void GlyphRun::draw()
                 // negated and offset by the pivot's x on both axes, then turned by the text's angle, and the
                 // corners are turned by (angle - 90 degrees) mirrored. Kept as it is.
                 double a = e->rotation * static_cast<double>(kEffectScale);
-                float cos_r = static_cast<float>(std::cos(a));
+                auto cos_r = static_cast<float>(std::cos(a));
                 int cy = ftol((static_cast<double>(bottom) + top) * kMinusHalf);
                 double oy = static_cast<float>(-pivot_xi - cy);
                 int cx = ftol((static_cast<double>(right) + pos_x) * kMinusHalf);
@@ -343,8 +343,8 @@ void GlyphRun::draw()
                 int centre_x = ftol(ox * cos_a - oy * sin_a) + pivot_xi;
                 int centre_y = ftol(oy * cos_a + ox * sin_a) + pivot_xi;
                 auto turn = [&](int& px, int& py) {
-                    float dx = static_cast<float>(px - centre_x);
-                    float dy = static_cast<float>(py - centre_y);
+                    auto dx = static_cast<float>(px - centre_x);
+                    auto dy = static_cast<float>(py - centre_y);
                     px = ftol(std::sin(a) * dx - static_cast<double>(dy) * cos_r) + centre_x;
                     py = ftol(std::sin(a) * dy + static_cast<double>(dx) * cos_r) + centre_y;
                 };
@@ -427,7 +427,7 @@ void GlyphRun::close_sketch()
 {
     if (!quad_indices_made()) {
         for (int quad = 0; quad < kQuads; ++quad) {
-            uint16_t first = static_cast<uint16_t>(quad * 4);
+            auto first = static_cast<uint16_t>(quad * 4);
             uint16_t* triangles = quad_indices() + quad * 6;
             triangles[0] = first;
             triangles[1] = static_cast<uint16_t>(first + 1);

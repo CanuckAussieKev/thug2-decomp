@@ -270,7 +270,7 @@ void MenuBase::arrange()
                 // half the item's padded length; the offset moves by the unrounded half, then by the rounded one
                 double half = (vertical_ ? static_cast<double>(item->level_y_) : static_cast<double>(item->span_)) *
                               margin_factor_ * 0.5;
-                float half_stored = static_cast<float>(half);
+                auto half_stored = static_cast<float>(half);
                 offset = static_cast<float>(half + offset);
                 if (vertical_) {
                     item->change_alignment(inner_align_h_, 0.0f);
@@ -409,7 +409,7 @@ GroupWidget::GroupWidget()
 }
 
 // 0x004AAC80
-GroupWidget::~GroupWidget() {}
+GroupWidget::~GroupWidget() = default;
 
 // 0x004AA530
 void GroupWidget::change_traits(script::Struct* params)
@@ -442,5 +442,3 @@ bool GroupWidget::pass_event_to_script(objects::Signal* event)
 
 } // namespace frontend
 
-using frontend::GroupWidget;
-using frontend::MenuBase;

@@ -212,7 +212,7 @@ bool ObjectiveAuthoring::point_near_any_goal(const maths::Vec4& pos, float heigh
             continue;
         const EditedGoalPoint& point = goal.path_vertices_[index];
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
-        float dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
+        auto dx = static_cast<float>(static_cast<double>(point.pos.x) - x);
         double dy = (static_cast<double>(point.pos.y) + point.height) - y;
         double dz = static_cast<double>(point.pos.z) - z;
         if (std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx) < radius)
@@ -482,7 +482,7 @@ void ObjectiveAuthoring::write_goals(script::Struct* out)
 void ObjectiveAuthoring::write_level_goals(uint32_t level, script::Struct* out)
 {
     // (sized by the complete goals, filled with every used one: as the original)
-    uint32_t count = static_cast<uint32_t>(count_complete_goals(level));
+    auto count = static_cast<uint32_t>(count_complete_goals(level));
     script::Array* goals = script::alloc_script_array();
     goals = goals ? new (goals) script::Array : nullptr;
     goals->configure_size_kind(count, script::kQbvalStruct);

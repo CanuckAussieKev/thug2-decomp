@@ -137,7 +137,7 @@ int RigData::fetch_parent_slot(int index) { return fetch_slot_no(parent_names_[i
 bool RigData::is_descendant(uint32_t bone, uint32_t ancestor)
 {
     while (bone > ancestor) {
-        uint32_t parent = static_cast<uint32_t>(fetch_parent_slot(static_cast<int>(bone)));
+        auto parent = static_cast<uint32_t>(fetch_parent_slot(static_cast<int>(bone)));
         if (parent == ancestor)
             return true;
         bone = parent;

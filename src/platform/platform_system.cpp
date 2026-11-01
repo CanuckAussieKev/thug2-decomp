@@ -170,7 +170,7 @@ void decode_adpcm(int16_t* out, const uint8_t* in, int count)
 // 0x005F5AF0
 void* unswizzle(void* out, const void* in, int width, int height, uint32_t bytes_per_texel)
 {
-    uint32_t count = static_cast<uint32_t>(width * height);
+    auto count = static_cast<uint32_t>(width * height);
     auto* from = static_cast<const uint8_t*>(in);
     for (uint32_t i = 0; i < count; ++i) {
         // The index's bits dealt out to x and y in turn (x first) while each has bits left.

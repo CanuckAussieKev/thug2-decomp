@@ -32,7 +32,7 @@ void die(Entity* object) { object->flag_as_dead(); }
 } // namespace
 
 // 0x0043D840 (0x0043D850 the deleting one)
-WaitAndDieComponent::~WaitAndDieComponent() {}
+WaitAndDieComponent::~WaitAndDieComponent() = default;
 
 // 0x0043D880
 void WaitAndDieComponent::configure_from_data(script::Struct* params)

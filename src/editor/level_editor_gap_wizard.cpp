@@ -361,7 +361,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
                       ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse)) {
         ImGui::End();
         if (!open)
-            g_queue.push_back([] { set_armed(false); });
+            g_queue.emplace_back([] { set_armed(false); });
         return;
     }
     ImGui::TextDisabled("From %s to %s", spot_name(g_spots[0].kind), spot_name(g_spots[1].kind));
@@ -385,7 +385,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     bool named = std::any_of(g_name, g_name + std::strlen(g_name), [](char c) { return c != ' '; });
     ImGui::BeginDisabled(!named);
     if (ImGui::Button("Create Gap"))
-        g_queue.push_back([] {
+        g_queue.emplace_back([] {
             get_make();
             g_form_open = false;
             g_picked = 0;
@@ -393,13 +393,13 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     ImGui::EndDisabled();
     ImGui::SameLine();
     if (ImGui::Button("Pick again"))
-        g_queue.push_back([] { set_armed(true); });
+        g_queue.emplace_back([] { set_armed(true); });
     ImGui::SameLine();
     if (ImGui::Button("Cancel"))
-        g_queue.push_back([] { set_armed(false); });
+        g_queue.emplace_back([] { set_armed(false); });
     ImGui::End();
     if (!open)
-        g_queue.push_back([] { set_armed(false); });
+        g_queue.emplace_back([] { set_armed(false); });
 }
 
 } // namespace frontend::level_editor::gap_wizard

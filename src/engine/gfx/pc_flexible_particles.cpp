@@ -279,7 +279,7 @@ void PcNewFlatParticles::render()
             uint32_t quads = 0;
             if (index < particle_count_) {
                 for (;;) {
-                    float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                    auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                     double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                     particle->start_size_[0];
                     double up = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
@@ -292,20 +292,20 @@ void PcNewFlatParticles::render()
                         cy = static_cast<float>(static_cast<double>(place[1]) + at_point_.y);
                         cz = static_cast<float>(static_cast<double>(place[2]) + at_point_.z);
                     }
-                    float rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
-                          rz = static_cast<float>(r.z * across);
-                    float ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
-                          uz = static_cast<float>(u.z * up);
+                    auto rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
+                         rz = static_cast<float>(r.z * across);
+                    auto ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
+                         uz = static_cast<float>(u.z * up);
 
                     ColourSpan span = colour_span(*this, life);
                     uint32_t colour = get_colour(*this, *span.from, *span.to, span.t);
 
                     double dx = static_cast<double>(cx) - rx, dy = static_cast<double>(cy) - ry,
                            dz = static_cast<double>(cz) - rz;
-                    float fdx = static_cast<float>(dx), fdy = static_cast<float>(dy), fdz = static_cast<float>(dz);
+                    auto fdx = static_cast<float>(dx), fdy = static_cast<float>(dy), fdz = static_cast<float>(dz);
                     double sz = static_cast<double>(rz) + cz;
-                    float fsx = static_cast<float>(static_cast<double>(rx) + cx),
-                          fsy = static_cast<float>(static_cast<double>(ry) + cy), fsz = static_cast<float>(sz);
+                    auto fsx = static_cast<float>(static_cast<double>(rx) + cx),
+                         fsy = static_cast<float>(static_cast<double>(ry) + cy), fsz = static_cast<float>(sz);
                     vertex[0] = {static_cast<float>(static_cast<double>(fdx) + ux),
                                  static_cast<float>(static_cast<double>(fdy) + uy),
                                  static_cast<float>(dz + uz),
@@ -444,12 +444,12 @@ void PcFlatRibbonParticles::render()
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
             for (uint32_t bytes = particle_bytes; bytes <= 0x7FF; bytes += particle_bytes) {
-                float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 float p0[3], p1[3], n[3];
                 place_of(this, index, p0);
                 place_of(this, max_particles_ + index, p1);
                 get_across(p0, p1, a, b, c, true, n);
-                float w =
+                auto w =
                     static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                        particle->start_size_[0]);
                 ColourSpan span = colour_span(*this, life);
@@ -460,8 +460,8 @@ void PcFlatRibbonParticles::render()
                 // The head end's edge points.
                 double n0w = static_cast<double>(n[0]) * w, n1w = static_cast<double>(w) * n[1],
                        n2w = static_cast<double>(w) * n[2];
-                float o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
-                float o1 = static_cast<float>(width * n1w);
+                auto o0 = static_cast<float>(static_cast<double>(static_cast<float>(n0w)) * width);
+                auto o1 = static_cast<float>(width * n1w);
                 float previous_a[3] = {static_cast<float>(static_cast<double>(o0) + p0[0]),
                                        static_cast<float>(static_cast<double>(o1) + p0[1]),
                                        static_cast<float>(width * n2w + p0[2])};
@@ -484,7 +484,7 @@ void PcFlatRibbonParticles::render()
                     float next_b[3] = {static_cast<float>(static_cast<double>(p1[0]) - o0),
                                        static_cast<float>(static_cast<double>(p1[1]) - o1),
                                        static_cast<float>(p1[2] - width * n2w)};
-                    float o2 = static_cast<float>(width * static_cast<double>(static_cast<float>(n2w)));
+                    auto o2 = static_cast<float>(width * static_cast<double>(static_cast<float>(n2w)));
                     float next_a[3] = {static_cast<float>(static_cast<double>(o0) + p1[0]),
                                        static_cast<float>(static_cast<double>(o1) + p1[1]),
                                        static_cast<float>(static_cast<double>(o2) + p1[2])};
@@ -535,13 +535,13 @@ void PcFlatRibbonParticles::render()
             os_layer::lock_dynamic_vertices(remaining, sizeof(QuadVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
             for (uint32_t bytes = sizeof(QuadVertex); bytes <= 0x7FF; bytes += sizeof(QuadVertex)) {
-                float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 double size = ((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                particle->start_size_[0]) *
                               width * 5.0f; // (0x006469AC)
-                float r0 = static_cast<float>(r.x * size), r1 = static_cast<float>(r.y * size),
-                      r2 = static_cast<float>(r.z * size);
-                float u0 = static_cast<float>(u.x * size), u1 = static_cast<float>(u.y * size);
+                auto r0 = static_cast<float>(r.x * size), r1 = static_cast<float>(r.y * size),
+                     r2 = static_cast<float>(r.z * size);
+                auto u0 = static_cast<float>(u.x * size), u1 = static_cast<float>(u.y * size);
                 double u2 = u.z * size;
                 const float* p = position_array_ + 3 * index;
                 double px, py;
@@ -554,10 +554,10 @@ void PcFlatRibbonParticles::render()
                     pz = static_cast<float>(static_cast<double>(p[2]) + at_point_.z);
                 }
                 double e0 = px + r0;
-                float e1 = static_cast<float>(py + r1), e2 = static_cast<float>(static_cast<double>(pz) + r2);
-                float g0 = static_cast<float>(px - r0);
+                auto e1 = static_cast<float>(py + r1), e2 = static_cast<float>(static_cast<double>(pz) + r2);
+                auto g0 = static_cast<float>(px - r0);
                 double g1 = py - r1, g2 = static_cast<double>(pz) - r2;
-                float g1f = static_cast<float>(g1);
+                auto g1f = static_cast<float>(g1);
                 ColourSpan span = colour_span(*this, life);
                 uint32_t colour = get_colour(*this, *span.from, *span.to, span.t);
                 vertex[0] = {static_cast<float>(e0 - u0),
@@ -644,7 +644,7 @@ void PcGlowParticles::render()
         uint32_t words = 0;
         int total = particle_count_;
         for (uint32_t budget = particle_words; index < total && budget <= 0x7FF; budget += particle_words) {
-            float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+            auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                             particle->start_size_[0];
             double up = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
@@ -657,10 +657,10 @@ void PcGlowParticles::render()
                 p[1] = static_cast<float>(static_cast<double>(place[1]) + at_point_.y);
                 p[2] = static_cast<float>(static_cast<double>(place[2]) + at_point_.z);
             }
-            float rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
-                  rz = static_cast<float>(r.z * across);
-            float ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
-                  uz = static_cast<float>(u.z * up);
+            auto rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
+                 rz = static_cast<float>(r.z * across);
+            auto ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
+                 uz = static_cast<float>(u.z * up);
             // The centre's, the edge's and the outer ring's colours (each its own of the three colour arrays').
             ColourSpan span = colour_span(*this, life);
             uint32_t colours[3];
@@ -687,7 +687,7 @@ void PcGlowParticles::render()
                 inner[1] = static_cast<float>(static_cast<double>(static_cast<float>(uy * c)) + inner[1]);
                 inner[2] = static_cast<float>(static_cast<double>(static_cast<float>(uz * c)) + inner[2]);
             }
-            float step = static_cast<float>(6.28318548f / static_cast<double>(segments_)); // (0x0064545C)
+            auto step = static_cast<float>(6.28318548f / static_cast<double>(segments_)); // (0x0064545C)
             for (int i = 1; i <= segments_; ++i) {
                 double angle = static_cast<double>(i) * step;
                 double si = std::sin(angle), ci = std::cos(angle);
@@ -697,16 +697,16 @@ void PcGlowParticles::render()
                 double r2 =
                     static_cast<double>(static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) * w)) +
                     p[2];
-                float cosine = static_cast<float>(ci);
+                auto cosine = static_cast<float>(ci);
                 double usw = ux * ci * w;
                 double u1 = static_cast<double>(static_cast<float>(uy * ci)) * w;
-                float u2 = static_cast<float>(static_cast<double>(static_cast<float>(uz * ci)) * w);
+                auto u2 = static_cast<float>(static_cast<double>(static_cast<float>(uz * ci)) * w);
                 next_outer[0] = static_cast<float>(usw + static_cast<float>(rsw + p[0]));
                 next_outer[1] = static_cast<float>(u1 + (r1 + p[1]));
                 next_outer[2] = static_cast<float>(u2 + r2);
                 double x = rx * si + p[0];
                 double y = static_cast<double>(static_cast<float>(ry * si)) + p[1];
-                float z = static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) + p[2]);
+                auto z = static_cast<float>(static_cast<double>(static_cast<float>(rz * si)) + p[2]);
                 next_inner[0] = static_cast<float>(ux * static_cast<double>(cosine) + x);
                 next_inner[1] =
                     static_cast<float>(static_cast<double>(static_cast<float>(uy * static_cast<double>(cosine))) + y);
@@ -771,7 +771,7 @@ void PcLineParticles::render()
         auto* vertex = static_cast<TrailVertex*>(
             os_layer::lock_dynamic_vertices(particle_count_ * 2, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         while (index < particle_count_) {
-            float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+            auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             float p0[3], p1[3];
             place_of(this, index, p0);
             place_of(this, max_particles_ + index, p1);
@@ -844,7 +844,7 @@ void PcRibbonParticles::render()
         auto* out =
             static_cast<uint8_t*>(os_layer::lock_dynamic_vertices(remaining, stride, &buffer, &first_vertex, &room));
         while (index < particle_count_) {
-            float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+            auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double hx, hy;
             float hz, t[3];
             if (emitter_independent_) {
@@ -859,11 +859,11 @@ void PcRibbonParticles::render()
                 t[2] = static_cast<float>(static_cast<double>(tail[2]) + at_point_.z);
             }
             // Across the ribbon: (tail - head) x the camera's direction, normalised when it has a length.
-            float dx = static_cast<float>(t[0] - hx), dy = static_cast<float>(t[1] - hy),
-                  dz = static_cast<float>(static_cast<double>(t[2]) - hz);
+            auto dx = static_cast<float>(t[0] - hx), dy = static_cast<float>(t[1] - hy),
+                 dz = static_cast<float>(static_cast<double>(t[2]) - hz);
             double n0 = dy * c - dz * b;
             double n1 = dz * a - c * dx;
-            float n2 = static_cast<float>(b * dx - dy * a);
+            auto n2 = static_cast<float>(b * dx - dy * a);
             double length = std::sqrt(n0 * n0 + static_cast<double>(n2) * n2 + n1 * n1);
             if (length > 0.0f) {
                 double inverse = 1.0f / length;
@@ -871,11 +871,11 @@ void PcRibbonParticles::render()
                 n1 *= inverse;
                 n2 = static_cast<float>(n2 * inverse);
             }
-            float w =
+            auto w =
                 static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                    particle->start_size_[0]);
             double n0w = n0 * w, n1w = n1 * w, n2w = static_cast<double>(n2) * w;
-            float f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
+            auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
             float corners[4][3] = {
                 {static_cast<float>(f0 + hx), static_cast<float>(f1 + hy), static_cast<float>(n2w + hz)},
                 {static_cast<float>(hx - f0), static_cast<float>(hy - f1),
@@ -972,7 +972,7 @@ void PcRibbonTrailParticles::render()
         auto* vertex = static_cast<TrailVertex*>(
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         while (index < particle_count_) {
-            float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+            auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             float p0[3], p1[3], n[3];
             place_of(this, index, p0);
             place_of(this, max_particles_ + index, p1);
@@ -990,7 +990,7 @@ void PcRibbonTrailParticles::render()
                         f = static_cast<float>(f * inverse);
                 }
             }
-            float w =
+            auto w =
                 static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                    particle->start_size_[0]);
             ColourSpan span = colour_span(*this, life);
@@ -999,7 +999,7 @@ void PcRibbonTrailParticles::render()
             uint32_t previous_colour = head_colour(*from++, *to++, span.t);
             double n0w = static_cast<double>(n[0]) * w, n1w = static_cast<double>(n[1]) * w,
                    n2w = static_cast<double>(n[2]) * w;
-            float f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
+            auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
             float previous_plus[3] = {static_cast<float>(static_cast<double>(f0) + p0[0]),
                                       static_cast<float>(static_cast<double>(f1) + p0[1]),
                                       static_cast<float>(n2w + p0[2])};
@@ -1104,7 +1104,7 @@ void PcShadedParticles::render()
             os_layer::lock_dynamic_vertices(remaining, sizeof(QuadVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
             for (uint32_t bytes = sizeof(QuadVertex); bytes <= 0x7FF; bytes += sizeof(QuadVertex)) {
-                float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                 particle->start_size_[0];
                 double up = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
@@ -1117,10 +1117,10 @@ void PcShadedParticles::render()
                     p[1] = static_cast<float>(static_cast<double>(place[1]) + at_point_.y);
                     p[2] = static_cast<float>(static_cast<double>(place[2]) + at_point_.z);
                 }
-                float rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
-                      rz = static_cast<float>(r.z * across);
-                float ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
-                      uz = static_cast<float>(u.z * up);
+                auto rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
+                     rz = static_cast<float>(r.z * across);
+                auto ux = static_cast<float>(u.x * up), uy = static_cast<float>(u.y * up),
+                     uz = static_cast<float>(u.z * up);
                 // The corners' colours (each its own of the colour arrays').
                 ColourSpan span = colour_span(*this, life);
                 uint32_t colours[4];
@@ -1148,10 +1148,10 @@ void PcShadedParticles::render()
                 }
                 double e0 = static_cast<double>(rx) + p[0], e1 = static_cast<double>(ry) + p[1],
                        e2 = static_cast<double>(rz) + p[2];
-                float e0f = static_cast<float>(e0), e1f = static_cast<float>(e1), e2f = static_cast<float>(e2);
+                auto e0f = static_cast<float>(e0), e1f = static_cast<float>(e1), e2f = static_cast<float>(e2);
                 double g0 = static_cast<double>(p[0]) - rx, g1 = static_cast<double>(p[1]) - ry,
                        g2 = static_cast<double>(p[2]) - rz;
-                float g0f = static_cast<float>(g0), g1f = static_cast<float>(g1), g2f = static_cast<float>(g2);
+                auto g0f = static_cast<float>(g0), g1f = static_cast<float>(g1), g2f = static_cast<float>(g2);
                 vertex[0] = {static_cast<float>(static_cast<double>(e0f) - ux),
                              static_cast<float>(static_cast<double>(e1f) - uy),
                              static_cast<float>(e2 - uz),
@@ -1238,10 +1238,10 @@ void PcSmoothParticles::render()
         auto* vertex = static_cast<QuadVertex*>(
             os_layer::lock_dynamic_vertices(remaining, sizeof(QuadVertex), &buffer, &first_vertex, &room));
         while (index < particle_count_) {
-            float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+            auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
             double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                             particle->start_size_[0];
-            float up =
+            auto up =
                 static_cast<float>((static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                    particle->start_size_[1]);
             float p[3];
@@ -1252,17 +1252,17 @@ void PcSmoothParticles::render()
                 p[1] = static_cast<float>(static_cast<double>(place[1]) + at_point_.y);
                 p[2] = static_cast<float>(static_cast<double>(place[2]) + at_point_.z);
             }
-            float rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
-                  rz = static_cast<float>(r.z * across);
+            auto rx = static_cast<float>(r.x * across), ry = static_cast<float>(r.y * across),
+                 rz = static_cast<float>(r.z * across);
             double ux = static_cast<double>(u.x) * up;
-            float uy = static_cast<float>(static_cast<double>(u.y) * up),
-                  uz = static_cast<float>(static_cast<double>(u.z) * up);
+            auto uy = static_cast<float>(static_cast<double>(u.y) * up),
+                 uz = static_cast<float>(static_cast<double>(u.z) * up);
             double g0 = static_cast<double>(p[0]) - rx, g1 = static_cast<double>(p[1]) - ry,
                    g2 = static_cast<double>(p[2]) - rz;
-            float g0f = static_cast<float>(g0), g1f = static_cast<float>(g1), g2f = static_cast<float>(g2);
+            auto g0f = static_cast<float>(g0), g1f = static_cast<float>(g1), g2f = static_cast<float>(g2);
             double e0 = static_cast<double>(rx) + p[0], e1 = static_cast<double>(ry) + p[1];
-            float e0f = static_cast<float>(e0), e1f = static_cast<float>(e1),
-                  e2f = static_cast<float>(static_cast<double>(rz) + p[2]);
+            auto e0f = static_cast<float>(e0), e1f = static_cast<float>(e1),
+                 e2f = static_cast<float>(static_cast<double>(rz) + p[2]);
             // The four corners (each with a triangle to the centre).
             float k[4][3] = {{static_cast<float>(g0f + ux), static_cast<float>(static_cast<double>(g1f) + uy),
                               static_cast<float>(g2 + uz)},
@@ -1344,7 +1344,7 @@ void PcSmoothRibbonParticles::render()
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
             for (uint32_t bytes = 0x20; bytes <= 0x7FF; bytes += 0x20) {
-                float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 float h[3], t[3];
                 if (emitter_independent_) {
                     h[0] = head[0], h[1] = head[1], h[2] = head[2];
@@ -1355,12 +1355,12 @@ void PcSmoothRibbonParticles::render()
                         t[k] = static_cast<float>(static_cast<double>(tail[k]) + (&at_point_.x)[k]);
                     }
                 }
-                float dx = static_cast<float>(static_cast<double>(t[0]) - h[0]),
-                      dy = static_cast<float>(static_cast<double>(t[1]) - h[1]),
-                      dz = static_cast<float>(static_cast<double>(t[2]) - h[2]);
+                auto dx = static_cast<float>(static_cast<double>(t[0]) - h[0]),
+                     dy = static_cast<float>(static_cast<double>(t[1]) - h[1]),
+                     dz = static_cast<float>(static_cast<double>(t[2]) - h[2]);
                 double n0 = dy * c - dz * b;
                 double n1 = dz * a - c * dx;
-                float n2 = static_cast<float>(b * dx - dy * a);
+                auto n2 = static_cast<float>(b * dx - dy * a);
                 double length = std::sqrt(n0 * n0 + static_cast<double>(n2) * n2 + n1 * n1);
                 if (length > 0.0f) {
                     double inverse = 1.0f / length;
@@ -1368,11 +1368,11 @@ void PcSmoothRibbonParticles::render()
                     n1 *= inverse;
                     n2 = static_cast<float>(n2 * inverse);
                 }
-                float w =
+                auto w =
                     static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                        particle->start_size_[0]);
                 double n0w = n0 * w, n1w = n1 * w, n2w = static_cast<double>(n2) * w;
-                float f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
+                auto f0 = static_cast<float>(n0w), f1 = static_cast<float>(n1w), f2 = static_cast<float>(n2w);
                 float plus_head[3] = {static_cast<float>(static_cast<double>(f0) + h[0]),
                                       static_cast<float>(static_cast<double>(f1) + h[1]),
                                       static_cast<float>(n2w + h[2])};
@@ -1460,9 +1460,9 @@ void PcSmoothStarParticles::render()
         auto* vertex = static_cast<TrailVertex*>(
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
-            float sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
+            auto sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
             for (;;) {
-                float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                 particle->start_size_[0];
                 double up_size = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
@@ -1490,35 +1490,35 @@ void PcSmoothStarParticles::render()
                 {
                     double x = static_cast<double>(rv[0]) * sin0;
                     double y = static_cast<double>(rv[1]) * sin0;
-                    float z = static_cast<float>(static_cast<double>(rv[2]) * sin0);
-                    float ox = static_cast<float>(static_cast<double>(static_cast<float>(x * w)) + p[0]);
-                    float oy = static_cast<float>(y * w + p[1]);
+                    auto z = static_cast<float>(static_cast<double>(rv[2]) * sin0);
+                    auto ox = static_cast<float>(static_cast<double>(static_cast<float>(x * w)) + p[0]);
+                    auto oy = static_cast<float>(y * w + p[1]);
                     double oz = static_cast<double>(z) * w + p[2];
                     double ux = static_cast<double>(cos0) * uv[0];
                     double uy = static_cast<double>(uv[1]) * cos0;
-                    float uz = static_cast<float>(static_cast<double>(uv[2]) * cos0);
+                    auto uz = static_cast<float>(static_cast<double>(uv[2]) * cos0);
                     outer[0] = static_cast<float>(static_cast<double>(static_cast<float>(ux * w)) + ox);
                     outer[1] = static_cast<float>(uy * w + oy);
                     outer[2] =
                         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(uz) * w)) + oz);
                 }
                 for (int i = 0, k = 1; i < segments_; ++i, k += 2) {
-                    float step = static_cast<float>(360.0f / (static_cast<double>(segments_) + segments_));
+                    auto step = static_cast<float>(360.0f / (static_cast<double>(segments_) + segments_));
                     // The point between this segment's two outer points, out at the star's width.
                     double angle1 = static_cast<double>(k) * step * kDegrees;
                     double s1 = std::sin(angle1), c1 = std::cos(angle1);
-                    float s1f = static_cast<float>(s1);
+                    auto s1f = static_cast<float>(s1);
                     float tip[3];
                     {
                         double x = rv[0] * s1 * w;
                         double y = static_cast<double>(static_cast<float>(rv[1] * s1)) * w;
-                        float z = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * s1)) * w);
+                        auto z = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * s1)) * w);
                         tip[0] = static_cast<float>(x + p[0]);
                         tip[1] = static_cast<float>(y + p[1]);
                         tip[2] = static_cast<float>(static_cast<double>(z) + p[2]);
                         double ux = uv[0] * c1 * w;
                         double uy = static_cast<double>(static_cast<float>(uv[1] * c1)) * w;
-                        float uz = static_cast<float>(static_cast<double>(static_cast<float>(uv[2] * c1)) * w);
+                        auto uz = static_cast<float>(static_cast<double>(static_cast<float>(uv[2] * c1)) * w);
                         tip[0] = static_cast<float>(ux + tip[0]);
                         tip[1] = static_cast<float>(uy + tip[1]);
                         tip[2] = static_cast<float>(static_cast<double>(uz) + tip[2]);
@@ -1531,13 +1531,13 @@ void PcSmoothStarParticles::render()
                     {
                         double x = rv[0] * s2 * w;
                         double y = static_cast<double>(static_cast<float>(rv[1] * s2)) * w;
-                        float z = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * s2)) * w);
-                        float nx = static_cast<float>(x + p[0]);
+                        auto z = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * s2)) * w);
+                        auto nx = static_cast<float>(x + p[0]);
                         double ny = y + p[1];
-                        float nz = static_cast<float>(static_cast<double>(z) + p[2]);
+                        auto nz = static_cast<float>(static_cast<double>(z) + p[2]);
                         double ux = uv[0] * c2 * w;
-                        float uy = static_cast<float>(static_cast<double>(static_cast<float>(uv[1] * c2)) * w);
-                        float uz = static_cast<float>(static_cast<double>(static_cast<float>(uv[2] * c2)) * w);
+                        auto uy = static_cast<float>(static_cast<double>(static_cast<float>(uv[1] * c2)) * w);
+                        auto uz = static_cast<float>(static_cast<double>(static_cast<float>(uv[2] * c2)) * w);
                         next[0] = static_cast<float>(ux + nx);
                         next_y = static_cast<double>(uy) + ny;
                         next[1] = static_cast<float>(next_y);
@@ -1547,12 +1547,12 @@ void PcSmoothStarParticles::render()
                     float inner[3];
                     {
                         double x = static_cast<double>(rv[0]) * s1f + p[0];
-                        float ry = static_cast<float>(static_cast<double>(rv[1]) * s1f);
-                        float rz = static_cast<float>(static_cast<double>(rv[2]) * s1f);
-                        float iy = static_cast<float>(static_cast<double>(ry) + p[1]);
-                        float iz = static_cast<float>(static_cast<double>(rz) + p[2]);
-                        float ux = static_cast<float>(uv[0] * c1), uy = static_cast<float>(uv[1] * c1),
-                              uz = static_cast<float>(uv[2] * c1);
+                        auto ry = static_cast<float>(static_cast<double>(rv[1]) * s1f);
+                        auto rz = static_cast<float>(static_cast<double>(rv[2]) * s1f);
+                        auto iy = static_cast<float>(static_cast<double>(ry) + p[1]);
+                        auto iz = static_cast<float>(static_cast<double>(rz) + p[2]);
+                        auto ux = static_cast<float>(uv[0] * c1), uy = static_cast<float>(uv[1] * c1),
+                             uz = static_cast<float>(uv[2] * c1);
                         inner[0] = static_cast<float>(static_cast<double>(ux) + x);
                         inner[1] = static_cast<float>(static_cast<double>(uy) + iy);
                         inner[2] = static_cast<float>(static_cast<double>(uz) + iz);
@@ -1630,9 +1630,9 @@ void PcStarParticles::render()
         auto* vertex = static_cast<TrailVertex*>(
             os_layer::lock_dynamic_vertices(remaining, sizeof(TrailVertex), &buffer, &first_vertex, &room));
         if (index < particle_count_) {
-            float sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
+            auto sin0 = static_cast<float>(std::sin(0.0)), cos0 = static_cast<float>(std::cos(0.0));
             for (;;) {
-                float life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
+                auto life = static_cast<float>(static_cast<double>(particle->age) / particle->lifetime);
                 double across = (static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                 particle->start_size_[0];
                 double up_size = (static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
@@ -1659,13 +1659,13 @@ void PcStarParticles::render()
                 {
                     double x = static_cast<double>(rv[0]) * sin0;
                     double y = static_cast<double>(rv[1]) * sin0;
-                    float z = static_cast<float>(static_cast<double>(rv[2]) * sin0);
-                    float ox = static_cast<float>(static_cast<double>(static_cast<float>(x * w)) + p[0]);
-                    float oy = static_cast<float>(y * w + p[1]);
+                    auto z = static_cast<float>(static_cast<double>(rv[2]) * sin0);
+                    auto ox = static_cast<float>(static_cast<double>(static_cast<float>(x * w)) + p[0]);
+                    auto oy = static_cast<float>(y * w + p[1]);
                     double oz = static_cast<double>(z) * w + p[2];
                     double ux = static_cast<double>(cos0) * uv[0];
                     double uy = static_cast<double>(uv[1]) * cos0;
-                    float uz = static_cast<float>(static_cast<double>(uv[2]) * cos0);
+                    auto uz = static_cast<float>(static_cast<double>(uv[2]) * cos0);
                     outer[0] = static_cast<float>(static_cast<double>(static_cast<float>(ux * w)) + ox);
                     outer[1] = static_cast<float>(uy * w + oy);
                     outer[2] =
@@ -1679,13 +1679,13 @@ void PcStarParticles::render()
                     {
                         double x = rv[0] * a * w;
                         double y = static_cast<double>(static_cast<float>(rv[1] * a)) * w;
-                        float z = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * a)) * w);
-                        float nx = static_cast<float>(x + p[0]);
+                        auto z = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * a)) * w);
+                        auto nx = static_cast<float>(x + p[0]);
                         double ny = y + p[1];
-                        float nz = static_cast<float>(static_cast<double>(z) + p[2]);
+                        auto nz = static_cast<float>(static_cast<double>(z) + p[2]);
                         double ux = uv[0] * c_a * w;
-                        float uy = static_cast<float>(static_cast<double>(static_cast<float>(uv[1] * c_a)) * w);
-                        float uz = static_cast<float>(static_cast<double>(static_cast<float>(uv[2] * c_a)) * w);
+                        auto uy = static_cast<float>(static_cast<double>(static_cast<float>(uv[1] * c_a)) * w);
+                        auto uz = static_cast<float>(static_cast<double>(static_cast<float>(uv[2] * c_a)) * w);
                         next[0] = static_cast<float>(ux + nx);
                         next[1] = static_cast<float>(static_cast<double>(uy) + ny);
                         next[2] = static_cast<float>(static_cast<double>(uz) + nz);
@@ -1695,10 +1695,10 @@ void PcStarParticles::render()
                     float inner[3];
                     {
                         double x = rv[0] * b + p[0];
-                        float iy = static_cast<float>(static_cast<double>(static_cast<float>(rv[1] * b)) + p[1]);
-                        float iz = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * b)) + p[2]);
-                        float ux = static_cast<float>(uv[0] * c_b), uy = static_cast<float>(uv[1] * c_b),
-                              uz = static_cast<float>(uv[2] * c_b);
+                        auto iy = static_cast<float>(static_cast<double>(static_cast<float>(rv[1] * b)) + p[1]);
+                        auto iz = static_cast<float>(static_cast<double>(static_cast<float>(rv[2] * b)) + p[2]);
+                        auto ux = static_cast<float>(uv[0] * c_b), uy = static_cast<float>(uv[1] * c_b),
+                             uz = static_cast<float>(uv[2] * c_b);
                         inner[0] = static_cast<float>(static_cast<double>(ux) + x);
                         inner[1] = static_cast<float>(static_cast<double>(uy) + iy);
                         inner[2] = static_cast<float>(static_cast<double>(uz) + iz);
@@ -1803,9 +1803,9 @@ void PcGlowRibbonTrailParticles::render()
             // Across the trail's first segment, normalised (unrounded).
             double n[3];
             {
-                float dx = static_cast<float>(static_cast<double>(p1[0]) - p0[0]),
-                      dy = static_cast<float>(static_cast<double>(p1[1]) - p0[1]),
-                      dz = static_cast<float>(static_cast<double>(p1[2]) - p0[2]);
+                auto dx = static_cast<float>(static_cast<double>(p1[0]) - p0[0]),
+                     dy = static_cast<float>(static_cast<double>(p1[1]) - p0[1]),
+                     dz = static_cast<float>(static_cast<double>(p1[2]) - p0[2]);
                 n[0] = dy * c - dz * b;
                 n[1] = a * dz - dx * c;
                 n[2] = dx * b - a * dy;
@@ -1817,10 +1817,10 @@ void PcGlowRibbonTrailParticles::render()
                     n[2] *= inverse;
                 }
             }
-            float size0 =
+            auto size0 =
                 static_cast<float>((static_cast<double>(particle->end_size_[0]) - particle->start_size_[0]) * life +
                                    particle->start_size_[0]);
-            float size1 =
+            auto size1 =
                 static_cast<float>((static_cast<double>(particle->end_size_[1]) - particle->start_size_[1]) * life +
                                    particle->start_size_[1]);
             // The colours (unrounded fraction): the trail's from index 3 on.
@@ -1844,9 +1844,9 @@ void PcGlowRibbonTrailParticles::render()
             float previous_a[3], previous_b[3];
             {
                 double n0s = n[0] * size0, n1s = n[1] * size0;
-                float f0 = static_cast<float>(n0s), f2 = static_cast<float>(n[2] * size0);
-                float o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
-                      o2 = static_cast<float>(w * static_cast<double>(f2));
+                auto f0 = static_cast<float>(n0s), f2 = static_cast<float>(n[2] * size0);
+                auto o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
+                     o2 = static_cast<float>(w * static_cast<double>(f2));
                 previous_a[0] = static_cast<float>(static_cast<double>(o0) + p0[0]);
                 previous_a[1] = static_cast<float>(static_cast<double>(o1) + p0[1]);
                 previous_a[2] = static_cast<float>(static_cast<double>(o2) + p0[2]);
@@ -1861,13 +1861,13 @@ void PcGlowRibbonTrailParticles::render()
                     p1[0] = next[0], p1[1] = next[1], p1[2] = next[2];
                     double dx = static_cast<double>(p1[0]) - p0[0], dy = static_cast<double>(p1[1]) - p0[1],
                            dz = static_cast<double>(p1[2]) - p0[2];
-                    float m0 = static_cast<float>(dy * c - dz * b);
-                    float m1 = static_cast<float>(a * dz - dx * c);
-                    float m2 = static_cast<float>(dx * b - a * dy);
+                    auto m0 = static_cast<float>(dy * c - dz * b);
+                    auto m1 = static_cast<float>(a * dz - dx * c);
+                    auto m2 = static_cast<float>(dx * b - a * dy);
                     double length = std::sqrt(static_cast<double>(m2) * m2 + static_cast<double>(m1) * m1 +
                                               static_cast<double>(m0) * m0);
                     if (length > 0.0f) {
-                        float inverse = static_cast<float>(1.0f / static_cast<double>(static_cast<float>(length)));
+                        auto inverse = static_cast<float>(1.0f / static_cast<double>(static_cast<float>(length)));
                         n[0] = static_cast<double>(m0) * inverse;
                         n[1] = static_cast<double>(inverse) * m1;
                         n[2] = static_cast<double>(inverse) * m2;
@@ -1876,9 +1876,9 @@ void PcGlowRibbonTrailParticles::render()
                     }
                 }
                 double n0s = n[0] * size0, n1s = n[1] * size0;
-                float f0 = static_cast<float>(n0s), f2 = static_cast<float>(n[2] * size0);
-                float o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
-                      o2 = static_cast<float>(w * static_cast<double>(f2));
+                auto f0 = static_cast<float>(n0s), f2 = static_cast<float>(n[2] * size0);
+                auto o0 = static_cast<float>(static_cast<double>(f0) * w), o1 = static_cast<float>(w * n1s),
+                     o2 = static_cast<float>(w * static_cast<double>(f2));
                 float next_c[3] = {static_cast<float>(static_cast<double>(o0) + p1[0]),
                                    static_cast<float>(static_cast<double>(o1) + p1[1]),
                                    static_cast<float>(w * static_cast<double>(f2) + p1[2])};
@@ -1941,7 +1941,7 @@ void PcGlowRibbonTrailParticles::render()
             }
             for (int i = 1; i <= segments_; ++i) {
                 double angle = static_cast<double>(i) * glow_step_ * 0.0174532924f;
-                float s = static_cast<float>(std::sin(angle)), cs = static_cast<float>(std::cos(angle));
+                auto s = static_cast<float>(std::sin(angle)), cs = static_cast<float>(std::cos(angle));
                 double r0s = static_cast<double>(rr[0]) * s, r1s = static_cast<double>(s) * rr[1],
                        r2s = static_cast<double>(s) * rr[2];
                 float next_outer[3], next_inner[3];
@@ -1950,13 +1950,13 @@ void PcGlowRibbonTrailParticles::render()
                 next_outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(r1s * w)) + p0[1]);
                 next_outer[2] = static_cast<float>(w * r2s + p0[2]);
                 double u0c = static_cast<double>(uu[0]) * cs, u1c = static_cast<double>(cs) * uu[1];
-                float u2c = static_cast<float>(static_cast<double>(cs) * uu[2]);
+                auto u2c = static_cast<float>(static_cast<double>(cs) * uu[2]);
                 next_outer[0] = static_cast<float>(x + static_cast<float>(u0c * w));
                 next_outer[1] = static_cast<float>(static_cast<double>(static_cast<float>(u1c * w)) + next_outer[1]);
                 next_outer[2] = static_cast<float>(
                     static_cast<double>(static_cast<float>(static_cast<double>(u2c) * w)) + next_outer[2]);
-                float ix = static_cast<float>(static_cast<double>(p0[0]) + static_cast<float>(r0s));
-                float iy = static_cast<float>(r1s + p0[1]);
+                auto ix = static_cast<float>(static_cast<double>(p0[0]) + static_cast<float>(r0s));
+                auto iy = static_cast<float>(r1s + p0[1]);
                 double iz = static_cast<double>(static_cast<float>(r2s)) + p0[2];
                 next_inner[0] = static_cast<float>(static_cast<double>(static_cast<float>(u0c)) + ix);
                 next_inner[1] = static_cast<float>(static_cast<double>(static_cast<float>(u1c)) + iy);

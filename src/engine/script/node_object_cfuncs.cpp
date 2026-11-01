@@ -191,7 +191,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
     double dy = static_cast<double>(hi.y) - lo.y;
     double dz = static_cast<double>(hi.z) - lo.z;
     double size = std::sqrt(dz * dz + dy * dy + dx * dx);
-    float distance = static_cast<float>(size);
+    auto distance = static_cast<float>(size);
     if (size < gfx::g_thousand) // (1000)
         distance = 1000.0f;
     maths::Mat4& m = camera->basis_frame_;
@@ -211,9 +211,9 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
     turn(&maths::make_roll_matrix, angle_z);
     double back = static_cast<double>(distance) * scale * scale;
     const float* at = &m.row[2].x;
-    float bx = static_cast<float>(back * at[0]);
-    float by = static_cast<float>(back * at[1]);
-    float bz = static_cast<float>(back * at[2]);
+    auto bx = static_cast<float>(back * at[0]);
+    auto by = static_cast<float>(back * at[1]);
+    auto bz = static_cast<float>(back * at[2]);
     camera->at_point_.x = static_cast<float>(static_cast<double>(bx) + centre.x);
     camera->at_point_.y = static_cast<float>(static_cast<double>(by) + centre.y);
     camera->at_point_.z = static_cast<float>(static_cast<double>(bz) + centre.z);

@@ -480,8 +480,8 @@ void render(gfx::ViewCam* camera)
     if (!get_query() || (visible = query_result(get_query())) == 0) {
         // not seen: the corona fades out over SunBurst_Out seconds, the lens flare maybe hidden
         uint32_t unseen = get_since(visible_time());
-        uint32_t fade_time = static_cast<uint32_t>(get_truncated(static_cast<double>(sun_burst_out_time()) * 1000.0f));
-        float fade = static_cast<float>(static_cast<double>(unseen) / static_cast<double>(fade_time));
+        auto fade_time = static_cast<uint32_t>(get_truncated(static_cast<double>(sun_burst_out_time()) * 1000.0f));
+        auto fade = static_cast<float>(static_cast<double>(unseen) / static_cast<double>(fade_time));
         fade = clamp_to_range(fade, 0.0f, 1.0f);
         hidden_time() = get_now();
         if (fade < 1.0f) {

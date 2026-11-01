@@ -245,7 +245,7 @@ void ModelWidget::scale_to_screen_dims()
     float extent_z = max_z - min_z;
     double extent = extent_x > extent_z ? extent_x : extent_z;
     double width = span_, z = camera_z_;
-    float horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * 640.0f) / extent);
+    auto horizontal = static_cast<float>(width * z / ((width * inv1280() + 1.0) * 640.0f) / extent);
     double vertical = z * level_y_ / ((width * inv896() + 1.0) * 448.0f) / extent_y;
     horizontal = -horizontal;
     vertical = -vertical;
@@ -534,8 +534,8 @@ void ModelWidget::tick_frame()
         maths::Vec4 centre = {static_cast<float>(static_cast<double>(centre_.x) * fit_scale_),
                               static_cast<float>(static_cast<double>(centre_.y) * fit_scale_),
                               static_cast<float>(static_cast<double>(centre_.z) * fit_scale_), 1.0f};
-        float y = static_cast<float>(get_layout_height() * 0.5f + summed_.top);
-        float x = static_cast<float>(get_layout_width() * 0.5f + summed_.left);
+        auto y = static_cast<float>(get_layout_height() * 0.5f + summed_.top);
+        auto x = static_cast<float>(get_layout_width() * 0.5f + summed_.left);
         screen_to_world(&centre, &basis_frame_, view_slot_, x, y, camera_z_, &place);
         on_layout = point_at_ == kPointAtNothing;
         maths::Vec4 target; // (left uninitialised by the original if the object isn't found)
@@ -574,7 +574,7 @@ void ModelWidget::tick_frame()
     local.row[3] = {-pivot_.x, -pivot_.y, -pivot_.z, static_cast<float>(static_cast<double>(-pivot_.w) + 1.0f)};
     double angle_x = static_cast<double>(angular_velocity_[0]) + angle_[0];
     double angle_y = static_cast<double>(angular_velocity_[1]) + angle_[1];
-    float angle_z = static_cast<float>(static_cast<double>(angular_velocity_[2]) + angle_[2]);
+    auto angle_z = static_cast<float>(static_cast<double>(angular_velocity_[2]) + angle_[2]);
     angle_[0] = wrapped(angle_x);
     angle_[1] = wrapped(angle_y);
     angle_[2] = wrapped(angle_z);
@@ -584,7 +584,7 @@ void ModelWidget::tick_frame()
     local.row[3].z += pivot_.z;
     local.row[3].w += pivot_.w;
 
-    float scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * fit_scale_);
+    auto scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * fit_scale_);
     maths::Vec4 scale = {scale_x, static_cast<float>(static_cast<double>(summed_.scale_y_) * fit_scale_), scale_x,
                          1.0f};
     void* camera = nullptr;
@@ -639,7 +639,7 @@ void ModelWidget::tick_frame()
 
     maths::Vec4 hover = {};
     if (bob_height_ > 0.0f) {
-        uint32_t period = static_cast<uint32_t>(bob_period_);
+        auto period = static_cast<uint32_t>(bob_period_);
         uint32_t phase = frame_clock::get_time() % period * 2;
         double s = std::sin(static_cast<double>(static_cast<int32_t>(phase)) * get_pi() / bob_period_) * bob_height_;
         hover.x = static_cast<float>(s * basis_frame_.row[1].x);

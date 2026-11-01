@@ -267,7 +267,7 @@ void PadInputModule::read_button_state(const uint8_t* data, int index, uint32_t 
                                        ControlButton* button)
 {
     if (button) {
-        uint32_t locked_until = static_cast<uint32_t>(get_truncated(button->locked_until_));
+        auto locked_until = static_cast<uint32_t>(get_truncated(button->locked_until_));
         if (frame_clock::get_time() < locked_until)
             return;
     }
@@ -286,7 +286,7 @@ void PadInputModule::lock_button(uint32_t name, float seconds, bool release)
 {
     ControlButton* button = pad_primary_.read_button(name);
     uint32_t now = frame_clock::get_time();
-    double time = static_cast<double>(static_cast<int32_t>(now));
+    auto time = static_cast<double>(static_cast<int32_t>(now));
     if (static_cast<int32_t>(now) < 0)
         time += kTwoTo32;
     button->locked_until_ = static_cast<float>(get_truncated(time + static_cast<double>(seconds) * kMilliseconds));
@@ -412,7 +412,7 @@ int PadInputModule::held_longer_than(script::Struct* params, script::Script*)
         scaled = static_cast<double>(time) * kMilliseconds;
     else if (params->has_bare_flag(kFrames) || params->has_bare_flag(kFrame))
         scaled = static_cast<double>(time) * kFrameMilliseconds;
-    uint32_t milliseconds = static_cast<uint32_t>(get_truncated(scaled));
+    auto milliseconds = static_cast<uint32_t>(get_truncated(scaled));
     ControlButton* button = pad_primary_.read_button(name);
     if (button && button->held_down_ && static_cast<uint32_t>(button->get_held_millis()) > milliseconds)
         return 1;

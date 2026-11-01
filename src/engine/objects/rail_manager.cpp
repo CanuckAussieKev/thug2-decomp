@@ -125,7 +125,7 @@ void GrindRailHub::tidy_up()
 // 0x0057C360
 double get_overlap(float a, float b, float c, float d)
 {
-    float lengths = static_cast<float>(std::fabs(static_cast<double>(d) - c) + std::fabs(static_cast<double>(b) - a));
+    auto lengths = static_cast<float>(std::fabs(static_cast<double>(d) - c) + std::fabs(static_cast<double>(b) - a));
     return lengths - span4(a, b, c, d);
 }
 
@@ -214,25 +214,25 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
     // A quarter of the way from a to b, 6 above (the original's rounding: some sums kept unrounded).
     double sum_w = static_cast<double>(b.w) + a.w;
     double sum_z = static_cast<double>(b.z) + a.z;
-    float sum_y = static_cast<float>(static_cast<double>(b.y) + a.y);
-    float sum_x = static_cast<float>(static_cast<double>(b.x) + a.x);
-    float half_w = static_cast<float>(sum_w * 0.5);
+    auto sum_y = static_cast<float>(static_cast<double>(b.y) + a.y);
+    auto sum_x = static_cast<float>(static_cast<double>(b.x) + a.x);
+    auto half_w = static_cast<float>(sum_w * 0.5);
     double half_z = sum_z * 0.5;
     double half_y = sum_y * 0.5;
-    float half_x = static_cast<float>(sum_x * 0.5);
-    float to_w = static_cast<float>(static_cast<double>(half_w) - a.w);
-    float to_z = static_cast<float>(half_z - a.z);
+    auto half_x = static_cast<float>(sum_x * 0.5);
+    auto to_w = static_cast<float>(static_cast<double>(half_w) - a.w);
+    auto to_z = static_cast<float>(half_z - a.z);
     double to_y = half_y - a.y;
     double to_x = static_cast<double>(half_x) - a.x;
-    float quarter_w = static_cast<float>(to_w * 0.5);
-    float quarter_z = static_cast<float>(to_z * 0.5);
-    float quarter_y = static_cast<float>(to_y * 0.5);
+    auto quarter_w = static_cast<float>(to_w * 0.5);
+    auto quarter_z = static_cast<float>(to_z * 0.5);
+    auto quarter_y = static_cast<float>(to_y * 0.5);
     double quarter_x = to_x * 0.5;
-    float at_w = static_cast<float>(static_cast<double>(a.w) + quarter_w);
-    float at_z = static_cast<float>(static_cast<double>(a.z) + quarter_z);
+    auto at_w = static_cast<float>(static_cast<double>(a.w) + quarter_w);
+    auto at_z = static_cast<float>(static_cast<double>(a.z) + quarter_z);
     double at_y = static_cast<double>(a.y) + quarter_y;
-    float at_x = static_cast<float>(static_cast<double>(a.x) + quarter_x);
-    float high_y = static_cast<float>(at_y + 6.0);
+    auto at_x = static_cast<float>(static_cast<double>(a.x) + quarter_x);
+    auto high_y = static_cast<float>(at_y + 6.0);
     // Across the rail (horizontally), 7 long (0x0042BBF0: the length set).
     maths::Vec4 along = {static_cast<float>(static_cast<double>(b.x) - a.x), 0.0f,
                          static_cast<float>(static_cast<double>(b.z) - a.z),
@@ -263,8 +263,8 @@ bool rail_clear(maths::Vec4 a, maths::Vec4 b)
         feeler.entity_.get_release();
         return true;
     }
-    float base = static_cast<float>(high_y - 6.0);
-    float height_one = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - base);
+    auto base = static_cast<float>(high_y - 6.0);
+    auto height_one = static_cast<float>(static_cast<double>(feeler.contact_pos_.y) - base);
     // And from the other.
     top = minus;
     bottom = {minus.x, static_cast<float>(minus.y - 12.0), minus.z, static_cast<float>(minus.w + 1.0)};
@@ -333,30 +333,30 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
     const maths::Vec4 q = succ_->at_point_;
     render::ProbeRay feeler; // (what it hit let go of by its destructor, where the original lets go inline)
     // A quarter of the way along the segment, 6 below it (the original's rounding: some sums kept unrounded).
-    float sum_y = static_cast<float>(static_cast<double>(q.y) + p.y);
-    float sum_x = static_cast<float>(static_cast<double>(q.x) + p.x);
-    float half_w = static_cast<float>((static_cast<double>(q.w) + p.w) * 0.5);
+    auto sum_y = static_cast<float>(static_cast<double>(q.y) + p.y);
+    auto sum_x = static_cast<float>(static_cast<double>(q.x) + p.x);
+    auto half_w = static_cast<float>((static_cast<double>(q.w) + p.w) * 0.5);
     double half_z = (static_cast<double>(q.z) + p.z) * 0.5;
     double half_y = sum_y * 0.5;
-    float half_x = static_cast<float>(sum_x * 0.5);
-    float to_w = static_cast<float>(half_w - static_cast<double>(p.w));
-    float to_z = static_cast<float>(half_z - p.z);
+    auto half_x = static_cast<float>(sum_x * 0.5);
+    auto to_w = static_cast<float>(half_w - static_cast<double>(p.w));
+    auto to_z = static_cast<float>(half_z - p.z);
     double to_y = half_y - p.y;
     double to_x = static_cast<double>(half_x) - p.x;
-    float quarter_w = static_cast<float>(to_w * 0.5);
-    float quarter_z = static_cast<float>(to_z * 0.5);
-    float quarter_y = static_cast<float>(to_y * 0.5);
+    auto quarter_w = static_cast<float>(to_w * 0.5);
+    auto quarter_z = static_cast<float>(to_z * 0.5);
+    auto quarter_y = static_cast<float>(to_y * 0.5);
     double quarter_x = to_x * 0.5;
-    float at_w = static_cast<float>(static_cast<double>(p.w) + quarter_w);
-    float at_z = static_cast<float>(static_cast<double>(p.z) + quarter_z);
+    auto at_w = static_cast<float>(static_cast<double>(p.w) + quarter_w);
+    auto at_z = static_cast<float>(static_cast<double>(p.z) + quarter_z);
     double at_y = static_cast<double>(p.y) + quarter_y;
-    float at_x = static_cast<float>(quarter_x + p.x);
-    float low_y = static_cast<float>(at_y - 6.0);
+    auto at_x = static_cast<float>(quarter_x + p.x);
+    auto low_y = static_cast<float>(at_y - 6.0);
     // Across the segment (horizontally), 4 long.
     double dw = static_cast<double>(q.w) - p.w;
-    float dz = static_cast<float>(static_cast<double>(q.z) - p.z);
+    auto dz = static_cast<float>(static_cast<double>(q.z) - p.z);
     double dx = static_cast<double>(q.x) - p.x;
-    float dx_stored = static_cast<float>(dx);
+    auto dx_stored = static_cast<float>(dx);
     float across_y = 0.0f;
     float across_x = dz;
     double length = std::sqrt(dx * dx + static_cast<double>(dz) * dz);
@@ -367,7 +367,7 @@ int GrindPoint::get_wall_side(const maths::Vec4* direction)
         across_y = static_cast<float>(0.0 * scale);
         across_x = static_cast<float>(dz * scale);
     }
-    float across_z = static_cast<float>(-along_x);
+    auto across_z = static_cast<float>(-along_x);
     maths::Vec4 from = {static_cast<float>(static_cast<double>(across_x) + at_x),
                         static_cast<float>(static_cast<double>(across_y) + low_y),
                         static_cast<float>(static_cast<double>(across_z) + at_z), static_cast<float>(dw + at_w)};
@@ -481,9 +481,9 @@ void GrindRailHub::remove_overlaps()
         const maths::Vec4 p = a->at_point_;
         const maths::Vec4 q = a_next->at_point_;
         // Its direction (each step stored as a float, as the original), made unit length.
-        float dx = static_cast<float>(static_cast<double>(q.x) - p.x);
-        float dy = static_cast<float>(static_cast<double>(q.y) - p.y);
-        float dz = static_cast<float>(static_cast<double>(q.z) - p.z);
+        auto dx = static_cast<float>(static_cast<double>(q.x) - p.x);
+        auto dy = static_cast<float>(static_cast<double>(q.y) - p.y);
+        auto dz = static_cast<float>(static_cast<double>(q.z) - p.z);
         const float raw_x = dx, raw_y = dy, raw_z = dz;
         double length =
             std::sqrt(static_cast<double>(dy) * dy + static_cast<double>(dx) * dx + static_cast<double>(dz) * dz);
@@ -494,12 +494,12 @@ void GrindRailHub::remove_overlaps()
             dz = static_cast<float>(dz * inverse);
         }
         // Its box, 16 bigger each way.
-        const float lo_x = static_cast<float>(a->lower_limit_.x - 16.0),
-                    lo_y = static_cast<float>(a->lower_limit_.y - 16.0),
-                    lo_z = static_cast<float>(a->lower_limit_.z - 16.0);
-        const float hi_x = static_cast<float>(a->upper_limit_.x + 16.0),
-                    hi_y = static_cast<float>(a->upper_limit_.y + 16.0),
-                    hi_z = static_cast<float>(a->upper_limit_.z + 16.0);
+        const auto lo_x = static_cast<float>(a->lower_limit_.x - 16.0),
+                   lo_y = static_cast<float>(a->lower_limit_.y - 16.0),
+                   lo_z = static_cast<float>(a->lower_limit_.z - 16.0);
+        const auto hi_x = static_cast<float>(a->upper_limit_.x + 16.0),
+                   hi_y = static_cast<float>(a->upper_limit_.y + 16.0),
+                   hi_z = static_cast<float>(a->upper_limit_.z + 16.0);
         for (int j = i + 1; j < num_; ++j) {
             if (!(a->flag_bits_ & kRailFlagActive))
                 break;
@@ -603,7 +603,7 @@ bool GrindRailHub::is_operative(uint32_t name)
 bool GrindRailHub::find_ladder(const maths::Vec4* pos, float radius, float height, bool up, void* checker,
                                uint32_t extra, GrindPoint** found)
 {
-    float radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
+    auto radius_squared = static_cast<float>(static_cast<double>(radius) * radius);
     for (int index = num_; index != 0;) {
         GrindPoint* node = &nodes_[--index];
         if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive))
@@ -655,7 +655,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
     max.x = static_cast<float>(max.x + snap);
     max.y = static_cast<float>(max.y + snap);
     max.z = static_cast<float>(max.z + snap);
-    float snap_squared = static_cast<float>(snap * snap);
+    auto snap_squared = static_cast<float>(snap * snap);
     for (int index = 0; index < num_; ++index) {
         GrindPoint* node = &nodes_[index];
         if (!(node->flag_bits_ & kRailFlagLadder) || !(node->flag_bits_ & kRailFlagActive) || !node->succ_)
@@ -717,7 +717,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
     max.x = static_cast<float>(static_cast<double>(max.x) + margin);
     max.y = static_cast<float>(static_cast<double>(max.y) + margin);
     max.z = static_cast<float>(static_cast<double>(max.z) + margin);
-    float margin_squared = static_cast<float>(static_cast<double>(margin) * margin);
+    auto margin_squared = static_cast<float>(static_cast<double>(margin) * margin);
     for (int index = 0; index < num_; ++index) {
         GrindPoint* node = &nodes_[index];
         if ((node->flag_bits_ & kRailFlagLadder) || (node->flag_bits_ & kRailFlagNoClimbing) ||
@@ -874,7 +874,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
     // The links: each node's Links (by name, through the table).
     for (int i = 0; i < num_; ++i) {
         GrindPoint* node = &nodes_[i];
-        script::Struct* params = level_nodes::fetch_vertex(node->label_, 1);
+        script::Struct* params = level_nodes::fetch_vertex(node->label_, true);
         script::Array* links = nullptr;
         params->fetch_list(kLinks, &links, 0);
         if (!links)
@@ -944,13 +944,13 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
             seg_direction.y = 0.0f;
             rail_dir.make_unit();
             seg_direction.make_unit();
-            float alignment = static_cast<float>(std::fabs(static_cast<double>(seg_direction.x) * rail_dir.x +
-                                                           static_cast<double>(seg_direction.z) * rail_dir.z +
-                                                           static_cast<double>(seg_direction.y) * rail_dir.y));
+            auto alignment = static_cast<float>(std::fabs(static_cast<double>(seg_direction.x) * rail_dir.x +
+                                                          static_cast<double>(seg_direction.z) * rail_dir.z +
+                                                          static_cast<double>(seg_direction.y) * rail_dir.y));
             if (seg_direction.x == 0.0f && seg_direction.z == 0.0f && alignment == 0.0f)
                 alignment = 1.0f;
-            float score = static_cast<float>((1.122f - static_cast<double>(alignment)) * distance);
-            float reach = static_cast<float>((2.0 - alignment) * distance);
+            auto score = static_cast<float>((1.122f - static_cast<double>(alignment)) * distance);
+            auto reach = static_cast<float>((2.0 - alignment) * distance);
             if (side) {
                 maths::Vec4 direction = *end - *start;
                 if (node->get_wall_side(&direction) != side)

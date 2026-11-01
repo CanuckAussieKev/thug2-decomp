@@ -64,7 +64,7 @@ AudioStreamModule::~AudioStreamModule()
 // 0x00433900
 void AudioStreamModule::configure_from_data(script::Struct* params)
 {
-    uint32_t node = reinterpret_cast<uint32_t>(params); // (read into the parameters' own argument slot)
+    auto node = reinterpret_cast<uint32_t>(params);     // (read into the parameters' own argument slot)
     if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }

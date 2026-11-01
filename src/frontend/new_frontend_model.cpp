@@ -993,7 +993,7 @@ bool Menu::select_id(const std::string& id)
     if (occupied())
         return false;
     if (shown_ == Screen::kLevels) {
-        if (id.rfind("tab:", 0) == 0) {
+        if (id.starts_with("tab:")) {
             for (size_t s = 0; catalogue_ && s < catalogue_->sections.size() && s < views_.size(); ++s)
                 if (same_text(catalogue_->sections[s].id, id.substr(4)) ||
                     same_text(catalogue_->sections[s].tab, id.substr(4))) {
@@ -1019,7 +1019,7 @@ bool Menu::select_id(const std::string& id)
     }
     if (shown_ == Screen::kOptions) {
         const std::vector<options::GroupSet>& groups = options::bunches();
-        if (id.rfind("group:", 0) == 0) {
+        if (id.starts_with("group:")) {
             for (size_t g = 0; g < groups.size(); ++g)
                 if (same_text(groups[g].id, id.substr(6))) {
                     set_option_group(static_cast<int>(g));

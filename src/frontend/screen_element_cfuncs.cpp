@@ -544,4 +544,3 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
 
 } // namespace frontend
 
-using frontend::UiTree;

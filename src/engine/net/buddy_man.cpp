@@ -547,7 +547,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
             buddies->configure_size_kind(old->extent_ + 1, script::kQbvalStruct);
             uint32_t i = 0;
             for (; i < old->extent_; ++i) {
-                script::Struct* entry = reinterpret_cast<script::Struct*>(old->fetch_part(i));
+                auto* entry = reinterpret_cast<script::Struct*>(old->fetch_part(i));
                 script::Struct* copy = new_params();
                 copy->get_assign(entry);
                 buddies->set_element(i, reinterpret_cast<uint32_t>(copy));
@@ -871,4 +871,3 @@ bool spawn_account(script::Struct*, script::Script*)
 
 } // namespace online
 
-using online::FriendsManager;

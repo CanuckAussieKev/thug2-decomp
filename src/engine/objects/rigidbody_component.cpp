@@ -186,7 +186,7 @@ void BodyDynamicsModule::set_cylinder(float top_radius, float bottom_radius, flo
         for (int i = edges; i != 0;) {
             --i;
             double angle = static_cast<double>(i) * kAlmostTwoPi / static_cast<double>(edges);
-            float rounded = static_cast<float>(angle);
+            auto rounded = static_cast<float>(angle);
             contacts_[n++] = {static_cast<float>(std::cos(angle) * radius), upper ? half_height : -half_height,
                               static_cast<float>(std::sin(static_cast<double>(rounded)) * radius), 1.0f};
         }
@@ -487,14 +487,14 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
         for (int i = contact_count_; i != 0;) {
             const maths::Vec4& p = contacts_[--i];
             double x = p.x, y = p.y, z = p.z;
-            float length = static_cast<float>(std::sqrt((z * z + x * x) + y * y));
+            auto length = static_cast<float>(std::sqrt((z * z + x * x) + y * y));
             if (!(extent > length))
                 extent = length;
         }
         for (int i = sphere_count_; i != 0;) {
             const Sphere& s = spheres_[--i];
             double x = s.center.x, y = s.center.y, z = s.center.z;
-            float length = static_cast<float>(std::sqrt((z * z + x * x) + y * y) + s.radius);
+            auto length = static_cast<float>(std::sqrt((z * z + x * x) + y * y) + s.radius);
             if (!(extent > length))
                 extent = length;
         }
@@ -533,7 +533,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     const double ox = model_offset_.x, oy = model_offset_.y, oz = model_offset_.z;
     double tx = (r(2, 0) * oz + r(1, 0) * oy) + ox * r(0, 0);
     double ty = (r(2, 1) * oz + r(1, 1) * oy) + r(0, 1) * ox;
-    float tz = static_cast<float>((r(2, 2) * oz + r(1, 2) * oy) + r(0, 2) * ox);
+    auto tz = static_cast<float>((r(2, 2) * oz + r(1, 2) * oy) + r(0, 2) * ox);
     float tw = model_offset_.w;
     at_point_.x = static_cast<float>(at_point_.x - tx);
     at_point_.y = static_cast<float>(at_point_.y - ty);

@@ -220,7 +220,7 @@ void NodeManager::start_walk(uint32_t name)
     Slots slots(this);
     uint32_t slot = name & slots.get_mask();
     for (;;) {
-        Struct* node =
+        auto* node =
             reinterpret_cast<Struct*>(arrays_[slots.get_array(slot)].node_entries_->fetch_part(slots.elem(slot)));
         uint32_t node_name = 0;
         node->read_hash_value(kName, &node_name, 1);

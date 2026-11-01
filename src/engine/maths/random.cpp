@@ -26,7 +26,7 @@ constexpr uint32_t kInitialAdd = 0x0AA2FB3F;
 uint32_t get_next(RandomState& s)
 {
     s.value = s.mul * s.value + s.add;
-    int32_t v = static_cast<int32_t>(s.value);
+    auto v = static_cast<int32_t>(s.value);
     s.mul = (s.mul ^ s.value) + static_cast<uint32_t>(v >> 4);
     s.add = s.add - 0x10101010 + static_cast<uint32_t>(v >> 3);
     return s.value & 0xFFFF;

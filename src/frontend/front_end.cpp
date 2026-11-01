@@ -250,7 +250,7 @@ uint32_t FrontEnd::auto_repeat(uint32_t held, int device_index)
             pad.repeat_state_ = 1;
         }
     } else if (event) {
-        uint32_t elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * 1000.0f));
+        auto elapsed = static_cast<uint32_t>(ftol(frame_clock::get_slomo_frame_seconds() * 1000.0f));
         pad.repeat_timer_ = elapsed < pad.repeat_timer_ ? pad.repeat_timer_ - elapsed : 0;
         if (pad.repeat_timer_ == 0) { // due: sent, then again after the rate
             if (pad.repeat_state_ == 1)
@@ -462,10 +462,9 @@ void FrontEnd::tick_frame(bool game_paused)
 // 0x0054F600
 uint32_t FrontEnd::grab_control_event(uint32_t makes, int index, int device_index, uint32_t held)
 {
-    for (int i = 0; i < kMaxButtonEvents; ++i) {
-        PadPressRecord& entry = pad_event_queue_[i];
+    for (PadPressRecord& entry : pad_event_queue_) {
         if ((makes & (1u << (entry.button_ & 31))) && entry.incident_ != 0 && --index < 0)
-            return pad_event_queue_[i].incident_;
+            return entry.incident_;
     }
     // Start is pad_start (unless the global 0xF3E055E1 is set and the 0x100 button is down).
     if (!((held & 0x100) && script::fetch_int_value(0xF3E055E1u) != 0)) {

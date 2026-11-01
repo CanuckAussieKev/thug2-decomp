@@ -30,14 +30,14 @@ void set_sampler_state(int state, int value) { change_phase(state, static_cast<u
 void draw_flash(const Flash* flash)
 {
     // The viewport (fractions of the screen) the flash belongs to.
-    const float* view = reinterpret_cast<const float*>(fetch_current_view(flash->viewport));
+    const auto* view = reinterpret_cast<const float*>(fetch_current_view(flash->viewport));
     double width = g_back_buffer_width;
     double height = g_back_buffer_height;
     // (x87: each product is rounded once, each sum to float)
-    float left = static_cast<float>(width * view[1]);
-    float top = static_cast<float>(height * view[2]);
-    float right = static_cast<float>(width * view[3] + left);
-    float bottom = static_cast<float>(height * view[4] + top);
+    auto left = static_cast<float>(width * view[1]);
+    auto top = static_cast<float>(height * view[2]);
+    auto right = static_cast<float>(width * view[3] + left);
+    auto bottom = static_cast<float>(height * view[4] + top);
     float z = flash->z;
     uint32_t color = static_cast<uint32_t>(flash->alpha) << 24 | static_cast<uint32_t>(flash->red) << 16 |
                      static_cast<uint32_t>(flash->green) << 8 | flash->blue;

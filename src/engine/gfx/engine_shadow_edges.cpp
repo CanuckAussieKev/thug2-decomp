@@ -55,7 +55,7 @@ bool get_skipped(const TriMeshSource& mesh) { return (reinterpret_cast<const uin
 // as the original).
 void add_edge(ShadowEdges* edges, int& count, uint16_t from, uint16_t to, const maths::Vec4& normal)
 {
-    ShadowSilhouetteEdge* all = reinterpret_cast<ShadowSilhouetteEdge*>(edges->edges);
+    auto* all = reinterpret_cast<ShadowSilhouetteEdge*>(edges->edges);
     int i = 0;
     for (; i < count; ++i) {
         ShadowSilhouetteEdge& edge = all[i];

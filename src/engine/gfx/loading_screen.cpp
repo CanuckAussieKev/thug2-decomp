@@ -57,7 +57,7 @@ render::BillboardQuad*& get_sprite() { return g_loading_screen_sprite; }
 // in place below 16 (+0x04), else through +0x04; its capacity at +0x18).
 const char* picture_name()
 {
-    uint8_t* name = reinterpret_cast<uint8_t*>(g_picture_name);
+    auto* name = reinterpret_cast<uint8_t*>(g_picture_name);
     if (*reinterpret_cast<uint32_t*>(name + 0x18) >= 16)
         return *reinterpret_cast<const char**>(name + 4);
     return reinterpret_cast<const char*>(name + 4);
@@ -65,11 +65,11 @@ const char* picture_name()
 void set_picture_name(const char* text)
 {
     // std::string::assign(const char*) over the layout above (0x004B7880 / 0x004B7750 in the exe).
-    uint8_t* name = reinterpret_cast<uint8_t*>(g_picture_name);
+    auto* name = reinterpret_cast<uint8_t*>(g_picture_name);
     uint32_t& size = *reinterpret_cast<uint32_t*>(name + 0x14);
     uint32_t& capacity = *reinterpret_cast<uint32_t*>(name + 0x18);
     char*& heap = *reinterpret_cast<char**>(name + 4);
-    uint32_t length = static_cast<uint32_t>(std::strlen(text));
+    auto length = static_cast<uint32_t>(std::strlen(text));
     if (length > capacity) {
         uint32_t new_capacity = length | 15;
         char* grown = static_cast<char*>(crt::alloc_block(new_capacity + 1));
@@ -166,8 +166,8 @@ void draw_loading_screen_picture()
     if (picture()[8] & 1)
         texture = *reinterpret_cast<uint8_t**>(texture);
     set_texture(0, *reinterpret_cast<void**>(texture + 0x10)); // (and its +0x14)
-    float width = static_cast<float>(g_back_buffer_width);
-    float height = static_cast<float>(g_back_buffer_height);
+    auto width = static_cast<float>(g_back_buffer_width);
+    auto height = static_cast<float>(g_back_buffer_height);
     // (not original: the level select's pictures are 16:9 and cover the screen - the overflow of another shape cut off
     // evenly - where the original's are stretched)
     float u0 = 0.0f, u1 = 1.0f, v0 = 0.0f, v1 = 1.0f;

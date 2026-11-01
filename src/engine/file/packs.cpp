@@ -59,7 +59,7 @@ PreEntry* first_entry(PackLeadIn* header) { return reinterpret_cast<PreEntry*>(h
 // through engine/file/pre_format.h.)
 PreEntry* next_entry(PreEntry* entry)
 {
-    uint32_t stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
+    auto stored = static_cast<uint32_t>(entry->compressed_size_ ? entry->compressed_size_ : entry->size);
     uintptr_t after_name = (reinterpret_cast<uintptr_t>(entry) + entry->name_size_ + 0x1F) & ~uintptr_t(0xF);
     return reinterpret_cast<PreEntry*>(after_name + ((stored + 3) & ~3u));
 }
@@ -216,7 +216,7 @@ void load_pre(const char* name)
     char path[500];
     std::snprintf(path, sizeof(path), "pre\\%s", name);
     // The block starts with the archive's name, padded to 16 bytes.
-    unsigned int prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~size_t(0xF));
+    auto prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~size_t(0xF));
     size_t length = std::strlen(path);
 
     // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
@@ -349,7 +349,7 @@ void load_pre(const char* name)
             std::memcpy(target, from.data, static_cast<size_t>(from.size));
             end = target + from.size;
         }
-        for (uint32_t pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
+        for (auto pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
             *end++ = 0;
         to = next_entry(to);
     }

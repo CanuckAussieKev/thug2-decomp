@@ -90,7 +90,7 @@ void FootMovement::update_curb_float()
     double length = std::sqrt((static_cast<double>(ahead.z) * ahead.z + static_cast<double>(ahead.x) * ahead.x) +
                               static_cast<double>(ahead.y) * ahead.y);
     if (length > 0.0) {
-        float inverse = static_cast<float>(kOne / length);
+        auto inverse = static_cast<float>(kOne / length);
         ahead.x = inverse * ahead.x;
         ahead.y = inverse * ahead.y;
         ahead.z = ahead.z * inverse;
@@ -121,8 +121,8 @@ void FootMovement::update_curb_float()
 
     // Its height, less the nearer it is, eased toward - unless the float is settled, there's no push and it's
     // slower than min_curb_height_adjust_vel (the original reads it through 0x0043DA70).
-    float target = static_cast<float>((static_cast<double>(feeler.contact_pos_.y) - pos.y) *
-                                      (kOne - static_cast<double>(distance)));
+    auto target = static_cast<float>((static_cast<double>(feeler.contact_pos_.y) - pos.y) *
+                                     (kOne - static_cast<double>(distance)));
     float& curb = curb_offset_;
     const maths::Vec4& vel = vel_;
     bool settled = std::fabs(curb) < kCurbStill && stick_deflection_ == 0.0f;
@@ -223,7 +223,7 @@ void FootMovement::check_sticker_slap()
 // 0x00527080
 void FootMovement::update_ground_below()
 {
-    float depth = static_cast<float>(static_cast<double>(script::fetch_float(kUberFrigCurrentHeight)) * kTwelve);
+    auto depth = static_cast<float>(static_cast<double>(script::fetch_float(kUberFrigCurrentHeight)) * kTwelve);
     const maths::Vec4& pos = pos_;
     const maths::Vec4& offset = critical_point_offset_;
 
@@ -285,7 +285,7 @@ void FootMovement::update_ground_below()
 void FootMovement::ease_critical_point_offset()
 {
     maths::Vec4& offset = critical_point_offset_;
-    float length_squared =
+    auto length_squared =
         static_cast<float>((static_cast<double>(offset.x) * offset.x + static_cast<double>(offset.y) * offset.y) +
                            static_cast<double>(offset.z) * offset.z);
     if (length_squared == 0.0f)
@@ -374,7 +374,7 @@ void FootMovement::plan_jump_over_obstruction()
     double inverse = kOne / gravity;
     double time = (rise - std::sqrt(static_cast<double>(static_cast<float>(discriminant)))) * inverse;
     double speed = -(back / time);
-    float speed_f = static_cast<float>(speed);
+    auto speed_f = static_cast<float>(speed);
     jump_velocity_ = {speed_f * facing.x, speed_f * facing.y, speed_f * facing.z, static_cast<float>(speed * facing.w)};
     jump_target_height_ = static_cast<float>(static_cast<double>(height) + pos_.y);
     leap_duration_ = static_cast<float>((inverse * rise + inverse * rise) - time);

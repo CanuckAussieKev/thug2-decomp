@@ -44,7 +44,7 @@ constexpr float kEase = 3.75f;                    // 0x0064B2C0
 void get_ease(float& angle, double target, float frame)
 {
     double difference = target - angle;
-    float rounded = static_cast<float>(difference);
+    auto rounded = static_cast<float>(difference);
     if (std::fabs(difference) > kNear)
         angle = static_cast<float>(static_cast<double>(rounded) * frame * kEase + angle);
     else
@@ -60,7 +60,7 @@ memory::owner<ObjectModule*> FreeLookModule::fabricate() { return new FreeLookMo
 FreeLookModule::FreeLookModule() { kind_tag_ = kCameraLookAround; }
 
 // 0x004E3F60 (0x004E4010 the deleting one)
-FreeLookModule::~FreeLookModule() {}
+FreeLookModule::~FreeLookModule() = default;
 
 // 0x004E3F70
 void FreeLookModule::configure_from_data(script::Struct* /*params*/)
@@ -106,7 +106,7 @@ void FreeLookModule::tick_frame()
         locked_ = !locked_;
         pad->stick_click_right_.reset_activation();
     }
-    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (!locked_ && !turning_ && dpad_look_ && skater::thaw_bmx::is_switched_on()) {
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
@@ -125,7 +125,7 @@ void FreeLookModule::tick_frame()
         double heading = static_cast<double>(pad->scaled_stick_[0]) * kHeadingScale;
         get_ease(heading_, heading, frame);
     }
-    float step = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto step = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (turning_ && seconds_remaining_ > 0.0f) {
         if (seconds_remaining_ > step) {
             heading_ = static_cast<float>(static_cast<double>(step) * heading_rate_ + heading_);

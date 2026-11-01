@@ -362,4 +362,3 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
 
 } // namespace park_editing
 
-using park_editing::ParkLayout;

@@ -65,7 +65,7 @@ bool cfunc_pause_skaters(Struct* params, Script*)
 {
     bool hide = params->has_bare_flag("hide");
     modules::Skate* skate = modules::Skate::sole();
-    uint32_t count = static_cast<uint32_t>(skate->count_riders());
+    auto count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {
         objects::GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
         if (skater && skater->is_local_skater_) {
@@ -80,7 +80,7 @@ bool cfunc_pause_skaters(Struct* params, Script*)
 bool cfunc_un_pause_skaters(Struct*, Script*)
 {
     modules::Skate* skate = modules::Skate::sole();
-    uint32_t count = static_cast<uint32_t>(skate->count_riders());
+    auto count = static_cast<uint32_t>(skate->count_riders());
     for (uint32_t i = 0; i < count; ++i) {
         objects::GameEntity* skater = skate->get_rider_at(static_cast<int>(i));
         if (skater) {

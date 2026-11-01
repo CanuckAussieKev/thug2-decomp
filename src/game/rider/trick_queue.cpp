@@ -225,7 +225,7 @@ void MoveExecutor::update_buttons()
 // 0x00522030
 double MoveExecutor::get_bash_speed()
 {
-    uint32_t period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
+    auto period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
     for_recent_events(this, period, [&](TrickEvent* event) {
         int kind = event->type;
@@ -234,7 +234,7 @@ double MoveExecutor::get_bash_speed()
             event->flags = 0xFFFFFFFF;
         }
     });
-    float speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
+    auto speed = static_cast<float>(static_cast<double>(script::fetch_float(kBashSpeedupFactor)) * mashes);
     double most = static_cast<double>(script::fetch_float(kBashMaxPercentSpeedup)) * kPercent;
     return (speed > most ? most : speed) + 1.0f;
 }
@@ -242,7 +242,7 @@ double MoveExecutor::get_bash_speed()
 // 0x00522170
 double MoveExecutor::count_triangle_bashes()
 {
-    uint32_t period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
+    auto period = static_cast<uint32_t>(script::fetch_int_value(kBashPeriod));
     int mashes = 0;
     for_recent_events(this, period, [&](TrickEvent* event) {
         int kind = event->type;
@@ -682,8 +682,8 @@ void MoveExecutor::set_extra_tricks(script::Struct* params, script::Script* /*sc
     uint32_t& special = extra_.special_;
     special = 0;
     params->read_hash_value(kSpecial, &special, 0);
-    for (int i = 0; i < 10; ++i)
-        extra_.masks_[i] = 0;
+    for (unsigned int& mask : extra_.masks_)
+        mask = 0;
     extra_.special_mask_ = 0;
     const char* ignore = ""; // ("")
     if (params->fetch_text(kIgnore, &ignore, 0)) {

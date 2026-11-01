@@ -716,7 +716,7 @@ uint32_t path_speed_script()
 
 void apply_speed(objects::GameEntity* object, float mph)
 {
-    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
+    auto* params = new (script::spawn_param_bag()) script::Struct;
     params->push_float(get_key("speed"), mph);
     script::launch_script(path_speed_script(), params, object, false, nullptr);
     params->get_clear();
@@ -900,7 +900,7 @@ void build_palette()
             if (!model.empty())
                 label += std::string(" (") + Short(model) + ")";
             label += "  like " + nodes::caption(n.name);
-            (cls == kPedestrian ? peds : cars).push_back({label, Source{SourceKind::kDupFrom, {n.name}}});
+            (cls == kPedestrian ? peds : cars).emplace_back(label, Source{SourceKind::kDupFrom, {n.name}});
         } else if ((cls == kLevelObject || cls == kGameObject) && s->has_bare_flag(k_bouncy()) && live_object(n.name)) {
             sets[set_stem(nodes::caption(n.name))].push_back(n.name);
         } else if (cls == kParticleObject) {
@@ -911,7 +911,7 @@ void build_palette()
                 continue;
             std::string label =
                 "Particles: " + nodes::caption(texture ? texture : type) + "  like " + nodes::caption(n.name);
-            particles.push_back({label, Source{SourceKind::kDupFrom, {n.name}}});
+            particles.emplace_back(label, Source{SourceKind::kDupFrom, {n.name}});
         }
     }
     auto add = [](std::vector<std::pair<std::string, Source>>& list, uint32_t colour) {
@@ -943,7 +943,7 @@ void build_palette()
         std::string label = "Sound emitter: " + nodes::caption(waves[i].checksum);
         if (waves[i].looping)
             label += " (loop)";
-        sounds.push_back({label, Source{SourceKind::kSound, {}, waves[i].checksum}});
+        sounds.emplace_back(label, Source{SourceKind::kSound, {}, waves[i].checksum});
     }
     std::sort(sounds.begin(), sounds.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     for (auto& e : sounds) {
@@ -1255,7 +1255,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             continue;
         float d = len_of(n.pos - camera);
         if (d < 4000.0f)
-            near.push_back({d, &n});
+            near.emplace_back(d, &n);
     }
     std::sort(near.begin(), near.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     if (near.size() > 200)
@@ -1373,7 +1373,7 @@ std::vector<std::pair<uint32_t, std::string>> get_sounds()
     auto* waves = sound::g_level_waves;
     int count = std::clamp(sound::g_level_count, 0, 256);
     for (int i = 0; i < count; ++i)
-        out.push_back({waves[i].checksum, nodes::caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : "")});
+        out.emplace_back(waves[i].checksum, nodes::caption(waves[i].checksum) + (waves[i].looping ? " (loop)" : ""));
     std::sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
     return out;
 }

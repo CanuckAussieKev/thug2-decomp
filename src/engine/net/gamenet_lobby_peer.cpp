@@ -367,7 +367,7 @@ void RoomManager::nat_negotiation_completed(int result, int, const void* address
         uint8_t port_high = sockaddr.u8();
         uint8_t port_low = sockaddr.u8();
         uint32_t ip = sockaddr.u32();
-        uint16_t port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
+        auto port = static_cast<uint16_t>(port_high << 8 | port_low); // (ntohs)
         manager->join_server(ip, port, 0);
     }
     auto* lobby = manager->lobby_service_.get();

@@ -18,7 +18,7 @@
 #include "engine/maths/trig.h"
 
 #if defined(_MSC_VER) && defined(_M_IX86)
-#include <float.h>
+#include <cfloat>
 #define THUG2_X87_REFERENCE 1
 #endif
 
@@ -92,7 +92,7 @@ void probe_tip(int index, float x, float z, float step, float reach, float* last
     const double angle = static_cast<double>(index) * step;
     const double cosine = std::cos(angle);
     const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
-    const float side = static_cast<float>((sine + static_cast<float>(cosine)) * reach);
+    const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * reach);
     *last_column = static_cast<float>((cosine - sine) * reach + x);
     *end_z = static_cast<float>(z + static_cast<double>(side));
 }
@@ -141,10 +141,10 @@ void refresh_fov(float h_fov, float factor, float divisor, float default_angle, 
 {
     const float to_half_radians = std::bit_cast<float>(0x3C0EFA35u), to_degrees = std::bit_cast<float>(0x42E52EE0u),
                 half = 0.5f, to_radians = std::bit_cast<float>(0x3C8EFA35u);
-    const float half_angle = static_cast<float>(static_cast<double>(h_fov) * to_half_radians);
+    const auto half_angle = static_cast<float>(static_cast<double>(h_fov) * to_half_radians);
     const double angle = std::atan(factor * (std::tan(static_cast<double>(half_angle)) / divisor)) * to_degrees;
     *adjusted = static_cast<float>(angle);
-    const float tan_adjusted = static_cast<float>(std::tan(angle * to_half_radians));
+    const auto tan_adjusted = static_cast<float>(std::tan(angle * to_half_radians));
     *ratio = static_cast<float>(tan_adjusted / std::tan(static_cast<double>(default_angle) * half * to_radians));
 }
 // viewport.cpp
@@ -1279,7 +1279,7 @@ void run(int count, std::mt19937_64& random)
         compare(t_cot, fresh::cot(a), ref::cot(a), a);
         compare(t_atan2_diff, fresh::atan2_difference(a, w, b, u), ref::atan2_difference(a, w, b, u), a);
         bool above_fresh, above_ref;
-        const float limit = static_cast<float>(weight(random) * 3.0f);
+        const auto limit = static_cast<float>(weight(random) * 3.0f);
         compare(t_acos_f, fresh::acos_f(u, limit, &above_fresh), ref::acos_f(u, limit, &above_ref), u);
         compare_bool(t_acos_f_above, above_fresh, above_ref, u);
         double inv_fresh, inv_ref, neg_fresh, neg_ref;
@@ -1295,7 +1295,7 @@ void run(int count, std::mt19937_64& random)
         ref::spin_by(a, ca, cb, &ra_ref, &rb_ref);
         compare(t_spin, ra_fresh, ra_ref, a);
         compare(t_spin, rb_fresh, rb_ref, a);
-        const float cosine_limit = static_cast<float>(u);
+        const auto cosine_limit = static_cast<float>(u);
         compare_bool(t_cos_above, fresh::cos_above(a, cosine_limit), ref::cos_above(a, cosine_limit), a);
         compare_bool(t_sin_at_least, fresh::sin_at_least(a, cosine_limit), ref::sin_at_least(a, cosine_limit), a);
         const float fa = static_cast<float>(a * 0.2), fb = small(random);
@@ -1349,7 +1349,7 @@ void run(int count, std::mt19937_64& random)
         compare(t_turn_move, x_fresh, x_ref, a);
         compare(t_turn_move, z_fresh, z_ref, a);
         double zd_fresh, zd_ref;
-        const float degrees = static_cast<float>(a * 30.0);
+        const auto degrees = static_cast<float>(a * 30.0);
         fresh::turn_about_y(ca, cb, degrees, 0.017453292f, &x_fresh, &zd_fresh);
         ref::turn_about_y(ca, cb, degrees, 0.017453292f, &x_ref, &zd_ref);
         compare(t_turn_y, x_fresh, x_ref, degrees);
@@ -1366,7 +1366,7 @@ void run(int count, std::mt19937_64& random)
         compare(t_flat, z_fresh, z_ref, a);
         compare(t_asin_deg, fresh::asin_degrees(u, store_first, 57.29578f),
                 ref::asin_degrees(u, store_first, 57.29578f), u);
-        const float fu = static_cast<float>(u);
+        const auto fu = static_cast<float>(u);
         compare(t_acos_deg, fresh::acos_degrees(fu, 57.29578f), ref::acos_degrees(fu, 57.29578f), fu);
         float adjusted_fresh, ratio_fresh, adjusted_ref, ratio_ref;
         const float h_fov = fov(random), default_angle = fov(random), factor = weight(random) + 0.5f,

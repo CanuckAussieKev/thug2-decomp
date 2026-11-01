@@ -161,7 +161,7 @@ void BinkStream::set_volume_and_pan(float left, float right)
 {
     double sum = static_cast<double>(left) + right;
     loudness_ = static_cast<float>(sum * 0.5f);
-    float total = static_cast<float>(sum);
+    auto total = static_cast<float>(sum);
     int level = 0;
     int pan = 0;
     if (right > 0.0f || left > 0.0f) {

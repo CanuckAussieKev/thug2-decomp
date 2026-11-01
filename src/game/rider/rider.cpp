@@ -369,7 +369,7 @@ float Rider::get_scaled_value(script::Struct* params)
     int stat_index;
     double stat = params->fetch_int_value(0u, &stat_index, 0) ? fetch_tally(stat_index) : 10.0f;
     const float low = range.x, high = range.y;
-    float result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
+    auto result = static_cast<float>((static_cast<double>(high) - low) * stat * 0.1f + low);
     // Riding switch: times the switch pair, by the switch stat (0-1).
     bool goofy = static_cast<Rider*>(core_physics_->entity_)->goofy_;
     uint8_t flipped = core_physics_->state_->flag(PoseFlag::kFlipped).on;
@@ -511,7 +511,7 @@ void Rider::update_shadow_light(int, int)
             double x = v[0] * -1.0, y = v[1] * -1.0, z = v[2] * -1.0, w = v[3] * -1.0;
             light[0] = static_cast<float>(x);
             light[1] = static_cast<float>(y);
-            const float z_stored = static_cast<float>(z); // (the original reads z back as stored)
+            const auto z_stored = static_cast<float>(z); // (the original reads z back as stored)
             light[2] = z_stored;
             light[3] = static_cast<float>(w);
             if (y > -0.65f) {
@@ -1141,19 +1141,19 @@ void Rider::launch_projectile()
         double dz = static_cast<double>(object->at_point_.z) - origin.z;
         double dy = static_cast<double>(object->at_point_.y) - origin.y;
         double dx = static_cast<double>(object->at_point_.x) - origin.x;
-        float distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
-        float to_z = static_cast<float>(dz);
-        float to_x = static_cast<float>(dx);
+        auto distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
+        auto to_z = static_cast<float>(dz);
+        auto to_x = static_cast<float>(dx);
         double to_y = 0.0;
-        float flat = static_cast<float>(std::sqrt(static_cast<double>(to_x) * to_x + static_cast<double>(to_z) * to_z));
+        auto flat = static_cast<float>(std::sqrt(static_cast<double>(to_x) * to_x + static_cast<double>(to_z) * to_z));
         if (flat > 0.0f) {
-            float inverse = static_cast<float>(1.0 / flat);
+            auto inverse = static_cast<float>(1.0 / flat);
             to_x = static_cast<float>(static_cast<double>(to_x) * inverse);
             to_y = static_cast<double>(inverse) * 0.0;
             to_z = static_cast<float>(static_cast<double>(to_z) * inverse);
         }
-        float dot = static_cast<float>(static_cast<double>(to_z) * heading_z + to_y * heading_y +
-                                       static_cast<double>(to_x) * heading_x);
+        auto dot = static_cast<float>(static_cast<double>(to_z) * heading_z + to_y * heading_y +
+                                      static_cast<double>(to_x) * heading_x);
         if (!(script::fetch_float(0x39186247) > distance)) // Physics_Projectile_Targeting_Dist
             continue;
         double cone = std::cos(script::fetch_float(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle

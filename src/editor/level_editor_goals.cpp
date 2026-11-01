@@ -312,7 +312,7 @@ std::string clean_text(const std::string& text, size_t limit)
 {
     std::string out;
     for (char c : text) {
-        unsigned char u = static_cast<unsigned char>(c);
+        auto u = static_cast<unsigned char>(c);
         if (u < 0x20 || u == 0x7F || c == '"' || c == '#' || c == '|')
             continue;
         if (out.size() >= limit)
@@ -470,7 +470,7 @@ bool read_record(const std::string& text, Goal* out)
             float v[5];
             ok = read_int(key.substr(1), &index) && index >= 0 && index < kMaxPoints && read_numbers(value, v, 5);
             if (ok)
-                points.push_back({index, Point{{v[0], v[1], v[2]}, v[3], v[4]}});
+                points.emplace_back(index, Point{{v[0], v[1], v[2]}, v[3], v[4]});
         } else {
             struct IntKey {
                 const char* key;
@@ -811,7 +811,7 @@ uint32_t current_level()
 // A GoalManager_* script command with name=<goal> (they take no other parameter and don't use the script).
 bool goal_command(Function command, uint32_t goal)
 {
-    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
+    auto* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(0xA1DC81F9u, goal); // name
     bool result = command(params, nullptr);
     params->get_clear();
@@ -985,7 +985,7 @@ void put_in_play()
         }
         node_create::LinkChain made = play_nodes(g, index);
         nodes.insert(nodes.end(), made.begin(), made.end());
-        play.push_back({index, &g});
+        play.emplace_back(index, &g);
     }
     if (play.empty())
         return;
@@ -1364,7 +1364,7 @@ std::vector<std::string> get_level_gaps()
         return out;
     int count = list->total_of();
     for (int i = 0; i < count; ++i)
-        out.push_back(list->get_gap_title(i));
+        out.emplace_back(list->get_gap_title(i));
     return out;
 }
 

@@ -162,9 +162,9 @@ void RiderRemoteSync::interpolate()
         skater->reset_27c();
     SkaterStateHistoryFrame* from = history_frame(past_frames_, (entry + kHistory - 1) % kHistory);
     SkaterStateHistoryFrame* to = history_frame(past_frames_, entry);
-    float elapsed = static_cast<float>(static_cast<int>(now - history_frame_stamp(from)));
+    auto elapsed = static_cast<float>(static_cast<int>(now - history_frame_stamp(from)));
     int span = static_cast<int>(history_frame_stamp(to) - history_frame_stamp(from));
-    float t = static_cast<float>(static_cast<double>(elapsed) / span);
+    auto t = static_cast<float>(static_cast<double>(elapsed) / span);
     maths::Vec4 move = frame_position(to) - frame_position(from);
     last_play_pos_ = play_pos_;
 
@@ -206,7 +206,7 @@ void RiderRemoteSync::interpolate()
         }
         if (n > 0) {
             double inverse = static_cast<double>(kOne) / n;
-            float rounded = static_cast<float>(inverse);
+            auto rounded = static_cast<float>(inverse);
             skater->vel_.x = static_cast<float>(inverse * sum[0]);
             skater->vel_.y = static_cast<float>(sum[1] * rounded);
             skater->vel_.z = static_cast<float>(sum[2] * rounded);
@@ -259,7 +259,7 @@ void RiderRemoteSync::get_extrapolate()
                     kHalf;
     }
     double squared = (static_cast<double>(dx) * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz;
-    float squared_rounded = static_cast<float>(squared);
+    auto squared_rounded = static_cast<float>(squared);
     speeds_[slot] =
         static_cast<float>(std::sqrt(squared) / static_cast<double>(static_cast<uint32_t>(frame_ms)) * kSpeedScale);
     lags_[slot] = lag;
@@ -275,8 +275,8 @@ void RiderRemoteSync::get_extrapolate()
         alignments += alignments_[n];
     }
     double inverse = static_cast<double>(kOne) / n;
-    float rounded = static_cast<float>(inverse);
-    float speed = static_cast<float>(inverse * speeds);
+    auto rounded = static_cast<float>(inverse);
+    auto speed = static_cast<float>(inverse * speeds);
     double scale = (rounded * lags) * (alignments * rounded);
     // On along the last move's direction (flattened: y isn't moved) by the average speed, times the average lag and
     // alignment.
@@ -286,9 +286,9 @@ void RiderRemoteSync::get_extrapolate()
         dir_x = static_cast<float>(dx * to_unit);
         dir_z = static_cast<float>(to_unit * dz);
     }
-    float move_w = static_cast<float>(static_cast<double>(dw) * speed * scale);
-    float move_z = static_cast<float>(static_cast<double>(dir_z) * speed * scale);
-    float move_x = static_cast<float>(static_cast<double>(dir_x) * speed * scale);
+    auto move_w = static_cast<float>(static_cast<double>(dw) * speed * scale);
+    auto move_z = static_cast<float>(static_cast<double>(dir_z) * speed * scale);
+    auto move_x = static_cast<float>(static_cast<double>(dir_x) * speed * scale);
     maths::Vec4& pos = entity_->at_point_;
     pos.w += move_w;
     pos.z += move_z;
@@ -296,7 +296,7 @@ void RiderRemoteSync::get_extrapolate()
 
     // A wall between the played position and the new one (both the collision height up the up row): bounced off.
     GameEntity* skater = entity_;
-    float height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
+    auto height = static_cast<float>(read_tuning_float(kFirstForwardCollisionHeight, 1, skater));
     const maths::Vec4& up = skater->basis_frame_.row[1];
     float raise_w = height * up.w, raise_z = height * up.z, raise_y = height * up.y, raise_x = height * up.x;
     maths::Vec4 from = {raise_x + play_pos_.x, raise_y + play_pos_.y, raise_z + play_pos_.z, raise_w + play_pos_.w};
@@ -325,9 +325,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     rails->get_absolute_pos(&b, next);
     double sx = static_cast<double>(b.x) - a.x, sy = static_cast<double>(b.y) - a.y,
            sz = static_cast<double>(b.z) - a.z, sw = static_cast<double>(b.w) - a.w;
-    float length = static_cast<float>(std::sqrt((sx * sx + sy * sy) + sz * sz));
+    auto length = static_cast<float>(std::sqrt((sx * sx + sy * sy) + sz * sz));
     double inverse = static_cast<double>(kOne) / length;
-    float rounded = static_cast<float>(inverse);
+    auto rounded = static_cast<float>(inverse);
     maths::Vec4 along = {static_cast<float>(inverse * sx), static_cast<float>(rounded * sy),
                          static_cast<float>(rounded * sz), static_cast<float>(rounded * sw)};
     // The rail's gravity along it.
@@ -372,7 +372,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         there.y = 0.0f;
         here.make_unit();
         there.make_unit();
-        float cosine =
+        auto cosine =
             static_cast<float>((static_cast<double>(there.z) * here.z + static_cast<double>(there.y) * here.y) +
                                static_cast<double>(there.x) * here.x);
         double limit =
@@ -439,9 +439,9 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     m.row[0].make_unit();
     const maths::Vec4& r = m.row[0];
     const maths::Vec4& at = m.row[2];
-    float up_x = static_cast<float>(static_cast<double>(r.z) * at.y - static_cast<double>(r.y) * at.z);
-    float up_y = static_cast<float>(static_cast<double>(r.x) * at.z - static_cast<double>(at.x) * r.z);
-    float up_z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
+    auto up_x = static_cast<float>(static_cast<double>(r.z) * at.y - static_cast<double>(r.y) * at.z);
+    auto up_y = static_cast<float>(static_cast<double>(r.x) * at.z - static_cast<double>(at.x) * r.z);
+    auto up_z = static_cast<float>(static_cast<double>(at.x) * r.y - static_cast<double>(r.x) * at.y);
     m.row[1] = {up_x, up_y, up_z, 0.0f};
     m.row[1].make_unit();
     maths::Vec4& p = skater->at_point_;
@@ -495,7 +495,7 @@ void RiderRemoteSync::extrapolate_on_rail()
     double inverse = static_cast<double>(kOne) / n;
     // How far along the rail: the frame's length times the average alignment and lag (at most one second's worth).
     double ahead = ((inverse * alignments) * (inverse * lags)) * frame_seconds_;
-    float left = static_cast<float>(ahead);
+    auto left = static_cast<float>(ahead);
     if (ahead > kOne)
         left = kOne;
 

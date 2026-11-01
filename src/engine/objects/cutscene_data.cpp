@@ -88,8 +88,8 @@ void quat_to_matrix(float* quat, const float* translation, float* matrix)
     double zy = static_cast<double>(quat[2]) * quat[1];
     double zx = static_cast<double>(quat[2]) * quat[0];
     double yx = static_cast<double>(quat[1]) * quat[0];
-    float wx = static_cast<float>(static_cast<double>(quat[3]) * quat[0]);
-    float wy = static_cast<float>(static_cast<double>(quat[3]) * quat[1]);
+    auto wx = static_cast<float>(static_cast<double>(quat[3]) * quat[0]);
+    auto wy = static_cast<float>(static_cast<double>(quat[3]) * quat[1]);
     double wz = static_cast<double>(quat[3]) * quat[2];
     matrix[0] = static_cast<float>(1.0f - (zz + yy) * 2.0);
     matrix[1] = static_cast<float>((wz + yx) * 2.0);
@@ -332,7 +332,7 @@ void CinematicTable::update_object_poses()
         source->bone_masks_ = data ? data->lod_masks_ : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
         const auto* base_pose = reinterpret_cast<const uint8_t*>(rig->payload_->bind_translations_);
-        uint32_t count = static_cast<uint32_t>(rig->get_num_bones());
+        auto count = static_cast<uint32_t>(rig->get_num_bones());
         std::memcpy(translations, base_pose, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)

@@ -60,7 +60,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // with `before` m = rotation * m.
 void turn_about_y(maths::Mat4& m, float degrees, bool before)
 {
-    float radians = static_cast<float>(static_cast<double>(degrees) * g_degree_to_radian_ratio); // pi / 180
+    auto radians = static_cast<float>(static_cast<double>(degrees) * g_degree_to_radian_ratio); // pi / 180
     maths::Mat4 rotation;
     maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
     if (before)

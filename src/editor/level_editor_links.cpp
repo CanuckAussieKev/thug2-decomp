@@ -380,7 +380,7 @@ bool linked_duplicate()
     std::vector<std::pair<uint32_t, int>> quarters;
     if (scenery) {
         for (uint32_t s : selection.ids)
-            quarters.push_back({s, relative_quarters(s)});
+            quarters.emplace_back(s, relative_quarters(s));
     }
     std::vector<std::pair<uint32_t, uint32_t>> pairs = edit::get_duplicate(nullptr);
     if (pairs.empty())

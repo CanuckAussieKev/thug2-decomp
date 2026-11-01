@@ -88,7 +88,7 @@ memory::owner<ObjectModule*> ActivationZoneModule::fabricate() { return new Acti
 ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }
 
 // 0x00434900 (0x00434910 the deleting one)
-ActivationZoneModule::~ActivationZoneModule() {}
+ActivationZoneModule::~ActivationZoneModule() = default;
 
 // 0x00434940
 void ActivationZoneModule::configure_from_data(script::Struct* /*params*/) { last_pos_ = entity_->at_point_; }

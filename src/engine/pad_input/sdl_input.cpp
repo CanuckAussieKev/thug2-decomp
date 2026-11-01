@@ -1067,8 +1067,8 @@ void process_sdl_device(InputPort* device)
     device->start_or_a_ = ((~data[2] & (1 << 3)) || (~data[3] & (1 << 6))) ? 1 : 0;
 
     // (typed text only works with these set)
-    online::g_text_entry = 1;
-    g_in_menu_flag = 0;
+    online::g_text_entry = true;
+    g_in_menu_flag = false;
 }
 
 void set_sdl_actuators(int port, uint16_t high, uint16_t low)

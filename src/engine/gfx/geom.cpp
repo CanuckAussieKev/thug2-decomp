@@ -277,7 +277,7 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     *reinterpret_cast<SceneRef**>(temp_scene + 0x280) = source_list;
     auto* geom = new PcGeom;
     geom->scene = temp_scene;
-    uint32_t count = static_cast<uint32_t>(instance->scene->mesh_count_);
+    auto count = static_cast<uint32_t>(instance->scene->mesh_count_);
     geom->meshes = count ? static_cast<MeshRef**>(memory::alloc(4 * count)) : nullptr;
     geom->mesh_count_ = count;
     for (uint32_t i = 0; i < geom->mesh_count_; ++i)
@@ -652,10 +652,10 @@ void PcGeom::set_vertices(const maths::Vec4* in)
         // the sphere around the box (x87: the half sizes and the centre's z kept in double where the original does)
         double dx = static_cast<double>(box.max.x) - box.min.x;
         double dy = static_cast<double>(box.max.y) - box.min.y;
-        float dz = static_cast<float>(static_cast<double>(box.max.z) - box.min.z);
-        float half_x = static_cast<float>(dx * 0.5);
-        float cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
-        float cy = static_cast<float>(dy * 0.5 + box.min.y);
+        auto dz = static_cast<float>(static_cast<double>(box.max.z) - box.min.z);
+        auto half_x = static_cast<float>(dx * 0.5);
+        auto cx = static_cast<float>(static_cast<double>(box.min.x) + half_x);
+        auto cy = static_cast<float>(dy * 0.5 + box.min.y);
         double cz = static_cast<double>(dz) * 0.5 + box.min.z;
         mesh->centre[0] = cx;
         mesh->centre[1] = cy;

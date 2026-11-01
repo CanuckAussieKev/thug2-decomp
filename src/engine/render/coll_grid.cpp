@@ -163,10 +163,10 @@ void CollGrid::prepare_all(const maths::BBox* bounds)
     cell_span_x_ = static_cast<float>((static_cast<double>(bounds->max.x) - bounds->min.x) * 0.05f);
     cell_depth_ = static_cast<float>((static_cast<double>(bounds->max.z) - bounds->min.z) * 0.05f);
     double x = bounds->min.x;
-    for (int i = 0; i < kSize; ++i) {
+    for (auto& column : cells_) {
         double z = bounds->min.z;
         for (int j = 0; j < kSize; ++j) {
-            maths::BBox& box = cells_[i][j].box;
+            maths::BBox& box = column[j].box;
             box.min = {static_cast<float>(x), -1e12f, static_cast<float>(z), 0.0f};
             box.max = {static_cast<float>(x + cell_span_x_), 1e12f, static_cast<float>(z + cell_depth_), 0.0f};
             z += cell_depth_;
@@ -196,7 +196,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
 {
     auto cells_of = [this](StaticCollider* object, int& x0, int& x1, int& z0, int& z1) {
         const maths::BBox* box = cuboid(object);
-        float inverse_width = static_cast<float>(1.0 / cell_span_x_);
+        auto inverse_width = static_cast<float>(1.0 / cell_span_x_);
         x0 = truncate((static_cast<double>(box->min.x) - box_.min.x) * inverse_width);
         x1 = truncate((static_cast<double>(box->max.x) - box_.min.x) * inverse_width);
         double inverse_depth = 1.0 / cell_depth_;
@@ -248,9 +248,9 @@ void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, me
     memory::ListNode pending;
     pending.make_head();
     int added_count = len_of(added), removed_count = len_of(removed), moved_count = len_of(moved);
-    for (int x = 0; x < kSize; ++x) {
+    for (auto& column : cells_) {
         for (int z = 0; z < kSize; ++z) {
-            CellUpdate update{&cells_[x][z], &pending};
+            CellUpdate update{&column[z], &pending};
             CollGridCell* cell = update.cell;
             memory::enter_heap_scope(memory::top_down_heap());
             memory::ListNode* node = masked(removed->next);
@@ -306,7 +306,7 @@ HitMesh** CollGrid::objects_in_box(const maths::BBox* box)
     uint8_t stamp = ++s_stamp;
     double inverse_width = 1.0 / cell_span_x_;
     int x0 = truncate((static_cast<double>(box->min.x) - box_.min.x - 0.5f) * inverse_width);
-    float inverse_depth = static_cast<float>(1.0 / cell_depth_);
+    auto inverse_depth = static_cast<float>(1.0 / cell_depth_);
     int z0 = truncate((static_cast<double>(box->min.z) - box_.min.z - 0.5f) * inverse_depth);
     int x1 = truncate((static_cast<double>(box->max.x) - box_.min.x + 0.5f) * inverse_width);
     int z1 = truncate((static_cast<double>(box->max.z) - box_.min.z + 0.5f) * inverse_depth);
@@ -338,17 +338,17 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     double dx = static_cast<double>(line->end.x) - line->start.x;
     float dy = line->end.y - line->start.y;
     float dz = line->end.z - line->start.z;
-    float dxf = static_cast<float>(dx);
+    auto dxf = static_cast<float>(dx);
     double length =
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dxf) * dxf);
     if (length > 0.0) {
-        float inverse = static_cast<float>(1.0 / static_cast<float>(length));
+        auto inverse = static_cast<float>(1.0 / static_cast<float>(length));
         dx = static_cast<double>(dxf) * inverse;
         dy = static_cast<float>(static_cast<double>(dy) * inverse);
         dz = static_cast<float>(static_cast<double>(dz) * inverse);
     }
     double ex = dx * 0.5f, ey = static_cast<double>(dy) * 0.5f;
-    float ez = static_cast<float>(static_cast<double>(dz) * 0.5f);
+    auto ez = static_cast<float>(static_cast<double>(dz) * 0.5f);
     maths::Seg longer;
     longer.start = {static_cast<float>(line->start.x - ex), static_cast<float>(line->start.y - ey),
                     static_cast<float>(static_cast<double>(line->start.z) - ez), 0.0f};
@@ -357,7 +357,7 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
 
     double inverse_width = 1.0 / cell_span_x_;
     int x0 = truncate((static_cast<double>(longer.start.x) - box_.min.x) * inverse_width);
-    float inverse_depth = static_cast<float>(1.0 / cell_depth_);
+    auto inverse_depth = static_cast<float>(1.0 / cell_depth_);
     int z0 = truncate((static_cast<double>(longer.start.z) - box_.min.z) * inverse_depth);
     x0 = confine(x0, columns_);
     z0 = confine(z0, rows_);

@@ -170,14 +170,14 @@ int KinematicsModule::invoke_method_by_name(uint32_t name, script::Struct* param
 // 0x00423740
 void KinematicsModule::update_hover()
 {
-    uint32_t period = static_cast<uint32_t>(bob_period_);
+    auto period = static_cast<uint32_t>(bob_period_);
     uint32_t in_period = static_cast<uint32_t>(game_clock()) % period;
     int doubled = static_cast<int>(in_period * 2);
-    double phase = static_cast<double>(doubled);
+    auto phase = static_cast<double>(doubled);
     if (doubled < 0)
         phase += 4294967296.0; // (the count taken as unsigned)
     phase = phase * static_cast<double>(get_bits(0x40490FDB)) / static_cast<double>(bob_period_); // (pi)
-    float offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
+    auto offset = static_cast<float>(std::sin(phase) * static_cast<double>(bob_height_));
     bob_now_ = offset;
     float height = entity_->at_point_.y;
     hover_base_ = height;
@@ -255,9 +255,9 @@ bool KinematicsModule::obj_get_speed(script::Struct* params, script::Script* scr
         speed = move_speed_;
     } else if (entity_->fetch_module(kLockObj) &&
                (static_cast<PinnedObjectModule*>(entity_->fetch_module(kLockObj))->lock_flags_ & kLockFlagLocked)) {
-        float dx = static_cast<float>(static_cast<double>(entity_->at_point_.x) - entity_->old_pos_.x);
-        float dy = static_cast<float>(static_cast<double>(entity_->at_point_.y) - entity_->old_pos_.y);
-        float dz = static_cast<float>(static_cast<double>(entity_->at_point_.z) - entity_->old_pos_.z);
+        auto dx = static_cast<float>(static_cast<double>(entity_->at_point_.x) - entity_->old_pos_.x);
+        auto dy = static_cast<float>(static_cast<double>(entity_->at_point_.y) - entity_->old_pos_.y);
+        auto dz = static_cast<float>(static_cast<double>(entity_->at_point_.z) - entity_->old_pos_.z);
         double frame = frame_clock::get_slomo_frame_seconds();
         if (!(frame == 0.0)) {
             double moved =
@@ -313,4 +313,3 @@ bool KinematicsModule::obj_jump(script::Struct* params, script::Script*)
 
 } // namespace objects
 
-using objects::KinematicsModule;

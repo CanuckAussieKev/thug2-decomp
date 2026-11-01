@@ -154,7 +154,7 @@ uint8_t* compress_message(uint8_t* msg_id, uint16_t* length, const void* data, c
     int max_size = size * 4 / 3 + size;
     auto* compressed = static_cast<uint8_t*>(memory::alloc(max_size + 3));
     compressed[0] = static_cast<uint8_t>(method);
-    uint16_t expanded_size = static_cast<uint16_t>(size);
+    auto expanded_size = static_cast<uint16_t>(size);
     std::memcpy(compressed + 1, &expanded_size, 2);
     if (method == kMethodRle) {
         compressed_size = rle_compress(message, size, compressed + 3, max_size);

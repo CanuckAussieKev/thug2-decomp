@@ -114,7 +114,7 @@ void set_key_name(unsigned scan_code, const wchar_t* name)
     os_layer::set_key_name(static_cast<int>(scan_code), name);
 }
 
-const char kSettingsKey[] = "Software\\Activision\\Tony Hawk's Underground 2\\Settings";
+const char kSettingsKey[] = R"(Software\Activision\Tony Hawk's Underground 2\Settings)";
 
 // The default bindings, written to the settings unless already there: k0_0..k0_23 (the keyboard: DirectInput
 // key codes - W S A D, Z X C V, the number pad 2 6 4 8, none, Tab, the number pad 1 3 7 9 0 and its point, Home,

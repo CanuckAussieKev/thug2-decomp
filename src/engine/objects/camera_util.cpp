@@ -102,15 +102,15 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
         const maths::Vec4& e = feeler.get_end();
         double lx = static_cast<double>(e.x) - s.x, ly = static_cast<double>(e.y) - s.y,
                lz = static_cast<double>(e.z) - s.z;
-        float line_length = static_cast<float>(std::sqrt((lx * lx + ly * ly) + lz * lz));
+        auto line_length = static_cast<float>(std::sqrt((lx * lx + ly * ly) + lz * lz));
         double fraction = feeler.get_fraction();
         if (fraction * line_length < kMinimumDistance)
             fraction = static_cast<double>(kMinimumDistance) / line_length;
         double pull = fraction * line_length - 2.0f;
-        float pw = static_cast<float>(dw * pull);
-        float pz = static_cast<float>(dir_z * pull);
-        float py = static_cast<float>(dir_y * pull);
-        float px = static_cast<float>(pull * dir_x);
+        auto pw = static_cast<float>(dw * pull);
+        auto pz = static_cast<float>(dir_z * pull);
+        auto py = static_cast<float>(dir_y * pull);
+        auto px = static_cast<float>(pull * dir_x);
         pos.x = px + target->x;
         pos.y = py + target->y;
         pos.z = pz + target->z;

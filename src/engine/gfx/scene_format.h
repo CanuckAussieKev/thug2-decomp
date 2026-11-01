@@ -160,7 +160,7 @@ bool read_material(Stream& in, Material* m)
         if (pass.flags & kPassUvWibble)
             in.take(pass.uv_wibble, sizeof(pass.uv_wibble));
         if (index == 0 && (pass.flags & kPassColorAnims)) {
-            uint32_t anims = take<uint32_t>(in);
+            auto anims = take<uint32_t>(in);
             if (!in.fits(uint64_t{anims} * 8)) // (each at least its key count and phase)
                 return false;
             m->color_anims.resize(anims);
@@ -250,7 +250,7 @@ bool read_sector_mesh(Stream& in, SectorMesh* mesh)
     mesh->material = take<uint32_t>(in);
     mesh->index_lists = take<uint32_t>(in);
     for (uint32_t list = 0; list < mesh->index_lists && in.ok(); ++list) {
-        uint32_t count = take<uint32_t>(in);
+        auto count = take<uint32_t>(in);
         if (!in.fits(uint64_t{count} * 2))
             return false;
         in.skip(count * 2u);
@@ -283,7 +283,7 @@ template <typename Stream>
 bool read_mesh_body(Stream& in, MeshBody* body)
 {
     for (int i = 0; i < kIndexBuffers; ++i) {
-        uint16_t count = take<uint16_t>(in);
+        auto count = take<uint16_t>(in);
         body->index_counts[i] = count;
         body->indices[i].clear();
         if (!count)
@@ -301,8 +301,8 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     body->vertices.clear();
     body->scaled.clear();
     for (uint32_t v = 0; v < body->vertex_buffer_count; ++v) {
-        uint8_t scaled = take<uint8_t>(in);
-        uint32_t size = take<uint32_t>(in);
+        auto scaled = take<uint8_t>(in);
+        auto size = take<uint32_t>(in);
         if (!in.fits(size))
             return false;
         if (v == 0) {
@@ -347,7 +347,7 @@ bool read_mesh_body(Stream& in, MeshBody* body)
     body->shader = take<uint32_t>(in);
     if (body->shader == 1) {
         take<uint32_t>(in);
-        uint32_t size = take<uint32_t>(in);
+        auto size = take<uint32_t>(in);
         if (!in.skip(size))
             return false;
     }
@@ -404,14 +404,14 @@ bool walk_scene(Stream& in, SceneCounts* counts)
 {
     *counts = SceneCounts{};
     in.skip(kHeaderSize);
-    uint32_t materials = take<uint32_t>(in);
+    auto materials = take<uint32_t>(in);
     Material material;
     for (uint32_t i = 0; i < materials; ++i) {
         if (!read_material(in, &material))
             return false;
         ++counts->materials;
     }
-    uint32_t sectors = take<uint32_t>(in);
+    auto sectors = take<uint32_t>(in);
     Sector sector;
     SectorMesh mesh;
     MeshBody body;

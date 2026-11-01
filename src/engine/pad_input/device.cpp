@@ -689,7 +689,7 @@ void InputPort::pull_data(int)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
     second ^= p[2] >= 0x20 ? 0x80 : 0;
     uint8_t buttons_so_far = second;
-    LevelInfo* level = reinterpret_cast<LevelInfo*>(park_editing::g_park_editor);
+    auto* level = reinterpret_cast<LevelInfo*>(park_editing::g_park_editor);
     if (level && level->checksum == kParkEditorLevel) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;
@@ -720,8 +720,8 @@ void InputPort::pull_data(int)
     control_data_[10] = all_or_nothing(buttons & 1);
     control_data_[8] = all_or_nothing(buttons & 8);
     control_data_[11] = all_or_nothing(buttons & 2);
-    uint8_t low = static_cast<uint8_t>(buttons);
-    uint8_t dpad = static_cast<uint8_t>((low & 0xFE) << 1);
+    auto low = static_cast<uint8_t>(buttons);
+    auto dpad = static_cast<uint8_t>((low & 0xFE) << 1);
     dpad = static_cast<uint8_t>((dpad ^ (low & 1)) << 2);
     dpad = static_cast<uint8_t>((dpad ^ (low & 8)) << 2);
     control_data_[2] ^= dpad;

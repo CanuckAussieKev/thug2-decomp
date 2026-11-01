@@ -76,7 +76,7 @@ int PieceGroup::count_pieces()
 {
     int count = 0;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
-        uint32_t name = reinterpret_cast<uint32_t>(get_descriptor(static_cast<int>(i))->piece);
+        auto name = reinterpret_cast<uint32_t>(get_descriptor(static_cast<int>(i))->piece);
         PieceGroup* entry = ParkLayout::singleton()->fetch_meta_template(name, nullptr);
         if (entry->flag_bits_ & kSector) // a single piece
             ++count;
@@ -167,8 +167,8 @@ void PieceGroup::set_quarter_turns(int rot)
 maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
 {
     // The metapiece's half size (x and z).
-    const float half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
-    const float half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
+    const auto half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
+    const auto half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
     const PieceGroupDesc* entry = get_descriptor(static_cast<int>(index));
     ParkPiece* piece = get_piece(index);
     maths::Vec4 size1;
@@ -178,7 +178,7 @@ maths::Vec4* PieceGroup::get_relative_position(maths::Vec4* out, uint32_t index)
     // The piece's centre in the metapiece, from the metapiece's centre.
     const double x = static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size_x) * 0.5;
     const double y = static_cast<double>(static_cast<uint8_t>(entry->y)) * kGridStepUp; // (read unsigned)
-    const float z =
+    const auto z =
         static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong + static_cast<double>(size_z) * 0.5);
     out->x = static_cast<float>(x - half_w);
     out->y = static_cast<float>(y);
@@ -264,9 +264,9 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
         size.h = 0;
         size.l = 0;
         get_piece(i)->get_footprint_size(&size);
-        const uint8_t x = static_cast<uint8_t>(entry->x + cells.x);
-        const int8_t y = static_cast<int8_t>(entry->y + cells.y);
-        const uint8_t z = static_cast<uint8_t>(entry->z + cells.z);
+        const auto x = static_cast<uint8_t>(entry->x + cells.x);
+        const auto y = static_cast<int8_t>(entry->y + cells.y);
+        const auto z = static_cast<uint8_t>(entry->z + cells.z);
         if (entry->sets_floor_)
             continue;
         if (x + size.w > x_start && y + size.h > y_start && z + size.l > z_start && x < x_end && y < y_end && z < z_end)
@@ -299,11 +299,11 @@ void PieceGroup::get_piece_list(script::Array* out)
 
 void PieceGroup::change_place(maths::Vec4 position, float angle)
 {
-    const float half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
-    const float half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
+    const auto half_w = static_cast<float>(static_cast<double>(cell_footprint_.w) * kGridPitch * 0.5);
+    const auto half_l = static_cast<float>(static_cast<double>(cell_footprint_.l) * kGridStepAlong * 0.5);
     if (!filled_slots_)
         return;
-    const float radians = static_cast<float>(static_cast<double>(angle) * kRadiansPerDegree);
+    const auto radians = static_cast<float>(static_cast<double>(angle) * kRadiansPerDegree);
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
         auto* piece = static_cast<ParkTile*>(entry->piece);
@@ -351,7 +351,7 @@ void PieceGroup::finish_pieces()
     get_bounds(&max, &min);
     const double size_x = static_cast<double>(max.x) - min.x;
     const double size_y = static_cast<double>(max.y) - min.y;
-    const float size_z = static_cast<float>(static_cast<double>(max.z) - min.z);
+    const auto size_z = static_cast<float>(static_cast<double>(max.z) - min.z);
     const double exact_z = static_cast<double>(max.z) - min.z;
     cell_footprint_.l = get_cells(exact_z, kGridStepAlong);
     cell_footprint_.h = get_cells(size_y, kGridStepUp);
@@ -529,6 +529,3 @@ PieceGroupDesc* PieceBlueprint::get_entry(PieceGroupDesc* out, int index)
 
 } // namespace park_editing
 
-using park_editing::PieceBlueprint;
-using park_editing::PieceGroup;
-using park_editing::PlacedPieceGroup;

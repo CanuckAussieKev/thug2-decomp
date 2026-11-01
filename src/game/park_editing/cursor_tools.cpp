@@ -225,4 +225,3 @@ int BuildPointer::advance_area_selection()
 
 } // namespace park_editing
 
-using park_editing::BuildPointer;

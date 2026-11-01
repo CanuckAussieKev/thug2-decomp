@@ -120,7 +120,7 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
             workspace->flip_vertically();
         float rot;
         info->fetch_float(kRot, &rot, 1);
-        float radians = static_cast<float>(static_cast<double>(rot) * g_degree_to_radian_ratio); // pi / 180
+        auto radians = static_cast<float>(static_cast<double>(rot) * g_degree_to_radian_ratio); // pi / 180
         workspace->spin_by(radians, -1.0f, -1.0f);
         float x;
         info->fetch_float(kPosX, &x, 1);
@@ -133,10 +133,10 @@ bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
         workspace->get_offset(ftol(x), ftol(y), false, 0);
         Array* rgba;
         info->fetch_list(kRgba, &rgba, 1);
-        uint8_t a = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
-        uint8_t b = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
-        uint8_t g = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
-        uint8_t r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
+        auto a = static_cast<uint8_t>(ftol(rgba->fetch_float(3)));
+        auto b = static_cast<uint8_t>(ftol(rgba->fetch_float(2)));
+        auto g = static_cast<uint8_t>(ftol(rgba->fetch_float(1)));
+        auto r = static_cast<uint8_t>(ftol(rgba->fetch_float(0)));
         uint32_t colour = r | g << 8 | b << 16 | static_cast<uint32_t>(a) << 24;
         workspace->modulate(colour, false);
         if (a < 0x80)
@@ -227,7 +227,7 @@ bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script
         y = magnitude;
         negate_y = true;
     } else {
-        float radians = static_cast<float>(static_cast<double>(theta) * g_degree_to_radian_ratio); // pi / 180
+        auto radians = static_cast<float>(static_cast<double>(theta) * g_degree_to_radian_ratio); // pi / 180
         y = static_cast<float>(static_cast<double>(maths::fast_sin(radians)) * magnitude);
         x = static_cast<float>(static_cast<double>(maths::fast_cos(radians)) * magnitude);
     }

@@ -409,7 +409,7 @@ int handle_drop_carried(net::InboundMsgCtx* context)
     player->give_crown(false);
     int spot = maths::rnd(10);
     manager->crown_start_ = spot;
-    uint8_t message = static_cast<uint8_t>(spot);
+    auto message = static_cast<uint8_t>(spot);
     desc.content_ = &message;
     desc.byte_count_ = 1;
     desc.ident_ = kMsgCrownSpawn;

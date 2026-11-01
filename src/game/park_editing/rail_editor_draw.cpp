@@ -34,7 +34,7 @@ namespace {
 
 float float_bits(uint32_t bits)
 {
-    float value = std::bit_cast<float>(bits);
+    auto value = std::bit_cast<float>(bits);
     return value;
 }
 
@@ -143,7 +143,7 @@ uint8_t* clone_rail_sector(uint32_t source) { return duplicate_scene_sector(sour
 Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, const Vec4* position, float angle)
 {
     double dx = static_cast<double>(point->x) - origin->x;
-    float dy = static_cast<float>(static_cast<double>(point->y) - origin->y);
+    auto dy = static_cast<float>(static_cast<double>(point->y) - origin->y);
     double dz = static_cast<double>(point->z) - origin->z;
     float x;
     double z;
@@ -166,9 +166,9 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
         *z = static_cast<double>(to->z) - from->z;
         *y = 0.0;
         double exact = std::sqrt(*z * *z + *x * *x);
-        float length = static_cast<float>(exact);
+        auto length = static_cast<float>(exact);
         if (exact > 0.0) {
-            float inverse = static_cast<float>(1.0 / length);
+            auto inverse = static_cast<float>(1.0 / length);
             *x = *x * inverse;
             *y = 0.0 * inverse;
             *z = *z * inverse;
@@ -177,7 +177,7 @@ bool rail_corner_ok(const Vec4* a, const Vec4* b, const Vec4* c)
     double x1, y1, z1, x2, y2, z2;
     direction(a, b, &x1, &y1, &z1);
     direction(b, c, &x2, &y2, &z2);
-    float dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
+    auto dot = static_cast<float>((z2 * z1 + y2 * y1) + x2 * x1);
     return !(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kAngleScaleToRad) > dot);
 }
 
@@ -216,7 +216,7 @@ bool rail_segment_valid(const Vec4* a, const Vec4* b)
         return false;
     Vec4 d = {static_cast<float>(dx), static_cast<float>(dy), static_cast<float>(dz),
               static_cast<float>(static_cast<double>(b->w) - a->w)};
-    float length = static_cast<float>(
+    auto length = static_cast<float>(
         std::sqrt((static_cast<double>(d.z) * d.z + static_cast<double>(d.y) * d.y) + static_cast<double>(d.x) * d.x));
     if (script::fetch_float(kMinimumSeparation) > length)
         return false;
@@ -254,7 +254,7 @@ void orient_rail_vertices(const Vec4* direction, const Vec4* translation, Vec4* 
     double ux = static_cast<double>(side.z) * y - static_cast<double>(side.y) * z;
     double uy = static_cast<double>(z) * side.x - static_cast<double>(side.z) * x;
     double uz = static_cast<double>(side.y) * x - static_cast<double>(y) * side.x;
-    float uz_f = static_cast<float>(uz);
+    auto uz_f = static_cast<float>(uz);
     double up_length = std::sqrt((uz * uz_f + uy * uy) + ux * ux);
     if (up_length > 0.0) {
         double inverse = 1.0 / up_length;
@@ -293,19 +293,19 @@ void stretch_rail_sector(uint32_t source, const Vec4* from, const Vec4* previous
     get_vertices(source_geometry, vertices);
     double dx = static_cast<double>(to->x) - from->x;
     double dy = static_cast<double>(to->y) - from->y;
-    float dz = static_cast<float>(static_cast<double>(to->z) - from->z);
-    float dw = static_cast<float>(static_cast<double>(to->w) - from->w);
+    auto dz = static_cast<float>(static_cast<double>(to->z) - from->z);
+    auto dw = static_cast<float>(static_cast<double>(to->w) - from->w);
     if (previous_sector) {
         // Joined on: the start turned halfway between the previous segment's direction and this one's, and the
         // previous segment's end vertices moved onto this one's start.
         double px = static_cast<double>(from->x) - previous->x;
-        float py = static_cast<float>(static_cast<double>(from->y) - previous->y);
-        float pz = static_cast<float>(static_cast<double>(from->z) - previous->z);
-        float pw = static_cast<float>(static_cast<double>(from->w) - previous->w);
-        float sx = static_cast<float>(px + dx);
-        float sy = static_cast<float>(static_cast<double>(py) + dy);
+        auto py = static_cast<float>(static_cast<double>(from->y) - previous->y);
+        auto pz = static_cast<float>(static_cast<double>(from->z) - previous->z);
+        auto pw = static_cast<float>(static_cast<double>(from->w) - previous->w);
+        auto sx = static_cast<float>(px + dx);
+        auto sy = static_cast<float>(static_cast<double>(py) + dy);
         double sz = static_cast<double>(pz) + dz;
-        float sw = static_cast<float>(static_cast<double>(pw) + dw);
+        auto sw = static_cast<float>(static_cast<double>(pw) + dw);
         Vec4 halfway = {static_cast<float>(static_cast<double>(sx) * 0.5f),
                         static_cast<float>(static_cast<double>(sy) * 0.5f), static_cast<float>(sz * 0.5f),
                         static_cast<float>(static_cast<double>(sw) * 0.5f)};
@@ -390,7 +390,7 @@ void EditedRailPoint::draw_segment(const Vec4* origin, const Vec4* position, flo
                      static_cast<float>(static_cast<double>(at_point_.w) - next->at_point_.w)};
         before.make_unit();
         here.make_unit();
-        float dot =
+        auto dot =
             static_cast<float>((static_cast<double>(here.z) * before.z + static_cast<double>(here.y) * before.y) +
                                static_cast<double>(here.x) * before.x);
         bool join = !(std::cos(static_cast<double>(script::fetch_float(kMaxJoinAngle)) * kAngleScaleToRad) > dot);
@@ -432,16 +432,16 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
     if (following_ && preceding_) {
         double ax = static_cast<double>(preceding_->at_point_.x) - at_point_.x;
         double ay = static_cast<double>(preceding_->at_point_.y) - at_point_.y;
-        float az = static_cast<float>(static_cast<double>(preceding_->at_point_.z) - at_point_.z);
-        float aw = static_cast<float>(static_cast<double>(preceding_->at_point_.w) - at_point_.w);
+        auto az = static_cast<float>(static_cast<double>(preceding_->at_point_.z) - at_point_.z);
+        auto aw = static_cast<float>(static_cast<double>(preceding_->at_point_.w) - at_point_.w);
         double bx = static_cast<double>(at_point_.x) - following_->at_point_.x;
-        float by = static_cast<float>(static_cast<double>(at_point_.y) - following_->at_point_.y);
-        float bz = static_cast<float>(static_cast<double>(at_point_.z) - following_->at_point_.z);
-        float bw = static_cast<float>(static_cast<double>(at_point_.w) - following_->at_point_.w);
-        float sx = static_cast<float>(bx + ax);
+        auto by = static_cast<float>(static_cast<double>(at_point_.y) - following_->at_point_.y);
+        auto bz = static_cast<float>(static_cast<double>(at_point_.z) - following_->at_point_.z);
+        auto bw = static_cast<float>(static_cast<double>(at_point_.w) - following_->at_point_.w);
+        auto sx = static_cast<float>(bx + ax);
         double sy = static_cast<double>(by) + ay;
         double sz = static_cast<double>(bz) + az;
-        float sw = static_cast<float>(static_cast<double>(bw) + aw);
+        auto sw = static_cast<float>(static_cast<double>(bw) + aw);
         Vec4 along = {static_cast<float>(static_cast<double>(sx) * 0.5f), static_cast<float>(sy * 0.5f),
                       static_cast<float>(sz * 0.5f), static_cast<float>(static_cast<double>(sw) * 0.5f)};
         along.make_unit();
@@ -472,7 +472,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
             dx *= inverse;
             dz *= inverse;
         }
-        float minus_z = static_cast<float>(-dz);
+        auto minus_z = static_cast<float>(-dz);
         for (int i = 0; i < count; ++i) {
             Vec4& v = vertices[i];
             double rx = static_cast<double>(v.x) - at.x;
@@ -562,7 +562,7 @@ void EditedRail::xform(const Vec4* origin, const Vec4* position, float angle)
     // (transform_rail_point's turn, but z' not rounded to float before the position is added)
     for (EditedRailPoint* p = point_chain_; p; p = p->following_) {
         double dx = static_cast<double>(p->at_point_.x) - origin->x;
-        float dy = static_cast<float>(static_cast<double>(p->at_point_.y) - origin->y);
+        auto dy = static_cast<float>(static_cast<double>(p->at_point_.y) - origin->y);
         double dz = static_cast<double>(p->at_point_.z) - origin->z;
         float x;
         double z;

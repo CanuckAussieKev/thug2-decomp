@@ -205,7 +205,7 @@ bool KinematicsModule::update_axis_rotation(int axis)
         }
         speed = static_cast<float>(static_cast<double>(speed) - slowing);
     }
-    float step = static_cast<float>(static_cast<double>(speed) * step_seconds_);
+    auto step = static_cast<float>(static_cast<double>(speed) * step_seconds_);
     if (!(motion_flags2_ & (kMotion2RotateForeverX << axis))) {
         float target = get_axis(rot_target_, axis);
         float& done = get_axis(rot_done_, axis);
@@ -254,7 +254,7 @@ void KinematicsModule::start_rotation(script::Struct* params, const maths::Mat4*
 // 0x00424440
 void KinematicsModule::update_turn()
 {
-    float elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_elapsed_);
+    auto elapsed = static_cast<float>(static_cast<double>(step_seconds_) + turn_elapsed_);
     turn_elapsed_ = elapsed;
     float t;
     if (!(turn_time_ == 0.0f) && !(elapsed >= turn_time_)) {
@@ -515,4 +515,3 @@ bool KinematicsModule::obj_look_at_object(script::Struct* params, script::Script
 
 } // namespace objects
 
-using objects::KinematicsModule;

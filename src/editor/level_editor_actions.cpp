@@ -323,7 +323,7 @@ int fuzzy_score(const std::string& query, const std::string& text)
     if (qi < q.size())
         return 0;
     // (a whole-word or prefix match of the query ranks above scattered letters)
-    if (t.compare(0, q.size(), q) == 0)
+    if (t.starts_with(q))
         score += 20;
     else if (t.find(q) != std::string::npos)
         score += 10;

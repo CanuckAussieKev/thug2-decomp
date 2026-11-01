@@ -413,8 +413,8 @@ void UiTree::remove_focus_entries(ElementPtr* element, bool from_parent, bool ma
 // 0x004AB4D0
 void UiTree::clear_marks(ElementPtr* element)
 {
-    for (int i = 0; i < 2; ++i) {
-        for (FocusEntry* entry = focus_lists_[i]; entry; entry = entry->next) {
+    for (auto entry : focus_lists_) {
+        for (; entry; entry = entry->next) {
             if (!entry->marked)
                 continue;
             ElementPtr walk;
@@ -546,7 +546,7 @@ bool UiTree::has_top_precedence(uint32_t id)
 {
     ElementPtr element;
     fetch_part(&element, id, 1);
-    uint32_t priority = static_cast<uint32_t>(element->fetch_rank());
+    auto priority = static_cast<uint32_t>(element->fetch_rank());
     uint32_t top = 0;
     for (const PriorityEntry& entry : priorities_)
         if (entry.active && entry.priority > top)
@@ -677,4 +677,3 @@ void set_score_text(const char* text, int player)
 
 } // namespace frontend
 
-using frontend::UiTree;

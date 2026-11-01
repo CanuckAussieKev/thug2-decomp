@@ -205,7 +205,7 @@ uint32_t* PrefixTables::get_nodes(uint32_t prefix, uint16_t* count)
         PrefixNodes* nodes = get_find(table->slot_table_, prefix);
         if (!nodes)
             continue;
-        uint16_t n = static_cast<uint16_t>(nodes->num_);
+        auto n = static_cast<uint16_t>(nodes->num_);
         const uint16_t* indices = nodes->indices_;
         if (!n)
             continue;

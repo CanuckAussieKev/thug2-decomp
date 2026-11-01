@@ -111,7 +111,7 @@ void set_log_listener(void (*listener)(const char* line)) { g_listener = listene
 std::vector<std::string> get_log_tail(size_t lines)
 {
     unsigned count = g_tail_count.load();
-    size_t n = std::min<size_t>({lines, count, kTailLines});
+    auto n = std::min<size_t>({lines, count, kTailLines});
     std::vector<std::string> out;
     out.reserve(n);
     for (size_t i = n; i > 0; --i) {

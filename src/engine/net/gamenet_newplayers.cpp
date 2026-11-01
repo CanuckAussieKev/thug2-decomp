@@ -85,7 +85,7 @@ void Hub::add_new_player(JoinerRecord* info)
 {
     modules::Skate* skate = skate_module();
     objects::Entity* skater = nullptr;
-    int8_t obj_id = static_cast<int8_t>(info->entity_key_);
+    auto obj_id = static_cast<int8_t>(info->entity_key_);
     uint32_t flags = info->flag_bits_;
     if (!(flags & kNewObserver)) {
         bool split_screen = commands::cfunc_in_split_screen_game(nullptr, nullptr) != 0;
@@ -310,7 +310,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
             head->prev = player_node;
             uint32_t now = frame_clock::get_time();
             static NewPlayerMessage msg; // (the original's is on its stack: 4 KB)
-            int8_t obj_id = static_cast<int8_t>(info->entity_key_);
+            auto obj_id = static_cast<int8_t>(info->entity_key_);
             if (!is_own_player(player)) { // its own details (no appearance) after its important messages
                 msg.header.object_id = obj_id;
                 msg.header.team = static_cast<int8_t>(player->team_);
@@ -366,7 +366,7 @@ void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
                      other = step_roster_sweep(manager, &search, false)) {
                     if (other == player || is_own_player(player))
                         continue;
-                    int8_t other_id = static_cast<int8_t>(get_skater_id(player_skater(other)));
+                    auto other_id = static_cast<int8_t>(get_skater_id(player_skater(other)));
                     msg.header.object_id = other_id;
                     msg.header.flags = other->flag_bits_ & kPlayerFlagsSent;
                     msg.header.team = static_cast<int8_t>(other->team_);

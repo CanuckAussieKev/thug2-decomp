@@ -30,7 +30,7 @@ namespace {
 
 float get_as_float(uint32_t bits)
 {
-    float value = std::bit_cast<float>(bits);
+    auto value = std::bit_cast<float>(bits);
     return value;
 }
 
@@ -114,7 +114,7 @@ Script* step_script_list(Script* script) { return script ? *reinterpret_cast<Scr
 // 0x0046F7A0
 StoredRandom* look_up_saved_random(const uint8_t* table, uint32_t type, uint32_t count)
 {
-    uint32_t script = reinterpret_cast<uint32_t>(get_running_script());
+    auto script = reinterpret_cast<uint32_t>(get_running_script());
     for (StoredRandom* stored = stored_randoms_newest(); stored; stored = stored->succ_) {
         if (stored->lookup_table_ == table && stored->kind_tag_ == type && stored->num_ == count &&
             (stored->owner_ == script || stored->owner_ == 0))
@@ -400,7 +400,7 @@ const uint8_t* parse_value(const uint8_t* token, Struct* args, Component* out)
         const uint8_t* start = token + 6;
         const uint8_t* end = skip_to_end_of_script(start);
         change_species(out, kQbvalScriptBody);
-        uint32_t size = static_cast<uint32_t>(end - start);
+        auto size = static_cast<uint32_t>(end - start);
         memory::enter_heap_scope(memory::Hub::get_pull()->script_heap_);
         auto* code = static_cast<uint8_t*>(memory::alloc_block(size));
         memory::leave_heap_scope();
@@ -750,7 +750,7 @@ const uint8_t* parse_array(Array* dest, const uint8_t* token, Struct* args)
             if (t == 0x02) {
                 p += 4;
             } else if (t == 0x17 || t == 0x18) {
-                float value = static_cast<float>(static_cast<int32_t>(fetch_word32(p)));
+                auto value = static_cast<float>(static_cast<int32_t>(fetch_word32(p)));
                 std::memcpy(element++, &value, 4);
                 p += 4;
             } else if (t == 0x1A) {

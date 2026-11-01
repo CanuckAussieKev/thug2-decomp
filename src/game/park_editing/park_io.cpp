@@ -320,7 +320,7 @@ void ParkLayout::set_default_bounds()
 {
     int inner = script::fetch_int_value("ed_default_inner_dim"); // (0x004790C0, asserting)
     shell_bounds_.assign_value(1, -4, 1, 56, 8, 56);
-    uint8_t corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
+    auto corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
     build_area_.assign_value(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
 }
 
@@ -558,4 +558,3 @@ void ParkLayout::print_map_list(const MapListNode* list)
 
 } // namespace park_editing
 
-using park_editing::ParkLayout;

@@ -139,7 +139,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         return false;
     if (layers > kMaxLayers)
         layers = kMaxLayers;
-    float step = static_cast<float>(*reinterpret_cast<const float*>(&m->unknown14) / static_cast<double>(layers));
+    auto step = static_cast<float>(*reinterpret_cast<const float*>(&m->unknown14) / static_cast<double>(layers));
     for (int layer = 0; layer < layers; ++layer) {
         memory::Hub::get_pull()->enter_heap_scope(memory::bottom_up_heap());
         MeshRef* copy = mesh->replicate(false);
@@ -152,7 +152,7 @@ bool make_grass(PcGeom* geom, MeshRef* mesh)
         auto* material = static_cast<MaterialRef*>(scene->find_material(checksum));
         copy->material = material;
         material_pixel_shader(material, &copy->pixel_shader_);
-        float height = static_cast<float>(layer * 0.1f + 1100.0f); // (drawn after the ground, in order)
+        auto height = static_cast<float>(layer * 0.1f + 1100.0f); // (drawn after the ground, in order)
         material->pass_flags_[0] |= 0x40;
         material->mip_lod_bias_[0] = 0xC0000000; // (-2)
         material->sort_flag_ = 0;

@@ -451,7 +451,7 @@ bool Objective::test_longest_jump()
     double dz = static_cast<double>(from[2]) - to[2];
     double down = static_cast<double>(to[1]) - from[1];
     double distance = std::sqrt(dz * dz + dx * dx + dy * dy - down * down);
-    float rounded = static_cast<float>(distance);
+    auto rounded = static_cast<float>(distance);
     int feet = truncate(distance * g_goal_run_inches_to_feet); // (1/12)
     int whole = truncate(rounded);
     int inches = whole % 12;

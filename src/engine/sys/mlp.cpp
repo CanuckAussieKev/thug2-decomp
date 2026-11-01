@@ -197,7 +197,7 @@ void Hub::get_main_loop()
     uint64_t frame_ticks = static_cast<uint64_t>(frequency.QuadPart) / 60; // (an unsigned division)
     LARGE_INTEGER counter;
     QueryPerformanceCounter(&counter);
-    uint64_t frame_start = static_cast<uint64_t>(counter.QuadPart);
+    auto frame_start = static_cast<uint64_t>(counter.QuadPart);
     is_finished_ = false;
     do {
         ++frames_run(); // (not original - see frames_run)
@@ -234,7 +234,7 @@ void Hub::get_main_loop()
 
         // Wait for the frame's time (60 a second).
         QueryPerformanceCounter(&counter);
-        uint64_t now = static_cast<uint64_t>(counter.QuadPart);
+        auto now = static_cast<uint64_t>(counter.QuadPart);
         while (now < frame_start + frame_ticks) {
             Sleep(0);
             QueryPerformanceCounter(&counter);

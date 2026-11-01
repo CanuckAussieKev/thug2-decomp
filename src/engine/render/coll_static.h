@@ -99,9 +99,7 @@ public:
     // 0x004127C0
     CollStaticInstance() : octets_(nullptr), unknownc4_(0) {}
     // 0x00414C30: a copy.
-    CollStaticInstance(const CollStaticInstance& other)
-        : CollScaled(other), world_box_(other.world_box_), octets_(other.octets_), unknownc4_(other.unknownc4_)
-    {}
+    CollStaticInstance(const CollStaticInstance& other) = default;
     // 0x00412840 (0x00413ED0 the deleting destructor)
     ~CollStaticInstance() override;
 

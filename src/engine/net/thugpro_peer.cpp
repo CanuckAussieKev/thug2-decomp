@@ -90,7 +90,7 @@ uint32_t read_machine_id()
 {
     char text[32];
     build_info::fetch_text("online", "thugpro_machine_id", "", text, sizeof(text));
-    uint32_t id = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
+    auto id = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     std::random_device random;
     while (id == 0)
         id = static_cast<uint32_t>(random());
@@ -403,7 +403,7 @@ private:
 // The level structure being played: its `level` (the skate module's +0x380: the structure's name).
 const char* current_level_prefix()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    auto* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     if (!skate)
         return nullptr;
     script::Struct* structure = script::read_sub_struct(modules::g_skate_module->level_params_);
@@ -749,7 +749,7 @@ bool handle_chat_command(const char* text)
         get_say(option ? "\\c4thugpro:\\c0 /option <1-8> on|off" : "\\c4thugpro:\\c0 /proset <1-8> on|off (8: G_COMP)");
         return true;
     }
-    uint8_t bit = static_cast<uint8_t>(1 << (n - 1));
+    auto bit = static_cast<uint8_t>(1 << (n - 1));
     uint32_t load = manager ? manager->level_ : 0;
     if (option) {
         g_host.level_options_ = static_cast<uint8_t>(on ? g_host.level_options_ | bit : g_host.level_options_ & ~bit);

@@ -45,11 +45,11 @@ void set_step_velocity(GameEntity* object, const float back[4], float frame_time
 {
     const maths::Vec4& pos = object->at_point_;
     double x = static_cast<double>(back[0]) + pos.x;
-    float y = static_cast<float>(static_cast<double>(back[1]) + pos.y);
-    float z = static_cast<float>(static_cast<double>(back[2]) + pos.z);
-    float w = static_cast<float>(static_cast<double>(back[3]) + pos.w);
+    auto y = static_cast<float>(static_cast<double>(back[1]) + pos.y);
+    auto z = static_cast<float>(static_cast<double>(back[2]) + pos.z);
+    auto w = static_cast<float>(static_cast<double>(back[3]) + pos.w);
     double inverse = 1.0 / static_cast<double>(frame_time);
-    float rounded = static_cast<float>(inverse);
+    auto rounded = static_cast<float>(inverse);
     maths::Vec4& vel = object->vel_;
     vel.z = static_cast<float>(static_cast<double>(z) * rounded);
     vel.w = static_cast<float>(static_cast<double>(w) * rounded);
@@ -119,7 +119,7 @@ void KinematicsModule::tick_frame()
         if (up != (ground_speed_ > 0.0f))
             ground_speed_ = 0.0f;
         double change = static_cast<double>(acceleration) * step_seconds_;
-        float step = static_cast<float>((0.5 * change + ground_speed_) * step_seconds_);
+        auto step = static_cast<float>((0.5 * change + ground_speed_) * step_seconds_);
         ground_speed_ = static_cast<float>(change + ground_speed_);
         // (past the offset: the rest of it, and no more speed; a NaN step goes as it is)
         if (up ? step > ground_offset_ : step < ground_offset_) {
@@ -159,12 +159,12 @@ bool KinematicsModule::update_move_to()
     // (the fraction of the way rounded to a float; x and y through rounded products, z through an unrounded one)
     double dx = static_cast<double>(move_target_.x) - move_start_.x;
     double dy = static_cast<double>(move_target_.y) - move_start_.y;
-    float dz = static_cast<float>(static_cast<double>(move_target_.z) - move_start_.z);
-    float dw = static_cast<float>(static_cast<double>(move_target_.w) - move_start_.w);
-    float t = static_cast<float>(done / move_distance_);
-    float x = static_cast<float>(dx * t);
-    float y = static_cast<float>(dy * t);
-    float w = static_cast<float>(static_cast<double>(dw) * t);
+    auto dz = static_cast<float>(static_cast<double>(move_target_.z) - move_start_.z);
+    auto dw = static_cast<float>(static_cast<double>(move_target_.w) - move_start_.w);
+    auto t = static_cast<float>(done / move_distance_);
+    auto x = static_cast<float>(dx * t);
+    auto y = static_cast<float>(dy * t);
+    auto w = static_cast<float>(static_cast<double>(dw) * t);
     pos.z = static_cast<float>(static_cast<double>(dz) * t + move_start_.z);
     pos.w = static_cast<float>(static_cast<double>(w) + move_start_.w);
     pos.x = static_cast<float>(static_cast<double>(x) + move_start_.x);
@@ -410,4 +410,3 @@ bool KinematicsModule::obj_follow_leader(script::Struct* params, script::Script*
 
 } // namespace objects
 
-using objects::KinematicsModule;

@@ -358,7 +358,7 @@ bool hide_object(uint32_t id)
         void* geom = object_edit::get_geometry(object, i);
         if (!geom)
             break;
-        rec.geoms.push_back({geom, geom_active(geom)});
+        rec.geoms.emplace_back(geom, geom_active(geom));
         set_geom_active(geom, false);
     }
     if (rec.geoms.empty())
@@ -518,9 +518,9 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
         V3 normal = perpendicular(p[1] - p[0], p[2] - p[0]);
         float length = std::sqrt(get_dot(normal, normal));
         float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(get_dot(normal, light)) / length : 1.0f;
-        uint32_t r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
-        uint32_t g = static_cast<uint32_t>(((argb >> 8) & 0xFF) * shade);
-        uint32_t b = static_cast<uint32_t>((argb & 0xFF) * shade);
+        auto r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
+        auto g = static_cast<uint32_t>(((argb >> 8) & 0xFF) * shade);
+        auto b = static_cast<uint32_t>((argb & 0xFF) * shade);
         poly.argb = (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
         polygons.push_back(poly);
         if (style.edge && lines) {
@@ -584,7 +584,7 @@ void add_collision(V3 camera_pos, const TickCycle& frame, const Lens& lens, cons
             const render::TriMeshSource& tri = companion.get_geometry();
             if (distance_to_box(w->camera, to_v3(tri.lower_limit_), to_v3(tri.upper_limit_)) <= kRadius &&
                 !hidden_sector(checksum))
-                w->near.push_back({checksum, &companion});
+                w->near.emplace_back(checksum, &companion);
         },
         &companions);
     for (const auto& entry : companions.near) {
@@ -678,7 +678,7 @@ std::string describe_wall(uint32_t checksum)
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->faces_ + f * (tri->small_faces_ ? 8 : 10));
         auto it = std::find_if(counts.begin(), counts.end(), [&](const auto& c) { return c.first == flags; });
         if (it == counts.end())
-            counts.push_back({flags, 1});
+            counts.emplace_back(flags, 1);
         else
             ++it->second;
     }

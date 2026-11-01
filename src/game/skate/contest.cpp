@@ -255,10 +255,10 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         pros[other] = swap;
     }
     int ids[kLeaders - 1] = {1, 2, 3, 4, 5, 6, 7};
-    for (int i = 0; i < kLeaders - 1; ++i) {
+    for (int& id : ids) {
         int other = maths::roll_side_stream(kLeaders - 1);
-        int swap = ids[i];
-        ids[i] = ids[other];
+        int swap = id;
+        id = ids[other];
         ids[other] = swap;
     }
 
@@ -293,16 +293,16 @@ void Contest::kickoff(float bronze, float silver, float gold, float bronze_score
         } else if (i == 2) {
             points = bronze;
         } else {
-            float spread = static_cast<float>(static_cast<double>(bronze) * eighth());
+            auto spread = static_cast<float>(static_cast<double>(bronze) * eighth());
             double random = maths::plus_or_minus_exact(spread);
             points = static_cast<float>(static_cast<double>(bronze) - spread + random);
             if (!(points < bronze))
                 points = static_cast<float>(static_cast<double>(bronze) - tenth());
         }
         // Two judges' scores either side of the points, the third a little lower.
-        float high = static_cast<float>(maths::plus_or_minus_exact(two()) + points);
+        auto high = static_cast<float>(maths::plus_or_minus_exact(two()) + points);
         float low = high;
-        float mirrored = static_cast<float>(static_cast<double>(points) + points - high);
+        auto mirrored = static_cast<float>(static_cast<double>(points) + points - high);
         if (mirrored < high)
             low = mirrored;
         int first = maths::roll_side_stream(3);
@@ -403,7 +403,7 @@ void Contest::end_run(int score)
     path_vertices_ = points;
     if (!(points <= max))
         path_vertices_ = max;
-    float spread = static_cast<float>((static_cast<double>(max) - path_vertices_) * tenth());
+    auto spread = static_cast<float>((static_cast<double>(max) - path_vertices_) * tenth());
     path_vertices_ = static_cast<float>(maths::plus_or_minus_exact(static_cast<float>(
                                             (static_cast<double>(max) - path_vertices_) * tenth() * get_half())) +
                                         path_vertices_);

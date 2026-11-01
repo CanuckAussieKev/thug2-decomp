@@ -37,12 +37,7 @@ void BBox::append_spot(const Vec4& point)
 }
 
 // 0x0040AB00
-BBox& BBox::operator=(const BBox& other)
-{
-    min = other.min;
-    max = other.max;
-    return *this;
-}
+BBox& BBox::operator=(const BBox& other) = default;
 
 // 0x0040B170 (x, then z, then y; each failing only when strictly beyond)
 bool BBox::intersects(const BBox& other) const
@@ -147,7 +142,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
 
     if (max.x < s.x && e.x < max.x && dx < 0.0f) {
         double k = (1.0 / dx) * (static_cast<double>(max.x) - s.x);
-        float y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
+        auto y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
             hit = {max.x, y, z, 1.0f};
             normal = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -156,7 +151,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
     }
     if (s.x < min.x && min.x < e.x && dx > 0.0f) {
         double k = (1.0 / dx) * (static_cast<double>(min.x) - s.x);
-        float y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
+        auto y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
             hit = {min.x, y, z, 1.0f};
             normal = {-1.0f, 0.0f, 0.0f, 0.0f};
@@ -165,7 +160,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
     }
     if (max.y < s.y && e.y < max.y && dy < 0.0f) {
         double k = (1.0 / dy) * (static_cast<double>(max.y) - s.y);
-        float x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
+        auto x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
             hit = {x, max.y, z, 1.0f};
             normal = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -174,7 +169,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
     }
     if (s.y < min.y && min.y < e.y && dy > 0.0f) {
         double k = (1.0 / dy) * (static_cast<double>(min.y) - s.y);
-        float x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
+        auto x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
             hit = {x, min.y, z, 1.0f};
             normal = {0.0f, -1.0f, 0.0f, 0.0f};
@@ -183,7 +178,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
     }
     if (max.z < s.z && e.z < max.z && dz < 0.0f) {
         double k = (1.0 / dz) * (static_cast<double>(max.z) - s.z);
-        float x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
+        auto x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
             hit = {x, y, max.z, 1.0f};
             normal = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -192,7 +187,7 @@ bool BBox::segment_crossing(const Seg& line, Vec4& hit, Vec4& normal) const
     }
     if (s.z < min.z && e.z > min.z && dz > 0.0f) {
         double k = (1.0 / dz) * (static_cast<double>(min.z) - s.z);
-        float x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
+        auto x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
             hit = {x, y, min.z, 1.0f};
             normal = {0.0f, 0.0f, -1.0f, 0.0f};
@@ -474,7 +469,7 @@ double Seg::distance_sqr_to_line(const Seg& other, float* s_out, float* t_out) c
 // 0x004032E0
 int Capsule::intersects_segment(const Seg& segment, float* s, float* t, float* squared_gap) const
 {
-    float distance = static_cast<float>(line.distance_sqr_to_line(segment, s, t));
+    auto distance = static_cast<float>(line.distance_sqr_to_line(segment, s, t));
     if (squared_gap)
         *squared_gap = distance;
     return distance <= radius * radius ? 1 : 0;

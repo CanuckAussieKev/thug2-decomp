@@ -247,7 +247,7 @@ void change_phase(int state, uint32_t value)
         if (value != depth_bias()) {
             depth_bias() = value;
             // (unsigned, scaled; x87 at double precision, stored as a float)
-            float bias = static_cast<float>(static_cast<double>(value) * kDepthBiasUnit);
+            auto bias = static_cast<float>(static_cast<double>(value) * kDepthBiasUnit);
             render::set_render_state(D3DRS_DEPTHBIAS, std::bit_cast<uint32_t>(bias));
         }
         return;
@@ -505,7 +505,7 @@ void set_fixed_function_stages_for_material(void* shader, const void* material)
         set_fixed_function_stages(shader, 0xFFFFFFFF);
         return;
     }
-    const float* color = reinterpret_cast<const float*>(static_cast<const uint8_t*>(material) + 0x40);
+    const auto* color = reinterpret_cast<const float*>(static_cast<const uint8_t*>(material) + 0x40);
     uint32_t r = static_cast<uint8_t>(ftol(static_cast<double>(color[0]) * k255));
     uint32_t g = static_cast<uint8_t>(ftol(static_cast<double>(color[1]) * k255));
     uint32_t b = static_cast<uint8_t>(ftol(static_cast<double>(color[2]) * k255));
@@ -574,14 +574,14 @@ void reset_render_state()
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
     for (maths::Mat4* matrix : {&g_world_matrix, &g_view_matrix, &g_projection_matrix}) {
-        float* m = reinterpret_cast<float*>(matrix);
+        auto* m = reinterpret_cast<float*>(matrix);
         for (int i = 0; i < 16; ++i)
             m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
     }
     get_lighting() = 0;
     get_specular() = 0;
     cull_mode() = D3DCULL_CW;
-    g_near_camera = 1;
+    g_near_camera = true;
     dither() = 1;
     get_z_test() = 1;
     get_z_write() = 1;

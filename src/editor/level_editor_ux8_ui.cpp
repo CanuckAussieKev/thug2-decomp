@@ -323,7 +323,7 @@ void sets_menu(const Fonts& fonts)
     bool any = false;
     for (int g = 0; g < static_cast<int>(state.groups.size()); ++g) {
         const organize::GroupSet& group = state.groups[g];
-        if (group.name.rfind("Set ", 0) == 0 && group.name.size() == 5 && group.name[4] >= '1' && group.name[4] <= '9')
+        if (group.name.starts_with("Set ") && group.name.size() == 5 && group.name[4] >= '1' && group.name[4] <= '9')
             continue;
         if (!any) {
             ImGui::Separator();

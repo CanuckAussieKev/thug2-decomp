@@ -106,12 +106,12 @@ text::Chars LetterMatch::get_letter_string(int player)
     char word[0x100];
     dup_from(word, word_);
     if (std::strlen(word)) {
-        uint32_t letters = static_cast<uint32_t>(letters_[player]);
+        auto letters = static_cast<uint32_t>(letters_[player]);
         for (uint32_t i = 0; i < std::strlen(word); ++i)
             if (i >= letters)
                 word[i] = '-';
     }
-    return text::Chars(word);
+    return {word};
 }
 
 // 0x00560310
@@ -195,7 +195,7 @@ text::Chars LetterMatch::fetch_text(uint32_t which)
     default:
         break;
     }
-    return text::Chars(text);
+    return {text};
 }
 
 // 0x00560720

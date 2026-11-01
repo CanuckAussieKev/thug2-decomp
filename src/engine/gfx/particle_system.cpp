@@ -290,13 +290,13 @@ void EmitterInstance::get_emit_matrix(maths::Mat4* out)
     }
     maths::Vec4& across = out->row[0];
     across.w = 0.0f;
-    float z = static_cast<float>(along * at.y - up * at.x);
+    auto z = static_cast<float>(along * at.y - up * at.x);
     across.x = static_cast<float>(up * at.z - static_cast<double>(at.y) * 0.0);
     across.y = static_cast<float>(static_cast<double>(at.x) * 0.0 - along * at.z);
     across.z = z;
     maths::Vec4& second = out->row[1];
     second.w = 0.0f;
-    float second_z = static_cast<float>(static_cast<double>(at.y) * across.x - static_cast<double>(at.x) * across.y);
+    auto second_z = static_cast<float>(static_cast<double>(at.y) * across.x - static_cast<double>(at.x) * across.y);
     second.x = static_cast<float>(static_cast<double>(across.y) * at.z - static_cast<double>(across.z) * at.y);
     second.y = static_cast<float>(static_cast<double>(across.z) * at.x - static_cast<double>(across.x) * at.z);
     second.z = second_z;
@@ -314,7 +314,7 @@ int EmitterInstance::lod_particle_count(int count)
     double dx = static_cast<double>(at_point_.x) - eye->x;
     double dy = static_cast<double>(at_point_.y) - eye->y;
     double dz = static_cast<double>(at_point_.z) - eye->z;
-    float distance = static_cast<float>(dz * dz + dy * dy + dx * dx);
+    auto distance = static_cast<float>(dz * dz + dy * dy + dx * dx);
     if (distance < lod_near_)
         return count;
     if (distance > lod_far_)

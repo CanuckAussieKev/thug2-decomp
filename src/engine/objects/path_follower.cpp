@@ -109,11 +109,11 @@ void PathFollower::refresh_placement()
     double dy = static_cast<double>(end_point_.y) - segment_origin_.y;
     float dz = end_point_.z - segment_origin_.z;
     float dw = end_point_.w - segment_origin_.w;
-    float t = static_cast<float>(static_cast<double>(along_) / byte_count_);
-    float sx = static_cast<float>(dx * t);
+    auto t = static_cast<float>(static_cast<double>(along_) / byte_count_);
+    auto sx = static_cast<float>(dx * t);
     double sy = dy * t;
     double sz = static_cast<double>(dz) * t;
-    float sw = static_cast<float>(static_cast<double>(dw) * t);
+    auto sw = static_cast<float>(static_cast<double>(dw) * t);
     at_point_.x = static_cast<float>(static_cast<double>(sx) + at_point_.x);
     at_point_.y = static_cast<float>(sy + at_point_.y);
     at_point_.z = static_cast<float>(sz + at_point_.z);
@@ -132,7 +132,7 @@ bool PathFollower::check_corner()
         if (between < corner_distance_) {
             double cut = between * 0.5;
             cut_ = static_cast<float>(cut);
-            float left = static_cast<float>(span_to(end_point_, at_point_));
+            auto left = static_cast<float>(span_to(end_point_, at_point_));
             if (cut > left)
                 cut_ = left;
             flag_bits_ |= kFlagCorner;
@@ -168,18 +168,18 @@ int PathFollower::compute_arc()
     double dy = static_cast<double>(at_point_.y) - segment_origin_.y;
     double dz = static_cast<double>(at_point_.z) - segment_origin_.z;
     bend_point_ = segment_origin_;
-    float short_of = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+    auto short_of = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
     double ex = static_cast<double>(end_point_.x) - segment_origin_.x;
     double ey = static_cast<double>(end_point_.y) - segment_origin_.y;
     float ez = end_point_.z - segment_origin_.z;
     float ew = end_point_.w - segment_origin_.w;
     double segment = std::sqrt(ex * ex + static_cast<double>(ez) * ez + ey * ey);
     double scale = short_of / segment;
-    float scalef = static_cast<float>(scale);
-    float cx = static_cast<float>(ex * scale);
+    auto scalef = static_cast<float>(scale);
+    auto cx = static_cast<float>(ex * scale);
     double cy = ey * scalef;
     double cz = static_cast<double>(ez) * scalef;
-    float cw = static_cast<float>(static_cast<double>(ew) * scalef);
+    auto cw = static_cast<float>(static_cast<double>(ew) * scalef);
     bend_point_.x = static_cast<float>(static_cast<double>(cx) + bend_point_.x);
     bend_point_.y = static_cast<float>(cy + bend_point_.y);
     bend_point_.z = static_cast<float>(cz + bend_point_.z);
@@ -190,22 +190,22 @@ int PathFollower::compute_arc()
         return 2;
 
     // the arc's centre: on the bisector, through the middle of position - corner
-    float mx = static_cast<float>((static_cast<double>(bend_point_.x) - at_point_.x) * 0.5);
+    auto mx = static_cast<float>((static_cast<double>(bend_point_.x) - at_point_.x) * 0.5);
     double my = (static_cast<double>(bend_point_.y) - at_point_.y) * 0.5;
     double mz = static_cast<double>(bend_point_.z - at_point_.z) * 0.5;
-    float mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * 0.5);
-    float half_chord = static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
-    float mid_x = static_cast<float>(static_cast<double>(mx) + at_point_.x);
-    float mid_y = static_cast<float>(my + at_point_.y);
+    auto mw = static_cast<float>(static_cast<double>(bend_point_.w - at_point_.w) * 0.5);
+    auto half_chord = static_cast<float>(std::sqrt(static_cast<double>(mx) * mx + mz * mz + my * my));
+    auto mid_x = static_cast<float>(static_cast<double>(mx) + at_point_.x);
+    auto mid_y = static_cast<float>(my + at_point_.y);
     double mid_z = mz + at_point_.z;
     double mid_w = static_cast<double>(mw) + at_point_.w;
-    float qx = static_cast<float>(static_cast<double>(mid_x) - segment_origin_.x);
-    float qy = static_cast<float>(static_cast<double>(mid_y) - segment_origin_.y);
-    float qz = static_cast<float>(mid_z - segment_origin_.z);
+    auto qx = static_cast<float>(static_cast<double>(mid_x) - segment_origin_.x);
+    auto qy = static_cast<float>(static_cast<double>(mid_y) - segment_origin_.y);
+    auto qz = static_cast<float>(mid_z - segment_origin_.z);
     double qw = mid_w - segment_origin_.w;
     double bisector =
         std::sqrt(static_cast<double>(qz) * qz + static_cast<double>(qy) * qy + static_cast<double>(qx) * qx);
-    float bisectorf = static_cast<float>(bisector);
+    auto bisectorf = static_cast<float>(bisector);
     bool tight = 6.0 * bisector < half_chord;
     if (tight || bisector == 0.0)
         return 0;
@@ -214,7 +214,7 @@ int PathFollower::compute_arc()
     if (radius == 0.0)
         return 2;
     center_.w = static_cast<float>(qw);
-    float to_center = static_cast<float>(static_cast<double>(short_of) * short_of / bisectorf);
+    auto to_center = static_cast<float>(static_cast<double>(short_of) * short_of / bisectorf);
     center_.x = qx;
     center_.y = qy;
     center_.z = qz;
@@ -391,7 +391,7 @@ bool PathFollower::tick_frame(float distance, const maths::Vec4* direction)
     case kStateBlend: {
         double along = static_cast<double>(distance) + along_;
         along_ = static_cast<float>(along);
-        float t = static_cast<float>(along / byte_count_);
+        auto t = static_cast<float>(along / byte_count_);
         maths::Vec4 offset;
         if (along < byte_count_) {
             at_point_ = center_;

@@ -250,7 +250,7 @@ bool handle_chat_command(Hub* manager, const char* text)
             get_log("where: no local skater");
         }
         // The camera of the last frame drawn (choose_camera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
-        const float* camera = reinterpret_cast<const float*>(&render::g_camera);
+        const auto* camera = reinterpret_cast<const float*>(&render::g_camera);
         get_log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
                 camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
         char line[128];

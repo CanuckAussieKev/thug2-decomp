@@ -341,7 +341,7 @@ void GameEntity::build_modules_from_list(Array* components, Struct* extra)
 // make gives a null component, added all the same [bug: crash]; so does a failed allocation of the merged copy.
 void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
 {
-    uint32_t type = reinterpret_cast<uint32_t>(params);
+    auto type = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(kComponent, &type, 1);
     ObjectModule* component = spawn_module(type);
     attach_module(component);
@@ -569,7 +569,7 @@ bool GameEntity::obj_get_type(Struct* /*params*/, Script* script)
 // is `params`' own address [quirk].
 bool GameEntity::obj_has_component(Struct* params, Script* /*script*/)
 {
-    uint32_t type = reinterpret_cast<uint32_t>(params);
+    auto type = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(kUnnamed, &type, 1);
     return fetch_module(type) != nullptr;
 }
@@ -600,12 +600,12 @@ bool GameEntity::obj_get_collision(Struct* params, Script* /*script*/)
     double at_z = static_cast<double>(distance) * at.z, at_w = static_cast<double>(distance) * at.w;
     float up_x = height * up.x, up_y = height * up.y;
     double up_z = static_cast<double>(height) * up.z, up_w = static_cast<double>(height) * up.w;
-    float w1 = static_cast<float>(up_w + at_point_.w);
+    auto w1 = static_cast<float>(up_w + at_point_.w);
     double z1 = up_z + at_point_.z;
     float y1 = up_y + at_point_.y;
     float x1 = up_x + at_point_.x;
     w1 = static_cast<float>(w1 + at_w);
-    float z2 = static_cast<float>(z1 + at_z);
+    auto z2 = static_cast<float>(z1 + at_z);
     y1 = y1 + at_y;
     x1 = x1 + at_x;
     maths::Vec4 start = {x1 + offset_cell_x, y1 + shift_y, z2 + offset_cell_z, static_cast<float>(shift_w + w1)};

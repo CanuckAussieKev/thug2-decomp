@@ -65,7 +65,7 @@ void SkaterPhysicsModule::try_start_skitch()
     objects::ControlButton* hold = thaw_bmx::live_now(this) ? thaw_bmx::tow_button(this) : button;
     if (state_->flag(PoseFlag::kSkitching).on || !hold->held_down_)
         return;
-    uint32_t held = static_cast<uint32_t>(time_since_press(hold));
+    auto held = static_cast<uint32_t>(time_since_press(hold));
     if (held <= static_cast<uint32_t>(script::fetch_int_value(kSkitchHoldTime)) || state_->cur_phase_ != 0)
         return;
     // The nearest skitch point of any other object's skitch component (that's on), within Skitch_Max_Distance.
@@ -142,9 +142,9 @@ void SkaterPhysicsModule::get_skitch()
             const maths::Vec4& side = object->basis_frame_.row[0];
             const maths::Vec4& position = object->at_point_;
             float scale = reach * direction;
-            float x = static_cast<float>(static_cast<double>(side.x) * scale);
-            float y = static_cast<float>(static_cast<double>(side.y) * scale);
-            float z = static_cast<float>(static_cast<double>(side.z) * scale);
+            auto x = static_cast<float>(static_cast<double>(side.x) * scale);
+            auto y = static_cast<float>(static_cast<double>(side.y) * scale);
+            auto z = static_cast<float>(static_cast<double>(side.z) * scale);
             maths::Vec4 target;
             target.w = static_cast<float>(static_cast<double>(side.w) * scale + position.w);
             target.z = z + position.z;
@@ -180,8 +180,8 @@ void SkaterPhysicsModule::get_skitch()
         maths::Vec4 moved = ride_->ride_->carried_; // (the ride's last move)
         entity_->at_point_ += moved;
         maths::Vec4 toward = target - entity_->at_point_;
-        float length_sqr = static_cast<float>(length_sqr_unrounded(toward));
-        float suck =
+        auto length_sqr = static_cast<float>(length_sqr_unrounded(toward));
+        auto suck =
             static_cast<float>(static_cast<double>(tuning_float_lookup(kSkitchSuckSpeed, object)) * frame_length_);
         if (length_sqr > kSkitchLostDistanceSqr) {
             skater_object(this)->post_own_event(kOffMeterBottom, nullptr);

@@ -142,7 +142,7 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     // (x87 at double precision: the intermediate results unrounded, as in the original - only the ones it stores
     // are floats)
     double x_scale = static_cast<double>(get_screen_width()) * g_per640;                     // 1 / 640
-    float y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * g_per480); // 1 / 480
+    auto y_scale = static_cast<float>(static_cast<double>(get_screen_height()) * g_per480);  // 1 / 480
     double elapsed = static_cast<double>(tick_seconds()) + elapsed_seconds();
     elapsed_seconds() = static_cast<float>(elapsed);
     double fraction = elapsed / get_total_seconds();
@@ -154,8 +154,8 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     int frame_right = ftol((gradient_width() + frame_left) + x_scale * g_float_ten); // 10
     int top = ftol(y_scale * static_cast<double>(g_float420));                       // 420
     int bottom = ftol(top + y_scale * static_cast<double>(g_float_twenty));          // 20
-    float top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
-    float frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
+    auto top_f = static_cast<float>(top), bottom_f = static_cast<float>(bottom);
+    auto frame_left_f = static_cast<float>(frame_left), frame_right_f = static_cast<float>(frame_right);
 
     set_texture(0, nullptr);
     input_port()->SetRenderState(D3DRS_ZENABLE, FALSE);
@@ -172,8 +172,8 @@ void __stdcall draw_loading_screen_frame(unsigned int, unsigned int, unsigned lo
     draw_quad(frame_left_f, top_f, frame_right_f, bottom_f, border_argb(), border_argb());
     // the gradient, inset 5/480 of the screen's height top and bottom
     double inset = y_scale * static_cast<double>(g_float_five); // 5
-    float gradient_top = static_cast<float>(top_f + inset);
-    float gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
+    auto gradient_top = static_cast<float>(top_f + inset);
+    auto gradient_bottom = static_cast<float>(bottom_f - static_cast<double>(static_cast<float>(inset)));
     draw_quad(static_cast<float>(left), gradient_top, static_cast<float>(gradient_width() + left), gradient_bottom,
               opaque(gradient_start()), opaque(gradient_end()));
     // what isn't filled yet - from the fill's end to the frame's right edge, the frame's height: its colour again

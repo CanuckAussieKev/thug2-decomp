@@ -228,9 +228,9 @@ void init_platform()
     std::memset(&music_slot(), 0, sizeof(StreamSlot));
     std::memset(stream_slots(), 0, kStreamSlots * sizeof(StreamSlot));
     user_soundtrack_count();
-    get_wad_file() = CreateFileA("data\\streams\\pcm\\pcm.wad", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+    get_wad_file() = CreateFileA(R"(data\streams\pcm\pcm.wad)", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                  FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
-    HANDLE index = CreateFileA("data\\streams\\pcm\\pcm.dat", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+    HANDLE index = CreateFileA(R"(data\streams\pcm\pcm.dat)", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
                                FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (index != INVALID_HANDLE_VALUE) {
         // Not original - the index read whole and through stream_index_format.h: a count past the entries the file

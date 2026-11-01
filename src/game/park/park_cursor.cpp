@@ -393,9 +393,9 @@ void ParkLayout::commission(uint32_t level)
         return;
     park_built_ = true;
     prepare_all(level); // the park heap and pools
-    for (int x = 0; x < kGridSize; ++x) {
+    for (auto& column : floor_) {
         for (int z = 0; z < kGridSize; ++z) {
-            FloorCell& cell = floor_[x][z];
+            FloorCell& cell = column[z];
             cell.touched_ = false;
             cell.delta_ = 0;
         }

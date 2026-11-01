@@ -94,7 +94,7 @@ bool add_copy_node(script::Struct* node)
         ++manager->num_;
     }
     g_copy_node_list.push_back(node);
-    uint32_t count = static_cast<uint32_t>(g_copy_node_list.size());
+    auto count = static_cast<uint32_t>(g_copy_node_list.size());
     g_copy_nodes->configure_size_kind(count, script::kQbvalStruct);
     for (uint32_t i = 0; i < count; ++i)
         g_copy_nodes->set_element(i, reinterpret_cast<uint32_t>(g_copy_node_list[i]));
@@ -139,7 +139,7 @@ void pick_one(objects::Entity* object, void* data)
     float t;
     bool hit = ray_box(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
     if (hit && walk->all && t < walk->best_t_)
-        walk->all->push_back({composite, t});
+        walk->all->emplace_back(composite, t);
     if (hit && t < walk->best_t_ && !walk->all) {
         walk->best_t_ = t;
         walk->best = composite;
@@ -458,7 +458,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         script::note_qb_name(name, (caption(source) + " copy").c_str());
     // The node's structure copied, named and placed anew, made a node (add_copy_node), then created from it as the
     // level's objects are (CreateFromStructure's 0x005A2E50).
-    script::Struct* copy = new (script::spawn_param_bag()) script::Struct;
+    auto* copy = new (script::spawn_param_bag()) script::Struct;
     copy->merge_structure(node);
     copy->erase_module(kName);
     copy->put_name_key(kName, name);

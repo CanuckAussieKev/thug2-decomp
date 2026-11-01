@@ -275,7 +275,7 @@ void draw_instance_batch(uint32_t flags, int viewport)
             if (!((flags & kRenderOpaque) && list->mesh_count_ > list->transparent_count_) &&
                 !((flags & kRenderTransparent) && list->transparent_count_ > 0))
                 continue;
-            const float* position = reinterpret_cast<const float*>(get_position(instance));
+            const auto* position = reinterpret_cast<const float*>(get_position(instance));
             for (int k = 0; k < 4; ++k)
                 culling[12 + k] = position[k];
             set_world_transform(culling);
@@ -304,10 +304,10 @@ void draw_instance_batch(uint32_t flags, int viewport)
             clear_flag_786e_b4();
             float camera[3] = {g_camera.position[0], g_camera.position[1], g_camera.position[2]};
             double near_distance = static_cast<double>(script::fetch_float(0x4E7DC608u)) * 12.0f;
-            float near_squared = static_cast<float>(near_distance * near_distance);
+            auto near_squared = static_cast<float>(near_distance * near_distance);
             for (; i < count; ++i) {
                 Singleton* instance = get_visible()[i];
-                const float* position = reinterpret_cast<const float*>(get_position(instance));
+                const auto* position = reinterpret_cast<const float*>(get_position(instance));
                 double dx = static_cast<double>(position[0]) - camera[0];
                 double dy = static_cast<double>(position[1]) - camera[1];
                 double dz = static_cast<double>(position[2]) - camera[2];

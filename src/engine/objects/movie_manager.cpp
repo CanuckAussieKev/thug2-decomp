@@ -350,7 +350,7 @@ bool VideoHub::add_movie(uint32_t name, script::Struct* params, uint32_t type)
         bool skater;
     };
     auto skater_context = [](bool skater) {
-        uint8_t* info = reinterpret_cast<uint8_t*>(modules::g_skate_module->fetch_account(0));
+        auto* info = reinterpret_cast<uint8_t*>(modules::g_skate_module->fetch_account(0));
         return CameraContext{info, info + 0x5C, skater};
     };
     auto new_object_camera = [](CameraContext* context) -> Movie* {

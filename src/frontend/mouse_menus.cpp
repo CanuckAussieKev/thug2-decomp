@@ -127,8 +127,8 @@ Rect2 turned_box_rect(const Cuboid& box)
     Rect2 rect = {box.x, box.y, box.x, box.y};
     const float corners[3][2] = {{box.width, 0.0f}, {0.0f, box.height}, {box.width, box.height}};
     for (const auto& corner : corners) {
-        float x = static_cast<float>(box.x + c * corner[0] - s * corner[1]);
-        float y = static_cast<float>(box.y + s * corner[0] + c * corner[1]);
+        auto x = static_cast<float>(box.x + c * corner[0] - s * corner[1]);
+        auto y = static_cast<float>(box.y + s * corner[0] + c * corner[1]);
         rect = Union(rect, Rect2{x, y, x, y});
     }
     return rect;
@@ -716,7 +716,7 @@ Awaiting s_pending;
 // on the game's memory at exit.
 frontend::ElementPtr& pending_menu()
 {
-    static frontend::ElementPtr* menu = new frontend::ElementPtr;
+    static auto* menu = new frontend::ElementPtr;
     return *menu;
 }
 

@@ -256,7 +256,7 @@ const char* get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kEmpty; } 
 void read_registry(int, char**)
 {
     const char* path =
-        "Software\\Activision\\Tony Hawk's Underground 2\\Install"; // "Software\Activision\Tony Hawk's Underground 2\Install"
+        R"(Software\Activision\Tony Hawk's Underground 2\Install)"; // "Software\Activision\Tony Hawk's Underground 2\Install"
     hardware() = 7;
     get_language() = 2;
     get_extra_memory() = false;

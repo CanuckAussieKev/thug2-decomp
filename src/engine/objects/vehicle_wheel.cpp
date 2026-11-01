@@ -57,7 +57,7 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
 {
     // (each checksum is read into the parameters' own argument slot: a steering= that isn't a name leaves the
     // pointer's value there)
-    uint32_t choice = reinterpret_cast<uint32_t>(params);
+    auto choice = reinterpret_cast<uint32_t>(params);
     if (params->has_entry_named(kSteering)) {
         params->read_hash_value(kSteering, &choice, 0);
         if (choice == kRight)

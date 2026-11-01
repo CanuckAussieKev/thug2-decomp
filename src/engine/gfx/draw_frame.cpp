@@ -258,8 +258,8 @@ void choose_camera(const maths::Mat4* orientation, const maths::Vec4* position, 
 
     // (degrees to half the angle in radians: the tangent takes the product unrounded, later uses a float)
     double half_angle = static_cast<double>(angle) * 0.008726646f;
-    float width = static_cast<float>(std::tan(half_angle) * 4.0f);
-    float height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
+    auto width = static_cast<float>(std::tan(half_angle) * 4.0f);
+    auto height_factor = static_cast<float>(1.0 / (static_cast<double>(aspect) * 0.90909094f));
     float height = height_factor * width;
     matrix_perspective(&projection, width, height, camera.near_z_, camera.far_z_);
     if (zoom != 1.0f) {
@@ -342,11 +342,11 @@ void draw_screen_blur()
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
     uint32_t amount = g_screen_blur;
-    float inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
+    auto inset = static_cast<float>((1.0 - static_cast<double>(amount) * (1.0f / 255)) * 0.5);
     double inset_u = inset / static_cast<double>(texels_wide); // (the u's are rounded from this, unrounded)
-    float inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
-    float screen_width = static_cast<float>(g_present_parameters.BackBufferWidth);
-    float screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
+    auto inset_v = static_cast<float>(inset / static_cast<double>(texels_high));
+    auto screen_width = static_cast<float>(g_present_parameters.BackBufferWidth);
+    auto screen_height = static_cast<float>(g_present_parameters.BackBufferHeight);
     uint32_t color = 0x80808080;
     ScreenVertex quad[4] = {
         {0, 0, 0, 1, color, static_cast<float>(inset_u), inset_v},
@@ -460,7 +460,7 @@ bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->sce
 template <typename F>
 void for_each_scene(F fn)
 {
-    SceneNode* node = reinterpret_cast<SceneNode*>(g_scene_list.next);
+    auto* node = reinterpret_cast<SceneNode*>(g_scene_list.next);
     if (is_end(node) || !node) // (sic: the original reads the node before testing it)
         return;
     while (node) {
@@ -503,7 +503,7 @@ void clear_world_transform() { set_world_transform(nullptr); }
 
 void draw_viewport(int index)
 {
-    const Viewport* view = reinterpret_cast<const Viewport*>(fetch_current_view(index));
+    const auto* view = reinterpret_cast<const Viewport*>(fetch_current_view(index));
     void* camera = view->camera;
     if (!camera)
         return;

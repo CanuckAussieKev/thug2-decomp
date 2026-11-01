@@ -539,7 +539,7 @@ int PcAsyncFileHandle::os_load_whole(void* buffer)
 // 0x005B9A40
 int PcAsyncFileHandle::os_read_chunk(void* buffer, int size, int count)
 {
-    DWORD length = static_cast<DWORD>((size * count + 0x7FF) & ~0x7FF); // whole sectors
+    auto length = static_cast<DWORD>((size * count + 0x7FF) & ~0x7FF); // whole sectors
     pending_io_counter() = pending_io_counter() + 1;
     in_flight_ops_ = in_flight_ops_ + 1;
     DWORD bytes = 0;

@@ -76,7 +76,7 @@ void cell_uv(int cell, float* u0, float* v0, float* u1, float* v1)
 {
     int x, y;
     cell_rect(cell, &x, &y);
-    constexpr float kSize = static_cast<float>(kAtlasPixels);
+    constexpr auto kSize = static_cast<float>(kAtlasPixels);
     *u0 = static_cast<float>(x) / kSize;
     *v0 = static_cast<float>(y) / kSize;
     *u1 = static_cast<float>(x + kCellPixels) / kSize;

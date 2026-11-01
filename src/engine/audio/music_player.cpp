@@ -94,7 +94,7 @@ bool shuffle_user() { return g_shuffle_user; }
 // 1 << n as the C runtime's 64-bit shift (__allshl) does it: by n's low byte, 0 from 64 up.
 uint64_t get_bit(int n)
 {
-    uint8_t shift = static_cast<uint8_t>(n);
+    auto shift = static_cast<uint8_t>(n);
     return shift >= 64 ? 0 : uint64_t{1} << shift;
 }
 bool is_off(const Playlist& list, int track)
@@ -207,7 +207,7 @@ void queue_track(const char* name, int list, const char* title)
     THUG2_MSVC_WARNING(suppress : 4996) // (the slot is 40 bytes; names are shorter)
     std::strcpy(track, name);
     for (size_t i = 0; i < std::strlen(track); ++i) {
-        signed char c = static_cast<signed char>(track[i]);
+        auto c = static_cast<signed char>(track[i]);
         if (c >= 'a' && c <= 'z')
             track[i] = static_cast<char>(c - 0x20);
     }
@@ -655,7 +655,7 @@ const char* get_soundtrack_name(int index)
     }
     int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i) {
-        signed char c = static_cast<signed char>(name[i]);
+        auto c = static_cast<signed char>(name[i]);
         if (c >= static_cast<signed char>(0xA1) && c <= static_cast<signed char>(0xAC))
             name[i] = '~';
     }

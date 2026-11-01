@@ -89,7 +89,7 @@ CbBoxComponent::CbBoxComponent()
 }
 
 // 0x0041A810 (0x0041A880 the deleting one)
-CbBoxComponent::~CbBoxComponent() {}
+CbBoxComponent::~CbBoxComponent() = default;
 
 // 0x0041A950
 void CbBoxComponent::init_rect(Rect2* rect, script::Struct* params)
@@ -182,11 +182,11 @@ bool CbBoxComponent::is_in_rect(GameEntity* object, Rect2* rect)
     compute_rect(rect);
     // From the box's middle (rounded where the original stores: x, the middle's z, the sum).
     const maths::Vec4& self = entity_->at_point_;
-    float dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point_.x) - self.x);
+    auto dx = static_cast<float>((static_cast<double>(offset_x) + object->at_point_.x) - self.x);
     double dy = (static_cast<double>(offset_y) + object->at_point_.y) - self.y;
-    float middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point_.z);
+    auto middle_z = static_cast<float>(static_cast<double>(offset_z) + object->at_point_.z);
     double dz = static_cast<double>(middle_z) - self.z;
-    float distance_sqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
+    auto distance_sqr = static_cast<float>(dz * dz + dy * dy + static_cast<double>(dx) * dx);
     if (rect_radius_sqr(rect) < distance_sqr)
         return false;
     // The middle of its box in the box's frame.

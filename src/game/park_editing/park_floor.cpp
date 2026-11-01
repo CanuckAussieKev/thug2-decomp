@@ -339,18 +339,18 @@ void ParkLayout::rebuild_inner_shell(CellBox bounds)
         place_meta_piece_in_park(at, meta);
     };
     for (int x = park.x; x < park.w + park.x; x += 2) {
-        uint8_t px = static_cast<uint8_t>(x);
+        auto px = static_cast<uint8_t>(x);
         add_fence(CellBox::get_make(px, 0, park.z, 2, 1, 1),
                   CellBox::get_make(px, 0, static_cast<uint8_t>(park.z - 1), 0, 0, 0), 0);
-        uint8_t far = static_cast<uint8_t>(park.z + park.l);
+        auto far = static_cast<uint8_t>(park.z + park.l);
         add_fence(CellBox::get_make(px, 0, static_cast<uint8_t>(far - 1), 2, 1, 1),
                   CellBox::get_make(px, 0, far, 0, 0, 0), 2);
     }
     for (int z = park.z; z < park.l + park.z; z += 2) {
-        uint8_t pz = static_cast<uint8_t>(z);
+        auto pz = static_cast<uint8_t>(z);
         add_fence(CellBox::get_make(park.x, 0, pz, 1, 1, 2),
                   CellBox::get_make(static_cast<uint8_t>(park.x - 1), 0, pz, 0, 0, 0), 1);
-        uint8_t far = static_cast<uint8_t>(park.w + park.x);
+        auto far = static_cast<uint8_t>(park.w + park.x);
         add_fence(CellBox::get_make(static_cast<uint8_t>(far - 1), 0, pz, 1, 1, 2),
                   CellBox::get_make(far, 0, pz, 0, 0, 0), 3);
     }

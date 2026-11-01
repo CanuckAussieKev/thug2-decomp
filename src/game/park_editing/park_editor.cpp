@@ -693,4 +693,3 @@ void ParkBuilderMode::change_phase(uint32_t state)
 
 } // namespace park_editing
 
-using park_editing::ParkBuilderMode;

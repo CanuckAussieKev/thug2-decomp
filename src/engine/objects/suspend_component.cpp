@@ -97,7 +97,7 @@ DormancyModule::DormancyModule()
 }
 
 // 0x00433E10 (0x00433FD0 the deleting one)
-DormancyModule::~DormancyModule() {}
+DormancyModule::~DormancyModule() = default;
 
 // 0x00433E50
 void DormancyModule::tick_frame() { ObjectModule::hold_off(true); }
@@ -177,7 +177,7 @@ bool DormancyModule::wants_animating(float* distance_squared)
     } else {
         float skip_every2 = script::fetch_float(0xDB120FB5);  // AnimLODInterleave2
         double skip_every4 = script::fetch_float(0x3271AA80); // AnimLODInterleave4
-        float within2 = static_cast<float>(static_cast<double>(skip_every2) * skip_every2);
+        auto within2 = static_cast<float>(static_cast<double>(skip_every2) * skip_every2);
         if (d > skip_every4 * skip_every4)
             animate = (++interleave4_count() & 3) == 0;
         else if (d > within2)
@@ -275,7 +275,7 @@ void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
                 --component->frames_before_lod_;
             } else {
                 const maths::Vec4& pos = component->entity_->at_point_;
-                const float* at = reinterpret_cast<const float*>(&camera->viewer_pos_);
+                const auto* at = reinterpret_cast<const float*>(&camera->viewer_pos_);
                 double dx = static_cast<double>(pos.x) - at[0], dy = static_cast<double>(pos.y) - at[1],
                        dz = static_cast<double>(pos.z) - at[2];
                 double distance_squared = (dz * dz + dy * dy) + dx * dx;

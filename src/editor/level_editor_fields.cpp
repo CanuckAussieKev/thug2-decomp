@@ -465,7 +465,7 @@ std::string encode_value(const Value& value, const NameLookup& names)
         std::vector<std::string> parts;
         for (float f : value.floats) {
             std::snprintf(text, sizeof(text), "%.9g", static_cast<double>(f));
-            parts.push_back(text);
+            parts.emplace_back(text);
         }
         return "af:" + get_join(parts, ",");
     }
@@ -791,8 +791,8 @@ void add_value(script::Struct* s, uint32_t key, const Value& v)
     case Kind::kNames:
     case Kind::kIntegers:
     case Kind::kFloats: {
-        script::Array* array = new (script::alloc_script_array()) script::Array;
-        uint32_t size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
+        auto* array = new (script::alloc_script_array()) script::Array;
+        auto size = static_cast<uint32_t>(v.kind == Kind::kFloats ? v.floats.size() : v.list.size());
         array->configure_size_kind(size, v.kind == Kind::kNames      ? script::kQbvalName
                                          : v.kind == Kind::kIntegers ? script::kQbvalInteger
                                                                      : script::kQbvalFloat);

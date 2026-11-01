@@ -116,21 +116,21 @@ void QuadSprite::draw()
 
     // The corners from the hot spot, in layout units (the left one kept at double precision, as the original does).
     double left = -(static_cast<double>(scale_x) * hot_x_);
-    float top = static_cast<float>(-(static_cast<double>(scale_y) * hot_y_));
-    float right = static_cast<float>(static_cast<double>(width) * scale_x + left);
-    float bottom = static_cast<float>(static_cast<double>(height) * scale_y + top);
+    auto top = static_cast<float>(-(static_cast<double>(scale_y) * hot_y_));
+    auto right = static_cast<float>(static_cast<double>(width) * scale_x + left);
+    auto bottom = static_cast<float>(static_cast<double>(height) * scale_y + top);
 
     uint32_t argb = (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
     if (!(argb & 0xFF000000))
         return;
 
     bool front_end_widescreen = get_front_end_widescreen();
-    float screen_right = static_cast<float>(get_back_buffer_width());
+    auto screen_right = static_cast<float>(get_back_buffer_width());
     Vertex vertices[4]; // top left, bottom left, top right, bottom right
     if (rotation == 0.0f) {
-        float x0 = static_cast<float>(left + x);
-        float y0 = static_cast<float>(static_cast<double>(top) + y);
-        float x1 = static_cast<float>(static_cast<double>(right) + x);
+        auto x0 = static_cast<float>(left + x);
+        auto y0 = static_cast<float>(static_cast<double>(top) + y);
+        auto x1 = static_cast<float>(static_cast<double>(right) + x);
         double y1 = static_cast<double>(bottom) + y;
         float layout_x0 = x0, layout_x1 = x1;
         // As wide as the layout or wider: the whole back buffer's width (the same for heights).
@@ -176,7 +176,7 @@ void QuadSprite::draw()
         double quarter_turns = static_cast<double>(rotation) / 1.5707963267948966;
         bool upright = std::fabs(quarter_turns - std::round(quarter_turns)) * 1.5707963267948966 <= 0.01;
         double offset_x = screen_offset_x();
-        float offset_y = static_cast<float>(screen_offset_y());
+        auto offset_y = static_cast<float>(screen_offset_y());
         double layout_x[4];
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)

@@ -886,4 +886,3 @@ bool prev_vault_category(script::Struct*, script::Script* script)
 
 } // namespace online
 
-using online::VaultMan;

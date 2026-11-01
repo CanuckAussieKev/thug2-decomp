@@ -201,8 +201,8 @@ void RiderStoryProgress::set_value634(int value)
 bool RiderStoryProgress::get_reset(bool reset_gaps, uint32_t part)
 {
     if (reset_gaps) {
-        for (int level = 0; level < kLevels; ++level)
-            gaps_[level]->get_reset();
+        for (auto& gap : gaps_)
+            gap->get_reset();
         frontend::level_editor::career::career_replaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
     }
     level_ = 0;
@@ -445,8 +445,8 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
         // An older save: the total from the counters (+0x5EF 0x8C once it passes it).
         total_counter_ = 0;
         flag_5e_f_ = 0x82;
-        for (int level = 0; level < 18; ++level) {
-            total_counter_ = static_cast<uint8_t>(total_counter_ + counter_[level]);
+        for (unsigned char level : counter_) {
+            total_counter_ = static_cast<uint8_t>(total_counter_ + level);
             if (total_counter_ > flag_5e_f_)
                 flag_5e_f_ = 0x8C;
         }

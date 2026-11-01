@@ -23,8 +23,8 @@ namespace {
 
 ImVec4 get_colour(uint32_t argb)
 {
-    return ImVec4(static_cast<float>((argb >> 16) & 0xFF) / 255.0f, static_cast<float>((argb >> 8) & 0xFF) / 255.0f,
-                  static_cast<float>(argb & 0xFF) / 255.0f, static_cast<float>(argb >> 24) / 255.0f);
+    return {static_cast<float>((argb >> 16) & 0xFF) / 255.0f, static_cast<float>((argb >> 8) & 0xFF) / 255.0f,
+            static_cast<float>(argb & 0xFF) / 255.0f, static_cast<float>(argb >> 24) / 255.0f};
 }
 
 std::string get_name_of(uint32_t checksum) { return name_for(checksum, script::kept_qb_name(checksum)); }
@@ -434,7 +434,7 @@ void inspector_section(int index)
                 bool on = std::find(s.flags.begin(), s.flags.end(), flag) != s.flags.end();
                 if (ImGui::Checkbox(flag, &on)) {
                     if (on)
-                        s.flags.push_back(flag);
+                        s.flags.emplace_back(flag);
                     else
                         s.flags.erase(std::remove(s.flags.begin(), s.flags.end(), flag), s.flags.end());
                     changed = true;

@@ -39,7 +39,7 @@ maths::Vec4 get_row(Vec3 v, float w) { return {v.x, v.y, v.z, w}; }
 // The local skater (the skate module's 0x00566520; null with none).
 objects::Rider* local_skater()
 {
-    uint8_t* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    auto* skate = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     return skate ? reinterpret_cast<modules::Skate*>(skate)->get_home_rider() : nullptr;
 }
 
@@ -102,7 +102,7 @@ bool camera_rows(Vec3 direction, Vec3* right, Vec3* up, Vec3* back)
 void standing_rows(float heading_degrees, Vec3* right, Vec3* up, Vec3* at)
 {
     double h = static_cast<double>(heading_degrees) * kPi / 180.0;
-    float s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
+    auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     *at = {s, 0.0f, c};
     *up = {0.0f, 1.0f, 0.0f};
     *right = perpendicular(*up, *at); // (cos, 0, -sin): heading 0 gives the identity
@@ -174,7 +174,7 @@ void place_camera(gfx::ViewCam* camera, int viewport)
 {
     if (!g_lock.on || !camera || viewport != 0)
         return;
-    float frames = static_cast<float>(frame_loop::frames_run() - g_lock.frame);
+    auto frames = static_cast<float>(frame_loop::frames_run() - g_lock.frame);
     camera->at_point_ = get_row({g_lock.pos.x + g_lock.drift.x * frames, g_lock.pos.y + g_lock.drift.y * frames,
                                  g_lock.pos.z + g_lock.drift.z * frames},
                                 1.0f);

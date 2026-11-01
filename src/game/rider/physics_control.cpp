@@ -107,7 +107,7 @@ void RiderBoardPhysics::publish_method_table()
 }
 
 // 0x005176C0 (0x00517740 the deleting one)
-RiderBoardPhysics::~RiderBoardPhysics() {}
+RiderBoardPhysics::~RiderBoardPhysics() = default;
 
 // 0x005176D0
 void RiderBoardPhysics::configure_from_data(script::Struct* /*params*/) { is_halted_ = false; }

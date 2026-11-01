@@ -175,8 +175,8 @@ void TopBarMenus::select_piece_family(PieceFamily* set, int /*unused*/, int fami
     float x;
     float y;
     fetch_location(slider.get_pull(), &x, &y);
-    float start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->entry_total_);
-    float end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->entry_total_);
+    auto start = static_cast<float>(first * static_cast<double>(kSliderLength) / set->entry_total_);
+    auto end = static_cast<float>((last + 1) * static_cast<double>(kSliderLength) / set->entry_total_);
     change_location(slider.get_pull(), start, y, 1);
     change_scale(slider.get_pull(), static_cast<float>((static_cast<double>(end) - start) * kSliderScale), 1.0f, 0, 1);
 

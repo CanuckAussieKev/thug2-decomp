@@ -281,7 +281,7 @@ void RiderRollingAudio::tick_frame()
         if (core && core->point_rail_spin_)
             speed_ratio_ = kCapsizedFraction;
         if (speed_ratio_ > 0.0f) {
-            float percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
+            auto percent = static_cast<float>(static_cast<double>(volume_mult_) * speed_ratio_ * kPercent);
             volume.percent_tweak(static_cast<float>(sound_volume(sound_, percent)));
             pitch =
                 static_cast<float>((static_cast<double>(full_speed_pitch(sound_)) - rest_pitch(sound_)) * speed_ratio_ +

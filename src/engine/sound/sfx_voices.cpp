@@ -179,8 +179,8 @@ void AudioMixer::doppler_shift(float* pitch, const maths::Vec4* position, const 
     double now = std::sqrt(nz * nz + ny * ny + nx * nx);
     double before =
         std::sqrt(static_cast<double>(pz) * pz + static_cast<double>(py) * py + static_cast<double>(px) * px);
-    float change = static_cast<float>(now - before);
-    float speed =
+    auto change = static_cast<float>(now - before);
+    auto speed =
         static_cast<float>(std::fabs(static_cast<double>(change)) * (frame_clock::get_slomo_frame_seconds() * 60.0f));
     double limit = frame_clock::get_slomo_frame_seconds() * 60.0f * 360.0f;
     if (limit < speed) // (equal or unordered: shifted)
@@ -303,14 +303,14 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
     double dx = static_cast<double>(listener->x) - position->x;
     double dy = static_cast<double>(listener->y) - position->y;
     double dz = static_cast<double>(listener->z) - position->z;
-    float distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+    auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
     if (extent)
         dropoff = static_cast<float>(get_extent(extent, viewer_location(camera)) + distance);
     else if (dropoff == 0.0f)
         dropoff = default_dropoff();
     if (!(distance < dropoff) && !std::isnan(distance) && !std::isnan(dropoff)) // (unordered: on, as nearer)
         return static_cast<double>(distance) * 1.05f <= dropoff;
-    float t = static_cast<float>(static_cast<double>(distance) / dropoff);
+    auto t = static_cast<float>(static_cast<double>(distance) / dropoff);
     float level = 0.0f;
     switch (falloff) {
     case 0:
@@ -341,7 +341,7 @@ bool AudioMixer::fetch_loudness(VolumeRef* volume, const maths::Vec4* position, 
         double facing = static_cast<double>(front.z) * to_sound.z + static_cast<double>(front.y) * to_sound.y +
                         static_cast<double>(front.x) * to_sound.x;
         double side = (facing + 1.0f) * 0.5f;
-        float right = static_cast<float>((1.0f - side * side) * level);
+        auto right = static_cast<float>((1.0f - side * side) * level);
         double left = (1.0f - (1.0f - side) * (1.0f - side)) * level;
         if (volume->kind_tag_ == VolumeRef::kTypePositional) {
             // (never: the type was just set to 3D)
@@ -448,7 +448,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
         const maths::Vec4* position = object_sound_position(object, &heard, camera);
         maths::Vec4 here = *position;
         if (sound->entry->flags & 1) {
-            float frame_seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+            auto frame_seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
             maths::Vec4 previous;
             doppler_shift(&pitch, &here, object_sound_previous(object, &previous, camera), frame_seconds, camera);
         }
@@ -515,8 +515,8 @@ void release_manager()
 // 0x0047C720
 int fetch_idle_voice(PcWave* wave)
 {
-    uint32_t last = static_cast<uint32_t>(last_voice());
-    uint32_t count = static_cast<uint32_t>(voice_count());
+    auto last = static_cast<uint32_t>(last_voice());
+    auto count = static_cast<uint32_t>(voice_count());
     int chosen = static_cast<int>((last + 1) % count);
     for (int i = 0; i < static_cast<int>(count); ++i) {
         int voice = static_cast<int>((last + i) % count);

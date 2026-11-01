@@ -65,7 +65,7 @@ RiderPhysicsTweaks::RiderPhysicsTweaks()
 }
 
 // 0x004F8040 (0x004F8050 the deleting one)
-RiderPhysicsTweaks::~RiderPhysicsTweaks() {}
+RiderPhysicsTweaks::~RiderPhysicsTweaks() = default;
 
 // 0x004F8080
 void RiderPhysicsTweaks::seal()

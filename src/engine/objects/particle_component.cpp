@@ -323,7 +323,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
         orient.row[0].w = 0.0f;
         if (orient.row[2] == up) {
             // (straight up: across from (0, 0, -1))
-            float t = static_cast<float>(static_cast<double>(at.z) * 0.0);
+            auto t = static_cast<float>(static_cast<double>(at.z) * 0.0);
             orient.row[0].x = static_cast<float>(static_cast<double>(at.y) * -1.0 - t);
             orient.row[0].y = static_cast<float>(t - static_cast<double>(at.x) * -1.0);
             orient.row[0].z = static_cast<float>(static_cast<double>(at.x) * 0.0 - static_cast<double>(at.y) * 0.0);
@@ -389,7 +389,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     static const uint32_t kAlphas[3] = {0x4D83DB4Cu, 0x4ABA1FF1u, 0x5CF83ACAu};
     for (int i = 0; i < 3; ++i) {
         if (params->fetch_int_value(kAlphas[i], reinterpret_cast<int*>(&value), 0)) {
-            uint8_t alpha = static_cast<uint8_t>(value);
+            auto alpha = static_cast<uint8_t>(value);
             p.shade_[i][3] = alpha > 0x80 ? 0x80 : alpha;
         }
     }
@@ -450,7 +450,7 @@ void EffectsEmitterModule::tick_frame()
             return;
     }
     if (lifespan_ != 0) {
-        uint32_t age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - start_time_));
+        auto age = static_cast<uint32_t>(frame_clock::game_clock_elapsed() + (g_clock_offset - start_time_));
         if (age > lifespan_) {
             entity_->flag_as_dead();
             return;
@@ -555,4 +555,3 @@ bool EffectsEmitterModule::get_particle_params(script::Struct*, script::Script* 
 
 } // namespace objects
 
-using objects::EffectsEmitterModule;

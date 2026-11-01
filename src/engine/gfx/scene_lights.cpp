@@ -202,7 +202,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
         }
         if (skip)
             continue;
-        uint32_t key = reinterpret_cast<uint32_t>(sector);
+        auto key = reinterpret_cast<uint32_t>(sector);
         sectors_->store_entry(key, sector);
     }
 }

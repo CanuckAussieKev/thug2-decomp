@@ -88,8 +88,8 @@ TextureRef* TextureRef::construct_copy(const TextureRef* source)
         D3DLOCKED_RECT source_rect, target_rect;
         get_d3d(source)->LockRect(level, &source_rect, nullptr, 0);
         get_d3d(this)->LockRect(level, &target_rect, nullptr, 0);
-        const uint8_t* from8 = static_cast<const uint8_t*>(source_rect.pBits);
-        uint8_t* to = static_cast<uint8_t*>(target_rect.pBits);
+        const auto* from8 = static_cast<const uint8_t*>(source_rect.pBits);
+        auto* to = static_cast<uint8_t*>(target_rect.pBits);
         for (uint32_t row = 0; row < rows; ++row) {
             std::memcpy(to, from8, row_bytes);
             from8 += source_rect.Pitch;

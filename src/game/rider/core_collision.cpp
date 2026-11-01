@@ -191,7 +191,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
             if (!on_vehicle_) {
                 uint8_t terrain = feeler_.hit_.terrain;
                 objects::GameEntity* skater = object_of(this);
-                float speed = static_cast<float>(length_of(skater->vel_));
+                auto speed = static_cast<float>(length_of(skater->vel_));
                 float fraction = speed / static_cast<objects::Rider*>(skater)->get_scaled_physics(kSpeedCapStat);
                 static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(fraction, terrain);
             } else {
@@ -209,7 +209,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
         }
         entity_->vel_.flatten_onto_plane(normal);
         maths::Vec4& velocity = entity_->vel_;
-        float push = static_cast<float>(length_of(velocity) * 0.1f);
+        auto push = static_cast<float>(length_of(velocity) * 0.1f);
         velocity += normal * push;
         if (normal.y > -0.1f)
             entity_->vel_.y = kept_y;
@@ -267,8 +267,8 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     const maths::Vec4& right = entity_->basis_frame_.row[0];
     float out_y = (side * right.y) * reach;
     float out_x = (side * right.x) * reach;
-    float out_w = static_cast<float>(static_cast<double>(side) * right.w * reach);
-    float out_z = static_cast<float>(static_cast<double>(side) * right.z * reach);
+    auto out_w = static_cast<float>(static_cast<double>(side) * right.w * reach);
+    auto out_z = static_cast<float>(static_cast<double>(side) * right.z * reach);
     maths::Vec4& end = probe_end_;
     end.x = out_x + start.x;
     end.y = out_y + start.y;

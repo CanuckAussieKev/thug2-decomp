@@ -140,7 +140,7 @@ objects::GameEntity* object_of(script::Struct* params)
 void place_skater(objects::Rider* skater, Point pos, float heading)
 {
     double h = static_cast<double>(heading) * kPi / 180.0;
-    float s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
+    auto s = static_cast<float>(std::sin(h)), c = static_cast<float>(std::cos(h));
     for (maths::Mat4* m : {&skater->basis_frame_, &skater->display_matrix_}) {
         m->row[0] = {c, 0.0f, -s, 0.0f};
         m->row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -250,7 +250,7 @@ float get_heading_of(float x, float z)
 void start_spot_candidates(Point pos, float heading, float distance, Point out[4])
 {
     double h = static_cast<double>(heading) * kPi / 180.0;
-    float ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h)); // (at)
+    auto ax = static_cast<float>(std::sin(h)), az = static_cast<float>(std::cos(h));  // (at)
     float rx = az, rz = -ax;                                                          // (right: up x at)
     out[0] = {pos.x + rx * distance, pos.y, pos.z + rz * distance};
     out[1] = {pos.x - rx * distance, pos.y, pos.z - rz * distance};

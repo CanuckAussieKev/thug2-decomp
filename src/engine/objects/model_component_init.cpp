@@ -300,7 +300,7 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
         } else if (params->read_hash_value(kAssetName, &name, 0)) {
             int multicolor = 0;
             params->fetch_int_value(kMulticolor, &multicolor, 0);
-            mesh_instance_->add_asset_geom(name, 0, multicolor != 0, 1);
+            mesh_instance_->add_asset_geom(name, 0, multicolor != 0, true);
         } else if (params->read_hash_value(kCloneFrom, &name, 0)) {
             // Another object's model's geoms cloned (and its colour values).
             auto* object = static_cast<GameEntity*>(object_hub_slot()->look_up_entity(name));
@@ -350,10 +350,10 @@ void MeshInstanceModule::set_up_mesh(script::Struct* params)
                     text::to_lower_text(path);
                     bool allow_replace = params->has_bare_flag(kAllowReplaceTex);
                     mesh_instance_->add_file_geom(static_cast<const char*>(path), 0, via_resource_store != 0,
-                                                  tex_dict_offset, allow_replace, 0, 1, 0);
+                                                  tex_dict_offset, allow_replace, false, true, false);
                 }
             } else if (params->read_hash_value(kAsset, &name, 0)) {
-                mesh_instance_->add_asset_geom(name, 0, 0, 1);
+                mesh_instance_->add_asset_geom(name, 0, false, true);
             } else if (params->read_hash_value(kModel, &name, 0)) {
                 // A level sector's geometry as the model.
                 void* clone = clone_sector_geom(sector_geom(look_up_sector(name)));

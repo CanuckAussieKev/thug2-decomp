@@ -52,8 +52,8 @@ void SkaterPhysicsModule::clamp_skater_speed()
     float upward = velocity.y;
     velocity.y = 0.0f;
     float speed = speed_of(velocity);
-    float max_max = static_cast<float>(stat_value(object, kMaxMaxSpeedStat));
-    float max = static_cast<float>(stat_value(object, kMaxSpeedStat));
+    auto max_max = static_cast<float>(stat_value(object, kMaxMaxSpeedStat));
+    auto max = static_cast<float>(stat_value(object, kMaxSpeedStat));
     // Not original: THAW 0x005CA8F0 - on the bike, faster for a while after vert ground (thaw_bmx_physics.cpp).
     bool heavy_friction = true;
     if (thaw_bmx::live_now(this))

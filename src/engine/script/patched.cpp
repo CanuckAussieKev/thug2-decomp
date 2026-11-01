@@ -67,7 +67,7 @@ void register_patch(const char* filename, const uint8_t* patch, size_t size)
 
 void init_script_patches()
 {
-    register_patch("scripts\\engine\\menu\\keyboard.qb", kKeyboardPatch, sizeof(kKeyboardPatch));
+    register_patch(R"(scripts\engine\menu\keyboard.qb)", kKeyboardPatch, sizeof(kKeyboardPatch));
 }
 
 const uint8_t* load_patched_script(const char* filename)

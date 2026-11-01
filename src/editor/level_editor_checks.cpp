@@ -887,7 +887,7 @@ std::string line_of(const layout::FileLoad& one)
     std::string line, out;
     int number = 0;
     while (std::getline(in, line)) {
-        if (++number <= 1 || line.rfind("scene", 0) == 0 || line.empty())
+        if (++number <= 1 || line.starts_with("scene") || line.empty())
             continue;
         out += (out.empty() ? "" : "\n") + line;
     }
@@ -1181,11 +1181,11 @@ ImVec4 severity_colour(Severity severity)
 {
     switch (severity) {
     case Severity::kError:
-        return ImVec4(0.90f, 0.28f, 0.30f, 1.0f);
+        return {0.90f, 0.28f, 0.30f, 1.0f};
     case Severity::kWarning:
-        return ImVec4(0.96f, 0.65f, 0.14f, 1.0f);
+        return {0.96f, 0.65f, 0.14f, 1.0f};
     default:
-        return ImVec4(0.45f, 0.70f, 0.95f, 1.0f);
+        return {0.45f, 0.70f, 0.95f, 1.0f};
     }
 }
 
@@ -1204,7 +1204,7 @@ void problems_tab(float scale, ImFont* mono)
 {
     (void)mono;
     if (ImGui::Button("Check now"))
-        g_queue.push_back([] { g_due = get_seconds(); });
+        g_queue.emplace_back([] { g_due = get_seconds(); });
     ImGui::SameLine();
     int own = 0, ignored = 0;
     for (const Issue& issue : g_issues) {
@@ -1261,14 +1261,14 @@ void problems_tab(float scale, ImFont* mono)
         ImGui::BeginDisabled(!can_go);
         if (ImGui::SmallButton("Go to")) {
             Issue copy = issue;
-            g_queue.push_back([copy] { go_to(copy); });
+            g_queue.emplace_back([copy] { go_to(copy); });
         }
         ImGui::EndDisabled();
         if (issue.fixable) {
             ImGui::SameLine();
             if (ImGui::SmallButton("Fix")) {
                 Issue copy = issue;
-                g_queue.push_back([copy] { fix(copy); });
+                g_queue.emplace_back([copy] { fix(copy); });
             }
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s", issue.rule == Rule::kBelowGround       ? "Move to the surface above"

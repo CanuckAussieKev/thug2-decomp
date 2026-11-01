@@ -101,7 +101,7 @@ void set_rail_terrain(SkaterPhysicsModule* component)
 void play_land_sound(SkaterPhysicsModule* component)
 {
     objects::GameEntity* object = object_of(component);
-    float speed = static_cast<float>(length_of(object->vel_));
+    auto speed = static_cast<float>(length_of(object->vel_));
     float fraction = speed / static_cast<objects::Rider*>(object)->get_scaled_physics(kSpeedCapStat);
     static_cast<objects::RiderSfxPlayer*>(component->sound_)->play_land(fraction, component->state_->surface_type_);
 }
@@ -231,7 +231,7 @@ void kick_off_point_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool 
     float kept_y = v.y;
     v.project_onto(along);
     if (from_object && moving_against_facing(object_of(c))) {
-        float adjust = static_cast<float>(jump_adjust_speed() * 1.1f);
+        auto adjust = static_cast<float>(jump_adjust_speed() * 1.1f);
         const maths::Vec4& w = object_of(c)->vel_;
         double speed =
             (static_cast<double>(w.x) * w.x + static_cast<double>(w.y) * w.y) + static_cast<double>(w.z) * w.z;
@@ -455,10 +455,10 @@ void grind_along_rail(SkaterPhysicsModule* c, const maths::Vec4* point, bool fro
     objects::GameEntity* o = object_of(c);
     const maths::Vec4& right = o->basis_frame_.row[0];
     const maths::Vec4& facing = o->basis_frame_.row[2];
-    float across_right =
+    auto across_right =
         static_cast<float>((static_cast<double>(direction.z) * right.z + static_cast<double>(direction.y) * right.y) +
                            static_cast<double>(direction.x) * right.x);
-    float along_facing =
+    auto along_facing =
         static_cast<float>((static_cast<double>(direction.z) * facing.z + static_cast<double>(direction.y) * facing.y) +
                            static_cast<double>(direction.x) * facing.x);
     float across_amount = std::fabs(across_right);
@@ -524,13 +524,13 @@ void SkaterPhysicsModule::start_grind(const maths::Vec4* point, objects::GrindPo
 
     // A lip trick: going up, upright (the up within the horizontal angle), facing up, on a ramp near vertical, the
     // skater's right near level (the allow angle - its override for nodes flagged 1).
-    float allow = static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngle)) * kDegrees));
+    auto allow = static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngle)) * kDegrees));
     if (node->flag_bits_ & 1)
         allow =
             static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipAllowAngleOverride)) * kDegrees));
-    float horizontal =
+    auto horizontal =
         static_cast<float>(std::sin(static_cast<double>(script::fetch_float(kLipHorizontalAngle)) * kDegrees));
-    float ramp_vert =
+    auto ramp_vert =
         static_cast<float>(std::cos(static_cast<double>(script::fetch_float(kLipRampVertAngle)) * kDegrees));
     bool lip = true;
     if (!allow_lip_no_grind_) {

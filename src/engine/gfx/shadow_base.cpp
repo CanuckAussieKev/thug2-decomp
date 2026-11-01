@@ -459,7 +459,7 @@ void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
     caster->target = target;
     get_identity(caster->view);
     get_identity(caster->projection);
-    uint32_t key = reinterpret_cast<uint32_t>(target);
+    auto key = reinterpret_cast<uint32_t>(target);
     get_casters()->store_entry(key, caster);
 }
 

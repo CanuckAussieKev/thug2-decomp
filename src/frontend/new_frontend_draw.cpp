@@ -40,7 +40,7 @@ uint32_t get_mix(uint32_t a, uint32_t b, float t)
     t = std::clamp(t, 0.0f, 1.0f);
     uint32_t out = 0;
     for (int shift = 0; shift < 32; shift += 8) {
-        float x = static_cast<float>((a >> shift) & 0xFF), y = static_cast<float>((b >> shift) & 0xFF);
+        auto x = static_cast<float>((a >> shift) & 0xFF), y = static_cast<float>((b >> shift) & 0xFF);
         out |= static_cast<uint32_t>(x + (y - x) * t + 0.5f) << shift;
     }
     return out;
@@ -339,7 +339,7 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
             float ya = f.get_y(0.0f) + dy, yb = f.get_y(720.0f) + dy;
             float xa = f.get_x(0.0f) + dx, xm = f.get_x(kColumn) + dx, xb = f.get_x(x1) + dx;
             dl->PrimReserve(12, 8);
-            ImDrawIdx base = static_cast<ImDrawIdx>(dl->_VtxCurrentIdx);
+            auto base = static_cast<ImDrawIdx>(dl->_VtxCurrentIdx);
             dl->PrimWriteVtx(ImVec2(xa, ya), ImVec2(uv.u0, uv.v0), full);
             dl->PrimWriteVtx(ImVec2(xm, ya), ImVec2(u_edge, uv.v0), full);
             dl->PrimWriteVtx(ImVec2(xm, yb), ImVec2(u_edge, uv.v1), full);
@@ -349,7 +349,7 @@ void scrim(ImDrawList* dl, const TickCycle& f, const Art& art, float pan, float 
             dl->PrimWriteVtx(ImVec2(xb, yb), ImVec2(u1, uv.v1), none);
             dl->PrimWriteVtx(ImVec2(xm, yb), ImVec2(u_edge, uv.v1), full);
             for (int q = 0; q < 2; ++q) {
-                ImDrawIdx b = static_cast<ImDrawIdx>(base + q * 4);
+                auto b = static_cast<ImDrawIdx>(base + q * 4);
                 dl->PrimWriteIdx(b);
                 dl->PrimWriteIdx(static_cast<ImDrawIdx>(b + 1));
                 dl->PrimWriteIdx(static_cast<ImDrawIdx>(b + 2));
@@ -995,11 +995,11 @@ void levels_screen(Ctx& c, int* visible_rows)
         char text[64];
         if (rec.gaps_total_ > 0) {
             std::snprintf(text, sizeof(text), "%s %d/%d", text_tools::kGaps, rec.gaps_got_, rec.gaps_total_);
-            cols.push_back(text);
+            cols.emplace_back(text);
         }
         if (rec.goals >= 0) {
             std::snprintf(text, sizeof(text), "%s %d", text_tools::kGoals, rec.goals);
-            cols.push_back(text);
+            cols.emplace_back(text);
         }
         if (!cols.empty()) {
             Style s = mono12(kMuted, false);
@@ -1564,7 +1564,7 @@ void menu_of_items(Ctx& c, const mirror::Tracker& t, float* scroll)
         hints.push_back(std::string(text_tools::kHintResume) + " " + c.extras.continue_name_);
     }
     if (!v.main_menu_)
-        hints.push_back(text_tools::kHintBack);
+        hints.emplace_back(text_tools::kHintBack);
     std::vector<std::pair<float, float>> spans;
     float bottom = get_hints(c, hints, left, right, 688.0f, &spans) - 8.0f;
     if (resume_hint >= 0 && resume_hint < static_cast<int>(spans.size()))
@@ -1692,7 +1692,7 @@ bool read_font_metrics(const uint8_t* data, size_t size, float* ascent, float* d
     }
     if (!head || !hhea)
         return false;
-    float units_per_em = static_cast<float>(be16(head + 18));
+    auto units_per_em = static_cast<float>(be16(head + 18));
     if (units_per_em <= 0.0f)
         return false;
     *ascent = static_cast<float>(static_cast<int16_t>(be16(hhea + 4))) / units_per_em;

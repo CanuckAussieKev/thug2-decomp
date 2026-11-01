@@ -148,9 +148,9 @@ void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matr
     placed.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     placed.scale_tool(maths::Vec4{size_factor_, size_factor_, size_factor_, 1.0f});
     double offset = shift_;
-    float dx = static_cast<float>(normal.x * offset);
-    float dy = static_cast<float>(normal.y * offset);
-    float dz = static_cast<float>(normal.z * offset);
+    auto dx = static_cast<float>(normal.x * offset);
+    auto dy = static_cast<float>(normal.y * offset);
+    auto dz = static_cast<float>(normal.z * offset);
     placed.row[3] = {static_cast<float>(static_cast<double>(dx) + position->x),
                      static_cast<float>(static_cast<double>(dy) + position->y),
                      static_cast<float>(static_cast<double>(dz) + position->z),

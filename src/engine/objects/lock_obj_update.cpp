@@ -84,7 +84,7 @@ PinnedObjectModule::PinnedObjectModule()
 }
 
 // 0x0041F400 (0x0041F440 the deleting one)
-PinnedObjectModule::~PinnedObjectModule() {}
+PinnedObjectModule::~PinnedObjectModule() = default;
 
 // 0x0041F760
 void PinnedObjectModule::update_lock()
@@ -167,8 +167,8 @@ void PinnedObjectModule::update_lock()
         double dy = static_cast<double>(pos.y) - object->at_point_.y;
         float dz = pos.z - object->at_point_.z;
         float dw = pos.w - object->at_point_.w;
-        float step_x = static_cast<float>(dx * lag);
-        float step_y = static_cast<float>(dy * lag);
+        auto step_x = static_cast<float>(dx * lag);
+        auto step_y = static_cast<float>(dy * lag);
         double step_z = static_cast<double>(dz) * lag;
         float step_w = dw * lag;
         float x = step_x + object->at_point_.x;
@@ -179,7 +179,7 @@ void PinnedObjectModule::update_lock()
         object->at_point_.y = y;
         // The lag for the next update: as configure_from_data's, with the update's step.
         int t = static_cast<int>((frame_clock::get_time() + static_cast<uint32_t>(wobble_seed_)) & 0x3FF);
-        double time = static_cast<double>(t);
+        auto time = static_cast<double>(t);
         double step = update_wobble_step();
         double wobble = std::sin(time * static_cast<double>(wobble_[1]) * step) *
                         std::sin(time * static_cast<double>(wobble_[0]) * step);

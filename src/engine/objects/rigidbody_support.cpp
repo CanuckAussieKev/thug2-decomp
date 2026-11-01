@@ -400,4 +400,3 @@ void BodyDynamicsModule::feel_pushers()
 
 } // namespace objects
 
-using objects::BodyDynamicsModule;

@@ -94,7 +94,7 @@ void kill_all_shatters()
         PcShatter* next = nullptr;
         if (shatters()->step_iterator() && shatters()->iter_item_)
             next = static_cast<PcShatter*>(shatters()->iter_item_->value);
-        uint32_t key = reinterpret_cast<uint32_t>(shatter);
+        auto key = reinterpret_cast<uint32_t>(shatter);
         shatters()->erase_entry(key);
         delete shatter;
         shatter = next;
@@ -209,11 +209,11 @@ void shatter_geom(PcGeom* geom)
                 push_vertex(vertices + stride * c);
                 double e1x = static_cast<double>(pb[0]) - pa[0], e1y = static_cast<double>(pb[1]) - pa[1];
                 double e1z = static_cast<double>(pb[2]) - pa[2];
-                float e2zf = static_cast<float>(static_cast<double>(pc[2]) - pa[2]);
-                float e2yf = static_cast<float>(static_cast<double>(pc[1]) - pa[1]);
+                auto e2zf = static_cast<float>(static_cast<double>(pc[2]) - pa[2]);
+                auto e2yf = static_cast<float>(static_cast<double>(pc[1]) - pa[1]);
                 double e2x = static_cast<double>(pc[0]) - pa[0];
-                float cz = static_cast<float>(e2yf * e1x - e2x * e1y);
-                float cy = static_cast<float>(e2x * e1z - e2zf * e1x);
+                auto cz = static_cast<float>(e2yf * e1x - e2x * e1y);
+                auto cy = static_cast<float>(e2x * e1z - e2zf * e1x);
                 double cx = e2zf * e1y - e2yf * e1z;
                 double area = cx * cx + static_cast<double>(cy) * cy + static_cast<double>(cz) * cz;
                 double limit = g_split_area_limit;
@@ -233,20 +233,20 @@ void shatter_geom(PcGeom* geom)
             continue; // (the buffers left locked, as the original)
         auto* shatter = new PcShatter(count, mesh, 0);
         // the centre they fly from: the mesh's, moved back along the shatter direction (its length the base speed)
-        const float* direction = reinterpret_cast<const float*>(&g_glass_burst_velocity);
+        const auto* direction = reinterpret_cast<const float*>(&g_glass_burst_velocity);
         double scale = -static_cast<double>(g_shatter_velocity_scale);
         double back_x = scale * direction[0];
-        float back_y = static_cast<float>(scale * direction[1]);
-        float back_z = static_cast<float>(scale * direction[2]);
-        float back_w = static_cast<float>(scale * direction[3]);
-        float speed = static_cast<float>(std::sqrt(static_cast<double>(direction[1]) * direction[1] +
-                                                   static_cast<double>(direction[2]) * direction[2] +
-                                                   static_cast<double>(direction[0]) * direction[0]));
+        auto back_y = static_cast<float>(scale * direction[1]);
+        auto back_z = static_cast<float>(scale * direction[2]);
+        auto back_w = static_cast<float>(scale * direction[3]);
+        auto speed = static_cast<float>(std::sqrt(static_cast<double>(direction[1]) * direction[1] +
+                                                  static_cast<double>(direction[2]) * direction[2] +
+                                                  static_cast<double>(direction[0]) * direction[0]));
         float from[4] = {static_cast<float>(mesh->centre[0] + back_x),
                          static_cast<float>(static_cast<double>(mesh->centre[1]) + back_y),
                          static_cast<float>(static_cast<double>(mesh->centre[2]) + back_z),
                          static_cast<float>(static_cast<double>(back_w) + 1.0f)};
-        uint32_t key = reinterpret_cast<uint32_t>(shatter);
+        auto key = reinterpret_cast<uint32_t>(shatter);
         g_shatters->store_entry(key, shatter);
         uint8_t* cursor = shatter->vertices;
         while (split_next_triangle(&cursor, reinterpret_cast<const SplitFormat*>(mesh)))
@@ -259,12 +259,12 @@ void shatter_geom(PcGeom* geom)
                     (static_cast<double>(get_at(t + 2 * stride)[k]) + get_at(t + stride)[k] + get_at(t)[k]) *
                     (1.0f / 3.0f));
             // a velocity away from the centre at a random speed
-            float pace =
+            auto pace =
                 static_cast<float>(get_rand() * static_cast<double>(g_shatter_speed) * kPerRand * speed + speed);
             double dx = static_cast<double>(centre.x) - from[0];
             double dy = static_cast<double>(centre.y) - from[1];
-            float dz = static_cast<float>(static_cast<double>(centre.z) - from[2]);
-            float dw = static_cast<float>(static_cast<double>(centre.w) - from[3]);
+            auto dz = static_cast<float>(static_cast<double>(centre.z) - from[2]);
+            auto dw = static_cast<float>(static_cast<double>(centre.w) - from[3]);
             double length = std::sqrt(dx * dx + static_cast<double>(dz) * dz + dy * dy);
             if (length > 0.0) {
                 double f = pace / length;
@@ -274,9 +274,9 @@ void shatter_geom(PcGeom* geom)
             }
             shatter->velocities[j] = {static_cast<float>(dx), static_cast<float>(dy), dz, dw};
             // a turn about a random axis
-            float a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-            float a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-            float a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+            auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+            auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+            auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
             maths::Vec4 axis = {a3, a2, a1, 1.0f};
             double axis_length =
                 std::sqrt(static_cast<double>(a3) * a3 + static_cast<double>(a2) * a2 + static_cast<double>(a1) * a1);
@@ -289,7 +289,7 @@ void shatter_geom(PcGeom* geom)
             maths::Mat4& rotation = shatter->rotations[j];
             std::memset(&rotation, 0, sizeof(rotation));
             rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
-            float angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
+            auto angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
             maths::Mat4 turn;
             maths::build_axis_angle_matrix(turn, axis, angle);
             // D3DX (linked library code): rotation = rotation * turn

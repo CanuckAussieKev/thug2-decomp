@@ -133,7 +133,7 @@ int ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
 // An unsigned millisecond count over an int length, as the original divides (FILD, + 2^32 if negative, FIDIV).
 double get_fraction(int time, int length)
 {
-    double value = static_cast<double>(time);
+    auto value = static_cast<double>(time);
     if (time < 0)
         value += two_to32();
     return value / static_cast<double>(length);
@@ -148,9 +148,9 @@ uint32_t get_rgba(int r, int g, int b, uint8_t a)
 // A colour from a script array [r g b] (elements truncated to bytes; the fourth byte 0).
 uint32_t color_from_array(script::Array* array)
 {
-    uint8_t r = static_cast<uint8_t>(array->fetch_part(0));
-    uint8_t g = static_cast<uint8_t>(array->fetch_part(1));
-    uint8_t b = static_cast<uint8_t>(array->fetch_part(2));
+    auto r = static_cast<uint8_t>(array->fetch_part(0));
+    auto g = static_cast<uint8_t>(array->fetch_part(1));
+    auto b = static_cast<uint8_t>(array->fetch_part(2));
     return get_rgba(r, g, b, 0);
 }
 
@@ -711,9 +711,9 @@ void set_light_direction(int index, float heading, float pitch)
     direction[1] = static_cast<float>(static_cast<double>(get_zero()) * cos_pitch - sin_pitch);
     double horizontal = cos_pitch + sin_pitch * get_zero();
     double h = static_cast<double>(heading) * degree_to_radian_conv();
-    float sin_heading = static_cast<float>(std::sin(h));
+    auto sin_heading = static_cast<float>(std::sin(h));
     double cos_heading = std::cos(h);
-    float cos_heading_float = static_cast<float>(std::cos(h));
+    auto cos_heading_float = static_cast<float>(std::cos(h));
     direction[2] = static_cast<float>(cos_heading * horizontal + static_cast<double>(sin_heading) * get_zero());
     direction[0] = static_cast<float>(horizontal * sin_heading + static_cast<double>(cos_heading_float) * get_zero());
     set_light_direction_vector(index, direction);
@@ -991,7 +991,7 @@ void CtodManager::refresh_all(bool temp_state)
             group->read_hash_value(kLightGroup, &light_group, 1);
             uint32_t reset_light_group = 0;
             group->read_hash_value(kResetLightGroup, &reset_light_group, 0);
-            float step = static_cast<float>(hundred() / static_cast<double>(system.parts));
+            auto step = static_cast<float>(hundred() / static_cast<double>(system.parts));
             for (int part = 0; part < system.parts; ++part) {
                 int start = ftol(static_cast<double>(part) * step);
                 int end = ftol(static_cast<double>(part + 1) * step);

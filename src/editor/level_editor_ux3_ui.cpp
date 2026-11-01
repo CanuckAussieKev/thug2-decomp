@@ -110,7 +110,7 @@ void get_palette()
                               std::strlen(g_query) >= 3 ? actions::fuzzy_score(g_query, a.tip) / 2 : 0,
                               actions::fuzzy_score(g_query, actions::get_keys_text(i))});
         if (score > 0)
-            found.push_back({score, i});
+            found.emplace_back(score, i);
     }
     std::stable_sort(found.begin(), found.end(), [](const auto& a, const auto& b) { return a.first > b.first; });
     g_highlight = found.empty() ? 0 : std::clamp(g_highlight, 0, static_cast<int>(found.size()) - 1);

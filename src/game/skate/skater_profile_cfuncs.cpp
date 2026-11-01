@@ -397,9 +397,9 @@ bool cfunc_toggle_always_special(script::Struct* params, script::Script*)
             continue;
         bool& special = static_cast<objects::Rider*>(skater)->always_special_;
         if (on)
-            special = 1;
+            special = true;
         else if (off)
-            special = 0;
+            special = false;
         else
             special = special == 0;
     }

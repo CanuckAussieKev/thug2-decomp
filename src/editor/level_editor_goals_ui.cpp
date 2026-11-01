@@ -227,7 +227,7 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     for (size_t k = 0; k < g.points.size(); ++k) {
         ImGui::SameLine();
         std::string label = point_label(g.type, static_cast<int>(k));
-        if (label.rfind("Checkpoint ", 0) == 0)
+        if (label.starts_with("Checkpoint "))
             label = "CP" + label.substr(11);
         label += "##goalpt" + std::to_string(k);
         std::string goal_id = g.id;
@@ -287,7 +287,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     if (static_cast<int>(all.size()) >= kMaxGoals)
         ImGui::BeginDisabled();
     if (ImGui::Button("New goal")) {
-        KindTag type = static_cast<KindTag>(g_new_type);
+        auto type = static_cast<KindTag>(g_new_type);
         get_queue([type] { fabricate(type); });
     }
     if (static_cast<int>(all.size()) >= kMaxGoals)

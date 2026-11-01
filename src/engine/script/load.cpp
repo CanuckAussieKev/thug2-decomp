@@ -171,7 +171,7 @@ void read_qb_file(const char* filename, const uint8_t* data, int unused, int use
             uint32_t name = fetch_word32(p + 2);
             const uint8_t* start = p + 6;
             p = skip_to_end_of_script(start);
-            uint32_t size = static_cast<uint32_t>(p - start);
+            auto size = static_cast<uint32_t>(p - start);
             uint32_t checksum = calculate_script_checksum(start);
             SymbolTableEntry* existing = find_symbol(name);
             if (existing) {

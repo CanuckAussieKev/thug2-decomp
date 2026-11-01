@@ -28,8 +28,8 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     const double e2z = static_cast<double>(v2->z) - v0->z;
     const float e1x = get_difference(v1->x, v0->x), e1y = get_difference(v1->y, v0->y);
     const double e1z = static_cast<double>(v1->z) - v0->z;
-    const float nx = static_cast<float>(e1y * e2z - e1z * e2y);
-    const float ny = static_cast<float>(e1z * e2x - e2z * e1x);
+    const auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
+    const auto ny = static_cast<float>(e1z * e2x - e2z * e1x);
     const double nz = e2y * e1x - e1y * e2x;
     normal->w = 0.0f;
     normal->x = nx;
@@ -43,18 +43,18 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     const double distance = segment_triangle_distance_squared(capsule->line, *normal, *v0, *v1, *v2, &s, &t, &along);
 
     // The face's nearest point: v0 + s e1 + t e2.
-    const float e2t_x = static_cast<float>((static_cast<double>(v2->x) - v0->x) * t);
+    const auto e2t_x = static_cast<float>((static_cast<double>(v2->x) - v0->x) * t);
     const double e2t_y = (static_cast<double>(v2->y) - v0->y) * t;
     const float e2t_z = get_difference(v2->z, v0->z) * t;
     const float e2t_w = get_difference(v2->w, v0->w) * t;
-    const float e1s_x = static_cast<float>((static_cast<double>(v1->x) - v0->x) * s);
+    const auto e1s_x = static_cast<float>((static_cast<double>(v1->x) - v0->x) * s);
     const double e1s_y = (static_cast<double>(v1->y) - v0->y) * s;
     const double e1s_z = static_cast<double>(get_difference(v1->z, v0->z)) * s;
     const float e1s_w = get_difference(v1->w, v0->w) * s;
-    const float px = static_cast<float>(static_cast<double>(e1s_x) + v0->x);
-    const float py = static_cast<float>(e1s_y + v0->y);
-    const float pz = static_cast<float>(e1s_z + v0->z);
-    const float pw = static_cast<float>(static_cast<double>(e1s_w) + v0->w);
+    const auto px = static_cast<float>(static_cast<double>(e1s_x) + v0->x);
+    const auto py = static_cast<float>(e1s_y + v0->y);
+    const auto pz = static_cast<float>(e1s_z + v0->z);
+    const auto pw = static_cast<float>(static_cast<double>(e1s_w) + v0->w);
     point->x = static_cast<float>(static_cast<double>(px) + e2t_x);
     point->y = static_cast<float>(e2t_y + py);
     point->z = static_cast<float>(static_cast<double>(pz) + e2t_z);
@@ -63,13 +63,13 @@ bool capsule_hits_triangle(const maths::Capsule* capsule, const maths::Vec4* v0,
     // The segment's nearest point: start + along (end - start); the offset from it to the face's.
     const maths::Vec4& start = capsule->line.start;
     const maths::Vec4& end = capsule->line.end;
-    const float d_x = static_cast<float>((static_cast<double>(end.x) - start.x) * along);
+    const auto d_x = static_cast<float>((static_cast<double>(end.x) - start.x) * along);
     const double d_y = (static_cast<double>(end.y) - start.y) * along;
     const double d_z = static_cast<double>(get_difference(end.z, start.z)) * along;
     const float d_w = get_difference(end.w, start.w) * along;
-    const float qx = static_cast<float>(static_cast<double>(d_x) + start.x);
-    const float qy = static_cast<float>(d_y + start.y);
-    const float qz = static_cast<float>(d_z + start.z);
+    const auto qx = static_cast<float>(static_cast<double>(d_x) + start.x);
+    const auto qy = static_cast<float>(d_y + start.y);
+    const auto qz = static_cast<float>(d_z + start.z);
     const double qw = static_cast<double>(d_w) + start.w;
     offset->w = static_cast<float>(point->w - qw);
     offset->x = get_difference(point->x, qx);

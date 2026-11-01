@@ -630,7 +630,7 @@ void Skate::test_rider_contacts()
             continue;
         net::NetMessageInfo desc;
         net::AppHost* server = net->host_; // (0x005480C0)
-        uint8_t id = static_cast<uint8_t>(king->ident_);
+        auto id = static_cast<uint8_t>(king->ident_);
         desc.content_ = &id;
         desc.byte_count_ = 1;
         desc.ident_ = kMsgKing;

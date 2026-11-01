@@ -385,7 +385,7 @@ std::string clean_text(const std::string& text)
 {
     std::string out;
     for (char c : text) {
-        unsigned char u = static_cast<unsigned char>(c);
+        auto u = static_cast<unsigned char>(c);
         if (u < 0x20 || u == 0x7F)
             continue;
         if (c == '"')
@@ -541,7 +541,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
             put_name(&out, get_checksums(key));
             out.push_back(0x07);
             out.push_back(0x1A);
-            uint32_t bits = std::bit_cast<uint32_t>(value);
+            auto bits = std::bit_cast<uint32_t>(value);
             get_put4(&out, bits);
         };
         put_name(&out, get_checksums("Shatter"));
@@ -569,7 +569,7 @@ std::vector<uint8_t> get_body(const Spec& spec)
         out.push_back(0x07);
         out.push_back(0x1A);
         float seconds = clamp_seconds(spec.seconds);
-        uint32_t bits = std::bit_cast<uint32_t>(seconds);
+        auto bits = std::bit_cast<uint32_t>(seconds);
         get_put4(&out, bits);
         out.push_back(0x01);
         break;
@@ -591,7 +591,7 @@ std::vector<uint8_t> qb_file(const std::vector<Spec>& specs)
             if (n.first == checksum)
                 return;
         }
-        names.push_back({checksum, name});
+        names.emplace_back(checksum, name);
     };
     for (const Spec& spec : specs) {
         out.push_back(0x23);
@@ -918,12 +918,12 @@ std::vector<uint8_t> proxim_body(uint32_t enter, uint32_t exit, uint32_t own)
     out.push_back(0);
     out.push_back(0);
     out.push_back(0x01);
-    uint16_t to_else = static_cast<uint16_t>(else_offset + 2 - if_offset);
+    auto to_else = static_cast<uint16_t>(else_offset + 2 - if_offset);
     out[if_offset] = static_cast<uint8_t>(to_else);
     out[if_offset + 1] = static_cast<uint8_t>(to_else >> 8);
     branch(exit);
     out.push_back(0x28);
-    uint16_t to_end = static_cast<uint16_t>(out.size() - else_offset);
+    auto to_end = static_cast<uint16_t>(out.size() - else_offset);
     out[else_offset] = static_cast<uint8_t>(to_end);
     out[else_offset + 1] = static_cast<uint8_t>(to_end >> 8);
     out.push_back(0x01);
@@ -1102,7 +1102,7 @@ const Calls& calls_of(uint32_t script)
         if (c.first == script)
             return c.second;
     }
-    g_calls_cache.push_back({script, get_walk(script)});
+    g_calls_cache.emplace_back(script, get_walk(script));
     return g_calls_cache.back().second;
 }
 
@@ -1230,7 +1230,7 @@ void on_level_gap(script::Struct* params, const uint8_t*)
 {
     const char* text = nullptr;
     if (params && params->fetch_text(get_text(), &text, 0) && text)
-        g_names->push_back(text);
+        g_names->emplace_back(text);
 }
 void read_level_gaps()
 {
@@ -1459,7 +1459,7 @@ void sync_proxims()
         }
         if (!e.enter.empty() || !e.exit.empty())
             scripts.push_back({e.node, checksum_of(e.enter), checksum_of(e.exit), o->second.script});
-        live.push_back({&e, p});
+        live.emplace_back(&e, p);
     }
     // (put back: those not edited now)
     for (auto it = g_proxim_originals.begin(); it != g_proxim_originals.end();) {
@@ -1604,7 +1604,7 @@ void get_sync()
     std::vector<std::pair<std::string, int>> wanted;
     for (const Added& a : g_added) {
         if (a.alive && !a.problem && a.spec.kind == Kind::kGapEnd)
-            wanted.push_back({clean_text(a.spec.text), a.spec.score});
+            wanted.emplace_back(clean_text(a.spec.text), a.spec.score);
     }
     std::sort(wanted.begin(), wanted.end());
     if (redefined || wanted != g_gaps_added) {
@@ -2294,7 +2294,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
     for (const LevelTrigger& l : g_level) {
         float d = distance_to(camera, l.min, l.max);
         if (d <= kDrawRadius)
-            near.push_back({d, &l});
+            near.emplace_back(d, &l);
     }
     std::sort(near.begin(), near.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     if (near.size() > static_cast<size_t>(kMaxLevelDrawn))

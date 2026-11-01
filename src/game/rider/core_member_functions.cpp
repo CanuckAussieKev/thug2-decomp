@@ -595,7 +595,7 @@ int SkaterPhysicsModule::air_time_greater_than(script::Struct* params, script::S
 int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 {
     uint32_t time = time_aloft(this);
-    float seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
+    auto seconds = static_cast<float>(static_cast<double>(time) * kSecondsPerMillisecond);
     results_of(script)->push_float(kAirtime, seconds);
     return 1;
 }
@@ -604,7 +604,7 @@ int SkaterPhysicsModule::get_airtime(script::Struct*, script::Script* script)
 int SkaterPhysicsModule::restore_auto_kick(script::Struct*, script::Script*)
 {
     int profile = static_cast<objects::Rider*>(entity_)->view_slot_;
-    uint8_t* profiles = reinterpret_cast<uint8_t*>(modules::g_skate_module);
+    auto* profiles = reinterpret_cast<uint8_t*>(modules::g_skate_module);
     auto_kick_ = profiles[profile * 8 + 0x395];
     return 1;
 }
@@ -638,9 +638,9 @@ int SkaterPhysicsModule::do_car_plant_boost(script::Struct*, script::Script*)
         direction.z = static_cast<float>(direction.z * inverse);
     }
     double boost = tuning_float_lookup(kCarPlantForwardBoost, object);
-    float y = static_cast<float>(direction.y * boost);
-    float z = static_cast<float>(direction.z * boost);
-    float w = static_cast<float>(direction.w * boost);
+    auto y = static_cast<float>(direction.y * boost);
+    auto z = static_cast<float>(direction.z * boost);
+    auto w = static_cast<float>(direction.w * boost);
     maths::Vec4& v = entity_->vel_;
     v.x = static_cast<float>(v.x + direction.x * boost);
     v.y += y;
@@ -705,7 +705,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     double rx = static_cast<double>(facing.z) * up.y - static_cast<double>(facing.y) * up.z;
     double ry = static_cast<double>(facing.x) * up.z - static_cast<double>(facing.z) * up.x;
     right.w = 0.0f;
-    float rz = static_cast<float>(static_cast<double>(facing.y) * up.x - static_cast<double>(facing.x) * up.y);
+    auto rz = static_cast<float>(static_cast<double>(facing.y) * up.x - static_cast<double>(facing.x) * up.y);
     right.z = rz;
     right.x = static_cast<float>(rx);
     right.y = static_cast<float>(ry);
@@ -714,7 +714,7 @@ int SkaterPhysicsModule::turn_to_face_velocity(script::Struct*, script::Script*)
     double ux = static_cast<double>(right.z) * facing.y - static_cast<double>(right.y) * facing.z;
     double uy = static_cast<double>(right.x) * facing.z - static_cast<double>(right.z) * facing.x;
     up.w = 0.0f;
-    float uz = static_cast<float>(static_cast<double>(right.y) * facing.x - static_cast<double>(right.x) * facing.y);
+    auto uz = static_cast<float>(static_cast<double>(right.y) * facing.x - static_cast<double>(right.x) * facing.y);
     up.z = uz;
     up.x = static_cast<float>(ux);
     up.y = static_cast<float>(uy);
@@ -893,4 +893,3 @@ int SkaterPhysicsModule::set_focus_times_allowed(script::Struct* params, script:
 
 } // namespace skater
 
-using skater::SkaterPhysicsModule;

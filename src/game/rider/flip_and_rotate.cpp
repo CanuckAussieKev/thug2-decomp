@@ -91,7 +91,7 @@ RiderSpinAndFlip::RiderSpinAndFlip()
 }
 
 // 0x00511300 (0x00511320 the deleting one)
-RiderSpinAndFlip::~RiderSpinAndFlip() {}
+RiderSpinAndFlip::~RiderSpinAndFlip() = default;
 
 // 0x00511350
 void RiderSpinAndFlip::seal()
@@ -132,14 +132,14 @@ void RiderSpinAndFlip::clear_after_flags()
 void RiderSpinAndFlip::apply_flip_to_anims()
 {
     net::Guest* app = client_app(get_skater_index(entity_));
-    objects::RiderPoseState* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    auto* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
     flip_anims(anim_blender_, entity_->ident_, state->flag(PoseFlag::kFlipped).on, app_value8(app), 1);
 }
 
 // 0x005114F0
 void RiderSpinAndFlip::get_flip()
 {
-    objects::RiderPoseState* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
+    auto* state = static_cast<objects::RiderPoseState*>(entity_->fetch_module(kSkaterState));
     uint8_t& flipped = state->flag(PoseFlag::kFlipped).on;
     uint8_t flip = flipped == 0 ? 1 : 0;
     if (flipped != flip) { // (always)

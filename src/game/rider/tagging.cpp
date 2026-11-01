@@ -226,11 +226,11 @@ int TaggingComponent::invoke_method_by_name(uint32_t name, script::Struct* param
 // 0x0051DBC0
 void TaggingComponent::place_tag(bool sticker, maths::Vec4 start, maths::Vec4 end, int size, bool send)
 {
-    float turn = static_cast<float>(script::fetch_float(0x2D7DF904u) * static_cast<double>(kRadiansPerDegree));
+    auto turn = static_cast<float>(script::fetch_float(0x2D7DF904u) * static_cast<double>(kRadiansPerDegree));
     float spin = 0.0f;
     if (sticker)
         spin = static_cast<float>((maths::rnd(90) - 45) * static_cast<double>(kRadiansPerDegree));
-    float width = static_cast<float>(size);
+    auto width = static_cast<float>(size);
     render::engine::create_texture_splat_at(&start, &end, width, width, spin, turn, 5000.0f, "", 0x54628ED7, 0, 0,
                                             static_cast<uint8_t*>(sticker ? sticker_ : graffiti_));
     if (!send)
@@ -272,7 +272,7 @@ TaggingControlComponent::TaggingControlComponent()
 }
 
 // 0x0051DD50 (0x0051DD60 the deleting one)
-TaggingControlComponent::~TaggingControlComponent() {}
+TaggingControlComponent::~TaggingControlComponent() = default;
 
 // 0x0051DD90
 void TaggingControlComponent::seal()
@@ -371,9 +371,9 @@ bool TaggingControlComponent::slap_sticker(bool sticker, bool walking, bool low)
     double nw = static_cast<double>(normal.w) * kInch;
     double nz = static_cast<double>(normal.z) * kInch;
     double ny = static_cast<double>(normal.y) * kInch;
-    float nxf = static_cast<float>(static_cast<double>(normal.x) * kInch);
-    float nwf = static_cast<float>(nw);
-    float nyf = static_cast<float>(ny);
+    auto nxf = static_cast<float>(static_cast<double>(normal.x) * kInch);
+    auto nwf = static_cast<float>(nw);
+    auto nyf = static_cast<float>(ny);
     maths::Vec4 inside = {static_cast<float>(point.x - static_cast<double>(nxf)), static_cast<float>(point.y - ny),
                           static_cast<float>(point.z - nz), static_cast<float>(point.w - static_cast<double>(nwf))};
     maths::Vec4 outside = {static_cast<float>((point.x + static_cast<double>(nxf)) + 1.0),
@@ -428,7 +428,7 @@ bool TaggingControlComponent::try_tagging()
         joint_world.y = static_cast<float>(joint_world.y - 10.0); // 0x00646710
     maths::Vec4 hits[6];
     float distances[6];
-    float rise = static_cast<float>(reach * 0.0);
+    auto rise = static_cast<float>(reach * 0.0);
     bool found = false;
     const maths::Vec4& heading = walk_->facing_;
     // A direction across the heading: `index` of six steps of 27 degrees from 67.5 degrees one side.
@@ -474,7 +474,7 @@ bool TaggingControlComponent::try_tagging()
     }
     float dx, dz;
     direction(nearest, dx, dz);
-    float distance = static_cast<float>(nearest_distance);
+    auto distance = static_cast<float>(nearest_distance);
     float back_z = dz * kInch, back_x = dx * kInch;
     for (int j = 0; j < 5; ++j) {
         feeler.set_excluded(0x3000, 0);

@@ -130,12 +130,12 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 decode_translation(trans_keys, key, flags);
                 const auto* values = reinterpret_cast<const int16_t*>(key + 2);
                 double x = values[0] * static_cast<double>(kKeyScale);
-                float y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
-                float z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
+                auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
+                auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
                 maths::Vec4 target;
                 if ((flag_bits_ & kTwiceTranslation) && (flag_bits_ & kTranslationKeys)) {
-                    float z_sum = static_cast<float>(static_cast<double>(z) + translation.z);
-                    float w_sum = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
+                    auto z_sum = static_cast<float>(static_cast<double>(z) + translation.z);
+                    auto w_sum = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
                     target.x = static_cast<float>((x + translation.x) + translation.x);
                     target.y = static_cast<float>((static_cast<double>(y) + translation.y) + translation.y);
                     target.z = static_cast<float>(static_cast<double>(z_sum) + translation.z);
@@ -188,7 +188,7 @@ void JointClipFrames::build_cache(int format)
     AnimCacheEntry* entry =
         manager->add_row(reinterpret_cast<uint32_t>(this), static_cast<int16_t>(bone_count_),
                          static_cast<int>(quat_key_count_), static_cast<int>(trans_key_count_), format);
-    uint8_t* cache = reinterpret_cast<uint8_t*>(entry);
+    auto* cache = reinterpret_cast<uint8_t*>(entry);
     if (!cache)
         return;
     auto* rot_offsets = entry->get_rotation_offsets();
@@ -267,7 +267,7 @@ void JointClipFrames::build_cache(int format)
             const auto* values = reinterpret_cast<const int16_t*>(translation + 2);
             std::memcpy(key, translation, 2);
             for (int i = 0; i < 3; ++i) {
-                float value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
+                auto value = static_cast<float>(values[i] * static_cast<double>(kKeyScale));
                 std::memcpy(key + 4 + i * 4, &value, 4);
             }
             source = key;

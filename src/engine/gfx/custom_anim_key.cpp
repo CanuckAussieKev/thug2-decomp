@@ -202,7 +202,7 @@ memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
     case 1: {
         uint32_t fov = *data;
         *cursor = reinterpret_cast<const uint8_t*>(data + 1);
-        float field_of_view = std::bit_cast<float>(fov);
+        auto field_of_view = std::bit_cast<float>(fov);
         return new CameraFovKey(frame, field_of_view);
     }
     case 2:

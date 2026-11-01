@@ -421,7 +421,7 @@ float settle_air_pitch(float pitch)
 {
     // THAW 0x005D7CB0: the pitch's whole degrees round a turn (truncated, the sign kept), a tenth of the way back to
     // the nearest upright each frame.
-    float angle = static_cast<float>(static_cast<int>(pitch) % 360);
+    auto angle = static_cast<float>(static_cast<int>(pitch) % 360);
     if (angle == 0.0f)
         return 0.0f;
     if (angle > 0.0f)
@@ -460,7 +460,7 @@ maths::Vec4 wheel_base_normal(const maths::Vec4& normal, const maths::Vec4& fron
 {
     maths::Vec4 base = {front.x - rear.x, front.y - rear.y, front.z - rear.z, front.w - rear.w};
     base.make_unit();
-    float along = static_cast<float>(dot3(base, normal));
+    auto along = static_cast<float>(dot3(base, normal));
     maths::Vec4 result = {normal.x - base.x * along, normal.y - base.y * along, normal.z - base.z * along,
                           normal.w - base.w * along};
     result.make_unit();
@@ -492,7 +492,7 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     WheelFeelResult out = {false, false, in.wheel, 1, 0.0f, 0.0f, 0.0f, 0.0f};
     // (THAW: the differences and `along` in SSE floats, the distance on the x87)
     float dx = in.wheel.x - in.point.x, dy = in.wheel.y - in.point.y, dz = in.wheel.z - in.point.z;
-    float distance = static_cast<float>(
+    auto distance = static_cast<float>(
         std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx));
     float along = in.up.z * dz + in.up.y * dy + in.up.x * dx; // (how far above the hit, along up)
     const maths::Vec4 on_hit = {in.point.x + in.normal.x, in.point.y + in.normal.y, in.point.z + in.normal.z,
@@ -507,16 +507,16 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
     maths::Vec4 direction = in.facing;
     if (in.backwards)
         direction = {-direction.x, -direction.y, -direction.z, -direction.w};
-    float into = static_cast<float>(static_cast<double>(direction.z) * in.normal.z +
-                                    static_cast<double>(direction.y) * in.normal.y +
-                                    static_cast<double>(direction.x) * in.normal.x);
+    auto into = static_cast<float>(static_cast<double>(direction.z) * in.normal.z +
+                                   static_cast<double>(direction.y) * in.normal.y +
+                                   static_cast<double>(direction.x) * in.normal.x);
     maths::Vec4 in_hit = direction, in_ground = direction;
     in_hit.align_to_plane(in.normal);
     in_ground.align_to_plane(in.ground_normal_);
-    float turn =
+    auto turn =
         static_cast<float>(static_cast<double>(in_ground.x) * in_hit.x + static_cast<double>(in_ground.z) * in_hit.z +
                            static_cast<double>(in_ground.y) * in_hit.y);
-    float limit = static_cast<float>(std::cos(static_cast<double>(in.stick_angle_) * kRadiansPerDegree));
+    auto limit = static_cast<float>(std::cos(static_cast<double>(in.stick_angle_) * kRadiansPerDegree));
     out.distance = distance;
     out.turn = turn;
     out.limit = limit;
@@ -529,7 +529,7 @@ WheelFeelResult feel_wheel_on(const WheelFeel& in)
         float mx = in.wheel.x - in.last.x, my = in.wheel.y - in.last.y, mz = in.wheel.z - in.last.z;
         double moved =
             std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz + static_cast<double>(my) * my);
-        float reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
+        auto reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
         if (in.snap_down_ > reach)
             reach = in.snap_down_;
         out.reach = reach;
@@ -720,7 +720,7 @@ void steer_anim(SkaterPhysicsModule* core)
         } else {
             // (Obj_SetAnimSubsetWeight's blend_to, no blend period: the weight at once)
             float weight = state.steer_in_ * state.steer_blend_;
-            uint32_t bits = std::bit_cast<uint32_t>(weight);
+            auto bits = std::bit_cast<uint32_t>(weight);
             channel->blend_to(bits, 0.0f);
         }
     }
@@ -964,8 +964,8 @@ void jump_pitch(SkaterPhysicsModule* core)
     BikeState& state = *state_of(core, true);
     if (!state.manual)
         return;
-    float angle = static_cast<float>(state.manual_angle_ * (state.nose_manual_ ? kJumpManualPitch : -kJumpManualPitch) *
-                                     kRadiansPerDegree);
+    auto angle = static_cast<float>(state.manual_angle_ * (state.nose_manual_ ? kJumpManualPitch : -kJumpManualPitch) *
+                                    kRadiansPerDegree);
     object_of(core)->basis_frame_.pitch_locally(angle);
     core->display_matrix_.pitch_locally(angle);
 }
@@ -1013,7 +1013,7 @@ void air_rotation(SkaterPhysicsModule* core)
         pitch = 0.0f - lean * sy;
         held = static_cast<int>(get_held_ms(pad->up_dir_.held_down_ ? &pad->up_dir_ : &pad->btn_down_));
     }
-    float held_f = static_cast<float>(held);
+    auto held_f = static_cast<float>(held);
     if (!(no_lean < held_f))
         pitch = 0.0f;
     if (ramp_lean > held_f)
@@ -1029,7 +1029,7 @@ void air_rotation(SkaterPhysicsModule* core)
             spin = 0.0f - rotation * sx;
             held2 = static_cast<int>(get_held_ms(pad->left_side_.held_down_ ? &pad->left_side_ : &pad->right_side_));
         }
-        float held_2f = static_cast<float>(held2);
+        auto held_2f = static_cast<float>(held2);
         if (tuning_float_lookup(kAutoturnCancelTime, core) < held_2f)
             clear_timed_flag(core, PoseFlag::kSpin);
         float no_rotate = tuning_float_lookup(kAirNoRotateTime, core);
@@ -1370,7 +1370,7 @@ script::Array* grind_trick_row(SkaterPhysicsModule* core, bool left_side, bool s
     if (!list || list->extent_ == 0)
         return nullptr;
     // THAW reads the raw stick alone here (no d-pad at full deflection, unlike stick_raw).
-    uint32_t row = static_cast<uint32_t>(bike::grind_row(pad_state_of(core)->stick_[3]));
+    auto row = static_cast<uint32_t>(bike::grind_row(pad_state_of(core)->stick_[3]));
     if (row >= list->extent_)
         row = 0;
     return reinterpret_cast<script::Array*>(list->fetch_part(row));
@@ -1387,7 +1387,7 @@ bool acid_drop_direction(SkaterPhysicsModule* core, maths::Vec4* direction)
     maths::Vec4 d = {facing.x, 0.0f, facing.z, facing.w};
     double length = std::sqrt(static_cast<double>(d.x) * d.x + static_cast<double>(d.z) * d.z);
     if (length > 0.0) {
-        float inverse = static_cast<float>(1.0 / length);
+        auto inverse = static_cast<float>(1.0 / length);
         d = {d.x * inverse, 0.0f, d.z * inverse, d.w * inverse};
     }
     if (stick_raw(core, 1) > kAcidDropBack)

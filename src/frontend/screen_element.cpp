@@ -417,7 +417,7 @@ void UiWidget::change_draw_depth(float z)
     ElementPtr child;
     child.assign_value(eldest_.owner_object_);
     if (child) {
-        float next = static_cast<float>(static_cast<double>(z) + 1.0);
+        auto next = static_cast<float>(static_cast<double>(z) + 1.0);
         while (child) {
             child->change_draw_depth(next);
             child.assign_value(child->following_.owner_object_);
@@ -612,9 +612,9 @@ void UiWidget::update_layout()
     }
     if ((object_flags_ & kDirty) && !(object_flags_ & kPaused)) {
         if (morph_length_) {
-            uint32_t elapsed = static_cast<uint32_t>(now - morph_start_);
-            uint32_t length = static_cast<uint32_t>(morph_length_);
-            float t = static_cast<float>(static_cast<double>(elapsed) / static_cast<double>(length));
+            auto elapsed = static_cast<uint32_t>(now - morph_start_);
+            auto length = static_cast<uint32_t>(morph_length_);
+            auto t = static_cast<float>(static_cast<double>(elapsed) / static_cast<double>(length));
             if (elapsed >= length) {
                 t = 1.0f;
                 morph_length_ = 0;
@@ -636,7 +636,7 @@ void UiWidget::update_layout()
             }
             // what's left of the move this frame: the curve's for the position, the time's for the rest
             double k = (static_cast<double>(curve) - morph_curve_done_) / (1.0 - morph_curve_done_);
-            float kt = static_cast<float>((static_cast<double>(t) - morph_done_) / (1.0 - morph_done_));
+            auto kt = static_cast<float>((static_cast<double>(t) - morph_done_) / (1.0 - morph_done_));
             ElementState& s = shown_;
             float shown_y = s.y;
             s.x = static_cast<float>((static_cast<double>(aim_point_.x) - s.x) * k + s.x);
@@ -979,5 +979,3 @@ void fetch_part(ElementPtr* out, uint32_t id) { get_look_up(hub(), out, id, 0); 
 
 } // namespace frontend
 
-using frontend::ElementState;
-using frontend::UiWidget;

@@ -44,7 +44,7 @@ void probe_tip(int index, float x, float z, float* last_column, float* end_z)
     const double angle = static_cast<double>(index) * kStep;
     const double cosine = std::cos(angle);
     const double sine = std::sin(static_cast<double>(static_cast<float>(angle)));
-    const float side = static_cast<float>((sine + static_cast<float>(cosine)) * kReach);
+    const auto side = static_cast<float>((sine + static_cast<float>(cosine)) * kReach);
     *last_column = static_cast<float>((cosine - sine) * kReach + x);
     *end_z = static_cast<float>(z + static_cast<double>(side));
 }
@@ -104,7 +104,7 @@ void ProjectileComponent::check_triggers()
     }
     render::ProbeRay feeler;
     const maths::Vec4 pos = entity_->at_point_;
-    float end_w = static_cast<float>(static_cast<double>(pos.w) + kReach);
+    auto end_w = static_cast<float>(static_cast<double>(pos.w) + kReach);
     for (int i = 0; i < kFeelers; ++i) {
         feeler.line_.start = pos;
         feeler.line_.end.y = pos.y;

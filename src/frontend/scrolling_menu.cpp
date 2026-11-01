@@ -245,7 +245,7 @@ void WindowedList::tick_frame()
             window_start_ = static_cast<float>(static_cast<double>(place) - before);
         rearrange_ = true;
     } else {
-        float end = static_cast<float>(static_cast<double>(place) + length);
+        auto end = static_cast<float>(static_cast<double>(place) + length);
         if (static_cast<double>(window_length_) + window_start_ - after < end) {
             double start = static_cast<double>(scroll_speed_) + window_start_;
             window_start_ = static_cast<float>(start);
@@ -285,6 +285,5 @@ void WindowedList::tick_frame()
 
 } // namespace frontend
 
-using frontend::WindowedList;
 
 namespace frontend {} // namespace frontend

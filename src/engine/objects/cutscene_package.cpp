@@ -201,7 +201,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             float start;
             if (params->fetch_float(kStartTime, &start, 0)) {
                 CinematicTable* data = content_;
-                float seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
+                auto seconds = static_cast<float>(start * static_cast<double>(0.0010000000474974513f));
                 audio::pause_music(1);
                 data->unknown3474_ = 1;
                 data->clock_ = seconds;
@@ -407,7 +407,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     texture_params.flag9 = 0;
     texture_params.is_model_ = is_model;
     bool load = static_cast<int>(entry->size) >= 0x96;
-    if (const uint8_t* colours = static_cast<const uint8_t*>(bundle_ptr_->find_asset(entry->name, kTypeColours, 0))) {
+    if (const auto* colours = static_cast<const uint8_t*>(bundle_ptr_->find_asset(entry->name, kTypeColours, 0))) {
         // the skater's colours from its appearance (part A or B, else the other)
         auto* part1 = static_cast<script::Struct*>(static_cast<gfx::ModelLook*>(unknown34a8_)->get_part(kPartA));
         if (!part1)

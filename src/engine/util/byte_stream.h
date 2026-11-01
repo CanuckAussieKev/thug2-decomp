@@ -72,7 +72,7 @@ public:
     float f32()
     {
         uint32_t bits = u32();
-        float value = std::bit_cast<float>(bits);
+        auto value = std::bit_cast<float>(bits);
         return value;
     }
 
@@ -201,7 +201,7 @@ public:
     bool i32(int32_t value) { return u32(static_cast<uint32_t>(value)); }
     bool f32(float value)
     {
-        uint32_t bits = std::bit_cast<uint32_t>(value);
+        auto bits = std::bit_cast<uint32_t>(value);
         return u32(bits);
     }
     bool bytes(const void* data, size_t count)

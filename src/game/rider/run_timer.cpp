@@ -72,7 +72,7 @@ void RiderRunClock::publish_method_table()
 }
 
 // 0x00518260 (0x005182B0 the deleting one)
-RiderRunClock::~RiderRunClock() {}
+RiderRunClock::~RiderRunClock() = default;
 
 // 0x005182E0
 void RiderRunClock::seal() { walk_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kWalk)); }

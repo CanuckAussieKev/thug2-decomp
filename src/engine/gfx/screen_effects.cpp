@@ -20,9 +20,9 @@ constexpr uint32_t kDofColourA = 0x0F3BF443, kDofColourB = 0xFC5C7D61;
 // An [r g b] array as RGBA bytes, alpha 0 (each element's low byte).
 uint32_t array_colour(script::Array* array)
 {
-    uint8_t r = static_cast<uint8_t>(array->fetch_part(0));
-    uint8_t g = static_cast<uint8_t>(array->fetch_part(1));
-    uint8_t b = static_cast<uint8_t>(array->fetch_part(2));
+    auto r = static_cast<uint8_t>(array->fetch_part(0));
+    auto g = static_cast<uint8_t>(array->fetch_part(1));
+    auto b = static_cast<uint8_t>(array->fetch_part(2));
     return r | (g << 8) | (b << 16);
 }
 

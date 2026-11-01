@@ -174,7 +174,3 @@ maths::Vec4* CopiedPiece::measure_span(maths::Vec4* out)
 
 } // namespace park_editing
 
-using park_editing::CellBox;
-using park_editing::CopiedPiece;
-using park_editing::ParkTile;
-using park_editing::TileTemplate;

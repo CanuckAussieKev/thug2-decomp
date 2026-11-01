@@ -122,7 +122,7 @@ double ModelSpin::bearing()
         return 0.0;
     int elapsed = flag_bits_ & kModelSpinRealTime ? static_cast<int>(frame_clock::get_time() - outset_)
                                                   : frame_clock::game_clock_time_since(static_cast<int>(outset_));
-    double t = static_cast<double>(elapsed);
+    auto t = static_cast<double>(elapsed);
     if (elapsed < 0)
         t += kTwoTo32; // (as unsigned)
     if (t > period_) { // (a NaN period never ends)
@@ -334,7 +334,7 @@ void MeshInstanceModule::rotate_display(float duration, float start, float end, 
 {
     float period = duration * kFramesToMs;
     pivot_ = {0.0f, 30.0f, 0.0f, 1.0f};
-    uint32_t now = static_cast<uint32_t>(frame_clock::game_clock_time());
+    auto now = static_cast<uint32_t>(frame_clock::game_clock_time());
     uint8_t axes = 0;
     bool flags[3] = {x, y, z};
     for (int axis = 0; axis < 3; ++axis) {
@@ -374,7 +374,7 @@ void MeshInstanceModule::cancel_rotate_display()
             spin.flag_bits_ &= ~(kModelSpinOn | kModelSpinHold);
         axis.active_ = false;
     }
-    uint8_t object = static_cast<uint8_t>(entity_->ident_);
+    auto object = static_cast<uint8_t>(entity_->ident_);
     send_to_server(entity_, online::kMsgCancelSpins, 1, &object);
 }
 

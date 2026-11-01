@@ -260,7 +260,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         if (player && is_own_player(player)) {
             net::NetMessageInfo message;
             net::Guest* app = client_app(manager, player_skater_index(player));
-            uint8_t object = static_cast<uint8_t>(entity_->ident_);
+            auto object = static_cast<uint8_t>(entity_->ident_);
             message.content_ = &object;
             message.byte_count_ = 1;
             message.ident_ = online::kMsgCancelSpins;
@@ -497,8 +497,8 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
         void* skeleton = skeleton_of(bone_rig_);
         maths::Mat4 matrix;
         get_draw_matrix(&matrix);
-        float volume = static_cast<float>(mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton),
-                                                                          reinterpret_cast<uint32_t>(&matrix), bone));
+        auto volume = static_cast<float>(mesh_instance_->get_bone_volume(reinterpret_cast<uint32_t>(skeleton),
+                                                                         reinterpret_cast<uint32_t>(&matrix), bone));
         script->args_->push_float(kBoneVolume, volume);
         break;
     }

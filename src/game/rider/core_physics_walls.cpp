@@ -155,7 +155,7 @@ bool SkaterPhysicsModule::vert_wallplant()
 // 0x00503B30
 void SkaterPhysicsModule::lean_push_off_wall()
 {
-    float speed = static_cast<float>(length_unrounded(entity_->vel_));
+    auto speed = static_cast<float>(length_unrounded(entity_->vel_));
     if (script::fetch_float(kMinLeanPushSpeed) < speed)
         return;
     // Held against a wall to the left or right: a feeler that far out, Skate_wall_lean_push_length after
@@ -171,31 +171,31 @@ void SkaterPhysicsModule::lean_push_off_wall()
     double held_time = held;
     if (held < 0)
         held_time += kUnsignedOffset; // (unsigned)
-    float seconds = static_cast<float>(held_time * kMilliseconds);
+    auto seconds = static_cast<float>(held_time * kMilliseconds);
     float push_time = script::fetch_float(kLeanPushTime);
     if (seconds > push_time)
         seconds = push_time;
     if (pad->right_side_.held_down_)
         seconds = -seconds;
     double length = script::fetch_float(kLeanPushLength);
-    float reach = static_cast<float>(length * (static_cast<double>(seconds) / push_time));
+    auto reach = static_cast<float>(length * (static_cast<double>(seconds) / push_time));
     double height = script::fetch_float(kLeanPushHeight);
     objects::GameEntity* object = object_of(this);
     const maths::Vec4& up = object->basis_frame_.row[1];
     const maths::Vec4& position = entity_->at_point_;
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
-    float hx = static_cast<float>(height * up.x), hy = static_cast<float>(height * up.y),
-          hz = static_cast<float>(height * up.z);
+    auto hx = static_cast<float>(height * up.x), hy = static_cast<float>(height * up.y),
+         hz = static_cast<float>(height * up.z);
     double hw = height * up.w;
     start.z = hz + position.z;
     start.w = static_cast<float>(hw + position.w);
     start.x = hx + position.x;
     start.y = hy + position.y;
     const maths::Vec4& side = entity_->basis_frame_.row[0];
-    float ry = static_cast<float>(static_cast<double>(reach) * side.y),
-          rz = static_cast<float>(static_cast<double>(reach) * side.z),
-          rw = static_cast<float>(static_cast<double>(reach) * side.w);
+    auto ry = static_cast<float>(static_cast<double>(reach) * side.y),
+         rz = static_cast<float>(static_cast<double>(reach) * side.z),
+         rw = static_cast<float>(static_cast<double>(reach) * side.w);
     end.z = rz + start.z;
     end.w = rw + start.w;
     end.x = static_cast<float>(static_cast<double>(reach) * side.x + start.x);
@@ -234,7 +234,7 @@ bool SkaterPhysicsModule::keep_off_ceiling()
     object = object_of(this);
     const maths::Vec4& up = object->basis_frame_.row[1];
     double x = reach * up.x, y = reach * up.y;
-    float z = static_cast<float>(reach * up.z), w = static_cast<float>(reach * up.w);
+    auto z = static_cast<float>(reach * up.z), w = static_cast<float>(reach * up.w);
     maths::Vec4& start = probe_start_;
     maths::Vec4& end = probe_end_;
     start = object->at_point_;
@@ -332,8 +332,8 @@ void SkaterPhysicsModule::check_wall_ahead()
     start.y = lift.y + last.y;
     double length = tuning_float_lookup(kForwardLength, object);
     const maths::Vec4& now = entity_->at_point_;
-    float ax = static_cast<float>(move.x * length), ay = static_cast<float>(move.y * length),
-          az = static_cast<float>(move.z * length);
+    auto ax = static_cast<float>(move.x * length), ay = static_cast<float>(move.y * length),
+         az = static_cast<float>(move.z * length);
     double aw = length * move.w;
     double x = static_cast<double>(lift.x) + now.x; // (left unrounded)
     float y = lift.y + now.y, z = lift.z + now.z, w = lift.w + now.w;
@@ -394,7 +394,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     double off = std::fabs(angle);
     if (off > dont_slow) {
         maths::Vec4& velocity = entity_->vel_;
-        float speed = static_cast<float>(length_unrounded(velocity));
+        auto speed = static_cast<float>(length_unrounded(velocity));
         double keep = 1.0f - (off - dont_slow) / (kHalfPi - dont_slow);
         velocity.x = static_cast<float>(keep * velocity.x);
         velocity.y = static_cast<float>(keep * velocity.y);
@@ -406,9 +406,9 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
             skater_object(this)->post_own_event(same ? kFlailRight : kFlailLeft, nullptr);
             if (!on_vehicle_) {
                 // (The original passes the surface byte in a word whose upper bytes are the angle's.)
-                uint32_t angle_bits = std::bit_cast<uint32_t>(angle);
+                auto angle_bits = std::bit_cast<uint32_t>(angle);
                 uint32_t surface = (angle_bits & 0xFFFFFF00u) | feeler_.hit_.terrain;
-                float impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
+                auto impact = static_cast<float>(speed / stat_value(object_of(this), kMaxMaxSpeedStat));
                 static_cast<objects::RiderSfxPlayer*>(sound_)->play_bonk(impact, static_cast<int>(surface));
             } else {
                 script::launch_script(kVehicleLandSound, nullptr, skater_object(this), false, nullptr);
@@ -435,7 +435,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     // Then a feeler from there (twice the lift up) along the velocity, as far as the skater moved plus
     // Skater_First_Forward_Collision_Length.
     object = object_of(this);
-    float moved =
+    auto moved =
         static_cast<float>(std::sqrt(static_cast<double>(move.x) * move.x + static_cast<double>(move.z) * move.z +
                                      static_cast<double>(move.y) * move.y));
     maths::Vec4 heading = object->vel_;
@@ -453,8 +453,8 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
     start.w = lift.w + start.w;
     double length = tuning_float_lookup(kForwardLength, object);
     const maths::Vec4& now = entity_->at_point_;
-    float ax = static_cast<float>(heading.x * length), ay = static_cast<float>(heading.y * length),
-          az = static_cast<float>(heading.z * length);
+    auto ax = static_cast<float>(heading.x * length), ay = static_cast<float>(heading.y * length),
+         az = static_cast<float>(heading.z * length);
     double aw = length * heading.w;
     double bx = static_cast<double>(lift.x) + now.x, by = static_cast<double>(lift.y) + now.y;
     float bz = lift.z + now.z, bw = lift.w + now.w;
@@ -469,7 +469,7 @@ void SkaterPhysicsModule::bounce_off_wall_ahead(const maths::Vec4* normal)
         return;
     // Into a corner: turned back the other way, half as fast; fast enough, a flail.
     double back = static_cast<double>(kPi) - turn;
-    float back_angle = static_cast<float>(back);
+    auto back_angle = static_cast<float>(back);
     turn_velocity(entity_->vel_, back);
     entity_->basis_frame_.yaw_locally(back_angle);
     display_matrix_ = entity_->basis_frame_;

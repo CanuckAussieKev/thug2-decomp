@@ -214,12 +214,12 @@ void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t cent
     // The middle of its cells from the copy's centre (in the world's units), turned by `angle`.
     const int dx = pos_x_ - centre_x;
     const int dz = depth_cell_ - centre_z;
-    const float x = static_cast<float>(((w_ - 1) * 0.5 + dx) * kGridPitch);
+    const auto x = static_cast<float>(((w_ - 1) * 0.5 + dx) * kGridPitch);
     const double z = ((l_ - 1) * 0.5 + dz) * kGridStepAlong;
     const double radians = static_cast<double>(angle) * kRadiansPerDegree;
-    const float sine = static_cast<float>(std::sin(radians));
+    const auto sine = static_cast<float>(std::sin(radians));
     const double cosine = std::cos(radians);
-    const float turned_x = static_cast<float>(z * sine + x * cosine);
+    const auto turned_x = static_cast<float>(z * sine + x * cosine);
     const double turned_z = z * cosine - static_cast<double>(x) * sine;
     // (The original adds an offset whose w it never sets - stack garbage - to the position's: the position's w kept.)
     maths::Vec4 at;
@@ -256,8 +256,8 @@ Clipboard::Clipboard()
 // 0x0058BE30
 int Clipboard::fetch_tallness(BuildPointer* cursor)
 {
-    const uint8_t centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
-    const uint8_t centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
+    const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
+    const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     int highest = kNoHeight;
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
         const int height = entry->fetch_tallness(centre_x, centre_z, cursor);
@@ -270,8 +270,8 @@ int Clipboard::fetch_tallness(BuildPointer* cursor)
 // 0x0058BEB0
 void Clipboard::glow_overlapping_pieces(BuildPointer* cursor, int on)
 {
-    const uint8_t centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
-    const uint8_t centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
+    const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
+    const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_)
         entry->glow_overlapping_pieces(centre_x, centre_z, cursor, on);
 }
@@ -323,8 +323,8 @@ void Clipboard::fetch_extent(BuildPointer* cursor, CellBox* area)
 maths::Vec4* Clipboard::get_centre(maths::Vec4* centre)
 {
     // The cell in the middle of the copy (one high, at the copy's floor), and half its size on.
-    const uint8_t centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
-    const uint8_t centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
+    const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
+    const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     CellBox cell = CellBox::get_make(0, 0, 0, 0, 0, 0);
     cell.y = edit_span_.y;
     cell.w = 1;
@@ -346,8 +346,8 @@ maths::Vec4* Clipboard::get_centre(maths::Vec4* centre)
 // 0x0058C130
 void Clipboard::preview_pieces(maths::Vec4 position, float angle, int height)
 {
-    const uint8_t centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
-    const uint8_t centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
+    const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
+    const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_)
         entry->show_preview(centre_x, height, centre_z, position, angle);
     maths::Vec4 centre;
@@ -373,7 +373,7 @@ void Clipboard::free_all_piece_groups()
 bool Clipboard::add_row(PieceGroup* meta, int dy)
 {
     const CellBox area = meta->cell_footprint_;
-    const int8_t y = static_cast<int8_t>(area.y + dy);
+    const auto y = static_cast<int8_t>(area.y + dy);
     PieceGroup* source = ParkLayout::singleton()->fetch_meta_template(meta->name_key_, nullptr);
     // (Already in it: done.)
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
@@ -503,8 +503,8 @@ bool Clipboard::show_at(BuildPointer* cursor)
         ParkBuilderMode::get_release();
         return false;
     }
-    const uint8_t centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
-    const uint8_t centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
+    const auto centre_x = static_cast<uint8_t>((lo_cell_x_ + hi_cell_x_) / 2);
+    const auto centre_z = static_cast<uint8_t>((lo_cell_z_ + hi_cell_z_) / 2);
     for (ClipboardEntry* entry = metas_; entry; entry = entry->following_) {
         if (!entry->can_place(centre_x, centre_z, cursor)) {
             ParkBuilderMode::get_release();

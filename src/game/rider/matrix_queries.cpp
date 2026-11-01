@@ -61,7 +61,7 @@ RiderFrameLookups::RiderFrameLookups()
 }
 
 // 0x00513FD0 (0x00513FE0 the deleting one)
-RiderFrameLookups::~RiderFrameLookups() {}
+RiderFrameLookups::~RiderFrameLookups() = default;
 
 // 0x00514010
 void RiderFrameLookups::seal()
@@ -81,7 +81,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
     switch (name) {
     case kGetHeading: {
         const maths::Vec4& facing = entity_->basis_frame_.row[2];
-        float heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
+        auto heading = static_cast<float>(static_cast<double>(maths::fast_a_cos(facing.x)) * kDegreesPerRadian);
         if (facing.z < 0.0f)
             heading = kFullCircle - heading;
         script->args_->push_float(kHeading, heading);
@@ -98,7 +98,7 @@ int RiderFrameLookups::invoke_method_by_name(uint32_t name, script::Struct* para
         const maths::Vec4& facing = entity_->basis_frame_.row[2];
         maths::Vec4 flat = facing;
         flat.y = 0.0f;
-        float slope = static_cast<float>(maths::read_turn_angle(facing, flat));
+        auto slope = static_cast<float>(maths::read_turn_angle(facing, flat));
         if (entity_->basis_frame_.row[2].y < 0.0f)
             slope = -slope;
         script->args_->push_float(kSlope, slope);

@@ -65,7 +65,7 @@ RiderTurning::RiderTurning()
 }
 
 // 0x00517CC0 (0x00517CF0 the deleting one)
-RiderTurning::~RiderTurning() {}
+RiderTurning::~RiderTurning() = default;
 
 // 0x00517CD0
 void RiderTurning::configure_from_data(script::Struct* /*params*/)
@@ -88,8 +88,8 @@ void RiderTurning::tick_frame()
         if (!turn.active)
             continue;
         double exact = frame_clock::get_slomo_frame_seconds() * turn.rate;
-        float step = static_cast<float>(exact);
-        float turned = static_cast<float>(std::fabs(exact) + turn.turned);
+        auto step = static_cast<float>(exact);
+        auto turned = static_cast<float>(std::fabs(exact) + turn.turned);
         turn.turned = turned;
         if (!(turned < turn.remaining)) {
             // The last step: cut so the turn ends exactly.

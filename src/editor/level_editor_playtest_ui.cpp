@@ -16,8 +16,8 @@ namespace {
 
 ImVec4 get_colour(uint32_t argb)
 {
-    return ImVec4(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f, (argb & 0xFF) / 255.0f,
-                  ((argb >> 24) & 0xFF) / 255.0f);
+    return {((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f, (argb & 0xFF) / 255.0f,
+            ((argb >> 24) & 0xFF) / 255.0f};
 }
 
 void get_tip(const char* text)

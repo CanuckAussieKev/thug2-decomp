@@ -125,7 +125,7 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
         uint32_t colour;
     };
     auto* strip = reinterpret_cast<Vertex*>(g_query_rect_strip);
-    float depth = static_cast<float>(static_cast<double>(z));
+    auto depth = static_cast<float>(static_cast<double>(z));
     strip[0] = {x0, y0, depth, 1.0f, 0xFFFFFFFF};
     strip[1] = {x0, y1, depth, 1.0f, 0xFFFFFFFF};
     strip[2] = {x1, y0, depth, 1.0f, 0xFFFFFFFF};

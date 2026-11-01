@@ -735,7 +735,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         goal_params->put_int(kScore, static_cast<int>(brief.target_score));
         goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
-        uint32_t script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
+        auto script = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(skate));
         uint8_t variant = brief.variant;
         if (!variant)
             type->read_hash_value("goal_script", &script, 1);
@@ -784,7 +784,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
     for (uint32_t i = 0; i < 8; ++i) {
         if (!(objects & (1u << i)))
             continue;
-        uint16_t time = static_cast<uint16_t>(stream.read_bits(16));
+        auto time = static_cast<uint16_t>(stream.read_bits(16));
         uint32_t fields = stream.read_bits(9);
         int16_t pos[3] = {};
         float angles[3] = {};

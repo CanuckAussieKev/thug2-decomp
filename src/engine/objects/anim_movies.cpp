@@ -291,8 +291,8 @@ void CameraAnimMovie::tick_frame()
 // 0x00587A50
 void CameraAnimMovie::place_camera()
 {
-    float* pos = reinterpret_cast<float*>(viewer_->fetch_location());
-    float* m = reinterpret_cast<float*>(viewer_->fetch_mat());
+    auto* pos = reinterpret_cast<float*>(viewer_->fetch_location());
+    auto* m = reinterpret_cast<float*>(viewer_->fetch_mat());
     // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
     for (const auto& handler : modules::g_front_end_instance->pad_listeners_) {
         if (handler->control_data_->makes_ & 0x40)
@@ -366,7 +366,7 @@ void CameraAnimMovie::place_camera()
         double x = static_cast<double>(pos[0]) - goal_shift_[0];
         double y = static_cast<double>(pos[1]) - goal_shift_[1];
         double z_exact = static_cast<double>(pos[2]) - goal_shift_[2];
-        float z = static_cast<float>(z_exact);
+        auto z = static_cast<float>(z_exact);
         double length = std::sqrt(z_exact * z + y * y + x * x);
         if (length > g_float_zero) {
             double inverse = g_anim_movies_one / length;

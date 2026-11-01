@@ -203,18 +203,18 @@ std::vector<std::string> readout_lines(const Readout& r)
     std::vector<std::string> lines;
     char text[96];
     std::snprintf(text, sizeof(text), "size %.0f x %.0f x %.0f", r.size.x, r.size.y, r.size.z);
-    lines.push_back(text);
+    lines.emplace_back(text);
     if (r.moved >= 0.5f) {
         std::snprintf(text, sizeof(text), "moved %.0f", r.moved);
-        lines.push_back(text);
+        lines.emplace_back(text);
     }
     if (r.have_ground_) {
         std::snprintf(text, sizeof(text), "above ground %.0f", r.above);
-        lines.push_back(text);
+        lines.emplace_back(text);
     }
     if (r.have_rail_) {
         std::snprintf(text, sizeof(text), "%s %.0f", r.ledge ? "ledge" : "rail", r.rail);
-        lines.push_back(text);
+        lines.emplace_back(text);
     }
     return lines;
 }
@@ -837,7 +837,7 @@ void sector_triangles(uint32_t checksum, std::vector<V3>* out)
         if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
             continue;
         auto at = [&](uint16_t k) {
-            const float* f = reinterpret_cast<const float*>(vertices->data + static_cast<size_t>(k) * mesh->stride);
+            const auto* f = reinterpret_cast<const float*>(vertices->data + static_cast<size_t>(k) * mesh->stride);
             return V3{f[0], f[1], f[2]};
         };
         const uint16_t* index = indices->indices;

@@ -150,11 +150,11 @@ void DrivableModule::step_vehicle_speeds()
 maths::Vec4* DrivableModule::get_point_velocity(maths::Vec4* out, const maths::Vec4* offset)
 {
     // The angular velocity across the offset, plus the velocity.
-    float x =
+    auto x =
         static_cast<float>(static_cast<double>(offset->z) * rotvel_.y - static_cast<double>(offset->y) * rotvel_.z);
-    float y =
+    auto y =
         static_cast<float>(static_cast<double>(rotvel_.z) * offset->x - static_cast<double>(rotvel_.x) * offset->z);
-    float z =
+    auto z =
         static_cast<float>(static_cast<double>(rotvel_.x) * offset->y - static_cast<double>(rotvel_.y) * offset->x);
     float w = vel_.w;
     out->x = static_cast<float>(static_cast<double>(x) + vel_.x);
@@ -175,8 +175,8 @@ void DrivableModule::add_force_at_point(const maths::Vec4* force, const maths::V
     double rx = static_cast<double>(point->x) - com_offset_.x;
     double ry = static_cast<double>(point->y) - com_offset_.y;
     double rz = static_cast<double>(point->z) - com_offset_.z;
-    float tx = static_cast<float>(ry * force->z - rz * force->y);
-    float ty = static_cast<float>(rz * force->x - rx * force->z);
+    auto tx = static_cast<float>(ry * force->z - rz * force->y);
+    auto ty = static_cast<float>(rz * force->x - rx * force->z);
     double tz = rx * force->y - ry * force->x;
     twist_force_.x = static_cast<float>(static_cast<double>(tx) + twist_force_.x);
     twist_force_.y = static_cast<float>(static_cast<double>(ty) + twist_force_.y);
@@ -194,8 +194,7 @@ void DrivableModule::add_force_at_offset(const maths::Vec4* force, const maths::
     // The torque: x and y unrounded, z rounded.
     double tx = static_cast<double>(offset->y) * force->z - static_cast<double>(force->y) * offset->z;
     double ty = static_cast<double>(offset->z) * force->x - static_cast<double>(force->z) * offset->x;
-    float tz =
-        static_cast<float>(static_cast<double>(force->y) * offset->x - static_cast<double>(offset->y) * force->x);
+    auto tz = static_cast<float>(static_cast<double>(force->y) * offset->x - static_cast<double>(offset->y) * force->x);
     twist_force_.x = static_cast<float>(tx + twist_force_.x);
     twist_force_.y = static_cast<float>(ty + twist_force_.y);
     twist_force_.z = static_cast<float>(static_cast<double>(tz) + twist_force_.z);
@@ -210,7 +209,7 @@ void DrivableModule::apply_impulse_at_offset(const maths::Vec4* impulse, const m
     linear_momentum_.w = static_cast<float>(static_cast<double>(impulse->w) + linear_momentum_.w);
     double tx = static_cast<double>(offset->y) * impulse->z - static_cast<double>(impulse->y) * offset->z;
     double ty = static_cast<double>(offset->z) * impulse->x - static_cast<double>(impulse->z) * offset->x;
-    float tz =
+    auto tz =
         static_cast<float>(static_cast<double>(impulse->y) * offset->x - static_cast<double>(offset->y) * impulse->x);
     rotmom_.x = static_cast<float>(tx + rotmom_.x);
     rotmom_.y = static_cast<float>(ty + rotmom_.y);
@@ -237,46 +236,46 @@ void DrivableModule::kick_randomly_along(const maths::Vec4* along)
 
     // The push: along the direction (0x3DB3FA83 * (1 + +-0.5)), sideways (0x39E99FEC * +-1.5), up
     // (0x738500FD * (1 + +-0.2)).
-    float forward_scale = static_cast<float>(maths::signed_spread(0.5f) + 1.0);
-    float forward = static_cast<float>(script::fetch_float(0x3DB3FA83) * static_cast<double>(forward_scale));
+    auto forward_scale = static_cast<float>(maths::signed_spread(0.5f) + 1.0);
+    auto forward = static_cast<float>(script::fetch_float(0x3DB3FA83) * static_cast<double>(forward_scale));
     float side_scale = script::fetch_float(0x39E99FEC);
     double side = static_cast<double>(maths::signed_spread(1.5f)) * side_scale;
     double side_x = sideways * side;
-    float side_y = static_cast<float>(side * 0.0);
-    float side_z = static_cast<float>(dx * side);
-    float side_w = static_cast<float>(side);
-    float push_x = static_cast<float>(static_cast<double>(dx) * forward + side_x);
-    float push_y =
+    auto side_y = static_cast<float>(side * 0.0);
+    auto side_z = static_cast<float>(dx * side);
+    auto side_w = static_cast<float>(side);
+    auto push_x = static_cast<float>(static_cast<double>(dx) * forward + side_x);
+    auto push_y =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dy) * forward)) + side_y);
-    float push_z =
+    auto push_z =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dz) * forward)) + side_z);
-    float push_w =
+    auto push_w =
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(dw) * forward)) + side_w);
-    float up_scale = static_cast<float>(maths::signed_spread(0.2f) + 1.0);
+    auto up_scale = static_cast<float>(maths::signed_spread(0.2f) + 1.0);
     push_y = static_cast<float>(static_cast<double>(push_y) +
                                 script::fetch_float(0x738500FD) * static_cast<double>(up_scale));
 
     // The spin: about the up axis (0x14DDB3EF * +-1.5) and about the sideways one (0x4088E6EC * (1 + +-0.8)).
     float yaw_scale = script::fetch_float(0x14DDB3EF);
-    float yaw = static_cast<float>(static_cast<double>(maths::signed_spread(1.5f)) * yaw_scale);
-    float roll_scale = static_cast<float>(maths::signed_spread(0.8f) + 1.0);
+    auto yaw = static_cast<float>(static_cast<double>(maths::signed_spread(1.5f)) * yaw_scale);
+    auto roll_scale = static_cast<float>(maths::signed_spread(0.8f) + 1.0);
     double roll = static_cast<double>(script::fetch_float(0x4088E6EC)) * roll_scale;
     double spin_x = sideways * roll;
-    float spin_y = static_cast<float>(roll * 0.0 + yaw);
-    float spin_z = static_cast<float>(dx * roll);
-    float spin_w = static_cast<float>(roll);
+    auto spin_y = static_cast<float>(roll * 0.0 + yaw);
+    auto spin_z = static_cast<float>(dx * roll);
+    auto spin_w = static_cast<float>(roll);
 
     // Into the momenta: the push times the mass, the spin times the first moment of inertia (for every axis).
     double mass = 1.0 / inv_mass_;
-    float mom_y = static_cast<float>(push_y * mass), mom_z = static_cast<float>(push_z * mass);
-    float mom_w = static_cast<float>(push_w * mass);
+    auto mom_y = static_cast<float>(push_y * mass), mom_z = static_cast<float>(push_z * mass);
+    auto mom_w = static_cast<float>(push_w * mass);
     linear_momentum_.x = static_cast<float>(push_x * mass + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
-    float moment = static_cast<float>(1.0 / inv_moments_[0]);
-    float turn_z = static_cast<float>(static_cast<double>(spin_z) * moment);
-    float rot_w = static_cast<float>(static_cast<double>(spin_w) * moment);
+    auto moment = static_cast<float>(1.0 / inv_moments_[0]);
+    auto turn_z = static_cast<float>(static_cast<double>(spin_z) * moment);
+    auto rot_w = static_cast<float>(static_cast<double>(spin_w) * moment);
     rotmom_.x = static_cast<float>(spin_x * moment + rotmom_.x);
     rotmom_.y = static_cast<float>(static_cast<double>(spin_y) * moment + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
@@ -310,15 +309,15 @@ bool DrivableModule::get_kick(script::Struct* params, script::Script*)
     linear = basis_frame_.rotate_vector(turned, linear);
     angular = basis_frame_.rotate_vector(turned, angular);
     double mass = 1.0 / inv_mass_;
-    float mom_y = static_cast<float>(linear.y * mass), mom_z = static_cast<float>(linear.z * mass);
-    float mom_w = static_cast<float>(linear.w * mass);
+    auto mom_y = static_cast<float>(linear.y * mass), mom_z = static_cast<float>(linear.z * mass);
+    auto mom_w = static_cast<float>(linear.w * mass);
     linear_momentum_.x = static_cast<float>(linear.x * mass + linear_momentum_.x);
     linear_momentum_.y = static_cast<float>(static_cast<double>(mom_y) + linear_momentum_.y);
     linear_momentum_.z = static_cast<float>(static_cast<double>(mom_z) + linear_momentum_.z);
     linear_momentum_.w = static_cast<float>(static_cast<double>(mom_w) + linear_momentum_.w);
     double moment = 1.0 / inv_moments_[0];
-    float spin_about_y = static_cast<float>(angular.y * moment), turn_z = static_cast<float>(angular.z * moment);
-    float rot_w = static_cast<float>(angular.w * moment);
+    auto spin_about_y = static_cast<float>(angular.y * moment), turn_z = static_cast<float>(angular.z * moment);
+    auto rot_w = static_cast<float>(angular.w * moment);
     rotmom_.x = static_cast<float>(angular.x * moment + rotmom_.x);
     rotmom_.y = static_cast<float>(static_cast<double>(spin_about_y) + rotmom_.y);
     rotmom_.z = static_cast<float>(static_cast<double>(turn_z) + rotmom_.z);
@@ -470,7 +469,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         debug_mode_ = 0;
     if (params->has_entry_named(0x93346B8C)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
-        float height = std::bit_cast<float>(reinterpret_cast<uint32_t>(params));
+        auto height = std::bit_cast<float>(reinterpret_cast<uint32_t>(params));
         params->fetch_float(0x93346B8C, &height, 0);
         balance_point_ = {0.0f, height, 0.0f, 1.0f};
     }
@@ -537,13 +536,13 @@ void DrivableModule::configure_from_data(script::Struct* params)
             double s0 = length_squared(o.x, o.y, o.z);
             double s1 = length_squared(static_cast<double>(o.x) + a.x, static_cast<double>(a.y) + o.y,
                                        static_cast<double>(a.z) + o.z);
-            float s2 = static_cast<float>(length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y,
-                                                         static_cast<double>(b.z) + o.z));
+            auto s2 = static_cast<float>(length_squared(static_cast<double>(o.x) + b.x, static_cast<double>(b.y) + o.y,
+                                                        static_cast<double>(b.z) + o.z));
             sum = static_cast<float>(((std::sqrt(s0) + sum) + std::sqrt(s1)) + std::sqrt(static_cast<double>(s2)));
             c.lengths[0] = static_cast<float>(std::sqrt(length_squared(a.y, a.z, a.x)));
             c.lengths[1] = static_cast<float>(std::sqrt(length_squared(b.y, b.z, b.x)));
         }
-        float distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
+        auto distance = static_cast<float>(static_cast<double>(sum) * kThird / count - kCameraBack);
         reinterpret_cast<Rider*>(local_skater())->set_42b_d60(distance);
     }
 
@@ -738,7 +737,7 @@ void DrivableModule::seal()
         sum_z += wheels_[i].offset.z;
     }
     double share = 1.0 / Unsigned(wheel_count_);
-    float centre_x = static_cast<float>(sum_x * share);
+    auto centre_x = static_cast<float>(sum_x * share);
     double centre_z = sum_z * share;
     auto recentre = [centre_x, centre_z, lowest](maths::Vec4& v) {
         v.x = static_cast<float>(static_cast<double>(v.x) - centre_x);
@@ -784,7 +783,7 @@ void DrivableModule::tick_frame()
         update_skater();
         return;
     }
-    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (kick_time_ > 0.0f)
         kick_time_ = static_cast<float>(static_cast<double>(kick_time_) - frame);
     if (!(gravity_time_ == 0.0f)) {
@@ -992,7 +991,7 @@ void DrivableModule::glide_to_node(script::Struct* node)
                       wheel.offset.y + wheel.rest_y_;
         height = (height + rest) - wheel.radius;
     }
-    float above = static_cast<float>(height * kQuarter);
+    auto above = static_cast<float>(height * kQuarter);
     // The ground under the node (from 24 above to 240 below).
     maths::Vec4 start{pos.x, static_cast<float>(static_cast<double>(pos.y) + kAbove), pos.z,
                       static_cast<float>(static_cast<double>(pos.w) + 1.0)};
@@ -1078,8 +1077,8 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
     // 144 along the camera's up, then 144 back along its at (12 feet each, scaled twice - as the original).
     const maths::Vec4& up = view.row[1];
     double up_x = static_cast<double>(up.x) * kFeet, up_y = static_cast<double>(up.y) * kFeet;
-    float up_z = static_cast<float>(static_cast<double>(up.z) * kFeet);
-    float up_w = static_cast<float>(static_cast<double>(up.w) * kFeet);
+    auto up_z = static_cast<float>(static_cast<double>(up.z) * kFeet);
+    auto up_w = static_cast<float>(static_cast<double>(up.w) * kFeet);
     at_point_.x = static_cast<float>(static_cast<double>(static_cast<float>(up_x * kFeet)) + at_point_.x);
     at_point_.y = static_cast<float>(up_y * kFeet + at_point_.y);
     at_point_.z = static_cast<float>(static_cast<double>(up_z) * kFeet + at_point_.z);
@@ -1087,8 +1086,8 @@ bool DrivableModule::place_before_camera(script::Struct*, script::Script*)
         static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(up_w) * kFeet)) + at_point_.w);
     const maths::Vec4& at = view.row[2];
     double at_x = static_cast<double>(at.x) * kFeet, at_y = static_cast<double>(at.y) * kFeet;
-    float at_z = static_cast<float>(static_cast<double>(at.z) * kFeet);
-    float at_w = static_cast<float>(static_cast<double>(at.w) * kFeet);
+    auto at_z = static_cast<float>(static_cast<double>(at.z) * kFeet);
+    auto at_w = static_cast<float>(static_cast<double>(at.w) * kFeet);
     at_point_.x = static_cast<float>(static_cast<double>(at_point_.x) - static_cast<float>(at_x * kFeet));
     at_point_.y = static_cast<float>(at_point_.y - at_y * kFeet);
     at_point_.z = static_cast<float>(at_point_.z - static_cast<double>(at_z) * kFeet);

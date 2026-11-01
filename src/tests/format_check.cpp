@@ -748,7 +748,7 @@ void check_skate_messages()
             message->entries[i].id = static_cast<int8_t>(i * 3 + 1);
             message->entries[i].score = i == 1 ? -5 : 100000 * (i + 1);
         }
-        size_t reference_size = static_cast<size_t>((count + 2) * 5);
+        auto reference_size = static_cast<size_t>((count + 2) * 5);
         uint8_t bytes[sizeof(ReferenceScores)];
         util::ByteWriter writer(bytes, sizeof(bytes));
         skate_net::write_scores(writer, *message);

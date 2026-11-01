@@ -23,7 +23,7 @@ namespace {
 
 unsigned linked_time(unsigned* out)
 {
-    unsigned now = static_cast<unsigned>(std::time(nullptr));
+    auto now = static_cast<unsigned>(std::time(nullptr));
     if (out)
         *out = now;
     return now;
@@ -213,8 +213,8 @@ int game_stricmp(const char* a, const char* b)
 {
     auto lower = [](unsigned char c) { return static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c + 0x20 : c); };
     for (;;) {
-        unsigned char ca = static_cast<unsigned char>(*a++);
-        unsigned char cb = static_cast<unsigned char>(*b++);
+        auto ca = static_cast<unsigned char>(*a++);
+        auto cb = static_cast<unsigned char>(*b++);
         if (ca != cb) {
             ca = lower(ca);
             cb = lower(cb);

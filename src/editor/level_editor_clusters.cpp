@@ -385,7 +385,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         valid = valid && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
     ImGui::BeginDisabled(!valid);
     if (ImGui::Button("Set Cluster")) {
-        g_queue.push_back([pieces, typed] {
+        g_queue.emplace_back([pieces, typed] {
             fields::remember(typed);
             assign_value(pieces, true, checksums::hash_from_text(typed.c_str()));
         });
@@ -395,7 +395,7 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
         ImGui::SetTooltip("Add the selection to the named cluster");
     ImGui::SameLine();
     if (ImGui::Button("Separate Clusters"))
-        g_queue.push_back([pieces] { assign_value(pieces, true, 0); });
+        g_queue.emplace_back([pieces] { assign_value(pieces, true, 0); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Give each piece its own cluster");
     if (same && now[0].trick) {
@@ -406,12 +406,12 @@ void inspector_section(const std::vector<uint32_t>& sectors, ImFont* mono, ImFon
     }
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Clear Trick Object"))
-        g_queue.push_back([pieces] { assign_value(pieces, false, 0); });
+        g_queue.emplace_back([pieces] { assign_value(pieces, false, 0); });
     ImGui::PopStyleColor();
     ImGui::SameLine();
     ImGui::BeginDisabled(!edited);
     if (ImGui::Button("Home##clusters"))
-        g_queue.push_back([pieces] { get_home(pieces); });
+        g_queue.emplace_back([pieces] { get_home(pieces); });
     ImGui::EndDisabled();
 }
 

@@ -384,14 +384,14 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     double now = get_now();
     if (now < g_shot_until) {
         // (the last shot still playing: killed first, as the goals kill theirs)
-        script::Struct* kill = new (script::spawn_param_bag()) script::Struct;
+        auto* kill = new (script::spawn_param_bag()) script::Struct;
         kill->put_name_key(get_checksums("name"), shot);
         commands::cfunc_kill_skater_cam_anim(kill, script);
         kill->get_clear();
         script::delete_struct(kill);
     }
     // The game's own virtual_cam, as view_goals_menu.qb's play_single_view_goals_cam plays a goal's camera.
-    script::Struct* anim = new (script::spawn_param_bag()) script::Struct;
+    auto* anim = new (script::spawn_param_bag()) script::Struct;
     anim->put_name_key(get_checksums("name"), shot);
     anim->put_name_key(0u, get_checksums("virtual_cam"));
     anim->put_name_key(get_checksums("targetid"), get_checksums("world"));
@@ -619,19 +619,19 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::DragFloat("Pitch##camera", &pitch_degrees, 0.25f, -89.0f, 89.0f, "%.1f deg",
                          ImGuiSliderFlags_AlwaysClamp)) {
         float value = pitch_degrees;
-        g_queue.push_back([node, value] { set_pitch(node, value, false); });
+        g_queue.emplace_back([node, value] { set_pitch(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
-        g_queue.push_back([] { g_dragging = false; });
+        g_queue.emplace_back([] { g_dragging = false; });
     float distance = c->distance;
     ImGui::SetNextItemWidth(160.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::DragFloat("Target##camera", &distance, 5.0f, kMinDistance, kMaxDistance, "%.0f units",
                          ImGuiSliderFlags_AlwaysClamp)) {
         float value = distance;
-        g_queue.push_back([node, value] { place_at_range(node, value, false); });
+        g_queue.emplace_back([node, value] { place_at_range(node, value, false); });
     }
     if (ImGui::IsItemDeactivated())
-        g_queue.push_back([] { g_dragging = false; });
+        g_queue.emplace_back([] { g_dragging = false; });
     V3 target = target_of(c->pos, c->angles, c->distance), offset = position_offset(c->pos, c->angles, c->distance);
     ImGui::PushFont(small_font);
     ImGui::Text("targetOffset   (%.1f, %.1f, %.1f)", target.x, target.y, target.z);
@@ -641,16 +641,16 @@ void inspector_section(uint32_t node, ImFont* mono, ImFont* small_font)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Computed from position and heading");
     if (ImGui::Button("Look through##camera"))
-        g_queue.push_back([node] { get_preview(node); });
+        g_queue.emplace_back([node] { get_preview(node); });
     ImGui::SameLine();
     if (ImGui::Button("Put at the view##camera"))
-        g_queue.push_back([node] { aim_from_view(node); });
+        g_queue.emplace_back([node] { aim_from_view(node); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Move the camera to the current view");
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete##camera"))
-        g_queue.push_back([node] { drop_out(node); });
+        g_queue.emplace_back([node] { drop_out(node); });
     ImGui::PopStyleColor();
 }
 
@@ -664,7 +664,7 @@ void list_section(ImFont* mono, ImFont* small_font)
     ImGui::TextDisabled("Camera nodes, saved with the layout");
     ImGui::PopFont();
     if (ImGui::Button("New Camera from View"))
-        g_queue.push_back([] { create_from_view(); });
+        g_queue.emplace_back([] { create_from_view(); });
     std::vector<ViewCam> all = get_all();
     if (all.empty())
         ImGui::TextDisabled("None yet.");
@@ -675,7 +675,7 @@ void list_section(ImFont* mono, ImFont* small_font)
         ImGui::TextUnformatted(c.name.c_str());
         ImGui::SameLine();
         if (ImGui::SmallButton("View Through"))
-            g_queue.push_back([name] { get_preview(name); });
+            g_queue.emplace_back([name] { get_preview(name); });
         ImGui::PopID();
     }
     ImGui::PopFont();

@@ -258,8 +258,8 @@ void ParkLayout::reset_park()
 {
     destroy_concrete_metas(0);
     for (int z = 0; z < kFloorSize; ++z) {
-        for (int x = 0; x < kFloorSize; ++x) {
-            FloorCell& cell = floor_[x][z];
+        for (auto& column : floor_) {
+            FloorCell& cell = column[z];
             cell.level_y_ = 0;
             cell.heights_used_ = 0;
             cell.touched_ = false;

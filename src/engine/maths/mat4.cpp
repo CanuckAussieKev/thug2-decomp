@@ -199,15 +199,15 @@ Mat4& build_axis_angle_matrix(Mat4& m, const Vec4& axis, float angle)
         z = static_cast<float>(z * inverse);
     }
     const double t = 1.0 - std::cos(static_cast<double>(angle));
-    const float s = static_cast<float>(std::sin(static_cast<double>(angle)));
-    float zz = static_cast<float>(1.0 - static_cast<double>(z) * z);
-    float xx_t = static_cast<float>((1.0 - x * x) * t);
-    float yy_t = static_cast<float>((1.0 - y * y) * t);
-    float zz_t = static_cast<float>(zz * t);
-    float xy_t = static_cast<float>(static_cast<float>(y * x) * t);
-    float zy_t = static_cast<float>(z * y * t);
-    float zx_t = static_cast<float>(z * x * t);
-    float xs = static_cast<float>(x * s);
+    const auto s = static_cast<float>(std::sin(static_cast<double>(angle)));
+    auto zz = static_cast<float>(1.0 - static_cast<double>(z) * z);
+    auto xx_t = static_cast<float>((1.0 - x * x) * t);
+    auto yy_t = static_cast<float>((1.0 - y * y) * t);
+    auto zz_t = static_cast<float>(zz * t);
+    auto xy_t = static_cast<float>(static_cast<float>(y * x) * t);
+    auto zy_t = static_cast<float>(z * y * t);
+    auto zx_t = static_cast<float>(z * x * t);
+    auto xs = static_cast<float>(x * s);
     double ys = y * s, zs = static_cast<double>(z) * s;
     m.row[0] = {static_cast<float>(1.0 - xx_t), static_cast<float>(xy_t + zs), static_cast<float>(zx_t - ys), 0.0f};
     m.row[1] = {static_cast<float>(xy_t - zs), static_cast<float>(1.0 - yy_t),
@@ -317,10 +317,10 @@ float get_angle_in_plane(const Mat4& m, const Vec4& v, int ref_axis, int normal_
 void Mat4::get_rotation_axis_angle(Vec4& axis, float& angle) const
 {
     const double trace = ((static_cast<double>(row[1].y) + row[0].x) + row[2].z) - 1.0; // 2 cos(angle)
-    const float x = static_cast<float>(static_cast<double>(row[1].z) - row[2].y);
-    const float y = static_cast<float>(static_cast<double>(row[2].x) - row[0].z);
+    const auto x = static_cast<float>(static_cast<double>(row[1].z) - row[2].y);
+    const auto y = static_cast<float>(static_cast<double>(row[2].x) - row[0].z);
     const double z_difference = static_cast<double>(row[0].y) - row[1].x;
-    const float z = static_cast<float>(z_difference);
+    const auto z = static_cast<float>(z_difference);
     const double length = // 2 sin(angle)
         std::sqrt((z_difference * z + static_cast<double>(x) * x) + static_cast<double>(y) * y);
 
@@ -539,7 +539,7 @@ Mat4& Mat4::set_from_euler_angles(float x, float y, float z)
     // precision (their products rounded to 53 bits), the sums too until each element is stored; cos x * sin y stored
     // once and reused.
     float cx = std::cos(x), cy = std::cos(y), cz = std::cos(z), sz = std::sin(z);
-    float cxsy = static_cast<float>(std::sin(static_cast<double>(y)) * cx);
+    auto cxsy = static_cast<float>(std::sin(static_cast<double>(y)) * cx);
     double sysx = std::sin(static_cast<double>(y)) * std::sin(static_cast<double>(x));
     auto f = [](double v) { return static_cast<float>(v); };
     row[0] = {f(static_cast<double>(cz) * cy), f(-(static_cast<double>(sz) * cy)), -std::sin(y), 0.0f};
@@ -589,7 +589,7 @@ Mat4& Mat4::get_adjugate(const Mat4& source)
 {
     for (int r = 0; r < 4; ++r) {
         for (int c = 0; c < 4; ++c) {
-            float cofactor = static_cast<float>(minor(source, c, r));
+            auto cofactor = static_cast<float>(minor(source, c, r));
             (&row[r].x)[c] = ((r + c) & 1) ? -cofactor : cofactor;
         }
     }
@@ -637,8 +637,8 @@ Vec4& Mat4::get_euler_angles(Vec4& out) const
     float y = maths::neg_asin_cos(sin_y, 0.005f, &above, &inverse, &neg_inverse);
     float x, z;
     if (above) {
-        float inv = static_cast<float>(inverse);
-        float neg_inv = static_cast<float>(neg_inverse);
+        auto inv = static_cast<float>(inverse);
+        auto neg_inv = static_cast<float>(neg_inverse);
         x = fast_atan2(neg_inv * row[1].z, inv * row[2].z);
         z = fast_atan2(neg_inv * row[0].y, inv * row[0].x);
     } else {

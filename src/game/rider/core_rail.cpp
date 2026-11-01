@@ -82,8 +82,8 @@ bool gentle_corner(maths::Vec4 a, maths::Vec4 b)
     b.y = 0.0f;
     a.make_unit();
     b.make_unit();
-    float turn = static_cast<float>((static_cast<double>(b.z) * a.z + static_cast<double>(b.y) * a.y) +
-                                    static_cast<double>(b.x) * a.x);
+    auto turn = static_cast<float>((static_cast<double>(b.z) * a.z + static_cast<double>(b.y) * a.y) +
+                                   static_cast<double>(b.x) * a.x);
     return !(std::cos(static_cast<double>(script::fetch_float(kCornerLeaveAngle)) * kDegrees) > turn);
 }
 
@@ -114,7 +114,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
     float angle = script::fetch_float(kCornerLeaveAngle);
     auto* node = rail_node_;
     int side = node->get_wall_side(&entity_->vel_);
-    float alignment = static_cast<float>(std::cos(static_cast<double>(angle) * kDegrees));
+    auto alignment = static_cast<float>(std::cos(static_cast<double>(angle) * kDegrees));
     maths::Vec4 point;
     objects::GrindPoint* found = nullptr;
     bool onto = rail_manager_->find_grind_rail(&start, &stop, &point, &found, rail_node_, alignment, side) && found &&
@@ -133,7 +133,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
         maths::Vec4 to_next = next_pos - entity_->at_point_;
         double toward = (static_cast<double>(to_next.x) * to_found.x + static_cast<double>(to_next.z) * to_found.z) +
                         static_cast<double>(to_next.y) * to_found.y;
-        float toward_rounded = static_cast<float>(toward);
+        auto toward_rounded = static_cast<float>(toward);
         if (!(toward < 0.0)) {
             // Not between its two nodes: never in the park editor; elsewhere only when the move reaches as far as
             // the segment is long - then onto its middle.
@@ -142,7 +142,7 @@ void SkaterPhysicsModule::transfer_or_leave_rail(const maths::Vec4* end)
                 maths::Vec4 b = grind_point_in_world(this, next);
                 maths::Vec4 segment = b - a;
                 maths::Vec4 move = stop - start;
-                float segment_length = static_cast<float>(length_of(segment));
+                auto segment_length = static_cast<float>(length_of(segment));
                 onto = !(length_of(move) < segment_length);
                 if (onto && toward_rounded >= 0.0f) {
                     maths::Vec4 c = grind_point_in_world(this, found);
@@ -227,9 +227,9 @@ void SkaterPhysicsModule::step_grind_move()
     maths::Vec4 to = grind_point_in_world(this, next);
     double dx = static_cast<double>(to.x) - from.x, dy = static_cast<double>(to.y) - from.y;
     double dz = static_cast<double>(to.z) - from.z, dw = static_cast<double>(to.w) - from.w;
-    float segment_length = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
+    auto segment_length = static_cast<float>(std::sqrt((dx * dx + dy * dy) + dz * dz));
     double inverse = 1.0 / segment_length;
-    float inverse_rounded = static_cast<float>(inverse);
+    auto inverse_rounded = static_cast<float>(inverse);
     maths::Vec4 along = {static_cast<float>(inverse * dx), static_cast<float>(inverse_rounded * dy),
                          static_cast<float>(inverse_rounded * dz), static_cast<float>(inverse_rounded * dw)};
 
@@ -485,7 +485,7 @@ void SkaterPhysicsModule::grind_along(objects::GrindPoint* start_node, objects::
     float ahead_w = move_direction.w * kFeelerAhead;
     start = old;
     end = entity_->at_point_;
-    float extend_x = static_cast<float>(ahead_x + move.x);
+    auto extend_x = static_cast<float>(ahead_x + move.x);
     double extend_y = ahead_y + move.y;
     double extend_z = static_cast<double>(ahead_z) + move.z;
     float extend_w = ahead_w + move.w;

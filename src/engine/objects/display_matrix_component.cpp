@@ -18,7 +18,7 @@ memory::owner<ObjectModule*> FaceHeadingModule::fabricate() { return new FaceHea
 FaceHeadingModule::FaceHeadingModule() { kind_tag_ = kType; }
 
 // 0x00431240 (0x00431250 the deleting one)
-FaceHeadingModule::~FaceHeadingModule() {}
+FaceHeadingModule::~FaceHeadingModule() = default;
 
 // 0x00431280
 void FaceHeadingModule::tick_frame() { entity_->display_matrix_ = entity_->basis_frame_; }

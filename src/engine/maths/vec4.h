@@ -105,7 +105,7 @@ struct Seg {
     Vec4 start;
     Vec4 end;
 
-    Seg() {} // (both ends left unset)
+    Seg() = default; // (both ends left unset)
     Seg(const Vec4& from, const Vec4& to);
 
     // Squared distance from `point` to the closest point on the segment (x, y, z only). If `offset` is given

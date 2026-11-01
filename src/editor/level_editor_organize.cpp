@@ -193,7 +193,7 @@ void set_label(State* state, uint32_t id, const std::string& text)
     if (it != state->labels.end())
         it->second = text;
     else
-        state->labels.push_back({id, text});
+        state->labels.emplace_back(id, text);
 }
 
 bool get_has(const std::vector<uint32_t>& list, uint32_t id)

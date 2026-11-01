@@ -176,7 +176,7 @@ int PickupItemHandler::invoke_method_by_name(uint32_t name, script::Struct* para
         // function's name and the params pointer.)
         int slot = static_cast<int>(name);
         uint32_t bone = 0;
-        uint32_t item_params = reinterpret_cast<uint32_t>(params);
+        auto item_params = reinterpret_cast<uint32_t>(params);
         params->fetch_int_value(kIndex, &slot, 1);
         params->read_hash_value(kBone, &bone, 0);
         params->read_hash_value(kParams, &item_params, 1);

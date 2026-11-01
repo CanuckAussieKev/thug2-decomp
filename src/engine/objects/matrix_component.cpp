@@ -26,7 +26,7 @@ MatrixComponent::MatrixComponent()
 }
 
 // 0x0041CA60 (0x0041CA70 the deleting one)
-MatrixComponent::~MatrixComponent() {}
+MatrixComponent::~MatrixComponent() = default;
 
 // 0x0041CAA0
 void MatrixComponent::tick_frame() { entity_->display_matrix_ = basis_frame_; }

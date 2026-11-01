@@ -452,7 +452,7 @@ void BlendChannel::fetch_pose(int index, void* pose, float* weight)
         }
     }
     double w = current_weight(timeline); // (null when not found: a crash, as the original)
-    float rounded = static_cast<float>(w);
+    auto rounded = static_cast<float>(w);
     if (!(w <= 0.0)) {
         skeleton_of(bone_rig_); // (read and not used)
         timeline->get_poses(pose);
@@ -668,7 +668,7 @@ void BlendChannel::set_speed(float speed, bool send, bool all, bool keep_ratio)
     if (keep_ratio) {
         float start, current, end;
         get_first(this)->get_times(&start, &current, &end);
-        float ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
+        auto ratio = static_cast<float>(speed / (static_cast<double>(end) - start));
         for (memory::ListNode* node = timelines_.next; !is_head(node) && node; node = node->next) {
             auto* timeline = reinterpret_cast<AnimTrack*>(node);
             timeline->get_times(&start, &current, &end);
@@ -864,7 +864,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         objects::get_channel_times(this, &ends, &current, &ends);
         float playing_length = *anim_length(lookup_key_ + playing);
         params->fetch_float(0x4B4A153A, &playing_length, 0); // (read and not used here)
-        float through = static_cast<float>(current / *anim_length(lookup_key_ + playing));
+        auto through = static_cast<float>(current / *anim_length(lookup_key_ + playing));
         if (through > 1.0f)
             fraction = 1.0;
         else if (through < 0.0f)
@@ -909,7 +909,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         Struct* controller = script::spawn_param_bag();
         if (controller)
             controller = new (controller) script::Struct;
-        uint32_t id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
+        auto id = reinterpret_cast<uint32_t>(script); // (its argument's place reused: the id when there is one)
         if (params->read_hash_value(0xF0CE9E0F, &id, 0))
             controller->put_name_key(kId, id);
         controller->put_name_key(0x7321A8D6, 0x659BF355); // Type PartialAnim
@@ -1027,7 +1027,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case 0x80FDBDF2: // whether it cycles
         return is_cycling() ? 1 : 0;
     case 0x9069F357: {                                      // AnimExists (the anim set's unnamed checksum)
-        uint32_t anim = reinterpret_cast<uint32_t>(params); // (its argument's place reused, as the original)
+        auto anim = reinterpret_cast<uint32_t>(params);     // (its argument's place reused, as the original)
         params->read_hash_value(0u, &anim, 0);
         return has_value(anim) ? 1 : 0;
     }
@@ -1116,8 +1116,8 @@ int BlendChannel::time_passed(Struct* params)
     float time = 0.0f;
     params->fetch_float(0u, &time, 0);
     time = time * kSecondsPerFrame;
-    float now = static_cast<float>(static_cast<double>(current) - start);
-    float before = static_cast<float>(static_cast<double>(prev_timeline_pos_) - start);
+    auto now = static_cast<float>(static_cast<double>(current) - start);
+    auto before = static_cast<float>(static_cast<double>(prev_timeline_pos_) - start);
     if (now == time)
         return 1;
     if (before < time && time < now)
@@ -1134,7 +1134,7 @@ int BlendChannel::time_passed(Struct* params)
 // answer (as true / false), or false without such a timeline.
 int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
 {
-    uint32_t anim = reinterpret_cast<uint32_t>(params); // (the argument's place, as above)
+    auto anim = reinterpret_cast<uint32_t>(params); // (the argument's place, as above)
     params->read_hash_value(kAnim, &anim, 0);
     if (!has_value(anim)) {
         anim = kDefault;

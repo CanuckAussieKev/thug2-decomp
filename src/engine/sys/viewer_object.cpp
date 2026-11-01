@@ -370,7 +370,7 @@ void PreviewEntity::spin_wheels()
         bones[i] = *reinterpret_cast<const maths::Mat4*>(hierarchy + 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
         maths::Mat4 spin;
-        const float radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
+        const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
         multiply_matrix(&bones[wheel], &maths::make_pitch_matrix(spin, radians), &bones[wheel]);
     }
     for (int bone = 1; bone < 6; ++bone)

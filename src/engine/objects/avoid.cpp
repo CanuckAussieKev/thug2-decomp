@@ -156,7 +156,7 @@ void ObstacleDodgeModule::publish_method_table()
 ObstacleDodgeModule::ObstacleDodgeModule() { kind_tag_ = kAvoid; }
 
 // 0x004E3330 (0x004E36C0 the deleting one)
-ObstacleDodgeModule::~ObstacleDodgeModule() {}
+ObstacleDodgeModule::~ObstacleDodgeModule() = default;
 
 // 0x004E34C0
 float ObstacleDodgeModule::side_away_from_skater()
@@ -166,18 +166,18 @@ float ObstacleDodgeModule::side_away_from_skater()
     // with (0, 1, 0) - the zero terms multiplied out.
     const maths::Vec4& at = skater->basis_frame_.row[2];
     double x = at.x, z = at.z, y = 0.0;
-    float length = static_cast<float>(std::sqrt(z * z + x * x));
+    auto length = static_cast<float>(std::sqrt(z * z + x * x));
     if (length > 0.0f) {
         double exact_inverse = 1.0 / length; // (x by the unrounded inverse, z and y by the rounded one)
-        float inverse = static_cast<float>(exact_inverse);
+        auto inverse = static_cast<float>(exact_inverse);
         x *= exact_inverse;
         y = static_cast<double>(inverse) * 0.0f;
         z *= inverse;
     }
     double zero_y = y * 0.0f;
-    float side_x = static_cast<float>(zero_y - z);
-    float side_y = static_cast<float>(z * 0.0f - x * 0.0f);
-    float side_z = static_cast<float>(x - zero_y);
+    auto side_x = static_cast<float>(zero_y - z);
+    auto side_y = static_cast<float>(z * 0.0f - x * 0.0f);
+    auto side_z = static_cast<float>(x - zero_y);
     maths::Vec4 side = {side_x, side_y, side_z, 0.0f};
     // Which of the object's two sides is further from the skater (the first one's x and y unrounded).
     const maths::Vec4& pos = entity_->at_point_;
@@ -185,7 +185,7 @@ float ObstacleDodgeModule::side_away_from_skater()
     float a_z = side_z + pos.z;
     float b_x = pos.x - side_x, b_y = pos.y - side_y, b_z = pos.z - side_z;
     const maths::Vec4& s = skater->at_point_;
-    float d1x = static_cast<float>(s.x - a_x);
+    auto d1x = static_cast<float>(s.x - a_x);
     double d1y = s.y - a_y;
     double d1z = static_cast<double>(s.z) - a_z;
     double d2x = static_cast<double>(s.x) - b_x, d2y = static_cast<double>(s.y) - b_y,
@@ -231,7 +231,7 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
 void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
 {
     // The checksum is read into the parameters' own argument slot: without one it's the pointer's value.
-    uint32_t anim = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
+    auto anim = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(params));
     switch (get_quarter(angle)) {
     case 0:
     case 4:
@@ -273,11 +273,11 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     float side = side_away_from_skater();
     bool found = try_jump(start, end, side, avoid_distance(side, params), max_distance);
     if (!found) {
-        float other = static_cast<float>(static_cast<double>(side) + 180.0f);
+        auto other = static_cast<float>(static_cast<double>(side) + 180.0f);
         found = try_jump(start, end, other, avoid_distance(other, params), max_distance);
     }
     if (!found) {
-        float back = static_cast<float>(static_cast<double>(side) - 90.0f);
+        auto back = static_cast<float>(static_cast<double>(side) - 90.0f);
         found = try_jump(start, end, back, avoid_distance(back, params), max_distance);
     }
     if (!found) {

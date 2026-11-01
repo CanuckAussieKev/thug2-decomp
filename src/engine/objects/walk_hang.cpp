@@ -306,11 +306,11 @@ maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths:
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
-    float dz = static_cast<float>(static_cast<double>(b->z) - a->z);
-    float dw = static_cast<float>(static_cast<double>(b->w) - a->w);
-    float sx = static_cast<float>(dx * t);
-    float sz = static_cast<float>(static_cast<double>(dz) * t);
-    float sw = static_cast<float>(static_cast<double>(dw) * t);
+    auto dz = static_cast<float>(static_cast<double>(b->z) - a->z);
+    auto dw = static_cast<float>(static_cast<double>(b->w) - a->w);
+    auto sx = static_cast<float>(dx * t);
+    auto sz = static_cast<float>(static_cast<double>(dz) * t);
+    auto sw = static_cast<float>(static_cast<double>(dw) * t);
     out->w = static_cast<float>(static_cast<double>(sw) + a->w);
     out->x = static_cast<float>(static_cast<double>(sx) + a->x);
     out->y = static_cast<float>(dy * t + a->y);
@@ -411,12 +411,12 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const maths::Ve
     const maths::Vec4& point = hang[0];
     const maths::Vec4& out = hang[1];
     // the critical point (the y left unrounded, as the original keeps it on the x87 stack), moved along the side
-    float cx = static_cast<float>(static_cast<double>(horiz) * out.x + point.x);
+    auto cx = static_cast<float>(static_cast<double>(horiz) * out.x + point.x);
     double cy = static_cast<double>(horiz) * out.y + point.y;
     float hz = horiz * out.z;
     float hw = horiz * out.w;
-    float cz = static_cast<float>(static_cast<double>(hz) + point.z);
-    float cw = static_cast<float>(static_cast<double>(hw) + point.w);
+    auto cz = static_cast<float>(static_cast<double>(hz) + point.z);
+    auto cw = static_cast<float>(static_cast<double>(hw) + point.w);
     maths::Seg& line = feeler->line_;
     line.start.w = cw + sw;
     line.start.x = cx + sx;
@@ -572,19 +572,19 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     // seven feelers round the ground point, half the push feeler's length out (an x87 sine and cosine each)
     render::ProbeRay probe;
     float push = get_param(kPushFeelerLength);
-    float half_push = static_cast<float>(static_cast<double>(push) * 0.5f);
+    auto half_push = static_cast<float>(static_cast<double>(push) * 0.5f);
     float height = get_param(kProbeElevation);
-    float no_rise = static_cast<float>(static_cast<double>(half_push) * 0.0f);
+    auto no_rise = static_cast<float>(static_cast<double>(half_push) * 0.0f);
     const maths::Vec4& facing = facing_;
     for (int i = 0; i < 7; ++i) {
         double angle = static_cast<double>(i) * 0.89759790897369385;
         double c = std::cos(angle);
         double s = std::sin(angle);
         probe.line_.start = {ground.x, static_cast<float>(static_cast<double>(ground.y) + height), ground.z, ground.w};
-        float dx = static_cast<float>(c * facing.x - s * facing.z);
+        auto dx = static_cast<float>(c * facing.x - s * facing.z);
         double dz = s * facing.x + c * facing.z;
-        float out_x = static_cast<float>(static_cast<double>(dx) * half_push);
-        float out_z = static_cast<float>(dz * half_push);
+        auto out_x = static_cast<float>(static_cast<double>(dx) * half_push);
+        auto out_z = static_cast<float>(dz * half_push);
         float rise = no_rise + ground.y;
         probe.line_.end = {out_x + ground.x, static_cast<float>(static_cast<double>(rise) + height), out_z + ground.z,
                            ground.w + half_push};
@@ -619,7 +619,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
     transition_start_offset_ = model_lift_;
     transition_display_offset_ = 0.0f;
     double back = -(static_cast<double>(get_param(kPullUpOffsetForward)) + 6.0f);
-    float back_f = static_cast<float>(back);
+    auto back_f = static_cast<float>(back);
     maths::Vec4& offset = critical_point_offset_;
     offset = {back_f * facing.x, back_f * facing.y, back_f * facing.z, static_cast<float>(back * facing.w)};
     offset.y = 1.0f;
@@ -721,7 +721,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
     double segment_length =
         std::sqrt(static_cast<double>(segment.z) * segment.z + static_cast<double>(segment.y) * segment.y +
                   static_cast<double>(segment.x) * segment.x);
-    float distance = static_cast<float>(segment_length * t);
+    auto distance = static_cast<float>(segment_length * t);
     float side_length = get_param(kHangMoveCollisionSideLength);
     if (static_cast<double>(side_length) + 1.0f > distance) {
         // near the segment's end: look along the next segment instead, if it doesn't turn too far
@@ -945,7 +945,7 @@ void objects::FootMovement::shimmy(float move)
     // along the rail by the move
     double length_squared = static_cast<double>(segment.x) * segment.x + static_cast<double>(segment.y) * segment.y +
                             static_cast<double>(segment.z) * segment.z;
-    float length_squared_f = static_cast<float>(length_squared);
+    auto length_squared_f = static_cast<float>(length_squared);
     double step = std::fabs(move) / std::sqrt(length_squared);
     if (!towards_end)
         step = -step;
@@ -966,7 +966,7 @@ void objects::FootMovement::shimmy(float move)
             float t = along;
             double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
             double over = static_cast<double>(along) - clamped;
-            float rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
+            auto rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
             maths::Vec4 reversed;
             const maths::Vec4* direction = &segment;
             if (!towards_end) {
@@ -1128,7 +1128,7 @@ void objects::FootMovement::update_hang()
     }
 
     // the shimmy's speed: the control's sideways part (within hang_vert_control_tolerance of straight sideways)
-    float sideways = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
+    auto sideways = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
     float tolerance = get_param(kHangVertControlTolerance);
     float wanted = 0.0f;
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) > std::fabs(sideways)) {
@@ -1216,7 +1216,7 @@ void objects::FootMovement::end_onto_ladder_top()
     double dx = static_cast<double>(other_pos->x) - node_pos->x;
     double dy = static_cast<double>(other_pos->y) - node_pos->y;
     double dz = static_cast<double>(other_pos->z) - node_pos->z;
-    float length = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+    auto length = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
     float up = get_param(kLadderTopOffsetUp);
     along_ = static_cast<float>((static_cast<double>(length) - up) / length);
     change_phase(3);
@@ -1473,7 +1473,7 @@ void objects::FootMovement::climb_ladder()
     double move_speed = std::cos(static_cast<double>(input->pad_primary_.polar_[1].angle)) * stick_deflection_ *
                         static_cast<double>(speed);
     speed_ = static_cast<float>(move_speed);
-    float move = static_cast<float>(move_speed * frame_length_);
+    auto move = static_cast<float>(move_speed * frame_length_);
     GrindPoint* node = hang_node_;
     GrindPoint* other = ladder_other_end(node);
     maths::Vec4 a, b;
@@ -1487,11 +1487,11 @@ void objects::FootMovement::climb_ladder()
     bool up = step > 0.0;
     float& along = along_;
     along = static_cast<float>(step + along);
-    float length_f = static_cast<float>(length);
+    auto length_f = static_cast<float>(length);
     // off the bottom or the top
     float bottom_up = get_param(kLadderBottomOffsetUp);
     double inverse = 1.0 / length_f;
-    float inverse_f = static_cast<float>(inverse);
+    auto inverse_f = static_cast<float>(inverse);
     if (inverse * bottom_up > along) {
         climb_off_bottom();
         return;
@@ -1536,7 +1536,7 @@ void objects::FootMovement::update_ladder()
     jump_unsteered_ = false;
     // the control within ladder_control_tolerance of up or down: climbing
     objects::PadInputModule* input = input_;
-    float upright = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
+    auto upright = static_cast<float>(1.5707963705062866 - std::fabs(input->pad_primary_.polar_[1].angle));
     float tolerance = get_param(kLadderControlTolerance);
     if (std::cos(static_cast<double>(tolerance) * 0.017453292384743690) < std::fabs(upright)) {
         climb_ladder();

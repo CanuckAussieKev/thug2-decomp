@@ -319,10 +319,10 @@ bool parse(const std::string& text, LevelTrails* trails)
     Run* run = nullptr;
     while (std::getline(in, line)) {
         trim(line);
-        if (line.rfind("gap ", 0) == 0) {
+        if (line.starts_with("gap ")) {
             if (line.size() > 4)
                 out.landed.insert(line.substr(4));
-        } else if (line.rfind("run ", 0) == 0) {
+        } else if (line.starts_with("run ")) {
             int number = 0, visible = 1;
             float seconds = 0.0f;
             if (sscanf_s(line.c_str() + 4, "%d %f %d", &number, &seconds, &visible) < 2 || number <= 0)
@@ -334,7 +334,7 @@ bool parse(const std::string& text, LevelTrails* trails)
             out.runs.push_back(r);
             out.next_number_ = std::max(out.next_number_, number + 1);
             run = &out.runs.back();
-        } else if (line.rfind("s ", 0) == 0 && run) {
+        } else if (line.starts_with("s ") && run) {
             std::istringstream fields(line.substr(2));
             Sample s;
             std::string motion;
@@ -343,7 +343,7 @@ bool parse(const std::string& text, LevelTrails* trails)
                 continue;
             s.jump = jump != 0;
             run->samples.push_back(s);
-        } else if (line.rfind("e ", 0) == 0 && run) {
+        } else if (line.starts_with("e ") && run) {
             std::istringstream fields(line.substr(2));
             Occurrence e;
             std::string kind, status;
@@ -700,7 +700,7 @@ void restart_step(modules::FrontEnd* front_end)
         return;
     uint32_t restart = g_restart;
     g_restart = 0;
-    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
+    auto* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(checksums::hash_from_text("node_name"), restart);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();

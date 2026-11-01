@@ -69,8 +69,8 @@ void TriMeshSource::write_stored_vertex(int index, const maths::Vec4* position)
 {
     if (compressed_) {
         double x = static_cast<double>(position->x) - lower_limit_.x;
-        float y = static_cast<float>(static_cast<double>(position->y) - lower_limit_.y);
-        float z = static_cast<float>(static_cast<double>(position->z) - lower_limit_.z);
+        auto y = static_cast<float>(static_cast<double>(position->y) - lower_limit_.y);
+        auto z = static_cast<float>(static_cast<double>(position->z) - lower_limit_.z);
         uint16_t* v = static_cast<uint16_t*>(vertices_) + 3 * index;
         v[0] = static_cast<uint16_t>(truncate(x * kSixteen));
         v[1] = static_cast<uint16_t>(truncate(static_cast<double>(y) * kSixteen));
@@ -105,13 +105,13 @@ maths::Vec4 TriMeshSource::get_triangle_normal(int face) const
     maths::Vec4 v0 = read_stored_vertex(face_vertex(face, 0));
     maths::Vec4 v1 = read_stored_vertex(face_vertex(face, 1));
     maths::Vec4 v2 = read_stored_vertex(face_vertex(face, 2));
-    float ax = static_cast<float>(static_cast<double>(v1.x) - v0.x);
-    float ay = static_cast<float>(static_cast<double>(v1.y) - v0.y);
-    float az = static_cast<float>(static_cast<double>(v1.z) - v0.z);
-    float bx = static_cast<float>(static_cast<double>(v2.x) - v0.x);
-    float by = static_cast<float>(static_cast<double>(v2.y) - v0.y);
+    auto ax = static_cast<float>(static_cast<double>(v1.x) - v0.x);
+    auto ay = static_cast<float>(static_cast<double>(v1.y) - v0.y);
+    auto az = static_cast<float>(static_cast<double>(v1.z) - v0.z);
+    auto bx = static_cast<float>(static_cast<double>(v2.x) - v0.x);
+    auto by = static_cast<float>(static_cast<double>(v2.y) - v0.y);
     double bz_exact = static_cast<double>(v2.z) - v0.z;
-    float bz = static_cast<float>(bz_exact);
+    auto bz = static_cast<float>(bz_exact);
     double nx = bz_exact * ay - static_cast<double>(by) * az;
     double ny = static_cast<double>(az) * bx - static_cast<double>(bz) * ax;
     double nz = static_cast<double>(by) * ax - static_cast<double>(ay) * bx;
@@ -198,7 +198,7 @@ void TriMeshSource::get_slide(const maths::Vec4* delta)
     if (bsp_)
         bsp_->get_slide(delta);
     if (!compressed_) {
-        float* v = static_cast<float*>(vertices_);
+        auto* v = static_cast<float*>(vertices_);
         for (int i = 0; i < num_vertices_; ++i, v += 3) {
             v[0] = static_cast<float>(static_cast<double>(v[0]) + delta->x);
             v[1] = static_cast<float>(static_cast<double>(v[1]) + delta->y);
@@ -319,7 +319,7 @@ void TriMeshSource::add_occlusion_polys()
             int other[3] = {-1, -1, -1};
             int matches = 0;
             for (int k = 0; k < 3; ++k) {
-                uint16_t corner = static_cast<uint16_t>(face_vertex(i, k));
+                auto corner = static_cast<uint16_t>(face_vertex(i, k));
                 for (int m = 0; m < 3; ++m) {
                     if (corner == static_cast<uint16_t>(face_vertex(j, m))) {
                         shared[k] = corner;
@@ -338,12 +338,12 @@ void TriMeshSource::add_occlusion_polys()
             double cx = static_cast<double>(c.x) - a.x;
             double cy = static_cast<double>(c.y) - a.y;
             double cz = static_cast<double>(c.z) - a.z;
-            float bx = static_cast<float>(static_cast<double>(b.x) - a.x);
-            float by = static_cast<float>(static_cast<double>(b.y) - a.y);
+            auto bx = static_cast<float>(static_cast<double>(b.x) - a.x);
+            auto by = static_cast<float>(static_cast<double>(b.y) - a.y);
             double bz = static_cast<double>(b.z) - a.z;
-            float n1x = static_cast<float>(by * cz - bz * cy);
-            float n1y = static_cast<float>(bz * cx - cz * bx);
-            float n1z = static_cast<float>(cy * bx - by * cx);
+            auto n1x = static_cast<float>(by * cz - bz * cy);
+            auto n1y = static_cast<float>(bz * cx - cz * bx);
+            auto n1z = static_cast<float>(cy * bx - by * cx);
             maths::Vec4 a2 = read_stored_vertex(face_vertex(j, 0));
             maths::Vec4 b2 = read_stored_vertex(face_vertex(j, 1));
             maths::Vec4 c2 = read_stored_vertex(face_vertex(j, 2));
@@ -354,8 +354,8 @@ void TriMeshSource::add_occlusion_polys()
             float cx2 = difference(c2.x, a2.x), cy2 = difference(c2.y, a2.y), cz2 = difference(c2.z, a2.z);
             float bx2 = difference(b2.x, a2.x), by2 = difference(b2.y, a2.y), bz2 = difference(b2.z, a2.z);
             double n2x = static_cast<double>(by2) * cz2 - static_cast<double>(bz2) * cy2;
-            float n2y = static_cast<float>(static_cast<double>(bz2) * cx2 - static_cast<double>(cz2) * bx2);
-            float n2z = static_cast<float>(static_cast<double>(cy2) * bx2 - static_cast<double>(by2) * cx2);
+            auto n2y = static_cast<float>(static_cast<double>(bz2) * cx2 - static_cast<double>(cz2) * bx2);
+            auto n2z = static_cast<float>(static_cast<double>(cy2) * bx2 - static_cast<double>(by2) * cx2);
             double unit1x = n1x;
             double length1 =
                 std::sqrt((unit1x * n1x + static_cast<double>(n1z) * n1z) + static_cast<double>(n1y) * n1y);
@@ -438,7 +438,7 @@ void TriMeshSource::gather_faces(const HitTreeNode* node, const maths::BBox* box
 {
     while (!node->is_end_node()) {
         int axis = node->get_axis();
-        float split = static_cast<float>(node->get_split() * static_cast<double>(kSixteenth));
+        auto split = static_cast<float>(node->get_split() * static_cast<double>(kSixteenth));
         if (get_component(&box->min, axis) < split)
             gather_faces(node->less_child(), box);
         if (!(get_component(&box->max, axis) >= split) || s_face_count < 0)
@@ -482,7 +482,7 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
         int face = node->get_leaf_faces()[i];
         maths::Vec4 normal = get_triangle_normal(face);
         maths::Vec4 corner = read_stored_vertex(face_vertex(node->get_leaf_faces()[i], 0));
-        float dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
+        auto dx = static_cast<float>(static_cast<double>(point->x) - corner.x);
         double dy = static_cast<double>(point->y) - corner.y;
         double dz = static_cast<double>(point->z) - corner.z;
         double distance = (normal.z * dz + dy * normal.y) + static_cast<double>(dx) * normal.x;

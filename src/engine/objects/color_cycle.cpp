@@ -73,7 +73,7 @@ void ColorCycleComponent::publish_method_table()
 }
 
 // 0x0041B2A0 (0x0041B2E0 the deleting one)
-ColorCycleComponent::~ColorCycleComponent() {}
+ColorCycleComponent::~ColorCycleComponent() = default;
 
 // 0x0041B310
 void ColorCycleComponent::change_colors(script::Array* colors)

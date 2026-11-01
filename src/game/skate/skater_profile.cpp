@@ -302,7 +302,7 @@ bool RiderIdentity::set_from_params(script::Struct* params, bool info, bool spec
     if (!params)
         return true;
     // (the original keeps its values in its argument slots: what a lookup that finds nothing leaves)
-    uint32_t checksum = reinterpret_cast<uint32_t>(params); // the checksums, then the specials structure
+    auto checksum = reinterpret_cast<uint32_t>(params);     // the checksums, then the specials structure
     uint32_t number = info;                                 // the integers, then the trick style structure
     uint32_t stat_name = specials;
     const char* text = nullptr;
@@ -384,7 +384,7 @@ bool RiderIdentity::get_reset(script::Struct* params)
     pop_heap();
     if (!params)
         return true;
-    uint32_t appearance = reinterpret_cast<uint32_t>(memory); // (the slot's last value, if there's none)
+    auto appearance = reinterpret_cast<uint32_t>(memory); // (the slot's last value, if there's none)
     params->read_hash_value(kAppearanceName, &appearance, 1);
     load_appearance(this, appearance, true);
     mine->get_clear();
@@ -457,7 +457,7 @@ uint8_t* RiderIdentity::decode_from_bytes(uint8_t* buffer, size_t size)
     // Not original - parts we can't build (a THUGPRO player's) replaced before anything builds them (TP-R9,
     // appearance_guard.h). Every caller reads a network message.
     appearance_guard::sanitise(&appearance()->structure_);
-    script::Struct* part = reinterpret_cast<script::Struct*>(buffer); // (the argument's slot)
+    auto* part = reinterpret_cast<script::Struct*>(buffer); // (the argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     part->get_clear();
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
@@ -488,7 +488,7 @@ int RiderIdentity::emit_into_buffer(uint8_t* buffer, int size, int flags)
         buffer, size, reinterpret_cast<bool&>(flags)); // the appearance
     size -= total;
     buffer += total;
-    script::Struct* part = reinterpret_cast<script::Struct*>(flags); // (the argument's slot)
+    auto* part = reinterpret_cast<script::Struct*>(flags); // (the argument's slot)
     details_params()->read_sub_struct(kTrickStyle, &part, 1);
     int written = write_struct(part, buffer, size);
     total += written;

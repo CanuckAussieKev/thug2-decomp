@@ -628,7 +628,7 @@ int RigResource::read_in(const char* name, bool async, bool use_archive, void* p
     file_ref_ = file::async_open(file, !async, 100);
     if (!file_ref_)
         return -1;
-    uint32_t size = static_cast<uint32_t>(file_ref_->get_file_size());
+    auto size = static_cast<uint32_t>(file_ref_->get_file_size());
     memory::enter_heap_scope(memory::top_down_heap());
     octets_ = memory::alloc_block(size);
     memory::leave_heap_scope();
@@ -741,7 +741,7 @@ int SkinResource::read_in(const char* name, bool async, bool use_archive, void* 
         cas_file_ = file::async_open(cas, !async, 100);
         if (!cas_file_)
             return -1;
-        uint32_t cas_size = static_cast<uint32_t>(cas_file_->get_file_size());
+        auto cas_size = static_cast<uint32_t>(cas_file_->get_file_size());
         cas_buffer_ = memory::alloc_block(cas_size);
         args_->cas_data_ = cas_buffer_;
         args_->cas_size_ = cas_size;

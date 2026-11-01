@@ -249,7 +249,7 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
         double dx = static_cast<double>(now.x) - before.x, dy = static_cast<double>(now.y) - before.y;
         double dz = static_cast<double>(now.z) - before.z;
         double moved = std::sqrt((dx * dx + dz * dz) + dy * dy);
-        float step_length =
+        auto step_length =
             static_cast<float>(std::sqrt((static_cast<double>(step.z) * step.z + static_cast<double>(step.y) * step.y) +
                                          static_cast<double>(step.x) * step.x));
         if (again || state_of(this) != kGround || !(moved < static_cast<double>(step_length) - 0.1f))
@@ -268,12 +268,12 @@ void SkaterPhysicsModule::move_on_ground(maths::Vec4 step)
             vz = static_cast<float>(vz * inverse);
         }
         again = true;
-        float sx = static_cast<float>(vx * step_length);
+        auto sx = static_cast<float>(vx * step_length);
         double sy = vy * step_length;
         double sz = static_cast<double>(vz) * step_length;
         float sw = vw * step_length;
         double left = 1.0 - moved / step_length;
-        float left_rounded = static_cast<float>(left);
+        auto left_rounded = static_cast<float>(left);
         step.x = static_cast<float>(left * sx);
         step.y = static_cast<float>(sy * left_rounded);
         step.z = static_cast<float>(sz * left_rounded);

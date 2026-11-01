@@ -39,8 +39,6 @@ float g_lip_turn;
 
 namespace {
 
-using skater::physics::get_at;
-using skater::physics::vector_at;
 
 constexpr uint32_t kCamera = 0xC4E311FA;       // Camera (a component)
 constexpr uint32_t kCorePhysics = 0x5BD63B29;  // SkaterCorePhysics (a component)
@@ -118,7 +116,7 @@ void RiderChaseView::tick_frame()
         --instant_frames_;
         instant = true;
     }
-    float seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     update_lerps();
     gfx::ViewCam* camera = static_cast<ViewpointModule*>(camera_component)->view_camera_.get();
     camera->remember_prev_pos();
@@ -233,8 +231,8 @@ void RiderChaseView::tick_frame()
                     k = static_cast<float>(((ux * facing.x + uy * facing.y) + uz * facing.z) * kGroundLookDown);
                 }
                 // The facing less its part along that up.
-                float kw = static_cast<float>(uw * k);
-                float kz = static_cast<float>(uz * k);
+                auto kw = static_cast<float>(uw * k);
+                auto kz = static_cast<float>(uz * k);
                 double ky = uy * k;
                 double kx = ux * k;
                 facing.x = static_cast<float>(facing.x - kx);
@@ -333,16 +331,16 @@ void RiderChaseView::tick_frame()
             const maths::Vec4& facing = orient.row[2];
             double back_w = static_cast<double>(facing.w) * kLipBack;
             double back_z = static_cast<double>(facing.z) * kLipBack;
-            float back_y = static_cast<float>(facing.y * static_cast<double>(kLipBack));
-            float back_x = static_cast<float>(facing.x * static_cast<double>(kLipBack));
-            float start_w = static_cast<float>(position.w - back_w);
+            auto back_y = static_cast<float>(facing.y * static_cast<double>(kLipBack));
+            auto back_x = static_cast<float>(facing.x * static_cast<double>(kLipBack));
+            auto start_w = static_cast<float>(position.w - back_w);
             double start_z = position.z - back_z;
             float origin_coord_y = position.y - back_y;
             maths::Vec4 start(position.x - back_x, origin_coord_y, static_cast<float>(start_z), start_w);
             double reach_w = static_cast<double>(side.w) * kLipReach;
-            float reach_z = static_cast<float>(side.z * static_cast<double>(kLipReach));
-            float reach_y = static_cast<float>(side.y * static_cast<double>(kLipReach));
-            float reach_x = static_cast<float>(side.x * static_cast<double>(kLipReach));
+            auto reach_z = static_cast<float>(side.z * static_cast<double>(kLipReach));
+            auto reach_y = static_cast<float>(side.y * static_cast<double>(kLipReach));
+            auto reach_x = static_cast<float>(side.x * static_cast<double>(kLipReach));
             maths::Vec4 end(start.x - reach_x, start.y - reach_y, static_cast<float>(start_z) - reach_z,
                             static_cast<float>(start_w - reach_w));
             feeler.set_excluded(0x90, 0);
@@ -416,7 +414,7 @@ void RiderChaseView::tick_frame()
             if (turn >= limit || turn != turn) {
                 turn_cosine_ = static_cast<float>(turn);
             } else {
-                float rate = static_cast<float>(turn / limit * slerp_);
+                auto rate = static_cast<float>(turn / limit * slerp_);
                 slerp->set_matrices(from, goal);
                 slerp->fetch_mat(view, static_cast<float>(frame_blend(rate, seconds)));
                 turn_cosine_ = static_cast<float>(turn_cosine_ * static_cast<double>(kCosineDecay));
@@ -441,8 +439,8 @@ void RiderChaseView::tick_frame()
         const maths::Vec4& at = view.row[2];
         double bx = static_cast<double>(distance) * at.x;
         double by = static_cast<double>(distance) * at.y;
-        float bz = static_cast<float>(static_cast<double>(distance) * at.z);
-        float bw = static_cast<float>(static_cast<double>(distance) * at.w);
+        auto bz = static_cast<float>(static_cast<double>(distance) * at.z);
+        auto bw = static_cast<float>(static_cast<double>(distance) * at.w);
         target.x = static_cast<float>(target.x + bx);
         target.y = static_cast<float>(target.y + by);
         target.z += bz;
@@ -453,7 +451,7 @@ void RiderChaseView::tick_frame()
         double ux = static_cast<double>(up.x) * height;
         double uy = static_cast<double>(height) * up.y;
         double uz = static_cast<double>(height) * up.z;
-        float uw = static_cast<float>(static_cast<double>(height) * up.w);
+        auto uw = static_cast<float>(static_cast<double>(height) * up.w);
         lift = maths::Vec4(static_cast<float>(ux), static_cast<float>(uy), static_cast<float>(uz), uw);
         target.x += lift.x;
         target.y = static_cast<float>(target.y + uy);
@@ -495,10 +493,10 @@ void RiderChaseView::tick_frame()
     }
     if (avoid) {
         const maths::Vec4& at = view.row[2];
-        float bx = static_cast<float>(static_cast<double>(distance) * at.x);
+        auto bx = static_cast<float>(static_cast<double>(distance) * at.x);
         double by = static_cast<double>(distance) * at.y;
         double bz = static_cast<double>(distance) * at.z;
-        float bw = static_cast<float>(static_cast<double>(distance) * at.w);
+        auto bw = static_cast<float>(static_cast<double>(distance) * at.w);
         maths::Vec4 focus(target.x - bx, static_cast<float>(target.y - by), static_cast<float>(target.z - bz),
                           target.w - bw);
         avoid_camera_collisions(&target, &view, &focus, &eye, true, true);

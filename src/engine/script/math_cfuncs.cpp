@@ -125,7 +125,7 @@ bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
     double z2 = static_cast<double>(v.z) * v.z;
     double y2 = static_cast<double>(v.y) * v.y;
     double x2 = static_cast<double>(v.x) * v.x;
-    float length = static_cast<float>(std::sqrt(z2 + y2 + x2));
+    auto length = static_cast<float>(std::sqrt(z2 + y2 + x2));
     if (length != 0.0f) {
         double scale = 1.0 / length;
         v.x = static_cast<float>(v.x * scale);

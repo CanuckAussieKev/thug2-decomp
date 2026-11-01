@@ -240,7 +240,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     RailGroup& rails = source_rails_;
     int strings = get_memory_value("in_railstring_pool", -1);
     int points = get_memory_value("in_railpoint_pool", -1);
-    rails.prepare_all(points, strings, 1);
+    rails.prepare_all(points, strings, true);
     script::kill_all_child_scripts();
     script::launch_script(kLoadTerrain, nullptr, nullptr, false, nullptr);
     rails.get_clear();
@@ -397,7 +397,7 @@ void ParkAssembler::build_rails(MapListNode* metas)
     memory::enter_heap_scope(memory::top_down_heap());
     int strings = get_memory_value("out_railstring_pool", -1);
     int points = get_memory_value("out_railpoint_pool", -1);
-    rails.prepare_all(points, strings, 0);
+    rails.prepare_all(points, strings, false);
     memory::leave_heap_scope();
     for (MapListNode* node = metas; node; node = node->following_) {
         PieceGroup* meta = node->get_piece_group()->get_cast();
@@ -552,7 +552,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
             }
             if (restart_type) {
                 Struct* node = elem(nodes, *index);
-                const float y = static_cast<float>(static_cast<double>(restart.at_point_.y) + 50.0);
+                const auto y = static_cast<float>(static_cast<double>(restart.at_point_.y) + 50.0);
                 node->put_vec3(kPos, restart.at_point_.x, y, restart.at_point_.z);
                 const uint32_t node_class = type == RestartPoint::kCrownRestart ? kGenericNode : kRestart;
                 node->add_component_of_type(kClass, script::kQbvalName, node_class);
@@ -613,7 +613,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
                 ++*index;
             };
             std::snprintf(flag_type, sizeof(flag_type), "Flag_%s", colour);
-            std::snprintf(model, sizeof(model), "gameobjects\\flags\\flag_%s\\flag_%s.mdl", colour, colour);
+            std::snprintf(model, sizeof(model), R"(gameobjects\flags\flag_%s\flag_%s.mdl)", colour, colour);
             std::snprintf(script, sizeof(script), "TRG_Flag_%sScript_Parked", colour);
             std::snprintf(flag_name, sizeof(flag_name), "TRG_Flag_%s", colour);
             add_flag_node(true);
@@ -621,7 +621,7 @@ void ParkAssembler::write_restart_nodes(Array* nodes, int* index)
             add_flag_node(true);
             std::snprintf(flag_name, sizeof(flag_name), "TRG_CTF_%s_Base", colour);
             std::snprintf(flag_type, sizeof(flag_type), "Flag_%s_Base", colour);
-            std::snprintf(model, sizeof(model), "gameobjects\\flags\\flag_%s_base\\flag_%s_base.mdl", colour, colour);
+            std::snprintf(model, sizeof(model), R"(gameobjects\flags\flag_%s_base\flag_%s_base.mdl)", colour, colour);
             add_flag_node(false);
         }
     }

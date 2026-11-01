@@ -123,7 +123,7 @@ struct TriMeshSource {
     // +0x3C as the line tests read it: a float.
     float rejection_scale() const
     {
-        float scale = std::bit_cast<float>(unknown3c_);
+        auto scale = std::bit_cast<float>(unknown3c_);
         return scale;
     }
 

@@ -189,8 +189,8 @@ uint64_t create_texture(int width, int height, PixelLayout format, const void* d
     D3DLOCKED_RECT locked;
     if (FAILED(texture->LockRect(0, &locked, nullptr, 0)))
         return 0;
-    const uint8_t* from = static_cast<const uint8_t*>(data);
-    uint8_t* to = static_cast<uint8_t*>(locked.pBits);
+    const auto* from = static_cast<const uint8_t*>(data);
+    auto* to = static_cast<uint8_t*>(locked.pBits);
     for (int row = 0; row < rows; ++row)
         std::memcpy(to + row * locked.Pitch, from + row * row_bytes, static_cast<size_t>(row_bytes));
     texture->UnlockRect(0);

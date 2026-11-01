@@ -430,7 +430,7 @@ void free_camera_task(ViewerTask* task)
     uint32_t last = last_time();
     uint32_t elapsed = frame_clock::get_time() - last;
     last_time() += elapsed;
-    float seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * 0.001f);
+    auto seconds = static_cast<float>(static_cast<double>(static_cast<int>(elapsed)) * 0.001f);
     if (viewer->actions_ & 0x4000)
         viewer->mode_sel_ = viewer->entity_ && viewer->mode_sel_ == 0 ? 1 : 0;
     viewer->pad_ry_ = dead_zone(viewer->pad_ry_);
@@ -445,7 +445,7 @@ void free_camera_task(ViewerTask* task)
             if (viewer->pad_ly_ != 0.0f) {
                 // Up / down: about its own x axis.
                 maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
-                float angle =
+                auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_ly_ * seconds * kDegrees);
                 camera->basis_frame_.turn_in_own_frame(axis, angle);
             }
@@ -453,7 +453,7 @@ void free_camera_task(ViewerTask* task)
                 // Left / right: about the world's y axis.
                 maths::Mat4 matrix;
                 matrix = camera->basis_frame_;
-                float angle =
+                auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx_ * seconds * -kDegrees);
                 maths::Mat4 rotation;
                 maths::get_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angle));

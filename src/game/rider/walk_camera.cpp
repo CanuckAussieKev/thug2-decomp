@@ -70,13 +70,13 @@ maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::
     double dy = static_cast<double>(b->y) - a->y;
     float dz = b->z - a->z;
     float dw = b->w - a->w;
-    float f = static_cast<float>((static_cast<double>(t) - low) / (static_cast<double>(high) - low));
-    float sx = static_cast<float>(dx * f);
+    auto f = static_cast<float>((static_cast<double>(t) - low) / (static_cast<double>(high) - low));
+    auto sx = static_cast<float>(dx * f);
     double sy = dy * f;
     float sz = dz * f;
     float sw = dw * f;
     float x = sx + a->x;
-    float y = static_cast<float>(sy + a->y);
+    auto y = static_cast<float>(sy + a->y);
     float z = sz + a->z;
     float w = sw + a->w;
     out->w = w;
@@ -97,7 +97,7 @@ FootView::FootView()
 }
 
 // 0x00524C20 (0x00524F20 the deleting one)
-FootView::~FootView() {}
+FootView::~FootView() = default;
 
 // 0x00524C50
 void FootView::bind_rider(GameEntity* skater)
@@ -211,9 +211,9 @@ void FootView::fetch_goal(maths::Vec4* out, bool instant)
     if (instant) {
         aim_point_ = skater_->at_point_;
     } else {
-        float across = static_cast<float>(
+        auto across = static_cast<float>(
             frame_blend(skater_camera_->lerp_xz_, static_cast<float>(frame_clock::get_slomo_frame_seconds())));
-        float up = static_cast<float>(
+        auto up = static_cast<float>(
             frame_blend(skater_camera_->lerp_y_, static_cast<float>(frame_clock::get_slomo_frame_seconds())));
         const maths::Vec4& skater = skater_->at_point_;
         float x = aim_point_.x, y = aim_point_.y, z = aim_point_.z;
@@ -267,7 +267,7 @@ void FootView::tick_frame()
         instant = snap_next_;
     }
     viewer_->view_camera_->remember_prev_pos();
-    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     float turn = static_cast<PadInputModule*>(entity_->fetch_module(kInput))->pad_primary_.scaled_stick_[0];
     entity_->basis_frame_ = orientation_;
 
@@ -283,9 +283,9 @@ void FootView::tick_frame()
     } else {
         bool swing = false;
         if (turn == 0.0f) {
-            float cosine = static_cast<float>(static_cast<double>(skater_facing.x) * facing.x +
-                                              static_cast<double>(skater_facing.z) * facing.z +
-                                              static_cast<double>(skater_facing.y) * facing.y);
+            auto cosine = static_cast<float>(static_cast<double>(skater_facing.x) * facing.x +
+                                             static_cast<double>(skater_facing.z) * facing.z +
+                                             static_cast<double>(skater_facing.y) * facing.y);
             if (!(std::cos(static_cast<double>(get_param(kLockAngle)) * kDegrees) > cosine)) {
                 float full, least;
                 if (!walk_->using_dpad()) {
@@ -298,7 +298,7 @@ void FootView::tick_frame()
                 const maths::Vec4& velocity = skater_->vel_;
                 double speed = std::sqrt(static_cast<double>(velocity.x) * velocity.x +
                                          static_cast<double>(velocity.z) * velocity.z);
-                float speed_f = static_cast<float>(speed);
+                auto speed_f = static_cast<float>(speed);
                 if (!(speed < full)) {
                     swing = true;
                 } else if (speed_f > least) {
@@ -319,10 +319,10 @@ void FootView::tick_frame()
         facing.z = forced_heading_.z;
         facing.w = forced_heading_.w;
         double heading = free_look_->heading_;
-        float s = static_cast<float>(std::sin(heading));
-        float c = static_cast<float>(std::cos(heading));
+        auto s = static_cast<float>(std::sin(heading));
+        auto c = static_cast<float>(std::cos(heading));
         float z = facing.z;
-        float turned_z = static_cast<float>(-(static_cast<double>(s) * x) + static_cast<double>(z) * c);
+        auto turned_z = static_cast<float>(-(static_cast<double>(s) * x) + static_cast<double>(z) * c);
         facing.x = static_cast<float>(static_cast<double>(z) * s + static_cast<double>(c) * x);
         facing.z = turned_z;
     }
@@ -400,14 +400,14 @@ void FootView::tick_frame()
     double up_y = static_cast<double>(skater_up.y) * height;
     double up_z = static_cast<double>(skater_up.z) * height;
     double up_w = static_cast<double>(skater_up.w) * height;
-    float up_xf = static_cast<float>(up_x), up_zf = static_cast<float>(up_z), up_wf = static_cast<float>(up_w);
+    auto up_xf = static_cast<float>(up_x), up_zf = static_cast<float>(up_z), up_wf = static_cast<float>(up_w);
     const maths::Vec4& look_at = matrix.row[2];
     double back_x = static_cast<double>(distance) * look_at.x;
     double back_y = static_cast<double>(distance) * look_at.y;
     float back_z = distance * look_at.z;
     float back_w = distance * look_at.w;
-    float step_x = static_cast<float>(back_x + up_xf);
-    float step_y = static_cast<float>(back_y + up_y);
+    auto step_x = static_cast<float>(back_x + up_xf);
+    auto step_y = static_cast<float>(back_y + up_y);
     double step_z = back_z + up_z;
     double step_w = static_cast<double>(back_w) + up_wf;
     target.x = step_x + target.x;

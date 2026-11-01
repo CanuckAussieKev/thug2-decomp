@@ -81,7 +81,7 @@ RiderSfxPlayer::RiderSfxPlayer()
 }
 
 // 0x00518C80 (0x00518C90 the deleting one)
-RiderSfxPlayer::~RiderSfxPlayer() {}
+RiderSfxPlayer::~RiderSfxPlayer() = default;
 
 // 0x00518CC0
 void RiderSfxPlayer::configure_from_data(script::Struct* params)
@@ -95,8 +95,8 @@ void RiderSfxPlayer::configure_from_data(script::Struct* params)
 void RiderSfxPlayer::play_land(float speed, int terrain)
 {
     uint32_t table = cur_phase_ == kStateRail ? (sliding_ ? kTableSlideLand : kTableGrindLand) : kTableLand;
-    float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
-    float volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
+    auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
+    auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     using skater::thaw_bmx::BikeSound;
     if (play_bike_sound(entity_, cur_phase_ == kStateRail ? BikeSound::kGrindLand : BikeSound::kLand, volume, percent))
         return;
@@ -107,8 +107,8 @@ void RiderSfxPlayer::play_land(float speed, int terrain)
 void RiderSfxPlayer::play_jump(float speed, int terrain, int state)
 {
     uint32_t table = state == kStateRail ? (sliding_ ? kTableSlideJump : kTableGrindJump) : kTableJump;
-    float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
-    float volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
+    auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
+    auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     using skater::thaw_bmx::BikeSound;
     if (play_bike_sound(entity_, state == kStateRail ? BikeSound::kGrindJump : BikeSound::kOllie, volume, percent))
         return;
@@ -118,8 +118,8 @@ void RiderSfxPlayer::play_jump(float speed, int terrain, int state)
 // 0x00518DD0
 void RiderSfxPlayer::play_bonk(float speed, int terrain)
 {
-    float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
-    float volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
+    auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
+    auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     if (play_bike_sound(entity_, skater::thaw_bmx::BikeSound::kBonk, volume, percent))
         return;
     play_terrain_sound(kTableBonk, terrain, &entity_->at_point_, volume, percent);
@@ -143,8 +143,8 @@ void RiderSfxPlayer::play_jump_in_state(float speed, int terrain) { play_jump(sp
 // 0x00518F00
 void RiderSfxPlayer::play_bonk_here(float speed)
 {
-    float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
-    float volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
+    auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
+    auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     if (play_bike_sound(entity_, skater::thaw_bmx::BikeSound::kBonk, volume, percent))
         return;
     play_terrain_sound(kTableBonk, surface_type_, &entity_->at_point_, volume, percent);
@@ -153,8 +153,8 @@ void RiderSfxPlayer::play_bonk_here(float speed)
 // 0x00518F50
 void RiderSfxPlayer::play_cess_here(float speed)
 {
-    float percent = static_cast<float>(static_cast<double>(speed) * kPercent);
-    float volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
+    auto percent = static_cast<float>(static_cast<double>(speed) * kPercent);
+    auto volume = static_cast<float>(static_cast<double>(percent) * volume_mult_);
     play_terrain_sound(kTableCess, surface_type_, &entity_->at_point_, volume, percent);
 }
 

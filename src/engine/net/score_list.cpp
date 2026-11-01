@@ -265,10 +265,10 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
         } else if (hill_mode) {
             int seconds = static_cast<int>(static_cast<uint32_t>(entry->priority) / 1000);
             if (seconds < 3600)
-                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d", prefix, entry->shade_, entry->text_, entry->shade_,
+                std::sprintf(text, R"(\c4%s\c%d %s \c%d %d:%.2d)", prefix, entry->shade_, entry->text_, entry->shade_,
                              seconds / 60, seconds % 60);
             else
-                std::sprintf(text, "\\c4%s\\c%d %s \\c%d %d:%.2d:%.2d", prefix, entry->shade_, entry->text_,
+                std::sprintf(text, R"(\c4%s\c%d %s \c%d %d:%.2d:%.2d)", prefix, entry->shade_, entry->text_,
                              entry->shade_, seconds / 3600, seconds % 3600 / 60, seconds % 60);
         } else if (scavenger_hunt && !entry->local_) {
             std::sprintf(text, "%s\\c%d %s", prefix, entry->shade_, entry->text_);

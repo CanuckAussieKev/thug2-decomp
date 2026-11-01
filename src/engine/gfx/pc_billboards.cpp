@@ -115,7 +115,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         float end = g_camera.far_z_;
         reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0;
         reinterpret_cast<uint32_t&>(g_fog_end) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
+        auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
         toggle_fog(true);
         input_port()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         input_port()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));
@@ -157,16 +157,16 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
         std::memcpy(&y, from + 4, 4);
         std::memcpy(&z, from + 8, 4);
         from += 0xC;
-        float a = static_cast<float>(static_cast<double>(x) * x_axis[0]);
-        float b = static_cast<float>(static_cast<double>(x) * x_axis[1]);
-        float c = static_cast<float>(static_cast<double>(x) * x_axis[2]);
-        float t2 = static_cast<float>(static_cast<double>(y) * y_axis[2]);
+        auto a = static_cast<float>(static_cast<double>(x) * x_axis[0]);
+        auto b = static_cast<float>(static_cast<double>(x) * x_axis[1]);
+        auto c = static_cast<float>(static_cast<double>(x) * x_axis[2]);
+        auto t2 = static_cast<float>(static_cast<double>(y) * y_axis[2]);
         a = static_cast<float>(static_cast<double>(y) * y_axis[0] + a);
         double sum_y = static_cast<double>(y) * y_axis[1] + b;
         double sum_z = static_cast<double>(c) + t2;
-        float t3 = static_cast<float>(static_cast<double>(z) * z_axis[2]);
+        auto t3 = static_cast<float>(static_cast<double>(z) * z_axis[2]);
         a = static_cast<float>(static_cast<double>(z) * z_axis[0] + a);
-        float b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
+        auto b2 = static_cast<float>(static_cast<double>(z) * z_axis[1] + sum_y);
         double c2 = t3 + sum_z;
         float out[3] = {static_cast<float>(static_cast<double>(px) + a),
                         static_cast<float>(static_cast<double>(py) + b2), static_cast<float>(pz + c2)};
@@ -195,7 +195,7 @@ void draw_billboard_mesh(MeshRef* mesh, const float* y_axis, const float* x_axis
     DWORD format;
     input_port()->GetFVF(&format);
     input_port()->SetFVF(mesh->fvf);
-    D3DPRIMITIVETYPE type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type_);
+    auto type = static_cast<D3DPRIMITIVETYPE>(mesh->primitive_type_);
     if (vertex_shaders()) {
         input_port()->DrawIndexedPrimitive(type, 0, 0, mesh->vertex_count_, 0, primitives);
     } else {
@@ -237,10 +237,10 @@ void BillboardSet::setup_axes()
     view[3] = 1.0f;
     view[2] = vz;
     // right = forward x (0, 1, 0)
-    float zero = static_cast<float>(static_cast<double>(view[1]) * 0.0f);
+    auto zero = static_cast<float>(static_cast<double>(view[1]) * 0.0f);
     double rx = zero - static_cast<double>(view[2]);
     double ry = static_cast<double>(view[2]) * 0.0f - static_cast<double>(view[0]) * 0.0f;
-    float rz = static_cast<float>(static_cast<double>(view[0]) - zero);
+    auto rz = static_cast<float>(static_cast<double>(view[0]) - zero);
     {
         double length = std::sqrt(static_cast<double>(rz) * rz + ry * ry + rx * rx);
         if (length > 0.0f) {
@@ -258,7 +258,7 @@ void BillboardSet::setup_axes()
     double ux = static_cast<double>(view[2]) * right[1] - static_cast<double>(view[1]) * right[2];
     double uy = static_cast<double>(right[2]) * view[0] - static_cast<double>(view[2]) * right[0];
     double uz_wide = static_cast<double>(view[1]) * right[0] - static_cast<double>(right[1]) * view[0];
-    float uz = static_cast<float>(uz_wide);
+    auto uz = static_cast<float>(uz_wide);
     {
         double length = std::sqrt(uz_wide * uz + uy * uy + ux * ux); // (the unrounded one times the stored one)
         if (length > 0.0f) {
@@ -349,11 +349,11 @@ void BillboardBatch::render()
         material->hand_in();
     else
         material->submit_states();
-    for (int i = 0; i < 3; ++i) { // (the first shown list's first mesh's pixel shader)
-        memory::ListNode* first = lists[i]->next;
+    for (auto& list : lists) { // (the first shown list's first mesh's pixel shader)
+        memory::ListNode* first = list->next;
         if (is_head(first) || !first)
             continue;
-        memory::ListNode* node = head_of_scene_list(lists[i]);
+        memory::ListNode* node = head_of_scene_list(list);
         if (vertex_shaders())
             set_pixel_shader(static_cast<BillboardRec*>(node->data)->mesh->pixel_shader_, nullptr);
         break;
@@ -401,8 +401,8 @@ void BillboardBatch::render()
             const float* axis = mesh->billboard->axis;
             const float* d = manager->view;
             double rx = static_cast<double>(d[1]) * axis[2] - static_cast<double>(d[2]) * axis[1];
-            float ry = static_cast<float>(static_cast<double>(d[2]) * axis[0] - static_cast<double>(d[0]) * axis[2]);
-            float rz = static_cast<float>(static_cast<double>(d[0]) * axis[1] - static_cast<double>(d[1]) * axis[0]);
+            auto ry = static_cast<float>(static_cast<double>(d[2]) * axis[0] - static_cast<double>(d[0]) * axis[2]);
+            auto rz = static_cast<float>(static_cast<double>(d[0]) * axis[1] - static_cast<double>(d[1]) * axis[0]);
             double length = std::sqrt(rx * rx + static_cast<double>(rz) * rz + static_cast<double>(ry) * ry);
             if (length > 0.0f) {
                 double inverse = 1.0f / length;
@@ -413,7 +413,7 @@ void BillboardBatch::render()
             double ux = static_cast<double>(rz) * axis[1] - static_cast<double>(ry) * axis[2];
             double uy = rx * axis[2] - static_cast<double>(rz) * axis[0];
             double uz = static_cast<double>(ry) * axis[0] - rx * axis[1];
-            float uz_stored = static_cast<float>(uz);
+            auto uz_stored = static_cast<float>(uz);
             double length2 = std::sqrt(ux * ux + uz * uz + uy * uy);
             if (length2 > 0.0f) {
                 double inverse = 1.0f / length2;
@@ -497,7 +497,7 @@ void BillboardSet::render(unsigned int which)
 void create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
-        PcWindow* window = new PcWindow(0, 0, 640, 480);
+        auto* window = new PcWindow(0, 0, 640, 480);
         window->following_ = g_free_windows; // (no check, as the original)
         g_free_windows = window;
     }

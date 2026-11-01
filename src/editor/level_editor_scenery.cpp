@@ -185,7 +185,7 @@ bool is_end(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->sce
 template <typename F>
 void for_each_scene(F fn)
 {
-    SceneNode* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
+    auto* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
     for (int guard = 0; node && !is_end(node) && guard < 256; ++guard) {
         SceneNode* next = node->next;
         if (node->scene && !node->scene->is_sky_)
@@ -611,7 +611,7 @@ void select_rails()
         V3 min, max;
         if (!g_shadow_of.count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
-            boxes.push_back({min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f}});
+            boxes.emplace_back(min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f});
         }
     }
     auto within = [&](V3 p) {
@@ -795,7 +795,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
             for (const Piece& other : pieces) {
                 if (!other.in && !other.see_through_ && shadows::stands_by(other.min, piece.max) &&
                     !picking::is_structure(other.min, other.max, nowhere, other.level_share_))
-                    others.push_back({other.min, other.max});
+                    others.emplace_back(other.min, other.max);
             }
             for (const Piece& member : pieces) {
                 if (member.in && !g_shadow_of.count(member.checksum) &&
@@ -1340,7 +1340,7 @@ std::vector<std::pair<V3, V3>> selected_rails()
     for (uint32_t name : g_rails) {
         const RailNode* node = find_rail(name);
         if (node && node->succ_)
-            segments.push_back({rail_pos(node), rail_pos(node->succ_)});
+            segments.emplace_back(rail_pos(node), rail_pos(node->succ_));
     }
     return segments;
 }
@@ -1851,7 +1851,7 @@ int get_moved_count()
 void log_census()
 {
     // (every node of the scene list, skies too: what the walk sees)
-    SceneNode* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
+    auto* node = reinterpret_cast<SceneNode*>(render::g_scene_list.next);
     for (int i = 0; node && i < 16; ++i, node = node->next) {
         bool end = is_end(node);
         render::WorldScene* scene = end ? nullptr : node->scene;

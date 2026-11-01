@@ -89,7 +89,7 @@ void MotionPathMembers::update_path_speed()
     if (path_flags_ & kMotionPathStopping) {
         if (stop_covered_ >= stop_distance_)
             return; // (NaN goes on)
-        float covered = static_cast<float>(static_cast<double>(step_seconds_) * velocity_ + stop_covered_);
+        auto covered = static_cast<float>(static_cast<double>(step_seconds_) * velocity_ + stop_covered_);
         stop_covered_ = covered;
         if (stop_distance_ == 0.0f || covered >= stop_distance_) {
             velocity_ = 0.0f;

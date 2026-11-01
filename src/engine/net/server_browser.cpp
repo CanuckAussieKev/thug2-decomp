@@ -374,7 +374,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         if (!same_network) {
             bool has_private = game_spy::server_has_private_address(sb) != 0; // (it has a private address)
             server->remote_ip_ = game_spy::server_get_public_address(sb);
-            uint16_t port = static_cast<uint16_t>(game_spy::server_get_public_query_port(sb)); // (its public port)
+            auto port = static_cast<uint16_t>(game_spy::server_get_public_query_port(sb)); // (its public port)
             if (!has_private) {
                 server->can_reach_ = false;
                 server->ping_ = kNoPing;

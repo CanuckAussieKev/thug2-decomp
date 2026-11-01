@@ -259,9 +259,9 @@ void RoomManager::start_listing_games()
     ram_stats()->enter_heap_scope(ram_stats()->internet_bottom_up_heap_);
     manager->set_service_state(14); // (the server list's state)
     g_unknowne430 = 0;
-    g_listing_asked = 0;
-    g_listing_found = 0;
-    game_spy::peer_list_group_rooms(remote_, "\\maxplayers\\neversoft\\maxrating\\minrating",
+    g_listing_asked = false;
+    g_listing_found = false;
+    game_spy::peer_list_group_rooms(remote_, R"(\maxplayers\neversoft\maxrating\minrating)",
                                     code_address(online::RoomManager::group_room_callback), this,
                                     0); // (the group rooms listed)
     ram_stats()->leave_heap_scope();
@@ -627,4 +627,3 @@ bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
 
 } // namespace online
 
-using online::RoomManager;

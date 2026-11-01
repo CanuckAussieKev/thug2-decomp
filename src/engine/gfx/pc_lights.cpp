@@ -166,12 +166,12 @@ void PcModelLights::plat_apply_scene_lights(const maths::Vec4* position, uint32_
         double dx = static_cast<double>(position->x) - at[0];
         double dy = static_cast<double>(position->y) - at[1];
         double dz = static_cast<double>(position->z) - at[2];
-        float distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
+        auto distance = static_cast<float>(std::sqrt(dz * dz + dy * dy + dx * dx));
         double falloff = get_falloff(light, distance);
         // the direction from the light, normalised (unless its length isn't above 0)
         dx = static_cast<double>(position->x) - at[0];
         dy = static_cast<double>(position->y) - at[1];
-        float zf = static_cast<float>(static_cast<double>(position->z) - at[2]);
+        auto zf = static_cast<float>(static_cast<double>(position->z) - at[2]);
         double length = std::sqrt(dx * dx + static_cast<double>(zf) * zf + dy * dy);
         if (length > 0.0) {
             double inverse = 1.0 / length;

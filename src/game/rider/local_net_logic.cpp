@@ -236,7 +236,7 @@ RiderHostSync::RiderHostSync()
 }
 
 // 0x00512E30 (0x00512E40 the deleting one)
-RiderHostSync::~RiderHostSync() {}
+RiderHostSync::~RiderHostSync() = default;
 
 // 0x00512E70
 void RiderHostSync::seal()

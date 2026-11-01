@@ -61,7 +61,7 @@ std::string get_relative(const char* path)
     std::string out;
     for (const char* c = path; *c; ++c)
         out += *c == '/' ? '\\' : static_cast<char>(std::tolower(static_cast<unsigned char>(*c)));
-    if (out.rfind("data\\", 0) == 0)
+    if (out.starts_with("data\\"))
         out.erase(0, 5);
     return out;
 }
@@ -393,7 +393,7 @@ void load_once()
         return;
     }
     std::string folder = install_folder();
-    std::string archive_path = folder + "\\data\\pre\\thugpro_qb.prx";
+    std::string archive_path = folder + R"(\data\pre\thugpro_qb.prx)";
     std::vector<uint8_t> archive = read_whole_file(archive_path);
     if (archive.empty()) {
         get_log("THUGPRO CAS (TP-R10): no THUGPRO install at %s - a THUGPRO player's own parts fall back to THUG2's "

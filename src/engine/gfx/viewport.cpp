@@ -324,7 +324,7 @@ bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args_;
-    uint32_t mode = static_cast<uint32_t>(screen_mode());
+    auto mode = static_cast<uint32_t>(screen_mode());
     results->put_name_key(kScreenMode, mode <= 5 ? kModeNames[mode] : 0u);
     return true;
 }

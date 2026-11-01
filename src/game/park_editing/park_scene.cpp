@@ -175,8 +175,8 @@ void ParkAssembler::move_light_source(const maths::Vec4* position, int index)
 
 void ParkAssembler::sample_light_colour(const maths::Vec4* position, uint8_t* rgba)
 {
-    const float red = static_cast<float>(rgba[0] * static_cast<double>(ambient_[0]));
-    const float green = static_cast<float>(rgba[1] * static_cast<double>(ambient_[1]));
+    const auto red = static_cast<float>(rgba[0] * static_cast<double>(ambient_[0]));
+    const auto green = static_cast<float>(rgba[1] * static_cast<double>(ambient_[1]));
     const double blue = rgba[2] * static_cast<double>(ambient_[2]); // (kept unrounded)
     double sum = 0.0;
     for (int i = 0; i < light_total_; ++i) {
@@ -232,7 +232,7 @@ bool ParkAssembler::plant_restart_point(maths::Vec4* position, int rot, CellBox*
     spawn_slot_array(this, type, &first, &last);
     maths::Vec4 pos = *position;
     CellBox cells = *area;
-    const uint8_t is_automatic = static_cast<uint8_t>(automatic);
+    const auto is_automatic = static_cast<uint8_t>(automatic);
     if (is_automatic && static_cast<uint8_t>(keep_placed)) {
         if (first > last)
             return false;

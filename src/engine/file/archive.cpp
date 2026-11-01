@@ -160,7 +160,7 @@ ArchiveFile::FileInfo* ArchiveFile::find_entry_in_archive(const char* name)
 int ArchiveFile::get_take_in(void* out, unsigned int count)
 {
     FileInfo* file = open_entry_;
-    unsigned int left = static_cast<unsigned int>(file->size - file->position);
+    auto left = static_cast<unsigned int>(file->size - file->position);
     unsigned int n = count <= left ? count : left;
     const uint8_t* source = file->compressed_size_ ? file->unpacked : file->data;
     move_memory_block(out, source + file->position, n);
@@ -331,7 +331,7 @@ void ArchiveManager::load_pre(const char* name, bool async, bool report_missing,
 
     uint8_t* data;
     int size = file::cached_file_size(path);
-    size_t block_size = static_cast<size_t>(size); // (not original: the archive's bound for its reader)
+    auto block_size = static_cast<size_t>(size); // (not original: the archive's bound for its reader)
     if (size != 0) {
         memory::push_mem_profile(path);
         data = static_cast<uint8_t*>(memory::carve(static_cast<unsigned int>(size), 1, load_heap(bottom_up)));

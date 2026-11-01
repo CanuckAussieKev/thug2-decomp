@@ -26,7 +26,7 @@ std::string unlit_shader_source(const std::string& source)
 {
     // The version line first ("ps.1.1"); the constant must be free.
     size_t version_end = source.find('\n');
-    if (source.compare(0, 3, "ps.") != 0 || version_end == std::string::npos)
+    if (!source.starts_with("ps.") || version_end == std::string::npos)
         return {};
     auto is_name = [](char c) { return std::isalnum(static_cast<unsigned char>(c)) || c == '_'; };
     std::string constant = "c" + std::to_string(kUnlitConstant);

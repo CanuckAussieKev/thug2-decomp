@@ -94,7 +94,7 @@ float get_fraction(double value)
 {
     if (value > 1.0)
         return 1.0f;
-    float rounded = static_cast<float>(value);
+    auto rounded = static_cast<float>(value);
     return rounded < 0.0f ? 0.0f : rounded;
 }
 
@@ -129,7 +129,7 @@ SkaterVehicleSoundComponent::SkaterVehicleSoundComponent()
 }
 
 // 0x0051ADB0 (0x0051AE30 the deleting one)
-SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() {}
+SkaterVehicleSoundComponent::~SkaterVehicleSoundComponent() = default;
 
 // 0x0051AE60
 void SkaterVehicleSoundComponent::configure_from_data(script::Struct*)
@@ -184,8 +184,8 @@ void SkaterVehicleSoundComponent::read_settings()
 // 0x0051AE80
 void SkaterVehicleSoundComponent::tick_engine()
 {
-    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-    float speed = static_cast<float>(get_pace(entity_->vel_) * kToMph);
+    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto speed = static_cast<float>(get_pace(entity_->vel_) * kToMph);
     if (!input_->pad_primary_.pos_x_.held_down_ || input_->pad_primary_.btn_down_.held_down_)
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
@@ -236,7 +236,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     int gear = gear_;
     double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
     double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
-    float target =
+    auto target =
         static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
                            gear_steps_[gear].low_rpm_);
     double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
@@ -254,7 +254,7 @@ void SkaterVehicleSoundComponent::tick_engine()
     volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
     float high_pitch = get_setting(settings_, 0x9F46344A);
     float low_pitch = get_setting(settings_, 0x2660AF3B);
-    float pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
+    auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
     if (!engine_sound_)
         engine_sound_ = sfx->emit_sound(engine_sound_name_, &volume, pitch, 0, nullptr, 0);
     else
@@ -285,7 +285,7 @@ void SkaterVehicleSoundComponent::update_skid()
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
     float high_pitch = get_setting(settings_, 0xE68BE784);
     float low_pitch = get_setting(settings_, 0x76F8F76E);
-    float pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
+    auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)
             skid_sound_ = sfx->emit_sound(skid_sound_name_, &volume, pitch, 0, nullptr, 0);

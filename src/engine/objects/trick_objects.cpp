@@ -227,9 +227,9 @@ bool TrickSpot::clear_graffiti_color(int index)
 {
     uint8_t* sector = find_sector(label_);
     script::Array* color = graffiti_color(index);
-    uint8_t r = static_cast<uint8_t>(color->fetch_part(0));
-    uint8_t g = static_cast<uint8_t>(color->fetch_part(1));
-    uint8_t b = static_cast<uint8_t>(color->fetch_part(2));
+    auto r = static_cast<uint8_t>(color->fetch_part(0));
+    auto g = static_cast<uint8_t>(color->fetch_part(1));
+    auto b = static_cast<uint8_t>(color->fetch_part(2));
     uint32_t packed;
     get_sector_color(sector, &packed);
     uint8_t current[4];

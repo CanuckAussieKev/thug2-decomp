@@ -166,7 +166,7 @@ void AnimBlenderComponent::tick_frame()
         uint32_t sets = highest_set + 1;
         for (uint32_t set = 0; set != sets;) {
             gfx::Stance* pose = gfx::g_blend_buffer;
-            uint32_t bones = static_cast<uint32_t>(skeleton()->get_num_bones());
+            auto bones = static_cast<uint32_t>(skeleton()->get_num_bones());
             gfx::blend_poses_by_id(gfx::g_blend_buffer, gfx::g_blend_weights, gfx::g_blend_sets,
                                    static_cast<int>(bones), pose, count, set);
             ++set;

@@ -80,7 +80,7 @@ Step get_capture(const std::vector<uint32_t>& names, const Reader& read)
     for (uint32_t name : names) {
         Values values;
         if (read(name, &values))
-            step.nodes.push_back({name, values});
+            step.nodes.emplace_back(name, values);
     }
     return step;
 }

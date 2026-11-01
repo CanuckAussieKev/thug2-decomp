@@ -47,11 +47,11 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
     maths::Vec4 sphere = *get_geom_bounding_sphere(geom_of(node), &scratch);
     for (node = node->next; node != head; node = node->next) {
         maths::Vec4 other = *get_geom_bounding_sphere(geom_of(node), &scratch);
-        float dx = static_cast<float>(static_cast<double>(other.x) - sphere.x);
-        float dy = static_cast<float>(static_cast<double>(other.y) - sphere.y);
-        float dz = static_cast<float>(static_cast<double>(other.z) - sphere.z);
-        float dw = static_cast<float>(static_cast<double>(other.w) - sphere.w);
-        float distance = static_cast<float>(
+        auto dx = static_cast<float>(static_cast<double>(other.x) - sphere.x);
+        auto dy = static_cast<float>(static_cast<double>(other.y) - sphere.y);
+        auto dz = static_cast<float>(static_cast<double>(other.z) - sphere.z);
+        auto dw = static_cast<float>(static_cast<double>(other.w) - sphere.w);
+        auto distance = static_cast<float>(
             std::sqrt(static_cast<double>(dz) * dz + static_cast<double>(dy) * dy + static_cast<double>(dx) * dx));
         if (static_cast<double>(other.w) + distance <= sphere.w)
             continue; // (inside the one so far)
@@ -63,12 +63,12 @@ maths::Vec4* PcModel::plat_get_bounding_sphere(maths::Vec4* out)
         double t = static_cast<double>(dw) / distance;
         double sum_x = static_cast<double>(other.x) + sphere.x;
         double sum_y = static_cast<double>(other.y) + sphere.y;
-        float sum_z = static_cast<float>(static_cast<double>(other.z) + sphere.z);
-        float sum_w = static_cast<float>(static_cast<double>(other.w) + sphere.w);
-        float offset_y = static_cast<float>(dy * t);
-        float offset_z = static_cast<float>(dz * t);
-        float x = static_cast<float>(dx * t + sum_x);
-        float y = static_cast<float>(offset_y + sum_y);
+        auto sum_z = static_cast<float>(static_cast<double>(other.z) + sphere.z);
+        auto sum_w = static_cast<float>(static_cast<double>(other.w) + sphere.w);
+        auto offset_y = static_cast<float>(dy * t);
+        auto offset_z = static_cast<float>(dz * t);
+        auto x = static_cast<float>(dx * t + sum_x);
+        auto y = static_cast<float>(offset_y + sum_y);
         sphere.z = static_cast<float>((static_cast<double>(offset_z) + sum_z) * 0.5f);
         sphere.x = static_cast<float>(static_cast<double>(x) * 0.5f);
         sphere.y = static_cast<float>(static_cast<double>(y) * 0.5f);

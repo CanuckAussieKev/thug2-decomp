@@ -34,7 +34,7 @@ memory::owner<ObjectModule*> VelocityTrackerModule::fabricate() { return new Vel
 VelocityTrackerModule::VelocityTrackerModule() { kind_tag_ = kType; }
 
 // 0x0043D2B0 (0x0043D2C0 the deleting one)
-VelocityTrackerModule::~VelocityTrackerModule() {}
+VelocityTrackerModule::~VelocityTrackerModule() = default;
 
 // 0x0043D2F0
 void VelocityTrackerModule::configure_from_data(script::Struct* params)
@@ -58,9 +58,9 @@ void VelocityTrackerModule::tick_frame()
     maths::Vec4 pos = entity_->at_point_;
     double frame = frame_clock::get_slomo_frame_seconds();
     // Each step rounded, then added - but w's step isn't rounded.
-    float step_x = static_cast<float>(half_x * frame);
-    float step_y = static_cast<float>(half_y * frame);
-    float step_z = static_cast<float>(half_z * frame);
+    auto step_x = static_cast<float>(half_x * frame);
+    auto step_y = static_cast<float>(half_y * frame);
+    auto step_z = static_cast<float>(half_z * frame);
     maths::Vec4& out = entity_->at_point_;
     out.z = static_cast<float>(static_cast<double>(step_z) + pos.z);
     out.w = static_cast<float>(frame * half_w + pos.w);

@@ -367,7 +367,7 @@ bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
         void* model = static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_;
         bool added = false;
         for (int i = 0; i < static_cast<render::RenderModel*>(model)->fetch_geom_total(); ++i) {
-            uint32_t textures = static_cast<uint32_t>(
+            auto textures = static_cast<uint32_t>(
                 reinterpret_cast<uintptr_t>(static_cast<render::RenderModel*>(model)->get_geom_textures(i)));
             bool found = false;
             for (int k = 0; k < seen_count; ++k) {

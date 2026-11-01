@@ -65,14 +65,14 @@ float* interpolate_rotation(float* out, const float* from, float* to, float t)
     }
     double x = (static_cast<double>(to[0]) - from[0]) * t + from[0];
     double y = (static_cast<double>(to[1]) - from[1]) * t + from[1];
-    float z = static_cast<float>((static_cast<double>(to[2]) - from[2]) * t + from[2]);
+    auto z = static_cast<float>((static_cast<double>(to[2]) - from[2]) * t + from[2]);
     double w_unrounded = (static_cast<double>(to[3]) - from[3]) * t + from[3];
-    float w = static_cast<float>(w_unrounded);
+    auto w = static_cast<float>(w_unrounded);
     double length = w_unrounded * w + static_cast<double>(z) * z;
     length += y * y;
     length += x * x;
     double inverse = 1.0f / std::sqrt(length);
-    float rounded = static_cast<float>(inverse);
+    auto rounded = static_cast<float>(inverse);
     to[0] = static_cast<float>(inverse * x);
     to[1] = static_cast<float>(rounded * y);
     to[2] = static_cast<float>(static_cast<double>(rounded) * z);
@@ -101,7 +101,7 @@ void mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count)
             --j;
         double below = weights[j];
         taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
-        float t = static_cast<float>(1.0f - below / (below + above));
+        auto t = static_cast<float>(1.0f - below / (below + above));
         blend_bones(poses[j], poses[i], bones, t, false);
     }
     // (as the original: `bones` poses' worth)
@@ -135,7 +135,7 @@ void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int b
         }
         double below = weights[j];
         taken = static_cast<float>(static_cast<double>(taken) + weights[i]);
-        float t = static_cast<float>(1.0f - below / (below + above));
+        auto t = static_cast<float>(1.0f - below / (below + above));
         blend_bones(poses[j], poses[i], bones, t, true);
     }
     if (out != poses)

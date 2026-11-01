@@ -256,7 +256,7 @@ bool EditedGoal::near_other_point(const maths::Vec4& pos)
             (current_kind == kPointStart && point.kind == kPointObject))
             within = start_to_object_radius;
         // (x's difference rounded to a float; y's and z's not, as the original's x87 sums)
-        float dx = static_cast<float>(static_cast<double>(point.pos.x) - pos.x);
+        auto dx = static_cast<float>(static_cast<double>(point.pos.x) - pos.x);
         double dy = (static_cast<double>(point.pos.y) + point.height) - pos.y;
         double dz = static_cast<double>(point.pos.z) - pos.z;
         double distance = std::sqrt((dz * dz + dy * dy) + static_cast<double>(dx) * dx);

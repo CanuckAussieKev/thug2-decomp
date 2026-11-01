@@ -41,10 +41,7 @@ HitMovingMesh::HitMovingMesh() : anchor_point_{0.0f, 0.0f, 0.0f, 1.0f}, owner_(0
 }
 
 // 0x00412660
-HitMovingMesh::HitMovingMesh(const HitMovingMesh& other)
-    : HitMesh(other), anchor_point_(other.anchor_point_), orientation_(other.orientation_), inverse_(other.inverse_),
-      owner_(other.owner_)
-{}
+HitMovingMesh::HitMovingMesh(const HitMovingMesh& other) = default;
 
 // 0x004121A0
 HitMovingMesh::~HitMovingMesh() { remove_movable_from_caches(this); }
@@ -174,9 +171,7 @@ CollScaled::CollScaled() : size_factor_{1.0f, 1.0f, 1.0f, 0.0f}
 }
 
 // 0x00413F80
-CollScaled::CollScaled(const CollScaled& other)
-    : HitMesh(other), size_factor_(other.size_factor_), basis_frame_(other.basis_frame_), inverse_(other.inverse_)
-{}
+CollScaled::CollScaled(const CollScaled& other) = default;
 
 // 0x00413610
 void CollScaled::place_at_absolute_point(const maths::Vec4* position)

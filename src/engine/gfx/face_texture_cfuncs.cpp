@@ -166,7 +166,7 @@ bool cfunc_rotate_texture(script::Struct* params, script::Script*)
     render::BitmapTexture* texture = find_texture(name);
     if (texture) {
         // x87: degrees * (pi / 180, 0x00645464) in double, rounded once
-        float radians = static_cast<float>(static_cast<double>(angle) * g_degree_to_radian_ratio);
+        auto radians = static_cast<float>(static_cast<double>(angle) * g_degree_to_radian_ratio);
         texture->spin_by(radians, -1.0f, -1.0f);
     }
     return true;
@@ -232,7 +232,7 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
     constexpr float kSixtieth = 0x1.111112p-6f;  // 0x006463B8
     constexpr float kNinetieth = 0x1.6c16c2p-7f; // 0x00657CC4
     double hue = static_cast<int>(hsv->fetch_part(0)) * static_cast<double>(kSixtieth);
-    float h = static_cast<float>(hue);
+    auto h = static_cast<float>(hue);
     if (!(hue < 6.0)) {
         do
             hue -= 6.0;
@@ -245,7 +245,7 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
         while (hue < 0.0);
         h = static_cast<float>(hue);
     }
-    float s = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));
+    auto s = static_cast<float>(static_cast<int>(hsv->fetch_part(1)) * static_cast<double>(kNinetieth));
     if (!(s > 0.0f))
         s = 0.01f;
     else if (s > 1.0f)
@@ -258,10 +258,10 @@ bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
 
     int sector = ftol(h);
     double f = h - static_cast<double>(sector);
-    float p = static_cast<float>((1.0 - s) * v);
-    float q = static_cast<float>((1.0 - s * f) * v);
-    float t = static_cast<float>((1.0 - (1.0 - f) * s) * v);
-    float value = static_cast<float>(v);
+    auto p = static_cast<float>((1.0 - s) * v);
+    auto q = static_cast<float>((1.0 - s * f) * v);
+    auto t = static_cast<float>((1.0 - (1.0 - f) * s) * v);
+    auto value = static_cast<float>(v);
     switch (static_cast<uint32_t>(ftol(static_cast<double>(sector)))) {
     case 0:
         r = value;
@@ -313,9 +313,9 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
     Array* rgb_array = nullptr;
     params->fetch_list(kRgb, &rgb_array, 1);
     constexpr float kScale = 1.0f / 128.0f; // 0x0064A2FC
-    float r = static_cast<float>(static_cast<int>(rgb_array->fetch_part(0)) * static_cast<double>(kScale));
-    float g = static_cast<float>(static_cast<int>(rgb_array->fetch_part(1)) * static_cast<double>(kScale));
-    float b = static_cast<float>(static_cast<int>(rgb_array->fetch_part(2)) * static_cast<double>(kScale));
+    auto r = static_cast<float>(static_cast<int>(rgb_array->fetch_part(0)) * static_cast<double>(kScale));
+    auto g = static_cast<float>(static_cast<int>(rgb_array->fetch_part(1)) * static_cast<double>(kScale));
+    auto b = static_cast<float>(static_cast<int>(rgb_array->fetch_part(2)) * static_cast<double>(kScale));
     float max = r;
     float min = r;
     if (g < r)
@@ -326,7 +326,7 @@ bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
         min = b;
     if (b > max)
         max = b;
-    float delta = static_cast<float>(static_cast<double>(max) - min);
+    auto delta = static_cast<float>(static_cast<double>(max) - min);
 
     float s;
     double hue;

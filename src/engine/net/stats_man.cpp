@@ -852,4 +852,3 @@ bool fill_stats_arrays(script::Struct* params, script::Script*)
 
 } // namespace online
 
-using online::RankingsManager;

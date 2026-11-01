@@ -46,7 +46,7 @@ ViewCam::ViewCam()
     far_clip_ = 12000.0f;
     if (render::g_distance_clipping) { // distance clipping (setting 0x007D6444)
         // (the setting as an unsigned number: FILD of a signed one, 2^32 added when negative)
-        double distance = static_cast<double>(g_draw_distance_setting);
+        auto distance = static_cast<double>(g_draw_distance_setting);
         if (g_draw_distance_setting < 0)
             distance += 4294967296.0;
         far_clip_ = static_cast<float>(distance * 30.0);
@@ -63,12 +63,12 @@ ViewCam::ViewCam()
 // x87 code stores.)
 void ViewCam::refresh_effective_h_fov()
 {
-    const float half_angle = static_cast<float>(static_cast<double>(h_fov_) * kDegreesToHalfRadians);
+    const auto half_angle = static_cast<float>(static_cast<double>(h_fov_) * kDegreesToHalfRadians);
     const double factor = render::fetch_fov_ratio();
     const double angle =
         std::atan(factor * (std::tan(static_cast<double>(half_angle)) / unknownc0_)) * kHalfRadiansToDegrees;
     corrected_horiz_fov_ = static_cast<float>(angle);
-    const float tan_adjusted = static_cast<float>(std::tan(angle * kDegreesToHalfRadians));
+    const auto tan_adjusted = static_cast<float>(std::tan(angle * kDegreesToHalfRadians));
     const double default_angle = render::get_screen_angle();
     unknownb4_ = static_cast<float>(tan_adjusted / std::tan(default_angle * kHalf * kRadiansPerDegree));
 }

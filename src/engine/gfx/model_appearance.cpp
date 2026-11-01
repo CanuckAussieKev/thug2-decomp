@@ -332,7 +332,7 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer, size_t size)
 {
     script::Struct* read = new_temp_struct();
-    uint8_t* end = const_cast<uint8_t*>(script::decode_from_bytes(read, buffer, size));
+    auto* end = const_cast<uint8_t*>(script::decode_from_bytes(read, buffer, size));
     structure_.get_clear();
     structure_.append_structure_if_any(read);
     delete_temp_struct(read);

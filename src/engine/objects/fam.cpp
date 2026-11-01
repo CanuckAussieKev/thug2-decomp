@@ -79,7 +79,7 @@ void FamComponent::publish_method_table()
 }
 
 // 0x0041D190 (0x0041D1A0 the deleting one)
-FamComponent::~FamComponent() {}
+FamComponent::~FamComponent() = default;
 
 // 0x0041D2C0
 void FamComponent::unload_fam()

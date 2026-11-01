@@ -130,7 +130,7 @@ void BuildPointer::shift_by(int dx, int dz)
         on_mode_changed();
     }
     if (gap_.halves_placed_ > 0) {
-        park_owner_->highlight_gap_pieces(1, &gap_);
+        park_owner_->highlight_gap_pieces(true, &gap_);
     } else {
         ParkLayout* manager = park_owner_;
         for (MapListNode* node = manager->concrete_metas_; node; node = node->following_) {
@@ -269,8 +269,8 @@ bool BuildPointer::copy_area_to_clipboard()
     maths::Vec4* world = ParkLayout::sole()->grid_dims_to_world(&corner, &area, &size);
     float x0 = world->x;
     float z0 = world->z;
-    float x1 = static_cast<float>(static_cast<double>(size.x) + x0);
-    float z1 = static_cast<float>(static_cast<double>(size.z) + z0);
+    auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);
+    auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
     int rails = count_rail_points(x0, z0, x1, z1);
     if (rails > free_rail_points())
         return false;
@@ -419,7 +419,7 @@ void BuildPointer::change_piece(uint32_t checksum)
         mode_sel_ = mode;
         on_mode_changed();
     }
-    park_owner_->highlight_gap_pieces(0, nullptr);
+    park_owner_->highlight_gap_pieces(false, nullptr);
 }
 
 // 0x0059C7A0

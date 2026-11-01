@@ -367,7 +367,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
 // roundings are the original's.
 void ChainComponent::tick_frame()
 {
-    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     const maths::Vec4 velocity = entity_->vel_;
     maths::Vec4 plane_point, axis_from, axis_to;
     joint_world_point(bone_rig_, plane_bone_, &plane_point);
@@ -492,10 +492,10 @@ void ChainComponent::tick_frame()
         // The constraint passes due (iterations_ a second).
         double done = static_cast<double>(frame) + step_time_;
         step_time_ = get_rounded(done);
-        double iterations = static_cast<double>(chain->iterations_);
+        auto iterations = static_cast<double>(chain->iterations_);
         if (chain->iterations_ < 0)
             iterations += 4294967296.0;
-        double steps = static_cast<double>(steps_);
+        auto steps = static_cast<double>(steps_);
         if (steps_ < 0)
             steps += 4294967296.0;
         int passes = static_cast<int>(static_cast<int64_t>(iterations * done - steps));
@@ -623,6 +623,3 @@ void ChainComponent::tick_frame()
 
 } // namespace objects
 
-using objects::Chain;
-using objects::ChainComponent;
-using objects::ChainLink;

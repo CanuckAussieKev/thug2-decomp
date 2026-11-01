@@ -108,7 +108,7 @@ bool SkaterPhysicsModule::probe_touches_zone(uint32_t ignore, uint32_t require)
     auto* feeler = &feeler_;
     feeler->change_strand(&probe_start_, &probe_end_);
     feeler->set_excluded(static_cast<uint16_t>(ignore), static_cast<uint16_t>(require));
-    uint8_t hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
+    auto hit = static_cast<uint8_t>(feeler->get_hit_shape(true, false));
     if (!hit)
         return false;
     if (feeler_.hit_.object_checksum_ && feeler_.hit_.face_flag40_)
@@ -393,7 +393,7 @@ int SkaterPhysicsModule::invoke_method_by_name(uint32_t name, script::Struct* pa
         float upward = velocity.y;
         velocity.y = 0.0f;
         objects::GameEntity* o = object_of(this);
-        float speed = static_cast<float>(length_unrounded(o->vel_));
+        auto speed = static_cast<float>(length_unrounded(o->vel_));
         o->vel_ = o->basis_frame_.row[2] * speed;
         entity_->vel_.y = upward;
     }
@@ -474,8 +474,8 @@ void SkaterPhysicsModule::check_side_feelers()
     for (uint32_t side = 0; side < 4; ++side) {
         const maths::Vec4& row = side < 2 ? entity_->basis_frame_.row[0] : entity_->basis_frame_.row[2];
         double reach = side_reach_;
-        float x = static_cast<float>(reach * row.x), y = static_cast<float>(reach * row.y),
-              z = static_cast<float>(reach * row.z);
+        auto x = static_cast<float>(reach * row.x), y = static_cast<float>(reach * row.y),
+             z = static_cast<float>(reach * row.z);
         double w = reach * row.w; // (left unrounded)
         maths::Vec4 end;
         if (side % 2 == 0) {
@@ -511,10 +511,10 @@ void SkaterPhysicsModule::check_side_feelers()
         return;
     maths::Vec4 along = forward;
     along.align_to_plane(normal);
-    float angle = static_cast<float>(
+    auto angle = static_cast<float>(
         maths::get_turn_around_axis(entity_->basis_frame_.row[2], along, entity_->basis_frame_.row[1]));
     double turn = static_cast<double>(maths::get_sign(angle)) * side_turn_ * frame_length_;
-    float step = static_cast<float>(turn);
+    auto step = static_cast<float>(turn);
     if (std::fabs(static_cast<double>(angle)) < std::fabs(turn))
         step = angle;
     entity_->basis_frame_.yaw_locally(step);

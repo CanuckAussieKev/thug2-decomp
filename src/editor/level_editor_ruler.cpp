@@ -146,7 +146,7 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
         if (!cast_onto(view.pos, frame, view.lens, c, view.near_z_, &nx, &ny))
             continue;
         ndc_to_pixel(view.viewport, nx, ny, &px, &py);
-        pixels.push_back({px, py});
+        pixels.emplace_back(px, py);
         shown.push_back(c);
     }
     int nearest = nearest_within(pixels, x, y, kSnapPixels);

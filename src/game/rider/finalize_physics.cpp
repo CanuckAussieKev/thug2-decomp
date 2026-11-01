@@ -74,7 +74,7 @@ RiderPhysicsCommit::RiderPhysicsCommit()
 }
 
 // 0x00511010 (0x00511020 the deleting one)
-RiderPhysicsCommit::~RiderPhysicsCommit() {}
+RiderPhysicsCommit::~RiderPhysicsCommit() = default;
 
 // 0x00511050
 void RiderPhysicsCommit::seal()
@@ -115,8 +115,8 @@ void RiderPhysicsCommit::tick_frame()
     sound->surface_type_ = pose_->surface_type_;
     auto* looping = static_cast<RiderRollingAudio*>(entity_->fetch_module(kSkaterLoopingSound));
     double x = entity_->vel_.x, z = entity_->vel_.z;
-    float speed = static_cast<float>(std::sqrt(x * x + z * z));
-    float fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
+    auto speed = static_cast<float>(std::sqrt(x * x + z * z));
+    auto fraction = static_cast<float>(speed / scaled_physics_value(entity_, kSkaterMaxMaxSpeedStat));
     set_looping_sound_speed(looping, fraction);
     looping->no_rail_sound_ = pose_->flag(PoseFlag::kBailing).on;
     uint8_t& changed = looping->sound_changed_;

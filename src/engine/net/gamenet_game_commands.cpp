@@ -326,7 +326,7 @@ bool cfunc_set_num_teams(Struct* params, Script*)
     params->fetch_int_value(0u, &teams, 0);
     if (!(manager->flag_bits_ & kFlagsServer)) {
         net::NetMessageInfo request;
-        uint8_t count = static_cast<uint8_t>(teams);
+        auto count = static_cast<uint8_t>(teams);
         request.content_ = &count;
         request.byte_count_ = 1;
         request.ident_ = kMsgNumTeamsRequest;
@@ -348,7 +348,7 @@ bool cfunc_set_num_teams(Struct* params, Script*)
     net::AppHost* server = manager->host_;
     if (!server)
         return true;
-    uint8_t count = static_cast<uint8_t>(teams);
+    auto count = static_cast<uint8_t>(teams);
     desc.content_ = &count;
     desc.byte_count_ = 1;
     desc.ident_ = kMsgNumTeams;

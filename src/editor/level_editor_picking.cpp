@@ -41,7 +41,7 @@ void add_top_strip(TopArea* area, const uint8_t* positions, uint32_t stride, uin
                    const uint16_t* indices, uint32_t index_count)
 {
     auto at = [&](uint16_t i) {
-        const float* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
+        const auto* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
@@ -210,7 +210,7 @@ bool ray_strip(V3 origin, V3 dir, const uint8_t* positions, uint32_t stride, uin
     bool found = false;
     float best = max_t;
     auto at = [&](uint16_t i) {
-        const float* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
+        const auto* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {

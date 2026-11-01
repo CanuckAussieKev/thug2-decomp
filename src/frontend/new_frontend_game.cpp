@@ -84,7 +84,7 @@ bool net_session()
     if (void* game_net = online::g_online_hub)
         if (static_cast<online::Hub*>(game_net)->in_net_game())
             return true;
-    return active_ruleset_label().rfind("net", 0) == 0;
+    return active_ruleset_label().starts_with("net");
 }
 
 UiWidget* get_find(uint32_t id)

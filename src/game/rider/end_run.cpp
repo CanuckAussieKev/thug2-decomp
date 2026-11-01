@@ -58,7 +58,7 @@ RiderSessionEnd::RiderSessionEnd()
 }
 
 // 0x00510D20 (0x00510D40 the deleting one)
-RiderSessionEnd::~RiderSessionEnd() {}
+RiderSessionEnd::~RiderSessionEnd() = default;
 
 // 0x00510D70
 void RiderSessionEnd::tick_frame()

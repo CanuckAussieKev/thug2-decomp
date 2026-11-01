@@ -88,7 +88,7 @@ int merge(const layout::FileLoad& fragment, layout::FileLoad* into, const PasteH
         if (!name_free(spec.name)) {
             node_create::Kind kind;
             bool fixed = node_create::kind_of(spec, &kind) &&
-                         (node_create::is_lobby_flag(spec.name) || spec.name.compare(0, 8, "TRG_CTF_") == 0);
+                         (node_create::is_lobby_flag(spec.name) || spec.name.starts_with("TRG_CTF_"));
             if (fixed || !node_create::kind_of(spec, &kind)) {
                 missing->push_back(spec.name + " (the level has one by that name)");
                 continue;

@@ -34,7 +34,7 @@ constexpr float kTwelveInchScale = 12.0f; // 0x0064546C
 float far_away()
 {
     uint32_t bits = 0x55CE224C;
-    float value = std::bit_cast<float>(bits);
+    auto value = std::bit_cast<float>(bits);
     return value;
 }
 
@@ -72,7 +72,7 @@ void ObjectProximityComponent::publish_method_table()
 ObjectProximityComponent::ObjectProximityComponent() { kind_tag_ = kObjectProximity; }
 
 // 0x004EC240 (0x004EC390 the deleting one)
-ObjectProximityComponent::~ObjectProximityComponent() {}
+ObjectProximityComponent::~ObjectProximityComponent() = default;
 
 // 0x004EC3C0
 double ObjectProximityComponent::local_skater_distance_squared(uint32_t* skater_id)

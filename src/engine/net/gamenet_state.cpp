@@ -311,4 +311,3 @@ uint32_t Hub::get_created_goals_size() { return created_goals_size_; }
 
 } // namespace online
 
-using online::Hub;

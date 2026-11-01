@@ -71,7 +71,7 @@ float get_fraction(double value)
 {
     if (value > 1.0)
         return 1.0f;
-    float rounded = static_cast<float>(value);
+    auto rounded = static_cast<float>(value);
     return rounded < 0.0f ? 0.0f : rounded;
 }
 
@@ -178,7 +178,7 @@ void EngineAudioModule::read_settings()
 // 0x0043C690
 void EngineAudioModule::tick_engine()
 {
-    float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     DrivableModule* vehicle = vehicle_ptr_;
     // The slowest driven wheel (always four looked at, the last first).
     float slowest = kNoWheel;
@@ -186,11 +186,11 @@ void EngineAudioModule::tick_engine()
         const DrivableModule::Wheel& wheel = vehicle->wheels_[i];
         if (!wheel.drive)
             continue;
-        float speed = static_cast<float>(std::fabs(static_cast<double>(wheel.spin)) * wheel.radius);
+        auto speed = static_cast<float>(std::fabs(static_cast<double>(wheel.spin)) * wheel.radius);
         if (!(slowest < speed))
             slowest = speed;
     }
-    float speed = static_cast<float>(slowest * kToMph);
+    auto speed = static_cast<float>(slowest * kToMph);
     if (!(vehicle->throttle_ || vehicle->reverse_) || vehicle->brake_)
         speed = static_cast<float>(get_rate(0xEC67BC97) * static_cast<double>(speed));
 
@@ -238,7 +238,7 @@ void EngineAudioModule::tick_engine()
     int gear = gear_;
     double low = gear ? gear_steps_[gear - 1].up_at_ : 0.0;
     double across = (static_cast<double>(speed_) - low) / (static_cast<double>(gear_steps_[gear].up_at_) - low);
-    float target =
+    auto target =
         static_cast<float>((static_cast<double>(gear_steps_[gear].high_rpm_) - gear_steps_[gear].low_rpm_) * across +
                            gear_steps_[gear].low_rpm_);
     double ease = static_cast<double>(get_rate(0x3DD9C040)) * frame;
@@ -256,7 +256,7 @@ void EngineAudioModule::tick_engine()
     volume.percent_tweak(static_cast<float>(((static_cast<double>(loudest) - quiet) * rpm + quiet) * loudness));
     float high_pitch = get_setting(settings_, 0x9F46344A);
     float low_pitch = get_setting(settings_, 0x2660AF3B);
-    float pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
+    auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * rpm + low_pitch);
     if (!engine_sound_)
         engine_sound_ = audio_mixer_handle()->emit_sound(engine_sound_name_, &volume, pitch, 0, nullptr, 0);
     else
@@ -296,7 +296,7 @@ void EngineAudioModule::update_skid()
     volume.percent_tweak(static_cast<float>((static_cast<double>(loudest) - quiet) * level + quiet));
     float high_pitch = get_setting(settings_, 0xE68BE784);
     float low_pitch = get_setting(settings_, 0x76F8F76E);
-    float pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
+    auto pitch = static_cast<float>((static_cast<double>(high_pitch) - low_pitch) * level + low_pitch);
     if (!volume.is_audio_off()) {
         if (!skid_sound_)
             skid_sound_ = audio_mixer_handle()->emit_sound(skid_sound_name_, &volume, pitch, 0, nullptr, 0);
@@ -317,7 +317,7 @@ void EngineAudioModule::update_collide_sound()
     if (Unsigned(since) < delay)
         return;
     float full_collision = get_setting(settings_, 0xCEA59D0B);
-    float strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse_) / full_collision);
+    auto strength = static_cast<float>(static_cast<double>(vehicle_ptr_->collision_impulse_) / full_collision);
     float cutoff = get_rate(0xF6981837);
     if (!(strength > cutoff))
         return;

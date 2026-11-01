@@ -88,7 +88,7 @@ ImVec4 get_accent(float alpha)
 {
     float rgb[3];
     prefs::get_accent_rgb(prefs::get_pull().accent, rgb);
-    return ImVec4(rgb[0], rgb[1], rgb[2], alpha);
+    return {rgb[0], rgb[1], rgb[2], alpha};
 }
 int g_style_generation = -1; // (the preferences' scale / accent the style was built for)
 
@@ -1073,8 +1073,8 @@ void get_inspector(const ShapeMesh& model)
                         if (g_scale_locked && values[axis] > 0.0f) {
                             // (every axis by the same ratio, clamped so none leaves 0.25..4)
                             float ratio = value / values[axis];
-                            for (int a = 0; a < 3; ++a)
-                                ratio = std::clamp(ratio, scale_tool::kMin / values[a], scale_tool::kMax / values[a]);
+                            for (float limit : values)
+                                ratio = std::clamp(ratio, scale_tool::kMin / limit, scale_tool::kMax / limit);
                             for (int a = 0; a < 3; ++a)
                                 request.a[a] = values[a] * ratio;
                         } else {

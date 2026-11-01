@@ -86,7 +86,7 @@ void CarView::publish_method_table()
 }
 
 // 0x00524440 (0x00524470 the deleting one)
-CarView::~CarView() {}
+CarView::~CarView() = default;
 
 // 0x005244A0
 void CarView::configure_from_data(script::Struct* params)
@@ -127,7 +127,7 @@ void CarView::update_target_direction()
     float z = -velocity[2];
     float w = -velocity[3];
     double length = std::sqrt(static_cast<double>(z) * z + static_cast<double>(x) * x);
-    float speed = static_cast<float>(length);
+    auto speed = static_cast<float>(length);
     if (length > 0.0) {
         double inverse = 1.0 / length;
         x = static_cast<float>(x * inverse);
@@ -144,7 +144,7 @@ void CarView::update_target_direction()
         scale = 1.0;
     const maths::Vec4& at = subject_->basis_frame_.row[2];
     double a = -at.x, b = -at.y, c = -at.z;
-    float along = static_cast<float>((c * z + b * y + a * x) * scale);
+    auto along = static_cast<float>((c * z + b * y + a * x) * scale);
     target_direction_ = {-at.x, -at.y, -at.z, -at.w};
     target_direction_.y = 0.0f;
     target_direction_.make_unit();
@@ -175,8 +175,8 @@ void CarView::update_orientation()
     double heading = free_look_->heading_;
     double rotated_x, rotated_z;
     maths::spin_by(heading, direction_.x, direction_.z, &rotated_x, &rotated_z);
-    float right = static_cast<float>(rotated_z);
-    float forward = static_cast<float>(rotated_x);
+    auto right = static_cast<float>(rotated_z);
+    auto forward = static_cast<float>(rotated_x);
     orientation_.row[0] = {right, 0.0f, -forward, 1.0f};
     orientation_.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     orientation_.row[2] = {forward, direction_.y, right, direction_.w};
@@ -217,7 +217,7 @@ void CarView::tick_frame()
     double dot = static_cast<double>(direction_.z) * target_direction_.z +
                  static_cast<double>(direction_.y) * target_direction_.y +
                  static_cast<double>(direction_.x) * target_direction_.x;
-    float cosine = static_cast<float>(dot);
+    auto cosine = static_cast<float>(dot);
     if (dot > 1.0)
         cosine = 1.0f;
     else if (cosine < -1.0f)

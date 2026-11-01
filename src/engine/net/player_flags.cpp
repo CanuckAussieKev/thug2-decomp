@@ -298,4 +298,3 @@ void PlayerRecord::give_crown(bool king)
 
 } // namespace online
 
-using online::PlayerRecord;

@@ -145,7 +145,7 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
         auto number = [&](size_t i) { return i < words.size() ? std::strtof(words[i].c_str(), nullptr) : 0.0f; };
         auto scale_of = [&]() -> std::string {
             for (const std::string& w : words) {
-                if (w.compare(0, 6, "scale=") == 0)
+                if (w.starts_with("scale="))
                     return ", scaled " + w.substr(6);
             }
             return "";
@@ -188,8 +188,8 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             float x = number(at), y = number(at + 1), z = number(at + 2);
             // (the at row: the heading)
             float ax = number(at + 9), az = number(at + 11);
-            float heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * 180.0 /
-                                               3.14159265358979);
+            auto heading = static_cast<float>(std::atan2(static_cast<double>(ax), static_cast<double>(az)) * 180.0 /
+                                              3.14159265358979);
             std::string name = copy ? "a copy of " + name_of(source, words.size() > 1 ? words[1] : "?")
                                     : name_of(e.id, words.empty() ? "?" : words[0]);
             char text[96];
@@ -201,9 +201,9 @@ std::vector<TableRow> link_chain(const std::string& layout_text, const Labeler& 
             bool pos = false, angles = false;
             int fields = 0;
             for (size_t i = 1; i < words.size(); ++i) {
-                pos = pos || words[i].compare(0, 4, "pos=") == 0;
-                angles = angles || words[i].compare(0, 7, "angles=") == 0;
-                fields += words[i].compare(0, 2, "f.") == 0 ? 1 : 0;
+                pos = pos || words[i].starts_with("pos=");
+                angles = angles || words[i].starts_with("angles=");
+                fields += words[i].starts_with("f.") ? 1 : 0;
             }
             std::string what = pos ? (angles ? "moved / turned" : "moved") : angles ? "turned" : "";
             if (fields)

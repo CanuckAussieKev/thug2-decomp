@@ -599,7 +599,7 @@ script::Struct* get_build(const Spec& spec)
                 break;
             new (array) script::Array;
             bool names = f.type == Prop::kNames;
-            uint32_t count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
+            auto count = static_cast<uint32_t>(names ? f.list.size() : f.integers.size());
             array->configure_size_kind(count, names ? script::kQbvalName : script::kQbvalInteger);
             for (uint32_t i = 0; i < count; ++i)
                 array->set_element(i, names ? name_hash(f.list[i]) : static_cast<uint32_t>(f.integers[i]));
@@ -892,7 +892,7 @@ int create_all(const LinkChain& specs, std::string* message)
         if (script::Struct* node = get_build(spec)) {
             g_list.push_back(spec);
             g_structs.push_back(node);
-            made.push_back({spec, node});
+            made.emplace_back(spec, node);
         }
     }
     if (made.empty())

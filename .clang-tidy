@@ -3,6 +3,8 @@
 Checks: >
   -*,
   readability-identifier-naming
+# SDL_endian.h defines _m_prefetch, which clang's own intrinsics header declares too: keep clang's out
+ExtraArgs: ['-D__PRFCHWINTRIN_H']
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*[/\\]src[/\\](platform|engine|game|frontend|editor)[/\\].*'
 CheckOptions:

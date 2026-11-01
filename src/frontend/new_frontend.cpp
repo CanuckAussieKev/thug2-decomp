@@ -149,12 +149,12 @@ std::string windows_fonts()
 // Windows' fonts folder. "" if none of the names is there.
 std::string find_font(const std::vector<std::string>& names)
 {
-    std::string ours = data_overlay::get_folder() + "\\frontend\\fonts\\";
+    std::string ours = data_overlay::get_folder() + R"(\frontend\fonts\)";
     std::string windows = windows_fonts();
     for (const std::string& name : names) {
         if (name.empty())
             continue;
-        if (name.find(':') != std::string::npos || name.rfind("\\\\", 0) == 0) {
+        if (name.find(':') != std::string::npos || name.starts_with("\\\\")) {
             if (is_file_present(name))
                 return name;
             continue;
@@ -840,7 +840,7 @@ void collect_texts(const UiWidget* element, std::vector<std::string>* out, const
     if (type_of(element) == text_type()) {
         const char* text = reinterpret_cast<const LabelWidget*>(element)->chars_;
         if (text && *text)
-            out->push_back(text);
+            out->emplace_back(text);
     }
     for (UiWidget* child = first_child(element); child && *budget > 0; child = get_next(child))
         collect_texts(child, out, skip, budget, visible_only);
@@ -1241,7 +1241,7 @@ std::string pad_button_label_for(char tag, char digit)
         char mapped = render::button_glyph(&d);
         button = text::hex_digit_value(&mapped);
     } else {
-        uint8_t d = static_cast<uint8_t>(digit);
+        auto d = static_cast<uint8_t>(digit);
         button = static_cast<int>(render::button_for_tag(&d));
     }
     switch (button) {
@@ -1675,7 +1675,7 @@ void Do(modules::FrontEnd* front_end, const ActStep& action)
             // (the pause menu's change of level, as its level select does it)
             get_log("new front end: change level to %s", action.load.c_str());
             hide_root(false);
-            script::Struct* params = new (script::spawn_param_bag()) script::Struct;
+            auto* params = new (script::spawn_param_bag()) script::Struct;
             params->put_name_key(name_hash("level"), name_hash(action.load.c_str()));
             script::spawn_script(name_hash("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false,
                                  false);

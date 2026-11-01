@@ -179,7 +179,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
         *why = "the piece has too many faces (at most 2048)";
         return false;
     }
-    uint32_t count = static_cast<uint32_t>(mesh.vertices.size());
+    auto count = static_cast<uint32_t>(mesh.vertices.size());
     // The render: new vertex buffers (each of the mesh's) and index buffers (each level of detail it draws).
     std::vector<uint8_t> data(static_cast<size_t>(count) * first->stride);
     write_vertices(mesh, layout, first->stride, spec.colour, data.data());
@@ -242,7 +242,7 @@ bool emit_out(render::WorldCell* sector, const Spec& spec, const Mesh& mesh, std
     // The collision: new arrays (memory::alloc - the game frees them with memory::Dealloc, TriMeshSource::destruct), floats,
     // 10-byte faces, one leaf listing every face.
     render::TriMeshSource* tri = coll->geometry_;
-    uint32_t faces = static_cast<uint32_t>(mesh.faces.size());
+    auto faces = static_cast<uint32_t>(mesh.faces.size());
     auto* vertices = static_cast<float*>(memory::alloc(count * 12));
     auto* face_data = static_cast<uint8_t*>(memory::alloc(faces * 10));
     auto* node_memory = static_cast<uint32_t*>(memory::alloc(8 + 4));
@@ -483,10 +483,10 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
             uint16_t a = indices->indices[i], b = indices->indices[i + 1];
             if (a == b || a >= mesh->vertex_count_ || b >= mesh->vertex_count_)
                 continue;
-            const float* pa = reinterpret_cast<const float*>(data + a * mesh->stride);
-            const float* pb = reinterpret_cast<const float*>(data + b * mesh->stride);
-            const float* ta = reinterpret_cast<const float*>(data + a * mesh->stride + layout.tex);
-            const float* tb = reinterpret_cast<const float*>(data + b * mesh->stride + layout.tex);
+            const auto* pa = reinterpret_cast<const float*>(data + a * mesh->stride);
+            const auto* pb = reinterpret_cast<const float*>(data + b * mesh->stride);
+            const auto* ta = reinterpret_cast<const float*>(data + a * mesh->stride + layout.tex);
+            const auto* tb = reinterpret_cast<const float*>(data + b * mesh->stride + layout.tex);
             double dw = std::sqrt(double(pa[0] - pb[0]) * (pa[0] - pb[0]) + double(pa[1] - pb[1]) * (pa[1] - pb[1]) +
                                   double(pa[2] - pb[2]) * (pa[2] - pb[2]));
             double dt = std::sqrt(double(ta[0] - tb[0]) * (ta[0] - tb[0]) + double(ta[1] - tb[1]) * (ta[1] - tb[1]));
@@ -665,7 +665,7 @@ void apply_records(const std::vector<std::string>& lines)
     for (const std::string& line : lines) {
         Spec s;
         std::string body = line.size() > 7 ? line.substr(7) : std::string();
-        if (line.rfind("ground ", 0) == 0 && read_record(body, &s))
+        if (line.starts_with("ground ") && read_record(body, &s))
             specs.push_back(s);
         else
             get_log("level editor: a layout's ground record isn't readable - skipped: %s", line.c_str());

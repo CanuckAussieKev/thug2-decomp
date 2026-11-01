@@ -22,7 +22,7 @@ uint32_t read_scripts_hash()
 {
     char text[32];
     build_info::fetch_text("online", "thugpro_scripts_hash", "", text, sizeof(text));
-    uint32_t hash = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
+    auto hash = static_cast<uint32_t>(std::strtoul(text, nullptr, 16));
     return hash ? hash : kReleaseScriptsHash;
 }
 

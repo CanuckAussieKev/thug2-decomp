@@ -432,7 +432,7 @@ void AudioMixer::change_master_loudness(float volume)
         return;
     script::fetch_int_value(kDebugB);
     master_loudness() = volume;
-    float scaled = static_cast<float>(static_cast<double>(g_volume_scale) * volume * 0.0099999998f);
+    auto scaled = static_cast<float>(static_cast<double>(g_volume_scale) * volume * 0.0099999998f);
     if (scaled < 0.1f)
         scaled = 0.0f;
     set_voice_volume(scaled);

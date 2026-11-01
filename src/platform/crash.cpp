@@ -90,7 +90,7 @@ bool after_call(uintptr_t address)
 {
     if (!readable(address - 7, 7, true))
         return false;
-    const uint8_t* p = reinterpret_cast<const uint8_t*>(address);
+    const auto* p = reinterpret_cast<const uint8_t*>(address);
     if (p[-5] == 0xE8)
         return true;
     for (int length : {2, 3, 4, 6, 7}) {
@@ -132,7 +132,7 @@ void log_backtrace()
     USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
     for (USHORT i = 0; i < count; ++i) {
         char name[MAX_PATH] = "?";
-        uintptr_t offset = reinterpret_cast<uintptr_t>(frames[i]);
+        auto offset = reinterpret_cast<uintptr_t>(frames[i]);
         module_of(reinterpret_cast<uintptr_t>(frames[i]), name, &offset);
         get_log("    at %s+0x%X (%p)", name, static_cast<unsigned>(offset), frames[i]);
     }
@@ -162,7 +162,7 @@ void report_exception(const EXCEPTION_POINTERS* info, const char* note)
     for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
         if (!readable(slot, 0x20, false))
             break;
-        const uint32_t* w = reinterpret_cast<const uint32_t*>(slot);
+        const auto* w = reinterpret_cast<const uint32_t*>(slot);
         get_log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0],
                 w[1], w[2], w[3], w[4], w[5], w[6], w[7]);
     }
@@ -404,7 +404,7 @@ bool cause_test_fault(TestFault fault)
         _invalid_parameter_noinfo();
         break;
     case TestFault::kPureCall:
-        _purecall();
+        pure_call();
         break;
     case TestFault::kCancelNow:
         abort();

@@ -9,8 +9,7 @@
 #include "engine/gfx/sector.h"
 #include "engine/script/param_struct.h"
 
-namespace park_editing {
-namespace rail_editor_internal {
+namespace park_editing::rail_editor_internal {
 
 // The points' and rails' CPoolable pool pairs.
 memory::PoolPair& point_pools();
@@ -46,5 +45,4 @@ inline void enable_sector(uint8_t* sector, bool active)
     reinterpret_cast<render::WorldCell*>(sector)->change_live(active);
 }
 
-} // namespace rail_editor_internal
-} // namespace park_editing
+} // namespace park_editing::rail_editor_internal

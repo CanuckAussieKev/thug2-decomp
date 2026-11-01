@@ -211,7 +211,7 @@ void RiderFrameLog::get_frame_movement(maths::Vec4* out)
 {
     const maths::Vec4& vel = entity_->vel_;
     double frame = frame_clock::get_frame_seconds();
-    float rounded = static_cast<float>(frame);
+    auto rounded = static_cast<float>(frame);
     out->x = rounded * vel.x;
     out->y = rounded * vel.y;
     out->z = rounded * vel.z;
@@ -310,7 +310,7 @@ void RiderFrameLog::check_for_collisions(int first)
         if (length_of(their_move) > 100.0f) // 0x006463D4 (NaN carries on)
             continue;
 
-        float radius = static_cast<float>(fetch_hit_radius(my_driving, their_driving));
+        auto radius = static_cast<float>(fetch_hit_radius(my_driving, their_driving));
         // (The original looks driving_radius_boost up for each driver and drops it.)
         if (my_driving)
             script::fetch_float(kDrivingRadiusBoost);
@@ -346,7 +346,7 @@ void RiderFrameLog::check_for_collisions(int first)
         // Who hits whom: the faster skater (a driver beats one on foot); otherwise only the game's "it" does.
         bool must_be_it;
         if (my_driving == their_driving) {
-            float my_speed = static_cast<float>(length_of(my_move));
+            auto my_speed = static_cast<float>(length_of(my_move));
             must_be_it = length_of(their_move) < my_speed;
         } else {
             must_be_it = my_driving && !their_driving;
@@ -376,7 +376,7 @@ void RiderFrameLog::check_for_collisions(int first)
             msg.queue_ = net::NetMessageInfo::kLaneOrdered;
             msg.group_id_ = 8;
             app->put_on_outbox(get_connection(me), &msg);
-            uint8_t ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity_->ident_));
+            auto ran_into_by = static_cast<uint8_t>(my_driving * 0x80 | static_cast<uint8_t>(entity_->ident_));
             msg.ident_ = kMsgRanIntoAck;
             msg.content_ = &ran_into_by;
             msg.byte_count_ = 1;
@@ -400,7 +400,7 @@ void RiderFrameLog::check_for_collisions(int first)
                 if (is_host_local(player))
                     continue;
                 net::NetMessageInfo msg;
-                uint8_t tagged = static_cast<uint8_t>(skater->ident_);
+                auto tagged = static_cast<uint8_t>(skater->ident_);
                 msg.content_ = &tagged;
                 msg.ident_ = kMsgTagged;
                 msg.byte_count_ = 1;
@@ -462,14 +462,14 @@ int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
             double length = std::sqrt((dx * dx + static_cast<double>(dy) * dy) + static_cast<double>(dz) * dz);
             double x = 1.0, y = 0.0, z = 1.0, w = 1.0;
             if (!(length < kTooClose)) {
-                float inverse = static_cast<float>(1.0 / length);
+                auto inverse = static_cast<float>(1.0 / length);
                 x = dx * inverse;
                 y = static_cast<double>(inverse) * dy;
                 z = static_cast<double>(inverse) * dz;
                 w = static_cast<double>(inverse) * dw;
             }
-            float wk = static_cast<float>(w * kKnockBack), zk = static_cast<float>(z * kKnockBack);
-            float yk = static_cast<float>(y * kKnockBack), xk = static_cast<float>(x * kKnockBack);
+            auto wk = static_cast<float>(w * kKnockBack), zk = static_cast<float>(z * kKnockBack);
+            auto yk = static_cast<float>(y * kKnockBack), xk = static_cast<float>(x * kKnockBack);
             skater->vel_.x = xk * kKnockScale;
             skater->vel_.y = yk * kKnockScale;
             skater->vel_.z = zk * kKnockScale;
@@ -559,7 +559,7 @@ int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
                 w = 1.0;
             }
             double wk = w * kKnockBack; // (kept unrounded)
-            float zk = static_cast<float>(z * kKnockBack);
+            auto zk = static_cast<float>(z * kKnockBack);
             float yk = away[1] * kKnockBack;
             float xk = away[0] * kKnockBack;
             skater->vel_.x = xk * kKnockScale;

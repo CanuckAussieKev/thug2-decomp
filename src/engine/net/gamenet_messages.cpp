@@ -399,7 +399,7 @@ bool read_news(util::ByteReader& reader, News* news)
     news->motd = text.c_string();
     if (!news->motd)
         return false;
-    int32_t padded = static_cast<int32_t>((std::strlen(news->motd) + 4) & ~static_cast<size_t>(3));
+    auto padded = static_cast<int32_t>((std::strlen(news->motd) + 4) & ~static_cast<size_t>(3));
     news->motd_size = padded < news->size ? padded : news->size;
     return reader.skip(static_cast<size_t>(news->size));
 }

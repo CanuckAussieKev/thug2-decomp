@@ -288,7 +288,7 @@ bool Entity::get_tag(Struct* params, Struct* dest)
     if (!tag_table_)
         return false;
     // The name is read into the argument's own slot: with no unnamed checksum, the pointer `params` is the name.
-    uint32_t name = reinterpret_cast<uint32_t>(params);
+    auto name = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(kUnnamed, &name, 1);
     Component* tag = tag_table_->find_component(name);
     if (!tag)

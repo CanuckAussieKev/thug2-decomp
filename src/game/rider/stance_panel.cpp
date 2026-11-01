@@ -47,7 +47,7 @@ RiderStanceDisplay::RiderStanceDisplay()
 }
 
 // 0x00519130 (0x005191E0 the deleting one)
-RiderStanceDisplay::~RiderStanceDisplay() {}
+RiderStanceDisplay::~RiderStanceDisplay() = default;
 
 // 0x00519140
 void RiderStanceDisplay::configure_from_data(script::Struct* /*params*/) { shown_ = -1; }

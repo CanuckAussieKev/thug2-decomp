@@ -98,8 +98,8 @@ int compare_meshes(const void* a, const void* b)
     if (flag_a != flag_b)
         return flag_a ? 1 : -1;
     // (then by pixel shader, as the original: its address)
-    uint32_t order_a = reinterpret_cast<uint32_t>(mesh_a->pixel_shader_);
-    uint32_t order_b = reinterpret_cast<uint32_t>(mesh_b->pixel_shader_);
+    auto order_a = reinterpret_cast<uint32_t>(mesh_a->pixel_shader_);
+    auto order_b = reinterpret_cast<uint32_t>(mesh_b->pixel_shader_);
     if (order_a != order_b)
         return order_b < order_a ? 1 : -1;
     return reinterpret_cast<uintptr_t>(material_b) < reinterpret_cast<uintptr_t>(material_a) ? 1 : -1;
@@ -157,8 +157,8 @@ void SceneRef::update_sphere()
 {
     double half_x = (static_cast<double>(bounds.max.x) - bounds.min.x) * 0.5;
     double half_y = (static_cast<double>(bounds.max.y) - bounds.min.y) * 0.5; // (kept in double precision)
-    float size_z = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
-    float half_x_float = static_cast<float>(half_x);
+    auto size_z = static_cast<float>(static_cast<double>(bounds.max.z) - bounds.min.z);
+    auto half_x_float = static_cast<float>(half_x);
     double half_z = static_cast<double>(size_z) * 0.5;
     centre[0] = static_cast<float>(static_cast<double>(half_x_float) + bounds.min.x);
     centre[1] = static_cast<float>(half_y + bounds.min.y);

@@ -15,7 +15,7 @@ float get_store(double value) { return static_cast<float>(value); }
 // A float passed through the x87 (FLD / FSTP): a signalling NaN comes out quiet.
 float through_x87(float value)
 {
-    uint32_t bits = std::bit_cast<uint32_t>(value);
+    auto bits = std::bit_cast<uint32_t>(value);
     if ((bits & 0x7F800000u) == 0x7F800000u && (bits & 0x007FFFFFu))
         bits |= 0x00400000u;
     return std::bit_cast<float>(bits);

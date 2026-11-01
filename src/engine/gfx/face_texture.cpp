@@ -187,11 +187,11 @@ bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points,
     int model_eyes_y = (model.left_eye_[1] + model.right_eye_[1]) >> 1;
     int eyes_y = ((face.left_eye_[1] + face.right_eye_[1]) >> 1) + dy;
     // The scales of the sides right of, above and below the nose (x87 quotients rounded to floats).
-    float scale_right = static_cast<float>(static_cast<double>(get_width(texture) - face.nose_slot_[0] - dx) /
-                                           static_cast<double>(face.right_eye_[0] - face.nose_slot_[0]));
-    float scale_up = static_cast<float>(static_cast<double>(dy + nose_y) / static_cast<double>(dy - eyes_y + nose_y));
-    float scale_down = static_cast<float>(static_cast<double>(get_height(texture) - dy - nose_y) /
-                                          static_cast<double>(face.mouth_part_[1] - nose_y));
+    auto scale_right = static_cast<float>(static_cast<double>(get_width(texture) - face.nose_slot_[0] - dx) /
+                                          static_cast<double>(face.right_eye_[0] - face.nose_slot_[0]));
+    auto scale_up = static_cast<float>(static_cast<double>(dy + nose_y) / static_cast<double>(dy - eyes_y + nose_y));
+    auto scale_down = static_cast<float>(static_cast<double>(get_height(texture) - dy - nose_y) /
+                                         static_cast<double>(face.mouth_part_[1] - nose_y));
 
     // Left of the nose (its quotient kept at the x87's precision)
     double scale_left =

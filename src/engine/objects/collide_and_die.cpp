@@ -62,7 +62,7 @@ ImpactDestructModule::ImpactDestructModule()
 }
 
 // 0x0041C1F0 (0x0041C280 the deleting one)
-ImpactDestructModule::~ImpactDestructModule() {}
+ImpactDestructModule::~ImpactDestructModule() = default;
 
 // 0x0041C2B0
 void ImpactDestructModule::configure_from_data(script::Struct* params)

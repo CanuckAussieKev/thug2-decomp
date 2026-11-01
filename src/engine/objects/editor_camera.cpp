@@ -288,7 +288,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         return false;
     // Nothing in the way at head height from where it was?
     double was = static_cast<double>(previous.y) + level_y_;
-    float top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
+    auto top = static_cast<float>((height > was ? static_cast<double>(height) : was) + kWallHeight);
     maths::Vec4 to = {cursor_.x, top, cursor_.z, cursor_.w};
     maths::Vec4 from = {previous.x, top, previous.z, previous.w};
     bool clear = true;
@@ -306,7 +306,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
         return false;
     if (height >= cursor_.y) { // (not a number goes down)
         // Up: the height above it less the rise (the editor's own camera only if it's no lower than 0x71EC75E9).
-        float lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
+        auto lowered = static_cast<float>(level_y_ - (static_cast<double>(height) - cursor_.y));
         if (!simple_collision_ || entity_->ident_ == 0x5B509AD3 || get_global(0x71EC75E9) < level_y_)
             level_y_ = lowered;
         if (level_y_ < min_height_)
@@ -417,12 +417,12 @@ void EditorViewModule::tick_frame()
         zoom_ = min_zoom_;
     if (zoom_ > max_zoom_)
         zoom_ = max_zoom_;
-    float zoom_fraction =
+    auto zoom_fraction =
         static_cast<float>((static_cast<double>(zoom_) - min_zoom_) / (static_cast<double>(max_zoom_) - min_zoom_));
 
     // Raising / lowering the height (by the zoom; slowly when close), not through a ceiling.
     float near_rate = get_global(0x604961F4);
-    float rise =
+    auto rise =
         static_cast<float>((static_cast<double>(get_global(0x5C445EAD)) - near_rate) * zoom_fraction + near_rate);
     if (zoom_ < kNearZoom)
         rise = 0.2f;
@@ -492,7 +492,7 @@ void EditorViewModule::tick_frame()
         speed = 1.0f;
 
     // The left stick (or the d-pad) moves the cursor along the axes.
-    float side = static_cast<float>(static_cast<double>(pad.stick_[2]) * kStickScale);
+    auto side = static_cast<float>(static_cast<double>(pad.stick_[2]) * kStickScale);
     double ahead = static_cast<double>(pad.stick_[3]) * kStickScale;
     if (std::fabs(side) < kDeadZone) {
         if (pad.left_side_.held_down_)
@@ -506,15 +506,15 @@ void EditorViewModule::tick_frame()
         if (pad.btn_down_.held_down_)
             ahead = 0.5f;
     }
-    float a1 = static_cast<float>(ahead * forward_.w);
-    float a2 = static_cast<float>(ahead * forward_.z);
-    float a3 = static_cast<float>(ahead * forward_.y);
+    auto a1 = static_cast<float>(ahead * forward_.w);
+    auto a2 = static_cast<float>(ahead * forward_.z);
+    auto a3 = static_cast<float>(ahead * forward_.y);
     double a4 = ahead * forward_.x;
-    float b1 = static_cast<float>(a1 * speed), b2 = static_cast<float>(a2 * speed), b3 = static_cast<float>(a3 * speed);
-    float b4 = static_cast<float>(a4 * speed);
+    auto b1 = static_cast<float>(a1 * speed), b2 = static_cast<float>(a2 * speed), b3 = static_cast<float>(a3 * speed);
+    auto b4 = static_cast<float>(a4 * speed);
     double c1 = static_cast<double>(side) * right_side_.w, c2 = static_cast<double>(side) * right_side_.z;
     float c3 = side * right_side_.y, c4 = side * right_side_.x;
-    float d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
+    auto d1 = static_cast<float>(c1 * speed), d2 = static_cast<float>(c2 * speed), d3 = static_cast<float>(c3 * speed);
     double x0 = speed * c4;
     maths::Vec4 previous = cursor_;
     cursor_.x = static_cast<float>((x0 + b4) + cursor_.x);
@@ -532,9 +532,9 @@ void EditorViewModule::tick_frame()
     float ease = get_global(0x725AD02C);
     focus_.y = static_cast<float>(((static_cast<double>(cursor_.y) + level_y_) - focus_.y) * ease + focus_.y);
     float tilt_now = lean_angle_;
-    float at_x = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.x);
-    float at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
-    float at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
+    auto at_x = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.x);
+    auto at_z = static_cast<float>(std::cos(static_cast<double>(tilt_now)) * forward_.z);
+    auto at_y = static_cast<float>(std::sin(static_cast<double>(tilt_now)));
     maths::Mat4 look;
     look.row[0] = {right_side_.x, right_side_.y, right_side_.z, 0.0f};
     look.row[1] = {

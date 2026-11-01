@@ -1101,9 +1101,9 @@ int SkateNet::handle_terrain_sound(net::InboundMsgCtx* context)
     position.y = static_cast<float>(message.y);
     position.z = static_cast<float>(message.z);
     position.w = 0.0f; // (the original leaves w as the stack had it)
-    float volume = static_cast<float>(message.volume);
-    float pitch = static_cast<float>(message.pitch);
-    float value = static_cast<float>(message.value);
+    auto volume = static_cast<float>(message.volume);
+    auto pitch = static_cast<float>(message.pitch);
+    auto value = static_cast<float>(message.value);
     surface_kind::play_terrain_sound(message.table, message.terrain, &position, volume, pitch, value, false);
     return 1;
 }

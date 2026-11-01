@@ -382,6 +382,3 @@ void ParkAssembler::read_piece_flags(script::Array* nodes)
 
 } // namespace park_editing
 
-using park_editing::CellChainScratch;
-using park_editing::MapListNode;
-using park_editing::ParkAssembler;

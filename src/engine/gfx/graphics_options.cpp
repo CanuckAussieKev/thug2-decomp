@@ -103,7 +103,7 @@ float parse_scale(const char* text)
     double value = std::strtod(text, &end);
     if (end == text || !std::isfinite(value) || !(value > 0.0))
         return 1.0f;
-    float scale = static_cast<float>(value);
+    auto scale = static_cast<float>(value);
     return scale < kMinScale ? kMinScale : (scale > kMaxScale ? kMaxScale : scale);
 }
 

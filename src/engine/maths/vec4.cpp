@@ -8,14 +8,7 @@
 namespace maths {
 
 // 0x00402320
-Vec4& Vec4::operator=(const Vec4& other)
-{
-    x = other.x;
-    y = other.y;
-    z = other.z;
-    w = other.w;
-    return *this;
-}
+Vec4& Vec4::operator=(const Vec4& other) = default;
 
 // 0x00402310
 float& Vec4::operator[](int index) { return (&x)[index]; }
@@ -49,9 +42,9 @@ Vec4& Vec4::flatten_onto_plane(const Vec4& normal)
     double dot =
         (static_cast<double>(normal.x) * x + static_cast<double>(z) * normal.z) + static_cast<double>(y) * normal.y;
     double along_x = dot * normal.x;
-    float along_y = static_cast<float>(dot * normal.y);
-    float along_z = static_cast<float>(dot * normal.z);
-    float along_w = static_cast<float>(dot * normal.w);
+    auto along_y = static_cast<float>(dot * normal.y);
+    auto along_z = static_cast<float>(dot * normal.z);
+    auto along_w = static_cast<float>(dot * normal.w);
     x = static_cast<float>(x - along_x);
     y = static_cast<float>(static_cast<double>(y) - along_y);
     z = static_cast<float>(static_cast<double>(z) - along_z);
@@ -240,7 +233,7 @@ bool Vec4::operator==(const Vec4& other) const { return x == other.x && y == oth
 Vec4 operator/(const Vec4& v, float divisor)
 {
     double inverse = 1.0 / static_cast<double>(divisor);
-    float rounded = static_cast<float>(inverse);
+    auto rounded = static_cast<float>(inverse);
     return {rounded * v.x, rounded * v.y, rounded * v.z, static_cast<float>(inverse * v.w)};
 }
 
@@ -288,7 +281,7 @@ namespace {
 // The cosine as the originals take it: rounded to a float, limited to [-1, 1] (NaN passes through).
 double clamped_cosine(double dot)
 {
-    float cosine = static_cast<float>(dot);
+    auto cosine = static_cast<float>(dot);
     if (cosine > 1.0f)
         cosine = 1.0f;
     else if (cosine < -1.0f)
@@ -357,7 +350,7 @@ double get_turn_around_axis(const Vec4& a, const Vec4& b, const Vec4& axis)
     double cx = static_cast<double>(from.z) * normal.y - static_cast<double>(from.y) * normal.z;
     double cy = static_cast<double>(normal.z) * from.x - static_cast<double>(from.z) * normal.x;
     double cz = static_cast<double>(from.y) * normal.x - static_cast<double>(normal.y) * from.x;
-    float side = static_cast<float>((cz * tz + cy * ty) + cx * tx);
+    auto side = static_cast<float>((cz * tz + cy * ty) + cx * tx);
     double angle = std::acos(clamped_cosine(dot));
     return side < 0.0f ? -angle : angle;
 }

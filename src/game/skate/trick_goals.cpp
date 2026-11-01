@@ -252,7 +252,7 @@ bool FallingTricksGoal::get_win()
 {
     bool testing = args_->has_bare_flag(kTrialRunFlag);
     args_->put_name_key(0u, kJustWonGoal);
-    disengage(0, 1); // Deactivate
+    disengage(false, true); // Deactivate
     args_->remove_flag(kJustWonGoal);
     if (testing)
         args_->put_name_key(0u, kTrialRunFlag);
@@ -376,7 +376,7 @@ void FallingTricksGoal::expire()
     }
     invoke_hook_script(kExpire);
     if (run_ending_ != 2)
-        disengage(0, 1); // Deactivate
+        disengage(false, true); // Deactivate
 }
 
 // 0x0056F5B0
@@ -958,7 +958,7 @@ void TrickBeatGoal::pulse_tricks()
             continue;
         frontend::UiWidget* element = element_by_id(ui_tree_handle(), t.element);
         script::Struct* params = spawn_param_table();
-        float window = static_cast<float>(window_time_);
+        auto window = static_cast<float>(window_time_);
         params->put_int(kWaitTime, ftol(window / static_cast<double>(frame_clock::get_time_scale())));
         script::Script* script = get_spawn(kPulseTrick, params);
         delete_structure(params);
@@ -1023,12 +1023,12 @@ void TrickBeatGoal::update_beat()
     int elapsed = frame_clock::game_clock_elapsed() + (objects::g_clock_offset - last);
     beat_time_ += elapsed;
     last_time_ += elapsed;
-    double time = static_cast<double>(beat_time_);
+    auto time = static_cast<double>(beat_time_);
     if (beat_time_ < 0)
         time += gfx::g_two_to32; // (unsigned)
     double inverse = 1.0 / slomo;
-    float scale = static_cast<float>(inverse); // (kept as a float; the beat's length uses the unrounded value)
-    float beat = static_cast<float>(inverse * beat_length_);
+    auto scale = static_cast<float>(inverse); // (kept as a float; the beat's length uses the unrounded value)
+    auto beat = static_cast<float>(inverse * beat_length_);
     if (!(time <= beat)) {
         // A beat: its sounds, then on to the next.
         auto* step = reinterpret_cast<script::Struct*>(pattern_->fetch_part(static_cast<uint32_t>(beat_)));

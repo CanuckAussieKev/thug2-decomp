@@ -101,7 +101,7 @@ void BillboardQuad::change_scale(float xscale, float yscale)
         height = static_cast<float>(texels_down(bitmap_));
     }
     constexpr float kNarrowest = 1.25f;                             // 0x00649AC4
-    constexpr float kMinHeight = std::bit_cast<float>(0x3F955326u); // 0x00649AC0: 1.1666
+    constexpr auto kMinHeight = std::bit_cast<float>(0x3F955326u);  // 0x00649AC0: 1.1666
     if (xscale > 0.0f && static_cast<double>(width) * xscale <= kNarrowest)
         xscale = static_cast<float>(static_cast<double>(kNarrowest) / width);
     if (yscale > 0.0f && static_cast<double>(height) * yscale <= kMinHeight)

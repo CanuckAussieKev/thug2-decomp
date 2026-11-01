@@ -84,7 +84,7 @@ void* get_first_value(lists::KeyMap* table)
 // A value taken out of its table (keyed by its address).
 void drop_out(lists::KeyMap* table, void* value)
 {
-    uint32_t key = reinterpret_cast<uint32_t>(value);
+    auto key = reinterpret_cast<uint32_t>(value);
     table->erase_entry(key);
 }
 
@@ -171,8 +171,8 @@ void Shatter::get_step(int index, float step)
     maths::Vec4& centre = centres[index];
     double move_x = static_cast<double>(step) * velocity.x;
     double move_y = static_cast<double>(step) * velocity.y;
-    float move_z = static_cast<float>(static_cast<double>(step) * velocity.z);
-    float move_w = static_cast<float>(static_cast<double>(step) * velocity.w);
+    auto move_z = static_cast<float>(static_cast<double>(step) * velocity.z);
+    auto move_w = static_cast<float>(static_cast<double>(step) * velocity.w);
     centre.x = static_cast<float>(move_x + centre.x);
     centre.y = static_cast<float>(move_y + centre.y);
     centre.z = static_cast<float>(static_cast<double>(move_z) + centre.z);
@@ -181,15 +181,15 @@ void Shatter::get_step(int index, float step)
         // A bounce: the height mirrored about the floor, the speed turned up, a new turn.
         centre.y = static_cast<float>((static_cast<double>(floor) - centre.y) + floor);
         velocity.y = static_cast<float>(-(static_cast<double>(bounce) * velocity.y));
-        float a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-        float a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
-        float a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+        auto a1 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+        auto a2 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
+        auto a3 = static_cast<float>(get_rand() * kPerRandTwice - 1.0f);
         maths::Vec4 axis = {a3, a2, a1, 1.0f};
         axis.make_unit();
         maths::Mat4& rotation = rotations[index];
         std::memset(&rotation, 0, sizeof(rotation));
         rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
-        float turn_angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
+        auto turn_angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
         maths::Mat4 turn;
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
         // D3DX (linked library code): rotation = rotation * turn
@@ -423,7 +423,7 @@ bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, flo
             added->follow = follow;
             added->pos = *from;
             added->time = now;
-            uint32_t key = reinterpret_cast<uint32_t>(added);
+            auto key = reinterpret_cast<uint32_t>(added);
             recent_splats()->store_entry(key, added);
             return true;
         }
@@ -509,7 +509,7 @@ void update_shatters()
 {
     if (get_paused() || !shatters())
         return;
-    float elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     for (void* value = get_first_value(shatters()); value;) {
         auto* shatter = static_cast<Shatter*>(value);
         double left = static_cast<double>(shatter->lifetime) - elapsed;
@@ -551,14 +551,14 @@ void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float
     flash->flags = flags;
     flash->texture = nullptr;
     flash->viewport = viewport;
-    uint32_t key = reinterpret_cast<uint32_t>(flash);
+    auto key = reinterpret_cast<uint32_t>(flash);
     flashes()->store_entry(key, flash);
 }
 
 // 0x00491790
 void update_flashes()
 {
-    float elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
+    auto elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (!flashes())
         return;
     for (void* value = get_first_value(flashes()); value;) {

@@ -33,11 +33,9 @@ public:
 
 } // namespace memory
 
-namespace memory {
-
 // Item pools shared by the engine's container classes, by index. Pool 0 holds hash table items (12 bytes
 // each); the other slots are unused in this game.
-namespace slot_pool_setup {
+namespace memory::slot_pool_setup {
 
 // Create pool `index` with room for `count` items. Only index 0 is set up (as "HashItem").
 void set_up(int index, int count);
@@ -48,9 +46,7 @@ void return_entry(int index, void* item);
 // Pool `index` (null if there isn't one).
 SlabBank* get_pool(int index);
 
-} // namespace slot_pool_setup
-
-} // namespace memory
+} // namespace memory::slot_pool_setup
 
 namespace memory {
 

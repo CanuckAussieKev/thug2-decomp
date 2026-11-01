@@ -204,7 +204,7 @@ std::string get_token(V3 scale)
 
 bool read_token(const std::string& field, V3* scale)
 {
-    if (field.compare(0, 6, "scale=") != 0 || field.size() == 6)
+    if (!field.starts_with("scale=") || field.size() == 6)
         return false;
     float values[3];
     const char* at = field.c_str() + 6;

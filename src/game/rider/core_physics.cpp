@@ -232,7 +232,7 @@ int SkaterPhysicsModule::set_speed(script::Struct* params, script::Script* scrip
     maths::Vec4& velocity = object->vel_;
     double length_sqr = static_cast<double>(velocity.x) * velocity.x + static_cast<double>(velocity.y) * velocity.y +
                         static_cast<double>(velocity.z) * velocity.z;
-    float before = static_cast<float>(std::sqrt(length_sqr));
+    auto before = static_cast<float>(std::sqrt(length_sqr));
     if (length_sqr < static_cast<double>(0.001f)) {                             // (not taken for a NaN)
         std::memcpy(&velocity, &object->basis_frame_.row[2], sizeof(velocity)); // (moved, not loaded as floats)
     } else {
@@ -279,8 +279,8 @@ void SkaterPhysicsModule::check_for_ground()
             double dx = static_cast<double>(position.x) - point.x;
             double dy = static_cast<double>(position.y) - point.y;
             double dz = static_cast<double>(position.z) - point.z;
-            float distance = static_cast<float>(std::sqrt(dx * dx + dz * dz + dy * dy));
-            float along = static_cast<float>(dz * up.z + dy * up.y + dx * up.x); // (how far above the hit, along up)
+            auto distance = static_cast<float>(std::sqrt(dx * dx + dz * dz + dy * dy));
+            auto along = static_cast<float>(dz * up.z + dy * up.y + dx * up.x); // (how far above the hit, along up)
 
             if (!hit_skatable_) {
                 // Not ground: if the skater is (nearly) at or below it, move it out by the hit's normal; then leave.
@@ -307,14 +307,14 @@ void SkaterPhysicsModule::check_for_ground()
                     facing = {-facing.x, -facing.y, -facing.z, -facing.w};
                 maths::Vec4 in_hit_plane = facing;
                 maths::Vec4 in_ground_plane = facing;
-                float facing_into_hit = static_cast<float>(static_cast<double>(facing.x) * normal.x +
-                                                           static_cast<double>(facing.z) * normal.z +
-                                                           static_cast<double>(facing.y) * normal.y);
+                auto facing_into_hit = static_cast<float>(static_cast<double>(facing.x) * normal.x +
+                                                          static_cast<double>(facing.z) * normal.z +
+                                                          static_cast<double>(facing.y) * normal.y);
                 in_hit_plane.align_to_plane(normal);
                 in_ground_plane.align_to_plane(floor_normal_);
-                float turn = static_cast<float>(static_cast<double>(in_ground_plane.x) * in_hit_plane.x +
-                                                static_cast<double>(in_ground_plane.z) * in_hit_plane.z +
-                                                static_cast<double>(in_ground_plane.y) * in_hit_plane.y);
+                auto turn = static_cast<float>(static_cast<double>(in_ground_plane.x) * in_hit_plane.x +
+                                               static_cast<double>(in_ground_plane.z) * in_hit_plane.z +
+                                               static_cast<double>(in_ground_plane.y) * in_hit_plane.y);
                 float angle =
                     tuning_float_lookup(input->pad_primary_.up_dir_.held_down_ ? 0x4138283E : 0xEF161C2A, object);
                 double limit = std::cos(static_cast<double>(angle) * 0.0174532924f); // (degrees to radians)
@@ -329,7 +329,7 @@ void SkaterPhysicsModule::check_for_ground()
                     float mx = p.x - old.x, my = p.y - old.y, mz = p.z - old.z;
                     double moved = std::sqrt(static_cast<double>(mx) * mx + static_cast<double>(mz) * mz +
                                              static_cast<double>(my) * my);
-                    float reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
+                    auto reach = static_cast<float>(std::tan(std::acos(static_cast<double>(cosine))) * moved);
                     float least = tuning_float_lookup(0x899BA3D0, object);
                     if (reach < least)
                         reach = least;
@@ -448,7 +448,7 @@ objects::GameEntity* object_of(SkaterPhysicsModule* component) { return componen
 void SkaterPhysicsModule::do_air_physics()
 {
     objects::PadInputModule* input = input_;
-    float gravity = static_cast<float>(get_gravity());
+    auto gravity = static_cast<float>(get_gravity());
     set_timed_flag(state_, PoseFlag::kOnVert, 0);
     objects::RiderPoseState* flags = state_;
     if (flags->flag(PoseFlag::kVertAir).on || flags->flag(PoseFlag::kAcidDrop).on ||
@@ -505,7 +505,7 @@ void SkaterPhysicsModule::do_air_physics()
     maths::Vec4 carried = {0.0f, 0.0f, 0.0f, 1.0f};
     {
         objects::MovingSurfaceModule* ride = ride_;
-        uint32_t* rider = reinterpret_cast<uint32_t*>(ride->ride_);
+        auto* rider = reinterpret_cast<uint32_t*>(ride->ride_);
         objects::GameEntity* object = object_of(this);
         if (rider) {
             if (*rider == 0)
@@ -522,11 +522,11 @@ void SkaterPhysicsModule::do_air_physics()
     {
         float t = frame_length_;
         double half = static_cast<double>(t) * t * 0.5f;
-        float zero_half = static_cast<float>(0.0 * half);
-        float half_gravity = static_cast<float>(half * gravity);
-        float half_float = static_cast<float>(half);
+        auto zero_half = static_cast<float>(0.0 * half);
+        auto half_gravity = static_cast<float>(half * gravity);
+        auto half_float = static_cast<float>(half);
         float ty = t * velocity.y, tz = t * velocity.z, tw = t * velocity.w;
-        float sx = static_cast<float>(static_cast<double>(velocity.x) * t + zero_half);
+        auto sx = static_cast<float>(static_cast<double>(velocity.x) * t + zero_half);
         float sy = ty + half_gravity;
         double sz = 0.0 * half + tz;
         double sw = static_cast<double>(tw) + half_float;
@@ -571,7 +571,7 @@ void SkaterPhysicsModule::do_air_physics()
             }
         }
         uint32_t stamp = state_->flag(PoseFlag::kLeftVert).changed_at;
-        uint32_t now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
+        auto now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
         int elapsed = static_cast<int>(now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp));
         if (elapsed > script::fetch_int_value(0x26495947))
             set_timed_flag(state_, PoseFlag::kLeftVert, 0);
@@ -587,7 +587,7 @@ void SkaterPhysicsModule::do_air_physics()
     bool riding = false;
     {
         objects::MovingSurfaceModule* ride = ride_;
-        uint32_t* rider = reinterpret_cast<uint32_t*>(ride->ride_);
+        auto* rider = reinterpret_cast<uint32_t*>(ride->ride_);
         if (rider && *rider)
             riding = true;
         else if (rider)

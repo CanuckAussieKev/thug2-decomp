@@ -21,10 +21,10 @@ double get_at(const Mat4& m, int r, int c) { return reinterpret_cast<const float
 QuatRotation* QuatRotation::init_from_axis_angle(const Vec4& axis, float angle)
 {
     double ax = axis.x, ay = axis.y, az = axis.z;
-    float length = static_cast<float>(std::sqrt(ax * ax + ay * ay + az * az));
+    auto length = static_cast<float>(std::sqrt(ax * ax + ay * ay + az * az));
     double half = static_cast<double>(angle) * 0.5;
     double inverse = length > 0.0f ? 1.0 / length : 0.0;
-    float s = static_cast<float>(std::sin(half) * inverse);
+    auto s = static_cast<float>(std::sin(half) * inverse);
     z = s * axis.z;
     y = s * axis.y;
     x = s * axis.x;
@@ -38,9 +38,9 @@ QuatRotation& QuatRotation::operator*=(const QuatRotation& q)
     double ax = x, ay = y, az = z, aw = w;
     double bx = q.x, by = q.y, bz = q.z, bw = q.w;
     double cross0 = bz * ay - by * az;
-    float cross1 = static_cast<float>(az * bx - bz * ax);
-    float cross2 = static_cast<float>(by * ax - bx * ay);
-    float sum0 = static_cast<float>(static_cast<double>(static_cast<float>(bx * aw)) + ax * bw);
+    auto cross1 = static_cast<float>(az * bx - bz * ax);
+    auto cross2 = static_cast<float>(by * ax - bx * ay);
+    auto sum0 = static_cast<float>(static_cast<double>(static_cast<float>(bx * aw)) + ax * bw);
     float sum1 = static_cast<float>(by * aw) + static_cast<float>(ay * bw);
     float sum2 = static_cast<float>(bz * aw) + static_cast<float>(az * bw);
     x = static_cast<float>(cross0 + sum0);
@@ -101,7 +101,7 @@ QuatRotation* QuatRotation::from_matrix(const Mat4& m)
     if (trace > 0.0) {
         double s = std::sqrt(trace + 1.0);
         w = static_cast<float>(0.5 * s);
-        const float f = static_cast<float>(0.5 / s);
+        const auto f = static_cast<float>(0.5 / s);
         x = static_cast<float>((get_at(m, 2, 1) - get_at(m, 1, 2)) * f);
         y = static_cast<float>((get_at(m, 0, 2) - get_at(m, 2, 0)) * f);
         z = static_cast<float>((get_at(m, 1, 0) - get_at(m, 0, 1)) * f);

@@ -162,17 +162,17 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
         fields::Value v;
         v.kind = fields::Kind::kName;
         v.checksum = fields::hash_of_name(tod_name(props.tod));
-        out.push_back({"tod_state", v});
+        out.emplace_back("tod_state", v);
     }
     if (props.time == 0 || props.time == 1)
-        out.push_back({"tod_manager_active", Int(props.time)});
+        out.emplace_back("tod_manager_active", Int(props.time));
     // (map4: our own keys - the engine reads no level structure's ambient_* / fog_*; on_level_up reads these)
     if (props.has_ambient_) {
         fields::Value v;
         v.kind = fields::Kind::kIntegers;
-        for (int i = 0; i < 3; ++i)
-            v.list.push_back(static_cast<uint32_t>(get_channel(props.ambient[i])));
-        out.push_back({"ed_ambient", v});
+        for (int channel : props.ambient)
+            v.list.push_back(static_cast<uint32_t>(get_channel(channel)));
+        out.emplace_back("ed_ambient", v);
     }
     if (props.has_fog_) {
         fields::Value v;
@@ -180,13 +180,13 @@ std::vector<std::pair<const char*, fields::Value>> structure_values(const Props&
         for (int i = 0; i < 4; ++i)
             v.list.push_back(static_cast<uint32_t>(get_channel(props.fog[i])));
         v.list.push_back(static_cast<uint32_t>(span_to(props.fog[4])));
-        out.push_back({"ed_fog", v});
+        out.emplace_back("ed_fog", v);
     }
     if (valid_sky(props.sky)) {
         fields::Value v;
         v.kind = fields::Kind::kChars;
         v.text = props.sky;
-        out.push_back({"sky", v});
+        out.emplace_back("sky", v);
     }
     return out;
 }
@@ -407,7 +407,7 @@ const std::vector<std::string>& skies()
         for (const std::string& s : g_skies)
             there = there || _stricmp(s.c_str(), sky) == 0;
         if (!there)
-            g_skies.push_back(sky);
+            g_skies.emplace_back(sky);
     }
     std::sort(g_skies.begin(), g_skies.end(),
               [](const std::string& a, const std::string& b) { return _stricmp(a.c_str(), b.c_str()) < 0; });
@@ -456,7 +456,7 @@ void on_edited_copy_up(const Props& props)
             get_log("level editor: the edited copy's start %08X isn't a restart of this level - not used", props.start);
         return;
     }
-    script::Struct* params = new (script::spawn_param_bag()) script::Struct;
+    auto* params = new (script::spawn_param_bag()) script::Struct;
     params->put_name_key(checksums::hash_from_text("node_name"), props.start);
     script::launch_script(checksums::hash_from_text("ResetSkaters"), params, nullptr, false, "ResetSkaters");
     params->get_clear();

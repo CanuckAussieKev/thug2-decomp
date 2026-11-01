@@ -151,7 +151,7 @@ AttributeTracker::AttributeTracker()
 }
 
 // 0x0051C460 (0x0051C640 the deleting one)
-AttributeTracker::~AttributeTracker() {}
+AttributeTracker::~AttributeTracker() = default;
 
 // 0x0051C470
 int AttributeTracker::get_goal_status(int index) { return goals_[index].cur_standing_; }
@@ -255,7 +255,7 @@ bool AttributeTracker::is_operative()
     if (!activated_ || static_cast<modules::Skate*>(skate)->level_ == 0xE92ECAFE)
         return false;
     // (Without a name the original compares what its slot held: this.)
-    uint32_t name = reinterpret_cast<uint32_t>(this);
+    auto name = reinterpret_cast<uint32_t>(this);
     reinterpret_cast<script::Struct*>(first_profile()->details_)->read_hash_value(0xA1DC81F9u, &name, 1);
     return name == 0x0A7BE964;
 }
@@ -534,7 +534,7 @@ void AttributeTracker::tick_frame()
             break;
         case kAirDistance:
             if (air_phase_ == 2) {
-                float target = static_cast<float>(goal.aim_point_);
+                auto target = static_cast<float>(goal.aim_point_);
                 air_end_.y = 0.0f;
                 air_start_.y = 0.0f;
                 double distance = span_to(air_end_, air_start_);

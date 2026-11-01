@@ -130,10 +130,10 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
         double since_plant = elapsed;
         if (elapsed < 0)
             since_plant += kUnsignedOffset; // (unsigned)
-        float since_plant_float = static_cast<float>(since_plant);
+        auto since_plant_float = static_cast<float>(since_plant);
         if (script::fetch_float(kDisallowRewallplant) > since_plant_float)
             return false;
-        float since_ride = static_cast<float>(frame_clock::game_clock_time_since(wall_ride_start_));
+        auto since_ride = static_cast<float>(frame_clock::game_clock_time_since(wall_ride_start_));
         if (static_cast<double>(script::fetch_float(kWallplantDelay)) * kToMilliseconds > since_ride)
             return false;
         if (script::fetch_float(kMinWallplantHeight) > state_->height_above_ground_)
@@ -186,14 +186,14 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
             move.make_unit();
             double height = tuning_float_lookup(kForwardHeight, o);
             const maths::Vec4& up = o->basis_frame_.row[1];
-            float hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
-                  hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
+            auto hw = static_cast<float>(height * up.w), hz = static_cast<float>(height * up.z),
+                 hy = static_cast<float>(height * up.y), hx = static_cast<float>(height * up.x);
             const maths::Vec4& last = entity_->old_pos_;
             maths::Vec4& start = probe_start_;
             start = {hx + last.x, hy + last.y, hz + last.z, hw + last.w};
             double length = tuning_float_lookup(kForwardLength, object_of(this));
-            float lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
-                  ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
+            auto lw = static_cast<float>(move.w * length), lz = static_cast<float>(move.z * length),
+                 ly = static_cast<float>(move.y * length), lx = static_cast<float>(length * move.x);
             const maths::Vec4& now = entity_->at_point_;
             double w = static_cast<double>(hw) + now.w; // (left unrounded)
             float z = hz + now.z, y = hy + now.y, x = hx + now.x;
@@ -221,7 +221,7 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     if (check_only)
         return true;
     // The plant: off the wall (its normal flattened; a late plant's saved one) at the approach angle allowed.
-    float speed = static_cast<float>(length_unrounded(entity_->vel_));
+    auto speed = static_cast<float>(length_unrounded(entity_->vel_));
     if (speed < kMinSpeed)
         return false;
     maths::Vec4 heading = entity_->vel_ / speed;
@@ -256,17 +256,16 @@ bool SkaterPhysicsModule::wall_plant(bool late, bool check_only, bool walking)
     // the vertical exit speed.
     objects::GameEntity* object = object_of(this);
     maths::Vec4& velocity = object->vel_;
-    float into =
-        static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
-                           static_cast<double>(wall.x) * velocity.x);
+    auto into = static_cast<float>(static_cast<double>(wall.z) * velocity.z + static_cast<double>(wall.y) * velocity.y +
+                                   static_cast<double>(wall.x) * velocity.x);
     maths::Vec4 bounce = into * wall;
     if (!walking) {
         velocity -= 2.0f * bounce;
         maths::Vec4& v = entity_->vel_;
-        float flat = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z));
+        auto flat = static_cast<float>(std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.z) * v.z));
         if (flat > kMinFlatSpeed) {
             v.y = 0.0f;
-            float reduced = static_cast<float>(flat - static_cast<double>(script::fetch_float(kSpeedLoss)));
+            auto reduced = static_cast<float>(flat - static_cast<double>(script::fetch_float(kSpeedLoss)));
             float least = script::fetch_float(kMinExitSpeed);
             set_length(entity_->vel_, objects::larger_of(least, reduced));
         } else {
@@ -328,10 +327,10 @@ bool SkaterPhysicsModule::start_wall_ride()
     if (!button_pressed(this, kTriangle) && !(thaw_bmx::live_now(this) && thaw_bmx::wallride_button(this)))
         return false;
     // Not again within Wall_Ride_Delay of the last ride or plant.
-    float since_ride = static_cast<float>(static_cast<int>(get_since(static_cast<uint32_t>(wall_ride_start_))));
+    auto since_ride = static_cast<float>(static_cast<int>(get_since(static_cast<uint32_t>(wall_ride_start_))));
     if (!(static_cast<double>(script::fetch_float(kWallRideDelay)) * kToMilliseconds < since_ride))
         return false;
-    float since_plant = static_cast<float>(static_cast<int>(get_since(static_cast<uint32_t>(wallplant_end_))));
+    auto since_plant = static_cast<float>(static_cast<int>(get_since(static_cast<uint32_t>(wallplant_end_))));
     if (!(static_cast<double>(script::fetch_float(kWallRideDelay)) * kToMilliseconds < since_plant))
         return false;
     if (entity_->vel_.y > 0.0f && !wall_above_hit(this))
@@ -347,10 +346,10 @@ bool SkaterPhysicsModule::start_wall_ride()
     heading.make_unit();
     maths::Vec4 along = {v.x, 0.0f, v.z, v.w};
     along.flatten_onto_plane(flat_wall);
-    float speed = static_cast<float>(length_unrounded(along));
+    auto speed = static_cast<float>(length_unrounded(along));
     if (script::fetch_float(kWallRideMinSpeed) > speed)
         return false;
-    float facing =
+    auto facing =
         static_cast<float>(static_cast<double>(heading.x) * flat_wall.x + static_cast<double>(heading.z) * flat_wall.z +
                            static_cast<double>(heading.y) * flat_wall.y);
     if (!(-std::sin(static_cast<double>(script::fetch_float(kUpsideDownAngle)) * kRadiansPerDegree) < wall.y))

@@ -95,7 +95,7 @@ void init_direct_3d()
     g_display_factor_y = 1.0f;
     g_screen_offset_x = 0;
     g_screen_offset_y = 16;
-    g_depth_texture_target = 0;
+    g_depth_texture_target = nullptr;
     reinterpret_cast<uint32_t&>(g_screen_copy_index) = 0;
     // Originally from PartyMod Fixes (its jump at 0x004D869C): the window is never maximised. The original:
     //   if (g_show_window_flag) ShowWindow(Pane(), SW_MAXIMIZE);
@@ -170,9 +170,9 @@ void init_direct_3d()
     IDirect3DDevice9* device = input_port();
     g_draw_device = device;
     // (the back buffer size as set by CreateDevice, unsigned)
-    float scale_x = static_cast<float>(static_cast<double>(pp.BackBufferWidth) * kPer640);
+    auto scale_x = static_cast<float>(static_cast<double>(pp.BackBufferWidth) * kPer640);
     g_display_factor_x = scale_x;
-    float scale_y = static_cast<float>(static_cast<double>(pp.BackBufferHeight) * kPer480);
+    auto scale_y = static_cast<float>(static_cast<double>(pp.BackBufferHeight) * kPer480);
     g_screen_offset_x = 0;
     g_display_factor_y = scale_y;
     g_screen_offset_y = static_cast<int>(static_cast<int64_t>(static_cast<double>(scale_y) * kOffsetLines));
@@ -185,7 +185,7 @@ void init_direct_3d()
         g_depth_textures_supported = true;
     for (IDirect3DTexture9*& texture : g_screen_textures)
         texture = nullptr;
-    g_z_buffer_surface = 0;
+    g_z_buffer_surface = nullptr;
     reset_render_state();
     create_render_targets();
     // Originally from PartyMod Fixes (its jump at 0x004D8989): the cursor is left alone. The original hid it when full screen:
@@ -343,8 +343,8 @@ void load_gamma()
 {
     float red = 0.25f, green = 0.25f, blue = 0.25f;
     HKEY key;
-    if (RegOpenKeyExA(HKEY_CURRENT_USER, "Software\\Activision\\Tony Hawk's Underground 2\\Settings\\Gamma", 0,
-                      KEY_READ, &key) == ERROR_SUCCESS) {
+    if (RegOpenKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0, KEY_READ,
+                      &key) == ERROR_SUCCESS) {
         DWORD size = 4;
         RegQueryValueExA(key, "R", nullptr, nullptr, reinterpret_cast<BYTE*>(&red), &size);
         size = 4;

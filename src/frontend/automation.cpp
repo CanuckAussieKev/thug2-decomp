@@ -304,7 +304,7 @@ std::string json_string(const std::string& text)
 {
     std::string out = "\"";
     for (char c : text) {
-        unsigned char u = static_cast<unsigned char>(c);
+        auto u = static_cast<unsigned char>(c);
         if (c == '"' || c == '\\') {
             out += '\\';
             out += c;
@@ -824,7 +824,7 @@ std::string net_refusal()
             return "a network game runs";
     if (void* mode = reinterpret_cast<void*>(goals::g_game_mode)) {
         std::string name = get_name_of(static_cast<goals::MatchRules*>(mode)->get_name_key());
-        if (name.rfind("net", 0) == 0)
+        if (name.starts_with("net"))
             return "the game mode is a network one (" + name + ")";
     }
     return {};
@@ -966,14 +966,14 @@ struct Runner {
 
 Runner& get_state()
 {
-    static Runner* runner = new Runner; // (never freed: nothing runs on the game's memory at exit)
+    static auto* runner = new Runner; // (never freed: nothing runs on the game's memory at exit)
     return *runner;
 }
 
 // The menu the running choose / focus is moving (cleared if it dies).
 ElementPtr& target_menu()
 {
-    static ElementPtr* menu = new ElementPtr;
+    static auto* menu = new ElementPtr;
     return *menu;
 }
 
@@ -991,7 +991,7 @@ void add_line(Runner& runner, const std::string& text)
 {
     ++runner.lines_read_;
     // (a UTF-8 byte order mark - PowerShell's Out-File writes one - isn't part of the command)
-    bool bom = text.size() >= 3 && text.compare(0, 3, "\xEF\xBB\xBF") == 0;
+    bool bom = text.size() >= 3 && text.starts_with("\xEF\xBB\xBF");
     runner.queue.push_back({bom ? text.substr(3) : text, runner.lines_read_});
 }
 
@@ -1099,7 +1099,7 @@ bool get_timed_out(const Runner& runner, int seconds)
 
 script::Struct* make_params(const std::vector<Param>& params)
 {
-    script::Struct* out = new (script::spawn_param_bag()) script::Struct;
+    auto* out = new (script::spawn_param_bag()) script::Struct;
     for (const Param& param : params) {
         switch (param.kind) {
         case Param::kBitMark:
@@ -1439,9 +1439,9 @@ bool kickoff(Runner& runner, modules::FrontEnd* front_end)
         std::string result = frontend::new_frontend::automation_command(command.target, &done);
         if (!done)
             return false; // (Continue: once its screen is up)
-        if (result.rfind("refused", 0) == 0)
+        if (result.starts_with("refused"))
             get_fail(runner, result, true);
-        else if (result.rfind("error", 0) == 0)
+        else if (result.starts_with("error"))
             get_fail(runner, result, false);
         else
             get_finish(runner, result);
@@ -1615,7 +1615,7 @@ void Continue(Runner& runner, modules::FrontEnd* front_end)
             }
             return;
         }
-        if (result.rfind("error", 0) == 0)
+        if (result.starts_with("error"))
             get_fail(runner, result, false);
         else
             get_finish(runner, result);
@@ -1636,7 +1636,7 @@ void Continue(Runner& runner, modules::FrontEnd* front_end)
     case Op::kCapture:
         if (sys::screenshot::series_running())
             return;
-        if (sys::screenshot::series_result().rfind("ok", 0) == 0)
+        if (sys::screenshot::series_result().starts_with("ok"))
             get_finish(runner, sys::screenshot::series_result());
         else
             get_fail(runner, sys::screenshot::series_result(), false);

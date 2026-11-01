@@ -110,7 +110,7 @@ AutomobileDynamicsModule::AutomobileDynamicsModule()
 }
 
 // 0x0041B930 (0x0041BB00 the deleting one)
-AutomobileDynamicsModule::~AutomobileDynamicsModule() {}
+AutomobileDynamicsModule::~AutomobileDynamicsModule() = default;
 
 // 0x0041B940
 void AutomobileDynamicsModule::configure_from_data(script::Struct* params)
@@ -184,7 +184,7 @@ void AutomobileDynamicsModule::update_angles()
             double dy = static_cast<double>(point[1]) - from[1];
             double dz = static_cast<double>(point[2]) - from[2];
             double ratio = wheel_base_ / std::sqrt(dz * dz + dy * dy + dx * dx);
-            float clamped = static_cast<float>(ratio);
+            auto clamped = static_cast<float>(ratio);
             if (ratio > 1.0f)
                 clamped = 1.0f;
             else if (clamped < -1.0f)
@@ -199,7 +199,7 @@ void AutomobileDynamicsModule::update_angles()
     }
     // The tilt.
     float speed = motion_speed(motion_);
-    float acceleration = static_cast<float>(static_cast<double>(speed) - last_speed_);
+    auto acceleration = static_cast<float>(static_cast<double>(speed) - last_speed_);
     last_speed_ = speed;
     if (script::fetch_int_value(kReadGlobalsEveryUpdate)) {
         min_tilt_ = script::fetch_float(kMinTilt);

@@ -33,14 +33,14 @@ const char* goal_object_model(uint32_t type, int index)
     if (type == kCombo) {
         switch (index) {
         case 0:
-            return "gameobjects\\combo\\goal_combo_c\\goal_combo_c.mdl";
+            return R"(gameobjects\combo\goal_combo_c\goal_combo_c.mdl)";
         case 1:
         case 4:
-            return "gameobjects\\combo\\goal_combo_o\\goal_combo_o.mdl";
+            return R"(gameobjects\combo\goal_combo_o\goal_combo_o.mdl)";
         case 2:
-            return "gameobjects\\combo\\goal_combo_m\\goal_combo_m.mdl";
+            return R"(gameobjects\combo\goal_combo_m\goal_combo_m.mdl)";
         case 3:
-            return "gameobjects\\combo\\goal_combo_b\\goal_combo_b.mdl";
+            return R"(gameobjects\combo\goal_combo_b\goal_combo_b.mdl)";
         default:
             return nullptr;
         }
@@ -48,15 +48,15 @@ const char* goal_object_model(uint32_t type, int index)
     if (type == kSkate) {
         switch (index) {
         case 0:
-            return "gameobjects\\skate\\letter_s\\letter_s.mdl";
+            return R"(gameobjects\skate\letter_s\letter_s.mdl)";
         case 1:
-            return "gameobjects\\skate\\letter_k\\letter_k.mdl";
+            return R"(gameobjects\skate\letter_k\letter_k.mdl)";
         case 2:
-            return "gameobjects\\skate\\letter_a\\letter_a.mdl";
+            return R"(gameobjects\skate\letter_a\letter_a.mdl)";
         case 3:
-            return "gameobjects\\skate\\letter_t\\letter_t.mdl";
+            return R"(gameobjects\skate\letter_t\letter_t.mdl)";
         case 4:
-            return "gameobjects\\skate\\letter_e\\letter_e.mdl";
+            return R"(gameobjects\skate\letter_e\letter_e.mdl)";
         default:
             return nullptr;
         }

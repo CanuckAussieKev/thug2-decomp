@@ -173,7 +173,7 @@ bool cfunc_set_color_buffer_clear(Struct* params, Script*)
 void write_gamma(float red, float green, float blue)
 {
     HKEY key = nullptr;
-    if (RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Activision\\Tony Hawk's Underground 2\\Settings\\Gamma", 0,
+    if (RegCreateKeyExA(HKEY_CURRENT_USER, R"(Software\Activision\Tony Hawk's Underground 2\Settings\Gamma)", 0,
                         nullptr, 0, KEY_READ | KEY_WRITE, nullptr, &key, nullptr) != ERROR_SUCCESS)
         return;
     RegSetValueExA(key, "R", 0, REG_DWORD, reinterpret_cast<const BYTE*>(&red), 4);

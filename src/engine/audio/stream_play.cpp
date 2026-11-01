@@ -102,7 +102,7 @@ bool load_music_track(uint32_t checksum)
     WaitForSingleObject(stream_lock(), INFINITE);
     music.fabricate(1, false, 1);
     char path[256];
-    std::snprintf(path, sizeof(path), "%s%s%.8x.bik", data_root(), "data\\streams\\music\\", checksum);
+    std::snprintf(path, sizeof(path), "%s%s%.8x.bik", data_root(), R"(data\streams\music\)", checksum);
     Result result = music.bink ? music.bink->unseal(path) : -1;
     if (music.wad)
         music.wad->change_loudness(music.volume);
@@ -238,8 +238,8 @@ bool change_stream_loudness(const StreamGain* volume, int slot_index)
         case 3: {
             // Left and right (the original has this twice: through StreamSlot::set_volume_and_pan for 1, inline
             // for 0 and 3).
-            float left = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[0] * kPercent);
-            float right = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[1] * kPercent);
+            auto left = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[0] * kPercent);
+            auto right = static_cast<float>(static_cast<double>(sound_volume()) * volume->level[1] * kPercent);
             slot.volume = left;
             slot.set_volume_and_pan(left, right);
             break;
@@ -269,7 +269,7 @@ bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, in
     if (preload)
         set_started(slot, false);
     char path[256];
-    std::snprintf(path, sizeof(path), "%s%s", data_root(), "data\\streams\\pcm\\pcm.wad");
+    std::snprintf(path, sizeof(path), "%s%s", data_root(), R"(data\streams\pcm\pcm.wad)");
     if (slot.unseal(checksum, path, get_wad_file(), offset, size, stream_buffer(slot_index)) != 0) {
         slot.dealloc();
         ReleaseMutex(stream_lock());

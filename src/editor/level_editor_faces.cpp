@@ -142,7 +142,7 @@ bool read_record(std::istringstream& in, SectorFaces* out)
         for (const auto& f : s.faces)
             if (f.first == face)
                 return false; // (a face twice: not a record we wrote)
-        s.faces.push_back({static_cast<uint16_t>(face), static_cast<uint16_t>(flags)});
+        s.faces.emplace_back(static_cast<uint16_t>(face), static_cast<uint16_t>(flags));
         if (comma == std::string::npos)
             break;
         at = comma + 1;
@@ -160,7 +160,7 @@ std::vector<SectorFaces> group_set(const std::vector<Change>& changes)
     std::map<uint32_t, std::vector<std::pair<uint16_t, uint16_t>>> by_sector;
     for (const Change& c : changes) {
         if (c.now != c.origin)
-            by_sector[c.key.checksum].push_back({c.key.face, c.now});
+            by_sector[c.key.checksum].emplace_back(c.key.face, c.now);
     }
     std::vector<SectorFaces> out;
     for (auto& entry : by_sector) {
@@ -289,7 +289,7 @@ struct Step : ModuleStep {
         for (const auto& f : flags) {
             uint16_t value = f.second;
             get_take_in(f.first, &value);
-            now->flags.push_back({f.first, value});
+            now->flags.emplace_back(f.first, value);
         }
         now->selection = g_selection;
         return now;
@@ -302,7 +302,7 @@ std::shared_ptr<Step> get_capture(const std::vector<FaceKey>& keys)
     for (const FaceKey& key : keys) {
         uint16_t value = 0;
         if (get_take_in(key, &value))
-            step->flags.push_back({key, value});
+            step->flags.emplace_back(key, value);
     }
     step->selection = g_selection;
     return step;
@@ -600,7 +600,7 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     ImGui::PopFont();
     bool picking = g_picking;
     if (ImGui::Checkbox("Face Select Mode", &picking))
-        g_queue.push_back([picking] { set_picking(picking); });
+        g_queue.emplace_back([picking] { set_picking(picking); });
     if (g_selection.empty()) {
         ImGui::TextDisabled("No faces selected");
         return;
@@ -631,20 +631,20 @@ void inspector_section(ImFont* mono, ImFont* small_font)
         if (ImGui::Checkbox(label, &on)) {
             uint16_t bit = info.bit;
             bool set = state != 1; // (mixed or clear: set on all; all set: clear)
-            g_queue.push_back([bit, set] { set_flag(bit, set); });
+            g_queue.emplace_back([bit, set] { set_flag(bit, set); });
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("%s", info.what);
     }
     if (ImGui::Button("Home (the level's flags)##faces"))
-        g_queue.push_back([] { home_selection(); });
+        g_queue.emplace_back([] { home_selection(); });
     ImGui::SameLine();
     if (ImGui::Button("Drop selection##faces"))
-        g_queue.push_back([] { clear_selection(); });
+        g_queue.emplace_back([] { clear_selection(); });
     uint32_t piece = g_selection.back().checksum;
     std::string all_label = "All faces of " + piece_label(piece);
     if (ImGui::Button(all_label.c_str()))
-        g_queue.push_back([piece] {
+        g_queue.emplace_back([piece] {
             if (select_piece(piece, false))
                 hud::get_message("Selected all faces of " + piece_label(piece));
         });
@@ -653,11 +653,11 @@ void inspector_section(ImFont* mono, ImFont* small_font)
     if (scenery::has_selection()) {
         ImGui::SameLine();
         if (ImGui::Button("Select All Faces"))
-            g_queue.push_back([] {
+            g_queue.emplace_back([] {
                 std::vector<uint32_t> sectors = scenery::get_selection();
                 bool any = false;
-                for (size_t i = 0; i < sectors.size(); ++i)
-                    any = select_piece(sectors[i], any) || any;
+                for (unsigned int sector : sectors)
+                    any = select_piece(sector, any) || any;
                 hud::get_message(any ? "Selected all faces" : "Selection has no collision");
             });
     }

@@ -166,4 +166,3 @@ bool set_lobby_status(script::Struct* params, script::Script* script)
 
 } // namespace online
 
-using online::FriendsManager;

@@ -77,16 +77,16 @@ std::vector<std::pair<float, float>> quarter_profile(float radius, float height,
     double top = std::acos(std::max(-1.0, std::min(1.0, 1.0 - static_cast<double>(rise) / radius)));
     for (int i = 0; i <= segments; ++i) {
         double t = top * i / segments;
-        float d = static_cast<float>(radius * (std::sin(top) - std::sin(t)));
-        float y = static_cast<float>(radius * (1.0 - std::cos(t)));
+        auto d = static_cast<float>(radius * (std::sin(top) - std::sin(t)));
+        auto y = static_cast<float>(radius * (1.0 - std::cos(t)));
         if (i == segments) {
             d = 0.0f;
             y = rise;
         }
-        points.push_back({d, y});
+        points.emplace_back(d, y);
     }
     if (height > radius + 0.01f)
-        points.push_back({0.0f, height});
+        points.emplace_back(0.0f, height);
     return points;
 }
 
@@ -141,7 +141,7 @@ struct Builder {
             n = n * -1.0f;
         }
         n = n * (1.0f / length);
-        uint16_t first = static_cast<uint16_t>(mesh.vertices.size());
+        auto first = static_cast<uint16_t>(mesh.vertices.size());
         get_corner(a, n);
         get_corner(b, n);
         get_corner(c, n);

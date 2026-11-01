@@ -58,7 +58,7 @@ bool cfunc_load_scene(script::Struct* params, script::Script* /*script*/)
 
     // A structure describing the load is built here and never used (left from an older interface).
     alignas(4) uint8_t memory[8];
-    script::Struct* description = new (memory) script::Struct;
+    auto* description = new (memory) script::Struct;
     description->put_name_key(kTexDict, checksums::hash_from_text(texture_path));
     if (text::find_caseless(name, "_sky") || is_sky) {
         is_sky = true;

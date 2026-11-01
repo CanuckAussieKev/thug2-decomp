@@ -42,7 +42,7 @@ MovingSurfaceModule::MovingSurfaceModule()
 }
 
 // 0x004276C0 (0x004276D0 the deleting one)
-MovingSurfaceModule::~MovingSurfaceModule() {}
+MovingSurfaceModule::~MovingSurfaceModule() = default;
 
 // 0x00427700
 GameEntity* MovingSurfaceModule::find_contact(const maths::Vec4* point, maths::Vec4* hit)
@@ -84,9 +84,9 @@ GameEntity* MovingSurfaceModule::find_contact_ahead(maths::Vec4* pos, const math
     double frame = frame_clock::get_slomo_frame_seconds();
     const maths::Vec4& vel = object->vel_;
     double x = frame * vel.x;
-    float y = static_cast<float>(frame * vel.y);
-    float z = static_cast<float>(frame * vel.z);
-    float w = static_cast<float>(frame * vel.w);
+    auto y = static_cast<float>(frame * vel.y);
+    auto z = static_cast<float>(frame * vel.z);
+    auto w = static_cast<float>(frame * vel.w);
     maths::Vec4 ahead = {get_sum(pos->x, x + x), get_sum(pos->y, static_cast<double>(y) + y),
                          get_sum(pos->z, static_cast<double>(z) + z), get_sum(pos->w, static_cast<double>(w) + w)};
     if (!find_contact(&ahead, &other)) {
@@ -195,4 +195,3 @@ void MovingSurfaceModule::update_contact_point()
 
 } // namespace objects
 
-using objects::MovingSurfaceModule;

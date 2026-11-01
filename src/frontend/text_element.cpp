@@ -318,7 +318,7 @@ void LabelWidget::change_caption(const char* text)
 void LabelWidget::set_text_rotation(float degrees, int now)
 {
     double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
-    float angle = static_cast<float>(radians);
+    auto angle = static_cast<float>(radians);
     if (radians != aim_point_.angle) {
         aim_point_.angle = angle;
         object_flags_ |= kDirty;
@@ -328,8 +328,8 @@ void LabelWidget::set_text_rotation(float degrees, int now)
     float width, height;
     read_string_param(typeface_, chars_, &width, &height);
     // the point turned about: internal_just (left / top 0, middle half, right / bottom all) of the scaled size
-    float half_x = static_cast<float>(static_cast<double>(width) * summed_.scale_x_ * get_half());
-    float half_y = static_cast<float>(static_cast<double>(height) * summed_.scale_y_ * get_half());
+    auto half_x = static_cast<float>(static_cast<double>(width) * summed_.scale_x_ * get_half());
+    auto half_y = static_cast<float>(static_cast<double>(height) * summed_.scale_y_ * get_half());
     for (int i = 0; i < num_; ++i) {
         float x = half_x, y = half_y;
         if (inner_align_h_ < get_zero())
@@ -552,10 +552,10 @@ void LabelWidget::tick_frame()
         if (summed_.angle != get_zero())
             read_string_param(typeface_, chars_, &width, &height);
         double scaled_width = static_cast<double>(width) * summed_.scale_x_;
-        float x = static_cast<float>(get_half() * scaled_width);
+        auto x = static_cast<float>(get_half() * scaled_width);
         double scaled_height = static_cast<double>(height) * summed_.scale_y_;
-        float scaled_height_f = static_cast<float>(scaled_height);
-        float y = static_cast<float>(scaled_height * get_half());
+        auto scaled_height_f = static_cast<float>(scaled_height);
+        auto y = static_cast<float>(scaled_height * get_half());
         if (inner_align_h_ < get_zero())
             x = 0.0f;
         else if (inner_align_h_ > get_zero())
@@ -605,25 +605,25 @@ void LabelWidget::tick_frame()
         return;
     // the blur copies: around the element's centre, each displaced, scaled and fainter, behind the one before
     blur_->tick_frame();
-    float centre_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * span_ * get_half() + summed_.left);
-    float centre_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * level_y_ * get_half() + summed_.top);
+    auto centre_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * span_ * get_half() + summed_.left);
+    auto centre_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * level_y_ * get_half() + summed_.top);
     for (int i = 1; i < num_; ++i) {
         SmearEffect::DupFrom* copy = blur_->get_copy(i - 1);
         uint32_t blur = blur_->rgba_value_;
         uint32_t rgba = with_alpha(
             blur, static_cast<uint8_t>(get_truncated(static_cast<double>(static_cast<int>(blur >> 24)) * copy->alpha)));
         void* t = texts_[i];
-        float x = static_cast<float>(centre_x - (static_cast<double>(span_) * copy->scale_x_ * get_half() + copy->dx) *
-                                                    summed_.scale_x_);
-        float y = static_cast<float>(
+        auto x = static_cast<float>(centre_x - (static_cast<double>(span_) * copy->scale_x_ * get_half() + copy->dx) *
+                                                   summed_.scale_x_);
+        auto y = static_cast<float>(
             centre_y - (static_cast<double>(level_y_) * copy->scale_y_ * get_half() + copy->dy) * summed_.scale_y_);
-        float scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * copy->scale_x_);
-        float scale_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * copy->scale_y_);
+        auto scale_x = static_cast<float>(static_cast<double>(summed_.scale_x_) * copy->scale_x_);
+        auto scale_y = static_cast<float>(static_cast<double>(summed_.scale_y_) * copy->scale_y_);
         text_override_alpha(t, override_alpha_);
         text_pos(t, x, y);
         text_colour(t, rgba, override_rgba_);
         text_scale(t, scale_x, scale_y);
-        float behind = static_cast<float>(static_cast<double>(i) * blur_behind());
+        auto behind = static_cast<float>(static_cast<double>(i) * blur_behind());
         text_priority(t, static_cast<float>(static_cast<double>(z_priority_) - behind));
         text_font(t, typeface_);
         change_glyph_text(t, chars_);
@@ -648,5 +648,3 @@ void LabelWidget::tick_frame()
 
 } // namespace frontend
 
-using frontend::LabelWidget;
-using frontend::SmearEffect;

@@ -377,7 +377,7 @@ bool FootMovement::walk_get_hang_init_anim_type(script::Struct* /*params*/, scri
 // 0x005286C0
 bool FootMovement::walk_get_state_duration(script::Struct* /*params*/, script::Script* script)
 {
-    uint32_t elapsed = static_cast<uint32_t>(clock_since(state_time_));
+    auto elapsed = static_cast<uint32_t>(clock_since(state_time_));
     script->args_->push_float(kStateDuration, static_cast<float>(static_cast<double>(elapsed) * kMs));
     return true;
 }
@@ -408,7 +408,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     float dx = b->x - a->x;
     float dy = b->y - a->y;
     double dz_full = static_cast<double>(b->z) - a->z;
-    float dz = static_cast<float>(dz_full);
+    auto dz = static_cast<float>(dz_full);
     // (z's square from its unrounded difference times its rounded one, as the original's x87 code)
     double length = std::sqrt((dz_full * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx);
     if (length > 0.0) {

@@ -266,4 +266,3 @@ bool RiderBoardPhysics::is_on_foot()
 
 } // namespace objects
 
-using skater::SkaterPhysicsModule;

@@ -93,9 +93,9 @@ void MeshRef::move_to(const maths::Vec4* position)
         transform = static_cast<float*>(memory::alloc(0x40));
         get_identity(transform);
     }
-    float dx = static_cast<float>(static_cast<double>(position->x) - transform[12]);
-    float dy = static_cast<float>(static_cast<double>(position->y) - transform[13]);
-    float dz = static_cast<float>(static_cast<double>(position->z) - transform[14]);
+    auto dx = static_cast<float>(static_cast<double>(position->x) - transform[12]);
+    auto dy = static_cast<float>(static_cast<double>(position->y) - transform[13]);
+    auto dz = static_cast<float>(static_cast<double>(position->z) - transform[14]);
     transform[12] = position->x;
     transform[13] = position->y;
     transform[14] = position->z;
@@ -257,19 +257,19 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     VertexBuffer* buffer = vertex_buffers_[0];
     uint8_t* data = get_lock(buffer, 0x10);
     IdxStore* indices = index_buffers_[0];
-    const float* p0 = reinterpret_cast<const float*>(data + indices->indices[0] * stride);
-    const float* p1 = reinterpret_cast<const float*>(data + indices->indices[1] * stride);
-    const float* p2 = reinterpret_cast<const float*>(data + indices->indices[2] * stride);
-    float e2x = static_cast<float>(static_cast<double>(p2[0]) - p0[0]);
-    float e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
-    float e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
-    float e1x = static_cast<float>(static_cast<double>(p1[0]) - p0[0]);
+    const auto* p0 = reinterpret_cast<const float*>(data + indices->indices[0] * stride);
+    const auto* p1 = reinterpret_cast<const float*>(data + indices->indices[1] * stride);
+    const auto* p2 = reinterpret_cast<const float*>(data + indices->indices[2] * stride);
+    auto e2x = static_cast<float>(static_cast<double>(p2[0]) - p0[0]);
+    auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
+    auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
+    auto e1x = static_cast<float>(static_cast<double>(p1[0]) - p0[0]);
     double e1y = static_cast<double>(p1[1]) - p0[1];
     double e1z = static_cast<double>(p1[2]) - p0[2];
-    float nx = static_cast<float>(e1y * e2z - e1z * e2y);
-    float ny = static_cast<float>(e1z * e2x - static_cast<double>(e2z) * e1x);
+    auto nx = static_cast<float>(e1y * e2z - e1z * e2y);
+    auto ny = static_cast<float>(e1z * e2x - static_cast<double>(e2z) * e1x);
     double nz_exact = static_cast<double>(e2y) * e1x - e1y * e2x;
-    float nz = static_cast<float>(nz_exact);
+    auto nz = static_cast<float>(nz_exact);
     double length = std::sqrt((static_cast<double>(nx) * nx + nz_exact * nz_exact) + static_cast<double>(ny) * ny);
     if (length > 0.0) {
         double inverse = 1.0 / length;

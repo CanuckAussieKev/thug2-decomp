@@ -342,7 +342,7 @@ void outliner_section(ImFont* mono, const char* search)
         ImGui::PopFont();
     ImGui::SameLine();
     if (ImGui::SmallButton("+ Note here"))
-        g_queue.push_back([] { add_here(); });
+        g_queue.emplace_back([] { add_here(); });
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Add a note at the view center");
     if (!open)
@@ -365,7 +365,7 @@ void outliner_section(ImFont* mono, const char* search)
             std::string name = note.name;
             V3 at = note.pos;
             bool go = ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
-            g_queue.push_back([name, at, go] {
+            g_queue.emplace_back([name, at, go] {
                 g_selected = name;
                 g_edit_for.clear();
                 if (go)
@@ -397,7 +397,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     if (!ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
         ImGui::End();
         if (!open)
-            g_queue.push_back([] { g_selected.clear(); });
+            g_queue.emplace_back([] { g_selected.clear(); });
         return;
     }
     std::string name = note->name;
@@ -406,9 +406,9 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     // change complete: the autosave's snapshot follows it).
     auto held = [] {
         if (ImGui::IsItemActivated())
-            g_queue.push_back([] { g_before = g_notes; });
+            g_queue.emplace_back([] { g_before = g_notes; });
         if (ImGui::IsItemDeactivated())
-            g_queue.push_back([] {
+            g_queue.emplace_back([] {
                 bool same = g_before.size() == g_notes.size();
                 for (size_t i = 0; same && i < g_notes.size(); ++i)
                     same = get_same(g_before[i], g_notes[i]);
@@ -419,7 +419,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     ImGui::InputTextMultiline("##text", g_edit_text, sizeof(g_edit_text), ImVec2(-1.0f, 90.0f * scale));
     if (ImGui::IsItemEdited()) {
         std::string text = g_edit_text;
-        g_queue.push_back([name, text] {
+        g_queue.emplace_back([name, text] {
             if (Note* n = get_find(name))
                 n->text = text;
         });
@@ -435,7 +435,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         if (ImGui::ColorButton("##colour", colour, ImGuiColorEditFlags_NoTooltip,
                                ImVec2(18.0f * scale, 18.0f * scale))) {
             uint32_t rgb = kColours[c];
-            g_queue.push_back([name, rgb] {
+            g_queue.emplace_back([name, rgb] {
                 Note* n = get_find(name);
                 if (!n || n->colour == rgb)
                     return;
@@ -455,20 +455,20 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     ImGui::SetNextItemWidth(-1.0f);
     if (ImGui::DragFloat3("##pos", pos, 5.0f, 0.0f, 0.0f, "%.0f")) {
         V3 to = {pos[0], pos[1], pos[2]};
-        g_queue.push_back([name, to] {
+        g_queue.emplace_back([name, to] {
             if (Note* n = get_find(name))
                 n->pos = to;
         });
     }
     held();
     if (ImGui::Button("Go to"))
-        g_queue.push_back([name] {
+        g_queue.emplace_back([name] {
             if (Note* n = get_find(name))
                 go_to_point(n->pos, 400.0f);
         });
     ImGui::SameLine();
     if (ImGui::Button("Move here"))
-        g_queue.push_back([name] {
+        g_queue.emplace_back([name] {
             V3 at;
             Note* n = get_find(name);
             if (!n || !view_point(&at))
@@ -480,7 +480,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         ImGui::SetTooltip("Move to the view center");
     ImGui::SameLine();
     if (ImGui::Button("Delete"))
-        g_queue.push_back([name] {
+        g_queue.emplace_back([name] {
             if (!get_find(name))
                 return;
             push_undo();
@@ -491,7 +491,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
         });
     ImGui::End();
     if (!open)
-        g_queue.push_back([] { g_selected.clear(); });
+        g_queue.emplace_back([] { g_selected.clear(); });
 }
 
 } // namespace frontend::level_editor::notes
@@ -500,7 +500,7 @@ namespace frontend::level_editor::notes {
 
 void add_here_queued()
 {
-    g_queue.push_back([] { add_here(); });
+    g_queue.emplace_back([] { add_here(); });
 }
 
 } // namespace frontend::level_editor::notes

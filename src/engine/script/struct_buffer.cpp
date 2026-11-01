@@ -32,7 +32,7 @@ constexpr uint8_t kTagZeroF = 0x13;
 
 uint32_t float_bits(float value)
 {
-    uint32_t bits = std::bit_cast<uint32_t>(value);
+    auto bits = std::bit_cast<uint32_t>(value);
     return bits;
 }
 

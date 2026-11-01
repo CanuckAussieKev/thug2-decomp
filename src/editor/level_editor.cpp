@@ -3860,7 +3860,7 @@ ui::ShapeMesh assemble_model()
         model.level_props_.have_defaults_ = g_have_defaults;
         for (const nodes::Elem& n : nodes::get_all()) {
             if (n.family == nodes::Family::kSpawn && !n.hidden && n.name)
-                model.level_props_.restarts.push_back({n.name, nodes::caption(n.name)});
+                model.level_props_.restarts.emplace_back(n.name, nodes::caption(n.name));
         }
         if (model.nodes.node_only_ && model.nodes.selected < static_cast<int>(nodes::get_all().size())) {
             const nodes::Elem& n = nodes::get_all()[model.nodes.selected];
@@ -3976,7 +3976,7 @@ void show_browser()
     char title[96];
     std::snprintf(title, sizeof(title), "ADD   %s / %s   (%d)", g_browser.tab == 0 ? "SCENERY" : "scenery",
                   g_browser.tab == 1 ? "OBJECTS" : "objects", static_cast<int>(g_browser.items.size()));
-    lines.push_back(title);
+    lines.emplace_back(title);
     int count = static_cast<int>(g_browser.items.size());
     if (g_browser.index < g_browser.top)
         g_browser.top = g_browser.index;
@@ -3985,7 +3985,7 @@ void show_browser()
     for (int row = 0; row < kBrowserRows; ++row) {
         int i = g_browser.top + row;
         if (i >= count) {
-            lines.push_back(
+            lines.emplace_back(
                 row == 0 ? (g_browser.tab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)")
                          : "");
             continue;
@@ -4101,7 +4101,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
             object_edit::get_restore(state);
             made.push_back(copy);
             sources.push_back(source);
-            g_duplicate_pairs.push_back({object->ident_, copy->ident_});
+            g_duplicate_pairs.emplace_back(object->ident_, copy->ident_);
         }
         // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
         if (repeat && repeat->turn != 0.0f && !made.empty()) {
@@ -4132,7 +4132,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         for (uint32_t checksum : scenery::get_selection()) {
             if (uint32_t copy = scenery::get_duplicate(checksum)) {
                 copies.push_back(copy);
-                g_duplicate_pairs.push_back({checksum, copy});
+                g_duplicate_pairs.emplace_back(checksum, copy);
             }
         }
         if (copies.empty()) {
@@ -5985,7 +5985,7 @@ void tick_frame()
         if ((f || r || u) && !g_dragging && !g_field_editing) {
             if (!g_key_moving)
                 begin_change();
-            float step = static_cast<float>(kObjectSpeed * boost * seconds);
+            auto step = static_cast<float>(kObjectSpeed * boost * seconds);
             V3 pos = selection_pos();
             place_selection({pos.x + (forward.x * f + right.x * r) * step, pos.y + u * step,
                              pos.z + (forward.z * f + right.z * r) * step});
@@ -6082,7 +6082,7 @@ void tick_frame()
             g_pos = get_fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds * ramp));
         }
         if (input.wheel) {
-            float step = static_cast<float>(kWheelStep * boost * input.wheel);
+            auto step = static_cast<float>(kWheelStep * boost * input.wheel);
             g_pos = g_pos - frame.back * step;
         }
         int speed = (actions::squeezed(actions::kFaster) ? 1 : 0) - (actions::squeezed(actions::kSlower) ? 1 : 0);
@@ -6870,7 +6870,7 @@ bool set_selection_transform(const TransformValues& transform)
     if (transform.has_heading_) {
         if (objects::GameEntity* object = get_primary()) {
             const maths::Vec4& at = object->basis_frame_.row[2];
-            float now = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
+            auto now = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)));
             V3 pivot = object_edit::pos_of(object);
             for (objects::GameEntity* o : selected_objects())
                 object_edit::turn_about(o, pivot, transform.heading - now);

@@ -210,16 +210,16 @@ void PcTextureProjection::plat_project(void** sectors, void** /*collision*/)
                 uint8_t* format = nullptr;
                 if (fineness_) {
                     // how fine to split it: the cross product of its edges, squared, over 16 times the fineness
-                    const float* p0 = reinterpret_cast<const float*>(v0);
-                    const float* p1 = reinterpret_cast<const float*>(v1);
-                    const float* p2 = reinterpret_cast<const float*>(v2);
+                    const auto* p0 = reinterpret_cast<const float*>(v0);
+                    const auto* p1 = reinterpret_cast<const float*>(v1);
+                    const auto* p2 = reinterpret_cast<const float*>(v2);
                     double e1z = static_cast<double>(p1[2]) - p0[2], e1y = static_cast<double>(p1[1]) - p0[1];
                     double e1x = static_cast<double>(p1[0]) - p0[0];
-                    float e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
-                    float e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
+                    auto e2z = static_cast<float>(static_cast<double>(p2[2]) - p0[2]);
+                    auto e2y = static_cast<float>(static_cast<double>(p2[1]) - p0[1]);
                     double e2x = static_cast<double>(p2[0]) - p0[0];
-                    float cz = static_cast<float>(e2y * e1x - e2x * e1y);
-                    float cy = static_cast<float>(e2x * e1z - e2z * e1x);
+                    auto cz = static_cast<float>(e2y * e1x - e2x * e1y);
+                    auto cy = static_cast<float>(e2x * e1z - e2z * e1x);
                     double cx = e2z * e1y - e2y * e1z;
                     double total = static_cast<double>(cy) * cy + static_cast<double>(cz) * cz + cx * cx;
                     g_split_area_limit = static_cast<float>(total / (static_cast<double>(fineness_) * 16.0f));

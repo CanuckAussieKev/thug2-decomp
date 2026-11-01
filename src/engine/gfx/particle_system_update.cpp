@@ -176,17 +176,17 @@ void EmitterInstance::get_emit(int count)
         double x = a * spread;
         double y = spread * b;
         double z = 1.0 - (x * x + y * y);
-        float zx = static_cast<float>(m.row[2].x * z), zy = static_cast<float>(m.row[2].y * z),
-              zz = static_cast<float>(m.row[2].z * z);
-        float yx = static_cast<float>(m.row[1].x * y), yy = static_cast<float>(m.row[1].y * y),
-              yz = static_cast<float>(m.row[1].z * y);
-        float xx = static_cast<float>(m.row[0].x * x), xy = static_cast<float>(m.row[0].y * x);
+        auto zx = static_cast<float>(m.row[2].x * z), zy = static_cast<float>(m.row[2].y * z),
+             zz = static_cast<float>(m.row[2].z * z);
+        auto yx = static_cast<float>(m.row[1].x * y), yy = static_cast<float>(m.row[1].y * y),
+             yz = static_cast<float>(m.row[1].z * y);
+        auto xx = static_cast<float>(m.row[0].x * x), xy = static_cast<float>(m.row[0].y * x);
         double xz = x * m.row[0].z;
-        float sum_y = static_cast<float>(static_cast<double>(xy) + yy);
-        float sum_z = static_cast<float>(xz + yz);
-        float dir_x = static_cast<float>((static_cast<double>(xx) + yx) + zx);
-        float dir_y = static_cast<float>(static_cast<double>(sum_y) + zy);
-        float dir_z = static_cast<float>(static_cast<double>(sum_z) + zz);
+        auto sum_y = static_cast<float>(static_cast<double>(xy) + yy);
+        auto sum_z = static_cast<float>(xz + yz);
+        auto dir_x = static_cast<float>((static_cast<double>(xx) + yx) + zx);
+        auto dir_y = static_cast<float>(static_cast<double>(sum_y) + zy);
+        auto dir_z = static_cast<float>(static_cast<double>(sum_z) + zz);
         double speed = random_between(speed_[0], speed_[1]);
         float velocity[3] = {static_cast<float>(dir_x * speed), static_cast<float>(dir_y * speed),
                              static_cast<float>(dir_z * speed)};
@@ -204,29 +204,29 @@ void EmitterInstance::get_emit(int count)
         double ax = static_cast<double>(a) * emit_range_[0];
         double by = static_cast<double>(b) * emit_range_[1];
         double cz = static_cast<double>(c) * emit_range_[2];
-        float czx = static_cast<float>(m.row[2].x * cz), czy = static_cast<float>(m.row[2].y * cz),
-              czz = static_cast<float>(m.row[2].z * cz);
-        float byx = static_cast<float>(m.row[1].x * by), byy = static_cast<float>(m.row[1].y * by);
+        auto czx = static_cast<float>(m.row[2].x * cz), czy = static_cast<float>(m.row[2].y * cz),
+             czz = static_cast<float>(m.row[2].z * cz);
+        auto byx = static_cast<float>(m.row[1].x * by), byy = static_cast<float>(m.row[1].y * by);
         double byz = by * m.row[1].z;
-        float axz = static_cast<float>(m.row[0].z * ax);
-        float px = static_cast<float>(m.row[0].x * ax + byx);
-        float py = static_cast<float>(m.row[0].y * ax + byy);
+        auto axz = static_cast<float>(m.row[0].z * ax);
+        auto px = static_cast<float>(m.row[0].x * ax + byx);
+        auto py = static_cast<float>(m.row[0].y * ax + byy);
         double pz = static_cast<double>(axz) + byz;
-        float pos_x = static_cast<float>(static_cast<double>(px) + czx);
-        float pos_y = static_cast<float>(static_cast<double>(py) + czy);
-        float pos_z = static_cast<float>(pz + czz);
+        auto pos_x = static_cast<float>(static_cast<double>(px) + czx);
+        auto pos_y = static_cast<float>(static_cast<double>(py) + czy);
+        auto pos_z = static_cast<float>(pz + czz);
         if (fill_path_) { // somewhere along the way it came
-            float dx = static_cast<float>(static_cast<double>(last_pos_.x) - at_point_.x);
-            float dy = static_cast<float>(static_cast<double>(last_pos_.y) - at_point_.y);
+            auto dx = static_cast<float>(static_cast<double>(last_pos_.x) - at_point_.x);
+            auto dy = static_cast<float>(static_cast<double>(last_pos_.y) - at_point_.y);
             double dz53 = static_cast<double>(last_pos_.z) - at_point_.z;
-            float dz = static_cast<float>(dz53);
+            auto dz = static_cast<float>(dz53);
             double length = (dz53 * dz + static_cast<double>(dy) * dy) + static_cast<double>(dx) * dx;
             if (!(length == 0.0)) {
                 double r = static_cast<double>(get_rand()) * kRandomUnit;
                 double u = (r + r - 1.0 + 1.0) * 0.5;
-                float fx = static_cast<float>(dx * u), fy = static_cast<float>(dy * u);
+                auto fx = static_cast<float>(dx * u), fy = static_cast<float>(dy * u);
                 double fz = u * dz;
-                float new_z = static_cast<float>(fz + pos_z);
+                auto new_z = static_cast<float>(fz + pos_z);
                 pos_x = static_cast<float>(static_cast<double>(fx) + pos_x);
                 pos_y = static_cast<float>(static_cast<double>(fy) + pos_y);
                 pos_z = new_z;
@@ -242,8 +242,8 @@ void EmitterInstance::get_emit(int count)
         for (int step = 0; step < get_num_vertex_lists(); ++step) {
             float* pos = position_of(this, i, step);
             if (emitter_independent_) {
-                float world_z = static_cast<float>(static_cast<double>(pos_z) + at_point_.z);
-                float world_y = static_cast<float>(static_cast<double>(pos_y) + at_point_.y);
+                auto world_z = static_cast<float>(static_cast<double>(pos_z) + at_point_.z);
+                auto world_y = static_cast<float>(static_cast<double>(pos_y) + at_point_.y);
                 pos[0] = static_cast<float>(static_cast<double>(pos_x) + at_point_.x);
                 pos[1] = world_y;
                 pos[2] = world_z;
@@ -526,7 +526,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
         return;
     if (update_brightness_)
         update_ground_brightness(false);
-    float dt = static_cast<float>(static_cast<double>(g_frame_time_scale) * time);
+    auto dt = static_cast<float>(static_cast<double>(g_frame_time_scale) * time);
     for (int i = 0; i < particle_count_; ++i) {
         FlexibleParticle& p = particle_list_[i];
         p.age = static_cast<float>(static_cast<double>(time) + p.age);
@@ -563,7 +563,7 @@ void EmitterInstance::tick_frame(float time, bool skip)
 uint32_t* ModelParticles::lerp_colour(uint32_t* out, const uint8_t* from, const uint8_t* to, float t)
 {
     double green = static_cast<double>(colour_scale_[1]) * brightness_;
-    float blue = static_cast<float>(static_cast<double>(colour_scale_[2]) * brightness_);
+    auto blue = static_cast<float>(static_cast<double>(colour_scale_[2]) * brightness_);
     auto lerp = [&](int k) {
         return static_cast<uint8_t>(truncate(static_cast<double>(to[k] - from[k]) * t) + from[k]);
     };

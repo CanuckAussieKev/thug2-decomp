@@ -61,7 +61,7 @@ inline int get_now() { return frame_clock::game_clock_elapsed() + objects::g_clo
 // The time since `stamp` (unsigned, as the original compares it): the clock, plus (the offset - stamp).
 inline uint32_t get_since(uint32_t stamp)
 {
-    uint32_t now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
+    auto now = static_cast<uint32_t>(frame_clock::game_clock_elapsed());
     return now + (static_cast<uint32_t>(objects::g_clock_offset) - stamp);
 }
 

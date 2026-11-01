@@ -25,7 +25,7 @@ float& get_pace() { return g_speed; }
 int get_elapsed()
 {
     int difference = static_cast<int>(get_time() - last_change());
-    double scaled = static_cast<double>(difference);
+    auto scaled = static_cast<double>(difference);
     if (difference < 0)
         scaled += 4294967296.0; // (0x006453B4)
     scaled *= get_pace();

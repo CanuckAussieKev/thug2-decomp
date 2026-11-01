@@ -58,7 +58,7 @@ void fetch_tint(script::Struct* params, uint32_t name, uint32_t* color, int asse
 // An unsigned value as FILD (plus 2^32 when the top bit is set) loads it.
 double Unsigned(uint32_t value)
 {
-    double d = static_cast<double>(static_cast<int32_t>(value));
+    auto d = static_cast<double>(static_cast<int32_t>(value));
     return static_cast<int32_t>(value) < 0 ? d + kTwoTo32 : d;
 }
 
@@ -132,7 +132,7 @@ void DynamicLightComponent::tick_frame()
     uint32_t from_color = start_color_, to_color = end_color_;
     float from_radius = start_radius_, to_radius = end_radius_;
     float from_intensity = start_intensity_, to_intensity = end_intensity_;
-    uint32_t middle_bits = std::bit_cast<uint32_t>(middle_time_);
+    auto middle_bits = std::bit_cast<uint32_t>(middle_time_);
     if (middle_bits != kNoMiddle) {
         if (t <= middle_time_) {
             to_color = middle_color_;
@@ -146,7 +146,7 @@ void DynamicLightComponent::tick_frame()
             t = (t - middle_time_) / (1.0 - middle_time_);
         }
     }
-    float radius = static_cast<float>((static_cast<double>(to_radius) - from_radius) * t + from_radius);
+    auto radius = static_cast<float>((static_cast<double>(to_radius) - from_radius) * t + from_radius);
     uint32_t color = 0;
     for (int i = 0; i < 4; ++i) {
         int from = (from_color >> (8 * i)) & 0xFF;

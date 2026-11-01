@@ -229,7 +229,7 @@ TapStep tire_tap_step(const maths::Vec4& position, const maths::Vec4& tap)
         step.ends = true;
         return step;
     }
-    float scale = static_cast<float>(kTapReach / distance);
+    auto scale = static_cast<float>(kTapReach / distance);
     step.position.x += toward.x * scale;
     step.position.z += toward.z * scale;
     return step;

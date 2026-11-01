@@ -167,7 +167,7 @@ void add_overlay(const overlays::Painter& painter, int hovered, int selected)
         if (node.succ_ && !(node.flag_bits_ & objects::kRailFlagClimbing)) {
             int next = static_cast<int>(node.succ_ - rails->nodes_);
             if (next >= 0 && next < rails->num_)
-                graph.links.push_back({i, next});
+                graph.links.emplace_back(i, next);
         }
     }
     if (start < 0)

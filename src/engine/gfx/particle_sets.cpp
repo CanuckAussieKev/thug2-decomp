@@ -98,7 +98,7 @@ SparkleConfig* SparkleConfig::get_assign(const SparkleConfig& other)
 // --- the system ---
 
 // 0x00496360
-Sparkle::Sparkle() {} // (args_ made by its constructor)
+Sparkle::Sparkle() = default; // (args_ made by its constructor)
 
 // 0x00496380
 void Sparkle::prepare_all(const SparkleConfig* params)

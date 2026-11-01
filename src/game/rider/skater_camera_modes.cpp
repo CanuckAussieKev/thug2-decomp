@@ -36,7 +36,7 @@ constexpr float kPi = 3.14159274f, kHalfPi = 1.57079637f;
 float one_frame()
 {
     uint32_t bits = 0x3C888889; // 0x0064BA64 (1/60)
-    float value = std::bit_cast<float>(bits);
+    auto value = std::bit_cast<float>(bits);
     return value;
 }
 
@@ -134,8 +134,8 @@ void RiderChaseView::change_regime(int mode, float time)
     double behind_feet = static_cast<double>(behind) * kFeet;
     if (time > 0.0f) {
         // lerped there a frame (1/60 s) at a time
-        float behind_target = static_cast<float>(behind_feet);
-        float above_target = static_cast<float>(static_cast<double>(above) * kFeet);
+        auto behind_target = static_cast<float>(behind_feet);
+        auto above_target = static_cast<float>(static_cast<double>(above) * kFeet);
         behind_time_ = time;
         above_time_ = time;
         double per_frame = static_cast<double>(one_frame()) / time;

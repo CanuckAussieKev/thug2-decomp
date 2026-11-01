@@ -48,7 +48,7 @@ Mat4* QuatRotation::fetch_mat(Mat4* out) const
     float yz = get_narrow(get_wide(zs) * y);
     double zz = get_wide(zs) * z;
 
-    float* m = reinterpret_cast<float*>(out);
+    auto* m = reinterpret_cast<float*>(out);
     m[0] = get_narrow(1.0 - (yy + zz));
     m[4] = get_narrow(xy + wz);
     m[8] = get_narrow(xz - wy);

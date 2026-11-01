@@ -432,7 +432,7 @@ void check_collision(const std::string& name, const uint8_t* data, size_t size)
     uintptr_t vertices = align(objects + static_cast<uintptr_t>(word(4)) * 0x40, 16);
     uintptr_t vertex_bytes = vertices + 6 * static_cast<uintptr_t>(word(0x18) + 2 * word(0x14));
     uintptr_t faces = align(vertex_bytes + static_cast<uintptr_t>(word(8)), 4);
-    uintptr_t nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
+    auto nodes_at = static_cast<uintptr_t>(10 * word(0xC) + 8 * word(0x10));
     uintptr_t faces_size = align(static_cast<uintptr_t>(word(0xC)) + nodes_at, 4);
     uintptr_t nodes = faces + faces_size + 4;
     uintptr_t face_lists = nodes + *reinterpret_cast<const uint32_t*>(faces + faces_size);
@@ -606,7 +606,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
     // the new readers, record by record (as the loaders read them)
     scene_format::MemoryStream in(data, size);
     in.skip(scene_format::kHeaderSize);
-    uint32_t materials = scene_format::take<uint32_t>(in);
+    auto materials = scene_format::take<uint32_t>(in);
     std::map<uint32_t, uint32_t> passes; // a material's pass count by checksum (the first kept, as the table)
     scene_format::Material material;
     for (uint32_t i = 0; i < materials; ++i) {
@@ -616,7 +616,7 @@ void check_scene(const std::string& name, const uint8_t* data, size_t size)
         }
         passes.emplace(material.checksum, material.pass_count);
     }
-    uint32_t sectors = scene_format::take<uint32_t>(in);
+    auto sectors = scene_format::take<uint32_t>(in);
     scene_format::Sector sector;
     scene_format::SectorMesh mesh;
     scene_format::MeshBody body;
@@ -740,7 +740,8 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
             if (0xFF - (entries[i].code() & 0xFF) >= font_format::kSpecialGlyphs)
                 ++g_fonts.specials_past_map;
         }
-        check(rects[i].x + rects[i].w <= page.width / scale && rects[i].y + rects[i].h <= page.height / scale,
+        check(static_cast<uint32_t>(rects[i].x + rects[i].w) <= page.width / scale &&
+                  static_cast<uint32_t>(rects[i].y + rects[i].h) <= page.height / scale,
               name + ": glyph " + std::to_string(i) + " within the page");
     }
     // the original's reading in place: the count at +8, the map from +0x14, the page header after it, the

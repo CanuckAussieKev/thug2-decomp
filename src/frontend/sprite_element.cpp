@@ -157,8 +157,8 @@ void ImageWidget::set_texture(uint32_t texture)
     texture_ = texture;
     void* found = find_texture(texture);
     quad_->set_texture(static_cast<uint8_t*>(found));
-    float height = static_cast<float>(texels_down(found));
-    float width = static_cast<float>(texels_across(found));
+    auto height = static_cast<float>(texels_down(found));
+    auto width = static_cast<float>(texels_across(found));
     fit_to_size(width, height, 0);
     object_flags_ |= kVisibleNow;
 }
@@ -167,7 +167,7 @@ void ImageWidget::set_texture(uint32_t texture)
 void ImageWidget::set_sprite_rotation(float degrees, int now)
 {
     double radians = static_cast<double>(degrees) * get_degrees() + rotation_offset();
-    float angle = static_cast<float>(radians);
+    auto angle = static_cast<float>(radians);
     if (radians != aim_point_.angle) {
         aim_point_.angle = angle;
         object_flags_ |= kDirty;
@@ -288,6 +288,3 @@ void PanelWidget::tick_frame()
 
 } // namespace frontend
 
-using frontend::ImageWidget;
-using frontend::PanelWidget;
-using frontend::TextureElement;

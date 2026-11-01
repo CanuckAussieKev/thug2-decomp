@@ -307,8 +307,8 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script*)
     int controller;
     if (params->fetch_int_value(0u, &controller, 0))
         return controller_pressed(front_end->pad_listeners_[controller].get(), button);
-    for (int i = 0; i < 2; ++i) {
-        if (controller_pressed(front_end->pad_listeners_[i].get(), button))
+    for (const auto& pad_listener : front_end->pad_listeners_) {
+        if (controller_pressed(pad_listener.get(), button))
             return true;
     }
     return false;
@@ -373,7 +373,7 @@ bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    uint32_t type = reinterpret_cast<uint32_t>(script);
+    auto type = reinterpret_cast<uint32_t>(script);
     params->read_hash_value(kPrefType, &type, 0);
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* text = nullptr; // (unset in the original when missing)
@@ -389,7 +389,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
+    auto type = reinterpret_cast<uint32_t>(script);     // (the slot the original reads back: the argument's)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* password = nullptr;                    // (unset in the original when missing)
@@ -409,7 +409,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    uint32_t type = reinterpret_cast<uint32_t>(script); // (the slot the original reads back: the argument's)
+    auto type = reinterpret_cast<uint32_t>(script);     // (the slot the original reads back: the argument's)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     uint32_t value = 0; // (unset in the original when missing)
@@ -535,8 +535,8 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
          input = input->next_of_type_)
         static_cast<objects::PadInputModule*>(input)->lock_button(button, time, release != 0);
     // x87: the unsigned clock + time * 1000.0 (0x006453C0), stored as a float
-    float until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
-                                     static_cast<double>(time) * static_cast<double>(gfx::g_thousand));
+    auto until = static_cast<float>(static_cast<double>(frame_clock::get_time()) +
+                                    static_cast<double>(time) * static_cast<double>(gfx::g_thousand));
     for (objects::ObjectModule* trick = objects->find_first_module_of_kind(0x270F56E1); trick;
          trick = trick->next_of_type_)
         static_cast<objects::MoveExecutor*>(trick)->hold_off_button(pad_input::glyph_for_button_tag(button), until);

@@ -68,7 +68,7 @@ void play_jump_sound(SkaterPhysicsModule* component, uint8_t terrain)
 {
     objects::GameEntity* object = object_of(component);
     const maths::Vec4& v = object->vel_;
-    float speed = static_cast<float>(
+    auto speed = static_cast<float>(
         std::sqrt(static_cast<double>(v.x) * v.x + static_cast<double>(v.y) * v.y + static_cast<double>(v.z) * v.z));
     float fraction = speed / scaled_physics(object, kSpeedCapStat);
     static_cast<objects::RiderSfxPlayer*>(component->sound_)->play_jump_in_state(fraction, terrain);
@@ -160,7 +160,7 @@ void SkaterPhysicsModule::perform_leap(script::Struct* params)
     float most = scaled_physics(object, names[0]);
     float least = scaled_physics(object_of(this), names[1]);
     double held = static_cast<double>(tense) / static_cast<double>(max_tense);
-    float speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
+    auto speed = static_cast<float>((static_cast<double>(most) - least) * held + least);
     params->fetch_float(kSpeed, &speed, 0);
 
     set_flag(this, PoseFlag::kCrouched, 0);

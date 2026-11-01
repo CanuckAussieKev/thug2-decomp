@@ -61,9 +61,9 @@ void ParkLayout::rebuild_park(uint32_t how)
     clear_stats();
     if (how == kNewPark || !(current_flags() & 2)) {
         // An empty grid.
-        for (int x = 0; x < kGridSize; ++x) {
+        for (auto& column : floor_) {
             for (int z = 0; z < kGridSize; ++z) {
-                FloorCell& cell = floor_[x][z];
+                FloorCell& cell = column[z];
                 cell.level_y_ = 0;
                 cell.heights_used_ = 0;
                 cell.touched_ = false;
@@ -133,8 +133,8 @@ bool ParkLayout::destroy_metas_in_area_and_rebuild(CellBox area, bool skip_resta
         maths::Vec4 corner = sole()->cell_to_world_pos(area, &size);
         float x0 = corner.x;
         float z0 = corner.z;
-        float z1 = static_cast<float>(static_cast<double>(size.z) + z0);
-        float x1 = static_cast<float>(static_cast<double>(size.x) + x0);
+        auto z1 = static_cast<float>(static_cast<double>(size.z) + z0);
+        auto x1 = static_cast<float>(static_cast<double>(size.x) + x0);
         get_engine()->delete_points(x0, z0, x1, z1, 1);
         update_pieces(get_generator());
         if (destroyed) {

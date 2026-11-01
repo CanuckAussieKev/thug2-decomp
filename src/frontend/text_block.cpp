@@ -215,7 +215,7 @@ void ParagraphWidget::change_caption(const char** texts, int count)
     for (int k = 0; k < rows_filled_; ++k) {
         memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->front_end_heap_);
-        LabelWidget* line = new LabelWidget;
+        auto* line = new LabelWidget;
         memory::Hub::get_pull()->leave_heap_scope();
         manager->enrol_subject(line);
         {
@@ -444,8 +444,8 @@ void ParagraphWidget::tick_frame()
 {
     if (!(object_flags_ & kVisibleNow))
         return;
-    float y = static_cast<float>((static_cast<double>(level_y_) - lines_height_) *
-                                 (static_cast<double>(inner_align_v_) + get_one()) * get_half());
+    auto y = static_cast<float>((static_cast<double>(level_y_) - lines_height_) *
+                                (static_cast<double>(inner_align_v_) + get_one()) * get_half());
     ElementPtr child;
     child.assign_value(eldest_.owner_object_);
     for (int i = 0; i < rows_filled_; ++i) {
@@ -453,7 +453,7 @@ void ParagraphWidget::tick_frame()
         uint32_t rgba;
         std::memcpy(&rgba, shown_.rgba, 4);
         child->change_rgba(rgba, 1);
-        float x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span_ * get_half());
+        auto x = static_cast<float>((static_cast<double>(inner_align_h_) + get_one()) * span_ * get_half());
         child->change_location(x, y, 0);
         y = static_cast<float>(static_cast<double>(child->level_y_) * internal_scale_ * line_spacing_ + y);
         child.assign_value(child->following_.owner_object_);
@@ -463,4 +463,3 @@ void ParagraphWidget::tick_frame()
 
 } // namespace frontend
 
-using frontend::ParagraphWidget;

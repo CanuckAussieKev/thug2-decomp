@@ -252,7 +252,7 @@ void GroundShadowModule::tick_frame()
             uint8_t* model = mesh_instance_ ? model_of(mesh_instance_) : nullptr;
             if (model && hierarchy_of(model)) {
                 // The model's root: its matrix times the display matrix, at the object's position plus its translation.
-                const float* root = reinterpret_cast<const float*>(hierarchy_of(model) + 0x40);
+                const auto* root = reinterpret_cast<const float*>(hierarchy_of(model) + 0x40);
                 pos = {root[0], root[1], root[2], 0.0f};
                 maths::Mat4 base_mat = *reinterpret_cast<const maths::Mat4*>(hierarchy_of(model) + 0x10);
                 (void)base_mat; // (copied and not used: the product reads the hierarchy's again)

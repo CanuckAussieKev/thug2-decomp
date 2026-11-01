@@ -63,7 +63,7 @@ float strip_distance(V3 p, const uint8_t* positions, uint32_t stride, uint32_t v
                      uint32_t index_count, float best)
 {
     auto at = [&](uint16_t i) {
-        const float* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
+        const auto* f = reinterpret_cast<const float*>(positions + static_cast<size_t>(i) * stride);
         return V3{f[0], f[1], f[2]};
     };
     for (uint32_t i = 2; i < index_count; ++i) {
@@ -123,7 +123,7 @@ Companion::Companion(uint32_t checksum, const std::vector<FaceCopy>& faces)
                 base_.push_back(face.v[k]);
                 bytes_.push_back(face.bytes[k]);
             }
-            uint16_t index16 = static_cast<uint16_t>(index);
+            auto index16 = static_cast<uint16_t>(index);
             std::memcpy(out + 4 + 2 * k, &index16, 2);
         }
     }
@@ -399,7 +399,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
         [](void* raw, uint32_t other, render::WorldCell* sector) {
             auto* c = static_cast<CtxInfo*>(raw);
             if (get_collision_only(sector)) {
-                c->sources.push_back({other, sector});
+                c->sources.emplace_back(other, sector);
                 return;
             }
             render::PcGeom* geom = geom_of(sector);

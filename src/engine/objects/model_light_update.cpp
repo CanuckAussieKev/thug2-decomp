@@ -49,7 +49,7 @@ MeshLightingModule::MeshLightingModule()
 }
 
 // 0x00422D00 (0x00422D10 the deleting one)
-MeshLightingModule::~MeshLightingModule() {}
+MeshLightingModule::~MeshLightingModule() = default;
 
 // 0x00422D40
 void MeshLightingModule::configure_from_data(script::Struct* params)

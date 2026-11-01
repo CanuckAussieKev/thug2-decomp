@@ -83,8 +83,8 @@ void draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uin
     // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
     float target_aspect = 4.0f / 3.0f;
     float back_buffer_aspect = static_cast<float>(back_buffer_width) / static_cast<float>(back_buffer_height);
-    float width = static_cast<float>(back_buffer_width);
-    float height = static_cast<float>(back_buffer_height);
+    auto width = static_cast<float>(back_buffer_width);
+    auto height = static_cast<float>(back_buffer_height);
     float offset_x = 0.0f;
     float offset_y = 0.0f;
     if (back_buffer_aspect > target_aspect) {
@@ -328,7 +328,7 @@ bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32
 {
     if (!control_data)
         return false;
-    uint16_t up = static_cast<uint16_t>(control_data[2] << 8 | control_data[3]);
+    auto up = static_cast<uint16_t>(control_data[2] << 8 | control_data[3]);
     if (up & mask) {
         *seen_up |= static_cast<uint16_t>(mask);
         return false;
@@ -365,7 +365,7 @@ void play_movie_file(const char* name)
 
     // data\movies\bik\ + the name after its last backslash + .bik (the original only looks for a backslash
     // from the end down to the second character)
-    char path[256] = "data\\movies\\bik\\";
+    char path[256] = R"(data\movies\bik\)";
     size_t length = std::strlen(name);
     size_t start = 0;
     for (size_t i = length; i != 0; --i) {

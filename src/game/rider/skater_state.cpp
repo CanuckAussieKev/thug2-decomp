@@ -77,7 +77,7 @@ void RiderPoseState::publish_method_table()
 }
 
 // 0x00519450 (0x00519620 the deleting one)
-RiderPoseState::~RiderPoseState() {}
+RiderPoseState::~RiderPoseState() = default;
 
 // (the core physics' timed flag setter, inlined everywhere in the original)
 void RiderPoseState::set_flag(PoseFlag f, uint8_t value)
@@ -206,7 +206,7 @@ void SkaterStateHistoryFrame::change_moment(uint32_t stamp)
 }
 
 // 0x005197C0 (0x00519840 the deleting one)
-RiderFrameLog::~RiderFrameLog() {}
+RiderFrameLog::~RiderFrameLog() = default;
 
 } // namespace objects
 

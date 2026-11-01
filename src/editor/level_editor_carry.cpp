@@ -262,7 +262,7 @@ Taken arm()
             g.clusters.push_back(cluster);
         OrientedBox box;
         if (scenery::cuboid(member, &box) && !scenery::is_shadow(member))
-            g.boxes.push_back({member, box});
+            g.boxes.emplace_back(member, box);
     }
     if (objects::EntityHub* manager = objects::object_hub_slot())
         manager->for_each(gather_object, &g);

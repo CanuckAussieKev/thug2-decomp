@@ -611,5 +611,3 @@ bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 
 } // namespace online
 
-using online::HostListing;
-using online::Hub;

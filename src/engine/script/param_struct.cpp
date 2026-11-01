@@ -1125,7 +1125,7 @@ void Struct::add_component_of_type(uint32_t name, uint32_t type, uint32_t value)
         put_int(name, static_cast<int>(value));
         break;
     case kQbvalFloat: {
-        float number = std::bit_cast<float>(value);
+        auto number = std::bit_cast<float>(value);
         push_float(name, number);
         break;
     }
@@ -1191,7 +1191,6 @@ namespace {
 
 using script::Array;
 using script::Struct;
-using script::VectorValue;
 template <typename... A>
 using AddMethod = void (Struct::*)(A...);
 
@@ -1321,7 +1320,7 @@ float Array::fetch_float(uint32_t index)
 {
     uint32_t bits = fetch_part(index);
     if (kind_tag_ == kQbvalFloat) {
-        float value = std::bit_cast<float>(bits);
+        auto value = std::bit_cast<float>(bits);
         return value;
     }
     return static_cast<float>(static_cast<int32_t>(bits));
@@ -1600,7 +1599,7 @@ bool components_equal(Component* a, Component* b)
     resolve(a, &type_a, &value_a);
     resolve(b, &type_b, &value_b);
     auto as_float = [](uint32_t bits) {
-        float value = std::bit_cast<float>(bits);
+        auto value = std::bit_cast<float>(bits);
         return static_cast<double>(value);
     };
     // (integers are compared with floats exactly, as the x87 does)
@@ -1666,7 +1665,6 @@ void Struct::append_array_value(const char* name, Array* value)
 
 namespace {
 
-using script::Struct;
 
 // 0x00479190: the type-name lookup was compiled out: it gives a "(Hey, don't use this...)" message.
 const char* get_type_name() { return "(Hey, don't use GetTypeName on the CD!)"; }

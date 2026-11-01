@@ -22,7 +22,7 @@
 namespace render {
 
 bool g_screen_copy_in_use;
-bool g_blur_second_pass{1};
+bool g_blur_second_pass{true};
 float g_blur_tap_weights[4]{0.16666667f, 0.33333334f, 0.33333334f, 0.16666667f};
 float g_blur_tap_offsets[4]{-0.022857143f, -0.005714286f, 0.005714286f, 0.022857143f};
 
@@ -79,7 +79,7 @@ float tap_weight(int tap) { return g_blur_tap_weights[tap]; }
 // A grey of 0-255 at half alpha: 0x80 then the value three times (from _ftol: a bigger value spills over).
 uint32_t tap_colour(float weight)
 {
-    uint32_t w = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(weight) * 128.0)); // 0x00647B2C
+    auto w = static_cast<uint32_t>(static_cast<int64_t>(static_cast<double>(weight) * 128.0)); // 0x00647B2C
     return (((w | 0xFFFF8000) << 8 | w) << 8) | w;
 }
 
@@ -99,24 +99,24 @@ void draw_screen_quad(uint32_t blend, void* target, void* source, float du, floa
     device_copy()->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 0);
     change_phase(kAddressMode0, 0x10001);
     change_phase(kPhaseAlphaTest, 0);
-    float width = static_cast<float>(Unsigned(target_desc.Width));
-    float height = static_cast<float>(Unsigned(target_desc.Height));
+    auto width = static_cast<float>(Unsigned(target_desc.Width));
+    auto height = static_cast<float>(Unsigned(target_desc.Height));
     choose_blend_mode(blend);
     if (source) {
         auto* source_texture = static_cast<IDirect3DTexture9*>(source);
         D3DSURFACE_DESC source_desc;
         source_texture->GetLevelDesc(0, &source_desc); // (not used: half a texel of the target)
-        float half_x = static_cast<float>(0.5 / Unsigned(target_desc.Width));
-        float half_y = static_cast<float>(0.5 / Unsigned(target_desc.Height));
+        auto half_x = static_cast<float>(0.5 / Unsigned(target_desc.Width));
+        auto half_y = static_cast<float>(0.5 / Unsigned(target_desc.Height));
         set_texture(0, source);
         if (shader)
             set_pixel_shader(get_shader(kPixelShader950), nullptr);
         set_vertex_format(D3DFVF_XYZRHW | D3DFVF_DIFFUSE | D3DFVF_TEX1);
-        float right = static_cast<float>(static_cast<double>(du) + 1.0);
-        float u0 = static_cast<float>(static_cast<double>(half_x) + du);
-        float v0 = static_cast<float>(static_cast<double>(half_y) + dv);
-        float u1 = static_cast<float>(static_cast<double>(right) + half_x);
-        float v1 = static_cast<float>((static_cast<double>(dv) + 1.0) + half_y);
+        auto right = static_cast<float>(static_cast<double>(du) + 1.0);
+        auto u0 = static_cast<float>(static_cast<double>(half_x) + du);
+        auto v0 = static_cast<float>(static_cast<double>(half_y) + dv);
+        auto u1 = static_cast<float>(static_cast<double>(right) + half_x);
+        auto v1 = static_cast<float>((static_cast<double>(dv) + 1.0) + half_y);
         TexturedVertex quad[4] = {
             {0.0f, 0.0f, 0.0f, 1.0f, colour, u0, v0},
             {width, 0.0f, 0.0f, 1.0f, colour, u1, v0},
@@ -250,9 +250,9 @@ void get_bloom()
         double half_x = 0.5 / Unsigned(desc.Width);
         double half_y = 0.5 / Unsigned(desc.Height);
         uint32_t alpha = pass ? g_bloom_alpha_second : g_bloom_alpha_first;
-        float half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
-        float width = static_cast<float>(g_back_buffer_width);
-        float height = static_cast<float>(g_back_buffer_height);
+        auto half_x_float = static_cast<float>(half_x), half_y_float = static_cast<float>(half_y);
+        auto width = static_cast<float>(g_back_buffer_width);
+        auto height = static_cast<float>(g_back_buffer_height);
         uint32_t colour = alpha << 24 | 0x808080;
         // (as the original builds them: z 1, the second vertex's u 1, the last vertex half a texel short of the bottom)
         TexturedVertex quad[4] = {

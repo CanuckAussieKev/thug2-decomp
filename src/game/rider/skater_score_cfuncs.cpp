@@ -133,7 +133,7 @@ bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script*
     float radius;
     params->fetch_float(kRadius, &radius, 1);
     double inches = static_cast<double>(radius) * 12.0f; // x87: the square taken before rounding
-    float radius_squared = static_cast<float>(inches * inches);
+    auto radius_squared = static_cast<float>(inches * inches);
     online::Hub* net = online::g_online_hub;
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);

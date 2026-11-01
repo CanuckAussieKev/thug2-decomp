@@ -118,7 +118,7 @@ void MeshRef::render()
         float end = g_camera.far_z_;
         reinterpret_cast<uint32_t&>(g_fog_begin_distance) = 0;
         reinterpret_cast<uint32_t&>(g_fog_end) = 0;
-        float start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
+        auto start = static_cast<float>(end - (static_cast<double>(end) - g_camera.near_z_) * 0.25f);
         toggle_fog(true);
         input_port()->SetRenderState(D3DRS_FOGSTART, *reinterpret_cast<DWORD*>(&start));
         input_port()->SetRenderState(D3DRS_FOGEND, *reinterpret_cast<DWORD*>(&end));

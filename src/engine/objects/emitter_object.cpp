@@ -255,13 +255,13 @@ void FollowTrail::fetch_place(maths::Vec4* position, maths::Mat4* matrix)
     // the unit direction back from that segment's point (times -1 / length, unrounded), and the point the
     // remaining distance along it
     double scale = -1.0 / length;
-    float nx = static_cast<float>(dx * scale);
-    float ny = static_cast<float>(dy * scale);
-    float nz = static_cast<float>(dz * scale);
-    float nw = static_cast<float>(dw * scale);
-    float ox = static_cast<float>(nx * remaining);
-    float oy = static_cast<float>(ny * remaining);
-    float oz = static_cast<float>(nz * remaining);
+    auto nx = static_cast<float>(dx * scale);
+    auto ny = static_cast<float>(dy * scale);
+    auto nz = static_cast<float>(dz * scale);
+    auto nw = static_cast<float>(dw * scale);
+    auto ox = static_cast<float>(nx * remaining);
+    auto oy = static_cast<float>(ny * remaining);
+    auto oz = static_cast<float>(nz * remaining);
     position->x = previous.x - ox;
     position->y = previous.y - oy;
     position->z = previous.z - oz;

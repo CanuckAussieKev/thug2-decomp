@@ -212,7 +212,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kNewSource: {
-        uint32_t anim = reinterpret_cast<uint32_t>(params); // (the argument's slot, as above)
+        auto anim = reinterpret_cast<uint32_t>(params); // (the argument's slot, as above)
         params->read_hash_value(kAnim, &anim, 1);
         if (frame_source_)
             release_frame_index(frame_source_, frame_index_);
@@ -299,7 +299,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 {
     switch (name) {
     case kPlayAnim: {
-        uint32_t anim = reinterpret_cast<uint32_t>(params); // (the argument's slot: params' address if missing)
+        auto anim = reinterpret_cast<uint32_t>(params); // (the argument's slot: params' address if missing)
         if (!params->read_hash_value(kWeightedAnim, &anim, 0))
             params->read_hash_value(kAnimName, &anim, 1);
         params->fetch_float(kWeight, &weight_, 0);
@@ -316,7 +316,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kNewSource: {
-        uint32_t anim = reinterpret_cast<uint32_t>(params);
+        auto anim = reinterpret_cast<uint32_t>(params);
         params->read_hash_value(kAnim, &anim, 1);
         if (blend_source_) {
             free_source(blend_source_);
@@ -423,8 +423,8 @@ float WobbleDriver::wobble_time()
         std::fabs(target - (static_cast<double>(t->outset_) + t->finish_) * 0.5) *
             ((static_cast<double>(spaz_factor_) - 1.0) / ((static_cast<double>(t->finish_) - t->outset_) * 0.5)) +
         1.0;
-    float a = static_cast<float>(scale * amp_a_);
-    float b = static_cast<float>(scale * amp_b_);
+    auto a = static_cast<float>(scale * amp_a_);
+    auto b = static_cast<float>(scale * amp_b_);
     if (static_cast<double>(target) - a - b < t->outset_)
         target = static_cast<float>(static_cast<double>(b) + a + t->outset_);
     if (static_cast<double>(target) + b + a > t->finish_)
@@ -432,7 +432,7 @@ float WobbleDriver::wobble_time()
 
     double cycles = static_cast<double>(get_clock()) * k1;
     double phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
-    float amplitude = static_cast<float>(std::sin(phase) * b + a);
+    auto amplitude = static_cast<float>(std::sin(phase) * b + a);
     cycles = static_cast<double>(get_clock()) * k2;
     phase = (cycles - static_cast<double>(get_truncated(cycles)) * 0.0625 * 16.0) * two_pi();
     double time = std::sin(phase) * amplitude + target;
@@ -467,7 +467,7 @@ StanceDriver::StanceDriver(AnimTimeline* timeline) : AnimDriver(timeline)
 }
 
 // 0x004A4D20
-StanceDriver::~StanceDriver() {}
+StanceDriver::~StanceDriver() = default;
 
 // 0x004A4D30
 bool StanceDriver::fetch_pose(uint8_t* pose)
@@ -546,7 +546,7 @@ int PartialClipDriver::invoke_method_by_name(uint32_t name, script::Struct* para
         // the timeline stepped once by `frames` (its speed held at 0 meanwhile)
         float frames = 0.0f; // (missing: the original's is whatever its argument slot held)
         params->fetch_float(kFrames, &frames, 1);
-        float speed = static_cast<float>(static_cast<double>(partial_->speed_) * frames_per_second());
+        auto speed = static_cast<float>(static_cast<double>(partial_->speed_) * frames_per_second());
         partial_->speed_ = 0.0f;
         partial_->ongoing_ = static_cast<float>(static_cast<double>(frames) + partial_->ongoing_);
         partial_->tick_frame();

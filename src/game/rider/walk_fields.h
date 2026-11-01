@@ -9,8 +9,7 @@
 #include "engine/script/param_struct.h"
 #include "platform/game_clock.h"
 
-namespace objects {
-namespace walk_fields {
+namespace objects::walk_fields {
 
 template <typename T>
 T& get_at(void* object, uint32_t offset)
@@ -56,5 +55,4 @@ inline int truncate(double value) { return static_cast<int>(static_cast<int64_t>
 // The game clock with its offset (0x00696D60), and the time since `then` on it.
 inline int clock_since(int then) { return frame_clock::game_clock_elapsed() + (objects::g_clock_offset - then); }
 
-} // namespace walk_fields
-} // namespace objects
+} // namespace objects::walk_fields

@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
 
 #include "engine/core/manager.h"
@@ -200,8 +201,8 @@ void AnimTrack::load_events(uint32_t anim)
     event_count_ = count;
     if (!count)
         return;
-    events_ptr_.reset(
-        new TimedClipEvent[count]); // (default-initialised; the count before the array, as the original's)
+    events_ptr_ = std::make_unique<TimedClipEvent[]>(
+        count); // (default-initialised; the count before the array, as the original's)
     for (uint32_t i = 0; i < event_count_; ++i) {
         auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
         int frame = 0;
@@ -227,8 +228,8 @@ void AnimTrack::fire_events(float from, float to)
     // (frames: compared unrounded, passed on as floats)
     double first = static_cast<double>(from) * 60.0;
     double last = static_cast<double>(to) * 60.0;
-    float first_frame = static_cast<float>(first);
-    float last_frame = static_cast<float>(last);
+    auto first_frame = static_cast<float>(first);
+    auto last_frame = static_cast<float>(last);
     bool looped = direction_ == 0 ? first > last : last > first;
     if (looped) {
         arm_events();
@@ -290,7 +291,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         return 1;
     }
     if (name == kRemoveAnimController) {
-        uint32_t id = reinterpret_cast<uint32_t>(params); // (the argument's own slot: the params' address if missing)
+        auto id = reinterpret_cast<uint32_t>(params); // (the argument's own slot: the params' address if missing)
         params->read_hash_value(kId, &id, 1);
         if (AnimDriver* controller = find_controller(id))
             detach_anim_driver(controller);
@@ -307,7 +308,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         float current = 0.0f;
         if (sync) {
             // (x87 at 53 bits: the place on the old timeline in proportion, rounded once)
-            double place = static_cast<double>(ongoing_);
+            auto place = static_cast<double>(ongoing_);
             ongoing_ = 0.0f;
             current = static_cast<float>(place / finish_ * duration);
         }

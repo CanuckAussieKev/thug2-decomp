@@ -193,7 +193,7 @@ bool Objective::bit_is_on(uint32_t flag, uint32_t sub)
 {
     script::Struct* flags = goal_flags_;
     if (sub) {
-        script::Struct* found = reinterpret_cast<script::Struct*>(sub); // (as bit_matches)
+        auto* found = reinterpret_cast<script::Struct*>(sub); // (as bit_matches)
         flags->read_sub_struct(sub, &found, 1);
         flags = found;
     }
@@ -308,7 +308,7 @@ void Objective::update_current_time()
     args_->fetch_int_value(kCurrentTime, &time, 0);
     time += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand); // (1000)
     args_->put_int(kCurrentTime, time);
-    uint32_t ms = static_cast<uint32_t>(time);
+    auto ms = static_cast<uint32_t>(time);
     args_->put_int(kCurrentTimeSeconds, static_cast<int>(ms / 1000));
     args_->put_int(kCurrentTimeFraction, static_cast<int>(ms / 10 % 100));
 }

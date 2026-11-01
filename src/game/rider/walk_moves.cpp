@@ -982,7 +982,7 @@ void FootMovement::get_jump()
         if (stick_deflection_ == 0.0f) {
             heading = facing;
         } else {
-            float push = static_cast<float>(get_control_speed()); // (how far the control is pushed, 0 - 1)
+            auto push = static_cast<float>(get_control_speed()); // (how far the control is pushed, 0 - 1)
             float scaled = get_param(kJumpHorizSpeed) * push;
             auto speed = static_cast<float>(scaled / run_speed());
             const maths::Vec4& direction = stick_heading_;
@@ -1445,4 +1445,3 @@ bool FootMovement::update_contacts()
 
 } // namespace objects
 
-using objects::FootMovement;

@@ -48,7 +48,7 @@ WaypointListModule::WaypointListModule()
 }
 
 // 0x00427EA0 (0x00427EF0 the deleting one)
-WaypointListModule::~WaypointListModule() {}
+WaypointListModule::~WaypointListModule() = default;
 
 // 0x00427F20
 void WaypointListModule::configure_from_data(script::Struct* params)
@@ -145,6 +145,3 @@ maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
 
 } // namespace objects
 
-using objects::GrindPathLinkModule;
-using objects::HookPointRegistryModule;
-using objects::WaypointListModule;

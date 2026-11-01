@@ -283,19 +283,19 @@ MemoryStats* get_memory_stats(MemoryStats* out)
 
     float main_usage = 1.0f;
     if (stats.main_heap_free_ > 0) {
-        float free = static_cast<float>(stats.main_heap_free_);
+        auto free = static_cast<float>(stats.main_heap_free_);
         int base = get_memory_value("main_heap_base", -1); // "main_heap_base"
         main_usage = static_cast<float>(1.0 - static_cast<double>(free) / base);
     }
     stats.main_heap_usage_ = main_usage;
     stats.max_usage_ = main_usage;
 
-    float park_free = static_cast<float>(stats.park_heap_free_);
+    auto park_free = static_cast<float>(stats.park_heap_free_);
     double park = 1.0 - static_cast<double>(park_free) / get_memory_value("park_heap_base", -1); // "park_heap_base"
     stats.park_heap_usage_ = static_cast<float>(park);
     update_max(stats, park, stats.park_heap_usage_);
 
-    float top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap_->region_->free_byte_count());
+    auto top_down_free = static_cast<float>(memory::Hub::get_pull()->top_down_heap_->region_->free_byte_count());
     double top_down =
         2.0 - static_cast<double>(top_down_free) / get_memory_value("top_down_required", -1); // "top_down_required"
     stats.top_down_usage_ = static_cast<float>(top_down);
@@ -316,7 +316,7 @@ MemoryStats* get_memory_stats(MemoryStats* out)
     if (stats.max_usage_ < stats.array_usage_)
         stats.max_usage_ = stats.array_usage_;
 
-    float dma = static_cast<float>(dma_pieces());
+    auto dma = static_cast<float>(dma_pieces());
     double dma_usage = static_cast<double>(dma) / get_memory_value("max_dma_pieces", -1); // "max_dma_pieces"
     stats.dma_usage_ = static_cast<float>(dma_usage);
     update_max(stats, dma_usage, stats.dma_usage_);

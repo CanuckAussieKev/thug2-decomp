@@ -129,7 +129,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
         return;
     }
     // (the name is read into the parameters' own argument slot: neither given leaves the pointer's value)
-    uint32_t name = reinterpret_cast<uint32_t>(params);
+    auto name = reinterpret_cast<uint32_t>(params);
     if (!params->read_hash_value(kType, &name, 0))
         params->read_hash_value(kSkeletonName, &name, 1);
     prepare_rig(name);
@@ -199,7 +199,7 @@ void BoneRigModule::place_decal_splat(const maths::Vec4* start, const maths::Vec
     if (spread > 0.0f) {
         // Scattered along the object's right and at by up to the spread each (the second offset unrounded).
         const float twice = spread + spread;
-        const float across = static_cast<float>(static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread);
+        const auto across = static_cast<float>(static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread);
         const double along = static_cast<double>(get_rand()) * twice * kOneOverRandMax - spread;
         const maths::Vec4& right = entity_->basis_frame_.row[0];
         const maths::Vec4& at = entity_->basis_frame_.row[2];
@@ -262,7 +262,7 @@ void BoneRigModule::spawn_composite_object_at_bone(uint32_t bone, script::Array*
 // 0x00431C00
 bool BoneRigModule::obj_set_bone_active(script::Struct* params, script::Script* /*script*/)
 {
-    uint32_t bone = reinterpret_cast<uint32_t>(this); // (the slot PUSH ECX made: missing, the component's address)
+    auto bone = reinterpret_cast<uint32_t>(this); // (the slot PUSH ECX made: missing, the component's address)
     params->read_hash_value(kBone, &bone, 1);
     // (read into the parameters' own argument slot: missing, the pointer's value)
     int active = static_cast<int>(reinterpret_cast<uint32_t>(params));
@@ -303,7 +303,7 @@ bool BoneRigModule::obj_get_bone_position(script::Struct* params, script::Script
 {
     maths::Vec4 pos = {0.0f, 0.0f, 0.0f, 1.0f};
     // (the bone is read into the parameters' own argument slot)
-    uint32_t bone = reinterpret_cast<uint32_t>(params);
+    auto bone = reinterpret_cast<uint32_t>(params);
     params->read_hash_value(kBone, &bone, 1);
     bool found = get_bone_position(bone, &pos);
     script->args_->push_float(0x7323E97C, pos.x); // x
@@ -359,7 +359,7 @@ bool BoneRigModule::texture_splat(script::Struct* params, script::Script* /*scri
     }
     script::VectorValue end = {0.0f, 0.0f, 0.0f, 1.0f};
     params->fetch_vec(0x09A7DC2E, &end, 0); // end_pos
-    float spin = static_cast<float>(static_cast<double>(get_rand()) * kTwoPi * kOneOverRandMax);
+    auto spin = static_cast<float>(static_cast<double>(get_rand()) * kTwoPi * kOneOverRandMax);
     if (params->has_bare_flag(0x744E673F)) {
         // The object's at's angle about z: acos of its z, on the side of its x (the C runtime's acos, 0x00623630).
         const maths::Vec4& at = entity_->basis_frame_.row[2];

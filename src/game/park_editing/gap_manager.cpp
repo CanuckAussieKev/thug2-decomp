@@ -119,8 +119,7 @@ void GapRegistry::clear_gap_entries()
 void GapRegistry::set_trigger_length(ParkTile* piece)
 {
     float length = 0.0f; // (the float at 0x0066D520)
-    for (int i = 0; i < kMaxGaps; ++i) {
-        Gap* gap = gaps_ptr_[i];
+    for (Gap* gap : gaps_ptr_) {
         if (!gap)
             continue;
         int half;
@@ -130,7 +129,7 @@ void GapRegistry::set_trigger_length(ParkTile* piece)
             half = 1;
         else
             continue;
-        length = gaps_ptr_[i]->details_.fetch_magnitude(half);
+        length = gap->details_.fetch_magnitude(half);
         break;
     }
     // the trigger piece's length in cells
@@ -208,4 +207,3 @@ void GapRegistry::fire_gap(int index, script::Script* script)
 
 } // namespace park_editing
 
-using park_editing::GapRegistry;
