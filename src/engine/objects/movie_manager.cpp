@@ -51,7 +51,7 @@ uint32_t get_name_of(Movie* movie) { return movie_key_from_params(movie); }
 // The movie at `index` of the list (lists::Foremost<Movie>::fetch_entry, 0x0055D990; null past the end).
 Movie* movie_at(memory::ListNode* head, int index)
 {
-    const memory::ListNode* node = raw::as<goals::GoalListHead>(head)->get_node_at(index);
+    const memory::ListNode* node = lists::node_at(*head, index);
     return node ? static_cast<Movie*>(node->data) : nullptr;
 }
 void set_game_camera(gfx::ViewCam* camera) { render::choose_camera(0, camera); }

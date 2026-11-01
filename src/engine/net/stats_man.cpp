@@ -185,7 +185,7 @@ struct SortedList {
     SortedList& operator=(const SortedList&) = delete;
     memory::ListNode head{};
     SortedList() { head.make_head(); }
-    void append_one(SortEntry* entry) { raw::as<lists::Foremost>(&head)->append_vertex(&entry->list_link_); }
+    void append_one(SortEntry* entry) { lists::append_vertex(head, &entry->list_link_); }
     ~SortedList()
     {
         delete_all<SortEntry>(&head);

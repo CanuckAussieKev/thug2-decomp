@@ -30,7 +30,9 @@ void count_up(int& value, int& max, int amount)
 
 uint32_t round_up16(uint32_t size) { return (size + 15) & ~15u; }
 
-uint8_t* end_of(ChunkPrefix* header) { return raw::bytes(header) + kBlockHeaderSize + header->size; }
+uint8_t* end_of(ChunkPrefix* header) { return static_cast<uint8_t*>(header->gate_off()) + header->size; }
+// A block's header made in the memory at `place`.
+ChunkPrefix* header_at(uint8_t* place) { return memory::construct_in<ChunkPrefix>(place); }
 
 // The memory manager's heap lookup by name checksum, and the heap dump (the script command, without parameters).
 Arena* find_heap(uint32_t name) { return Hub::get_pull()->fetch_heap_by_key(name, 0); }
@@ -73,7 +75,7 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
         // Split off what isn't needed, as a free block of its own.
         const int rest = static_cast<int>(best->size - kBlockHeaderSize - rounded);
         if (rest > 0) {
-            auto* tail = raw::field_at<ChunkPrefix>(best, kBlockHeaderSize + rounded);
+            auto* tail = header_at(static_cast<uint8_t*>(best->gate_off()) + rounded);
             best->size = rounded;
             tail->allocator = this;
             tail->size = static_cast<uint32_t>(rest);
@@ -84,7 +86,8 @@ void* Arena::carve(uint32_t size, bool halt_if_exhausted)
     }
 
     // Claim new space from the region.
-    auto* header = raw::as<ChunkPrefix>(region_->carve(this, static_cast<int>(kBlockHeaderSize + rounded), use_fallbacks_ == 0 && halt_if_exhausted));
+    uint8_t* const space = region_->carve(this, static_cast<int>(kBlockHeaderSize + rounded), use_fallbacks_ == 0 && halt_if_exhausted);
+    ChunkPrefix* const header = space ? header_at(space) : nullptr;
     if (!header) {
         if (use_fallbacks_ && !heap_busy()) {
             heap_busy() = 1;
@@ -154,7 +157,7 @@ void* Arena::extend_block_upward(uint32_t new_size, void* block)
         return block;
     }
     ChunkPrefix* extra = fetch_chunk_prefix(carve(rounded - header->size, true));
-    if (static_cast<uint8_t*>(block) + header->size != raw::bytes(extra)) {
+    if (header->following() != extra) {
         // Not right after the block: give it back.
         heap_busy() = 0;
         dealloc(extra);
@@ -180,7 +183,7 @@ void* Arena::trim_block_end(uint32_t new_size, void* block)
         heap_busy() = 0;
         return block;
     }
-    auto* tail = raw::field_at<ChunkPrefix>(static_cast<uint8_t*>(block), header->size - cut);
+    auto* tail = header_at(static_cast<uint8_t*>(block) + (header->size - cut));
     tail->size = cut - kBlockHeaderSize;
     tail->allocator = this;
     debug_track_block(tail);
@@ -215,7 +218,7 @@ void Arena::dealloc(ChunkPrefix* header)
     }
 
     header->next_free() = next;
-    if (next && end_of(header) == raw::bytes(next)) {
+    if (next && header->following() == next) {
         header->next_free() = next->next_free();
         header->size += next->size + kBlockHeaderSize;
         --free_blocks_;
@@ -226,7 +229,7 @@ void Arena::dealloc(ChunkPrefix* header)
     if (!previous) {
         context_->free_list_ = header;
         before = nullptr;
-    } else if (end_of(previous) == raw::bytes(header)) {
+    } else if (previous->following() == header) {
         previous->size += header->size + kBlockHeaderSize;
         previous->next_free() = header->next_free();
         --free_blocks_;
@@ -245,7 +248,7 @@ void Arena::dealloc(ChunkPrefix* header)
         else
             context_->free_list_ = nullptr;
         top_side_ -= (header->size + kBlockHeaderSize) * direction_;
-    } else if (direction_ == kGrowDown && !before && top_side_ == raw::bytes(header)) {
+    } else if (direction_ == kGrowDown && !before && top_side_ + kBlockHeaderSize == header->gate_off()) {
         top_side_ += kBlockHeaderSize + header->size;
         context_->free_list_ = header->next_free();
     } else {

@@ -41,7 +41,7 @@ NoteHandler* NoteHandler::teardown(unsigned int flags)
 void Router::prepare_all()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
-        const memory::ListNode* node = link_chain(id).list_link_.next;
+        const memory::ListNode* node = link_chain(id).next;
         // (the head check comes before the null check)
         if (node->data == memory::ListNode::head_marker() || !node)
             continue;
@@ -60,7 +60,7 @@ void Router::tear_down_state()
 {
     for (int id = 0; id < kNumMessageIds; ++id) {
         lists::Hunt<NoteHandler> search;
-        for (NoteHandler* handler = search.head_element(&link_chain(id).list_link_); handler;) {
+        for (NoteHandler* handler = search.head_element(&link_chain(id)); handler;) {
             NoteHandler* next = search.following_item();
             handler->teardown(1);
             handler = next;
@@ -81,7 +81,7 @@ NoteHandler* Router::append_listener(uint8_t id, HandlerSlotValue code, uint32_t
         handler->mode_bits_ = flags;
     }
     // (a failed allocation reaches append_vertex as null and crashes there, as in the original)
-    link_chain(id).append_vertex(raw::as<memory::ListNode>(handler));
+    lists::append_vertex(link_chain(id), handler ? &handler->list_link_ : nullptr);
     memory::Hub::get_pull()->leave_heap_scope();
     return handler;
 }
@@ -95,7 +95,7 @@ int Router::dispatch_msg(InboundMsgCtx* context)
         return guarded;
     lists::Hunt<NoteHandler> search;
     const NoteHandler* next = nullptr;
-    for (const NoteHandler* handler = search.head_element(&link_chain(context->type_code_).list_link_); handler;
+    for (const NoteHandler* handler = search.head_element(&link_chain(context->type_code_)); handler;
          handler = next) {
         next = search.following_item();
         if ((handler->mode_bits_ & context->wire_options_) != context->wire_options_)

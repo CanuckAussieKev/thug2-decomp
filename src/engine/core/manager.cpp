@@ -14,6 +14,7 @@
 #include <array>
 #include "engine/core/pointer_cell.h"
 #include "engine/core/checked_index.h"
+#include <memory>
 
 namespace memory {
 
@@ -104,7 +105,7 @@ void Hub::enter_heap_scope(MemSource* heap)
 void Hub::leave_heap_scope()
 {
     --context_depth_;
-    core::at(alloc_source_stack_, context_depth_) = cell::pointer<MemSource>(-1);
+    core::at(alloc_source_stack_, context_depth_) = nullptr; // (the original left -1 there; never read)
     ongoing_ = context_depth_ ? &core::at(alloc_source_stack_, context_depth_ - 1) : nullptr;
 }
 
@@ -492,11 +493,14 @@ Hub::Hub()
     g_heap_block_end = block + block_size;
     g_heap_block_limit = block + block_size;
     const uint8_t* end = g_heap_block_limit;
+    // The region: the block's start rounded up and its end rounded down to 16 bytes.
+    void* aligned = block;
+    size_t space = block_size;
+    std::align(16, 0, aligned, space);
+    auto* const start = static_cast<uint8_t*>(aligned);
+    auto* const finish = start + ((end - start) & ~ptrdiff_t{15});
     void* region = get_clear(sizeof(Zone), kMainRegionStorage);
-    primary_zone_ = region ? memory::construct_in<Zone>(
-                                 region, cell::pointer<uint8_t>((cell::address(block) + 15) & ~15u),
-                                 cell::pointer<uint8_t>(cell::address(end) & ~15u))
-                           : nullptr;
+    primary_zone_ = region ? memory::construct_in<Zone>(region, start, finish) : nullptr;
     void* top = get_clear(sizeof(Arena), kTopDownStorage);
     top_down_heap_ = top ? memory::construct_in<Arena>(top, primary_zone_, MemSource::kGrowDown, static_cast<const char*>("Top Down")) : nullptr;
     void* bottom = get_clear(sizeof(Arena), kBottomUpStorage);

@@ -148,12 +148,3 @@ bool KeyMap::step_iterator()
 }
 
 } // namespace lists
-
-namespace {
-
-struct HashTableAdapter {
-    lists::KeyMap* make_new(int bits) { return new (this) lists::KeyMap(bits); }
-    void teardown() { raw::as<lists::KeyMap>(this)->~KeyMap(); }
-};
-
-} // namespace

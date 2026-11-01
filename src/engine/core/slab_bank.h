@@ -22,12 +22,17 @@ public:
     // True if `pointer` lies inside the pool's block.
     bool get_holds(const void* pointer) const;
 
+    // A free item holds the link to the next free one.
+    struct FreeSlot {
+        FreeSlot* next;
+    };
+
     uint8_t* outset_;
     uint8_t* finish_;
     int num_;
     int slot_bytes_;
     int taken_count_;
-    void* free_list_;
+    FreeSlot* free_list_;
     std::array<char, 64> label_{};
     int peak_used_;
 };

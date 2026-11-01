@@ -26,7 +26,6 @@
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/arena_alloc.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/down_cast.h"
 #include "engine/core/checked_index.h"
@@ -55,8 +54,8 @@ ListNode* normal_queue(Conn* conn) { return &conn->normal_msgs_; }
 ListNode* important_queue(Conn* conn) { return &conn->important_msgs_; }
 ListNode* sequenced_queue(Conn* conn) { return &conn->sequenced_msgs_; }
 // The receive buffer's read and write positions (its start and end).
-uint8_t*& read_position(Conn* conn) { return memory::bits_as<uint8_t*>(conn->read_buffer_); }
-uint8_t*& write_position(Conn* conn) { return memory::bits_as<uint8_t*>(conn->read_ptr_); }
+char*& read_position(Conn* conn) { return conn->read_buffer_; }
+char*& write_position(Conn* conn) { return conn->read_ptr_; }
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
 uint32_t& get_standing(Conn* conn) { return conn->cur_standing_; }
 constexpr uint32_t kConnReady = Conn::kConnReady;
@@ -70,8 +69,8 @@ void* in_metrics(Conn* conn) { return &conn->receive_metrics_; }   // NetLink::G
 void* out_metrics(Conn* conn) { return &conn->send_metrics_; }
 // The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
 // in this process) straight into its own receive buffer.
-uint8_t*& send_buffer_start(Conn* conn) { return memory::bits_as<uint8_t*>(conn->outgoing_bytes_); }
-uint8_t*& send_buffer_end(Conn* conn) { return memory::bits_as<uint8_t*>(conn->write_ptr_); }
+char*& send_buffer_start(Conn* conn) { return conn->outgoing_bytes_; }
+char*& send_buffer_end(Conn* conn) { return conn->write_ptr_; }
 
 // Conn's methods (net_conn.cpp).
 Conn* construct_conn(void* memory, int flags) { return new (memory) Conn(flags); }
@@ -175,7 +174,7 @@ struct StreamPieceMessage {
 
 // --- The rest of the library ------------------------------------------------------------------------------
 // A message link into a queue: lists::Foremost::append_node (0x00457350).
-void add_link(ListNode* queue, ListNode* link) { raw::as<lists::Foremost>(queue)->append_node(link); }
+void add_link(ListNode* queue, ListNode* link) { lists::append_node(*queue, link); }
 // conn's received messages to their handlers (Router::invoke_handlers_for_msg); 2 = halted, 3 = stop
 int dispatch_messages(HandlerLists* dispatcher, Conn* conn, int flags)
 {

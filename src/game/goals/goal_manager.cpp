@@ -112,7 +112,7 @@ GoalManager::~GoalManager()
         data->get_clear();
         script::delete_struct(data);
     }
-    raw::as<objects::TrickObjectHead>(&active_goals_)->unlink_all();
+    lists::unlink_all(active_goals_.list_link_);
     active_goals_.destroy_body();
     raw::as<objects::ProfileTable>(&goals_)->get_clear();
 }
@@ -687,7 +687,7 @@ void GoalManager::wipe_objectives()
 // 0x0055DBE0
 void GoalManager::add_active_goal(Objective* goal)
 {
-    raw::as<lists::Foremost>(&active_goals_)->append_vertex(goal->list_node());
+    lists::append_vertex(active_goals_.list_link_, goal->list_node());
 }
 
 namespace {
@@ -708,19 +708,7 @@ int count_active(memory::ListNode* head)
 
 } // namespace
 
-// 0x0055D990
-memory::ListNode* GoalListHead::get_node_at(int index)
-{
-    memory::ListNode* node = list_link_.next;
-    if (node->data == memory::ListNode::head_marker() || !node)
-        return nullptr;
-    while (index--) {
-        node = node->next;
-        if (node->data == memory::ListNode::head_marker() || !node)
-            return nullptr;
-    }
-    return node;
-}
+memory::ListNode* GoalListHead::get_node_at(int index) { return lists::node_at(list_link_, index); }
 
 // 0x0055DBF0
 Objective* GoalManager::get_engaged_objective(int index)

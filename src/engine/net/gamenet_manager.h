@@ -397,7 +397,7 @@ public:
     Hub(const Hub&) = delete;
     Hub& operator=(const Hub&) = delete;
     // Every node after `head` taken out of its list (each linked to itself; none freed). No address of its own: the
-    // original calls the list code folded at 0x00588B70 (GameObjects::TrickObjectHead::unlink_all).
+    // original calls the list code folded at 0x00588B70 (lists::unlink_all).
     static void unlink_all_nodes(memory::ListNode* head);
 
     // --- The scores (score_list.cpp) ---

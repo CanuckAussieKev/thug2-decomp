@@ -36,9 +36,9 @@
 #include "engine/sys/game_config.h"
 #include "engine/core/ints.h"
 #include "engine/core/arena_alloc.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/lists/chain_start.h"
 
 namespace objects {
 
@@ -401,22 +401,6 @@ TrickSpot* TrickSpot::teardown(unsigned int flags)
     return this;
 }
 
-// 0x00588B70
-void TrickObjectHead::unlink_all()
-{
-    // (The original reads the first node's data before checking the node for null.)
-    ListNode* node = next;
-    if (node->data == memory::ListNode::head_marker() || !node)
-        return;
-    while (node) {
-        ListNode* following = node->next;
-        node->prev->next = following;
-        following->prev = node->prev;
-        node->next = node;
-        node->prev = node;
-        node = following->data == memory::ListNode::head_marker() ? nullptr : following;
-    }
-}
 
 // 0x00588BD0
 TrickObjectCluster::TrickObjectCluster(uint32_t name) : label_(name)
@@ -456,7 +440,7 @@ TrickObjectCluster::~TrickObjectCluster()
         if (auto* object = static_cast<TrickSpot*>(object_at(entities_, 0)->data))
             object->teardown(1);
     }
-    memory::bits_as<TrickObjectHead>(entities_).unlink_all();
+    lists::unlink_all(entities_);
     entities_.uncouple();
     list_link_.uncouple();
 }

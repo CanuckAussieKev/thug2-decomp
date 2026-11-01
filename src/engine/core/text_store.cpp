@@ -109,24 +109,3 @@ void Chars::copy_range(const char* text, int first, int last)
 }
 
 } // namespace text
-
-// --- replacements -------------------------------------------------------------------------------------
-namespace {
-
-using text::Chars;
-
-// Constructors and destructors can't be pointed to directly; these adapters keep the original __thiscall
-// shape (object in ECX, constructors return it in EAX).
-struct StringAdapter {
-    Chars* make_new() { return new (this) Chars(); }
-    Chars* construct_from_text(const char* text) { return new (this) Chars(text); }
-    Chars* construct_copy(const Chars& other) { return new (this) Chars(other); }
-    void teardown() { raw::as<Chars>(this)->~Chars(); }
-};
-
-// copy_range is private; this gives the replacement table access to it.
-struct StringCopyRange : Chars {
-    void get_call(const char* text, int first, int last) { copy_range(text, first, last); }
-};
-
-} // namespace

@@ -22,15 +22,17 @@ struct ChunkPrefix {
     MemSource* allocator;
     uint32_t size;
     uint32_t marker; // kBlockInUse, or kBlockFreed once released
-    uint32_t unknown0c_;
+    ChunkPrefix* next_free_; // while the block is on a heap's free list: the next free block (the original kept
+                             // the link in `allocator`; the fourth word was unused)
 
     static constexpr uint32_t kBlockInUse = 0xCF801FE1;
     static constexpr uint32_t kBlockFreed = 0xDEADDEAD;
 
     static ChunkPrefix* get_of(void* block) { return static_cast<ChunkPrefix*>(block) - 1; }
     void* gate_off() { return this + 1; }
-    // While a block is on a heap's free list, the first field links the list instead.
-    ChunkPrefix*& next_free() { return *raw::as<ChunkPrefix*>(this); }
+    // The header right after this block (block sizes are multiples of the header's 16 bytes).
+    ChunkPrefix* following() { return this + 1 + size / 16; }
+    ChunkPrefix*& next_free() { return next_free_; }
 };
 constexpr uint32_t kBlockHeaderSize = sizeof(ChunkPrefix);
 

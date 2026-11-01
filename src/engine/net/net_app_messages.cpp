@@ -17,7 +17,6 @@
 #include "formats/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "engine/core/ints.h"
-#include "engine/core/bits_as.h"
 #include "engine/core/pointer_cell.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
@@ -403,8 +402,7 @@ int AppHost::on_ordered_msgs(InboundMsgCtx* context)
     link->order_index_ = sequence;
     memory::Hub::get_pull()->leave_heap_scope();
 
-    auto& buffer = memory::bits_as<lists::Foremost>(core::at(context->sender_conn_->received_queues_, group));
-    if (!buffer.insert_by_unique_order(&link->list_link_)) { // a duplicate
+    if (!lists::insert_by_unique_order(core::at(context->sender_conn_->received_queues_, group), &link->list_link_)) { // a duplicate
         if (SeqQueuedMsg* duplicate = link->shared_msg_) {
             destroy_queued_msg(duplicate);
             memory::Hub::get_pull()->dealloc(duplicate);

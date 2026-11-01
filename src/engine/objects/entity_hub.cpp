@@ -30,7 +30,7 @@ uint32_t& tracker_references() { return g_tracker_references; }
 // lists::Foremost<Entity>'s insert by priority (the highest first, equal ones newest first).
 void add_node_by_priority(memory::ListNode* head, memory::ListNode* node)
 {
-    raw::as<lists::Foremost>(head)->append_vertex(node);
+    lists::append_vertex(*head, node);
 }
 // tasks::Task's constructor and the main loop's system task list's add.
 void queue_engine_job(tasks::SchedulerTask* task) { assets::g_main_loop_manager->system_tasks_.queue_job(task); }

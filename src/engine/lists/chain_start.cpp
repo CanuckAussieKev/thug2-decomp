@@ -28,10 +28,10 @@ void insert_after(memory::ListNode* prev, memory::ListNode* node)
 } // namespace
 
 // 0x0045A540
-void Foremost::append_vertex(memory::ListNode* node)
+void append_vertex(memory::ListNode& head, memory::ListNode* node)
 {
     const int priority = node->priority;
-    for (memory::ListNode* next = list_link_.next;; next = next->next) {
+    for (memory::ListNode* next = head.next;; next = next->next) {
         if (next->data == memory::ListNode::head_marker() || !next)
             break;
         if (next->priority <= priority) {
@@ -39,14 +39,14 @@ void Foremost::append_vertex(memory::ListNode* node)
             return;
         }
     }
-    insert_before(&list_link_, node); // at the end
+    insert_before(&head, node); // at the end
 }
 
 // 0x0045AEB0
-bool Foremost::insert_by_unique_order(memory::ListNode* node)
+bool insert_by_unique_order(memory::ListNode& head, memory::ListNode* node)
 {
     const int priority = node->priority;
-    for (memory::ListNode* next = list_link_.next;; next = next->next) {
+    for (memory::ListNode* next = head.next;; next = next->next) {
         if (next->data == memory::ListNode::head_marker() || !next)
             break;
         if (next->priority == priority)
@@ -56,15 +56,15 @@ bool Foremost::insert_by_unique_order(memory::ListNode* node)
             return true;
         }
     }
-    insert_before(&list_link_, node); // at the end
+    insert_before(&head, node); // at the end
     return true;
 }
 
 // 0x00457350
-void Foremost::append_node(memory::ListNode* node)
+void append_node(memory::ListNode& head, memory::ListNode* node)
 {
     const int priority = node->priority;
-    for (memory::ListNode* prev = list_link_.prev;; prev = prev->prev) {
+    for (memory::ListNode* prev = head.prev;; prev = prev->prev) {
         if (prev->data == memory::ListNode::head_marker() || !prev)
             break;
         if (prev->priority >= priority) {
@@ -72,7 +72,42 @@ void Foremost::append_node(memory::ListNode* node)
             return;
         }
     }
-    insert_after(&list_link_, node); // at the front
+    insert_after(&head, node); // at the front
 }
+
+// 0x0055D990
+memory::ListNode* node_at(memory::ListNode& head, int index)
+{
+    memory::ListNode* node = head.next;
+    if (node->data == memory::ListNode::head_marker() || !node)
+        return nullptr;
+    while (index--) {
+        node = node->next;
+        if (node->data == memory::ListNode::head_marker() || !node)
+            return nullptr;
+    }
+    return node;
+}
+
+// 0x00588B70
+void unlink_all(memory::ListNode& head)
+{
+    // (The original reads the first node's data before checking the node for null.)
+    memory::ListNode* node = head.next;
+    if (node->data == memory::ListNode::head_marker() || !node)
+        return;
+    while (node) {
+        memory::ListNode* following = node->next;
+        node->prev->next = following;
+        following->prev = node->prev;
+        node->next = node;
+        node->prev = node;
+        node = following->data == memory::ListNode::head_marker() ? nullptr : following;
+    }
+}
+
+void Foremost::append_vertex(memory::ListNode* node) { lists::append_vertex(list_link_, node); }
+bool Foremost::insert_by_unique_order(memory::ListNode* node) { return lists::insert_by_unique_order(list_link_, node); }
+void Foremost::append_node(memory::ListNode* node) { lists::append_node(list_link_, node); }
 
 } // namespace lists

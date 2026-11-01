@@ -23,6 +23,16 @@ struct Foremost {
     void append_node(memory::ListNode* node);
 };
 
+// The same for a list whose head is a plain node (a head embedded in another record).
+void append_vertex(memory::ListNode& head, memory::ListNode* node);
+bool insert_by_unique_order(memory::ListNode& head, memory::ListNode* node);
+void append_node(memory::ListNode& head, memory::ListNode* node);
+// 0x0055D990 (lists::Foremost<T>::fetch_entry): the node at `index`, or null past the end. (Each node's data is
+// checked for -1 before the node for null, as the original.)
+memory::ListNode* node_at(memory::ListNode& head, int index);
+// 0x00588B70: every node after the head taken out of the list (each linked to itself; none freed).
+void unlink_all(memory::ListNode& head);
+
 // 0x0057A2F0 (lists::Foremost<T>'s, shared by the game's lists): every item of the list at `head` deleted in turn by
 // `destroy(item)`, which takes it out of the list (each next node is fetched first). (The original deleted each node
 // through its table; the caller says how its items go.)

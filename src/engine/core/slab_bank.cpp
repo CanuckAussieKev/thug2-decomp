@@ -28,12 +28,11 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
     taken_count_ = 0;
     peak_used_ = 0;
     // NOLINTEND(cppcoreguidelines-prefer-member-initializer)
-    free_list_ = block;
-
-    // Link every item to the next; the last one ends the list.
-    uint8_t* item = block;
-    for (int i = 0; i < num_; ++i, item += slot_bytes_)
-        *raw::as<void*>(item) = i < num_ - 1 ? item + slot_bytes_ : nullptr;
+    // Link every item to the next (from the last, which ends the list); the first heads it.
+    FreeSlot* next = nullptr;
+    for (int i = num_ - 1; i >= 0; --i)
+        next = memory::construct_in<FreeSlot>(block + i * slot_bytes_, next);
+    free_list_ = next;
 
     // The original copies with no length limit, like strcpy.
     const char* source = name ? name : "unnamed";
@@ -43,8 +42,7 @@ SlabBank::SlabBank(int item_size, int count, const char* name) : num_(count), sl
 // 0x005BA3D0
 void* SlabBank::carve()
 {
-    void* item = free_list_;
-    if (!item) {
+    if (!free_list_) {
         // Not original - the log names a pool that ran dry, once per pool (most callers don't check for null).
         static std::array<const SlabBank*, 16> reported;
         static int g_reported_count;
@@ -76,7 +74,8 @@ void* SlabBank::carve()
             }
         }
     }
-    free_list_ = *static_cast<void**>(item);
+    void* const item = free_list_;
+    free_list_ = free_list_->next;
     return item;
 }
 
@@ -84,8 +83,7 @@ void* SlabBank::carve()
 void SlabBank::dealloc(void* item)
 {
     --taken_count_;
-    *static_cast<void**>(item) = free_list_;
-    free_list_ = item;
+    free_list_ = memory::construct_in<FreeSlot>(item, free_list_);
 }
 
 // 0x005BA3B0

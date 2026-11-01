@@ -156,7 +156,7 @@ void fill_elimination_ranking()
             reset_scores ? info->get_accumulated_score() : net->get_entrant_points(info->skater_->ident_);
         entry->shade_ = static_cast<uint8_t>(get_game_mode()->is_squad_match()) ? info->team_ + 2 : 0;
         entry->priority = info->eliminated_time_ ? static_cast<int>(info->eliminated_time_) : 100000;
-        raw::as<lists::Foremost>(&list.head_)->append_vertex(entry); // (inlined there)
+        lists::append_vertex(list.head_, entry); // (inlined there)
     }
     uint32_t id = kFirstLine;
     for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {
@@ -211,7 +211,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             std::snprintf(entry->text_.data(), sizeof(online::ScoreEntry) - offsetof(online::ScoreEntry, text_), "\\c%d%s %s",
                           entry->shade_, team_name, total); // "\c%d%s %s" (unbounded there)
             entry->priority = net->get_squad_points(team);
-            raw::as<lists::Foremost>(&list.head_)->append_vertex(entry);
+            lists::append_vertex(list.head_, entry);
         }
         uint32_t line = 0;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry;) {
@@ -250,7 +250,7 @@ bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
             online::ScoreEntry* entry = new_entry();
             text::copy_unbounded(entry->text_.data(), info->skater_->fetch_shown_name());
             entry->priority = static_cast<int>(score);
-            raw::as<lists::Foremost>(&list.head_)->append_vertex(entry);
+            lists::append_vertex(list.head_, entry);
         }
         uint32_t id = kFirstLine;
         for (online::ScoreEntry* entry = RankingList::get_after(&list.head_); entry; ++id) {

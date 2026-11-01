@@ -69,10 +69,6 @@ struct TrickSpot {
 // (The trick object list's node destructors - 0x00588590 the body, 0x005885F0 scalar deleting - and the cluster list's,
 // 0x005885B0, take the node out of its list: memory::ListNode.)
 
-// 0x00588B70: every node after this head taken out of the list (each linked to itself; none freed).
-struct TrickObjectHead : memory::ListNode {
-    void unlink_all();
-};
 
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.

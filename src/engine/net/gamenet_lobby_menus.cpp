@@ -302,8 +302,8 @@ void RoomManager::group_room_callback(void*, int success, int group_id, void* se
         room->neversoft_ = true;
     if (room->num_players_ > room->max_players_)
         room->max_players_ = room->num_players_;
-    raw::as<memory::ListNode>(room)->priority = -group_id;
-    static_cast<lists::Foremost*>(param)->append_vertex(raw::as<memory::ListNode>(room));
+    room->list_link_.priority = -group_id;
+    static_cast<lists::Foremost*>(param)->append_vertex(&room->list_link_);
     memory::Hub::get_pull()->leave_heap_scope();
 }
 

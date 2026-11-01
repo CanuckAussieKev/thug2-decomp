@@ -84,7 +84,7 @@ void LinkChain::mark_changed() { altered_ = true; }
 void LinkChain::queue_job(SchedulerTask* task)
 {
     ++lock_;
-    raw::as<lists::Foremost>(&head_)->append_vertex(task->list_link_);
+    lists::append_vertex(head_, task->list_link_);
     task->sequence_ = this;
     task->pass_count_ = pass_count_ - 1;
     altered_ = true;
