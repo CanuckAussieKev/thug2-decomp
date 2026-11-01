@@ -472,8 +472,7 @@ bool EventWaitBoard::launch_event(uint32_t type, uint32_t target, uint32_t sourc
     ++launch_depth_;
     log_.add_row(type, target, source, static_cast<uint32_t>(launched_from_script_), 0, SignalTrace::kLaunched);
     launched_from_script_ = 0;
-    Signal event;
-    event.make_new(type, source, target, data);
+    Signal event(type, source, target, data);
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.

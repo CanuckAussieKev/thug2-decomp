@@ -78,7 +78,7 @@ HierarchyNode* new_hierarchy(int count)
     *static_cast<int*>(memory) = count;
     auto* nodes = reinterpret_cast<HierarchyNode*>(static_cast<uint8_t*>(memory) + 4);
     for (int i = 0; i < count; ++i)
-        nodes[i].make_new();
+        new (&nodes[i]) HierarchyNode;
     return nodes;
 }
 
@@ -146,7 +146,7 @@ uint8_t* read_sectors(Stream& in, SceneRef* list, bool with_super_sectors, bool 
 } // namespace
 
 // 0x004B2D30
-HierarchyNode* HierarchyNode::make_new()
+HierarchyNode::HierarchyNode()
 {
     checksum = 0;
     parent_checksum_ = 0;
@@ -154,7 +154,6 @@ HierarchyNode* HierarchyNode::make_new()
     bone_slot_ = 0;
     for (int i = 0; i < 16; ++i)
         matrix[i] = (i % 5 == 0) ? 1.0f : 0.0f;
-    return this;
 }
 
 // 0x004B3490

@@ -291,7 +291,6 @@ bool EffectsEmitterModule::set_color_55835c_f2(script::Struct* params, script::S
 void EffectsEmitterModule::configure_from_data(script::Struct* params)
 {
     ParticleParams p;
-    p.make_new();
     float scale = 1.0f;
     p.emit_script_ = 0;
     if (params->read_hash_value(0x092276DBu, &emit_target_, 0)) {

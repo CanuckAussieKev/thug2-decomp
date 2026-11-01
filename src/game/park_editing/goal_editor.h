@@ -53,8 +53,8 @@ constexpr uint32_t kParkEditorLevel = 0xE8B4B836;
 class EditedGoal {
 public:
     // 0x004E93C0 (not a Ghidra function: the goal editor's array constructor's element function): its defaults
-    // (init_edited_goal). Returns this.
-    EditedGoal* make_new();
+    // (init_edited_goal).
+    EditedGoal();
 
     // 0x004E6B80: `gap` taken out of the gap list (the rest moved down), if it's there.
     void drop_gap_entry(uint8_t gap);

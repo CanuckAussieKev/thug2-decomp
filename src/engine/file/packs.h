@@ -33,7 +33,7 @@ struct LoadedFile {
 // The file tables' static object (0x007CFFA8, no fields of its own): its constructor, a static initialiser's
 // (0x005B70F0), empties the .pre archive and loaded file tables. Returns this.
 struct FileTables {
-    FileTables* make_new();
+    FileTables();
 };
 
 // Load a file into memory, or add a use to it if it's already loaded (on its own or inside a .pre

@@ -118,7 +118,7 @@ int __cdecl load_stream_file(uint32_t key, const char* path, long offset, size_t
 }
 
 // 0x00452C00
-BinkStream* BinkStream::make_new(bool unknown19, int plays)
+BinkStream::BinkStream(bool unknown19, int plays)
 {
     wad_entry_ = -1; // the stream file's slot
     silent_ = false;
@@ -136,7 +136,6 @@ BinkStream* BinkStream::make_new(bool unknown19, int plays)
     finished_ = false;
     pause_requested_ = false;
     async_ctl_ = static_cast<_OVERLAPPED*>(next_stream_buffer());
-    return this;
 }
 
 // 0x00452C60

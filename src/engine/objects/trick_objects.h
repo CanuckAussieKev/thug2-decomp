@@ -35,7 +35,7 @@ struct HitClusterLog {
     static constexpr uint32_t kCapacity = 0x200;
     uint32_t items_[kCapacity];
     int num_; // +0x800
-    HitClusterLog* make_new();
+    HitClusterLog();
     bool get_clear();
     // 0x00588A20: the cluster of trick object `objectName` listed, unless it has none (or no name) or is listed
     // already; the goal manager is told first (0x00559150). Always false.

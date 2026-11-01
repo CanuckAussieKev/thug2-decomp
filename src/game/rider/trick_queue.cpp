@@ -162,9 +162,9 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 memory::owner<ObjectModule*> __cdecl MoveExecutor::fabricate() { return new MoveExecutor; }
 
 // 0x00522390
+// (the trick objects' log made first by its constructor)
 MoveExecutor::MoveExecutor()
 {
-    trick_objects_.make_new();
     kind_tag_ = kTrick;
     trick_lists_ = nullptr;
     score_ = nullptr;

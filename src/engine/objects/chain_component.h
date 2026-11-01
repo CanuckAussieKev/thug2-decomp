@@ -20,8 +20,8 @@ namespace objects {
 
 // One link (point) of a chain (0x50 bytes): a Verlet point - where it is, where it was, where the step takes it.
 struct ChainLink {
-    // 0x00428280: no line (returns this).
-    ChainLink* make_new();
+    // 0x00428280: no line.
+    ChainLink();
     // 0x00428250: its line deleted.
     void destroy_body();
 

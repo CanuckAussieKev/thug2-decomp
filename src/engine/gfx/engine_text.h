@@ -20,8 +20,7 @@ struct CharEffect {
     int16_t rotation;       // +8
 
     // 0x0048D0A0 (Ghidra never made it: the array constructor's callback): no offset, scale 1, no rotation.
-    // Returns this.
-    CharEffect* make_new();
+    CharEffect();
 };
 static_assert(sizeof(CharEffect) == 10, "layout must match the original");
 

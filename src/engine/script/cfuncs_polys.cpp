@@ -203,7 +203,7 @@ bool __cdecl cfunc_spawn_poly(Struct* params, Script*)
 {
     auto* details = spawned_poly_pools().allocate<SpawnedPolyDetails>();
     if (details)
-        details = reinterpret_cast<SpawnedPolyDetails*>(reinterpret_cast<render::SpawnedPoly*>(details)->make_new());
+        details = reinterpret_cast<SpawnedPolyDetails*>(new (details) render::SpawnedPoly);
     // (a failed allocation writes through null below, as in the original)
     params->fetch_vec(kPos, &details->pos, 1);
     script::VectorValue vector1 = {0.0f, 0.0f, 1.0f, 1.0f};

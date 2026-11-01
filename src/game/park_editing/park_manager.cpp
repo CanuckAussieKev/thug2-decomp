@@ -234,7 +234,6 @@ PieceGroup* ParkLayout::shift_placed_piece(PieceGroup* meta, int dx, int dy, int
     int half;
     GapDetails* gap = get_gap_info(&pos, &half);
     GapDetails moved;
-    moved.make_new();
     if (gap) {
         moved = *gap;
         had_gap = true;

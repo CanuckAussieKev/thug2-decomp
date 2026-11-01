@@ -282,7 +282,7 @@ bool BuildPointer::copy_area_to_clipboard()
         remove_oldest_clipboard();
 
     auto* memory = clipboard_pools().allocate<Clipboard>();
-    Clipboard* copy = memory ? memory->make_new() : nullptr;
+    Clipboard* copy = memory ? new (memory) Clipboard : nullptr;
     // Without room for the copy, the oldest clipboards go one by one.
     while (!copy->copy_picked_to_clipboard(area) && copy_buffers_) {
         Clipboard* previous = nullptr;
@@ -434,7 +434,7 @@ BuildPointer::BuildPointer()
     piece_group_ = nullptr;
     area_start_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
     area_last_ = CellBox::get_make(0, 0, 0, 0, 0, 0);
-    gap_.make_new();
+    // (gap_ made first by its constructor)
     box_select_stage_ = 0;
     area_highlighted_ = false;
     copy_buffers_ = nullptr;

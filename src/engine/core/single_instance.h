@@ -45,7 +45,7 @@ private:
 struct PointerMember {
     void* pointer_;
 
-    PointerMember* make_new(void* pointer);
+    explicit PointerMember(void* pointer);
     // 0x00469490 (3 bytes: source only): its pointer - folded likewise (12 callers: the park editor's list
     // holders, ...).
     void* get_pull();

@@ -65,13 +65,12 @@ void place_corners(SpawnedPoly* poly, maths::Vec4* corners)
 } // namespace
 
 // 0x00491990
-SpawnedPoly* SpawnedPoly::make_new()
+SpawnedPoly::SpawnedPoly()
 {
     std::memset(this, 0, sizeof(*this));
     align_h_ = 0.0f;
     align_v_ = 0.0f;
     blend_mode_ = 0x54628ED7;
-    return this;
 }
 
 namespace engine {

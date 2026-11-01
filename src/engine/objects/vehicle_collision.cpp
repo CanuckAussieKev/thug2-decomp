@@ -435,7 +435,6 @@ void DrivableModule::collide()
 {
     collision_impulse_ = 0.0f;
     render::BoxProbe rect;
-    rect.make_new();
     render::ProbeRay feeler;
     rect.hit_cache_ = &contact_memo_;
     feeler.hit_cache_ = &contact_memo_;

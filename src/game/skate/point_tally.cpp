@@ -23,7 +23,7 @@
 namespace lists {
 
 // 0x00561470
-GrowableMap* GrowableMap::make_new(int capacity, int grow)
+GrowableMap::GrowableMap(int capacity, int grow)
 {
     capacity_ = capacity;
     grow_ = grow;
@@ -31,7 +31,6 @@ GrowableMap* GrowableMap::make_new(int capacity, int grow)
     for (int i = 0; i < capacity_; ++i)
         items_[i] = nullptr;
     num_ = 0;
-    return this;
 }
 
 // 0x005614C0

@@ -69,14 +69,13 @@ void free_params(SignalRouteTable::TableRow& entry)
 } // namespace
 
 // 0x0045F7F0
-Signal* Signal::make_new(uint32_t type, uint32_t source, uint32_t target, Struct* data)
+Signal::Signal(uint32_t type, uint32_t source, uint32_t target, Struct* data)
 {
     kind_tag_ = type;
     from_where_ = source;
     aim_point_ = target;
     flag_bits_ = 0;
     payload_ = data;
-    return this;
 }
 
 // 0x0045F980

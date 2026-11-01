@@ -240,7 +240,7 @@ void ClipboardEntry::show_preview(uint8_t centre_x, int /*height*/, uint8_t cent
 bool Clipboard::is_vacant() { return metas_ ? false : rail_groups_ == nullptr; }
 
 // 0x0058BDF0
-Clipboard* Clipboard::make_new()
+Clipboard::Clipboard()
 {
     edit_span_.assign_value(0, 0, 0, 0, 0, 0);
     lo_cell_z_ = 0xFF;
@@ -251,7 +251,6 @@ Clipboard* Clipboard::make_new()
     following_ = nullptr;
     edit_span_.assign_value(0, 0, 0, 0, 0, 0);
     rail_groups_ = nullptr;
-    return this;
 }
 
 // 0x0058BE30

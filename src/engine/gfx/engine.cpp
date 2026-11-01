@@ -310,6 +310,6 @@ WorldScene* __cdecl find_scene(uint32_t checksum)
 namespace render {
 
 // 0x00640B00 (a static initialiser): the scene list, an empty head.
-void construct_scene_list() { reinterpret_cast<SceneListHead*>(&g_scene_list)->make_new(); }
+void construct_scene_list() { new (&g_scene_list) SceneListHead; }
 
 } // namespace render

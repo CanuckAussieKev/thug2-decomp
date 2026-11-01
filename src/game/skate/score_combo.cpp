@@ -254,12 +254,11 @@ void PointTally::set_teeter_gauge(bool on, float lean) { place_balance_gauge(on,
 void PointTally::set_wheelie_gauge(bool on, float lean) { place_balance_gauge(on, lean, true); }
 
 // 0x00563440
-PointTally::PointTally()
+PointTally::PointTally() : log_(8, 8) // (the log's constructor: in the original, after the table's fields)
 {
     seen_.num_ = 0;
     seen_.first_ = nullptr;
     seen_.cursor_ = nullptr;
-    log_.make_new(8, 8);
     for (script::Pair& arrow : arrows_)
         arrow.prepare_all();
     meter_offset_.prepare_all();

@@ -5,10 +5,9 @@
 namespace single {
 
 // 0x004E1970
-PointerMember* PointerMember::make_new(void* pointer)
+PointerMember::PointerMember(void* pointer)
 {
     pointer_ = pointer;
-    return this;
 }
 
 // 0x00469490

@@ -83,7 +83,7 @@ struct SplatParams {
 
     // 0x00490E40: construct: the start and end (0, 0, 0, 1), everything else zero but +0x38 (0x54628ED7). Returns
     // this.
-    SplatParams* make_new();
+    SplatParams();
 };
 static_assert(offsetof(SplatParams, texture) == 0x34 && offsetof(SplatParams, up) == 0x3C &&
                   sizeof(SplatParams) == 0x44,

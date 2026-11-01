@@ -33,8 +33,8 @@ struct SpawnedPoly {
     float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)
     float align_v_;               // +0xB4 (-1 top, 0 centre, 1 bottom)
 
-    // 0x00491990: construct: zeroed, blend mode 0x54628ED7. Returns this.
-    SpawnedPoly* make_new();
+    // 0x00491990: construct: zeroed, blend mode 0x54628ED7.
+    SpawnedPoly();
 };
 static_assert(offsetof(SpawnedPoly, dims) == 0x50 && offsetof(SpawnedPoly, colours) == 0x88 &&
                   offsetof(SpawnedPoly, primitive) == 0xA8 && sizeof(SpawnedPoly) == 0xB8,

@@ -125,11 +125,10 @@ GapRegistry::GapRegistry(ParkLayout* manager)
 }
 
 // 0x0058CBC0
-GapDetails* GapDetails::make_new()
+GapDetails::GapDetails()
 {
     for (CellBox& pos : at_point_)
         pos.assign_value(0, 0, 0, 0, 0, 0);
-    return this;
 }
 
 // 0x0058CBF0

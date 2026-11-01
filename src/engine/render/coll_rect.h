@@ -58,8 +58,8 @@ bool collide_rect_with_statics(const CollRect* rect, RectHits* hits, HitMeshCach
 // The rect feeler (0x1844 bytes): a rect, what it hits, and the hits joined into longer segments.
 class BoxProbe {
 public:
-    // 0x004182D0: no hits, faces flagged 0x10 ignored, no cache. Returns this.
-    BoxProbe* make_new();
+    // 0x004182D0: no hits, faces flagged 0x10 ignored, no cache.
+    BoxProbe();
     // 0x00417840: the rect's query, through the feeler's cache or the current rect cache (0x0069198C). (The
     // argument isn't used.)
     bool get_query(int unused);

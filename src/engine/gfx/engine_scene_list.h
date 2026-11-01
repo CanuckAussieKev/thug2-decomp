@@ -25,8 +25,8 @@ class TextureSet;
 
 // The list's head (lists::Foremost<WorldScene>; the node's destructor body is 0x0048C4B0).
 struct SceneListHead : memory::ListNode {
-    // 0x0048CC30: construct - data -1, priority 0, linked to itself. Returns this.
-    SceneListHead* make_new();
+    // 0x0048CC30: construct - data -1, priority 0, linked to itself.
+    SceneListHead();
     // (0x0048CC50, its scalar deleting destructor, isn't called: the head is a global.)
 };
 

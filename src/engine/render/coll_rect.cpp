@@ -282,14 +282,13 @@ uint8_t* StaticCollider::take_buffer(uint8_t* block, const TriMeshSource* geomet
 }
 
 // 0x004182D0
-BoxProbe* BoxProbe::make_new()
+BoxProbe::BoxProbe()
 {
     hit_cache_ = nullptr;
     hits_.count = 0;
     joined_count_ = 0;
     hits_.require_flags_ = 0;
     hits_.ignore_flags_ = 0x10;
-    return this;
 }
 
 // 0x00417840

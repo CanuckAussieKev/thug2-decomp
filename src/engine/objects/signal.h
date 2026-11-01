@@ -39,8 +39,8 @@ struct Signal {
         kFlagOwnsData = 0x04, // payload_ is deleted with the event
     };
 
-    // 0x0045F7F0: the constructor (flags 0; returns this).
-    Signal* make_new(uint32_t type, uint32_t source, uint32_t target, script::Struct* data);
+    // 0x0045F7F0: the constructor (flags 0;).
+    Signal(uint32_t type, uint32_t source, uint32_t target, script::Struct* data);
     // 0x0045F980: `script` read it: the tracker's event log is told how, then kFlagRead.
     void set_event_consumed(uint32_t how, uint32_t script);
     // 0x0045F9B0: `script` dealt with it: the tracker's event log is told how (0: an event handler ran, 2: a

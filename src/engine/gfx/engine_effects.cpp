@@ -123,7 +123,7 @@ void VertexStack::stack_off(uint8_t* out)
 }
 
 // 0x00490E40
-SplatParams* SplatParams::make_new()
+SplatParams::SplatParams()
 {
     start[0] = start[1] = start[2] = 0.0f;
     start[3] = 1.0f;
@@ -138,7 +138,6 @@ SplatParams* SplatParams::make_new()
     unknown38 = 0x54628ED7;
     up = nullptr;
     unknown40 = 0;
-    return this;
 }
 
 // --- the engine's shatter ---
@@ -478,7 +477,6 @@ bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4*
         made = false; // (it hasn't moved)
     } else {
         SplatParams params;
-        params.make_new();
         std::memcpy(params.start, from, 16);
         std::memcpy(params.end, to, 16);
         params.angle = angle;

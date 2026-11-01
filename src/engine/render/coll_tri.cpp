@@ -494,11 +494,10 @@ bool TriMeshSource::count_faces_behind(const HitTreeNode* node, const maths::Vec
 }
 
 // 0x00414D70
-HitTreeNode* HitTreeNode::make_new()
+HitTreeNode::HitTreeNode()
 {
     axis_tag_ = 0;
     chain_link_ = 0;
-    return this;
 }
 
 // 0x00415C90
@@ -626,7 +625,7 @@ HitTreeNode* HitTreeNode::replicate(int) const
         *memory = nodes;
         copy = reinterpret_cast<HitTreeNode*>(memory + 1);
         for (int i = 0; i < nodes; ++i)
-            copy[i].make_new();
+            new (&copy[i]) HitTreeNode;
     }
     auto* new_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
     std::memcpy(copy, this, nodes * 8);

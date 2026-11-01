@@ -476,13 +476,12 @@ int get_file_size(uint32_t checksum)
 int get_file_size(const char* name) { return get_file_size(checksums::hash_from_text(name)); }
 
 // 0x005B70F0
-FileTables* FileTables::make_new()
+FileTables::FileTables()
 {
     for (int i = 0; i < kPreloadCapacity; ++i)
         pre_files()[i] = nullptr;
     for (int i = 0; i < kMaxLoadedFiles; ++i)
         loaded_files()[i] = {};
-    return this;
 }
 
 // 0x005B7130

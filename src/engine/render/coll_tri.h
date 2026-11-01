@@ -20,7 +20,7 @@ struct HitTreeNode {
     uint32_t chain_link_;
 
     // 0x00414D70 (not a function in Ghidra: new[]'s constructor): zeroed.
-    HitTreeNode* make_new();
+    HitTreeNode();
 
     bool is_end_node() const { return (axis_tag_ & 3) == 3; }
     int get_axis() const { return axis_tag_ & 3; }

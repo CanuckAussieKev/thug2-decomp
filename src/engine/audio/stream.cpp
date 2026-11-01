@@ -61,7 +61,7 @@ constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
 // The BinkStream constructor and its open of a pcm.wad entry (written over BinkStreamView, stream_commands.h).
 BinkStream* construct_bink_stream(void* memory, bool unknown, int plays)
 {
-    return static_cast<BinkStream*>(memory)->make_new(unknown, plays);
+    return new (memory) BinkStream(unknown, plays);
 }
 Result open_bink_from_wad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
 {
@@ -121,7 +121,7 @@ void StreamSlot::fabricate(int type, bool unknown, int plays)
 {
     if (type == 0) {
         void* memory = memory::alloc_zeroed(sizeof(WadStream));
-        wad = memory ? static_cast<WadStream*>(memory)->make_new(unknown) : nullptr;
+        wad = memory ? new (memory) WadStream(unknown) : nullptr;
     } else if (type == 1) {
         void* memory = memory::alloc_zeroed(sizeof(BinkStream));
         bink = memory ? construct_bink_stream(memory, unknown, plays) : nullptr;

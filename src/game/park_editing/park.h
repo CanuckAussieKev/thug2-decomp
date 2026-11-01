@@ -380,8 +380,8 @@ struct GapDetails {
     int slot_index_;        // +0x4C: the gap manager's index (-1 none)
     uint32_t cancel_flags_; // +0x50
 
-    // 0x0058CBC0: the halves' cells cleared (the rest isn't touched). Returns this.
-    GapDetails* make_new();
+    // 0x0058CBC0: the halves' cells cleared (the rest isn't touched).
+    GapDetails();
     // 0x0058CBF0: the length of half `half` across the gap, in the world's units: its extents and its piece's length
     // (turned 0 / 2) or width (1 / 3); 0 for another turn.
     float fetch_magnitude(int half);
@@ -437,7 +437,7 @@ struct Clipboard {
     Clipboard* following_;  // +0x14: the cursor's list
 
     // 0x0058BDF0
-    Clipboard* make_new();
+    Clipboard();
     // 0x0058C430 (also reached through 0x0058C980): the destructor - its entries (and previews) and rails freed
     void teardown();
     // 0x005955C0: give an item back to the clipboard pools (operator delete)

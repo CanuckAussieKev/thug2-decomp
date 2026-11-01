@@ -22,8 +22,8 @@ struct HierarchyNode {
     float matrix[16];
 
     // 0x004B2D30 (Ghidra never made it: the array constructor's callback): the checksums 0, no parent, bone 0, the
-    // identity matrix (+0x0C left). Returns this.
-    HierarchyNode* make_new();
+    // identity matrix (+0x0C left).
+    HierarchyNode();
 };
 static_assert(offsetof(HierarchyNode, bone_slot_) == 0xA && offsetof(HierarchyNode, matrix) == 0x10 &&
                   sizeof(HierarchyNode) == 0x50,

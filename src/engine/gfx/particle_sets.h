@@ -57,8 +57,8 @@ struct SparkleConfig {
     uint8_t unknown159[3];
 
     // 0x00496240: the defaults (sizes 1, no spread, boxes 20 wide, grey colours, rate 300, lifetime 4, mid at 50%,
-    // ...). Returns this.
-    SparkleConfig* make_new();
+    // ...).
+    SparkleConfig();
     // 0x00495C80: a copy of `other` (its first 0x159 bytes: the last three are left). Returns this.
     SparkleConfig* get_assign(const SparkleConfig& other);
 };

@@ -51,7 +51,7 @@ float current_round(double value) { return static_cast<float>(value); }
 // --- the parameters ---
 
 // 0x00496240
-SparkleConfig* SparkleConfig::make_new()
+SparkleConfig::SparkleConfig()
 {
     unknown04_ = 0xDEDFC057;
     use_mid_ = true;
@@ -86,7 +86,6 @@ SparkleConfig* SparkleConfig::make_new()
     entity_key_ = 0;
     unknown144_ = 400;
     unknown148_ = 401;
-    return this;
 }
 
 // 0x00495C80
@@ -99,7 +98,7 @@ SparkleConfig* SparkleConfig::get_assign(const SparkleConfig& other)
 // --- the system ---
 
 // 0x00496360
-Sparkle::Sparkle() { args_.make_new(); }
+Sparkle::Sparkle() {} // (args_ made by its constructor)
 
 // 0x00496380
 void Sparkle::prepare_all(const SparkleConfig* params)

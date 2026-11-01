@@ -105,10 +105,9 @@ void __cdecl ObjectiveAuthoring::publish_method_table()
 }
 
 // 0x004EA230
+// (the goals made first by their constructors)
 ObjectiveAuthoring::ObjectiveAuthoring()
 {
-    for (EditedGoal& goal : goals_)
-        goal.make_new();
     kind_tag_ = kGoalEditor;
     clear_level_goals();
     clear_park_goals();

@@ -121,10 +121,9 @@ float get_rounded(double value) { return static_cast<float>(value); }
 // blend_mode_ written directly.)
 
 // 0x00428280
-ChainLink* ChainLink::make_new()
+ChainLink::ChainLink()
 {
     line_ptr_ = nullptr;
-    return this;
 }
 
 // 0x00428250
@@ -137,10 +136,9 @@ void ChainLink::destroy_body()
 }
 
 // 0x00428290
+// (the links made first by their constructors)
 Chain::Chain()
 {
-    for (ChainLink& link : chain_link_)
-        link.make_new();
     ident_ = 0;
     bone_start_ = 0;
     start_offset_ = {0.0f, 0.0f, 0.0f, 1.0f};

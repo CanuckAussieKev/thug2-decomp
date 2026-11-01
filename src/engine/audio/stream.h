@@ -22,7 +22,7 @@ using Result = long; // an HRESULT: 0 or an error (E_INVALIDARG 0x80070057, HRES
 // opens one with a valid file (see 0x00453850), so only the set-up and the flags are live.
 struct WadStream {
     // 0x00454340: a closed stream (file -1); `unknown15` kept; unknown5f_ set.
-    WadStream* make_new(bool unknown15);
+    explicit WadStream(bool unknown15);
     // 0x00454490: start reading `file` (the whole file) into `buffer`. HRESULT_FROM_WIN32 of the last error
     // for an invalid handle.
     Result unseal(Hdl file, void* buffer);
@@ -118,7 +118,7 @@ struct BinkStream {
     bool prefetch_complete() { return true; }
     // 0x00452C00 (bink_stream_files.cpp): the fields cleared (slots -1); unknown19_ and plays_ from the arguments;
     // async_ctl_ the next free stream buffer (0x004535E0).
-    BinkStream* make_new(bool unknown19, int plays);
+    BinkStream(bool unknown19, int plays);
     // 0x00452C60: open stream file `key` (load_stream_file) with Bink from memory, video off; S_OK, or E_INVALIDARG
     // if it can't be read or opened. Bink is told to use DirectSound the first time ("Bink can't use DSound").
     long unseal(uint32_t key, const char* path, long offset, size_t size);

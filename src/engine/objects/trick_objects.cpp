@@ -105,10 +105,9 @@ void TrickSpotHub::change_args(script::Struct* params)
 }
 
 // 0x00588170
-HitClusterLog* HitClusterLog::make_new()
+HitClusterLog::HitClusterLog()
 {
     num_ = 0;
-    return this;
 }
 
 // 0x00588180

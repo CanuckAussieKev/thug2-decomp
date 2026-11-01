@@ -42,10 +42,9 @@ uint32_t current_level() { return modules::Skate::sole()->level_; }
 } // namespace
 
 // 0x004E93C0
-EditedGoal* EditedGoal::make_new()
+EditedGoal::EditedGoal()
 {
     init_edited_goal(reinterpret_cast<uint8_t*>(this));
-    return this;
 }
 
 // 0x004E6B80

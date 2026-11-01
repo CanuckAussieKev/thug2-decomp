@@ -20,8 +20,8 @@ namespace highscores {
 // A record (0x10 bytes): its initials (a 4-byte buffer of its own), value, number and whether it was just set.
 class BestEntry {
 public:
-    // 0x0057EF20 (the constructor): initials XXX, value 1000, number 0 (new left as it was). Returns this.
-    BestEntry* make_new();
+    // 0x0057EF20 (the constructor): initials XXX, value 1000, number 0 (new left as it was).
+    BestEntry();
     // 0x0057ECD0: set to `value` and `number` and marked new if `value` beats it; else not new. Whether it did.
     bool try_beat_record(int value, int number);
     // 0x0057ED00: value, number (0 if missing) and initials (XXX if missing) from `params`.
@@ -38,8 +38,8 @@ public:
 // A table of records (8 bytes): their count and the records (an array allocated with its count before it).
 class BestEntryList {
 public:
-    // 0x0057EF60 (the constructor): `count` records, constructed. Returns this.
-    BestEntryList* make_new(int count);
+    // 0x0057EF60 (the constructor): `count` records, constructed.
+    explicit BestEntryList(int count);
     // 0x0057EFE0: none new; `value` put where it beats a record (those after it moved down one, the last dropped),
     // with `number`, initials XXX, marked new. Its index, or -1 if it beats none.
     int try_insert_entry(int value, int number);
@@ -60,8 +60,8 @@ public:
 class StageBests {
 public:
     // 0x0057F120 (the constructor): high scores and best combos (5 each), arcade scores (10), and the four longest
-    // records (made in the order longest combo, grind, lip trick, manual; their values 0). Returns this.
-    StageBests* make_new();
+    // records (made in the order longest combo, grind, lip trick, manual; their values 0).
+    StageBests();
     // 0x0057F670: the destructor body (the records, then the tables: best combos, high scores, arcade scores).
     void destroy_body();
     // 0x0057EDD0: the new records' initials set (the longest ones: grind... as the original's order; then the

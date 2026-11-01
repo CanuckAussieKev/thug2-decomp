@@ -80,7 +80,7 @@ BestEntry* new_longest_record()
 {
     auto* record = static_cast<BestEntry*>(memory::alloc_zeroed(sizeof(BestEntry)));
     if (record)
-        record->make_new();
+        new (record) BestEntry;
     record->val_ = 0;
     return record;
 }
@@ -89,7 +89,7 @@ BestEntry* new_longest_record()
 BestEntryList* new_table(int count)
 {
     auto* table = static_cast<BestEntryList*>(memory::alloc_zeroed(sizeof(BestEntryList)));
-    return table ? table->make_new(count) : nullptr;
+    return table ? new (table) BestEntryList(count) : nullptr;
 }
 
 void delete_record(BestEntry* record)
@@ -109,13 +109,12 @@ void delete_table(BestEntryList* table)
 } // namespace
 
 // 0x0057EF20
-BestEntry* BestEntry::make_new()
+BestEntry::BestEntry()
 {
     tag_ = new_initials();
     copy_initials(tag_, "XXX");
     val_ = 1000;
     slot_no_ = 0;
-    return this;
 }
 
 // 0x0057ECD0
@@ -145,21 +144,20 @@ void BestEntry::decode_from_struct(script::Struct* params)
 }
 
 // 0x0057EF60
-BestEntryList* BestEntryList::make_new(int count)
+BestEntryList::BestEntryList(int count)
 {
     num_ = count;
     // (as new[]: the count before the records)
     auto* memory = static_cast<int*>(memory::alloc_zeroed(count * sizeof(BestEntry) + 4));
     if (!memory) {
         records_ = nullptr;
-        return this;
+        return;
     }
     *memory = count;
     auto* records = reinterpret_cast<BestEntry*>(memory + 1);
     for (int i = 0; i < count; ++i)
-        records[i].make_new();
+        new (&records[i]) BestEntry;
     records_ = records;
-    return this;
 }
 
 void BestEntryList::erase_one()
@@ -231,7 +229,7 @@ void BestEntryList::write_to_structure(script::Struct* params)
 }
 
 // 0x0057F120
-StageBests* StageBests::make_new()
+StageBests::StageBests()
 {
     high_scores_ = new_table(5);
     best_combos_ = new_table(5);
@@ -240,7 +238,6 @@ StageBests* StageBests::make_new()
     grind_record_ = new_longest_record();
     longest_lip_trick_ = new_longest_record();
     longest_manual_ = new_longest_record();
-    return this;
 }
 
 // 0x0057F670
@@ -335,7 +332,7 @@ void BestResults::init_levels(int count)
     *memory = count;
     auto* levels = reinterpret_cast<StageBests*>(memory + 1);
     for (int i = 0; i < count; ++i)
-        levels[i].make_new();
+        new (&levels[i]) StageBests;
     levels_ = levels;
 }
 

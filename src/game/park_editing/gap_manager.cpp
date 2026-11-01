@@ -48,7 +48,7 @@ GapRegistry::Gap* new_gap()
 {
     auto* gap = static_cast<GapRegistry::Gap*>(memory::alloc_zeroed(sizeof(GapRegistry::Gap)));
     if (gap) {
-        gap->details_.make_new();
+        new (&gap->details_) GapDetails;
         gap->pieces_[0] = gap->pieces_[1] = nullptr;
         gap->metas_[0] = gap->metas_[1] = nullptr;
         gap->details_.cancel_flags_ = 0;

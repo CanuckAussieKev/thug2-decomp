@@ -38,7 +38,7 @@ CharEffect* new_effects()
         *memory = kCharEffects;
         effects = reinterpret_cast<CharEffect*>(memory + 1);
         for (int i = 0; i < kCharEffects; ++i)
-            effects[i].make_new();
+            new (&effects[i]) CharEffect;
     }
     memory::Hub::get_pull()->leave_heap_scope();
     return effects;
@@ -55,14 +55,13 @@ int16_t get_fixed(float value)
 } // namespace
 
 // 0x0048D0A0
-CharEffect* CharEffect::make_new()
+CharEffect::CharEffect()
 {
     x = 0;
     y = 0;
     xscale = 0x4000;
     yscale = 0x4000;
     rotation = 0;
-    return this;
 }
 
 // 0x0048D220
