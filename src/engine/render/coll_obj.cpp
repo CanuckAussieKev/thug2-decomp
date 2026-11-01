@@ -9,14 +9,16 @@
 #include "engine/core/mem.h"
 #include "engine/render/coll_cache.h"
 #include "engine/render/coll_tri.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/render/coll_static.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
 namespace {
 
-void* const kHeadData = reinterpret_cast<void*>(-1);
+void* const kHeadData = memory::ListNode::head_marker();
 
 // 0x00416970: the geometry's destructor.
 void free_shape_data(TriMeshSource* geometry) { geometry->destruct(); }
@@ -43,7 +45,7 @@ void HitMesh::assign_shape_data(TriMeshSource* geometry)
 {
     geometry_ = geometry;
     if (geometry)
-        checksum_ = *reinterpret_cast<uint32_t*>(geometry);
+        checksum_ = *raw::as<uint32_t>(geometry);
 }
 
 // 0x00413390 (the base's part of every deleting destructor)

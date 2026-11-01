@@ -4,6 +4,7 @@
 #include <new>
 
 #include "engine/core/dbg.h"
+#include "engine/core/raw_view.h"
 
 namespace maths {
 
@@ -376,8 +377,8 @@ using maths::Vec4;
 struct VectorAdapter {
     Vec4* construct_point(float x, float y, float z)
     {
-        *reinterpret_cast<Vec4*>(this) = {x, y, z, 1.0f};
-        return reinterpret_cast<Vec4*>(this);
+        *raw::as<Vec4>(this) = {x, y, z, 1.0f};
+        return raw::as<Vec4>(this);
     }
 };
 

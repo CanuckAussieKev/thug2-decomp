@@ -13,6 +13,8 @@
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/gfx/engine.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/arena_alloc.h"
+#include "engine/core/pointer_cell.h"
 
 namespace render {
 
@@ -67,13 +69,13 @@ bool collide_with_line(HitMesh* object, const maths::Seg* line, maths::Vec4* dir
 {
     return object->collide_with_line(line, direction, hit, box);
 }
-objects::GameEntity* get_owner(HitMesh* object) { return reinterpret_cast<objects::GameEntity*>(object->get_owner()); }
+objects::GameEntity* get_owner(HitMesh* object) { return cell::pointer<objects::GameEntity>(object->get_owner()); }
 
 // A movable object tested: its owner noted on the hit while it is; the owner if it was hit, else `owner`.
 objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQuery& query, CollisionHit* hit,
                                   objects::GameEntity* owner)
 {
-    hit->owner = reinterpret_cast<uint32_t>(get_owner(object));
+    hit->owner = cell::of(get_owner(object));
     if (collide_with_line(object, line, &query.direction, hit, &query.box))
         owner = get_owner(object);
     hit->owner = 0;
@@ -96,11 +98,11 @@ void register_movable(HitMesh* object)
 void unregister_movable(HitMesh* object)
 {
     memory::ListNode* node = g_movables.next;
-    if (node->data == reinterpret_cast<void*>(-1))
+    if (node->data == memory::ListNode::head_marker())
         return;
     while (node) {
         memory::ListNode* next = node->next;
-        memory::ListNode* following = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
+        memory::ListNode* following = next->data == memory::ListNode::head_marker() ? nullptr : next;
         if (node->data == object)
             memory::ListNode::destroy(node);
         node = following;
@@ -168,7 +170,7 @@ objects::GameEntity* collide_with_movables(const maths::Seg* line, CollisionHit*
         }
         return owner;
     }
-    for (const memory::ListNode* node = g_movables.next; node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = g_movables.next; node->data != memory::ListNode::head_marker() && node;
          node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (object && !(object->flag_bits_ & 6) && may_touch(object, &query.box))

@@ -6,6 +6,7 @@
 #include "engine/maths/mat4.h"
 #include "engine/maths/quat_rotation.h"
 #include "engine/maths/vec4.h"
+#include "engine/core/raw_view.h"
 
 namespace maths {
 
@@ -48,7 +49,7 @@ Mat4* QuatRotation::fetch_mat(Mat4* out) const
     const float yz = get_narrow(get_wide(zs) * y);
     const double zz = get_wide(zs) * z;
 
-    auto* m = reinterpret_cast<float*>(out);
+    auto* m = raw::as<float>(out);
     m[0] = get_narrow(1.0 - (yy + zz));
     m[4] = get_narrow(xy + wz);
     m[8] = get_narrow(xz - wy);

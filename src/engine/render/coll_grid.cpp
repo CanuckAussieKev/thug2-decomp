@@ -12,6 +12,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_static.h"
 #include "engine/render/coll_tri.h"
+#include "engine/core/arena_alloc.h"
 
 namespace render {
 
@@ -42,7 +43,7 @@ const maths::BBox* cuboid(HitMesh* object) { return object->get_world_bounds(); 
 
 bool listable(HitMesh* object) { return !(object->flag_bits_ & 6); }
 
-bool is_head(const memory::ListNode* node) { return node->data == reinterpret_cast<void*>(-1); }
+bool is_head(const memory::ListNode* node) { return node->data == memory::ListNode::head_marker(); }
 memory::ListNode* masked(memory::ListNode* node) { return is_head(node) ? nullptr : node; }
 
 int len_of(memory::ListNode* head)

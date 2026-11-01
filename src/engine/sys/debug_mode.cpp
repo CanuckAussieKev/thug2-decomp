@@ -16,6 +16,7 @@
 #include "engine/script/script_tables.h"
 #include "platform/run_log.h"
 #include "engine/objects/movie_manager.h"
+#include "platform/code_address.h"
 
 namespace sys::debug_mode {
 
@@ -91,8 +92,8 @@ void install()
 {
     if (!is_switched_on())
         return;
-    get_point("CD", reinterpret_cast<void*>(&cfunc_cd));
-    get_point("NotCD", reinterpret_cast<void*>(&cfunc_not_cd));
+    get_point("CD", code_address(&cfunc_cd));
+    get_point("NotCD", code_address(&cfunc_not_cd));
     get_log("debug mode: on (CD false / NotCD true after start-up: the developers' menus - DEBUG OPTIONS in the pause "
             "menu - and the viewer: F9 free camera)");
 }

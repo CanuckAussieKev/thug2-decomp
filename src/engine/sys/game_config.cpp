@@ -11,6 +11,7 @@
 
 #include "engine/core/dbg.h"
 #include "engine/script/cfuncs_scene.h"
+#include "engine/core/raw_view.h"
 
 namespace game_config {
 
@@ -270,12 +271,12 @@ void read_registry(int, char**)
     DWORD size = 0;
     if (RegCreateKeyA(HKEY_CURRENT_USER, path, &key) == ERROR_SUCCESS) {
         size = 4;
-        RegQueryValueExA(key, "language", nullptr, &type, reinterpret_cast<BYTE*>(&language), &size); // "language"
+        RegQueryValueExA(key, "language", nullptr, &type, raw::bytes(&language), &size); // "language"
         RegCloseKey(key);
     }
     if (language == 0 && RegCreateKeyA(HKEY_LOCAL_MACHINE, path, &key) == ERROR_SUCCESS) {
         size = 4;
-        RegQueryValueExA(key, "language", nullptr, &type, reinterpret_cast<BYTE*>(&language), &size);
+        RegQueryValueExA(key, "language", nullptr, &type, raw::bytes(&language), &size);
         RegCloseKey(key);
     }
     switch (language) {

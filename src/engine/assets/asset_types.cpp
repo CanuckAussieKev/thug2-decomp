@@ -28,6 +28,8 @@
 #include "engine/script/qb.h"
 #include "engine/script/script_startup.h"
 #include "engine/script/param_struct.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace assets {
 
@@ -411,7 +413,7 @@ int NodeTableResource::offload()
     auto* nodes = static_cast<script::Array*>(nodes_);
     for (uint32_t i = 0; i < nodes->extent_; ++i) {
         uint32_t id = 0;
-        reinterpret_cast<Struct*>(nodes->fetch_part(i))->read_hash_value(0xA1DC81F9u, &id, 0); // name
+        nodes->struct_at(i)->read_hash_value(0xA1DC81F9u, &id, 0); // name
         if (objects::Entity* object = objects::find_object(id))
             object->flag_as_dead();
         nodes = static_cast<script::Array*>(nodes_);
@@ -435,13 +437,13 @@ void* NodeTableResource::build_node_table(uint32_t name, int count)
         Struct* node = script::spawn_param_bag();
         if (node)
             new (node) script::Struct;
-        array->set_element(i, reinterpret_cast<uint32_t>(node));
+        array->set_element(i, cell::of(node));
     }
     if (script::SymbolTableEntry* old = script::find_symbol(name))
         script::clean_up_and_remove_symbol(old);
     script::SymbolTableEntry* symbol = script::create_symbol(name);
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
-    symbol->raw = reinterpret_cast<uint32_t>(array);
+    symbol->raw = cell::of(array);
     symbol->type = script::kQbvalArray;
     array_name_ = name;
     nodes_ = array;
@@ -457,7 +459,7 @@ const char* SceneAsset::fetch_title() const { return "Scene"; }
 void SceneAsset::set_up_params(void* params, void* structure)
 {
     args_ = static_cast<uint8_t*>(alloc_load_params(0x48));
-    *reinterpret_cast<uint32_t*>(args_) = 0;
+    *raw::as<uint32_t>(args_) = 0;
     args_[4] = 1;
     args_[5] = 0;
     args_[6] = 0;
@@ -465,7 +467,7 @@ void SceneAsset::set_up_params(void* params, void* structure)
     if (params)
         copy_words(args_, params, 0x12);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->read_hash_value(0xDC8116B2u, reinterpret_cast<uint32_t*>(args_), 0);
+        s->read_hash_value(0xDC8116B2u, raw::as<uint32_t>(args_), 0);
         args_[4] = s->has_bare_flag(0x9E6EA452u);
         args_[5] = s->has_bare_flag(0xB5BD28D8u);
         args_[6] = s->has_bare_flag(0x3D559E7Du);
@@ -492,7 +494,7 @@ int SceneAsset::read_in(const char* name, bool async, bool /*use_archive*/, void
 {
     start_loading();
     set_up_params(params, structure);
-    copy_string(reinterpret_cast<char*>(args_ + 8), name);
+    copy_string(raw::chars(args_ + 8), name);
     char file[256];
     build_scene_file_path(file, name, args_[7]);
     uint32_t size = 0;
@@ -509,7 +511,7 @@ bool SceneAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* textures = group_data(this);
     change_contents(
-        make_scene(reinterpret_cast<char*>(args_ + 8), buffer, size, textures, args_[4], args_[5], args_[6], args_[7]));
+        make_scene(raw::chars(args_ + 8), buffer, size, textures, args_[4], args_[5], args_[6], args_[7]));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -536,12 +538,12 @@ const char* SceneCollisionAsset::fetch_title() const { return "SceneColl"; }
 void SceneCollisionAsset::set_up_params(void* params, void* structure)
 {
     args_ = static_cast<uint8_t*>(alloc_load_params(0x48));
-    *reinterpret_cast<uint32_t*>(args_) = 0;
+    *raw::as<uint32_t>(args_) = 0;
     args_[4] = 0;
     if (params)
         copy_words(args_, params, 0x12);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->read_hash_value(0x26861025u, reinterpret_cast<uint32_t*>(args_), 0);
+        s->read_hash_value(0x26861025u, raw::as<uint32_t>(args_), 0);
         args_[4] = s->has_bare_flag(0x417149C8u);
     }
 }
@@ -567,7 +569,7 @@ int SceneCollisionAsset::read_in(const char* name, bool async, bool /*use_archiv
 {
     start_loading();
     set_up_params(params, structure);
-    copy_string(reinterpret_cast<char*>(args_ + 5), name);
+    copy_string(raw::chars(args_ + 5), name);
     char file[256];
     collision_file_name(file, name, args_[4]);
     uint32_t size = 0;
@@ -835,11 +837,11 @@ namespace {
 uint8_t* skin_collision_params(void* params, void* structure)
 {
     auto* p = static_cast<uint8_t*>(alloc_load_params(0x44));
-    *reinterpret_cast<uint32_t*>(p) = 0;
+    *raw::as<uint32_t>(p) = 0;
     if (params)
         copy_words(p, params, 0x11);
     if (structure)
-        static_cast<Struct*>(structure)->read_hash_value(0xFD8697E1u, reinterpret_cast<uint32_t*>(p), 0);
+        static_cast<Struct*>(structure)->read_hash_value(0xFD8697E1u, raw::as<uint32_t>(p), 0);
     return p;
 }
 } // namespace
@@ -863,7 +865,7 @@ int SkinCollisionAsset::read_in(const char* name, bool async, bool /*use_archive
 {
     start_loading();
     args_ = skin_collision_params(params, structure);
-    copy_string(reinterpret_cast<char*>(args_ + 4), name);
+    copy_string(raw::chars(args_ + 4), name);
     char file[256];
     skin_collision_file_name(file, name);
     uint32_t size = 0;
@@ -880,7 +882,7 @@ bool SkinCollisionAsset::finish_loading(void* buffer, uint32_t size)
 {
     void* model = group_data(this);
     add_skin_collision(model, buffer, size); // (not original: the size)
-    change_contents(*reinterpret_cast<void**>(static_cast<uint8_t*>(model) + 0x8C));
+    change_contents(*raw::as<void*>(static_cast<uint8_t*>(model) + 0x8C));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);
@@ -908,13 +910,13 @@ void TexDictAsset::set_up_params(void* params, void* structure)
 {
     args_ = static_cast<uint8_t*>(alloc_load_params(0x4C));
     args_[0] = 1;
-    *reinterpret_cast<int*>(args_ + 4) = 0;
+    *raw::as<int>(args_ + 4) = 0;
     args_[8] = 0;
     args_[9] = 0;
     if (params)
         copy_words(args_, params, 0x13);
     if (auto* s = static_cast<Struct*>(structure)) {
-        s->fetch_int_value(0xBF34D221u, reinterpret_cast<int*>(args_ + 4), 0);
+        s->fetch_int_value(0xBF34D221u, raw::as<int>(args_ + 4), 0);
         args_[0] = s->has_bare_flag(0xE6237329u);
         args_[8] = s->has_bare_flag(0x6875B9C0u);
         args_[9] = s->has_bare_flag(0x86B52462u);
@@ -940,7 +942,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 {
     start_loading();
     set_up_params(params, structure);
-    copy_string(reinterpret_cast<char*>(args_ + 0xA), name);
+    copy_string(raw::chars(args_ + 0xA), name);
     char file[256];
     tex_dict_file_name(file, name);
     uint32_t size = 0;
@@ -956,7 +958,7 @@ int TexDictAsset::read_in(const char* name, bool async, bool /*use_archive*/, vo
 bool TexDictAsset::finish_loading(void* buffer, uint32_t size)
 {
     change_contents(
-        make_tex_dict(checksum_, buffer, size, args_[0], *reinterpret_cast<int*>(args_ + 4), args_[8], args_[9]));
+        make_tex_dict(checksum_, buffer, size, args_[0], *raw::as<int>(args_ + 4), args_[8], args_[9]));
     free_load_params(args_);
     args_ = nullptr;
     close_file(file_ref_);

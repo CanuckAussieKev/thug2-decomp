@@ -13,6 +13,7 @@
 #include "engine/render/coll_tests.h"
 #include "engine/render/coll_tri.h"
 #include "engine/core/ints.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -113,7 +114,7 @@ bool HitMovingBox::collide_with_line(const maths::Seg* line, const maths::Vec4* 
                                      const maths::BBox* /*line_box*/)
 {
     maths::Seg local{}; // (its constructor, 0x005902E0, does nothing)
-    box_to_local(reinterpret_cast<const maths::BBox*>(line), reinterpret_cast<maths::BBox*>(&local));
+    box_to_local(raw::as<const maths::BBox>(line), raw::as<maths::BBox>(&local));
     maths::BBox around(local.start);
     around.append_spot(local.end);
     if (!box_.intersects(around))
@@ -276,7 +277,7 @@ bool HitMovingTriangles::collide_with_line(const maths::Seg* line, const maths::
                                            const maths::BBox* /*line_box*/)
 {
     maths::Seg local{}; // (its constructor, 0x005902E0, does nothing)
-    box_to_local(reinterpret_cast<const maths::BBox*>(line), reinterpret_cast<maths::BBox*>(&local));
+    box_to_local(raw::as<const maths::BBox>(line), raw::as<maths::BBox>(&local));
     const maths::Vec4 way{get_difference(local.end.x, local.start.x), get_difference(local.end.y, local.start.y),
                           get_difference(local.end.z, local.start.z), get_difference(local.end.w, local.start.w)};
     maths::BBox around(local.start);

@@ -16,6 +16,7 @@
 #include "engine/script/param_struct.h"
 #include "engine/sys/mlp.h"
 #include "engine/core/owner.h"
+#include "engine/core/pointer_cell.h"
 
 namespace assets {
 
@@ -175,7 +176,7 @@ void* ResourceRegistry::read_resource_from_stream(uint32_t checksum, int type, u
     // (the original formats "%08x from data stream" with the checksum for the memory profile, unused)
     join_group(this, asset, group);
     memory::pop_mem_profile();
-    const int failed = asset->load_from_buffer(data, size, copy, params, reinterpret_cast<void*>(extra));
+    const int failed = asset->load_from_buffer(data, size, copy, params, cell::pointer<void>(extra));
     memory::push_mem_profile("Asset Overhead");
     if (failed) {
         if (!keep_failed_assets())
@@ -204,7 +205,7 @@ void* ResourceRegistry::load_asset(const char* name, int type, uint32_t checksum
     give_callback(this, asset);
     asset->set_checksum(checksum);
     join_group(this, asset, group);
-    const int failed = asset->read_in(name, async, use_archive, params, reinterpret_cast<void*>(extra));
+    const int failed = asset->read_in(name, async, use_archive, params, cell::pointer<void>(extra));
     if (failed) {
         if (!keep_failed_assets())
             delete asset;

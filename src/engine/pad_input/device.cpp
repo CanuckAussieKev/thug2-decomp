@@ -35,13 +35,14 @@
 #include "engine/audio/music_api.h"
 #include "engine/script/cscript.h"
 #include "engine/pad_input/sdl_input.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/gfx/movie.h"
 #include "engine/objects/cutscene.h"
 #include "game/park_editing/park_editor.h"
 #include "frontend/screen_element_manager.h"
 #include "engine/core/owner.h"
 #include "platform/compiler.h"
+#include "engine/core/raw_view.h"
 
 namespace sio {
 
@@ -693,7 +694,7 @@ void InputPort::pull_data(int)
         second ^= p[0] >= 0x20 ? 0x40 : 0;
     second ^= p[2] >= 0x20 ? 0x80 : 0;
     const uint8_t buttons_so_far = second;
-    auto* level = reinterpret_cast<LevelInfo*>(park_editing::g_park_editor);
+    auto* level = raw::as<LevelInfo>(park_editing::g_park_editor);
     if (level && level->checksum == kParkEditorLevel) {
         // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
         bool editor_element = false;

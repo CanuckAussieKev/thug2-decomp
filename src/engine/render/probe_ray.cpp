@@ -15,6 +15,7 @@
 #include "engine/objects/entity.h"
 #include "game/rider/debug_collision.h"
 #include "platform/compiler.h"
+#include "engine/core/pointer_cell.h"
 
 namespace render {
 
@@ -84,7 +85,7 @@ void ProbeRay::change_strand(const maths::Vec4* start, const maths::Vec4* end)
 // 0x00417110
 void ProbeRay::callback_relay(CollisionHit* hit)
 {
-    auto* feeler = reinterpret_cast<ProbeRay*>(hit->callback_data_);
+    auto* feeler = cell::pointer<ProbeRay>(hit->callback_data_);
     feeler->callback_(feeler);
 }
 
@@ -92,7 +93,7 @@ void ProbeRay::callback_relay(CollisionHit* hit)
 int ProbeRay::get_hit_shape(bool movables, bool farthest)
 {
     const maths::Seg line = line_;
-    hit_.callback_data_ = reinterpret_cast<uint32_t>(this);
+    hit_.callback_data_ = cell::of(this);
     hit_.hit = false;
     hit_.face_flag40_ = 0;
     hit_.unknown38 = 0;
@@ -115,7 +116,7 @@ int ProbeRay::get_hit_shape(bool movables, bool farthest)
     const int result = hit_static || entity_ ? 1 : 0;
     // NOT ORIGINAL: [features] debug_collision logs what was hit (src/game/rider/debug_collision.h).
     collision_overlay::note_feeler_query(this, result,
-                                         static_cast<uint32_t>(reinterpret_cast<uintptr_t>(THUG2_RETURN_ADDRESS())));
+                                         static_cast<uint32_t>(cell::address(THUG2_RETURN_ADDRESS())));
     return result;
 }
 

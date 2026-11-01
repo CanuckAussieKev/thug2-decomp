@@ -8,6 +8,8 @@
 #include "engine/maths/shape_tests.h"
 #include "engine/maths/vec4.h"
 #include "formats/collision_format.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -27,9 +29,9 @@ struct HitTreeNode {
     [[nodiscard]] int get_axis() const { return axis_tag_ & 3; }
     [[nodiscard]] int get_split() const { return axis_tag_ >> 2; }
     void set_split(int value) { axis_tag_ = (value << 2) | (axis_tag_ & 3); }
-    [[nodiscard]] uint16_t leaf_face_count() const { return reinterpret_cast<const uint16_t*>(this)[1]; }
-    [[nodiscard]] uint16_t* get_leaf_faces() const { return reinterpret_cast<uint16_t*>(chain_link_); }
-    [[nodiscard]] HitTreeNode* get_children() const { return reinterpret_cast<HitTreeNode*>(chain_link_ & ~3u); }
+    [[nodiscard]] uint16_t leaf_face_count() const { return raw::as<const uint16_t>(this)[1]; }
+    [[nodiscard]] uint16_t* get_leaf_faces() const { return cell::pointer<uint16_t>(chain_link_); }
+    [[nodiscard]] HitTreeNode* get_children() const { return cell::pointer<HitTreeNode>(chain_link_ & ~3u); }
     [[nodiscard]] HitTreeNode* less_child() const { return get_children() + ((chain_link_ & 1) ? 1 : 0); }
     [[nodiscard]] HitTreeNode* greater_child() const { return get_children() + ((chain_link_ & 1) ? 0 : 1); }
 
@@ -130,7 +132,7 @@ struct TriMeshSource {
     [[nodiscard]] uint32_t face_vertex(int face, int corner) const
     {
         return small_faces_ ? faces_[face * 8 + 4 + corner]
-                            : reinterpret_cast<const uint16_t*>(faces_ + face * 10 + 4)[corner];
+                            : raw::as<const uint16_t>(faces_ + face * 10 + 4)[corner];
     }
 };
 // The collision file's object record, used in place (formats/collision_format.h): its layout is the file's.

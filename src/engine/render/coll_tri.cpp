@@ -10,6 +10,8 @@
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/gfx/engine_glue.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -92,7 +94,7 @@ void TriMeshSource::get_stored_vertex_array(maths::Vec4* out) const
 // 0x00415C10
 void TriMeshSource::choose_raw_verts(const maths::Vec4* positions)
 {
-    auto* box = reinterpret_cast<maths::BBox*>(&lower_limit_);
+    auto* box = raw::as<maths::BBox>(&lower_limit_);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     for (int i = 0; std::cmp_less(i, num_vertices_); ++i)
@@ -177,7 +179,7 @@ bool TriMeshSource::delete_bsp()
     if (uint16_t* faces = bsp_->first_face_list())
         memory::Hub::get_pull()->dealloc(faces);
     if (bsp_)
-        memory::Hub::get_pull()->dealloc(reinterpret_cast<uint8_t*>(bsp_) - 4);
+        memory::Hub::get_pull()->dealloc(raw::bytes(bsp_) - 4);
     bsp_ = nullptr;
     return true;
 }
@@ -186,10 +188,10 @@ bool TriMeshSource::delete_bsp()
 bool TriMeshSource::relocate(uint32_t, uint32_t vertex_base, uint32_t vertex_byte_base, uint32_t face_base,
                              uint32_t node_base, uint32_t face_list_base)
 {
-    vertices_ = reinterpret_cast<void*>(reinterpret_cast<uint32_t>(vertices_) + vertex_base);
-    vertex_bytes_ = reinterpret_cast<uint8_t*>(reinterpret_cast<uint32_t>(vertex_bytes_) + vertex_byte_base);
-    faces_ = reinterpret_cast<uint8_t*>(reinterpret_cast<uint32_t>(faces_) + face_base);
-    bsp_ = reinterpret_cast<HitTreeNode*>(reinterpret_cast<uint32_t>(bsp_) + node_base);
+    vertices_ = cell::pointer<void>(cell::of(vertices_) + vertex_base);
+    vertex_bytes_ = cell::pointer<uint8_t>(cell::of(vertex_bytes_) + vertex_byte_base);
+    faces_ = cell::pointer<uint8_t>(cell::of(faces_) + face_base);
+    bsp_ = cell::pointer<HitTreeNode>(cell::of(bsp_) + node_base);
     HitTreeNode::relocate(bsp_, node_base, face_list_base);
     return true;
 }
@@ -251,7 +253,7 @@ void TriMeshSource::rotate_y(const maths::Vec4* centre, int quarter_turns)
     maths::Vec4 max = upper_limit_;
     min.turn_quarter_about_y(quarter_turns);
     max.turn_quarter_about_y(quarter_turns);
-    auto* box = reinterpret_cast<maths::BBox*>(&lower_limit_);
+    auto* box = raw::as<maths::BBox>(&lower_limit_);
     box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
     box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     box->append_spot(min);
@@ -626,15 +628,15 @@ HitTreeNode* HitTreeNode::replicate(int) const
     HitTreeNode* copy = nullptr;
     if (memory) {
         *memory = nodes;
-        copy = reinterpret_cast<HitTreeNode*>(memory + 1);
+        copy = raw::as<HitTreeNode>(memory + 1);
         for (int i = 0; i < nodes; ++i)
             new (&copy[i]) HitTreeNode;
     }
     auto* new_faces = static_cast<uint16_t*>(memory::alloc(faces * 2));
     std::memcpy(copy, this, nodes * 8);
     std::memcpy(new_faces, old_faces, faces * 2);
-    const uint32_t node_delta = reinterpret_cast<uint32_t>(copy) - reinterpret_cast<uint32_t>(this);
-    const uint32_t face_delta = reinterpret_cast<uint32_t>(new_faces) - reinterpret_cast<uint32_t>(old_faces);
+    const uint32_t node_delta = cell::of(copy) - cell::of(this);
+    const uint32_t face_delta = cell::of(new_faces) - cell::of(old_faces);
     for (int i = 0; i < nodes; ++i) {
         HitTreeNode& node = copy[i];
         if (node.is_end_node())

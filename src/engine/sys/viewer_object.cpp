@@ -30,12 +30,14 @@
 #include "engine/script/param_struct.h"
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/model_viewer.h"
-#include "engine/core/code_address.h"
+#include "platform/code_address.h"
 #include "engine/core/stubs.h"
 #include "engine/objects/entity.h"
 #include "engine/script/cfuncs_scene.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/core/pointer_cell.h"
+#include "engine/core/raw_view.h"
 
 namespace objects {
 
@@ -59,9 +61,9 @@ constexpr int kAssetKindSkeleton = 6;                   // (the asset type)
 void set_model_path(text::Chars& path, const char* name, const char* extension)
 {
     alignas(text::Chars) uint8_t temporary[sizeof(text::Chars)];
-    gfx::make_model_path(reinterpret_cast<text::Chars*>(temporary), name, extension);
-    path = *reinterpret_cast<text::Chars*>(temporary);
-    reinterpret_cast<text::Chars*>(temporary)->~Chars();
+    gfx::make_model_path(raw::as<text::Chars>(temporary), name, extension);
+    path = *raw::as<text::Chars>(temporary);
+    raw::as<text::Chars>(temporary)->~Chars();
 }
 
 // `path` without its .skin / .mdl part, with `extension` (".col" / ".tex") on the end (0x0048BFE0 cuts the path).
@@ -146,18 +148,18 @@ void multiply_matrix(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 // getter 0x005480F0: +0x18) and the skeleton's bone matrices (0x005480C0: +0x04).
 uint8_t* model_of(ObjectModule* component)
 {
-    return reinterpret_cast<uint8_t*>(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
+    return raw::bytes(static_cast<objects::MeshInstanceModule*>(component)->mesh_instance_);
 }
 int get_bone_count(uint8_t* model)
 {
-    return static_cast<int>(reinterpret_cast<render::RenderModel*>(model)->get_asset_bone_count());
+    return static_cast<int>(raw::as<render::RenderModel>(model)->get_asset_bone_count());
 }
 uint8_t* hierarchy_of(uint8_t* model)
 {
-    return reinterpret_cast<uint8_t*>(reinterpret_cast<render::RenderModel*>(model)->get_asset_hierarchy());
+    return cell::pointer<uint8_t>(raw::as<render::RenderModel>(model)->get_asset_hierarchy());
 }
 uint8_t* skeleton_of(ObjectModule* component) { return static_cast<objects::BoneRigModule*>(component)->bone_rig_; }
-maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *reinterpret_cast<maths::Mat4**>(skeleton + 0x04); }
+maths::Mat4* skeleton_palette(uint8_t* skeleton) { return *raw::as<maths::Mat4*>(skeleton + 0x04); }
 
 uint32_t g_no_skeleton_counter{10};
 int g_repeat_count;
@@ -369,7 +371,7 @@ void PreviewEntity::spin_wheels()
     // The bones from the model's hierarchy, the wheels (2-5) turned about x, and all but the first put under it.
     maths::Mat4* bones = skeleton_palette(skeleton);
     for (int i = 0; i < get_bone_count(nx_model); ++i)
-        bones[i] = *reinterpret_cast<const maths::Mat4*>(hierarchy + 0x10 + i * 0x50);
+        bones[i] = *raw::as<const maths::Mat4>(hierarchy + 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
         maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
@@ -514,21 +516,21 @@ void handle_viewer_object_input(ViewerObjectInputHandler* handler)
 // 0x00589840
 int handle_play_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->play_animation(*reinterpret_cast<const uint32_t*>(context->body_));
+    object_of(context)->play_animation(*raw::as<const uint32_t>(context->body_));
     return 1;
 }
 
 // 0x0058ACA0
 int on_clip_rate_msg(net::InboundMsgCtx* context)
 {
-    object_of(context)->scale_anim_rate(*reinterpret_cast<const float*>(context->body_));
+    object_of(context)->scale_anim_rate(*raw::as<const float>(context->body_));
     return 1;
 }
 
 // 0x0058ACC0
 int handle_step_animation(net::InboundMsgCtx* context)
 {
-    object_of(context)->step_animation(*reinterpret_cast<const bool*>(context->body_)); // (the byte as it is)
+    object_of(context)->step_animation(*raw::as<const bool>(context->body_)); // (the byte as it is)
     return 1;
 }
 
@@ -536,7 +538,7 @@ int handle_step_animation(net::InboundMsgCtx* context)
 int handle_reload_animation(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
-    object_of(context)->reload_animation(message, *reinterpret_cast<const uint32_t*>(message + 0x80));
+    object_of(context)->reload_animation(message, *raw::as<const uint32_t>(message + 0x80));
     return 1;
 }
 
@@ -546,7 +548,7 @@ int handle_reload_cam_animation(net::InboundMsgCtx* context)
     const char* message = context->body_;
     script::Struct* params = spawn_param_table();
     params->append_word(0u, message);
-    params->put_name_key(0u, *reinterpret_cast<const uint32_t*>(message + 0x80));
+    params->put_name_key(0u, *raw::as<const uint32_t>(message + 0x80));
     commands::cfunc_reload_skater_cam_anim(params, nullptr);
     delete_structure(params);
     return 1;

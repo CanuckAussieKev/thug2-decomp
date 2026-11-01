@@ -7,13 +7,14 @@
 #include <cmath>
 
 #include "engine/maths/mat4.h"
+#include "engine/core/raw_view.h"
 
 namespace maths {
 
 namespace {
 
 // The matrix's element at row `r`, column `c`.
-double get_at(const Mat4& m, int r, int c) { return reinterpret_cast<const float*>(&m.row[r])[c]; }
+double get_at(const Mat4& m, int r, int c) { return raw::as<const float>(&m.row[r])[c]; }
 
 } // namespace
 

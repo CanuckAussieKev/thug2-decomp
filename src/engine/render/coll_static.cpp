@@ -15,6 +15,7 @@
 #include "engine/render/coll_obj.h"
 #include "engine/render/coll_movable.h"
 #include "engine/sys/startup_init.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -28,7 +29,7 @@ void translate_geometry(TriMeshSource* geometry, const maths::Vec4* delta) { geo
 // 0x00414D60 through our stub (the original's is the same empty function).
 void draw_geometry(TriMeshSource* geometry, const maths::Mat4* transform, int a, int b)
 {
-    reinterpret_cast<CollGeometryStubs*>(geometry)->draw_diagnostic(transform, a, b, 1);
+    raw::as<CollGeometryStubs>(geometry)->draw_diagnostic(transform, a, b, 1);
 }
 const uint8_t* get_face(const TriMeshSource* geometry, int face)
 {
@@ -40,13 +41,13 @@ const uint8_t* get_face(const TriMeshSource* geometry, int face)
 // 0x00410BF0
 uint32_t HitMesh::read_face_attrs(int face) const
 {
-    return *reinterpret_cast<const uint16_t*>(get_face(geometry_, face));
+    return *raw::as<const uint16_t>(get_face(geometry_, face));
 }
 
 // 0x00411750
 uint16_t HitMesh::read_face_terrain(int face) const
 {
-    return *reinterpret_cast<const uint16_t*>(get_face(geometry_, face) + 2);
+    return *raw::as<const uint16_t>(get_face(geometry_, face) + 2);
 }
 
 // 0x00412760
@@ -125,13 +126,13 @@ maths::Vec4 StaticCollider::read_vertex_point(int index) const
 // 0x00410C70
 bool StaticCollider::inside_bounds(const maths::BBox* box)
 {
-    return box->intersects(*reinterpret_cast<const maths::BBox*>(&geometry_->lower_limit_));
+    return box->intersects(*raw::as<const maths::BBox>(&geometry_->lower_limit_));
 }
 
 // 0x00412750
 const maths::BBox* StaticCollider::get_world_bounds()
 {
-    return reinterpret_cast<const maths::BBox*>(&geometry_->lower_limit_);
+    return raw::as<const maths::BBox>(&geometry_->lower_limit_);
 }
 
 // 0x00412840

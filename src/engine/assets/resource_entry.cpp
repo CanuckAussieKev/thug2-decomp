@@ -8,6 +8,7 @@
 #include "engine/core/mem.h"
 #include "engine/file/async.h"
 #include "engine/script/node_manager.h"
+#include "engine/core/arena_alloc.h"
 
 namespace assets {
 
@@ -143,10 +144,10 @@ void Resource::add_dependent(Resource* asset)
 void Resource::remove_dependent(Resource* asset)
 {
     memory::ListNode* node = dependents_.next;
-    if (node->data == reinterpret_cast<void*>(-1) || !node)
+    if (node->data == memory::ListNode::head_marker() || !node)
         return;
     while (node) {
-        memory::ListNode* next = node->next->data == reinterpret_cast<void*>(-1) ? nullptr : node->next;
+        memory::ListNode* next = node->next->data == memory::ListNode::head_marker() ? nullptr : node->next;
         if (node->data == asset) {
             memory::ListNode::destroy(node); // (0x004077D0)
             return;

@@ -10,6 +10,7 @@
 #include "engine/core/arena_alloc.h"
 #include "engine/gfx/engine_scene_list.h"
 #include "engine/render/coll_world.h"
+#include "engine/core/raw_view.h"
 
 namespace render {
 
@@ -28,7 +29,7 @@ memory::ListNode* first_movable() { return g_movables.next; }
 
 // The collision grid lists the line from the box's min to its max passes through (null-terminated; null: none),
 // and one list's collision objects near the line (null-terminated). 0x0048C980 / 0x004188C0.
-void** grid_lists_along(maths::Seg* line) { return reinterpret_cast<void**>(get_coll_grids_on_line(line)); }
+void** grid_lists_along(maths::Seg* line) { return raw::as<void*>(get_coll_grids_on_line(line)); }
 HitMesh** objects_along(void* list, maths::Seg* line)
 {
     return static_cast<CollGrid*>(list)->objects_along_line(line, nullptr);
@@ -78,7 +79,7 @@ void HitMeshCache::tick_frame(const maths::BBox& box)
             ++statics_;
         }
     }
-    for (const memory::ListNode* node = first_movable(); node->data != reinterpret_cast<void*>(-1) && node;
+    for (const memory::ListNode* node = first_movable(); node->data != memory::ListNode::head_marker() && node;
          node = node->next) {
         auto* object = static_cast<HitMesh*>(node->data);
         if (!object || (object->flag_bits_ & 6) || !object->inside_bounds(&grown))
