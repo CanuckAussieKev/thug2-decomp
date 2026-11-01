@@ -338,7 +338,7 @@ bool HitMesh::is_point_behind_faces(const maths::Vec4* point, int unused)
 }
 
 // 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
-HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, int owner)
+HitMesh* build_dynamic_hit_mesh(int type, TriMeshSource* geometries, int count, objects::GameEntity* owner)
 {
     HitMesh* made = nullptr;
     if (type == 1) {

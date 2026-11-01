@@ -116,7 +116,7 @@ void ActivationZoneModule::tick_frame()
     feeler.line_.end = entity_->at_point_;
     feeler.set_excluded(0, kTriggerFaces);
     feeler.callback_ = [](render::ProbeRay* hit) { (void)feeler_hit(hit); };
-    feeler.unknowna8_ = cell::of(this);
+    feeler.user_data_ = this;
     feeler.get_hit_shape(true, false);
     last_pos_ = entity_->at_point_;
 }
@@ -212,7 +212,7 @@ bool ActivationZoneModule::probe_touches_zone(const int* events, render::ProbeRa
         return false;
     if (feeler->get_tested_owner()) {
         // A movable object's face, while it's being tested: through its own nodes.
-        auto* owner = cell::pointer<GameEntity>(feeler->get_tested_owner());
+        auto* owner = feeler->get_tested_owner();
         script::Array* nodes = node_array_of(owner);
         const uint32_t name = feeler->hit_.object_checksum_;
         return get_trigger_node(events, name, nodes, owner);
@@ -248,7 +248,7 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
 // 0x00434D70
 bool ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
-    auto* component = cell::pointer<ActivationZoneModule>(feeler->unknowna8_);
+    auto* component = static_cast<ActivationZoneModule*>(feeler->user_data_);
     return component->probe_touches_zone(kNoEvents.data(), feeler);
 }
 

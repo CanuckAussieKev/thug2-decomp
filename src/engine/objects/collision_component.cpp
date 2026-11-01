@@ -104,7 +104,7 @@ void ContactShapeModule::configure_from_data(script::Struct* params)
 void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geometry)
 {
     if (geometry) {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, static_cast<int>(cell::of(entity_)));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, geometry, 1, entity_);
         return;
     }
     const render::RenderModel* model = model_of(entity_->fetch_module(kModelModuleName));
@@ -113,9 +113,9 @@ void ContactShapeModule::set_up_hit_shape(int type, render::TriMeshSource* geome
     if (data) {
         hit_shape_ =
             render::build_dynamic_hit_mesh(type, *raw::field_at<render::TriMeshSource*>(data, 0x8C),
-                                           *raw::field_at<int>(data, 0x88), static_cast<int>(cell::of(entity_)));
+                                           *raw::field_at<int>(data, 0x88), entity_);
     } else {
-        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, static_cast<int>(cell::of(entity_)));
+        hit_shape_ = render::build_dynamic_hit_mesh(type, nullptr, 0, entity_);
     }
 }
 

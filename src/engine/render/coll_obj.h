@@ -8,6 +8,9 @@
 #include "engine/core/mem.h"
 #include "engine/maths/shape_tests.h"
 
+namespace objects {
+class GameEntity;
+}
 namespace render {
 
 // The geometry a collision object's faces come from (render::TriMeshSource; its methods are rewritten later).
@@ -67,8 +70,8 @@ public:
     // (slot 9) The geometry's vertex `index` in the world.
     [[nodiscard]] virtual maths::Vec4 read_vertex_point(int index) const = 0;
     // (slots 10, 11; the base's: 0 and nothing) The object it belongs to (a movable's: its GameEntity).
-    [[nodiscard]] virtual int get_owner() const { return 0; }
-    virtual void set_owner(int /*owner*/) {}
+    [[nodiscard]] virtual objects::GameEntity* get_owner() const { return nullptr; }
+    virtual void set_owner(objects::GameEntity* /*owner*/) {}
     // (slot 12) A copy: `argument` the original's (a sector's: an instance rather than a copy).
     virtual HitMesh* replicate(int argument) = 0;
     // (slot 13) Whether it may touch `box`.
@@ -173,8 +176,8 @@ public:
     // 0x00410960 (slot 9): a zero vector.
     [[nodiscard]] maths::Vec4 read_vertex_point(int index) const override;
     // 0x0040AE20 / 0x0040AE10 (slots 10, 11)
-    [[nodiscard]] int get_owner() const override { return owner_; }
-    void set_owner(int owner) override { owner_ = owner; }
+    [[nodiscard]] objects::GameEntity* get_owner() const override { return owner_; }
+    void set_owner(objects::GameEntity* owner) override { owner_ = owner; }
     // 0x00411E80 (slot 13): false only if the box is known and doesn't touch `box`.
     bool inside_bounds(const maths::BBox* box) override;
     // 0x00411EC0 (slot 14): each child asked; whether any hit.
@@ -192,7 +195,7 @@ public:
     bool dirty_{true};            // +0x34
     bool box_valid_{};            // +0x35
     std::array<uint8_t, 2> pad36{};
-    int owner_{0}; // +0x38
+    objects::GameEntity* owner_{}; // +0x38
 };
 static_assert(sizeof(HitMeshGroup) == 0x3C && offsetof(HitMeshGroup, box_) == 0x14, "layout must match the original");
 

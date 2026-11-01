@@ -6,6 +6,9 @@
 
 #include "engine/maths/vec4.h"
 
+namespace objects {
+class GameEntity;
+}
 namespace render {
 
 class HitMesh;
@@ -30,8 +33,8 @@ struct CollisionHit {
     uint32_t object_checksum_;     // +0x34 its checksum
     uint32_t unknown38;            // +0x38
     CollisionHitCallback callback; // +0x3C
-    uint32_t callback_data_;       // +0x40 (for the callback)
-    uint32_t owner;                // +0x44 while a movable object is tested: its owner (slot 10), else 0
+    void* callback_data_;          // +0x40 (for the callback: the feeler testing)
+    objects::GameEntity* owner;    // +0x44 while a movable object is tested: its owner (slot 10), else null
     bool hit;                      // +0x48 a face was accepted
     uint8_t face_flag40_;          // +0x49 the hit face's flag 0x40 (0 or 0x40)
     std::array<uint8_t, 2> pad4a_;

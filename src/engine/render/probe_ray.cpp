@@ -87,7 +87,7 @@ void ProbeRay::change_strand(const maths::Vec4* start, const maths::Vec4* end)
 // 0x00417110
 void ProbeRay::callback_relay(CollisionHit* hit)
 {
-    auto* feeler = cell::pointer<ProbeRay>(hit->callback_data_);
+    auto* feeler = static_cast<ProbeRay*>(hit->callback_data_);
     feeler->callback_(feeler);
 }
 
@@ -95,11 +95,11 @@ void ProbeRay::callback_relay(CollisionHit* hit)
 int ProbeRay::get_hit_shape(bool movables, bool farthest)
 {
     const maths::Seg line = line_;
-    hit_.callback_data_ = cell::of(this);
+    hit_.callback_data_ = this;
     hit_.hit = false;
     hit_.face_flag40_ = 0;
     hit_.unknown38 = 0;
-    hit_.owner = 0;
+    hit_.owner = nullptr;
     CollisionHitCallback callback = callback_ ? &callback_relay : nullptr;
     HitMeshCache* cache = hit_cache_ ? hit_cache_ : s_current_cache;
     entity_.get_release();
@@ -139,7 +139,7 @@ bool ProbeRay::is_hit_triangle_collision()
 }
 
 // 0x00417140
-uint32_t ProbeRay::get_tested_owner() { return hit_.owner; }
+objects::GameEntity* ProbeRay::get_tested_owner() { return hit_.owner; }
 
 // 0x00417210
 bool ProbeRay::hit_object_alive()
@@ -222,7 +222,7 @@ ProbeRay* ProbeRay::copy_construct(const ProbeRay& other)
     surface_dir_ = other.surface_dir_;
     entity_.construct_copy(&other.entity_);
     entity_key_ = other.entity_key_;
-    unknowna8_ = other.unknowna8_;
+    user_data_ = other.user_data_;
     hit_cache_ = other.hit_cache_;
     return this;
 }
@@ -238,7 +238,7 @@ ProbeRay* ProbeRay::get_assign(const ProbeRay& other)
     surface_dir_ = other.surface_dir_;
     entity_.get_assign(&other.entity_);
     entity_key_ = other.entity_key_;
-    unknowna8_ = other.unknowna8_;
+    user_data_ = other.user_data_;
     hit_cache_ = other.hit_cache_;
     return this;
 }

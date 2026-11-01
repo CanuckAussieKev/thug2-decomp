@@ -8,6 +8,9 @@
 #include "engine/maths/mat4.h"
 #include "engine/render/coll_obj.h"
 
+namespace objects {
+class GameEntity;
+}
 namespace render {
 
 struct CollisionHit;
@@ -33,13 +36,13 @@ public:
     // 0x004122C0: `line` in the object's space (its ends moved back and turned by the inverse).
     void segment_to_local(const maths::Seg* line, maths::Seg* out) const;
     // 0x0040AE50 / 0x0040AE40 (slots 10, 11)
-    [[nodiscard]] int get_owner() const override { return owner_; }
-    void set_owner(int owner) override { owner_ = owner; }
+    [[nodiscard]] objects::GameEntity* get_owner() const override { return owner_; }
+    void set_owner(objects::GameEntity* owner) override { owner_ = owner; }
 
     maths::Vec4 anchor_point_; // +0x10
     maths::Mat4 orientation_{}; // +0x20
     maths::Mat4 inverse_{};     // +0x60 the orientation's transpose
-    int owner_{0};             // +0xA0
+    objects::GameEntity* owner_{};  // +0xA0
 
 protected:
     // 0x00411FA0: at the origin, unrotated.

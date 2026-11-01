@@ -70,16 +70,16 @@ bool collide_with_line(HitMesh* object, const maths::Seg* line, maths::Vec4* dir
 {
     return object->collide_with_line(line, direction, hit, box);
 }
-objects::GameEntity* get_owner(HitMesh* object) { return cell::pointer<objects::GameEntity>(object->get_owner()); }
+objects::GameEntity* get_owner(const HitMesh* object) { return object->get_owner(); }
 
 // A movable object tested: its owner noted on the hit while it is; the owner if it was hit, else `owner`.
 objects::GameEntity* test_movable(HitMesh* object, const maths::Seg* line, LineQuery& query, CollisionHit* hit,
                                   objects::GameEntity* owner)
 {
-    hit->owner = cell::of(get_owner(object));
+    hit->owner = get_owner(object);
     if (collide_with_line(object, line, &query.direction, hit, &query.box))
         owner = get_owner(object);
-    hit->owner = 0;
+    hit->owner = nullptr;
     return owner;
 }
 

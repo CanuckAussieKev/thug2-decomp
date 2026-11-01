@@ -54,7 +54,7 @@ public:
     // hit.
     bool is_hit_triangle_collision();
     // 0x00417140: the owner of the movable object being tested (for the callback; 0 otherwise).
-    uint32_t get_tested_owner();
+    objects::GameEntity* get_tested_owner();
     // 0x00417210: whether the object hit is still there (its smart pointer not cleared); if it's gone, its id and
     // the hit's object checksum are cleared.
     bool hit_object_alive();
@@ -87,7 +87,7 @@ public:
     maths::Vec4 surface_dir_{};                      // +0x88 "
     objects::SharedRef<objects::GameEntity> entity_; // +0x98 the object hit (a movable's owner)
     uint32_t entity_key_{};                          // +0xA4 its id
-    uint32_t unknowna8_{};                           // +0xA8
+    void* user_data_{};                              // +0xA8 (its user's: a trigger component)
     HitMeshCache* hit_cache_;                        // +0xAC null: the current cache
 };
 static_assert(offsetof(ProbeRay, hit_) == 0x24 && offsetof(ProbeRay, reach_) == 0x74 &&
