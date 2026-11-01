@@ -512,9 +512,8 @@ void* shadow_companion_of(const void* caster_model, const void* rider_model, voi
 // THAW 0x00620780: the manual's wobble fraction (the manual angle x 0.01).
 float manual_wobble(float manual_angle);
 // THAW 0x00620780 (its 0x006207A8), not in a manual: the balance trick component's balance for the running kind
-// (grind / slide +0x7C, manual / nose manual +0x24, lip +0xD4, skitch +0x12C; 0: none), and its wobble fraction
+// (RiderTeeterMoves::at_hand), and its wobble fraction
 // ((4096 + lean) / 8192, flipped (4096 - lean) / 8192 - the rider's balance meter's own).
-uint32_t balance_offset(uint32_t kind);
 float balance_wobble(float lean, bool flip);
 // THAW 0x005CA490: whether the angle between the model's display up and the ground normal is beyond `degrees`.
 bool display_pitch_beyond(const maths::Vec4& up, const maths::Vec4& normal, float degrees);

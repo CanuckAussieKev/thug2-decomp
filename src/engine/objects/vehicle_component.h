@@ -31,6 +31,8 @@ class Struct;
 // invoke_method_by_name 0x0051ADC0 (not mine).
 namespace objects {
 
+class PadInputModule;
+
 class DrivableModule final : public ObjectModule {
 public:
     static constexpr uint32_t kType = 0xE47F1B79;
@@ -382,7 +384,7 @@ public:
     float free_fall_time_;        // +0x1308 seconds in the air without touching anything
     float collision_impulse_;     // +0x130C the strongest contact impulse this step
     ObjectModule* bone_rig_;      // +0x1310 the object's skeleton (0x222756D5)
-    uint8_t* input_ptr_;          // +0x1314 the input component (0x27D7CD28)
+    PadInputModule* input_ptr_;   // +0x1314 the input component (0x27D7CD28)
     ObjectModule* mesh_instance_; // +0x1318 the model (0x286A8D26)
     int debug_mode_;              // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
     bool passive_;                // +0x1320 no input, collision or debug drawing (set from outside)

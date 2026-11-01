@@ -64,6 +64,7 @@
 #include "engine/objects/particle_component.h"
 #include "engine/gfx/settings.h"
 #include "game/rider/core_physics.h"
+#include "game/rider/balance_trick.h"
 
 namespace modules {
 
@@ -687,10 +688,10 @@ void Skate::update_records()
     highscores::BestEntryList* high_scores = records->high_scores_;
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
     new_record_ |= records->best_combos_->try_insert_entry(score->top_chain_, 0) != -1;
-    auto* balance = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterBalanceTrick));
-    float grind = *reinterpret_cast<float*>(balance + 0xA8); // (the longest grind, manual and lip trick: seconds)
-    float manual = *reinterpret_cast<float*>(balance + 0x50);
-    float lip_trick = *reinterpret_cast<float*>(balance + 0x100);
+    auto* balance = static_cast<objects::RiderTeeterMoves*>(skater->fetch_module(kSkaterBalanceTrick));
+    float grind = balance->grind_.best_time_; // (the longest grind, manual and lip trick: seconds)
+    float manual = balance->manual_.best_time_;
+    float lip_trick = balance->lip_.best_time_;
     int tricks = score->best_tricks_;
     new_record_ |= records->grind_record_->try_beat_record(ftol(static_cast<double>(grind) * 100.0), 0);
     new_record_ |= records->longest_manual_->try_beat_record(ftol(static_cast<double>(manual) * 100.0), 0);
@@ -911,13 +912,13 @@ void Skate::run_frame_logic()
     if (!find_element(kRootWindow) || find_element(kUnpluggedDialogAnchor))
         return;
     bool unplugged = false;
-    uint8_t* device = nullptr;
+    objects::PadInputModule::Responder* device = nullptr;
     for (int i = 0; i < 8; ++i) {
         auto* skater = static_cast<objects::Rider*>(get_rider_at(i));
         if (!skater || !skater->is_local_skater_)
             continue;
-        device = reinterpret_cast<uint8_t*>(skater->pad_input_->handler_);
-        if (reinterpret_cast<sio::InputPort*>(*reinterpret_cast<void**>(device + 0x1C))->is_attached())
+        device = skater->pad_input_->handler_;
+        if (device->dev_->is_attached())
             continue;
         unplugged = true;
         if (unplugged_frames_ > script::fetch_int_value(kUnpluggedFrameCount)) {
@@ -937,7 +938,7 @@ void Skate::run_frame_logic()
                     net->disconnect_clients();
                 }
             }
-            params->put_int(kDeviceNum, *reinterpret_cast<int*>(*reinterpret_cast<uint8_t**>(device + 0x1C) + 0xC));
+            params->put_int(kDeviceNum, device->dev_->port_no_);
             script::launch_script(kControllerUnplugged, params, nullptr, false, nullptr);
             delete_structure(params);
             ++unplugged_frames_;

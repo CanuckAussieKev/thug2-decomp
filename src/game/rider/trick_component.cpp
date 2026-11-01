@@ -122,9 +122,9 @@ void MoveExecutor::get_reset()
     queue_last_ = -1;
     std::memset(extra_lists_, 0, 0x1238 - 0x1208);
     manual_.pending_ = false;
-    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1268 - 0x1238);
+    std::memset(&manual_, 0, offsetof(PendingTrick, pending_));
     grind_.pending_ = false;
-    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12B0 - 0x1280);
+    std::memset(&grind_, 0, offsetof(PendingTrick, pending_));
     extra_.on_ = false;
     extra_.forever_ = false;
     extra_.duration_ = 0;
@@ -149,14 +149,14 @@ void MoveExecutor::clear_extra_tricks() { std::memset(&extra_list_count_, 0, 0x1
 void MoveExecutor::clear_block1238()
 {
     manual_.pending_ = false;
-    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1238, 0, 0x1264 - 0x1238);
+    std::memset(&manual_, 0, offsetof(PendingTrick, special_));
 }
 
 // 0x0051EF00
 void MoveExecutor::clear_block1280()
 {
     grind_.pending_ = false;
-    std::memset(reinterpret_cast<uint8_t*>(this) + 0x1280, 0, 0x12AC - 0x1280);
+    std::memset(&grind_, 0, offsetof(PendingTrick, special_));
 }
 
 // 0x0051EB00

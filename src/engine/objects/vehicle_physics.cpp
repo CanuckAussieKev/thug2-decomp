@@ -21,6 +21,7 @@
 #include "engine/objects/trigger_events.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -741,26 +742,26 @@ void DrivableModule::check_sleep()
 // 0x004376B0
 void DrivableModule::read_controls()
 {
-    uint8_t* input = input_ptr_;
+    const PadSnapshot& input = input_ptr_->pad_primary_;
     // The stick squared (its sign kept); else the d-pad's left / right.
-    float stick = *reinterpret_cast<float*>(input + 0x238);
+    float stick = input.scaled_stick_[2];
     double steering = std::fabs(static_cast<double>(stick)) * stick;
     steering_ = static_cast<float>(steering);
     if (steering == 0.0) {
-        bool left = input[0x60] != 0, right = input[0x80] != 0;
+        bool left = input.left_side_.held_down_ != 0, right = input.right_side_.held_down_ != 0;
         if (left && !right)
             steering_ = -1.0f;
         else if (!left && right)
             steering_ = 1.0f;
     }
-    throttle_ = input[0x1C0] != 0;
-    handbrake_ = input[0x100] != 0 && !handbrake_disabled_;
+    throttle_ = input.pos_x_.held_down_ != 0;
+    handbrake_ = input.shoulder_right_a_.held_down_ != 0 && !handbrake_disabled_;
     // The brake button: braking while moving forward, else reversing; with Exitable, the other button too, which
     // also brakes while moving backwards and tells the object it has stopped (0xCBAA3476).
     bool pressed, other = false;
-    if (input[0x180]) {
+    if (input.button_box_.held_down_) {
         pressed = true;
-    } else if (can_dismount_ && input[0x1A0]) {
+    } else if (can_dismount_ && input.button_wedge_.held_down_) {
         pressed = true;
         other = true;
     } else {

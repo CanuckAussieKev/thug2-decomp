@@ -40,6 +40,7 @@
 #include "engine/script/cscript.h"
 #include "engine/objects/model_component.h"
 #include "engine/objects/skeleton_component.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -680,7 +681,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
 // 0x0043BA20
 void DrivableModule::seal()
 {
-    input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput));
+    input_ptr_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput));
     mesh_instance_ = entity_->fetch_module(kModel);
     const uint8_t* geometry = model_geometry(entity_->fetch_module(kModel));
     // The wheels' places from the model (z up there; always four).

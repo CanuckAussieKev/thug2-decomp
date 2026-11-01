@@ -16,6 +16,7 @@
 #include "engine/objects/car_physics.h"
 #include "engine/objects/node_components.h"
 #include "engine/objects/entity.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -38,7 +39,6 @@ constexpr float kNear = 0.0010000000474974513f;   // 0x006461D8
 constexpr float kEase = 3.75f;                    // 0x0064B2C0
 
 // A button's press this frame forgotten.
-void take_press(uint8_t* button) { reinterpret_cast<ControlButton*>(button)->reset_activation(); }
 
 // One angle eased toward `target` (the original's x87 sequence: the difference rounded, its size unrounded).
 void get_ease(float& angle, double target, float frame)
@@ -73,7 +73,7 @@ void FreeLookModule::configure_from_data(script::Struct* /*params*/)
 }
 
 // 0x004E4040
-void FreeLookModule::seal() { input_ptr_ = reinterpret_cast<uint8_t*>(entity_->fetch_module(kInput)); }
+void FreeLookModule::seal() { input_ptr_ = static_cast<PadInputModule*>(entity_->fetch_module(kInput)); }
 
 // 0x004E4000
 void FreeLookModule::set_locked(bool locked) { locked_ = locked; }
@@ -96,22 +96,22 @@ void FreeLookModule::turn_to(float heading, float tilt, float time, float factor
 // 0x004E4060
 void FreeLookModule::tick_frame()
 {
-    uint8_t* pad = input_ptr_ + (script::fetch_int_value(kSecondPad) ? 0x258 : 0x20);
-    if (!script::fetch_int_value(kNoButton) && pad[0x1F0]) {
-        take_press(pad + 0x1E0);
+    PadSnapshot* pad = script::fetch_int_value(kSecondPad) ? &input_ptr_->pad_secondary_ : &input_ptr_->pad_primary_;
+    if (!script::fetch_int_value(kNoButton) && pad->button_choose_.fired_) {
+        pad->button_choose_.reset_activation();
         script::launch_script(entity_->ident_ == kSpecialObject ? kSpecialScript : kScript, nullptr, nullptr, false,
                               nullptr);
     }
-    if (pad[0x130]) {
+    if (pad->stick_click_right_.fired_) {
         locked_ = !locked_;
-        take_press(pad + 0x120);
+        pad->stick_click_right_.reset_activation();
     }
     float frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (!locked_ && !turning_ && dpad_look_ && skater::thaw_bmx::is_switched_on()) {
         // NOT ORIGINAL - THAW's BMX (THAW 0x5B08F0 with its +0x40 set): the d-pad's inputs instead of
         // the right stick's - with THAW's default inversion -, eased as the stick's (the heading without the stick's
         // x 3). Original behaviour: the stick's, below, always.
-        auto* p = reinterpret_cast<PadSnapshot*>(pad);
+        PadSnapshot* p = pad;
         skater::thaw_bmx::LookInputs in = skater::thaw_bmx::d_pad_look_inputs(
             p->up_dir_.held_down_ != 0, p->btn_down_.held_down_ != 0, p->left_side_.held_down_ != 0,
             p->right_side_.held_down_ != 0, skater::thaw_bmx::kLookInvertDefault);
@@ -119,10 +119,10 @@ void FreeLookModule::tick_frame()
         get_ease(lean_angle_, tilt, frame);
         get_ease(heading_, in.heading, frame);
     } else if (!locked_ && !turning_) {
-        float stick_y = *reinterpret_cast<float*>(pad + 0x214);
+        float stick_y = pad->scaled_stick_[1];
         double tilt = static_cast<double>(stick_y) * (stick_y < 0.0f ? kUpScale : kDownScale) * kTiltScale;
         get_ease(lean_angle_, tilt, frame);
-        double heading = static_cast<double>(*reinterpret_cast<float*>(pad + 0x210)) * kHeadingScale;
+        double heading = static_cast<double>(pad->scaled_stick_[0]) * kHeadingScale;
         get_ease(heading_, heading, frame);
     }
     float step = static_cast<float>(frame_clock::get_slomo_frame_seconds());

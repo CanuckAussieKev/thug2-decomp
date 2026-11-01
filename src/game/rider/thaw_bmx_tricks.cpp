@@ -31,6 +31,9 @@
 #include "platform/run_log.h"
 #include "game/rider/skater_state.h"
 #include "engine/objects/input_component.h"
+#include "game/rider/balance_trick.h"
+#include "engine/gfx/model.h"
+#include "engine/objects/model_component.h"
 
 namespace skater::thaw_bmx {
 
@@ -55,9 +58,7 @@ constexpr int kStateBikeStall = 6;
 constexpr uint32_t kSpecialItem = 0xF27A294D;
 constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A;
 constexpr uint32_t kAnimBlender = 0x7149B753;
-constexpr uint32_t kModel = 0x286A8D26;       // model
-constexpr uint32_t kModelOfComponent = 0x208; // the model component's renderer model
-constexpr uint32_t kModelFlags = 0x44;        // the renderer model's flags (0x2 shown, 0x4 hidden)
+constexpr uint32_t kModel = 0x286A8D26; // model
 
 // THAW's constants.
 constexpr float kRadiansPerDegree = 0.0174532924f;  // 0x006DB474
@@ -115,8 +116,8 @@ double dot3(const maths::Vec4& a, const maths::Vec4& b)
 // The level's rails (the skate module's rail manager: 0x007CE478's +0x24 - THAW's 0x008A3B5C's +0x24).
 objects::GrindRailHub* get_level_rails()
 {
-    uint8_t* module = reinterpret_cast<uint8_t*>(modules::g_skate_module);
-    return module ? get_at<objects::GrindRailHub*>(module, 0x24) : nullptr;
+    modules::Skate* module = modules::g_skate_module;
+    return module ? module->rail_manager_ : nullptr;
 }
 
 // The tire tap's ledge: THAW 0x0058C850 on the level's rails (the rails its 0x0058C856.. walks, flags read as THAW's:
@@ -235,25 +236,6 @@ TapStep tire_tap_step(const maths::Vec4& position, const maths::Vec4& tap)
 }
 
 float manual_wobble(float manual_angle) { return static_cast<float>(manual_angle * kManualWobble); }
-
-uint32_t balance_offset(uint32_t kind)
-{
-    // THAW 0x006207A8: the balance trick component's balance for its kind (THUG2's layout is the same).
-    switch (kind) {
-    case 0x255ED86F: // Grind
-    case 0x8D10119D: // Slide
-        return 0x7C;
-    case 0xEF24413B: // Manual
-    case 0x0AC90769: // NoseManual
-        return 0x24;
-    case 0xA549B57B: // Lip
-        return 0xD4;
-    case 0x3506CE64: // Skitch
-        return 0x12C;
-    default:
-        return 0;
-    }
-}
 
 float balance_wobble(float lean, bool flip)
 {
@@ -495,11 +477,10 @@ void manual_pose(SkaterPhysicsModule* core)
         // THUG2's balance (Balance::tick_frame) moves only the rider's animation: the bike stayed on its range
         // animation's first or last frame - in a stall (played from its end) beside the rail, twisted. The flip as
         // THUG2's balance takes it for the rider (THAW asks its own stance there), so the two agree.
-        uint8_t* tricks = reinterpret_cast<uint8_t*>(core->balance_);
-        uint32_t at = tricks ? bike::balance_offset(get_at<uint32_t>(tricks, 0x18)) : 0;
-        if (!at)
+        objects::RiderTeeterMoves* tricks = core->balance_;
+        const objects::Balance* balance = tricks ? tricks->at_hand() : nullptr; // (THAW 0x006207A8's)
+        if (!balance)
             return;
-        const auto* balance = reinterpret_cast<const objects::Balance*>(tricks + at);
         bool flip = balance->flip_;
         if (balance->mirrored_ && core->state_->flag(PoseFlag::kFlipped).on)
             flip = !flip;
@@ -539,9 +520,10 @@ void* shadow_companion(void* caster_model)
     objects::ObjectModule* bike_model = bike ? bike->fetch_module(kModel) : nullptr;
     if (!rider_model || !bike_model)
         return nullptr;
-    uint8_t* bike_renderer = get_at<uint8_t*>(bike_model, kModelOfComponent);
-    return bike::shadow_companion_of(caster_model, get_at<void*>(rider_model, kModelOfComponent), bike_renderer,
-                                     bike_renderer ? bike_renderer[kModelFlags] : 0);
+    render::RenderModel* bike_renderer = static_cast<objects::MeshInstanceModule*>(bike_model)->mesh_instance_;
+    return bike::shadow_companion_of(caster_model,
+                                     static_cast<objects::MeshInstanceModule*>(rider_model)->mesh_instance_,
+                                     bike_renderer, bike_renderer ? bike_renderer->flag_bits_ : 0);
 }
 
 // --- the flip ----------------------------------------------------------------------------------------------------

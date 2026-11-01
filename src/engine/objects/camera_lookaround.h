@@ -12,6 +12,8 @@ class Struct;
 
 namespace objects {
 
+class PadInputModule;
+
 // The CameraLookAround component (type 0x81C7122D, vtable 0x0064B28C, 0x44 bytes; made by 0x004E42E0): the
 // camera's look-around angles from the pad's right stick (heading and tilt eased toward the stick each frame), or
 // turned over a time to a heading and tilt a script asks for.
@@ -54,16 +56,16 @@ public:
     // feature is on; THUG2's component never sets nor reads these bytes.
     bool dpad_look_; // +0x1A
     uint8_t pad1b_;
-    float factor_;            // +0x1C
-    float lean_angle_;        // +0x20
-    float heading_;           // +0x24
-    float mode_heading_;      // +0x28 the skater camera's mode's heading (its change_regime; its frame adds heading_)
-    float target_tilt_;       // +0x2C
-    float target_heading_;    // +0x30
-    float tilt_rate_;         // +0x34 per second
-    float heading_rate_;      // +0x38
-    float seconds_remaining_; // +0x3C
-    uint8_t* input_ptr_;      // +0x40 the Input component
+    float factor_;              // +0x1C
+    float lean_angle_;          // +0x20
+    float heading_;             // +0x24
+    float mode_heading_;        // +0x28 the skater camera's mode's heading (its change_regime; its frame adds heading_)
+    float target_tilt_;         // +0x2C
+    float target_heading_;      // +0x30
+    float tilt_rate_;           // +0x34 per second
+    float heading_rate_;        // +0x38
+    float seconds_remaining_;   // +0x3C
+    PadInputModule* input_ptr_; // +0x40 the Input component
 };
 static_assert(offsetof(FreeLookModule, locked_) == 0x18 && offsetof(FreeLookModule, factor_) == 0x1C &&
                   offsetof(FreeLookModule, target_tilt_) == 0x2C && offsetof(FreeLookModule, input_ptr_) == 0x40 &&
