@@ -14,8 +14,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/maths/vec4.h"
+#include "engine/core/mem.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -284,7 +286,7 @@ extern float g_default_dropoff;
 extern std::array<SoundWaveSlot, 256> g_permanent_waves;
 extern std::array<SoundWaveSlot, 256> g_level_waves;
 extern std::array<PlayingSound, 48> g_playing_sounds;
-extern gsl::owner<AudioMixer*> g_audio_mixer;
+extern memory::HeapUnique<AudioMixer> g_audio_mixer;
 extern PositionalSound* g_positional_head;
 extern int g_permanent_count;
 extern int g_level_count;

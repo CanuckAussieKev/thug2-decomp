@@ -444,7 +444,7 @@ void ParkBuilderMode::tick_frame()
     core::at(camera.row, 3).x = static_cast<float>(static_cast<double>(core::at(camera.row, 3).x) + get_cursor()->at_point_.x);
     core::at(camera.row, 3).y = static_cast<float>(static_cast<double>(core::at(camera.row, 3).y) + kCameraHeight);
     core::at(camera.row, 3).z = static_cast<float>(static_cast<double>(cursor_pos.z) + core::at(camera.row, 3).z);
-    auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
     if (auto* cam = core::down_cast<objects::GameEntity>(objects->look_up_entity(kParkedCam))) {
         cam->at_point_ = core::at(camera.row, 3);
         cam->basis_frame_ = camera;

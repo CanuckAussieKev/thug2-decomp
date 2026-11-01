@@ -3,6 +3,7 @@
 #include "engine/objects/suspend_component.h"
 
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -38,7 +39,7 @@ namespace {
 int g_suspend_frame_count;
 int g_suspend_interleave2_count;
 int g_suspend_interleave4_count;
-gsl::owner<SuspendTaskHolder*> g_suspend_task_holder;
+memory::HeapUnique<SuspendTaskHolder> g_suspend_task_holder;
 
 constexpr int kTaskPriority = -1100;
 
@@ -255,7 +256,7 @@ SuspendTaskHolder::SuspendTaskHolder()
 void create_suspend_task()
 {
     void* memory = memory::alloc_zeroed(sizeof(SuspendTaskHolder));
-    g_suspend_task_holder = memory ? memory::construct_in<SuspendTaskHolder>(memory) : nullptr;
+    g_suspend_task_holder = memory::HeapUnique<SuspendTaskHolder>(memory ? memory::construct_in<SuspendTaskHolder>(memory) : nullptr);
 }
 
 // 0x00434420

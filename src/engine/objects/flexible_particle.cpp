@@ -97,7 +97,7 @@ constexpr uint32_t kSuspend = 0xCE0CA665;
 float& particle_update_time() { return g_particle_update_time; }
 
 // The particle manager (0x006FA7C0; no source yet).
-void* particle_hub_handle() { return render::g_flexible_particle_manager; }
+void* particle_hub_handle() { return render::g_flexible_particle_manager.get(); }
 render::EmitterInstance* find_system(uint32_t name)
 {
     return static_cast<render::FlexibleParticleManager*>(particle_hub_handle())->find_system(name);

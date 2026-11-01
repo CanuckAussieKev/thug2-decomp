@@ -3,8 +3,8 @@
 
 #include "frontend/front_end.h"
 
-#include <memory>
 #include <cstdint>
+#include <memory>
 #include <new>
 
 #include "engine/core/checksums.h"
@@ -40,7 +40,7 @@
 
 namespace modules {
 
-gsl::owner<modules::FrontEnd*> g_front_end_instance;
+std::unique_ptr<modules::FrontEnd> g_front_end_instance;
 
 bool g_menus_active;
 bool g_pending_script;
@@ -172,7 +172,7 @@ bool anchor_exists(script::Struct* params, uint32_t id, bool clear = true)
 
 } // namespace
 
-FrontEnd*& front_end_instance() { return g_front_end_instance; }
+std::unique_ptr<modules::FrontEnd>& front_end_instance() { return g_front_end_instance; }
 
 // 0x0054EBE0
 void release_front_end()
@@ -181,8 +181,7 @@ void release_front_end()
         --front_end_refs();
         return;
     }
-    delete front_end_instance();
-    front_end_instance() = nullptr;
+    memory::destroy_then_clear(front_end_instance());
     front_end_refs() = 0;
 }
 
@@ -347,7 +346,7 @@ bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*
 {
     script::Pair times;
     params->fetch_pair(0, &times, true);
-    FrontEnd* front_end = front_end_instance();
+    FrontEnd* front_end = front_end_instance().get();
     const int rate = ftol(static_cast<double>(times.y) * 1000.0);
     const int delay = ftol(static_cast<double>(times.x) * 1000.0);
     front_end->auto_repeat_rate_ = rate;
@@ -360,7 +359,7 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
 {
     script::Array* mappings = nullptr;
     params->fetch_list(0u, &mappings, 1);
-    FrontEnd* front_end = front_end_instance();
+    FrontEnd* front_end = front_end_instance().get();
     for (int i = 0; i < 2; ++i) {
         const uint32_t mapping = mappings->fetch_part(i);
         uint32_t value = 0; // inactive, or anything else
@@ -378,7 +377,7 @@ bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*scrip
 // 0x0054F1B0
 bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*script*/)
 {
-    FrontEnd* front_end = front_end_instance();
+    FrontEnd* front_end = front_end_instance().get();
     front_end->update_button_event_mappings(params);
     if (params->has_bare_flag(kBlockMenuInput))
         front_end->block_menu_input_ = true;
@@ -441,7 +440,7 @@ void FrontEnd::tick_frame(bool game_paused)
     audio::tick_frame();
     // (the sound manager: its voices' states, and its positional sounds; the original calls the first - which
     // takes no manager - as its method)
-    auto* objects = sound::g_audio_mixer;
+    auto* objects = sound::g_audio_mixer.get();
     sound::update_voice_states();
     memory::Hub* memory = memory::Hub::get_pull();
     if (!game_paused) {
@@ -518,7 +517,7 @@ void FrontEnd::get_pause_game(bool pause)
     if (pause == is_halted_)
         return;
     modules::Skate* skate = skate_module();
-    auto* devices = sio::g_manager;
+    auto* devices = sio::g_manager.get();
     if (pause) {
         skate->get_freeze(true);
         devices->pause_devices();
@@ -674,10 +673,10 @@ FrontEnd::FrontEnd()
 FrontEnd* create_front_end(bool create)
 {
     if (!front_end_instance() && create) {
-        front_end_instance() = new FrontEnd;
+        front_end_instance() = std::make_unique<FrontEnd>();
     }
     ++front_end_refs();
-    return front_end_instance();
+    return front_end_instance().get();
 }
 
 } // namespace modules

@@ -75,7 +75,7 @@ lists::KeyMap& terrain_types() { return g_terrain_types; }
 lists::KeyMap g_terrain_actions{lists::KeyMap::Unconstructed{}}; // (KeyMap(8) at start-up)
 lists::KeyMap& get_terrain_actions() { return g_terrain_actions; }
 
-sound::AudioMixer* sound_manager() { return sound::g_audio_mixer; }
+sound::AudioMixer* sound_manager() { return sound::g_audio_mixer.get(); }
 
 // The original's _ftol (0x006236FC): truncated towards zero, the low 32 bits.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }

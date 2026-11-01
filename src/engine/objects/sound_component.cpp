@@ -47,7 +47,7 @@ constexpr float kRetryPerDistance = -0.0016666667070239782f; // 0x00646554
 constexpr uint32_t kRetryDelay = 0x14D;                      // (ms)
 constexpr uint32_t kWaitTime = 2000;                         // (ms)
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 
 // The camera nearest to `position` (0x004A09E0; its distance through `distance`) and a camera's position (0x00485A00).
 void* nearest_camera(const maths::Vec4* position, float* distance)

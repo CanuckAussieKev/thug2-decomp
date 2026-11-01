@@ -1306,7 +1306,7 @@ bool condition_holds(const OrderCode& command)
     case Condition::kNewFrontend:
         return frontend::new_frontend::automation_screen_up(command.target);
     case Condition::kInGame: {
-        auto* front_end = modules::g_front_end_instance;
+        auto* front_end = modules::g_front_end_instance.get();
         return current_load_state() && !in_front_end() && skater_present() && !(front_end && front_end->is_halted_);
     }
     case Condition::kStageMap: {
@@ -1354,7 +1354,7 @@ bool condition_met(Runner& runner)
 // object manager's log_trick_objects as a skater's trick goes - more than THUG2's own mask held crashed there.
 std::string log_tricks(int count, std::string* failed)
 {
-    auto* manager = objects::g_trick_spot_hub;
+    auto* manager = objects::g_trick_spot_hub.get();
     if (!manager) {
         *failed = "no trick object manager";
         return "";
@@ -1667,7 +1667,7 @@ void write_status(Runner& runner)
     status.frames = frame_loop::frames_run();
     status.ready = runner.ready;
     status.main_menu_ = runner.menu_settled_;
-    auto* front_end = modules::g_front_end_instance;
+    auto* front_end = modules::g_front_end_instance.get();
     status.paused = front_end && front_end->is_halted_;
     status.loading = loading_screen_up();
     const uint32_t load = current_load_state();

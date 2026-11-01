@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <new>
 
 #include "engine/core/arena_alloc.h"
@@ -29,7 +30,7 @@ static_assert(offsetof(ScriptStore, entries_) == 0x14 && offsetof(ScriptStore, n
                   offsetof(ScriptStore, oldest_unused_) == 0x1C && offsetof(ScriptStore, delete_unused_) == 0x20,
               "layout must match the original");
 
-gsl::owner<script::ScriptStore*> g_script_store;
+std::unique_ptr<script::ScriptStore> g_script_store;
 namespace {
 uint32_t g_cache_references;
 } // namespace
@@ -37,7 +38,7 @@ memory::PoolPair g_cache_entry_pools;
 
 namespace {
 
-ScriptStore*& the_cache() { return g_script_store; }
+std::unique_ptr<script::ScriptStore>& the_cache() { return g_script_store; }
 uint32_t& cache_references() { return g_cache_references; }
 memory::PoolPair& entry_pools() { return g_cache_entry_pools; }
 
@@ -227,10 +228,10 @@ void ScriptStore::mark_stale(uint32_t name)
 ScriptStore* create_script_cache(bool create)
 {
     if (!the_cache() && create) {
-        the_cache() = new ScriptStore;
+        the_cache() = std::make_unique<ScriptStore>();
     }
     ++cache_references();
-    return the_cache();
+    return the_cache().get();
 }
 
 // 0x00475A00
@@ -240,8 +241,7 @@ void release_script_cache()
         --cache_references();
         return;
     }
-    delete the_cache();
-    the_cache() = nullptr;
+    memory::destroy_then_clear(the_cache());
     cache_references() = 0;
 }
 

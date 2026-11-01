@@ -216,7 +216,7 @@ void for_each_script_call(uint32_t script, uint32_t target, ScriptCallCallback c
 {
     if (depth > kDeepestLevel)
         return;
-    script::ScriptStore* cache = script::g_script_store;
+    script::ScriptStore* cache = script::g_script_store.get();
     const uint8_t* token = cache->fetch_script(script);
     Struct* params = nullptr;
     if (void* memory = script::spawn_param_bag())

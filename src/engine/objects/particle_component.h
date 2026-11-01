@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/objects/entity.h"
 #include <gsl/pointers>
@@ -108,7 +109,7 @@ public:
     uint32_t lifespan_{0};           // +0x2C ms (0: for ever)
 };
 
-extern gsl::owner<render::EffectsDirector*> g_particle_hub;
+extern std::unique_ptr<render::EffectsDirector> g_particle_hub;
 
 } // namespace objects
 

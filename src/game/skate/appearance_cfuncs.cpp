@@ -248,7 +248,7 @@ bool cfunc_refresh_skater_model(script::Struct* params, script::Script*)
     params->fetch_int_value(kSkater, &skater_index, 0);
     auto* skater = core::down_cast<objects::Rider>(get_rider_at(skater_index));
     if (skater->view_slot_ == 0) {
-        auto* objects = static_cast<objects::MiscHub*>(objects::g_composite_registry);
+        auto* objects = static_cast<objects::MiscHub*>(objects::g_composite_registry.get());
         if (objects::Entity* board = objects->look_up_entity(kBailBoard)) {
             board->flag_as_dead();
             objects->flush_dead_objects();

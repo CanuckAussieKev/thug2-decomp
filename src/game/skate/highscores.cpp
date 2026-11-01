@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -20,7 +21,7 @@
 
 namespace highscores {
 
-gsl::owner<highscores::BestResults*> g_game_records;
+memory::HeapUnique<highscores::BestResults> g_game_records;
 namespace {
 uint32_t g_records_references;
 
@@ -41,7 +42,7 @@ constexpr uint32_t kDefaultInitialsName = 0x24EB19A8; // (the default initials, 
 // The type the records' structures are added with (11: not one of Scripts::QbValueKind's named ones).
 constexpr uint32_t kStructureComponent = 11;
 
-BestResults*& sole() { return g_game_records; }
+memory::HeapUnique<highscores::BestResults>& sole() { return g_game_records; }
 uint32_t& ref_tally() { return g_records_references; }
 
 void copy_initials(char* to, const char* from)
@@ -365,10 +366,10 @@ BestResults* BestResults::fabricate(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(BestResults), nullptr, 1);
-        sole() = memory ? memory::construct_in<BestResults>(memory) : nullptr;
+        sole() = memory::HeapUnique<BestResults>(memory ? memory::construct_in<BestResults>(memory) : nullptr);
     }
     ++ref_tally();
-    return sole();
+    return sole().get();
 }
 
 // 0x0057FDB0
@@ -378,7 +379,7 @@ void BestResults::get_release()
         --ref_tally();
         return;
     }
-    if (BestResults* records = sole()) {
+    if (BestResults* records = sole().release()) { // (no destructor: its blocks given back)
         if (StageBests* levels = records->levels_) {
             int* memory = raw::as<int>(levels) - 1;
             for (int i = *memory; i-- > 0;) // (as delete[]: the last first)
@@ -388,7 +389,6 @@ void BestResults::get_release()
         memory::Hub::get_pull()->dealloc(records->default_initials_);
         memory::Hub::get_pull()->dealloc(records);
     }
-    sole() = nullptr;
     ref_tally() = 0;
 }
 
@@ -426,7 +426,7 @@ bool cfunc_update_arcade_scores(script::Struct* params, script::Script*)
 bool cfunc_update_initials(script::Struct*, script::Script*)
 {
     const int level = skate_calls::get_career()->fetch_stage();
-    BestResults* records = sole();
+    BestResults* records = sole().get();
     records->get_level_records(level)->update_initials(records->default_initials_);
     return true;
 }

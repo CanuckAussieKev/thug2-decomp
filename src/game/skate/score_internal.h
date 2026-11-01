@@ -50,7 +50,7 @@ inline int ftol(double value) { return static_cast<int>(static_cast<int64_t>(val
 
 inline goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 inline online::Hub* net_session_slot() { return online::g_online_hub; }
-inline objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
+inline objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
 inline objects::Rider* rider_for_slot(int id)
 {
     return core::down_cast<objects::Rider>(skate_calls::get_rider_by_number(static_cast<uint32_t>(id)));

@@ -111,7 +111,7 @@ objects::Rider* get_rider_at(int index)
 // The object manager (0x006F0FB8).
 objects::ObjectHubBase* object_edit()
 {
-    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
 }
 
 // A viewport's camera (0x004A09C0) and making `camera` a viewport's (0x004A0970).
@@ -262,7 +262,7 @@ namespace {
 // 0x0059F820
 void second_pad_watch_tick(tasks::Task<void>*)
 {
-    sio::Hub* devices = sio::manager_instance();
+    sio::Hub* devices = sio::manager_instance().get();
     const sio::InputPort* first = devices->get_pad_at_slot(0);
     const sio::InputPort* second = devices->get_pad_at_slot(1);
     if (second->is_attached() && first->is_attached())
@@ -313,7 +313,7 @@ bool cfunc_set_custom_skater_filename(script::Struct* params, script::Script*)
 // end's handler) - without a number, on either. False without a button.
 bool cfunc_controller_pressed(script::Struct* params, script::Script*)
 {
-    const modules::FrontEnd* front_end = modules::front_end_instance();
+    const modules::FrontEnd* front_end = modules::front_end_instance().get();
     uint32_t button = 0;
     if (!params->read_hash_value(0u, &button, 0))
         return false;
@@ -331,7 +331,7 @@ bool cfunc_controller_pressed(script::Struct* params, script::Script*)
 // the script's parameters - false (and none) if it isn't plugged in and valid.
 bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
 {
-    const modules::FrontEnd* front_end = modules::front_end_instance();
+    const modules::FrontEnd* front_end = modules::front_end_instance().get();
     int controller = 0;
     params->fetch_int_value(kController, &controller, 0);
     const modules::FrontEndInputHandler* handler = core::at(front_end->pad_listeners_, controller).get();
@@ -541,7 +541,7 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
     params->fetch_float(0x906B67BAu, &time, 0); // "time"
     int release = 0;
     params->fetch_int_value(0x1A4E0EF9u, &release, 0);
-    auto* objects = objects::g_composite_registry;
+    auto* objects = objects::g_composite_registry.get();
     for (objects::ObjectModule* input = objects->find_first_module_of_kind(0x27D7CD28); input;
          input = input->next_of_type_)
         core::down_cast<objects::PadInputModule>(input)->lock_button(button, time, release != 0);
@@ -557,7 +557,7 @@ bool cfunc_debounce(script::Struct* params, script::Script*)
 // 0x005A2050: StartKeyboardHandler 0x69E3A1C4=<device>: typed keys reported for it.
 bool cfunc_start_keyboard_handler(script::Struct* params, script::Script*)
 {
-    modules::FrontEnd* front_end = modules::front_end_instance();
+    modules::FrontEnd* front_end = modules::front_end_instance().get();
     int device = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x69E3A1C4u, &device, true);
     front_end->register_key_listener(device);

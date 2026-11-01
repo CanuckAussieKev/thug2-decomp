@@ -120,7 +120,7 @@ std::vector<void*> g_detached; // (list nodes taken out of their clusters: kept 
 // The Inspector's typed cluster name.
 std::array<char, 64> g_typed;
 
-objects::TrickSpotHub* hub() { return objects::g_trick_spot_hub; }
+objects::TrickSpotHub* hub() { return objects::g_trick_spot_hub.get(); }
 
 script::Struct* node_of(uint32_t sector) { return level_nodes::fetch_vertex(sector, false); }
 

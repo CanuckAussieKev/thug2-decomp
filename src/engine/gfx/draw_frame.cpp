@@ -573,7 +573,7 @@ void draw_viewport(int index)
     draw_texture_splats();
     draw_projection_batches();
     set_render_state(1, 1);
-    static_cast<ImposterManager*>(g_imposter_manager)->render();
+    static_cast<ImposterManager*>(g_imposter_manager.get())->render();
     set_pass(1);
     clear_world_transform();
 
@@ -640,7 +640,7 @@ void draw_viewport(int index)
     set_pass(0x102);
     issue_occlusion_queries();
     set_render_state(1, 0);
-    static_cast<FlexibleParticleManager*>(g_flexible_particle_manager)->render_systems(index > 0);
+    static_cast<FlexibleParticleManager*>(g_flexible_particle_manager.get())->render_systems(index > 0);
     objects::g_particle_hub->draw_particles();
     g_weather->render(); // (through the jump 0x004A10A0)
     set_render_state(1, 1);

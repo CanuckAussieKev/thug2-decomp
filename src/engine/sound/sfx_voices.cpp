@@ -58,7 +58,7 @@ SoundWaveSlot* permanent_waves() { return g_permanent_waves.data(); }
 int& permanent_count() { return g_permanent_count; }
 float& default_dropoff() { return g_default_dropoff; }
 bool quiet_misses() { return game_config::g_from_cd; }
-AudioMixer*& sole() { return g_audio_mixer; }
+memory::HeapUnique<AudioMixer>& sole() { return g_audio_mixer; }
 
 float g_voice_volume{100.0f};
 uint32_t g_sfx_references;
@@ -446,7 +446,7 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     }
     float pitch = 100.0f;
     VolumeRef volume;
-    const AudioMixer* manager = sole();
+    const AudioMixer* manager = sole().get();
     volume.kind_tag_ = manager ? manager->fallback_channel_mode_ : VolumeRef::kTypeStereo;
     volume.change_muted();
     if (extent || distance < dropoff) {
@@ -493,7 +493,7 @@ void create_manager(bool create)
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(8, nullptr, 1);
         if (memory) {
-            sole() = memory::construct_in<AudioMixer>(memory);
+            sole() = memory::HeapUnique<AudioMixer>(memory::construct_in<AudioMixer>(memory));
             ++ref_tally();
             return;
         }
@@ -509,12 +509,11 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (AudioMixer* manager = sole()) {
+    if (AudioMixer* manager = sole().release()) { // (no destructor: swept up, its block given back)
         if (!no_sound())
             manager->sweep_up();
         memory::Hub::get_pull()->dealloc(manager);
     }
-    sole() = nullptr;
     ref_tally() = 0;
 }
 

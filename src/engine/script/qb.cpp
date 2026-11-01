@@ -494,7 +494,7 @@ void log_script_pool_use(const char* when)
 namespace script {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-ScriptStore* script_store_instance() { return g_script_store; }
+ScriptStore* script_store_instance() { return g_script_store.get(); }
 
 void remove_from_script_cache(uint32_t name) { script_store_instance()->mark_stale(name); }
 

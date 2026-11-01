@@ -2,10 +2,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include <gsl/pointers>
 #include <array>
 #include "engine/core/raw_view.h"
+#include "engine/core/mem.h"
 
 // The player profile manager (0x0057B620-0x0057C165): the skater profiles the game knows (the pros and the custom
 // skaters, made by the init_pro_skaters script through add_template), keyed by name in a lookup table, and the
@@ -188,6 +190,6 @@ public:
     std::array<RiderIdentity*, 3> extra_profiles_{}; // +0x34
 };
 
-extern gsl::owner<objects::ProfileRoster*> g_profile_roster;
+extern memory::HeapUnique<objects::ProfileRoster> g_profile_roster;
 
 } // namespace objects

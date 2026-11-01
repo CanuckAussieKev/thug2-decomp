@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -42,7 +43,7 @@ std::array<uint32_t, 126> g_particle_component_member_functions{{
     0x9E100F60, 0xA9DB601E, 0, 0, 0, 0, 0x2F0DA461, 0xA9DB601E, 0, 0, 0, 0, 0xEEFFAE18, 0xA9DB601E, 0, 0, 0, 0,
     0x0FE869E8, 0xA9DB601E, 0, 0, 0, 0, 0x19AA4CD3, 0xA9DB601E, 0, 0, 0, 0, 0x5446AF14, 0xA9DB601E, 0, 0, 0, 0,
     0x55835CF2, 0xA9DB601E, 0, 0, 0, 0, 0x3D05AFE0, 0xA9DB601E, 0, 0, 0, 0, 0,          0xA9DB601E, 0, 0, 0, 0}};
-gsl::owner<render::EffectsDirector*> g_particle_hub;
+std::unique_ptr<render::EffectsDirector> g_particle_hub;
 
 namespace {
 

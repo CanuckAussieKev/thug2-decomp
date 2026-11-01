@@ -7,7 +7,6 @@
 
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage): a library's configuration / the compiler-specific macro
 #define DIRECTINPUT_VERSION 0x0800
-#include <memory>
 #include <windows.h>
 #include <dinput.h>
 
@@ -16,6 +15,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <new>
 
 #include "engine/core/arena_alloc.h"
@@ -273,9 +273,9 @@ void clear_keyboard_chars() { keyboard_char_count() = 0; }
 
 // --- the manager's lifetime --------------------------------------------------------------------------------
 
-gsl::owner<Hub*> g_manager;
+std::unique_ptr<Hub> g_manager;
 
-Hub*& manager_instance() { return g_manager; }
+std::unique_ptr<Hub>& manager_instance() { return g_manager; }
 
 namespace {
 uint32_t& manager_references() { return g_manager_references; }
@@ -859,9 +859,9 @@ void Hub::unpause_devices()
 Hub* create_manager(bool create)
 {
     if (!manager_instance() && create)
-        manager_instance() = new Hub;
+        manager_instance() = std::make_unique<Hub>();
     ++manager_references();
-    return manager_instance();
+    return manager_instance().get();
 }
 
 // 0x005BDCF0
@@ -871,8 +871,7 @@ void release_manager()
         --manager_references();
         return;
     }
-    delete manager_instance();
-    manager_instance() = nullptr;
+    memory::destroy_then_clear(manager_instance());
     manager_references() = 0;
 }
 

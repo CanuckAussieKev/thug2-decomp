@@ -42,7 +42,7 @@
 
 namespace objects {
 
-gsl::owner<objects::TrickSpotHub*> g_trick_spot_hub;
+std::unique_ptr<objects::TrickSpotHub> g_trick_spot_hub;
 namespace {
 uint32_t g_trick_object_manager_references;
 
@@ -88,8 +88,7 @@ void release_trick_object_manager()
         --count;
         return;
     }
-    delete g_trick_spot_hub;
-    g_trick_spot_hub = nullptr;
+    memory::destroy_then_clear(g_trick_spot_hub);
     count = 0;
 }
 
@@ -376,7 +375,7 @@ bool HitClusterLog::append_one(uint32_t object_name)
 uint32_t HitClusterLog::copy_cluster_names(uint32_t* out, uint32_t max_bytes)
 {
     const uint32_t listed = ints::as_unsigned(num_) > kCapacity ? kCapacity : static_cast<uint32_t>(num_);
-    const TrickSpotHub* manager = g_trick_spot_hub;
+    const TrickSpotHub* manager = g_trick_spot_hub.get();
     uint32_t bytes = 0;
     for (uint32_t i = 0; i < listed; ++i) {
         auto* cluster = static_cast<TrickObjectCluster*>(manager->object_clusters_.fetch_entry(core::at(items_, i)));
@@ -570,12 +569,12 @@ void TrickSpotHub::apply_player_graffiti()
 // 0x00589180
 TrickSpotHub* acquire_trick_object_manager(bool create)
 {
-    auto*& instance = g_trick_spot_hub;
+    std::unique_ptr<TrickSpotHub>& instance = g_trick_spot_hub;
     if (!instance && create) {
-        instance = new TrickSpotHub;
+        instance = std::make_unique<TrickSpotHub>();
     }
     ++g_trick_object_manager_references;
-    return instance;
+    return instance.get();
 }
 
 // 0x005891D0

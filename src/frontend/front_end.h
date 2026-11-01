@@ -18,9 +18,9 @@
 // PartyMod's UIControls setting (src/engine/pad_input/sdl_input.*) is read but never used; nothing here reads it
 // either - these mappings come from the scripts only.
 
-#include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/pad_input/input_hub.h"
 #include "engine/sys/game_module.h"
@@ -126,7 +126,7 @@ struct FrontEnd final : public PartUnit {
 };
 
 // The singleton (0x007CE464, references 0x007CE468).
-FrontEnd*& front_end_instance();
+std::unique_ptr<FrontEnd>& front_end_instance();
 // 0x0054FF80: the first call with `create` makes it; every call takes a reference and returns it.
 FrontEnd* create_front_end(bool create);
 // 0x0054EBE0: gives back a reference; the last one destroys it.
@@ -145,5 +145,5 @@ bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Scr
 extern bool g_menus_active;
 extern bool g_pending_script;
 
-extern gsl::owner<modules::FrontEnd*> g_front_end_instance;
+extern std::unique_ptr<modules::FrontEnd> g_front_end_instance;
 } // namespace modules

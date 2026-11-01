@@ -5,6 +5,8 @@
 #include <new>
 #include <utility>
 
+#include <gsl/pointers>
+
 namespace memory {
 
 class Arena;
@@ -39,9 +41,10 @@ struct HeapObject {
 // NOT ORIGINAL - an `Object` constructed in `block` (not null): placement new as a call - `new (block) Object` with
 // no arguments (default-initialised, as that spelling is), `new (block) Object(args...)` with them. The caller's
 // pointer is passed as writable memory (clang-tidy's misc-const-correctness doesn't count a bare placement new as a
-// write through it).
+// write through it). The object is the caller's to end (gsl::owner): `delete` for a HeapObject, else HeapUnique (its
+// destructor and the block's release).
 template <typename Object, typename... Args>
-Object* construct_in(void* block, Args&&... args)
+gsl::owner<Object*> construct_in(void* block, Args&&... args)
 {
     if constexpr (sizeof...(Args) == 0) {
         return new (block) Object;
@@ -51,13 +54,13 @@ Object* construct_in(void* block, Args&&... args)
 }
 // `new (block) Object()`: value-initialised.
 template <typename Object>
-Object* construct_value_in(void* block)
+gsl::owner<Object*> construct_value_in(void* block)
 {
     return new (block) Object();
 }
 // The same with the global placement new (`::new (block) Object`), past a class's own operator new.
 template <typename Object, typename... Args>
-Object* construct_global_in(void* block, Args&&... args)
+gsl::owner<Object*> construct_global_in(void* block, Args&&... args)
 {
     if constexpr (sizeof...(Args) == 0) {
         return ::new (block) Object;

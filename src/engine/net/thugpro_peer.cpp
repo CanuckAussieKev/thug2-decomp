@@ -328,7 +328,7 @@ public:
         // (THUGPRO clears it: it has its own per-level weather settings - ours are THUG2's).
         if (weather == kWeatherDefault)
             return;
-        render::WeatherSystem* object = render::g_weather;
+        render::WeatherSystem* object = render::g_weather.get();
         if (!object)
             return;
         float& rain_rate = object->rain_rate_;

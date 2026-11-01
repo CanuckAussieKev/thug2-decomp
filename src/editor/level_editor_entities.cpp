@@ -590,7 +590,7 @@ void run_remakes()
 
 // --- sounds on emitters ---
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 void* nearest_camera(const maths::Vec4* position, float* distance)
 {
     return render::fetch_nearest_camera(position, distance);

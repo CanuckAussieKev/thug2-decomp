@@ -40,7 +40,7 @@ void register_logic_task(frame_loop::Hub* mlp, tasks::SchedulerTask* task) { mlp
 
 } // namespace
 
-Hub* Hub::sole() { return g_net_core; }
+Hub* Hub::sole() { return g_net_core.get(); }
 
 // 0x00454580
 bool Hub::connect_to_internet()

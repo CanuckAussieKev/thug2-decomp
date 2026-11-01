@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <memory>
 
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
@@ -47,9 +48,9 @@ namespace render {
 namespace {} // namespace
 
 bool g_loading_screen_up; // the loading screen is up: it draws and presents on its own
-gsl::owner<WeatherSystem*> g_weather;
+std::unique_ptr<WeatherSystem> g_weather;
 
-gsl::owner<ScreenEffects*> g_screen_effects;
+std::unique_ptr<ScreenEffects> g_screen_effects;
 uint32_t g_fog_colour;
 uint32_t g_screen_blur_frames;
 uint32_t g_screen_blur;
@@ -165,9 +166,9 @@ void screen_shot(const char* name, int /*unused*/)
 void start_engine()
 {
     init_direct_3d();
-    objects::g_particle_hub = new PcParticleManager;
-    g_weather = new PcWeather;
-    g_screen_effects = new PcScreenEffects;
+    objects::g_particle_hub = std::make_unique<PcParticleManager>();
+    g_weather = std::make_unique<PcWeather>();
+    g_screen_effects = std::make_unique<PcScreenEffects>();
 }
 
 // 0x004B2750

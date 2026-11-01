@@ -62,7 +62,7 @@ constexpr uint32_t kSkaterType = 0xBAF9B341;           // (name unknown) the ska
 modules::Skate* get_skate() { return modules::g_skate_module; }
 objects::GameEntity* get_home_rider() { return get_skate()->get_home_rider(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
-net::Hub* net_session_slot() { return net::g_net_core; }
+net::Hub* net_session_slot() { return net::g_net_core.get(); }
 memory::Hub* mem_manager() { return memory::Hub::get_pull(); }
 // The game mode's player count (0x00553190: its integer 0x6DC3D6F1).
 uint32_t game_mode_players() { return static_cast<uint32_t>(goals::g_game_mode->get_starting_rider_count()); }

@@ -75,7 +75,7 @@ bool set_option(script::Struct* params, Option option, bool on)
     return true;
 }
 
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
+objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 
 constexpr uint32_t kMasterSkaterList = 0xF31E8FF8; // master_skater_list
 constexpr uint32_t kStatNames = 0x61EB6BA9;        // stat_names

@@ -90,7 +90,7 @@ constexpr uint8_t kGroupGame = 8;
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
+objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 int& get_refs() { return g_skate_module_references; }
 float& next_beep() { return g_next_beep; }
 
@@ -216,7 +216,7 @@ void Skate::tidy_before_park_build()
 {
     objects::g_trick_spot_hub->remove_all_clusters();
     render::engine::kill_all_texture_splats();
-    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->destroy_non_persistent();
+    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->destroy_non_persistent();
     rail_manager_->tidy_up();
     objects::nearby_zone_shutdown();
     objects::emitter_cleanup();

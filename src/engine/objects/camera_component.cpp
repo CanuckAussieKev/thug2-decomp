@@ -41,7 +41,7 @@ ViewpointModule::~ViewpointModule() { view_camera_.reset(); }
 // 0x0041B7F0
 void ViewpointModule::configure_from_data(script::Struct*)
 {
-    auto* manager = static_cast<ObjectHubBase*>(object_hub_slot());
+    auto* manager = static_cast<ObjectHubBase*>(object_hub_slot().get());
     manager->set_entity_rank(entity_, kCameraPriority);
 }
 

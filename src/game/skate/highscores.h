@@ -2,8 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include <gsl/pointers>
+#include "engine/core/mem.h"
 
 // The records (0x0057ECD0-0x0057FE27): each level's high scores, best combos and (some levels) arcade scores - tables
 // of records kept sorted, best first - and its longest combo, grind, lip trick and manual; the game's records are
@@ -126,6 +128,6 @@ bool cfunc_update_initials(script::Struct* params, script::Script* script);
 // 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
 bool cfunc_new_record(script::Struct* params, script::Script* script);
 
-extern gsl::owner<highscores::BestResults*> g_game_records;
+extern memory::HeapUnique<highscores::BestResults> g_game_records;
 
 } // namespace highscores

@@ -4,6 +4,7 @@
 #include "engine/script/world_cfuncs.h"
 
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/mem.h"
 #include "engine/net/gamenet_manager.h"
@@ -24,7 +25,7 @@
 
 namespace commands {
 
-gsl::owner<modules::Hub*> g_module_manager;
+memory::HeapUnique<modules::Hub> g_module_manager;
 namespace {
 bool g_viewer_launched;
 
@@ -48,8 +49,8 @@ void unpause_skater(objects::GameEntity* skater) { core::down_cast<objects::Ride
 bool& viewer_launched() { return g_viewer_launched; }
 
 // The weather (0x006FA7C8) and the screen effects (0x006FA7CC).
-render::WeatherSystem* get_weather() { return render::g_weather; }
-render::ScreenEffects* screen_effects() { return render::g_screen_effects; }
+render::WeatherSystem* get_weather() { return render::g_weather.get(); }
+render::ScreenEffects* screen_effects() { return render::g_screen_effects.get(); }
 } // namespace
 
 // 0x005A5360
@@ -105,7 +106,7 @@ bool cfunc_launch_viewer(Struct*, Script*)
 {
     if (viewer_launched())
         return true;
-    modules::Hub* modules = g_module_manager;
+    modules::Hub* modules = g_module_manager.get();
     auto* viewer = new modules::Viewer;
     modules->enrol_unit(viewer);
     modules->launch_module(viewer);

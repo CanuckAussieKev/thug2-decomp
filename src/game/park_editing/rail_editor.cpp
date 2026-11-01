@@ -389,7 +389,7 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
 // 0x004F4970
 RailAuthoring* RailAuthoring::sole()
 {
-    auto* object = core::down_cast<objects::GameEntity>(static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
+    auto* object = core::down_cast<objects::GameEntity>(static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())->look_up_entity(kType));
     return core::down_cast<RailAuthoring>(object->fetch_module(kType));
 }
 

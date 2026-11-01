@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -21,7 +22,7 @@
 
 namespace net {
 
-gsl::owner<Hub*> g_net_core;
+memory::HeapUnique<Hub> g_net_core;
 
 namespace {
 
@@ -34,7 +35,7 @@ constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
 // The classes' sizes (Server and Client here are views: their fields past App's aren't named yet).
 
-Hub*& sole() { return g_net_core; }
+memory::HeapUnique<Hub>& sole() { return g_net_core; }
 
 uint32_t g_net_manager_references;
 
@@ -165,14 +166,14 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = memory::construct_in<Hub>(memory);
+            sole() = memory::HeapUnique<Hub>(memory::construct_in<Hub>(memory));
             ++ref_tally();
-            return sole();
+            return sole().get();
         }
         sole() = nullptr;
     }
     ++ref_tally();
-    return sole();
+    return sole().get();
 }
 
 // 0x004558D0
@@ -182,11 +183,7 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (Hub* manager = sole()) {
-        manager->~Hub();
-        memory::Hub::get_pull()->dealloc(manager);
-    }
-    sole() = nullptr;
+    memory::destroy_then_clear(sole()); // (its destructor, then its block given back)
     ref_tally() = 0;
 }
 

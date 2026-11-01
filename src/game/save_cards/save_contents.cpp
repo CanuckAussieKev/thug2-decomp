@@ -72,8 +72,8 @@ constexpr uint32_t kGoalEditor = 0x81F01058;             // "GoalEditor": the ob
 constexpr int kControllers = 8;
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
-objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
-highscores::BestResults* game_records() { return highscores::g_game_records; }
+objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
+highscores::BestResults* game_records() { return highscores::g_game_records.get(); }
 online::Hub* online_hub_handle() { return online::g_online_hub; }
 objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 int os_layer() { return game_config::g_platform; }
@@ -178,7 +178,7 @@ void read_save_header(Struct* global, Script* script)
 
     Struct* sound = nullptr;
     options->read_sub_struct(kSoundOptions, &sound, 0);
-    auto* sfx = sound::g_audio_mixer;
+    auto* sfx = sound::g_audio_mixer.get();
     float main_volume = 0.0f;
     if (sound->fetch_float(kMasterGainKey, &main_volume, 0))
         sfx->change_master_loudness(main_volume);

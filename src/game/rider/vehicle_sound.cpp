@@ -55,7 +55,7 @@ T& prop(const void* object, uint32_t offset)
     return *raw::as<T>(cell::address(object) + offset);
 }
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 
 // The game clock (ms) with its offset, as the original reads them: the clock, then the offset.
 int get_clock() { return frame_clock::game_clock_elapsed(); }

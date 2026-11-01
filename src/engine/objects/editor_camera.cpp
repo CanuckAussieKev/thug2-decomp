@@ -108,7 +108,7 @@ bool script_flagged(uint32_t name)
         if (name == skip_name)
             return true;
     }
-    script::ScriptStore* cache = script::g_script_store;
+    script::ScriptStore* cache = script::g_script_store.get();
     const uint8_t* token = cache->fetch_script(name);
     if (!token)
         return false;

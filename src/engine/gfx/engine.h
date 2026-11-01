@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
+#include "engine/core/mem.h"
 #include <gsl/pointers>
 
 // The engine's own entry points (render::CEngine's statics, cdecl) at 0x0048BF20-0x0048C74F: starting it, a frame's
@@ -15,6 +17,8 @@ class Vec4;
 namespace render {
 
 struct WorldScene;
+struct FlexibleParticleManager;
+struct ImposterManager;
 
 // (A loaded scene's node in the engine's list - lists::Elem<WorldScene>, data = the scene; the list's head is at
 // 0x006FA7E0, its data -1 - is a memory::ListNode: its destructors 0x0048C4B0 / 0x0048C4D0 are uncouple / destroy.)
@@ -78,8 +82,8 @@ WorldScene* find_scene(uint32_t checksum);
 
 extern bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
 
-extern gsl::owner<void*> g_flexible_particle_manager;
-extern gsl::owner<void*> g_imposter_manager;
+extern std::unique_ptr<FlexibleParticleManager> g_flexible_particle_manager;
+extern memory::HeapUnique<ImposterManager> g_imposter_manager;
 extern int g_render_mode;
 extern memory::ListNode g_scene_list;
 } // namespace render

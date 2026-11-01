@@ -500,7 +500,7 @@ void ModelWidget::tick_frame()
     bool on_layout = false;
     maths::Vec4 place = {};
     if (anchor_object_) {
-        auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+        auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
         objects::Entity* parent = manager->look_up_entity(anchor_object_);
         if (parent) {
             basis_frame_.reset_to_identity();

@@ -141,7 +141,7 @@ void ObjectiveAuthoring::seal()
 // 0x004E8470
 ObjectiveAuthoring* ObjectiveAuthoring::get_pull()
 {
-    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
     auto* object = core::down_cast<objects::GameEntity>(manager->look_up_entity(kGoalEditor));
     return core::down_cast<ObjectiveAuthoring>(object->fetch_module(kGoalEditor));
 }

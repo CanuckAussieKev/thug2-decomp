@@ -1227,7 +1227,7 @@ void get_remake(uint32_t name)
 // wanted (or of another cluster now) taken out of its name map (the manager's object_clusters_).
 void register_trick_objects()
 {
-    objects::TrickSpotHub* manager = objects::g_trick_spot_hub;
+    objects::TrickSpotHub* manager = objects::g_trick_spot_hub.get();
     if (!manager)
         return;
     std::map<uint32_t, uint32_t> want;

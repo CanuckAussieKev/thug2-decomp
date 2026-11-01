@@ -16,7 +16,7 @@ namespace modules {
 
 namespace {
 
-Hub*& sole() { return commands::g_module_manager; }
+memory::HeapUnique<modules::Hub>& sole() { return commands::g_module_manager; }
 
 unsigned int g_module_references;
 
@@ -139,14 +139,14 @@ Hub* create_manager(bool create)
 {
     if (!sole() && create) {
         if (void* memory = memory::alloc_zeroed(sizeof(Hub), nullptr, 1)) {
-            sole() = memory::construct_in<Hub>(memory);
+            sole() = memory::HeapUnique<Hub>(memory::construct_in<Hub>(memory));
             ++ref_tally();
-            return sole();
+            return sole().get();
         }
         sole() = nullptr;
     }
     ++ref_tally();
-    return sole();
+    return sole().get();
 }
 
 // 0x0044F740
@@ -156,11 +156,7 @@ void release_manager()
         --ref_tally();
         return;
     }
-    if (Hub* manager = sole()) {
-        manager->~Hub();
-        free_memory(manager);
-    }
-    sole() = nullptr;
+    memory::destroy_then_clear(sole()); // (its destructor, then its block given back)
     ref_tally() = 0;
 }
 

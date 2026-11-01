@@ -297,7 +297,7 @@ void Hub::set_service_state(int state)
 // 0x005451E0
 void Hub::update_hosting_status()
 {
-    net::Hub* net = net::g_net_core;
+    net::Hub* net = net::g_net_core.get();
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
     lobby_service_->start_hosting();
     if (presence_service_->authenticated_) { // (0x005480B0: logged in to presence)

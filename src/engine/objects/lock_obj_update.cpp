@@ -92,7 +92,7 @@ PinnedObjectModule::~PinnedObjectModule() = default;
 // 0x0041F760
 void PinnedObjectModule::update_lock()
 {
-    EntityHub* manager = object_hub_slot();
+    EntityHub* manager = object_hub_slot().get();
     auto* target = core::down_cast<GameEntity>(manager->look_up_entity(target_id_));
     if (!target) {
         target = core::down_cast<GameEntity>(object_hub_slot()->look_up_entity(entity_label_));

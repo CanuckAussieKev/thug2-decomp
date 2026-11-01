@@ -269,7 +269,7 @@ bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
 // 0x005B31C0: GetInitialsString: string, the records' default initials. Always true.
 bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 {
-    auto* records = highscores::g_game_records;
+    auto* records = highscores::g_game_records.get();
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
     script->args_->append_word(kString, script::kQbvalString, records->default_initials_);
     return true;
@@ -278,7 +278,7 @@ bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 // 0x005B31F0: SetInitialsString [string="ABC" ("ERR")]: the records' default initials. Always true.
 bool cfunc_set_initials_string(script::Struct* params, script::Script*)
 {
-    auto* records = highscores::g_game_records;
+    auto* records = highscores::g_game_records.get();
     const char* initials = "ERR"; // "ERR"
     params->fetch_text(kString, &initials, 0);
     records->set_stock_initials(initials);

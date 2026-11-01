@@ -322,7 +322,7 @@ void CameraAnimMovie::place_camera()
     if (aim_point_ != kFixedTarget) {
         // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
         auto* object = core::down_cast<GameEntity>(
-            static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(aim_point_));
+            static_cast<ObjectHubBase*>(g_composite_registry.get())->look_up_entity(aim_point_));
         if (!object)
             return;
         std::array<float, 4> target = {{object->at_point_.x, object->at_point_.y, object->at_point_.z, 1.0f}};

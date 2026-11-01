@@ -268,7 +268,7 @@ void RiderChaseView::configure_from_data(script::Struct* params)
     std::memcpy(orientation_.data(), &matrix, sizeof(orientation_));
     uint32_t id = 0;
     params->read_hash_value(kSkaterId, &id, 1);
-    bind_rider(core::down_cast<GameEntity>(static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id)));
+    bind_rider(core::down_cast<GameEntity>(static_cast<ObjectHubBase*>(g_composite_registry.get())->look_up_entity(id)));
 }
 
 // 0x004FA680

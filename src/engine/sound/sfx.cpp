@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/checksums.h"
 #include "engine/core/dbg.h"
@@ -29,7 +30,7 @@ float g_volume_scale{100.0f};
 std::array<SoundWaveSlot, 256> g_permanent_waves;
 std::array<SoundWaveSlot, 256> g_level_waves;
 std::array<PlayingSound, 48> g_playing_sounds;
-gsl::owner<AudioMixer*> g_audio_mixer;
+memory::HeapUnique<AudioMixer> g_audio_mixer;
 PositionalSound* g_positional_head;
 int g_permanent_count;
 int g_level_count;
@@ -96,7 +97,7 @@ int falloff_from_checksum(uint32_t checksum)
 // 0x0047B030
 VolumeRef::VolumeRef()
 {
-    const AudioMixer* manager = g_audio_mixer;
+    const AudioMixer* manager = g_audio_mixer.get();
     kind_tag_ = manager ? manager->fallback_channel_mode_ : kTypeStereo;
     change_muted();
 }

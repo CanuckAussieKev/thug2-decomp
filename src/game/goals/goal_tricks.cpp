@@ -317,7 +317,7 @@ void Objective::remove_reward_trick()
 // 0x00555D40
 void Objective::tint_tagged_props(int player, bool clear)
 {
-    objects::TrickSpotHub* objects = objects::g_trick_spot_hub;
+    objects::TrickSpotHub* objects = objects::g_trick_spot_hub.get();
     script::Array* clusters = nullptr;
     if (!args_->fetch_list(kKillClusters, &clusters, 0))
         return;

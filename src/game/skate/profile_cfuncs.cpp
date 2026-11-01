@@ -32,7 +32,7 @@ using script::Struct;
 constexpr int kSwapSlots = 5;
 SwapSlot* swap_table() { return g_swap_table.data(); }
 
-objects::ProfileRoster* get_profiles() { return objects::g_profile_roster; }
+objects::ProfileRoster* get_profiles() { return objects::g_profile_roster.get(); }
 objects::RiderStoryProgress* get_career() { return modules::Skate::sole()->career_.get(); }
 Struct* result_params(Script* script) { return script->args_; }
 

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include <gsl/pointers>
 #include <array>
@@ -225,6 +226,6 @@ void find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search)
 void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search);
 void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer);
 
-extern gsl::owner<objects::TrickSpotHub*> g_trick_spot_hub; // (made / deleted by the module's start-up / shutdown)
+extern std::unique_ptr<objects::TrickSpotHub> g_trick_spot_hub; // (made / deleted by the module's start-up / shutdown)
 
 } // namespace objects

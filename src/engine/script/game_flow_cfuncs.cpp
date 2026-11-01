@@ -99,7 +99,7 @@ objects::Rider* get_rider_at(int index) { return core::down_cast<objects::Rider>
 objects::Rider* get_home_rider() { return skate_module()->get_home_rider(); }
 
 // The object manager (0x006F0FB8).
-objects::EntityHub* object_edit() { return objects::g_composite_registry; }
+objects::EntityHub* object_edit() { return objects::g_composite_registry.get(); }
 // The game mode (0x007CE470) and two of its values (0x00553170 / 0x00553190: its integers 0x8D38A280 / 0x6DC3D6F1).
 void* get_game_mode() { return static_cast<void*>(goals::g_game_mode); }
 goals::MatchRules* game_mode_object() { return static_cast<goals::MatchRules*>(get_game_mode()); }

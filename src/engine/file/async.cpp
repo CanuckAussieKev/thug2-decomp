@@ -1,11 +1,11 @@
 #include "engine/file/async.h"
 
-#include <memory>
 #include <windows.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <memory>
 #include <new>
 
 #include "engine/core/dbg.h"
@@ -39,7 +39,7 @@ int g_handles_in_use;
 int g_pending_reads;
 bool g_io_completed;
 int g_current_list;
-gsl::owner<AsyncLoaderModule*> g_loader_module;
+std::unique_ptr<AsyncLoaderModule> g_loader_module;
 uint32_t g_loader_module_refs;
 bool g_use_overlapped_io;
 
@@ -606,7 +606,7 @@ namespace file {
 
 namespace {
 
-AsyncLoaderModule*& loader_module() { return g_loader_module; }
+std::unique_ptr<AsyncLoaderModule>& loader_module() { return g_loader_module; }
 uint32_t& loader_module_refs() { return g_loader_module_refs; }
 
 void register_logic_task(tasks::SchedulerTask* task)
@@ -640,10 +640,10 @@ void async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
 AsyncLoaderModule* create_async_loader_module(bool create)
 {
     if (!loader_module() && create) {
-        loader_module() = new AsyncLoaderModule;
+        loader_module() = std::make_unique<AsyncLoaderModule>();
     }
     ++loader_module_refs();
-    return loader_module();
+    return loader_module().get();
 }
 
 // 0x005B6620
@@ -653,8 +653,7 @@ void destroy_async_loader_module()
         --loader_module_refs();
         return;
     }
-    delete loader_module();
-    loader_module() = nullptr;
+    memory::destroy_then_clear(loader_module());
     loader_module_refs() = 0;
 }
 

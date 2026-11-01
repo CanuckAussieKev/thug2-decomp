@@ -42,7 +42,7 @@ constexpr uint32_t kValue = 0xE288A7CB;                // "value"
 constexpr float kTwelveInchScale = 12.0f; // (0x0064546C)
 
 // The sound effects manager (0x006F85A8).
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 
 // A stereo volume of the manager's default type: left and right.
 void set_stereo(sound::VolumeRef& volume, float left, float right)

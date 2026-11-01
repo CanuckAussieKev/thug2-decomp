@@ -77,7 +77,7 @@ constexpr uint8_t kMsgGoalStarted = 0x6F; // to the server: a goal (the first of
 
 MatchRules* get_game_mode() { return g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
+objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 
 uint32_t get_goal_name(script::Struct* params)
 {

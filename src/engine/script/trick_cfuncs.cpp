@@ -90,7 +90,7 @@ constexpr uint32_t kTrickName = 0xEF6FB249;           // "trick_name"
 constexpr uint32_t kKeyCombo = 0xACFDB27A;            // "key_combo"
 
 modules::Skate* get_skate() { return modules::Skate::sole(); }
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
+objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 pad_input::Hub* input_manager() { return pad_input::g_input_manager; }
 
 // The skate module's local skater (0x00566520, no source yet; null if there's none).
@@ -145,7 +145,7 @@ uint32_t trick_type_of(Struct* trick, uint32_t* type)
 // 0x005B0A40: FlushDeadObjects: the object manager's dead objects deleted now. Always true.
 bool cfunc_flush_dead_objects(script::Struct*, script::Script*)
 {
-    static_cast<objects::MiscHub*>(objects::g_composite_registry)->flush_dead_objects();
+    static_cast<objects::MiscHub*>(objects::g_composite_registry.get())->flush_dead_objects();
     return true;
 }
 
@@ -537,7 +537,7 @@ bool cfunc_bind_front_end_to_controller(script::Struct* params, script::Script*)
     params->fetch_int_value(kFrontEndPad, &pad, 1);
     // "attempting to bind front end %i to controller %i\n"
     debug::printf("attempting to bind front end %i to controller %i\n", pad, controller);
-    modules::FrontEnd* front_end = modules::front_end_instance();
+    modules::FrontEnd* front_end = modules::front_end_instance().get();
     int* map = front_end->device_server_map_.data();
     const int old = map[pad];
     if (map[0] == controller)

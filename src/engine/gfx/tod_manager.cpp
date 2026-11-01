@@ -210,7 +210,7 @@ void set_sun(const SunParams* sun, int mask)
 void set_level_color(const float* color)
 {
     objects::g_particle_hub->change_colour(color);
-    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->set_colour_scale(color);
+    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->set_colour_scale(color);
     render::engine::set_level_color(color);
 }
 void set_bloom_structure(script::Struct* params) { render::g_screen_effects->set_bloom_params(params, 0); }

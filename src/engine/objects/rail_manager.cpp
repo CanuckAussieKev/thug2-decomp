@@ -868,7 +868,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
             node->read_hash_value(kName, &node_name, 1);
             uint32_t cluster = node_name;
             node->read_hash_value(kCluster, &cluster, 1);
-            auto* trick_objects = g_trick_spot_hub;
+            auto* trick_objects = g_trick_spot_hub.get();
             trick_objects->add_cluster(cluster);
             trick_objects->add_object_to_cluster(node_name, cluster);
         }

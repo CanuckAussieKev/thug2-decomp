@@ -103,7 +103,7 @@ int channel_status(int channel) { return stream_status(channel); }
 uint32_t num_user_tracks(int soundtrack) { return static_cast<uint32_t>(user_soundtrack_tracks(soundtrack)); }
 
 constexpr uint32_t kHundredPercent = 0x42C80000; // 100.0f
-sound::AudioMixer* sound_manager() { return sound::g_audio_mixer; }
+sound::AudioMixer* sound_manager() { return sound::g_audio_mixer.get(); }
 
 } // namespace
 

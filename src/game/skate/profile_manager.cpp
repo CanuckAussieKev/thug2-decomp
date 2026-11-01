@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/dbg.h"
 #include "engine/core/manager.h"
@@ -21,7 +22,7 @@
 
 namespace objects {
 
-gsl::owner<objects::ProfileRoster*> g_profile_roster;
+memory::HeapUnique<objects::ProfileRoster> g_profile_roster;
 namespace {
 uint32_t g_profile_manager_references;
 
@@ -53,7 +54,7 @@ constexpr auto kStats = std::to_array<uint32_t>({
 
 memory::Arena* profile_heap() { return memory::Hub::get_pull()->skater_info_heap_; }
 
-ProfileRoster*& sole() { return g_profile_roster; }
+memory::HeapUnique<objects::ProfileRoster>& sole() { return g_profile_roster; }
 uint32_t& ref_tally() { return g_profile_manager_references; }
 
 // A new profile (constructed: its defaults).
@@ -353,10 +354,10 @@ ProfileRoster* ProfileRoster::fabricate(bool create)
 {
     if (!sole() && create) {
         void* memory = memory::alloc_zeroed(sizeof(ProfileRoster), nullptr, 1);
-        sole() = memory ? memory::construct_in<ProfileRoster>(memory) : nullptr;
+        sole() = memory::HeapUnique<ProfileRoster>(memory ? memory::construct_in<ProfileRoster>(memory) : nullptr);
     }
     ++ref_tally();
-    return sole();
+    return sole().get();
 }
 
 // 0x0057C120
@@ -366,11 +367,7 @@ void ProfileRoster::get_release()
         --ref_tally();
         return;
     }
-    if (ProfileRoster* manager = sole()) {
-        manager->~ProfileRoster();
-        memory::Hub::get_pull()->dealloc(manager);
-    }
-    sole() = nullptr;
+    memory::destroy_then_clear(sole()); // (its destructor, then its block given back)
     ref_tally() = 0;
 }
 

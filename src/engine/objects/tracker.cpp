@@ -70,7 +70,7 @@ void forward_trigger(Entity* object, Signal* event) { object->pass_event_to_scri
 // The object with this id (the object manager 0x006F0FB8's look_up_entity).
 Entity* find_object_by_id(uint32_t id)
 {
-    return static_cast<ObjectHubBase*>(g_composite_registry)->look_up_entity(id);
+    return static_cast<ObjectHubBase*>(g_composite_registry.get())->look_up_entity(id);
 }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.

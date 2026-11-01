@@ -455,7 +455,7 @@ Entity* Rider::get_skater_camera()
 // 0x005808A0
 void Rider::set_pause_state(int state)
 {
-    void* front_end = raw::as<void>(modules::g_front_end_instance);
+    void* front_end = modules::g_front_end_instance.get();
     if (pause_state_ == state || !fetch_module(kSkaterPhysicsControl))
         return;
     pause_state_ = state;

@@ -3,8 +3,8 @@
 #include "engine/objects/compositemgr.h"
 #include "engine/objects/pager_message.h"
 
-#include <memory>
 #include <cstdint>
+#include <memory>
 #include <new>
 
 #include "engine/core/arena_alloc.h"
@@ -57,12 +57,12 @@ int g_coim_integer1{2};
 int g_coim_a;
 int g_coim_b;
 int g_coim_c;
-gsl::owner<memory::Zone*> g_coim_region;
+std::unique_ptr<memory::Zone> g_coim_region;
 memory::Arena* g_coim_heap;
 // (one list per registered type: up to kMaxComponentTypes, the manager pointer follows at 0x006F0FB8)
 std::array<ObjectModule*, objects::EntityHub::kMaxComponentTypes> g_component_list;
 } // namespace
-gsl::owner<objects::EntityHub*> g_composite_registry;
+std::unique_ptr<objects::EntityHub> g_composite_registry;
 namespace {
 uint32_t g_composite_mgr_references;
 
@@ -137,7 +137,7 @@ void walk_objects(ObjectHubBase* manager, Visit visit)
 
 } // namespace
 
-EntityHub*& object_hub_slot() { return g_composite_registry; }
+std::unique_ptr<objects::EntityHub>& object_hub_slot() { return g_composite_registry; }
 
 // 0x0045F6E0
 EntityHub::EntityHub()
@@ -269,10 +269,10 @@ void composite_object_manager_task(tasks::Task<EntityHub>* task) { task->content
 EntityHub* create_composite_object_manager(bool create)
 {
     if (!object_hub_slot() && create) {
-        object_hub_slot() = new EntityHub; // (zeroed, from the current heap: the component count starts at 0)
+        object_hub_slot() = std::make_unique<EntityHub>(); // (zeroed, from the current heap: the component count starts at 0)
     }
     ++ref_tally();
-    return object_hub_slot();
+    return object_hub_slot().get();
 }
 
 // 0x0045F1E0
@@ -283,7 +283,8 @@ void release_composite_object_manager()
         --references;
         return;
     }
-    object_hub_slot() = nullptr; // (not deleted)
+    // (not deleted: left as it is, the original's leak)
+    [[maybe_unused]] const EntityHub* const left = object_hub_slot().release();
     references = 0;
 }
 
@@ -316,7 +317,7 @@ void erase_instances(MaterializeNode** result, MaterializeNode* first, Materiali
                     raw::as<PointerListNode>(last));
 }
 
-memory::Zone*& coim_region() { return g_coim_region; }
+std::unique_ptr<memory::Zone>& coim_region() { return g_coim_region; }
 memory::Arena*& coim_heap() { return g_coim_heap; }
 int& coim_a() { return g_coim_a; }
 int& coim_b() { return g_coim_b; }
@@ -355,7 +356,7 @@ void destroy_coim_heap()
     }
     if (coim_heap()) {
         memory::Hub::get_pull()->delete_heap(coim_heap());
-        delete coim_region();
+        memory::destroy_then_clear(coim_region());
         coim_heap() = nullptr;
         coim_region() = nullptr;
     }
@@ -366,8 +367,8 @@ bool create_coim_heap(uint32_t size)
 {
     destroy_coim_heap();
     if (size) {
-        coim_region() = new memory::MemoryArena(size);
-        coim_heap() = memory::Hub::get_pull()->add_heap(coim_region(), 1, "COIMHeap");
+        coim_region() = std::make_unique<memory::MemoryArena>(size);
+        coim_heap() = memory::Hub::get_pull()->add_heap(coim_region().get(), 1, "COIMHeap");
         coim_heap()->unknown64_ = true;
         coim_heap()->unknown68_ = coim_b() - g_composite_mgr_block_header_size; // (16: a block header)
         script::fetch_int_value(0xBA2C7CCB);                                    // (the result isn't used)

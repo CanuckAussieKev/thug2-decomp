@@ -127,7 +127,7 @@ online::Hub* net_link() { return online::g_online_hub; }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 objects::ObjectHubBase* entity_hub_handle()
 {
-    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
 }
 
 PlayerRecord* by_connection(net::Conn* conn) { return net_link()->find_player_by_sender(conn); }

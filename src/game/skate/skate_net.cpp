@@ -143,7 +143,7 @@ online::Hub* net_session_slot() { return online::g_online_hub; }
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 objects::ObjectHubBase* entity_hub_handle()
 {
-    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    return static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
 }
 uint8_t* objective_board() { return raw::bytes(goals::get_objective_board()); }
 
@@ -496,7 +496,7 @@ int SkateNet::handle_graffiti_colors(net::InboundMsgCtx* context)
     if (!skate_net::read_graffiti_colors(reader, &message)) // NOT ORIGINAL: too short - dropped
         return 4;
     const uint8_t* counts = message.counts.data();
-    objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub;
+    objects::TrickSpotHub* trick_objects = objects::g_trick_spot_hub.get();
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->script_heap_);
     Struct* params = spawn_param_table();

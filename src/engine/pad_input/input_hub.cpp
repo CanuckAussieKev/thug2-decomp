@@ -216,7 +216,7 @@ void HostEnd::poll_input_sinks()
 Hub::Hub()
 {
     // (the servers made first by their constructors)
-    sio::Hub* devices = sio::g_manager;
+    sio::Hub* devices = sio::g_manager.get();
     task_ = std::make_unique<tasks::Task<Hub>>(&Hub::service_task, this, 2000);
     for (int i = 0; i < kNumServers; ++i)
         core::at(hosts_, i).dev_ = devices->get_pad_at_slot(i);

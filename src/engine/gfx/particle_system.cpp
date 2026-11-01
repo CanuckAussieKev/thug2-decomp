@@ -37,7 +37,7 @@ namespace {
 constexpr float kNearlyUp = 0.99f;        // 0x00645450
 constexpr float kFramesPerSecond = 60.0f; // 0x00645EA0
 
-void* particle_hub_handle() { return g_flexible_particle_manager; }
+void* particle_hub_handle() { return g_flexible_particle_manager.get(); }
 int viewport_count() { return modules::g_viewport_count; }
 gfx::ViewCam* viewport_camera(int viewport) { return fetch_live_camera(viewport); }
 // _ftol: truncated to a 64-bit integer, its low half.

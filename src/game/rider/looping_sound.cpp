@@ -55,7 +55,7 @@ T& prop(void* object, uint32_t offset)
     return *raw::field_at<T>(static_cast<uint8_t*>(object), offset);
 }
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 
 // The terrain sounds: a table by name, the terrain's entry in it copied into `entry` (false if it has none), the
 // entry's volume for a percentage.

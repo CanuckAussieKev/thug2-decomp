@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <memory>
 
 #include "engine/core/checksums.h"
 #include "engine/core/manager.h"
@@ -45,8 +46,8 @@ namespace render {
 
 bool g_suppress_draw; // rendering skipped (frames not drawn or shown)
 
-gsl::owner<void*> g_flexible_particle_manager;
-gsl::owner<void*> g_imposter_manager;
+std::unique_ptr<FlexibleParticleManager> g_flexible_particle_manager;
+memory::HeapUnique<ImposterManager> g_imposter_manager;
 int g_render_mode;
 // The scenes' list (its head: data -1 once made; its first node, the head's next, is at +0xC, the last at +0x10).
 memory::ListNode g_scene_list;
@@ -81,10 +82,10 @@ engine::IdleFunction g_idle_function;
 // The engine's managers: the flexible particle manager (0x006FA7C0), the imposter manager (0x006FA7BC, 8 bytes:
 // constructor 0x0048E3E0, its frame 0x0048E2D0 - not rewritten yet), the particle manager and the weather (made by
 // start_engine).
-void*& flexible_particle_manager() { return g_flexible_particle_manager; }
-void*& imposter_manager() { return g_imposter_manager; }
-EffectsDirector* particle_hub_handle() { return objects::g_particle_hub; }
-WeatherSystem* get_weather() { return g_weather; }
+std::unique_ptr<FlexibleParticleManager>& flexible_particle_manager() { return g_flexible_particle_manager; }
+memory::HeapUnique<ImposterManager>& imposter_manager() { return g_imposter_manager; }
+EffectsDirector* particle_hub_handle() { return objects::g_particle_hub.get(); }
+WeatherSystem* get_weather() { return g_weather.get(); }
 bool omit_from_draw() { return g_suppress_draw; }
 int viewport_count() { return modules::g_viewport_count; }
 
@@ -115,11 +116,11 @@ void prepare_all(uint32_t text_pool_size)
     set_screen_mode(0);
     memory::pop_mem_profile();
     memory::push_mem_profile("CFlexibleParticleManager");
-    flexible_particle_manager() = new FlexibleParticleManager;
+    flexible_particle_manager() = std::make_unique<FlexibleParticleManager>();
     memory::pop_mem_profile();
     memory::push_mem_profile("CImposterManager");
     void* memory = memory::alloc(8);
-    imposter_manager() = memory ? memory::construct_in<ImposterManager>(memory) : nullptr;
+    imposter_manager() = memory::HeapUnique<ImposterManager>(memory ? memory::construct_in<ImposterManager>(memory) : nullptr);
     memory::pop_mem_profile();
     memory::push_mem_profile("MiscFXInitialize");
     init_effects();
@@ -144,7 +145,7 @@ void render_frame()
     particle_hub_handle()->tick_particles();
     // the weather's frame (through the folded jump 0x004E3F90), by the slow-motion frame time
     get_weather()->tick_frame(static_cast<float>(frame_clock::get_slomo_frame_seconds()));
-    static_cast<ImposterManager*>(imposter_manager())->tick_frame();
+    static_cast<ImposterManager*>(imposter_manager().get())->tick_frame();
     update_after_imposters();
     if (!omit_from_draw())
         draw_world();

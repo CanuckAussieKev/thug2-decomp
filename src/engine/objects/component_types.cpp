@@ -226,7 +226,7 @@ constexpr auto kComponentTypes = std::to_array<ComponentType>({
 // 0x004E4860
 void register_component_types()
 {
-    EntityHub* manager = object_hub_slot();
+    EntityHub* manager = object_hub_slot().get();
     for (const ComponentType& t : kComponentTypes) {
         manager->enrol_module(t.type, t.create,
                               t.register_functions_);

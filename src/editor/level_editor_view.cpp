@@ -753,7 +753,7 @@ int get_isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t
         },
         &sector_walk);
     ObjectWalk object_walk;
-    if (objects::EntityHub* manager = objects::object_hub_slot())
+    if (objects::EntityHub* manager = objects::object_hub_slot().get())
         manager->for_each(collect_object, &object_walk);
     return conceal(isolate_others(sector_walk.ids, sectors), isolate_others(object_walk.ids, objects));
 }

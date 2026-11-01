@@ -184,7 +184,7 @@ void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y
         }
     }
     auto* camera = core::down_cast<objects::GameEntity>(
-        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kViewerCameraObject));
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())->look_up_entity(kViewerCameraObject));
     if (!camera)
         return;
     const maths::Vec4& lo = box.min;
@@ -394,7 +394,7 @@ bool kill_from_node_name(uint32_t name, script::Script* script)
             uint32_t id;
             objects::Entity* object;
         } data = {name, script->entity_.get_pull()};
-        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())
             ->for_each(&destroy_object_with_id, &data);
         return true;
     }
@@ -453,7 +453,7 @@ constexpr uint32_t kParkEditorOff = 0xD443A2BC;   // ParkBuilderMode::kStateOff
 // The sector named `name` in any scene (0x0048C510; null if none).
 uint8_t* find_sector(uint32_t name) { return static_cast<uint8_t*>(render::engine::look_up_sector(name)); }
 bool park_editor_off() { return park_editing::g_park_editor->cur_phase_ == kParkEditorOff; }
-objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
+objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
 
 } // namespace
 
@@ -677,7 +677,7 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
         command.value = 4;
         command.action = hide ? kFlagActionSetObjectFlags : kFlagActionClearObjectFlags;
         command.id = name;
-        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())
             ->for_each(&apply_flag_command_to_object, &command);
         return true;
     }
@@ -710,7 +710,7 @@ bool node_is_alive(uint32_t name)
         command.found = false;
         command.result = false;
         command.id = name;
-        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)
+        static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())
             ->for_each(&apply_flag_command_to_object, &command);
         return command.found;
     }
@@ -737,7 +737,7 @@ bool set_node_color(uint32_t name, script::Struct* params)
         uint32_t object_name = 0;
         if (node->read_hash_value(kName, &object_name, 0)) {
             auto* object = core::down_cast<objects::GameEntity>(
-                static_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(object_name));
+                static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get())->look_up_entity(object_name));
             // (neither checked for null, as in the original)
             core::down_cast<objects::MeshInstanceModule>(object->fetch_module(0x286A8D26))
                 ->change_tint(rgba); // "model"

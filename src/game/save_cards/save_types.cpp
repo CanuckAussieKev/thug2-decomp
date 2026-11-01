@@ -489,7 +489,7 @@ void apply_goal_manager_params(Struct* saved)
 // 0x005A6C80
 bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
 {
-    objects::ProfileRoster* profiles = objects::g_profile_roster;
+    objects::ProfileRoster* profiles = objects::g_profile_roster.get();
     modules::Skate* skate = modules::Skate::sole();
     // the current skater (the manager's +0x1C, through the folded getter 0x00553E90)
     const int index = profiles->cursor_pos_;

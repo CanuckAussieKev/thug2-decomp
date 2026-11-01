@@ -71,7 +71,7 @@ int truncate(double value) { return static_cast<int>(value); }
 // A score rounded to the nearest (the original adds 0.499999 and truncates).
 int current_round(float value) { return truncate(static_cast<double>(value) + nearly_half()); }
 
-objects::ProfileRoster* roster_handle() { return objects::g_profile_roster; }
+objects::ProfileRoster* roster_handle() { return objects::g_profile_roster.get(); }
 // The profile manager's template at `index` (0x00557FB0) and its count (0x00469490: the table's).
 objects::RiderIdentity* template_at(objects::ProfileRoster* manager, int index)
 {

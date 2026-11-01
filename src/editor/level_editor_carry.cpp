@@ -271,7 +271,7 @@ Taken arm()
         if (scenery::cuboid(member, &box) && !scenery::is_shadow(member))
             g.boxes.emplace_back(member, box);
     }
-    if (objects::EntityHub* manager = objects::object_hub_slot())
+    if (objects::EntityHub* manager = objects::object_hub_slot().get())
         manager->for_each(gather_object, &g);
     g_carried.objects = g.objects;
     for (const uint32_t id : g_carried.objects) {

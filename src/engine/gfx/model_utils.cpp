@@ -174,7 +174,7 @@ bool scale_from_args(maths::Vec4* scale, Struct* params)
 // 0x00487BD0
 void HiddenModels::conceal()
 {
-    auto* manager = objects::object_hub_slot();
+    auto* manager = objects::object_hub_slot().get();
     auto first = [manager] {
         return core::down_cast<objects::MeshInstanceModule>(
             manager->find_first_module_of_kind(objects::MeshInstanceModule::kType));

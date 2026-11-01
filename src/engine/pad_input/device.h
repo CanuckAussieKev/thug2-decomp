@@ -1,8 +1,8 @@
 #pragma once
 
-#include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/core/mem.h"
@@ -167,8 +167,8 @@ void process_task(tasks::Task<memory::ListNode>* task);
 Hub* create_manager(bool create);
 // 0x005BDCF0: drop a reference; the last one deletes it.
 void release_manager();
-Hub*& manager_instance();
+std::unique_ptr<Hub>& manager_instance();
 
-extern gsl::owner<Hub*> g_manager;
+extern std::unique_ptr<Hub> g_manager;
 
 } // namespace sio

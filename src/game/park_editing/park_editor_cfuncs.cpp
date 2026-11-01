@@ -522,13 +522,13 @@ bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct
 // 0x0058F750
 bool cfunc_switch_to_park_editor_camera(script::Struct*, script::Script*)
 {
-    auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry);
+    auto* objects = static_cast<objects::ObjectHubBase*>(objects::g_composite_registry.get());
     if (!objects->look_up_entity(kParkedCam)) {
         // The camera object, from parkedcam_composite_structure.
         script::Struct* memory = script::spawn_param_bag();
         script::Struct* params = memory ? memory::construct_in<script::Struct>(memory) : nullptr;
         params->put_name_key("name", kParkedCam);
-        auto* composites = objects::g_composite_registry;
+        auto* composites = objects::g_composite_registry.get();
         composites->spawn_entity_from_node(script::fetch_list("parkedcam_composite_structure"), params, true);
         if (params) {
             params->get_clear();

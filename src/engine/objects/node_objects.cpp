@@ -40,7 +40,7 @@ constexpr uint32_t kPlainObjectFlag = 0x69C257E9;
 constexpr uint32_t kPlainObjectScript = 0xA98F5C63;
 constexpr uint32_t kGameObjectComponentType = 0x286A8D26;
 
-EntityHub* entity_hub_handle() { return g_composite_registry; }
+EntityHub* entity_hub_handle() { return g_composite_registry.get(); }
 
 void seal(GameEntity* object) { object->seal(); }
 

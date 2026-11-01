@@ -132,8 +132,8 @@ constexpr std::array<uint32_t, 4> kTeamRestarts = {{0xACD3422F, 0x9AB434CC, 0x5C
 
 goals::MatchRules* get_game_mode() { return goals::g_game_mode; }
 online::Hub* net_session_slot() { return online::g_online_hub; }
-objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry); }
-objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
+objects::MiscHub* entity_hub_handle() { return static_cast<objects::MiscHub*>(objects::g_composite_registry.get()); }
+objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub.get(); }
 script::Struct*& cat_info() { return g_cat_info; }
 script::Struct*& stat_goal_params_ref() { return g_stat_target_info; }
 // The C runtime's _ftol (0x006236FC): truncated toward zero, the low 32 bits of the 64-bit result.
@@ -515,7 +515,7 @@ void Skate::tidy_up()
     net_session_slot()->clear_crown();
     script::kill_all_child_scripts();
     get_trick_objects()->remove_all_clusters();
-    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager)->destroy_non_persistent();
+    static_cast<render::FlexibleParticleManager*>(render::g_flexible_particle_manager.get())->destroy_non_persistent();
     rail_manager_->tidy_up();
     objects::nearby_zone_shutdown();
     objects::emitter_cleanup();
@@ -993,7 +993,7 @@ Skate::Skate()
     objects::g_profile_roster->reset_templates();
     game_flow_ = std::make_unique<goals::MatchFlow>();
     goal_manager_ = memory::make_zeroed<goals::GoalManager>();
-    render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry));
+    render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry.get()));
     career_ = std::make_unique<objects::RiderStoryProgress>();
     rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
     checksums_ = memory::make_zeroed<objects::ChecksumSet>();     // (0x404 bytes)

@@ -80,7 +80,7 @@ float project_to_screen(render::ViewRegion* camera, const maths::Vec4* position,
 }
 
 // The renderer's particle manager (0x006FA7C0) and its "destroy the particle systems of this group" (0x0049ADE0).
-void* particle_hub_handle() { return render::g_flexible_particle_manager; }
+void* particle_hub_handle() { return render::g_flexible_particle_manager.get(); }
 void destroy_particle_group(void* manager, uint32_t group)
 {
     static_cast<render::FlexibleParticleManager*>(manager)->destroy_group(group);

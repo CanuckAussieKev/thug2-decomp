@@ -39,7 +39,7 @@ const float kToMph = std::bit_cast<float>(0x3D68BA2Fu);   // 0x00646828: 1 / 17.
 const float kPercent = 100.0f;                            // 0x006463D4
 const double kTwoTo32 = 4294967296.0;                     // 0x006453B4 (an unsigned clock difference)
 
-sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer; }
+sound::AudioMixer* audio_mixer_handle() { return sound::g_audio_mixer.get(); }
 uint32_t clock_offset() { return static_cast<uint32_t>(g_clock_offset); }
 
 // A float of the global structure kRates (asserted).

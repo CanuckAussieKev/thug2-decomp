@@ -2,10 +2,12 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/core/arena_alloc.h"
 #include "engine/net/net_messages.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/mem.h"
 #include <gsl/pointers>
 #include <array>
 
@@ -143,6 +145,6 @@ Hub* create_manager(bool create);
 // 0x004558D0: one reference less; the last deletes it.
 void release_manager();
 
-extern gsl::owner<Hub*> g_net_core;
+extern memory::HeapUnique<Hub> g_net_core;
 
 } // namespace net

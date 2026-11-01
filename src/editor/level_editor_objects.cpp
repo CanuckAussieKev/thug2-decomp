@@ -279,7 +279,7 @@ bool model_box(objects::GameEntity* object, OrientedBox* out)
 objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t)
 {
     *t = max_t;
-    objects::EntityHub* manager = objects::object_hub_slot();
+    objects::EntityHub* manager = objects::object_hub_slot().get();
     if (!manager)
         return nullptr;
     PickWalk walk = {origin, make_unit(dir), max_t, nullptr, nullptr};
@@ -291,7 +291,7 @@ objects::GameEntity* get_pick(V3 origin, V3 dir, float max_t, float* t)
 std::vector<std::pair<objects::GameEntity*, float>> pick_all(V3 origin, V3 dir, float max_t)
 {
     std::vector<std::pair<objects::GameEntity*, float>> all;
-    if (objects::EntityHub* manager = objects::object_hub_slot()) {
+    if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
         PickWalk walk = {origin, make_unit(dir), max_t, nullptr, &all};
         manager->for_each(pick_one, &walk);
     }
@@ -302,7 +302,7 @@ std::vector<std::pair<objects::GameEntity*, float>> pick_all(V3 origin, V3 dir, 
 void log_census()
 {
     Census census = {};
-    if (objects::EntityHub* manager = objects::object_hub_slot())
+    if (objects::EntityHub* manager = objects::object_hub_slot().get())
         manager->for_each(count_one, &census);
     get_log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }

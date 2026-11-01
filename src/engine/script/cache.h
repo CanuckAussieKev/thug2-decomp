@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <new>
 #include "engine/core/slab_bank.h"
 #include "engine/sys/game_module.h"
@@ -84,7 +85,7 @@ ScriptStore* create_script_cache(bool create);
 // 0x00475A00: give back a reference; the last one destroys the cache.
 void release_script_cache();
 
-extern gsl::owner<script::ScriptStore*> g_script_store;
+extern std::unique_ptr<script::ScriptStore> g_script_store;
 extern memory::PoolPair g_cache_entry_pools;
 
 } // namespace script

@@ -500,7 +500,7 @@ bool cfunc_get_bone_position(Struct* params, Script* script)
     params->read_hash_value(kId, &id, 1);
     bool found = false;
     maths::Vec4 position = {0.0f, 0.0f, 0.0f, 0.0f};
-    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
+    auto* manager = static_cast<objects::ObjectHubBase*>(objects::object_hub_slot().get());
     if (objects::Entity* object = manager->look_up_entity(id)) {
         uint32_t bone = 0;
         params->read_hash_value(kBone, &bone, 1);

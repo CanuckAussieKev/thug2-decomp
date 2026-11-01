@@ -781,7 +781,7 @@ void simulate_event(SDL_Event* event)
 
 void start_simulation()
 {
-    modules::FrontEnd* front_end = modules::front_end_instance();
+    modules::FrontEnd* front_end = modules::front_end_instance().get();
     if (g_simulating || !front_end)
         return;
     if (!front_end->is_halted_) {
@@ -793,7 +793,7 @@ void start_simulation()
         return;
     }
     g_snapshots.clear();
-    if (objects::EntityHub* manager = objects::object_hub_slot()) {
+    if (objects::EntityHub* manager = objects::object_hub_slot().get()) {
         SnapWalk walk = {&g_snapshots};
         manager->for_each(snap_one, &walk);
     }
@@ -816,7 +816,7 @@ void stop_simulation(const char* why)
     if (!g_simulating)
         return;
     g_simulating = false;
-    if (modules::FrontEnd* front_end = modules::front_end_instance())
+    if (modules::FrontEnd* front_end = modules::front_end_instance().get())
         front_end->get_pause_game(true);
     int restored = 0, gone = 0, kept = 0;
     if (!g_keep_simulation) {

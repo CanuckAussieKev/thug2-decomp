@@ -1,6 +1,7 @@
 // The model builder (gfx::ModelAssembler): see model_builder.h. From the disassembly of 0x004897D0-0x0048B32D.
 
 #include <cstdint>
+#include <memory>
 #include <new>
 
 #include "engine/gfx/model_builder.h"
@@ -32,12 +33,12 @@ namespace {
 
 render::RenderModel* g_built_model;
 Rig* g_built_skeleton;
-gsl::owner<ModelLook*> g_built_appearance;
+std::unique_ptr<ModelLook> g_built_appearance;
 
 // While Build runs: the model, its skeleton and the appearance's copy.
 render::RenderModel*& built_model() { return g_built_model; }
 Rig*& built_skeleton() { return g_built_skeleton; }
-ModelLook*& built_appearance() { return g_built_appearance; }
+std::unique_ptr<ModelLook>& built_appearance() { return g_built_appearance; }
 // The texture dictionaries: the game's and the skater's (its cag_workspace).
 render::TextureSet* game_textures() { return render::g_game_texture_dict; }
 render::TextureSet* skater_textures() { return render::g_particle_texture_dict; }
@@ -182,7 +183,7 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     built_skeleton() = skeleton;
     const memory::Hub* manager = memory::Hub::get_pull();
     void* memory = memory::alloc_zeroed(sizeof(ModelLook), manager->top_down_heap_, 1);
-    built_appearance() = memory::construct_in<ModelLook>(memory); // (null without memory)
+    built_appearance() = std::unique_ptr<ModelLook>(memory::construct_in<ModelLook>(memory)); // (null without memory)
     built_appearance()->get_reset();             // (no memory: a crash, as the original)
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->top_down_heap_);
     built_appearance()->copy_from(appearance);
@@ -190,8 +191,7 @@ void ModelAssembler::get_build(ModelLook* appearance, render::RenderModel* model
     script::launch_script(script, nullptr, this, false, nullptr);
     built_model() = nullptr;
     built_skeleton() = nullptr;
-    delete built_appearance();
-    built_appearance() = nullptr;
+    memory::destroy_then_clear(built_appearance());
 }
 
 // 0x0048A3B0. The names are asserted; a missing one is what the original's stack slot held (an argument's: the
@@ -225,7 +225,7 @@ bool ModelAssembler::invoke_method_by_name(uint32_t name, script::Struct* params
         return true;
     }
     case kAppearanceUnused30e2951d:
-        unused_appearance_call(built_appearance(), 0);
+        unused_appearance_call(built_appearance().get(), 0);
         return true;
     case kGeomAllocateUvMatrixParams: {
         uint32_t material = name;
@@ -707,7 +707,7 @@ bool ModelAssembler::launch_script(uint32_t part, uint32_t target)
     }
     if (fetch_script(option, target, held, 0)) {
         script::Script* script = script::Script::create();
-        script->set_script_copy(held, nullptr, built_appearance()); // (no memory: a crash, as the original)
+        script->set_script_copy(held, nullptr, built_appearance().get()); // (no memory: a crash, as the original)
         while (script->tick_frame()) {
         }
         if (script) {

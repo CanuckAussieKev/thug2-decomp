@@ -1,8 +1,8 @@
 #pragma once
 
-#include <memory>
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 #include "engine/objects/entity.h"
 #include "engine/objects/entity_hub.h"
@@ -78,7 +78,7 @@ public:
 void composite_object_manager_task(tasks::Task<EntityHub>* task);
 
 // The singleton (0x006F0FB8).
-EntityHub*& object_hub_slot();
+std::unique_ptr<EntityHub>& object_hub_slot();
 // 0x0045F1E0: drop a reference; the last one only forgets the instance (it isn't deleted).
 void release_composite_object_manager();
 // 0x0045F7A0: the first call with `create` makes it (zeroed, 0x448 bytes); every call takes a reference and returns
@@ -100,7 +100,7 @@ void init_coim(int a, uint32_t heap_size, int b, int c);
 // 0x0045F1C0 (ResizeCOIMHeap's work): the heap made again `size` bytes, or destroyed for 0.
 void resize_coim_heap(uint32_t size);
 
-extern gsl::owner<objects::EntityHub*> g_composite_registry;
+extern std::unique_ptr<objects::EntityHub> g_composite_registry;
 
 extern float g_pi;
 } // namespace objects

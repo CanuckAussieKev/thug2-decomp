@@ -360,7 +360,7 @@ bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
 bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
 {
-    auto* objects = objects::g_composite_registry;
+    auto* objects = objects::g_composite_registry.get();
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)
     std::array<uint32_t, 32> seen{};
     int seen_count = 0;
