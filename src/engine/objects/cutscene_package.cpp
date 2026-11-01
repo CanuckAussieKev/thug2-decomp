@@ -146,9 +146,9 @@ bool CinematicEntry::read_in(script::Struct* params)
         params->read_hash_value(kCutsceneName, &name, 1);
         asset_ = 0;
     }
-    script::Struct* settings = script::new_struct();
+    script::StructPtr settings = script::make_struct();
     settings->append_structure_if_any(params);
-    configure_from_data(settings);
+    configure_from_data(settings.get());
     if (script::Struct* defaults = script::read_sub_struct(checksums::fold_text_into_checksum(name, "_params")))
         args_->append_structure_if_any(defaults);
     begin_script_ = checksums::fold_text_into_checksum(name, "_begin");
@@ -180,7 +180,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             args_->put_int(0x9A4BDFF5, streams);
             args_->put_int(0xED064302, 1);
             args_->put_int(0xBABF2DC9, 1);
-            args_->append_structure_if_any(settings);
+            args_->append_structure_if_any(settings.get());
             get_run(0x722D9CA7);
             gfx::hide_models_for_cutscene();
             get_run(0xE1CE826A, args_);
@@ -208,7 +208,7 @@ bool CinematicEntry::read_in(script::Struct* params)
             loaded = true;
         }
     }
-    free_struct(settings);
+    settings.reset();
     return loaded;
 }
 
@@ -238,10 +238,9 @@ void CinematicEntry::stop()
     memory::Hub::get_pull()->delete_cutscene_heaps();
     auto* skater = static_cast<GameEntity*>(modules::Skate::sole()->get_home_rider());
     if (skater) {
-        script::Struct* flag = script::new_struct();
+        const script::StructPtr flag = script::make_struct();
         flag->put_name_key(kUnnamed, kFlagParam);
-        get_run(0xABF617EE, flag, static_cast<Entity*>(skater));
-        free_struct(flag);
+        get_run(0xABF617EE, flag.get(), static_cast<Entity*>(skater));
     }
     get_run(0xBCA1791C, args_);
     gfx::show_models_after_cutscene();

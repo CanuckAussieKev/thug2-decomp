@@ -583,10 +583,9 @@ uint32_t get_checksums(const char* name) { return checksums::hash_from_text(name
 // The network preference `name` set to {ui_string="<text>"}.
 void set_string_preference(prefs::Preferences* prefs, const char* name, const char* text)
 {
-    script::Struct* preference = script::new_struct();
+    const script::StructPtr preference = script::make_struct();
     preference->append_word(get_checksums("ui_string"), script::kQbvalString, text); // "ui_string"
-    prefs->change_setting(get_checksums(name), preference);
-    script::free_struct(preference);
+    prefs->change_setting(get_checksums(name), preference.get());
 }
 // ... set to {ui_string="<text>" checksum=<the checksum of `value`>}.
 void set_choice_preference(script::Struct* preference, const char* text, const char* value)

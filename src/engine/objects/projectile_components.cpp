@@ -166,12 +166,11 @@ void ShotImpactModule::tick_frame()
         get_kill(entity_);
         if (on_collide_script_) {
             const maths::Vec4 pos = entity_->at_point_;
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->put_vec3(kPos, script::VectorValue{pos.x, pos.y, pos.z, pos.w});
             params->put_vec3(kVel, script::VectorValue{vel_.x, vel_.y, vel_.z, vel_.w});
             params->push_float(kScale, size_factor_);
-            script::launch_script(on_collide_script_, params, nullptr, false, nullptr);
-            script::free_struct(params);
+            script::launch_script(on_collide_script_, params.get(), nullptr, false, nullptr);
         }
         // (The original builds it over its loop counter's slot: the two bytes after the flag are the count's high
         // bytes, 0.)
@@ -202,10 +201,10 @@ void ShotImpactModule::tick_frame()
             return;
         }
         if (score->get_total_score() > 0 && !victim->is_own_player()) {
-            script::Struct* params = script::new_struct();
+            script::StructPtr params = script::make_struct();
             params->append_word(kName, core::down_cast<Rider>(skater)->fetch_shown_name());
-            script::launch_script(kAnnounceElimination, params, nullptr, false, nullptr);
-            script::free_struct(params);
+            script::launch_script(kAnnounceElimination, params.get(), nullptr, false, nullptr);
+            params.reset();
             skate->conceal_skater(core::down_cast<Rider>(skater), true);
         }
         score->set_grand_total(0);
@@ -260,15 +259,15 @@ void ProjectileProximityComponent::tick_frame()
             continue;
         // In reach: the ped is hit.
         entity_->post_own_event(kProjectileInAvoidRadius, nullptr);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_name_key(kPedId, entity_->ident_);
         params->put_name_key(kProjectileId, projectile.name);
-        script::launch_script(kProjectileHitPed, params, find_object(rider_ref_->ident_), false, nullptr);
+        script::launch_script(kProjectileHitPed, params.get(), find_object(rider_ref_->ident_), false, nullptr);
         params->put_name_key(
             kAmmoType,
             core::down_cast<skater::SkaterPhysicsModule>(rider_ref_->fetch_module(kSkaterCorePhysics))->ammo_type_);
-        script::launch_script(kHitPedScript, params, entity_, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(kHitPedScript, params.get(), entity_, false, nullptr);
+        params.reset();
         projectile.active = false;
         return;
     }

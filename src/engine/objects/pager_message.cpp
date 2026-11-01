@@ -82,11 +82,10 @@ void PagerMessageComponent::clear_messages(script::Struct* params)
         }
         node = next;
     }
-    script::Struct* data = script::new_struct();
+    const script::StructPtr data = script::make_struct();
     data->put_name_key(0x14C4B1CC, 1u);
     script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
-    entity_->spawn_script(kPagerScript, data, 0, false);
-    script::free_struct(data);
+    entity_->spawn_script(kPagerScript, data.get(), 0, false);
 }
 
 // 0x004EC9A0
@@ -99,13 +98,13 @@ bool PagerMessageComponent::send_pager_message(script::Struct* params, script::S
     message->params->merge_structure(params);
     message->read = false;
     messages_.push_back(message);
-    script::Struct* data = script::new_struct();
+    script::StructPtr data = script::make_struct();
     data->put_name_key(0x34406F14, 1u);
     if (message->params->has_bare_flag(0x8E6DFA5D))
         data->put_name_key(0u, 0x8E6DFA5Du);
     script::end_child_scripts_of_entity_by_name(entity_, kPagerScript, nullptr);
-    entity_->spawn_script(kPagerScript, data, 0, false);
-    script::free_struct(data);
+    entity_->spawn_script(kPagerScript, data.get(), 0, false);
+    data.reset();
     return true;
 }
 

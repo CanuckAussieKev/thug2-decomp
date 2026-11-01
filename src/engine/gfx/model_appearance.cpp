@@ -299,14 +299,14 @@ ModelLook* ModelLook::copy_from(ModelLook* other)
 // 0x004896A0
 int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 {
-    script::Struct* copy = script::new_struct();
+    script::StructPtr copy = script::make_struct();
     copy->append_structure_if_any(&structure_); // (no memory: a crash, as the original)
-    auto bytes = script::emit_into_buffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
+    auto bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), 1, nullptr);
     if (bytes > static_cast<uint32_t>(kMaxBufferBytes)) {
-        remove_tattoos(copy);
-        bytes = script::emit_into_buffer(copy, buffer, static_cast<uint32_t>(size), 1, nullptr);
+        remove_tattoos(copy.get());
+        bytes = script::emit_into_buffer(copy.get(), buffer, static_cast<uint32_t>(size), 1, nullptr);
     }
-    script::free_struct(copy);
+    copy.reset();
     uint8_t* end = buffer + bytes;
     if (no_face_texture)
         *end = 0;
@@ -318,11 +318,11 @@ int ModelLook::emit_into_buffer(uint8_t* buffer, int size, bool no_face_texture)
 // 0x00489400
 uint8_t* ModelLook::decode_from_bytes(uint8_t* buffer, size_t size)
 {
-    script::Struct* read = script::new_struct();
-    uint8_t* end = script::decode_from_bytes(read, buffer, size);
+    script::StructPtr read = script::make_struct();
+    uint8_t* end = script::decode_from_bytes(read.get(), buffer, size);
     structure_.get_clear();
-    structure_.append_structure_if_any(read);
-    script::free_struct(read);
+    structure_.append_structure_if_any(read.get());
+    read.reset();
     // (Not original: within the size - none left, no face texture and the end where it is)
     if (ints::as_unsigned(end - buffer) >= size) {
         has_face_texture_ = false;

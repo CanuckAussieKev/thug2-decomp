@@ -354,11 +354,11 @@ void select_combo_task(ViewerTask* task)
 int handle_add_to_scene(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body_);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->append_word(kScene, script::kQbvalString, message);
     params->append_word(kAdd, script::kQbvalString, message + 0x80);
-    script::launch_script(kAddToScene, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kAddToScene, params.get(), nullptr, false, nullptr);
+    params.reset();
     return 1;
 }
 
@@ -368,11 +368,11 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
     // NOT ORIGINAL: the viewer the handler was registered with (its data). The original called create_viewer_object
     // on the message's body as if it were the viewer - writing the new object's pointer into the packet buffer.
     auto* viewer = static_cast<Viewer*>(context->content_);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->append_word(kModelName, net::wire::text_of(context->body_));
     params->put_name_key(kSkeletonName, net::wire::value_at<uint32_t>(context->body_, 0x84));
-    viewer->create_viewer_object(params);
-    script::free_struct(params);
+    viewer->create_viewer_object(params.get());
+    params.reset();
     return 1;
 }
 
@@ -380,10 +380,10 @@ int handle_create_viewer_object(net::InboundMsgCtx* context)
 int on_remote_script_msg(net::InboundMsgCtx* context)
 {
     const auto name = net::wire::value_at<uint32_t>(context->body_);
-    script::Struct* params = script::new_struct();
-    script::decode_from_bytes(params, context->body_ + 4); // the script reader
-    script::launch_script(name, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::StructPtr params = script::make_struct();
+    script::decode_from_bytes(params.get(), context->body_ + 4); // the script reader
+    script::launch_script(name, params.get(), nullptr, false, nullptr);
+    params.reset();
     return 1;
 }
 
@@ -495,10 +495,10 @@ void free_camera_task(ViewerTask* task)
 int handle_reload_scene(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body_);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->append_word(kScene, script::kQbvalString, message);
-    script::launch_script(kReloadScene, params, nullptr, false, nullptr);
-    script::free_struct(params);
+    script::launch_script(kReloadScene, params.get(), nullptr, false, nullptr);
+    params.reset();
     return 1;
 }
 

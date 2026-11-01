@@ -143,15 +143,15 @@ bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
                              permanent, not_session_specific != 0, false);
     const uint32_t unique_id = spawned->unique_id_;
 
-    Struct* entry = script::new_struct();
+    script::StructPtr entry = script::make_struct();
     entry->put_name_key(kName, unique_id);
     entry->put_name_key(kDestroyFunc, kKillSpawnedScript);
-    Struct* destroy_params = script::new_struct();
+    script::StructPtr destroy_params = script::make_struct();
     destroy_params->put_name_key(kId, unique_id);
-    entry->put_sub_struct(kDestroyParams, destroy_params);
-    script::free_struct(destroy_params);
-    cfunc_add_to_cutscene_destroy_list(entry, nullptr);
-    script::free_struct(entry);
+    entry->put_sub_struct(kDestroyParams, destroy_params.get());
+    destroy_params.reset();
+    cfunc_add_to_cutscene_destroy_list(entry.get(), nullptr);
+    entry.reset();
     return true;
 }
 

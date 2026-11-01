@@ -492,10 +492,9 @@ bool TaggingControlComponent::try_tagging()
     tagging_->place_tag(false, start, end, size, true);
     cooldown_ = script::fetch_float(0xD29DE3D7u);
     if (combo_score > 0) {
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->push_float(0xE6306423u, static_cast<float>(size));
-        script::launch_script(0x2B8E0B2B, params, entity_, false, nullptr);
-        script::free_struct(params);
+        script::launch_script(0x2B8E0B2B, params.get(), entity_, false, nullptr);
     }
     pending_ = false;
     return true;

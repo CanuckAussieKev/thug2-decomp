@@ -173,10 +173,9 @@ void read_save_header(Struct* global, Script* script)
     float music_volume = 0.0f;
     if (sound->fetch_float(kMusicVolume, &music_volume, 0)) {
         audio::set_music_volume(music_volume);
-        Struct* change = script::new_struct();
+        const script::StructPtr change = script::make_struct();
         change->push_float(kMusicVolOutsideBox, music_volume);
-        script::launch_script("Change", change, nullptr, false);
-        script::free_struct(change);
+        script::launch_script("Change", change.get(), nullptr, false);
     }
     std::array<int, 4> tracks = {};
     if (sound->fetch_int_value(kForbiddenTracks1, &core::at(tracks, 0), 0)) {
@@ -195,10 +194,9 @@ void read_save_header(Struct* global, Script* script)
         sound->read_hash_value(kCurrentSoundtrack, &soundtrack, 0);
         if (script::SymbolTableEntry* symbol = script::find_symbol(kCurrentSoundtrack))
             symbol->value.set_word(soundtrack);
-        Struct* change = script::new_struct();
+        const script::StructPtr change = script::make_struct();
         change->put_name_key(0x8C465905u, soundtrack);                       // trackchecksum
-        script::launch_script(0xD44400C2u, change, nullptr, false, nullptr); // set_loaded_soundtrack
-        script::free_struct(change);
+        script::launch_script(0xD44400C2u, change.get(), nullptr, false, nullptr); // set_loaded_soundtrack
     }
 
     Array* controllers = nullptr;

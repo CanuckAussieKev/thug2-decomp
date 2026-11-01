@@ -225,10 +225,10 @@ void CrownObject::init_from_node(EntityHub* manager, script::Struct* node)
 {
     manager->enrol_subject(this);
     add_motion_components(this);
-    script::Struct* model = script::new_struct();
+    script::StructPtr model = script::make_struct();
     model->put_name_key(kComponent, kModel);
-    create_component_from_structure(model, nullptr);
-    script::free_struct(model);
+    create_component_from_structure(model.get(), nullptr);
+    model.reset();
     add_node_components(this, node);
     change_serial(kCrownObject);
     auto* suspend = core::down_cast<DormancyModule>(fetch_module(kSuspend));

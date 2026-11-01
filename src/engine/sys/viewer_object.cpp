@@ -289,10 +289,9 @@ void PreviewEntity::scale_anim_rate(float speed)
         speed_ = 0.0f;
     if (get_animation(this)) {
         get_animation(this)->first_channel_47e_850(speed_, 0.0f, 0.0f, 0.0f);
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->push_float(kSpeed, speed_);
-        animation_base(this)->invoke_method_by_name(kSetSpeed, params, nullptr);
-        script::free_struct(params);
+        animation_base(this)->invoke_method_by_name(kSetSpeed, params.get(), nullptr);
     }
     is_halted_ = false;
 }
@@ -309,10 +308,9 @@ void PreviewEntity::step_animation(bool forward)
         if (forward) {
             get_animation(this)->pass_to_each_channel(std::bit_cast<uint32_t>(kStepSeconds));
             get_animation(this)->visit_channels();
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             params->push_float(kFrames, kStepSeconds);
-            animation_base(this)->invoke_method_by_name(kStep, params, nullptr);
-            script::free_struct(params);
+            animation_base(this)->invoke_method_by_name(kStep, params.get(), nullptr);
         } else {
             // Reversed for a step forward, then turned round again.
             get_animation(this)->first_channel_47e_810(0);
@@ -320,10 +318,10 @@ void PreviewEntity::step_animation(bool forward)
             get_animation(this)->visit_channels();
             get_animation(this)->first_channel_47e_810(0);
             animation_base(this)->invoke_method_by_name(kReverse, nullptr, nullptr);
-            script::Struct* params = script::new_struct();
+            script::StructPtr params = script::make_struct();
             params->push_float(kFrames, -kStepSeconds);
-            animation_base(this)->invoke_method_by_name(kStep, params, nullptr);
-            script::free_struct(params);
+            animation_base(this)->invoke_method_by_name(kStep, params.get(), nullptr);
+            params.reset();
             animation_base(this)->invoke_method_by_name(kReverse, nullptr, nullptr);
         }
         get_animation(this)->first_channel_47e_ff0();
@@ -380,7 +378,7 @@ void PreviewEntity::update_panel()
     if (get_animation(this) && panel_shown_) {
         const uint32_t anim = get_animation(this)->get_timeline30();
         if (get_animation(this)->has_value(anim)) {
-            script::Struct* params = script::new_struct();
+            const script::StructPtr params = script::make_struct();
             std::array<char, 128> line1{};
             std::array<char, 128> line2{};
             std::array<char, 128> line3{};
@@ -403,8 +401,7 @@ void PreviewEntity::update_panel()
             const int frame = static_cast<int>(static_cast<double>(time) * 60.0);
             std::snprintf(text_row4.data(), sizeof(text_row4), "frame %d of %d", frame, last_frame);
             params->append_word(kLine4, text_row4.data());
-            script::launch_script(kDrawViewerObjectPanel, params, nullptr, false, nullptr);
-            script::free_struct(params);
+            script::launch_script(kDrawViewerObjectPanel, params.get(), nullptr, false, nullptr);
         }
     }
     ObjectModule* model = fetch_module(kModel);
@@ -543,11 +540,11 @@ int handle_reload_animation(net::InboundMsgCtx* context)
 int handle_reload_cam_animation(net::InboundMsgCtx* context)
 {
     const char* message = net::wire::text_of(context->body_);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->append_word(0u, message);
     params->put_name_key(0u, *raw::field_at<const uint32_t>(message, 0x80));
-    commands::cfunc_reload_skater_cam_anim(params, nullptr);
-    script::free_struct(params);
+    commands::cfunc_reload_skater_cam_anim(params.get(), nullptr);
+    params.reset();
     return 1;
 }
 

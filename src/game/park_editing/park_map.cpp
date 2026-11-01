@@ -122,16 +122,16 @@ void ParkLayout::transfer_park_file(bool save, int slot)
     std::array<char, 64> name{};
     std::snprintf(name.data(), sizeof(name), "CustomParks\\custom%d.prk", slot);
     if (save) {
-        script::Struct* params = script::new_struct();
-        export_to_struct(params);
-        const uint32_t size = structure_buffer_size(params, 100000);
+        script::StructPtr params = script::make_struct();
+        export_to_struct(params.get());
+        const uint32_t size = structure_buffer_size(params.get(), 100000);
         void* buffer = memory::alloc_block(size);
-        write_structure(params, buffer, size, 1, 0);
+        write_structure(params.get(), buffer, size, 1, 0);
         file::Hdl file = file::unseal(name.data(), "wb");
         file::emit_out(buffer, static_cast<int>(size), 1, file);
         file::shut(file);
         memory::free_malloc(buffer);
-        script::free_struct(params);
+        params.reset();
         return;
     }
 
@@ -140,12 +140,12 @@ void ParkLayout::transfer_park_file(bool save, int slot)
     void* buffer = memory::alloc_block(size);
     const int read = file::get_take_in(buffer, static_cast<int>(size), 1, file);
     file::shut(file);
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     // (Not original: decoded within what was read - the original decoded on to the end marker, past a file cut short)
-    read_structure(params, buffer, read > 0 ? static_cast<size_t>(read) : 0);
+    read_structure(params.get(), buffer, read > 0 ? static_cast<size_t>(read) : 0);
     memory::free_malloc(buffer);
-    decode_from_struct(params, false);
-    script::free_struct(params);
+    decode_from_struct(params.get(), false);
+    params.reset();
     flag_bits_ = (flag_bits_ & ~(kMapUpToDate | kFlag8)) | kMapLoaded | kMapSaved;
 
     // A premade park keeps its name.

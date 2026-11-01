@@ -366,16 +366,15 @@ void AttributeTracker::meet_goal(int index)
 {
     if (!is_operative())
         return;
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     Goal& goal = core::at(goals_, index);
     params->append_word(0x61414D56u, goal.label_);
     params->put_int(0xE288A7CBu, goal.aim_point_);
     if (goal.text_)
         params->append_word(0xC257D69Au, goal.text_);
     params->put_int(0x7F8C98FEu, index);
-    launch_script(0x55E516C8, params);
+    launch_script(0x55E516C8, params.get());
     goal.met_ = true;
-    script::free_struct(params);
 }
 
 // 0x0051CF90
@@ -472,10 +471,10 @@ void AttributeTracker::tick_frame()
             break;
         case kAirCombo:
             if (air_phase_ == 2 && air_best_ >= goal.aim_point_) {
-                script::Struct* params = script::new_struct();
+                script::StructPtr params = script::make_struct();
                 params->put_int(0xCD66C8AEu, air_best_);
-                launch_script(0x7C9C7232, params);
-                script::free_struct(params);
+                launch_script(0x7C9C7232, params.get());
+                params.reset();
                 meets = true;
             }
             break;

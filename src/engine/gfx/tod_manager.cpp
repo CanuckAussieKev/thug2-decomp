@@ -843,13 +843,12 @@ void CtodManager::mark_permanently_dead(script::Struct* params)
 // 0x00573500
 void CtodManager::set_bloom(int on, int bloom1, int bloom2, uint32_t strength, uint32_t color)
 {
-    script::Struct* params = script::new_struct();
+    const script::StructPtr params = script::make_struct();
     if (on)
-        add_bloom_params(on, bloom1, bloom2, strength, color, params);
+        add_bloom_params(on, bloom1, bloom2, strength, color, params.get());
     else
         params->put_int(kOn, 0);
-    set_bloom_structure(params);
-    script::free_struct(params);
+    set_bloom_structure(params.get());
 }
 
 // 0x00573620
@@ -922,16 +921,15 @@ void CtodManager::update_system(int index)
     const float threshold = system.state == kEvening ? get_zero() : get_half();
     if (!system.script_run_ && t > threshold) {
         system.script_run_ = true;
-        script::Struct* script_params = script::new_struct();
+        const script::StructPtr script_params = script::make_struct();
         script_params->put_name_key(kCurrentTod, system.state);
         script_params->put_name_key(kNextTod, system.next_state_);
         script_params->put_sub_struct(kTodStateParams, system.params);
         if (!sky) {
             if (transition_script_)
                 script_params->put_name_key(kTransitionScript, transition_script_);
-            script::spawn_script(kStateTransition, script_params, 0, nullptr, 0, 0, false, false, false, false);
+            script::spawn_script(kStateTransition, script_params.get(), 0, nullptr, 0, 0, false, false, false, false);
         }
-        script::free_struct(script_params);
     }
 
     if (system.time > system.transition_length_) {
@@ -993,7 +991,7 @@ void CtodManager::refresh_all(bool temp_state)
         }
         if (sky)
             continue;
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         params->put_name_key(kCurrentTod, previous_tod_state(system.state));
         params->put_name_key(kNextTod, system.state);
         params->put_sub_struct(kTodStateParams, system.params);
@@ -1002,13 +1000,12 @@ void CtodManager::refresh_all(bool temp_state)
         params->put_name_key(0u, kInstantChange);
         if (temp_state)
             params->put_name_key(0u, kTempState);
-        script::Struct* bloom = script::new_struct();
+        script::StructPtr bloom = script::make_struct();
         add_bloom_params(current.bloom_on_, current.bloom1, current.bloom2, current.bloom_strength_,
-                         current.bloom_color_, bloom);
-        params->put_sub_struct(kBloomParams, bloom);
-        script::free_struct(bloom);
-        script::spawn_script(kStateTransition, params, 0, nullptr, 0, 0, false, false, false, false);
-        script::free_struct(params);
+                         current.bloom_color_, bloom.get());
+        params->put_sub_struct(kBloomParams, bloom.get());
+        bloom.reset();
+        script::spawn_script(kStateTransition, params.get(), 0, nullptr, 0, 0, false, false, false, false);
     }
     active_ = was_active;
     const TodParams& current = system_at(this, current_system()).current;

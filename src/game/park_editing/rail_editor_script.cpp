@@ -118,10 +118,10 @@ void RailAuthoring::conceal(bool hide)
     script::launch_script(kCreateCursor, nullptr, nullptr, false, nullptr);
     manager->builder_->build_rails(manager->concrete_metas_);
     // The camera told whose it is (the input component's configure_from_data: player 0), the pad's events dropped.
-    script::Struct* params = script::new_struct();
+    script::StructPtr params = script::make_struct();
     params->put_int(kPlayer, 0);
-    static_cast<objects::ObjectModule*>(input_ptr_)->configure_from_data(params);
-    script::free_struct(params);
+    static_cast<objects::ObjectModule*>(input_ptr_)->configure_from_data(params.get());
+    params.reset();
     pad_of(input_ptr_)->get_clear();
 }
 
@@ -241,10 +241,10 @@ int RailAuthoring::invoke_method_by_name(uint32_t name, script::Struct* params, 
         return free_points() == 0 ? 1 : 0;
     case kSetEditingMode: {
         params->read_hash_value(kMode, &mode_sel_, 0);
-        script::Struct* text = script::new_struct();
+        script::StructPtr text = script::make_struct();
         text->put_name_key(kMode, kRailPlacement);
-        script::launch_script(kHelperTextMode, text, nullptr, false, nullptr);
-        script::free_struct(text);
+        script::launch_script(kHelperTextMode, text.get(), nullptr, false, nullptr);
+        text.reset();
         return 1;
     }
     case kDeleteRail: {

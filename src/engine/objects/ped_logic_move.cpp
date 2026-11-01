@@ -998,10 +998,10 @@ void PedestrianBrainModule::chase_update()
     if (distance_sqr <= kCatchDistanceSqr) {
         // Caught.
         face_along(&toward_player);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_name_key(kChaser, skater->ident_);
-        change_phase(kStateChaseCatch, 0, params);
-        script::free_struct(params);
+        change_phase(kStateChaseCatch, 0, params.get());
+        params.reset();
         return;
     }
     if (distance_sqr > kChaseOutOfRangeSqr) {
@@ -1064,10 +1064,10 @@ void PedestrianBrainModule::blocker_update()
     if (static_cast<double>(toward_player.x) * toward_player.x + static_cast<double>(sz) * sz <= kCatchDistanceSqr) {
         // Bumped.
         face_along(&across);
-        script::Struct* params = script::new_struct();
+        script::StructPtr params = script::make_struct();
         params->put_vec3(kVelDir, script::VectorValue{across.x, across.y, across.z, across.w});
-        entity_->post_own_event(kBlockerBumpPlayer, params);
-        script::free_struct(params);
+        entity_->post_own_event(kBlockerBumpPlayer, params.get());
+        params.reset();
         return;
     }
     // Where the skater's going crosses the path.
@@ -1127,11 +1127,10 @@ void PedestrianBrainModule::blocker_update()
     if (!(needed > kRunRatio) && !(distance_f > kRunDistance)) {
         // Near enough: a shuffle to the side the point is on.
         face_along(&across);
-        script::Struct* params = script::new_struct();
+        const script::StructPtr params = script::make_struct();
         const maths::Vec4 cross = maths::cross_vec(to_point, across);
         params->put_name_key(kDir, cross.y < 0.0f ? kLeft : kRight);
-        entity_->post_own_event(kBlockerShuffle, params);
-        script::free_struct(params);
+        entity_->post_own_event(kBlockerShuffle, params.get());
     } else {
         face_along(&to_point);
         entity_->post_own_event(kBlockerRun, nullptr);
