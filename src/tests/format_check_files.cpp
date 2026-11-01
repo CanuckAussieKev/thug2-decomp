@@ -26,6 +26,7 @@
 #include "engine/gfx/skeleton_format.h"
 #include "engine/gfx/texture_format.h"
 #include "engine/render/collision_format.h"
+#include "engine/sound/wave_format.h"
 #include "engine/util/byte_stream.h"
 #include "engine/util/lzss.h"
 #include "tests/format_check_files.h"
@@ -755,6 +756,59 @@ void check_font(const std::string& name, const uint8_t* data, size_t size)
     check(!font_format::read_glyph_rects(cut, header.glyph_count, rects.data()), name + ": cut short");
 }
 
+// --- sound effects (.snd) -----------------------------------------------------------------------------------------
+
+struct WaveStats {
+    int files = 0, looping = 0, short_data = 0, long_format = 0;
+    std::map<uint32_t, int> format_sizes;
+} g_waves;
+
+void check_wave(const std::string& name, const uint8_t* data, size_t size)
+{
+    ++g_waves.files;
+    util::ByteReader reader(data, size);
+    wave_format::Wave wave;
+    if (!wave_format::read_wave(reader, &wave)) {
+        check(false, name + ": wave");
+        return;
+    }
+    ++g_waves.format_sizes[wave.format_size];
+    g_waves.looping += wave.looping;
+    if (wave.format_size > wave_format::kFormatSize)
+        ++g_waves.long_format;
+    if (wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes)
+        ++g_waves.short_data;
+    // the original's reading (fread chunk by chunk while 8 header bytes come)
+    size_t at = 12;
+    const uint8_t* samples = nullptr;
+    uint32_t sample_bytes = 0;
+    uint8_t format[wave_format::kFormatSize] = {};
+    bool looping = false;
+    while (at + 8 <= size) {
+        uint32_t id, chunk;
+        std::memcpy(&id, data + at, 4);
+        std::memcpy(&chunk, data + at + 4, 4);
+        at += 8;
+        if (id == wave_format::kFormatId) {
+            std::memcpy(format, data + at, chunk < sizeof(format) ? chunk : sizeof(format));
+        } else if (id == wave_format::kDataId) {
+            samples = data + at;
+            sample_bytes = chunk;
+        } else if (id == wave_format::kSamplerId) {
+            uint32_t sampler[9] = {};
+            std::memcpy(sampler, data + at, chunk < 0x24 ? chunk : 0x24);
+            if (sampler[7] > 0)
+                looping = true;
+        }
+        at += chunk;
+    }
+    check(samples == wave.samples && sample_bytes == wave.sample_bytes && looping == wave.looping &&
+              std::memcmp(format, wave.format, sizeof(format)) == 0,
+          name + ": as read by the original");
+    util::ByteReader cut(data, size - 1);
+    check(!wave_format::read_wave(cut, &wave), name + ": cut short");
+}
+
 // --- animations (.ska) ---------------------------------------------------------------------------------------------
 
 struct AnimStats {
@@ -868,6 +922,7 @@ int run(const std::filesystem::path& data)
     register_check(".skin", check_scene);
     register_check(".cas", check_skin);
     register_check(".fnt", check_font);
+    register_check(".snd", check_wave);
     std::filesystem::path pre = data / "pre";
     std::vector<std::filesystem::path> archives;
     for (const auto& entry : std::filesystem::directory_iterator(pre)) {
@@ -911,6 +966,11 @@ int run(const std::filesystem::path& data)
                 g_scenes.trailing, g_scenes.skins, g_scenes.breaks);
     std::printf("fonts: %d (%d glyphs; %d special glyphs, %d past the special map; %d upscaled pages)\n", g_fonts.files,
                 g_fonts.glyphs, g_fonts.specials, g_fonts.specials_past_map, g_fonts.hd_pages);
+    std::printf("sound effects: %d (%d looping; %d with less data than they decode, %d formats past 0x14 bytes);"
+                " format sizes:", g_waves.files, g_waves.looping, g_waves.short_data, g_waves.long_format);
+    for (const auto& [format_size, count] : g_waves.format_sizes)
+        std::printf(" 0x%X x%d", format_size, count);
+    std::printf("\n");
     for (const auto& [extension, count] : g_checked_by_extension)
         std::printf("files %s: %d checked\n", extension.c_str(), count);
     std::printf("data %s: %zu archives\n", data.string().c_str(), archives.size());

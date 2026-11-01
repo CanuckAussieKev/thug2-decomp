@@ -10,13 +10,17 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <vector>
 
 #include <share.h>
 
 #include <windows.h>
 
 #include "engine/core/manager.h"
+#include "engine/core/dbg.h"
 #include "engine/core/mem.h"
+#include "engine/sound/wave_format.h"
+#include "engine/util/byte_stream.h"
 #include "frontend/data_overlay.h"
 #include "engine/gfx/view_cam.h"
 #include "engine/maths/mat4.h"
@@ -668,41 +672,33 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     FILE* file = _fsopen(file_name, "rb", _SH_DENYNO); // (fopen)
     if (!file)
         return false;
-    uint8_t riff[8];
-    uint8_t wave[4];
-    std::fread(riff, 1, 8, file);
-    std::fread(wave, 1, 4, file);
-    void* samples = nullptr;
-    looping = false;
-    struct {
-        uint32_t id;
-        uint32_t size;
-    } chunk;
-    while (std::fread(&chunk, 1, 8, file) == 8) {
-        if (chunk.id == 0x20746D66) { // "fmt "
-            std::fread(this, 1, chunk.size, file);
-            unknown12 = 0x40;
-        } else if (chunk.id == 0x61746164) { // "data"
-            samples = std::malloc(chunk.size);
-            std::fread(samples, 1, chunk.size, file);
-        } else if (chunk.id == 0x6C706D73) { // "smpl": loops?
-            uint32_t read = chunk.size < 0x24 ? chunk.size : 0x24;
-            uint32_t sampler[9];
-            std::fread(sampler, 1, read, file);
-            if (sampler[7] > 0) // (its number of loops)
-                looping = true;
-            if (read < chunk.size)
-                std::fseek(file, static_cast<long>(chunk.size - read), SEEK_CUR);
-        } else {
-            std::fseek(file, static_cast<long>(chunk.size), SEEK_CUR);
-        }
+    // Not original - the whole file read and its chunks parsed through wave_format.h (the original read the format
+    // chunk whole into this object - a chunk past 0x44 bytes wrote past it -, decoded from no data when there was no
+    // data chunk, and decoded the format's bytes-a-second's worth of samples whatever the data held): a file cut
+    // short, without its format or data, or with less data than it decodes is not loaded.
+    std::vector<uint8_t> contents;
+    std::fseek(file, 0, SEEK_END);
+    long length = std::ftell(file);
+    std::fseek(file, 0, SEEK_SET);
+    if (length > 0) {
+        contents.resize(static_cast<size_t>(length));
+        contents.resize(std::fread(contents.data(), 1, contents.size(), file));
     }
+    std::fclose(file);
+    util::ByteReader reader(contents.data(), contents.size());
+    wave_format::Wave wave;
+    bool read = wave_format::read_wave(reader, &wave);
+    if (!read || wave_format::sample_bytes_needed(wave.bytes_per_second()) > wave.sample_bytes) {
+        debug::printf("sound %s damaged: cut short, no format or data, or less data than it decodes\n", file_name);
+        return false;
+    }
+    std::memcpy(this, wave.format, wave_format::kFormatSize); // (the WAVEFORMATEX at its start)
+    unknown12 = 0x40;
+    looping = wave.looping;
     uint32_t size = bytes_per_second_;
     bytes_per_second_ = bits_per_sample_ * samples_per_second_ >> 3;
     auto* converted = static_cast<uint8_t*>(memory::alloc(size));
-    os_layer::decode_adpcm(reinterpret_cast<int16_t*>(converted), static_cast<const uint8_t*>(samples),
-                           static_cast<int>(size) >> 1);
-    std::free(samples);
+    os_layer::decode_adpcm(reinterpret_cast<int16_t*>(converted), wave.samples, static_cast<int>(size) >> 1);
     data = converted;
     data_size_ = size;
     desc_size_ = 0;
@@ -717,7 +713,6 @@ bool PcWave::read_in(const char* file_name, uint32_t flags)
     if (block_align_)
         size -= size % block_align_;
     desc_bytes_ = size;
-    std::fclose(file);
     return true;
 }
 
