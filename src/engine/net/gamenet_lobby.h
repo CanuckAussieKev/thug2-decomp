@@ -198,10 +198,9 @@ public:
     bool lost_connection_;          // +0x137
     bool connecting_;               // +0x138
     bool hosting_;                  // +0x139
-    uint8_t unknown13a_[2];
-    int negotiations_;                   // +0x13C NAT negotiations going on (the server's)
-    void* remote_;                       // +0x140
-    int nat_cookie_;                     // +0x144 (a client's)
+    int negotiations_;              // +0x13C NAT negotiations going on (the server's)
+    void* remote_;                  // +0x140
+    int nat_cookie_;                // +0x144 (a client's)
     tasks::SchedulerTask* think_task_;   // +0x148 think_task
     tasks::SchedulerTask* nat_task_;     // +0x14C nat_negotiation_task
     tasks::SchedulerTask* hosting_task_; // +0x150 query_task
@@ -227,7 +226,6 @@ struct LobbyRoom {
     bool full_;         // +0x68
     bool out_of_range_; // +0x69 the player's rating outside the room's
     bool neversoft_;    // +0x6A
-    uint8_t pad6b_;
 };
 
 // A player in the lobby's room (the lobby's player list).

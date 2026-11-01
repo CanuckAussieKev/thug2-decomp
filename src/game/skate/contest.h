@@ -59,8 +59,7 @@ struct Contest {
     float path_vertices_;              // +0x150: the last run's points (cleared when a run starts)
     int run_totals_[kRuns];            // +0x154: the player's score of each run
     bool ended_;                       // +0x160
-    uint8_t pad161_[3];
-    int standing_; // +0x164: the player's place (1-8) after the last run
+    int standing_;                     // +0x164: the player's place (1-8) after the last run
 
     // 0x005504B0: the constructor (the leaders' names, an empty parameter structure). The argument isn't used.
     // Returns this.

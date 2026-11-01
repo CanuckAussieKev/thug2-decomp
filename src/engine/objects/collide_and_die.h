@@ -52,9 +52,8 @@ public:
     uint32_t death_time_;        // +0x2C (a second after the hit)
     bool fading_out_;            // +0x30
     bool first_update_;          // +0x31
-    uint8_t pad32[2];
-    maths::Vec4 vel_;      // +0x34 vel (normalised)
-    maths::Vec4 last_pos_; // +0x44 the object's position at the last update
+    maths::Vec4 vel_;            // +0x34 vel (normalised)
+    maths::Vec4 last_pos_;       // +0x44 the object's position at the last update
 };
 
 extern online::Hub* g_online_hub;

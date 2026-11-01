@@ -77,16 +77,14 @@ public:
     maths::Vec4 centre_;           // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
     float fit_scale_;              // +0x4E8 scale_to_screen_dims' scale (1)
     bool size_follows_range_;      // +0x4EC ScaleWithDistance
-    uint8_t pad4ed_[3];
-    float distance_scale_;    // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
-    float max_scale_;         // +0x4F4 MaxScale (3)
-    int view_slot_;           // +0x4F8 active_viewport
-    uint32_t anchor_object_;  // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
-    int parent_integer_;      // +0x500 ParentParams' integer 0x5B8AB877
-    uint32_t attach_to_name_; // +0x504 ParentParams' node (0x7A8017BA)
-    float lean_angle_;        // +0x508 tilt (degrees, when pointing at something)
-    bool is_dead_;            // +0x50C its parent object went: element3d_died ran, nothing more
-    uint8_t pad50d_[3];
+    float distance_scale_;         // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
+    float max_scale_;              // +0x4F4 MaxScale (3)
+    int view_slot_;                // +0x4F8 active_viewport
+    uint32_t anchor_object_;       // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
+    int parent_integer_;           // +0x500 ParentParams' integer 0x5B8AB877
+    uint32_t attach_to_name_;      // +0x504 ParentParams' node (0x7A8017BA)
+    float lean_angle_;             // +0x508 tilt (degrees, when pointing at something)
+    bool is_dead_;                 // +0x50C its parent object went: element3d_died ran, nothing more
 };
 
 // 0x004A6BD0 (cdecl): `m` turned about the world's axes by the three angles in `order` (the euler_sequence_ values;

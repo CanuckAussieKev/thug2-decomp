@@ -64,13 +64,11 @@ public:
     SmearEffect* blur_;                   // +0x1AC
     bool shadow_;                         // +0x1B0
     bool may_grow_;                       // +0x1B1
-    uint8_t pad1b2_[2];
-    float shadow_x_, shadow_y_; // +0x1B4
-    uint8_t shadow_rgba_[4];    // +0x1BC
-    bool override_rgba_;        // +0x1C0
-    bool remembered_override_;  // +0x1C1
-    bool override_alpha_;       // +0x1C2
-    uint8_t pad1c3_;
+    float shadow_x_, shadow_y_;           // +0x1B4
+    uint8_t shadow_rgba_[4];              // +0x1BC
+    bool override_rgba_;                  // +0x1C0
+    bool remembered_override_;            // +0x1C1
+    bool override_alpha_;                 // +0x1C2
 };
 
 } // namespace frontend

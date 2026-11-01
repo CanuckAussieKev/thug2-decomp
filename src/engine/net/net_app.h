@@ -37,15 +37,14 @@ struct NetMessageInfo {
     // 0x004549F0 (net_descs.cpp)
     NetMessageInfo* make_new();
 
-    uint8_t ident_;       // 0x00
-    uint8_t feed_;        // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
-    uint16_t byte_count_; // 0x02
-    void* content_;       // 0x04
-    int rank_;            // 0x08 (0x80 by default)
-    int queue_;           // 0x0C
-    uint8_t group_id_;    // 0x10 sequenced messages: each group has its own sequence
-    bool singular_;       // 0x11 drop the connection's queued messages with the same id first
-    uint8_t pad12_[2];
+    uint8_t ident_;         // 0x00
+    uint8_t feed_;          // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
+    uint16_t byte_count_;   // 0x02
+    void* content_;         // 0x04
+    int rank_;              // 0x08 (0x80 by default)
+    int queue_;             // 0x0C
+    uint8_t group_id_;      // 0x10 sequenced messages: each group has its own sequence
+    bool singular_;         // 0x11 drop the connection's queued messages with the same id first
     int delay_;             // 0x14 added to the app's timestamp: when the message may go
     uint32_t fixed_seq_no_; // 0x18 sequenced: this id instead of the group's next one (0 = the next)
     uint8_t compression_;   // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
@@ -65,10 +64,9 @@ struct StreamDesc {
     uint8_t msg_id_; // 0x08
     char desc_[32];  // 0x09 the sender's description of the data
     uint8_t pad29_[3];
-    uint8_t* content_; // 0x2C
-    uint8_t* succ_;    // 0x30 the first byte not sent yet
-    uint8_t group_id_; // 0x34
-    uint8_t pad35_[3];
+    uint8_t* content_;      // 0x2C
+    uint8_t* succ_;         // 0x30 the first byte not sent yet
+    uint8_t group_id_;      // 0x34
     uint32_t order_number_; // 0x38 the next piece's sequence id (reserved when the stream was queued)
     uint32_t checksum_;     // 0x3C received streams: the whole message's checksum
     bool borrowed_payload_; // 0x40 content_ is the caller's (not freed)
@@ -259,8 +257,7 @@ struct AppHost {
     uint32_t sock_;               // +0x1428
     uint8_t local_address_[0x10]; // +0x142C sockaddr_in (Bind)
     bool linked_up_;              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
-    uint8_t pad143d_[3];
-    void* supervisor_; // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
+    void* supervisor_;            // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
     tasks::SchedulerTask* process_task_; // +0x1444

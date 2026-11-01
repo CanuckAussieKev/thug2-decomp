@@ -136,7 +136,6 @@ public:
     uint32_t pad_event_types_[kPadEventSlots]; // +0x5DC (from the script array 0x0064A10C)
     int pad_event_kind_count_;                 // +0x69C
     bool check_device_;                        // +0x6A0 (pad events of other devices ignored)
-    uint8_t pad6a1_[3];
 };
 
 // 0x004ACAF0: the manager made if `create` and there is none (on the heap of Calloc mode 1); the use count up.

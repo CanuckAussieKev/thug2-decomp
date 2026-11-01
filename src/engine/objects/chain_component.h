@@ -54,12 +54,10 @@ struct Chain {
     float damping_;                   // +0x668 damp_force
     float sag_force_;                 // +0x66C gravity_force
     bool move_with_object_;           // +0x670 (0xC96BA2C1): the links carried by the object's velocity
-    uint8_t pad671[3];
-    float plane_offset_; // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
-    int collide_first_;  // +0x678 (0x07EBDE63): the links kept to the plane, from
-    int collide_end_;    // +0x67C (0xB721AB4A): ... to (not including)
-    bool collide_below_; // +0x680 (0x4BFBDC28): kept on the plane's other side
-    uint8_t pad681[3];
+    float plane_offset_;              // +0x674 (0x5F8314B3; Chain member dist=): the collision plane, along the axis
+    int collide_first_;               // +0x678 (0x07EBDE63): the links kept to the plane, from
+    int collide_end_;                 // +0x67C (0xB721AB4A): ... to (not including)
+    bool collide_below_;              // +0x680 (0x4BFBDC28): kept on the plane's other side
 };
 
 // The chain component (type 0x6DCFEC46, vtable 0x0064630C, 0x48 bytes; made by 0x004298B0; our name): chains of

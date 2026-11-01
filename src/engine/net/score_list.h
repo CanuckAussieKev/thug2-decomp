@@ -21,11 +21,10 @@ struct ScoreEntry : memory::ListNode {
     // 0x00544720: the scalar deleting destructor (out of its list; freed with flag 1).
     ScoreEntry* teardown(unsigned int flags);
 
-    char text_[32]; // +0x14 the player's (or team's) name; "> " before the local one
-    bool king_;     // +0x34 has the crown
-    bool local_;    // +0x35
-    bool has_flag_; // +0x36 carries a flag
-    uint8_t pad37;
+    char text_[32];      // +0x14 the player's (or team's) name; "> " before the local one
+    bool king_;          // +0x34 has the crown
+    bool local_;         // +0x35
+    bool has_flag_;      // +0x36 carries a flag
     uint32_t flag_bits_; // +0x38 the teams whose flags it carries (bit n: team n)
     int shade_;          // +0x3C the text colour (\c): the team + 2, or the skater's id + 2
     int team_score_;     // +0x40 (teams)

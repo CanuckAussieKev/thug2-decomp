@@ -225,12 +225,10 @@ public:
     DirectedFriction* steer_friction_; // +0x88 one per contact (directed_friction=)
     uint16_t contact_count_;           // +0x8C
     uint16_t pad8e_;
-    Sphere* spheres_;       // +0x90
-    uint16_t sphere_count_; // +0x94
-    uint16_t pad96;
-    Spring* springs_;       // +0x98 (springs=)
-    uint16_t spring_count_; // +0x9C
-    uint16_t pad9e_;
+    Sphere* spheres_;                     // +0x90
+    uint16_t sphere_count_;               // +0x94
+    Spring* springs_;                     // +0x98 (springs=)
+    uint16_t spring_count_;               // +0x9C
     maths::Vec4 balance_point_;           // +0xA0 center_of_mass
     maths::Vec4 model_offset_;            // +0xB0 the model's offset from the centre of mass
     float push_cooldown_time_;            // +0xC0 (0x1F4D0CA5; 1/12): seconds the pushers aren't felt after a push
@@ -257,10 +255,9 @@ public:
     maths::Mat4 basis_frame_;             // +0x150 the orientation as a matrix
     int8_t contacts_hit_;                 // +0x190 contacts touching this frame
     int8_t unknown191_;                   // +0x191 (3 or more: Integrate leaves gravity out)
-    uint8_t pad192[2];
-    float push_cooldown_;              // +0x194 the time left of push_cooldown_time_
-    float radius_;                     // +0x198 the bounding radius
-    AudioEmitterModule* audio_module_; // +0x19C the object's sound component (for the bounce sound)
+    float push_cooldown_;                 // +0x194 the time left of push_cooldown_time_
+    float radius_;                        // +0x198 the bounding radius
+    AudioEmitterModule* audio_module_;    // +0x19C the object's sound component (for the bounce sound)
 };
 
 // 0x0042E380: `object` (a skater) added to the objects rigid bodies feel (8 places, 0x00695150: the last free one

@@ -137,9 +137,8 @@ public:
     int cur_phase_;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
     tasks::SchedulerTask* task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
     bool authenticated_;         // +0x10
-    uint8_t pad11_[3];
-    memory::ListNode friends_;  // +0x14 lists::Foremost<Buddy>
-    memory::ListNode messages_; // +0x28 lists::Foremost<FriendNote>
+    memory::ListNode friends_;   // +0x14 lists::Foremost<Buddy>
+    memory::ListNode messages_;  // +0x28 lists::Foremost<FriendNote>
 };
 
 // The script commands (CFunctions: the parameters, the script).

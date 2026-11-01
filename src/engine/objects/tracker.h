@@ -174,7 +174,6 @@ public:
     int launched_from_script_; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
     Waiter waiters_[40];       // +0xB038
     bool unknownb218_;         // +0xB218 (cleared by the constructor only)
-    uint8_t unknownb219_[3];
 };
 
 // The tracker (null until made).

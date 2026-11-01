@@ -96,7 +96,6 @@ public:
     uint8_t* suspend_;                          // +0x30 the suspend component
     ObjectModule* brightness_model_;            // +0x34 ObjID's model (update_Brightness)
     bool rotate_;                               // +0x38 EnableRotate
-    uint8_t pad39[3];
 };
 
 } // namespace objects

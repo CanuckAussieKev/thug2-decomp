@@ -51,7 +51,6 @@ struct OrderedMsgNode {
     uint8_t retry_count_;
     uint8_t bundle_id_;
     uint8_t bulk_msg_; // a piece of a streamed message
-    uint8_t pad17;
     uint32_t packet_clock_;
     uint32_t stamp_ms_; // when it was last sent (0: never)
     uint32_t order_index_;

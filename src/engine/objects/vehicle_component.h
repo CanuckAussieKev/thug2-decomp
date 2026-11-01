@@ -52,26 +52,25 @@ public:
 
     // A wheel (0x1C8 bytes; the array at wheels_, made by configure_from_data; its parameters read by 0x00434F20).
     struct Wheel {
-        float y;                   // +0x00 the suspension's extension (the wheel's height in the body)
-        int state;                 // +0x04 WheelState
-        float spin;                // +0x08 the tyre's angular velocity (radians a second)
-        float rotation;            // +0x0C the tyre's roll angle (kept within -pi..pi)
-        float steering;            // +0x10 the steering angle (Ackermann)
-        float display_steering_;   // +0x14 the same from the smoothed steering (the model's)
-        maths::Vec4 pos;           // +0x18 the contact point (world)
-        maths::Vec4 vel;           // +0x28 the body's velocity there
-        float load;                // +0x38 the suspension's force, averaged over the last ten steps
-        float load_history_[10];   // +0x3C
-        maths::Vec4 normal;        // +0x64 the ground's normal under it
-        float friction;            // +0x74 the tyre's friction coefficient this step (0x00435250)
-        maths::Vec4 feeler_start_; // +0x78 the suspension's line (world): top
-        maths::Vec4 feeler_end_;   // +0x88 bottom
-        float slip;                // +0x98 the tyre's sideways / spinning slip speed
-        float torque;              // +0x9C the torques on the tyre this step (summed)
-        maths::Vec4 offset;        // +0xA0 the wheel's position in the body (the model's, less the centre of mass)
-        int steering_side_;        // +0xB0 steering (0x07560E63): 0 Fixed, 1 left, 2 right
-        bool drive;                // +0xB4 drive (0x97E20A70): yes / no
-        uint8_t padb5_[3];
+        float y;                     // +0x00 the suspension's extension (the wheel's height in the body)
+        int state;                   // +0x04 WheelState
+        float spin;                  // +0x08 the tyre's angular velocity (radians a second)
+        float rotation;              // +0x0C the tyre's roll angle (kept within -pi..pi)
+        float steering;              // +0x10 the steering angle (Ackermann)
+        float display_steering_;     // +0x14 the same from the smoothed steering (the model's)
+        maths::Vec4 pos;             // +0x18 the contact point (world)
+        maths::Vec4 vel;             // +0x28 the body's velocity there
+        float load;                  // +0x38 the suspension's force, averaged over the last ten steps
+        float load_history_[10];     // +0x3C
+        maths::Vec4 normal;          // +0x64 the ground's normal under it
+        float friction;              // +0x74 the tyre's friction coefficient this step (0x00435250)
+        maths::Vec4 feeler_start_;   // +0x78 the suspension's line (world): top
+        maths::Vec4 feeler_end_;     // +0x88 bottom
+        float slip;                  // +0x98 the tyre's sideways / spinning slip speed
+        float torque;                // +0x9C the torques on the tyre this step (summed)
+        maths::Vec4 offset;          // +0xA0 the wheel's position in the body (the model's, less the centre of mass)
+        int steering_side_;          // +0xB0 steering (0x07560E63): 0 Fixed, 1 left, 2 right
+        bool drive;                  // +0xB4 drive (0x97E20A70): yes / no
         float rest_y_;               // +0xB8 the suspension's rest extension (Finalize)
         float max_drawn_y_;          // +0xBC (0xD87D0183) the model's wheel drawn no lower than this
         float radius;                // +0xC0 radius
@@ -323,39 +322,36 @@ public:
     int8_t load_index_;           // +0x118 the wheels' load history slot (0-9)
     bool cut_short_;              // +0x119 a trigger's script took over during the step
     bool righting_;               // +0x11A turning itself upright
-    uint8_t pad11b_;
-    int righting_start_;        // +0x11C the game clock (with its offset) when it started righting itself
-    float kick_time_;           // +0x120 seconds left of a random kick (0x00435890)
-    maths::Vec4 force_;         // +0x124 the force this step
-    maths::Vec4 twist_force_;   // +0x134 the torque this step
-    float step_length_;         // +0x144 the sub-step's length (seconds)
-    maths::Vec4 balance_point_; // +0x148 (body; y from 0x93346B8C)
-    float inv_mass_;            // +0x158 386.4 / mass
-    float inv_moments_[3];      // +0x15C 386.4 / moment_of_inertia
+    int righting_start_;          // +0x11C the game clock (with its offset) when it started righting itself
+    float kick_time_;             // +0x120 seconds left of a random kick (0x00435890)
+    maths::Vec4 force_;           // +0x124 the force this step
+    maths::Vec4 twist_force_;     // +0x134 the torque this step
+    float step_length_;           // +0x144 the sub-step's length (seconds)
+    maths::Vec4 balance_point_;   // +0x148 (body; y from 0x93346B8C)
+    float inv_mass_;              // +0x158 386.4 / mass
+    float inv_moments_[3];        // +0x15C 386.4 / moment_of_inertia
     uint32_t unknown168_;
-    float restitution_;      // +0x16C body_restitution (0x79C3B862)
-    float drag_factor_;      // +0x170 body_friction (0xF476273C)
-    float depth_correction_; // +0x174 (0x01DD4890) the contacts' depth correction
-    float tipped_friction_;  // +0x178 (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
-    float wall_steering_;    // +0x17C (0xB9F026ED) the steering's turning against walls
-    float align_speed_;      // +0x180 (0x8C14709E) below this horizontal speed the body turns towards its
-                             //        facing, above it towards its velocity (0x00439D90)
-    float align_time_;       // +0x184 (0x2C91E49B) the turning's ramp-in time in the air
-    float align_rate_;       // +0x188 (0x280F0E0B) the turning's rate
-    bool align_when_slow_;   // +0x18C (0x5341806A) turn towards the facing when slow
-    uint8_t pad18d_[3];
-    int wheel_count_;          // +0x190 Wheels
-    int drive_wheel_count_;    // +0x194 wheels with drive
-    float max_steering_angle_; // +0x198 max_steering_angle (radians)
-    float wheelbase_;          // +0x19C (Finalize: the model's front to back wheels)
-    float track_;              // +0x1A0 (Finalize: the model's left to right wheels)
-    float yaw_damping_;        // +0x1A4 (0x386837DB) the turning damped when not steering
-    float spin_damping_;       // +0x1A8 (0x469CF79A) the angular momentum damped
-    Collider colliders_[2];    // +0x1AC colliders (0xFC8C4AC6)
-    maths::Vec4 skater_bone_;  // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
-    bool can_dismount_;        // +0x2CC Exitable
-    bool handbrake_disabled_;  // +0x2CD no_handbrake
-    uint8_t pad2ce_[2];
+    float restitution_;                    // +0x16C body_restitution (0x79C3B862)
+    float drag_factor_;                    // +0x170 body_friction (0xF476273C)
+    float depth_correction_;               // +0x174 (0x01DD4890) the contacts' depth correction
+    float tipped_friction_;                // +0x178 (0x4A23A53C) the body's friction when tipped over (up.y <= 0.707)
+    float wall_steering_;                  // +0x17C (0xB9F026ED) the steering's turning against walls
+    float align_speed_;                    // +0x180 (0x8C14709E) below this horizontal speed the body turns towards its
+                                           //        facing, above it towards its velocity (0x00439D90)
+    float align_time_;                     // +0x184 (0x2C91E49B) the turning's ramp-in time in the air
+    float align_rate_;                     // +0x188 (0x280F0E0B) the turning's rate
+    bool align_when_slow_;                 // +0x18C (0x5341806A) turn towards the facing when slow
+    int wheel_count_;                      // +0x190 Wheels
+    int drive_wheel_count_;                // +0x194 wheels with drive
+    float max_steering_angle_;             // +0x198 max_steering_angle (radians)
+    float wheelbase_;                      // +0x19C (Finalize: the model's front to back wheels)
+    float track_;                          // +0x1A0 (Finalize: the model's left to right wheels)
+    float yaw_damping_;                    // +0x1A4 (0x386837DB) the turning damped when not steering
+    float spin_damping_;                   // +0x1A8 (0x469CF79A) the angular momentum damped
+    Collider colliders_[2];                // +0x1AC colliders (0xFC8C4AC6)
+    maths::Vec4 skater_bone_;              // +0x2BC the skater's place on the model (Finalize; the skeleton's bone 1)
+    bool can_dismount_;                    // +0x2CC Exitable
+    bool handbrake_disabled_;              // +0x2CD no_handbrake
     Wheel* wheels_;                        // +0x2D0
     float engine_torque_;                  // +0x2D4 drive_torque (engine; * 12)
     float engine_braking_;                 // +0x2D8 (0xB2268648, * 12) engine braking without throttle
@@ -371,24 +367,21 @@ public:
     bool reverse_;                         // +0x30B
     render::HitMeshCache contact_memo_;    // +0x30C the feelers' collision cache
     bool rider_shown_;                     // +0x12D8 (0x2ED67657) a skater is shown driving
-    uint8_t pad12d9_[3];
-    maths::Vec4 skater_pos_;   // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
-    uint32_t rider_anim_name_; // +0x12EC skater_anim (0xDA75A33E)
-    float display_steering_;   // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
-    uint32_t sounds_name_;     // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
-    float gravity_scale_;      // +0x12F8 (Vehicle_AdjustGravity)
-    float gravity_time_;       // +0x12FC seconds left of it
-    bool handbrake_active_;    // +0x1300 (forces the brake)
-    uint8_t pad1301[3];
-    float air_time_;              // +0x1304 seconds without a wheel on the ground
-    float free_fall_time_;        // +0x1308 seconds in the air without touching anything
-    float collision_impulse_;     // +0x130C the strongest contact impulse this step
-    ObjectModule* bone_rig_;      // +0x1310 the object's skeleton (0x222756D5)
-    PadInputModule* input_ptr_;   // +0x1314 the input component (0x27D7CD28)
-    ObjectModule* mesh_instance_; // +0x1318 the model (0x286A8D26)
-    int debug_mode_;              // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
-    bool passive_;                // +0x1320 no input, collision or debug drawing (set from outside)
-    uint8_t pad1321[3];
+    maths::Vec4 skater_pos_;               // +0x12DC skater_pos (made relative to the centre of mass by Finalize)
+    uint32_t rider_anim_name_;             // +0x12EC skater_anim (0xDA75A33E)
+    float display_steering_;               // +0x12F0 steering_ smoothed (the model's wheels, the skater's animation)
+    uint32_t sounds_name_;                 // +0x12F4 sounds (0x0EDCF90E): the VehicleSound component's settings
+    float gravity_scale_;                  // +0x12F8 (Vehicle_AdjustGravity)
+    float gravity_time_;                   // +0x12FC seconds left of it
+    bool handbrake_active_;                // +0x1300 (forces the brake)
+    float air_time_;                       // +0x1304 seconds without a wheel on the ground
+    float free_fall_time_;                 // +0x1308 seconds in the air without touching anything
+    float collision_impulse_;              // +0x130C the strongest contact impulse this step
+    ObjectModule* bone_rig_;               // +0x1310 the object's skeleton (0x222756D5)
+    PadInputModule* input_ptr_;            // +0x1314 the input component (0x27D7CD28)
+    ObjectModule* mesh_instance_;          // +0x1318 the model (0x286A8D26)
+    int debug_mode_;                    // +0x131C 0-2 (debug: the next one, 0xE6B5FCD9: the previous, 0x751DA48B: off)
+    bool passive_;                      // +0x1320 no input, collision or debug drawing (set from outside)
     GameEntity* rider_ref_;             // +0x1324 the local skater (modules::Skate's 0x00566520)
     ObjectModule* anim_blender_ptr_;    // +0x1328 its animation blender (with rider_shown_)
     ObjectModule* skater_core_physics_; // +0x132C its core physics (0x5BD63B29)

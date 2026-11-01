@@ -58,7 +58,6 @@ public:
     uint32_t restart_walks_ = 0; // +0x1C set to every bit when the list changes: the walks start again
     uint32_t new_id_;            // +0x20 reassign_object_id: the id being given (for the tracker)
     bool reassigning_ = false;   // +0x24
-    uint8_t unknown25[3];
 };
 
 // The manager with a dead list (vtable 0x00647834), emptied by a task every frame.

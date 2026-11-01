@@ -184,17 +184,15 @@ public:
     float period_left_;          // +0x40
     bool has_next_blend_;        // +0x44 (the next play blends over next_blend_)
     uint8_t pad45_[3];
-    float next_blend_; // +0x48
-    bool flag_4c_;     // +0x4C (without it each play deletes the older timelines)
-    bool events_on_;   // +0x4D
-    bool flag_4e_;     // +0x4E
-    uint8_t pad4f_;
-    uint32_t lookup_key_;     // +0x50 the anim set
-    uint32_t flag_bits_;      // +0x54 (bit 29: flipped)
-    uint32_t event_table_;    // +0x58 (AnimEventTableName 0x5B8C6DC2)
-    float prev_timeline_pos_; // +0x5C the playing timeline's time last frame
-    bool waiting_;            // +0x60 a time waited for
-    uint8_t pad61_[3];
+    float next_blend_;                       // +0x48
+    bool flag_4c_;                           // +0x4C (without it each play deletes the older timelines)
+    bool events_on_;                         // +0x4D
+    bool flag_4e_;                           // +0x4E
+    uint32_t lookup_key_;                    // +0x50 the anim set
+    uint32_t flag_bits_;                     // +0x54 (bit 29: flipped)
+    uint32_t event_table_;                   // +0x58 (AnimEventTableName 0x5B8C6DC2)
+    float prev_timeline_pos_;                // +0x5C the playing timeline's time last frame
+    bool waiting_;                           // +0x60 a time waited for
     float wait_time_;                        // +0x64
     uint8_t* owner_ptr_;                     // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
     objects::AnimBlenderComponent* blender_; // +0x6C

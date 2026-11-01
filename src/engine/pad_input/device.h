@@ -73,7 +73,6 @@ public:
     uint8_t actuator_saved_[32]; // levels while paused
     int pause_count_;
     uint8_t rumble_off_;
-    uint8_t padc1_[3];
     uint32_t capabilities_;
     uint32_t unknownc8_;
     int rumble_motor_count_;

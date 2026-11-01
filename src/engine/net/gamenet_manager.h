@@ -698,27 +698,25 @@ public:
     uint32_t refused_reason_;               // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
     uint32_t last_ready_probe_id_;          // +0x188
     bool cleared_to_start_;                 // +0x18C
-    uint8_t unknown18d_[3];
-    uint32_t score_synced_at_;  // +0x190
-    uint32_t script_flag_bits_; // +0x194 the pro set's bits (sent as a byte)
-    int join_phase_;            // +0x198 EntryPhase
-    uint32_t join_ip_;          // +0x19C
-    uint32_t join_private_ip_;  // +0x1A0
-    int join_port_;             // +0x1A4
-    int modem_state_shown_;     // +0x1A8 the net library's modem state the online state task showed last
-    int join_began_at_;         // +0x1AC
-    uint32_t lobby_since_;      // +0x1B0 when the lobby began (reset_to_lobby)
-    bool match_being_set_up_;   // +0x1B4
-    bool awaiting_start_;       // +0x1B5
-    uint8_t unknown1b6_[2];
-    int service_state_;           // +0x1B8 the online service's state (service_task)
-    int next_service_state_;      // +0x1BC state 0 moves on to it at the wake time
-    uint32_t service_wake_at_;    // +0x1C0 frame_clock::get_time() milliseconds; 0: none
-    uint32_t online_script_;      // +0x1C4 run once online (connect_to_internet)
-    uint32_t online_fail_script_; // +0x1C8 run if going online fails
-    PlayerRecord* viewed_player_; // +0x1CC
-    PlayerRecord* last_leader_;   // +0x1D0 the player last announced as the leader
-    int last_leading_team_;       // +0x1D4
+    uint32_t score_synced_at_;              // +0x190
+    uint32_t script_flag_bits_;             // +0x194 the pro set's bits (sent as a byte)
+    int join_phase_;                        // +0x198 EntryPhase
+    uint32_t join_ip_;                      // +0x19C
+    uint32_t join_private_ip_;              // +0x1A0
+    int join_port_;                         // +0x1A4
+    int modem_state_shown_;                 // +0x1A8 the net library's modem state the online state task showed last
+    int join_began_at_;                     // +0x1AC
+    uint32_t lobby_since_;                  // +0x1B0 when the lobby began (reset_to_lobby)
+    bool match_being_set_up_;               // +0x1B4
+    bool awaiting_start_;                   // +0x1B5
+    int service_state_;                     // +0x1B8 the online service's state (service_task)
+    int next_service_state_;                // +0x1BC state 0 moves on to it at the wake time
+    uint32_t service_wake_at_;              // +0x1C0 frame_clock::get_time() milliseconds; 0: none
+    uint32_t online_script_;                // +0x1C4 run once online (connect_to_internet)
+    uint32_t online_fail_script_;           // +0x1C8 run if going online fails
+    PlayerRecord* viewed_player_;           // +0x1CC
+    PlayerRecord* last_leader_;             // +0x1D0 the player last announced as the leader
+    int last_leading_team_;                 // +0x1D4
     // The created goals' message (prepare_created_goals): the level, then the goals. The goal editor is given 6000
     // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
     // written after).
@@ -737,7 +735,6 @@ public:
     bool download_done_;            // +0xFE08 the news download has ended (or the MOTD was cancelled)
     bool motd_received_;            // +0xFE09
     bool services_available_;       // +0xFE0A the GameSpy services are available
-    uint8_t unknownfe0b_;
 };
 
 // --- gamenet_players.cpp: outside the class ---

@@ -87,10 +87,9 @@ struct BeatTrick {
     bool landed;         // +0x10 done in the beat window
     bool free;           // +0x11
     bool perfect;        // +0x12
-    uint8_t pad13;
-    int unknown14; // +0x14
-    int spin;      // +0x18
-    int taps;      // +0x1C
+    int unknown14;       // +0x14
+    int spin;            // +0x18
+    int taps;            // +0x1C
 };
 
 // TrickBeat (vtable 0x0064E9B8, 0x47C bytes).
@@ -106,14 +105,12 @@ public:
     int beat_;                     // +0x43C 0..15
     float beat_length_;            // +0x440 ms (15000 / tempo)
     bool pulse_;                   // +0x444 the beat pattern's pulse flag for this beat
-    uint8_t pad445[3];
-    script::Array* pattern_; // +0x448 a copy of beat_pattern (16 structures: sounds, pulse)
-    bool in_window_;         // +0x44C tricks count as on the beat
-    uint8_t pad44d_[3];
-    int window_time_;             // +0x450 beat_window_time
-    int completed_;               // +0x454
-    int total_to_win_;            // +0x458 total_to_win
-    bool unknown45c_[kMaxTricks]; // +0x45C
+    script::Array* pattern_;       // +0x448 a copy of beat_pattern (16 structures: sounds, pulse)
+    bool in_window_;               // +0x44C tricks count as on the beat
+    int window_time_;              // +0x450 beat_window_time
+    int completed_;                // +0x454
+    int total_to_win_;             // +0x458 total_to_win
+    bool unknown45c_[kMaxTricks];  // +0x45C
     uint8_t pad47a_[2];
 
     // 0x00574C40 / 0x00575140 / 0x00576210: constructor, destructor body, scalar deleting destructor.

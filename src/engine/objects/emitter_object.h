@@ -36,8 +36,7 @@ struct EmitterNode {
     uint32_t label_;       // +0x00
     maths::Vec4 at_point_; // +0x04
     uint8_t unknown14_[0x10];
-    bool active_; // +0x24
-    uint8_t unknown25_[3];
+    bool active_;     // +0x24
     int form_;        // +0x28 EmitterShape
     float radius_;    // +0x2C
     float reach_sq_;  // +0x30

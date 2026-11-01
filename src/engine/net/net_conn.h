@@ -129,13 +129,12 @@ struct Conn {
     Gauges receive_metrics_;            // +0x1CDC
     Gauges send_metrics_;               // +0x2CE8
     bool send_now_;                     // +0x3CF4 force a send this frame
-    uint8_t pad3cf5_[3];
-    memory::ListNode app_node_;  // +0x3CF8 in the App's connection list (data = the connection)
-    Conn* alias_conn_;           // +0x3D0C
-    int link_class_;             // +0x3D10
-    uint32_t last_timestamp_in_; // +0x3D14
-    uint32_t timestamp_out_;     // +0x3D18
-    int link_speed_;             // +0x3D1C bytes per second
+    memory::ListNode app_node_;         // +0x3CF8 in the App's connection list (data = the connection)
+    Conn* alias_conn_;                  // +0x3D0C
+    int link_class_;                    // +0x3D10
+    uint32_t last_timestamp_in_;        // +0x3D14
+    uint32_t timestamp_out_;            // +0x3D18
+    int link_speed_;                    // +0x3D1C bytes per second
 };
 
 } // namespace net

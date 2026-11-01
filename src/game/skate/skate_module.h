@@ -256,17 +256,14 @@ public:
     uint32_t previous_level_;          // +0x37C
     uint32_t level_params_;            // +0x380 the level's structure (its name)
     bool new_record_;                  // +0x384 a record was set by the last UpdateRecords
-    uint8_t pad385[3];
     goals::MatchFlow* game_flow_;      // +0x388
     goals::GoalManager* goal_manager_; // +0x38C
     PlayerSettings participants_[8];   // +0x390
     float forced_stat_;                // +0x3D0 every skater's stats, forced (unless 0)
     bool debug_rails_;                 // +0x3D4
-    uint8_t pad3d5_[3];
-    script::Script* own_script_; // +0x3D8
-    bool no_camera_;             // +0x3DC (prepare_entity_update_data: no camera to measure from)
-    uint8_t pad3dd_[3];
-    maths::Vec4 viewer_pos_; // +0x3E0
+    script::Script* own_script_;       // +0x3D8
+    bool no_camera_;                   // +0x3DC (prepare_entity_update_data: no camera to measure from)
+    maths::Vec4 viewer_pos_;           // +0x3E0
 };
 
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).

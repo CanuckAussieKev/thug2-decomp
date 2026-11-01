@@ -126,9 +126,8 @@ public:
     bool is_networked_;                            // +0x2E4
     bool use_dhcp_;                                // +0x2E5 (the apps are then bound to local_ip_)
     bool flag_2e_6_;                               // +0x2E6
-    uint8_t pad2e7_;
-    int dialup_phase_; // +0x2E8
-    int unknown2ec_;   // +0x2EC (0 from the constructor)
+    int dialup_phase_;                             // +0x2E8
+    int unknown2ec_;                               // +0x2EC (0 from the constructor)
     uint8_t unknown2f0_[0x374 - 0x2F0];
     int dialup_bps_; // +0x374
     int link_speed_; // +0x378 (400000 at first)

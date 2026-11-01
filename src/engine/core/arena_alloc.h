@@ -185,7 +185,6 @@ public:
     void dealloc(ChunkPrefix* header) override;
 
     bool unknown64_;
-    uint8_t pad65_[3];
     int unknown68_;
     int use_fallbacks_;
     Arena* fallbacks_[5];

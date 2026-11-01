@@ -63,7 +63,6 @@ public:
     GameEntity* skater_; // +0x108
     uint32_t unknown10c_;
     bool worn_; // +0x110
-    uint8_t pad111[3];
 };
 
 } // namespace objects

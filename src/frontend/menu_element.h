@@ -51,19 +51,16 @@ public:
     int selected_index_;      // +0x178 (-1 none)
     uint32_t chosen_item_id_; // +0x17C (0 none)
     bool focused_;            // +0x180
-    uint8_t pad181_[3];
-    int controller_;      // +0x184 the controller of the focus event
-    float inner_align_h_; // +0x188 internal_just
-    float inner_align_v_; // +0x18C
-    bool vertical_;       // +0x190 a vmenu
-    uint8_t pad191_[3];
-    float regular_space_; // +0x194 regular_space_amount (0: off)
-    float margin_factor_; // +0x198 padding_scale (1)
-    float item_gap_;      // +0x19C spacing_between
-    bool pad_handling_;   // +0x1A0 enable_pad_handling (on)
-    bool cycles_around_;  // +0x1A1 allow_wrap (on)
-    uint8_t pad1a2_[2];
-    int grid_index_; // +0x1A4 (-1)
+    int controller_;          // +0x184 the controller of the focus event
+    float inner_align_h_;     // +0x188 internal_just
+    float inner_align_v_;     // +0x18C
+    bool vertical_;           // +0x190 a vmenu
+    float regular_space_;     // +0x194 regular_space_amount (0: off)
+    float margin_factor_;     // +0x198 padding_scale (1)
+    float item_gap_;          // +0x19C spacing_between
+    bool pad_handling_;       // +0x1A0 enable_pad_handling (on)
+    bool cycles_around_;      // +0x1A1 allow_wrap (on)
+    int grid_index_;          // +0x1A4 (-1)
 };
 
 // The container element (ContainerElement, vtable 0x0064A0BC, 0x17C bytes): passes focus / unfocus on to its

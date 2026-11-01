@@ -46,7 +46,6 @@ struct InboundMsgCtx {
     uint32_t sequences_to_ack_[32]; // the timestamps to acknowledge after the packet (low 16 bits)
     int num_sequences_to_ack_;
     bool acknowledge_; // send those acks
-    uint8_t pada1_[3];
 };
 static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
               offsetof(InboundMsgCtx, num_sequences_to_ack_) == 0x9C && sizeof(InboundMsgCtx) == 0xA4);

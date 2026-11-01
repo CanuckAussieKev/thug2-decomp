@@ -53,7 +53,6 @@ struct ModelSpinAxis {
 
     ModelSpin spins_[6]; // +0x00
     bool active_;        // +0x90
-    uint8_t pad91[3];
 };
 static_assert(sizeof(ModelSpinAxis) == 0x94, "layout must match the original");
 
@@ -152,7 +151,6 @@ public:
     uint32_t linked_entity_label_;       // +0x230 refObjectName: a level object's sector
     bool level_object_;                  // +0x234
     bool sector_model_;                  // +0x235 init_from_sector's
-    uint8_t pad236[2];
 };
 
 } // namespace objects

@@ -31,7 +31,6 @@ struct RideTracker {
     maths::Vec4 carried_;          // +0x5C
     maths::Mat4 turn_;             // +0x6C
     bool turned_;                  // +0xAC
-    uint8_t padad_[3];
 };
 
 } // namespace objects

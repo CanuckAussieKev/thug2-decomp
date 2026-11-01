@@ -383,12 +383,11 @@ public:
     // (the original's slot 10, 0x005480A0 here) Its own update, each frame before its components': nothing here.
     virtual void own_update() {}
 
-    maths::Vec4 at_point_;        // +0x4C (w = 1 after every update)
-    maths::Vec4 old_pos_;         // +0x5C (not initialised here; the skater's code sets it)
-    maths::Mat4 basis_frame_;     // +0x6C its orientation (rows: right, up, at, and a fourth)
-    maths::Vec4 vel_;             // +0xAC
-    uint8_t is_local_skater_ = 0; // +0xBC set on this machine's skaters (not remote ones)
-    uint8_t padbd_[3];
+    maths::Vec4 at_point_;                     // +0x4C (w = 1 after every update)
+    maths::Vec4 old_pos_;                      // +0x5C (not initialised here; the skater's code sets it)
+    maths::Mat4 basis_frame_;                  // +0x6C its orientation (rows: right, up, at, and a fourth)
+    maths::Vec4 vel_;                          // +0xAC
+    uint8_t is_local_skater_ = 0;              // +0xBC set on this machine's skaters (not remote ones)
     maths::Mat4 display_matrix_;               // +0xC0
     ObjectModule* attached_modules_ = nullptr; // +0x100
     uint32_t composite_flags_ = 0;             // +0x104 COMPOSITE_FLAG_*

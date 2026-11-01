@@ -89,7 +89,6 @@ public:
     uint32_t asset_;          // +0x120 (the skeleton asset it loaded, by checksum)
     bool is_halted_;          // +0x124: stepped frame by frame (until a speed is set)
     bool panel_shown_;        // +0x125
-    uint8_t pad126[2];
 };
 
 // 0x0058A060: the input handler's code: the controller's buttons as commands - square (makes 0x10) the panel, Left /

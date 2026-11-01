@@ -41,14 +41,13 @@ struct HostListing : memory::ListNode {
     bool password_;      // +0x80
     bool started_;       // +0x81 a game in progress
     int8_t skill_level_; // +0x82
-    uint8_t pad83;
-    int host_mode_;  // +0x84
-    bool ranked_;    // +0x88
-    bool can_reach_; // +0x89 (cleared when it can only be reached with NAT negotiation)
-    bool in_menu_;   // +0x8A added to the server list menu
-    bool chosen_;    // +0x8B its details asked for (RetrieveServerInfo)
-    bool in_list_;   // +0x8C counted in the lobby's server list
-    bool detailed_;  // +0x8D the full details have come
+    int host_mode_;      // +0x84
+    bool ranked_;        // +0x88
+    bool can_reach_;     // +0x89 (cleared when it can only be reached with NAT negotiation)
+    bool in_menu_;       // +0x8A added to the server list menu
+    bool chosen_;        // +0x8B its details asked for (RetrieveServerInfo)
+    bool in_list_;       // +0x8C counted in the lobby's server list
+    bool detailed_;      // +0x8D the full details have come
     uint8_t pad8e_[2];
     void* sb_server_;               // +0x90 GameSpy's SBServer (internet)
     memory::ListNode participants_; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings

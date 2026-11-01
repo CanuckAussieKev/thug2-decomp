@@ -54,13 +54,12 @@ public:
     float inner_align_v_;     // +0x1A0
     bool focused_;            // +0x1A4
     bool rearrange_;          // +0x1A5
-    uint8_t pad1a6_[2];
-    float window_start_;    // +0x1A8 along the menu
-    float scroll_speed_;    // +0x1AC per frame
-    int num_items_to_show_; // +0x1B0 (-1: all)
-    float window_length_;   // +0x1B4
-    float regular_space_;   // +0x1B8 the menu's (-1: none)
-    bool vertical_;         // +0x1BC
+    float window_start_;      // +0x1A8 along the menu
+    float scroll_speed_;      // +0x1AC per frame
+    int num_items_to_show_;   // +0x1B0 (-1: all)
+    float window_length_;     // +0x1B4
+    float regular_space_;     // +0x1B8 the menu's (-1: none)
+    bool vertical_;           // +0x1BC
     uint8_t pad1bd_[3];
 };
 

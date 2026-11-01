@@ -61,9 +61,8 @@ public:
     // and colour (the shown colour with the summed alpha).
     void tick_frame() override;
 
-    uint32_t texture_; // +0x178 the texture's checksum
-    bool z_write_;     // +0x17C (no_zwrite clears it)
-    uint8_t pad17d_[3];
+    uint32_t texture_;            // +0x178 the texture's checksum
+    bool z_write_;                // +0x17C (no_zwrite clears it)
     render::BillboardQuad* quad_; // +0x180
 };
 

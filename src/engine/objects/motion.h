@@ -271,7 +271,6 @@ public:
     float ground_below_;             // +0x3C DistBelow
     maths::Vec4 ground_triangle_[3]; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
     bool ground_height_only_; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
-    uint8_t pad71[3];
     maths::Vec4 ground_triangles_[3][3];  // +0x74 the three feelers' last triangles
     ObjectGroup* path_group_;             // +0x104 the path's group of objects (path manager)
     maths::Vec4 move_target_;             // +0x108
@@ -312,16 +311,14 @@ public:
     float leap_pull_;            // +0x1FC
     maths::Vec4 leap_direction_; // +0x200 along (x, z; w kept)
     bool jump_has_heading_;      // +0x210
-    uint8_t pad211[3];
-    maths::Vec4 jump_pos_;   // +0x214 the jump's position this frame
-    float jump_start_speed_; // +0x224
-    float jump_col_above_;   // +0x228 col_dist_above
-    float jump_col_below_;   // +0x22C col_dist_below
+    maths::Vec4 jump_pos_;       // +0x214 the jump's position this frame
+    float jump_start_speed_;     // +0x224
+    float jump_col_above_;       // +0x228 col_dist_above
+    float jump_col_below_;       // +0x22C col_dist_below
     uint32_t unknown230_;
     bool jump_has_land_height_; // +0x234
-    uint8_t pad235[3];
-    float leap_touchdown_y_; // +0x238
-    maths::Vec4 jump_start_; // +0x23C
+    float leap_touchdown_y_;    // +0x238
+    maths::Vec4 jump_start_;    // +0x23C
 
     // 0x00425600 (thiscall; called by its member function for Obj_Rotate, 0x00426770): turn the object to an
     // orientation over time - `relative = (x, y, z)`: the object's orientation now turned by those angles about its

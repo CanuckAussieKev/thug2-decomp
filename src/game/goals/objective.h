@@ -32,7 +32,6 @@ struct GoalEdge {
     uint32_t objective_key_; // +0x00 (0: the list's first link, not yet used)
     GoalEdge* succ_;         // +0x04
     bool won_;               // +0x08
-    uint8_t pad09_[3];
 };
 
 // The original's vtable slots (0x0064DDD0): 0 the destructor, 1 wants_to_end, 2 has_run_out, 3 is_operative, 4 a jump
