@@ -2142,21 +2142,15 @@ int arrow_at(const TickCycle& frame, float x, float y)
 
 // --- drawing (the renderer's cached state, then the device directly) ---
 
-void* input_port() { return reinterpret_cast<void*>(render::g_d3d_device); }
-template <typename F>
-F get_method(void* object, int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
-}
 uint32_t get_stage_state(int type)
 {
-    uint32_t value = 0;
-    get_method<long(__stdcall*)(void*, int, int, uint32_t*)>(input_port(), 0x108)(input_port(), 0, type, &value);
+    DWORD value = 0;
+    render::g_d3d_device->GetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), &value);
     return value;
 }
 void set_stage_state(int type, uint32_t value)
 {
-    get_method<long(__stdcall*)(void*, int, int, uint32_t)>(input_port(), 0x10C)(input_port(), 0, type, value);
+    render::g_d3d_device->SetTextureStageState(0, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
 }
 
 struct LineVertex {
@@ -5698,7 +5692,7 @@ void tick_frame()
     // The view menus' keys (level_editor_overlays.h): Alt+1..4 the view mode (Lit, Unlit, Wireframe, Collision only);
     // Y the jump arcs (level_editor_arcs.h); M the ruler (level_editor_ruler.h), Shift+M clears its measurement.
     // (the keys from the keymap - level_editor_actions.h)
-    for (int mode = 0; mode < overlays::kViewModes && mode < 4; ++mode) {
+    for (int mode = 0; mode < std::min(overlays::kViewModes, 4); ++mode) {
         if (actions::squeezed(actions::kViewModeLit + mode) &&
             !g_dragging) { // (while dragging digits are typed values)
             overlays::change_view_mode(mode);
@@ -6445,7 +6439,7 @@ void tick_frame()
 
 void blit()
 {
-    if (!g_active || !g_have_view || !input_port())
+    if (!g_active || !g_have_view || !render::g_d3d_device)
         return;
     TickCycle frame = frame_from_yaw_pitch(g_yaw, g_pitch);
     // What's hovered and selected shows tinted (update_highlights); boxes only for what couldn't be (yellow hovered,
@@ -6582,8 +6576,8 @@ void blit()
         saved[i] = get_stage_state(states[i]);
         set_stage_state(states[i], values[i]);
     }
-    get_method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(input_port(), 0x14C)(
-        input_port(), 2 /* D3DPT_LINELIST */, static_cast<unsigned int>(count / 2), line_data, sizeof(LineVertex));
+    render::g_d3d_device->DrawPrimitiveUP(D3DPT_LINELIST, static_cast<unsigned int>(count / 2), line_data,
+                                          sizeof(LineVertex));
     for (int i = 0; i < 4; ++i)
         set_stage_state(states[i], saved[i]);
 }

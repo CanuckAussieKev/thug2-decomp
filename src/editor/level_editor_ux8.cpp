@@ -268,7 +268,7 @@ Pad read_pad()
     p.up_down_ = nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERRIGHT), 0.1f) -
                  nav::get_stick(SDL_GameControllerGetAxis(c, SDL_CONTROLLER_AXIS_TRIGGERLEFT), 0.1f);
     uint32_t now = 0;
-    for (int b = 0; b < SDL_CONTROLLER_BUTTON_MAX && b < 32; ++b) {
+    for (int b = 0; b < std::min<int>(SDL_CONTROLLER_BUTTON_MAX, 32); ++b) {
         if (SDL_GameControllerGetButton(c, static_cast<SDL_GameControllerButton>(b)))
             now |= 1u << b;
     }

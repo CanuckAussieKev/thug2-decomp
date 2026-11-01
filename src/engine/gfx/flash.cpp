@@ -67,10 +67,7 @@ void draw_flash(const Flash* flash)
     vertices[0] = vertices[1];
     vertices[1] = vertices[2];
     vertices[2] = first;
-    void** device = reinterpret_cast<void**>(g_draw_device);
-    using DrawPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int);
-    reinterpret_cast<DrawPrimitiveUP>((*reinterpret_cast<void***>(device))[83])(device, 5 /* triangle strip */, 2,
-                                                                                vertices, sizeof(FlashVertex));
+    g_draw_device->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(FlashVertex));
 }
 
 } // namespace render

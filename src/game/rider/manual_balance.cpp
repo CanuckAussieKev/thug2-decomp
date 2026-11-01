@@ -272,12 +272,12 @@ void Balance::tick_frame()
         // integer division: 0 then).
         float scale = 1.0f;
         if (lean_ < 0.0f && elapsed < safe_period)
-            scale = static_cast<float>(elapsed / safe_period);
+            scale = static_cast<float>(elapsed / safe_period); // NOLINT(bugprone-integer-division): the original's
         lean_speed_ = static_cast<float>(lean_speed_ - get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames);
     } else if (right && pushed_) {
         float scale = 1.0f;
         if (lean_ > 0.0f && elapsed < safe_period)
-            scale = static_cast<float>(elapsed / safe_period);
+            scale = static_cast<float>(elapsed / safe_period); // NOLINT(bugprone-integer-division): the original's
         lean_speed_ = static_cast<float>(get_physics(balance_trick_, kLeanAcc) * scale * frame * kFrames + lean_speed_);
     } else {
         // No button: a random shake.

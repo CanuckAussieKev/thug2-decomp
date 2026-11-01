@@ -47,15 +47,10 @@ struct MovieVertex {
 };
 static_assert(sizeof(MovieVertex) == 0x1C, "the draw's stride");
 
-void** input_port() { return reinterpret_cast<void**>(g_d3d_device); }
-template <typename F>
-F get_method(int index)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[index]);
-}
 void set_texture_stage_state(int stage, int type, int value)
 {
-    get_method<long(__stdcall*)(void*, int, int, int)>(0x10C / 4)(input_port(), stage, type, value);
+    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+                                       static_cast<DWORD>(value));
 }
 
 uint32_t s_movie_width = 0;
@@ -65,18 +60,15 @@ uint32_t s_movie_height = 0;
 
 void set_movie_texture(int stage, void* texture, int unknown)
 {
-    // GetLevelDesc(0): a D3DSURFACE_DESC (0x20 bytes: format, type, usage, pool, multisample type and quality,
-    // width, height)
-    uint32_t desc[8];
-    reinterpret_cast<long(__stdcall*)(void*, unsigned int, void*)>((*static_cast<void***>(texture))[0x44 / 4])(texture,
-                                                                                                               0, desc);
-    s_movie_width = desc[6];
-    s_movie_height = desc[7];
+    D3DSURFACE_DESC desc;
+    static_cast<IDirect3DTexture9*>(texture)->GetLevelDesc(0, &desc);
+    s_movie_width = desc.Width;
+    s_movie_height = desc.Height;
     (void)unknown; // (passed on by the original; SetTexture doesn't take it)
     set_texture(stage, texture);
 }
 
-void draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
+void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
     uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
     uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
@@ -103,9 +95,7 @@ void draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uin
     quad[2].y = offset_y + height;
     quad[3].x = offset_x + width;
     quad[3].y = offset_y + height;
-    // DrawPrimitiveUP
-    reinterpret_cast<long(__stdcall*)(void*, int, uint32_t, const void*, uint32_t)>(
-        (*static_cast<void***>(device))[0x14C / 4])(device, type, count, vertices, stride);
+    device->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
 float g_one_percent{0.01f};
@@ -135,8 +125,8 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     choose_blend_mode(0);
     change_phase(kAddressMode0, 0x10001); // (clamp)
     set_vertex_format(0x144);
-    get_method<long(__stdcall*)(void*, int, int)>(0xE4 / 4)(input_port(), 22, 1);  // D3DRS_CULLMODE: none
-    get_method<long(__stdcall*)(void*, uint32_t)>(0x164 / 4)(input_port(), 0x144); // SetFVF
+    g_d3d_device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+    g_d3d_device->SetFVF(0x144);
     set_pixel_shader(nullptr, nullptr);                                            // (no pixel shader)
     set_texture_stage_state(0, 1, 5);                                              // colour: modulate
     set_texture_stage_state(0, 2, 2);
@@ -164,9 +154,9 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
     vertices[3] = vertices[1];
     vertices[3].y = vertices[2].y;
     vertices[3].v = 1.0f;
-    if (get_method<long(__stdcall*)(void*)>(0xC / 4)(input_port()) == 0) // TestCooperativeLevel: the device isn't lost
+    if (g_d3d_device->TestCooperativeLevel() == D3D_OK) // the device isn't lost
         // Originally from PartyMod Fixes (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
-        draw_movie_quad(input_port(), 5 /* triangle strip */, 2, vertices, sizeof(MovieVertex));
+        draw_movie_quad(g_d3d_device, D3DPT_TRIANGLESTRIP, 2, vertices, sizeof(MovieVertex));
     set_texture_stage_state(0, 1, 4); // colour: modulate back
 }
 
@@ -229,19 +219,23 @@ bool& movie_playing() { return g_movie_playing; }
 // The d_3d device's render and sampler states (IDirect3DDevice9 methods 57/58 and 69/70).
 void set_render_state(int state, uint32_t value)
 {
-    get_method<long(__stdcall*)(void*, int, uint32_t)>(0xE4 / 4)(input_port(), state, value);
+    g_d3d_device->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 void get_render_state(int state, uint32_t* value)
 {
-    get_method<long(__stdcall*)(void*, int, uint32_t*)>(0xE8 / 4)(input_port(), state, value);
+    DWORD read = *value; // (left as it was if the call fails)
+    g_d3d_device->GetRenderState(static_cast<D3DRENDERSTATETYPE>(state), &read);
+    *value = read;
 }
 void get_sampler_state(int sampler, int type, uint32_t* value)
 {
-    get_method<long(__stdcall*)(void*, int, int, uint32_t*)>(0x110 / 4)(input_port(), sampler, type, value);
+    DWORD read = *value;
+    g_d3d_device->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &read);
+    *value = read;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    get_method<long(__stdcall*)(void*, int, int, uint32_t)>(0x114 / 4)(input_port(), sampler, type, value);
+    g_d3d_device->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
 constexpr int kD3dCullMode = 22;
 constexpr int kRsMultisample = 161;
@@ -254,16 +248,6 @@ uint32_t& get_saved_min_filter() { return g_saved_min_filter; }
 // The renderer's cached states (change_phase: 1 the z write, 2 the z test).
 void set_renderer_sampler(int state, int value) { change_phase(state, static_cast<uint32_t>(value)); }
 
-// A texture's methods (IDirect3DTexture9: Release, LockRect, UnlockRect).
-template <typename F>
-F texture_method(void* texture, int index)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[index]);
-}
-struct SurfaceLock {
-    int pitch;
-    void* bits;
-};
 
 } // namespace
 
@@ -282,14 +266,13 @@ void* begin_movie(uint32_t width, uint32_t height)
     // (x87: unsigned to float through FILD and +2^32)
     g_movie_picture_width = static_cast<float>(static_cast<double>(width));
     g_movie_picture_height = static_cast<float>(static_cast<double>(height));
-    void** device = input_port();
     g_movie_back_buffer_width = static_cast<float>(g_back_buffer_width); // the back buffer
     g_movie_back_buffer_height = static_cast<float>(g_back_buffer_height);
-    void* texture;
-    // CreateTexture: one level, no usage, D3DFMT_X8R8G8B8 (0x16), D3DPOOL_MANAGED
-    long result = get_method<long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, int, int, void**, void*)>(
-        0x5C / 4)(device, width, height, 1, 0, 0x16, 1, &texture, nullptr);
-    if (result < 0)
+    IDirect3DTexture9* texture = nullptr;
+    // one level, no usage
+    HRESULT result =
+        g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_X8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+    if (FAILED(result))
         return nullptr;
     movie_playing() = true;
     return texture;
@@ -305,21 +288,18 @@ void end_movie(void* texture)
     set_renderer_sampler(1, 1);
     set_renderer_sampler(2, 1);
     if (texture)
-        texture_method<unsigned long(__stdcall*)(void*)>(texture, 2)(texture); // Release
+        static_cast<IDirect3DTexture9*>(texture)->Release();
     set_texture(0, nullptr);                                                   // (the original also passes 0, unused)
 }
 
 // 0x0044FCC0
 void draw_movie(Bink* bink, void* texture)
 {
-    get_method<long(__stdcall*)(void*)>(0xA4 / 4)(input_port()); // BeginScene
-    // Clear: the target, to black (Z 1.0)
-    get_method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(0xAC / 4)(
-        input_port(), 0, nullptr, 1, 0, 1.0f, 0);
+    g_d3d_device->BeginScene();
+    g_d3d_device->Clear(0, nullptr, D3DCLEAR_TARGET, 0, 1.0f, 0); // the target, to black (Z 1.0)
     draw_movie_frame(texture, 0.0f, 0.0f, g_movie_draw_width, g_movie_draw_height, 1.0f);
-    get_method<long(__stdcall*)(void*)>(0xA8 / 4)(input_port()); // EndScene
-    get_method<long(__stdcall*)(void*, const void*, const void*, void*, const void*)>(0x44 / 4)(
-        input_port(), nullptr, nullptr, nullptr, nullptr); // Present
+    g_d3d_device->EndScene();
+    g_d3d_device->Present(nullptr, nullptr, nullptr, nullptr);
     video_advance_frame(bink);
 }
 
@@ -432,12 +412,12 @@ void play_movie_file(const char* name)
                 continue;
             Bink* bink = current_movie();
             video_decode_frame(bink);
-            SurfaceLock locked;
-            if (texture_method<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(
-                    texture, 0x4C / 4)(texture, 0, &locked, nullptr, 0) >= 0) {
-                video_copy_frame(bink, locked.bits, locked.pitch, bink->height, 0, 0,
+            auto* d3d_texture = static_cast<IDirect3DTexture9*>(texture);
+            D3DLOCKED_RECT locked;
+            if (SUCCEEDED(d3d_texture->LockRect(0, &locked, nullptr, 0))) {
+                video_copy_frame(bink, locked.pBits, locked.Pitch, bink->height, 0, 0,
                                  g_movie_surface_type | 0x80000000); // the surface type, copy all
-                texture_method<long(__stdcall*)(void*, uint32_t)>(texture, 0x50 / 4)(texture, 0);
+                d3d_texture->UnlockRect(0);
             }
             draw_movie(current_movie(), texture);
             if (current_movie()->frame_num_ >= current_movie()->frames - 1)

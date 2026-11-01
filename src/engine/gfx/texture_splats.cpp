@@ -519,7 +519,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
                     if (absolute < cone || absolute == cone)
                         continue;
                 }
-                splats->alive[slot] = params->lifetime < 0.0f || params->lifetime != params->lifetime
+                splats->alive[slot] = params->lifetime < 0.0f || std::isnan(params->lifetime)
                                           ? 0x7FFFFFFF
                                           : get_milliseconds(params->lifetime);
                 // texture coordinates from the projection (0-1 over the square)

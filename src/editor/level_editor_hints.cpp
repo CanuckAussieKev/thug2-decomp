@@ -398,7 +398,7 @@ std::vector<Hint> get_build(const CtxInfo& c, const KeyText& key_of)
         if (c.selection == Selection::kScenery)
             b.act("edge_rail", "rail along an edge");
         b.act("arrange_window", "arrange");
-        b.act("frame_selection", c.free_camera_ ? "frame" : "frame");
+        b.act("frame_selection", "frame");
         b.act("follow_selection", c.following ? "stop following" : "follow");
         b.act("pie_context", "pie");
         b.act("delete", "delete");

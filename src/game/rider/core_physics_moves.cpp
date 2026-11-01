@@ -146,7 +146,7 @@ bool SkaterPhysicsModule::find_vert_target(const maths::Vec4* direction, const m
         feeler.line_.start.y = static_cast<float>(at_y + static_cast<double>(kTargetLift));
         if (feeler.get_hit_shape(true, false) && (feeler.hit_.face_flags_ & 8) &&
             !(std::fabs(static_cast<double>(feeler.surface_dir_.y)) >= kTargetVertY ||
-              feeler.surface_dir_.y != feeler.surface_dir_.y)) {
+              std::isnan(feeler.surface_dir_.y))) {
             maths::Vec4 flat(feeler.surface_dir_.x, 0.0f, feeler.surface_dir_.z, feeler.surface_dir_.w);
             flat.make_unit();
             along = (static_cast<double>(flat.z) * facing->z + static_cast<double>(flat.y) * facing->y) +

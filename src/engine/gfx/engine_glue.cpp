@@ -99,8 +99,7 @@ void begin_frame_draw()
 {
     if (g_loading_screen_up)
         return;
-    void* device = g_d3d_device;
-    reinterpret_cast<long(__stdcall*)(void*)>((*static_cast<void***>(device))[41])(device);
+    g_d3d_device->BeginScene();
 }
 
 // 0x004B22B0

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+struct IDirect3DDevice9;
+
 namespace render {
 
 // 0x0044FA80: draw a movie frame's texture at (x, y), (width, height) in screen units, faded by alpha (0-1),
@@ -10,10 +12,10 @@ namespace render {
 void draw_movie_frame(void* texture, float x, float y, float width, float height, float alpha);
 
 // PartyMod's two calls in draw_movie_frame. set_movie_texture (cdecl): the renderer's texture set (0x004DA730),
-// noting the texture's size first. draw_movie_quad (stdcall, as the device's DrawPrimitiveUP it stands in for):
+// noting the texture's size first. draw_movie_quad (in place of the device's DrawPrimitiveUP):
 // the quad's corners moved to the largest 4:3 area centred in the back buffer, then drawn.
 void set_movie_texture(int stage, void* texture, int unknown);
-void draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
+void draw_movie_quad(IDirect3DDevice9* device, int type, uint32_t count, void* vertices, uint32_t stride);
 
 } // namespace render
 

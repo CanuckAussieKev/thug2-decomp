@@ -2,6 +2,8 @@
 
 #include "editor/level_editor_ux8_pie.h"
 
+#include <algorithm>
+
 #include "editor/level_editor_actions.h"
 #include "editor/level_editor_camera.h"
 #include "editor/level_editor_hints.h"
@@ -94,7 +96,7 @@ std::vector<Item> view_items()
 {
     using namespace actions;
     std::vector<Item> items;
-    for (int mode = 0; mode < overlays::kViewModes && mode < 4; ++mode)
+    for (int mode = 0; mode < std::min(overlays::kViewModes, 4); ++mode)
         items.push_back(view_mode(mode));
     items.push_back(act_step(kCollision, nullptr, false));
     items.push_back(act_step(kTriggers, nullptr, false));

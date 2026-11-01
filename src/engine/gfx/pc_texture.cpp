@@ -306,7 +306,7 @@ bool PcTexture::begin_edit(bool keep_texture, bool keep_copy)
     d3d->GetLevelDesc(0, &desc);
     D3DLOCKED_RECT rect;
     d3d->LockRect(0, &rect, nullptr, D3DLOCK_READONLY);
-    if (texture->depth != 8 && texture->depth == 32) { // (rows bottom up, the pitch taken as the width)
+    if (texture->depth == 32) { // (rows bottom up, the pitch taken as the width; the original also tests != 8)
         const uint32_t* row = static_cast<const uint32_t*>(rect.pBits) + (height - 1) * width;
         for (uint32_t y = height; y; --y) {
             std::memcpy(pixels, row, width * 4);

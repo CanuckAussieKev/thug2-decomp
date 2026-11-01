@@ -165,9 +165,10 @@ uint32_t AnimCacheEntry::carve(uint32_t key, int16_t bones, int rotation_keys, i
 // 0x00480AD0
 uint32_t AnimCacheEntry::get_release()
 {
-    uint16_t flags = flag_bits_;
+    // (a busy entry: forever, as the original - the flags were read once. Volatile: an empty loop that never ends
+    // is undefined behaviour in C++, a compiler may drop it.)
+    volatile uint16_t flags = flag_bits_;
     while (flags & kBusy) {
-        // (forever, as the original: the flags were read once)
     }
     flag_bits_ = flags | kReleasing;
     if (release_callback_) {

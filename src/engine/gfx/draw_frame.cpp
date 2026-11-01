@@ -83,47 +83,36 @@ void change_fog(bool on) { engine::enable_fog(on); }
 // --- the D3D9 device (0x007D69E0) and its objects, through their vtables ----------------------------------------
 
 void* input_port() { return reinterpret_cast<void*>(g_d3d_device); }
-template <typename F>
-F get_method(void* object, int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
-}
 
 void set_transform(int type, const maths::Mat4* m)
 {
-    get_method<long(__stdcall*)(void*, int, const void*)>(input_port(), 0xB0)(input_port(), type, m);
+    static_assert(sizeof(maths::Mat4) == sizeof(D3DMATRIX));
+    g_d3d_device->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), reinterpret_cast<const D3DMATRIX*>(m));
 }
-void set_render_target(void* surface)
-{
-    get_method<long(__stdcall*)(void*, int, void*)>(input_port(), 0x94)(input_port(), 0, surface);
-}
+void set_render_target(void* surface) { g_d3d_device->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)); }
 void set_depth_stencil_surface(void* surface)
 {
-    get_method<long(__stdcall*)(void*, void*)>(input_port(), 0x9C)(input_port(), surface);
+    g_d3d_device->SetDepthStencilSurface(static_cast<IDirect3DSurface9*>(surface));
 }
 void set_texture_stage_state(int stage, int type, int value)
 {
-    get_method<long(__stdcall*)(void*, int, int, int)>(input_port(), 0x10C)(input_port(), stage, type, value);
+    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+                                       static_cast<DWORD>(value));
 }
 uint32_t get_sampler_state(int sampler, int type)
 {
-    uint32_t value;
-    get_method<long(__stdcall*)(void*, int, int, uint32_t*)>(input_port(), 0x110)(input_port(), sampler, type, &value);
+    DWORD value;
+    g_d3d_device->GetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), &value);
     return value;
 }
 void set_sampler_state(int sampler, int type, uint32_t value)
 {
-    get_method<long(__stdcall*)(void*, int, int, uint32_t)>(input_port(), 0x114)(input_port(), sampler, type, value);
+    g_d3d_device->SetSamplerState(static_cast<DWORD>(sampler), static_cast<D3DSAMPLERSTATETYPE>(type), value);
 }
-void clear_target(uint32_t color)
-{
-    get_method<long(__stdcall*)(void*, uint32_t, const void*, uint32_t, uint32_t, float, uint32_t)>(input_port(), 0xAC)(
-        input_port(), 0, nullptr, 1 /* D3DCLEAR_TARGET */, color, 1.0f, 0);
-}
+void clear_target(uint32_t color) { g_d3d_device->Clear(0, nullptr, D3DCLEAR_TARGET, color, 1.0f, 0); }
 void draw_primitive_up(int type, unsigned int count, const void* vertices, unsigned int stride)
 {
-    get_method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(input_port(), 0x14C)(
-        input_port(), type, count, vertices, stride);
+    g_d3d_device->DrawPrimitiveUP(static_cast<D3DPRIMITIVETYPE>(type), count, vertices, stride);
 }
 
 // --- D3DX (linked library code; stdcall) ----------------------------------------------------------------------
@@ -333,12 +322,11 @@ void draw_screen_blur()
 
     // Two textures take turns: the one just drawn into (the last frame's blur) and the other.
     int current = g_screen_copy_index;
-    void* const* textures = reinterpret_cast<void* const*>(g_screen_textures);
-    void* texture = textures[current];
-    void* other = textures[(current + 1) % 2];
-    uint32_t desc[8];                                                                              // D3DSURFACE_DESC
-    get_method<long(__stdcall*)(void*, unsigned int, uint32_t*)>(texture, 0x44)(texture, 0, desc); // GetLevelDesc
-    uint32_t texels_wide = desc[6], texels_high = desc[7];
+    IDirect3DTexture9* texture = g_screen_textures[current];
+    IDirect3DTexture9* other = g_screen_textures[(current + 1) % 2];
+    D3DSURFACE_DESC desc;
+    texture->GetLevelDesc(0, &desc);
+    uint32_t texels_wide = desc.Width, texels_high = desc.Height;
 
     // The quad covers the screen; the texture is drawn shrunk towards its centre by the blur amount.
     uint32_t amount = g_screen_blur;
@@ -370,15 +358,14 @@ void draw_screen_blur()
     }
 
     // Draw into `texture`: the other texture (if the blur level, 0x0078732C, is above 2)...
-    void* surface = nullptr;
-    get_method<long(__stdcall*)(void*, unsigned int, void**)>(texture, 0x48)(texture, 0, &surface); // GetSurfaceLevel
-    void* depth = reinterpret_cast<void*>(g_z_buffer_surface);
+    IDirect3DSurface9* surface = nullptr;
+    texture->GetSurfaceLevel(0, &surface);
     // (NOT ORIGINAL: or the multisampled scene surface - [Graphics] msaa, engine/gfx/graphics_options.h)
-    if (!graphics_options::set_scene_target(static_cast<IDirect3DTexture9*>(texture))) {
+    if (!graphics_options::set_scene_target(texture)) {
         set_render_target(surface);
-        set_depth_stencil_surface(depth);
+        set_depth_stencil_surface(g_z_buffer_surface);
     }
-    get_method<unsigned long(__stdcall*)(void*)>(surface, 8)(surface); // Release
+    surface->Release();
     set_vertex_format(0x144);                                          // XYZRHW | DIFFUSE | TEX1
     set_pixel_shader(nullptr, nullptr);                                // (no pixel shader)
     set_texture_stage_state(0, 1, 2);                                  // colour op: select arg 1
@@ -473,12 +460,13 @@ void for_each_scene(F fn)
 DeviceViewport& the_viewport() { return g_device_viewport; }
 void set_viewport()
 {
-    get_method<long(__stdcall*)(void*, const void*)>(input_port(), 0xBC)(input_port(), &the_viewport());
+    static_assert(sizeof(DeviceViewport) == sizeof(D3DVIEWPORT9));
+    g_d3d_device->SetViewport(reinterpret_cast<const D3DVIEWPORT9*>(&the_viewport()));
 }
 // The device's render state directly (not the renderer's cached one).
 void set_device_render_state(int state, uint32_t value)
 {
-    get_method<long(__stdcall*)(void*, int, uint32_t)>(input_port(), 0xE4)(input_port(), state, value);
+    g_d3d_device->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 
 void full_screen_viewport()

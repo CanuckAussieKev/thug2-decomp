@@ -1188,8 +1188,7 @@ Placed get_place(int index, V3 at, float yaw)
         if (cls == kPedestrian || cls == kVehicle)
             object_edit::turn_about(copy, at, yaw - current_heading(copy)); // (facing the way the camera looks)
         placed.copies.push_back(copy->ident_);
-        placed.message = "Placed a copy of " + nodes::caption(source.names.front()) +
-                         (cls == kPedestrian || cls == kVehicle ? "" : "");
+        placed.message = "Placed a copy of " + nodes::caption(source.names.front());
         return placed;
     }
     // A bouncy set: each member copied, about the anchor as the level placed them.

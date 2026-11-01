@@ -38,16 +38,10 @@ int32_t get_back_buffer_height() { return g_back_buffer_height; }
 constexpr float kLayoutWidth = 640.0f;
 constexpr float kLayoutHeight = 480.0f;
 
-// The D3D9 device, its methods by vtable offset.
-void** input_port() { return reinterpret_cast<void**>(g_d3d_device); }
-template <typename F>
-F device_method(int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[offset / 4]);
-}
 void set_texture_stage_state(int stage, int type, int value)
 {
-    device_method<long(__stdcall*)(void*, int, int, int)>(0x10C)(input_port(), stage, type, value);
+    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+                                       static_cast<DWORD>(value));
 }
 const uint16_t* quad_indices() { return g_sprite_quad_indices; }
 
@@ -244,10 +238,8 @@ void QuadSprite::draw()
     if (!g_suppress_draw) {           // (rendering not skipped)
         ++g_draw_calls;               // draw calls
         g_drawn_triangles += 2;       // triangles
-        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int,
-                                                        const void*, int, const void*, unsigned int);
-        device_method<DrawIndexedPrimitiveUP>(0x150)(input_port(), 4 /* triangle list */, 0, 4, 2, quad_indices(),
-                                                     0x65 /* 16-bit indices */, vertices, sizeof(Vertex));
+        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, 4, 2, quad_indices(), D3DFMT_INDEX16, vertices,
+                                             sizeof(Vertex));
     }
 }
 

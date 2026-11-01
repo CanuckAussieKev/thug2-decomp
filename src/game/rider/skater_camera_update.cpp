@@ -352,10 +352,10 @@ void RiderChaseView::tick_frame()
                 maths::Vec4 back = rider_ref_->at_point_ - orient.row[2] * kLipBack;
                 maths::Vec4 other_end = back - other * kLipReach;
                 if (!feeler.get_collision_along(&back, &other_end, true) ||
-                    !(feeler.reach_ >= first_distance || feeler.reach_ != feeler.reach_)) {
+                    !(feeler.reach_ >= first_distance || std::isnan(feeler.reach_))) {
                     lip = 2;
                 } else {
-                    orient.rotate_y(lip_turn() + lip_turn());
+                    orient.rotate_y(lip_turn() * 2.0f);
                     lip = 1;
                 }
             } else {

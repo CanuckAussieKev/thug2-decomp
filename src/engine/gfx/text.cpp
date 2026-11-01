@@ -377,21 +377,10 @@ void GlyphRun::draw()
 
 namespace {
 
-// The D3D9 device, its methods by vtable offset.
-void** input_port() { return reinterpret_cast<void**>(g_d3d_device); }
-template <typename F>
-F device_method(int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(input_port()))[offset / 4]);
-}
 void set_texture_stage_state(int stage, int type, int value)
 {
-    device_method<long(__stdcall*)(void*, int, int, int)>(0x10C)(input_port(), stage, type, value);
-}
-template <typename F>
-F texture_method(void* texture, int offset)
-{
-    return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[offset / 4]);
+    g_d3d_device->SetTextureStageState(static_cast<DWORD>(stage), static_cast<D3DTEXTURESTAGESTATETYPE>(type),
+                                       static_cast<DWORD>(value));
 }
 
 // The vertices' store (open_sketch points the buffer at it) and the quads' triangles as indices into it (made the
@@ -452,15 +441,12 @@ void GlyphRun::close_sketch()
     set_texture_stage_state(1, 1, 1);      // stage 1 off
     set_vertex_format(0x144);              // position (pre-transformed), colour, one texture coordinate
     set_texture(0, texture_font->texture); // (the original also passes unknown17c_, which SetTexture doesn't take)
-    device_method<long(__stdcall*)(void*, int, int)>(0xE4)(input_port(), 22, 1); // D3DRS_CULLMODE: none
+    g_d3d_device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
     if (!g_suppress_draw) {                                                      // (rendering not skipped)
         ++g_draw_calls;                                                          // draw calls
         g_drawn_triangles += count / 2;                                          // "triangles"
-        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int,
-                                                        const void*, int, const void*, unsigned int);
-        device_method<DrawIndexedPrimitiveUP>(0x150)(input_port(), 4 /* triangle list */, 0, count, count / 2,
-                                                     quad_indices(), 0x65 /* 16-bit indices */, vertex_store(),
-                                                     sizeof(TextVertex));
+        g_d3d_device->DrawIndexedPrimitiveUP(D3DPT_TRIANGLELIST, 0, count, count / 2, quad_indices(), D3DFMT_INDEX16,
+                                             vertex_store(), sizeof(TextVertex));
     }
     set_texture_stage_state(0, 1, 4); // colour and alpha back to texture x diffuse
     set_texture_stage_state(0, 4, 4);
@@ -566,10 +552,11 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
     uint32_t height = page.height;
     if (hd_scale != 1)
         hd_ui::note_font(from_memory ? nullptr : name, hd_scale, width, height);
-    using CreateTexture =
-        long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
-    if (device_method<CreateTexture>(0x5C)(input_port(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
-                                           &font->texture, nullptr) != 0)
+    IDirect3DTexture9* texture = nullptr;
+    HRESULT created =
+        g_d3d_device->CreateTexture(width, height, 1, 0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr);
+    font->texture = texture;
+    if (created != D3D_OK)
         return nullptr;
     // (not original - both buffers owned: the original left them allocated when the texture couldn't be locked)
     memory::HeapPtr<uint8_t> indices;
@@ -598,15 +585,11 @@ TypefaceData* TypefaceData::read_in(const char* name, bool from_memory)
         // palette indices -> colours
         os_layer::expand_palette(pixels, indices.get(), static_cast<int>(size), palette);
     }
-    struct SurfaceLock {
-        int pitch;
-        void* bits;
-    } locked;
-    if (texture_method<long(__stdcall*)(void*, uint32_t, SurfaceLock*, const void*, uint32_t)>(font->texture, 0x4C)(
-            font->texture, 0, &locked, nullptr, 0) != 0)
+    D3DLOCKED_RECT locked;
+    if (texture->LockRect(0, &locked, nullptr, 0) != D3D_OK)
         return nullptr;
-    std::memcpy(locked.bits, pixels, size * 4);
-    texture_method<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
+    std::memcpy(locked.pBits, pixels, size * 4);
+    texture->UnlockRect(0);
     indices.reset();
     game_pixels.reset();
 
