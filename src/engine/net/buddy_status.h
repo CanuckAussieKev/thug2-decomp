@@ -33,8 +33,8 @@ struct FoldedGetters {
 };
 
 // The script commands.
-bool __cdecl profile_logged_in(script::Struct* params, script::Script* script);  // 0x00548360
-bool __cdecl send_buddy_message(script::Struct* params, script::Script* script); // 0x00548370
-bool __cdecl set_lobby_status(script::Struct* params, script::Script* script);   // 0x005483E0
+bool profile_logged_in(script::Struct* params, script::Script* script);  // 0x00548360
+bool send_buddy_message(script::Struct* params, script::Script* script); // 0x00548370
+bool set_lobby_status(script::Struct* params, script::Script* script);   // 0x005483E0
 
 } // namespace online

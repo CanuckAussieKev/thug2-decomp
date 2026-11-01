@@ -57,7 +57,7 @@ bool call_member_function_of(MemberFunctionEntry* entry, Struct* params, objects
 }
 
 // A C function (the value of an kQbvalNativeFunc symbol).
-using Function = bool(__cdecl*)(Struct* params, Script* script);
+using Function = bool (*)(Struct* params, Script* script);
 
 // Run the member function `name` on a game object.
 bool call_member_function_by_name(objects::Entity* object, uint32_t name, Struct* params, Script* script)

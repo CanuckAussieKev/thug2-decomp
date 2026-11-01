@@ -101,7 +101,7 @@ Array* new_colour_array(Array* source)
 
 // 0x005B2420: LoadFaceTextureFromProfile checksum=<name>: the texture dictionary given the current profile's face
 // texture image (0x0049FA20) as `name`. Whether a texture was made.
-bool __cdecl cfunc_load_face_texture_from_profile(script::Struct* params, script::Script*)
+bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script*)
 {
     uint32_t name;
     params->read_hash_value(kChecksum, &name, 1);
@@ -117,7 +117,7 @@ bool __cdecl cfunc_load_face_texture_from_profile(script::Struct* params, script
 // the captured texture: a 0x4420-byte image (zeroed) - the texture's header (+0x78), its palette (+0x74: header size
 // / bytes per pixel entries, after 0x20 bytes) and its pixels (+0x64, +0x68 bytes) after it - copied in (0x00487420).
 // The texture isn't checked for null. Always true.
-bool __cdecl cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script*)
+bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script*)
 {
     uint32_t name;
     params->read_hash_value(kCapturedTexture, &name, 1);
@@ -138,7 +138,7 @@ bool __cdecl cfunc_set_face_texture_from_video_capture(script::Struct* params, s
 
 // 0x005B2570: OffsetTexture <texture> [0xD83D589E=x] [y_offset=y] [colour bytes]: the texture's image shifted
 // (+0x48: x, y, whether a colour was given, the colour - 0x80 for each byte not given). Always true.
-bool __cdecl cfunc_offset_texture(script::Struct* params, script::Script*)
+bool cfunc_offset_texture(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -157,7 +157,7 @@ bool __cdecl cfunc_offset_texture(script::Struct* params, script::Script*)
 
 // 0x005B26B0: RotateTexture <texture> angle=degrees: the texture's image rotated (+0x44: radians, -1, -1). Always
 // true.
-bool __cdecl cfunc_rotate_texture(script::Struct* params, script::Script*)
+bool cfunc_rotate_texture(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (both uninitialised in the original when missing)
     params->read_hash_value(0u, &name, 0);
@@ -175,7 +175,7 @@ bool __cdecl cfunc_rotate_texture(script::Struct* params, script::Script*)
 // 0x005B2720: PushTextureToPoint <texture> [0x485A0CDB=point] [Axis=n] [0x88CF948C=amount] [colour bytes]: the
 // texture's image pushed towards a point (+0x58: point, axis, amount, whether a colour was given, the colour).
 // Always true.
-bool __cdecl cfunc_push_texture_to_point(script::Struct* params, script::Script*)
+bool cfunc_push_texture_to_point(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -196,7 +196,7 @@ bool __cdecl cfunc_push_texture_to_point(script::Struct* params, script::Script*
 
 // 0x005B2880: ApplyRGBAToTexture <texture> r= g= b= [a=a (0x80)] [0xC164842A=mode]: the texture tinted (+0x30: the
 // colour, whether the mode is 1). Always true.
-bool __cdecl cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*)
+bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -221,7 +221,7 @@ bool __cdecl cfunc_apply_rgba_to_texture(script::Struct* params, script::Script*
 // 0x005B2970: HSVtoRGB hsv=[h s v (alpha)]: rgb, the colour in RGB (0-128 each; the fourth element copied). Hue is
 // taken in 60ths (wrapped into 0-6), saturation in 90ths (kept to 0.01-1), value in 60ths (kept to 0.01-1) - the
 // value stays at the x87's precision until stored. Always true.
-bool __cdecl cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
+bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
 {
     float r = 0.0f;
     float g = 0.0f;
@@ -307,7 +307,7 @@ bool __cdecl cfunc_hs_vto_rgb(script::Struct* params, script::Script* script)
 
 // 0x005B2CD0: RGBtoHSV rgb=[r g b (alpha)]: hsv, the colour in HSV (hue 0-360, saturation 0-90, value 0-60; the
 // fourth element copied). Always true.
-bool __cdecl cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
+bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script)
 {
     float h = 0.0f;
     Array* rgb_array = nullptr;

@@ -204,7 +204,7 @@ Attachment attachment_of(const Gather& g, uint32_t name, V3 pos)
     return attached(0, {}, ground_under(g, pos), g.members, g.clusters);
 }
 
-void __cdecl gather_object(objects::Entity* object, void* data)
+void gather_object(objects::Entity* object, void* data)
 {
     auto* g = static_cast<Gather*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);

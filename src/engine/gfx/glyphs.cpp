@@ -28,7 +28,7 @@ void load_glyph_settings()
     s_glyph_style = static_cast<uint8_t>(build_info::get_int(build_info::kMiscellaneous, "GlyphStyle", 1));
 }
 
-uint32_t __cdecl button_for_tag(uint8_t* digit)
+uint32_t button_for_tag(uint8_t* digit)
 {
     if (!key_names()) {
         switch (*digit) {
@@ -63,7 +63,7 @@ uint32_t __cdecl button_for_tag(uint8_t* digit)
     return static_cast<uint32_t>(text::hex_digit_value(reinterpret_cast<const char*>(digit)));
 }
 
-uint8_t __cdecl should_use_glyph(uint8_t index)
+uint8_t should_use_glyph(uint8_t index)
 {
     if (key_names())
         return index >= 0x04 && index <= 0x0D;

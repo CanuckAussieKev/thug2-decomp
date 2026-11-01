@@ -50,8 +50,8 @@ class Struct;
 class Script;
 } // namespace script
 namespace commands {
-bool __cdecl cfunc_create(script::Struct* params, script::Script* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
-bool __cdecl cfunc_kill(script::Struct* params, script::Script* script);   // 0x005A5030
+bool cfunc_create(script::Struct* params, script::Script* script); // 0x005A4FF0 (node_object_cfuncs.cpp)
+bool cfunc_kill(script::Struct* params, script::Script* script);   // 0x005A5030
 } // namespace commands
 
 namespace online::thugpro {
@@ -394,7 +394,7 @@ private:
             params->append_word(key, text);
         else
             params->put_name_key(key, checksum);
-        reinterpret_cast<bool(__cdecl*)(script::Struct*, script::Script*)>(command)(params, script);
+        reinterpret_cast<bool (*)(script::Struct*, script::Script*)>(command)(params, script);
         delete_params(params);
         script::kill_spawned_script(script);
     }
@@ -559,7 +559,7 @@ void add_client_handlers(net::AppHost* client, void* skate)
     dispatcher.append_listener(kMsgUpdateLevelOption, handle_update_level_option, net::kPacketLate, skate, 0x80);
 }
 
-int __cdecl handle_server_info(net::InboundMsgCtx* context)
+int handle_server_info(net::InboundMsgCtx* context)
 {
     HostListing info;
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) ||
@@ -573,7 +573,7 @@ int __cdecl handle_server_info(net::InboundMsgCtx* context)
     return 1;
 }
 
-int __cdecl handle_update_time_of_day(net::InboundMsgCtx* context)
+int handle_update_time_of_day(net::InboundMsgCtx* context)
 {
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
         return 1;
@@ -586,7 +586,7 @@ int __cdecl handle_update_time_of_day(net::InboundMsgCtx* context)
     return 1;
 }
 
-int __cdecl handle_update_weather(net::InboundMsgCtx* context)
+int handle_update_weather(net::InboundMsgCtx* context)
 {
     if (!peer_mode() || !is_client_of_net_game(net_session_slot()) || context->body_size_ < 4)
         return 1;
@@ -600,9 +600,9 @@ int __cdecl handle_update_weather(net::InboundMsgCtx* context)
 }
 
 // (THUGPRO registers it and does nothing; no THUGPRO code sends it)
-int __cdecl handle_update_level_option(net::InboundMsgCtx* /*context*/) { return 1; }
+int handle_update_level_option(net::InboundMsgCtx* /*context*/) { return 1; }
 
-int __cdecl handle_mods_allowed(net::InboundMsgCtx* context)
+int handle_mods_allowed(net::InboundMsgCtx* context)
 {
     // THUGPRO's client leaves when the host allows no modified scripts and its own are modified. Ours aren't
     // THUGPRO's at all - so a host that allows none is left, as the server removing us (THUG2's dialog).

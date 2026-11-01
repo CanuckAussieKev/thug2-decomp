@@ -27,7 +27,7 @@ public:
 
     // 0x00434870 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its type, an empty list (its head's data -1), no components.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     TextureProjectionComponent();
     // 0x004346B0: every projection deleted (0x0057A2F0), the head unlinked; the base's body.

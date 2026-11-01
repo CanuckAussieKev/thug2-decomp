@@ -90,10 +90,10 @@ LoopingSoundVolume* LoopingSoundVolume::get_assign(const sound::VolumeRef* other
 }
 
 // 0x00513AD0
-memory::owner<ObjectModule*> __cdecl RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
+memory::owner<ObjectModule*> RiderRollingAudio::fabricate() { return new RiderRollingAudio; }
 
 // 0x00513860
-void __cdecl RiderRollingAudio::publish_method_table()
+void RiderRollingAudio::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterLoopingSound),
                                            g_looping_sound_member_functions, 0x18);

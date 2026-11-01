@@ -100,7 +100,7 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 } // namespace
 
 // 0x00564C10
-void __cdecl Skate::discard_occurrence()
+void Skate::discard_occurrence()
 {
     if (static_cast<uint32_t>(get_refs()) > 1) {
         --get_refs();
@@ -112,7 +112,7 @@ void __cdecl Skate::discard_occurrence()
 }
 
 // 0x005691A0
-Skate* __cdecl Skate::spawn_occurrence(bool create)
+Skate* Skate::spawn_occurrence(bool create)
 {
     Skate* skate = sole();
     if (!skate && create) {
@@ -288,14 +288,14 @@ void Skate::enter_stage(uint32_t level)
 }
 
 // 0x005651D0
-void __cdecl Skate::observe_next_skater()
+void Skate::observe_next_skater()
 {
     online::Hub* net = net_session_slot();
     net->spectate_player(net->next_cam_player());
 }
 
 // 0x005651F0
-int __cdecl Skate::is_multiplayer()
+int Skate::is_multiplayer()
 {
     if (net_session_slot()->in_net_game())
         return 1;
@@ -303,7 +303,7 @@ int __cdecl Skate::is_multiplayer()
 }
 
 // 0x00565220
-bool __cdecl Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
+bool Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
 {
     Skate* skate = sole();
     uint32_t type;
@@ -313,10 +313,10 @@ bool __cdecl Skate::cfunc_set_game_type(script::Struct* params, script::Script*)
 }
 
 // 0x00565250
-int __cdecl Skate::cfunc_in_team_game(script::Struct*, script::Script*) { return get_game_mode()->is_squad_match(); }
+int Skate::cfunc_in_team_game(script::Struct*, script::Script*) { return get_game_mode()->is_squad_match(); }
 
 // 0x00565260
-bool __cdecl Skate::cfunc_change_level(script::Struct* params, script::Script*)
+bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
 {
     debug::printf("ScriptChangeLevel\n"); // "ScriptChangeLevel\n"
     online::Hub* net = net_session_slot();
@@ -376,7 +376,7 @@ bool __cdecl Skate::cfunc_change_level(script::Struct* params, script::Script*)
 }
 
 // 0x005654B0
-bool __cdecl Skate::cfunc_launch_level(script::Struct*, script::Script*)
+bool Skate::cfunc_launch_level(script::Struct*, script::Script*)
 {
     Skate* skate = sole();
     skate->enter_stage(skate->pending_level_);
@@ -384,7 +384,7 @@ bool __cdecl Skate::cfunc_launch_level(script::Struct*, script::Script*)
 }
 
 // 0x005654D0
-bool __cdecl Skate::cfunc_request_level(script::Struct* params, script::Script*)
+bool Skate::cfunc_request_level(script::Struct* params, script::Script*)
 {
     online::Hub* net = net_session_slot();
     Skate* skate = sole();
@@ -406,7 +406,7 @@ bool __cdecl Skate::cfunc_request_level(script::Struct* params, script::Script*)
 }
 
 // 0x005655B0
-bool __cdecl Skate::cfunc_init_skater_heaps(script::Struct*, script::Script*)
+bool Skate::cfunc_init_skater_heaps(script::Struct*, script::Script*)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     int skaters;
@@ -437,7 +437,7 @@ void Skate::prepare_entity_update_data()
 }
 
 // 0x00565680
-prefs::Preferences* __cdecl Skate::get_player_options(uint32_t name)
+prefs::Preferences* Skate::get_player_options(uint32_t name)
 {
     if (name == kNetwork)
         return net_session_slot()->get_online_settings();
@@ -449,7 +449,7 @@ prefs::Preferences* __cdecl Skate::get_player_options(uint32_t name)
 }
 
 // 0x00565D40
-prefs::Preferences* __cdecl Skate::get_preferences_from_params(script::Struct* params)
+prefs::Preferences* Skate::get_preferences_from_params(script::Struct* params)
 {
     uint32_t name;
     params->read_hash_value(kPrefs, &name, true);
@@ -476,7 +476,7 @@ bool Skate::in_front_end_or_net_mode()
 }
 
 // 0x00565BB0
-int __stdcall Skate::should_be_absent(script::Struct* params)
+int Skate::should_be_absent(script::Struct* params)
 {
     if (!params->has_bare_flag(kAbsentInNetGames))
         return 0;

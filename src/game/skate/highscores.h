@@ -116,15 +116,15 @@ public:
 // (editor/level_editor_layout.h) nothing is recorded - +0x384 cleared as the original does first, so no new
 // record is announced - and logged. `edited_copy`: Layout::editing_copy() (a parameter, for the self-test).
 bool update_records(bool edited_copy);
-bool __cdecl cfunc_update_records(script::Struct* params, script::Script* script);
+bool cfunc_update_records(script::Struct* params, script::Script* script);
 
 // 0x005AEBD0: UpdateArcadeScores [level=<n>] <RecordTable> - the level's (the current career level's) arcade scores
 // read from the parameters. True.
-bool __cdecl cfunc_update_arcade_scores(script::Struct* params, script::Script* script);
+bool cfunc_update_arcade_scores(script::Struct* params, script::Script* script);
 // 0x005AFAF0: UpdateInitials - the current level's new records given the default initials. True.
-bool __cdecl cfunc_update_initials(script::Struct* params, script::Script* script);
+bool cfunc_update_initials(script::Struct* params, script::Script* script);
 // 0x005AFB30: NewRecord - whether the last UpdateRecords set a record (the skate module's +0x384).
-bool __cdecl cfunc_new_record(script::Struct* params, script::Script* script);
+bool cfunc_new_record(script::Struct* params, script::Script* script);
 
 extern memory::owner<highscores::BestResults*> g_game_records;
 

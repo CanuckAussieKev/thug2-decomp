@@ -148,31 +148,29 @@ static_assert(sizeof(PcTexDict) == 0x14, "layout must match the original");
 // heap the old one was in). Returns the table. A palettized texture becomes an A8R8G8B8 one with its texels not
 // filled (its palette and levels read and dropped, as the original); the memory loader reads no palette and
 // leaves the cursor where it was.
-lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* table, bool remake);
+lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, bool remake);
 // (Not original: read through texture_format.h's reader - the memory loader bounded by `size`; a level larger than
 // its surface, or a count / level past the end, stops the dictionary there instead of writing / reading past.)
-lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, size_t size, lists::KeyMap* table,
-                                                 bool remake);
+lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, lists::KeyMap* table, bool remake);
 
 // 0x004C7270: a dictionary loaded from a file. 0x004C72E0: one made with a checksum and loaded from memory (called
 // on null without memory, as the original). 0x004C7360: an empty one.
-memory::owner<PcTexDict*> __cdecl load_tex_dict_file(const char* name);
-PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
-memory::owner<PcTexDict*> __cdecl create_tex_dict(uint32_t checksum);
+memory::owner<PcTexDict*> load_tex_dict_file(const char* name);
+PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size);
+memory::owner<PcTexDict*> create_tex_dict(uint32_t checksum);
 
 // 0x004C80B0: an image's rows copied into another's at (x, y), clipped to it (`bits_per_pixel` 4 copies half bytes).
-void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                            const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel);
+void copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
+                    const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel);
 // 0x004C9200: an image resized - 8 bits a pixel by nearest (the bytes cleared first: as many as the source has),
 // else 32 bits bilinear in 1024ths.
-void __cdecl resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into,
-                          uint16_t into_width, uint16_t into_height, uint16_t bits_per_pixel);
+void resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into, uint16_t into_width,
+                  uint16_t into_height, uint16_t bits_per_pixel);
 // 0x004C9520: a 32-bit image zoomed about its centre (bilinear, clamped to the edges).
-void __cdecl zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom,
-                        float y_zoom);
+void zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom, float y_zoom);
 // 0x004C8180: RGB (0-1) to hue (degrees; -1 when black), saturation and value.
-void __cdecl rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v);
+void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v);
 // 0x004C82D0: and back.
-void __cdecl hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v);
+void hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v);
 
 } // namespace render

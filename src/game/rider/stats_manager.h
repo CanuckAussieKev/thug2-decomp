@@ -45,10 +45,10 @@ public:
     };
 
     // 0x0051CB90 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0051C440 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684180) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0051C5A0: its type; no skater, the positions and the last air combo's
     // score cleared.
     AttributeTracker();

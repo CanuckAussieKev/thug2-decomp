@@ -1024,33 +1024,33 @@ bool node_place(const std::string& name, V3* pos, float* yaw)
 // --- what a script calls ---
 
 Calls* g_calls;
-void __cdecl on_kill(script::Struct* params, const uint8_t*)
+void on_kill(script::Struct* params, const uint8_t*)
 {
     g_calls->kill = true;
     uint32_t target = 0;
     if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
         g_calls->target = target;
 }
-void __cdecl on_water(script::Struct* params, const uint8_t* call)
+void on_water(script::Struct* params, const uint8_t* call)
 {
     on_kill(params, call);
     g_calls->water = true;
 }
-void __cdecl on_teleport(script::Struct* params, const uint8_t*)
+void on_teleport(script::Struct* params, const uint8_t*)
 {
     g_calls->teleport = true;
     uint32_t target = 0;
     if (params && params->read_hash_value(current_node_name(), &target, 0) && target)
         g_calls->target = target;
 }
-void __cdecl on_start_gap(script::Struct* params, const uint8_t*)
+void on_start_gap(script::Struct* params, const uint8_t*)
 {
     g_calls->start_gap_ = true;
     uint32_t id = 0;
     if (params && params->read_hash_value(get_gap_id(), &id, 0) && !g_calls->gap_id_)
         g_calls->gap_id_ = id;
 }
-void __cdecl on_end_gap(script::Struct* params, const uint8_t*)
+void on_end_gap(script::Struct* params, const uint8_t*)
 {
     g_calls->end_gap_ = true;
     uint32_t id = 0;
@@ -1064,7 +1064,7 @@ void __cdecl on_end_gap(script::Struct* params, const uint8_t*)
         g_calls->gap_score_ = score;
 }
 
-void __cdecl on_boost(script::Struct* params, const uint8_t*)
+void on_boost(script::Struct* params, const uint8_t*)
 {
     g_calls->boost = true;
     int speed = 0;
@@ -1076,15 +1076,15 @@ void __cdecl on_boost(script::Struct* params, const uint8_t*)
     if (params && params->fetch_float(get_checksums("multi"), &value, 0))
         g_calls->boost_multi_ = value;
 }
-void __cdecl on_shatter(script::Struct*, const uint8_t*) { g_calls->shatter = true; }
-void __cdecl on_camera(script::Struct* params, const uint8_t*)
+void on_shatter(script::Struct*, const uint8_t*) { g_calls->shatter = true; }
+void on_camera(script::Struct* params, const uint8_t*)
 {
     g_calls->camera = true;
     uint32_t node = 0;
     if (params && params->read_hash_value(get_checksums("camera"), &node, 0))
         g_calls->camera_node_ = node;
 }
-void __cdecl on_rail_accelerate(script::Struct* params, const uint8_t*)
+void on_rail_accelerate(script::Struct* params, const uint8_t*)
 {
     g_calls->rail_speed_ = true;
     g_calls->rail_rate_ = 0.05f; // (THAW's default)
@@ -1227,7 +1227,7 @@ void scan_level()
 // The level's own gaps' names (every EndGap its nodes' TriggerScripts reach - not the editor's): the gaps the editor
 // never takes out of the checklist.
 std::vector<std::string>* g_names;
-void __cdecl on_level_gap(script::Struct* params, const uint8_t*)
+void on_level_gap(script::Struct* params, const uint8_t*)
 {
     const char* text = nullptr;
     if (params && params->fetch_text(get_text(), &text, 0) && text)

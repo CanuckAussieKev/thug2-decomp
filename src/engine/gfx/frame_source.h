@@ -18,11 +18,11 @@ struct FrameSource {
     FrameSource() = default;
     // (0x0048D000 the scalar deleting destructor: nothing of its own)
 
-    uint32_t anim_ = 0;                  // the animation's checksum
-    const uint8_t* quat_at_[64] = {};    // each bone's rotation key its search last ended at
-    const uint8_t* trans_at_[64] = {};   // and translation key
-    bool resume_ = false;                // set_done's flag: the searches start where they last ended, and the bones
-                                         // `bone_masks_` collapse at level of detail `mask_bit_` are skipped
+    uint32_t anim_ = 0;                    // the animation's checksum
+    const uint8_t* quat_at_[64] = {};      // each bone's rotation key its search last ended at
+    const uint8_t* trans_at_[64] = {};     // and translation key
+    bool resume_ = false;                  // set_done's flag: the searches start where they last ended, and the bones
+                                           // `bone_masks_` collapse at level of detail `mask_bit_` are skipped
     const uint32_t* bone_masks_ = nullptr; // the skeleton's (a word for each bone: a bit per level of detail)
     int mask_bit_ = 0;                     // the skeleton's level of detail
 
@@ -33,6 +33,6 @@ struct FrameSource {
 };
 
 // 0x0048CF50: the asset manager's data for `checksum` (null for 0).
-void* __cdecl get_anim_data(uint32_t checksum, int unused);
+void* get_anim_data(uint32_t checksum, int unused);
 
 } // namespace render

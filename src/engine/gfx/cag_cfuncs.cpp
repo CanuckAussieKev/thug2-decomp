@@ -80,7 +80,7 @@ float g_degree_to_radian_ratio{0.017453292f}; // pi / 180
 // tinted, and blended onto the tag; the tag's palette made again (kept to opaque when no layer was translucent and
 // it's an 8-bit tag); the workspace thrown away. Player 0's skater's tag is then marked custom and put on its graffiti
 // texture; with Test, the result also shown on cag_workspace_sprite. Always true.
-bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
+bool cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 {
     uint8_t palette[0x400]; // (filled by the tag's palette call, not here)
     Array* layers = nullptr;
@@ -175,7 +175,7 @@ bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script*)
 
 // 0x005B3ED0: SyncCAGWorkspace Skater=n: the custom tag texture copied from skater n's graffiti texture, if it has one
 // (the current profile is fetched and not used). Always true.
-bool __cdecl cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
+bool cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
 {
     int index;
     params->fetch_int_value(kSkater, &index, 1);
@@ -191,7 +191,7 @@ bool __cdecl cfunc_sync_cag_workspace(script::Struct* params, script::Script*)
 // 0x005B3F40: Get2DPosFrom2DVec magnitude=m theta=degrees: x and Y, the vector's components (theta brought into the
 // first quadrant first, the signs put back after; the axes exactly for 0, 90, 180, 270 and 360; otherwise the fast
 // sine and cosine). Always true.
-bool __cdecl cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script)
+bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script)
 {
     float magnitude;
     params->fetch_float(kMagnitude, &magnitude, 1);
@@ -243,7 +243,7 @@ bool __cdecl cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script
 // 0x005B4150: ResolveHeadBoneScale player=n: player n's profile's appearance given each head bone group (head, nose,
 // jaw, headtop) it lacks, from its head part (skater_m_head, else skater_f_head). False without a head part; true
 // otherwise (also without a profile).
-bool __cdecl cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
+bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script*)
 {
     int player = 0;
     params->fetch_int_value(kPlayer, &player, 1);

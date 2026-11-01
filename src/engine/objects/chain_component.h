@@ -25,13 +25,13 @@ struct ChainLink {
     // 0x00428250: its line deleted.
     void destroy_body();
 
-    maths::Vec4 at_point_;          // +0x00
-    maths::Vec4 last_pos_;          // +0x10
-    maths::Vec4 unused20_;          // +0x20
-    maths::Vec4 next_pos_;          // +0x30 this frame's step
-    float value40_;                 // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
-    float byte_count_;              // +0x44 the rest length to the link before it
-    uint32_t unused48_;             // +0x48
+    maths::Vec4 at_point_; // +0x00
+    maths::Vec4 last_pos_; // +0x10
+    maths::Vec4 unused20_; // +0x20
+    maths::Vec4 next_pos_; // +0x30 this frame's step
+    float value40_;        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
+    float byte_count_;     // +0x44 the rest length to the link before it
+    uint32_t unused48_;    // +0x48
     memory::owner<render::PcPrimitive*> line_ptr_; // +0x4C the line drawn to the next link
 };
 
@@ -88,7 +88,7 @@ public:
     };
 
     // 0x004298B0 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004296E0: its type, an empty list, nothing found yet,
     // the last frame's length (the slow motion frame) taken now.
     ChainComponent();

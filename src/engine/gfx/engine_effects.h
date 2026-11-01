@@ -36,42 +36,41 @@ namespace engine {
 
 // 0x00490DE0 / 0x00490E00 / 0x00490E10 / 0x00490E20: the fog on or off (0x007004C8), its distance (0x0067DDE8),
 // exponent (0x0067DDEC; nothing more on PC) and colour (0x0067DE04) kept and the platform told (pc_fog.h).
-void __cdecl enable_fog(bool on);
-void __cdecl set_fog_distance(float distance);
-void __cdecl set_fog_exponent(float exponent);
-void __cdecl set_fog_color(uint32_t rgba);
+void enable_fog(bool on);
+void set_fog_distance(float distance);
+void set_fog_exponent(float exponent);
+void set_fog_color(uint32_t rgba);
 // 0x00491290: the level colour kept (0x007004F0).
-void __cdecl set_level_color(const float* color);
+void set_level_color(const float* color);
 
 // 0x00491110 (the Shatter command's settings): the velocity the pieces get (0x007004D0) and a vector (0x007004E0,
 // the command's 0x210EA9E1), 0x0067DDDC = `value_c483` squared, the triangle split limit (0x0067DDF0) `area` squared
 // - 82944 for 0 -, the random speed (0x007004CC, 0 for 0), the velocity's scale (0x0067DDF4, 1 for 0), a shatter's
 // lifetime (0x0067DDF8, 4 for 0), floor (0x0067DDFC, -10000 for 0) and bounce (0x0067DE00, 0.8 for 0); 0x0067DDD8,
 // the texture (0x007004BC), 0x007004C0 and 0x007004C4 as given.
-void __cdecl change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483,
-                                     float area, float speed, float velocity_scale, float lifetime, float floor,
-                                     float bounce, float value_2e_1c, uint32_t texture, uint32_t value_af_1a,
-                                     int value_33d_f);
+void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
+                             float speed, float velocity_scale, float lifetime, float floor, float bounce,
+                             float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f);
 // 0x00490DC0 (not a Ghidra function; what a PC sector's change_live calls): a geom shattered with the shatter texture
 // (0x007004BC, from the particles' texture dictionary 0x00700F20).
-void __cdecl shatter_geom(void* geom);
+void shatter_geom(void* geom);
 
 // 0x00490EC0: each living triangle's time
 // (ms) counted down - collapsed when it runs out -, the set's last one found again; once fewer than 0x0067DDE0 slots
 // are free, the triangles sharing the time and lifetime of the one furthest through its life (of those with both)
 // fade by 0x0067DDE4 in their six alphas (killed when all are 0).
-void __cdecl age_texture_splats(TextureSplats* splats, int elapsed);
+void age_texture_splats(TextureSplats* splats, int elapsed);
 // 0x00491F70: every set aged by the frame's time (ms), unless paused (0x006FA7D4).
-void __cdecl age_all_texture_splats();
+void age_all_texture_splats();
 // 0x00491F10: every set lit (light_texture_splats).
-void __cdecl light_all_texture_splats();
+void light_all_texture_splats();
 // 0x004915A0: the recent splat positions forgotten (freed), then every set killed.
-void __cdecl kill_all_texture_splats();
+void kill_all_texture_splats();
 // 0x00491630: the recent splat positions in the box (min, then max at +0x10) forgotten (their time zeroed), then
 // the triangles in it killed.
-void __cdecl kill_texture_splats_in_box(const float* box);
+void kill_texture_splats_in_box(const float* box);
 // 0x004916F0: the sets of a texture freed (not their materials) and taken out of the table.
-void __cdecl kill_texture_splats_of_texture(uint32_t texture);
+void kill_texture_splats_of_texture(uint32_t texture);
 
 // 0x004928A0: a texture splat along a line (from `from` to `to`, `size` wide): the texture by name from the
 // particles' dictionary unless given; the collision objects of the grids along the line whose boxes meet its box
@@ -80,30 +79,30 @@ void __cdecl kill_texture_splats_of_texture(uint32_t texture);
 // a recent splat position of the same id near `from` (within 66 - squared 4356 - and half a second) is the projection's
 // up and is moved on (no splat when `from` is still at its x and z); with none, `from` is only remembered (true). The
 // fade threshold (0x0067DDE0) read from the script integer 0x26FCB7BE each time. Whether a splat was made.
-bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth,
-                                     float angle, float cone_angle, float lifetime, const char* image_label,
-                                     uint32_t unknown38, uint32_t follow, uint8_t unknown40, uint8_t* texture);
+bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
+                             float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
+                             uint32_t follow, uint8_t unknown40, uint8_t* texture);
 
 // 0x00492000: each shatter's lifetime counted down: run out, it's destroyed; else a step (update_shatter). Not while
 // paused.
-void __cdecl update_shatters();
+void update_shatters();
 // 0x004920E0: every shatter drawn.
-void __cdecl draw_shatters();
+void draw_shatters();
 
 // 0x004923E0: a flash added (0x24 bytes): from `start` to `end` over `duration` seconds at depth `z`. The texture
 // name isn't used.
-void __cdecl add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
-                       const char* texture);
+void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
+               const char* texture);
 // 0x00491790: each flash's colour moved from its start to its end; run out, it's taken out and freed. Paused, only
 // the flashes with flag 8 go on.
-void __cdecl update_flashes();
+void update_flashes();
 // 0x00491910: the flashes of a viewport whose bit 1 matches `pass` drawn.
-void __cdecl draw_flashes(int viewport, uint32_t pass);
+void draw_flashes(int viewport, uint32_t pass);
 
 // 0x00492150: the tables made (those not made yet) and the vertex stack emptied (its vertices 0x03030303).
-void __cdecl init_effects();
+void init_effects();
 // 0x00492340: every flash freed, then the spawned polygons (0x00491E10), the splats and the shatters killed.
-void __cdecl kill_all_effects();
+void kill_all_effects();
 
 } // namespace engine
 

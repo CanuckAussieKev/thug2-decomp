@@ -70,7 +70,7 @@ PcShatter::~PcShatter()
 }
 
 // 0x004B80B0
-void __cdecl draw_shatter(PcShatter* shatter)
+void draw_shatter(PcShatter* shatter)
 {
     MeshRef* mesh = shatter->mesh;
     mesh->material->hand_in(); // (the material's set-up)
@@ -82,7 +82,7 @@ void __cdecl draw_shatter(PcShatter* shatter)
 }
 
 // 0x004B9550
-void __cdecl kill_all_shatters()
+void kill_all_shatters()
 {
     lists::KeyMap* table = shatters();
     table->iter_bucket_ = -1;
@@ -136,7 +136,7 @@ uint8_t* lock_indices(IdxStore* buffer)
 } // namespace
 
 // 0x004B95E0
-void __cdecl update_shatter(PcShatter* shatter, float step)
+void update_shatter(PcShatter* shatter, float step)
 {
     uint32_t stride = shatter->mesh->stride;
     uint8_t* v0 = shatter->vertices;
@@ -181,7 +181,7 @@ void __cdecl update_shatter(PcShatter* shatter, float step)
 }
 
 // 0x004BA7A0
-void __cdecl shatter_geom(PcGeom* geom)
+void shatter_geom(PcGeom* geom)
 {
     MeshRef** meshes = geom->meshes;
     uint32_t mesh_count = geom->mesh_count_;

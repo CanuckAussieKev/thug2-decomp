@@ -216,7 +216,7 @@ const ComponentType kComponentTypes[] = {
 } // namespace
 
 // 0x004E4860
-void __cdecl register_component_types()
+void register_component_types()
 {
     EntityHub* manager = object_hub_slot();
     for (const ComponentType& t : kComponentTypes) {

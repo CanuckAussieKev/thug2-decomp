@@ -21,12 +21,11 @@ namespace gfx {
 
 // Euler angles <-> quaternions, the angles (x, y, z) in radians.
 // 0x00487F40 (cdecl): the rotation of these angles. Returns out.
-maths::QuatRotation* __cdecl angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles);
+maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles);
 // 0x00488020 (cdecl): the angles of a rotation (w 1). Returns out.
-maths::Vec4* __cdecl quat_to_euler(maths::Vec4* out, const maths::QuatRotation* rotation);
+maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* rotation);
 // 0x00487EE0 (cdecl): `v` clamped (ClampVector::Confine) into `out`. Returns out.
-maths::Vec4* __cdecl clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min,
-                                    const maths::Vec4* max);
+maths::Vec4* clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min, const maths::Vec4* max);
 // A vector clamped.
 struct ClampVector : maths::Vec4 {
     // 0x00487E00: each of the four components kept to min..max (above max: max; then below min: min - a NaN stays).

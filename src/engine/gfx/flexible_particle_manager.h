@@ -17,12 +17,13 @@ struct EmitterInstance;
 // (0x28 bytes in the original, with a vtable 0x006494B0 holding only its destructor; one, made at start-up and never
 // deleted: no vtable here, 0x24 bytes.)
 struct FlexibleParticleManager : memory::HeapObject {
-    memory::owner<memory::Zone*> zone_;        // (a memory manager region: deleted after its heap) its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
-    memory::Arena* arena_;          // "FlxParticles"
+    memory::owner<memory::Zone*>
+        zone_; // (a memory manager region: deleted after its heap) its own memory (the script integer 0x91CB7552 bytes, else 0x5000)
+    memory::Arena* arena_;                     // "FlxParticles"
     memory::owner<memory::Zone*> temp_region_; // (likewise, after the temporary heap)
-    memory::Arena* temp_heap_;      // "TEMPFlxPrtcl": systems are made on it while it's there
-    memory::ListNode* systems_ptr_; // the list's head (lists::Foremost<EmitterInstance>)
-    float colour_scale_[4];         // the level's colour (given to the systems with flag 0x10000)
+    memory::Arena* temp_heap_;                 // "TEMPFlxPrtcl": systems are made on it while it's there
+    memory::ListNode* systems_ptr_;            // the list's head (lists::Foremost<EmitterInstance>)
+    float colour_scale_[4];                    // the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
     // 0x3214C818 - 60 when that's 0.
@@ -64,7 +65,7 @@ struct FlexibleParticleManager : memory::HeapObject {
 
     // 0x0049A8F0 (cdecl; qsort's): the order of two systems (pointers to them) - the farther from viewport 0x006FA7B8's
     // camera first (the difference of the squared distances, truncated), else the higher priority (+0x124) first.
-    static int __cdecl compare_distance(const void* a, const void* b);
+    static int compare_distance(const void* a, const void* b);
 };
 // (0x0049AEF0, the list head's scalar deleting destructor - the node's body 0x00496D10, freed - is
 // memory::ListNode::destroy.)

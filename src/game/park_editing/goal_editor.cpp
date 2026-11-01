@@ -96,10 +96,10 @@ bool get_outside(float x, float z, float x0, float z0, float x1, float z1)
 } // namespace
 
 // 0x004EB7F0
-memory::owner<objects::ObjectModule*> __cdecl ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
+memory::owner<objects::ObjectModule*> ObjectiveAuthoring::fabricate() { return new ObjectiveAuthoring; }
 
 // 0x004E6FB0
-void __cdecl ObjectiveAuthoring::publish_method_table()
+void ObjectiveAuthoring::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kGoalEditor), g_goal_editor_member_functions, 0x18);
 }
@@ -130,7 +130,7 @@ void ObjectiveAuthoring::seal()
 }
 
 // 0x004E8470
-ObjectiveAuthoring* __cdecl ObjectiveAuthoring::get_pull()
+ObjectiveAuthoring* ObjectiveAuthoring::get_pull()
 {
     auto* manager = reinterpret_cast<objects::ObjectHubBase*>(objects::object_hub_slot());
     auto* object = reinterpret_cast<objects::GameEntity*>(manager->look_up_entity(kGoalEditor));

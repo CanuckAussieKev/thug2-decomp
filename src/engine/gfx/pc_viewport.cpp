@@ -60,7 +60,10 @@ void end_query_draw(uint8_t query)
 } // namespace
 
 // 0x004CB860
-memory::owner<PcViewport*> __cdecl create_viewport(const float* rect, gfx::ViewCam* camera) { return new PcViewport(rect, camera); }
+memory::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera)
+{
+    return new PcViewport(rect, camera);
+}
 
 // 0x004CB940
 float PcViewport::project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth)
@@ -133,7 +136,7 @@ uint8_t PcViewport::query_rect(float x0, float y0, float x1, float y1, uint32_t 
 }
 
 // 0x004CBD40
-uint32_t __cdecl occlusion_pixels()
+uint32_t occlusion_pixels()
 {
     if (radeon8500())
         return 0;

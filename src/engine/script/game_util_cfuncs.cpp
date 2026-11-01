@@ -108,7 +108,7 @@ bool array_has(Array* array, uint32_t name)
 // integer or a float; skipped if B has neither): A + (B - A) * t - for the Angles the shorter way round (the
 // difference and the result wrapped into 0-360 degrees). An integer stays an integer (truncated) only if both were integers. Always
 // true.
-bool __cdecl cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
+bool cfunc_interpolate_parameters(script::Struct* params, script::Script* script)
 {
     Struct* memory = script::spawn_param_bag();
     Struct* result = memory ? new (memory) script::Struct : nullptr;
@@ -172,7 +172,7 @@ bool __cdecl cfunc_interpolate_parameters(script::Struct* params, script::Script
 
 // 0x005B1E00: GetTextureFromPath path="dir/name": texture, the path's last part (after the last / or \). The name is
 // copied into a 32-byte buffer, as in the original (a longer one overruns it). Always true.
-bool __cdecl cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
+bool cfunc_get_texture_from_path(script::Struct* params, script::Script* script)
 {
     const char* path;
     params->fetch_text(kPath, &path, 1);
@@ -191,7 +191,7 @@ bool __cdecl cfunc_get_texture_from_path(script::Struct* params, script::Script*
 // 0x005B1EA0: ClearPowerups: for each of the skate module's skaters 0-7 that exists, the power-ups of the first
 // SkaterState component the object manager has cleared - the same component each time (as in the original). Always
 // true.
-bool __cdecl cfunc_clear_powerups(script::Struct*, script::Script*)
+bool cfunc_clear_powerups(script::Struct*, script::Script*)
 {
     modules::Skate* skate = modules::Skate::sole();
     for (int i = 0; i < 8; ++i) {
@@ -208,7 +208,7 @@ bool __cdecl cfunc_clear_powerups(script::Struct*, script::Script*)
 // [IgnoreRailPointIndex=n] [CheckLevelGeometry]: NearestPos, the nearest rail point (also rail_id and
 // rail_point_index) or - with CheckLevelGeometry and when nearer - the park generator's nearest point, within the
 // distance. False if neither is within it.
-bool __cdecl cfunc_find_nearest_rail_point(script::Struct* params, script::Script* script)
+bool cfunc_find_nearest_rail_point(script::Struct* params, script::Script* script)
 {
     maths::Vec4 pos;
     params->fetch_vec(kPos, reinterpret_cast<script::VectorValue*>(&pos), 1);
@@ -245,7 +245,7 @@ bool __cdecl cfunc_find_nearest_rail_point(script::Struct* params, script::Scrip
 }
 
 // 0x005B3160: GetParkName: 0xCC23BDDB, the park's name (the buffer at 0x007CED58). Returns false.
-bool __cdecl cfunc_get_park_name(script::Struct*, script::Script* script)
+bool cfunc_get_park_name(script::Struct*, script::Script* script)
 {
     script->args_->append_word(kParkName, commands::g_park_name);
     return false;
@@ -253,7 +253,7 @@ bool __cdecl cfunc_get_park_name(script::Struct*, script::Script* script)
 
 // 0x005B3180: SetSpecialBarColors Skater=n: skater n's score takes the special bar's colours from the global array
 // 0x2E8B9F1C (0x005612D0; the skater isn't checked for null). Always true.
-bool __cdecl cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
+bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
 {
     int index;
     params->fetch_int_value(kSkater, &index, 1);
@@ -263,7 +263,7 @@ bool __cdecl cfunc_set_special_bar_colors(script::Struct* params, script::Script
 }
 
 // 0x005B31C0: GetInitialsString: string, the records' default initials. Always true.
-bool __cdecl cfunc_get_initials_string(script::Struct*, script::Script* script)
+bool cfunc_get_initials_string(script::Struct*, script::Script* script)
 {
     auto* records = highscores::g_game_records;
     // (the initials through two getters folded with others: 0x005480C0, then 0x005902E0 - returns its argument)
@@ -272,7 +272,7 @@ bool __cdecl cfunc_get_initials_string(script::Struct*, script::Script* script)
 }
 
 // 0x005B31F0: SetInitialsString [string="ABC" ("ERR")]: the records' default initials. Always true.
-bool __cdecl cfunc_set_initials_string(script::Struct* params, script::Script*)
+bool cfunc_set_initials_string(script::Struct* params, script::Script*)
 {
     auto* records = highscores::g_game_records;
     const char* initials = "ERR"; // "ERR"
@@ -282,7 +282,7 @@ bool __cdecl cfunc_set_initials_string(script::Struct* params, script::Script*)
 }
 
 // 0x005B3230: GetFireballLevel: level, the game mode's fireball level. Always true.
-bool __cdecl cfunc_get_fireball_level(script::Struct*, script::Script* script)
+bool cfunc_get_fireball_level(script::Struct*, script::Script* script)
 {
     script->args_->put_int(kLevel, static_cast<goals::MatchRules*>(get_game_mode())->get_fireball_level());
     return true;
@@ -290,7 +290,7 @@ bool __cdecl cfunc_get_fireball_level(script::Struct*, script::Script* script)
 
 // 0x005B3260: GetSkaterLastNameString <name>: last_name, the master_skater_list entry's of that name. False if there
 // is no such entry or it has no last_name.
-bool __cdecl cfunc_get_skater_last_name_string(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_last_name_string(script::Struct* params, script::Script* script)
 {
     uint32_t name;
     params->read_hash_value(0u, &name, 1);
@@ -314,7 +314,7 @@ bool __cdecl cfunc_get_skater_last_name_string(script::Struct* params, script::S
 // 0x005B3300: DrawDirectionalLightLines heading=degrees pitch=degrees r= g= b=: a debug line from 75 above the local
 // skater 50 long towards the light - compiled out of this build (the drawing call is empty); the local skater isn't
 // checked for null. Always true.
-bool __cdecl cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
+bool cfunc_draw_directional_light_lines(script::Struct* params, script::Script*)
 {
     float heading;
     params->fetch_float(kHeading, &heading, 1);
@@ -349,7 +349,7 @@ bool __cdecl cfunc_draw_directional_light_lines(script::Struct* params, script::
 }
 
 // 0x005B3470: InSlapGame: whether the game mode is netslap or slap.
-bool __cdecl cfunc_in_slap_game(script::Struct*, script::Script*)
+bool cfunc_in_slap_game(script::Struct*, script::Script*)
 {
     return active_ruleset_label() == kNetSlap || active_ruleset_label() == kSlap;
 }
@@ -357,7 +357,7 @@ bool __cdecl cfunc_in_slap_game(script::Struct*, script::Script*)
 // 0x005B46A0: SetPreferencesFromUI <which preferences> string="..." field="name" [checksum=<value>] [time=n]
 // [score=n]: the preference `field` set to {ui_string, checksum, time (time_limit / horse_time_limit), score (target
 // score: score, else time * 1000)} in the preferences the params name (0x00565D40). Always true.
-bool __cdecl cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
+bool cfunc_set_preferences_from_ui(script::Struct* params, script::Script*)
 {
     auto* preferences = modules::Skate::get_preferences_from_params(params);
     const char* string;

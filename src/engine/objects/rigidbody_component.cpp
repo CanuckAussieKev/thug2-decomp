@@ -84,7 +84,7 @@ const float* vector_of(uint32_t element) { return reinterpret_cast<const float*>
 } // namespace
 
 // 0x0042EF00
-memory::owner<ObjectModule*> __cdecl BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
+memory::owner<ObjectModule*> BodyDynamicsModule::fabricate() { return new BodyDynamicsModule; }
 
 // 0x0042E3F0
 BodyDynamicsModule::BodyDynamicsModule()
@@ -659,7 +659,7 @@ bool BodyDynamicsModule::rigidbody_match_velocity_to(script::Struct* params, scr
 }
 
 // 0x0042E380
-void __cdecl add_rigid_body_pusher(GameEntity* object)
+void add_rigid_body_pusher(GameEntity* object)
 {
     auto* pushers = g_rigid_body_pushers;
     for (int i = 7; i >= 0; --i) {

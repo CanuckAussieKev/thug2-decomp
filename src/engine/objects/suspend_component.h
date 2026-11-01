@@ -34,10 +34,10 @@ public:
     static constexpr uint32_t kType = 0xCE0CA665;
 
     // 0x00434290 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00434610 (not a Ghidra function; registered with Create): its script member functions registered, then the
     // suspend task made (create_suspend_task).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00433F50: its type; NeverSuspend; the suspend distance
     // DefaultMovingObjectSuspendDistance feet (and its square); 10 frames before the first check, 3 before the LOD
     // checks.
@@ -95,9 +95,9 @@ public:
 // 0x00433E20: a new frame for the animation LOD counters (0x006951B0 counts frames; 0x006951B4 starts each frame at
 // the count, 0x006951B8 at the count with the low bits changed by its second bit - spreading the interleaved objects
 // over the frames).
-void __cdecl next_suspend_frame();
+void next_suspend_frame();
 // 0x004345B0: the suspend task's holder made (0x006951BC; 4 bytes - the task - by 0x00434520).
-void __cdecl create_suspend_task();
+void create_suspend_task();
 struct SuspendTaskHolder {
     // 0x00434520: the task (tasks::Task, 0x20 bytes, priority -1100, callback suspend_task, its data this holder) made
     // and added to the main loop's logic tasks (none if out of memory: null added).
@@ -110,6 +110,6 @@ struct SuspendTaskHolder {
 // data (the skate module's +0x3DC) says otherwise or it never suspends - after its LOD frames, its distance squared to
 // the camera against the suspend distance; the object suspended or woken to match; then the model updated (during the
 // LOD frames: shown) or its visibility decided (refresh_shown_state).
-void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* task);
+void suspend_task(tasks::Task<SuspendTaskHolder>* task);
 
 } // namespace objects

@@ -29,9 +29,9 @@ struct PointerList {
 };
 static_assert(sizeof(PointerList) == 8, "layout must match the original");
 
-bool __cdecl cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_flush_cutscene_destroy_list(script::Struct* params, script::Script* script);
+bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script* script);
+bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script* script);
+bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script);
+bool cfunc_flush_cutscene_destroy_list(script::Struct* params, script::Script* script);
 
 } // namespace commands

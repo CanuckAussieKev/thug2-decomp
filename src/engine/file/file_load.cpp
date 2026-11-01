@@ -240,7 +240,7 @@ bool is_present(const char* name)
 namespace {
 
 // 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
-bool __cdecl archives_active_accessor() { return pre::hub() != nullptr; }
-bool __cdecl handled_by_archive_accessor() { return file::g_handled_by_archive; }
+bool archives_active_accessor() { return pre::hub() != nullptr; }
+bool handled_by_archive_accessor() { return file::g_handled_by_archive; }
 
 } // namespace

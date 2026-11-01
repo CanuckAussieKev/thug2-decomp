@@ -47,8 +47,8 @@ static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
 
 struct Hub {
     std::unique_ptr<tasks::Task<Hub>> task_; // priority -1000, running tick_modules
-    memory::ListNode modules_; // +0x04: the list's head (lists::Foremost<Module>)
-    bool command_pending_;     // +0x14 (the original's +0x18): a module was given a command since the task last ran
+    memory::ListNode modules_;               // +0x04: the list's head (lists::Foremost<Module>)
+    bool command_pending_; // +0x14 (the original's +0x18): a module was given a command since the task last ran
 
     // 0x0044F5E0: the empty list and the task (not added to a task list here).
     Hub();
@@ -69,7 +69,7 @@ struct Hub {
     // 0x0044F440 (the task's code, the manager its data): if a command is pending, each module's carried out -
     // a stopped one started by kStart or kRestart; a running one stopped by kStop, stopped and started again by
     // kRestart - and the command cleared.
-    static void __cdecl tick_modules(tasks::Task<Hub>* task);
+    static void tick_modules(tasks::Task<Hub>* task);
 };
 
 // The singleton (0x00696D78, references 0x00696D7C). 0x0044F6F0: the first call with `create` makes it, every call

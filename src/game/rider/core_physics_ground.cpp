@@ -22,7 +22,7 @@ namespace skater {
 
 using namespace physics;
 
-void __cdecl tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
+void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 
 namespace {
 

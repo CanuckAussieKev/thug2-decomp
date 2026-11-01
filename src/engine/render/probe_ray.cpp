@@ -86,7 +86,7 @@ void ProbeRay::change_strand(const maths::Vec4* start, const maths::Vec4* end)
 }
 
 // 0x00417110
-void __cdecl ProbeRay::callback_relay(CollisionHit* hit)
+void ProbeRay::callback_relay(CollisionHit* hit)
 {
     auto* feeler = reinterpret_cast<ProbeRay*>(hit->callback_data_);
     feeler->callback_(feeler);

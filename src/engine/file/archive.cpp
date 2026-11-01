@@ -286,7 +286,7 @@ memory::Arena* load_heap(bool bottom_up) { return bottom_up ? memory::bottom_up_
 } // namespace
 
 // 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
-void __cdecl on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
+void on_async_pre_loaded(file::AsyncFileRef* file, int event, int size, void* manager, void* data)
 {
     if (event == 3) // finished
         static_cast<ArchiveManager*>(manager)->finish_load(reinterpret_cast<int>(file), static_cast<uint8_t*>(data),
@@ -490,7 +490,8 @@ void ArchiveManager::finish_load(int handle, uint8_t* data, int size)
         return;
     void* memory = memory::alloc_zeroed(sizeof(ArchiveFile), memory::top_down_heap(), 1);
     // (`size`: the bytes the read brought in - the file's)
-    ArchiveFile* pre = memory ? new (memory) ArchiveFile(data, size > 0 ? static_cast<size_t>(size) : 0, false) : nullptr;
+    ArchiveFile* pre =
+        memory ? new (memory) ArchiveFile(data, size > 0 ? static_cast<size_t>(size) : 0, false) : nullptr;
     pres_->store_entry(checksums::hash_from_text(pending_[i].name), pre);
     --queued_archive_count_;
     pending_[i] = pending_[queued_archive_count_]; // the last pending load takes this one's place
@@ -626,7 +627,7 @@ const char* archive_name(script::Struct* params)
 } // namespace
 
 // 0x005B9470: LoadPreFile <name> [flags]
-bool __cdecl cfunc_load_pre_file(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_pre_file(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = archive_name(params);
     ArchiveManager* manager = sole();
@@ -640,7 +641,7 @@ bool __cdecl cfunc_load_pre_file(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x005B9600: UnloadPreFile <name> [dont_assert]
-bool __cdecl cfunc_unload_pre_file(script::Struct* params, script::Script* /*script*/)
+bool cfunc_unload_pre_file(script::Struct* params, script::Script* /*script*/)
 {
     ArchiveManager* manager = sole();
     const char* name = archive_name(params);
@@ -649,20 +650,20 @@ bool __cdecl cfunc_unload_pre_file(script::Struct* params, script::Script* /*scr
 }
 
 // 0x005B8160: IsLoadPreFinished <name>
-bool __cdecl cfunc_is_load_pre_finished(script::Struct* params, script::Script* /*script*/)
+bool cfunc_is_load_pre_finished(script::Struct* params, script::Script* /*script*/)
 {
     ArchiveManager* manager = sole();
     return manager->has_finished_loading(archive_name(params));
 }
 
 // 0x005B8190: AllLoadPreFinished
-bool __cdecl cfunc_all_load_pre_finished(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_all_load_pre_finished(script::Struct* /*params*/, script::Script* /*script*/)
 {
     return sole()->queued_archive_count_ == 0;
 }
 
 // 0x005B81B0: WaitLoadPre <name>
-bool __cdecl cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
+bool cfunc_wait_load_pre(script::Struct* params, script::Script* /*script*/)
 {
     ArchiveManager* manager = sole();
     const char* name = archive_name(params);
@@ -672,7 +673,7 @@ bool __cdecl cfunc_wait_load_pre(script::Struct* params, script::Script* /*scrip
 }
 
 // 0x005B8200: WaitAllLoadPre
-bool __cdecl cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script* /*script*/)
 {
     ArchiveManager* manager = sole();
     while (manager->queued_archive_count_ != 0)
@@ -681,7 +682,7 @@ bool __cdecl cfunc_wait_all_load_pre(script::Struct* /*params*/, script::Script*
 }
 
 // 0x005B8720: InPreFile <name> - whether the archive is loaded
-bool __cdecl cfunc_in_pre_file(script::Struct* params, script::Script* /*script*/)
+bool cfunc_in_pre_file(script::Struct* params, script::Script* /*script*/)
 {
     return sole()->is_loaded(archive_name(params));
 }

@@ -29,12 +29,12 @@ public:
 
     // 0x0041B3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined:
     // the base's, no colours, off; 0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     ColorCycleComponent();
     // 0x0041B280 (not a Ghidra function; registered with Create): its member functions' table (0x006845D0; the
     // functions are put in by the static initialiser at 0x00643D60).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0041B2A0: the base's body.
     ~ColorCycleComponent() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

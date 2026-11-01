@@ -80,7 +80,7 @@ objects::GameEntity* skater_object(SkaterPhysicsModule* component)
 } // namespace
 
 // 0x00505440
-memory::owner<void*> __cdecl SkaterPhysicsModule::fabricate() { return new SkaterPhysicsModule; }
+memory::owner<void*> SkaterPhysicsModule::fabricate() { return new SkaterPhysicsModule; }
 
 // 0x00500CA0
 SkaterPhysicsModule::SkaterPhysicsModule()

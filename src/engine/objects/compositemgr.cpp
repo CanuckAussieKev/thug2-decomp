@@ -259,7 +259,7 @@ void EntityHub::get_freeze(bool pause)
 }
 
 // 0x0045F6D0
-void __cdecl composite_object_manager_task(tasks::Task<EntityHub>* task) { task->content_->tick_frame(); }
+void composite_object_manager_task(tasks::Task<EntityHub>* task) { task->content_->tick_frame(); }
 
 // 0x0045F7A0
 EntityHub* create_composite_object_manager(bool create)

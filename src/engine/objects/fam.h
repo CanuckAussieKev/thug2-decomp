@@ -26,12 +26,12 @@ public:
 
     // 0x0041D200 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no fam, no stream; 0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     FamComponent();
     // 0x0041D170 (not a Ghidra function; registered with Create): its member functions' table (0x006836E8; the
     // functions are put in by the static initialiser at 0x00642B30).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0041D190: the base's body.
     ~FamComponent() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

@@ -90,7 +90,7 @@ public:
 template <typename Owner>
 class Responder final : public InputHandler {
 public:
-    using Code = void(__cdecl*)(Responder* handler);
+    using Code = void (*)(Responder* handler);
 
     Responder(Code code, Owner* owner, int priority, int controller = 0)
         : InputHandler(priority, controller), code_value_(code), content_(owner)
@@ -130,8 +130,8 @@ struct Hub {
     enum { kNumServers = 2 };
 
     std::unique_ptr<tasks::Task<Hub>> task_; // priority 2000, running the servers (service_task)
-    HostEnd hosts_[kNumServers]; // +0x04
-    bool stick_replaces_pad_;    // +0x10C (0x0044E610 sets, 0x0044E620 gets)
+    HostEnd hosts_[kNumServers];             // +0x04
+    bool stick_replaces_pad_;                // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
     uint8_t pad10e_[2];
     int unknown110_[2]; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
@@ -155,7 +155,7 @@ struct Hub {
     void set_player_controller(int player, int controller) { unknown110_[player] = controller; }
     // 0x0044E660: the task's code (`task` its tasks::Task<Manager>: the manager at +0x1C): for each server, a
     // recording played back or made that reached its end stops; then the server's frame (poll_input_sinks).
-    static void __cdecl service_task(tasks::Task<Hub>* task);
+    static void service_task(tasks::Task<Hub>* task);
 };
 static_assert(sizeof(Hub) == 0x118 && offsetof(Hub, stick_replaces_pad_) == 0x10C);
 
@@ -168,8 +168,8 @@ void release_manager();
 // The button table (0x0067D6D8: 22 checksums, entries 1-21 the buttons - up, down, ..., the debounce times are
 // indexed the same way). 0x0044E590: entry `index`'s checksum. 0x0044E5A0: the index of `checksum` (0 if it's
 // none of them).
-uint32_t __cdecl button_hash(int index);
-int __cdecl glyph_for_button_tag(uint32_t checksum);
+uint32_t button_hash(int index);
+int glyph_for_button_tag(uint32_t checksum);
 
 extern memory::owner<pad_input::Hub*> g_input_manager;
 

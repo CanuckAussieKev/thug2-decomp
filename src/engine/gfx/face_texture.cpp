@@ -115,16 +115,16 @@ Array* new_point_array(const int* point)
 } // namespace
 
 // 0x00486980
-void __cdecl fetch_stock_face_anchors(FaceAnchors* out) { *out = stock_face_anchors(); }
+void fetch_stock_face_anchors(FaceAnchors* out) { *out = stock_face_anchors(); }
 
 // 0x004869A0
-void __cdecl change_face_anchors(const FaceAnchors* points) { active_face_anchors() = *points; }
+void change_face_anchors(const FaceAnchors* points) { active_face_anchors() = *points; }
 
 // 0x004869C0
-void __cdecl set_face_overlay(render::BitmapTexture* overlay) { face_overlay() = overlay; }
+void set_face_overlay(render::BitmapTexture* overlay) { face_overlay() = overlay; }
 
 // 0x004869D0
-bool __cdecl read_face_points(FaceAnchors* points, Struct* params)
+bool read_face_points(FaceAnchors* points, Struct* params)
 {
     if (!read_point(params, kLeftEye, points->left_eye_) || !read_point(params, kRightEye, points->right_eye_) ||
         !read_point(params, kNose, points->nose_slot_) || !read_point(params, kLips, points->mouth_part_))
@@ -140,7 +140,7 @@ bool __cdecl read_face_points(FaceAnchors* points, Struct* params)
 }
 
 // 0x00487000
-bool __cdecl write_face_points(const FaceAnchors* points, Struct* params)
+bool write_face_points(const FaceAnchors* points, Struct* params)
 {
     Array* left_eye = new_point_array(points->left_eye_);
     Array* right_eye = new_point_array(points->right_eye_);
@@ -161,8 +161,7 @@ bool __cdecl write_face_points(const FaceAnchors* points, Struct* params)
 }
 
 // 0x00486C40
-bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour,
-                              uint32_t colour)
+bool fit_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, bool use_colour, uint32_t colour)
 {
     FaceAnchors face = *points;
     if (face.left_eye_[0] > face.right_eye_[0]) {
@@ -224,8 +223,8 @@ bool __cdecl fit_face_texture(render::BitmapTexture* texture, const FaceAnchors*
 }
 
 // 0x00486F70
-bool __cdecl massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette,
-                                  bool use_colour, uint32_t colour)
+bool massage_face_texture(render::BitmapTexture* texture, const FaceAnchors* points, uint8_t generate_palette,
+                          bool use_colour, uint32_t colour)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->bottom_up_heap_);
@@ -358,7 +357,7 @@ using gfx::FaceAnchors;
 using script::Struct;
 
 // 0x00486B70
-bool __cdecl cfunc_set_model_face_texture_points(Struct* params, script::Script*)
+bool cfunc_set_model_face_texture_points(Struct* params, script::Script*)
 {
     Struct* points = nullptr;
     params->read_sub_struct("face_points", &points, 0);
@@ -371,7 +370,7 @@ bool __cdecl cfunc_set_model_face_texture_points(Struct* params, script::Script*
 }
 
 // 0x00486BC0
-bool __cdecl cfunc_set_face_massage_texture_overlay(Struct* params, script::Script*)
+bool cfunc_set_face_massage_texture_overlay(Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(0u, &name, 0);
@@ -381,7 +380,7 @@ bool __cdecl cfunc_set_face_massage_texture_overlay(Struct* params, script::Scri
 }
 
 // 0x00486BF0
-bool __cdecl cfunc_combine_face_texture_with_overlay(Struct* params, script::Script*)
+bool cfunc_combine_face_texture_with_overlay(Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
@@ -392,7 +391,7 @@ bool __cdecl cfunc_combine_face_texture_with_overlay(Struct* params, script::Scr
 }
 
 // 0x00486EE0
-bool __cdecl cfunc_adjust_face_texture_to_model(Struct* params, script::Script*)
+bool cfunc_adjust_face_texture_to_model(Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);
@@ -410,7 +409,7 @@ bool __cdecl cfunc_adjust_face_texture_to_model(Struct* params, script::Script*)
 }
 
 // 0x004872D0
-bool __cdecl cfunc_massage_face_texture(Struct* params, script::Script*)
+bool cfunc_massage_face_texture(Struct* params, script::Script*)
 {
     uint32_t name = 0; // (uninitialised in the original without one)
     params->read_hash_value(gfx::kTexture, &name, 0);

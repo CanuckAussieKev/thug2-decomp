@@ -37,24 +37,24 @@ int script_clock() { return frame_clock::game_clock_elapsed() + objects::g_clock
 } // namespace
 
 // 0x0044E3A0: IsWIN32: whether the platform is Windows.
-bool __cdecl cfunc_is_win32(Struct*, Script*) { return os_layer() == 7; }
+bool cfunc_is_win32(Struct*, Script*) { return os_layer() == 7; }
 
 // 0x0044E3B0: GetPlatform: the script's platform=xbox. Always true.
-bool __cdecl cfunc_get_platform(Struct*, Script* script)
+bool cfunc_get_platform(Struct*, Script* script)
 {
     script->args_->put_name_key(kPlatform, kXbox);
     return true;
 }
 
 // 0x0044E3D0: Randomize: the random numbers seeded from the time. Always true.
-bool __cdecl cfunc_randomize(Struct*, Script*)
+bool cfunc_randomize(Struct*, Script*)
 {
     maths::seed_random(frame_clock::get_time());
     return true;
 }
 
 // 0x0044E3F0: ResetTimer: the stopwatch started. Always true.
-bool __cdecl cfunc_reset_timer(Struct*, Script*)
+bool cfunc_reset_timer(Struct*, Script*)
 {
     timer_start() = frame_clock::get_time();
     return true;
@@ -62,7 +62,7 @@ bool __cdecl cfunc_reset_timer(Struct*, Script*)
 
 // 0x0044E400: TimeGreaterThan <seconds (0)>: whether more than that has passed since ResetTimer (the milliseconds
 // as unsigned; x87: seconds * 1000 against them, exactly).
-bool __cdecl cfunc_time_greater_than(Struct* params, Script*)
+bool cfunc_time_greater_than(Struct* params, Script*)
 {
     float seconds = 0.0f;
     params->fetch_float(0u, &seconds, 0);
@@ -71,7 +71,7 @@ bool __cdecl cfunc_time_greater_than(Struct* params, Script*)
 }
 
 // 0x0044E460: GetStartTime: the script clock now as the script's StartTime. Always true.
-bool __cdecl cfunc_get_start_time(Struct*, Script* script)
+bool cfunc_get_start_time(Struct*, Script* script)
 {
     script->args_->put_int(kStartTime, script_clock());
     return true;
@@ -79,7 +79,7 @@ bool __cdecl cfunc_get_start_time(Struct*, Script* script)
 
 // 0x0044E490: GetElapsedTime StartTime=<ms>: the milliseconds since then as the script's ElapsedTime. Always true.
 // (Original quirk: no StartTime leaves it uninitialised; here 0.)
-bool __cdecl cfunc_get_elapsed_time(Struct* params, Script* script)
+bool cfunc_get_elapsed_time(Struct* params, Script* script)
 {
     int start = 0;
     params->fetch_int_value(kStartTime, &start, 0);

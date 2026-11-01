@@ -62,21 +62,22 @@ struct FrontEnd final : public PartUnit {
     };
     static constexpr int kMaxButtonEvents = 32;
 
-    std::unique_ptr<FrontEndTask> update_job_;    // +0x14: front_end_tick, priority -2000
-    std::unique_ptr<FrontEndTask> keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
+    std::unique_ptr<FrontEndTask> update_job_; // +0x14: front_end_tick, priority -2000
+    std::unique_ptr<FrontEndTask>
+        keyboard_task_; // +0x18: keyboard_task, priority -1000 (added by register_key_listener)
     uint32_t unknown1c_;
-    std::unique_ptr<FrontEndInputHandler> pad_listeners_[2];           // +0x20: input_logic, priority -1000
-    int device_server_map_[2];                         // +0x28: which controller each handler listens to (0, 1)
-    bool is_halted_;                                   // +0x30
-    int hold_repeat_ms_;                               // +0x34: ms (300)
-    int auto_repeat_rate_;                             // +0x38: ms (50)
-    int keyboard_device_;                              // +0x3C: the device_num the typed keys are reported with
-    PadMapping pad_mappings_[2];                       // +0x40
-    bool block_menu_input_;                            // +0x58
-    PadPressRecord pad_event_queue_[kMaxButtonEvents]; // +0x5C
-    bool check_startup_script_;                        // +0x15C: the first input frame looks at the global below once
-    bool startup_script_on_;                           // +0x15D
-    uint32_t startup_script_id_;                       // +0x160: the spawned script's unique id
+    std::unique_ptr<FrontEndInputHandler> pad_listeners_[2]; // +0x20: input_logic, priority -1000
+    int device_server_map_[2];                               // +0x28: which controller each handler listens to (0, 1)
+    bool is_halted_;                                         // +0x30
+    int hold_repeat_ms_;                                     // +0x34: ms (300)
+    int auto_repeat_rate_;                                   // +0x38: ms (50)
+    int keyboard_device_;                                    // +0x3C: the device_num the typed keys are reported with
+    PadMapping pad_mappings_[2];                             // +0x40
+    bool block_menu_input_;                                  // +0x58
+    PadPressRecord pad_event_queue_[kMaxButtonEvents];       // +0x5C
+    bool check_startup_script_;  // +0x15C: the first input frame looks at the global below once
+    bool startup_script_on_;     // +0x15D
+    uint32_t startup_script_id_; // +0x160: the spawned script's unique id
 
     // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms).
     FrontEnd();
@@ -114,11 +115,11 @@ struct FrontEnd final : public PartUnit {
     void update_input_mappings();
 
     // 0x0054F200 (the keyboard task): each typed key (printable, Enter or Backspace) to handle_keyboard_input.
-    static void __cdecl keyboard_task(FrontEndTask* task);
+    static void keyboard_task(FrontEndTask* task);
     // 0x0054FCC0 (the logic task)
-    static void __cdecl front_end_tick(FrontEndTask* task);
+    static void front_end_tick(FrontEndTask* task);
     // 0x0054FB40 (a controller's handler): its pad events, each sent to the menus (unless blocked or inactive).
-    static void __cdecl input_logic(FrontEndInputHandler* handler);
+    static void input_logic(FrontEndInputHandler* handler);
 };
 
 // The singleton (0x007CE464, references 0x007CE468).
@@ -130,13 +131,13 @@ void release_front_end();
 
 // The script commands.
 // 0x0054F0F0: SetMenuAutoRepeatTimes (delay rate) - seconds.
-bool __cdecl cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* script);
+bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* script);
 // 0x0054F150: SetMenuPadMappings [inactive|active|use_as_first x2].
-bool __cdecl cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* script);
+bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* script);
 // 0x0054F1B0: SetButtonEventMappings xbox=[...] block_menu_input / unblock_menu_input.
-bool __cdecl cfunc_set_button_event_mappings(script::Struct* params, script::Script* script);
+bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* script);
 // 0x0054FDC0: SetAnalogStickActiveForMenus (an integer, default 1).
-bool __cdecl cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* script);
+bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* script);
 
 extern bool g_menus_active;
 extern bool g_pending_script;

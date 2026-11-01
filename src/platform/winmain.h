@@ -26,7 +26,7 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
 // 0x004E1220 (cdecl): the network options on the command line (-HOST, -HOSTNAME, -EMAIL, -PPASS, -CONNECT,
 // -MAXPLAYERS, -GROUP, -NTEAMS, -SKILLLEVEL, -NAME, -PASSWORD; found in any case, values keep theirs). The
 // read_network_params.
-void __cdecl parse_network_params(const char* command_line);
+void parse_network_params(const char* command_line);
 // parse_network_params without the test stage (what the tests call).
 void read_network_params(const char* command_line);
 

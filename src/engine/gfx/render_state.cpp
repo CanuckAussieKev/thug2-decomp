@@ -139,7 +139,7 @@ int64_t ftol(double value) { return static_cast<int64_t>(value); }
 } // namespace
 
 // 0x004DAB60
-void __cdecl change_phase(int state, uint32_t value)
+void change_phase(int state, uint32_t value)
 {
     switch (state) {
     case kZWrite:
@@ -290,7 +290,7 @@ void __cdecl change_phase(int state, uint32_t value)
 }
 
 // 0x004D9DB0
-void __cdecl set_vertex_format(uint32_t fvf)
+void set_vertex_format(uint32_t fvf)
 {
     if (vertex_format_locked() == 0 && vertex_format() != fvf) {
         input_port()->SetFVF(fvf);
@@ -299,7 +299,7 @@ void __cdecl set_vertex_format(uint32_t fvf)
 }
 
 // 0x004DA730
-void __cdecl set_texture(int stage, void* texture)
+void set_texture(int stage, void* texture)
 {
     if (get_textures()[stage] != texture) {
         input_port()->SetTexture(stage, static_cast<IDirect3DBaseTexture9*>(texture));
@@ -308,7 +308,7 @@ void __cdecl set_texture(int stage, void* texture)
 }
 
 // 0x004DA760
-void __cdecl choose_blend_mode(uint32_t mode)
+void choose_blend_mode(uint32_t mode)
 {
     uint32_t wanted = forced_blend() ? forced_blend() : mode;
     if (wanted == get_blend_mode())
@@ -433,7 +433,7 @@ void __cdecl choose_blend_mode(uint32_t mode)
 }
 
 // 0x004D9DE0
-void __cdecl set_fixed_function_stages(void* shader, uint32_t factor)
+void set_fixed_function_stages(void* shader, uint32_t factor)
 {
     // The last stage-0 state each one sets, then stage 1 off.
     D3DTEXTURESTAGESTATETYPE last_type;
@@ -499,7 +499,7 @@ void __cdecl set_fixed_function_stages(void* shader, uint32_t factor)
 }
 
 // 0x004DAA10
-void __cdecl set_fixed_function_stages_for_material(void* shader, const void* material)
+void set_fixed_function_stages_for_material(void* shader, const void* material)
 {
     if (!material) {
         set_fixed_function_stages(shader, 0xFFFFFFFF);
@@ -513,7 +513,7 @@ void __cdecl set_fixed_function_stages_for_material(void* shader, const void* ma
 }
 
 // 0x004DAA80
-void __cdecl set_pixel_shader(void* shader, const void* material)
+void set_pixel_shader(void* shader, const void* material)
 {
     if (!has_pixel_shaders()) {
         set_fixed_function_stages_for_material(shader, material);
@@ -533,7 +533,7 @@ void __cdecl set_pixel_shader(void* shader, const void* material)
 }
 
 // 0x004DAAF0
-void __cdecl set_pixel_shader_with_constants(void* shader, uint32_t count)
+void set_pixel_shader_with_constants(void* shader, uint32_t count)
 {
     if (pixel_shader_locked() == 0) {
         if (current_pixel_shader() != shader) {
@@ -549,10 +549,10 @@ void __cdecl set_pixel_shader_with_constants(void* shader, uint32_t count)
 }
 
 // 0x004DA0E0
-float __cdecl last_sphere_distance() { return g_last_sphere_distance; }
+float last_sphere_distance() { return g_last_sphere_distance; }
 
 // 0x004DB620
-void __cdecl set_world_transform(const float* matrix)
+void set_world_transform(const float* matrix)
 {
     if (!matrix) {
         g_world_transform = nullptr;
@@ -569,7 +569,7 @@ void __cdecl set_world_transform(const float* matrix)
 }
 
 // 0x004D7D70
-void __cdecl reset_render_state()
+void reset_render_state()
 {
     local_viewer() = 0;
     // The world, view and projection transforms (0x00786B90, 0x00786BD0, 0x00786C10): identity.
@@ -637,7 +637,7 @@ void __cdecl reset_render_state()
 }
 
 // 0x004D80D0
-void __cdecl apply_render_state()
+void apply_render_state()
 {
     IDirect3DDevice9* device = input_port();
     device->SetRenderState(D3DRS_LOCALVIEWER, local_viewer());

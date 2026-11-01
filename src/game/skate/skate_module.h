@@ -73,8 +73,8 @@ public:
     // Calloc mode 1) if there's none and `create`; one more reference either way. 0x00564C10 (cdecl): one reference
     // less - the last deletes it.
     static Skate* sole();
-    static Skate* __cdecl spawn_occurrence(bool create);
-    static void __cdecl discard_occurrence();
+    static Skate* spawn_occurrence(bool create);
+    static void discard_occurrence();
 
     // --- made and destroyed (skate_module_skaters.cpp) ---
     // 0x00568DE0: the constructor: the module, the empty skater list, the logic task, the network tasks, the
@@ -89,7 +89,7 @@ public:
     void stop_callback() override;
     // 0x00568C90: the logic task's code - run_frame_logic, the skaters' collisions on the server, king of the hill's
     // clock.
-    static void __cdecl front_end_tick(tasks::Task<Skate>* task);
+    static void front_end_tick(tasks::Task<Skate>* task);
     // (0x00565750 / 0x00565FC0, the skater list's node's / head's scalar deleting destructors: never called through
     // their tables here - the node is the skater's own, the head the module's.)
 
@@ -159,7 +159,7 @@ public:
     // unplugged controllers.
     void run_frame_logic();
     // 0x00564D30 (an object walk's callback): its suspend component's visibility.
-    static void __cdecl update_suspend_visibility(objects::Entity* object, void* data);
+    static void update_suspend_visibility(objects::Entity* object, void* data);
 
     // --- small (skate_module_state.cpp) ---
     // 0x00564CA0: the timer's beeps (`script`) speeding up as `timeLeft` runs down from `startTime`.
@@ -202,39 +202,39 @@ public:
     // 0x005651D0: the next player observed. 0x005651F0: a game of more than one player (1 / 0). 0x00565680: the
     // network / taunt / split-screen preferences. 0x00565D40: those `params`' prefs names. 0x00565BB0: an object
     // AbsentInNetGames in one (1 / 0). 0x00565DA0: the rails' debug drawing (compiled out).
-    static void __cdecl observe_next_skater();
-    static int __cdecl is_multiplayer();
-    static prefs::Preferences* __cdecl get_player_options(uint32_t name);
-    static prefs::Preferences* __cdecl get_preferences_from_params(script::Struct* params);
-    static int __stdcall should_be_absent(script::Struct* params);
-    static void __cdecl debug_rails();
+    static void observe_next_skater();
+    static int is_multiplayer();
+    static prefs::Preferences* get_player_options(uint32_t name);
+    static prefs::Preferences* get_preferences_from_params(script::Struct* params);
+    static int should_be_absent(script::Struct* params);
+    static void debug_rails();
 
     // --- script commands ---
     // 0x00565220 SetGameType, 0x00565250 InTeamGame, 0x00565260 ChangeLevel (the players told; the park's map /
     // rails and created goals streamed to them), 0x005654B0 LaunchLevel, 0x005654D0 RequestLevel, 0x005655B0
     // InitSkaterHeaps, 0x00566E70 Retry, 0x00566EA0 LaunchGame, 0x00566ED0 ResetLevel, 0x00568120
     // FillRankingScreen (skate_rankings.cpp).
-    static bool __cdecl cfunc_set_game_type(script::Struct* params, script::Script* script);
-    static int __cdecl cfunc_in_team_game(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_change_level(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_launch_level(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_request_level(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_init_skater_heaps(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_retry(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_launch_game(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_reset_level(script::Struct* params, script::Script* script);
-    static bool __cdecl cfunc_fill_ranking_screen(script::Struct* params, script::Script* script);
+    static bool cfunc_set_game_type(script::Struct* params, script::Script* script);
+    static int cfunc_in_team_game(script::Struct* params, script::Script* script);
+    static bool cfunc_change_level(script::Struct* params, script::Script* script);
+    static bool cfunc_launch_level(script::Struct* params, script::Script* script);
+    static bool cfunc_request_level(script::Struct* params, script::Script* script);
+    static bool cfunc_init_skater_heaps(script::Struct* params, script::Script* script);
+    static bool cfunc_retry(script::Struct* params, script::Script* script);
+    static bool cfunc_launch_game(script::Struct* params, script::Script* script);
+    static bool cfunc_reset_level(script::Struct* params, script::Script* script);
+    static bool cfunc_fill_ranking_screen(script::Struct* params, script::Script* script);
 
     // (the list's node at `index` - lists::Foremost's fetch_entry; the skater there, null past the end)
     memory::ListNode* skater_node(uint32_t index);
     objects::Rider* get_skater_at(uint32_t index);
 
-    std::unique_ptr<tasks::Task<Skate>> update_job_;      // +0x14 (front_end_tick)
-    tasks::Task<Skate>* server_tasks_[2]; // +0x18 (SkateNet::create_network_tasks)
-    std::unique_ptr<objects::RiderStoryProgress> career_; // +0x20
+    std::unique_ptr<tasks::Task<Skate>> update_job_;         // +0x14 (front_end_tick)
+    tasks::Task<Skate>* server_tasks_[2];                    // +0x18 (SkateNet::create_network_tasks)
+    std::unique_ptr<objects::RiderStoryProgress> career_;    // +0x20
     memory::HeapUnique<objects::GrindRailHub> rail_manager_; // +0x24
-    lists::Foremost riders_;              // +0x28 (their nodes' data the skaters, in object id order)
-    bool watch_for_unplug_;               // +0x3C
+    lists::Foremost riders_; // +0x28 (their nodes' data the skaters, in object id order)
+    bool watch_for_unplug_;  // +0x3C
     uint8_t pad3d_[3];
     int unplugged_frames_;        // +0x40
     bool running_queued_scripts_; // +0x44
@@ -244,33 +244,33 @@ public:
     uint32_t match_style_; // +0x4C (freeskate)
     bool movie_camera_;    // +0x50 a movie's camera in use
     uint8_t pad51[3];
-    memory::HeapUnique<objects::ChecksumSet> checksums_;         // +0x54 (0x404 bytes)
+    memory::HeapUnique<objects::ChecksumSet> checksums_;          // +0x54 (0x404 bytes)
     std::unique_ptr<prefs::Preferences> splitscreen_preferences_; // +0x58
-    bool stage_switched_;                         // +0x5C
+    bool stage_switched_;                                         // +0x5C
     uint8_t pad5d_[3];
-    ScoreGoal score_goals_[64];        // +0x60
-    memory::HeapUnique<modules::Contest> competition_; // +0x360
-    memory::HeapUnique<modules::LetterMatch> horse_;   // +0x364
-    std::unique_ptr<objects::VideoHub> movies_;        // +0x368
-    std::unique_ptr<objects::VideoHub> object_movies_; // +0x36C
-    int unknown370_;                   // +0x370
-    uint32_t pending_level_;           // +0x374
-    uint32_t level_;                   // +0x378
-    uint32_t previous_level_;          // +0x37C
-    uint32_t level_params_;            // +0x380 the level's structure (its name)
-    bool new_record_;                  // +0x384 a record was set by the last UpdateRecords
-    std::unique_ptr<goals::MatchFlow> game_flow_;      // +0x388
+    ScoreGoal score_goals_[64];                           // +0x60
+    memory::HeapUnique<modules::Contest> competition_;    // +0x360
+    memory::HeapUnique<modules::LetterMatch> horse_;      // +0x364
+    std::unique_ptr<objects::VideoHub> movies_;           // +0x368
+    std::unique_ptr<objects::VideoHub> object_movies_;    // +0x36C
+    int unknown370_;                                      // +0x370
+    uint32_t pending_level_;                              // +0x374
+    uint32_t level_;                                      // +0x378
+    uint32_t previous_level_;                             // +0x37C
+    uint32_t level_params_;                               // +0x380 the level's structure (its name)
+    bool new_record_;                                     // +0x384 a record was set by the last UpdateRecords
+    std::unique_ptr<goals::MatchFlow> game_flow_;         // +0x388
     memory::HeapUnique<goals::GoalManager> goal_manager_; // +0x38C
-    PlayerSettings participants_[8];   // +0x390
-    float forced_stat_;                // +0x3D0 every skater's stats, forced (unless 0)
-    bool debug_rails_;                 // +0x3D4
-    script::Script* own_script_;       // +0x3D8
-    bool no_camera_;                   // +0x3DC (prepare_entity_update_data: no camera to measure from)
-    maths::Vec4 viewer_pos_;           // +0x3E0
+    PlayerSettings participants_[8];                      // +0x390
+    float forced_stat_;                                   // +0x3D0 every skater's stats, forced (unless 0)
+    bool debug_rails_;                                    // +0x3D4
+    script::Script* own_script_;                          // +0x3D8
+    bool no_camera_;         // +0x3DC (prepare_entity_update_data: no camera to measure from)
+    maths::Vec4 viewer_pos_; // +0x3E0
 };
 
 // 0x00567C70: elimiskate's rankings (FillRankingScreen's: by the time each player was knocked out).
-void __cdecl fill_elimination_ranking();
+void fill_elimination_ranking();
 
 extern int g_viewport_count;
 extern modules::Skate* g_skate_module;

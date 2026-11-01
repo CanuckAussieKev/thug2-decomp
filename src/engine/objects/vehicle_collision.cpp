@@ -66,7 +66,7 @@ struct SlerpStorage {
 } // namespace
 
 // 0x00436CF0 (stdcall)
-double __stdcall DrivableModule::get_penetration(const Contact* contact, const Collider* collider)
+double DrivableModule::get_penetration(const Contact* contact, const Collider* collider)
 {
     // The contact point's distance in from each of the face's four edges; the nearest.
     double dx = static_cast<double>(contact->point.x) - collider->world_corner_.x;

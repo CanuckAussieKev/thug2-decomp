@@ -229,7 +229,7 @@ void GlyphString::set_char_rotation(int index, float rotation)
 }
 
 // 0x0048D1D0
-memory::owner<GlyphString*> __cdecl new_text()
+memory::owner<GlyphString*> new_text()
 {
     GlyphString* text = free_list();
     if (text)
@@ -238,7 +238,7 @@ memory::owner<GlyphString*> __cdecl new_text()
 }
 
 // 0x0048D5F0
-void __cdecl free_text(GlyphString* text)
+void free_text(GlyphString* text)
 {
     text->invisible_ = true;
     text->update_hidden();

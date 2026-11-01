@@ -623,7 +623,7 @@ void async_poll_handles()
 }
 
 // 0x005B6990: the module's task, every frame
-void __cdecl async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
+void async_loader_task(tasks::Task<AsyncLoaderModule>* /*task*/)
 {
     async_poll_handles();
     async_execute_callbacks();

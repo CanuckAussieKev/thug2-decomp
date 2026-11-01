@@ -19,9 +19,9 @@ uint8_t& glyph_style();
 // Which button a "\b<digit>" tag stands for (`digit` points at the digit): the digit's value with the keyboard in
 // use (TextUtil::hex_digit_value), else the explicit buttons M-T / m-t mapped to the controller's (3, 2, 1, 0, 14, 15,
 // 16, 17).
-uint32_t __cdecl button_for_tag(uint8_t* digit);
+uint32_t button_for_tag(uint8_t* digit);
 // Whether button `index` is drawn as a glyph (else the key's name is spelled out): 4-13 with the keyboard in use,
 // 0-17 otherwise.
-uint8_t __cdecl should_use_glyph(uint8_t index);
+uint8_t should_use_glyph(uint8_t index);
 
 } // namespace render

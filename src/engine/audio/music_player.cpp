@@ -151,7 +151,7 @@ bool in_range(float volume) { return !(volume > 100.0f) && !(volume < 0.0f); } /
 } // namespace
 
 // 0x00450F70
-void __cdecl pause_music(int pause)
+void pause_music(int pause)
 {
     if (!music_on())
         return;
@@ -173,7 +173,7 @@ void __cdecl pause_music(int pause)
 }
 
 // 0x004510B0
-void __cdecl set_music_volume(float volume)
+void set_music_volume(float volume)
 {
     if (!music_on() || !in_range(volume))
         return;
@@ -186,7 +186,7 @@ void __cdecl set_music_volume(float volume)
 }
 
 // 0x00451130
-void __cdecl set_music_stream_volume(float volume)
+void set_music_stream_volume(float volume)
 {
     if (!music_on() || !in_range(volume))
         return;
@@ -196,7 +196,7 @@ void __cdecl set_music_stream_volume(float volume)
 }
 
 // 0x004511A0
-void __cdecl queue_track(const char* name, int list, const char* title)
+void queue_track(const char* name, int list, const char* title)
 {
     if (!music_on())
         return;
@@ -228,7 +228,7 @@ void __cdecl queue_track(const char* name, int list, const char* title)
 }
 
 // 0x004512D0
-void __cdecl empty_queue(int list)
+void empty_queue(int list)
 {
     if (!music_on())
         return;
@@ -243,14 +243,14 @@ void __cdecl empty_queue(int list)
 }
 
 // 0x00451350
-void __cdecl skip_music_track()
+void skip_music_track()
 {
     if (music_on() && current_playlist() == 0)
         stop_music();
 }
 
 // 0x00451380
-void __cdecl set_random_mode(int mode)
+void set_random_mode(int mode)
 {
     if (!music_on())
         return;
@@ -267,7 +267,7 @@ void __cdecl set_random_mode(int mode)
 }
 
 // 0x00451400
-void __cdecl apply_track_volume()
+void apply_track_volume()
 {
     bool at_music_volume = other_lists_at_music_volume();
     if (custom_soundtrack_active())
@@ -277,7 +277,7 @@ void __cdecl apply_track_volume()
 }
 
 // 0x00451450
-bool __cdecl is_track_playing(int list, int track)
+bool is_track_playing(int list, int track)
 {
     if (!music_on() || music_status() == 1) // 1: no stream playing
         return false;
@@ -288,10 +288,10 @@ bool __cdecl is_track_playing(int list, int track)
 }
 
 // 0x004514C0
-int __cdecl track_total(int list) { return music_on() ? get_playlists()[list].count : 0; }
+int track_total(int list) { return music_on() ? get_playlists()[list].count : 0; }
 
 // 0x00451500
-const char* __cdecl track_label_at(int track, int list)
+const char* track_label_at(int track, int list)
 {
     if (!music_on()) {
         char* first = reinterpret_cast<char*>(get_playlists()[0].tracks[0]);
@@ -308,7 +308,7 @@ const char* __cdecl track_label_at(int track, int list)
 }
 
 // 0x004515A0
-void __cdecl set_music_mode(int list)
+void set_music_mode(int list)
 {
     if (!music_on())
         return;
@@ -318,7 +318,7 @@ void __cdecl set_music_mode(int list)
 }
 
 // 0x004515E0
-bool __cdecl load_music_header(const char* name)
+bool load_music_header(const char* name)
 {
     if (!music_on())
         return false;
@@ -327,7 +327,7 @@ bool __cdecl load_music_header(const char* name)
 }
 
 // 0x00451C70
-void __cdecl change_track_state(int track, bool off, int list)
+void change_track_state(int track, bool off, int list)
 {
     if (!music_on())
         return;
@@ -360,7 +360,7 @@ void __cdecl change_track_state(int track, bool off, int list)
 }
 
 // 0x004520D0
-void __cdecl play_track(const char* name, bool loop)
+void play_track(const char* name, bool loop)
 {
     if (!music_on() || music_channel_kind() != 0)
         return;
@@ -396,7 +396,7 @@ int shuffle_random(int n)
 }
 
 // 0x00452200
-void __cdecl play_next_track()
+void play_next_track()
 {
     Playlist& list = get_playlists()[current_playlist()];
     if (!music_on() || list.unknownca8_)
@@ -474,7 +474,7 @@ void __cdecl play_next_track()
 }
 
 // 0x00452680
-void __cdecl play_next_track_in_order()
+void play_next_track_in_order()
 {
     if (!music_on())
         return;
@@ -506,7 +506,7 @@ void __cdecl play_next_track_in_order()
 }
 
 // 0x00452910
-void __cdecl tick_frame()
+void tick_frame()
 {
     if (!g_sound_device || game_config::g_platform == 2)
         return;
@@ -551,7 +551,7 @@ void __cdecl tick_frame()
 }
 
 // 0x00450220
-bool __cdecl stream_id_finished(uint32_t id)
+bool stream_id_finished(uint32_t id)
 {
     for (int i = 0; i < kStreams; ++i)
         if (get_streams()[i].id == id && get_playing(get_streams()[i]))
@@ -560,7 +560,7 @@ bool __cdecl stream_id_finished(uint32_t id)
 }
 
 // 0x00450260
-int __cdecl find_playing_stream(uint32_t id_or_name)
+int find_playing_stream(uint32_t id_or_name)
 {
     for (int i = 0; i < kStreams; ++i)
         if (get_streams()[i].id == id_or_name && get_playing(get_streams()[i]))
@@ -572,7 +572,7 @@ int __cdecl find_playing_stream(uint32_t id_or_name)
 }
 
 // 0x004502D0
-uint32_t __cdecl free_stream_id(uint32_t id)
+uint32_t free_stream_id(uint32_t id)
 {
     for (;; ++id) {
         bool used = false;
@@ -584,7 +584,7 @@ uint32_t __cdecl free_stream_id(uint32_t id)
 }
 
 // 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in play_next_track's)
-void __cdecl shuffle_user_soundtrack()
+void shuffle_user_soundtrack()
 {
     int count = user_soundtrack_tracks(user_soundtrack()); // the soundtrack's tracks
     if (count == 0)
@@ -610,7 +610,7 @@ void __cdecl shuffle_user_soundtrack()
 }
 
 // 0x004503D0
-void __cdecl use_user_soundtrack(int soundtrack)
+void use_user_soundtrack(int soundtrack)
 {
     user_soundtrack() = soundtrack;
     custom_soundtrack_active() = true;
@@ -624,16 +624,16 @@ void __cdecl use_user_soundtrack(int soundtrack)
 }
 
 // 0x00450410
-void __cdecl use_standard_soundtrack() { custom_soundtrack_active() = false; }
+void use_standard_soundtrack() { custom_soundtrack_active() = false; }
 
 // 0x00450420
-void __cdecl stop_user_soundtrack() { stop_stream_thread(); }
+void stop_user_soundtrack() { stop_stream_thread(); }
 
 // 0x004B2350
-int __cdecl get_num_soundtracks() { return user_soundtrack_count(); }
+int get_num_soundtracks() { return user_soundtrack_count(); }
 
 // 0x004B2360
-const char* __cdecl get_soundtrack_name(int index)
+const char* get_soundtrack_name(int index)
 {
     char* name = g_soundtrack_name;
     const wchar_t* wide = user_soundtrack_name(index); // (null past the last)
@@ -663,36 +663,36 @@ const char* __cdecl get_soundtrack_name(int index)
 }
 
 // 0x00450430
-bool __cdecl music_is_paused() { return g_bgm_held; }
+bool music_is_paused() { return g_bgm_held; }
 
 // 0x00450440
-float __cdecl get_music_volume() { return g_music_volume; }
+float get_music_volume() { return g_music_volume; }
 
 // 0x00450450
-float __cdecl get_sfx_volume() { return g_music_stream_volume; }
+float get_sfx_volume() { return g_music_stream_volume; }
 
 // 0x00450460
-int __cdecl random_track_order() { return g_random_order; }
+int random_track_order() { return g_random_order; }
 
 // 0x00450470
-void __cdecl set_music_looping(bool loop) { get_looping() = loop; }
+void set_music_looping(bool loop) { get_looping() = loop; }
 
 // 0x00450480
-void __cdecl get_tracks_off(uint64_t* low, uint64_t* high)
+void get_tracks_off(uint64_t* low, uint64_t* high)
 {
     *low = get_playlists()[0].off[0];
     *high = get_playlists()[0].off[1];
 }
 
 // 0x004504B0
-void __cdecl set_tracks_off(uint64_t low, uint64_t high)
+void set_tracks_off(uint64_t low, uint64_t high)
 {
     get_playlists()[0].off[0] = low;
     get_playlists()[0].off[1] = high;
 }
 
 // 0x004504E0
-void __cdecl set_user_soundtrack_volume(float volume)
+void set_user_soundtrack_volume(float volume)
 {
     if (current_playlist() == 1)
         platform_set_music_volume(volume);

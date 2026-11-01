@@ -21,7 +21,7 @@ uint32_t get_script_name(const script::Script* script) { return script->script_t
 
 } // namespace
 
-bool __cdecl cfunc_is_ps2(script::Struct* /*params*/, script::Script* script)
+bool cfunc_is_ps2(script::Struct* /*params*/, script::Script* script)
 {
     if (!sio::the_input_settings().ps2_controls_)
         return false; // (the original: 0x005B9E50)

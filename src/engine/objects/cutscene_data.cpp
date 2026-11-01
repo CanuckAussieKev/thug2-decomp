@@ -77,7 +77,7 @@ void load_asset_file(uint32_t name, uint32_t a2, uint32_t a3)
 } // namespace
 
 // 0x00463AA0 (x87: the squares and w * z unrounded)
-void __cdecl quat_to_matrix(float* quat, const float* translation, float* matrix)
+void quat_to_matrix(float* quat, const float* translation, float* matrix)
 {
     quat[0] = -quat[0];
     quat[1] = -quat[1];
@@ -117,7 +117,7 @@ void IdentityQuat::assign_value()
 }
 
 // 0x00463BA0
-const char* __cdecl skater_model_name(script::Struct* params)
+const char* skater_model_name(script::Struct* params)
 {
     uint32_t profile;
     if (params->read_hash_value(kProfile, &profile, 0)) {
@@ -140,7 +140,7 @@ const char* __cdecl skater_model_name(script::Struct* params)
 }
 
 // 0x00463DA0
-float* __cdecl read_colour(float* out, script::Struct* params, uint32_t name)
+float* read_colour(float* out, script::Struct* params, uint32_t name)
 {
     script::Struct* colour = nullptr;
     if (params->read_sub_struct(name, &colour, 0)) {
@@ -332,8 +332,7 @@ void CinematicTable::update_object_poses()
         source->bone_masks_ = data ? data->lod_masks_ : nullptr;
         source->mask_bit_ = static_cast<int>(rig->lod_);
         const auto* base_pose = reinterpret_cast<const uint8_t*>(rig->payload_->bind_translations_);
-        uint32_t count =
-            reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);
+        uint32_t count = static_cast<uint32_t>(rig->get_num_bones());
         std::memcpy(translations, base_pose, count * 16);
         // (within the first twelfth of a second, without the source)
         if (clock_ - static_cast<double>(unknown3480_) < 0.083333336f)

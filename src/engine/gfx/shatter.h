@@ -72,17 +72,17 @@ static_assert(offsetof(PcShatter, positions) == 0x2C && offsetof(PcShatter, vert
 
 // 0x004B80B0: a shatter's triangles drawn with its mesh's material, shader and format (counted in the frame's
 // draw counts).
-void __cdecl draw_shatter(PcShatter* shatter);
+void draw_shatter(PcShatter* shatter);
 // 0x004B9550: every shatter taken out of the table and destroyed.
-void __cdecl kill_all_shatters();
+void kill_all_shatters();
 // 0x004B95E0: a step of a shatter's flight: each triangle turned about its centre by its rotation (its normals too,
 // when the mesh has them), the engine's step (0x004913D0: the centre moved) and the vertices put back about it.
-void __cdecl update_shatter(PcShatter* shatter, float step);
+void update_shatter(PcShatter* shatter, float step);
 // 0x004BA7A0: a geom's meshes shattered - their triangles (split while big; at least three indices) flung from the
 // shatter centre (0x007004D0 and its scale 0x0067DDF4: their velocities from it at a random speed of up to
 // 0x007004CC more), each turning about a random axis by a random angle up to 0.1 a step - each mesh a shatter put in
 // the table.
-void __cdecl shatter_geom(PcGeom* geom);
+void shatter_geom(PcGeom* geom);
 
 extern lists::KeyMap* g_shatters;
 

@@ -164,13 +164,13 @@ lists::KeyMap* read_materials(Stream& in, const lists::KeyMap* textures)
 } // namespace
 
 // 0x004D2CB0
-lists::KeyMap* __cdecl read_materials_from_buffer(scene_format::MemoryStream& in, const lists::KeyMap* textures)
+lists::KeyMap* read_materials_from_buffer(scene_format::MemoryStream& in, const lists::KeyMap* textures)
 {
     return read_materials(in, textures);
 }
 
 // 0x004D3390
-lists::KeyMap* __cdecl load_materials_from_file(scene_format::FileStream& in, const lists::KeyMap* textures)
+lists::KeyMap* load_materials_from_file(scene_format::FileStream& in, const lists::KeyMap* textures)
 {
     return read_materials(in, textures);
 }

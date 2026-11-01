@@ -48,7 +48,7 @@ void draw_mesh(MeshRef* mesh) { mesh->render(); }
 void count_pass(int which) { g_billboard_pool.render(which); }
 
 // The game's qsort (equal entries keep the game's order).
-void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
+void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))
 {
     crt::get_qsort(base, count, size, compare);
 }
@@ -100,7 +100,7 @@ struct Lap {
 } // namespace
 
 // 0x004DA690
-int __cdecl compare_distances(const void* a, const void* b)
+int compare_distances(const void* a, const void* b)
 {
     float first = static_cast<const DepthOrderedMesh*>(a)->depth;
     float second = static_cast<const DepthOrderedMesh*>(b)->depth;
@@ -112,7 +112,7 @@ int __cdecl compare_distances(const void* a, const void* b)
 }
 
 // 0x004DC700
-void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport)
+void draw_scene(SceneRef* scene, uint32_t flags, int viewport)
 {
     Lap pass{scene, flags, 0, (flags & kRenderNoCulling) != 0};
     if (scene->unknown40)

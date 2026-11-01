@@ -76,7 +76,7 @@ public:
 
     // --- the module (park_editor.cpp) ---
     // 0x0058D290: single::LazyInstance<ParkBuilderMode>'s release: a reference dropped; the last deletes the instance.
-    static void __cdecl get_release();
+    static void get_release();
     // 0x0058D2D0 / 0x0058DAA0: the park manager deleted, the listener, the module (the tasks and the handler aren't
     // deleted - as in the original).
     ~ParkBuilderMode() override;
@@ -109,23 +109,23 @@ public:
     maths::Vec4* get_cursor_pos();
     // 0x0058D700
     void set_daylight_script(uint32_t script);
-    static uint32_t __cdecl get_shell_checksum(); // 0x0058D710
-    static const char* __cdecl get_park_name();   // 0x0058D720
+    static uint32_t get_shell_checksum(); // 0x0058D710
+    static const char* get_park_name();   // 0x0058D720
     // 0x0058DCB0: the editor's look on (or off): the generator's pieces (0x00591CF0 with 0), the highlights and
     // the restart flags shown; the trick text paused and the goal points hidden (or the other way round).
     void show_editor_view(bool on);
     // 0x0058DD70: the camera: the rail editor's while placing rails, else parked_cam.
-    static void __cdecl switch_camera();
+    static void switch_camera();
     // 0x0058DDC0: the park is at its memory limit (the largest figure at 1 or more).
     int is_park_full();
     // 0x0058DDE0: the piece menu shows the cursor's set again and the scripts are told the mode.
     void refresh_piece_menu();
     // 0x0058DEC0: whether `pos` (x and z) lies inside the park more than `margin` from its edges.
-    static bool __cdecl is_inside_park(maths::Vec4 pos, float margin);
+    static bool is_inside_park(maths::Vec4 pos, float margin);
     // 0x0058DF80: the generator's restart point search (0x00592A10).
-    static bool __cdecl find_restart(void* a, void* b, void* c);
+    static bool find_restart(void* a, void* b, void* c);
     // 0x0058DFA0: the park's player count.
-    static int __cdecl get_player_limit();
+    static int get_player_limit();
     // 0x0058EBE0: the menu commands: the previous / next set, the previous / next piece (the piece menu refreshed
     // and its container told).
     void move_selection_cursor();
@@ -151,9 +151,9 @@ public:
     ParkBuilderMode();
     // 0x00590160: single::LazyInstance<ParkBuilderMode>'s Create: the first call with `create` makes the instance; every
     // call takes a reference and returns it (null if there is none).
-    static ParkBuilderMode* __cdecl fabricate(bool create);
+    static ParkBuilderMode* fabricate(bool create);
     // 0x0058FFC0: the logic task's code: the park editor's clock (0x007CE5EC) moved on, then logic_update.
-    static void __cdecl front_end_tick(ParkEditorTask* task);
+    static void front_end_tick(ParkEditorTask* task);
 
     // The editor's event listener (the original's vtable 0x0064F22C; its destructor slot, 0x0058DA90, deletes the
     // editor, which nothing does through the listener).
@@ -173,21 +173,21 @@ public:
     std::unique_ptr<ParkEditorTask> editor_update_job_;           // +0x34 (0x0058FFC0, priority 0)
     std::unique_ptr<ParkEditorTask> draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
     std::unique_ptr<ParkEditorInputHandler> editor_pad_listener_; // +0x3C (process_pad_input, priority 0)
-    uint32_t cur_phase_;                          // +0x40
-    uint32_t actions_;                            // +0x44
-    uint32_t flag_bits_;                          // +0x48
-    float move_speed_;                            // +0x4C (480)
-    float turn_speed_;                            // +0x50 (120)
-    float pad_rx_;                                // +0x54: the sticks (-128..127, then their dead zone taken off)
-    float pad_ry_;                                // +0x58
-    float pad_lx_;                                // +0x5C
-    float pad_ly_;                                // +0x60
-    int unknown64_;                               // +0x64 (0)
-    float camera_angle_;                          // +0x68: degrees round y (0-360)
-    float camera_tilt_;                           // +0x6C: degrees down (10-90; 10 to start with)
-    float orbit_radius_;                          // +0x70 (500-1500; 1400 to start with)
-    int last_time_;                               // +0x74: frame_clock::GetTime at the last Update
-    uint32_t lighting_script_;                    // +0x78 (SetParkEditorTimeOfDay's tod_script)
+    uint32_t cur_phase_;                                          // +0x40
+    uint32_t actions_;                                            // +0x44
+    uint32_t flag_bits_;                                          // +0x48
+    float move_speed_;                                            // +0x4C (480)
+    float turn_speed_;                                            // +0x50 (120)
+    float pad_rx_;             // +0x54: the sticks (-128..127, then their dead zone taken off)
+    float pad_ry_;             // +0x58
+    float pad_lx_;             // +0x5C
+    float pad_ly_;             // +0x60
+    int unknown64_;            // +0x64 (0)
+    float camera_angle_;       // +0x68: degrees round y (0-360)
+    float camera_tilt_;        // +0x6C: degrees down (10-90; 10 to start with)
+    float orbit_radius_;       // +0x70 (500-1500; 1400 to start with)
+    int last_time_;            // +0x74: frame_clock::GetTime at the last Update
+    uint32_t lighting_script_; // +0x78 (SetParkEditorTimeOfDay's tod_script)
 };
 static_assert(offsetof(ParkBuilderMode, listener_) == 0x14 && offsetof(ParkBuilderMode, action_finished_) == 0x30 &&
                   offsetof(ParkBuilderMode, editor_pad_listener_) == 0x3C &&
@@ -197,63 +197,63 @@ static_assert(offsetof(ParkBuilderMode, listener_) == 0x14 && offsetof(ParkBuild
               "layout must match the original");
 
 // 0x0058DB70: the input handler's code: the sticks and the buttons as commands (cleared each frame).
-void __cdecl process_pad_input(ParkEditorInputHandler* handler);
+void process_pad_input(ParkEditorInputHandler* handler);
 // 0x0058E170: the area ResizePark is asked for without a structure: the park's bounds with w= / l= (or inc_w= /
 // inc_l=), kept centred. Returns `out`.
-CellBox* __cdecl get_resize_area(CellBox* out, script::Struct* params);
+CellBox* get_resize_area(CellBox* out, script::Struct* params);
 // 0x0058E490: the park resized to `area`: the shell rebuilt round it, the park rebuilt, the rails' points and
 // the goals outside it removed, the clipboards too big deleted, the cursor hidden, the collision rebuilt.
-void __cdecl resize_to(CellBox area);
+void resize_to(CellBox area);
 
 // The park editor's script commands (park_editor_cfuncs.cpp; cdecl, the Function table's).
-bool __cdecl cfunc_free_up_memory_for_playing_park(script::Struct* params, script::Script* script); // 0x0058D730
-bool __cdecl cfunc_is_park_unsaved(script::Struct* params, script::Script* script);                 // 0x0058D760
-bool __cdecl cfunc_set_edited_park_gap_info(script::Struct* params, script::Script* script);        // 0x0058D780
-bool __cdecl cfunc_park_editor_selection_area_too_big_to_copy(script::Struct* params,
-                                                              script::Script* script); // 0x0058D820
-bool __cdecl cfunc_copy_park_editor_selection_to_clipboard(script::Struct* params,
-                                                           script::Script* script);                // 0x0058D840
-bool __cdecl cfunc_cut_park_editor_area_selection(script::Struct* params, script::Script* script); // 0x0058D870
-bool __cdecl cfunc_park_editor_area_selection_delete_pieces(script::Struct* params,
-                                                            script::Script* script);                    // 0x0058D8C0
-bool __cdecl cfunc_continue_park_editor_area_selection(script::Struct* params, script::Script* script); // 0x0058D8E0
-bool __cdecl cfunc_set_editor_theme(script::Struct* params, script::Script* script);                    // 0x0058D900
-bool __cdecl cfunc_set_custom_park_name(script::Struct* params, script::Script* script);                // 0x0058D940
-bool __cdecl cfunc_optimize_park_geometry(script::Struct* params, script::Script* script);              // 0x0058D980
-bool __cdecl cfunc_get_park_ed_mem_stats(script::Struct* params, script::Script* script);               // 0x0058D9A0
-bool __cdecl cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* script);                // 0x0058D9B0
-bool __cdecl cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* script);               // 0x0058D9E0
-bool __cdecl cfunc_exit_park_ed_test_play(script::Struct* params, script::Script* script);              // 0x0058DA40
-bool __cdecl cfunc_park_update_usage_info(script::Struct* params, script::Script* script);              // 0x0058DA70
-bool __cdecl cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* script);         // 0x0058DFB0
-bool __cdecl cfunc_get_park_editor_time_of_day_script(script::Struct* params, script::Script* script);  // 0x0058DFE0
-bool __cdecl cfunc_rebuild_park_node_array(script::Struct* params, script::Script* script);             // 0x0058E010
-bool __cdecl cfunc_get_park_editor_cursor_pos(script::Struct* params, script::Script* script);          // 0x0058E020
-bool __cdecl cfunc_custom_park_mode(script::Struct* params, script::Script* script);                    // 0x0058E070
-bool __cdecl cfunc_set_park_editor_max_players(script::Struct* params, script::Script* script);         // 0x0058E0F0
-bool __cdecl cfunc_can_cleanly_resize_park(script::Struct* params, script::Script* script);             // 0x0058E2D0
-bool __cdecl cfunc_resize_park(script::Struct* params, script::Script* script);                         // 0x0058E5E0
-bool __cdecl cfunc_get_current_park_bounds(script::Struct* params, script::Script* script);             // 0x0058E7E0
-bool __cdecl cfunc_can_change_park_dimension(script::Struct* params, script::Script* script);           // 0x0058E870
-bool __cdecl cfunc_save_park_to_disk(script::Struct* params, script::Script* script);                   // 0x0058E9A0
-bool __cdecl cfunc_load_park_from_disk(script::Struct* params, script::Script* script);                 // 0x0058E9E0
-bool __cdecl cfunc_fire_custom_park_gap(script::Struct* params, script::Script* script);                // 0x0058EA40
-bool __cdecl cfunc_get_edited_park_gap_name(script::Struct* params, script::Script* script);            // 0x0058EA70
-bool __cdecl cfunc_get_editor_theme(script::Struct* params, script::Script* script);                    // 0x0058EAA0
-bool __cdecl cfunc_get_editor_max_themes(script::Struct* params, script::Script* script);               // 0x0058EAD0
-bool __cdecl cfunc_get_custom_park_name(script::Struct* params, script::Script* script);                // 0x0058EAF0
-bool __cdecl cfunc_is_custom_park(script::Struct* params, script::Script* script);                      // 0x0058EB90
-bool __cdecl cfunc_is_park_full(script::Struct* params, script::Script* script);                        // 0x0058EBB0
-bool __cdecl cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct* params,
-                                                                          script::Script* script); // 0x0058ED00
-bool __cdecl cfunc_switch_to_park_editor_camera(script::Struct* params, script::Script* script);   // 0x0058F750
-bool __cdecl cfunc_bind_park_editor_to_controller(script::Struct* params, script::Script* script); // 0x0058F870
+bool cfunc_free_up_memory_for_playing_park(script::Struct* params, script::Script* script); // 0x0058D730
+bool cfunc_is_park_unsaved(script::Struct* params, script::Script* script);                 // 0x0058D760
+bool cfunc_set_edited_park_gap_info(script::Struct* params, script::Script* script);        // 0x0058D780
+bool cfunc_park_editor_selection_area_too_big_to_copy(script::Struct* params,
+                                                      script::Script* script); // 0x0058D820
+bool cfunc_copy_park_editor_selection_to_clipboard(script::Struct* params,
+                                                   script::Script* script);                // 0x0058D840
+bool cfunc_cut_park_editor_area_selection(script::Struct* params, script::Script* script); // 0x0058D870
+bool cfunc_park_editor_area_selection_delete_pieces(script::Struct* params,
+                                                    script::Script* script);                    // 0x0058D8C0
+bool cfunc_continue_park_editor_area_selection(script::Struct* params, script::Script* script); // 0x0058D8E0
+bool cfunc_set_editor_theme(script::Struct* params, script::Script* script);                    // 0x0058D900
+bool cfunc_set_custom_park_name(script::Struct* params, script::Script* script);                // 0x0058D940
+bool cfunc_optimize_park_geometry(script::Struct* params, script::Script* script);              // 0x0058D980
+bool cfunc_get_park_ed_mem_stats(script::Struct* params, script::Script* script);               // 0x0058D9A0
+bool cfunc_park_ed_mem_snapshot(script::Struct* params, script::Script* script);                // 0x0058D9B0
+bool cfunc_enable_park_ed_cursor(script::Struct* params, script::Script* script);               // 0x0058D9E0
+bool cfunc_exit_park_ed_test_play(script::Struct* params, script::Script* script);              // 0x0058DA40
+bool cfunc_park_update_usage_info(script::Struct* params, script::Script* script);              // 0x0058DA70
+bool cfunc_set_park_editor_time_of_day(script::Struct* params, script::Script* script);         // 0x0058DFB0
+bool cfunc_get_park_editor_time_of_day_script(script::Struct* params, script::Script* script);  // 0x0058DFE0
+bool cfunc_rebuild_park_node_array(script::Struct* params, script::Script* script);             // 0x0058E010
+bool cfunc_get_park_editor_cursor_pos(script::Struct* params, script::Script* script);          // 0x0058E020
+bool cfunc_custom_park_mode(script::Struct* params, script::Script* script);                    // 0x0058E070
+bool cfunc_set_park_editor_max_players(script::Struct* params, script::Script* script);         // 0x0058E0F0
+bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script* script);             // 0x0058E2D0
+bool cfunc_resize_park(script::Struct* params, script::Script* script);                         // 0x0058E5E0
+bool cfunc_get_current_park_bounds(script::Struct* params, script::Script* script);             // 0x0058E7E0
+bool cfunc_can_change_park_dimension(script::Struct* params, script::Script* script);           // 0x0058E870
+bool cfunc_save_park_to_disk(script::Struct* params, script::Script* script);                   // 0x0058E9A0
+bool cfunc_load_park_from_disk(script::Struct* params, script::Script* script);                 // 0x0058E9E0
+bool cfunc_fire_custom_park_gap(script::Struct* params, script::Script* script);                // 0x0058EA40
+bool cfunc_get_edited_park_gap_name(script::Struct* params, script::Script* script);            // 0x0058EA70
+bool cfunc_get_editor_theme(script::Struct* params, script::Script* script);                    // 0x0058EAA0
+bool cfunc_get_editor_max_themes(script::Struct* params, script::Script* script);               // 0x0058EAD0
+bool cfunc_get_custom_park_name(script::Struct* params, script::Script* script);                // 0x0058EAF0
+bool cfunc_is_custom_park(script::Struct* params, script::Script* script);                      // 0x0058EB90
+bool cfunc_is_park_full(script::Struct* params, script::Script* script);                        // 0x0058EBB0
+bool cfunc_switch_park_editor_menu_piece_to_most_recent_clipboard(script::Struct* params,
+                                                                  script::Script* script); // 0x0058ED00
+bool cfunc_switch_to_park_editor_camera(script::Struct* params, script::Script* script);   // 0x0058F750
+bool cfunc_bind_park_editor_to_controller(script::Struct* params, script::Script* script); // 0x0058F870
 // (park_editor_state.cpp)
 // 0x0058FBD0 SetParkEditorState state=<off|edit|test_play|regular_play> [command=...]: the park set up for the state
 // and the editor's state changed. False for an unknown state.
-bool __cdecl cfunc_set_park_editor_state(script::Struct* params, script::Script* script);
+bool cfunc_set_park_editor_state(script::Struct* params, script::Script* script);
 // 0x0058FED0 SetParkEditorPauseMode pause | unpause: the editor paused (its menu and cursor hidden) or not.
-bool __cdecl cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* script);
+bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* script);
 
 extern bool g_collision_allowed;
 

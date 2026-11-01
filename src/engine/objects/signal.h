@@ -57,7 +57,7 @@ struct Signal {
 };
 
 // 0x0045F9E0: the controller an event came from (its data's `controller`; 0 without one).
-int __cdecl event_controller(Signal* event);
+int event_controller(Signal* event);
 
 // Something the tracker tells about events (an abstract class: the original's vtable 0x006477D8 - its destructor and
 // the subclasses' event filter). The tracker keeps them in a singly linked list.

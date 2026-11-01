@@ -144,7 +144,7 @@ void format_score(char* out, size_t size, uint32_t score, int colour, bool colou
 } // namespace
 
 // 0x00567C70: elimiskate's rankings - by the time each player was out (the last out first; still in: 100000).
-void __cdecl fill_elimination_ranking()
+void fill_elimination_ranking()
 {
     online::Hub* net = net_session_slot();
     PlayerSearch search;
@@ -183,7 +183,7 @@ void __cdecl fill_elimination_ranking()
 }
 
 // 0x00568120
-bool __cdecl Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
+bool Skate::cfunc_fill_ranking_screen(script::Struct*, script::Script*)
 {
     online::Hub* net = net_session_slot();
     PlayerSearch search;

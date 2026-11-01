@@ -88,7 +88,7 @@ bool quit_requested() { return render::g_quit_requested; }
 bool g_demo_mode;
 
 // 0x004E1EF0
-int __cdecl game_main(int argc, char** argv)
+int game_main(int argc, char** argv)
 {
     debug_set_up(0);
     game_config::prepare_all(argc, argv); // the command line options (Config)

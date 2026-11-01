@@ -149,7 +149,7 @@ public:
     void pause_devices();
     void unpause_devices();
 
-    memory::ListNode devs_;               // the list's head
+    memory::ListNode devs_;                               // the list's head
     std::unique_ptr<tasks::Task<memory::ListNode>> task_; // running process_task with the list as its data
 };
 
@@ -157,7 +157,7 @@ public:
 // memory::ListNode::destroy.)
 
 // 0x005BE140: the manager's task - processes each device in the list it was given.
-void __cdecl process_task(tasks::Task<memory::ListNode>* task);
+void process_task(tasks::Task<memory::ListNode>* task);
 
 // 0x005BE670: the manager, made on first use when `create` (counts a reference either way); returns it
 // (null if there is none).

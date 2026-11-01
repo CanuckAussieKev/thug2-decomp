@@ -29,7 +29,7 @@ constexpr uint32_t kPrecompiledHeaderSize = 0x1C;
 void parse_precompiled_qb(const char* filename, uint8_t* data, int unused);
 
 // Called for each symbol of a pre-compiled file once it's relocated.
-using PrecompiledSymbolCallback = void(__cdecl*)(SymbolTableEntry* symbol, uint32_t argument, uint32_t flag);
+using PrecompiledSymbolCallback = void (*)(SymbolTableEntry* symbol, uint32_t argument, uint32_t flag);
 // Relocate every symbol of the pre-compiled image `file` (offsets from `base`), passing each to `callback`
 // (if any) with `argument` and `flag`.
 void relocate_precompiled_symbols(uint8_t* file, uint32_t base, PrecompiledSymbolCallback callback, uint32_t argument,

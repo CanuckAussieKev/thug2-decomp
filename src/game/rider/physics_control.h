@@ -28,11 +28,11 @@ class RiderPoseState;
 class RiderBoardPhysics final : public ObjectModule {
 public:
     // 0x00517830 (registered by register_component_types): a new one (0 if out of memory), no core physics yet.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderBoardPhysics();
     // 0x005176A0 (registered with Create): its script member functions (the table at 0x006846F0) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x005176C0: the destructor body (the base's).
     ~RiderBoardPhysics() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

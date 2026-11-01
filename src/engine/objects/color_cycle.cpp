@@ -54,7 +54,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041B3C0
-memory::owner<ObjectModule*> __cdecl ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
+memory::owner<ObjectModule*> ColorCycleComponent::fabricate() { return new ColorCycleComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ColorCycleComponent::ColorCycleComponent()
@@ -67,7 +67,7 @@ ColorCycleComponent::ColorCycleComponent()
 }
 
 // 0x0041B280
-void __cdecl ColorCycleComponent::publish_method_table()
+void ColorCycleComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_color_cycle_member_functions, 0x18);
 }

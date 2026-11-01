@@ -157,8 +157,7 @@ ResourceRegistry::~ResourceRegistry()
 // 0x00407E90
 void ResourceRegistry::start_callback()
 {
-    (&g_main_loop_manager->logic_tasks_)
-        ->queue_job(task_.get()); // the logic tasks
+    (&g_main_loop_manager->logic_tasks_)->queue_job(task_.get()); // the logic tasks
 }
 
 // 0x00407AE0
@@ -405,10 +404,7 @@ void ResourceRegistry::process_pending_assets()
 }
 
 // 0x00407EB0
-void __cdecl ResourceRegistry::process_task(tasks::Task<ResourceRegistry>* task)
-{
-    task->content_->process_pending_assets();
-}
+void ResourceRegistry::process_task(tasks::Task<ResourceRegistry>* task) { task->content_->process_pending_assets(); }
 
 // 0x00407A80
 bool ResourceRegistry::remove_from_list(Resource** head, Resource* asset)

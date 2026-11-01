@@ -24,7 +24,7 @@ file::Hdl dump_file() { return g_dump_file; }
 } // namespace
 
 // 0x0059ED60
-void __cdecl dump_text(const char* text)
+void dump_text(const char* text)
 {
     int length = static_cast<int>(std::strlen(text));
     char* position = dump_write_cursor();

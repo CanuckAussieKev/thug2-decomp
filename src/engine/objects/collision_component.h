@@ -33,7 +33,7 @@ public:
 
     // 0x0041C920 (registered with the composite object manager by 0x004E4860): a new one, without collision (0 if
     // out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     ContactShapeModule();
     // 0x0041C710: the collision object (if any) out of the movables' list and deleted, then the base's body.

@@ -43,7 +43,7 @@ int game_clock() { return frame_clock::game_clock_elapsed() + g_clock_offset; }
 // --- life ---
 
 // 0x00426650
-memory::owner<ObjectModule*> __cdecl KinematicsModule::fabricate() { return new KinematicsModule; }
+memory::owner<ObjectModule*> KinematicsModule::fabricate() { return new KinematicsModule; }
 
 // 0x00424AA0
 KinematicsModule::KinematicsModule()

@@ -191,7 +191,7 @@ void StateHistoryMessage::change_moment(uint32_t time)
 // --- RiderFrameLog ---
 
 // 0x0051AD30
-memory::owner<ObjectModule*> __cdecl RiderFrameLog::fabricate() { return new RiderFrameLog; }
+memory::owner<ObjectModule*> RiderFrameLog::fabricate() { return new RiderFrameLog; }
 
 // 0x0051ACB0
 RiderFrameLog::RiderFrameLog()
@@ -440,7 +440,7 @@ void RiderFrameLog::check_for_collisions(int first)
 }
 
 // 0x00519870
-int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
+int RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 {
     // (the message: engine/net/play_messages.h; NOT ORIGINAL: one too short is dropped - the original read past it)
     util::ByteReader reader(context->body_, context->body_size_);
@@ -503,7 +503,7 @@ int __cdecl RiderFrameLog::handle_hit_messages(net::InboundMsgCtx* context)
 }
 
 // 0x00519C10
-int __cdecl RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
+int RiderFrameLog::handle_collision_messages(net::InboundMsgCtx* context)
 {
     auto* skater = static_cast<GameEntity*>(context->content_);
     uint8_t id = context->type_code_;

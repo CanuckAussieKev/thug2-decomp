@@ -107,7 +107,7 @@ bool FlexibleParticleManager::create_temp_heap(uint32_t size)
 bool FlexibleParticleManager::has_temp_heap() { return temp_heap_ != nullptr; }
 
 // 0x0049A8F0
-int __cdecl FlexibleParticleManager::compare_distance(const void* a, const void* b)
+int FlexibleParticleManager::compare_distance(const void* a, const void* b)
 {
     auto* camera = fetch_live_camera(drawn_viewport());
     const maths::Vec4& at = *camera->fetch_location();

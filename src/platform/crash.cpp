@@ -214,8 +214,8 @@ LONG WINAPI unhandled_filter(EXCEPTION_POINTERS* info)
     crash_end_process(code);
 }
 
-void __cdecl invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file,
-                               unsigned int line, uintptr_t)
+void invalid_parameter(const wchar_t* expression, const wchar_t* function, const wchar_t* file, unsigned int line,
+                       uintptr_t)
 {
     // (a Release CRT passes none of them)
     get_log("INVALID PARAMETER: %ls in %ls (%ls:%u)", expression ? expression : L"?", function ? function : L"?",
@@ -224,14 +224,14 @@ void __cdecl invalid_parameter(const wchar_t* expression, const wchar_t* functio
     crash_end_process(3);
 }
 
-void __cdecl pure_call()
+void pure_call()
 {
     get_log("PURE VIRTUAL CALL (a call through an object's vtable while it's constructed or after it's destroyed)");
     log_backtrace();
     crash_end_process(3);
 }
 
-void __cdecl abort_signal(int)
+void abort_signal(int)
 {
     get_log("ABORT (abort() or std::terminate)");
     log_backtrace();
@@ -241,7 +241,7 @@ void __cdecl abort_signal(int)
 #ifdef _DEBUG
 // Debug C runtime reports: a warning is logged; an assertion is logged and the code carries on (its dialog's Ignore -
 // on the console it ends the run); an error (heap corruption...) ends the process.
-int __cdecl crt_report_hook(int type, char* message, int* return_value)
+int crt_report_hook(int type, char* message, int* return_value)
 {
     char text[1024];
     strncpy_s(text, message ? message : "", _TRUNCATE);
@@ -259,7 +259,7 @@ int __cdecl crt_report_hook(int type, char* message, int* return_value)
 }
 
 // Run-time check failures (e.g. "ESP was not properly saved across a function call"): logged, the process ends.
-int __cdecl rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
+int rtc_error_handler(int type, const wchar_t*, int, const wchar_t*, const wchar_t* format, ...)
 {
     wchar_t text[512] = L"";
     va_list args;
@@ -279,7 +279,7 @@ void __stdcall pops_its_argument(int) {}
 // the /RTCs check after the call reports.
 THUG2_NOINLINE void call_with_wrong_convention()
 {
-    auto call = reinterpret_cast<void(__cdecl*)(int)>(&pops_its_argument);
+    auto call = reinterpret_cast<void (*)(int)>(&pops_its_argument);
     call(1);
 }
 #endif

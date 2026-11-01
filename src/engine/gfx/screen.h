@@ -44,7 +44,7 @@ void set_screen_blur(uint32_t amount);
 void set_letterbox(bool letterbox);
 
 // 0x0048C170: SetScreenBlur <amount>
-bool __cdecl cfunc_set_screen_blur(script::Struct* params, script::Script* script);
+bool cfunc_set_screen_blur(script::Struct* params, script::Script* script);
 
 extern float g_base_fov_angle;
 extern float g_angle_factor;

@@ -11,16 +11,16 @@ namespace online {
 // own name noted by start_query_reporting), gametype (its name), numplayers, numteams, maxplayers, gamemode
 // (openplaying / openwaiting / closedwaiting by 0x007CCE1E / 0x007CCE1D), password (1 if one is set), groupid
 // (0x007CC264); anything else: "".
-void __cdecl server_key_callback(int key, void* buffer, void* user_data);
+void server_key_callback(int key, void* buffer, void* user_data);
 // 0x0053BBC0: a player key of player `index`: player_ (its name), ping_ (its connection's average latency, 0 for a
 // local one), team_; "" for anything else, an index past the players - and, the original's own bug, for every player
 // but the first.
-void __cdecl player_key_callback(int key, int index, void* buffer, void* user_data);
+void player_key_callback(int key, int index, void* buffer, void* user_data);
 // 0x0053BD90: the number of players (type 1) or teams (type 2); 0 otherwise.
-int __cdecl count_callback(int type, void* user_data);
+int count_callback(int type, void* user_data);
 // 0x0053BDC0: qr2 started on port 5155 (public, no NAT negotiation) with the online identity's game name and the
 // stored secret key, once (0x007CCE1C); unless `keep_map_name`, the level's name noted first (0x0067F0A0).
-void __cdecl start_query_reporting(bool keep_map_name);
+void start_query_reporting(bool keep_map_name);
 
 extern int g_lobby_group_id;
 

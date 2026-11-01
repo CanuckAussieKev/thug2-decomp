@@ -331,10 +331,10 @@ bool capture_text(std::string* text);
 // Script commands (registered with the editor's: level_editor::register_script_functions).
 // LevelEditor_PickLevel level=<load script> [edited_layout]: the level select chose a level (the first line of
 // level_select_change_level) - the edited copy or the level as shipped.
-bool __cdecl cfunc_pick_level(script::Struct* params, script::Script* script);
+bool cfunc_pick_level(script::Struct* params, script::Script* script);
 // LevelEditor_EditedLevels: the level select's entries for the edited copies (edited_list, edited_count) - each the
 // level's own entry (from level_select_menu_level_info and the ported levels' lists) with the text "<TEXT> (EDITED)"
 // and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
-bool __cdecl cfunc_edited_levels(script::Struct* params, script::Script* script);
+bool cfunc_edited_levels(script::Struct* params, script::Script* script);
 
 } // namespace frontend::level_editor::layout

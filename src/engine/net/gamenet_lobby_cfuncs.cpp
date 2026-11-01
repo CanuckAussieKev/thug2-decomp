@@ -74,7 +74,7 @@ int& queued_count() { return g_queued_count; }
 } // namespace
 
 // 0x00540430
-bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
+bool cfunc_start_nat_negotiation(script::Struct* params, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();
@@ -108,7 +108,7 @@ bool __cdecl cfunc_start_nat_negotiation(script::Struct* params, script::Script*
 }
 
 // 0x005403E0
-bool __cdecl cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
+bool cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 {
     RoomManager* lobby = current_lobby();
     nat_cancel(lobby->nat_cookie_);
@@ -120,7 +120,7 @@ bool __cdecl cfunc_cancel_nat_negotiation(script::Struct*, script::Script*)
 }
 
 // 0x00540590
-bool __cdecl cfunc_leave_lobby(script::Struct* params, script::Script*)
+bool cfunc_leave_lobby(script::Struct* params, script::Script*)
 {
     push_internet_heap();
     Hub* manager = net_session_slot();
@@ -140,7 +140,7 @@ bool __cdecl cfunc_leave_lobby(script::Struct* params, script::Script*)
 }
 
 // 0x00540640
-bool __cdecl cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
+bool cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 {
     current_lobby()->connecting_ = false;
     current_lobby()->drop_is_expected_ = true;
@@ -148,7 +148,7 @@ bool __cdecl cfunc_cancel_lobby_connect(script::Struct*, script::Script*)
 }
 
 // 0x00540660
-bool __cdecl cfunc_set_quiet_mode(script::Struct* params, script::Script*)
+bool cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 {
     push_internet_heap();
     Hub* manager = net_session_slot();
@@ -159,7 +159,7 @@ bool __cdecl cfunc_set_quiet_mode(script::Struct* params, script::Script*)
 }
 
 // 0x005406C0
-bool __cdecl cfunc_can_host_game(script::Struct*, script::Script*)
+bool cfunc_can_host_game(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     RoomManager* lobby = manager->lobby_service_.get();

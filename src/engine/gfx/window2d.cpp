@@ -45,7 +45,7 @@ void ScreenWindow::change_extent(int width, int height)
 }
 
 // 0x004A1620
-ScreenWindow* __cdecl allocate_window_2d(int x, int y, int width, int height)
+ScreenWindow* allocate_window_2d(int x, int y, int width, int height)
 {
     ScreenWindow* window = free_windows();
     if (window)
@@ -60,7 +60,7 @@ ScreenWindow* __cdecl allocate_window_2d(int x, int y, int width, int height)
 }
 
 // 0x004A1670
-void __cdecl free_window_2d(ScreenWindow* window)
+void free_window_2d(ScreenWindow* window)
 {
     window->following_ = free_windows();
     free_windows() = window;

@@ -48,7 +48,7 @@ void unlink_node(memory::ListNode* node)
 } // namespace
 
 // 0x00548100
-void __cdecl FriendsManager::on_buddy_request(void* connection, const void* arg, FriendsManager* man)
+void FriendsManager::on_buddy_request(void* connection, const void* arg, FriendsManager* man)
 {
     (void)connection;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
@@ -127,7 +127,7 @@ uint32_t FoldedGetters::word1c() { return prop<uint32_t>(this, 0x1C); }
 // --- The script commands ---
 
 // 0x00548360: whether we're logged in to presence.
-bool __cdecl profile_logged_in(script::Struct* params, script::Script* script)
+bool profile_logged_in(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
@@ -135,7 +135,7 @@ bool __cdecl profile_logged_in(script::Struct* params, script::Script* script)
 }
 
 // 0x00548370: the message `string` sent to `profile` (false for none or an empty one).
-bool __cdecl send_buddy_message(script::Struct* params, script::Script* script)
+bool send_buddy_message(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = the_manager();
@@ -150,7 +150,7 @@ bool __cdecl send_buddy_message(script::Struct* params, script::Script* script)
 }
 
 // 0x005483E0: our presence status: chatting in the lobby.
-bool __cdecl set_lobby_status(script::Struct* params, script::Script* script)
+bool set_lobby_status(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;

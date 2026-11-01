@@ -193,7 +193,7 @@ unsigned long __stdcall stream_thread(void*)
 }
 
 // 0x004531A0
-void __cdecl stop_stream_thread()
+void stop_stream_thread()
 {
     if (HANDLE thread = thread_handle()) {
         stop_thread() = true;
@@ -203,7 +203,7 @@ void __cdecl stop_stream_thread()
 }
 
 // 0x004535E0
-_OVERLAPPED* __cdecl new_overlapped()
+_OVERLAPPED* new_overlapped()
 {
     for (;;) {
         // (loops for ever if all 256 are in use)
@@ -223,7 +223,7 @@ _OVERLAPPED* __cdecl new_overlapped()
 }
 
 // 0x00453670
-void __cdecl init_platform()
+void init_platform()
 {
     std::memset(&music_slot(), 0, sizeof(StreamSlot));
     std::memset(stream_slots(), 0, kStreamSlots * sizeof(StreamSlot));
@@ -306,7 +306,7 @@ int find_wad_entry(uint32_t checksum)
 }
 
 // 0x004533E0
-uint32_t __cdecl stream_exists(uint32_t checksum, int music)
+uint32_t stream_exists(uint32_t checksum, int music)
 {
     if (music)
         return 0;
@@ -316,10 +316,10 @@ uint32_t __cdecl stream_exists(uint32_t checksum, int music)
 // --- State -------------------------------------------------------------------------------------------------
 
 // 0x00453250
-int __cdecl music_status() { return music_slot().get_playing() ? 2 : 1; }
+int music_status() { return music_slot().get_playing() ? 2 : 1; }
 
 // 0x00453270
-int __cdecl stream_status(int slot)
+int stream_status(int slot)
 {
     int first = slot == -1 ? 0 : slot;
     int end = slot == -1 ? kStreamSlots : slot + 1;
@@ -330,13 +330,13 @@ int __cdecl stream_status(int slot)
 }
 
 // 0x00453220
-bool __cdecl music_preload_done() { return prefetch_complete(music_slot()); }
+bool music_preload_done() { return prefetch_complete(music_slot()); }
 
 // 0x004531D0
-bool __cdecl stream_preload_done(int slot) { return prefetch_complete(stream_slots()[slot]); }
+bool stream_preload_done(int slot) { return prefetch_complete(stream_slots()[slot]); }
 
 // 0x004532C0
-void __cdecl pause_streams(bool pause, int which)
+void pause_streams(bool pause, int which)
 {
     if (which == 1) {
         StreamSlot& music = music_slot();
@@ -360,7 +360,7 @@ void __cdecl pause_streams(bool pause, int which)
 }
 
 // 0x00453940
-int __cdecl update_streams()
+int update_streams()
 {
     WaitForSingleObject(stream_lock(), INFINITE);
     if (get_over(music_slot()))
@@ -375,7 +375,7 @@ int __cdecl update_streams()
 // --- User soundtracks --------------------------------------------------------------------------------------
 
 // 0x004542D0
-int __cdecl user_soundtrack_count()
+int user_soundtrack_count()
 {
     if (!soundtracks_counted()) {
         soundtracks_counted() = true;
@@ -385,13 +385,13 @@ int __cdecl user_soundtrack_count()
 }
 
 // 0x00454300
-const wchar_t* __cdecl user_soundtrack_name(int index)
+const wchar_t* user_soundtrack_name(int index)
 {
     return index < soundtrack_count() ? reinterpret_cast<const wchar_t*>(get_soundtrack(index) + 8) : nullptr;
 }
 
 // 0x00454320
-int __cdecl user_soundtrack_tracks(int index)
+int user_soundtrack_tracks(int index)
 {
     return index < soundtrack_count() ? *reinterpret_cast<int*>(get_soundtrack(index)) : 0;
 }

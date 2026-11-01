@@ -203,41 +203,40 @@ namespace engine {
 // --- settings ---
 
 // 0x00490DE0
-void __cdecl enable_fog(bool on)
+void enable_fog(bool on)
 {
     g_fog_active = on;
     render::toggle_fog(on);
 }
 
 // 0x00490E00
-void __cdecl set_fog_distance(float distance)
+void set_fog_distance(float distance)
 {
     g_fog_distance = distance;
     render::set_fog_distance(distance);
 }
 
 // 0x00490E10
-void __cdecl set_fog_exponent(float exponent)
+void set_fog_exponent(float exponent)
 {
     g_fog_exponent = exponent;
     set_fog_density_curve(exponent);
 }
 
 // 0x00490E20
-void __cdecl set_fog_color(uint32_t rgba)
+void set_fog_color(uint32_t rgba)
 {
     g_fog_color = rgba;
     render::set_fog_color(rgba);
 }
 
 // 0x00491290
-void __cdecl set_level_color(const float* color) { std::memcpy(g_level_color, color, 16); }
+void set_level_color(const float* color) { std::memcpy(g_level_color, color, 16); }
 
 // 0x00491110
-void __cdecl change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483,
-                                     float area, float speed, float velocity_scale, float lifetime, float floor,
-                                     float bounce, float value_2e_1c, uint32_t texture, uint32_t value_af_1a,
-                                     int value_33d_f)
+void change_breakup_settings(const maths::Vec4* velocity, const maths::Vec4* vector_210e, float value_c483, float area,
+                             float speed, float velocity_scale, float lifetime, float floor, float bounce,
+                             float value_2e_1c, uint32_t texture, uint32_t value_af_1a, int value_33d_f)
 {
     g_glass_burst_velocity = *velocity;
     g_shatter_vector_210e = *vector_210e;
@@ -255,7 +254,7 @@ void __cdecl change_breakup_settings(const maths::Vec4* velocity, const maths::V
 }
 
 // 0x00490DC0
-void __cdecl shatter_geom(void* geom)
+void shatter_geom(void* geom)
 {
     // (the PC's shatter_geom - shatter.cpp - only reads the geom: the original also looked up the particles' texture
     // 0x007004BC and passed it, unused)
@@ -265,7 +264,7 @@ void __cdecl shatter_geom(void* geom)
 // --- texture splats ---
 
 // 0x00490EC0
-void __cdecl age_texture_splats(TextureSplats* splats, int elapsed)
+void age_texture_splats(TextureSplats* splats, int elapsed)
 {
     int living = 0;
     splats->last = -1;
@@ -328,7 +327,7 @@ void __cdecl age_texture_splats(TextureSplats* splats, int elapsed)
 }
 
 // 0x00491F70
-void __cdecl age_all_texture_splats()
+void age_all_texture_splats()
 {
     if (get_paused() || !splat_sets())
         return;
@@ -338,14 +337,14 @@ void __cdecl age_all_texture_splats()
 }
 
 // 0x00491F10
-void __cdecl light_all_texture_splats()
+void light_all_texture_splats()
 {
     for (void* splats = get_first_value(splat_sets()); splats; splats = next_value(splat_sets()))
         light_texture_splats(static_cast<TextureSplats*>(splats));
 }
 
 // 0x004915A0
-void __cdecl kill_all_texture_splats()
+void kill_all_texture_splats()
 {
     for (void* recent = get_first_value(recent_splats()); recent;) {
         void* next = next_value(recent_splats());
@@ -357,7 +356,7 @@ void __cdecl kill_all_texture_splats()
 }
 
 // 0x00491630
-void __cdecl kill_texture_splats_in_box(const float* box)
+void kill_texture_splats_in_box(const float* box)
 {
     for (void* value = get_first_value(recent_splats()); value; value = next_value(recent_splats())) {
         auto* recent = static_cast<float*>(value); // (a position, then +0x14 its time)
@@ -369,7 +368,7 @@ void __cdecl kill_texture_splats_in_box(const float* box)
 }
 
 // 0x004916F0
-void __cdecl kill_texture_splats_of_texture(uint32_t texture)
+void kill_texture_splats_of_texture(uint32_t texture)
 {
     for (void* value = get_first_value(splat_sets()); value;) {
         void* next = next_value(splat_sets());
@@ -389,9 +388,9 @@ struct RecentSplat {
 };
 
 // 0x004928A0
-bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth,
-                                     float angle, float cone_angle, float lifetime, const char* image_label,
-                                     uint32_t unknown38, uint32_t follow, uint8_t unknown40, uint8_t* texture)
+bool create_texture_splat_at(const maths::Vec4* from, const maths::Vec4* to, float size, float depth, float angle,
+                             float cone_angle, float lifetime, const char* image_label, uint32_t unknown38,
+                             uint32_t follow, uint8_t unknown40, uint8_t* texture)
 {
     g_splat_reserve = script::fetch_int_value(0x26FCB7BE); // (asserted)
     RecentSplat* recent = nullptr;
@@ -506,7 +505,7 @@ bool __cdecl create_texture_splat_at(const maths::Vec4* from, const maths::Vec4*
 // --- shatters ---
 
 // 0x00492000
-void __cdecl update_shatters()
+void update_shatters()
 {
     if (get_paused() || !shatters())
         return;
@@ -529,7 +528,7 @@ void __cdecl update_shatters()
 }
 
 // 0x004920E0
-void __cdecl draw_shatters()
+void draw_shatters()
 {
     if (!shatters())
         return;
@@ -540,8 +539,8 @@ void __cdecl draw_shatters()
 // --- flashes ---
 
 // 0x004923E0
-void __cdecl add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
-                       const char* /*texture*/)
+void add_flash(int viewport, uint32_t start, uint32_t end, float duration, float z, uint32_t flags,
+               const char* /*texture*/)
 {
     auto* flash = static_cast<Flash*>(memory::alloc(sizeof(Flash)));
     std::memcpy(flash->start, &start, 4);
@@ -557,7 +556,7 @@ void __cdecl add_flash(int viewport, uint32_t start, uint32_t end, float duratio
 }
 
 // 0x00491790
-void __cdecl update_flashes()
+void update_flashes()
 {
     float elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     if (!flashes())
@@ -589,7 +588,7 @@ void __cdecl update_flashes()
 }
 
 // 0x00491910
-void __cdecl draw_flashes(int viewport, uint32_t pass)
+void draw_flashes(int viewport, uint32_t pass)
 {
     for (void* value = get_first_value(flashes()); value; value = next_value(flashes())) {
         auto* flash = static_cast<Flash*>(value);
@@ -601,7 +600,7 @@ void __cdecl draw_flashes(int viewport, uint32_t pass)
 // --- the tables ---
 
 // 0x00492150
-void __cdecl init_effects()
+void init_effects()
 {
     if (!flashes())
         flashes() = new_table();
@@ -622,7 +621,7 @@ void __cdecl init_effects()
 }
 
 // 0x00492340
-void __cdecl kill_all_effects()
+void kill_all_effects()
 {
     for (void* flash = get_first_value(flashes()); flash;) {
         void* next = next_value(flashes());

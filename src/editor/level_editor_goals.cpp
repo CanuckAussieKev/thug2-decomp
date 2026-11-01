@@ -642,7 +642,7 @@ std::string get_goal_id(int index) { return "CreatedGoal" + std::to_string(index
 
 namespace {
 
-using Function = bool(__cdecl*)(script::Struct*, script::Script*);
+using Function = bool (*)(script::Struct*, script::Script*);
 
 std::vector<Goal> g_goals;  // (their points' places: as their nodes had them when last read)
 std::vector<int> g_in_play; // the play indexes in the goal manager now

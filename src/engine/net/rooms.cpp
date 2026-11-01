@@ -354,7 +354,7 @@ void RoomManager::request_player_list()
 }
 
 // 0x00541D50
-void __cdecl RoomManager::player_joined_callback(void* peer, int room_type, const char* nick, RoomManager* lobby)
+void RoomManager::player_joined_callback(void* peer, int room_type, const char* nick, RoomManager* lobby)
 {
     (void)room_type;
     ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
@@ -373,8 +373,8 @@ void __cdecl RoomManager::player_joined_callback(void* peer, int room_type, cons
 }
 
 // 0x00541FD0
-void __cdecl RoomManager::player_info_callback(void* peer, int room_type, const char* nick, uint32_t ip, int profile_id,
-                                               RoomManager* lobby)
+void RoomManager::player_info_callback(void* peer, int room_type, const char* nick, uint32_t ip, int profile_id,
+                                       RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -392,8 +392,8 @@ void __cdecl RoomManager::player_info_callback(void* peer, int room_type, const 
 }
 
 // 0x005420C0
-void __cdecl RoomManager::player_left_callback(void* peer, int room_type, const char* nick, const char* reason,
-                                               RoomManager* lobby)
+void RoomManager::player_left_callback(void* peer, int room_type, const char* nick, const char* reason,
+                                       RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -410,7 +410,7 @@ void __cdecl RoomManager::player_left_callback(void* peer, int room_type, const 
 }
 
 // 0x00542B70
-void __cdecl RoomManager::new_player_list_callback(void* peer, int room_type, RoomManager* lobby)
+void RoomManager::new_player_list_callback(void* peer, int room_type, RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -418,8 +418,8 @@ void __cdecl RoomManager::new_player_list_callback(void* peer, int room_type, Ro
 }
 
 // 0x00542650
-void __cdecl RoomManager::room_key_changed_callback(void* peer, int room_type, const char* nick, const char* key,
-                                                    const char* value, RoomManager* lobby)
+void RoomManager::room_key_changed_callback(void* peer, int room_type, const char* nick, const char* key,
+                                            const char* value, RoomManager* lobby)
 {
     (void)peer;
     (void)room_type;
@@ -429,8 +429,8 @@ void __cdecl RoomManager::room_key_changed_callback(void* peer, int room_type, c
 }
 
 // 0x00542330
-void __cdecl RoomManager::room_keys_callback(void* peer, int success, int room_type, const char* nick, int count,
-                                             char** keys, char** values, RoomManager* lobby)
+void RoomManager::room_keys_callback(void* peer, int success, int room_type, const char* nick, int count, char** keys,
+                                     char** values, RoomManager* lobby)
 {
     (void)peer;
     (void)success;
@@ -447,8 +447,8 @@ void __cdecl RoomManager::room_keys_callback(void* peer, int success, int room_t
 }
 
 // 0x005424F0
-void __cdecl RoomManager::enum_players_callback(void* peer, int success, int room_type, int index, const char* nick,
-                                                int flags, RoomManager* lobby)
+void RoomManager::enum_players_callback(void* peer, int success, int room_type, int index, const char* nick, int flags,
+                                        RoomManager* lobby)
 {
     (void)room_type;
     (void)flags;
@@ -462,7 +462,7 @@ void __cdecl RoomManager::enum_players_callback(void* peer, int success, int roo
 }
 
 // 0x00542B80
-void __cdecl RoomManager::join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby)
+void RoomManager::join_room_callback(void* peer, int success, int result, int room_type, RoomManager* lobby)
 {
     (void)result;
     Hub* manager = the_manager();
@@ -495,7 +495,7 @@ void __cdecl RoomManager::join_room_callback(void* peer, int success, int result
 // --- The script commands ---
 
 // 0x00541A70: num_players = the players listed in the lobby.
-bool __cdecl cfunc_num_players_in_lobby(script::Struct* params, script::Script* script)
+bool cfunc_num_players_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
     int count = 0;
@@ -507,7 +507,7 @@ bool __cdecl cfunc_num_players_in_lobby(script::Struct* params, script::Script* 
 
 // 0x005429C0: out of the lobby and GameSpy (the peer's game stopped, its title cleared and the peer disconnected -
 // peerStopGame, peerClearTitle, peerDisconnect), the lists emptied, two of its tasks removed, then 0x00540750.
-bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
+bool cfunc_lobby_disconnect(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
@@ -537,7 +537,7 @@ bool __cdecl cfunc_lobby_disconnect(script::Struct* params, script::Script* scri
 
 // 0x00542AA0: the lobby's player list shown (the manager's singleton taken and given back - 0x0053F520 /
 // 0x005395C0).
-bool __cdecl cfunc_fill_player_list(script::Struct* params, script::Script* script)
+bool cfunc_fill_player_list(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
@@ -548,7 +548,7 @@ bool __cdecl cfunc_fill_player_list(script::Struct* params, script::Script* scri
 }
 
 // 0x00542B00
-bool __cdecl cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Script* script)
+bool cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
@@ -557,7 +557,7 @@ bool __cdecl cfunc_fill_lobby_prospective_buddy_list(script::Struct* params, scr
 }
 
 // 0x00542CE0: back into the chosen lobby's group room, if any (peerJoinGroupRoom, join_room_callback).
-bool __cdecl cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
+bool cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
@@ -572,7 +572,7 @@ bool __cdecl cfunc_rejoin_lobby(script::Struct* params, script::Script* script)
 
 // 0x00542D30: lobby `index` chosen (no null check: as the original) - its group room, numbers, name and flag kept,
 // the room joined (join_room_callback), the lobby list emptied.
-bool __cdecl cfunc_choose_lobby(script::Struct* params, script::Script* script)
+bool cfunc_choose_lobby(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = the_manager();
@@ -599,7 +599,7 @@ bool __cdecl cfunc_choose_lobby(script::Struct* params, script::Script* script)
 // lobby's first task added to the main loop's logic tasks.
 // (The original pushes the game name's address, 0x0064B1CC; online_identity.cpp wrote the configured name's address
 // over those two operands before this was source.)
-bool __cdecl cfunc_lobby_connect(script::Struct* params, script::Script* script)
+bool cfunc_lobby_connect(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;

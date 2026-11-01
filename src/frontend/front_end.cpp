@@ -340,7 +340,7 @@ void FrontEnd::update_button_event_mappings(script::Struct* params)
 }
 
 // 0x0054F0F0
-bool __cdecl cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Script* /*script*/)
 {
     script::Pair times;
     params->fetch_pair(0, &times, true);
@@ -353,7 +353,7 @@ bool __cdecl cfunc_set_menu_auto_repeat_times(script::Struct* params, script::Sc
 }
 
 // 0x0054F150
-bool __cdecl cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_menu_pad_mappings(script::Struct* params, script::Script* /*script*/)
 {
     script::Array* mappings;
     params->fetch_list(0u, &mappings, 1);
@@ -373,7 +373,7 @@ bool __cdecl cfunc_set_menu_pad_mappings(script::Struct* params, script::Script*
 }
 
 // 0x0054F1B0
-bool __cdecl cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_button_event_mappings(script::Struct* params, script::Script* /*script*/)
 {
     FrontEnd* front_end = front_end_instance();
     front_end->update_button_event_mappings(params);
@@ -385,7 +385,7 @@ bool __cdecl cfunc_set_button_event_mappings(script::Struct* params, script::Scr
 }
 
 // 0x0054F200
-void __cdecl FrontEnd::keyboard_task(FrontEndTask* task)
+void FrontEnd::keyboard_task(FrontEndTask* task)
 {
     FrontEnd* front_end = task->content_;
     char keys[256];
@@ -566,7 +566,7 @@ void FrontEnd::get_pause_game(bool pause)
 }
 
 // 0x0054FB40
-void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
+void FrontEnd::input_logic(FrontEndInputHandler* handler)
 {
     FrontEnd* front_end = handler->content_;
     // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
@@ -610,7 +610,7 @@ void __cdecl FrontEnd::input_logic(FrontEndInputHandler* handler)
 }
 
 // 0x0054FCC0
-void __cdecl FrontEnd::front_end_tick(FrontEndTask* task)
+void FrontEnd::front_end_tick(FrontEndTask* task)
 {
     memory::Hub::get_pull()->enter_heap_scope(memory::Hub::get_pull()->front_end_heap_);
     task->content_->tick_frame(task->content_->is_halted_);
@@ -638,7 +638,7 @@ void FrontEnd::update_input_mappings()
 }
 
 // 0x0054FDC0
-bool __cdecl cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_analog_stick_active_for_menus(script::Struct* params, script::Script* /*script*/)
 {
     int active = 1;
     params->fetch_int_value(0u, &active, 0);

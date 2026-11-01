@@ -64,7 +64,7 @@ public:
     static constexpr int kEntries = 20;
 
     // 0x0051AD30 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0051ACB0: its type, every entry and the counts cleared.
     RiderFrameLog();
     // 0x005197C0: the destructor body (the base's; in skater_state.cpp).
@@ -100,11 +100,11 @@ public:
     // `msg+4` the score to lose): knocked back away from it (300 * 1.5 horizontally, 200 up), into a bail on foot or
     // driving, and its score lowered (to 0 at least: then unbind_fireball_tricks). 0x85 - this skater hit another.
     // Each is an event to the skater with the other's name (0x915E5E39 / 0xA1021AF0). Returns kResultConsumed.
-    static int __cdecl handle_hit_messages(net::InboundMsgCtx* context);
+    static int handle_hit_messages(net::InboundMsgCtx* context);
     // 0x00519C10: 0x43 - this skater was run into (`msg[0]` the other's object id, bit 7: it was driving; cleared in
     // the message; `msg+4` the push): knocked back unless driving, the push as a vector in the event 0x915E5E39.
     // 0x44 - this skater ran into another (event 0xA1021AF0). Returns kResultPassOn.
-    static int __cdecl handle_collision_messages(net::InboundMsgCtx* context);
+    static int handle_collision_messages(net::InboundMsgCtx* context);
 
     int state_count_;                          // +0x18 the states received
     SkaterStateHistoryFrame states_[kEntries]; // +0x1C (the newest at (state_count_ - 1) % 20)

@@ -29,11 +29,11 @@ class CarView final : public ObjectModule {
 public:
     // 0x005248C0: a new one (0 if out of memory): the base's constructor, its vtable and type, height 60,
     // distance 144, lerp 3.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     CarView();
     // 0x00524420: its member function table (0x00684150) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00524440: the destructor body (the base's). 0x00524470 (slot 0): the scalar deleting destructor.
     ~CarView() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

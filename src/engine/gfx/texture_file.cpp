@@ -124,7 +124,7 @@ bool fits_its_texture(const ImageHeader& header, bool palettized, uint32_t palet
 } // namespace
 
 // 0x004E0790
-TextureRef* __cdecl read_texture_file(const char* name)
+TextureRef* read_texture_file(const char* name)
 {
     file::Hdl file = file::unseal(name, "rb");
     if (!file)
@@ -194,7 +194,7 @@ TextureRef* __cdecl read_texture_file(const char* name)
 }
 
 // 0x004E0A90
-TextureRef* __cdecl load_texture_memory(const uint8_t* data, size_t data_size)
+TextureRef* load_texture_memory(const uint8_t* data, size_t data_size)
 {
     // Read through image_format's reader, bounded by the image's size (not original: the original read on past it;
     // texels cut short are filled with zeros, an image that doesn't fit its texture is refused).

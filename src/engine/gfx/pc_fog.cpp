@@ -25,7 +25,7 @@ uint32_t& fog_render_flag() { return g_fog_active; }
 } // namespace
 
 // 0x004B8E40
-void __cdecl toggle_fog(bool on)
+void toggle_fog(bool on)
 {
     if ((fog_render_flag() != 0) == on)
         return;
@@ -35,7 +35,7 @@ void __cdecl toggle_fog(bool on)
 }
 
 // 0x004B8E80
-void __cdecl set_fog_distance(float start)
+void set_fog_distance(float start)
 {
     g_fog_begin_distance = start;
     // the end: 7200 further with distance clipping (0x007D643A), else four times as far
@@ -46,7 +46,7 @@ void __cdecl set_fog_distance(float start)
 }
 
 // 0x004B8EE0
-void __cdecl set_fog_color(uint32_t rgba)
+void set_fog_color(uint32_t rgba)
 {
     uint32_t r = rgba & 0xFF, g = (rgba >> 8) & 0xFF, b = (rgba >> 16) & 0xFF, a = rgba >> 24;
     if (a && !fog_render_flag()) {

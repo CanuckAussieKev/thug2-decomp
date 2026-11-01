@@ -56,25 +56,25 @@ static_assert(offsetof(PcModelLights, overrides) == 0x1C && offsetof(PcModelLigh
               "layout must match the original");
 
 // 0x004B67E0: the scene's ambient colour sent to the renderer. True.
-bool __cdecl update_ambient_light();
+bool update_ambient_light();
 // 0x004B6850: the scene's ambient colour into *out. Returns out.
-uint32_t* __cdecl fetch_ambient_hue(uint32_t* out);
+uint32_t* fetch_ambient_hue(uint32_t* out);
 // 0x004B6860: a scene light's colour (times its intensity) sent to the renderer. True.
-bool __cdecl update_light_color(int light);
+bool update_light_color(int light);
 // 0x004B68E0: a scene light's colour into *out. Returns out.
-uint32_t* __cdecl fetch_light_tint(uint32_t* out, int light);
+uint32_t* fetch_light_tint(uint32_t* out, int light);
 // 0x004B6900: the ambient colour and the colours of lights 0-30 sent.
-void __cdecl update_all_lights();
+void update_all_lights();
 // 0x004B6920: model lights deleted (virtually; none: nothing). True.
-bool __cdecl delete_model_lights(PcModelLights* lights);
+bool delete_model_lights(PcModelLights* lights);
 // 0x004B6940: the renderer's lights back to the scene's - ambient, lights 0 and 1 - and light 2's colour cleared.
-void __cdecl reset_lights();
+void reset_lights();
 // 0x004B6A70: a scene light's direction (negated) sent to the renderer. True.
-bool __cdecl update_light_direction(int light);
+bool update_light_direction(int light);
 // 0x004B6AB0: a scene light's direction (w 1; a static vector, 0x0070166C).
-maths::Vec4* __cdecl get_light_direction(int light);
+maths::Vec4* get_light_direction(int light);
 // 0x004B6B10: new model lights (0x30 bytes).
-memory::owner<PcModelLights*> __cdecl spawn_model_lights();
+memory::owner<PcModelLights*> spawn_model_lights();
 
 extern float g_light_constants[28];
 

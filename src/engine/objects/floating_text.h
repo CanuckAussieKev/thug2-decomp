@@ -17,7 +17,7 @@ class Struct;
 namespace frontend {
 
 // 0x0041E2A0: the screen element manager (the singleton 0x00701440).
-UiTree* __cdecl fetch_ui_tree();
+UiTree* fetch_ui_tree();
 
 } // namespace frontend
 
@@ -38,7 +38,7 @@ public:
 
     // 0x0041E3C0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no text, colour 2, y_offset 120, no id, no end; 0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     FloatingTextComponent();
     // 0x0041E5E0: the element destroyed (the script 0x2575B406 with id=), then the base's body.

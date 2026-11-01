@@ -70,7 +70,7 @@ public:
     static constexpr uint32_t kType = 0x286A8D26;
 
     // 0x00421490 (registered with the composite object manager): a new one (Construct; 0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00420BF0: its type, a new model (0x0048BFA0), the spins off, no display
     // offset (w 1), scale 1, no colour values, the pivot (0, 0, 0, 1).
     MeshInstanceModule();

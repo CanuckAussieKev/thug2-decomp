@@ -13,7 +13,7 @@ void draw_movie_frame(void* texture, float x, float y, float width, float height
 // noting the texture's size first. draw_movie_quad (stdcall, as the device's DrawPrimitiveUP it stands in for):
 // the quad's corners moved to the largest 4:3 area centred in the back buffer, then drawn.
 void set_movie_texture(int stage, void* texture, int unknown);
-void __stdcall draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
+void draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
 
 } // namespace render
 
@@ -27,7 +27,7 @@ namespace render {
 // start-up logo and intro movies (ATVI, Beenox_Shift, Dolby_Digital, Intel_intro, NSlogo, intro, introf) are
 // skipped, and so is any movie the start-up script startup_loading_screen plays (Anteara Mod's Shorty's movie);
 // other movies play as usual.
-bool __cdecl play_movie(script::Struct* params, void* script);
+bool play_movie(script::Struct* params, void* script);
 // The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,
 // frontend/start_level.h).
 bool& skip_intro_movies();
@@ -47,15 +47,15 @@ struct Bink {
 // backslash in `name` is dropped) to its end, until the quit request, or until start or X is pressed on a pad
 // (pressed after being seen up). The music is paused and the streams stopped first. Originally from PartyMod Fixes: the
 // pads are read every frame, not every fifth.
-void __cdecl play_movie_file(const char* name);
+void play_movie_file(const char* name);
 
 // 0x0044F8C0: the render states for movies (the old ones saved for end_movie) and a width x height texture for
 // the frames (null if it can't be made). Also notes the movie's and the back buffer's sizes as floats.
-void* __cdecl begin_movie(uint32_t width, uint32_t height);
+void* begin_movie(uint32_t width, uint32_t height);
 // 0x0044F9F0: the render states back; the texture released.
-void __cdecl end_movie(void* texture);
+void end_movie(void* texture);
 // 0x0044FCC0: one frame: clear, draw the texture over the screen, present; then Bink on to the next frame.
-void __cdecl draw_movie(Bink* bink, void* texture);
+void draw_movie(Bink* bink, void* texture);
 
 // 0x0044F840: whether a button of `mask` is pressed now after having been seen up (control data bits are set while up).
 bool button_pressed_again(const uint8_t* control_data, uint16_t* seen_up, uint32_t mask);

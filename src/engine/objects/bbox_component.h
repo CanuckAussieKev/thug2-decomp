@@ -45,7 +45,7 @@ public:
     };
 
     // 0x0041ADC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0041AAD0: its type; the box (10, 10, 10, 1) - (-10, -10, -10, 1), the
     // offset (0, 0, 0, 1).
     CbBoxComponent();

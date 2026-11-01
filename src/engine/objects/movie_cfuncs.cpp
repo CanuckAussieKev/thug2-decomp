@@ -82,7 +82,7 @@ CutsceneDestroyEntry::CutsceneDestroyEntry()
 // 0x005AD830: PlaySkaterCamAnim [SkaterId= | skater=] name=<anim> ... - the skater's (a local one) camera animation
 // queued (disable_skater_scaling run first); with stop, every one dropped; with 0x0C567FA2 the game's camera taken
 // over and nothing else. A skater that isn't local: "this isn't a local skater!".
-bool __cdecl cfunc_play_skater_cam_anim(script::Struct* params, script::Script*)
+bool cfunc_play_skater_cam_anim(script::Struct* params, script::Script*)
 {
     if (params->has_bare_flag(kUseGameCamera)) {
         camera_movies()->use_kept_camera();
@@ -107,7 +107,7 @@ bool __cdecl cfunc_play_skater_cam_anim(script::Struct* params, script::Script*)
 
 // 0x005AD960 / 0x005ADA30: SetSkaterCamAnimSkippable / SetSkaterCamAnimShouldPause (also SetCutsceneSkippable /
 // SetCutsceneShouldPause) [SkaterId= | skater=] name=<anim> skippable= / should_pause=<0/1> - for a local skater.
-bool __cdecl cfunc_set_skater_cam_anim_skippable(script::Struct* params, script::Script*)
+bool cfunc_set_skater_cam_anim_skippable(script::Struct* params, script::Script*)
 {
     objects::Entity* skater = named_skater(params);
     if (skater && is_host_local(skater)) {
@@ -119,7 +119,7 @@ bool __cdecl cfunc_set_skater_cam_anim_skippable(script::Struct* params, script:
     return true;
 }
 
-bool __cdecl cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Script*)
+bool cfunc_set_skater_cam_anim_should_pause(script::Struct* params, script::Script*)
 {
     objects::Entity* skater = named_skater(params);
     if (skater && is_host_local(skater)) {
@@ -133,7 +133,7 @@ bool __cdecl cfunc_set_skater_cam_anim_should_pause(script::Struct* params, scri
 
 // 0x005ADB00: GetCurrentSkaterCamAnimName - the playing animation's name as CurrentSkaterCamAnimName (none: none,
 // false).
-bool __cdecl cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Script* script)
+bool cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Script* script)
 {
     uint32_t name = camera_movies()->get_playing_name();
     if (name) {
@@ -146,7 +146,7 @@ bool __cdecl cfunc_get_current_skater_cam_anim_name(script::Struct*, script::Scr
 
 // 0x005ADB50: GetSkaterCamAnimParams name=<anim> [SkaterId= | skater=] - the animation's parameters added to the
 // script's (a local skater; false without them).
-bool __cdecl cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_cam_anim_params(script::Struct* params, script::Script* script)
 {
     uint32_t name = movie_key_from_params(params, 0);
     objects::Entity* skater = named_skater(params);
@@ -161,7 +161,7 @@ bool __cdecl cfunc_get_skater_cam_anim_params(script::Struct* params, script::Sc
 
 // 0x005ADC10 / 0x005ADCC0: SkaterCamAnimFinished / SkaterCamAnimHeld (also CutsceneFinished / CutsceneHeld)
 // [SkaterId= | skater=] name=<anim> - for a local skater (otherwise true).
-bool __cdecl cfunc_skater_cam_anim_finished(script::Struct* params, script::Script*)
+bool cfunc_skater_cam_anim_finished(script::Struct* params, script::Script*)
 {
     objects::Entity* skater = named_skater(params);
     if (!skater || !is_host_local(skater))
@@ -169,7 +169,7 @@ bool __cdecl cfunc_skater_cam_anim_finished(script::Struct* params, script::Scri
     return camera_movies()->is_movie_gone(movie_key_from_params(params, 0));
 }
 
-bool __cdecl cfunc_skater_cam_anim_held(script::Struct* params, script::Script*)
+bool cfunc_skater_cam_anim_held(script::Struct* params, script::Script*)
 {
     objects::Entity* skater = named_skater(params);
     if (!skater || !is_host_local(skater))
@@ -180,7 +180,7 @@ bool __cdecl cfunc_skater_cam_anim_held(script::Struct* params, script::Script*)
 // 0x005ADD70: KillSkaterCamAnim (also KillCutscene) [SkaterId= | skater=] Current | all | name=<anim> - for a local
 // skater (none named: the local one): the playing animation ended (its result returned), every one dropped, or the
 // named one. Then with none left: the park editor's camera back in its edit state, else Restore_skater_camera.
-bool __cdecl cfunc_kill_skater_cam_anim(script::Struct* params, script::Script*)
+bool cfunc_kill_skater_cam_anim(script::Struct* params, script::Script*)
 {
     bool result = true;
     objects::Entity* skater;
@@ -213,7 +213,7 @@ bool __cdecl cfunc_kill_skater_cam_anim(script::Struct* params, script::Script*)
 
 // 0x005ADEC0: ReloadSkaterCamAnim <name> <file> - with the extra memory (0x007CEFAC) only: every animation dropped,
 // the asset reloaded from the file (in the debug heap). Its result; false without both parameters.
-bool __cdecl cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
+bool cfunc_reload_skater_cam_anim(script::Struct* params, script::Script*)
 {
     if (!g_got_extra_memory)
         return false;
@@ -230,14 +230,14 @@ bool __cdecl cfunc_reload_skater_cam_anim(script::Struct* params, script::Script
 }
 
 // 0x005AE000: CutsceneDestroyListActive - the renderer's 0x0049A8E0 (its +0x10 set) on 0x006FA7C0.
-bool __cdecl cfunc_cutscene_destroy_list_active(script::Struct*, script::Script*)
+bool cfunc_cutscene_destroy_list_active(script::Struct*, script::Script*)
 {
     return reinterpret_cast<render::FlexibleParticleManager*&>(render::g_flexible_particle_manager)->has_temp_heap();
 }
 
 // 0x005AE010: PlayCutscene ... - a cutscene queued (as the movie Cutscene); with ObjectAnim, name=<anim> as an
 // object animation (type 0xB46E218F). (The stop flag is looked for and not used.)
-bool __cdecl cfunc_play_cutscene(script::Struct* params, script::Script*)
+bool cfunc_play_cutscene(script::Struct* params, script::Script*)
 {
     params->has_bare_flag(kStop);
     if (params->has_bare_flag(kObjectAnim)) {
@@ -249,11 +249,11 @@ bool __cdecl cfunc_play_cutscene(script::Struct* params, script::Script*)
 }
 
 // 0x005AE090: HasMovieStarted. 0x005AE0A0: IsMovieQueued.
-bool __cdecl cfunc_has_movie_started(script::Struct*, script::Script*) { return camera_movies()->playing_flag24(); }
-bool __cdecl cfunc_is_movie_queued(script::Struct*, script::Script*) { return camera_movies()->any_movies(); }
+bool cfunc_has_movie_started(script::Struct*, script::Script*) { return camera_movies()->playing_flag24(); }
+bool cfunc_is_movie_queued(script::Struct*, script::Script*) { return camera_movies()->any_movies(); }
 
 // 0x005AE0B0: PauseCutscene [<0/1>] [toggle] - the playing movie paused (1, the default) or not; toggle: toggled.
-bool __cdecl cfunc_pause_cutscene(script::Struct* params, script::Script*)
+bool cfunc_pause_cutscene(script::Struct* params, script::Script*)
 {
     int value = 1;
     params->fetch_int_value(0u, &value, 0);
@@ -266,7 +266,7 @@ bool __cdecl cfunc_pause_cutscene(script::Struct* params, script::Script*)
 }
 
 // 0x005AE120: Cutscene_FrameAdvance.
-bool __cdecl cfunc_cutscene_frame_advance(script::Struct*, script::Script*)
+bool cfunc_cutscene_frame_advance(script::Struct*, script::Script*)
 {
     camera_movies()->playing34();
     return true;
@@ -274,7 +274,7 @@ bool __cdecl cfunc_cutscene_frame_advance(script::Struct*, script::Script*)
 
 // 0x005AE140: PlayObjectAnim name=<anim> ... - an object animation queued. (The stop flag is looked for and not
 // used.)
-bool __cdecl cfunc_play_object_anim(script::Struct* params, script::Script*)
+bool cfunc_play_object_anim(script::Struct* params, script::Script*)
 {
     params->has_bare_flag(kStop);
     object_movies()->add_movie(movie_key_from_params(params, 0), params, kObjectAnim);
@@ -283,7 +283,7 @@ bool __cdecl cfunc_play_object_anim(script::Struct* params, script::Script*)
 
 // 0x005AE190 / 0x005AE200: SetObjectAnimSkippable / SetObjectAnimShouldPause name=<anim> skippable= /
 // should_pause=<0/1>.
-bool __cdecl cfunc_set_object_anim_skippable(script::Struct* params, script::Script*)
+bool cfunc_set_object_anim_skippable(script::Struct* params, script::Script*)
 {
     uint32_t name = movie_key_from_params(params, 0);
     int skippable = 0;
@@ -292,7 +292,7 @@ bool __cdecl cfunc_set_object_anim_skippable(script::Struct* params, script::Scr
     return true;
 }
 
-bool __cdecl cfunc_set_object_anim_should_pause(script::Struct* params, script::Script*)
+bool cfunc_set_object_anim_should_pause(script::Struct* params, script::Script*)
 {
     uint32_t name = movie_key_from_params(params, 0);
     int pause = 0;
@@ -302,19 +302,19 @@ bool __cdecl cfunc_set_object_anim_should_pause(script::Struct* params, script::
 }
 
 // 0x005AE270 / 0x005AE2B0: ObjectAnimFinished / ObjectAnimHeld name=<anim>.
-bool __cdecl cfunc_object_anim_finished(script::Struct* params, script::Script*)
+bool cfunc_object_anim_finished(script::Struct* params, script::Script*)
 {
     return object_movies()->is_movie_gone(movie_key_from_params(params, 0));
 }
 
-bool __cdecl cfunc_object_anim_held(script::Struct* params, script::Script*)
+bool cfunc_object_anim_held(script::Struct* params, script::Script*)
 {
     return object_movies()->movie_flag18(movie_key_from_params(params, 0));
 }
 
 // 0x005AE2F0: KillObjectAnim Current | all | name=<anim> - the playing one ended (its result), every one dropped, or
 // the named one.
-bool __cdecl cfunc_kill_object_anim(script::Struct* params, script::Script*)
+bool cfunc_kill_object_anim(script::Struct* params, script::Script*)
 {
     objects::VideoHub* movies = object_movies();
     if (params->has_bare_flag(kCurrent))

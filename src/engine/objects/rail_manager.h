@@ -133,23 +133,23 @@ static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, n
 
 // The box helpers (cdecl):
 // 0x0057C260: the box of `a` and `b` (min and max per axis; w 1).
-void __cdecl box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max);
+void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max);
 // 0x0057C170: the span of four values (the largest minus the smallest).
-double __cdecl span4(float a, float b, float c, float d);
+double span4(float a, float b, float c, float d);
 // 0x0057C360: how much the intervals [a, b] and [c, d] overlap: |b - a| + |d - c| (as a float) minus their span.
-double __cdecl get_overlap(float a, float b, float c, float d);
+double get_overlap(float a, float b, float c, float d);
 // 0x0057C3A0: whether a, b, c, d step by less than `tolerance` each.
-int __cdecl nearly_equal4(float a, float b, float c, float d, float tolerance);
+int nearly_equal4(float a, float b, float c, float d, float tolerance);
 // 0x0057C600: whether a rail from `a` to `b` can be grabbed: always in the park editor's level 0xD443A2BC; else
 // feelers across its middle, below it - see the source.
-bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b);
+bool rail_clear(maths::Vec4 a, maths::Vec4 b);
 // NOT ORIGINAL: a hook the level editor sets (level_editor_chains.h - rails marked grindable on flat ground): RailClear
 // passes a segment it accepts (its ends' places), as the park editor's level passes every rail. Null (the default):
 // none - the original's behaviour.
 using RailClearOverride = bool (*)(const maths::Vec4* a, const maths::Vec4* b);
 void set_rail_clear_override(RailClearOverride override);
 // 0x0057C5A0 (stdcall): whether two nodes are within 1 of each other on every axis.
-bool __stdcall nodes_together(const GrindPoint* a, const GrindPoint* b);
+bool nodes_together(const GrindPoint* a, const GrindPoint* b);
 
 // 0x0057C210: a box's min and max swapped (the two halves of 0x20 bytes).
 struct BoxPair {

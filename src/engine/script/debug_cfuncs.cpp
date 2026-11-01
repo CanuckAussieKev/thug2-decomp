@@ -67,7 +67,7 @@ uint32_t* level_specific_qb_files() { return g_level_qb_files; }
 
 // 0x004489B0: DisplayFreeMem: for every heap of the memory manager, run UpdateDisplayFreeMemory with id=<the
 // heap's name checksum> free_mem=<the space left in its region> min_free_mem=<the least there has been>.
-bool __cdecl cfunc_display_free_mem(script::Struct*, script::Script*)
+bool cfunc_display_free_mem(script::Struct*, script::Script*)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     script::Struct* memory = script::spawn_param_bag();
@@ -90,7 +90,7 @@ bool __cdecl cfunc_display_free_mem(script::Struct*, script::Script*)
 // 0x00449110: Test: prints the bytes of a symbol table entry (a structure named 0xC1C935B2,
 // flags 4) after setting flag bits 1 and 2 in turn, then of a component (byte 0x57, word 1000, name 0x480A2607,
 // value 0x01020304) - a check of the layouts. Always true.
-bool __cdecl cfunc_test(script::Struct*, script::Script*)
+bool cfunc_test(script::Struct*, script::Script*)
 {
     script::SymbolTableEntry entry;
     std::memset(&entry, 0, sizeof(entry));
@@ -119,7 +119,7 @@ bool __cdecl cfunc_test(script::Struct*, script::Script*)
 
 // 0x004493B0: LoadQB "<file>" [LevelSpecific]: the .qb file loaded; LevelSpecific ones are noted in the first free
 // slot of the table (by the name's checksum; all 15 taken: not noted, loaded all the same).
-bool __cdecl cfunc_load_qb(script::Struct* params, script::Script*)
+bool cfunc_load_qb(script::Struct* params, script::Script*)
 {
     const char* name = nullptr;
     params->fetch_text(0u, &name, 0);
@@ -139,7 +139,7 @@ bool __cdecl cfunc_load_qb(script::Struct* params, script::Script*)
 }
 
 // 0x00449450: UnloadQB "<file>": the .qb file unloaded, and forgotten by the LevelSpecific table (every slot).
-bool __cdecl cfunc_unload_qb(script::Struct* params, script::Script*)
+bool cfunc_unload_qb(script::Struct* params, script::Script*)
 {
     const char* name = nullptr;
     params->fetch_text(0u, &name, 0);
@@ -154,7 +154,7 @@ bool __cdecl cfunc_unload_qb(script::Struct* params, script::Script*)
 }
 
 // 0x004494A0: ScreenShot [FileName="<name>" ("screen")].
-bool __cdecl cfunc_screen_shot(script::Struct* params, script::Script*)
+bool cfunc_screen_shot(script::Struct* params, script::Script*)
 {
     const char* name;
     if (!params->fetch_text(kFileName, &name, 0))
@@ -164,7 +164,7 @@ bool __cdecl cfunc_screen_shot(script::Struct* params, script::Script*)
 }
 
 // 0x004494E0: ToggleMetrics.
-bool __cdecl cfunc_toggle_metrics(script::Struct*, script::Script*)
+bool cfunc_toggle_metrics(script::Struct*, script::Script*)
 {
     toggle_metrics_display();
     return true;
@@ -172,15 +172,15 @@ bool __cdecl cfunc_toggle_metrics(script::Struct*, script::Script*)
 
 // 0x004494F0 / 0x00449500 / 0x00449510 / 0x00449520 / 0x00449530: German / French / Spanish / Italian / English:
 // whether the game runs in that language.
-bool __cdecl cfunc_german(script::Struct*, script::Script*) { return get_language() == 5; }
-bool __cdecl cfunc_french(script::Struct*, script::Script*) { return get_language() == 3; }
-bool __cdecl cfunc_spanish(script::Struct*, script::Script*) { return get_language() == 4; }
-bool __cdecl cfunc_italian(script::Struct*, script::Script*) { return get_language() == 6; }
-bool __cdecl cfunc_english(script::Struct*, script::Script*) { return get_language() == 2; }
+bool cfunc_german(script::Struct*, script::Script*) { return get_language() == 5; }
+bool cfunc_french(script::Struct*, script::Script*) { return get_language() == 3; }
+bool cfunc_spanish(script::Struct*, script::Script*) { return get_language() == 4; }
+bool cfunc_italian(script::Struct*, script::Script*) { return get_language() == 6; }
+bool cfunc_english(script::Struct*, script::Script*) { return get_language() == 2; }
 
 // 0x004498F0: ProximCleanup: every sound and stream component's proximity node cleared (what they keep of
 // the proximity nodes), then every proximity node freed.
-bool __cdecl cfunc_proxim_cleanup(script::Struct*, script::Script*)
+bool cfunc_proxim_cleanup(script::Struct*, script::Script*)
 {
     for (objects::ObjectModule* c = objects::object_hub_slot()->find_first_module_of_kind(kSound); c;
          c = c->next_of_type_)
@@ -194,13 +194,13 @@ bool __cdecl cfunc_proxim_cleanup(script::Struct*, script::Script*)
 
 // 0x00449950: Inside: whether the proximity node script running now was started by entering (not leaving). (No
 // check that the proximity manager exists.)
-bool __cdecl cfunc_inside(script::Struct*, script::Script*)
+bool cfunc_inside(script::Struct*, script::Script*)
 {
     return reinterpret_cast<objects::ProximityRegistry*&>(objects::g_proximity_hub)->entering_;
 }
 
 // 0x00449960: ResetEngine: the main loop ends after this frame (and the game starts again).
-bool __cdecl cfunc_reset_engine(script::Struct*, script::Script*)
+bool cfunc_reset_engine(script::Struct*, script::Script*)
 {
     assets::g_main_loop_manager->stop_loop();
     return true;

@@ -38,6 +38,6 @@ struct ScoreEntry : memory::ListNode {
 // text and id) and to update_score. The text: a prefix (the crown's abbreviation, or \s0-\s3 for the flags carried),
 // the colour, the name and the score (king of the hill: m:ss or h:mm:ss; a running scavenger hunt: no score but for
 // the local player).
-void __cdecl score_broadcast_tick(tasks::Task<Hub>* task);
+void score_broadcast_tick(tasks::Task<Hub>* task);
 
 } // namespace online

@@ -111,10 +111,10 @@ public:
     int max_value634_;               // +0x638
     goals::GapTally* gaps_[kLevels]; // +0x63C
     bool visited_[kLevels];          // +0x690
-    script::Struct* details_; // +0x6A8
+    script::Struct* details_;        // +0x6A8
 };
 
 // 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
-bool __cdecl cfunc_get_career_save_info(script::Struct* params, script::Script* script);
+bool cfunc_get_career_save_info(script::Struct* params, script::Script* script);
 
 } // namespace objects

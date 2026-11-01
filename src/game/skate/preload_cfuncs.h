@@ -11,9 +11,9 @@ class Script;
 // and return whether the script's `if` should be taken.
 namespace commands {
 
-bool __cdecl cfunc_preload_models(script::Struct* params, script::Script* script);               // 0x005AAFA0
-bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script* script);          // 0x005AB300
-bool __cdecl cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* script); // 0x005AB690
-bool __cdecl cfunc_replace_car_textures(script::Struct* params, script::Script* script);         // 0x005ABB20
+bool cfunc_preload_models(script::Struct* params, script::Script* script);               // 0x005AAFA0
+bool cfunc_preload_pedestrians(script::Struct* params, script::Script* script);          // 0x005AB300
+bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script* script); // 0x005AB690
+bool cfunc_replace_car_textures(script::Struct* params, script::Script* script);         // 0x005ABB20
 
 } // namespace commands

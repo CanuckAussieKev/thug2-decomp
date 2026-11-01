@@ -85,7 +85,7 @@ int format_text_into(Struct* out, Struct* params) { return format_text(out, para
 
 // 0x0044B7E0: RemoveParameter <name>: the script's parameter (every component of that name) and the flag of
 // that name removed. Always true.
-bool __cdecl cfunc_remove_parameter(Struct* params, Script* script)
+bool cfunc_remove_parameter(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -96,7 +96,7 @@ bool __cdecl cfunc_remove_parameter(Struct* params, Script* script)
 }
 
 // 0x0044B820: RemoveFlag <flag>: the flag removed from the script's parameters. Always true.
-bool __cdecl cfunc_remove_flag(Struct* params, Script* script)
+bool cfunc_remove_flag(Struct* params, Script* script)
 {
     uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 0);
@@ -107,7 +107,7 @@ bool __cdecl cfunc_remove_flag(Struct* params, Script* script)
 // 0x0044B850: GetRandomValue name=<result> a=<low> b=<high> [integer] [resolution=n (1000)]: with `integer`, a
 // random integer from a to b (either order) inclusive; else a random float from a to b in `resolution` steps
 // (a + Rnd(resolution) * (b - a) / (resolution - 1)). Put in the script's parameters under `name`. Always true.
-bool __cdecl cfunc_get_random_value(Struct* params, Script* script)
+bool cfunc_get_random_value(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(kName, &name, 0);
@@ -140,7 +140,7 @@ bool __cdecl cfunc_get_random_value(Struct* params, Script* script)
 }
 
 // 0x0044B9A0: SizeOf <array>: the array's size (0 without one) as the script's ArraySize. Always true.
-bool __cdecl cfunc_size_of(Struct* params, Script* script)
+bool cfunc_size_of(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
@@ -153,7 +153,7 @@ bool __cdecl cfunc_size_of(Struct* params, Script* script)
 // negative one) as the script's element, and its index as index (both taken out of the script's parameters
 // first). False at the end of the array (or without one). Integers, floats, strings, local strings, structures,
 // arrays and names; another type prints an error (and is still true, with only the index set).
-bool __cdecl cfunc_get_next_array_element(Struct* params, Script* script)
+bool cfunc_get_next_array_element(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
@@ -208,7 +208,7 @@ bool __cdecl cfunc_get_next_array_element(Struct* params, Script* script)
 // 0x0044BBD0: GetRandomArrayElement <array>: a random element as the script's element and its index as index
 // (both taken out of the script's parameters first). False for no array or an empty one. Integers, floats,
 // structures, arrays and names; another type (strings too) prints an error (still true, only the index set).
-bool __cdecl cfunc_get_random_array_element(Struct* params, Script* script)
+bool cfunc_get_random_array_element(Struct* params, Script* script)
 {
     script->args_->erase_module(kElement);
     script->args_->erase_module(kIndex);
@@ -244,7 +244,7 @@ bool __cdecl cfunc_get_random_array_element(Struct* params, Script* script)
 }
 
 // 0x0044BD30: GotParam <name>: whether the script's parameters have a component (or flag) of that name.
-bool __cdecl cfunc_got_param(Struct* params, Script* script)
+bool cfunc_got_param(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -253,7 +253,7 @@ bool __cdecl cfunc_got_param(Struct* params, Script* script)
 
 // 0x0044BD60: Goto <script> [params={...}]: the script continues as that script (on the same object). Always
 // true.
-bool __cdecl cfunc_goto(Struct* params, Script* script)
+bool cfunc_goto(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -265,7 +265,7 @@ bool __cdecl cfunc_goto(Struct* params, Script* script)
 
 // 0x0044BDC0: GotoRandomScript [<names>]: the script continues as one of the scripts named in the array (picked at
 // random; no parameters). Nothing without a non-empty array of names. Always true.
-bool __cdecl cfunc_goto_random_script(Struct* params, Script* script)
+bool cfunc_goto_random_script(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
@@ -278,7 +278,7 @@ bool __cdecl cfunc_goto_random_script(Struct* params, Script* script)
 }
 
 // 0x0044BE20: FormatText: the text put together into the script's parameters (0x0044A480). Always true.
-bool __cdecl cfunc_format_text(Struct* params, Script* script)
+bool cfunc_format_text(Struct* params, Script* script)
 {
     format_text_into(script->args_, params);
     return true;
@@ -286,7 +286,7 @@ bool __cdecl cfunc_format_text(Struct* params, Script* script)
 
 // 0x0044BE40: MangleChecksums a=<checksum or integer> b=<...>: the sum a + b as the script's mangled_id. Always
 // true. (Original quirk: a value given as neither is left uninitialised; here 0.)
-bool __cdecl cfunc_mangle_checksums(Struct* params, Script* script)
+bool cfunc_mangle_checksums(Struct* params, Script* script)
 {
     uint32_t a = 0;
     uint32_t b = 0;
@@ -301,7 +301,7 @@ bool __cdecl cfunc_mangle_checksums(Struct* params, Script* script)
 // 0x0044BEC0: AppendSuffixToChecksum base=<checksum> SuffixString=<text>: the checksum continued with the text
 // (as if the name had the text appended) as the script's appended_id. Always true. (Original quirk: missing ones
 // are left uninitialised; here 0 / null.)
-bool __cdecl cfunc_append_suffix_to_checksum(Struct* params, Script* script)
+bool cfunc_append_suffix_to_checksum(Struct* params, Script* script)
 {
     uint32_t base = 0;
     const char* suffix = nullptr;
@@ -314,7 +314,7 @@ bool __cdecl cfunc_append_suffix_to_checksum(Struct* params, Script* script)
 // 0x0044BF20: GetUpperCaseString <text>: the text in capitals as the script's UpperCaseString. Always true.
 // (Original quirks: text of 128 characters or more overruns the buffer; no text is read through an
 // uninitialised pointer - here null.)
-bool __cdecl cfunc_get_upper_case_string(Struct* params, Script* script)
+bool cfunc_get_upper_case_string(Struct* params, Script* script)
 {
     const char* text = nullptr;
     params->fetch_text(0u, &text, 1);
@@ -327,7 +327,7 @@ bool __cdecl cfunc_get_upper_case_string(Struct* params, Script* script)
 
 // 0x0044BFA0: AddFlag <flag>: the flag added to the script's parameters. Always true. (Original quirk: no flag
 // leaves the name uninitialised; here 0.)
-bool __cdecl cfunc_add_flag(Struct* params, Script* script)
+bool cfunc_add_flag(Struct* params, Script* script)
 {
     uint32_t flag = 0;
     params->read_hash_value(0u, &flag, 0);
@@ -340,7 +340,7 @@ bool __cdecl cfunc_add_flag(Struct* params, Script* script)
 // put in the script's parameters under the result name. Always true. (Original quirks: a text of 100 characters
 // or more overruns the buffer; a number longer than the limit cuts before the result - into the number's buffer,
 // which lies just before it, as here.)
-bool __cdecl cfunc_append_suffix(Struct* params, Script* script)
+bool cfunc_append_suffix(Struct* params, Script* script)
 {
     const char* text = ""; // ""
     params->fetch_text(kText, &text, 0);
@@ -366,12 +366,12 @@ bool __cdecl cfunc_append_suffix(Struct* params, Script* script)
 }
 
 // 0x0044C120: IsObjectScript: whether the script runs on an object.
-bool __cdecl cfunc_is_object_script(Struct*, Script* script) { return script_object(script) != nullptr; }
+bool cfunc_is_object_script(Struct*, Script* script) { return script_object(script) != nullptr; }
 
 // 0x0044C290: ForEachIn <array> do=<script> [params={...}]: the script run (now, on this script's object) for each
 // element of the array - with params, on a structure made of the element (a structure; none for null) and those
 // params, else on the element itself as its parameters. Always true. (Original quirk: no array crashes.)
-bool __cdecl cfunc_for_each_in(Struct* params, Script* script)
+bool cfunc_for_each_in(Struct* params, Script* script)
 {
     uint32_t each = 0;
     params->read_hash_value(kDo, &each, 0);
@@ -407,7 +407,7 @@ bool __cdecl cfunc_for_each_in(Struct* params, Script* script)
 // 0x0044C430: fetch_part <array> Index=n: element n as the script's element (taken out first): integers, a copy of
 // a structure (handed over), arrays (copied); another type prints 0x00647110 (still true). False if the index is
 // outside the array; true without an array.
-bool __cdecl cfunc_get_element(Struct* params, Script* script)
+bool cfunc_get_element(Struct* params, Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 0);
@@ -446,7 +446,7 @@ bool __cdecl cfunc_get_element(Struct* params, Script* script)
 // the elements shuffled (size * 10 random swaps) - in a copy put in the script's parameters under the new name, or
 // with PermuteSource in the array itself. With MakeNewFirstDifferFromOldLast, a first element equal to the old last
 // one is swapped with a random other. False without the array or (making a copy) a name.
-bool __cdecl cfunc_permute_array(Struct* params, Script* script)
+bool cfunc_permute_array(Struct* params, Script* script)
 {
     Array* source = nullptr;
     params->fetch_list("Array", &source, 0); // "Array"
@@ -492,7 +492,7 @@ bool __cdecl cfunc_permute_array(Struct* params, Script* script)
 
 // 0x0044C730: GotoPreserveParams <script> [params={...}]: Goto, the script's own parameters (and the params) going
 // with it. Always true.
-bool __cdecl cfunc_goto_preserve_params(Struct* params, Script* script)
+bool cfunc_goto_preserve_params(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 0);
@@ -512,7 +512,7 @@ bool __cdecl cfunc_goto_preserve_params(Struct* params, Script* script)
 }
 
 // 0x0044C840
-bool __cdecl format_printf_text(char* out, Struct* params, Script*)
+bool format_printf_text(char* out, Struct* params, Script*)
 {
     const char* text = "Default printf text"; // "Default printf text"
     if (params->fetch_text(0u, &text, 0)) {
@@ -541,7 +541,7 @@ bool __cdecl format_printf_text(char* out, Struct* params, Script*)
 // 0x0044C9B0: Dump <name>: the script's parameter of that name written up ("name=%a" with a copy of it as a, or
 // "name=[!! DOES NOT EXIST !!]") for printing - the printing is compiled out, so it's only made and freed. Always
 // true. (Original quirk: no name leaves it uninitialised; here 0.)
-bool __cdecl cfunc_dump(Struct* params, Script* script)
+bool cfunc_dump(Struct* params, Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
@@ -569,7 +569,7 @@ bool __cdecl cfunc_dump(Struct* params, Script* script)
 
 // 0x0044CB70: ScriptAssert <text or integer>: the message made (format_printf_text); the assert itself is compiled
 // out. Always true.
-bool __cdecl cfunc_script_assert(Struct* params, Script* script)
+bool cfunc_script_assert(Struct* params, Script* script)
 {
     char message[0x400];
     format_printf_text(message, params, script);
@@ -578,7 +578,7 @@ bool __cdecl cfunc_script_assert(Struct* params, Script* script)
 
 // 0x0044CBC0: CreateIndexArray <n>: the array 0, 1 .. n-1 as the script's index_array. Always true. (Original
 // quirk: no n leaves it uninitialised; here 0.)
-bool __cdecl cfunc_create_index_array(Struct* params, Script* script)
+bool cfunc_create_index_array(Struct* params, Script* script)
 {
     int size = 0;
     params->fetch_int_value(0u, &size, 1);
@@ -600,7 +600,7 @@ bool __cdecl cfunc_create_index_array(Struct* params, Script* script)
 // 0x0044CCC0: AppendStruct struct=<global structure> field=<name> params={...}: a copy of params added to the
 // global structure as `field`. Always true. (Original quirks: missing names are uninitialised - here 0 - and a
 // missing global structure crashes.)
-bool __cdecl cfunc_append_struct(Struct* params, Script*)
+bool cfunc_append_struct(Struct* params, Script*)
 {
     uint32_t block_name = 0;
     uint32_t field = 0;
@@ -618,7 +618,7 @@ bool __cdecl cfunc_append_struct(Struct* params, Script*)
 
 // 0x0044CDB0: StringToCharArray string=<text>: an array of one-character strings as the script's char_array.
 // Always true.
-bool __cdecl cfunc_string_to_char_array(Struct* params, Script* script)
+bool cfunc_string_to_char_array(Struct* params, Script* script)
 {
     const char* string = nullptr;
     params->fetch_text(kString, &string, 1);
@@ -642,7 +642,7 @@ bool __cdecl cfunc_string_to_char_array(Struct* params, Script* script)
 // (string, pair, vector, structure, array) is freed. Float arrays take integers too; other array types are left
 // alone. Always true. (Original quirks: missing parameters crash or use uninitialised values; the value isn't
 // checked against the array's type.)
-bool __cdecl cfunc_set_array_element(Struct* params, Script* script)
+bool cfunc_set_array_element(Struct* params, Script* script)
 {
     uint32_t array_name = 0;
     params->read_hash_value(kArrayName, &array_name, 1);

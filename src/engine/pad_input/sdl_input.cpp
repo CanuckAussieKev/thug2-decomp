@@ -1071,7 +1071,7 @@ void process_sdl_device(InputPort* device)
     g_in_menu_flag = 0;
 }
 
-void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low)
+void set_sdl_actuators(int port, uint16_t high, uint16_t low)
 {
     for (SDL_GameController* controller : s_controllers) {
         if (SDL_GameControllerGetAttached(controller) && SDL_GameControllerGetPlayerIndex(controller) == port)

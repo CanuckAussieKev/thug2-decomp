@@ -111,7 +111,7 @@ WorldCell* WorldScene::spawn_sector()
 }
 
 // 0x0049CA20
-int __cdecl make_collision_file_name(char* out, const char* level)
+int make_collision_file_name(char* out, const char* level)
 {
     const char* extension = platform_suffix();
     return std::snprintf(out, 0x7FFFFFFF, "levels\\%s\\%s%s.col.%s", level, level, "", extension);

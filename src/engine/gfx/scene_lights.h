@@ -49,36 +49,36 @@ static_assert(offsetof(LevelLamp, label_) == 0x18 && sizeof(LevelLamp) == 0x24, 
 // 0x0048F250: a sector's vertex colours made again: its own (CGeom::fetch_tints) with up to 8 lights that reach it
 // added - each (radius - distance) / radius x its intensity x its colour, the sums added to the colour's RGB and
 // clamped at 255.
-void __cdecl apply_scene_lights_to_sector(WorldCell* sector);
+void apply_scene_lights_to_sector(WorldCell* sector);
 // 0x0048F620: `count` vertex colours from `in` to `out`, lit by up to 3 lights that reach the first position (and,
 // with a `normal`, face it); unlit vertices left as they are in `out`, all copied when no light does.
-void __cdecl light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions,
-                                  const maths::Vec4* normal, uint32_t count);
+void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions, const maths::Vec4* normal,
+                          uint32_t count);
 // 0x0048FC00: the sectors the light `name` reaches coloured again (`scene` isn't used).
-void __cdecl apply_scene_light(WorldScene* scene, uint32_t name);
+void apply_scene_light(WorldScene* scene, uint32_t name);
 // 0x0048FCA0: the dynamic light and the scene light of `name` deleted (the last ones moved into their slots).
-void __cdecl delete_scene_light(uint32_t name);
+void delete_scene_light(uint32_t name);
 // 0x0048FDA0: every scene light's sectors forgotten; none in use.
-void __cdecl delete_all_scene_lights();
+void delete_all_scene_lights();
 // 0x0048FDE0: the queue let go of.
-void __cdecl clear_scene_light_queue();
+void clear_scene_light_queue();
 // 0x0048FE40: `count` light nodes queued to be brought up to date with a copy of `params`, spread over `frames`
 // frames.
-void __cdecl queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params);
+void queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params);
 // 0x004904E0: the queue's share for this frame brought up to date (not while paused); let go of when it's done.
-void __cdecl update_scene_light_queue();
+void update_scene_light_queue();
 // 0x004901D0: the light `name` (a scene light, else a dynamic light) given the brightness (0x9E497FC6, in percent),
 // radius (0x0999151B) and colour (0x059EA070 / 0x2F6511DE / 0x61C9354B) in `params`; a scene light's sectors
 // coloured again.
-void __cdecl update_scene_light(uint32_t name, script::Struct* params);
+void update_scene_light(uint32_t name, script::Struct* params);
 // 0x00490400: a new scene light (null past 150) - its dynamic light's brightness and colour set too -, its sectors
 // found and, when it's on, coloured.
-LevelLamp* __cdecl register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour,
-                                        float radius, script::Array* excluded);
+LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour, float radius,
+                                script::Array* excluded);
 // 0x00490570: a level node's light: a dynamic light (unless 0xE1509E4F) and a scene light (unless 0x6F050E18) from
 // its brightness (0x2689291C, 100), radius (0x833950CC, 300), colour array (0x99A9B716, white) and excluded sectors
 // (0xAF3F7288).
-void __cdecl create_light_from_node(script::Struct* node);
+void create_light_from_node(script::Struct* node);
 
 extern int g_scene_light_count;
 extern LevelLamp g_level_lamps[150];

@@ -164,8 +164,8 @@ struct MeshRef {
     // damaged.
     bool read_from_ram_block(scene_format::MemoryStream& in, uint32_t material_checksum, SceneRef* scene,
                              VertexArena* arena);
-    bool ingest_from_file(scene_format::FileStream& in, uint32_t material_checksum, SceneRef* scene,
-                          VertexArena* arena, bool dynamic);
+    bool ingest_from_file(scene_format::FileStream& in, uint32_t material_checksum, SceneRef* scene, VertexArena* arena,
+                          bool dynamic);
     // 0x004D5940: the packed skinned vertices unpacked into per_vertex_data_ (normals and weights in 11/11/10 bits,
     // bones / 3), the bones a vertex counted, its format, stride and a vertex buffer without a copy made for them.
     void set_up_skinning(const uint8_t* packed, uint32_t bytes, VertexArena* arena);
@@ -207,12 +207,12 @@ static_assert(offsetof(MeshRef, material) == 0x14 && offsetof(MeshRef, vertex_bu
               "layout must match the original");
 
 // 0x004D5760: a new vertex buffer (from the C runtime's heap; null if none).
-VertexBuffer* __cdecl new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags);
+VertexBuffer* new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags);
 // 0x004D67F0 / 0x004D68C0: before / after a device reset - every vertex buffer's, scene arena's and index buffer's
 // card buffer let go of (the vertex buffers keep the old pointers, to find the shares by), then made again and
 // filled from the copies (the shares moved to their arena's new buffer).
-void __cdecl release_buffers();
-void __cdecl recreate_buffers();
+void release_buffers();
+void recreate_buffers();
 
 extern void* g_vertex_buffer_list;
 extern void* g_index_buffer_list;

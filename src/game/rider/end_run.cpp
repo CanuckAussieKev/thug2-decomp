@@ -48,7 +48,7 @@ bool is_local_skater(GameEntity* object) { return object->is_local_skater_ != 0;
 } // namespace
 
 // 0x00510F90
-memory::owner<ObjectModule*> __cdecl RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
+memory::owner<ObjectModule*> RiderSessionEnd::fabricate() { return new RiderSessionEnd; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderSessionEnd::RiderSessionEnd()

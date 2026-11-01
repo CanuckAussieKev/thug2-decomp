@@ -76,7 +76,7 @@ void copy_string(char* to, const char* from) { std::memcpy(to, from, std::strlen
 
 // 0x005B45F0: ApplyCustomLogoToPart part=<type> player=n: skater n's board element of that type shown (the skater
 // isn't checked for null). Always true.
-bool __cdecl cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
+bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script*)
 {
     uint32_t part;
     params->read_hash_value(kPart, &part, 1);
@@ -90,7 +90,7 @@ bool __cdecl cfunc_apply_custom_logo_to_part(script::Struct* params, script::Scr
 // velocity (truncated), and scaled_x / scaled_y / scaled_z, a direction times `scale`: moving faster than 100 across
 // the ground, the horizontal velocity's direction, otherwise the object's facing (its matrix's third row) - turned
 // about Y by the skew angle if there is one. False without an object.
-bool __cdecl cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
+bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
 {
     auto* object = static_cast<objects::GameEntity*>(script->entity_.owner_object_);
     if (!object)
@@ -151,7 +151,7 @@ bool __cdecl cfunc_get_skater_velocity(script::Struct* params, script::Script* s
 // skater_play_bail_stream (stream_checksum). The voice is a pro's last name, else the profile's voice's
 // play_skater_stream_name in player_voices, else customM / customF by `is_male` (the original leaves the voice
 // unset when the profile's voice isn't in the list). Always true.
-bool __cdecl cfunc_play_skater_stream(script::Struct* params, script::Script* script)
+bool cfunc_play_skater_stream(script::Struct* params, script::Script* script)
 {
     char voice[128];
     voice[0] = 0; // (left as the stack had it in the original when the voice is not found)

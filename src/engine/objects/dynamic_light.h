@@ -30,7 +30,7 @@ public:
 
     // 0x0041D0F0 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined: the
     // base's, its vtable and type, no light; 0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     DynamicLightComponent();
     // 0x0041CBD0: the light let go (its owner id cleared) and forgotten, the wait-and-die component forgotten; then

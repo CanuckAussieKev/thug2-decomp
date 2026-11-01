@@ -449,7 +449,7 @@ void PreviewEntity::own_update()
 }
 
 // 0x0058A060
-void __cdecl handle_viewer_object_input(ViewerObjectInputHandler* handler)
+void handle_viewer_object_input(ViewerObjectInputHandler* handler)
 {
     PreviewEntity* object = handler->content_;
     const int delay = script::fetch_int_value(kViewerAutoRepeatTime);
@@ -510,28 +510,28 @@ void __cdecl handle_viewer_object_input(ViewerObjectInputHandler* handler)
 }
 
 // 0x00589840
-int __cdecl handle_play_animation(net::InboundMsgCtx* context)
+int handle_play_animation(net::InboundMsgCtx* context)
 {
     object_of(context)->play_animation(*reinterpret_cast<const uint32_t*>(context->body_));
     return 1;
 }
 
 // 0x0058ACA0
-int __cdecl on_clip_rate_msg(net::InboundMsgCtx* context)
+int on_clip_rate_msg(net::InboundMsgCtx* context)
 {
     object_of(context)->scale_anim_rate(*reinterpret_cast<const float*>(context->body_));
     return 1;
 }
 
 // 0x0058ACC0
-int __cdecl handle_step_animation(net::InboundMsgCtx* context)
+int handle_step_animation(net::InboundMsgCtx* context)
 {
     object_of(context)->step_animation(*reinterpret_cast<const bool*>(context->body_)); // (the byte as it is)
     return 1;
 }
 
 // 0x0058A1F0
-int __cdecl handle_reload_animation(net::InboundMsgCtx* context)
+int handle_reload_animation(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     object_of(context)->reload_animation(message, *reinterpret_cast<const uint32_t*>(message + 0x80));
@@ -539,7 +539,7 @@ int __cdecl handle_reload_animation(net::InboundMsgCtx* context)
 }
 
 // 0x0058ACE0
-int __cdecl handle_reload_cam_animation(net::InboundMsgCtx* context)
+int handle_reload_cam_animation(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     script::Struct* params = spawn_param_table();
@@ -551,7 +551,7 @@ int __cdecl handle_reload_cam_animation(net::InboundMsgCtx* context)
 }
 
 // 0x0058A210
-int __cdecl handle_run_anim_view_script(net::InboundMsgCtx* context)
+int handle_run_anim_view_script(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     PreviewEntity* object = object_of(context);

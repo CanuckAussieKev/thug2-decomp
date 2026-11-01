@@ -133,7 +133,7 @@ void set_prim_state(int state, int value) { render::set_primitive_state(state, v
 // visible pixels (0x004A0F20).
 struct QueryRequest {
     uint32_t slot;
-    int(__cdecl* callback)(void*, uint8_t);
+    int (*callback)(void*, uint8_t);
     void* data;
     bool unknownc_;
     uint8_t padd_[3];
@@ -195,7 +195,7 @@ QueryRequest::QueryRequest()
 }
 
 // 0x00442680
-float __cdecl clamp_to_range(float value, float min, float max)
+float clamp_to_range(float value, float min, float max)
 {
     if (value < min)
         return min;
@@ -205,7 +205,7 @@ float __cdecl clamp_to_range(float value, float min, float max)
 }
 
 // 0x004426D0
-void __cdecl set_sun(const Settings* settings, uint32_t mask)
+void set_sun(const Settings* settings, uint32_t mask)
 {
     if (mask & kTheta)
         get_theta() = settings->theta;
@@ -234,7 +234,7 @@ void __cdecl set_sun(const Settings* settings, uint32_t mask)
 }
 
 // 0x00442810
-int __cdecl query_sun_visibility(void*, uint8_t query)
+int query_sun_visibility(void*, uint8_t query)
 {
     maths::Vec4 screen = {0.0f, 0.0f, 0.0f, 1.0f};
     render::ViewRegion* camera = viewport_camera();
@@ -245,7 +245,7 @@ int __cdecl query_sun_visibility(void*, uint8_t query)
 }
 
 // 0x004428F0
-void __cdecl place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre)
+void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre)
 {
     maths::Vec4 line = *sun - *centre;
     for (uint32_t i = 0; i < element_count(); ++i) {
@@ -259,8 +259,8 @@ void __cdecl place_flare_elements(float time, const maths::Vec4* sun, const math
 }
 
 // 0x004429D0
-void __cdecl prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
-                         uint32_t lens_flare_data)
+void prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
+                 uint32_t lens_flare_data)
 {
     get_theta() = theta;
     get_phi() = phi;
@@ -299,7 +299,7 @@ void __cdecl prepare_all(float theta, float phi, float radius, float size, uint3
 }
 
 // 0x00442D70
-void __cdecl update_flare(Struct* params, script::Script*)
+void update_flare(Struct* params, script::Script*)
 {
     script::VectorValue centre = get_value(screen_centre());
     float time = 0.0f;
@@ -313,7 +313,7 @@ void __cdecl update_flare(Struct* params, script::Script*)
 }
 
 // 0x00442DF0
-void __cdecl hide_flare(Struct* params, script::Script* script)
+void hide_flare(Struct* params, script::Script* script)
 {
     script::VectorValue centre = get_value(screen_centre()); // (read, not used)
     float time = 0.0f;
@@ -349,7 +349,7 @@ void __cdecl hide_flare(Struct* params, script::Script* script)
 }
 
 // 0x00443030
-void __cdecl unhide_flare(Struct*, script::Script* script)
+void unhide_flare(Struct*, script::Script* script)
 {
     frontend::ElementPtr container;
     frontend::UiTree::sole()->fetch_part(&container, kContainer, 0);
@@ -369,8 +369,7 @@ void __cdecl unhide_flare(Struct*, script::Script* script)
 }
 
 // 0x00443180
-void __cdecl build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position,
-                            float* corners)
+void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, float* corners)
 {
     // facing the camera: its right axis reversed, then up and back from cross products
     maths::Mat4 facing;
@@ -408,7 +407,7 @@ void __cdecl build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, con
 }
 
 // 0x00443780
-void __cdecl show_flare(const maths::Vec4* sun, float time)
+void show_flare(const maths::Vec4* sun, float time)
 {
     maths::Vec4 centre = screen_centre();
     frontend::ElementPtr container;
@@ -428,7 +427,7 @@ void __cdecl show_flare(const maths::Vec4* sun, float time)
 }
 
 // 0x00443870
-void __cdecl render(gfx::ViewCam* camera)
+void render(gfx::ViewCam* camera)
 {
     if (!get_shown()) {
         script::launch_script(kMaybeHideLensFlare, nullptr, nullptr, false, nullptr);

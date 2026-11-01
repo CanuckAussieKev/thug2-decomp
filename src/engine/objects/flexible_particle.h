@@ -33,10 +33,10 @@ public:
     static constexpr uint32_t kType = 0xC5BCEB9E;
 
     // 0x0041E1E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0041D6E0 (not a Ghidra function; registered with Create): its member functions' table (0x00683AC0; the
     // functions are put in by the static initialiser at 0x00642FD0).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0041DA00: its type; no system, no name, nothing else.
     FlexibleParticleComponent();
     // 0x0041DA80: the system deleted (its vtable slot 0) and let go; then the base's body.

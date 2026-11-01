@@ -290,14 +290,14 @@ public:
     // 0x00536C10 (the CFunc CancelConnectToInternet's; no `this`): by the net library's modem state - 0 / 1 (dialling):
     // the online task restarted, the lobby left (state 2), offline; 2: modem state 6; 5: the online task removed and
     // the fail script (+0x1C8) run; 9: the online task removed; else nothing.
-    static void __cdecl cancel_connect_to_internet();
+    static void cancel_connect_to_internet();
     // 0x00536490: look for a server at `ip`: the server lists cleared (0x00545370, 0x005462F0, 0x00545300; the
     // join-by-address flag 0x007CCA88 too), the server-list client made if there's none, then (an address given) the
     // find-server message 0x11 (the time, 12 bytes) sent to ip:5153 and the address kept (0x007CCA84; 0 with none).
     void find_server_at(uint32_t ip);
     // 0x00536640 (from the main loop; no `this`): GameSpy's think (0x005F9C40); in a network game with its query /
     // reporting up (0x007CCA82, 0x007CCE1C), its reporting's think (0x005FBBA0) too.
-    static void __cdecl service_game_spy();
+    static void service_game_spy();
     // 0x00536A40: the `name` of the set-up game's game type in mode_info (null if it isn't there).
     const char* get_game_type_name();
     // 0x00536B90: the level (m_level); the lobby's GameSpy peer (connected, the lobby hosting - 0x0053F810) told its
@@ -395,8 +395,7 @@ public:
     Hub& operator=(const Hub&) = delete;
     // Every node after `head` taken out of its list (each linked to itself; none freed). No address of its own: the
     // original calls the list code folded at 0x00588B70 (GameObjects::TrickObjectHead::unlink_all).
-    // (__fastcall: `head` in ECX, as the original's call passes it.)
-    static void __fastcall unlink_all_nodes(memory::ListNode* head);
+    static void unlink_all_nodes(memory::ListNode* head);
 
     // --- The scores (score_list.cpp) ---
     // 0x005435F0: team `team`'s score: the sum of its players' (fully in or local) SkaterScore scores; in net goal
@@ -476,20 +475,20 @@ public:
     // 0x0052F790 (message 3, host): a connection request - ok_to_join (password, version, CD key), then a new
     // connection and join proceed, or join refused; on the internet the CD key is checked with GameSpy first (the
     // answer comes to client_authorized). In the THUGPRO peer mode that GameSpy check is left out (TP-R12).
-    static int __cdecl on_link_established(net::InboundMsgCtx* context);
+    static int on_link_established(net::InboundMsgCtx* context);
     // 0x0052FA10 (message 80, host): a join request - ok_to_join again (remote players), then the new player
     // (deferred 10 frames; the host's own at once - and on the internet its own CD key checked, an answer nobody
     // reads: left out in the peer mode).
-    static int __cdecl on_admission_ask_msg(net::InboundMsgCtx* context);
+    static int on_admission_ask_msg(net::InboundMsgCtx* context);
     // 0x0052E490 (message 79, client): join proceed - the host's details kept, the join request sent (the
     // appearance; in the THUGPRO peer mode the profile is the machine id, as THUGPRO's - TP-R12).
-    static int __cdecl on_go_ahead_msg(net::InboundMsgCtx* context);
+    static int on_go_ahead_msg(net::InboundMsgCtx* context);
     // 0x0052E1E0 (message 71, client): join refused - the reason shown (or the password asked for, the "game in
     // progress" dialog, the CD-key challenge answered). NOT ORIGINAL: THUGPRO's reasons 31-37 shown in words (TP-R13).
-    static int __cdecl on_turned_away_msg(net::InboundMsgCtx* context);
+    static int on_turned_away_msg(net::InboundMsgCtx* context);
     // 0x00536530: GameSpy's answer to a CD-key check (gcd_authenticate_user's callback; `instance` the
     // connection's {app, manager, connection}, freed here): join proceed, or refused (reason 8).
-    static void __cdecl client_authorized(int game_id, int local_id, int authenticated, char* error, void* instance);
+    static void client_authorized(int game_id, int local_id, int authenticated, char* error, void* instance);
 
     // --- The players and the observer's camera (gamenet_players.cpp; players are PlayerRecord, not rewritten yet) ---
 
@@ -570,87 +569,87 @@ public:
     void cancel_join();
     // Tasks (tasks::Task code, cdecl; the task's +0x1C is the manager - the observer's is the player's, unused).
     // 0x0053BED0: the observer asked for the next player (spectate_request_ 1): the camera onto it.
-    static void __cdecl observer_task(tasks::Task<PlayerRecord>* task);
+    static void observer_task(tasks::Task<PlayerRecord>* task);
     // 0x00536890 (the observer's input handler's code, given the handler - Detail::SpectatorInputSink): the next
     // player asked for (spectate_request_ 1) on a press of the controller's button 0x40 (+0x20 of its place in the
     // input manager) - unless the root window's menu_state tag is on.
-    static void __cdecl observer_input(pad_input::Responder<Hub>* handler);
+    static void observer_input(pad_input::Responder<Hub>* handler);
     // 0x0053BF00 (+0xF4, auto-serve): 2 s after the host mode was set, in the lobby with two players or more and 5 s
     // after the lobby began: LoadPendingPlayers and StartNetworkGame, once (awaiting_start_).
-    static void __cdecl auto_serve_task(tasks::Task<Hub>* task);
+    static void auto_serve_task(tasks::Task<Hub>* task);
     // 0x0053BF90 (+0xE4): the join's state shown (the connecting / joining / password dialogs, entered_network_game,
     // dialog_box_exit, CreateJoinRefusedDialog with the reason) and moved on.
-    static void __cdecl join_progress_tick(tasks::Task<Hub>* task);
+    static void join_progress_tick(tasks::Task<Hub>* task);
     // 0x0053EB70 (+0xC0, priority -2000): the link checked each second (create_link_unplugged_dialog /
     // _front_end_dialog when unplugged and no dialog is up); the server drops a remote player silent for 20 s (in the
     // game; 60 s joining) or resending over 20 times; a client joining or joined whose server is silent for 20 s gives
     // up (ShowJoinTimeoutNotice while going to the main menu, else CreateLostConnectionDialog and everything shut).
-    static void __cdecl connection_task(tasks::Task<Hub>* task);
+    static void connection_task(tasks::Task<Hub>* task);
     // 0x0053EA30 (+0xD0, gamenet_newplayers.cpp): the joining players whose time has come added (add_new_player), then
     // the connections' silence forgiven, the skaters reset, the ready response sent.
-    static void __cdecl guest_player_intake_tick(tasks::Task<Hub>* task);
+    static void guest_player_intake_tick(tasks::Task<Hub>* task);
     // 0x0053D9D0 (+0xCC, gamenet_newplayers.cpp): the server's: each joining player whose time has come becomes a
     // player; its details (message 0x22) to the others and theirs to it, the created park and rails, joined (0x53),
     // its skater, the ready query (0x25) all round; the lobby's server details and qr2 told.
-    static void __cdecl host_player_intake_tick(tasks::Task<Hub>* task);
+    static void host_player_intake_tick(tasks::Task<Hub>* task);
     // 0x0053EE90 (gamenet_manager_create.cpp): the constructor: the preferences (loaded), the player lists, fifteen
     // tasks (the connection task started), the lobby / vault / presence / stats managers, the CD-key challenge (eight
     // random letters and digits).
     Hub();
     // 0x0053F520: the manager (made if `create` and there's none, 0xFE0C bytes); a reference counted (0x007CCE18).
-    static Hub* __cdecl fabricate(bool create);
+    static Hub* fabricate(bool create);
     // 0x0053C1F0 (+0xE8): the start of a game: while players are still loading, the server's
     // CreateWaitForPlayersDialog (no menu up) or a client's net_message_game_will_start, once; when everyone is ready
     // and the time has come, StartNetworkGame and the task removed.
-    static void __cdecl start_game_task(tasks::Task<Hub>* task);
+    static void start_game_task(tasks::Task<Hub>* task);
 
     // Fields.
     net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
 
     uint8_t flag_bits_; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
     uint8_t unknown1_[3];
-    net::AppHost* host_;                   // +0x04
-    net::AppHost* client_app_;             // +0x08 client 0 (the game's)
-    net::AppHost* client1_;                // +0x0C client 1
-    memory::HeapUnique<RoomManager> lobby_service_; // +0x10 the GameSpy lobby
-    memory::HeapUnique<VaultMan> vault_man_; // +0x14 the content vault and HTTP transfers
+    net::AppHost* host_;                                  // +0x04
+    net::AppHost* client_app_;                            // +0x08 client 0 (the game's)
+    net::AppHost* client1_;                               // +0x0C client 1
+    memory::HeapUnique<RoomManager> lobby_service_;       // +0x10 the GameSpy lobby
+    memory::HeapUnique<VaultMan> vault_man_;              // +0x14 the content vault and HTTP transfers
     memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
-    memory::HeapUnique<RankingsManager> rating_service_; // +0x1C the player's rating and stats
-    char challenge_[12];                   // +0x20 the host's CD-key challenge
-    net::AppHost* browser_client_;         // +0x2C the server list's client
-    uint32_t game_type_;                   // +0x30 the game_type preference's checksum when the game started
-    uint32_t level_;                       // +0x34 the level's load script
-    uint8_t game_id_;                      // +0x38 the current game's number (the start info's)
-    uint8_t ended_game_id_;                // +0x39 the game whose end was last reported (message 0x59)
-    bool match_ended_;                     // +0x3A
-    bool cheating_noted_;                  // +0x3B
-    int join_mode_;                        // +0x3C (1: observe)
-    int host_mode_;                        // +0x40 (0: serve)
-    bool final_scores_received_;           // +0x44
-    bool show_metrics_;                    // +0x45 the net metrics shown (toggle_net_metrics)
-    bool show_scores_;                     // +0x46 the scores shown (toggle_scores)
-    bool show_names_;                      // +0x47 the players' names shown (toggle_player_names)
-    uint32_t start_points_[8];             // +0x48 the skaters' starting points (choose_start_points; the start info's)
-    int crown_start_;                      // +0x68 the crown's starting point (sent as a signed byte)
-    objects::CrownObject* crown_;          // +0x6C king of the hill's crown
-    uint32_t team_objects_[4][5];          // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
-    std::unique_ptr<tasks::SchedulerTask> connection_job_; // +0xC0 connection_task
-    std::unique_ptr<tasks::SchedulerTask> metrics_job_; // +0xC4 the net metrics' task
+    memory::HeapUnique<RankingsManager> rating_service_;  // +0x1C the player's rating and stats
+    char challenge_[12];                                  // +0x20 the host's CD-key challenge
+    net::AppHost* browser_client_;                        // +0x2C the server list's client
+    uint32_t game_type_;          // +0x30 the game_type preference's checksum when the game started
+    uint32_t level_;              // +0x34 the level's load script
+    uint8_t game_id_;             // +0x38 the current game's number (the start info's)
+    uint8_t ended_game_id_;       // +0x39 the game whose end was last reported (message 0x59)
+    bool match_ended_;            // +0x3A
+    bool cheating_noted_;         // +0x3B
+    int join_mode_;               // +0x3C (1: observe)
+    int host_mode_;               // +0x40 (0: serve)
+    bool final_scores_received_;  // +0x44
+    bool show_metrics_;           // +0x45 the net metrics shown (toggle_net_metrics)
+    bool show_scores_;            // +0x46 the scores shown (toggle_scores)
+    bool show_names_;             // +0x47 the players' names shown (toggle_player_names)
+    uint32_t start_points_[8];    // +0x48 the skaters' starting points (choose_start_points; the start info's)
+    int crown_start_;             // +0x68 the crown's starting point (sent as a signed byte)
+    objects::CrownObject* crown_; // +0x6C king of the hill's crown
+    uint32_t team_objects_[4][5]; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
+    std::unique_ptr<tasks::SchedulerTask> connection_job_;      // +0xC0 connection_task
+    std::unique_ptr<tasks::SchedulerTask> metrics_job_;         // +0xC4 the net metrics' task
     std::unique_ptr<tasks::SchedulerTask> score_broadcast_job_; // +0xC8 score_broadcast_tick
-    std::unique_ptr<tasks::SchedulerTask> host_admit_job_; // +0xCC
-    std::unique_ptr<tasks::SchedulerTask> guest_admit_job_; // +0xD0
-    std::unique_ptr<tasks::SchedulerTask> keyboard_job_; // +0xD4 the chat keyboard's task
-    std::unique_ptr<tasks::SchedulerTask> dialup_job_; // +0xD8 the online state task (dialup_progress_tick)
-    std::unique_ptr<tasks::SchedulerTask> join_expiry_job_; // +0xDC
-    std::unique_ptr<tasks::SchedulerTask> service_job_; // +0xE0 the online service task (net::service_task)
-    std::unique_ptr<tasks::SchedulerTask> join_phase_job_; // +0xE4
-    std::unique_ptr<tasks::SchedulerTask> start_game_job_; // +0xE8 start_game_task
-    std::unique_ptr<tasks::SchedulerTask> level_change_job_; // +0xEC level_change_task
-    std::unique_ptr<tasks::SchedulerTask> server_list_job_; // +0xF0 server_list_task (the server-list client's)
-    std::unique_ptr<tasks::SchedulerTask> auto_serve_job_; // +0xF4 auto_serve_task
-    std::unique_ptr<tasks::SchedulerTask> flag_carry_job_; // +0xF8 carried_flags_task
+    std::unique_ptr<tasks::SchedulerTask> host_admit_job_;      // +0xCC
+    std::unique_ptr<tasks::SchedulerTask> guest_admit_job_;     // +0xD0
+    std::unique_ptr<tasks::SchedulerTask> keyboard_job_;        // +0xD4 the chat keyboard's task
+    std::unique_ptr<tasks::SchedulerTask> dialup_job_;          // +0xD8 the online state task (dialup_progress_tick)
+    std::unique_ptr<tasks::SchedulerTask> join_expiry_job_;     // +0xDC
+    std::unique_ptr<tasks::SchedulerTask> service_job_;         // +0xE0 the online service task (net::service_task)
+    std::unique_ptr<tasks::SchedulerTask> join_phase_job_;      // +0xE4
+    std::unique_ptr<tasks::SchedulerTask> start_game_job_;      // +0xE8 start_game_task
+    std::unique_ptr<tasks::SchedulerTask> level_change_job_;    // +0xEC level_change_task
+    std::unique_ptr<tasks::SchedulerTask> server_list_job_;     // +0xF0 server_list_task (the server-list client's)
+    std::unique_ptr<tasks::SchedulerTask> auto_serve_job_;      // +0xF4 auto_serve_task
+    std::unique_ptr<tasks::SchedulerTask> flag_carry_job_;      // +0xF8 carried_flags_task
     memory::owner<pad_input::InputHandler*> spectator_pad_listener_; // +0xFC (deleted where observing ends)
-    int spectate_request_;                            // +0x100
+    int spectate_request_;                                           // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
     // original, whose sets had a table): get_online_settings / get_taunt_settings.
     alignas(4) uint8_t net_options_[0xC];   // +0x104
@@ -706,9 +705,9 @@ public:
 // --- gamenet_players.cpp: outside the class ---
 // 0x00539610: the flag task's code (registered by the manager's constructor): in capture the flag, the carried flags
 // put on their carriers' heads.
-void __cdecl carried_flags_task(tasks::Task<Hub>* task);
+void carried_flags_task(tasks::Task<Hub>* task);
 // 0x005395C0: the manager released (its reference count 0x007CCE18; the last one destroys it).
-void __cdecl release_manager();
+void release_manager();
 
 extern uint32_t g_network_team_mode;
 extern int g_net_skill_level;

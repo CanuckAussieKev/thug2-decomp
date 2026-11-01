@@ -45,13 +45,13 @@ struct WorldScene : public memory::HeapObject {
     // The virtual functions (the base's bodies: STUB messages; false / null): slot 1 PostLoad, 2 PostAdd, 3
     // LoadTextures, 4 LoadCollision, 5 AddCollision, 6 UnloadAddScene, 7 the platform's new sector, 9 the default
     // colour, 10 set_rendered.
-    virtual void post_load(void* arena);           // 0x0049CA50
-    virtual void post_add();                       // 0x0049CA70
-    virtual bool load_textures(const char* name);  // 0x0049CA80
-    virtual bool load_collision(const char* name); // 0x0049CAA0
-    virtual bool add_collision(const char* name);  // 0x0049CAC0
-    virtual bool unload_add_scene();               // 0x0049CAE0
-    virtual memory::owner<WorldCell*> plat_create_sector();       // 0x0049CAF0 (not a Ghidra function)
+    virtual void post_load(void* arena);                    // 0x0049CA50
+    virtual void post_add();                                // 0x0049CA70
+    virtual bool load_textures(const char* name);           // 0x0049CA80
+    virtual bool load_collision(const char* name);          // 0x0049CAA0
+    virtual bool add_collision(const char* name);           // 0x0049CAC0
+    virtual bool unload_add_scene();                        // 0x0049CAE0
+    virtual memory::owner<WorldCell*> plat_create_sector(); // 0x0049CAF0 (not a Ghidra function)
     // 0x0049CF60 (slot 9): grey (0x80 each of RGBA) into `out`. Returns out.
     virtual uint8_t* get_default_colour(uint8_t* out);
     virtual void set_rendered(int rendered); // 0x0049CA60
@@ -62,22 +62,24 @@ struct WorldScene : public memory::HeapObject {
     bool builds_collision_grid_; // +0x8C: its collision gets a grid (super sectors)
     bool is_sky_;                // +0x8D: a sky (the scene list tells the sky from the main scene by it)
     uint8_t pad8e_[2];
-    maths::BBox unknown_box_;          // +0x90 (made empty)
-    maths::BBox collision_box_;        // +0xB0
-    lists::KeyMap* sectors_;           // +0xD0
-    CollGrid* coll_grid_;              // +0xD4
-    char pip_name_[0x80];              // +0xD8: the collision file's (unloaded with the collision)
-    int coll_static_count_;            // +0x158
-    memory::owner<StaticCollider*> coll_statics_;     // +0x15C (an array new; filled through an out parameter, read by offset)
-    uint8_t* collision_blob_;          // +0x160: the collision geometry (load_collision_data's)
-    char add_name_[0x80];              // +0x164: the scene added to it
-    uint32_t add_data_;                // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
-    char add_pip_name_[0x80];          // +0x1E8: the added scene's collision file
-    int add_coll_static_count_;        // +0x268: the added scene's collision, as the base's
-    memory::owner<StaticCollider*> add_coll_statics_; // +0x26C (an array new; left dangling after its delete[], as the original)
-    uint8_t* add_coll_objects_;        // +0x270
-    bool sector_kept_;                 // +0x274: a sector couldn't be deleted (flag 0x40): marked instead
-    bool added_;                       // +0x275: the added scene shown
+    maths::BBox unknown_box_;   // +0x90 (made empty)
+    maths::BBox collision_box_; // +0xB0
+    lists::KeyMap* sectors_;    // +0xD0
+    CollGrid* coll_grid_;       // +0xD4
+    char pip_name_[0x80];       // +0xD8: the collision file's (unloaded with the collision)
+    int coll_static_count_;     // +0x158
+    memory::owner<StaticCollider*>
+        coll_statics_;          // +0x15C (an array new; filled through an out parameter, read by offset)
+    uint8_t* collision_blob_;   // +0x160: the collision geometry (load_collision_data's)
+    char add_name_[0x80];       // +0x164: the scene added to it
+    uint32_t add_data_;         // +0x1E4: the added scene's texture dictionary (unloaded with the scene)
+    char add_pip_name_[0x80];   // +0x1E8: the added scene's collision file
+    int add_coll_static_count_; // +0x268: the added scene's collision, as the base's
+    memory::owner<StaticCollider*>
+        add_coll_statics_;      // +0x26C (an array new; left dangling after its delete[], as the original)
+    uint8_t* add_coll_objects_; // +0x270
+    bool sector_kept_;          // +0x274: a sector couldn't be deleted (flag 0x40): marked instead
+    bool added_;                // +0x275: the added scene shown
     uint8_t pad276[2];
     memory::ListNode* hidden_sectors_; // +0x278: lists::Foremost<WorldCell> - the base's sectors the added scene hides
     memory::ListNode* add_scene_sectors_; // +0x27C: lists::Foremost<WorldCell> - the sectors the added scene made
@@ -105,8 +107,8 @@ struct WorldScene : public memory::HeapObject {
     // vertices - (-100, -100, -100) - (100, 100, 100) when none has. True.
     // (Not original: `size` - the file's bytes, util::ByteReader::kUnknownSize if not known - bounds its reader;
     // a damaged file is refused: no objects.)
-    bool load_collision_data(const uint8_t* data, size_t size, int* count, StaticCollider** statics,
-                             uint8_t** objects, maths::BBox* box, int unused);
+    bool load_collision_data(const uint8_t* data, size_t size, int* count, StaticCollider** statics, uint8_t** objects,
+                             maths::BBox* box, int unused);
     // 0x0049CE60: with collision, `box` kept and the collision grid made over it. Whether there's collision.
     bool init_collision_grid(const maths::BBox* box);
     // 0x0049CFB0: the grid, the static collision objects and the collision file let go of. True.
@@ -168,7 +170,7 @@ static_assert(offsetof(WorldScene, builds_collision_grid_) == 0x8C && offsetof(W
 
 // 0x0049CA20 (cdecl): a level's collision file name - "levels\<level>\<level>.col.<the platform's extension>" -
 // into `out`. The length.
-int __cdecl make_collision_file_name(char* out, const char* level);
+int make_collision_file_name(char* out, const char* level);
 
 // (The nodes of the scene's lists of sectors, lists::Elem<WorldCell>: their destructors 0x0049D300 / 0x0049D320 and
 // the heads' 0x0049D360 are memory::ListNode's uncouple / destroy.)

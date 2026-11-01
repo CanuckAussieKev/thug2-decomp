@@ -52,7 +52,7 @@ void probe_tip(int index, float x, float z, float* last_column, float* end_z)
 } // namespace
 
 // 0x004F3890
-memory::owner<ObjectModule*> __cdecl ProjectileComponent::fabricate() { return new ProjectileComponent; }
+memory::owner<ObjectModule*> ProjectileComponent::fabricate() { return new ProjectileComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ProjectileComponent::ProjectileComponent()

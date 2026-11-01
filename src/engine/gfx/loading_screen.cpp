@@ -143,7 +143,7 @@ static_assert(sizeof(PictureVertex) == 0x18, "the original's vertex");
 } // namespace
 
 // 0x004B6CD0
-void __cdecl draw_loading_screen_picture()
+void draw_loading_screen_picture()
 {
     if (!picture())
         return;
@@ -194,7 +194,7 @@ void __cdecl draw_loading_screen_picture()
 }
 
 // 0x004B6F10
-void __cdecl hide_loading_screen()
+void hide_loading_screen()
 {
     get_lock();
     input_port()->SetRenderState(D3DRS_FOGENABLE, fog_render_flag());
@@ -207,7 +207,7 @@ void __cdecl hide_loading_screen()
 }
 
 // 0x004B6F70
-void __cdecl free_loading_screen_sprite()
+void free_loading_screen_sprite()
 {
     get_lock();
     input_port()->SetRenderState(D3DRS_FOGENABLE, fog_render_flag());
@@ -219,7 +219,7 @@ void __cdecl free_loading_screen_sprite()
 }
 
 // 0x004B7400
-void __cdecl show_progress_bar(float seconds)
+void show_progress_bar(float seconds)
 {
     g_elapsed_seconds = 0.0f;                                                  // elapsed
     g_tick_seconds = 0.03f;                                                    // a tick's seconds (0x3CF5C28F)
@@ -230,7 +230,7 @@ void __cdecl show_progress_bar(float seconds)
 }
 
 // 0x004B78B0
-void __cdecl show_loading_screen(const char* name, bool keep, bool black)
+void show_loading_screen(const char* name, bool keep, bool black)
 {
     get_lock();
     // Not original: a level select picture's name (the load script added "_story" / "_classic" to it in those modes,

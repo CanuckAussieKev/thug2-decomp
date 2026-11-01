@@ -28,7 +28,7 @@ public:
     static constexpr uint32_t kType = 0x5B512EDC;
 
     // 0x0051DA80 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     TaggingComponent();
     // 0x0051D760: the destructor body: both textures given back, then the base's.
@@ -64,7 +64,7 @@ public:
     static constexpr uint32_t kType = 0x380D909A;
 
     // 0x0051E280 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     TaggingControlComponent();
     // 0x0051DD50: the destructor body (the base's).

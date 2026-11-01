@@ -121,11 +121,11 @@ bool pro_set_level(uint32_t level_load);
 
 // The client handlers (155-159), added by the skate module's add_client_handlers in this mode (`skate`: its data).
 void add_client_handlers(net::AppHost* client, void* skate);
-int __cdecl handle_server_info(net::InboundMsgCtx* context);
-int __cdecl handle_update_time_of_day(net::InboundMsgCtx* context);
-int __cdecl handle_update_weather(net::InboundMsgCtx* context);
-int __cdecl handle_update_level_option(net::InboundMsgCtx* context);
-int __cdecl handle_mods_allowed(net::InboundMsgCtx* context);
+int handle_server_info(net::InboundMsgCtx* context);
+int handle_update_time_of_day(net::InboundMsgCtx* context);
+int handle_update_weather(net::InboundMsgCtx* context);
+int handle_update_level_option(net::InboundMsgCtx* context);
+int handle_mods_allowed(net::InboundMsgCtx* context);
 
 // Once a frame (the front end's input logic): received server info applied once the level is up (every load of the
 // session, as THUGPRO keeps its flags); the session's state dropped when the network game ends.

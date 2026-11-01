@@ -34,9 +34,9 @@ static_assert(offsetof(ScreenWindow, following_) == 0x14 && sizeof(ScreenWindow)
 
 // 0x004A1620: a window from the free list (none: written through null, as the original), placed and sized - each
 // with tick_engine.
-ScreenWindow* __cdecl allocate_window_2d(int x, int y, int width, int height);
+ScreenWindow* allocate_window_2d(int x, int y, int width, int height);
 // 0x004A1670: a window back onto the free list.
-void __cdecl free_window_2d(ScreenWindow* window);
+void free_window_2d(ScreenWindow* window);
 
 extern ScreenWindow* g_free_windows;
 

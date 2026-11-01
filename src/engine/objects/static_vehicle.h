@@ -20,7 +20,7 @@ public:
     static constexpr uint32_t kType = 0x9649D4F9;
 
     // 0x00433690 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     ParkedVehicleModule();
     // 0x00433650: the destructor body (the base's).

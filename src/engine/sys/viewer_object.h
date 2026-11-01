@@ -97,17 +97,17 @@ public:
 // ViewerAutoRepeatSpeed (the count kept in 0x007CE588, a function static); makes 0x200 the viewer's mode; buttons 0x8 /
 // 0x2 (one alone) the camera up / down; makes 0x4 / 0x1 faster / slower; with no animation component buttons 0x20 /
 // 0x80 roll.
-void __cdecl handle_viewer_object_input(ViewerObjectInputHandler* handler);
+void handle_viewer_object_input(ViewerObjectInputHandler* handler);
 // The PC tool's messages to the object (cdecl handlers; context->body_ is the message, content_ the object; each
 // returns 1): 0x00589840 (0x25) play_animation(the first word); 0x0058ACA0 (0x26) scale_anim_rate(the first word, a
 // float); 0x0058ACC0 (0x27) step_animation(the first byte); 0x0058A1F0 (0x28) reload_animation(the message, the word at
 // +0x80); 0x0058ACE0 (0x29) ReloadSkaterCamAnim (0x005ADEC0) with the message and the checksum at +0x80 (unnamed);
 // 0x0058A210 (0x2C) scripts\animview\<message>.qb loaded and the script named by the message spawned on the object.
-int __cdecl handle_play_animation(net::InboundMsgCtx* context);
-int __cdecl on_clip_rate_msg(net::InboundMsgCtx* context);
-int __cdecl handle_step_animation(net::InboundMsgCtx* context);
-int __cdecl handle_reload_animation(net::InboundMsgCtx* context);
-int __cdecl handle_reload_cam_animation(net::InboundMsgCtx* context);
-int __cdecl handle_run_anim_view_script(net::InboundMsgCtx* context);
+int handle_play_animation(net::InboundMsgCtx* context);
+int on_clip_rate_msg(net::InboundMsgCtx* context);
+int handle_step_animation(net::InboundMsgCtx* context);
+int handle_reload_animation(net::InboundMsgCtx* context);
+int handle_reload_cam_animation(net::InboundMsgCtx* context);
+int handle_run_anim_view_script(net::InboundMsgCtx* context);
 
 } // namespace objects

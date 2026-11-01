@@ -79,7 +79,7 @@ int shot_frames(float seconds);
 // The cameras there are now (their nodes' places).
 std::vector<ViewCam> get_all();
 // LevelEditor_PlayCamera (registered with the editor's other commands - level_editor.h's register_script_functions).
-bool __cdecl cfunc_play_camera(script::Struct* params, script::Script* script);
+bool cfunc_play_camera(script::Struct* params, script::Script* script);
 bool is_camera(uint32_t name);
 // A camera made where the editor's view is, looking its way - one undo step (its name; "" when it couldn't be).
 std::string create_from_view();

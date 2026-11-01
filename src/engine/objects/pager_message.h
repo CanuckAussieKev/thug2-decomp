@@ -44,9 +44,9 @@ struct PagerMessage {
 class PagerMessageComponent final : public ObjectModule {
 public:
     // 0x004ECF20: a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004EC960 (not a Ghidra function): its script member functions (the table at 0x006831A8) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x004ECE10: its type, an empty list.
     PagerMessageComponent();
     // 0x004ECE90: the destructor body: every message deleted, the list freed, the base's.

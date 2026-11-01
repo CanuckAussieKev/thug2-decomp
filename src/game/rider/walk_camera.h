@@ -32,8 +32,8 @@ struct WalkCameraState {
 
 // 0x00524D70 (cdecl): `a` toward `b` by where `t` lies from `low` to `high` (x through a float step, y with its
 // step unrounded, z and w as floats). Returns `out`.
-maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low,
-                                   float high);
+maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low,
+                           float high);
 
 // The WalkCamera component (type 0xC7D37EC2, vtable 0x0064C5E0, 0xA8 bytes; made by 0x00525DC0): the camera
 // behind a walking skater. Each frame it swings round toward the skater's facing (when the right stick isn't
@@ -49,7 +49,7 @@ class FootView final : public ObjectModule {
 public:
     // 0x00525DC0: a new one (0 if out of memory): the base's constructor, its vtable and type, the target (0, 0,
     // 0, 1).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     FootView();
     // 0x00524C20: the destructor body (the base's). 0x00524F20 (slot 0): the scalar deleting destructor.
@@ -79,7 +79,7 @@ public:
     void save_state(WalkCameraState* state);
     void restore_state(const WalkCameraState* state);
     // 0x00524EF0 (stdcall; `this` isn't used): the float `name` of walk_camera_parameters (asserted).
-    static float __stdcall get_param(uint32_t name);
+    static float get_param(uint32_t name);
     // 0x005250E0: the point followed: the skater's position (at once when `instant`), else eased toward it at the
     // skater camera's rates (+0xE4 across, +0xE8 up) over the frame. Written to `out`.
     void fetch_goal(maths::Vec4* out, bool instant);

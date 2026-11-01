@@ -104,7 +104,7 @@ void remake_shadow(GameEntity* object, objects::GroundShadowModule* shadow, obje
 // heap) and shadows; the swap is recorded; a skater's model-swapped value (+0x31C) is the id of an entry whose object
 // wears no other model now (0 if none). The objects are asked for core physics before they're checked for null, as in
 // the original. False if either is missing, they're the same object or either has no model.
-bool __cdecl cfunc_swap_object_models(script::Struct* params, script::Script*)
+bool cfunc_swap_object_models(script::Struct* params, script::Script*)
 {
     objects::Rider* skater = nullptr;
     uint32_t id1;
@@ -136,8 +136,9 @@ bool __cdecl cfunc_swap_object_models(script::Struct* params, script::Script*)
     memory::Hub* manager = memory::Hub::get_pull();
     manager->enter_heap_scope(manager->top_down_heap_);
     void* memory = memory::alloc(0x1C);
-    uint8_t* temp = memory ? reinterpret_cast<uint8_t*>(new (memory) gfx::Rig(*reinterpret_cast<gfx::RigData**>(skeleton_a + 8)))
-                           : nullptr;
+    uint8_t* temp =
+        memory ? reinterpret_cast<uint8_t*>(new (memory) gfx::Rig(*reinterpret_cast<gfx::RigData**>(skeleton_a + 8)))
+               : nullptr;
     memory::Hub::get_pull()->leave_heap_scope();
     copy_skeleton(temp, skeleton_a);
     copy_skeleton(skeleton_a, skeleton_b);
@@ -185,7 +186,7 @@ bool __cdecl cfunc_swap_object_models(script::Struct* params, script::Script*)
 // 0x005B3890: RestoreAllSwappedObjectModels: each recorded swap undone (SwapObjectModels on the entry's object and the
 // one whose model it wears), the table gone over again while it still holds swaps - at most as many times as there
 // were. Always true.
-bool __cdecl cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* script)
+bool cfunc_restore_all_swapped_object_models(script::Struct*, script::Script* script)
 {
     int remaining = 0;
     for (int i = 0; i < kSwapCount; ++i)
@@ -218,7 +219,7 @@ bool __cdecl cfunc_restore_all_swapped_object_models(script::Struct*, script::Sc
 }
 
 // 0x005B3A30: GetSkaterModelIsSwapped [Skater=n]: whether skater n (or the local skater) wears another model.
-bool __cdecl cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
+bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script*)
 {
     int index;
     objects::Rider* skater;

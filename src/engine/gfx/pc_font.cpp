@@ -130,7 +130,7 @@ void PcText::update_priority()
 }
 
 // 0x004B3FD0
-void __cdecl allocate_text_pool(uint32_t count)
+void allocate_text_pool(uint32_t count)
 {
     for (uint32_t i = 0; i < count; ++i) {
         PcText* text = new PcText;
@@ -141,10 +141,10 @@ void __cdecl allocate_text_pool(uint32_t count)
 }
 
 // 0x004B4090
-void __cdecl unload_pc_font(PcFont* font) { font->offload(); }
+void unload_pc_font(PcFont* font) { font->offload(); }
 
 // 0x004B40A0
-PcFont* __cdecl create_pc_font(const char* name)
+PcFont* create_pc_font(const char* name)
 {
     auto* font = new PcFont;
     // (the engine's Load, through 0x004A1090; no check for a failed allocation, as the original)

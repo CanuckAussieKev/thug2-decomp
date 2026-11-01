@@ -424,7 +424,7 @@ void clear_to_w1(maths::Vec4& v) { v = {0.0f, 0.0f, 0.0f, 1.0f}; }
 } // namespace
 
 // 0x0043AA30
-memory::owner<ObjectModule*> __cdecl DrivableModule::fabricate() { return new DrivableModule; }
+memory::owner<ObjectModule*> DrivableModule::fabricate() { return new DrivableModule; }
 
 // 0x00437C00
 DrivableModule::DrivableModule()
@@ -854,8 +854,7 @@ void DrivableModule::refresh_bone_rig()
         return;
     // (the skeleton's +0x04, through the getter folded at 0x005480C0)
     maths::Mat4* bones = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->matrix_array_;
-    int count =
-        reinterpret_cast<int(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton_of(bone_rig_));
+    int count = static_cast<gfx::Rig*>(skeleton_of(bone_rig_))->get_num_bones();
     // Bone 0 the body (left as nothing), 1 the skater's place, 2 on the wheels: steered and rolled, at their place
     // with the suspension's extension, but no lower than max_drawn_y_. In debug mode 2 all of them nothing.
     for (int b = count - 1; b >= 0; --b) {

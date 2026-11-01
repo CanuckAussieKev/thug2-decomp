@@ -715,7 +715,7 @@ void restart_step(modules::FrontEnd* front_end)
 struct SnapWalk {
     std::vector<Snapshot>* out;
 };
-void __cdecl snap_one(objects::Entity* object, void* data)
+void snap_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<SnapWalk*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);

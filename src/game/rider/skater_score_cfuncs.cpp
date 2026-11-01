@@ -48,7 +48,7 @@ uint32_t active_ruleset_label()
 
 // 0x005B5770: InitializeSkaters: each skater - a local one's input reset first (vtable slot 14, reset_input) - taken
 // out of the world (the skate module's 0x00564C60 with false). Always true.
-bool __cdecl cfunc_initialize_skaters(script::Struct*, script::Script*)
+bool cfunc_initialize_skaters(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
@@ -61,7 +61,7 @@ bool __cdecl cfunc_initialize_skaters(script::Struct*, script::Script*)
 }
 
 // 0x005B57E0: ReinsertSkaters: each skater shown again, in its own skater heap. Always true.
-bool __cdecl cfunc_reinsert_skaters(script::Struct*, script::Script*)
+bool cfunc_reinsert_skaters(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
@@ -75,7 +75,7 @@ bool __cdecl cfunc_reinsert_skaters(script::Struct*, script::Script*)
 
 // 0x005B5860: ResetScore [reset_all]: the local skaters' scores (with reset_all, every skater's) reset and their
 // score text shown as "0" - "0:00" in king of the hill. Always true.
-bool __cdecl cfunc_reset_score(script::Struct* params, script::Script*)
+bool cfunc_reset_score(script::Struct* params, script::Script*)
 {
     bool all = params->has_entry_named(kResetAll);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
@@ -92,7 +92,7 @@ bool __cdecl cfunc_reset_score(script::Struct* params, script::Script*)
 }
 
 // 0x005B5950: UpdateScore: each local skater's score total set again to itself (so it's shown). Always true.
-bool __cdecl cfunc_update_score(script::Struct*, script::Script*)
+bool cfunc_update_score(script::Struct*, script::Script*)
 {
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
         objects::Rider* skater = get_skater_at(i);
@@ -107,7 +107,7 @@ bool __cdecl cfunc_update_score(script::Struct*, script::Script*)
 
 // 0x005B59C0: ResetScorePot [UseBailStyle]: each local skater's score pot reset (0x00564860 with true unless
 // UseBailStyle). Always true.
-bool __cdecl cfunc_reset_score_pot(script::Struct* params, script::Script*)
+bool cfunc_reset_score_pot(script::Struct* params, script::Script*)
 {
     bool bail_style = params->has_bare_flag(kUseBailStyle);
     for (int i = 0; i < get_skate()->count_riders(); ++i) {
@@ -121,7 +121,7 @@ bool __cdecl cfunc_reset_score_pot(script::Struct* params, script::Script*)
 // 0x005B5A40: GetCollidingPlayerAndTeam exclude_team=t radius=feet: player, the skater nearest the script's object
 // within the radius (in inches: * 12) that is in another team without the flag or in team t with it, and team, its
 // team (-1 for both if none). Always true.
-bool __cdecl cfunc_get_colliding_player_and_team(script::Struct* params, script::Script* script)
+bool cfunc_get_colliding_player_and_team(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args_;
     auto* object = static_cast<objects::GameEntity*>(script->entity_.owner_object_);

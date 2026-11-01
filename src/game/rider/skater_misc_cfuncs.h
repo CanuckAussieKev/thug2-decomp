@@ -12,8 +12,8 @@ class Script;
 // script) and return whether the script's `if` should be taken.
 namespace commands {
 
-bool __cdecl cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_get_skater_velocity(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_play_skater_stream(script::Struct* params, script::Script* script);
+bool cfunc_apply_custom_logo_to_part(script::Struct* params, script::Script* script);
+bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script);
+bool cfunc_play_skater_stream(script::Struct* params, script::Script* script);
 
 } // namespace commands

@@ -221,7 +221,7 @@ void ShadowVolume::set_light_direction(const maths::Vec4* direction)
 void ShadowVolume::change_mat(const maths::Mat4* matrix) { basis_frame_ = *matrix; }
 
 // 0x004A1E40
-void __cdecl remove_shadow_volume(ShadowVolume* volume)
+void remove_shadow_volume(ShadowVolume* volume)
 {
     for (int i = 0; i < 16; ++i) {
         if (shadow_volumes()[i] == volume) {
@@ -232,13 +232,10 @@ void __cdecl remove_shadow_volume(ShadowVolume* volume)
 }
 
 // 0x004A1EF0
-ShadowEdges* __cdecl find_shadow_edges(uint32_t key)
-{
-    return static_cast<ShadowEdges*>(edge_table().fetch_entry(key));
-}
+ShadowEdges* find_shadow_edges(uint32_t key) { return static_cast<ShadowEdges*>(edge_table().fetch_entry(key)); }
 
 // 0x004A1F30
-void __cdecl release_shadow_edges(uint32_t key)
+void release_shadow_edges(uint32_t key)
 {
     ShadowEdges* edges = find_shadow_edges(key);
     if (!edges || --edges->users != 0)

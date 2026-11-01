@@ -28,7 +28,7 @@ class RiderSpinAndFlip final : public ObjectModule {
 public:
     // 0x00511470 (registered by register_component_types): a new one (0 if out of memory): the board not rotated, no
     // components yet. The "after" flags aren't initialised.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderSpinAndFlip();
     // 0x00511300: the destructor body (the base's).

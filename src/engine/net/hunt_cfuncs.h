@@ -13,16 +13,16 @@ class Script;
 // `if` should be taken.
 namespace commands {
 
-bool __cdecl cfunc_place_object(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_announce_hunt_started(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_announce_need_to_place_objects(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_at_least_one_object_placed(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_report_object_pickup(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_placed_less_than(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_lobby_check_keyboard(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_broadcast_object_placements(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_report_object_placement(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_broadcast_projectile(script::Struct* params, script::Script* script);
+bool cfunc_place_object(script::Struct* params, script::Script* script);
+bool cfunc_announce_hunt_started(script::Struct* params, script::Script* script);
+bool cfunc_announce_need_to_place_objects(script::Struct* params, script::Script* script);
+bool cfunc_at_least_one_object_placed(script::Struct* params, script::Script* script);
+bool cfunc_report_object_pickup(script::Struct* params, script::Script* script);
+bool cfunc_placed_less_than(script::Struct* params, script::Script* script);
+bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script* script);
+bool cfunc_lobby_check_keyboard(script::Struct* params, script::Script* script);
+bool cfunc_broadcast_object_placements(script::Struct* params, script::Script* script);
+bool cfunc_report_object_placement(script::Struct* params, script::Script* script);
+bool cfunc_broadcast_projectile(script::Struct* params, script::Script* script);
 
 } // namespace commands

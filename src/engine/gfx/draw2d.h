@@ -43,6 +43,6 @@ static_assert(sizeof(OverlayDraw) == 0x14, "layout must match the original");
 
 // 0x004DFB90: draw the list (each shown item's open_sketch, draw, close_sketch) with the 2D states, the z test as the last
 // frame's items wanted.
-void __cdecl draw_2d();
+void draw_2d();
 
 } // namespace render

@@ -69,7 +69,7 @@ void run_with_label_id(uint32_t name, uint32_t label_id)
 } // namespace
 
 // 0x00511810
-memory::owner<ObjectModule*> __cdecl RiderOverheadTag::fabricate() { return new RiderOverheadTag; }
+memory::owner<ObjectModule*> RiderOverheadTag::fabricate() { return new RiderOverheadTag; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderOverheadTag::RiderOverheadTag() { kind_tag_ = kSkaterFloatingName; }

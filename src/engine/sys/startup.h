@@ -5,6 +5,6 @@ namespace sys {
 // 0x004E1EF0: the game's main (called by WinMain): configuration and memory set-up, then - until the game is
 // quit - the singletons and modules, the main loop and their teardown. PartyMod's fast exit is built in: when the
 // main loop returns, the process ends there (sys::fast_exit) instead of tearing everything down.
-int __cdecl game_main(int argc, char** argv);
+int game_main(int argc, char** argv);
 
 } // namespace sys

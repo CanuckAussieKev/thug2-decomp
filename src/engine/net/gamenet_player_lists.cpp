@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include "engine/core/code_address.h"
+#include "engine/gfx/engine_texture.h"
 #include "engine/gfx/d3dx.h"
 #include "platform/compiler.h"
 #include <cstring>
@@ -141,15 +142,22 @@ net::Conn* player_conn(const PlayerRecord* player) { return player->conn_; }
 // 0x00485CB0: whether the skater profile's appearance has the CAS part `part` set.
 bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 // A custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
-void* texture_pixels(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[25](texture); }
+// (On the PC all four are the shared stubs: null / 0.)
+void* texture_pixels(void* texture)
+{
+    return const_cast<void*>(static_cast<render::BitmapTexture*>(texture)->get_pixels());
+}
 uint16_t get_texture_size(void* texture)
 {
-    return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[26](texture));
+    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_pixels_size());
 }
-void* texture_palette(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[27](texture); }
+void* texture_palette(void* texture)
+{
+    return const_cast<void*>(static_cast<render::BitmapTexture*>(texture)->get_palette());
+}
 uint16_t texture_palette_size(void* texture)
 {
-    return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[28](texture));
+    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_palette_size());
 }
 // D3DXMatrixMultiply (the D3DX library's, stdcall): out = a * b.
 void d_3d_x_matrix_multiply(void* out, const void* a, const void* b) { d3dx::matrix_multiply(out, a, b); }
@@ -760,7 +768,7 @@ Hub* g_online_hub;
 // carries (flags 0x7800) put on the carrier's head - the flag object of the team it belongs to (TRG_CTF_Red / Blue /
 // Green / Yellow; none: the task stops for the frame) gets the head bone's matrix, turned 90 degrees about x and
 // raised 12, then the skater's own matrix; its position the bone's offset transformed, plus the skater's position.
-void __cdecl carried_flags_task(tasks::Task<Hub>*)
+void carried_flags_task(tasks::Task<Hub>*)
 {
     Hub* manager = g_online_hub;
     PlayerSearch search;
@@ -814,7 +822,7 @@ void __cdecl carried_flags_task(tasks::Task<Hub>*)
 }
 
 // 0x005395C0 (no `this`): the manager released - its reference count (0x007CCE18) down, or (the last) destroyed.
-void __cdecl release_manager()
+void release_manager()
 {
     uint32_t& references = g_game_net_references;
     if (references > 1) {

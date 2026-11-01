@@ -102,7 +102,7 @@ modules::PointTally* get_score_of(GameEntity* skater)
 // --- the projectile collision component ---
 
 // 0x004F3010
-memory::owner<ObjectModule*> __cdecl ShotImpactModule::fabricate() { return new ShotImpactModule; }
+memory::owner<ObjectModule*> ShotImpactModule::fabricate() { return new ShotImpactModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ShotImpactModule::ShotImpactModule()
@@ -232,7 +232,7 @@ void ShotImpactModule::tick_frame()
 // --- the projectile proximity component ---
 
 // 0x004F3550
-memory::owner<ObjectModule*> __cdecl ProjectileProximityComponent::fabricate() { return new ProjectileProximityComponent; }
+memory::owner<ObjectModule*> ProjectileProximityComponent::fabricate() { return new ProjectileProximityComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 ProjectileProximityComponent::ProjectileProximityComponent() { kind_tag_ = kType; }

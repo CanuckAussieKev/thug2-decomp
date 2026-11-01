@@ -32,7 +32,7 @@ public:
     static constexpr uint32_t kType = 0x9F9CC949;
 
     // 0x004F80E0 (registered by register_component_types): a new one (0 if out of memory): no components, not frigged.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderPhysicsTweaks();
     // 0x004F8040: the destructor body (the base's). (0x004F8050 the deleting one)

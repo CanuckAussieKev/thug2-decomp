@@ -146,7 +146,7 @@ bool load_assets()
 }
 
 // ThawBmx_Available: the feature on (and the overlay's scripts there) - the pause menu's RIDE BMX item.
-bool __cdecl cfunc_available(script::Struct*, script::Script*)
+bool cfunc_available(script::Struct*, script::Script*)
 {
     return is_switched_on() && script::script_exists(name_hash(kToggleScript));
 }
@@ -154,7 +154,7 @@ bool __cdecl cfunc_available(script::Struct*, script::Script*)
 // ThawBmx_LoadTexture "<folder/name>": ingest_skin unless the texture is loaded already (THAW's bike manual meter
 // script, create_bike_manual_meter, loads its converted pictures with it each time a manual starts - THAW has them
 // loaded from start-up). True when the texture is there.
-bool __cdecl cfunc_load_texture(script::Struct* params, script::Script* script)
+bool cfunc_load_texture(script::Struct* params, script::Script* script)
 {
     const char* file = nullptr;
     if (!params->fetch_text(0u, &file, 0) || !file)

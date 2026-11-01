@@ -55,7 +55,7 @@ void start_turn(RiderTurning::Turn& turn, double degrees, float duration)
 } // namespace
 
 // 0x00517D40
-memory::owner<ObjectModule*> __cdecl RiderTurning::fabricate() { return new RiderTurning; }
+memory::owner<ObjectModule*> RiderTurning::fabricate() { return new RiderTurning; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderTurning::RiderTurning()

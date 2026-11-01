@@ -13,7 +13,7 @@ ViewRegion* get_viewport(int index) { return g_viewports[index]; }
 } // namespace
 
 // 0x004A06D0
-ViewRegion* __cdecl fetch_current_view(int n)
+ViewRegion* fetch_current_view(int n)
 {
     const int* map = g_mode_map;
     int shown = 0;
@@ -28,10 +28,10 @@ ViewRegion* __cdecl fetch_current_view(int n)
 }
 
 // 0x004A0710
-int __cdecl get_view_layout() { return g_screen_mode; }
+int get_view_layout() { return g_screen_mode; }
 
 // 0x004A0720
-bool __cdecl flag_camera_for_removal(gfx::ViewCam* camera)
+bool flag_camera_for_removal(gfx::ViewCam* camera)
 {
     for (int i = 0; i < 10; ++i) {
         ViewRegion* viewport = get_viewport(i);

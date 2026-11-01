@@ -154,7 +154,7 @@ void Hub::add_new_player(JoinerRecord* info)
 }
 
 // 0x0053EA30
-void __cdecl Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
+void Hub::guest_player_intake_tick(tasks::Task<Hub>* task)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);
@@ -271,7 +271,7 @@ void send_word(net::AppHost* server, net::NetMessageInfo& desc, PlayerRecord* to
 } // namespace
 
 // 0x0053D9D0
-void __cdecl Hub::host_player_intake_tick(tasks::Task<Hub>* task)
+void Hub::host_player_intake_tick(tasks::Task<Hub>* task)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->skater_info_heap_);

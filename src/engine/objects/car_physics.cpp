@@ -91,10 +91,10 @@ bool suspend_should_update(uint8_t* suspend, float* distance)
 } // namespace
 
 // 0x0041BD90
-memory::owner<ObjectModule*> __cdecl AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
+memory::owner<ObjectModule*> AutomobileDynamicsModule::fabricate() { return new AutomobileDynamicsModule; }
 
 // 0x0041B910
-void __cdecl AutomobileDynamicsModule::publish_method_table()
+void AutomobileDynamicsModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_car_physics_member_functions, 0x18);
 }
@@ -219,8 +219,7 @@ void AutomobileDynamicsModule::update_angles()
 }
 
 // 0x0041BF00
-void __cdecl AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin,
-                                                        float steer)
+void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer)
 {
     BoneDesc* bones = model_bones(model);
     maths::Mat4* matrices = rig_matrix_block(skeleton);

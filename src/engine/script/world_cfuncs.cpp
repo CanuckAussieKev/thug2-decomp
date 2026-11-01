@@ -55,13 +55,13 @@ using Setter = bool(__thiscall*)(void*, Struct*, Script*);
 } // namespace
 
 // 0x005A5360
-bool __cdecl cfunc_set_light_group(Struct* params, Script* script) { return node_command(params, script, 7); }
+bool cfunc_set_light_group(Struct* params, Script* script) { return node_command(params, script, 7); }
 
 // 0x005A5380
-bool __cdecl cfunc_is_alive(Struct* params, Script* script) { return node_command(params, script, 5); }
+bool cfunc_is_alive(Struct* params, Script* script) { return node_command(params, script, 5); }
 
 // 0x005A53A0
-bool __cdecl cfunc_pause_skaters(Struct* params, Script*)
+bool cfunc_pause_skaters(Struct* params, Script*)
 {
     bool hide = params->has_bare_flag("hide");
     modules::Skate* skate = modules::Skate::sole();
@@ -77,7 +77,7 @@ bool __cdecl cfunc_pause_skaters(Struct* params, Script*)
 }
 
 // 0x005A5420
-bool __cdecl cfunc_un_pause_skaters(Struct*, Script*)
+bool cfunc_un_pause_skaters(Struct*, Script*)
 {
     modules::Skate* skate = modules::Skate::sole();
     uint32_t count = static_cast<uint32_t>(skate->count_riders());
@@ -92,7 +92,7 @@ bool __cdecl cfunc_un_pause_skaters(Struct*, Script*)
 }
 
 // 0x005A5480
-bool __cdecl cfunc_skaters_are_ready(Struct*, Script*)
+bool cfunc_skaters_are_ready(Struct*, Script*)
 {
     if (!online::g_online_hub->cleared_to_start_)
         return false;
@@ -103,7 +103,7 @@ bool __cdecl cfunc_skaters_are_ready(Struct*, Script*)
 }
 
 // 0x005A54E0
-bool __cdecl cfunc_launch_viewer(Struct*, Script*)
+bool cfunc_launch_viewer(Struct*, Script*)
 {
     if (viewer_launched())
         return true;
@@ -128,7 +128,7 @@ bool __cdecl cfunc_launch_viewer(Struct*, Script*)
 }
 
 // 0x005A5610
-bool __cdecl cfunc_add_skater_early(Struct*, Script*)
+bool cfunc_add_skater_early(Struct*, Script*)
 {
     if (modules::Skate::sole()->count_riders() == 0) {
         modules::Skate* skate = modules::Skate::sole();
@@ -142,103 +142,103 @@ bool __cdecl cfunc_add_skater_early(Struct*, Script*)
 // --- the weather ---
 
 // 0x005A5680: its vtable +0x04 (through 0x004A1090).
-bool __cdecl cfunc_weather_update_grid(Struct*, Script*)
+bool cfunc_weather_update_grid(Struct*, Script*)
 {
     get_weather()->tick_grid(); // (0x004A1090: a jump through the vtable +0x04)
     return true;
 }
 // 0x005A5690
-bool __cdecl cfunc_weather_set_rain_height(Struct* params, Script* script)
+bool cfunc_weather_set_rain_height(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_height(params, script);
 }
 // 0x005A56B0
-bool __cdecl cfunc_weather_set_rain_frames(Struct* params, Script* script)
+bool cfunc_weather_set_rain_frames(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_frames(params, script);
 }
 // 0x005A56D0
-bool __cdecl cfunc_weather_set_rain_length(Struct* params, Script* script)
+bool cfunc_weather_set_rain_length(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_length(params, script);
 }
 // 0x005A56F0
-bool __cdecl cfunc_weather_set_rain_blend_mode(Struct* params, Script* script)
+bool cfunc_weather_set_rain_blend_mode(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_blend_mode(params, script);
 }
 // 0x005A5710
-bool __cdecl cfunc_weather_set_rain_rate(Struct* params, Script* script)
+bool cfunc_weather_set_rain_rate(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_rate(params, script);
 }
 // 0x005A5730
-bool __cdecl cfunc_weather_set_rain_color(Struct* params, Script* script)
+bool cfunc_weather_set_rain_color(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_color(params, script);
 }
 // 0x005A5750
-bool __cdecl cfunc_weather_set_splash_rate(Struct* params, Script* script)
+bool cfunc_weather_set_splash_rate(Struct* params, Script* script)
 {
     return get_weather()->script_set_splash_rate(params, script);
 }
 // 0x005A5770
-bool __cdecl cfunc_weather_set_splash_life(Struct* params, Script* script)
+bool cfunc_weather_set_splash_life(Struct* params, Script* script)
 {
     return get_weather()->script_set_splash_life(params, script);
 }
 // 0x005A5790
-bool __cdecl cfunc_weather_set_splash_size(Struct* params, Script* script)
+bool cfunc_weather_set_splash_size(Struct* params, Script* script)
 {
     return get_weather()->script_set_splash_size(params, script);
 }
 // 0x005A57B0
-bool __cdecl cfunc_weather_set_splash_color(Struct* params, Script* script)
+bool cfunc_weather_set_splash_color(Struct* params, Script* script)
 {
     return get_weather()->script_set_splash_color(params, script);
 }
 // 0x005A57D0
-bool __cdecl cfunc_weather_set_splash_blend_mode(Struct* params, Script* script)
+bool cfunc_weather_set_splash_blend_mode(Struct* params, Script* script)
 {
     return get_weather()->script_set_splash_blend_mode(params, script);
 }
 // 0x005A57F0
-bool __cdecl cfunc_weather_set_snow_height(Struct* params, Script* script)
+bool cfunc_weather_set_snow_height(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_height(params, script);
 }
 // 0x005A5810
-bool __cdecl cfunc_weather_set_snow_frames(Struct* params, Script* script)
+bool cfunc_weather_set_snow_frames(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_frames(params, script);
 }
 // 0x005A5830
-bool __cdecl cfunc_weather_set_snow_size(Struct* params, Script* script)
+bool cfunc_weather_set_snow_size(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_size(params, script);
 }
 // 0x005A5850
-bool __cdecl cfunc_weather_set_snow_blend_mode(Struct* params, Script* script)
+bool cfunc_weather_set_snow_blend_mode(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_blend_mode(params, script);
 }
 // 0x005A5870
-bool __cdecl cfunc_weather_set_snow_rate(Struct* params, Script* script)
+bool cfunc_weather_set_snow_rate(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_rate(params, script);
 }
 // 0x005A5890
-bool __cdecl cfunc_weather_set_snow_color(Struct* params, Script* script)
+bool cfunc_weather_set_snow_color(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_color(params, script);
 }
 // 0x005A58B0
-bool __cdecl cfunc_weather_set_snow_active(Struct* params, Script* script)
+bool cfunc_weather_set_snow_active(Struct* params, Script* script)
 {
     return get_weather()->script_set_snow_active(params, script);
 }
 // 0x005A58D0
-bool __cdecl cfunc_weather_set_rain_active(Struct* params, Script* script)
+bool cfunc_weather_set_rain_active(Struct* params, Script* script)
 {
     return get_weather()->script_set_rain_active(params, script);
 }
@@ -246,22 +246,16 @@ bool __cdecl cfunc_weather_set_rain_active(Struct* params, Script* script)
 // --- the screen effects ---
 
 // 0x005A58F0
-bool __cdecl cfunc_set_screen_effects_on(Struct* params, Script* script)
-{
-    return screen_effects()->set_on(params, script);
-}
+bool cfunc_set_screen_effects_on(Struct* params, Script* script) { return screen_effects()->set_on(params, script); }
 // 0x005A5910
-bool __cdecl cfunc_set_screen_effects_off(Struct* params, Script* script)
-{
-    return screen_effects()->set_off(params, script);
-}
+bool cfunc_set_screen_effects_off(Struct* params, Script* script) { return screen_effects()->set_off(params, script); }
 // 0x005A5930
-bool __cdecl cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
+bool cfunc_set_screen_effects_dof_params(Struct* params, Script* script)
 {
     return screen_effects()->set_dof_params(params, script);
 }
 
 // 0x005A5950
-bool __cdecl cfunc_is_pal(Struct*, Script*) { return game_config::g_language != 2; }
+bool cfunc_is_pal(Struct*, Script*) { return game_config::g_language != 2; }
 
 } // namespace commands

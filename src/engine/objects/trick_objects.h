@@ -27,7 +27,7 @@ struct ClusterCount {
     int count;
     uint32_t cluster;
 };
-ClusterCount* __cdecl count_object_in_cluster(uint8_t* object, ClusterCount* counter);
+ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter);
 
 // A list in the skater's trick component (its +0x13B4): 0x00588170 the constructor (no entries; its count at +0x800);
 // 0x00588180 emptied (true). Its entries are the names of the clusters the skater's current trick (or combo) hit -
@@ -208,21 +208,21 @@ struct FreeClusterList {
     uint32_t names[32];
     uint32_t count; // +0x80
 };
-void __cdecl release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* release);
-void __cdecl list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list);
+void release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* release);
+void list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list);
 // 0x005892C0: a trick (or combo) by `player` scoring `score` on the `count` trick objects named in `objects`. With
 // `send` (the server): logged (TrickSpotHub::log_trick_objects - nothing more if no cluster changed); for each
 // player whose clusters were taken, the thief told (message 0x4B: game id, thief, victim) and the victim sent the
 // still-empty descriptor (the original's slip); the changed objects streamed to every player (0x3B, "TrickObj
 // Buffer") and to every observer (0x5B); the skate module told (0x0056BB70 with 0); done if the scoring skater's
 // connection is local. Then (and without `send`) each object's cluster coloured for the player.
-void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send);
+void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send);
 // 0x00589180: the trick object manager (0x007CE500), made first if there's none and `create` (0x3C bytes, Calloc mode
 // 1 - null if that fails); either way one more count of it (0x007CE504; release_trick_object_manager gives it back).
-TrickSpotHub* __cdecl acquire_trick_object_manager(bool create);
-void __cdecl find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search);
-void __cdecl find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search);
-void __cdecl write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer);
+TrickSpotHub* acquire_trick_object_manager(bool create);
+void find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search);
+void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search);
+void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer);
 
 extern memory::owner<objects::TrickSpotHub*> g_trick_spot_hub; // (made / deleted by the module's start-up / shutdown)
 

@@ -144,7 +144,7 @@ int Primitive::weigh(const Primitive*)
 // --- the lists ---
 
 // 0x0049C7D0
-void __cdecl link_primitive(Primitive* primitive)
+void link_primitive(Primitive* primitive)
 {
     primitive->following_ = new_primitives();
     new_primitives() = primitive;
@@ -152,7 +152,7 @@ void __cdecl link_primitive(Primitive* primitive)
 }
 
 // 0x0049C7F0
-void __cdecl unlink_primitive(Primitive* primitive)
+void unlink_primitive(Primitive* primitive)
 {
     Primitive** list = (primitive->flag_bits_ & kNewFlag) ? &new_primitives() : &drawn_primitives();
     Primitive* before = *list;
@@ -166,7 +166,7 @@ void __cdecl unlink_primitive(Primitive* primitive)
 }
 
 // 0x0049C840
-void __cdecl render_primitives()
+void render_primitives()
 {
     while (Primitive* primitive = new_primitives()) {
         unlink_primitive(primitive);
@@ -192,7 +192,7 @@ void __cdecl render_primitives()
 }
 
 // 0x0049C700
-void __cdecl set_primitive_state(int state, int value)
+void set_primitive_state(int state, int value)
 {
     uint32_t& states = primitive_states();
     switch (state) {

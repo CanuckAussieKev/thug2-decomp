@@ -21,9 +21,9 @@ enum DrawOptionBits : uint32_t {
 // 0x004DC700: draw a scene's meshes for viewport `viewport` (a mesh's +0x1B holds a bit per viewport it shows in),
 // changing material only between meshes of different materials; shadows over what was drawn when the scene has them
 // (flag 0x100).
-void __cdecl draw_scene(SceneRef* scene, uint32_t flags, int viewport);
+void draw_scene(SceneRef* scene, uint32_t flags, int viewport);
 // 0x004DA690 (qsort's comparison of the sorted list's entries): by the depth value sphere_in_view left
 // (0x007CA978), ascending.
-int __cdecl compare_distances(const void* a, const void* b);
+int compare_distances(const void* a, const void* b);
 
 } // namespace render

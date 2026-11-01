@@ -40,12 +40,12 @@ public:
     };
 
     // 0x0043D670 (registered with the composite object manager): a new one (0 if out of memory): off, no runs.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     PadRumbleModule();
     // 0x0043D490 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x00684EE8: vibrate).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0043D4B0: the destructor body: with a device, both motors stopped (1, then 0); then the base's.
     ~PadRumbleModule() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

@@ -169,7 +169,7 @@ void GapTally::add_gap_from_node(script::Struct* params, const uint8_t* /*call*/
 }
 
 // 0x00578AA0
-void __cdecl add_gap_from_node_callback(script::Struct* params, const uint8_t* call)
+void add_gap_from_node_callback(script::Struct* params, const uint8_t* call)
 {
     building()->add_gap_from_node(params, call);
 }
@@ -385,19 +385,19 @@ void GapTally::pay_out_queued_gaps()
 }
 
 // 0x005792E0
-bool __cdecl cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script)
+bool cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script)
 {
     return skate_checklist()->add_gaps_to_menu(params, script);
 }
 
 // 0x00579300
-bool __cdecl cfunc_create_gap_list(script::Struct* params, script::Script* script)
+bool cfunc_create_gap_list(script::Struct* params, script::Script* script)
 {
     return skate_checklist()->create_gap_list(params, script);
 }
 
 // 0x00579320
-bool __cdecl cfunc_get_level_gap_totals(script::Struct* params, script::Script* script)
+bool cfunc_get_level_gap_totals(script::Struct* params, script::Script* script)
 {
     int level = 0; // (the original's is uninitialised: level= is required)
     params->fetch_int_value(kLevel, &level, 1);
@@ -405,7 +405,7 @@ bool __cdecl cfunc_get_level_gap_totals(script::Struct* params, script::Script* 
 }
 
 // 0x00579360
-bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
+bool cfunc_give_all_gaps(script::Struct* params, script::Script* /*script*/)
 {
     void* career = get_career();
     int level;

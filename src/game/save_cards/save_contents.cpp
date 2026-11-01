@@ -74,11 +74,7 @@ objects::RiderStoryProgress* get_career() { return get_skate()->career_.get(); }
 int os_layer() { return game_config::g_platform; }
 
 // The skate module's split-screen preferences (0x00564D80, no source yet).
-prefs::Preferences* split_screen_preferences()
-{
-    return reinterpret_cast<prefs::Preferences*(__thiscall*)(modules::Skate*)>(
-        code_address(&modules::Skate::get_split_view_settings))(get_skate());
-}
+prefs::Preferences* split_screen_preferences() { return get_skate()->get_split_view_settings(); }
 // A preferences object's structure (+4).
 Struct* preferences_structure(prefs::Preferences* preferences)
 {
@@ -281,10 +277,8 @@ void write_save_contents(Struct* contents, uint32_t type)
         write_global_info(global);
         contents->append_struct_ref(kGlobalInfo, global);
         Struct* story = spawn_param_table();
-        void* goal_manager = goals::get_objective_board();
-        // the goal manager's parameters (a folded getter, +0x14)
-        story->put_sub_struct(kGoalManagerParams, reinterpret_cast<Struct*(__thiscall*)(void*)>(
-                                                      code_address(&gfx::Rig::get_num_bones))(goal_manager));
+        // the goal manager's parameters (the shared getter of +0x14)
+        story->put_sub_struct(kGoalManagerParams, goals::get_objective_board()->goal_data_);
         contents->append_struct_ref(kStory, story);
         Struct* story_skater = spawn_param_table();
         auto* skater = static_cast<objects::Rider*>(get_skate()->get_rider_at(0));

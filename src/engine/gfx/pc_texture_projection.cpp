@@ -89,7 +89,7 @@ ProjectionBatch* ProjectionBatch::make_new()
 void ProjectionBatch::teardown() { material.~MaterialRef(); }
 
 // 0x004C73E0
-ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_name)
+ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name)
 {
     uint32_t count = batch_count();
     for (uint32_t i = 0; i < count; ++i) {
@@ -124,7 +124,7 @@ ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_n
 }
 
 // 0x004C7520
-void __cdecl draw_projection_batches()
+void draw_projection_batches()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);

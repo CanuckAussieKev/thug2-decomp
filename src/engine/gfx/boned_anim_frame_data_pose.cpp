@@ -285,7 +285,7 @@ void JointClipFrames::build_cache(int format)
     }
 
     cache_slot_ = cache;
-    entry->set_release_callback(reinterpret_cast<void(__cdecl*)(void*)>(&JointClipFrames::forget_cache_entry),
+    entry->set_release_callback(reinterpret_cast<void (*)(void*)>(&JointClipFrames::forget_cache_entry),
                                 this); // (the entry's owner and its release callback)
     uint16_t& cache_flags = *reinterpret_cast<uint16_t*>(cache_slot_ + 0x164);
     cache_flags = static_cast<uint16_t>(((flag_bits_ >> 11) & 1) << 13 | (cache_flags & 0xDFFF));

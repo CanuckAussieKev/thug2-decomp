@@ -30,11 +30,11 @@ public:
 
     // 0x00431F60 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type, no skeleton.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     BoneRigModule();
     // 0x00431BE0 (not a Ghidra function; registered with Create): its script member functions registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00431FE0: the skeleton destroyed (0x004A2CB0) and freed; the base's body.
     ~BoneRigModule() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

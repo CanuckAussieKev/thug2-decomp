@@ -92,7 +92,7 @@ bool in_park_editor() { return modules::g_skate_module->level_ == 0xE8B4B836; }
 } // namespace
 
 // 0x004E4F50
-bool __cdecl script_flagged(uint32_t name)
+bool script_flagged(uint32_t name)
 {
     for (int i = 0; i < get_seen_count(); ++i) {
         if (get_seen()[i] == name)
@@ -147,7 +147,7 @@ bool __cdecl script_flagged(uint32_t name)
 }
 
 // 0x004E5320
-void __cdecl flag_scripted_hit(render::ProbeRay* feeler)
+void flag_scripted_hit(render::ProbeRay* feeler)
 {
     if (!feeler->hit_.face_flag40_)
         return;
@@ -180,7 +180,7 @@ bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E5940
-memory::owner<ObjectModule*> __cdecl EditorViewModule::fabricate() { return new EditorViewModule; }
+memory::owner<ObjectModule*> EditorViewModule::fabricate() { return new EditorViewModule; }
 
 // 0x004E5060
 EditorViewModule::EditorViewModule()
@@ -196,10 +196,7 @@ EditorViewModule::EditorViewModule()
 }
 
 // 0x004E5100 (0x004E59A0 the deleting one)
-EditorViewModule::~EditorViewModule()
-{
-    shadow_handle_.reset();
-}
+EditorViewModule::~EditorViewModule() { shadow_handle_.reset(); }
 
 // 0x004E4ED0
 void EditorViewModule::configure_from_data(script::Struct* params)

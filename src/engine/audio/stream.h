@@ -203,15 +203,15 @@ StreamSlot& music_slot();   // 0x006EDFF4
 // stream's Update - the music's, then the three streams'.
 unsigned long __stdcall stream_thread(void* unused);
 // 0x004531A0: tell the thread to stop and wait for it.
-void __cdecl stop_stream_thread();
+void stop_stream_thread();
 
 // 0x004535E0: the next of a ring of 256 OVERLAPPED blocks (0x0069CBB8) that no stream uses, zeroed.
-_OVERLAPPED* __cdecl new_overlapped();
+_OVERLAPPED* new_overlapped();
 
 // 0x00453670: start-up: the slots emptied, the user soundtracks counted, pcm.wad opened for streaming (kept in
 // 0x0067D7FC), pcm.dat's index of it (checksum, offset, size per entry) loaded and sorted by checksum, and the
 // stream thread started (above normal priority).
-void __cdecl init_platform();
+void init_platform();
 
 // pcm.wad's index (12 bytes each, sorted by checksum).
 struct WadEntry {
@@ -222,46 +222,46 @@ struct WadEntry {
 // 0x004533A0: the index of pcm.wad's entry `checksum` (binary search), -1 if none.
 int find_wad_entry(uint32_t checksum);
 // 0x004533E0: `checksum` if it's a stream in pcm.wad (never for music: 0), else 0.
-uint32_t __cdecl stream_exists(uint32_t checksum, int music);
+uint32_t stream_exists(uint32_t checksum, int music);
 
 // 0x00453250 / 0x00453270: 1 if the music / stream `slot` (-1: any of the three) is free, 2 if playing.
-int __cdecl music_status();
-int __cdecl stream_status(int slot);
+int music_status();
+int stream_status(int slot);
 // 0x00453220 / 0x004531D0: whether the music / stream `slot`'s preload is far enough to start (true if none).
-bool __cdecl music_preload_done();
-bool __cdecl stream_preload_done(int slot);
+bool music_preload_done();
+bool stream_preload_done(int slot);
 // 0x004532C0: pause (or resume) the music (`which` 1; the state is kept for music started later) or the three
 // streams.
-void __cdecl pause_streams(bool pause, int which);
+void pause_streams(bool pause, int which);
 
 // 0x00453940: free the music and streams that finished, failed or were asked to stop. 0.
-int __cdecl update_streams();
+int update_streams();
 
 // The music.
 // 0x00453C20: load music track `checksum` (data\streams\music\<checksum as 8 hex digits>.bik under the
 // platform's root) as a Bink stream played once, at the music volume and paused if the music is: false if
 // music is already loaded or the file won't open.
-bool __cdecl load_music_track(uint32_t checksum);
+bool load_music_track(uint32_t checksum);
 // 0x00453D70: the same for the track named by the file name in `path` (any directories dropped).
-bool __cdecl load_music_track_by_name(const char* path);
+bool load_music_track_by_name(const char* path);
 // 0x00453DB0: load and start music track `checksum` (noted in 0x0069CBA8).
-bool __cdecl start_track_playback(uint32_t checksum);
+bool start_track_playback(uint32_t checksum);
 // 0x00453BF0: start the music loaded (then frees what finished): false if there's none.
-bool __cdecl start_preloaded_music();
+bool start_preloaded_music();
 // 0x00453850: play track `track` of user soundtrack `soundtrack` as a WadStream (there are no user
 // soundtracks on PC: the file never opens, so this is always false - after leaving a WadStream in the music's
 // slot).
-bool __cdecl play_user_track(int soundtrack, int track);
+bool play_user_track(int soundtrack, int track);
 // The file of track `track` of user soundtrack `soundtrack`: none on PC (INVALID_HANDLE_VALUE).
-Hdl __cdecl open_user_track(int soundtrack, int track);
+Hdl open_user_track(int soundtrack, int track);
 // 0x00453AA0: stop the music (freed now, or asked to stop if it can't go yet).
-void __cdecl platform_stop_music();
+void platform_stop_music();
 // 0x00453400: the music's volume (0-100), if music is loaded. 1. (Not SetMusicVolume: music_player.h's front-end call
 // has that name.)
-int __cdecl platform_set_music_volume(float volume);
+int platform_set_music_volume(float volume);
 // 0x00453470: keep the music within 5 frames of `seconds` in (cutscenes) - a Bink stream with a Bink open is
 // assumed.
-void __cdecl sync_music_to_time(float seconds);
+void sync_music_to_time(float seconds);
 
 // The sound streams.
 // A stream's volume: five channel levels (0-100), or the first two as left and right.
@@ -271,28 +271,28 @@ struct StreamGain {
 };
 // 0x00454080: load pcm.wad's entry `checksum` into stream `slot` (free) as a Bink stream played `plays`
 // times (0: once), at `volume` (if given); a preload isn't started (StartPreloadedStream). Two arguments unused.
-bool __cdecl load_stream(uint32_t checksum, int slot, const StreamGain* volume, int unused4, int unused5, bool preload,
-                         int plays);
+bool load_stream(uint32_t checksum, int slot, const StreamGain* volume, int unused4, int unused5, bool preload,
+                 int plays);
 // 0x00454200: load and start stream `checksum` (noted in 0x0069CBAC) in `slot`, played once.
-bool __cdecl play_stream(uint32_t checksum, int slot, int unused);
+bool play_stream(uint32_t checksum, int slot, int unused);
 // 0x00454270: start the stream preloaded in `slot` at `volume`: false if there's none.
-bool __cdecl start_preloaded_stream(int slot, const StreamGain* volume);
+bool start_preloaded_stream(int slot, const StreamGain* volume);
 // 0x00453DF0: stream `slot`'s volume: the levels times the sound effects volume / 100; the slot's volume is
 // their mean (left for two). True.
-bool __cdecl change_stream_loudness(const StreamGain* volume, int slot);
+bool change_stream_loudness(const StreamGain* volume, int slot);
 // 0x00453B30: stop stream `slot` (freed now, or asked to stop if it can't go yet). The second argument is
 // unused.
-void __cdecl halt_stream(int slot, int unused);
+void halt_stream(int slot, int unused);
 // 0x00453BD0: stop all three.
-void __cdecl halt_streams();
+void halt_streams();
 
 // The PC's user soundtracks (none: the count is set to 0 on first use).
 // 0x004542D0: how many.
-int __cdecl user_soundtrack_count();
+int user_soundtrack_count();
 // 0x00454300: soundtrack `index`'s name (wide), null past the count.
-const wchar_t* __cdecl user_soundtrack_name(int index);
+const wchar_t* user_soundtrack_name(int index);
 // 0x00454320: how many tracks soundtrack `index` has, 0 past the count.
-int __cdecl user_soundtrack_tracks(int index);
+int user_soundtrack_tracks(int index);
 
 extern void* g_wad_file;
 extern bool g_bink_sound_set;

@@ -57,41 +57,41 @@ int& dma_pieces();                   // 0x007CE690 the DMA pieces the park's pie
 bool& counts_dirty();                // 0x007CE694 the piece counts need counting again
 
 // 0x0059E100
-memory::Arena* __cdecl get_park_heap();
+memory::Arena* get_park_heap();
 // 0x0059E180: the memory manager's bottom-up heap.
-memory::Arena* __cdecl get_main_heap();
+memory::Arena* get_main_heap();
 // 0x0059E110: all figures 0, no DMA pieces.
-void __cdecl clear_stats();
+void clear_stats();
 // 0x0059E170: the piece counts are counted again at the next get_memory_stats.
-void __cdecl set_counts_dirty();
+void set_counts_dirty();
 // 0x0059E190 / 0x0059E1E0 / 0x0059E130: a piece's DMA pieces (its type's integer in the global structure
 // 0x9547DA8D, 1 if missing) added / taken away (pieces with flag bit 8 don't count; taking away needs bit 2).
-void __cdecl add_piece_dma(const void* piece);
-void __cdecl remove_piece_dma(const void* piece);
-void __cdecl remove_dma(uint32_t segment_kind);
+void add_piece_dma(const void* piece);
+void remove_piece_dma(const void* piece);
+void remove_dma(uint32_t segment_kind);
 // 0x0059E210 / 0x0059E290 / 0x0059E310: the item pools of CMapListNode (12 bytes, 0x007CE5F0), CClipboardEntry
 // (0x18, 0x007CE5C4) and CClipboard (0x18, 0x007CE5B4), made in the current pool slot.
-void __cdecl create_map_list_node_pool(int count, const char* name);
-void __cdecl create_clipboard_entry_pool(int count, const char* name);
-void __cdecl create_clipboard_pool(int count, const char* name);
+void create_map_list_node_pool(int count, const char* name);
+void create_clipboard_entry_pool(int count, const char* name);
+void create_clipboard_pool(int count, const char* name);
 // 0x0059E390: a memory marker of the script (memory_marker-like): note or report the main heap's free memory.
-void __cdecl get_marker(uint32_t marker);
+void get_marker(uint32_t marker);
 // 0x0059E4E0: delete the three pools (those it made), the park heap and its region.
-void __cdecl power_down();
+void power_down();
 // 0x0059E5C0: a memory figure from the script: run the script 0x3CB03619 once with 0x756F5456=<name's
 // checksum> (and 0x7F8C98FE=<index> if index >= 0), then its integer 0x083FDB95.
-int __cdecl get_memory_value(const char* name, int index);
+int get_memory_value(const char* name, int index);
 // 0x0059E730: work out the figures (counting the park's pieces again if they changed) and copy them to `out`.
-MemoryStats* __cdecl get_memory_stats(MemoryStats* out); // (returns out)
+MemoryStats* get_memory_stats(MemoryStats* out); // (returns out)
 // 0x0059EAD0: whether `count` * `size` floor pieces' memory (40000 bytes each) would leave the main heap under 95%
 // used (from the last figures).
-bool __cdecl main_heap_has_room(int count, int size);
+bool main_heap_has_room(int count, int size);
 // 0x0059EB30: whether pieces `first` to `last` (last - first of them) fit: the DMA budget, the park heap and the
 // main heap (floor_piece_size_park / _main each), the main heap left under 90% used.
-bool __cdecl pieces_fit(int first, int last);
+bool pieces_fit(int first, int last);
 // 0x0059EC00: the park heap (park_heap_size, its own region in the top-down heap for the level 0xCD3682C1,
 // else in the bottom-up one) and the three pools in it; figures cleared.
-void __cdecl prepare_all(uint32_t level);
+void prepare_all(uint32_t level);
 
 extern memory::Arena* g_park_heap;
 

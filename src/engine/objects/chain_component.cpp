@@ -121,10 +121,7 @@ float get_rounded(double value) { return static_cast<float>(value); }
 // blend_mode_ written directly.)
 
 // 0x00428280
-ChainLink::ChainLink()
-{
-    line_ptr_ = nullptr;
-}
+ChainLink::ChainLink() { line_ptr_ = nullptr; }
 
 // 0x00428250
 void ChainLink::destroy_body()
@@ -171,7 +168,7 @@ void Chain::update_lines()
 // --- life ---
 
 // 0x004298B0
-memory::owner<ObjectModule*> __cdecl ChainComponent::fabricate() { return new ChainComponent; }
+memory::owner<ObjectModule*> ChainComponent::fabricate() { return new ChainComponent; }
 
 // 0x004296E0
 ChainComponent::ChainComponent()

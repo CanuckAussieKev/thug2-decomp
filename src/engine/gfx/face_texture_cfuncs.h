@@ -13,13 +13,13 @@ class Script;
 // return whether the script's `if` should be taken.
 namespace commands {
 
-bool __cdecl cfunc_load_face_texture_from_profile(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_offset_texture(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_rotate_texture(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_push_texture_to_point(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_apply_rgba_to_texture(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_hs_vto_rgb(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_rg_bto_hsv(script::Struct* params, script::Script* script);
+bool cfunc_load_face_texture_from_profile(script::Struct* params, script::Script* script);
+bool cfunc_set_face_texture_from_video_capture(script::Struct* params, script::Script* script);
+bool cfunc_offset_texture(script::Struct* params, script::Script* script);
+bool cfunc_rotate_texture(script::Struct* params, script::Script* script);
+bool cfunc_push_texture_to_point(script::Struct* params, script::Script* script);
+bool cfunc_apply_rgba_to_texture(script::Struct* params, script::Script* script);
+bool cfunc_hs_vto_rgb(script::Struct* params, script::Script* script);
+bool cfunc_rg_bto_hsv(script::Struct* params, script::Script* script);
 
 } // namespace commands

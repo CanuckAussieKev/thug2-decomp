@@ -95,8 +95,7 @@ inline net::Guest* client_app(void* manager, int index)
 }
 
 // The model's lights' direction setter: their vtable slot 2 with (index, direction). No address of its own: the
-// original calls the tail jump to slot 2 folded at 0x004E3F90 (GameObjects::reapply_from_data). (__fastcall with an unused
-// second argument: the lights in ECX and the two on the stack, popped - the original call's layout.)
-void __fastcall set_lights_direction(void* lights, void* unused, int index, const maths::Vec4* direction);
+// original calls the tail jump to slot 2 folded at 0x004E3F90 (GameObjects::reapply_from_data).
+void set_lights_direction(void* lights, int index, const maths::Vec4* direction);
 
 } // namespace objects::model_nx

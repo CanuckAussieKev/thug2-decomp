@@ -13,8 +13,8 @@ class Script;
 // (params, script) and return whether the script's `if` should be taken.
 namespace commands {
 
-bool __cdecl cfunc_swap_object_models(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_restore_all_swapped_object_models(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script* script);
+bool cfunc_swap_object_models(script::Struct* params, script::Script* script);
+bool cfunc_restore_all_swapped_object_models(script::Struct* params, script::Script* script);
+bool cfunc_get_skater_model_is_swapped(script::Struct* params, script::Script* script);
 
 } // namespace commands

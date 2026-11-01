@@ -50,7 +50,7 @@ struct InboundMsgCtx {
 static_assert(offsetof(InboundMsgCtx, sequences_to_ack_) == 0x1C &&
               offsetof(InboundMsgCtx, num_sequences_to_ack_) == 0x9C && sizeof(InboundMsgCtx) == 0xA4);
 
-using HandlerSlotValue = int(__cdecl*)(InboundMsgCtx* context);
+using HandlerSlotValue = int (*)(InboundMsgCtx* context);
 
 // A message handler (0x20 bytes, from the network heap): an lists::Elem<NoteHandler> (data: itself, priority: the
 // order in its list) with the code, its data and the packet flags it takes.

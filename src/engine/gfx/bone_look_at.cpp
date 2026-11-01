@@ -102,8 +102,7 @@ maths::Vec4* ClampVector::confine(const maths::Vec4* min, const maths::Vec4* max
 }
 
 // 0x00487EE0
-maths::Vec4* __cdecl clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min,
-                                    const maths::Vec4* max)
+maths::Vec4* clamped_vector(maths::Vec4* out, const maths::Vec4* v, const maths::Vec4* min, const maths::Vec4* max)
 {
     ClampVector clamped;
     static_cast<maths::Vec4&>(clamped) = *v;
@@ -114,7 +113,7 @@ maths::Vec4* __cdecl clamped_vector(maths::Vec4* out, const maths::Vec4* v, cons
 
 // 0x00487F40 (each sine and cosine rounded to a float where the original stores it; sin(y) kept at the x87's
 // precision into its two products)
-maths::QuatRotation* __cdecl angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles)
+maths::QuatRotation* angles_to_quat(maths::QuatRotation* out, const maths::Vec4* angles)
 {
     double half_z = angles->z * 0.5;
     double half_y = angles->y * 0.5;
@@ -140,7 +139,7 @@ maths::QuatRotation* __cdecl angles_to_quat(maths::QuatRotation* out, const math
 }
 
 // 0x00488020
-maths::Vec4* __cdecl quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
+maths::Vec4* quat_to_euler(maths::Vec4* out, const maths::QuatRotation* q)
 {
     double asin_argument = -((static_cast<double>(q->x) * q->z - static_cast<double>(q->w) * q->y) * 2.0);
     double y = std::asin(asin_argument);

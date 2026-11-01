@@ -451,9 +451,8 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
         break;
     }
     case kSaveOptionsAndPros: {
-        auto* own =
-            reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(objective_board());
-        Struct* goal_manager_params = nullptr; // (read, not used)
+        Struct* own = objective_board()->goal_data_; // (the shared getter of +0x14)
+        Struct* goal_manager_params = nullptr;       // (read, not used)
         own->read_sub_struct(0x23D4170Au, &goal_manager_params, 0);
         objects::RiderStoryProgress* career = modules::Skate::sole()->career_.get();
         summary->put_int(kTotalScore, career->lifetime_funds_);
@@ -468,14 +467,14 @@ void write_summary(Struct* saved, Struct* summary, uint32_t type)
 }
 
 // 0x005A6120
-void __fastcall apply_goal_manager_params(Struct* saved)
+void apply_goal_manager_params(Struct* saved)
 {
     Struct* params = nullptr;
     saved->read_sub_struct(kGoalManagerParams, &params, 0);
     goals::GoalManager* goal_manager = objective_board();
     goal_manager->reset_goal_data(0); // reset the career (mode 0)
-    // its parameters (a folded getter, +0x14)
-    auto* own = reinterpret_cast<Struct*(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(goal_manager);
+    // its parameters (the shared getter of +0x14)
+    Struct* own = goal_manager->goal_data_;
     own->get_clear();
     own->append_structure_if_any(params);
     goal_manager->restore_goal_data(); // the level's goals loaded

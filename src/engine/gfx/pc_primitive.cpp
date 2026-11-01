@@ -433,7 +433,7 @@ int PcPrimitive::weigh(const Primitive* other_primitive)
 }
 
 // 0x004C5E40
-void __cdecl set_primitive_depth_test(int state, int value)
+void set_primitive_depth_test(int state, int value)
 {
     DWORD function = D3DCMP_LESSEQUAL;
     if (state == 1) {

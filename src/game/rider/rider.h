@@ -236,9 +236,9 @@ public:
 };
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).
-script::Struct* __cdecl get_physics_structure(GameEntity* skater);
+script::Struct* get_physics_structure(GameEntity* skater);
 // 0x00580400 / 0x00580440: a physics value from `skater`'s structure, else the global script value.
-float __cdecl read_tuning_float(uint32_t name, int assert, GameEntity* skater);
-int __cdecl read_tuning_int(uint32_t name, int assert, GameEntity* skater);
+float read_tuning_float(uint32_t name, int assert, GameEntity* skater);
+int read_tuning_int(uint32_t name, int assert, GameEntity* skater);
 
 } // namespace objects

@@ -641,7 +641,7 @@ void Skate::test_rider_contacts()
 }
 
 // 0x00566E70
-bool __cdecl Skate::cfunc_retry(script::Struct*, script::Script*)
+bool Skate::cfunc_retry(script::Struct*, script::Script*)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     sole()->launch_game();
@@ -650,7 +650,7 @@ bool __cdecl Skate::cfunc_retry(script::Struct*, script::Script*)
 }
 
 // 0x00566EA0
-bool __cdecl Skate::cfunc_launch_game(script::Struct*, script::Script*)
+bool Skate::cfunc_launch_game(script::Struct*, script::Script*)
 {
     memory::enter_heap_scope(memory::bottom_up_heap());
     sole()->launch_game();
@@ -659,7 +659,7 @@ bool __cdecl Skate::cfunc_launch_game(script::Struct*, script::Script*)
 }
 
 // 0x00566ED0
-bool __cdecl Skate::cfunc_reset_level(script::Struct*, script::Script* script)
+bool Skate::cfunc_reset_level(script::Struct*, script::Script* script)
 {
     // (the calling script isn't spawned while the level resets: its flag put back after)
     uint8_t spawned = 0;
@@ -785,7 +785,7 @@ bool Skate::kill_script()
 }
 
 // 0x00565DA0 (static): the rails drawn (compiled out: the stub calls stay, with what they were given).
-void __cdecl Skate::debug_rails()
+void Skate::debug_rails()
 {
     Skate* skate = sole();
     if (!skate->debug_rails_)
@@ -843,7 +843,7 @@ frontend::UiWidget* find_element(uint32_t id)
 } // namespace
 
 // 0x00564D30 (an object walk's callback): the object's suspend component told to work out whether it's drawn.
-void __cdecl Skate::update_suspend_visibility(objects::Entity* object, void*)
+void Skate::update_suspend_visibility(objects::Entity* object, void*)
 {
     if (auto* suspend =
             static_cast<objects::DormancyModule*>(static_cast<objects::GameEntity*>(object)->fetch_module(kSuspend)))
@@ -950,7 +950,7 @@ void Skate::run_frame_logic()
 }
 
 // 0x00568C90 (the logic task's code)
-void __cdecl Skate::front_end_tick(tasks::Task<Skate>* task)
+void Skate::front_end_tick(tasks::Task<Skate>* task)
 {
     Skate* skate = task->content_;
     online::Hub* net = net_session_slot();
@@ -992,7 +992,7 @@ Skate::Skate()
     render::engine::change_entity_hub(static_cast<void*>(objects::g_composite_registry));
     career_ = std::make_unique<objects::RiderStoryProgress>();
     rail_manager_ = memory::make_zeroed<objects::GrindRailHub>(); // (0x54 bytes)
-    checksums_ = memory::make_zeroed<objects::ChecksumSet>();       // (0x404 bytes)
+    checksums_ = memory::make_zeroed<objects::ChecksumSet>();     // (0x404 bytes)
     get_trick_objects()->remove_all_clusters();
     level_launched_ = false;
     match_style_ = kFreeskate;

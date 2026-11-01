@@ -137,7 +137,7 @@ Hub::Hub()
 uint32_t g_game_net_references;
 
 // 0x0053F520
-Hub* __cdecl Hub::fabricate(bool create)
+Hub* Hub::fabricate(bool create)
 {
     Hub*& instance = g_online_hub;
     if (!instance && create) {

@@ -31,25 +31,25 @@ static_assert(offsetof(TextureSplats, last) == 0x1C00 && offsetof(TextureSplats,
               "layout must match the original");
 
 // 0x004B7F30: triangle `index` of a set collapsed onto its first vertex (killed).
-void __cdecl collapse_splat_triangle(TextureSplats* splats, int index);
+void collapse_splat_triangle(TextureSplats* splats, int index);
 // 0x004B87B0: each triangle's three vertex colours lit (0x0048F620: from its base colours, at its first vertex's
 // position for all three; RGBA to ARGB).
-void __cdecl light_texture_splats(TextureSplats* splats);
+void light_texture_splats(TextureSplats* splats);
 // 0x004B9200: every set freed (its material too) and taken out of the table.
-void __cdecl kill_all_texture_splats();
+void kill_all_texture_splats();
 // 0x004B92A0: the triangles whose first vertex is in the box (min, then max at +0x10) killed.
-void __cdecl kill_texture_splats_in_box(const float* box);
+void kill_texture_splats_in_box(const float* box);
 // 0x004B9380: every set drawn - each vertex's texture coordinates corrected first about 0.5 by 1 / (r + t (1 - r)),
 // r = A / B and t = (steps - alive) / steps (1 when A - B is 0) - with linear
 // minification (put back after).
-void __cdecl draw_texture_splats();
+void draw_texture_splats();
 
 // 0x004B7FA0: whether segments (a, b) and (c, d) meet (the parameters along each within 0-1 of the denominator; NaN
 // passes, as the original's flag tests).
-bool __cdecl segments_intersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy);
+bool segments_intersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy);
 // 0x004B88D0 (and its jump 0x004B8E30): whether a 2D triangle overlaps the square -1..1 - not wholly to one side,
 // an edge crossing the square's, a vertex inside it, or a corner inside the triangle.
-bool __cdecl triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2);
+bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2);
 
 // The vertex format the splitter works on: the colour's and the texture coordinates' offsets (0: none).
 struct SplitFormat {
@@ -61,7 +61,7 @@ struct SplitFormat {
 // 0x004B8220 (with its body Ghidra split off, 0x004B8232): the next triangle off the vertex stack - split into four
 // (pushed back) when the cross product of its edges, squared, is above the limit (0x0067DDF0: 82944 as loaded; the
 // splat maker sets it for each triangle), else copied to *out (moved past it). False when the stack is empty.
-bool __cdecl split_next_triangle(uint8_t** out, const SplitFormat* format);
+bool split_next_triangle(uint8_t** out, const SplitFormat* format);
 
 // What a splat is made from (create_texture_splat's): a ray from `start` to `end` (the texture projected along it,
 // `size` wide, a square or the distance from `up` high), how far its faces may turn from it (`coneAngle`), how long
@@ -91,12 +91,12 @@ static_assert(offsetof(SplatParams, texture) == 0x34 && offsetof(SplatParams, up
 
 // 0x004B9A60: the splat set for a texture: the table's, or a new one (its material: one pass of the texture, a random
 // checksum - the game's rand() twice -, blend mode 5) put in it.
-TextureSplats* __cdecl get_texture_splats(uint32_t texture);
+TextureSplats* get_texture_splats(uint32_t texture);
 // 0x004B9C30: a splat made on the sectors (a null-terminated array) along the ray: their meshes' strip triangles
 // that face it (within the cone) and fall inside the projection get the texture - split finer where they're big
 // (the pieces inside kept) - into the texture's set's oldest triangles (0x00490CD0). The set, or null if no
 // triangle was hit. `unused` isn't.
-TextureSplats* __cdecl create_texture_splat(void** sectors, int unused, SplatParams* params);
+TextureSplats* create_texture_splat(void** sectors, int unused, SplatParams* params);
 
 extern float g_split_area_limit;
 

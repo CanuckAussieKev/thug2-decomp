@@ -70,11 +70,11 @@ public:
     enum PhysicsMode : int { kSkating = 0, kWalking = 1 };
 
     // 0x00519740 (registered by register_component_types): a new one (0 if out of memory), no powerups.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderPoseState();
     // 0x00519430 (registered with Create): its script member functions (the table at 0x00684A80) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00519450: the destructor body (the base's).
     ~RiderPoseState() override;
     int invoke_method(script::MemberFunctionEntry* entry, script::Struct* params, script::Script* script) override

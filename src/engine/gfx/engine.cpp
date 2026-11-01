@@ -96,7 +96,7 @@ inline void debug_before_delete() {}
 namespace engine {
 
 // 0x0048C1D0
-void __cdecl prepare_all(uint32_t text_pool_size)
+void prepare_all(uint32_t text_pool_size)
 {
     memory::push_mem_profile("sAllocTextPool");
     allocate_text_pool(text_pool_size);
@@ -125,14 +125,14 @@ void __cdecl prepare_all(uint32_t text_pool_size)
 }
 
 // 0x0048BF20
-void __cdecl end_render()
+void end_render()
 {
     finish_rendering();
     purge_doomed_cameras();
 }
 
 // 0x0048C330
-void __cdecl render_frame()
+void render_frame()
 {
     update_flashes();
     update_spawned_polys();
@@ -148,13 +148,13 @@ void __cdecl render_frame()
 }
 
 // 0x0048C0A0
-void __cdecl change_entity_hub(void* manager) { g_scene_objects = manager; }
+void change_entity_hub(void* manager) { g_scene_objects = manager; }
 
 // 0x0048C0B0
-uint32_t* __cdecl get_collision_scenes() { return reinterpret_cast<uint32_t*>(g_collision_scenes); }
+uint32_t* get_collision_scenes() { return reinterpret_cast<uint32_t*>(g_collision_scenes); }
 
 // 0x0048C0D0
-void __cdecl toggle_render_mode()
+void toggle_render_mode()
 {
     int& mode = g_render_mode;
     if (++mode == 4)
@@ -162,24 +162,24 @@ void __cdecl toggle_render_mode()
 }
 
 // 0x0048C0F0
-void __cdecl toggle_metrics()
+void toggle_metrics()
 {
     bool& on = g_stats_overlay_on;
     on = !on;
 }
 
 // 0x0048C110
-void __cdecl set_render_ignore(int ignore1, int ignore0)
+void set_render_ignore(int ignore1, int ignore0)
 {
     g_render_ignore0 = ignore0;
     g_render_ignore1 = ignore1;
 }
 
 // 0x0048C1C0
-IdleFunction __cdecl get_idle_function() { return g_idle_function; }
+IdleFunction get_idle_function() { return g_idle_function; }
 
 // 0x0048BFE0
-bool __cdecl split_skin_name(const char* name, char* base)
+bool split_skin_name(const char* name, char* base)
 {
     std::strcpy(base, name);
     char* skin = std::strstr(base, ".skin");
@@ -192,8 +192,8 @@ bool __cdecl split_skin_name(const char* name, char* base)
 }
 
 // 0x0048C030
-void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin,
-                                     size_t skin_size, void* textures, int, uint32_t, uint32_t)
+void* load_model_from_memory(uint32_t checksum, const uint8_t* data, int size, const void* skin, size_t skin_size,
+                             void* textures, int, uint32_t, uint32_t)
 {
     memory::push_mem_profile("model_data_buffer");
     void* model = load_mesh_from_memory(checksum, data, static_cast<size_t>(size), skin, skin_size, textures);
@@ -202,13 +202,13 @@ void* __cdecl load_model_from_memory(uint32_t checksum, const uint8_t* data, int
 }
 
 // 0x0048C390
-void __cdecl build_scene_file_path(char* out, const char* name, uint32_t)
+void build_scene_file_path(char* out, const char* name, uint32_t)
 {
     std::sprintf(out, kSceneFileFormat, name, name, "", platform_suffix());
 }
 
 // 0x0048C3D0
-void* __cdecl load_model_file(const char* file_name, void* textures, int, bool)
+void* load_model_file(const char* file_name, void* textures, int, bool)
 {
     char base[0x200];
     bool skinned = split_skin_name(file_name, base);
@@ -224,7 +224,7 @@ void* __cdecl load_model_file(const char* file_name, void* textures, int, bool)
 }
 
 // 0x0048C490
-int __cdecl sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
+int sphere_visible_in_one_viewport(const maths::Vec4* centre, float radius)
 {
     if (viewport_count() > 1)
         return 0;
@@ -232,7 +232,7 @@ int __cdecl sphere_visible_in_one_viewport(const maths::Vec4* centre, float radi
 }
 
 // 0x0048C510
-void* __cdecl look_up_sector(uint32_t checksum)
+void* look_up_sector(uint32_t checksum)
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
@@ -244,7 +244,7 @@ void* __cdecl look_up_sector(uint32_t checksum)
 }
 
 // 0x0048C560
-void __cdecl add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
+void add_scene(WorldScene* scene, const char* name, void* textures, bool loaded, void* arena)
 {
     char file[0x80];
     std::sprintf(file, kSceneFileFormat, name, name, "", platform_suffix());
@@ -264,7 +264,7 @@ void __cdecl add_scene(WorldScene* scene, const char* name, void* textures, bool
 }
 
 // 0x0048C650
-void __cdecl toggle_add_scenes()
+void toggle_add_scenes()
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);
@@ -274,7 +274,7 @@ void __cdecl toggle_add_scenes()
 }
 
 // 0x0048C690
-bool __cdecl unload_scene(WorldScene* scene, int /*flags*/)
+bool unload_scene(WorldScene* scene, int /*flags*/)
 {
     debug_before_delete();
     scene->unload_added_scene();
@@ -293,7 +293,7 @@ bool __cdecl unload_scene(WorldScene* scene, int /*flags*/)
 }
 
 // 0x0048C700
-WorldScene* __cdecl find_scene(uint32_t checksum)
+WorldScene* find_scene(uint32_t checksum)
 {
     for (memory::ListNode* node = first_scene(); node;) {
         memory::ListNode* next = next_scene(node);

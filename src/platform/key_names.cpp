@@ -52,7 +52,7 @@ void assign_value(const KeyName (&names)[N])
 } // namespace
 
 // 0x004E0DA0
-void __cdecl set_key_names()
+void set_key_names()
 {
     assign_value(kBefore);
     assign_value(kKeypad);
@@ -60,7 +60,7 @@ void __cdecl set_key_names()
 }
 
 // 0x004E0FE0
-void __cdecl set_german_key_names()
+void set_german_key_names()
 {
     assign_value(kBefore);
     assign_value(kGermanKeypad);

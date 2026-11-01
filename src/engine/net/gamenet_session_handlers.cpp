@@ -128,7 +128,7 @@ bool goal_running(uint8_t* goal) { return reinterpret_cast<goals::Objective*>(go
 } // namespace
 
 // 0x0052DD40
-int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
+int on_server_query_msg(net::InboundMsgCtx* context)
 {
     PlayerSearch players;
     NewPlayerSearch new_players;
@@ -203,7 +203,7 @@ int __cdecl on_server_query_msg(net::InboundMsgCtx* context)
 }
 
 // 0x005301A0
-int __cdecl handle_host_options(net::InboundMsgCtx* context)
+int handle_host_options(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     auto* host = manager->get_host_player(); // (the host's own player)
@@ -365,7 +365,7 @@ int __cdecl handle_host_options(net::InboundMsgCtx* context)
 uint32_t g_level_change_time;
 
 // 0x005311F0
-int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
+int on_level_switch_msg(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is dropped)
@@ -406,7 +406,7 @@ int __cdecl on_level_switch_msg(net::InboundMsgCtx* context)
 }
 
 // 0x005313C0
-int __cdecl handle_start_game(net::InboundMsgCtx* context)
+int handle_start_game(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
     memory::Hub* memory = memory::Hub::get_pull();
@@ -515,7 +515,7 @@ int __cdecl handle_start_game(net::InboundMsgCtx* context)
 }
 
 // 0x00532460
-int __cdecl handle_send_game_state(net::InboundMsgCtx* context)
+int handle_send_game_state(net::InboundMsgCtx* context)
 {
     net::Hub* net = net::Hub::sole();
     uint8_t* skate = get_skate();

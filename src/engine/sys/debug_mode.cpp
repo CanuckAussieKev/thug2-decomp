@@ -77,12 +77,12 @@ bool& is_switched_on()
     return on;
 }
 
-bool __cdecl cfunc_cd(script::Struct* /*params*/, script::Script* script)
+bool cfunc_cd(script::Struct* /*params*/, script::Script* script)
 {
     return !is_switched_on() || is_startup_script(script); // (the original: true - 0x005B9760)
 }
 
-bool __cdecl cfunc_not_cd(script::Struct* /*params*/, script::Script* script)
+bool cfunc_not_cd(script::Struct* /*params*/, script::Script* script)
 {
     return !cfunc_cd(nullptr, script); // (the original: false - 0x005B9E50)
 }

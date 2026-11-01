@@ -182,7 +182,7 @@ static_assert(offsetof(EditedGoal, kind_tag_) == 0x114 && offsetof(EditedGoal, p
 // structures 0x8F0F67D7 / 0xC9119673 / 0x000B52B3, numbered from *index) on `heap`: into `nodes` from *index
 // (the structures already there) - or, without `nodes`, added to the node manager's last node array (grown by 0x82)
 // and hashed. ("Inserting Goal Editor Nodes")
-void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap);
+void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap);
 
 // The goal editor component ("goaleditor", type 0x81F01058, vtable 0x0064B534, 0xA114 bytes; made by 0x004EB7F0) of
 // the permanent object GoalEditor: every created goal of every level (50 slots), the one being edited, and the
@@ -194,9 +194,9 @@ void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Are
 class ObjectiveAuthoring final : public objects::ObjectModule {
 public:
     // 0x004EB7F0: a new one (0 if out of memory).
-    static memory::owner<objects::ObjectModule*> __cdecl fabricate();
+    static memory::owner<objects::ObjectModule*> fabricate();
     // 0x004E6FB0 (not a Ghidra function): its script member functions (the table at 0x00684270) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x004EA230: its type, every goal's defaults (the array constructor with
     // 0x004E93C0), the goals cleared; no input or camera yet.
     ObjectiveAuthoring();
@@ -220,7 +220,7 @@ public:
     bool get_edited_goals_info(script::Struct* params, script::Script* script);
 
     // 0x004E8470: the goal editor (the object GoalEditor's component).
-    static ObjectiveAuthoring* __cdecl get_pull();
+    static ObjectiveAuthoring* get_pull();
 
     // 0x004E7BE0: the current level's goal named `name` (view_goals_text, any case), or null.
     EditedGoal* find_goal_by_name(const char* name);

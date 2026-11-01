@@ -47,7 +47,7 @@ bool& loading_screen_shown() { return reinterpret_cast<bool&>(g_loading_screen_s
 float g_loading_bar_seconds;
 
 // 0x00490770
-void __cdecl set_loading_bar_time(float seconds)
+void set_loading_bar_time(float seconds)
 {
     if (seconds <= 0.0f) // (NaN: started)
         return;
@@ -57,43 +57,43 @@ void __cdecl set_loading_bar_time(float seconds)
 }
 
 // 0x004907A0
-bool __cdecl cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_pos(script::Struct* params, script::Script* /*script*/)
 {
     return choose_pair(params, 0x7323E97Cu, 0x0424D9EAu, g_bar_position[0], g_bar_position[1]);
 }
 
 // 0x004907F0
-bool __cdecl cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_size(script::Struct* params, script::Script* /*script*/)
 {
     return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_progress_width, g_progress_height);
 }
 
 // 0x00490840
-bool __cdecl cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_border(script::Struct* params, script::Script* /*script*/)
 {
     return choose_pair(params, 0x73E5BAD0u, 0x0AB21AF0u, g_bar_border[0], g_bar_border[1]);
 }
 
 // 0x004908E0
-bool __cdecl cfunc_set_loading_bar_start_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_start_color(script::Struct* params, script::Script* /*script*/)
 {
     return change_colour(params, g_progress_from_color);
 }
 
 // 0x00490960
-bool __cdecl cfunc_set_loading_bar_end_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_end_color(script::Struct* params, script::Script* /*script*/)
 {
     return change_colour(params, g_progress_to_color);
 }
 
 // 0x004909E0
-bool __cdecl cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_loading_bar_border_color(script::Struct* params, script::Script* /*script*/)
 {
     return change_colour(params, g_progress_edge_color);
 }
 
 // 0x00490890
-void __cdecl display_loading_screen(const char* name, bool keep, bool black)
+void display_loading_screen(const char* name, bool keep, bool black)
 {
     free_loading_screen_sprite();
     show_loading_screen(name, keep, black);
@@ -101,7 +101,7 @@ void __cdecl display_loading_screen(const char* name, bool keep, bool black)
 }
 
 // 0x004908C0
-void __cdecl remove_loading_screen()
+void remove_loading_screen()
 {
     hide_loading_screen();
     free_loading_screen_sprite();

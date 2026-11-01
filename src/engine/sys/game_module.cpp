@@ -101,7 +101,7 @@ void Hub::halt_every_module()
 }
 
 // 0x0044F440
-void __cdecl Hub::tick_modules(tasks::Task<Hub>* task)
+void Hub::tick_modules(tasks::Task<Hub>* task)
 {
     Hub* manager = task->content_;
     if (!manager->command_pending_)

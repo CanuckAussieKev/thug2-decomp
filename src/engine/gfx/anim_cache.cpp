@@ -109,7 +109,7 @@ void free_data(AnimCacheEntry* entry)
 // --- the slots ---
 
 // 0x00480A70
-void __cdecl AnimCacheSlot::dealloc(AnimCacheSlot* slot) { slot_pools().dealloc(slot); }
+void AnimCacheSlot::dealloc(AnimCacheSlot* slot) { slot_pools().dealloc(slot); }
 
 void AnimCacheSlot::get_clear()
 {
@@ -262,7 +262,7 @@ uint16_t* AnimCacheEntry::get_rotation_offsets() { return rotation_offsets_; }
 uint16_t* AnimCacheEntry::get_translation_offsets() { return translation_offsets_; }
 
 // 0x00480640
-void AnimCacheEntry::set_release_callback(void(__cdecl* callback)(void*), void* arg)
+void AnimCacheEntry::set_release_callback(void (*callback)(void*), void* arg)
 {
     release_callback_ = callback;
     release_arg_ = arg;
@@ -271,10 +271,10 @@ void AnimCacheEntry::set_release_callback(void(__cdecl* callback)(void*), void* 
 // --- the cache ---
 
 // 0x00480660
-ClipStore* __cdecl ClipStore::get_pull() { return get_cache(); }
+ClipStore* ClipStore::get_pull() { return get_cache(); }
 
 // 0x00480D10
-void __cdecl ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int type)
+void ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int type)
 {
     if (get_cache())
         return;
@@ -296,7 +296,7 @@ void __cdecl ClipStore::fabricate(uint32_t heap_size, uint32_t granularity, int 
 }
 
 // 0x00481340
-void __cdecl ClipStore::teardown()
+void ClipStore::teardown()
 {
     if (ClipStore* cache = get_cache()) {
         cache->destroy_body();
@@ -307,7 +307,7 @@ void __cdecl ClipStore::teardown()
 }
 
 // 0x00480940
-uint32_t __cdecl ClipStore::heap_available()
+uint32_t ClipStore::heap_available()
 {
     push_anim_heap();
     uint32_t available = hub()->obtainable();

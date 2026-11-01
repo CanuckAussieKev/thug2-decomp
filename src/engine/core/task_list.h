@@ -44,7 +44,7 @@ public:
 template <typename Owner>
 class Task final : public SchedulerTask {
 public:
-    using Code = void(__cdecl*)(Task* task);
+    using Code = void (*)(Task* task);
 
     Task(Code code, Owner* owner, int priority) : SchedulerTask(priority), code_value_(code), content_(owner) {}
 

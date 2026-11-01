@@ -75,10 +75,10 @@ void change_model_enabled(uint8_t* model, bool active)
 } // namespace
 
 // 0x00434290
-memory::owner<ObjectModule*> __cdecl DormancyModule::fabricate() { return new DormancyModule; }
+memory::owner<ObjectModule*> DormancyModule::fabricate() { return new DormancyModule; }
 
 // 0x00434610
-void __cdecl DormancyModule::publish_method_table()
+void DormancyModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_suspend_component_member_functions, 0x18);
     create_suspend_task();
@@ -231,7 +231,7 @@ bool DormancyModule::obj_reset_no_suspend_count(script::Struct* /*params*/, scri
 }
 
 // 0x00433E20
-void __cdecl next_suspend_frame()
+void next_suspend_frame()
 {
     int previous = frame_count();
     int frame = previous + 1;
@@ -249,14 +249,14 @@ SuspendTaskHolder::SuspendTaskHolder()
 }
 
 // 0x004345B0
-void __cdecl create_suspend_task()
+void create_suspend_task()
 {
     void* memory = memory::alloc_zeroed(sizeof(SuspendTaskHolder));
     g_suspend_task_holder = memory ? new (memory) SuspendTaskHolder : nullptr;
 }
 
 // 0x00434420
-void __cdecl suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
+void suspend_task(tasks::Task<SuspendTaskHolder>* /*task*/)
 {
     // The camera the distances are measured from: the skate module's (a flag that turns the checks off, then the
     // position).

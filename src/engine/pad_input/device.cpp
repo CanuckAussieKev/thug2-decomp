@@ -805,7 +805,7 @@ void process_all(memory::ListNode* devices)
 } // namespace
 
 // 0x005BE140
-void __cdecl process_task(tasks::Task<memory::ListNode>* task) { process_all(task->content_); }
+void process_task(tasks::Task<memory::ListNode>* task) { process_all(task->content_); }
 
 // 0x005BE3F0
 void Hub::poll_pads() { process_all(&devs_); }

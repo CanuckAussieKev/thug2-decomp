@@ -12,12 +12,12 @@ namespace render {
 
 // 0x004DD7F0: once - the fixed shaders (with pixel shader support; else stand-in numbers 1-10 for the stand-in
 // texture stages) and the shadow caster table.
-void __cdecl compile_pixel_shaders();
+void compile_pixel_shaders();
 // 0x004DD2C0: the shader for a material's passes (+8 the count, +0x80 their blend modes): from the cache, or
 // written out, assembled and cached.
-void* __cdecl generated_pixel_shader(const void* material);
+void* generated_pixel_shader(const void* material);
 // 0x004DDC00: the shader a material draws with, into *shader: a fixed one for one pass, else generated.
-void __cdecl material_pixel_shader(const void* material, void** shader);
+void material_pixel_shader(const void* material, void** shader);
 
 extern lists::KeyMap* g_shadow_casters;
 

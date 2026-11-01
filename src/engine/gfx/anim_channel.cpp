@@ -718,7 +718,7 @@ void BlendChannel::set_anim_tags(uint32_t anim)
 }
 
 // 0x0047EB30
-void __cdecl BlendChannel::init_buffers(int blends, int subsets)
+void BlendChannel::init_buffers(int blends, int subsets)
 {
     max_blends() = blends;
     get_subsets() = subsets;

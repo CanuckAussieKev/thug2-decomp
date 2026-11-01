@@ -2572,12 +2572,12 @@ bool pass_pause_key(bool down)
 
 // (offline only, outside career-type modes: no LEVEL EDITOR in a network session or in story / classic... -
 // level_editor_layout.h)
-bool __cdecl cfunc_available(script::Struct*, script::Script*)
+bool cfunc_available(script::Struct*, script::Script*)
 {
     return is_switched_on() && render::current_level() != 0 && !layout::get_refused();
 }
 
-bool __cdecl cfunc_start(script::Struct*, script::Script*)
+bool cfunc_start(script::Struct*, script::Script*)
 {
     if (!is_switched_on()) {
         get_log("level editor: off ([features] level_editor=0)");
@@ -2731,7 +2731,7 @@ void place_skater_below_camera()
 
 } // namespace
 
-bool __cdecl cfunc_stop(script::Struct*, script::Script*)
+bool cfunc_stop(script::Struct*, script::Script*)
 {
     if (!g_active)
         return true;

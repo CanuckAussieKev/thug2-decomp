@@ -50,7 +50,7 @@ constexpr uint8_t kMsgHuntStarted = 0x93;
 using online::kMsgBoardVehicle; // BroadcastEnterVehicle: the skater and the control type
 constexpr uint8_t kMsgObjectPlacements = online::kMsgHuntPlacements; // a player's placed objects (from the server) /
                                                                      // one placed (to it)
-using online::kMsgProjectile; // BroadcastProjectile
+using online::kMsgProjectile;                                        // BroadcastProjectile
 constexpr uint8_t kGroupGame = 8;
 
 Hub* net_session_slot() { return online::g_online_hub; }
@@ -90,7 +90,7 @@ void announce_to_players(uint8_t id, bool remote_only)
 
 // 0x005B1EE0: PlaceObject pos=(x,y,z): an object placed by the script's skater's player: index, the number placed
 // before, and the position kept. False without an object or a player.
-bool __cdecl cfunc_place_object(script::Struct* params, script::Script* script)
+bool cfunc_place_object(script::Struct* params, script::Script* script)
 {
     online::PlayerRecord* player = script_player(script);
     if (!player)
@@ -103,21 +103,21 @@ bool __cdecl cfunc_place_object(script::Struct* params, script::Script* script)
 }
 
 // 0x005B1F70: AnnounceHuntStarted: the hunt-started message to every remote player. Always true.
-bool __cdecl cfunc_announce_hunt_started(script::Struct*, script::Script*)
+bool cfunc_announce_hunt_started(script::Struct*, script::Script*)
 {
     announce_to_players(kMsgHuntStarted, true);
     return true;
 }
 
 // 0x005B2030: AnnounceNeedToPlaceObjects: the need-to-place-objects message to every player. Always true.
-bool __cdecl cfunc_announce_need_to_place_objects(script::Struct*, script::Script*)
+bool cfunc_announce_need_to_place_objects(script::Struct*, script::Script*)
 {
     announce_to_players(kMsgNeedToPlaceObjects, false);
     return true;
 }
 
 // 0x005B20E0: AtLeastOneObjectPlaced: whether a player (observers not counted) has placed an object.
-bool __cdecl cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
+bool cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     online::detail::PlayerSearch search;
@@ -131,7 +131,7 @@ bool __cdecl cfunc_at_least_one_object_placed(script::Struct*, script::Script*)
 
 // 0x005B2170: ReportObjectPickup colObjId=<n> id=<object>: the picked-up message (the id) to the server through
 // client 0 online, otherwise through the client numbered colObjId (as the original does). Always true.
-bool __cdecl cfunc_report_object_pickup(script::Struct* params, script::Script*)
+bool cfunc_report_object_pickup(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     net::NetMessageInfo desc;
@@ -152,7 +152,7 @@ bool __cdecl cfunc_report_object_pickup(script::Struct* params, script::Script*)
 
 // 0x005B2210: PlacedLessThan <n>: whether the script's skater's player has placed fewer than n objects. False without
 // an object or a player.
-bool __cdecl cfunc_placed_less_than(script::Struct* params, script::Script* script)
+bool cfunc_placed_less_than(script::Struct* params, script::Script* script)
 {
     int count = 0; // (uninitialised in the original without n)
     params->fetch_int_value(0u, &count, 0);
@@ -164,7 +164,7 @@ bool __cdecl cfunc_placed_less_than(script::Struct* params, script::Script* scri
 
 // 0x005B2260: BroadcastEnterVehicle SkaterId=<n> control_type=<type>: the enter-vehicle message (the skater's id as
 // a byte, the control type) to the server through client 0, if there is one. Always true.
-bool __cdecl cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
+bool cfunc_broadcast_enter_vehicle(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     uint32_t skater;
@@ -193,7 +193,7 @@ bool __cdecl cfunc_broadcast_enter_vehicle(script::Struct* params, script::Scrip
 // 0x005B2300: LobbyCheckKeyboard: a space typed (the first character waiting) opens the lobby's keyboard chat
 // (lobby_enter_kb_chat, the typed characters cleared) unless the keyboard_anchor object is already there. Always
 // true.
-bool __cdecl cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
+bool cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 {
     char typed[256];
     if (sio::get_keyboard_chars(typed) > 0 && typed[0] == ' ') {
@@ -211,7 +211,7 @@ bool __cdecl cfunc_lobby_check_keyboard(script::Struct*, script::Script*)
 // 0x005B4F80: BroadcastObjectPlacements: every player's placed objects sent to every other player (not observers):
 // for each player (observers too) a message per other player - its object id byte, the count and the positions
 // (the rest of the 5 left as they were from the last one). Always true.
-bool __cdecl cfunc_broadcast_object_placements(script::Struct*, script::Script*)
+bool cfunc_broadcast_object_placements(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     online::detail::PlayerSearch others;
@@ -251,7 +251,7 @@ bool __cdecl cfunc_broadcast_object_placements(script::Struct*, script::Script*)
 
 // 0x005B50F0: ReportObjectPlacement ObjId=<n> pos=(x,y,z): the placement message (the position) to the server through
 // client 0 online, otherwise through the client numbered by ObjId (as the original does). Always true.
-bool __cdecl cfunc_report_object_placement(script::Struct* params, script::Script*)
+bool cfunc_report_object_placement(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     uint32_t client = 0; // (both uninitialised in the original when missing)
@@ -277,7 +277,7 @@ bool __cdecl cfunc_report_object_placement(script::Struct* params, script::Scrip
 
 // 0x005B51B0: BroadcastProjectile ObjId=<n> type= ammo_type= pos= vel= scale= radius=: the projectile message to the
 // server through client 0, if there is one. Always true.
-bool __cdecl cfunc_broadcast_projectile(script::Struct* params, script::Script*)
+bool cfunc_broadcast_projectile(script::Struct* params, script::Script*)
 {
     net::AppHost* client = net_session_slot()->fetch_patron(0);
     if (!client)

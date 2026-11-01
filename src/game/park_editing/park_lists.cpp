@@ -52,7 +52,7 @@ MapListNode* MapListNode::fabricate()
 
 void MapListNode::dealloc(void* node) { node_pools().dealloc(node); }
 
-void __fastcall MapListNode::free_node_chain(MapListNode* list)
+void MapListNode::free_node_chain(MapListNode* list)
 {
     MapListNode* node = list;
     while (node) {

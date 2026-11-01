@@ -117,7 +117,7 @@ void set_up_stream(Stream& stream, uint32_t checksum, int option)
 } // namespace
 
 // 0x00451010
-void __cdecl freeze_stream(int pause)
+void freeze_stream(int pause)
 {
     if (!streams_on())
         return;
@@ -139,7 +139,7 @@ void __cdecl freeze_stream(int pause)
 }
 
 // 0x00451620
-bool __cdecl load_stream_header(const char* name)
+bool load_stream_header(const char* name)
 {
     if (!streams_on())
         return false;
@@ -149,10 +149,10 @@ bool __cdecl load_stream_header(const char* name)
 }
 
 // 0x00451660
-bool __cdecl is_stream_playing(uint32_t id) { return streams_on() && find_playing_stream(id) >= 0; }
+bool is_stream_playing(uint32_t id) { return streams_on() && find_playing_stream(id) >= 0; }
 
 // 0x004516A0
-StreamAmpCurve* __cdecl load_stream_frame_amp(uint32_t checksum)
+StreamAmpCurve* load_stream_frame_amp(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
         if (frame_amps()[i].checksum == 0)
@@ -161,7 +161,7 @@ StreamAmpCurve* __cdecl load_stream_frame_amp(uint32_t checksum)
 }
 
 // 0x004516E0
-StreamAmpCurve* __cdecl fetch_stream_amp_curve(uint32_t checksum)
+StreamAmpCurve* fetch_stream_amp_curve(uint32_t checksum)
 {
     for (int i = 0; i < kFrameAmps; ++i)
         if (frame_amps()[i].checksum == checksum)
@@ -170,7 +170,7 @@ StreamAmpCurve* __cdecl fetch_stream_amp_curve(uint32_t checksum)
 }
 
 // 0x00451720
-bool __cdecl free_stream_frame_amp(uint32_t checksum)
+bool free_stream_frame_amp(uint32_t checksum)
 {
     StreamAmpCurve* slot = fetch_stream_amp_curve(checksum);
     if (!slot || slot->checksum == 0)
@@ -181,8 +181,8 @@ bool __cdecl free_stream_frame_amp(uint32_t checksum)
 }
 
 // 0x00451770
-int __cdecl start_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
-                         bool preload)
+int start_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
+                 bool preload)
 {
     if (!streams_on())
         return -1;
@@ -229,7 +229,7 @@ int __cdecl start_stream(uint32_t checksum, const void* volume, float pitch, int
 }
 
 // 0x00451960
-uint32_t __cdecl play_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id)
+uint32_t play_stream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id)
 {
     if (!streams_on() || streams_blocked() || streaming_halted())
         return 0;
@@ -247,7 +247,7 @@ uint32_t __cdecl play_stream(uint32_t checksum, const void* volume, float pitch,
 }
 
 // 0x00451A50
-uint32_t __cdecl prime_stream(uint32_t checksum, int priority)
+uint32_t prime_stream(uint32_t checksum, int priority)
 {
     if (!streams_on())
         return 0;
@@ -267,7 +267,7 @@ uint32_t __cdecl prime_stream(uint32_t checksum, int priority)
 }
 
 // 0x00451B80
-bool __cdecl add_stream(uint32_t stream, uint32_t name, void* owner)
+bool add_stream(uint32_t stream, uint32_t name, void* owner)
 {
     if (!streams_on())
         return false;
@@ -295,8 +295,8 @@ bool __cdecl add_stream(uint32_t stream, uint32_t name, void* owner)
 }
 
 // 0x00451E20
-uint32_t __cdecl play_stream_at_object(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
-                                       int option, int priority, int use_pos_info, int falloff_curve, uint32_t id)
+uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff, float volume, float pitch, int option,
+                               int priority, int use_pos_info, int falloff_curve, uint32_t id)
 {
     sound::AudioMixer* manager = sound_manager();
     if (sound_off_requested(manager) || !streams_on())

@@ -144,10 +144,10 @@ bool line_collides(const maths::Vec4& start, const maths::Vec4& end)
 }
 
 // 0x004E39E0
-memory::owner<ObjectModule*> __cdecl ObstacleDodgeModule::fabricate() { return new ObstacleDodgeModule; }
+memory::owner<ObjectModule*> ObstacleDodgeModule::fabricate() { return new ObstacleDodgeModule; }
 
 // 0x004E3310
-void __cdecl ObstacleDodgeModule::publish_method_table()
+void ObstacleDodgeModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kAvoid), g_avoid_member_functions, 0x18);
 }

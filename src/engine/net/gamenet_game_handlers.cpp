@@ -118,7 +118,7 @@ void cancel_join(Hub* manager, bool notify_first)
 } // namespace
 
 // 0x0052DB80
-int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
+int on_player_added_msg(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short for its header is dropped - the original read
@@ -133,9 +133,9 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
     std::memset(info->label_, 0, sizeof(info->label_));
     std::memcpy(info->label_, arrived.name, strnlen(arrived.name, 15));
     info->entity_key_ = static_cast<uint8_t>(arrived.object_id); // the object id
-    info->conn_ = nullptr;                                         // the connection
-    info->flag_bits_ = arrived.flags;                              // flags
-    info->team_ = arrived.team;                                    // the team
+    info->conn_ = nullptr;                                       // the connection
+    info->flag_bits_ = arrived.flags;                            // flags
+    info->team_ = arrived.team;                                  // the team
     info->profile_id_ = arrived.profile_id;
     info->skill_points_ = arrived.rating;
     info->accumulated_score_ = arrived.accumulated_score;
@@ -155,11 +155,11 @@ int __cdecl on_player_added_msg(net::InboundMsgCtx* context)
         delay = 10;
     }
     manager->add_joining_player(info, delay); // the new player (added in `delay` frames)
-    return kContinue; // (the record's destructor on the way out)
+    return kContinue;                         // (the record's destructor on the way out)
 }
 
 // 0x0052E870
-int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
+int handle_crown_spawn(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     util::ByteReader reader(context->body_, context->body_size_);
@@ -209,7 +209,7 @@ int __cdecl handle_crown_spawn(net::InboundMsgCtx* context)
 }
 
 // 0x005300C0
-int __cdecl handle_fcfs_notice(net::InboundMsgCtx* context)
+int handle_fcfs_notice(net::InboundMsgCtx* context)
 {
     PlayerRecord* local = find_own_player_record(manager_of(context));
     util::ByteReader reader(context->body_, context->body_size_);
@@ -225,7 +225,7 @@ int __cdecl handle_fcfs_notice(net::InboundMsgCtx* context)
 }
 
 // 0x00530CB0
-int __cdecl handle_flag_returned(net::InboundMsgCtx* context)
+int handle_flag_returned(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     util::ByteReader reader(context->body_, context->body_size_);
@@ -253,7 +253,7 @@ int __cdecl handle_flag_returned(net::InboundMsgCtx* context)
 }
 
 // 0x00530E50
-int __cdecl handle_rails_data(net::InboundMsgCtx* context)
+int handle_rails_data(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     Hub* manager = manager_of(context);
@@ -281,7 +281,7 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
 }
 
 // 0x00530FF0
-int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
+int on_goal_sync_msg(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
@@ -312,7 +312,7 @@ int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052E760
-int __cdecl on_crown_change_msg(net::InboundMsgCtx* context)
+int on_crown_change_msg(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
     const uint8_t id = reader.u8();
@@ -348,7 +348,7 @@ int __cdecl on_crown_change_msg(net::InboundMsgCtx* context)
 }
 
 // 0x00531950
-int __cdecl handle_selected_goals(net::InboundMsgCtx* context)
+int handle_selected_goals(net::InboundMsgCtx* context)
 {
     const uint8_t* msg = get_message(context);
     uint8_t* goals = objective_board();
@@ -372,7 +372,7 @@ int __cdecl handle_selected_goals(net::InboundMsgCtx* context)
 }
 
 // 0x00531A80
-int __cdecl handle_joined_team(net::InboundMsgCtx* context)
+int handle_joined_team(net::InboundMsgCtx* context)
 {
     PlayerSearch search;
     Hub* manager = manager_of(context);
@@ -417,7 +417,7 @@ int __cdecl handle_joined_team(net::InboundMsgCtx* context)
 }
 
 // 0x00531C80
-int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
+int handle_goal_completed(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
     GoalMessage message;
@@ -489,7 +489,7 @@ int __cdecl handle_goal_completed(net::InboundMsgCtx* context)
 }
 
 // 0x00531F10
-int __cdecl handle_goal_started(net::InboundMsgCtx* context)
+int handle_goal_started(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
     GoalMessage message;
@@ -514,7 +514,7 @@ int __cdecl handle_goal_started(net::InboundMsgCtx* context)
 }
 
 // 0x00532280
-int __cdecl handle_eliminated(net::InboundMsgCtx* context)
+int handle_eliminated(net::InboundMsgCtx* context)
 {
     if (context->type_code_ != kMsgEliminated)
         return kContinue;
@@ -541,7 +541,7 @@ int __cdecl handle_eliminated(net::InboundMsgCtx* context)
 }
 
 // 0x00532390
-int __cdecl handle_observers_full(net::InboundMsgCtx*)
+int handle_observers_full(net::InboundMsgCtx*)
 {
     script::Struct* params = new_params();
     params->put_name_key(kReason, kFullObservers);

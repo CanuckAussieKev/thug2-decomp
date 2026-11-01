@@ -152,7 +152,7 @@ void PointTally::note_tagged_prop(int skater_id, int score, uint32_t count, uint
 }
 
 // 0x005626F0
-int __cdecl PointTally::on_score_msg(net::InboundMsgCtx* context)
+int PointTally::on_score_msg(net::InboundMsgCtx* context)
 {
     // (NOT ORIGINAL: one whose count is more than it holds is dropped - the original read the names on past its end)
     util::ByteReader reader(context->body_, context->body_size_);

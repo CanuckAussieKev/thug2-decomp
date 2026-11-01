@@ -93,14 +93,14 @@ void* RoomManager::get_lobby_handle() { return remote_; }
 bool RoomManager::in_group_room() { return in_group_room_; }
 
 // 0x0053F8A0
-bool __cdecl cfunc_reset_connection_timer(script::Struct*, script::Script*)
+bool cfunc_reset_connection_timer(script::Struct*, script::Script*)
 {
     g_connection_timer = frame_clock::get_time();
     return true;
 }
 
 // 0x0053F8D0
-void __cdecl RoomManager::server_key_callback(void*, int key, void* buffer, void*)
+void RoomManager::server_key_callback(void*, int key, void* buffer, void*)
 {
     Hub* manager = g_online_hub;
     prefs::Preferences* prefs = manager->get_online_settings();
@@ -162,7 +162,7 @@ void __cdecl RoomManager::server_key_callback(void*, int key, void* buffer, void
 }
 
 // 0x0053FEC0
-int __cdecl RoomManager::count_callback(void*, int type, void*)
+int RoomManager::count_callback(void*, int type, void*)
 {
     if (type == kKeyTypeServer)
         return kServerKeyCount;
@@ -172,7 +172,7 @@ int __cdecl RoomManager::count_callback(void*, int type, void*)
 }
 
 // 0x0053F620
-void __cdecl RoomManager::key_list_callback(void*, int type, void* key_buffer, void*)
+void RoomManager::key_list_callback(void*, int type, void* key_buffer, void*)
 {
     if (type == kKeyTypeServer) {
         for (int key :

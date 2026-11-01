@@ -25,7 +25,7 @@ uint32_t g_editor_clock;
 namespace {
 
 // The display task's code: 0x005480A0, the empty function.
-void __cdecl draw_nothing(ParkEditorTask* /*task*/) {}
+void draw_nothing(ParkEditorTask* /*task*/) {}
 
 // The park editor's clock (milliseconds).
 uint32_t& editor_clock() { return g_editor_clock; }
@@ -57,7 +57,7 @@ bool cursor_shows() { return BuildPointer::singleton()->mode_sel_ != BuildPointe
 
 } // namespace
 
-bool __cdecl cfunc_set_park_editor_state(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_park_editor_state(script::Struct* params, script::Script* /*script*/)
 {
     ParkBuilderMode* editor = ParkBuilderMode::sole();
     uint32_t state = 0;
@@ -138,7 +138,7 @@ bool __cdecl cfunc_set_park_editor_state(script::Struct* params, script::Script*
     }
 }
 
-bool __cdecl cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_park_editor_pause_mode(script::Struct* params, script::Script* /*script*/)
 {
     ParkBuilderMode* editor = ParkBuilderMode::sole();
     if (params->has_bare_flag("pause")) {
@@ -163,7 +163,7 @@ bool __cdecl cfunc_set_park_editor_pause_mode(script::Struct* params, script::Sc
     return true;
 }
 
-void __cdecl ParkBuilderMode::front_end_tick(ParkEditorTask* task)
+void ParkBuilderMode::front_end_tick(ParkEditorTask* task)
 {
     ParkBuilderMode* editor = task->content_;
     const uint32_t before = editor_clock();
@@ -194,7 +194,7 @@ ParkBuilderMode::ParkBuilderMode()
     listener_.enter_wait_board(nullptr);
 }
 
-ParkBuilderMode* __cdecl ParkBuilderMode::fabricate(bool create)
+ParkBuilderMode* ParkBuilderMode::fabricate(bool create)
 {
     if (!sole() && create) {
         sole() = new ParkBuilderMode;

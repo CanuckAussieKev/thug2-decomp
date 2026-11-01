@@ -26,7 +26,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 } // namespace
 
 // 0x004E6600
-const char* __fastcall goal_object_model(uint32_t type, int index)
+const char* goal_object_model(uint32_t type, int index)
 {
     if (type == kCone)
         return "Mdl_Cone/mdl_cone.mdl";
@@ -65,7 +65,7 @@ const char* __fastcall goal_object_model(uint32_t type, int index)
 }
 
 // 0x004E66A0
-uint32_t __fastcall goal_object_name(uint32_t type, int index)
+uint32_t goal_object_name(uint32_t type, int index)
 {
     if (type == kCombo) {
         switch (index) {
@@ -102,7 +102,7 @@ uint32_t __fastcall goal_object_name(uint32_t type, int index)
 }
 
 // 0x004E6730
-uint32_t __fastcall edited_goal_node_name(int which, int goal)
+uint32_t edited_goal_node_name(int which, int goal)
 {
     char name[100];
     name[0] = '\0';
@@ -116,7 +116,7 @@ uint32_t __fastcall edited_goal_node_name(int which, int goal)
 }
 
 // 0x004E67A0
-script::Struct* __fastcall goal_type_structure(uint32_t type)
+script::Struct* goal_type_structure(uint32_t type)
 {
     switch (type) {
     case 0x6FE44C6D:
@@ -175,10 +175,10 @@ script::Struct* goal_type_defaults(uint32_t type)
 }
 
 // 0x004E69C0
-int __cdecl goal_editor_constant82() { return 0x82; }
+int goal_editor_constant82() { return 0x82; }
 
 // 0x004E69D0
-void __fastcall init_edited_goal(uint8_t* goal)
+void init_edited_goal(uint8_t* goal)
 {
     auto u32 = [goal](uint32_t offset) -> uint32_t& { return *reinterpret_cast<uint32_t*>(goal + offset); };
     u32(0x2A4) = 5;
@@ -220,7 +220,7 @@ void __fastcall init_edited_goal(uint8_t* goal)
 }
 
 // 0x004E6AE0
-void __stdcall run_marker_object_script(int index)
+void run_marker_object_script(int index)
 {
     script::Struct params;
     char* name = g_goal_name_buffer;

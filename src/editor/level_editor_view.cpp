@@ -370,7 +370,7 @@ bool hide_object(uint32_t id)
 struct ObjectWalk {
     std::vector<uint32_t> ids;
 };
-void __cdecl collect_object(objects::Entity* object, void* data)
+void collect_object(objects::Entity* object, void* data)
 {
     auto* composite = static_cast<objects::GameEntity*>(object);
     OrientedBox box;

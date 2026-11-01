@@ -25,30 +25,30 @@ extern SwapSlot g_swap_table[5];
 // 0x005AA930: `a` and `b` swapped in the table of five checksum pairs (0x007CEDE0: in use, key, value): each gets a
 // slot (a free one if it has none - the table being full isn't checked, as in the original), then their values are
 // exchanged; a slot left mapping its key to itself is freed.
-void __cdecl swap_mapping(uint32_t a, uint32_t b);
+void swap_mapping(uint32_t a, uint32_t b);
 // 0x005AAAA0: for each structure of the global array with allow_random, its mesh
 // loaded (a model made, the mesh added to it, the model deleted - keeping the mesh in memory).
 void preload_meshes(uint32_t array_name);
 
 // 0x005AAA80: AddGoalEditorNodesToLevelNodeArray (on the bottom-up heap). True.
-bool __cdecl cfunc_add_goal_editor_nodes_to_level_node_array(script::Struct* params, script::Script* script);
+bool cfunc_add_goal_editor_nodes_to_level_node_array(script::Struct* params, script::Script* script);
 // 0x005AAB50: CurrentSkaterIsPro: whether the skate module's profile - looked up with the params pointer as the
 // index, as in the original - is a pro.
-bool __cdecl cfunc_current_skater_is_pro(script::Struct* params, script::Script* script);
+bool cfunc_current_skater_is_pro(script::Struct* params, script::Script* script);
 // 0x005AAB80: GetGoalsCompleted <level>: the level's goal count as "%d/9" and "---" in the script's parameters.
-bool __cdecl cfunc_get_goals_completed(script::Struct* params, script::Script* script);
+bool cfunc_get_goals_completed(script::Struct* params, script::Script* script);
 // 0x005AAC10: GetNextLevelRequirements: the first level step of the global array 0x1D8F1A7E still out of reach -
 // "goals for next level" / "medals for next level" with how many are missing - or "---".
-bool __cdecl cfunc_get_next_level_requirements(script::Struct* params, script::Script* script);
+bool cfunc_get_next_level_requirements(script::Struct* params, script::Script* script);
 // 0x005AAD70: SetCurrentSkaterProfile <index>. True.
-bool __cdecl cfunc_set_current_skater_profile(script::Struct* params, script::Script* script);
+bool cfunc_set_current_skater_profile(script::Struct* params, script::Script* script);
 // 0x005AADA0: AddSkaterProfile <profile>: the profile manager's add_template.
-bool __cdecl cfunc_add_skater_profile(script::Struct* params, script::Script* script);
+bool cfunc_add_skater_profile(script::Struct* params, script::Script* script);
 // 0x005AADC0: AddTemporaryProfile name=<id>: the profile manager's add_extra_profile.
-bool __cdecl cfunc_add_temporary_profile(script::Struct* params, script::Script* script);
+bool cfunc_add_temporary_profile(script::Struct* params, script::Script* script);
 // 0x005AADF0: RememberTemporaryAppearance name=<id> appearance_structure=<s> | player=<n> [NoFaceTexture]: the
 // temporary profile `name` given that appearance (or player n's profile's) - with NoFaceTexture only its
 // structure. True.
-bool __cdecl cfunc_remember_temporary_appearance(script::Struct* params, script::Script* script);
+bool cfunc_remember_temporary_appearance(script::Struct* params, script::Script* script);
 
 } // namespace commands

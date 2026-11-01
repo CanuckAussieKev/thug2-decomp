@@ -120,7 +120,7 @@ public:
 
     // --- the component ---
     // 0x0043AA30 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00437C00: identity orientation, the collision cache, no input, no debug drawing, no
     // wheels, no contacts, awake; the sounds' name 0x1CA1FF20.
     DrivableModule();
@@ -271,7 +271,7 @@ public:
     void collide();
     // 0x00436CF0 (stdcall): how deep a contact on a collider's face is: its distance in from the nearest of the
     // face's edges, along the normal (0 under 0.01).
-    static double __stdcall get_penetration(const Contact* contact, const Collider* collider);
+    static double get_penetration(const Contact* contact, const Collider* collider);
     // 0x00436E50: a contact on a triangle edge whose normal faces away: if another joined hit of the rect has an end
     // there with the opposite normal, the contact's normal across the edge and its depth. Whether there was.
     bool find_edge_contact(Contact* contact, render::BoxProbe* rect, const Collider* collider, int hit, int end);

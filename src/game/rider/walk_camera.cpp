@@ -64,8 +64,7 @@ void turn_by_stick(double angle, float* x, float* z)
 } // namespace
 
 // 0x00524D70
-maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low,
-                                   float high)
+maths::Vec4* lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t, float low, float high)
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
@@ -88,7 +87,7 @@ maths::Vec4* __cdecl lerp_by_range(maths::Vec4* out, const maths::Vec4* a, const
 }
 
 // 0x00525DC0
-memory::owner<ObjectModule*> __cdecl FootView::fabricate() { return new FootView; }
+memory::owner<ObjectModule*> FootView::fabricate() { return new FootView; }
 
 // (the constructor: inlined in fabricate in the original)
 FootView::FootView()
@@ -199,7 +198,7 @@ void FootView::restore_state(const WalkCameraState* state)
 }
 
 // 0x00524EF0
-float __stdcall FootView::get_param(uint32_t name)
+float FootView::get_param(uint32_t name)
 {
     float value = 0.0f; // (the original's is uninitialised: the value is asserted)
     script::read_sub_struct(kParameters)->fetch_float(name, &value, 1);

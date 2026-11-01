@@ -127,7 +127,7 @@ void RoomManager::add_buddy_menu_item(LobbyPlayer* player)
 }
 
 // 0x00540B60
-void __cdecl RoomManager::room_message_callback(void*, int, const char* nick, const char* message, int, void*)
+void RoomManager::room_message_callback(void*, int, const char* nick, const char* message, int, void*)
 {
     push_internet_heap();
     char text[1024];
@@ -140,7 +140,7 @@ void __cdecl RoomManager::room_message_callback(void*, int, const char* nick, co
 }
 
 // 0x00540E00
-bool __cdecl cfunc_send_message(script::Struct* params, script::Script*)
+bool cfunc_send_message(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     const char* message = nullptr;
@@ -251,8 +251,8 @@ bool g_listing_asked;
 bool g_listing_found;
 
 // 0x00541690
-void __cdecl RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name,
-                                              int num_waiting, int max_waiting, int num_games, int, void* param)
+void RoomManager::group_room_callback(void*, int success, int group_id, void* server, const char* name, int num_waiting,
+                                      int max_waiting, int num_games, int, void* param)
 {
     Hub* manager = net_session_slot();
     auto set_state = [manager](int state) { manager->set_service_state(state); };

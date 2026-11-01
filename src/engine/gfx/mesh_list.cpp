@@ -58,7 +58,7 @@ uint16_t g_index_scratch[3072];
 uint16_t* tri_strip_scratch() { return g_index_scratch; }
 
 // The C runtime's qsort (the game's, so equal meshes stay in the same order).
-void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
+void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))
 {
     crt::get_qsort(base, count, size, compare);
 }
@@ -80,7 +80,7 @@ void* get_first_value(lists::KeyMap* table)
 } // namespace
 
 // 0x004DDD50
-int __cdecl compare_meshes(const void* a, const void* b)
+int compare_meshes(const void* a, const void* b)
 {
     const MeshRef* mesh_a = *static_cast<MeshRef* const*>(a);
     const MeshRef* mesh_b = *static_cast<MeshRef* const*>(b);
@@ -328,7 +328,7 @@ void SceneRef::break_strips(uint32_t mask, const uint32_t* records, uint32_t cou
 }
 
 // 0x004DE560
-void __cdecl discard_scene(SceneRef* scene)
+void discard_scene(SceneRef* scene)
 {
     if (lists::KeyMap* table = scene->materials) {
         for (void* material = get_first_value(table); material; material = next_value(scene->materials)) {

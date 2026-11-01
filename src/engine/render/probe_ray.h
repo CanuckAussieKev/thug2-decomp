@@ -22,7 +22,7 @@ class HitMeshCache;
 class ProbeRay;
 
 // Called (cdecl) with the feeler for every face its query accepts.
-using FeelerCallback = void(__cdecl*)(ProbeRay* feeler);
+using FeelerCallback = void (*)(ProbeRay* feeler);
 
 class ProbeRay {
 public:
@@ -77,7 +77,7 @@ public:
 
     // 0x00417110 (code Ghidra never made a function of; cdecl): the queries' callback while the feeler has one -
     // the feeler's own, given the feeler (the hit's callback data).
-    static void __cdecl callback_relay(CollisionHit* hit);
+    static void callback_relay(CollisionHit* hit);
 
     maths::Seg line_;                                // +0x00 start, +0x10 end
     FeelerCallback callback_;                        // +0x20

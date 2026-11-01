@@ -57,7 +57,7 @@ uint64_t track_bit(int bit)
 } // namespace
 
 // 0x0044D100: StreamExists <name>: whether the stream index has it. False without a name.
-bool __cdecl cfunc_stream_exists(Struct* params, Script*)
+bool cfunc_stream_exists(Struct* params, Script*)
 {
     uint32_t name = 0;
     return params->read_hash_value(0u, &name, 0) && audio::stream_exists(name);
@@ -65,7 +65,7 @@ bool __cdecl cfunc_stream_exists(Struct* params, Script*)
 
 // 0x0044D140: AddStream <stream> add=<name>: the playing stream (by id or name) also known by the name. False
 // without both or if it isn't playing.
-bool __cdecl cfunc_add_stream(Struct* params, Script*)
+bool cfunc_add_stream(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -78,7 +78,7 @@ bool __cdecl cfunc_add_stream(Struct* params, Script*)
 
 // 0x0044D1B0: RemoveStream <stream> remove=<entry>: the stream's queue drops that entry (if first). False without
 // both or if the stream isn't playing.
-bool __cdecl cfunc_remove_stream(Struct* params, Script*)
+bool cfunc_remove_stream(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -90,7 +90,7 @@ bool __cdecl cfunc_remove_stream(Struct* params, Script*)
 }
 
 // 0x0044D220: halt_stream [<id or name>]: that stream stopped, or every stream. Always true.
-bool __cdecl cfunc_stop_stream(Struct* params, Script*)
+bool cfunc_stop_stream(Struct* params, Script*)
 {
     uint32_t stream = 0; // (uninitialised in the original: only read when found)
     if (params->read_hash_value(0u, &stream, 0))
@@ -101,7 +101,7 @@ bool __cdecl cfunc_stop_stream(Struct* params, Script*)
 }
 
 // 0x0044D260: IsStreamPlaying <id or name>. False without one.
-bool __cdecl cfunc_is_stream_playing(Struct* params, Script*)
+bool cfunc_is_stream_playing(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -113,7 +113,7 @@ bool __cdecl cfunc_is_stream_playing(Struct* params, Script*)
 // non-zero loop); a number names playlist 0's track, as MUSIC\VAG\SONGS\<its name>. The current track becomes the
 // number (999 for a file name). Always true. (Original quirk: a song name of 22 characters or more overruns the
 // 40-byte buffer.)
-bool __cdecl cfunc_play_track(Struct* params, Script*)
+bool cfunc_play_track(Struct* params, Script*)
 {
     const char* name = nullptr;
     int track = 999;
@@ -136,7 +136,7 @@ bool __cdecl cfunc_play_track(Struct* params, Script*)
 }
 
 // 0x0044D380: PlayMusicStream <name> [vol=n (-1: the default)]. False without a name.
-bool __cdecl cfunc_play_music_stream(Struct* params, Script*)
+bool cfunc_play_music_stream(Struct* params, Script*)
 {
     uint32_t name = 0;
     if (!params->read_hash_value(0u, &name, 0))
@@ -148,7 +148,7 @@ bool __cdecl cfunc_play_music_stream(Struct* params, Script*)
 }
 
 // 0x0044D3E0: LoadStreamFrameAmp <stream>: whether its frame amplitudes loaded. False without a name.
-bool __cdecl cfunc_load_stream_frame_amp(Struct* params, Script*)
+bool cfunc_load_stream_frame_amp(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -157,7 +157,7 @@ bool __cdecl cfunc_load_stream_frame_amp(Struct* params, Script*)
 }
 
 // 0x0044D420: FreeStreamFrameAmp <stream>: whether they were loaded (and are now freed). False without a name.
-bool __cdecl cfunc_free_stream_frame_amp(Struct* params, Script*)
+bool cfunc_free_stream_frame_amp(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -166,7 +166,7 @@ bool __cdecl cfunc_free_stream_frame_amp(Struct* params, Script*)
 }
 
 // 0x0044D460: SetMusicVolume [n (100)]. Always true.
-bool __cdecl cfunc_set_music_volume(Struct* params, Script*)
+bool cfunc_set_music_volume(Struct* params, Script*)
 {
     float volume = 100.0f;
     params->fetch_float(0u, &volume, 0);
@@ -175,7 +175,7 @@ bool __cdecl cfunc_set_music_volume(Struct* params, Script*)
 }
 
 // 0x0044D490: SetMusicStreamVolume [n (100)]. Always true.
-bool __cdecl cfunc_set_music_stream_volume(Struct* params, Script*)
+bool cfunc_set_music_stream_volume(Struct* params, Script*)
 {
     float volume = 100.0f;
     params->fetch_float(0u, &volume, 0);
@@ -184,14 +184,14 @@ bool __cdecl cfunc_set_music_stream_volume(Struct* params, Script*)
 }
 
 // 0x0044D4C0: StopMusic. Always true.
-bool __cdecl cfunc_stop_music(Struct*, Script*)
+bool cfunc_stop_music(Struct*, Script*)
 {
     audio::stop_music();
     return true;
 }
 
 // 0x0044D4D0: PauseMusic [n (1)]: 1 pauses, 0 unpauses, -1 unpauses unless paused before. Always true.
-bool __cdecl cfunc_pause_music(Struct* params, Script*)
+bool cfunc_pause_music(Struct* params, Script*)
 {
     int pause = 1;
     params->fetch_int_value(0u, &pause, 0);
@@ -200,7 +200,7 @@ bool __cdecl cfunc_pause_music(Struct* params, Script*)
 }
 
 // 0x0044D500: freeze_stream [n (1)]: as PauseMusic, for the streams. Always true.
-bool __cdecl cfunc_pause_stream(Struct* params, Script*)
+bool cfunc_pause_stream(Struct* params, Script*)
 {
     int pause = 1;
     params->fetch_int_value(0u, &pause, 0);
@@ -210,7 +210,7 @@ bool __cdecl cfunc_pause_stream(Struct* params, Script*)
 
 // 0x0044D530: AddMusicTrack <file> [TrackTitle=<text>] [0x389129E4]: the track added to playlist 1 (or 0 with the
 // flag). Nothing without a file. Always true.
-bool __cdecl cfunc_add_music_track(Struct* params, Script*)
+bool cfunc_add_music_track(Struct* params, Script*)
 {
     const char* name = nullptr;
     const char* title = nullptr;
@@ -223,7 +223,7 @@ bool __cdecl cfunc_add_music_track(Struct* params, Script*)
 }
 
 // 0x0044D5B0: ChangeTrackState <track> [Off]: playlist 0's track switched off (with Off) or on. Always true.
-bool __cdecl cfunc_change_track_state(Struct* params, Script*)
+bool cfunc_change_track_state(Struct* params, Script*)
 {
     int track = 0;
     params->fetch_int_value(0u, &track, 0);
@@ -233,7 +233,7 @@ bool __cdecl cfunc_change_track_state(Struct* params, Script*)
 }
 
 // 0x0044D5F0: TrackEnabled <track>: whether playlist 0's track isn't switched off. False with no tracks.
-bool __cdecl cfunc_track_enabled(Struct* params, Script*)
+bool cfunc_track_enabled(Struct* params, Script*)
 {
     int track = 0;
     params->fetch_int_value(0u, &track, 0);
@@ -248,21 +248,21 @@ bool __cdecl cfunc_track_enabled(Struct* params, Script*)
 }
 
 // 0x0044D690: ClearMusicTrackList [0x389129E4]: playlist 1 (or 0 with the flag) emptied. Always true.
-bool __cdecl cfunc_clear_music_track_list(Struct* params, Script*)
+bool cfunc_clear_music_track_list(Struct* params, Script*)
 {
     audio::empty_queue(params->has_bare_flag(kPlaylist0) ? 0 : 1);
     return true;
 }
 
 // 0x0044D6C0: SkipMusicTrack. Always true.
-bool __cdecl cfunc_skip_music_track(Struct*, Script*)
+bool cfunc_skip_music_track(Struct*, Script*)
 {
     audio::skip_music_track();
     return true;
 }
 
 // 0x0044D6D0: SetMusicMode [n (1)]: play from playlist 0 for a non-zero n, else from playlist 1. Always true.
-bool __cdecl cfunc_set_music_mode(Struct* params, Script*)
+bool cfunc_set_music_mode(Struct* params, Script*)
 {
     int mode = 1;
     params->fetch_int_value(0u, &mode, 0);
@@ -271,7 +271,7 @@ bool __cdecl cfunc_set_music_mode(Struct* params, Script*)
 }
 
 // 0x0044D710: SetRandomMode [n (1)]. Always true.
-bool __cdecl cfunc_set_random_mode(Struct* params, Script*)
+bool cfunc_set_random_mode(Struct* params, Script*)
 {
     int mode = 1;
     params->fetch_int_value(0u, &mode, 0);
@@ -280,7 +280,7 @@ bool __cdecl cfunc_set_random_mode(Struct* params, Script*)
 }
 
 // 0x0044D740: SetMusicLooping [n (1)]. Always true.
-bool __cdecl cfunc_set_music_looping(Struct* params, Script*)
+bool cfunc_set_music_looping(Struct* params, Script*)
 {
     int loop = 1;
     params->fetch_int_value(0u, &loop, 0);
@@ -290,7 +290,7 @@ bool __cdecl cfunc_set_music_looping(Struct* params, Script*)
 
 // 0x0044D770: PreLoadStreamDone <id or name>: whether its preload is done. (Original quirk: no name leaves the id
 // uninitialised; here 0.)
-bool __cdecl cfunc_pre_load_stream_done(Struct* params, Script*)
+bool cfunc_pre_load_stream_done(Struct* params, Script*)
 {
     uint32_t stream = 0;
     params->read_hash_value(0u, &stream, 1);
@@ -299,7 +299,7 @@ bool __cdecl cfunc_pre_load_stream_done(Struct* params, Script*)
 
 // 0x0044D790: UseUserSoundtrack <n>: play the user's soundtrack n. Always true. (Original quirk: no n is
 // uninitialised; here 0.)
-bool __cdecl cfunc_use_user_soundtrack(Struct* params, Script*)
+bool cfunc_use_user_soundtrack(Struct* params, Script*)
 {
     int soundtrack = 0;
     params->fetch_int_value(0u, &soundtrack, 1);
@@ -308,7 +308,7 @@ bool __cdecl cfunc_use_user_soundtrack(Struct* params, Script*)
 }
 
 // 0x0044D7C0: UseStandardSoundtrack: back to the game's own music. Always true.
-bool __cdecl cfunc_use_standard_soundtrack(Struct*, Script*)
+bool cfunc_use_standard_soundtrack(Struct*, Script*)
 {
     audio::use_standard_soundtrack();
     return true;
@@ -317,7 +317,7 @@ bool __cdecl cfunc_use_standard_soundtrack(Struct*, Script*)
 // 0x0044D8F0: PlayStream <stream> [volL= volR= | vol= (100)] [pitch=100] [priority=50] [0xE46111E0=n] [id=<id>]
 // [lipsync=1 (its frame amplitudes loaded first)]: the stream played (stereo). False without a stream, or when
 // lipsync's amplitudes can't be loaded; else true (whether it plays or not).
-bool __cdecl cfunc_play_stream(Struct* params, Script*)
+bool cfunc_play_stream(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -354,7 +354,7 @@ bool __cdecl cfunc_play_stream(Struct* params, Script*)
 // 0x0044DAA0: SetStreamParams <id or name> [volL= volR= | vol=] [pitch=]: the playing stream's volume (if any is
 // given: the manager's default type, the channels set) and pitch (if given). False without a stream or when
 // either change fails.
-bool __cdecl cfunc_set_stream_params(Struct* params, Script*)
+bool cfunc_set_stream_params(Struct* params, Script*)
 {
     uint32_t stream = 0;
     if (!params->read_hash_value(0u, &stream, 0))
@@ -385,7 +385,7 @@ bool __cdecl cfunc_set_stream_params(Struct* params, Script*)
 
 // 0x0044E120 / 0x0044E180: LoadMusicHeader / LoadStreamHeader <file>: loaded from the bottom-up heap; whether it
 // was. False without a file.
-bool __cdecl cfunc_load_music_header(Struct* params, Script*)
+bool cfunc_load_music_header(Struct* params, Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
@@ -396,7 +396,7 @@ bool __cdecl cfunc_load_music_header(Struct* params, Script*)
     memory::Hub::get_pull()->leave_heap_scope();
     return loaded;
 }
-bool __cdecl cfunc_load_stream_header(Struct* params, Script*)
+bool cfunc_load_stream_header(Struct* params, Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 0);
@@ -409,7 +409,7 @@ bool __cdecl cfunc_load_stream_header(Struct* params, Script*)
 }
 
 // 0x0044E1E0: GetCurrentTrack: the track playing as the script's current_track. Always true.
-bool __cdecl cfunc_get_current_track(Struct*, Script* script)
+bool cfunc_get_current_track(Struct*, Script* script)
 {
     script->args_->put_int(kCurrentTrack, audio::get_current_track());
     return true;
@@ -418,7 +418,7 @@ bool __cdecl cfunc_get_current_track(Struct*, Script* script)
 // 0x0044E2C0: StartPreLoadedStream streamid=<id> [volume=100]: the preloaded stream started (pitch 100, priority
 // 0) at that volume on both channels; whether it did. (Original quirk: no streamid passes an uninitialised one;
 // here 0.)
-bool __cdecl cfunc_start_pre_loaded_stream(Struct* params, Script*)
+bool cfunc_start_pre_loaded_stream(Struct* params, Script*)
 {
     uint32_t stream = 0;
     params->read_hash_value(kStreamId, &stream, 1);

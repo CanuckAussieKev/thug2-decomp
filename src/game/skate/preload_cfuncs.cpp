@@ -125,7 +125,7 @@ void get_choose(script::Struct* option, int index)
 // 0x005AAFA0: PreloadModels - every vehicle and game object node's model (not "none"; a flag's only in a game of
 // more than one player) loaded and dropped, keeping its data: AllowReplaceTex passed on; unless nocollision, its
 // .col file too; a vehicle's .qb too.
-bool __cdecl cfunc_preload_models(script::Struct*, script::Script*)
+bool cfunc_preload_models(script::Struct*, script::Script*)
 {
     memory::push_mem_profile("PreLoadModels");
     level_nodes::start_node_walk(0);
@@ -191,7 +191,7 @@ bool __cdecl cfunc_preload_models(script::Struct*, script::Script*)
 // 0x005AB300: PreloadPedestrians [no_random] - not in a network game, nor with the global 0x2CAA92ED set (false):
 // the pedestrians' CAS part lists (unless no_random), every pedestrian node's .skin and second (.mdl) models, and the
 // model its profile's appearance builds (preload_model_from_appearance) loaded and dropped.
-bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
+bool cfunc_preload_pedestrians(script::Struct* params, script::Script*)
 {
     if (online::g_online_hub->in_net_game())
         return false;
@@ -255,7 +255,7 @@ bool __cdecl cfunc_preload_pedestrians(script::Struct* params, script::Script*)
 // candidates; the pedestrian nodes' own parts are taken; then one option of any kind (failing that one light, one
 // tan and one dark) and the rest at random among the candidates, n (the candidates) in all, numbered by
 // random_index. (No candidate left while choosing: the original loops for ever - kept.)
-bool __cdecl cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
+bool cfunc_preselect_random_pedestrians(script::Struct* params, script::Script*)
 {
     uint32_t part = 0; // (uninitialised in the original when missing)
     params->read_hash_value(kPart, &part, 1);
@@ -354,7 +354,7 @@ bool __cdecl cfunc_preselect_random_pedestrians(script::Struct* params, script::
 
 // 0x005ABB20: ReplaceCarTextures ... - every car's model component whose geoms use a texture dictionary not met yet
 // (in this walk) runs Obj_ReplaceTexture with the parameters.
-bool __cdecl cfunc_replace_car_textures(script::Struct* params, script::Script* script)
+bool cfunc_replace_car_textures(script::Struct* params, script::Script* script)
 {
     auto* objects = objects::g_composite_registry;
     // (the original keeps 32 on its stack without a bound: more would overwrite its frame; here the rest aren't kept)

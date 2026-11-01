@@ -139,7 +139,7 @@ bool g_game_posted;
 uint32_t g_connected_time;
 
 // 0x0053F570
-void __cdecl RoomManager::disconnected_callback(void*, const char* reason, void* param)
+void RoomManager::disconnected_callback(void*, const char* reason, void* param)
 {
     uint32_t elapsed = frame_clock::get_time() - g_connected_time; // since connected
     debug::printf("Disconnected at %d after %d ms. Reason: %s\n", frame_clock::get_time(), elapsed, reason);
@@ -158,7 +158,7 @@ void __cdecl RoomManager::disconnected_callback(void*, const char* reason, void*
 }
 
 // 0x0053F6C0
-void __cdecl RoomManager::queue_packet(char* data, int length, const void* from)
+void RoomManager::queue_packet(char* data, int length, const void* from)
 {
     if (queued_count() >= kMaxQueued)
         return;
@@ -181,7 +181,7 @@ void __cdecl RoomManager::queue_packet(char* data, int length, const void* from)
 }
 
 // 0x0053FB80
-void __cdecl RoomManager::player_key_callback(void*, int key, int index, void* buffer, void*)
+void RoomManager::player_key_callback(void*, int key, int index, void* buffer, void*)
 {
     g_game_posted = true;
     if (key == kKeyPing) {
@@ -225,7 +225,7 @@ void __cdecl RoomManager::player_key_callback(void*, int key, int index, void* b
 }
 
 // 0x0053FDA0
-void __cdecl RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
+void RoomManager::public_address_callback(void*, uint32_t ip, uint16_t port, void* param)
 {
     Hub* manager = net_session_slot();
     FriendsManager* buddy = manager->presence_service_.get();
@@ -248,7 +248,7 @@ void __cdecl RoomManager::public_address_callback(void*, uint32_t ip, uint16_t p
 }
 
 // 0x0053FEE0
-void __cdecl RoomManager::get_nick_error_callback(void* peer, int type, const char* nick, int, const char**, void*)
+void RoomManager::get_nick_error_callback(void* peer, int type, const char* nick, int, const char**, void*)
 {
     push_internet_heap();
     char retry[128];
@@ -266,7 +266,7 @@ void __cdecl RoomManager::get_nick_error_callback(void* peer, int type, const ch
 }
 
 // 0x0053FFC0
-void __cdecl RoomManager::get_connect_callback(void* peer, int success, int, void* param)
+void RoomManager::get_connect_callback(void* peer, int success, int, void* param)
 {
     auto* lobby = static_cast<RoomManager*>(param);
     lobby->connecting_ = false;
@@ -284,7 +284,7 @@ void __cdecl RoomManager::get_connect_callback(void* peer, int success, int, voi
 }
 
 // 0x00540040
-void __cdecl RoomManager::think_task(tasks::Task<RoomManager>* task)
+void RoomManager::think_task(tasks::Task<RoomManager>* task)
 {
     RoomManager* lobby = task_lobby(task);
     push_internet_heap();
@@ -298,7 +298,7 @@ void __cdecl RoomManager::think_task(tasks::Task<RoomManager>* task)
 }
 
 // 0x005400B0
-void __cdecl RoomManager::nat_negotiation_task(tasks::Task<RoomManager>*)
+void RoomManager::nat_negotiation_task(tasks::Task<RoomManager>*)
 {
     push_internet_bottom_up_heap();
     nat_think();
@@ -306,7 +306,7 @@ void __cdecl RoomManager::nat_negotiation_task(tasks::Task<RoomManager>*)
 }
 
 // 0x005400E0
-void __cdecl RoomManager::query_task(tasks::Task<RoomManager>* task)
+void RoomManager::query_task(tasks::Task<RoomManager>* task)
 {
     RoomManager* lobby = task_lobby(task);
     uint32_t now = frame_clock::get_time();
@@ -357,7 +357,7 @@ void RoomManager::start_hosting()
 }
 
 // 0x00540300
-void __cdecl RoomManager::nat_negotiation_completed(int result, int, const void* address, void* user_data)
+void RoomManager::nat_negotiation_completed(int result, int, const void* address, void* user_data)
 {
     Hub* manager = net_session_slot();
     if (result == kNatSuccess && !manager->get_on_server()) { // the client joins at the address found
@@ -419,7 +419,7 @@ unsigned long __stdcall RoomManager::connect_thread(void* lobby_data)
 }
 
 // 0x00540C90
-void __cdecl RoomManager::hole_punch_result_fn(void*, int cookie, void*)
+void RoomManager::hole_punch_result_fn(void*, int cookie, void*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();

@@ -82,7 +82,7 @@ script::Array* node_array_of(GameEntity* object)
 } // namespace
 
 // 0x00434B90
-memory::owner<ObjectModule*> __cdecl ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
+memory::owner<ObjectModule*> ActivationZoneModule::fabricate() { return new ActivationZoneModule; }
 
 // (the constructor: inlined in fabricate in the original)
 ActivationZoneModule::ActivationZoneModule() { kind_tag_ = kType; }
@@ -240,7 +240,7 @@ void ActivationZoneModule::trigger_hits(const int* events, const render::BoxProb
 }
 
 // 0x00434D70
-bool __cdecl ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
+bool ActivationZoneModule::feeler_hit(render::ProbeRay* feeler)
 {
     auto* component = reinterpret_cast<ActivationZoneModule*>(feeler->unknowna8_);
     return component->probe_touches_zone(kNoEvents, feeler);

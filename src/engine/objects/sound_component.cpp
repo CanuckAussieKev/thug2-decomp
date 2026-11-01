@@ -64,10 +64,10 @@ struct SoundParams {
 } // namespace
 
 // 0x00433100
-memory::owner<ObjectModule*> __cdecl AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
+memory::owner<ObjectModule*> AudioEmitterModule::fabricate() { return new AudioEmitterModule; }
 
 // 0x00432C80
-void __cdecl AudioEmitterModule::publish_method_table()
+void AudioEmitterModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_sound_component_member_functions, 0x18);
 }

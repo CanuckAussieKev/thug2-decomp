@@ -94,8 +94,8 @@ int d_pad_direction(uint8_t up, uint8_t down, uint8_t left, uint8_t right);
 // 0x0046BA80: the d-pad's angle (radians, 0 = up, clockwise positive) for the four directions held.
 float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right);
 // 0x0046C370: a stick's length 0-1 (x, y around 0, -128..127), squared off towards the corners of the stick's
-// square gate by the angle (x 1/0.85, at most 1), unrounded in ST0. (__stdcall: the original pops its arguments.)
-double __stdcall stick_length(float x, float y, float angle);
+// square gate by the angle (x 1/0.85, at most 1), unrounded.
+double stick_length(float x, float y, float angle);
 
 extern int g_clock_offset;
 

@@ -265,7 +265,7 @@ void Rider::read_chapter_info(script::Struct* save)
 void Rider::set_42b_d60(float value) { set_rigid_body_pusher_reach(this, value); }
 
 // 0x005802E0
-script::Struct* __cdecl get_physics_structure(GameEntity* skater)
+script::Struct* get_physics_structure(GameEntity* skater)
 {
     if (!skater || !skater->is_local_skater_)
         return script::read_sub_struct(kSkaterPhysics);
@@ -303,7 +303,7 @@ script::Struct* __cdecl get_physics_structure(GameEntity* skater)
 }
 
 // 0x00580400
-float __cdecl read_tuning_float(uint32_t name, int assert, GameEntity* skater)
+float read_tuning_float(uint32_t name, int assert, GameEntity* skater)
 {
     script::Struct* physics = get_physics_structure(skater);
     float value;
@@ -314,7 +314,7 @@ float __cdecl read_tuning_float(uint32_t name, int assert, GameEntity* skater)
 }
 
 // 0x00580440
-int __cdecl read_tuning_int(uint32_t name, int assert, GameEntity* skater)
+int read_tuning_int(uint32_t name, int assert, GameEntity* skater)
 {
     script::Struct* physics = get_physics_structure(skater);
     int value;

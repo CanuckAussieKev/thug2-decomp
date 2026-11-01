@@ -24,7 +24,7 @@
 
 namespace audio {
 // (stream.h; not included here: its SetMusicVolume clashes with music_player.h's)
-void __cdecl sync_music_to_time(float seconds);
+void sync_music_to_time(float seconds);
 } // namespace audio
 
 namespace objects {

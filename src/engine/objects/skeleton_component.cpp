@@ -83,7 +83,7 @@ script::VectorValue to_value(const maths::Vec4& v) { return {v.x, v.y, v.z, v.w}
 } // namespace
 
 // 0x00431F60
-memory::owner<ObjectModule*> __cdecl BoneRigModule::fabricate() { return new BoneRigModule; }
+memory::owner<ObjectModule*> BoneRigModule::fabricate() { return new BoneRigModule; }
 
 // (the constructor: inlined in fabricate in the original)
 BoneRigModule::BoneRigModule()
@@ -93,7 +93,7 @@ BoneRigModule::BoneRigModule()
 }
 
 // 0x00431BE0
-void __cdecl BoneRigModule::publish_method_table()
+void BoneRigModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_skeleton_component_member_functions, 0x18);
 }
@@ -112,9 +112,7 @@ void BoneRigModule::prepare_rig(uint32_t name)
 {
     void* asset = assets::g_asset_manager->get_asset_data(name, 0);
     void* memory = memory::alloc(0x1C);
-    bone_rig_ =
-        memory ? reinterpret_cast<uint8_t*>(new (memory) gfx::Rig(static_cast<gfx::RigData*>(asset)))
-               : nullptr;
+    bone_rig_ = memory ? reinterpret_cast<uint8_t*>(new (memory) gfx::Rig(static_cast<gfx::RigData*>(asset))) : nullptr;
 }
 
 // 0x00431CF0

@@ -535,7 +535,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
 }
 
 // 0x005A7420: emit_into_buffer's callback while a save is written on the PC: the music and sounds kept going.
-void __cdecl keep_sound_going()
+void keep_sound_going()
 {
     audio::tick_frame();
     sound::update_voice_states();

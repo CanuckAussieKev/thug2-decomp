@@ -84,8 +84,8 @@ uint32_t stand_in_id(ObjectModule* model) { return static_cast<MeshInstanceModul
 } // namespace
 
 // (no address: the getters folded at 0x00576E60 / 0x00532EB0 - cutscene.h)
-void* __fastcall model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_; }
-void* __fastcall appearance_face(void* appearance) { return static_cast<gfx::ModelLook*>(appearance)->face_skin_; }
+void* model_fader(void* model) { return static_cast<render::RenderModel*>(model)->lights_ptr_; }
+void* appearance_face(void* appearance) { return static_cast<gfx::ModelLook*>(appearance)->face_skin_; }
 
 namespace {
 
@@ -112,10 +112,10 @@ void* appearance_part(void* appearance, uint32_t part)
 } // namespace
 
 // 0x004645A0
-void* __cdecl anim_source_allocate(unsigned int size) { return source_pools().carve(size); }
+void* anim_source_allocate(unsigned int size) { return source_pools().carve(size); }
 
 // 0x004645E0
-void __cdecl anim_source_free(void* item) { source_pools().dealloc(item); }
+void anim_source_free(void* item) { source_pools().dealloc(item); }
 
 // 0x00464640
 CinematicTable::CinematicTable()
@@ -229,8 +229,8 @@ void CinematicTable::add_objects(script::Struct* params)
                 anim = 0;
             }
             if (skater) {
-                void* face = appearance_face(unknown34a8_);
-                if (face && reinterpret_cast<bool(__thiscall*)(void*)>(code_address(&gfx::FaceSkin::is_sound))(face))
+                auto* face = static_cast<gfx::FaceSkin*>(appearance_face(unknown34a8_));
+                if (face && face->is_sound())
                     ++model_file;
                 int male = 0;
                 static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(kMale, &male, 1);

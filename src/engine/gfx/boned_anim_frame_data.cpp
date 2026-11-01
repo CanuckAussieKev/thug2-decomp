@@ -85,7 +85,7 @@ uint16_t reference_bits(uint16_t bits, int change)
 // --- the shared tables --------------------------------------------------------------------------------------
 
 // 0x00482970
-bool __cdecl read_key_table(void* file, int16_t* table)
+bool read_key_table(void* file, int16_t* table)
 {
     for (int i = 0; i < 256; ++i, table += 4) {
         for (int k = 0; k < 4; ++k) {
@@ -97,7 +97,7 @@ bool __cdecl read_key_table(void* file, int16_t* table)
 }
 
 // 0x004829F0
-bool __cdecl load_quat_table(const char* name)
+bool load_quat_table(const char* name)
 {
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
@@ -108,7 +108,7 @@ bool __cdecl load_quat_table(const char* name)
 }
 
 // 0x00482A30
-bool __cdecl load_trans_table(const char* name)
+bool load_trans_table(const char* name)
 {
     bool loaded = false;
     file::Hdl file = file::unseal(name, "rb");
@@ -121,7 +121,7 @@ bool __cdecl load_trans_table(const char* name)
 // --- decompressing keys -------------------------------------------------------------------------------------
 
 // 0x00482C20
-const uint8_t* __cdecl decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t flags, const uint8_t* table)
+const uint8_t* decompress_quat_key(const uint8_t* data, ShortKey* out, uint32_t flags, const uint8_t* table)
 {
     const int16_t* shared = g_quat_table;
     uint16_t first = get_word(data);
@@ -183,7 +183,7 @@ const uint8_t* __cdecl decompress_quat_key(const uint8_t* data, ShortKey* out, u
 }
 
 // 0x00482E70
-const uint8_t* __cdecl decompress_trans_key(const uint8_t* data, ShortKey* out)
+const uint8_t* decompress_trans_key(const uint8_t* data, ShortKey* out)
 {
     uint8_t head = *data++;
     if (head & 0x40) {
@@ -205,7 +205,7 @@ const uint8_t* __cdecl decompress_trans_key(const uint8_t* data, ShortKey* out)
 }
 
 // 0x00482A70
-void __cdecl expand_quat_key(FloatKey* out, const ShortKey* in)
+void expand_quat_key(FloatKey* out, const ShortKey* in)
 {
     out->time = time_word(out->time, in->time);
     for (int i = 0; i < 3; ++i)
@@ -213,7 +213,7 @@ void __cdecl expand_quat_key(FloatKey* out, const ShortKey* in)
 }
 
 // 0x00483D00
-void __cdecl expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
+void expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
 {
     out->time = time_word(out->time, in->time);
     if (!in->value[0] && !in->value[1] && !in->value[2]) {
@@ -233,7 +233,7 @@ void __cdecl expand_quat_key_with_w(FloatKey* out, const ShortKey* in)
 // --- a key's value ------------------------------------------------------------------------------------------
 
 // 0x004838D0
-void __cdecl get_quat(const void* key, float* out, bool floats)
+void get_quat(const void* key, float* out, bool floats)
 {
     if (floats) {
         std::memcpy(out, &static_cast<const FloatKey*>(key)->value[0], 3 * sizeof(float));
@@ -245,7 +245,7 @@ void __cdecl get_quat(const void* key, float* out, bool floats)
 }
 
 // 0x00483990
-void __cdecl get_trans(const void* key, float* out, bool floats)
+void get_trans(const void* key, float* out, bool floats)
 {
     if (floats) {
         std::memcpy(out, &static_cast<const FloatKey*>(key)->value[0], 3 * sizeof(float));
@@ -257,7 +257,7 @@ void __cdecl get_trans(const void* key, float* out, bool floats)
 }
 
 // 0x00483A00
-void __cdecl get_short_quat(const ShortKey* key, float* out)
+void get_short_quat(const ShortKey* key, float* out)
 {
     if (!key->value[0] && !key->value[1] && !key->value[2]) {
         out[0] = out[1] = out[2] = 0.0f;
@@ -273,7 +273,7 @@ void __cdecl get_short_quat(const ShortKey* key, float* out)
 }
 
 // 0x00483AE0
-void __cdecl get_short_trans(const ShortKey* key, float* out)
+void get_short_trans(const ShortKey* key, float* out)
 {
     for (int i = 0; i < 3; ++i)
         out[i] = get_scaled(key->value[i], kTransUnit);
@@ -283,7 +283,7 @@ void __cdecl get_short_trans(const ShortKey* key, float* out)
 // --- between two keys ---------------------------------------------------------------------------------------
 
 // 0x00483B30
-void __cdecl interpolate_quat(float* out, const void* a, const void* b, float t, bool floats)
+void interpolate_quat(float* out, const void* a, const void* b, float t, bool floats)
 {
     if (t == 0.0f) {
         get_quat(a, out, floats);
@@ -301,7 +301,7 @@ void __cdecl interpolate_quat(float* out, const void* a, const void* b, float t,
 }
 
 // 0x00483C40
-void __cdecl interpolate_trans(float* out, const void* a, const void* b, float t, bool floats)
+void interpolate_trans(float* out, const void* a, const void* b, float t, bool floats)
 {
     if (t == 0.0f) {
         get_trans(a, out, floats);
@@ -319,7 +319,7 @@ void __cdecl interpolate_trans(float* out, const void* a, const void* b, float t
 }
 
 // 0x00483E10
-void __cdecl interpolate_short_quat(float* out, const ShortKey* a, const ShortKey* b, float t)
+void interpolate_short_quat(float* out, const ShortKey* a, const ShortKey* b, float t)
 {
     if (t == 0.0f) {
         get_short_quat(a, out);
@@ -337,7 +337,7 @@ void __cdecl interpolate_short_quat(float* out, const ShortKey* a, const ShortKe
 }
 
 // 0x00484080
-void __cdecl interpolate_short_trans(float* out, const ShortKey* a, const ShortKey* b, float t)
+void interpolate_short_trans(float* out, const ShortKey* a, const ShortKey* b, float t)
 {
     if (t == 0.0f) {
         get_short_trans(a, out);
@@ -358,7 +358,7 @@ float g_tiny_length{0.00001f};
 uint32_t g_cache_use_counter;
 
 // 0x00483F10
-void __cdecl interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t)
+void interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, float t)
 {
     if (t == 0.0f) {
         std::memcpy(out, a->value, 4 * sizeof(float));
@@ -397,7 +397,7 @@ void __cdecl interpolate_float_quat(float* out, FloatKey* a, const FloatKey* b, 
 }
 
 // 0x00484170
-void __cdecl interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, float t)
+void interpolate_float_trans(float* out, const FloatKey* a, const FloatKey* b, float t)
 {
     if (t == 0.0f || t == 1.0f) {
         const FloatKey* key = t == 0.0f ? a : b;
@@ -446,7 +446,7 @@ JointClipFrames::~JointClipFrames()
 }
 
 // 0x00482B90
-void __cdecl JointClipFrames::forget_cache_entry(JointClipFrames* data)
+void JointClipFrames::forget_cache_entry(JointClipFrames* data)
 {
     if (data)
         data->cache_slot_ = nullptr;
@@ -781,8 +781,7 @@ bool JointClipFrames::read_events(const anim_format::AnimHeader& header, const a
         return true;
     }
     events_ptr_ = static_cast<UserClipKey**>(memory::alloc_block(header.custom_key_count * 4));
-    util::ByteReader reader(reinterpret_cast<const uint8_t*>(layout.custom_keys),
-                            layout.end - layout.custom_keys);
+    util::ByteReader reader(reinterpret_cast<const uint8_t*>(layout.custom_keys), layout.end - layout.custom_keys);
     for (uint32_t i = 0; i < header.custom_key_count; ++i) {
         UserClipKey* event = create_custom_anim_key(reader);
         if (!event)

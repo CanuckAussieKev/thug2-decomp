@@ -32,9 +32,9 @@ public:
     ViewRegion& operator=(const ViewRegion&) = delete;
     // 0x004A0CC0 (vtable slot 1): "STUB: PlatTransformToScreenCoord"; -1.
     virtual float project_to_screen(const maths::Vec4* point, float* x, float* y, int* depth);
-    // 0x004A0CF0 (slot 2; the same code is in many vtables - stubs::return_false3): no query, 0.
+    // 0x004A0CF0 (slot 2; the same code is in many vtables): no query, 0.
     virtual uint8_t query_point(const maths::Vec4* point, int unused, uint8_t query);
-    // 0x004A0CE0 (slot 3; also shared - stubs::return_false6): no query, 0.
+    // 0x004A0CE0 (slot 3; also shared): no query, 0.
     virtual uint8_t query_rect(float x0, float y0, float x1, float y1, uint32_t z, uint8_t query);
     // 0x004A0D00 (slot 4): "STUB: plat_get_visibility_test"; 0.
     virtual int fetch_shown(int unused);
@@ -58,7 +58,7 @@ static_assert(offsetof(ViewRegion, flag_bits_) == 0x14 && offsetof(ViewRegion, v
 // request_occlusion_query), what's called once it's drawn (data, slot) and whether that's been done.
 struct OcclusionRequest {
     uint32_t slot;
-    void(__cdecl* callback)(uint32_t data, uint32_t slot);
+    void (*callback)(uint32_t data, uint32_t slot);
     uint32_t data;
     uint8_t issued; // +0x0C
     uint8_t pad[3];
@@ -66,39 +66,39 @@ struct OcclusionRequest {
 static_assert(sizeof(OcclusionRequest) == 0x10, "layout must match the original");
 
 // 0x004A0760: every viewport's camera marked for deletion deleted.
-void __cdecl purge_doomed_cameras();
+void purge_doomed_cameras();
 // 0x004A0840: the ten viewports made (the PC's create_viewport) from the rectangles at 0x00649C28.
-void __cdecl create_viewports();
+void create_viewports();
 // 0x004A0950: the camera of view `view` of the screen mode (null: the view isn't shown).
-gfx::ViewCam* __cdecl obtain_active_lens(int view);
+gfx::ViewCam* obtain_active_lens(int view);
 // 0x004A0970: view `view`'s camera set (nothing if the view isn't shown); its old one deleted if it was marked.
-void __cdecl choose_camera(int view, gfx::ViewCam* camera);
+void choose_camera(int view, gfx::ViewCam* camera);
 // 0x004A09C0: the camera of the n-th active viewport (0x004A06D0 - no check for none).
-gfx::ViewCam* __cdecl fetch_live_camera(int n);
+gfx::ViewCam* fetch_live_camera(int n);
 // 0x004A09E0: of the active viewports' cameras, the one nearest `position` (null: none) and its distance (if
 // `distance` isn't null).
-gfx::ViewCam* __cdecl fetch_nearest_camera(const maths::Vec4* position, float* distance);
+gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance);
 // 0x004A0AD0: the screen mode (0-5) set, and each active viewport's camera given the horizontal angle
 // Skater_Cam_Horiz_FOV (halved for split_vertical).
-void __cdecl set_screen_mode(int mode);
+void set_screen_mode(int mode);
 // 0x004A0B70: the screens' angle (0: the cameras' default, get_screen_angle) kept (0x00701344), the angle factor
 // (0x0067E544) = tan(angle / 2) / tan(default / 2), and the active viewports' cameras updated.
-void __cdecl set_screen_field_of_view(float degrees);
+void set_screen_field_of_view(float degrees);
 // 0x004A0EB0: an occlusion query requested for this frame (three at most: 0 when full): a free query slot taken
 // (1023 if none - not marked), written into `request` and the request copied in. Returns the slot.
-uint32_t __cdecl request_occlusion_query(OcclusionRequest* request);
+uint32_t request_occlusion_query(OcclusionRequest* request);
 // 0x004A0F30: each request with a slot and a callback not yet issued: called (data, slot) and marked issued.
-void __cdecl issue_occlusion_queries();
+void issue_occlusion_queries();
 // 0x004A0F80: the first request dropped (the others moved up).
-void __cdecl pop_occlusion_request();
+void pop_occlusion_request();
 
 // 0x004A07D0: Set2DIn3DSpaceParams [0x33AA4915=<f>] [max_scale=<f>] [min_scale=<f>]: the size factor of screen
 // elements placed in 3D (the numerator, its upper and lower bounds). Always true.
-bool __cdecl cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* script);
+bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script* script);
 // 0x004A08A0: ScriptGetScreenMode: screen_mode=<the mode's name> added to the script's parameters. Always true.
-bool __cdecl cfunc_script_get_screen_mode(script::Struct* params, script::Script* script);
+bool cfunc_script_get_screen_mode(script::Struct* params, script::Script* script);
 // 0x004A0C20: SetScreenMode <mode name>: an unknown name changes nothing. Always true.
-bool __cdecl cfunc_set_screen_mode(script::Struct* params, script::Script* script);
+bool cfunc_set_screen_mode(script::Struct* params, script::Script* script);
 
 extern OcclusionRequest g_occlusion_requests[4];
 extern int g_screen_mode;

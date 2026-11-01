@@ -25,7 +25,7 @@ public:
     static constexpr uint32_t kType = 0x41272956;
 
     // 0x0043D430 (registered with the composite object manager): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     VelocityTrackerModule();
     // 0x0043D2B0: the destructor body (the base's).

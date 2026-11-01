@@ -89,12 +89,12 @@ void halt(StreamSlot& slot)
 } // namespace
 
 // The original calls 0x0047C790, a linker-folded `return -1` (also sound::group_count).
-Hdl __cdecl open_user_track(int, int) { return INVALID_HANDLE_VALUE; }
+Hdl open_user_track(int, int) { return INVALID_HANDLE_VALUE; }
 
 // --- The music ---------------------------------------------------------------------------------------------
 
 // 0x00453C20
-bool __cdecl load_music_track(uint32_t checksum)
+bool load_music_track(uint32_t checksum)
 {
     StreamSlot& music = music_slot();
     if (music.get_playing())
@@ -122,7 +122,7 @@ bool __cdecl load_music_track(uint32_t checksum)
 }
 
 // 0x00453D70
-bool __cdecl load_music_track_by_name(const char* path)
+bool load_music_track_by_name(const char* path)
 {
     if (const char* slash = std::strrchr(path, '\\'))
         path = slash + 1;
@@ -132,7 +132,7 @@ bool __cdecl load_music_track_by_name(const char* path)
 }
 
 // 0x00453DB0
-bool __cdecl start_track_playback(uint32_t checksum)
+bool start_track_playback(uint32_t checksum)
 {
     last_music_track() = checksum;
     if (!load_music_track(checksum))
@@ -142,7 +142,7 @@ bool __cdecl start_track_playback(uint32_t checksum)
 }
 
 // 0x00453BF0
-bool __cdecl start_preloaded_music()
+bool start_preloaded_music()
 {
     if (!music_slot().get_playing())
         return false;
@@ -152,7 +152,7 @@ bool __cdecl start_preloaded_music()
 }
 
 // 0x00453850
-bool __cdecl play_user_track(int soundtrack, int track)
+bool play_user_track(int soundtrack, int track)
 {
     StreamSlot& music = music_slot();
     if (music.get_playing())
@@ -171,10 +171,10 @@ bool __cdecl play_user_track(int soundtrack, int track)
 }
 
 // 0x00453AA0
-void __cdecl platform_stop_music() { halt(music_slot()); }
+void platform_stop_music() { halt(music_slot()); }
 
 // 0x00453400
-int __cdecl platform_set_music_volume(float volume)
+int platform_set_music_volume(float volume)
 {
     WaitForSingleObject(stream_lock(), INFINITE);
     StreamSlot& music = music_slot();
@@ -190,7 +190,7 @@ int __cdecl platform_set_music_volume(float volume)
 }
 
 // 0x00453470
-void __cdecl sync_music_to_time(float seconds)
+void sync_music_to_time(float seconds)
 {
     if (!music_slot().get_playing())
         return;
@@ -208,7 +208,7 @@ void __cdecl sync_music_to_time(float seconds)
 // --- The sound streams -------------------------------------------------------------------------------------
 
 // 0x00453DF0
-bool __cdecl change_stream_loudness(const StreamGain* volume, int slot_index)
+bool change_stream_loudness(const StreamGain* volume, int slot_index)
 {
     WaitForSingleObject(stream_lock(), INFINITE);
     StreamSlot& slot = stream_slots()[slot_index];
@@ -254,7 +254,7 @@ bool __cdecl change_stream_loudness(const StreamGain* volume, int slot_index)
 }
 
 // 0x00454080
-bool __cdecl load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, int, int, bool preload, int plays)
+bool load_stream(uint32_t checksum, int slot_index, const StreamGain* volume, int, int, bool preload, int plays)
 {
     int entry = find_wad_entry(checksum);
     if (entry < 0)
@@ -282,7 +282,7 @@ bool __cdecl load_stream(uint32_t checksum, int slot_index, const StreamGain* vo
 }
 
 // 0x00454200
-bool __cdecl play_stream(uint32_t checksum, int slot, int unused)
+bool play_stream(uint32_t checksum, int slot, int unused)
 {
     last_streams()[slot] = checksum;
     if (!load_stream(checksum, slot, nullptr, 0, unused, false, 1))
@@ -292,7 +292,7 @@ bool __cdecl play_stream(uint32_t checksum, int slot, int unused)
 }
 
 // 0x00454270
-bool __cdecl start_preloaded_stream(int slot, const StreamGain* volume)
+bool start_preloaded_stream(int slot, const StreamGain* volume)
 {
     if (!stream_slots()[slot].get_playing())
         return false;
@@ -302,10 +302,10 @@ bool __cdecl start_preloaded_stream(int slot, const StreamGain* volume)
 }
 
 // 0x00453B30
-void __cdecl halt_stream(int slot, int) { halt(stream_slots()[slot]); }
+void halt_stream(int slot, int) { halt(stream_slots()[slot]); }
 
 // 0x00453BD0
-void __cdecl halt_streams()
+void halt_streams()
 {
     for (int i = 0; i < kStreamSlots; ++i)
         halt_stream(i, 0);

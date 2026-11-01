@@ -81,7 +81,7 @@ void add_element(Struct* results, Array* array, uint32_t index)
 
 // 0x0044AF50: ArrayContains array=[...] contains=<value>: whether an element equals the value - integer arrays by
 // value, string arrays ignoring case, name arrays by checksum (any other array: false).
-bool __cdecl cfunc_array_contains(Struct* params, script::Script*)
+bool cfunc_array_contains(Struct* params, script::Script*)
 {
     Array* array = nullptr;
     params->fetch_list(kArray, &array, 1);
@@ -118,7 +118,7 @@ bool __cdecl cfunc_array_contains(Struct* params, script::Script*)
 
 // 0x0044B030: GetArraySize <array> [Index1=i [index2=j [index3=k]]]: array_size = the size of the array, or of the
 // element array the indices lead to.
-bool __cdecl cfunc_get_array_size(Struct* params, script::Script* script)
+bool cfunc_get_array_size(Struct* params, script::Script* script)
 {
     Array* array = nullptr;
     params->fetch_list(0u, &array, 1);
@@ -142,7 +142,7 @@ bool __cdecl cfunc_get_array_size(Struct* params, script::Script* script)
 
 // 0x0044B0F0: Get2DArrayData arrayName=<name> Index1=i index2=j: val = array[i][j] (the array the calling script's
 // own parameters name, else the global).
-bool __cdecl cfunc_get_2d_array_data(Struct* params, script::Script* script)
+bool cfunc_get_2d_array_data(Struct* params, script::Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
@@ -156,7 +156,7 @@ bool __cdecl cfunc_get_2d_array_data(Struct* params, script::Script* script)
 }
 
 // 0x0044B300: Get3DArrayData arrayName=<name> Index1=i index2=j index3=k: val = array[i][j][k].
-bool __cdecl cfunc_get_3d_array_data(Struct* params, script::Script* script)
+bool cfunc_get_3d_array_data(Struct* params, script::Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);
@@ -175,7 +175,7 @@ bool __cdecl cfunc_get_3d_array_data(Struct* params, script::Script* script)
 // 0x0044B530: GetNDArrayData arrayName=<name>: val = the element the calling script's own `indices` array leads
 // to (read from the script's parameters, not the command's). An empty indices array runs off the end, as in the
 // original.
-bool __cdecl cfunc_get_nd_array_data(Struct* params, script::Script* script)
+bool cfunc_get_nd_array_data(Struct* params, script::Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(kArrayName, &name, 1);

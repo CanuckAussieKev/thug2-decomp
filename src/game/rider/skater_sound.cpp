@@ -69,7 +69,7 @@ float full_length(const maths::Vec4& v, float full_speed)
 } // namespace
 
 // 0x00518E20
-memory::owner<ObjectModule*> __cdecl RiderSfxPlayer::fabricate() { return new RiderSfxPlayer; }
+memory::owner<ObjectModule*> RiderSfxPlayer::fabricate() { return new RiderSfxPlayer; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderSfxPlayer::RiderSfxPlayer()

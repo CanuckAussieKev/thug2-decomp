@@ -31,7 +31,7 @@ int get_rand() { return crt::get_rand(); }
 } // namespace
 
 // 0x004D9CF0
-uint32_t __cdecl blend_mode_from_name(uint32_t checksum)
+uint32_t blend_mode_from_name(uint32_t checksum)
 {
     switch (checksum) {
     case 0x515E298E: // diffuse
@@ -66,8 +66,7 @@ uint32_t __cdecl blend_mode_from_name(uint32_t checksum)
 
 // 0x004D9B80
 SimpleMaterial::SimpleMaterial(uint32_t /*unused0*/, uint32_t /*unused1*/, uint32_t texture_checksum,
-                                         uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/,
-                                         uint32_t /*unused6*/)
+                               uint32_t blend_checksum, int fixed_alpha, uint32_t /*unused5*/, uint32_t /*unused6*/)
 {
     // (the texture entry's +0x10: its PC texture, or with flag 1 a pointer to it)
     uint8_t* texture = nullptr;
@@ -106,7 +105,7 @@ SimpleMaterial::~SimpleMaterial()
 }
 
 // 0x004DA6D0
-int __cdecl skip_file_chunk(void* file)
+int skip_file_chunk(void* file)
 {
     uint32_t id, size;
     file::get_take_in(&id, 4, 1, file);
@@ -116,7 +115,7 @@ int __cdecl skip_file_chunk(void* file)
 }
 
 // 0x004DA710
-int __cdecl skip_memory_chunk(uint8_t** data)
+int skip_memory_chunk(uint8_t** data)
 {
     *data = *data + *reinterpret_cast<uint32_t*>(*data + 4) + 8;
     return 0;

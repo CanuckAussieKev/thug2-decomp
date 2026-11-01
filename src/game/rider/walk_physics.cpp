@@ -109,7 +109,7 @@ void turn_flat(double angle, float x, float z, float* turned_x, float* turned_z)
 } // namespace
 
 // 0x00525E40
-void __cdecl FootMovement::publish_method_table()
+void FootMovement::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kWalk), g_walk_member_functions, 0x18);
 }
@@ -284,7 +284,7 @@ void FootMovement::clamp_skater_speed(uint32_t stop_anim)
 }
 
 // 0x005284C0
-double __cdecl FootMovement::get_gravity()
+double FootMovement::get_gravity()
 {
     RiderStoryProgress* career = get_career();
     if (!career->is_code_on(kCheatMoon))
@@ -295,8 +295,7 @@ double __cdecl FootMovement::get_gravity()
 }
 
 // 0x00528280
-bool __stdcall FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out,
-                                                 render::ProbeRay* feeler)
+bool FootMovement::find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler)
 {
     float height = walk_parameter(kProbeElevation);
     feeler->line_.start = *position;

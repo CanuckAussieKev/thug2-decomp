@@ -71,7 +71,7 @@ bool SubMesh::add_collision(const uint8_t* data, size_t size)
 }
 
 // 0x00490AD0
-void __cdecl skin_collision_file_name(char* out, const char* name)
+void skin_collision_file_name(char* out, const char* name)
 {
     char* end = out;
     while ((*end++ = *name++) != '\0') { // (no length limit, as the original)

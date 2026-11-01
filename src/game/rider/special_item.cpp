@@ -95,7 +95,7 @@ void send_to_server(uint8_t id, const online::SpecialItemMessage& item)
 } // namespace
 
 // 0x0051BD80
-memory::owner<ObjectModule*> __cdecl PickupItemHandler::fabricate() { return new PickupItemHandler; }
+memory::owner<ObjectModule*> PickupItemHandler::fabricate() { return new PickupItemHandler; }
 
 // (the constructor: inlined in fabricate in the original)
 PickupItemHandler::PickupItemHandler()

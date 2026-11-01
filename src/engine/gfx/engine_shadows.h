@@ -68,9 +68,9 @@ public:
     void set_light_direction(const maths::Vec4* direction) override;
 
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
-    uint8_t* bitmap_;           // +0x0C the render target
-    maths::Vec4 direction_;     // +0x10 the light's
-    float reach_;               // +0x20
+    uint8_t* bitmap_;                           // +0x0C the render target
+    maths::Vec4 direction_;                     // +0x10 the light's
+    float reach_;                               // +0x20
 };
 static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24, "the original's size");
 
@@ -122,22 +122,22 @@ public:
     void change_mesh(RenderModel* model, uint8_t* asset_data) override;
 
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
-    maths::Mat4 basis_frame_;   // +0x0C
-    uint32_t model_key_;        // +0x4C the asset data's meshes
-    maths::Vec4 direction_;     // +0x50
-    ShadowEdges* edges_;        // +0x60
-    float reach_;               // +0x64
+    maths::Mat4 basis_frame_;                   // +0x0C
+    uint32_t model_key_;                        // +0x4C the asset data's meshes
+    maths::Vec4 direction_;                     // +0x50
+    ShadowEdges* edges_;                        // +0x60
+    float reach_;                               // +0x64
 };
 static_assert(offsetof(ShadowVolume, model_key_) == 0x4C && offsetof(ShadowVolume, edges_) == 0x60 &&
                   sizeof(ShadowVolume) == 0x68,
               "the original's size");
 
 // 0x004A1E40: a volume taken out of the volumes drawn (0x007013D8, 16 slots).
-void __cdecl remove_shadow_volume(ShadowVolume* volume);
+void remove_shadow_volume(ShadowVolume* volume);
 // 0x004A1EF0: the edges kept under `key` (null: none).
-ShadowEdges* __cdecl find_shadow_edges(uint32_t key);
+ShadowEdges* find_shadow_edges(uint32_t key);
 // 0x004A1F30: one user fewer of the edges under `key`; with none left they're freed and taken out of the table.
-void __cdecl release_shadow_edges(uint32_t key);
+void release_shadow_edges(uint32_t key);
 
 extern ShadowVolume* g_shadow_volumes[16];
 extern lists::KeyMap g_shadow_edge_table; // 0x00701418: the silhouette edges by model

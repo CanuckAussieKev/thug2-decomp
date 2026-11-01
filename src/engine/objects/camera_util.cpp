@@ -64,15 +64,15 @@ constexpr float kSideProbe = 8.0f;
 } // namespace
 
 // 0x004E4340
-double __cdecl frame_blend(float rate, float seconds)
+double frame_blend(float rate, float seconds)
 {
     double scaled = static_cast<double>(seconds) * 60.0f * rate;
     return scaled / ((1.0f - static_cast<double>(rate)) + scaled);
 }
 
 // 0x004E4360
-void __cdecl avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const maths::Vec4* target,
-                                     const maths::Vec4* focus, bool sideways, bool refocus)
+void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const maths::Vec4* target,
+                             const maths::Vec4* focus, bool sideways, bool refocus)
 {
     maths::Vec4& pos = *position;
     // The direction from the target, normalised (z unrounded until then); w's difference as it is.

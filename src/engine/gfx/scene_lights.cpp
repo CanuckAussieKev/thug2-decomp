@@ -208,7 +208,7 @@ void LevelLamp::find_sectors(script::Array* excluded)
 }
 
 // 0x0048F250
-void __cdecl apply_scene_lights_to_sector(WorldCell* sector)
+void apply_scene_lights_to_sector(WorldCell* sector)
 {
     Geom* geom = geom_of(sector);
     if (!geom)
@@ -252,8 +252,8 @@ void __cdecl apply_scene_lights_to_sector(WorldCell* sector)
 }
 
 // 0x0048F620
-void __cdecl light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions,
-                                  const maths::Vec4* normal, uint32_t count)
+void light_vertex_colours(const uint32_t* in, uint32_t* out, const maths::Vec4* positions, const maths::Vec4* normal,
+                          uint32_t count)
 {
     int lights[3];
     int found = 0;
@@ -290,7 +290,7 @@ void __cdecl light_vertex_colours(const uint32_t* in, uint32_t* out, const maths
 }
 
 // 0x0048FC00
-void __cdecl apply_scene_light(WorldScene* /*scene*/, uint32_t name)
+void apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 {
     if (!name)
         return;
@@ -306,7 +306,7 @@ void __cdecl apply_scene_light(WorldScene* /*scene*/, uint32_t name)
 }
 
 // 0x0048FCA0
-void __cdecl delete_scene_light(uint32_t name)
+void delete_scene_light(uint32_t name)
 {
     DynamicLightBase** dynamic = g_dynamic_lights;
     int& dynamic_count = g_dynamic_light_count;
@@ -330,7 +330,7 @@ void __cdecl delete_scene_light(uint32_t name)
 }
 
 // 0x0048FDA0
-void __cdecl delete_all_scene_lights()
+void delete_all_scene_lights()
 {
     for (int i = 0; i < scene_light_count(); ++i)
         scene_light_array()[i].clear_sectors();
@@ -338,7 +338,7 @@ void __cdecl delete_all_scene_lights()
 }
 
 // 0x0048FDE0
-void __cdecl clear_scene_light_queue()
+void clear_scene_light_queue()
 {
     if (queued_nodes()) {
         memory::free_malloc(queued_nodes());
@@ -356,7 +356,7 @@ void __cdecl clear_scene_light_queue()
 }
 
 // 0x0048FE40
-void __cdecl queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params)
+void queue_scene_lights(const uint32_t* nodes, int count, int frames, script::Struct* params)
 {
     clear_scene_light_queue();
     script::Struct* copy = script::spawn_param_bag();
@@ -374,7 +374,7 @@ void __cdecl queue_scene_lights(const uint32_t* nodes, int count, int frames, sc
 }
 
 // 0x004904E0
-void __cdecl update_scene_light_queue()
+void update_scene_light_queue()
 {
     if (!queued_nodes() || objects::g_simulation_halted) // (paused)
         return;
@@ -391,7 +391,7 @@ void __cdecl update_scene_light_queue()
 }
 
 // 0x004901D0
-void __cdecl update_scene_light(uint32_t name, script::Struct* params)
+void update_scene_light(uint32_t name, script::Struct* params)
 {
     WorldScene* scene = get_main_scene();
     LevelLamp* light = find_scene_light(name);
@@ -440,8 +440,8 @@ void __cdecl update_scene_light(uint32_t name, script::Struct* params)
 }
 
 // 0x00490400
-LevelLamp* __cdecl register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour,
-                                        float radius, script::Array* excluded)
+LevelLamp* register_scene_light(uint32_t name, const maths::Vec4* pos, float brightness, uint32_t colour, float radius,
+                                script::Array* excluded)
 {
     if (scene_light_count() >= kMaxSceneLights)
         return nullptr;
@@ -465,7 +465,7 @@ LevelLamp* __cdecl register_scene_light(uint32_t name, const maths::Vec4* pos, f
 }
 
 // 0x00490570
-void __cdecl create_light_from_node(script::Struct* node)
+void create_light_from_node(script::Struct* node)
 {
     bool dynamic = !node->has_bare_flag(0xE1509E4Fu);
     bool scene = !node->has_bare_flag(0x6F050E18u);

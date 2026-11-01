@@ -37,7 +37,7 @@ int allow_random(Struct* option)
 } // namespace
 
 // 0x00485CB0
-bool __cdecl part_is_created_graphic(void* appearance, uint32_t part)
+bool part_is_created_graphic(void* appearance, uint32_t part)
 {
     auto* option = static_cast<gfx::ModelLook*>(appearance)->get_part(part);
     if (!option)
@@ -48,7 +48,7 @@ bool __cdecl part_is_created_graphic(void* appearance, uint32_t part)
 }
 
 // 0x00485CF0
-Struct* __cdecl find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
+Struct* find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
 {
     Array* list = script::fetch_list(part);
     if (!descriptor_id)
@@ -64,7 +64,7 @@ Struct* __cdecl find_cas_option(uint32_t part, uint32_t descriptor_id, bool)
 }
 
 // 0x00485D70
-void __cdecl get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int* count)
+void get_matching_cas_options(uint32_t part, uint32_t filter, Struct** out, int* count)
 {
     Array* list = script::fetch_list(part);
     *count = 0;
@@ -85,7 +85,7 @@ void __cdecl get_matching_cas_options(uint32_t part, uint32_t filter, Struct** o
 }
 
 // 0x00485E20
-Struct* __cdecl pick_random_cas_option(uint32_t part, uint32_t filter)
+Struct* pick_random_cas_option(uint32_t part, uint32_t filter)
 {
     Struct* options[32];
     bool selected[32];
@@ -132,7 +132,7 @@ Struct* __cdecl pick_random_cas_option(uint32_t part, uint32_t filter)
 }
 
 // 0x00485FC0
-Struct* __cdecl get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
+Struct* get_cas_option_by_index(uint32_t part, int index, uint32_t filter)
 {
     Array* list = script::fetch_list(part);
     int size = static_cast<int>(list->extent_);

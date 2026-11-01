@@ -28,11 +28,11 @@ public:
     enum State : int { kClockIdle = 0, kClockTicking = 1, kActivePaused = 2, kActiveTimeUp = 3 };
 
     // 0x005185D0 (registered by register_component_types): a new one (0 if out of memory). Nothing else is set.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderRunClock();
     // 0x00518240 (registered with Create): its script member functions (the table at 0x006849C0) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00518260: the destructor body (the base's).
     ~RiderRunClock() override;
     // 0x004FBDA0 (slot 2, the cleanup component's, folded: its +0x18 cleared): state 0.

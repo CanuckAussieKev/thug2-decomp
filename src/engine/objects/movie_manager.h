@@ -106,9 +106,8 @@ struct CameraAssignment {
 };
 
 // A movie's name: its +0x20 (VideoEntry::value20_, set by set_value20). No address of its own: the original reads it
-// through the getter folded at 0x00543150 (online::PlayerRecord::get_accumulated_score). (__fastcall: the movie in ECX,
-// as the original's calls pass it.)
-uint32_t __fastcall movie_key_from_params(const void* movie);
+// through the getter folded at 0x00543150 (online::PlayerRecord::get_accumulated_score).
+uint32_t movie_key_from_params(const void* movie);
 
 extern bool g_simulation_halted;
 extern int g_view_mode;

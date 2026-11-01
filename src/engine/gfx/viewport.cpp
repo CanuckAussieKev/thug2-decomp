@@ -157,7 +157,7 @@ void ViewRegion::remove_flagged_camera()
 }
 
 // 0x004A0760
-void __cdecl purge_doomed_cameras()
+void purge_doomed_cameras()
 {
     for (int i = 0; i < kViewports; ++i) {
         if (get_viewport(i))
@@ -166,7 +166,7 @@ void __cdecl purge_doomed_cameras()
 }
 
 // 0x004A0840
-void __cdecl create_viewports()
+void create_viewports()
 {
     for (int i = 0; i < kViewports; ++i) {
         const float* table = g_split_layouts + 4 * i;
@@ -176,7 +176,7 @@ void __cdecl create_viewports()
 }
 
 // 0x004A0950
-gfx::ViewCam* __cdecl obtain_active_lens(int view)
+gfx::ViewCam* obtain_active_lens(int view)
 {
     int index = mode_map()[view];
     if (index == -1)
@@ -185,7 +185,7 @@ gfx::ViewCam* __cdecl obtain_active_lens(int view)
 }
 
 // 0x004A0970
-void __cdecl choose_camera(int view, gfx::ViewCam* camera)
+void choose_camera(int view, gfx::ViewCam* camera)
 {
     int index = mode_map()[view];
     if (index == -1)
@@ -196,14 +196,14 @@ void __cdecl choose_camera(int view, gfx::ViewCam* camera)
 }
 
 // 0x004A09C0
-gfx::ViewCam* __cdecl fetch_live_camera(int n)
+gfx::ViewCam* fetch_live_camera(int n)
 {
     auto* viewport = fetch_current_view(n);
     return viewport->viewer_.get_pull();
 }
 
 // 0x004A09E0
-gfx::ViewCam* __cdecl fetch_nearest_camera(const maths::Vec4* position, float* distance)
+gfx::ViewCam* fetch_nearest_camera(const maths::Vec4* position, float* distance)
 {
     int count = mode_viewport_count(screen_mode());
     gfx::ViewCam* closest = nullptr;
@@ -231,7 +231,7 @@ gfx::ViewCam* __cdecl fetch_nearest_camera(const maths::Vec4* position, float* d
 }
 
 // 0x004A0AD0
-void __cdecl set_screen_mode(int mode)
+void set_screen_mode(int mode)
 {
     mode_map() = mode_map_of(mode);
     screen_mode() = mode;
@@ -251,7 +251,7 @@ void __cdecl set_screen_mode(int mode)
 }
 
 // 0x004A0B70
-void __cdecl set_screen_field_of_view(float degrees)
+void set_screen_field_of_view(float degrees)
 {
     if (degrees == 0.0f)
         degrees = get_screen_angle();
@@ -267,7 +267,7 @@ void __cdecl set_screen_field_of_view(float degrees)
 }
 
 // 0x004A0EB0
-uint32_t __cdecl request_occlusion_query(OcclusionRequest* request)
+uint32_t request_occlusion_query(OcclusionRequest* request)
 {
     if (occlusion_request_count() >= 3)
         return 0;
@@ -286,7 +286,7 @@ uint32_t __cdecl request_occlusion_query(OcclusionRequest* request)
 }
 
 // 0x004A0F30
-void __cdecl issue_occlusion_queries()
+void issue_occlusion_queries()
 {
     for (int i = 0; i < kOcclusionRequests; ++i) {
         OcclusionRequest& request = occlusion_requests()[i];
@@ -298,7 +298,7 @@ void __cdecl issue_occlusion_queries()
 }
 
 // 0x004A0F80
-void __cdecl pop_occlusion_request()
+void pop_occlusion_request()
 {
     OcclusionRequest* requests = occlusion_requests();
     for (int i = 0; i < kOcclusionRequests - 1; ++i)
@@ -308,7 +308,7 @@ void __cdecl pop_occlusion_request()
 }
 
 // 0x004A07D0
-bool __cdecl cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
+bool cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Script*)
 {
     float value;
     if (params->fetch_float(kScaleNumerator, &value, 0))
@@ -321,7 +321,7 @@ bool __cdecl cfunc_set_2d_in_3d_space_params(script::Struct* params, script::Scr
 }
 
 // 0x004A08A0
-bool __cdecl cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
+bool cfunc_script_get_screen_mode(script::Struct*, script::Script* script)
 {
     script::Struct* results = script->args_;
     uint32_t mode = static_cast<uint32_t>(screen_mode());
@@ -330,7 +330,7 @@ bool __cdecl cfunc_script_get_screen_mode(script::Struct*, script::Script* scrip
 }
 
 // 0x004A0C20
-bool __cdecl cfunc_set_screen_mode(script::Struct* params, script::Script*)
+bool cfunc_set_screen_mode(script::Struct* params, script::Script*)
 {
     uint32_t name = 0; // (the original's is left uninitialised: it asserts when there's none)
     params->read_hash_value(0u, &name, 1);

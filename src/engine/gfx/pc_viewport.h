@@ -34,11 +34,11 @@ public:
 static_assert(sizeof(PcViewport) == 0x24, "layout must match the original");
 
 // 0x004CB860: a new PC viewport (null without memory).
-memory::owner<PcViewport*> __cdecl create_viewport(const float* rect, gfx::ViewCam* camera);
+memory::owner<PcViewport*> create_viewport(const float* rect, gfx::ViewCam* camera);
 // 0x004CBD40 (the engine's 0x004A0F20 jumps here): the pixels the first request's query saw - its flag
 // (0x0067E550) cleared and the requests moved on (0x004A0F80) when it's in, the last count while it's coming, 0 when
 // there's none (or on a Radeon 8500).
-uint32_t __cdecl occlusion_pixels();
+uint32_t occlusion_pixels();
 
 extern uint8_t g_occlusion_slots[1024];
 extern float g_scale_2d_in_3d_numerator;

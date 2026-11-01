@@ -242,7 +242,7 @@ void MeshRef::set_pixel_shader_colored()
 }
 
 // 0x004D3CA0
-void __cdecl set_skin_scaling(const uint32_t* settings)
+void set_skin_scaling(const uint32_t* settings)
 {
     g_skin_scaling_on = 1;
     g_skin_settings[1] = settings[1];
@@ -253,7 +253,7 @@ void __cdecl set_skin_scaling(const uint32_t* settings)
 }
 
 // 0x004D3CE0
-void __cdecl clear_skin_scaling()
+void clear_skin_scaling()
 {
     g_skin_scaling_on = 0;
     g_skin_settings[1] = 0;
@@ -264,7 +264,7 @@ void __cdecl clear_skin_scaling()
 }
 
 // 0x004D3ED0
-void* __stdcall pixel_shader_from_index(uint32_t index)
+void* pixel_shader_from_index(uint32_t index)
 {
     // (kPixelShader948 is skipped: no index names it)
     static const int kShaders[0x13] = {-1,

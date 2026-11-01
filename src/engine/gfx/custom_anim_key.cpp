@@ -189,7 +189,7 @@ bool AnimScriptKey::work_on(void* object)
 }
 
 // 0x00486680
-memory::owner<UserClipKey*> __cdecl create_custom_anim_key(const uint8_t** cursor)
+memory::owner<UserClipKey*> create_custom_anim_key(const uint8_t** cursor)
 {
     auto* header = reinterpret_cast<const uint32_t*>(*cursor);
     int frame = static_cast<int>(header[0]);

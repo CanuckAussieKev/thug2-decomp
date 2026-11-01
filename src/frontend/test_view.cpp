@@ -58,7 +58,7 @@ bool ground_below(Vec3 point, float* y)
 }
 
 // TeleportSkaterStanding pos=(x, y, z) [heading=<degrees>]
-bool __cdecl cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
+bool cfunc_teleport_skater_standing(script::Struct* params, script::Script*)
 {
     script::VectorValue pos = {};
     if (!params || !params->fetch_vec("pos", &pos, 0)) {

@@ -47,13 +47,13 @@ void read_feet(script::Struct* params, uint32_t name, float& value)
 } // namespace
 
 // 0x00434F00
-void __cdecl register_vehicle_member_functions()
+void register_vehicle_member_functions()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kVehicle), g_vehicle_wheel_member_functions, 0x18);
 }
 
 // 0x00434F20
-void __stdcall read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
+void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
 {
     // (each checksum is read into the parameters' own argument slot: a steering= that isn't a name leaves the
     // pointer's value there)

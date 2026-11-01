@@ -27,7 +27,7 @@ public:
 
     // 0x00427AB0 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined: the base's,
     // its vtable and type, no ride, no stop time).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     MovingSurfaceModule();
     // 0x004276C0: the destructor body (the base's - the ride tracker isn't freed).

@@ -69,7 +69,7 @@ const uint8_t* hierarchy_of(uint8_t* model)
 } // namespace
 
 // 0x00431800
-memory::owner<ObjectModule*> __cdecl GroundShadowModule::fabricate() { return new GroundShadowModule; }
+memory::owner<ObjectModule*> GroundShadowModule::fabricate() { return new GroundShadowModule; }
 
 // 0x00431380
 GroundShadowModule::GroundShadowModule()
@@ -160,7 +160,8 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
     uint8_t* model = model_component ? model_of(model_component) : nullptr;
     switch (type) {
     case kShadowDetailed:
-        shadow_handle_ = std::make_unique<render::FullShadow>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
+        shadow_handle_ =
+            std::make_unique<render::FullShadow>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
         return;
     case kShadowSimple: {
         auto* shadow = new render::BlobShadow();
@@ -171,7 +172,8 @@ void GroundShadowModule::build_blob_shadow(int type, const char* model_name)
         break;
     }
     case kShadowVolume:
-        shadow_handle_ = std::make_unique<render::ShadowVolume>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
+        shadow_handle_ =
+            std::make_unique<render::ShadowVolume>(reinterpret_cast<render::RenderModel*>(model), kDown, kCastDistance);
         break;
     default:
         return;

@@ -178,7 +178,7 @@ LRESULT CALLBACK get_window_proc(HWND window, UINT message, WPARAM w_param, LPAR
 }
 
 // 0x004E1220
-void __cdecl parse_network_params(const char* command_line) { read_network_params(command_line); }
+void parse_network_params(const char* command_line) { read_network_params(command_line); }
 
 void read_network_params(const char* command_line)
 {

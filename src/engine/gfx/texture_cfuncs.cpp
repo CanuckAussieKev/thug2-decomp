@@ -58,14 +58,14 @@ uint32_t raw_value(const Component* component) { return component->raw; }
 } // namespace
 
 // 0x005A9D80
-bool __cdecl cfunc_sce_alt_pt(Struct*, Script*)
+bool cfunc_sce_alt_pt(Struct*, Script*)
 {
     g_texture_flag_ce441 = true;
     return true;
 }
 
 // 0x005A9D90
-uint32_t __cdecl find_name_of_value(Struct* structure, uint32_t value, int depth)
+uint32_t find_name_of_value(Struct* structure, uint32_t value, int depth)
 {
     if (depth > 10)
         return 0;
@@ -103,7 +103,7 @@ uint32_t find_name_of_integer(Struct* structure, uint32_t value)
 }
 
 // 0x005A9E80
-float __cdecl wrap_angle(float degrees)
+float wrap_angle(float degrees)
 {
     double angle = degrees; // (kept in an x87 register, double precision)
     while (angle < 0.0)
@@ -114,7 +114,7 @@ float __cdecl wrap_angle(float degrees)
 }
 
 // 0x005A9ED0
-bool __cdecl cfunc_composite_object_exists(Struct* params, Script*)
+bool cfunc_composite_object_exists(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0xA1DC81F9u, &id, 1); // name (asserted: the id is used as it is)
@@ -122,7 +122,7 @@ bool __cdecl cfunc_composite_object_exists(Struct* params, Script*)
 }
 
 // 0x005A9F00
-bool __cdecl cfunc_load_texture(Struct* params, Script*)
+bool cfunc_load_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
@@ -133,7 +133,7 @@ bool __cdecl cfunc_load_texture(Struct* params, Script*)
 bool texture_loaded(const char* file) { return get_texture_by_name(get_textures(), file) != nullptr; }
 
 // 0x005A9F60
-bool __cdecl cfunc_create_texture(Struct* params, Script*)
+bool cfunc_create_texture(Struct* params, Script*)
 {
     uint32_t name;
     params->read_hash_value(0u, &name, 0);
@@ -153,7 +153,7 @@ bool __cdecl cfunc_create_texture(Struct* params, Script*)
 }
 
 // 0x005AA040
-bool __cdecl cfunc_unload_texture(Struct* params, Script*)
+bool cfunc_unload_texture(Struct* params, Script*)
 {
     void* texture = nullptr;
     const char* file;
@@ -171,7 +171,7 @@ bool __cdecl cfunc_unload_texture(Struct* params, Script*)
 }
 
 // 0x005AA0C0
-bool __cdecl cfunc_generate32_bit_image(Struct* params, Script*)
+bool cfunc_generate32_bit_image(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -190,7 +190,7 @@ bool __cdecl cfunc_generate32_bit_image(Struct* params, Script*)
 }
 
 // 0x005AA160
-bool __cdecl cfunc_put32_bit_image_into_texture(Struct* params, Script*)
+bool cfunc_put32_bit_image_into_texture(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -207,7 +207,7 @@ bool __cdecl cfunc_put32_bit_image_into_texture(Struct* params, Script*)
 }
 
 // 0x005AA1E0
-bool __cdecl cfunc_flip_texture(Struct* params, Script*)
+bool cfunc_flip_texture(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -226,7 +226,7 @@ bool __cdecl cfunc_flip_texture(Struct* params, Script*)
 }
 
 // 0x005AA270
-bool __cdecl cfunc_resize_texture_into(Struct* params, Script*)
+bool cfunc_resize_texture_into(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -241,7 +241,7 @@ bool __cdecl cfunc_resize_texture_into(Struct* params, Script*)
 }
 
 // 0x005AA2E0
-bool __cdecl cfunc_scale_texture(Struct* params, Script*)
+bool cfunc_scale_texture(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -253,7 +253,7 @@ bool __cdecl cfunc_scale_texture(Struct* params, Script*)
 }
 
 // 0x005AA340
-bool __cdecl cfunc_adjust_texture_region(Struct* params, Script*)
+bool cfunc_adjust_texture_region(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -280,7 +280,7 @@ bool __cdecl cfunc_adjust_texture_region(Struct* params, Script*)
 }
 
 // 0x005AA460
-bool __cdecl cfunc_pull_texture_to_edge(Struct* params, Script*)
+bool cfunc_pull_texture_to_edge(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -298,7 +298,7 @@ bool __cdecl cfunc_pull_texture_to_edge(Struct* params, Script*)
 }
 
 // 0x005AA500
-bool __cdecl cfunc_adjust_texture_brightness(Struct* params, Script*)
+bool cfunc_adjust_texture_brightness(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -317,7 +317,7 @@ bool __cdecl cfunc_adjust_texture_brightness(Struct* params, Script*)
 }
 
 // 0x005AA590
-bool __cdecl cfunc_adjust_texture_hsv(Struct* params, Script*)
+bool cfunc_adjust_texture_hsv(Struct* params, Script*)
 {
     uint32_t id;
     params->read_hash_value(0u, &id, 0);
@@ -341,7 +341,7 @@ bool __cdecl cfunc_adjust_texture_hsv(Struct* params, Script*)
 }
 
 // 0x005AA670
-bool __cdecl cfunc_copy_texture(Struct* params, Script*)
+bool cfunc_copy_texture(Struct* params, Script*)
 {
     uint32_t source;
     params->read_hash_value(kSrc, &source, 0);
@@ -354,7 +354,7 @@ bool __cdecl cfunc_copy_texture(Struct* params, Script*)
 }
 
 // 0x005AA6E0
-bool __cdecl cfunc_combine_textures(Struct* params, Script*)
+bool cfunc_combine_textures(Struct* params, Script*)
 {
     uint32_t source; // (src and top are not initialised when missing, as in the original)
     uint32_t top;
@@ -383,7 +383,7 @@ bool __cdecl cfunc_combine_textures(Struct* params, Script*)
 }
 
 // 0x005AA7B0
-bool __cdecl cfunc_load_particle_texture(Struct* params, Script*)
+bool cfunc_load_particle_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
@@ -397,7 +397,7 @@ bool __cdecl cfunc_load_particle_texture(Struct* params, Script*)
 }
 
 // 0x005AA830
-bool __cdecl cfunc_unload_particle_texture(Struct* params, Script*)
+bool cfunc_unload_particle_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
@@ -409,7 +409,7 @@ bool __cdecl cfunc_unload_particle_texture(Struct* params, Script*)
 }
 
 // 0x005AA880
-bool __cdecl cfunc_load_sfp_texture(Struct* params, Script*)
+bool cfunc_load_sfp_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
@@ -417,7 +417,7 @@ bool __cdecl cfunc_load_sfp_texture(Struct* params, Script*)
 }
 
 // 0x005AA8B0
-bool __cdecl cfunc_unload_sfp_texture(Struct* params, Script*)
+bool cfunc_unload_sfp_texture(Struct* params, Script*)
 {
     const char* file;
     params->fetch_text(0u, &file, 0);
@@ -427,7 +427,7 @@ bool __cdecl cfunc_unload_sfp_texture(Struct* params, Script*)
 }
 
 // 0x005AA8F0
-bool __cdecl cfunc_set_park_name(Struct* params, Script*)
+bool cfunc_set_park_name(Struct* params, Script*)
 {
     const char* name = ""; // ""
     params->fetch_text(0u, &name, 0);

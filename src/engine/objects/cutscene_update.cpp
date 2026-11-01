@@ -86,7 +86,7 @@ inline void debug_draw_box(const void*, const void*, const float*, int, int, int
 } // namespace
 
 // 0x00465510
-bool __stdcall objects_from_table(script::Struct* params, const uint32_t* table)
+bool objects_from_table(script::Struct* params, const uint32_t* table)
 {
     params->put_int(kVersion, static_cast<int>(table[0]));
     int count = static_cast<int>(table[1]);

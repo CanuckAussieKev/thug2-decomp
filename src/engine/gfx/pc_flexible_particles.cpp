@@ -213,9 +213,9 @@ memory::owner<EmitterInstance*> make_model(const ConstructArgs& a)
 } // namespace
 
 // 0x004BCEF0
-EmitterInstance* __cdecl create_flexible_particles(uint32_t name, uint32_t type, int particle_cap, int,
-                                                   uint32_t texture, uint32_t blend_mode, int fixed_alpha, int segments,
-                                                   float unknown, int history, const char* model)
+EmitterInstance* create_flexible_particles(uint32_t name, uint32_t type, int particle_cap, int, uint32_t texture,
+                                           uint32_t blend_mode, int fixed_alpha, int segments, float unknown,
+                                           int history, const char* model)
 {
     struct sType {
         uint32_t type;

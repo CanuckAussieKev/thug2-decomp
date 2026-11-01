@@ -84,7 +84,7 @@ void turn_by(maths::Mat4& m, const maths::Mat4& rotation) { d3dx::matrix_multipl
 } // namespace
 
 // 0x005147F0
-memory::owner<ObjectModule*> __cdecl RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
+memory::owner<ObjectModule*> RiderRemoteSync::fabricate() { return new RiderRemoteSync; }
 
 // 0x005144E0
 RiderRemoteSync::RiderRemoteSync()

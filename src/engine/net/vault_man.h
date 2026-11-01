@@ -137,7 +137,7 @@ public:
     // processed and the progress script run until 100%; then the answer read: the categories (then the first
     // category's items), the items (then the next category's, until all are in: net_vault_menu_create), the uploads
     // list, or the download / upload's done / fail scripts.
-    static void __cdecl vault_task(tasks::Task<VaultMan>* task);
+    static void vault_task(tasks::Task<VaultMan>* task);
     // 0x0054A7B0 (thread, stdcall): ghttpGetEx of url_ into a new 100000-byte buffer.
     static unsigned long __stdcall list_thread(void* vault);
     // 0x0054A860 (thread, stdcall): ghttpGetEx of `url` (goastrdup'd by Download, freed here) into a buffer of
@@ -149,61 +149,59 @@ public:
 
     // ghttp's callbacks (cdecl; param: this).
     // 0x0054A660: the progress (percent of a known total size) and the time of the last news.
-    static void __cdecl on_progress(void* request, int state, const char* buffer, int64_t buffer_length,
-                                    int64_t received, int64_t total, VaultMan* vault);
+    static void on_progress(void* request, int state, const char* buffer, int64_t buffer_length, int64_t received,
+                            int64_t total, VaultMan* vault);
     // 0x0054A740: a list or upload finished: 100%, the result 1 (ok) or 2 (failed). Returns 1.
-    static int __cdecl on_transfer_done(void* request, int result, char* buffer, int64_t buffer_length,
-                                        VaultMan* vault);
+    static int on_transfer_done(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
     // 0x0054A6B0 (DownloadFile's): a file downloaded: loaded by type (0x005A8EB0 with the type's script), or the
     // failure kept. Returns 1.
-    static int __cdecl on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length,
-                                          VaultMan* vault);
+    static int on_file_downloaded(void* request, int result, char* buffer, int64_t buffer_length, VaultMan* vault);
 
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<VaultMan> (vault_task)
-    int transfer_;                // +0x004 Transfer
-    int progress_;                // +0x008 percent; 100 = finished
-    int outcome_val_;             // +0x00C 0 running, 1 done, 2 failed
-    int fault_;                   // +0x010 ghttp's result (on_file_downloaded)
-    uint32_t buffer_size_;        // +0x014
-    char* octets_;                // +0x018 what came (or the upload's data)
-    uint32_t start_time_;         // +0x01C the time of the start or of the last progress
-    char url_[0x80];              // +0x020
-    char source_path_[0x80];      // +0x0A0 the upload's
-    char summary_text_[0x200];    // +0x120 the upload's
-    void* semaphore_;             // +0x320 (HANDLE) held while a thread sets its request up
-    int req_;                     // +0x324 GHTTPRequest
-    script::Struct* content_;     // +0x328 the upload's item (its `data` structure)
-    int points_held_;             // +0x32C the upload's details (UploadFile)
-    int span_;                    // +0x330
-    int byte_count_;              // +0x334 (posted as "height")
-    int num_pieces_;              // +0x338
-    int num_gaps_;                // +0x33C
-    int num_goals_;               // +0x340
-    int style_set_;               // +0x344
-    uint32_t tod_script_;         // +0x348
-    int has_male_body_;           // +0x34C
-    memory::ListNode categories_; // +0x350 lists::Foremost<VaultCategory>
-    VaultSearch search_;          // +0x364 the current category's place in the list
-    VaultCategory* category_;     // +0x36C
-    uint32_t kind_tag_;           // +0x370 kVaultParks...
-    char folder_[0x40];           // +0x374
-    uint32_t fail_script_;        // +0x3B4
-    uint32_t done_script_;        // +0x3B8
-    uint32_t progress_script_;    // +0x3BC
-    uint32_t error_script_;       // +0x3C0
-    const void* callback_;        // +0x3C4 Download's completed callback
+    int transfer_;                               // +0x004 Transfer
+    int progress_;                               // +0x008 percent; 100 = finished
+    int outcome_val_;                            // +0x00C 0 running, 1 done, 2 failed
+    int fault_;                                  // +0x010 ghttp's result (on_file_downloaded)
+    uint32_t buffer_size_;                       // +0x014
+    char* octets_;                               // +0x018 what came (or the upload's data)
+    uint32_t start_time_;                        // +0x01C the time of the start or of the last progress
+    char url_[0x80];                             // +0x020
+    char source_path_[0x80];                     // +0x0A0 the upload's
+    char summary_text_[0x200];                   // +0x120 the upload's
+    void* semaphore_;                            // +0x320 (HANDLE) held while a thread sets its request up
+    int req_;                                    // +0x324 GHTTPRequest
+    script::Struct* content_;                    // +0x328 the upload's item (its `data` structure)
+    int points_held_;                            // +0x32C the upload's details (UploadFile)
+    int span_;                                   // +0x330
+    int byte_count_;                             // +0x334 (posted as "height")
+    int num_pieces_;                             // +0x338
+    int num_gaps_;                               // +0x33C
+    int num_goals_;                              // +0x340
+    int style_set_;                              // +0x344
+    uint32_t tod_script_;                        // +0x348
+    int has_male_body_;                          // +0x34C
+    memory::ListNode categories_;                // +0x350 lists::Foremost<VaultCategory>
+    VaultSearch search_;                         // +0x364 the current category's place in the list
+    VaultCategory* category_;                    // +0x36C
+    uint32_t kind_tag_;                          // +0x370 kVaultParks...
+    char folder_[0x40];                          // +0x374
+    uint32_t fail_script_;                       // +0x3B4
+    uint32_t done_script_;                       // +0x3B8
+    uint32_t progress_script_;                   // +0x3BC
+    uint32_t error_script_;                      // +0x3C0
+    const void* callback_;                       // +0x3C4 Download's completed callback
 };
 // (The offsets in the comments are the original's: its search_ has a vtable too, so from category_ on they're 4
 // more than here.)
 
 // The script commands.
-bool __cdecl download_file(script::Struct* params, script::Script* script);           // 0x0054AA10
-bool __cdecl upload_file(script::Struct* params, script::Script* script);             // 0x0054B060
-bool __cdecl cancel_file_transfer(script::Struct* params, script::Script* script);    // 0x0054B240
-bool __cdecl download_directory_list(script::Struct* params, script::Script* script); // 0x0054C290
-bool __cdecl free_directory_listing(script::Struct* params, script::Script* script);  // 0x0054C460
-bool __cdecl fill_vault_menu(script::Struct* params, script::Script* script);         // 0x0054C470
-bool __cdecl next_vault_category(script::Struct* params, script::Script* script);     // 0x0054C770
-bool __cdecl prev_vault_category(script::Struct* params, script::Script* script);     // 0x0054C800
+bool download_file(script::Struct* params, script::Script* script);           // 0x0054AA10
+bool upload_file(script::Struct* params, script::Script* script);             // 0x0054B060
+bool cancel_file_transfer(script::Struct* params, script::Script* script);    // 0x0054B240
+bool download_directory_list(script::Struct* params, script::Script* script); // 0x0054C290
+bool free_directory_listing(script::Struct* params, script::Script* script);  // 0x0054C460
+bool fill_vault_menu(script::Struct* params, script::Script* script);         // 0x0054C470
+bool next_vault_category(script::Struct* params, script::Script* script);     // 0x0054C770
+bool prev_vault_category(script::Struct* params, script::Script* script);     // 0x0054C800
 
 } // namespace online

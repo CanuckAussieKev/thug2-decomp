@@ -60,7 +60,7 @@ int find_powerup(script::Struct* params)
 } // namespace
 
 // 0x00519740
-memory::owner<ObjectModule*> __cdecl RiderPoseState::fabricate() { return new RiderPoseState; }
+memory::owner<ObjectModule*> RiderPoseState::fabricate() { return new RiderPoseState; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderPoseState::RiderPoseState()
@@ -70,7 +70,7 @@ RiderPoseState::RiderPoseState()
 }
 
 // 0x00519430
-void __cdecl RiderPoseState::publish_method_table()
+void RiderPoseState::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterState), g_skater_state_member_functions,
                                            0x18);

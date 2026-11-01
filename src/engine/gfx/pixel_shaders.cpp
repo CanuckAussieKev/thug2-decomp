@@ -100,7 +100,7 @@ struct text_tools {
 } // namespace
 
 // 0x004DD7F0
-void __cdecl compile_pixel_shaders()
+void compile_pixel_shaders()
 {
     bool& done = g_pixel_shaders_made;
     if (done)
@@ -152,7 +152,7 @@ void __cdecl compile_pixel_shaders()
 }
 
 // 0x004DD2C0
-void* __cdecl generated_pixel_shader(const void* material)
+void* generated_pixel_shader(const void* material)
 {
     uint32_t passes = pass_count(material);
     uint32_t present = 0;
@@ -283,7 +283,7 @@ void* __cdecl generated_pixel_shader(const void* material)
 }
 
 // 0x004DDC00
-void __cdecl material_pixel_shader(const void* material, void** shader)
+void material_pixel_shader(const void* material, void** shader)
 {
     if (pass_count(material) != 1) {
         *shader = generated_pixel_shader(material);

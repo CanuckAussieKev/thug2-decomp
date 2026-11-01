@@ -45,7 +45,7 @@ static_assert(offsetof(SubMesh, box_) == 0x90 && offsetof(SubMesh, hierarchy_cou
 
 // 0x00490AD0: a skin's collision file name: `name` with ".col." in place of its extension (or added) and the
 // platform's extension after it.
-void __cdecl skin_collision_file_name(char* out, const char* name);
+void skin_collision_file_name(char* out, const char* name);
 
 // The splat sets' slots (0x00490CD0, thiscall on a set): the first free one of the first `count` (the alive word 0),
 // else the one with the most steps past its start (the first on ties).

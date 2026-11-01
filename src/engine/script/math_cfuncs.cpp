@@ -60,7 +60,7 @@ float get_argument(script::Struct* params)
 } // namespace
 
 // 0x00448AE0: Sin <degrees>: sin = the sine.
-bool __cdecl cfunc_sin(script::Struct* params, script::Script* script)
+bool cfunc_sin(script::Struct* params, script::Script* script)
 {
     float angle = get_argument(params);
     script->args_->push_float(kSin, static_cast<float>(std::sin(static_cast<double>(angle) * degree_to_radian_conv())));
@@ -68,7 +68,7 @@ bool __cdecl cfunc_sin(script::Struct* params, script::Script* script)
 }
 
 // 0x00448B20: Cos <degrees>: cos = the cosine.
-bool __cdecl cfunc_cos(script::Struct* params, script::Script* script)
+bool cfunc_cos(script::Struct* params, script::Script* script)
 {
     float angle = get_argument(params);
     script->args_->push_float(kCos, static_cast<float>(std::cos(static_cast<double>(angle) * degree_to_radian_conv())));
@@ -76,7 +76,7 @@ bool __cdecl cfunc_cos(script::Struct* params, script::Script* script)
 }
 
 // 0x00448B60: Tan <degrees>: tan = the tangent.
-bool __cdecl cfunc_tan(script::Struct* params, script::Script* script)
+bool cfunc_tan(script::Struct* params, script::Script* script)
 {
     float angle = get_argument(params);
     script->args_->push_float(kTan, static_cast<float>(std::tan(static_cast<double>(angle) * degree_to_radian_conv())));
@@ -84,7 +84,7 @@ bool __cdecl cfunc_tan(script::Struct* params, script::Script* script)
 }
 
 // 0x00448BA0: ASin <value>: asin = the arc sine in degrees (the C runtime's asin).
-bool __cdecl cfunc_a_sin(script::Struct* params, script::Script* script)
+bool cfunc_a_sin(script::Struct* params, script::Script* script)
 {
     float value = get_argument(params);
     script->args_->push_float(kASin, static_cast<float>(std::asin(static_cast<double>(value)) * convert_to_degrees()));
@@ -92,7 +92,7 @@ bool __cdecl cfunc_a_sin(script::Struct* params, script::Script* script)
 }
 
 // 0x00448BE0: ACos <value>: acos = the arc cosine in degrees (the C runtime's acos).
-bool __cdecl cfunc_a_cos(script::Struct* params, script::Script* script)
+bool cfunc_a_cos(script::Struct* params, script::Script* script)
 {
     float value = get_argument(params);
     script->args_->push_float(kACos, static_cast<float>(std::acos(static_cast<double>(value)) * convert_to_degrees()));
@@ -100,7 +100,7 @@ bool __cdecl cfunc_a_cos(script::Struct* params, script::Script* script)
 }
 
 // 0x00448C20: ATan <value>: atan = the arc tangent in degrees.
-bool __cdecl cfunc_a_tan(script::Struct* params, script::Script* script)
+bool cfunc_a_tan(script::Struct* params, script::Script* script)
 {
     float value = get_argument(params);
     script->args_->push_float(kATan, static_cast<float>(std::atan(static_cast<double>(value)) * convert_to_degrees()));
@@ -108,7 +108,7 @@ bool __cdecl cfunc_a_tan(script::Struct* params, script::Script* script)
 }
 
 // 0x00448C60: Sqrt <value>: sqrt = the square root.
-bool __cdecl cfunc_sqrt(script::Struct* params, script::Script* script)
+bool cfunc_sqrt(script::Struct* params, script::Script* script)
 {
     float value = get_argument(params);
     script->args_->push_float(kSqrt, static_cast<float>(std::sqrt(static_cast<double>(value))));
@@ -117,7 +117,7 @@ bool __cdecl cfunc_sqrt(script::Struct* params, script::Script* script)
 
 // 0x00448CA0: NormalizeVector <vector>: norm = the vector scaled to length 1 (all four components scaled; a
 // zero vector as it is), length = its length (x, y, z).
-bool __cdecl cfunc_normalize_vector(script::Struct* params, script::Script* script)
+bool cfunc_normalize_vector(script::Struct* params, script::Script* script)
 {
     script::VectorValue v = {};
     params->fetch_vec(0u, &v, 1);
@@ -140,7 +140,7 @@ bool __cdecl cfunc_normalize_vector(script::Struct* params, script::Script* scri
 
 // 0x00448D70: LinearMap result=<name> From=a To=b <value> lowerbound=lo upperbound=hi: <name> = where value
 // lies between lo and hi (clamped to 0..1) mapped onto a..b.
-bool __cdecl cfunc_linear_map(script::Struct* params, script::Script* script)
+bool cfunc_linear_map(script::Struct* params, script::Script* script)
 {
     uint32_t result = 0;
     params->read_hash_value(kResult, &result, 1);
@@ -162,7 +162,7 @@ bool __cdecl cfunc_linear_map(script::Struct* params, script::Script* script)
 
 // 0x00448E60: Clamp <value> min=lo max=hi: Clamped = the value limited to max, then to min (so min wins when
 // min > max).
-bool __cdecl cfunc_clamp(script::Struct* params, script::Script* script)
+bool cfunc_clamp(script::Struct* params, script::Script* script)
 {
     float value = 0.0f, min = 0.0f, max = 0.0f;
     params->fetch_float(0u, &value, 1);
@@ -177,7 +177,7 @@ bool __cdecl cfunc_clamp(script::Struct* params, script::Script* script)
 
 // 0x00448EF0: RotateVector x=.. Y=.. z=.. [rx=degrees] [ry=..] [rz=..]: x, Y, z = the point (w = 1) turned about
 // the X axis, then Y, then Z (each rotation applied in front: identity, then Rx * m, Ry * m, Rz * m).
-bool __cdecl cfunc_rotate_vector(script::Struct* params, script::Script* script)
+bool cfunc_rotate_vector(script::Struct* params, script::Script* script)
 {
     maths::Vec4 point = {0.0f, 0.0f, 0.0f, 1.0f};
     params->fetch_float(kX, &point.x, 1);

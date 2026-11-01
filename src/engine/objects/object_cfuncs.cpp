@@ -115,7 +115,7 @@ void flag_as_dead(objects::Entity* object) { object->flag_as_dead(); }
 } // namespace
 
 // 0x00449280: AppendNodeParams node=<name> params={...}: the parameters added to the node's own structure.
-bool __cdecl cfunc_append_node_params(script::Struct* params, script::Script*)
+bool cfunc_append_node_params(script::Struct* params, script::Script*)
 {
     uint32_t name = 0;
     params->read_hash_value(kNode, &name, 1);
@@ -128,7 +128,7 @@ bool __cdecl cfunc_append_node_params(script::Struct* params, script::Script*)
 
 // 0x004492E0: InitCOIM size=<bytes> ...: the COIM heap set up (GameObjects::InitCoim) with the three integers and the
 // float squared, truncated.
-bool __cdecl cfunc_init_coim(script::Struct* params, script::Script*)
+bool cfunc_init_coim(script::Struct* params, script::Script*)
 {
     float factor = 0.0f;
     int size = 0, b = 0, a = 0;
@@ -143,7 +143,7 @@ bool __cdecl cfunc_init_coim(script::Struct* params, script::Script*)
 }
 
 // 0x00449380: ResizeCOIMHeap newsize=<bytes>.
-bool __cdecl cfunc_resize_coim_heap(script::Struct* params, script::Script*)
+bool cfunc_resize_coim_heap(script::Struct* params, script::Script*)
 {
     int size = 0;
     params->fetch_int_value(kCoimNewSize, &size, 1);
@@ -152,7 +152,7 @@ bool __cdecl cfunc_resize_coim_heap(script::Struct* params, script::Script*)
 }
 
 // 0x00449540: CreateCompositeObject Components=[...] [params={...}]: a composite object made from them (finalized).
-bool __cdecl cfunc_create_composite_object(script::Struct* params, script::Script*)
+bool cfunc_create_composite_object(script::Struct* params, script::Script*)
 {
     script::Array* components = nullptr;
     params->fetch_list(kComponents, &components, 1);
@@ -163,7 +163,7 @@ bool __cdecl cfunc_create_composite_object(script::Struct* params, script::Scrip
 }
 
 // 0x004495A0: GetUniqueCompositeObjectID [PreferredId=<id> (8)]: UniqueID = the first id from there no object has.
-bool __cdecl cfunc_get_unique_composite_object_id(script::Struct* params, script::Script* script)
+bool cfunc_get_unique_composite_object_id(script::Struct* params, script::Script* script)
 {
     uint32_t id = 8;
     params->read_hash_value(kPreferredId, &id, 0);
@@ -175,7 +175,7 @@ bool __cdecl cfunc_get_unique_composite_object_id(script::Struct* params, script
 
 // 0x00449610: GetObjScreenCoords object=<id>: screen_x / screen_y = where the object's position is on the screen
 // through the first viewport's camera. False if there is no such object.
-bool __cdecl cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
+bool cfunc_get_obj_screen_coords(script::Struct* params, script::Script* script)
 {
     render::ViewRegion* camera = viewport_camera(0);
     uint32_t id = 0;
@@ -192,7 +192,7 @@ bool __cdecl cfunc_get_obj_screen_coords(script::Struct* params, script::Script*
 
 // 0x004496B0: RunScriptOnComponentType component=<type> target=<member function> [params={...}]: the member
 // function called on every component of that type.
-bool __cdecl cfunc_run_script_on_component_type(script::Struct* params, script::Script* script)
+bool cfunc_run_script_on_component_type(script::Struct* params, script::Script* script)
 {
     uint32_t type = 0, target = 0;
     params->read_hash_value(kComponent, &type, 1);
@@ -208,7 +208,7 @@ bool __cdecl cfunc_run_script_on_component_type(script::Struct* params, script::
 // 0x00449740: TransformLocalToWorld local_offset=<vector> object=<id>: world_offset = the offset through the
 // object's display matrix. (No check that the object exists; missing arguments leave the original's values
 // undefined - here zero.)
-bool __cdecl cfunc_transform_local_to_world(script::Struct* params, script::Script* script)
+bool cfunc_transform_local_to_world(script::Struct* params, script::Script* script)
 {
     script::VectorValue offset = {};
     params->fetch_vec(kLocalOffset, &offset, 0);
@@ -224,7 +224,7 @@ bool __cdecl cfunc_transform_local_to_world(script::Struct* params, script::Scri
 
 // 0x004497D0: DestroyParticlesByGroupID groupID=<id>: the renderer's particle systems of that group destroyed (if
 // there is a particle manager), and every live object with a particle component of that group marked dead.
-bool __cdecl cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*)
+bool cfunc_destroy_particles_by_group_id(script::Struct* params, script::Script*)
 {
     uint32_t group = 0;
     params->read_hash_value(kGroupId, &group, 1);
@@ -240,7 +240,7 @@ bool __cdecl cfunc_destroy_particles_by_group_id(script::Struct* params, script:
 }
 
 // 0x00449850: fetch_vertex <name>: node = the node's structure. False if there is none.
-bool __cdecl cfunc_get_node(script::Struct* params, script::Script* script)
+bool cfunc_get_node(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
     params->read_hash_value(0u, &name, 1);
@@ -252,7 +252,7 @@ bool __cdecl cfunc_get_node(script::Struct* params, script::Script* script)
 }
 
 // 0x00449890: GetNodeName: nodename = the id of the object the script runs on. False with no object or id 0.
-bool __cdecl cfunc_get_node_name(script::Struct*, script::Script* script)
+bool cfunc_get_node_name(script::Struct*, script::Script* script)
 {
     objects::Entity* object = script->entity_.get_pull();
     if (!object || !object->ident_)
@@ -262,7 +262,7 @@ bool __cdecl cfunc_get_node_name(script::Struct*, script::Script* script)
 }
 
 // 0x004498C0: GetTriggerNodeName: nodename = the node the script was spawned for. False if none.
-bool __cdecl cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
+bool cfunc_get_trigger_node_name(script::Struct*, script::Script* script)
 {
     if (!script->list_link_)
         return false;
@@ -273,7 +273,7 @@ bool __cdecl cfunc_get_trigger_node_name(script::Struct*, script::Script* script
 // 0x00449A10: RunScriptOnObject id=<object> <script> [params={...}]: UniqueID is taken out of the calling script's
 // parameters; the object (found through the tracker) runs the script now as an interrupt of its own script (which,
 // if it has no object yet, is given this one). False if there is no such object.
-bool __cdecl cfunc_run_script_on_object(script::Struct* params, script::Script* script)
+bool cfunc_run_script_on_object(script::Struct* params, script::Script* script)
 {
     uint32_t id = 0, name = 0;
     params->read_hash_value(kId, &id, 1);
@@ -296,7 +296,7 @@ bool __cdecl cfunc_run_script_on_object(script::Struct* params, script::Script* 
 // times that bone's matrix in the relative object's skeleton (no RelativeTo: a crash, as in the original), and
 // with RelativeTo, times that object's display matrix at its position. The result becomes the object's position,
 // matrix (position row reset) and display matrix. (No check that the object exists.)
-bool __cdecl cfunc_orient(script::Struct* params, script::Script*)
+bool cfunc_orient(script::Struct* params, script::Script*)
 {
     uint32_t id = 0;
     params->read_hash_value(kObject, &id, 1);
@@ -344,7 +344,7 @@ bool __cdecl cfunc_orient(script::Struct* params, script::Script*)
 // 0x00449F80: SetEventHandlerOnObject object=<id> ex=<event> scr=<script> [Group=<name> (default)] [Exception]
 // [params={...}]: the event handler set on the object's script (made - on the script pool - if it has none). (No
 // check that the object exists.)
-bool __cdecl cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
+bool cfunc_set_event_handler_on_object(script::Struct* params, script::Script*)
 {
     uint32_t event_type = 0, handler = 0, group = kDefaultGroup;
     params->read_hash_value(kEx, &event_type, 1);

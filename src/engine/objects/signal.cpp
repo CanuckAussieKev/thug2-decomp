@@ -93,7 +93,7 @@ void Signal::set_event_handled(uint32_t how, uint32_t script)
 }
 
 // 0x0045F9E0
-int __cdecl event_controller(Signal* event)
+int event_controller(Signal* event)
 {
     int controller = 0;
     if (event->payload_)

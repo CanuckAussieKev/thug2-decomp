@@ -58,7 +58,7 @@ objects::MoveExecutor* trick_of(SkaterPhysicsModule* component) { return compone
 } // namespace
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
-void __cdecl tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
+void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b)
 {
     if (!script::fetch_int_value(kTrackingName))
         return;

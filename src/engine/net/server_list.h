@@ -76,7 +76,7 @@ struct HostListing : memory::ListNode {
 // 0x00547440 (the task's callback, the manager at its +0x1C; made by 0x0053EE90): every 3 seconds the clock
 // restarts; within them, if a refresh asked for it (0x007CE44C) and more than 500 ms after the refresh, the waiting
 // servers are shown as show_found_servers does (update_lobby_server_list by checksum).
-void __cdecl server_list_task(tasks::Task<Hub>* task);
+void server_list_task(tasks::Task<Hub>* task);
 
 // The online service's download threads (stdcall, the manager as the argument; started by NetLink::service_task).
 // 0x00545540: the news (state 7): motd.dat (testmotd.dat when 0x007CE441 is set) from www.thug2online.com into
@@ -89,27 +89,26 @@ unsigned long __stdcall motd_thread(void* manager);
 // download is state 11; else the data XOR 0x6D, its checksum (the first word, over the size in the second word -
 // 0x00401B30) checked (wrong: state 11), the text noted (+0xFDF4) with what follows it (+0xFDF8 / +0xFDFC), the
 // news ok (+0xFE09) and state 8. 1.
-int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low, int32_t size_high,
-                          void* param);
+int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low, int32_t size_high, void* param);
 
 // 0x00548040: whether a GameSpy location string is THUG2's ("10thug211" before the first ':').
-bool __cdecl is_thug2_location(const char* location);
+bool is_thug2_location(const char* location);
 
 // The script commands.
-bool __cdecl cfunc_post_game(script::Struct* params, script::Script* script);            // 0x00545440
-bool __cdecl cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script); // 0x00545F20
+bool cfunc_post_game(script::Struct* params, script::Script* script);            // 0x00545440
+bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script); // 0x00545F20
 
 // --- server_browser.cpp ---
 class Hub;
 // 0x00546790 / 0x005470D0 / 0x00547FA0: the chosen server described / joined / its details asked for (see the .cpp).
-bool __cdecl cfunc_describe_server(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_choose_server(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_retrieve_server_info(script::Struct* params, script::Script* script);
+bool cfunc_describe_server(script::Struct* params, script::Script* script);
+bool cfunc_choose_server(script::Struct* params, script::Script* script);
+bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script);
 // 0x005475C0: the server-list client's handler for a LAN server's reply (a Net message handler).
-int __cdecl on_server_reply_msg(net::InboundMsgCtx* context);
+int on_server_reply_msg(net::InboundMsgCtx* context);
 // 0x00547750: GameSpy's game listing callback (add / update / remove / clear), the manager its parameter.
-void __cdecl listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message,
-                                    int progress, Hub* manager);
+void listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message, int progress,
+                            Hub* manager);
 
 extern uint32_t g_news_message_count;
 

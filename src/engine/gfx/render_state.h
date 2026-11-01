@@ -27,43 +27,43 @@ enum RenderStateId {
 };
 
 // 0x004DAB60: set one of the renderer's states (RenderStateId) on the device, if it isn't already.
-void __cdecl change_phase(int state, uint32_t value);
+void change_phase(int state, uint32_t value);
 // 0x004D9DB0: the vertex format (D3DFVF), unless the format is locked (0x00786F28).
-void __cdecl set_vertex_format(uint32_t fvf);
+void set_vertex_format(uint32_t fvf);
 // 0x004DA730: the texture of a stage.
-void __cdecl set_texture(int stage, void* texture);
+void set_texture(int stage, void* texture);
 // 0x004DA760: the blend mode - the low 24 bits pick the source / destination factors and operation (a table of
 // the game's modes), the high 8 bits the blend factor's alpha (x2, saturating). An override (0x00786F34) wins if
 // set.
-void __cdecl choose_blend_mode(uint32_t mode);
+void choose_blend_mode(uint32_t mode);
 // 0x004D9DE0: the texture stages that stand in for a pixel shader (the shader handles at 0x007CA944-64) when
 // the device has no pixel shaders; `factor` is the texture factor colour some of them use.
-void __cdecl set_fixed_function_stages(void* shader, uint32_t factor);
+void set_fixed_function_stages(void* shader, uint32_t factor);
 // 0x004DAA10: the same with the material's colour (+0x40, three floats 0-1) as the factor - opaque white
 // without a material.
-void __cdecl set_fixed_function_stages_for_material(void* shader, const void* material);
+void set_fixed_function_stages_for_material(void* shader, const void* material);
 // 0x004DAA80: the pixel shader and its five constants (0x00786ECC) - or the stand-in texture stages without
 // pixel shaders (0x00786AB8).
-void __cdecl set_pixel_shader(void* shader, const void* material);
+void set_pixel_shader(void* shader, const void* material);
 // 0x004DAAF0: the pixel shader with `count` constants, and constant 4 (0x00786F0C) again.
-void __cdecl set_pixel_shader_with_constants(void* shader, uint32_t count);
+void set_pixel_shader_with_constants(void* shader, uint32_t count);
 // 0x004DA0E0: the value 0x007CA978 (a distance the visibility test 0x004DB790 leaves).
-float __cdecl last_sphere_distance();
+float last_sphere_distance();
 // 0x004DB620: the object's world transform for culling and lighting (its position row kept), or none.
-void __cdecl set_world_transform(const float* matrix);
+void set_world_transform(const float* matrix);
 
 // 0x004D3CA0 / 0x004D3CE0: the scaling the skinned meshes' loaders apply set (four values, 0x007865D0 - the last a
 // table of 16-byte bone scales, 0x007865DC) and on (0x007865CC) / off and cleared.
-void __cdecl set_skin_scaling(const uint32_t* settings);
-void __cdecl clear_skin_scaling();
+void set_skin_scaling(const uint32_t* settings);
+void clear_skin_scaling();
 // 0x004D3ED0: the pixel shader a scene file's index names (0x007CA920-64; 0 and 1: none; past 0x12: the index
 // itself).
-void* __stdcall pixel_shader_from_index(uint32_t index);
+void* pixel_shader_from_index(uint32_t index);
 
 // 0x004D7D70: the cache set to the state of a new device (identity transforms, the default light...).
-void __cdecl reset_render_state();
+void reset_render_state();
 // 0x004D80D0: the cached state sent to the device (after it is created or reset), with the fixed ones.
-void __cdecl apply_render_state();
+void apply_render_state();
 
 extern uint8_t g_skin_scaling_on;
 extern uint32_t g_skin_settings[5];

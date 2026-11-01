@@ -141,7 +141,7 @@ void mark_as_occluder(uint32_t name, int on) { render::flag_debug_lines(name, on
 // or all): the box round their active geometry's vertices; the camera turned by `angleX` / `angleY` / `angleZ`
 // degrees (in that order, from no turn) and set back from the box's centre along its forward axis by the box's size
 // (at least 1000) times `scale` squared.
-void __cdecl fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
+void fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float angle_y, float angle_z, uint32_t only)
 {
     maths::BBox box;
     auto* sectors = *reinterpret_cast<lists::KeyMap**>(scene + 0xD0);
@@ -222,7 +222,7 @@ void __cdecl fit_viewer_camera(uint8_t* scene, float scale, float angle_x, float
 
 // 0x005A2D60: CenterCamera [scale (0.9)] [x (-45)] [y (45)] [z (0)] [id=<sector>]: the viewer's camera fitted to each
 // scene in turn (fit_viewer_camera; the last one's placing stays). False without the viewer module (0x007CE4A4).
-bool __cdecl cfunc_center_camera(script::Struct* params, script::Script*)
+bool cfunc_center_camera(script::Struct* params, script::Script*)
 {
     if (!objects::g_view_mode)
         return false;
@@ -249,7 +249,7 @@ bool __cdecl cfunc_center_camera(script::Struct* params, script::Script*)
 // objects (with the time of day's level colour, if set), level geometry (the sector switched on - or, with
 // 0xEDC063B9, a copy of that sector made under the node's name and placed by angles / scale / pos), vehicles, game
 // objects. False for any other class (triggers too).
-bool __cdecl create_from_node(script::Struct* node)
+bool create_from_node(script::Struct* node)
 {
     uint32_t name = level_nodes::get_node_name(node);
     if (skips_node(node))
@@ -360,14 +360,14 @@ bool __cdecl create_from_node(script::Struct* node)
 }
 
 // 0x005A32A0: the object of the node named `name` made (create_from_node).
-bool __cdecl create_from_node_name(uint32_t name) { return create_from_node(level_nodes::fetch_vertex(name, true)); }
+bool create_from_node_name(uint32_t name) { return create_from_node(level_nodes::fetch_vertex(name, true)); }
 
 // 0x005A32C0: the object of the node named `name` killed by its class: objects (pedestrians, skaters, level objects,
 // vehicles, game objects, particle systems, 0x061A741E) with the node's name deleted (unless locked); rail and
 // climbing nodes, proxim nodes, emitters switched off; 0xA0E52802 through 0x0048FCA0; level geometry's sector switched
 // off (its 0x4E549FE1 effect too). False for no node or any other class. (The original also passes the script's
 // object to the walk; its callback doesn't read it.)
-bool __cdecl kill_from_node_name(uint32_t name, script::Script* script)
+bool kill_from_node_name(uint32_t name, script::Script* script)
 {
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     if (!node)
@@ -427,7 +427,7 @@ bool __cdecl kill_from_node_name(uint32_t name, script::Script* script)
 }
 
 // 0x005A34D0: CreateFromStructure <node structure>: create_from_node with the command's parameters.
-bool __cdecl cfunc_create_from_structure(script::Struct* params, script::Script*) { return create_from_node(params); }
+bool cfunc_create_from_structure(script::Struct* params, script::Script*) { return create_from_node(params); }
 
 namespace {
 
@@ -458,7 +458,7 @@ objects::TrickSpotHub* get_trick_objects() { return objects::g_trick_spot_hub; }
 // Nodes the skate module doesn't skip: proxim nodes and emitters added; the objects made at the start made (level
 // geometry only outside the park editor). Then the rails' overlaps, the gap checklist (unless 0xF7ECD937), every
 // scene's 0x0049E1B0 and the 0xA0E52802 nodes' 0x00490570. Always true.
-bool __cdecl cfunc_parse_node_array(script::Struct* params, script::Script*)
+bool cfunc_parse_node_array(script::Struct* params, script::Script*)
 {
     memory::push_mem_profile("ParseNodeArray"); // "ParseNodeArray"
     auto* nodes = reinterpret_cast<script::Array*>(level_nodes::get_node_owner_value58());
@@ -591,7 +591,7 @@ bool __cdecl cfunc_parse_node_array(script::Struct* params, script::Script*)
 // 0x005A39F0: ReLoadNodeArray: the level's node array (named at 0x007CE6D8) loaded again in the debug heap: the old
 // asset unloaded and the node manager's array of the file taken out, the file loaded (NodeArrayManLoad and its .qb,
 // 0x005A5960) and the node manager's last array put back in.
-bool __cdecl cfunc_re_load_node_array(script::Struct*, script::Script* script)
+bool cfunc_re_load_node_array(script::Struct*, script::Script* script)
 {
     mem_manager()->enter_heap_scope(reinterpret_cast<memory::MemSource*>(mem_manager()->debug_heap_));
     level_nodes::NodeManager* node_manager = level_nodes::node_manager_instance();
@@ -655,7 +655,7 @@ bool is_object_class(uint32_t node_class)
 // 0x005A3B80: the node `name`'s objects (pedestrians, skaters, vehicles, game objects, particle systems, 0x061A741E:
 // their object flag 4) or sector (level objects and geometry: its viewport 1 bit - viewport 2 with `second_viewport`)
 // hidden or shown. True for nodes the skate module skips; false for other classes.
-bool __cdecl set_node_hidden(uint32_t name, bool hide, int second_viewport)
+bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
 {
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     if (skips_node(node))
@@ -688,7 +688,7 @@ bool __cdecl set_node_hidden(uint32_t name, bool hide, int second_viewport)
 // 0x005A3D10: whether the node `name`'s thing is alive: rail and climbing nodes active; an object with its name
 // there (pedestrians, skaters, vehicles, level objects, game objects, particle systems, 0x061A741E); level
 // geometry's sector active (true without a name). False for other classes.
-bool __cdecl node_is_alive(uint32_t name)
+bool node_is_alive(uint32_t name)
 {
     script::Struct* node = level_nodes::fetch_vertex(name, true);
     uint32_t node_class = 0;
@@ -716,7 +716,7 @@ bool __cdecl node_is_alive(uint32_t name)
 
 // 0x005A3E80: the node `name`'s colour (0x99A9B716 of `params`, 0xBBGGRR (0x808080), with alpha 0x80): a level
 // object's model component, or level geometry's geometry (vtable +0x18). False for other classes.
-bool __cdecl set_node_color(uint32_t name, script::Struct* params)
+bool set_node_color(uint32_t name, script::Struct* params)
 {
     int value = 0x808080;
     params->fetch_int_value(kColor, &value, true);
@@ -750,7 +750,7 @@ bool __cdecl set_node_color(uint32_t name, script::Struct* params)
 // 0x005A3FD0: the node `name`'s sector (level objects and geometry) shattered (its vtable +4 with 1), unless the
 // skate module's +0x44 is set (the getter folded at 0x005331E0) or it skips the node (both: true). False for other
 // classes.
-bool __cdecl shatter_node(uint32_t name)
+bool shatter_node(uint32_t name)
 {
     if (get_skate()[0x44])
         return true;
@@ -770,7 +770,7 @@ bool __cdecl shatter_node(uint32_t name)
 }
 
 // 0x005A40B0: the node `name`'s sector (level geometry only, else false) given the terrain 0x9655CFF7 of `params`.
-bool __cdecl set_node_terrain(uint32_t name, script::Struct* params)
+bool set_node_terrain(uint32_t name, script::Struct* params)
 {
     uint32_t terrain = 0; // (unset in the original when missing - an asserted parameter)
     params->read_hash_value(kTerrain, &terrain, true);
@@ -789,7 +789,7 @@ bool __cdecl set_node_terrain(uint32_t name, script::Struct* params)
 // 0x005A4DA0: node_command `action` on the node `name` (false in a network game for nodes the skate module skips):
 // 0 create, 1 kill, 2 show, 3 hide, 4 show and shatter, 5 alive?, 6 colour, 7 terrain; other actions false. Shown /
 // hidden for the second viewport when it's the second skater's script in a two-viewport game.
-bool __cdecl node_command(uint32_t name, int action, script::Script* script, script::Struct* params)
+bool node_command(uint32_t name, int action, script::Script* script, script::Struct* params)
 {
     online::Hub* game_net = online::g_online_hub;
     if (game_net->is_network_game() && skips_node(level_nodes::fetch_vertex(name, true)))
@@ -825,7 +825,7 @@ bool __cdecl node_command(uint32_t name, int action, script::Script* script, scr
 // 0x005A4EF0: node_command on name= (its answer) or every node of prefix= (true; with action 5, stopping at the first
 // alive; with 0x80804991 the name is exact, not a prefix). Nothing (true) with the flags 0x2E7D5EE7 / 0xBCEB479A;
 // false without either name.
-bool __cdecl node_command_by_name(script::Struct* params, script::Script* script, int action)
+bool node_command_by_name(script::Struct* params, script::Script* script, int action)
 {
     if (params->has_bare_flag(0x2E7D5EE7u) || params->has_bare_flag(0xBCEB479Au))
         return true;
@@ -848,36 +848,27 @@ bool __cdecl node_command_by_name(script::Struct* params, script::Script* script
 }
 
 // 0x005A4FF0: Create name= / prefix=: the dead objects flushed first (the Function 0x005B0A40), then made.
-bool __cdecl cfunc_create(script::Struct* params, script::Script* script)
+bool cfunc_create(script::Struct* params, script::Script* script)
 {
     cfunc_flush_dead_objects(nullptr, nullptr);
     return node_command_by_name(params, script, 0);
 }
 
 // 0x005A5010 / 0x005A5030 / 0x005A5050 / 0x005A5070: SetObjectColor / Kill / Visible / Invisible name= or prefix=.
-bool __cdecl cfunc_set_object_color(script::Struct* params, script::Script* script)
+bool cfunc_set_object_color(script::Struct* params, script::Script* script)
 {
     return node_command_by_name(params, script, 6);
 }
-bool __cdecl cfunc_kill(script::Struct* params, script::Script* script)
-{
-    return node_command_by_name(params, script, 1);
-}
-bool __cdecl cfunc_visible(script::Struct* params, script::Script* script)
-{
-    return node_command_by_name(params, script, 2);
-}
-bool __cdecl cfunc_invisible(script::Struct* params, script::Script* script)
-{
-    return node_command_by_name(params, script, 3);
-}
+bool cfunc_kill(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 1); }
+bool cfunc_visible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 2); }
+bool cfunc_invisible(script::Struct* params, script::Script* script) { return node_command_by_name(params, script, 3); }
 
 // 0x005A5090: Shatter name= / prefix= [0x9F98989E scale= (1): the calling object's velocity times scale, else
 // 0x6187906D / 0x1680A0FB / 0x8F89F141 asserted] and the shatter's settings (0x286BC297 - at least 2000, 5000 in a
 // multiplayer game -, 0xBD309DD9, 0x834A5F87, 0xE632C101, 0x7DC30BA6, 0xF01BFA01, 0xB3DE2CAC, 0xAF1A25F2 (0x54628ED7),
 // 0x2E1C4A64 (1), 0x210EA9E1 (a vector), 0xC48391A5, 0x33DF5E27): the settings given (0x00491110), then the nodes
 // shown and shattered (node_command_by_name 4, its answer).
-bool __cdecl cfunc_shatter(script::Struct* params, script::Script* script)
+bool cfunc_shatter(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0; // (read and not used)
     float scale = 1.0f;

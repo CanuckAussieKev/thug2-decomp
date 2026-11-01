@@ -31,9 +31,9 @@ public:
     static constexpr uint32_t kType = 0xA9DB601E;
 
     // 0x0042A000 (registered with the component types): a new one (memory::alloc_zeroed, the constructor).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00429940: its member function table registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00429B20: its type, no particle system, no
     // lifetime, started now (the game clock).
     EffectsEmitterModule();

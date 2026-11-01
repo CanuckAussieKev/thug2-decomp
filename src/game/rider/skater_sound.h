@@ -23,7 +23,7 @@ class RiderSfxPlayer final : public ObjectModule {
 public:
     // 0x00518E20 (registered by register_component_types): a new one (0 if out of memory): full speed 1, volume_mult 1,
     // not sliding.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderSfxPlayer();
     // 0x00518C80: the destructor body (the base's).

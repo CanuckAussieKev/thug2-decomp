@@ -25,7 +25,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 } // namespace
 
 // 0x004E8F50
-void __cdecl add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap)
+void add_goal_editor_nodes(script::Array* nodes, int* index, memory::Arena* heap)
 {
     debug::printf("M:%s:%i: %s\n", "mponents\\GoalEditorComponent.cpp", 0x152, "Inserting Goal Editor Nodes");
     bool in_place = true;

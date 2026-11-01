@@ -380,7 +380,7 @@ EditedRail* EditedRail::copy_inside(float x0, float z0, float x1, float z1, Edit
 // --- RailAuthoring -----------------------------------------------------------------------------------------
 
 // 0x004F4970
-RailAuthoring* __cdecl RailAuthoring::sole()
+RailAuthoring* RailAuthoring::sole()
 {
     auto* object = reinterpret_cast<objects::GameEntity*>(
         reinterpret_cast<objects::ObjectHubBase*>(objects::g_composite_registry)->look_up_entity(kType));
@@ -388,7 +388,7 @@ RailAuthoring* __cdecl RailAuthoring::sole()
 }
 
 // 0x004F7FB0
-memory::owner<objects::ObjectModule*> __cdecl RailAuthoring::fabricate() { return new RailAuthoring; }
+memory::owner<objects::ObjectModule*> RailAuthoring::fabricate() { return new RailAuthoring; }
 
 // 0x004F7C90
 RailAuthoring::RailAuthoring()
@@ -421,28 +421,28 @@ void RailAuthoring::seal()
 }
 
 // 0x004F4990
-void __cdecl RailAuthoring::make_point_pool(int count, const char* name)
+void RailAuthoring::make_point_pool(int count, const char* name)
 {
     make_pool(point_pools(), sizeof(EditedRailPoint), count, name);
 }
 
 // 0x004F4A70
-void __cdecl RailAuthoring::make_rail_pool(int count, const char* name)
+void RailAuthoring::make_rail_pool(int count, const char* name)
 {
     make_pool(rail_pools(), sizeof(EditedRail), count, name);
 }
 
 // 0x004F4AF0
-void* __cdecl RailAuthoring::new_rail_memory(unsigned int size) { return rail_pools().carve(size); }
+void* RailAuthoring::new_rail_memory(unsigned int size) { return rail_pools().carve(size); }
 
 // 0x004F4B30
-void __cdecl RailAuthoring::free_rail(void* rail) { rail_pools().dealloc(rail); }
+void RailAuthoring::free_rail(void* rail) { rail_pools().dealloc(rail); }
 
 // 0x004F4A10
-void __cdecl RailAuthoring::free_point(void* point) { point_pools().dealloc(point); }
+void RailAuthoring::free_point(void* point) { point_pools().dealloc(point); }
 
 // 0x004F6BF0
-int __cdecl RailAuthoring::free_points()
+int RailAuthoring::free_points()
 {
     memory::PoolPair& pools = point_pools();
     return kMaxPoints - pools.pools[pools.current]->taken_count_;

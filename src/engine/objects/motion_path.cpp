@@ -70,7 +70,7 @@ int wait_on(script::Script* script, MotionPathMembers* component, script::BlockR
 } // namespace
 
 // 0x00423130
-void __cdecl MotionPathMembers::publish_method_table()
+void MotionPathMembers::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_motion_path_member_functions, 0x18);
 }

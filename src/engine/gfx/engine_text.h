@@ -101,9 +101,9 @@ static_assert(offsetof(GlyphString, rank_) == 0x2C && offsetof(GlyphString, laye
               "layout must match the original");
 
 // 0x0048D1D0: a text from the free list (null when it's empty).
-memory::owner<GlyphString*> __cdecl new_text();
+memory::owner<GlyphString*> new_text();
 // 0x0048D5F0: a text hidden, its buffers freed, and put back on the free list.
-void __cdecl free_text(GlyphString* text);
+void free_text(GlyphString* text);
 
 extern GlyphString* g_free_texts;
 } // namespace render

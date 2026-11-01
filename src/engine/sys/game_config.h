@@ -25,29 +25,29 @@ bool& ntsc_flag();        // 0x007CEFAF (set through set_ntsc_flag, NTSC only)
 bool argument_starts_with(const char* argument, const char* option);
 // 0x005B5D30: the value of the last `option` on the command line: option=value, option= value, option =value or
 // option = value (null if none).
-const char* __cdecl get_argument_value(const char* option, int argc, char** argv);
+const char* get_argument_value(const char* option, int argc, char** argv);
 // 0x005B5DD0: whether the command line has `option` (case-insensitively; each one copied into a 256-byte buffer -
 // unbounded, as the original).
-bool __cdecl got_argument(const char* option, int argc, char** argv);
+bool got_argument(const char* option, int argc, char** argv);
 // 0x005B5F10: the path prefix (0x007CEE20, set empty by Init).
-const char* __cdecl get_path_prefix();
+const char* get_path_prefix();
 // 0x005B5F20 / 0x005B5F90 / 0x005B5FC0 / 0x005B6020 / 0x005B6040: the names ("English", "US", "Win32", "NTSC",
 // "xbx"...; "Unknown ..." / "???" for anything else).
-const char* __cdecl get_locale_label();
-const char* __cdecl get_region_label();
-const char* __cdecl get_platform_label();
-const char* __cdecl get_screen_mode_label();
-const char* __cdecl fetch_platform_suffix();
+const char* get_locale_label();
+const char* get_region_label();
+const char* get_platform_label();
+const char* get_screen_mode_label();
+const char* fetch_platform_suffix();
 // 0x005B6090: the NTSC flag set (only with an NTSC display).
-void __cdecl set_ntsc_flag(bool on);
+void set_ntsc_flag(bool on);
 // 0x005B60B0: the configuration from the registry (read_registry) and the command line.
-void __cdecl prepare_all(int argc, char** argv);
+void prepare_all(int argc, char** argv);
 // 0x005B6250: "THUG2\" when bootstrapped, else "".
-const char* __cdecl get_bootstrap_prefix();
+const char* get_bootstrap_prefix();
 // 0x005B6270: Win32 hardware, English, no extra memory; then the language from the registry - HKCU's key, else
 // HKLM's (each opened with RegCreateKeyA: made if missing) - 2 French, 3 German, anything else English. The
 // arguments aren't used.
-void __cdecl read_registry(int argc, char** argv);
+void read_registry(int argc, char** argv);
 
 extern bool g_from_cd;
 extern int g_frame_rate;

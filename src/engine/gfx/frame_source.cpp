@@ -12,7 +12,7 @@
 namespace render {
 
 // 0x0048CF50
-void* __cdecl get_anim_data(uint32_t checksum, int unused)
+void* get_anim_data(uint32_t checksum, int unused)
 {
     if (!checksum)
         return nullptr;

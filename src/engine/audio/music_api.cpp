@@ -103,22 +103,22 @@ sound::AudioMixer* sound_manager() { return sound::g_audio_mixer; }
 } // namespace
 
 // 0x004505F0
-bool __cdecl music_off_requested() { return !music_on(); }
+bool music_off_requested() { return !music_on(); }
 
 // 0x00450620
-bool __cdecl streams_off() { return !streams_on(); }
+bool streams_off() { return !streams_on(); }
 
 // 0x00450500
-bool __cdecl stream_exists(uint32_t name) { return stream_exists(name, 0) != 0; }
+bool stream_exists(uint32_t name) { return stream_exists(name, 0) != 0; }
 
 // 0x00450520
-int __cdecl get_current_track() { return current_track_index(); }
+int get_current_track() { return current_track_index(); }
 
 // 0x00450530
-void __cdecl pick_track(int track) { current_track_index() = track; }
+void pick_track(int track) { current_track_index() = track; }
 
 // 0x00450650
-void __cdecl stop_music()
+void stop_music()
 {
     if (!music_on())
         return;
@@ -128,7 +128,7 @@ void __cdecl stop_music()
 }
 
 // 0x00450820
-bool __cdecl play_track_by_name(const char* name, float volume)
+bool play_track_by_name(const char* name, float volume)
 {
     if (!music_on())
         return false;
@@ -156,7 +156,7 @@ bool __cdecl play_track_by_name(const char* name, float volume)
 }
 
 // 0x00450EF0
-void __cdecl play_music_stream(uint32_t /*name*/, float volume)
+void play_music_stream(uint32_t /*name*/, float volume)
 {
     if (!music_on())
         return;
@@ -169,7 +169,7 @@ void __cdecl play_music_stream(uint32_t /*name*/, float volume)
 }
 
 // 0x004509E0
-bool __cdecl prime_music_track(uint32_t name)
+bool prime_music_track(uint32_t name)
 {
     if (!music_on())
         return false;
@@ -183,7 +183,7 @@ bool __cdecl prime_music_track(uint32_t name)
 }
 
 // 0x00450A50
-bool __cdecl is_music_track_primed()
+bool is_music_track_primed()
 {
     if (!music_on())
         return false;
@@ -191,7 +191,7 @@ bool __cdecl is_music_track_primed()
 }
 
 // 0x00450A80
-bool __cdecl begin_primed_music_track(float volume)
+bool begin_primed_music_track(float volume)
 {
     if (!music_on())
         return false;
@@ -204,7 +204,7 @@ bool __cdecl begin_primed_music_track(float volume)
 }
 
 // 0x00450690
-void __cdecl halt_streams(int which)
+void halt_streams(int which)
 {
     if (!streams_on())
         return;
@@ -215,7 +215,7 @@ void __cdecl halt_streams(int which)
 }
 
 // 0x004506D0
-void __cdecl halt_stream(uint32_t id_or_name)
+void halt_stream(uint32_t id_or_name)
 {
     if (!streams_on())
         return;
@@ -240,7 +240,7 @@ void __cdecl halt_stream(uint32_t id_or_name)
 }
 
 // 0x00450780
-bool __cdecl change_stream_loudness(uint32_t id_or_name, void* volume)
+bool change_stream_loudness(uint32_t id_or_name, void* volume)
 {
     if (streams_on()) {
         int index = find_playing_stream(id_or_name);
@@ -252,7 +252,7 @@ bool __cdecl change_stream_loudness(uint32_t id_or_name, void* volume)
 }
 
 // 0x004507D0
-bool __cdecl set_stream_pitch(uint32_t id_or_name, float /*pitch*/)
+bool set_stream_pitch(uint32_t id_or_name, float /*pitch*/)
 {
     if (streams_on()) {
         int index = find_playing_stream(id_or_name);
@@ -264,7 +264,7 @@ bool __cdecl set_stream_pitch(uint32_t id_or_name, float /*pitch*/)
 }
 
 // 0x00450940
-bool __cdecl pre_load_stream_done(uint32_t id_or_name)
+bool pre_load_stream_done(uint32_t id_or_name)
 {
     if (!streams_on())
         return false;
@@ -275,7 +275,7 @@ bool __cdecl pre_load_stream_done(uint32_t id_or_name)
 }
 
 // 0x00450980
-bool __cdecl start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int priority)
+bool start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pitch, int priority)
 {
     if (!streams_on())
         return false;
@@ -288,7 +288,7 @@ bool __cdecl start_pre_loaded_stream(uint32_t id_or_name, void* volume, float pi
 }
 
 // 0x00450AE0
-bool __cdecl remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
+bool remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
 {
     if (!streams_on())
         return false;
@@ -325,7 +325,7 @@ bool __cdecl remove_stream(uint32_t id_or_name, uint32_t entry, void* owner)
 }
 
 // 0x00450BE0
-bool __cdecl update_stream_volume(int slot)
+bool update_stream_volume(int slot)
 {
     if (!streams_on())
         return false;
@@ -370,7 +370,7 @@ bool __cdecl update_stream_volume(int slot)
 }
 
 // 0x00450D60
-void __cdecl prepare_all()
+void prepare_all()
 {
     get_owners()[0] = get_owners()[1] = get_owners()[2] = nullptr;
     if (sound_available() && (g_music_header_loaded || streams_on())) {
@@ -399,7 +399,7 @@ void __cdecl prepare_all()
 }
 
 // 0x00450EB0
-bool __cdecl disc_mode_active()
+bool disc_mode_active()
 {
     if (game_config::g_from_cd && initialised()) {
         stop_music();

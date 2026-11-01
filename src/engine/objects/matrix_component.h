@@ -19,7 +19,7 @@ public:
     static constexpr uint32_t kType = 0x208353AC;
 
     // 0x0041CB20 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0041CAD0: its type, the matrix the identity.
     MatrixComponent();
     // 0x0041CA60: the base's body.

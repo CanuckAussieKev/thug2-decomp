@@ -33,7 +33,7 @@ class PadInputModule;
 class EditorViewModule final : public ObjectModule {
 public:
     // 0x004E5940 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004E5060: the points (0, 0, 0, 1), everything else 0.
     EditorViewModule();
     // 0x004E5100: the shadow deleted, then the base's destructor body.
@@ -79,7 +79,7 @@ public:
     bool simple_collision_;     // +0x90
     bool no_wall_check_;        // +0x91 (0xF5680DEF)
     uint8_t pad92[2];
-    PadInputModule* input_ptr_;         // +0x94 the Input component
+    PadInputModule* input_ptr_;                         // +0x94 the Input component
     std::unique_ptr<render::BlobShadow> shadow_handle_; // +0x98
 };
 static_assert(offsetof(EditorViewModule, focus_) == 0x1C, "m_focus");
@@ -92,9 +92,9 @@ static_assert(sizeof(EditorViewModule) == 0x9C, "size");
 // 0x004E4F50: whether the script `name` (or one it calls, by name - with a guard against loops in the list at
 // 0x007CCBE8) is one of the four flagged scripts at 0x0067EFD8; 0x0067EFE8's script and those already seen give
 // false.
-bool __cdecl script_flagged(uint32_t name);
+bool script_flagged(uint32_t name);
 // 0x004E5320: a feeler's hit callback: an object whose node's TriggerScript is flagged sets 0x007CCC38.
-void __cdecl flag_scripted_hit(render::ProbeRay* feeler);
+void flag_scripted_hit(render::ProbeRay* feeler);
 // 0x004E5390 (`end` in ESI, `start` in EDI): whether a line from `start` to `end` hits a flagged object (faces
 // with 0x50 only).
 bool flagged_object_between(const maths::Vec4& start, const maths::Vec4& end);

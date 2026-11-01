@@ -19,9 +19,9 @@ namespace objects {
 class ObjectProximityComponent final : public ObjectModule {
 public:
     // 0x004EC420: a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004EC220 (not a Ghidra function): its script member functions (the table at 0x00682620) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x004EC370: its type.
     ObjectProximityComponent();
     // 0x004EC240: the destructor body (the base's).

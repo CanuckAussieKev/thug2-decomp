@@ -74,7 +74,7 @@ bool FlipRotateComponent::fetch_pose(uint8_t* pose)
         r[0] = r[1] = r[2] = 0.0f;
         r[3] = 1.0f;
     }
-    int count = reinterpret_cast<int(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton);
+    int count = reinterpret_cast<gfx::Rig*>(skeleton)->get_num_bones();
     std::memcpy(rotations, pose, 0x10 * (count > 0 ? count : 0));
     std::memcpy(translations, pose + 0x400, 0x10 * (count > 0 ? count : 0));
     for (int i = 0; i < count; ++i) {

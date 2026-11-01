@@ -82,15 +82,15 @@ static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, own
               "layout must match the original");
 
 // 0x0049C7D0 (cdecl): `primitive` put first on the list of new ones (flag 0x100).
-void __cdecl link_primitive(Primitive* primitive);
+void link_primitive(Primitive* primitive);
 // 0x0049C7F0 (cdecl): `primitive` taken off its list (the new ones with flag 0x100, else the drawing list). Not
 // there and not first, the original goes past the end of the list (crashes) - kept.
-void __cdecl unlink_primitive(Primitive* primitive);
+void unlink_primitive(Primitive* primitive);
 // 0x0049C840 (cdecl): every new primitive moved into the drawing list in order (inserted before the first it
 // weighs below 0 against), then each readied one drawn.
-void __cdecl render_primitives();
+void render_primitives();
 // 0x0049C700 (cdecl): a primitive render state kept in 0x00700EF8 (1: bits 0-2 - the depth test -, 2: bits 3-7, 4:
 // bits 8-9) and passed on to the PC's 0x004C5E40.
-void __cdecl set_primitive_state(int state, int value);
+void set_primitive_state(int state, int value);
 
 } // namespace render

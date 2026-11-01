@@ -51,7 +51,7 @@ const char* stats_file(int index)
 } // namespace
 
 // 0x0054DCB0
-bool __cdecl retrieve_top_stats(script::Struct* params, script::Script*)
+bool retrieve_top_stats(script::Struct* params, script::Script*)
 {
     online::Hub* manager = online::g_online_hub;
     online::RankingsManager* stats = manager->rating_service_.get();
@@ -74,7 +74,7 @@ bool __cdecl retrieve_top_stats(script::Struct* params, script::Script*)
     request.buffer_size_ = 0x25800;
     request.callback = reinterpret_cast<const void*>(code_address(online::RankingsManager::on_top_stats));
     request.done_script_ = current == 4 ? 0x7346E8E7 : 0xD932B07B; // (which reply: ratings or scores)
-    manager->vault_man_->download(&request); // (the vault, +0x14)
+    manager->vault_man_->download(&request);                       // (the vault, +0x14)
     // (the original's +0x1FC: need_top_stats_ - this cleared a byte past it, our layout lacking the lists' table words)
     stats->need_top_stats_ = false;
     return true;

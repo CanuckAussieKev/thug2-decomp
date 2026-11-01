@@ -196,7 +196,7 @@ ElementPtr* UiTree::spawn_part(ElementPtr* out, uint32_t type, uint32_t id, scri
 // --- the script commands --------------------------------------------------------------------------------------
 
 // 0x004AAD90: the root window (on the front end's heap), id root_window, registered.
-bool __cdecl cfunc_screen_element_system_init(script::Struct*, script::Script*)
+bool cfunc_screen_element_system_init(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->front_end_heap_);
@@ -208,7 +208,7 @@ bool __cdecl cfunc_screen_element_system_init(script::Struct*, script::Script*)
 }
 
 // 0x004AD240: the element made; its id into the script's parameters.
-bool __cdecl cfunc_create_screen_element(script::Struct* params, script::Script* script)
+bool cfunc_create_screen_element(script::Struct* params, script::Script* script)
 {
     uint32_t type;
     params->read_hash_value(kType, &type, 0);
@@ -221,7 +221,7 @@ bool __cdecl cfunc_create_screen_element(script::Struct* params, script::Script*
 }
 
 // 0x004AD300: dont_recurse (just the element), preserve_parent (keep the element itself).
-bool __cdecl cfunc_destroy_screen_element(script::Struct* params, script::Script* script)
+bool cfunc_destroy_screen_element(script::Struct* params, script::Script* script)
 {
     UiTree* manager = hub();
     uint32_t id;
@@ -236,7 +236,7 @@ bool __cdecl cfunc_destroy_screen_element(script::Struct* params, script::Script
 
 // 0x004AD370: a member function of the element, else a script spawned on it (with callback / Params /
 // callback_params) and run once.
-bool __cdecl cfunc_run_script_on_screen_element(script::Struct* params, script::Script* script)
+bool cfunc_run_script_on_screen_element(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -260,7 +260,7 @@ bool __cdecl cfunc_run_script_on_screen_element(script::Struct* params, script::
 }
 
 // 0x004AD4C0
-bool __cdecl cfunc_set_screen_element_props(script::Struct* params, script::Script*)
+bool cfunc_set_screen_element_props(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -270,7 +270,7 @@ bool __cdecl cfunc_set_screen_element_props(script::Struct* params, script::Scri
 }
 
 // 0x004AD540 (also called directly)
-bool __cdecl cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
+bool cfunc_do_screen_element_morph(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -279,7 +279,7 @@ bool __cdecl cfunc_do_screen_element_morph(script::Struct* params, script::Scrip
 }
 
 // 0x004AD5C0: the element's focus flag (its event sent) set, or cleared with Off.
-bool __cdecl cfunc_set_screen_element_lock(script::Struct* params, script::Script*)
+bool cfunc_set_screen_element_lock(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -288,7 +288,7 @@ bool __cdecl cfunc_set_screen_element_lock(script::Struct* params, script::Scrip
 }
 
 // 0x004AD650: width / height (the size times the shown scale, truncated).
-bool __cdecl cfunc_get_screen_element_dims(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_dims(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -302,7 +302,7 @@ bool __cdecl cfunc_get_screen_element_dims(script::Struct* params, script::Scrip
 
 // 0x004AC750: the element's properties (an Element3d's angles too) into the script's parameters. No element:
 // false.
-bool __cdecl cfunc_get_screen_element_props(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_props(script::Struct* params, script::Script* script)
 {
     UiTree* manager = hub();
     ElementPtr element;
@@ -326,7 +326,7 @@ bool __cdecl cfunc_get_screen_element_props(script::Struct* params, script::Scri
 }
 
 // 0x004AC900
-bool __cdecl cfunc_set_root_screen_element(script::Struct* params, script::Script*)
+bool cfunc_set_root_screen_element(script::Struct* params, script::Script*)
 {
     UiTree* manager = hub();
     uint32_t id;
@@ -337,7 +337,7 @@ bool __cdecl cfunc_set_root_screen_element(script::Struct* params, script::Scrip
 }
 
 // 0x004AC940: the children's ids as an array `children`; none: false.
-bool __cdecl cfunc_get_screen_element_children(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_children(script::Struct* params, script::Script* script)
 {
     UiTree* manager = hub();
     ElementPtr element;
@@ -360,7 +360,7 @@ bool __cdecl cfunc_get_screen_element_children(script::Struct* params, script::S
 }
 
 // 0x004AD710
-bool __cdecl cfunc_text_element_concatenate(script::Struct* params, script::Script*)
+bool cfunc_text_element_concatenate(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -377,7 +377,7 @@ bool __cdecl cfunc_text_element_concatenate(script::Struct* params, script::Scri
 }
 
 // 0x004AD800
-bool __cdecl cfunc_text_element_backspace(script::Struct* params, script::Script*)
+bool cfunc_text_element_backspace(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -389,7 +389,7 @@ bool __cdecl cfunc_text_element_backspace(script::Struct* params, script::Script
 }
 
 // 0x004AD8D0 (the result is always false)
-bool __cdecl cfunc_get_text_element_string(script::Struct* params, script::Script* script)
+bool cfunc_get_text_element_string(script::Struct* params, script::Script* script)
 {
     char text[0x200];
     ElementPtr element;
@@ -405,7 +405,7 @@ bool __cdecl cfunc_get_text_element_string(script::Struct* params, script::Scrip
 }
 
 // 0x004AD9C0
-bool __cdecl cfunc_get_text_element_length(script::Struct* params, script::Script* script)
+bool cfunc_get_text_element_length(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -421,7 +421,7 @@ bool __cdecl cfunc_get_text_element_length(script::Struct* params, script::Scrip
 }
 
 // 0x004ADA80: the top left morphed to, as the pair ScreenElementPos.
-bool __cdecl cfunc_get_screen_element_position(script::Struct* params, script::Script* script)
+bool cfunc_get_screen_element_position(script::Struct* params, script::Script* script)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -432,7 +432,7 @@ bool __cdecl cfunc_get_screen_element_position(script::Struct* params, script::S
 }
 
 // 0x004ADB20: the menu's selected index against an unnamed integer, first or last. Nothing selected: false.
-bool __cdecl cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
+bool cfunc_menu_selected_index_is(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 1);
@@ -451,7 +451,7 @@ bool __cdecl cfunc_menu_selected_index_is(script::Struct* params, script::Script
 }
 
 // 0x004ADC10
-bool __cdecl cfunc_screen_element_exists(script::Struct* params, script::Script*)
+bool cfunc_screen_element_exists(script::Struct* params, script::Script*)
 {
     ElementPtr element;
     hub()->resolve_element(&element, params, kId, 0);
@@ -461,7 +461,7 @@ bool __cdecl cfunc_screen_element_exists(script::Struct* params, script::Script*
 // 0x004ADC80: text elements made from `text` (a string, or an array of strings run together with spaces), one
 // per line of at most `width` in `font` (and fewer than 0x60 characters), each with the other parameters. (A last
 // word that starts a new line is lost, as in the original.)
-bool __cdecl cfunc_create_multiple_text_elements(script::Struct* params, script::Script*)
+bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*)
 {
     // (the word buffer right before the line's, as on the original's stack: an empty line's "last character" is
     // the word buffer's last)

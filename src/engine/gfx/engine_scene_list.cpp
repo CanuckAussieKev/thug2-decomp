@@ -79,29 +79,26 @@ void build_scene_file_path(char* out, size_t size, const char* name)
 } // namespace
 
 // 0x0048CC30
-SceneListHead::SceneListHead()
-{
-    make_head();
-}
+SceneListHead::SceneListHead() { make_head(); }
 
 // 0x0048C7F0
-memory::ListNode* __cdecl first_scene_node()
+memory::ListNode* first_scene_node()
 {
     memory::ListNode* node = head_of_scene_list();
     return is_head(node) ? nullptr : node;
 }
 
 // 0x0048C750
-WorldScene* __cdecl get_scene_by_name(const char* name) { return look_up_scene(checksums::hash_from_text(name)); }
+WorldScene* get_scene_by_name(const char* name) { return look_up_scene(checksums::hash_from_text(name)); }
 
 // 0x0048C770
-WorldScene* __cdecl get_main_scene() { return first_scene(false); }
+WorldScene* get_main_scene() { return first_scene(false); }
 
 // 0x0048C7B0
-WorldScene* __cdecl get_sky_scene() { return first_scene(true); }
+WorldScene* get_sky_scene() { return first_scene(true); }
 
 // 0x0048C810
-bool __cdecl unload_all_scenes()
+bool unload_all_scenes()
 {
     memory::ListNode* node = head_of_scene_list();
     if (!is_head(node) && node) {
@@ -120,7 +117,7 @@ bool __cdecl unload_all_scenes()
 }
 
 // 0x0048C870
-void __cdecl add_shadow_caster(const uint8_t* texture, void* model, WorldScene* scene)
+void add_shadow_caster(const uint8_t* texture, void* model, WorldScene* scene)
 {
     if (!scene)
         scene = get_main_scene();
@@ -128,7 +125,7 @@ void __cdecl add_shadow_caster(const uint8_t* texture, void* model, WorldScene* 
 }
 
 // 0x0048C8F0
-void __cdecl print_coll_statics()
+void print_coll_statics()
 {
     frame_clock::get_time();
     memory::ListNode* node = head_of_scene_list();
@@ -145,7 +142,7 @@ void __cdecl print_coll_statics()
 }
 
 // 0x0048C940
-CollGrid* __cdecl get_first_coll_grid()
+CollGrid* get_first_coll_grid()
 {
     memory::ListNode* node = head_of_scene_list();
     if (is_head(node) || !node)
@@ -164,7 +161,7 @@ CollGrid* g_collision_grids[16];
 WorldScene* g_collision_scenes[16];
 
 // 0x0048C980
-CollGrid** __cdecl get_coll_grids_on_line(const maths::Seg* line)
+CollGrid** get_coll_grids_on_line(const maths::Seg* line)
 {
     auto* scenes = g_collision_scenes;
     auto* grids = g_collision_grids;
@@ -197,7 +194,7 @@ CollGrid** __cdecl get_coll_grids_on_line(const maths::Seg* line)
 }
 
 // 0x0048CA80
-uint32_t __cdecl new_sector_name()
+uint32_t new_sector_name()
 {
     uint32_t& counter = g_next_sector_name;
     for (;;) {
@@ -221,14 +218,14 @@ uint32_t __cdecl new_sector_name()
 }
 
 // 0x0048CAF0
-bool __cdecl cfunc_toggle_add_scenes(script::Struct* /*params*/, script::Script* /*script*/)
+bool cfunc_toggle_add_scenes(script::Struct* /*params*/, script::Script* /*script*/)
 {
     toggle_add_scenes();
     return true;
 }
 
 // 0x0048CB00
-void __cdecl get_scene_debug_info(script::Struct* info)
+void get_scene_debug_info(script::Struct* info)
 {
     if (get_main_scene()) {
         script::Struct* main = script::spawn_param_bag();
@@ -247,7 +244,7 @@ void __cdecl get_scene_debug_info(script::Struct* info)
 }
 
 // 0x0048CC80
-WorldScene* __cdecl build_world_scene(const char* name, TextureSet* textures, bool with_super_sectors)
+WorldScene* build_world_scene(const char* name, TextureSet* textures, bool with_super_sectors)
 {
     auto* scene = static_cast<WorldScene*>(render::make_empty_scene(name, textures, with_super_sectors));
     register_scene(scene, name, textures, 1, nullptr, 0);
@@ -255,8 +252,8 @@ WorldScene* __cdecl build_world_scene(const char* name, TextureSet* textures, bo
 }
 
 // 0x0048CCB0
-WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky,
-                               bool mesh_flag, int unused)
+WorldScene* load_scene(const char* name, TextureSet* textures, bool with_super_sectors, bool is_sky, bool mesh_flag,
+                       int unused)
 {
     char file[0x80];
     build_scene_file_path(file, sizeof(file), name);
@@ -271,9 +268,8 @@ WorldScene* __cdecl load_scene(const char* name, TextureSet* textures, bool with
 }
 
 // 0x0048CD80
-WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t* data, size_t size,
-                                                 TextureSet* textures, bool with_super_sectors, bool is_sky,
-                                                 bool mesh_flag, int unused)
+WorldScene* load_named_scene_from_memory(const char* name, const uint8_t* data, size_t size, TextureSet* textures,
+                                         bool with_super_sectors, bool is_sky, bool mesh_flag, int unused)
 {
     memory::push_mem_profile("Scene Processing");
     auto* scene = static_cast<WorldScene*>(
@@ -284,7 +280,7 @@ WorldScene* __cdecl load_named_scene_from_memory(const char* name, const uint8_t
 }
 
 // 0x0048CDD0
-WorldScene* __cdecl add_scene(const char* scene_name, const char* add_name)
+WorldScene* add_scene(const char* scene_name, const char* add_name)
 {
     char file[0x80];
     char tex_file[0x80];
@@ -303,7 +299,7 @@ WorldScene* __cdecl add_scene(const char* scene_name, const char* add_name)
 }
 
 // 0x0048CEF0
-bool __cdecl reload_scene(const char* name)
+bool reload_scene(const char* name)
 {
     WorldScene* scene = look_up_scene(checksums::hash_from_text(name));
     if (!scene)

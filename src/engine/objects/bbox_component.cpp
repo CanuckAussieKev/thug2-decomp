@@ -77,7 +77,7 @@ bool is_near(const GameEntity* object, const GameEntity* self, float reach_squar
 } // namespace
 
 // 0x0041ADC0
-memory::owner<ObjectModule*> __cdecl CbBoxComponent::fabricate() { return new CbBoxComponent; }
+memory::owner<ObjectModule*> CbBoxComponent::fabricate() { return new CbBoxComponent; }
 
 // 0x0041AAD0
 CbBoxComponent::CbBoxComponent()

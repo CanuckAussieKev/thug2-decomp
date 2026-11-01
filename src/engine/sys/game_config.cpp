@@ -65,7 +65,7 @@ bool argument_starts_with(const char* argument, const char* option)
 }
 
 // 0x005B5D30
-const char* __cdecl get_argument_value(const char* option, int argc, char** argv)
+const char* get_argument_value(const char* option, int argc, char** argv)
 {
     const char* value = nullptr;
     for (int i = 0; i < argc; ++i) {
@@ -91,7 +91,7 @@ const char* __cdecl get_argument_value(const char* option, int argc, char** argv
 }
 
 // 0x005B5DD0
-bool __cdecl got_argument(const char* option, int argc, char** argv)
+bool got_argument(const char* option, int argc, char** argv)
 {
     char wanted[256];
     char argument[256];
@@ -109,10 +109,10 @@ bool __cdecl got_argument(const char* option, int argc, char** argv)
 }
 
 // 0x005B5F10
-const char* __cdecl get_path_prefix() { return path_prefix(); }
+const char* get_path_prefix() { return path_prefix(); }
 
 // 0x005B5F20
-const char* __cdecl get_locale_label()
+const char* get_locale_label()
 {
     switch (get_language()) {
     case 1:
@@ -137,7 +137,7 @@ const char* __cdecl get_locale_label()
 }
 
 // 0x005B5F90
-const char* __cdecl get_region_label()
+const char* get_region_label()
 {
     switch (territory()) {
     case 1:
@@ -152,7 +152,7 @@ const char* __cdecl get_region_label()
 }
 
 // 0x005B5FC0
-const char* __cdecl get_platform_label()
+const char* get_platform_label()
 {
     switch (hardware()) {
     case 1:
@@ -173,7 +173,7 @@ const char* __cdecl get_platform_label()
 }
 
 // 0x005B6020
-const char* __cdecl get_screen_mode_label()
+const char* get_screen_mode_label()
 {
     switch (display_type()) {
     case 0:
@@ -186,7 +186,7 @@ const char* __cdecl get_screen_mode_label()
 }
 
 // 0x005B6040
-const char* __cdecl fetch_platform_suffix()
+const char* fetch_platform_suffix()
 {
     switch (hardware()) {
     case 1:
@@ -205,14 +205,14 @@ const char* __cdecl fetch_platform_suffix()
 }
 
 // 0x005B6090
-void __cdecl set_ntsc_flag(bool on)
+void set_ntsc_flag(bool on)
 {
     if (display_type() == 1)
         ntsc_flag() = on;
 }
 
 // 0x005B60B0
-void __cdecl prepare_all(int argc, char** argv)
+void prepare_all(int argc, char** argv)
 {
     copy_string(path_prefix(), kEmpty);
     read_registry(argc, argv);
@@ -250,10 +250,10 @@ void __cdecl prepare_all(int argc, char** argv)
 }
 
 // 0x005B6250
-const char* __cdecl get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kEmpty; } // "THUG2\"
+const char* get_bootstrap_prefix() { return bootstrap() ? "THUG2\\" : kEmpty; } // "THUG2\"
 
 // 0x005B6270
-void __cdecl read_registry(int, char**)
+void read_registry(int, char**)
 {
     const char* path =
         "Software\\Activision\\Tony Hawk's Underground 2\\Install"; // "Software\Activision\Tony Hawk's Underground 2\Install"

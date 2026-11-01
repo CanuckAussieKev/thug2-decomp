@@ -63,7 +63,7 @@ void write_summary(script::Struct* saved, script::Struct* summary, uint32_t type
 
 // 0x005A6120 (the saved structure in ECX): the goal manager's parameters replaced by its GoalManagerParams, the
 // career reset (mode 0) and the level's goals loaded again.
-void __fastcall apply_goal_manager_params(script::Struct* saved);
+void apply_goal_manager_params(script::Struct* saved);
 // 0x005A6C80: the current skater's CAT info, list 0x44B66A9F
 // and chapter info read from it, and the profile manager's custom skater from the argument (its result returned).
 bool apply_cat_and_custom_skater(script::Struct* loaded, script::Struct* custom_skater);

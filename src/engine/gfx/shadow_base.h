@@ -21,26 +21,26 @@ static_assert(sizeof(ShadowCaster) == 0x10C, "layout must match the original");
 
 // 0x004DA0F0: transform `count` positions by `matrix` into the projection buffer (0x0079B640: each the position,
 // the transformed one and its clip flags).
-void __cdecl project_shadow_vertices(const float* positions, uint32_t count, const void* matrix);
+void project_shadow_vertices(const float* positions, uint32_t count, const void* matrix);
 // 0x004DA190: of `count` triangles (indices into the buffer), the ones not wholly outside one side and facing
 // the texture, into the triangle buffer (0x00796640: position, texture u, v per vertex). Returns their number.
-int __cdecl clip_shadow_triangles(const uint16_t* indices, uint32_t count);
+int clip_shadow_triangles(const uint16_t* indices, uint32_t count);
 // 0x004DB880: the texture matrix: (`first` x) `a` x `b` x the shadow viewport's scale and offset, into `out`
 // (the view's inverse is worked out and not used).
-void __cdecl shadow_texture_matrix(const float* a, const float* b, float* out, const float* first);
+void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first);
 // 0x004DB9D0: the stencil shadow volumes of the scene's meshes in view (both faces in one pass with two-sided
 // stencil 0x007CA97C, else front and back faces apart).
-void __cdecl draw_shadow_volumes(const void* scene, int viewport); // (the viewport isn't read)
+void draw_shadow_volumes(const void* scene, int viewport); // (the viewport isn't read)
 // 0x004DBBD0: each caster's model into its shadow texture.
-void __cdecl render_shadow_textures();
+void render_shadow_textures();
 // 0x004DBF50: each caster's shadow onto the meshes in view (`meshes`, `count`).
-void __cdecl draw_shadows(const void* unused, void* const* meshes, int count);
+void draw_shadows(const void* unused, void* const* meshes, int count);
 // 0x004DDC90: a new caster drawing `model` into `target` (its key), with identity view and projection.
-void __cdecl add_shadow_caster(uint8_t* target, void* model, uint32_t unknown);
+void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown);
 // 0x004DB0A0: remove the caster with this key (freed).
-void __cdecl remove_shadow_caster(uint32_t key);
+void remove_shadow_caster(uint32_t key);
 // 0x004DB100: aim the caster with this key from `position` at `target`.
-void __cdecl aim_shadow_caster(uint32_t key, const float* position, const float* target);
+void aim_shadow_caster(uint32_t key, const float* position, const float* target);
 
 // NOT ORIGINAL (ours, for THAW's BMX - game/rider/thaw_bmx.h): asked for each caster's model as render_shadow_textures
 // draws it; a model returned is drawn into the same shadow texture after it (the rider's shadow with his bike in it).

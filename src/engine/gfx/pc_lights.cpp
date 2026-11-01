@@ -219,35 +219,35 @@ void PcModelLights::switch_diffuse_light(int light, bool on)
 bool PcModelLights::diffuse_light_is_on(int light) { return (overrides & (2u << (light & 31))) != 0; }
 
 // 0x004B67E0
-bool __cdecl update_ambient_light()
+bool update_ambient_light()
 {
     send_color(ambient_constant(), scene_ambient(), scene_scale());
     return true;
 }
 
 // 0x004B6850
-uint32_t* __cdecl fetch_ambient_hue(uint32_t* out)
+uint32_t* fetch_ambient_hue(uint32_t* out)
 {
     *out = scene_ambient();
     return out;
 }
 
 // 0x004B6860
-bool __cdecl update_light_color(int light)
+bool update_light_color(int light)
 {
     send_color(light_color_constant(light), scene_colors()[light], scene_intensities()[light]);
     return true;
 }
 
 // 0x004B68E0
-uint32_t* __cdecl fetch_light_tint(uint32_t* out, int light)
+uint32_t* fetch_light_tint(uint32_t* out, int light)
 {
     *out = scene_colors()[light];
     return out;
 }
 
 // 0x004B6900
-void __cdecl update_all_lights()
+void update_all_lights()
 {
     update_ambient_light();
     for (int i = 0; i < 31; ++i)
@@ -255,14 +255,14 @@ void __cdecl update_all_lights()
 }
 
 // 0x004B6920
-bool __cdecl delete_model_lights(PcModelLights* lights)
+bool delete_model_lights(PcModelLights* lights)
 {
     delete lights;
     return true;
 }
 
 // 0x004B6940
-void __cdecl reset_lights()
+void reset_lights()
 {
     send_color(ambient_constant(), scene_ambient(), scene_scale());
     for (int i = 0; i < 2; ++i) {
@@ -276,14 +276,14 @@ void __cdecl reset_lights()
 }
 
 // 0x004B6A70
-bool __cdecl update_light_direction(int light)
+bool update_light_direction(int light)
 {
     send_negated(light_direction_constant(light), scene_directions()[light]);
     return true;
 }
 
 // 0x004B6AB0
-maths::Vec4* __cdecl get_light_direction(int light)
+maths::Vec4* get_light_direction(int light)
 {
     g_scene_light_direction_guard |= 1; // (the static's initialisation guard)
     maths::Vec4& out = g_scene_light_direction;
@@ -293,6 +293,6 @@ maths::Vec4* __cdecl get_light_direction(int light)
 }
 
 // 0x004B6B10
-memory::owner<PcModelLights*> __cdecl spawn_model_lights() { return new PcModelLights; }
+memory::owner<PcModelLights*> spawn_model_lights() { return new PcModelLights; }
 
 } // namespace render

@@ -40,10 +40,10 @@ void Typeface::change_colors(const uint32_t* /*colors*/) { debug::printf("STUB A
 void Typeface::flag_button_font(bool /*buttons*/) { debug::printf("STUB A DUB DUB"); }
 
 // 0x0048D6A0
-char __cdecl button_glyph(const char* digit) { return glyph_escape_table()[text::hex_digit_value(digit)]; }
+char button_glyph(const char* digit) { return glyph_escape_table()[text::hex_digit_value(digit)]; }
 
 // 0x0048D6C0
-void __cdecl unload_font(const char* name)
+void unload_font(const char* name)
 {
     FontSlot* slots = get_slots();
     int index = 0;
@@ -58,14 +58,14 @@ void __cdecl unload_font(const char* name)
 }
 
 // 0x0048D760
-Typeface* __cdecl get_font(uint32_t name)
+Typeface* get_font(uint32_t name)
 {
     auto* slot = static_cast<FontSlot*>(font_table().fetch_entry(name));
     return slot ? slot->font : nullptr;
 }
 
 // 0x0048D7B0
-bool __cdecl cfunc_unload_font(script::Struct* params, script::Script* /*script*/)
+bool cfunc_unload_font(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = nullptr; // (the original leaves it unset when the name is missing)
     params->fetch_text(0u, &name, 0);

@@ -118,23 +118,23 @@ int& dma_pieces() { return g_dma_pieces; }
 bool& counts_dirty() { return g_counts_dirty; }
 
 // 0x0059E100
-memory::Arena* __cdecl get_park_heap() { return park_heap(); }
+memory::Arena* get_park_heap() { return park_heap(); }
 
 // 0x0059E180
-memory::Arena* __cdecl get_main_heap() { return memory::Hub::get_pull()->bottom_up_heap_; }
+memory::Arena* get_main_heap() { return memory::Hub::get_pull()->bottom_up_heap_; }
 
 // 0x0059E110
-void __cdecl clear_stats()
+void clear_stats()
 {
     std::memset(&get_attributes(), 0, sizeof(MemoryStats));
     dma_pieces() = 0;
 }
 
 // 0x0059E170
-void __cdecl set_counts_dirty() { counts_dirty() = true; }
+void set_counts_dirty() { counts_dirty() = true; }
 
 // 0x0059E130
-void __cdecl remove_dma(uint32_t segment_kind)
+void remove_dma(uint32_t segment_kind)
 {
     script::Struct* table = script::read_sub_struct(kPieceDmaTable);
     int pieces = 1;
@@ -143,7 +143,7 @@ void __cdecl remove_dma(uint32_t segment_kind)
 }
 
 // 0x0059E190
-void __cdecl add_piece_dma(const void* piece)
+void add_piece_dma(const void* piece)
 {
     auto* view = static_cast<const PieceView*>(piece);
     if (view->flags & 0x100)
@@ -156,7 +156,7 @@ void __cdecl add_piece_dma(const void* piece)
 }
 
 // 0x0059E1E0
-void __cdecl remove_piece_dma(const void* piece)
+void remove_piece_dma(const void* piece)
 {
     auto* view = static_cast<const PieceView*>(piece);
     if (!(view->flags & 0x100) && (view->flags & 0x4))
@@ -164,22 +164,16 @@ void __cdecl remove_piece_dma(const void* piece)
 }
 
 // 0x0059E210
-void __cdecl create_map_list_node_pool(int count, const char* name)
-{
-    make_pool(map_list_node_pools(), 0xC, count, name);
-}
+void create_map_list_node_pool(int count, const char* name) { make_pool(map_list_node_pools(), 0xC, count, name); }
 
 // 0x0059E290
-void __cdecl create_clipboard_entry_pool(int count, const char* name)
-{
-    make_pool(clipboard_entry_pools(), 0x18, count, name);
-}
+void create_clipboard_entry_pool(int count, const char* name) { make_pool(clipboard_entry_pools(), 0x18, count, name); }
 
 // 0x0059E310
-void __cdecl create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), 0x18, count, name); }
+void create_clipboard_pool(int count, const char* name) { make_pool(clipboard_pools(), 0x18, count, name); }
 
 // 0x0059E390
-void __cdecl get_marker(uint32_t marker)
+void get_marker(uint32_t marker)
 {
     memory::Arena* heap = memory::Hub::get_pull()->bottom_up_heap_;
     MemoryStats& stats = get_attributes();
@@ -220,7 +214,7 @@ void __cdecl get_marker(uint32_t marker)
 }
 
 // 0x0059E4E0
-void __cdecl power_down()
+void power_down()
 {
     delete_pool(clipboard_pools());
     delete_pool(clipboard_entry_pools());
@@ -232,7 +226,7 @@ void __cdecl power_down()
 }
 
 // 0x0059E5C0
-int __cdecl get_memory_value(const char* name, int index)
+int get_memory_value(const char* name, int index)
 {
     script::Struct* params = script::spawn_param_bag();
     if (params)
@@ -258,7 +252,7 @@ int __cdecl get_memory_value(const char* name, int index)
 }
 
 // 0x0059E730
-MemoryStats* __cdecl get_memory_stats(MemoryStats* out)
+MemoryStats* get_memory_stats(MemoryStats* out)
 {
     MemoryStats& stats = get_attributes();
     if (counts_dirty()) {
@@ -332,7 +326,7 @@ MemoryStats* __cdecl get_memory_stats(MemoryStats* out)
 }
 
 // 0x0059EAD0
-bool __cdecl main_heap_has_room(int count, int size)
+bool main_heap_has_room(int count, int size)
 {
     int free = get_attributes().main_heap_free_ - count * size * kFloorPieceMem;
     double usage = get_usage(1.0f, free, get_memory_value("main_heap_base", -1)); // "main_heap_base"
@@ -340,7 +334,7 @@ bool __cdecl main_heap_has_room(int count, int size)
 }
 
 // 0x0059EB30
-bool __cdecl pieces_fit(int first, int last)
+bool pieces_fit(int first, int last)
 {
     int dma = dma_pieces();
     int pieces = last - first;
@@ -358,7 +352,7 @@ bool __cdecl pieces_fit(int first, int last)
 }
 
 // 0x0059EC00
-void __cdecl prepare_all(uint32_t level)
+void prepare_all(uint32_t level)
 {
     memory::Hub* manager = memory::Hub::get_pull();
     const char* name = "Park Editor"; // "Park Editor"

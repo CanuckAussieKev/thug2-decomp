@@ -79,7 +79,7 @@ int get_skater_index(GameEntity* skater) { return static_cast<Rider*>(skater)->v
 } // namespace
 
 // 0x00511470
-memory::owner<ObjectModule*> __cdecl RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
+memory::owner<ObjectModule*> RiderSpinAndFlip::fabricate() { return new RiderSpinAndFlip; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderSpinAndFlip::RiderSpinAndFlip()

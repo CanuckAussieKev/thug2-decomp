@@ -49,7 +49,7 @@ void* look_up_texture(void* dictionary, uint32_t checksum)
 } // namespace
 
 // 0x004D08A0
-void __cdecl set_up_animated_grass_material(MaterialRef* m)
+void set_up_animated_grass_material(MaterialRef* m)
 {
     m->textures[0] = g_grass_texture0;
     m->textures[1] = g_grass_texture1;
@@ -82,7 +82,7 @@ void __cdecl set_up_animated_grass_material(MaterialRef* m)
 }
 
 // 0x004D0B60
-bool __cdecl make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
+bool make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 {
     void* dictionary = get_sky_scene()->texture_set_; // the sky's
     auto* entry = static_cast<uint8_t*>(look_up_texture(dictionary, 0x96D0BF08));
@@ -127,7 +127,7 @@ bool __cdecl make_animated_grass(PcGeom* /*geom*/, MeshRef* mesh)
 }
 
 // 0x004D0D30
-bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh)
+bool make_grass(PcGeom* geom, MeshRef* mesh)
 {
     MaterialRef* m = mesh->material;
     if (!m)

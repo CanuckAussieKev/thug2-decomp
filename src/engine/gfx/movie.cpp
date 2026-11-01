@@ -76,7 +76,7 @@ void set_movie_texture(int stage, void* texture, int unknown)
     set_texture(stage, texture);
 }
 
-void __stdcall draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
+void draw_movie_quad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
 {
     uint32_t back_buffer_width = reinterpret_cast<uint32_t&>(g_back_buffer_width);
     uint32_t back_buffer_height = reinterpret_cast<uint32_t&>(g_back_buffer_height);
@@ -265,7 +265,7 @@ struct SurfaceLock {
 } // namespace
 
 // 0x0044F8C0
-void* __cdecl begin_movie(uint32_t width, uint32_t height)
+void* begin_movie(uint32_t width, uint32_t height)
 {
     get_render_state(kD3dCullMode, &saved_cull_mode());
     set_render_state(kD3dCullMode, 1); // none
@@ -293,7 +293,7 @@ void* __cdecl begin_movie(uint32_t width, uint32_t height)
 }
 
 // 0x0044F9F0
-void __cdecl end_movie(void* texture)
+void end_movie(void* texture)
 {
     movie_playing() = false;
     set_render_state(kD3dCullMode, saved_cull_mode());
@@ -307,7 +307,7 @@ void __cdecl end_movie(void* texture)
 }
 
 // 0x0044FCC0
-void __cdecl draw_movie(Bink* bink, void* texture)
+void draw_movie(Bink* bink, void* texture)
 {
     get_method<long(__stdcall*)(void*)>(0xA4 / 4)(input_port()); // BeginScene
     // Clear: the target, to black (Z 1.0)
@@ -349,7 +349,7 @@ enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 
 } // namespace
 
 // 0x0044FDC0
-void __cdecl play_movie_file(const char* name)
+void play_movie_file(const char* name)
 {
     if (!bink_set_sound_system(bink_open_direct_sound(), audio::g_sound_device))
         debug::printf("Bink can't use DSound\n"); // "Bink can't use DSound\n"
@@ -505,7 +505,7 @@ bool& skip_intro_movies()
 
 // 0x0059F0C0: the PlayMovie script command: play the movie named by the unnamed string (through the jump at
 // 0x0044F830).
-bool __cdecl play_movie(script::Struct* params, void* script)
+bool play_movie(script::Struct* params, void* script)
 {
     const char* name = nullptr;
     if (!params->fetch_text(0u, &name, 1))

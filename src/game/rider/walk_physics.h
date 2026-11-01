@@ -72,7 +72,7 @@ public:
 
     // --- life (walk_physics.cpp) ---
     // 0x00525E40: its member function table (0x006847F8) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x005288B0: the destructor body: its smart pointer (+0x184C) let go, its collision cache (+0x790) and its
     // eight contacts (+0xA0, 0xCC each, the last first) destroyed, then the base's.
     ~FootMovement() override;
@@ -113,10 +113,10 @@ public:
     void clamp_skater_speed(uint32_t stop_anim);
     // 0x005284C0 (`this` isn't used): gravity (walk_parameters); with the moon cheat on, half of it (the cheat
     // told, the global 0x007CE4FD set).
-    static double __cdecl get_gravity();
+    static double get_gravity();
     // 0x00528280 (stdcall; `this` isn't used): the ground below `position`: `feeler` from feeler_height x 2 above
     // to stand_pos_search_depth below; its point (true) or `position` (false) into `out`.
-    static bool __stdcall find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler);
+    static bool find_stand_position(const maths::Vec4* position, maths::Vec4* out, render::ProbeRay* feeler);
 
     // --- movement (walk_movement.cpp) ---
     // 0x00526260: from wall_turn_speed_threshold up, the facing turned toward the velocity's direction
@@ -206,7 +206,7 @@ public:
 
     // --- walk_moves.cpp (skater-6: 0x00529F80-0x0052D6A0) ---
     // 0x0052A5C0: a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0052A190: its type, the eight contacts (0xCC each at +0xA0), the
     // collision cache (+0x790), the trigger feeler (+0x17B4), no components yet, no control (0, 0, 0, 1), no extra
     // velocity (0, 0, 0, 1).
@@ -281,7 +281,7 @@ public:
     // +0x1948 for its end - one of the small functions here.
 
     // 0x0043DA70 (cdecl): a walk parameter (the global structure walk_parameters' float `name`).
-    static float __cdecl get_param(uint32_t name);
+    static float get_param(uint32_t name);
     // 0x0043DAA0: the running speed: run_speed to combo_run_speed by the blend at +0x1868 (unrounded, as the
     // original leaves it in ST0).
     double run_speed();

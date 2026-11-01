@@ -27,11 +27,11 @@ public:
     // Handlers.
     // 0x0045ADB0 (id 3): a connection request: accepted (id 4, important) for a local connection, or for a
     // foreign one when the App takes those; else ignored.
-    static int __cdecl on_link_ask_msg(InboundMsgCtx* context);
+    static int on_link_ask_msg(InboundMsgCtx* context);
     // 0x0045AE50 (id 0xB): a disconnection request: accepted (id 0xC) once.
-    static int __cdecl on_link_drop_ask_msg(InboundMsgCtx* context);
+    static int on_link_drop_ask_msg(InboundMsgCtx* context);
     // 0x0045AA30 (id 9): a client's timestamp, acked.
-    static int __cdecl on_clock_sync_msg(InboundMsgCtx* context);
+    static int on_clock_sync_msg(InboundMsgCtx* context);
 };
 
 } // namespace net

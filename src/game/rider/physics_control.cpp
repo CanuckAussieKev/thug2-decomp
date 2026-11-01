@@ -90,7 +90,7 @@ void walk_camera_restore(ObjectModule* camera, void* state)
 } // namespace
 
 // 0x00517830
-memory::owner<ObjectModule*> __cdecl RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
+memory::owner<ObjectModule*> RiderBoardPhysics::fabricate() { return new RiderBoardPhysics; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderBoardPhysics::RiderBoardPhysics()
@@ -100,7 +100,7 @@ RiderBoardPhysics::RiderBoardPhysics()
 }
 
 // 0x005176A0
-void __cdecl RiderBoardPhysics::publish_method_table()
+void RiderBoardPhysics::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterPhysicsControl),
                                            g_physics_control_member_functions, 0x18);

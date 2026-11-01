@@ -104,10 +104,7 @@ void destroy_queued_msg_body(void* message) { static_cast<PendingMsg*>(message)-
 // The links (net_messages.h): list nodes (+8 the priority) pointing at a queued message - the normal queue's (with
 // the time it may be sent), the important queue's (also when it was last sent, 0 = never) and the sequenced queue's
 // (also the group, whether it's a stream piece and the sequence id).
-MsgNormalLink* construct_msg_link(void* memory, PendingMsg* message)
-{
-    return new (memory) MsgNormalLink(message);
-}
+MsgNormalLink* construct_msg_link(void* memory, PendingMsg* message) { return new (memory) MsgNormalLink(message); }
 ReliableMsgNode* construct_msg_important_link(void* memory, PendingMsg* message)
 {
     return new (memory) ReliableMsgNode(message);
@@ -118,10 +115,7 @@ OrderedMsgNode* construct_msg_seq_link(void* memory, SeqQueuedMsg* message)
 }
 
 // BulkStreamNode: a lists::Elem (data = itself) with its StreamDesc.
-BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream)
-{
-    return new (memory) BulkStreamNode(stream);
-}
+BulkStreamNode* construct_stream_link(void* memory, StreamDesc* stream) { return new (memory) BulkStreamNode(stream); }
 StreamDesc* stream_of(ListNode* link) { return reinterpret_cast<BulkStreamNode*>(link)->msg_meta_; }
 StreamDesc* construct_stream_desc(void* memory) { return new (memory) StreamDesc; }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
@@ -591,7 +585,7 @@ void AppHost::pump_stream_traffic()
 }
 
 // 0x00456CA0
-void __cdecl AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
+void AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     ++app->frame_count_;
@@ -599,7 +593,7 @@ void __cdecl AppHost::pump_incoming_traffic(tasks::Task<AppHost>* task)
 }
 
 // 0x004593C0
-void __cdecl AppHost::receive_network_data(tasks::Task<AppHost>* task)
+void AppHost::receive_network_data(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     app->clock_ = frame_clock::get_time();
@@ -608,7 +602,7 @@ void __cdecl AppHost::receive_network_data(tasks::Task<AppHost>* task)
 }
 
 // 0x004593E0
-void __cdecl AppHost::network_metrics(tasks::Task<AppHost>* task)
+void AppHost::network_metrics(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     lists::Hunt<Conn> search;
@@ -619,7 +613,7 @@ void __cdecl AppHost::network_metrics(tasks::Task<AppHost>* task)
 }
 
 // 0x004594A0
-void __cdecl AppHost::flush_outgoing_traffic(tasks::Task<AppHost>* task)
+void AppHost::flush_outgoing_traffic(tasks::Task<AppHost>* task)
 {
     AppHost* app = task_app(task);
     app->pump_stream_traffic();

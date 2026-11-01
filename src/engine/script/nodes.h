@@ -55,7 +55,7 @@ script::Struct* find_closest_node_with_prefix(uint32_t prefix, const maths::Vec4
 
 // --- the calls scripts make ---
 // What a call is handed to: its arguments (parsed with the calling script's) and its first token.
-using ScriptCallCallback = void(__cdecl*)(script::Struct* params, const uint8_t* call);
+using ScriptCallCallback = void (*)(script::Struct* params, const uint8_t* call);
 // 0x0045C950: every call to `target` (a script, C function or member function) in the script `script`, the
 // scripts it calls, the scripts SetEventHandler's scr= and (when the target is EndGap) EndGap's gapscript= name,
 // down to 5 levels: `callback` for each (a call to a script is followed into whether or not it is the target).

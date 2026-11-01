@@ -62,7 +62,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041D200
-memory::owner<ObjectModule*> __cdecl FamComponent::fabricate() { return new FamComponent; }
+memory::owner<ObjectModule*> FamComponent::fabricate() { return new FamComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 FamComponent::FamComponent()
@@ -73,7 +73,7 @@ FamComponent::FamComponent()
 }
 
 // 0x0041D170
-void __cdecl FamComponent::publish_method_table()
+void FamComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_fam_member_functions, 0x18);
 }

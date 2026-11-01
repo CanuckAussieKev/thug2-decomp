@@ -42,7 +42,7 @@ enum AssetState : int {
 
 class Resource;
 // Called when an asset the manager loaded asynchronously is ready: (the asset, its file's size, the two values).
-using LoadCallback = void(__cdecl*)(Resource* asset, uint32_t size, void* first_word, void* data1);
+using LoadCallback = void (*)(Resource* asset, uint32_t size, void* first_word, void* data1);
 
 // The base of every asset (0x4C bytes, vtable 0x00645568; each type has its own). The original's table also has
 // GetData (slot 1, get_data here) and IsPermanent (slot 2: never called), change_contents, pin_resident,
@@ -108,7 +108,7 @@ public:
 
     // 0x00407710: the async read's callback (the asset is the first value): its size kept, the state set to read
     // (unless the second value is set).
-    static void __cdecl read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
+    static void read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
 
     uint32_t checksum_; // +0x04
     int cur_phase_;     // +0x08 AssetState
@@ -269,8 +269,9 @@ struct SkinParams {
     uint8_t flag0; // +0x00
     uint8_t pad01[3];
     int value;       // +0x04
-    void* cas_data_;    // +0x08 the .cas file's contents
-    uint32_t cas_size_; // +0x0C (unused in the original) Not original - the .cas contents' size, set where they are read
+    void* cas_data_; // +0x08 the .cas file's contents
+    uint32_t
+        cas_size_;    // +0x0C (unused in the original) Not original - the .cas contents' size, set where they are read
     uint8_t has_cas_; // +0x10
     uint8_t on_heap_; // +0x11 (cleared by Load; a pop of the heap context when set)
     uint8_t pad12[2];

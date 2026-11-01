@@ -18,7 +18,7 @@
 namespace park_editing {
 
 // 0x0058E120
-bool __cdecl cfunc_get_park_editor_max_players(script::Struct*, script::Script* script)
+bool cfunc_get_park_editor_max_players(script::Struct*, script::Script* script)
 {
     ParkAssembler* generator = ParkLayout::singleton()->builder_;
     script->args_->put_int("MaxPlayers", generator->get_player_limit()); // 0xB7E39B53
@@ -26,7 +26,7 @@ bool __cdecl cfunc_get_park_editor_max_players(script::Struct*, script::Script* 
 }
 
 // 0x0058E140
-bool __cdecl cfunc_get_park_editor_max_players_possible(script::Struct*, script::Script* script)
+bool cfunc_get_park_editor_max_players_possible(script::Struct*, script::Script* script)
 {
     ParkAssembler* generator = ParkLayout::singleton()->builder_;
     script->args_->put_int("MaxPlayersPossible", generator->get_player_cap_limit()); // 0x1FD6359C

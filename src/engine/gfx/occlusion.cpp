@@ -49,7 +49,7 @@ float vertical_sin() { return g_view_shape.cos_y_; }
 void xform(float* out, const float* point, const void* matrix) { d3dx::vec3_transform(out, point, matrix); }
 
 // The C runtime's qsort (the game's, so equal occluders end up in the same order).
-void get_qsort(void* base, uint32_t count, uint32_t size, int(__cdecl* compare)(const void*, const void*))
+void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const void*, const void*))
 {
     crt::get_qsort(base, count, size, compare);
 }
@@ -112,7 +112,7 @@ bool inside_frustum(const float* view, float radius)
 } // namespace
 
 // 0x004D8BB0
-int __cdecl compare_occluders(const void* a, const void* b)
+int compare_occluders(const void* a, const void* b)
 {
     auto* first = static_cast<Occluder*>(const_cast<void*>(a));
     auto* second = static_cast<Occluder*>(const_cast<void*>(b));
@@ -133,7 +133,7 @@ int __cdecl compare_occluders(const void* a, const void* b)
 }
 
 // 0x004D8C10
-void __cdecl sort_occluders()
+void sort_occluders()
 {
     uint32_t count = occluder_count();
     if (count == 0)
@@ -152,7 +152,7 @@ void __cdecl sort_occluders()
 }
 
 // 0x004D8C90
-void __cdecl activate_occluder_poly(uint32_t checksum, bool enabled)
+void activate_occluder_poly(uint32_t checksum, bool enabled)
 {
     for (uint32_t i = 0; i < poly_count(); ++i) {
         if (polys()[i].checksum == checksum)
@@ -161,7 +161,7 @@ void __cdecl activate_occluder_poly(uint32_t checksum, bool enabled)
 }
 
 // 0x004D8CC0
-void __cdecl clear_occluder_polys()
+void clear_occluder_polys()
 {
     occluder_count() = 0;
     poly_count() = 0;
@@ -169,7 +169,7 @@ void __cdecl clear_occluder_polys()
 }
 
 // 0x004D8CE0
-void __cdecl add_occluders()
+void add_occluders()
 {
     uint32_t count = poly_count();
     if (count == 0)
@@ -200,8 +200,8 @@ void __cdecl add_occluders()
 }
 
 // 0x004D8D70
-void __cdecl insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2,
-                                  const maths::Vec4* p3, uint32_t checksum)
+void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2, const maths::Vec4* p3,
+                          uint32_t checksum)
 {
     OccluderPolygon& poly = polys()[poly_count()];
     poly.in_use_ = 0;
@@ -230,7 +230,7 @@ void __cdecl insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, 
 }
 
 // 0x004D8ED0
-void __cdecl collect_occluders(const maths::Vec4* eye, int frame)
+void collect_occluders(const maths::Vec4* eye, int frame)
 {
     tick_cycle() = frame;
     sort_occluders();
@@ -272,7 +272,7 @@ bool& occlusion_off()
 }
 
 // 0x004D9AC0
-bool __cdecl sphere_occluded(const maths::Vec4* centre, float radius, int weight)
+bool sphere_occluded(const maths::Vec4* centre, float radius, int weight)
 {
     if (occlusion_off()) // (NOT ORIGINAL: the level editor's switch)
         return false;
@@ -301,7 +301,7 @@ bool __cdecl sphere_occluded(const maths::Vec4* centre, float radius, int weight
 }
 
 // 0x004DB570
-int __cdecl sphere_outside_view(const maths::Vec4* centre, float radius)
+int sphere_outside_view(const maths::Vec4* centre, float radius)
 {
     float view[4];
     xform(view, &centre->x, view_matrix());
@@ -309,7 +309,7 @@ int __cdecl sphere_outside_view(const maths::Vec4* centre, float radius)
 }
 
 // 0x004DB790
-bool __cdecl sphere_in_view(const maths::Vec4* centre, float radius)
+bool sphere_in_view(const maths::Vec4* centre, float radius)
 {
     float moved[4];
     const float* point = &centre->x;
@@ -326,7 +326,7 @@ bool __cdecl sphere_in_view(const maths::Vec4* centre, float radius)
 }
 
 // 0x004DB6D0
-bool __cdecl beyond_clip_distance(const void* bounds)
+bool beyond_clip_distance(const void* bounds)
 {
     if (!g_distance_clipping)
         return false;

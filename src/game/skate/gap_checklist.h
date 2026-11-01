@@ -107,15 +107,15 @@ public:
 };
 
 // 0x00578AA0 (Build's callback): add_gap_from_node on the checklist being built.
-void __cdecl add_gap_from_node_callback(script::Struct* params, const uint8_t* call);
+void add_gap_from_node_callback(script::Struct* params, const uint8_t* call);
 
 // The script commands (cdecl, the Function table's):
 // 0x005792E0 AddGapsToMenu / 0x00579300 CreateGapList: the skate module's checklist's.
-bool __cdecl cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_create_gap_list(script::Struct* params, script::Script* script);
+bool cfunc_add_gaps_to_menu(script::Struct* params, script::Script* script);
+bool cfunc_create_gap_list(script::Struct* params, script::Script* script);
 // 0x00579320 GetLevelGapTotals: level= (required) - the career's checklist of that level's.
-bool __cdecl cfunc_get_level_gap_totals(script::Struct* params, script::Script* script);
+bool cfunc_get_level_gap_totals(script::Struct* params, script::Script* script);
 // 0x00579360 GiveAllGaps: every gap of level= (default: the current level - 0x00584130) landed once more.
-bool __cdecl cfunc_give_all_gaps(script::Struct* params, script::Script* script);
+bool cfunc_give_all_gaps(script::Struct* params, script::Script* script);
 
 } // namespace goals

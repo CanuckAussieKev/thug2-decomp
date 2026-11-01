@@ -609,7 +609,7 @@ EventWaitBoard* create_tracker(bool create)
 // --- the script commands ---------------------------------------------------------------------------------
 
 // 0x00462310: WaitForEvent type=<type>
-bool __cdecl cfunc_wait_for_event(script::Struct* params, script::Script* script)
+bool cfunc_wait_for_event(script::Struct* params, script::Script* script)
 {
     uint32_t type = 0; // (uninitialised in the original when there's no type)
     params->read_hash_value(kType, &type, 0);
@@ -618,7 +618,7 @@ bool __cdecl cfunc_wait_for_event(script::Struct* params, script::Script* script
 }
 
 // 0x00462340: ObjectExists id=<object>
-bool __cdecl cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
+bool cfunc_object_exists(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
     if (!get_object_id(params, kId, &id))
@@ -628,7 +628,7 @@ bool __cdecl cfunc_object_exists(script::Struct* params, script::Script* /*scrip
 
 // 0x00462380: TerminateObjectsScripts id=<object> (scripts=[names] | script_name=<name>): stop the object's
 // scripts that refer to these names (no name: 0).
-bool __cdecl cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*script*/)
+bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
     if (!get_object_id(params, kId, &id))
@@ -647,7 +647,7 @@ bool __cdecl cfunc_terminate_objects_scripts(script::Struct* params, script::Scr
 }
 
 // 0x00462440: SetObjectProps id=<object> ... (the object takes the rest; not checked for null)
-bool __cdecl cfunc_set_object_props(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_object_props(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
     if (!get_object_id(params, kId, &id))
@@ -657,7 +657,7 @@ bool __cdecl cfunc_set_object_props(script::Struct* params, script::Script* /*sc
 }
 
 // 0x00462480: PrintEventLog [<count>] (with a count: the whole header, not "only new entries")
-bool __cdecl cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
+bool cfunc_print_event_log(script::Struct* params, script::Script* /*script*/)
 {
     bool only_new = true;
     int count = kLogSize;
@@ -668,7 +668,7 @@ bool __cdecl cfunc_print_event_log(script::Struct* params, script::Script* /*scr
 }
 
 // 0x00462C40: AssignAlias id=<object> alias=<name>
-bool __cdecl cfunc_assign_alias(script::Struct* params, script::Script* /*script*/)
+bool cfunc_assign_alias(script::Struct* params, script::Script* /*script*/)
 {
     uint32_t id;
     if (!get_object_id(params, kId, &id))
@@ -683,7 +683,7 @@ bool __cdecl cfunc_assign_alias(script::Struct* params, script::Script* /*script
 
 // 0x004634D0: LaunchEvent / FireEvent type=<type> | type=[types] | type={types} [target=<id>] [source=<id>]
 // [data={...}] [broadcast] [radius=<r>]. Target and source default to the script's object (none without one).
-bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script)
+bool cfunc_launch_event(script::Struct* params, script::Script* script)
 {
     auto own_object = [&]() {
         return script && script->entity_ ? current_object_id(script->entity_.get_pull()) : kNoObjectId;

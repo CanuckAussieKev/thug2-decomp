@@ -56,7 +56,7 @@ bool read_breaks(PcMesh* mesh, Stream& in)
 } // namespace
 
 // 0x004B7AF0
-int __cdecl compare_strip_breaks(const void* a, const void* b)
+int compare_strip_breaks(const void* a, const void* b)
 {
     uint32_t x = static_cast<const StripBreak*>(a)->mesh_and_index_;
     uint32_t y = static_cast<const StripBreak*>(b)->mesh_and_index_;

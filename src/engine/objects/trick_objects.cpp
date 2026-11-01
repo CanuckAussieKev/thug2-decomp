@@ -88,7 +88,7 @@ void release_trick_object_manager()
 }
 
 // 0x00588120
-ClusterCount* __cdecl count_object_in_cluster(uint8_t* object, ClusterCount* counter)
+ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter)
 {
     const auto* cluster = reinterpret_cast<const TrickObjectCluster*>(object);
     if (cluster->owned_ && counter->cluster == static_cast<uint32_t>(cluster->owner_))
@@ -105,10 +105,7 @@ void TrickSpotHub::change_args(script::Struct* params)
 }
 
 // 0x00588170
-HitClusterLog::HitClusterLog()
-{
-    num_ = 0;
-}
+HitClusterLog::HitClusterLog() { num_ = 0; }
 
 // 0x00588180
 bool HitClusterLog::get_clear()
@@ -282,7 +279,7 @@ int TrickSpotHub::count_clusters_held_by(int player)
 }
 
 // 0x00588430
-void __cdecl find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search)
+void find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch* search)
 {
     if (search->found)
         return;
@@ -293,7 +290,7 @@ void __cdecl find_cluster_index(TrickObjectCluster* cluster, ClusterIndexSearch*
 }
 
 // 0x00588450
-void __cdecl find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search)
+void find_cluster_at_index(TrickObjectCluster* cluster, ClusterAtIndex* search)
 {
     if (search->found)
         return;
@@ -314,7 +311,7 @@ uint32_t TrickSpotHub::get_cluster_name(uint8_t index)
 }
 
 // 0x005884B0
-void __cdecl write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer)
+void write_held_cluster(TrickObjectCluster* cluster, GraffitiStateWriter* writer)
 {
     if (!cluster->owned_ || cluster->owner_ != writer->player)
         return;
@@ -533,7 +530,7 @@ bool TrickSpotHub::add_object_to_cluster(uint32_t object_name, uint32_t cluster_
 }
 
 // 0x00588300
-void __cdecl release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* release)
+void release_held_cluster(TrickObjectCluster* cluster, HeldClusterRelease* release)
 {
     if (!cluster->owned_ || cluster->owner_ != release->player)
         return;
@@ -545,7 +542,7 @@ void __cdecl release_held_cluster(TrickObjectCluster* cluster, HeldClusterReleas
 }
 
 // 0x00588350
-void __cdecl list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list)
+void list_free_cluster(TrickObjectCluster* cluster, FreeClusterList* list)
 {
     if (list->count < 32 && !cluster->owned_)
         list->names[list->count++] = cluster->label_;
@@ -570,7 +567,7 @@ void TrickSpotHub::apply_player_graffiti()
 }
 
 // 0x00589180
-TrickSpotHub* __cdecl acquire_trick_object_manager(bool create)
+TrickSpotHub* acquire_trick_object_manager(bool create)
 {
     auto*& instance = g_trick_spot_hub;
     if (!instance && create) {
@@ -610,7 +607,7 @@ bool TrickSpotHub::release_player_clusters(int player)
 }
 
 // 0x005892C0
-void __cdecl score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
+void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* objects, bool send)
 {
     online::Hub* net = net_session_slot();
     void* skate = static_cast<void*>(modules::g_skate_module);

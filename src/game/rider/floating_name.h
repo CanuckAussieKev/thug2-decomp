@@ -21,7 +21,7 @@ namespace objects {
 class RiderOverheadTag final : public ObjectModule {
 public:
     // 0x00511810 (registered by register_component_types): a new one (0 if out of memory). The label's id isn't set.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderOverheadTag();
     // 0x00511AA0: the destructor body: the label destroyed (destroy_object_label, id = its id), then the base's.

@@ -35,7 +35,7 @@ public:
 
     // 0x004F3890 (registered by register_component_types): a new one (0 if out of memory): the feelers not resting;
     // the rest zero (a cleared allocation).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     ProjectileComponent();
     // 0x004F37B0: the destructor body: its projectile slot let go (the base's after).

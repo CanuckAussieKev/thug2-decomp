@@ -22,7 +22,7 @@ class RiderPoseState;
 class RiderPhysicsCommit final : public ObjectModule {
 public:
     // 0x00511280 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderPhysicsCommit();
     // 0x00511010: the destructor body (the base's).

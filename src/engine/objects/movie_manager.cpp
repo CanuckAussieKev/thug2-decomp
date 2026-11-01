@@ -477,9 +477,6 @@ VideoHub::~VideoHub()
 }
 
 // (no address: the getter folded at 0x00543150 - movie_manager.h)
-uint32_t __fastcall movie_key_from_params(const void* movie)
-{
-    return reinterpret_cast<const VideoEntry*>(movie)->value20_;
-}
+uint32_t movie_key_from_params(const void* movie) { return reinterpret_cast<const VideoEntry*>(movie)->value20_; }
 
 } // namespace objects

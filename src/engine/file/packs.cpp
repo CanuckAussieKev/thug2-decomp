@@ -377,7 +377,7 @@ const char* pre_name(script::Struct* params)
 } // namespace
 
 // 0x005B7A60: LoadPipPre <name> [heap = ...]
-bool __cdecl cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_pip_pre(script::Struct* params, script::Script* /*script*/)
 {
     const char* name = pre_name(params);
     uint32_t heap = 0;
@@ -395,13 +395,10 @@ bool __cdecl cfunc_load_pip_pre(script::Struct* params, script::Script* /*script
 }
 
 // 0x005B7410: UnLoadPipPre <name>
-bool __cdecl cfunc_un_load_pip_pre(script::Struct* params, script::Script* /*script*/)
-{
-    return unload_pre(pre_name(params));
-}
+bool cfunc_un_load_pip_pre(script::Struct* params, script::Script* /*script*/) { return unload_pre(pre_name(params)); }
 
 // 0x005B7430: DumpPipPreStatus [ShowPreedFiles] [ShowUnPreedFiles] [ShowOnlyOpenFiles] - debug output
-bool __cdecl cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*/)
+bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* /*script*/)
 {
     bool show_files = script::has_bare_flag(params, "ShowPreedFiles");
     bool show_loose_files = script::has_bare_flag(params, "ShowUnPreedFiles");

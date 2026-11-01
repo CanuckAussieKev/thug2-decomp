@@ -102,7 +102,7 @@ void LightingState::free_arrays()
 }
 
 // 0x0048EB70
-void __cdecl init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
+void init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
 {
     debug::printf("Initializing Light Manager...");
     g_model_light_count = max_model_lights;
@@ -129,66 +129,66 @@ void __cdecl init_light_manager(uint32_t max_lights, uint32_t max_model_lights)
 }
 
 // 0x0048FB60
-void __cdecl uninit_light_manager()
+void uninit_light_manager()
 {
     debug::printf("Uninitializing Light Manager...");
     delete_dynamic_lights();
 }
 
 // 0x0048E8F0
-bool __cdecl set_light_ambient_color(uint32_t rgba)
+bool set_light_ambient_color(uint32_t rgba)
 {
     get_world().ambient = rgba;
     return update_ambient_light();
 }
 
 // 0x0048E900
-uint32_t* __cdecl get_light_ambient_color(uint32_t* out)
+uint32_t* get_light_ambient_color(uint32_t* out)
 {
     fetch_ambient_hue(out);
     return out;
 }
 
 // 0x0048E930
-bool __cdecl set_light_diffuse_color(int light, uint32_t rgba)
+bool set_light_diffuse_color(int light, uint32_t rgba)
 {
     get_world().colours[light] = rgba;
     return update_light_color(light);
 }
 
 // 0x0048E950
-uint32_t* __cdecl get_light_diffuse_color(uint32_t* out, int light)
+uint32_t* get_light_diffuse_color(uint32_t* out, int light)
 {
     fetch_light_tint(out, light);
     return out;
 }
 
 // 0x0048ED70
-bool __cdecl set_light_direction(int light, const maths::Vec4* direction)
+bool set_light_direction(int light, const maths::Vec4* direction)
 {
     get_world().directions[light] = *direction;
     return update_light_direction(light);
 }
 
 // 0x0048E970
-void __cdecl change_ambient_scale(float low, float high)
+void change_ambient_scale(float low, float high)
 {
     get_world().ambient_low_ = low;
     get_world().ambient_high_ = high;
 }
 
 // 0x0048E990
-void __cdecl change_diffuse_scale(int light, float low, float high)
+void change_diffuse_scale(int light, float low, float high)
 {
     get_world().light_low_[light] = low;
     get_world().light_high_[light] = high;
 }
 
 // 0x0048E9B0
-float __cdecl fetch_ambient_scale(bool low) { return low ? get_world().ambient_low_ : get_world().ambient_high_; }
+float fetch_ambient_scale(bool low) { return low ? get_world().ambient_low_ : get_world().ambient_high_; }
 
 // 0x0048E9D0 (both branches read the low ranges, as the original)
-float __cdecl fetch_diffuse_scale(int light, bool low)
+float fetch_diffuse_scale(int light, bool low)
 {
     if (low)
         return get_world().light_low_[light];
@@ -196,7 +196,7 @@ float __cdecl fetch_diffuse_scale(int light, bool low)
 }
 
 // 0x0048EA00
-void __cdecl push_world_lights()
+void push_world_lights()
 {
     if (++stack_top() < kSavedLightLevels)
         pile_up()[stack_top()] = get_world();
@@ -205,7 +205,7 @@ void __cdecl push_world_lights()
 }
 
 // 0x0048EA40
-bool __cdecl pop_world_lights()
+bool pop_world_lights()
 {
     if (stack_top() < 0)
         return false;
@@ -216,7 +216,7 @@ bool __cdecl pop_world_lights()
 }
 
 // 0x0048EDB0
-bool __cdecl set_world_brightness(float target)
+bool set_world_brightness(float target)
 {
     constexpr float kStep = 0.02f; // 0x006492BC
     light_gain_goal() = target;
@@ -245,7 +245,7 @@ bool __cdecl set_world_brightness(float target)
 }
 
 // 0x0048EF00
-void __cdecl delete_dynamic_lights()
+void delete_dynamic_lights()
 {
     for (int i = 0; i < dynamic_light_count(); ++i) {
         if (dynamic_lights()[i]) {
@@ -257,7 +257,7 @@ void __cdecl delete_dynamic_lights()
 }
 
 // 0x0048EF50
-DynamicLightBase** __cdecl find_dynamic_light(uint32_t owner)
+DynamicLightBase** find_dynamic_light(uint32_t owner)
 {
     for (int i = 0; i < dynamic_light_count(); ++i) {
         DynamicLightBase* light = dynamic_lights()[i];
@@ -268,7 +268,7 @@ DynamicLightBase** __cdecl find_dynamic_light(uint32_t owner)
 }
 
 // 0x0048EF90
-uint32_t __cdecl get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out)
+uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out)
 {
     float* falloffs = near_falloffs();
     int* indexes = near_indexes();
@@ -330,7 +330,7 @@ uint32_t __cdecl get_dynamic_lights_near(const maths::Vec4* position, uint32_t m
 }
 
 // 0x0048F160
-DynamicLightBase* __cdecl create_dynamic_light(int type)
+DynamicLightBase* create_dynamic_light(int type)
 {
     if (type != 1)
         return nullptr;
@@ -345,7 +345,7 @@ DynamicLightBase* __cdecl create_dynamic_light(int type)
 }
 
 // 0x0048FB80
-DynamicLightBase* __cdecl new_dynamic_light(int type)
+DynamicLightBase* new_dynamic_light(int type)
 {
     int count = dynamic_light_count();
     for (int i = 0; i < count; ++i) {

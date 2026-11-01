@@ -190,7 +190,7 @@ bool ParkLayout::raise_or_lower_floor(CellBox area, int dir)
 }
 
 // 0x0059C900
-void __cdecl BuildPointer::teardown()
+void BuildPointer::teardown()
 {
     BuildPointer* cursor = sole();
     if (!cursor)

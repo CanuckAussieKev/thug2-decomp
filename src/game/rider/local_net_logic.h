@@ -26,7 +26,7 @@ class RiderHostSync final : public ObjectModule {
 public:
     // 0x00513630 (registered by register_component_types): a new one (0 if out of memory): nothing sent yet (the state
     // and +0x35 0xFF, so the first update sends them).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderHostSync();
     // 0x00512E30: the destructor body (the base's).
@@ -43,7 +43,7 @@ public:
     // kResultConsumed), the thief's skater id (the player who scored the clusters, as the senders write it), the
     // victim's. The handler's data is the local skater: the thief runs GraffitiStealYou with String0 = the victim's
     // name, the victim GraffitiStealOther with the thief's.
-    static int __cdecl handle_graffiti_steal(net::InboundMsgCtx* context);
+    static int handle_graffiti_steal(net::InboundMsgCtx* context);
 
     // 0x00512EA0: which fields differ from what was last sent (bits: 0-2 the position x / y / z, 3-5 the angles,
     // 0x40 the state, 0x80 the controls, 0x100 the board component's value) - all but 0x100 when the update is

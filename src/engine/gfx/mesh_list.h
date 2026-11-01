@@ -73,8 +73,8 @@ static_assert(offsetof(SceneRef, meshes) == 0x1C && offsetof(SceneRef, bounds) =
 
 // 0x004DDD50 (qsort's comparison of two mesh pointers): by the material's sort key (+0x1C), then its byte +0xC,
 // then its flag 0x10, then the mesh's +0x44, then the material's address.
-int __cdecl compare_meshes(const void* a, const void* b);
+int compare_meshes(const void* a, const void* b);
 // 0x004DE560: free a scene's materials, destroy it and free it.
-void __cdecl discard_scene(SceneRef* scene);
+void discard_scene(SceneRef* scene);
 
 } // namespace render

@@ -165,7 +165,7 @@ void Resource::remove_dependent(Resource* asset)
 }
 
 // 0x00407710
-void __cdecl Resource::read_callback(file::AsyncFileHandle* /*file*/, int /*event*/, int size, void* asset, void* other)
+void Resource::read_callback(file::AsyncFileHandle* /*file*/, int /*event*/, int size, void* asset, void* other)
 {
     if (other)
         return;

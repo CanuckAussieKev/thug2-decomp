@@ -356,7 +356,7 @@ bool ParkBuilderMode::find_restart(void* a, void* b, void* c)
 int ParkBuilderMode::get_player_limit() { return hub()->builder_->get_player_limit(); }
 
 // 0x0058DB70
-void __cdecl process_pad_input(ParkEditorInputHandler* handler)
+void process_pad_input(ParkEditorInputHandler* handler)
 {
     ParkBuilderMode* editor = handler->content_;
     editor->actions_ = 0;

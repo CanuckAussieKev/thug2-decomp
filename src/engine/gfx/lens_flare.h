@@ -54,35 +54,34 @@ struct FlareElement {
 static_assert(sizeof(FlareElement) == 0x18, "layout must match the original");
 
 // 0x00442680: `value` limited to [min, max], the minimum checked first (NaN passes).
-float __cdecl clamp_to_range(float value, float min, float max);
+float clamp_to_range(float value, float min, float max);
 // 0x004426D0: the parts of `settings` named by `mask` taken (new textures looked up; the old sun texture deleted -
 // for a new corona too, as the original).
-void __cdecl set_sun(const Settings* settings, uint32_t mask);
+void set_sun(const Settings* settings, uint32_t mask);
 // 0x00442810: the occlusion query's callback: the sun's screen place, and a query over the 10 x 10 pixels round it
 // (its result's number in 0x00696894). Returns that number.
-int __cdecl query_sun_visibility(void* data, uint8_t query);
+int query_sun_visibility(void* data, uint8_t query);
 // 0x004428F0: every flare element morphed (over `time`) to its place on the line from `centre` to `sun` (screen
 // positions); the lens flare marked shown.
-void __cdecl place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre);
+void place_flare_elements(float time, const maths::Vec4* sun, const maths::Vec4* centre);
 // 0x004429D0: the sun set up (shown) and its flare elements read from the global array `lens_flare_data`; the morph
 // times from LensFlare_Morph_In / LensFlare_Morph_Out / SunBurst_Out; the colour 255 255 255 128.
-void __cdecl prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
-                         uint32_t lens_flare_data);
+void prepare_all(float theta, float phi, float radius, float size, uint32_t texture, uint32_t corona_texture,
+                 uint32_t lens_flare_data);
 // 0x00442D70: UpdateLensFlare's work: center (default 320 240), morph_time, sun_pos.
-void __cdecl update_flare(script::Struct* params, script::Script* script);
+void update_flare(script::Struct* params, script::Script* script);
 // 0x00442DF0 / 0x00443030: the Lens_Flare_Container faded out (alpha 0 over morph_time; with params, the elements
 // sent to sun_pos) / in (alpha 1 over 0.2). Nothing without the container.
-void __cdecl hide_flare(script::Struct* params, script::Script* script);
-void __cdecl unhide_flare(script::Struct* params, script::Script* script);
+void hide_flare(script::Struct* params, script::Script* script);
+void unhide_flare(script::Struct* params, script::Script* script);
 // 0x00443180: the sun's quad facing `camera` at `position` (its corners' x y z into `corners`, 12 floats), and
 // `prim` given the sun's texture and set up to draw it.
-void __cdecl build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position,
-                            float* corners);
+void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, float* corners);
 // 0x00443780: the lens flare placed for the sun at `sun` on the screen (made by CreateLensFlare if there's no
 // container; nothing unless DoUpdateLensFlare is set; shown again if hidden).
-void __cdecl show_flare(const maths::Vec4* sun, float time);
+void show_flare(const maths::Vec4* sun, float time);
 // 0x00443870: the sun drawn for `camera` (each frame): the sun and corona, the visibility query, the lens flare
 // shown or faded (MaybeHideLensFlare).
-void __cdecl render(gfx::ViewCam* camera);
+void render(gfx::ViewCam* camera);
 
 } // namespace sun

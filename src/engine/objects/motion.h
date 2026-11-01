@@ -63,7 +63,7 @@ public:
 
     // --- life ---
     // 0x00426650 (registered with the component types): a new one (memory::alloc_zeroed; the constructor inlined).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00424AA0: its type, no path follower or path group,
     // only the ground's height taken (+0x70), no ground offset; then Reset.
     KinematicsModule();
@@ -305,8 +305,8 @@ public:
     uint32_t own_node_name_;              // +0x1E4 its own node (Name)
     uint32_t list_link_;                  // +0x1E8 the node it's at
     memory::owner<PathFollower*> path_follower_; // +0x1EC
-    FollowTrail* trail_;                  // +0x1F0 obj_follow_leader's
-    bool leave_y_unaffected_;             // +0x1F4 obj_follow_leader's LeaveYUnaffected
+    FollowTrail* trail_;                         // +0x1F0 obj_follow_leader's
+    bool leave_y_unaffected_;                    // +0x1F4 obj_follow_leader's LeaveYUnaffected
     uint8_t pad1f5_[3];
     float jump_speed_;           // +0x1F8 up (per second)
     float leap_pull_;            // +0x1FC
@@ -332,6 +332,6 @@ public:
 
 // 0x00425CB0: the line from `start` to `end` against the cached triangle (three corners) - hit: the point. Else a feeler along
 // it: hit, the face it hit becomes the cached triangle and the point is the feeler's. Whether anything was hit.
-bool __cdecl get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out);
+bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out);
 
 } // namespace objects

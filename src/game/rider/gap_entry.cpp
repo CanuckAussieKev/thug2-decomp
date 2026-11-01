@@ -171,7 +171,7 @@ int get_half_turns(int degrees) { return degrees / 180; }
 } // namespace
 
 // 0x00512C60
-memory::owner<ObjectModule*> __cdecl RiderGapTracker::fabricate() { return new RiderGapTracker; }
+memory::owner<ObjectModule*> RiderGapTracker::fabricate() { return new RiderGapTracker; }
 
 // 0x005122A0
 RiderGapTracker::RiderGapTracker()
@@ -590,10 +590,10 @@ int RiderGapTracker::invoke_method_by_name(uint32_t name, script::Struct* params
 }
 
 // 0x00511C10
-void __cdecl discard_queued_gaps() { gap_tally_ref()->clear_pending(); }
+void discard_queued_gaps() { gap_tally_ref()->clear_pending(); }
 
 // 0x00511C30
-void __cdecl pay_out_queued_gaps()
+void pay_out_queued_gaps()
 {
     gap_tally_ref()->pay_out_queued_gaps();
     if (get_career()->all_gaps_got())

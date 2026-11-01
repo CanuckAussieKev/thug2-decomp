@@ -121,7 +121,7 @@ void get_finish(online::Hub* manager)
 } // namespace
 
 // 0x00545880
-void __cdecl service_task(tasks::Task<online::Hub>* task)
+void service_task(tasks::Task<online::Hub>* task)
 {
     auto* manager = static_cast<online::Hub*>(task->content_);
     switch (manager->service_state_) {

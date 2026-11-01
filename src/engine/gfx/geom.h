@@ -52,15 +52,15 @@ static_assert(offsetof(Singleton, bones) == 0x44 && offsetof(Singleton, color) =
               "layout must match the original");
 
 // 0x004D16B0: an instance drawn on its own (flag 8: even out of view or occluded), the world transform put back.
-void __cdecl draw_one_instance(Singleton* instance, uint32_t flags);
+void draw_one_instance(Singleton* instance, uint32_t flags);
 // 0x004D1760: the active instances shown in `viewport`, with opaque (flags 1) or transparent (2) meshes, in view
 // and not occluded: sorted (compare_instances), the vertex-shader-skinned ones first (transparent ones with 0x80),
 // then the others (transparent ones with 0x100; 0x00786E60 set for those near the camera), lit by lights 0 and 1.
-void __cdecl draw_instance_batch(uint32_t flags, int viewport);
+void draw_instance_batch(uint32_t flags, int viewport);
 // 0x004D0F40 (qsort's, over instance pointers): the vertex-shader-skinned ones first, by their bones (descending)
 // then their transparent mesh counts; the others by their transparent mesh counts, then their first transparent
 // meshes' materials' sort keys (+0x1C).
-int __cdecl compare_instances(const void* a, const void* b);
+int compare_instances(const void* a, const void* b);
 
 // (A geom's load list is a memory::ListNode list over its meshes: the node's destructors 0x004B5EC0 / 0x004B5E50 and
 // the head's 0x004B5E90 are ListNode's uncouple / destroy.)

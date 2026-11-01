@@ -96,7 +96,7 @@ void show_app_metrics(net::AppHost* app)
 } // namespace
 
 // 0x0052F4A0
-void __cdecl level_change_task(tasks::Task<Hub>* task)
+void level_change_task(tasks::Task<Hub>* task)
 {
     PlayerSearch search;
     Hub* manager = task_manager(task);
@@ -113,7 +113,7 @@ void __cdecl level_change_task(tasks::Task<Hub>* task)
 uint32_t g_modem_dialog_end;
 
 // 0x00533810
-void __cdecl dialup_progress_tick(tasks::Task<Hub>* task)
+void dialup_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     net::Hub* net = net::Hub::sole();
@@ -178,7 +178,7 @@ void __cdecl dialup_progress_tick(tasks::Task<Hub>* task)
 }
 
 // 0x00533B50 (each list is shown twice: the original's loop)
-void __cdecl net_metrics_task(tasks::Task<Hub>* task)
+void net_metrics_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     for (int pass = 0; pass < 2; ++pass) {
@@ -190,7 +190,7 @@ void __cdecl net_metrics_task(tasks::Task<Hub>* task)
 }
 
 // 0x00533ED0
-void __cdecl join_deadline_tick(tasks::Task<Hub>* task)
+void join_deadline_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     if (manager->join_phase_ == 8 ||
@@ -201,10 +201,10 @@ void __cdecl join_deadline_tick(tasks::Task<Hub>* task)
 }
 
 // 0x00533400
-void __cdecl player_team_key_callback(int, int, void* buffer, void*) { game_spy::call_qr2_buffer_add(buffer, ""); }
+void player_team_key_callback(int, int, void* buffer, void*) { game_spy::call_qr2_buffer_add(buffer, ""); }
 
 // 0x00533420
-void __cdecl key_list_callback(int type, void* keys, void*)
+void key_list_callback(int type, void* keys, void*)
 {
     auto add = [keys](int key) { game_spy::qr2_key_buffer_add(keys, key); };
     if (type == 0) { // the server's
@@ -217,7 +217,7 @@ void __cdecl key_list_callback(int type, void* keys, void*)
 }
 
 // 0x005334B0
-void __cdecl add_error_callback(int error, const char* message, void*)
+void add_error_callback(int error, const char* message, void*)
 {
     debug::printf("Error adding server: %d, %s\n", error, message);
 }

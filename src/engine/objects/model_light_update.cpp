@@ -36,7 +36,7 @@ constexpr float kLerpRate = 0.02f;    // 0x3CA3D70A
 } // namespace
 
 // 0x00422DC0
-memory::owner<ObjectModule*> __cdecl MeshLightingModule::fabricate() { return new MeshLightingModule; }
+memory::owner<ObjectModule*> MeshLightingModule::fabricate() { return new MeshLightingModule; }
 
 // (the constructor: inlined in fabricate in the original)
 MeshLightingModule::MeshLightingModule()

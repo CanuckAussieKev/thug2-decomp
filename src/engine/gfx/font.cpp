@@ -112,7 +112,7 @@ void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors,
 }
 
 // 0x0048D950
-bool __cdecl cfunc_load_font(script::Struct* params, script::Script* /*script*/)
+bool cfunc_load_font(script::Struct* params, script::Script* /*script*/)
 {
     bool button_font = params->has_bare_flag("buttons_font");
     const char* name = nullptr; // (the original leaves it unset when the name is missing)

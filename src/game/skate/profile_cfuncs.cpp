@@ -42,7 +42,7 @@ const char* const kNoText = "---"; // "---"
 } // namespace
 
 // 0x005AA930
-void __cdecl swap_mapping(uint32_t a, uint32_t b)
+void swap_mapping(uint32_t a, uint32_t b)
 {
     SwapSlot* table = swap_table();
     int slot_a = -1;
@@ -109,7 +109,7 @@ void preload_meshes(uint32_t array_name)
 }
 
 // 0x005AAA80
-bool __cdecl cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
+bool cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
 {
     // the goal editor's nodes added (0x004E8F50, no source yet)
     park_editing::add_goal_editor_nodes(nullptr, nullptr, memory::Hub::get_pull()->bottom_up_heap_);
@@ -117,14 +117,14 @@ bool __cdecl cfunc_add_goal_editor_nodes_to_level_node_array(Struct*, Script*)
 }
 
 // 0x005AAB50
-bool __cdecl cfunc_current_skater_is_pro(Struct* params, Script*)
+bool cfunc_current_skater_is_pro(Struct* params, Script*)
 {
     objects::RiderIdentity* profile = skate_profile(params);
     return profile && profile->is_pro();
 }
 
 // 0x005AAB80
-bool __cdecl cfunc_get_goals_completed(Struct* params, Script* script)
+bool cfunc_get_goals_completed(Struct* params, Script* script)
 {
     int level = 0;
     params->fetch_int_value(0u, &level, 0);
@@ -137,7 +137,7 @@ bool __cdecl cfunc_get_goals_completed(Struct* params, Script* script)
 }
 
 // 0x005AAC10
-bool __cdecl cfunc_get_next_level_requirements(Struct*, Script* script)
+bool cfunc_get_next_level_requirements(Struct*, Script* script)
 {
     char text[100];
     std::snprintf(text, sizeof(text), "%s", kNoText);
@@ -169,7 +169,7 @@ bool __cdecl cfunc_get_next_level_requirements(Struct*, Script* script)
 }
 
 // 0x005AAD70
-bool __cdecl cfunc_set_current_skater_profile(Struct* params, Script*)
+bool cfunc_set_current_skater_profile(Struct* params, Script*)
 {
     int index = 0;
     params->fetch_int_value(0u, &index, 0);
@@ -178,10 +178,10 @@ bool __cdecl cfunc_set_current_skater_profile(Struct* params, Script*)
 }
 
 // 0x005AADA0
-bool __cdecl cfunc_add_skater_profile(Struct* params, Script*) { return get_profiles()->add_template(params); }
+bool cfunc_add_skater_profile(Struct* params, Script*) { return get_profiles()->add_template(params); }
 
 // 0x005AADC0
-bool __cdecl cfunc_add_temporary_profile(Struct* params, Script*)
+bool cfunc_add_temporary_profile(Struct* params, Script*)
 {
     uint32_t name;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name (asserted: used as it is)
@@ -189,7 +189,7 @@ bool __cdecl cfunc_add_temporary_profile(Struct* params, Script*)
 }
 
 // 0x005AADF0
-bool __cdecl cfunc_remember_temporary_appearance(Struct* params, Script*)
+bool cfunc_remember_temporary_appearance(Struct* params, Script*)
 {
     uint32_t name;
     params->read_hash_value(0xA1DC81F9u, &name, 1); // name

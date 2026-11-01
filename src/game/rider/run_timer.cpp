@@ -59,13 +59,13 @@ void tell_timer_script(GameEntity* skater, uint32_t type)
 } // namespace
 
 // 0x005185D0
-memory::owner<ObjectModule*> __cdecl RiderRunClock::fabricate() { return new RiderRunClock; }
+memory::owner<ObjectModule*> RiderRunClock::fabricate() { return new RiderRunClock; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderRunClock::RiderRunClock() { kind_tag_ = kSkaterRunTimer; }
 
 // 0x00518240
-void __cdecl RiderRunClock::publish_method_table()
+void RiderRunClock::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterRunTimer), g_run_timer_member_functions,
                                            0x18);

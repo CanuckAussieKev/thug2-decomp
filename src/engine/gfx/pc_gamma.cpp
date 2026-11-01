@@ -32,7 +32,7 @@ float clamp01(float value)
 } // namespace
 
 // 0x004D06A0
-void __cdecl get_device_gamma(float* r, float* g, float* b)
+void get_device_gamma(float* r, float* g, float* b)
 {
     *r = static_cast<float>((static_cast<double>(gammas()[0]) - 0.5f) * 0.5f);
     *g = static_cast<float>((static_cast<double>(gammas()[1]) - 0.5f) * 0.5f);
@@ -40,7 +40,7 @@ void __cdecl get_device_gamma(float* r, float* g, float* b)
 }
 
 // 0x004D06F0
-void __cdecl build_gamma_ramp()
+void build_gamma_ramp()
 {
     float exponent[3];
     for (int k = 0; k < 3; ++k)
@@ -54,7 +54,7 @@ void __cdecl build_gamma_ramp()
 }
 
 // 0x004D07B0
-void __cdecl set_device_gamma(float r, float g, float b)
+void set_device_gamma(float r, float g, float b)
 {
     r = clamp01(r);
     g = clamp01(g);

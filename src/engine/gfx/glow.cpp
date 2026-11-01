@@ -70,7 +70,7 @@ void set_quad(const Glow* glow, const float* u, const float* v, float size, uint
 } // namespace
 
 // 0x004DCC70
-void __cdecl update_glows(bool queries)
+void update_glows(bool queries)
 {
     // The camera's across and up directions from the view matrix's third column (a, b, c): u = (b*0 - c, c*0 - a*0,
     // a - b*0) and v = u x (a, b, c), each then normalised.

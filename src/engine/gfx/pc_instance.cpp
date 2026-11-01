@@ -239,7 +239,7 @@ void Singleton::render(uint32_t draw_bits)
 }
 
 // 0x004D16B0
-void __cdecl draw_one_instance(Singleton* instance, uint32_t flags)
+void draw_one_instance(Singleton* instance, uint32_t flags)
 {
     set_last_bones(nullptr);
     if (!instance->active)
@@ -261,7 +261,7 @@ void __cdecl draw_one_instance(Singleton* instance, uint32_t flags)
 }
 
 // 0x004D1760
-void __cdecl draw_instance_batch(uint32_t flags, int viewport)
+void draw_instance_batch(uint32_t flags, int viewport)
 {
     uint32_t mask = 1u << (viewport & 0x1F);
     float culling[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}; // the identity at each one's position
@@ -327,7 +327,7 @@ void __cdecl draw_instance_batch(uint32_t flags, int viewport)
 }
 
 // 0x004D0F40
-int __cdecl compare_instances(const void* a, const void* b)
+int compare_instances(const void* a, const void* b)
 {
     const Singleton* first = *static_cast<Singleton* const*>(a);
     const Singleton* second = *static_cast<Singleton* const*>(b);

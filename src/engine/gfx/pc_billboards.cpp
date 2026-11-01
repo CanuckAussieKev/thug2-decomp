@@ -73,7 +73,7 @@ void draw_list(const memory::ListNode* head, const float* y_axis, const float* x
 } // namespace
 
 // 0x004CD9D0
-int __cdecl compare_batches(const void* a, const void* b)
+int compare_batches(const void* a, const void* b)
 {
     const auto* first = *static_cast<BillboardBatch* const*>(a);
     const auto* second = *static_cast<BillboardBatch* const*>(b);
@@ -494,7 +494,7 @@ void BillboardSet::render(unsigned int which)
 }
 
 // 0x004CD8A0
-void __cdecl create_window_pool()
+void create_window_pool()
 {
     for (int i = 0; i < 10; ++i) {
         PcWindow* window = new PcWindow(0, 0, 640, 480);
@@ -504,16 +504,16 @@ void __cdecl create_window_pool()
 }
 
 // 0x004CD940
-void __cdecl mark_billboards_ready()
+void mark_billboards_ready()
 {
     if (!g_billboards_ready)
         g_billboards_ready = true;
 }
 
 // 0x004CD960
-void __cdecl set_flag_786e_b4() { g_billboard_flag = 1; }
+void set_flag_786e_b4() { g_billboard_flag = 1; }
 
 // 0x004CD970
-void __cdecl clear_flag_786e_b4() { g_billboard_flag = 0; }
+void clear_flag_786e_b4() { g_billboard_flag = 0; }
 
 } // namespace render

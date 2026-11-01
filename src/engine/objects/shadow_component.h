@@ -34,7 +34,7 @@ public:
     static constexpr uint32_t kType = 0x8A897DD2;
 
     // 0x00431800 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00431380: its type; no shadow, at the origin (w 1) with the ground normal
     // (0, 1, 0, 1), type none, following its object.
     GroundShadowModule();
@@ -74,11 +74,11 @@ public:
     void set_light_direction(const maths::Vec4* direction);
 
     std::unique_ptr<render::ShadowBase> shadow_handle_; // +0x18 the renderer's shadow object
-    maths::Vec4 at_point_;              // +0x1C where it is
-    maths::Vec4 surface_dir_;           // +0x2C the ground's normal under it
-    uint32_t shadow_kind_;              // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
-    ObjectModule* mesh_instance_;       // +0x40 the model component (Finalize)
-    bool follow_object_;                // +0x44 each update puts it at the object's position
+    maths::Vec4 at_point_;                              // +0x1C where it is
+    maths::Vec4 surface_dir_;                           // +0x2C the ground's normal under it
+    uint32_t shadow_kind_;                              // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
+    ObjectModule* mesh_instance_;                       // +0x40 the model component (Finalize)
+    bool follow_object_;                                // +0x44 each update puts it at the object's position
     uint8_t pad45[3];
 };
 

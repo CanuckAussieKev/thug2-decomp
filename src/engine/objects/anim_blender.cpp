@@ -76,10 +76,10 @@ bool bool_arg(float word) { return bool_arg(std::bit_cast<uint32_t>(word)); }
 } // namespace
 
 // 0x0041A5B0
-memory::owner<ObjectModule*> __cdecl AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
+memory::owner<ObjectModule*> AnimBlenderComponent::fabricate() { return new AnimBlenderComponent; }
 
 // 0x00419690
-void __cdecl AnimBlenderComponent::publish_method_table()
+void AnimBlenderComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_anim_blender_member_functions, 0x18);
 }
@@ -166,8 +166,7 @@ void AnimBlenderComponent::tick_frame()
         uint32_t sets = highest_set + 1;
         for (uint32_t set = 0; set != sets;) {
             gfx::Stance* pose = gfx::g_blend_buffer;
-            uint32_t bones =
-                reinterpret_cast<uint32_t(__thiscall*)(void*)>(code_address(&gfx::Rig::get_num_bones))(skeleton());
+            uint32_t bones = static_cast<uint32_t>(skeleton()->get_num_bones());
             gfx::blend_poses_by_id(gfx::g_blend_buffer, gfx::g_blend_weights, gfx::g_blend_sets,
                                    static_cast<int>(bones), pose, count, set);
             ++set;
@@ -586,7 +585,7 @@ void get_channel_times(gfx::BlendChannel* channel, float* start, float* current,
 }
 
 // 0x004196B0
-float __cdecl larger_of(float a, float b) { return a > b ? a : b; }
+float larger_of(float a, float b) { return a > b ? a : b; }
 
 // 0x0041A680
 maths::Vec4 VectorAt1c::get_pull() const { return vector_; }

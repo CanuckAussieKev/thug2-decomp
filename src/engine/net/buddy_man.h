@@ -98,32 +98,32 @@ public:
 
     // 0x00548560 (stdcall, `this` unused): the homie_list_add_item script for `buddy`: its name, status, location
     // and id; choosing it does nothing, or (`allow_join` / `allow_remove`) present_buddy_options with its details.
-    static void __stdcall show_buddy(Buddy* buddy, bool allow_join, bool allow_remove);
+    static void show_buddy(Buddy* buddy, bool allow_join, bool allow_remove);
 
     // The GP callbacks (cdecl: the connection, the callback's argument, this).
     // 0x00549ED0: errors: login failed (0x107: logged off, CreateBuddyLoginFailedDialog), wrong password (0x202),
     // the nick taken by a new user (0x201: state 3, log in instead), already a buddy (0x603).
-    static void __cdecl on_error(void* connection, const void* arg, FriendsManager* man);
+    static void on_error(void* connection, const void* arg, FriendsManager* man);
     // 0x00548F50: a buddy's status: the buddy updated (a pending one becomes a buddy: added_buddy, and it goes into
     // the buddy_array preference) or a new buddy made (its nick from buddy_array); update_buddy_status run.
-    static void __cdecl on_buddy_status(void* connection, const void* arg, FriendsManager* man);
+    static void on_buddy_status(void* connection, const void* arg, FriendsManager* man);
     // 0x005496F0: a buddy message (at most 21 kept): "nick\ntext", or a buddy's text with its nick (from someone
     // else: dropped). Script 0x10C3647C run for a new one.
-    static void __cdecl on_buddy_message(void* connection, const void* arg, FriendsManager* man);
+    static void on_buddy_message(void* connection, const void* arg, FriendsManager* man);
     // 0x0054A2C0: gpConnectNewUser's answer: success (0) -> logged in (0x005482A0); the nick taken (4) while a new
     // profile is being made -> log in instead.
-    static void __cdecl on_connect_new_user(void* connection, const void* arg, FriendsManager* man);
+    static void on_connect_new_user(void* connection, const void* arg, FriendsManager* man);
 
     // 0x0054A300: the task: state 1 / 2 (creating / logging in): GP processed, or after 10 s logged off and
     // CreateBuddyLoginFailedDialog; state 3: LogIn; state 4 (logged in): GP processed once a second.
-    static void __cdecl buddy_task(tasks::Task<FriendsManager>* task);
+    static void buddy_task(tasks::Task<FriendsManager>* task);
     // 0x0054A3D0 (thread, stdcall): gpConnectNewUser for nick "proskater" with the profile_email / profile_password
     // preferences. Returns 0.
     static unsigned long __stdcall create_profile_thread(void* man);
 
     // --- buddy_status.cpp (0x00548100-0x00548560) ---
     // 0x00548100 (GP's buddy request callback): the request accepted (gpAuthBuddyRequest, 0x006001A0).
-    static void __cdecl on_buddy_request(void* connection, const void* arg, FriendsManager* man);
+    static void on_buddy_request(void* connection, const void* arg, FriendsManager* man);
     // 0x00548140 (thread, stdcall): gpConnect for nick "proskater" with the profile_email / profile_password
     // preferences (or the command line's, 0x007CCA90 / 0x007CCB90, when 0x007CC260 or 0x007CCA80 is set),
     // on_connect_new_user for the answer. Returns 0.
@@ -135,30 +135,30 @@ public:
     // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
     void change_standing(int status, const char* text, const char* location);
 
-    void* connection_;           // +0x00 GPConnection (this object is passed as its address)
-    int account_;                // +0x04 the logged-in profile id
-    int cur_phase_;              // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
+    void* connection_; // +0x00 GPConnection (this object is passed as its address)
+    int account_;      // +0x04 the logged-in profile id
+    int cur_phase_;    // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
-    bool authenticated_;         // +0x10
-    memory::ListNode friends_;   // +0x14 lists::Foremost<Buddy>
-    memory::ListNode messages_;  // +0x28 lists::Foremost<FriendNote>
+    bool authenticated_;                         // +0x10
+    memory::ListNode friends_;                   // +0x14 lists::Foremost<Buddy>
+    memory::ListNode messages_;                  // +0x28 lists::Foremost<FriendNote>
 };
 
 // The script commands (CFunctions: the parameters, the script).
-bool __cdecl set_unique_id(script::Struct* params, script::Script* script);               // 0x00548940
-bool __cdecl join_buddy(script::Struct* params, script::Script* script);                  // 0x00548A40
-bool __cdecl add_buddy(script::Struct* params, script::Script* script);                   // 0x00548E40
-bool __cdecl has_buddies(script::Struct* params, script::Script* script);                 // 0x00548E90
-bool __cdecl buddy_list_full(script::Struct* params, script::Script* script);             // 0x00548ED0
-bool __cdecl any_buddy_messages_left(script::Struct* params, script::Script* script);     // 0x00548F10
-bool __cdecl profile_log_off(script::Struct* params, script::Script* script);             // 0x00549D10
-bool __cdecl fill_buddy_list(script::Struct* params, script::Script* script);             // 0x00549D20
-bool __cdecl cancel_add_buddy(script::Struct* params, script::Script* script);            // 0x00549D80
-bool __cdecl remove_buddy(script::Struct* params, script::Script* script);                // 0x00549D90
-bool __cdecl show_next_buddy_message(script::Struct* params, script::Script* script);     // 0x00549DC0
-bool __cdecl is_already_my_buddy(script::Struct* params, script::Script* script);         // 0x00549EA0
-bool __cdecl profile_log_in(script::Struct* params, script::Script* script);              // 0x0054A250
-bool __cdecl fill_prospective_buddy_list(script::Struct* params, script::Script* script); // 0x0054A2B0
-bool __cdecl spawn_account(script::Struct* params, script::Script* script);               // 0x0054A650
+bool set_unique_id(script::Struct* params, script::Script* script);               // 0x00548940
+bool join_buddy(script::Struct* params, script::Script* script);                  // 0x00548A40
+bool add_buddy(script::Struct* params, script::Script* script);                   // 0x00548E40
+bool has_buddies(script::Struct* params, script::Script* script);                 // 0x00548E90
+bool buddy_list_full(script::Struct* params, script::Script* script);             // 0x00548ED0
+bool any_buddy_messages_left(script::Struct* params, script::Script* script);     // 0x00548F10
+bool profile_log_off(script::Struct* params, script::Script* script);             // 0x00549D10
+bool fill_buddy_list(script::Struct* params, script::Script* script);             // 0x00549D20
+bool cancel_add_buddy(script::Struct* params, script::Script* script);            // 0x00549D80
+bool remove_buddy(script::Struct* params, script::Script* script);                // 0x00549D90
+bool show_next_buddy_message(script::Struct* params, script::Script* script);     // 0x00549DC0
+bool is_already_my_buddy(script::Struct* params, script::Script* script);         // 0x00549EA0
+bool profile_log_in(script::Struct* params, script::Script* script);              // 0x0054A250
+bool fill_prospective_buddy_list(script::Struct* params, script::Script* script); // 0x0054A2B0
+bool spawn_account(script::Struct* params, script::Script* script);               // 0x0054A650
 
 } // namespace online

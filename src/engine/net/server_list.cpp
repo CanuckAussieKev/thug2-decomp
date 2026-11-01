@@ -496,7 +496,7 @@ void Hub::refresh_server_list(bool force)
 }
 
 // 0x00547440
-void __cdecl server_list_task(tasks::Task<Hub>* task)
+void server_list_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task->content_;
     if (frame_clock::get_time() - list_clock() > kListClock) {
@@ -547,7 +547,7 @@ unsigned long __stdcall motd_thread(void* argument)
 }
 
 // 0x00545490
-int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low, int32_t size_high, void* param)
+int news_callback(void* request, int result, uint8_t* buffer, uint32_t size_low, int32_t size_high, void* param)
 {
     (void)request;
     (void)param;
@@ -581,7 +581,7 @@ int __cdecl news_callback(void* request, int result, uint8_t* buffer, uint32_t s
 }
 
 // 0x00548040
-bool __cdecl is_thug2_location(const char* location)
+bool is_thug2_location(const char* location)
 {
     char copy[256];
     std::strcpy(copy, location);
@@ -591,7 +591,7 @@ bool __cdecl is_thug2_location(const char* location)
 // --- The script commands ---
 
 // 0x00545440: PostGame - the hosting status, unless the lobby's +0x139 (0x0053F810).
-bool __cdecl cfunc_post_game(script::Struct* params, script::Script* script)
+bool cfunc_post_game(script::Struct* params, script::Script* script)
 {
     (void)params;
     (void)script;
@@ -602,7 +602,7 @@ bool __cdecl cfunc_post_game(script::Struct* params, script::Script* script)
 }
 
 // 0x00545F20: num_servers = the listed servers.
-bool __cdecl cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
+bool cfunc_num_servers_in_lobby(script::Struct* params, script::Script* script)
 {
     (void)params;
     script->args_->put_int(kNumServers, total_of(&the_manager()->servers_));

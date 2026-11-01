@@ -91,10 +91,10 @@ Colour colour_of(script::Array* array)
 // --- life ---
 
 // 0x0042A000
-memory::owner<ObjectModule*> __cdecl EffectsEmitterModule::fabricate() { return new EffectsEmitterModule; }
+memory::owner<ObjectModule*> EffectsEmitterModule::fabricate() { return new EffectsEmitterModule; }
 
 // 0x00429940
-void __cdecl EffectsEmitterModule::publish_method_table()
+void EffectsEmitterModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_particle_component_member_functions, 0x18);
 }

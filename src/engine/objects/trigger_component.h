@@ -34,7 +34,7 @@ public:
 
     // 0x00434B90 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory): the
     // base's constructor, its vtable and type; the rest zero (a cleared allocation).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     ActivationZoneModule();
     // 0x00434900: the destructor body (the base's).
@@ -68,7 +68,7 @@ public:
     void trigger_hits(const int* events, const render::BoxProbe* feeler);
     // 0x00434D70 (not a Ghidra function; cdecl): the feeler's callback during Update: probe_touches_zone with no events
     // (0x0064663C) on the component it carries (+0xA8).
-    static bool __cdecl feeler_hit(render::ProbeRay* feeler);
+    static bool feeler_hit(render::ProbeRay* feeler);
 
     maths::Vec4 last_pos_; // +0x18 where the object was at the last update
     uint32_t events_;      // +0x28 the last trigger's events (a bit for each)

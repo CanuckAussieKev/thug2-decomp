@@ -12,7 +12,7 @@ namespace objects {
 namespace {} // namespace
 
 // 0x004312A0
-memory::owner<ObjectModule*> __cdecl FaceHeadingModule::fabricate() { return new FaceHeadingModule; }
+memory::owner<ObjectModule*> FaceHeadingModule::fabricate() { return new FaceHeadingModule; }
 
 // (the constructor: inlined in fabricate in the original)
 FaceHeadingModule::FaceHeadingModule() { kind_tag_ = kType; }

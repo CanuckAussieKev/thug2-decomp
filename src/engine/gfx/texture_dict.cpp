@@ -261,13 +261,13 @@ BitmapTexture* TextureSet::copy_texture_with_overlay(uint32_t checksum, BitmapTe
 // --- the loaded dictionaries --------------------------------------------------------------------------------------
 
 // 0x0049F010
-TextureSet* __cdecl find_tex_dict(uint32_t checksum)
+TextureSet* find_tex_dict(uint32_t checksum)
 {
     return static_cast<TextureSet*>(loaded_tex_dicts().fetch_entry(checksum));
 }
 
 // 0x0049F0C0
-TextureSet* __cdecl load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
+TextureSet* load_tex_dict(const char* path, int /*level*/, uint32_t offset, uint32_t /*a3*/, uint32_t /*a4*/)
 {
     char file[0x80];
     std::snprintf(file, sizeof(file), "%s.%s", path, platform_suffix());
@@ -287,8 +287,8 @@ TextureSet* __cdecl load_tex_dict(const char* path, int /*level*/, uint32_t offs
 }
 
 // 0x0049F050
-TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t size,
-                                              uint32_t /*a3*/, uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
+TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t size, uint32_t /*a3*/,
+                                      uint32_t offset, uint32_t /*a5*/, uint32_t /*a6*/)
 {
     memory::push_mem_profile("TEX_data_buffer"); // "TEX_data_buffer"
     uint32_t key = checksum + offset;
@@ -305,7 +305,7 @@ TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* 
 }
 
 // 0x0049F180 (the skin flag is pushed as a whole word in the original - stack noise above its byte)
-TextureSet* __cdecl load_model_textures(const char* name, uint32_t offset, uint32_t a4)
+TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4)
 {
     char base[0x200];
     bool skin = engine::split_skin_name(name, base);
@@ -315,7 +315,7 @@ TextureSet* __cdecl load_model_textures(const char* name, uint32_t offset, uint3
 }
 
 // 0x0049EFD0
-bool __cdecl unload_tex_dict(TextureSet* dict)
+bool unload_tex_dict(TextureSet* dict)
 {
     if (--dict->share_count_ != 0)
         return false;
@@ -326,13 +326,10 @@ bool __cdecl unload_tex_dict(TextureSet* dict)
 }
 
 // 0x0049EF90 (the original sprintfs unbounded)
-void __cdecl tex_dict_file_name(char* out, const char* name)
-{
-    std::snprintf(out, 256, "%s.%s", name, platform_suffix());
-}
+void tex_dict_file_name(char* out, const char* name) { std::snprintf(out, 256, "%s.%s", name, platform_suffix()); }
 
 // 0x0049EFB0
-void __cdecl drop_particle_textures(bool all) { g_particle_texture_dict->drop_textures(all); }
+void drop_particle_textures(bool all) { g_particle_texture_dict->drop_textures(all); }
 
 } // namespace render
 

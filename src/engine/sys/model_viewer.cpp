@@ -142,7 +142,7 @@ script::Script* spawn_script_if_exists(uint32_t name)
 }
 
 // 0x00576CF0
-int __cdecl reload_script_file(const char** name)
+int reload_script_file(const char** name)
 {
     const char* file = *name;
     if (std::strcmp(file, "..\\runnow.qb") == 0 || std::strcmp(file, "runnow.qb") == 0)
@@ -197,7 +197,7 @@ void set_rotate_velocity(float velocity) { g_rotate_velocity = velocity; }
 Viewer* get_live_viewer() { return sole(); }
 
 // 0x00576EB0
-void __cdecl handle_viewer_shift(ViewerInputHandler* handler)
+void handle_viewer_shift(ViewerInputHandler* handler)
 {
     Viewer* viewer = handler->content_;
     viewer->shift_makes_ = 0;
@@ -212,7 +212,7 @@ void __cdecl handle_viewer_shift(ViewerInputHandler* handler)
 }
 
 // 0x00576F00
-void __cdecl handle_viewer_input(ViewerInputHandler* handler)
+void handle_viewer_input(ViewerInputHandler* handler)
 {
     Viewer* viewer = handler->content_;
     if (!view_mode_value())
@@ -281,7 +281,7 @@ void __cdecl handle_viewer_input(ViewerInputHandler* handler)
 }
 
 // 0x00577140
-int __cdecl handle_remove_viewer_object(void** context)
+int handle_remove_viewer_object(void** context)
 {
     static_cast<Viewer*>(*context)->drop_viewer_entity();
     return 1;
@@ -321,7 +321,7 @@ void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 }
 
 // 0x00577380
-void __cdecl select_combo_task(ViewerTask* task)
+void select_combo_task(ViewerTask* task)
 {
     Viewer* viewer = task->content_;
     if (!script::fetch_int_value(kSelectShift))
@@ -355,7 +355,7 @@ void __cdecl select_combo_task(ViewerTask* task)
 }
 
 // 0x005774C0
-int __cdecl handle_add_to_scene(net::InboundMsgCtx* context)
+int handle_add_to_scene(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     script::Struct* params = spawn_param_table();
@@ -367,7 +367,7 @@ int __cdecl handle_add_to_scene(net::InboundMsgCtx* context)
 }
 
 // 0x005775A0
-int __cdecl handle_create_viewer_object(net::InboundMsgCtx* context)
+int handle_create_viewer_object(net::InboundMsgCtx* context)
 {
     auto* viewer = reinterpret_cast<Viewer*>(context->body_); // (sic: see model_viewer.h)
     script::Struct* params = spawn_param_table();
@@ -380,7 +380,7 @@ int __cdecl handle_create_viewer_object(net::InboundMsgCtx* context)
 }
 
 // 0x00577670
-int __cdecl on_remote_script_msg(net::InboundMsgCtx* context)
+int on_remote_script_msg(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     uint32_t name = *reinterpret_cast<const uint32_t*>(message);
@@ -424,7 +424,7 @@ bool Viewer::place_camera(script::Struct* params)
 }
 
 // 0x00577870
-void __cdecl free_camera_task(ViewerTask* task)
+void free_camera_task(ViewerTask* task)
 {
     Viewer* viewer = task->content_;
     uint32_t last = last_time();
@@ -495,7 +495,7 @@ void __cdecl free_camera_task(ViewerTask* task)
 }
 
 // 0x00577CD0
-int __cdecl handle_reload_scene(net::InboundMsgCtx* context)
+int handle_reload_scene(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     script::Struct* params = spawn_param_table();

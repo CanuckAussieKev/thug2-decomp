@@ -29,7 +29,7 @@ public:
 
     // 0x00423130 (not a Ghidra function; registered with the component's Create, 0x00426650): its member functions'
     // table (0x00681EB8; filled by the static initialiser at 0x00640E30).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x00423150: turning (any of kMotionFlagRotating).
     bool is_spinning() const;
     // 0x00423520: kMotionPathRandom (the path follower takes a random link).

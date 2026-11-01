@@ -49,16 +49,16 @@ struct Viewer final : public PartUnit {
     std::unique_ptr<ViewerInputHandler> shift_handler_; // +0x18 (HandleShift, priority 1000)
     std::unique_ptr<ViewerTask> task_1c_;               // +0x1C free_camera_task (0x00577870)
     std::unique_ptr<ViewerTask> task20_;                // +0x20 select_combo_task (0x00577380)
-    float pad_rx_;                      // +0x24 the sticks (raw, -128..127)
-    float pad_ry_;                      // +0x28
+    float pad_rx_;                                      // +0x24 the sticks (raw, -128..127)
+    float pad_ry_;                                      // +0x28
     uint8_t unknown2c_[8];
     float pad_lx_; // +0x34
     float pad_ly_; // +0x38
     uint8_t unknown3c_[8];
-    uint32_t actions_;               // +0x44 the buttons' commands (bits; add_commands)
-    uint32_t shift_makes_;           // +0x48 the buttons pressed with select held
-    int mode_sel_;                   // +0x4C 0: object mode, 1: ...
-    std::unique_ptr<net::AppHost> net_handler_;      // +0x50 the PC tool's message handler (a server app)
+    uint32_t actions_;                              // +0x44 the buttons' commands (bits; add_commands)
+    uint32_t shift_makes_;                          // +0x48 the buttons pressed with select held
+    int mode_sel_;                                  // +0x4C 0: object mode, 1: ...
+    std::unique_ptr<net::AppHost> net_handler_;     // +0x50 the PC tool's message handler (a server app)
     memory::owner<objects::PreviewEntity*> entity_; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
 
     // 0x00577F20: the constructor (only cfunc_launch_viewer 0x005A54E0 makes one): the module, no commands; unless
@@ -90,10 +90,10 @@ struct Viewer final : public PartUnit {
 
 // 0x00576F00: the input handler's code: the sticks into the viewer, and (if viewer_buttons_enabled) the buttons
 // as commands and the User Viewer scripts; only in a view mode (change_view_mode).
-void __cdecl handle_viewer_input(ViewerInputHandler* handler);
+void handle_viewer_input(ViewerInputHandler* handler);
 // 0x00576EB0: the shift handler's code: with select held, the buttons pressed noted, and (select_shift) the
 // controller's buttons and sticks hidden from the other handlers.
-void __cdecl handle_viewer_shift(ViewerInputHandler* handler);
+void handle_viewer_shift(ViewerInputHandler* handler);
 // 0x00577870: the free camera task (once a frame): the frame's time; the mode toggled (command 0x4000, only to the
 // object mode when there is a viewer object); the sticks' dead zone (+-50 of the raw values, then scaled); then on
 // viewer_cam: in the camera mode the left stick turns it (up / down about its own x axis, left / right about the
@@ -102,25 +102,25 @@ void __cdecl handle_viewer_shift(ViewerInputHandler* handler);
 // roll it. Then the camera object unpaused, command 0x1000 the next of six settings (0x004A0710 gets the current
 // one, 0x004A0AD0 sets one: a table at 0x00649CC8), the commands cleared. (Without viewer_cam the original carries
 // on with a null object: the moves and the unpausing write through it - a crash.)
-void __cdecl free_camera_task(ViewerTask* task);
+void free_camera_task(ViewerTask* task);
 // 0x00577380: the Select combo task: with select_shift set, the UserSelect script of the first button pressed
 // with Select held (by the shift handler: shift_makes_) - in the order Triangle, Square, Circle, Start, X, L1, L2,
 // R1, R2, Up, Down, Left, Right - spawned if there is one.
-void __cdecl select_combo_task(ViewerTask* task);
+void select_combo_task(ViewerTask* task);
 // The PC tool's messages (cdecl handlers, each returns 1; context->body_ is the message):
 // 0x00577CD0 (0x20): ReloadScene with scene = the message (a string).
-int __cdecl handle_reload_scene(net::InboundMsgCtx* context);
+int handle_reload_scene(net::InboundMsgCtx* context);
 // 0x005774C0 (0x2A): AddToScene with scene = the message, Add = the string at +0x80.
-int __cdecl handle_add_to_scene(net::InboundMsgCtx* context);
+int handle_add_to_scene(net::InboundMsgCtx* context);
 // 0x005775A0 (0x23): a new viewer object from modelname = the message, skeletonName = the checksum at +0x84. (The
 // viewer is taken from the message's first word too - as the original reads it: the handler's data, the viewer, is
 // at +0x18.)
-int __cdecl handle_create_viewer_object(net::InboundMsgCtx* context);
+int handle_create_viewer_object(net::InboundMsgCtx* context);
 // 0x00577670 (0x2B): the script named by the message's first word run with the structure written after it.
-int __cdecl on_remote_script_msg(net::InboundMsgCtx* context);
+int on_remote_script_msg(net::InboundMsgCtx* context);
 // 0x00577140: the PC tool's "remove the object" message (0x24): the viewer object deleted (the viewer from the
 // message's first word, like 0x005775A0). Returns 1.
-int __cdecl handle_remove_viewer_object(void** context);
+int handle_remove_viewer_object(void** context);
 // 0x00576E70 / 0x00576E80 / 0x00576E90: the script commands change_view_mode's, SetMovementVelocity's (400 to start
 // with) and SetRotateVelocity's (120) values. 0x00576EA0: the singleton (0x007CE4A8).
 void change_view_mode(int mode);
@@ -131,7 +131,7 @@ Viewer* get_live_viewer();
 script::Script* spawn_script_if_exists(uint32_t name);
 // 0x00576CF0: a script file reloaded by the PC tool: runnow.qb (or ..\runnow.qb) noted (0x007CE4A0), then the
 // file loaded (0x005A5960). Returns 1.
-int __cdecl reload_script_file(const char** name);
+int reload_script_file(const char** name);
 // 0x005772E0: `object` moved by `offset` along its own axes (its matrix's rotation).
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset);
 

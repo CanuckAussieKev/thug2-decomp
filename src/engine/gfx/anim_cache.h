@@ -19,7 +19,7 @@ struct AnimCacheSlot {
     uint16_t pad1e2_;
 
     // 0x00480A70 (cdecl): back to whichever item pool holds it, or freed.
-    static void __cdecl dealloc(AnimCacheSlot* slot);
+    static void dealloc(AnimCacheSlot* slot);
     // Its key positions cleared and its time 0x8000 (the code that frees a slot does this first).
     void get_clear();
 };
@@ -65,25 +65,25 @@ struct AnimCacheEntry {
     uint16_t* get_rotation_offsets();
     uint16_t* get_translation_offsets();
     // 0x00480640: called with `arg` when the entry is given back.
-    void set_release_callback(void(__cdecl* callback)(void*), void* arg);
+    void set_release_callback(void (*callback)(void*), void* arg);
 
-    uint32_t lookup_key_;                    // +0x000 the animation (0: free)
-    uint32_t last_used_;                     // +0x004
-    int kind_tag_;                           // +0x008 (0: not in use)
-    uint8_t* payload_;                       // +0x00C
-    uint32_t allocated_;                     // +0x010
-    uint32_t extent_;                        // +0x014
-    uint8_t* rotation_keys_ptr_;             // +0x018
-    uint8_t* translation_keys_ptr_;          // +0x01C
-    void(__cdecl* release_callback_)(void*); // +0x020
-    void* release_arg_;                      // +0x024
-    AnimCacheSlot* slots_ptr_[18];           // +0x028
-    uint8_t rotation_key_size_;              // +0x070
-    uint8_t translation_key_size_;           // +0x071
-    uint16_t rotation_offsets_[60];          // +0x072
-    uint16_t translation_offsets_[60];       // +0x0EA
-    int16_t bones_;                          // +0x162
-    uint16_t flag_bits_;                     // +0x164
+    uint32_t lookup_key_;              // +0x000 the animation (0: free)
+    uint32_t last_used_;               // +0x004
+    int kind_tag_;                     // +0x008 (0: not in use)
+    uint8_t* payload_;                 // +0x00C
+    uint32_t allocated_;               // +0x010
+    uint32_t extent_;                  // +0x014
+    uint8_t* rotation_keys_ptr_;       // +0x018
+    uint8_t* translation_keys_ptr_;    // +0x01C
+    void (*release_callback_)(void*);  // +0x020
+    void* release_arg_;                // +0x024
+    AnimCacheSlot* slots_ptr_[18];     // +0x028
+    uint8_t rotation_key_size_;        // +0x070
+    uint8_t translation_key_size_;     // +0x071
+    uint16_t rotation_offsets_[60];    // +0x072
+    uint16_t translation_offsets_[60]; // +0x0EA
+    int16_t bones_;                    // +0x162
+    uint16_t flag_bits_;               // +0x164
     uint16_t pad166_;
 };
 static_assert(offsetof(AnimCacheEntry, slots_ptr_) == 0x28 && offsetof(AnimCacheEntry, rotation_key_size_) == 0x70 &&
@@ -94,14 +94,14 @@ static_assert(offsetof(AnimCacheEntry, slots_ptr_) == 0x28 && offsetof(AnimCache
 class ClipStore {
 public:
     // 0x00480660: the cache (0x006F92B0).
-    static ClipStore* __cdecl get_pull();
+    static ClipStore* get_pull();
     // 0x00480D10: made once - the AnimHeap of `heapSize` bytes ("Initializing CAnimCacheManager at %dk"), then
     // prepare_all(`granularity`, `type`) (on a null cache too: a crash, as in the original).
-    static void __cdecl fabricate(uint32_t heap_size, uint32_t granularity, int type);
+    static void fabricate(uint32_t heap_size, uint32_t granularity, int type);
     // 0x00481340: destroyed and freed, the AnimHeap deleted.
-    static void __cdecl teardown();
+    static void teardown();
     // 0x00480940: what the AnimHeap has left.
-    static uint32_t __cdecl heap_available();
+    static uint32_t heap_available();
 
     // 0x004809F0: 50 new entries (null where out of memory), the granularity and type.
     void prepare_all(uint32_t granularity, int type);

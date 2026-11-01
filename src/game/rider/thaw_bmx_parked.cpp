@@ -153,7 +153,7 @@ void place_skater(objects::Rider* skater, Point pos, float heading)
 }
 
 // ThawBmx_HomeSpot: pos / heading of the level's bike.
-bool __cdecl cfunc_home_spot(script::Struct*, script::Script* script)
+bool cfunc_home_spot(script::Struct*, script::Script* script)
 {
     Point pos{};
     float heading = 0.0f;
@@ -172,7 +172,7 @@ bool __cdecl cfunc_home_spot(script::Struct*, script::Script* script)
 }
 
 // ThawBmx_WalkToBike id=<object>
-bool __cdecl cfunc_walk_to_bike(script::Struct* params, script::Script*)
+bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
 {
     objects::Rider* skater = local_skater();
     objects::GameEntity* bike = object_of(params);
@@ -194,7 +194,7 @@ bool __cdecl cfunc_walk_to_bike(script::Struct* params, script::Script*)
 }
 
 // ThawBmx_BikeReachable id=<object>
-bool __cdecl cfunc_bike_reachable(script::Struct* params, script::Script*)
+bool cfunc_bike_reachable(script::Struct* params, script::Script*)
 {
     objects::Rider* skater = local_skater();
     objects::GameEntity* bike = object_of(params);

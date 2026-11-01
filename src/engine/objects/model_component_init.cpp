@@ -107,7 +107,7 @@ void* find_bone_volumes(uint32_t name) { return gfx::find_bone_volumes(name); }
 } // namespace
 
 // 0x00421490
-memory::owner<ObjectModule*> __cdecl MeshInstanceModule::fabricate() { return new MeshInstanceModule; }
+memory::owner<ObjectModule*> MeshInstanceModule::fabricate() { return new MeshInstanceModule; }
 
 // 0x00420BF0
 MeshInstanceModule::MeshInstanceModule()

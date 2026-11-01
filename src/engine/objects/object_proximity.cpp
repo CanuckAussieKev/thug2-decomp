@@ -59,10 +59,10 @@ double get_distance_squared(const GameEntity* a, const GameEntity* b)
 } // namespace
 
 // 0x004EC420
-memory::owner<ObjectModule*> __cdecl ObjectProximityComponent::fabricate() { return new ObjectProximityComponent; }
+memory::owner<ObjectModule*> ObjectProximityComponent::fabricate() { return new ObjectProximityComponent; }
 
 // 0x004EC220
-void __cdecl ObjectProximityComponent::publish_method_table()
+void ObjectProximityComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kObjectProximity),
                                            g_object_proximity_member_functions, 0x18);

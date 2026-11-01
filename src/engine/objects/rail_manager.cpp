@@ -56,7 +56,7 @@ maths::Vec4* xform(const maths::Mat4* matrix, maths::Vec4* out, const maths::Vec
 } // namespace
 
 // 0x0057C170
-double __cdecl span4(float a, float b, float c, float d)
+double span4(float a, float b, float c, float d)
 {
     double low = a;
     if (b < a)
@@ -87,7 +87,7 @@ void BoxPair::get_exchange()
 }
 
 // 0x0057C260
-void __cdecl box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
+void box_of(const maths::Vec4* a, const maths::Vec4* b, maths::Vec4* min, maths::Vec4* max)
 {
     float min_x, max_x, min_y, max_y, min_z, max_z;
     if (a->x < b->x)
@@ -123,14 +123,14 @@ void GrindRailHub::tidy_up()
 }
 
 // 0x0057C360
-double __cdecl get_overlap(float a, float b, float c, float d)
+double get_overlap(float a, float b, float c, float d)
 {
     float lengths = static_cast<float>(std::fabs(static_cast<double>(d) - c) + std::fabs(static_cast<double>(b) - a));
     return lengths - span4(a, b, c, d);
 }
 
 // 0x0057C3A0
-int __cdecl nearly_equal4(float a, float b, float c, float d, float tolerance)
+int nearly_equal4(float a, float b, float c, float d, float tolerance)
 {
     if (std::fabs(static_cast<double>(a) - b) < tolerance && std::fabs(static_cast<double>(b) - c) < tolerance &&
         std::fabs(static_cast<double>(c) - d) < tolerance)
@@ -189,7 +189,7 @@ Record34* Record34::get_assign(const Record34* other)
 }
 
 // 0x0057C5A0
-bool __stdcall nodes_together(const GrindPoint* a, const GrindPoint* b)
+bool nodes_together(const GrindPoint* a, const GrindPoint* b)
 {
     // (NaN counts as near: the original only fails on "greater")
     return !(std::fabs(static_cast<double>(a->at_point_.x) - b->at_point_.x) > 1.0) &&
@@ -204,7 +204,7 @@ RailClearOverride g_rail_clear_override; // (NOT ORIGINAL: set_rail_clear_overri
 void set_rail_clear_override(RailClearOverride override) { g_rail_clear_override = override; }
 
 // 0x0057C600
-bool __cdecl rail_clear(maths::Vec4 a, maths::Vec4 b)
+bool rail_clear(maths::Vec4 a, maths::Vec4 b)
 {
     if (park_editing::g_park_editor->cur_phase_ == 0xD443A2BC) // (the park editor's)
         return true;

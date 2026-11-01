@@ -42,7 +42,7 @@ maths::Vec4 vertex_position3(render::HitMesh* object, int vertex) { return objec
 } // namespace
 
 // 0x00425CB0
-bool __cdecl get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out)
+bool get_ground_hit(maths::Vec4* triangle, const maths::Vec4* end, const maths::Vec4* start, maths::Vec4* out)
 {
     maths::Vec4 along = {static_cast<float>(static_cast<double>(end->x) - start->x),
                          static_cast<float>(static_cast<double>(end->y) - start->y),

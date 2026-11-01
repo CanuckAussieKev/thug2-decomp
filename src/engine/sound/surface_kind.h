@@ -40,46 +40,46 @@ static_assert(sizeof(SoundInfo) == 0x84 && offsetof(SoundInfo, checksum) == 0x68
 
 // 0x004442C0: the index of the terrain `checksum` (one that isn't a terrain type reads address 0: a crash, as the
 // original).
-uint8_t __cdecl get_terrain_index(uint32_t checksum);
+uint8_t get_terrain_index(uint32_t checksum);
 // 0x00444310: the action (TA_*) of the sound table `table` (an unknown table reads address 8: a crash).
-uint32_t __cdecl get_table_action(uint8_t table);
+uint32_t get_table_action(uint8_t table);
 // 0x00444360: the checksum of the terrain with index `terrain` (0 if there's none).
-uint32_t __cdecl fetch_surface_key(uint8_t terrain);
+uint32_t fetch_surface_key(uint8_t terrain);
 // 0x004443B0: the index of the sound table of type `type` (TABLE_*; 0 if there's none).
-uint8_t __cdecl get_table_index(uint32_t type);
+uint8_t get_table_index(uint32_t type);
 // 0x00444400: the structure `name` of the terrain's settings (or of STANDARD_TERRAIN_DEFAULT) into `out`; whether
 // there was one. 0x00444480: the same with the arguments in another order.
-bool __cdecl get_terrain_structure(uint8_t terrain, script::Struct** out, uint32_t name);
-bool __cdecl get_terrain_structure_into(script::Struct** out, uint8_t terrain, uint32_t name);
+bool get_terrain_structure(uint8_t terrain, script::Struct** out, uint32_t name);
+bool get_terrain_structure_into(script::Struct** out, uint8_t terrain, uint32_t name);
 // 0x00444460: both tables emptied (the items aren't freed - as the original).
-void __cdecl clear_terrain_types();
+void clear_terrain_types();
 // 0x004444A0: both tables filled from the script arrays Terrain_Types and Terrain_Actions.
-void __cdecl load_terrain_types();
+void load_terrain_types();
 // 0x004445B0: `info` from a soundAction structure (sound= and the pitch / volume settings). False without sound
 // (nothing touched) or without a sound name.
-bool __cdecl get_sound_info(script::Struct* sound_action, SoundInfo* info);
+bool get_sound_info(script::Struct* sound_action, SoundInfo* info);
 // 0x00444710: `percent` of the sound's volume range (floor_loudness_ to maxVol; the percentage itself when that's 0-100),
 // clamped to maxVol if asked. (Returned unrounded, as the original's ST0.)
-double __cdecl get_scaled_volume(const SoundInfo* info, float percent, bool clamp);
+double get_scaled_volume(const SoundInfo* info, float percent, bool clamp);
 // 0x00444760: the soundAction of an entry: its soundAction structure, or one of its soundAction array picked at
 // random weighted by their chance (null if the pick runs out).
-script::Struct* __cdecl pick_sound_action(script::Struct* entry);
+script::Struct* pick_sound_action(script::Struct* entry);
 // 0x00444830: the soundAction of the table's action in `soundActions`: its structure, or the first entry of its
 // array whose useUpTo isn't below `value` (or has none). Null if none fits.
-script::Struct* __cdecl find_sound_action(script::Struct* sound_actions, uint8_t table, float value);
+script::Struct* find_sound_action(script::Struct* sound_actions, uint8_t table, float value);
 // 0x004448E0: the soundAction's sound loaded (permanent, its load pitch and volume).
-void __cdecl load_sound_action(script::Struct* sound_action);
+void load_sound_action(script::Struct* sound_action);
 // 0x00444950: every sound of the table's action in `soundActions` (or TERRAIN_DEFAULT's SoundActions) loaded.
-void __cdecl load_table_sounds(script::Struct* sound_actions, uint8_t table);
+void load_table_sounds(script::Struct* sound_actions, uint8_t table);
 // 0x00444B10: the sound the terrain makes for the table's action at `value`, into `info`. Whether there is one.
-bool __cdecl get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value);
+bool get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value);
 // 0x00444BB0: that sound played at `position`, its volume and pitch `loudness_percent` / `pitchPercent` of their
 // ranges; with `propagate`, also sent to the server (message 0x35) for the other players.
-void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
-                                float pitch_percent, float value, bool propagate);
+void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
+                        float pitch_percent, float value, bool propagate);
 // 0x00444EB0: every sound of the terrain `checksum` loaded (its SoundActions merged over TERRAIN_DEFAULT's). False
 // without sound.
-bool __cdecl load_terrain_sounds(uint32_t checksum);
+bool load_terrain_sounds(uint32_t checksum);
 
 // NOT ORIGINAL (THAW's BMX, game/rider/thaw_bmx.h): `info` played at `position` as play_terrain_sound plays the sound it
 // finds (its volume and pitch `loudness_percent` / `pitchPercent` of their ranges), not sent to the other players.

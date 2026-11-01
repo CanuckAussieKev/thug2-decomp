@@ -101,10 +101,10 @@ float get_fraction(double value)
 } // namespace
 
 // 0x0051B880
-memory::owner<ObjectModule*> __cdecl SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
+memory::owner<ObjectModule*> SkaterVehicleSoundComponent::fabricate() { return new SkaterVehicleSoundComponent; }
 
 // 0x0051AD90
-void __cdecl SkaterVehicleSoundComponent::publish_method_table()
+void SkaterVehicleSoundComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_vehicle_sound_member_functions, 0x18);
 }

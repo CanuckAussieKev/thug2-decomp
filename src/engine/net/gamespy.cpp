@@ -97,7 +97,7 @@ char s_nat_neg2[96];
 char s_nat_neg3[96];
 
 // The 2007 gcd SDK asks back for re-authentication; the game's SDK had no such request (nothing to do).
-void __cdecl ignore_refresh_auth(int, int, int, char*, void*) {}
+void ignore_refresh_auth(int, int, int, char*, void*) {}
 
 } // namespace
 

@@ -15,7 +15,7 @@ namespace objects {
 namespace {} // namespace
 
 // 0x0041CB20
-memory::owner<ObjectModule*> __cdecl MatrixComponent::fabricate() { return new MatrixComponent; }
+memory::owner<ObjectModule*> MatrixComponent::fabricate() { return new MatrixComponent; }
 
 // 0x0041CAD0
 MatrixComponent::MatrixComponent()

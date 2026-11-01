@@ -89,11 +89,10 @@ void ingest_sound(const SoundInfo& info)
     sound_manager()->ingest_sound(info.name, 0, 1, 0, 0.0f, info.load_pitch_, info.load_vol_);
 }
 
-
 } // namespace
 
 // 0x004442C0
-uint8_t __cdecl get_terrain_index(uint32_t checksum)
+uint8_t get_terrain_index(uint32_t checksum)
 {
     // (an unknown terrain: the original reads its index through null)
     auto* item = static_cast<volatile TypeItem*>(terrain_types().fetch_entry(checksum));
@@ -101,7 +100,7 @@ uint8_t __cdecl get_terrain_index(uint32_t checksum)
 }
 
 // 0x00444310
-uint32_t __cdecl get_table_action(uint8_t table)
+uint32_t get_table_action(uint8_t table)
 {
     // (an unknown table: the original reads the action through null)
     auto* item = static_cast<volatile ActionItem*>(get_terrain_actions().fetch_entry(table));
@@ -109,7 +108,7 @@ uint32_t __cdecl get_table_action(uint8_t table)
 }
 
 // 0x00444360 (the walk stops at an item without a value - as the original)
-uint32_t __cdecl fetch_surface_key(uint8_t terrain)
+uint32_t fetch_surface_key(uint8_t terrain)
 {
     lists::KeyMap& types = terrain_types();
     types.iter_bucket_ = -1;
@@ -123,7 +122,7 @@ uint32_t __cdecl fetch_surface_key(uint8_t terrain)
 }
 
 // 0x004443B0
-uint8_t __cdecl get_table_index(uint32_t type)
+uint8_t get_table_index(uint32_t type)
 {
     lists::KeyMap& actions = get_terrain_actions();
     actions.iter_bucket_ = -1;
@@ -137,7 +136,7 @@ uint8_t __cdecl get_table_index(uint32_t type)
 }
 
 // 0x00444400
-bool __cdecl get_terrain_structure(uint8_t terrain, Struct** out, uint32_t name)
+bool get_terrain_structure(uint8_t terrain, Struct** out, uint32_t name)
 {
     Struct* settings = script::read_sub_struct(fetch_surface_key(terrain));
     if (settings && settings->read_sub_struct(name, out, 0))
@@ -147,20 +146,20 @@ bool __cdecl get_terrain_structure(uint8_t terrain, Struct** out, uint32_t name)
 }
 
 // 0x00444460
-void __cdecl clear_terrain_types()
+void clear_terrain_types()
 {
     terrain_types().empty_table();
     get_terrain_actions().empty_table();
 }
 
 // 0x00444480
-bool __cdecl get_terrain_structure_into(Struct** out, uint8_t terrain, uint32_t name)
+bool get_terrain_structure_into(Struct** out, uint8_t terrain, uint32_t name)
 {
     return get_terrain_structure(terrain, out, name);
 }
 
 // 0x004444A0
-void __cdecl load_terrain_types()
+void load_terrain_types()
 {
     Array* types = script::fetch_list(kTerrainTypes);
     for (uint32_t i = 0; i < types->extent_; ++i) {
@@ -180,7 +179,7 @@ void __cdecl load_terrain_types()
 }
 
 // 0x004445B0
-bool __cdecl get_sound_info(Struct* sound_action, SoundInfo* info)
+bool get_sound_info(Struct* sound_action, SoundInfo* info)
 {
     if (sound::no_sound())
         return false;
@@ -216,7 +215,7 @@ bool __cdecl get_sound_info(Struct* sound_action, SoundInfo* info)
 }
 
 // 0x00444710 (maxVol is compared with 100 by its bits)
-double __cdecl get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
+double get_scaled_volume(const SoundInfo* info, float percent, bool clamp)
 {
     double volume;
     uint32_t max_bits;
@@ -232,7 +231,7 @@ double __cdecl get_scaled_volume(const SoundInfo* info, float percent, bool clam
 }
 
 // 0x00444760
-Struct* __cdecl pick_sound_action(Struct* entry)
+Struct* pick_sound_action(Struct* entry)
 {
     Struct* sound_action;
     if (entry->read_sub_struct(kSoundAction, &sound_action, 0))
@@ -261,7 +260,7 @@ Struct* __cdecl pick_sound_action(Struct* entry)
 }
 
 // 0x00444830
-Struct* __cdecl find_sound_action(Struct* sound_actions, uint8_t table, float value)
+Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
 {
     uint32_t action = get_table_action(table);
     Struct* entry;
@@ -280,7 +279,7 @@ Struct* __cdecl find_sound_action(Struct* sound_actions, uint8_t table, float va
 }
 
 // 0x004448E0 (with sound off the info isn't filled and the load gets what's there - as the original)
-void __cdecl load_sound_action(Struct* sound_action)
+void load_sound_action(Struct* sound_action)
 {
     SoundInfo info;
     get_sound_info(sound_action, &info);
@@ -288,7 +287,7 @@ void __cdecl load_sound_action(Struct* sound_action)
 }
 
 // 0x00444950 (TERRAIN_DEFAULT's own structure for the action counts only if it names the action again inside)
-void __cdecl load_table_sounds(Struct* sound_actions, uint8_t table)
+void load_table_sounds(Struct* sound_actions, uint8_t table)
 {
     uint32_t action = get_table_action(table);
     Struct* default_actions;
@@ -324,7 +323,7 @@ void __cdecl load_table_sounds(Struct* sound_actions, uint8_t table)
 }
 
 // 0x00444B10
-bool __cdecl get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value)
+bool get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, float value)
 {
     if (sound::no_sound())
         return false;
@@ -338,8 +337,8 @@ bool __cdecl get_terrain_sound(SoundInfo* info, uint8_t terrain, uint8_t table, 
 }
 
 // 0x00444BB0
-void __cdecl play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
-                                float pitch_percent, float value, bool propagate)
+void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* position, float loudness_percent,
+                        float pitch_percent, float value, bool propagate)
 {
     if (sound::no_sound())
         return;
@@ -404,7 +403,7 @@ void play_sound_info(const SoundInfo& info, const maths::Vec4* position, float l
 }
 
 // 0x00444EB0
-bool __cdecl load_terrain_sounds(uint32_t checksum)
+bool load_terrain_sounds(uint32_t checksum)
 {
     if (sound::no_sound())
         return false;

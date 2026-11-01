@@ -273,7 +273,7 @@ void GoalManager::tick_frame()
 }
 
 // 0x0055E860: active goals (count_all: network goals too, and those not active).
-bool __cdecl cfunc_goal_manager_has_active_goals(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_has_active_goals(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     bool all = params->has_bare_flag(kCountAll);
@@ -281,21 +281,21 @@ bool __cdecl cfunc_goal_manager_has_active_goals(script::Struct* params, script:
 }
 
 // 0x0055E8A0
-bool __cdecl cfunc_goal_manager_un_beat_all_goals(script::Struct*, script::Script*)
+bool cfunc_goal_manager_un_beat_all_goals(script::Struct*, script::Script*)
 {
     get_objective_board()->revoke_every_clear();
     return true;
 }
 
 // 0x0055E8C0
-bool __cdecl cfunc_goal_manager_add_view_goals_list(script::Struct*, script::Script*)
+bool cfunc_goal_manager_add_view_goals_list(script::Struct*, script::Script*)
 {
     get_objective_board()->append_objective_list_entries();
     return true;
 }
 
 // 0x0055E8E0: an active goal is expired (the count asked again after each).
-bool __cdecl cfunc_goal_manager_goal_should_expire(script::Struct*, script::Script*)
+bool cfunc_goal_manager_goal_should_expire(script::Struct*, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     if (!manager)
@@ -308,14 +308,14 @@ bool __cdecl cfunc_goal_manager_goal_should_expire(script::Struct*, script::Scri
 }
 
 // 0x0055EAC0
-bool __cdecl cfunc_goal_manager_update_all_goals(script::Struct*, script::Script*)
+bool cfunc_goal_manager_update_all_goals(script::Struct*, script::Script*)
 {
     get_objective_board()->tick_frame();
     return true;
 }
 
 // 0x0055EAE0: the active network goal's time left (ms) as the script's time_left.
-bool __cdecl cfunc_goal_manager_get_time_left_in_net_game(script::Struct*, script::Script* script)
+bool cfunc_goal_manager_get_time_left_in_net_game(script::Struct*, script::Script* script)
 {
     if (Objective* goal = get_objective_board()->get_active_net_goal())
         script->args_->put_int("time_left", goal->get_seconds_remaining()); // "time_left"
@@ -323,7 +323,7 @@ bool __cdecl cfunc_goal_manager_get_time_left_in_net_game(script::Struct*, scrip
 }
 
 // 0x0055EB20: the active network goal has no time limit (true without one).
-bool __cdecl cfunc_goal_manager_get_unlimited_time_in_net_game(script::Struct*, script::Script*)
+bool cfunc_goal_manager_get_unlimited_time_in_net_game(script::Struct*, script::Script*)
 {
     Objective* goal = get_objective_board()->get_active_net_goal();
     return goal ? goal->has_no_time_limit() : true;

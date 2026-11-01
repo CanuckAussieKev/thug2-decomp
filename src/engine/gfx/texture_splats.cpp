@@ -83,7 +83,7 @@ float midpoint(float a, float b) { return static_cast<float>((static_cast<double
 } // namespace
 
 // 0x004B7F30
-void __cdecl collapse_splat_triangle(TextureSplats* splats, int index)
+void collapse_splat_triangle(TextureSplats* splats, int index)
 {
     uint8_t (*triangle)[0x18] = splats->vertices[index];
     std::memcpy(triangle[1], triangle[0], 0x18);
@@ -91,7 +91,7 @@ void __cdecl collapse_splat_triangle(TextureSplats* splats, int index)
 }
 
 // 0x004B87B0
-void __cdecl light_texture_splats(TextureSplats* splats)
+void light_texture_splats(TextureSplats* splats)
 {
     for (int i = 0; i <= splats->last; ++i) {
         uint8_t (*triangle)[0x18] = splats->vertices[i];
@@ -109,7 +109,7 @@ void __cdecl light_texture_splats(TextureSplats* splats)
 }
 
 // 0x004B9200
-void __cdecl kill_all_texture_splats()
+void kill_all_texture_splats()
 {
     TextureSplats* splats = first_splats(get_splats());
     while (splats) {
@@ -126,7 +126,7 @@ void __cdecl kill_all_texture_splats()
 }
 
 // 0x004B92A0
-void __cdecl kill_texture_splats_in_box(const float* box)
+void kill_texture_splats_in_box(const float* box)
 {
     TextureSplats* splats = first_splats(get_splats());
     while (splats) {
@@ -142,7 +142,7 @@ void __cdecl kill_texture_splats_in_box(const float* box)
 }
 
 // 0x004B9380
-void __cdecl draw_texture_splats()
+void draw_texture_splats()
 {
     set_vertex_format(D3DFVF_XYZ | D3DFVF_DIFFUSE | D3DFVF_TEX1);
     input_port()->SetSamplerState(0, D3DSAMP_BORDERCOLOR, 0);
@@ -172,7 +172,7 @@ void __cdecl draw_texture_splats()
 }
 
 // 0x004B7FA0
-bool __cdecl segments_intersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
+bool segments_intersect(float ax, float ay, float bx, float by, float cx, float cy, float dx, float dy)
 {
     // (the stored differences are floats; the rest stays in registers)
     float abx = static_cast<float>(static_cast<double>(bx) - ax);
@@ -195,7 +195,7 @@ bool __cdecl segments_intersect(float ax, float ay, float bx, float by, float cx
 }
 
 // 0x004B88D0
-bool __cdecl triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2)
+bool triangle_overlaps_screen(float x0, float y0, float x1, float y1, float x2, float y2)
 {
     if ((x0 < -1.0f && x1 < -1.0f && x2 < -1.0f) || (x0 > 1.0f && x1 > 1.0f && x2 > 1.0f) ||
         (y0 < -1.0f && y1 < -1.0f && y2 < -1.0f) || (y0 > 1.0f && y1 > 1.0f && y2 > 1.0f))
@@ -245,7 +245,7 @@ bool __cdecl triangle_overlaps_screen(float x0, float y0, float x1, float y1, fl
 }
 
 // 0x004B8220
-bool __cdecl split_next_triangle(uint8_t** out, const SplitFormat* format)
+bool split_next_triangle(uint8_t** out, const SplitFormat* format)
 {
     if (!reinterpret_cast<uint32_t&>(g_vertex_stack))
         return false;
@@ -348,7 +348,7 @@ uint32_t& get_color(uint8_t* vertex) { return *reinterpret_cast<uint32_t*>(verte
 } // namespace
 
 // 0x004B9A60
-TextureSplats* __cdecl get_texture_splats(uint32_t texture)
+TextureSplats* get_texture_splats(uint32_t texture)
 {
     for (TextureSplats* splats = first_splats(get_splats()); splats; splats = next_splats(get_splats())) {
         if (reinterpret_cast<uint32_t>(splats->material->textures[0]) == texture)
@@ -386,7 +386,7 @@ TextureSplats* __cdecl get_texture_splats(uint32_t texture)
 }
 
 // 0x004B9C30
-TextureSplats* __cdecl create_texture_splat(void** sectors, int /*unused*/, SplatParams* params)
+TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams* params)
 {
     float* start = params->start;
     float* end = params->end;

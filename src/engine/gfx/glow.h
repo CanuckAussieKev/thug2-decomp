@@ -23,6 +23,6 @@ static_assert(offsetof(Glow, queries) == 0x20 && offsetof(Glow, pixels) == 0x34,
 // 0x004DCC70: with `queries`, an occlusion query for each glow (no z writes, nothing drawn to colour); else each
 // glow's size moved on by the oldest query's answer. Each works out its quad facing the camera (0x007CA9F0) -
 // which nothing draws in this build.
-void __cdecl update_glows(bool queries);
+void update_glows(bool queries);
 
 } // namespace render

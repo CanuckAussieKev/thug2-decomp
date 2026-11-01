@@ -53,7 +53,7 @@ void blend_bones(Stance& to, Stance& from, int bones, float t, bool mark_copied)
 } // namespace
 
 // 0x0047D470 (x87: the first two components and the length unrounded)
-float* __cdecl interpolate_rotation(float* out, const float* from, float* to, float t)
+float* interpolate_rotation(float* out, const float* from, float* to, float t)
 {
     double dot = static_cast<double>(from[0]) * to[0];
     dot += static_cast<double>(to[3]) * from[3];
@@ -82,7 +82,7 @@ float* __cdecl interpolate_rotation(float* out, const float* from, float* to, fl
 }
 
 // 0x0047D680
-void __cdecl mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count)
+void mix_poses(Stance* poses, float* weights, int bones, Stance* out, int count)
 {
     weights[0] = 1.0f;
     double others = 0.0;
@@ -110,8 +110,8 @@ void __cdecl mix_poses(Stance* poses, float* weights, int bones, Stance* out, in
 }
 
 // 0x0047D8F0
-void __cdecl blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
-                               uint32_t id)
+void blend_poses_by_id(Stance* poses, float* weights, const uint32_t* ids, int bones, Stance* out, int count,
+                       uint32_t id)
 {
     double others = 0.0;
     for (int k = 1; k < count; ++k) {
@@ -145,7 +145,7 @@ void __cdecl blend_poses_by_id(Stance* poses, float* weights, const uint32_t* id
 uint32_t g_loop_type_checksums[4]{0xE035F2F8, 0x4F792E6C, 0x3153E314, 0x6D941203}; // the loop types' checksums
 
 // 0x0047D580
-void __stdcall add_timeline_info(AnimTimeline* timeline, script::Struct* info)
+void add_timeline_info(AnimTimeline* timeline, script::Struct* info)
 {
     constexpr uint32_t kAnim = 0x98549BA4, kSpeed = 0xF0D90109, kRepeatMode = 0x6B888E80;
     constexpr uint32_t kStartTime = 0xD16B61E6, kCurrentTime = 0xD4FC8176, kEndTime = 0xAB81BB3D;

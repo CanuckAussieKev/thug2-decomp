@@ -35,9 +35,9 @@ static_assert(offsetof(ProjectionBatch, material) == 0xC && offsetof(ProjectionB
 // 0x004C73E0: the frame's batch for a texture: the one made for it already, or the next (its material: one pass of
 // the texture, a random checksum - the game's rand() twice -, the blend mode from `blendName`, its pixel shader); a
 // message ("hmmm") and null when all ten are taken.
-ProjectionBatch* __cdecl get_projection_batch(uint32_t texture, uint32_t blend_name);
+ProjectionBatch* get_projection_batch(uint32_t texture, uint32_t blend_name);
 // 0x004C7520 (draw_world's): the frame's batches drawn - with linear minification, put back after - and emptied.
-void __cdecl draw_projection_batches();
+void draw_projection_batches();
 
 // The PC texture projection (0xC8 bytes, vtable 0x0064A764). The engine's fields it reads: bitmap_ (the texture
 // holder: +0x10 the key, through one more pointer with flag 1 of +0x08), blend_mode_, projection_ (world to the

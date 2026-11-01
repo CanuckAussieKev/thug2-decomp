@@ -63,7 +63,7 @@ struct EditedRailPoint {
     void spotlight(bool flash, bool include_end_posts);
     // 0x004F5D10 (fastcall: ECX the position): the ground's height under a position (a feeler 2000 up and down;
     // nothing: 0).
-    static float __fastcall ground_height(const maths::Vec4* position);
+    static float ground_height(const maths::Vec4* position);
 };
 static_assert(offsetof(EditedRailPoint, has_post_) == 0x10 && offsetof(EditedRailPoint, highlighted_) == 0x11 &&
                   offsetof(EditedRailPoint, level_y_) == 0x14 && offsetof(EditedRailPoint, following_) == 0x18 &&
@@ -135,7 +135,7 @@ static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail,
 
 // The rail editor's geometry (rail_editor_draw.cpp).
 // 0x004F3E00: a copy of the source sector `source` made in the park (counts dirty, collision rebuilt); its sector.
-uint8_t* __cdecl clone_rail_sector(uint32_t source);
+uint8_t* clone_rail_sector(uint32_t source);
 // 0x004F3D80: `point` moved from `origin` to `position` turned `angle` degrees about y (x, z: the cosine at the x87's
 // full precision, the sine rounded to float; w: the original adds `position`'s to an unset local - here 0). Returns
 // `out`.
@@ -173,9 +173,9 @@ public:
     static constexpr int kMaxRails = 200;
 
     // 0x004F4970: the rail editor (the component of the object 0x5B509AD3).
-    static RailAuthoring* __cdecl sole();
+    static RailAuthoring* sole();
     // 0x004F7FB0 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<objects::ObjectModule*> __cdecl fabricate();
+    static memory::owner<objects::ObjectModule*> fabricate();
     // 0x004F7C90: the pools made, no rails, the buffer cleared.
     RailAuthoring();
     // 0x004F7D20: the destructor body: cleared, the current pools freed (when made here).
@@ -270,15 +270,15 @@ public:
     // 0x004F7230: copy_inside of every rail, into one list (returned).
     EditedRail* copy_rails_inside(float x0, float z0, float x1, float z1) const;
     // 0x004F6BF0 (no this): the free points of the current pool.
-    static int __cdecl free_points();
+    static int free_points();
 
     // The pools' CPoolable new / delete: 0x004F4990 / 0x004F4A70 make the current pool of points / rails (owned);
     // 0x004F4AF0 / 0x004F4B30 a rail's new / delete; 0x004F4A10 a point's delete.
-    static void __cdecl make_point_pool(int count, const char* name);
-    static void __cdecl make_rail_pool(int count, const char* name);
-    static void* __cdecl new_rail_memory(unsigned int size);
-    static void __cdecl free_rail(void* rail);
-    static void __cdecl free_point(void* point);
+    static void make_point_pool(int count, const char* name);
+    static void make_rail_pool(int count, const char* name);
+    static void* new_rail_memory(unsigned int size);
+    static void free_rail(void* rail);
+    static void free_point(void* point);
 
     void* input_ptr_;           // +0x18 the input component (0x27D7CD28)
     void* view_camera_;         // +0x1C the editor camera component (0xAC8946E2)

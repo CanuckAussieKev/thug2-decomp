@@ -128,7 +128,7 @@ void kick_or_ban(Hub* manager, int drop, uint8_t request)
 } // namespace
 
 // 0x0053B450
-bool __cdecl cfunc_player_took_flag(script::Struct* params, script::Script*)
+bool cfunc_player_took_flag(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     int player = 0;
@@ -142,7 +142,7 @@ bool __cdecl cfunc_player_took_flag(script::Struct* params, script::Script*)
 }
 
 // 0x0053B5A0
-bool __cdecl cfunc_player_captured_flag(script::Struct* params, script::Script*)
+bool cfunc_player_captured_flag(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     int player = 0;
@@ -162,7 +162,7 @@ bool __cdecl cfunc_player_captured_flag(script::Struct* params, script::Script*)
 }
 
 // 0x0053B710
-bool __cdecl cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
+bool cfunc_player_retrieved_flag(script::Struct* params, script::Script*)
 {
     Hub* manager = net_session_slot();
     int player = 0;
@@ -176,7 +176,7 @@ bool __cdecl cfunc_player_retrieved_flag(script::Struct* params, script::Script*
 }
 
 // 0x0053B860
-bool __cdecl cfunc_player_has_flag(script::Struct* params, script::Script*)
+bool cfunc_player_has_flag(script::Struct* params, script::Script*)
 {
     int player = 0;
     params->fetch_int_value("player", &player, 0);
@@ -187,7 +187,7 @@ bool __cdecl cfunc_player_has_flag(script::Struct* params, script::Script*)
 }
 
 // 0x0053B8A0
-bool __cdecl cfunc_get_num_players_on_team(script::Struct* params, script::Script* script)
+bool cfunc_get_num_players_on_team(script::Struct* params, script::Script* script)
 {
     Hub* manager = net_session_slot();
     int team = 0;
@@ -197,7 +197,7 @@ bool __cdecl cfunc_get_num_players_on_team(script::Struct* params, script::Scrip
 }
 
 // 0x0053B8F0
-bool __cdecl cfunc_get_players_team(script::Struct* params, script::Script* script)
+bool cfunc_get_players_team(script::Struct* params, script::Script* script)
 {
     int id = 0;
     params->fetch_int_value(kObjId, &id, 0);
@@ -208,7 +208,7 @@ bool __cdecl cfunc_get_players_team(script::Struct* params, script::Script* scri
 }
 
 // 0x0053B940
-bool __cdecl cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
+bool cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     PlayerRecord* local = find_own_player_record(manager);
@@ -226,7 +226,7 @@ bool __cdecl cfunc_exit_surveyor_mode(script::Struct*, script::Script*)
 }
 
 // 0x0053D400
-bool __cdecl cfunc_set_host_mode(script::Struct* params, script::Script*)
+bool cfunc_set_host_mode(script::Struct* params, script::Script*)
 {
     int mode = 0;
     params->fetch_int_value(0u, &mode, 0);
@@ -237,7 +237,7 @@ bool __cdecl cfunc_set_host_mode(script::Struct* params, script::Script*)
 bool g_text_entry;
 
 // 0x0053D440
-bool __cdecl cfunc_entered_network_game(script::Struct*, script::Script*)
+bool cfunc_entered_network_game(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     if (g_online_active) // (on the internet: the server's GameSpy reporting)
@@ -251,14 +251,14 @@ bool __cdecl cfunc_entered_network_game(script::Struct*, script::Script*)
 }
 
 // 0x0053D490
-bool __cdecl cfunc_kick_player(script::Struct*, script::Script*)
+bool cfunc_kick_player(script::Struct*, script::Script*)
 {
     kick_or_ban(net_session_slot(), kDropKicked, 0);
     return true;
 }
 
 // 0x0053D5E0
-bool __cdecl cfunc_ban_player(script::Struct*, script::Script*)
+bool cfunc_ban_player(script::Struct*, script::Script*)
 {
     memory::Hub* memory = memory::Hub::get_pull();
     memory->enter_heap_scope(memory->network_heap_);
@@ -268,7 +268,7 @@ bool __cdecl cfunc_ban_player(script::Struct*, script::Script*)
 }
 
 // 0x0053D760
-bool __cdecl cfunc_cancel_join_server(script::Struct*, script::Script*)
+bool cfunc_cancel_join_server(script::Struct*, script::Script*)
 {
     Hub* manager = net_session_slot();
     manager->cancel_join();
@@ -277,7 +277,7 @@ bool __cdecl cfunc_cancel_join_server(script::Struct*, script::Script*)
 }
 
 // 0x0053D780
-bool __cdecl cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
+bool cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 {
     tasks::PileUp* tasks = get_logic_tasks();
     Hub* manager = net_session_slot();
@@ -294,7 +294,7 @@ bool __cdecl cfunc_enter_surveyor_mode(script::Struct*, script::Script*)
 }
 
 // 0x0053EA20
-bool __cdecl cfunc_drop_pending_players(script::Struct*, script::Script*)
+bool cfunc_drop_pending_players(script::Struct*, script::Script*)
 {
     net_session_slot()->drop_players_not_ready();
     return true;

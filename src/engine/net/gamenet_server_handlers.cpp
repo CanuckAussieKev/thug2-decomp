@@ -86,7 +86,7 @@ void mark_goal_done_by(uint8_t* goal, uint32_t id)
 } // namespace
 
 // 0x0052E060
-int __cdecl handle_observe_request(net::InboundMsgCtx* context)
+int handle_observe_request(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     Hub* manager = manager_of(context);
@@ -125,7 +125,7 @@ int __cdecl handle_observe_request(net::InboundMsgCtx* context)
 }
 
 // 0x0052E9E0
-int __cdecl handle_request_game_data(net::InboundMsgCtx* context)
+int handle_request_game_data(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
@@ -178,7 +178,7 @@ int __cdecl handle_request_game_data(net::InboundMsgCtx* context)
 }
 
 // 0x0052EC40
-int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
+int handle_game_ended_report(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
@@ -210,7 +210,7 @@ int __cdecl handle_game_ended_report(net::InboundMsgCtx* context)
 }
 
 // 0x0052EE10
-int __cdecl on_switch_squad_msg(net::InboundMsgCtx* context)
+int on_switch_squad_msg(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
     PlayerSearch search;
@@ -239,10 +239,10 @@ int __cdecl on_switch_squad_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052EF40
-int __cdecl handle_goal_completed_report(net::InboundMsgCtx* context)
+int handle_goal_completed_report(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
-    GoalMessage report; // (the game id, the goal)
+    GoalMessage report;                      // (the game id, the goal)
     if (!read_goal_message(reader, &report)) // NOT ORIGINAL: too short - dropped
         return kDone;
     Hub* manager = manager_of(context);
@@ -297,11 +297,11 @@ int __cdecl handle_goal_completed_report(net::InboundMsgCtx* context)
 }
 
 // 0x0052F1A0
-int __cdecl handle_goal_started_report(net::InboundMsgCtx* context)
+int handle_goal_started_report(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     util::ByteReader reader(context->body_, context->body_size_);
-    GoalMessage report; // (the game id, the goal)
+    GoalMessage report;                      // (the game id, the goal)
     if (!read_goal_message(reader, &report)) // NOT ORIGINAL: too short - dropped
         return kDone;
     if (report.id != manager->get_game_id())
@@ -331,7 +331,7 @@ int __cdecl handle_goal_started_report(net::InboundMsgCtx* context)
 }
 
 // 0x0052FCC0
-int __cdecl on_peer_left_msg(net::InboundMsgCtx* context)
+int on_peer_left_msg(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     Hub* manager = manager_of(context);
@@ -365,7 +365,7 @@ int __cdecl on_peer_left_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052FDA0
-int __cdecl handle_drop_carried(net::InboundMsgCtx* context)
+int handle_drop_carried(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
@@ -426,7 +426,7 @@ int __cdecl handle_drop_carried(net::InboundMsgCtx* context)
 }
 
 // 0x00532170
-int __cdecl handle_checksum_response(net::InboundMsgCtx* context)
+int handle_checksum_response(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);

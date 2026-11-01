@@ -159,7 +159,7 @@ void for_recent_events(MoveExecutor* self, uint32_t period, Visit visit)
 } // namespace
 
 // 0x00523490
-memory::owner<ObjectModule*> __cdecl MoveExecutor::fabricate() { return new MoveExecutor; }
+memory::owner<ObjectModule*> MoveExecutor::fabricate() { return new MoveExecutor; }
 
 // 0x00522390
 // (the trick objects' log made first by its constructor)
@@ -757,7 +757,7 @@ void MoveExecutor::tick_frame()
 }
 
 // 0x00523350
-bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script)
+bool cfunc_do_next_trick(script::Struct* params, script::Script* script)
 {
     auto* trick =
         static_cast<MoveExecutor*>(reinterpret_cast<GameEntity*>(script->entity_.get_pull())->fetch_module(kTrick));

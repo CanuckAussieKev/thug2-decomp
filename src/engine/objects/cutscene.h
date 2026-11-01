@@ -26,20 +26,20 @@ class GameEntity;
 
 // 0x00465510 (stdcall): a cutscene's binary objects table (version, count, then {name, model, skeleton, anim,
 // flags} each) as `params`' 0x40E32C3C and array 0x4DE5330C. True.
-bool __stdcall objects_from_table(script::Struct* params, const uint32_t* table);
+bool objects_from_table(script::Struct* params, const uint32_t* table);
 // 0x004645A0 / 0x004645E0: the animation sources' pools (0x006FA7F4).
-void* __cdecl anim_source_allocate(unsigned int size);
-void __cdecl anim_source_free(void* item);
+void* anim_source_allocate(unsigned int size);
+void anim_source_free(void* item);
 
 // 0x00463AA0: a matrix from a rotation (quaternion: its x, y and z negated in place - the original's) and a
 // translation (w 1).
-void __cdecl quat_to_matrix(float* quat, const float* translation, float* matrix);
+void quat_to_matrix(float* quat, const float* translation, float* matrix);
 // The skater appearance's face (its +0x54). No address of its own: the original reads it through the getter folded at
-// 0x00576E60 (modules::Viewer::get_viewer_entity). (__fastcall: the appearance in ECX, as the original's call passes it.)
-void* __fastcall appearance_face(void* appearance);
+// 0x00576E60 (modules::Viewer::get_viewer_entity).
+void* appearance_face(void* appearance);
 // A model's fader (its +0x2C). No address of its own: the original reads it through the getter folded at 0x00532EB0
-// (online::Hub::get_matchmaking_client). (__fastcall: the model in ECX.)
-void* __fastcall model_fader(void* model);
+// (online::Hub::get_matchmaking_client).
+void* model_fader(void* model);
 // 0x00464340 (code Ghidra missed; nothing calls it): an identity rotation (0, 0, 0, 1).
 struct IdentityQuat {
     void assign_value();
@@ -47,10 +47,10 @@ struct IdentityQuat {
 };
 // 0x00463BA0: the name of the skater model a cutscene uses: the profile 0x1804A7C4 names looked up in array
 // 0xCA1DB456, else "Male1" when integer 0x3F813177 is 1, "Female1" when not.
-const char* __cdecl skater_model_name(script::Struct* params);
+const char* skater_model_name(script::Struct* params);
 // 0x00463DA0: a colour from the structure `name` in `params` ({r, g, b} in percent unless 0x5A96985D is set);
 // white otherwise. Returns `out`.
-float* __cdecl read_colour(float* out, script::Struct* params, uint32_t name);
+float* read_colour(float* out, script::Struct* params, uint32_t name);
 // 0x00463E80 / 0x00463ED0: the lights of the nodes named in array 0x2A79C44E added (0x00490570: a light from a
 // node's colour and radii) / taken away again (0x0048FCA0, by node name).
 void add_cutscene_lights();
@@ -172,7 +172,7 @@ public:
 
     uint32_t unknown4_;
     std::unique_ptr<file::AssetBundle> bundle_ptr_; // +0x08: the cutscene's loaded bundle
-    bool ready_flag_;               // +0x0C
+    bool ready_flag_;                               // +0x0C
     uint8_t unknownd_[3];
     int camera_parts_;      // +0x10: the camera animation's parts (after the first)
     void* camera_source_;   // +0x14: its animation source

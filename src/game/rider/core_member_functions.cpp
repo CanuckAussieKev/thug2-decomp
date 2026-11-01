@@ -190,7 +190,7 @@ bool hit_wall(const render::ProbeRay& feeler)
 } // namespace
 
 // 0x004FBE80
-void __cdecl SkaterPhysicsModule::publish_method_table()
+void SkaterPhysicsModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kSkaterCorePhysics), g_core_member_functions, 0x18);
 }

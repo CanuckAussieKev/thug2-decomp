@@ -18,9 +18,9 @@ namespace objects {
 class ObjectModule;
 
 // A component type's maker: returns a new component (no arguments, cdecl).
-using ComponentCreateFunction = ObjectModule*(__cdecl*)();
+using ComponentCreateFunction = ObjectModule* (*)();
 // Called once when the type is registered (its member functions for scripts...).
-using ComponentRegisterFunction = void(__cdecl*)();
+using ComponentRegisterFunction = void (*)();
 
 // (GameEntity's +0x104 bits: COMPOSITE_FLAG_* in entity.h.)
 
@@ -63,7 +63,7 @@ public:
     void get_freeze(bool pause);
 
     std::unique_ptr<tasks::Task<EntityHub>> update_job_; // +0x40 running composite_object_manager_task
-    uint32_t component_types_;           // +0x44
+    uint32_t component_types_;                           // +0x44
     struct ComponentType {
         uint32_t type;
         ComponentCreateFunction create;
@@ -72,7 +72,7 @@ public:
 };
 
 // 0x0045F6D0: the logic task's code: Update on its data (the manager).
-void __cdecl composite_object_manager_task(tasks::Task<EntityHub>* task);
+void composite_object_manager_task(tasks::Task<EntityHub>* task);
 
 // The singleton (0x006F0FB8).
 EntityHub*& object_hub_slot();

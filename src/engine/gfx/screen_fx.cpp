@@ -86,8 +86,7 @@ uint32_t tap_colour(float weight)
 } // namespace
 
 // 0x004DE5E0
-void __cdecl draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour,
-                              bool shader)
+void draw_screen_quad(uint32_t blend, void* target, void* source, float du, float dv, uint32_t colour, bool shader)
 {
     bool fog_was_on = g_fog_active != 0;
     change_fog(false);
@@ -141,7 +140,7 @@ void __cdecl draw_screen_quad(uint32_t blend, void* target, void* source, float 
 }
 
 // 0x004DEA80
-void __cdecl begin_screen_effects()
+void begin_screen_effects()
 {
     screen_copy_in_use() = false;
     IDirect3DSurface9* surface = nullptr;
@@ -168,7 +167,7 @@ void __cdecl begin_screen_effects()
 }
 
 // 0x004DE980
-void __cdecl copy_screen_quarter()
+void copy_screen_quarter()
 {
     if (!screen_copy_in_use())
         return;
@@ -192,7 +191,7 @@ void __cdecl copy_screen_quarter()
 }
 
 // 0x004DEB70
-void __cdecl get_bloom()
+void get_bloom()
 {
     if (!g_shaders_available)
         return;

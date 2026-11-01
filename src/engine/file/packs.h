@@ -67,8 +67,8 @@ bool archive_is_busy(const char* name);
 PreEntry* find_pre_entry(uint32_t checksum);
 
 // Script functions (in the Function table)
-bool __cdecl cfunc_load_pip_pre(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_un_load_pip_pre(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_dump_pip_pre_status(script::Struct* params, script::Script* script);
+bool cfunc_load_pip_pre(script::Struct* params, script::Script* script);
+bool cfunc_un_load_pip_pre(script::Struct* params, script::Script* script);
+bool cfunc_dump_pip_pre_status(script::Struct* params, script::Script* script);
 
 } // namespace packs

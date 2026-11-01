@@ -146,7 +146,7 @@ ShadowCaster* first_caster()
 } // namespace
 
 // 0x004DA0F0
-void __cdecl project_shadow_vertices(const float* positions, uint32_t count, const void* matrix)
+void project_shadow_vertices(const float* positions, uint32_t count, const void* matrix)
 {
     ProjectedVertex* vertex = get_projected(count);
     for (uint32_t i = 0; i < count; ++i, ++vertex, positions += 3) {
@@ -165,7 +165,7 @@ void __cdecl project_shadow_vertices(const float* positions, uint32_t count, con
 }
 
 // 0x004DA190
-int __cdecl clip_shadow_triangles(const uint16_t* indices, uint32_t count)
+int clip_shadow_triangles(const uint16_t* indices, uint32_t count)
 {
     ShadowCornerPoint* out = shadow_triangles(3 * count); // (at most every triangle kept)
     for (uint32_t i = 0; i < count; ++i, indices += 3) {
@@ -191,7 +191,7 @@ int __cdecl clip_shadow_triangles(const uint16_t* indices, uint32_t count)
 }
 
 // 0x004DB880
-void __cdecl shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
+void shadow_texture_matrix(const float* a, const float* b, float* out, const float* first)
 {
     float view[16];
     input_port()->GetTransform(D3DTS_VIEW, reinterpret_cast<D3DMATRIX*>(view));
@@ -217,7 +217,7 @@ void __cdecl shadow_texture_matrix(const float* a, const float* b, float* out, c
 }
 
 // 0x004DB9D0
-void __cdecl draw_shadow_volumes(const void* scene, int /*viewport*/)
+void draw_shadow_volumes(const void* scene, int /*viewport*/)
 {
     void* vertex_colour = g_pixel_shaders[kPixelShader94c];
     set_pixel_shader(vertex_colour, nullptr);
@@ -257,7 +257,7 @@ void __cdecl draw_shadow_volumes(const void* scene, int /*viewport*/)
 }
 
 // 0x004DBBD0
-void __cdecl render_shadow_textures()
+void render_shadow_textures()
 {
     if (omit_from_draw())
         return;
@@ -328,7 +328,7 @@ void __cdecl render_shadow_textures()
 }
 
 // 0x004DBF50
-void __cdecl draw_shadows(const void* /*unused*/, void* const* meshes, int count)
+void draw_shadows(const void* /*unused*/, void* const* meshes, int count)
 {
     if (omit_from_draw())
         return;
@@ -424,7 +424,7 @@ void __cdecl draw_shadows(const void* /*unused*/, void* const* meshes, int count
 }
 
 // 0x004DB0A0
-void __cdecl remove_shadow_caster(uint32_t key)
+void remove_shadow_caster(uint32_t key)
 {
     ShadowCaster* caster = find_caster(key);
     if (!caster)
@@ -434,7 +434,7 @@ void __cdecl remove_shadow_caster(uint32_t key)
 }
 
 // 0x004DB100
-void __cdecl aim_shadow_caster(uint32_t key, const float* position, const float* target)
+void aim_shadow_caster(uint32_t key, const float* position, const float* target)
 {
     ShadowCaster* caster = find_caster(key);
     if (!caster)
@@ -451,7 +451,7 @@ void __cdecl aim_shadow_caster(uint32_t key, const float* position, const float*
 }
 
 // 0x004DDC90
-void __cdecl add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
+void add_shadow_caster(uint8_t* target, void* model, uint32_t unknown)
 {
     auto* caster = static_cast<ShadowCaster*>(memory::alloc(sizeof(ShadowCaster)));
     caster->unknown8 = unknown;

@@ -181,7 +181,7 @@ bool TextureRef::create_render_target(int new_width, int new_height, uint8_t new
 }
 
 // 0x004E0320
-void __cdecl release_render_target_textures()
+void release_render_target_textures()
 {
     for (DWORD stage = 0; stage < 8; ++stage)
         input_port()->SetTexture(stage, nullptr); // (the cache isn't told)
@@ -198,7 +198,7 @@ void __cdecl release_render_target_textures()
 }
 
 // 0x004E0440
-void __cdecl restore_render_target_textures()
+void restore_render_target_textures()
 {
     for (Elem* node = foremost(); node; node = node->next) {
         TextureRef* t = node->texture;

@@ -45,9 +45,9 @@ namespace sys::debug_mode {
 
 bool& is_switched_on();
 // CD: false in debug mode (but for the start-up scripts), else true (the original's stub).
-bool __cdecl cfunc_cd(script::Struct* params, script::Script* script);
+bool cfunc_cd(script::Struct* params, script::Script* script);
 // NotCD: CD's opposite (the original: false).
-bool __cdecl cfunc_not_cd(script::Struct* params, script::Script* script);
+bool cfunc_not_cd(script::Struct* params, script::Script* script);
 // Point the Function table's CD and NotCD entries (0x0067FF38, 0x0067FF40) at ours when debug mode is on. Until that
 // table is the game's own source, this stands in for its entries (done by sio::init_sdl_input, before the script
 // functions are registered).

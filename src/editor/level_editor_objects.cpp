@@ -127,7 +127,7 @@ struct PickWalk {
     std::vector<std::pair<objects::GameEntity*, float>>* all; // (click-to-cycle: every hit)
 };
 
-void __cdecl pick_one(objects::Entity* object, void* data)
+void pick_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);
@@ -149,7 +149,7 @@ void __cdecl pick_one(objects::Entity* object, void* data)
 struct Census {
     int objects, pickable;
 };
-void __cdecl count_one(objects::Entity* object, void* data)
+void count_one(objects::Entity* object, void* data)
 {
     auto* census = static_cast<Census*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);

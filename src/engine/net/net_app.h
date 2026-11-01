@@ -28,7 +28,7 @@ namespace net {
 struct AppHost;
 
 // What an App does with a packet from an address that isn't one of its connections (+0x1E88).
-using UnknownPacketCallback = void(__cdecl*)(char* data, int size, sockaddr* from);
+using UnknownPacketCallback = void (*)(char* data, int size, sockaddr* from);
 
 // A message to be sent (0x20 bytes; the constructor 0x004549F0 sets every field: zero, priority 0x80).
 struct NetMessageInfo {
@@ -212,13 +212,13 @@ struct AppHost {
 
     // Task callbacks (the task's +0x1C is the app).
     // 0x00456CA0: counts the frame (+0x1410), then handle_incoming (virtual slot 1; a tail jump).
-    static void __cdecl pump_incoming_traffic(tasks::Task<AppHost>* task);
+    static void pump_incoming_traffic(tasks::Task<AppHost>* task);
     // 0x004593C0: timestamp, dead connections, pull_inbound (virtual slot 2).
-    static void __cdecl receive_network_data(tasks::Task<AppHost>* task);
+    static void receive_network_data(tasks::Task<AppHost>* task);
     // 0x004593E0: each connection's bandwidth meters (in and out).
-    static void __cdecl network_metrics(tasks::Task<AppHost>* task);
+    static void network_metrics(tasks::Task<AppHost>* task);
     // 0x004594A0: stream pieces, then Transmit(true).
-    static void __cdecl flush_outgoing_traffic(tasks::Task<AppHost>* task);
+    static void flush_outgoing_traffic(tasks::Task<AppHost>* task);
 
     // 0x004598C0 - 0x0045B2F0 (net_app_messages.cpp)
     // 0x004598C0: the messages of one queue (0 normal, 1 important, 2 sequenced) that are due go into the
@@ -228,21 +228,21 @@ struct AppHost {
 
     // Handlers (registered by AppHost::prepare_all, 0x00457110).
     // 0x0045AD60 (id 1): answers a latency test with its time.
-    static int __cdecl on_ping_probe_msg(InboundMsgCtx* context);
+    static int on_ping_probe_msg(InboundMsgCtx* context);
     // 0x0045AB60 (id 2): the answer to our latency test: the round trip goes into the latency average.
-    static int __cdecl on_ping_reply_msg(InboundMsgCtx* context);
+    static int on_ping_reply_msg(InboundMsgCtx* context);
     // 0x0045AF10 (id 7): a sequenced message, buffered in its group's list by sequence number (to be handled
     // in order); acks are sent for the packet.
-    static int __cdecl on_ordered_msgs(InboundMsgCtx* context);
+    static int on_ordered_msgs(InboundMsgCtx* context);
     // 0x0045B0B0 (id 8): an ack: the important and sequenced messages sent with that timestamp are done; the
     // round trip is a latency measurement.
-    static int __cdecl on_receipt_msg(InboundMsgCtx* context);
+    static int on_receipt_msg(InboundMsgCtx* context);
     // 0x0045ABF0 (id 0x12): a compressed message (method 1 or 2; NOT ORIGINAL: 3, THUGPRO's LZHAM), expanded and
     // dispatched. NOT ORIGINAL: every length in it bounded (short messages, streams ending inside a code, an LZSS
     // stream expanding past its size, an inner length past the data, unknown methods: dropped).
-    static int __cdecl handle_compressed_messages(InboundMsgCtx* context);
+    static int handle_compressed_messages(InboundMsgCtx* context);
     // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
-    static int __cdecl drain_stream_msgs(InboundMsgCtx* context);
+    static int drain_stream_msgs(InboundMsgCtx* context);
 
     uint32_t unknown4_;       // +0x0004
     uint32_t clock_;          // +0x0008 the current time (ms)

@@ -339,9 +339,9 @@ struct MapListNode {
     // 0x005914B0: back to the pools (operator delete).
     static void dealloc(void* node);
     // 0x00591BE0: free a list (the nodes, not the metapieces; null is fine)
-    static void __fastcall free_node_chain(MapListNode* list); // (__fastcall: the list in ECX, as the original)
+    static void free_node_chain(MapListNode* list);
     // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
-    static void __fastcall audit_soundness(const MapListNode* list); // (__fastcall: the list in ECX)
+    static void audit_soundness(const MapListNode* list);
 };
 static_assert(sizeof(MapListNode) == 12, "pool item");
 
@@ -1194,7 +1194,7 @@ public:
     // not above 17 or below -16.
     bool raise_lower(int dir);
     // 0x0059C900: delete the cursor (its piece first: no longer the cursor's, destroyed).
-    static void __cdecl teardown();
+    static void teardown();
     // 0x0059C950: the next (dir 1) / previous (-1) piece of the current set, wrapping; a clipboard set selects a
     // clipboard instead.
     void step_piece_choice(int dir);
@@ -1251,9 +1251,9 @@ static_assert(offsetof(BuildPointer, aim_point_) == 0x14 && offsetof(BuildPointe
 
 // Park editor script commands (park_cfuncs.cpp).
 // 0x0058E120 GetParkEditorMaxPlayers: <MaxPlayers> = the park's player count.
-bool __cdecl cfunc_get_park_editor_max_players(script::Struct* params, script::Script* script);
+bool cfunc_get_park_editor_max_players(script::Struct* params, script::Script* script);
 // 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
-bool __cdecl cfunc_get_park_editor_max_players_possible(script::Struct* params, script::Script* script);
+bool cfunc_get_park_editor_max_players_possible(script::Struct* params, script::Script* script);
 
 extern float g_park_cell_size_x;
 extern float g_park_cell_size_y;

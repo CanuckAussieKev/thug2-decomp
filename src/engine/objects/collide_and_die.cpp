@@ -47,7 +47,7 @@ void projectile_hit(ObjectModule* projectile) { static_cast<ShotImpactModule*>(p
 } // namespace
 
 // 0x0041C370
-memory::owner<ObjectModule*> __cdecl ImpactDestructModule::fabricate() { return new ImpactDestructModule; }
+memory::owner<ObjectModule*> ImpactDestructModule::fabricate() { return new ImpactDestructModule; }
 
 // 0x0041C210
 ImpactDestructModule::ImpactDestructModule()

@@ -31,7 +31,7 @@ float get_sum(float a, double b) { return static_cast<float>(static_cast<double>
 } // namespace
 
 // 0x00427AB0
-memory::owner<ObjectModule*> __cdecl MovingSurfaceModule::fabricate() { return new MovingSurfaceModule; }
+memory::owner<ObjectModule*> MovingSurfaceModule::fabricate() { return new MovingSurfaceModule; }
 
 // (the constructor: inlined in fabricate in the original)
 MovingSurfaceModule::MovingSurfaceModule()

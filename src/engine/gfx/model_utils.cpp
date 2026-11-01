@@ -86,7 +86,7 @@ bool hideable(objects::MeshInstanceModule* component)
 } // namespace
 
 // 0x00487770
-bool __cdecl get_anim_loop_type(int* loop_type, Struct* params)
+bool get_anim_loop_type(int* loop_type, Struct* params)
 {
     *loop_type = 0;
     if (params->has_bare_flag(kCycle)) {
@@ -103,7 +103,7 @@ bool __cdecl get_anim_loop_type(int* loop_type, Struct* params)
 }
 
 // 0x004877E0
-bool __cdecl fetch_anim_durations(float* start, float* end, float current, float duration, Struct* params)
+bool fetch_anim_durations(float* start, float* end, float current, float duration, Struct* params)
 {
     float from = 0.0f;
     float to = duration;
@@ -122,7 +122,7 @@ bool __cdecl fetch_anim_durations(float* start, float* end, float current, float
 }
 
 // 0x004879D0
-text::Chars* __cdecl make_model_path(text::Chars* out, const char* name, const char* extension)
+text::Chars* make_model_path(text::Chars* out, const char* name, const char* extension)
 {
     char path[512];
     make_model_file_name(name, extension, path);
@@ -130,7 +130,7 @@ text::Chars* __cdecl make_model_path(text::Chars* out, const char* name, const c
 }
 
 // 0x00487A70
-void __cdecl make_model_file_name(const char* name, const char* extension, char* out)
+void make_model_file_name(const char* name, const char* extension, char* out)
 {
     THUG2_MSVC_WARNING(push)
     THUG2_MSVC_WARNING(disable : 4996)
@@ -142,14 +142,14 @@ void __cdecl make_model_file_name(const char* name, const char* extension, char*
 }
 
 // 0x00487AD0
-float __cdecl least_of(float a, float b, float c)
+float least_of(float a, float b, float c)
 {
     float least = b < c ? b : c;
     return a < least ? a : least;
 }
 
 // 0x00487B00
-bool __cdecl scale_from_args(maths::Vec4* scale, Struct* params)
+bool scale_from_args(maths::Vec4* scale, Struct* params)
 {
     if (params->has_entry_named(kScale)) {
         float uniform;
@@ -221,9 +221,9 @@ void HiddenModels::get_show()
 HiddenModels g_hidden_models;
 
 // 0x00487D20
-void __cdecl hide_models_for_cutscene() { g_hidden_models.conceal(); }
+void hide_models_for_cutscene() { g_hidden_models.conceal(); }
 
 // 0x00487D30
-void __cdecl show_models_after_cutscene() { g_hidden_models.get_show(); }
+void show_models_after_cutscene() { g_hidden_models.get_show(); }
 
 } // namespace gfx

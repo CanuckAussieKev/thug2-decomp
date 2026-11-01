@@ -127,10 +127,10 @@ int truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)
 } // namespace
 
 // 0x0051CB90
-memory::owner<ObjectModule*> __cdecl AttributeTracker::fabricate() { return new AttributeTracker; }
+memory::owner<ObjectModule*> AttributeTracker::fabricate() { return new AttributeTracker; }
 
 // 0x0051C440
-void __cdecl AttributeTracker::publish_method_table()
+void AttributeTracker::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_stats_manager_member_functions, 0x18);
 }

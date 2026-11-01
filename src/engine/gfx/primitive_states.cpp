@@ -21,7 +21,7 @@ IDirect3DDevice9* input_port() { return g_d3d_device; }
 } // namespace
 
 // 0x004B60B0
-void __cdecl set_primitive_states()
+void set_primitive_states()
 {
     choose_blend_mode(0x11);
     set_vertex_format(D3DFVF_XYZ | D3DFVF_TEX1);
@@ -38,7 +38,7 @@ void __cdecl set_primitive_states()
 }
 
 // 0x004B5FF0
-void __cdecl reset_primitive_states()
+void reset_primitive_states()
 {
     set_texture(0, nullptr); // (the original passes a third 0)
     change_phase(kCullMode, D3DCULL_CW);
@@ -47,19 +47,19 @@ void __cdecl reset_primitive_states()
 }
 
 // 0x004B6030
-void __cdecl set_texture_stage_state(uint32_t stage, uint32_t type, uint32_t value)
+void set_texture_stage_state(uint32_t stage, uint32_t type, uint32_t value)
 {
     input_port()->SetTextureStageState(stage, static_cast<D3DTEXTURESTAGESTATETYPE>(type), value);
 }
 
 // 0x004B6050
-void __cdecl set_transform(uint32_t type, const void* matrix)
+void set_transform(uint32_t type, const void* matrix)
 {
     input_port()->SetTransform(static_cast<D3DTRANSFORMSTATETYPE>(type), static_cast<const D3DMATRIX*>(matrix));
 }
 
 // 0x004B6070
-long __cdecl set_render_target_and_depth(void* surface, void* depth)
+long set_render_target_and_depth(void* surface, void* depth)
 {
     long result = 0;
     if (input_port()->SetRenderTarget(0, static_cast<IDirect3DSurface9*>(surface)) != 0)

@@ -924,7 +924,7 @@ const uint8_t* parse_expression(const uint8_t* token, Struct* args, Component* r
                     Struct* params = new_init_struct();
                     p = parse_arguments(params, p, args);
                     // (the byte the function returns, as it is)
-                    using Routine = uint8_t(__cdecl*)(Struct*, Script*);
+                    using Routine = uint8_t (*)(Struct*, Script*);
                     value.raw = reinterpret_cast<Routine>(symbol->raw)(params, script);
                     if (params) {
                         params->get_clear();

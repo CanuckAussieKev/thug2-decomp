@@ -19,21 +19,21 @@ class Vec4;
 namespace gfx {
 
 // 0x00487770: the loop type from the flags cycle (1), pingpong (2) or wobble (3) - 0 without any. True.
-bool __cdecl get_anim_loop_type(int* loop_type, script::Struct* params);
+bool get_anim_loop_type(int* loop_type, script::Struct* params);
 // 0x004877E0: an animation's start and end times (seconds) from `from` / `to`: start / middle (half the duration) /
 // current / end by name, or a number (frames - truncated, at 60 a second - unless `seconds`); 0 and the duration by
 // default. With `backwards` the two are swapped. True.
-bool __cdecl fetch_anim_durations(float* start, float* end, float current, float duration, script::Struct* params);
+bool fetch_anim_durations(float* start, float* end, float current, float duration, script::Struct* params);
 // 0x004879D0: "models\<name>\<name><extension>" made in `out` (a new String) - or "models\<name>" when the name
 // has a path separator. Returns out.
-text::Chars* __cdecl make_model_path(text::Chars* out, const char* name, const char* extension);
+text::Chars* make_model_path(text::Chars* out, const char* name, const char* extension);
 // 0x00487A70: the same into `out`'s characters.
-void __cdecl make_model_file_name(const char* name, const char* extension, char* out);
+void make_model_file_name(const char* name, const char* extension, char* out);
 // 0x00487AD0: the least of three (a NaN loses each comparison it's second in).
-float __cdecl least_of(float a, float b, float c);
+float least_of(float a, float b, float c);
 // 0x00487B00: a scale from `scale` (a float: all three; or a vector), else from x / y / z (each one given). False
 // when there's none of them.
-bool __cdecl scale_from_args(maths::Vec4* scale, script::Struct* params);
+bool scale_from_args(maths::Vec4* scale, script::Struct* params);
 
 // The models hidden for a cutscene (0x006FA2F0): their objects' ids.
 struct HiddenModels {
@@ -47,7 +47,7 @@ struct HiddenModels {
     void get_show();
 };
 // 0x00487D20 / 0x00487D30: the cutscene's (0x006FA2F0).
-void __cdecl hide_models_for_cutscene();
-void __cdecl show_models_after_cutscene();
+void hide_models_for_cutscene();
+void show_models_after_cutscene();
 
 } // namespace gfx

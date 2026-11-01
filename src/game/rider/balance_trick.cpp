@@ -58,10 +58,10 @@ script::Struct* spawn_param_bag()
 } // namespace
 
 // 0x004F9170
-memory::owner<ObjectModule*> __cdecl RiderTeeterMoves::fabricate() { return new RiderTeeterMoves; }
+memory::owner<ObjectModule*> RiderTeeterMoves::fabricate() { return new RiderTeeterMoves; }
 
 // 0x004F8CD0
-void __cdecl RiderTeeterMoves::publish_method_table()
+void RiderTeeterMoves::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_balance_trick_member_functions, 0x18);
 }

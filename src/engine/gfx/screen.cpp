@@ -154,7 +154,7 @@ void set_letterbox(bool letterbox)
 
 // 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
 // when DisableBlur is off - some patched executables "in the wild" remove the blur here.)
-bool __cdecl cfunc_set_screen_blur(script::Struct* params, script::Script* /*script*/)
+bool cfunc_set_screen_blur(script::Struct* params, script::Script* /*script*/)
 {
     int amount = 0;
     params->fetch_int_value(0u, &amount, false); // the unnamed integer

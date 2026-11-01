@@ -84,7 +84,7 @@ public:
     // the walk only ends at a null link: with an asset pending it wouldn't end - async loading looks unused.)
     void process_pending_assets();
     // 0x00407EB0: the task's callback (the manager its data).
-    static void __cdecl process_task(tasks::Task<ResourceRegistry>* task);
+    static void process_task(tasks::Task<ResourceRegistry>* task);
 
     // 0x00407A80: `asset` out of the circular list `*head` (false if it isn't in it).
     static bool remove_from_list(Resource** head, Resource* asset);

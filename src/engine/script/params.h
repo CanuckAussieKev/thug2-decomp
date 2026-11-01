@@ -12,7 +12,7 @@ namespace script {
 class Script;
 
 // A script function as the game calls it: its parameters and the calling script; returns true to continue.
-using Function = bool(__cdecl*)(Struct* params, Script* script);
+using Function = bool (*)(Struct* params, Script* script);
 
 // The string parameter `name`, or false if there isn't one. With `assert`, a missing parameter is an error
 // (the game reports it).

@@ -39,7 +39,7 @@ void process_sdl_device(InputPort* device);
 
 // Rumble on the controller playing as `port` (os_layer::set_actuators): `high` and `low` frequency motors,
 // 0-65535.
-void __cdecl set_sdl_actuators(int port, uint16_t high, uint16_t low);
+void set_sdl_actuators(int port, uint16_t high, uint16_t low);
 
 extern bool g_keyboard_on_screen;
 extern bool g_in_menu_flag;

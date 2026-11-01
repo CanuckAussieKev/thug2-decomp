@@ -30,10 +30,10 @@ public:
     using Responder = pad_input::Responder<PadInputModule>;
 
     // 0x0041EEC0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0041E6F0 (not a Ghidra function; registered with Create): its member functions' table (0x00684C78; the
     // functions are put in by the static initialiser at 0x006445B0).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0041E850: both pads' Init, its type; no handler, 0x49C cleared.
     PadInputModule();
     // 0x0041E710: each handler out of its list and deleted; then the base's body.
@@ -51,8 +51,8 @@ public:
 
     // 0x0041F170 / 0x0041F190 (cdecl; not Ghidra functions): the handlers' code - update_pad / update_pad2 of their
     // component with their data.
-    static void __cdecl handler_code(Responder* handler);
-    static void __cdecl handler_code2(Responder* handler);
+    static void handler_code(Responder* handler);
+    static void handler_code2(Responder* handler);
     // 0x0041F090: unless its object is paused: the pad events (update_events), then the pad updated from `data` - or,
     // with input disabled (or net disabled) or blocked (is_input_blocked), reset (and, blocked, no events this frame).
     void update_pad(const uint8_t* data);

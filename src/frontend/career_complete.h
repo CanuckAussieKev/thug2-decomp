@@ -38,8 +38,8 @@ namespace frontend::career_complete {
 
 bool& is_switched_on();
 
-bool __cdecl cfunc_available(script::Struct* params, script::Script* script); // Career100_Available
-bool __cdecl cfunc_apply(script::Struct* params, script::Script* script);     // Career100_Apply
+bool cfunc_available(script::Struct* params, script::Script* script); // Career100_Available
+bool cfunc_apply(script::Struct* params, script::Script* script);     // Career100_Apply
 
 // Our script commands, registered after the game's own table (sys::Main, after 0x005A5E70).
 void register_script_functions();

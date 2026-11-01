@@ -257,7 +257,7 @@ void Hub::cancel_join()
 }
 
 // 0x0053BED0
-void __cdecl Hub::observer_task(tasks::Task<PlayerRecord>*)
+void Hub::observer_task(tasks::Task<PlayerRecord>*)
 {
     Hub* manager = g_online_hub;
     if (manager->spectate_request_ == 1) { // (the next player asked for)
@@ -267,7 +267,7 @@ void __cdecl Hub::observer_task(tasks::Task<PlayerRecord>*)
 }
 
 // 0x00536890
-void __cdecl Hub::observer_input(pad_input::Responder<Hub>* input)
+void Hub::observer_input(pad_input::Responder<Hub>* input)
 {
     Hub* manager = input->content_;
     objects::Entity* root = find_root_window();
@@ -286,7 +286,7 @@ void __cdecl Hub::observer_input(pad_input::Responder<Hub>* input)
 }
 
 // 0x0053BF00
-void __cdecl Hub::auto_serve_task(tasks::Task<Hub>* task)
+void Hub::auto_serve_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     if (frame_clock::get_time() - g_auto_serve_start < kAutoServeWait || get_game_type() != kNetLobby ||
@@ -299,7 +299,7 @@ void __cdecl Hub::auto_serve_task(tasks::Task<Hub>* task)
 }
 
 // 0x0053BF90
-void __cdecl Hub::join_progress_tick(tasks::Task<Hub>* task)
+void Hub::join_progress_tick(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     switch (manager->join_phase_) {
@@ -352,7 +352,7 @@ void __cdecl Hub::join_progress_tick(tasks::Task<Hub>* task)
 }
 
 // 0x0053C1F0
-void __cdecl Hub::start_game_task(tasks::Task<Hub>* task)
+void Hub::start_game_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     bool& waiting_shown = g_waiting_shown;
@@ -382,7 +382,7 @@ void __cdecl Hub::start_game_task(tasks::Task<Hub>* task)
 }
 
 // 0x0053EB70
-void __cdecl Hub::connection_task(tasks::Task<Hub>* task)
+void Hub::connection_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task_manager(task);
     uint8_t* skate = get_skate();

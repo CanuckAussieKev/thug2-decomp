@@ -154,10 +154,10 @@ int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(v
 } // namespace
 
 // 0x0041E1E0
-memory::owner<ObjectModule*> __cdecl FlexibleParticleComponent::fabricate() { return new FlexibleParticleComponent; }
+memory::owner<ObjectModule*> FlexibleParticleComponent::fabricate() { return new FlexibleParticleComponent; }
 
 // 0x0041D6E0
-void __cdecl FlexibleParticleComponent::publish_method_table()
+void FlexibleParticleComponent::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(FlexibleParticleComponent::kType),
                                            g_flexible_particle_member_functions, 0x18);

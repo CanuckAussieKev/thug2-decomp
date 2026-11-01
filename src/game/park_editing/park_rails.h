@@ -59,7 +59,7 @@ struct ParkRailString {
     // 0x0058B620: every point given back to its set's pool; empty.
     void delete_points();
     // 0x0058B220: CPoolable's delete (the pool pair 0x007CE594).
-    static void __cdecl dealloc(void* item);
+    static void dealloc(void* item);
 };
 static_assert(offsetof(ParkRailString, point_chain_) == 0x0C && offsetof(ParkRailString, vertex_total_) == 0x14 &&
                   offsetof(ParkRailString, point_group_) == 0x1C && sizeof(ParkRailString) == 0x20,

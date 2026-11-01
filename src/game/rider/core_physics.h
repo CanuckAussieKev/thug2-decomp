@@ -225,7 +225,7 @@ public:
     // (Fields: core_physics_fields.h. The component is 0x153C bytes, type 0x5BD63B29 SkaterCorePhysics, vtable
     // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 invoke_method_by_name 0x00501600.)
     // 0x00505440 (the component type's maker): a new one (0 if out of memory).
-    static void* __cdecl fabricate();
+    static void* fabricate();
     // 0x00500CA0: its type; its two feelers (+0xA8, +0x158) and its collision cache (+0x4F4) made; no components
     // (+0x150C-+0x1538); a few flags cleared, +0x308 = -1, +0x2E8 = 1. The rest isn't initialised (zeroed memory).
     SkaterPhysicsModule();
@@ -438,7 +438,7 @@ public:
     // each returns 1 unless said otherwise, and uses neither argument unless said) ---
     // 0x004FBE80 (registered with Create): the table made member-function symbols (0x18-byte entries, put in by the
     // static initialiser at 0x006417D0).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x004FBEA0 (`this` isn't used): an air time from `params` - the unnamed float, in milliseconds; with seconds /
     // second times 1000, with frames / frame times 16 - truncated to an integer.
     int air_time_threshold(script::Struct* params);
@@ -895,7 +895,7 @@ public:
 };
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
-void __cdecl tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
+void tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);
 
 extern maths::Vec4 g_acid_hold;
 

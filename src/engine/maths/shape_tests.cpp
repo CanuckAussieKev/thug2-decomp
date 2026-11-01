@@ -531,7 +531,7 @@ bool closest_points_between_lines(const Seg& a, const Seg& b, Vec4& point_a, Vec
 }
 
 // 0x004817D0
-bool __cdecl point_in_box(const Vec4* point, const Vec4* max, const Vec4* min)
+bool point_in_box(const Vec4* point, const Vec4* max, const Vec4* min)
 {
     return !(point->x > max->x) && !(point->y > max->y) && !(point->z > max->z) && !(point->x < min->x) &&
            !(point->y < min->y) && !(point->z < min->z);

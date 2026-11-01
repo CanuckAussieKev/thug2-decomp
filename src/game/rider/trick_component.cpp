@@ -95,7 +95,7 @@ bool is_direction(uint32_t button)
 }
 
 // 0x0051EA90
-void __cdecl MoveExecutor::publish_method_table()
+void MoveExecutor::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_trick_component_member_functions, 0x18);
 }

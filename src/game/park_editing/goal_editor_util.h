@@ -14,24 +14,24 @@ class Struct;
 namespace park_editing {
 
 // 0x004E6600 (type in ECX, index in EDX): the model of the goal's object `index` (null without one).
-const char* __fastcall goal_object_model(uint32_t type, int index);
+const char* goal_object_model(uint32_t type, int index);
 // 0x004E66A0 (type in ECX, index in EDX): the name checksum of the goal's object `index` (0 without one).
-uint32_t __fastcall goal_object_name(uint32_t type, int index);
+uint32_t goal_object_name(uint32_t type, int index);
 // 0x004E6730 (which in ECX, goal in EDX): the checksum of the edited goal's node TRG_EditedGoal<goal>_Pro (0),
 // _Restart (1) or _Object_<which - 2>.
-uint32_t __fastcall edited_goal_node_name(int which, int goal);
+uint32_t edited_goal_node_name(int which, int goal);
 // 0x004E67A0 (type in ECX): the goal type's script structure of one kind, or null.
-script::Struct* __fastcall goal_type_structure(uint32_t type);
+script::Struct* goal_type_structure(uint32_t type);
 // 0x004E6890 (type in EAX): the goal type's script structure of another kind, or null (0xD0DD047B's also runs
 // 0xFA54B475 once into it).
 script::Struct* goal_type_defaults(uint32_t type);
 // 0x004E69C0: 0x82.
-int __cdecl goal_editor_constant82();
+int goal_editor_constant82();
 // 0x004E69D0 (the goal in ECX): an edited goal's defaults (the SKATE letters; 100, 120, 3000, 360... and the
 // thirteen entries cleared).
-void __fastcall init_edited_goal(uint8_t* goal);
+void init_edited_goal(uint8_t* goal);
 // 0x004E6AE0: GoalEditorMarkerObject<index> passed to the script 0xDCF3A25E as 0xA1DC81F9.
-void __stdcall run_marker_object_script(int index);
+void run_marker_object_script(int index);
 
 extern char g_created_goal_name[24];
 extern char g_goal_name_buffer[104];

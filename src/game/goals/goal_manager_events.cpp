@@ -275,7 +275,7 @@ void GoalManager::get_view_goals_info(script::Struct* out, uint32_t skater)
 }
 
 // 0x0055D3F0
-bool __cdecl cfunc_goal_manager_add_goal(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_add_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name;
@@ -286,7 +286,7 @@ bool __cdecl cfunc_goal_manager_add_goal(script::Struct* params, script::Script*
 }
 
 // 0x0055D450 (drop_objective, inlined)
-bool __cdecl cfunc_goal_manager_remove_goal(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_remove_goal(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     uint32_t name;
@@ -295,28 +295,28 @@ bool __cdecl cfunc_goal_manager_remove_goal(script::Struct* params, script::Scri
 }
 
 // 0x0055D4D0
-bool __cdecl cfunc_goal_manager_remove_all_goals(script::Struct*, script::Script*)
+bool cfunc_goal_manager_remove_all_goals(script::Struct*, script::Script*)
 {
     get_objective_board()->wipe_objectives();
     return true;
 }
 
 // 0x0055D4F0
-bool __cdecl cfunc_goal_manager_restart_last_goal(script::Struct*, script::Script*)
+bool cfunc_goal_manager_restart_last_goal(script::Struct*, script::Script*)
 {
     get_objective_board()->retry_previous_objective();
     return true;
 }
 
 // 0x0055D510
-bool __cdecl cfunc_goal_manager_level_unload(script::Struct*, script::Script*)
+bool cfunc_goal_manager_level_unload(script::Struct*, script::Script*)
 {
     get_objective_board()->level_unload();
     return true;
 }
 
 // 0x0055D530: the beaten goals of the level the unnamed integer names, as the script's num_beaten.
-bool __cdecl cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script::Script* script)
+bool cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params, script::Script* script)
 {
     int level;
     params->fetch_int_value(0u, &level, 1);
@@ -327,7 +327,7 @@ bool __cdecl cfunc_goal_manager_num_goals_beaten_in_level(script::Struct* params
 }
 
 // 0x0055D590
-bool __cdecl cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*)
+bool cfunc_goal_manager_add_goal_choices(script::Struct* params, script::Script*)
 {
     GoalManager* manager = get_objective_board();
     bool selected = params->has_bare_flag(kChosenOnly);
@@ -338,7 +338,7 @@ bool __cdecl cfunc_goal_manager_add_goal_choices(script::Struct* params, script:
 }
 
 // 0x0055D600: every goal's goalId and hasBeaten as the script's GoalList.
-bool __cdecl cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
+bool cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::Array* list = alloc_script_array();
@@ -357,7 +357,7 @@ bool __cdecl cfunc_goal_manager_get_goal_list(script::Struct*, script::Script* s
 
 // 0x0055D7D0: with ALL every goal's texts; else goal Name's - `text` with its tricks as the script's tricktext,
 // without `text` the goal's own texts (their answer). True without Name.
-bool __cdecl cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Script* script)
+bool cfunc_goal_manager_replace_trick_text(script::Struct* params, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     if (params->has_bare_flag(kAll)) {
@@ -379,7 +379,7 @@ bool __cdecl cfunc_goal_manager_replace_trick_text(script::Struct* params, scrip
 }
 
 // 0x0055D8E0
-bool __cdecl cfunc_goal_manager_get_goal_attempt_info(script::Struct*, script::Script* script)
+bool cfunc_goal_manager_get_goal_attempt_info(script::Struct*, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     script::Struct* results = script->args_;
@@ -388,7 +388,7 @@ bool __cdecl cfunc_goal_manager_get_goal_attempt_info(script::Struct*, script::S
 }
 
 // 0x0055D910: the view goals menu's info (of `skater`'s goals only, if given).
-bool __cdecl cfunc_goal_manager_get_view_goals_info(script::Struct* params, script::Script* script)
+bool cfunc_goal_manager_get_view_goals_info(script::Struct* params, script::Script* script)
 {
     GoalManager* manager = get_objective_board();
     uint32_t skater = 0;

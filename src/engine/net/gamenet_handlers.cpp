@@ -80,7 +80,7 @@ constexpr int kParkMapSize = 15000;
 } // namespace
 
 // 0x0052D6A0
-void __cdecl get_cd_key(char* key)
+void get_cd_key(char* key)
 {
     static const char kPath[] = "Software\\Activision\\Tony Hawk's Underground 2";
     char value[100] = {};
@@ -107,14 +107,14 @@ void __cdecl get_cd_key(char* key)
 }
 
 // 0x0052D7B0
-int __cdecl on_ready_ask_msg(net::InboundMsgCtx* context)
+int on_ready_ask_msg(net::InboundMsgCtx* context)
 {
     manager_of(context)->last_ready_probe_id_ = message_word(context, 0);
     return kContinue;
 }
 
 // 0x0052D7D0
-int __cdecl on_ready_reply_msg(net::InboundMsgCtx* context)
+int on_ready_reply_msg(net::InboundMsgCtx* context)
 {
     context->acknowledge_ = true;
     if (PlayerRecord* player = find_player_by_sender(manager_of(context), context->sender_conn_))
@@ -123,7 +123,7 @@ int __cdecl on_ready_reply_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052D800
-int __cdecl on_spectate_msg(net::InboundMsgCtx* context)
+int on_spectate_msg(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     cfunc_exit_surveyor_mode(nullptr, nullptr); // (the script command, without parameters)
@@ -132,7 +132,7 @@ int __cdecl on_spectate_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052D830
-int __cdecl handle_flush_important(net::InboundMsgCtx* context)
+int handle_flush_important(net::InboundMsgCtx* context)
 {
     if (context->sender_conn_->is_off_machine())
         context->sender_conn_->destroy_important_messages();
@@ -151,21 +151,12 @@ int flag_handler(net::InboundMsgCtx* context, void (PlayerRecord::*method)(int))
 } // namespace
 
 // 0x0052D850 / 0x0052D880 / 0x0052D8B0
-int __cdecl on_flag_swiped_msg(net::InboundMsgCtx* context)
-{
-    return flag_handler(context, &PlayerRecord::note_flag_steal);
-}
-int __cdecl on_flag_grabbed_msg(net::InboundMsgCtx* context)
-{
-    return flag_handler(context, &PlayerRecord::note_flag_pickup);
-}
-int __cdecl on_flag_scored_msg(net::InboundMsgCtx* context)
-{
-    return flag_handler(context, &PlayerRecord::score_flag_capture);
-}
+int on_flag_swiped_msg(net::InboundMsgCtx* context) { return flag_handler(context, &PlayerRecord::note_flag_steal); }
+int on_flag_grabbed_msg(net::InboundMsgCtx* context) { return flag_handler(context, &PlayerRecord::note_flag_pickup); }
+int on_flag_scored_msg(net::InboundMsgCtx* context) { return flag_handler(context, &PlayerRecord::score_flag_capture); }
 
 // 0x0052D8E0
-int __cdecl on_flag_returned_msg(net::InboundMsgCtx* context)
+int on_flag_returned_msg(net::InboundMsgCtx* context)
 {
     if (PlayerRecord* player = find_player_slot_by_obj(manager_of(context), get_message(context)))
         player->note_flag_returned();
@@ -173,19 +164,19 @@ int __cdecl on_flag_returned_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052D910 / 0x0052D930
-int __cdecl handle_auto_server_notice(net::InboundMsgCtx*)
+int handle_auto_server_notice(net::InboundMsgCtx*)
 {
     get_run(kLaunchAutoServerNotification);
     return kContinue;
 }
-int __cdecl handle_kill_team_flags(net::InboundMsgCtx*)
+int handle_kill_team_flags(net::InboundMsgCtx*)
 {
     get_run(kKillTeamFlags);
     return kContinue;
 }
 
 // 0x0052D950
-int __cdecl on_hud_notice_msg(net::InboundMsgCtx* context)
+int on_hud_notice_msg(net::InboundMsgCtx* context)
 {
     // (the message: gamenet_messages.h; NOT ORIGINAL: one too short is dropped and its strings end inside their
     // fields - the original read them up to a terminator that may not be there)
@@ -200,7 +191,7 @@ int __cdecl on_hud_notice_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052D980
-int __cdecl handle_object_update_length(net::InboundMsgCtx* context)
+int handle_object_update_length(net::InboundMsgCtx* context)
 {
     util::PackedBitBuffer stream;
     stream.change_intake_contents(context->body_, 0x400);
@@ -230,10 +221,10 @@ int __cdecl handle_object_update_length(net::InboundMsgCtx* context)
 }
 
 // 0x0052DAC0
-int __cdecl handle_nothing(net::InboundMsgCtx*) { return kContinue; }
+int handle_nothing(net::InboundMsgCtx*) { return kContinue; }
 
 // 0x0052DAD0
-int __cdecl handle_cd_key_challenge(net::InboundMsgCtx* context)
+int handle_cd_key_challenge(net::InboundMsgCtx* context)
 {
     net::NetMessageInfo desc;
     Hub* manager = manager_of(context);
@@ -252,14 +243,14 @@ int __cdecl handle_cd_key_challenge(net::InboundMsgCtx* context)
 }
 
 // 0x0052DCA0
-int __cdecl handle_keep_alive(net::InboundMsgCtx* context)
+int handle_keep_alive(net::InboundMsgCtx* context)
 {
     context->sender_conn_->stamp_last_heard(static_cast<int8_t>(get_message(context)[0]) * 1000);
     return kContinue;
 }
 
 // 0x0052DCC0
-int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
+int on_admitted_msg(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     net::NetMessageInfo desc;
@@ -280,7 +271,7 @@ int __cdecl on_admitted_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052E1A0
-int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
+int handle_ready_to_play(net::InboundMsgCtx* context)
 {
     auto* logic_tasks = (&assets::g_main_loop_manager->logic_tasks_);
     Hub* manager = manager_of(context);
@@ -291,7 +282,7 @@ int __cdecl handle_ready_to_play(net::InboundMsgCtx* context)
 }
 
 // 0x0052EB70
-int __cdecl handle_park_map(net::InboundMsgCtx* context)
+int handle_park_map(net::InboundMsgCtx* context)
 {
     // NOT ORIGINAL: a map shorter than a map is dropped (the original copied a whole map's worth from it)
     if (context->body_size_ < static_cast<uint32_t>(kParkMapSize))
@@ -304,7 +295,7 @@ int __cdecl handle_park_map(net::InboundMsgCtx* context)
 }
 
 // 0x0052ED80
-int __cdecl on_match_end_msg(net::InboundMsgCtx* context)
+int on_match_end_msg(net::InboundMsgCtx* context)
 {
     manager_of(context)->mark_match_ended();
     if (commands::cfunc_is_observing(nullptr, nullptr) && get_game_type() == kNetGoalAttack)
@@ -313,7 +304,7 @@ int __cdecl on_match_end_msg(net::InboundMsgCtx* context)
 }
 
 // 0x0052EDD0
-int __cdecl handle_game_ended(net::InboundMsgCtx* context)
+int handle_game_ended(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     objects::g_trick_spot_hub->remove_all_clusters();
@@ -323,7 +314,7 @@ int __cdecl handle_game_ended(net::InboundMsgCtx* context)
 }
 
 // 0x0052F2D0
-int __cdecl handle_choose_team(net::InboundMsgCtx* context)
+int handle_choose_team(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     int teams = static_cast<int8_t>(get_message(context)[0]);
@@ -342,7 +333,7 @@ int __cdecl handle_choose_team(net::InboundMsgCtx* context)
 }
 
 // 0x0052F370
-int __cdecl handle_checksum_request(net::InboundMsgCtx* context)
+int handle_checksum_request(net::InboundMsgCtx* context)
 {
     uint8_t* skate = get_skate();
     net::NetMessageInfo desc;
@@ -358,7 +349,7 @@ int __cdecl handle_checksum_request(net::InboundMsgCtx* context)
 }
 
 // 0x0052EBB0
-int __cdecl handle_team_object(net::InboundMsgCtx* context)
+int handle_team_object(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     if (!is_squad_match())
@@ -380,7 +371,7 @@ int __cdecl handle_team_object(net::InboundMsgCtx* context)
 }
 
 // 0x0052F3D0 (no check that the sender is a player: the original's)
-int __cdecl handle_cd_key_answer(net::InboundMsgCtx* context)
+int handle_cd_key_answer(net::InboundMsgCtx* context)
 {
     Hub* manager = manager_of(context);
     PlayerRecord* player = find_player_by_sender(manager, context->sender_conn_);
@@ -390,7 +381,7 @@ int __cdecl handle_cd_key_answer(net::InboundMsgCtx* context)
 }
 
 // 0x0052F400
-int __cdecl handle_created_data_request(net::InboundMsgCtx* context)
+int handle_created_data_request(net::InboundMsgCtx* context)
 {
     uint8_t id = context->type_code_;
     net::AppHost* app = context->receiver_app_;

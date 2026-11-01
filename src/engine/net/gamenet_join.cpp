@@ -213,7 +213,7 @@ void compute_cd_key_response(const char* key, const char* challenge, char* respo
 }
 void authenticate_user(int local_id, uint32_t ip, const char* challenge, const char* response, void* instance)
 {
-    using HookFn = void(__cdecl*)(int, int, int, char*, void*);
+    using HookFn = void (*)(int, int, int, char*, void*);
     game_spy::cd_key_authenticate_user(kGameSpyGameId, local_id, ip, challenge, response, &Hub::client_authorized,
                                        instance);
 }

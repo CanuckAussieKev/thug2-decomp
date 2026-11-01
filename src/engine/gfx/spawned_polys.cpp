@@ -76,7 +76,7 @@ SpawnedPoly::SpawnedPoly()
 namespace engine {
 
 // 0x00492450
-void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
+void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up)
 {
     poly->primitive = new PcPrimitive(1);
     maths::Mat4& m = poly->matrix;
@@ -140,7 +140,7 @@ void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* 
 }
 
 // 0x004919C0
-void __cdecl update_spawned_polys()
+void update_spawned_polys()
 {
     float elapsed = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     for (void* value = get_first_value(spawned_polys()); value;) {
@@ -201,7 +201,7 @@ void __cdecl update_spawned_polys()
 }
 
 // 0x00491E10
-void __cdecl kill_all_spawned_polys()
+void kill_all_spawned_polys()
 {
     for (void* value = get_first_value(spawned_polys()); value;) {
         auto* poly = static_cast<SpawnedPoly*>(value);

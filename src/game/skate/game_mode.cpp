@@ -113,10 +113,7 @@ MatchRules::ConditionNode* condition_at(MatchRules::ConditionNode* head, uint32_
 // --- The game flow -------------------------------------------------------------------------------------------
 
 // 0x00552F30
-MatchFlow::~MatchFlow()
-{
-    script::Script::destroy(own_script_);
-}
+MatchFlow::~MatchFlow() { script::Script::destroy(own_script_); }
 
 // 0x00552E30
 void MatchFlow::get_request(uint32_t name)
@@ -609,7 +606,7 @@ void MatchRules::increment_round()
 }
 
 // 0x00553C90
-bool __cdecl cfunc_override_game_mode_options(script::Struct* params, script::Script*)
+bool cfunc_override_game_mode_options(script::Struct* params, script::Script*)
 {
     return the_game_mode()->force_match_settings(params);
 }

@@ -86,6 +86,6 @@ struct Sphere {
 
 // 0x004817D0 (cdecl): whether `point` is no further than `max` and no nearer than `min` on x, y and z (edges
 // included; a NaN rules nothing out).
-bool __cdecl point_in_box(const Vec4* point, const Vec4* max, const Vec4* min);
+bool point_in_box(const Vec4* point, const Vec4* max, const Vec4* min);
 
 } // namespace maths

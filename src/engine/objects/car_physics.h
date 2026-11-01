@@ -38,10 +38,10 @@ public:
 
     // 0x0041BD90 (registered with the composite object manager by 0x004E4860): a new one (the constructor inlined; 0
     // if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0041B910 (not a Ghidra function; registered with Create): its member functions' table (0x006846A8; the
     // functions are put in by the static initialiser at 0x00643E80).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0041BAD0: its type, no spin or steering, the body shown.
     AutomobileDynamicsModule();
     // 0x0041B930: the base's body.
@@ -71,7 +71,7 @@ public:
     // and two back (0x69428757, 0xF04BD6ED) wheels turned about X by the spin, the steering wheels (0x6E2F434E,
     // 0xF72612F4) about Z by the steering then about X by the spin, the body (0x88C21962 "car") about X by the tilt;
     // each but the first then times its parent's matrix.
-    static void __cdecl refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer);
+    static void refresh_bone_rig(void* skeleton, void* model, float tilt, float spin, float steer);
 
     // --- the member functions scripts call (the table at 0x006846A8) ---
     // 0x0041B9E0 [0xA2331896]: the body shown when the unnamed integer isn't 0 (none: hidden). 1.

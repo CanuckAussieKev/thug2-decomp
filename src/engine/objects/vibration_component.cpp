@@ -39,7 +39,7 @@ bool is_game_halted() { return g_simulation_halted; }
 } // namespace
 
 // 0x0043D670
-memory::owner<ObjectModule*> __cdecl PadRumbleModule::fabricate() { return new PadRumbleModule; }
+memory::owner<ObjectModule*> PadRumbleModule::fabricate() { return new PadRumbleModule; }
 
 // (the constructor: inlined in fabricate in the original)
 PadRumbleModule::PadRumbleModule()
@@ -51,7 +51,7 @@ PadRumbleModule::PadRumbleModule()
 }
 
 // 0x0043D490
-void __cdecl PadRumbleModule::publish_method_table()
+void PadRumbleModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_vibration_component_member_functions,
                                            0x18);

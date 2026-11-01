@@ -238,7 +238,7 @@ public:
     // object's cluster coloured for the skater (or the skater's team).
     void note_tagged_prop(int skater_id, int score, uint32_t count, uint32_t* objects, bool send);
     // 0x005626F0 (cdecl, the net handler): a trick objects message for this game logged by the skater's score.
-    static int __cdecl on_score_msg(net::InboundMsgCtx* context);
+    static int on_score_msg(net::InboundMsgCtx* context);
 
     // (the trick log's entry `index`; the last one)
     TrickLog* get_trick(int index) { return static_cast<TrickLog*>(log_.items_[index]); }

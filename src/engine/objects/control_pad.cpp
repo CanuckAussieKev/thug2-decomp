@@ -317,7 +317,7 @@ float d_pad_angle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 }
 
 // 0x0046C370
-double __stdcall stick_length(float x, float y, float angle)
+double stick_length(float x, float y, float angle)
 {
     double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
     double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);

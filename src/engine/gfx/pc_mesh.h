@@ -22,7 +22,7 @@ struct StripBreak {
 static_assert(sizeof(StripBreak) == 0x10, "layout must match the original");
 
 // 0x004B7AF0 (Ghidra never made it: qsort's comparison): by the records' second word.
-int __cdecl compare_strip_breaks(const void* a, const void* b);
+int compare_strip_breaks(const void* a, const void* b);
 
 // The PC mesh (0xC8 bytes, vtable 0x0064A490; the engine's SubMesh - its hierarchy the scene's, SHierarchyNode).
 class PcMesh final : public SubMesh {

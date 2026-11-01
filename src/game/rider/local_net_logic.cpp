@@ -217,7 +217,7 @@ void RiderHostSync::send_update()
 }
 
 // 0x00513630
-memory::owner<ObjectModule*> __cdecl RiderHostSync::fabricate() { return new RiderHostSync; }
+memory::owner<ObjectModule*> RiderHostSync::fabricate() { return new RiderHostSync; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderHostSync::RiderHostSync()
@@ -253,7 +253,7 @@ void RiderHostSync::tick_frame()
 }
 
 // 0x005136F0
-int __cdecl RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
+int RiderHostSync::handle_graffiti_steal(net::InboundMsgCtx* context)
 {
     util::ByteReader reader(context->body_, context->body_size_);
     online::TagStolenMessage message;

@@ -88,7 +88,7 @@ char* fallback_map_name() { return g_fallback_map_name; }
 int g_lobby_group_id;
 
 // 0x0053B9C0
-void __cdecl server_key_callback(int key, void* buffer, void*)
+void server_key_callback(int key, void* buffer, void*)
 {
     Hub* manager = net_session_slot();
     switch (key) {
@@ -145,7 +145,7 @@ void __cdecl server_key_callback(int key, void* buffer, void*)
 }
 
 // 0x0053BBC0
-void __cdecl player_key_callback(int key, int index, void* buffer, void*)
+void player_key_callback(int key, int index, void* buffer, void*)
 {
     Hub* manager = net_session_slot();
     if (index >= manager->count_players()) {
@@ -182,7 +182,7 @@ void __cdecl player_key_callback(int key, int index, void* buffer, void*)
 }
 
 // 0x0053BD90
-int __cdecl count_callback(int type, void*)
+int count_callback(int type, void*)
 {
     if (type == kKeyTypePlayer)
         return net_session_slot()->count_players();
@@ -192,7 +192,7 @@ int __cdecl count_callback(int type, void*)
 }
 
 // 0x0053BDC0
-void __cdecl start_query_reporting(bool keep_map_name)
+void start_query_reporting(bool keep_map_name)
 {
     if (!keep_map_name) { // the level's name, for mapname when the level select has none
         const char* text = nullptr;

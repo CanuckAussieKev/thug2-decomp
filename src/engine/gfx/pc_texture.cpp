@@ -373,8 +373,8 @@ int ftol(double value) { return static_cast<int>(value); } // (the game's _ftol:
 } // namespace
 
 // 0x004C9200
-void __cdecl resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into,
-                          uint16_t into_width, uint16_t into_height, uint16_t bits_per_pixel)
+void resize_image(const uint8_t* from, uint16_t from_width, uint16_t from_height, uint8_t* into, uint16_t into_width,
+                  uint16_t into_height, uint16_t bits_per_pixel)
 {
     if (bits_per_pixel == 8) { // (nearest, the bytes cleared first - as many as the source has)
         std::memset(into, 0, static_cast<uint32_t>(from_height) * from_width);
@@ -405,7 +405,7 @@ void __cdecl resize_image(const uint8_t* from, uint16_t from_width, uint16_t fro
 }
 
 // 0x004C9520
-void __cdecl zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom, float y_zoom)
+void zoom_image(const uint8_t* from, uint16_t width, uint16_t height, uint8_t* into, float x_zoom, float y_zoom)
 {
     int x_step = ftol(1.0f / static_cast<double>(x_zoom) * 1024.0f);
     int y_step = ftol(1.0f / static_cast<double>(y_zoom) * 1024.0f);
@@ -1028,7 +1028,7 @@ TextureRef* new_engine_texture()
 } // namespace
 
 // 0x004CAE90
-lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* table, bool remake)
+lists::KeyMap* load_textures_from_file(const char* name, lists::KeyMap* table, bool remake)
 {
     file::Hdl file = file::unseal(name, "rb");
     if (!file)
@@ -1125,8 +1125,7 @@ lists::KeyMap* __cdecl load_textures_from_file(const char* name, lists::KeyMap* 
 }
 
 // 0x004CB420
-lists::KeyMap* __cdecl load_textures_from_memory(const uint8_t** cursor, size_t size, lists::KeyMap* table,
-                                                 bool remake)
+lists::KeyMap* load_textures_from_memory(const uint8_t** cursor, size_t size, lists::KeyMap* table, bool remake)
 {
     // Read through texture_format's reader, bounded by `size` (the cursor not moved on, as the original). Not
     // original - a texture or level past the end, or a level larger than its texture's, stops the dictionary there.
@@ -1230,10 +1229,10 @@ bool PcTexDict::load_memory(const uint8_t* data, size_t size)
 PcTexDict::PcTexDict(const char* name) : TextureSet(name, true) { ingest_file(name); }
 
 // 0x004C7270
-memory::owner<PcTexDict*> __cdecl load_tex_dict_file(const char* name) { return new PcTexDict(name); }
+memory::owner<PcTexDict*> load_tex_dict_file(const char* name) { return new PcTexDict(name); }
 
 // 0x004C72E0
-PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
+PcTexDict* load_tex_dict_memory(uint32_t checksum, const uint8_t* data, size_t size)
 {
     auto* dict = new PcTexDict(checksum);
     dict->load_memory(data, size); // (called on null without memory, as the original)
@@ -1241,11 +1240,11 @@ PcTexDict* __cdecl load_tex_dict_memory(uint32_t checksum, const uint8_t* data, 
 }
 
 // 0x004C7360
-memory::owner<PcTexDict*> __cdecl create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
+memory::owner<PcTexDict*> create_tex_dict(uint32_t checksum) { return new PcTexDict(checksum); }
 
 // 0x004C80B0
-void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
-                            const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel)
+void copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into_width, uint16_t into_height,
+                    const uint8_t* from, uint16_t from_width, uint16_t from_height, uint16_t bits_per_pixel)
 {
     int columns = from_width;
     if (columns >= into_width - x)
@@ -1274,7 +1273,7 @@ void __cdecl copy_sub_image(uint8_t* into, uint16_t x, uint16_t y, uint16_t into
 }
 
 // 0x004C8180
-void __cdecl rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
+void rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
 {
     float low = g < b ? g : b;
     if (r < low)
@@ -1307,7 +1306,7 @@ void __cdecl rgb_to_hsv(float r, float g, float b, float* h, float* s, float* v)
 }
 
 // 0x004C82D0
-void __cdecl hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v)
+void hsv_to_rgb(float* r, float* g, float* b, float h, float s, float v)
 {
     if (s == 0.0f) {
         *b = v;

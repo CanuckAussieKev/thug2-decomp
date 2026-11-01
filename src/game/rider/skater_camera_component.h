@@ -36,7 +36,7 @@ struct WalkCameraState;
 class RiderChaseView final : public ObjectModule {
 public:
     // 0x004FA800: a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004FA4B0: its type, the interpolator (0x98 bytes), the zooms and rates at
     // their defaults, no skater.
     RiderChaseView();
@@ -151,7 +151,7 @@ public:
 class RiderStateReset final : public ObjectModule {
 public:
     // 0x004FBE20: a new one (the constructor inlined: the base's, its vtable and type; 0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderStateReset();
     // 0x004FBD90: the destructor body (the base's). (0x004FBDB0 the deleting one)

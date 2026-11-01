@@ -102,7 +102,7 @@ public:
 
     // 0x0051EA90 (not a Ghidra function; registered with the composite object manager): its script member
     // functions (the table at 0x00683148: Pressed, get_current_bail_endpose, SetCurrentBailEndpose).
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
 
     // 0x0051F2B0 (vtable Finalize): the skater's input, balance trick, core physics, flip and rotate, state and stats
     // manager components.
@@ -178,7 +178,7 @@ public:
 
     // --- 0x00521BA0-0x00524411 (trick_queue.cpp, trick_member_functions.cpp) ---
     // 0x00523490: a new one (0 if out of memory): 0x1BC0 bytes, constructed.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x00522390: its type, its trick object list (+0x13B4), no trick
     // mappings, no components, reset (0x0051F320).
     MoveExecutor();
@@ -335,6 +335,6 @@ bool is_direction(uint32_t button);
 
 // 0x00523350 (the C function DoNextTrick): the trick component's DoNextTrick with ScriptToRunFirst, Params and a
 // copy of TrickParams. True.
-bool __cdecl cfunc_do_next_trick(script::Struct* params, script::Script* script);
+bool cfunc_do_next_trick(script::Struct* params, script::Script* script);
 
 } // namespace objects

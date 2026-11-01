@@ -67,7 +67,7 @@ maths::Vec4 get_behind(const maths::Vec4& position, float distance, const maths:
 } // namespace
 
 // 0x005248C0
-memory::owner<ObjectModule*> __cdecl CarView::fabricate() { return new CarView; }
+memory::owner<ObjectModule*> CarView::fabricate() { return new CarView; }
 
 // (the constructor: inlined in fabricate in the original)
 CarView::CarView()
@@ -79,7 +79,7 @@ CarView::CarView()
 }
 
 // 0x00524420
-void __cdecl CarView::publish_method_table()
+void CarView::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kVehicleCamera), g_vehicle_camera_member_functions,
                                            0x18);

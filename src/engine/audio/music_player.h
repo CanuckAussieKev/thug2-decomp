@@ -24,7 +24,7 @@ static_assert(sizeof(Playlist) == 0xCB0, "layout must match the original");
 // played doesn't come first). Then runs a script (0x300CAD34) with the track's index. Originally from PartyMod Fixes: the shuffle
 // draws from the C runtime's rand (seeded at start-up from the time), so the order differs from launch to
 // launch.
-void __cdecl play_next_track();
+void play_next_track();
 
 // PartyMod's shuffle draw (its our_random): one of the game's random numbers in [0, n), thrown away, then
 // rand() % n.
@@ -33,13 +33,13 @@ int shuffle_random(int n);
 // 0x00452680 (reached by a jump from 0x00452910, when tracks play in order): like play_next_track, but the next
 // track is the first of the playlist's tracks that's on and not played yet; when all are played the round
 // starts again (nothing plays this time). No script's choice for playlist 1.
-void __cdecl play_next_track_in_order();
+void play_next_track_in_order();
 
 // 0x00452910: the music's per-frame update - the stream system's (0x00453940; a stream that ended: 0x00453BD0,
 // and the music paused when it reports a failure), the streams that finished let go of, and every 64 frames,
 // unless paused, the next track (play_next_track, or play_next_track_in_order when tracks don't play in random order
 // and it isn't the user's playlist) - if the music is audible or it's playlist 1.
-void __cdecl tick_frame();
+void tick_frame();
 
 struct StreamAmpCurve;
 
@@ -77,43 +77,43 @@ extern int g_user_order[600];
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
 // 0x00450220: whether no stream with this id is playing.
-bool __cdecl stream_id_finished(uint32_t id);
+bool stream_id_finished(uint32_t id);
 // 0x00450260: the stream playing with this id, else the one playing this name; -1 if none.
-int __cdecl find_playing_stream(uint32_t id_or_name);
+int find_playing_stream(uint32_t id_or_name);
 // 0x004502D0: the first id from `id` up that no playing stream has.
-uint32_t __cdecl free_stream_id(uint32_t id);
+uint32_t free_stream_id(uint32_t id);
 
 // User soundtracks (the PC's own music folders, platform code at 0x004542D0 and on).
 // 0x00450310: shuffle the order the current user soundtrack's tracks play in (at most 600; 2000 random swaps;
 // the track last first before isn't first again).
-void __cdecl shuffle_user_soundtrack();
+void shuffle_user_soundtrack();
 // 0x004503D0: play user soundtrack `soundtrack` (from the top of its shuffled order when shuffling is on).
-void __cdecl use_user_soundtrack(int soundtrack);
+void use_user_soundtrack(int soundtrack);
 // 0x00450410: back to the game's own music.
-void __cdecl use_standard_soundtrack();
+void use_standard_soundtrack();
 // 0x00450420: a jump to 0x004531A0 (the platform's music stop; not rewritten yet).
-void __cdecl stop_user_soundtrack();
+void stop_user_soundtrack();
 // 0x004B2350: a jump to 0x004542D0 - the number of user soundtracks (found on first use; not rewritten yet).
-int __cdecl get_num_soundtracks();
+int get_num_soundtracks();
 // 0x004B2360: user soundtrack `index`'s name (wide) as text in a static buffer (0x00701590): at most 99
 // characters, each through wsprintf's "%ls"; ones that don't convert, and the bytes 0xA1-0xAC, become '~'.
 // "~" for no such soundtrack.
-const char* __cdecl get_soundtrack_name(int index);
+const char* get_soundtrack_name(int index);
 
 // 0x00450430: whether the music is paused.
-bool __cdecl music_is_paused();
+bool music_is_paused();
 // 0x00450440 / 0x00450450: the music and sound effects volumes (0-100; 50 and 100 at start).
-float __cdecl get_music_volume();
-float __cdecl get_sfx_volume();
+float get_music_volume();
+float get_sfx_volume();
 // 0x00450460: 1 if tracks play in random order (on at start), else 0.
-int __cdecl random_track_order();
+int random_track_order();
 // 0x00450470: loop the current track (play_next_track plays it again).
-void __cdecl set_music_looping(bool loop);
+void set_music_looping(bool loop);
 // 0x00450480 / 0x004504B0: playlist 0's masks of tracks switched off (0-63, 64-127).
-void __cdecl get_tracks_off(uint64_t* low, uint64_t* high);
-void __cdecl set_tracks_off(uint64_t low, uint64_t high);
+void get_tracks_off(uint64_t* low, uint64_t* high);
+void set_tracks_off(uint64_t low, uint64_t high);
 // 0x004504E0: the volume of the user soundtrack, when it's the one playing (0x00453400, not rewritten yet).
-void __cdecl set_user_soundtrack_volume(float volume);
+void set_user_soundtrack_volume(float volume);
 
 // The playlists and the music track (the script commands of the same names call these). Each does nothing
 // (returns 0 / false) while the music is off: no sound, the null sound platform (0x007CEFA8 == 2), or the music
@@ -121,44 +121,44 @@ void __cdecl set_user_soundtrack_volume(float volume);
 
 // 0x00450F70: pause (1) or unpause (0) the music; -1 unpauses only if it wasn't paused when last paused with 1
 // (pausing notes whether it was). Scripts::fetch_int_value(0xD7BB618D) is read and ignored (a compiled-out debug print).
-void __cdecl pause_music(int pause);
+void pause_music(int pause);
 // 0x004510B0: the music volume (0-100; others ignored). Applied to the track playing if it's the music's
 // (stream type 0) - for playlists other than 0 only when the script integer 0x450BAE2D is set.
-void __cdecl set_music_volume(float volume);
+void set_music_volume(float volume);
 // 0x00451130: the volume of streams played on the music's channel (PlayMusicStream: stream type 1) - 0-100;
 // applied if one is playing. (The value get_sfx_volume reads.)
-void __cdecl set_music_stream_volume(float volume);
+void set_music_stream_volume(float volume);
 // 0x004511A0: add a track (the stream's file name, upper-cased; at most 80) to playlist `list`; for playlist 0 also
 // its title (at most 99 characters; "No title provided" for none) - kept in one table by the track's index.
-void __cdecl queue_track(const char* name, int list, const char* title);
+void queue_track(const char* name, int list, const char* title);
 // 0x004512D0: empty playlist `list` (its masks cleared; marked as having no track to play).
-void __cdecl empty_queue(int list);
+void empty_queue(int list);
 // 0x00451350: skip to the next track (stops the one playing; playlist 0 only).
-void __cdecl skip_music_track();
+void skip_music_track();
 // 0x00451380: tracks in random order (non-zero) or in order; a positive mode also shuffles the user soundtrack
 // and starts it from the top. The current playlist's round starts again.
-void __cdecl set_random_mode(int mode);
+void set_random_mode(int mode);
 // 0x00451400: the volume of the track starting: the music volume for a user soundtrack, the sound effects volume
 // for playlist 1 unless the script integer 0x450BAE2D is set, else unchanged.
-void __cdecl apply_track_volume();
+void apply_track_volume();
 // 0x00451450: whether track `track` of playlist `list` is the one playing (same name).
-bool __cdecl is_track_playing(int list, int track);
+bool is_track_playing(int list, int track);
 // 0x004514C0: the number of tracks in playlist `list`.
-int __cdecl track_total(int list);
+int track_total(int list);
 // 0x00451500: track `track` of playlist `list`'s file name after its last \ or /. With the music off: "Empty."
 // (written over playlist 0's first track).
-const char* __cdecl track_label_at(int track, int list);
+const char* track_label_at(int track, int list);
 // 0x004515A0: play from playlist `list` (the track playing stops if it changes).
-void __cdecl set_music_mode(int list);
+void set_music_mode(int list);
 // 0x004515E0: load the music's header (PC: nothing to load) - the music is on while it succeeds.
-bool __cdecl load_music_header(const char* name);
+bool load_music_header(const char* name);
 // 0x00451C70: switch track `track` of playlist `list` off (stopping it if it's playing) or on; the shuffle starts
 // again. Marks the playlist as having no track to play only when it's empty (the original's check, see source).
-void __cdecl change_track_state(int track, bool off, int list);
+void change_track_state(int track, bool off, int list);
 // 0x004520D0: play the music track `name` (copied to 0x0069806C; looping or not) at the music volume (the sound
 // effects volume for playlists other than 0 unless the script integer 0x450BAE2D is set). A track that doesn't
 // start is switched off in the current playlist (unless the debug checks are on). Not while a music stream plays.
-void __cdecl play_track(const char* name, bool loop);
+void play_track(const char* name, bool loop);
 
 extern bool g_music_header_loaded;
 extern bool g_streams_on;

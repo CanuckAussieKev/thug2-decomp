@@ -23,7 +23,7 @@ class AsyncFileHandle;
 
 // Called (on the main thread) when an operation completes, if its event is in the handle's callback mask:
 // `event` is the operation (1 open, 3 read, 6 close, ...), `value` its result.
-using IoCompletionHook = void(__cdecl*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
+using IoCompletionHook = void (*)(AsyncFileHandle* file, int event, int value, void* arg0, void* arg1);
 
 // Operations, also the events passed to callbacks.
 enum AsyncOperation : int { kAsyncIdle = 0, kAsyncOpen = 1, kOpReadFile = 3, kAsyncClose = 6, kAsyncCancel = 7 };

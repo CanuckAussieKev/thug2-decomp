@@ -72,7 +72,7 @@ void* next_stream_buffer() { return new_overlapped(); }
 } // namespace
 
 // 0x00452A90
-int __cdecl load_stream_file(uint32_t key, const char* path, long offset, size_t size)
+int load_stream_file(uint32_t key, const char* path, long offset, size_t size)
 {
     if (!stream_files_ready()) {
         for (int i = 0; i < kStreamFiles; ++i)

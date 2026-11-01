@@ -130,7 +130,7 @@ void enable_diffuse(void* lights, int index, bool on)
 }
 void set_light_direction(void* lights, int index, const maths::Vec4* direction)
 {
-    model_nx::set_lights_direction(lights, nullptr, index, direction);
+    model_nx::set_lights_direction(lights, index, direction);
 }
 
 } // namespace
@@ -509,7 +509,7 @@ int MeshInstanceModule::invoke_method_by_name(uint32_t name, script::Struct* par
 }
 
 // (no address: the tail jump folded at 0x004E3F90 - model_component_nx.h)
-void __fastcall model_nx::set_lights_direction(void* lights, void*, int index, const maths::Vec4* direction)
+void model_nx::set_lights_direction(void* lights, int index, const maths::Vec4* direction)
 {
     static_cast<render::ModelLights*>(lights)->put_light_aim(index, direction); // (the original's slot 2)
 }

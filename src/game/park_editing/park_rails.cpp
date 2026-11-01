@@ -82,7 +82,7 @@ int ParkRailString::count_segments() const
 }
 
 // 0x0058B220
-void __cdecl ParkRailString::dealloc(void* item) { string_pools().dealloc(item); }
+void ParkRailString::dealloc(void* item) { string_pools().dealloc(item); }
 
 // 0x0058B420
 void ParkRailString::copy_from(const ParkRailString* source, const maths::Vec4* offset, int rot, uint32_t cluster,

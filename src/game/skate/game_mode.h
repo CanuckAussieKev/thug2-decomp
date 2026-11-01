@@ -129,7 +129,7 @@ public:
 };
 
 // 0x00553C90: OverrideGameModeOptions - the game mode's options overridden by the command's parameters.
-bool __cdecl cfunc_override_game_mode_options(script::Struct* params, script::Script* script);
+bool cfunc_override_game_mode_options(script::Struct* params, script::Script* script);
 
 extern goals::MatchRules* g_game_mode;
 

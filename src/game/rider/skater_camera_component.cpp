@@ -310,7 +310,7 @@ void RiderChaseView::next_mode()
 }
 
 // 0x004FA800
-memory::owner<ObjectModule*> __cdecl RiderChaseView::fabricate() { return new RiderChaseView; }
+memory::owner<ObjectModule*> RiderChaseView::fabricate() { return new RiderChaseView; }
 
 // --- the cleanup state ---
 
@@ -332,7 +332,7 @@ void RiderStateReset::tick_frame()
 }
 
 // 0x004FBE20
-memory::owner<ObjectModule*> __cdecl RiderStateReset::fabricate() { return new RiderStateReset; }
+memory::owner<ObjectModule*> RiderStateReset::fabricate() { return new RiderStateReset; }
 
 // (the constructor: inlined in fabricate in the original)
 RiderStateReset::RiderStateReset() { kind_tag_ = kCleanupState; }

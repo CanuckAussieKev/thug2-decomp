@@ -62,7 +62,7 @@ constexpr int kFontSlots = 16;
 void load_font(const char* name, int glyph_gap, int blank_gap, uint32_t* colors, bool button_font);
 
 // LoadFont <name> [buttons_font] [char_spacing = n] [space_spacing = n] [color_tab = [[r g b a] ...]]
-bool __cdecl cfunc_load_font(script::Struct* params, script::Script* script);
+bool cfunc_load_font(script::Struct* params, script::Script* script);
 
 // The name of the button-glyph font and of the meta button map script array, as PartyMod's GlyphStyle
 // setting picks them (1 PS2, 2 GameCube, otherwise the original Xbox ones).
@@ -70,13 +70,13 @@ const char* button_font_name();
 const char* meta_button_map_name();
 
 // 0x0048D760: the loaded font named by this checksum, or null.
-Typeface* __cdecl get_font(uint32_t name);
+Typeface* get_font(uint32_t name);
 // 0x0048D6C0: the font `name` unloaded (0x004B4090) and taken out of the table (its slot's name kept).
-void __cdecl unload_font(const char* name);
+void unload_font(const char* name);
 // UnloadFont <name> (0x0048D7B0).
-bool __cdecl cfunc_unload_font(script::Struct* params, script::Script* script);
+bool cfunc_unload_font(script::Struct* params, script::Script* script);
 // 0x0048D6A0: the button glyph's character for the meta button a hex digit names (through the meta button map).
-char __cdecl button_glyph(const char* digit);
+char button_glyph(const char* digit);
 
 extern char g_glyph_alias_table[32];
 

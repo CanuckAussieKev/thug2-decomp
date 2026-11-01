@@ -12,14 +12,14 @@ struct MeshRef;
 
 // 0x004D08A0: an animated grass material: two passes (the textures 0x00782350 / 0x00782370, the second bump
 // mapped), sorted late (1501), its first pass's texture cycling through 17 frames (0x00782390) at 30 a second.
-void __cdecl set_up_animated_grass_material(MaterialRef* material);
+void set_up_animated_grass_material(MaterialRef* material);
 // 0x004D0B60: animated grass on the mesh: the sky's texture 0x96D0BF08 copied in as the second texture, a second
 // texture coordinate set made room for (the vertex buffer widened) and filled from the positions (x and z, at two
 // scales), the material set up, flags 0x402, the pixel shader 0x007CA924. False without the texture.
-bool __cdecl make_animated_grass(PcGeom* geom, MeshRef* mesh);
+bool make_animated_grass(PcGeom* geom, MeshRef* mesh);
 // 0x004D0D30: the mesh's grass: animated, or up to five layers - copies of it (on the bottom-up heap), each lifted a
 // further step, with its "Grass-Grass_Layer<n>" material (sorted after the ground) and texture coordinates from the
 // positions, added to the geom; the mesh then flagged 0x80. False without a material or layers.
-bool __cdecl make_grass(PcGeom* geom, MeshRef* mesh);
+bool make_grass(PcGeom* geom, MeshRef* mesh);
 
 } // namespace render

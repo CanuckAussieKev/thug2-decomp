@@ -89,23 +89,23 @@ static_assert(offsetof(TextureSet, textures_) == 0xC && sizeof(TextureSet) == 0x
 
 // The loaded dictionaries (the hash table 0x00700F04), by checksum.
 // 0x0049F010: the dictionary `checksum`, or null.
-TextureSet* __cdecl find_tex_dict(uint32_t checksum);
+TextureSet* find_tex_dict(uint32_t checksum);
 // 0x0049F0C0: a dictionary loaded from "<path>.<platform extension>" (0x004C7270 with the other arguments) - or the one
 // loaded already, counted once more - under the CRC of the path plus `offset`.
-TextureSet* __cdecl load_tex_dict(const char* path, int level, uint32_t offset, uint32_t a3, uint32_t a4);
+TextureSet* load_tex_dict(const char* path, int level, uint32_t offset, uint32_t a3, uint32_t a4);
 // 0x0049F050: one loaded from memory (0x004C72E0) under `checksum + offset` - or the one loaded already (not counted
 // again).
-TextureSet* __cdecl load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t size, uint32_t a3,
-                                              uint32_t offset, uint32_t a5, uint32_t a6);
+TextureSet* load_tex_dict_from_memory(uint32_t checksum, const uint8_t* data, uint32_t size, uint32_t a3,
+                                      uint32_t offset, uint32_t a5, uint32_t a6);
 // 0x0049F180: a model's textures - "<base>.tex" of its name (0x0048BFE0 splits it: whether it's a skin) loaded as
 // load_tex_dict's (level 0; the skin flag as the third argument).
-TextureSet* __cdecl load_model_textures(const char* name, uint32_t offset, uint32_t a4);
+TextureSet* load_model_textures(const char* name, uint32_t offset, uint32_t a4);
 // 0x0049EFD0: a dictionary used once less - taken out and deleted (0x004B6920) at none. Whether it was.
-bool __cdecl unload_tex_dict(TextureSet* dict);
+bool unload_tex_dict(TextureSet* dict);
 // 0x0049EF90: "<name>.<platform extension>" into `out`.
-void __cdecl tex_dict_file_name(char* out, const char* name);
+void tex_dict_file_name(char* out, const char* name);
 // 0x0049EFB0: the particle texture dictionary's (0x00700F20) textures flushed (drop_textures).
-void __cdecl drop_particle_textures(bool all);
+void drop_particle_textures(bool all);
 
 extern TextureSet* g_game_texture_dict;
 extern TextureSet* g_particle_texture_dict;

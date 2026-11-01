@@ -96,6 +96,6 @@ static_assert(offsetof(PcPrimitive, vertices_) == 0x24 && offsetof(PcPrimitive, 
 
 // 0x004C5E40 (the engine's primitive state 0x0049C700 jumps here for state 1): the depth test - 1 never, 2 always,
 // 3 less or equal, 4 less; anything else less or equal.
-void __cdecl set_primitive_depth_test(int state, int value);
+void set_primitive_depth_test(int state, int value);
 
 } // namespace render

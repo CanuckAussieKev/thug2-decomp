@@ -137,7 +137,7 @@ const int kEndVertices[10] = {6, 11, 7, 8, 15, 18, 4, 12, 5, 17};
 } // namespace
 
 // 0x004F3E00 (cdecl)
-uint8_t* __cdecl clone_rail_sector(uint32_t source) { return duplicate_scene_sector(source); }
+uint8_t* clone_rail_sector(uint32_t source) { return duplicate_scene_sector(source); }
 
 // 0x004F3D80
 Vec4* transform_rail_point(Vec4* out, const Vec4* point, const Vec4* origin, const Vec4* position, float angle)
@@ -488,7 +488,7 @@ void EditedRailPoint::draw_post(const Vec4* origin, const Vec4* position, float 
 }
 
 // 0x004F5D10
-float __fastcall EditedRailPoint::ground_height(const Vec4* position)
+float EditedRailPoint::ground_height(const Vec4* position)
 {
     render::ProbeRay feeler;
     Vec4 start = {position->x, static_cast<float>(static_cast<double>(position->y) + kGroundProbe), position->z,

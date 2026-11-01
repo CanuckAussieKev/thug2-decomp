@@ -62,10 +62,10 @@ public:
     static constexpr uint32_t kType = 0x6EFDDFB8;
 
     // 0x004F0B10 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004ECFB0 (registered with Create; not a Ghidra function): the member function table 0x00683730 (24-byte
     // records) made script symbols.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x004ECFD0 (vtable slot 12): 1 (done, nothing else) for the member function 0x315D9ED4, 2 (not ours) for any other.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
     // 0x004EE4F0: its type; no avoidance or bias, the position history at the

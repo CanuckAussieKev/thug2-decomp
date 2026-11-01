@@ -43,7 +43,7 @@ struct TrickNameEntry;
 class RiderGapTracker final : public ObjectModule {
 public:
     // 0x00512C60 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x005122A0: its type, two empty lists, no core physics or balance trick yet.
     RiderGapTracker();
     // 0x00511F10: the two lists' heads unlinked (their entries aren't freed: clear_gaps), then the base's.
@@ -106,9 +106,9 @@ public:
 
 // The current level's gap checklist (modules::Skate 0x005656C0) - called from the trick component:
 // 0x00511C10: the pending landings dropped (clear_pending).
-void __cdecl discard_queued_gaps();
+void discard_queued_gaps();
 // 0x00511C30: the pending landings counted (pay_out_queued_gaps); once every level's gaps are got (the career's
 // all_gaps_got), ProcessAllGapsReward is spawned.
-void __cdecl pay_out_queued_gaps();
+void pay_out_queued_gaps();
 
 } // namespace objects

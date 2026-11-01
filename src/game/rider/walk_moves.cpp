@@ -205,7 +205,7 @@ void set_camera_override(void* camera, const maths::Vec4* facing, float rate)
 } // namespace
 
 // 0x0052A5C0
-memory::owner<ObjectModule*> __cdecl FootMovement::fabricate() { return new FootMovement; }
+memory::owner<ObjectModule*> FootMovement::fabricate() { return new FootMovement; }
 
 // 0x0052A190
 FootMovement::FootMovement()

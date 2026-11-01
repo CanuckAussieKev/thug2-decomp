@@ -11,7 +11,7 @@ class HitMesh;
 struct CollisionHit;
 
 // Called (cdecl) with the record each time a line test accepts a hit.
-using CollisionHitCallback = void(__cdecl*)(CollisionHit* hit);
+using CollisionHitCallback = void (*)(CollisionHit* hit);
 
 // What a line test fills in (0x50 bytes; the caller sets the flags, the distance to beat and the callback): the
 // nearest hit so far. (Our name: the original's isn't known.)

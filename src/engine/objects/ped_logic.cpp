@@ -118,7 +118,6 @@ script::Struct* new_params()
     return memory ? new (memory) script::Struct : nullptr;
 }
 
-
 } // namespace
 
 // 0x004EDC10
@@ -130,10 +129,10 @@ GroundTriangle& GroundTriangle::get_assign(const GroundTriangle& source)
 }
 
 // 0x004F0B10
-memory::owner<ObjectModule*> __cdecl PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
+memory::owner<ObjectModule*> PedestrianBrainModule::fabricate() { return new PedestrianBrainModule; }
 
 // 0x004ECFB0
-void __cdecl PedestrianBrainModule::publish_method_table()
+void PedestrianBrainModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_ped_logic_member_functions, 0x18);
 }

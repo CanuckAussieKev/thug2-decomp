@@ -65,7 +65,7 @@ int get_sprintf(char* out, const char* format, Args... args)
 }
 
 // --- The game's C runtime's behaviour, as ours ---
-using Weigh = int(__cdecl*)(const void*, const void*);
+using Weigh = int (*)(const void*, const void*);
 // Its qsort: the same comparisons in the same order, so equal elements end up where the game's leave them.
 void game_qsort(void* base, size_t count, size_t width, Weigh compare);
 // Its _stricmp in the C locale: ASCII letters folded to lower case, -1 / 0 / 1.

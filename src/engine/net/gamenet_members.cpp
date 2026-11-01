@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include "engine/core/code_address.h"
+#include "engine/gfx/engine_texture.h"
 #include "platform/compiler.h"
 #include <cstdio>
 
@@ -128,15 +129,22 @@ bool in_split_screen_game() { return commands::cfunc_in_split_screen_game(nullpt
 bool profile_has_part(void* profile, uint32_t part) { return objects::part_is_created_graphic(profile, part); }
 
 // The custom tag texture's parts (render::BitmapTexture's virtual slots 25-28).
-void* texture_pixels(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[25](texture); }
+// (On the PC all four are the shared stubs: null / 0.)
+void* texture_pixels(void* texture)
+{
+    return const_cast<void*>(static_cast<render::BitmapTexture*>(texture)->get_pixels());
+}
 uint16_t get_texture_size(void* texture)
 {
-    return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[26](texture));
+    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_pixels_size());
 }
-void* texture_palette(void* texture) { return (*reinterpret_cast<void*(__thiscall***)(void*)>(texture))[27](texture); }
+void* texture_palette(void* texture)
+{
+    return const_cast<void*>(static_cast<render::BitmapTexture*>(texture)->get_palette());
+}
 uint16_t texture_palette_size(void* texture)
 {
-    return static_cast<uint16_t>((*reinterpret_cast<int(__thiscall***)(void*)>(texture))[28](texture));
+    return static_cast<uint16_t>(static_cast<render::BitmapTexture*>(texture)->get_palette_size());
 }
 
 // A network preference set from `values` (the original's new CStruct, never freed).
@@ -418,7 +426,7 @@ void Hub::set_preset_option_bits(char flags) { script_flag_bits_ = static_cast<u
 
 // (no address: the list code folded at 0x00588B70 - see the header; the first node's data read before the null check,
 // as there)
-void __fastcall Hub::unlink_all_nodes(memory::ListNode* head)
+void Hub::unlink_all_nodes(memory::ListNode* head)
 {
     memory::ListNode* node = head->next;
     if (node->data == reinterpret_cast<void*>(-1) || !node)

@@ -32,7 +32,7 @@ bool get_mem_card_directory_listing(script::Struct* params, script::Script* scri
 // was; SaveFailedDueToInsufficientSpace's flag set from the card.
 bool save_to_memory_card(script::Struct* params, script::Script* script);
 // 0x005A7420: the summary writer's callback on the PC: the music and sounds updated.
-void __cdecl keep_sound_going();
+void keep_sound_going();
 // 0x005A8BB0: the kept loaded contents (and their type) dropped. True.
 bool clear_mem_card_data_for_upload(script::Struct* params, script::Script* script);
 // 0x005A8DA0: unless they exist, the second (reserve) pools of components (50000), structures (50000) and

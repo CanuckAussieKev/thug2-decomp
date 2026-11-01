@@ -18,7 +18,7 @@
 // callbacks __cdecl).
 namespace objects {
 
-using ObjectCallback = void(__cdecl*)(Entity* object, void* data);
+using ObjectCallback = void (*)(Entity* object, void* data);
 
 // The base of the object managers (vtable 0x00647818): a list of objects sorted by their node's priority, registered
 // with the tracker as they come and go. Abstract: remove_entity is the subclass's.
@@ -75,12 +75,12 @@ public:
     // 0x00461AB0: delete the objects of the dead list (front first; each node unlinked first).
     void flush_dead_objects();
 
-    memory::ListNode dead_objects_;    // +0x28
+    memory::ListNode dead_objects_;                    // +0x28
     std::unique_ptr<tasks::Task<MiscHub>> flush_task_; // +0x3C running flush_dead_objects_task
 };
 
 // 0x00461BB0: the task's code: FlushDeadObjects on its data (the manager).
-void __cdecl flush_dead_objects_task(tasks::Task<MiscHub>* task);
+void flush_dead_objects_task(tasks::Task<MiscHub>* task);
 
 // A walk over the objects of one type in a manager's list. (The original's has a vtable, 0x00645DFC, and its base
 // lists::Hunt<Entity> another, 0x00645DF8, holding only destructors that reset them - 0x0041AA90 / 0x0041AAA0,

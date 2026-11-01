@@ -17,7 +17,7 @@ public:
         void* value;
         Item* next;
     };
-    using HookFn = void(__cdecl*)(void* value, void* data);
+    using HookFn = void (*)(void* value, void* data);
 
     explicit KeyMap(int bits);
     // A table as the exe's static storage starts: all zero (no buckets). The exe's static initialiser then makes it

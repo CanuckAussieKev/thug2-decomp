@@ -2344,7 +2344,7 @@ paint::Extras restyle_extras()
 // the skate shop's Play Level opening our level select (free skate, with the levels' data); OPTIONS (ours); LEVEL
 // EDITOR (Create-a-modes: [features] level_editor and its scripts). False while the new front end is off, and in
 // network games: the menus as they were.
-bool __cdecl cfunc_item(script::Struct* params, script::Script*)
+bool cfunc_item(script::Struct* params, script::Script*)
 {
     if (!is_switched_on() || game_screens::net_session())
         return false;
@@ -2370,7 +2370,7 @@ bool __cdecl cfunc_item(script::Struct* params, script::Script*)
 // NewFrontend_Open screen=levels | editlevels | options [back=<script>]: our screen (the menu's item chose it: its own
 // sound played) - shown the next frame over whatever is up; closed with Back to the restyled menu it came from, or
 // `back` spawned (its menu went: the skate shop's).
-bool __cdecl cfunc_show_new_frontend(script::Struct* params, script::Script*)
+bool cfunc_show_new_frontend(script::Struct* params, script::Script*)
 {
     uint32_t screen = 0, back = 0;
     if (!is_switched_on() || !params || !params->read_hash_value(name_hash("screen"), &screen, 0))

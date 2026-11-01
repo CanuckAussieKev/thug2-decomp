@@ -105,7 +105,10 @@ void add_scene_collision(void* scene, const char* add) { static_cast<render::Wor
 
 // Models (Nx): one made (0x0048BFA0, a jump to 0x004B29C0), its model file loaded (0x004935E0, thiscall), destroyed
 // again (0x0048C3C0).
-memory::owner<render::RenderModel*> spawn_model(int) { return render::spawn_model(); } // (0x0048BFA0, a jump to 0x004B29C0)
+memory::owner<render::RenderModel*> spawn_model(int)
+{
+    return render::spawn_model();
+} // (0x0048BFA0, a jump to 0x004B29C0)
 void load_model_file(render::RenderModel* model, const char* file, bool allow_replace_tex)
 {
     model->add_file_geom(file, 0, true, 0, allow_replace_tex, false, true, false);
@@ -115,7 +118,7 @@ void destroy_model(render::RenderModel* model) { delete model; }
 } // namespace
 
 // 0x00445000
-bool __cdecl cfunc_load_terrain_sounds(Struct* params, Script*)
+bool cfunc_load_terrain_sounds(Struct* params, Script*)
 {
     uint32_t terrain;
     if (!params->read_hash_value(kTerrain, &terrain, 0))
@@ -125,7 +128,7 @@ bool __cdecl cfunc_load_terrain_sounds(Struct* params, Script*)
 }
 
 // 0x00445030
-bool __cdecl cfunc_preload_model(Struct* params, Script*)
+bool cfunc_preload_model(Struct* params, Script*)
 {
     const char* name;
     params->fetch_text(kName, &name, true);
@@ -145,14 +148,14 @@ bool __cdecl cfunc_preload_model(Struct* params, Script*)
 }
 
 // 0x00445120
-bool __cdecl cfunc_unload_all_level_geometry(Struct*, Script*)
+bool cfunc_unload_all_level_geometry(Struct*, Script*)
 {
     unload_all_scenes();
     return true;
 }
 
 // 0x00445320 (the scene isn't checked: a name that isn't loaded crashes, as in the original)
-bool __cdecl cfunc_load_collision(Struct* params, Script*)
+bool cfunc_load_collision(Struct* params, Script*)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, false);
@@ -164,7 +167,7 @@ bool __cdecl cfunc_load_collision(Struct* params, Script*)
 }
 
 // 0x00445380
-bool __cdecl cfunc_add_collision(Struct* params, Script*)
+bool cfunc_add_collision(Struct* params, Script*)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
@@ -176,7 +179,7 @@ bool __cdecl cfunc_add_collision(Struct* params, Script*)
 }
 
 // 0x004453F0
-bool __cdecl cfunc_quick_reload(Struct* params, Script*)
+bool cfunc_quick_reload(Struct* params, Script*)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, false);
@@ -186,7 +189,7 @@ bool __cdecl cfunc_quick_reload(Struct* params, Script*)
 }
 
 // 0x00445430
-bool __cdecl cfunc_unload_anim(Struct* params, Script*)
+bool cfunc_unload_anim(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name = nullptr;
@@ -203,7 +206,7 @@ bool __cdecl cfunc_unload_anim(Struct* params, Script*)
 }
 
 // 0x004454E0 (the script's params are passed on as the load's extra value)
-bool __cdecl cfunc_load_asset(Struct* params, Script*)
+bool cfunc_load_asset(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t parent = 0;
@@ -221,7 +224,7 @@ bool __cdecl cfunc_load_asset(Struct* params, Script*)
 }
 
 // 0x004455A0
-bool __cdecl cfunc_load_anim(Struct* params, Script*)
+bool cfunc_load_anim(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name;
@@ -234,7 +237,7 @@ bool __cdecl cfunc_load_anim(Struct* params, Script*)
 }
 
 // 0x00445640
-bool __cdecl cfunc_load_skeleton(Struct* params, Script*)
+bool cfunc_load_skeleton(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     const char* name;
@@ -246,7 +249,7 @@ bool __cdecl cfunc_load_skeleton(Struct* params, Script*)
 }
 
 // 0x004456A0
-bool __cdecl cfunc_set_reference_checksum(Struct* params, Script*)
+bool cfunc_set_reference_checksum(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     uint32_t checksum = 0; // (uninitialised in the original when neither is given; the getter asserts)
@@ -257,7 +260,7 @@ bool __cdecl cfunc_set_reference_checksum(Struct* params, Script*)
 }
 
 // 0x004456F0
-bool __cdecl cfunc_set_default_permanent(Struct* params, Script*)
+bool cfunc_set_default_permanent(Struct* params, Script*)
 {
     assets::ResourceRegistry* assets = assets::asset_manager();
     int permanent = 0; // (uninitialised in the original without one; the getter asserts)
@@ -267,7 +270,7 @@ bool __cdecl cfunc_set_default_permanent(Struct* params, Script*)
 }
 
 // 0x00445720
-bool __cdecl cfunc_add_scene(Struct* params, Script*)
+bool cfunc_add_scene(Struct* params, Script*)
 {
     const char* scene = nullptr;
     const char* add = nullptr;
@@ -283,7 +286,7 @@ bool __cdecl cfunc_add_scene(Struct* params, Script*)
 }
 
 // 0x004457B0
-bool __cdecl cfunc_unload_scene(Struct* params, Script*)
+bool cfunc_unload_scene(Struct* params, Script*)
 {
     const char* name = nullptr;
     params->fetch_text(kScene, &name, false);
@@ -305,7 +308,7 @@ bool __cdecl cfunc_unload_scene(Struct* params, Script*)
 }
 
 // 0x00445820 (Italian picks the German setting and Spanish the French one)
-bool __cdecl cfunc_set_config(Struct* params, Script*)
+bool cfunc_set_config(Struct* params, Script*)
 {
     uint32_t language = 0;
     params->read_hash_value(kLanguage, &language, 0);
@@ -348,7 +351,7 @@ bool __cdecl cfunc_set_config(Struct* params, Script*)
 }
 
 // 0x00445980
-bool __cdecl cfunc_print_config(Struct*, Script*)
+bool cfunc_print_config(Struct*, Script*)
 {
     debug::printf("\n");
     debug::printf("System Configuration:\n\n");
@@ -366,10 +369,10 @@ bool __cdecl cfunc_print_config(Struct*, Script*)
 }
 
 // 0x00445A30
-bool __cdecl cfunc_bootstrap(Struct*, Script*) { return config_bootstrap(); }
+bool cfunc_bootstrap(Struct*, Script*) { return config_bootstrap(); }
 
 // 0x00445A40
-bool __cdecl cfunc_init_sun(Struct* params, Script*)
+bool cfunc_init_sun(Struct* params, Script*)
 {
     float theta = 0.0f;
     float phi = 0.0f;
@@ -390,7 +393,7 @@ bool __cdecl cfunc_init_sun(Struct* params, Script*)
 }
 
 // 0x00445B30
-bool __cdecl cfunc_update_lens_flare(Struct* params, Script* script)
+bool cfunc_update_lens_flare(Struct* params, Script* script)
 {
     sun::update_flare(params, script);
     return true;

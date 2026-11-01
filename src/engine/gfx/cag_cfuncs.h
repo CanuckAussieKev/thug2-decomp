@@ -13,10 +13,10 @@ class Script;
 // `if` should be taken.
 namespace commands {
 
-bool __cdecl cfunc_generate_cag_texture(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_sync_cag_workspace(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script);
-bool __cdecl cfunc_resolve_head_bone_scale(script::Struct* params, script::Script* script);
+bool cfunc_generate_cag_texture(script::Struct* params, script::Script* script);
+bool cfunc_sync_cag_workspace(script::Struct* params, script::Script* script);
+bool cfunc_get_2d_pos_from_2d_vec(script::Struct* params, script::Script* script);
+bool cfunc_resolve_head_bone_scale(script::Struct* params, script::Script* script);
 
 extern float g_degree_to_radian_ratio; // pi / 180
 

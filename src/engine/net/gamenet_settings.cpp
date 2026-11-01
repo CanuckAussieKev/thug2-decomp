@@ -337,7 +337,7 @@ void Hub::disconnect_from_internet(uint32_t script)
 }
 
 // 0x00536C10
-void __cdecl Hub::cancel_connect_to_internet()
+void Hub::cancel_connect_to_internet()
 {
     Hub* manager = g_online_hub;
     net::Hub* net = net::Hub::sole();
@@ -392,7 +392,7 @@ void Hub::find_server_at(uint32_t ip)
 }
 
 // 0x00536640
-void __cdecl Hub::service_game_spy()
+void Hub::service_game_spy()
 {
     game_spy::cd_key_think();
     if (g_online_active && g_online_hub->in_net_game() && g_query_reporting)

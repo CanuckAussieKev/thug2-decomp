@@ -157,8 +157,8 @@ HierarchyNode::HierarchyNode()
 }
 
 // 0x004B3490
-void* __cdecl load_scene_from_memory(const uint8_t* data, size_t size, void* textures, bool with_super_sectors,
-                                     bool flag_8d, bool mesh_flag)
+void* load_scene_from_memory(const uint8_t* data, size_t size, void* textures, bool with_super_sectors, bool flag_8d,
+                             bool mesh_flag)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
     scene_format::MemoryStream in(data, size);
@@ -169,8 +169,8 @@ void* __cdecl load_scene_from_memory(const uint8_t* data, size_t size, void* tex
 }
 
 // 0x004B36D0
-void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d,
-                                   bool mesh_flag, int sector_flags)
+void* load_scene_from_file(const char* name, void* textures, bool with_super_sectors, bool flag_8d, bool mesh_flag,
+                           int sector_flags)
 {
     SceneRef* list = new_mesh_list(mesh_flag);
     file::Hdl file = file::unseal(name, "rb");
@@ -187,10 +187,10 @@ void* __cdecl load_scene_from_file(const char* name, void* textures, bool with_s
 }
 
 // 0x004B3990
-memory::owner<void*> __cdecl create_frame_source() { return new FrameSource; }
+memory::owner<void*> create_frame_source() { return new FrameSource; }
 
 // 0x004B3A20
-void* __cdecl load_mesh_file(const char* name, void* textures)
+void* load_mesh_file(const char* name, void* textures)
 {
     auto* scene = static_cast<uint8_t*>(load_scene_from_file(name, textures, false, false, false, 0));
     *reinterpret_cast<uint32_t*>(scene + 0x84) = checksums::hash_from_text(name);
@@ -204,8 +204,8 @@ void* __cdecl load_mesh_file(const char* name, void* textures)
 }
 
 // 0x004B3AD0
-void* __cdecl load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin,
-                                    size_t skin_size, void* textures)
+void* load_mesh_from_memory(uint32_t checksum, const uint8_t* data, size_t size, const void* skin, size_t skin_size,
+                            void* textures)
 {
     char name[16];
     std::snprintf(name, sizeof(name), "%d\n", static_cast<int>(checksum)); // (with a line feed, as the original)

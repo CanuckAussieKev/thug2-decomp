@@ -21,7 +21,7 @@ void* library_function(const char* dll, const char* name)
 
 namespace {
 
-unsigned __cdecl linked_time(unsigned* out)
+unsigned linked_time(unsigned* out)
 {
     unsigned now = static_cast<unsigned>(std::time(nullptr));
     if (out)

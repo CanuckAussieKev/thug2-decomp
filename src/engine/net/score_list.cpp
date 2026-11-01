@@ -139,7 +139,7 @@ int Hub::get_entrant_points(uint32_t id)
 }
 
 // 0x00544780
-void __cdecl score_broadcast_tick(tasks::Task<Hub>* task)
+void score_broadcast_tick(tasks::Task<Hub>* task)
 {
     void* elements = frontend::g_ui_element_hub; // (the screen element manager: unused by the lookup)
     (void)elements;

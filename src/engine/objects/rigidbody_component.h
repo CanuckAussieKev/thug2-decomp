@@ -64,7 +64,7 @@ public:
     static constexpr uint32_t kFlagNoPlayerCollision = 0x2;
 
     // 0x0042EF00 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x0042E3F0: its type, the capsule (+0x64) constructed, the defaults (see the
     // fields).
     BodyDynamicsModule();
@@ -126,7 +126,7 @@ public:
 
     // --- the rest of its script member functions (rigidbody_support.cpp) ---
     // 0x0042BB00 (cdecl): its member function table (0x00683F28) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x0042BB60 RigidBody_IgnoreSkater: the pushers aren't felt for the unnamed float's seconds (asserted; with
     // frames / frame, that many sixtieths).
     bool rigid_body_ignore_skater(script::Struct* params, script::Script* script);
@@ -263,12 +263,12 @@ public:
 
 // 0x0042E380: `object` (a skater) added to the objects rigid bodies feel (8 places, 0x00695150: the last free one
 // from the end; none free: nothing), its extra reach (0x006939B0) back to 0.
-void __cdecl add_rigid_body_pusher(GameEntity* object);
+void add_rigid_body_pusher(GameEntity* object);
 // 0x0042BD60 (cdecl; rider.cpp's 0x005802C0): `object`'s extra reach as a pusher (0x006939B0, one float for each
 // of the 8) - nothing if it isn't one.
-void __cdecl set_rigid_body_pusher_reach(GameEntity* object, float reach);
+void set_rigid_body_pusher_reach(GameEntity* object, float reach);
 // 0x0042BAC0 ToggleRigidBodyDebug: the rigid bodies' debug drawing stepped: off, the shapes, the details too, off.
-bool __cdecl cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* script);
+bool cfunc_toggle_rigid_body_debug(script::Struct* params, script::Script* script);
 
 extern maths::Vec4 g_rigid_body_world_contact_points[24];     // 0x00694E30
 extern maths::Vec4 g_rigid_body_world_sphere_centers[24];     // 0x00694FB0

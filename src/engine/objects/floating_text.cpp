@@ -26,7 +26,7 @@
 namespace frontend {
 
 // 0x0041E2A0
-UiTree* __cdecl fetch_ui_tree() { return UiTree::sole(); }
+UiTree* fetch_ui_tree() { return UiTree::sole(); }
 
 } // namespace frontend
 
@@ -78,7 +78,7 @@ void delete_params(script::Struct* params)
 } // namespace
 
 // 0x0041E3C0
-memory::owner<ObjectModule*> __cdecl FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
+memory::owner<ObjectModule*> FloatingTextComponent::fabricate() { return new FloatingTextComponent; }
 
 // (the constructor: inlined in fabricate in the original)
 FloatingTextComponent::FloatingTextComponent()

@@ -327,7 +327,7 @@ uint32_t get_checksums(const char* text) { return fields::hash_of_name(text); }
 double g_shot_until;
 double get_now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
 
-using Function = bool(__cdecl*)(script::Struct*, script::Script*);
+using Function = bool (*)(script::Struct*, script::Script*);
 
 // The offsets of the camera `name` (false: no such node).
 bool shot_offsets(uint32_t name, V3* target, V3* position)
@@ -361,7 +361,7 @@ bool shot_offsets(uint32_t name, V3* target, V3* position)
 
 } // namespace
 
-bool __cdecl cfunc_play_camera(script::Struct* params, script::Script* script)
+bool cfunc_play_camera(script::Struct* params, script::Script* script)
 {
     uint32_t name = 0;
     if (!params || !params->read_hash_value(get_checksums("camera"), &name, 0) || !name) {

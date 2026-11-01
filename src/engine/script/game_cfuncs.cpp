@@ -136,7 +136,7 @@ objects::PreviewEntity* viewer_target(modules::Viewer* viewer)
 } // namespace
 
 // 0x0059F610: SetViewerAnim <anim>: the viewer's object plays the animation (if there's a viewer and an object).
-bool __cdecl cfunc_set_viewer_anim(script::Struct* params, script::Script*)
+bool cfunc_set_viewer_anim(script::Struct* params, script::Script*)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         uint32_t anim = 0; // (unset in the original when missing - an asserted parameter)
@@ -149,7 +149,7 @@ bool __cdecl cfunc_set_viewer_anim(script::Struct* params, script::Script*)
 
 // 0x0059F650: SetViewerLODDist (x, y): the viewer's object's model component gets colour value `x` (an index,
 // truncated) set to `y`. False without the pair (with a viewer); true otherwise.
-bool __cdecl cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
+bool cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
 {
     modules::Viewer* viewer = modules::get_live_viewer();
     if (!viewer)
@@ -166,7 +166,7 @@ bool __cdecl cfunc_set_viewer_lod_dist(script::Struct* params, script::Script*)
 }
 
 // 0x0059F6C0: ReloadViewerAnim <anim> "<file>": the viewer's object reloads the animation from the file.
-bool __cdecl cfunc_reload_viewer_anim(script::Struct* params, script::Script*)
+bool cfunc_reload_viewer_anim(script::Struct* params, script::Script*)
 {
     modules::Viewer* viewer = modules::get_live_viewer();
     if (!viewer)
@@ -182,14 +182,14 @@ bool __cdecl cfunc_reload_viewer_anim(script::Struct* params, script::Script*)
 }
 
 // 0x0059F730: CheckForHoles (0x0048C8F0).
-bool __cdecl cfunc_check_for_holes(script::Struct*, script::Script*)
+bool cfunc_check_for_holes(script::Struct*, script::Script*)
 {
     render::print_coll_statics();
     return true;
 }
 
 // 0x0059F740: StopSecondControllerCheck: the check's task (if any) deleted.
-bool __cdecl cfunc_stop_second_controller_check(script::Struct*, script::Script*)
+bool cfunc_stop_second_controller_check(script::Struct*, script::Script*)
 {
     delete second_controller_check();
     second_controller_check() = nullptr;
@@ -197,27 +197,27 @@ bool __cdecl cfunc_stop_second_controller_check(script::Struct*, script::Script*
 }
 
 // 0x0059F760: QuitGame: the game ends (0x007D6A2C).
-bool __cdecl cfunc_quit_game(script::Struct*, script::Script*)
+bool cfunc_quit_game(script::Struct*, script::Script*)
 {
     render::g_quit_requested = true;
     return true;
 }
 
 // 0x0059F770: IsInternetGameHost.
-bool __cdecl cfunc_is_internet_game_host(script::Struct*, script::Script*) { return internet_game_host(); }
+bool cfunc_is_internet_game_host(script::Struct*, script::Script*) { return internet_game_host(); }
 
 // 0x0059F780: IsJoiningInternetGame (logged).
-bool __cdecl cfunc_is_joining_internet_game(script::Struct*, script::Script*)
+bool cfunc_is_joining_internet_game(script::Struct*, script::Script*)
 {
     debug::printf("ScriptIsJoiningInternetGame %d\n", joining_internet_game()); // "ScriptIsJoiningInternetGame %d\n"
     return joining_internet_game();
 }
 
 // 0x0059F7A0: TryingToJoinGame.
-bool __cdecl cfunc_trying_to_join_game(script::Struct*, script::Script*) { return trying_to_join(); }
+bool cfunc_trying_to_join_game(script::Struct*, script::Script*) { return trying_to_join(); }
 
 // 0x0059F7B0: TryJoinServerIPSuccess: whether joining by IP worked (forgotten once no join is being tried; logged).
-bool __cdecl cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
+bool cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
 {
     if (!trying_to_join())
         join_server_ip_succeeded() = false;
@@ -227,20 +227,20 @@ bool __cdecl cfunc_try_join_server_ip_success(script::Struct*, script::Script*)
 }
 
 // 0x0059F7E0 / 0x0059F7F0: GSEnableNet / GSDisableNet.
-bool __cdecl cfunc_gs_enable_net(script::Struct*, script::Script*)
+bool cfunc_gs_enable_net(script::Struct*, script::Script*)
 {
     online_mode_flag() = true;
     return true;
 }
 
-bool __cdecl cfunc_gs_disable_net(script::Struct*, script::Script*)
+bool cfunc_gs_disable_net(script::Struct*, script::Script*)
 {
     online_mode_flag() = false;
     return true;
 }
 
 // 0x0059F800: WaitForAsyncLoadToFinish: waits for every asynchronous file read.
-bool __cdecl cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script*)
+bool cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script*)
 {
     if (file::async_busy())
         file::async_wait_for_io(true);
@@ -248,7 +248,7 @@ bool __cdecl cfunc_wait_for_async_load_to_finish(script::Struct*, script::Script
 }
 
 // 0x0059F820
-void __cdecl second_pad_watch_tick(tasks::Task<void>*)
+void second_pad_watch_tick(tasks::Task<void>*)
 {
     sio::Hub* devices = sio::manager_instance();
     sio::InputPort* first = devices->get_pad_at_slot(0);
@@ -260,7 +260,7 @@ void __cdecl second_pad_watch_tick(tasks::Task<void>*)
 }
 
 // 0x0059F890
-bool __cdecl make_camera_active(uint32_t id, int viewport, bool take_current_view)
+bool make_camera_active(uint32_t id, int viewport, bool take_current_view)
 {
     auto* object = static_cast<objects::GameEntity*>(object_edit()->look_up_entity(id));
     if (!object)
@@ -271,7 +271,7 @@ bool __cdecl make_camera_active(uint32_t id, int viewport, bool take_current_vie
     if (take_current_view) {
         object->basis_frame_ = *viewport_camera(viewport)->fetch_mat();
         object->at_point_ = *viewport_camera(viewport)->fetch_location();
-        (*reinterpret_cast<void(__thiscall***)(void*)>(camera))[1](camera); // (vtable slot 1)
+        camera->tick_frame(); // (vtable slot 1)
     }
     set_viewport_camera(viewport, reinterpret_cast<void**>(camera)[0x18 / 4]); // the component's camera (+0x18)
     return true;
@@ -279,7 +279,7 @@ bool __cdecl make_camera_active(uint32_t id, int viewport, bool take_current_vie
 
 // 0x0059F930: GetCustomSkaterFilename: the first profile's custom skater file name ("Unimplemented" if none) as
 // the script's 0xF36C1878.
-bool __cdecl cfunc_get_custom_skater_filename(script::Struct*, script::Script* script)
+bool cfunc_get_custom_skater_filename(script::Struct*, script::Script* script)
 {
     objects::RiderIdentity* profile = fetch_account(0);
     script->args_->append_word(kCustomSkaterFile, profile->get_string_f_36c_1878());
@@ -287,7 +287,7 @@ bool __cdecl cfunc_get_custom_skater_filename(script::Struct*, script::Script* s
 }
 
 // 0x0059F960: SetCustomSkaterFilename ["<name>" ("Unimplemented")]: the first profile's custom skater file name.
-bool __cdecl cfunc_set_custom_skater_filename(script::Struct* params, script::Script*)
+bool cfunc_set_custom_skater_filename(script::Struct* params, script::Script*)
 {
     objects::RiderIdentity* profile = fetch_account(0);
     const char* name = "Unimplemented"; // "Unimplemented"
@@ -298,7 +298,7 @@ bool __cdecl cfunc_set_custom_skater_filename(script::Struct* params, script::Sc
 
 // 0x0059F9A0: ControllerPressed <button> [controller]: whether the button is held on that controller (the front
 // end's handler) - without a number, on either. False without a button.
-bool __cdecl cfunc_controller_pressed(script::Struct* params, script::Script*)
+bool cfunc_controller_pressed(script::Struct* params, script::Script*)
 {
     modules::FrontEnd* front_end = modules::front_end_instance();
     uint32_t button = 0;
@@ -316,7 +316,7 @@ bool __cdecl cfunc_controller_pressed(script::Struct* params, script::Script*)
 
 // 0x0059FA40: GetAnalogueInfo [controller=n (0)]: the controller's sticks as leftx / lefty / rightx / righty in
 // the script's parameters - false (and none) if it isn't plugged in and valid.
-bool __cdecl cfunc_get_analogue_info(script::Struct* params, script::Script* script)
+bool cfunc_get_analogue_info(script::Struct* params, script::Script* script)
 {
     modules::FrontEnd* front_end = modules::front_end_instance();
     int controller = 0;
@@ -335,7 +335,7 @@ bool __cdecl cfunc_get_analogue_info(script::Struct* params, script::Script* scr
 }
 
 // 0x0059FB10
-void __cdecl destroy_object_with_id(objects::Entity* object, void* id)
+void destroy_object_with_id(objects::Entity* object, void* id)
 {
     if (object->ident_ == *static_cast<uint32_t*>(id))
         object->dispose_when_free();
@@ -343,7 +343,7 @@ void __cdecl destroy_object_with_id(objects::Entity* object, void* id)
 
 // 0x0059FB30: NodeArrayManLoad "<file>": the node array's name noted (0x007CE6D8, copied unchecked) and the file
 // loaded as an asset of type 11 (the node array manager's).
-bool __cdecl cfunc_node_array_man_load(script::Struct* params, script::Script*)
+bool cfunc_node_array_man_load(script::Struct* params, script::Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
@@ -356,7 +356,7 @@ bool __cdecl cfunc_node_array_man_load(script::Struct* params, script::Script*)
 }
 
 // 0x0059FB90: NodeArrayManUnload "<file>": the node manager drops the file's node array.
-bool __cdecl cfunc_node_array_man_unload(script::Struct* params, script::Script*)
+bool cfunc_node_array_man_unload(script::Struct* params, script::Script*)
 {
     const char* file = nullptr;
     params->fetch_text(0u, &file, 1);
@@ -368,7 +368,7 @@ bool __cdecl cfunc_node_array_man_unload(script::Struct* params, script::Script*
 // Without pref_type the original reads the type from the slot it would have been written to - the `script`
 // argument's (kept: a type no set has, so a null set; the call on it crashes, as does a missing field's
 // preference).
-bool __cdecl cfunc_get_preference_string(script::Struct* params, script::Script* script)
+bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args_;
     uint32_t field = 0;
@@ -384,7 +384,7 @@ bool __cdecl cfunc_get_preference_string(script::Struct* params, script::Script*
 
 // 0x0059FC40: GetPreferencePassword <field> pref_type=<type>: as many stars as the preference's ui_string has
 // characters (in a static buffer, 0x007CEBD0, unchecked), as the script's password_string.
-bool __cdecl cfunc_get_preference_password(script::Struct* params, script::Script* script)
+bool cfunc_get_preference_password(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args_;
     uint32_t field = 0;
@@ -404,7 +404,7 @@ bool __cdecl cfunc_get_preference_password(script::Struct* params, script::Scrip
 }
 
 // 0x0059FD00: GetPreferenceChecksum <field> pref_type=<type>: the preference's checksum, as the script's checksum.
-bool __cdecl cfunc_get_preference_checksum(script::Struct* params, script::Script* script)
+bool cfunc_get_preference_checksum(script::Struct* params, script::Script* script)
 {
     script::Struct* results = script->args_;
     uint32_t field = 0;
@@ -419,7 +419,7 @@ bool __cdecl cfunc_get_preference_checksum(script::Struct* params, script::Scrip
 }
 
 // 0x0059FD80: ToggleNetMetrics.
-bool __cdecl cfunc_toggle_net_metrics(script::Struct*, script::Script*)
+bool cfunc_toggle_net_metrics(script::Struct*, script::Script*)
 {
     online::g_online_hub->toggle_net_metrics();
     return true;
@@ -451,7 +451,7 @@ void apply_view_mode(int mode)
 } // namespace
 
 // 0x0059FD90: change_view_mode <mode>: the view mode (apply_view_mode), and the viewer lets go of its object.
-bool __cdecl cfunc_set_view_mode(script::Struct* params, script::Script*)
+bool cfunc_set_view_mode(script::Struct* params, script::Script*)
 {
     int mode = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0u, &mode, 1);
@@ -463,7 +463,7 @@ bool __cdecl cfunc_set_view_mode(script::Struct* params, script::Script*)
 
 // 0x005A1C80: SetViewerModel <...>: view mode 1; the viewer (if any) places its camera and makes a viewer object
 // from the parameters.
-bool __cdecl cfunc_set_viewer_model(script::Struct* params, script::Script*)
+bool cfunc_set_viewer_model(script::Struct* params, script::Script*)
 {
     modules::Viewer* viewer = modules::get_live_viewer();
     apply_view_mode(1);
@@ -477,7 +477,7 @@ bool __cdecl cfunc_set_viewer_model(script::Struct* params, script::Script*)
 
 // 0x005A1D40: GetViewerObjectID: the viewer object's id as the script's 0x0830ECAF and 0x52280066 (the object isn't
 // checked for null).
-bool __cdecl cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
+bool cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 {
     if (modules::Viewer* viewer = modules::get_live_viewer()) {
         objects::PreviewEntity* object = viewer_target(viewer);
@@ -490,7 +490,7 @@ bool __cdecl cfunc_get_viewer_object_id(script::Struct*, script::Script* script)
 // 0x005A1D80: ReloadAnim 0x52A864B0=<anim> 0x98549BA4=<base> 0xC3F4169A="<file>": the animation asset (by base +
 // anim, or without a base the file name's checksum) unloaded and loaded again from the file (in the debug heap while
 // 0x007CEFAC is set). False if it isn't loaded.
-bool __cdecl cfunc_reload_anim(script::Struct* params, script::Script*)
+bool cfunc_reload_anim(script::Struct* params, script::Script*)
 {
     uint32_t anim = 0;
     params->read_hash_value(0x52A864B0u, &anim, 0);
@@ -520,7 +520,7 @@ bool __cdecl cfunc_reload_anim(script::Struct* params, script::Script*)
 // 0x005A1E70: Debounce <button> [time=seconds (1)] [0x1A4E0EF9=n]: every input component locks the button for that
 // long (released if n), and every trick component holds it off until the clock (ms) + time * 1000. Nothing without
 // a button.
-bool __cdecl cfunc_debounce(script::Struct* params, script::Script*)
+bool cfunc_debounce(script::Struct* params, script::Script*)
 {
     uint32_t button = 0;
     params->read_hash_value(0u, &button, 0);
@@ -544,7 +544,7 @@ bool __cdecl cfunc_debounce(script::Struct* params, script::Script*)
 }
 
 // 0x005A2050: StartKeyboardHandler 0x69E3A1C4=<device>: typed keys reported for it.
-bool __cdecl cfunc_start_keyboard_handler(script::Struct* params, script::Script*)
+bool cfunc_start_keyboard_handler(script::Struct* params, script::Script*)
 {
     modules::FrontEnd* front_end = modules::front_end_instance();
     int device = 0; // (unset in the original when missing - an asserted parameter)
@@ -554,7 +554,7 @@ bool __cdecl cfunc_start_keyboard_handler(script::Struct* params, script::Script
 }
 
 // 0x005A2080: StopKeyboardHandler.
-bool __cdecl cfunc_stop_keyboard_handler(script::Struct*, script::Script*)
+bool cfunc_stop_keyboard_handler(script::Struct*, script::Script*)
 {
     modules::front_end_instance()->unregister_key_listener();
     return true;
@@ -563,7 +563,7 @@ bool __cdecl cfunc_stop_keyboard_handler(script::Struct*, script::Script*)
 // 0x005A2100: SpawnSecondControllerCheck: unless it's on, the check's task (tasks::Task, second_pad_watch_tick,
 // priority 0) made and added to the main loop's logic tasks. (The original gives the task a pointer to one of its
 // own locals as its data - the task never reads it; null here.)
-bool __cdecl cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
+bool cfunc_spawn_second_controller_check(script::Struct*, script::Script*)
 {
     auto* main_loop = assets::g_main_loop_manager;
     if (second_controller_check())
@@ -617,7 +617,7 @@ inline void compiled_out_debug_call() {}
 // its object's position (if there is one) set. Rail and climbing nodes are moved in the rail manager too; the other
 // known classes (Pedestrian, ProximNode, Vehicle, LevelObject, LevelGeometry, GameObject, 0x061A741E) need nothing
 // more; any other class: false. Also false (with a message) without the name or a position.
-bool __cdecl cfunc_move_node(script::Struct* params, script::Script*)
+bool cfunc_move_node(script::Struct* params, script::Script*)
 {
     uint32_t name;
     if (!params->read_hash_value(0xA1DC81F9u, &name, 0)) { // "name"
@@ -662,7 +662,7 @@ bool __cdecl cfunc_move_node(script::Struct* params, script::Script*)
 
 // 0x005A2370: SetActiveCamera id=<object> [0x9FD29151=viewport (0)] [0x10C1C887]: make_camera_active (taking the
 // current view with the flag); its answer.
-bool __cdecl cfunc_set_active_camera(script::Struct* params, script::Script*)
+bool cfunc_set_active_camera(script::Struct* params, script::Script*)
 {
     uint32_t id = 0;
     params->read_hash_value(0x40C698AFu, &id, 0); // "id"
@@ -677,7 +677,7 @@ bool __cdecl cfunc_set_active_camera(script::Struct* params, script::Script*)
 // line from one point to another - types 1 to 4 counted, each shown (compiled out) if its flag is on, the line
 // lengthened 10 / 1 / 2 / 4 times for 1, 3, 4; other types shown always. The counts are logged. False if the file
 // isn't there.
-bool __cdecl cfunc_show_tracking(script::Struct* params, script::Script*)
+bool cfunc_show_tracking(script::Struct* params, script::Script*)
 {
     compiled_out_debug_call();
     memory::Hub* memory = memory::Hub::get_pull();
@@ -768,7 +768,7 @@ bool __cdecl cfunc_show_tracking(script::Struct* params, script::Script*)
 
 // 0x005A2790: ChooseFaceForFacemap string="<file>": the first profile's face texture (+0x54) loaded from
 // faces\<file> (read with the C runtime; the script 0x808008EA then runs). False if the file can't be opened.
-bool __cdecl cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
+bool cfunc_choose_face_for_facemap(script::Struct* params, script::Script*)
 {
     void* face = word54(fetch_account(0));
     const char* name = nullptr;             // (unset in the original when missing - an asserted parameter)
@@ -793,7 +793,7 @@ bool __cdecl cfunc_choose_face_for_facemap(script::Struct* params, script::Scrip
 }
 
 // 0x005A29A0: SkaterIsCustom 0x67E6859A=<n>: whether the skate module's profile n (0x00564FC0) has a face texture.
-bool __cdecl cfunc_skater_is_custom(script::Struct* params, script::Script*)
+bool cfunc_skater_is_custom(script::Struct* params, script::Script*)
 {
     int index = 0; // (unset in the original when missing - an asserted parameter)
     params->fetch_int_value(0x67E6859Au, &index, 1);
@@ -802,7 +802,7 @@ bool __cdecl cfunc_skater_is_custom(script::Struct* params, script::Script*)
 }
 
 // 0x005A29E0: SetSceneColor <...>: the time of day manager's.
-bool __cdecl cfunc_set_scene_color(script::Struct* params, script::Script*)
+bool cfunc_set_scene_color(script::Struct* params, script::Script*)
 {
     g_tod_manager->set_scene_color(params);
     return true;
@@ -843,7 +843,7 @@ void add_restart_item_flags(script::Struct* item)
 // 0x005A4260: AddRestartsToMenu 0x1B9E8272=<scale>: an item (script 0xC16BF7BD) per restart of the level (its
 // RestartName, else "Unnamed restart"; ids from 123456; the restart's node in its parameters), or "No restarts in
 // level".
-bool __cdecl cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
+bool cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
 {
     int count = 0;
     uint32_t restart = 0;
@@ -881,7 +881,7 @@ bool __cdecl cfunc_add_restarts_to_menu(script::Struct* params, script::Script*)
 // 0x005A4560: AddWarpPointsToMenu 0xE2C2FA03=[nodes]: an item (script 0xBEED50B6) per node (its 0xFCD206E1 name,
 // else "Unnamed restart"; the node in its parameters). The parameters' own structure isn't freed (a leak, kept). The
 // array isn't checked for null.
-bool __cdecl cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
+bool cfunc_add_warp_points_to_menu(script::Struct* params, script::Script*)
 {
     script::Array* nodes = nullptr;
     params->fetch_list(0xE2C2FA03u, &nodes, 0);
@@ -904,7 +904,7 @@ bool __cdecl cfunc_add_warp_points_to_menu(script::Struct* params, script::Scrip
 
 // 0x005A4730: AddFacesToMenu: an add_item_to_face_menu (name= without its extension, file=) for each of the first 11
 // Faces\*.img files with names up to 90 characters. False if there are none.
-bool __cdecl cfunc_add_faces_to_menu(script::Struct*, script::Script*)
+bool cfunc_add_faces_to_menu(script::Struct*, script::Script*)
 {
     WIN32_FIND_DATAA found;
     HANDLE search = FindFirstFileA("Faces\\*.img", &found); // "Faces\*.img"

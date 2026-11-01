@@ -47,13 +47,13 @@ namespace engine {
 // colours and size, its four corners about its centre (the turn applied - each corner's w as the stack left it in the
 // original, 0 here: row 3 is (0, 0, 0, 1)) - with texture coordinates when textured - then readied and put in the
 // table.
-void __cdecl spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up);
+void spawn_poly(SpawnedPoly* poly, maths::Vec4* direction, maths::Vec4* up);
 // 0x004919C0: each polygon not done aged: past its lifetime it's done (its primitive destroyed, taken out of the table
 // and freed - 0x004472D0); else its colours and size moved on and its corners set again, placed by its
 // justification.
-void __cdecl update_spawned_polys();
+void update_spawned_polys();
 // 0x00491E10: every polygon's primitive destroyed, the polygon taken out of the table and freed (the pool pair's).
-void __cdecl kill_all_spawned_polys();
+void kill_all_spawned_polys();
 
 } // namespace engine
 

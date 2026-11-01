@@ -450,9 +450,8 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             male = true;
             has_face = false;
         }
-        void* face = appearance_face(unknown34a8_);
-        int skater_face =
-            face && reinterpret_cast<bool(__thiscall*)(void*)>(code_address(&gfx::FaceSkin::is_sound))(face) ? 1 : 0;
+        auto* face = static_cast<gfx::FaceSkin*>(appearance_face(unknown34a8_));
+        int skater_face = face && face->is_sound() ? 1 : 0;
         int skater_male;
         static_cast<script::Struct*>(unknown34ac_)->fetch_int_value(0x3F813177, &skater_male, 1);
         load = static_cast<int>(has_face) == skater_face && static_cast<int>(male) == skater_male;

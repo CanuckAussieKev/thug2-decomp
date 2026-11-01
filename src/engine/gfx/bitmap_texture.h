@@ -47,14 +47,14 @@ static_assert(offsetof(TextureRef, texture) == 0x10 && offsetof(TextureRef, rend
 
 // 0x004E0790: a texture from an image file (opened "rb"), or null if there's no such file (or, not original, its
 // image doesn't fit its texture: image_format.h).
-TextureRef* __cdecl read_texture_file(const char* name);
+TextureRef* read_texture_file(const char* name);
 // 0x004E0A90: a texture from an image in memory, or null if its Direct3D texture couldn't be made. (Not original:
 // `data_size` - the image's bytes, 0 if not known - bounds its reader; an image that doesn't fit its texture is null.)
-TextureRef* __cdecl load_texture_memory(const uint8_t* data, size_t data_size);
+TextureRef* load_texture_memory(const uint8_t* data, size_t data_size);
 
 // 0x004E0320: before a device reset - every stage's texture unset, the render target textures released.
-void __cdecl release_render_target_textures();
+void release_render_target_textures();
 // 0x004E0440: after it - the render target textures made again.
-void __cdecl restore_render_target_textures();
+void restore_render_target_textures();
 
 } // namespace render

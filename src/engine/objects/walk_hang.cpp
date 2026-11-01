@@ -134,15 +134,15 @@ static_assert(sizeof(RailHit) == sizeof(objects::Record34), "the rail manager's 
 void assign_feeler(render::ProbeRay* to, const render::ProbeRay* from) { to->get_assign(*from); }
 // The movable contact: no ride any more (0x00427C70).
 void stop_riding(objects::FootMovement* walk) { walk->ride_->stop_riding(); }
-// A rail manager component's object's matrix (0x0042BA10) and its rail manager (vtable +0x34).
+// A rail manager component's object's matrix (0x0042BA10) and its rail manager (the original's vtable +0x34, the
+// shared getter of +0x18).
 void object_matrix_of(objects::ObjectModule* component, maths::Mat4* matrix)
 {
     static_cast<objects::GrindPathLinkModule*>(component)->update_rail_matrix(matrix);
 }
 objects::GrindRailHub* rail_manager_of(objects::ObjectModule* component)
 {
-    using Pull = objects::GrindRailHub*(__thiscall*)(objects::ObjectModule*);
-    return (*reinterpret_cast<Pull**>(component))[0x34 / 4](component);
+    return static_cast<objects::GrindPathLinkModule*>(component)->get_rail_groups();
 }
 // The skate module's rail manager (the level's).
 objects::GrindRailHub* get_level_rails() { return modules::g_skate_module->rail_manager_.get(); }
@@ -302,7 +302,7 @@ constexpr double kSixtyDegrees = 1.0471975511965976;
 // --- small helpers ---
 
 // 0x0043D990
-maths::Vec4* __cdecl walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t)
+maths::Vec4* walk::get_lerp(maths::Vec4* out, const maths::Vec4* a, const maths::Vec4* b, float t)
 {
     double dx = static_cast<double>(b->x) - a->x;
     double dy = static_cast<double>(b->y) - a->y;
@@ -328,7 +328,7 @@ int walk::turned_round(const objects::PadSnapshot* pad)
 }
 
 // 0x0043DA70
-float __cdecl objects::FootMovement::get_param(uint32_t name)
+float objects::FootMovement::get_param(uint32_t name)
 {
     float value;
     script::read_sub_struct(kWalkParameters)->fetch_float(name, &value, 1);
@@ -1558,6 +1558,6 @@ void walk::MovableContact::start_riding(objects::GameEntity* object)
 namespace objects {
 
 // 0x0043D930
-memory::owner<ObjectModule*> __cdecl create_wait_and_die_component() { return new WaitAndDieComponent; }
+memory::owner<ObjectModule*> create_wait_and_die_component() { return new WaitAndDieComponent; }
 
 } // namespace objects

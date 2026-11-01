@@ -159,9 +159,9 @@ bool& debug_enabled();
 bool live_now();
 
 // Script commands (CFunctions, registered by register_script_functions).
-bool __cdecl cfunc_available(script::Struct* params, script::Script* script); // LevelEditor_Available
-bool __cdecl cfunc_start(script::Struct* params, script::Script* script);     // LevelEditor_Start
-bool __cdecl cfunc_stop(script::Struct* params, script::Script* script);      // LevelEditor_Stop
+bool cfunc_available(script::Struct* params, script::Script* script); // LevelEditor_Available
+bool cfunc_start(script::Struct* params, script::Script* script);     // LevelEditor_Start
+bool cfunc_stop(script::Struct* params, script::Script* script);      // LevelEditor_Stop
 // Our extra script commands, registered after the game's own table (sys::Main, after 0x005A5E70).
 void register_script_functions();
 

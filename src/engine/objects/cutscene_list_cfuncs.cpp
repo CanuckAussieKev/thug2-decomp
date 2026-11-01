@@ -84,7 +84,7 @@ PointerList* PointerList::make_new()
 
 // 0x005B5320: AddToCutsceneDestroyList name=<object> destroy_func=<script> [destroy_params={...}]: an entry (with its
 // own copy of the parameters) added at the end of the list. Always true.
-bool __cdecl cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
+bool cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::Script*)
 {
     uint32_t name;
     params->read_hash_value(kName, &name, 1);
@@ -117,7 +117,7 @@ bool __cdecl cfunc_add_to_cutscene_destroy_list(script::Struct* params, script::
 
 // 0x005B5450: RemoveFromCutsceneDestroyList name=<object>: the object's entry deleted and taken out of the list (not
 // run). False while the list is being flushed or without such an entry.
-bool __cdecl cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script*)
+bool cfunc_remove_from_cutscene_destroy_list(script::Struct* params, script::Script*)
 {
     if (flushing())
         return false;
@@ -145,7 +145,7 @@ bool __cdecl cfunc_remove_from_cutscene_destroy_list(script::Struct* params, scr
 // [online_mode_flag] [permanent] [NotSessionSpecific=n]: the script spawned as SpawnScript does (the id defaulting to the
 // calling script's .qb file - its symbol's +8), and an entry added to the cutscene destroy list that kills it
 // (cutscene_kill_spawned_script with its unique id). The spawned script isn't checked for null. Always true.
-bool __cdecl cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
+bool cfunc_cutscene_spawn_script(script::Struct* params, script::Script* script)
 {
     script::dump_to_log(params, 0);
     uint32_t name = 0;
@@ -180,7 +180,7 @@ bool __cdecl cfunc_cutscene_spawn_script(script::Struct* params, script::Script*
 
 // 0x005B5BE0: FlushCutsceneDestroyList: each entry's destroy script run (with its parameters, on no object) and the
 // entry deleted, then the list emptied (std::list::erase, 0x004ECC30). Always true.
-bool __cdecl cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
+bool cfunc_flush_cutscene_destroy_list(script::Struct*, script::Script*)
 {
     PointerList& list = free_node_chain();
     flushing() = true;

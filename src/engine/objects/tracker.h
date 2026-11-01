@@ -183,12 +183,12 @@ inline EventWaitBoard*& get_tracker() { return g_tracker; }
 EventWaitBoard* create_tracker(bool create);
 
 // The script commands (__cdecl).
-bool __cdecl cfunc_wait_for_event(script::Struct* params, script::Script* script);            // 0x00462310
-bool __cdecl cfunc_object_exists(script::Struct* params, script::Script* script);             // 0x00462340
-bool __cdecl cfunc_terminate_objects_scripts(script::Struct* params, script::Script* script); // 0x00462380
-bool __cdecl cfunc_set_object_props(script::Struct* params, script::Script* script);          // 0x00462440
-bool __cdecl cfunc_print_event_log(script::Struct* params, script::Script* script);           // 0x00462480
-bool __cdecl cfunc_assign_alias(script::Struct* params, script::Script* script);              // 0x00462C40
-bool __cdecl cfunc_launch_event(script::Struct* params, script::Script* script);              // 0x004634D0
+bool cfunc_wait_for_event(script::Struct* params, script::Script* script);            // 0x00462310
+bool cfunc_object_exists(script::Struct* params, script::Script* script);             // 0x00462340
+bool cfunc_terminate_objects_scripts(script::Struct* params, script::Script* script); // 0x00462380
+bool cfunc_set_object_props(script::Struct* params, script::Script* script);          // 0x00462440
+bool cfunc_print_event_log(script::Struct* params, script::Script* script);           // 0x00462480
+bool cfunc_assign_alias(script::Struct* params, script::Script* script);              // 0x00462C40
+bool cfunc_launch_event(script::Struct* params, script::Script* script);              // 0x004634D0
 
 } // namespace objects

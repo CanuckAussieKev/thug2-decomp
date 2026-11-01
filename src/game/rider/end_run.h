@@ -30,7 +30,7 @@ constexpr uint32_t kEndRunFlag20 = 0x20;      // cleared by Goal_EndOfRunDone an
 class RiderSessionEnd final : public ObjectModule {
 public:
     // 0x00510F90 (registered by register_component_types): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // The constructor (inlined in fabricate in the original).
     RiderSessionEnd();
     // 0x00510D20: the destructor body (the base's).

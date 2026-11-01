@@ -28,10 +28,10 @@ namespace objects {
 class ObstacleDodgeModule final : public ObjectModule {
 public:
     // 0x004E39E0 (registered with the composite object manager by 0x004E4860): a new one (0 if out of memory).
-    static memory::owner<ObjectModule*> __cdecl fabricate();
+    static memory::owner<ObjectModule*> fabricate();
     // 0x004E3310 (not a Ghidra function; registered with Create): its script member functions (the table at
     // 0x006839E8) registered.
-    static void __cdecl publish_method_table();
+    static void publish_method_table();
     // 0x004E3660: its type. The rest isn't initialised.
     ObstacleDodgeModule();
     // 0x004E3330: the destructor body (the base's).

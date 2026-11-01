@@ -174,7 +174,7 @@ void MiscHub::flush_dead_objects()
 }
 
 // 0x00461BB0
-void __cdecl flush_dead_objects_task(tasks::Task<MiscHub>* task) { task->content_->flush_dead_objects(); }
+void flush_dead_objects_task(tasks::Task<MiscHub>* task) { task->content_->flush_dead_objects(); }
 
 // 0x00461F30
 Entity* ObjectSearch::first_item_of_type(memory::ListNode* head, uint32_t type)

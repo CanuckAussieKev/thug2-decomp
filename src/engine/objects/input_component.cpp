@@ -93,7 +93,8 @@ void place_handler(PadInputModule::Responder* handler, pad_input::Hub* manager, 
 int player_controller(int player) { return input_manager()->get_player_controller(player); }
 
 // A new handler (on the current heap).
-memory::owner<PadInputModule::Responder*> new_handler(int index, PadInputModule::Responder::Code code, PadInputModule* component)
+memory::owner<PadInputModule::Responder*> new_handler(int index, PadInputModule::Responder::Code code,
+                                                      PadInputModule* component)
 {
     return new PadInputModule::Responder(code, component, -1, index);
 }
@@ -111,10 +112,10 @@ frontend::UiWidget* find_element(uint32_t id)
 } // namespace
 
 // 0x0041EEC0
-memory::owner<ObjectModule*> __cdecl PadInputModule::fabricate() { return new PadInputModule; }
+memory::owner<ObjectModule*> PadInputModule::fabricate() { return new PadInputModule; }
 
 // 0x0041E6F0
-void __cdecl PadInputModule::publish_method_table()
+void PadInputModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_input_component_member_functions, 0x18);
 }
@@ -181,13 +182,13 @@ void PadInputModule::link_to_pad(int controller)
 }
 
 // 0x0041F170
-void __cdecl PadInputModule::handler_code(Responder* handler)
+void PadInputModule::handler_code(Responder* handler)
 {
     handler->content_->update_pad(reinterpret_cast<const uint8_t*>(handler->control_data_));
 }
 
 // 0x0041F190
-void __cdecl PadInputModule::handler_code2(Responder* handler)
+void PadInputModule::handler_code2(Responder* handler)
 {
     handler->content_->update_pad2(reinterpret_cast<const uint8_t*>(handler->control_data_));
 }

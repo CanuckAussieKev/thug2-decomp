@@ -30,8 +30,8 @@ public:
 
     // 0x0041A5B0: a new one (zeroed memory, Construct). 0x00419690 (not a Ghidra function; registered with Create):
     // its script member functions (the table at 0x00682350, 0x18 bytes a record) registered.
-    static memory::owner<ObjectModule*> __cdecl fabricate();
-    static void __cdecl publish_method_table();
+    static memory::owner<ObjectModule*> fabricate();
+    static void publish_method_table();
     // 0x0041A410: an empty channel list, an empty observer list (its
     // sentinel node allocated), its type.
     AnimBlenderComponent();
@@ -148,7 +148,7 @@ public:
 };
 
 // 0x004196B0 (cdecl): the larger of `a` and `b` (`b` when they're equal or NaN).
-float __cdecl larger_of(float a, float b);
+float larger_of(float a, float b);
 
 // 0x0041A680: the Vector at +0x1C of the object it's called on (a component the debug-info code at 0x00421F18
 // asks).

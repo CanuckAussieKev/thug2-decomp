@@ -62,7 +62,7 @@ double get_m(const maths::Mat4& m, int offset)
 } // namespace
 
 // 0x0042BAC0
-bool __cdecl cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
+bool cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 {
     if (!draw_shape()) {
         draw_shape() = true;
@@ -76,7 +76,7 @@ bool __cdecl cfunc_toggle_rigid_body_debug(script::Struct*, script::Script*)
 }
 
 // 0x0042BB00
-void __cdecl BodyDynamicsModule::publish_method_table()
+void BodyDynamicsModule::publish_method_table()
 {
     script::register_member_function_table(reinterpret_cast<void*>(kType), g_rigid_body_member_functions, 0x18);
 }
@@ -117,7 +117,7 @@ bool BodyDynamicsModule::rigid_body_reset(script::Struct* params, script::Script
 }
 
 // 0x0042BD60
-void __cdecl set_rigid_body_pusher_reach(GameEntity* object, float reach)
+void set_rigid_body_pusher_reach(GameEntity* object, float reach)
 {
     for (int i = 7; i >= 0; --i) {
         if (get_pushers()[i].owner_object_ == object) {

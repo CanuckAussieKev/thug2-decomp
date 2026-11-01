@@ -30,33 +30,12 @@ int return_zero() { return 0; }
 void do_nothing() {}
 
 // 0x005BAB90: functions that ignore their one (stack) argument
-void __stdcall ignore_argument(int) {}
-// 0x0048DCD0 / 0x0048D090: ...their two / three - the engine geom's slots 29 and 30 (copy / set bones), the engine
-// font's string size and the geom's slot 41
-void __stdcall ignore_arguments2(int, int) {}
-void __stdcall ignore_arguments3(int, int, int) {}
-// 0x0048DD50: methods returning true whatever their two stack arguments - the engine model's slot 8, the engine geom's
-// slot 47
-bool __stdcall return_true2(int, int) { return true; }
-// 0x00492DC0: ...their four - the engine model's slot 4 (never called), a PC geom slot
-bool __stdcall return_true4(int, int, int, int) { return true; }
+void ignore_argument(int) {}
+// 0x0048D090: ...their three - the engine font's string size and the geom's slot 41
+void ignore_arguments3(int, int, int) {}
 
-// 0x0049F4B0, 0x0049F470, 0x0049F450, 0x0049F440, 0x0049F430: methods returning false whatever their (1, 2, 4, 5, 7)
-// stack arguments - the engine texture's empty slots, CArray's comparison (different arrays are never equal), ...
-bool __stdcall return_false1(int) { return false; }
-bool __stdcall return_false2(int, int) { return false; }
-bool __stdcall return_false3(int, int, int) { return false; }
-bool __stdcall return_false4(int, int, int, int) { return false; }
-bool __stdcall return_false5(int, int, int, int, int) { return false; }
-bool __stdcall return_false6(int, int, int, int, int, int) { return false; }
-bool __stdcall return_false7(int, int, int, int, int, int, int) { return false; }
-
-// 0x0049F4A0, 0x0049F4C0, 0x0049F480, 0x0049F490: ...returning 0 / null (1, 2, 3, 6 stack arguments) - the model's
-// bone flag (slot 2), the gap checks' "0", ...
-int __stdcall return_zero1(int) { return 0; }
-int __stdcall return_zero2(int, int) { return 0; }
-int __stdcall return_zero3(int, int, int) { return 0; }
-int __stdcall return_zero6(int, int, int, int, int, int) { return 0; }
+// 0x0049F4C0: ...returning 0 / null whatever their two - the gap checks' "0"
+int return_zero2(int, int) { return 0; }
 
 // 0x0049F460: a word 0 (the engine texture's width / height slots).
 uint16_t return_zero_word() { return 0; }

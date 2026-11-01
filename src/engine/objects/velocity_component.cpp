@@ -28,7 +28,7 @@ bool suspend_flag(ObjectModule* suspend) { return static_cast<DormancyModule*>(s
 } // namespace
 
 // 0x0043D430
-memory::owner<ObjectModule*> __cdecl VelocityTrackerModule::fabricate() { return new VelocityTrackerModule; }
+memory::owner<ObjectModule*> VelocityTrackerModule::fabricate() { return new VelocityTrackerModule; }
 
 // (the constructor: inlined in fabricate in the original)
 VelocityTrackerModule::VelocityTrackerModule() { kind_tag_ = kType; }

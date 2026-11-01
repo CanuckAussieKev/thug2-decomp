@@ -13,7 +13,7 @@ class SaveCard;
 
 // PartyMod's free space count for GetMemCardSpaceAvailable (fastcall: the card in ECX, as PartyMod's call at
 // 0x005A6E7E has it): the disk's free 16 KB blocks if the card is there (its +0x0C), clamped to 0x7FFE0001.
-int32_t __fastcall free_disk_blocks(SaveCard* card);
+int32_t free_disk_blocks(SaveCard* card);
 
 // 0x005A6E40: script function GetMemCardSpaceAvailable.
 bool get_mem_card_space_available(script::Struct* params, script::Script* script);

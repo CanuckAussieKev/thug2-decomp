@@ -49,7 +49,6 @@ DigitalToAnalog g_digital_to_analog[18]{{0x200, 16},   {0x400, 17},   {0x1, 14},
                                         {0x20000, 23}, {0x40000, 24}, {0x0, 0}};
 const DigitalToAnalog* digital_to_analog_table() { return g_digital_to_analog; }
 
-
 bool pad_follows_stick(Hub* manager) { return manager->pad_follows_stick(); }
 
 int span_to(uint8_t value)
@@ -281,7 +280,7 @@ void Hub::enable_actuators(int index)
 }
 
 // 0x0044E660
-void __cdecl Hub::service_task(tasks::Task<Hub>* task)
+void Hub::service_task(tasks::Task<Hub>* task)
 {
     Hub* manager = task->content_;
     for (HostEnd& server : manager->hosts_) {
@@ -294,10 +293,10 @@ void __cdecl Hub::service_task(tasks::Task<Hub>* task)
 }
 
 // 0x0044E590
-uint32_t __cdecl button_hash(int index) { return g_pad_button_keys[index]; }
+uint32_t button_hash(int index) { return g_pad_button_keys[index]; }
 
 // 0x0044E5A0
-int __cdecl glyph_for_button_tag(uint32_t checksum)
+int glyph_for_button_tag(uint32_t checksum)
 {
     const uint32_t* table = g_pad_button_keys;
     for (int i = 1; i < 22; ++i) {

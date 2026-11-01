@@ -38,46 +38,46 @@ static_assert(offsetof(LightingState, light_low_) == 0x14 && sizeof(LightingStat
 
 // 0x0048EB70: the manager set up for `max_lights` world lights (their arrays - the stack's zeroed - and the
 // intensities, all 1) and `max_model_lights` model lights.
-void __cdecl init_light_manager(uint32_t max_lights, uint32_t max_model_lights);
+void init_light_manager(uint32_t max_lights, uint32_t max_model_lights);
 // 0x0048FB60: "Uninitializing Light Manager...", the dynamic lights deleted.
-void __cdecl uninit_light_manager();
+void uninit_light_manager();
 // 0x0048E8F0: the ambient colour set and sent (0x004B67E0). That one's result.
-bool __cdecl set_light_ambient_color(uint32_t rgba);
+bool set_light_ambient_color(uint32_t rgba);
 // 0x0048E900: the ambient colour into *out (0x004B6850). Returns out.
-uint32_t* __cdecl get_light_ambient_color(uint32_t* out);
+uint32_t* get_light_ambient_color(uint32_t* out);
 // 0x0048E930: a light's colour set and sent (0x004B6860). That one's result.
-bool __cdecl set_light_diffuse_color(int light, uint32_t rgba);
+bool set_light_diffuse_color(int light, uint32_t rgba);
 // 0x0048E950: a light's colour into *out (0x004B68E0). Returns out.
-uint32_t* __cdecl get_light_diffuse_color(uint32_t* out, int light);
+uint32_t* get_light_diffuse_color(uint32_t* out, int light);
 // 0x0048ED70: a light's direction set and sent (0x004B6A70). That one's result.
-bool __cdecl set_light_direction(int light, const maths::Vec4* direction);
+bool set_light_direction(int light, const maths::Vec4* direction);
 // 0x0048E970 / 0x0048E990: the ambient's / a light's modulation ranges.
-void __cdecl change_ambient_scale(float low, float high);
-void __cdecl change_diffuse_scale(int light, float low, float high);
+void change_ambient_scale(float low, float high);
+void change_diffuse_scale(int light, float low, float high);
 // 0x0048E9B0 / 0x0048E9D0: read back (`low` or not; a light's always from the low ranges, as the original).
-float __cdecl fetch_ambient_scale(bool low);
-float __cdecl fetch_diffuse_scale(int light, bool low);
+float fetch_ambient_scale(bool low);
+float fetch_diffuse_scale(int light, bool low);
 // 0x0048EA00: the world lights saved on the stack (nothing when it's full).
-void __cdecl push_world_lights();
+void push_world_lights();
 // 0x0048EA40: the world lights taken back from the stack; false when it's empty.
-bool __cdecl pop_world_lights();
+bool pop_world_lights();
 // 0x0048EDB0: the world brightness moved 0.02 towards `target` (not past it), the intensities from it (as
 // CModelLights::UpdateBrightness, never below the minimum), all sent (0x004B6900). True.
-bool __cdecl set_world_brightness(float target);
+bool set_world_brightness(float target);
 
 // 0x0048EF00: every dynamic light freed, none in use.
-void __cdecl delete_dynamic_lights();
+void delete_dynamic_lights();
 // 0x0048EF50: the slot of the dynamic light of an owner (null if none).
-DynamicLightBase** __cdecl find_dynamic_light(uint32_t owner);
+DynamicLightBase** find_dynamic_light(uint32_t owner);
 // 0x0048EF90 (not a Ghidra function): the dynamic lights on and owned whose radius reaches `position`, into `out` by
 // their falloff (virtual [2] of the distance) - at most `max`, kept in 0x0067DD38 / 0x0067DCB8 with their indexes;
 // the original's insertion quirks kept (see the source). How many.
-uint32_t __cdecl get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out);
+uint32_t get_dynamic_lights_near(const maths::Vec4* position, uint32_t max, DynamicLightBase** out);
 // 0x0048F160: a new dynamic light of a type (1: a point light, zeroed, radius 50, not owned; others: none).
-DynamicLightBase* __cdecl create_dynamic_light(int type);
+DynamicLightBase* create_dynamic_light(int type);
 // 0x0048FB80: a dynamic light: the first free slot's (made), else a let-go one (owner 0) reused, else a new slot's
 // (none past 256 or when that slot isn't empty).
-DynamicLightBase* __cdecl new_dynamic_light(int type);
+DynamicLightBase* new_dynamic_light(int type);
 
 // A dynamic light (0x30 bytes in the original, vtable 0x00649290 - [0] on, [1] in reach, [2] the falloff - with no
 // subclass, nothing deleting through it: no vtable here): a point light at a position with a radius, an intensity and

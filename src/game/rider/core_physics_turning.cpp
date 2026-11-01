@@ -219,9 +219,7 @@ void SkaterPhysicsModule::natas_spin()
     }
     balance_->lip_.tick_frame();
     float factor = script::fetch_float(kNatasSpinFactor);
-    // (read as a double - the unrounded x87 result: get_lean 0x004F8F20 isn't called as a float function)
-    double balance = std::fabs(
-        reinterpret_cast<double(__thiscall*)(void*)>(code_address(&objects::RiderTeeterMoves::get_lean))(balance_));
+    double balance = std::fabs(static_cast<double>(balance_->get_lean()));
     // The spin slows the further off balance.
     double rate = factor - balance / (kNatasSpinScale / static_cast<double>(factor)) + kNatasSpinBase;
     if (natas_counter_clockwise_)

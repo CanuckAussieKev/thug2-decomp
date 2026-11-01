@@ -167,7 +167,7 @@ HostListing* find_by_sb(Hub* manager, void* sb)
 // 0x00546790: the chosen server's description (destroy_server_desc_children, then net_game_info_add_item per line:
 // game in progress, the host mode, ping - "..." unknown -, mode, skill - skill_level_info's name -, level, ranked
 // (internet), the players' count title (": n/max") and each player with its rank). No null check on the server.
-bool __cdecl cfunc_describe_server(script::Struct* params, script::Script* script)
+bool cfunc_describe_server(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = the_manager();
@@ -234,7 +234,7 @@ bool __cdecl cfunc_describe_server(script::Struct* params, script::Script* scrip
 // 0x005470D0: the chosen server joined (net_chosen_join_server with its port, address and maximum players - and a
 // random cookie when it can only be reached through NAT negotiation; presence told the server's name, 0x0053F830),
 // unless it's full for how we join (CreateJoinRefusedDialog with the reason, the join-state task removed).
-bool __cdecl cfunc_choose_server(script::Struct* params, script::Script* script)
+bool cfunc_choose_server(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = the_manager();
@@ -273,7 +273,7 @@ bool __cdecl cfunc_choose_server(script::Struct* params, script::Script* script)
 
 // 0x00547FA0: the chosen server's full details asked of GameSpy (peerUpdateGame) unless they're here (true) or on the
 // LAN (true); false while asking.
-bool __cdecl cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
+bool cfunc_retrieve_server_info(script::Struct* params, script::Script* script)
 {
     (void)script;
     Hub* manager = the_manager();
@@ -296,7 +296,7 @@ bool __cdecl cfunc_retrieve_server_info(script::Struct* params, script::Script* 
 // notes the replying address (0x007CCA84, 0x007CCA88); a server not listed yet is added to the waiting servers with
 // the reply's name, level, mode, counts, flags, skill and players (the ping: the time since the time it carries).
 // 4 for a reply of another size or a server known already, else 1.
-int __cdecl on_server_reply_msg(net::InboundMsgCtx* context)
+int on_server_reply_msg(net::InboundMsgCtx* context)
 {
     auto* manager = static_cast<Hub*>(context->content_);
     if (g_asked_for) {
@@ -344,8 +344,8 @@ int __cdecl on_server_reply_msg(net::InboundMsgCtx* context)
 // shown if not yet, and with its full keys (SBServerHasFullKeys) the description asked for when it's the chosen one; remove -
 // destroy_lobby_server and the server deleted; clear - "none found" and every server deleted. Each but a failure ends
 // with update_lobby_server_list (the update message only when it shows the server).
-void __cdecl listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message,
-                                    int progress, Hub* manager)
+void listing_games_callback(void* peer, int success, const char* name, void* sb, int staging, int message, int progress,
+                            Hub* manager)
 {
     (void)staging;
     (void)progress;

@@ -67,7 +67,7 @@ static_assert(offsetof(BillboardSet, view) == 0x404 && offsetof(BillboardSet, fl
 
 // 0x004CD9D0 (the batches' qsort comparison; code Ghidra never made a function of): by the materials' +0x1C
 // (none: 0), nulls after everything.
-int __cdecl compare_batches(const void* a, const void* b);
+int compare_batches(const void* a, const void* b);
 // 0x004CDD00: a billboard mesh drawn - its vertices turned
 // about its pivot (x along `x_axis`, y `y_axis`, z `zAxis`) into its vertex buffer (a per-vertex table's value for
 // the word after the position where it has one), drawn indexed with the device's stream, shaders, indices and
@@ -93,12 +93,12 @@ public:
 static_assert(sizeof(PcWindow) == 0x18, "layout must match the original");
 // 0x004CD8A0: ten windows (640 x 480) made onto the free list (null for any without memory - written through, as
 // the original).
-void __cdecl create_window_pool();
+void create_window_pool();
 
 // 0x004CD940 (apply_render_state's): the flag 0x00775B7C set. 0x004CD960 / 0x004CD970: 0x00786EB4 set / cleared.
-void __cdecl mark_billboards_ready();
-void __cdecl set_flag_786e_b4();
-void __cdecl clear_flag_786e_b4();
+void mark_billboards_ready();
+void set_flag_786e_b4();
+void clear_flag_786e_b4();
 
 extern uint8_t g_billboard_flag;
 extern BillboardSet g_billboard_pool;

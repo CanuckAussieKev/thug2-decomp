@@ -132,7 +132,7 @@ void MeshRef::fetch_place(float* out) const
 }
 
 // 0x004D5760
-VertexBuffer* __cdecl new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
+VertexBuffer* new_vertex_buffer(uint32_t bytes, uint32_t usage, uint32_t flags)
 {
     void* memory = alloc_block(sizeof(VertexBuffer));
     return memory ? new (memory) VertexBuffer(bytes, usage, flags) : nullptr;
@@ -228,7 +228,7 @@ uint32_t IdxStore::teardown()
 }
 
 // 0x004D67F0
-void __cdecl release_buffers()
+void release_buffers()
 {
     input_port()->SetStreamSource(0, nullptr, 0, 0);
     input_port()->SetIndices(nullptr);
@@ -261,7 +261,7 @@ void __cdecl release_buffers()
 }
 
 // 0x004D68C0
-void __cdecl recreate_buffers()
+void recreate_buffers()
 {
     for (memory::ListNode* node = first_scene_node_bytes(); node;) {
         memory::ListNode* next = next_scene_node(node);

@@ -30,20 +30,20 @@ struct Occluder {
 static_assert(sizeof(Occluder) == 0x5C, "layout must match the original");
 
 // 0x004D8BB0 (qsort's comparison): occluders that hid more first (a disabled polygon's counts cleared first).
-int __cdecl compare_occluders(const void* a, const void* b);
+int compare_occluders(const void* a, const void* b);
 // 0x004D8C10: sort the occluders, drop those that hid nothing in two frames, clear this frame's counts.
-void __cdecl sort_occluders();
+void sort_occluders();
 // 0x004D8C90: enable or disable the polygons with this checksum.
-void __cdecl activate_occluder_poly(uint32_t checksum, bool enabled);
+void activate_occluder_poly(uint32_t checksum, bool enabled);
 // 0x004D8CC0: forget every polygon and occluder.
-void __cdecl clear_occluder_polys();
+void clear_occluder_polys();
 // 0x004D8CE0: make up to four more enabled polygons occluders (while there's room), carrying on from the last.
-void __cdecl add_occluders();
+void add_occluders();
 // 0x004D8D70: add a polygon (four corners; its normal from the first, second and fourth).
-void __cdecl insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2,
-                                  const maths::Vec4* p3, uint32_t checksum);
+void insert_occluder_poly(const maths::Vec4* p0, const maths::Vec4* p1, const maths::Vec4* p2, const maths::Vec4* p3,
+                          uint32_t checksum);
 // 0x004D8ED0: the frame's occluders (`frame` 0 / 1) and their planes as seen from `eye`.
-void __cdecl collect_occluders(const maths::Vec4* eye, int frame);
+void collect_occluders(const maths::Vec4* eye, int frame);
 // 0x004D9AC0: whether a sphere (moved by the object's transform, 0x007CA968) is hidden by an occluder - which is
 // credited with `weight`.
 // NOT ORIGINAL: while set, nothing is occluded (the view frustum still culls). Set at start-up from [Graphics]
@@ -53,16 +53,16 @@ void __cdecl collect_occluders(const maths::Vec4* eye, int frame);
 // A level's occluders are placed for the skater's view; from the editor's free camera (above the level, outside it)
 // they hide distant scenery and objects that are in plain sight.
 bool& occlusion_off();
-bool __cdecl sphere_occluded(const maths::Vec4* centre, float radius, int weight);
+bool sphere_occluded(const maths::Vec4* centre, float radius, int weight);
 
 // 0x004DB570: whether a sphere is outside the view (1) or not (0).
-int __cdecl sphere_outside_view(const maths::Vec4* centre, float radius);
+int sphere_outside_view(const maths::Vec4* centre, float radius);
 // 0x004DB790: whether a sphere (moved by the object's transform) is in view; leaves how far its nearest point
 // is in front of the camera (0x007CA978).
-bool __cdecl sphere_in_view(const maths::Vec4* centre, float radius);
+bool sphere_in_view(const maths::Vec4* centre, float radius);
 // 0x004DB6D0: with distance clipping on (0x007D643A), whether a bounding sphere (centre +4, radius +0x10) is
 // wholly beyond the far clip distance.
-bool __cdecl beyond_clip_distance(const void* bounds);
+bool beyond_clip_distance(const void* bounds);
 
 extern float g_last_sphere_distance;
 

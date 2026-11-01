@@ -235,7 +235,7 @@ BOOL CALLBACK sound_device_found(GUID* /*guid*/, const char* description, const 
 }
 
 // 0x004D7C80
-HRESULT __cdecl create_device(int width, int height, bool hardware_vertices, bool multisample)
+HRESULT create_device(int width, int height, bool hardware_vertices, bool multisample)
 {
     D3DPRESENT_PARAMETERS& pp = present_parameters();
     pp.BackBufferHeight = height;
@@ -265,7 +265,7 @@ HRESULT __cdecl create_device(int width, int height, bool hardware_vertices, boo
 }
 
 // 0x004D7AF0
-void __cdecl release_render_targets()
+void release_render_targets()
 {
     back_buffer() = nullptr;
     back_depth() = nullptr;
@@ -287,7 +287,7 @@ void __cdecl release_render_targets()
 }
 
 // 0x004D8420
-void __cdecl create_render_targets()
+void create_render_targets()
 {
     create_dynamic_vertex_buffer(0x40000);
     create_dynamic_index_buffer(0x1000);
@@ -339,7 +339,7 @@ void __cdecl create_render_targets()
 }
 
 // 0x004D7B60
-void __cdecl load_gamma()
+void load_gamma()
 {
     float red = 0.25f, green = 0.25f, blue = 0.25f;
     HKEY key;
@@ -357,7 +357,7 @@ void __cdecl load_gamma()
 }
 
 // 0x004D89C0
-void __cdecl show_disc_error()
+void show_disc_error()
 {
     uint32_t& timer = g_loading_bar_timer;
     if (timer) {
@@ -422,14 +422,13 @@ void __cdecl show_disc_error()
 }
 
 // 0x0044F870
-long __cdecl set_render_state(int state, uint32_t value)
+long set_render_state(int state, uint32_t value)
 {
     return input_port()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
 }
 
 // 0x0044F890
-long __cdecl clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z,
-                          uint32_t stencil)
+long clear_device(uint32_t rect_count, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil)
 {
     return input_port()->Clear(rect_count, static_cast<const D3DRECT*>(rects), flags, color, z, stencil);
 }

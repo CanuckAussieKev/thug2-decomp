@@ -158,24 +158,24 @@ public:
 
     // 0x0054D4A0: the task: the login's 10 s (and the persistent storage's answers'), the login's result, the
     // reports once a minute while a game is reported.
-    static void __cdecl stats_task(tasks::Task<RankingsManager>* task);
+    static void stats_task(tasks::Task<RankingsManager>* task);
     // 0x0054CAC0 (thread, stdcall): the stats SDK's game name and secret key (the online identity's - see
     // online_identity.h) and InitStatsConnection; state 2 (connected) or 3 (failed). Returns 0.
     static unsigned long __stdcall log_in_thread(void* stats);
     // 0x0054CCF0: GetPersistDataValues' answer for index `index` (0 the rating, 1-14 a level's high score and combo;
     // after 14: script 0x955801C6, state 4).
-    static void __cdecl on_personal_stats(int local_id, int profile, int type, int index, int success,
-                                          uint32_t modified, char* data, int length, void* instance);
+    static void on_personal_stats(int local_id, int profile, int type, int index, int success, uint32_t modified,
+                                  char* data, int length, void* instance);
     // 0x0054DB20 (ghttp's completed callback of the top stats' download; param: the VaultMan): the file parsed into
     // its top list. Returns 1.
-    static int __cdecl on_top_stats(void* request, int result, char* buffer, int64_t buffer_length, void* vault);
+    static int on_top_stats(void* request, int result, char* buffer, int64_t buffer_length, void* vault);
     // 0x0054D2F0 (stdcall): the name of level `level` from the level list 0xB8D3EEEC (null if none).
-    static const char* __stdcall get_level_name(uint32_t level);
+    static const char* get_level_name(uint32_t level);
     // 0x0054CA10 (stdcall): the SDK's GenerateAuth (0x00600640) for `challenge` and `password`.
-    static void __stdcall generate_auth(const char* challenge, const char* password, char* response);
+    static void generate_auth(const char* challenge, const char* password, char* response);
 
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
-    bool authenticated_;         // +0x004
+    bool authenticated_;                         // +0x004
     uint8_t pad5_[3];
     int cur_phase_;          // +0x008 State
     void* game_;             // +0x00C the SDK's game being reported
@@ -187,15 +187,15 @@ public:
 };
 
 // The script commands.
-bool __cdecl stats_logged_in(script::Struct* params, script::Script* script);            // 0x0054CC90
-bool __cdecl stats_log_in(script::Struct* params, script::Script* script);               // 0x0054CCB0
-bool __cdecl stats_log_off(script::Struct* params, script::Script* script);              // 0x0054CCC0
-bool __cdecl retrieve_personal_stats(script::Struct* params, script::Script* script);    // 0x0054CE00
-bool __cdecl need_to_retrieve_top_stats(script::Struct* params, script::Script* script); // 0x0054CE70
-bool __cdecl raise_tallies(script::Struct* params, script::Script* script);              // 0x0054D670
-bool __cdecl get_rank(script::Struct* params, script::Script* script);                   // 0x0054D6A0
-bool __cdecl clean_up_top_stats(script::Struct* params, script::Script* script);         // 0x0054EA40
-bool __cdecl fill_stats_arrays(script::Struct* params, script::Script* script);          // 0x0054EB00
+bool stats_logged_in(script::Struct* params, script::Script* script);            // 0x0054CC90
+bool stats_log_in(script::Struct* params, script::Script* script);               // 0x0054CCB0
+bool stats_log_off(script::Struct* params, script::Script* script);              // 0x0054CCC0
+bool retrieve_personal_stats(script::Struct* params, script::Script* script);    // 0x0054CE00
+bool need_to_retrieve_top_stats(script::Struct* params, script::Script* script); // 0x0054CE70
+bool raise_tallies(script::Struct* params, script::Script* script);              // 0x0054D670
+bool get_rank(script::Struct* params, script::Script* script);                   // 0x0054D6A0
+bool clean_up_top_stats(script::Struct* params, script::Script* script);         // 0x0054EA40
+bool fill_stats_arrays(script::Struct* params, script::Script* script);          // 0x0054EB00
 
 extern float g_rank_scale;
 

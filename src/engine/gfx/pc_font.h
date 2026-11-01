@@ -64,10 +64,10 @@ public:
 static_assert(sizeof(PcText) == 0x4C, "layout must match the original");
 
 // 0x004B3FD0: `count` new texts put on the free list (0x006FA804).
-void __cdecl allocate_text_pool(uint32_t count);
+void allocate_text_pool(uint32_t count);
 // 0x004B4090: the font's engine Unload (0x0048D040: unload_platform, then +4 cleared).
-void __cdecl unload_pc_font(PcFont* font);
+void unload_pc_font(PcFont* font);
 // 0x004B40A0: a new PC font, loaded from `name`.
-PcFont* __cdecl create_pc_font(const char* name);
+PcFont* create_pc_font(const char* name);
 
 } // namespace render

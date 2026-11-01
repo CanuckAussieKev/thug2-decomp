@@ -171,7 +171,7 @@ void run_script_with(uint32_t script, script::Struct* params)
 } // namespace
 
 // 0x00532050 (online::Hub's chat handler, message 76; its data: none)
-int __cdecl on_chat_msg(net::InboundMsgCtx* context)
+int on_chat_msg(net::InboundMsgCtx* context)
 {
     const char* message = context->body_;
     char line[256];
@@ -266,7 +266,7 @@ bool handle_chat_command(Hub* manager, const char* text)
 }
 
 // 0x005334D0
-void __cdecl keyboard_task(tasks::Task<Hub>* /*task*/)
+void keyboard_task(tasks::Task<Hub>* /*task*/)
 {
     char keys[256];
     if (sio::get_keyboard_chars(keys) <= 0)
@@ -340,7 +340,7 @@ constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter nam
 
 // 0x005A16B0: script function SendChatMessage <text>. Lines starting with '/' that we recognise are run as
 // chat commands instead of being sent.
-bool __cdecl cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
+bool cfunc_send_chat_message(script::Struct* params, script::Script* /*script*/)
 {
     const char* text = nullptr;
     script::fetch_text(params, kChatTextParam, &text);
