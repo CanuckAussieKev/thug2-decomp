@@ -429,12 +429,12 @@ void ObjectiveAuthoring::read_goals(script::Struct* params, int park_only)
 }
 
 // 0x004EA2C0
-const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, const uint8_t* buffer)
+const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, const uint8_t* buffer, size_t size)
 {
     if (level == kParkEditorGameplayLevel)
         level = kParkEditorLevel;
     script::Struct* params = spawn_param_table();
-    const uint8_t* end = script::decode_from_bytes(params, buffer);
+    const uint8_t* end = script::decode_from_bytes(params, buffer, size);
     for (EditedGoal& goal : goals_) {
         if (goal.taken_count_ && goal.level_ == level)
             init_edited_goal(reinterpret_cast<uint8_t*>(&goal));
@@ -442,7 +442,7 @@ const uint8_t* ObjectiveAuthoring::read_level_goals_from_buffer(uint32_t level, 
     active_node_ = nullptr;
     script::Array* goals = nullptr;
     params->fetch_list(kGoalListName, &goals, 1);
-    uint32_t left = goals->extent_;
+    uint32_t left = goals ? goals->extent_ : 0; // (Not original: none - the original read through null)
     uint32_t next = 0;
     for (EditedGoal& goal : goals_) {
         if (!left)

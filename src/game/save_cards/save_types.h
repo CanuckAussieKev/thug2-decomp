@@ -69,7 +69,8 @@ void __fastcall apply_goal_manager_params(script::Struct* saved);
 bool apply_cat_and_custom_skater(script::Struct* loaded, script::Struct* custom_skater);
 // 0x005A8EB0: the loaded contents kept (0x007CECD4, the previous ones deleted) - read from `data` - with their type
 // (0x007CECD8). Returns the end of what was read.
-const uint8_t* keep_loaded_contents(const uint8_t* data, uint32_t type);
+// (Not original: `size` - the bytes there are; the structure is decoded no further.)
+const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t type);
 
 // (0x005A7520, lists::Elem<T>'s scalar deleting destructor here, is memory::ListNode::destroy; 0x005A8E80 is
 // FileLoad::teardown.)

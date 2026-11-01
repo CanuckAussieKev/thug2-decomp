@@ -17,6 +17,7 @@
 
 #include "engine/maths/vec4.h"
 #include "engine/objects/entity.h"
+#include "game/park_editing/rail_buffer_format.h"
 
 namespace script {
 class Array;
@@ -129,14 +130,7 @@ static_assert(offsetof(EditedRail, point_chain_) == 0x08 && offsetof(EditedRail,
                   sizeof(EditedRail) == 0x10,
               "layout must match the original");
 
-// The rails packed for the park file and network messages (0x1132 bytes): the rail count, each rail's point count,
-// then 10-byte point records (CEditedRailPoint::Pack), each rail's points from its first laid.
-struct RailBuffer {
-    uint16_t rail_count_;        // +0x00
-    uint16_t point_counts_[200]; // +0x02
-    uint16_t records_[400][5];   // +0x192
-};
-static_assert(sizeof(RailBuffer) == 0x1132, "layout must match the original");
+// The rails packed for the park file and network messages: RailBuffer (game/park_editing/rail_buffer_format.h).
 
 // The rail editor's geometry (rail_editor_draw.cpp).
 // 0x004F3E00: a copy of the source sector `source` made in the park (counts dirty, collision rebuilt); its sector.
@@ -251,8 +245,9 @@ public:
     // 0x004F4500: the rails packed into the buffer. 0x004F45B0: that, and the buffer.
     void get_pack();
     RailBuffer* get_packed();
-    // 0x004F3C00: the buffer copied from `buffer`. 0x004F7DF0: the rails rebuilt from the buffer.
-    void set_packed(const RailBuffer* buffer);
+    // 0x004F3C00: the buffer read from `size` bytes at `data` (rail_buffer_format.h; not original: a buffer cut short
+    // or with counts past its arrays reads as no rails). 0x004F7DF0: the rails rebuilt from the buffer.
+    void set_packed(const void* data, size_t size);
     void unpack();
     // 0x004F6680: the rails as CreatedRails in `params` (an array of {points: [{pos, HasPost}]}).
     void write_to_structure(script::Struct* params);

@@ -265,8 +265,9 @@ public:
     // 0x004EA470: the goals from the structure's array 0x38DBE1D0 (`park_only`: the park editor's, else the others'),
     // the matching goals cleared first.
     void read_goals(script::Struct* params, int park_only);
-    // 0x004EA2C0: `level`'s goals from a written structure (the park's, from a buffer). Returns the buffer's end.
-    const uint8_t* read_level_goals_from_buffer(uint32_t level, const uint8_t* buffer);
+    // 0x004EA2C0: `level`'s goals from a written structure of `size` bytes (the park's, from a buffer). Returns the
+    // buffer's end. (Not original: the size, and a structure without the goals' array leaves the goals cleared.)
+    const uint8_t* read_level_goals_from_buffer(uint32_t level, const uint8_t* buffer, size_t size);
     // 0x004EB850: every goal outside the park editor into the array 0x38DBE1D0 (none: nothing).
     void write_goals(script::Struct* out);
     // 0x004EBA10: `level`'s goals into the array 0x38DBE1D0 (sized by the complete ones).

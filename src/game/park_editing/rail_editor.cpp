@@ -11,6 +11,7 @@
 #include <new>
 
 #include "engine/core/checksums.h"
+#include "engine/core/dbg.h"
 #include "engine/core/manager.h"
 #include "engine/core/mem.h"
 #include "engine/core/slab_bank.h"
@@ -755,12 +756,22 @@ RailBuffer* RailAuthoring::get_packed()
 }
 
 // 0x004F3C00
-void RailAuthoring::set_packed(const RailBuffer* buffer) { std::memcpy(&packed_, buffer, sizeof(packed_)); }
+void RailAuthoring::set_packed(const void* data, size_t size)
+{
+    // Not original - read through the format's reader: the original copied 0x1132 bytes whatever the message's size
+    // (reading past a short one), and unpack walked the counts as they came (past the point counts and records for
+    // more than 200 rails or 400 points).
+    util::ByteReader reader(data, size);
+    if (!rail_buffer_format::read_rail_buffer(reader, &packed_))
+        debug::printf("rail data damaged: cut short or more rails / points than the editor holds\n");
+}
 
 // 0x004F7DF0
 void RailAuthoring::unpack()
 {
     get_clear();
+    if (!rail_buffer_format::counts_fit(packed_)) // Not original - counts past the arrays: no rails
+        return;
     const uint16_t* count = packed_.point_counts_;
     const uint16_t* record = packed_.records_[0];
     for (unsigned int rails = packed_.rail_count_; rails != 0; --rails) {

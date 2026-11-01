@@ -14,6 +14,7 @@
 #include "engine/net/play_messages.h"
 #include "engine/net/skater_messages.h"
 #include "engine/util/byte_stream.h"
+#include "game/park_editing/rail_buffer_format.h"
 
 namespace format_check_net {
 
@@ -748,6 +749,37 @@ void check_collision_messages()
     check_message("ran into 0x43", ran, ran_ref, online::write_ran_into, online::read_ran_into);
 }
 
+// The park's rails (0x7A, sent whole): read as the rail editor's own buffer, byte for byte; cut short, more than 200
+// rails or 400 points refused (the original copied 0x1132 bytes and walked the counts as they came).
+void check_rails()
+{
+    park_editing::RailBuffer sent{};
+    sent.rail_count_ = 3;
+    sent.point_counts_[0] = 2;
+    sent.point_counts_[1] = 0;
+    sent.point_counts_[2] = 398;
+    for (int i = 0; i < 400; ++i)
+        for (int k = 0; k < 5; ++k)
+            sent.records_[i][k] = static_cast<uint16_t>(i * 5 + k - 7);
+    std::vector<uint8_t> bytes(sizeof(sent));
+    std::memcpy(bytes.data(), &sent, sizeof(sent));
+    auto read = std::make_unique<park_editing::RailBuffer>();
+    util::ByteReader reader(bytes.data(), bytes.size());
+    check(park_editing::rail_buffer_format::read_rail_buffer(reader, read.get()) &&
+              std::memcmp(read.get(), &sent, sizeof(sent)) == 0 && reader.remaining() == 0,
+          "rails 0x7A: as the original's copy");
+    util::ByteReader cut(bytes.data(), bytes.size() - 1);
+    check(!park_editing::rail_buffer_format::read_rail_buffer(cut, read.get()) && read->rail_count_ == 0,
+          "rails 0x7A: cut short");
+    bytes[0] = 201;
+    util::ByteReader rails(bytes.data(), bytes.size());
+    check(!park_editing::rail_buffer_format::read_rail_buffer(rails, read.get()), "rails 0x7A: 201 rails");
+    bytes[0] = 3;
+    bytes[2 + 2 * 2] = 143; // the third rail's 398 points + 1 (0x18E -> 0x18F): 401 in all
+    util::ByteReader points(bytes.data(), bytes.size());
+    check(!park_editing::rail_buffer_format::read_rail_buffer(points, read.get()), "rails 0x7A: 401 points");
+}
+
 } // namespace
 
 int run()
@@ -761,6 +793,7 @@ int run()
     check_chat_messages();
     check_news();
     check_collision_messages();
+    check_rails();
     return g_failures;
 }
 

@@ -496,7 +496,7 @@ bool apply_cat_and_custom_skater(Struct* loaded, Struct* custom_skater)
 }
 
 // 0x005A8EB0
-const uint8_t* keep_loaded_contents(const uint8_t* data, uint32_t type)
+const uint8_t* keep_loaded_contents(const uint8_t* data, size_t size, uint32_t type)
 {
     if (Struct* kept = kept_contents()) {
         kept->get_clear();
@@ -507,7 +507,7 @@ const uint8_t* keep_loaded_contents(const uint8_t* data, uint32_t type)
     if (contents)
         contents = contents->prepare_all();
     kept_contents() = contents;
-    const uint8_t* end = script::decode_from_bytes(contents, data);
+    const uint8_t* end = script::decode_from_bytes(contents, data, size);
     kept_type() = type;
     return end;
 }

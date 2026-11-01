@@ -108,10 +108,10 @@ char* game_spy_strdup(const char* text) { return game_spy::game_strdup(text); }
 void game_crt_free(void* memory) { crt::dealloc(memory); }
 // The GameSpy SDK's id of this machine (GOAGetUniqueID).
 const char* game_spy_unique_id() { return game_spy::get_unique_id(); }
-// 0x005A8EB0: a downloaded item loaded from `buffer` by the type's script (not rewritten yet).
-void load_downloaded_item(char* buffer, uint32_t script)
+// 0x005A8EB0: a downloaded item (`size` bytes) loaded from `buffer` by the type's script.
+void load_downloaded_item(char* buffer, size_t size, uint32_t script)
 {
-    save_cards::keep_loaded_contents(reinterpret_cast<const uint8_t*>(buffer), script);
+    save_cards::keep_loaded_contents(reinterpret_cast<const uint8_t*>(buffer), size, script);
 }
 
 // The folder of an item type ("levels"...; null for an unknown type).
@@ -660,7 +660,7 @@ int __cdecl VaultMan::on_transfer_done(void*, int result, char*, int64_t, VaultM
 }
 
 // 0x0054A6B0
-int __cdecl VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t, VaultMan* vault)
+int __cdecl VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_t received, VaultMan* vault)
 {
     vault->progress_ = 100;
     if (result != 0) {
@@ -686,7 +686,12 @@ int __cdecl VaultMan::on_file_downloaded(void*, int result, char* buffer, int64_
     default:
         break;
     }
-    load_downloaded_item(buffer, script);
+    // Not original - the item decoded within what was received (at most the download's buffer; the original
+    // decoded the structure with no end - a download cut short read on past it).
+    int64_t size = received < 0 ? 0 : received;
+    if (size > static_cast<int64_t>(vault->buffer_size_))
+        size = vault->buffer_size_;
+    load_downloaded_item(buffer, static_cast<size_t>(size), script);
     vault->fault_ = 0;
     return 1;
 }

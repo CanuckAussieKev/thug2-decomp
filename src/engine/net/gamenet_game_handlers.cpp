@@ -94,9 +94,8 @@ void panel_message(Hub* manager, uint32_t text, const char* string1, objects::En
     manager->build_net_notice(false, text, string1, nullptr, object, nullptr, false, kPanelTime);
 }
 
-// The rail editor (0x004F4970) and the goal editor (0x004E8470).
+// The rail editor (0x004F4970); the goal editor is ObjectiveAuthoring::get_pull (0x004E8470).
 void* get_rail_editor() { return park_editing::RailAuthoring::sole(); }
-void* get_goal_editor() { return park_editing::ObjectiveAuthoring::get_pull(); }
 
 // Leaving for the main menu while the created data couldn't come: the join cancelled with a time-out notice.
 void cancel_join(Hub* manager, bool notify_first)
@@ -263,8 +262,8 @@ int __cdecl handle_rails_data(net::InboundMsgCtx* context)
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
         memory::Hub* memory = memory::Hub::get_pull();
         memory->enter_heap_scope(memory->bottom_up_heap_);
-        get_call(code_address(&park_editing::RailAuthoring::set_packed), get_rail_editor(),
-                 context->body_); // the rails read
+        static_cast<park_editing::RailAuthoring*>(get_rail_editor())
+            ->set_packed(context->body_, context->body_size_); // the rails read
         park_editing::g_rail_editor_flag = false;
         get_call(code_address(&park_editing::RailAuthoring::unpack), get_rail_editor());
         park_editing::g_rail_editor_flag = true;
@@ -291,9 +290,14 @@ int __cdecl on_goal_sync_msg(net::InboundMsgCtx* context)
     desc.make_new();
     Hub* manager = manager_of(context);
     if (!(context->wire_options_ & net::kPacketChecksumMismatch)) {
-        const char* msg = context->body_;
-        get_call(code_address(&park_editing::ObjectiveAuthoring::read_level_goals_from_buffer), get_goal_editor(),
-                 prop<uint32_t>(msg, 0), msg + 4); // the level's goals read
+        // {u32 level, the goals as a written structure} (NOT ORIGINAL: read within the message - a short one is
+        // dropped, the structure decoded no further than its end)
+        util::ByteReader reader(context->body_, context->body_size_);
+        uint32_t level = reader.u32();
+        if (!reader.ok())
+            return kDone;
+        park_editing::ObjectiveAuthoring::get_pull()->read_level_goals_from_buffer(level, reader.cursor(),
+                                                                                   reader.remaining());
         script::Struct* params = new_params();
         params->put_name_key(0u, kDoNotCreateGoalPeds);
         get_run(kInitialiseCreatedGoals, params);
