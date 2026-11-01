@@ -41,7 +41,9 @@ public:
         bool active;        // +0x14
         uint8_t pad15[3];
     };
-    enum { kFocusEntries = 0x30, kPriorities = 10, kPadEventSlots = 0x30 };
+    static constexpr int kFocusEntries = 0x30;
+    static constexpr int kPriorities = 10;
+    static constexpr int kPadEventSlots = 0x30;
 
     static UiTree*& sole() { return g_ui_element_hub; }
 

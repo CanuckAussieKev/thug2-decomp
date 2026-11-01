@@ -19,7 +19,8 @@ public:
     // The states Process steps through while a pad is found.
     enum State : int { kIdle = 0, kDetect = 1, kReady = 2, kSettle = 5 };
     // Capability bits.
-    enum : uint32_t { kHasActuators = 2, kAnalog = 4 };
+    static constexpr uint32_t kHasActuators = 2;
+    static constexpr uint32_t kAnalog = 4;
 
     // 0x005BD920. Leaves buffer_raw_ unset and reads it (the PS2 version's DMA buffer, aligned to 64 bytes).
     InputPort(int index, int port, int slot);

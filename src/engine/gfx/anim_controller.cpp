@@ -53,7 +53,7 @@ constexpr uint32_t kPartialAnimTime = 0xAAECB346, kPartialAnim = 0x659BF355, kPa
 // Component types.
 constexpr uint32_t kAnimBlender = 0x7149B753, kSkeleton = 0x222756D5;
 
-enum : int { kNotMine = 2 };
+constexpr int kNotMine = 2;
 
 float frames_per_second() { return frontend::g_frames_per_second; }              // 60
 float seconds_per_frame() { return ::objects::g_anim_movies_seconds_per_frame; } // 1/60

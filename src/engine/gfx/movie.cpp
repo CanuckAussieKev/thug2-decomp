@@ -243,7 +243,10 @@ void set_sampler_state(int sampler, int type, uint32_t value)
 {
     get_method<long(__stdcall*)(void*, int, int, uint32_t)>(0x114 / 4)(input_port(), sampler, type, value);
 }
-enum { kD3dCullMode = 22, kRsMultisample = 161, kD3dLighting = 137, kMinFilter = 6 };
+constexpr int kD3dCullMode = 22;
+constexpr int kRsMultisample = 161;
+constexpr int kD3dLighting = 137;
+constexpr int kMinFilter = 6;
 // The states begin_movie changes, for end_movie.
 uint32_t& saved_cull_mode() { return g_saved_cull_mode; }
 uint32_t& saved_antialias() { return g_saved_antialias; }
@@ -345,7 +348,9 @@ bool app_active() { return sys::g_app_active; }
 bool quit_requested() { return g_quit_requested; }
 bool device_lost() { return g_device_lost; }
 
-enum : uint32_t { kStart = 0x0800, kCross = 0x0040 }; // PS2 control data bytes 2-3 (set while up)
+constexpr uint32_t kStart = 0x0800; // PS2 control data bytes 2-3 (set while up)
+
+constexpr uint32_t kCross = 0x0040;
 } // namespace
 
 // 0x0044FDC0

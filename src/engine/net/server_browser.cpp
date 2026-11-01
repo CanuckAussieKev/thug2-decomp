@@ -82,7 +82,7 @@ constexpr int kMaxRank = 10;
 constexpr auto kServerResponseSize = static_cast<uint16_t>(kServerInfoSize); // (the server info: gamenet_messages.h)
 
 // GameSpy's listing messages (peerListingGamesCallback's msg).
-enum ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove = 2, kListingClear = 3 };
+enum class ListingMessage : int { kListingAdd = 0, kListingUpdate = 1, kListingRemove = 2, kListingClear = 3 };
 
 Hub* the_manager() { return g_online_hub; }
 memory::Hub* ram_stats() { return memory::Hub::get_pull(); }
@@ -353,8 +353,8 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         the_manager()->lobby_service_->set_lost_connection(); // (the lobby told the listing failed)
         return;
     }
-    switch (message) {
-    case kListingAdd: {
+    switch (static_cast<ListingMessage>(message)) {
+    case ListingMessage::kListingAdd: {
         ram_stats()->enter_heap_scope(ram_stats()->internet_top_down_heap_);
         void* block = memory::alloc_zeroed(sizeof(HostListing));
         HostListing* server = block ? new (block) HostListing : nullptr;
@@ -394,7 +394,7 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         ram_stats()->leave_heap_scope();
         break;
     }
-    case kListingRemove: {
+    case ListingMessage::kListingRemove: {
         script::Struct* params = new_params();
         params->put_name_key(kServerId, reinterpret_cast<uint32_t>(sb));
         get_run(kDestroyLobbyServer, params);
@@ -404,12 +404,12 @@ void listing_games_callback(void* peer, int success, const char* name, void* sb,
         get_run(kUpdateServerList);
         break;
     }
-    case kListingClear:
+    case ListingMessage::kListingClear:
         manager->show_no_servers_found(false);
         manager->empty_server_listing();
         get_run(kUpdateServerList);
         break;
-    case kListingUpdate: {
+    case ListingMessage::kListingUpdate: {
         game_spy::server_has_full_keys(sb); // (asked whether it has its full keys: the answer unused here)
         HostListing* server = find_by_sb(manager, sb);
         if (!server)

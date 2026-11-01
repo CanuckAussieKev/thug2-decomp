@@ -22,11 +22,9 @@ class Struct;
 namespace render {
 
 // TextureProjection::flag_bits_
-enum : uint32_t {
-    kProjectionFlag1 = 0x01,        // the structure's 0xAF06447B
-    kProjectionOrthographic = 0x02, // a size given (0x083FDB95)
-    kProjectionPerspective = 0x04,  // a field of view given (0x17E7321E; the aspect 0x0F7C3CAA)
-};
+constexpr uint32_t kProjectionFlag1 = 0x01;        // the structure's 0xAF06447B
+constexpr uint32_t kProjectionOrthographic = 0x02; // a size given (0x083FDB95)
+constexpr uint32_t kProjectionPerspective = 0x04;  // a field of view given (0x17E7321E; the aspect 0x0F7C3CAA)
 
 // The projection (0xC8 bytes; vtable 0x00649C14 - PC 0x0064A764: [0] destroy, [1] projected onto the sectors). It's a
 // node of its component's list too (lists::Elem<TextureProjection>, data = the projection: the original's projection

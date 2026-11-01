@@ -31,22 +31,23 @@ static_assert(sizeof(PadFrameRecord) == 0x20 && offsetof(PadFrameRecord, buttons
 struct Payload {
     // The analogue values: the sticks (right X, right Y, left X, left Y: 0-255, 0x80 centred), then a pressure
     // per button (0 or 0xFF from a digital pad), and copies of the sticks before the dead zone at 0x12-0x15.
-    enum : int {
-        kRightX = 0,
-        kRightY = 1,
-        kLeftX = 2,
-        kLeftY = 3,
-        kPadRight = 4,
-        kPadLeft = 5,
-        kPadUp = 6,
-        kPadDown = 7,
-        kRawRightX = 0x12,
-        kRawRightY = 0x13,
-        kRawLeftX = 0x14,
-        kRawLeftY = 0x15,
-        kQueueCapacity = 25,
-    };
-    enum : uint32_t { kReleaseEdge = 0x1000, kButtonRight = 0x2000, kPressEdge = 0x4000, kButtonLeft = 0x8000 };
+    static constexpr int kRightX = 0;
+    static constexpr int kRightY = 1;
+    static constexpr int kLeftX = 2;
+    static constexpr int kLeftY = 3;
+    static constexpr int kPadRight = 4;
+    static constexpr int kPadLeft = 5;
+    static constexpr int kPadUp = 6;
+    static constexpr int kPadDown = 7;
+    static constexpr int kRawRightX = 0x12;
+    static constexpr int kRawRightY = 0x13;
+    static constexpr int kRawLeftX = 0x14;
+    static constexpr int kRawLeftY = 0x15;
+    static constexpr int kQueueCapacity = 25;
+    static constexpr uint32_t kReleaseEdge = 0x1000;
+    static constexpr uint32_t kButtonRight = 0x2000;
+    static constexpr uint32_t kPressEdge = 0x4000;
+    static constexpr uint32_t kButtonLeft = 0x8000;
 
     uint8_t incident_[kQueueCapacity];
     uint8_t pad19[3];
@@ -127,7 +128,7 @@ static_assert(sizeof(HostEnd) == 0x84 && offsetof(HostEnd, handlers_) == 0x04 &&
               offsetof(HostEnd, out_buf_limit_) == 0x80);
 
 struct Hub {
-    enum { kNumServers = 2 };
+    static constexpr int kNumServers = 2;
 
     std::unique_ptr<tasks::Task<Hub>> task_; // priority 2000, running the servers (service_task)
     HostEnd hosts_[kNumServers];             // +0x04

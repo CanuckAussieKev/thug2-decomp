@@ -55,15 +55,13 @@ bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* 
 
 // THUGPRO's refusal reasons (its client's words: ours - the texts are global strings made when first needed, under
 // THUGPRO's own names; CreateJoinRefusedDialog shows the one named by the manager's refused_reason_).
-enum : int8_t {
-    kRefusedVersionLow = 31,
-    kRefusedModifications = 32,
-    kRefusedReleaseType = 33,
-    kRefusedNameDupe = 34,
-    kRefusedNameTooShort = 35,
-    kRefusedBannedId = 36,
-    kRefusedTest = 37,
-};
+constexpr int8_t kRefusedVersionLow = 31;
+constexpr int8_t kRefusedModifications = 32;
+constexpr int8_t kRefusedReleaseType = 33;
+constexpr int8_t kRefusedNameDupe = 34;
+constexpr int8_t kRefusedNameTooShort = 35;
+constexpr int8_t kRefusedBannedId = 36;
+constexpr int8_t kRefusedTest = 37;
 // The text's name for THUGPRO reason `reason` (31-37; 0 for any other), the text made if it isn't yet.
 uint32_t refused_reason_text(int reason);
 // The words of reason `reason` (31-37; null for any other).

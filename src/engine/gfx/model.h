@@ -38,14 +38,12 @@ struct ModelGeom {
 static_assert(offsetof(ModelGeom, asset_name_) == 0x10 && sizeof(ModelGeom) == 0x18, "layout must match the original");
 
 // RenderModel::flag_bits_ (the flag setters take a byte and keep its low bit - the original's shifts and masks)
-enum : uint8_t {
-    kModelSphereValid = 0x01, // enclosing_ball_ holds the platform's
-    kModelEnabledBit = 0x02,
-    kModelHidden = 0x04,
-    kModelScaled = 0x08,       // size_factor_ isn't (1, 1, 1)
-    kModelShadow = 0x10,       // its geoms cast a shadow (each geom told as it comes)
-    kModelShadowVolume = 0x20, // its model files loaded with their shadow volumes
-};
+constexpr uint8_t kModelSphereValid = 0x01; // enclosing_ball_ holds the platform's
+constexpr uint8_t kModelEnabledBit = 0x02;
+constexpr uint8_t kModelHidden = 0x04;
+constexpr uint8_t kModelScaled = 0x08;       // size_factor_ isn't (1, 1, 1)
+constexpr uint8_t kModelShadow = 0x10;       // its geoms cast a shadow (each geom told as it comes)
+constexpr uint8_t kModelShadowVolume = 0x20; // its model files loaded with their shadow volumes
 
 // The checksum of "all" - a geom name matching every geom.
 constexpr uint32_t kAllGeoms = 0xC4E78E22;

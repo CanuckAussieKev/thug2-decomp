@@ -31,10 +31,8 @@ static_assert(offsetof(ParkRailPoint, at_point_) == 0x08 && offsetof(ParkRailPoi
 
 // A rail (a rail string, 0x20 bytes).
 struct ParkRailString {
-    enum : uint8_t {
-        kLoop = 0x1,      // the last point links back to the first: a segment for every point
-        kClimbable = 0x2, // (set by NewRail)
-    };
+    static constexpr uint8_t kLoop = 0x1;      // the last point links back to the first: a segment for every point
+    static constexpr uint8_t kClimbable = 0x2; // (set by NewRail)
     static constexpr uint32_t kClimbingNode = 0x30C19600; // ClimbingNode (the class)
 
     uint32_t class_;    // +0x00: RailNode or ClimbingNode

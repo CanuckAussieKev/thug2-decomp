@@ -30,9 +30,11 @@ public:
         objects::SharedRef<objects::GameEntity> object;
         maths::Vec4 offset;
     };
-    enum { kMaxModels = 25 };
+    static constexpr int kMaxModels = 25;
     // point_at_
-    enum { kPointAtNothing = 0, kPointAtNode = 1, kPointAtObject = 2 };
+    static constexpr int kPointAtNothing = 0;
+    static constexpr int kPointAtNode = 1;
+    static constexpr int kPointAtObject = 2;
 
     // 0x004A6060: no models, CameraZ -400, the Y X Z angle order, the identity
     // orientation, scale 1, ScaleWithDistance's factor 0.002 up to 3; type Element3d (0x82C59D78).

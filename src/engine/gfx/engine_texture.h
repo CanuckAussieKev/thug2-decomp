@@ -10,9 +10,8 @@
 namespace render {
 
 // BitmapTexture::flag_bits_
-enum : uint32_t {
-    kTexturePermanent = 0x10000, // kept when its dictionary's textures are flushed (drop_textures without `all`)
-};
+constexpr uint32_t kTexturePermanent =
+    0x10000; // kept when its dictionary's textures are flushed (drop_textures without `all`)
 
 // The texture (0xC bytes of the engine's; vtable 0x00649AF0 - its own slots are stubs; PC 0x0064A770). The slots
 // that are the same stub in both tables are plain methods here (14, 20, 23, 25 - 30, 32: false / 0 / nothing);

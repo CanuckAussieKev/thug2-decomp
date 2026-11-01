@@ -27,12 +27,10 @@ namespace sound {
 // A volume: a level per channel (percent; 2 channels, or 5 for the surround type) and its type; a 3D one also
 // has the sound's position and range.
 struct VolumeRef {
-    enum : int {
-        kTypeStereo = 0,
-        kTypePositional = 1,
-        kTypeSurround = 2, // 5 channels
-        kType3d = 3,       // the voice's 3D buffer places it (never silent)
-    };
+    static constexpr int kTypeStereo = 0;
+    static constexpr int kTypePositional = 1;
+    static constexpr int kTypeSurround = 2; // 5 channels
+    static constexpr int kType3d = 3;       // the voice's 3D buffer places it (never silent)
 
     // 0x0047B030: the manager's default type, every channel 0.
     VolumeRef();

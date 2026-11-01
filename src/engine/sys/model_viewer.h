@@ -40,10 +40,8 @@ using ViewerTask = tasks::Task<Viewer>;
 
 struct Viewer final : public PartUnit {
     // The commands the pad gives (actions_ bits).
-    enum : uint32_t {
-        kCommandShoulderA = 0x2,
-        kCommandShoulderB = 0x4,
-    };
+    static constexpr uint32_t kCommandShoulderA = 0x2;
+    static constexpr uint32_t kCommandShoulderB = 0x4;
 
     std::unique_ptr<ViewerInputHandler> pad_listener_;  // +0x14 (process_pad_input, priority 0)
     std::unique_ptr<ViewerInputHandler> shift_handler_; // +0x18 (HandleShift, priority 1000)

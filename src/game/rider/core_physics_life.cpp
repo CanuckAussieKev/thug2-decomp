@@ -49,7 +49,11 @@ void find_module(objects::GameEntity* object, Module*& slot, uint32_t type)
 
 // The state component's (+0x1528) flags used here.
 
-enum : int { kGround = 0, kAir = 1, kWallRide = 2, kLip = 3, kRail = 4 };
+constexpr int kGround = 0;
+constexpr int kAir = 1;
+constexpr int kWallRide = 2;
+constexpr int kLip = 3;
+constexpr int kRail = 4;
 
 objects::RiderPoseState* state_of(SkaterPhysicsModule* component) { return component->state_; }
 uint8_t* sound_of(SkaterPhysicsModule* component) { return reinterpret_cast<uint8_t*>(component->sound_); }

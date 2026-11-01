@@ -63,11 +63,9 @@ public:
 
 // A skeleton's bone (0x1C bytes).
 struct Joint {
-    enum : uint32_t {
-        kScaled = 0x10000000,      // its matrix scaled by `scale` as it's built
-        kScaledLocal = 0x20000000, // the final matrix's rows scaled
-        kInactive = 0x40000000,    // left as it is
-    };
+    static constexpr uint32_t kScaled = 0x10000000;      // its matrix scaled by `scale` as it's built
+    static constexpr uint32_t kScaledLocal = 0x20000000; // the final matrix's rows scaled
+    static constexpr uint32_t kInactive = 0x40000000;    // left as it is
     uint32_t name;
     maths::Mat4* parent; // its parent's matrix (the root: the first matrix)
     uint32_t flags;
@@ -78,10 +76,10 @@ static_assert(sizeof(Joint) == 0x1C, "layout must match the original");
 // An object's skeleton (0x1C bytes).
 class Rig {
 public:
-    enum : uint32_t {
-        kCollapseZeroScaled = 0x08000000, // bones scaled to nothing collapse to the root (Update's end)
-        kMirrorData = 0x10000000,         // (the data's flag 1) the bone 0x580C0963's scale named 0xDFEE29AC
-    };
+    static constexpr uint32_t kCollapseZeroScaled =
+        0x08000000; // bones scaled to nothing collapse to the root (Update's end)
+    static constexpr uint32_t kMirrorData =
+        0x10000000; // (the data's flag 1) the bone 0x580C0963's scale named 0xDFEE29AC
 
     // 0x004A3D30: for `data`: its bones (names, parents' matrices, scale 1) and identity matrices, LOD limit 31.
     explicit Rig(RigData* data);

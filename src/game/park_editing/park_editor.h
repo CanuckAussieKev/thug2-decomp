@@ -50,26 +50,24 @@ public:
         kStateRegularPlay = 0xCD3682C1, // regular_play
     };
     // flag_bits_
-    enum : uint32_t { kFlagPaused = 0x2 };
+    static constexpr uint32_t kFlagPaused = 0x2;
     // actions_: what the controls asked for this frame (the input handler's buttons, the menu events).
-    enum : uint32_t {
-        kCommandTurnLeft = 0x2,          // Circle: the piece (or the gap) a quarter turn back
-        kCommandTurnRight = 0x4,         // Square
-        kCommandPreviousPiece = 0x8,     // pad_left
-        kCommandNextPiece = 0x10,        // pad_right
-        kCommandPlace = 0x20,            // X
-        kCommandRemove = 0x40,           // Triangle
-        kCommandRaise = 0x80,            // L1
-        kCommandLower = 0x100,           // L2
-        kCommandPreviousSet = 0x200,     // pad_up
-        kCommandNextSet = 0x400,         // pad_down
-        kCommandWidenGapRight = 0x800,   // L1 (with a gap)
-        kCommandNarrowGapRight = 0x1000, // L2
-        kCommandZoomOut = 0x2000,        // button 0x10000 held
-        kCommandZoomIn = 0x4000,         // button 0x20000 held
-        kCommandWidenGapLeft = 0x8000,   // button 0x10000 pressed
-        kCommandNarrowGapLeft = 0x10000, // button 0x20000 pressed
-    };
+    static constexpr uint32_t kCommandTurnLeft = 0x2;          // Circle: the piece (or the gap) a quarter turn back
+    static constexpr uint32_t kCommandTurnRight = 0x4;         // Square
+    static constexpr uint32_t kCommandPreviousPiece = 0x8;     // pad_left
+    static constexpr uint32_t kCommandNextPiece = 0x10;        // pad_right
+    static constexpr uint32_t kCommandPlace = 0x20;            // X
+    static constexpr uint32_t kCommandRemove = 0x40;           // Triangle
+    static constexpr uint32_t kCommandRaise = 0x80;            // L1
+    static constexpr uint32_t kCommandLower = 0x100;           // L2
+    static constexpr uint32_t kCommandPreviousSet = 0x200;     // pad_up
+    static constexpr uint32_t kCommandNextSet = 0x400;         // pad_down
+    static constexpr uint32_t kCommandWidenGapRight = 0x800;   // L1 (with a gap)
+    static constexpr uint32_t kCommandNarrowGapRight = 0x1000; // L2
+    static constexpr uint32_t kCommandZoomOut = 0x2000;        // button 0x10000 held
+    static constexpr uint32_t kCommandZoomIn = 0x4000;         // button 0x20000 held
+    static constexpr uint32_t kCommandWidenGapLeft = 0x8000;   // button 0x10000 pressed
+    static constexpr uint32_t kCommandNarrowGapLeft = 0x10000; // button 0x20000 pressed
 
     static ParkBuilderMode*& sole() { return g_park_editor; }
     static uint32_t& ref_tally() { return g_park_editor_references; }

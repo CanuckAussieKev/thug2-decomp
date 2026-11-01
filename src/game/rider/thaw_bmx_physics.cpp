@@ -1285,7 +1285,7 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     // skater's ground check with the wheel points at the skater's sides.)
     if (!wheels_on() || state.manual || state.tire_tap_ || core->state_->flag(PoseFlag::kBailing).on) {
         set_wheel_points(state, object->at_point_, object->basis_frame_.row[2]);
-        return kWheelsNotUsed;
+        return WheelGround::kWheelsNotUsed;
     }
     set_wheel_points(state, object->at_point_, object->basis_frame_.row[2]);
     WheelHit front, rear;
@@ -1308,7 +1308,7 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
                 front.distance, front.reach, front.turn, front.limit, rear.hit ? 1 : 0, rear.why, rear.distance,
                 rear.reach, rear.turn, rear.limit);
         }
-        return kWheelsOff;
+        return WheelGround::kWheelsOff;
     }
     // On it: midway between the wheels, the ground normal across the wheel base.
     maths::Vec4& position = object->at_point_;
@@ -1320,7 +1320,7 @@ WheelGround wheel_ground_check(SkaterPhysicsModule* core)
     static_cast<SkaterPhysicsModule*>(core)->turn_to_normal(up); // (THAW's 0x005D0BD0: THUG2's own)
     if (state_of(core) != kStateAir)
         static_cast<SkaterPhysicsModule*>(core)->keep_upright(); // (THAW 0x005CE810, on the ground)
-    return main_hit ? kWheelsOnGround : kWheelsOnGroundNoHit;
+    return main_hit ? WheelGround::kWheelsOnGround : WheelGround::kWheelsOnGroundNoHit;
 }
 
 bool lerp_display_normal(SkaterPhysicsModule* core)

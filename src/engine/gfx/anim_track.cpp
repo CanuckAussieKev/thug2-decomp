@@ -43,7 +43,7 @@ constexpr uint32_t kStandardController = 0xCB4533FF, kStaticPoseCtl = 0xCFC5B380
 constexpr uint32_t kTumbleController = 0xDF5C091A;
 constexpr uint32_t kAnimBlender = 0x7149B753;
 constexpr int kLoopWobble = 3;
-enum : int { kNotMine = 2 };
+constexpr int kNotMine = 2;
 
 // The original's _ftol (0x006236FC): truncated towards zero.
 int get_truncated(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -200,7 +200,8 @@ void AnimTrack::load_events(uint32_t anim)
     event_count_ = count;
     if (!count)
         return;
-    events_ptr_.reset(new TimedClipEvent[count]); // (default-initialised; the count before the array, as the original's)
+    events_ptr_.reset(
+        new TimedClipEvent[count]); // (default-initialised; the count before the array, as the original's)
     for (uint32_t i = 0; i < event_count_; ++i) {
         auto* entry = reinterpret_cast<Struct*>(list->fetch_part(i));
         int frame = 0;

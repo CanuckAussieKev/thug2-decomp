@@ -39,7 +39,9 @@ bool streams_on() { return sound_available() && g_streams_on; }
 bool& initialised() { return g_initialised; }
 // The music stream: 0 none, 1 playing, 2 preloaded.
 int& music_channel_kind() { return g_bgm_stream_kind; }
-enum : int { kMusicStreamNone = 0, kMusicStreamNormal = 1, kMusicStreamPreload = 2 };
+constexpr int kMusicStreamNone = 0;
+constexpr int kMusicStreamNormal = 1;
+constexpr int kMusicStreamPreload = 2;
 // Frames until play_next_track is next tried (Update counts them).
 int& frame_count() { return g_frame_count; }
 float& default_stream_volume() { return g_music_volume; }

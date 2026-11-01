@@ -29,7 +29,9 @@ namespace frontend::level_editor::actions {
 
 // --- the pure parts --------------------------------------------------------------------------------------------------
 
-enum : uint8_t { kCtrl = 1, kShift = 2, kAlt = 4 };
+constexpr uint8_t kCtrl = 1;
+constexpr uint8_t kShift = 2;
+constexpr uint8_t kAlt = 4;
 // A key and its modifiers (an SDL scan code; 0: none).
 struct Chord {
     int scancode = 0;

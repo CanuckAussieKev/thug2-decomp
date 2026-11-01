@@ -17,15 +17,14 @@ namespace render {
 class HitMesh;
 
 // WorldCell::flag_bits_ (4, 8, 0x10 and 0x20 are acted on by the scene's next UpdateSuperSectors)
-enum : uint32_t {
-    kSectorCollidable = 0x01,     // (set when made)
-    kSectorClone = 0x02,          // a clone: its collision object is its own (deleted with it)
-    kSectorAddToGrid = 0x04,      // its collision to be put in the super sectors (a clone made with Clone's flag)
-    kSectorDelete = 0x08,         // to be taken out of them and deleted
-    kSectorRemoveFromGrid = 0x10, // to be taken out of them
-    kSectorMoved = 0x20,          // moved, turned or scaled while kSectorInGrid: to be moved in them
-    kSectorInGrid = 0x40,         // its collision is in the scene's super sectors
-};
+constexpr uint32_t kSectorCollidable = 0x01; // (set when made)
+constexpr uint32_t kSectorClone = 0x02;      // a clone: its collision object is its own (deleted with it)
+constexpr uint32_t kSectorAddToGrid =
+    0x04; // its collision to be put in the super sectors (a clone made with Clone's flag)
+constexpr uint32_t kSectorDelete = 0x08;         // to be taken out of them and deleted
+constexpr uint32_t kSectorRemoveFromGrid = 0x10; // to be taken out of them
+constexpr uint32_t kSectorMoved = 0x20;          // moved, turned or scaled while kSectorInGrid: to be moved in them
+constexpr uint32_t kSectorInGrid = 0x40;         // its collision is in the scene's super sectors
 
 // The sector (0x1C bytes of the engine's; the original's vtable 0x00649A40 - PC 0x0064A718). Its virtual functions:
 // the destructor, plat_set_shatter, plat_clone (the platform's new sector); slot 2, PlatGetShatter, the same in both
@@ -107,11 +106,11 @@ public:
     void start_texture_anim(bool reset);
     void stop_texture_anim();
 
-    uint32_t checksum_;    // +0x04: its name
-    uint32_t flag_bits_;   // +0x08
-    uint32_t light_group_; // +0x0C: its light group (the time of day's; outdoor by default)
-    int rot_y_;            // +0x10: quarter turns about y
-    void* geom_handle_;    // +0x14: CGeom (on PC a PcGeom), or null
+    uint32_t checksum_;                // +0x04: its name
+    uint32_t flag_bits_;               // +0x08
+    uint32_t light_group_;             // +0x0C: its light group (the time of day's; outdoor by default)
+    int rot_y_;                        // +0x10: quarter turns about y
+    void* geom_handle_;                // +0x14: CGeom (on PC a PcGeom), or null
     memory::owner<HitMesh*> hit_body_; // +0x18: or null (the sector's layout; deleted by its destructor)
 };
 static_assert(offsetof(WorldCell, rot_y_) == 0x10 && offsetof(WorldCell, hit_body_) == 0x18 &&

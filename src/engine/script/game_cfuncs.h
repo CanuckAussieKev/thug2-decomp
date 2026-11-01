@@ -216,14 +216,12 @@ bool node_command_by_name(script::Struct* params, script::Script* script, int ac
 
 // What flag_command_by_name does to the objects: set / clear / test a script flag (of 32), set / clear object flag
 // bits, send an exception.
-enum : int {
-    kFlagActionSet = 0,
-    kFlagActionClear = 1,
-    kFlagActionTest = 2,
-    kFlagActionSetObjectFlags = 3,
-    kFlagActionClearObjectFlags = 4,
-    kFlagActionException = 5,
-};
+constexpr int kFlagActionSet = 0;
+constexpr int kFlagActionClear = 1;
+constexpr int kFlagActionTest = 2;
+constexpr int kFlagActionSetObjectFlags = 3;
+constexpr int kFlagActionClearObjectFlags = 4;
+constexpr int kFlagActionException = 5;
 // 0x005A01D0: the flag (a number) or exception (a checksum) of `params`, done to the objects with the id name= or
 // those of the nodes prefix=; false without either. Whether it was done (for a test: whether one has the flag).
 bool flag_command_by_name(script::Struct* params, script::Script* script, int action);

@@ -102,10 +102,8 @@ static_assert(sizeof(PieceGroupDesc) == 12, "layout must match the original");
 class ParkPiece : public memory::HeapObject {
 public:
     // flag_bits_ (both kinds)
-    enum : uint32_t {
-        kSource = 0x1, // a TileTemplate
-        kCloned = 0x2, // a placed (cloned) piece
-    };
+    static constexpr uint32_t kSource = 0x1; // a TileTemplate
+    static constexpr uint32_t kCloned = 0x2; // a placed (cloned) piece
 
     ParkPiece(const ParkPiece&) = delete;
     ParkPiece& operator=(const ParkPiece&) = delete;
@@ -130,16 +128,14 @@ protected:
 class ParkTile : public ParkPiece {
 public:
     // flag_bits_ (a placed piece's; TileTemplate has its own)
-    enum : uint32_t {
-        kCursor = 0x4,    // the cursor's (never in the generator's list: not unlinked when deleted)
-        kInList = 0x8,    // in the generator's list
-        kNoNode20 = 0x20, // (with 0x80) gets no node in the node array
-        kGap = 0x40,      // a gap's trigger piece
-        kNoNode80 = 0x80,
-        kNoRails = 0x100,    // its rails aren't counted
-        kDestroyNow = 0x200, // destroy_piece takes it out at once
-        kDestroy = 0x1000,   // marked: clean_up_out_refs takes it out
-    };
+    static constexpr uint32_t kCursor = 0x4; // the cursor's (never in the generator's list: not unlinked when deleted)
+    static constexpr uint32_t kInList = 0x8; // in the generator's list
+    static constexpr uint32_t kNoNode20 = 0x20; // (with 0x80) gets no node in the node array
+    static constexpr uint32_t kGap = 0x40;      // a gap's trigger piece
+    static constexpr uint32_t kNoNode80 = 0x80;
+    static constexpr uint32_t kNoRails = 0x100;    // its rails aren't counted
+    static constexpr uint32_t kDestroyNow = 0x200; // destroy_piece takes it out at once
+    static constexpr uint32_t kDestroy = 0x1000;   // marked: clean_up_out_refs takes it out
 
     ParkTile* following_ = nullptr;        // +0x0C: the generator's list
     uint32_t ident_ = 0;                   // +0x10: the generator's piece counter when made (the cluster of its rails)
@@ -177,11 +173,10 @@ static_assert(offsetof(ParkTile, ident_) == 0x10 && offsetof(ParkTile, blend_sou
 class TileTemplate final : public ParkPiece {
 public:
     // flag_bits_ (besides kSource)
-    enum : uint32_t {
-        kGameObject = 0x400,       // the node is a GameObject (read_piece_flags, from the pieces' node array)
-        kAbsentInNetGames = 0x800, // (with kGameObject)
-        kRebuilt = 0x4000,         // rebuilt by rebuild_marked (a trigger the scripts change)
-    };
+    static constexpr uint32_t kGameObject =
+        0x400; // the node is a GameObject (read_piece_flags, from the pieces' node array)
+    static constexpr uint32_t kAbsentInNetGames = 0x800; // (with kGameObject)
+    static constexpr uint32_t kRebuilt = 0x4000;         // rebuilt by rebuild_marked (a trigger the scripts change)
 
     // 0x005905C0: an empty source piece.
     TileTemplate() { flag_bits_ = kSource; }
@@ -212,26 +207,28 @@ public:
 class PieceGroup : public memory::HeapObject {
 public:
     // The flags (flag_bits_).
-    enum : uint32_t {
-        kConcrete = 0x1, // a PlacedPieceGroup (only these are highlighted by an area selection)
-        kFlag1 = kConcrete,
-        kAbstract = 0x2,   // a PieceBlueprint (a palette entry)
-        kInPark = 0x4,     // placed in the park (not the cursor's own piece)
-        kBuiltShell = 0x8, // part of the floor / shell the park builds itself (risers, walls); is_riser
-        kFlag20 = 0x20,    // being moved by a floor change (kept when an area is cleared with flag 4)
-        kSector = 0x80,    // a single-piece palette entry (named after its piece, until "name" renames it)
-        kFence = 0x100,    // a fence piece of the inner shell
-        kCursor = 0x200,   // the cursor's piece
-        kNoRails = 0x400,  // no_rails
-        kFlag400 = kNoRails,
-        kGap = 0x800,             // the gap tool (special_type gap_placement)
-        kHighlightable = 0x1000,  // has a gap attached: highlighted while a gap is placed
-        kRestartFlag = 0x2000,    // special_type red/green/blue/yellow_flag
-        kFloorLocked = 0x4000,    // has a piece flagged 0x0CD75A3F: stops the floor under it being changed
-        kMarqueeTool = 0x8000,    // the clipboard's area select tool (special_type area_selection)
-        kRailPlacement = 0x10000, // the rail tool (special_type rail_placement)
-        kRiserBelow = 0x20000,
-    };
+    static constexpr uint32_t kConcrete = 0x1; // a PlacedPieceGroup (only these are highlighted by an area selection)
+    static constexpr uint32_t kFlag1 = kConcrete;
+    static constexpr uint32_t kAbstract = 0x2; // a PieceBlueprint (a palette entry)
+    static constexpr uint32_t kInPark = 0x4;   // placed in the park (not the cursor's own piece)
+    static constexpr uint32_t kBuiltShell =
+        0x8; // part of the floor / shell the park builds itself (risers, walls); is_riser
+    static constexpr uint32_t kFlag20 =
+        0x20; // being moved by a floor change (kept when an area is cleared with flag 4)
+    static constexpr uint32_t kSector =
+        0x80; // a single-piece palette entry (named after its piece, until "name" renames it)
+    static constexpr uint32_t kFence = 0x100;   // a fence piece of the inner shell
+    static constexpr uint32_t kCursor = 0x200;  // the cursor's piece
+    static constexpr uint32_t kNoRails = 0x400; // no_rails
+    static constexpr uint32_t kFlag400 = kNoRails;
+    static constexpr uint32_t kGap = 0x800;            // the gap tool (special_type gap_placement)
+    static constexpr uint32_t kHighlightable = 0x1000; // has a gap attached: highlighted while a gap is placed
+    static constexpr uint32_t kRestartFlag = 0x2000;   // special_type red/green/blue/yellow_flag
+    static constexpr uint32_t kFloorLocked =
+        0x4000; // has a piece flagged 0x0CD75A3F: stops the floor under it being changed
+    static constexpr uint32_t kMarqueeTool = 0x8000; // the clipboard's area select tool (special_type area_selection)
+    static constexpr uint32_t kRailPlacement = 0x10000; // the rail tool (special_type rail_placement)
+    static constexpr uint32_t kRiserBelow = 0x20000;
 
     PieceGroup(const PieceGroup&) = delete;
     PieceGroup& operator=(const PieceGroup&) = delete;
@@ -627,14 +624,13 @@ struct PieceNodeInfo;
 class ParkAssembler {
 public:
     // flag_bits_
-    enum : uint32_t {
-        kSourcesLoaded = 0x2, // load_source_pieces done
-        kPiecesCreated = 0x4, // (create_piece sets it)
-        kHasPieces = 0x8,
-        kSuperSectorsUpdated = 0x10,
-        kNodeArrayBuilt = 0x20,
-        kSceneChanged = 0x40, // sectors added or deleted since the last update of the super sectors
-    };
+    static constexpr uint32_t kSourcesLoaded = 0x2; // load_source_pieces done
+    static constexpr uint32_t kPiecesCreated = 0x4; // (create_piece sets it)
+    static constexpr uint32_t kHasPieces = 0x8;
+    static constexpr uint32_t kSuperSectorsUpdated = 0x10;
+    static constexpr uint32_t kNodeArrayBuilt = 0x20;
+    static constexpr uint32_t kSceneChanged =
+        0x40; // sectors added or deleted since the last update of the super sectors
     static constexpr int kRestartTableSize = 18;
     static constexpr int kLightCapacity = 16;
 
@@ -812,16 +808,14 @@ extern ParkLayout* g_park_layout;
 class ParkLayout {
 public:
     // flag_bits_: the compressed map's state (meanings partly guessed from where they're set)
-    enum : uint32_t {
-        kMapValid = 0x1,         // built from the park (kMapUpToDate)
-        kMapInSync = 0x2,        // a park is in it, its header readable (kMapLoaded)
-        kMapNewerThanPark = 0x4, // came from outside: memory card, network (kMapSaved)
-        kMapNotSavedLocal = 0x8,
-        kMapUpToDate = kMapValid,
-        kMapLoaded = kMapInSync,
-        kMapSaved = kMapNewerThanPark,
-        kFlag8 = kMapNotSavedLocal,
-    };
+    static constexpr uint32_t kMapValid = 0x1;         // built from the park (kMapUpToDate)
+    static constexpr uint32_t kMapInSync = 0x2;        // a park is in it, its header readable (kMapLoaded)
+    static constexpr uint32_t kMapNewerThanPark = 0x4; // came from outside: memory card, network (kMapSaved)
+    static constexpr uint32_t kMapNotSavedLocal = 0x8;
+    static constexpr uint32_t kMapUpToDate = kMapValid;
+    static constexpr uint32_t kMapLoaded = kMapInSync;
+    static constexpr uint32_t kMapSaved = kMapNewerThanPark;
+    static constexpr uint32_t kFlag8 = kMapNotSavedLocal;
     static constexpr int kMaxSets = 40;
     static constexpr int kNumRestartPieces = 8;
 

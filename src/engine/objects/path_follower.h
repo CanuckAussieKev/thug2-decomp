@@ -25,11 +25,10 @@ public:
         kStateBlend = 3,    // into the next segment, the heading blended (no arc)
         kStateDone = 4,     // at the end of the path
     };
-    enum : uint32_t {
-        kFlagCorner = 1,   // the corner is cut (cut_ short of the node)
-        kFlagLastNode = 2, // the node has no links: the path ends there
-        kFlagTellNode = 4, // the node passed is still to be told to the component (half way round)
-    };
+    static constexpr uint32_t kFlagCorner = 1;   // the corner is cut (cut_ short of the node)
+    static constexpr uint32_t kFlagLastNode = 2; // the node has no links: the path ends there
+    static constexpr uint32_t kFlagTellNode =
+        4; // the node passed is still to be told to the component (half way round)
 
     // 0x0046A1D0: `owner`, an identity frame, the points at the origin. (0x00469B50, the destructor, does nothing.)
     explicit PathFollower(GameEntity* owner);

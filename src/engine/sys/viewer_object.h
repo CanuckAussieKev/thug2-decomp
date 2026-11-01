@@ -29,18 +29,16 @@ using ViewerObjectInputHandler = pad_input::Responder<PreviewEntity>;
 class PreviewEntity final : public GameEntity {
 public:
     // The commands (actions_ bits) the input handler sets and own_update carries out.
-    enum : uint32_t {
-        kCommandFaster = 0x40,        // the speed up by 0.25 (Square... - makes 0x4)
-        kCommandSlower = 0x80,        // down by 0.25 (makes 0x1)
-        kCommandStepForward = 0x100,  // a frame on (Right, or held and auto-repeated)
-        kCommandStepBack = 0x200,     // a frame back (Left)
-        kCommandTogglePanel = 0x1000, // the info panel on / off (makes 0x10)
-        kCommandCameraUp = 0x2000,    // to the viewer: its command 0x2 (buttons 0x8 without 0x2)
-        kCommandCameraDown = 0x4000,  // its command 0x4 (buttons 0x2 without 0x8)
-        kCommandRollLeft = 0x8000,    // its command 0x10000 (no animations; buttons 0x20)
-        kCommandRollRight = 0x10000,  // its command 0x20000 (no animations; buttons 0x80)
-        kCommandToggleMode = 0x20000, // its command 0x4000 (makes 0x200)
-    };
+    static constexpr uint32_t kCommandFaster = 0x40;        // the speed up by 0.25 (Square... - makes 0x4)
+    static constexpr uint32_t kCommandSlower = 0x80;        // down by 0.25 (makes 0x1)
+    static constexpr uint32_t kCommandStepForward = 0x100;  // a frame on (Right, or held and auto-repeated)
+    static constexpr uint32_t kCommandStepBack = 0x200;     // a frame back (Left)
+    static constexpr uint32_t kCommandTogglePanel = 0x1000; // the info panel on / off (makes 0x10)
+    static constexpr uint32_t kCommandCameraUp = 0x2000;    // to the viewer: its command 0x2 (buttons 0x8 without 0x2)
+    static constexpr uint32_t kCommandCameraDown = 0x4000;  // its command 0x4 (buttons 0x2 without 0x8)
+    static constexpr uint32_t kCommandRollLeft = 0x8000;    // its command 0x10000 (no animations; buttons 0x20)
+    static constexpr uint32_t kCommandRollRight = 0x10000;  // its command 0x20000 (no animations; buttons 0x80)
+    static constexpr uint32_t kCommandToggleMode = 0x20000; // its command 0x4000 (makes 0x200)
 
     // 0x0058ADB0: a composite object (vtable 0x0064F138, no commands) with the base components, type
     // OBJECT_TYPE_COMPOSITE; its input handler on controller 0's list; speed 1 (none saved), the panel shown, not

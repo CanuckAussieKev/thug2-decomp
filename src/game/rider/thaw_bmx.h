@@ -207,7 +207,7 @@ void air_rotation(SkaterPhysicsModule* core);
 // skater hit or not); kWheelsNotUsed: THUG2's own check (in a manual, or [features] thaw_bmx_wheels=0).
 // [debug] thaw_bmx_wheels=1 logs each frame the wheels leave the ground (`thaw_bmx wheels off:` - each wheel's hit,
 // why not, distance, reach, turn).
-enum WheelGround { kWheelsNotUsed, kWheelsOff, kWheelsOnGround, kWheelsOnGroundNoHit };
+enum class WheelGround { kWheelsNotUsed, kWheelsOff, kWheelsOnGround, kWheelsOnGroundNoHit };
 WheelGround wheel_ground_check(SkaterPhysicsModule* core);
 // Whether the skater rolls backwards on the bike (the velocity against the facing) - THAW's ground check (0x005DEB08)
 // turns the facing round for its steepness test then.

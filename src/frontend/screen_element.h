@@ -42,27 +42,25 @@ struct ElementState {
 class UiWidget : public objects::Entity {
 public:
     // object_flags_ (+0x08) - the element's own bits, beside Entity's.
-    enum : uint32_t {
-        kMorphCurve = 0x300,      // Anim: 0x100 0xF5B95CE4 (ease out), 0x200 fast_in, 0x300 gentle
-        kDirty = 0x400,           // changed since the layout pass looked
-        kChildrenDirty = 0x800,   // (the layout pass: the parent changed, so must it)
-        kVisibleNow = 0x1000,     // (UnHide; z_priority set) - cleared by the layout pass
-        kDimsLocked = 0x2000,     // fit_to_size' flag
-        kFocusSent = 0x4000,      // the element's 0x3056434F event went (cleared: 0x4A57316B)
-        kZPriority = 0x8000,      // z_priority given
-        kNew = 0x10000,           // (set by the constructor)
-        kPauseAsked = 0x20000,    // paused (the layout pass: kPaused from the next frame)
-        kPaused = 0x40000,        // its morph doesn't advance
-        kPos3d = 0x80000,         // placed by pos3D (projected each frame)
-        kOffScreen = 0x100000,    // pos3D behind the camera
-        kBlockEvents = 0x200000,  // block_events
-        kHidden = 0x400000,       // Hide
-        kKeepScale = 0x800000,    // (0x1CC71DFF: pos3D doesn't scale it with distance)
-        kFlag1000000 = 0x1000000, // (0x1F2C6E1D)
-        kFlipH = 0x2000000,       // flip_h
-        kFlipV = 0x4000000,       // flip_v
-        kPriority = 0x10000000,   // Priority > 0 (pad events with priorities)
-    };
+    static constexpr uint32_t kMorphCurve = 0x300;     // Anim: 0x100 0xF5B95CE4 (ease out), 0x200 fast_in, 0x300 gentle
+    static constexpr uint32_t kDirty = 0x400;          // changed since the layout pass looked
+    static constexpr uint32_t kChildrenDirty = 0x800;  // (the layout pass: the parent changed, so must it)
+    static constexpr uint32_t kVisibleNow = 0x1000;    // (UnHide; z_priority set) - cleared by the layout pass
+    static constexpr uint32_t kDimsLocked = 0x2000;    // fit_to_size' flag
+    static constexpr uint32_t kFocusSent = 0x4000;     // the element's 0x3056434F event went (cleared: 0x4A57316B)
+    static constexpr uint32_t kZPriority = 0x8000;     // z_priority given
+    static constexpr uint32_t kNew = 0x10000;          // (set by the constructor)
+    static constexpr uint32_t kPauseAsked = 0x20000;   // paused (the layout pass: kPaused from the next frame)
+    static constexpr uint32_t kPaused = 0x40000;       // its morph doesn't advance
+    static constexpr uint32_t kPos3d = 0x80000;        // placed by pos3D (projected each frame)
+    static constexpr uint32_t kOffScreen = 0x100000;   // pos3D behind the camera
+    static constexpr uint32_t kBlockEvents = 0x200000; // block_events
+    static constexpr uint32_t kHidden = 0x400000;      // Hide
+    static constexpr uint32_t kKeepScale = 0x800000;   // (0x1CC71DFF: pos3D doesn't scale it with distance)
+    static constexpr uint32_t kFlag1000000 = 0x1000000; // (0x1F2C6E1D)
+    static constexpr uint32_t kFlipH = 0x2000000;       // flip_h
+    static constexpr uint32_t kFlipV = 0x4000000;       // flip_v
+    static constexpr uint32_t kPriority = 0x10000000;   // Priority > 0 (pad events with priorities)
 
     // 0x004A8F90: vtable 0x0064A090, no parent / children / siblings, the three states alike (alpha 1, scale 1, rgba
     // 0x80808080, at 0, 0), dirty and new.

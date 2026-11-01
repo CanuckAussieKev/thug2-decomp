@@ -33,11 +33,9 @@ constexpr uint32_t kDefaultGroup = 0x1CA1FF20;
 
 // An event (made on the stack by the tracker's launch function 0x00462F00).
 struct Signal {
-    enum : uint32_t {
-        kFlagRead = 0x01,     // a script read it
-        kFlagHandled = 0x02,  // a handler ran for it
-        kFlagOwnsData = 0x04, // payload_ is deleted with the event
-    };
+    static constexpr uint32_t kFlagRead = 0x01;     // a script read it
+    static constexpr uint32_t kFlagHandled = 0x02;  // a handler ran for it
+    static constexpr uint32_t kFlagOwnsData = 0x04; // payload_ is deleted with the event
 
     // 0x0045F7F0: the constructor (flags 0;).
     Signal(uint32_t type, uint32_t source, uint32_t target, script::Struct* data);
@@ -88,15 +86,13 @@ public:
 class SignalRouteTable {
 public:
     struct TableRow {
-        enum : uint8_t {
-            kFlagReplacesRunning = 0x01, // replaces the running script instead of interrupting it
-            kFlagMarked = 0x02,          // marked for removal (mark_group / remove_marked)
-        };
-        uint32_t type;          // +0x00 the event type (0 after remove_type)
-        uint32_t script;        // +0x04 the handler script; kNullScript = removed
-        uint32_t group;         // +0x08
-        script::Struct* params; // +0x0C a copy, owned
-        uint8_t flags;          // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
+        static constexpr uint8_t kFlagReplacesRunning = 0x01; // replaces the running script instead of interrupting it
+        static constexpr uint8_t kFlagMarked = 0x02;          // marked for removal (mark_group / remove_marked)
+        uint32_t type;                                        // +0x00 the event type (0 after remove_type)
+        uint32_t script;                                      // +0x04 the handler script; kNullScript = removed
+        uint32_t group;                                       // +0x08
+        script::Struct* params;                               // +0x0C a copy, owned
+        uint8_t flags; // +0x10 (bits 2-7 are left as they were - uninitialised in new entries)
         uint8_t pad[3];
     };
 

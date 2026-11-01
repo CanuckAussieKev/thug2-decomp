@@ -257,12 +257,12 @@ void SkaterPhysicsModule::check_for_ground()
     objects::PadInputModule* input = input_;
     // Not original: THAW 0x005DF050 - on the bike (out of a manual) the two wheels instead (thaw_bmx_physics.cpp).
     bool bike = thaw_bmx::live_now(this);
-    thaw_bmx::WheelGround wheels = bike ? thaw_bmx::wheel_ground_check(this) : thaw_bmx::kWheelsNotUsed;
-    if (wheels == thaw_bmx::kWheelsOnGround || wheels == thaw_bmx::kWheelsOnGroundNoHit) {
-        ground_under_wheels(wheels == thaw_bmx::kWheelsOnGround);
+    thaw_bmx::WheelGround wheels = bike ? thaw_bmx::wheel_ground_check(this) : thaw_bmx::WheelGround::kWheelsNotUsed;
+    if (wheels == thaw_bmx::WheelGround::kWheelsOnGround || wheels == thaw_bmx::WheelGround::kWheelsOnGroundNoHit) {
+        ground_under_wheels(wheels == thaw_bmx::WheelGround::kWheelsOnGround);
         return;
     }
-    if (wheels == thaw_bmx::kWheelsNotUsed) {
+    if (wheels == thaw_bmx::WheelGround::kWheelsNotUsed) {
         // The feeler: from above the skater (up * a physics value) to 200 below, along its up axis.
         float above = tuning_float_lookup(0xE4D79235, object);
         maths::Vec4& start = probe_start_;
