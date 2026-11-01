@@ -282,7 +282,7 @@ public:
     // params. True.
     int get_current_bail_endpose(script::Struct* params, script::Script* script);
 
-    int busy_;                                  // +0x18 (counted up and down round a trick's script)
+    int busy_{};                                // +0x18 (counted up and down round a trick's script)
     modules::PointTally* score_;                // +0x1C the skater's score (set by the skater)
     PadInputModule* input_;                     // +0x20 (its disabled_ / net_disabled_: no tricks)
     RiderTeeterMoves* balance_trick_;           // +0x24
@@ -290,45 +290,45 @@ public:
     RiderSpinAndFlip* flip_rotate_;             // +0x2C
     RiderPoseState* skater_state_;              // +0x30
     AttributeTracker* stats_manager_;           // +0x34
-    TrickEvent events_[kEvents];                // +0x38
-    uint16_t event_count_;                      // +0x998
-    uint16_t event_head_;                       // +0x99A
-    uint32_t button_map_[3];                    // +0x99C what the generic button names stand for
-    float held_off_until_[kButtons];            // +0x9A8
-    bool btn_down_[kButtons];                   // +0xA00
-    uint8_t pada16_[2];
-    int ignored_count_;     // +0xA18
-    uint32_t ignored_[2];   // +0xA1C
-    bool starting_special_; // +0xA24 the trick being started is special
-    uint8_t pada25_[3];
+    TrickEvent events_[kEvents]{};              // +0x38
+    uint16_t event_count_{};                    // +0x998
+    uint16_t event_head_{};                     // +0x99A
+    uint32_t button_map_[3]{};                  // +0x99C what the generic button names stand for
+    float held_off_until_[kButtons]{};          // +0x9A8
+    bool btn_down_[kButtons]{};                 // +0xA00
+    uint8_t pada16_[2]{};
+    int ignored_count_{};     // +0xA18
+    uint32_t ignored_[2]{};   // +0xA1C
+    bool starting_special_{}; // +0xA24 the trick being started is special
+    uint8_t pada25_[3]{};
     script::Struct* trick_lists_; // +0xA28
-    int queue_first_;             // +0xA2C
-    int queue_last_;              // +0xA30
-    QueuedTrick queue_[100];      // +0xA34
-    int extra_list_count_;        // +0x1204
-    uint32_t extra_lists_[10];    // +0x1208
-    uint32_t manual_list_;        // +0x1230
-    uint32_t list_used_;          // +0x1234
-    PendingTrick manual_;         // +0x1238 SetManualTricks' arrays and the manual waiting to start
-    PendingTrick grind_;          // +0x1280 SetExtraGrindTricks' arrays and the grind waiting to start
-    ExtraTricks extra_;           // +0x12C8 SetExtraTricks
-    bool bashing_;                // +0x1330 BashOn
-    char trick_name_[0x33];       // +0x1331 the trick displayed (SetTrickName)
-    int trick_score_;             // +0x1364 SetTrickScore
-    char deferred_name_[0x34];    // +0x1368 a deferred trick's name
-    int deferred_score_;          // +0x139C
-    uint32_t deferred_flags_;     // +0x13A0
-    float spin_total_;            // +0x13A4 the trick's rotation (degrees)
-    bool bailed_;                 // +0x13A8 the skater bailed (the run ends: horse)
-    bool bailed_panel_;           // +0x13A9
-    uint8_t pad13aa_[2];
-    int trick_count_;       // +0x13AC tricks in the combo
-    bool trick_objects_on_; // +0x13B0
-    uint8_t pad13b1_[3];
+    int queue_first_{};           // +0xA2C
+    int queue_last_{};            // +0xA30
+    QueuedTrick queue_[100]{};    // +0xA34
+    int extra_list_count_{};      // +0x1204
+    uint32_t extra_lists_[10]{};  // +0x1208
+    uint32_t manual_list_{};      // +0x1230
+    uint32_t list_used_{};        // +0x1234
+    PendingTrick manual_{};       // +0x1238 SetManualTricks' arrays and the manual waiting to start
+    PendingTrick grind_{};        // +0x1280 SetExtraGrindTricks' arrays and the grind waiting to start
+    ExtraTricks extra_{};         // +0x12C8 SetExtraTricks
+    bool bashing_{};              // +0x1330 BashOn
+    char trick_name_[0x33]{};     // +0x1331 the trick displayed (SetTrickName)
+    int trick_score_{};           // +0x1364 SetTrickScore
+    char deferred_name_[0x34]{};  // +0x1368 a deferred trick's name
+    int deferred_score_{};        // +0x139C
+    uint32_t deferred_flags_{};   // +0x13A0
+    float spin_total_{};          // +0x13A4 the trick's rotation (degrees)
+    bool bailed_{};               // +0x13A8 the skater bailed (the run ends: horse)
+    bool bailed_panel_{};         // +0x13A9
+    uint8_t pad13aa_[2]{};
+    int trick_count_{};       // +0x13AC tricks in the combo
+    bool trick_objects_on_{}; // +0x13B0
+    uint8_t pad13b1_[3]{};
     HitClusterLog trick_objects_; // +0x13B4 the trick objects hit
-    bool quick_getup_done_;       // +0x1BB8
-    uint8_t pad1bb9_[3];
-    uint32_t bail_endpose_; // +0x1BBC current_bail_endpose
+    bool quick_getup_done_{};     // +0x1BB8
+    uint8_t pad1bb9_[3]{};
+    uint32_t bail_endpose_{}; // +0x1BBC current_bail_endpose
 };
 
 // 0x0051EA40: whether `button` is one of the d-pad's eight directions (Up, Down,

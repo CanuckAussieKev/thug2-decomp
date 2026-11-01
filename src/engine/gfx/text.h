@@ -98,15 +98,15 @@ public:
     // texture - the button font's after a button glyph - or this text's font's, and empty the buffer.
     void close_sketch() override;
 
-    TypefaceData* font;
-    const TextEffect* effects; // or null
-    const char* text;
-    float x, y; // position, in 640x480 screen units
-    float xscale, yscale;
-    float pivot_x_, pivot_y_; // what it rotates about, from (x, y)
-    float angle;              // radians
-    uint32_t color;           // RGBA as bytes
-    bool fixed_color_;        // ignore "\c" colours
+    TypefaceData* font{};
+    const TextEffect* effects{}; // or null
+    const char* text{};
+    float x{}, y{}; // position, in 640x480 screen units
+    float xscale{}, yscale{};
+    float pivot_x_{}, pivot_y_{}; // what it rotates about, from (x, y)
+    float angle{};                // radians
+    uint32_t color{};             // RGBA as bytes
+    bool fixed_color_{};          // ignore "\c" colours
 
     // 0x004CFB20: one character of a key name at *pen_x (advanced past it), at line height pen_y - plain, no
     // effects.

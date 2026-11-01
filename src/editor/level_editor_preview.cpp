@@ -61,7 +61,7 @@ void sphere_of(V3 min, V3 max, float min_radius, V3* centre, float* radius)
 Eye orbit_eye(V3 centre, float distance, const Orbit& orbit)
 {
     // (the view looks down by the eye's height angle)
-    Eye eye;
+    Eye eye{};
     eye.frame = frame_from_yaw_pitch(orbit.yaw, -orbit.pitch);
     eye.pos = centre + eye.frame.back * distance;
     return eye;
@@ -234,7 +234,7 @@ uint64_t render(int size)
     if (std::chrono::duration<double>(now - g_last_drag).count() > kTurnWait)
         g_orbit.yaw += kTurnSpeed * static_cast<float>(std::min(elapsed, 0.1));
 
-    OrientedBox box;
+    OrientedBox box{};
     if (!subject_box(&box))
         return 0;
     if (!ui_backend::begin_offscreen(size, kBackground)) {
@@ -250,18 +250,18 @@ uint64_t render(int size)
 
 bool draw_view(Kind kind, uint32_t id, const Orbit& orbit)
 {
-    OrientedBox box;
+    OrientedBox box{};
     if (!box_of(kind, id, &box))
         return false;
-    V3 min, max;
+    V3 min{}, max{};
     bounds_of(box, &min, &max);
-    V3 centre;
+    V3 centre{};
     float radius = 0.0f;
     sphere_of(min, max, 4.0f, &centre, &radius);
     Lens lens = lens_for(kAngle, kSquareAspect);
     float half_angle = std::atan(std::min(lens.tan_x_, lens.tan_y_));
     Eye eye = orbit_eye(centre, fit_distance(radius, half_angle, kMargin) / orbit.zoom, orbit);
-    SavedView saved;
+    SavedView saved{};
     saved.store_away();
     maths::Mat4 orientation = {};
     orientation.row[0] = {eye.frame.right.x, eye.frame.right.y, eye.frame.right.z, 0.0f};
@@ -302,7 +302,7 @@ void tick_cycle(ui::ShapeMesh* model)
     uint32_t id = (*items)[view.index].id;
     get_show(model->browser_tab_ == 0 ? Kind::kSector : Kind::kObject, id);
     view.name = object_edit::caption(id);
-    OrientedBox box;
+    OrientedBox box{};
     if (subject_box(&box)) {
         char size[96];
         std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f  (x by y by z)", box.max.x - box.min.x,

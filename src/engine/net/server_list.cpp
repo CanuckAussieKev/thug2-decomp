@@ -186,7 +186,7 @@ void move_waiting_servers(Hub* manager)
 // --- HostListing ---
 
 // 0x00545F60
-HostListing::HostListing()
+HostListing::HostListing() : ListNode()
 {
     make_node(this);
     participants_.make_head();

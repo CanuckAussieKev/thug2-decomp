@@ -101,7 +101,7 @@ public:
 
     uint32_t emit_target_;           // +0x18 (0xC036F4D0's checksum)
     render::Sparkle* effect_handle_; // +0x1C its particle system
-    ObjectModule* suspend_;          // +0x20 the object's suspend component
+    ObjectModule* suspend_{};        // +0x20 the object's suspend component
     ObjectModule* mesh_instance_;    // +0x24 the model it follows (configure_from_data)
     int start_time_;                 // +0x28 the game clock when made
     uint32_t lifespan_;              // +0x2C ms (0: for ever)

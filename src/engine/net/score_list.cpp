@@ -144,7 +144,7 @@ void score_broadcast_tick(tasks::Task<Hub>* task)
     void* elements = frontend::g_ui_element_hub; // (the screen element manager: unused by the lookup)
     (void)elements;
     Hub* manager = task->content_;
-    lists::Foremost list;
+    lists::Foremost list{};
     list.list_link_.make_head();
     PlayerSearch search;
     bool not_lobby = get_game_type() != kNetLobby;

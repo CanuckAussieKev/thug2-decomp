@@ -78,9 +78,9 @@ public:
     bool vibrate(script::Struct* params, script::Script* script);
 
     bool active_; // +0x18
-    uint8_t pad19[3];
-    Stopwatch timers_[kActuators]; // +0x1C
-    sio::InputPort* pad_dev_;      // +0x34
+    uint8_t pad19[3]{};
+    Stopwatch timers_[kActuators]{}; // +0x1C
+    sio::InputPort* pad_dev_{};      // +0x34
 };
 
 } // namespace objects

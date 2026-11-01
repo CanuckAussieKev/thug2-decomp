@@ -408,7 +408,7 @@ TextureSplats* create_texture_splat(void** sectors, int /*unused*/, SplatParams*
     // the projection: looking along the ray, the texture's up from `up` (the ray moved by it, and the height its
     // distance), else about y (turned by the angle - or a random one - when the ray is steep)
     float up[4];
-    maths::Mat4 view, projection, combined;
+    maths::Mat4 view{}, projection{}, combined{};
     if (params->up) {
         const float* from = params->up;
         double az = static_cast<double>(start[2]) - from[2];

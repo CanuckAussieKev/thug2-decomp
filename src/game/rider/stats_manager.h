@@ -103,38 +103,38 @@ public:
     bool get_last_air_combo_score(script::Struct* params, script::Script* script);   // 0x0051CB70
     bool clear_last_air_combo_score(script::Struct* params, script::Script* script); // 0x0051C580
 
-    bool first_update_; // +0x18 the next update only clears the phases
-    uint8_t pad19[3];
-    Goal goals_[kGoals]; // +0x1C
-    bool activated_;     // +0x9F4
-    bool raise_stats_;   // +0x9F5 (the global integer 0xB8688A8A is 1)
-    bool goal_done_;     // +0x9F6 a goal's status was set to 1
-    uint8_t pad9f7_;
-    int points_held_;                    // +0x9F8 the combo's points times its multiplier
-    int score_before_combo_;             // +0x9FC
-    int path_vertices_;                  // +0xA00 the score over the multiplier
-    int last_points_;                    // +0xA04
-    float multiplier_;                   // +0xA08
-    float last_multiplier_;              // +0xA0C
-    int value10_;                        // +0xA10
-    int value14_;                        // +0xA14
-    int difficulty_;                     // +0xA18
-    uint32_t cur_phase_;                 // +0xA1C this frame's (0x26A7CADF, 0xB39B4F1B, 0x439F4704)
-    uint32_t last_state_;                // +0xA20
-    maths::Vec4 air_start_;              // +0xA24 where the skater left the ground (state +0x30)
-    maths::Vec4 air_end_;                // +0xA34 where it landed
-    int air_start_points_;               // +0xA44
-    float air_start_multiplier_;         // +0xA48
-    int air_best_;                       // +0xA4C the best combo score made in the air
-    int air_phase_;                      // +0xA50 0, 1 in the air, 2 landed
-    float air_height_;                   // +0xA54 the most above the start
-    float value58_;                      // +0xA58 (cleared after each update)
-    maths::Vec4 jump_start_;             // +0xA5C
-    maths::Vec4 jump_end_;               // +0xA6C
-    int jump_phase_;                     // +0xA7C 0, 1 in the air, 2 landed
-    int count_a80_;                      // +0xA80 (0xBA15FC7F)
-    int count_a84_;                      // +0xA84 (0xB9AE26D2)
-    int air_score_;                      // +0xA88
+    bool first_update_{}; // +0x18 the next update only clears the phases
+    uint8_t pad19[3]{};
+    Goal goals_[kGoals]{}; // +0x1C
+    bool activated_{};     // +0x9F4
+    bool raise_stats_{};   // +0x9F5 (the global integer 0xB8688A8A is 1)
+    bool goal_done_{};     // +0x9F6 a goal's status was set to 1
+    uint8_t pad9f7_{};
+    int points_held_{};                  // +0x9F8 the combo's points times its multiplier
+    int score_before_combo_{};           // +0x9FC
+    int path_vertices_{};                // +0xA00 the score over the multiplier
+    int last_points_{};                  // +0xA04
+    float multiplier_{};                 // +0xA08
+    float last_multiplier_{};            // +0xA0C
+    int value10_{};                      // +0xA10
+    int value14_{};                      // +0xA14
+    int difficulty_{};                   // +0xA18
+    uint32_t cur_phase_{};               // +0xA1C this frame's (0x26A7CADF, 0xB39B4F1B, 0x439F4704)
+    uint32_t last_state_{};              // +0xA20
+    maths::Vec4 air_start_{};            // +0xA24 where the skater left the ground (state +0x30)
+    maths::Vec4 air_end_{};              // +0xA34 where it landed
+    int air_start_points_{};             // +0xA44
+    float air_start_multiplier_{};       // +0xA48
+    int air_best_{};                     // +0xA4C the best combo score made in the air
+    int air_phase_{};                    // +0xA50 0, 1 in the air, 2 landed
+    float air_height_{};                 // +0xA54 the most above the start
+    float value58_{};                    // +0xA58 (cleared after each update)
+    maths::Vec4 jump_start_{};           // +0xA5C
+    maths::Vec4 jump_end_{};             // +0xA6C
+    int jump_phase_{};                   // +0xA7C 0, 1 in the air, 2 landed
+    int count_a80_{};                    // +0xA80 (0xBA15FC7F)
+    int count_a84_{};                    // +0xA84 (0xB9AE26D2)
+    int air_score_{};                    // +0xA88
     int last_air_combo_score_;           // +0xA8C
     GameEntity* skater_;                 // +0xA90
     RiderPoseState* skater_state_;       // +0xA94

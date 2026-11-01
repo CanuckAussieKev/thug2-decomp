@@ -36,10 +36,10 @@ public:
     void remove_movable(HitMesh* object);
 
     maths::BBox box_;       // +0x000
-    TableRow entries_[500]; // +0x020
-    int num_;               // +0xFC0
-    int statics_;           // +0xFC4
-    int movables_;          // +0xFC8
+    TableRow entries_[500]{}; // +0x020
+    int num_{};               // +0xFC0
+    int statics_{};           // +0xFC4
+    int movables_{};          // +0xFC8
 };
 static_assert(sizeof(HitMeshCache) == 0xFCC && offsetof(HitMeshCache, num_) == 0xFC0, "layout must match the original");
 

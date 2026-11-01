@@ -222,7 +222,7 @@ bool rail_near(V3 origin, V3 unit_dir, float x, float y, float max_t, Spot* spot
 
 bool spot_at(V3 origin, V3 unit_dir, float x, float y, Spot* spot)
 {
-    Hit hit;
+    Hit hit{};
     bool have_hit = get_cast(origin, origin + unit_dir * 20000.0f, &hit);
     float max_t = have_hit ? get_dot(hit.point - origin, unit_dir) : 20000.0f;
     if (rail_near(origin, unit_dir, x, y, max_t, spot))

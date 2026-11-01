@@ -642,7 +642,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
                                        Record24* result, GrindPoint** found)
 {
     *found = nullptr;
-    maths::Seg line;
+    maths::Seg line{};
     line.start = *start;
     line.end = *end;
     maths::Vec4 min, max;
@@ -665,7 +665,7 @@ bool GrindRailHub::find_ladder_on_line(const maths::Vec4* start, const maths::Ve
             max.z < node->lower_limit_.z || min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
             continue;
         GrindPoint* next = node->succ_;
-        maths::Seg rail;
+        maths::Seg rail{};
         rail.start = node->at_point_;
         rail.end = next->at_point_;
         maths::Vec4 on_line, on_rail;
@@ -705,7 +705,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
                              void* checker, Record34* result, float margin)
 {
     bool found = false;
-    maths::Seg line;
+    maths::Seg line{};
     line.start = *start;
     line.end = *end;
     maths::Vec4 min, max;
@@ -728,7 +728,7 @@ bool GrindRailHub::find_rail(const maths::Vec4* start, const maths::Vec4* end, c
             max.z < node->lower_limit_.z || min.y > node->upper_limit_.y || max.y < node->lower_limit_.y)
             continue;
         GrindPoint* next = node->succ_;
-        maths::Seg rail;
+        maths::Seg rail{};
         rail.start = node->at_point_;
         rail.end = next->at_point_;
         maths::Vec4 on_line, on_rail;
@@ -903,7 +903,7 @@ void GrindRailHub::add_from_node_array(script::Array* nodes)
 bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* end, maths::Vec4* point,
                                    GrindPoint** found, const GrindPoint* exclude, float min_alignment, int side)
 {
-    maths::Seg line;
+    maths::Seg line{};
     line.start = *start;
     line.end = *end;
     maths::Vec4 min, max;
@@ -929,7 +929,7 @@ bool GrindRailHub::find_grind_rail(const maths::Vec4* start, const maths::Vec4* 
         if (GrindPoint* next = node->succ_) {
             if (outside || !rail_clear(node->at_point_, next->at_point_))
                 continue;
-            maths::Seg rail;
+            maths::Seg rail{};
             rail.start = node->at_point_;
             rail.end = next->at_point_;
             maths::Vec4 on_line, on_rail;

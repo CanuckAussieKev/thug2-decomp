@@ -59,8 +59,8 @@ void unlink_list_node(memory::ListNode* node) { memory::ListNode::destroy(node);
 // have been taken out (delta below 0) new ones fill the gaps at the end of the list; while more have been put in
 // (above 0) they wait on `pending`, and one taken out is replaced by the first waiting.
 struct CellUpdate {
-    CollGridCell* cell;
-    memory::ListNode* pending;
+    CollGridCell* cell{};
+    memory::ListNode* pending{};
     int delta = 0;
 
     void take_out(HitMesh* object)
@@ -250,7 +250,7 @@ void CollGrid::get_fill(StaticCollider* statics, int count)
 // 0x00418F60
 void CollGrid::tick_frame(memory::ListNode* added, memory::ListNode* removed, memory::ListNode* moved)
 {
-    memory::ListNode pending;
+    memory::ListNode pending{};
     pending.make_head();
     int added_count = len_of(added), removed_count = len_of(removed), moved_count = len_of(moved);
     for (auto& column : cells_) {
@@ -355,7 +355,7 @@ HitMesh** CollGrid::objects_along_line(const maths::Seg* line, int* count)
     }
     double ex = dx * 0.5f, ey = static_cast<double>(dy) * 0.5f;
     auto ez = static_cast<float>(static_cast<double>(dz) * 0.5f);
-    maths::Seg longer;
+    maths::Seg longer{};
     longer.start = {static_cast<float>(line->start.x - ex), static_cast<float>(line->start.y - ey),
                     static_cast<float>(static_cast<double>(line->start.z) - ez), 0.0f};
     longer.end = {static_cast<float>(ex + line->end.x), static_cast<float>(ey + line->end.y),

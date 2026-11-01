@@ -124,14 +124,14 @@ void get_hover(V3 origin, V3 unit_dir, float x, float y, bool no_snap)
     g_have_hover = false;
     if (!g_armed)
         return;
-    V3 hit;
+    V3 hit{};
     uint32_t sector = 0;
     if (!cast_feeler(origin, origin + unit_dir * 20000.0f, &hit, &sector))
         return;
     g_have_hover = true;
     g_hover = hit;
     g_hover_snapped = false;
-    ViewNow view;
+    ViewNow view{};
     if (no_snap || !current_view(&view))
         return;
     // (the corners of the piece hit, near enough to the hit to be within the snap on screen)

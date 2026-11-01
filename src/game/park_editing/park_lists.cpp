@@ -94,12 +94,12 @@ PieceGroup* ParkLayout::make_placed_piece(PieceGroup* abstract_meta, uint32_t pi
     if (abstract_meta->flag_bits_ & PieceGroup::kFloorLocked)
         meta->flag_bits_ |= PieceGroup::kFloorLocked;
     for (int i = 0; i < count; ++i) {
-        PieceGroupDesc entry;
+        PieceGroupDesc entry{};
         static_cast<PieceBlueprint*>(abstract_meta)->get_entry(&entry, i); // entry `i`, copied
         TileTemplate* source = get_piece_source(singleton()->builder_, reinterpret_cast<uint32_t>(entry.piece));
         ParkTile* piece = create_piece(builder_, source, piece_flags);
         piece->set_quarter_turns(entry.rot, 0); // turn it
-        CellBox pos;
+        CellBox pos{};
         pos.assign_value(entry.x, entry.y, entry.z, 0, 0, 0);
         meta->insert_tile(piece, &pos, entry.rot, entry.sets_floor_);
     }
@@ -222,7 +222,7 @@ MapListNode* ParkLayout::get_intersecting_metas(CellBox area, int rot, PieceGrou
     MapListHolder nearby(get_intersecting_metas(area, 0, nullptr, false));
     for (uint32_t i = 0; i < meta->filled_slots_; ++i) {
         PieceGroupDesc* entry = meta->get_entry(static_cast<int>(i));
-        CellBox pos;
+        CellBox pos{};
         pos.assign_value(entry->x, entry->y, entry->z, 0, 0, 0);
         pos.x = static_cast<uint8_t>(pos.x + area.x);
         pos.y = static_cast<int8_t>(pos.y + area.y);
@@ -321,7 +321,7 @@ void ParkLayout::set_meta_in_cells(PieceGroup* meta, int add)
         PieceGroupDesc* entry = meta->get_entry(static_cast<int>(i));
         if (!entry->sets_floor_)
             continue;
-        CellBox dims;
+        CellBox dims{};
         dims.assign_value(0, 0, 0, 0, 0, 0);
         piece->get_footprint_size(&dims); // the piece's size in cells
         dims.x = static_cast<uint8_t>(entry->x + meta->cell_footprint_.x);

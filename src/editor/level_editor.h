@@ -294,8 +294,8 @@ inline bool is_uniform_scale(V3 s) { return s.x == s.y && s.y == s.z; }
 // get_quarter_turn(per_axis(x, scale), quarters) + offset (a scale along each of its own axes as first touched - uniform or
 // stretched, level_editor_scale.h; 1, 1, 1 unless scaled).
 struct Placement {
-    int quarters; // 0..3
-    V3 offset;
+    int quarters{}; // 0..3
+    V3 offset{};
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
 V3 get_apply(const Placement& placement, V3 x);

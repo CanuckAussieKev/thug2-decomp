@@ -86,7 +86,7 @@ struct Occurrence {
         kBudget,   // the Problems window's Budget tab
         kShowAll,  // everything hidden while editing shown
         kSimulate, // Simulate stopped
-    } kind;
+    } kind{};
     float value = 0.0f;
 };
 struct Output {

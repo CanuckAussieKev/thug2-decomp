@@ -239,7 +239,7 @@ void PreviewEntity::read_in(script::Struct* params)
             asset_ = skeleton;
         }
     }
-    script::VectorValue position;
+    script::VectorValue position{};
     if (params->fetch_vec(kViewerObjPos, &position, 0)) {
         at_point_.x = position.x;
         at_point_.y = position.y;
@@ -277,7 +277,7 @@ void PreviewEntity::change_spin(float z, float x)
 {
     static const float kIdentity[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
     std::memcpy(&basis_frame_, kIdentity, sizeof(kIdentity));
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     multiply_matrix(&basis_frame_, &basis_frame_, &maths::make_roll_matrix(rotation, z));
     multiply_matrix(&basis_frame_, &basis_frame_, &maths::make_pitch_matrix(rotation, x));
 }
@@ -369,7 +369,7 @@ void PreviewEntity::spin_wheels()
     for (int i = 0; i < get_bone_count(nx_model); ++i)
         bones[i] = *reinterpret_cast<const maths::Mat4*>(hierarchy + 0x10 + i * 0x50);
     for (int wheel = 2; wheel < 6; ++wheel) {
-        maths::Mat4 spin;
+        maths::Mat4 spin{};
         const auto radians = static_cast<float>(static_cast<double>(wheel_angle()) * kRadiansPerDegree);
         multiply_matrix(&bones[wheel], &maths::make_pitch_matrix(spin, radians), &bones[wheel]);
     }

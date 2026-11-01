@@ -66,7 +66,7 @@ void ProximityComponent::tick_frame()
         double dz = static_cast<double>(skater->at_point_.z) - at.z;
         double reach = static_cast<double>(skater_radius()) + outer_radius_;
         if (!(reach * reach < (dz * dz + dy * dy) + dx * dx)) {
-            maths::Seg line;
+            maths::Seg line{};
             const maths::Vec4& head = skater->at_point_;
             line.start = head;
             line.end = {head.x, static_cast<float>(static_cast<double>(head.y) + skater_radius()), head.z, head.w};

@@ -277,11 +277,11 @@ void RiderFrameLog::check_for_collisions(int first)
     }
     bool my_driving = my_state->in_vehicle_;
     maths::Vec4 my_pos = entity_->at_point_;
-    maths::Vec4 my_move;
+    maths::Vec4 my_move{};
     get_frame_movement(&my_move);
     maths::Vec4 my_dir = my_move;
     my_dir.make_unit();
-    maths::Seg mine;
+    maths::Seg mine{};
     mine.start = my_pos;
 
     for (int i = first; i < 8; ++i) {
@@ -301,9 +301,9 @@ void RiderFrameLog::check_for_collisions(int first)
 
         RiderFrameLog* their_history = static_cast<Rider*>(skater)->state_history_;
         bool their_driving = their_state->in_vehicle_;
-        maths::Vec4 their_pos;
+        maths::Vec4 their_pos{};
         their_history->fetch_place(&their_pos);
-        maths::Vec4 their_move;
+        maths::Vec4 their_move{};
         their_history->get_frame_movement(&their_move);
         maths::Vec4 their_dir = their_move;
         their_dir.make_unit();
@@ -317,12 +317,12 @@ void RiderFrameLog::check_for_collisions(int first)
         if (their_driving)
             script::fetch_float(kDrivingRadiusBoost);
         mine.end = mine.start + my_dir * static_cast<float>(get_collision_reach(my_driving));
-        maths::Seg theirs;
+        maths::Seg theirs{};
         theirs.start = their_pos;
         theirs.end = theirs.start + their_dir * static_cast<float>(their_history->get_collision_reach(their_driving));
 
         // Where they meet: the segments' closest points, else the first of the four pairs of ends close enough.
-        maths::Vec4 my_point, their_point;
+        maths::Vec4 my_point{}, their_point{};
         float scratch = 0.0f;
         if (maths::closest_points_between_lines(mine, theirs, my_point, their_point, scratch, scratch, true)) {
             if (!(length_of(my_point - their_point) < radius))

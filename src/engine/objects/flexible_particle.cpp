@@ -269,7 +269,7 @@ void FlexibleParticleComponent::configure_from_data(script::Struct* params)
     int priority = 0;
     params->fetch_int_value(kPriority, &priority, 0);
     system_.get_pull()->rank_ = static_cast<uint8_t>(priority);
-    script::VectorValue align_to;
+    script::VectorValue align_to{};
     if (params->fetch_vec(kAlignTo, &align_to, 0)) {
         render::EmitterInstance* aligned = system_.get_pull();
         aligned->align_to_ = {align_to.x, align_to.y, align_to.z, align_to.w};
@@ -319,7 +319,7 @@ void FlexibleParticleComponent::tick_frame()
             if (rotate_) {
                 maths::Mat4 orientation = entity_->display_matrix_;
                 orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-                maths::Mat4 rotation;
+                maths::Mat4 rotation{};
                 matrix_multiply(&entity_->display_matrix_, system_rotation(system_.get_pull(), &rotation),
                                 &orientation);
                 system_.get_pull()->xform_ref_ = &entity_->display_matrix_;

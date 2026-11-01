@@ -90,58 +90,58 @@ public:
     // down). Nothing without a skater.
     void get_zoomed_offsets(float* height, float* distance);
 
-    uint8_t unknown18_[0x24 - 0x18];
+    uint8_t unknown18_[0x24 - 0x18]{};
     int mode_sel_;               // +0x24 the camera mode (an index of Skater_Camera_Array)
-    int instant_frames_;         // +0x28 frames that jump straight to the target
+    int instant_frames_{};       // +0x28 frames that jump straight to the target
     float turn_cosine_;          // +0x2C the last turn's cosine (the new facing against the old)
-    maths::Vec4 aim_point_;      // +0x30 the point followed
-    maths::Vec4 orientation_[3]; // +0x40 (the view's first three rows)
-    int wall_ride_frames_;       // +0x70
-    maths::Mat4 skater_matrix_;  // +0x74 the skater's orientation last frame
-    maths::Vec4 wall_facing_;    // +0xB4 the wall's facing when the wall ride began (flat)
-    float behind_;               // +0xC4 behind (inches)
-    float behind_time_;          // +0xC8 left to lerp
-    float behind_step_;          // +0xCC a frame's
-    float above_;                // +0xD0 above (inches)
-    float above_time_;           // +0xD4
-    float above_step_;           // +0xD8
-    float settle_time_;          // +0xDC the slower slerp after vert air, left (seconds)
-    float horiz_fov_;            // +0xE0 horiz_fov
+    maths::Vec4 aim_point_{};    // +0x30 the point followed
+    maths::Vec4 orientation_[3]{}; // +0x40 (the view's first three rows)
+    int wall_ride_frames_{};       // +0x70
+    maths::Mat4 skater_matrix_{};  // +0x74 the skater's orientation last frame
+    maths::Vec4 wall_facing_{};    // +0xB4 the wall's facing when the wall ride began (flat)
+    float behind_{};               // +0xC4 behind (inches)
+    float behind_time_{};          // +0xC8 left to lerp
+    float behind_step_{};          // +0xCC a frame's
+    float above_{};                // +0xD0 above (inches)
+    float above_time_{};           // +0xD4
+    float above_step_{};           // +0xD8
+    float settle_time_{};          // +0xDC the slower slerp after vert air, left (seconds)
+    float horiz_fov_{};            // +0xE0 horiz_fov
     float lerp_xz_;              // +0xE4 lerp_xz
     float lerp_y_;               // +0xE8 lerp_y
     float vert_air_lerp_xz_;     // +0xEC vert_air_lerp_xz
     float halfpipe_up_blend_;    // +0xF0 vert_air_lerp_y
     float look_rate_;            // +0xF4 the roll's ease (the mode's 0xBEF0D195; name not recovered)
-    float rate_time_;            // +0xF8 seconds left of the rates' rise back to 1
-    float rate_rise_;            // +0xFC
-    float rate_scale_;           // +0x100
-    uint8_t vert_zoom_on_;       // +0x104 the vert-air zoom on (0 / 1)
-    uint8_t pad105[3];
+    float rate_time_{};          // +0xF8 seconds left of the rates' rise back to 1
+    float rate_rise_{};          // +0xFC
+    float rate_scale_{};         // +0x100
+    uint8_t vert_zoom_on_{};     // +0x104 the vert-air zoom on (0 / 1)
+    uint8_t pad105[3]{};
     float zoom_;                  // +0x108 the zoom now
-    float zoom_target_;           // +0x10C
+    float zoom_target_{};         // +0x10C
     float zoom_ease_rate_;        // +0x110 zoom_lerp
-    float big_air_trick_zoom_;    // +0x114 big_air_trick_zoom (in vert air)
-    float rail_zoom_factor_;      // +0x118 grind_zoom
-    float lip_trick_zoom_;        // +0x11C lip_trick_zoom
-    int lip_state_;               // +0x120 0 none, 1 looking along the lip, 2 blocked: the other way
-    float wallride_offset_angle_; // +0x124 wallride_offset_angle
-    float roll_;                  // +0x128
-    float lean_angle_;            // +0x12C tilt
-    float air_tilt_;              // +0x130
-    float lip_trick_tilt_;        // +0x134 lip_trick_tilt
-    float lip_trick_above_;       // +0x138 lip_trick_above
-    uint8_t unknown13c_[4];
-    float slerp_;                            // +0x140 slerp
-    float vert_air_slerp_;                   // +0x144 vert_air_slerp
-    float vert_air_landed_slerp_;            // +0x148 vert_air_landed_slerp (while settling)
-    float origin_offset_;                    // +0x14C origin_offset (inches)
-    float shake_left_;                       // +0x150 the shake's time left
-    float shake_length_;                     // +0x154 its length
-    float shake_amp_x_;                      // +0x158 amplitudes
-    float shake_amp_y_;                      // +0x15C
-    float shake_rate_x_;                     // +0x160 rates
-    float shake_rate_y_;                     // +0x164
-    FreeLookModule* free_look_module_;       // +0x168
+    float big_air_trick_zoom_{};  // +0x114 big_air_trick_zoom (in vert air)
+    float rail_zoom_factor_{};    // +0x118 grind_zoom
+    float lip_trick_zoom_{};      // +0x11C lip_trick_zoom
+    int lip_state_{};             // +0x120 0 none, 1 looking along the lip, 2 blocked: the other way
+    float wallride_offset_angle_{}; // +0x124 wallride_offset_angle
+    float roll_{};                  // +0x128
+    float lean_angle_{};            // +0x12C tilt
+    float air_tilt_{};              // +0x130
+    float lip_trick_tilt_{};        // +0x134 lip_trick_tilt
+    float lip_trick_above_{};       // +0x138 lip_trick_above
+    uint8_t unknown13c_[4]{};
+    float slerp_{};                          // +0x140 slerp
+    float vert_air_slerp_{};                 // +0x144 vert_air_slerp
+    float vert_air_landed_slerp_{};          // +0x148 vert_air_landed_slerp (while settling)
+    float origin_offset_{};                  // +0x14C origin_offset (inches)
+    float shake_left_{};                     // +0x150 the shake's time left
+    float shake_length_{};                   // +0x154 its length
+    float shake_amp_x_{};                    // +0x158 amplitudes
+    float shake_amp_y_{};                    // +0x15C
+    float shake_rate_x_{};                   // +0x160 rates
+    float shake_rate_y_{};                   // +0x164
+    FreeLookModule* free_look_module_{};     // +0x168
     maths::ArcRotationBlender* arc_blender_; // +0x16C
     GameEntity* rider_ref_;                  // +0x170
     RiderPoseState* state_ref_;              // +0x174 the skater's SkaterState
@@ -168,7 +168,7 @@ public:
     // 0x004FBE00 (slot 1): Rider::update_shadow_light with the object's position and matrix.
     void tick_frame() override;
 
-    ObjectModule* state_ref_; // +0x18 the object's SkaterState
+    ObjectModule* state_ref_{}; // +0x18 the object's SkaterState
 };
 
 // 0x0064BA74: skaterCameraVtable (defined where the class's functions are).

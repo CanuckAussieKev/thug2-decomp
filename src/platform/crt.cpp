@@ -35,7 +35,7 @@ unsigned linked_time(unsigned* out)
 uint32_t get_inet_addr(const char* address) { return static_cast<uint32_t>(inet_addr(address)); }
 const char* get_inet_ntoa(uint32_t address)
 {
-    in_addr in;
+    in_addr in{};
     in.s_addr = address;
     return inet_ntoa(in);
 }

@@ -140,7 +140,7 @@ public:
     int num_;           // +0x04
     bool alive_; // +0x08 cleared when the script dies while forward_trigger runs (forward_trigger then frees the table)
     bool altered_; // +0x09 entries were added or moved (forward_trigger stops: its entry pointer may be stale)
-    uint8_t pad0a_[2];
+    uint8_t pad0a_[2]{};
     int in_use_; // +0x0C forward_trigger nesting depth
 };
 

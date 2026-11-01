@@ -377,7 +377,7 @@ void BodyDynamicsModule::resolve_contacts()
         if (steer_friction_) {
             const DirectedFriction& friction = steer_friction_[c.friction];
             if (friction.active) {
-                maths::Vec4 d;
+                maths::Vec4 d{};
                 basis_frame_.rotate_vector(d, friction.direction);
                 double dn = (get_wide(d.x) * n.x + get_wide(d.z) * n.z) + get_wide(d.y) * n.y;
                 float dny = get_narrow(dn * n.y), dnz = get_narrow(dn * n.z), dnw = get_narrow(dn * n.w);
@@ -553,7 +553,7 @@ void BodyDynamicsModule::tick_frame()
     damp();
     check_sleep();
 
-    maths::Vec4 offset;
+    maths::Vec4 offset{};
     basis_frame_.rotate_vector(offset, model_offset_);
     entity_->at_point_ = {append_one(at_point_.x, offset.x), append_one(at_point_.y, offset.y),
                           append_one(at_point_.z, offset.z), append_one(at_point_.w, offset.w)};

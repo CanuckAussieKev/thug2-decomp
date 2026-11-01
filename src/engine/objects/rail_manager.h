@@ -119,13 +119,13 @@ public:
     // own previous link at its own index count times (found: the previous node's box - never).
     void move_node(uint32_t name, const maths::Vec4* pos);
 
-    maths::Mat4 frame_xform_;   // +0x00
+    maths::Mat4 frame_xform_{}; // +0x00
     GrindPoint* nodes_;         // +0x40
     script::Array* node_array_; // +0x44 the node array they were made from
     int num_;                   // +0x48
-    int adding_;                // +0x4C the node being added (0x0057D090)
+    int adding_{};              // +0x4C the node being added (0x0057D090)
     bool on_object_;            // +0x50
-    uint8_t pad51[3];
+    uint8_t pad51[3]{};
 };
 static_assert(offsetof(GrindRailHub, nodes_) == 0x40 && offsetof(GrindRailHub, num_) == 0x48 &&
                   offsetof(GrindRailHub, on_object_) == 0x50,

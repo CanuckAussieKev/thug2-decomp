@@ -32,14 +32,14 @@ public:
 
     maths::Vec4* centres;    // +0x04
     maths::Vec4* velocities; // +0x08
-    uint32_t unknown0c_;
+    uint32_t unknown0c_{};
     maths::Mat4* rotations;   // +0x10
     float lifetime;           // +0x14: seconds left
     float gravity;            // +0x18 (128)
     float floor;              // +0x1C: the height the triangles bounce at
     float bounce;             // +0x20: the speed kept in a bounce
     uint16_t triangle_count_; // +0x24
-    uint16_t pad26;
+    uint16_t pad26{};
     uint32_t unknown28; // +0x28 (the settings' checksum 0x007004C0)
 
     // 0x004913D0: triangle `index` moved a step; below the floor and falling, it bounces (the height mirrored, the

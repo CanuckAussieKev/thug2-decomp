@@ -240,7 +240,7 @@ bool get_corners(FaceKey key, V3 out[3])
         uint32_t v = tri->face_vertex(key.face, k);
         if (v >= tri->num_vertices_)
             return false;
-        maths::Vec4 p;
+        maths::Vec4 p{};
         tri->read_stored_vertex(static_cast<int>(v), &p);
         out[k] = {p.x, p.y, p.z};
     }
@@ -361,7 +361,7 @@ bool click_at(V3 origin, V3 unit_dir, bool add)
         hud::get_message("No collision face under cursor");
         return false;
     }
-    FaceKey key;
+    FaceKey key{};
     std::string why;
     if (!get_key_of(hit, &key, &why)) {
         hud::get_message(why, 4.0);

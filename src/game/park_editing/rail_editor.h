@@ -285,12 +285,12 @@ public:
     void* input_ptr_;           // +0x18 the input component (0x27D7CD28)
     void* view_camera_;         // +0x1C the editor camera component (0xAC8946E2)
     EditedRail* rail_groups_;   // +0x20
-    EditedRail* active_node_;   // +0x24 the rail points are added to
-    uint32_t mode_sel_;         // +0x28 SetEditingMode's Mode
+    EditedRail* active_node_{}; // +0x24 the rail points are added to
+    uint32_t mode_sel_{};       // +0x28 SetEditingMode's Mode
     uint32_t dotted_line_name_; // +0x2C the dotted line's clone (Sk5Ed_RAdot_Dynamic / ..._Green)
     uint8_t* dotted_line_;      // +0x30 its sector
-    RailBuffer packed_;         // +0x34
-    uint8_t pad1166[2];
+    RailBuffer packed_{};       // +0x34
+    uint8_t pad1166[2]{};
 };
 static_assert(offsetof(RailAuthoring, input_ptr_) == 0x18 && offsetof(RailAuthoring, rail_groups_) == 0x20 &&
                   offsetof(RailAuthoring, active_node_) == 0x24 && offsetof(RailAuthoring, mode_sel_) == 0x28 &&

@@ -76,7 +76,7 @@ public:
     // 0x004ECDF0 [ClearPagerMessages]
     bool clear_pager_messages(script::Struct* params, script::Script* script);
 
-    PointerList messages_; // +0x18 (PagerMessage*)
+    PointerList messages_{}; // +0x18 (PagerMessage*)
 };
 
 } // namespace objects

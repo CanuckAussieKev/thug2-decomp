@@ -77,10 +77,10 @@ public:
     // array of them (any one there: true; neither: false).
     bool query_objects(script::Struct* params, script::Script* script, Rect2* rect, const maths::Vec4* point);
 
-    maths::Vec4 box_max_; // +0x18
-    maths::Vec4 box_min_; // +0x28
-    maths::Vec4 shift_;   // +0x38
-    uint8_t unknown48[4];
+    maths::Vec4 box_max_{}; // +0x18
+    maths::Vec4 box_min_{}; // +0x28
+    maths::Vec4 shift_{};   // +0x38
+    uint8_t unknown48[4]{};
 };
 static_assert(offsetof(CbBoxComponent, box_max_) == 0x18 && offsetof(CbBoxComponent, box_min_) == 0x28 &&
                   offsetof(CbBoxComponent, shift_) == 0x38 && sizeof(CbBoxComponent) == 0x4C,

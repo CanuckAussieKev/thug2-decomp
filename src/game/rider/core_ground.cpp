@@ -133,7 +133,7 @@ void SkaterPhysicsModule::do_ground_physics()
     collision_events::checkpoint(this, "friction-side-feelers"); // (not original)
 
     // The move this frame - skitching, none of its own: the skitched object's velocity (scaled), 0x00501DB0.
-    maths::Vec4 step;
+    maths::Vec4 step{};
     {
         float t = frame_length_;
         const maths::Vec4& v = entity_->vel_;

@@ -39,9 +39,9 @@ public:
     virtual void stop_callback() = 0;
 
     int cur_phase_; // +0x04
-    int queued_op_; // +0x08 (not set by the constructor)
+    int queued_op_{}; // +0x08 (not set by the constructor)
     bool locked_;   // +0x0C: the manager neither starts nor stops it
-    uint8_t pad0d_[3];
+    uint8_t pad0d_[3]{};
     memory::ListNode* list_link_; // +0x10: in the manager's list (lists::Elem<Module>)
 };
 static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
@@ -49,7 +49,7 @@ static_assert(sizeof(PartUnit) == 0x14 && offsetof(PartUnit, locked_) == 0x0C &&
 
 struct Hub {
     std::unique_ptr<tasks::Task<Hub>> task_; // priority -1000, running tick_modules
-    memory::ListNode modules_;               // +0x04: the list's head (lists::Foremost<Module>)
+    memory::ListNode modules_{};             // +0x04: the list's head (lists::Foremost<Module>)
     bool command_pending_; // +0x14 (the original's +0x18): a module was given a command since the task last ran
 
     // 0x0044F5E0: the empty list and the task (not added to a task list here).

@@ -49,7 +49,7 @@ public:
 
     uint32_t overrides;      // +0x1C: bit 0 the ambient colour, bit 1 + n light n's
     uint32_t first_dynamic_; // +0x20: the renderer light the dynamic lights start at (2)
-    uint32_t ambient;        // +0x24: RGBA
+    uint32_t ambient{};      // +0x24: RGBA
     uint32_t* colors;        // +0x28: one per light (0x006FAAE4 of them), RGBA
     maths::Vec4* directions; // +0x2C
 };

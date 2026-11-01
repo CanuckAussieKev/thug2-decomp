@@ -98,42 +98,42 @@ struct Conn {
     // 0x00456770: every queue emptied (as the destructor does).
     void drop_queued_traffic();
 
-    memory::ListNode normal_msgs_;    // +0x00 links: PendingMsg* at +0x14, send time at +0x18
-    memory::ListNode important_msgs_; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
-                                      //       a time at +0x24
-    memory::ListNode sequenced_msgs_; // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
-                                      //       +0x28
-    int hdl_;                         // +0x3C
-    uint32_t remote_ip_;              // +0x40
+    memory::ListNode normal_msgs_{};    // +0x00 links: PendingMsg* at +0x14, send time at +0x18
+    memory::ListNode important_msgs_{}; // +0x14 links: last send time at +0x14 (0 = not sent), PendingMsg* at +0x18,
+                                        //       a time at +0x24
+    memory::ListNode sequenced_msgs_{}; // +0x28 links: last send time at +0x1C, a time at +0x24, SeqQueuedMsg* at
+                                        //       +0x28
+    int hdl_{};                         // +0x3C
+    uint32_t remote_ip_{};              // +0x40
     uint32_t ident_;                  // +0x44 a running number (0x0067D800, counted by the constructor)
-    uint16_t port_no_;                // +0x48
-    uint8_t pad4a_[2];
+    uint16_t port_no_{};              // +0x48
+    uint8_t pad4a_[2]{};
     char* outgoing_bytes_;      // +0x4C the packet being built (0x514 bytes): its start
     char* write_ptr_;           // +0x50 and end
     char* read_buffer_;         // +0x54 received data (0xA28 bytes): its start
     char* read_ptr_;            // +0x58 and end
-    uint32_t unknown5c_;        // +0x5C (never touched by the library)
+    uint32_t unknown5c_{};      // +0x5C (never touched by the library)
     uint32_t cur_standing_;     // +0x60 kStatus...
     uint32_t flag_bits_;        // +0x64 kFlag...
-    AppHost* owner_app_;        // +0x68 the App (set by AppHost::opened_link)
-    uint32_t last_heard_from_;  // +0x6C the last communication (AppHost::opened_link: the creation time)
+    AppHost* owner_app_{};      // +0x68 the App (set by AppHost::opened_link)
+    uint32_t last_heard_from_{}; // +0x6C the last communication (AppHost::opened_link: the creation time)
     uint32_t last_transmit_at_; // +0x70
     uint32_t tx_spacing_ms_;    // +0x74
-    uint32_t next_sequence_ids_[kChannelGroups]; // +0x78 outgoing: the next sequence id of each group
-    uint32_t sequence_numbers_[kChannelGroups];  // +0x478 the next sequence number expected in each group
+    uint32_t next_sequence_ids_[kChannelGroups]{}; // +0x78 outgoing: the next sequence id of each group
+    uint32_t sequence_numbers_[kChannelGroups]{};  // +0x478 the next sequence number expected in each group
     int stream_counter_;                         // +0x878
     // +0x87C sequenced messages received ahead of their turn, by group: links with the group at +0x15, the
     // sequence number at +0x20, SeqQueuedMsg* at +0x28.
-    memory::ListNode received_queues_[kChannelGroups];
-    memory::ListNode received_streams_; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
-    memory::ListNode send_streams_;     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
+    memory::ListNode received_queues_[kChannelGroups]{};
+    memory::ListNode received_streams_{}; // +0x1C7C lists::Foremost<BulkStreamNode>: streams being received
+    memory::ListNode send_streams_{};     // +0x1C90 lists::Foremost<BulkStreamNode>: streams being sent
     PingProbe ping_probe_;              // +0x1CA4
     Gauges receive_metrics_;            // +0x1CDC
     Gauges send_metrics_;               // +0x2CE8
     bool send_now_;                     // +0x3CF4 force a send this frame
-    memory::ListNode app_node_;         // +0x3CF8 in the App's connection list (data = the connection)
+    memory::ListNode app_node_{};       // +0x3CF8 in the App's connection list (data = the connection)
     Conn* alias_conn_;                  // +0x3D0C
-    int link_class_;                    // +0x3D10
+    int link_class_{};                  // +0x3D10
     uint32_t last_timestamp_in_;        // +0x3D14
     uint32_t timestamp_out_;            // +0x3D18
     int link_speed_;                    // +0x3D1C bytes per second

@@ -52,8 +52,8 @@ public:
     int bits_;
     Item* buckets_;
     int extent_;
-    int iter_bucket_;
-    Item* iter_item_;
+    int iter_bucket_{};
+    Item* iter_item_{};
     bool flag_; // cleared by the constructor; its use isn't known yet
 };
 

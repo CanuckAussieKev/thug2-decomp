@@ -273,7 +273,7 @@ void BodyDynamicsModule::configure_from_data(script::Struct* params)
     for (int r = 0; r < 4; ++r)
         basis_frame_.row[r] = {r == 0 ? 1.0f : 0.0f, r == 1 ? 1.0f : 0.0f, r == 2 ? 1.0f : 0.0f, r == 3 ? 1.0f : 0.0f};
     at_point_ = entity_->at_point_;
-    maths::QuatRotation orientation;
+    maths::QuatRotation orientation{};
     orientation.from_matrix(entity_->basis_frame_);
     orientation_ = orientation;
     orientation_.make_unit(1.0f);
@@ -567,7 +567,7 @@ bool BodyDynamicsModule::rigid_body_sleep(script::Struct* /*params*/, script::Sc
 // 0x0042DD00
 bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* /*script*/)
 {
-    script::VectorValue v;
+    script::VectorValue v{};
     if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
         vel_ = {v.x + vel_.x, v.y + vel_.y, v.z + vel_.z, v.w + vel_.w};
         entity_->vel_ = vel_;
@@ -585,7 +585,7 @@ bool BodyDynamicsModule::rigidbody_kick(script::Struct* params, script::Script* 
 // 0x0042DEB0
 bool BodyDynamicsModule::rigid_body_set_velocities(script::Struct* params, script::Script* /*script*/)
 {
-    script::VectorValue v;
+    script::VectorValue v{};
     if (params->fetch_vec(0x0C4C809E, &v, 0)) { // vel
         vel_ = {v.x, v.y, v.z, v.w};
         entity_->vel_ = vel_;
@@ -601,7 +601,7 @@ bool BodyDynamicsModule::rigid_body_enable(script::Struct* /*params*/, script::S
 {
     cur_phase_ = kStateAwake;
     at_point_ = entity_->at_point_;
-    maths::QuatRotation orientation;
+    maths::QuatRotation orientation{};
     orientation.from_matrix(entity_->basis_frame_);
     orientation_ = orientation;
     orientation_.make_unit(1.0f);

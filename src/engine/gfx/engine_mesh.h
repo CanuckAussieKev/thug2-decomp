@@ -31,10 +31,10 @@ public:
     void* fetch_bone_tree();
     uint32_t get_hierarchy_count();
 
-    void* textures_;            // +0x04: its texture dictionary (the PC loaders set it)
-    char collision_name_[0x80]; // +0x08: the .col file kept loaded (Pip)
-    int collision_count_;       // +0x88
-    uint8_t* hit_shape_;        // +0x8C: the objects (0x40 bytes each)
+    void* textures_{};            // +0x04: its texture dictionary (the PC loaders set it)
+    char collision_name_[0x80]{}; // +0x08: the .col file kept loaded (Pip)
+    int collision_count_{};       // +0x88
+    uint8_t* hit_shape_{};        // +0x8C: the objects (0x40 bytes each)
     maths::BBox box_;           // +0x90
     uint32_t bone_count_;       // +0xB0 (the PC skin file's, from version 2)
     void* hierarchy_;           // +0xB4

@@ -307,10 +307,10 @@ bool cfunc_orient(script::Struct* params, script::Script*)
         relative_to = entity_for_id(relative_id);
     uint32_t bone = 0;
     params->read_hash_value(kBone, &bone, 0);
-    script::VectorValue offset;
+    script::VectorValue offset{};
     if (!params->fetch_vec(kOffset, &offset, 0))
         offset = {0.0f, 0.0f, 0.0f, 1.0f};
-    script::VectorValue angles;
+    script::VectorValue angles{};
     if (!params->fetch_vec(kAngles, &angles, 0))
         angles = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->has_bare_flag(kDegrees)) {

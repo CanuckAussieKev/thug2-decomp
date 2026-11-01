@@ -155,7 +155,7 @@ bool item_shape(const UiWidget* item, float x, float y, bool turned_in_bounds, R
         Cuboid box = element_box(part);
         if (!is_item && (box.width == 0.0f || box.height == 0.0f))
             return; // (an empty container somewhere: nothing to point at)
-        Rect2 rect;
+        Rect2 rect{};
         if (get_rotated(box.angle)) {
             if (box_contains(box, x, y))
                 *turned_hit = true;
@@ -245,7 +245,7 @@ bool find_menu(UiWidget* element, MenuFilter accepts, bool vertical_only)
 
 ScreenMapping current_mapping(int window_width, int window_height)
 {
-    ScreenMapping mapping;
+    ScreenMapping mapping{};
     mapping.window_width_ = window_width;
     mapping.window_height_ = window_height;
     mapping.back_buffer_width_ = static_cast<uint32_t>(render::g_back_buffer_width);
@@ -340,7 +340,7 @@ bool item_passed_over(const UiWidget* item)
 
 bool item_contains(const UiWidget* item, const UiWidget* menu, float x, float y)
 {
-    Rect2 bounds;
+    Rect2 bounds{};
     bool turned_hit = false;
     bool any = item_shape(item, x, y, false, &bounds, &turned_hit);
     if (turned_hit)
@@ -685,9 +685,9 @@ void log_elements_at(UiWidget* element, float x, float y, int& lines)
 }
 
 struct Stepper {
-    modules::FrontEnd* front_end_;
+    modules::FrontEnd* front_end_{};
     frontend::ElementPtr menu; // (cleared if a handler destroys it)
-    bool vertical;
+    bool vertical{};
 };
 
 int read_stepper(void* context)
@@ -790,7 +790,7 @@ bool aim_at(modules::FrontEnd* front_end, const Hit& hit, uint32_t event)
 void select_under_cursor(modules::FrontEnd* front_end, float x, float y, bool click)
 {
     for (int pass = 0; pass < 4; ++pass) {
-        Hit hit;
+        Hit hit{};
         if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
             s_hover_item = nullptr;
             s_hover_id = 0;
@@ -815,7 +815,7 @@ void get_click(modules::FrontEnd* front_end, float x, float y)
     if (debug)
         get_log("mouse: left click at layout (%.1f, %.1f)", x, y);
     select_under_cursor(front_end, x, y, true);
-    Hit hit;
+    Hit hit{};
     if (!find_item_at(root_element(ui_tree_handle()), x, y, menu_takes_pad_events, &hit)) {
         if (debug) {
             get_log("  no item of a menu that takes pad events under the cursor - nothing sent");

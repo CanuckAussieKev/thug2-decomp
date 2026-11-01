@@ -274,7 +274,7 @@ void WorldScene::get_update_super_sectors(memory::ListNode* added)
 {
     if (!coll_grid_)
         return;
-    memory::ListNode to_add, to_remove, moved, to_delete; // (collision objects; sectors)
+    memory::ListNode to_add{}, to_remove{}, moved{}, to_delete{}; // (collision objects; sectors)
     setup_list_sentinel(&to_add);
     setup_list_sentinel(&to_remove);
     setup_list_sentinel(&moved);

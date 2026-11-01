@@ -23,7 +23,7 @@ struct FlexibleParticleManager : memory::HeapObject {
     memory::owner<memory::Zone*> temp_region_; // (likewise, after the temporary heap)
     memory::Arena* temp_heap_;                 // "TEMPFlxPrtcl": systems are made on it while it's there
     memory::ListNode* systems_ptr_;            // the list's head (lists::Foremost<EmitterInstance>)
-    float colour_scale_[4];                    // the level's colour (given to the systems with flag 0x10000)
+    float colour_scale_[4]{};                  // the level's colour (given to the systems with flag 0x10000)
 
     // 0x0049AF20: its memory, the list, the colour white; the frame time scale (0x00700EF4) 60 / the script float
     // 0x3214C818 - 60 when that's 0.

@@ -99,7 +99,7 @@ void apply_scaled_positions(const std::vector<uint8_t>& records, uint8_t* vertic
 {
     size_t count = records.size() / scene_format::kScaledVertexSize;
     for (size_t i = 0; i < count; ++i) {
-        ScaledVertex v;
+        ScaledVertex v{};
         std::memcpy(&v, records.data() + i * scene_format::kScaledVertexSize, sizeof(v));
         if (skin_scaling_on())
             scaled_position(v, reinterpret_cast<float*>(vertices));

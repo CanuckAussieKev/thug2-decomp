@@ -132,7 +132,7 @@ void RiderChaseView::tick_frame()
 
     // The orientation to look along: the skater's (its display matrix), or on a wall ride and while +0x2EC holds
     // it, the last one; a wall ride notes how far the wall's facing turned.
-    maths::Mat4 orient;
+    maths::Mat4 orient{};
     if (physics_state != 2 && (!core || !core->point_rail_spin_)) {
         wall_ride_frames_ = 0;
         skater = rider_ref_;
@@ -281,7 +281,7 @@ void RiderChaseView::tick_frame()
         }
         wall_ride = physics_state == 2;
     }
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     FreeLookModule* look_around = free_look_module_;
     bool lip_tilted = false;
     if (!wall_ride) {
@@ -379,7 +379,7 @@ void RiderChaseView::tick_frame()
     }
 
     // The view looking along the orientation (right and at reversed), slerped from the camera's.
-    maths::Mat4 goal;
+    maths::Mat4 goal{};
     goal.set_from_euler_angles(0.0f, 0.0f, 0.0f);
     goal.row[0] = maths::Vec4(-orient.row[0].x, -orient.row[0].y, -orient.row[0].z, 0.0f);
     goal.row[1] = maths::Vec4(orient.row[1].x, orient.row[1].y, orient.row[1].z, 0.0f);
@@ -424,7 +424,7 @@ void RiderChaseView::tick_frame()
     std::memcpy(orientation_, &view, sizeof(orientation_));
 
     // Where: the target, behind along the view and above along the up; looking at it from above the skater.
-    maths::Vec4 target;
+    maths::Vec4 target{};
     fetch_goal(&target, instant);
     float height = 0.0f, distance = 0.0f;
     if (instant) {
@@ -446,7 +446,7 @@ void RiderChaseView::tick_frame()
         target.z += bz;
         target.w += bw;
     }
-    maths::Vec4 lift;
+    maths::Vec4 lift{};
     {
         double ux = static_cast<double>(up.x) * height;
         double uy = static_cast<double>(height) * up.y;
@@ -462,14 +462,14 @@ void RiderChaseView::tick_frame()
     double eye_y = static_cast<double>(lift.y) + position.y;
     double eye_z = static_cast<double>(lift.z) + position.z;
     maths::Vec4 eye(lift.x + position.x, static_cast<float>(eye_y), static_cast<float>(eye_z), lift.w + position.w);
-    maths::Vec4 look;
+    maths::Vec4 look{};
     look.w = 1.0f;
     look.x = eye.x - target.x;
     look.y = static_cast<float>(eye_y - target.y);
     look.z = static_cast<float>(eye_z - target.z);
     look.make_unit();
     maths::Vec4 look_up = view.row[1];
-    maths::Vec4 look_right;
+    maths::Vec4 look_right{};
     perpendicular(look_right, look_up, look);
     look_right.make_unit();
     perpendicular(look_up, look, look_right);

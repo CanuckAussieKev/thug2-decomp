@@ -98,13 +98,13 @@ bool HitMesh::collide_faces_with_capsule(const maths::Capsule* capsule, const ma
             *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
-        maths::Vec4 v0, v1, v2;
+        maths::Vec4 v0{}, v1{}, v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
         if (!(hits->sweep == 0.0f)) // (a moving capsule isn't tested)
             continue;
-        maths::Vec4 point, normal, offset;
+        maths::Vec4 point{}, normal{}, offset{};
         if (!capsule_hits_triangle(capsule, &v0, &v1, &v2, &point, &normal, &offset))
             continue;
         if (hits->count == CapsuleHits::kMost)

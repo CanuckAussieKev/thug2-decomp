@@ -177,7 +177,7 @@ int on_chat_msg(net::InboundMsgCtx* context)
     char line[256];
     if (thugpro::peer_mode()) {
         // NOT ORIGINAL - THUGPRO's layout (machine id first); dropped when malformed, as THUGPRO does.
-        thugpro::ChatLine chat;
+        thugpro::ChatLine chat{};
         if (!thugpro::decode_chat(reinterpret_cast<const uint8_t*>(message), context->body_size_, true, &chat))
             return 1;
         std::snprintf(line, sizeof(line), "\\c%i%s\\c0 : %s", chat.obj_id_ + 2, chat.name, chat.text);

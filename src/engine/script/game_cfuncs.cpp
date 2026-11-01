@@ -628,12 +628,12 @@ bool cfunc_move_node(script::Struct* params, script::Script*)
     script::Struct* node = level_nodes::fetch_vertex(name, false);
     if (!node)
         return false;
-    script::VectorValue position;
+    script::VectorValue position{};
     if (!fetch_place(params, &position)) {
         debug::printf("Missing position parameter in MoveNode\n"); // "Missing position parameter in MoveNode\n"
         return false;
     }
-    script::VectorValue old;
+    script::VectorValue old{};
     if (!fetch_place(node, &old)) {
         debug::printf("node is missing position\n"); // "node is missing position\n"
         return false;

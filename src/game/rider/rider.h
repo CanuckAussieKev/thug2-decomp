@@ -170,71 +170,71 @@ public:
     // its created tricks deleted, the second viewport's camera marked dead, out of the skater list, then GameEntity's.
     ~Rider() override;
 
-    uint32_t stroke_kind_; // +0x108 (the profile's pushstyle)
-    uint32_t style_;       // +0x10C (skatestyle)
-    bool goofy_;           // +0x110
-    bool pro_;             // +0x111
-    uint8_t pad112[2];
-    int male_;               // +0x114
-    char given_name_[0x40];  // +0x118
-    uint32_t label_;         // +0x158
+    uint32_t stroke_kind_{}; // +0x108 (the profile's pushstyle)
+    uint32_t style_{};       // +0x10C (skatestyle)
+    bool goofy_{};           // +0x110
+    bool pro_{};             // +0x111
+    uint8_t pad112[2]{};
+    int male_{};              // +0x114
+    char given_name_[0x40]{}; // +0x118
+    uint32_t label_{};        // +0x158
     text::Chars shown_name_; // +0x15C
-    bool always_special_;    // +0x168 (the special meter always full)
-    uint8_t pad169_[3];
-    uint32_t last_restart_; // +0x16C
-    bool sparks_;           // +0x170
-    uint8_t pad171[3];
-    int shadow_fade_; // +0x174
-    uint8_t unknown178_[4];
+    bool always_special_{};  // +0x168 (the special meter always full)
+    uint8_t pad169_[3]{};
+    uint32_t last_restart_{}; // +0x16C
+    bool sparks_{};           // +0x170
+    uint8_t pad171[3]{};
+    int shadow_fade_{}; // +0x174
+    uint8_t unknown178_[4]{};
     std::unique_ptr<goals::CreateATrick> trick_slots_[11]; // +0x17C the created tricks
     // The create-a-trick editor's state (CAT_Set... / CAT_Get..., create_a_trick.cpp).
-    int cat_num_anims_;   // +0x1A8 num_animations_on
-    bool cat_bail_done_;  // +0x1AC bailtimescriptdone
-    bool cat_flip_180_;   // +0x1AD cat_flip_skater_180
-    bool cat_anims_done_; // +0x1AE cat_animations_done
-    bool cat_rots_done_;  // +0x1AF cat_rotations_done
-    float cat_hold_time_; // +0x1B0 cat_hold_time
-    int cat_total_x_;     // +0x1B4
-    int cat_total_y_;     // +0x1B8
-    int cat_total_z_;     // +0x1BC
+    int cat_num_anims_{};   // +0x1A8 num_animations_on
+    bool cat_bail_done_{};  // +0x1AC bailtimescriptdone
+    bool cat_flip_180_{};   // +0x1AD cat_flip_skater_180
+    bool cat_anims_done_{}; // +0x1AE cat_animations_done
+    bool cat_rots_done_{};  // +0x1AF cat_rotations_done
+    float cat_hold_time_{}; // +0x1B0 cat_hold_time
+    int cat_total_x_{};     // +0x1B4
+    int cat_total_y_{};     // +0x1B8
+    int cat_total_z_{};     // +0x1BC
     struct Projectile {
         uint32_t name; // projectile_0 ... projectile_4
         bool active;
         uint8_t pad5_[3];
         maths::Vec4 pos;                  // +0x08 (the projectile component's position; w unused)
-    } projectiles_[5];                    // +0x1C0
-    memory::ListNode skater_link_;        // +0x238 its node in the skate module's skater list (data = itself)
+    } projectiles_[5]{};                  // +0x1C0
+    memory::ListNode skater_link_{};      // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C
     MeshInstanceModule* model_component_; // +0x250
     GroundShadowModule* shadow_;          // +0x254
     MoveExecutor* trick_;                 // +0x258 SkaterTrick
     PadRumbleModule* vibration_;          // +0x25C (local skaters only)
-    uint8_t unknown260_[4];
+    uint8_t unknown260_[4]{};
     PadInputModule* pad_input_;                  // +0x264 (local skaters only)
     RiderSfxPlayer* sound_;                      // +0x268 SkaterSound (0x187574FA)
-    SkaterVehicleSoundComponent* vehicle_sound_; // +0x26C SkaterVehicleSound (0x1859F772)
+    SkaterVehicleSoundComponent* vehicle_sound_{}; // +0x26C SkaterVehicleSound (0x1859F772)
     RiderGapTracker* gap_tracker_;               // +0x270 SkaterGap
-    uint8_t unknown274_[4];
+    uint8_t unknown274_[4]{};
     RiderPointKeeper* score_holder_;            // +0x278 SkaterScore
     RiderFrameLog* state_history_;              // +0x27C SkaterStateHistory
     skater::SkaterPhysicsModule* core_physics_; // +0x280
     RiderBoardPhysics* physics_control_;        // +0x284 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x288 Walk (0x726E85AA)
     AttributeTracker* stats_;                   // +0x28C SkaterStatsManager (0x4FF8DAC6)
-    float stat_overrides_[10];                  // +0x290
+    float stat_overrides_[10]{};                // +0x290
     int skater_number_;                         // +0x2B8
     int view_slot_;                             // +0x2BC
-    int pause_state_;                           // +0x2C0
+    int pause_state_{};                         // +0x2C0
     bool flag_2c_4_;                            // +0x2C4
-    uint8_t pad2c5_[3];
-    maths::Vec4 custom_restart_pos_;    // +0x2C8 (SetCustomRestart)
-    maths::Mat4 custom_restart_matrix_; // +0x2D8
-    bool custom_restart_walking_;       // +0x318
-    bool custom_restart_set_;           // +0x319
-    uint8_t pad31a_[2];
+    uint8_t pad2c5_[3]{};
+    maths::Vec4 custom_restart_pos_{};    // +0x2C8 (SetCustomRestart)
+    maths::Mat4 custom_restart_matrix_{}; // +0x2D8
+    bool custom_restart_walking_{};       // +0x318
+    bool custom_restart_set_{};           // +0x319
+    uint8_t pad31a_[2]{};
     uint32_t unknown31c_; // +0x31C
-    bool is_halted_;      // +0x320
-    uint8_t pad321[3];
+    bool is_halted_{};    // +0x320
+    uint8_t pad321[3]{};
 };
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).

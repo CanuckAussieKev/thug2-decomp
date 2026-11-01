@@ -268,7 +268,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
             uint8_t has_skinning_;
             uint8_t force_tex_dict_;
             uint8_t rest[0x42];
-        } tex_params;
+        } tex_params{};
         std::memset(&tex_params, 0, sizeof(tex_params));
         char tex_name[0xF0];
         tex_params.flag0 = 0;
@@ -281,7 +281,7 @@ bool RenderModel::add_file_geom(const char* file_name, uint32_t name, bool via_r
         else
             assets->fetch_or_load_resource(tex_name, 0, 0, 0, false, false, assets->get_permanent_by_default(),
                                            &tex_params, 0);
-        assets::SkinParams skin_params;
+        assets::SkinParams skin_params{};
         skin_params.get_clear();
         skin_params.flag0 = (flag_bits_ >> 5) & 1;
         skin_params.value = tex_dict_offset;

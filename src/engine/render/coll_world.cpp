@@ -34,7 +34,7 @@ uint32_t* grid_scenes() { return render::engine::get_collision_scenes(); }
 // and the line's direction.
 struct LineQuery {
     maths::BBox box;
-    maths::Vec4 direction;
+    maths::Vec4 direction{};
     bool use_cache_;
 
     LineQuery(const maths::Seg* line, HitMeshCache* cache) : box(line->start)

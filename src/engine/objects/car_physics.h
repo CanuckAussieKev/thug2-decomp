@@ -84,20 +84,20 @@ public:
     float wheel_spin_;   // +0x18 degrees, 0-360
     float steer_;        // +0x1C
     float target_steer_; // +0x20
-    float lean_angle_;   // +0x24
-    float target_tilt_;  // +0x28
-    float wheel_base_;   // +0x2C
-    float last_speed_;   // +0x30
-    float min_tilt_;     // +0x34 0x877DB8DA
-    float max_tilt_;     // +0x38 0xFB3464DF
-    float tilt_rate_;    // +0x3C 0xFD8BC8D6
-    float tilt_divisor_; // +0x40 0xB2C7447B
+    float lean_angle_{}; // +0x24
+    float target_tilt_{};  // +0x28
+    float wheel_base_{};   // +0x2C
+    float last_speed_{};   // +0x30
+    float min_tilt_{};     // +0x34 0x877DB8DA
+    float max_tilt_{};     // +0x38 0xFB3464DF
+    float tilt_rate_{};    // +0x3C 0xFD8BC8D6
+    float tilt_divisor_{}; // +0x40 0xB2C7447B
     bool body_shown_;    // +0x44
-    uint8_t pad45[3];
-    void* mesh_instance_; // +0x48 the model component's model (+0x208)
-    void* bone_rig_;      // +0x4C the skeleton component's skeleton (+0x18)
-    uint8_t* motion_;     // +0x50 the motion component
-    uint8_t* suspend_;    // +0x54 the suspend component
+    uint8_t pad45[3]{};
+    void* mesh_instance_{}; // +0x48 the model component's model (+0x208)
+    void* bone_rig_{};      // +0x4C the skeleton component's skeleton (+0x18)
+    uint8_t* motion_{};     // +0x50 the motion component
+    uint8_t* suspend_{};    // +0x54 the suspend component
 };
 static_assert(offsetof(AutomobileDynamicsModule, wheel_spin_) == 0x18 &&
                   offsetof(AutomobileDynamicsModule, last_speed_) == 0x30 &&

@@ -15,7 +15,7 @@ namespace goals {
 
 class ObjectiveNpc {
 public:
-    uint32_t objective_key_; // +0x00
+    uint32_t objective_key_{}; // +0x00
     bool suspended_;         // +0x04: its logic suspended (no streams)
     uint32_t fam_;           // +0x08: the loaded .fam's checksum (0: none)
     uint32_t anim_object_;   // +0x0C: the object playing the facial animation (its id, or skater; 0: none)

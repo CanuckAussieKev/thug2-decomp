@@ -61,7 +61,7 @@ void matrix_multiply(maths::Mat4* out, const maths::Mat4* a, const maths::Mat4* 
 void turn_about_y(maths::Mat4& m, float degrees, bool before)
 {
     auto radians = static_cast<float>(static_cast<double>(degrees) * g_degree_to_radian_ratio); // pi / 180
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     maths::Mat4& turn = maths::make_yaw_matrix(rotation, radians);
     if (before)
         matrix_multiply(&m, &turn, &m);
@@ -117,10 +117,10 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
             y = velocity.y;
             z = velocity.z;
         } else {
-            maths::Mat4 m;
+            maths::Mat4 m{};
             m.reset_to_identity();
             turn_about_y(m, skew, false);
-            maths::Vec4 turned;
+            maths::Vec4 turned{};
             m.xform(turned, velocity);
             x = turned.x;
             y = turned.y;
@@ -132,7 +132,7 @@ bool cfunc_get_skater_velocity(script::Struct* params, script::Script* script)
         y = at.y;
         z = at.z;
         if (skew != 0.0f) {
-            maths::Mat4 m;
+            maths::Mat4 m{};
             m = object->basis_frame_;
             turn_about_y(m, skew, true);
             x = m.row[2].x;

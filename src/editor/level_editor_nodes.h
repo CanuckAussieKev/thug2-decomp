@@ -138,10 +138,10 @@ inline bool get_online(Family family)
 // Something drawn, in back buffer pixels: a point (a..a) or a segment (a..b) of node `node`, `depth` along the view
 // (a segment's: at its middle; `depth_a_` / `depth_b_` at its ends - none given: `depth` all along).
 struct Pickable {
-    int node;
-    float ax, ay, bx, by;
-    bool segment;
-    float depth;
+    int node{};
+    float ax{}, ay{}, bx{}, by{};
+    bool segment{};
+    float depth{};
     float depth_a_ = -1.0f, depth_b_ = -1.0f;
 };
 // The first occluding surface under the cursor, along the view (level_editor_picking.h's gizmo_in_front): gizmos further

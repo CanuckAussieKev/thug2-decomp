@@ -73,7 +73,7 @@ public:
     int owns_vertices_;              // +0x10: 1: listed (and the vertices its own)
     uint8_t unknown14 = 0;           // +0x14: set by the spawned polygons (their flag 2), the chains and the lens flare
     bool ready_ = false;             // +0x15: readied (get_ready): drawn by render_primitives
-    uint8_t unknown16[6];
+    uint8_t unknown16[6]{};
     uint32_t unknown1c_ = 0; // +0x1C
 };
 static_assert(offsetof(Primitive, flag_bits_) == 0x08 && offsetof(Primitive, owns_vertices_) == 0x10 &&

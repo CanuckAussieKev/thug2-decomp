@@ -21,7 +21,7 @@ namespace render {
 struct VertexStack {
     uint32_t used;
     uint32_t vertex_size_;
-    uint8_t data[0x4000];
+    uint8_t data[0x4000]{};
 
     // 0x00490D80: the top vertex popped into `out`.
     void stack_off(uint8_t* out);

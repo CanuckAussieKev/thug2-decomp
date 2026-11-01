@@ -47,10 +47,10 @@ struct Buddy {
 // 0x00548D20). GP messages are "nick\ntext" (SendBuddyMessage); a message of one line comes
 // from a buddy and gets the buddy's nick.
 struct FriendNote {
-    memory::ListNode list_link_; // +0x00 data = this
+    memory::ListNode list_link_{}; // +0x00 data = this
     int account_;                // +0x14 the sender
-    char nick_[16];              // +0x18
-    char text_[64];              // +0x28
+    char nick_[16]{};            // +0x18
+    char text_[64]{};            // +0x28
 
     // 0x00548CB0: unlinked, profile 0, nick "Proskater", no text.
     FriendNote();
@@ -135,13 +135,13 @@ public:
     // 0x00548320: the presence status (gpSetStatus, 0x00600330: status, its text, the location).
     void change_standing(int status, const char* text, const char* location);
 
-    void* connection_; // +0x00 GPConnection (this object is passed as its address)
+    void* connection_{}; // +0x00 GPConnection (this object is passed as its address)
     int account_;      // +0x04 the logged-in profile id
     int cur_phase_;    // +0x08 0 none, 1 creating the profile, 2 logging in, 3 log in again, 4 logged in
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x0C tasks::Task<FriendsManager> (buddy_task)
     bool authenticated_;                         // +0x10
-    memory::ListNode friends_;                   // +0x14 lists::Foremost<Buddy>
-    memory::ListNode messages_;                  // +0x28 lists::Foremost<FriendNote>
+    memory::ListNode friends_{};                 // +0x14 lists::Foremost<Buddy>
+    memory::ListNode messages_{};                // +0x28 lists::Foremost<FriendNote>
 };
 
 // The script commands (CFunctions: the parameters, the script).

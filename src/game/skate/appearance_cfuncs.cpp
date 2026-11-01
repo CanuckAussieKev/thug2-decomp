@@ -148,7 +148,7 @@ bool cfunc_get_player_face_points(script::Struct* params, script::Script* script
         points = memory ? new (memory) script::Struct : nullptr;
         made = true;
     }
-    FacePoints scratch;
+    FacePoints scratch{};
     FacePoints copy = *get_face_vertex_count(face, &scratch);
     if (!write_face_points(&copy, points))
         script::dump_to_log(params);
@@ -170,7 +170,7 @@ bool cfunc_set_player_face_points(script::Struct* params, script::Script*)
     script::Struct* from = nullptr;
     if (!params->read_sub_struct("face_points", &from, 0))
         from = params;
-    FacePoints points;
+    FacePoints points{};
     if (!read_face_points(&points, from))
         script::dump_to_log(params);
     set_face_vertex_count(face, &points);

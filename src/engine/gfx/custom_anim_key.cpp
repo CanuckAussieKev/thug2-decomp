@@ -116,7 +116,7 @@ CameraKey::CameraKey(int frame, const maths::QuatRotation* rotation, const maths
 {
     orientation_turn_ = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 axis = {1.0f, 0.0f, 0.0f, 1.0f};
-    maths::QuatRotation quarter_turn;
+    maths::QuatRotation quarter_turn{};
     quarter_turn.init_from_axis_angle(axis, 1.57079637f); // (0x3FC90FDB)
     maths::QuatRotation turned = *rotation;
     turned *= quarter_turn;

@@ -24,7 +24,7 @@ public:
 
     OverlayDraw* next;
     uint8_t hidden; // not in the list (a byte: change_concealed keeps any value it's given)
-    uint8_t pad[3];
+    uint8_t pad[3]{};
     float priority;
     float z; // above 0: the next frame's z test on (0x007CC24C)
 

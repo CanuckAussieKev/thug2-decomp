@@ -129,19 +129,19 @@ public:
     // The flag set to `value`; its time noted if it changes.
     void set_flag(PoseFlag f, uint8_t value);
 
-    int cur_phase_;                         // +0x18 State
-    int physics_mode_;                      // +0x1C PhysicsMode (-1 until the physics control component sets it)
-    TimedFlag timed_flags_[kPoseFlagCount]; // +0x20 (PoseFlag; kBailing is +0x70)
-    uint8_t in_trick_move_;                 // +0xE0
-    uint8_t surface_type_;                  // +0xE1
-    maths::Vec4 drop_velocity_;             // +0xE4 an acid drop's horizontal velocity, kept through the drop
-    uint8_t lip_straight_up_;               // +0xF4 out of a lip trick straight up (the skater camera's)
-    maths::Vec4 drawn_normal_;              // +0xF8 the ground's normal as drawn (the core's, each frame)
-    maths::Vec4 floor_normal_;              // +0x108 the ground's normal under the skater (the core's)
-    uint8_t in_vehicle_;                    // +0x118
-    float height_above_ground_;             // +0x11C (the height it took off from / is over the ground)
-    uint8_t boost_items_[1];                // +0x120 (one per name in 0x0067F09C)
-    uint32_t sparks_pos_;                   // +0x124 a checksum
+    int cur_phase_{};                         // +0x18 State
+    int physics_mode_{};                      // +0x1C PhysicsMode (-1 until the physics control component sets it)
+    TimedFlag timed_flags_[kPoseFlagCount]{}; // +0x20 (PoseFlag; kBailing is +0x70)
+    uint8_t in_trick_move_{};                 // +0xE0
+    uint8_t surface_type_{};                  // +0xE1
+    maths::Vec4 drop_velocity_{};             // +0xE4 an acid drop's horizontal velocity, kept through the drop
+    uint8_t lip_straight_up_{};               // +0xF4 out of a lip trick straight up (the skater camera's)
+    maths::Vec4 drawn_normal_{};              // +0xF8 the ground's normal as drawn (the core's, each frame)
+    maths::Vec4 floor_normal_{};              // +0x108 the ground's normal under the skater (the core's)
+    uint8_t in_vehicle_{};                    // +0x118
+    float height_above_ground_{};             // +0x11C (the height it took off from / is over the ground)
+    uint8_t boost_items_[1]{};                // +0x120 (one per name in 0x0067F09C)
+    uint32_t sparks_pos_{};                   // +0x124 a checksum
 };
 
 // The skater's state history (SkaterStateHistory, state_history.h): a state a non-local skater was sent (0x84 bytes;

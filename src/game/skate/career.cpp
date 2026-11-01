@@ -406,7 +406,7 @@ void RiderStoryProgress::decode_from_struct(script::Struct* save)
                 gap->fetch_int_value(kGapScore, &score, 0);
                 checklist->register_gap_entry(name, got, score);
                 if (got) {
-                    script::VectorValue pos, dir;
+                    script::VectorValue pos{}, dir{};
                     gap->fetch_vec(kGapPos, &pos, 0);
                     gap->fetch_vec(kGapDir, &dir, 0);
                     checklist->set_gap_positions(name, {pos.x, pos.y, pos.z, pos.w}, {dir.x, dir.y, dir.z, dir.w});

@@ -104,10 +104,10 @@ public:
     void save_to_structure(script::Struct* params);
 
     bool is_usable_; // +0x00
-    uint8_t pad1[3];
-    FaceAnchors path_vertices_; // +0x04
-    uint8_t image_[kTexelEdge]; // +0x3C
-    char overlay_name_[0x40];   // +0x445C
+    uint8_t pad1[3]{};
+    FaceAnchors path_vertices_{}; // +0x04
+    uint8_t image_[kTexelEdge]{}; // +0x3C
+    char overlay_name_[0x40]{};   // +0x445C
 };
 static_assert(offsetof(FaceSkin, image_) == 0x3C && offsetof(FaceSkin, overlay_name_) == 0x445C &&
                   sizeof(FaceSkin) == 0x449C,

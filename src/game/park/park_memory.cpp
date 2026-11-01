@@ -342,7 +342,7 @@ bool pieces_fit(int first, int last)
         return false;
     int park = get_memory_value("floor_piece_size_park", -1) * pieces; // "floor_piece_size_park"
     int main = get_memory_value("floor_piece_size_main", -1) * pieces; // "floor_piece_size_main"
-    MemoryStats stats;
+    MemoryStats stats{};
     get_memory_stats(&stats);
     if (get_attributes().park_heap_free_ < park || get_attributes().main_heap_free_ < main)
         return false;

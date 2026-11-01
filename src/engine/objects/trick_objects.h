@@ -34,7 +34,7 @@ ClusterCount* count_object_in_cluster(uint8_t* object, ClusterCount* counter);
 // a ring of 0x200: past that the oldest are written over.
 struct HitClusterLog {
     static constexpr uint32_t kCapacity = 0x200;
-    uint32_t items_[kCapacity];
+    uint32_t items_[kCapacity]{};
     int num_; // +0x800
     HitClusterLog();
     bool get_clear();
@@ -75,14 +75,14 @@ struct TrickObjectHead : memory::ListNode {
 // A trick object cluster (0x58 bytes, constructor 0x00588BD0): its name, the score that holds it (graffiti), each
 // player's best score on it (by the skater's object id), the player holding it and whether anyone does, its objects.
 struct TrickObjectCluster {
-    memory::ListNode list_link_; // +0x00 (data itself)
+    memory::ListNode list_link_{}; // +0x00 (data itself)
     uint32_t label_;             // +0x14
     uint32_t record_points_;     // +0x18
-    uint32_t scores_[8];         // +0x1C
+    uint32_t scores_[8]{};       // +0x1C
     int owner_;                  // +0x3C (an object id)
     bool owned_;                 // +0x40
-    uint8_t pad41_[3];
-    memory::ListNode entities_; // +0x44 its CTrickObjects (the head: a sentinel)
+    uint8_t pad41_[3]{};
+    memory::ListNode entities_{}; // +0x44 its CTrickObjects (the head: a sentinel)
 
     // 0x00588630: a trick object for sector `name` made (0x18 bytes) and put last in the list; its sector's colour
     // cleared first (and, with show_all_trick_objects set outside the 0x00684FA8 mode, given graffiti colour 2).
@@ -112,7 +112,7 @@ struct TrickSpotHub : memory::HeapObject {
     // over the trick object code's globals after it - THUGPRO's "256 graff tag crash"; ours is THUGPRO's 2048).
     static constexpr uint32_t kMaxLoggedClusters = 2048;
 
-    int cluster_count_;             // (not set by the constructor)
+    int cluster_count_{};           // (not set by the constructor)
     lists::KeyMap clusters_;        // CTrickObjectClusters by name
     lists::KeyMap object_clusters_; // each trick object's cluster, by the object's name (a cluster's own too)
     script::Struct* args_;          // the graffiti colours' (change_args)

@@ -82,7 +82,7 @@ public:
 
     uint32_t checksum_;    // +0x04
     uint16_t share_count_; // +0x08: its loads (unload_tex_dict deletes it at 0)
-    uint8_t pada_[2];
+    uint8_t pada_[2]{};
     lists::KeyMap* textures_; // +0x0C
 };
 static_assert(offsetof(TextureSet, textures_) == 0xC && sizeof(TextureSet) == 0x10, "layout must match the original");

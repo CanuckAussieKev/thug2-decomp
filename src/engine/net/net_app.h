@@ -50,7 +50,7 @@ struct NetMessageInfo {
     int delay_;             // 0x14 added to the app's timestamp: when the message may go
     uint32_t fixed_seq_no_; // 0x18 sequenced: this id instead of the group's next one (0 = the next)
     uint8_t compression_;   // 0x1C 0 none, 1 RLE, 2 LZSS (0x00454E30)
-    uint8_t pad1d_[3];
+    uint8_t pad1d_[3]{};
 };
 
 // A streamed message not sent all at once (0x44 bytes, constructor 0x004549D0, destructor body 0x00454E00): sent
@@ -64,17 +64,17 @@ struct StreamDesc {
     StreamDesc& operator=(const StreamDesc&) = delete;
 
     int extent_;     // 0x00
-    int stream_id_;  // 0x04
-    uint8_t msg_id_; // 0x08
-    char desc_[32];  // 0x09 the sender's description of the data
-    uint8_t pad29_[3];
+    int stream_id_{};  // 0x04
+    uint8_t msg_id_{}; // 0x08
+    char desc_[32]{};  // 0x09 the sender's description of the data
+    uint8_t pad29_[3]{};
     uint8_t* content_;      // 0x2C
     uint8_t* succ_;         // 0x30 the first byte not sent yet
     uint8_t group_id_;      // 0x34
-    uint32_t order_number_; // 0x38 the next piece's sequence id (reserved when the stream was queued)
-    uint32_t checksum_;     // 0x3C received streams: the whole message's checksum
+    uint32_t order_number_{}; // 0x38 the next piece's sequence id (reserved when the stream was queued)
+    uint32_t checksum_{};     // 0x3C received streams: the whole message's checksum
     bool borrowed_payload_; // 0x40 content_ is the caller's (not freed)
-    uint8_t pad41_[3];
+    uint8_t pad41_[3]{};
 };
 
 // NetLink::AppHost (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it). The
@@ -246,41 +246,41 @@ struct AppHost {
     // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
     static int drain_stream_msgs(InboundMsgCtx* context);
 
-    uint32_t unknown4_;       // +0x0004
+    uint32_t unknown4_{};     // +0x0004
     uint32_t clock_;          // +0x0008 the current time (ms)
-    Router dispatcher_;       // +0x000C (wt/netC)
+    Router dispatcher_{};     // +0x000C (wt/netC)
     AppHost* dispatcher_app_; // +0x13F8 the Dispatcher's app
     // +0x13FC statistics (zeroed by Init)
-    int outbound_byte_total_;     // +0x13FC
-    int inbound_byte_total_;      // +0x1400
-    int skipped_stamps_;          // +0x1404 timestamps skipped over
-    int stale_arrivals_;          // +0x1408 timestamps older than the newest
-    int repeat_arrivals_;         // +0x140C timestamps seen twice
-    int frame_count_;             // +0x1410 frames processed (pump_incoming_traffic)
-    memory::ListNode list1414_;   // +0x1414 lists::Elem<App> (data = the app)
-    uint32_t sock_;               // +0x1428
-    uint8_t local_address_[0x10]; // +0x142C sockaddr_in (Bind)
-    bool linked_up_;              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
-    void* supervisor_;            // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
+    int outbound_byte_total_{};     // +0x13FC
+    int inbound_byte_total_{};      // +0x1400
+    int skipped_stamps_{};          // +0x1404 timestamps skipped over
+    int stale_arrivals_{};          // +0x1408 timestamps older than the newest
+    int repeat_arrivals_{};         // +0x140C timestamps seen twice
+    int frame_count_{};             // +0x1410 frames processed (pump_incoming_traffic)
+    memory::ListNode list1414_{};   // +0x1414 lists::Elem<App> (data = the app)
+    uint32_t sock_{};               // +0x1428
+    uint8_t local_address_[0x10]{}; // +0x142C sockaddr_in (Bind)
+    bool linked_up_{};              // +0x143C the socket is connect()ed (send/recv, not sendto/recvfrom)
+    void* supervisor_{};            // +0x1440 the NetLink::Hub (its message flags: kMsgNoLength)
     // tasks::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
     // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
     tasks::SchedulerTask* process_task_; // +0x1444
-    tasks::SchedulerTask* send_task_;    // +0x1448
+    tasks::SchedulerTask* send_task_{};  // +0x1448
     tasks::SchedulerTask* receive_task_; // +0x144C
     tasks::SchedulerTask* metrics_task_; // +0x1450
-    int open_links_;                     // +0x1454 (zeroed by Init)
-    int peer_cap_;                       // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
-    uint8_t scrambled_[0x514];           // +0x145C a secure packet being sent
-    char receive_buffer_[0x514];         // +0x1970
+    int open_links_{};                   // +0x1454 (zeroed by Init)
+    int peer_cap_{};                     // +0x1458 (AppHost::opened_link makes no more; HostEnd::prepare_all clears it)
+    uint8_t scrambled_[0x514]{};         // +0x145C a secure packet being sent
+    char receive_buffer_[0x514]{};       // +0x1970
     uint32_t flag_bits_;                 // +0x1E84
     UnknownPacketCallback unknown_packet_sink_; // +0x1E88 packets from addresses that aren't connections
-    memory::ListNode circuits_;                 // +0x1E8C head (data -1)
-    memory::ListNode banned_;                   // +0x1EA0 head
-    uint32_t unknown1eb4_;
-    char label_[0x48]; // +0x1EB8 ("server", "client"...)
+    memory::ListNode circuits_{};               // +0x1E8C head (data -1)
+    memory::ListNode banned_{};                 // +0x1EA0 head
+    uint32_t unknown1eb4_{};
+    char label_[0x48]{}; // +0x1EB8 ("server", "client"...)
     // +0x1F00 a double (0.0 from the constructor; not used by the library), as two words: an 8-aligned member would
     // move MSVC's first member after the vptr to +8.
-    uint32_t unknown1f00_[2];
+    uint32_t unknown1f00_[2]{};
 };
 
 // NOT ORIGINAL - a look at every message AppHost::put_on_outbox queues, first (THUGPRO's additions to messages we send:

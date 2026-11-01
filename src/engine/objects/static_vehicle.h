@@ -32,7 +32,7 @@ public:
     // (0, 1, 0)) at the next of the hierarchy's objects 1-4.
     void seal() override;
 
-    uint8_t unused18_[0x40];
+    uint8_t unused18_[0x40]{};
 };
 
 } // namespace objects

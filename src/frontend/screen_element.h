@@ -172,16 +172,16 @@ public:
     objects::SharedRef<UiWidget> eldest_;    // +0x58
     objects::SharedRef<UiWidget> following_; // +0x64 the next sibling
     objects::SharedRef<UiWidget> preceding_; // +0x70 the previous sibling
-    ElementState shown_;                     // +0x7C
-    ElementState aim_point_;                 // +0xC0
-    int morph_start_;                        // +0x104 (ms)
+    ElementState shown_{};                   // +0x7C
+    ElementState aim_point_{};               // +0xC0
+    int morph_start_{};                      // +0x104 (ms)
     int morph_length_;                       // +0x108 (ms; 0 none)
-    float morph_curve_done_;                 // +0x10C the curve's value last frame
-    float morph_done_;                       // +0x110 the time's fraction last frame
-    ElementState summed_;                    // +0x114
-    float just_x_, just_y_;                  // +0x158 (-1 left / top .. 1 right / bottom)
+    float morph_curve_done_{};               // +0x10C the curve's value last frame
+    float morph_done_{};                     // +0x110 the time's fraction last frame
+    ElementState summed_{};                  // +0x114
+    float just_x_{}, just_y_{};              // +0x158 (-1 left / top .. 1 right / bottom)
     float span_, level_y_;                   // +0x160 the size (unscaled)
-    uint8_t rgba168_[4];                     // +0x168 (0x80 each)
+    uint8_t rgba168_[4]{};                   // +0x168 (0x80 each)
     float z_priority_;                       // +0x16C
     float remembered_alpha_;                 // +0x170 (remember_alpha / restore_alpha; 1)
     int rank_;                               // +0x174

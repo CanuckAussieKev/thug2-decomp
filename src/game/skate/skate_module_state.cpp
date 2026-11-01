@@ -333,7 +333,7 @@ bool Skate::cfunc_change_level(script::Struct* params, script::Script*)
         uint32_t level;
         bool show_warning_;
         uint8_t pad[3];
-    } message;
+    } message{};
     message.level = level;
     message.show_warning_ = show_warning;
     for (void* player = net->begin_player_walk(&search, true); player; player = net->step_player_walk(&search, true)) {

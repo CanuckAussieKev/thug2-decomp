@@ -29,7 +29,7 @@ Step step_between(const Placement& from, const Placement& to)
 {
     // Apply(to, x) = Q(to.q)(x) + to.o = Q(d)(Q(from.q)(x)) + to.o = Q(d)(Apply(from, x) - from.o) + from.o + (to.o -
     // from.o): turned about from.o, then moved.
-    Step step;
+    Step step{};
     step.turns = ((to.quarters - from.quarters) % 4 + 4) % 4;
     step.centre = from.offset;
     step.delta = to.offset - from.offset;

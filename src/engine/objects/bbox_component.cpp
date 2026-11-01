@@ -285,7 +285,7 @@ bool CbBoxComponent::query_objects(script::Struct* params, script::Script* scrip
 // 0x0041B1A0
 int CbBoxComponent::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script)
 {
-    Rect2 rect;
+    Rect2 rect{};
     maths::Vec4 position;
     switch (name) {
     case kObjObjectInRect:

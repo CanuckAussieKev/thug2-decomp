@@ -29,14 +29,14 @@ public:
     ~QuadSprite() override = default;
 
     SpriteTexture* texture; // or null: the whole of whatever texture is set
-    float x, y;             // position (of the hot spot), in 640x480 screen layout units
-    uint16_t width, height; // in pixels at scale 1
-    float xscale, yscale;   // negative: mirrored
-    float hot_x_, hot_y_;   // the point drawn at (x, y), in pixels from the top left
-    float rotation;         // radians, about the hot spot; 0 = upright
-    uint32_t color;         // RGBA as bytes (alpha 0: not drawn)
-    bool flip_v_;           // swap the texture's top and bottom (see Draw)
-    bool flip_u_;           // swap its left and right
+    float x{}, y{};         // position (of the hot spot), in 640x480 screen layout units
+    uint16_t width{}, height{}; // in pixels at scale 1
+    float xscale{}, yscale{};   // negative: mirrored
+    float hot_x_{}, hot_y_{};   // the point drawn at (x, y), in pixels from the top left
+    float rotation{};           // radians, about the hot spot; 0 = upright
+    uint32_t color{};           // RGBA as bytes (alpha 0: not drawn)
+    bool flip_v_{};             // swap the texture's top and bottom (see Draw)
+    bool flip_u_{};             // swap its left and right
 
     // 0x004DFCF0 (vtable slot 2): draw the quad (2 triangles) on the device with the texture open_sketch set.
     void draw() override;

@@ -156,7 +156,7 @@ void pop_heap() { ram_stats()->leave_heap_scope(); }
 // checksum of all the data, the message id and the first 256 bytes) and the pieces after it, each built in a buffer
 // of its own.
 struct StreamPieceMessage {
-    uint8_t bytes[wire::kStreamPieceMaxSize];
+    uint8_t bytes[wire::kStreamPieceMaxSize]{};
     uint16_t size = 0;
     void build(int stream_id, const void* piece, int length)
     {

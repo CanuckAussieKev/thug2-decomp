@@ -663,7 +663,7 @@ bool set_node_hidden(uint32_t name, bool hide, int second_viewport)
     uint32_t node_class = 0;
     node->read_hash_value(kClass, &node_class, 0);
     if (is_object_class(node_class)) {
-        NodeFlagCommand command;
+        NodeFlagCommand command{};
         command.result = false;
         command.found = false;
         command.value = 4;
@@ -696,7 +696,7 @@ bool node_is_alive(uint32_t name)
     if (node_class == kClassClimbingNode || node_class == kClassRailNode)
         return rail_manager()->is_operative(name);
     if (is_object_class(node_class) || node_class == kClassLevelObject) {
-        NodeFlagCommand command;
+        NodeFlagCommand command{};
         command.value = 0;
         command.action = 6; // (no action: only whether an object has the id)
         command.found = false;

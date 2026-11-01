@@ -244,7 +244,7 @@ double DrivableModule::get_impulse_denominator(const maths::Vec4* offset, const 
     const maths::Vec4& r = *offset;
     const maths::Vec4& n = *direction;
     float inv_mass = inv_mass_;
-    maths::Vec4 cross;
+    maths::Vec4 cross{};
     cross.x = static_cast<float>(static_cast<double>(n.z) * r.y - static_cast<double>(r.z) * n.y);
     cross.y = static_cast<float>(static_cast<double>(r.z) * n.x - static_cast<double>(r.x) * n.z);
     cross.z = static_cast<float>(static_cast<double>(n.y) * r.x - static_cast<double>(n.x) * r.y);
@@ -252,7 +252,7 @@ double DrivableModule::get_impulse_denominator(const maths::Vec4* offset, const 
     auto linear_x = static_cast<float>(static_cast<double>(n.x) * inv_mass);
     auto linear_y = static_cast<float>(static_cast<double>(inv_mass) * n.y);
     auto linear_z = static_cast<float>(static_cast<double>(n.z) * inv_mass);
-    maths::Vec4 w;
+    maths::Vec4 w{};
     inv_inertia_.rotate_vector(w, cross);
     double tx = static_cast<double>(w.y) * r.z - static_cast<double>(w.z) * r.y;
     double ty = static_cast<double>(w.z) * r.x - static_cast<double>(w.x) * r.z;
@@ -306,12 +306,12 @@ void DrivableModule::update_righting()
     target.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     target.row[2] = forward;
     target.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (the original leaves its stack there)
-    SlerpStorage storage;
+    SlerpStorage storage{};
     maths::ArcRotationBlender* slerp = storage.get_pull();
     slerp->set_matrices(basis_frame_, target);
     double t = frame_clock::get_slomo_frame_seconds() / slerp->angle * kRightingRate;
     slerp->fetch_mat(basis_frame_, t > 1.0 ? 1.0f : static_cast<float>(t));
-    maths::Vec4 quat;
+    maths::Vec4 quat{};
     matrix_to_quat(&quat, &basis_frame_);
     orientation_ = quat;
 }
@@ -331,7 +331,7 @@ void DrivableModule::align_in_air()
     quat_to_matrix(&orientation_, &basis_frame_);
     basis_frame_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     // Slow: towards its facing (level); fast: towards where it's going.
-    maths::Vec4 at;
+    maths::Vec4 at{};
     if (slow)
         at = {basis_frame_.row[2].x, 0.0f, basis_frame_.row[2].z, basis_frame_.row[2].w};
     else
@@ -351,7 +351,7 @@ void DrivableModule::align_in_air()
     target.row[1] = maths::cross_vec(at, target.row[0]);
     target.row[2] = at;
     target.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    SlerpStorage storage;
+    SlerpStorage storage{};
     maths::ArcRotationBlender* slerp = storage.get_pull();
     slerp->set_matrices(basis_frame_, target);
     // The turn ramps in over alignTime of free fall; slower under 350.
@@ -364,7 +364,7 @@ void DrivableModule::align_in_air()
     double rate = fast ? static_cast<double>(align_rate_) * step_length_
                        : static_cast<double>(align_rate_) * step_length_ * kAlignSlowRate;
     slerp->fetch_mat(basis_frame_, static_cast<float>(ramp / time * rate));
-    maths::Vec4 quat;
+    maths::Vec4 quat{};
     matrix_to_quat(&quat, &basis_frame_);
     orientation_ = quat;
 }
@@ -376,7 +376,7 @@ void DrivableModule::integrate()
     double inv_mass = inv_mass_;
     auto accel_x = static_cast<float>(inv_mass * force_.x), accel_y = static_cast<float>(inv_mass * force_.y);
     auto accel_z = static_cast<float>(inv_mass * force_.z), accel_w = static_cast<float>(inv_mass * force_.w);
-    maths::Vec4 spin_accel;
+    maths::Vec4 spin_accel{};
     inv_inertia_.rotate_vector(spin_accel, twist_force_);
     // The momentum.
     double dt = step_length_;
@@ -531,7 +531,7 @@ void DrivableModule::collide()
                           static_cast<float>(static_cast<double>(contact.point.y) - at_point_.y),
                           static_cast<float>(static_cast<double>(contact.point.z) - at_point_.z),
                           static_cast<float>(static_cast<double>(contact.point.w) - at_point_.w)};
-            maths::Vec4 v;
+            maths::Vec4 v{};
             get_point_velocity(&v, &r);
             const maths::Vec4& nrm = contact.normal;
             double closing_exact = (static_cast<double>(v.z) * nrm.z + static_cast<double>(v.x) * nrm.x) +
@@ -634,7 +634,7 @@ void DrivableModule::collide()
         double inv_mass = inv_mass_;
         vel = {static_cast<float>(inv_mass * mom.x), static_cast<float>(inv_mass * mom.y),
                static_cast<float>(inv_mass * mom.z), static_cast<float>(inv_mass * mom.w)};
-        maths::Vec4 spin;
+        maths::Vec4 spin{};
         inv_inertia_.rotate_vector(spin, rotmom);
         rotvel.x = spin.x;
         rotvel.y = spin.y;

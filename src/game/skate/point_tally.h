@@ -66,47 +66,47 @@ public:
     float focus_time_limit_; // +0x00 focus_time_limit
     int focus_max_times_;    // +0x04 focus_max_times_in_combo
     int16_t rider_no_;       // +0x08 the skater's object id
-    uint8_t pad0a_[2];
+    uint8_t pad0a_[2]{};
     int sum_;                  // +0x0C the total score
-    int pot_state_;            // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
+    int pot_state_{};          // +0x10 0 none, 1 landed (the countdown to its counting), 2 counting into the total
     int pot_;                  // +0x14 the combo's base points
-    int pot_shown_;            // +0x18 the pot being counted down
-    int pot_countdown_;        // +0x1C frames before the counting starts
+    int pot_shown_{};          // +0x18 the pot being counted down
+    int pot_countdown_{};      // +0x1C frames before the counting starts
     int pot_score_;            // +0x20 the combo's points (the pot times the multiplier; captureScore)
     int pot_special_;          // +0x24 the points already put into the special meter
-    int bonus_;                // +0x28
+    int bonus_{};              // +0x28
     int best_tricks_;          // +0x2C the most tricks in a combo
     int top_chain_;            // +0x30 the best combo's points
     int best_combo_sent_;      // +0x34 the best combo the server was told about
-    lists::ResolveMap seen_;   // +0x38 TrickSeen by trick name
+    lists::ResolveMap seen_{}; // +0x38 TrickSeen by trick name
     lists::GrowableMap log_;   // +0x4C TrickLog*
     int tricks_;               // +0x5C the tricks in the combo (the log's used entries)
     float multiplier_;         // +0x60
-    int combo_tricks_;         // +0x64 the tricks in this combo (for best_tricks_)
+    int combo_tricks_{};       // +0x64 the tricks in this combo (for best_tricks_)
     int last_no_spin_;         // +0x68 the last no-spin trick's index (-1)
     int spin_trick_;           // +0x6C the trick the spin goes on (-1)
     int special_;              // +0x70 the special meter (0-3000)
-    bool special_active_;      // +0x74
-    uint8_t bar_colors_[3][4]; // +0x75 special_bar_colors (empty, full, flashing)
-    uint8_t pad81[3];
+    bool special_active_{};    // +0x74
+    uint8_t bar_colors_[3][4]{}; // +0x75 special_bar_colors (empty, full, flashing)
+    uint8_t pad81[3]{};
     float special_phase_; // +0x84 the flashing's phase
-    float special_rate_;  // +0x88 special_bar_interpolator_rate
+    float special_rate_{}; // +0x88 special_bar_interpolator_rate
     bool verbose_print_;  // +0x8C (0x1EDC33F1: the points printed)
-    uint8_t pad8d_[3];
-    int arrow_count_;                 // +0x90 balance_meter_info's arrow_positions
+    uint8_t pad8d_[3]{};
+    int arrow_count_{};               // +0x90 balance_meter_info's arrow_positions
     script::Pair arrows_[20];         // +0x94 (one more: the last repeated)
-    float arrow_step_;                // +0x184 1 / the arrow count
+    float arrow_step_{};              // +0x184 1 / the arrow count
     script::Pair meter_offset_;       // +0x188 the arrow's offset from the meter
-    float meter_rotation_;            // +0x194
+    float meter_rotation_{};          // +0x194
     script::Pair bars_[2];            // +0x198 bar_positions (balance, manual)
-    uint8_t line_counts_[2500];       // +0x1B0 robot detection: how often each line was skated since the robot reset
-    uint8_t combo_line_counts_[2500]; // +0xB74 ... in this combo
-    int robot_lines_;                 // +0x1538
-    int robot_combo_lines_;           // +0x153C
-    int robot_new_lines_;             // +0x1540
-    int robot_combo_new_lines_;       // +0x1544
-    int robot_combo_first_lines_;     // +0x1548
-    float robot_factor_;              // +0x154C (1: none)
+    uint8_t line_counts_[2500]{};     // +0x1B0 robot detection: how often each line was skated since the robot reset
+    uint8_t combo_line_counts_[2500]{}; // +0xB74 ... in this combo
+    int robot_lines_{};                 // +0x1538
+    int robot_combo_lines_{};           // +0x153C
+    int robot_new_lines_{};             // +0x1540
+    int robot_combo_new_lines_{};       // +0x1544
+    int robot_combo_first_lines_{};     // +0x1548
+    float robot_factor_{};              // +0x154C (1: none)
 
     // --- queries (point_tally.cpp) ---
     // 0x00561240 (cdecl): the step the counting pot goes down by: 1, 10, 100, 10000, 100000 or 1000000 (none of

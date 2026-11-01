@@ -462,7 +462,7 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
     AppHost* client = client_slot(index);
-    ConnectInfo info;
+    ConnectInfo info{};
     std::memset(&info, 0, sizeof(info)); // (the original sends its stack's garbage in the fields it doesn't set)
     if (client->is_host_local()) {
         // The host's own client: its connection and the server's know each other.
@@ -493,7 +493,7 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
         std::memset(pending_password(), 0, kPasswordSize);
     info.can_queue_up_ = false;
     info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
-    thugpro::ConnectRequest request;
+    thugpro::ConnectRequest request{};
     send_connection_request(as_client(client), info, &request);
     client->transmit(false);
 
@@ -510,7 +510,7 @@ void Hub::join_server(uint32_t ip, uint16_t port, int index)
 // 0x00534AF0
 void Hub::retry_entry(AppHost* client)
 {
-    ConnectInfo info;
+    ConnectInfo info{};
     std::memset(&info, 0, sizeof(info));
     info.observer = join_mode_ == kJoinModeObserve;
     info.version = kVersion;
@@ -519,7 +519,7 @@ void Hub::retry_entry(AppHost* client)
     info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
     if (in_internet_mode())
         info.rank = current_rank(this);
-    thugpro::ConnectRequest request;
+    thugpro::ConnectRequest request{};
     send_connection_request(as_client(client), info, &request);
     client->transmit(false);
     join_began_at_ = milli_seconds();
@@ -533,7 +533,7 @@ void Hub::retry_entry_with_key(const char* password)
     std::strcpy(join_password(), password);
     const char* name = preference_text(this, kNetworkId); // (not used)
     (void)name;
-    ConnectInfo info;
+    ConnectInfo info{};
     std::memset(&info, 0, sizeof(info));
     info.rank = current_rank(this);
     info.observer = join_mode_ == kJoinModeObserve;
@@ -541,7 +541,7 @@ void Hub::retry_entry_with_key(const char* password)
     info.can_queue_up_ = true;
     info.broadband = net_session_slot()->get_net_link_kind() != kConnectionTypeModem;
     std::strcpy(info.password, password);
-    thugpro::ConnectRequest request;
+    thugpro::ConnectRequest request{};
     send_connection_request(as_client(client_app_), info, &request);
     join_began_at_ = milli_seconds();
     get_logic_tasks()->queue_job(join_expiry_job_.get());
@@ -620,7 +620,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
     if (!conn->is_off_machine()) {
         // The host's own client: proceed at once (only the player count filled in).
         NetMessageInfo desc = new_desc();
-        ProceedInfo proceed;
+        ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
         proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
         uint8_t proceed_bytes[kProceedInfoSize];
@@ -639,11 +639,11 @@ int Hub::on_link_established(InboundMsgCtx* context)
         return net::kResultConsumed;
     // NOT ORIGINAL: a request shorter than THUG2's isn't read (the original reads past it).
     util::ByteReader reader(context->body_, context->body_size_);
-    ConnectInfo request;
+    ConnectInfo request{};
     if (!read_connect_info(reader, &request))
         return net::kResultConsumed;
     ConnectInfo* msg = &request;
-    thugpro::ConnectTrailer trailer;
+    thugpro::ConnectTrailer trailer{};
     if (thugpro::peer_mode() && thugpro::read_connect_trailer(context->body_, context->body_size_, &trailer))
         get_log("THUGPRO join (TP-R12): a THUGPRO client asks to join: version %08X, release %u, scripts %08X%s, "
                 "machine %08X",
@@ -675,7 +675,7 @@ int Hub::on_link_established(InboundMsgCtx* context)
                           msg->cd_key_response_, instance);
         return net::kResultPassOn;
     }
-    ProceedInfo proceed;
+    ProceedInfo proceed{};
     std::memset(&proceed, 0, sizeof(proceed)); // (the original leaves the addresses as its stack had them on a LAN)
     proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
     proceed.broadband = net->get_net_link_kind() != kConnectionTypeModem;
@@ -707,7 +707,7 @@ void Hub::client_authorized(int /*gameId*/, int /*local_id*/, int authenticated,
         instance->conn->mark_stale();
     } else {
         Hub* manager = instance->manager;
-        ProceedInfo proceed;
+        ProceedInfo proceed{};
         std::memset(&proceed, 0, sizeof(proceed));
         proceed.max_players_ = static_cast<int8_t>(get_max_players(manager));
         proceed.broadband = true;
@@ -736,7 +736,7 @@ int Hub::on_admission_ask_msg(InboundMsgCtx* context)
     context->acknowledge_ = true;
     // NOT ORIGINAL: a request shorter than THUG2's header isn't read (the original reads past it).
     util::ByteReader reader(context->body_, context->body_size_);
-    JoinRequestHeader request;
+    JoinRequestHeader request{};
     if (!read_join_request(reader, &request))
         return net::kResultConsumed;
     JoinRequestHeader* msg = &request;
@@ -820,7 +820,7 @@ int Hub::on_go_ahead_msg(InboundMsgCtx* context)
     auto* manager = static_cast<Hub*>(context->content_);
     // (NOT ORIGINAL: one too short is dropped - the original read past it -, and the server's name is cut to its field)
     util::ByteReader reader(context->body_, context->body_size_);
-    ProceedInfo answer;
+    ProceedInfo answer{};
     if (!read_proceed_info(reader, &answer))
         return net::kResultConsumed;
     ProceedInfo* proceed = &answer;
@@ -916,7 +916,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         get_cd_key(key);
         compute_cd_key_response(key, challenge, response);
         net::Hub* net = net_session_slot();
-        ConnectInfo info;
+        ConnectInfo info{};
         std::memset(&info, 0, sizeof(info));
         std::strcpy(info.cd_key_response_, response);
         const char* name = nullptr; // (not used)
@@ -927,7 +927,7 @@ int Hub::on_turned_away_msg(InboundMsgCtx* context)
         info.can_queue_up_ = true;
         info.broadband = net->get_net_link_kind() != kConnectionTypeModem;
         std::strcpy(info.password, join_password());
-        thugpro::ConnectRequest request;
+        thugpro::ConnectRequest request{};
         send_connection_request(as_client(manager->client_app_), info, &request);
         manager->join_phase_ = kJoinStateCdKey;
         return net::kResultPassOn;

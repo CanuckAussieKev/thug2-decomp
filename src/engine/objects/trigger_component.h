@@ -72,8 +72,8 @@ public:
     // (0x0064663C) on the component it carries (+0xA8).
     static bool feeler_hit(render::ProbeRay* feeler);
 
-    maths::Vec4 last_pos_; // +0x18 where the object was at the last update
-    uint32_t events_;      // +0x28 the last trigger's events (a bit for each)
+    maths::Vec4 last_pos_{}; // +0x18 where the object was at the last update
+    uint32_t events_{};      // +0x28 the last trigger's events (a bit for each)
 };
 
 } // namespace objects

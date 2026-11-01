@@ -351,7 +351,7 @@ void FootMovement::update_ride()
     if (!ride->ride_->turned_)
         return;
     maths::Vec4& facing = facing_;
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     facing = ride->ride_->turn_.rotate_vector(turned, facing);
     if (!(facing.y == 0.0f)) { // kept level
         facing.y = 0.0f;
@@ -669,7 +669,7 @@ void FootMovement::update_anim_wait()
             tracker = ride->ride_;
             if (tracker->turned_) {
                 maths::Vec4& facing = transition_facing_;
-                maths::Vec4 turned;
+                maths::Vec4 turned{};
                 facing = tracker->turn_.rotate_vector(turned, facing);
                 if (!(facing.y == 0.0f)) {
                     facing.y = 0.0f;
@@ -686,7 +686,7 @@ void FootMovement::update_anim_wait()
     float end = 0.0f;
     reinterpret_cast<AnimBlenderComponent*>(anim_blender_)->get_times(&start, &current, &end);
     auto t = static_cast<float>((static_cast<double>(current) - start) / (static_cast<double>(end) - start));
-    maths::Vec4 between;
+    maths::Vec4 between{};
     walk::get_lerp(&between, &transition_start_, &transition_pos_, t);
     const maths::Vec4& carried = climb_offset_;
     maths::Vec4& position = pos_;
@@ -1092,7 +1092,7 @@ bool FootMovement::try_barrier_jump()
         maths::Vec4& start = feeler->line_.start;
         start = position;
         start.y = position.y + highest;
-        maths::Vec4 direction;
+        maths::Vec4 direction{};
         get_turned_facing(&direction, index); // (the contact's direction)
         maths::Vec4& end = feeler->line_.end;
         end.x = static_cast<float>(static_cast<double>(reach) * direction.x) + start.x;

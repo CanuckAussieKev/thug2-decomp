@@ -69,7 +69,7 @@ public:
     // bool: the original sets all of EAX.
     int intersects_segment(const Seg& segment, float* s, float* t, float* squared_gap) const;
 
-    Seg line;
+    Seg line{};
     float radius;
 };
 
@@ -79,7 +79,7 @@ public:
 struct Sphere {
     Sphere() = default;
 
-    Vec4 center;
+    Vec4 center{};
     float radius{0.0f};
 };
 

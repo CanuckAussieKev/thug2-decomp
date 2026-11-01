@@ -25,13 +25,13 @@ struct ChainLink {
     // 0x00428250: its line deleted.
     void destroy_body();
 
-    maths::Vec4 at_point_; // +0x00
-    maths::Vec4 last_pos_; // +0x10
-    maths::Vec4 unused20_; // +0x20
-    maths::Vec4 next_pos_; // +0x30 this frame's step
-    float value40_;        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
-    float byte_count_;     // +0x44 the rest length to the link before it
-    uint32_t unused48_;    // +0x48
+    maths::Vec4 at_point_{}; // +0x00
+    maths::Vec4 last_pos_{}; // +0x10
+    maths::Vec4 unused20_{}; // +0x20
+    maths::Vec4 next_pos_{}; // +0x30 this frame's step
+    float value40_{};        // +0x40 (3 when made; 255 while in the collision range; 0 after a constraint pass)
+    float byte_count_{};     // +0x44 the rest length to the link before it
+    uint32_t unused48_{};    // +0x48
     memory::owner<render::PcPrimitive*> line_ptr_; // +0x4C the line drawn to the next link
 };
 
@@ -46,7 +46,7 @@ struct Chain {
 
     uint32_t ident_;                  // +0x000 chainid
     uint32_t bone_start_;             // +0x004 bone_start (its object's skeleton)
-    maths::Vec4 start_offset_;        // +0x008 start_offset (in the bone's space)
+    maths::Vec4 start_offset_{};      // +0x008 start_offset (in the bone's space)
     uint32_t bone_end_;               // +0x018 bone_end
     uint32_t obj_end_;                // +0x01C obj_end (the object whose bone_end the chain ends at)
     int links_;                       // +0x020 segments + 1
@@ -110,7 +110,7 @@ public:
     // 0x3EA1D93A, else - without 0x5F78A252 - the last), 0x982C70E5 (hidden or not: 0x5B6634D4) - 1; anything else 2.
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    ChainList chains_;            // +0x18
+    ChainList chains_{};          // +0x18
     ObjectModule* suspend_;       // +0x20
     ObjectModule* bone_rig_;      // +0x24
     ObjectModule* mesh_instance_; // +0x28
@@ -121,7 +121,7 @@ public:
     uint32_t axis_to_bone_;       // +0x3C collision_info's 0xD962E451: ... to it
     uint32_t plane_bone_;         // +0x40 collision_info's 0x94291927: the plane's point
     bool invisible_;              // +0x44
-    uint8_t pad45[3];
+    uint8_t pad45[3]{};
 };
 
 } // namespace objects

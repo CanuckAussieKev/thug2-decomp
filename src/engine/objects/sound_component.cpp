@@ -165,7 +165,7 @@ bool AudioEmitterModule::get_sound_extent(void* camera, maths::Vec4* out)
 {
     if (!camera || !proxim_)
         return false;
-    maths::Vec4 nearest;
+    maths::Vec4 nearest{};
     *out = *proxim_->nearest_point_on(&nearest, viewer_location(camera));
     return true;
 }

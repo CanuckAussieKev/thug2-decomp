@@ -191,11 +191,11 @@ void CollStaticInstance::recompute_world_bounds()
     world_box_.max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
     int count = geometry_->num_vertices_;
     for (int i = 0; i < count; ++i) {
-        maths::Vec4 raw;
+        maths::Vec4 raw{};
         geometry_->read_stored_vertex(i, &raw);
         maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z,
                            raw.w * size_factor_.w};
-        maths::Vec4 placed;
+        maths::Vec4 placed{};
         basis_frame_.carry_point_through(placed, scaled);
         world_box_.append_spot(placed);
     }

@@ -92,10 +92,10 @@ public:
     // 0x00433630 (not a Ghidra function) Obj_PlaySound: emit_sound. True.
     bool obj_play_sound(script::Struct* params, script::Script* script);
 
-    uint32_t sound_cues_[8];  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
-    WaitingSound waiting_[2]; // +0x38
-    maths::Vec4 at_point_;    // +0x98 where it is
-    maths::Vec4 last_pos_;    // +0xA8 where it was a frame ago
+    uint32_t sound_cues_[8]{};  // +0x18 the sounds by type (Obj_SetSound - which takes 8 too: the next field)
+    WaitingSound waiting_[2]{}; // +0x38
+    maths::Vec4 at_point_{};    // +0x98 where it is
+    maths::Vec4 last_pos_{};    // +0xA8 where it was a frame ago
     EmitterNode* spewer_;     // +0xB8 heard from its nearest point
     ProximNode* proxim_;      // +0xBC
 };

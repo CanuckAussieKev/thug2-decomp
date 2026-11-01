@@ -50,7 +50,7 @@ void set_length(maths::Vec4& v, float length) { v.set_length(length); }
 // 0x00402550's maths (each component in double precision; w 0).
 maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 {
-    maths::Vec4 out;
+    maths::Vec4 out{};
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -91,7 +91,7 @@ void avoid_camera_collisions(maths::Vec4* position, maths::Mat4* matrix, const m
     Feeler feeler;
     feeler.set_excluded(0x90, 0);
     // From the target to 2 beyond the camera.
-    maths::Vec4 beyond;
+    maths::Vec4 beyond{};
     beyond.x = static_cast<float>(dir_x + dir_x) + pos.x;
     beyond.y = static_cast<float>(dir_y + dir_y) + pos.y;
     beyond.z = static_cast<float>(dir_z + dir_z) + pos.z;

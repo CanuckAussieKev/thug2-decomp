@@ -196,7 +196,7 @@ namespace {
 // gamenet_messages.h): the header's fields and the appearance (RiderIdentity::emit_into_buffer, at most 0x1000 bytes).
 struct NewPlayerMessage {
     PlayerArrived header;
-    uint8_t appearance[kAppearanceSize];
+    uint8_t appearance[kAppearanceSize]{};
 };
 constexpr uint16_t kNewPlayerHeader = static_cast<uint16_t>(kPlayerArrivedHeaderSize);
 constexpr uint8_t kMsgReadyQuery = 0x25;

@@ -675,7 +675,7 @@ bool ModelAssembler::choose_uv_shift(uint32_t part, uint32_t material, int pass)
     slot->fetch_float(kUvV, &v, 1);
     slot->fetch_float(kUvScale, &scale, 1);
     slot->fetch_float(kUvRot, &rotation, 1);
-    maths::Mat4 uv;
+    maths::Mat4 uv{};
     uv.reset_to_identity();
     // about the texture's middle: moved there, scaled, turned, moved back
     uv.row[3].x = static_cast<float>(static_cast<double>(uv.row[3].x) - kHalf);

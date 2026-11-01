@@ -30,7 +30,7 @@ ClassNodeList* hook_nodes(ObjectModule* hooks) { return static_cast<HookPointReg
 // The nodes' transform: the object's orientation (the w column cleared) at its position.
 void place_nodes(ClassNodeList* nodes, GameEntity* object)
 {
-    maths::Mat4 transform;
+    maths::Mat4 transform{};
     transform = object->basis_frame_;
     transform.row[3].x = object->at_point_.x;
     transform.row[3].z = object->at_point_.z;

@@ -802,14 +802,14 @@ void carried_flags_task(tasks::Task<Hub>*)
             static_cast<objects::BoneRigModule*>(skater->fetch_module(kSkeleton))->bone_rig_);
         maths::Mat4* matrix = &flag->basis_frame_;
         skeleton->read_joint_matrix(kBoneHead, matrix); // the head bone's matrix
-        maths::Mat4 turn;
+        maths::Mat4 turn{};
         d_3d_x_matrix_multiply(matrix, &maths::make_pitch_matrix(turn, kQuarterTurn), matrix);
         matrix->offset_local(maths::Vec4{0.0f, 12.0f, 0.0f, 0.0f}); // (moved along its own axes)
         maths::Vec4 offset = matrix->row[3];                        // its translation row, taken out
         matrix->row[3] = maths::Vec4{0.0f, 0.0f, 0.0f, 1.0f};
         maths::Mat4* skater_matrix = &skater->basis_frame_;
         d_3d_x_matrix_multiply(matrix, matrix, skater_matrix);
-        maths::Vec4 moved;
+        maths::Vec4 moved{};
         const maths::Vec4& out = skater_matrix->xform(moved, offset);
         auto* position = reinterpret_cast<float*>(&flag->at_point_);
         std::memcpy(position, &out, 16);

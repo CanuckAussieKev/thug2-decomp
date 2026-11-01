@@ -25,7 +25,7 @@ struct BillboardRec {
 struct BillboardBatch {
     uint32_t vertex_bytes_; // (the material's passes + 2) x 0x20
     MaterialRef* material;
-    memory::ListNode* lists[3]; // heads (data -1) of nodes over entries
+    memory::ListNode* lists[3]{}; // heads (data -1) of nodes over entries
 
     // 0x004CEB30: construct for a material: three empty lists.
     explicit BillboardBatch(MaterialRef* material);

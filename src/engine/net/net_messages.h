@@ -22,7 +22,7 @@ struct MsgNormalLink {
     // 0x004557C0: the scalar deleting destructor (out of its list: 0x00455B50).
     MsgNormalLink* teardown(unsigned int flags);
 
-    memory::ListNode list_link_;
+    memory::ListNode list_link_{};
     PendingMsg* shared_msg_;
     uint32_t due_time_; // not before this time
 };
@@ -32,12 +32,12 @@ struct ReliableMsgNode {
     // 0x004557F0: the scalar deleting destructor (0x00455B70).
     ReliableMsgNode* teardown(unsigned int flags);
 
-    memory::ListNode list_link_;
-    uint32_t stamp_ms_; // when it was last sent (0: never)
+    memory::ListNode list_link_{};
+    uint32_t stamp_ms_{}; // when it was last sent (0: never)
     PendingMsg* shared_msg_;
-    uint32_t packet_clock_; // the connection's timestamp it went out with (the ack names it)
+    uint32_t packet_clock_{}; // the connection's timestamp it went out with (the ack names it)
     uint8_t retry_count_;
-    uint8_t pad21[3];
+    uint8_t pad21[3]{};
     uint32_t due_time_;
 };
 struct OrderedMsgNode {
@@ -47,13 +47,13 @@ struct OrderedMsgNode {
     // 0x00455820: the scalar deleting destructor (0x00455B90).
     OrderedMsgNode* teardown(unsigned int flags);
 
-    memory::ListNode list_link_; // priority: the sequence number
+    memory::ListNode list_link_{}; // priority: the sequence number
     uint8_t retry_count_;
-    uint8_t bundle_id_;
+    uint8_t bundle_id_{};
     uint8_t bulk_msg_; // a piece of a streamed message
-    uint32_t packet_clock_;
-    uint32_t stamp_ms_; // when it was last sent (0: never)
-    uint32_t order_index_;
+    uint32_t packet_clock_{};
+    uint32_t stamp_ms_{}; // when it was last sent (0: never)
+    uint32_t order_index_{};
     uint32_t due_time_;
     SeqQueuedMsg* shared_msg_;
 };
@@ -65,7 +65,7 @@ struct BulkStreamNode {
     // 0x00455850: the scalar deleting destructor (0x00455BB0).
     BulkStreamNode* teardown(unsigned int flags);
 
-    memory::ListNode list_link_;
+    memory::ListNode list_link_{};
     StreamDesc* msg_meta_;
 };
 

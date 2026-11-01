@@ -57,16 +57,16 @@ struct AnimTimeline {
     // 0x004816B0: `seconds` (in frames) added to the current time, then wrapped / held as a step of no time does.
     void advance_clock(float frames);
 
-    memory::ListNode list_link_; // +0x00 (data = this; the original's node size: the fields keep their offsets)
-    float outset_;               // +0x14
-    float ongoing_;              // +0x18
-    float finish_;               // +0x1C
-    float speed_;                // +0x20 (per 1/60 s)
-    int direction_;              // +0x24 0 forwards, -1 backwards
-    int repeat_mode_;            // +0x28
-    bool complete_;              // +0x2C
-    uint8_t pad2d_[3];
-    uint32_t anim_; // +0x30 the animation's name
+    memory::ListNode list_link_{}; // +0x00 (data = this; the original's node size: the fields keep their offsets)
+    float outset_{};               // +0x14
+    float ongoing_{};              // +0x18
+    float finish_{};               // +0x1C
+    float speed_{};                // +0x20 (per 1/60 s)
+    int direction_{};              // +0x24 0 forwards, -1 backwards
+    int repeat_mode_{};            // +0x28
+    bool complete_{};              // +0x2C
+    uint8_t pad2d_[3]{};
+    uint32_t anim_{}; // +0x30 the animation's name
 };
 
 // The base controller (vtable 0x0064877C). Zeroed memory from the current heap (the standard controller has pools
@@ -130,7 +130,7 @@ public:
     static void operator delete(void* item);
     static void operator delete(void* item, int) { operator delete(item); }
 
-    void* cur_frame_data_; // +0x14 (unused)
+    void* cur_frame_data_{}; // +0x14 (unused)
     void* frame_source_;   // +0x18 the current frame (0x0048CFA0 / 0x0048CFD0)
     void* blend_source_;   // +0x1C its frame source
     uint32_t anim_set_;    // +0x20 added to an animation's name
@@ -202,7 +202,7 @@ public:
     // 0x004A4D30 (slot 1): its pose copied out.
     bool fetch_pose(uint8_t* pose) override;
 
-    uint8_t stance_[0x840]; // +0x14 (64 rotations, then the rest)
+    uint8_t stance_[0x840]{}; // +0x14 (64 rotations, then the rest)
 };
 
 // The partial animation controller (type "partialAnim", vtable 0x00649FB0, 0x24 bytes): a second animation on a

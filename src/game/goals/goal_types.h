@@ -63,13 +63,13 @@ class ShootVideoObjective final : public Objective {
 public:
     ShootVideoObjective(const ShootVideoObjective&) = delete;
     ShootVideoObjective& operator=(const ShootVideoObjective&) = delete;
-    bool recording_shot_; // +0x70 (StartFilming)
-    uint8_t pad71_[3];
-    uint32_t shot_hold_time_; // +0x74 ms
-    uint32_t time_needed_;    // +0x78 ms (total_time_required)
-    uint32_t unknown7c_;      // +0x7C (always 0: 0 times time)
-    int checkpoints_;         // +0x80 (0xC808F9FB: the checkpoints to pass)
-    int checkpoints_passed_;  // +0x84
+    bool recording_shot_{}; // +0x70 (StartFilming)
+    uint8_t pad71_[3]{};
+    uint32_t shot_hold_time_{}; // +0x74 ms
+    uint32_t time_needed_{};    // +0x78 ms (total_time_required)
+    uint32_t unknown7c_{};      // +0x7C (always 0: 0 times time)
+    int checkpoints_{};         // +0x80 (0xC808F9FB: the checkpoints to pass)
+    int checkpoints_passed_{};  // +0x84
 
     // 0x005527D0: the constructor. 0x005527F0 / 0x005528A0 (vtable +0x00): the destructor body / the
     // scalar deleting destructor.
@@ -93,7 +93,7 @@ class HuntGapsObjective final : public Objective {
 public:
     HuntGapsObjective(const HuntGapsObjective&) = delete;
     HuntGapsObjective& operator=(const HuntGapsObjective&) = delete;
-    uint32_t unused70_; // +0x70
+    uint32_t unused70_{}; // +0x70
     // 0x00552B30: the constructor. 0x00552B50 / 0x00552B60 (vtable +0x00): the destructor body /
     // the scalar deleting destructor.
     explicit HuntGapsObjective(script::Struct* params);

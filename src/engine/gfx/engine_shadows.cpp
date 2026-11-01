@@ -47,7 +47,7 @@ gfx::ViewCam* new_shadow_camera()
 }
 void look_along(gfx::ViewCam* camera, maths::Vec4 v)
 {
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     matrix.row[0] = {v.z, -v.x, -v.y, 0.0f};
     matrix.row[1] = {v.y, -v.z, -v.x, 0.0f};
     matrix.row[2] = v;
@@ -137,7 +137,7 @@ void BlobShadow::load_mesh(const char* name)
 void BlobShadow::tick_frame(const maths::Vec4* position, const maths::Mat4* matrix, maths::Vec4 normal)
 {
     const maths::Vec4& forward = matrix->row[2];
-    maths::Mat4 placed;
+    maths::Mat4 placed{};
     placed.row[0] = {
         static_cast<float>(static_cast<double>(forward.z) * normal.y - static_cast<double>(forward.y) * normal.z),
         static_cast<float>(static_cast<double>(forward.x) * normal.z - static_cast<double>(forward.z) * normal.x),

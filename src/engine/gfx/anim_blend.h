@@ -173,8 +173,8 @@ public:
     // `blends` poses (0x006F8A64), sets (0x006F8A58) and weights (0x006F8A5C) - the poses' rotations the identity.
     static void init_buffers(int blends, int subsets);
 
-    memory::ListNode list_link_; // +0x00 (data = this; the original's node size, as the head's)
-    memory::ListNode timelines_; // +0x14 the head (data -1)
+    memory::ListNode list_link_{}; // +0x00 (data = this; the original's node size, as the head's)
+    memory::ListNode timelines_{}; // +0x14 the head (data -1)
     uint32_t ident_;             // +0x28
     int rank_;                   // +0x2C (0x3D836C96)
     uint32_t ongoing_;           // +0x30 the blend value (a float)
@@ -182,21 +182,21 @@ public:
     uint32_t outset_;            // +0x38
     float period_;               // +0x3C
     float period_left_;          // +0x40
-    bool has_next_blend_;        // +0x44 (the next play blends over next_blend_)
-    uint8_t pad45_[3];
-    float next_blend_;                       // +0x48
+    bool has_next_blend_{};      // +0x44 (the next play blends over next_blend_)
+    uint8_t pad45_[3]{};
+    float next_blend_{};                     // +0x48
     bool flag_4c_;                           // +0x4C (without it each play deletes the older timelines)
     bool events_on_;                         // +0x4D
-    bool flag_4e_;                           // +0x4E
+    bool flag_4e_{};                         // +0x4E
     uint32_t lookup_key_;                    // +0x50 the anim set
-    uint32_t flag_bits_;                     // +0x54 (bit 29: flipped)
+    uint32_t flag_bits_{};                   // +0x54 (bit 29: flipped)
     uint32_t event_table_;                   // +0x58 (AnimEventTableName 0x5B8C6DC2)
-    float prev_timeline_pos_;                // +0x5C the playing timeline's time last frame
-    bool waiting_;                           // +0x60 a time waited for
-    float wait_time_;                        // +0x64
+    float prev_timeline_pos_{};              // +0x5C the playing timeline's time last frame
+    bool waiting_{};                         // +0x60 a time waited for
+    float wait_time_{};                      // +0x64
     uint8_t* owner_ptr_;                     // +0x68 the object (its script at +0x10, id at +0x14, parameters at +0x20)
     objects::AnimBlenderComponent* blender_; // +0x6C
-    objects::ObjectModule* bone_rig_;        // +0x70 the object's skeleton component
+    objects::ObjectModule* bone_rig_{};      // +0x70 the object's skeleton component
 };
 
 // (The channel's timeline list's node type - AnimTimeline::destroy_body its body, 0x0047DD40 its scalar deleting

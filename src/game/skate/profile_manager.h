@@ -24,8 +24,8 @@ namespace objects {
 // info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
 // skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct RiderIdentity {
-    alignas(4) uint8_t look_data_[0x5C]; // a gfx::ModelLook, made in place by make_new (appearance())
-    uint8_t details_[8];                 // +0x5C (a Scripts::CStruct)
+    alignas(4) uint8_t look_data_[0x5C]{}; // a gfx::ModelLook, made in place by make_new (appearance())
+    uint8_t details_[8]{};                 // +0x5C (a Scripts::CStruct)
 
     RiderIdentity();                                    // 0x00586D60
     uint32_t fetch_title();                                       // 0x00586150 (its info's name)
@@ -65,10 +65,10 @@ struct RiderIdentity {
 
     // A special trick slot: the trick's name and keys, and a flag.
     struct SpecialTrick {
-        uint32_t trick;
-        uint32_t keys;
+        uint32_t trick{};
+        uint32_t keys{};
         bool flag;
-        uint8_t pad9[3];
+        uint8_t pad9[3]{};
         // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
         SpecialTrick();
         bool is_vacant();
@@ -96,7 +96,7 @@ static_assert(sizeof(RiderIdentity) == 0x64, "layout must match the original");
 // 0x00587120 / 0x00587130: a list of distinct checksums (up to 256, its count at +0x400): emptied / filled from the
 // global array 0x5004A967.
 struct ChecksumSet {
-    uint32_t items_[256];
+    uint32_t items_[256]{};
     int num_; // +0x400
     ChecksumSet();
     void get_fill();
@@ -177,13 +177,13 @@ public:
     static ProfileRoster* fabricate(bool create);
     static void get_release();
 
-    ProfileTable templates_;     // +0x00
-    RiderIdentity* profiles_[2]; // +0x14 (the first: a template; the second: a copy)
+    ProfileTable templates_{};     // +0x00
+    RiderIdentity* profiles_[2]{}; // +0x14 (the first: a template; the second: a copy)
     int cursor_pos_;             // +0x1C
     bool locked_;                // +0x20
     int extra_count_;                  // +0x24
-    uint32_t extra_names_[3];          // +0x28
-    RiderIdentity* extra_profiles_[3]; // +0x34
+    uint32_t extra_names_[3]{};        // +0x28
+    RiderIdentity* extra_profiles_[3]{}; // +0x34
 };
 
 extern memory::owner<objects::ProfileRoster*> g_profile_roster;

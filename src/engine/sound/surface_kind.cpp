@@ -281,7 +281,7 @@ Struct* find_sound_action(Struct* sound_actions, uint8_t table, float value)
 // 0x004448E0 (with sound off the info isn't filled and the load gets what's there - as the original)
 void load_sound_action(Struct* sound_action)
 {
-    SoundInfo info;
+    SoundInfo info{};
     get_sound_info(sound_action, &info);
     ingest_sound(info);
 }
@@ -315,7 +315,7 @@ void load_table_sounds(Struct* sound_actions, uint8_t table)
         Array* choices = nullptr;
         element->fetch_list(kSoundAction, &choices, 1);
         for (uint32_t j = 0; j < choices->extent_; ++j) {
-            SoundInfo info;
+            SoundInfo info{};
             get_sound_info(reinterpret_cast<Struct*>(choices->fetch_part(j)), &info);
             ingest_sound(info);
         }
@@ -352,7 +352,7 @@ void play_terrain_sound(uint8_t table, uint8_t terrain, const maths::Vec4* posit
     Struct* sound_action = find_sound_action(sound_actions, table, value);
     if (!sound_action)
         return;
-    SoundInfo info;
+    SoundInfo info{};
     if (!get_sound_info(sound_action, &info))
         return;
     if (propagate) {

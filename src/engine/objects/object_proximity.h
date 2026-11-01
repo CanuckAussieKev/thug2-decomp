@@ -61,12 +61,12 @@ public:
     // 0x004EC480 [Obj_ObjectInAttentionRadius]: the local skater within the attention radius.
     bool obj_object_in_attention_radius(script::Struct* params, script::Script* script);
 
-    float inner_radius_squared_;       // +0x18
-    float outer_radius_squared_;       // +0x1C
-    float inner_avoid_radius_squared_; // +0x20
-    float outer_avoid_radius_squared_; // +0x24
-    float attention_radius_squared_;   // +0x28
-    uint32_t unknown2c_;               // +0x2C
+    float inner_radius_squared_{};       // +0x18
+    float outer_radius_squared_{};       // +0x1C
+    float inner_avoid_radius_squared_{}; // +0x20
+    float outer_avoid_radius_squared_{}; // +0x24
+    float attention_radius_squared_{};   // +0x28
+    uint32_t unknown2c_{};               // +0x2C
 };
 static_assert(offsetof(ObjectProximityComponent, inner_radius_squared_) == 0x18 &&
                   offsetof(ObjectProximityComponent, attention_radius_squared_) == 0x28 &&

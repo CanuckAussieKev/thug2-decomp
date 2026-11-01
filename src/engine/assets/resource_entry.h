@@ -112,21 +112,21 @@ public:
     // (unless the second value is set).
     static void read_callback(file::AsyncFileHandle* file, int event, int size, void* asset, void* other);
 
-    uint32_t checksum_; // +0x04
+    uint32_t checksum_{}; // +0x04
     int cur_phase_;     // +0x08 AssetState
-    bool pinned_;       // +0x0C not unloaded by unload_all_assets(false)
-    uint8_t pad0d_[3];
-    void* content_;                   // +0x10 what was loaded (a scene, a texture dictionary...)
+    bool pinned_{};     // +0x0C not unloaded by unload_all_assets(false)
+    uint8_t pad0d_[3]{};
+    void* content_{};                 // +0x10 what was loaded (a scene, a texture dictionary...)
     LoadCallback callback_;           // +0x14
-    void* callback_data0_;            // +0x18
-    void* callback_data1_;            // +0x1C
+    void* callback_data0_{};          // +0x18
+    void* callback_data1_{};          // +0x1C
     file::AsyncFileHandle* file_ref_; // +0x20 the file being read
     void* octets_;                    // +0x24 its contents
     uint32_t extent_;                 // +0x28 their size
-    Resource* last_value_;            // +0x2C in the manager's list (circular)
-    Resource* succ_;                  // +0x30
+    Resource* last_value_{};          // +0x2C in the manager's list (circular)
+    Resource* succ_{};                // +0x30
     Resource* bundle_;                // +0x34 the asset it depends on (a model's textures)
-    memory::ListNode dependents_;     // +0x38 the assets depending on it (lists::Foremost<Resource>)
+    memory::ListNode dependents_{};   // +0x38 the assets depending on it (lists::Foremost<Resource>)
 };
 
 // The load parameters' pool: 4 blocks of 0x60 bytes (0x00691758, in use: the bits of 0x006918D8). 0x00407730: a
@@ -185,12 +185,12 @@ struct NodeTableResource final : Resource {
     // 0x00408BB0 (vtable 0x00645698)
     NodeTableResource();
     uint32_t archive_;     // +0x4C
-    uint32_t source_path_; // +0x50 the checksum of the file name (its script's)
-    uint32_t array_name_;  // +0x54 the node array's checksum
-    void* nodes_;          // +0x58 its script array
-    char* args_;           // +0x5C (0x40 bytes, the file name)
-    bool owned_;           // +0x60 the node manager's owner
-    uint8_t pad61[3];
+    uint32_t source_path_{}; // +0x50 the checksum of the file name (its script's)
+    uint32_t array_name_{};  // +0x54 the node array's checksum
+    void* nodes_{};          // +0x58 its script array
+    char* args_{};           // +0x5C (0x40 bytes, the file name)
+    bool owned_{};           // +0x60 the node manager's owner
+    uint8_t pad61[3]{};
     // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
     int fetch_kind() const override;
     const char* fetch_title() const override;
@@ -285,7 +285,7 @@ struct SkinParams {
 struct SkinResource final : Resource {
     // 0x00409C40 (vtable 0x00645888)
     SkinResource();
-    uint32_t archive_;
+    uint32_t archive_{};
     SkinParams* args_;
     file::AsyncFileHandle* cas_file_;
     void* cas_buffer_;

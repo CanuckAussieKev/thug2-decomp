@@ -418,7 +418,7 @@ void EmitterInstance::set_wants_time(uint8_t on)
 maths::Mat4* EmitterInstance::build_emitter_orientation(maths::Mat4* out)
 {
     maths::Vec4 angles{orientation_turn_[0], orientation_turn_[1], orientation_turn_[2], 1.0f};
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     rotation.init_from_angles(angles);
     *out = rotation;
     return out;

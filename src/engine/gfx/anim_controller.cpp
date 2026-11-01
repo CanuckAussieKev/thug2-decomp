@@ -130,7 +130,7 @@ int get_clock() { return frame_clock::game_clock_elapsed() + objects::g_clock_of
 
 // The play-anim member function's parameters (the original leaves a missing one uninitialised: 0 here).
 struct PlayParams {
-    uint32_t anim;
+    uint32_t anim{};
     float start = 0.0f, end = 0.0f, blend = 0.0f, speed = 0.0f;
     int loop_type_ = 0;
 };

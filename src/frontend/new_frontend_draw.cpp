@@ -451,14 +451,14 @@ float get_header(Ctx& c, float top, float right, const char* left_text, bool bac
 struct RowStyle {
     Style name;
     Style number;
-    float line_height_; // (a multiple of the name's size)
-    float row_pad_top_; // (above the line box)
-    float row_height_;
-    float text_x_;               // the name's left
-    float cut_left_;             // the cut's left (the label span's left - 6)
-    float cut_right_pad_;        // past the name's right (span padding + 22 / 26)
-    float cut_top_, cut_bottom_; // (fractions of the line box)
-    float top_inset_, bottom_inset_;
+    float line_height_{}; // (a multiple of the name's size)
+    float row_pad_top_{}; // (above the line box)
+    float row_height_{};
+    float text_x_{};                 // the name's left
+    float cut_left_{};               // the cut's left (the label span's left - 6)
+    float cut_right_pad_{};          // past the name's right (span padding + 22 / 26)
+    float cut_top_{}, cut_bottom_{}; // (fractions of the line box)
+    float top_inset_{}, bottom_inset_{};
 };
 
 void get_row(Ctx& c, const RowStyle& rs, float top, const char* number, const char* label, float e, uint32_t cut_colour,

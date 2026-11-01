@@ -8,12 +8,12 @@
 namespace render {
 
 struct TextureRef {
-    uint32_t checksum;
-    uint16_t width, height;               // the texture's
-    uint16_t image_width_, image_height_; // the image's, at its top left
-    uint8_t levels;
-    uint8_t depth;
-    uint8_t unknowne_, unknownf_;
+    uint32_t checksum{};
+    uint16_t width{}, height{};               // the texture's
+    uint16_t image_width_{}, image_height_{}; // the image's, at its top left
+    uint8_t levels{};
+    uint8_t depth{};
+    uint8_t unknowne_{}, unknownf_{};
     void* texture; // IDirect3DTexture9
     void* palette; // (or an alpha texture: GetPaletteOwner)
     void* surface; // a render target's level 0 (IDirect3DSurface9)

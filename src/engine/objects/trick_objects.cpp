@@ -693,7 +693,7 @@ void score_trick_objects(int player, uint32_t score, uint32_t count, uint32_t* o
 // 0x00589670
 void TrickSpotHub::give_free_clusters(int player)
 {
-    FreeClusterList list;
+    FreeClusterList list{};
     list.count = 0;
     clusters_.run_hook(reinterpret_cast<lists::KeyMap::HookFn>(&list_free_cluster), &list);
     if (list.count)

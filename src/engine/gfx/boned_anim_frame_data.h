@@ -182,7 +182,7 @@ public:
                     void* arg5);
 
     uint32_t unknown00_;
-    uint32_t flag_bits_;                      // +0x04
+    uint32_t flag_bits_{};                    // +0x04
     int bone_count_;                          // +0x08
     uint8_t* key_table_;                      // +0x0C (flag 0x2000: the animation's own quaternion table)
     uint8_t* quat_keys_;                      // +0x10
@@ -194,10 +194,10 @@ public:
     memory::owner<UserClipKey**> events_ptr_; // +0x28 the custom keys (create_custom_anim_key; each owned too)
     uint16_t* quat_sizes_;                    // +0x2C (each bone's quaternion keys' size in bytes)
     uint16_t* trans_sizes_;                   // +0x30
-    int16_t quat_key_count_;                  // +0x34
-    int16_t trans_key_count_;                 // +0x36
+    int16_t quat_key_count_{};                // +0x34
+    int16_t trans_key_count_{};               // +0x36
     int16_t event_count_;                     // +0x38
-    uint16_t bits_;                           // +0x3A (bits 1-8: references to its cache entry)
+    uint16_t bits_{};                         // +0x3A (bits 1-8: references to its cache entry)
 };
 static_assert(offsetof(JointClipFrames, cache_slot_) == 0x24 && offsetof(JointClipFrames, bits_) == 0x3A &&
                   sizeof(JointClipFrames) == 0x3C,

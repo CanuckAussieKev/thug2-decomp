@@ -79,16 +79,16 @@ public:
     bool un_set_force_walk(script::Struct* params, script::Script* script);                   // 0x00517720
     bool is_force_walk_on(script::Struct* params, script::Script* script);                    // 0x00517730
 
-    bool is_halted_; // +0x18
-    uint8_t pad19[3];
-    int switch_time_;       // +0x1C the game clock when the physics last switched
-    int previous_duration_; // +0x20 how long the physics before it ran (ms)
-    bool board_missing_;    // +0x24
-    bool force_walk_;       // +0x25
-    uint8_t flag26_;        // +0x26 (cleared each update)
-    uint8_t pad27;
+    bool is_halted_{}; // +0x18
+    uint8_t pad19[3]{};
+    int switch_time_{};       // +0x1C the game clock when the physics last switched
+    int previous_duration_{}; // +0x20 how long the physics before it ran (ms)
+    bool board_missing_{};    // +0x24
+    bool force_walk_{};       // +0x25
+    uint8_t flag26_{};        // +0x26 (cleared each update)
+    uint8_t pad27{};
     skater::SkaterPhysicsModule* core_physics_; // +0x28 SkaterCorePhysics (0x5BD63B29)
-    RiderPoseState* pose_;                      // +0x2C SkaterState (0x43686585)
+    RiderPoseState* pose_{};                    // +0x2C SkaterState (0x43686585)
 };
 
 } // namespace objects

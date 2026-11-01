@@ -100,16 +100,16 @@ public:
     char* chars_;                         // +0x178
     uint32_t font_name_;                  // +0x17C
     void* typeface_;                      // +0x180
-    void** texts_;                        // +0x184 the text objects (the first the text, the others the blur copies)
-    void** shadows_;                      // +0x188
-    int num_;                             // +0x18C
+    void** texts_{};                      // +0x184 the text objects (the first the text, the others the blur copies)
+    void** shadows_{};                    // +0x188
+    int num_{};                           // +0x18C
     SmearEffect* blur_;                   // +0x190
     bool shadow_;                         // +0x194
-    float shadow_x_, shadow_y_;           // +0x198 shadow_offs
-    uint8_t shadow_rgba_[4];              // +0x1A0
+    float shadow_x_{}, shadow_y_{};       // +0x198 shadow_offs
+    uint8_t shadow_rgba_[4]{};            // +0x1A0
     bool override_rgba_;                  // +0x1A4 override_encoded_rgba
     bool remembered_override_;            // +0x1A5
-    bool override_alpha_;                 // +0x1A6 override_encoded_alpha
+    bool override_alpha_{};               // +0x1A6 override_encoded_alpha
     float inner_align_h_, inner_align_v_; // +0x1A8
 };
 

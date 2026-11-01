@@ -65,12 +65,12 @@ public:
     void get_freeze(bool pause);
 
     std::unique_ptr<tasks::Task<EntityHub>> update_job_; // +0x40 running composite_object_manager_task
-    uint32_t component_types_;                           // +0x44
+    uint32_t component_types_{};                         // +0x44
     struct ComponentType {
         uint32_t type;
         ComponentCreateFunction create;
     };
-    ComponentType components_[kMaxComponentTypes]; // +0x48
+    ComponentType components_[kMaxComponentTypes]{}; // +0x48
 };
 
 // 0x0045F6D0: the logic task's code: Update on its data (the manager).

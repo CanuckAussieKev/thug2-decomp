@@ -50,7 +50,7 @@ bool play_bike_sound(GameEntity* skater, skater::thaw_bmx::BikeSound kind, float
 {
     if (!skater::thaw_bmx::is_switched_on())
         return false;
-    surface_kind::SoundInfo info;
+    surface_kind::SoundInfo info{};
     int bike = skater::thaw_bmx::bike_sound_of(skater, kind, &info);
     if (bike < 0)
         return false;

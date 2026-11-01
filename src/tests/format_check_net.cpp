@@ -487,7 +487,7 @@ void check_join_messages()
     // a server name filling its field (no terminator): cut there
     std::memset(proceed_ref.server_name, 'N', 16);
     util::ByteReader reader(&proceed_ref, sizeof(proceed_ref));
-    online::ProceedInfo back;
+    online::ProceedInfo back{};
     check(online::read_proceed_info(reader, &back) && std::strlen(back.server_name_) == 15 && back.max_players_ == 8,
           "join proceed 79: an unterminated name cut to its field");
 

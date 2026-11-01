@@ -432,7 +432,7 @@ std::vector<uint32_t> selectable_objects()
     std::vector<uint32_t> ids;
     auto add = [&](uint32_t id) {
         objects::GameEntity* object = live_object(id);
-        OrientedBox box;
+        OrientedBox box{};
         if (object && !get_has(ids, id) && !view::hidden_object(id) && !picking::latched(picking::kObjects, id) &&
             object_edit::model_box(object, &box))
             ids.push_back(id);
@@ -498,7 +498,7 @@ Thing thing_of(uint32_t id, bool sector)
                 source = c.source;
         }
         t.source = source;
-        OrientedBox box;
+        OrientedBox box{};
         if (scenery::cuboid(id, &box))
             t.size = box_size(box);
         if (index < 0)
@@ -711,7 +711,7 @@ void select_group(int index)
             else
                 ++missing;
         } else if (m.kind == 's') {
-            OrientedBox box;
+            OrientedBox box{};
             if (scenery::cuboid(m.id, &box))
                 ids.sectors.push_back(m.id);
             else
@@ -825,8 +825,8 @@ void apply_box()
     std::vector<uint32_t> objects, sectors;
     if (filter & picking::kObjects) {
         for (uint32_t id : selectable_objects()) {
-            OrientedBox ob;
-            Rect2 r;
+            OrientedBox ob{};
+            Rect2 r{};
             if (object_edit::model_box(live_object(id), &ob) && screen_box(ob, !crossing, &r) &&
                 box_takes(box, r, crossing))
                 objects.push_back(id);
@@ -834,8 +834,8 @@ void apply_box()
     }
     if (filter & picking::kScenery) {
         for (uint32_t checksum : selectable_sectors()) {
-            OrientedBox ob;
-            Rect2 r;
+            OrientedBox ob{};
+            Rect2 r{};
             if (scenery::cuboid(checksum, &ob) && screen_box(ob, !crossing, &r) && box_takes(box, r, crossing))
                 sectors.push_back(checksum);
         }

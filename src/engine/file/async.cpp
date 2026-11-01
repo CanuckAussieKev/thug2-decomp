@@ -407,12 +407,12 @@ public:
     int os_load_whole(void* buffer) override;
     int os_read_chunk(void* buffer, int size, int count) override;
 
-    uint8_t unknown3c_[0x7C - 0x3C];
+    uint8_t unknown3c_[0x7C - 0x3C]{};
     int unknown7c_;
     void* destination_; // where a read through staging_bytes_ goes
     void* staging_bytes_;
     HANDLE file_ref_;
-    OVERLAPPED async_ctl_;
+    OVERLAPPED async_ctl_{};
 };
 
 } // namespace

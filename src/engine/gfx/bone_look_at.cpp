@@ -251,7 +251,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
                     axis.y = static_cast<float>(sin_f * old_x + axis.y * c);
                 }
             }
-            maths::QuatRotation made;
+            maths::QuatRotation made{};
             turn = *made.init_from_axis_angle(axis, angle);
         }
         // Its angles: clamped and scaled, or each one past its limits dropped
@@ -279,7 +279,7 @@ bool BoneLookAt::get_apply(maths::QuatRotation* rotations)
                 angles.z = 0.0f;
         }
         // Applied to the pose's rotation, eased from the last turn when it's far from it
-        maths::QuatRotation rotation;
+        maths::QuatRotation rotation{};
         angles_to_quat(&rotation, &angles);
         rotation *= pose;
         pose = rotation;

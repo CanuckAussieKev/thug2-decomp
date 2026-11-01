@@ -82,7 +82,7 @@ public:
     void own_update() override;
 
     memory::owner<ViewerObjectInputHandler*> task_; // +0x108: its input handler (0x0058A060)
-    uint32_t unknown10c_;
+    uint32_t unknown10c_{};
     uint32_t actions_;        // +0x110
     net::AppHost* owner_app_; // +0x114: the PC tool's (the viewer's net handler)
     float speed_;             // +0x118: the animation speed (0-1)

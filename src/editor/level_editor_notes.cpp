@@ -216,12 +216,12 @@ Note* get_find(const std::string& name)
 // Where the view looks: the first surface under the middle of the view (else 800 units ahead).
 bool view_point(V3* point)
 {
-    ViewNow view;
+    ViewNow view{};
     if (!current_view(&view))
         return false;
     TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     V3 dir = make_unit(frame.back * -1.0f);
-    V3 hit;
+    V3 hit{};
     if (checks::get_cast(view.pos, view.pos + dir * 20000.0f, &hit))
         *point = hit;
     else
@@ -231,7 +231,7 @@ bool view_point(V3* point)
 
 void add_here()
 {
-    V3 at;
+    V3 at{};
     if (!view_point(&at))
         return;
     push_undo();
@@ -469,7 +469,7 @@ void pane(float view_x, float view_y, float view_width, float view_height, float
     ImGui::SameLine();
     if (ImGui::Button("Move here"))
         g_queue.emplace_back([name] {
-            V3 at;
+            V3 at{};
             Note* n = get_find(name);
             if (!n || !view_point(&at))
                 return;

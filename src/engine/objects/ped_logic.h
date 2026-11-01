@@ -250,42 +250,42 @@ public:
     // 0x004F0950: the motion component looks at 48 ahead along the current node's angles.
     bool ped_turn_to_current_waypoint_orientation(script::Struct* params, script::Script* script);
 
-    uint32_t kind_;              // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
-    uint32_t female_;            // +0x1C 1: SkeletonName is Ped_Female
+    uint32_t kind_{};            // +0x18 0 a walker, 2 a skater (Ped_SetIsSkater)
+    uint32_t female_{};          // +0x1C 1: SkeletonName is Ped_Female
     uint32_t flag_bits_;         // +0x20 PED_FLAG_*
     uint32_t cur_phase_;         // +0x24 the logic state (LogicState)
     uint32_t state_table_;       // +0x28 its table
     uint32_t update_type_;       // +0x2C ped_update_type (the move update run each frame)
     script::Script* aux_script_; // +0x30
-    float avoid_[4];             // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
-    float bias_[4];              // +0x44 the lasting steering bias, per quarter turn
-    uint32_t list_link_;         // +0x54 the node it came from (a name)
-    uint32_t next_node_;         // +0x58 the node it's heading for
-    uint32_t node_after_;        // +0x5C the node after that (chosen ahead)
-    maths::Vec4 node_pos_;       // +0x60 list_link_'s position
-    maths::Vec4 next_node_pos_;  // +0x70
-    maths::Vec4 node_after_pos_; // +0x80
+    float avoid_[4]{};           // +0x34 the steering this frame, per quarter turn (cos-weighted; -1..1)
+    float bias_[4]{};            // +0x44 the lasting steering bias, per quarter turn
+    uint32_t list_link_{};       // +0x54 the node it came from (a name)
+    uint32_t next_node_{};       // +0x58 the node it's heading for
+    uint32_t node_after_{};      // +0x5C the node after that (chosen ahead)
+    maths::Vec4 node_pos_{};     // +0x60 list_link_'s position
+    maths::Vec4 next_node_pos_{};  // +0x70
+    maths::Vec4 node_after_pos_{}; // +0x80
     int turn_frame_;             // +0x90 frames into the turn towards the node after
     int turn_frames_;            // +0x94 the turn's length (0: not turning)
     ObjectGroup* peds_;          // +0x98 the path manager's extra group (the other peds to avoid)
-    float step_seconds_;         // +0x9C this frame's (seconds)
-    maths::Vec4 up_dir_;         // +0xA0 the up it blends from
-    maths::Vec4 up_target_;      // +0xB0 the up it blends to
-    maths::Vec4 up_shown_;       // +0xC0 the up it has
-    float up_blend_;             // +0xD0 1 .. 0 along the blend
+    float step_seconds_{};       // +0x9C this frame's (seconds)
+    maths::Vec4 up_dir_{};       // +0xA0 the up it blends from
+    maths::Vec4 up_target_{};    // +0xB0 the up it blends to
+    maths::Vec4 up_shown_{};     // +0xC0 the up it has
+    float up_blend_{};           // +0xD0 1 .. 0 along the blend
     float stick_above_;          // +0xD4 DistAbove (ped_skater_stick_dist_above)
     float stick_below_;          // +0xD8 DistBelow (ped_skater_stick_dist_below)
     float stored_max_velocity_;  // +0xDC Ped_StoreMaxVelocity
-    float speed_ratio_;          // +0xE0 the motion component's speed over its max speed (the looping sound's)
-    int spin_angle_;             // +0xE4 the jump's spin (degrees, signed)
-    float twist_rate_;           // +0xE8 how far it has spun (degrees)
-    float spin_time_;            // +0xEC the jump's length (seconds)
-    float spin_elapsed_;         // +0xF0
-    maths::Mat4 jump_matrix_;    // +0xF4 the display matrix at the take-off
-    float vert_rotation_;        // +0x134 how far it has turned over the spine (degrees)
-    float vert_rotation_target_; // +0x138
-    maths::Mat4 saved_matrix_;   // +0x13C the display matrix kept
-    maths::Vec4 past_frames_[5]; // +0x17C its last positions (the newest last)
+    float speed_ratio_{};        // +0xE0 the motion component's speed over its max speed (the looping sound's)
+    int spin_angle_{};           // +0xE4 the jump's spin (degrees, signed)
+    float twist_rate_{};         // +0xE8 how far it has spun (degrees)
+    float spin_time_{};          // +0xEC the jump's length (seconds)
+    float spin_elapsed_{};       // +0xF0
+    maths::Mat4 jump_matrix_{};  // +0xF4 the display matrix at the take-off
+    float vert_rotation_{};      // +0x134 how far it has turned over the spine (degrees)
+    float vert_rotation_target_{}; // +0x138
+    maths::Mat4 saved_matrix_{};   // +0x13C the display matrix kept
+    maths::Vec4 past_frames_[5]{}; // +0x17C its last positions (the newest last)
 };
 static_assert(offsetof(PedestrianBrainModule, kind_) == 0x18 && offsetof(PedestrianBrainModule, flag_bits_) == 0x20 &&
                   offsetof(PedestrianBrainModule, aux_script_) == 0x30 &&

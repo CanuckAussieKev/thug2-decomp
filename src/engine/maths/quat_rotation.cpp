@@ -87,9 +87,9 @@ Vec4& Vec4::rotate_about_y(float angle)
 // 0x00421440
 Vec4& Vec4::rotate_about_axis(const Vec4& axis, float angle)
 {
-    QuatRotation rotation;
+    QuatRotation rotation{};
     rotation.init_from_axis_angle(axis, angle);
-    Vec4 turned;
+    Vec4 turned{};
     *this = *rotation.spin_by(&turned, *this);
     return *this;
 }

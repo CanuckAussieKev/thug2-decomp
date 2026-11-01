@@ -190,7 +190,7 @@ void Shatter::get_step(int index, float step)
         std::memset(&rotation, 0, sizeof(rotation));
         rotation.row[0].x = rotation.row[1].y = rotation.row[2].z = rotation.row[3].w = 1.0f;
         auto turn_angle = static_cast<float>(get_rand() * kPerRand * 0.1f); // (up to 0.1, 0x00645D74)
-        maths::Mat4 turn;
+        maths::Mat4 turn{};
         maths::build_axis_angle_matrix(turn, axis, turn_angle);
         // D3DX (linked library code): rotation = rotation * turn
         d3dx::matrix_multiply(&rotation, &rotation, &turn);

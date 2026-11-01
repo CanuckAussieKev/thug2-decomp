@@ -62,30 +62,30 @@ public:
     // 0x00513AB0: the sound stopped (called by the skater).
     void stop_sound();
 
-    uint32_t sound_id_;                  // +0x18 the playing sound's unique id (0: none)
-    uint32_t playing_checksum_;          // +0x1C
-    float lean_pitch_angle_;             // +0x20 the pitch worked out
-    float prev_pitch_value_;             // +0x24 the pitch last given
+    uint32_t sound_id_{};                // +0x18 the playing sound's unique id (0: none)
+    uint32_t playing_checksum_{};        // +0x1C
+    float lean_pitch_angle_{};           // +0x20 the pitch worked out
+    float prev_pitch_value_{};           // +0x24 the pitch last given
     sound::VolumeRef prev_levels_;       // +0x28 the volume last given
-    float air_pitch_floor_;              // +0x54 the air sound's pitch falls down to this (45)
-    float air_pitch_fall_;               // +0x58 by this much a second (18.33)
-    RiderBoardPhysics* physics_control_; // +0x5C SkaterPhysicsControl (0xD9151D4D)
-    uint8_t surface_type_;               // +0x60 (the finalize physics component's: the state's +0xE1)
-    uint8_t pad61[3];
-    maths::Vec4 last_pos_; // +0x64 the skater's position last frame
+    float air_pitch_floor_{};            // +0x54 the air sound's pitch falls down to this (45)
+    float air_pitch_fall_{};             // +0x58 by this much a second (18.33)
+    RiderBoardPhysics* physics_control_{}; // +0x5C SkaterPhysicsControl (0xD9151D4D)
+    uint8_t surface_type_{};               // +0x60 (the finalize physics component's: the state's +0xE1)
+    uint8_t pad61[3]{};
+    maths::Vec4 last_pos_{}; // +0x64 the skater's position last frame
     int cur_phase_;        // +0x74 the skater's state (0 ground, 1 air, 4 rail)
-    uint8_t sound_[0x84];  // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
+    uint8_t sound_[0x84]{}; // +0x78 the terrain sound entry chosen (0x00444B10's; the air one at 0x0067F018)
     // (in sound_: +0xE0 the sound's checksum, +0xE4 / +0xE8 its pitch at full / no speed)
     uint8_t have_sound_;    // +0xFC
     uint8_t sound_changed_; // +0xFD choose the sound again
     uint8_t force_update_;  // +0xFE (never set here)
     uint8_t no_rail_sound_; // +0xFF (the state's +0x70)
     uint8_t sliding_;       // +0x100 on a rail: slide, not grind (the state's +0x58)
-    uint8_t pad101[3];
-    float speed_ratio_; // +0x104
+    uint8_t pad101[3]{};
+    float speed_ratio_{}; // +0x104
     float volume_mult_; // +0x108 volume_mult
     uint8_t on_;        // +0x10C
-    uint8_t pad10d_[3];
+    uint8_t pad10d_[3]{};
 };
 
 // An VolumeRef with its compiler-made assignment, which was placed here.

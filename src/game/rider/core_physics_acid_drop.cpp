@@ -91,7 +91,7 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
                                          maths::Vec4* velocity, AcidDrop* drop)
 {
     // Looking along the horizontal velocity (walking: the walking direction).
-    maths::Vec4 direction;
+    maths::Vec4 direction{};
     if (thaw_bmx::live_now(this)) {
         // Not original: THAW 0x005D1890 - on the bike along its facing (the other way with the stick pulled back).
         thaw_bmx::acid_drop_direction(this, &direction);
@@ -143,9 +143,9 @@ bool SkaterPhysicsModule::find_acid_drop(bool pop, const maths::Vec4* position, 
     feeler.hit_cache_ = &cache;
 
     // Feelers straight down, further and further ahead, for a vert wall facing away (or, walking up to one, towards).
-    maths::Vec4 saved;
+    maths::Vec4 saved{};
     bool found = false;
-    maths::Vec4 hit, normal;
+    maths::Vec4 hit{}, normal{};
     bool alive = false;
     float hit_height = 0.0f, distance = 0.0f, horizontal = 0.0f;
     float step = kFirstStep;
@@ -448,7 +448,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     alignas(16) uint8_t rotation[0x10]; // (a quaternion, it seems)
     auto* quat = reinterpret_cast<maths::QuatRotation*>(rotation);
     quat->init_from_axis_angle(across, kQuarterTurn);
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     maths::Vec4 target = *quat->spin_by(&turned, down);
 
     // A feeler straight down from half a unit that way: the wall the skater is on.
@@ -472,7 +472,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     // / +0x80, not both) held, the same turned that way along the wall.
     maths::Vec4 back = {-target.x, -target.y, -target.z, -target.w};
     maths::Vec4 look = back;
-    maths::Vec4 target_normal;
+    maths::Vec4 target_normal{};
     if (!find_transfer_target(this, &look, &normal, &hip, &target, &target_normal, &object_hit)) {
         objects::PadInputModule* input = input_;
         if (!input->pad_primary_.left_side_.held_down_ == !input->pad_primary_.right_side_.held_down_)
@@ -531,7 +531,7 @@ bool SkaterPhysicsModule::try_spine_transfer()
     // (down when the target lies on the far side of its normal).
     double to_w = static_cast<double>(target.w) - position.w, to_z = static_cast<double>(target.z) - position.z;
     double to_x = static_cast<double>(target.x) - position.x;
-    maths::Vec4 along;
+    maths::Vec4 along{};
     if (!hip) {
         along = {static_cast<float>(to_x),
                  static_cast<float>(-1.0f / static_cast<double>(target_normal.y) *

@@ -131,7 +131,7 @@ void pick_one(objects::Entity* object, void* data)
 {
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);
-    OrientedBox box;
+    OrientedBox box{};
     if (picking::latched(picking::kObjects, composite->ident_) ||
         view::hidden_object(composite->ident_) || // (H: level_editor_view.h)
         !model_box(composite, &box))
@@ -154,7 +154,7 @@ void count_one(objects::Entity* object, void* data)
     auto* census = static_cast<Census*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);
     ++census->objects;
-    OrientedBox box;
+    OrientedBox box{};
     if (!model_box(composite, &box)) {
         if (census->objects <= 80) {
             objects::ObjectModule* component = composite->fetch_module(kModelModuleName);
@@ -306,7 +306,7 @@ V3 pos_of(const objects::GameEntity* object) { return {object->at_point_.x, obje
 
 V3 current_centre(objects::GameEntity* object)
 {
-    OrientedBox box;
+    OrientedBox box{};
     if (model_box(object, &box)) {
         V3 mid = (box.min + box.max) * 0.5f;
         return box.origin + box.axes[0] * mid.x + box.axes[1] * mid.y + box.axes[2] * mid.z;
@@ -471,7 +471,7 @@ objects::GameEntity* make_copy(uint32_t source, V3 pos, uint32_t name)
         maths::Vec4 from;
         level_nodes::fetch_place(node, &from);
         for (uint32_t key : {kMid, kEnd}) {
-            script::VectorValue v;
+            script::VectorValue v{};
             if (copy->fetch_vec(key, &v, 0)) {
                 copy->erase_module(key);
                 copy->put_vec3(key, v.x + pos.x - from.x, v.y + pos.y - from.y, v.z + pos.z - from.z);

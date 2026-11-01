@@ -64,33 +64,33 @@ public:
 
     // (The original's vtable held only the destructor: no vtable here.)
     memory::ListNode* list_link_; // in the manager's device list
-    int kind_tag_;
+    int kind_tag_{};
     int port_no_;
     int seat_;
     uint8_t is_usable_;
-    uint8_t pad15_[3];
+    uint8_t pad15_[3]{};
     uint32_t octets_;          // buffer_raw_ rounded up to 64
-    uint8_t control_data_[32]; // PS2 format: buttons (inverted bits), sticks, pressures
-    uint8_t align_data_[32];
-    uint8_t rumble_raw_[32]; // each motor's level
-    uint8_t rumble_cap_[32];
-    uint8_t actuator_saved_[32]; // levels while paused
+    uint8_t control_data_[32]{}; // PS2 format: buttons (inverted bits), sticks, pressures
+    uint8_t align_data_[32]{};
+    uint8_t rumble_raw_[32]{}; // each motor's level
+    uint8_t rumble_cap_[32]{};
+    uint8_t actuator_saved_[32]{}; // levels while paused
     int pause_count_;
-    uint8_t rumble_off_;
+    uint8_t rumble_off_{};
     uint32_t capabilities_;
-    uint32_t unknownc8_;
+    uint32_t unknownc8_{};
     int rumble_motor_count_;
-    uint32_t buffer_raw_;
+    uint32_t buffer_raw_{};
     int cur_phase_;
     int next_state_; // after kSettle
     int ordinal_;
-    bool is_connected_;
-    uint8_t pade1_[3];
-    int disconnected_ticks_;
+    bool is_connected_{};
+    uint8_t pade1_[3]{};
+    int disconnected_ticks_{};
     int reconnect_delay_;      // rand() & 63
-    uint8_t held_down_;        // any button down
-    uint8_t keyboard_control_; // set by the original read (start, the keyboard's char 0x19...)
-    uint8_t padee_[2];
+    uint8_t held_down_{};      // any button down
+    uint8_t keyboard_control_{}; // set by the original read (start, the keyboard's char 0x19...)
+    uint8_t padee_[2]{};
     // Not original: PartyMod's "start or A pressed", written by its pad read (sdl_input.cpp) and never read. (PartyMod
     // wrote it just past the end of the original's 0xF0-byte device.)
     uint32_t start_or_a_ = 0;
@@ -151,7 +151,7 @@ public:
     void pause_devices();
     void unpause_devices();
 
-    memory::ListNode devs_;                               // the list's head
+    memory::ListNode devs_{};                             // the list's head
     std::unique_ptr<tasks::Task<memory::ListNode>> task_; // running process_task with the list as its data
 };
 

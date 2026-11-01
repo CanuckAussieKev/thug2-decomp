@@ -50,8 +50,8 @@ public:
     MenuListener listener_;   // +0x178
     UiWidget* menu_;          // +0x194
     uint32_t chosen_item_id_; // +0x198 the item focused
-    float inner_align_h_;     // +0x19C internal_just
-    float inner_align_v_;     // +0x1A0
+    float inner_align_h_{};   // +0x19C internal_just
+    float inner_align_v_{};   // +0x1A0
     bool focused_;            // +0x1A4
     bool rearrange_;          // +0x1A5
     float window_start_;      // +0x1A8 along the menu
@@ -60,7 +60,7 @@ public:
     float window_length_;     // +0x1B4
     float regular_space_;     // +0x1B8 the menu's (-1: none)
     bool vertical_;           // +0x1BC
-    uint8_t pad1bd_[3];
+    uint8_t pad1bd_[3]{};
 };
 
 } // namespace frontend

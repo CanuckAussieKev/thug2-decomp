@@ -39,7 +39,7 @@ maths::Vec4 edge_crossing(const maths::Vec4& a, const maths::Vec4& b, float da, 
     auto sx = static_cast<float>(ex * da);
     auto sw = static_cast<float>(static_cast<double>(ew) * da);
     auto inverse = static_cast<float>(1.0 / difference);
-    maths::Vec4 p;
+    maths::Vec4 p{};
     p.x = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(sx) * inverse)) + a.x);
     p.y = static_cast<float>(static_cast<double>(static_cast<float>(ey * da * inverse)) + a.y);
     p.z = static_cast<float>(static_cast<double>(ez) * da * inverse + a.z);
@@ -569,7 +569,7 @@ bool rect_hits_triangle(const CollRect& rect, const maths::Vec4& v0, const maths
         d2 = 0.0f;
 
     // the segment P Q where the plane cuts the triangle
-    maths::Vec4 p, q;
+    maths::Vec4 p{}, q{};
     int p_kind = 0, q_kind = 0;
     if ((d0 <= 0.0f && d1 >= 0.0f) || (d0 >= 0.0f && d1 <= 0.0f)) {
         p_kind = 1;

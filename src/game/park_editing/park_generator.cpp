@@ -89,7 +89,7 @@ void ParkAssembler::set_player_cap(int count) { max_players_ = count; }
 
 int ParkAssembler::get_player_cap_limit()
 {
-    MemoryStats stats;
+    MemoryStats stats{};
     get_memory_stats(&stats);
     // (the original's 32-bit arithmetic, wrapping)
     const int memory = static_cast<int>(static_cast<uint32_t>(stats.main_heap_free_) +
@@ -222,7 +222,7 @@ void ParkAssembler::update_bounds(uint32_t /*unused*/)
     maths::Seg everything(near, far);
     scene::set_box(shell, &everything, 1, 0);
     // The second: the park's bounds, from the middle of its first cell to the middle of its last, every height.
-    CellBox area;
+    CellBox area{};
     area.assign_value(0, 0, 0, 0, 0, 0);
     area = ParkLayout::singleton()->build_area_;
     maths::Vec4 corner = ParkLayout::singleton()->cell_to_world_pos(area, nullptr);

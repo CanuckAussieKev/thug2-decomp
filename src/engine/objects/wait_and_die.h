@@ -35,10 +35,10 @@ public:
     // object it waits for can't be found, or - waiting for none - once the time is past the lifetime.
     void tick_frame() override;
 
-    int outset_;        // +0x18 the game clock (with its offset) at configure_from_data
-    uint32_t elapsed_;  // +0x1C ms since then (each update)
-    uint32_t lifespan_; // +0x20 ms
-    uint32_t wait_for_; // +0x24 the id of the object to wait for (0: none)
+    int outset_{};        // +0x18 the game clock (with its offset) at configure_from_data
+    uint32_t elapsed_{};  // +0x1C ms since then (each update)
+    uint32_t lifespan_{}; // +0x20 ms
+    uint32_t wait_for_{}; // +0x24 the id of the object to wait for (0: none)
 };
 
 } // namespace objects

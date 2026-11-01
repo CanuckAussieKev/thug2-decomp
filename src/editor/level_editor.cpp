@@ -100,7 +100,7 @@ TickCycle frame_from_yaw_pitch(float yaw, float pitch)
     double cp = std::cos(static_cast<double>(pitch)), sp = std::sin(static_cast<double>(pitch));
     double cy = std::cos(static_cast<double>(yaw)), sy = std::sin(static_cast<double>(yaw));
     V3 forward = {static_cast<float>(sy * cp), static_cast<float>(sp), static_cast<float>(cy * cp)};
-    TickCycle frame;
+    TickCycle frame{};
     frame.back = forward * -1.0f;
     frame.right = make_unit(perpendicular({0.0f, 1.0f, 0.0f}, frame.back));
     frame.up = make_unit(perpendicular(frame.back, frame.right));
@@ -799,10 +799,10 @@ V3 selection_centre()
     std::vector<objects::GameEntity*> objects = selected_objects();
     V3 min = {}, max = {};
     bool have = false;
-    OrientedBox box;
+    OrientedBox box{};
     if (!objects.empty()) {
         for (objects::GameEntity* object : objects) {
-            V3 a, b;
+            V3 a{}, b{};
             if (object_edit::model_box(object, &box))
                 bounds_of(box, &a, &b);
             else
@@ -815,7 +815,7 @@ V3 selection_centre()
     if (picked_node_index() >= 0 || wall_only())
         return selection_pos();
     for (uint32_t checksum : scenery::get_selection()) {
-        V3 a, b;
+        V3 a{}, b{};
         if (scenery::cuboid(checksum, &box)) {
             bounds_of(box, &a, &b);
             grow_box(&min, &max, have, a, b);
@@ -1877,7 +1877,7 @@ Snapping snapping_now(bool ctrl, bool shift, bool alt)
 std::vector<V3> selection_corners()
 {
     std::vector<V3> out;
-    OrientedBox box;
+    OrientedBox box{};
     V3 corners[8];
     auto add = [&](const OrientedBox& b) {
         box_corners(b.origin, b.axes, b.min, b.max, corners);
@@ -1956,7 +1956,7 @@ void vertex_drag(V3 origin, V3 dir, const TickCycle& frame)
     for (const auto& picked : object_edit::pick_all(origin, unit, kMaxPickDistance)) {
         if (is_picked(picked.first))
             continue;
-        OrientedBox box;
+        OrientedBox box{};
         if (object_edit::model_box(picked.first, &box)) {
             V3 corners[8];
             box_corners(box.origin, box.axes, box.min, box.max, corners);
@@ -2021,7 +2021,7 @@ void get_drag(V3 origin, V3 dir, const TickCycle& frame, float mouse_x, float mo
     bool absolute = snap.target == xform::SnapTarget::kWorldGrid;
     float grid = xform::get_grid();
     auto relative = [&](float d) { return xform::snap_relative(d, grid); };
-    V3 wanted;
+    V3 wanted{};
     if (g_axis >= 0) {
         V3 u = axis_vector(g_axis);
         float s = 0.0f;
@@ -2461,7 +2461,7 @@ void add_node_gizmos(const TickCycle& frame, int selected)
                                      }),
                       g_pickables.end());
     // (a box being dragged - level_editor_organize.h: its outline, solid inside / dashed crossing)
-    organize::Rect2 box;
+    organize::Rect2 box{};
     bool crossing = false;
     if (organize::box_outline(&box, &crossing)) {
         uint32_t c = crossing ? 0xFF8FD18Fu : 0xFFFFC870u;
@@ -2665,7 +2665,7 @@ bool cfunc_start(script::Struct*, script::Script*)
         for (const nodes::Elem& n : nodes::get_all()) {
             script::Struct* s = n.family == nodes::Family::kRail ? nodes::struct_of(n) : nullptr;
             script::VectorValue v = {};
-            V3 rail;
+            V3 rail{};
             if (!s || !s->fetch_vec(0x7F261953, &v, 0) || !scenery::get_rail_point(n.name, &rail) ||
                 (rail.x == v.x && rail.y == v.y && rail.z == v.z))
                 continue;
@@ -2707,7 +2707,7 @@ void place_skater_below_camera()
     if (!skater)
         return;
     // (below the camera; else from high above it - the camera may have gone through the floor)
-    V3 ground;
+    V3 ground{};
     bool found = ground_below(g_pos, &ground) || ground_below({g_pos.x, g_pos.y + 3000.0f, g_pos.z}, &ground);
     if (!found)
         ground = g_pos;
@@ -3074,7 +3074,7 @@ void place_node(int entry, V3 at)
         hud::get_message(why, 5.0);
         return;
     }
-    V3 ground;
+    V3 ground{};
     if (ground_below(ground_ray_start(at, at.y, true), &ground))
         at = dropped_to(at, at.y, ground.y);
     if (e.kind == node_create::Kind::kLight)
@@ -3309,7 +3309,7 @@ bool place_entity(int entry, V3 at)
         hud::get_message(e.why, 5.0);
         return true;
     }
-    V3 ground;
+    V3 ground{};
     if (ground_below(ground_ray_start(at, at.y, true), &ground))
         at = dropped_to(at, at.y, ground.y);
     entities::Placed placed = entities::get_place(index, at, g_yaw);
@@ -3357,7 +3357,7 @@ bool place_entity(int entry, V3 at)
                 source = c.source;
         }
         step.copies.push_back({name, source, object_edit::store_away(object)});
-        OrientedBox box;
+        OrientedBox box{};
         if (object_edit::model_box(object, &box))
             made.push_back(object);
     }
@@ -3401,7 +3401,7 @@ void draw_chain_point(V3 dir, bool alt)
             g_place_armed = -1;
         return;
     }
-    V3 point;
+    V3 point{};
     uint32_t end = 0;
     if (!chains::magnet_point(g_pos, make_unit(dir), kMaxPickDistance, alt, &point, &end)) {
         hud::get_message("No surface under the cursor");
@@ -3773,7 +3773,7 @@ ui::ShapeMesh assemble_model()
                 member.id = checksum;
                 member.name = object_edit::caption(checksum);
                 member.shadow = scenery::is_shadow(checksum);
-                OrientedBox box;
+                OrientedBox box{};
                 if (scenery::cuboid(checksum, &box)) {
                     char size[48];
                     V3 extent = box_size(box);
@@ -3954,7 +3954,7 @@ void fill_browser()
     g_browser.items.clear();
     if (g_browser.tab == 0) {
         for (uint32_t checksum : scenery::movable_pieces()) {
-            OrientedBox box;
+            OrientedBox box{};
             char size[48] = "";
             if (scenery::cuboid(checksum, &box))
                 std::snprintf(size, sizeof(size), "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
@@ -4001,7 +4001,7 @@ void show_browser()
 // a roof: the roof) - none: 600 units ahead, on the ground below that if any.
 V3 cursor_point(V3 dir, bool have_ray, const TickCycle& frame)
 {
-    V3 hit, ground;
+    V3 hit{}, ground{};
     V3 ray = have_ray ? make_unit(dir) : frame.back * -1.0f;
     if (get_cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
         V3 back = hit - ray * 5.0f + V3{0.0f, 5.0f, 0.0f};
@@ -4088,7 +4088,7 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
                 if (c.name == object->ident_)
                     source = c.source; // (a copy's copy: made from the same node)
             }
-            OrientedBox box;
+            OrientedBox box{};
             float width =
                 object_edit::model_box(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0f;
             V3 at = repeat ? xform::repeat_target(object_edit::pos_of(object), *repeat)
@@ -4118,11 +4118,11 @@ void get_duplicate(const TickCycle& frame, const xform::RepeatStep* repeat = nul
         }
         select_objects(made);
     } else if (scenery::has_selection()) {
-        OrientedBox box;
+        OrientedBox box{};
         V3 min = {}, max = {};
         bool have = false;
         for (uint32_t checksum : scenery::get_selection()) {
-            V3 a, b;
+            V3 a{}, b{};
             if (scenery::cuboid(checksum, &box)) {
                 bounds_of(box, &a, &b);
                 grow_box(&min, &max, have, a, b);
@@ -4695,7 +4695,7 @@ void select_node(int index)
     // (a flag is moved as its node - its object with it - so the place the game makes it at changes too)
     if (node.family == nodes::Family::kObject) {
         auto* object = static_cast<objects::GameEntity*>(objects::find_object(node.name));
-        OrientedBox box;
+        OrientedBox box{};
         if (object && !(object->object_flags_ & objects::kObjectFlagDead) && object_edit::model_box(object, &box)) {
             g_node_selected = false;
             select_objects({object});
@@ -4743,7 +4743,7 @@ void drop_selection()
         return;
     V3 pos = selection_pos();
     float base = get_selection_base();
-    V3 ground;
+    V3 ground{};
     V3 from = ground_ray_start(pos, base, get_primary() || picked_node_index() >= 0);
     if (ground_below(from, &ground) && ground.y != base) {
         push_undo(get_snapshot(), "Drop to ground");
@@ -4854,9 +4854,9 @@ void focus_browser_item()
     if (g_browser.index >= static_cast<int>(g_browser.items.size()))
         return;
     uint32_t id = g_browser.items[g_browser.index].id;
-    OrientedBox box;
+    OrientedBox box{};
     if (g_browser.tab == 0 && scenery::cuboid(id, &box)) {
-        V3 a, b;
+        V3 a{}, b{};
         bounds_of(box, &a, &b);
         get_look_at((a + b) * 0.5f, std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f));
     } else if (auto* object = static_cast<objects::GameEntity*>(objects::find_object(id))) {
@@ -4870,12 +4870,12 @@ void go_to_selection()
     if (!have_selection())
         return;
     float distance = 300.0f;
-    OrientedBox box;
+    OrientedBox box{};
     if (objects::GameEntity* object = get_primary()) {
         if (object_edit::model_box(object, &box))
             distance = std::max(200.0f, std::sqrt(get_dot(box.max - box.min, box.max - box.min)) * 1.5f);
     } else if (!scenery::get_selection().empty() && scenery::cuboid(scenery::get_selection().front(), &box)) {
-        V3 a, b;
+        V3 a{}, b{};
         bounds_of(box, &a, &b);
         distance = std::max(300.0f, std::sqrt(get_dot(b - a, b - a)) * 1.5f);
     }
@@ -4888,7 +4888,7 @@ void go_to_selection()
 // The selection's size: a sphere round its box (an object's model, the scenery's first piece; 100 otherwise).
 float selection_radius()
 {
-    OrientedBox box;
+    OrientedBox box{};
     if (objects::GameEntity* object = get_primary()) {
         if (object_edit::model_box(object, &box)) {
             V3 size = box_size(box);
@@ -4900,7 +4900,7 @@ float selection_radius()
         for (uint32_t sector : scenery::get_selection()) {
             if (!scenery::cuboid(sector, &box))
                 continue;
-            V3 a, b;
+            V3 a{}, b{};
             bounds_of(box, &a, &b);
             grow_box(&lo, &hi, have, a, b);
             have = true;
@@ -5341,7 +5341,7 @@ void drill_through(int steps, float x, float y, V3 dir)
 // Click-to-teleport: the camera glides to the surface under the cursor (nav::teleport_target), looking the same way.
 void teleport_to(V3 dir)
 {
-    V3 hit;
+    V3 hit{};
     V3 ray = make_unit(dir);
     if (!get_cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
         hud::get_message("No surface under cursor");
@@ -6459,7 +6459,7 @@ void blit()
     lines.clear();
     std::vector<objects::GameEntity*> objects = selected_objects();
     objects::GameEntity* hover = g_dragging ? nullptr : get_live(g_hover);
-    OrientedBox box;
+    OrientedBox box{};
     // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
     // its one piece with Alt)
     if (!g_hover_tinted || ui::underway()) {
@@ -6783,7 +6783,7 @@ bool go_to_thing(uint32_t id)
         go_to_selection();
         return true;
     }
-    OrientedBox box;
+    OrientedBox box{};
     if (scenery::cuboid(id, &box)) {
         unpick();
         scenery::set_selection({id});

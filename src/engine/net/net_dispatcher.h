@@ -38,13 +38,13 @@ struct InboundMsgCtx {
 
     char* body_;
     uint8_t type_code_;
-    uint8_t spare_slot5_[3];
+    uint8_t spare_slot5_[3]{};
     uint32_t body_size_;
     AppHost* receiver_app_;
     Conn* sender_conn_;
     uint32_t wire_options_;
     void* content_;                 // the handler's own data (NoteHandler::content_)
-    uint32_t sequences_to_ack_[32]; // the timestamps to acknowledge after the packet (low 16 bits)
+    uint32_t sequences_to_ack_[32]{}; // the timestamps to acknowledge after the packet (low 16 bits)
     int num_sequences_to_ack_;
     bool acknowledge_; // send those acks
 };

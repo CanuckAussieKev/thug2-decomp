@@ -302,7 +302,7 @@ void FootView::tick_frame()
                 if (!(speed < full)) {
                     swing = true;
                 } else if (speed_f > least) {
-                    maths::Vec4 lerped;
+                    maths::Vec4 lerped{};
                     facing = *lerp_by_range(&lerped, &facing, &skater_facing, speed_f, least, full);
                     facing.make_unit();
                 }
@@ -328,12 +328,12 @@ void FootView::tick_frame()
     }
 
     // The orientation that looks along it, tilted down; its right and at rows negated.
-    maths::Mat4 look;
+    maths::Mat4 look{};
     look.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
     look.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     look.row[2] = facing;
     look.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Mat4 tilt;
+    maths::Mat4 tilt{};
     maths::make_pitch_matrix(tilt, free_look_->lean_angle_ + skater_camera_->lean_angle_);
     matrix_multiply(&look, &tilt, &look);
     look.row[0] = {-look.row[0].x, -look.row[0].y, -look.row[0].z, -look.row[0].w};
@@ -392,7 +392,7 @@ void FootView::tick_frame()
     orientation_ = matrix;
 
     // Where to be: behind and above the point followed, looking at a point above the skater.
-    maths::Vec4 target;
+    maths::Vec4 target{};
     fetch_goal(&target, instant);
     float height = 0.0f, distance = 0.0f;
     get_zoomed_offsets(&height, &distance);
@@ -418,7 +418,7 @@ void FootView::tick_frame()
     maths::Vec4 focus = {up_xf + skater_pos.x, static_cast<float>(up_y + skater_pos.y), up_zf + skater_pos.z,
                          up_wf + skater_pos.w};
 
-    maths::Mat4 aim;
+    maths::Mat4 aim{};
     maths::Vec4& aim_at = aim.row[2];
     aim_at = {focus.x - target.x, focus.y - target.y, focus.z - target.z, focus.w - target.w};
     aim_at.make_unit();
@@ -449,7 +449,7 @@ void FootView::tick_frame()
     float ahead_w = distance * matrix.row[2].w;
     maths::Vec4 clear = {static_cast<float>(target.x - ahead_x), static_cast<float>(target.y - ahead_y),
                          target.z - ahead_z, target.w - ahead_w};
-    maths::Vec4 offset;
+    maths::Vec4 offset{};
     walk_->get_camera_offset(&offset);
     maths::Vec4 pull = {clear.x + offset.x, clear.y + offset.y, clear.z + offset.z, clear.w + offset.w};
     avoid_camera_collisions(&target, &matrix, &pull, &focus, true, true);

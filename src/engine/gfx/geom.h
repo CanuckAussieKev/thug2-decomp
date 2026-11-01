@@ -22,12 +22,12 @@ struct SceneRef;
 struct Singleton {
     uint32_t flags;        // 1: owns its mesh list and bones; 2: lit (every mesh asks for it; set by the
                            // constructor); 4: coloured
-    maths::Mat4 transform; // +0x04
+    maths::Mat4 transform{}; // +0x04
     maths::Mat4* bones;    // +0x44
     int bone_count_;       // +0x48
     bool active;           // +0x4C
-    uint8_t color[4];      // +0x4D: RGBA (0x80 each: unchanged)
-    uint8_t pad51[3];
+    uint8_t color[4]{};    // +0x4D: RGBA (0x80 each: unchanged)
+    uint8_t pad51[3]{};
     void* model;        // +0x54
     SceneRef* scene;    // +0x58: its mesh list (the bounding sphere at +0x64)
     Singleton* next;    // +0x5C
@@ -179,16 +179,16 @@ public:
     void reset_texture_anims() override;
 
     maths::BBox bounds;           // +0x14 (as loaded)
-    uint8_t* scene;               // +0x34: the PC scene it's in
+    uint8_t* scene{};             // +0x34: the PC scene it's in
     memory::ListNode* load_list_; // +0x38: the meshes while it loads (a list's head), made into `meshes` after
     MeshRef** meshes;             // +0x3C
-    uint32_t mesh_count_;         // +0x40
+    uint32_t mesh_count_{};       // +0x40
     uint32_t visibility;          // +0x44: a viewport mask (0xDEADBEEF until set)
     bool active;                  // +0x48
-    uint8_t pad49[3];
+    uint8_t pad49[3]{};
     Singleton* instance; // +0x4C: an instance's (null for a sector's geometry)
-    uint8_t* source;     // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
-    maths::Vec4 scale;   // +0x54
+    uint8_t* source{};   // +0x50: the mesh (0xC8 bytes) it's an instance of; +0xBC / +0xC0 its strip breaks
+    maths::Vec4 scale{}; // +0x54
 };
 static_assert(offsetof(PcGeom, bounds) == 0x14 && offsetof(PcGeom, scene) == 0x34 && offsetof(PcGeom, meshes) == 0x3C &&
                   offsetof(PcGeom, instance) == 0x4C && offsetof(PcGeom, scale) == 0x54 && sizeof(PcGeom) == 0x64,

@@ -36,8 +36,8 @@ public:
     void set_owner(int owner) override { owner_ = owner; }
 
     maths::Vec4 anchor_point_; // +0x10
-    maths::Mat4 orientation_;  // +0x20
-    maths::Mat4 inverse_;      // +0x60 the orientation's transpose
+    maths::Mat4 orientation_{}; // +0x20
+    maths::Mat4 inverse_{};     // +0x60 the orientation's transpose
     int owner_{0};             // +0xA0
 
 protected:
@@ -88,8 +88,8 @@ public:
     maths::BBox box_;         // +0xA4
     uint32_t poly_attr_bits_{0}; // +0xC4
     uint16_t surface_type_{0};   // +0xC8
-    uint8_t unknownca_[4];    // +0xCA (copied, not otherwise used here)
-    uint8_t padce_[2];
+    uint8_t unknownca_[4]{};     // +0xCA (copied, not otherwise used here)
+    uint8_t padce_[2]{};
 };
 static_assert(sizeof(HitMovingBox) == 0xD0 && offsetof(HitMovingBox, poly_attr_bits_) == 0xC4, "layout must match");
 
@@ -121,8 +121,8 @@ public:
     maths::Vec4 read_vertex_point(int index) const override;
 
     maths::Vec4 size_factor_; // +0x10
-    maths::Mat4 basis_frame_; // +0x20 (row 3, +0x50, the position)
-    maths::Mat4 inverse_;     // +0x60 (row 3, +0x90, the position turned back)
+    maths::Mat4 basis_frame_{}; // +0x20 (row 3, +0x50, the position)
+    maths::Mat4 inverse_{};     // +0x60 (row 3, +0x90, the position turned back)
 
 protected:
     // 0x004123C0: unscaled, unrotated, at the origin.

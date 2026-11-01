@@ -76,12 +76,12 @@ public:
     void set_light_direction(const maths::Vec4* direction);
 
     std::unique_ptr<render::ShadowBase> shadow_handle_; // +0x18 the renderer's shadow object
-    maths::Vec4 at_point_;                              // +0x1C where it is
-    maths::Vec4 surface_dir_;                           // +0x2C the ground's normal under it
+    maths::Vec4 at_point_{};                            // +0x1C where it is
+    maths::Vec4 surface_dir_{};                         // +0x2C the ground's normal under it
     uint32_t shadow_kind_;                              // +0x3C ShadowType (none 0x806FFF30, simple, detailed, Volume)
-    ObjectModule* mesh_instance_;                       // +0x40 the model component (Finalize)
+    ObjectModule* mesh_instance_{};                     // +0x40 the model component (Finalize)
     bool follow_object_;                                // +0x44 each update puts it at the object's position
-    uint8_t pad45[3];
+    uint8_t pad45[3]{};
 };
 
 } // namespace objects

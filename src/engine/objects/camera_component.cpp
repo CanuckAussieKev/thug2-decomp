@@ -55,7 +55,7 @@ void ViewpointModule::seal()
 void ViewpointModule::tick_frame()
 {
     maths::Vec4 pos = entity_->at_point_;
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     matrix = entity_->basis_frame_;
     entity_->display_matrix_ = matrix;
     view_camera_->change_location(pos);

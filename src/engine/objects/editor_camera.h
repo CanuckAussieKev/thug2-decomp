@@ -65,12 +65,12 @@ public:
     // caller puts it back) where it can't go.
     bool place_cursor(maths::Vec4 previous, float step);
 
-    uint32_t unknown18;
-    maths::Vec4 focus_;         // +0x1C what the camera looks at (the cursor, the height eased)
-    maths::Vec4 viewer_;        // +0x2C the camera's position
-    maths::Vec4 cursor_;        // +0x3C on the ground
-    maths::Vec4 right_side_;    // +0x4C the heading's axes (flat)
-    maths::Vec4 forward_;       // +0x5C
+    uint32_t unknown18{};
+    maths::Vec4 focus_{};       // +0x1C what the camera looks at (the cursor, the height eased)
+    maths::Vec4 viewer_{};      // +0x2C the camera's position
+    maths::Vec4 cursor_{};      // +0x3C on the ground
+    maths::Vec4 right_side_{};  // +0x4C the heading's axes (flat)
+    maths::Vec4 forward_{};     // +0x5C
     float zoom_;                // +0x6C the camera's distance
     float min_zoom_, max_zoom_; // +0x70
     float heading_;             // +0x78 0..2 pi
@@ -80,7 +80,7 @@ public:
     float min_height_;          // +0x8C
     bool simple_collision_;     // +0x90
     bool no_wall_check_;        // +0x91 (0xF5680DEF)
-    uint8_t pad92[2];
+    uint8_t pad92[2]{};
     PadInputModule* input_ptr_;                         // +0x94 the Input component
     std::unique_ptr<render::BlobShadow> shadow_handle_; // +0x98
 };

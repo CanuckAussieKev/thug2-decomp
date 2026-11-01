@@ -471,17 +471,17 @@ bool FootMovement::try_grind()
         // (the original's slot 13: the component's rails)
         auto rails_of = [](ObjectModule* c) { return static_cast<GrindPathLinkModule*>(c)->get_rail_groups(); };
         for (; component && !found; component = component->next_of_type_) {
-            maths::Mat4 world;
+            maths::Mat4 world{};
             static_cast<GrindPathLinkModule*>(component)->update_rail_matrix(&world);
             maths::Mat4 inverse = world;
             inverse.upend();
-            maths::Vec4 local_old, rel_pos;
+            maths::Vec4 local_old{}, rel_pos{};
             inverse.xform(local_old, old_pos);
             inverse.xform(rel_pos, pos);
             found = rails_of(component)->find_grind_rail(&local_old, &rel_pos, &point, &node, nullptr, kOne, 0);
             if (found) {
                 grind_rails_ = rails_of(component);
-                maths::Vec4 world_point;
+                maths::Vec4 world_point{};
                 point = world.xform(world_point, point);
                 grind_object_ = component->entity_;
             }

@@ -66,11 +66,11 @@ public:
     bool get_run_timer_id(script::Struct* params, script::Script* script);       // 0x00518570
     bool chain_began(script::Struct* params, script::Script* script);            // 0x005185A0
 
-    int cur_phase_;           // +0x18 State
-    float seconds_remaining_; // +0x1C seconds
-    int16_t resumes_;         // +0x20
-    uint8_t pad22[2];
-    uint8_t* walk_; // +0x24 Walk (0x726E85AA)
+    int cur_phase_{};           // +0x18 State
+    float seconds_remaining_{}; // +0x1C seconds
+    int16_t resumes_{};         // +0x20
+    uint8_t pad22[2]{};
+    uint8_t* walk_{}; // +0x24 Walk (0x726E85AA)
 };
 
 } // namespace objects

@@ -149,22 +149,22 @@ enum class Condition { kNone, kReady, kFrontEnd, kInGame, kStageMap, kMenu, kFoc
 
 struct Param {
     // NOLINTNEXTLINE(cppcoreguidelines-use-enum-class): held in the original's integer fields (to convert with them)
-    enum Kind { kBitMark, kInteger, kFloat, kChars, kName } kind;
+    enum Kind { kBitMark, kInteger, kFloat, kChars, kName } kind{};
     std::string name; // "" for a flag (its name is `text`)
     std::string text; // a string's / name's text
-    int integer;
-    float real;
+    int integer{};
+    float real{};
 };
 
 struct OrderCode {
-    Op op;
+    Op op{};
     std::string target;         // run: the script; choose / focus: the id; press: the button; level / echo: the text;
                                 // waitfor level / menu / focus: the name; capture: the folder ("" default); camera:
                                 // "off" to let it go
     std::vector<Param> params;  // run
-    Condition condition;        // waitfor
-    int frames;                 // press / wait / capture
-    int seconds;                // choose / focus / waitfor: the timeout
+    Condition condition{};      // waitfor
+    int frames{};               // press / wait / capture
+    int seconds{};              // choose / focus / waitfor: the timeout
     std::vector<float> numbers; // teleport: x y z [heading]; camera: x y z dx dy dz
 };
 

@@ -276,7 +276,7 @@ const char* when_applied(const nodes::Elem& node)
 
 bool is_rail(uint32_t name)
 {
-    V3 pos;
+    V3 pos{};
     return name && scenery::get_rail_point(name, &pos, true); // (a ladder's point too)
 }
 
@@ -297,7 +297,7 @@ std::vector<uint32_t> moved_with(uint32_t name, bool entire_rail)
 bool get_take_in(uint32_t name, Values* values)
 {
     // (a rail point: where the rail manager has it - its node keeps the level's pos=; no angles of its own)
-    V3 point;
+    V3 point{};
     if (name && scenery::get_rail_point(name, &point, true)) {
         values->pos = point;
         values->angles = {0.0f, 0.0f, 0.0f};
@@ -329,7 +329,7 @@ void note_origin(uint32_t name)
 
 const Values* get_origin(uint32_t name)
 {
-    V3 origin;
+    V3 origin{};
     if (is_rail(name) && !node_create::is_added(name) && scenery::rail_origin(name, &origin)) {
         Values& values = g_rail_origins[name];
         values = {origin, {0.0f, 0.0f, 0.0f}};

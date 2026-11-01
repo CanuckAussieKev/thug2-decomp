@@ -68,8 +68,8 @@ public:
         uint32_t unknown8;
         uint32_t unknownc_;
     };
-    Bay slots_[4][2];
-    SaveCard save_device_;
+    Bay slots_[4][2]{};
+    SaveCard save_device_{};
 };
 
 // The manager, made by the first Create (with `create`); each Create adds a reference, Release drops one.

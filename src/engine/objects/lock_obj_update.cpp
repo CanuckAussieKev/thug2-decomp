@@ -98,13 +98,13 @@ void PinnedObjectModule::update_lock()
     }
     maths::Vec4 pos = entity_->at_point_;         // where it goes
     maths::Vec4 extra = {0.0f, 0.0f, 0.0f, 1.0f}; // added to it when there's no lag
-    maths::Vec4 local;
+    maths::Vec4 local{};
     if (bone_) {
         // On a bone: its orientation, and its "at" towards its parent.
         ObjectModule* skeleton_component = target->fetch_module(kSkeleton);
         void* skeleton = skeleton_component ? skeleton_of(target->fetch_module(kSkeleton)) : nullptr;
         if (skeleton && skin_matrix_ptr(skeleton, bone_, &entity_->basis_frame_)) {
-            maths::Mat4 parent;
+            maths::Mat4 parent{};
             skin_matrix_ptr(skeleton, parent_bone(skeleton, bone_index(skeleton, bone_)), &parent);
             GameEntity* object = entity_;
             maths::Vec4 joint_world = object->basis_frame_.row[3];
@@ -113,7 +113,7 @@ void PinnedObjectModule::update_lock()
             parent.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
             ObjectModule* model = target->fetch_module(kModel);
             if (model && follow_model(model, target)) {
-                maths::Mat4 frame;
+                maths::Mat4 frame{};
                 compose_object_transform(model, &frame);
                 extra = frame.row[3] - target->at_point_;
                 frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -147,7 +147,7 @@ void PinnedObjectModule::update_lock()
         // At the target (or its model): its orientation, and the offset turned by it.
         ObjectModule* model = target->fetch_module(kModel);
         if (model && follow_model(model, target)) {
-            maths::Mat4 frame;
+            maths::Mat4 frame{};
             compose_object_transform(model, &frame);
             pos = shift_ * frame;
             frame.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};

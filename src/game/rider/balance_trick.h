@@ -82,9 +82,9 @@ public:
     Balance* at_hand();
     const Balance* at_hand() const;
 
-    uint32_t trick_; // +0x18 the balance trick being balanced (0: none)
-    bool started_;   // +0x1C StartBalanceTrick
-    uint8_t pad1d_[3];
+    uint32_t trick_{}; // +0x18 the balance trick being balanced (0: none)
+    bool started_{};   // +0x1C StartBalanceTrick
+    uint8_t pad1d_[3]{};
     script::Struct* call_args_;              // +0x20 DoBalanceTrick's BalanceParams (a copy)
     Balance manual_;                         // +0x24 manual / nose manual
     Balance grind_;                          // +0x7C grind / slide

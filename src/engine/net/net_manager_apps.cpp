@@ -115,7 +115,7 @@ HostEnd* Hub::make_server_app(int id, const char* name, int max_clients, uint16_
             server->linked_up_ = true;
     }
     add_app_tasks(server);
-    in_addr ip;
+    in_addr ip{};
     ip.s_addr = static_cast<ULONG>(address);
     debug::printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, max_clients,
                   inet_ntoa(ip), port);

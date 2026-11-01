@@ -412,7 +412,7 @@ V3 clamp_size(V3 size)
 
 OrientedBox box_of(V3 pos, float yaw, V3 size)
 {
-    OrientedBox box;
+    OrientedBox box{};
     box.origin = pos;
     box.axes[0] = turn_about_up({1.0f, 0.0f, 0.0f}, yaw);
     box.axes[1] = {0.0f, 1.0f, 0.0f};
@@ -1393,10 +1393,10 @@ bool is_sector_enabled(uint32_t checksum)
 bool break_place(const Spec& spec, V3* pos, V3* size)
 {
     uint32_t piece = checksum_of(spec.target);
-    OrientedBox box;
+    OrientedBox box{};
     if (!piece || !scenery::cuboid(piece, &box))
         return false;
-    V3 min, max;
+    V3 min{}, max{};
     bounds_of(box, &min, &max);
     *pos = (min + max) * 0.5f;
     *size = clamp_size((max - min) + V3{12.0f, 12.0f, 12.0f});
@@ -1518,7 +1518,7 @@ void get_sync()
             a.calls = calls_of(checksum_of(spec.script));
         if (spec.kind == Kind::kBreak && a.alive) {
             // (its box is its piece's, wherever the piece is now; none while the piece is gone)
-            V3 pos, size;
+            V3 pos{}, size{};
             if (break_place(spec, &pos, &size)) {
                 a.pos = pos;
                 a.yaw = 0.0f;
@@ -1782,12 +1782,12 @@ bool ground_below(V3 from, V3* hit) { return get_cast(from, {from.x, from.y - 50
 V3 place_ahead(V3 size, float ahead)
 {
     V3 forward = make_unit(g_forward);
-    V3 at;
+    V3 at{};
     if (!get_cast(g_camera, g_camera + forward * 4000.0f, &at))
         at = g_camera + forward * 600.0f;
     V3 flat = make_unit({forward.x, 0.0f, forward.z});
     at = at + flat * ahead;
-    V3 ground;
+    V3 ground{};
     if (ground_below(at + V3{0.0f, 200.0f, 0.0f}, &ground))
         at.y = ground.y;
     at.y += size.y * 0.5f;
@@ -2316,7 +2316,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
             paint.cuboid(box, colour, thickness);
         }
         V3 centre = (l.min + l.max) * 0.5f;
-        V3 target;
+        V3 target{};
         if (!l.off && l.kind == Kind::kJumpTo && get_node_pos(l.calls.target, &target))
             // NOLINTNEXTLINE(bugprone-branch-clone): the cases kept apart, one per kind
             paint.get_arrow(centre, target, get_dim(kind_colour(l.kind), 0xE0));
@@ -2333,7 +2333,7 @@ void add_overlay(V3 camera, const TickCycle& frame, const Lens& lens, const uint
         OrientedBox box = box_of(a.pos, a.yaw, a.spec.size);
         uint32_t colour = a.problem ? 0xC0A0A0A0u : kind_colour(a.spec.kind);
         paint.cuboid(box, colour, 2.0f);
-        V3 target;
+        V3 target{};
         if (!a.problem &&
             (a.spec.kind == Kind::kJumpTo || a.spec.kind == Kind::kKill || a.spec.kind == Kind::kViewCam) &&
             get_node_pos(checksum_of(a.spec.target), &target))
@@ -2688,7 +2688,7 @@ void rescale(V3 origin, V3 dir, bool snap)
     float size0 = axis == 0 ? g_resize.size0.x : axis == 1 ? g_resize.size0.y : g_resize.size0.z;
     if (snap)
         along = snap_to_grid(size0 + along, 25.0f) - size0;
-    V3 pos, size;
+    V3 pos{}, size{};
     resize_face(g_resize.pos0, g_resize.yaw, g_resize.size0, g_resize.handle, along, &pos, &size);
     if (g_resize.proxim) {
         // (a proximity node: a sphere's radius grows by what the face moved, about its middle; a box as a trigger's -
@@ -2877,7 +2877,7 @@ std::vector<Placed> capture_added()
         p.spec = spec;
         if (!node_alive(spec.name) || !node_place(spec.name, &p.pos, &p.yaw))
             continue;
-        V3 pos, size;
+        V3 pos{}, size{};
         if (spec.kind == Kind::kBreak && break_place(spec, &pos, &size)) {
             // (a breakable's box is its piece's where it is now - what the bake makes)
             p.pos = pos;

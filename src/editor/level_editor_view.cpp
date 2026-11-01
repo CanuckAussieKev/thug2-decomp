@@ -374,7 +374,7 @@ struct ObjectWalk {
 void collect_object(objects::Entity* object, void* data)
 {
     auto* composite = static_cast<objects::GameEntity*>(object);
-    OrientedBox box;
+    OrientedBox box{};
     if (object_edit::model_box(composite, &box))
         static_cast<ObjectWalk*>(data)->ids.push_back(composite->ident_);
 }

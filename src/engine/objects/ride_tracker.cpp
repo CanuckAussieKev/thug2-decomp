@@ -58,7 +58,7 @@ bool RideTracker::tick_frame(const maths::Vec4* point)
         turn_ = object->basis_frame_;
         keep_rotation(turn_);
         d3d_matrix_multiply(&turn_, &turn_, &undo);
-        maths::Vec4 turned;
+        maths::Vec4 turned{};
         turn_.xform(turned, offset);
         carried_.x = static_cast<float>((static_cast<double>(turned.x) - offset.x) + carried_.x);
         carried_.y = static_cast<float>((static_cast<double>(turned.y) - offset.y) + carried_.y);

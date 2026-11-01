@@ -366,13 +366,13 @@ float get_largest(V3 s) { return std::max({s.x, s.y, s.z}); }
 } // namespace
 
 struct Original {
-    render::PcGeom* geom;
-    render::MeshRef** mesh_list_;
-    uint32_t mesh_count_;
-    int quarters;
-    V3 position;
+    render::PcGeom* geom{};
+    render::MeshRef** mesh_list_{};
+    uint32_t mesh_count_{};
+    int quarters{};
+    V3 position{};
     std::vector<MeshCopy> meshes;
-    bool have_collision_;
+    bool have_collision_{};
     CollisionCopy collision;
 };
 

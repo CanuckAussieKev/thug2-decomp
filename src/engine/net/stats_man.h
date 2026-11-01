@@ -56,9 +56,9 @@ static_assert(sizeof(LevelScores) == 0x24 && offsetof(LevelScores, entries_) == 
 // One of the five top-score lists (0x48 bytes in the original): the levels' scores (high scores / combos, all time /
 // monthly) or, for the ratings list, the entries themselves.
 struct TopList {
-    memory::ListNode levels_;  // +0x00 lists::Foremost<LevelScores>
-    memory::ListNode entries_; // +0x10 lists::Foremost<TopEntry>: the ratings list's
-    char title_[0x20];         // +0x20 the file's first line (the lists of combos)
+    memory::ListNode levels_{};  // +0x00 lists::Foremost<LevelScores>
+    memory::ListNode entries_{}; // +0x10 lists::Foremost<TopEntry>: the ratings list's
+    char title_[0x20]{};         // +0x20 the file's first line (the lists of combos)
 
     // 0x0054D8B0: two empty heads.
     TopList();
@@ -177,12 +177,12 @@ public:
 
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<RankingsManager> (stats_task)
     bool authenticated_;                         // +0x004
-    uint8_t pad5_[3];
+    uint8_t pad5_[3]{};
     int cur_phase_;          // +0x008 State
     void* game_;             // +0x00C the SDK's game being reported
-    uint32_t last_report_;   // +0x010
-    PersonalStats personal_; // +0x014
-    int top_file_;           // +0x090 the top-score file being downloaded (RetrieveTopStats)
+    uint32_t last_report_{}; // +0x010
+    PersonalStats personal_{}; // +0x014
+    int top_file_{};           // +0x090 the top-score file being downloaded (RetrieveTopStats)
     TopList top_lists_[5];   // +0x094 high scores all time, monthly, best combos all time, monthly; ratings
     bool need_top_stats_;    // +0x1D4 (the original's +0x1FC: the lists' heads had table words)
 };

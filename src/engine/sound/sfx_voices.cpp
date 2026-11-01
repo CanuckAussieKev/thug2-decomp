@@ -392,7 +392,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
         void* extent = object_sound_extent(object, camera, extent_data) ? extent_data : nullptr;
         float dropoff = given[2] != 0.0f ? given[2] : entry->dropoff;
         int falloff = reinterpret_cast<int*>(params)[3];
-        maths::Vec4 heard;
+        maths::Vec4 heard{};
         fetch_loudness(&volume, object_sound_position(object, &heard, camera), dropoff, falloff, camera, extent);
     } else {
         volume.change_muted();
@@ -401,7 +401,7 @@ uint32_t AudioMixer::play_object_sound(uint32_t checksum, void* params, objects:
         if (not_positional || !entry->looping)
             return 0;
         uint32_t id = fetch_distinct_id(checksum);
-        PlaybackProps props;
+        PlaybackProps props{};
         init_playback_props(&props, entry, static_cast<PlaybackProps*>(params));
         keep_looping_sound(object, &props, frame_clock::get_time());
         return id;
@@ -445,12 +445,12 @@ bool AudioMixer::update_positional_sound(objects::AudioEmitterModule* object, Pl
     volume.kind_tag_ = manager ? manager->fallback_channel_mode_ : VolumeRef::kTypeStereo;
     volume.change_muted();
     if (extent || distance < dropoff) {
-        maths::Vec4 heard;
+        maths::Vec4 heard{};
         const maths::Vec4* position = object_sound_position(object, &heard, camera);
         maths::Vec4 here = *position;
         if (sound->entry->flags & 1) {
             auto frame_seconds = static_cast<float>(frame_clock::get_slomo_frame_seconds());
-            maths::Vec4 previous;
+            maths::Vec4 previous{};
             doppler_shift(&pitch, &here, object_sound_previous(object, &previous, camera), frame_seconds, camera);
         }
         fetch_loudness(&volume, &here, dropoff, static_cast<int>(props->falloff), camera, extent);

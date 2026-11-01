@@ -64,21 +64,21 @@ public:
     virtual int os_read_chunk(void* buffer, int size, int count); // [14] Read
     virtual bool os_cancel();                                     // [18] Cancel (the PC uses the base's)
 
-    int outcome_val_; // result of the last operation (size read, error, ...)
-    IoCompletionHook callback_;
-    void* arg0_;
-    void* arg1_;
-    uint32_t callback_mask_; // bit N set: operation N calls back (all, by default)
-    int operation_;          // the operation in progress (AsyncOperation)
-    int unknown1c_;
-    bool feed_;
-    bool is_blocking_;
-    int buffer_size_;
-    int rank_;
-    volatile int payload_bytes_; // -1 until the platform knows it
-    int anchor_point_;
-    void* pre_file_; // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
-    volatile int in_flight_ops_;
+    int outcome_val_{}; // result of the last operation (size read, error, ...)
+    IoCompletionHook callback_{};
+    void* arg0_{};
+    void* arg1_{};
+    uint32_t callback_mask_{}; // bit N set: operation N calls back (all, by default)
+    int operation_{};          // the operation in progress (AsyncOperation)
+    int unknown1c_{};
+    bool feed_{};
+    bool is_blocking_{};
+    int buffer_size_{};
+    int rank_{};
+    volatile int payload_bytes_{}; // -1 until the platform knows it
+    int anchor_point_{};
+    void* pre_file_{}; // Pre::ArchiveFile::FileInfo* when the file is inside a loaded .pre archive
+    volatile int in_flight_ops_{};
 };
 
 // Whether overlapped I/O is used (chosen at start-up; Windows NT 6 and later).

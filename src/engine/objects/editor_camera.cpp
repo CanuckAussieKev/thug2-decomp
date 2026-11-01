@@ -326,7 +326,7 @@ bool EditorViewModule::place_cursor(maths::Vec4 previous, float step)
 int EditorViewModule::invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* /*script*/)
 {
     if (name == 0x69CB3AE1) {
-        script::VectorValue position;
+        script::VectorValue position{};
         params->fetch_vec(0xB9D31B0A, &position, 1); // Position
         cursor_ = {position.x, position.y, position.z, position.w};
         level_y_ = 0.0f;

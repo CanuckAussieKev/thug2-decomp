@@ -28,17 +28,17 @@ class Hub;
 // A server found (0xA8 bytes): a node of the manager's server list (+0x158) or of the servers waiting to be shown
 // (+0x16C). (The offsets are the original's.)
 struct HostListing : memory::ListNode {
-    char label_[16];     // +0x14
-    uint32_t remote_ip_; // +0x24
-    int port_no_;        // +0x28
+    char label_[16]{};     // +0x14
+    uint32_t remote_ip_{}; // +0x24
+    int port_no_{};        // +0x28
     int ping_;           // +0x2C (9999: not known)
     int num_players_;    // +0x30
     int max_players_;    // +0x34
     int num_observers_;  // +0x38
     int max_observers_;  // +0x3C
-    char level_[32];     // +0x40 ("None")
-    char mode_sel_[32];  // +0x60 ("None")
-    bool password_;      // +0x80
+    char level_[32]{};   // +0x40 ("None")
+    char mode_sel_[32]{}; // +0x60 ("None")
+    bool password_{};     // +0x80
     bool started_;       // +0x81 a game in progress
     int8_t skill_level_; // +0x82
     int host_mode_;      // +0x84
@@ -48,9 +48,9 @@ struct HostListing : memory::ListNode {
     bool chosen_;        // +0x8B its details asked for (RetrieveServerInfo)
     bool in_list_;       // +0x8C counted in the lobby's server list
     bool detailed_;      // +0x8D the full details have come
-    uint8_t pad8e_[2];
+    uint8_t pad8e_[2]{};
     void* sb_server_;               // +0x90 GameSpy's SBServer (internet)
-    memory::ListNode participants_; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
+    memory::ListNode participants_{}; // +0x94 (lists::Foremost<PlayerRecord>): its players' names and ratings
 
     // 0x00545F60: an empty one: one of eight players, one of one observer, skill level 2, mode and level "None",
     // reachable.

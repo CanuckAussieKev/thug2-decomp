@@ -35,13 +35,13 @@ constexpr uint32_t kVaultGoals = 0x38DBE1D0;   // "goals"
 // An item of a category (0x214 bytes): lists::Elem<VaultItem> (its node destructor 0x0054B2D0; the node keeps the
 // original's size).
 struct VaultItem {
-    memory::ListNode list_link_; // +0x000 data = this
-    char url_[0x80];             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
-    char label_[0x18];           // +0x094
-    char creator_[0x10];         // +0x0AC
-    char extent_[0x10];          // +0x0BC (parks)
-    char unknowncc_[0x21];       // +0x0CC the field before the description
-    char summary_text_[0x103];   // +0x0ED the rest of the line
+    memory::ListNode list_link_{}; // +0x000 data = this
+    char url_[0x80]{};             // +0x014 http://www.thugonline.com/<folder>/<category>/<file>
+    char label_[0x18]{};           // +0x094
+    char creator_[0x10]{};         // +0x0AC
+    char extent_[0x10]{};          // +0x0BC (parks)
+    char unknowncc_[0x21]{};       // +0x0CC the field before the description
+    char summary_text_[0x103]{};   // +0x0ED the rest of the line
     int points_held_;            // +0x1F0 (tricks)
     int span_;                   // +0x1F4 (never read from the list)
     int level_y_;                // +0x1F8 (never read from the list)
@@ -60,10 +60,10 @@ struct VaultItem {
 
 // A category of the vault (0x44 bytes): lists::Elem<VaultCategory> with its items.
 struct VaultCategory {
-    memory::ListNode list_link_; // +0x00 data = this
+    memory::ListNode list_link_{}; // +0x00 data = this
     bool skip_;                  // +0x14 not chosen when moving through the categories at the start ("Uploads")
-    char label_[0x1B];           // +0x15
-    memory::ListNode items_;     // +0x30 lists::Foremost<VaultItem>
+    char label_[0x1B]{};         // +0x15
+    memory::ListNode items_{};   // +0x30 lists::Foremost<VaultItem>
 
     // 0x0054B670: unlinked, no items, not skipped.
     VaultCategory();
@@ -161,36 +161,36 @@ public:
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x000 tasks::Task<VaultMan> (vault_task)
     int transfer_;                               // +0x004 Transfer
     int progress_;                               // +0x008 percent; 100 = finished
-    int outcome_val_;                            // +0x00C 0 running, 1 done, 2 failed
-    int fault_;                                  // +0x010 ghttp's result (on_file_downloaded)
-    uint32_t buffer_size_;                       // +0x014
-    char* octets_;                               // +0x018 what came (or the upload's data)
+    int outcome_val_{};                          // +0x00C 0 running, 1 done, 2 failed
+    int fault_{};                                // +0x010 ghttp's result (on_file_downloaded)
+    uint32_t buffer_size_{};                     // +0x014
+    char* octets_{};                             // +0x018 what came (or the upload's data)
     uint32_t start_time_;                        // +0x01C the time of the start or of the last progress
-    char url_[0x80];                             // +0x020
-    char source_path_[0x80];                     // +0x0A0 the upload's
-    char summary_text_[0x200];                   // +0x120 the upload's
+    char url_[0x80]{};                           // +0x020
+    char source_path_[0x80]{};                   // +0x0A0 the upload's
+    char summary_text_[0x200]{};                 // +0x120 the upload's
     void* semaphore_;                            // +0x320 (HANDLE) held while a thread sets its request up
-    int req_;                                    // +0x324 GHTTPRequest
-    script::Struct* content_;                    // +0x328 the upload's item (its `data` structure)
-    int points_held_;                            // +0x32C the upload's details (UploadFile)
-    int span_;                                   // +0x330
-    int byte_count_;                             // +0x334 (posted as "height")
-    int num_pieces_;                             // +0x338
-    int num_gaps_;                               // +0x33C
-    int num_goals_;                              // +0x340
-    int style_set_;                              // +0x344
-    uint32_t tod_script_;                        // +0x348
-    int has_male_body_;                          // +0x34C
-    memory::ListNode categories_;                // +0x350 lists::Foremost<VaultCategory>
+    int req_{};                                  // +0x324 GHTTPRequest
+    script::Struct* content_{};                  // +0x328 the upload's item (its `data` structure)
+    int points_held_{};                          // +0x32C the upload's details (UploadFile)
+    int span_{};                                 // +0x330
+    int byte_count_{};                           // +0x334 (posted as "height")
+    int num_pieces_{};                           // +0x338
+    int num_gaps_{};                             // +0x33C
+    int num_goals_{};                            // +0x340
+    int style_set_{};                            // +0x344
+    uint32_t tod_script_{};                      // +0x348
+    int has_male_body_{};                        // +0x34C
+    memory::ListNode categories_{};              // +0x350 lists::Foremost<VaultCategory>
     VaultSearch search_;                         // +0x364 the current category's place in the list
-    VaultCategory* category_;                    // +0x36C
-    uint32_t kind_tag_;                          // +0x370 kVaultParks...
-    char folder_[0x40];                          // +0x374
-    uint32_t fail_script_;                       // +0x3B4
-    uint32_t done_script_;                       // +0x3B8
-    uint32_t progress_script_;                   // +0x3BC
-    uint32_t error_script_;                      // +0x3C0
-    const void* callback_;                       // +0x3C4 Download's completed callback
+    VaultCategory* category_{};                  // +0x36C
+    uint32_t kind_tag_{};                        // +0x370 kVaultParks...
+    char folder_[0x40]{};                        // +0x374
+    uint32_t fail_script_{};                     // +0x3B4
+    uint32_t done_script_{};                     // +0x3B8
+    uint32_t progress_script_{};                 // +0x3BC
+    uint32_t error_script_{};                    // +0x3C0
+    const void* callback_{};                     // +0x3C4 Download's completed callback
 };
 // (The offsets in the comments are the original's: its search_ has a vtable too, so from category_ on they're 4
 // more than here.)

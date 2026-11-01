@@ -311,7 +311,7 @@ void interpolate_trans(float* out, const void* a, const void* b, float t, bool f
         get_trans(b, out, floats);
         return;
     }
-    maths::Vec4 from, to, result;
+    maths::Vec4 from{}, to{}, result{};
     get_trans(a, &from.x, floats);
     get_trans(b, &to.x, floats);
     const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, t);
@@ -347,7 +347,7 @@ void interpolate_short_trans(float* out, const ShortKey* a, const ShortKey* b, f
         get_short_trans(b, out);
         return;
     }
-    maths::Vec4 from, to, result;
+    maths::Vec4 from{}, to{}, result{};
     get_short_trans(a, &from.x);
     get_short_trans(b, &to.x);
     const maths::Vec4* lerped = walk::get_lerp(&result, &from, &to, t);
@@ -965,7 +965,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                     const uint8_t* at = quat_data;
                     if (source && source->resume_ && source->quat_at_[bone])
                         at = source->quat_at_[bone];
-                    ShortKey a, b;
+                    ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)
@@ -1023,7 +1023,7 @@ bool JointClipFrames::fetch_pose(float* rotations, float* translations, uint8_t*
                     const uint8_t* at = trans_data;
                     if (source && source->resume_ && source->trans_at_[bone])
                         at = source->trans_at_[bone];
-                    ShortKey a, b;
+                    ShortKey a{}, b{};
                     float t = 0.0f;
                     for (;;) {
                         if (source)

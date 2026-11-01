@@ -110,7 +110,7 @@ void clear_update_records(PlayerRecord* player)
 }
 
 // 0x00543740
-PlayerRecord::PlayerRecord(uint32_t flags)
+PlayerRecord::PlayerRecord(uint32_t flags) : ListNode()
 {
     make_node(this);
     clear_update_records(this);

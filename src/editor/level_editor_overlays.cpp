@@ -188,7 +188,7 @@ float Painter::span_to(V3 p) const
 
 bool painter_now(ui::Overlay* overlay, Painter* painter)
 {
-    ViewNow view;
+    ViewNow view{};
     if (!current_view(&view))
         return false;
     painter->camera = view.pos;
@@ -241,7 +241,7 @@ void add_overlay(const Painter& painter, bool moving, V3 selection_base, bool ha
         constexpr uint32_t kCarried = 0xE060F080;
         for (uint32_t id : carry::carried_objects()) {
             auto* object = static_cast<objects::GameEntity*>(objects::find_object(id));
-            OrientedBox box;
+            OrientedBox box{};
             if (!object || (object->object_flags_ & objects::kObjectFlagDead) || !object_edit::model_box(object, &box))
                 continue;
             V3 corners[8];

@@ -468,7 +468,7 @@ bool cfunc_create_multiple_text_elements(script::Struct* params, script::Script*
     struct {
         char word[0x60];
         char line[0x1F4];
-    } buffers;
+    } buffers{};
     char* word = buffers.word;
     char* line = buffers.line;
     uint32_t id = 0;

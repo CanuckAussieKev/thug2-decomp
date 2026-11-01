@@ -700,7 +700,7 @@ bool download_file(script::Struct* params, script::Script*)
 {
     const char* file = "";
     params->fetch_text("file", &file, 0);
-    DownloadRequest request;
+    DownloadRequest request{};
     request.done_script_ = kDoneScript;
     request.fail_script_ = kFailScript;
     request.error_script_ = kErrorScript;

@@ -78,7 +78,7 @@ void ParkLayout::set_up_abstract_metas()
         if (desc->read_hash_value("single", &single, 0)) {
             meta->commission(1);
             TileTemplate* source = piece_source(builder_, single);
-            CellBox pos;
+            CellBox pos{};
             pos.assign_value(0, 0, 0, 0, 0, 0);
             get_footprint_size(source, &pos);
             script::Array* at = nullptr;
@@ -148,7 +148,7 @@ void ParkLayout::set_up_abstract_metas()
                 entry->fetch_list(0u, &at, 1); // its unnamed [x y z (rot)]
                 TileTemplate* source = piece_source(builder_, name);
                 piece_names[num_piece_names++] = name;
-                CellBox pos;
+                CellBox pos{};
                 pos.assign_value(0, 0, 0, 0, 0, 0);
                 get_footprint_size(source, &pos);
                 uint8_t z = byte_at(at, 2);
@@ -216,7 +216,7 @@ void ParkLayout::set_up_abstract_metas()
         PieceGroup* meta = new_abstract_meta();
         meta->commission(1);
         TileTemplate* source = piece_source(builder_, name);
-        CellBox pos;
+        CellBox pos{};
         pos.assign_value(0, 0, 0, 0, 0, 0);
         get_footprint_size(source, &pos);
         meta->insert_tile(source, &pos, 0, false);
@@ -352,7 +352,7 @@ void ParkLayout::set_up_lights()
     auto* theme = reinterpret_cast<script::Array*>(themes->fetch_part(0));
     auto* info = reinterpret_cast<script::Struct*>(theme->fetch_part(0));
     float ambient_const = 0.0f, falloff_const = 0.0f, cursor_ambience = 0.0f;
-    script::VectorValue ambient, falloff;
+    script::VectorValue ambient{}, falloff{};
     script::Array* positions = nullptr;
     info->fetch_float("ambient_const", &ambient_const, 1);
     info->fetch_vec("ambient_rgb", &ambient, 1);

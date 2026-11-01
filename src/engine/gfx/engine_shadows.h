@@ -71,7 +71,7 @@ public:
 
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
     uint8_t* bitmap_;                           // +0x0C the render target
-    maths::Vec4 direction_;                     // +0x10 the light's
+    maths::Vec4 direction_{};                   // +0x10 the light's
     float reach_;                               // +0x20
 };
 static_assert(offsetof(FullShadow, reach_) == 0x20 && sizeof(FullShadow) == 0x24, "the original's size");
@@ -128,9 +128,9 @@ public:
     void change_mesh(RenderModel* model, uint8_t* asset_data) override;
 
     std::unique_ptr<gfx::ViewCam> view_camera_; // +0x08
-    maths::Mat4 basis_frame_;                   // +0x0C
+    maths::Mat4 basis_frame_{};                 // +0x0C
     uint32_t model_key_;                        // +0x4C the asset data's meshes
-    maths::Vec4 direction_;                     // +0x50
+    maths::Vec4 direction_{};                   // +0x50
     ShadowEdges* edges_;                        // +0x60
     float reach_;                               // +0x64
 };

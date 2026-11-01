@@ -296,7 +296,7 @@ bool face_inside(const FaceCopy& face, V3 min, V3 max)
 // Where a piece is now, grown by `grow` (false: no box).
 bool current_bounds(uint32_t checksum, float grow, V3* min, V3* max)
 {
-    OrientedBox box;
+    OrientedBox box{};
     if (!scenery::cuboid(checksum, &box))
         return false;
     bounds_of(box, min, max);
@@ -382,7 +382,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
     std::vector<FaceCopy> faces;
     render::WorldCell* sector = scenery::sector_of(checksum);
     render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
-    V3 min, max;
+    V3 min{}, max{};
     if (!geom || scenery::get_see_through(checksum) || !current_bounds(checksum, kNear, &min, &max))
         return faces;
     const auto& named_objects = get_named_objects();
@@ -405,7 +405,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
             render::PcGeom* geom = geom_of(sector);
             if (other == c->self || !geom || scenery::is_clone(other) || scenery::get_see_through(other))
                 return;
-            V3 lo, hi;
+            V3 lo{}, hi{};
             if (!current_bounds(other, kNear, &lo, &hi))
                 return;
             if (lo.x > c->max.x || hi.x < c->min.x || lo.y > c->max.y || hi.y < c->min.y || lo.z > c->max.z ||
@@ -460,7 +460,7 @@ std::vector<FaceCopy> gather(uint32_t checksum, std::vector<Taken>* taken)
 // A list of collision objects for CollGrid::tick_frame (lists::Foremost / lists::Elem<HitMesh>, on the stack: Update only reads
 // them).
 struct GridList {
-    memory::ListNode head;
+    memory::ListNode head{};
     std::vector<memory::ListNode> nodes;
 
     explicit GridList(const std::vector<render::HitMesh*>& objects) : nodes(objects.size())

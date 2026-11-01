@@ -966,7 +966,7 @@ bool terrain_byte(const std::string& name, uint8_t* value)
 // What the editor has done to the level's own nodes: links= as the level had them (the structure, to know it's still
 // the level loaded), the dropped points (and whether their rail node was on), terrains set (and the level's bytes).
 struct OriginalLinks {
-    script::Struct* node;
+    script::Struct* node{};
     std::vector<uint32_t> links;
 };
 std::map<uint32_t, OriginalLinks> g_original_links;
@@ -974,7 +974,7 @@ std::vector<uint32_t> g_dropped;
 std::map<uint32_t, bool> g_drop_active;
 struct TerrainSet {
     std::string terrain;
-    uint8_t original;
+    uint8_t original{};
 };
 std::map<uint32_t, TerrainSet> g_terrains;
 // The rail manager's node arrays replaced by rebuild_rails (freed with the level).
@@ -2520,7 +2520,7 @@ bool cast_ray(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 // The ground's height below a point (within 70).
 bool ground_below(V3 at, float* ground_y)
 {
-    V3 h, n;
+    V3 h{}, n{};
     if (!cast_ray(at, {at.x, at.y - 70.0f, at.z}, &h, &n))
         return false;
     *ground_y = h.y;
@@ -2535,12 +2535,12 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
     if (g_draw != Blit::kLadder || !in_level())
         return false;
     if (!g_ladder_have_foot) {
-        V3 hit, normal;
+        V3 hit{}, normal{};
         if (!cast_ray(from, from + dir * max_t, &hit, &normal)) {
             *message = "Click on a wall";
             return false;
         }
-        V3 foot;
+        V3 foot{};
         if (!ladder_foot(hit, normal, kLadderOut, &ground_below, &foot)) {
             *message = "Click a wall to place the ladder's foot";
             return false;
@@ -2551,7 +2551,7 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
         *message = "Click to place the top";
         return false;
     }
-    V3 top;
+    V3 top{};
     if (!ladder_top(g_ladder_foot, from, dir, &top)) {
         *message = "Top must be at least 24 units above the foot";
         return false;
@@ -2582,7 +2582,7 @@ bool ladder_click(V3 from, V3 dir, float max_t, std::string* message, uint32_t* 
 bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* end)
 {
     *end = 0;
-    V3 hit, normal;
+    V3 hit{}, normal{};
     if (!cast_ray(from, from + dir * max_t, &hit, &normal, &g_snap_sector))
         return false;
     *point = hit;
@@ -2591,7 +2591,7 @@ bool magnet_point(V3 from, V3 dir, float max_t, bool free, V3* point, uint32_t* 
         *point = snap_to_edge(
             hit, normal, 32.0f,
             [](V3 at, float* ground_y) {
-                V3 h, n;
+                V3 h{}, n{};
                 if (!cast_ray(at, {at.x, at.y - 60.0f, at.z}, &h, &n))
                     return false;
                 *ground_y = h.y;

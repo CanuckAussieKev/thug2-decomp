@@ -54,10 +54,10 @@ void get_qsort(void* base, uint32_t count, uint32_t size, int (*compare)(const v
 }
 
 struct Lap {
-    SceneRef* scene;
-    uint32_t flags;
-    uint8_t viewport_bit_;
-    bool no_culling_;
+    SceneRef* scene{};
+    uint32_t flags{};
+    uint8_t viewport_bit_{};
+    bool no_culling_{};
     MaterialRef* material = nullptr; // the current one
     int drawn = 0;
 

@@ -115,7 +115,7 @@ void side_frame(const Spec& s, int side, V3* out, V3* e0, V3* e1)
 
 struct Builder {
     Mesh mesh;
-    float uv;
+    float uv{};
 
     void get_corner(V3 p, V3 n)
     {
@@ -205,7 +205,7 @@ Mesh get_build(const Spec& spec)
         float top = s.base + s.height, bottom = s.base - kSink;
         b.get_quad({s.x0, top, s.z0}, {s.x1, top, s.z0}, {s.x1, top, s.z1}, {s.x0, top, s.z1}, get_up(), kFlagDeck);
         for (int side = 0; side < 4; ++side) {
-            V3 out, e0, e1;
+            V3 out{}, e0{}, e1{};
             side_frame(s, side, &out, &e0, &e1);
             if (s.ramps[side] == Ramp::kNone)
                 b.get_quad(get_at(e0, bottom), get_at(e1, bottom), get_at(e1, top), get_at(e0, top), out, kFlagWall);
@@ -217,7 +217,7 @@ Mesh get_build(const Spec& spec)
         b.get_quad({s.x0, floor, s.z0}, {s.x1, floor, s.z0}, {s.x1, floor, s.z1}, {s.x0, floor, s.z1}, get_up(),
                    kFlagDeck);
         for (int side = 0; side < 4; ++side) {
-            V3 out, e0, e1;
+            V3 out{}, e0{}, e1{};
             side_frame(s, side, &out, &e0, &e1);
             V3 in = out * -1.0f;
             if (s.ramps[side] == Ramp::kNone)

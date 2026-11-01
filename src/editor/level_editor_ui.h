@@ -330,7 +330,7 @@ struct Request {
         kMemberRemove,     // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
         kMemberKeep,       // value, id: as kMemberRemove - the selection is only that
         kCarry,            // value: 0 / 1 - the toolbar's Carry objects (level_editor_carry.h)
-    } kind;
+    } kind{};
     int value = 0;
     uint32_t id = 0;
     float a[3] = {}, b[3] = {};

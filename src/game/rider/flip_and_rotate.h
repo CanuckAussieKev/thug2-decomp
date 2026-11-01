@@ -59,12 +59,12 @@ public:
     void do_after_anim();
 
     bool deck_turned_;                          // +0x18
-    bool flip_after_;                           // +0x19
-    bool rotate_after_;                         // +0x1A
-    bool board_rotate_after_;                   // +0x1B
+    bool flip_after_{};                         // +0x19
+    bool rotate_after_{};                       // +0x1A
+    bool board_rotate_after_{};                 // +0x1B
     ObjectModule* anim_blender_;                // +0x1C (0x7149B753)
     MeshInstanceModule* mesh_set_;              // +0x20 Model (0x286A8D26)
-    skater::SkaterPhysicsModule* core_physics_; // +0x24 SkaterCorePhysics (0x5BD63B29)
+    skater::SkaterPhysicsModule* core_physics_{}; // +0x24 SkaterCorePhysics (0x5BD63B29)
 };
 
 } // namespace objects

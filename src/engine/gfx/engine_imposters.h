@@ -24,10 +24,10 @@ public:
     virtual float distance_to_view() = 0; // [5]
     virtual void tick_frame() = 0;        // [6]
 
-    float near_range_;  // +0x04: below this distance the group is drawn as itself
-    uint8_t pad08_[0x50];
-    int frame_count_;   // +0x58
-    bool has_imposter_; // +0x5C
+    float near_range_{}; // +0x04: below this distance the group is drawn as itself
+    uint8_t pad08_[0x50]{};
+    int frame_count_{};   // +0x58
+    bool has_imposter_{}; // +0x5C
 };
 
 struct ImposterManager {

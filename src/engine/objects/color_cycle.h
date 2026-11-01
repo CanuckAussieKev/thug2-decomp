@@ -64,13 +64,13 @@ public:
     // for the array, as the original does). 1.
     int set_colors_from_script(script::Struct* params, script::Script* script);
 
-    maths::Vec4 colors_[kCycleColorCap]; // +0x18 (x, y, z: 0-255)
+    maths::Vec4 colors_[kCycleColorCap]{}; // +0x18 (x, y, z: 0-255)
     int color_count_;                    // +0x68
     int ongoing_;                        // +0x6C
-    float period_;                       // +0x70 milliseconds
+    float period_{};                     // +0x70 milliseconds
     float clock_;                        // +0x74 milliseconds on the current colour
     bool on_;                            // +0x78
-    uint8_t pad79[3];
+    uint8_t pad79[3]{};
 };
 
 } // namespace objects

@@ -32,7 +32,7 @@ public:
     char* tag_;     // +0x00
     int val_;       // +0x04
     int slot_no_;   // +0x08
-    bool is_fresh_; // +0x0C
+    bool is_fresh_{}; // +0x0C
 };
 
 // A table of records (8 bytes): their count and the records (an array allocated with its count before it).
@@ -106,7 +106,7 @@ public:
 
     int level_count_;        // +0x00
     char* default_initials_; // +0x04
-    StageBests* levels_;     // +0x08
+    StageBests* levels_{};   // +0x08
 };
 
 // 0x005AEBC0: the script command UpdateRecords (the end of a high score run, classic mode's and the 2 player modes'

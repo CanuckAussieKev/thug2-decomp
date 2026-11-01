@@ -111,7 +111,7 @@ uint32_t RiderHostSync::fetch_sync_field_mask()
     net::AppHost* app = client_app(static_cast<Rider*>(entity_)->view_slot_);
     ObjectModule* component_6c = entity_->fetch_module(kComponent6c);
     bool force = get_on_server() || static_cast<uint32_t>(app->frame_count_) % 15 == 0;
-    UpdateState now;
+    UpdateState now{};
     read_update_state(this, component_6c, now);
     for (int k = 0; k < 3; ++k) {
         // (TP-R6: whole units in a big level)
@@ -155,7 +155,7 @@ void RiderHostSync::send_update()
     last_transmit_at_ = app->clock_;
     uint8_t buffer[0x400];
     stream.bind_output_buffer(buffer, 0x400);
-    UpdateState now;
+    UpdateState now{};
     read_update_state(this, component_6c, now);
     stream.write_bits(app->clock_, 32);
     uint32_t flags = fetch_sync_field_mask();

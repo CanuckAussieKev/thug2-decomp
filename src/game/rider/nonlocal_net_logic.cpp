@@ -272,7 +272,7 @@ double RiderRemoteSync::turn_towards(maths::Vec4 dir, float* turn)
     double vx = vel.x, vz = vel.z;
     vel.x = static_cast<float>(s * vz + c * vx);
     vel.z = static_cast<float>(-(vx * s) + c * vz);
-    maths::Mat4 rotate;
+    maths::Mat4 rotate{};
     maths::make_yaw_matrix(rotate, *turn);
     turn_by(entity_->basis_frame_, rotate);
     return angle;
@@ -375,7 +375,7 @@ void RiderRemoteSync::deflect_from_wall(const maths::Vec4* normal, const maths::
     double nz = -(vx * s) + vz * c;
     vel.x = static_cast<float>(nx);
     vel.z = static_cast<float>(nz);
-    maths::Mat4 rotate;
+    maths::Mat4 rotate{};
     maths::make_yaw_matrix(rotate, static_cast<float>(around));
     turn_by(skater->basis_frame_, rotate);
     vel.x = static_cast<float>(vel.x * 0.5);

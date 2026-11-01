@@ -73,14 +73,14 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
                                placed->size_factor_.z * end.point.z, placed->size_factor_.w * end.point.w};
             placed->basis_frame_.carry_point_through(end.point, scaled);
         }
-        maths::Vec4 turned;
+        maths::Vec4 turned{};
         placed->basis_frame_.rotate_vector(turned, hit.normal);
         hit.normal = turned;
     }
     for (int e = 1; e >= 0; --e) {
         RectHitEnd& end = hit.ends[e];
         end.on_triangle_edge_ = kinds[e] != 0;
-        maths::Vec4 edge;
+        maths::Vec4 edge{};
         switch (kinds[e]) {
         case 1:
             edge = {e1x, e1y, static_cast<float>(e1z), get_difference(v1.w, v0.w)};
@@ -98,7 +98,7 @@ void add_rect_hit(RectHits* hits, const maths::Vec4& v0, const maths::Vec4& v1, 
         }
         end.edge = edge.make_unit();
         if (placed) {
-            maths::Vec4 turned;
+            maths::Vec4 turned{};
             placed->basis_frame_.rotate_vector(turned, end.edge);
             end.edge = turned;
         }
@@ -121,7 +121,7 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
             *reinterpret_cast<const uint16_t*>(geometry->faces_ + face * (geometry->small_faces_ ? 8 : 10));
         if ((flags & hits->ignore_flags_) || (~flags & hits->require_flags_))
             continue;
-        maths::Vec4 v0, v1, v2;
+        maths::Vec4 v0{}, v1{}, v2{};
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 0)), &v0);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 1)), &v1);
         geometry->read_stored_vertex(static_cast<int>(geometry->face_vertex(static_cast<int>(face), 2)), &v2);
@@ -140,7 +140,7 @@ bool rect_against_faces(const HitMesh* object, const CollRect* rect, const maths
 struct VectorTurn : maths::Vec4 {
     maths::Vec4* turn_by(const maths::Mat4* matrix)
     {
-        maths::Vec4 turned;
+        maths::Vec4 turned{};
         matrix->rotate_vector(turned, *this);
         *static_cast<maths::Vec4*>(this) = turned;
         return this;
@@ -251,7 +251,7 @@ bool CollStaticInstance::collide_with_rect(const CollRect* rect, const maths::BB
 void CollScaled::rect_to_local(const CollRect* rect, CollRect* out) const
 {
     inverse_.carry_point_through(out->origin, rect->origin);
-    maths::Vec4 corner;
+    maths::Vec4 corner{};
     const maths::Vec4& o = rect->origin;
     inverse_.carry_point_through(
         corner, {o.x + rect->side_a_.x, rect->side_a_.y + o.y, rect->side_a_.z + o.z, rect->side_a_.w + o.w});
@@ -340,7 +340,7 @@ void BoxProbe::join_hits()
     // each hit left, extended by the earlier ones it lines up with
     joined_count_ = 0;
     for (int j = count - 1; j >= 0; --j) {
-        RectHit joined;
+        RectHit joined{};
         joined.copy_from(&hits[j]);
         if (used[j])
             continue;

@@ -92,22 +92,22 @@ public:
     // primary channel), the board's rotation, the model's parts, special items made and destroyed.
     void play_history_events();
 
-    uint32_t sync_frame_;         // +0x18 the client app's frame when playback started (0: not yet)
-    int sync_time_;               // +0x1C the history's time then, less the app's frames since
+    uint32_t sync_frame_{};       // +0x18 the client app's frame when playback started (0: not yet)
+    int sync_time_{};             // +0x1C the history's time then, less the app's frames since
     uint32_t last_event_time_;    // +0x20 the history's events played up to here
     int play_idx_;                // +0x24 the history entry being played
-    maths::Vec4 play_pos_;        // +0x28 the position playback put the skater at
-    maths::Vec4 last_play_pos_;   // +0x38 the one before
-    maths::Vec4 last_pos_;        // +0x48 the object's position before this frame
-    maths::Vec4 surface_up_;      // +0x58 the last ground snapped to
-    float speeds_[kHistory];      // +0x68 per update: the playback's speed
-    float lags_[kHistory];        // +0xB8 per update: how far behind the connection is
-    float alignments_[kHistory];  // +0x108 per update: how the move lines up with the local skater's
-    maths::Vec4 moves_[kHistory]; // +0x158 per update: the playback's move
+    maths::Vec4 play_pos_{};      // +0x28 the position playback put the skater at
+    maths::Vec4 last_play_pos_{}; // +0x38 the one before
+    maths::Vec4 last_pos_{};      // +0x48 the object's position before this frame
+    maths::Vec4 surface_up_{};    // +0x58 the last ground snapped to
+    float speeds_[kHistory]{};    // +0x68 per update: the playback's speed
+    float lags_[kHistory]{};      // +0xB8 per update: how far behind the connection is
+    float alignments_[kHistory]{};  // +0x108 per update: how the move lines up with the local skater's
+    maths::Vec4 moves_[kHistory]{}; // +0x158 per update: the playback's move
     int updates_;                 // +0x298
-    float frame_seconds_;         // +0x29C this frame's length
-    uint8_t was_driving_;         // +0x2A0
-    uint8_t pad2a1_[3];
+    float frame_seconds_{};       // +0x29C this frame's length
+    uint8_t was_driving_{};       // +0x2A0
+    uint8_t pad2a1_[3]{};
     RiderFrameLog* past_frames_;    // +0x2A4 SkaterStateHistory (0x18223FD6)
     ObjectModule* anim_blender_;    // +0x2A8 (0x7149B753)
     MeshInstanceModule* mesh_set_;  // +0x2AC Model (0x286A8D26)

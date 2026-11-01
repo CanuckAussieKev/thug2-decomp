@@ -25,11 +25,11 @@ struct Contest {
     // One of the eight standings (0x20 bytes).
     struct Leader {
         text::Chars label_; // +0x00
-        int ident_;         // +0x0C: 0 the player, 1-7 the pros (a random order)
-        int scores_[kRuns]; // +0x10: each run's score
-        bool unknown1c_;    // +0x1C (copied with the leader, never set: the leader board's debug output reads it
-                            // and its padding as a fourth score)
-        uint8_t pad1d_[3];
+        int ident_{};       // +0x0C: 0 the player, 1-7 the pros (a random order)
+        int scores_[kRuns]{}; // +0x10: each run's score
+        bool unknown1c_{};    // +0x1C (copied with the leader, never set: the leader board's debug output reads it
+                              // and its padding as a fourth score)
+        uint8_t pad1d_[3]{};
 
         // (0x0054FFD0, the constructor - the name's - and 0x0054FFE0, the destructor - a jump to TextUtil::Chars's
         // (text_store.cpp): the implicit ones)
@@ -43,22 +43,22 @@ struct Contest {
 
     script::Struct* args_;             // +0x00: StartCompetition's extra parameters (leader_board_names,
                                        // first_place_name)
-    int runs_;                         // +0x04: the current run (begin_timed_session counts them; -1 after Start)
+    int runs_{};                       // +0x04: the current run (begin_timed_session counts them; -1 after Start)
     Leader leaders_[kLeaders];         // +0x08: sorted by score after each run (sort_leaders)
-    float third_mark_;                 // +0x108: the medal points (Start; made a little random)
-    float second_mark_;                // +0x10C
-    float top_mark_;                   // +0x110
-    float bronze_score_;               // +0x114: the trick scores worth the medal points
-    float silver_score_;               // +0x118
-    float gold_score_;                 // +0x11C
-    float bail_penalty_;               // +0x120 (stored by Start: not read here)
-    float crash_penalty_;              // +0x124: taken off the run's points (cleared when a run starts)
-    float judge_scores_[kJudges];      // +0x128: the last run's judges' scores
-    const char* judge_names_[kJudges]; // +0x13C: comp_str_Judge1..5
-    float path_vertices_;              // +0x150: the last run's points (cleared when a run starts)
-    int run_totals_[kRuns];            // +0x154: the player's score of each run
-    bool ended_;                       // +0x160
-    int standing_;                     // +0x164: the player's place (1-8) after the last run
+    float third_mark_{};               // +0x108: the medal points (Start; made a little random)
+    float second_mark_{};              // +0x10C
+    float top_mark_{};                 // +0x110
+    float bronze_score_{};             // +0x114: the trick scores worth the medal points
+    float silver_score_{};             // +0x118
+    float gold_score_{};               // +0x11C
+    float bail_penalty_{};             // +0x120 (stored by Start: not read here)
+    float crash_penalty_{};            // +0x124: taken off the run's points (cleared when a run starts)
+    float judge_scores_[kJudges]{};    // +0x128: the last run's judges' scores
+    const char* judge_names_[kJudges]{}; // +0x13C: comp_str_Judge1..5
+    float path_vertices_{};              // +0x150: the last run's points (cleared when a run starts)
+    int run_totals_[kRuns]{};            // +0x154: the player's score of each run
+    bool ended_{};                       // +0x160
+    int standing_{};                     // +0x164: the player's place (1-8) after the last run
 
     // 0x005504B0: the constructor (the leaders' names, an empty parameter structure). The argument isn't used.
     // Returns this.

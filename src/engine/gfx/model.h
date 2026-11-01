@@ -199,16 +199,16 @@ public:
     uint8_t* skin_palette_;      // +0x0C
     ModelGeomNode* geoms_;       // +0x10: the list's head (a ring of nodes: std::list)
     uint32_t geom_list_size_;    // +0x14
-    uint32_t visible_geoms_;     // +0x18: a bit per geom (in list order, modulo 32)
-    maths::Vec4 size_factor_;    // +0x1C
+    uint32_t visible_geoms_{};   // +0x18: a bit per geom (in list order, modulo 32)
+    maths::Vec4 size_factor_{};  // +0x1C
     uint8_t* lights_ptr_;        // +0x2C
     uint32_t source_path_;       // +0x30: the first geom's (a checksum; "none" when made)
-    maths::Vec4 enclosing_ball_; // +0x34 (with kModelSphereValid)
+    maths::Vec4 enclosing_ball_{}; // +0x34 (with kModelSphereValid)
     uint8_t flag_bits_;          // +0x44
-    uint8_t pad45;
+    uint8_t pad45{};
     int16_t geom_total_;      // +0x46
-    int16_t num_file_geoms_;  // +0x48: geoms with a scene of their own
-    int16_t num_asset_geoms_; // +0x4A: geoms with the asset manager's scene
+    int16_t num_file_geoms_{};  // +0x48: geoms with a scene of their own
+    int16_t num_asset_geoms_{}; // +0x4A: geoms with the asset manager's scene
 };
 static_assert(offsetof(RenderModel, geoms_) == 0x10 && offsetof(RenderModel, size_factor_) == 0x1C &&
                   offsetof(RenderModel, lights_ptr_) == 0x2C && offsetof(RenderModel, enclosing_ball_) == 0x34 &&

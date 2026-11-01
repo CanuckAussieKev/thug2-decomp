@@ -54,7 +54,7 @@ void* alloc_block(size_t size) { return crt::alloc_block(size); } // the game's 
 // 0x00402550's maths (maths::cross_vec as the original computes it: each component in double precision).
 maths::Vec4 perpendicular(const maths::Vec4& a, const maths::Vec4& b)
 {
-    maths::Vec4 out;
+    maths::Vec4 out{};
     out.x = static_cast<float>(static_cast<double>(a.y) * b.z - static_cast<double>(a.z) * b.y);
     out.y = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(a.x) * b.z);
     out.z = static_cast<float>(static_cast<double>(a.x) * b.y - static_cast<double>(a.y) * b.x);
@@ -278,7 +278,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         ny = static_cast<float>(ny * inverse);
         nz = static_cast<float>(nz_exact * inverse);
     }
-    maths::Vec4 normal;
+    maths::Vec4 normal{};
     normal.x = nx;
     normal.y = ny;
     normal.z = nz;
@@ -292,7 +292,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
     case 0:
     case 1:
     case 3: {
-        maths::Vec4 across;
+        maths::Vec4 across{};
         across.x = static_cast<float>(static_cast<double>(ny) * 0.0f - nz);
         across.y = static_cast<float>(static_cast<double>(nz) * 0.0f - static_cast<double>(nx) * 0.0f);
         across.z = static_cast<float>(nx - static_cast<double>(ny) * 0.0f);
@@ -301,7 +301,7 @@ void MeshRef::make_billboard(int type, const maths::Vec4* pivot, const maths::Ve
         r0[0] = across.x;
         r0[1] = across.y;
         r0[2] = across.z;
-        maths::Vec4 up;
+        maths::Vec4 up{};
         up.x = static_cast<float>(static_cast<double>(r0[1]) * nz - static_cast<double>(r0[2]) * ny);
         up.y = static_cast<float>(static_cast<double>(r0[2]) * nx - static_cast<double>(nz) * r0[0]);
         up.z = static_cast<float>(static_cast<double>(ny) * r0[0] - static_cast<double>(r0[1]) * nx);

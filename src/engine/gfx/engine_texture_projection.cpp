@@ -141,9 +141,9 @@ void TextureProjection::update_matrix()
                           get_f(static_cast<double>(world_direction_.z) + anchor_point_.z),
                           get_f(static_cast<double>(world_direction_.w) + anchor_point_.w)};
     maths::Vec4 up = {0.0f, 1.0f, 0.0f, 0.0f};
-    maths::Mat4 view;
+    maths::Mat4 view{};
     maths::create_look_at_matrix(view, anchor_point_, target, up);
-    maths::Mat4 lens;
+    maths::Mat4 lens{};
     if (flag_bits_ & kProjectionOrthographic)
         maths::create_orthographic_matrix(lens, extent_, extent_, 0.1f, range_);
     else if (flag_bits_ & kProjectionPerspective)
@@ -157,7 +157,7 @@ void TextureProjection::update_matrix()
 // 0x0049FFE0
 void TextureProjection::tick_frame(objects::GameEntity* object)
 {
-    maths::Mat4 m;
+    maths::Mat4 m{};
     m = object->display_matrix_;
     const maths::Vec4& pos = object->at_point_;
     double ox = shift_.x, oy = shift_.y, oz = shift_.z;

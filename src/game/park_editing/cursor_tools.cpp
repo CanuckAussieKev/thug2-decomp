@@ -159,7 +159,7 @@ void BuildPointer::clamp_to_park()
     if (mode_sel_ != kModePaste || !clipboard_)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
-    CellBox area;
+    CellBox area{};
     area.assign_value(0, 0, 0, 0, 0, 0);
     clipboard_->fetch_extent(this, &area);
     int last = bounds.w + bounds.x - 1;
@@ -215,7 +215,7 @@ int BuildPointer::advance_area_selection()
         return box_select_stage_;
     }
     if (box_select_stage_ == 1) {
-        CellBox area;
+        CellBox area{};
         area.assign_value(0, 0, 0, 0, 0, 0);
         get_marquee_bounds(&area);
         if (area.w <= 10 && area.l <= 10)

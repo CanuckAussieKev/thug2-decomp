@@ -29,19 +29,19 @@ public:
     // A focused element of one controller's list (0x18 bytes).
     struct FocusEntry {
         ElementPtr element; // +0x00 (null: a free entry)
-        uint32_t id;        // +0x0C the element's id
-        FocusEntry* next;   // +0x10
-        bool tried;         // +0x14 already offered the current pad event
-        bool marked;        // +0x15 its focus is being dropped (an ancestor lost its focus flag)
-        uint8_t pad16[2];
+        uint32_t id{};      // +0x0C the element's id
+        FocusEntry* next{}; // +0x10
+        bool tried{};       // +0x14 already offered the current pad event
+        bool marked{};      // +0x15 its focus is being dropped (an ancestor lost its focus flag)
+        uint8_t pad16[2]{};
     };
     // An element with a pad-event priority (0x18 bytes).
     struct PriorityEntry {
         ElementPtr element; // +0x00
-        uint32_t id;        // +0x0C
-        uint32_t priority;  // +0x10
-        bool active;        // +0x14
-        uint8_t pad15[3];
+        uint32_t id{};      // +0x0C
+        uint32_t priority{}; // +0x10
+        bool active{};       // +0x14
+        uint8_t pad15[3]{};
     };
     static constexpr int kFocusEntries = 0x30;
     static constexpr int kPriorities = 10;
@@ -132,12 +132,12 @@ public:
     ElementPtr tree_root_;                    // +0x44
     ElementPtr resolving_;                    // +0x50 resolve_id's element so far
     FocusEntry focus_entries_[kFocusEntries]; // +0x5C
-    FocusEntry* focus_lists_[2];              // +0x4DC one per controller
-    bool focus_dirty_[2];                     // +0x4E4
-    uint8_t pad4e6_[2];
+    FocusEntry* focus_lists_[2]{};            // +0x4DC one per controller
+    bool focus_dirty_[2]{};                   // +0x4E4
+    uint8_t pad4e6_[2]{};
     int num_priorities_;                       // +0x4E8
     PriorityEntry priorities_[kPriorities];    // +0x4EC
-    uint32_t pad_event_types_[kPadEventSlots]; // +0x5DC (from the script array 0x0064A10C)
+    uint32_t pad_event_types_[kPadEventSlots]{}; // +0x5DC (from the script array 0x0064A10C)
     int pad_event_kind_count_;                 // +0x69C
     bool check_device_;                        // +0x6A0 (pad events of other devices ignored)
 };

@@ -45,16 +45,16 @@ public:
     // 0x0041C3D0 (vtable slot 1): see the class. The times are the game clock's, compared unsigned.
     void tick_frame() override;
 
-    uint8_t* suspend_;           // +0x18 the suspend component (+0x30: suspended)
+    uint8_t* suspend_{};         // +0x18 the suspend component (+0x30: suspended)
     float radius_;               // +0x1C radius
     float size_factor_;          // +0x20 scale (given to death_script)
     uint32_t made_time_;         // +0x24
     uint32_t on_collide_script_; // +0x28 death_script
-    uint32_t death_time_;        // +0x2C (a second after the hit)
+    uint32_t death_time_{};      // +0x2C (a second after the hit)
     bool fading_out_;            // +0x30
     bool first_update_;          // +0x31
-    maths::Vec4 vel_;            // +0x34 vel (normalised)
-    maths::Vec4 last_pos_;       // +0x44 the object's position at the last update
+    maths::Vec4 vel_{};          // +0x34 vel (normalised)
+    maths::Vec4 last_pos_{};     // +0x44 the object's position at the last update
 };
 
 extern online::Hub* g_online_hub;

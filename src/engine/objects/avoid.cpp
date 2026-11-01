@@ -205,7 +205,7 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
                                    float max_distance)
 {
     out = start;
-    maths::Mat4 turn;
+    maths::Mat4 turn{};
     d3dx_multiply(out, maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(angle) * kToRadians)), out);
     maths::Vec4 probe = {0.0f, 10.0f, distance + 15.0f, 1.0f};
     maths::Vec4 probe_end;
@@ -270,7 +270,7 @@ bool ObstacleDodgeModule::get_jump(script::Struct* params, script::Script* /*scr
     start.row[3] = entity_->at_point_;
     float max_distance = 100.0f;
     params->fetch_float("maxHerdDistance", &max_distance, 0);
-    maths::Mat4 end;
+    maths::Mat4 end{};
     float side = side_away_from_skater();
     bool found = try_jump(start, end, side, avoid_distance(side, params), max_distance);
     if (!found) {
@@ -316,7 +316,7 @@ bool ObstacleDodgeModule::step_jump(script::Struct* /*params*/, script::Script* 
 {
     progress_ = static_cast<float>(frame_clock::get_slomo_frame_seconds() * 60.0f * lasts_for_ * 0.01666666753590107f +
                                    progress_);
-    maths::Mat4 now;
+    maths::Mat4 now{};
     slerp_.fetch_mat(now, progress_);
     entity_->at_point_ = now.row[3];
     entity_->basis_frame_ = now;

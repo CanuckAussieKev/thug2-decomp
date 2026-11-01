@@ -66,9 +66,9 @@ public:
     // +0x04: the goal's node in the goal manager's list of active goals (data this, priority 0, linked to itself while
     // not in the list; Deactivate unlinks it). (The original's goal was its own node: the node's table word was the
     // goal's vtable; here the vptr is at +0 and the node follows it, in the original's place.)
-    memory::ListNode list_link_;
+    memory::ListNode list_link_{};
     ObjectiveNpc* ped_;          // +0x14: the goal's pro (0x14 bytes)
-    uint32_t inherited_;         // +0x18: passed to the children (2: single_timer, 4: retry_stage)
+    uint32_t inherited_{};       // +0x18: passed to the children (2: single_timer, 4: retry_stage)
     script::Struct* args_;       // +0x1C
     script::Struct* goal_flags_; // +0x20: goal_flags, each an integer (1: set); skater_flags: a structure each
     int run_ending_;             // +0x24: 0 the goal's own end of run (goal_run_done...), 1 the normal one
@@ -83,7 +83,7 @@ public:
     int best_time_;              // +0x48: ms (record_type time; 0x7FFFFFFF none)
     int record_points_;          // +0x4C (record_type score)
     int seconds_remaining_;      // +0x50: ms
-    uint32_t unknown54_;
+    uint32_t unknown54_{};
     int num_flags_;     // +0x58
     int num_flags_set_; // +0x5C (also the number collected without number_collected)
     int elapsed_;       // +0x60: ms since activated
@@ -91,7 +91,7 @@ public:
     int unknown68_;     // +0x68 (-1)
     uint8_t flag_bits_; // +0x6C (Flags)
     uint8_t cur_phase_; // +0x6D (State)
-    uint8_t pad6e_[2];
+    uint8_t pad6e_[2]{};
 
     // 0x00556FE0: a copy of `params` (the goal's own), its pro, an empty flags structure, the links' first entries,
     // the career's level, group_number, the goal flags, single_timer / retry_stage (passed to the children), skater,

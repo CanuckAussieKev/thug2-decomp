@@ -62,29 +62,29 @@ public:
     // 0x0046A550: the corner reached: onto the arc, into a blend, or (no arc) straight on to the next segment.
     void start_corner();
 
-    maths::Vec4 at_point_; // +0x04 (offsets: the original's, which has a vtable at +0x00)
+    maths::Vec4 at_point_{}; // +0x04 (offsets: the original's, which has a vtable at +0x00)
     GameEntity* owner_;    // +0x14
-    maths::Mat4 tick_;     // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
-    uint32_t last_node_;   // +0x58
-    uint32_t list_link_;   // +0x5C: the node headed for
-    uint32_t unknown60_;
-    maths::Vec4 segment_origin_; // +0x64: the segment's start
-    maths::Vec4 end_point_;      // +0x74: the node's position
-    maths::Vec4 unknown84_;      // +0x84 (0, 0, 0, 1)
-    float corner_distance_;      // +0x94 (none: 0)
-    uint32_t unknown98_;
-    float cut_;              // +0x9C: how far before the node the corner is left
-    float byte_count_;       // +0xA0: the segment's
-    float along_;            // +0xA4
-    uint32_t flag_bits_;     // +0xA8
-    float carry_;            // +0xAC: the distance past the last segment's end
-    maths::Vec4 center_;     // +0xB0: the arc's centre (the blend's start)
-    maths::Vec4 bend_point_; // +0xC0: the point on the next segment as far from the node as the cut
-    float arc_angle_;        // +0xD0
-    float arc_length_;       // +0xD4
-    float radius_;           // +0xD8
-    int cur_phase_;          // +0xDC
-    float step_;             // +0xE0: the last arc step's angle
+    maths::Mat4 tick_{};   // +0x18: rows: from the arc's centre, the arc's axis, the heading (+0x38), -
+    uint32_t last_node_{}; // +0x58
+    uint32_t list_link_{}; // +0x5C: the node headed for
+    uint32_t unknown60_{};
+    maths::Vec4 segment_origin_{}; // +0x64: the segment's start
+    maths::Vec4 end_point_{};      // +0x74: the node's position
+    maths::Vec4 unknown84_{};      // +0x84 (0, 0, 0, 1)
+    float corner_distance_{};      // +0x94 (none: 0)
+    uint32_t unknown98_{};
+    float cut_{};              // +0x9C: how far before the node the corner is left
+    float byte_count_{};       // +0xA0: the segment's
+    float along_{};            // +0xA4
+    uint32_t flag_bits_{};     // +0xA8
+    float carry_{};            // +0xAC: the distance past the last segment's end
+    maths::Vec4 center_{};     // +0xB0: the arc's centre (the blend's start)
+    maths::Vec4 bend_point_{}; // +0xC0: the point on the next segment as far from the node as the cut
+    float arc_angle_{};        // +0xD0
+    float arc_length_{};       // +0xD4
+    float radius_{};           // +0xD8
+    int cur_phase_{};          // +0xDC
+    float step_{};             // +0xE0: the last arc step's angle
 };
 
 } // namespace objects

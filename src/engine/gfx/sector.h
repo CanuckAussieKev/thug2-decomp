@@ -107,7 +107,7 @@ public:
     void start_texture_anim(bool reset);
     void stop_texture_anim();
 
-    uint32_t checksum_;                // +0x04: its name
+    uint32_t checksum_{};                       // +0x04: its name
     uint32_t flag_bits_{kSectorCollidable};     // +0x08
     uint32_t light_group_{kOutdoorLightGroup};  // +0x0C: its light group (the time of day's; outdoor by default)
     int rot_y_{0};                              // +0x10: quarter turns about y

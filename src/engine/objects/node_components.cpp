@@ -131,7 +131,7 @@ void GrindPathLinkModule::configure_from_data(script::Struct*)
 // 0x0042BA10
 maths::Mat4* GrindPathLinkModule::update_rail_matrix(maths::Mat4* out)
 {
-    maths::Mat4 placement;
+    maths::Mat4 placement{};
     placement = entity_->basis_frame_;
     placement.row[0].w = 0.0f;
     placement.row[1].w = 0.0f;

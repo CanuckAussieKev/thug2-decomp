@@ -519,7 +519,7 @@ void FriendsManager::on_buddy_status(void*, const void* argument, FriendsManager
 {
     auto* arg = static_cast<const GpRecvBuddyStatusArg*>(argument);
     push_bottom_up();
-    GpBuddyStatus status;
+    GpBuddyStatus status{};
     gp_get_buddy_status(man, arg->index, &status);
     lists::Hunt<Buddy> search;
     for (Buddy* buddy = search.head_element(&man->friends_); buddy; buddy = search.following_item()) {
@@ -755,7 +755,7 @@ bool join_buddy(script::Struct* params, script::Script*)
     gp_set_status(man, kStatusPlaying, text, status);
     pop_heap();
     script::Struct* join = new_params();
-    in_addr address;
+    in_addr address{};
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-union-access): the script values' tagged 32-bit cells (param_struct.h), read by their tag
     address.S_un.S_addr = static_cast<uint32_t>(ip);
     const char* dotted = inet_ntoa(address);

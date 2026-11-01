@@ -91,7 +91,7 @@ void note_origin(uint32_t name);
 const Values* get_origin(uint32_t name);
 // The nodes the editor has changed in this level and where the level had them.
 struct LinkRecord {
-    uint32_t name;
+    uint32_t name{};
     Values values;
 };
 // Those changed and not back where the level had them, as they are now (layouts save them).

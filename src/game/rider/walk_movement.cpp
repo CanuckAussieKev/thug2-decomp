@@ -100,7 +100,7 @@ void FootMovement::turn_facing_to_velocity()
         return;
     }
     // (below 1 - or NaN - the rate rounded to float)
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     facing = *get_lerp(&turned, &facing, &direction, static_cast<float>(rate));
     facing.make_unit();
 }
@@ -137,7 +137,7 @@ void FootMovement::update_upright()
         return;
     float rate = walk_parameter(kLerpUprightRate);
     maths::Vec4 upright = {0.0f, 1.0f, 0.0f, 1.0f};
-    maths::Vec4 eased;
+    maths::Vec4 eased{};
     up = *get_lerp(&eased, &up, &upright, static_cast<float>(frame_clock::get_slomo_frame_seconds() * rate));
     up.make_unit();
 }
@@ -406,7 +406,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
     // The way it's going: the velocity's (past ignore_velocity_threshold), else the push's, else the velocity's
     // (past 0.01), else the facing.
     float magnitude = stick_deflection_;
-    maths::Vec4 direction;
+    maths::Vec4 direction{};
     double direction_w = 0.0;
     if (speed > walk_parameter(kIgnoreVelocityThreshold)) {
         double inverse = kOne / static_cast<double>(speed);
@@ -490,7 +490,7 @@ void FootMovement::update_ground_velocity(maths::Vec4* velocity)
             if (step >= kOne) {
                 facing = control;
             } else {
-                maths::Vec4 eased;
+                maths::Vec4 eased{};
                 facing = *get_lerp(&eased, &facing, &control, static_cast<float>(step));
                 facing.make_unit();
             }
@@ -527,7 +527,7 @@ void FootMovement::update_rotate_upright()
     // This frame's share of the turn (+0x730 about +0x734) over rotate_upright_duration.
     float duration = walk_parameter(kRotateUprightDuration);
     auto angle = static_cast<float>(get_frame_length(this) / duration * upright_angle_);
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, upright_axis_, angle);
     auto* object = static_cast<GameEntity*>(entity_);
     // D3DXMatrixMultiply (0x005BFA8C)
@@ -546,7 +546,7 @@ void FootMovement::apply_transition()
     object->at_point_ = {at.x + offset.x, at.y + offset.y, at.z + offset.z, at.w + offset.w};
     // Upright, facing the transition's facing (row 0's w 1, as the original).
     const maths::Vec4& facing = transition_facing_;
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     matrix.row[0] = {facing.z, 0.0f, -facing.x, 1.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 1.0f};
     matrix.row[2] = facing;
@@ -572,7 +572,7 @@ void FootMovement::copy_to_object()
     facing.y = facing_y;
     // The orientation from the up vector and the facing.
     const maths::Vec4& up = up_;
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     maths::Vec4& right = matrix.row[0];
     right = {static_cast<float>(static_cast<double>(up.y) * facing.z - static_cast<double>(up.z) * facing.y),
              static_cast<float>(static_cast<double>(up.z) * facing.x - static_cast<double>(up.x) * facing.z),

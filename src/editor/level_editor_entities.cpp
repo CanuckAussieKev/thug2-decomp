@@ -818,7 +818,7 @@ float current_heading(const objects::GameEntity* object)
 void preview_place(float distance)
 {
     objects::GameEntity* object = live_object(g_preview.id);
-    V3 pos, dir;
+    V3 pos{}, dir{};
     if (!object || !path_sample(g_preview.points, g_preview.closed, distance, &pos, &dir))
         return;
     object_edit::get_place(object, pos);
@@ -1092,7 +1092,7 @@ void node_moved(uint32_t name, V3 pos, V3 angles)
         ParticleOrigin o;
         o.from = origin ? origin->pos : pos;
         o.from_yaw_ = origin ? origin->angles.y : angles.y;
-        script::VectorValue v;
+        script::VectorValue v{};
         // NOLINTNEXTLINE(bugprone-assignment-in-if-condition): set and tested in one step, on purpose
         if ((o.emitter.has_mid_ = node->fetch_vec(kMid, &v, 0)))
             o.emitter.mid = {v.x, v.y, v.z};

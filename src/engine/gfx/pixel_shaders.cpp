@@ -82,7 +82,7 @@ const char kTextureConstantAlpha[] =
 
 // The shader text being written (the original sprintfs into a 1 KB buffer).
 struct ShaderText {
-    char buffer[1024];
+    char buffer[1024]{};
     int length = 0;
     template <typename... Args>
     void append_one(const char* format, Args... args)

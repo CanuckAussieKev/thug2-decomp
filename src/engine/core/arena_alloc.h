@@ -64,13 +64,13 @@ public:
     // Move `allocator`'s top by `size` (in its direction). Returns the start of the claimed space - the old top
     // growing up, the new top growing down - or null if it would cross the other allocator.
     uint8_t* carve(MemSource* allocator, int size, int unused);
-    uint8_t* outset_;
-    int min_available_; // the least free_byte_count has been (starts as the whole region)
-    uint8_t* finish_;
-    MemSource* allocators_[2]; // growing up, growing down
+    uint8_t* outset_{};
+    int min_available_{}; // the least free_byte_count has been (starts as the whole region)
+    uint8_t* finish_{};
+    MemSource* allocators_[2]{}; // growing up, growing down
 
 protected:
-    Zone() = default; // fields left as they are (MemoryArena sets them, unless its size is 0)
+    Zone() = default; // fields zero (MemoryArena sets them, unless its size is 0; the original left them as they were)
 };
 
 // A region whose memory is itself allocated from the memory manager.
@@ -161,11 +161,11 @@ public:
     int max_free_size_;
     Zone* region_;
     int direction_;     // Direction
-    uint8_t* top_side_; // how far it has claimed in the region
+    uint8_t* top_side_{}; // how far it has claimed in the region
     CtxInfo* context_;  // the current context
     const char* label_;
-    ListNode zone_chain_; // head of the context stack (newest first)
-    CtxInfo base_context_;
+    ListNode zone_chain_{}; // head of the context stack (newest first)
+    CtxInfo base_context_{};
 };
 
 // The general-purpose allocator: a free list per context (address ordered, neighbours merged), and more space
@@ -190,8 +190,8 @@ public:
     bool unknown64_;
     int unknown68_;
     int use_fallbacks_;
-    Arena* fallbacks_[5];
-    int fallback_reserve_[5];
+    Arena* fallbacks_[5]{};
+    int fallback_reserve_[5]{};
 };
 
 } // namespace memory

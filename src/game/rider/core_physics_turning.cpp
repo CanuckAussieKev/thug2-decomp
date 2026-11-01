@@ -288,12 +288,12 @@ void SkaterPhysicsModule::rotate_in_acid_drop()
         t = 1.0f;
     // Eased: 3t^2 - 2t^3.
     auto eased = static_cast<float>((t - kAcidDropEase) * t * t * kAcidDropEaseScale);
-    maths::Mat4 slerped;
+    maths::Mat4 slerped{};
     drop_slerp_.fetch_mat(slerped, eased);
     // The change since the last frame's matrix applied to the skater's.
     maths::Mat4 last = drop_last_matrix_;
     last.invert_orthonormal();
-    maths::Mat4 change;
+    maths::Mat4 change{};
     maths::get_multiply(change, last, slerped);
     maths::Mat4& matrix = entity_->basis_frame_;
     maths::get_multiply(matrix, matrix, change);

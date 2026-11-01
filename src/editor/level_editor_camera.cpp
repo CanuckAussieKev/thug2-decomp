@@ -191,7 +191,7 @@ namespace {
 // A flight: from, to, how far along (seconds), and what it turns into at its end (an ortho view).
 struct Flight {
     bool on = false;
-    Pose from, to;
+    Pose from{}, to{};
     float t = 0.0f, duration = 0.33f;
     View then_view_ = View::kNone;
     float then_equivalent_ = 0.0f;
@@ -296,7 +296,7 @@ V3 look_point(const Rig& rig)
     if (rig.have_selection_)
         return rig.target;
     V3 forward = get_forward(*rig.yaw, *rig.pitch);
-    V3 hit;
+    V3 hit{};
     if (rig.cast && rig.cast(*rig.pos, *rig.pos + forward * 20000.0f, &hit))
         return hit;
     return *rig.pos + forward * 1000.0f;

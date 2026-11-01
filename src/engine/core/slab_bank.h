@@ -27,7 +27,7 @@ public:
     int slot_bytes_;
     int taken_count_;
     void* free_list_;
-    char label_[64];
+    char label_[64]{};
     int peak_used_;
 };
 

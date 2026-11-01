@@ -218,7 +218,7 @@ script::Struct* get_node_at(script::Array* nodes, uint32_t index)
 // GameObjects::Rider's reset; not rewritten yet): its at row, flattened.
 V3 get_heading_of(V3 angles)
 {
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -499,7 +499,7 @@ void reread(int index)
     if (shape_of(node.family) == Shape::kPoint)
         node.forward = get_heading_of(node.angles);
     // (a rail / ladder point: where the rail manager has it - see sync_rails)
-    V3 point;
+    V3 point{};
     if ((node.family == Family::kRail || node.family == Family::kLadder) &&
         scenery::get_rail_point(node.name, &point, true))
         node.pos = point;

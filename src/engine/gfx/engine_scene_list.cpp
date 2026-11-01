@@ -79,7 +79,7 @@ void build_scene_file_path(char* out, size_t size, const char* name)
 } // namespace
 
 // 0x0048CC30
-SceneListHead::SceneListHead() { make_head(); }
+SceneListHead::SceneListHead() : ListNode() { make_head(); }
 
 // 0x0048C7F0
 memory::ListNode* first_scene_node()

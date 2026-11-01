@@ -76,7 +76,7 @@ public:
     void mark_changed();
 
     int lock_;              // +0x00 nonzero while being changed or run
-    memory::ListNode head_; // +0x04 (lists::Foremost<SchedulerTask>)
+    memory::ListNode head_{}; // +0x04 (lists::Foremost<SchedulerTask>)
     int pass_count_;        // +0x14 counts the passes
     bool altered_;          // +0x18 a task was added or removed
 };
@@ -119,10 +119,10 @@ public:
     void delete_popped_lists();
 
     int lock_;                      // +0x00
-    uint32_t skip_bits_;            // +0x04
-    memory::ListNode lists_;        // +0x08 newest first (lists::Foremost<StackList>)
-    memory::ListNode popped_lists_; // +0x18 lists popped while the stack was locked
-    StackList* top_side_;           // +0x28
+    uint32_t skip_bits_{};          // +0x04
+    memory::ListNode lists_{};      // +0x08 newest first (lists::Foremost<StackList>)
+    memory::ListNode popped_lists_{}; // +0x18 lists popped while the stack was locked
+    StackList* top_side_{};           // +0x28
     StackList* ongoing_;            // +0x2C where queue_job puts tasks
     bool pushed_;                   // +0x30
     bool just_popped_;              // +0x31

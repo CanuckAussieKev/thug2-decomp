@@ -59,18 +59,18 @@ struct PcParticleSystem final : Sparkle {
     // when useMid), less 1.5 times the spread.
     void update_path();
 
-    bool emitting; // +0x190
-    uint8_t unknown191[3];
-    int capacity;          // +0x194: bursts (5)
-    int live;              // +0x198
-    ParticleBurst* bursts; // +0x19C: a ring of `capacity`
-    ParticleBurst* newest; // +0x1A0
-    ParticleBurst* oldest; // +0x1A4
-    maths::Mat4 matrix;    // +0x1A8 (the identity)
-    uint8_t unknown1e8_[0x40];
-    MaterialRef* material; // +0x228: its own
-    ParticleCurve spread;  // +0x22C: the boxes and radii through time
-    ParticleCurve path;    // +0x25C: the positions and sizes through time, less 1.5 times the spread
+    bool emitting{}; // +0x190
+    uint8_t unknown191[3]{};
+    int capacity{};          // +0x194: bursts (5)
+    int live{};              // +0x198
+    ParticleBurst* bursts{}; // +0x19C: a ring of `capacity`
+    ParticleBurst* newest{}; // +0x1A0
+    ParticleBurst* oldest{}; // +0x1A4
+    maths::Mat4 matrix{};    // +0x1A8 (the identity)
+    uint8_t unknown1e8_[0x40]{};
+    MaterialRef* material{}; // +0x228: its own
+    ParticleCurve spread{};  // +0x22C: the boxes and radii through time
+    ParticleCurve path{};    // +0x25C: the positions and sizes through time, less 1.5 times the spread
 };
 static_assert(offsetof(PcParticleSystem, capacity) == 0x194 && offsetof(PcParticleSystem, matrix) == 0x1A8 &&
                   offsetof(PcParticleSystem, material) == 0x228 && offsetof(PcParticleSystem, spread) == 0x22C &&

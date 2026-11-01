@@ -240,7 +240,7 @@ bool cfunc_exit_park_ed_test_play(script::Struct*, script::Script*)
 // 0x0058DA70
 bool cfunc_park_update_usage_info(script::Struct*, script::Script*)
 {
-    MemoryStats stats;
+    MemoryStats stats{};
     get_memory_stats(&stats);
     return true;
 }
@@ -335,8 +335,8 @@ bool cfunc_can_cleanly_resize_park(script::Struct* params, script::Script*)
     bool clean = true;
     if (hub()->has_pieces_outside(area))
         clean = false;
-    PanelRect rails;
-    PanelRect goals;
+    PanelRect rails{};
+    PanelRect goals{};
     world_rectangles(area, &rails, &goals);
     // 0x004F4600: whether a rail point lies outside the rectangle
     if (get_rail_editor()->any_point_outside(rails.x0, rails.z0, rails.x1, rails.z1))
@@ -355,8 +355,8 @@ void resize_to(CellBox area)
     collision_allowed = false;
     hub()->rebuild_inner_shell(area);
     hub()->rebuild_area(nullptr, false);
-    PanelRect rails;
-    PanelRect goals;
+    PanelRect rails{};
+    PanelRect goals{};
     world_rectangles(area, &rails, &goals);
     // 0x004F74B0: the rails' points outside the rectangle removed
     get_rail_editor()->delete_points(rails.x0, rails.z0, rails.x1, rails.z1, 0);
@@ -380,7 +380,7 @@ bool cfunc_resize_park(script::Struct* params, script::Script*)
     if (params->read_sub_struct(kResizeArea, &structure, 0)) {
         area = area_from_structure(structure);
     } else {
-        CellBox asked;
+        CellBox asked{};
         area = *get_resize_area(&asked, params);
     }
     if (params->has_bare_flag(kSaveArea)) {
@@ -503,7 +503,7 @@ bool cfunc_is_custom_park(script::Struct*, script::Script*)
 // 0x0058EBB0
 bool cfunc_is_park_full(script::Struct*, script::Script*)
 {
-    MemoryStats stats;
+    MemoryStats stats{};
     get_memory_stats(&stats);
     return get_attributes().max_usage_ >= 1.0f;
 }

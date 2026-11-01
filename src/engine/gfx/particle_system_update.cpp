@@ -116,7 +116,7 @@ const uint32_t kStartChannels[4] = {0x043FD725, 0x69E233CE, 0x1988C741, 0x808196
 // A vector parameter, or x, y and z ones.
 void get_vector_or_xyz(script::Struct* params, uint32_t name, float& x, float& y, float& z)
 {
-    script::VectorValue v;
+    script::VectorValue v{};
     if (params->fetch_vec(name, &v, 0)) {
         x = v.x;
         y = v.y;
@@ -154,7 +154,7 @@ void EmitterInstance::get_emit(int count)
     int total = count + first;
     particle_count_ = total > max_particles_ ? max_particles_ : total;
     int last = particle_count_;
-    maths::Mat4 m;
+    maths::Mat4 m{};
     get_emit_matrix(&m);
     for (int i = first; i < last; ++i) {
         FlexibleParticle& p = particle_list_[i];

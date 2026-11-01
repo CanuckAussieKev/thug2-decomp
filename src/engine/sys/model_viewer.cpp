@@ -119,7 +119,7 @@ float dead_zone(float value)
 void get_roll(objects::GameEntity* object, float angle)
 {
     maths::Vec4 axis = {0.0f, 0.0f, 1.0f, 1.0f};
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     maths::build_axis_angle_matrix(rotation, axis, angle);
     maths::get_multiply(object->basis_frame_, rotation, object->basis_frame_);
 }
@@ -306,7 +306,7 @@ void Viewer::add_commands(uint32_t commands) { actions_ |= commands; }
 // 0x005772E0
 void move_object_local(objects::GameEntity* object, const maths::Vec4* offset)
 {
-    maths::Mat4 m;
+    maths::Mat4 m{};
     m = object->basis_frame_;
     const maths::Vec4& v = *offset;
     auto along = [&](int c) {
@@ -400,13 +400,13 @@ bool Viewer::place_camera(script::Struct* params)
     auto* camera = static_cast<objects::GameEntity*>(objects::object_hub_slot()->look_up_entity(kViewerCam));
     if (!camera)
         return true;
-    maths::Mat4 identity;
+    maths::Mat4 identity{};
     identity.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     identity.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     identity.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     identity.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     camera->basis_frame_ = identity;
-    script::VectorValue at;
+    script::VectorValue at{};
     float x = 0.0f, y = 0.0f, z = 0.0f;
     if (params->fetch_vec("ViewerObjPos", &at, 0)) {
         x = at.x;
@@ -452,11 +452,11 @@ void free_camera_task(ViewerTask* task)
             }
             if (viewer->pad_lx_ != 0.0f) {
                 // Left / right: about the world's y axis.
-                maths::Mat4 matrix;
+                maths::Mat4 matrix{};
                 matrix = camera->basis_frame_;
                 auto angle =
                     static_cast<float>(static_cast<double>(rotate_velocity()) * viewer->pad_lx_ * seconds * -kDegrees);
-                maths::Mat4 rotation;
+                maths::Mat4 rotation{};
                 maths::get_multiply(matrix, matrix, maths::make_yaw_matrix(rotation, angle));
                 camera->basis_frame_ = matrix;
             }

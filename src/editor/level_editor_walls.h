@@ -37,9 +37,9 @@ namespace frontend::level_editor::walls {
 // A wall's (or a drawn piece's collision's) state: where its collision has been put relative to where the level has it
 // (Apply(placement, x): quarter turns about the world's up axis, then the offset; scale always 1) and whether it's off.
 struct WallState {
-    uint32_t checksum;
+    uint32_t checksum{};
     Placement placement;
-    bool off;
+    bool off{};
 };
 
 // --- the pieces (pure) ------------------------------------------------------------------------------------------------

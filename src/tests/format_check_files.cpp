@@ -383,7 +383,7 @@ void check_image(const std::string& name, const uint8_t* data, size_t size)
         uint32_t id, unknown4, width, height, format, unknown14;
         uint16_t image_width, image_height;
         uint32_t palette_size;
-    } reference;
+    } reference{};
     // NOLINTEND(readability-identifier-naming)
     static_assert(sizeof(ReferenceHeader) == image_format::kHeaderSize);
     std::memcpy(&reference, data, sizeof(reference));

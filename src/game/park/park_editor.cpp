@@ -100,7 +100,7 @@ bool ParkLayout::rebuild_area(const CellBox* area, bool check_memory)
     rebuild_floor_and_pieces(this, area, 0);
     if (!check_memory)
         return true;
-    MemoryStats stats;
+    MemoryStats stats{};
     get_memory_stats(&stats);
     // The park editor's singleton (a reference taken and dropped): is the park over its budget?
     bool full = ParkBuilderMode::fabricate(false)->is_park_full() != 0;

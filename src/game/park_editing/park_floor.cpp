@@ -413,7 +413,7 @@ bool ParkLayout::regenerate_ground(const CellBox* area, int /*unused*/)
     FloorCell* cells = &floor_[0][0];
     for (int x = area->x - 1; x < area->w + 1 + area->x; ++x) {
         for (int z = area->z - 1; z < area->l + 1 + area->z; ++z) {
-            FloorPieceRequest request;
+            FloorPieceRequest request{};
             request.height = cells[x * kFloorSize + z].level_y_;
             request.index = request.height - 1;
             request.x = x;

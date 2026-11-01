@@ -124,7 +124,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
     bool grounded = ground_below(position, &ground);
     if (grounded)
         position.y = ground;
-    Vec3 right, up, at;
+    Vec3 right{}, up{}, at{};
     standing_rows(heading_degrees, &right, &up, &at);
     // (the skater's own custom restart kept and put back: only the restart's code is borrowed)
     maths::Vec4 saved_pos = skater->custom_restart_pos_;
@@ -150,7 +150,7 @@ std::string jump_to(Vec3 position, bool has_heading, float heading_degrees, Vec3
 
 bool lock_camera(Vec3 position, Vec3 direction, Vec3 drift)
 {
-    Vec3 right, up, back;
+    Vec3 right{}, up{}, back{};
     if (!camera_rows(direction, &right, &up, &back))
         return false;
     g_lock = {true, position, right, up, back, drift, frame_loop::frames_run()};

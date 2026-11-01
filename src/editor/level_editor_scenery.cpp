@@ -95,7 +95,7 @@ void engine_state(int quarters0, V3 position0, const Placement& placement, int* 
 
 OrientedBox placed_box(V3 min, V3 max, const Placement& placement)
 {
-    OrientedBox box;
+    OrientedBox box{};
     box.origin = placement.offset;
     box.axes[0] = get_quarter_turn({placement.scale.x, 0.0f, 0.0f}, placement.quarters);
     box.axes[1] = {0.0f, placement.scale.y, 0.0f};
@@ -359,7 +359,7 @@ bool current_box(uint32_t checksum, render::PcGeom* geom, OrientedBox* box)
         *box = placed_box(it->second.min0, it->second.max0, it->second.placement);
         return true;
     }
-    V3 min, max;
+    V3 min{}, max{};
     if (!geom_box(geom, &min, &max))
         return false;
     *box = placed_box(min, max, {0, {0.0f, 0.0f, 0.0f}});
@@ -392,7 +392,7 @@ void apply_track(Track* track)
         }
     }
     int quarters = 0;
-    V3 position;
+    V3 position{};
     engine_state(track->quarters0, track->position0, track->placement, &quarters, &position);
     if (quarters != track->quarters) {
         track->sector->spin_around_up(quarters);
@@ -562,7 +562,7 @@ void apply_rails(const std::vector<uint32_t>& names)
         RailNode* node = &nodes[i];
         if (!is_moved(node) && !is_moved(node->succ_))
             continue;
-        V3 min, max;
+        V3 min{}, max{};
         segment_box(rail_pos(node), node->succ_ ? rail_pos(node->succ_) : rail_pos(node), &min, &max);
         node->lower_limit_ = {min.x, min.y, min.z, 1.0f};
         node->upper_limit_ = {max.x, max.y, max.z, 1.0f};
@@ -579,10 +579,10 @@ void compute_pivot()
     for (uint32_t checksum : g_selection) {
         if (casters && g_shadow_of.count(checksum))
             continue;
-        OrientedBox box;
+        OrientedBox box{};
         if (!cuboid(checksum, &box))
             continue;
-        V3 a, b;
+        V3 a{}, b{};
         bounds_of(box, &a, &b);
         grow_box(&min, &max, have, a, b);
         have = true;
@@ -608,8 +608,8 @@ void select_rails()
         clusters.push_back(checksum);
         if (uint32_t cluster = cluster_of(checksum))
             clusters.push_back(cluster);
-        OrientedBox box;
-        V3 min, max;
+        OrientedBox box{};
+        V3 min{}, max{};
         if (!g_shadow_of.count(checksum) && cuboid(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             bounds_of(box, &min, &max);
             boxes.emplace_back(min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f});
@@ -683,7 +683,7 @@ std::vector<uint32_t> group_of(uint32_t checksum)
     std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
     for_each_sector(scene, [&](uint32_t other, render::WorldCell* sector) {
         render::PcGeom* geom = geom_of(sector);
-        V3 min, max;
+        V3 min{}, max{};
         if (!plain_geom(geom) || !geom->active || !geom_box(geom, &min, &max) ||
             !sector_size_movable(min, max, kMaxSectorExtent) || !same_placement(placement_of(other, geom), placement))
             return;
@@ -947,8 +947,8 @@ bool get_passed(uint32_t checksum, V3 camera)
     render::PcGeom* geom = sector ? geom_of(sector) : nullptr;
     if (!plain_geom(geom))
         return false;
-    OrientedBox box;
-    V3 min, max;
+    OrientedBox box{};
+    V3 min{}, max{};
     if (current_box(checksum, geom, &box)) {
         bounds_of(box, &min, &max);
         if (picking::is_structure(min, max, camera, geom_level_share(checksum, geom)))
@@ -976,7 +976,7 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
     // The collision ray, past collision that has no geometry to show (invisible walls), at most a few dozen faces.
     V3 from = origin;
     for (int i = 0; i < 32; ++i) {
-        V3 point;
+        V3 point{};
         uint32_t checksum = 0;
         if (!cast_static(from, origin + unit_dir * max_t, &point, &checksum))
             break;
@@ -995,13 +995,13 @@ bool get_pick(V3 origin, V3 unit_dir, float max_t, Hit* hit, std::vector<Layer>*
             render::PcGeom* geom = geom_of(sector);
             if (!plain_geom(geom) || !geom->active)
                 return;
-            OrientedBox box;
+            OrientedBox box{};
             if (!current_box(checksum, geom, &box))
                 return;
             float t = 0.0f;
             bool inside = false;
             {
-                V3 min, max;
+                V3 min{}, max{};
                 bounds_of(box, &min, &max);
                 inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
                          origin.z >= min.z && origin.z <= max.z;
@@ -1063,7 +1063,7 @@ const char* why_not_movable(uint32_t checksum)
         return "odd geometry";
     if (geom->instance)
         return "an instance";
-    OrientedBox box;
+    OrientedBox box{};
     if (!current_box(checksum, geom, &box))
         return "no box";
     if (!sector_size_movable(box.min, box.max, kMaxSectorExtent))
@@ -1074,7 +1074,7 @@ const char* why_not_movable(uint32_t checksum)
 std::string describe_hover(uint32_t checksum)
 {
     std::string text = "scenery " + caption(checksum);
-    OrientedBox box;
+    OrientedBox box{};
     if (cuboid(checksum, &box)) {
         char size[64];
         V3 size3 = box_size(box); // (scaled: level_editor_scale.h)
@@ -1581,8 +1581,8 @@ uint32_t get_duplicate(uint32_t source)
     render::WorldCell* sector = find_sector(source, &scene);
     if (!sector || why_not_movable(source))
         return 0;
-    OrientedBox box;
-    V3 min, max;
+    OrientedBox box{};
+    V3 min{}, max{};
     if (!cuboid(source, &box))
         return 0;
     bounds_of(box, &min, &max);

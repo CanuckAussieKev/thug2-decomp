@@ -19,15 +19,15 @@ class LetterMatch {
 public:
     static constexpr int kPlayers = 8;
 
-    int points_target_;     // +0x000 (0: none set)
-    int skater_;            // +0x004: the skater taking the run (its id)
-    int last_skater_;       // +0x008
-    char word_[0x200];      // +0x00C ("HORSE")
-    char panel_[0x200];     // +0x20C: what the last run did
-    int letters_[kPlayers]; // +0x40C: each player's letters
-    uint32_t unknown42c_;
+    int points_target_{};     // +0x000 (0: none set)
+    int skater_{};            // +0x004: the skater taking the run (its id)
+    int last_skater_{};       // +0x008
+    char word_[0x200]{};      // +0x00C ("HORSE")
+    char panel_[0x200]{};     // +0x20C: what the last run did
+    int letters_[kPlayers]{}; // +0x40C: each player's letters
+    uint32_t unknown42c_{};
     int restart_;           // +0x430: the restart the next run starts from
-    uint32_t cur_standing_; // +0x434: one of the table at 0x0067F340
+    uint32_t cur_standing_{}; // +0x434: one of the table at 0x0067F340
 
     // 0x005600D0: the word HORSE, restart 0.
     LetterMatch();

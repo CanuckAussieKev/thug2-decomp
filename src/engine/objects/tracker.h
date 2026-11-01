@@ -169,11 +169,11 @@ public:
     lists::KeyMap* listeners_;        // +0x10 event type -> ScriptList (8 bits)
     SignalReceiver* event_listeners_; // +0x14
     bool unknown18;                   // +0x18 (cleared by the constructor only)
-    uint8_t unknown19[3];
+    uint8_t unknown19[3]{};
     int launch_depth_;         // +0x1C
-    SignalTrace log_;          // +0x20
+    SignalTrace log_{};        // +0x20
     int launched_from_script_; // +0xB034 for the next launch's log entry (set by the LaunchEvent Function)
-    Waiter waiters_[40];       // +0xB038
+    Waiter waiters_[40]{};     // +0xB038
     bool unknownb218_;         // +0xB218 (cleared by the constructor only)
 };
 

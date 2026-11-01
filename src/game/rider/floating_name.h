@@ -38,7 +38,7 @@ public:
     // is destroyed.
     void tick_frame() override;
 
-    uint32_t label_id_; // +0x18 skater_name_<n>
+    uint32_t label_id_{}; // +0x18 skater_name_<n>
 };
 
 } // namespace objects

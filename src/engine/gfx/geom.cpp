@@ -257,7 +257,7 @@ Geom* PcGeom::plat_replicate(int instance_flag, void* scene_bytes)
         std::memcpy(&geom->bounds, &bounds, sizeof(bounds));
         SceneRef* list = geom->create_mesh_list();
         geom->change_live(true);
-        maths::Mat4 identity;
+        maths::Mat4 identity{};
         get_identity(&identity);
         Singleton* inst = new_instance(list, &identity, 1, nullptr);
         inst->flags |= 1;
@@ -294,7 +294,7 @@ Geom* PcGeom::clone_instance(int instance_flag, void* model_bytes)
     auto* bones = static_cast<maths::Mat4*>(memory::alloc((bone_count + 1) * sizeof(maths::Mat4)));
     for (int i = 0; i < bone_count; ++i)
         get_identity(&bones[i]);
-    maths::Mat4 identity;
+    maths::Mat4 identity{};
     get_identity(&identity);
     Singleton* inst = new_instance(list, &identity, bone_count, bones);
     inst->flags |= 1;
@@ -309,7 +309,7 @@ bool PcGeom::plat_init_instance(void* mesh_bytes, void* model_bytes, int /*unuse
     auto* model = static_cast<uint8_t*>(model_bytes);
     int bone_count = *reinterpret_cast<int*>(model + 8);
     source = mesh;
-    maths::Mat4 identity;
+    maths::Mat4 identity{};
     get_identity(&identity);
     void* memory = memory::alloc(sizeof(Singleton));
     Singleton* inst = nullptr;
@@ -502,7 +502,7 @@ void PcGeom::change_facing(const maths::Mat4* orientation)
 {
     if (!instance)
         return;
-    maths::Mat4 m;
+    maths::Mat4 m{};
     m = instance->transform;
     m.row[0] = orientation->row[0];
     m.row[1] = orientation->row[1];
@@ -532,10 +532,10 @@ void PcGeom::rotate_y(int turns)
             meshes[i]->turn_y(turns);
         return;
     }
-    maths::Mat4 m;
+    maths::Mat4 m{};
     m = instance->transform;
     m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     maths::make_yaw_matrix(rotation, static_cast<float>(static_cast<double>(turns) * kQuarterTurn));
     // D3DX (linked library code): rotation = m * rotation
     d3dx::matrix_multiply(&rotation, &m, &rotation);

@@ -631,7 +631,7 @@ void PedestrianBrainModule::align_to_ground()
     KinematicsModule* motion = get_motion(entity_);
     if (!motion)
         return;
-    GroundTriangle t;
+    GroundTriangle t{};
     t.get_assign(*reinterpret_cast<GroundTriangle*>(&motion->ground_triangle_[0]));
     const maths::Vec4* c = t.corners;
     double e1x = static_cast<double>(c[1].x) - c[0].x, e1y = static_cast<double>(c[1].y) - c[0].y,

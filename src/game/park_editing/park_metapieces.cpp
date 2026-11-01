@@ -128,7 +128,7 @@ void PieceGroup::set_quarter_turns(int rot)
                 across = size.w;
             }
         } else {
-            CellBox size;
+            CellBox size{};
             size.w = 0;
             size.l = 0;
             static_cast<ParkTile*>(from->piece)->get_footprint_size(&size);
@@ -260,7 +260,7 @@ bool PieceGroup::intersects(CellBox area, uint32_t precise)
         return true;
     for (uint32_t i = 0; i < filled_slots_; ++i) {
         const PieceGroupDesc* entry = get_descriptor(static_cast<int>(i));
-        CellBox size;
+        CellBox size{};
         size.w = 0;
         size.h = 0;
         size.l = 0;
@@ -311,7 +311,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         maths::Vec4 size;
         piece->measure_span(&size);
         // The piece's centre from the metapiece's centre (y read unsigned here), turned with the metapiece.
-        maths::Mat4 place;
+        maths::Mat4 place{};
         place.reset_to_identity();
         place.row[3].x =
             static_cast<float>(static_cast<double>(entry->x) * kGridPitch + static_cast<double>(size.x) * 0.5 - half_w);
@@ -319,7 +319,7 @@ void PieceGroup::change_place(maths::Vec4 position, float angle)
         place.row[3].z = static_cast<float>(static_cast<double>(entry->z) * kGridStepAlong +
                                             static_cast<double>(size.z) * 0.5 - half_l);
         place.row[3].w = 1.0f;
-        maths::Mat4 turn;
+        maths::Mat4 turn{};
         maths::make_yaw_matrix(turn, radians);
         multiply_matrices(&place, &place, &turn);
         maths::Vec4& at = place.row[3];

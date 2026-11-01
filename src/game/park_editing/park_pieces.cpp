@@ -126,9 +126,9 @@ void ParkTile::set_angle(float degrees)
     uint8_t* geometry = scene::fetch_shape(scene::look_up_sector(sector_));
     if (!geometry)
         return;
-    maths::Mat4 orientation;
+    maths::Mat4 orientation{};
     orientation.reset_to_identity();
-    maths::Mat4 turn;
+    maths::Mat4 turn{};
     maths::make_yaw_matrix(turn, static_cast<float>(static_cast<double>(degrees) * kRadiansPerDegree));
     multiply_matrices(&orientation, &orientation, &turn);
     scene::change_facing(geometry, &orientation);

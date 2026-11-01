@@ -96,13 +96,13 @@ public:
         char name[64];
     };
 
-    ArchiveFile* open_archive_;
+    ArchiveFile* open_archive_{};
     ArchiveFile::FileInfo* open_entry_key_;
     uint8_t* open_entry_data_;
     ArchiveFile::FileInfo* missing_handle_; // the last handle no archive had (a quick "no" next time)
     lists::KeyMap* pres_;                   // ArchiveFile by archive name checksum
-    bool hold_archive_loads_;
-    PendingLoad pending_[8];
+    bool hold_archive_loads_{};
+    PendingLoad pending_[8]{};
     int queued_archive_count_;
 };
 

@@ -16,19 +16,19 @@ class PcPrimitive;
 
 // A spawned polygon (0xB8 bytes; the script command's SpawnedPolyDetails, from the pool pair 0x00700500).
 struct SpawnedPoly {
-    maths::Vec4 pos;              // +0x00
-    maths::Mat4 matrix;           // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
-    float dims[2];                // +0x50: the size now
-    float start_dims_[2];         // +0x58
-    float end_dims_[2];           // +0x60
-    uint8_t start_colours_[4][4]; // +0x68: per corner (RGBA)
-    uint8_t end_colours_[4][4];   // +0x78
-    uint8_t colours[4][4];        // +0x88: now
-    uint32_t flags;               // +0x98: 1 done; 2 the primitive's +0x14
-    float age;                    // +0x9C: seconds
-    float lifetime;               // +0xA0
-    uint8_t* texture;             // +0xA4 (null: untextured)
-    PcPrimitive* primitive;       // +0xA8
+    maths::Vec4 pos{};              // +0x00
+    maths::Mat4 matrix{};           // +0x10: its turn (row 0 the direction, rows 1 / 2 across; row 3 (0, 0, 0, 1))
+    float dims[2]{};                // +0x50: the size now
+    float start_dims_[2]{};         // +0x58
+    float end_dims_[2]{};           // +0x60
+    uint8_t start_colours_[4][4]{}; // +0x68: per corner (RGBA)
+    uint8_t end_colours_[4][4]{};   // +0x78
+    uint8_t colours[4][4]{};        // +0x88: now
+    uint32_t flags{};               // +0x98: 1 done; 2 the primitive's +0x14
+    float age{};                    // +0x9C: seconds
+    float lifetime{};               // +0xA0
+    uint8_t* texture{};             // +0xA4 (null: untextured)
+    PcPrimitive* primitive{};       // +0xA8
     uint32_t blend_mode_;         // +0xAC
     float align_h_;               // +0xB0 (-1 left, 0 centre, 1 right)
     float align_v_;               // +0xB4 (-1 top, 0 centre, 1 bottom)

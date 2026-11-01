@@ -350,7 +350,7 @@ bool cfunc_append_suffix(Struct* params, Script* script)
     struct {
         char number[20];
         char result[100];
-    } buffers;
+    } buffers{};
     copy_text(buffers.result, text);
     int max_length = 15;
     params->fetch_int_value(kMaxLength, &max_length, 0);

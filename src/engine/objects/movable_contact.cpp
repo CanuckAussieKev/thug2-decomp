@@ -103,7 +103,7 @@ maths::Vec4* MovingSurfaceModule::get_contact_point(maths::Vec4* out)
 {
     maths::Vec4 point = contact_point_;
     if (last_object_) {
-        maths::Mat4 matrix;
+        maths::Mat4 matrix{};
         matrix = last_object_->basis_frame_;
         maths::Vec4 turned;
         matrix.rotate_vector(turned, point);
@@ -181,7 +181,7 @@ void MovingSurfaceModule::update_contact_point()
             return;
     }
     maths::Vec4 at = object->at_point_;
-    maths::Mat4 inverse;
+    maths::Mat4 inverse{};
     inverse = object->basis_frame_;
     const maths::Vec4& pos = entity_->at_point_;
     contact_point_ = {

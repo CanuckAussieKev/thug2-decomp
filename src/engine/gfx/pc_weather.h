@@ -23,29 +23,29 @@ struct WeatherRow {
 class PcWeather final : public WeatherSystem {
 public:
     void* splash_texture_;      // +0x5C TextureRef* (0x45C7EB0F)
-    void* snow_texture_;        // +0x60 TextureRef* (0xC97C5A4C)
+    void* snow_texture_{};      // +0x60 TextureRef* (0xC97C5A4C)
     uint8_t* columns;           // +0x64 the rows' columns' height indices
-    WeatherRow* rows;           // +0x68
-    int heights[0x100];         // +0x6C the ground's heights (16ths), by index
-    int width;                  // +0x46C the grid's columns
-    int depth;                  // +0x470 and rows
-    float origin_x_, origin_z_; // +0x474 its corner
+    WeatherRow* rows{};         // +0x68
+    int heights[0x100]{};       // +0x6C the ground's heights (16ths), by index
+    int width{};                // +0x46C the grid's columns
+    int depth{};                // +0x470 and rows
+    float origin_x_{}, origin_z_{}; // +0x474 its corner
     float rain_due_;            // +0x47C drops started so far, with the fraction due
     float splash_due_;          // +0x480
-    float snow_due_;            // +0x484
-    uint8_t unknown488[0x10];
-    uint8_t stage[0x400];     // +0x498 each slot's frame of its fall (0xFF: none)
-    uint8_t offset_x_[0x400]; // +0x898 its place in its cell (random)
-    uint8_t offset_z_[0x400]; // +0xC98
-    uint32_t next;            // +0x1098 the next slot (the feedback step's state)
+    float snow_due_{};          // +0x484
+    uint8_t unknown488[0x10]{};
+    uint8_t stage[0x400]{};     // +0x498 each slot's frame of its fall (0xFF: none)
+    uint8_t offset_x_[0x400]{}; // +0x898 its place in its cell (random)
+    uint8_t offset_z_[0x400]{}; // +0xC98
+    uint32_t next{};            // +0x1098 the next slot (the feedback step's state)
     uint32_t rain_blend_;     // +0x109C blend modes (the fixed alpha in the high byte)
     uint32_t splash_blend_;   // +0x10A0
     uint32_t snow_blend_;     // +0x10A4
-    float splash_x_[0x20];    // +0x10A8
-    float splash_y_[0x20];    // +0x1128
-    float splash_z_[0x20];    // +0x11A8
-    int splash_frames_[0x20]; // +0x1228 left (0: none)
-    int next_splash_;         // +0x12A8
+    float splash_x_[0x20]{};  // +0x10A8
+    float splash_y_[0x20]{};  // +0x1128
+    float splash_z_[0x20]{};  // +0x11A8
+    int splash_frames_[0x20]{}; // +0x1228 left (0: none)
+    int next_splash_{};         // +0x12A8
 
     // 0x004CC560: no grid, no splash texture - the snow's left as it was; blend mode 0xA86285A1 with alpha 0x80 for
     // all three.

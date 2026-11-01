@@ -67,18 +67,18 @@ public:
     // 1; any other member: 2 (not its own).
     int invoke_method_by_name(uint32_t name, script::Struct* params, script::Script* script) override;
 
-    uint32_t entity_label_;        // +0x18 ObjectName (0 none)
-    uint32_t target_id_;           // +0x1C id (default the "no id" value at 0x0064780C)
-    uint32_t bone_;                // +0x20 bone (0 none)
-    maths::Vec4 shift_;            // +0x24 (w 1)
-    maths::Mat4 orientation_turn_; // +0x34 the rotation of Angles
-    float lag_;                    // +0x74
-    float lag_min_;                // +0x78 LagRange
-    float lag_max_;                // +0x7C
-    float wobble_[2];              // +0x80 lagwobble
-    int wobble_seed_;              // +0x88 Rnd(1024)
-    uint8_t lock_flags_;           // +0x8C LOCK_FLAG_*
-    uint8_t pad8d_[3];
+    uint32_t entity_label_{};        // +0x18 ObjectName (0 none)
+    uint32_t target_id_{};           // +0x1C id (default the "no id" value at 0x0064780C)
+    uint32_t bone_{};                // +0x20 bone (0 none)
+    maths::Vec4 shift_{};            // +0x24 (w 1)
+    maths::Mat4 orientation_turn_{}; // +0x34 the rotation of Angles
+    float lag_{};                    // +0x74
+    float lag_min_{};                // +0x78 LagRange
+    float lag_max_{};                // +0x7C
+    float wobble_[2]{};              // +0x80 lagwobble
+    int wobble_seed_{};              // +0x88 Rnd(1024)
+    uint8_t lock_flags_{};           // +0x8C LOCK_FLAG_*
+    uint8_t pad8d_[3]{};
 };
 static_assert(offsetof(PinnedObjectModule, entity_label_) == 0x18 && offsetof(PinnedObjectModule, shift_) == 0x24 &&
                   offsetof(PinnedObjectModule, orientation_turn_) == 0x34 &&

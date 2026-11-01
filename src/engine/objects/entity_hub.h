@@ -54,10 +54,10 @@ public:
     // progress has a bit of its own in walking_ and in every object's visited_mask_).
     void for_each(ObjectCallback callback, void* data);
 
-    memory::ListNode entities_;  // +0x04 (lists::Foremost<Entity>)
+    memory::ListNode entities_{}; // +0x04 (lists::Foremost<Entity>)
     uint32_t walking_ = 0;       // +0x18 the bits of the walks in progress
     uint32_t restart_walks_ = 0; // +0x1C set to every bit when the list changes: the walks start again
-    uint32_t new_id_;            // +0x20 reassign_object_id: the id being given (for the tracker)
+    uint32_t new_id_{};          // +0x20 reassign_object_id: the id being given (for the tracker)
     bool reassigning_ = false;   // +0x24
 };
 
@@ -77,7 +77,7 @@ public:
     // 0x00461AB0: delete the objects of the dead list (front first; each node unlinked first).
     void flush_dead_objects();
 
-    memory::ListNode dead_objects_;                    // +0x28
+    memory::ListNode dead_objects_{};                  // +0x28
     std::unique_ptr<tasks::Task<MiscHub>> flush_task_; // +0x3C running flush_dead_objects_task
 };
 

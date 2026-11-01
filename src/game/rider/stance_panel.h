@@ -47,11 +47,11 @@ public:
     // - flipped being the state component's +0x28 (the other way round when the skater's +0x110 is set).
     int get_stance();
 
-    int shown_; // +0x18 the stance shown (-1: none yet)
-    uint8_t pad1c_;
-    uint8_t nollie_;       // +0x1D
-    uint8_t press_amount_; // +0x1E
-    uint8_t pad1f_;
+    int shown_{}; // +0x18 the stance shown (-1: none yet)
+    uint8_t pad1c_{};
+    uint8_t nollie_{};       // +0x1D
+    uint8_t press_amount_{}; // +0x1E
+    uint8_t pad1f_{};
     skater::SkaterPhysicsModule* core_physics_; // +0x20 SkaterCorePhysics (0x5BD63B29)
 };
 

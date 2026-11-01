@@ -49,17 +49,17 @@ struct Viewer final : public PartUnit {
     std::unique_ptr<ViewerInputHandler> shift_handler_; // +0x18 (HandleShift, priority 1000)
     std::unique_ptr<ViewerTask> task_1c_;               // +0x1C free_camera_task (0x00577870)
     std::unique_ptr<ViewerTask> task20_;                // +0x20 select_combo_task (0x00577380)
-    float pad_rx_;                                      // +0x24 the sticks (raw, -128..127)
-    float pad_ry_;                                      // +0x28
-    uint8_t unknown2c_[8];
-    float pad_lx_; // +0x34
-    float pad_ly_; // +0x38
-    uint8_t unknown3c_[8];
+    float pad_rx_{};                                    // +0x24 the sticks (raw, -128..127)
+    float pad_ry_{};                                    // +0x28
+    uint8_t unknown2c_[8]{};
+    float pad_lx_{}; // +0x34
+    float pad_ly_{}; // +0x38
+    uint8_t unknown3c_[8]{};
     uint32_t actions_;                              // +0x44 the buttons' commands (bits; add_commands)
     uint32_t shift_makes_;                          // +0x48 the buttons pressed with select held
-    int mode_sel_;                                  // +0x4C 0: object mode, 1: ...
+    int mode_sel_{};                                // +0x4C 0: object mode, 1: ...
     std::unique_ptr<net::AppHost> net_handler_;     // +0x50 the PC tool's message handler (a server app)
-    memory::owner<objects::PreviewEntity*> entity_; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
+    memory::owner<objects::PreviewEntity*> entity_{}; // +0x54 the viewer object (0x128 bytes, 0x0058ADB0)
 
     // 0x00577F20: the constructor (only cfunc_launch_viewer 0x005A54E0 makes one): the module, no commands; unless
     // the debug checks are on (0x00684FA8 - they are in this exe), the PC tool's app server "THUG2 Viewer" (port

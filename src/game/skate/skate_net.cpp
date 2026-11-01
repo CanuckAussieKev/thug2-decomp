@@ -823,9 +823,9 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
             previous = (history->state_count_ - 1) % 20;
         } else {
             // The first: what came before is where the skater is now.
-            maths::Mat4 matrix;
+            maths::Mat4 matrix{};
             matrix = skater->basis_frame_;
-            maths::Vec4 eulers;
+            maths::Vec4 eulers{};
             matrix.get_euler_angles(eulers);
             StateEntry& first = history->states_[0];
             for (int k = 0; k < 3; ++k) {
@@ -855,7 +855,7 @@ int SkateNet::handle_object_updates(net::InboundMsgCtx* context)
         }
         for (int k = 0; k < 3; ++k)
             cur.angles[k] = angles[k];
-        maths::Mat4 matrix;
+        maths::Mat4 matrix{};
         matrix.set_from_euler_angles(angles[0], angles[1], angles[2]);
         cur.matrix = matrix;
         cur.position = {position[0], position[1], position[2], 0.0f};
@@ -1077,7 +1077,7 @@ int SkateNet::handle_client_object_update(net::InboundMsgCtx* context)
     context->body_size_ = static_cast<uint32_t>(stream.get_byte_count());
     if (history->state_count_ > 0 && time < entry_time(*prev))
         return 4; // (an older update: dropped)
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     matrix.set_from_euler_angles(angles[0], angles[1], angles[2]);
     cur.matrix = matrix;
     // (TP-R6: whole units in a big level)

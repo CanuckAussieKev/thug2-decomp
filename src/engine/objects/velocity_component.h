@@ -41,7 +41,7 @@ public:
     // unless, outside a network game, the Suspend component's flag (0x00433E90) is set.
     void tick_frame() override;
 
-    ObjectModule* suspend_; // +0x18 the object's Suspend component (0xCE0CA665), from Finalize
+    ObjectModule* suspend_{}; // +0x18 the object's Suspend component (0xCE0CA665), from Finalize
 };
 
 } // namespace objects

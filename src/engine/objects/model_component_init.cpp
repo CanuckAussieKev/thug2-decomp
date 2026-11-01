@@ -163,7 +163,7 @@ void MeshInstanceModule::configure_from_data(script::Struct* params)
 // 0x004219F0
 void MeshInstanceModule::tick_frame()
 {
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     if (level_object_) {
         // A level object: its sector's model follows.
         GameEntity* object = entity_;

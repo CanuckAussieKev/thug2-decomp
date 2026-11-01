@@ -64,14 +64,14 @@ public:
     float hot_x_, hot_y_;     // +0x1C
     float orientation_turn_;  // +0x24
     float rank_;              // +0x28
-    uint32_t layer_;          // +0x2C: (not set when made)
+    uint32_t layer_{};        // +0x2C: (not set when made)
     uint16_t span_, level_y_; // +0x30
     bool invisible_;          // +0x34
     bool use_depth_;          // +0x35: layer_ rather than rank_
-    bool z_write_;            // +0x36: (not set when made)
+    bool z_write_{};          // +0x36: (not set when made)
     bool flip_v_, flip_u_;    // +0x37
-    uint8_t rgba_value_[4];   // +0x39 (unaligned)
-    uint8_t pad3d_[3];
+    uint8_t rgba_value_[4]{}; // +0x39 (unaligned)
+    uint8_t pad3d_[3]{};
     void* screen_region_; // +0x40: its 2D window (set by 0x0048D1B0)
 };
 static_assert(offsetof(BillboardQuad, orientation_turn_) == 0x24 && offsetof(BillboardQuad, span_) == 0x30 &&
@@ -103,12 +103,12 @@ public:
     void* screen_region_; // (the original's offsets: +0x04)
     uint8_t* bitmap_;     // +0x08
     bool invisible_;      // +0x0C
-    uint8_t padd_[3];
-    float rank_;     // +0x10
+    uint8_t padd_[3]{};
+    float rank_{};   // +0x10
     bool use_depth_; // +0x14: (always cleared)
-    uint8_t pad15[3];
-    uint32_t mix_mode_;     // +0x18: (not set when made)
-    uint8_t rgba_value_[4]; // +0x1C
+    uint8_t pad15[3]{};
+    uint32_t mix_mode_{};     // +0x18: (not set when made)
+    uint8_t rgba_value_[4]{}; // +0x1C
 };
 static_assert(sizeof(TexturedQuad) == 0x1C, "layout must match the original");
 

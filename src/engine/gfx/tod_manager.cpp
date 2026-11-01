@@ -954,7 +954,7 @@ void CtodManager::reset_level_lights(uint32_t state_name)
 {
     if (lights_locked()) // (the unlock: NOT ORIGINAL - set_multiplayer_unlock)
         return;
-    TodParams params;
+    TodParams params{};
     if (!state_name) {
         params = get_tod_params(-1);
         apply_tod_params(params);

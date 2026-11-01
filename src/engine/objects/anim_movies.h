@@ -58,14 +58,14 @@ public:
     // 0x005872C0 (0x00587450 the deleting one): the timeline's, then the base's.
     ~CameraAnimMovie() override;
 
-    float field_of_view_; // +0x2C (0: the script global 0x99529205)
+    float field_of_view_{}; // +0x2C (0: the script global 0x99529205)
     bool has_goal_;       // +0x30
-    uint8_t pad31[3];
+    uint8_t pad31[3]{};
     uint32_t aim_point_;         // +0x34 the target object's name (0xC588EEBC: a fixed point, goal_shift_)
-    float goal_shift_[4];        // +0x38 (0x906642BF)
-    float look_offset_[4];       // +0x48 (0xA00D3D6E)
-    bool target_offset_set_;     // +0x58 (any of x, y, z not 0)
-    bool look_offset_set_;       // +0x59
+    float goal_shift_[4]{};      // +0x38 (0x906642BF)
+    float look_offset_[4]{};     // +0x48 (0xA00D3D6E)
+    bool target_offset_set_{};   // +0x58 (any of x, y, z not 0)
+    bool look_offset_set_{};     // +0x59
     void* anim_;                 // +0x5C
     gfx::AnimTimeline timeline_; // +0x60
 

@@ -52,7 +52,7 @@ Mat4& make_roll_matrix(Mat4& m, float angle)
 
 Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
 {
-    Mat4 result;
+    Mat4 result{};
     for (int i = 0; i < 4; ++i) {
         const float* ra = &a.row[i].x;
         float* rr = &result.row[i].x;
@@ -69,26 +69,26 @@ Mat4& get_multiply(Mat4& out, const Mat4& a, const Mat4& b)
 // 0x00405670
 Mat4& Mat4::pitch_locally(float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, make_pitch_matrix(rotation, angle), *this);
 }
 
 // 0x0041A6A0 / 0x0041A6D0 / 0x0041A700 (the originals: D3DXMatrixMultiply(this, this, &rotation))
 Mat4& Mat4::spin_around_x(float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, *this, make_pitch_matrix(rotation, angle));
 }
 
 Mat4& Mat4::rotate_y(float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, *this, make_yaw_matrix(rotation, angle));
 }
 
 Mat4& Mat4::spin_around_z(float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, *this, make_roll_matrix(rotation, angle));
 }
 
@@ -97,7 +97,7 @@ Mat4& Mat4::init_from_angles(const Vec4& angles)
 {
     reset_to_identity();
     if (angles.x != 0.0f || angles.y != 0.0f || angles.z != 0.0f) {
-        Mat4 rotation;
+        Mat4 rotation{};
         auto multiply = d3dx::matrix_multiply;
         multiply(this, this, &make_pitch_matrix(rotation, angles.x));
         multiply(this, this, &make_yaw_matrix(rotation, angles.y));
@@ -154,7 +154,7 @@ Mat4& Mat4::offset_local(const Vec4& offset)
 Vec4 operator*(const Vec4& v, const Mat4& m)
 {
     auto term = [&](int r, int c) { return static_cast<double>((&m.row[r].x)[c]) * (&v.x)[r]; };
-    Vec4 out;
+    Vec4 out{};
     out.w = static_cast<float>(term(3, 3) + term(0, 3) + term(2, 3) + term(1, 3));
     out.z = static_cast<float>(term(3, 2) + term(0, 2) + term(2, 2) + term(1, 2));
     out.y = static_cast<float>(term(3, 1) + term(0, 1) + term(2, 1) + term(1, 1));
@@ -165,14 +165,14 @@ Vec4 operator*(const Vec4& v, const Mat4& m)
 // 0x00405710
 Mat4& Mat4::yaw_locally(float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, make_yaw_matrix(rotation, angle), *this);
 }
 
 // 0x004057B0
 Mat4& Mat4::roll_in_own_frame(float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, make_roll_matrix(rotation, angle), *this);
 }
 
@@ -505,14 +505,14 @@ Mat4& create_perspective_matrix(Mat4& m, float fov, float aspect, float near_dep
 // 0x00405950
 Mat4& Mat4::spin_by(const Vec4& axis, float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, *this, build_axis_angle_matrix(rotation, axis, angle));
 }
 
 // 0x005772A0 (the original: D3DXMatrixMultiply(this, &rotation, this))
 Mat4& Mat4::turn_in_own_frame(const Vec4& axis, float angle)
 {
-    Mat4 rotation;
+    Mat4 rotation{};
     return get_multiply(*this, build_axis_angle_matrix(rotation, axis, angle), *this);
 }
 
@@ -608,7 +608,7 @@ Mat4& Mat4::invert_orthonormal()
 // 0x00405600
 Mat4& Mat4::upend()
 {
-    Mat4 adjugate;
+    Mat4 adjugate{};
     adjugate.get_adjugate(*this);
     double determinant = get_det();
     if (determinant != 1.0) // (a NaN scales too)

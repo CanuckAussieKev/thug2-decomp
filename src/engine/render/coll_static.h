@@ -190,11 +190,11 @@ public:
     // 0x00413130 (slot 19)
     void draw_diagnostic(int a, int b) override;
 
-    float radius_;   // +0xA4
+    float radius_{}; // +0xA4
     bool box_dirty_; // +0xA8
-    uint8_t pada9_[3];
+    uint8_t pada9_[3]{};
     maths::BBox box_;    // +0xAC
-    uint32_t unknowncc_; // +0xCC
+    uint32_t unknowncc_{}; // +0xCC
     uint32_t unknownd0_; // +0xD0 the geometry's +0x3C
 };
 static_assert(sizeof(HitMovingTriangles) == 0xD4 && offsetof(HitMovingTriangles, box_) == 0xAC,

@@ -18,26 +18,26 @@ namespace render {
 // The parameters a particle system is made from (0x15C bytes; kept as the system's +4). Only what the particle
 // component fills is named; names from the script parameters where known.
 struct SparkleConfig {
-    uint32_t label_;        // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
+    uint32_t label_{};      // +0x000 (0xA1DC81F9, required; the manager finds a system by it)
     uint32_t unknown04_;    // +0x004 (0x7321A8D6)
-    uint32_t group_id_;     // +0x008 GroupID
-    float extent_[3];       // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
-    float radius_[3];       // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
+    uint32_t group_id_{};   // +0x008 GroupID
+    float extent_[3]{};     // +0x00C (0x3BEE67C8, 0x8E39913D, 0x3F243A3C; scaled)
+    float radius_[3]{};     // +0x018 (0x05400A25, 0xFF7D9AA9, 0x5539FCEE; scaled)
     int unknown24_;         // +0x024 (0x9E52A20F)
     float rate_;            // +0x028 (0x35B65BD4; the rate)
     float lifetime_;        // +0x02C (0xC218CF77; the lifetime, seconds)
     float mid_percent_;     // +0x030 (0x520682C6, then 0x59463C93; when the mid is, a percentage of the lifetime)
     float brightness_;      // +0x034
-    float colour_scale_[4]; // +0x038 (r, g, b, a: the manager's colour)
-    uint32_t emit_script_;  // +0x048 (0x092276DB: the component's +0x18)
+    float colour_scale_[4]{}; // +0x038 (r, g, b, a: the manager's colour)
+    uint32_t emit_script_{};  // +0x048 (0x092276DB: the component's +0x18)
     uint32_t entity_key_;   // +0x04C its object's id (with the above)
-    uint32_t unknown50_;    // +0x050 (0x7E4813A7; 0xE3714DC1 when not given)
-    maths::Mat4 orientation_turn_; // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
-    maths::Vec4 at_point_[3];      // +0x094 start / mid / end (scaled, oriented)
-    maths::Vec4 box_[3];           // +0x0C4 (scaled, oriented)
-    maths::Vec4 offset_pos_[3];    // +0x0F4 the positions again (0xB7B7240D: they move with the object)
+    uint32_t unknown50_{};  // +0x050 (0x7E4813A7; 0xE3714DC1 when not given)
+    maths::Mat4 orientation_turn_{}; // +0x054 (0x9D2D0915's angles: X, then Y, then Z)
+    maths::Vec4 at_point_[3]{};      // +0x094 start / mid / end (scaled, oriented)
+    maths::Vec4 box_[3]{};           // +0x0C4 (scaled, oriented)
+    maths::Vec4 offset_pos_[3]{};    // +0x0F4 the positions again (0xB7B7240D: they move with the object)
     float colour_mid_percent_;     // +0x124
-    uint8_t shade_[3][4];          // +0x128 r, g, b (three arrays), a (three integers, at most 128)
+    uint8_t shade_[3][4]{};        // +0x128 r, g, b (three arrays), a (three integers, at most 128)
     uint32_t blend_mode_;          // +0x134 (0xDD6BB3D5)
     int alpha_cut_off_;            // +0x138 (0x13D0BE1D)
     int unknown13c_;               // +0x13C (0x9F677D4E)
@@ -45,16 +45,16 @@ struct SparkleConfig {
     int unknown144_;               // +0x144 (0x4EEDFAE7)
     int unknown148_;               // +0x148 (0xD7E4AB5D)
     int unknown14c_;               // +0x14C (0xE4279BA2)
-    uint8_t unknown150_;           // +0x150 (0x9D5923D8's low byte)
+    uint8_t unknown150_{};         // +0x150 (0x9D5923D8's low byte)
     bool use_mid_;                 // +0x151 (0xA7A5BFFB; the paths go through the mid)
     bool local_positions_;         // +0x152 (0xB7B7240D)
     bool colour_use_mid_;          // +0x153 (0x454962EF)
     bool orient_with_object_;      // +0x154 (0xA2487CC3)
     bool hidden_;                  // +0x155 (Hide: nothing drawn or updated)
     bool held_back_;               // +0x156 (nothing drawn or updated)
-    bool cull_outside_;            // +0x157 (0x5446AF14)
+    bool cull_outside_{};          // +0x157 (0x5446AF14)
     bool flag158_;                 // +0x158 (0xA0E585B0: takes the manager's colour)
-    uint8_t unknown159[3];
+    uint8_t unknown159[3]{};
 
     // 0x00496240: the defaults (sizes 1, no spread, boxes 20 wide, grey colours, rate 300, lifetime 4, mid at 50%,
     // ...).
@@ -95,7 +95,7 @@ struct Sparkle : memory::HeapObject {
 
     SparkleConfig args_;     // +0x004
     maths::BBox extent_box_; // +0x160: of every particle's path
-    maths::Vec4 bound_ball_; // +0x180: around the box (centre, radius)
+    maths::Vec4 bound_ball_{}; // +0x180: around the box (centre, radius)
 
     // 0x00496380: made from `params` (copied): the bounds worked out, then initialise.
     void prepare_all(const SparkleConfig* params);
@@ -153,8 +153,8 @@ struct EffectsDirector : memory::HeapObject {
     // Vtable slot 1: a new system (the engine's: none).
     virtual Sparkle* create_system() { return nullptr; }
 
-    objects::PointerList systems_; // +0x04: Sparkle*
-    float shade_[4];               // +0x0C: given to the systems that take it
+    objects::PointerList systems_{}; // +0x04: Sparkle*
+    float shade_[4]{};               // +0x0C: given to the systems that take it
 
     // 0x00496510: a new system (create_system) made from `params`, given the manager's colour if it takes it, onto
     // the end of the list. Null if there's no memory.

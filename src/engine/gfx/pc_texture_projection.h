@@ -16,12 +16,12 @@ namespace render {
 
 // A frame's batch for one texture (0x9120 bytes; ten at 0x00705758, how many in use at 0x00705750).
 struct ProjectionBatch {
-    uint32_t texture;              // +0x00: its key
-    uint32_t blend_name_;          // +0x04: the projection's last (a checksum)
-    uint32_t triangle_count_;      // +0x08
+    uint32_t texture{};            // +0x00: its key
+    uint32_t blend_name_{};        // +0x04: the projection's last (a checksum)
+    uint32_t triangle_count_{};    // +0x08
     MaterialRef material;          // +0x0C (made by make_new 0x004D1A90)
-    void* pixel_shader_;           // +0x11C (material_pixel_shader's)
-    uint8_t vertices[0x600][0x18]; // +0x120: position, ARGB colour, u, v
+    void* pixel_shader_{};         // +0x11C (material_pixel_shader's)
+    uint8_t vertices[0x600][0x18]{}; // +0x120: position, ARGB colour, u, v
 
     // 0x004C7610: construct (the material's constructor). Returns this.
     ProjectionBatch* make_new();

@@ -995,7 +995,7 @@ void put_in_play()
     for (const auto& [index, goal] : play) {
         // Create-a-Goal's own: AddEditedGoalToGoalManager (0x004EB6B0 on the record, MarkUnbeaten), then
         // GoalManager_InitializeGoal (its pro made from TRG_EditedGoal<n>_Pro).
-        GoalImage image;
+        GoalImage image{};
         fill_image(*goal, level, index, gap_ordinals(*goal), &image);
         reinterpret_cast<park_editing::EditedGoal*>(image.bytes)->add_to_goal_manager(true);
         uint32_t id = get_checksums(get_goal_id(index));
@@ -1025,7 +1025,7 @@ bool get_cast(V3 from, V3 to, V3* hit)
 
 V3 get_grounded(V3 at)
 {
-    V3 ground;
+    V3 ground{};
     if (get_cast(at + V3{0.0f, 200.0f, 0.0f}, at - V3{0.0f, 5000.0f, 0.0f}, &ground))
         return ground;
     return at;
@@ -1084,7 +1084,7 @@ bool is_goal_point(uint32_t node)
 
 bool fabricate(KindTag type)
 {
-    ViewNow view;
+    ViewNow view{};
     if (!current_view(&view)) {
         hud::get_message("No view available");
         return false;
@@ -1095,7 +1095,7 @@ bool fabricate(KindTag type)
     }
     TickCycle frame = frame_from_yaw_pitch(view.yaw, view.pitch);
     V3 forward = frame.back * -1.0f;
-    V3 base;
+    V3 base{};
     if (!get_cast(view.pos, view.pos + forward * 4000.0f, &base))
         base = view.pos + forward * 600.0f;
     base = get_grounded(base);
@@ -1252,7 +1252,7 @@ bool export_goal(const std::string& id, std::string* message)
         *message = index < 0 ? "This level has ten created goals already" : "The goal editor is full (50 goals)";
         return false;
     }
-    GoalImage image;
+    GoalImage image{};
     fill_image(g, level, index, gap_ordinals(g), &image);
     std::memcpy(slots + slot * kSlotSize, image.bytes, kSlotSize);
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) + "";

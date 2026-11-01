@@ -187,7 +187,7 @@ void CarView::update_orientation()
     anchor_point_.y = level_y_ + subject.y;
     anchor_point_.z = back + subject.z;
     anchor_point_.w = subject.w + 1.0f;
-    maths::Mat4 tilt;
+    maths::Mat4 tilt{};
     maths::make_roll_matrix(tilt, angle_ * kDegrees);
     matrix_multiply(&orientation_, &tilt, &orientation_);
 }

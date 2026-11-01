@@ -341,7 +341,7 @@ bool shot_offsets(uint32_t name, V3* target, V3* position)
     script::Struct* node = level_nodes::node_manager_instance() ? level_nodes::fetch_vertex(name, false) : nullptr;
     if (!node)
         return false;
-    script::VectorValue t, p;
+    script::VectorValue t{}, p{};
     if (node->fetch_vec(get_checksums("targetOffset"), &t, 0) &&
         node->fetch_vec(get_checksums("positionOffset"), &p, 0)) {
         *target = {t.x, t.y, t.z};
@@ -370,7 +370,7 @@ bool cfunc_play_camera(script::Struct* params, script::Script* script)
     }
     if (live_now())
         return false; // (the editor's own camera; Look through previews a camera there)
-    V3 target, position;
+    V3 target{}, position{};
     if (!shot_offsets(name, &target, &position)) {
         get_log("level editor: LevelEditor_PlayCamera - no node %s", nodes::caption(name).c_str());
         return false;
@@ -417,7 +417,7 @@ bool is_camera(uint32_t name)
 
 std::string create_from_view()
 {
-    ViewNow view;
+    ViewNow view{};
     if (!current_view(&view)) {
         hud::get_message("No view available");
         return "";
@@ -451,7 +451,7 @@ bool aim_from_view(uint32_t name)
 {
     std::vector<ViewCam> all = get_all();
     const ViewCam* c = get_find(all, name);
-    ViewNow view;
+    ViewNow view{};
     if (!c || !current_view(&view))
         return false;
     push_undo();

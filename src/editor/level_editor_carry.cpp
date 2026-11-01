@@ -208,7 +208,7 @@ void gather_object(objects::Entity* object, void* data)
 {
     auto* g = static_cast<Gather*>(data);
     auto* composite = static_cast<objects::GameEntity*>(object);
-    OrientedBox box;
+    OrientedBox box{};
     if (!object_edit::model_box(composite, &box))
         return;
     uint32_t cls = 0;
@@ -260,7 +260,7 @@ Taken arm()
     for (uint32_t member : selection) {
         if (uint32_t cluster = cluster_of(member))
             g.clusters.push_back(cluster);
-        OrientedBox box;
+        OrientedBox box{};
         if (scenery::cuboid(member, &box) && !scenery::is_shadow(member))
             g.boxes.emplace_back(member, box);
     }

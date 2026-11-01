@@ -210,17 +210,17 @@ public:
 
     lists::KeyMap* dead_objects_; // +0x000 nodes marked permanently dead (value: the manager)
     script::Struct* unknown4_;    // +0x004 made, emptied and freed, never filled
-    TodSystem systems_[kSystems]; // +0x008
-    BloomParams temp_bloom_;      // +0x318 TODManager_SetTempBloomParams'
-    int full_length_;             // +0x32C milliseconds the manager has run
-    float time_multiplier_;       // +0x330 TODManager_SetTimeMultiplier
-    uint32_t transition_script_;  // +0x334 TODManager_SetTODScript: level_specific_transition_script
-    bool fog_active_;             // +0x338
-    bool level_lights_reset_;     // +0x339 reset_level_lights with a state: the lights aren't blended
-    bool temp_tod_;               // +0x33A a temporary state is up (time stops)
-    bool active_;                 // +0x33B TODManager_SetActive
-    bool params_set_;             // +0x33C
-    uint8_t pad33d_[3];
+    TodSystem systems_[kSystems]{}; // +0x008
+    BloomParams temp_bloom_{};      // +0x318 TODManager_SetTempBloomParams'
+    int full_length_{};             // +0x32C milliseconds the manager has run
+    float time_multiplier_{};       // +0x330 TODManager_SetTimeMultiplier
+    uint32_t transition_script_{};  // +0x334 TODManager_SetTODScript: level_specific_transition_script
+    bool fog_active_{};             // +0x338
+    bool level_lights_reset_{};     // +0x339 reset_level_lights with a state: the lights aren't blended
+    bool temp_tod_{};               // +0x33A a temporary state is up (time stops)
+    bool active_{};                 // +0x33B TODManager_SetActive
+    bool params_set_{};             // +0x33C
+    uint8_t pad33d_[3]{};
 
 private:
     // The first system that isn't a sky system (index 2 - past the end - if both are; never checked).

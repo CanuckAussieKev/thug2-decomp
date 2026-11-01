@@ -280,7 +280,7 @@ void probe_each(V3 point, const float reach[6], Probe probes[6])
 {
     for (int i = 0; i < 6; ++i) {
         V3 far = point + kDirections[i] * reach[i];
-        V3 hit;
+        V3 hit{};
         probes[i] = {};
         if (get_cast(point, far, &hit))
             probes[i].out = span_to(hit, point);
@@ -344,10 +344,10 @@ bool scenery_changed_near(V3 point, float margin)
     for (const scenery::Replicate& c : scenery::get_clones())
         pieces.push_back(c.checksum);
     for (uint32_t piece : pieces) {
-        OrientedBox box;
+        OrientedBox box{};
         if (!scenery::cuboid(piece, &box))
             continue;
-        V3 min, max;
+        V3 min{}, max{};
         bounds_of(box, &min, &max);
         if (point.x >= min.x - margin && point.x <= max.x + margin && point.y >= min.y - margin &&
             point.y <= max.y + margin && point.z >= min.z - margin && point.z <= max.z + margin)
@@ -418,7 +418,7 @@ const Placed& placed_at(uint32_t name, V3 point, uint32_t world)
     placed.world = world;
     placed.place = get_judge(probes);
     placed.up_in_ = probes[2].in;
-    V3 hit;
+    V3 hit{};
     placed.ground = probes[3].out >= 0.0f || get_cast(point, point - V3{0.0f, kGroundReach, 0.0f}, &hit);
     return placed;
 }
@@ -530,9 +530,9 @@ void check_collision(std::vector<Issue>* out)
         const shared_collision::Companion* companion = shared_collision::companion_of(s.checksum);
         Issue issue;
         issue.sector = s.checksum;
-        OrientedBox box;
+        OrientedBox box{};
         if (scenery::cuboid(s.checksum, &box)) {
-            V3 min, max;
+            V3 min{}, max{};
             bounds_of(box, &min, &max);
             issue.has_pos_ = true;
             issue.pos = (min + max) * 0.5f;

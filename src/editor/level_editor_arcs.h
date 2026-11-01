@@ -44,7 +44,7 @@ struct Face {
 // edge's direction (unit, horizontal) and `width` its length; `vert`: the surface there is (near) vertical or vert
 // (face flag 0x08) - the skater goes straight up and comes back down.
 struct Lip {
-    V3 point, tangent, heading, across;
+    V3 point{}, tangent{}, heading{}, across{};
     float width = 0.0f;
     bool vert = false;
     float height = 0.0f; // (above the run's lowest point)

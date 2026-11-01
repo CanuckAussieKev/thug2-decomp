@@ -31,7 +31,7 @@ public:
 
     bool mirrored_;    // +0x14
     bool has_pivoted_; // +0x15
-    uint8_t pad16[2];
+    uint8_t pad16[2]{};
 };
 static_assert(offsetof(FlipRotateComponent, mirrored_) == 0x14);
 static_assert(sizeof(FlipRotateComponent) == 0x18);

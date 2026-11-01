@@ -54,8 +54,8 @@ public:
     float scale_h_, scale_v_; // +0x20
     float angle_;             // +0x28
     float rank_;              // +0x2C
-    uint32_t unknown30_;
-    float layer_;            // +0x34 (with z_enabled_)
+    uint32_t unknown30_{};
+    float layer_{};          // +0x34 (with z_enabled_)
     uint32_t shade_;         // +0x38: RGBA as bytes
     bool fixed_colour_;      // +0x3C: the string's colour codes ignored
     bool override_alpha_;    // +0x3D

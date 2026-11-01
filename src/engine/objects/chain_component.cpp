@@ -330,7 +330,7 @@ int ChainComponent::invoke_method_by_name(uint32_t name, script::Struct* params,
     if (name == kSetLink) {
         uint32_t id = 0;
         params->read_hash_value(kChainId, &id, 1);
-        maths::Vec4 pos;
+        maths::Vec4 pos{};
         params->fetch_vec(kLinkPos, reinterpret_cast<script::VectorValue*>(&pos), 1);
         for (Elem* node = get_first(chains_.head); node != chains_.head; node = node->next) {
             Chain* chain = node->chain;
@@ -369,7 +369,7 @@ void ChainComponent::tick_frame()
 {
     auto frame = static_cast<float>(frame_clock::get_slomo_frame_seconds());
     const maths::Vec4 velocity = entity_->vel_;
-    maths::Vec4 plane_point, axis_from, axis_to;
+    maths::Vec4 plane_point{}, axis_from{}, axis_to{};
     joint_world_point(bone_rig_, plane_bone_, &plane_point);
     joint_world_point(bone_rig_, axis_from_bone_, &axis_from);
     joint_world_point(bone_rig_, axis_to_bone_, &axis_to);
@@ -437,9 +437,9 @@ void ChainComponent::tick_frame()
         }
 
         // The start: bone_start's position plus start_offset turned by the bone, into the world.
-        maths::Vec4 start;
+        maths::Vec4 start{};
         bone_position(bone_rig_, chain->bone_start_, &start);
-        maths::Mat4 bone;
+        maths::Mat4 bone{};
         skin_matrix_ptr(bone_rig_, chain->bone_start_, &bone);
         bone.row[3] = {0.0f, 0.0f, 0.0f, 1.0f}; // (turned only)
         maths::Vec4 turned = chain->start_offset_ * bone;

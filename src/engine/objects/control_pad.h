@@ -56,33 +56,33 @@ public:
     // 0x0046C270: the button named `name` (null if none).
     ControlButton* read_button(uint32_t name);
 
-    ControlButton up_dir_;            // +0x000
-    ControlButton btn_down_;          // +0x020
-    ControlButton left_side_;         // +0x040
-    ControlButton right_side_;        // +0x060
-    ControlButton shoulder_left_a_;   // +0x080
-    ControlButton shoulder_left_b_;   // +0x0A0
-    ControlButton stick_click_left_;  // +0x0C0
-    ControlButton shoulder_right_a_;  // +0x0E0
-    ControlButton shoulder_right_b_;  // +0x100
-    ControlButton stick_click_right_; // +0x120
-    ControlButton button_round_;      // +0x140
-    ControlButton button_box_;        // +0x160
-    ControlButton button_wedge_;      // +0x180
-    ControlButton pos_x_;             // +0x1A0
-    ControlButton outset_;            // +0x1C0
-    ControlButton button_choose_;     // +0x1E0
-    float stick_[4];                  // +0x200: two sticks' x, y: the data's 0x12-0x15 - 0x80
-    float scaled_stick_[4];           // +0x210: the data's 0-3 - 0x80, moved 50 towards 0 (past it: no dead band), / 77
+    ControlButton up_dir_{};            // +0x000
+    ControlButton btn_down_{};          // +0x020
+    ControlButton left_side_{};         // +0x040
+    ControlButton right_side_{};        // +0x060
+    ControlButton shoulder_left_a_{};   // +0x080
+    ControlButton shoulder_left_b_{};   // +0x0A0
+    ControlButton stick_click_left_{};  // +0x0C0
+    ControlButton shoulder_right_a_{};  // +0x0E0
+    ControlButton shoulder_right_b_{};  // +0x100
+    ControlButton stick_click_right_{}; // +0x120
+    ControlButton button_round_{};      // +0x140
+    ControlButton button_box_{};        // +0x160
+    ControlButton button_wedge_{};      // +0x180
+    ControlButton pos_x_{};             // +0x1A0
+    ControlButton outset_{};            // +0x1C0
+    ControlButton button_choose_{};     // +0x1E0
+    float stick_[4]{};                  // +0x200: two sticks' x, y: the data's 0x12-0x15 - 0x80
+    float scaled_stick_[4]{}; // +0x210: the data's 0-3 - 0x80, moved 50 towards 0 (past it: no dead band), / 77
     // +0x220: each stick as an angle (atan2(x, -y): 0 = up, clockwise positive) and a length; the second is the
     // d-pad's (length 127) while that stick is centred.
     struct Polar {
         float angle;
         float length;
-    } polar_[2];
+    } polar_[2]{};
     // +0x230: two frame_clock::GetTime times (0 = none; set by other code) for the second stick held up / down: Update
     // clears each once it has passed, or once the stick is centred or leaves that quarter.
-    uint32_t lock_[2];
+    uint32_t lock_[2]{};
 };
 static_assert(offsetof(PadSnapshot, stick_) == 0x200 && offsetof(PadSnapshot, polar_) == 0x220 &&
                   offsetof(PadSnapshot, lock_) == 0x230,

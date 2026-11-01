@@ -166,7 +166,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
         int index = skeleton->fetch_bone_slot(bone);
         Joint* bone_state = skeleton->get_bone(index);
         maths::Mat4 pose = skeleton->matrix_array_[index];
-        maths::Mat4 at, parent;
+        maths::Mat4 at{}, parent{};
         world_matrix(&at, inverse_binds[index], pose, world);
         pose = *bone_state->parent;
         parent_world_matrix(&parent, data, inverse_binds, index, pose, world);
@@ -186,7 +186,7 @@ uint32_t BoneVolumes::segment_hits_bone(const maths::Seg* segment, Rig* skeleton
     maths::Vec4* positions = joint_point_array();
     for (int i = 0; i < skeleton->get_num_bones(); ++i) {
         Joint* bone_state = skeleton->get_bone(i);
-        maths::Mat4 at;
+        maths::Mat4 at{};
         world_matrix(&at, inverse_binds[i], skeleton->matrix_array_[i], world);
         positions[i] = at.row[3];
         if (i == 0)
@@ -224,7 +224,7 @@ bool BoneVolumes::get_bone_volume(Rig* skeleton, const maths::Mat4* world, uint3
     int index = skeleton->fetch_bone_slot(bone);
     Joint* bone_state = skeleton->get_bone(index);
     maths::Mat4 pose = skeleton->matrix_array_[index];
-    maths::Mat4 at, parent;
+    maths::Mat4 at{}, parent{};
     world_matrix(&at, inverse_binds[index], pose, world);
     pose = *bone_state->parent;
     parent_world_matrix(&parent, data, inverse_binds, index, pose, world);

@@ -635,7 +635,7 @@ void link_record(modules::FrontEnd* front_end)
             close_run("refused here");
         return;
     }
-    SkaterNow now;
+    SkaterNow now{};
     if (!read_skater(skater, &now))
         return;
     if (!g_rec.open) {

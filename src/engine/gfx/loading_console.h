@@ -87,7 +87,7 @@ struct Ring {
         double time;     // seconds since the load began
         unsigned repeat; // the same text again: 1 = once
     };
-    Seg lines[kRingLines];
+    Seg lines[kRingLines]{};
     unsigned count = 0; // lines ever added
     // Add `text` at `time`; the same text as the newest line counts that one up instead.
     void append_one(const char* text, double time);

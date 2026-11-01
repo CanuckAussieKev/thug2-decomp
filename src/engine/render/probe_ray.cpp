@@ -178,7 +178,8 @@ double ProbeRay::get_hit_vertex_value() const
     // The line from the first corner through the hit point, where it meets the opposite edge's line.
     const maths::Vec4 hit_point{0.0f, 0.0f, 0.0f, 1.0f};
     maths::Seg from_corner(corner[0], hit_point), opposite(corner[1], corner[2]);
-    maths::Vec4 on_line{0.0f, 0.0f, 0.0f, 0.0f}, on_edge; // (the original's are left unset when the lines are parallel)
+    maths::Vec4 on_line{0.0f, 0.0f, 0.0f, 0.0f},
+        on_edge{}; // (the original's are left unset when the lines are parallel)
     float s = 0.0f, t = 0.0f;
     maths::closest_points_between_lines(from_corner, opposite, on_line, on_edge, s, t, false);
     auto minus = [](const maths::Vec4& a, const maths::Vec4& b, double* x, double* y, double* z) {

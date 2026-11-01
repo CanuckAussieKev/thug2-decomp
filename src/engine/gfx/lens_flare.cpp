@@ -128,11 +128,11 @@ void set_prim_state(int state, int value) { render::set_primitive_state(state, v
 // A query to issue this frame (0x004A0EB0 takes a copy and fills in its slot number), and a query's result - its
 // visible pixels (0x004A0F20).
 struct QueryRequest {
-    uint32_t slot;
+    uint32_t slot{};
     int (*callback)(void*, uint8_t);
     void* data;
     bool unknownc_;
-    uint8_t padd_[3];
+    uint8_t padd_[3]{};
 
     // 0x004426C0
     QueryRequest();
@@ -301,7 +301,7 @@ void update_flare(Struct* params, script::Script*)
     float time = 0.0f;
     params->fetch_vec(kCenter, &centre, 0);
     params->fetch_float(kMorphTime, &time, 0);
-    script::VectorValue sun; // (unset if there's none: the getter asserts)
+    script::VectorValue sun{}; // (unset if there's none: the getter asserts)
     params->fetch_vec(kSunPos, &sun, 1);
     maths::Vec4 sun_pos = {sun.x, sun.y, sun.z, sun.w};
     maths::Vec4 centre_pos = {centre.x, centre.y, centre.z, centre.w};
@@ -330,7 +330,7 @@ void hide_flare(Struct* params, script::Script* script)
     frontend::cfunc_do_screen_element_morph(morph, script);
     free_params(morph);
     if (params) {
-        script::VectorValue sun;
+        script::VectorValue sun{};
         if (params->fetch_vec(kSunPos, &sun, 0)) {
             for (uint32_t i = 0; i < element_count(); ++i) {
                 FlareElement& element = get_elements()[i];
@@ -368,7 +368,7 @@ void unhide_flare(Struct*, script::Script* script)
 void build_sun_quad(gfx::ViewCam* camera, render::PcPrimitive* quad, const maths::Vec4* position, float* corners)
 {
     // facing the camera: its right axis reversed, then up and back from cross products
-    maths::Mat4 facing;
+    maths::Mat4 facing{};
     facing.reset_to_identity();
     facing[0] = -(*camera->fetch_mat())[0];
     facing[2] = maths::cross_vec((*camera->fetch_mat())[1], facing[0]);
@@ -431,7 +431,7 @@ void render(gfx::ViewCam* camera)
     }
     // where the sun is: theta round the vertical, phi up, `radius` from the camera
     maths::Vec4 sun_pos = *camera->fetch_location();
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     rotation.reset_to_identity();
     rotation.rotate_y(get_theta());
     maths::Vec4 direction = {0.0f, 0.0f, 1.0f, 1.0f};

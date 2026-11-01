@@ -77,7 +77,7 @@ Checklist get_take_in(goals::GapTally* checklist)
         gap.score = checklist->get_gap_points(i);
         gap.count = checklist->count_gaps_found(i);
         if (gap.count) {
-            maths::Vec4 pos, dir;
+            maths::Vec4 pos{}, dir{};
             checklist->get_gap_positions(i, &pos, &dir);
             const float p[4] = {pos.x, pos.y, pos.z, pos.w}, d[4] = {dir.x, dir.y, dir.z, dir.w};
             std::copy(p, p + 4, gap.pos);

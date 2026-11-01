@@ -427,7 +427,7 @@ bool choose_material(uint32_t wanted, Spec* spec, std::string* why)
     if (!chosen) {
         // (the nearest piece that can lend its material - a floor-like one, its top near the ground, first)
         struct Walk {
-            const Spec* spec;
+            const Spec* spec{};
             uint32_t best = 0, best_floor_ = 0;
             float best_distance_ = 1e30f, best_floor_distance_ = 1e30f;
         } walk = {spec};

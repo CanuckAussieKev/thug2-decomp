@@ -54,7 +54,7 @@ public:
     void place_tag(bool sticker, maths::Vec4 start, maths::Vec4 end, int size, bool send);
 
     bool custom_tag_; // +0x18
-    uint8_t pad19[3];
+    uint8_t pad19[3]{};
     void* graffiti_; // +0x1C the graffiti texture
     void* sticker_;  // +0x20 the sticker texture
 };
@@ -91,16 +91,16 @@ public:
     // countdown are over, or without a wall.
     bool slap_sticker(bool sticker, bool walking, bool low);
 
-    int countdown_; // +0x18 frames until a pending tag may be placed
+    int countdown_{}; // +0x18 frames until a pending tag may be placed
     bool pending_;  // +0x1C a tag or sticker started
     bool blocked_;  // +0x1D BlockTaggingOn
-    uint8_t pad1e_[2];
-    float cooldown_;                            // +0x20 frames until the next tag (counted down by 1)
-    FootMovement* walk_;                        // +0x24
-    ObjectModule* input_;                       // +0x28
-    skater::SkaterPhysicsModule* core_physics_; // +0x2C
-    ObjectModule* trigger_;                     // +0x30
-    TaggingComponent* tagging_;                 // +0x34
+    uint8_t pad1e_[2]{};
+    float cooldown_{};                            // +0x20 frames until the next tag (counted down by 1)
+    FootMovement* walk_{};                        // +0x24
+    ObjectModule* input_{};                       // +0x28
+    skater::SkaterPhysicsModule* core_physics_{}; // +0x2C
+    ObjectModule* trigger_{};                     // +0x30
+    TaggingComponent* tagging_{};                 // +0x34
 };
 
 } // namespace objects

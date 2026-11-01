@@ -30,7 +30,7 @@ public:
     // A model's object and where it sits in the element (w = 1).
     struct ShapeMesh {
         objects::SharedRef<objects::GameEntity> object;
-        maths::Vec4 offset;
+        maths::Vec4 offset{};
     };
     static constexpr int kMaxModels = 25;
     // point_at_
@@ -66,19 +66,19 @@ public:
     ShapeMesh models_[kMaxModels]; // +0x178
     int model_total_;              // +0x434
     float camera_z_;               // +0x438 (CameraZ: the distance in front of the camera, negative)
-    float angle_[3];               // +0x43C angleX/Y/Z (radians, kept within one turn)
-    float angular_velocity_[3];    // +0x448 AngVelX/Y/Z (per frame)
-    maths::Mat4 basis_frame_;      // +0x454 where the element is: the camera's orientation and the place in
+    float angle_[3]{};             // +0x43C angleX/Y/Z (radians, kept within one turn)
+    float angular_velocity_[3]{};  // +0x448 AngVelX/Y/Z (per frame)
+    maths::Mat4 basis_frame_{};    // +0x454 where the element is: the camera's orientation and the place in
                                    // front of it (row 3 at +0x484)
-    maths::Vec4 target_position_;  // +0x494 NodeToPointTo's node position
+    maths::Vec4 target_position_{}; // +0x494 NodeToPointTo's node position
     int point_at_;                 // +0x4A4 kPointAt*
     int euler_sequence_;           // +0x4A8 AngleOrderXYZ 0, kXzy 1, YXZ 2 (default), YZX 3, ZXY 4, kZyx 5
     uint32_t target_object_;       // +0x4AC ObjectToPointTo
-    float bob_height_;             // +0x4B0 HoverParams Amp
-    int bob_period_;               // +0x4B4 ms (1000 / freq)
-    maths::Vec4 pivot_;            // +0x4B8 PivotPoint (w = 1)
-    maths::Vec4 anchor_shift_;     // +0x4C8 ParentParams' vector
-    maths::Vec4 centre_;           // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
+    float bob_height_{};           // +0x4B0 HoverParams Amp
+    int bob_period_{};             // +0x4B4 ms (1000 / freq)
+    maths::Vec4 pivot_{};          // +0x4B8 PivotPoint (w = 1)
+    maths::Vec4 anchor_shift_{};   // +0x4C8 ParentParams' vector
+    maths::Vec4 centre_{};         // +0x4D8 scale_to_screen_dims: minus the bounding box's centre (w = 0)
     float fit_scale_;              // +0x4E8 scale_to_screen_dims' scale (1)
     bool size_follows_range_;      // +0x4EC ScaleWithDistance
     float distance_scale_;         // +0x4F0 the scale per unit of distance (0.002; checksum 0x571F3F3A)
@@ -86,7 +86,7 @@ public:
     int view_slot_;                // +0x4F8 active_viewport
     uint32_t anchor_object_;       // +0x4FC ParentParams name= (0x5B8AB877 if it gives that integer)
     int parent_integer_;           // +0x500 ParentParams' integer 0x5B8AB877
-    uint32_t attach_to_name_;      // +0x504 ParentParams' node (0x7A8017BA)
+    uint32_t attach_to_name_{};    // +0x504 ParentParams' node (0x7A8017BA)
     float lean_angle_;             // +0x508 tilt (degrees, when pointing at something)
     bool is_dead_;                 // +0x50C its parent object went: element3d_died ran, nothing more
 };

@@ -235,7 +235,7 @@ Flight get_fly(V3 start, V3 velocity, float gravity, float dt, float max_time, f
         V3 next = p + v * dt + V3{0.0f, 0.5f * gravity * dt * dt, 0.0f};
         v.y += gravity * dt;
         t += dt;
-        V3 hit, normal;
+        V3 hit{}, normal{};
         if (t > skip && cast && cast(p, next, &hit, &normal)) {
             flight.points.push_back(hit);
             flight.landed = true;
@@ -401,9 +401,9 @@ std::vector<V3> boxes_of(const std::vector<uint32_t>& sectors)
 {
     std::vector<V3> boxes;
     for (uint32_t s : sectors) {
-        OrientedBox box;
+        OrientedBox box{};
         if (scenery::cuboid(s, &box)) {
-            V3 min, max;
+            V3 min{}, max{};
             bounds_of(box, &min, &max);
             boxes.push_back(min);
             boxes.push_back(max);

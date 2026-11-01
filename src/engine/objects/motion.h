@@ -262,66 +262,66 @@ public:
     bool obj_move_to_rel_pos(script::Struct* params, script::Script* script);    // 0x00427490
     bool obj_move_to_link(script::Struct* params, script::Script* script);       // 0x004274B0
 
-    uint32_t motion_flags_;          // +0x18 MOTION_*
-    uint32_t motion_flags2_;         // +0x1C MOTION2_*
-    float move_speed_;               // +0x20 moving to a point: the speed now (per second)
-    float path_acceleration_;        // +0x24 Obj_SetPathAcceleration
-    float path_deceleration_;        // +0x28 Obj_SetPathDeceleration
-    float path_max_speed_;           // +0x2C Obj_SetPathVelocity
-    float path_speed_;               // +0x30 along the path: the speed now
-    float path_turn_distance_;       // +0x34
-    float ground_above_;             // +0x38 Obj_StickToGround DistAbove (feet)
-    float ground_below_;             // +0x3C DistBelow
-    maths::Vec4 ground_triangle_[3]; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
+    uint32_t motion_flags_{};          // +0x18 MOTION_*
+    uint32_t motion_flags2_{};         // +0x1C MOTION2_*
+    float move_speed_{};               // +0x20 moving to a point: the speed now (per second)
+    float path_acceleration_{};        // +0x24 Obj_SetPathAcceleration
+    float path_deceleration_{};        // +0x28 Obj_SetPathDeceleration
+    float path_max_speed_{};           // +0x2C Obj_SetPathVelocity
+    float path_speed_{};               // +0x30 along the path: the speed now
+    float path_turn_distance_{};       // +0x34
+    float ground_above_{};             // +0x38 Obj_StickToGround DistAbove (feet)
+    float ground_below_{};             // +0x3C DistBelow
+    maths::Vec4 ground_triangle_[3]{}; // +0x40 the last ground triangle hit (0x00425CB0 tries it first)
     bool ground_height_only_; // +0x70 (constructor: true; cars: false) - false: three feelers turn it to the ground
-    maths::Vec4 ground_triangles_[3][3];  // +0x74 the three feelers' last triangles
+    maths::Vec4 ground_triangles_[3][3]{}; // +0x74 the three feelers' last triangles
     ObjectGroup* path_group_;             // +0x104 the path's group of objects (path manager)
-    maths::Vec4 move_target_;             // +0x108
-    float move_distance_;                 // +0x118 from the start to the target
-    float move_done_;                     // +0x11C how far it has gone
-    float move_max_speed_;                // +0x120 with an acceleration: the speed to reach
-    float move_acceleration_;             // +0x124
-    uint32_t move_arrive_node_;           // +0x128 Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
-    maths::Vec4 rot_target_;              // +0x12C per axis: the angle to turn through (radians; 0 forever)
-    maths::Vec4 rot_done_;                // +0x13C per axis: turned so far
-    maths::Vec4 rot_max_speed_;           // +0x14C per axis: the speed to reach (radians per second)
-    maths::Vec4 spin_rates_;              // +0x15C per axis: the speed now
-    maths::Vec4 rot_acceleration_;        // +0x16C
-    maths::Vec4 rot_deceleration_;        // +0x17C
-    maths::Vec4 move_start_;              // +0x18C
+    maths::Vec4 move_target_{};           // +0x108
+    float move_distance_{};               // +0x118 from the start to the target
+    float move_done_{};                   // +0x11C how far it has gone
+    float move_max_speed_{};              // +0x120 with an acceleration: the speed to reach
+    float move_acceleration_{};           // +0x124
+    uint32_t move_arrive_node_{};         // +0x128 Obj_MoveToNode: the node told (0x00424020) on arriving (0: none)
+    maths::Vec4 rot_target_{};            // +0x12C per axis: the angle to turn through (radians; 0 forever)
+    maths::Vec4 rot_done_{};              // +0x13C per axis: turned so far
+    maths::Vec4 rot_max_speed_{};         // +0x14C per axis: the speed to reach (radians per second)
+    maths::Vec4 spin_rates_{};            // +0x15C per axis: the speed now
+    maths::Vec4 rot_acceleration_{};      // +0x16C
+    maths::Vec4 rot_deceleration_{};      // +0x17C
+    maths::Vec4 move_start_{};            // +0x18C
     float ground_speed_;                  // +0x19C the ground offset's speed of change
     float ground_offset_;                 // +0x1A0 how far the height has still to go to the ground
-    float path_speed_1a_4_;               // +0x1A4 (the path's speed handling: 0x00423530)
-    float path_speed_1a_8_;               // +0x1A8
-    float path_min_stop_speed_;           // +0x1AC Obj_SetPathMinStopVel
-    maths::Vec4 stored_pos_;              // +0x1B0 Obj_StorePos
-    uint32_t saved_node_id_;              // +0x1C0 obj_store_node
-    float turn_time_;                     // +0x1C4 Obj_Rotate's time (0: at once)
-    float turn_elapsed_;                  // +0x1C8
-    maths::ArcRotationBlender* turn_ptr_; // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
-    float hover_base_;                    // +0x1D0 the height without the bob
-    float bob_now_;                       // +0x1D4 the bob now
-    float bob_height_;                    // +0x1D8
-    int bob_period_;                      // +0x1DC ms
-    float step_seconds_;                  // +0x1E0 this frame's length (seconds, slow motion included)
-    uint32_t own_node_name_;              // +0x1E4 its own node (Name)
-    uint32_t list_link_;                  // +0x1E8 the node it's at
+    float path_speed_1a_4_{};             // +0x1A4 (the path's speed handling: 0x00423530)
+    float path_speed_1a_8_{};             // +0x1A8
+    float path_min_stop_speed_{};         // +0x1AC Obj_SetPathMinStopVel
+    maths::Vec4 stored_pos_{};            // +0x1B0 Obj_StorePos
+    uint32_t saved_node_id_{};            // +0x1C0 obj_store_node
+    float turn_time_{};                   // +0x1C4 Obj_Rotate's time (0: at once)
+    float turn_elapsed_{};                // +0x1C8
+    maths::ArcRotationBlender* turn_ptr_{};      // +0x1CC Obj_Rotate's interpolator (0x98 bytes)
+    float hover_base_{};                         // +0x1D0 the height without the bob
+    float bob_now_{};                            // +0x1D4 the bob now
+    float bob_height_{};                         // +0x1D8
+    int bob_period_{};                           // +0x1DC ms
+    float step_seconds_{};                       // +0x1E0 this frame's length (seconds, slow motion included)
+    uint32_t own_node_name_{};                   // +0x1E4 its own node (Name)
+    uint32_t list_link_{};                       // +0x1E8 the node it's at
     memory::owner<PathFollower*> path_follower_; // +0x1EC
-    FollowTrail* trail_;                         // +0x1F0 obj_follow_leader's
-    bool leave_y_unaffected_;                    // +0x1F4 obj_follow_leader's LeaveYUnaffected
-    uint8_t pad1f5_[3];
-    float jump_speed_;           // +0x1F8 up (per second)
-    float leap_pull_;            // +0x1FC
-    maths::Vec4 leap_direction_; // +0x200 along (x, z; w kept)
-    bool jump_has_heading_;      // +0x210
-    maths::Vec4 jump_pos_;       // +0x214 the jump's position this frame
-    float jump_start_speed_;     // +0x224
-    float jump_col_above_;       // +0x228 col_dist_above
-    float jump_col_below_;       // +0x22C col_dist_below
-    uint32_t unknown230_;
-    bool jump_has_land_height_; // +0x234
-    float leap_touchdown_y_;    // +0x238
-    maths::Vec4 jump_start_;    // +0x23C
+    FollowTrail* trail_{};                       // +0x1F0 obj_follow_leader's
+    bool leave_y_unaffected_{};                  // +0x1F4 obj_follow_leader's LeaveYUnaffected
+    uint8_t pad1f5_[3]{};
+    float jump_speed_{};           // +0x1F8 up (per second)
+    float leap_pull_{};            // +0x1FC
+    maths::Vec4 leap_direction_{}; // +0x200 along (x, z; w kept)
+    bool jump_has_heading_{};      // +0x210
+    maths::Vec4 jump_pos_{};       // +0x214 the jump's position this frame
+    float jump_start_speed_{};     // +0x224
+    float jump_col_above_{};       // +0x228 col_dist_above
+    float jump_col_below_{};       // +0x22C col_dist_below
+    uint32_t unknown230_{};
+    bool jump_has_land_height_{}; // +0x234
+    float leap_touchdown_y_{};    // +0x238
+    maths::Vec4 jump_start_{};    // +0x23C
 
     // 0x00425600 (thiscall; called by its member function for Obj_Rotate, 0x00426770): turn the object to an
     // orientation over time - `relative = (x, y, z)`: the object's orientation now turned by those angles about its

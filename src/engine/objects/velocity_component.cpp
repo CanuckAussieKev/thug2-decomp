@@ -39,7 +39,7 @@ VelocityTrackerModule::~VelocityTrackerModule() = default;
 // 0x0043D2F0
 void VelocityTrackerModule::configure_from_data(script::Struct* params)
 {
-    script::VectorValue vel;
+    script::VectorValue vel{};
     params->fetch_vec(kVel, &vel, 1);
     entity_->vel_.x = vel.x;
     entity_->vel_.y = vel.y;

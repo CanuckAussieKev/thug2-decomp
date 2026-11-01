@@ -86,7 +86,7 @@ Kickoff find_start_spot(Point pos, float heading)
     Point candidates[4];
     start_spot_candidates(pos, heading, kStartSpotDistance, candidates);
     for (const Point& c : candidates) {
-        Point ground;
+        Point ground{};
         if (!get_hit({c.x, pos.y + kGroundAbove, c.z}, {c.x, pos.y - kGroundBelow, c.z}, &ground))
             continue;
         if (std::fabs(ground.y - pos.y) > kGroundStep || !get_clear(pos, ground))
@@ -180,7 +180,7 @@ bool cfunc_walk_to_bike(script::Struct* params, script::Script*)
         return true;
     Point from = point_of(skater->at_point_), to = point_of(bike->at_point_);
     float heading = get_heading_of(skater->basis_frame_.row[2].x, skater->basis_frame_.row[2].z);
-    Point next;
+    Point next{};
     if (step_toward(from, to, kWalkStep, &next)) {
         place_skater(skater, to, get_heading_of(bike->basis_frame_.row[2].x, bike->basis_frame_.row[2].z));
         return true;

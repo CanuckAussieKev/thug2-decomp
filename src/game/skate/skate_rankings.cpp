@@ -55,7 +55,7 @@ online::PlayerRecord* as_player(void* player) { return static_cast<online::Playe
 struct RankingList {
     RankingList(const RankingList&) = delete;
     RankingList& operator=(const RankingList&) = delete;
-    memory::ListNode head_;
+    memory::ListNode head_{};
     RankingList() { head_.make_head(); }
     ~RankingList()
     {

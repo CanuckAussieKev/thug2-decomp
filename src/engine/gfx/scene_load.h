@@ -17,9 +17,9 @@ struct HierarchyNode {
     uint32_t parent_checksum_;
     uint16_t parent_index_;
     uint8_t bone_slot_;
-    uint8_t pad0b_;
-    uint32_t unknown0c_;
-    float matrix[16];
+    uint8_t pad0b_{};
+    uint32_t unknown0c_{};
+    float matrix[16]{};
 
     // 0x004B2D30 (Ghidra never made it: the array constructor's callback): the checksums 0, no parent, bone 0, the
     // identity matrix (+0x0C left).

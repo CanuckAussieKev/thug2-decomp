@@ -38,9 +38,9 @@ public:
     // collision), then the engine's.
     ~PcMesh() override;
 
-    StripBreak* breaks;    // +0xBC
-    uint32_t break_count_; // +0xC0
-    uint8_t* scene;        // +0xC4
+    StripBreak* breaks{};    // +0xBC
+    uint32_t break_count_{}; // +0xC0
+    uint8_t* scene{};        // +0xC4
 
     // 0x004B7B50: the skin file read (opened "rb"). Whether it had breaks.
     bool load_skin_file(const char* name);

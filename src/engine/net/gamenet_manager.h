@@ -609,7 +609,7 @@ public:
     net::AppHost*& client_slot(int index) { return (&client_app_)[index]; }
 
     uint8_t flag_bits_; // +0x00 (bit 0: on the server; bit 2: internet; bits 2-3: network mode)
-    uint8_t unknown1_[3];
+    uint8_t unknown1_[3]{};
     net::AppHost* host_;                                  // +0x04
     net::AppHost* client_app_;                            // +0x08 client 0 (the game's)
     net::AppHost* client1_;                               // +0x0C client 1
@@ -617,24 +617,24 @@ public:
     memory::HeapUnique<VaultMan> vault_man_;              // +0x14 the content vault and HTTP transfers
     memory::HeapUnique<FriendsManager> presence_service_; // +0x18 the GameSpy presence
     memory::HeapUnique<RankingsManager> rating_service_;  // +0x1C the player's rating and stats
-    char challenge_[12];                                  // +0x20 the host's CD-key challenge
+    char challenge_[12]{};                                // +0x20 the host's CD-key challenge
     net::AppHost* browser_client_;                        // +0x2C the server list's client
-    uint32_t game_type_;          // +0x30 the game_type preference's checksum when the game started
-    uint32_t level_;              // +0x34 the level's load script
-    uint8_t game_id_;             // +0x38 the current game's number (the start info's)
-    uint8_t ended_game_id_;       // +0x39 the game whose end was last reported (message 0x59)
-    bool match_ended_;            // +0x3A
+    uint32_t game_type_{};        // +0x30 the game_type preference's checksum when the game started
+    uint32_t level_{};            // +0x34 the level's load script
+    uint8_t game_id_{};           // +0x38 the current game's number (the start info's)
+    uint8_t ended_game_id_{};     // +0x39 the game whose end was last reported (message 0x59)
+    bool match_ended_{};          // +0x3A
     bool cheating_noted_;         // +0x3B
     int join_mode_;               // +0x3C (1: observe)
     int host_mode_;               // +0x40 (0: serve)
-    bool final_scores_received_;  // +0x44
+    bool final_scores_received_{}; // +0x44
     bool show_metrics_;           // +0x45 the net metrics shown (toggle_net_metrics)
     bool show_scores_;            // +0x46 the scores shown (toggle_scores)
     bool show_names_;             // +0x47 the players' names shown (toggle_player_names)
-    uint32_t start_points_[8];    // +0x48 the skaters' starting points (choose_start_points; the start info's)
-    int crown_start_;             // +0x68 the crown's starting point (sent as a signed byte)
-    objects::CrownObject* crown_; // +0x6C king of the hill's crown
-    uint32_t team_objects_[4][5]; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
+    uint32_t start_points_[8]{};  // +0x48 the skaters' starting points (choose_start_points; the start info's)
+    int crown_start_{};           // +0x68 the crown's starting point (sent as a signed byte)
+    objects::CrownObject* crown_{}; // +0x6C king of the hill's crown
+    uint32_t team_objects_[4][5]{}; // +0x70 each team's objects (handle_team_object; zeroed when a game starts)
     std::unique_ptr<tasks::SchedulerTask> connection_job_;      // +0xC0 connection_task
     std::unique_ptr<tasks::SchedulerTask> metrics_job_;         // +0xC4 the net metrics' task
     std::unique_ptr<tasks::SchedulerTask> score_broadcast_job_; // +0xC8 score_broadcast_tick
@@ -650,58 +650,58 @@ public:
     std::unique_ptr<tasks::SchedulerTask> server_list_job_;     // +0xF0 server_list_task (the server-list client's)
     std::unique_ptr<tasks::SchedulerTask> auto_serve_job_;      // +0xF4 auto_serve_task
     std::unique_ptr<tasks::SchedulerTask> flag_carry_job_;      // +0xF8 carried_flags_task
-    memory::owner<pad_input::InputHandler*> spectator_pad_listener_; // +0xFC (deleted where observing ends)
-    int spectate_request_;                                           // +0x100
+    memory::owner<pad_input::InputHandler*> spectator_pad_listener_{}; // +0xFC (deleted where observing ends)
+    int spectate_request_{};                                           // +0x100
     // The network / taunt preferences (prefs::Preferences, made in place by make_new; 0xC bytes each as in the
     // original, whose sets had a table): get_online_settings / get_taunt_settings.
-    alignas(4) uint8_t net_options_[0xC];   // +0x104
-    alignas(4) uint8_t taunt_options_[0xC]; // +0x110
-    memory::ListNode players_;              // +0x11C lists::Foremost<PlayerRecord>
-    memory::ListNode joiners_;              // +0x130 lists::Foremost<JoinerRecord>: the joining players
-    memory::ListNode queued_scripts_;       // +0x144 the scripts to run once the level is up
-    memory::ListNode servers_;              // +0x158 lists::Foremost<HostListing>: the listed servers
-    memory::ListNode waiting_servers_;      // +0x16C lists::Foremost<HostListing>: found, not shown yet
+    alignas(4) uint8_t net_options_[0xC]{};   // +0x104
+    alignas(4) uint8_t taunt_options_[0xC]{}; // +0x110
+    memory::ListNode players_{};              // +0x11C lists::Foremost<PlayerRecord>
+    memory::ListNode joiners_{};              // +0x130 lists::Foremost<JoinerRecord>: the joining players
+    memory::ListNode queued_scripts_{};       // +0x144 the scripts to run once the level is up
+    memory::ListNode servers_{};              // +0x158 lists::Foremost<HostListing>: the listed servers
+    memory::ListNode waiting_servers_{};      // +0x16C lists::Foremost<HostListing>: found, not shown yet
     uint32_t unknown180_;                   // +0x180 (zeroed by make_new)
-    uint32_t refused_reason_;               // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
-    uint32_t last_ready_probe_id_;          // +0x188
-    bool cleared_to_start_;                 // +0x18C
-    uint32_t score_synced_at_;              // +0x190
+    uint32_t refused_reason_{};             // +0x184 a global text's name (CreateJoinRefusedDialog's `reason`)
+    uint32_t last_ready_probe_id_{};        // +0x188
+    bool cleared_to_start_{};               // +0x18C
+    uint32_t score_synced_at_{};            // +0x190
     uint32_t script_flag_bits_;             // +0x194 the pro set's bits (sent as a byte)
-    int join_phase_;                        // +0x198 EntryPhase
-    uint32_t join_ip_;                      // +0x19C
-    uint32_t join_private_ip_;              // +0x1A0
-    int join_port_;                         // +0x1A4
+    int join_phase_{};                      // +0x198 EntryPhase
+    uint32_t join_ip_{};                    // +0x19C
+    uint32_t join_private_ip_{};            // +0x1A0
+    int join_port_{};                       // +0x1A4
     int modem_state_shown_;                 // +0x1A8 the net library's modem state the online state task showed last
-    int join_began_at_;                     // +0x1AC
-    uint32_t lobby_since_;                  // +0x1B0 when the lobby began (reset_to_lobby)
-    bool match_being_set_up_;               // +0x1B4
-    bool awaiting_start_;                   // +0x1B5
+    int join_began_at_{};                   // +0x1AC
+    uint32_t lobby_since_{};                // +0x1B0 when the lobby began (reset_to_lobby)
+    bool match_being_set_up_{};             // +0x1B4
+    bool awaiting_start_{};                 // +0x1B5
     int service_state_;                     // +0x1B8 the online service's state (service_task)
     int next_service_state_;                // +0x1BC state 0 moves on to it at the wake time
-    uint32_t service_wake_at_;              // +0x1C0 frame_clock::get_time() milliseconds; 0: none
-    uint32_t online_script_;                // +0x1C4 run once online (connect_to_internet)
-    uint32_t online_fail_script_;           // +0x1C8 run if going online fails
-    PlayerRecord* viewed_player_;           // +0x1CC
-    PlayerRecord* last_leader_;             // +0x1D0 the player last announced as the leader
-    int last_leading_team_;                 // +0x1D4
+    uint32_t service_wake_at_{};            // +0x1C0 frame_clock::get_time() milliseconds; 0: none
+    uint32_t online_script_{};              // +0x1C4 run once online (connect_to_internet)
+    uint32_t online_fail_script_{};         // +0x1C8 run if going online fails
+    PlayerRecord* viewed_player_{};         // +0x1CC
+    PlayerRecord* last_leader_{};           // +0x1D0 the player last announced as the leader
+    int last_leading_team_{};               // +0x1D4
     // The created goals' message (prepare_created_goals): the level, then the goals. The goal editor is given 6000
     // bytes after the level - 4 more than the buffer holds, as in the original (they would reach the size, which is
     // written after).
-    uint8_t created_goals_[0x1770]; // +0x1D8
+    uint8_t created_goals_[0x1770]{}; // +0x1D8
     uint32_t created_goals_size_;   // +0x1948
     uint32_t created_goals_level_;  // +0x194C
-    uint8_t unknown1950_[0x8000];   // +0x1950
-    uint32_t room_id_;              // +0x9950 (set_room_id)
-    char master_servers_[10][16];   // +0x9954 the master servers' names (use_network_preferences)
-    uint8_t news_buffer_[0x6400];   // +0x99F4 the news / message of the day downloaded
-    uint8_t* motd_text_;            // +0xFDF4 the message of the day in news_buffer_
-    uint8_t* pending_data_;         // +0xFDF8 the rest of the download after it
-    uint32_t pending_data_size_;    // +0xFDFC
-    int request_;                   // +0xFE00 the current ghttp request
-    uint32_t request_started_at_;   // +0xFE04
-    bool download_done_;            // +0xFE08 the news download has ended (or the MOTD was cancelled)
+    uint8_t unknown1950_[0x8000]{}; // +0x1950
+    uint32_t room_id_{};            // +0x9950 (set_room_id)
+    char master_servers_[10][16]{}; // +0x9954 the master servers' names (use_network_preferences)
+    uint8_t news_buffer_[0x6400]{}; // +0x99F4 the news / message of the day downloaded
+    uint8_t* motd_text_{};          // +0xFDF4 the message of the day in news_buffer_
+    uint8_t* pending_data_{};       // +0xFDF8 the rest of the download after it
+    uint32_t pending_data_size_{};  // +0xFDFC
+    int request_{};                 // +0xFE00 the current ghttp request
+    uint32_t request_started_at_{}; // +0xFE04
+    bool download_done_{};          // +0xFE08 the news download has ended (or the MOTD was cancelled)
     bool motd_received_;            // +0xFE09
-    bool services_available_;       // +0xFE0A the GameSpy services are available
+    bool services_available_{};     // +0xFE0A the GameSpy services are available
 };
 
 // --- gamenet_players.cpp: outside the class ---

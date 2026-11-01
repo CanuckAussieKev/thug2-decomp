@@ -176,10 +176,10 @@ public:
     uint32_t kind_tag_ = kNoObjectType;    // +0x18
     uint32_t visited_mask_ = 0;            // +0x1C ObjectHubBase::for_each's bits (one per walk in progress)
     script::Struct* tag_table_ = nullptr;  // +0x20 made on demand (front-end heap)
-    uint32_t flag_bits_;                   // +0x24 the script flags (Obj_SetFlag...; never initialised here)
+    uint32_t flag_bits_{};                 // +0x24 the script flags (Obj_SetFlag...; never initialised here)
     // +0x28 in the manager's list (or its dead list; lists::Elem<Entity>: data = the object, priority = the list's
     // sort key, the highest first)
-    memory::ListNode list_link_;
+    memory::ListNode list_link_{};
     uint32_t alias_count_ = 0; // +0x3C the tracker's aliases of it (tracker.cpp)
     ObjectRef ref_{this};      // +0x40
 };
@@ -268,11 +268,11 @@ public:
     int dispatch_named_script_method(script::MemberFunctionEntry* entry, script::Struct* params,
                                      script::Script* script);
 
-    uint32_t kind_tag_;          // +0x04 its component type (a checksum)
+    uint32_t kind_tag_{};        // +0x04 its component type (a checksum)
     uint32_t flag_bits_{0};      // +0x08 COMPONENT_FLAG_*
-    GameEntity* entity_;         // +0x0C
-    ObjectModule* following_;    // +0x10 the next of its object's components
-    ObjectModule* next_of_type_; // +0x14 the next of the manager's components of its type
+    GameEntity* entity_{};       // +0x0C
+    ObjectModule* following_{};  // +0x10 the next of its object's components
+    ObjectModule* next_of_type_{}; // +0x14 the next of the manager's components of its type
 };
 static_assert(offsetof(ObjectModule, kind_tag_) == 0x04 && offsetof(ObjectModule, flag_bits_) == 0x08 &&
                   offsetof(ObjectModule, entity_) == 0x0C && offsetof(ObjectModule, following_) == 0x10 &&
@@ -387,12 +387,12 @@ public:
     // (the original's slot 10, 0x005480A0 here) Its own update, each frame before its components': nothing here.
     virtual void own_update() {}
 
-    maths::Vec4 at_point_;                     // +0x4C (w = 1 after every update)
-    maths::Vec4 old_pos_;                      // +0x5C (not initialised here; the skater's code sets it)
-    maths::Mat4 basis_frame_;                  // +0x6C its orientation (rows: right, up, at, and a fourth)
-    maths::Vec4 vel_;                          // +0xAC
+    maths::Vec4 at_point_{};                   // +0x4C (w = 1 after every update)
+    maths::Vec4 old_pos_{};                    // +0x5C (not initialised here; the skater's code sets it)
+    maths::Mat4 basis_frame_{};                // +0x6C its orientation (rows: right, up, at, and a fourth)
+    maths::Vec4 vel_{};                        // +0xAC
     uint8_t is_local_skater_ = 0;              // +0xBC set on this machine's skaters (not remote ones)
-    maths::Mat4 display_matrix_;               // +0xC0
+    maths::Mat4 display_matrix_{};             // +0xC0
     ObjectModule* attached_modules_ = nullptr; // +0x100
     uint32_t composite_flags_ = 0;             // +0x104 COMPOSITE_FLAG_*
 };

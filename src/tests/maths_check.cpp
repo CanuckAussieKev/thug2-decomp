@@ -1392,7 +1392,7 @@ void run(int count, std::mt19937_64& random)
         ref::versine_sine(fa, &vt_ref, &vs_ref);
         compare(t_versine, static_cast<float>(vt_fresh), static_cast<float>(vt_ref), fa);
         compare(t_versine, vs_fresh, vs_ref, fa);
-        fresh::Skin skin;
+        fresh::Skin skin{};
         for (int k = 0; k < 4; ++k) {
             skin.e0[k] = weight(random) + 0.5f;
             skin.e1[k] = weight(random) + 0.5f;

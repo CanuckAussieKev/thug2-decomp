@@ -425,12 +425,12 @@ void ParkBuilderMode::move_selection_cursor()
 void ParkBuilderMode::tick_frame()
 {
     // The camera: (0, 0, distance) tilted down, turned round y, put over the cursor 300 up.
-    maths::Mat4 camera;
+    maths::Mat4 camera{};
     camera.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     camera.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     camera.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     camera.row[3] = {0.0f, 0.0f, orbit_radius_, 1.0f};
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     matrix_multiply(
         &camera, &camera,
         &maths::make_pitch_matrix(rotation, static_cast<float>(camera_tilt_ * -static_cast<double>(kAngleScaleToRad))));

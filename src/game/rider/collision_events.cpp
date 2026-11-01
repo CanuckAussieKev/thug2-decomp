@@ -55,22 +55,22 @@ struct Ray {
 };
 
 struct Sample {
-    uint32_t frame;
-    int state, physics;
-    bool trick;
-    uint32_t balance;
-    uint16_t buttons;
-    float stick[2];
-    float pos[3], vel[3], facing[3], ground_normal_[3];
+    uint32_t frame{};
+    int state{}, physics{};
+    bool trick{};
+    uint32_t balance{};
+    uint16_t buttons{};
+    float stick[2]{};
+    float pos[3]{}, vel[3]{}, facing[3]{}, ground_normal_[3]{};
     Face ground;
-    Ray ground_ray_;
+    Ray ground_ray_{};
 };
 
 struct PathRecord {
-    uint32_t frame;
-    RouteWay path;
+    uint32_t frame{};
+    RouteWay path{};
     Face face;
-    Ray ray;
+    Ray ray{};
 };
 
 void* g_component = nullptr;
@@ -109,7 +109,7 @@ void copy3(float* to, const maths::Vec4& from)
 
 Ray line_of(const render::ProbeRay& feeler)
 {
-    Ray ray;
+    Ray ray{};
     copy3(ray.start, feeler.line_.start);
     copy3(ray.end, feeler.line_.end);
     return ray;

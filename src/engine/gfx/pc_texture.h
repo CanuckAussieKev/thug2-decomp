@@ -106,7 +106,7 @@ public:
 
     uint8_t unknownc_ = 0; // +0x0C
     uint8_t unknownd_ = 0; // +0x0D
-    uint8_t pade_[2];
+    uint8_t pade_[2]{};
     void* image_ = nullptr; // +0x10: the TextureRef, or the edit holding it (flag_bits_ & 1: a TextureEdit)
 };
 static_assert(offsetof(PcTexture, flag_bits_) == 8 && offsetof(PcTexture, image_) == 0x10 && sizeof(PcTexture) == 0x14,
@@ -141,7 +141,7 @@ public:
     // original leaves it in EAX, and the engine's CopyTexture hands it on - the skater's graffiti texture is one).
     BitmapTexture* duplicate_texture(uint32_t checksum, BitmapTexture* source) override;
 
-    uint32_t unknown10_; // +0x10
+    uint32_t unknown10_{}; // +0x10
 };
 static_assert(sizeof(PcTexDict) == 0x14, "layout must match the original");
 

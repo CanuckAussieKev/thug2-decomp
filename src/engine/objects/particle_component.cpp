@@ -80,7 +80,7 @@ struct Colour {
 };
 Colour colour_of(script::Array* array)
 {
-    Colour colour;
+    Colour colour{};
     for (uint32_t i = 0; i < 4; ++i)
         colour.rgba[i] = static_cast<uint8_t>(array->fetch_part(i));
     return colour;
@@ -179,7 +179,7 @@ bool set_reach(EffectsEmitterModule* component, script::Struct* params, int whic
 }
 bool change_location(EffectsEmitterModule* component, script::Struct* params, int which)
 {
-    maths::Vec4 pos;
+    maths::Vec4 pos{};
     params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&pos), 1);
     if (component->effect_handle_) {
         component->effect_handle_->change_place(which, &pos);
@@ -189,7 +189,7 @@ bool change_location(EffectsEmitterModule* component, script::Struct* params, in
 }
 bool set_box(EffectsEmitterModule* component, script::Struct* params, int which)
 {
-    maths::Vec4 box;
+    maths::Vec4 box{};
     params->fetch_vec(0u, reinterpret_cast<script::VectorValue*>(&box), 1);
     if (component->effect_handle_)
         component->effect_handle_->set_box(which, &box);
@@ -309,13 +309,13 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     params->fetch_float(0x3F243A3Cu, &p.extent_[2], 0);
 
     // The orientation: the identity, or turned to face 0x0C4C809E (normalised).
-    maths::Mat4 orient;
+    maths::Mat4 orient{};
     orient.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
     orient.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
     orient.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
     orient.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     if (params->has_bare_flag(0x7045843Au)) {
-        maths::Vec4 at;
+        maths::Vec4 at{};
         params->fetch_vec(0x0C4C809Eu, reinterpret_cast<script::VectorValue*>(&at), 1);
         at.make_unit();
         orient.row[2] = at;
@@ -361,7 +361,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
                     static_cast<float>(static_cast<double>(v[i].w) * scale)};
         }
         for (int i = 0; i < 3; ++i) {
-            maths::Vec4 turned;
+            maths::Vec4 turned{};
             v[i] = orient.xform(turned, v[i]);
         }
     };
@@ -411,7 +411,7 @@ void EffectsEmitterModule::configure_from_data(script::Struct* params)
     p.orientation_turn_.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
     maths::Vec4 angles = {0.0f, 0.0f, 0.0f, 1.0f};
     params->fetch_vec(0x9D2D0915u, reinterpret_cast<script::VectorValue*>(&angles), 0);
-    maths::Mat4 rotation;
+    maths::Mat4 rotation{};
     matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_pitch_matrix(rotation, angles.x));
     matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_yaw_matrix(rotation, angles.y));
     matrix_multiply(&p.orientation_turn_, &p.orientation_turn_, &maths::make_roll_matrix(rotation, angles.z));
@@ -467,7 +467,7 @@ void EffectsEmitterModule::tick_frame()
         maths::Vec4 pos = {local[0] + at.x, local[1] + at.y, local[2] + at.z, local[3] + at.w};
         effect_handle_->change_place(i, &pos);
         if (args.orient_with_object_) {
-            maths::Mat4 orientation;
+            maths::Mat4 orientation{};
             orientation = entity_->basis_frame_;
             orientation.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
             effect_handle_->spin_by(i, &orientation);

@@ -38,11 +38,11 @@ public:
     FallingTricksGoal& operator=(const FallingTricksGoal&) = delete;
     static constexpr int kMaxTricks = 30;
 
-    StackedTrickEntry tricks_[kMaxTricks]; // +0x70
-    int trick_total_;                      // +0x430
-    int stopwatch_;                        // +0x434 ms since the last trick was added
-    bool group_used_[kMaxTricks];          // +0x438 the combo groups in use
-    uint8_t pad456[2];
+    StackedTrickEntry tricks_[kMaxTricks]{}; // +0x70
+    int trick_total_{};                      // +0x430
+    int stopwatch_{};                        // +0x434 ms since the last trick was added
+    bool group_used_[kMaxTricks]{};          // +0x438 the combo groups in use
+    uint8_t pad456[2]{};
 
     // 0x0056F090: the constructor (Objective's, then the vtable). 0x0056F0B0 / 0x0056F290: the destructor body and the
     // scalar deleting destructor.
@@ -103,20 +103,20 @@ public:
     static constexpr int kMaxTricks = 30;
     static constexpr int kBeats = 16;
 
-    BeatTrick tricks_[kMaxTricks]; // +0x70
-    int trick_total_;              // +0x430
-    int last_time_;                // +0x434 the game clock last frame (ms)
-    int beat_time_;                // +0x438 ms into the beat
-    int beat_;                     // +0x43C 0..15
+    BeatTrick tricks_[kMaxTricks]{}; // +0x70
+    int trick_total_{};              // +0x430
+    int last_time_{};                // +0x434 the game clock last frame (ms)
+    int beat_time_{};                // +0x438 ms into the beat
+    int beat_{};                     // +0x43C 0..15
     float beat_length_;            // +0x440 ms (15000 / tempo)
-    bool pulse_;                   // +0x444 the beat pattern's pulse flag for this beat
+    bool pulse_{};                 // +0x444 the beat pattern's pulse flag for this beat
     script::Array* pattern_;       // +0x448 a copy of beat_pattern (16 structures: sounds, pulse)
-    bool in_window_;               // +0x44C tricks count as on the beat
-    int window_time_;              // +0x450 beat_window_time
-    int completed_;                // +0x454
-    int total_to_win_;             // +0x458 total_to_win
-    bool unknown45c_[kMaxTricks];  // +0x45C
-    uint8_t pad47a_[2];
+    bool in_window_{};             // +0x44C tricks count as on the beat
+    int window_time_{};            // +0x450 beat_window_time
+    int completed_{};              // +0x454
+    int total_to_win_{};           // +0x458 total_to_win
+    bool unknown45c_[kMaxTricks]{}; // +0x45C
+    uint8_t pad47a_[2]{};
 
     // 0x00574C40 / 0x00575140 / 0x00576210: constructor, destructor body, scalar deleting destructor.
     explicit TrickBeatGoal(script::Struct* params);

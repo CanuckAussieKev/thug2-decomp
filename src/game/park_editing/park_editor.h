@@ -170,7 +170,7 @@ public:
 
     Listener listener_;    // +0x14
     bool action_finished_; // +0x30: a command that changes the park was carried out
-    uint8_t pad31[3];
+    uint8_t pad31[3]{};
     std::unique_ptr<ParkEditorTask> editor_update_job_;           // +0x34 (0x0058FFC0, priority 0)
     std::unique_ptr<ParkEditorTask> draw_job_;                    // +0x38 (the empty 0x005480A0, priority -1000)
     std::unique_ptr<ParkEditorInputHandler> editor_pad_listener_; // +0x3C (process_pad_input, priority 0)
@@ -179,15 +179,15 @@ public:
     uint32_t flag_bits_;                                          // +0x48
     float move_speed_;                                            // +0x4C (480)
     float turn_speed_;                                            // +0x50 (120)
-    float pad_rx_;             // +0x54: the sticks (-128..127, then their dead zone taken off)
-    float pad_ry_;             // +0x58
-    float pad_lx_;             // +0x5C
-    float pad_ly_;             // +0x60
+    float pad_rx_{};           // +0x54: the sticks (-128..127, then their dead zone taken off)
+    float pad_ry_{};           // +0x58
+    float pad_lx_{};           // +0x5C
+    float pad_ly_{};           // +0x60
     int unknown64_;            // +0x64 (0)
     float camera_angle_;       // +0x68: degrees round y (0-360)
     float camera_tilt_;        // +0x6C: degrees down (10-90; 10 to start with)
     float orbit_radius_;       // +0x70 (500-1500; 1400 to start with)
-    int last_time_;            // +0x74: frame_clock::GetTime at the last Update
+    int last_time_{};          // +0x74: frame_clock::GetTime at the last Update
     uint32_t lighting_script_; // +0x78 (SetParkEditorTimeOfDay's tod_script)
 };
 static_assert(offsetof(ParkBuilderMode, listener_) == 0x14 && offsetof(ParkBuilderMode, action_finished_) == 0x30 &&

@@ -268,7 +268,7 @@ bool flag_command_by_name(script::Struct* params, script::Script*, int action)
     // (two flags looked for and not used)
     if (!params->has_bare_flag(kFlagCommandFlagA))
         params->has_bare_flag(kFlagCommandFlagB);
-    FlagCommand command;
+    FlagCommand command{};
     uint32_t id = 0;
     if (params->read_hash_value(kName, &id, 0)) {
         command.value = value;

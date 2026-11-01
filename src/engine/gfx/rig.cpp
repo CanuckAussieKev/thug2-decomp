@@ -86,9 +86,9 @@ Joint* new_bones(int count)
 // The bone's matrix in its own space (read_joint_matrix / GetBonePosition): its inverse bind times its matrix.
 maths::Mat4 bone_space(Rig* skeleton, int index)
 {
-    maths::Mat4 matrix;
+    maths::Mat4 matrix{};
     matrix = skeleton->matrix_array_[index];
-    maths::Mat4 result;
+    maths::Mat4 result{};
     result = skeleton->payload_->inverse_bind_[index];
     result.invert_orthonormal();
     get_multiply(&result, &result, &matrix);
@@ -170,11 +170,11 @@ bool RigData::read_in(const uint32_t* buffer, uint32_t size, bool)
         maths::Vec4 translation = {bind.translation[0], bind.translation[1], bind.translation[2],
                                    bind.translation[3]};
         bind_translations_[i] = translation;
-        maths::Mat4 matrix;
+        maths::Mat4 matrix{};
         objects::quat_to_matrix(rotation, &translation.x, &matrix.row[0].x);
         if (i != 0) {
             // (relative to the parent: its bind pose, the inverse of its inverse bind matrix)
-            maths::Mat4 parent;
+            maths::Mat4 parent{};
             parent = inverse_bind_[fetch_slot_no(parent_names_[i])];
             parent.invert_orthonormal();
             get_multiply(&matrix, &matrix, &parent);
@@ -310,7 +310,7 @@ void Rig::copy_bone_scales(const Rig* other, bool check_list)
         uint32_t name = data->names_[i];
         if (!find_bone(this, name))
             continue;
-        maths::Vec4 scale;
+        maths::Vec4 scale{};
         if (!other->fetch_bone_sizing(name, &scale))
             continue;
         bool local = true;
@@ -329,7 +329,7 @@ bool Rig::apply_bone_scales(script::Struct* params)
     params->fetch_int_value(kNotLocal, &not_local, 0);
     bool local = not_local == 0; // (once a bone of the exceptions is met, false for the rest - as the original)
     for (int i = 0; i < bone_total_; ++i) {
-        script::VectorValue given;
+        script::VectorValue given{};
         if (!params->fetch_vec(bone_array_[i].name, &given, 0))
             continue;
         uint32_t name = bone_array_[i].name;
@@ -382,7 +382,7 @@ bool Rig::read_joint_matrix(uint32_t name, maths::Mat4* out)
             continue;
         maths::Vec4 translation = result.row[3];
         result.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
-        maths::Mat4 turn;
+        maths::Mat4 turn{};
         turn = payload_->inverse_bind_[i];
         get_multiply(&result, &turn, &result);
         result.row[3] = translation;
@@ -413,7 +413,7 @@ void Rig::blit(const maths::Mat4* world, uint32_t start_colour, uint32_t end_col
         get_multiply(&bone, &bone, &matrix);
         get_multiply(&bone, &bone, world);
         matrix = *bone_array_[i].parent;
-        maths::Mat4 parent;
+        maths::Mat4 parent{};
         if (i == 0)
             set_identity(parent);
         else

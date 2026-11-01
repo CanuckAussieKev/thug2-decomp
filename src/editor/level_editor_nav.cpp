@@ -18,7 +18,7 @@ bool get_clear(V3 from, V3 move, const Cast& cast)
     if (length <= 0.0f)
         return true;
     V3 dir = {move.x / length, 0.0f, move.z / length};
-    V3 hit;
+    V3 hit{};
     for (float height : {kStepHeight + 1.0f, kEyeHeight - 4.0f}) {
         V3 a = {from.x, from.y + height, from.z};
         if (cast(a, a + dir * (length + kRadius), &hit))
@@ -70,7 +70,7 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     }
     // The ground below (from a step's height up: a kerb walked onto is stood on).
     V3 top = {w->feet.x, w->feet.y + kStepHeight, w->feet.z};
-    V3 ground;
+    V3 ground{};
     bool have_ground = cast(top, {top.x, top.y - kGroundSearch, top.z}, &ground);
     if (input.jump && w->grounded) {
         w->vy = kJumpSpeed;
@@ -93,7 +93,7 @@ void get_step(Walker* w, float yaw, const WalkInput& input, float seconds, const
     float dy = (vy0 + w->vy) * 0.5f * seconds;
     if (dy > 0.0f) {
         V3 head = {w->feet.x, w->feet.y + kEyeHeight, w->feet.z};
-        V3 hit;
+        V3 hit{};
         if (cast(head, {head.x, head.y + dy + 4.0f, head.z}, &hit)) {
             dy = 0.0f;
             w->vy = 0.0f;

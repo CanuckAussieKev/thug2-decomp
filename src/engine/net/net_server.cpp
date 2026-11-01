@@ -47,7 +47,7 @@ bool HostEnd::prepare_all()
 void HostEnd::pull_inbound()
 {
     int from_length = sizeof(sockaddr_in);
-    sockaddr_in from;
+    sockaddr_in from{};
     if (has_no_socket(this))
         return;
     int received = 0;

@@ -93,18 +93,18 @@ public:
     // 0x004079C0: the type of a file name's extension (0 if none matches; thiscall, the manager unused).
     int get_type_from_extension(const char* name);
 
-    bool permanent_by_default_; // +0x14 what LoadAnim loads with
+    bool permanent_by_default_{}; // +0x14 what LoadAnim loads with
     bool unknown15_;            // +0x15 cleared by the constructor
-    uint8_t pad16[2];
-    int unknown18_;         // +0x18 set by 0x00407A70 (not read here)
+    uint8_t pad16[2]{};
+    int unknown18_{};       // +0x18 set by 0x00407A70 (not read here)
     lists::KeyMap* assets_; // +0x1C
     Resource* ready_flag_;  // +0x20 the head of the loaded list
     Resource* pending_;     // +0x24 the head of the pending list
     LoadCallback callback_; // +0x28 given to the next assets loaded
-    void* callback_data0_;  // +0x2C
-    void* callback_data1_;  // +0x30
+    void* callback_data0_{}; // +0x2C
+    void* callback_data1_{}; // +0x30
     bool callback_once_;    // +0x34 the callback cleared after one asset
-    uint8_t pad35[3];
+    uint8_t pad35[3]{};
     std::unique_ptr<tasks::SchedulerTask> task_; // +0x38 a tasks::Task<ResourceRegistry> running process_task
 };
 static_assert(sizeof(ResourceRegistry) == 0x3C && offsetof(ResourceRegistry, assets_) == 0x1C &&

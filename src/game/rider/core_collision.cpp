@@ -104,7 +104,7 @@ bool SkaterPhysicsModule::check_air_forward_collision(const maths::Vec4* from)
             return false;
     }
 
-    FeelerStorage hit;
+    FeelerStorage hit{};
     copy_feeler(hit.get(), &feeler_);
     bool steep = feeler_.surface_dir_.y < 0.1f;
     // Try the skater at the feeler's end (lowered back): 0x004FFDB0 may take it there - then stopped, when going up
@@ -316,7 +316,7 @@ bool SkaterPhysicsModule::check_side_collision(float side, float length)
     const maths::Vec4& point = feeler_.contact_pos_;
     maths::Vec4 outer = point + normal * length;
     maths::Vec4 inner = point + normal;
-    FeelerStorage feeler;
+    FeelerStorage feeler{};
     new (feeler.bytes) render::ProbeRay(&inner, &outer);
     if (feeler->get_hit_shape(true, false)) {
         destroy_feeler(feeler.get());

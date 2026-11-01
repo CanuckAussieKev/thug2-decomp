@@ -388,7 +388,7 @@ void CinematicTable::load_from_bundle()
 void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, void* data)
 {
     uint32_t model_name = entry->name + kTypeModel; // (the original prints name + type, compiled out)
-    LoadParams params;
+    LoadParams params{};
     reinterpret_cast<assets::SkinParams*>(&params)->get_clear(); // (the skinned model's load parameters, 0x14 bytes)
     void* texture_data = bundle_ptr_->find_asset(entry->name, kTypeTextures, 1);
     file::AssetBundle::TableRow* textures = bundle_ptr_->find_entry(entry->name, kTypeTextures, 1);
@@ -400,7 +400,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
     params.is_model_ = is_model;
     params.flag0 = 0;
     params.texture_set_ = entry->type == kTypeSkin ? 0 : index + 200;
-    TextureParams texture_params;
+    TextureParams texture_params{};
     texture_params.texture_set_ = params.texture_set_;
     void* assets = get_assets();
     texture_params.flag0 = 0;
@@ -430,7 +430,7 @@ void CinematicTable::ingest_mesh(int index, file::AssetBundle::TableRow* entry, 
             debug::printf("cutscene skin colours damaged: %d entries\n", read.count);
             read.count = 0;
         }
-        SkinColours table;
+        SkinColours table{};
         table.start = read.entries;
         table.end = table.start + read.count * bundle_format::kSkinColourSize;
         table.table = g_skin_colour_table;

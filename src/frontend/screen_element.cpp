@@ -719,7 +719,7 @@ bool UiWidget::read_position_param(script::Struct* params, float* x, float* y)
         *y = pair.y;
         return true;
     }
-    script::VectorValue v;
+    script::VectorValue v{};
     if (params->fetch_vec(kPos, &v, 0)) {
         *x = v.x;
         *y = v.y;
@@ -775,12 +775,12 @@ void UiWidget::change_traits(script::Struct* params)
 {
     void* manager = park_owner_;
     script::Pair pair;
-    script::VectorValue v;
+    script::VectorValue v{};
     if (params->fetch_pair(kPos, &pair, false))
         change_location(pair.x, pair.y, 1);
     else if (params->fetch_vec(kPos, &v, 0))
         change_location(v.x, v.y, 1);
-    script::VectorValue pos3d;
+    script::VectorValue pos3d{};
     if (params->fetch_vec(kPos3dName, &pos3d, 0)) {
         pos3d.w = 1.0f;
         set_pos3d(reinterpret_cast<const maths::Vec4*>(&pos3d), 1);

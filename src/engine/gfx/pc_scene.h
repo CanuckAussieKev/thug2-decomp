@@ -53,7 +53,7 @@ public:
     uint32_t flags{0};                    // +0x1C: 0x800000 billboards, 0x200000 the meshes' flag 0x200
     float unknown20[3]{0.0f, 0.0f, 0.0f}; // +0x20 (zero)
     float unknown2c_{1.0f};               // +0x2C (1)
-    uint8_t unknown30_[4];
+    uint8_t unknown30_[4]{};
 };
 static_assert(offsetof(PcSector, geom_handle_) == 0x14 && offsetof(PcSector, unknown20) == 0x20 &&
                   sizeof(PcSector) == 0x34,
@@ -80,7 +80,7 @@ struct PcScene final : public WorldScene {
     // 0x004C6200: the sectors gone through (nothing done with them - stripped).
     void unload_sectors();
 
-    SceneRef* meshes; // +0x280: its mesh list
+    SceneRef* meshes{}; // +0x280: its mesh list
 };
 static_assert(offsetof(PcScene, sectors_) == 0xD0 && offsetof(PcScene, meshes) == 0x280 && sizeof(PcScene) == 0x284,
               "layout must match the original");

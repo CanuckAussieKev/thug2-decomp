@@ -90,24 +90,24 @@ public:
     // look-around's factor while it turns (else 1) at the skater camera's +0x110.
     void get_zoomed_offsets(float* height, float* distance);
 
-    int instant_frames_; // +0x18 frames left that jump straight to the target (3 after a teleport)
-    bool flush_;         // +0x1C a flush requested
-    bool snap_next_;     // +0x1D (reset_now)
-    uint8_t pad1e_[2];
-    float zoom_;              // +0x20
-    maths::Vec4 aim_point_;   // +0x24
-    maths::Mat4 orientation_; // +0x34
-    float turn_cosine_;       // +0x74 the last turn's cosine (the new at-row against the old)
-    bool override_;           // +0x78 (change_forced_heading)
-    uint8_t pad79[3];
-    maths::Vec4 forced_heading_;         // +0x7C
-    float override_rate_;                // +0x8C
-    FreeLookModule* free_look_;          // +0x90
-    ViewpointModule* viewer_;            // +0x94 the object's camera component
-    RiderChaseView* skater_camera_;      // +0x98 (the parameters it shares)
-    GameEntity* skater_;                 // +0x9C
-    FootMovement* walk_;                 // +0xA0
-    RiderBoardPhysics* physics_control_; // +0xA4
+    int instant_frames_{}; // +0x18 frames left that jump straight to the target (3 after a teleport)
+    bool flush_{};         // +0x1C a flush requested
+    bool snap_next_{};     // +0x1D (reset_now)
+    uint8_t pad1e_[2]{};
+    float zoom_{};              // +0x20
+    maths::Vec4 aim_point_{};   // +0x24
+    maths::Mat4 orientation_{}; // +0x34
+    float turn_cosine_{};       // +0x74 the last turn's cosine (the new at-row against the old)
+    bool override_{};           // +0x78 (change_forced_heading)
+    uint8_t pad79[3]{};
+    maths::Vec4 forced_heading_{};         // +0x7C
+    float override_rate_{};                // +0x8C
+    FreeLookModule* free_look_{};          // +0x90
+    ViewpointModule* viewer_{};            // +0x94 the object's camera component
+    RiderChaseView* skater_camera_{};      // +0x98 (the parameters it shares)
+    GameEntity* skater_{};                 // +0x9C
+    FootMovement* walk_{};                 // +0xA0
+    RiderBoardPhysics* physics_control_{}; // +0xA4
 };
 
 } // namespace objects

@@ -50,8 +50,8 @@ public:
     bool get_hook_point(maths::Vec4* out, int index);
 
     bool allowed_; // +0x18
-    uint8_t pad19[3];
-    ObjectModule* hooks_; // +0x1C the object's hook manager (0x27443708)
+    uint8_t pad19[3]{};
+    ObjectModule* hooks_{}; // +0x1C the object's hook manager (0x27443708)
 };
 
 } // namespace objects

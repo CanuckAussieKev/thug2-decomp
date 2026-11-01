@@ -56,21 +56,21 @@ public:
     // collision - in the grids the line from it along the range reaches - touches that line's box grown by 2.5 sizes.
     void tick_frame(objects::GameEntity* object);
 
-    memory::ListNode list_link_;  // +0x04 in its component's list (data = this)
+    memory::ListNode list_link_{}; // +0x04 in its component's list (data = this)
     uint32_t label_;              // +0x14: the structure's 0x1EE8B7B9 (the component sets it)
     uint8_t* bitmap_;             // +0x18: an engine BitmapTexture
     uint32_t blend_mode_;         // +0x1C
-    maths::Mat4 projection_;      // +0x20
+    maths::Mat4 projection_{};    // +0x20
     float extent_;                // +0x60
     float field_of_view_;         // +0x64
     float aspect_;                // +0x68
     uint32_t fineness_;           // +0x6C
-    maths::Vec4 direction_;       // +0x70: the object's (normalised)
-    maths::Vec4 world_direction_; // +0x80
-    maths::Vec4 anchor_point_;    // +0x90: in the world
+    maths::Vec4 direction_{};     // +0x70: the object's (normalised)
+    maths::Vec4 world_direction_{}; // +0x80
+    maths::Vec4 anchor_point_{};    // +0x90: in the world
     float range_;                 // +0xA0
     uint32_t unknowna4_;          // +0xA4: the structure's 0xDC46BA66
-    maths::Vec4 shift_;           // +0xA8: from the object, in its space
+    maths::Vec4 shift_{};         // +0xA8: from the object, in its space
     float angle_;                 // +0xB8: radians
     float unknownbc_;             // +0xBC: 0xE979B3D3 (100000)
     float view_distance_;         // +0xC0: 0x7FCAEAB1 (15000)

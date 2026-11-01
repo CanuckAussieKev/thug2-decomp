@@ -76,7 +76,7 @@ bool read_connect_trailer(const void* message, uint32_t length, ConnectTrailer* 
         return false;
     util::ByteReader reader(message, length);
     reader.seek(kConnectInfoSize);
-    ConnectTrailer trailer;
+    ConnectTrailer trailer{};
     if (!read_connect_trailer(reader, &trailer) || std::memcmp(trailer.magic, kMagic, sizeof(kMagic)) != 0)
         return false;
     *out = trailer;

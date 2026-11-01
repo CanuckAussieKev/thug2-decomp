@@ -163,7 +163,7 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
                     const maths::Vec4* (*direction)(objects::FootMovement*, maths::Vec4*), uint32_t margin,
                     RailHit* found)
 {
-    maths::Vec4 buffer;
+    maths::Vec4 buffer{};
     get_rails_of(walk) = get_level_rails();
     const maths::Vec4* towards = direction(walk, &buffer);
     float snap = script::fetch_float(margin);
@@ -174,10 +174,10 @@ bool find_walk_rail(objects::FootMovement* walk, const maths::Vec4* start, const
     }
     for (objects::ObjectModule* component = objects::object_hub_slot()->find_first_module_of_kind(kRailHubModuleName);
          component; component = component->next_of_type_) {
-        maths::Mat4 to_local;
+        maths::Mat4 to_local{};
         object_matrix_of(component, &to_local);
         to_local.upend();
-        maths::Vec4 local_start, local_end;
+        maths::Vec4 local_start{}, local_end{};
         to_local.xform(local_start, *start);
         to_local.xform(local_end, *end);
         get_rails_of(walk) = rail_manager_of(component);
@@ -439,7 +439,7 @@ bool objects::FootMovement::side_clear(render::ProbeRay* feeler, const maths::Ve
 void objects::FootMovement::face_hang_rail(float distance, bool from_end, const maths::Vec4* direction)
 {
     objects::GrindRailHub* rails = get_rails_of(this);
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     rails->get_absolute_pos(&a, hang_next_node_);
     rails->get_absolute_pos(&b, hang_node_);
     maths::Vec4 d = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
@@ -484,7 +484,7 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
 {
     objects::GrindRailHub* rails = get_rails_of(this);
     auto grabbable = [rails](objects::GrindPoint* from, objects::GrindPoint* to) {
-        maths::Vec4 a, b;
+        maths::Vec4 a{}, b{};
         rails->get_absolute_pos(&b, to);
         rails->get_absolute_pos(&a, from);
         return objects::rail_clear(a, b);
@@ -516,7 +516,7 @@ bool objects::FootMovement::next_hang_rail(float* t, objects::GrindPoint* start,
     }
     // a joining rail: does it run on the same way?
     bool same_way = objects::nodes_together(joining, end) || objects::nodes_together(joining->succ_, start);
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     rails->get_absolute_pos(&a, start);
     rails->get_absolute_pos(&b, end);
     maths::Vec4 here = {b.x - a.x, b.y - a.y, b.z - a.z, b.w - a.w};
@@ -550,7 +550,7 @@ bool objects::FootMovement::pull_up(maths::Vec4* target)
 {
     // the ground to stand on: near the target, else 12 to one side of it, else 12 to the other
     render::ProbeRay ledge;
-    maths::Vec4 ground;
+    maths::Vec4 ground{};
     bool found = find_stand_position(target, &ground, &ledge);
     if (!found) {
         float across = -facing_.z;
@@ -647,7 +647,7 @@ bool objects::FootMovement::drop_to_hang()
         return false;
     old_pos_.w = 1.0f;
     pos_.w = 1.0f;
-    RailHit rail;
+    RailHit rail{};
     if (!find_walk_rail(this, &old_pos_, &pos_, facing_away, kDropToClimbMaxSnap, &rail))
         return false;
     hang_node_ = rail.node;
@@ -684,7 +684,7 @@ bool objects::FootMovement::grab_rail(maths::Vec4 start, maths::Vec4 end)
     end.y = end.y + get_param(kHangVertOriginOffset);
     start.w = 1.0f;
     end.w = 1.0f;
-    RailHit rail;
+    RailHit rail{};
     if (!find_walk_rail(this, &start, &end, current_facing, kClimbMaxSnap, &rail))
         return false;
     hang_node_ = rail.node;
@@ -730,7 +730,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
         objects::GrindPoint* next_end = nullptr;
         if (next_hang_rail(&along, start, end, &next_start, &next_end)) {
             float sign = along > 0.5f ? -1.0f : 1.0f;
-            maths::Vec4 a, b;
+            maths::Vec4 a{}, b{};
             get_rails_of(this)->get_absolute_pos(&a, next_end);
             get_rails_of(this)->get_absolute_pos(&b, next_start);
             double dw = static_cast<double>(b.w) - a.w;
@@ -810,7 +810,7 @@ bool objects::FootMovement::shimmy_blocked(const maths::Vec4* out, float along, 
 void objects::FootMovement::place_on_hang()
 {
     GrindRailHub* rails = get_rails_of(this);
-    maths::Vec4 a, b, point;
+    maths::Vec4 a{}, b{}, point{};
     maths::Vec4* end_pos = rails->get_absolute_pos(&a, hang_next_node_);
     maths::Vec4* start_pos = rails->get_absolute_pos(&b, hang_node_);
     maths::Vec4& pos = pos_;
@@ -865,7 +865,7 @@ bool objects::FootMovement::hang_clear(render::ProbeRay* feeler, const maths::Ve
     rail->point = *point;
     GrindPoint* node = rail->node;
     maths::Vec4 side = {-rail->facing.z, 0.0f, rail->facing.x, 1.0f};
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     maths::Vec4* next_pos = get_rails_of(this)->get_absolute_pos(&a, node->succ_);
     maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&b, rail->node);
     maths::Vec4 segment = {node_pos->x - next_pos->x, node_pos->y - next_pos->y, node_pos->z - next_pos->z,
@@ -925,7 +925,7 @@ void objects::FootMovement::shimmy(float move)
     const maths::Vec4 old_facing = facing;
 
     maths::Vec4 side = {-facing.z, 0.0f, facing.x, 1.0f};
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     maths::Vec4* end_pos = get_rails_of(this)->get_absolute_pos(&a, end);
     maths::Vec4* start_pos = get_rails_of(this)->get_absolute_pos(&b, start);
     maths::Vec4 segment = {start_pos->x - end_pos->x, start_pos->y - end_pos->y, start_pos->z - end_pos->z,
@@ -967,7 +967,7 @@ void objects::FootMovement::shimmy(float move)
             double clamped = t > 1.0f ? 1.0 : t < 0.0f ? 0.0 : t;
             double over = static_cast<double>(along) - clamped;
             auto rest = static_cast<float>(std::fabs(over) * std::sqrt(static_cast<double>(length_squared_f)));
-            maths::Vec4 reversed;
+            maths::Vec4 reversed{};
             const maths::Vec4* direction = &segment;
             if (!towards_end) {
                 reversed = {-segment.x, -segment.y, -segment.z, -segment.w};
@@ -1088,7 +1088,7 @@ void objects::FootMovement::update_hang()
             stop_riding(this);
         } else {
             ObjectModule* component = ride_->ride_->entity_.get_pull()->fetch_module(kRailHubModuleName);
-            maths::Mat4 matrix;
+            maths::Mat4 matrix{};
             object_matrix_of(component, &matrix); // (unused)
             place_on_hang();
         }
@@ -1191,7 +1191,7 @@ void objects::FootMovement::end_onto_ladder_bottom()
 {
     GrindPoint* node = hang_node_;
     GrindPoint* other = ladder_other_end(node);
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
     maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
     float dx = other_pos->x - node_pos->x;
@@ -1210,7 +1210,7 @@ void objects::FootMovement::end_onto_ladder_top()
 {
     GrindPoint* node = hang_node_;
     GrindPoint* other = ladder_other_end(node);
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
     maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
     double dx = static_cast<double>(other_pos->x) - node_pos->x;
@@ -1400,7 +1400,7 @@ bool objects::FootMovement::climb_onto_bottom(bool button)
         return false;
     float radius = button ? get_param(kButtonHorizSnapDistance) : get_param(kMaxHorizSnapDistance);
     float height = get_param(kMaxVertSnapDistance);
-    FoundLadder ladder;
+    FoundLadder ladder{};
     if (!get_level_rails()->find_ladder(&pos_, radius, height, true, this, reinterpret_cast<uint32_t>(&ladder),
                                         &hang_node_))
         return false;
@@ -1426,7 +1426,7 @@ bool objects::FootMovement::climb_onto_top()
         return false;
     float height = get_param(kMaxVertSnapDistance);
     float radius = get_param(kMaxHorizSnapDistance);
-    FoundLadder ladder;
+    FoundLadder ladder{};
     if (!get_level_rails()->find_ladder(&pos_, radius, height, false, this, reinterpret_cast<uint32_t>(&ladder),
                                         &hang_node_))
         return false;
@@ -1448,7 +1448,7 @@ bool objects::FootMovement::climb_onto_top()
 // 0x00442170
 bool objects::FootMovement::grab_ladder(const maths::Vec4* start, const maths::Vec4* end)
 {
-    FoundLadder ladder;
+    FoundLadder ladder{};
     if (!get_level_rails()->find_ladder_on_line(start, end, this, reinterpret_cast<Record24*>(&ladder), &hang_node_))
         return false;
     get_rails_of(this) = get_level_rails();
@@ -1476,7 +1476,7 @@ void objects::FootMovement::climb_ladder()
     auto move = static_cast<float>(move_speed * frame_length_);
     GrindPoint* node = hang_node_;
     GrindPoint* other = ladder_other_end(node);
-    maths::Vec4 a, b;
+    maths::Vec4 a{}, b{};
     maths::Vec4* node_pos = get_rails_of(this)->get_absolute_pos(&a, node);
     maths::Vec4* other_pos = get_rails_of(this)->get_absolute_pos(&b, other);
     maths::Vec4 d = {other_pos->x - node_pos->x, other_pos->y - node_pos->y, other_pos->z - node_pos->z,

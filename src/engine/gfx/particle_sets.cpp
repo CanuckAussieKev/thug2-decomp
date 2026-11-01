@@ -149,13 +149,13 @@ void Sparkle::update_bounds()
             current_round((s[i] + static_cast<double>(current_round(static_cast<double>(at.z) + hb[i][2]))) + hr[i]);
         hi[i].w = current_round(static_cast<double>(current_round(s[i] + (static_cast<double>(hr[i]) + s[i]))) + hr[i]);
     }
-    maths::Vec4 low, high, curve;
+    maths::Vec4 low{}, high{}, curve{};
     low = *min_of(&lo[0], &lo[2], &curve);
     high = *max_of(&hi[0], &hi[2], &curve);
     if (p.use_mid_) { // (the paths go through the mid: their extremes on the way)
         float life = p.lifetime_;
         float mid_time = current_round(static_cast<double>(life) * p.mid_percent_ * 0.01f);
-        maths::Vec4 extreme;
+        maths::Vec4 extreme{};
         curve_extremes(&extreme, lo[0], lo[1], lo[2], mid_time, life);
         low = *min_of(&low, &extreme, &curve);
         curve_extremes(&extreme, hi[0], hi[1], hi[2], mid_time, life);
@@ -190,7 +190,7 @@ void Sparkle::spin_by(int which, const maths::Mat4* matrix)
     pos.y -= start.y;
     pos.z -= start.z;
     pos.w -= start.w;
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     pos = matrix->xform(turned, pos);
     maths::Vec4& box = args_.box_[which];
     box = matrix->xform(turned, box);

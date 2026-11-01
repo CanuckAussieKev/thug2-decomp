@@ -309,9 +309,9 @@ uint32_t play_stream_at_object(void* component, uint32_t checksum, float dropoff
         void* emitter = nearest_emitter(&object->at_point_.x);
         bool audible = true;
         if (emitter) {
-            maths::Vec4 direction;
+            maths::Vec4 direction{};
             maths::Vec4* towards = get_emitter_direction(component, emitter, &direction) ? &direction : nullptr;
-            maths::Vec4 position;
+            maths::Vec4 position{};
             audible = loudness_from_position(manager, &stream_volume, sound_position(component, &position, emitter),
                                              dropoff, falloff_curve, emitter, towards);
         } else {

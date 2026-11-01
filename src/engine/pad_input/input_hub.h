@@ -107,10 +107,10 @@ static_assert(sizeof(Responder<void>) == 0x2C, "the original's size");
 
 // A controller's server (0x84 bytes).
 struct HostEnd {
-    sio::InputPort* dev_;
+    sio::InputPort* dev_{};
     tasks::PileUp handlers_;        // +0x04: the handler list (0x00406E80 makes it, 0x004070A0 runs it)
-    uint8_t pad38_[0x08];           // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
-    Payload content_;               // +0x40
+    uint8_t pad38_[0x08]{};         // +0x38: (the original list's two table words: the host keeps its 0x84 bytes)
+    Payload content_{};             // +0x40
     PadFrameRecord* data_in_;       // +0x74: the recording played back (null: none)
     PadFrameRecord* in_buf_limit_;  // +0x78
     PadFrameRecord* data_out_;      // +0x7C: the recording made (null: none)
@@ -134,8 +134,8 @@ struct Hub {
     HostEnd hosts_[kNumServers];             // +0x04
     bool stick_replaces_pad_;                // +0x10C (0x0044E610 sets, 0x0044E620 gets)
     bool unknown10d_;
-    uint8_t pad10e_[2];
-    int unknown110_[2]; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
+    uint8_t pad10e_[2]{};
+    int unknown110_[2]{}; // +0x110 (0x0044E630 / 0x0044E640 get and set them)
 
     // 0x0044E700: the servers, the task, each server's device (by index), the stick working the d-pad on.
     Hub();

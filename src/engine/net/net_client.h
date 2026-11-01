@@ -45,7 +45,7 @@ public:
     // 0x0045AA70 (id 9): the server's timestamp, acked; lost, late and duplicate packets counted from it.
     static int on_clock_sync_msg(InboundMsgCtx* context);
 
-    uint8_t host_sock_addr_[0x10]; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
+    uint8_t host_sock_addr_[0x10]{}; // +0x1F08 sockaddr_in (dial_server; pull_inbound looks the server up by it)
 };
 
 // The app's task (net_client.cpp; the server uses it too).

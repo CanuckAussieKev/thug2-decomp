@@ -46,20 +46,20 @@ enum PlayerFlag : uint32_t {
 // A player not yet added (0x44 bytes, on the stack of the new-player handler 0x0052DB80): its name, object id,
 // connection, a skater profile (the appearance), flags, team and the numbers of the new-player message.
 struct JoinerRecord {
-    char label_[16];     // +0x00
-    uint8_t entity_key_; // +0x10
-    uint8_t pad11[3];
-    net::Conn* conn_;                 // +0x14
-    int add_at_frame_;                // +0x18 the server app's frame from which it may be added
+    char label_[16]{};     // +0x00
+    uint8_t entity_key_{}; // +0x10
+    uint8_t pad11[3]{};
+    net::Conn* conn_{};               // +0x14
+    int add_at_frame_{};              // +0x18 the server app's frame from which it may be added
     objects::RiderIdentity* account_; // +0x1C
-    uint32_t flag_bits_;              // +0x20 PlayerFlag
+    uint32_t flag_bits_{};            // +0x20 PlayerFlag
     int rejoin_group_;                // +0x24 (a player joining again: the server app's frame when it was listed)
-    int team_;                        // +0x28
+    int team_{};                      // +0x28
     int32_t profile_id_;              // +0x2C the GameSpy profile
     int32_t skill_points_;            // +0x30
-    int score_;                       // +0x34 (its score component's grand total)
+    int score_{};                     // +0x34 (its score component's grand total)
     uint32_t accumulated_score_;      // +0x38 (the player's accumulated_score_)
-    uint32_t eliminated_time_;        // +0x3C (the player's eliminated_time_)
+    uint32_t eliminated_time_{};      // +0x3C (the player's eliminated_time_)
     int32_t drive_control_mode_;      // +0x40
 
     // 0x005434D0: a new skater profile (made on the skater info heap; null if out of memory) and the numbers +0x24,
@@ -200,21 +200,21 @@ public:
     void give_crown(bool king);
 
     objects::Rider* skater_;     // +0x14
-    net::Conn* conn_;            // +0x18
+    net::Conn* conn_{};          // +0x18
     uint32_t eliminated_time_;   // +0x1C
-    int accumulated_score_;      // +0x20
-    int best_combo_;             // +0x24 the game stats' best combo (zeroed when a game starts)
+    int accumulated_score_{};    // +0x20
+    int best_combo_{};           // +0x24 the game stats' best combo (zeroed when a game starts)
     int32_t profile_id_;         // +0x28 the GameSpy profile
     int skill_points_;           // +0x2C (a server list's player: its rating)
     int team_;                   // +0x30
     int num_placed_;             // +0x34 scavenger hunt: its objects placed (5 minus it is its score line's number)
-    char label_[16];             // +0x38 ("<No Name>" until named)
+    char label_[16]{};           // +0x38 ("<No Name>" until named)
     int32_t drive_control_mode_; // +0x48 its vehicle control type
     objects::RiderIdentity* account_;     // +0x4C
-    SentSkaterUpdates sent_;              // +0x50 (the server's)
-    script::VectorValue placed_[5];       // +0x180 scavenger hunt: where its objects were placed (num_placed_)
+    SentSkaterUpdates sent_{};            // +0x50 (the server's)
+    script::VectorValue placed_[5]{};     // +0x180 scavenger hunt: where its objects were placed (num_placed_)
     uint32_t flag_bits_;                  // +0x1D0 PlayerFlag
-    uint32_t ready_query_owed_;           // +0x1D4
+    uint32_t ready_query_owed_{};         // +0x1D4
     int rejoin_group_;                    // +0x1D8 (JoinerRecord::rejoin_group_)
     uint32_t join_time_;                  // +0x1DC (mark_just_joined)
     uint32_t last_impact_at_;             // +0x1E0

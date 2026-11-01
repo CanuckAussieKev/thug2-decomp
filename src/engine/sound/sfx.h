@@ -47,10 +47,10 @@ struct VolumeRef {
 
     int channel_count() const { return kind_tag_ == kTypeSurround ? 5 : 2; }
 
-    float lanes_[5];           // +0x00
+    float lanes_[5]{};         // +0x00
     int kind_tag_;             // +0x14
-    maths::Vec4 anchor_point_; // +0x18: 3D: where the sound is
-    float dropoff_;            // +0x28: 3D: its range
+    maths::Vec4 anchor_point_{}; // +0x18: 3D: where the sound is
+    float dropoff_{};            // +0x28: 3D: its range
 };
 static_assert(sizeof(VolumeRef) == 0x2C, "layout must match the original");
 
@@ -230,8 +230,8 @@ public:
     // 0x0047C560: every positional sound updated; those that ended or stop are dropped.
     void tick_positional_sounds();
 
-    uint8_t mute_override_; // +0x00
-    uint8_t unknown1_[3];
+    uint8_t mute_override_{}; // +0x00
+    uint8_t unknown1_[3]{};
     int fallback_channel_mode_; // +0x04
 };
 

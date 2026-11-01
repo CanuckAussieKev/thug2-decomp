@@ -251,7 +251,7 @@ float Capsule::get_loudness() const
 // 0x00403330
 bool Capsule::contains_point(const Vec4& point, Vec4* offset) const
 {
-    Vec4 local_offset;
+    Vec4 local_offset{};
     float squared_gap = line.distance_sqr_to_point(point, &local_offset);
     if (!(radius * radius >= squared_gap))
         return false;
@@ -270,7 +270,7 @@ float Seg::distance_sqr_to_point(const Vec4& point, Vec4* offset) const
     // Project onto the segment: before the start, past the end, or in between.
     float along = vx * dx + vy * dy + vz * dz;
     float squared_len = dx * dx + dy * dy + dz * dz;
-    Vec4 result;
+    Vec4 result{};
     if (along <= 0.0f) {
         result = point - start;
     } else if (squared_len <= along) {

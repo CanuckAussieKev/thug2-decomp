@@ -400,7 +400,7 @@ bool FootMovement::walk_get_hang_angle(script::Struct* /*params*/, script::Scrip
     // The angle the rail between the two hang nodes climbs (asin of its direction's y, in degrees), signed by
     // which way along it the skater faces.
     GrindRailHub* rails = rail_manager_;
-    maths::Vec4 from, to;
+    maths::Vec4 from{}, to{};
     const maths::Vec4* a = rails->get_absolute_pos(&from, hang_node_);
     const maths::Vec4* b = rails->get_absolute_pos(&to, hang_next_node_);
     float dx = b->x - a->x;

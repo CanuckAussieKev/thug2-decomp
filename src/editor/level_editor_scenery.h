@@ -159,14 +159,14 @@ int get_moved_count();
 // is every placement back to none, hiding is every piece hidden (WorldCell::change_live: neither drawn nor collided with -
 // its rails turned off too).
 struct SectorState {
-    uint32_t checksum;
+    uint32_t checksum{};
     Placement placement;
-    bool hidden;
+    bool hidden{};
 };
 struct RailState {
-    uint32_t name;
+    uint32_t name{};
     Placement placement;
-    bool hidden;
+    bool hidden{};
 };
 struct State {
     std::vector<uint32_t> selection;
@@ -192,8 +192,8 @@ uint32_t get_duplicate(uint32_t source);
 // The copies made this level: the copy, its source, and where the source had been put when it was copied (a copy's
 // place relative to the source as loaded is its placement after that one - Compose).
 struct Replicate {
-    uint32_t checksum;
-    uint32_t source;
+    uint32_t checksum{};
+    uint32_t source{};
     Placement source_at_copy_;
 };
 std::vector<Replicate>& get_clones();

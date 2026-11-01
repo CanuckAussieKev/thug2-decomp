@@ -49,12 +49,12 @@ public:
     AsyncFileHandle* file_ref_; // an async load in progress (closed when the bundle is split / destroyed)
     void* bundle_bytes_;        // the whole file, as loaded (shrinks as the assets are split off)
     uint8_t* loaded_data_;      // the start of the file
-    int num_;                   // number of entries
-    int unknown14_;
-    TableRow entries_[kBundleCapacity];
-    void* assets_[kBundleCapacity]; // each asset's own copy
+    int num_{};                 // number of entries
+    int unknown14_{};
+    TableRow entries_[kBundleCapacity]{};
+    void* assets_[kBundleCapacity]{}; // each asset's own copy
     bool ready_flag_;
-    uint8_t pad2341_[3];
+    uint8_t pad2341_[3]{};
     memory::Arena* asset_heap_;
     memory::Arena* file_heap_;
     int unknown234c_;

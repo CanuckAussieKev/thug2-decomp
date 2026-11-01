@@ -44,12 +44,13 @@ public:
     // 0x00486160: when active: no longer, and processed (work_on - a tail jump). False when it wasn't active.
     bool process_if_active(void* object);
 
-    int tick_;   // +0x04
-    bool armed_; // +0x08: fires once (process_if_active disarms it; the camera key's work_on arms it again)
-    uint8_t pad9[3];
+    int tick_{};   // +0x04
+    bool armed_{}; // +0x08: fires once (process_if_active disarms it; the camera key's work_on arms it again)
+    uint8_t pad9[3]{};
 
 protected:
-    // The animation events' constructor (0x00481A20) leaves the frame and the flag as they were.
+    // The animation events' constructor (0x00481A20): the original leaves the frame and the flag as they were (zero
+    // here); assign_value sets them.
     UserClipKey() = default;
 };
 static_assert(sizeof(UserClipKey) == 0xC, "the original's size");
@@ -116,10 +117,10 @@ public:
     // time. True.
     bool work_on(void* camera) override;
 
-    maths::QuatRotation orientation_turn_; // +0x0C
-    maths::Vec4 at_point_;                 // +0x1C (w 1)
+    maths::QuatRotation orientation_turn_{}; // +0x0C
+    maths::Vec4 at_point_{};                 // +0x1C (w 1)
     bool cut_;                             // +0x2C
-    uint8_t pad2d_[3];
+    uint8_t pad2d_[3]{};
 };
 static_assert(offsetof(CameraKey, at_point_) == 0x1C && sizeof(CameraKey) == 0x30, "the original's layout");
 
@@ -130,7 +131,7 @@ class AnimScriptKey final : public UserClipKey {
 public:
     AnimScriptKey(const AnimScriptKey&) = delete;
     AnimScriptKey& operator=(const AnimScriptKey&) = delete;
-    // 0x00481A20: no parameters (the frame and the flag left as they are).
+    // 0x00481A20: no parameters (the frame and the flag zero - the original left them as they were).
     AnimScriptKey() = default;
     // 0x00486560 / 0x00481DB0: the structure freed.
     ~AnimScriptKey() override;
@@ -139,7 +140,7 @@ public:
     // 0x00486440: the event sent by the object to itself. True.
     bool work_on(void* object) override;
 
-    uint32_t kind_tag_;         // +0x0C
+    uint32_t kind_tag_{};                // +0x0C
     script::Struct* call_args_{nullptr}; // +0x10
 };
 static_assert(sizeof(AnimScriptKey) == 0x14, "the original's size");

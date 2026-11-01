@@ -56,7 +56,7 @@ public:
     uint32_t gap_time_;                 // +0x1C 0x470B8AE9 (frames)
     uint32_t counter_;                  // +0x20
     float brightness_;                  // +0x24 the last sample's
-    MeshInstanceModule* mesh_instance_; // +0x28
+    MeshInstanceModule* mesh_instance_{}; // +0x28
 };
 
 } // namespace objects

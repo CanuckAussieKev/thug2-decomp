@@ -176,7 +176,7 @@ void RiderRemoteSync::interpolate()
         skater->basis_frame_ = snapshot_orientation(from);
         skater->display_matrix_ = snapshot_orientation(from);
     } else {
-        maths::Mat4 start = snapshot_orientation(from), end = snapshot_orientation(to), between;
+        maths::Mat4 start = snapshot_orientation(from), end = snapshot_orientation(to), between{};
         maths::ArcRotationBlender slerp(start, end);
         slerp.fetch_mat(between, t);
         skater->basis_frame_ = between;
@@ -320,7 +320,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (!next)
         return nullptr;
     GameEntity* skater = entity_;
-    maths::Vec4 a, b, p1, p2;
+    maths::Vec4 a{}, b{}, p1{}, p2{};
     rails->get_absolute_pos(&a, node);
     rails->get_absolute_pos(&b, next);
     double sx = static_cast<double>(b.x) - a.x, sy = static_cast<double>(b.y) - a.y,
@@ -352,7 +352,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
     if (!beyond || !(beyond->flag_bits_ & kRailActive)) {
         stopped = true;
     } else {
-        maths::Vec4 here, there;
+        maths::Vec4 here{}, there{};
         if (sign > 0.0f) {
             rails->get_absolute_pos(&p1, next);
             rails->get_absolute_pos(&p2, node);
@@ -395,7 +395,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
         if (!beyond || !((sign > 0.0f ? next : beyond)->flag_bits_ & kRailActive))
             return nullptr;
         if (sign > 0.0f) {
-            maths::Vec4 to, from;
+            maths::Vec4 to{}, from{};
             rails->get_absolute_pos(&to, beyond);
             rails->get_absolute_pos(&from, next);
             if (!rail_clear(from, to) || stopped)
@@ -404,7 +404,7 @@ GrindPoint* RiderRemoteSync::move_along_rail(GrindPoint* node, float seconds)
             skater->at_point_ = p1;
             node = next;
         } else {
-            maths::Vec4 to, from;
+            maths::Vec4 to{}, from{};
             rails->get_absolute_pos(&to, beyond);
             rails->get_absolute_pos(&from, node);
             if (!rail_clear(from, to) || stopped)

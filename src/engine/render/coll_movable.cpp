@@ -66,7 +66,7 @@ maths::Vec4 HitMovingMesh::read_vertex_point(int index) const
 {
     maths::Vec4 raw = geometry_->read_stored_vertex(index);
     raw.w = 0.0f;
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     orientation_.rotate_vector(turned, raw);
     return {turned.x + anchor_point_.x, turned.y + anchor_point_.y, turned.z + anchor_point_.z,
             turned.w + anchor_point_.w};
@@ -84,7 +84,7 @@ void HitMovingMesh::box_to_local(const maths::BBox* box, maths::BBox* out) const
     out->max.y -= anchor_point_.y;
     out->max.z -= anchor_point_.z;
     out->max.w -= anchor_point_.w;
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     out->min = inverse_.rotate_vector(turned, out->min);
     out->max = inverse_.rotate_vector(turned, out->max);
 }
@@ -199,7 +199,7 @@ void CollScaled::change_scale(const maths::Vec4* scale)
 // 0x00410A30
 void CollScaled::line_to_local(const maths::Seg* line, maths::Seg* out) const
 {
-    maths::Vec4 moved;
+    maths::Vec4 moved{};
     inverse_.xform(moved, line->start);
     out->start = moved;
     inverse_.xform(moved, line->end);
@@ -219,7 +219,7 @@ void CollScaled::update_inverse()
     back.x = -basis_frame_.row[3].x;
     back.y = -basis_frame_.row[3].y;
     back.z = -basis_frame_.row[3].z;
-    maths::Vec4 turned;
+    maths::Vec4 turned{};
     back = inverse_.rotate_vector(turned, back);
 }
 
@@ -231,7 +231,7 @@ maths::Vec4 CollScaled::read_vertex_point(int index) const
 {
     maths::Vec4 raw = geometry_->read_stored_vertex(index);
     maths::Vec4 scaled{raw.x * size_factor_.x, raw.y * size_factor_.y, raw.z * size_factor_.z, size_factor_.w};
-    maths::Vec4 out;
+    maths::Vec4 out{};
     basis_frame_.xform(out, scaled);
     return out;
 }

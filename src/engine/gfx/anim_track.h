@@ -106,18 +106,18 @@ public:
 
     static memory::PoolPair& get_pools();
 
-    uint32_t unknown34_;
+    uint32_t unknown34_{};
     int cur_phase_;                     // +0x38 State
-    AnimDriver* controller_list_[6];    // +0x3C (by priority, highest first)
+    AnimDriver* controller_list_[6]{};  // +0x3C (by priority, highest first)
     int controller_count_;              // +0x54
-    float fade_rate_;                   // +0x58 (1/60 when played)
-    float fade_left_;                   // +0x5C
-    float fade_scale_;                  // +0x60
+    float fade_rate_{};                 // +0x58 (1/60 when played)
+    float fade_left_{};                 // +0x5C
+    float fade_scale_{};                // +0x60
     objects::GameEntity* owner_object_; // +0x64
     std::unique_ptr<TimedClipEvent[]> events_ptr_; // +0x68 (an array of event_count_)
     uint32_t event_count_;              // +0x6C
     bool events_on_;                    // +0x70
-    uint8_t pad71_[3];
+    uint8_t pad71_[3]{};
 };
 
 } // namespace gfx

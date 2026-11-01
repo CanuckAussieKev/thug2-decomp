@@ -126,20 +126,20 @@ class Script;
 namespace frontend::level_editor::layout {
 
 struct ObjectRecord {
-    uint32_t id;
-    float pos[3];
-    float rows[9];
+    uint32_t id{};
+    float pos[3]{};
+    float rows[9]{};
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
 struct CopyRecord {
-    uint32_t name;
-    uint32_t source;
-    float pos[3];
-    float rows[9];
+    uint32_t name{};
+    uint32_t source{};
+    float pos[3]{};
+    float rows[9]{};
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
 struct CloneRecord {
-    uint32_t source;
+    uint32_t source{};
     Placement placement;
 };
 struct SetRecord {

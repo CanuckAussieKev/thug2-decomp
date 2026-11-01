@@ -230,7 +230,7 @@ void AutomobileDynamicsModule::refresh_bone_rig(void* skeleton, void* model, flo
         BoneDesc& bone = bones[i];
         maths::Mat4* matrix = &matrices[bone.index];
         *matrix = bone.matrix;
-        maths::Mat4 rotation;
+        maths::Mat4 rotation{};
         switch (bone.name) {
         case kWheelA:
         case kWheelB:
@@ -260,7 +260,7 @@ void AutomobileDynamicsModule::update_bones()
     refresh_bone_rig(bone_rig_, mesh_instance_, lean_angle_, wheel_spin_, steer_);
     if (body_shown_)
         return;
-    maths::Mat4 collapsed;
+    maths::Mat4 collapsed{};
     collapsed.reset_to_identity();
     maths::Vec4 nothing = {0.0f, 0.0f, 0.0f, 1.0f};
     collapsed.scale_tool(nothing);

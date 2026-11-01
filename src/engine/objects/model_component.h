@@ -138,21 +138,21 @@ public:
     // 0x004208D0: every turn off; sent (message 0x8C).
     void cancel_rotate_display();
 
-    maths::Vec4 enclosing_ball_;  // +0x18 the model's (0x00492F30)
-    maths::Vec4 pivot_;           // +0x28 RotationOffset
-    ModelSpinAxis twist_rate_[3]; // +0x38 about X, Y, Z
-    bool flip_;                   // +0x1F4 EnableDisplayFlip
-    uint8_t pad1f5_[3];
-    maths::Vec4 shift_;                  // +0x1F8 added to the display position (w 1)
+    maths::Vec4 enclosing_ball_{};  // +0x18 the model's (0x00492F30)
+    maths::Vec4 pivot_{};           // +0x28 RotationOffset
+    ModelSpinAxis twist_rate_[3]{}; // +0x38 about X, Y, Z
+    bool flip_{};                   // +0x1F4 EnableDisplayFlip
+    uint8_t pad1f5_[3]{};
+    maths::Vec4 shift_{};                // +0x1F8 added to the display position (w 1)
     render::RenderModel* mesh_instance_; // +0x208
-    ObjectModule* bone_rig_;             // +0x20C its object's skeleton component (Finalize)
-    ObjectModule* anim_blender_ptr_;     // +0x210
-    ObjectModule* suspend_;              // +0x214
-    float color_values_[4];              // +0x218 (1 to color_value_count_)
+    ObjectModule* bone_rig_{};           // +0x20C its object's skeleton component (Finalize)
+    ObjectModule* anim_blender_ptr_{};   // +0x210
+    ObjectModule* suspend_{};            // +0x214
+    float color_values_[4]{};            // +0x218 (1 to color_value_count_)
     int color_value_count_;              // +0x228
     float brightness_;                   // +0x22C
-    uint32_t linked_entity_label_;       // +0x230 refObjectName: a level object's sector
-    bool level_object_;                  // +0x234
+    uint32_t linked_entity_label_{};     // +0x230 refObjectName: a level object's sector
+    bool level_object_{};                // +0x234
     bool sector_model_;                  // +0x235 init_from_sector's
 };
 

@@ -84,7 +84,7 @@ public:
     void set_all_max(const maths::Vec4* max);
 
     // (the base's timeline +0x04, object +0x08 - a composite object -, priority +0x0C and id +0x10)
-    Bone bones_[4]; // +0x14
+    Bone bones_[4]{}; // +0x14
 };
 static_assert(offsetof(BoneLookAt, bones_) == 0x14 && sizeof(BoneLookAt) == 0x1A4, "the original's layout");
 

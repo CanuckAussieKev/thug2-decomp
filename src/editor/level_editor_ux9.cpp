@@ -64,7 +64,7 @@ bool get_cast(V3 from, V3 to, V3* hit, uint32_t* sector)
 // The ground's height under a point (cast down from 300 above; `fallback` when nothing).
 float get_ground_at(V3 p, float fallback)
 {
-    V3 hit;
+    V3 hit{};
     uint32_t sector = 0;
     if (get_cast(p + V3{0.0f, 300.0f, 0.0f}, p - V3{0.0f, 3000.0f, 0.0f}, &hit, &sector) && !ground::is_piece(sector))
         return hit.y;
@@ -219,7 +219,7 @@ void ground_hover(V3 origin, V3 unit_dir)
     g_have_hover = false;
     if (g_stage != Stage::kFirst && g_stage != Stage::kSecond)
         return;
-    V3 hit;
+    V3 hit{};
     uint32_t sector = 0;
     if (get_cast(origin, origin + unit_dir * 20000.0f, &hit, &sector)) {
         g_hover = get_snapped(hit);
@@ -231,7 +231,7 @@ bool ground_click(V3 origin, V3 unit_dir)
 {
     if (g_stage != Stage::kFirst && g_stage != Stage::kSecond)
         return false;
-    V3 hit;
+    V3 hit{};
     uint32_t sector = 0;
     if (!get_cast(origin, origin + unit_dir * 20000.0f, &hit, &sector)) {
         show_message("Ground Tool: click on the ground");

@@ -398,7 +398,7 @@ struct Unit {
 std::vector<Unit> units_of(const edit::Selected& selection)
 {
     std::vector<Unit> units;
-    OrientedBox box;
+    OrientedBox box{};
     if (selection.kind == edit::Kind::kObject) {
         for (uint32_t id : selection.ids) {
             objects::GameEntity* object = live_object(id);
@@ -566,9 +566,9 @@ namespace {
 bool sectors_bounds(const std::vector<uint32_t>& sectors, Aabb* out)
 {
     bool have = false;
-    OrientedBox box;
+    OrientedBox box{};
     for (uint32_t s : sectors) {
-        V3 a, b;
+        V3 a{}, b{};
         if (!scenery::cuboid(s, &box))
             continue;
         bounds_of(box, &a, &b);
@@ -750,9 +750,9 @@ struct SnapCache {
 SnapCache g_snap;
 
 struct GatherContext {
-    const std::vector<uint32_t>* skip;
+    const std::vector<uint32_t>* skip{};
     Aabb near;
-    std::vector<Aabb>* out;
+    std::vector<Aabb>* out{};
 };
 
 void gather_sector(void* context, uint32_t checksum, render::WorldCell*)
@@ -760,7 +760,7 @@ void gather_sector(void* context, uint32_t checksum, render::WorldCell*)
     auto* c = static_cast<GatherContext*>(context);
     if (std::find(c->skip->begin(), c->skip->end(), checksum) != c->skip->end() || scenery::get_hidden(checksum))
         return;
-    OrientedBox box;
+    OrientedBox box{};
     if (!scenery::cuboid(checksum, &box))
         return;
     Aabb a;
@@ -797,7 +797,7 @@ V3 edge_snapped(V3 pos, V3 wanted, int axes)
     }
     g_snap.last_used_ = now;
     float distance = 0.0f;
-    ViewNow view;
+    ViewNow view{};
     if (current_view(&view)) {
         V3 d = pos - view.pos;
         distance = std::sqrt(get_dot(d, d));
@@ -913,7 +913,7 @@ bool edge_click(float x, float y)
 {
     if (!g_edge_picking)
         return false;
-    ViewNow view;
+    ViewNow view{};
     if (!current_view(&view))
         return false;
     const std::vector<Run>& runs = edge_runs();
@@ -981,13 +981,13 @@ const std::vector<Segment>& current_segments()
         bool ledge = n.family == nodes::Family::kLadder && chains::is_ledge_node(n.name);
         if (n.hidden || (n.family != nodes::Family::kRail && !ledge))
             continue;
-        V3 a;
+        V3 a{};
         if (!place(n, &a))
             continue;
         for (int link : n.links) {
             if (link < 0 || link >= static_cast<int>(nodes.size()))
                 continue;
-            V3 b;
+            V3 b{};
             if (place(nodes[link], &b))
                 g_segments.push_back({a, b, n.name, nodes[link].name, ledge});
         }
@@ -998,14 +998,14 @@ const std::vector<Segment>& current_segments()
 // The selection's axis-aligned box and its size (an object's own: its model box's).
 bool selection_box(const edit::Selected& selection, Aabb* box, V3* size)
 {
-    OrientedBox oriented;
+    OrientedBox oriented{};
     bool have = false;
     if (selection.kind == edit::Kind::kObject) {
         for (uint32_t id : selection.ids) {
             objects::GameEntity* object = live_object(id);
             if (!object || !object_edit::model_box(object, &oriented))
                 continue;
-            V3 a, b;
+            V3 a{}, b{};
             bounds_of(oriented, &a, &b);
             if (!have && selection.ids.size() == 1)
                 *size = box_size(oriented);
@@ -1200,7 +1200,7 @@ void get_marker(const Painter& p, V3 at, float yaw, uint32_t colour)
 // The surface's normal under the cursor (false: none).
 bool surface_normal(V3* normal)
 {
-    V3 origin, dir;
+    V3 origin{}, dir{};
     if (!edit::get_ray(&origin, &dir))
         return false;
     snap::SurfaceHit hit;
@@ -1232,7 +1232,7 @@ void add_ghost(const Painter& p)
 {
     if (!at_hand().ghost || edit::get_dragging())
         return;
-    V3 origin, dir;
+    V3 origin{}, dir{};
     if (!edit::get_ray(&origin, &dir))
         return;
     int tab = 0;
@@ -1247,7 +1247,7 @@ void add_ghost(const Painter& p)
     }
     if (!edit::browser_item(&tab, &id))
         return;
-    OrientedBox box;
+    OrientedBox box{};
     if (tab == 0) {
         if (!scenery::cuboid(id, &box))
             return;
@@ -1263,7 +1263,7 @@ void add_ghost(const Painter& p)
         return;
     }
     box.origin = box.origin + (at - object_edit::pos_of(object));
-    V3 normal;
+    V3 normal{};
     if (at_hand().ghost_slope_ && surface_normal(&normal))
         tilt_box(&box, at, normal);
     p.cuboid(box, kLine, kFill);
@@ -1279,7 +1279,7 @@ void add_readout(const Painter& p)
     bool have_box = selection_box(selection, &box, &r.size);
     V3 moved = edit::get_pos() - g_drag_from;
     r.moved = std::sqrt(get_dot(moved, moved));
-    V3 base, ground;
+    V3 base{}, ground{};
     if (edit::ground_mark(&base, &ground)) {
         r.have_ground_ = true;
         r.above = base.y - ground.y;
@@ -1297,7 +1297,7 @@ void add_readout(const Painter& p)
             if (hi.x < grown.min.x || lo.x > grown.max.x || hi.y < grown.min.y || lo.y > grown.max.y ||
                 hi.z < grown.min.z || lo.z > grown.max.z)
                 continue;
-            V3 on;
+            V3 on{};
             float d = box_segment_distance(box, s.a, s.b, &on);
             if (d < best) {
                 best = d;
@@ -1400,7 +1400,7 @@ bool place_click(bool more)
     V3 at = edit::cursor_point();
     edit::place_browser_item(at, more);
     // (an object stood square to the surface's slope - the ghost showed it so)
-    V3 normal;
+    V3 normal{};
     edit::Selected placed = edit::get_selection();
     if (tab == 1 && at_hand().ghost_slope_ && placed.kind == edit::Kind::kObject && surface_normal(&normal)) {
         for (uint32_t pid : placed.ids) {

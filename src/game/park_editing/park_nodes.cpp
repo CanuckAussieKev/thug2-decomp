@@ -267,7 +267,7 @@ void ParkAssembler::build_source_rails(Array* nodes)
     while (index < static_cast<int>(nodes->extent_)) {
         num_used_nodes_ = 0;
         bool is_loop = false;
-        RailNodeInfo info;
+        RailNodeInfo info{};
         uint32_t node = find_following_rail_node(nodes, geometry, 0, &info, &is_loop);
         while (node) {
             Rail* rail = rails.get_new_rail();

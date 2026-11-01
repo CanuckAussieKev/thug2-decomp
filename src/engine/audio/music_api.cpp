@@ -351,11 +351,11 @@ bool update_stream_volume(int slot)
             &reinterpret_cast<objects::AudioStreamModule*>(owner)->entity_->at_point_, nullptr);
         if (object) {
             auto* component = reinterpret_cast<objects::AudioStreamModule*>(owner);
-            maths::Vec4 extent;
+            maths::Vec4 extent{};
             maths::Vec4* extent_or_null = nullptr;
             if (component->get_stream_extent(object, &extent))
                 extent_or_null = &extent;
-            maths::Vec4 position;
+            maths::Vec4 position{};
             maths::Vec4* where = component->get_stream_position(&position, object);
             manager->fetch_loudness(&volume, where, std::bit_cast<float>(stream->dropoff), stream->falloff_curve_,
                                     object, extent_or_null);

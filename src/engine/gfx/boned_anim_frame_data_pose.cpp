@@ -132,7 +132,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                 double x = values[0] * static_cast<double>(kKeyScale);
                 auto y = static_cast<float>(values[1] * static_cast<double>(kKeyScale));
                 auto z = static_cast<float>(values[2] * static_cast<double>(kKeyScale));
-                maths::Vec4 target;
+                maths::Vec4 target{};
                 if ((flag_bits_ & kTwiceTranslation) && (flag_bits_ & kTranslationKeys)) {
                     auto z_sum = static_cast<float>(static_cast<double>(z) + translation.z);
                     auto w_sum = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
@@ -146,7 +146,7 @@ bool JointClipFrames::apply_additive(maths::QuatRotation* rotations, maths::Vec4
                     target.z = static_cast<float>(static_cast<double>(z) + translation.z);
                     target.w = static_cast<float>(static_cast<double>(translation.w) + 1.0f);
                 }
-                maths::Vec4 moved;
+                maths::Vec4 moved{};
                 translation = *walk::get_lerp(&moved, &translation, &target, weight);
             }
         }

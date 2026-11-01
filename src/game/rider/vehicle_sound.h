@@ -86,29 +86,29 @@ public:
     // 0x0051B860 StopSkaterVehicleSounds (not a Ghidra function): the engine sound stopped (its id kept). True.
     bool stop_skater_vehicle_sounds(script::Struct* params, script::Script* script);
 
-    skater::SkaterPhysicsModule* core_physics_; // +0x18
+    skater::SkaterPhysicsModule* core_physics_{}; // +0x18
     ObjectModule* sound_;                       // +0x1C
-    PadInputModule* input_;                     // +0x20
+    PadInputModule* input_{};                   // +0x20
     script::Struct* settings_;                  // +0x24
     bool park_editor_level_;                    // +0x28
-    uint8_t pad29[3];
+    uint8_t pad29[3]{};
     uint32_t engine_sound_;      // +0x2C the playing engine sound's id (0: none)
     uint32_t skid_sound_;        // +0x30 the playing skid sound's id
-    script::Struct* extra_;      // +0x34 (0xBF8E0ACE of the settings)
-    uint32_t engine_sound_name_; // +0x38
-    uint32_t skid_sound_name_;   // +0x3C
-    int gear_count_;             // +0x40
-    Gear gear_steps_[kMaxGears]; // +0x44
+    script::Struct* extra_{};    // +0x34 (0xBF8E0ACE of the settings)
+    uint32_t engine_sound_name_{}; // +0x38
+    uint32_t skid_sound_name_{};   // +0x3C
+    int gear_count_{};             // +0x40
+    Gear gear_steps_[kMaxGears]{}; // +0x44
     float speed_;                // +0xA4 the smoothed speed (mph)
     int gear_;                   // +0xA8
-    float rpm_;                  // +0xAC
+    float rpm_{};                // +0xAC
     int shift_time_;             // +0xB0 the clock at the last shift
     uint32_t unknownb4_;
     float skid_; // +0xB8 the skid sound's level
     uint32_t unknownbc_;
     uint32_t settings_name_; // +0xC0
     bool silenced_;          // +0xC4
-    uint8_t padc5_[3];
+    uint8_t padc5_[3]{};
 };
 
 } // namespace objects
