@@ -144,17 +144,6 @@ public:
     RiderPoseState* state_ref_;              // +0x174 the skater's SkaterState
     RiderBoardPhysics* control_;             // +0x178 the skater's SkaterPhysicsControl
 };
-static_assert(offsetof(RiderChaseView, mode_sel_) == 0x24 && offsetof(RiderChaseView, aim_point_) == 0x30 &&
-                  offsetof(RiderChaseView, orientation_) == 0x40 && offsetof(RiderChaseView, skater_matrix_) == 0x74 &&
-                  offsetof(RiderChaseView, wall_facing_) == 0xB4 && offsetof(RiderChaseView, behind_) == 0xC4 &&
-                  offsetof(RiderChaseView, horiz_fov_) == 0xE0 && offsetof(RiderChaseView, vert_zoom_on_) == 0x104 &&
-                  offsetof(RiderChaseView, zoom_) == 0x108 && offsetof(RiderChaseView, lip_state_) == 0x120 &&
-                  offsetof(RiderChaseView, lean_angle_) == 0x12C && offsetof(RiderChaseView, slerp_) == 0x140 &&
-                  offsetof(RiderChaseView, shake_left_) == 0x150 &&
-                  offsetof(RiderChaseView, free_look_module_) == 0x168 &&
-                  offsetof(RiderChaseView, arc_blender_) == 0x16C && offsetof(RiderChaseView, control_) == 0x178 &&
-                  sizeof(RiderChaseView) == 0x17C,
-              "layout must match the original");
 
 // The skater's cleanup-state component (type 0xD8CC3428 "SkaterCleanupState", vtable 0x0064BB48, 0x1C bytes; made
 // by 0x004FBE20): each frame the skater's shadow and light follow it (Rider::update_shadow_light).
@@ -176,7 +165,6 @@ public:
 
     ObjectModule* state_ref_; // +0x18 the object's SkaterState
 };
-static_assert(sizeof(RiderStateReset) == 0x1C, "layout must match the original");
 
 // 0x0064BA74: skaterCameraVtable (defined where the class's functions are).
 

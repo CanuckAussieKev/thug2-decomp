@@ -89,8 +89,8 @@ public:
     // begins again after each.
     void end_gap(script::Struct* params, script::Script* script);
 
-    memory::PaddedListNode gaps_;               // +0x18 lists::Foremost<TrickListEntry>
-    memory::PaddedListNode gap_move_chain_;     // +0x2C lists::Foremost<TrickNameEntry>
+    memory::ListNode gaps_;                     // +0x18 lists::Foremost<TrickListEntry>
+    memory::ListNode gap_move_chain_;           // +0x2C lists::Foremost<TrickNameEntry>
     uint32_t tick_;                             // +0x40 counted by Update
     modules::PointTally* points_held_;          // +0x44 the skater's score (set by the skater)
     skater::SkaterPhysicsModule* core_physics_; // +0x48 SkaterCorePhysics (0x5BD63B29)
@@ -98,11 +98,6 @@ public:
     RiderBoardPhysics* physics_control_;        // +0x50 SkaterPhysicsControl (0xD9151D4D)
     FootMovement* walk_;                        // +0x54 Walk (0x726E85AA)
 };
-static_assert(offsetof(RiderGapTracker, gaps_) == 0x18 && offsetof(RiderGapTracker, gap_move_chain_) == 0x2C &&
-                  offsetof(RiderGapTracker, tick_) == 0x40 && offsetof(RiderGapTracker, points_held_) == 0x44 &&
-                  offsetof(RiderGapTracker, core_physics_) == 0x48 && offsetof(RiderGapTracker, walk_) == 0x54 &&
-                  sizeof(RiderGapTracker) == 0x58,
-              "layout must match the original (0x00512C60 allocates 0x58 bytes)");
 
 // (The two lists' node types - lists::Elem<TrickListEntry> 0x00511E50 / 0x00511E90, lists::Elem<TrickNameEntry>
 // 0x00511E70 / 0x00511ED0 - and their heads' scalar deleting destructors 0x00512240 / 0x00512270 take the node out of

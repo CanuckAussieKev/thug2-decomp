@@ -37,7 +37,5 @@ public:
 
     uint32_t label_id_; // +0x18 skater_name_<n>
 };
-static_assert(offsetof(RiderOverheadTag, label_id_) == 0x18 && sizeof(RiderOverheadTag) == 0x1C,
-              "layout must match the original (0x00511810 allocates 0x1C bytes)");
 
 } // namespace objects

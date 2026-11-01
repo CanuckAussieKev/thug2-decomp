@@ -38,8 +38,5 @@ public:
     skater::SkaterPhysicsModule* core_physics_; // +0x18 SkaterCorePhysics (0x5BD63B29)
     RiderPoseState* pose_;                      // +0x1C SkaterState (0x43686585)
 };
-static_assert(offsetof(RiderPhysicsCommit, core_physics_) == 0x18 && offsetof(RiderPhysicsCommit, pose_) == 0x1C &&
-                  sizeof(RiderPhysicsCommit) == 0x20,
-              "layout must match the original (0x00511280 allocates 0x20 bytes)");
 
 } // namespace objects

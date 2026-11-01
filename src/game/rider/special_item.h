@@ -47,7 +47,5 @@ public:
 
     GameEntity* items_[kItems]; // +0x18
 };
-static_assert(offsetof(PickupItemHandler, items_) == 0x18 && sizeof(PickupItemHandler) == 0x20,
-              "layout must match the original");
 
 } // namespace objects

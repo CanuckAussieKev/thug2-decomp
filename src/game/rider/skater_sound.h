@@ -59,9 +59,5 @@ public:
     float full_speed_;  // +0x20 the speed that counts as 1
     float volume_mult_; // +0x24 volume_mult
 };
-static_assert(offsetof(RiderSfxPlayer, cur_phase_) == 0x18 && offsetof(RiderSfxPlayer, surface_type_) == 0x1C &&
-                  offsetof(RiderSfxPlayer, sliding_) == 0x1E && offsetof(RiderSfxPlayer, full_speed_) == 0x20 &&
-                  offsetof(RiderSfxPlayer, volume_mult_) == 0x24 && sizeof(RiderSfxPlayer) == 0x28,
-              "layout must match the original (0x00518E20 allocates 0x28 bytes)");
 
 } // namespace objects

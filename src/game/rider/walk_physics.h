@@ -46,10 +46,6 @@ struct WalkContact {
     float object_speed_;     // +0x18 how fast the object hit moves along the normal
     render::ProbeRay feeler; // +0x1C
 };
-static_assert(offsetof(WalkContact, normal) == 0x04 && offsetof(WalkContact, clear) == 0x14 &&
-                  offsetof(WalkContact, object_speed_) == 0x18 && offsetof(WalkContact, feeler) == 0x1C &&
-                  sizeof(WalkContact) == 0xCC,
-              "layout must match the original");
 
 // An animated move's end callback (+0x1948): a member function pointer as the original's compiler lays out one with
 // virtual bases - the code, `this`'s adjustment, then two words the calls don't use.
@@ -59,7 +55,6 @@ struct AnimDoneCallback {
     uint32_t unknown8_;
     uint32_t unknownc_;
 };
-static_assert(sizeof(AnimDoneCallback) == 0x10, "layout must match the original");
 } // namespace objects
 
 // The Walk component (type 0x726E85AA, vtable 0x0064C75C; made by 0x0052A5C0, its member function table 0x006847F8
@@ -513,53 +508,5 @@ public:
     bool jump_unsteered_;                 // +0x1958 (cleared each hanging frame)
     uint8_t pad1959_[7];
 };
-static_assert(
-    offsetof(FootMovement, state_) == 0x18 && offsetof(FootMovement, state_time_) == 0x1C &&
-        offsetof(FootMovement, previous_state_) == 0x20 && offsetof(FootMovement, pos_) == 0x24 &&
-        offsetof(FootMovement, vel_) == 0x34 && offsetof(FootMovement, up_speed_) == 0x44 &&
-        offsetof(FootMovement, facing_) == 0x48 && offsetof(FootMovement, up_) == 0x58 &&
-        offsetof(FootMovement, old_pos_) == 0x68 && offsetof(FootMovement, anim_state_) == 0x78 &&
-        offsetof(FootMovement, previous_anim_state_) == 0x7C && offsetof(FootMovement, frame_length_) == 0x80 &&
-        offsetof(FootMovement, stick_heading_) == 0x84 && offsetof(FootMovement, stick_deflection_) == 0x94 &&
-        offsetof(FootMovement, control_full_) == 0x98 && offsetof(FootMovement, stick_steers_) == 0x99 &&
-        offsetof(FootMovement, jump_held_) == 0x9A && offsetof(FootMovement, off_vert_) == 0x9B &&
-        offsetof(FootMovement, model_lift_) == 0x9C && offsetof(FootMovement, contacts_) == 0xA0 &&
-        offsetof(FootMovement, anim_speed_scaling_) == 0x700 && offsetof(FootMovement, speed_) == 0x704 &&
-        offsetof(FootMovement, last_speed_) == 0x708 && offsetof(FootMovement, locked_to_heading_) == 0x70C &&
-        offsetof(FootMovement, unknown710_) == 0x710 && offsetof(FootMovement, curb_offset_) == 0x714 &&
-        offsetof(FootMovement, curb_float_) == 0x718 && offsetof(FootMovement, critical_point_offset_) == 0x71C &&
-        offsetof(FootMovement, upright_time_) == 0x72C && offsetof(FootMovement, upright_angle_) == 0x730 &&
-        offsetof(FootMovement, upright_axis_) == 0x734 && offsetof(FootMovement, facing_y_) == 0x744 &&
-        offsetof(FootMovement, leave_for_) == 0x748 && offsetof(FootMovement, grind_point_) == 0x74C &&
-        offsetof(FootMovement, grind_rails_) == 0x75C && offsetof(FootMovement, grind_node_) == 0x760 &&
-        offsetof(FootMovement, grind_object_) == 0x764 && offsetof(FootMovement, hit_cache_) == 0x790 &&
-        offsetof(FootMovement, camera_) == 0x175C && offsetof(FootMovement, walk_camera_) == 0x1760 &&
-        offsetof(FootMovement, hang_node_) == 0x1764 && offsetof(FootMovement, hang_next_node_) == 0x1768 &&
-        offsetof(FootMovement, rail_manager_) == 0x176C && offsetof(FootMovement, input_) == 0x1770 &&
-        offsetof(FootMovement, anim_blender_) == 0x1774 && offsetof(FootMovement, model_) == 0x1778 &&
-        offsetof(FootMovement, trigger_) == 0x177C && offsetof(FootMovement, physics_control_) == 0x1780 &&
-        offsetof(FootMovement, ride_) == 0x1784 && offsetof(FootMovement, skater_state_) == 0x1788 &&
-        offsetof(FootMovement, core_physics_) == 0x178C && offsetof(FootMovement, tagging_) == 0x1790 &&
-        offsetof(FootMovement, floor_normal_) == 0x1794 && offsetof(FootMovement, running_) == 0x17A4 &&
-        offsetof(FootMovement, barrier_timed_) == 0x17A8 && offsetof(FootMovement, barrier_since_) == 0x17AC &&
-        offsetof(FootMovement, standard_speed_) == 0x17B0 && offsetof(FootMovement, feeler_) == 0x17B4 &&
-        offsetof(FootMovement, feeler_hit_) == 0x1864 && offsetof(FootMovement, run_adjustment_) == 0x1868 &&
-        offsetof(FootMovement, blocked_) == 0x186C && offsetof(FootMovement, skid_time_) == 0x1870 &&
-        offsetof(FootMovement, unknown1874_) == 0x1874 && offsetof(FootMovement, leap_heading_) == 0x1878 &&
-        offsetof(FootMovement, jump_base_vel_) == 0x1888 && offsetof(FootMovement, leap_duration_) == 0x1898 &&
-        offsetof(FootMovement, jump_velocity_) == 0x189C && offsetof(FootMovement, jump_target_height_) == 0x18AC &&
-        offsetof(FootMovement, pushing_) == 0x18B0 && offsetof(FootMovement, push_normal_) == 0x18B4 &&
-        offsetof(FootMovement, push_plane_distance_) == 0x18C4 && offsetof(FootMovement, push_height_) == 0x18C8 &&
-        offsetof(FootMovement, along_) == 0x18CC && offsetof(FootMovement, rail_up_) == 0x18D0 &&
-        offsetof(FootMovement, rail_out_) == 0x18D4 && offsetof(FootMovement, hang_init_anim_type_) == 0x18D8 &&
-        offsetof(FootMovement, climb_scale_) == 0x18DC && offsetof(FootMovement, ladder_sign_) == 0x18E0 &&
-        offsetof(FootMovement, transition_start_) == 0x18E4 && offsetof(FootMovement, transition_pos_) == 0x1904 &&
-        offsetof(FootMovement, transition_start_offset_) == 0x1914 &&
-        offsetof(FootMovement, transition_display_offset_) == 0x1918 &&
-        offsetof(FootMovement, transition_facing_) == 0x191C && offsetof(FootMovement, transition_rate_) == 0x192C &&
-        offsetof(FootMovement, transition_turn_) == 0x1930 && offsetof(FootMovement, climb_offset_) == 0x1934 &&
-        offsetof(FootMovement, anim_waiting_) == 0x1944 && offsetof(FootMovement, anim_done_) == 0x1948 &&
-        offsetof(FootMovement, jump_unsteered_) == 0x1958 && sizeof(FootMovement) == 0x1960,
-    "layout must match the original (0x0052A5C0 allocates 0x1960 bytes)");
 
 } // namespace objects

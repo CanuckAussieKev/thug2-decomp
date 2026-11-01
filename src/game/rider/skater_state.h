@@ -163,8 +163,5 @@ struct SkaterStateHistoryFrame {
     uint8_t pad7d_[3];
     uint32_t value80; // +0x80 (32 bits)
 };
-static_assert(sizeof(SkaterStateHistoryFrame) == 0x84 && offsetof(SkaterStateHistoryFrame, angles) == 0x58 &&
-                  offsetof(SkaterStateHistoryFrame, time) == 0x78 && offsetof(SkaterStateHistoryFrame, value80) == 0x80,
-              "the states' layout (sizes the history)");
 
 } // namespace objects

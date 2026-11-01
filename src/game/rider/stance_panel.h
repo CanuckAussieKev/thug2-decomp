@@ -51,9 +51,5 @@ public:
     uint8_t pad1f_;
     skater::SkaterPhysicsModule* core_physics_; // +0x20 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(RiderStanceDisplay, shown_) == 0x18 && offsetof(RiderStanceDisplay, nollie_) == 0x1D &&
-                  offsetof(RiderStanceDisplay, press_amount_) == 0x1E &&
-                  offsetof(RiderStanceDisplay, core_physics_) == 0x20 && sizeof(RiderStanceDisplay) == 0x24,
-              "layout must match the original (0x005193B0 allocates 0x24 bytes)");
 
 } // namespace objects

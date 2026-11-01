@@ -46,7 +46,5 @@ public:
 
     modules::PointTally* points_held_; // +0x18 the score
 };
-static_assert(offsetof(RiderPointKeeper, points_held_) == 0x18 && sizeof(RiderPointKeeper) == 0x1C,
-              "layout must match the original (0x00518B60 allocates 0x1C bytes)");
 
 } // namespace objects

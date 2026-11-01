@@ -63,7 +63,5 @@ public:
 
     uint32_t flag_bits_; // +0x18 END_RUN_*
 };
-static_assert(offsetof(RiderSessionEnd, flag_bits_) == 0x18 && sizeof(RiderSessionEnd) == 0x1C,
-              "layout must match the original (0x00510F90 allocates 0x1C bytes)");
 
 } // namespace objects

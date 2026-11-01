@@ -29,6 +29,8 @@
 #include "game/skate/profile_manager.h"
 #include "game/rider/rider.h"
 #include "engine/core/code_address.h"
+#include "game/skate/point_tally.h"
+#include "game/rider/trick_component.h"
 
 namespace goals {
 
@@ -569,18 +571,13 @@ bool GoalManager::goal_exists(uint32_t id) { return goals_.get_pull(id) != nullp
 void GoalManager::test_tagged_props()
 {
     auto* skater = static_cast<objects::Rider*>(skate_calls::get_home_rider());
-    int player = *reinterpret_cast<int*>(static_cast<uint8_t*>(skater->get_points_total()) + 0x20);
-    auto* trick = reinterpret_cast<uint8_t*>(skater->fetch_module(kTrick));
+    int player = static_cast<modules::PointTally*>(skater->get_points_total())->pot_score_;
+    auto* trick = static_cast<objects::MoveExecutor*>(skater->fetch_module(kTrick));
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
-    struct TrickObjects {
-        uint32_t clusters[512];
-        int count;
-    };
-    TrickObjects objects;
-    std::memcpy(&objects, trick + 0x13B4, sizeof(objects));
-    int count = objects.count > 512 ? 512 : objects.count;
+    objects::HitClusterLog objects = trick->trick_objects_;
+    int count = objects.num_ > 512 ? 512 : objects.num_;
     for (int i = 0; i < count; ++i)
-        kill_cluster(objects.clusters[i], player);
+        kill_cluster(objects.items_[i], player);
 }
 
 // 0x00558ED0

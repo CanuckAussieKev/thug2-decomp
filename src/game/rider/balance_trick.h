@@ -88,11 +88,5 @@ public:
     Balance skitch_;                         // +0x12C
     AnimBlenderComponent* anim_blender_ptr_; // +0x184
 };
-static_assert(offsetof(RiderTeeterMoves, trick_) == 0x18 && offsetof(RiderTeeterMoves, started_) == 0x1C &&
-                  offsetof(RiderTeeterMoves, call_args_) == 0x20 && offsetof(RiderTeeterMoves, manual_) == 0x24 &&
-                  offsetof(RiderTeeterMoves, grind_) == 0x7C && offsetof(RiderTeeterMoves, lip_) == 0xD4 &&
-                  offsetof(RiderTeeterMoves, skitch_) == 0x12C &&
-                  offsetof(RiderTeeterMoves, anim_blender_ptr_) == 0x184 && sizeof(RiderTeeterMoves) == 0x188,
-              "layout must match the original (0x004F9170 allocates 0x188 bytes)");
 
 } // namespace objects

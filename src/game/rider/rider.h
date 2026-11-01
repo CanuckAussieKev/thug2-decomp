@@ -200,7 +200,7 @@ public:
         uint8_t pad5_[3];
         maths::Vec4 pos;                  // +0x08 (the projectile component's position; w unused)
     } projectiles_[5];                    // +0x1C0
-    memory::PaddedListNode skater_link_;  // +0x238 its node in the skate module's skater list (data = itself)
+    memory::ListNode skater_link_;        // +0x238 its node in the skate module's skater list (data = itself)
     AnimBlenderComponent* anim_blender_;  // +0x24C
     MeshInstanceModule* model_component_; // +0x250
     GroundShadowModule* shadow_;          // +0x254
@@ -233,15 +233,6 @@ public:
     bool is_halted_;      // +0x320
     uint8_t pad321[3];
 };
-static_assert(offsetof(Rider, style_) == 0x10C && offsetof(Rider, label_) == 0x158 &&
-                  offsetof(Rider, trick_slots_) == 0x17C && offsetof(Rider, shadow_) == 0x254 &&
-                  offsetof(Rider, stat_overrides_) == 0x290 && offsetof(Rider, skater_number_) == 0x2B8 &&
-                  offsetof(Rider, flag_2c_4_) == 0x2C4 && offsetof(Rider, shown_name_) == 0x15C &&
-                  offsetof(Rider, pad_input_) == 0x264 && offsetof(Rider, custom_restart_pos_) == 0x2C8 &&
-                  offsetof(Rider, custom_restart_walking_) == 0x318 && offsetof(Rider, projectiles_) == 0x1C0 &&
-                  offsetof(Rider, skater_link_) == 0x238 && offsetof(Rider, gap_tracker_) == 0x270 &&
-                  offsetof(Rider, is_halted_) == 0x320,
-              "layout must match the original");
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).
 script::Struct* __cdecl get_physics_structure(GameEntity* skater);

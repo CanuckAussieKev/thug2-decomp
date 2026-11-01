@@ -23,6 +23,8 @@
 #include "game/rider/balance_trick.h"
 #include "game/rider/core_physics.h"
 #include "game/rider/skater_state.h"
+#include "game/rider/skater_score.h"
+#include "engine/objects/input_component.h"
 
 namespace objects {
 
@@ -69,12 +71,9 @@ constexpr double kFrames = 60.0; // 0x00645EA0 (frames a second)
 
 uint32_t get_clock() { return static_cast<uint32_t>(frame_clock::game_clock_elapsed() + g_clock_offset); }
 // A physics value (0x004F90A0 on the balance trick component).
-double get_physics(uint8_t* balance_trick, uint32_t name)
-{
-    return reinterpret_cast<RiderTeeterMoves*>(balance_trick)->get_physics_value(name);
-}
-uint32_t& get_trick_type(uint8_t* balance_trick) { return *reinterpret_cast<uint32_t*>(balance_trick + 0x18); }
-void* score_display(uint8_t* score) { return *reinterpret_cast<void**>(score + 0x18); }
+double get_physics(RiderTeeterMoves* balance_trick, uint32_t name) { return balance_trick->get_physics_value(name); }
+uint32_t& get_trick_type(RiderTeeterMoves* balance_trick) { return balance_trick->trick_; }
+modules::PointTally* score_display(RiderPointKeeper* score) { return score->points_held_; }
 // The score's two balance displays (0x00563370 / 0x00563390): on or off, and the lean shown.
 void show_lean(void* score, int on, float lean)
 {
@@ -85,9 +84,9 @@ void show_lean2(void* score, int on, float lean)
     static_cast<modules::PointTally*>(score)->set_wheelie_gauge(on != 0, lean);
 }
 // A button of the input component's control data held (its first byte).
-bool get_held(uint8_t* input, uint32_t button)
+bool get_held(PadInputModule* input, uint32_t button)
 {
-    return reinterpret_cast<PadSnapshot*>(input + 0x20)->read_button(button)->held_down_ != 0;
+    return input->pad_primary_.read_button(button)->held_down_ != 0;
 }
 
 void reset_state(Balance* b)
@@ -108,9 +107,9 @@ void reset_state(Balance* b)
 void Balance::prepare_all(GameEntity* skater)
 {
     skater_ = skater;
-    balance_trick_ = reinterpret_cast<uint8_t*>(skater->fetch_module(kSkaterBalanceTrick));
-    points_held_ = reinterpret_cast<uint8_t*>(skater_->fetch_module(kSkaterScore));
-    input_ = reinterpret_cast<uint8_t*>(skater_->fetch_module(kInput));
+    balance_trick_ = static_cast<RiderTeeterMoves*>(skater->fetch_module(kSkaterBalanceTrick));
+    points_held_ = static_cast<RiderPointKeeper*>(skater_->fetch_module(kSkaterScore));
+    input_ = static_cast<PadInputModule*>(skater_->fetch_module(kInput));
 }
 
 // 0x005798A0
@@ -184,9 +183,9 @@ void Balance::kickoff(uint32_t left_button, uint32_t right_button, uint32_t tric
                 cheese_ = 0.0f;
             }
         }
-        rail_ = *reinterpret_cast<int*>(static_cast<uint8_t*>(rail) + 0x4C);
+        rail_ = static_cast<int>(static_cast<GrindPoint*>(rail)->label_);
         // A robot rail: a short run (under half a second) gets time and a nudge.
-        float run_time = *reinterpret_cast<float*>(static_cast<uint8_t*>(score_display(points_held_)) + 0x154C);
+        float run_time = score_display(points_held_)->robot_factor_;
         if (run_time < 0.5f) {
             float inverse = static_cast<float>(1.0 / run_time);
             on_rail_seconds_ = static_cast<float>(

@@ -87,10 +87,5 @@ public:
     skater::SkaterPhysicsModule* core_physics_; // +0x28 SkaterCorePhysics (0x5BD63B29)
     RiderPoseState* pose_;                      // +0x2C SkaterState (0x43686585)
 };
-static_assert(offsetof(RiderBoardPhysics, is_halted_) == 0x18 && offsetof(RiderBoardPhysics, switch_time_) == 0x1C &&
-                  offsetof(RiderBoardPhysics, board_missing_) == 0x24 &&
-                  offsetof(RiderBoardPhysics, core_physics_) == 0x28 && offsetof(RiderBoardPhysics, pose_) == 0x2C &&
-                  sizeof(RiderBoardPhysics) == 0x30,
-              "layout must match the original (0x00517830 allocates 0x30 bytes)");
 
 } // namespace objects

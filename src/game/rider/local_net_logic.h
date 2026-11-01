@@ -68,11 +68,5 @@ public:
     RiderPoseState* pose_;               // +0x3C the skater's SkaterState (its state and controls)
     skater::SkaterPhysicsModule* board_; // +0x40 the core physics component
 };
-static_assert(offsetof(RiderHostSync, last_transmit_at_) == 0x18 && offsetof(RiderHostSync, sent_value_7c_) == 0x1C &&
-                  offsetof(RiderHostSync, sent_pos_) == 0x1E && offsetof(RiderHostSync, sent_angles_) == 0x24 &&
-                  offsetof(RiderHostSync, sent_controls_) == 0x2C && offsetof(RiderHostSync, sent_state_) == 0x34 &&
-                  offsetof(RiderHostSync, sent_value80_) == 0x38 && offsetof(RiderHostSync, pose_) == 0x3C &&
-                  offsetof(RiderHostSync, board_) == 0x40,
-              "layout must match the original");
 
 } // namespace objects

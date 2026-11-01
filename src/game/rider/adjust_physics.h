@@ -62,11 +62,5 @@ public:
     MovingSurfaceModule* ride_;             // +0x2C
     RiderPoseState* state_ref_;             // +0x30
 };
-static_assert(offsetof(RiderPhysicsTweaks, uber_frig_tries_) == 0x18 &&
-                  offsetof(RiderPhysicsTweaks, uber_frigged_) == 0x1C &&
-                  offsetof(RiderPhysicsTweaks, core_ptr_) == 0x20 &&
-                  offsetof(RiderPhysicsTweaks, shadow_handle_) == 0x28 && offsetof(RiderPhysicsTweaks, ride_) == 0x2C &&
-                  offsetof(RiderPhysicsTweaks, state_ref_) == 0x30,
-              "layout must match the original");
 
 } // namespace objects

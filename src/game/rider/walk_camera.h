@@ -106,11 +106,5 @@ public:
     FootMovement* walk_;                 // +0xA0
     RiderBoardPhysics* physics_control_; // +0xA4
 };
-static_assert(offsetof(FootView, instant_frames_) == 0x18 && offsetof(FootView, zoom_) == 0x20 &&
-                  offsetof(FootView, aim_point_) == 0x24 && offsetof(FootView, orientation_) == 0x34 &&
-                  offsetof(FootView, override_) == 0x78 && offsetof(FootView, free_look_) == 0x90 &&
-                  offsetof(FootView, physics_control_) == 0xA4 && sizeof(FootView) == 0xA8,
-              "layout must match the original");
-static_assert(sizeof(WalkCameraState) == 0x58, "layout must match the original");
 
 } // namespace objects

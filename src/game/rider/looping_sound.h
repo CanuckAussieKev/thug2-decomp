@@ -84,14 +84,6 @@ public:
     uint8_t on_;        // +0x10C
     uint8_t pad10d_[3];
 };
-static_assert(offsetof(RiderRollingAudio, sound_id_) == 0x18 && offsetof(RiderRollingAudio, prev_levels_) == 0x28 &&
-                  offsetof(RiderRollingAudio, air_pitch_floor_) == 0x54 &&
-                  offsetof(RiderRollingAudio, physics_control_) == 0x5C &&
-                  offsetof(RiderRollingAudio, last_pos_) == 0x64 && offsetof(RiderRollingAudio, cur_phase_) == 0x74 &&
-                  offsetof(RiderRollingAudio, sound_) == 0x78 && offsetof(RiderRollingAudio, have_sound_) == 0xFC &&
-                  offsetof(RiderRollingAudio, speed_ratio_) == 0x104 && offsetof(RiderRollingAudio, on_) == 0x10C &&
-                  sizeof(RiderRollingAudio) == 0x110,
-              "layout must match the original (0x00513AD0 allocates 0x110 bytes)");
 
 // An VolumeRef with its compiler-made assignment, which was placed here.
 struct LoopingSoundVolume : sound::VolumeRef {

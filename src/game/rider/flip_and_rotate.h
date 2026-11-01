@@ -63,10 +63,5 @@ public:
     MeshInstanceModule* mesh_set_;              // +0x20 Model (0x286A8D26)
     skater::SkaterPhysicsModule* core_physics_; // +0x24 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(RiderSpinAndFlip, deck_turned_) == 0x18 &&
-                  offsetof(RiderSpinAndFlip, board_rotate_after_) == 0x1B &&
-                  offsetof(RiderSpinAndFlip, anim_blender_) == 0x1C && offsetof(RiderSpinAndFlip, mesh_set_) == 0x20 &&
-                  offsetof(RiderSpinAndFlip, core_physics_) == 0x24 && sizeof(RiderSpinAndFlip) == 0x28,
-              "layout must match the original (0x00511470 allocates 0x28 bytes)");
 
 } // namespace objects

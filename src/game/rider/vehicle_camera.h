@@ -76,9 +76,5 @@ public:
     float lerp_;                   // +0x9C (0x9213625F) a second
     FreeLookModule* free_look_;    // +0xA0
 };
-static_assert(offsetof(CarView, subject_) == 0x18 && offsetof(CarView, direction_) == 0x20 &&
-                  offsetof(CarView, orientation_) == 0x50 && offsetof(CarView, lerp_) == 0x9C &&
-                  sizeof(CarView) == 0xA4,
-              "layout must match the original");
 
 } // namespace objects

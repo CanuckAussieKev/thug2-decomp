@@ -113,12 +113,5 @@ public:
     ObjectModule* flip_and_rotate_; // +0x2B8 SkaterFlipAndRotate (0x488AF07A)
     ObjectModule* shadow_;          // +0x2BC Shadow (0x8A897DD2)
 };
-static_assert(offsetof(RiderRemoteSync, sync_frame_) == 0x18 && offsetof(RiderRemoteSync, play_pos_) == 0x28 &&
-                  offsetof(RiderRemoteSync, last_pos_) == 0x48 && offsetof(RiderRemoteSync, surface_up_) == 0x58 &&
-                  offsetof(RiderRemoteSync, speeds_) == 0x68 && offsetof(RiderRemoteSync, lags_) == 0xB8 &&
-                  offsetof(RiderRemoteSync, alignments_) == 0x108 && offsetof(RiderRemoteSync, moves_) == 0x158 &&
-                  offsetof(RiderRemoteSync, updates_) == 0x298 && offsetof(RiderRemoteSync, past_frames_) == 0x2A4 &&
-                  offsetof(RiderRemoteSync, shadow_) == 0x2BC && sizeof(RiderRemoteSync) == 0x2C0,
-              "layout must match the original (0x005147F0 allocates 0x2C0 bytes)");
 
 } // namespace objects

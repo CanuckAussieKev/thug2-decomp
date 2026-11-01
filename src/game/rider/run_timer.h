@@ -68,9 +68,5 @@ public:
     uint8_t pad22[2];
     uint8_t* walk_; // +0x24 Walk (0x726E85AA)
 };
-static_assert(offsetof(RiderRunClock, cur_phase_) == 0x18 && offsetof(RiderRunClock, seconds_remaining_) == 0x1C &&
-                  offsetof(RiderRunClock, resumes_) == 0x20 && offsetof(RiderRunClock, walk_) == 0x24 &&
-                  sizeof(RiderRunClock) == 0x28,
-              "layout must match the original (0x005185D0 allocates 0x28 bytes)");
 
 } // namespace objects

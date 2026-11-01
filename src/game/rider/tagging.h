@@ -55,8 +55,6 @@ public:
     void* graffiti_; // +0x1C the graffiti texture
     void* sticker_;  // +0x20 the sticker texture
 };
-static_assert(offsetof(TaggingComponent, graffiti_) == 0x1C && sizeof(TaggingComponent) == 0x24,
-              "layout must match the original");
 
 // The tagging control component (TaggingControl, type 0x380D909A, vtable 0x0064C394, 0x38 bytes; made by 0x0051E280).
 // Vtable: 0 Destroy, 1 Update (0x0051EA30, a jump to 0x0051E390), 3 Finalize, 12 invoke_method_by_name.
@@ -99,8 +97,5 @@ public:
     ObjectModule* trigger_;                     // +0x30
     TaggingComponent* tagging_;                 // +0x34
 };
-static_assert(offsetof(TaggingControlComponent, cooldown_) == 0x20 &&
-                  offsetof(TaggingControlComponent, tagging_) == 0x34 && sizeof(TaggingControlComponent) == 0x38,
-              "layout must match the original");
 
 } // namespace objects

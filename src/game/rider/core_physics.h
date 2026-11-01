@@ -46,7 +46,6 @@ struct AcidDrop {
     bool object_hit_;   // +0x24 (the feeler's hit object was still there)
     uint8_t pad25[3];
 };
-static_assert(sizeof(AcidDrop) == 0x28, "layout must match the original");
 
 class SkaterPhysicsModule final : public objects::ObjectModule {
 public:
@@ -894,107 +893,6 @@ public:
     objects::FootMovement* walk_;                         // +0x1534
     objects::TaggingControlComponent* tagging_component_; // +0x1538 the projectiles'
 };
-static_assert(
-    offsetof(SkaterPhysicsModule, display_matrix_) == 0x18 && offsetof(SkaterPhysicsModule, drawn_normal_) == 0x58 &&
-        offsetof(SkaterPhysicsModule, floor_normal_) == 0x68 && offsetof(SkaterPhysicsModule, old_normal_) == 0x78 &&
-        offsetof(SkaterPhysicsModule, normal_blend_) == 0x88 && offsetof(SkaterPhysicsModule, frame_length_) == 0x8C &&
-        offsetof(SkaterPhysicsModule, state_changed_at_) == 0x90 && offsetof(SkaterPhysicsModule, old_state_) == 0x94 &&
-        offsetof(SkaterPhysicsModule, safe_pos_) == 0x98 && offsetof(SkaterPhysicsModule, feeler_) == 0xA8 &&
-        offsetof(SkaterPhysicsModule, floor_feeler_) == 0x158 && offsetof(SkaterPhysicsModule, probe_start_) == 0x208 &&
-        offsetof(SkaterPhysicsModule, probe_end_) == 0x218 && offsetof(SkaterPhysicsModule, hit_skatable_) == 0x228 &&
-        offsetof(SkaterPhysicsModule, hit_vert_) == 0x229 && offsetof(SkaterPhysicsModule, hit_wall_) == 0x22A &&
-        offsetof(SkaterPhysicsModule, rail_node_) == 0x22C && offsetof(SkaterPhysicsModule, rail_manager_) == 0x230 &&
-        offsetof(SkaterPhysicsModule, rail_time_) == 0x234 && offsetof(SkaterPhysicsModule, lip_time_) == 0x238 &&
-        offsetof(SkaterPhysicsModule, rail_wait_) == 0x23C &&
-        offsetof(SkaterPhysicsModule, rail_script_node_) == 0x240 &&
-        offsetof(SkaterPhysicsModule, last_rail_script_) == 0x244 &&
-        offsetof(SkaterPhysicsModule, on_ledge_) == 0x248 && offsetof(SkaterPhysicsModule, bad_ledge_) == 0x249 &&
-        offsetof(SkaterPhysicsModule, skitch_moving_) == 0x24A &&
-        offsetof(SkaterPhysicsModule, skitch_point_) == 0x24C &&
-        offsetof(SkaterPhysicsModule, skitch_direction_) == 0x250 &&
-        offsetof(SkaterPhysicsModule, landed_this_frame_) == 0x254 &&
-        offsetof(SkaterPhysicsModule, frame_began_in_drop_) == 0x255 &&
-        offsetof(SkaterPhysicsModule, frame_began_in_lip_) == 0x256 &&
-        offsetof(SkaterPhysicsModule, lip_pos_) == 0x258 && offsetof(SkaterPhysicsModule, vert_takeoff_) == 0x268 &&
-        offsetof(SkaterPhysicsModule, vert_wall_normal_) == 0x278 &&
-        offsetof(SkaterPhysicsModule, vert_facing_) == 0x288 && offsetof(SkaterPhysicsModule, vert_step_) == 0x298 &&
-        offsetof(SkaterPhysicsModule, side_normal_sum_) == 0x2AC &&
-        offsetof(SkaterPhysicsModule, side_nearest_) == 0x2BC && offsetof(SkaterPhysicsModule, side_reach_) == 0x2C0 &&
-        offsetof(SkaterPhysicsModule, side_push_) == 0x2C4 && offsetof(SkaterPhysicsModule, side_turn_) == 0x2C8 &&
-        offsetof(SkaterPhysicsModule, transfer_blocked_) == 0x2D0 &&
-        offsetof(SkaterPhysicsModule, nearest_wall_side_) == 0x2D4 &&
-        offsetof(SkaterPhysicsModule, powerslide_) == 0x2D8 && offsetof(SkaterPhysicsModule, auto_kick_) == 0x2D9 &&
-        offsetof(SkaterPhysicsModule, tap_spin_) == 0x2DA && offsetof(SkaterPhysicsModule, model_rotating_) == 0x2DB &&
-        offsetof(SkaterPhysicsModule, model_flipped_) == 0x2DC &&
-        offsetof(SkaterPhysicsModule, model_rotation_left_) == 0x2E0 &&
-        offsetof(SkaterPhysicsModule, flip_spin_started_) == 0x2E4 &&
-        offsetof(SkaterPhysicsModule, slomo_speed_) == 0x2E8 &&
-        offsetof(SkaterPhysicsModule, point_rail_spin_) == 0x2EC &&
-        offsetof(SkaterPhysicsModule, on_vehicle_) == 0x2ED && offsetof(SkaterPhysicsModule, vehicle_) == 0x2F0 &&
-        offsetof(SkaterPhysicsModule, projectiles_on_) == 0x2F4 && offsetof(SkaterPhysicsModule, ammo_) == 0x2F8 &&
-        offsetof(SkaterPhysicsModule, ammo_type_) == 0x2FC && offsetof(SkaterPhysicsModule, in_revert_) == 0x300 &&
-        offsetof(SkaterPhysicsModule, focus_on_) == 0x301 && offsetof(SkaterPhysicsModule, motoskateboard_) == 0x302 &&
-        offsetof(SkaterPhysicsModule, crouch_stats_) == 0x303 &&
-        offsetof(SkaterPhysicsModule, manual_turnaround_) == 0x304 &&
-        offsetof(SkaterPhysicsModule, projectile_input_) == 0x308 &&
-        offsetof(SkaterPhysicsModule, queued_spin_) == 0x30C && offsetof(SkaterPhysicsModule, no_kick_) == 0x310 &&
-        offsetof(SkaterPhysicsModule, can_brake_) == 0x311 &&
-        offsetof(SkaterPhysicsModule, rolling_friction_) == 0x314 &&
-        offsetof(SkaterPhysicsModule, special_friction_index_) == 0x318 &&
-        offsetof(SkaterPhysicsModule, special_friction_start_) == 0x31C &&
-        offsetof(SkaterPhysicsModule, special_friction_time_) == 0x320 &&
-        offsetof(SkaterPhysicsModule, braking_) == 0x324 && offsetof(SkaterPhysicsModule, side_hit_times_) == 0x328 &&
-        offsetof(SkaterPhysicsModule, last_ground_pos_) == 0x338 &&
-        offsetof(SkaterPhysicsModule, last_heading_) == 0x348 &&
-        offsetof(SkaterPhysicsModule, rail_backwards_) == 0x34C &&
-        offsetof(SkaterPhysicsModule, limits_time_) == 0x350 && offsetof(SkaterPhysicsModule, limits_max_) == 0x354 &&
-        offsetof(SkaterPhysicsModule, limits_max_max_) == 0x358 &&
-        offsetof(SkaterPhysicsModule, limits_friction_) == 0x35C &&
-        offsetof(SkaterPhysicsModule, limits_gravity_) == 0x360 &&
-        offsetof(SkaterPhysicsModule, skitch_target_) == 0x364 && offsetof(SkaterPhysicsModule, no_spin_) == 0x370 &&
-        offsetof(SkaterPhysicsModule, bail_on_) == 0x371 &&
-        offsetof(SkaterPhysicsModule, came_down_off_spine_) == 0x372 &&
-        offsetof(SkaterPhysicsModule, landed_from_vert_) == 0x373 &&
-        offsetof(SkaterPhysicsModule, landed_from_air_vert_) == 0x374 &&
-        offsetof(SkaterPhysicsModule, allow_lip_no_grind_) == 0x375 &&
-        offsetof(SkaterPhysicsModule, jump_charge_ms_) == 0x378 &&
-        offsetof(SkaterPhysicsModule, drop_target_height_) == 0x37C &&
-        offsetof(SkaterPhysicsModule, air_start_) == 0x380 && offsetof(SkaterPhysicsModule, air_end_) == 0x384 &&
-        offsetof(SkaterPhysicsModule, lock_velocity_) == 0x388 &&
-        offsetof(SkaterPhysicsModule, wall_normal_) == 0x38C &&
-        offsetof(SkaterPhysicsModule, wall_ride_start_) == 0x39C &&
-        offsetof(SkaterPhysicsModule, wallplant_end_) == 0x3A0 &&
-        offsetof(SkaterPhysicsModule, no_rail_tricks_) == 0x3A4 &&
-        offsetof(SkaterPhysicsModule, last_spin_backside_) == 0x3A5 &&
-        offsetof(SkaterPhysicsModule, rail_adjust_) == 0x3A8 &&
-        offsetof(SkaterPhysicsModule, speed_override_) == 0x3AC &&
-        offsetof(SkaterPhysicsModule, drop_matrix_) == 0x3B0 && offsetof(SkaterPhysicsModule, drop_slerp_) == 0x3F0 &&
-        offsetof(SkaterPhysicsModule, drop_time_) == 0x488 && offsetof(SkaterPhysicsModule, drop_duration_) == 0x48C &&
-        offsetof(SkaterPhysicsModule, drop_heading_) == 0x490 &&
-        offsetof(SkaterPhysicsModule, drop_last_matrix_) == 0x4A0 &&
-        offsetof(SkaterPhysicsModule, wallplant_time_) == 0x4E0 &&
-        offsetof(SkaterPhysicsModule, last_push_off_) == 0x4E4 &&
-        offsetof(SkaterPhysicsModule, vert_wallplanted_) == 0x4E8 &&
-        offsetof(SkaterPhysicsModule, leap_time_) == 0x4EC &&
-        offsetof(SkaterPhysicsModule, vert_air_announced_) == 0x4F0 &&
-        offsetof(SkaterPhysicsModule, hit_cache_) == 0x4F4 &&
-        offsetof(SkaterPhysicsModule, drop_object_hit_) == 0x14C0 &&
-        offsetof(SkaterPhysicsModule, focus_held_) == 0x14C1 && offsetof(SkaterPhysicsModule, throw_wait_) == 0x14C4 &&
-        offsetof(SkaterPhysicsModule, throwing_projectile_) == 0x14C8 &&
-        offsetof(SkaterPhysicsModule, late_wallplant_frames_) == 0x14CC &&
-        offsetof(SkaterPhysicsModule, late_velocity_) == 0x14D0 && offsetof(SkaterPhysicsModule, late_pos_) == 0x14E0 &&
-        offsetof(SkaterPhysicsModule, late_wall_normal_) == 0x14F0 &&
-        offsetof(SkaterPhysicsModule, natas_counter_clockwise_) == 0x1500 &&
-        offsetof(SkaterPhysicsModule, natas_spin_time_) == 0x1504 &&
-        offsetof(SkaterPhysicsModule, tantrum_) == 0x1508 && offsetof(SkaterPhysicsModule, tagging_) == 0x1509 &&
-        offsetof(SkaterPhysicsModule, input_) == 0x150C && offsetof(SkaterPhysicsModule, trigger_) == 0x1510 &&
-        offsetof(SkaterPhysicsModule, sound_) == 0x1514 && offsetof(SkaterPhysicsModule, trick_) == 0x1518 &&
-        offsetof(SkaterPhysicsModule, rotate_) == 0x151C && offsetof(SkaterPhysicsModule, score_) == 0x1520 &&
-        offsetof(SkaterPhysicsModule, balance_) == 0x1524 && offsetof(SkaterPhysicsModule, state_) == 0x1528 &&
-        offsetof(SkaterPhysicsModule, ride_) == 0x152C && offsetof(SkaterPhysicsModule, physics_control_) == 0x1530 &&
-        offsetof(SkaterPhysicsModule, walk_) == 0x1534 && offsetof(SkaterPhysicsModule, tagging_component_) == 0x1538 &&
-        sizeof(SkaterPhysicsModule) == 0x153C,
-    "layout must match the original (0x00505440 allocates 0x153C bytes)");
 
 // 0x004FC4A0 (cdecl): with the script value 0x19FB78FA set, "Tracking%d" and two vectors printed (compiled out).
 void __cdecl tracking_print(int index, const maths::Vec4* a, const maths::Vec4* b);

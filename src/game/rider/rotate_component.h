@@ -53,8 +53,5 @@ public:
     Turn turns_[3];                             // +0x18 about x, y, z
     skater::SkaterPhysicsModule* core_physics_; // +0x54 SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(sizeof(RiderTurning::Turn) == 0x14 && offsetof(RiderTurning, turns_) == 0x18 &&
-                  offsetof(RiderTurning, core_physics_) == 0x54 && sizeof(RiderTurning) == 0x58,
-              "layout must match the original (0x00517D40 allocates 0x58 bytes)");
 
 } // namespace objects

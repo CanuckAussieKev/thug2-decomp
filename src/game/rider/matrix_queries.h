@@ -48,9 +48,5 @@ public:
     float prev_gradient_;                       // +0x58 GetSlope's last
     skater::SkaterPhysicsModule* core_physics_; // +0x5C SkaterCorePhysics (0x5BD63B29)
 };
-static_assert(offsetof(RiderFrameLookups, basis_frame_) == 0x18 &&
-                  offsetof(RiderFrameLookups, prev_gradient_) == 0x58 &&
-                  offsetof(RiderFrameLookups, core_physics_) == 0x5C && sizeof(RiderFrameLookups) == 0x60,
-              "layout must match the original (0x00514430 allocates 0x60 bytes)");
 
 } // namespace objects

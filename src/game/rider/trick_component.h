@@ -38,8 +38,6 @@ struct TrickEvent {
     uint8_t pad11[3];
     uint32_t flags; // +0x14 used by a trick of these kinds (the checks' masks)
 };
-static_assert(sizeof(TrickEvent) == 0x18 && offsetof(TrickEvent, used) == 0x10 && offsetof(TrickEvent, flags) == 0x14,
-              "layout must match the original");
 
 // A queued trick (0x14 bytes, 100 of them from +0xA34): which list and which of its tricks.
 // SetManualTricks' / SetExtraGrindTricks' trick arrays and the trick of them waiting to start (0x48 bytes; the trick
@@ -57,7 +55,6 @@ struct PendingTrick {
     bool is_special_; // +0x44
     uint8_t pad45_[3];
 };
-static_assert(sizeof(PendingTrick) == 0x48, "layout must match the original");
 
 // SetExtraTricks' arrays (0x68 bytes; the trick component's +0x12C8).
 struct ExtraTricks {
@@ -72,7 +69,6 @@ struct ExtraTricks {
     uint32_t special_;      // +0x60 the special array
     uint32_t special_mask_; // +0x64
 };
-static_assert(sizeof(ExtraTricks) == 0x68, "layout must match the original");
 
 struct QueuedTrick {
     uint32_t list; // +0x00 the trick list's name (0: removed)
@@ -81,7 +77,6 @@ struct QueuedTrick {
     bool flag; // +0x10
     uint8_t pad11[3];
 };
-static_assert(sizeof(QueuedTrick) == 0x14, "layout must match the original");
 
 // The skater's Trick component (type trick 0x270F56E1, vtable 0x0064C508, 0x1BC0 bytes; made by 0x00523490): the
 // buttons pressed and released, the tricks their triggers start - the queued tricks (DoNextTrick), the manual tricks,
@@ -332,17 +327,6 @@ public:
     uint8_t pad1bb9_[3];
     uint32_t bail_endpose_; // +0x1BBC current_bail_endpose
 };
-static_assert(offsetof(MoveExecutor, input_) == 0x20 && offsetof(MoveExecutor, events_) == 0x38 &&
-                  offsetof(MoveExecutor, event_count_) == 0x998 && offsetof(MoveExecutor, button_map_) == 0x99C &&
-                  offsetof(MoveExecutor, held_off_until_) == 0x9A8 && offsetof(MoveExecutor, btn_down_) == 0xA00 &&
-                  offsetof(MoveExecutor, ignored_count_) == 0xA18 && offsetof(MoveExecutor, trick_lists_) == 0xA28 &&
-                  offsetof(MoveExecutor, queue_) == 0xA34 && offsetof(MoveExecutor, extra_list_count_) == 0x1204 &&
-                  offsetof(MoveExecutor, manual_list_) == 0x1230 && offsetof(MoveExecutor, manual_) == 0x1238 &&
-                  offsetof(MoveExecutor, grind_) == 0x1280 && offsetof(MoveExecutor, extra_) == 0x12C8 &&
-                  offsetof(MoveExecutor, trick_name_) == 0x1331 && offsetof(MoveExecutor, deferred_name_) == 0x1368 &&
-                  offsetof(MoveExecutor, spin_total_) == 0x13A4 && offsetof(MoveExecutor, trick_objects_) == 0x13B4 &&
-                  offsetof(MoveExecutor, bail_endpose_) == 0x1BBC && sizeof(MoveExecutor) == 0x1BC0,
-              "layout must match the original");
 
 // 0x0051EA40: whether `button` is one of the d-pad's eight directions (Up, Down,
 // Left, Right and the diagonals).

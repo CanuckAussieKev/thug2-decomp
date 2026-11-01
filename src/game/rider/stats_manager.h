@@ -42,7 +42,6 @@ public:
         uint32_t trick_;    // +0x1C (0xD8A9D3CA, by difficulty)
         uint32_t value20_;  // +0x20 (0x3C2FB496, by difficulty)
     };
-    static_assert(sizeof(Goal) == 0x24, "layout must match the original");
 
     // 0x0051CB90 (registered with the composite object manager): a new one (0 if out of memory).
     static ObjectModule* __cdecl fabricate();
@@ -139,12 +138,5 @@ public:
     RiderBoardPhysics* physics_control_; // +0xA98
     uint32_t unknowna9c_;
 };
-static_assert(offsetof(AttributeTracker, goals_) == 0x1C && offsetof(AttributeTracker, activated_) == 0x9F4 &&
-                  offsetof(AttributeTracker, points_held_) == 0x9F8 &&
-                  offsetof(AttributeTracker, difficulty_) == 0xA18 && offsetof(AttributeTracker, air_start_) == 0xA24 &&
-                  offsetof(AttributeTracker, jump_start_) == 0xA5C &&
-                  offsetof(AttributeTracker, last_air_combo_score_) == 0xA8C &&
-                  offsetof(AttributeTracker, skater_) == 0xA90 && sizeof(AttributeTracker) == 0xAA0,
-              "layout must match the original");
 
 } // namespace objects

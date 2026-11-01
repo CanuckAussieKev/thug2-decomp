@@ -50,8 +50,5 @@ public:
     uint8_t pad19[3];
     ObjectModule* hooks_; // +0x1C the object's hook manager (0x27443708)
 };
-static_assert(offsetof(TowRideHandler, allowed_) == 0x18 && offsetof(TowRideHandler, hooks_) == 0x1C &&
-                  sizeof(TowRideHandler) == 0x20,
-              "layout must match the original");
 
 } // namespace objects

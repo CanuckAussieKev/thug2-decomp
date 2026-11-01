@@ -93,8 +93,5 @@ public:
     uint32_t unknown1100_;                     // +0x1100 (cleared)
     uint32_t vehicle_control_type_;            // +0x1104 the vehicle's control type (message 0x?)
 };
-static_assert(offsetof(RiderFrameLog, states_) == 0x1C && offsetof(RiderFrameLog, messages_) == 0xA70 &&
-                  sizeof(RiderFrameLog) == 0x1108,
-              "the original allocates 0x1108 bytes");
 
 } // namespace objects

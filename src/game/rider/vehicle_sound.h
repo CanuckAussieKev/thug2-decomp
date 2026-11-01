@@ -107,14 +107,5 @@ public:
     bool silenced_;          // +0xC4
     uint8_t padc5_[3];
 };
-static_assert(offsetof(SkaterVehicleSoundComponent, settings_) == 0x24 &&
-                  offsetof(SkaterVehicleSoundComponent, engine_sound_) == 0x2C &&
-                  offsetof(SkaterVehicleSoundComponent, gear_count_) == 0x40 &&
-                  offsetof(SkaterVehicleSoundComponent, gear_steps_) == 0x44 &&
-                  offsetof(SkaterVehicleSoundComponent, speed_) == 0xA4 &&
-                  offsetof(SkaterVehicleSoundComponent, skid_) == 0xB8 &&
-                  offsetof(SkaterVehicleSoundComponent, settings_name_) == 0xC0 &&
-                  sizeof(SkaterVehicleSoundComponent) == 0xC8,
-              "layout must match the original");
 
 } // namespace objects

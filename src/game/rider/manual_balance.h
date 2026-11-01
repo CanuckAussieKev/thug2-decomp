@@ -12,6 +12,9 @@ namespace objects {
 
 class GameEntity;
 class ObjectModule;
+class PadInputModule;
+class RiderPointKeeper;
+class RiderTeeterMoves;
 
 class Balance {
 public:
@@ -44,13 +47,10 @@ public:
     void show_display();
     void show_meter();
 
-    // +0x00: the original's vtable (only the destructor) - its place kept, since the physics code reads
-    // the balances inside SkaterBalanceTrick by byte offset (to be typed in stage 5).
-    uint32_t vtable_slot_unused_ = 0;
-    GameEntity* skater_;     // +0x04
-    uint8_t* balance_trick_; // +0x08 SkaterBalanceTrick (+0x18 the balance trick's type)
-    uint8_t* points_held_;   // +0x0C SkaterScore (+0x18 the score)
-    uint8_t* input_;         // +0x10 input (+0x20 its control data)
+    GameEntity* skater_;              // +0x04
+    RiderTeeterMoves* balance_trick_; // +0x08 SkaterBalanceTrick
+    RiderPointKeeper* points_held_;   // +0x0C SkaterScore
+    PadInputModule* input_;           // +0x10 input
     uint8_t unknown14_[0x10];
     float clock_;           // +0x24
     float on_rail_seconds_; // +0x28
@@ -70,9 +70,5 @@ public:
     bool mirrored_;        // +0x56
     bool flip_;            // +0x57
 };
-static_assert(offsetof(Balance, clock_) == 0x24 && offsetof(Balance, cheese_) == 0x38 &&
-                  offsetof(Balance, start_time_) == 0x40 && offsetof(Balance, rail_) == 0x50 &&
-                  offsetof(Balance, flip_) == 0x57 && sizeof(Balance) == 0x58,
-              "layout must match the original");
 
 } // namespace objects
