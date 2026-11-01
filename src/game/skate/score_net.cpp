@@ -163,7 +163,7 @@ int PointTally::on_score_msg(net::InboundMsgCtx* context)
     auto message = std::make_unique<online::TrickObjectsMessage>();
     if (!online::read_trick_objects(reader, message.get()))
         return 4;
-    auto* score = static_cast<PointTally*>(static_cast<objects::Rider*>(context->content_)->get_points_total());
+    auto* score = static_cast<objects::Rider*>(context->content_)->get_points_total();
     if (message->one == 1 && message->game_id == net_session_slot()->get_game_id())
         score->note_tagged_prop(message->player, static_cast<int>(message->score), message->count, message->objects.data(),
                                 false);

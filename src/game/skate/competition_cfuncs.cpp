@@ -87,13 +87,13 @@ text::Chars* get_horse_string(void* storage, uint32_t which)
 
 // A skater's score (Rider::get_points_total): 0x00561B40 its total; 0x00561410 / 0x00561420 its bonus (+0x28) added to /
 // read.
-uint8_t* get_score_of(objects::GameEntity* skater)
+modules::PointTally* get_score_of(objects::GameEntity* skater)
 {
-    return static_cast<uint8_t*>(core::down_cast<objects::Rider>(skater)->get_points_total());
+    return core::down_cast<objects::Rider>(skater)->get_points_total();
 }
-int total_score(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_total_score(); }
-void add_to_bonus(uint8_t* score, int bonus) { raw::as<modules::PointTally>(score)->add_bonus(bonus); }
-int get_bonus(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_bonus(); }
+int total_score(modules::PointTally* score) { return score->get_total_score(); }
+void add_to_bonus(modules::PointTally* score, int bonus) { score->add_bonus(bonus); }
+int get_bonus(modules::PointTally* score) { return score->get_bonus(); }
 
 // The skater info heap, current while the competition's standings change.
 void push_skater_info_heap()
@@ -318,7 +318,7 @@ bool cfunc_add_bonus(script::Struct* params, script::Script*)
     params->fetch_int_value(kSkater, &index, 1);
     objects::GameEntity* skater = get_rider_at(index);
     if (skater->is_local_skater_) {
-        uint8_t* score = get_score_of(skater);
+        modules::PointTally* score = get_score_of(skater);
         int bonus = 0;
         params->fetch_int_value(0u, &bonus, 0);
         add_to_bonus(score, bonus);

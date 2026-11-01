@@ -160,7 +160,7 @@ net::AppHost* server_app() { return net_link()->host_; }
 
 objects::Rider* skater_of(PlayerRecord* player) { return player->rider(); }
 uint8_t get_skater_id(objects::Rider* skater) { return static_cast<uint8_t>(skater->ident_); }
-PointTally* get_score_of(objects::Rider* skater) { return static_cast<PointTally*>(skater->get_points_total()); }
+PointTally* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
 
 
 // A skater's state history (+0x27C) and its newest state / message.

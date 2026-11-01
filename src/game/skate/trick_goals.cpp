@@ -38,6 +38,7 @@
 #include "platform/compiler.h"
 #include "engine/core/raw_view.h"
 #include "engine/core/checked_index.h"
+#include "engine/core/down_cast.h"
 
 THUG2_MSVC_WARNING(disable : 4996) // (the original's strcpy / strcat / sprintf into its fixed buffers, kept)
 
@@ -146,26 +147,23 @@ void fail_objective(void* manager, uint32_t id) { static_cast<GoalManager*>(mana
 
 // The skate module (0x007CE478): the local skater, its score (modules::PointTally), the tricks the score has seen.
 modules::Skate* get_skate() { return modules::g_skate_module; }
-uint8_t* local_skater() { return raw::bytes(modules::Skate::sole()->get_home_rider()); }
-uint8_t* get_score_of(uint8_t* skater)
-{
-    return static_cast<uint8_t*>(raw::as<objects::Rider>(skater)->get_points_total());
-}
-int total_score(uint8_t* score) { return raw::as<modules::PointTally>(score)->get_total_score(); }
+objects::Rider* local_skater() { return modules::Skate::sole()->get_home_rider(); }
+modules::PointTally* get_score_of(objects::Rider* skater) { return skater->get_points_total(); }
+int total_score(modules::PointTally* score) { return score->get_total_score(); }
 // The points of the trick in progress: the combo's base points times its multiplier (as a whole number).
-int pending_points(uint8_t* score)
+int pending_points(modules::PointTally* score)
 {
-    auto* tally = raw::as<modules::PointTally>(score);
+    auto* tally = score;
     return ftol(static_cast<double>(tally->pot_) * tally->multiplier_);
 }
 // How often the trick (by name / key combo) has been done with this spin, perfect, taps.
-int get_trick_count(uint8_t* score, uint32_t trick, int spin, bool perfect, int taps)
+int get_trick_count(modules::PointTally* score, uint32_t trick, int spin, bool perfect, int taps)
 {
-    return raw::as<modules::PointTally>(score)->count_trick_after_taps(trick, spin, perfect, taps);
+    return score->count_trick_after_taps(trick, spin, perfect, taps);
 }
-int key_combo_count(uint8_t* score, uint32_t key_combo, int spin, bool perfect, int taps)
+int key_combo_count(modules::PointTally* score, uint32_t key_combo, int spin, bool perfect, int taps)
 {
-    return raw::as<modules::PointTally>(score)->count_key_combo(key_combo, spin, perfect, taps);
+    return score->count_key_combo(key_combo, spin, perfect, taps);
 }
 
 // The screen elements: the manager (0x00701440), an element by id (its raw pointer: the smart pointer the lookup
@@ -332,7 +330,7 @@ void FallingTricksGoal::update_alphas()
 {
     int check = 0; // (only read when given)
     const bool check_given = args_->fetch_int_value(kNoAlphaCheck, &check, 0);
-    uint8_t* score = get_score_of(local_skater());
+    modules::PointTally* score = get_score_of(local_skater());
     void* manager = ui_tree_handle();
     const float faded = script::fetch_float(kFadedAlpha);
     const float unfaded = script::fetch_float(kUnfadedAlpha);
@@ -546,9 +544,9 @@ void FallingTricksGoal::add_tricks(int count)
                 // A special trick slot: the skater's trick in it.
                 int special_slot = 0;
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
-                uint8_t* skater = local_skater();
+                objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(raw::as<objects::Rider>(skater)->trick_slots_, special_slot)->other_params_->fetch_text(
+                    core::at(skater->trick_slots_, special_slot)->other_params_->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -654,7 +652,7 @@ void FallingTricksGoal::add_tricks(int count)
 // 0x00570A70
 void FallingTricksGoal::check_combos()
 {
-    uint8_t* score = get_score_of(local_skater());
+    modules::PointTally* score = get_score_of(local_skater());
     int combo_size = 0;
     args_->fetch_int_value(kChainLength, &combo_size, 1);
     for (int group = 0; group < kMaxTricks; ++group) {
@@ -780,7 +778,7 @@ void FallingTricksGoal::check_tricks()
         args_->put_int(kNoAlphaCheck, 0);
     }
     const bool combo = integer_or_flag(args_, kSingleCombo) || is_combo();
-    uint8_t* score = get_score_of(local_skater());
+    modules::PointTally* score = get_score_of(local_skater());
     if (combo) {
         check_combos();
         return;
@@ -1146,9 +1144,9 @@ void TrickBeatGoal::add_tricks(int count)
             if (!mapping->read_hash_value(key_combo, &trick_name, 0)) {
                 int special_slot = 0;
                 mapping->fetch_int_value(key_combo, &special_slot, 1);
-                uint8_t* skater = local_skater();
+                objects::Rider* skater = local_skater();
                 if (skater) {
-                    core::at(raw::as<objects::Rider>(skater)->trick_slots_, special_slot)->other_params_->fetch_text(
+                    core::at(skater->trick_slots_, special_slot)->other_params_->fetch_text(
                         kName, &trick_text, 1);
                     t.taps = 1;
                 }
@@ -1298,10 +1296,10 @@ void TrickObjectsGoal::evaluate_points()
         complete_objective(manager, get_goal_id(this));
         return;
     }
-    uint8_t* skater = local_skater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return;
-    uint8_t* score = get_score_of(skater);
+    modules::PointTally* score = get_score_of(skater);
     // The points of the trick in progress (+0x14, times the multiplier +0x60) count too.
     const int pending = pending_points(score);
     if (total_score(score) + pending < required)
@@ -1332,16 +1330,12 @@ void TrickObjectsGoal::get_object_hit(uint32_t cluster)
     script::Struct* object = get_object_by_cluster(cluster);
     if (!object || has_won() || is_latched())
         return;
-    uint8_t* skater = local_skater();
+    objects::Rider* skater = local_skater();
     if (!skater)
         return;
-    auto component = [skater](uint32_t type) {
-        return raw::bytes(raw::as<objects::GameEntity>(skater)->fetch_module(type));
-    };
-    auto* state = raw::as<objects::RiderPoseState>(component(kSkaterState));
-    uint8_t* score_component = component(kSkaterScore);
-    auto* score =
-        raw::bytes(raw::as<objects::RiderPointKeeper>(score_component)->points_held_);
+    auto* state = core::down_cast<objects::RiderPoseState>(skater->fetch_module(kSkaterState));
+    auto* score_component = core::down_cast<objects::RiderPointKeeper>(skater->fetch_module(kSkaterScore));
+    modules::PointTally* score = score_component->points_held_;
     // Only while the skater is in the air (+0xE0) or has points pending.
     if (!state->in_trick_move_ && pending_points(score) <= 0)
         return;

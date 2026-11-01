@@ -103,7 +103,7 @@ void GoalManager::land()
             auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
             if (!skater)
                 continue;
-            auto* score = static_cast<modules::PointTally*>(skater->get_points_total());
+            auto* score = skater->get_points_total();
             if (score->pot_score_ <= 0)
                 continue;
             script::Struct* check = script::new_struct();

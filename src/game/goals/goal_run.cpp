@@ -217,7 +217,7 @@ bool Objective::tick_frame()
         objects::GameEntity* skater = local_skater();
         if (skater) {
             const auto* score =
-                static_cast<const modules::PointTally*>(core::down_cast<objects::Rider>(skater)->get_points_total());
+                core::down_cast<objects::Rider>(skater)->get_points_total();
             // (the combo's points: its base score times its multiplier)
             if (score && truncate(score->pot_ * static_cast<double>(score->multiplier_)) > 0)
                 args_->put_name_key(kNoName, kChainActiveFlag);

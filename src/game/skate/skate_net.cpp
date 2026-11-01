@@ -524,9 +524,9 @@ int SkateNet::handle_scores(net::InboundMsgCtx* context)
         if (!get_game_mode()->is_true(kShouldModulateColor) && get_game_mode()->keeps_move_points()) {
             if (skater->is_local_skater_) // (a local skater keeps its own)
                 continue;
-            score = static_cast<modules::PointTally*>(skater->get_points_total());
+            score = skater->get_points_total();
         } else {
-            score = static_cast<modules::PointTally*>(skater->get_points_total());
+            score = skater->get_points_total();
             if (get_game_mode()->get_name_key() == kNetFirefight && !skater->is_local_skater_ &&
                 score->get_total_score() > 0 && value == 0) {
                 // Eliminated.

@@ -57,7 +57,7 @@ objects::Rider* get_rider_at(modules::Skate* skate, uint32_t index)
 // A skater's score object (modules::PointTally) and its total.
 modules::PointTally* get_score_of(objects::Rider* skater)
 {
-    return static_cast<modules::PointTally*>(skater->get_points_total());
+    return skater->get_points_total();
 }
 int total_score(modules::PointTally* score) { return score->get_total_score(); }
 

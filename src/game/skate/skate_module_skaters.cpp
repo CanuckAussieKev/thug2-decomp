@@ -265,7 +265,7 @@ objects::Rider* Skate::spawn_skater_entity(objects::RiderIdentity* profile, bool
                 skater->change_serial(id);
                 script::launch_script(kInitSkaterParticles, nullptr, skater, false, nullptr);
                 memory::leave_heap_scope();
-                static_cast<PointTally*>(skater->get_points_total())->set_rider_number(static_cast<int16_t>(id));
+                skater->get_points_total()->set_rider_number(static_cast<int16_t>(id));
                 return skater;
             }
         } else if (objects::Entity* camera = entity_hub_handle()->look_up_entity(kSkaterCam0)) {
@@ -679,7 +679,7 @@ void Skate::update_records()
     objects::Rider* skater = sole()->get_home_rider();
     if (!skater)
         return;
-    auto* score = static_cast<PointTally*>(skater->get_points_total());
+    auto* score = skater->get_points_total();
     highscores::BestEntryList* high_scores = records->high_scores_;
     new_record_ |= high_scores->try_insert_entry(score->get_total_score(), 0) != -1;
     new_record_ |= records->best_combos_->try_insert_entry(score->top_chain_, 0) != -1;
@@ -960,7 +960,7 @@ void Skate::front_end_tick(tasks::Task<Skate>* task)
     if (!king || king->rider()->is_halted_)
         return;
     // The king's time counts up; the beeps as the target comes near.
-    auto* score = static_cast<PointTally*>(king->rider()->get_points_total());
+    auto* score = king->rider()->get_points_total();
     const int total = score->get_total_score();
     score->set_grand_total(total -
                            ftol(frame_clock::get_slomo_frame_seconds() * 60.0 * static_cast<double>(-16.666666f)));

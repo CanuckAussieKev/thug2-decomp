@@ -26,6 +26,9 @@ class CreateATrick;
 namespace skater {
 class SkaterPhysicsModule;
 } // namespace skater
+namespace modules {
+class PointTally;
+}
 namespace objects {
 
 struct RiderIdentity;
@@ -77,7 +80,7 @@ public:
     // 0x00580040: its +0x238 block. 0x00580050: the flag at +0x2C4. 0x00580480: its score.
     memory::ListNode* get_skater_link();
     bool get_flag_2c_4();
-    void* get_points_total();
+    modules::PointTally* get_points_total();
     // 0x0057FED0: whether it matches `params`' description (is_pro, the custom flag, is_male / is_female, is_named,
     // stance, style).
     bool matches_params(script::Struct* params);

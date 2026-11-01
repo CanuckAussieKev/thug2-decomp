@@ -252,7 +252,7 @@
     "src/game/save_cards/save_files_cfuncs.cpp": 3,
     "src/game/save_cards/save_types.cpp": 2,
     "src/game/skate/appearance_cfuncs.cpp": 7,
-    "src/game/skate/competition_cfuncs.cpp": 7,
+    "src/game/skate/competition_cfuncs.cpp": 4,
     "src/game/skate/contest.cpp": 2,
     "src/game/skate/game_mode.cpp": 2,
     "src/game/skate/gap_checklist.cpp": 1,
@@ -268,6 +268,6 @@
     "src/game/skate/skater_profile.cpp": 13,
     "src/game/skate/skater_profile_cfuncs.cpp": 4,
     "src/game/skate/thugpro_cas.cpp": 6,
-    "src/game/skate/trick_goals.cpp": 16,
+    "src/game/skate/trick_goals.cpp": 3,
     "src/game/skate/victory_conditions.cpp": 1
 }

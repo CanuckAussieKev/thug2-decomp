@@ -25,6 +25,7 @@
 #include "game/rider/core_physics_fields.h"
 #include "game/rider/flip_and_rotate.h"
 #include "game/rider/rider.h"
+#include "game/skate/point_tally.h"
 #include "game/rider/thaw_bmx.h"
 #include "game/rider/physics_control.h"
 #include "engine/objects/car_physics.h"
@@ -271,11 +272,11 @@ void SkaterPhysicsModule::update_special_time()
 {
     if (!focus_on_)
         return;
-    auto* time = static_cast<float*>(core::down_cast<objects::Rider>(object_of(this))->get_points_total()); // (the score)
-    if (!time)
+    modules::PointTally* score = core::down_cast<objects::Rider>(object_of(this))->get_points_total();
+    if (!score)
         return;
-    if (*time > 0.0f) {
-        *time = *time - frame_length_;
+    if (score->focus_time_limit_ > 0.0f) {
+        score->focus_time_limit_ = score->focus_time_limit_ - frame_length_;
         return;
     }
     script::Struct* params = script::spawn_param_bag();

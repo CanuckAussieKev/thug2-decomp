@@ -330,7 +330,7 @@ int read_tuning_int(uint32_t name, int assert, GameEntity* skater)
 }
 
 // 0x00580480
-void* Rider::get_points_total() { return score_holder_->points_held_; }
+modules::PointTally* Rider::get_points_total() { return score_holder_->points_held_; }
 
 // 0x00580490
 float Rider::fetch_tally(int index)

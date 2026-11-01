@@ -569,7 +569,7 @@ bool GoalManager::goal_exists(uint32_t id) { return goals_.get_pull(id) != nullp
 void GoalManager::test_tagged_props()
 {
     auto* skater = core::down_cast<objects::Rider>(skate_calls::get_home_rider());
-    const int player = static_cast<modules::PointTally*>(skater->get_points_total())->pot_score_;
+    const int player = skater->get_points_total()->pot_score_;
     auto* trick = core::down_cast<objects::MoveExecutor>(skater->fetch_module(kTrick));
     // The combo's trick objects: up to 512 clusters, then their count (copied first, as the original).
     const objects::HitClusterLog objects = trick->trick_objects_;

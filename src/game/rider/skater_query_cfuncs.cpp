@@ -66,7 +66,7 @@ bool is_squad_match() { return static_cast<goals::MatchRules*>(get_game_mode())-
 // A skater's score: 0x00561B40 its total; the trick's base score (pot_), its multiplier, the last trick's score.
 modules::PointTally* get_score_of(objects::GameEntity* skater)
 {
-    return static_cast<modules::PointTally*>(core::down_cast<objects::Rider>(skater)->get_points_total());
+    return core::down_cast<objects::Rider>(skater)->get_points_total();
 }
 // (a player's skater's score through its SkaterScore component)
 modules::PointTally* component_score_of(objects::GameEntity* skater)

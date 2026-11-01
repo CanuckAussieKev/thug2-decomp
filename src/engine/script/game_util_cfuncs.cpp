@@ -261,7 +261,7 @@ bool cfunc_set_special_bar_colors(script::Struct* params, script::Script*)
     int index = 0;
     params->fetch_int_value(kSkater, &index, 1);
     auto* skater = core::down_cast<objects::Rider>(get_skate()->get_rider_at(index));
-    static_cast<modules::PointTally*>(skater->get_points_total())->set_special_bar_colors();
+    skater->get_points_total()->set_special_bar_colors();
     return true;
 }
 
