@@ -506,7 +506,7 @@ bool get_mem_card_directory_listing(Struct* params, Script* script)
     // the list's nodes deleted (each file is its own node)
     for (const memory::ListNode* node = head.next; node->data != memory::ListNode::head_marker();) {
         const memory::ListNode* next = node->next;
-        const memory::ListNode* following = static_cast<intptr_t>(cell::address(next->data)) == -1 ? nullptr : next;
+        const memory::ListNode* following = next->is_head() ? nullptr : next;
         static_cast<FileLoad*>(node->data)->teardown(1);
         node = following;
         if (!node)

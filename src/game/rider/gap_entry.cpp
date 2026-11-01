@@ -106,7 +106,7 @@ uint32_t& trick_frame(TrickNameEntry* trick) { return trick->frame_; }
 template <typename T>
 T* entry_of(memory::ListNode* node)
 {
-    return static_cast<intptr_t>(cell::address(node->data)) == -1 ? nullptr : raw::as<T>(node);
+    return node->is_head() ? nullptr : raw::as<T>(node);
 }
 template <typename T>
 T* get_first(memory::ListNode& head)
