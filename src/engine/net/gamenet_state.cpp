@@ -68,7 +68,7 @@ constexpr uint32_t kNetCtf = 0x6C5FF266;            // netctf
 uint32_t preference_checksum(Hub* manager, uint32_t name)
 {
     script::Struct* preference = manager->get_online_settings()->fetch_setting(name);
-    auto value = static_cast<uint32_t>(cell::address(manager));
+    uint32_t value = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     preference->read_hash_value(kChecksum, &value, 1);
     return value;
 }

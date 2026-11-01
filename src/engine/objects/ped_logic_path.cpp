@@ -257,7 +257,7 @@ script::Struct* PedestrianBrainModule::leap_node_params(script::Struct* params, 
     twist_rate_ = 0.0f;
     script::Struct* out = get_state_params(params);
     // (The height is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
-    auto height = std::bit_cast<float>(cell::address(params));
+    float height = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_float(kJumpHeight, &height, 1);
     const float gravity = script::fetch_float(kLeapGravity);
     float jump_time = 0.0f;
@@ -709,7 +709,7 @@ bool PedestrianBrainModule::ped_get_jump_to_next_node(script::Struct* params, sc
     float height = 0.0f;
     params->fetch_float(kHeight, &height, 1);
     // (The gravity is read over the `params` argument: missing - it's asserted - it stays the pointer's bits.)
-    auto gravity = std::bit_cast<float>(cell::address(params));
+    float gravity = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_float(kGravity, &gravity, 1);
     const maths::Vec4& at = entity_->at_point_;
     float dx = next_node_pos_.x - at.x, dy = next_node_pos_.y - at.y, dz = next_node_pos_.z - at.z,

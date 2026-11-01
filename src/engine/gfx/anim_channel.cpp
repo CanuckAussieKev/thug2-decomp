@@ -899,7 +899,7 @@ uint32_t BlendChannel::play_anim_from_script(Struct* params, script::Script* scr
         Struct* controller = script::spawn_param_bag();
         if (controller)
             controller = new (controller) script::Struct;
-        auto id = cell::of(script); // (its argument's place reused: the id when there is one)
+        uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         if (params->read_hash_value(0xF0CE9E0F, &id, 0))
             controller->put_name_key(kId, id);
         controller->put_name_key(0x7321A8D6, 0x659BF355); // Type PartialAnim
@@ -1017,7 +1017,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
     case 0x80FDBDF2: // whether it cycles
         return is_cycling() ? 1 : 0;
     case 0x9069F357: {                                      // AnimExists (the anim set's unnamed checksum)
-        auto anim = cell::of(params);     // (its argument's place reused, as the original)
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(0u, &anim, 0);
         return has_value(anim) ? 1 : 0;
     }
@@ -1028,7 +1028,7 @@ int BlendChannel::invoke_method_by_name(uint32_t name, Struct* params, script::S
             static_cast<AnimTrack*>(node->data)->invoke_method_by_name(name, params, script);
         return 1;
     case 0x98A32669: {                                                       // flag4C from enabled
-        int enabled = static_cast<int>(cell::address(params)); // (the argument's place, as above)
+        int enabled = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
         params->fetch_int_value(0xAF06447B, &enabled, 1);
         flag_4c_ = enabled != 0;
         return 1;
@@ -1124,7 +1124,7 @@ int BlendChannel::time_passed(Struct* params)
 // answer (as true / false), or false without such a timeline.
 int BlendChannel::pass_anim_to_timeline(Struct* params, script::Script* script)
 {
-    auto anim = cell::of(params); // (the argument's place, as above)
+    uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(kAnim, &anim, 0);
     if (!has_value(anim)) {
         anim = kDefault;

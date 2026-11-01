@@ -147,7 +147,7 @@ TaggingComponent::~TaggingComponent()
 // 0x0051D890
 void TaggingComponent::configure_from_data(script::Struct* params)
 {
-    int skater = static_cast<int>(cell::of(params));
+    int skater = 0; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_int_value(0xA2B033FDu, &skater, 0);
     std::array<char, 32> key{};
     std::snprintf(key.data(), sizeof(key), "_%d", skater);             // "_%d"

@@ -721,7 +721,7 @@ int SkateNet::on_run_start_msg(net::InboundMsgCtx* context)
         goal_params->put_int(kScore, static_cast<int>(brief.target_score));
         goal_params->put_int(kUnlimitedTime, brief.time_limit == 0);
         // (the original keeps the script in its argument's slot: with no goal_script, the skate module's address)
-        auto script = static_cast<uint32_t>(cell::address(skate));
+        uint32_t script = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         const uint8_t variant = brief.variant;
         if (!variant)
             type->read_hash_value("goal_script", &script, 1);

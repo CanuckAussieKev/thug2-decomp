@@ -469,7 +469,7 @@ void DrivableModule::configure_from_data(script::Struct* params)
         debug_mode_ = 0;
     if (params->has_entry_named(0x93346B8C)) {
         // (read into the original's argument slot: missing, the height is that pointer's bits)
-        auto height = std::bit_cast<float>(cell::of(params));
+        float height = 0.0f; // (missing: 0 - the original read an argument's stack slot, an address)
         params->fetch_float(0x93346B8C, &height, 0);
         balance_point_ = {0.0f, height, 0.0f, 1.0f};
     }

@@ -500,7 +500,7 @@ int handle_start_game(net::InboundMsgCtx* context)
         king->give_crown(false);
     // The mode's goal script. (The original reads each type's checksum into its argument's slot, holding the type
     // info array at first: a type without one compares that - or the previous type's checksum.)
-    auto checksum = static_cast<uint32_t>(cell::address(types));
+    uint32_t checksum = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     for (int i = 0; i < ints::as_signed(types->extent_); ++i) {
         auto* type = types->struct_at(static_cast<uint32_t>(i));
         type->read_hash_value(kChecksum, &checksum, 1);
@@ -511,7 +511,7 @@ int handle_start_game(net::InboundMsgCtx* context)
         params->put_int(kScore, static_cast<int>(start.target_score));
         params->put_int(kUnlimitedTime, start.time_limit == 0 ? 1 : 0);
         // (with no goal_script the original runs whatever its local held: the skate module's address)
-        auto script = static_cast<uint32_t>(cell::address(skate));
+        uint32_t script = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         type->read_hash_value(kGoalScript, &script, 1);
         get_run(script, params);
         script::free_struct(params);

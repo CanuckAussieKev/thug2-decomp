@@ -65,7 +65,7 @@ uint8_t* get_career() { return raw::bytes(modules::g_skate_module->career_.get()
 // `params` argument it reuses - so that's the value then.
 int number_parameter(script::Struct* params)
 {
-    int value = static_cast<int>(cell::address(params));
+    int value = 0; // (missing: 0 - the original read an argument's stack slot, an address)
     params->fetch_int_value(uint32_t{0}, &value, 1);
     return value;
 }
@@ -156,7 +156,7 @@ int RiderPointKeeper::invoke_method_by_name(uint32_t name, script::Struct* param
         return 1;
     case kSetSpecialValue: {
         // (no value: the params pointer, as number_parameter's)
-        int value = static_cast<int>(cell::address(params));
+        int value = 0; // (missing: 0 - the original read an argument's stack slot, an address)
         params->fetch_int_value(kValue, &value, 0);
         points_held_->special_ = value;
         return 1;

@@ -384,7 +384,7 @@ bool cfunc_get_preference_string(script::Struct* params, script::Script* script)
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    auto type = cell::of(script);
+    uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(kPrefType, &type, 0);
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* text = nullptr; // (unset in the original when missing)
@@ -400,7 +400,7 @@ bool cfunc_get_preference_password(script::Struct* params, script::Script* scrip
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    auto type = cell::of(script);     // (the slot the original reads back: the argument's)
+    uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     const char* password = nullptr;                    // (unset in the original when missing)
@@ -420,7 +420,7 @@ bool cfunc_get_preference_checksum(script::Struct* params, script::Script* scrip
     script::Struct* results = script->args_;
     uint32_t field = 0;
     params->read_hash_value(0u, &field, 0);
-    auto type = cell::of(script);     // (the slot the original reads back: the argument's)
+    uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value("pref_type", &type, 0);     // "pref_type"
     script::Struct* preference = get_preferences_of_type(type)->fetch_setting(field);
     uint32_t value = 0; // (unset in the original when missing)

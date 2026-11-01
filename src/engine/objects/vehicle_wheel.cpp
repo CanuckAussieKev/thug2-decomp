@@ -58,7 +58,7 @@ void read_wheel_settings(DrivableModule::Wheel* wheel, script::Struct* params)
 {
     // (each checksum is read into the parameters' own argument slot: a steering= that isn't a name leaves the
     // pointer's value there)
-    auto choice = cell::of(params);
+    uint32_t choice = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     if (params->has_entry_named(kSteering)) {
         params->read_hash_value(kSteering, &choice, 0);
         if (choice == kRight)

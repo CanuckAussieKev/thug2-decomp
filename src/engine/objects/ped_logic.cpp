@@ -476,7 +476,7 @@ bool PedestrianBrainModule::ped_set_is_grinding(script::Struct* params, script::
 bool PedestrianBrainModule::ped_set_is_bailing(script::Struct* params, script::Script*)
 {
     // (The original reads the value over its `params` argument: missing - it's asserted - it stays that pointer.)
-    int bailing = static_cast<int>(cell::address(params));
+    int bailing = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     params->fetch_int_value(0u, &bailing, 1);
     if (params->has_bare_flag(kGrind)) {
         if (bailing)
@@ -545,7 +545,7 @@ bool PedestrianBrainModule::ped_remove_speed_boost(script::Struct*, script::Scri
 bool PedestrianBrainModule::ped_set_is_skater(script::Struct* params, script::Script*)
 {
     // (The value is read over the `params` argument: missing - it's asserted - it stays that pointer.)
-    int skater = static_cast<int>(cell::address(params));
+    int skater = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     params->fetch_int_value(0u, &skater, 1);
     if (!skater) {
         kind_ = 0;

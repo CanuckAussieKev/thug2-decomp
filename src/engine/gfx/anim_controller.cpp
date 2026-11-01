@@ -217,7 +217,7 @@ int StandardAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kNewSource: {
-        auto anim = cell::of(params); // (the argument's slot, as above)
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(kAnim, &anim, 1);
         if (frame_source_)
             release_frame_index(frame_source_, frame_index_);
@@ -306,7 +306,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
 {
     switch (name) {
     case kPlayAnim: {
-        auto anim = cell::of(params); // (the argument's slot: params' address if missing)
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         if (!params->read_hash_value(kWeightedAnim, &anim, 0))
             params->read_hash_value(kAnimName, &anim, 1);
         params->fetch_float(kWeight, &weight_, 0);
@@ -323,7 +323,7 @@ int WeightedAnimController::invoke_method_by_name(uint32_t name, script::Struct*
         return 1;
     }
     case kNewSource: {
-        auto anim = cell::of(params);
+        uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(kAnim, &anim, 1);
         if (blend_source_) {
             free_source(blend_source_);

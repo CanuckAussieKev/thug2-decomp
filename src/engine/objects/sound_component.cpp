@@ -93,7 +93,7 @@ AudioEmitterModule::~AudioEmitterModule() { audio_mixer_handle()->stop_object_so
 // 0x00432CA0
 void AudioEmitterModule::configure_from_data(script::Struct* params)
 {
-    auto node = cell::of(params);     // (read into the parameters' own argument slot)
+    uint32_t node = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     if (params->read_hash_value(0x08470F2E, &node, 0))  // ProximNode
         proxim_ = proxim_get_node(node);
 }
@@ -280,7 +280,7 @@ void AudioEmitterModule::adjust_sound(script::Struct* params, script::Script* /*
 {
     float loudness_percent = 100.0f, pitch_percent = 100.0f;
     // (read into the parameters' own argument slot: none, the pointer's value)
-    auto sound = cell::of(params);
+    uint32_t sound = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(0u, &sound, 0);
     sound::PlaybackProps* props = audio_mixer_handle()->get_positional_props(this, sound, true);
     if (!props) {

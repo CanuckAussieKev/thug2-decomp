@@ -52,7 +52,7 @@ const uint32_t* powerup_names() { return g_powerup_names.data(); }
 int find_powerup(script::Struct* params)
 {
     // (without one the original's variable keeps the params pointer: the stack slot it reuses)
-    auto name = static_cast<uint32_t>(cell::address(params));
+    uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(uint32_t{0}, &name, 1);
     for (int i = 0; i < kPowerups; ++i) {
         if (powerup_names()[i] == name)

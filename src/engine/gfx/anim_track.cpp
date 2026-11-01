@@ -276,7 +276,7 @@ int AnimTrack::invoke_method_by_name(uint32_t name, Struct* params, script::Scri
         return 1;
     }
     if (name == kRemoveAnimController) {
-        auto id = cell::of(params); // (the argument's own slot: the params' address if missing)
+        uint32_t id = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
         params->read_hash_value(kId, &id, 1);
         if (AnimDriver* controller = find_controller(id))
             detach_anim_driver(controller);

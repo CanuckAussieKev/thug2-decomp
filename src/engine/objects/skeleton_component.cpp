@@ -114,7 +114,7 @@ void BoneRigModule::configure_from_data(script::Struct* params)
         return;
     }
     // (the name is read into the parameters' own argument slot: neither given leaves the pointer's value)
-    auto name = cell::of(params);
+    uint32_t name = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     if (!params->read_hash_value(kType, &name, 0))
         params->read_hash_value(kSkeletonName, &name, 1);
     prepare_rig(name);

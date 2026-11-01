@@ -346,7 +346,7 @@ void GameEntity::build_modules_from_list(Array* components, Struct* extra)
 // make gives a null component, added all the same [bug: crash]; so does a failed allocation of the merged copy.
 void GameEntity::create_component_from_structure(Struct* params, Struct* extra)
 {
-    auto type = cell::of(params);
+    uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(kComponent, &type, 1);
     ObjectModule* component = spawn_module(type);
     attach_module(component);
@@ -574,7 +574,7 @@ bool GameEntity::obj_get_type(Struct* /*params*/, Script* script)
 // is `params`' own address [quirk].
 bool GameEntity::obj_has_component(Struct* params, Script* /*script*/)
 {
-    auto type = cell::of(params);
+    uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     params->read_hash_value(kUnnamed, &type, 1);
     return fetch_module(type) != nullptr;
 }

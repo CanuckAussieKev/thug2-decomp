@@ -46,7 +46,7 @@ script::Struct* find_level(script::Array* levels, uint32_t level, uint32_t& entr
 const char* Hub::get_map_name(bool park_name)
 {
     // (like the original, THUG2's own list is taken to exist)
-    auto entry_level = static_cast<uint32_t>(cell::address(this));
+    uint32_t entry_level = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     script::Struct* entry = find_level(script::fetch_list(kLevelSelectMenuLevelInfo), level_, entry_level);
     for (const char* list : kPortedLevelLists) {
         if (entry)

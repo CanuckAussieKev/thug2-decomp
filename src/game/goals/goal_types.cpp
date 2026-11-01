@@ -123,7 +123,7 @@ bool ContestObjective::is_frozen() { return (cur_phase_ & kStatePaused) || is_ha
 void ContestObjective::restore_save_block(script::Struct* data)
 {
     // (the first value's local is the argument's slot: a missing gotBronze leaves the pointer - set)
-    int got = static_cast<int>(cell::address(data));
+    int got = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     data->fetch_int_value(kGotBronze, &got, 0);
     if (got)
         has_third_place_ = true;

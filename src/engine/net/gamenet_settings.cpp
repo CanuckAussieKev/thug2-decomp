@@ -289,7 +289,7 @@ prefs::Preferences* Hub::get_game_preferences()
 uint32_t Hub::get_goals_preference()
 {
     // On a miss the original returns its uninitialised local: the slot ECX was pushed into - the manager.
-    auto goals = static_cast<uint32_t>(cell::address(this));
+    uint32_t goals = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     get_game_preferences()->fetch_setting(kGoals)->read_hash_value(kHashFieldName, &goals, 1);
     return goals;
 }
@@ -297,7 +297,7 @@ uint32_t Hub::get_goals_preference()
 // 0x00535B70
 uint32_t Hub::get_game_type_preference()
 {
-    auto type = static_cast<uint32_t>(cell::address(this)); // (as above)
+    uint32_t type = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     get_game_preferences()->fetch_setting(kGameType)->read_hash_value(kChecksum, &type, 1);
     return type;
 }

@@ -244,7 +244,7 @@ bool ObstacleDodgeModule::try_jump(const maths::Mat4& start, maths::Mat4& out, f
 void ObstacleDodgeModule::play_jump(float angle, script::Struct* params)
 {
     // The checksum is read into the parameters' own argument slot: without one it's the pointer's value.
-    auto anim = static_cast<uint32_t>(cell::address(params));
+    uint32_t anim = 0; // (missing: 0 - the original read an argument's stack slot, an address no name has)
     switch (get_quarter(angle)) {
     case 0:
     case 4:

@@ -199,7 +199,7 @@ bool Objective::bit_is_on(uint32_t flag, uint32_t sub)
         flags = found;
     }
     // (an integer that isn't there leaves the goal's address in the original's local: true)
-    int set = static_cast<int>(cell::address(this));
+    int set = 1; // (missing: on - the original read an argument's stack slot, an address: never 0)
     flags->fetch_int_value(flag, &set, 1);
     return set != 0;
 }
@@ -305,7 +305,7 @@ void Objective::update_current_time()
     if (is_frozen())
         return;
     // (a current_time that isn't there leaves the goal's address in the original's local)
-    int time = static_cast<int>(cell::address(this));
+    int time = 0; // (missing: 0 - the original read an argument's stack slot, an address)
     args_->fetch_int_value(kCurrentTime, &time, 0);
     time += truncate(frame_clock::get_slomo_frame_seconds() * gfx::g_thousand); // (1000)
     args_->put_int(kCurrentTime, time);
